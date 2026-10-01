@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0280 lesson_booking, part a: the core writes — coaching, lane DB
+-- 0283 lesson_booking, part a: the core writes — coaching, lane DB
 -- (docs/design/coaching/db.md §4.7.1–§4.7.8; build contracts §1.1, §1.4,
 -- §1.5, §1.6, §1.7, C-1, C-2, C-8, C-9, C-10, C-13, C-14, C-15, C-19, C-20,
 -- C-21, C-23, C-24, C-25, CD-1, CD-2, CD-3, CD-9, CD-11, R6, R8, R9, R10,
@@ -13,7 +13,7 @@ set statement_timeout = '60s';
 -- desk_lessons, desk_lesson_detail, customer_lessons; and Guest's
 -- lesson_notify, lesson_sync_reminders, the reminder triggers and the
 -- lesson_events_notify trigger) is concatenated after this file into the one
--- 0280 migration. Nothing here calls lesson_notify or lesson_sync_reminders
+-- 0283 migration. Nothing here calls lesson_notify or lesson_sync_reminders
 -- (R40): every push follows a lesson_events row written here, and every
 -- reminder follows row state.
 --
@@ -57,16 +57,16 @@ set statement_timeout = '60s';
 -- Functions of other coaching files called here (bound late, by name; no
 -- lesson row can exist before this file, and the stack is reset with every
 -- file):
---   0274 app.coaching_rules, app.lesson_terms_ok
---   0275 app.lock_coach
---   0277 app.match_expire_holds (re-issued: a lesson's hold is no orphan, R25)
---   0278 (Money) app.lesson_refund_start(uuid, text) returns int,
+--   0277 app.coaching_rules, app.lesson_terms_ok
+--   0278 app.lock_coach
+--   0280 app.match_expire_holds (re-issued: a lesson's hold is no orphan, R25)
+--   0281 (Money) app.lesson_refund_start(uuid, text) returns int,
 --        app.course_late_join_price(bigint, int, int) returns bigint,
 --        app.lesson_enrolment_money(uuid) returns jsonb
---   0279 app.coach_self, app.coach_in_hours, app.coach_available,
+--   0282 app.coach_self, app.coach_in_hours, app.coach_available,
 --        app.lesson_on_grid, app.lesson_bookable, app.lesson_price_for,
 --        app.coach_staff_scope
---   0283 app.lesson_strike_record(uuid, uuid, text) returns void
+--   0286 app.lesson_strike_record(uuid, uuid, text) returns void
 
 -- ===========================================================================
 -- 1. Internals (db.md §4.7.2)
@@ -76,7 +76,7 @@ set statement_timeout = '60s';
 -- every guest RPC. No ban, no gender. The online paths add the lessons-terms
 -- check once the payment mode is known (R50, app.lesson_guest_payment).
 create or replace function app.lesson_guest(p_act boolean) returns profiles
-language plpgsql stable security definer set search_path = public as $lesson_guest_0280$
+language plpgsql stable security definer set search_path = public as $lesson_guest_0283$
 declare
   v_uid uuid := auth.uid();
   v_p   profiles%rowtype;
@@ -97,10 +97,10 @@ begin
     end if;
   end if;
   return v_p;
-end $lesson_guest_0280$;
+end $lesson_guest_0283$;
 
 comment on function app.lesson_guest(boolean) is
-  '0280 (db.md §4.7.2). Internal: the first statement of every guest coaching RPC. AUTH_REQUIRED without a session; ACCOUNT_REQUIRED without a live profile; with p_act (booking, joining) PHONE_REQUIRED (no phone) and TERMS_REQUIRED (no accepted terms). Returns the caller''s profile.';
+  '0283 (db.md §4.7.2). Internal: the first statement of every guest coaching RPC. AUTH_REQUIRED without a session; ACCOUNT_REQUIRED without a live profile; with p_act (booking, joining) PHONE_REQUIRED (no phone) and TERMS_REQUIRED (no accepted terms). Returns the caller''s profile.';
 
 revoke all on function app.lesson_guest(boolean) from public, anon, authenticated;
 
@@ -108,7 +108,7 @@ revoke all on function app.lesson_guest(boolean) from public, anon, authenticate
 -- match_lock_courts loop, 0260:112), returning the set it locked: a court is
 -- only ever picked from it.
 create or replace function app.lesson_lock_branch_courts(p_venue uuid) returns uuid[]
-language plpgsql security definer set search_path = public as $lesson_lock_branch_courts_0280$
+language plpgsql security definer set search_path = public as $lesson_lock_branch_courts_0283$
 declare
   v_court record;
   v_ids   uuid[] := '{}'::uuid[];
@@ -120,10 +120,10 @@ begin
     v_ids := v_ids || v_court.id;
   end loop;
   return v_ids;
-end $lesson_lock_branch_courts_0280$;
+end $lesson_lock_branch_courts_0283$;
 
 comment on function app.lesson_lock_branch_courts(uuid) is
-  '0280 (db.md §2.2; R34). Internal. app.lock_court on every active court of the branch in id order; returns the ids it locked. The booking and move bodies, and Money''s deposit_apply lesson arm, take it after the coach lock and pick a court only from the set.';
+  '0283 (db.md §2.2; R34). Internal. app.lock_court on every active court of the branch in id order; returns the ids it locked. The booking and move bodies, and Money''s deposit_apply lesson arm, take it after the coach lock and pick a court only from the set.';
 
 revoke all on function app.lesson_lock_branch_courts(uuid) from public, anon, authenticated;
 
@@ -132,7 +132,7 @@ revoke all on function app.lesson_lock_branch_courts(uuid) from public, anon, au
 -- of open matches), by sort order then id; NULL when none. A pure read: the
 -- caller holds those courts and has expired stale holds.
 create or replace function app.lesson_pick_court(p_venue uuid, p_period tstzrange, p_locked uuid[]) returns uuid
-language sql stable security definer set search_path = public as $lesson_pick_court_0280$
+language sql stable security definer set search_path = public as $lesson_pick_court_0283$
   select c.id
     from courts c
    where c.venue_id = p_venue
@@ -145,10 +145,10 @@ language sql stable security definer set search_path = public as $lesson_pick_co
      and not app.match_court_claimed(c.id, p_period)
    order by c.sort_order, c.id
    limit 1
-$lesson_pick_court_0280$;
+$lesson_pick_court_0283$;
 
 comment on function app.lesson_pick_court(uuid, tstzrange, uuid[]) is
-  '0280 (db.md §4.7.2; R34). Internal, a pure read. The court a lesson takes: one of p_locked (the set the caller locked), still active at branch p_venue, with no live reservation of any kind over p_period and not claimed by a waiting open match (app.match_court_claimed), lowest sort_order then id; NULL when none. Courts'' duration_options are booking lengths and are not read. Money''s late-success re-pick passes its own locked set.';
+  '0283 (db.md §4.7.2; R34). Internal, a pure read. The court a lesson takes: one of p_locked (the set the caller locked), still active at branch p_venue, with no live reservation of any kind over p_period and not claimed by a waiting open match (app.match_court_claimed), lowest sort_order then id; NULL when none. Courts'' duration_options are booking lengths and are not read. Money''s late-success re-pick passes its own locked set.';
 
 revoke all on function app.lesson_pick_court(uuid, tstzrange, uuid[]) from public, anon, authenticated;
 
@@ -159,7 +159,7 @@ revoke all on function app.lesson_pick_court(uuid, tstzrange, uuid[]) from publi
 -- counts booked places only (R38, the sweep).
 create or replace function app.lesson_places_taken(p_lesson_id uuid, p_exclude_enrolment uuid default null)
 returns int
-language sql stable security definer set search_path = public as $lesson_places_taken_0280$
+language sql stable security definer set search_path = public as $lesson_places_taken_0283$
   select coalesce(sum(e.party_size), 0)::int
     from lesson_enrolments e
    where e.lesson_id = p_lesson_id
@@ -172,16 +172,16 @@ language sql stable security definer set search_path = public as $lesson_places_
                                  and bp.purpose = 'lesson'
                                  and bp.status in ('created', 'pending')
                                  and bp.deadline_at > now() - interval '10 minutes'))))
-$lesson_places_taken_0280$;
+$lesson_places_taken_0283$;
 
 comment on function app.lesson_places_taken(uuid, uuid) is
-  '0280 (db.md §4.7.2; R29, R70). Internal. The places of lesson p_lesson_id: sum(party_size) of its booked enrolments and its held ones still live (hold not lapsed, or an online payment open within ten minutes of its deadline), p_exclude_enrolment left out.';
+  '0283 (db.md §4.7.2; R29, R70). Internal. The places of lesson p_lesson_id: sum(party_size) of its booked enrolments and its held ones still live (hold not lapsed, or an online payment open within ten minutes of its deadline), p_exclude_enrolment left out.';
 
 revoke all on function app.lesson_places_taken(uuid, uuid) from public, anon, authenticated;
 
 create or replace function app.course_places_taken(p_course_id uuid, p_exclude_enrolment uuid default null)
 returns int
-language sql stable security definer set search_path = public as $course_places_taken_0280$
+language sql stable security definer set search_path = public as $course_places_taken_0283$
   select coalesce(sum(e.party_size), 0)::int
     from lesson_enrolments e
    where e.course_id = p_course_id
@@ -194,33 +194,33 @@ language sql stable security definer set search_path = public as $course_places_
                                  and bp.purpose = 'lesson'
                                  and bp.status in ('created', 'pending')
                                  and bp.deadline_at > now() - interval '10 minutes'))))
-$course_places_taken_0280$;
+$course_places_taken_0283$;
 
 comment on function app.course_places_taken(uuid, uuid) is
-  '0280 (db.md §4.7.2; R29, R70). Internal. The places of course p_course_id, as app.lesson_places_taken counts a lesson''s: booked enrolments and live held ones, p_exclude_enrolment left out.';
+  '0283 (db.md §4.7.2; R29, R70). Internal. The places of course p_course_id, as app.lesson_places_taken counts a lesson''s: booked enrolments and live held ones, p_exclude_enrolment left out.';
 
 revoke all on function app.course_places_taken(uuid, uuid) from public, anon, authenticated;
 
 -- The BOOKED places only (db §5.2: an event's places_taken is the booked
 -- places after the change), of a lesson or of a course.
 create or replace function app.lesson_booked_places(p_lesson_id uuid, p_course_id uuid) returns int
-language sql stable security definer set search_path = public as $lesson_booked_places_0280$
+language sql stable security definer set search_path = public as $lesson_booked_places_0283$
   select coalesce(sum(e.party_size), 0)::int
     from lesson_enrolments e
    where e.status = 'booked'
      and ((p_lesson_id is not null and e.lesson_id = p_lesson_id)
           or (p_course_id is not null and e.course_id = p_course_id))
-$lesson_booked_places_0280$;
+$lesson_booked_places_0283$;
 
 comment on function app.lesson_booked_places(uuid, uuid) is
-  '0280 (db.md §5.2). Internal. sum(party_size) of the booked enrolments of a lesson (p_lesson_id) or of a course (p_course_id): the places_taken an event carries.';
+  '0283 (db.md §5.2). Internal. sum(party_size) of the booked enrolments of a lesson (p_lesson_id) or of a course (p_course_id): the places_taken an event carries.';
 
 revoke all on function app.lesson_booked_places(uuid, uuid) from public, anon, authenticated;
 
 -- An event's {places_taken, places_total} (db §5.2): a group session's or a
 -- course's booked places and max_places; '{}' for a private lesson.
 create or replace function app.lesson_places_data(p_lesson_id uuid, p_course_id uuid) returns jsonb
-language sql stable security definer set search_path = public as $lesson_places_data_0280$
+language sql stable security definer set search_path = public as $lesson_places_data_0283$
   select case
     when p_course_id is not null then
       coalesce((select jsonb_build_object('places_taken', app.lesson_booked_places(null, co.id),
@@ -233,10 +233,10 @@ language sql stable security definer set search_path = public as $lesson_places_
                             else '{}'::jsonb end
                   from lessons l where l.id = p_lesson_id), '{}'::jsonb)
   end
-$lesson_places_data_0280$;
+$lesson_places_data_0283$;
 
 comment on function app.lesson_places_data(uuid, uuid) is
-  '0280 (db.md §5.2). Internal. {places_taken, places_total} for an event of a group session or a course (booked places after the change, max_places); {} for a private lesson.';
+  '0283 (db.md §5.2). Internal. {places_taken, places_total} for an event of a group session or a course (booked places after the change, max_places); {} for a private lesson.';
 
 revoke all on function app.lesson_places_data(uuid, uuid) from public, anon, authenticated;
 
@@ -244,15 +244,15 @@ revoke all on function app.lesson_places_data(uuid, uuid) from public, anon, aut
 -- the course's first session not yet started, live or just cancelled; with
 -- none, its last.
 create or replace function app.course_ref_lesson(p_course_id uuid) returns uuid
-language sql stable security definer set search_path = public as $course_ref_lesson_0280$
+language sql stable security definer set search_path = public as $course_ref_lesson_0283$
   select coalesce(
     (select l.id from lessons l where l.course_id = p_course_id and l.start_at > now()
       order by l.session_no limit 1),
     (select l.id from lessons l where l.course_id = p_course_id order by l.session_no desc limit 1))
-$course_ref_lesson_0280$;
+$course_ref_lesson_0283$;
 
 comment on function app.course_ref_lesson(uuid) is
-  '0280 (db.md §5.2). Internal. The session a course-wide event names in data.lesson_id: the course''s first session with start_at > now() (whatever its status), else its last.';
+  '0283 (db.md §5.2). Internal. The session a course-wide event names in data.lesson_id: the course''s first session with start_at > now() (whatever its status), else its last.';
 
 revoke all on function app.course_ref_lesson(uuid) from public, anon, authenticated;
 
@@ -262,7 +262,7 @@ revoke all on function app.course_ref_lesson(uuid) from public, anon, authentica
 -- p_exclude_profile (the coach: no self-enrolment, R56). Exactly one match
 -- -> its id; none or several -> NULL. The same work whatever the answer.
 create or replace function app.lesson_link_by_phone(p_phone text, p_exclude_profile uuid) returns uuid
-language sql stable security definer set search_path = public as $lesson_link_by_phone_0280$
+language sql stable security definer set search_path = public as $lesson_link_by_phone_0283$
   select case when count(*) = 1 then (array_agg(x.id))[1] end
     from (select u.id
             from auth.users u
@@ -272,10 +272,10 @@ language sql stable security definer set search_path = public as $lesson_link_by
              and app.phone_canon(u.phone) = app.phone_canon(p_phone)
              and u.id is distinct from p_exclude_profile
            limit 2) x
-$lesson_link_by_phone_0280$;
+$lesson_link_by_phone_0283$;
 
 comment on function app.lesson_link_by_phone(text, uuid) is
-  '0280 (db.md §4.7.2; R10, R44, C-21). Internal. The live account whose VERIFIED phone (auth.users.phone with phone_confirmed_at) equals p_phone in canonical form, p_exclude_profile left out; NULL for no phone, no match or more than one. The link it makes is pending until that person confirms (lesson_link_confirm); no answer, timing class or refusal of a caller depends on it.';
+  '0283 (db.md §4.7.2; R10, R44, C-21). Internal. The live account whose VERIFIED phone (auth.users.phone with phone_confirmed_at) equals p_phone in canonical form, p_exclude_profile left out; NULL for no phone, no match or more than one. The link it makes is pending until that person confirms (lesson_link_confirm); no answer, timing class or refusal of a caller depends on it.';
 
 revoke all on function app.lesson_link_by_phone(text, uuid) from public, anon, authenticated;
 
@@ -283,7 +283,7 @@ revoke all on function app.lesson_link_by_phone(text, uuid) from public, anon, a
 -- the note at most 200 characters. The code goes to lesson_events.code, the
 -- whole reason only to the audit row.
 create or replace function app.lesson_reason_code(p_reason text) returns text
-language plpgsql immutable security definer set search_path = public as $lesson_reason_code_0280$
+language plpgsql immutable security definer set search_path = public as $lesson_reason_code_0283$
 declare
   v_parts text[] := app.match_reason_parts(p_reason);
 begin
@@ -294,10 +294,10 @@ begin
     raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', detail = 'p_reason';
   end if;
   return v_parts[1];
-end $lesson_reason_code_0280$;
+end $lesson_reason_code_0283$;
 
 comment on function app.lesson_reason_code(text) is
-  '0280 (db.md §4.7.1 rule 10). Internal. A coach or desk cancel reason, <code> or <code>: <note>: returns the code (customer_request | coach_unavailable | court_needed | staff_error | duplicate | other), or INVALID_ARGUMENT detail p_reason (an unknown code or a note over 200 characters).';
+  '0283 (db.md §4.7.1 rule 10). Internal. A coach or desk cancel reason, <code> or <code>: <note>: returns the code (customer_request | coach_unavailable | court_needed | staff_error | duplicate | other), or INVALID_ARGUMENT detail p_reason (an unknown code or a note over 200 characters).';
 
 revoke all on function app.lesson_reason_code(text) from public, anon, authenticated;
 
@@ -316,7 +316,7 @@ create or replace function app.lesson_event(
   p_code             text default null,
   p_data             jsonb default '{}'::jsonb
 ) returns bigint
-language plpgsql security definer set search_path = public as $lesson_event_0280$
+language plpgsql security definer set search_path = public as $lesson_event_0283$
 declare
   v_id bigint;
 begin
@@ -330,10 +330,10 @@ begin
           coalesce(p_data, '{}'::jsonb))
   returning id into v_id;
   return v_id;
-end $lesson_event_0280$;
+end $lesson_event_0283$;
 
 comment on function app.lesson_event(uuid, uuid, uuid, uuid, text, text, uuid, uuid, text, jsonb) is
-  '0280 (db.md §4.7.2, §5.2). Internal. Appends one lesson_events row (the push fan-out''s input, R40): ids, times, counts, codes and flags only, never a name or a phone. Guest and coach actors carry their profile id, staff its staff id, system neither. Returns the event id.';
+  '0283 (db.md §4.7.2, §5.2). Internal. Appends one lesson_events row (the push fan-out''s input, R40): ids, times, counts, codes and flags only, never a name or a phone. Guest and coach actors carry their profile id, staff its staff id, system neither. Returns the event id.';
 
 revoke all on function app.lesson_event(uuid, uuid, uuid, uuid, text, text, uuid, uuid, text, jsonb)
   from public, anon, authenticated;
@@ -363,7 +363,7 @@ create or replace function app.lesson_create_internal(
   p_idempotency_key text,
   p_locked          uuid[]
 ) returns lessons
-language plpgsql security definer set search_path = public as $lesson_create_internal_0280$
+language plpgsql security definer set search_path = public as $lesson_create_internal_0283$
 declare
   v_t      lesson_types%rowtype;
   v_co     courses%rowtype;
@@ -438,10 +438,10 @@ begin
     raise exception 'NO_COURT_FREE' using errcode = 'P0001';
   end;
   return v_l;
-end $lesson_create_internal_0280$;
+end $lesson_create_internal_0283$;
 
 comment on function app.lesson_create_internal(uuid, uuid, timestamptz, uuid, smallint, bigint, boolean, text, uuid, uuid, text, uuid[]) is
-  '0280 (db.md §4.7.2, §3.4). Internal. Inserts one lesson (held with hold_expires_at = now() + deposit_window_seconds when p_held, else scheduled) with its snapshots, and its court row on a court picked from p_locked (kind hold pending while held, else kind lesson confirmed; guest_id NULL, guest_name Lesson, no price). The caller holds lock_coach and the courts and has expired stale holds over the period. NO_COURT_FREE when no locked court is free (or on reservations_no_overlap); COACH_BUSY on lessons_coach_no_overlap. Writes no event.';
+  '0283 (db.md §4.7.2, §3.4). Internal. Inserts one lesson (held with hold_expires_at = now() + deposit_window_seconds when p_held, else scheduled) with its snapshots, and its court row on a court picked from p_locked (kind hold pending while held, else kind lesson confirmed; guest_id NULL, guest_name Lesson, no price). The caller holds lock_coach and the courts and has expired stale holds over the period. NO_COURT_FREE when no locked court is free (or on reservations_no_overlap); COACH_BUSY on lessons_coach_no_overlap. Writes no event.';
 
 revoke all on function app.lesson_create_internal(uuid, uuid, timestamptz, uuid, smallint, bigint, boolean, text, uuid, uuid, text, uuid[])
   from public, anon, authenticated;
@@ -456,7 +456,7 @@ revoke all on function app.lesson_create_internal(uuid, uuid, timestamptz, uuid,
 -- status first. p_status 'expired' (Money's lesson_hold_expire) only expires
 -- the hold row.
 create or replace function app.lesson_court_release(p_lesson_id uuid, p_status text) returns void
-language plpgsql security definer set search_path = public as $lesson_court_release_0280$
+language plpgsql security definer set search_path = public as $lesson_court_release_0283$
 declare
   v_l lessons%rowtype;
 begin
@@ -486,10 +486,10 @@ begin
        set status = 'completed', cancelled_at = coalesce(cancelled_at, now())
      where lesson_id = p_lesson_id and kind = 'lesson' and status in ('pending', 'confirmed', 'arrived');
   end if;
-end $lesson_court_release_0280$;
+end $lesson_court_release_0283$;
 
 comment on function app.lesson_court_release(uuid, text) is
-  '0280 (db.md §2.3, §3.4, §4.7.2; R25, R33, R64). Internal. Ends a lesson''s court rows: the pending hold row naming the lesson is expired at once, whatever hold_expires_at says, through one UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED) that never waits; then, for p_status cancelled or completed, the kind lesson row by a guarded status update (cancelled: cancellation_reason = the lesson''s cancel_reason, cancelled_by guest for guest_cancel else staff). No court lock, no waiting row lock. p_status expired touches the hold row only (Money''s lesson_hold_expire). The callers (cancel internals, the sweep, Money) write the lesson''s status first.';
+  '0283 (db.md §2.3, §3.4, §4.7.2; R25, R33, R64). Internal. Ends a lesson''s court rows: the pending hold row naming the lesson is expired at once, whatever hold_expires_at says, through one UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED) that never waits; then, for p_status cancelled or completed, the kind lesson row by a guarded status update (cancelled: cancellation_reason = the lesson''s cancel_reason, cancelled_by guest for guest_cancel else staff). No court lock, no waiting row lock. p_status expired touches the hold row only (Money''s lesson_hold_expire). The callers (cancel internals, the sweep, Money) write the lesson''s status first.';
 
 revoke all on function app.lesson_court_release(uuid, text) from public, anon, authenticated;
 
@@ -504,7 +504,7 @@ revoke all on function app.lesson_court_release(uuid, text) from public, anon, a
 create or replace function app.enrolment_cancel_internal(p_enrolment_id uuid, p_kind text, p_actor text,
                                                          p_profile_id uuid, p_staff_id uuid)
 returns jsonb
-language plpgsql security definer set search_path = public as $enrolment_cancel_internal_0280$
+language plpgsql security definer set search_path = public as $enrolment_cancel_internal_0283$
 declare
   v_e        lesson_enrolments%rowtype;
   v_l        lessons%rowtype;
@@ -588,10 +588,10 @@ begin
 
   return jsonb_build_object('enrolment_id', v_e.id, 'changed', true, 'status', 'cancelled', 'cancel_kind', p_kind,
                             'lesson_cancelled', v_lcancel, 'refunds_started', v_refunds);
-end $enrolment_cancel_internal_0280$;
+end $enrolment_cancel_internal_0283$;
 
 comment on function app.enrolment_cancel_internal(uuid, text, text, uuid, uuid) is
-  '0280 (db.md §4.7.2; R5, R28). Internal; the caller holds lock_coach. Cancels a held or booked enrolment with cancel_kind p_kind (a live private lesson goes with it: guest_cancel for the guest kinds, else coach_cancel, staff_cancel, under_filled or account_deleted), then calls Money''s lesson_refund_start(e, NULL) when it has an applied online row, then writes enrolment_cancelled (code p_kind; data reason = the lesson''s or course''s cancel_reason that carried it, from, refunds_started, places_taken, places_total, lesson_id) and a cancelled private lesson''s own cancelled event. No court lock; never a strike. Returns {enrolment_id, changed, status, cancel_kind, lesson_cancelled, refunds_started}; changed false when the enrolment was no longer live.';
+  '0283 (db.md §4.7.2; R5, R28). Internal; the caller holds lock_coach. Cancels a held or booked enrolment with cancel_kind p_kind (a live private lesson goes with it: guest_cancel for the guest kinds, else coach_cancel, staff_cancel, under_filled or account_deleted), then calls Money''s lesson_refund_start(e, NULL) when it has an applied online row, then writes enrolment_cancelled (code p_kind; data reason = the lesson''s or course''s cancel_reason that carried it, from, refunds_started, places_taken, places_total, lesson_id) and a cancelled private lesson''s own cancelled event. No court lock; never a strike. Returns {enrolment_id, changed, status, cancel_kind, lesson_cancelled, refunds_started}; changed false when the enrolment was no longer live.';
 
 revoke all on function app.enrolment_cancel_internal(uuid, text, text, uuid, uuid) from public, anon, authenticated;
 
@@ -604,7 +604,7 @@ revoke all on function app.enrolment_cancel_internal(uuid, text, text, uuid, uui
 create or replace function app.lesson_cancel_internal(p_lesson_id uuid, p_reason text, p_actor text,
                                                       p_profile_id uuid, p_staff_id uuid)
 returns jsonb
-language plpgsql security definer set search_path = public as $lesson_cancel_internal_0280$
+language plpgsql security definer set search_path = public as $lesson_cancel_internal_0283$
 declare
   v_l       lessons%rowtype;
   v_kind    text;
@@ -684,10 +684,10 @@ begin
   end if;
   return jsonb_build_object('lesson_id', v_l.id, 'changed', true, 'status', 'cancelled', 'enrolments', v_n,
                             'refunds_started', v_refunds);
-end $lesson_cancel_internal_0280$;
+end $lesson_cancel_internal_0283$;
 
 comment on function app.lesson_cancel_internal(uuid, text, text, uuid, uuid) is
-  '0280 (db.md §4.7.2; R5, R28). Internal; the caller holds lock_coach. Cancels a held or scheduled lesson with p_reason (guest_cancel | coach_cancel | staff_cancel | under_filled | account_deleted | coach_retired): the lesson row, its court rows (app.lesson_court_release), every live enrolment through app.enrolment_cancel_internal (coach_cancel and coach_retired -> coach, staff_cancel -> staff, under_filled, account_deleted), Money''s lesson_refund_start for every enrolment of the lesson cancelled earlier, then the lesson''s own event (under_filled {places_taken, min_places, late: false, lesson_id}, or cancelled code p_reason {enrolments, via_course, lesson_id}). No court lock. Returns {lesson_id, changed, status, enrolments, refunds_started}.';
+  '0283 (db.md §4.7.2; R5, R28). Internal; the caller holds lock_coach. Cancels a held or scheduled lesson with p_reason (guest_cancel | coach_cancel | staff_cancel | under_filled | account_deleted | coach_retired): the lesson row, its court rows (app.lesson_court_release), every live enrolment through app.enrolment_cancel_internal (coach_cancel and coach_retired -> coach, staff_cancel -> staff, under_filled, account_deleted), Money''s lesson_refund_start for every enrolment of the lesson cancelled earlier, then the lesson''s own event (under_filled {places_taken, min_places, late: false, lesson_id}, or cancelled code p_reason {enrolments, via_course, lesson_id}). No court lock. Returns {lesson_id, changed, status, enrolments, refunds_started}.';
 
 revoke all on function app.lesson_cancel_internal(uuid, text, text, uuid, uuid) from public, anon, authenticated;
 
@@ -700,7 +700,7 @@ revoke all on function app.lesson_cancel_internal(uuid, text, text, uuid, uuid) 
 create or replace function app.course_cancel_internal(p_course_id uuid, p_reason text, p_actor text,
                                                       p_profile_id uuid, p_staff_id uuid)
 returns jsonb
-language plpgsql security definer set search_path = public as $course_cancel_internal_0280$
+language plpgsql security definer set search_path = public as $course_cancel_internal_0283$
 declare
   v_co       courses%rowtype;
   v_s        record;
@@ -777,10 +777,10 @@ begin
   end if;
   return jsonb_build_object('course_id', v_co.id, 'changed', true, 'status', 'cancelled',
                             'sessions_cancelled', v_sessions, 'enrolments', v_n, 'refunds_started', v_refunds);
-end $course_cancel_internal_0280$;
+end $course_cancel_internal_0283$;
 
 comment on function app.course_cancel_internal(uuid, text, text, uuid, uuid) is
-  '0280 (db.md §4.7.2; C-19, R5, R28). Internal; the caller holds lock_coach. Cancels the rest of an open or running course with p_reason (coach_cancel | staff_cancel | under_filled | account_deleted | coach_retired): every session not yet started through app.lesson_cancel_internal (a session in progress runs to its end), the course row, every live course enrolment as course_cancelled, Money''s lesson_refund_start for course enrolments cancelled earlier, then the course''s event (under_filled or cancelled; data.lesson_id = app.course_ref_lesson). Returns {course_id, changed, status, sessions_cancelled, enrolments, refunds_started}.';
+  '0283 (db.md §4.7.2; C-19, R5, R28). Internal; the caller holds lock_coach. Cancels the rest of an open or running course with p_reason (coach_cancel | staff_cancel | under_filled | account_deleted | coach_retired): every session not yet started through app.lesson_cancel_internal (a session in progress runs to its end), the course row, every live course enrolment as course_cancelled, Money''s lesson_refund_start for course enrolments cancelled earlier, then the course''s event (under_filled or cancelled; data.lesson_id = app.course_ref_lesson). Returns {course_id, changed, status, sessions_cancelled, enrolments, refunds_started}.';
 
 revoke all on function app.course_cancel_internal(uuid, text, text, uuid, uuid) from public, anon, authenticated;
 
@@ -793,7 +793,7 @@ revoke all on function app.course_cancel_internal(uuid, text, text, uuid, uuid) 
 -- ladder), then BOOKING_SUSPENDED or HOLD_COOLDOWN. The caller holds
 -- lock_principal('hold_slot', guest) and no coach or court key (§1.4).
 create or replace function app.lesson_guest_ladder(p_guest_id uuid) returns void
-language plpgsql security definer set search_path = public as $lesson_guest_ladder_0280$
+language plpgsql security definer set search_path = public as $lesson_guest_ladder_0283$
 declare
   v_key      text;
   v_standing jsonb;
@@ -815,10 +815,10 @@ begin
         hint = 'too many holds lapsed; try again later';
     end if;
   end if;
-end $lesson_guest_ladder_0280$;
+end $lesson_guest_ladder_0283$;
 
 comment on function app.lesson_guest_ladder(uuid) is
-  '0280 (db.md §4.7.3 step 4; D-4). Internal. When the hold ladder is on (platform_settings.hold_strikes_since), settles the guest''s lapsed holds and lesson strikes (app.hold_strikes_settle) and refuses BOOKING_SUSPENDED or HOLD_COOLDOWN exactly as hold_slot does. Called after lock_principal(''hold_slot'', guest), before any coach or court key.';
+  '0283 (db.md §4.7.3 step 4; D-4). Internal. When the hold ladder is on (platform_settings.hold_strikes_since), settles the guest''s lapsed holds and lesson strikes (app.hold_strikes_settle) and refuses BOOKING_SUSPENDED or HOLD_COOLDOWN exactly as hold_slot does. Called after lock_principal(''hold_slot'', guest), before any coach or court key.';
 
 revoke all on function app.lesson_guest_ladder(uuid) from public, anon, authenticated;
 
@@ -826,7 +826,7 @@ revoke all on function app.lesson_guest_ladder(uuid) from public, anon, authenti
 -- the per-guest hold cap, counted with court holds under the hold_slot key.
 create or replace function app.lesson_guest_payment(p_guest profiles, p_venue uuid, p_payment_mode text)
 returns void
-language plpgsql stable security definer set search_path = public as $lesson_guest_payment_0280$
+language plpgsql stable security definer set search_path = public as $lesson_guest_payment_0283$
 declare
   v_mode text;
   v_cap  int;
@@ -859,10 +859,10 @@ begin
       end if;
     end if;
   end if;
-end $lesson_guest_payment_0280$;
+end $lesson_guest_payment_0283$;
 
 comment on function app.lesson_guest_payment(profiles, uuid, text) is
-  '0280 (db.md §4.7.1 rule 8; CD-1, R30, R50). Internal. A guest''s payment mode against the branch''s lesson_payment_mode: online at a desk-only branch ONLINE_PAYMENT_OFF; desk at an online_required branch ONLINE_PAYMENT_REQUIRED. Online also needs app.lesson_terms_ok (TERMS_REQUIRED detail lessons) and stays under platform_settings.max_live_holds_per_guest counting live court holds plus live held enrolments (HOLD_QUOTA_EXCEEDED detail the cap).';
+  '0283 (db.md §4.7.1 rule 8; CD-1, R30, R50). Internal. A guest''s payment mode against the branch''s lesson_payment_mode: online at a desk-only branch ONLINE_PAYMENT_OFF; desk at an online_required branch ONLINE_PAYMENT_REQUIRED. Online also needs app.lesson_terms_ok (TERMS_REQUIRED detail lessons) and stays under platform_settings.max_live_holds_per_guest counting live court holds plus live held enrolments (HOLD_QUOTA_EXCEEDED detail the cap).';
 
 revoke all on function app.lesson_guest_payment(profiles, uuid, text) from public, anon, authenticated;
 
@@ -872,7 +872,7 @@ revoke all on function app.lesson_guest_payment(profiles, uuid, text) from publi
 create or replace function app.lesson_check_start(p_venue uuid, p_start_at timestamptz, p_end_at timestamptz,
                                                   p_detail text default null)
 returns void
-language plpgsql stable security definer set search_path = public as $lesson_check_start_0280$
+language plpgsql stable security definer set search_path = public as $lesson_check_start_0283$
 declare
   v_bk text;
 begin
@@ -890,10 +890,10 @@ begin
   elsif v_bk = 'NO_COURT_FREE' then
     raise exception 'NO_COURT_FREE' using errcode = 'P0001', detail = coalesce(p_detail, '');
   end if;
-end $lesson_check_start_0280$;
+end $lesson_check_start_0283$;
 
 comment on function app.lesson_check_start(uuid, timestamptz, timestamptz, text) is
-  '0280 (db.md §4.7.1 rule 6; C-20, R9). Internal. A coach or desk lesson start: SLOT_NOT_ON_GRID (app.lesson_on_grid), SLOT_IN_PAST, CLOSED_DATE / OUTSIDE_HOURS / NO_COURT_FREE (app.lesson_bookable), each with p_detail.';
+  '0283 (db.md §4.7.1 rule 6; C-20, R9). Internal. A coach or desk lesson start: SLOT_NOT_ON_GRID (app.lesson_on_grid), SLOT_IN_PAST, CLOSED_DATE / OUTSIDE_HOURS / NO_COURT_FREE (app.lesson_bookable), each with p_detail.';
 
 revoke all on function app.lesson_check_start(uuid, timestamptz, timestamptz, text) from public, anon, authenticated;
 
@@ -903,7 +903,7 @@ revoke all on function app.lesson_check_start(uuid, timestamptz, timestamptz, te
 create or replace function app.lesson_coach_free(p_coach_id uuid, p_venue uuid, p_period tstzrange, p_except uuid,
                                                  p_detail text default null)
 returns void
-language plpgsql stable security definer set search_path = public as $lesson_coach_free_0280$
+language plpgsql stable security definer set search_path = public as $lesson_coach_free_0283$
 begin
   if exists (select 1 from lessons l
               where l.coach_id = p_coach_id and l.status in ('held', 'scheduled')
@@ -913,10 +913,10 @@ begin
   if not app.coach_in_hours(p_coach_id, p_venue, p_period) then
     raise exception 'COACH_UNAVAILABLE' using errcode = 'P0001', detail = coalesce(p_detail, '');
   end if;
-end $lesson_coach_free_0280$;
+end $lesson_coach_free_0283$;
 
 comment on function app.lesson_coach_free(uuid, uuid, tstzrange, uuid, text) is
-  '0280 (db.md §4.6.2, §4.7). Internal, read under the coach lock: COACH_BUSY when another held or scheduled lesson of the coach (at any branch, p_except left out) overlaps p_period; COACH_UNAVAILABLE when app.coach_in_hours is false. p_detail on both.';
+  '0283 (db.md §4.6.2, §4.7). Internal, read under the coach lock: COACH_BUSY when another held or scheduled lesson of the coach (at any branch, p_except left out) overlaps p_period; COACH_UNAVAILABLE when app.coach_in_hours is false. p_detail on both.';
 
 revoke all on function app.lesson_coach_free(uuid, uuid, tstzrange, uuid, text) from public, anon, authenticated;
 
@@ -925,7 +925,7 @@ revoke all on function app.lesson_coach_free(uuid, uuid, tstzrange, uuid, text) 
 -- session 1, else Money's course_late_join_price over the sessions left (the
 -- iqd_split shares, R2, R60). NULL when no session is left to start.
 create or replace function app.lesson_course_offer(p_course_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = public as $lesson_course_offer_0280$
+language plpgsql stable security definer set search_path = public as $lesson_course_offer_0283$
 declare
   v_co courses%rowtype;
   v_l  lessons%rowtype;
@@ -950,10 +950,10 @@ begin
     'first_lesson_id', v_l.id,
     'first_start_at', v_l.start_at,
     'first_end_at', v_l.end_at);
-end $lesson_course_offer_0280$;
+end $lesson_course_offer_0283$;
 
 comment on function app.lesson_course_offer(uuid) is
-  '0280 (db.md §4.7.3; C-15, R2, R60). Internal. A course place bought now: {first_session_no (the first session not yet started), sessions_covered (from it to the last), price_iqd (the whole course before session 1, else app.course_late_join_price), full_price_iqd, first_lesson_id, first_start_at, first_end_at}; NULL when no session is left to start.';
+  '0283 (db.md §4.7.3; C-15, R2, R60). Internal. A course place bought now: {first_session_no (the first session not yet started), sessions_covered (from it to the last), price_iqd (the whole course before session 1, else app.course_late_join_price), full_price_iqd, first_lesson_id, first_start_at, first_end_at}; NULL when no session is left to start.';
 
 revoke all on function app.lesson_course_offer(uuid) from public, anon, authenticated;
 
@@ -964,7 +964,7 @@ revoke all on function app.lesson_course_offer(uuid) from public, anon, authenti
 -- X5: the guest's book and join answer. status is the ENROLMENT's. No court
 -- id, no name.
 create or replace function app.lesson_booking_answer(p_enrolment_id uuid, p_duplicate boolean) returns jsonb
-language sql stable security definer set search_path = public as $lesson_booking_answer_0280$
+language sql stable security definer set search_path = public as $lesson_booking_answer_0283$
   select jsonb_build_object(
            'duplicate', coalesce(p_duplicate, false),
            'enrolment_id', e.id,
@@ -999,10 +999,10 @@ language sql stable security definer set search_path = public as $lesson_booking
                         where r.lesson_id = s.id and r.status in ('pending', 'confirmed', 'arrived')
                         limit 1) ct on true
    where e.id = p_enrolment_id
-$lesson_booking_answer_0280$;
+$lesson_booking_answer_0283$;
 
 comment on function app.lesson_booking_answer(uuid, boolean) is
-  '0280 (X5, R41). Internal. The guest''s book or join answer for one enrolment: {duplicate, enrolment_id, lesson_id, course_id, status (the enrolment''s), hold_expires_at, payment_mode, price_iqd, party_size, first_session_no, sessions_covered, start_at, end_at (the lesson, or the first covered session), court_name_en, court_name_ar, venue_id, places_left (group and course)}. No court id, no person.';
+  '0283 (X5, R41). Internal. The guest''s book or join answer for one enrolment: {duplicate, enrolment_id, lesson_id, course_id, status (the enrolment''s), hold_expires_at, payment_mode, price_iqd, party_size, first_session_no, sessions_covered, start_at, end_at (the lesson, or the first covered session), court_name_en, court_name_ar, venue_id, places_left (group and course)}. No court id, no person.';
 
 revoke all on function app.lesson_booking_answer(uuid, boolean) from public, anon, authenticated;
 
@@ -1011,7 +1011,7 @@ revoke all on function app.lesson_booking_answer(uuid, boolean) from public, ano
 -- IDEMPOTENCY_CONFLICT. NULL when the key is new.
 create or replace function app.lesson_guest_replay(p_key text, p_guest_id uuid, p_lesson_id uuid, p_course_id uuid)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $lesson_guest_replay_0280$
+language plpgsql stable security definer set search_path = public as $lesson_guest_replay_0283$
 declare
   v_e lesson_enrolments%rowtype;
 begin
@@ -1026,17 +1026,17 @@ begin
       hint = 'that key belongs to another booking';
   end if;
   return app.lesson_booking_answer(v_e.id, true);
-end $lesson_guest_replay_0280$;
+end $lesson_guest_replay_0283$;
 
 comment on function app.lesson_guest_replay(text, uuid, uuid, uuid) is
-  '0280 (db.md §4.7.1 rule 7). Internal. NULL for a new key; the duplicate answer (app.lesson_booking_answer) for a key of an enrolment the same guest booked for the same lesson or course; IDEMPOTENCY_CONFLICT otherwise (the 0269 rule).';
+  '0283 (db.md §4.7.1 rule 7). Internal. NULL for a new key; the duplicate answer (app.lesson_booking_answer) for a key of an enrolment the same guest booked for the same lesson or course; IDEMPOTENCY_CONFLICT otherwise (the 0269 rule).';
 
 revoke all on function app.lesson_guest_replay(text, uuid, uuid, uuid) from public, anon, authenticated;
 
 -- A coach- or desk-booked private lesson (coach_book_private, X29
 -- desk_book_lesson): the same keys whether or not a typed phone matched.
 create or replace function app.lesson_private_answer(p_enrolment_id uuid, p_duplicate boolean) returns jsonb
-language sql stable security definer set search_path = public as $lesson_private_answer_0280$
+language sql stable security definer set search_path = public as $lesson_private_answer_0283$
   select jsonb_build_object(
            'duplicate', coalesce(p_duplicate, false),
            'lesson_id', l.id,
@@ -1057,15 +1057,15 @@ language sql stable security definer set search_path = public as $lesson_private
                         where r.lesson_id = l.id and r.status in ('pending', 'confirmed', 'arrived')
                         limit 1) ct on true
    where e.id = p_enrolment_id
-$lesson_private_answer_0280$;
+$lesson_private_answer_0283$;
 
 comment on function app.lesson_private_answer(uuid, boolean) is
-  '0280 (X29, R10, R41). Internal. A coach- or desk-booked private lesson: {duplicate, lesson_id, enrolment_id, status, court_id, court_name_en, court_name_ar, start_at, end_at, price_iqd, party_size, venue_id}; never whether a typed phone matched an account.';
+  '0283 (X29, R10, R41). Internal. A coach- or desk-booked private lesson: {duplicate, lesson_id, enrolment_id, status, court_id, court_name_en, court_name_ar, start_at, end_at, price_iqd, party_size, venue_id}; never whether a typed phone matched an account.';
 
 revoke all on function app.lesson_private_answer(uuid, boolean) from public, anon, authenticated;
 
 create or replace function app.lesson_group_answer(p_lesson_id uuid, p_duplicate boolean) returns jsonb
-language sql stable security definer set search_path = public as $lesson_group_answer_0280$
+language sql stable security definer set search_path = public as $lesson_group_answer_0283$
   select jsonb_build_object(
            'duplicate', coalesce(p_duplicate, false),
            'lesson_id', l.id,
@@ -1086,16 +1086,16 @@ language sql stable security definer set search_path = public as $lesson_group_a
                         where r.lesson_id = l.id and r.status in ('pending', 'confirmed', 'arrived')
                         limit 1) ct on true
    where l.id = p_lesson_id
-$lesson_group_answer_0280$;
+$lesson_group_answer_0283$;
 
 comment on function app.lesson_group_answer(uuid, boolean) is
-  '0280 (db.md §4.7.4, R41). Internal. A created group session: {duplicate, lesson_id, status, start_at, end_at, cutoff_at, court_id, court_name_en, court_name_ar, price_iqd, max_places, min_places, venue_id}.';
+  '0283 (db.md §4.7.4, R41). Internal. A created group session: {duplicate, lesson_id, status, start_at, end_at, cutoff_at, court_id, court_name_en, court_name_ar, price_iqd, max_places, min_places, venue_id}.';
 
 revoke all on function app.lesson_group_answer(uuid, boolean) from public, anon, authenticated;
 
 -- X13: both lesson_ids and sessions.
 create or replace function app.lesson_course_answer(p_course_id uuid, p_duplicate boolean) returns jsonb
-language sql stable security definer set search_path = public as $lesson_course_answer_0280$
+language sql stable security definer set search_path = public as $lesson_course_answer_0283$
   select jsonb_build_object(
            'duplicate', coalesce(p_duplicate, false),
            'course_id', co.id,
@@ -1124,10 +1124,10 @@ language sql stable security definer set search_path = public as $lesson_course_
            'venue_id', co.venue_id)
     from courses co
    where co.id = p_course_id
-$lesson_course_answer_0280$;
+$lesson_course_answer_0283$;
 
 comment on function app.lesson_course_answer(uuid, boolean) is
-  '0280 (X13, R41). Internal. A created course: {duplicate, course_id, status, lesson_ids, sessions: [{session_no, lesson_id, start_at, end_at, court_id, court_name_en, court_name_ar}], price_iqd, cutoff_at, signup_closes_at, venue_id}.';
+  '0283 (X13, R41). Internal. A created course: {duplicate, course_id, status, lesson_ids, sessions: [{session_no, lesson_id, start_at, end_at, court_id, court_name_en, court_name_ar}], price_iqd, cutoff_at, signup_closes_at, venue_id}.';
 
 revoke all on function app.lesson_course_answer(uuid, boolean) from public, anon, authenticated;
 
@@ -1148,7 +1148,7 @@ create or replace function app.lesson_book_private(
   p_expected_price_iqd bigint,
   p_idempotency_key    text
 ) returns jsonb
-language plpgsql security definer set search_path = public as $lesson_book_private_0280$
+language plpgsql security definer set search_path = public as $lesson_book_private_0283$
 declare
   v_p       profiles%rowtype;
   v_friends text[] := '{}'::text[];
@@ -1345,10 +1345,10 @@ begin
                                                             limit 1),
                                               'party_size', p_party_size, 'lesson_id', v_l.id));
   return app.lesson_booking_answer(v_e.id, false);
-end $lesson_book_private_0280$;
+end $lesson_book_private_0283$;
 
 comment on function app.lesson_book_private(uuid, uuid, timestamptz, int, text[], text, bigint, text) is
-  '0280 (db.md §4.7.3; C-1, C-2, C-20, R9, R15, R30, R50, R56, R61, R69). Guest: book a private lesson (party 1..4, at most party_size - 1 friend names) instantly at the type''s branch. Order: lesson_guest(true); INVALID_ARGUMENT; lock_principal(hold_slot) and the replay; the hold ladder (BOOKING_SUSPENDED, HOLD_COOLDOWN); LESSON_TYPE_NOT_FOUND, COACH_NOT_FOUND (unknown, retired, not accepted), COACH_NOT_AT_BRANCH, COACHING_OFF, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED, ALREADY_ENROLLED detail coach; PARTY_TOO_LARGE; ONLINE_PAYMENT_OFF, ONLINE_PAYMENT_REQUIRED, TERMS_REQUIRED lessons, HOLD_QUOTA_EXCEEDED; SLOT_NOT_ON_GRID, BEYOND_HORIZON, CLOSED_DATE, OUTSIDE_HOURS, SLOT_IN_PAST, DEGRADED_LOCKOUT; PRICE_CHANGED; COACH_UNAVAILABLE; then under the coach lock the same again and COACH_BUSY; every court of the branch; NO_COURT_FREE. Desk mode books (scheduled, enrolment booked); online holds the court for the payment window (held). Event booked or held. Returns (X5) {duplicate, enrolment_id, lesson_id, status (the enrolment''s), hold_expires_at, payment_mode, price_iqd, start_at, end_at, court_name_en, court_name_ar, venue_id, ...}.';
+  '0283 (db.md §4.7.3; C-1, C-2, C-20, R9, R15, R30, R50, R56, R61, R69). Guest: book a private lesson (party 1..4, at most party_size - 1 friend names) instantly at the type''s branch. Order: lesson_guest(true); INVALID_ARGUMENT; lock_principal(hold_slot) and the replay; the hold ladder (BOOKING_SUSPENDED, HOLD_COOLDOWN); LESSON_TYPE_NOT_FOUND, COACH_NOT_FOUND (unknown, retired, not accepted), COACH_NOT_AT_BRANCH, COACHING_OFF, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED, ALREADY_ENROLLED detail coach; PARTY_TOO_LARGE; ONLINE_PAYMENT_OFF, ONLINE_PAYMENT_REQUIRED, TERMS_REQUIRED lessons, HOLD_QUOTA_EXCEEDED; SLOT_NOT_ON_GRID, BEYOND_HORIZON, CLOSED_DATE, OUTSIDE_HOURS, SLOT_IN_PAST, DEGRADED_LOCKOUT; PRICE_CHANGED; COACH_UNAVAILABLE; then under the coach lock the same again and COACH_BUSY; every court of the branch; NO_COURT_FREE. Desk mode books (scheduled, enrolment booked); online holds the court for the payment window (held). Event booked or held. Returns (X5) {duplicate, enrolment_id, lesson_id, status (the enrolment''s), hold_expires_at, payment_mode, price_iqd, start_at, end_at, court_name_en, court_name_ar, venue_id, ...}.';
 
 revoke all on function app.lesson_book_private(uuid, uuid, timestamptz, int, text[], text, bigint, text) from public, anon;
 grant execute on function app.lesson_book_private(uuid, uuid, timestamptz, int, text[], text, bigint, text) to authenticated;
@@ -1357,7 +1357,7 @@ grant execute on function app.lesson_book_private(uuid, uuid, timestamptz, int, 
 create or replace function app.lesson_join(p_lesson_id uuid, p_payment_mode text, p_expected_price_iqd bigint,
                                            p_idempotency_key text)
 returns jsonb
-language plpgsql security definer set search_path = public as $lesson_join_0280$
+language plpgsql security definer set search_path = public as $lesson_join_0283$
 declare
   v_p      profiles%rowtype;
   v_answer jsonb;
@@ -1469,10 +1469,10 @@ begin
   perform app.lesson_event(v_l.venue_id, v_l.id, null, v_e.id, 'joined', 'guest', v_p.id, null, null,
                            jsonb_build_object('lesson_id', v_l.id) || app.lesson_places_data(v_l.id, null));
   return app.lesson_booking_answer(v_e.id, false);
-end $lesson_join_0280$;
+end $lesson_join_0283$;
 
 comment on function app.lesson_join(uuid, text, bigint, text) is
-  '0280 (db.md §4.7.3; C-1, R15, R30, R56, R61). Guest: one place in a group session. Order: lesson_guest(true); INVALID_ARGUMENT; lock_principal(hold_slot), replay; the ladder; LESSON_NOT_FOUND (unknown, not a group session, branch not open, coach retired or not accepted); COACHING_OFF; COACH_INACTIVE; LESSON_CLOSED (not scheduled, or started); ALREADY_ENROLLED (detail coach for the session''s coach); the payment mode, terms and hold cap; PRICE_CHANGED (lessons.price_iqd); DEGRADED_LOCKOUT; LESSON_FULL; then under the coach lock the same again. The enrolment is booked (desk) or held for the payment window (online). Event joined {places_taken, places_total, lesson_id}. Returns (X5) {duplicate, enrolment_id, lesson_id, status, hold_expires_at, payment_mode, price_iqd, places_left, ...}.';
+  '0283 (db.md §4.7.3; C-1, R15, R30, R56, R61). Guest: one place in a group session. Order: lesson_guest(true); INVALID_ARGUMENT; lock_principal(hold_slot), replay; the ladder; LESSON_NOT_FOUND (unknown, not a group session, branch not open, coach retired or not accepted); COACHING_OFF; COACH_INACTIVE; LESSON_CLOSED (not scheduled, or started); ALREADY_ENROLLED (detail coach for the session''s coach); the payment mode, terms and hold cap; PRICE_CHANGED (lessons.price_iqd); DEGRADED_LOCKOUT; LESSON_FULL; then under the coach lock the same again. The enrolment is booked (desk) or held for the payment window (online). Event joined {places_taken, places_total, lesson_id}. Returns (X5) {duplicate, enrolment_id, lesson_id, status, hold_expires_at, payment_mode, price_iqd, places_left, ...}.';
 
 revoke all on function app.lesson_join(uuid, text, bigint, text) from public, anon;
 grant execute on function app.lesson_join(uuid, text, bigint, text) to authenticated;
@@ -1482,7 +1482,7 @@ grant execute on function app.lesson_join(uuid, text, bigint, text) to authentic
 create or replace function app.course_join(p_course_id uuid, p_payment_mode text, p_expected_price_iqd bigint,
                                            p_idempotency_key text)
 returns jsonb
-language plpgsql security definer set search_path = public as $course_join_0280$
+language plpgsql security definer set search_path = public as $course_join_0283$
 declare
   v_p      profiles%rowtype;
   v_answer jsonb;
@@ -1587,10 +1587,10 @@ begin
                            jsonb_build_object('lesson_id', (v_offer->>'first_lesson_id')::uuid)
                            || app.lesson_places_data(null, v_co.id));
   return app.lesson_booking_answer(v_e.id, false);
-end $course_join_0280$;
+end $course_join_0283$;
 
 comment on function app.course_join(uuid, text, bigint, text) is
-  '0280 (db.md §4.7.3; C-1, C-15, R15, R30, R56, R61). Guest: one place in a course. As lesson_join, with LESSON_NOT_FOUND for an unknown course (branch not open, coach retired or not accepted) and LESSON_CLOSED when the course is not open or running, sign-up has closed (signup_closes_at) or no session is left to start. The price is the whole course before session 1, else Money''s course_late_join_price over the sessions not yet started (first_session_no, sessions_covered); it is computed again under the coach lock (PRICE_CHANGED). DEGRADED_LOCKOUT reads the first covered session. LESSON_FULL reads course_places_taken. Event joined on the course. Returns (X5) {duplicate, enrolment_id, course_id, status, hold_expires_at, payment_mode, price_iqd, places_left, ...}.';
+  '0283 (db.md §4.7.3; C-1, C-15, R15, R30, R56, R61). Guest: one place in a course. As lesson_join, with LESSON_NOT_FOUND for an unknown course (branch not open, coach retired or not accepted) and LESSON_CLOSED when the course is not open or running, sign-up has closed (signup_closes_at) or no session is left to start. The price is the whole course before session 1, else Money''s course_late_join_price over the sessions not yet started (first_session_no, sessions_covered); it is computed again under the coach lock (PRICE_CHANGED). DEGRADED_LOCKOUT reads the first covered session. LESSON_FULL reads course_places_taken. Event joined on the course. Returns (X5) {duplicate, enrolment_id, course_id, status, hold_expires_at, payment_mode, price_iqd, places_left, ...}.';
 
 revoke all on function app.course_join(uuid, text, bigint, text) from public, anon;
 grant execute on function app.course_join(uuid, text, bigint, text) to authenticated;
@@ -1600,7 +1600,7 @@ grant execute on function app.course_join(uuid, text, bigint, text) to authentic
 -- next covered session), or after the venue rescheduled it, or while held;
 -- late otherwise, with a strike for a place the guest booked (CD-2).
 create or replace function app.lesson_cancel_mine(p_enrolment_id uuid) returns jsonb
-language plpgsql security definer set search_path = public as $lesson_cancel_mine_0280$
+language plpgsql security definer set search_path = public as $lesson_cancel_mine_0283$
 declare
   v_p       profiles%rowtype;
   v_e       lesson_enrolments%rowtype;
@@ -1701,10 +1701,10 @@ begin
     'refund_iqd', coalesce((v_m->>'online_refunded_iqd')::bigint, 0)
                   + coalesce((v_m->>'refund_due_online_iqd')::bigint, 0),
     'kept_iqd', coalesce((v_m->>'kept_iqd')::bigint, 0));
-end $lesson_cancel_mine_0280$;
+end $lesson_cancel_mine_0283$;
 
 comment on function app.lesson_cancel_mine(uuid) is
-  '0280 (db.md §4.7.7; C-9, C-21, C-23, CD-2, R8, R62). Guest: cancel one''s own place (a private lesson goes with it). lesson_guest(false); INVALID_ARGUMENT; ENROLMENT_NOT_FOUND (not the caller''s); under the coach lock: already cancelled -> {duplicate: true, ...}; LESSON_NOT_CANCELLABLE status | started (the lesson; a course once its last covered session started) | link_pending (C-21). guest_free while held, outside the branch''s cancellation_window_hours of the lesson or of the guest''s own next covered session (C-23), or after a reschedule of it (R8); else guest_late, which records a late_cancel strike for a place the guest booked (CD-2, app.lesson_strike_record; applied later by hold_strikes_settle). Money''s engine refunds what is due online (R28, R62). Returns (X6) {duplicate, enrolment_id, status, cancel_kind, lesson_cancelled, refunds_started, strike, refund_iqd (online money going back), kept_iqd}.';
+  '0283 (db.md §4.7.7; C-9, C-21, C-23, CD-2, R8, R62). Guest: cancel one''s own place (a private lesson goes with it). lesson_guest(false); INVALID_ARGUMENT; ENROLMENT_NOT_FOUND (not the caller''s); under the coach lock: already cancelled -> {duplicate: true, ...}; LESSON_NOT_CANCELLABLE status | started (the lesson; a course once its last covered session started) | link_pending (C-21). guest_free while held, outside the branch''s cancellation_window_hours of the lesson or of the guest''s own next covered session (C-23), or after a reschedule of it (R8); else guest_late, which records a late_cancel strike for a place the guest booked (CD-2, app.lesson_strike_record; applied later by hold_strikes_settle). Money''s engine refunds what is due online (R28, R62). Returns (X6) {duplicate, enrolment_id, status, cancel_kind, lesson_cancelled, refunds_started, strike, refund_iqd (online money going back), kept_iqd}.';
 
 revoke all on function app.lesson_cancel_mine(uuid) from public, anon;
 grant execute on function app.lesson_cancel_mine(uuid) to authenticated;
@@ -1713,7 +1713,7 @@ grant execute on function app.lesson_cancel_mine(uuid) to authenticated;
 -- place; Not me unlinks it silently. No event and no push either way (the
 -- coach is never told); Guest's enrolment reminder trigger follows the row.
 create or replace function app.lesson_link_confirm(p_enrolment_id uuid, p_yes boolean) returns jsonb
-language plpgsql security definer set search_path = public as $lesson_link_confirm_0280$
+language plpgsql security definer set search_path = public as $lesson_link_confirm_0283$
 declare
   v_p     profiles%rowtype;
   v_e     lesson_enrolments%rowtype;
@@ -1766,10 +1766,10 @@ begin
                             jsonb_build_object('enrolment_id', v_e.id));
   end if;
   return jsonb_build_object('enrolment_id', v_e.id, 'linked', p_yes, 'duplicate', false);
-end $lesson_link_confirm_0280$;
+end $lesson_link_confirm_0283$;
 
 comment on function app.lesson_link_confirm(uuid, boolean) is
-  '0280 (db.md §4.7.5; C-21, R44). Guest: answer "Is this you?" for a place a coach or the desk added from a phone that matched the caller''s verified phone. lesson_guest(false); INVALID_ARGUMENT p_enrolment_id | p_yes; ENROLMENT_NOT_FOUND unless the place names the caller and was not booked by them; already confirmed: yes -> {duplicate: true}, no -> INVALID_TRANSITION detail confirmed (cancel it instead). Under the coach lock: yes stamps link_confirmed_at; no sets guest_id NULL (a walk-in again). No lesson_events row, no push (the coach is never told); audited coaching.link.confirm | decline with ids only. Returns {enrolment_id, linked, duplicate}.';
+  '0283 (db.md §4.7.5; C-21, R44). Guest: answer "Is this you?" for a place a coach or the desk added from a phone that matched the caller''s verified phone. lesson_guest(false); INVALID_ARGUMENT p_enrolment_id | p_yes; ENROLMENT_NOT_FOUND unless the place names the caller and was not booked by them; already confirmed: yes -> {duplicate: true}, no -> INVALID_TRANSITION detail confirmed (cancel it instead). Under the coach lock: yes stamps link_confirmed_at; no sets guest_id NULL (a walk-in again). No lesson_events row, no push (the coach is never told); audited coaching.link.confirm | decline with ids only. Returns {enrolment_id, linked, duplicate}.';
 
 revoke all on function app.lesson_link_confirm(uuid, boolean) from public, anon;
 grant execute on function app.lesson_link_confirm(uuid, boolean) to authenticated;
@@ -1784,7 +1784,7 @@ grant execute on function app.lesson_link_confirm(uuid, boolean) to authenticate
 create or replace function app.lesson_create_replay(p_key text, p_kind text, p_by text, p_profile_id uuid,
                                                     p_staff_id uuid)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $lesson_create_replay_0280$
+language plpgsql stable security definer set search_path = public as $lesson_create_replay_0283$
 declare
   v_l  lessons%rowtype;
   v_co courses%rowtype;
@@ -1811,10 +1811,10 @@ begin
     raise exception 'IDEMPOTENCY_CONFLICT' using errcode = 'P0001', hint = 'that key belongs to another lesson';
   end if;
   return app.lesson_group_answer(v_l.id, true);
-end $lesson_create_replay_0280$;
+end $lesson_create_replay_0283$;
 
 comment on function app.lesson_create_replay(text, text, text, uuid, uuid) is
-  '0280 (db.md §4.7.1 rule 7). Internal. The replay of a group session (lessons.idempotency_key) or course (courses.idempotency_key) creation: NULL for a new key, the duplicate answer for the same creator (coach profile or staff id), IDEMPOTENCY_CONFLICT otherwise.';
+  '0283 (db.md §4.7.1 rule 7). Internal. The replay of a group session (lessons.idempotency_key) or course (courses.idempotency_key) creation: NULL for a new key, the duplicate answer for the same creator (coach profile or staff id), IDEMPOTENCY_CONFLICT otherwise.';
 
 revoke all on function app.lesson_create_replay(text, text, text, uuid, uuid) from public, anon, authenticated;
 
@@ -1825,7 +1825,7 @@ create or replace function app.lesson_group_create_internal(p_coach_id uuid, p_l
                                                             p_start_at timestamptz, p_by text, p_profile_id uuid,
                                                             p_staff_id uuid, p_key text, p_degraded boolean)
 returns jsonb
-language plpgsql security definer set search_path = public as $lesson_group_create_internal_0280$
+language plpgsql security definer set search_path = public as $lesson_group_create_internal_0283$
 declare
   v_t      lesson_types%rowtype;
   v_end    timestamptz;
@@ -1886,10 +1886,10 @@ begin
                           jsonb_build_object('lesson_id', v_l.id, 'kind', 'group', 'coach_id', p_coach_id,
                                              'start_at', v_l.start_at, 'by', p_by));
   return app.lesson_group_answer(v_l.id, false);
-end $lesson_group_create_internal_0280$;
+end $lesson_group_create_internal_0283$;
 
 comment on function app.lesson_group_create_internal(uuid, uuid, timestamptz, text, uuid, uuid, text, boolean) is
-  '0280 (db.md §4.7.4; C-13, R9, R15, R47). Internal: the shared body of coach_create_group and desk_create_group after their guards and type checks. SLOT_NOT_ON_GRID, SLOT_IN_PAST, CLOSED_DATE, OUTSIDE_HOURS; LESSON_CLOSED detail cutoff (start - cutoff_hours <= now); DEGRADED_LOCKOUT when p_degraded (the coach); COACH_UNAVAILABLE; under the coach lock the replay and COACH_BUSY / COACH_UNAVAILABLE; every court; app.lesson_create_internal (price = app.lesson_price_for, key on the lesson). Event booked {court_id, lesson_id}; audit coaching.lesson.book. Returns app.lesson_group_answer.';
+  '0283 (db.md §4.7.4; C-13, R9, R15, R47). Internal: the shared body of coach_create_group and desk_create_group after their guards and type checks. SLOT_NOT_ON_GRID, SLOT_IN_PAST, CLOSED_DATE, OUTSIDE_HOURS; LESSON_CLOSED detail cutoff (start - cutoff_hours <= now); DEGRADED_LOCKOUT when p_degraded (the coach); COACH_UNAVAILABLE; under the coach lock the replay and COACH_BUSY / COACH_UNAVAILABLE; every court; app.lesson_create_internal (price = app.lesson_price_for, key on the lesson). Event booked {court_id, lesson_id}; audit coaching.lesson.book. Returns app.lesson_group_answer.';
 
 revoke all on function app.lesson_group_create_internal(uuid, uuid, timestamptz, text, uuid, uuid, text, boolean)
   from public, anon, authenticated;
@@ -1902,7 +1902,7 @@ create or replace function app.lesson_course_create_internal(p_coach_id uuid, p_
                                                              p_by text, p_profile_id uuid, p_staff_id uuid,
                                                              p_key text, p_degraded boolean)
 returns jsonb
-language plpgsql security definer set search_path = public as $lesson_course_create_internal_0280$
+language plpgsql security definer set search_path = public as $lesson_course_create_internal_0283$
 declare
   v_t      lesson_types%rowtype;
   v_rules  jsonb;
@@ -2013,10 +2013,10 @@ begin
                           jsonb_build_object('course_id', v_co.id, 'coach_id', p_coach_id, 'sessions', v_n,
                                              'first_start_at', p_starts[1], 'by', p_by));
   return app.lesson_course_answer(v_co.id, false);
-end $lesson_course_create_internal_0280$;
+end $lesson_course_create_internal_0283$;
 
 comment on function app.lesson_course_create_internal(uuid, uuid, timestamptz[], text, text, text, uuid, uuid, text, boolean) is
-  '0280 (db.md §4.7.4; C-13, C-15, C-19, R15, R47, X31). Internal: the shared body of coach_create_course and desk_create_course, all or nothing. COURSE_STARTS_INVALID detail count (cardinality <> sessions_count, a NULL start) | order (not strictly increasing, or a session ending after the next starts) | span (over 366 days); per start i (1-based) SLOT_NOT_ON_GRID, SLOT_IN_PAST, CLOSED_DATE, OUTSIDE_HOURS, COACH_UNAVAILABLE detail i; LESSON_CLOSED detail cutoff (start 1 - cutoff_hours <= now); DEGRADED_LOCKOUT when p_degraded; under the coach lock the replay and per start COACH_BUSY detail i; every court; the course row (price = app.lesson_price_for, snapshots, cutoff_at, signup_closes_at = the last start), then one session per start (NO_COURT_FREE / COACH_BUSY re-raised with detail i, the whole call rolled back). Event booked on the course; audit coaching.course.create. Returns app.lesson_course_answer (X13).';
+  '0283 (db.md §4.7.4; C-13, C-15, C-19, R15, R47, X31). Internal: the shared body of coach_create_course and desk_create_course, all or nothing. COURSE_STARTS_INVALID detail count (cardinality <> sessions_count, a NULL start) | order (not strictly increasing, or a session ending after the next starts) | span (over 366 days); per start i (1-based) SLOT_NOT_ON_GRID, SLOT_IN_PAST, CLOSED_DATE, OUTSIDE_HOURS, COACH_UNAVAILABLE detail i; LESSON_CLOSED detail cutoff (start 1 - cutoff_hours <= now); DEGRADED_LOCKOUT when p_degraded; under the coach lock the replay and per start COACH_BUSY detail i; every court; the course row (price = app.lesson_price_for, snapshots, cutoff_at, signup_closes_at = the last start), then one session per start (NO_COURT_FREE / COACH_BUSY re-raised with detail i, the whole call rolled back). Event booked on the course; audit coaching.course.create. Returns app.lesson_course_answer (X13).';
 
 revoke all on function app.lesson_course_create_internal(uuid, uuid, timestamptz[], text, text, text, uuid, uuid, text, boolean)
   from public, anon, authenticated;
@@ -2030,7 +2030,7 @@ create or replace function app.lesson_student_add_internal(p_lesson_id uuid, p_c
                                                            p_by text, p_profile_id uuid, p_staff_id uuid,
                                                            p_key text)
 returns lesson_enrolments
-language plpgsql security definer set search_path = public as $lesson_student_add_internal_0280$
+language plpgsql security definer set search_path = public as $lesson_student_add_internal_0283$
 declare
   v_l     lessons%rowtype;
   v_co    courses%rowtype;
@@ -2068,10 +2068,10 @@ begin
                            jsonb_build_object('lesson_id', coalesce(p_lesson_id, (v_offer->>'first_lesson_id')::uuid))
                            || app.lesson_places_data(p_lesson_id, p_course_id));
   return v_e;
-end $lesson_student_add_internal_0280$;
+end $lesson_student_add_internal_0283$;
 
 comment on function app.lesson_student_add_internal(uuid, uuid, uuid, boolean, text, text, text, uuid, uuid, text) is
-  '0280 (db.md §4.7.5; C-8, C-15, C-21, R44). Internal; the caller holds lock_coach and has checked everything. Inserts a booked, desk-paid enrolment in a group session or a course for the coach (p_by coach) or the desk (staff): the typed name and phone, guest_id the matched or picked account, link_confirmed_at now() only for a desk-picked customer (p_link_confirmed), price the session''s place or the course''s sessions not yet started. Event added {places_taken, places_total, lesson_id}. Returns the enrolment.';
+  '0283 (db.md §4.7.5; C-8, C-15, C-21, R44). Internal; the caller holds lock_coach and has checked everything. Inserts a booked, desk-paid enrolment in a group session or a course for the coach (p_by coach) or the desk (staff): the typed name and phone, guest_id the matched or picked account, link_confirmed_at now() only for a desk-picked customer (p_link_confirmed), price the session''s place or the course''s sessions not yet started. Event added {places_taken, places_total, lesson_id}. Returns the enrolment.';
 
 revoke all on function app.lesson_student_add_internal(uuid, uuid, uuid, boolean, text, text, text, uuid, uuid, text)
   from public, anon, authenticated;
@@ -2082,7 +2082,7 @@ revoke all on function app.lesson_student_add_internal(uuid, uuid, uuid, boolean
 
 -- C-22, R61: "Your coach profile will be public on the app and the website".
 create or replace function app.coach_accept_public() returns jsonb
-language plpgsql security definer set search_path = public as $coach_accept_public_0280$
+language plpgsql security definer set search_path = public as $coach_accept_public_0283$
 declare
   v_c  coaches%rowtype := app.coach_self();
   v_id uuid := v_c.id;
@@ -2101,10 +2101,10 @@ begin
   perform app.write_audit('coaching.coach.accept_public', 'coaches', v_id::text, null,
                           jsonb_build_object('coach_id', v_id, 'public_accepted_at', v_at));
   return jsonb_build_object('ok', true, 'duplicate', false, 'public_accepted_at', v_at);
-end $coach_accept_public_0280$;
+end $coach_accept_public_0283$;
 
 comment on function app.coach_accept_public() is
-  '0280 (db.md §4.7.5; C-22, R61). Coach (app.coach_self first): accept that the coach profile is public on the app and the website (coaches.public_accepted_at). Until then no public read or guest listing shows the coach; desk- and coach-booked lessons work. Already accepted: {ok: true, duplicate: true, public_accepted_at}. Audited coaching.coach.accept_public. Returns {ok, duplicate, public_accepted_at}.';
+  '0283 (db.md §4.7.5; C-22, R61). Coach (app.coach_self first): accept that the coach profile is public on the app and the website (coaches.public_accepted_at). Until then no public read or guest listing shows the coach; desk- and coach-booked lessons work. Already accepted: {ok: true, duplicate: true, public_accepted_at}. Audited coaching.coach.accept_public. Returns {ok, duplicate, public_accepted_at}.';
 
 revoke all on function app.coach_accept_public() from public, anon;
 grant execute on function app.coach_accept_public() to authenticated;
@@ -2123,7 +2123,7 @@ create or replace function app.coach_book_private(
   p_party_size      int,
   p_idempotency_key text
 ) returns jsonb
-language plpgsql security definer set search_path = public as $coach_book_private_0280$
+language plpgsql security definer set search_path = public as $coach_book_private_0283$
 declare
   v_c      coaches%rowtype;
   v_name   text := app.safe_line(p_student_name);
@@ -2289,10 +2289,10 @@ begin
                           jsonb_build_object('lesson_id', v_l.id, 'enrolment_id', v_e.id, 'kind', 'private',
                                              'by', 'coach', 'linked', v_gid is not null));
   return app.lesson_private_answer(v_e.id, false);
-end $coach_book_private_0280$;
+end $coach_book_private_0283$;
 
 comment on function app.coach_book_private(uuid, uuid, timestamptz, text, text, int, text) is
-  '0280 (db.md §4.7.4; C-8, C-21, C-24, CD-1, CD-9, R10, R15, R44, R56). Coach: book a private lesson for a student (name 1..80, optional phone, party 1..4), desk-paid. coach_self; INVALID_ARGUMENT; lock_principal(coach_students), replay, COACH_ADD_LIMIT detail day (30 coach adds in 24 h); LESSON_TYPE_NOT_FOUND (a private type at p_venue_id), COACH_NOT_AT_BRANCH, COACHING_OFF, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED, PARTY_TOO_LARGE; SLOT_NOT_ON_GRID, SLOT_IN_PAST, CLOSED_DATE, OUTSIDE_HOURS, DEGRADED_LOCKOUT; COACH_UNAVAILABLE; under the coach lock the replay, COACH_ADD_LIMIT detail live (coach_max_open_private upcoming coach-booked private lessons at the branch), COACH_BUSY; every court; NO_COURT_FREE. A typed phone matching a verified account links it pending (C-21); the answer, the work and the refusals are the same either way (R10). Events booked and added; audit coaching.lesson.book. Returns {duplicate, lesson_id, enrolment_id, start_at, end_at, court_id, court_name_en, court_name_ar, price_iqd, ...}.';
+  '0283 (db.md §4.7.4; C-8, C-21, C-24, CD-1, CD-9, R10, R15, R44, R56). Coach: book a private lesson for a student (name 1..80, optional phone, party 1..4), desk-paid. coach_self; INVALID_ARGUMENT; lock_principal(coach_students), replay, COACH_ADD_LIMIT detail day (30 coach adds in 24 h); LESSON_TYPE_NOT_FOUND (a private type at p_venue_id), COACH_NOT_AT_BRANCH, COACHING_OFF, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED, PARTY_TOO_LARGE; SLOT_NOT_ON_GRID, SLOT_IN_PAST, CLOSED_DATE, OUTSIDE_HOURS, DEGRADED_LOCKOUT; COACH_UNAVAILABLE; under the coach lock the replay, COACH_ADD_LIMIT detail live (coach_max_open_private upcoming coach-booked private lessons at the branch), COACH_BUSY; every court; NO_COURT_FREE. A typed phone matching a verified account links it pending (C-21); the answer, the work and the refusals are the same either way (R10). Events booked and added; audit coaching.lesson.book. Returns {duplicate, lesson_id, enrolment_id, start_at, end_at, court_id, court_name_en, court_name_ar, price_iqd, ...}.';
 
 revoke all on function app.coach_book_private(uuid, uuid, timestamptz, text, text, int, text) from public, anon;
 grant execute on function app.coach_book_private(uuid, uuid, timestamptz, text, text, int, text) to authenticated;
@@ -2300,7 +2300,7 @@ grant execute on function app.coach_book_private(uuid, uuid, timestamptz, text, 
 create or replace function app.coach_create_group(p_lesson_type_id uuid, p_venue_id uuid, p_start_at timestamptz,
                                                   p_idempotency_key text)
 returns jsonb
-language plpgsql security definer set search_path = public as $coach_create_group_0280$
+language plpgsql security definer set search_path = public as $coach_create_group_0283$
 declare
   v_c      coaches%rowtype;
   v_t      lesson_types%rowtype;
@@ -2347,10 +2347,10 @@ begin
   end if;
   return app.lesson_group_create_internal(v_c.id, v_t.id, p_start_at, 'coach', v_c.profile_id, null,
                                           p_idempotency_key, true);
-end $coach_create_group_0280$;
+end $coach_create_group_0283$;
 
 comment on function app.coach_create_group(uuid, uuid, timestamptz, text) is
-  '0280 (db.md §4.7.4; C-13, R15, R47). Coach: create a group session at branch p_venue_id. coach_self; INVALID_ARGUMENT; replay (lessons.idempotency_key, created by the caller); LESSON_TYPE_NOT_FOUND (a group type at the branch), COACH_NOT_AT_BRANCH, COACHING_OFF, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED; then app.lesson_group_create_internal (grid, past, hours, LESSON_CLOSED cutoff, DEGRADED_LOCKOUT, COACH_UNAVAILABLE, COACH_BUSY, NO_COURT_FREE). Returns {duplicate, lesson_id, start_at, end_at, cutoff_at, court_id, court_name_en, court_name_ar, price_iqd, max_places, min_places, ...}.';
+  '0283 (db.md §4.7.4; C-13, R15, R47). Coach: create a group session at branch p_venue_id. coach_self; INVALID_ARGUMENT; replay (lessons.idempotency_key, created by the caller); LESSON_TYPE_NOT_FOUND (a group type at the branch), COACH_NOT_AT_BRANCH, COACHING_OFF, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED; then app.lesson_group_create_internal (grid, past, hours, LESSON_CLOSED cutoff, DEGRADED_LOCKOUT, COACH_UNAVAILABLE, COACH_BUSY, NO_COURT_FREE). Returns {duplicate, lesson_id, start_at, end_at, cutoff_at, court_id, court_name_en, court_name_ar, price_iqd, max_places, min_places, ...}.';
 
 revoke all on function app.coach_create_group(uuid, uuid, timestamptz, text) from public, anon;
 grant execute on function app.coach_create_group(uuid, uuid, timestamptz, text) to authenticated;
@@ -2358,7 +2358,7 @@ grant execute on function app.coach_create_group(uuid, uuid, timestamptz, text) 
 create or replace function app.coach_create_course(p_lesson_type_id uuid, p_venue_id uuid, p_starts timestamptz[],
                                                    p_title_en text, p_title_ar text, p_idempotency_key text)
 returns jsonb
-language plpgsql security definer set search_path = public as $coach_create_course_0280$
+language plpgsql security definer set search_path = public as $coach_create_course_0283$
 declare
   v_c        coaches%rowtype;
   v_t        lesson_types%rowtype;
@@ -2412,10 +2412,10 @@ begin
   end if;
   return app.lesson_course_create_internal(v_c.id, v_t.id, p_starts, v_title_en, v_title_ar, 'coach',
                                            v_c.profile_id, null, p_idempotency_key, true);
-end $coach_create_course_0280$;
+end $coach_create_course_0283$;
 
 comment on function app.coach_create_course(uuid, uuid, timestamptz[], text, text, text) is
-  '0280 (db.md §4.7.4; C-13, C-15, C-19, R15, R47, X13). Coach: create a course (one start per session, ascending; titles 0..80) at branch p_venue_id, all or nothing. coach_self; INVALID_ARGUMENT; replay (courses.idempotency_key); LESSON_TYPE_NOT_FOUND (a course type at the branch), COACH_NOT_AT_BRANCH, COACHING_OFF, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED; then app.lesson_course_create_internal (COURSE_STARTS_INVALID count | order | span, per-start codes with the session number, LESSON_CLOSED cutoff, DEGRADED_LOCKOUT, COACH_BUSY, NO_COURT_FREE). Returns (X13) {duplicate, course_id, lesson_ids, sessions, price_iqd, cutoff_at, signup_closes_at, ...}.';
+  '0283 (db.md §4.7.4; C-13, C-15, C-19, R15, R47, X13). Coach: create a course (one start per session, ascending; titles 0..80) at branch p_venue_id, all or nothing. coach_self; INVALID_ARGUMENT; replay (courses.idempotency_key); LESSON_TYPE_NOT_FOUND (a course type at the branch), COACH_NOT_AT_BRANCH, COACHING_OFF, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED; then app.lesson_course_create_internal (COURSE_STARTS_INVALID count | order | span, per-start codes with the session number, LESSON_CLOSED cutoff, DEGRADED_LOCKOUT, COACH_BUSY, NO_COURT_FREE). Returns (X13) {duplicate, course_id, lesson_ids, sessions, price_iqd, cutoff_at, signup_closes_at, ...}.';
 
 revoke all on function app.coach_create_course(uuid, uuid, timestamptz[], text, text, text) from public, anon;
 grant execute on function app.coach_create_course(uuid, uuid, timestamptz[], text, text, text) to authenticated;
@@ -2427,7 +2427,7 @@ grant execute on function app.coach_create_course(uuid, uuid, timestamptz[], tex
 create or replace function app.coach_add_student(p_lesson_id uuid, p_course_id uuid, p_name text, p_phone text,
                                                  p_idempotency_key text)
 returns jsonb
-language plpgsql security definer set search_path = public as $coach_add_student_0280$
+language plpgsql security definer set search_path = public as $coach_add_student_0283$
 declare
   v_c      coaches%rowtype;
   v_name   text := app.safe_line(p_name);
@@ -2567,16 +2567,16 @@ begin
                             'places_left', case when p_lesson_id is not null
                                              then greatest(v_l.max_places - app.lesson_places_taken(v_l.id), 0)
                                              else greatest(v_co.max_places - app.course_places_taken(v_co.id), 0) end);
-end $coach_add_student_0280$;
+end $coach_add_student_0283$;
 
 comment on function app.coach_add_student(uuid, uuid, text, text, text) is
-  '0280 (db.md §4.7.5; C-8, C-21, CD-9, R10, R15, R39, R44, R48). Coach: add a student (name 1..80, optional phone) to one of the caller''s group sessions (until it ends) or courses (until sign-up closes), desk-paid. coach_self; INVALID_ARGUMENT (exactly one of p_lesson_id, p_course_id; p_name; p_phone; key); lock_principal(coach_students), replay, COACH_ADD_LIMIT detail day; LESSON_NOT_FOUND (not the caller''s, a private lesson, a course session, a branch not open); COACHING_OFF; COACH_INACTIVE; LESSON_CLOSED; DEGRADED_LOCKOUT; under the coach lock the same again and LESSON_FULL. A typed phone matching a verified account (not the coach, not already holding a place here) links it pending (C-21). Event added; audit coaching.student.add (managers read linked; coaches cannot). Returns {duplicate, enrolment_id, places_left}: the same answer whether or not the phone matched.';
+  '0283 (db.md §4.7.5; C-8, C-21, CD-9, R10, R15, R39, R44, R48). Coach: add a student (name 1..80, optional phone) to one of the caller''s group sessions (until it ends) or courses (until sign-up closes), desk-paid. coach_self; INVALID_ARGUMENT (exactly one of p_lesson_id, p_course_id; p_name; p_phone; key); lock_principal(coach_students), replay, COACH_ADD_LIMIT detail day; LESSON_NOT_FOUND (not the caller''s, a private lesson, a course session, a branch not open); COACHING_OFF; COACH_INACTIVE; LESSON_CLOSED; DEGRADED_LOCKOUT; under the coach lock the same again and LESSON_FULL. A typed phone matching a verified account (not the coach, not already holding a place here) links it pending (C-21). Event added; audit coaching.student.add (managers read linked; coaches cannot). Returns {duplicate, enrolment_id, places_left}: the same answer whether or not the phone matched.';
 
 revoke all on function app.coach_add_student(uuid, uuid, text, text, text) from public, anon;
 grant execute on function app.coach_add_student(uuid, uuid, text, text, text) to authenticated;
 
 create or replace function app.coach_remove_student(p_enrolment_id uuid, p_reason text) returns jsonb
-language plpgsql security definer set search_path = public as $coach_remove_student_0280$
+language plpgsql security definer set search_path = public as $coach_remove_student_0283$
 declare
   v_c    coaches%rowtype;
   v_code text;
@@ -2630,16 +2630,16 @@ begin
                                              'course_id', v_e.course_id, 'reason', v_code),
                           p_reason);
   return jsonb_build_object('ok', true, 'duplicate', false, 'enrolment_id', v_e.id, 'status', 'cancelled');
-end $coach_remove_student_0280$;
+end $coach_remove_student_0283$;
 
 comment on function app.coach_remove_student(uuid, text) is
-  '0280 (db.md §4.7.7; C-9). Coach: remove a student from one of the caller''s group sessions or courses (a coach cancel: refunds online money, never a strike, CD-2). coach_self; INVALID_ARGUMENT p_reason (<code> or <code>: <note>); ENROLMENT_NOT_FOUND (not in the caller''s lesson or course); LESSON_NOT_CANCELLABLE private (cancel the lesson instead) | status | started (a group session started; a course''s last covered session started); already cancelled -> {duplicate: true}; under the coach lock again; app.enrolment_cancel_internal(kind coach). Audit coaching.student.remove. Returns {ok, duplicate, enrolment_id, status}.';
+  '0283 (db.md §4.7.7; C-9). Coach: remove a student from one of the caller''s group sessions or courses (a coach cancel: refunds online money, never a strike, CD-2). coach_self; INVALID_ARGUMENT p_reason (<code> or <code>: <note>); ENROLMENT_NOT_FOUND (not in the caller''s lesson or course); LESSON_NOT_CANCELLABLE private (cancel the lesson instead) | status | started (a group session started; a course''s last covered session started); already cancelled -> {duplicate: true}; under the coach lock again; app.enrolment_cancel_internal(kind coach). Audit coaching.student.remove. Returns {ok, duplicate, enrolment_id, status}.';
 
 revoke all on function app.coach_remove_student(uuid, text) from public, anon;
 grant execute on function app.coach_remove_student(uuid, text) to authenticated;
 
 create or replace function app.coach_cancel_lesson(p_lesson_id uuid, p_reason text) returns jsonb
-language plpgsql security definer set search_path = public as $coach_cancel_lesson_0280$
+language plpgsql security definer set search_path = public as $coach_cancel_lesson_0283$
 declare
   v_c    coaches%rowtype;
   v_code text;
@@ -2679,16 +2679,16 @@ begin
                           p_reason);
   return jsonb_build_object('ok', true, 'duplicate', false, 'lesson_id', v_l.id, 'status', 'cancelled',
                             'enrolments', v_r->'enrolments', 'refunds_started', v_r->'refunds_started');
-end $coach_cancel_lesson_0280$;
+end $coach_cancel_lesson_0283$;
 
 comment on function app.coach_cancel_lesson(uuid, text) is
-  '0280 (db.md §4.7.7; C-9, C-19). Coach: cancel one of the caller''s private lessons or group sessions (coach_cancel: everyone refunded and told, never a strike). coach_self; INVALID_ARGUMENT p_reason; LESSON_NOT_FOUND (not the caller''s); LESSON_NOT_CANCELLABLE course_session (move it or cancel the course) | status | started; already cancelled by the coach -> {duplicate: true}; under the coach lock again; app.lesson_cancel_internal. Audit coaching.lesson.cancel. Returns {ok, duplicate, lesson_id, status, enrolments, refunds_started}.';
+  '0283 (db.md §4.7.7; C-9, C-19). Coach: cancel one of the caller''s private lessons or group sessions (coach_cancel: everyone refunded and told, never a strike). coach_self; INVALID_ARGUMENT p_reason; LESSON_NOT_FOUND (not the caller''s); LESSON_NOT_CANCELLABLE course_session (move it or cancel the course) | status | started; already cancelled by the coach -> {duplicate: true}; under the coach lock again; app.lesson_cancel_internal. Audit coaching.lesson.cancel. Returns {ok, duplicate, lesson_id, status, enrolments, refunds_started}.';
 
 revoke all on function app.coach_cancel_lesson(uuid, text) from public, anon;
 grant execute on function app.coach_cancel_lesson(uuid, text) to authenticated;
 
 create or replace function app.coach_cancel_course(p_course_id uuid, p_reason text) returns jsonb
-language plpgsql security definer set search_path = public as $coach_cancel_course_0280$
+language plpgsql security definer set search_path = public as $coach_cancel_course_0283$
 declare
   v_c    coaches%rowtype;
   v_code text;
@@ -2726,17 +2726,17 @@ begin
                           p_reason);
   return jsonb_build_object('ok', true, 'duplicate', false, 'course_id', v_co.id, 'status', 'cancelled',
                             'sessions_cancelled', v_r->'sessions_cancelled', 'enrolments', v_r->'enrolments');
-end $coach_cancel_course_0280$;
+end $coach_cancel_course_0283$;
 
 comment on function app.coach_cancel_course(uuid, text) is
-  '0280 (db.md §4.7.7; C-19). Coach: cancel the rest of one of the caller''s courses (sessions not yet started; one refund per payment, R28). coach_self; INVALID_ARGUMENT p_reason; LESSON_NOT_FOUND; LESSON_NOT_CANCELLABLE status (not open or running) | ended (no session left to start); already cancelled by the coach -> {duplicate: true}; app.course_cancel_internal. Audit coaching.course.cancel. Returns {ok, duplicate, course_id, status, sessions_cancelled, enrolments}.';
+  '0283 (db.md §4.7.7; C-19). Coach: cancel the rest of one of the caller''s courses (sessions not yet started; one refund per payment, R28). coach_self; INVALID_ARGUMENT p_reason; LESSON_NOT_FOUND; LESSON_NOT_CANCELLABLE status (not open or running) | ended (no session left to start); already cancelled by the coach -> {duplicate: true}; app.course_cancel_internal. Audit coaching.course.cancel. Returns {ok, duplicate, course_id, status, sessions_cancelled, enrolments}.';
 
 revoke all on function app.coach_cancel_course(uuid, text) from public, anon;
 grant execute on function app.coach_cancel_course(uuid, text) to authenticated;
 
 -- The answer of a reschedule (RESCHEDULED) and of a court move.
 create or replace function app.lesson_moved_answer(p_lesson_id uuid, p_duplicate boolean) returns jsonb
-language sql stable security definer set search_path = public as $lesson_moved_answer_0280$
+language sql stable security definer set search_path = public as $lesson_moved_answer_0283$
   select jsonb_build_object(
            'duplicate', coalesce(p_duplicate, false),
            'lesson_id', l.id,
@@ -2752,10 +2752,10 @@ language sql stable security definer set search_path = public as $lesson_moved_a
                         where r.lesson_id = l.id and r.status in ('pending', 'confirmed', 'arrived')
                         limit 1) ct on true
    where l.id = p_lesson_id
-$lesson_moved_answer_0280$;
+$lesson_moved_answer_0283$;
 
 comment on function app.lesson_moved_answer(uuid, boolean) is
-  '0280 (db.md §4.7.6, R41). Internal. {duplicate, lesson_id, start_at, end_at, rescheduled_at, court_id, court_name_en, court_name_ar} of a lesson after a reschedule or a court move.';
+  '0283 (db.md §4.7.6, R41). Internal. {duplicate, lesson_id, start_at, end_at, rescheduled_at, court_id, court_name_en, court_name_ar} of a lesson after a reschedule or a court move.';
 
 revoke all on function app.lesson_moved_answer(uuid, boolean) from public, anon, authenticated;
 
@@ -2771,7 +2771,7 @@ revoke all on function app.lesson_moved_answer(uuid, boolean) from public, anon,
 create or replace function app.lesson_reschedule_internal(p_lesson_id uuid, p_start_at timestamptz, p_actor text,
                                                           p_profile_id uuid, p_staff_id uuid, p_degraded boolean)
 returns jsonb
-language plpgsql security definer set search_path = public as $lesson_reschedule_internal_0280$
+language plpgsql security definer set search_path = public as $lesson_reschedule_internal_0283$
 declare
   v_l      lessons%rowtype;
   v_co     courses%rowtype;
@@ -2913,10 +2913,10 @@ begin
                           jsonb_build_object('start_at', v_from, 'court_id', v_res.court_id),
                           jsonb_build_object('start_at', p_start_at, 'court_id', v_court, 'by', p_actor));
   return app.lesson_moved_answer(v_l.id, false);
-end $lesson_reschedule_internal_0280$;
+end $lesson_reschedule_internal_0283$;
 
 comment on function app.lesson_reschedule_internal(uuid, timestamptz, text, uuid, uuid, boolean) is
-  '0280 (db.md §4.7.6; R8, R32, R33, R47, R66). Internal: the shared body of coach_reschedule_session and desk_reschedule_session. INVALID_TRANSITION detail held; SESSION_NOT_MOVABLE ended | started; the same start -> {duplicate: true}; SLOT_NOT_ON_GRID, SLOT_IN_PAST, CLOSED_DATE, OUTSIDE_HOURS; DEGRADED_LOCKOUT when p_degraded; SESSION_NOT_MOVABLE order (a course session stays between its live neighbours); LESSON_CLOSED cutoff (an unjudged cut-off only, R66); COACH_UNAVAILABLE; under the coach lock COACH_BUSY (itself left out); every court, the lesson''s court row FOR UPDATE, stale holds; its own court when free, else app.lesson_pick_court (NO_COURT_FREE). Stamps rescheduled_at; an unjudged cut-off follows the start (a course''s from session 1, on the course and every session); the last session''s start becomes signup_closes_at. Event rescheduled {from_start_at, to_start_at, court_id}; audit coaching.reschedule. Returns {duplicate, lesson_id, start_at, end_at, rescheduled_at, court_id, court_name_en, court_name_ar}.';
+  '0283 (db.md §4.7.6; R8, R32, R33, R47, R66). Internal: the shared body of coach_reschedule_session and desk_reschedule_session. INVALID_TRANSITION detail held; SESSION_NOT_MOVABLE ended | started; the same start -> {duplicate: true}; SLOT_NOT_ON_GRID, SLOT_IN_PAST, CLOSED_DATE, OUTSIDE_HOURS; DEGRADED_LOCKOUT when p_degraded; SESSION_NOT_MOVABLE order (a course session stays between its live neighbours); LESSON_CLOSED cutoff (an unjudged cut-off only, R66); COACH_UNAVAILABLE; under the coach lock COACH_BUSY (itself left out); every court, the lesson''s court row FOR UPDATE, stale holds; its own court when free, else app.lesson_pick_court (NO_COURT_FREE). Stamps rescheduled_at; an unjudged cut-off follows the start (a course''s from session 1, on the course and every session); the last session''s start becomes signup_closes_at. Event rescheduled {from_start_at, to_start_at, court_id}; audit coaching.reschedule. Returns {duplicate, lesson_id, start_at, end_at, rescheduled_at, court_id, court_name_en, court_name_ar}.';
 
 revoke all on function app.lesson_reschedule_internal(uuid, timestamptz, text, uuid, uuid, boolean)
   from public, anon, authenticated;
@@ -2930,7 +2930,7 @@ revoke all on function app.lesson_reschedule_internal(uuid, timestamptz, text, u
 create or replace function app.lesson_mark_internal(p_lesson_id uuid, p_enrolment_id uuid, p_status text,
                                                     p_actor text, p_profile_id uuid, p_staff_id uuid)
 returns jsonb
-language plpgsql security definer set search_path = public as $lesson_mark_internal_0280$
+language plpgsql security definer set search_path = public as $lesson_mark_internal_0283$
 declare
   v_l    lessons%rowtype;
   v_e    lesson_enrolments%rowtype;
@@ -3010,16 +3010,16 @@ begin
   return jsonb_build_object('duplicate', false, 'lesson_id', v_l.id, 'enrolment_id', v_e.id,
                             'attendance', case when p_status = 'clear' then null else p_status end,
                             'status', case when p_status = 'clear' then null else p_status end);
-end $lesson_mark_internal_0280$;
+end $lesson_mark_internal_0283$;
 
 comment on function app.lesson_mark_internal(uuid, uuid, text, text, uuid, uuid) is
-  '0280 (db.md §4.7.8, §3.5; CD-2, CD-11, R31). Internal: the shared body of coach_mark_attendance and desk_mark_attendance. ENROLMENT_NOT_FOUND (not of this lesson, nor of its course covering the session); INVALID_TRANSITION not_started | marks_closed (24 h after the start) | not_booked | cancelled; under the coach lock again; the same mark -> {duplicate: true}. Upserts (or for clear deletes) the lesson_attendance row; no_show records a strike through app.lesson_strike_record (a place the guest booked only); attended or clear after a no-show deletes the unsettled strike row SKIP LOCKED. Event attended | no_show | unmarked; audit coaching.attendance. Returns {duplicate, lesson_id, enrolment_id, attendance, status}.';
+  '0283 (db.md §4.7.8, §3.5; CD-2, CD-11, R31). Internal: the shared body of coach_mark_attendance and desk_mark_attendance. ENROLMENT_NOT_FOUND (not of this lesson, nor of its course covering the session); INVALID_TRANSITION not_started | marks_closed (24 h after the start) | not_booked | cancelled; under the coach lock again; the same mark -> {duplicate: true}. Upserts (or for clear deletes) the lesson_attendance row; no_show records a strike through app.lesson_strike_record (a place the guest booked only); attended or clear after a no-show deletes the unsettled strike row SKIP LOCKED. Event attended | no_show | unmarked; audit coaching.attendance. Returns {duplicate, lesson_id, enrolment_id, attendance, status}.';
 
 revoke all on function app.lesson_mark_internal(uuid, uuid, text, text, uuid, uuid) from public, anon, authenticated;
 
 create or replace function app.coach_mark_attendance(p_lesson_id uuid, p_enrolment_id uuid, p_status text)
 returns jsonb
-language plpgsql security definer set search_path = public as $coach_mark_attendance_0280$
+language plpgsql security definer set search_path = public as $coach_mark_attendance_0283$
 declare
   v_c coaches%rowtype;
 begin
@@ -3031,16 +3031,16 @@ begin
     raise exception 'LESSON_NOT_FOUND' using errcode = 'P0001';
   end if;
   return app.lesson_mark_internal(p_lesson_id, p_enrolment_id, p_status, 'coach', v_c.profile_id, null);
-end $coach_mark_attendance_0280$;
+end $coach_mark_attendance_0283$;
 
 comment on function app.coach_mark_attendance(uuid, uuid, text) is
-  '0280 (db.md §4.7.8; CD-2, CD-11). Coach: mark a student of one of the caller''s sessions attended, no_show or clear. coach_self; INVALID_ARGUMENT p_status; LESSON_NOT_FOUND (not the caller''s); then app.lesson_mark_internal. Returns {duplicate, lesson_id, enrolment_id, attendance, status}.';
+  '0283 (db.md §4.7.8; CD-2, CD-11). Coach: mark a student of one of the caller''s sessions attended, no_show or clear. coach_self; INVALID_ARGUMENT p_status; LESSON_NOT_FOUND (not the caller''s); then app.lesson_mark_internal. Returns {duplicate, lesson_id, enrolment_id, attendance, status}.';
 
 revoke all on function app.coach_mark_attendance(uuid, uuid, text) from public, anon;
 grant execute on function app.coach_mark_attendance(uuid, uuid, text) to authenticated;
 
 create or replace function app.coach_reschedule_session(p_lesson_id uuid, p_start_at timestamptz) returns jsonb
-language plpgsql security definer set search_path = public as $coach_reschedule_session_0280$
+language plpgsql security definer set search_path = public as $coach_reschedule_session_0283$
 declare
   v_c coaches%rowtype;
 begin
@@ -3055,10 +3055,10 @@ begin
     raise exception 'LESSON_NOT_FOUND' using errcode = 'P0001';
   end if;
   return app.lesson_reschedule_internal(p_lesson_id, p_start_at, 'coach', v_c.profile_id, null, true);
-end $coach_reschedule_session_0280$;
+end $coach_reschedule_session_0283$;
 
 comment on function app.coach_reschedule_session(uuid, timestamptz) is
-  '0280 (db.md §4.7.6; C-19, R8, R15, R32, R47, R66). Coach: move one of the caller''s lessons (any kind) to another start at the same branch. coach_self; INVALID_ARGUMENT; LESSON_NOT_FOUND (not the caller''s); then app.lesson_reschedule_internal with the degraded check (R15). Returns {duplicate, lesson_id, start_at, end_at, rescheduled_at, court_id, court_name_en, court_name_ar}.';
+  '0283 (db.md §4.7.6; C-19, R8, R15, R32, R47, R66). Coach: move one of the caller''s lessons (any kind) to another start at the same branch. coach_self; INVALID_ARGUMENT; LESSON_NOT_FOUND (not the caller''s); then app.lesson_reschedule_internal with the degraded check (R15). Returns {duplicate, lesson_id, start_at, end_at, rescheduled_at, court_id, court_name_en, court_name_ar}.';
 
 revoke all on function app.coach_reschedule_session(uuid, timestamptz) from public, anon;
 grant execute on function app.coach_reschedule_session(uuid, timestamptz) to authenticated;
@@ -3074,17 +3074,17 @@ grant execute on function app.coach_reschedule_session(uuid, timestamptz) to aut
 -- The desk's customer as a typed label (R44, R68): the profile's name and
 -- phone copied into the enrolment's typed columns.
 create or replace function app.lesson_customer_label(p_profile_id uuid) returns jsonb
-language sql stable security definer set search_path = public as $lesson_customer_label_0280$
+language sql stable security definer set search_path = public as $lesson_customer_label_0283$
   select jsonb_build_object(
            'name', coalesce(nullif(left(app.safe_line(p.full_name), 80), ''), 'Guest'),
            'phone', case when coalesce(app.phone_digits(app.safe_line(p.phone)), '') ~ '^[0-9]{7,15}$'
                          then app.safe_line(p.phone) end)
     from profiles p
    where p.id = p_profile_id
-$lesson_customer_label_0280$;
+$lesson_customer_label_0283$;
 
 comment on function app.lesson_customer_label(uuid) is
-  '0280 (R44, R68). Internal. {name, phone} of a customer the desk picked, as the enrolment''s typed columns keep them: the profile''s name (1..80, Guest when empty) and its phone when readable.';
+  '0283 (R44, R68). Internal. {name, phone} of a customer the desk picked, as the enrolment''s typed columns keep them: the profile''s name (1..80, Guest when empty) and its phone when readable.';
 
 revoke all on function app.lesson_customer_label(uuid) from public, anon, authenticated;
 
@@ -3098,7 +3098,7 @@ create or replace function app.desk_book_lesson(
   p_party_size      int,
   p_idempotency_key text
 ) returns jsonb
-language plpgsql security definer set search_path = public as $desk_book_lesson_0280$
+language plpgsql security definer set search_path = public as $desk_book_lesson_0283$
 declare
   v_staff  uuid := auth.uid();
   v_name   text := app.safe_line(p_name);
@@ -3254,10 +3254,10 @@ begin
                                              'by', 'staff', 'customer_id', p_customer_id,
                                              'linked', v_gid is not null));
   return app.lesson_private_answer(v_e.id, false);
-end $desk_book_lesson_0280$;
+end $desk_book_lesson_0283$;
 
 comment on function app.desk_book_lesson(uuid, uuid, timestamptz, uuid, text, text, int, text) is
-  '0280 (db.md §4.7.4; C-8, C-21, D-12, R44, R56, R57, R68, X29). Desk (court_desk, manager, owner): book a private lesson for a picked customer (p_customer_id: linked at once, the profile''s name and phone copied) or a typed student (p_name, optional p_phone: a verified match links pending). FORBIDDEN (role first); INVALID_ARGUMENT (exactly one of p_customer_id and p_name; name, phone, party, key); LESSON_TYPE_NOT_FOUND (a private type at a visible branch); VENUE_MISMATCH; CUSTOMER_NOT_FOUND; replay; COACH_NOT_FOUND, COACH_NOT_AT_BRANCH, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED, PARTY_TOO_LARGE, ALREADY_ENROLLED detail coach; SLOT_NOT_ON_GRID, SLOT_IN_PAST, CLOSED_DATE, OUTSIDE_HOURS; COACH_UNAVAILABLE; under the coach lock the replay and COACH_BUSY; every court; NO_COURT_FREE. Never COACHING_OFF, BEYOND_HORIZON or DEGRADED_LOCKOUT. Events booked and added; audit coaching.lesson.book. Returns (X29) {duplicate, lesson_id, enrolment_id, court_id, court_name_en, court_name_ar, start_at, end_at, price_iqd, ...}.';
+  '0283 (db.md §4.7.4; C-8, C-21, D-12, R44, R56, R57, R68, X29). Desk (court_desk, manager, owner): book a private lesson for a picked customer (p_customer_id: linked at once, the profile''s name and phone copied) or a typed student (p_name, optional p_phone: a verified match links pending). FORBIDDEN (role first); INVALID_ARGUMENT (exactly one of p_customer_id and p_name; name, phone, party, key); LESSON_TYPE_NOT_FOUND (a private type at a visible branch); VENUE_MISMATCH; CUSTOMER_NOT_FOUND; replay; COACH_NOT_FOUND, COACH_NOT_AT_BRANCH, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED, PARTY_TOO_LARGE, ALREADY_ENROLLED detail coach; SLOT_NOT_ON_GRID, SLOT_IN_PAST, CLOSED_DATE, OUTSIDE_HOURS; COACH_UNAVAILABLE; under the coach lock the replay and COACH_BUSY; every court; NO_COURT_FREE. Never COACHING_OFF, BEYOND_HORIZON or DEGRADED_LOCKOUT. Events booked and added; audit coaching.lesson.book. Returns (X29) {duplicate, lesson_id, enrolment_id, court_id, court_name_en, court_name_ar, start_at, end_at, price_iqd, ...}.';
 
 revoke all on function app.desk_book_lesson(uuid, uuid, timestamptz, uuid, text, text, int, text) from public, anon;
 grant execute on function app.desk_book_lesson(uuid, uuid, timestamptz, uuid, text, text, int, text) to authenticated;
@@ -3265,7 +3265,7 @@ grant execute on function app.desk_book_lesson(uuid, uuid, timestamptz, uuid, te
 create or replace function app.desk_create_group(p_coach_id uuid, p_lesson_type_id uuid, p_start_at timestamptz,
                                                  p_idempotency_key text)
 returns jsonb
-language plpgsql security definer set search_path = public as $desk_create_group_0280$
+language plpgsql security definer set search_path = public as $desk_create_group_0283$
 declare
   v_staff  uuid := auth.uid();
   v_t      lesson_types%rowtype;
@@ -3316,10 +3316,10 @@ begin
   end if;
   return app.lesson_group_create_internal(v_c.id, v_t.id, p_start_at, 'staff', null, v_staff, p_idempotency_key,
                                           false);
-end $desk_create_group_0280$;
+end $desk_create_group_0283$;
 
 comment on function app.desk_create_group(uuid, uuid, timestamptz, text) is
-  '0280 (db.md §4.7.4; C-13, D-12, R47, R57). Desk: create a group session for a coach. FORBIDDEN (role first); INVALID_ARGUMENT; LESSON_TYPE_NOT_FOUND (a group type at a visible branch); VENUE_MISMATCH; replay (created by the caller); COACH_NOT_FOUND, COACH_NOT_AT_BRANCH, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED; then app.lesson_group_create_internal without the degraded check. Returns the group answer.';
+  '0283 (db.md §4.7.4; C-13, D-12, R47, R57). Desk: create a group session for a coach. FORBIDDEN (role first); INVALID_ARGUMENT; LESSON_TYPE_NOT_FOUND (a group type at a visible branch); VENUE_MISMATCH; replay (created by the caller); COACH_NOT_FOUND, COACH_NOT_AT_BRANCH, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED; then app.lesson_group_create_internal without the degraded check. Returns the group answer.';
 
 revoke all on function app.desk_create_group(uuid, uuid, timestamptz, text) from public, anon;
 grant execute on function app.desk_create_group(uuid, uuid, timestamptz, text) to authenticated;
@@ -3327,7 +3327,7 @@ grant execute on function app.desk_create_group(uuid, uuid, timestamptz, text) t
 create or replace function app.desk_create_course(p_coach_id uuid, p_lesson_type_id uuid, p_starts timestamptz[],
                                                   p_title_en text, p_title_ar text, p_idempotency_key text)
 returns jsonb
-language plpgsql security definer set search_path = public as $desk_create_course_0280$
+language plpgsql security definer set search_path = public as $desk_create_course_0283$
 declare
   v_staff    uuid := auth.uid();
   v_title_en text := coalesce(app.safe_line(p_title_en), '');
@@ -3383,10 +3383,10 @@ begin
   end if;
   return app.lesson_course_create_internal(v_c.id, v_t.id, p_starts, v_title_en, v_title_ar, 'staff', null,
                                            v_staff, p_idempotency_key, false);
-end $desk_create_course_0280$;
+end $desk_create_course_0283$;
 
 comment on function app.desk_create_course(uuid, uuid, timestamptz[], text, text, text) is
-  '0280 (db.md §4.7.4; C-13, C-19, D-12, R47, R57, X13). Desk: create a course for a coach, all or nothing. FORBIDDEN (role first); INVALID_ARGUMENT (titles over 80, key); LESSON_TYPE_NOT_FOUND (a course type at a visible branch); VENUE_MISMATCH; replay; COACH_NOT_FOUND, COACH_NOT_AT_BRANCH, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED; then app.lesson_course_create_internal without the degraded check. Returns (X13) the course answer.';
+  '0283 (db.md §4.7.4; C-13, C-19, D-12, R47, R57, X13). Desk: create a course for a coach, all or nothing. FORBIDDEN (role first); INVALID_ARGUMENT (titles over 80, key); LESSON_TYPE_NOT_FOUND (a course type at a visible branch); VENUE_MISMATCH; replay; COACH_NOT_FOUND, COACH_NOT_AT_BRANCH, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED; then app.lesson_course_create_internal without the degraded check. Returns (X13) the course answer.';
 
 revoke all on function app.desk_create_course(uuid, uuid, timestamptz[], text, text, text) from public, anon;
 grant execute on function app.desk_create_course(uuid, uuid, timestamptz[], text, text, text) to authenticated;
@@ -3394,7 +3394,7 @@ grant execute on function app.desk_create_course(uuid, uuid, timestamptz[], text
 create or replace function app.desk_add_student(p_lesson_id uuid, p_course_id uuid, p_customer_id uuid, p_name text,
                                                 p_phone text, p_idempotency_key text)
 returns jsonb
-language plpgsql security definer set search_path = public as $desk_add_student_0280$
+language plpgsql security definer set search_path = public as $desk_add_student_0283$
 declare
   v_staff  uuid := auth.uid();
   v_name   text := app.safe_line(p_name);
@@ -3534,16 +3534,16 @@ begin
                             'places_left', case when p_lesson_id is not null
                                              then greatest(v_l.max_places - app.lesson_places_taken(v_l.id), 0)
                                              else greatest(v_co.max_places - app.course_places_taken(v_co.id), 0) end);
-end $desk_add_student_0280$;
+end $desk_add_student_0283$;
 
 comment on function app.desk_add_student(uuid, uuid, uuid, text, text, text) is
-  '0280 (db.md §4.7.5; C-8, C-21, D-12, R39, R44, R48, R56, R57, R68, X29). Desk: add a picked customer (linked at once, name and phone copied) or a typed student (a verified phone match links pending) to a group session (until it ends) or a course (until sign-up closes), desk-paid. FORBIDDEN (role first); INVALID_ARGUMENT (one target; one of customer and name; name, phone, key); LESSON_NOT_FOUND (unknown, private, a course session, not visible); VENUE_MISMATCH; CUSTOMER_NOT_FOUND; replay; LESSON_CLOSED; COACH_INACTIVE; under the coach lock the same again and LESSON_FULL; ALREADY_ENROLLED (a picked customer already in; detail coach for the coach). No COACHING_OFF. Event added; audit coaching.student.add. Returns (X29) {duplicate, enrolment_id, price_iqd, places_left}.';
+  '0283 (db.md §4.7.5; C-8, C-21, D-12, R39, R44, R48, R56, R57, R68, X29). Desk: add a picked customer (linked at once, name and phone copied) or a typed student (a verified phone match links pending) to a group session (until it ends) or a course (until sign-up closes), desk-paid. FORBIDDEN (role first); INVALID_ARGUMENT (one target; one of customer and name; name, phone, key); LESSON_NOT_FOUND (unknown, private, a course session, not visible); VENUE_MISMATCH; CUSTOMER_NOT_FOUND; replay; LESSON_CLOSED; COACH_INACTIVE; under the coach lock the same again and LESSON_FULL; ALREADY_ENROLLED (a picked customer already in; detail coach for the coach). No COACHING_OFF. Event added; audit coaching.student.add. Returns (X29) {duplicate, enrolment_id, price_iqd, places_left}.';
 
 revoke all on function app.desk_add_student(uuid, uuid, uuid, text, text, text) from public, anon;
 grant execute on function app.desk_add_student(uuid, uuid, uuid, text, text, text) to authenticated;
 
 create or replace function app.desk_cancel_enrolment(p_enrolment_id uuid, p_reason text) returns jsonb
-language plpgsql security definer set search_path = public as $desk_cancel_enrolment_0280$
+language plpgsql security definer set search_path = public as $desk_cancel_enrolment_0283$
 declare
   v_staff  uuid := auth.uid();
   v_code   text;
@@ -3611,16 +3611,16 @@ begin
     'refund_due_iqd', coalesce((v_after->>'refund_due_desk_iqd')::bigint, 0),
     'online_refund', greatest(coalesce((v_after->>'online_refunded_iqd')::bigint, 0)
                               - coalesce((v_before->>'online_refunded_iqd')::bigint, 0), 0));
-end $desk_cancel_enrolment_0280$;
+end $desk_cancel_enrolment_0283$;
 
 comment on function app.desk_cancel_enrolment(uuid, text) is
-  '0280 (db.md §4.7.7; C-9, CD-2, X29). Desk: cancel one place (a private lesson goes with it as staff_cancel). FORBIDDEN (role first); INVALID_ARGUMENT p_reason; ENROLMENT_NOT_FOUND (unknown, not visible); VENUE_MISMATCH; already cancelled by staff -> {duplicate: true}; LESSON_NOT_CANCELLABLE status | ended (the lesson, or the course''s last covered session, has ended); under the coach lock again; app.enrolment_cancel_internal(kind staff): online money refunded through Money''s engine, never a strike. Audit coaching.student.remove. Returns (X29) {duplicate, enrolment_id, status, lesson_cancelled, refunds_started, refund_due_iqd (desk money now due back), online_refund (the amount the online refund started)}.';
+  '0283 (db.md §4.7.7; C-9, CD-2, X29). Desk: cancel one place (a private lesson goes with it as staff_cancel). FORBIDDEN (role first); INVALID_ARGUMENT p_reason; ENROLMENT_NOT_FOUND (unknown, not visible); VENUE_MISMATCH; already cancelled by staff -> {duplicate: true}; LESSON_NOT_CANCELLABLE status | ended (the lesson, or the course''s last covered session, has ended); under the coach lock again; app.enrolment_cancel_internal(kind staff): online money refunded through Money''s engine, never a strike. Audit coaching.student.remove. Returns (X29) {duplicate, enrolment_id, status, lesson_cancelled, refunds_started, refund_due_iqd (desk money now due back), online_refund (the amount the online refund started)}.';
 
 revoke all on function app.desk_cancel_enrolment(uuid, text) from public, anon;
 grant execute on function app.desk_cancel_enrolment(uuid, text) to authenticated;
 
 create or replace function app.desk_cancel_lesson(p_lesson_id uuid, p_reason text) returns jsonb
-language plpgsql security definer set search_path = public as $desk_cancel_lesson_0280$
+language plpgsql security definer set search_path = public as $desk_cancel_lesson_0283$
 declare
   v_staff uuid := auth.uid();
   v_code  text;
@@ -3665,16 +3665,16 @@ begin
                           p_reason);
   return jsonb_build_object('duplicate', false, 'lesson_id', v_l.id, 'status', 'cancelled',
                             'enrolments', v_r->'enrolments', 'refunds_started', v_r->'refunds_started');
-end $desk_cancel_lesson_0280$;
+end $desk_cancel_lesson_0283$;
 
 comment on function app.desk_cancel_lesson(uuid, text) is
-  '0280 (db.md §4.7.7; C-9, C-19, X29). Desk: cancel a private lesson or a group session (staff_cancel). FORBIDDEN (role first); INVALID_ARGUMENT p_reason; LESSON_NOT_FOUND (unknown, not visible); VENUE_MISMATCH; LESSON_NOT_CANCELLABLE course_session | status | started; already cancelled by staff -> {duplicate: true}; under the coach lock; app.lesson_cancel_internal. Audit coaching.lesson.cancel. Returns {duplicate, lesson_id, status, enrolments, refunds_started}.';
+  '0283 (db.md §4.7.7; C-9, C-19, X29). Desk: cancel a private lesson or a group session (staff_cancel). FORBIDDEN (role first); INVALID_ARGUMENT p_reason; LESSON_NOT_FOUND (unknown, not visible); VENUE_MISMATCH; LESSON_NOT_CANCELLABLE course_session | status | started; already cancelled by staff -> {duplicate: true}; under the coach lock; app.lesson_cancel_internal. Audit coaching.lesson.cancel. Returns {duplicate, lesson_id, status, enrolments, refunds_started}.';
 
 revoke all on function app.desk_cancel_lesson(uuid, text) from public, anon;
 grant execute on function app.desk_cancel_lesson(uuid, text) to authenticated;
 
 create or replace function app.desk_cancel_course(p_course_id uuid, p_reason text) returns jsonb
-language plpgsql security definer set search_path = public as $desk_cancel_course_0280$
+language plpgsql security definer set search_path = public as $desk_cancel_course_0283$
 declare
   v_staff uuid := auth.uid();
   v_code  text;
@@ -3719,16 +3719,16 @@ begin
                           p_reason);
   return jsonb_build_object('duplicate', false, 'course_id', v_co.id, 'status', 'cancelled',
                             'sessions_cancelled', v_r->'sessions_cancelled', 'enrolments', v_r->'enrolments');
-end $desk_cancel_course_0280$;
+end $desk_cancel_course_0283$;
 
 comment on function app.desk_cancel_course(uuid, text) is
-  '0280 (db.md §4.7.7; C-19, X29). Desk: cancel the rest of a course (staff_cancel; one refund per payment). FORBIDDEN (role first); INVALID_ARGUMENT p_reason; LESSON_NOT_FOUND (unknown, not visible); VENUE_MISMATCH; LESSON_NOT_CANCELLABLE status | ended; already cancelled by staff -> {duplicate: true}; app.course_cancel_internal. Audit coaching.course.cancel. Returns (X29) {duplicate, course_id, status, sessions_cancelled, enrolments}.';
+  '0283 (db.md §4.7.7; C-19, X29). Desk: cancel the rest of a course (staff_cancel; one refund per payment). FORBIDDEN (role first); INVALID_ARGUMENT p_reason; LESSON_NOT_FOUND (unknown, not visible); VENUE_MISMATCH; LESSON_NOT_CANCELLABLE status | ended; already cancelled by staff -> {duplicate: true}; app.course_cancel_internal. Audit coaching.course.cancel. Returns (X29) {duplicate, course_id, status, sessions_cancelled, enrolments}.';
 
 revoke all on function app.desk_cancel_course(uuid, text) from public, anon;
 grant execute on function app.desk_cancel_course(uuid, text) to authenticated;
 
 create or replace function app.desk_reschedule_session(p_lesson_id uuid, p_start_at timestamptz) returns jsonb
-language plpgsql security definer set search_path = public as $desk_reschedule_session_0280$
+language plpgsql security definer set search_path = public as $desk_reschedule_session_0283$
 declare
   v_l lessons%rowtype;
 begin
@@ -3749,19 +3749,19 @@ begin
     raise exception 'VENUE_MISMATCH' using errcode = 'P0001';
   end if;
   return app.lesson_reschedule_internal(p_lesson_id, p_start_at, 'staff', null, auth.uid(), false);
-end $desk_reschedule_session_0280$;
+end $desk_reschedule_session_0283$;
 
 comment on function app.desk_reschedule_session(uuid, timestamptz) is
-  '0280 (db.md §4.7.6; R8, R32, R47, R66, X29). Desk: move any lesson to another start at its branch. FORBIDDEN (role first); INVALID_ARGUMENT; LESSON_NOT_FOUND (unknown, not visible); VENUE_MISMATCH; then app.lesson_reschedule_internal (no degraded check). Returns {duplicate, lesson_id, start_at, end_at, rescheduled_at, court_id, court_name_en, court_name_ar}.';
+  '0283 (db.md §4.7.6; R8, R32, R47, R66, X29). Desk: move any lesson to another start at its branch. FORBIDDEN (role first); INVALID_ARGUMENT; LESSON_NOT_FOUND (unknown, not visible); VENUE_MISMATCH; then app.lesson_reschedule_internal (no degraded check). Returns {duplicate, lesson_id, start_at, end_at, rescheduled_at, court_id, court_name_en, court_name_ar}.';
 
 revoke all on function app.desk_reschedule_session(uuid, timestamptz) from public, anon;
 grant execute on function app.desk_reschedule_session(uuid, timestamptz) to authenticated;
 
 -- C-10, R7: the only way a lesson changes court (move_reservation refuses a
--- lesson row, 0277). Level M; same times, same branch; a running lesson may
+-- lesson row, 0280). Level M; same times, same branch; a running lesson may
 -- move; not R22-guarded, like every move.
 create or replace function app.desk_move_lesson_court(p_lesson_id uuid, p_court_id uuid) returns jsonb
-language plpgsql security definer set search_path = public as $desk_move_lesson_court_0280$
+language plpgsql security definer set search_path = public as $desk_move_lesson_court_0283$
 declare
   v_staff  uuid := auth.uid();
   v_l      lessons%rowtype;
@@ -3839,17 +3839,17 @@ begin
                           jsonb_build_object('court_id', v_res.court_id),
                           jsonb_build_object('court_id', p_court_id));
   return app.lesson_moved_answer(v_l.id, false);
-end $desk_move_lesson_court_0280$;
+end $desk_move_lesson_court_0283$;
 
 comment on function app.desk_move_lesson_court(uuid, uuid) is
-  '0280 (db.md §4.7.6; C-10, R7, R33, R34, X31). Desk: move a lesson to another active court of its branch at the same times (a running lesson may move). FORBIDDEN (role first); INVALID_ARGUMENT; LESSON_NOT_FOUND (unknown, not visible); VENUE_MISMATCH; INVALID_TRANSITION held | ended; COURT_NOT_FOUND (not an active court of the branch); the same court -> {duplicate: true}; under the coach lock again; every court, the lesson''s court row FOR UPDATE, stale holds; COURT_NOT_FOUND unless locked (R34); NO_COURT_FREE (a live row there). Event court_moved {from_court_id, to_court_id}; audit coaching.court_move. Returns {duplicate, lesson_id, court_id, court_name_en, court_name_ar, start_at, end_at, rescheduled_at}.';
+  '0283 (db.md §4.7.6; C-10, R7, R33, R34, X31). Desk: move a lesson to another active court of its branch at the same times (a running lesson may move). FORBIDDEN (role first); INVALID_ARGUMENT; LESSON_NOT_FOUND (unknown, not visible); VENUE_MISMATCH; INVALID_TRANSITION held | ended; COURT_NOT_FOUND (not an active court of the branch); the same court -> {duplicate: true}; under the coach lock again; every court, the lesson''s court row FOR UPDATE, stale holds; COURT_NOT_FOUND unless locked (R34); NO_COURT_FREE (a live row there). Event court_moved {from_court_id, to_court_id}; audit coaching.court_move. Returns {duplicate, lesson_id, court_id, court_name_en, court_name_ar, start_at, end_at, rescheduled_at}.';
 
 revoke all on function app.desk_move_lesson_court(uuid, uuid) from public, anon;
 grant execute on function app.desk_move_lesson_court(uuid, uuid) to authenticated;
 
 create or replace function app.desk_mark_attendance(p_lesson_id uuid, p_enrolment_id uuid, p_status text)
 returns jsonb
-language plpgsql security definer set search_path = public as $desk_mark_attendance_0280$
+language plpgsql security definer set search_path = public as $desk_mark_attendance_0283$
 declare
   v_l lessons%rowtype;
 begin
@@ -3867,10 +3867,10 @@ begin
     raise exception 'VENUE_MISMATCH' using errcode = 'P0001';
   end if;
   return app.lesson_mark_internal(p_lesson_id, p_enrolment_id, p_status, 'staff', null, auth.uid());
-end $desk_mark_attendance_0280$;
+end $desk_mark_attendance_0283$;
 
 comment on function app.desk_mark_attendance(uuid, uuid, text) is
-  '0280 (db.md §4.7.8; CD-2, CD-11). Desk: mark a student attended, no_show or clear. FORBIDDEN (role first); INVALID_ARGUMENT p_status; LESSON_NOT_FOUND (unknown, not visible); VENUE_MISMATCH; then app.lesson_mark_internal. Returns {duplicate, lesson_id, enrolment_id, attendance, status}.';
+  '0283 (db.md §4.7.8; CD-2, CD-11). Desk: mark a student attended, no_show or clear. FORBIDDEN (role first); INVALID_ARGUMENT p_status; LESSON_NOT_FOUND (unknown, not visible); VENUE_MISMATCH; then app.lesson_mark_internal. Returns {duplicate, lesson_id, enrolment_id, attendance, status}.';
 
 revoke all on function app.desk_mark_attendance(uuid, uuid, text) from public, anon;
 grant execute on function app.desk_mark_attendance(uuid, uuid, text) to authenticated;
@@ -3887,7 +3887,7 @@ grant execute on function app.desk_mark_attendance(uuid, uuid, text) to authenti
 -- progress run to their end; the photo folder is queued for removal and the
 -- path cleared (R43). A retired coach comes back only through coach_promote.
 create or replace function app.set_coach_status(p_coach_id uuid, p_status text, p_reason text) returns jsonb
-language plpgsql security definer set search_path = public as $set_coach_status_0280$
+language plpgsql security definer set search_path = public as $set_coach_status_0283$
 declare
   v_staff   uuid := auth.uid();
   v_reason  text := nullif(app.safe_line(p_reason), '');
@@ -3974,24 +3974,24 @@ begin
                           v_reason);
   return jsonb_build_object('coach_id', v_c.id, 'status', p_status, 'lessons_cancelled', v_lessons,
                             'courses_cancelled', v_courses, 'duplicate', false);
-end $set_coach_status_0280$;
+end $set_coach_status_0283$;
 
 comment on function app.set_coach_status(uuid, text, text) is
-  '0280 (db.md §4.7.7; C-25, R16, R43, R45, X29). Manager (coach in scope) and owner: pause, resume or retire a coach. FORBIDDEN (role); INVALID_ARGUMENT p_status | p_reason (over 200); COACH_NOT_FOUND; FORBIDDEN (scope); under the coach lock: the same status -> {duplicate: true}; a retired coach comes back only through coach_promote (INVALID_TRANSITION detail retired). Retiring is never refused: every held or scheduled lesson of the coach not yet started that is not a course session, at every branch, through app.lesson_cancel_internal(coach_retired), every open or running course with a session left to start through app.course_cancel_internal(coach_retired); then retired_at, the photo folder queued in coach_photo_purges and photo_path NULL. Audit coaching.coach.status with the counts. Returns (X29) {coach_id, status, lessons_cancelled, courses_cancelled, duplicate}.';
+  '0283 (db.md §4.7.7; C-25, R16, R43, R45, X29). Manager (coach in scope) and owner: pause, resume or retire a coach. FORBIDDEN (role); INVALID_ARGUMENT p_status | p_reason (over 200); COACH_NOT_FOUND; FORBIDDEN (scope); under the coach lock: the same status -> {duplicate: true}; a retired coach comes back only through coach_promote (INVALID_TRANSITION detail retired). Retiring is never refused: every held or scheduled lesson of the coach not yet started that is not a course session, at every branch, through app.lesson_cancel_internal(coach_retired), every open or running course with a session left to start through app.course_cancel_internal(coach_retired); then retired_at, the photo folder queued in coach_photo_purges and photo_path NULL. Audit coaching.coach.status with the counts. Returns (X29) {coach_id, status, lessons_cancelled, courses_cancelled, duplicate}.';
 
 revoke all on function app.set_coach_status(uuid, text, text) from public, anon;
 grant execute on function app.set_coach_status(uuid, text, text) to authenticated;
 
 -- ===========================================================================
--- 0280 lesson_booking, PART 2 (0280b): the coaching reads and the push fan-out
+-- 0283 lesson_booking, PART 2 (0283b): the coaching reads and the push fan-out
 -- (docs/design/coaching/db.md §4.7.9, §4.7.10, §5.2; guest.md §4.3, §4.5;
 -- operator.md §5.6; build contracts §1.5, §1.6, §1.7, §1.9, R12, R17, R18,
 -- R20, R40, R41, R43, R44, R45, R51, R54, R58, R61, R76, R78, R81).
 --
--- The verifier appends this part to 0280a (DB's bodies) to make one 0280
--- file: the `set lock_timeout` / `set statement_timeout` header is 0280a's.
+-- The verifier appends this part to 0283a (DB's bodies) to make one 0283
+-- file: the `set lock_timeout` / `set statement_timeout` header is 0283a's.
 -- Every function here is plpgsql unless it reads only tables, so a call to a
--- function of 0279, 0280a or Money's 0278 binds at run time.
+-- function of 0282, 0283a or Money's 0281 binds at run time.
 --
 --   1. Guest's push part (lane Guest, R18, R40):
 --        app.lesson_notify            the one queue for the lesson family
@@ -4007,7 +4007,7 @@ grant execute on function app.set_coach_status(uuid, text, text) to authenticate
 --        coaching_public, coach_profile, coach_slots, lesson_offer
 --   4. Guest reads: my_lessons, my_lesson (lesson_guest(false) first)
 --   5. Coach reads: coach_schedule, coach_lesson (coach_self() first; a
---      retired coach is NOT_A_COACH, R45). coach_me is 0279's.
+--      retired coach is NOT_A_COACH, R45). coach_me is 0282's.
 --   6. Desk reads: desk_lessons (R20 envelope), desk_lesson_detail,
 --      customer_lessons (role first, R57)
 --
@@ -4024,20 +4024,20 @@ grant execute on function app.set_coach_status(uuid, text, text) to authenticate
 -- Pushes (R40): DB's and Money's bodies write lesson_events rows; the
 -- lesson_events_notify trigger is the only queuer of every lesson.* and
 -- coach.* key except coach.statement_ready and coach.statement_paid (Money's
--- approve and mark-paid call lesson_notify directly, 0284). No body here or in
--- 0280a calls lesson_sync_reminders: the reminder triggers follow row state.
+-- approve and mark-paid call lesson_notify directly, 0287). No body here or in
+-- 0283a calls lesson_sync_reminders: the reminder triggers follow row state.
 --
 -- Locks: nothing here takes a lock. The triggers read lessons, courses and
 -- lesson_enrolments without FOR UPDATE and write only notification_outbox,
 -- which is not in the lock ORDER.
 --
 -- Functions of other files called here (bound late, by name):
---   0274 app.coaching_rules (not called; settings read directly)
---   0278 (Money) app.lesson_enrolment_money, app.lesson_fee_remaining,
+--   0277 app.coaching_rules (not called; settings read directly)
+--   0281 (Money) app.lesson_enrolment_money, app.lesson_fee_remaining,
 --        app.course_late_join_price
---   0279 app.coach_self, app.coach_available, app.lesson_on_grid,
+--   0282 app.coach_self, app.coach_available, app.lesson_on_grid,
 --        app.lesson_bookable, app.lesson_price_for
---   0280a app.lesson_guest, app.lesson_places_taken, app.course_places_taken
+--   0283a app.lesson_guest, app.lesson_places_taken, app.course_places_taken
 --   existing: app.open_venue_ids, app.visible_venue_ids, app.is_staff,
 --        app.is_staff_at, app.current_venue, app.is_degraded,
 --        app.match_court_claimed, app.customer_flags_json, app.push_nudge
@@ -4049,7 +4049,7 @@ grant execute on function app.set_coach_status(uuid, text, text) to authenticate
 -- Enrolments covering one session: the lesson's own, or a course enrolment
 -- whose covered session numbers include it. Any status; callers filter.
 create or replace function app.lesson_read_covering(p_lesson_id uuid) returns setof lesson_enrolments
-language sql stable security definer set search_path = public as $lesson_read_covering_0280$
+language sql stable security definer set search_path = public as $lesson_read_covering_0283$
   select e.* from lesson_enrolments e where e.lesson_id = p_lesson_id
   union all
   select e.*
@@ -4058,17 +4058,17 @@ language sql stable security definer set search_path = public as $lesson_read_co
    where l.id = p_lesson_id
      and l.course_id is not null
      and l.session_no between e.first_session_no and e.first_session_no + e.sessions_covered - 1
-$lesson_read_covering_0280$;
+$lesson_read_covering_0283$;
 
 comment on function app.lesson_read_covering(uuid) is
-  '0280 (Guest part). Internal. The enrolments covering one lesson session: enrolments of the lesson itself, or course enrolments whose covered sessions (first_session_no .. first_session_no + sessions_covered - 1) include it. Every status; callers filter.';
+  '0283 (Guest part). Internal. The enrolments covering one lesson session: enrolments of the lesson itself, or course enrolments whose covered sessions (first_session_no .. first_session_no + sessions_covered - 1) include it. Every status; callers filter.';
 
 revoke all on function app.lesson_read_covering(uuid) from public, anon, authenticated;
 
 -- The sessions one enrolment covers: its lesson, or its course's covered
 -- session numbers. Any status; callers order and filter.
 create or replace function app.lesson_read_covered(p_enrolment_id uuid) returns setof lessons
-language sql stable security definer set search_path = public as $lesson_read_covered_0280$
+language sql stable security definer set search_path = public as $lesson_read_covered_0283$
   select l.*
     from lesson_enrolments e
     join lessons l on l.id = e.lesson_id
@@ -4080,17 +4080,17 @@ language sql stable security definer set search_path = public as $lesson_read_co
    where e.id = p_enrolment_id
      and e.course_id is not null
      and l.session_no between e.first_session_no and e.first_session_no + e.sessions_covered - 1
-$lesson_read_covered_0280$;
+$lesson_read_covered_0283$;
 
 comment on function app.lesson_read_covered(uuid) is
-  '0280 (Guest part). Internal. The lesson sessions one enrolment covers: its lesson, or the sessions of its course numbered first_session_no .. first_session_no + sessions_covered - 1. Every status; callers filter and order.';
+  '0283 (Guest part). Internal. The lesson sessions one enrolment covers: its lesson, or the sessions of its course numbered first_session_no .. first_session_no + sessions_covered - 1. Every status; callers filter and order.';
 
 revoke all on function app.lesson_read_covered(uuid) from public, anon, authenticated;
 
 -- A course's reference session for a course-wide push (guest.md §4.5.1): its
 -- first session starting after now (live or just cancelled), else its last.
 create or replace function app.lesson_read_course_ref(p_course_id uuid) returns uuid
-language sql stable security definer set search_path = public as $lesson_read_course_ref_0280$
+language sql stable security definer set search_path = public as $lesson_read_course_ref_0283$
   select coalesce(
     (select l.id from lessons l
       where l.course_id = p_course_id and l.start_at > now()
@@ -4098,17 +4098,17 @@ language sql stable security definer set search_path = public as $lesson_read_co
     (select l.id from lessons l
       where l.course_id = p_course_id
       order by l.session_no desc limit 1))
-$lesson_read_course_ref_0280$;
+$lesson_read_course_ref_0283$;
 
 comment on function app.lesson_read_course_ref(uuid) is
-  '0280 (Guest part). Internal. The lesson a course-wide push names (guest.md §4.5.1, db.md §5.2): the course''s first session starting after now, whatever its status, else its last session.';
+  '0283 (Guest part). Internal. The lesson a course-wide push names (guest.md §4.5.1, db.md §5.2): the course''s first session starting after now, whatever its status, else its last session.';
 
 revoke all on function app.lesson_read_course_ref(uuid) from public, anon, authenticated;
 
 -- An enrolment's reference session for a guest push (guest.md §4.5.4): its
 -- lesson, or its first covered session starting after now, else its last.
 create or replace function app.lesson_read_enrolment_ref(p_enrolment_id uuid) returns uuid
-language sql stable security definer set search_path = public as $lesson_read_enrolment_ref_0280$
+language sql stable security definer set search_path = public as $lesson_read_enrolment_ref_0283$
   select coalesce(
     (select e.lesson_id from lesson_enrolments e where e.id = p_enrolment_id),
     (select c.id from app.lesson_read_covered(p_enrolment_id) c
@@ -4116,10 +4116,10 @@ language sql stable security definer set search_path = public as $lesson_read_en
       order by c.start_at, c.session_no limit 1),
     (select c.id from app.lesson_read_covered(p_enrolment_id) c
       order by c.session_no desc nulls last, c.start_at desc limit 1))
-$lesson_read_enrolment_ref_0280$;
+$lesson_read_enrolment_ref_0283$;
 
 comment on function app.lesson_read_enrolment_ref(uuid) is
-  '0280 (Guest part). Internal. The lesson a guest push about one enrolment names in params.lesson_id: the enrolment''s lesson, or for a course enrolment its first covered session starting after now, else its last covered session.';
+  '0283 (Guest part). Internal. The lesson a guest push about one enrolment names in params.lesson_id: the enrolment''s lesson, or for a course enrolment its first covered session starting after now, else its last covered session.';
 
 revoke all on function app.lesson_read_enrolment_ref(uuid) from public, anon, authenticated;
 
@@ -4135,7 +4135,7 @@ create or replace function app.lesson_notify(
   p_dedupe    text default null,
   p_params    jsonb default '{}'
 ) returns int
-language plpgsql security definer set search_path = public as $lesson_notify_0280$
+language plpgsql security definer set search_path = public as $lesson_notify_0283$
 declare
   c_keys constant jsonb := '{
     "lesson.booked": "lesson_update", "lesson.cancelled_by_coach": "lesson_update",
@@ -4274,10 +4274,10 @@ begin
     return 0;
   end;
   return v_count;
-end $lesson_notify_0280$;
+end $lesson_notify_0283$;
 
 comment on function app.lesson_notify(uuid, text, text, jsonb) is
-  '0280 (lane Guest, guest.md §4.5.1; R18, R40, R44). Internal: queues at most one notification_outbox row for a lesson-family title key, its kind taken from c_keys (the lesson subset of _shared/guest-push.json title_keys; tests/lesson-push.test.ts compares). p_ref is the route''s id and names the recipient: lesson.added_by_coach -> the enrolment''s account while its link is unconfirmed; every other lesson.* -> the enrolment''s account when it is a student (guest-booked or a confirmed link); coach.statement_* -> the statement''s coach; every other coach.* -> the lesson''s coach. Payload {route (lesson | coach_lesson | coach_statements), id, title_key, params} (+ dedupe); params closed to lesson_id, places_taken, places_total. lesson.reminder is due at the lesson''s start - 3 h (none when that is past); lesson.added_by_coach at now() + 5 s, never nudged; every other key now. Skips deleted and tokenless profiles, the actor (auth.uid(); a reminder never skips), and a recipient who had that dedupe in the last 15 minutes. INVALID_ARGUMENT (hint title_key, p_ref, params) for a bad call; a failing insert returns 0 with a warning. Returns the rows queued.';
+  '0283 (lane Guest, guest.md §4.5.1; R18, R40, R44). Internal: queues at most one notification_outbox row for a lesson-family title key, its kind taken from c_keys (the lesson subset of _shared/guest-push.json title_keys; tests/lesson-push.test.ts compares). p_ref is the route''s id and names the recipient: lesson.added_by_coach -> the enrolment''s account while its link is unconfirmed; every other lesson.* -> the enrolment''s account when it is a student (guest-booked or a confirmed link); coach.statement_* -> the statement''s coach; every other coach.* -> the lesson''s coach. Payload {route (lesson | coach_lesson | coach_statements), id, title_key, params} (+ dedupe); params closed to lesson_id, places_taken, places_total. lesson.reminder is due at the lesson''s start - 3 h (none when that is past); lesson.added_by_coach at now() + 5 s, never nudged; every other key now. Skips deleted and tokenless profiles, the actor (auth.uid(); a reminder never skips), and a recipient who had that dedupe in the last 15 minutes. INVALID_ARGUMENT (hint title_key, p_ref, params) for a bad call; a failing insert returns 0 with a warning. Returns the rows queued.';
 
 revoke all on function app.lesson_notify(uuid, text, text, jsonb) from public, anon, authenticated;
 
@@ -4285,7 +4285,7 @@ revoke all on function app.lesson_notify(uuid, text, text, jsonb) from public, a
 -- reminders go, then a scheduled lesson more than 3 hours out queues one per
 -- student covering it. Never raises.
 create or replace function app.lesson_sync_reminders(p_lesson_id uuid) returns void
-language plpgsql security definer set search_path = public as $lesson_sync_reminders_0280$
+language plpgsql security definer set search_path = public as $lesson_sync_reminders_0283$
 declare
   v_l lessons%rowtype;
   v_e uuid;
@@ -4315,10 +4315,10 @@ begin
   exception when others then
     raise warning 'lesson_sync_reminders: %', sqlerrm;
   end;
-end $lesson_sync_reminders_0280$;
+end $lesson_sync_reminders_0283$;
 
 comment on function app.lesson_sync_reminders(uuid) is
-  '0280 (lane Guest, guest.md §4.5.2; CD-7, C-21, R18). Internal: deletes the lesson''s unsent future lesson_reminder rows, then, when the lesson is scheduled and starts more than 3 hours from now, queues lesson.reminder at start - 3 h for every student covering it (a booked enrolment with an account that the guest booked, or whose link was confirmed; a lesson enrolment or a course enrolment covering the session). Never raises. Its only callers are the reminder triggers (through app.lesson_read_sync_once).';
+  '0283 (lane Guest, guest.md §4.5.2; CD-7, C-21, R18). Internal: deletes the lesson''s unsent future lesson_reminder rows, then, when the lesson is scheduled and starts more than 3 hours from now, queues lesson.reminder at start - 3 h for every student covering it (a booked enrolment with an account that the guest booked, or whose link was confirmed; a lesson enrolment or a course enrolment covering the session). Never raises. Its only callers are the reminder triggers (through app.lesson_read_sync_once).';
 
 revoke all on function app.lesson_sync_reminders(uuid) from public, anon, authenticated;
 
@@ -4328,7 +4328,7 @@ revoke all on function app.lesson_sync_reminders(uuid) from public, anon, authen
 -- that flushes it, so a SET CONSTRAINTS ... IMMEDIATE mid-transaction (the
 -- rolled-back test scenarios do it) starts a fresh list.
 create or replace function app.lesson_read_sync_once(p_lesson_id uuid) returns void
-language plpgsql security definer set search_path = public as $lesson_read_sync_once_0280$
+language plpgsql security definer set search_path = public as $lesson_read_sync_once_0283$
 declare
   v_stamp text := statement_timestamp()::text;
   v_raw   text := coalesce(current_setting('app.lesson_reminders_synced', true), '');
@@ -4343,15 +4343,15 @@ begin
   end if;
   perform set_config('app.lesson_reminders_synced', v_stamp || '|' || v_list || p_lesson_id::text || ',', true);
   perform app.lesson_sync_reminders(p_lesson_id);
-end $lesson_read_sync_once_0280$;
+end $lesson_read_sync_once_0283$;
 
 comment on function app.lesson_read_sync_once(uuid) is
-  '0280 (Guest part, guest.md §4.5.3, F21). Internal: app.lesson_sync_reminders for the lesson unless it was already synced in this flush (the transaction-local list app.lesson_reminders_synced, keyed by statement_timestamp()). Called only by the reminder triggers.';
+  '0283 (Guest part, guest.md §4.5.3, F21). Internal: app.lesson_sync_reminders for the lesson unless it was already synced in this flush (the transaction-local list app.lesson_reminders_synced, keyed by statement_timestamp()). Called only by the reminder triggers.';
 
 revoke all on function app.lesson_read_sync_once(uuid) from public, anon, authenticated;
 
 create or replace function app.trg_lesson_reminders() returns trigger
-language plpgsql security definer set search_path = public as $trg_lesson_reminders_0280$
+language plpgsql security definer set search_path = public as $trg_lesson_reminders_0283$
 begin
   begin
     perform app.lesson_read_sync_once(new.id);
@@ -4359,10 +4359,10 @@ begin
     raise warning 'trg_lesson_reminders: %', sqlerrm;
   end;
   return null;
-end $trg_lesson_reminders_0280$;
+end $trg_lesson_reminders_0283$;
 
 comment on function app.trg_lesson_reminders() is
-  '0280 (lane Guest, guest.md §4.5.3; R18). Trigger lessons_reminders (deferred, after an update of start_at or status): resyncs the lesson''s reminders once per flush. A held lesson turning scheduled, a reschedule of any kind, a cancel, a completion. Never fails the write.';
+  '0283 (lane Guest, guest.md §4.5.3; R18). Trigger lessons_reminders (deferred, after an update of start_at or status): resyncs the lesson''s reminders once per flush. A held lesson turning scheduled, a reschedule of any kind, a cancel, a completion. Never fails the write.';
 
 revoke all on function app.trg_lesson_reminders() from public, anon, authenticated;
 
@@ -4375,7 +4375,7 @@ create constraint trigger lessons_reminders
   execute function app.trg_lesson_reminders();
 
 create or replace function app.trg_enrolment_reminders() returns trigger
-language plpgsql security definer set search_path = public as $trg_enrolment_reminders_0280$
+language plpgsql security definer set search_path = public as $trg_enrolment_reminders_0283$
 declare
   v_l uuid;
 begin
@@ -4399,10 +4399,10 @@ begin
     raise warning 'trg_enrolment_reminders: %', sqlerrm;
   end;
   return null;
-end $trg_enrolment_reminders_0280$;
+end $trg_enrolment_reminders_0283$;
 
 comment on function app.trg_enrolment_reminders() is
-  '0280 (lane Guest, guest.md §4.5.3; C-21, R44, R78). Triggers lesson_enrolments_reminders_ins (a booked insert) and lesson_enrolments_reminders_upd (status, guest_id or link_confirmed_at changed), both deferred: a lesson enrolment resyncs its lesson, a course enrolment each scheduled session it covers, once per flush. A "Yes" to the link confirm adds the reminders; "Not me" leaves none. Never fails the write.';
+  '0283 (lane Guest, guest.md §4.5.3; C-21, R44, R78). Triggers lesson_enrolments_reminders_ins (a booked insert) and lesson_enrolments_reminders_upd (status, guest_id or link_confirmed_at changed), both deferred: a lesson enrolment resyncs its lesson, a course enrolment each scheduled session it covers, once per flush. A "Yes" to the link confirm adds the reminders; "Not me" leaves none. Never fails the write.';
 
 revoke all on function app.trg_enrolment_reminders() from public, anon, authenticated;
 
@@ -4428,7 +4428,7 @@ create constraint trigger lesson_enrolments_reminders_upd
 -- §4.5.1: l:<p_ref>:<title_key>). Nothing without a lesson to name.
 create or replace function app.lesson_read_push_guest(p_enrolment_id uuid, p_title_key text, p_lesson_id uuid)
 returns int
-language plpgsql security definer set search_path = public as $lesson_read_push_guest_0280$
+language plpgsql security definer set search_path = public as $lesson_read_push_guest_0283$
 begin
   if p_enrolment_id is null or p_lesson_id is null then
     return 0;
@@ -4436,10 +4436,10 @@ begin
   return app.lesson_notify(p_enrolment_id, p_title_key,
                            'l:' || p_enrolment_id::text || ':' || p_title_key,
                            jsonb_build_object('lesson_id', p_lesson_id::text));
-end $lesson_read_push_guest_0280$;
+end $lesson_read_push_guest_0283$;
 
 comment on function app.lesson_read_push_guest(uuid, text, uuid) is
-  '0280 (Guest part). Internal: app.lesson_notify for one enrolment (route lesson) with params {lesson_id} and the dedupe l:<enrolment>:<title_key>; 0 when either id is NULL. Called only by the lesson_events_notify trigger.';
+  '0283 (Guest part). Internal: app.lesson_notify for one enrolment (route lesson) with params {lesson_id} and the dedupe l:<enrolment>:<title_key>; 0 when either id is NULL. Called only by the lesson_events_notify trigger.';
 
 revoke all on function app.lesson_read_push_guest(uuid, text, uuid) from public, anon, authenticated;
 
@@ -4448,7 +4448,7 @@ revoke all on function app.lesson_read_push_guest(uuid, text, uuid) from public,
 -- and a retry does not.
 create or replace function app.lesson_read_push_coach(p_lesson_id uuid, p_title_key text, p_places jsonb default '{}')
 returns int
-language plpgsql security definer set search_path = public as $lesson_read_push_coach_0280$
+language plpgsql security definer set search_path = public as $lesson_read_push_coach_0283$
 begin
   if p_lesson_id is null then
     return 0;
@@ -4460,10 +4460,10 @@ begin
               then ':' || coalesce(p_places->>'places_taken', '-')
               else '' end,
     coalesce(p_places, '{}'::jsonb));
-end $lesson_read_push_coach_0280$;
+end $lesson_read_push_coach_0283$;
 
 comment on function app.lesson_read_push_coach(uuid, text, jsonb) is
-  '0280 (Guest part). Internal: app.lesson_notify for the coach of one lesson (route coach_lesson) with params {places_taken, places_total} or {}; the dedupe is l:<lesson>:<title_key>, plus :<places_taken> for coach.new_student and coach.student_cancelled. Called only by the lesson_events_notify trigger.';
+  '0283 (Guest part). Internal: app.lesson_notify for the coach of one lesson (route coach_lesson) with params {places_taken, places_total} or {}; the dedupe is l:<lesson>:<title_key>, plus :<places_taken> for coach.new_student and coach.student_cancelled. Called only by the lesson_events_notify trigger.';
 
 revoke all on function app.lesson_read_push_coach(uuid, text, jsonb) from public, anon, authenticated;
 
@@ -4486,7 +4486,7 @@ revoke all on function app.lesson_read_push_coach(uuid, text, jsonb) from public
 --                   change and max_places of the group session or course; a
 --                   private lesson sends neither
 create or replace function app.trg_lesson_events_notify() returns trigger
-language plpgsql security definer set search_path = public as $trg_lesson_events_notify_0280$
+language plpgsql security definer set search_path = public as $trg_lesson_events_notify_0283$
 declare
   v_l       lessons%rowtype;
   v_c       courses%rowtype;
@@ -4666,10 +4666,10 @@ begin
     raise warning 'trg_lesson_events_notify: %', sqlerrm;
   end;
   return null;
-end $trg_lesson_events_notify_0280$;
+end $trg_lesson_events_notify_0283$;
 
 comment on function app.trg_lesson_events_notify() is
-  '0280 (lane Guest, guest.md §4.5.4; R40, R44, R78). Trigger lesson_events_notify: the only queuer of every lesson.* and coach.* key but the two statement keys. booked: coach.new_student (a guest''s private booking) or coach.session_added (the desk scheduled a group session or course); joined (booked): coach.new_student + places; added: lesson.added_by_coach (an unconfirmed link, due now() + 5 s) or lesson.booked (a desk-picked customer), and coach.new_student + places when the desk added; paid_online: coach.new_student + places; expired: lesson.payment_expired; enrolment_cancelled by code: guest_free | guest_late | account_deleted -> coach.student_cancelled + places when it was booked; coach -> lesson.cancelled_by_coach; staff -> lesson.cancelled_by_staff (+ coach.student_cancelled while the group session or course is live); under_filled -> lesson.under_filled; course_cancelled -> by the course''s cancel_reason; cancelled staff_cancel: coach.lesson_cancelled_by_staff; under_filled (not late): coach.under_filled; rescheduled: lesson.rescheduled to each student covering it (+ coach.rescheduled_by_staff when the desk moved it); court_moved: lesson.court_moved to each student and coach.court_moved. Everything else is silent. Never fails the write.';
+  '0283 (lane Guest, guest.md §4.5.4; R40, R44, R78). Trigger lesson_events_notify: the only queuer of every lesson.* and coach.* key but the two statement keys. booked: coach.new_student (a guest''s private booking) or coach.session_added (the desk scheduled a group session or course); joined (booked): coach.new_student + places; added: lesson.added_by_coach (an unconfirmed link, due now() + 5 s) or lesson.booked (a desk-picked customer), and coach.new_student + places when the desk added; paid_online: coach.new_student + places; expired: lesson.payment_expired; enrolment_cancelled by code: guest_free | guest_late | account_deleted -> coach.student_cancelled + places when it was booked; coach -> lesson.cancelled_by_coach; staff -> lesson.cancelled_by_staff (+ coach.student_cancelled while the group session or course is live); under_filled -> lesson.under_filled; course_cancelled -> by the course''s cancel_reason; cancelled staff_cancel: coach.lesson_cancelled_by_staff; under_filled (not late): coach.under_filled; rescheduled: lesson.rescheduled to each student covering it (+ coach.rescheduled_by_staff when the desk moved it); court_moved: lesson.court_moved to each student and coach.court_moved. Everything else is silent. Never fails the write.';
 
 revoke all on function app.trg_lesson_events_notify() from public, anon, authenticated;
 
@@ -4689,7 +4689,7 @@ create trigger lesson_events_notify
 -- and photo, keyed by coaches.id (R43). A retired coach never reaches a guest
 -- surface by name (R63): the names and photo read null.
 create or replace function app.lesson_read_coach_card(p_coach_id uuid) returns jsonb
-language sql stable security definer set search_path = public as $lesson_read_coach_card_0280$
+language sql stable security definer set search_path = public as $lesson_read_coach_card_0283$
   select jsonb_build_object(
            'id', c.id,
            'display_name_en', case when c.status = 'retired' then null else c.display_name_en end,
@@ -4697,10 +4697,10 @@ language sql stable security definer set search_path = public as $lesson_read_co
            'photo_path', case when c.status = 'retired' then null else c.photo_path end)
     from coaches c
    where c.id = p_coach_id
-$lesson_read_coach_card_0280$;
+$lesson_read_coach_card_0283$;
 
 comment on function app.lesson_read_coach_card(uuid) is
-  '0280. Internal. {id, display_name_en, display_name_ar, photo_path} of one coach for a guest surface (id is coaches.id, never a profile id, R43); a retired coach''s names and photo read null (R63).';
+  '0283. Internal. {id, display_name_en, display_name_ar, photo_path} of one coach for a guest surface (id is coaches.id, never a profile id, R43); a retired coach''s names and photo read null (R63).';
 
 revoke all on function app.lesson_read_coach_card(uuid) from public, anon, authenticated;
 
@@ -4710,7 +4710,7 @@ revoke all on function app.lesson_read_coach_card(uuid) from public, anon, authe
 -- (before the last start), the next session in the next 60 days, a place
 -- left. Soonest first, at most 50. No student, no court.
 create or replace function app.lesson_read_sessions(p_venues uuid[], p_coach_id uuid default null) returns jsonb
-language plpgsql stable security definer set search_path = public as $lesson_read_sessions_0280$
+language plpgsql stable security definer set search_path = public as $lesson_read_sessions_0283$
 begin
   return coalesce((
     select jsonb_agg(x.j order by x.start_at, x.sort_id)
@@ -4790,10 +4790,10 @@ begin
                        and p.taken < c.max_places) s
              order by s.start_at, s.sort_id
              limit 50) x), '[]'::jsonb);
-end $lesson_read_sessions_0280$;
+end $lesson_read_sessions_0283$;
 
 comment on function app.lesson_read_sessions(uuid[], uuid) is
-  '0280. Internal. The listing of coaching_public and coach_profile (X1, X2 sessions[]): group sessions (scheduled, starting within 30 days, a place left) and courses (open or running, sign-up open, next session within 60 days, a place left) of active coaches who accepted going public (R16, R61) with an active branch row, at the given branches (and of one coach when given). {kind, lesson_id, course_id, venue_id, coach_id, lesson_type_id, title_en, title_ar, start_at, end_at (a course: its next session), sessions_count, sessions_left, places_left, max_places, signup_closes_at, cutoff_at}, soonest first, at most 50. No student, no court, no count by name.';
+  '0283. Internal. The listing of coaching_public and coach_profile (X1, X2 sessions[]): group sessions (scheduled, starting within 30 days, a place left) and courses (open or running, sign-up open, next session within 60 days, a place left) of active coaches who accepted going public (R16, R61) with an active branch row, at the given branches (and of one coach when given). {kind, lesson_id, course_id, venue_id, coach_id, lesson_type_id, title_en, title_ar, start_at, end_at (a course: its next session), sessions_count, sessions_left, places_left, max_places, signup_closes_at, cutoff_at}, soonest first, at most 50. No student, no court, no count by name.';
 
 revoke all on function app.lesson_read_sessions(uuid[], uuid) from public, anon, authenticated;
 
@@ -4801,7 +4801,7 @@ revoke all on function app.lesson_read_sessions(uuid[], uuid) from public, anon,
 -- next covered one not yet ended, else the last. A pending link (C-21) is the
 -- card only: no friend names, no court, no money beyond price_iqd.
 create or replace function app.lesson_read_my_row(p_enrolment_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = public as $lesson_read_my_row_0280$
+language plpgsql stable security definer set search_path = public as $lesson_read_my_row_0283$
 declare
   v_e       lesson_enrolments%rowtype;
   v_c       courses%rowtype;
@@ -4902,10 +4902,10 @@ begin
     'cutoff_at', coalesce(v_c.cutoff_at, v_ref.cutoff_at),
     'pending_payment', v_pay,
     'hold_expires_at', v_e.hold_expires_at);
-end $lesson_read_my_row_0280$;
+end $lesson_read_my_row_0283$;
 
 comment on function app.lesson_read_my_row(uuid) is
-  '0280. Internal. One my_lessons row (X7, guest.md §4.3): the enrolment, its kind, coach card, type and title, the session it speaks of (the next covered one not yet ended, else the last), its status and attendance, booked_by, confirm_needed (C-21), rescheduled (R8), party, payment mode and price, the money from Money''s lesson_enrolment_money (paid_online_iqd, owed_iqd), the latest online refund, places and cut-off, the open payment of a held place. A pending link carries no money beyond price_iqd.';
+  '0283. Internal. One my_lessons row (X7, guest.md §4.3): the enrolment, its kind, coach card, type and title, the session it speaks of (the next covered one not yet ended, else the last), its status and attendance, booked_by, confirm_needed (C-21), rescheduled (R8), party, payment mode and price, the money from Money''s lesson_enrolment_money (paid_online_iqd, owed_iqd), the latest online refund, places and cut-off, the open payment of a held place. A pending link carries no money beyond price_iqd.';
 
 revoke all on function app.lesson_read_my_row(uuid) from public, anon, authenticated;
 
@@ -4915,7 +4915,7 @@ revoke all on function app.lesson_read_my_row(uuid) from public, anon, authentic
 
 -- The /coaching page and the phone's coaches and classes (X1). Never raises.
 create or replace function app.coaching_public(p_venue_id uuid default null) returns jsonb
-language plpgsql stable security definer set search_path = public as $coaching_public_0280$
+language plpgsql stable security definer set search_path = public as $coaching_public_0283$
 declare
   v_venues  uuid[];
   v_coaches jsonb;
@@ -5019,10 +5019,10 @@ begin
     'lesson_types', v_types,
     'sessions', app.lesson_read_sessions(v_venues, null),
     'server_now', now());
-end $coaching_public_0280$;
+end $coaching_public_0283$;
 
 comment on function app.coaching_public(uuid) is
-  '0280 (db.md §4.7.9, guest.md §4.3; X1, C-11, R16, R61, R76). Anon and authenticated, public by design; never raises. {off: true} when the named branch has coaching off, is closed or unknown, or (p_venue_id NULL) no open branch has coaching on. Else {off: false, branches[{venue_id, name_en, name_ar, timezone, payment_mode, prices_public, cancellation_window_hours}], coaches[{id, display_name_en, display_name_ar, bio_en, bio_ar, photo_path, sort_order, venue_ids, offers[{lesson_type_id, venue_id, price_iqd}]}] (active coaches who accepted going public, with an active branch row), lesson_types[{id, venue_id, kind, name_*, description_*, duration_min, max_places, min_places, sessions_count, price_iqd, sort_order}] (on sale, taught by a listed coach), sessions[] (app.lesson_read_sessions), server_now}. Prices are always sent; the website drops them while prices_public is false. No student, phone, profile id or court id.';
+  '0283 (db.md §4.7.9, guest.md §4.3; X1, C-11, R16, R61, R76). Anon and authenticated, public by design; never raises. {off: true} when the named branch has coaching off, is closed or unknown, or (p_venue_id NULL) no open branch has coaching on. Else {off: false, branches[{venue_id, name_en, name_ar, timezone, payment_mode, prices_public, cancellation_window_hours}], coaches[{id, display_name_en, display_name_ar, bio_en, bio_ar, photo_path, sort_order, venue_ids, offers[{lesson_type_id, venue_id, price_iqd}]}] (active coaches who accepted going public, with an active branch row), lesson_types[{id, venue_id, kind, name_*, description_*, duration_min, max_places, min_places, sessions_count, price_iqd, sort_order}] (on sale, taught by a listed coach), sessions[] (app.lesson_read_sessions), server_now}. Prices are always sent; the website drops them while prices_public is false. No student, phone, profile id or court id.';
 
 revoke all on function app.coaching_public(uuid) from public;
 grant execute on function app.coaching_public(uuid) to anon, authenticated;
@@ -5031,7 +5031,7 @@ grant execute on function app.coaching_public(uuid) to anon, authenticated;
 -- the open branches with coaching on where the coach is active (the /c/<id>
 -- link names no branch).
 create or replace function app.coach_profile(p_coach_id uuid, p_venue_id uuid default null) returns jsonb
-language plpgsql stable security definer set search_path = public as $coach_profile_0280$
+language plpgsql stable security definer set search_path = public as $coach_profile_0283$
 declare
   v_co     coaches%rowtype;
   v_v      venues%rowtype;
@@ -5129,10 +5129,10 @@ begin
     'sessions', case when v_paused then '[]'::jsonb
                      else app.lesson_read_sessions(array[p_venue_id], v_co.id) end,
     'server_now', now());
-end $coach_profile_0280$;
+end $coach_profile_0283$;
 
 comment on function app.coach_profile(uuid, uuid) is
-  '0280 (db.md §4.7.9, guest.md §4.3; X2, R17, R61, R76). Anon and authenticated, public by design. INVALID_ARGUMENT (p_coach_id NULL); COACH_NOT_FOUND (unknown, retired, or not yet accepted). p_venue_id NULL: {off: true} when the coach is active at no open branch with coaching on, else {off: false, coach: {id, display_name_*, bio_*, photo_path, status, venue_ids}, venue: null, bookable, offers: [], sessions: [], server_now}. A named branch: {off: true} when it is closed, unknown or has coaching off; COACH_NOT_AT_BRANCH when the coach is not active there; else the card, venue {venue_id, name_*, timezone, phone (the branch''s), payment_mode, prices_public, cancellation_window_hours}, bookable, offers[{lesson_type_id, kind, name_*, description_*, duration_min, max_places, min_places, sessions_count, cutoff_hours, price_iqd (lesson_price_for)}] and sessions[] (app.lesson_read_sessions). A paused coach answers status paused, bookable false, no offers and no sessions (R76). No profile id, student or court.';
+  '0283 (db.md §4.7.9, guest.md §4.3; X2, R17, R61, R76). Anon and authenticated, public by design. INVALID_ARGUMENT (p_coach_id NULL); COACH_NOT_FOUND (unknown, retired, or not yet accepted). p_venue_id NULL: {off: true} when the coach is active at no open branch with coaching on, else {off: false, coach: {id, display_name_*, bio_*, photo_path, status, venue_ids}, venue: null, bookable, offers: [], sessions: [], server_now}. A named branch: {off: true} when it is closed, unknown or has coaching off; COACH_NOT_AT_BRANCH when the coach is not active there; else the card, venue {venue_id, name_*, timezone, phone (the branch''s), payment_mode, prices_public, cancellation_window_hours}, bookable, offers[{lesson_type_id, kind, name_*, description_*, duration_min, max_places, min_places, sessions_count, cutoff_hours, price_iqd (lesson_price_for)}] and sessions[] (app.lesson_read_sessions). A paused coach answers status paused, bookable false, no offers and no sessions (R76). No profile id, student or court.';
 
 revoke all on function app.coach_profile(uuid, uuid) from public;
 grant execute on function app.coach_profile(uuid, uuid) to anon, authenticated;
@@ -5148,7 +5148,7 @@ grant execute on function app.coach_profile(uuid, uuid) to anon, authenticated;
 create or replace function app.coach_slots(p_coach_id uuid, p_lesson_type_id uuid, p_from timestamptz,
                                            p_to timestamptz)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $coach_slots_0280$
+language plpgsql stable security definer set search_path = public as $coach_slots_0283$
 declare
   v_t        lesson_types%rowtype;
   v_co       coaches%rowtype;
@@ -5261,10 +5261,10 @@ begin
   return jsonb_build_object(
     'off', false, 'venue_id', v_venue, 'coach_id', v_co.id, 'lesson_type_id', v_t.id,
     'duration_min', v_t.duration_min, 'bookable', true, 'starts', v_starts, 'server_now', now());
-end $coach_slots_0280$;
+end $coach_slots_0283$;
 
 comment on function app.coach_slots(uuid, uuid, timestamptz, timestamptz) is
-  '0280 (db.md §4.7.9, guest.md §4.3; X3, C-2, C-20, R51, R61, R76, R77). Anon and authenticated, public by design. INVALID_ARGUMENT (a NULL, p_to <= p_from, a window over 14 days); LESSON_TYPE_NOT_FOUND (not a private type); COACH_NOT_FOUND (unknown, retired, or not accepted unless the caller is staff at the type''s branch or the coach themselves). {off: true} while the branch is closed or has coaching off, except to staff of the type''s branch (R51) and to the coach asking about themselves (coach mode). Else {off: false, venue_id, coach_id, lesson_type_id, duration_min, bookable, starts[{start_at, end_at}], server_now}: bookable false with no starts for a paused coach, a coach not active at the branch or not teaching the type, a type off sale or unpriced. Starts are the 30-minute grid starts after max(p_from, now()) ending by p_to, within max_booking_horizon_days and outside the protected horizon while the branch trades offline (guests only: not staff, not the coach themselves), inside opening hours (lesson_bookable), with the coach available (coach_available) and an active court with no live row over the period (a hold while live) that no waiting match claims. No court ids, names or money.';
+  '0283 (db.md §4.7.9, guest.md §4.3; X3, C-2, C-20, R51, R61, R76, R77). Anon and authenticated, public by design. INVALID_ARGUMENT (a NULL, p_to <= p_from, a window over 14 days); LESSON_TYPE_NOT_FOUND (not a private type); COACH_NOT_FOUND (unknown, retired, or not accepted unless the caller is staff at the type''s branch or the coach themselves). {off: true} while the branch is closed or has coaching off, except to staff of the type''s branch (R51) and to the coach asking about themselves (coach mode). Else {off: false, venue_id, coach_id, lesson_type_id, duration_min, bookable, starts[{start_at, end_at}], server_now}: bookable false with no starts for a paused coach, a coach not active at the branch or not teaching the type, a type off sale or unpriced. Starts are the 30-minute grid starts after max(p_from, now()) ending by p_to, within max_booking_horizon_days and outside the protected horizon while the branch trades offline (guests only: not staff, not the coach themselves), inside opening hours (lesson_bookable), with the coach available (coach_available) and an active court with no live row over the period (a hold while live) that no waiting match claims. No court ids, names or money.';
 
 revoke all on function app.coach_slots(uuid, uuid, timestamptz, timestamptz) from public;
 grant execute on function app.coach_slots(uuid, uuid, timestamptz, timestamptz) to anon, authenticated;
@@ -5272,7 +5272,7 @@ grant execute on function app.coach_slots(uuid, uuid, timestamptz, timestamptz) 
 -- One group session or course as a guest sees it before joining (X4).
 create or replace function app.lesson_offer(p_lesson_id uuid default null, p_course_id uuid default null)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $lesson_offer_0280$
+language plpgsql stable security definer set search_path = public as $lesson_offer_0283$
 declare
   v_uid      uuid := auth.uid();
   v_l        lessons%rowtype;
@@ -5461,10 +5461,10 @@ begin
     'cancellation_window_hours', v_vs.cancellation_window_hours,
     'mine', v_mine,
     'server_now', now());
-end $lesson_offer_0280$;
+end $lesson_offer_0283$;
 
 comment on function app.lesson_offer(uuid, uuid) is
-  '0280 (db.md §4.7.9, guest.md §4.3; X4, C-15, R16, R61, R76). Anon and authenticated, public by design. INVALID_ARGUMENT unless exactly one id; LESSON_NOT_FOUND (unknown, a private lesson or a course session''s id, a closed branch, a coach paused, retired or not accepted); {off: true} while the branch has coaching off. Else {kind (group | course), lesson_id | course_id, venue_id, timezone, phone (the branch''s), coach {id, display_name_*, photo_path}, type {id, name_*, description_*, duration_min}, title_*, start_at, end_at (a course: its next session), sessions[{lesson_id, session_no, start_at, end_at, status, started}] (course), status (open | full | closed | cancelled: closed after a group''s start or a course''s last start), places_left, max_places, min_places, places_taken (a count), cutoff_at, signup_closes_at, price_iqd (the caller''s price now: the place, the course, or its sessions not yet started, course_late_join_price), full_price_iqd, late_join {sessions_left, sessions_count} | null, payment_mode, cancellation_window_hours, mine {enrolment_id, status} | null (the caller''s own live, confirmed enrolment; signed in only), server_now}. No student, phone or profile id.';
+  '0283 (db.md §4.7.9, guest.md §4.3; X4, C-15, R16, R61, R76). Anon and authenticated, public by design. INVALID_ARGUMENT unless exactly one id; LESSON_NOT_FOUND (unknown, a private lesson or a course session''s id, a closed branch, a coach paused, retired or not accepted); {off: true} while the branch has coaching off. Else {kind (group | course), lesson_id | course_id, venue_id, timezone, phone (the branch''s), coach {id, display_name_*, photo_path}, type {id, name_*, description_*, duration_min}, title_*, start_at, end_at (a course: its next session), sessions[{lesson_id, session_no, start_at, end_at, status, started}] (course), status (open | full | closed | cancelled: closed after a group''s start or a course''s last start), places_left, max_places, min_places, places_taken (a count), cutoff_at, signup_closes_at, price_iqd (the caller''s price now: the place, the course, or its sessions not yet started, course_late_join_price), full_price_iqd, late_join {sessions_left, sessions_count} | null, payment_mode, cancellation_window_hours, mine {enrolment_id, status} | null (the caller''s own live, confirmed enrolment; signed in only), server_now}. No student, phone or profile id.';
 
 revoke all on function app.lesson_offer(uuid, uuid) from public;
 grant execute on function app.lesson_offer(uuid, uuid) to anon, authenticated;
@@ -5478,7 +5478,7 @@ grant execute on function app.lesson_offer(uuid, uuid) to anon, authenticated;
 -- cancelled = cancelled or expired. A pending link (C-21) is listed in
 -- upcoming only, as confirm_needed, while its lesson has not ended.
 create or replace function app.my_lessons(p_scope text default 'upcoming') returns jsonb
-language plpgsql stable security definer set search_path = public as $my_lessons_0280$
+language plpgsql stable security definer set search_path = public as $my_lessons_0283$
 declare
   v_p     profiles%rowtype := app.lesson_guest(false);
   v_scope text := coalesce(p_scope, 'upcoming');
@@ -5516,10 +5516,10 @@ begin
                    end
              order by 2
              limit 100) x), '[]'::jsonb);
-end $my_lessons_0280$;
+end $my_lessons_0283$;
 
 comment on function app.my_lessons(text) is
-  '0280 (db.md §4.7.9, guest.md §4.3; X7, C-21). Guest: the caller''s enrolments as flat rows (app.lesson_read_my_row: enrolment_id, kind, lesson_id, course_id, venue_id, coach card, type_name_*, title_*, start_at, end_at, session_no, sessions_count, first_session_no, sessions_covered, status, cancel_kind, lesson_status, attendance, booked_by, confirm_needed, rescheduled, party_size, payment_mode, price_iqd, paid_online_iqd, owed_iqd, refund, places_taken, min_places, cutoff_at, pending_payment, hold_expires_at). p_scope upcoming (held or booked, not ended or ended in the last 24 h; soonest first), past (booked, ended before that; latest first) or cancelled (cancelled or expired; latest first); at most 100. A pending link (a coach- or desk-typed phone that matched this account) is listed in upcoming only, until its lesson ends, with confirm_needed true and no money beyond price_iqd. INVALID_ARGUMENT for another scope. Never another student.';
+  '0283 (db.md §4.7.9, guest.md §4.3; X7, C-21). Guest: the caller''s enrolments as flat rows (app.lesson_read_my_row: enrolment_id, kind, lesson_id, course_id, venue_id, coach card, type_name_*, title_*, start_at, end_at, session_no, sessions_count, first_session_no, sessions_covered, status, cancel_kind, lesson_status, attendance, booked_by, confirm_needed, rescheduled, party_size, payment_mode, price_iqd, paid_online_iqd, owed_iqd, refund, places_taken, min_places, cutoff_at, pending_payment, hold_expires_at). p_scope upcoming (held or booked, not ended or ended in the last 24 h; soonest first), past (booked, ended before that; latest first) or cancelled (cancelled or expired; latest first); at most 100. A pending link (a coach- or desk-typed phone that matched this account) is listed in upcoming only, until its lesson ends, with confirm_needed true and no money beyond price_iqd. INVALID_ARGUMENT for another scope. Never another student.';
 
 revoke all on function app.my_lessons(text) from public, anon;
 grant execute on function app.my_lessons(text) to authenticated;
@@ -5529,7 +5529,7 @@ grant execute on function app.my_lessons(text) to authenticated;
 -- (the rule lesson_cancel_mine applies, C-9, CD-2, R8, C-23, R62), what the
 -- caller can do, and the branch's phone and time zone.
 create or replace function app.my_lesson(p_enrolment_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = public as $my_lesson_0280$
+language plpgsql stable security definer set search_path = public as $my_lesson_0283$
 declare
   v_p          profiles%rowtype := app.lesson_guest(false);
   v_e          lesson_enrolments%rowtype;
@@ -5693,10 +5693,10 @@ begin
     'timezone', coalesce(v_vs.timezone, v_v.timezone),
     'server_now', now())
   || case when v_sessions is null then '{}'::jsonb else jsonb_build_object('sessions', v_sessions) end;
-end $my_lesson_0280$;
+end $my_lesson_0283$;
 
 comment on function app.my_lesson(uuid) is
-  '0280 (db.md §4.7.9, guest.md §4.3; X8, C-9, C-21, C-23, CD-2, R8, R62). Guest: ENROLMENT_NOT_FOUND unless the enrolment names the caller in guest_id. The my_lessons row plus friend_names, court_name_* (once scheduled), sessions[{lesson_id, session_no, start_at, end_at, status, rescheduled, attendance}] (a course: the covered sessions), cancel {policy free | late | none, free_until, free_because (rescheduled | null), refund_iqd, kept_iqd (Money''s if_cancelled for the kind lesson_cancel_mine would apply), counts_late (a late cancel strikes: the guest booked it, CD-2), refund_sessions, kept_sessions, next_start_at (a course)}, can {cancel, pay, confirm}, branch_phone, timezone, server_now. A pending link answers the card only: no friend names, no court, can {cancel: false, pay: false, confirm: true}. Never another student.';
+  '0283 (db.md §4.7.9, guest.md §4.3; X8, C-9, C-21, C-23, CD-2, R8, R62). Guest: ENROLMENT_NOT_FOUND unless the enrolment names the caller in guest_id. The my_lessons row plus friend_names, court_name_* (once scheduled), sessions[{lesson_id, session_no, start_at, end_at, status, rescheduled, attendance}] (a course: the covered sessions), cancel {policy free | late | none, free_until, free_because (rescheduled | null), refund_iqd, kept_iqd (Money''s if_cancelled for the kind lesson_cancel_mine would apply), counts_late (a late cancel strikes: the guest booked it, CD-2), refund_sessions, kept_sessions, next_start_at (a course)}, can {cancel, pay, confirm}, branch_phone, timezone, server_now. A pending link answers the card only: no friend names, no court, can {cancel: false, pay: false, confirm: true}. Never another student.';
 
 revoke all on function app.my_lesson(uuid) from public, anon;
 grant execute on function app.my_lesson(uuid) to authenticated;
@@ -5707,7 +5707,7 @@ grant execute on function app.my_lesson(uuid) to authenticated;
 
 -- The coach's own lessons at every branch, and their time off (X10). No names.
 create or replace function app.coach_schedule(p_from timestamptz, p_to timestamptz) returns jsonb
-language plpgsql stable security definer set search_path = public as $coach_schedule_0280$
+language plpgsql stable security definer set search_path = public as $coach_schedule_0283$
 declare
   v_co coaches%rowtype := app.coach_self(true);
 begin
@@ -5772,17 +5772,17 @@ begin
          and o.cancelled_at is null
          and o.period && tstzrange(p_from, p_to, '[)')), '[]'::jsonb),
     'server_now', now());
-end $coach_schedule_0280$;
+end $coach_schedule_0283$;
 
 comment on function app.coach_schedule(timestamptz, timestamptz) is
-  '0280 (db.md §4.7.9, guest.md §4.3; X10, R45). Coach (coach_self first; NOT_A_COACH for a retired coach): INVALID_ARGUMENT (a NULL, p_to <= p_from, a window over 31 days). {lessons[{lesson_id, venue_id, kind, course_id, session_no, sessions_count, type_name_*, title_*, start_at, end_at, status, places_taken, max_places, min_places, cutoff_at, court_name_*, unmarked}] (the caller''s lessons at every branch starting in the window, every status but expired; unmarked = booked places with no attendance mark once started), time_off[{id, starts_at, ends_at}] (live, overlapping the window), server_now}. No names, phones or money.';
+  '0283 (db.md §4.7.9, guest.md §4.3; X10, R45). Coach (coach_self first; NOT_A_COACH for a retired coach): INVALID_ARGUMENT (a NULL, p_to <= p_from, a window over 31 days). {lessons[{lesson_id, venue_id, kind, course_id, session_no, sessions_count, type_name_*, title_*, start_at, end_at, status, places_taken, max_places, min_places, cutoff_at, court_name_*, unmarked}] (the caller''s lessons at every branch starting in the window, every status but expired; unmarked = booked places with no attendance mark once started), time_off[{id, starts_at, ends_at}] (live, overlapping the window), server_now}. No names, phones or money.';
 
 revoke all on function app.coach_schedule(timestamptz, timestamptz) from public, anon;
 grant execute on function app.coach_schedule(timestamptz, timestamptz) to authenticated;
 
 -- One of the coach's lessons with its roster (X11; C-16, CD-3, R44, R54).
 create or replace function app.coach_lesson(p_lesson_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = public as $coach_lesson_0280$
+language plpgsql stable security definer set search_path = public as $coach_lesson_0283$
 declare
   v_co            coaches%rowtype := app.coach_self(true);
   v_l             lessons%rowtype;
@@ -5933,10 +5933,10 @@ begin
       'mark', coalesce(v_mark, false)),
     'mark_until', v_l.start_at + interval '24 hours',
     'server_now', now());
-end $coach_lesson_0280$;
+end $coach_lesson_0283$;
 
 comment on function app.coach_lesson(uuid) is
-  '0280 (db.md §4.7.9, guest.md §4.3; X11, C-16, CD-3, R44, R45, R54). Coach (coach_self first; NOT_A_COACH for a retired coach): INVALID_ARGUMENT (NULL); LESSON_NOT_FOUND unless the lesson is the caller''s. {lesson {id, venue_id, kind, course_id, session_no, sessions_count, type_name_*, title_*, start_at, end_at, status, cancel_reason, court_name_*, max_places, min_places, places_taken, cutoff_at}, course {id, status, sessions[{lesson_id, session_no, start_at, end_at, status}]} | null, roster[{enrolment_id, name, phone, party_size, friend_names, booked_by, payment_mode, status, attendance}] (held and booked places covering the session), can {add, remove, cancel, cancel_course, reschedule, mark}, mark_until (start + 24 h), server_now}. A coach- or staff-booked student shows the name and phone as typed, never the linked profile''s (R44); a guest''s own booking shows the account''s. The phone is NULL from end_at + 7 days (R54) and while the place is held. Never money, a profile id, or whether a typed phone matched.';
+  '0283 (db.md §4.7.9, guest.md §4.3; X11, C-16, CD-3, R44, R45, R54). Coach (coach_self first; NOT_A_COACH for a retired coach): INVALID_ARGUMENT (NULL); LESSON_NOT_FOUND unless the lesson is the caller''s. {lesson {id, venue_id, kind, course_id, session_no, sessions_count, type_name_*, title_*, start_at, end_at, status, cancel_reason, court_name_*, max_places, min_places, places_taken, cutoff_at}, course {id, status, sessions[{lesson_id, session_no, start_at, end_at, status}]} | null, roster[{enrolment_id, name, phone, party_size, friend_names, booked_by, payment_mode, status, attendance}] (held and booked places covering the session), can {add, remove, cancel, cancel_course, reschedule, mark}, mark_until (start + 24 h), server_now}. A coach- or staff-booked student shows the name and phone as typed, never the linked profile''s (R44); a guest''s own booking shows the account''s. The phone is NULL from end_at + 7 days (R54) and while the place is held. Never money, a profile id, or whether a typed phone matched.';
 
 revoke all on function app.coach_lesson(uuid) from public, anon;
 grant execute on function app.coach_lesson(uuid) to authenticated;
@@ -5949,7 +5949,7 @@ grant execute on function app.coach_lesson(uuid) to authenticated;
 -- catalogue (X16, R20: the desk never calls coaching_settings or
 -- coaches_admin). Answers whether coaching is on or off (R51).
 create or replace function app.desk_lessons(p_venue_id uuid, p_from timestamptz, p_to timestamptz) returns jsonb
-language plpgsql stable security definer set search_path = public as $desk_lessons_0280$
+language plpgsql stable security definer set search_path = public as $desk_lessons_0283$
 declare
   v_venue   uuid;
   v_vs      venue_settings%rowtype;
@@ -6101,10 +6101,10 @@ begin
     'coaches', v_coaches,
     'lesson_types', v_types,
     'lessons', v_lessons);
-end $desk_lessons_0280$;
+end $desk_lessons_0283$;
 
 comment on function app.desk_lessons(uuid, timestamptz, timestamptz) is
-  '0280 (db.md §4.7.9, operator.md §5.6.1; X16, R20, R44, R51, R57, C-24). Cashier, court desk, manager, owner (the role first): FORBIDDEN; INVALID_ARGUMENT (a NULL, p_to <= p_from, a window over 7 days); FORBIDDEN unless staff at the branch (p_venue_id, default the resolved branch). {venue_id, coaching_enabled, lesson_payment_mode, server_now, coaches[{coach_id, display_name_*, status, photo_path, public_accepted, lesson_type_ids, prices[{lesson_type_id, price_iqd}]}] (active and paused coaches at the branch, accepted or not), lesson_types[{lesson_type_id, kind, name_*, duration_min, price_iqd, max_places, min_places, cutoff_hours, sessions_count}] (on sale), lessons[{lesson_id, reservation_id, court_id, court_name_*, kind, status, start_at, end_at, hold_expires_at, booked_by_kind, coach_id, coach_name_*, lesson_type_id, type_name_*, course {course_id, title_*, session_no, sessions_count} | null, label (a private lesson''s booker as recorded, R44), party_size, places_taken, max_places, min_places, cutoff_at, enrolments, owing, owing_iqd, paid_online}]} for the lessons held, scheduled or completed starting in the window. Answers whether coaching is on or off.';
+  '0283 (db.md §4.7.9, operator.md §5.6.1; X16, R20, R44, R51, R57, C-24). Cashier, court desk, manager, owner (the role first): FORBIDDEN; INVALID_ARGUMENT (a NULL, p_to <= p_from, a window over 7 days); FORBIDDEN unless staff at the branch (p_venue_id, default the resolved branch). {venue_id, coaching_enabled, lesson_payment_mode, server_now, coaches[{coach_id, display_name_*, status, photo_path, public_accepted, lesson_type_ids, prices[{lesson_type_id, price_iqd}]}] (active and paused coaches at the branch, accepted or not), lesson_types[{lesson_type_id, kind, name_*, duration_min, price_iqd, max_places, min_places, cutoff_hours, sessions_count}] (on sale), lessons[{lesson_id, reservation_id, court_id, court_name_*, kind, status, start_at, end_at, hold_expires_at, booked_by_kind, coach_id, coach_name_*, lesson_type_id, type_name_*, course {course_id, title_*, session_no, sessions_count} | null, label (a private lesson''s booker as recorded, R44), party_size, places_taken, max_places, min_places, cutoff_at, enrolments, owing, owing_iqd, paid_online}]} for the lessons held, scheduled or completed starting in the window. Answers whether coaching is on or off.';
 
 revoke all on function app.desk_lessons(uuid, timestamptz, timestamptz) from public, anon;
 grant execute on function app.desk_lessons(uuid, timestamptz, timestamptz) to authenticated;
@@ -6113,7 +6113,7 @@ grant execute on function app.desk_lessons(uuid, timestamptz, timestamptz) to au
 -- the server's word; the operator only mirrors them for offline and
 -- capability.
 create or replace function app.desk_lesson_detail(p_lesson_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = public as $desk_lesson_detail_0280$
+language plpgsql stable security definer set search_path = public as $desk_lesson_detail_0283$
 declare
   v_l          lessons%rowtype;
   v_c          courses%rowtype;
@@ -6358,10 +6358,10 @@ begin
         'move_court', coalesce(v_desk and v_l.status = 'scheduled' and now() < v_l.end_at, false))),
     'enrolments', v_enrolments,
     'events', v_events);
-end $desk_lesson_detail_0280$;
+end $desk_lesson_detail_0283$;
 
 comment on function app.desk_lesson_detail(uuid) is
-  '0280 (db.md §4.7.9, operator.md §5.6.2; X17, C-21, R44, R57). Cashier, court desk, manager, owner (the role first): FORBIDDEN; INVALID_ARGUMENT (NULL); LESSON_NOT_FOUND (unknown, or outside app.visible_venue_ids()); VENUE_MISMATCH (visible but not staff there). {lesson {id, venue_id, kind, status, cancel_reason, start_at, end_at, duration_min, rescheduled_at, booked_by_kind, coach {coach_id, display_name_*, status}, lesson_type {lesson_type_id, name_*}, course {course_id, title_*, status, cancel_reason, session_no, sessions_count, signup_closes_at, places_taken, max_places, sessions[{lesson_id, session_no, start_at, end_at, status, court_name_*}]} | null, reservation_id, reservation_status, court_id, court_name_*, price_iqd, court_share_iqd, max_places, min_places, places_taken, cutoff_at, hold_expires_at, created_by_name, server_now, day_open, can {add_student, cancel, cancel_course, reschedule, move_court}}, enrolments[{enrolment_id, scope, status, cancel_kind, cancelled_at, customer_id, full_name, phone, typed, flags, party_size, friend_names, first_session_no, sessions_covered, booked_by_kind, booked_by_name, payment_mode, created_at, attendance {status, marked_at, marked_by_name} | null, money {price_iqd, owed_iqd, desk_paid_iqd, online_paid_iqd, refunded_iqd, kept_iqd, refund_due_iqd, take_iqd (lesson_fee_remaining)}, can {take_payment, cancel, mark_attended, mark_no_show, unmark}}], events[{at, type, actor, actor_name, enrolment_id, code, late}] (the last 50, newest first)}. A coach- or desk-booked student shows the name and phone recorded on the enrolment (typed true), never a linked profile''s; customer_id only for a guest''s own booking, a picked customer or a confirmed link (R44, C-21).';
+  '0283 (db.md §4.7.9, operator.md §5.6.2; X17, C-21, R44, R57). Cashier, court desk, manager, owner (the role first): FORBIDDEN; INVALID_ARGUMENT (NULL); LESSON_NOT_FOUND (unknown, or outside app.visible_venue_ids()); VENUE_MISMATCH (visible but not staff there). {lesson {id, venue_id, kind, status, cancel_reason, start_at, end_at, duration_min, rescheduled_at, booked_by_kind, coach {coach_id, display_name_*, status}, lesson_type {lesson_type_id, name_*}, course {course_id, title_*, status, cancel_reason, session_no, sessions_count, signup_closes_at, places_taken, max_places, sessions[{lesson_id, session_no, start_at, end_at, status, court_name_*}]} | null, reservation_id, reservation_status, court_id, court_name_*, price_iqd, court_share_iqd, max_places, min_places, places_taken, cutoff_at, hold_expires_at, created_by_name, server_now, day_open, can {add_student, cancel, cancel_course, reschedule, move_court}}, enrolments[{enrolment_id, scope, status, cancel_kind, cancelled_at, customer_id, full_name, phone, typed, flags, party_size, friend_names, first_session_no, sessions_covered, booked_by_kind, booked_by_name, payment_mode, created_at, attendance {status, marked_at, marked_by_name} | null, money {price_iqd, owed_iqd, desk_paid_iqd, online_paid_iqd, refunded_iqd, kept_iqd, refund_due_iqd, take_iqd (lesson_fee_remaining)}, can {take_payment, cancel, mark_attended, mark_no_show, unmark}}], events[{at, type, actor, actor_name, enrolment_id, code, late}] (the last 50, newest first)}. A coach- or desk-booked student shows the name and phone recorded on the enrolment (typed true), never a linked profile''s; customer_id only for a guest''s own booking, a picked customer or a confirmed link (R44, C-21).';
 
 revoke all on function app.desk_lesson_detail(uuid) from public, anon;
 grant execute on function app.desk_lesson_detail(uuid) to authenticated;
@@ -6371,7 +6371,7 @@ grant execute on function app.desk_lesson_detail(uuid) to authenticated;
 -- reaches a customer record), at the branches the caller sees; upcoming,
 -- then the last 20.
 create or replace function app.customer_lessons(p_customer_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = public as $customer_lessons_0280$
+language plpgsql stable security definer set search_path = public as $customer_lessons_0283$
 declare
   v_visible uuid[];
   v_co      coaches%rowtype;
@@ -6488,10 +6488,10 @@ begin
     'counts', v_counts,
     'lesson_strikes_30d', v_strikes,
     'lessons', v_lessons);
-end $customer_lessons_0280$;
+end $customer_lessons_0283$;
 
 comment on function app.customer_lessons(uuid) is
-  '0280 (db.md §4.7.9, operator.md §5.6.3; X18, C-21, R44, R57). Cashier, court desk, manager, owner (the role first): FORBIDDEN; INVALID_ARGUMENT (NULL); CUSTOMER_NOT_FOUND. {coach {coach_id, status, display_name_*, venue_ids} | null (the customer''s own coach row), counts {lessons, no_shows}, lesson_strikes_30d (counted lesson strikes in 30 days; the ladder itself is guest_hold_standing), lessons[{enrolment_id, lesson_id (the session the row speaks of), course_id, venue_id, kind, start_at, end_at, status, enrolment_status, attendance, type_name_*, coach_name_*, course_title_*, payment_mode, money {owed_iqd, desk_paid_iqd, online_paid_iqd, refund_due_iqd, take_iqd}}] (upcoming first, then the last 20)}. Only enrolments the customer booked, was picked for at the desk, or confirmed (C-21), at the caller''s visible branches.';
+  '0283 (db.md §4.7.9, operator.md §5.6.3; X18, C-21, R44, R57). Cashier, court desk, manager, owner (the role first): FORBIDDEN; INVALID_ARGUMENT (NULL); CUSTOMER_NOT_FOUND. {coach {coach_id, status, display_name_*, venue_ids} | null (the customer''s own coach row), counts {lessons, no_shows}, lesson_strikes_30d (counted lesson strikes in 30 days; the ladder itself is guest_hold_standing), lessons[{enrolment_id, lesson_id (the session the row speaks of), course_id, venue_id, kind, start_at, end_at, status, enrolment_status, attendance, type_name_*, coach_name_*, course_title_*, payment_mode, money {owed_iqd, desk_paid_iqd, online_paid_iqd, refund_due_iqd, take_iqd}}] (upcoming first, then the last 20)}. Only enrolments the customer booked, was picked for at the desk, or confirmed (C-21), at the caller''s visible branches.';
 
 revoke all on function app.customer_lessons(uuid) from public, anon;
 grant execute on function app.customer_lessons(uuid) to authenticated;

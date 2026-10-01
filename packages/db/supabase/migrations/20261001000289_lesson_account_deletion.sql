@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0286 lesson_account_deletion — coaching, lane DB: deleting an account that
+-- 0289 lesson_account_deletion — coaching, lane DB: deleting an account that
 -- takes or gives lessons (docs/design/coaching/db.md §4.10; build contracts
 -- §1.1, §1.8, C-21, C-29, CD-12, R28, R43, R44, R63).
 --
@@ -29,7 +29,7 @@ set statement_timeout = '60s';
 --
 -- CD-12 comes in two halves (the open-match rule, R25 of open matches; the
 -- coaching review's pick D9). This body takes no coach lock and no court lock
--- and calls nothing of Money's: lesson_sweep (0283) cancels the student's
+-- and calls nothing of Money's: lesson_sweep (0286) cancels the student's
 -- live enrolments not yet started as account_deleted (refund reason
 -- account_deleted, R28: only the shares of sessions not yet started go back)
 -- and a retired coach's lessons and courses as coach_retired, with refunds and
@@ -45,7 +45,7 @@ set statement_timeout = '60s';
 -- enrolment rows and its own coach row, by plain updates, outside any coach
 -- lock; they take nothing a coaching body could be holding while it waits on
 -- this one. They run before the outbox delete, as the open-match writes do:
--- the reminder triggers on lesson_enrolments (0280) may delete the account's
+-- the reminder triggers on lesson_enrolments (0283) may delete the account's
 -- queued reminders, and the outbox rows are taken last.
 --
 -- Same signature and the same grant (authenticated): the rls-matrix row, the
@@ -56,7 +56,7 @@ set statement_timeout = '60s';
 -- ===========================================================================
 create or replace function app.delete_my_account(p_confirm text default null)
 returns jsonb
-language plpgsql security definer set search_path = public as $delete_my_account_0286$
+language plpgsql security definer set search_path = public as $delete_my_account_0289$
 declare
   v_uid          uuid := auth.uid();
   v_profile      profiles%rowtype;
@@ -209,10 +209,10 @@ begin
   delete from match_blocks where blocker_id = v_uid or blocked_id = v_uid;
   get diagnostics v_blocks = row_count;
 
-  -- --- coaching (0286; db.md §4.10, CD-12, C-21, C-29, R43, R44, R63) -------
+  -- --- coaching (0289; db.md §4.10, CD-12, C-21, C-29, R43, R44, R63) -------
   --
   -- Written outside every coach lock on purpose (db.md §2.4 rule 7): no
-  -- coaching state reads these columns, and lesson_sweep (0283) cancels the
+  -- coaching state reads these columns, and lesson_sweep (0286) cancels the
   -- live enrolments and a retired coach's lessons within a minute, with
   -- refunds and pushes.
 
@@ -247,7 +247,7 @@ begin
 
   -- R43: the coach photo's folder is queued for removal from menu-media
   -- before the path is cleared; a service path removes coaches/<folder>/*
-  -- within a day (app.coach_photo_purge_due, app.coach_photo_purged, 0279).
+  -- within a day (app.coach_photo_purge_due, app.coach_photo_purged, 0282).
   insert into coach_photo_purges (coach_id, folder)
   select c.id, substring(c.photo_path from '^(coaches/[0-9a-f-]{36})/')
     from coaches c
@@ -346,10 +346,10 @@ begin
     'deleted',              true,
     'profile_id',           v_uid,
     'apple_revoke_pending', v_apple);
-end $delete_my_account_0286$;
+end $delete_my_account_0289$;
 
 comment on function app.delete_my_account(text) is
-  '0286, from 0264 (0077; db.md §4.9 of open matches, §4.10 of coaching; DF-20, CD-12, R25, R29, R43, R44, R63). Store-mandated in-app account deletion. Destroys the auth user (which cascades every session, refresh token and identity — this IS the global sign-out) and leaves profiles as an anonymised tombstone (name parts and gender emptied too) so reservations.guest_id and the venue statistics keep a parent. Open matches: the player''s seats and requests lose gender and friend_genders, every block by or of the player is deleted, and every ticket purchase with nothing reserved, in use or restorable is refunded at once (app.ticket_refund_deleted, one Qi refund each). Coaching: a pending typed-phone link to the account is dropped silently, as "Not me" (C-21); the account''s other enrolments lose typed phones and friend names, a typed name becoming ''Deleted account''; the account''s coach profile is retired, its bios emptied, its photo folder queued for removal (coach_photo_purges, R43) and its time-off reasons emptied, the display names kept for the statements (C-29). Takes no match, coach or court lock (R25, D9): the sweeps (0263, 0283) leave or cancel the live matches, enrolments and a retired coach''s lessons, with refunds (account_deleted, coach_retired) and pushes; meanwhile other players see "Former player". Refuses an anonymous session (ACCOUNT_REQUIRED), a staff account (FORBIDDEN — staff are deactivated), an account already deleted (ALREADY_DELETED) and any call without p_confirm => ''DELETE''. Apple''s /auth/revoke is NOT called: no .p8 key exists yet, so the audit row records apple_revoke_pending instead.';
+  '0289, from 0264 (0077; db.md §4.9 of open matches, §4.10 of coaching; DF-20, CD-12, R25, R29, R43, R44, R63). Store-mandated in-app account deletion. Destroys the auth user (which cascades every session, refresh token and identity — this IS the global sign-out) and leaves profiles as an anonymised tombstone (name parts and gender emptied too) so reservations.guest_id and the venue statistics keep a parent. Open matches: the player''s seats and requests lose gender and friend_genders, every block by or of the player is deleted, and every ticket purchase with nothing reserved, in use or restorable is refunded at once (app.ticket_refund_deleted, one Qi refund each). Coaching: a pending typed-phone link to the account is dropped silently, as "Not me" (C-21); the account''s other enrolments lose typed phones and friend names, a typed name becoming ''Deleted account''; the account''s coach profile is retired, its bios emptied, its photo folder queued for removal (coach_photo_purges, R43) and its time-off reasons emptied, the display names kept for the statements (C-29). Takes no match, coach or court lock (R25, D9): the sweeps (0263, 0286) leave or cancel the live matches, enrolments and a retired coach''s lessons, with refunds (account_deleted, coach_retired) and pushes; meanwhile other players see "Former player". Refuses an anonymous session (ACCOUNT_REQUIRED), a staff account (FORBIDDEN — staff are deactivated), an account already deleted (ALREADY_DELETED) and any call without p_confirm => ''DELETE''. Apple''s /auth/revoke is NOT called: no .p8 key exists yet, so the audit row records apple_revoke_pending instead.';
 
 revoke all on function app.delete_my_account(text) from public, anon, authenticated;
 grant execute on function app.delete_my_account(text) to authenticated;

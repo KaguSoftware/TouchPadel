@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0271 outbox_lesson_kinds — coaching, lane Guest (docs/design/coaching/guest.md
+-- 0274 outbox_lesson_kinds — coaching, lane Guest (docs/design/coaching/guest.md
 -- §4.4; build contracts §1.1, §1.2, §1.9, R18). CHECK widening only, alone in
 -- its file.
 --
@@ -11,7 +11,7 @@ set statement_timeout = '60s';
 -- _shared/guest-push.json is the one list of kinds, title keys and routes.
 -- send-push MUST be deployed with them before this file reaches hosted:
 -- deploy.yml deploys send-push first. Nothing queues these kinds before
--- app.lesson_notify (0280). The thirteen existing kinds are 0255:16-24 verbatim.
+-- app.lesson_notify (0283). The thirteen existing kinds are 0255:16-24 verbatim.
 
 alter table notification_outbox drop constraint if exists notification_outbox_kind_check;
 alter table notification_outbox
@@ -24,7 +24,7 @@ alter table notification_outbox
                   'lesson_update', 'lesson_reminder', 'coach_update'))
   not valid;
 
-do $validate_kind_check_0271$
+do $validate_kind_check_0274$
 begin
   if exists (select 1 from pg_constraint
               where conname = 'notification_outbox_kind_check'
@@ -32,4 +32,4 @@ begin
                 and not convalidated) then
     alter table notification_outbox validate constraint notification_outbox_kind_check;
   end if;
-end $validate_kind_check_0271$;
+end $validate_kind_check_0274$;

@@ -59,8 +59,8 @@ type Json = Record<string, unknown>;
 describe.skipIf(!docker)('0264 delete_my_account as the stack holds it', () => {
   it('takes no match, court or ticket lock it could wait on (R25), and refunds last', () => {
     // pg_get_functiondef prints its own $function$ tag, so the comment names the file.
-    // 0286 (lesson_account_deletion) re-issued it from 0264's body, coaching scrubs added.
-    expect(psql(`select obj_description('app.delete_my_account(text)'::regprocedure, 'pg_proc')`)).toMatch(/^0286, from 0264 /);
+    // 0289 (lesson_account_deletion) re-issued it from 0264's body, coaching scrubs added.
+    expect(psql(`select obj_description('app.delete_my_account(text)'::regprocedure, 'pg_proc')`)).toMatch(/^0289, from 0264 /);
     const def = psql(`select pg_get_functiondef('app.delete_my_account(text)'::regprocedure)`);
     for (const lock of ['lock_match_venue', 'lock_match_money', 'match_lock', 'lock_court', 'pg_advisory', 'for update']) {
       expect(def.toLowerCase(), lock).not.toContain(lock);

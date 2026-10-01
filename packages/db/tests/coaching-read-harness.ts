@@ -1,5 +1,5 @@
 /**
- * The shared harness of the 0280 read and push suites (coaching-reads.test.ts,
+ * The shared harness of the 0283 read and push suites (coaching-reads.test.ts,
  * lesson-push.test.ts): on top of the 0261 match harness (one rolled-back
  * psql transaction, pg_temp.e running a call as a kept principal, pg_temp.guest
  * making a guest who may play), a coaching branch made inside it:
@@ -19,7 +19,7 @@
  *     tomorrow, on the 30-minute grid);
  *   * pg_temp.plant_lesson / plant_course / plant_enrolment  rows planted as
  *     postgres where no RPC can reach the state (an ended lesson, a held
- *     place, Money's online states), each satisfying every 0275 CHECK.
+ *     place, Money's online states), each satisfying every 0278 CHECK.
  *
  * Every fixture write clears request.jwt.claims first (0230: a fixture write
  * is not a staff write).

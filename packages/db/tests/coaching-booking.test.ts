@@ -1,5 +1,5 @@
 /**
- * Coaching, database sub-step 0280 lesson_booking, the core writes
+ * Coaching, database sub-step 0283 lesson_booking, the core writes
  * (docs/design/coaching/db.md §4.7, §6, §7; build contracts C-1, C-2, C-8,
  * C-9, C-10, C-13, C-15, C-19, C-20, C-21, C-23, C-24, C-25, CD-2, CD-9,
  * CD-11, R8, R9, R10, R25, R30, R32, R34, R44, R45, R47, R50, R56, R61, R66,
@@ -451,7 +451,7 @@ const BODY: string[] = [
   ),
 ];
 
-describe.skipIf(!docker)('coaching booking (0280 core writes), one transaction', () => {
+describe.skipIf(!docker)('coaching booking (0283 core writes), one transaction', () => {
   let r: Results;
   beforeAll(() => {
     r = scenario('c280', BODY);

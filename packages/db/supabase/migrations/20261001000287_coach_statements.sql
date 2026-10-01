@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0284 coach_statements — coaching, lane Money (docs/design/coaching/money.md
+-- 0287 coach_statements — coaching, lane Money (docs/design/coaching/money.md
 -- §7; build contracts §1.1, §1.5, §1.7, §1.9, C-6, C-12, C-24, C-25, C-28,
 -- C-29, CM-7..CM-12, CM-15, CM-16, R4, R21, R24, R40, R42, R45, R49, R59,
 -- R70, R72, R74, R81).
@@ -10,7 +10,7 @@ set statement_timeout = '60s';
 --                                    some branches in a time range, with each
 --                                    lesson's collected money and coach share.
 --                                    The one definition the statements (here)
---                                    and the reports (0285) read.
+--                                    and the reports (0288) read.
 --   2. app.coach_statement_plan      internal: the lines a draft of (coach,
 --                                    branch, month) would hold now (§7.2 steps
 --                                    4-6; R24: every line names its lesson).
@@ -28,14 +28,14 @@ set statement_timeout = '60s';
 --   8. cron tp_coach_statements '0 0 1 * *' UTC (03:00 on the 1st in Baghdad).
 --
 -- Money (C-6, CD-5): per statement lesson L, collected_L =
--- app.lesson_collected(L) (0278: the real money kept on every enrolment
+-- app.lesson_collected(L) (0281: the real money kept on every enrolment
 -- covering L, allocated evenly over the sessions each pays for; sandbox money
 -- counts 0, CM-15) and coach_L = app.lesson_coach_share(collected_L,
 -- L.court_share_iqd, L.coach_share_bp) = floor(bp x max(0, collected -
 -- court share) / 10000), the twin of @touch/core lessonCoachShare.
 --
 -- C-28, R42 (the salary_deductions precedent): coach pay never reaches an
--- LLM. The statement tables are excluded from the assistant (0275), the two
+-- LLM. The statement tables are excluded from the assistant (0278), the two
 -- person-money reports are never an assistant tool, and the audit rows written
 -- here carry ids, the month and the status only, never an amount or a payment
 -- reference: audit_log is readable by the owner assistant (its before/after
@@ -47,10 +47,10 @@ set statement_timeout = '60s';
 -- one coach's key per transaction (R59). The walker prints coach_advisory.
 --
 -- Functions of other coaching files this one calls (bound late, by name):
---   0275 (DB)    app.lock_coach
---   0278 (Money) app.lesson_collected, app.lesson_coach_share
---   0279 (DB)    app.coach_of_caller
---   0280 (Guest) app.lesson_notify (coach.statement_ready, coach.statement_paid:
+--   0278 (DB)    app.lock_coach
+--   0281 (Money) app.lesson_collected, app.lesson_coach_share
+--   0282 (DB)    app.coach_of_caller
+--   0283 (Guest) app.lesson_notify (coach.statement_ready, coach.statement_paid:
 --                Money's only two direct push calls, R40)
 
 -- ===========================================================================
@@ -84,7 +84,7 @@ create or replace function app.coach_statement_lessons(
   collected_iqd   bigint,
   coach_iqd       bigint
 )
-language sql stable security definer set search_path = public as $coach_statement_lessons_0284$
+language sql stable security definer set search_path = public as $coach_statement_lessons_0287$
   select x.id, x.venue_id, x.coach_id, x.lesson_type_id, x.kind, x.course_id, x.session_no::int,
          x.start_at, x.end_at, x.minutes, x.status, x.court_share_iqd::bigint, x.coach_share_bp,
          x.max_places::int, x.collected::bigint,
@@ -101,10 +101,10 @@ language sql stable security definer set search_path = public as $coach_statemen
              and (l.status in ('completed', 'scheduled')
                   or (l.status = 'cancelled' and l.cancel_reason = 'guest_cancel'))) x
    where x.status in ('completed', 'scheduled') or x.collected > 0
-$coach_statement_lessons_0284$;
+$coach_statement_lessons_0287$;
 
 comment on function app.coach_statement_lessons(uuid[], timestamptz, timestamptz, uuid) is
-  '0284 (money.md §7.1). Internal. The statement lessons of the branches p_venues (and coach p_coach_id when given) starting in [p_ts_from, p_ts_to): over (end_at <= now()) and completed or still scheduled, or cancelled guest_cancel with money kept (CM-7). Per lesson: its kind, course and session, minutes, status, the snapshotted court share and share_bp, max_places, collected_iqd = app.lesson_collected (real kept money, sandbox 0) and coach_iqd = app.lesson_coach_share(collected, court share, share_bp). The one definition read by the statements (0284) and the reports and day close (0285). Takes no lock.';
+  '0287 (money.md §7.1). Internal. The statement lessons of the branches p_venues (and coach p_coach_id when given) starting in [p_ts_from, p_ts_to): over (end_at <= now()) and completed or still scheduled, or cancelled guest_cancel with money kept (CM-7). Per lesson: its kind, course and session, minutes, status, the snapshotted court share and share_bp, max_places, collected_iqd = app.lesson_collected (real kept money, sandbox 0) and coach_iqd = app.lesson_coach_share(collected, court share, share_bp). The one definition read by the statements (0287) and the reports and day close (0288). Takes no lock.';
 
 revoke all on function app.coach_statement_lessons(uuid[], timestamptz, timestamptz, uuid) from public, anon, authenticated;
 
@@ -122,7 +122,7 @@ revoke all on function app.coach_statement_lessons(uuid[], timestamptz, timestam
 -- zero. R24: one line per lesson, always naming it.
 create or replace function app.coach_statement_plan(p_coach_id uuid, p_venue_id uuid, p_month date)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $coach_statement_plan_0284$
+language plpgsql stable security definer set search_path = public as $coach_statement_plan_0287$
 declare
   v_month date := date_trunc('month', p_month)::date;
   v_tz    text;
@@ -188,10 +188,10 @@ begin
    where ln.regular or ln.d_coach <> 0 or ln.d_collected <> 0;
 
   return v_out;
-end $coach_statement_plan_0284$;
+end $coach_statement_plan_0287$;
 
 comment on function app.coach_statement_plan(uuid, uuid, date) is
-  '0284 (money.md §7.2 steps 4-6; R24). Internal. The lines a draft of (p_coach_id, p_venue_id, the month of p_month) would hold now, as [{lesson_id, collected_iqd, court_share_iqd, share_bp, coach_iqd, is_adjustment}], regular lines first then by start: a statement lesson of the month with no line on an approved or paid statement is a regular line at its figures now; every other statement lesson of the 12 months before, and every lesson of the window with booked lines, is an adjustment of its figures now less its booked lines, kept only when the coach or collected delta is not zero. Read by coach_statement_build and by coach_statement_detail''s stale flag. Takes no lock.';
+  '0287 (money.md §7.2 steps 4-6; R24). Internal. The lines a draft of (p_coach_id, p_venue_id, the month of p_month) would hold now, as [{lesson_id, collected_iqd, court_share_iqd, share_bp, coach_iqd, is_adjustment}], regular lines first then by start: a statement lesson of the month with no line on an approved or paid statement is a regular line at its figures now; every other statement lesson of the 12 months before, and every lesson of the window with booked lines, is an adjustment of its figures now less its booked lines, kept only when the coach or collected delta is not zero. Read by coach_statement_build and by coach_statement_detail''s stale flag. Takes no lock.';
 
 revoke all on function app.coach_statement_plan(uuid, uuid, date) from public, anon, authenticated;
 
@@ -206,7 +206,7 @@ revoke all on function app.coach_statement_plan(uuid, uuid, date) from public, a
 -- statement. A draft of the month is rebuilt in place.
 create or replace function app.coach_statement_build(p_coach_id uuid, p_venue_id uuid, p_month date)
 returns uuid
-language plpgsql security definer set search_path = public as $coach_statement_build_0284$
+language plpgsql security definer set search_path = public as $coach_statement_build_0287$
 declare
   v_month  date;
   v_tz     text;
@@ -301,10 +301,10 @@ begin
                           jsonb_build_object('statement_id', v_id, 'coach_id', p_coach_id, 'month', v_month,
                                              'lines', jsonb_array_length(v_plan), 'status', 'draft'));
   return v_id;
-end $coach_statement_build_0284$;
+end $coach_statement_build_0287$;
 
 comment on function app.coach_statement_build(uuid, uuid, date) is
-  '0284 (money.md §7.2; CM-8, R24). Internal; the caller holds lock_coach(p_coach_id). Writes the draft of (coach, branch, the month of p_month) from app.coach_statement_plan: lessons_count, collected_iqd, court_share_iqd and coach_iqd are the sums of the regular lines, adjustments_iqd the sum of the adjustment lines'' coach_iqd; a draft of the month is rebuilt in place (refreshed_at). Returns its id, or NULL when the month is not over at the branch, the pair has a live draft of another month, the month has an approved or paid statement, or there is nothing to draft. Audits coach.statement_drafted / coach.statement_refreshed {statement_id, coach_id, month, lines, status} (no amount, C-28). What the coach is owed for a statement is coach_iqd + adjustments_iqd; it can be negative.';
+  '0287 (money.md §7.2; CM-8, R24). Internal; the caller holds lock_coach(p_coach_id). Writes the draft of (coach, branch, the month of p_month) from app.coach_statement_plan: lessons_count, collected_iqd, court_share_iqd and coach_iqd are the sums of the regular lines, adjustments_iqd the sum of the adjustment lines'' coach_iqd; a draft of the month is rebuilt in place (refreshed_at). Returns its id, or NULL when the month is not over at the branch, the pair has a live draft of another month, the month has an approved or paid statement, or there is nothing to draft. Audits coach.statement_drafted / coach.statement_refreshed {statement_id, coach_id, month, lines, status} (no amount, C-28). What the coach is owed for a statement is coach_iqd + adjustments_iqd; it can be negative.';
 
 revoke all on function app.coach_statement_build(uuid, uuid, date) from public, anon, authenticated;
 
@@ -318,7 +318,7 @@ revoke all on function app.coach_statement_build(uuid, uuid, date) from public, 
 -- month is drafted only once the one before it is approved).
 create or replace function app.coach_statement_draft_one(p_coach_id uuid, p_venue_id uuid, p_month date)
 returns boolean
-language plpgsql security definer set search_path = public as $coach_statement_draft_one_0284$
+language plpgsql security definer set search_path = public as $coach_statement_draft_one_0287$
 declare
   v_older date;
   v_id    uuid;
@@ -338,10 +338,10 @@ begin
       p_coach_id, p_venue_id, p_month, sqlerrm, sqlstate;
     return false;
   end;
-end $coach_statement_draft_one_0284$;
+end $coach_statement_draft_one_0287$;
 
 comment on function app.coach_statement_draft_one(uuid, uuid, date) is
-  '0284 (money.md §7.3; R59, R70). Internal. One (coach, branch) pair of the monthly run: under lock_coach, refreshes the pair''s live draft of an older month if there is one, else builds the month p_month (app.coach_statement_build). True when a draft was built or refreshed. Any error is a warning and false: one bad pair never stops the run.';
+  '0287 (money.md §7.3; R59, R70). Internal. One (coach, branch) pair of the monthly run: under lock_coach, refreshes the pair''s live draft of an older month if there is one, else builds the month p_month (app.coach_statement_build). True when a draft was built or refreshed. Any error is a warning and false: one bad pair never stops the run.';
 
 revoke all on function app.coach_statement_draft_one(uuid, uuid, date) from public, anon, authenticated;
 
@@ -360,7 +360,7 @@ revoke all on function app.coach_statement_draft_one(uuid, uuid, date) from publ
 -- month. The loop's cursor is held across the commits (PL/pgSQL makes a
 -- cursor loop holdable on COMMIT).
 create or replace procedure app.coach_statements_draft(p_month date default null)
-language plpgsql as $coach_statements_draft_0284$
+language plpgsql as $coach_statements_draft_0287$
 declare
   r     record;
   v_m   date;
@@ -384,10 +384,10 @@ begin
     commit;
   end loop;
   raise notice 'coach_statements_draft: % drafts built or refreshed', v_n;
-end $coach_statements_draft_0284$;
+end $coach_statements_draft_0287$;
 
 comment on procedure app.coach_statements_draft(date) is
-  '0284 (money.md §7.3; R59, R70). The monthly statement run (cron tp_coach_statements, ''0 0 1 * *'' UTC). Security invoker with no SET clause (PostgreSQL refuses COMMIT otherwise): for every (coach, branch) pair, in (coach_id, venue_id) order, app.coach_statement_draft_one for p_month, else the branch''s previous local month, then COMMIT, so a booking for a coach is never held past that coach''s own build and a failing pair never undoes the others. Raises a notice with the drafts built or refreshed. Granted to no client role. No push: drafts are hidden from coaches (CM-12).';
+  '0287 (money.md §7.3; R59, R70). The monthly statement run (cron tp_coach_statements, ''0 0 1 * *'' UTC). Security invoker with no SET clause (PostgreSQL refuses COMMIT otherwise): for every (coach, branch) pair, in (coach_id, venue_id) order, app.coach_statement_draft_one for p_month, else the branch''s previous local month, then COMMIT, so a booking for a coach is never held past that coach''s own build and a failing pair never undoes the others. Raises a notice with the drafts built or refreshed. Granted to no client role. No push: drafts are hidden from coaches (CM-12).';
 
 revoke all on procedure app.coach_statements_draft(date) from public, anon, authenticated;
 
@@ -408,7 +408,7 @@ revoke all on procedure app.coach_statements_draft(date) from public, anon, auth
 
 create or replace function app.coach_statement_refresh(p_statement_id uuid)
 returns jsonb
-language plpgsql security definer set search_path = public as $coach_statement_refresh_0284$
+language plpgsql security definer set search_path = public as $coach_statement_refresh_0287$
 declare
   v_s    coach_statements%rowtype;
   v_rail uuid;
@@ -461,17 +461,17 @@ begin
                               'created',      v_id is not null);
   end if;
   raise exception 'STATEMENT_NOT_DRAFT' using errcode = 'P0001', detail = v_s.status;
-end $coach_statement_refresh_0284$;
+end $coach_statement_refresh_0287$;
 
 comment on function app.coach_statement_refresh(uuid) is
-  '0284 (money.md §7.4). Manager or owner at the statement''s branch, the rail''s (R21), never their own (CM-11). A draft is rebuilt in place from today''s figures (a lesson that ended after the monthly run becomes a regular line); a void statement''s month is drafted afresh when the month has no live statement and the pair no live draft (else STATEMENT_NOT_DRAFT detail live_draft, or the live statement''s status). Returns {statement_id, status, created} (the new draft''s id when a void month was redrafted). FORBIDDEN (detail own_statement), INVALID_ARGUMENT p_statement_id (unknown or not visible), VENUE_MISMATCH, STATEMENT_NOT_DRAFT (approved, paid).';
+  '0287 (money.md §7.4). Manager or owner at the statement''s branch, the rail''s (R21), never their own (CM-11). A draft is rebuilt in place from today''s figures (a lesson that ended after the monthly run becomes a regular line); a void statement''s month is drafted afresh when the month has no live statement and the pair no live draft (else STATEMENT_NOT_DRAFT detail live_draft, or the live statement''s status). Returns {statement_id, status, created} (the new draft''s id when a void month was redrafted). FORBIDDEN (detail own_statement), INVALID_ARGUMENT p_statement_id (unknown or not visible), VENUE_MISMATCH, STATEMENT_NOT_DRAFT (approved, paid).';
 
 revoke all on function app.coach_statement_refresh(uuid) from public, anon;
 grant execute on function app.coach_statement_refresh(uuid) to authenticated;
 
 create or replace function app.coach_statement_approve(p_statement_id uuid)
 returns jsonb
-language plpgsql security definer set search_path = public as $coach_statement_approve_0284$
+language plpgsql security definer set search_path = public as $coach_statement_approve_0287$
 declare
   v_s     coach_statements%rowtype;
   v_rail  uuid;
@@ -507,7 +507,7 @@ begin
   end if;
 
   -- CM-9: approval freezes the draft as drafted or last refreshed; the lines
-  -- freeze with it (coach_statement_lines_frozen, 0275).
+  -- freeze with it (coach_statement_lines_frozen, 0278).
   update coach_statements
      set status = 'approved', approved_by = auth.uid(), approved_at = now()
    where id = v_s.id and status = 'draft';
@@ -538,10 +538,10 @@ begin
   end loop;
 
   return jsonb_build_object('statement_id', v_s.id, 'status', 'approved', 'next_statement_id', v_next);
-end $coach_statement_approve_0284$;
+end $coach_statement_approve_0287$;
 
 comment on function app.coach_statement_approve(uuid) is
-  '0284 (money.md §7.4; C-12, CM-8, CM-9, R40). Manager or owner at the statement''s branch, the rail''s (R21), never their own (CM-11). A draft becomes approved (approved_by, approved_at), its lines frozen; audit coach.statement_approved (no amount, C-28); the coach is told coach.statement_ready (app.lesson_notify, never failing the approval); then the first later complete month of the pair that yields a draft is built. No PIN (R4: the PIN is asked when marking paid). Returns {statement_id, status: approved, next_statement_id}. FORBIDDEN (detail own_statement), INVALID_ARGUMENT p_statement_id, VENUE_MISMATCH, STATEMENT_NOT_DRAFT (detail the status).';
+  '0287 (money.md §7.4; C-12, CM-8, CM-9, R40). Manager or owner at the statement''s branch, the rail''s (R21), never their own (CM-11). A draft becomes approved (approved_by, approved_at), its lines frozen; audit coach.statement_approved (no amount, C-28); the coach is told coach.statement_ready (app.lesson_notify, never failing the approval); then the first later complete month of the pair that yields a draft is built. No PIN (R4: the PIN is asked when marking paid). Returns {statement_id, status: approved, next_statement_id}. FORBIDDEN (detail own_statement), INVALID_ARGUMENT p_statement_id, VENUE_MISMATCH, STATEMENT_NOT_DRAFT (detail the status).';
 
 revoke all on function app.coach_statement_approve(uuid) from public, anon;
 grant execute on function app.coach_statement_approve(uuid) to authenticated;
@@ -556,7 +556,7 @@ create or replace function app.coach_statement_void(
   p_pin          text default null,
   p_device_id    text default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $coach_statement_void_0284$
+language plpgsql security definer set search_path = public as $coach_statement_void_0287$
 declare
   v_s      coach_statements%rowtype;
   v_rail   uuid;
@@ -642,10 +642,10 @@ begin
 
   return jsonb_build_object('duplicate', false, 'statement_id', v_s.id, 'status', 'void',
                             'voided_at', now());
-end $coach_statement_void_0284$;
+end $coach_statement_void_0287$;
 
 comment on function app.coach_statement_void(uuid, text, text, text) is
-  '0284 (money.md §7.4; CM-10, R49, R59, R70, R74). Manager or owner at the statement''s branch, the rail''s (R21), never their own (CM-11). A draft or approved statement becomes void (voided_by, voided_at, void_reason 1..200, never a run of 12 digits); its lessons then have no booked line, so the next draft carries them as adjustments (a voided negative month is how a clawback is carried forward). From approved it spends a manager PIN grant (p_pin is never read: the transports prove it to verify_manager_pin first); from draft no PIN. An already void statement answers {duplicate: true} and a paid one INVALID_TRANSITION detail paid, both before any grant is spent. Audit coach.statement_voided {statement_id, coach_id, month, from_status, status} with the authorising manager (no amount and no reason, C-28). No push. Returns {duplicate, statement_id, status: void, voided_at}. FORBIDDEN (detail own_statement), REASON_REQUIRED, INVALID_ARGUMENT (p_reason hint length or digits; p_statement_id), VENUE_MISMATCH, INVALID_TRANSITION paid, PIN_GRANT_REQUIRED.';
+  '0287 (money.md §7.4; CM-10, R49, R59, R70, R74). Manager or owner at the statement''s branch, the rail''s (R21), never their own (CM-11). A draft or approved statement becomes void (voided_by, voided_at, void_reason 1..200, never a run of 12 digits); its lessons then have no booked line, so the next draft carries them as adjustments (a voided negative month is how a clawback is carried forward). From approved it spends a manager PIN grant (p_pin is never read: the transports prove it to verify_manager_pin first); from draft no PIN. An already void statement answers {duplicate: true} and a paid one INVALID_TRANSITION detail paid, both before any grant is spent. Audit coach.statement_voided {statement_id, coach_id, month, from_status, status} with the authorising manager (no amount and no reason, C-28). No push. Returns {duplicate, statement_id, status: void, voided_at}. FORBIDDEN (detail own_statement), REASON_REQUIRED, INVALID_ARGUMENT (p_reason hint length or digits; p_statement_id), VENUE_MISMATCH, INVALID_TRANSITION paid, PIN_GRANT_REQUIRED.';
 
 revoke all on function app.coach_statement_void(uuid, text, text, text) from public, anon;
 grant execute on function app.coach_statement_void(uuid, text, text, text) to authenticated;
@@ -658,7 +658,7 @@ create or replace function app.coach_statement_mark_paid(
   p_pin          text,
   p_device_id    text default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $coach_statement_mark_paid_0284$
+language plpgsql security definer set search_path = public as $coach_statement_mark_paid_0287$
 declare
   v_s    coach_statements%rowtype;
   v_rail uuid;
@@ -745,10 +745,10 @@ begin
 
   return jsonb_build_object('duplicate', false, 'statement_id', v_s.id, 'status', 'paid',
                             'paid_at', v_at, 'total_iqd', v_s.coach_iqd + v_s.adjustments_iqd);
-end $coach_statement_mark_paid_0284$;
+end $coach_statement_mark_paid_0287$;
 
 comment on function app.coach_statement_mark_paid(uuid, text, text, text) is
-  '0284 (money.md §7.4; C-12, R4, R49, R59, R74). Manager or owner at the statement''s branch, the rail''s (R21), never their own (CM-11), with a manager PIN grant (p_pin is never read: the transports prove it to verify_manager_pin first, 0115). An approved statement whose total (coach_iqd + adjustments_iqd) is not negative becomes paid with p_reference (a receipt or transfer number, 1..80, never a run of 12 digits). The money is handed over outside the till: no payments, refunds or booking_payments row. Audit coach.statement_paid {statement_id, coach_id, month, status} with the authorising manager (no amount, no reference, C-28); the coach is told coach.statement_paid. Already paid answers {duplicate: true, paid_reference} before any grant is spent. Returns {duplicate, statement_id, status: paid, paid_at, total_iqd}. FORBIDDEN (detail own_statement), STATEMENT_REFERENCE_REQUIRED, INVALID_ARGUMENT (p_reference hint digits; p_statement_id), VENUE_MISMATCH, STATEMENT_NOT_APPROVED (detail the status, or negative), PIN_GRANT_REQUIRED.';
+  '0287 (money.md §7.4; C-12, R4, R49, R59, R74). Manager or owner at the statement''s branch, the rail''s (R21), never their own (CM-11), with a manager PIN grant (p_pin is never read: the transports prove it to verify_manager_pin first, 0115). An approved statement whose total (coach_iqd + adjustments_iqd) is not negative becomes paid with p_reference (a receipt or transfer number, 1..80, never a run of 12 digits). The money is handed over outside the till: no payments, refunds or booking_payments row. Audit coach.statement_paid {statement_id, coach_id, month, status} with the authorising manager (no amount, no reference, C-28); the coach is told coach.statement_paid. Already paid answers {duplicate: true, paid_reference} before any grant is spent. Returns {duplicate, statement_id, status: paid, paid_at, total_iqd}. FORBIDDEN (detail own_statement), STATEMENT_REFERENCE_REQUIRED, INVALID_ARGUMENT (p_reference hint digits; p_statement_id), VENUE_MISMATCH, STATEMENT_NOT_APPROVED (detail the status, or negative), PIN_GRANT_REQUIRED.';
 
 revoke all on function app.coach_statement_mark_paid(uuid, text, text, text) from public, anon;
 grant execute on function app.coach_statement_mark_paid(uuid, text, text, text) to authenticated;
@@ -764,7 +764,7 @@ grant execute on function app.coach_statement_mark_paid(uuid, text, text, text) 
 -- (R21: "All branches" lists both; writes stay on the rail's branch).
 create or replace function app.report_coach_statements(p_month date default null)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $report_coach_statements_0284$
+language plpgsql stable security definer set search_path = public as $report_coach_statements_0287$
 declare
   v_rv      uuid[] := app.report_venues();
   v_tz      text;
@@ -861,10 +861,10 @@ begin
     'statements',    v_rows,
     'missing',       v_missing,
     'totals',        v_totals);
-end $report_coach_statements_0284$;
+end $report_coach_statements_0287$;
 
 comment on function app.report_coach_statements(date) is
-  '0284 (money.md §7.5, X22; C-12, C-28, R21, R42). Manager or owner (reports_guard): the coach statements of month p_month (default the previous month in the analysed branch''s time zone) at every branch in the report scope, void ones listed and left out of the totals. {month, current_month, server_now, statements [{statement_id, coach_id, coach_name_en, coach_name_ar, venue_id, venue_name_en, venue_name_ar, month, status, lessons_count, collected_iqd, court_share_iqd, coach_iqd, adjustments_iqd, total_iqd, payable_iqd (= coach_iqd + adjustments_iqd), drafted_at, refreshed_at, approved_at, approved_by_name, paid_at, paid_by_name, paid_reference, voided_at, void_reason}], missing [{coach_id, coach_name_en, coach_name_ar, venue_id, reason: older_draft | not_drafted}], totals {statements, collected_iqd, court_share_iqd, coach_iqd, adjustments_iqd, total_iqd, payable_iqd, approved_unpaid_iqd, unpaid_iqd, paid_iqd}}. A person-money report: coach display names, never a guest; never an assistant tool (R42). FORBIDDEN.';
+  '0287 (money.md §7.5, X22; C-12, C-28, R21, R42). Manager or owner (reports_guard): the coach statements of month p_month (default the previous month in the analysed branch''s time zone) at every branch in the report scope, void ones listed and left out of the totals. {month, current_month, server_now, statements [{statement_id, coach_id, coach_name_en, coach_name_ar, venue_id, venue_name_en, venue_name_ar, month, status, lessons_count, collected_iqd, court_share_iqd, coach_iqd, adjustments_iqd, total_iqd, payable_iqd (= coach_iqd + adjustments_iqd), drafted_at, refreshed_at, approved_at, approved_by_name, paid_at, paid_by_name, paid_reference, voided_at, void_reason}], missing [{coach_id, coach_name_en, coach_name_ar, venue_id, reason: older_draft | not_drafted}], totals {statements, collected_iqd, court_share_iqd, coach_iqd, adjustments_iqd, total_iqd, payable_iqd, approved_unpaid_iqd, unpaid_iqd, paid_iqd}}. A person-money report: coach display names, never a guest; never an assistant tool (R42). FORBIDDEN.';
 
 revoke all on function app.report_coach_statements(date) from public, anon;
 grant execute on function app.report_coach_statements(date) to authenticated;
@@ -876,7 +876,7 @@ grant execute on function app.report_coach_statements(date) to authenticated;
 -- coach entered (R44), so the manager sees hoarding on the pay screen.
 create or replace function app.coach_statement_detail(p_statement_id uuid)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $coach_statement_detail_0284$
+language plpgsql stable security definer set search_path = public as $coach_statement_detail_0287$
 declare
   v_s        coach_statements%rowtype;
   v_rail     uuid;
@@ -1014,10 +1014,10 @@ begin
                                'mark_paid', not v_own and v_s.status = 'approved' and v_total >= 0),
     'coach_booked_no_shows', v_noshows,
     'lines',                 v_lines);
-end $coach_statement_detail_0284$;
+end $coach_statement_detail_0287$;
 
 comment on function app.coach_statement_detail(uuid) is
-  '0284 (money.md §7.5, X23; C-24, R21, R56, R72, R81). Manager or owner at the statement''s branch, the rail''s (R21). {statement (the report_coach_statements row), stale (a draft only: a rebuild now would change a line), can {refresh, approve, void, mark_paid} (all false on the caller''s own statement, CM-11; mark_paid needs a non-negative total), coach_booked_no_shows [{lesson_id, start_at, student_label}] (no-show marks on coach-booked enrolments of its lessons, the label the coach typed, R44), lines [{line_id, lesson_id, start_at, kind, type_name_en, type_name_ar, course_id, course_title_en, course_title_ar, session_no, lesson_status, is_adjustment, collected_iqd, court_share_iqd, share_bp, coach_iqd, enrolments, attended, no_shows}] regular lines first, by start}. Never a phone, a guest id or a profile. FORBIDDEN, INVALID_ARGUMENT p_statement_id, VENUE_MISMATCH.';
+  '0287 (money.md §7.5, X23; C-24, R21, R56, R72, R81). Manager or owner at the statement''s branch, the rail''s (R21). {statement (the report_coach_statements row), stale (a draft only: a rebuild now would change a line), can {refresh, approve, void, mark_paid} (all false on the caller''s own statement, CM-11; mark_paid needs a non-negative total), coach_booked_no_shows [{lesson_id, start_at, student_label}] (no-show marks on coach-booked enrolments of its lessons, the label the coach typed, R44), lines [{line_id, lesson_id, start_at, kind, type_name_en, type_name_ar, course_id, course_title_en, course_title_ar, session_no, lesson_status, is_adjustment, collected_iqd, court_share_iqd, share_bp, coach_iqd, enrolments, attended, no_shows}] regular lines first, by start}. Never a phone, a guest id or a profile. FORBIDDEN, INVALID_ARGUMENT p_statement_id, VENUE_MISMATCH.';
 
 revoke all on function app.coach_statement_detail(uuid) from public, anon;
 grant execute on function app.coach_statement_detail(uuid) to authenticated;
@@ -1030,7 +1030,7 @@ grant execute on function app.coach_statement_detail(uuid) to authenticated;
 -- statements at every branch, with their lines (shapes.ts: lines optional).
 create or replace function app.my_coach_statements(p_month date default null)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $my_coach_statements_0284$
+language plpgsql stable security definer set search_path = public as $my_coach_statements_0287$
 declare
   v_uid     uuid := auth.uid();
   v_coach   coaches%rowtype;
@@ -1133,10 +1133,10 @@ begin
     'months',        to_jsonb(v_months),
     'statements',    v_stmts,
     'current_month', v_current);
-end $my_coach_statements_0284$;
+end $my_coach_statements_0287$;
 
 comment on function app.my_coach_statements(date) is
-  '0284 (money.md §7.5, guest.md §4.3, X12; C-25, CM-12, R45, R70). Coach (any status, a retired one included: app.coach_of_caller): {months (the last 12 months with an approved or paid statement, newest first), statements [{id, venue_id, venue_name_en, venue_name_ar, month, status (approved | paid), lessons_count, collected_iqd, court_share_iqd, coach_iqd, adjustments_iqd, total_iqd, share_bp (the regular lines'' share when they agree, else NULL), approved_at, paid_at, paid_reference, lines?}], current_month [{venue_id, estimate: true, lessons, collected_iqd, coach_iqd}]}. p_month NULL: the statements of those months, no lines; a month: that month''s statements at every branch with their lines [{lesson_id, start_at, kind, type_name_en, type_name_ar, collected_iqd, court_share_iqd, share_bp, coach_iqd, is_adjustment}]. Drafts and voids are never sent; current_month is this month so far at each active branch (empty for a retired coach). Never a student. AUTH_REQUIRED, ACCOUNT_REQUIRED, NOT_A_COACH.';
+  '0287 (money.md §7.5, guest.md §4.3, X12; C-25, CM-12, R45, R70). Coach (any status, a retired one included: app.coach_of_caller): {months (the last 12 months with an approved or paid statement, newest first), statements [{id, venue_id, venue_name_en, venue_name_ar, month, status (approved | paid), lessons_count, collected_iqd, court_share_iqd, coach_iqd, adjustments_iqd, total_iqd, share_bp (the regular lines'' share when they agree, else NULL), approved_at, paid_at, paid_reference, lines?}], current_month [{venue_id, estimate: true, lessons, collected_iqd, coach_iqd}]}. p_month NULL: the statements of those months, no lines; a month: that month''s statements at every branch with their lines [{lesson_id, start_at, kind, type_name_en, type_name_ar, collected_iqd, court_share_iqd, share_bp, coach_iqd, is_adjustment}]. Drafts and voids are never sent; current_month is this month so far at each active branch (empty for a retired coach). Never a student. AUTH_REQUIRED, ACCOUNT_REQUIRED, NOT_A_COACH.';
 
 revoke all on function app.my_coach_statements(date) from public, anon;
 grant execute on function app.my_coach_statements(date) to authenticated;
@@ -1146,11 +1146,11 @@ grant execute on function app.my_coach_statements(date) to authenticated;
 --    previous local month is over everywhere the chain trades east of UTC.
 --    After a hosted push, cron.job must have the row (packages/db/CLAUDE.md).
 -- ===========================================================================
-do $coach_statements_cron_0284$
+do $coach_statements_cron_0287$
 begin
   if not exists (select 1 from pg_extension where extname = 'pg_cron') then
     raise notice 'pg_cron absent - tp_coach_statements not scheduled';
     return;
   end if;
   perform cron.schedule('tp_coach_statements', '0 0 1 * *', 'call app.coach_statements_draft(null);');
-end $coach_statements_cron_0284$;
+end $coach_statements_cron_0287$;

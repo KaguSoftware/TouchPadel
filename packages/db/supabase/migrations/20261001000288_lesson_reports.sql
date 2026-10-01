@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0285 lesson_reports — coaching, lane Money (docs/design/coaching/money.md
+-- 0288 lesson_reports — coaching, lane Money (docs/design/coaching/money.md
 -- §8; build contracts §1.1, §1.5, §1.7, §1.8, C-18, C-28, C-31, CM-13,
 -- CM-14, CM-15, R27, R42, R71, R72, R81).
 --
@@ -34,7 +34,7 @@ set statement_timeout = '60s';
 -- (lessonRevenue: desk payments by payments.created_at less their refunds by
 -- refunds.created_at, online by succeeded_at less refunds by refunded_at);
 -- owedToCoaches is accrual (the coach share of the statement lessons starting
--- in the range, 0284's app.coach_statement_lessons). Desk lesson money is
+-- in the range, 0287's app.coach_statement_lessons). Desk lesson money is
 -- already in cash and card: it is ordinary payments.
 --
 -- SEC-29 (R42): report_courts, analytics_courts_summary and panel_headline
@@ -45,16 +45,16 @@ set statement_timeout = '60s';
 -- patterns, never an assistant tool.
 --
 -- Functions of other coaching files this one calls (bound late, by name):
---   0278 (Money) app.lesson_enrolment_money, app.cafe_settled_tabs (re-issued
+--   0281 (Money) app.lesson_enrolment_money, app.cafe_settled_tabs (re-issued
 --                to leave lesson tabs out)
---   0284 (Money) app.coach_statement_lessons
+--   0287 (Money) app.coach_statement_lessons
 
 -- ===========================================================================
 -- 1. The lesson figures (money.md §8.1)
 -- ===========================================================================
 create or replace function app.lesson_money_figures(p_ts_from timestamptz, p_ts_to timestamptz, p_venues uuid[])
 returns jsonb
-language plpgsql stable security definer set search_path = public as $lesson_money_figures_0285$
+language plpgsql stable security definer set search_path = public as $lesson_money_figures_0288$
 declare
   v_desk record;
   v_dref record;
@@ -107,7 +107,7 @@ begin
    where bp.purpose = 'lesson' and not bp.sandbox and bp.venue_id = any (p_venues)
      and bp.status in ('refund_pending', 'refund_failed');
 
-  -- The statement lessons starting in the range (0284, money.md §7.1): the
+  -- The statement lessons starting in the range (0287, money.md §7.1): the
   -- accrual figures, and the places, enrolments and marks on them. A course
   -- enrolment counts on every session it covers.
   with
@@ -198,10 +198,10 @@ begin
     'refundsDueDeskIqd',         v_due.iqd,
     'refundsDueDeskCount',       v_due.n,
     'sandboxExcluded',           v_on.sandbox);
-end $lesson_money_figures_0285$;
+end $lesson_money_figures_0288$;
 
 comment on function app.lesson_money_figures(timestamptz, timestamptz, uuid[]) is
-  '0285 (money.md §8.1; CM-13, CM-15). Internal, the ticket_money_figures twin: every lesson figure of the branches p_venues for [p_ts_from, p_ts_to), non-sandbox. Cash basis: deskIqd, deskCount (payments on kind lesson tabs by created_at), deskRefundsIqd, deskRefundsCount (their refunds by created_at), onlineIqd, onlineCount (lesson rows by succeeded_at), onlineRefundsIqd, onlineRefundsCount (refunded by refunded_at), netIqd = desk - desk refunds + online - online refunds (lessonRevenue). Now: onlineRefundsWaitingIqd/Count (refund_pending, refund_failed), refundsDueDeskIqd/Count (Σ the engine''s refund_due_desk_iqd). Accrual, over the statement lessons starting in the range (app.coach_statement_lessons): lessons, private, group, courseSessions, lessonMinutes, collectedIqd, courtShareIqd (Σ least(court share, collected)), owedToCoachesIqd (Σ the coach share; named so no SEC-29 coach pattern matches), places and placesTaken (group and course sessions), enrolments (booked enrolments on those lessons, a course enrolment on each session it covers), attended, noShows. Lessons starting in the range: cancelled, underFilled, expired; lateCancels (guest_late enrolments: by the lesson''s start, a course leave by when it was made). sandboxExcluded: sandbox lesson rows succeeded in the range. Read by reports_figures, report_revenue (pinned equal per range), report_courts, report_lessons and day_close_online. Aggregates only. Takes no lock.';
+  '0288 (money.md §8.1; CM-13, CM-15). Internal, the ticket_money_figures twin: every lesson figure of the branches p_venues for [p_ts_from, p_ts_to), non-sandbox. Cash basis: deskIqd, deskCount (payments on kind lesson tabs by created_at), deskRefundsIqd, deskRefundsCount (their refunds by created_at), onlineIqd, onlineCount (lesson rows by succeeded_at), onlineRefundsIqd, onlineRefundsCount (refunded by refunded_at), netIqd = desk - desk refunds + online - online refunds (lessonRevenue). Now: onlineRefundsWaitingIqd/Count (refund_pending, refund_failed), refundsDueDeskIqd/Count (Σ the engine''s refund_due_desk_iqd). Accrual, over the statement lessons starting in the range (app.coach_statement_lessons): lessons, private, group, courseSessions, lessonMinutes, collectedIqd, courtShareIqd (Σ least(court share, collected)), owedToCoachesIqd (Σ the coach share; named so no SEC-29 coach pattern matches), places and placesTaken (group and course sessions), enrolments (booked enrolments on those lessons, a course enrolment on each session it covers), attended, noShows. Lessons starting in the range: cancelled, underFilled, expired; lateCancels (guest_late enrolments: by the lesson''s start, a course leave by when it was made). sandboxExcluded: sandbox lesson rows succeeded in the range. Read by reports_figures, report_revenue (pinned equal per range), report_courts, report_lessons and day_close_online. Aggregates only. Takes no lock.';
 
 revoke all on function app.lesson_money_figures(timestamptz, timestamptz, uuid[]) from public, anon, authenticated;
 
@@ -214,7 +214,7 @@ revoke all on function app.lesson_money_figures(timestamptz, timestamptz, uuid[]
 -- owedToCoaches, appended after matchWrittenOff.
 create or replace function app.reports_figures(p_from date, p_to date)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $reports_figures_0285$
+language plpgsql stable security definer set search_path = public as $reports_figures_0288$
 declare
   v_rv uuid[] := app.report_venues();
   v_b   record;
@@ -227,7 +227,7 @@ begin
   -- 0265: the ticket figures come from the one helper (MD-16); the sales,
   -- refunds and liability are chain-wide, the forfeits this report's branches.
   v_tk := app.ticket_money_figures(v_b.ts_from, v_b.ts_to, v_rv);
-  -- 0285: the lesson figures likewise (money.md §8.1).
+  -- 0288: the lesson figures likewise (money.md §8.1).
   v_lm := app.lesson_money_figures(v_b.ts_from, v_b.ts_to, v_rv);
 
   with
@@ -287,7 +287,7 @@ begin
        and r.kind = 'booking' and r.status in ('confirmed','arrived','completed')
        and mt.start_at >= v_b.ts_from and mt.start_at < v_b.ts_to)
   select jsonb_build_object(
-           -- 0285 (C-18): lesson money is part of headline revenue as its own line.
+           -- 0288 (C-18): lesson money is part of headline revenue as its own line.
            'revenue',       res.padel_iqd + cafe.cafe_net_iqd + (v_lm ->> 'netIqd')::bigint,
            'padelRevenue',  res.padel_iqd,
            'cafeRevenue',   cafe.cafe_iqd,
@@ -312,7 +312,7 @@ begin
            'ticketForfeits',  (v_tk ->> 'forfeitsIqd')::bigint,
            'ticketLiability', (v_tk ->> 'liabilityIqd')::bigint,
            'matchWrittenOff', mw.written_off_iqd,
-           -- 0285 (money.md §8.2, CM-13): lesson revenue, cash basis and net
+           -- 0288 (money.md §8.2, CM-13): lesson revenue, cash basis and net
            -- (desk lesson money is already in cash and card); the coach share of
            -- the statement lessons starting in the range, information only.
            'lessonRevenue',   (v_lm ->> 'netIqd')::bigint,
@@ -321,10 +321,10 @@ begin
     from res, cafe, ord, pay, ref, waste, dep, mw;
 
   return v_out;
-end $reports_figures_0285$;
+end $reports_figures_0288$;
 
 comment on function app.reports_figures(date, date) is
-  '0285, from 0265. Internal (service role; panel_headline reads it). The headline figures of a business-day range over app.report_venues(): revenue (padelRevenue + cafeNet + lessonRevenue, C-18), padelRevenue, cafeRevenue, cafeNet, cash, card (desk lesson money included: ordinary payments), bookings, orders, avgOrderValue, discounts, refunds, waste, noShows; then (money.md §7.3, non-sandbox) onlineDeposits, depositForfeits, ticketSales, ticketRefunds and ticketLiability (chain-wide, app.ticket_money_figures), ticketForfeits, matchWrittenOff; then (money.md §8.2) lessonRevenue (app.lesson_money_figures netIqd: desk lesson payments less their refunds, online lesson payments less theirs, each by its own date) and owedToCoaches (the coach share of the statement lessons starting in the range; never in cash, card or revenue). Ticket money never enters revenue, cash or card.';
+  '0288, from 0265. Internal (service role; panel_headline reads it). The headline figures of a business-day range over app.report_venues(): revenue (padelRevenue + cafeNet + lessonRevenue, C-18), padelRevenue, cafeRevenue, cafeNet, cash, card (desk lesson money included: ordinary payments), bookings, orders, avgOrderValue, discounts, refunds, waste, noShows; then (money.md §7.3, non-sandbox) onlineDeposits, depositForfeits, ticketSales, ticketRefunds and ticketLiability (chain-wide, app.ticket_money_figures), ticketForfeits, matchWrittenOff; then (money.md §8.2) lessonRevenue (app.lesson_money_figures netIqd: desk lesson payments less their refunds, online lesson payments less theirs, each by its own date) and owedToCoaches (the coach share of the statement lessons starting in the range; never in cash, card or revenue). Ticket money never enters revenue, cash or card.';
 
 revoke all on function app.reports_figures(date, date) from public, anon, authenticated;
 grant execute on function app.reports_figures(date, date) to service_role;
@@ -333,7 +333,7 @@ grant execute on function app.reports_figures(date, date) to service_role;
 -- coaching keys appended to the fixed list (owner only).
 create or replace function app.panel_headline(p_from date, p_to date, p_compare text default 'none')
 returns jsonb
-language plpgsql stable security definer set search_path = public as $panel_headline_0285$
+language plpgsql stable security definer set search_path = public as $panel_headline_0288$
 declare
   v_b        record;
   v_cur      jsonb;
@@ -342,7 +342,7 @@ declare
   v_cmp_to   date;
   v_len      int;
   -- 0265: the seven online-money and open-match keys go last (money.md §7.3),
-  -- so every existing position is unchanged. 0285: the two coaching keys
+  -- so every existing position is unchanged. 0288: the two coaching keys
   -- after them (money.md §8.2).
   v_keys     text[] := array['revenue','padelRevenue','cafeRevenue','cafeNet','cash','card','bookings',
                              'orders','avgOrderValue','discounts','refunds','waste','noShows',
@@ -391,10 +391,10 @@ begin
     'comparison', case when v_cmp_from is not null
                        then jsonb_build_object('from', v_cmp_from, 'to', v_cmp_to) end,
     'figures',    coalesce(v_figures, '[]'::jsonb));
-end $panel_headline_0285$;
+end $panel_headline_0288$;
 
 comment on function app.panel_headline(date, date, text) is
-  '0285, from 0265. Owner only (reports_guard(true)): the management panel headline for a business-day range, {period, comparison, figures [{key, value, previous, changeAbs, changePct}]} in a fixed key order: revenue, padelRevenue, cafeRevenue, cafeNet, cash, card, bookings, orders, avgOrderValue, discounts, refunds, waste, noShows, then onlineDeposits, depositForfeits, ticketSales, ticketRefunds, ticketForfeits, ticketLiability, matchWrittenOff (money.md §7.3; ticketSales, ticketRefunds and ticketLiability are chain-wide), then lessonRevenue and owedToCoaches (coaching, money.md §8.2: lesson money in revenue as its own line, C-18; the coaches'' share, information only). p_compare: none, previousPeriod or sameLastYear. FORBIDDEN, INVALID_RANGE, INVALID_ARGUMENT.';
+  '0288, from 0265. Owner only (reports_guard(true)): the management panel headline for a business-day range, {period, comparison, figures [{key, value, previous, changeAbs, changePct}]} in a fixed key order: revenue, padelRevenue, cafeRevenue, cafeNet, cash, card, bookings, orders, avgOrderValue, discounts, refunds, waste, noShows, then onlineDeposits, depositForfeits, ticketSales, ticketRefunds, ticketForfeits, ticketLiability, matchWrittenOff (money.md §7.3; ticketSales, ticketRefunds and ticketLiability are chain-wide), then lessonRevenue and owedToCoaches (coaching, money.md §8.2: lesson money in revenue as its own line, C-18; the coaches'' share, information only). p_compare: none, previousPeriod or sameLastYear. FORBIDDEN, INVALID_RANGE, INVALID_ARGUMENT.';
 
 revoke all on function app.panel_headline(date, date, text) from public, anon;
 grant execute on function app.panel_headline(date, date, text) to authenticated;
@@ -415,7 +415,7 @@ create or replace function app.report_revenue(
   p_group   text default 'day',
   p_filters jsonb default '{}'::jsonb
 ) returns jsonb
-language plpgsql stable security definer set search_path = public as $report_revenue_0285$
+language plpgsql stable security definer set search_path = public as $report_revenue_0288$
 declare
   v_rv uuid[] := app.report_venues();
   v_b      record;
@@ -531,7 +531,7 @@ begin
        and l.at >= v_b.ts_from and l.at < v_b.ts_to
        and (v_staff is null or l.actor_id = v_staff)
      group by 1),
-  -- 0285 (money.md §8.3, CM-13): lesson money, cash basis, each movement by
+  -- 0288 (money.md §8.3, CM-13): lesson money, cash basis, each movement by
   -- its own business date, by the definitions of app.lesson_money_figures
   -- (a test pins the two equal over the range): desk payments and their
   -- refunds by created_at (the filters apply), online payments by
@@ -666,7 +666,7 @@ begin
       jsonb_build_object('key','cafeIqd',          'labelEn','Cafe',            'labelAr','الكافيه',          'kind','money'),
       jsonb_build_object('key','cafeNetIqd',       'labelEn','Cafe net',        'labelAr','صافي الكافيه',     'kind','money'),
       jsonb_build_object('key','shopIqd',          'labelEn','Of which shop',   'labelAr','منها المتجر',      'kind','money'),
-      -- 0285: the one coaching glossary (C-30, R55, R81).
+      -- 0288: the one coaching glossary (C-30, R55, R81).
       jsonb_build_object('key','lessonIqd',        'labelEn','Lessons',         'labelAr','الحصص',            'kind','money'),
       jsonb_build_object('key','owedToCoachesIqd', 'labelEn','Owed to coaches', 'labelAr','مستحق للمدرّبين',  'kind','money'),
       jsonb_build_object('key','totalIqd',         'labelEn','Total',           'labelAr','الإجمالي',         'kind','money'),
@@ -681,10 +681,10 @@ begin
     'rows',       v_rows,
     'totals',     v_totals,
     'comparison', null);
-end $report_revenue_0285$;
+end $report_revenue_0288$;
 
 comment on function app.report_revenue(date, date, text, jsonb) is
-  '0285, from 0219 (0146, 0068). Owner only (reports_guard(true)): revenue by day, week or month over app.report_venues(), with paymentMethod and staffId filters. Per bucket and in totals: padelIqd, cafeIqd, cafeNetIqd, shopIqd, lessonIqd (coaching, money.md §8.3: desk lesson payments less their refunds by created_at, online lesson payments by succeeded_at less refunds by refunded_at; with a filter, only the matching desk money), owedToCoachesIqd (the coach share of the statement lessons starting in the bucket; 0 with a filter; never in totalIqd), totalIqd (padel + cafe net + lessons, C-18), cashIqd, cardIqd, discountsIqd, voidsIqd, refundsIqd, taxIqd, orders, bookings; columns with EN and AR labels. FORBIDDEN, INVALID_RANGE, INVALID_ARGUMENT.';
+  '0288, from 0219 (0146, 0068). Owner only (reports_guard(true)): revenue by day, week or month over app.report_venues(), with paymentMethod and staffId filters. Per bucket and in totals: padelIqd, cafeIqd, cafeNetIqd, shopIqd, lessonIqd (coaching, money.md §8.3: desk lesson payments less their refunds by created_at, online lesson payments by succeeded_at less refunds by refunded_at; with a filter, only the matching desk money), owedToCoachesIqd (the coach share of the statement lessons starting in the bucket; 0 with a filter; never in totalIqd), totalIqd (padel + cafe net + lessons, C-18), cashIqd, cardIqd, discountsIqd, voidsIqd, refundsIqd, taxIqd, orders, bookings; columns with EN and AR labels. FORBIDDEN, INVALID_RANGE, INVALID_ARGUMENT.';
 
 revoke all on function app.report_revenue(date, date, text, jsonb) from public, anon;
 grant execute on function app.report_revenue(date, date, text, jsonb) to authenticated;
@@ -702,7 +702,7 @@ create or replace function app.report_courts(
   p_to      date,
   p_filters jsonb default '{}'::jsonb
 ) returns jsonb
-language plpgsql stable security definer set search_path = public as $report_courts_0285$
+language plpgsql stable security definer set search_path = public as $report_courts_0288$
 declare
   v_av uuid := app.analysis_venue();
   v_b       record;
@@ -750,7 +750,7 @@ begin
      where r.venue_id = v_av and r.kind = 'booking'
        and r.start_at >= v_b.ts_from and r.start_at < v_b.ts_to
        and (v_court is null or r.court_id = v_court)),
-  -- 0285 (CM-14): a lesson's court row is occupied court time; it carries no
+  -- 0288 (CM-14): a lesson's court row is occupied court time; it carries no
   -- price (reservations_lesson_row), so no revenue figure can count it.
   ls as (
     select r.court_id,
@@ -888,7 +888,7 @@ begin
        where mt.venue_id = v_av and not mt.sandbox
          and mt.start_at >= v_b.ts_from and mt.start_at < v_b.ts_to) x;
 
-  -- 0285 (money.md §8.4, X25, R72): the analysed branch's lessons starting in
+  -- 0288 (money.md §8.4, X25, R72): the analysed branch's lessons starting in
   -- the period, whatever courtId says, through the one helper
   -- (app.lesson_money_figures: the statement lessons). Counts and branch
   -- aggregates only: no coach, student or court name (C-28 lets aggregates
@@ -935,10 +935,10 @@ begin
     'comparison', null,
     'matches',    v_matches,
     'lessons',    v_lessons);
-end $report_courts_0285$;
+end $report_courts_0288$;
 
 comment on function app.report_courts(date, date, jsonb) is
-  '0285, from 0265 (0219, event_court_blocks §2.11, 0097). MGMT: the courts report for a business-day range (p_filters.courtId narrows to one court): per-court rows and totals with availableMinutes (event hours included), eventMinutes, lessons and lessonMinutes (a lesson''s live court rows, CM-14), occupancyPct over booked plus lesson minutes, revenue, rates and peak counts bookings only; byHour and the daily trend; match bookings count there as ordinary bookings. Plus matches {bookings, bookedIqd, deskPaidIqd, writtenOffIqd, noShowSeats, calledOffShort, ticketForfeitsIqd} (money.md §7.4) and lessons {lessons, private, group, courseSessions, lessonMinutes, enrolments, attended, noShows, cancelled, underFilled, collectedIqd, courtShareIqd, owedToCoachesIqd} (money.md §8.4, X25, R72: the analysed branch''s statement lessons starting in the range, app.lesson_money_figures), each the whole branch whatever courtId says, sandbox left out; counts and money only.';
+  '0288, from 0265 (0219, event_court_blocks §2.11, 0097). MGMT: the courts report for a business-day range (p_filters.courtId narrows to one court): per-court rows and totals with availableMinutes (event hours included), eventMinutes, lessons and lessonMinutes (a lesson''s live court rows, CM-14), occupancyPct over booked plus lesson minutes, revenue, rates and peak counts bookings only; byHour and the daily trend; match bookings count there as ordinary bookings. Plus matches {bookings, bookedIqd, deskPaidIqd, writtenOffIqd, noShowSeats, calledOffShort, ticketForfeitsIqd} (money.md §7.4) and lessons {lessons, private, group, courseSessions, lessonMinutes, enrolments, attended, noShows, cancelled, underFilled, collectedIqd, courtShareIqd, owedToCoachesIqd} (money.md §8.4, X25, R72: the analysed branch''s statement lessons starting in the range, app.lesson_money_figures), each the whole branch whatever courtId says, sandbox left out; counts and money only.';
 
 revoke all on function app.report_courts(date, date, jsonb) from public, anon;
 grant execute on function app.report_courts(date, date, jsonb) to authenticated;
@@ -960,7 +960,7 @@ create or replace function app.analytics_courts_summary(
   p_to       date,
   p_court_id uuid default null
 ) returns jsonb
-language plpgsql stable security definer set search_path = public as $analytics_courts_summary_0285$
+language plpgsql stable security definer set search_path = public as $analytics_courts_summary_0288$
 declare
   v_b   record;
   v_out jsonb;
@@ -987,7 +987,7 @@ begin
        and r.status in ('confirmed','arrived','completed','cancelled','no_show')
        and r.start_at >= v_b.ts_from and r.start_at < v_b.ts_to
        and (p_court_id is null or r.court_id = p_court_id)),
-  -- 0285 (CM-14): a lesson's live court rows, occupied time.
+  -- 0288 (CM-14): a lesson's live court rows, occupied time.
   ls as (
     select r.id, r.court_id,
            (extract(epoch from (r.end_at - r.start_at)) / 60)::int                   as mins,
@@ -1004,7 +1004,7 @@ begin
            extract(hour from (r.start_at at time zone v_b.tz))::int                  as hour
       from reservations r
      where r.venue_id = v_av and r.kind = 'hold' and r.status = 'expired' and r.source = 'mobile'
-       -- 0285: a lapsed online lesson payment is not a lapsed court hold.
+       -- 0288: a lapsed online lesson payment is not a lapsed court hold.
        and r.lesson_id is null
        and r.start_at >= v_b.ts_from and r.start_at < v_b.ts_to
        and (p_court_id is null or r.court_id = p_court_id)),
@@ -1085,7 +1085,7 @@ begin
       cross join lateral generate_series(date_trunc('hour', b.s_local), b.e_local, interval '1 hour') gs
      where b.live and gs < b.e_local
      group by 1, 2),
-  -- 0285: lesson minutes split per hour as the bookings are.
+  -- 0288: lesson minutes split per hour as the bookings are.
   lsplit as (
     select extract(dow from (gs - make_interval(hours => v_b.start_hour))::date)::int as dow,
            extract(hour from gs)::int                                                 as hour,
@@ -1214,10 +1214,10 @@ begin
     from tot t;
 
   return v_out;
-end $analytics_courts_summary_0285$;
+end $analytics_courts_summary_0288$;
 
 comment on function app.analytics_courts_summary(date, date, uuid) is
-  '0285, from 0219 (0214). Owner analytics (analytics_guard): the analysed branch''s courts for a business-day range (p_court_id narrows): kpis, per_court, by_day and heatmap. 0285 (money.md §8.5, CM-14): a lesson''s live court rows are occupied time: lessons and lesson_minutes in kpis and per_court, lesson_minutes in by_day and heatmap (split per hour as bookings are), and every occupancy_pct over booked + lesson minutes; bookings, revenue and the rates stay bookings only; holds_expired leaves out a lapsed lesson payment''s hold (lesson_id set). Branch aggregates only.';
+  '0288, from 0219 (0214). Owner analytics (analytics_guard): the analysed branch''s courts for a business-day range (p_court_id narrows): kpis, per_court, by_day and heatmap. 0288 (money.md §8.5, CM-14): a lesson''s live court rows are occupied time: lessons and lesson_minutes in kpis and per_court, lesson_minutes in by_day and heatmap (split per hour as bookings are), and every occupancy_pct over booked + lesson minutes; bookings, revenue and the rates stay bookings only; holds_expired leaves out a lapsed lesson payment''s hold (lesson_id set). Branch aggregates only.';
 
 revoke all on function app.analytics_courts_summary(date, date, uuid) from public, anon;
 grant execute on function app.analytics_courts_summary(date, date, uuid) to authenticated;
@@ -1228,7 +1228,7 @@ grant execute on function app.analytics_courts_summary(date, date, uuid) to auth
 
 -- day_close_online: re-issued from 20260929000265_match_reports.sql:155 (its
 -- one re-issue, §1.8); + the lessons block and sandbox_excluded.lessons.
--- Information only: close_day is untouched (0278 dates its refunds by till
+-- Information only: close_day is untouched (0281 dates its refunds by till
 -- shift), desk lesson money is already in cash and card because it is
 -- ordinary payments, and owed_to_coaches_iqd is NEVER part of the cash count
 -- (C-12: the coach is paid outside the till). C-31, R27, R71: a desk lesson
@@ -1236,7 +1236,7 @@ grant execute on function app.analytics_courts_summary(date, date, uuid) to auth
 -- day when it was made outside a shift).
 create or replace function app.day_close_online(p_day_session_id uuid default null)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $day_close_online_0285$
+language plpgsql stable security definer set search_path = public as $day_close_online_0288$
 declare
   v_day      day_sessions%rowtype;
   v_tz       text;
@@ -1333,7 +1333,7 @@ begin
        where mt.venue_id = v_day.venue_id and not mt.sandbox
          and mt.start_at >= v_from and mt.start_at < v_to) x;
 
-  -- 0285 (money.md §8.6, X27): lessons.
+  -- 0288 (money.md §8.6, X27): lessons.
   v_lm := app.lesson_money_figures(v_from, v_to, array[v_day.venue_id]);
 
   -- Desk lesson money taken in this day session; its refunds by the day they
@@ -1436,10 +1436,10 @@ begin
     'lessons',        v_lessons,
     'sandbox_excluded', jsonb_build_object('deposits', v_sb_dep, 'tickets', v_tickets -> 'sandboxExcluded',
                                            'lessons', (v_lm ->> 'sandboxExcluded')::bigint));
-end $day_close_online_0285$;
+end $day_close_online_0288$;
 
 comment on function app.day_close_online(uuid) is
-  '0285, from 0265 (money.md §7.2, §8.6). Manager or owner at the day''s branch: the day close''s "Money outside the drawer" card for p_day_session_id (default the branch''s open day, else its latest; another branch''s day is DAY_NOT_FOUND). {day_session_id, venue_id, business_date, as_of, deposits {...}, tickets_here {...}, tickets_chain {...}, matches {...} (0265, unchanged), lessons {desk_paid_iqd, desk_paid_count (payments on lesson tabs in this day session), desk_refunded_iqd (their refunds made this day: the till shift''s day, else the payment''s, C-31, R27, R71), online_received_iqd, online_received_count, online_refunded_iqd, online_refunded_count (by the day''s bounds), online_refunds_waiting_iqd, online_refunds_waiting_count, refunds_due_desk_iqd, refunds_due_desk_count (now), kept_iqd, kept_count (money kept for late cancels and no-shows on sessions starting that day), lessons, owed_to_coaches_iqd (statement lessons starting that day and the coaches'' share: information only, never part of the cash count, C-12), owed_iqd, owed_count (booked desk enrolments with a session played that day, not yet paid)}, sandbox_excluded {deposits, tickets, lessons}}. Information only: close_day is untouched and nothing here enters the cash count. Takes no lock. FORBIDDEN, DAY_NOT_FOUND, VENUE_REQUIRED (no default branch).';
+  '0288, from 0265 (money.md §7.2, §8.6). Manager or owner at the day''s branch: the day close''s "Money outside the drawer" card for p_day_session_id (default the branch''s open day, else its latest; another branch''s day is DAY_NOT_FOUND). {day_session_id, venue_id, business_date, as_of, deposits {...}, tickets_here {...}, tickets_chain {...}, matches {...} (0265, unchanged), lessons {desk_paid_iqd, desk_paid_count (payments on lesson tabs in this day session), desk_refunded_iqd (their refunds made this day: the till shift''s day, else the payment''s, C-31, R27, R71), online_received_iqd, online_received_count, online_refunded_iqd, online_refunded_count (by the day''s bounds), online_refunds_waiting_iqd, online_refunds_waiting_count, refunds_due_desk_iqd, refunds_due_desk_count (now), kept_iqd, kept_count (money kept for late cancels and no-shows on sessions starting that day), lessons, owed_to_coaches_iqd (statement lessons starting that day and the coaches'' share: information only, never part of the cash count, C-12), owed_iqd, owed_count (booked desk enrolments with a session played that day, not yet paid)}, sandbox_excluded {deposits, tickets, lessons}}. Information only: close_day is untouched and nothing here enters the cash count. Takes no lock. FORBIDDEN, DAY_NOT_FOUND, VENUE_REQUIRED (no default branch).';
 
 revoke all on function app.day_close_online(uuid) from public, anon;
 grant execute on function app.day_close_online(uuid) to authenticated;
@@ -1456,7 +1456,7 @@ grant execute on function app.day_close_online(uuid) to authenticated;
 -- basis (app.lesson_money_figures).
 create or replace function app.report_lessons(p_from date, p_to date)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $report_lessons_0285$
+language plpgsql stable security definer set search_path = public as $report_lessons_0288$
 declare
   v_rv       uuid[] := app.report_venues();
   v_b        record;
@@ -1583,10 +1583,10 @@ begin
       jsonb_build_object('key','enrolments',    'labelEn','Places taken',   'labelAr','الأماكن المحجوزة', 'kind','count'),
       jsonb_build_object('key','collectedIqd',  'labelEn','Collected',      'labelAr','المحصّل',       'kind','money'),
       jsonb_build_object('key','coachShareIqd', 'labelEn','Coach''s share', 'labelAr','نصيب المدرّب', 'kind','money')));
-end $report_lessons_0285$;
+end $report_lessons_0288$;
 
 comment on function app.report_lessons(date, date) is
-  '0285 (money.md §8.7, X24; C-28, R42). Manager or owner (reports_guard): the Lessons report for a business-day range over app.report_venues(), lessons by start. {period {from, to}, totals {lessons, private, group, courseSessions, cancelled, underFilled, expired, enrolments, places, placesTaken, fillRatePct (group and course sessions, one decimal), attended, noShows, lateCancels, collectedIqd, courtShareIqd, coachShareIqd, venueShareIqd (= collected - coach share), deskIqd, onlineIqd, refundsIqd, lessonRevenueIqd, sandboxExcluded} (app.lesson_money_figures: collected and coach share accrual over the statement lessons, desk, online, refunds and lesson revenue cash basis), byCoach [{coachId, coachNameEn, coachNameAr, lessons, enrolments, collectedIqd, coachShareIqd}], byType [{lessonTypeId, nameEn, nameAr, kind, lessons, enrolments, collectedIqd}], byDay [{date, lessons, collectedIqd, coachShareIqd}], columns (EN, AR)}. A person-money report: coach display names, never a student, a phone or a guest id; never an assistant tool (R42). FORBIDDEN, INVALID_RANGE.';
+  '0288 (money.md §8.7, X24; C-28, R42). Manager or owner (reports_guard): the Lessons report for a business-day range over app.report_venues(), lessons by start. {period {from, to}, totals {lessons, private, group, courseSessions, cancelled, underFilled, expired, enrolments, places, placesTaken, fillRatePct (group and course sessions, one decimal), attended, noShows, lateCancels, collectedIqd, courtShareIqd, coachShareIqd, venueShareIqd (= collected - coach share), deskIqd, onlineIqd, refundsIqd, lessonRevenueIqd, sandboxExcluded} (app.lesson_money_figures: collected and coach share accrual over the statement lessons, desk, online, refunds and lesson revenue cash basis), byCoach [{coachId, coachNameEn, coachNameAr, lessons, enrolments, collectedIqd, coachShareIqd}], byType [{lessonTypeId, nameEn, nameAr, kind, lessons, enrolments, collectedIqd}], byDay [{date, lessons, collectedIqd, coachShareIqd}], columns (EN, AR)}. A person-money report: coach display names, never a student, a phone or a guest id; never an assistant tool (R42). FORBIDDEN, INVALID_RANGE.';
 
 revoke all on function app.report_lessons(date, date) from public, anon;
 grant execute on function app.report_lessons(date, date) to authenticated;

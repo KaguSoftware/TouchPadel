@@ -17,7 +17,7 @@
  * The printed sequences of the coaching RPCs (db.md §2.5's stack list:
  * lesson_book_private, the cancels, lesson_sweep, deposit_apply's lesson arm)
  * join this file in the commits that create them (coaching_admin onward).
- * lesson_online_payment (0281, R33, R34, R64): deposit_apply's lesson arm takes
+ * lesson_online_payment (0284, R33, R34, R64): deposit_apply's lesson arm takes
  * the coach, the branch's courts and the hold row before the payment row, and
  * expires stale holds skip-locked after the deposit arm's settle call (whose
  * expiry is the body's one waiting reservations lock); R33 read literally (a
@@ -240,13 +240,13 @@ describe('the walker over synthetic coaching catalogs (pure)', () => {
     expect(out.rows).toEqual([{ fn: 'lesson_sweep', seq: ['coach_advisory'] }]);
   });
 
-  it("0281 deposit_apply's lesson arm: coach -> courts -> rows -> payment row; the stale holds skip-locked after the deposit settle (R33, R34, R64)", () => {
+  it("0284 deposit_apply's lesson arm: coach -> courts -> rows -> payment row; the stale holds skip-locked after the deposit settle (R33, R34, R64)", () => {
     // 0258's deposit_settle_success: its one waiting hold expiry above its first write (R15).
     const deposit_settle_success = `begin
       perform app.expire_stale_holds(c, x);
       update reservations set kind = 'booking', status = 'confirmed' where id = h;
     end`;
-    // 0281: no lock of its own; the hold becomes the lesson's row in place, or a re-picked row.
+    // 0284: no lock of its own; the hold becomes the lesson's row in place, or a re-picked row.
     const lesson_settle_success = `begin
       update reservations set kind = 'lesson', status = 'confirmed' where id = h;
       insert into reservations (id, kind, lesson_id) values (r, 'lesson', l);
@@ -344,7 +344,7 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     expect(rowOf(walkedRows, 'try_lock_coach')).toBeUndefined();
   });
 
-  it('0278: the desk lesson payment and the lesson refund take the coach mutex before the till', () => {
+  it('0281: the desk lesson payment and the lesson refund take the coach mutex before the till', () => {
     const gate = runGate([]);
     expect(gate.code, gate.out).toBe(0);
     const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
@@ -356,7 +356,7 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     expect(rowOf(walkedRows, 'lesson_refunds_due')).toBeUndefined();
   });
 
-  it('0279, 0280: bookings take the coach, every court, then the rows; cancels the coach and status writes only (db.md §2.5)', () => {
+  it('0282, 0283: bookings take the coach, every court, then the rows; cancels the coach and status writes only (db.md §2.5)', () => {
     const gate = runGate([]);
     expect(gate.code, gate.out).toBe(0);
     const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
@@ -400,7 +400,7 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     }
   });
 
-  it("0281: deposit_apply's lesson arm, the success and the prepare print in order (R33, money.md §9)", () => {
+  it("0284: deposit_apply's lesson arm, the success and the prepare print in order (R33, money.md §9)", () => {
     const gate = runGate(['lesson_hold_expire']);
     expect(gate.code, gate.out).toBe(0);
     const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
@@ -414,7 +414,7 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     expect(rowOf(internal, 'lesson_hold_expire')).toBe('match_venue_advisory -> match_tickets');
   });
 
-  it('0284: the statement writes and the monthly draft take the coach mutex only', () => {
+  it('0287: the statement writes and the monthly draft take the coach mutex only', () => {
     const gate = runGate([]);
     expect(gate.code, gate.out).toBe(0);
     const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));

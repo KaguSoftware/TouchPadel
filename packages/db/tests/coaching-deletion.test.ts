@@ -1,8 +1,8 @@
 /**
- * Coaching, migration 0286 lesson_account_deletion (docs/design/coaching/db.md §4.10, §6 rows 31–33,
+ * Coaching, migration 0289 lesson_account_deletion (docs/design/coaching/db.md §4.10, §6 rows 31–33,
  * §7 row coaching-deletion.test.ts; build contracts C-21, C-29, CD-12, R28, R43, R44, R63).
  *
- * Student and coach deletion end to end with the sweep (0283):
+ * Student and coach deletion end to end with the sweep (0286):
  *
  *   * a student: the friend names go at once; a coach-booked confirmed link keeps a fixed marker
  *     ('Deleted account', never NULL) and loses the typed phone; a pending link (C-21) is dropped
@@ -15,7 +15,7 @@
  *   * the audit row counts what was touched; the deletion takes no coach lock (it never waits on a
  *     coach-lock holder: the sweep does the cancels).
  *
- * The refund amount is Money's engine (0278 lesson_enrolment_money, lesson_refund_start).
+ * The refund amount is Money's engine (0281 lesson_enrolment_money, lesson_refund_start).
  */
 import { describe, expect, it } from 'vitest';
 import { stackAvailable } from './helpers';
@@ -28,7 +28,7 @@ const docker = up && dockerReachable();
 
 const NOW_H = `date_trunc('hour', now())`;
 
-describe.skipIf(!docker)('coaching 0286: delete_my_account', () => {
+describe.skipIf(!docker)('coaching 0289: delete_my_account', () => {
   it('a student: scrubbed at once, linked rows marked, a pending link dropped; the sweep cancels and refunds', () => {
     const session = (n: number) =>
       KEEP(

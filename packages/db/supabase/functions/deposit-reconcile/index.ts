@@ -45,11 +45,11 @@ interface DueRow {
   refund_reason: string | null;
   /**
    * 0258: 'ticket' for a purchase of open-match tickets (a cash-out or a DF-20 refund);
-   * 0281: 'lesson' for a lesson place paid online (a coaching refund, or a SUCCESS that did not book).
+   * 0284: 'lesson' for a lesson place paid online (a coaching refund, or a SUCCESS that did not book).
    */
   purpose: 'deposit' | 'ticket' | 'lesson';
   ticket_count: number | null;
-  /** 0281: the enrolment of a purpose 'lesson' row; NULL otherwise. */
+  /** 0284: the enrolment of a purpose 'lesson' row; NULL otherwise. */
   lesson_enrolment_id: string | null;
 }
 

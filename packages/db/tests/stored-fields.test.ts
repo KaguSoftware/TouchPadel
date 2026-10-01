@@ -682,7 +682,7 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     ]);
     if (blocks.error) throw new Error(`match_blocks: ${blocks.error.message}`);
 
-    // 0286 (coaching; db.md §4.10, R43, R49, R63, R83): the guest is a coach
+    // 0289 (coaching; db.md §4.10, R43, R49, R63, R83): the guest is a coach
     // (bios, a photo, a time-off reason), a student a coach typed and the
     // guest confirmed (C-21), a guest who booked a private lesson with a
     // friend, and a typed student whose phone matched the guest but was never
@@ -794,7 +794,7 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       if ((data ?? []).length > 0) leaks.push(`${table} still has ${(data ?? []).length} row(s)`);
     }
 
-    // 'empty' (0286): the row survives, the column is '' or {}.
+    // 'empty' (0289): the row survives, the column is '' or {}.
     for (const [table, id, cols] of [
       ['coaches', coachId, ['bio_en', 'bio_ar']],
       ['lesson_enrolments', ownId, ['friend_names']],

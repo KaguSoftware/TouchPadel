@@ -1,4 +1,4 @@
--- 0282 price_promo_lessons — every lesson price goes through the owner's price
+-- 0285 price_promo_lessons — every lesson price goes through the owner's price
 -- or promotion change: a launched lesson type's price or court share, a draft
 -- type put on sale, and one coach's own price for a type.
 --
@@ -7,12 +7,12 @@
 -- R46, R81; db.md §4.8; operator.md §5.14; protocols build-contracts
 -- 2026-09-23 §2.8, §2.13).
 -- Depends on: price_promo (0177) and price_promo_renames (0195), whose six
--- hooks are re-issued here; coaching_tables (0275: lesson_types, coaches,
+-- hooks are re-issued here; coaching_tables (0278: lesson_types, coaches,
 -- coach_lesson_types, coach_prices, lessons, courses, lesson_enrolments);
--- coaching_admin (0279: app.upsert_lesson_type_internal(uuid, uuid, jsonb)
+-- coaching_admin (0282: app.upsert_lesson_type_internal(uuid, uuid, jsonb)
 -- returns lesson_types and app.set_coach_price_internal(uuid, uuid, bigint,
 -- uuid) returns void, the two writers the apply calls by name; plpgsql binds
--- them at run time, and no lesson run can reach the apply before 0279 lands).
+-- them at run time, and no lesson run can reach the apply before 0282 lands).
 -- Re-runnable: create or replace.
 --
 -- THE CHANGE. Three kinds join the eight: lesson_price {lesson_type_id,
@@ -97,7 +97,7 @@ set statement_timeout = '60s';
 -- ---------------------------------------------------------------------------
 create or replace function app.protocol_check_price_promo_propose(p_run_step_id uuid, p_record jsonb, p_photos text[])
 returns jsonb
-language plpgsql stable security definer set search_path = public as $protocol_check_price_promo_propose_0282$
+language plpgsql stable security definer set search_path = public as $protocol_check_price_promo_propose_0285$
 declare
   c_common constant text[] := array['change', 'reason', 'expected_effect'];
   v_run    protocol_runs%rowtype;
@@ -136,7 +136,7 @@ begin
     raise exception 'RECORD_INVALID' using errcode = 'P0001', hint = 'change';
   end if;
   -- A hidden product is launched by MGMT only; marketing is not offered one.
-  -- Lesson prices are the venue's (C-5, C-17): MGMT only too (0282).
+  -- Lesson prices are the venue's (C-5, C-17): MGMT only too (0285).
   if v_change in ('shop_launch', 'lesson_price', 'lesson_launch', 'coach_price')
      and not app.is_staff_at(v_run.venue_id, 'manager', 'owner') then
     raise exception 'NOT_STEP_ACTOR' using errcode = 'P0001', hint = 'change';
@@ -275,7 +275,7 @@ begin
                         'featured_discount_pct', app.cafe_setting('featured_discount_pct'),
                         'hero_mode',             app.cafe_setting('hero_mode')));
 
-  -- Lessons (0282; C-17, R46). Each names a lesson type at the run's venue.
+  -- Lessons (0285; C-17, R46). Each names a lesson type at the run's venue.
   -- before is written here, a client copy replaced: the figures the owner
   -- approves against and the type's shape, what the price buys.
   when 'lesson_price', 'lesson_launch', 'coach_price' then
@@ -369,7 +369,7 @@ begin
   end if;
 
   return v_out;
-end $protocol_check_price_promo_propose_0282$;
+end $protocol_check_price_promo_propose_0285$;
 
 comment on function app.protocol_check_price_promo_propose(uuid, jsonb, text[]) is
   'price_promo (§2.8, §2.13). Internal check hook: one of the eleven changes with reason and expected_effect (<= 2000): price {menu_item_id (launched, not in release, at the run''s venue), prices (0-12 of its sizes), new_sizes? (0-4, a cafe item only), renames? (0-12 of its sizes, app.price_promo_size_renames); at least one price, new size or rename}, shop_launch {menu_item_id (a never-launched hidden shop product, not in release), prices (exactly its sizes)}, addon_price {addons (1-30 at the venue; absent or empty when renames has one), renames? (0-30 launched add-ons at the venue, app.price_promo_addon_renames)}, promotion {promotion}, promotion_edit {promotion_id, promotion}, promotion_enable {promotion_id (off)}, rate {rule_id?, rule}, featured_discount {menu_item_id (active, at the venue), discount_pct 0-99, a change}; and the lessons (price_promo_lessons, coaching C-17, R46): lesson_price {lesson_type_id (launched, at the venue), price_iqd?, court_share_iqd? (at least one, each a change)}, lesson_launch {lesson_type_id (never launched, switched off), price_iqd, court_share_iqd}, coach_price {coach_id (not retired, teaching the type at the venue), lesson_type_id (any, a draft included), price_iqd (null removes; a change)}; a price 1..100,000,000 and at least sessions_count for a course, a court share 0..100,000,000. shop_launch and the three lesson kinds are MGMT only: NOT_STEP_ACTOR hint change for marketing. Adds base_updated_at (promotion edit or switch-on), before (rate edit, featured discount; the lesson kinds: the type''s price_iqd and court_share_iqd, or the coach''s own price_iqd, and shape {kind, duration_min, sessions_count, max_places}) and each rename''s before_en and before_ar. A resubmission keeps change and target, lesson_type_id and coach_id included (hint change). RECORD_INVALID and TEXT_TOO_LONG with the field as hint, never a writer''s code.';
@@ -382,7 +382,7 @@ revoke all on function app.protocol_check_price_promo_propose(uuid, jsonb, text[
 -- ---------------------------------------------------------------------------
 create or replace function app.protocol_check_price_promo_numbers(p_run_step_id uuid, p_record jsonb, p_photos text[])
 returns jsonb
-language plpgsql stable security definer set search_path = public as $protocol_check_price_promo_numbers_0282$
+language plpgsql stable security definer set search_path = public as $protocol_check_price_promo_numbers_0285$
 declare
   v_run    protocol_runs%rowtype;
   v_p      jsonb;
@@ -484,7 +484,7 @@ begin
       app.price_promo_int(p_record->'discount_pct', 0, 99, true, 'discount_pct'));
   end if;
 
-  -- Lesson figures (0282): only those the proposal carries (a coach_price
+  -- Lesson figures (0285): only those the proposal carries (a coach_price
   -- removal carries none), in the proposal's bounds; a course's price stays
   -- at least a dinar per session of the shape the owner approves.
   if p_record->'price_iqd' is not null and p_record->'price_iqd' <> 'null'::jsonb then
@@ -505,7 +505,7 @@ begin
   end if;
 
   return v_out;
-end $protocol_check_price_promo_numbers_0282$;
+end $protocol_check_price_promo_numbers_0285$;
 
 comment on function app.protocol_check_price_promo_numbers(uuid, jsonb, text[]) is
   'price_promo (§2.8). Internal check hook: numbers {recommendation go|change|drop, note? (<= 2000), and the final figures for exactly the passed proposal''s targets, each optional (left out = the proposal''s): prices (the same sizes), new_sizes (the same count, the proposal''s names), addons (the same add-ons), promotion_value (by its type), rule_prices (the same durations), discount_pct (0-99), and for the lesson kinds (price_promo_lessons) price_iqd (lesson_price, lesson_launch, coach_price; only when the proposal carries one; 1..100,000,000, at least the approved shape''s sessions_count for a course) and court_share_iqd (lesson_price, lesson_launch; only when the proposal carries one; 0..100,000,000)}. A figure the change does not take, or targets other than the proposal''s, is RECORD_INVALID with the field as hint.';
@@ -519,7 +519,7 @@ revoke all on function app.protocol_check_price_promo_numbers(uuid, jsonb, text[
 -- ---------------------------------------------------------------------------
 create or replace function app.price_promo_check_targets(p_run_id uuid)
 returns void
-language plpgsql stable security definer set search_path = public as $price_promo_check_targets_0282$
+language plpgsql stable security definer set search_path = public as $price_promo_check_targets_0285$
 declare
   v_p     jsonb := app.price_promo_record(p_run_id, 'propose');
   v_n     jsonb := app.price_promo_record(p_run_id, 'numbers');
@@ -646,7 +646,7 @@ begin
       raise exception 'PRICE_TARGET_CHANGED' using errcode = 'P0001', hint = 'featured';
     end if;
 
-  -- Lessons (0282; R46). The type is still at the venue and in the state the
+  -- Lessons (0285; R46). The type is still at the venue and in the state the
   -- change needs, with the figures and the shape in before; a coach price
   -- also needs its coach, still teaching the type, at the approved price.
   when 'lesson_price', 'lesson_launch', 'coach_price' then
@@ -686,7 +686,7 @@ begin
   else
     raise exception 'PRICE_TARGET_CHANGED' using errcode = 'P0001', hint = 'change';
   end case;
-end $price_promo_check_targets_0282$;
+end $price_promo_check_targets_0285$;
 
 comment on function app.price_promo_check_targets(uuid) is
   'price_promo (§2.13). Internal: raises PRICE_TARGET_CHANGED (hint item, size:<variant_id>, sizes, addon:<modifier_id>, promotion, rule, featured, lesson_type or coach_price) when what the passed proposal and numbers approved no longer matches: a target gone; a price item no longer launched or put in release; a shop_launch product switched on, launched, put in release, or with sizes other than the approved ones; a renamed size no longer the item''s, or a renamed size or add-on whose names are no longer its before_en and before_ar (price_promo_renames, #9); a promotion written since the proposal (updated_at against base_updated_at), already on for a switch-on, or its code taken; an edited rule or its prices changed since (against before), or the rule''s court gone; the featured item, discount or hero mode changed since (against before), or the item to feature switched off; and (price_promo_lessons, R46) a lesson type gone or at another venue, no longer launched (lesson_price), launched or switched on (lesson_launch), its price or court share other than before (lesson_price, lesson_launch), or its shape {kind, duration_min, sessions_count, max_places} other than before.shape (all three: lesson_type); a coach retired, no longer teaching the type, or whose own price is not before.price_iqd (coach_price). Called by the apply check hook and app.price_promo_apply_internal.';
@@ -699,7 +699,7 @@ revoke all on function app.price_promo_check_targets(uuid) from public, anon, au
 -- ---------------------------------------------------------------------------
 create or replace function app.price_promo_apply_internal(p_run_id uuid)
 returns jsonb
-language plpgsql security definer set search_path = public as $price_promo_apply_internal_0282$
+language plpgsql security definer set search_path = public as $price_promo_apply_internal_0285$
 declare
   v_run    protocol_runs%rowtype;
   v_p      jsonb;
@@ -728,7 +728,7 @@ begin
     raise exception 'INVALID_TRANSITION' using errcode = 'P0001', hint = v_run.status || ' -> done';
   end if;
   perform set_config('app.venue_id', v_run.venue_id::text, true);
-  -- A lesson change locks its type first (0282): the target check below then
+  -- A lesson change locks its type first (0285): the target check below then
   -- reads the shape and figures this apply writes over, and a manager's save
   -- of the same type (upsert_lesson_type reads it for update) waits and then
   -- sees the new price.
@@ -921,7 +921,7 @@ begin
 
   return jsonb_build_object('run_id', v_run.id, 'change', v_change, 'counts', v_counts)
          || case when v_ok_by is not null then jsonb_build_object('authorized_by', v_ok_by) else '{}'::jsonb end;
-end $price_promo_apply_internal_0282$;
+end $price_promo_apply_internal_0285$;
 
 comment on function app.price_promo_apply_internal(uuid) is
   'price_promo (§2.13). Internal: applies an active (pass hook) or scheduled (cron) price or promotion change: app.venue_id set to the run''s venue, a lesson change''s type row locked (price_promo_lessons), app.price_promo_check_targets, then the approved figures (numbers, else the proposal''s) through the internals: price (sizes, new sizes after the last, then the proposal''s renames, each size keeping its row, recipe and current price, a shop size''s retail stock row renamed with it), shop_launch (sizes, then the product switched on and stamped launched), addon_price (a never-launched add-on switched on and stamped, a launched one keeps its switch; then the renames, each keeping its price, switch and order), promotion (the draft updated, then switched on), promotion_edit (the approved fields and value, the switch kept), promotion_enable, rate (the rule and its prices), featured_discount (the item when it moves, the discount, then Featured mode when the discount is above 0), lesson_price (the type''s price and court share it changes, app.upsert_lesson_type_internal), lesson_launch (the same, switched on and stamped launched), coach_price (app.set_coach_price_internal with the run''s id; a null price removes the coach''s own). The three promotion kinds then name the owner who approved the numbers as the promotion''s created_by, which apply_best_promotion records as every redemption''s authorized_by (0067). The run is done. Audit protocol.price.apply or protocol.promo.apply {run_id, change, counts (price and shop_launch: sizes, new_sizes, renamed; addon_price: addons, launched, renamed; lesson_price: lesson_types; lesson_launch: lesson_types, launched; coach_price: coach_prices), authorized_by (promotion kinds)}; returns the same.';
@@ -934,7 +934,7 @@ revoke all on function app.price_promo_apply_internal(uuid) from public, anon, a
 -- ---------------------------------------------------------------------------
 create or replace function app.price_promo_targets(p_change text, p_venue_id uuid default null)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $price_promo_targets_0282$
+language plpgsql stable security definer set search_path = public as $price_promo_targets_0285$
 declare
   v_venue uuid;
   v_mgmt  boolean;
@@ -1126,7 +1126,7 @@ begin
       from rate_rules r
       left join courts c on c.id = r.court_id
      where r.venue_id = v_venue), '[]'::jsonb));
-end $price_promo_targets_0282$;
+end $price_promo_targets_0285$;
 
 comment on function app.price_promo_targets(text, uuid) is
   'price_promo (§2.13). Manager, marketing or owner at the venue (shop_launch and the lesson kinds: MGMT only): the targets a price or promotion change may name. price: {items: [{menu_item_id, name_en, name_ar, category_kind, is_active, sizes: [{variant_id, name_en, name_ar, price_iqd}]}]}, launched items not in release, cafe and shop; shop_launch: the same shape, hidden never-launched shop products not in release; addon_price: {addons: [{modifier_id, group_id, group_name_en, group_name_ar, name_en, name_ar, price_delta_iqd, is_active, launched}]}, launched add-ons plus, for MGMT, hidden never-launched ones; promotion_edit / promotion_enable: {promotions: [...]} (every promotion / the switched-off ones), no redemption count; rate: {rules: [{rule_id, name, court_id, court_name_en, court_name_ar, days_of_week, start_time, end_time, priority, valid_from, valid_to, is_active, prices}]}; featured_discount: {featured_item_id, featured_discount_pct, hero_mode, items: [...]}, active items; lesson_price / lesson_launch (price_promo_lessons, X28): {lesson_types: [{lesson_type_id, kind, name_en, name_ar, duration_min, sessions_count, max_places, price_iqd, court_share_iqd, is_active}]}, the launched types / the drafts (never launched, switched off) at the venue; coach_price: {coaches: [{coach_id, display_name_en, display_name_ar, lesson_types: [{lesson_type_id, name_en, name_ar, kind, sessions_count, type_price_iqd, coach_price_iqd}]}]}, coaches not retired who teach at the venue, with the types they teach there. No cost, no sales. FORBIDDEN, INVALID_ARGUMENT (hint change).';
@@ -1140,7 +1140,7 @@ grant execute on function app.price_promo_targets(text, uuid) to authenticated;
 -- ---------------------------------------------------------------------------
 create or replace function app.price_promo_numbers(p_run_id uuid)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $price_promo_numbers_0282$
+language plpgsql stable security definer set search_path = public as $price_promo_numbers_0285$
 declare
   v_run    protocol_runs%rowtype;
   v_p      jsonb;
@@ -1465,7 +1465,7 @@ begin
     'rate',      v_rate,
     'featured',  v_feat,
     'lesson',    v_lesson);
-end $price_promo_numbers_0282$;
+end $price_promo_numbers_0285$;
 
 comment on function app.price_promo_numbers(uuid) is
   'price_promo (§2.13). MGMT at the run''s venue: the figures behind a price or promotion change, from its standing proposal and numbers (a figure the numbers leave out is the proposal''s): {change, sizes: [{variant_id (null for a new size), name_en, name_ar, current_price_iqd, new_price_iqd, cost_iqd, cost_known, margin_before_iqd, margin_after_iqd, units_30d, revenue_30d_iqd}], addons: [{modifier_id, group_name_en, group_name_ar, name_en, name_ar, current_delta_iqd, new_delta_iqd, count_30d, revenue_30d_iqd}], renames: [{target size|addon, id, from_en, from_ar, to_en, to_ar, price_iqd (what it sells at once applied: this change''s figure, else its price now)}] (price_promo_renames, #9; [] for every other change), promotion: {current_value, new_value, discount_cost_30d_iqd, units_30d, revenue_30d_iqd} | null, rate: {durations: [{duration_min, current_price_iqd, new_price_iqd}], bookings_30d, revenue_30d_iqd} | null, featured: {current_item_id, new_item_id, current_pct, new_pct, current_hero_mode, sizes, units_30d, discount_cost_30d_iqd} | null, lesson: {lesson_type_id, coach_id (coach_price, else null), kind, name_en, name_ar, current_price_iqd (a coach price: the coach''s own, else the type''s), new_price_iqd (once applied; a removed coach price falls back to the type''s), current_court_share_iqd, new_court_share_iqd, places_30d, owed_30d_iqd (booked sign-ups of the type and coach whose lesson, or first covered course session, started in the last 30 days, at their snapshot prices)} | null (price_promo_lessons; X28)}. Cost is the recipe cost (latest batch, else pack cost; unknown when a line has neither); sales are the last 30 days'' settled lines. No coach pay (C-28). PROTOCOL_NOT_FOUND.';

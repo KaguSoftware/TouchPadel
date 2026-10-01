@@ -1,5 +1,5 @@
 /**
- * 0277 lesson_reservation_guards (docs/design/coaching/db.md §4.5; build
+ * 0280 lesson_reservation_guards (docs/design/coaching/db.md §4.5; build
  * contracts §1.8, R1, R7, R25, R35, R37, R64, R73): a lesson's court row is
  * taught to the reservation bodies.
  *
@@ -23,8 +23,8 @@
  *      or approved statement; a branch with none of them closes.
  *
  * Rows are planted as postgres in rolled-back transactions (tests/coaching-plant.ts):
- * no coaching RPC creates a lesson before 0280. close_branch's money test
- * reaches Money's 0278 (lesson_money_open, lesson_settle, app.refund).
+ * no coaching RPC creates a lesson before 0283. close_branch's money test
+ * reaches Money's 0281 (lesson_money_open, lesson_settle, app.refund).
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import { stackAvailable } from './helpers';
@@ -53,7 +53,7 @@ const NIL = '00000000-0000-4000-8000-000000000277';
 
 // ── 1. firm, masked, the trigger ─────────────────────────────────────────────
 
-describe.skipIf(!docker)('0277 a lesson is firm, masked and counted (rolled back)', () => {
+describe.skipIf(!docker)('0280 a lesson is firm, masked and counted (rolled back)', () => {
   let r: Results;
 
   beforeAll(() => {
@@ -204,7 +204,7 @@ describe.skipIf(!docker)('0277 a lesson is firm, masked and counted (rolled back
 // ── 2. a lesson's court hold is no orphan (R25) ──────────────────────────────
 
 describe.skipIf(!docker)(
-  '0277 expire_stale_holds and match_expire_holds keep a lesson hold until its TTL (rolled back)',
+  '0280 expire_stale_holds and match_expire_holds keep a lesson hold until its TTL (rolled back)',
   () => {
     let r: Results;
 
@@ -304,7 +304,7 @@ describe.skipIf(!docker)(
 // ── 3. LESSON_VIA_COACHING ───────────────────────────────────────────────────
 
 describe.skipIf(!docker)(
-  '0277 LESSON_VIA_COACHING: a lesson is changed only through the coaching RPCs (rolled back)',
+  '0280 LESSON_VIA_COACHING: a lesson is changed only through the coaching RPCs (rolled back)',
   () => {
     let r: Results;
 
@@ -421,7 +421,7 @@ describe.skipIf(!docker)(
 // ── 4. close_branch (R37) ────────────────────────────────────────────────────
 
 describe.skipIf(!docker)(
-  '0277 close_branch: live lessons and coaching money (R37) (rolled back)',
+  '0280 close_branch: live lessons and coaching money (R37) (rolled back)',
   () => {
     let r: Results;
 
@@ -459,7 +459,7 @@ describe.skipIf(!docker)(
           `insert into coach_statements (coach_id, venue_id, month, status, approved_at, approved_by, paid_at,
                                              paid_by, paid_reference)
                values ({{coach}}, {{v}}, (date_trunc('month', now()) - interval '1 month')::date, 'paid', now(),
-                       {{manager}}, now(), {{manager}}, 'TRF-0277') returning id`,
+                       {{manager}}, now(), {{manager}}, 'TRF-0280') returning id`,
         ),
         X(`select pg_temp.cancel_lesson('l1', 'staff_cancel')`),
         X(`select pg_temp.cancel_enrol('e1', 'staff')`),
@@ -497,7 +497,7 @@ describe.skipIf(!docker)(
         X(`insert into coach_statements (coach_id, venue_id, month, status, approved_at, approved_by, paid_at, paid_by,
                                        paid_reference)
          values ({{coach}}, {{v}}, (date_trunc('month', now()) - interval '1 month')::date, 'paid', now(), {{manager}},
-                 now(), {{manager}}, 'TRF-0277-B')`),
+                 now(), {{manager}}, 'TRF-0280-B')`),
         Q('open_none', `select to_jsonb(app.lesson_money_open({{v}}))`),
         T('close', 'owner', `select to_jsonb(app.close_branch({{v}}))`),
       ]);

@@ -46,7 +46,7 @@ const BLOCKING_STATUSES = new Set(['pending', 'confirmed', 'arrived']);
 export interface ReservationInput {
   courtId: string;
   /**
-   * reservation_kind. A `lesson` row is a coaching lesson's court (0270; R13) and reads as booked;
+   * reservation_kind. A `lesson` row is a coaching lesson's court (0273; R13) and reads as booked;
    * a private lesson awaiting its Qi payment holds its court with an ordinary `hold` row.
    */
   kind: 'booking' | 'maintenance' | 'hold' | 'lesson';

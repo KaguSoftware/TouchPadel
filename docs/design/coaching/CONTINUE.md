@@ -1,5 +1,7 @@
 # Coaching: where the build stands, and how to continue it
 
+> Renumbered 2026-10-02: the teammates' wages migrations took 0270–0272, so every coaching ordinal N in these files is N+3 on disk (0273–0289).
+
 Phase 2 milestone 5 (change-order item 2). Planned and approved by Parsa on 2026-10-01. The plan is
 `~/.claude/plans/which-features-are-left-eventual-wigderson.md`; the binding names are
 `build-contracts-2026-10-01.md` §1.

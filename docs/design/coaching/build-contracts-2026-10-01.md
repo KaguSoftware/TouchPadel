@@ -1,5 +1,7 @@
 # Coaching: build contracts
 
+> Renumbered 2026-10-02: the teammates' wages migrations took 0270–0272, so every coaching ordinal N in these files is N+3 on disk (0273–0289).
+
 Date: 2026-10-01. Status: **design, approved by Parsa the same day; nothing built.** This file is
 binding for every lane of the coaching build (Phase 2 milestone 5, change-order item 2). Where it
 and the planning record disagree, this file wins. The planning record is

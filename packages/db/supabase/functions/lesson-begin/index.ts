@@ -25,7 +25,7 @@
  *
  * The app then polls deposit-status with the request_id; the webhook, those
  * polls and the reconciler finish the payment through app.deposit_apply,
- * whose lesson arm books the place (0281). Nothing here marks a payment paid
+ * whose lesson arm books the place (0284). Nothing here marks a payment paid
  * or failed.
  */
 import { checkNow, createAtGateway, describe, loadPayment } from '../_shared/deposits.ts';

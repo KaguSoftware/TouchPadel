@@ -1,5 +1,5 @@
 /**
- * 0281 lesson_online_payment — a lesson place paid online, end to end through
+ * 0284 lesson_online_payment — a lesson place paid online, end to end through
  * the fake provider (docs/design/coaching/money.md §6, §10 O1-O13; build
  * contracts C-3, C-26, R3, R25, R28, R29, R30, R33, R34, R50, R65, R70).
  *
@@ -9,7 +9,7 @@
  * deposits and tickets ("the fake bank says SUCCESS"): lesson_payment_prepare,
  * then deposit_mark_created, then deposit_apply with the bank's answer.
  *
- * The held enrolments are planted as the booking RPCs of 0280 leave them (a
+ * The held enrolments are planted as the booking RPCs of 0283 leave them (a
  * private lesson `held` with its court `hold` row, a group or course place
  * `held`), with the service role: this file tests the money path, not the
  * booking RPCs (coaching-booking tests do). Lessons sit 120+ days out at 10:00
@@ -76,7 +76,7 @@ function body(src: string, name: string): string {
   return end > close ? src.slice(close + 1, end) : '';
 }
 
-describe('0281 the source rules (pure)', () => {
+describe('0284 the source rules (pure)', () => {
   it('ships the migration', () => {
     expect(FILE, 'packages/db/supabase/migrations/*_lesson_online_payment.sql').toBeDefined();
   });
@@ -116,7 +116,7 @@ describe('0281 the source rules (pure)', () => {
 // ── the stack ────────────────────────────────────────────────────────────────
 const up = await stackAvailable();
 
-describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_apply)', () => {
+describe.skipIf(!up)('0284 lessons paid online (fake provider through deposit_apply)', () => {
   let svc: SupabaseClient;
   let manager: SupabaseClient;
   let court: string;
@@ -190,7 +190,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
     return { client, id };
   };
 
-  /** A private lesson held for an online payment, as 0280's lesson_book_private leaves it. */
+  /** A private lesson held for an online payment, as 0283's lesson_book_private leaves it. */
   const plantPrivate = async (guestId: string, n: number) => {
     const s = slot(n);
     const hold = soon(15);
@@ -398,13 +398,13 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
     await setTerms(TERMS);
     await setVenue({ coaching_enabled: true, lesson_payment_mode: 'online_optional' });
 
-    court = await createTestCourt(svc, `L0281 ${Date.now()}`);
+    court = await createTestCourt(svc, `L0284 ${Date.now()}`);
 
-    const coachGuest = await guestClient(svc, 'l0281-coach');
+    const coachGuest = await guestClient(svc, 'l0284-coach');
     const coachProfile = (await coachGuest.auth.getUser()).data.user!.id;
     coach = await ins('coaches', {
       profile_id: coachProfile,
-      display_name_en: 'Coach 0281',
+      display_name_en: 'Coach 0284',
       display_name_ar: 'مدرّب ٠٢٨١',
       public_accepted_at: new Date().toISOString(),
     });
@@ -431,7 +431,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
     lt.private = await ins('lesson_types', {
       venue_id: VENUE_A_ID,
       kind: 'private',
-      name_en: 'Private 0281',
+      name_en: 'Private 0284',
       name_ar: 'حصة خاصة ٠٢٨١',
       duration_min: 60,
       price_iqd: 40_000,
@@ -445,7 +445,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
     lt.group = await ins('lesson_types', {
       venue_id: VENUE_A_ID,
       kind: 'group',
-      name_en: 'Group 0281',
+      name_en: 'Group 0284',
       name_ar: 'حصة جماعية ٠٢٨١',
       duration_min: 60,
       price_iqd: 15_000,
@@ -459,7 +459,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
     lt.course = await ins('lesson_types', {
       venue_id: VENUE_A_ID,
       kind: 'course',
-      name_en: 'Course 0281',
+      name_en: 'Course 0284',
       name_ar: 'دورة ٠٢٨١',
       duration_min: 60,
       price_iqd: 100_001,
@@ -504,7 +504,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
 
   // ── O1 ────────────────────────────────────────────────────────────────────
   it('O1 private: begin -> the bank says SUCCESS -> booked on the same court, one paid_online event', async () => {
-    const g = await newGuest('l0281-o1');
+    const g = await newGuest('l0284-o1');
     const p = await plantPrivate(g.id, 1);
 
     const a = await begin(g.id, p.enrolment);
@@ -577,13 +577,13 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
         course_id: null,
         venue_id: VENUE_A_ID,
         coach_id: coach,
-        coach_name_en: 'Coach 0281',
-        type_name_en: 'Private 0281',
+        coach_name_en: 'Coach 0284',
+        type_name_en: 'Private 0284',
       },
     });
     expect(Date.parse((st.data.lesson as Json).start_at as string)).toBe(Date.parse(p.start));
     // Another guest reads it as not there.
-    const stranger = await newGuest('l0281-o1-x');
+    const stranger = await newGuest('l0284-o1-x');
     expect(
       (await call(stranger.client, 'deposit_status', { p_request_id: a.request_id })).code,
     ).toBe('PAYMENT_NOT_FOUND');
@@ -653,7 +653,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
   // ── O2 ────────────────────────────────────────────────────────────────────
   it('O2 group and course: the place is booked; the event carries the booked places (R78)', async () => {
     const grp = await plantGroup(2, 4, 2);
-    const g = await newGuest('l0281-o2g');
+    const g = await newGuest('l0284-o2g');
     const e = await heldPlace(g.id, { lesson: grp.lesson }, 15_000);
     const a = await begin(g.id, e);
     expect(await one('booking_payments', a.id)).toMatchObject({
@@ -711,7 +711,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
         }),
       );
     }
-    const gc = await newGuest('l0281-o2c');
+    const gc = await newGuest('l0284-o2c');
     const ec = await heldPlace(gc.id, { course, sessions: 4 }, 100_001);
     const ac = await begin(gc.id, ec);
     const st = await call(gc.client, 'deposit_status', { p_request_id: ac.request_id });
@@ -733,8 +733,8 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
 
   // ── O3 ────────────────────────────────────────────────────────────────────
   it("O3 prepare's refusals, with their details", async () => {
-    const g = await newGuest('l0281-o3');
-    const other = await newGuest('l0281-o3-x');
+    const g = await newGuest('l0284-o3');
+    const other = await newGuest('l0284-o3-x');
     const p = await plantPrivate(g.id, 3);
     const prep = (guest: string, enrolment: string | null, provider = 'fake') =>
       svcCall('lesson_payment_prepare', {
@@ -823,7 +823,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
 
   // ── O4, O8 ────────────────────────────────────────────────────────────────
   it('O4 FAILED keeps the hold and a retry succeeds; O8 the first attempt paying late is duplicate_success', async () => {
-    const g = await newGuest('l0281-o4');
+    const g = await newGuest('l0284-o4');
     const p = await plantPrivate(g.id, 5);
     const first = await begin(g.id, p.enrolment);
     expect((await apply(first.request_id, 'FAILED', null)).data).toMatchObject({
@@ -853,7 +853,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
     expect((await eventsOf(p.enrolment)).filter((e) => e.type === 'paid_online')).toHaveLength(1);
 
     // The wrong amount is not our payment: the whole row back, the enrolment untouched.
-    const g2 = await newGuest('l0281-o8');
+    const g2 = await newGuest('l0284-o8');
     const p2 = await plantPrivate(g2.id, 6);
     const a2 = await begin(g2.id, p2.enrolment);
     expect((await apply(a2.request_id, 'SUCCESS', 39_000)).data).toMatchObject({
@@ -868,7 +868,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
 
   // ── O5, O6 ────────────────────────────────────────────────────────────────
   it('O5 EXPIRED: the place, the lesson and its hold expire, with a lapsed_hold strike; O6 a late SUCCESS when the coach was booked meanwhile is slot_lost', async () => {
-    const g = await newGuest('l0281-o5');
+    const g = await newGuest('l0284-o5');
     const p = await plantPrivate(g.id, 7);
     const a = await begin(g.id, p.enrolment);
 
@@ -941,7 +941,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
   });
 
   it('O6 a late SUCCESS while everything is still free revives the lesson (R29) and withdraws the strike (R65)', async () => {
-    const g = await newGuest('l0281-o6');
+    const g = await newGuest('l0284-o6');
     const p = await plantPrivate(g.id, 8);
     const a = await begin(g.id, p.enrolment);
     expect((await apply(a.request_id, 'EXPIRED', null)).data).toMatchObject({ status: 'expired' });
@@ -972,7 +972,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
 
   // ── O7 ────────────────────────────────────────────────────────────────────
   it('O7 a hold expired by TTL past the payment grace: SUCCESS re-picks a court from the locked set (R25, R34)', async () => {
-    const g = await newGuest('l0281-o7');
+    const g = await newGuest('l0284-o7');
     const p = await plantPrivate(g.id, 9);
     const a = await begin(g.id, p.enrolment);
     // The hold row's TTL and the attempt's deadline both well past (the ten-minute grace too);
@@ -993,7 +993,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
   // ── O12 ───────────────────────────────────────────────────────────────────
   it('O12 a full group (R29): the desk takes the last place while a held one is past its grace; its SUCCESS is slot_lost', async () => {
     const grp = await plantGroup(11, 3, 2);
-    const g1 = await newGuest('l0281-o12');
+    const g1 = await newGuest('l0284-o12');
     const e1 = await heldPlace(g1.id, { lesson: grp.lesson }, 15_000);
     const a1 = await begin(g1.id, e1);
     // G1's window and its payment's grace are over: its place no longer counts...
@@ -1017,7 +1017,7 @@ describe.skipIf(!up)('0281 lessons paid online (fake provider through deposit_ap
   // ── O9, O11 ───────────────────────────────────────────────────────────────
   it('O9 the reconciler starts the refund a cancel never started (R28); O11 the refund outcome; the attention list; CM-5', async () => {
     const grp = await plantGroup(12, 6, 0);
-    const g = await newGuest('l0281-o9');
+    const g = await newGuest('l0284-o9');
     const e = await heldPlace(g.id, { lesson: grp.lesson }, 15_000);
     const a = await begin(g.id, e);
     expect((await apply(a.request_id, 'SUCCESS', 15_000)).data).toMatchObject({

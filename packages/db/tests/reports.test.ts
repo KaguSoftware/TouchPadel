@@ -258,7 +258,7 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     expect(Object.keys(byKey).sort()).toEqual(
       ['avgOrderValue', 'bookings', 'cafeNet', 'cafeRevenue', 'card', 'cash', 'discounts', 'noShows', 'orders', 'padelRevenue', 'refunds', 'revenue', 'waste',
        'onlineDeposits', 'depositForfeits', 'ticketSales', 'ticketRefunds', 'ticketForfeits', 'ticketLiability', 'matchWrittenOff',
-       // 0285 (coaching, money.md §8.2): lesson revenue as its own line, and the coaches' share.
+       // 0288 (coaching, money.md §8.2): lesson revenue as its own line, and the coaches' share.
        'lessonRevenue', 'owedToCoaches'].sort(),
     );
     for (const f of d.figures) {
@@ -269,7 +269,7 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     }
 
     // 0099: revenue counts the cafe after refunds, like the Analytics venue revenue tile.
-    // 0285 (C-18): lesson money is part of revenue as its own line.
+    // 0288 (C-18): lesson money is part of revenue as its own line.
     expect(byKey.revenue!.value).toBe(byKey.padelRevenue!.value + byKey.cafeNet!.value + byKey.lessonRevenue!.value);
     expect(byKey.padelRevenue!.value).toBeGreaterThanOrEqual(reservationPrice);
     expect(byKey.cafeRevenue!.value).toBeGreaterThanOrEqual(tabTotal);
@@ -358,7 +358,7 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
 
     expect(d.comparison).toBeNull();
     expect(d.columns.map((c) => c.key)).toEqual([
-      // 0285 (coaching): lessonIqd (in totalIqd, C-18) and owedToCoachesIqd (accrual, never in the total).
+      // 0288 (coaching): lessonIqd (in totalIqd, C-18) and owedToCoachesIqd (accrual, never in the total).
       'period', 'padelIqd', 'cafeIqd', 'cafeNetIqd', 'shopIqd', 'lessonIqd', 'owedToCoachesIqd', 'totalIqd', 'cashIqd', 'cardIqd',
       'discountsIqd', 'voidsIqd', 'refundsIqd', 'taxIqd', 'orders', 'bookings',
     ]);
@@ -374,7 +374,7 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     }
     for (const r of d.rows) {
       expect(r.period >= from && r.period <= to, r.period).toBe(true);
-      // 0099: the total counts the cafe after refunds; 0285 (C-18): and the lesson money.
+      // 0099: the total counts the cafe after refunds; 0288 (C-18): and the lesson money.
       expect(Number(r.totalIqd)).toBe(Number(r.padelIqd) + Number(r.cafeNetIqd) + Number(r.lessonIqd));
     }
     expect(d.rows.map((r) => r.period)).toEqual([...d.rows.map((r) => r.period)].sort());

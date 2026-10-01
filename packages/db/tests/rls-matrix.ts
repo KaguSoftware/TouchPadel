@@ -135,12 +135,12 @@ const SELF_AUTHED = ex<RpcExpectation>('execute', { anon: 'denied' });
 /** Granted to `anon` too: the menu surface, before any identity exists. */
 const SELF_ANON_OK = ex<RpcExpectation>('execute');
 /**
- * Coaching (0279, 0280): a guest or a coach. Every account executes past the guard (a guest
+ * Coaching (0282, 0283): a guest or a coach. Every account executes past the guard (a guest
  * who is not a coach gets NOT_A_COACH, not a refusal); the anonymous café session has no
  * profile (ACCOUNT_REQUIRED); anon has no grant.
  */
 const GUEST_OR_COACH = ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' });
-/** Coaching desk writes (0280): the court desk, managers and the owner (not the till, R57). */
+/** Coaching desk writes (0283): the court desk, managers and the owner (not the till, R57). */
 const DESK_UP = ex<RpcExpectation>('guarded', {
   anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
 });
@@ -5207,7 +5207,7 @@ export const matrix: MatrixRule[] = [
     note: 'coaching_tables: no client write grant; every write is a definer RPC',
     drop: 25,
   },
-  // ── coaching 0278: lesson_money (money.md §5.10, §5.11, R75) ─────────────
+  // ── coaching 0281: lesson_money (money.md §5.10, §5.11, R75) ─────────────
   {
     kind: 'rpc', schema: 'app', name: 'lesson_settle',
     args: { p_enrolment_id: NIL_UUID, p_method: 'cash', p_expected_owed_iqd: 10000, p_tendered_iqd: 10000,
@@ -5230,7 +5230,7 @@ export const matrix: MatrixRule[] = [
     note: 'lesson_money (R75): the helper proves the PIN first (0115), then the role guard; a nil enrolment is ENROLMENT_NOT_FOUND before any grant is spent',
     drop: 25,
   },
-  // ── coaching 0279: coaching_admin, staff (manager and owner; the role first, R57) ──
+  // ── coaching 0282: coaching_admin, staff (manager and owner; the role first, R57) ──
   {
     kind: 'rpc', schema: 'app', name: 'coaches_admin',
     args: { p_venue_id: VENUE_A },
@@ -5302,7 +5302,7 @@ export const matrix: MatrixRule[] = [
     note: 'coaching_admin: a nil id is INVALID_ARGUMENT p_id past the guard (X31)',
     drop: 25,
   },
-  // ── coaching 0279: coach mode (app.coach_self first; a guest who is not a coach is
+  // ── coaching 0282: coach mode (app.coach_self first; a guest who is not a coach is
   // NOT_A_COACH, past the guard; the anonymous café session has no profile) ──
   {
     kind: 'rpc', schema: 'app', name: 'coach_hours_mine',
@@ -5339,7 +5339,7 @@ export const matrix: MatrixRule[] = [
     note: 'coaching_admin: publicByDesign (R12); answers only about the caller ({coach: null} for anyone not a coach), never raises',
     drop: 25,
   },
-  // ── coaching 0280: guest (app.lesson_guest first) and coach (app.coach_self first) writes:
+  // ── coaching 0283: guest (app.lesson_guest first) and coach (app.coach_self first) writes:
   // every profile passes the guard; a nil id fails on not-found (a non-coach: NOT_A_COACH) ──
   {
     kind: 'rpc', schema: 'app', name: 'lesson_book_private',
@@ -5455,7 +5455,7 @@ export const matrix: MatrixRule[] = [
     note: 'lesson_booking: a guest or coach write; nothing is written',
     drop: 25,
   },
-  // ── coaching 0280: desk writes (court_desk, manager, owner; the role first, R57) ──
+  // ── coaching 0283: desk writes (court_desk, manager, owner; the role first, R57) ──
   {
     kind: 'rpc', schema: 'app', name: 'desk_book_lesson',
     args: { p_coach_id: NIL_UUID, p_lesson_type_id: NIL_UUID, p_start_at: FUTURE, p_customer_id: null,
@@ -5537,7 +5537,7 @@ export const matrix: MatrixRule[] = [
     note: 'lesson_booking (R16, R45): pause, resume or retire a coach; a nil coach is COACH_NOT_FOUND past the guard',
     drop: 25,
   },
-  // ── coaching 0280: the reads. Public by design (R12): the four anonymous reads ──
+  // ── coaching 0283: the reads. Public by design (R12): the four anonymous reads ──
   {
     kind: 'rpc', schema: 'app', name: 'coaching_public',
     args: {},
@@ -5618,7 +5618,7 @@ export const matrix: MatrixRule[] = [
     note: "lesson_booking: a customer's lessons on the record (X18); a nil customer is CUSTOMER_NOT_FOUND past the guard",
     drop: 25,
   },
-  // ── coaching 0284: coach statements (money.md §7.6) ──────────────────────────
+  // ── coaching 0287: coach statements (money.md §7.6) ──────────────────────────
   {
     kind: 'rpc', schema: 'app', name: 'report_coach_statements',
     args: { p_month: null },
@@ -5668,7 +5668,7 @@ export const matrix: MatrixRule[] = [
     note: 'coach_statements (R45, R70): an anonymous session is ACCOUNT_REQUIRED, a profile that is no coach NOT_A_COACH',
     drop: 25,
   },
-  // ── coaching 0285: the Lessons report ────────────────────────────────────────
+  // ── coaching 0288: the Lessons report ────────────────────────────────────────
   {
     kind: 'rpc', schema: 'app', name: 'report_lessons',
     args: { p_from: '2026-01-01', p_to: '2026-01-31' },

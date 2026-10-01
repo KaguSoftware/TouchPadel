@@ -1,5 +1,5 @@
 /**
- * 0280, lane Guest: the lesson push family in the database (docs/design/
+ * 0283, lane Guest: the lesson push family in the database (docs/design/
  * coaching/guest.md §4.5; build contracts §1.9, R18, R40, R44, R78, CD-7,
  * C-21).
  *
@@ -14,12 +14,12 @@
  *     returns 0 while the caller goes on, send-push nudged only for rows due
  *     now;
  *   * the fan-out (lesson_events_notify, R40): every row of the guest.md
- *     §4.5.4 table driven through the real RPCs of 0280 (and the internals the
+ *     §4.5.4 table driven through the real RPCs of 0283 (and the internals the
  *     sweep calls), each queuing exactly its keys to exactly its recipients,
  *     the silent rows queuing nothing, the three traces (a guest cancels a
  *     private lesson; the desk cancels one; an under-filled course), and
- *     Money's paid_online and expired events planted the way 0281 writes
- *     them (0281 appends its own cases through its real bodies);
+ *     Money's paid_online and expired events planted the way 0284 writes
+ *     them (0284 appends its own cases through its real bodies);
  *   * no name and no amount in any queued payload (CD-7);
  *   * reminders (the deferred triggers, R78): a booked private lesson queues
  *     one at start - 3 h; a course enrolment one per covered scheduled
@@ -749,7 +749,7 @@ describe.skipIf(!docker)(
         REM('r4_rem', 'R_'),
         CLEAR,
 
-        // ── M: Money's events, planted the way 0281 writes them (lesson_id the
+        // ── M: Money's events, planted the way 0284 writes them (lesson_id the
         // place's session, actor system): paid_online tells the coach;
         // expired tells the guest; a held join and a held cancel are silent,
         // with or without data.from; account_deleted from booked tells the coach.

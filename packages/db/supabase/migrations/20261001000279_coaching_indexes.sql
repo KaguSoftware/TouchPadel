@@ -1,12 +1,12 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0276 coaching_indexes — coaching, lane DB with Money's named indexes
+-- 0279 coaching_indexes — coaching, lane DB with Money's named indexes
 -- (docs/design/coaching/db.md §4.4, money.md §4; build contracts §1.1, §1.2,
 -- R22, R24, R60). Only `create [unique] index if not exists`.
 --
 -- Plain CREATE INDEX, not CONCURRENTLY: every coaching table is new and empty
--- (0275), and the six partial indexes on the three hot tables (reservations,
+-- (0278), and the six partial indexes on the three hot tables (reservations,
 -- tabs, booking_payments) have predicates that match no row today
 -- (lesson_id / lesson_enrolment_id is NULL on every existing row, so each
 -- index is empty), though each still takes SHARE for one scan of its table

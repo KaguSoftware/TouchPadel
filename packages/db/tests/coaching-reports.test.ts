@@ -1,5 +1,5 @@
 /**
- * Coaching, migration 0285 lesson_reports (docs/design/coaching/money.md §8, §10
+ * Coaching, migration 0288 lesson_reports (docs/design/coaching/money.md §8, §10
  * coaching-reports.test.ts; build contracts C-18, C-28, C-31, CM-13, CM-14, CM-15, R27, R42, R71,
  * R72, R81).
  *
@@ -172,7 +172,7 @@ const OWED = Object.values(COLLECTED).reduce(
 );
 const COURT_TOTAL = Object.values(COLLECTED).reduce((a, c) => a + Math.min(COURT_SHARE, c), 0);
 
-describe.skipIf(!docker)('coaching 0285: the lesson figures in every report', () => {
+describe.skipIf(!docker)('coaching 0288: the lesson figures in every report', () => {
   it('lesson_money_figures, reports_figures, panel_headline and report_revenue agree (C-18, CM-13)', () => {
     const r = scenario('cf285-a', [
       ...BASE,
@@ -399,7 +399,7 @@ describe.skipIf(!docker)('coaching 0285: the lesson figures in every report', ()
   });
 });
 
-describe.skipIf(!docker)('coaching 0285: SEC-29 (R42)', () => {
+describe.skipIf(!docker)('coaching 0288: SEC-29 (R42)', () => {
   it('check:analytics passes: aggregates for the assistant, person-money reports exempt from the coach patterns', () => {
     const out = execFileSync('node', ['scripts/check-analytics-payload.mjs'], { encoding: 'utf8' });
     expect(out).toMatch(/PASS/);

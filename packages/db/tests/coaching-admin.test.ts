@@ -1,5 +1,5 @@
 /**
- * Coaching, database sub-step 0279 coaching_admin (docs/design/coaching/db.md
+ * Coaching, database sub-step 0282 coaching_admin (docs/design/coaching/db.md
  * §4.6, §7; build contracts C-4, C-5, C-7, C-17, C-22, C-25, C-27, CD-10,
  * R26, R43, R45, R46, R52, R56, R57, R61, R73, R81).
  *
@@ -350,7 +350,7 @@ const BODY: string[] = [
 ];
 
 describe.skipIf(!docker)(
-  'coaching admin (0279): coaches, types, the price lock, hours, time off, coach_me',
+  'coaching admin (0282): coaches, types, the price lock, hours, time off, coach_me',
   () => {
     let r: Results;
     beforeAll(() => {

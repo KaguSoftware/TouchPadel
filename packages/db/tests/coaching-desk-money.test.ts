@@ -1,5 +1,5 @@
 /**
- * 0278 lesson_money (docs/design/coaching/money.md §5, §10; build contracts
+ * 0281 lesson_money (docs/design/coaching/money.md §5, §10; build contracts
  * §1.5, §1.7, §1.8, C-6, C-15, C-23, C-31, CM-1…CM-5, CM-15, R27, R28, R36,
  * R44, R62, R71, R75).
  *
@@ -30,7 +30,7 @@
  *      courseLateJoinPrice, over awkward amounts.
  *
  * Every case is a rolled-back transaction with rows planted as postgres
- * (tests/coaching-plant.ts): no coaching RPC books a lesson before 0280. After
+ * (tests/coaching-plant.ts): no coaching RPC books a lesson before 0283. After
  * every money-moving step the engine's identities (money.md §10 L3) are read
  * back (assertEngine).
  */
@@ -145,7 +145,7 @@ const money = (r: Results, label: string) => {
 
 // ── 1. desk money, the wall ──────────────────────────────────────────────────
 
-describe.skipIf(!docker)('0278 lesson_settle and the lesson tab (rolled back)', () => {
+describe.skipIf(!docker)('0281 lesson_settle and the lesson tab (rolled back)', () => {
   let r: Results;
 
   beforeAll(() => {
@@ -419,7 +419,7 @@ describe.skipIf(!docker)('0278 lesson_settle and the lesson tab (rolled back)', 
 // ── 2. group and course money, R36 ───────────────────────────────────────────
 
 describe.skipIf(!docker)(
-  '0278 group and course money, desk refunds of lesson money (rolled back)',
+  '0281 group and course money, desk refunds of lesson money (rolled back)',
   () => {
     let r: Results;
     const D = (d: number) => `(date_trunc('hour', now()) + interval '${d} days')`;
@@ -564,7 +564,7 @@ describe.skipIf(!docker)(
 // ── 3. online money ─────────────────────────────────────────────────────────
 
 describe.skipIf(!docker)(
-  '0278 online lesson money: lesson_refund_start, C-23, blocked refunds (R75) (rolled back)',
+  '0281 online lesson money: lesson_refund_start, C-23, blocked refunds (R75) (rolled back)',
   () => {
     let r: Results;
     const B = (d: number, h: number) =>
@@ -925,7 +925,7 @@ describe.skipIf(!docker)(
 // ── 4. C-31: a refund counts on the day it is made ───────────────────────────
 
 describe.skipIf(!docker)(
-  '0278 C-31: refunds on day 2 of day-1 payments (café, shop, lesson) (rolled back)',
+  '0281 C-31: refunds on day 2 of day-1 payments (café, shop, lesson) (rolled back)',
   () => {
     let r: Results;
 
@@ -1189,7 +1189,7 @@ describe.skipIf(!docker)(
 
 // ── 5. parity with @touch/core ───────────────────────────────────────────────
 
-describe.skipIf(!docker)('0278 the arithmetic twins against @touch/core (rolled back)', () => {
+describe.skipIf(!docker)('0281 the arithmetic twins against @touch/core (rolled back)', () => {
   let r: Results;
 
   beforeAll(() => {

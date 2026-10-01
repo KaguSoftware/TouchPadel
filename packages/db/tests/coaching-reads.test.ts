@@ -1,5 +1,5 @@
 /**
- * 0280 (lane DB + Guest): the coaching reads (docs/design/coaching/db.md
+ * 0283 (lane DB + Guest): the coaching reads (docs/design/coaching/db.md
  * §4.7.9, guest.md §4.3, operator.md §5.6; build contracts R12, R16, R17,
  * R41, R43, R44, R45, R51, R54, R58, R61, R63, R76, R81).
  *
@@ -7,7 +7,7 @@
  *     packages/core/src/coaching/shapes.ts COACHING_SHAPES (R41, R81):
  *     coaching_public, coach_profile (a named branch and NULL, R17),
  *     coach_slots, lesson_offer (group and course), my_lessons, my_lesson
- *     (lesson, course, pending link), coach_me and coach_me_retired (0279's
+ *     (lesson, course, pending link), coach_me and coach_me_retired (0282's
  *     body), coach_schedule, coach_lesson (group and course session),
  *     desk_lessons, desk_lesson_detail (group and course session),
  *     customer_lessons;
@@ -104,7 +104,7 @@ function shapeOf(r: Results, label: string, shape: CoachingShapeName): string[] 
   return missingKeys(data(r, label), COACHING_SHAPES[shape]);
 }
 
-describe.skipIf(!docker)('0280 coaching reads (rolled back)', () => {
+describe.skipIf(!docker)('0283 coaching reads (rolled back)', () => {
   let r: Results;
   let ids: Record<string, string>;
   let names: Record<string, string>;
@@ -631,7 +631,7 @@ describe.skipIf(!docker)('0280 coaching reads (rolled back)', () => {
     expect(failed(r, 'my1_stranger').code).toBe('ENROLMENT_NOT_FOUND');
   });
 
-  it('coach_me (0279): the coach, a staff member who coaches (C-27), a retired coach (R45), a guest', () => {
+  it('coach_me (0282): the coach, a staff member who coaches (C-27), a retired coach (R45), a guest', () => {
     const me = data<Json>(r, 'me_ca');
     expect(me.coach).toMatchObject({
       id: ids.co_ca,

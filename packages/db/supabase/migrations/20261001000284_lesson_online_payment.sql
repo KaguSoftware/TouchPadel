@@ -1,12 +1,12 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0281 lesson_online_payment — coaching, lane Money (docs/design/coaching/
+-- 0284 lesson_online_payment — coaching, lane Money (docs/design/coaching/
 -- money.md §6; build contracts §1.1, §1.5, §1.8, C-3, C-26, CD-1, CD-2, R3,
 -- R22, R25, R28, R29, R30, R33, R34, R50, R64, R65, R67, R70).
 --
 -- A lesson paid online is "reserve first, then pay" (C-3, CM-6): the booking
--- RPCs (0280) leave the enrolment `held` (a private lesson `held` too, with a
+-- RPCs (0283) leave the enrolment `held` (a private lesson `held` too, with a
 -- court `hold` row naming it); the edge function lesson-begin records an
 -- attempt here and opens Qi's page; app.deposit_apply, the one writer of a
 -- payment outcome, books it on SUCCESS or ends it on EXPIRED.
@@ -22,7 +22,7 @@ set statement_timeout = '60s';
 --                                   account_deleted); a late success withdraws
 --                                   the unsettled lapsed_hold strike (R65)
 --   3. app.lesson_hold_expire       internal (deposit_apply's EXPIRED branch and
---                                   0283's lesson_sweep): the held enrolment (a
+--                                   0286's lesson_sweep): the held enrolment (a
 --                                   private lesson and its hold row too) expires
 --                                   unless a payment can still land, with a
 --                                   lapsed_hold strike for a guest's own booking
@@ -52,23 +52,23 @@ set statement_timeout = '60s';
 -- expires stale holds with a waiting FOR UPDATE (0258's R15 hoist), and a
 -- second waiting expiry anywhere in the body reads as match_tickets ->
 -- reservations to the gate, whichever comes first. The predicate is
--- match_expire_holds' after 0277 (TTL, or an orphan with neither a guest nor a
+-- match_expire_holds' after 0280 (TTL, or an orphan with neither a guest nor a
 -- lesson; an open payment's ten-minute grace). lesson_settle_success and
 -- lesson_hold_expire take no lock of their own and never a waiting
 -- FOR UPDATE on reservations. The gate prints deposit_apply as coach_advisory
 -- -> court_advisory -> reservations -> match_venue_advisory -> match_tickets.
 --
 -- Functions of other coaching files this one calls (each bound late, by name):
---   0275 (DB)    app.lock_coach
---   0274 (DB)    app.coaching_rules, app.lesson_terms_ok
---   0278 (Money) app.lesson_enrolment_money, app.lesson_refund_start
---   0279 (DB)    app.coach_available
---   0280 (DB)    app.lesson_lock_branch_courts, app.lesson_pick_court,
+--   0278 (DB)    app.lock_coach
+--   0277 (DB)    app.coaching_rules, app.lesson_terms_ok
+--   0281 (Money) app.lesson_enrolment_money, app.lesson_refund_start
+--   0282 (DB)    app.coach_available
+--   0283 (DB)    app.lesson_lock_branch_courts, app.lesson_pick_court,
 --                app.lesson_places_taken, app.course_places_taken (R70: the
 --                enrolment to leave out), app.lesson_event,
 --                app.lesson_court_release
---   0283 (DB)    app.lesson_strike_record (created after this file; nothing
---                calls lesson_hold_expire before 0283's sweep or a lesson
+--   0286 (DB)    app.lesson_strike_record (created after this file; nothing
+--                calls lesson_hold_expire before 0286's sweep or a lesson
 --                payment, and coaching ships off everywhere)
 --
 -- No push is queued here (R40): the paid_online event makes Guest's
@@ -85,7 +85,7 @@ create or replace function app.lesson_payment_prepare(
   p_locale       text,
   p_provider     text
 ) returns jsonb
-language plpgsql security definer set search_path = public as $lesson_payment_prepare_0281$
+language plpgsql security definer set search_path = public as $lesson_payment_prepare_0284$
 declare
   v         booking_payments%rowtype;
   e         lesson_enrolments%rowtype;
@@ -193,7 +193,7 @@ begin
     end if;
     -- C-26, R50: online lesson money only under terms that carry the lessons
     -- section, accepted by this guest (NULL lesson_terms_version refuses,
-    -- unlike match_terms_ok). The same test lesson_guest(true) makes on 0280's
+    -- unlike match_terms_ok). The same test lesson_guest(true) makes on 0283's
     -- online booking paths.
     if not app.lesson_terms_ok(v_profile.terms_version) then
       raise exception 'TERMS_REQUIRED' using errcode = 'P0001', detail = 'lessons';
@@ -292,10 +292,10 @@ begin
     'course_id',           e.course_id,
     'guest_phone',         v_profile.phone,
     'guest_name',          v_profile.full_name);
-end $lesson_payment_prepare_0281$;
+end $lesson_payment_prepare_0284$;
 
 comment on function app.lesson_payment_prepare(uuid, uuid, text, text) is
-  '0281 (R3; money.md §6.2). Service role (edge lesson-begin, on behalf of the JWT user p_guest_id). Returns the enrolment''s live attempt (reused), or records a new one (purpose lesson, status created, the whole place, deposit_window_seconds) and stretches the enrolment, a private lesson and its court hold to the payment deadline. Locks: the coach, then a private lesson''s hold court and hold row. Refusals in order: INVALID_ARGUMENT (p_guest_id, p_enrolment_id, p_provider), ACCOUNT_REQUIRED, ENROLMENT_NOT_FOUND (unknown or another guest''s), LESSON_NOT_PAYABLE (detail cancelled | expired | desk | booked | expired for a lapsed hold | free), COACHING_OFF, ONLINE_PAYMENT_OFF, PHONE_REQUIRED, TERMS_REQUIRED detail lessons (C-26, R50), DEGRADED_LOCKOUT, TOO_MANY_ATTEMPTS (3 per enrolment). Returns {id, request_id, purpose, status, provider, sandbox, amount_iqd, deadline_at, form_url, provider_payment_id, locale, reused, enrolment_id, lesson_id, course_id, guest_phone, guest_name}.';
+  '0284 (R3; money.md §6.2). Service role (edge lesson-begin, on behalf of the JWT user p_guest_id). Returns the enrolment''s live attempt (reused), or records a new one (purpose lesson, status created, the whole place, deposit_window_seconds) and stretches the enrolment, a private lesson and its court hold to the payment deadline. Locks: the coach, then a private lesson''s hold court and hold row. Refusals in order: INVALID_ARGUMENT (p_guest_id, p_enrolment_id, p_provider), ACCOUNT_REQUIRED, ENROLMENT_NOT_FOUND (unknown or another guest''s), LESSON_NOT_PAYABLE (detail cancelled | expired | desk | booked | expired for a lapsed hold | free), COACHING_OFF, ONLINE_PAYMENT_OFF, PHONE_REQUIRED, TERMS_REQUIRED detail lessons (C-26, R50), DEGRADED_LOCKOUT, TOO_MANY_ATTEMPTS (3 per enrolment). Returns {id, request_id, purpose, status, provider, sandbox, amount_iqd, deadline_at, form_url, provider_payment_id, locale, reused, enrolment_id, lesson_id, course_id, guest_phone, guest_name}.';
 
 revoke all on function app.lesson_payment_prepare(uuid, uuid, text, text) from public, anon, authenticated;
 grant execute on function app.lesson_payment_prepare(uuid, uuid, text, text) to service_role;
@@ -315,7 +315,7 @@ grant execute on function app.lesson_payment_prepare(uuid, uuid, text, text) to 
 -- venue_offline (R29).
 create or replace function app.lesson_settle_success(p_payment_id uuid, p_locked uuid[])
 returns text
-language plpgsql security definer set search_path = public as $lesson_settle_success_0281$
+language plpgsql security definer set search_path = public as $lesson_settle_success_0284$
 declare
   v           booking_payments%rowtype;
   e           lesson_enrolments%rowtype;
@@ -399,7 +399,7 @@ begin
           -- A private lesson: its hold becomes the lesson's court row in place
           -- (same court and period: the exclusion holds as it did), or, when
           -- the hold expired by TTL (R25), a court is picked again from the
-          -- locked set (R34) and the row inserted in the shape of 0280's
+          -- locked set (R34) and the row inserted in the shape of 0283's
           -- lesson_create_internal.
           select * into h from reservations where id = v.hold_id;
           if h.id is not null and h.lesson_id = l.id and h.kind = 'hold' and h.status = 'pending' then
@@ -573,24 +573,24 @@ begin
                                              'amount_iqd', v.amount_iqd, 'sandbox', v.sandbox,
                                              'revived', v_revived));
   return 'succeeded';
-end $lesson_settle_success_0281$;
+end $lesson_settle_success_0284$;
 
 comment on function app.lesson_settle_success(uuid, uuid[]) is
-  '0281 (R29, R34, R65, R70; money.md §6.4). Internal (deposit_apply''s lesson arm, which holds the coach, a private lesson''s branch courts p_locked and its hold row, has expired the stale holds over the lesson''s period, and holds the payment row). SUCCESS on a lesson row: a held enrolment is booked (a private lesson scheduled, its hold turned into the lesson''s court row in place, or a court re-picked from p_locked when the hold expired by TTL; a group or course place re-checked with itself left out); an expired one is revived when the lesson, the coach, a court and the place are still free (expired -> scheduled / booked); otherwise the whole row goes back: account_deleted, duplicate_success, slot_lost (started, full, gone, cancelled, any check, unique or exclusion violation), venue_offline (DEGRADED_LOCKOUT). A late SUCCESS withdraws the unsettled lapsed_hold strike. Writes the paid_online event ({payment_id, amount_iqd, lesson_id, places_taken, places_total, revived}) and audit lesson.paid_online; no push call (R40). Takes no lock; never raises on a valid row.';
+  '0284 (R29, R34, R65, R70; money.md §6.4). Internal (deposit_apply''s lesson arm, which holds the coach, a private lesson''s branch courts p_locked and its hold row, has expired the stale holds over the lesson''s period, and holds the payment row). SUCCESS on a lesson row: a held enrolment is booked (a private lesson scheduled, its hold turned into the lesson''s court row in place, or a court re-picked from p_locked when the hold expired by TTL; a group or course place re-checked with itself left out); an expired one is revived when the lesson, the coach, a court and the place are still free (expired -> scheduled / booked); otherwise the whole row goes back: account_deleted, duplicate_success, slot_lost (started, full, gone, cancelled, any check, unique or exclusion violation), venue_offline (DEGRADED_LOCKOUT). A late SUCCESS withdraws the unsettled lapsed_hold strike. Writes the paid_online event ({payment_id, amount_iqd, lesson_id, places_taken, places_total, revived}) and audit lesson.paid_online; no push call (R40). Takes no lock; never raises on a valid row.';
 
 revoke all on function app.lesson_settle_success(uuid, uuid[]) from public, anon, authenticated;
 
 -- ===========================================================================
 -- 3. A held enrolment's window is over (internal; deposit_apply, lesson_sweep)
 -- ===========================================================================
--- One definition for deposit_apply's EXPIRED branch and 0283's lesson_sweep
+-- One definition for deposit_apply's EXPIRED branch and 0286's lesson_sweep
 -- (D8). The caller holds the coach lock (the sweep, deposit_apply) or is
 -- deposit_apply's lesson arm. No court lock: every write is status-only, and a
 -- private lesson's hold row is expired by app.lesson_court_release's
 -- skip-locked statement (R25, R64), never waiting.
 create or replace function app.lesson_hold_expire(p_enrolment_id uuid)
 returns boolean
-language plpgsql security definer set search_path = public as $lesson_hold_expire_0281$
+language plpgsql security definer set search_path = public as $lesson_hold_expire_0284$
 declare
   e       lesson_enrolments%rowtype;
   l       lessons%rowtype;
@@ -644,7 +644,7 @@ begin
   end if;
 
   -- R30 (CD-2): a guest's own booking that lapsed unpaid strikes. Recorded
-  -- only (0283's lesson_strike_record); hold_strikes_settle applies it later
+  -- only (0286's lesson_strike_record); hold_strikes_settle applies it later
   -- under the principal lock, never here (§1.4).
   if e.booked_by_kind = 'guest' and e.guest_id is not null and v_first is not null then
     perform app.lesson_strike_record(e.id, v_first, 'lapsed_hold');
@@ -654,17 +654,17 @@ begin
   perform app.lesson_event(e.venue_id, v_first, e.course_id, e.id, 'expired', 'system',
                            null, null, 'payment_expired', jsonb_build_object('lesson_id', v_first));
   return true;
-end $lesson_hold_expire_0281$;
+end $lesson_hold_expire_0284$;
 
 comment on function app.lesson_hold_expire(uuid) is
-  '0281 (R25, R30, money.md §6.5). Internal: deposit_apply''s EXPIRED branch and 0283''s lesson_sweep (D8). Returns false and changes nothing unless the enrolment is held, while a lesson payment of it is created|pending within ten minutes of its deadline, or when one succeeded. Otherwise: the enrolment expired (cancel_kind expired); a private lesson expired (payment_expired) and its pending hold row expired through app.lesson_court_release (skip locked, never waiting); a lapsed_hold strike recorded for a guest''s own booking (app.lesson_strike_record, applied later by hold_strikes_settle); the expired event (code payment_expired). No court lock, no push call (R40). Returns true.';
+  '0284 (R25, R30, money.md §6.5). Internal: deposit_apply''s EXPIRED branch and 0286''s lesson_sweep (D8). Returns false and changes nothing unless the enrolment is held, while a lesson payment of it is created|pending within ten minutes of its deadline, or when one succeeded. Otherwise: the enrolment expired (cancel_kind expired); a private lesson expired (payment_expired) and its pending hold row expired through app.lesson_court_release (skip locked, never waiting); a lapsed_hold strike recorded for a guest''s own booking (app.lesson_strike_record, applied later by hold_strikes_settle); the expired event (code payment_expired). No court lock, no push call (R40). Returns true.';
 
 revoke all on function app.lesson_hold_expire(uuid) from public, anon, authenticated;
 grant execute on function app.lesson_hold_expire(uuid) to service_role;
 
 -- ===========================================================================
 -- 4. deposit_apply — re-issued verbatim from 20261001000267_deposit_payment_id_match.sql:23,
---    plus the lesson arm, each change marked 0281
+--    plus the lesson arm, each change marked 0284
 -- ===========================================================================
 create or replace function app.deposit_apply(
   p_request_id          uuid,
@@ -677,7 +677,7 @@ create or replace function app.deposit_apply(
   p_signature_ok        boolean default null,
   p_raw                 jsonb default '{}'::jsonb
 ) returns jsonb
-language plpgsql security definer set search_path = public as $deposit_apply_0281$
+language plpgsql security definer set search_path = public as $deposit_apply_0284$
 declare
   v        booking_payments%rowtype;
   r        reservations%rowtype;
@@ -685,9 +685,9 @@ declare
   v_kind   text;
   v_code   text;
   v_new    text;
-  v_coach  uuid;        -- 0281: a lesson row's coach
-  v_period tstzrange;   -- 0281: a private lesson's period
-  v_locked uuid[];      -- 0281: the courts a private lesson's arm locked (R34)
+  v_coach  uuid;        -- 0284: a lesson row's coach
+  v_period tstzrange;   -- 0284: a private lesson's period
+  v_locked uuid[];      -- 0284: the courts a private lesson's arm locked (R34)
 begin
   if p_source is null or p_source not in ('webhook', 'poll', 'reconcile') then
     raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', detail = 'p_source';
@@ -710,7 +710,7 @@ begin
     return jsonb_build_object('matched', false, 'mismatch', true);
   end if;
 
-  -- 0281 (R33, R34): every purpose's locks in one text order, so the walker
+  -- 0284 (R33, R34): every purpose's locks in one text order, so the walker
   -- reads the body monotone whichever arm runs: the coach (a lesson row), then
   -- every court, then every reservations row, then the payment row. A lesson's
   -- coach and a private lesson's period never change under a held or expired
@@ -730,7 +730,7 @@ begin
     select * into r from reservations where id = v.reservation_id;
     perform app.lock_court(r.court_id);
   elsif v.purpose = 'lesson' and v.hold_id is not null then
-    -- 0281 (R34): every active court of the branch, id order; a swept hold
+    -- 0284 (R34): every active court of the branch, id order; a swept hold
     -- re-picks only from this set.
     v_locked := app.lesson_lock_branch_courts(v.venue_id);
   end if;
@@ -783,7 +783,7 @@ begin
     if v.status in ('created', 'pending', 'failed', 'expired') then
       -- Amount and currency to the dinar, or it is not our payment (plan §3.2).
       -- A ticket purchase with the wrong amount creates no ticket: the whole
-      -- row is refunded (MD-2). 0281: a lesson row likewise; the enrolment
+      -- row is refunded (MD-2). 0284: a lesson row likewise; the enrolment
       -- stays held and expires on its own.
       if p_amount is null or upper(coalesce(p_currency, '')) <> 'IQD'
          or abs(p_amount - v.amount_iqd) >= 1 then
@@ -797,9 +797,9 @@ begin
       elsif v.purpose = 'deposit' then
         v_new := app.deposit_settle_success(v.id);
       elsif v.purpose = 'lesson' then
-        -- 0281 (R33, R25, R64): before any write, the branch's stale holds over
+        -- 0284 (R33, R25, R64): before any write, the branch's stale holds over
         -- the private lesson's period expire (match_expire_holds' predicate
-        -- after 0277: past the TTL, or an orphan with neither a guest nor a
+        -- after 0280: past the TTL, or an orphan with neither a guest nor a
         -- lesson; never a hold whose payment is still inside its ten-minute
         -- grace, so this payment's own hold goes only once it is past it, and
         -- lesson_settle_success re-picks). SKIP LOCKED: a hold another
@@ -852,7 +852,7 @@ begin
          set status = 'expired'
        where id = v.hold_id and kind = 'hold' and status = 'pending';
     elsif v.purpose = 'lesson' then
-      -- 0281 (§6.5): the held enrolment (a private lesson and its hold row
+      -- 0284 (§6.5): the held enrolment (a private lesson and its hold row
       -- too) expires with a lapsed_hold strike for a guest's own booking,
       -- unless another attempt on it is live.
       perform app.lesson_hold_expire(v.lesson_enrolment_id);
@@ -864,21 +864,21 @@ begin
                             (select reservation_id from booking_payments where id = v.id),
                             'purpose', v.purpose, 'ticket_count', v.ticket_count,
                             'lesson_enrolment_id', v.lesson_enrolment_id);
-end $deposit_apply_0281$;
+end $deposit_apply_0284$;
 
 comment on function app.deposit_apply(uuid, text, text, numeric, text, boolean, text, boolean, jsonb) is
-  '0242, 0259, 0267, 0281. Service role. The ONLY writer of a payment outcome: deposits, open-match ticket purchases and lessons paid online. Logs the message, then: SUCCESS for exactly amount_iqd in IQD books the slot of a deposit (confirm the hold, or re-create a swept one), creates a ticket purchase''s tickets (app.ticket_settle_success, however late), or books a lesson place (app.lesson_settle_success: a held enrolment booked, an expired one revived when it still fits) and marks succeeded in the same transaction, or goes to refund_pending (slot_lost, venue_offline, amount_mismatch, duplicate_success, account_deleted); FAILED/ERROR/AUTHENTICATION_FAILED → failed (hold kept); EXPIRED/cancelled/NOT_FOUND/GIVE_UP → expired (a deposit''s hold released; a lesson''s held enrolment expired by app.lesson_hold_expire). A late SUCCESS after failed/expired is honoured. Anything else only updates provider_status. Unknown request → logged unmatched; a provider payment id other than the one the row already holds → logged payment_id_mismatch, nothing applied (0267). Locks in one text order (0281, R33): a lesson''s coach, the court(s) (a private lesson''s whole branch, R34), the reservations rows, the payment row. The result carries purpose, ticket_count and lesson_enrolment_id.';
+  '0242, 0259, 0267, 0284. Service role. The ONLY writer of a payment outcome: deposits, open-match ticket purchases and lessons paid online. Logs the message, then: SUCCESS for exactly amount_iqd in IQD books the slot of a deposit (confirm the hold, or re-create a swept one), creates a ticket purchase''s tickets (app.ticket_settle_success, however late), or books a lesson place (app.lesson_settle_success: a held enrolment booked, an expired one revived when it still fits) and marks succeeded in the same transaction, or goes to refund_pending (slot_lost, venue_offline, amount_mismatch, duplicate_success, account_deleted); FAILED/ERROR/AUTHENTICATION_FAILED → failed (hold kept); EXPIRED/cancelled/NOT_FOUND/GIVE_UP → expired (a deposit''s hold released; a lesson''s held enrolment expired by app.lesson_hold_expire). A late SUCCESS after failed/expired is honoured. Anything else only updates provider_status. Unknown request → logged unmatched; a provider payment id other than the one the row already holds → logged payment_id_mismatch, nothing applied (0267). Locks in one text order (0284, R33): a lesson''s coach, the court(s) (a private lesson''s whole branch, R34), the reservations rows, the payment row. The result carries purpose, ticket_count and lesson_enrolment_id.';
 
 revoke all on function app.deposit_apply(uuid, text, text, numeric, text, boolean, text, boolean, jsonb) from public, anon, authenticated;
 grant execute on function app.deposit_apply(uuid, text, text, numeric, text, boolean, text, boolean, jsonb) to service_role;
 
 -- ===========================================================================
 -- 5. deposit_status — re-issued verbatim from 20260929000259_ticket_purchase.sql:897,
---    plus the lesson answer (X14), marked 0281
+--    plus the lesson answer (X14), marked 0284
 -- ===========================================================================
 create or replace function app.deposit_status(p_request_id uuid)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $deposit_status_0281$
+language plpgsql stable security definer set search_path = public as $deposit_status_0284$
 declare
   v_uid      uuid := auth.uid();
   v          booking_payments%rowtype;
@@ -886,8 +886,8 @@ declare
   h          reservations%rowtype;
   v_attempts int;
   v_mine     jsonb;
-  v_lesson   jsonb;     -- 0281
-  v_live     boolean;   -- 0281
+  v_lesson   jsonb;     -- 0284
+  v_live     boolean;   -- 0284
 begin
   if v_uid is null then
     raise exception 'AUTH_REQUIRED' using errcode = 'P0001';
@@ -935,7 +935,7 @@ begin
       'server_now',        now());
   end if;
 
-  -- 0281 (X14, money.md §6.6): a lesson paid online. The lesson block names
+  -- 0284 (X14, money.md §6.6): a lesson paid online. The lesson block names
   -- the first covered session (start_at, end_at), the coach by coaches.id and
   -- public display name (NULL once retired: C-29, R43, R63) and the type; no
   -- court (§1.6). attempts_left counts this enrolment's lesson attempts;
@@ -1028,17 +1028,17 @@ begin
     'purpose',           'deposit',
     'ticket_count',      null,
     'server_now',        now());
-end $deposit_status_0281$;
+end $deposit_status_0284$;
 
 comment on function app.deposit_status(uuid) is
-  '0242, 0259, 0281. One payment attempt by its request_id, as the guest''s payment screen renders it (contracts §2.2), with purpose. A deposit: the guest reads their own, court desk, manager and owner their branch''s. A ticket purchase (money.md §5.5): only its guest; deposit_mode null, reservation null, hold_live false, unit_price_iqd, ticket_count, attempts_left from the guest''s failed or expired ticket attempts in 24 h, and tickets {from_this_purchase, available, reserved, in_use}. A lesson paid online (0281, X14): the guest, or court desk, manager and owner of its branch; price_iqd the place, rest_iqd 0, deposit_mode, reservation and ticket_count null, attempts_left of three on the enrolment, hold_live while the enrolment is held inside its window, and lesson {enrolment_id, enrolment_status, kind, lesson_id, course_id, start_at, end_at (the first covered session), venue_id, coach_id, coach_name_en, coach_name_ar (NULL once retired), type_name_en, type_name_ar}; no court. PAYMENT_NOT_FOUND for an unknown or foreign ref alike.';
+  '0242, 0259, 0284. One payment attempt by its request_id, as the guest''s payment screen renders it (contracts §2.2), with purpose. A deposit: the guest reads their own, court desk, manager and owner their branch''s. A ticket purchase (money.md §5.5): only its guest; deposit_mode null, reservation null, hold_live false, unit_price_iqd, ticket_count, attempts_left from the guest''s failed or expired ticket attempts in 24 h, and tickets {from_this_purchase, available, reserved, in_use}. A lesson paid online (0284, X14): the guest, or court desk, manager and owner of its branch; price_iqd the place, rest_iqd 0, deposit_mode, reservation and ticket_count null, attempts_left of three on the enrolment, hold_live while the enrolment is held inside its window, and lesson {enrolment_id, enrolment_status, kind, lesson_id, course_id, start_at, end_at (the first covered session), venue_id, coach_id, coach_name_en, coach_name_ar (NULL once retired), type_name_en, type_name_ar}; no court. PAYMENT_NOT_FOUND for an unknown or foreign ref alike.';
 
 revoke all on function app.deposit_status(uuid) from public, anon;
 grant execute on function app.deposit_status(uuid) to authenticated;
 
 -- ===========================================================================
 -- 6. deposit_refund_apply — re-issued verbatim from 20260929000259_ticket_purchase.sql:1002,
---    plus the lesson branch, marked 0281
+--    plus the lesson branch, marked 0284
 -- ===========================================================================
 create or replace function app.deposit_refund_apply(
   p_payment_id         uuid,
@@ -1047,7 +1047,7 @@ create or replace function app.deposit_refund_apply(
   p_refund_provider_id text,
   p_raw                jsonb default '{}'::jsonb
 ) returns jsonb
-language plpgsql security definer set search_path = public as $deposit_refund_apply_0281$
+language plpgsql security definer set search_path = public as $deposit_refund_apply_0284$
 declare
   v       booking_payments%rowtype;
   r       reservations%rowtype;
@@ -1067,7 +1067,7 @@ begin
     select * into v from booking_payments where id = p_payment_id for update;
     perform set_config('app.venue_id', v.venue_id::text, true);
   else
-    -- 0281: a ticket purchase, and a lesson row (no booking, no court lock):
+    -- 0284: a ticket purchase, and a lesson row (no booking, no court lock):
     -- the row only.
     select * into v from booking_payments where id = p_payment_id for update;
   end if;
@@ -1103,7 +1103,7 @@ begin
         perform app.push_nudge();
       end if;
     elsif v.purpose = 'lesson' then
-      -- 0281 (money.md §6.6): the audit only. No push: the cancel that
+      -- 0284 (money.md §6.6): the audit only. No push: the cancel that
       -- started the refund already told the guest (§1.9 has no refund key).
       perform app.write_audit('lesson.refunded', 'booking_payments', v.id::text, null,
                               jsonb_build_object('amount_iqd', v.refund_amount_iqd, 'reason', v.refund_reason,
@@ -1141,21 +1141,21 @@ begin
   end if;
 
   return jsonb_build_object('id', v.id, 'status', v.status, 'changed', true);
-end $deposit_refund_apply_0281$;
+end $deposit_refund_apply_0284$;
 
 comment on function app.deposit_refund_apply(uuid, text, text, text, jsonb) is
-  '0242, 0259, 0281. Service role (edge deposit-reconcile). refund_pending → refunded (a deposit_refunded push for a deposit; tickets_refunded through app.match_notify for a ticket purchase, never for sandbox, never failing the write; for a lesson row the audit lesson.refunded only, the cancel having told the guest) | refund_failed (a manager sees it in deposit_attention); pending/unknown count an attempt, and ten unanswered attempts give up to refund_failed. A ticket purchase and a lesson row take no court or booking lock: the row only.';
+  '0242, 0259, 0284. Service role (edge deposit-reconcile). refund_pending → refunded (a deposit_refunded push for a deposit; tickets_refunded through app.match_notify for a ticket purchase, never for sandbox, never failing the write; for a lesson row the audit lesson.refunded only, the cancel having told the guest) | refund_failed (a manager sees it in deposit_attention); pending/unknown count an attempt, and ten unanswered attempts give up to refund_failed. A ticket purchase and a lesson row take no court or booking lock: the row only.';
 
 revoke all on function app.deposit_refund_apply(uuid, text, text, text, jsonb) from public, anon, authenticated;
 grant execute on function app.deposit_refund_apply(uuid, text, text, text, jsonb) to service_role;
 
 -- ===========================================================================
 -- 7. deposits_due_for_reconcile — re-issued verbatim from 20260929000258_match_tables.sql:841,
---    plus the lesson net (R28), marked 0281
+--    plus the lesson net (R28), marked 0284
 -- ===========================================================================
 create or replace function app.deposits_due_for_reconcile(p_limit int default 50)
 returns jsonb
-language plpgsql security definer set search_path = public as $deposits_due_0281$
+language plpgsql security definer set search_path = public as $deposits_due_0284$
 declare
   v_out jsonb;
   v_row record;
@@ -1178,7 +1178,7 @@ begin
     perform app.deposit_begin_refund(v_row.id, 'slot_lost', null, 'reconciler: booking not live');
   end loop;
 
-  -- 0281 (R28, money.md §6.6): the net for a coaching refund that never
+  -- 0284 (R28, money.md §6.6): the net for a coaching refund that never
   -- started. A succeeded lesson row whose enrolment was cancelled or expired,
   -- or whose lesson or course was cancelled, and that still has online money
   -- due back: app.lesson_refund_start refunds exactly what the engine says is
@@ -1245,21 +1245,21 @@ begin
     from claimed c;
 
   return v_out;
-end $deposits_due_0281$;
+end $deposits_due_0284$;
 
 comment on function app.deposits_due_for_reconcile(int) is
-  '0242, 0258, 0281. Service role (edge deposit-reconcile). Claims up to p_limit (max 100) payments for 60 s: action check (open past its deadline, or pending unheard for 90 s) or refund (refund_pending), deposits, ticket purchases and lessons alike; each row carries purpose, ticket_count and lesson_enrolment_id. First turns any succeeded deposit (never a ticket purchase) whose booking is no longer live (and was not forfeited) into a refund, then starts, through app.lesson_refund_start, the refund still due on any succeeded lesson row whose enrolment was cancelled or expired or whose lesson or course was cancelled (R28: no time window; 20 a run each).';
+  '0242, 0258, 0284. Service role (edge deposit-reconcile). Claims up to p_limit (max 100) payments for 60 s: action check (open past its deadline, or pending unheard for 90 s) or refund (refund_pending), deposits, ticket purchases and lessons alike; each row carries purpose, ticket_count and lesson_enrolment_id. First turns any succeeded deposit (never a ticket purchase) whose booking is no longer live (and was not forfeited) into a refund, then starts, through app.lesson_refund_start, the refund still due on any succeeded lesson row whose enrolment was cancelled or expired or whose lesson or course was cancelled (R28: no time window; 20 a run each).';
 
 revoke all on function app.deposits_due_for_reconcile(int) from public, anon, authenticated;
 grant execute on function app.deposits_due_for_reconcile(int) to service_role;
 
 -- ===========================================================================
 -- 8. deposit_attention — re-issued verbatim from 20260929000258_match_tables.sql:969,
---    plus the lesson rows, marked 0281
+--    plus the lesson rows, marked 0284
 -- ===========================================================================
 create or replace function app.deposit_attention(p_venue_id uuid default null)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $deposit_attention_0281$
+language plpgsql stable security definer set search_path = public as $deposit_attention_0284$
 declare
   v_venue uuid;
   v_out   jsonb;
@@ -1272,7 +1272,7 @@ begin
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
-  -- 0281 (money.md §6.6, R41): a lesson row has no booking (reservation_id
+  -- 0284 (money.md §6.6, R41): a lesson row has no booking (reservation_id
   -- NULL), so its name and phone are the payer's profile (an online lesson is
   -- always the guest's own booking, CD-1) and start_at is its first covered
   -- session; it carries lesson_enrolment_id, enrolment_id (the same),
@@ -1322,7 +1322,7 @@ begin
           or (bp.status = 'refund_pending' and bp.refund_requested_at <= now() - interval '24 hours')
           or (bp.purpose = 'deposit' and bp.status = 'succeeded' and bp.forfeited_at is null
               and not (r.kind = 'booking' and r.status in ('confirmed', 'arrived', 'completed', 'no_show')))
-          -- 0281: a succeeded lesson row whose enrolment, lesson or course is
+          -- 0284: a succeeded lesson row whose enrolment, lesson or course is
           -- over without it, with online money still due back (the cheap tests
           -- first, so the engine runs only on those).
           or (bp.purpose = 'lesson' and bp.status = 'succeeded'
@@ -1331,21 +1331,21 @@ begin
                    or exists (select 1 from courses c2 where c2.id = le.course_id and c2.status = 'cancelled'))
               and coalesce((app.lesson_enrolment_money(bp.lesson_enrolment_id) ->> 'refund_due_online_iqd')::bigint, 0) > 0));
   return v_out;
-end $deposit_attention_0281$;
+end $deposit_attention_0284$;
 
 comment on function app.deposit_attention(uuid) is
-  '0242, 0258, 0281. Manager, owner. Online payments a person must look at: refund_failed, refund_pending for more than 24 hours, succeeded deposits whose booking is no longer live, and succeeded lesson payments whose enrolment, lesson or course ended without them and that still owe money back (0281). Deposits and lesson payments of the branch, plus every branch''s view of the chain''s open-match ticket purchases (never the review account''s sandbox ones). Items carry purpose, ticket_count and customer_id; a lesson row also lesson_enrolment_id, enrolment_id, lesson_id, course_id, the payer''s name and phone, and its first covered session''s start_at.';
+  '0242, 0258, 0284. Manager, owner. Online payments a person must look at: refund_failed, refund_pending for more than 24 hours, succeeded deposits whose booking is no longer live, and succeeded lesson payments whose enrolment, lesson or course ended without them and that still owe money back (0284). Deposits and lesson payments of the branch, plus every branch''s view of the chain''s open-match ticket purchases (never the review account''s sandbox ones). Items carry purpose, ticket_count and customer_id; a lesson row also lesson_enrolment_id, enrolment_id, lesson_id, course_id, the payer''s name and phone, and its first covered session''s start_at.';
 
 revoke all on function app.deposit_attention(uuid) from public, anon;
 grant execute on function app.deposit_attention(uuid) to authenticated;
 
 -- ===========================================================================
 -- 9. deposit_refund_request — re-issued verbatim from 20260929000258_match_tables.sql:1155,
---    plus the lesson rule (CM-5), marked 0281
+--    plus the lesson rule (CM-5), marked 0284
 -- ===========================================================================
 create or replace function app.deposit_refund_request(p_payment_id uuid, p_amount_iqd bigint default null)
 returns jsonb
-language plpgsql security definer set search_path = public as $deposit_refund_request_0281$
+language plpgsql security definer set search_path = public as $deposit_refund_request_0284$
 declare
   v booking_payments%rowtype;
 begin
@@ -1362,7 +1362,7 @@ begin
   if not app.is_staff_at(v.venue_id, 'manager', 'owner') then
     raise exception 'VENUE_MISMATCH' using errcode = 'P0001';
   end if;
-  -- 0281 (CM-5): online lesson money goes back by hand only once the
+  -- 0284 (CM-5): online lesson money goes back by hand only once the
   -- enrolment's money is final (no covered session still to come): while a
   -- session is ahead, the cancel that may still come needs the one refund a
   -- row allows. Final never turns back, so the unlocked read is sound.
@@ -1371,7 +1371,7 @@ begin
     raise exception 'PAYMENT_STATE' using errcode = 'P0001', detail = 'lesson_live';
   end if;
   -- Lock order court → reservations → booking_payments, as deposit_apply.
-  -- 0281: a lesson row has no booking; both are no-ops for it (0042:53).
+  -- 0284: a lesson row has no booking; both are no-ops for it (0042:53).
   perform app.lock_court((select court_id from reservations where id = v.reservation_id));
   perform 1 from reservations where id = v.reservation_id for update;
   perform 1 from booking_payments where id = p_payment_id for update;
@@ -1379,10 +1379,10 @@ begin
   v := app.deposit_begin_refund(p_payment_id, 'staff_refund', p_amount_iqd);
   perform app.deposit_nudge();
   return jsonb_build_object('id', v.id, 'status', v.status, 'refund_amount_iqd', v.refund_amount_iqd);
-end $deposit_refund_request_0281$;
+end $deposit_refund_request_0284$;
 
 comment on function app.deposit_refund_request(uuid, bigint) is
-  '0242, 0258, 0281. Manager, owner of the payment''s branch. succeeded → refund_pending with refund_reason staff_refund (partial when an amount is given). A ticket purchase is refused PAYMENT_STATE detail ticket: tickets go back only by a cash-out. A lesson payment only once its enrolment''s money is final (no covered session still to come), else PAYMENT_STATE detail lesson_live (CM-5).';
+  '0242, 0258, 0284. Manager, owner of the payment''s branch. succeeded → refund_pending with refund_reason staff_refund (partial when an amount is given). A ticket purchase is refused PAYMENT_STATE detail ticket: tickets go back only by a cash-out. A lesson payment only once its enrolment''s money is final (no covered session still to come), else PAYMENT_STATE detail lesson_live (CM-5).';
 
 revoke all on function app.deposit_refund_request(uuid, bigint) from public, anon;
 grant execute on function app.deposit_refund_request(uuid, bigint) to authenticated;

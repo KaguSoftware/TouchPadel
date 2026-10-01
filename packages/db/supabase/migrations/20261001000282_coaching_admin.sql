@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0279 coaching_admin — coaching, lane DB (docs/design/coaching/db.md §4.6;
+-- 0282 coaching_admin — coaching, lane DB (docs/design/coaching/db.md §4.6;
 -- build contracts §1.1, §1.5, §1.6, §1.7, C-4, C-5, C-7, C-17, C-22, C-25,
 -- C-27, CD-9, CD-10, R16, R26, R43, R45, R46, R52, R56, R57, R61, R70, R73,
 -- R81).
@@ -38,11 +38,11 @@ set statement_timeout = '60s';
 -- write is audited with ids and flags, never a student's name or phone.
 --
 -- Locks (db.md §2.3 level H): the writers that can race a booking take the
--- coach mutex (app.lock_coach, 0275) and nothing else. No body here takes a
+-- coach mutex (app.lock_coach, 0278) and nothing else. No body here takes a
 -- court lock or locks a reservations row.
 --
 -- Functions of other coaching files called here (bound late, by name):
---   0274 app.coaching_rules; 0275 app.lock_coach.
+--   0277 app.coaching_rules; 0278 app.lock_coach.
 
 -- ===========================================================================
 -- 1. The coach's identity (db.md §4.6.1)
@@ -50,12 +50,12 @@ set statement_timeout = '60s';
 
 -- The caller's coaches row whatever its status, or NULL. Never raises.
 create or replace function app.coach_of_caller() returns coaches
-language sql stable security definer set search_path = public as $coach_of_caller_0279$
+language sql stable security definer set search_path = public as $coach_of_caller_0282$
   select c.* from coaches c where c.profile_id = auth.uid()
-$coach_of_caller_0279$;
+$coach_of_caller_0282$;
 
 comment on function app.coach_of_caller() is
-  '0279 (db.md §4.6.1, R45, R70). Internal. The caller''s coaches row whatever its status (active, paused or retired), or NULL; never raises. Read only by coach_me and Money''s my_coach_statements (a retired coach still reads their approved and paid statements, C-25).';
+  '0282 (db.md §4.6.1, R45, R70). Internal. The caller''s coaches row whatever its status (active, paused or retired), or NULL; never raises. Read only by coach_me and Money''s my_coach_statements (a retired coach still reads their approved and paid statements, C-25).';
 
 revoke all on function app.coach_of_caller() from public, anon, authenticated;
 
@@ -63,7 +63,7 @@ revoke all on function app.coach_of_caller() from public, anon, authenticated;
 -- (check-error-codes sees literals only). With p_raise false every refusal is
 -- NULL instead.
 create or replace function app.coach_self(p_raise boolean default true) returns coaches
-language plpgsql stable security definer set search_path = public as $coach_self_0279$
+language plpgsql stable security definer set search_path = public as $coach_self_0282$
 declare
   v_uid   uuid := auth.uid();
   v_raise boolean := coalesce(p_raise, true);
@@ -92,10 +92,10 @@ begin
     return null;
   end if;
   return v_c;
-end $coach_self_0279$;
+end $coach_self_0282$;
 
 comment on function app.coach_self(boolean) is
-  '0279 (db.md §4.6.1, R45, R70). Internal: the first statement of every coach RPC. AUTH_REQUIRED without a session; ACCOUNT_REQUIRED without a live profile; NOT_A_COACH when the caller has no coaches row that is not retired. Returns the caller''s coach (active or paused). With p_raise false each refusal is NULL instead.';
+  '0282 (db.md §4.6.1, R45, R70). Internal: the first statement of every coach RPC. AUTH_REQUIRED without a session; ACCOUNT_REQUIRED without a live profile; NOT_A_COACH when the caller has no coaches row that is not retired. Returns the caller''s coach (active or paused). With p_raise false each refusal is NULL instead.';
 
 revoke all on function app.coach_self(boolean) from public, anon, authenticated;
 
@@ -108,7 +108,7 @@ revoke all on function app.coach_self(boolean) from public, anon, authenticated;
 -- CD-10), inside one of the coach's windows at that branch on that weekday,
 -- and no live time off over it. Does not look at other lessons.
 create or replace function app.coach_in_hours(p_coach_id uuid, p_venue uuid, p_period tstzrange) returns boolean
-language plpgsql stable security definer set search_path = public as $coach_in_hours_0279$
+language plpgsql stable security definer set search_path = public as $coach_in_hours_0282$
 declare
   v_tz  text;
   v_ls  timestamp;
@@ -147,10 +147,10 @@ begin
     return false;
   end if;
   return true;
-end $coach_in_hours_0279$;
+end $coach_in_hours_0282$;
 
 comment on function app.coach_in_hours(uuid, uuid, tstzrange) is
-  '0279 (db.md §4.6.2, CD-10). Internal. True when coach p_coach_id is active at branch p_venue, the period lies inside one local day of the branch (an end at the next local midnight is 24:00), one of the coach''s windows at that branch on that weekday covers it, and no live time off overlaps it. Other lessons are not looked at (app.coach_available adds them).';
+  '0282 (db.md §4.6.2, CD-10). Internal. True when coach p_coach_id is active at branch p_venue, the period lies inside one local day of the branch (an end at the next local midnight is 24:00), one of the coach''s windows at that branch on that weekday covers it, and no live time off overlaps it. Other lessons are not looked at (app.coach_available adds them).';
 
 revoke all on function app.coach_in_hours(uuid, uuid, tstzrange) from public, anon, authenticated;
 
@@ -158,33 +158,33 @@ revoke all on function app.coach_in_hours(uuid, uuid, tstzrange) from public, an
 -- over the period (lessons_coach_no_overlap is the backstop). A reschedule
 -- uses coach_in_hours plus its own overlap test that leaves the lesson out.
 create or replace function app.coach_available(p_coach_id uuid, p_venue uuid, p_period tstzrange) returns boolean
-language sql stable security definer set search_path = public as $coach_available_0279$
+language sql stable security definer set search_path = public as $coach_available_0282$
   select app.coach_in_hours(p_coach_id, p_venue, p_period)
      and not exists (select 1 from lessons l
                       where l.coach_id = p_coach_id
                         and l.status in ('held', 'scheduled')
                         and l.period && p_period)
-$coach_available_0279$;
+$coach_available_0282$;
 
 comment on function app.coach_available(uuid, uuid, tstzrange) is
-  '0279 (db.md §4.6.2). Internal. app.coach_in_hours and no held or scheduled lesson of the coach at any branch overlapping p_period. Callers turn false into COACH_BUSY when such a lesson exists, else COACH_UNAVAILABLE. Money''s late-success revival reads it too (0281).';
+  '0282 (db.md §4.6.2). Internal. app.coach_in_hours and no held or scheduled lesson of the coach at any branch overlapping p_period. Callers turn false into COACH_BUSY when such a lesson exists, else COACH_UNAVAILABLE. Money''s late-success revival reads it too (0284).';
 
 revoke all on function app.coach_available(uuid, uuid, tstzrange) from public, anon, authenticated;
 
 -- The 30-minute grid (C-20, R9): the server twin of packages/core
 -- src/coaching/grid.ts isOnLessonGrid: local minute 0 or 30, to the second.
 create or replace function app.lesson_on_grid(p_start_at timestamptz, p_venue uuid) returns boolean
-language sql stable security definer set search_path = public as $lesson_on_grid_0279$
+language sql stable security definer set search_path = public as $lesson_on_grid_0282$
   select coalesce((
     select date_trunc('minute', x.l) = x.l and extract(minute from x.l)::int in (0, 30)
       from (select p_start_at at time zone coalesce(
                      (select vs.timezone from venue_settings vs where vs.venue_id = p_venue),
                      'Asia/Baghdad') as l) x
      where p_start_at is not null), false)
-$lesson_on_grid_0279$;
+$lesson_on_grid_0282$;
 
 comment on function app.lesson_on_grid(timestamptz, uuid) is
-  '0279 (db.md §4.6.2; C-20, R9). Internal. True when p_start_at, in the branch''s time zone, is :00 or :30 to the second: the twin of @touch/core isOnLessonGrid. Every lesson start (each kind, on booking, creation and reschedule) must pass (SLOT_NOT_ON_GRID).';
+  '0282 (db.md §4.6.2; C-20, R9). Internal. True when p_start_at, in the branch''s time zone, is :00 or :30 to the second: the twin of @touch/core isOnLessonGrid. Every lesson start (each kind, on booking, creation and reschedule) must pass (SLOT_NOT_ON_GRID).';
 
 revoke all on function app.lesson_on_grid(timestamptz, uuid) from public, anon, authenticated;
 
@@ -195,7 +195,7 @@ revoke all on function app.lesson_on_grid(timestamptz, uuid) from public, anon, 
 -- raising.
 create or replace function app.lesson_bookable(p_venue uuid, p_start_at timestamptz, p_end_at timestamptz)
 returns text
-language plpgsql stable security definer set search_path = public as $lesson_bookable_0279$
+language plpgsql stable security definer set search_path = public as $lesson_bookable_0282$
 declare
   v_court uuid;
 begin
@@ -212,25 +212,25 @@ begin
     raise;
   end;
   return null;
-end $lesson_bookable_0279$;
+end $lesson_bookable_0282$;
 
 comment on function app.lesson_bookable(uuid, timestamptz, timestamptz) is
-  '0279 (db.md §4.6.2). Internal. NULL when the branch''s opening hours and closed dates allow the period; else CLOSED_DATE or OUTSIDE_HOURS (app.assert_bookable on the branch''s first active court, caught), or NO_COURT_FREE when the branch has no active court. Callers re-raise each as a literal.';
+  '0282 (db.md §4.6.2). Internal. NULL when the branch''s opening hours and closed dates allow the period; else CLOSED_DATE or OUTSIDE_HOURS (app.assert_bookable on the branch''s first active court, caught), or NO_COURT_FREE when the branch has no active court. Callers re-raise each as a literal.';
 
 revoke all on function app.lesson_bookable(uuid, timestamptz, timestamptz) from public, anon, authenticated;
 
 -- coalesce(the coach's own price, the type's price); NULL for a type with no
 -- price. A coach price exists only while the coach teaches the type (R46).
 create or replace function app.lesson_price_for(p_coach_id uuid, p_lesson_type_id uuid) returns bigint
-language sql stable security definer set search_path = public as $lesson_price_for_0279$
+language sql stable security definer set search_path = public as $lesson_price_for_0282$
   select coalesce(
     (select cp.price_iqd::bigint from coach_prices cp
       where cp.coach_id = p_coach_id and cp.lesson_type_id = p_lesson_type_id),
     (select lt.price_iqd::bigint from lesson_types lt where lt.id = p_lesson_type_id))
-$lesson_price_for_0279$;
+$lesson_price_for_0282$;
 
 comment on function app.lesson_price_for(uuid, uuid) is
-  '0279 (db.md §4.6.2; C-5). Internal. The price of one lesson type taught by one coach: the coach''s own price (coach_prices) when there is one, else the type''s price_iqd; NULL for a type with no price. Private: the whole lesson; group: one place; course: the whole course.';
+  '0282 (db.md §4.6.2; C-5). Internal. The price of one lesson type taught by one coach: the coach''s own price (coach_prices) when there is one, else the type''s price_iqd; NULL for a type with no price. Private: the whole lesson; group: one place; course: the whole course.';
 
 revoke all on function app.lesson_price_for(uuid, uuid) from public, anon, authenticated;
 
@@ -241,24 +241,24 @@ revoke all on function app.lesson_price_for(uuid, uuid) from public, anon, authe
 -- A manager acts on a coach only when the coach has a coach_branches row at a
 -- branch the manager works at; the owner on every coach.
 create or replace function app.coach_staff_scope(p_coach_id uuid) returns boolean
-language sql stable security definer set search_path = public as $coach_staff_scope_0279$
+language sql stable security definer set search_path = public as $coach_staff_scope_0282$
   select case
     when app.is_staff('owner') then true
     else exists (select 1 from coach_branches b
                   where b.coach_id = p_coach_id
                     and app.is_staff_at(b.venue_id, 'manager', 'owner'))
   end
-$coach_staff_scope_0279$;
+$coach_staff_scope_0282$;
 
 comment on function app.coach_staff_scope(uuid) is
-  '0279 (db.md §4.6). Internal. True for the owner; for a manager, true when the coach has a coach_branches row (active or not) at a branch the manager works at. The admin writers refuse FORBIDDEN otherwise.';
+  '0282 (db.md §4.6). Internal. True for the owner; for a manager, true when the coach has a coach_branches row (active or not) at a branch the manager works at. The admin writers refuse FORBIDDEN otherwise.';
 
 revoke all on function app.coach_staff_scope(uuid) from public, anon, authenticated;
 
 -- R43: a coach photo lives in a fresh random folder, coaches/<uuid>/<file>,
 -- never one named by a profile or a coach. NULL is fine (no photo).
 create or replace function app.coach_photo_path_ok(p_path text) returns boolean
-language plpgsql stable security definer set search_path = public as $coach_photo_path_ok_0279$
+language plpgsql stable security definer set search_path = public as $coach_photo_path_ok_0282$
 declare
   v_folder uuid;
 begin
@@ -275,10 +275,10 @@ begin
   end;
   return not exists (select 1 from profiles p where p.id = v_folder)
      and not exists (select 1 from coaches c where c.id = v_folder);
-end $coach_photo_path_ok_0279$;
+end $coach_photo_path_ok_0282$;
 
 comment on function app.coach_photo_path_ok(text) is
-  '0279 (R43). Internal. True for NULL, or a menu-media path coaches/<uuid>/<file> whose folder is a fresh uuid: never a profiles.id or a coaches.id, so no public payload carries a profile id.';
+  '0282 (R43). Internal. True for NULL, or a menu-media path coaches/<uuid>/<file> whose folder is a fresh uuid: never a profiles.id or a coaches.id, so no public payload carries a profile id.';
 
 revoke all on function app.coach_photo_path_ok(text) from public, anon, authenticated;
 
@@ -286,7 +286,7 @@ revoke all on function app.coach_photo_path_ok(text) from public, anon, authenti
 -- caller's coach row whatever its status; never raises; reads no switch and
 -- no staff status (a staff member who coaches gets the same answer, C-27).
 create or replace function app.coach_me() returns jsonb
-language plpgsql stable security definer set search_path = public as $coach_me_0279$
+language plpgsql stable security definer set search_path = public as $coach_me_0282$
 declare
   v_c        coaches%rowtype := app.coach_of_caller();
   v_branches jsonb;
@@ -382,10 +382,10 @@ begin
       'private_open', coalesce(v_open, 0),
       'private_cap', v_cap),
     'server_now', now());
-end $coach_me_0279$;
+end $coach_me_0282$;
 
 comment on function app.coach_me() is
-  '0279 (db.md §4.6.1; X9, R45, R61, R81; publicByDesign). Authenticated, never raises: {coach: null} for a caller who is not a coach; {coach: {id, status: retired, display_name_en, display_name_ar}} for a retired coach (C-25); else {coach: {id, status, display_name_*, bio_*, photo_path, public_accepted, public_accepted_at, branches: [{venue_id, name_*, timezone, coaching_enabled, open_private, open_private_cap}], lesson_types: [{id, venue_id, kind, name_*, duration_min, max_places, min_places, sessions_count, cutoff_hours, price_iqd, is_active}], adds_today, add_cap: 30, private_open, private_cap}, server_now}. Branches are every not-closed branch where the coach is active, whatever its switch (R45); private_open sums them and private_cap is the lowest branch cap. Reads no coaching switch and no staff status (C-27). Never the profile''s phone.';
+  '0282 (db.md §4.6.1; X9, R45, R61, R81; publicByDesign). Authenticated, never raises: {coach: null} for a caller who is not a coach; {coach: {id, status: retired, display_name_en, display_name_ar}} for a retired coach (C-25); else {coach: {id, status, display_name_*, bio_*, photo_path, public_accepted, public_accepted_at, branches: [{venue_id, name_*, timezone, coaching_enabled, open_private, open_private_cap}], lesson_types: [{id, venue_id, kind, name_*, duration_min, max_places, min_places, sessions_count, cutoff_hours, price_iqd, is_active}], adds_today, add_cap: 30, private_open, private_cap}, server_now}. Branches are every not-closed branch where the coach is active, whatever its switch (R45); private_open sums them and private_cap is the lowest branch cap. Reads no coaching switch and no staff status (C-27). Never the profile''s phone.';
 
 revoke all on function app.coach_me() from public, anon;
 grant execute on function app.coach_me() to authenticated;
@@ -394,7 +394,7 @@ grant execute on function app.coach_me() to authenticated;
 -- row at the branch, with the profile's name and phone (staff see customers),
 -- and every lesson type of the branch. The desk never reads it (R20).
 create or replace function app.coaches_admin(p_venue_id uuid default null) returns jsonb
-language plpgsql stable security definer set search_path = public as $coaches_admin_0279$
+language plpgsql stable security definer set search_path = public as $coaches_admin_0282$
 declare
   v_venue uuid;
   v_rules jsonb;
@@ -551,10 +551,10 @@ begin
              order by t.sort_order, t.name_en, t.id)
         from lesson_types t
        where t.venue_id = v_venue), '[]'::jsonb));
-end $coaches_admin_0279$;
+end $coaches_admin_0282$;
 
 comment on function app.coaches_admin(uuid) is
-  '0279 (db.md §4.6.3; X19, R46, R57). Manager and owner, at the branch (default: the caller''s resolved branch). {venue_id, coaching_enabled, server_now, coaches: [{coach_id, profile_id, full_name, phone, account_deleted, display_name_*, bio_*, photo_path, status, public_accepted_at, retired_at, sort_order, venue_ids, active_here, lesson_type_ids, prices, hours, hours_set_by, hours_set_by_name, hours_updated_at, hours_elsewhere, time_off, upcoming_lessons, open_courses}], lesson_types: [{lesson_type_id, kind, name_*, description_*, duration_min, price_iqd, court_share_iqd, max_places, min_places, cutoff_hours, sessions_count, is_active, launched_at, sort_order, coach_ids, pending_run}]} for every coach with a coach_branches row at the branch and every type of the branch. The profile''s name and phone are staff data, never public. FORBIDDEN by role, then by branch.';
+  '0282 (db.md §4.6.3; X19, R46, R57). Manager and owner, at the branch (default: the caller''s resolved branch). {venue_id, coaching_enabled, server_now, coaches: [{coach_id, profile_id, full_name, phone, account_deleted, display_name_*, bio_*, photo_path, status, public_accepted_at, retired_at, sort_order, venue_ids, active_here, lesson_type_ids, prices, hours, hours_set_by, hours_set_by_name, hours_updated_at, hours_elsewhere, time_off, upcoming_lessons, open_courses}], lesson_types: [{lesson_type_id, kind, name_*, description_*, duration_min, price_iqd, court_share_iqd, max_places, min_places, cutoff_hours, sessions_count, is_active, launched_at, sort_order, coach_ids, pending_run}]} for every coach with a coach_branches row at the branch and every type of the branch. The profile''s name and phone are staff data, never public. FORBIDDEN by role, then by branch.';
 
 revoke all on function app.coaches_admin(uuid) from public, anon;
 grant execute on function app.coaches_admin(uuid) to authenticated;
@@ -573,7 +573,7 @@ create or replace function app.coach_promote(
   p_photo_path      text,
   p_venue_ids       uuid[]
 ) returns jsonb
-language plpgsql security definer set search_path = public as $coach_promote_0279$
+language plpgsql security definer set search_path = public as $coach_promote_0282$
 declare
   v_staff   uuid := auth.uid();
   v_name_en text := app.safe_line(p_display_name_en);
@@ -678,17 +678,17 @@ begin
                                              'photo', v_photo is not null));
   return jsonb_build_object('coach_id', v_c.id, 'status', v_c.status, 'venue_ids', to_jsonb(v_venues),
                             'revived', v_revived, 'duplicate', false);
-end $coach_promote_0279$;
+end $coach_promote_0282$;
 
 comment on function app.coach_promote(uuid, text, text, text, text, text, uuid[]) is
-  '0279 (db.md §4.6.3; C-7, R43, R61). Manager and owner: make a guest profile a coach at the named branches (each one the caller works at), or bring a retired coach back with the fields replaced, public_accepted_at cleared (R61) and exactly the named branches active. Refusals: FORBIDDEN (role); INVALID_ARGUMENT p_profile_id | p_display_name_en | p_display_name_ar (1..60) | p_bio_en | p_bio_ar (<= 1000) | p_photo_path (coaches/<uuid>/<file>, the folder never a profile or coach id, R43) | p_venue_ids (empty); CUSTOMER_NOT_FOUND (no live profile); FORBIDDEN (a branch the caller does not work at); ALREADY_COACH (detail the coach id). Audited coaching.coach.promote. Returns {coach_id, status, venue_ids, revived, duplicate}.';
+  '0282 (db.md §4.6.3; C-7, R43, R61). Manager and owner: make a guest profile a coach at the named branches (each one the caller works at), or bring a retired coach back with the fields replaced, public_accepted_at cleared (R61) and exactly the named branches active. Refusals: FORBIDDEN (role); INVALID_ARGUMENT p_profile_id | p_display_name_en | p_display_name_ar (1..60) | p_bio_en | p_bio_ar (<= 1000) | p_photo_path (coaches/<uuid>/<file>, the folder never a profile or coach id, R43) | p_venue_ids (empty); CUSTOMER_NOT_FOUND (no live profile); FORBIDDEN (a branch the caller does not work at); ALREADY_COACH (detail the coach id). Audited coaching.coach.promote. Returns {coach_id, status, venue_ids, revived, duplicate}.';
 
 revoke all on function app.coach_promote(uuid, text, text, text, text, text, uuid[]) from public, anon;
 grant execute on function app.coach_promote(uuid, text, text, text, text, text, uuid[]) to authenticated;
 
 -- The display names, bios, photo and order (C-7: only managers edit them).
 create or replace function app.coach_update(p_coach_id uuid, p_patch jsonb) returns jsonb
-language plpgsql security definer set search_path = public as $coach_update_0279$
+language plpgsql security definer set search_path = public as $coach_update_0282$
 declare
   v_allowed text[] := array['display_name_en', 'display_name_ar', 'bio_en', 'bio_ar', 'photo_path', 'sort_order'];
   v_c       coaches%rowtype;
@@ -805,10 +805,10 @@ begin
     'sort_order', v_new.sort_order,
     'public_accepted_at', v_new.public_accepted_at,
     'updated_at', v_new.updated_at);
-end $coach_update_0279$;
+end $coach_update_0282$;
 
 comment on function app.coach_update(uuid, jsonb) is
-  '0279 (db.md §4.6.3; C-7, R43). Manager (a coach in scope) and owner: patch a coach''s display_name_en, display_name_ar (1..60), bio_en, bio_ar (<= 1000), photo_path (NULL clears; coaches/<fresh uuid>/<file>, R43) and sort_order. Refusals: FORBIDDEN (role); COACH_NOT_FOUND; FORBIDDEN (scope); INVALID_ARGUMENT p_patch | the key | retired. Audited coaching.coach.update (names, photo, order and whether a bio changed). Returns the coach''s card.';
+  '0282 (db.md §4.6.3; C-7, R43). Manager (a coach in scope) and owner: patch a coach''s display_name_en, display_name_ar (1..60), bio_en, bio_ar (<= 1000), photo_path (NULL clears; coaches/<fresh uuid>/<file>, R43) and sort_order. Refusals: FORBIDDEN (role); COACH_NOT_FOUND; FORBIDDEN (scope); INVALID_ARGUMENT p_patch | the key | retired. Audited coaching.coach.update (names, photo, order and whether a bio changed). Returns the coach''s card.';
 
 revoke all on function app.coach_update(uuid, jsonb) from public, anon;
 grant execute on function app.coach_update(uuid, jsonb) to authenticated;
@@ -819,7 +819,7 @@ grant execute on function app.coach_update(uuid, jsonb) to authenticated;
 -- not yet ended, or an open or running course, refuses BRANCH_HAS_BOOKINGS
 -- detail coach_lessons (hint: that branch's id).
 create or replace function app.set_coach_branches(p_coach_id uuid, p_venue_ids uuid[]) returns jsonb
-language plpgsql security definer set search_path = public as $set_coach_branches_0279$
+language plpgsql security definer set search_path = public as $set_coach_branches_0282$
 declare
   v_c      coaches%rowtype;
   v_venues uuid[];
@@ -891,10 +891,10 @@ begin
     'venue_ids', (select coalesce(jsonb_agg(b.venue_id order by b.venue_id), '[]'::jsonb)
                     from coach_branches b where b.coach_id = v_c.id and b.active),
     'dropped', to_jsonb(v_drop));
-end $set_coach_branches_0279$;
+end $set_coach_branches_0282$;
 
 comment on function app.set_coach_branches(uuid, uuid[]) is
-  '0279 (db.md §4.6.3; R52, R73). Manager (coach in scope) and owner: the listed branches (each one the caller works at) become active; the caller''s other branches of the coach are switched off (their lessons are kept). Refusals: FORBIDDEN (role); COACH_NOT_FOUND; INVALID_ARGUMENT p_venue_ids (empty); FORBIDDEN (scope, or a listed branch the caller does not work at); under the coach lock, BRANCH_HAS_BOOKINGS detail coach_lessons (hint the branch id) when a branch it would switch off has a held or scheduled lesson of the coach not yet ended or an open or running course. Audited coaching.coach.branches. Returns {coach_id, venue_ids, dropped}.';
+  '0282 (db.md §4.6.3; R52, R73). Manager (coach in scope) and owner: the listed branches (each one the caller works at) become active; the caller''s other branches of the coach are switched off (their lessons are kept). Refusals: FORBIDDEN (role); COACH_NOT_FOUND; INVALID_ARGUMENT p_venue_ids (empty); FORBIDDEN (scope, or a listed branch the caller does not work at); under the coach lock, BRANCH_HAS_BOOKINGS detail coach_lessons (hint the branch id) when a branch it would switch off has a held or scheduled lesson of the coach not yet ended or an open or running course. Audited coaching.coach.branches. Returns {coach_id, venue_ids, dropped}.';
 
 revoke all on function app.set_coach_branches(uuid, uuid[]) from public, anon;
 grant execute on function app.set_coach_branches(uuid, uuid[]) to authenticated;
@@ -904,7 +904,7 @@ grant execute on function app.set_coach_branches(uuid, uuid[]) to authenticated;
 -- price and an old approval never comes back against a different price.
 create or replace function app.set_coach_lesson_types(p_coach_id uuid, p_venue_id uuid, p_lesson_type_ids uuid[])
 returns jsonb
-language plpgsql security definer set search_path = public as $set_coach_lesson_types_0279$
+language plpgsql security definer set search_path = public as $set_coach_lesson_types_0282$
 declare
   v_venue   uuid;
   v_c       coaches%rowtype;
@@ -977,10 +977,10 @@ begin
     'lesson_type_ids', (select coalesce(jsonb_agg(ct.lesson_type_id order by ct.lesson_type_id), '[]'::jsonb)
                           from coach_lesson_types ct where ct.coach_id = v_c.id and ct.venue_id = v_venue),
     'prices_removed', v_prices);
-end $set_coach_lesson_types_0279$;
+end $set_coach_lesson_types_0282$;
 
 comment on function app.set_coach_lesson_types(uuid, uuid, uuid[]) is
-  '0279 (db.md §4.6.3; R46). Manager and owner at the branch: replace the lesson types coach p_coach_id teaches at branch p_venue_id (default: the caller''s resolved branch) with p_lesson_type_ids (empty: none). The coach''s own price of every type dropped from the set is deleted (R46); lessons are untouched. Refusals: FORBIDDEN (role; branch); COACH_NOT_FOUND; COACH_NOT_AT_BRANCH (no active row there); INVALID_ARGUMENT p_lesson_type_ids; LESSON_TYPE_NOT_FOUND (detail the id; a type not at the branch). Audited coaching.coach.types with the prices removed. Returns {coach_id, venue_id, lesson_type_ids, prices_removed}.';
+  '0282 (db.md §4.6.3; R46). Manager and owner at the branch: replace the lesson types coach p_coach_id teaches at branch p_venue_id (default: the caller''s resolved branch) with p_lesson_type_ids (empty: none). The coach''s own price of every type dropped from the set is deleted (R46); lessons are untouched. Refusals: FORBIDDEN (role; branch); COACH_NOT_FOUND; COACH_NOT_AT_BRANCH (no active row there); INVALID_ARGUMENT p_lesson_type_ids; LESSON_TYPE_NOT_FOUND (detail the id; a type not at the branch). Audited coaching.coach.types with the prices removed. Returns {coach_id, venue_id, lesson_type_ids, prices_removed}.';
 
 revoke all on function app.set_coach_lesson_types(uuid, uuid, uuid[]) from public, anon;
 grant execute on function app.set_coach_lesson_types(uuid, uuid, uuid[]) to authenticated;
@@ -995,7 +995,7 @@ grant execute on function app.set_coach_lesson_types(uuid, uuid, uuid[]) to auth
 -- never meets a raw 23514.
 create or replace function app.lesson_type_merge(p_old lesson_types, p_patch jsonb, p_venue uuid)
 returns lesson_types
-language plpgsql stable security definer set search_path = public as $lesson_type_merge_0279$
+language plpgsql stable security definer set search_path = public as $lesson_type_merge_0282$
 declare
   v_allowed text[] := array['name_en', 'name_ar', 'description_en', 'description_ar', 'duration_min',
                             'price_iqd', 'court_share_iqd', 'max_places', 'min_places', 'cutoff_hours',
@@ -1105,7 +1105,7 @@ begin
     v_new.sort_order := app.venue_patch_int(p_patch, 'sort_order', 0, 100000);
   end if;
 
-  -- The resulting row against lesson_types' CHECKs (0275), key by key.
+  -- The resulting row against lesson_types' CHECKs (0278), key by key.
   if v_new.name_en is null then
     raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', detail = 'name_en';
   end if;
@@ -1160,18 +1160,18 @@ begin
     raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', detail = 'price_iqd';
   end if;
   return v_new;
-end $lesson_type_merge_0279$;
+end $lesson_type_merge_0282$;
 
 comment on function app.lesson_type_merge(lesson_types, jsonb, uuid) is
-  '0279 (db.md §4.6.4; R26, R46). Internal: the one lesson-type validator. Applies p_patch (keys name_en, name_ar, description_en, description_ar, duration_min, price_iqd, court_share_iqd, max_places, min_places, cutoff_hours, sessions_count, is_active, sort_order, and kind on create only) to p_old (NULL id: a new type at p_venue; a new group or course type gets cutoff_hours 2, R26) and returns the resulting row, or INVALID_ARGUMENT naming the key: an unknown key (launched_at, venue_id, id, created_by_staff_id included), kind missing on create or present on update, or a value outside lesson_types'' CHECKs for the resulting row. Writes nothing.';
+  '0282 (db.md §4.6.4; R26, R46). Internal: the one lesson-type validator. Applies p_patch (keys name_en, name_ar, description_en, description_ar, duration_min, price_iqd, court_share_iqd, max_places, min_places, cutoff_hours, sessions_count, is_active, sort_order, and kind on create only) to p_old (NULL id: a new type at p_venue; a new group or course type gets cutoff_hours 2, R26) and returns the resulting row, or INVALID_ARGUMENT naming the key: an unknown key (launched_at, venue_id, id, created_by_staff_id included), kind missing on create or present on update, or a value outside lesson_types'' CHECKs for the resulting row. Writes nothing.';
 
 revoke all on function app.lesson_type_merge(lesson_types, jsonb, uuid) from public, anon, authenticated;
 
 -- No role check: called by the wrapper below and by the protocol apply
--- (0282's price_promo_apply_internal, with a null actor).
+-- (0285's price_promo_apply_internal, with a null actor).
 create or replace function app.upsert_lesson_type_internal(p_venue uuid, p_id uuid, p_patch jsonb)
 returns lesson_types
-language plpgsql security definer set search_path = public as $upsert_lesson_type_internal_0279$
+language plpgsql security definer set search_path = public as $upsert_lesson_type_internal_0282$
 declare
   v_old lesson_types;
   v_new lesson_types;
@@ -1227,15 +1227,15 @@ begin
                             to_jsonb(v_row) - 'description_en' - 'description_ar');
   end if;
   return v_row;
-end $upsert_lesson_type_internal_0279$;
+end $upsert_lesson_type_internal_0282$;
 
 comment on function app.upsert_lesson_type_internal(uuid, uuid, jsonb) is
-  '0279 (db.md §4.6.4; C-17, R46). Internal, no role check: called by app.upsert_lesson_type and by the price-or-promotion apply (0282). Reads an existing type FOR UPDATE (LESSON_TYPE_NOT_FOUND unless at p_venue), validates the result with app.lesson_type_merge (INVALID_ARGUMENT naming the key), then inserts or updates; is_active turning true on a never-launched type stamps launched_at. Existing lessons keep their snapshots. Audited coaching.lesson_type.create | update.';
+  '0282 (db.md §4.6.4; C-17, R46). Internal, no role check: called by app.upsert_lesson_type and by the price-or-promotion apply (0285). Reads an existing type FOR UPDATE (LESSON_TYPE_NOT_FOUND unless at p_venue), validates the result with app.lesson_type_merge (INVALID_ARGUMENT naming the key), then inserts or updates; is_active turning true on a never-launched type stamps launched_at. Existing lessons keep their snapshots. Audited coaching.lesson_type.create | update.';
 
 revoke all on function app.upsert_lesson_type_internal(uuid, uuid, jsonb) from public, anon, authenticated;
 
 create or replace function app.upsert_lesson_type(p_venue_id uuid, p_id uuid, p_patch jsonb) returns jsonb
-language plpgsql security definer set search_path = public as $upsert_lesson_type_0279$
+language plpgsql security definer set search_path = public as $upsert_lesson_type_0282$
 declare
   v_venue uuid;
   v_old   lesson_types;
@@ -1282,10 +1282,10 @@ begin
 
   v_row := app.upsert_lesson_type_internal(v_venue, v_old.id, p_patch);
   return to_jsonb(v_row) || jsonb_build_object('lesson_type_id', v_row.id);
-end $upsert_lesson_type_0279$;
+end $upsert_lesson_type_0282$;
 
 comment on function app.upsert_lesson_type(uuid, uuid, jsonb) is
-  '0279 (db.md §4.6.4; C-17, R46, R57). Manager and owner at the branch: create (p_id NULL; kind required) or edit a lesson type. For a manager: on a launched type a change of price_iqd or court_share_iqd is PRICE_VIA_PROTOCOL detail price, of duration_min, sessions_count or a private type''s max_places PRICE_VIA_PROTOCOL detail shape; switching a never-launched type on is LAUNCH_VIA_PROTOCOL. Drafts and every other field are direct. The owner passes every lock. Refusals before that: FORBIDDEN (role; branch); LESSON_TYPE_NOT_FOUND; INVALID_ARGUMENT naming the key (app.lesson_type_merge). Returns the type row with lesson_type_id.';
+  '0282 (db.md §4.6.4; C-17, R46, R57). Manager and owner at the branch: create (p_id NULL; kind required) or edit a lesson type. For a manager: on a launched type a change of price_iqd or court_share_iqd is PRICE_VIA_PROTOCOL detail price, of duration_min, sessions_count or a private type''s max_places PRICE_VIA_PROTOCOL detail shape; switching a never-launched type on is LAUNCH_VIA_PROTOCOL. Drafts and every other field are direct. The owner passes every lock. Refusals before that: FORBIDDEN (role; branch); LESSON_TYPE_NOT_FOUND; INVALID_ARGUMENT naming the key (app.lesson_type_merge). Returns the type row with lesson_type_id.';
 
 revoke all on function app.upsert_lesson_type(uuid, uuid, jsonb) from public, anon;
 grant execute on function app.upsert_lesson_type(uuid, uuid, jsonb) to authenticated;
@@ -1294,7 +1294,7 @@ grant execute on function app.upsert_lesson_type(uuid, uuid, jsonb) to authentic
 create or replace function app.set_coach_price_internal(p_coach_id uuid, p_lesson_type_id uuid, p_price_iqd bigint,
                                                         p_run_id uuid)
 returns void
-language plpgsql security definer set search_path = public as $set_coach_price_internal_0279$
+language plpgsql security definer set search_path = public as $set_coach_price_internal_0282$
 declare
   v_venue  uuid;
   v_before bigint;
@@ -1318,16 +1318,16 @@ begin
                           jsonb_build_object('price_iqd', v_before),
                           jsonb_build_object('coach_id', p_coach_id, 'lesson_type_id', p_lesson_type_id,
                                              'price_iqd', p_price_iqd, 'protocol_run_id', p_run_id));
-end $set_coach_price_internal_0279$;
+end $set_coach_price_internal_0282$;
 
 comment on function app.set_coach_price_internal(uuid, uuid, bigint, uuid) is
-  '0279 (db.md §4.6.4; C-5, C-17). Internal, no role check: called by app.set_coach_price (the owner, p_run_id NULL) and the price-or-promotion apply (0282, the run). NULL price deletes the coach''s price; else upserts it with protocol_run_id. Asserts app.venue_id to the type''s branch. Audited coaching.coach_price.';
+  '0282 (db.md §4.6.4; C-5, C-17). Internal, no role check: called by app.set_coach_price (the owner, p_run_id NULL) and the price-or-promotion apply (0285, the run). NULL price deletes the coach''s price; else upserts it with protocol_run_id. Asserts app.venue_id to the type''s branch. Audited coaching.coach_price.';
 
 revoke all on function app.set_coach_price_internal(uuid, uuid, bigint, uuid) from public, anon, authenticated;
 
 create or replace function app.set_coach_price(p_coach_id uuid, p_lesson_type_id uuid, p_price_iqd bigint)
 returns jsonb
-language plpgsql security definer set search_path = public as $set_coach_price_0279$
+language plpgsql security definer set search_path = public as $set_coach_price_0282$
 declare
   v_c coaches%rowtype;
   v_t lesson_types%rowtype;
@@ -1367,10 +1367,10 @@ begin
   perform app.lock_coach(v_c.id);
   perform app.set_coach_price_internal(v_c.id, v_t.id, p_price_iqd, null);
   return jsonb_build_object('coach_id', v_c.id, 'lesson_type_id', v_t.id, 'price_iqd', p_price_iqd);
-end $set_coach_price_0279$;
+end $set_coach_price_0282$;
 
 comment on function app.set_coach_price(uuid, uuid, bigint) is
-  '0279 (db.md §4.6.4; C-5, C-17, D-8). The owner sets (or with NULL removes) a coach''s own price for a lesson type they teach; a manager goes through the price-or-promotion protocol (coach_price). Refusals: FORBIDDEN (role); COACH_NOT_FOUND (unknown or retired); LESSON_TYPE_NOT_FOUND; FORBIDDEN (branch); PRICE_VIA_PROTOCOL detail price (a manager, drafts included); INVALID_ARGUMENT p_price_iqd (<= 0, over 100,000,000, or below the sessions of a course); LESSON_TYPE_NOT_OFFERED. Returns {coach_id, lesson_type_id, price_iqd}.';
+  '0282 (db.md §4.6.4; C-5, C-17, D-8). The owner sets (or with NULL removes) a coach''s own price for a lesson type they teach; a manager goes through the price-or-promotion protocol (coach_price). Refusals: FORBIDDEN (role); COACH_NOT_FOUND (unknown or retired); LESSON_TYPE_NOT_FOUND; FORBIDDEN (branch); PRICE_VIA_PROTOCOL detail price (a manager, drafts included); INVALID_ARGUMENT p_price_iqd (<= 0, over 100,000,000, or below the sessions of a course); LESSON_TYPE_NOT_OFFERED. Returns {coach_id, lesson_type_id, price_iqd}.';
 
 revoke all on function app.set_coach_price(uuid, uuid, bigint) from public, anon;
 grant execute on function app.set_coach_price(uuid, uuid, bigint) to authenticated;
@@ -1387,7 +1387,7 @@ grant execute on function app.set_coach_price(uuid, uuid, bigint) to authenticat
 -- or HOURS_OVERLAP detail the index of a window that overlaps an earlier one
 -- of the set on its weekday (R73).
 create or replace function app.coach_windows_parse(p_windows jsonb) returns jsonb
-language plpgsql immutable security definer set search_path = public as $coach_windows_parse_0279$
+language plpgsql immutable security definer set search_path = public as $coach_windows_parse_0282$
 declare
   v_w   jsonb;
   v_i   int;
@@ -1432,10 +1432,10 @@ begin
     raise exception 'HOURS_OVERLAP' using errcode = 'P0001', detail = v_x.i::text;
   end loop;
   return v_out;
-end $coach_windows_parse_0279$;
+end $coach_windows_parse_0282$;
 
 comment on function app.coach_windows_parse(jsonb) is
-  '0279 (db.md §4.6.5; CD-10, D-18, R73). Internal. Validates a coach''s weekly windows for one branch: an array of 0..28 objects {weekday 0..6, start, end} (or start_time, end_time), "HH:MM" on :00 or :30, end up to 24:00, start before end; HOURS_INVALID detail the 0-based index (p_windows for the array). Two windows of the set overlapping on a weekday: HOURS_OVERLAP detail the later index. Returns [{i, weekday, start_time, end_time}].';
+  '0282 (db.md §4.6.5; CD-10, D-18, R73). Internal. Validates a coach''s weekly windows for one branch: an array of 0..28 objects {weekday 0..6, start, end} (or start_time, end_time), "HH:MM" on :00 or :30, end up to 24:00, start before end; HOURS_INVALID detail the 0-based index (p_windows for the array). Two windows of the set overlapping on a weekday: HOURS_OVERLAP detail the later index. Returns [{i, weekday, start_time, end_time}].';
 
 revoke all on function app.coach_windows_parse(jsonb) from public, anon, authenticated;
 
@@ -1446,7 +1446,7 @@ revoke all on function app.coach_windows_parse(jsonb) from public, anon, authent
 -- the new hours stay.
 create or replace function app.coach_hours_write(p_coach_id uuid, p_venue uuid, p_windows jsonb, p_staff_id uuid)
 returns jsonb
-language plpgsql security definer set search_path = public as $coach_hours_write_0279$
+language plpgsql security definer set search_path = public as $coach_hours_write_0282$
 declare
   v_w     jsonb;
   v_x     record;
@@ -1499,15 +1499,15 @@ begin
     from coach_hours h
    where h.coach_id = p_coach_id and h.venue_id = p_venue;
   return jsonb_build_object('coach_id', p_coach_id, 'venue_id', p_venue, 'windows', v_out, 'hours', v_out);
-end $coach_hours_write_0279$;
+end $coach_hours_write_0282$;
 
 comment on function app.coach_hours_write(uuid, uuid, jsonb, uuid) is
-  '0279 (db.md §4.6.5; R73). Internal: replaces a coach''s weekly windows at one branch (set_by staff with p_staff_id, else coach). COACH_NOT_AT_BRANCH without an active branch row; app.coach_windows_parse''s HOURS_INVALID and HOURS_OVERLAP; under the coach lock, HOURS_OVERLAP detail the index of a window overlapping the coach''s window at another branch on that weekday. Audited coaching.hours. Returns {coach_id, venue_id, windows, hours} (the same list under both names).';
+  '0282 (db.md §4.6.5; R73). Internal: replaces a coach''s weekly windows at one branch (set_by staff with p_staff_id, else coach). COACH_NOT_AT_BRANCH without an active branch row; app.coach_windows_parse''s HOURS_INVALID and HOURS_OVERLAP; under the coach lock, HOURS_OVERLAP detail the index of a window overlapping the coach''s window at another branch on that weekday. Audited coaching.hours. Returns {coach_id, venue_id, windows, hours} (the same list under both names).';
 
 revoke all on function app.coach_hours_write(uuid, uuid, jsonb, uuid) from public, anon, authenticated;
 
 create or replace function app.set_coach_hours(p_coach_id uuid, p_venue_id uuid, p_windows jsonb) returns jsonb
-language plpgsql security definer set search_path = public as $set_coach_hours_0279$
+language plpgsql security definer set search_path = public as $set_coach_hours_0282$
 declare
   v_venue uuid;
   v_c     coaches%rowtype;
@@ -1526,16 +1526,16 @@ begin
     raise exception 'COACH_NOT_FOUND' using errcode = 'P0001';
   end if;
   return app.coach_hours_write(v_c.id, v_venue, p_windows, auth.uid());
-end $set_coach_hours_0279$;
+end $set_coach_hours_0282$;
 
 comment on function app.set_coach_hours(uuid, uuid, jsonb) is
-  '0279 (db.md §4.6.5; C-4). Manager and owner at the branch: replace coach p_coach_id''s weekly windows at branch p_venue_id (default: the caller''s resolved branch); set_by staff. Refusals: FORBIDDEN (role; branch); COACH_NOT_FOUND (unknown or retired); then app.coach_hours_write''s COACH_NOT_AT_BRANCH, HOURS_INVALID, HOURS_OVERLAP. Returns {coach_id, venue_id, windows, hours}.';
+  '0282 (db.md §4.6.5; C-4). Manager and owner at the branch: replace coach p_coach_id''s weekly windows at branch p_venue_id (default: the caller''s resolved branch); set_by staff. Refusals: FORBIDDEN (role; branch); COACH_NOT_FOUND (unknown or retired); then app.coach_hours_write''s COACH_NOT_AT_BRANCH, HOURS_INVALID, HOURS_OVERLAP. Returns {coach_id, venue_id, windows, hours}.';
 
 revoke all on function app.set_coach_hours(uuid, uuid, jsonb) from public, anon;
 grant execute on function app.set_coach_hours(uuid, uuid, jsonb) to authenticated;
 
 create or replace function app.set_my_coach_hours(p_venue_id uuid, p_windows jsonb) returns jsonb
-language plpgsql security definer set search_path = public as $set_my_coach_hours_0279$
+language plpgsql security definer set search_path = public as $set_my_coach_hours_0282$
 declare
   v_c coaches%rowtype := app.coach_self();
 begin
@@ -1543,16 +1543,16 @@ begin
     raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', detail = 'p_venue_id';
   end if;
   return app.coach_hours_write(v_c.id, p_venue_id, p_windows, null);
-end $set_my_coach_hours_0279$;
+end $set_my_coach_hours_0282$;
 
 comment on function app.set_my_coach_hours(uuid, jsonb) is
-  '0279 (db.md §4.6.5; C-4). Coach (app.coach_self first): replace the caller''s weekly windows at branch p_venue_id; set_by coach. Refusals: NOT_A_COACH (and the session codes); INVALID_ARGUMENT p_venue_id; COACH_NOT_AT_BRANCH, HOURS_INVALID, HOURS_OVERLAP (app.coach_hours_write). Returns {coach_id, venue_id, windows, hours}.';
+  '0282 (db.md §4.6.5; C-4). Coach (app.coach_self first): replace the caller''s weekly windows at branch p_venue_id; set_by coach. Refusals: NOT_A_COACH (and the session codes); INVALID_ARGUMENT p_venue_id; COACH_NOT_AT_BRANCH, HOURS_INVALID, HOURS_OVERLAP (app.coach_hours_write). Returns {coach_id, venue_id, windows, hours}.';
 
 revoke all on function app.set_my_coach_hours(uuid, jsonb) from public, anon;
 grant execute on function app.set_my_coach_hours(uuid, jsonb) to authenticated;
 
 create or replace function app.coach_hours_mine() returns jsonb
-language plpgsql stable security definer set search_path = public as $coach_hours_mine_0279$
+language plpgsql stable security definer set search_path = public as $coach_hours_mine_0282$
 declare
   v_c coaches%rowtype := app.coach_self();
 begin
@@ -1592,10 +1592,10 @@ begin
         from coach_time_off t
        where t.coach_id = v_c.id and t.cancelled_at is null and upper(t.period) > now()), '[]'::jsonb),
     'server_now', now());
-end $coach_hours_mine_0279$;
+end $coach_hours_mine_0282$;
 
 comment on function app.coach_hours_mine() is
-  '0279 (db.md §4.6.5; guest.md §4.3). Coach (app.coach_self first): {branches: [{venue_id, name_*, timezone, coaching_enabled, windows: [{id, weekday, start_time, end_time, set_by, updated_at}]}], time_off: [{id, starts_at, ends_at, reason, set_by}] (not cancelled, not ended), server_now} for every not-closed branch where the caller is active.';
+  '0282 (db.md §4.6.5; guest.md §4.3). Coach (app.coach_self first): {branches: [{venue_id, name_*, timezone, coaching_enabled, windows: [{id, weekday, start_time, end_time, set_by, updated_at}]}], time_off: [{id, starts_at, ends_at, reason, set_by}] (not cancelled, not ended), server_now} for every not-closed branch where the caller is active.';
 
 revoke all on function app.coach_hours_mine() from public, anon;
 grant execute on function app.coach_hours_mine() to authenticated;
@@ -1604,7 +1604,7 @@ grant execute on function app.coach_hours_mine() to authenticated;
 create or replace function app.coach_time_off_add(p_coach_id uuid, p_starts_at timestamptz, p_ends_at timestamptz,
                                                   p_reason text, p_staff_id uuid)
 returns jsonb
-language plpgsql security definer set search_path = public as $coach_time_off_add_0279$
+language plpgsql security definer set search_path = public as $coach_time_off_add_0282$
 declare
   v_reason text := coalesce(app.safe_line(p_reason), '');
   v_count  int;
@@ -1648,17 +1648,17 @@ begin
                                              'ends_at', p_ends_at, 'set_by', v_t.set_by, 'action', 'add'));
   return jsonb_build_object('id', v_t.id, 'starts_at', lower(v_t.period), 'ends_at', upper(v_t.period),
                             'reason', v_t.reason, 'set_by', v_t.set_by);
-end $coach_time_off_add_0279$;
+end $coach_time_off_add_0282$;
 
 comment on function app.coach_time_off_add(uuid, timestamptz, timestamptz, text, uuid) is
-  '0279 (db.md §4.6.5). Internal: one time-off period of a coach (set_by staff with p_staff_id, else coach). INVALID_ARGUMENT p_starts_at | p_ends_at (start >= end, end <= now, over 366 days) | p_reason (over 200); under the coach lock TIME_OFF_HAS_LESSONS detail how many held or scheduled lessons of the coach overlap; HOURS_OVERLAP detail time_off when it overlaps a live period (coach_time_off_no_overlap). Audited coaching.time_off (no reason text). Returns {id, starts_at, ends_at, reason, set_by}.';
+  '0282 (db.md §4.6.5). Internal: one time-off period of a coach (set_by staff with p_staff_id, else coach). INVALID_ARGUMENT p_starts_at | p_ends_at (start >= end, end <= now, over 366 days) | p_reason (over 200); under the coach lock TIME_OFF_HAS_LESSONS detail how many held or scheduled lessons of the coach overlap; HOURS_OVERLAP detail time_off when it overlaps a live period (coach_time_off_no_overlap). Audited coaching.time_off (no reason text). Returns {id, starts_at, ends_at, reason, set_by}.';
 
 revoke all on function app.coach_time_off_add(uuid, timestamptz, timestamptz, text, uuid) from public, anon, authenticated;
 
 create or replace function app.add_coach_time_off(p_coach_id uuid, p_starts_at timestamptz, p_ends_at timestamptz,
                                                   p_reason text)
 returns jsonb
-language plpgsql security definer set search_path = public as $add_coach_time_off_0279$
+language plpgsql security definer set search_path = public as $add_coach_time_off_0282$
 declare
   v_c coaches%rowtype;
 begin
@@ -1675,31 +1675,31 @@ begin
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
   return app.coach_time_off_add(v_c.id, p_starts_at, p_ends_at, p_reason, auth.uid());
-end $add_coach_time_off_0279$;
+end $add_coach_time_off_0282$;
 
 comment on function app.add_coach_time_off(uuid, timestamptz, timestamptz, text) is
-  '0279 (db.md §4.6.5; C-4). Manager (coach in scope) and owner: add a time-off period for a coach (set_by staff). Refusals: FORBIDDEN (role); COACH_NOT_FOUND; FORBIDDEN (scope); then app.coach_time_off_add''s INVALID_ARGUMENT, TIME_OFF_HAS_LESSONS, HOURS_OVERLAP time_off. Returns {id, starts_at, ends_at, reason, set_by}.';
+  '0282 (db.md §4.6.5; C-4). Manager (coach in scope) and owner: add a time-off period for a coach (set_by staff). Refusals: FORBIDDEN (role); COACH_NOT_FOUND; FORBIDDEN (scope); then app.coach_time_off_add''s INVALID_ARGUMENT, TIME_OFF_HAS_LESSONS, HOURS_OVERLAP time_off. Returns {id, starts_at, ends_at, reason, set_by}.';
 
 revoke all on function app.add_coach_time_off(uuid, timestamptz, timestamptz, text) from public, anon;
 grant execute on function app.add_coach_time_off(uuid, timestamptz, timestamptz, text) to authenticated;
 
 create or replace function app.add_my_time_off(p_starts_at timestamptz, p_ends_at timestamptz, p_reason text)
 returns jsonb
-language plpgsql security definer set search_path = public as $add_my_time_off_0279$
+language plpgsql security definer set search_path = public as $add_my_time_off_0282$
 declare
   v_c coaches%rowtype := app.coach_self();
 begin
   return app.coach_time_off_add(v_c.id, p_starts_at, p_ends_at, p_reason, null);
-end $add_my_time_off_0279$;
+end $add_my_time_off_0282$;
 
 comment on function app.add_my_time_off(timestamptz, timestamptz, text) is
-  '0279 (db.md §4.6.5; C-4). Coach (app.coach_self first): add a time-off period of the caller''s (set_by coach); the refusals of app.coach_time_off_add. Returns {id, starts_at, ends_at, reason, set_by}.';
+  '0282 (db.md §4.6.5; C-4). Coach (app.coach_self first): add a time-off period of the caller''s (set_by coach); the refusals of app.coach_time_off_add. Returns {id, starts_at, ends_at, reason, set_by}.';
 
 revoke all on function app.add_my_time_off(timestamptz, timestamptz, text) from public, anon;
 grant execute on function app.add_my_time_off(timestamptz, timestamptz, text) to authenticated;
 
 create or replace function app.cancel_coach_time_off(p_id uuid) returns jsonb
-language plpgsql security definer set search_path = public as $cancel_coach_time_off_0279$
+language plpgsql security definer set search_path = public as $cancel_coach_time_off_0282$
 declare
   v_t coach_time_off%rowtype;
 begin
@@ -1729,16 +1729,16 @@ begin
   perform app.write_audit('coaching.time_off', 'coach_time_off', v_t.id::text, null,
                           jsonb_build_object('coach_id', v_t.coach_id, 'action', 'cancel', 'by', 'staff'));
   return jsonb_build_object('id', v_t.id, 'cancelled_at', v_t.cancelled_at, 'duplicate', false);
-end $cancel_coach_time_off_0279$;
+end $cancel_coach_time_off_0282$;
 
 comment on function app.cancel_coach_time_off(uuid) is
-  '0279 (db.md §4.6.5; X31). Manager (coach in scope) and owner: end a time-off period. Refusals: FORBIDDEN (role); INVALID_ARGUMENT p_id (unknown); FORBIDDEN (scope). Already cancelled: {duplicate: true}. Audited coaching.time_off. Returns {id, cancelled_at, duplicate}.';
+  '0282 (db.md §4.6.5; X31). Manager (coach in scope) and owner: end a time-off period. Refusals: FORBIDDEN (role); INVALID_ARGUMENT p_id (unknown); FORBIDDEN (scope). Already cancelled: {duplicate: true}. Audited coaching.time_off. Returns {id, cancelled_at, duplicate}.';
 
 revoke all on function app.cancel_coach_time_off(uuid) from public, anon;
 grant execute on function app.cancel_coach_time_off(uuid) to authenticated;
 
 create or replace function app.cancel_my_time_off(p_id uuid) returns jsonb
-language plpgsql security definer set search_path = public as $cancel_my_time_off_0279$
+language plpgsql security definer set search_path = public as $cancel_my_time_off_0282$
 declare
   v_c coaches%rowtype := app.coach_self();
   v_t coach_time_off%rowtype;
@@ -1763,10 +1763,10 @@ begin
   perform app.write_audit('coaching.time_off', 'coach_time_off', v_t.id::text, null,
                           jsonb_build_object('coach_id', v_c.id, 'action', 'cancel', 'by', 'coach'));
   return jsonb_build_object('id', v_t.id, 'cancelled_at', v_t.cancelled_at, 'duplicate', false);
-end $cancel_my_time_off_0279$;
+end $cancel_my_time_off_0282$;
 
 comment on function app.cancel_my_time_off(uuid) is
-  '0279 (db.md §4.6.5; X31). Coach (app.coach_self first): end one of the caller''s own time-off periods. INVALID_ARGUMENT p_id for an unknown or someone else''s id; already cancelled: {duplicate: true}. Returns {id, cancelled_at, duplicate}.';
+  '0282 (db.md §4.6.5; X31). Coach (app.coach_self first): end one of the caller''s own time-off periods. INVALID_ARGUMENT p_id for an unknown or someone else''s id; already cancelled: {duplicate: true}. Returns {id, cancelled_at, duplicate}.';
 
 revoke all on function app.cancel_my_time_off(uuid) from public, anon;
 grant execute on function app.cancel_my_time_off(uuid) to authenticated;
@@ -1781,7 +1781,7 @@ grant execute on function app.cancel_my_time_off(uuid) to authenticated;
 -- does delete a replaced one.
 create or replace function app.storage_path_in_use(p_path text)
 returns boolean
-language plpgsql stable security definer set search_path = public as $storage_path_in_use_0279$
+language plpgsql stable security definer set search_path = public as $storage_path_in_use_0282$
 begin
   if app.staff_role() is null then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
@@ -1793,12 +1793,12 @@ begin
           + (select count(*) from menu_categories where photo_path = p_path)
           + (select count(*) from courts          where photo_path = p_path)
           + (select count(*) from cafe_settings   where key = 'hero_media_path' and value #>> '{}' = p_path)
-          + (select count(*) from coaches         where photo_path = p_path)   -- 0279 (R43)
+          + (select count(*) from coaches         where photo_path = p_path)   -- 0282 (R43)
          ) > 0;
-end $storage_path_in_use_0279$;
+end $storage_path_in_use_0282$;
 
 comment on function app.storage_path_in_use(text) is
-  '0223 (MV6), coaches since 0279 (R43). Staff: true while any row (menu item, category, court, a branch''s hero, a coach) still points at this storage path. The operator asks it after moving a row off a photo, so replacing a photo on one branch never deletes the object another branch shares, and a live coach photo is never removed.';
+  '0223 (MV6), coaches since 0282 (R43). Staff: true while any row (menu item, category, court, a branch''s hero, a coach) still points at this storage path. The operator asks it after moving a row off a photo, so replacing a photo on one branch never deletes the object another branch shares, and a live coach photo is never removed.';
 
 revoke all on function app.storage_path_in_use(text) from public, anon;
 grant execute on function app.storage_path_in_use(text) to authenticated;
@@ -1807,7 +1807,7 @@ grant execute on function app.storage_path_in_use(text) to authenticated;
 -- incident_photos_purged shape, 0198:577-610): protocol-action lists the
 -- objects under each folder, removes them from menu-media and marks the row.
 create or replace function app.coach_photo_purge_due(p_limit int default 20) returns jsonb
-language sql stable security definer set search_path = public as $coach_photo_purge_due_0279$
+language sql stable security definer set search_path = public as $coach_photo_purge_due_0282$
   select coalesce(jsonb_agg(jsonb_build_object('id', d.id, 'folder', d.folder) order by d.queued_at, d.id),
                   '[]'::jsonb)
     from (select q.id, q.folder, q.queued_at
@@ -1815,21 +1815,21 @@ language sql stable security definer set search_path = public as $coach_photo_pu
            where q.purged_at is null
            order by q.queued_at, q.id
            limit greatest(coalesce(p_limit, 20), 1)) d
-$coach_photo_purge_due_0279$;
+$coach_photo_purge_due_0282$;
 
 comment on function app.coach_photo_purge_due(int) is
-  '0279 (R43). Service role: [{id, folder}], the oldest coach photo folders queued for removal (retirement, account deletion) and not yet purged; protocol-action removes coaches/<folder>/* from menu-media and calls app.coach_photo_purged.';
+  '0282 (R43). Service role: [{id, folder}], the oldest coach photo folders queued for removal (retirement, account deletion) and not yet purged; protocol-action removes coaches/<folder>/* from menu-media and calls app.coach_photo_purged.';
 
 revoke all on function app.coach_photo_purge_due(int) from public, anon, authenticated;
 grant execute on function app.coach_photo_purge_due(int) to service_role;
 
 create or replace function app.coach_photo_purged(p_id uuid) returns void
-language sql security definer set search_path = public as $coach_photo_purged_0279$
+language sql security definer set search_path = public as $coach_photo_purged_0282$
   update coach_photo_purges set purged_at = now() where id = p_id and purged_at is null
-$coach_photo_purged_0279$;
+$coach_photo_purged_0282$;
 
 comment on function app.coach_photo_purged(uuid) is
-  '0279 (R43). Service role: marks a queued coach photo folder removed from storage.';
+  '0282 (R43). Service role: marks a queued coach photo folder removed from storage.';
 
 revoke all on function app.coach_photo_purged(uuid) from public, anon, authenticated;
 grant execute on function app.coach_photo_purged(uuid) to service_role;

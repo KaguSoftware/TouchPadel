@@ -1,5 +1,5 @@
 /**
- * Coaching, migration 0283 lesson_sweep (docs/design/coaching/db.md §4.9, §7 row
+ * Coaching, migration 0286 lesson_sweep (docs/design/coaching/db.md §4.9, §7 row
  * coaching-sweep.test.ts; build contracts C-14, CD-2, CD-8, R25, R26, R30, R31, R38, R44, R45,
  * R63, R65).
  *
@@ -130,7 +130,7 @@ function COURSE_WITH_SESSIONS(
 
 const NOW_H = `date_trunc('hour', now())`;
 
-describe.skipIf(!docker)('coaching 0283: lesson_strike_record', () => {
+describe.skipIf(!docker)('coaching 0286: lesson_strike_record', () => {
   it('records only a guest-booked enrolment of a live account, once; refuses a foreign session', () => {
     const r = scenario('cf283-a', [
       PLANT,
@@ -201,7 +201,7 @@ describe.skipIf(!docker)('coaching 0283: lesson_strike_record', () => {
   });
 });
 
-describe.skipIf(!docker)('coaching 0283: hold_strikes_settle', () => {
+describe.skipIf(!docker)('coaching 0286: hold_strikes_settle', () => {
   it('settles lesson strikes into the hold ladder, oldest first; a stale one uncounted', () => {
     const r = scenario('cf283-b', [
       PLANT,
@@ -258,7 +258,7 @@ describe.skipIf(!docker)('coaching 0283: hold_strikes_settle', () => {
   });
 });
 
-describe.skipIf(!docker)('coaching 0283: lesson_sweep', () => {
+describe.skipIf(!docker)('coaching 0286: lesson_sweep', () => {
   it('the cut-off: confirmed, under-filled, deferred, cancelled at start - 10 min, judged late (R26, R38)', () => {
     const r = scenario('cf283-c', [
       PLANT,
@@ -655,7 +655,7 @@ describe.skipIf(!docker)('coaching 0283: lesson_sweep', () => {
   });
 });
 
-describe.skipIf(!docker)('coaching 0283: lesson_typed_purge (CD-8, R44)', () => {
+describe.skipIf(!docker)('coaching 0286: lesson_typed_purge (CD-8, R44)', () => {
   it('365 days after the last session: phone and friends gone, the typed name a marker, never NULL', () => {
     const r = scenario('cf283-i', [
       PLANT,

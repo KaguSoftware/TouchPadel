@@ -1,19 +1,19 @@
 /**
  * The coaching planting helpers (one module for the suites that plant rows as postgres).
  *
- * - `PLANT_BRANCH`: 0277 / 0278 (coaching-guards, coaching-desk-money), on a branch of its own
+ * - `PLANT_BRANCH`: 0280 / 0281 (coaching-guards, coaching-desk-money), on a branch of its own
  *   (matches-harness SETUP). Its pg_temp functions are keyed by kept names (pg_temp.vars).
- * - `PLANT`: 0283–0286 (coaching-sweep, -statements, -reports, -deletion), on venue A, with ids
+ * - `PLANT`: 0286–0289 (coaching-sweep, -statements, -reports, -deletion), on venue A, with ids
  *   returned as text.
  *
  * The two sets define pg_temp functions of the same names with different signatures, so a
  * scenario loads one of them, never both.
  */
 /*
- * PLANT (0283–0286):
+ * PLANT (0286–0289):
  * The planting helpers of the coaching sweep, statement, report and deletion suites
  * (coaching-sweep, coaching-statements, coaching-reports, coaching-deletion .test.ts; migrations
- * 0283–0286). Every case is one rolled-back psql transaction (stores-harness `scenario`): rows are
+ * 0286–0289). Every case is one rolled-back psql transaction (stores-harness `scenario`): rows are
  * planted as postgres with the JWT claims cleared (0230: a fixture write, not a staff write), and
  * staff, coach and guest calls run as `authenticated` with the caller's claims (`T`).
  *
@@ -22,7 +22,7 @@
  * zone, `pg_temp.at(-1, 10, 18)` is 18:00 local on the 10th of last month.
  *
  * Money is planted as online payments (one `booking_payments` row per enrolment): the engine
- * (0278's `lesson_enrolment_money`) treats desk and online money alike for what the venue keeps,
+ * (0281's `lesson_enrolment_money`) treats desk and online money alike for what the venue keeps,
  * and an online row needs no day, till or tab. The report suite plants desk money where a figure
  * is desk-only.
  *
@@ -181,10 +181,10 @@ export const E = (label: string, sql: string) => `select pg_temp.e('${label}', $
 export const GUEST = (name: string) => KEEP(name, `select pg_temp.guest('${name}')`);
 
 /*
- * PLANT_BRANCH (0277 / 0278):
- * Planting helpers for the 0277 / 0278 coaching suites (coaching-guards.test.ts,
+ * PLANT_BRANCH (0280 / 0281):
+ * Planting helpers for the 0280 / 0281 coaching suites (coaching-guards.test.ts,
  * coaching-desk-money.test.ts). No coaching RPC can create a lesson before
- * lesson_booking (0280), so these suites plant coaches, lesson types, lessons
+ * lesson_booking (0283), so these suites plant coaches, lesson types, lessons
  * (with their court rows), courses, enrolments and online payments as postgres
  * inside one rolled-back transaction (the stores-harness scenario), on a branch
  * of its own (matches-harness SETUP: pg_temp.branch(), two courts c1 and c2,
@@ -198,8 +198,8 @@ export const GUEST = (name: string) => KEEP(name, `select pg_temp.guest('${name}
  * branch till would). Every fixture write runs with request.jwt.claims cleared
  * (pg_temp.x / pg_temp.keep), so zz_branch_guard (0230) treats it as a fixture.
  *
- * app.lesson_event is DB's (0280). When the suite runs on a stack that stops
- * at 0278, PLANT defines a stand-in with the contracted signature (build
+ * app.lesson_event is DB's (0283). When the suite runs on a stack that stops
+ * at 0281, PLANT defines a stand-in with the contracted signature (build
  * contracts db.md §10.1: (uuid, uuid, uuid, uuid, text, text, uuid default
  * null, uuid default null, text default null, jsonb default '{}') returns
  * bigint, one insert) inside the transaction, rolled back with it; on a full
@@ -445,7 +445,7 @@ begin
   return v;
 end $f$;
 
--- What DB's cancel internals (0280) leave behind, without them: the lesson
+-- What DB's cancel internals (0283) leave behind, without them: the lesson
 -- cancelled with p_reason and its court row out of the live set (a hold
 -- expired, a lesson row cancelled); an enrolment cancelled as p_kind at p_at.
 create function pg_temp.cancel_lesson(p_lesson text, p_reason text) returns void language plpgsql as $f$

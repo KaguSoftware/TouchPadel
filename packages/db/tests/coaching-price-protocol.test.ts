@@ -1,7 +1,7 @@
 /**
  * Coaching lesson prices through the owner's price or promotion change (build contracts C-5, C-17,
  * §1.8, R14, R46; db.md §4.6.4, §4.8; operator.md §5.13.2, §5.14). Migration price_promo_lessons
- * (0282), with the 0279 writers it calls (upsert_lesson_type, set_coach_price,
+ * (0285), with the 0282 writers it calls (upsert_lesson_type, set_coach_price,
  * set_coach_lesson_types and their internals).
  *
  *   * the price lock, as the manager and as the owner: a launched type's price or court share is
@@ -120,7 +120,7 @@ const DRAFT = `"launched_at":null,"is_active":false`;
 const GROUP = `"kind":"group","max_places":8,"min_places":3,"cutoff_hours":2,"price_iqd":10000`;
 const COURSE = `"kind":"course","max_places":8,"min_places":3,"cutoff_hours":2,"price_iqd":80000,"sessions_count":4`;
 
-// ── the 0279 writers ───────────────────────────────────────────────────────
+// ── the 0282 writers ───────────────────────────────────────────────────────
 const UPSERT = (label: string, who: string, type: string, patch: string) =>
   T(
     label,
@@ -290,7 +290,7 @@ const X28 = {
 type Lesson = Record<(typeof X28.numbers)[number], unknown>;
 
 describe.skipIf(!docker)(
-  'coaching lesson prices through the price or promotion change (0282)',
+  'coaching lesson prices through the price or promotion change (0285)',
   () => {
     it('locks a launched type and every coach price for a manager; drafts stay direct; the owner passes', () => {
       const r = scenario('cpp-a', [

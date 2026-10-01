@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0275 coaching_tables — coaching, lanes DB and Money in one file
+-- 0278 coaching_tables — coaching, lanes DB and Money in one file
 -- (docs/design/coaching/db.md §4.3, money.md §4; build contracts §1.1, §1.2,
 -- §1.4, §1.5, R1, R6, R22, R24, R26, R30, R32, R43, R44, R49, R61, R64, R74,
 -- R75).
@@ -34,17 +34,17 @@ set statement_timeout = '60s';
 -- Both:
 --  20. guards, sanitisers, the append-only and frozen triggers
 --  21. RLS on, no policy, no client grant: every read and write goes through a
---      definer body (0279 onward)
+--      definer body (0282 onward)
 --  22. menu-media/coaches/ for managers and the owner (C-7, R43)
---  23. app.lock_coach / app.try_lock_coach (R6: 0278 calls them), the coach
+--  23. app.lock_coach / app.try_lock_coach (R6: 0281 calls them), the coach
 --      mutex ranked after match_money_advisory (scripts/lib/lock-order.mjs)
 --  24. comments and the assistant's readable columns
 --
 -- Every CHECK on a new table is inline in its create table; every CHECK or FK
 -- on an existing table is NOT VALID with a validate guarded on conname and
 -- conrelid. No index here beyond primary keys, unique columns and the two
--- exclusion constraints: every other index is 0276. Nothing writes a coaching
--- row before 0279.
+-- exclusion constraints: every other index is 0279. Nothing writes a coaching
+-- row before 0282.
 
 -- ===========================================================================
 -- 1. coaches (chain-wide: no venue_id, no guard)
@@ -433,7 +433,7 @@ create table if not exists lesson_events (
 
 -- ===========================================================================
 -- 14. coach_statements, 15. coach_statement_lines (branch; DB writes the DDL,
---     Money is the only writer, 0284)
+--     Money is the only writer, 0287)
 -- ===========================================================================
 create table if not exists coach_statements (
   id              uuid primary key default gen_random_uuid(),
@@ -516,11 +516,11 @@ alter table reservations add column if not exists lesson_id uuid;
 
 -- The 0071 hold rule (reservations_live_hold_has_guest), widened for a
 -- lesson's court hold (R1): a live hold carries a guest or names its lesson.
--- 0277 narrows the orphan rule of expire_stale_holds and match_expire_holds to
+-- 0280 narrows the orphan rule of expire_stale_holds and match_expire_holds to
 -- match (R25). Dropped and re-added NOT VALID, then validated below.
 alter table reservations drop constraint if exists reservations_live_hold_has_guest;
 
-do $reservations_lesson_0275$
+do $reservations_lesson_0278$
 begin
   if not exists (select 1 from pg_constraint
                   where conname = 'reservations_lesson_id_fkey'
@@ -554,9 +554,9 @@ begin
     alter table reservations add constraint reservations_live_hold_has_guest
       check (kind <> 'hold' or status <> 'pending' or guest_id is not null or lesson_id is not null) not valid;
   end if;
-end $reservations_lesson_0275$;
+end $reservations_lesson_0278$;
 
-do $reservations_lesson_validate_0275$
+do $reservations_lesson_validate_0278$
 declare
   v_name text;
 begin
@@ -570,7 +570,7 @@ begin
       execute format('alter table reservations validate constraint %I', v_name);
     end if;
   end loop;
-end $reservations_lesson_validate_0275$;
+end $reservations_lesson_validate_0278$;
 
 -- ===========================================================================
 -- 18. tabs: a lesson's desk money (Money, money.md §4.1)
@@ -582,7 +582,7 @@ end $reservations_lesson_validate_0275$;
 alter table tabs add column if not exists lesson_enrolment_id uuid;
 alter table tabs add column if not exists lesson_iqd bigint not null default 0;
 
-do $tabs_lesson_0275$
+do $tabs_lesson_0278$
 begin
   if not exists (select 1 from pg_constraint
                   where conname = 'tabs_lesson_enrolment_fkey'
@@ -605,9 +605,9 @@ begin
       and (kind <> 'lesson' or (reservation_id is null and table_id is null and court_cap_iqd is null))
       and (kind = 'lesson' or lesson_iqd = 0)) not valid;
   end if;
-end $tabs_lesson_0275$;
+end $tabs_lesson_0278$;
 
-do $tabs_lesson_validate_0275$
+do $tabs_lesson_validate_0278$
 declare
   v_name text;
 begin
@@ -619,12 +619,12 @@ begin
       execute format('alter table tabs validate constraint %I', v_name);
     end if;
   end loop;
-end $tabs_lesson_validate_0275$;
+end $tabs_lesson_validate_0278$;
 
 comment on column tabs.lesson_enrolment_id is
-  '0275. The lesson enrolment a kind ''lesson'' tab takes desk money for (one payment, settled in the same call by app.lesson_settle). NULL on every other tab.';
+  '0278. The lesson enrolment a kind ''lesson'' tab takes desk money for (one payment, settled in the same call by app.lesson_settle). NULL on every other tab.';
 comment on column tabs.lesson_iqd is
-  '0275. The lesson line stamped at settlement (app.settle_tab, from compute_tab_totals): what the enrolment still owed. Outside the tax base like the court line (CD-4). 0 on every other tab.';
+  '0278. The lesson line stamped at settlement (app.settle_tab, from compute_tab_totals): what the enrolment still owed. Outside the tax base like the court line (CD-4). 0 on every other tab.';
 
 -- ===========================================================================
 -- 19. booking_payments: a lesson paid online (Money, money.md §4.2)
@@ -639,7 +639,7 @@ alter table booking_payments add column if not exists lesson_enrolment_id uuid;
 alter table booking_payments drop constraint if exists booking_payments_anchor;
 alter table booking_payments drop constraint if exists booking_payments_reason_by_purpose;
 
-do $booking_payments_lesson_0275$
+do $booking_payments_lesson_0278$
 begin
   if not exists (select 1 from pg_constraint
                   where conname = 'booking_payments_lesson_enrolment_fkey'
@@ -673,9 +673,9 @@ begin
                                                     'amount_mismatch', 'duplicate_success',
                                                     'account_deleted', 'staff_refund'))) not valid;
   end if;
-end $booking_payments_lesson_0275$;
+end $booking_payments_lesson_0278$;
 
-do $booking_payments_lesson_validate_0275$
+do $booking_payments_lesson_validate_0278$
 declare
   v_name text;
 begin
@@ -688,12 +688,12 @@ begin
       execute format('alter table booking_payments validate constraint %I', v_name);
     end if;
   end loop;
-end $booking_payments_lesson_validate_0275$;
+end $booking_payments_lesson_validate_0278$;
 
 comment on table booking_payments is
-  '0241, tickets since 0258, lessons since 0275. One online payment attempt (Qi Card hosted page): a deposit on a court booking (purpose deposit: venue_id, hold_id and reservation_id set), a purchase of open-match tickets (purpose ticket: a chain row, venue_id, hold_id and reservation_id NULL, ticket_count 1..3, amount = ticket_count x quoted_price_iqd), or a lesson place paid online (purpose lesson, 0281: venue_id and lesson_enrolment_id set, reservation_id NULL, hold_id the court hold of a private lesson). Written only by the app.deposit_*, app.ticket_* and app.lesson_* functions; request_id is what Qi gets, provider_payment_id what Qi answered. reservation_id is the booking a deposit is for (it moves when a swept hold is re-created as a booking); hold_id is where the attempt began and never changes. Not a till payment: no recorded_by, no day, not in the cash count.';
+  '0241, tickets since 0258, lessons since 0278. One online payment attempt (Qi Card hosted page): a deposit on a court booking (purpose deposit: venue_id, hold_id and reservation_id set), a purchase of open-match tickets (purpose ticket: a chain row, venue_id, hold_id and reservation_id NULL, ticket_count 1..3, amount = ticket_count x quoted_price_iqd), or a lesson place paid online (purpose lesson, 0284: venue_id and lesson_enrolment_id set, reservation_id NULL, hold_id the court hold of a private lesson). Written only by the app.deposit_*, app.ticket_* and app.lesson_* functions; request_id is what Qi gets, provider_payment_id what Qi answered. reservation_id is the booking a deposit is for (it moves when a swept hold is re-created as a booking); hold_id is where the attempt began and never changes. Not a till payment: no recorded_by, no day, not in the cash count.';
 comment on column booking_payments.lesson_enrolment_id is
-  '0275. The lesson enrolment a purpose ''lesson'' payment is for; NULL otherwise.';
+  '0278. The lesson enrolment a purpose ''lesson'' payment is for; NULL otherwise.';
 
 -- ===========================================================================
 -- 20. Guards, sanitisers, the append-only and frozen triggers
@@ -759,44 +759,44 @@ create trigger zz_branch_guard before insert or update or delete on public.booki
 -- before zz_branch_guard. app.safe_line and app.safe_text never return NULL
 -- for a non-NULL input, so a NOT NULL column survives them.
 create or replace function app.trg_sanitise_coach() returns trigger
-language plpgsql security definer set search_path = public as $trg_sanitise_coach_0275$
+language plpgsql security definer set search_path = public as $trg_sanitise_coach_0278$
 begin
   new.display_name_en := app.safe_line(new.display_name_en);
   new.display_name_ar := app.safe_line(new.display_name_ar);
   new.bio_en := coalesce(app.safe_text(new.bio_en), '');
   new.bio_ar := coalesce(app.safe_text(new.bio_ar), '');
   return new;
-end $trg_sanitise_coach_0275$;
+end $trg_sanitise_coach_0278$;
 
 create or replace function app.trg_sanitise_lesson_type() returns trigger
-language plpgsql security definer set search_path = public as $trg_sanitise_lesson_type_0275$
+language plpgsql security definer set search_path = public as $trg_sanitise_lesson_type_0278$
 begin
   new.name_en := app.safe_line(new.name_en);
   new.name_ar := app.safe_line(new.name_ar);
   new.description_en := coalesce(app.safe_text(new.description_en), '');
   new.description_ar := coalesce(app.safe_text(new.description_ar), '');
   return new;
-end $trg_sanitise_lesson_type_0275$;
+end $trg_sanitise_lesson_type_0278$;
 
 create or replace function app.trg_sanitise_course() returns trigger
-language plpgsql security definer set search_path = public as $trg_sanitise_course_0275$
+language plpgsql security definer set search_path = public as $trg_sanitise_course_0278$
 begin
   new.title_en := coalesce(app.safe_line(new.title_en), '');
   new.title_ar := coalesce(app.safe_line(new.title_ar), '');
   return new;
-end $trg_sanitise_course_0275$;
+end $trg_sanitise_course_0278$;
 
 create or replace function app.trg_sanitise_coach_time_off() returns trigger
-language plpgsql security definer set search_path = public as $trg_sanitise_coach_time_off_0275$
+language plpgsql security definer set search_path = public as $trg_sanitise_coach_time_off_0278$
 begin
   new.reason := coalesce(app.safe_line(new.reason), '');
   return new;
-end $trg_sanitise_coach_time_off_0275$;
+end $trg_sanitise_coach_time_off_0278$;
 
 -- A typed name or phone made only of control characters becomes NULL; each
 -- friend name is cleaned, empties are dropped and the order is kept.
 create or replace function app.trg_sanitise_lesson_enrolment() returns trigger
-language plpgsql security definer set search_path = public as $trg_sanitise_lesson_enrolment_0275$
+language plpgsql security definer set search_path = public as $trg_sanitise_lesson_enrolment_0278$
 begin
   new.guest_name  := nullif(app.safe_line(new.guest_name), '');
   new.guest_phone := nullif(app.safe_line(new.guest_phone), '');
@@ -807,20 +807,20 @@ begin
      where s.name is not null and s.name <> ''
      order by s.ord);
   return new;
-end $trg_sanitise_lesson_enrolment_0275$;
+end $trg_sanitise_lesson_enrolment_0278$;
 
 create or replace function app.trg_sanitise_coach_statement() returns trigger
-language plpgsql security definer set search_path = public as $trg_sanitise_coach_statement_0275$
+language plpgsql security definer set search_path = public as $trg_sanitise_coach_statement_0278$
 begin
   new.paid_reference := nullif(app.safe_line(new.paid_reference), '');
   new.void_reason    := nullif(app.safe_line(new.void_reason), '');
   return new;
-end $trg_sanitise_coach_statement_0275$;
+end $trg_sanitise_coach_statement_0278$;
 
 -- R22: the lines of an approved, paid or void statement never change. Money
 -- that moves later is an adjustment line on the next draft (CM-9).
 create or replace function app.trg_coach_statement_lines_frozen() returns trigger
-language plpgsql security definer set search_path = public as $trg_coach_statement_lines_frozen_0275$
+language plpgsql security definer set search_path = public as $trg_coach_statement_lines_frozen_0278$
 declare
   v_status text;
 begin
@@ -840,7 +840,7 @@ begin
     return old;
   end if;
   return new;
-end $trg_coach_statement_lines_frozen_0275$;
+end $trg_coach_statement_lines_frozen_0278$;
 
 revoke all on function app.trg_sanitise_coach() from public, anon, authenticated;
 revoke all on function app.trg_sanitise_lesson_type() from public, anon, authenticated;
@@ -950,7 +950,7 @@ grant all on coach_photo_purges to service_role;
 -- cover the bucket (0234:448-459). A DO block that degrades to a NOTICE where
 -- the migration role may not touch storage.objects (the 0062 shape): check
 -- storage.objects after a hosted push (packages/db/CLAUDE.md).
-do $menu_media_coaches_0275$
+do $menu_media_coaches_0278$
 begin
   begin
     drop policy if exists menu_media_staff_insert on storage.objects;
@@ -963,10 +963,10 @@ begin
     raise notice 'cannot recreate menu_media_staff_insert as % - add the coaches folder via Dashboard > Storage > Policies',
       current_user;
   end;
-end $menu_media_coaches_0275$;
+end $menu_media_coaches_0278$;
 
 -- ===========================================================================
--- 23. The coach mutex (R6; created here because Money's 0278 calls it)
+-- 23. The coach mutex (R6; created here because Money's 0281 calls it)
 -- ===========================================================================
 -- Hashed as 0042 hashes the court key. Ranked coach_advisory, after
 -- match_money_advisory and before tabs (scripts/lib/lock-order.mjs), taken at
@@ -974,30 +974,30 @@ end $menu_media_coaches_0275$;
 -- coach never changes. Every change to lessons, courses, lesson_enrolments,
 -- lesson_attendance and coach_statements happens under it.
 create or replace function app.lock_coach(p_coach_id uuid) returns void
-language plpgsql security definer set search_path = public as $lock_coach_0275$
+language plpgsql security definer set search_path = public as $lock_coach_0278$
 begin
   if p_coach_id is not null then
     perform pg_advisory_xact_lock(hashtextextended('app.coaches:' || p_coach_id::text, 0));
   end if;
-end $lock_coach_0275$;
+end $lock_coach_0278$;
 
 comment on function app.lock_coach(uuid) is
-  '0275. Internal (R6). The coach mutex: pg_advisory_xact_lock on ''app.coaches:''||coach (0042 hashing). Ranked after match_money_advisory and before tabs (coach_advisory in scripts/lib/lock-order.mjs), once per sequence. Every booking, cancel, mark, reschedule, settle and statement write of a coach''s lessons takes it first; a court key is only ever taken after it.';
+  '0278. Internal (R6). The coach mutex: pg_advisory_xact_lock on ''app.coaches:''||coach (0042 hashing). Ranked after match_money_advisory and before tabs (coach_advisory in scripts/lib/lock-order.mjs), once per sequence. Every booking, cancel, mark, reschedule, settle and statement write of a coach''s lessons takes it first; a court key is only ever taken after it.';
 
 revoke all on function app.lock_coach(uuid) from public, anon, authenticated;
 
 -- Never waits (the sweep's later coaches, db.md §2.3 level S).
 create or replace function app.try_lock_coach(p_coach_id uuid) returns boolean
-language plpgsql security definer set search_path = public as $try_lock_coach_0275$
+language plpgsql security definer set search_path = public as $try_lock_coach_0278$
 begin
   if p_coach_id is null then
     return false;
   end if;
   return pg_try_advisory_xact_lock(hashtextextended('app.coaches:' || p_coach_id::text, 0));
-end $try_lock_coach_0275$;
+end $try_lock_coach_0278$;
 
 comment on function app.try_lock_coach(uuid) is
-  '0275. Internal (R6). The coach mutex without waiting (pg_try_advisory_xact_lock on the app.lock_coach key): true holds it until commit, false holds nothing. Only lesson_sweep calls it, for every coach after its first, so the sweep never waits on a second coach (db.md §2.4). Never emitted by the lock gate: it cannot wait.';
+  '0278. Internal (R6). The coach mutex without waiting (pg_try_advisory_xact_lock on the app.lock_coach key): true holds it until commit, false holds nothing. Only lesson_sweep calls it, for every coach after its first, so the sweep never waits on a second coach (db.md §2.4). Never emitted by the lock gate: it cannot wait.';
 
 revoke all on function app.try_lock_coach(uuid) from public, anon, authenticated;
 
@@ -1005,109 +1005,109 @@ revoke all on function app.try_lock_coach(uuid) from public, anon, authenticated
 -- 24. Comments and the assistant's readable columns
 -- ===========================================================================
 comment on table coaches is
-  '0275. Chain-wide. A guest profile a manager promoted to coach (C-7): the public display names (EN, AR), bio and photo, set only by managers. The profile''s own name and phone are never public. active | paused (hidden from guests, keeps its lessons) | retired. Not listed in any public read until the coach accepts going public (public_accepted_at, C-22). Written only by the coaching definer bodies (0279 onward).';
+  '0278. Chain-wide. A guest profile a manager promoted to coach (C-7): the public display names (EN, AR), bio and photo, set only by managers. The profile''s own name and phone are never public. active | paused (hidden from guests, keeps its lessons) | retired. Not listed in any public read until the coach accepts going public (public_accepted_at, C-22). Written only by the coaching definer bodies (0282 onward).';
 comment on column coaches.profile_id is
-  '0275. The coach''s own guest profile (one coach row per profile); never in a public payload (R43).';
+  '0278. The coach''s own guest profile (one coach row per profile); never in a public payload (R43).';
 comment on column coaches.display_name_en is
-  '0275. The coach''s public name in English, chosen by the venue (1..60). Kept on a deleted coach for the statements the venue paid (C-29).';
+  '0278. The coach''s public name in English, chosen by the venue (1..60). Kept on a deleted coach for the statements the venue paid (C-29).';
 comment on column coaches.display_name_ar is
-  '0275. The coach''s public name in Arabic, chosen by the venue (1..60). Kept on a deleted coach for the statements the venue paid (C-29).';
+  '0278. The coach''s public name in Arabic, chosen by the venue (1..60). Kept on a deleted coach for the statements the venue paid (C-29).';
 comment on column coaches.bio_en is
-  '0275. The coach''s public bio in English, written by a manager (0..1000); emptied on deletion.';
+  '0278. The coach''s public bio in English, written by a manager (0..1000); emptied on deletion.';
 comment on column coaches.bio_ar is
-  '0275. The coach''s public bio in Arabic, written by a manager (0..1000); emptied on deletion.';
+  '0278. The coach''s public bio in Arabic, written by a manager (0..1000); emptied on deletion.';
 comment on column coaches.photo_path is
-  '0275. The coach''s photo in the menu-media bucket, coaches/<random uuid>/<file> (R43); NULL for none. Queued for removal on retirement or deletion.';
+  '0278. The coach''s photo in the menu-media bucket, coaches/<random uuid>/<file> (R43); NULL for none. Queued for removal on retirement or deletion.';
 comment on column coaches.status is
-  '0275. active | paused (not bookable and hidden from guests, keeps its lessons; coach mode works) | retired (coach mode shows approved and paid statements only).';
+  '0278. active | paused (not bookable and hidden from guests, keeps its lessons; coach mode works) | retired (coach mode shows approved and paid statements only).';
 comment on column coaches.public_accepted_at is
-  '0275. When the coach accepted that their profile is public on the app and the website (C-22, R61); NULL until then, and no public read lists them.';
+  '0278. When the coach accepted that their profile is public on the app and the website (C-22, R61); NULL until then, and no public read lists them.';
 
 comment on table coach_branches is
-  '0275. The branches a coach teaches at; bookable there while active. Deactivating a branch keeps its lessons.';
+  '0278. The branches a coach teaches at; bookable there while active. Deactivating a branch keeps its lessons.';
 
 comment on table coach_time_off is
-  '0275. Chain-wide. A coach''s time off, at every branch: no lesson can be offered or booked inside it. Set by the coach or a manager; cancelled_at ends it. Live periods of one coach never overlap (coach_time_off_no_overlap).';
+  '0278. Chain-wide. A coach''s time off, at every branch: no lesson can be offered or booked inside it. Set by the coach or a manager; cancelled_at ends it. Live periods of one coach never overlap (coach_time_off_no_overlap).';
 comment on column coach_time_off.reason is
-  '0275. The coach''s note on their time off (0..200), never shown to guests; emptied on the coach''s deletion.';
+  '0278. The coach''s note on their time off (0..200), never shown to guests; emptied on the coach''s deletion.';
 
 comment on table coach_hours is
-  '0275. A coach''s weekly hours at one branch: one window inside one local day (weekday 0 = Sunday in the branch time zone; end_time may be 24:00), on :00 or :30 (CD-10, D-18). The writers refuse overlapping windows of one coach on one weekday at any branch (HOURS_OVERLAP).';
+  '0278. A coach''s weekly hours at one branch: one window inside one local day (weekday 0 = Sunday in the branch time zone; end_time may be 24:00), on :00 or :30 (CD-10, D-18). The writers refuse overlapping windows of one coach on one weekday at any branch (HOURS_OVERLAP).';
 
 comment on table lesson_types is
-  '0275. What a branch sells as lessons: private (party 1..4, one price for the lesson), group (one price per place) or course (one price for the whole run of sessions_count sessions). The venue sets prices (C-5); a launched type''s price changes only through the owner''s price-or-promotion protocol (C-17). court_share_iqd is the fixed court share per session (C-6). min_places and cutoff_hours decide an under-filled cancel (C-14, R26).';
+  '0278. What a branch sells as lessons: private (party 1..4, one price for the lesson), group (one price per place) or course (one price for the whole run of sessions_count sessions). The venue sets prices (C-5); a launched type''s price changes only through the owner''s price-or-promotion protocol (C-17). court_share_iqd is the fixed court share per session (C-6). min_places and cutoff_hours decide an under-filled cancel (C-14, R26).';
 comment on column lesson_types.price_iqd is
-  '0275. Private: the whole lesson; group: one place; course: the whole course for one person. NULL only on a draft (never launched).';
+  '0278. Private: the whole lesson; group: one place; course: the whole course for one person. NULL only on a draft (never launched).';
 comment on column lesson_types.court_share_iqd is
-  '0275. The fixed court share per session taken off collected money before the coach''s share (C-6).';
+  '0278. The fixed court share per session taken off collected money before the coach''s share (C-6).';
 comment on column lesson_types.launched_at is
-  '0275. When the type was first offered for sale (through the protocol for a manager); NULL on a draft, whose fields are edited directly.';
+  '0278. When the type was first offered for sale (through the protocol for a manager); NULL on a draft, whose fields are edited directly.';
 
 comment on table coach_lesson_types is
-  '0275. Which lesson types a coach teaches at the type''s branch.';
+  '0278. Which lesson types a coach teaches at the type''s branch.';
 
 comment on table coach_prices is
-  '0275. A per-coach price for one lesson type (C-5), overriding the type''s price. Written only by set_coach_price_internal: by the owner directly or through the price-or-promotion protocol (protocol_run_id).';
+  '0278. A per-coach price for one lesson type (C-5), overriding the type''s price. Written only by set_coach_price_internal: by the owner directly or through the price-or-promotion protocol (protocol_run_id).';
 
 comment on table courses is
-  '0275. A fixed run of sessions (its lessons, session_no 1..sessions_count), one sign-up, one price per person (C-1). Snapshots of the type''s price, court share and places and of the branch''s coach_share_bp at creation. open | running (session 1 started) | completed | cancelled. Sign-up closes when the last session starts (signup_closes_at, C-15).';
+  '0278. A fixed run of sessions (its lessons, session_no 1..sessions_count), one sign-up, one price per person (C-1). Snapshots of the type''s price, court share and places and of the branch''s coach_share_bp at creation. open | running (session 1 started) | completed | cancelled. Sign-up closes when the last session starts (signup_closes_at, C-15).';
 comment on column courses.cutoff_at is
-  '0275. Session 1''s start less the type''s cutoff_hours: below min_places at this time the course is cancelled under_filled (C-14).';
+  '0278. Session 1''s start less the type''s cutoff_hours: below min_places at this time the course is cancelled under_filled (C-14).';
 comment on column courses.cutoff_checked_at is
-  '0275. When the sweep judged the cut-off; a judged course is never judged again (R26).';
+  '0278. When the sweep judged the cut-off; a judged course is never judged again (R26).';
 comment on column courses.title_en is
-  '0275. A course title a coach or the desk wrote (0..80).';
+  '0278. A course title a coach or the desk wrote (0..80).';
 comment on column courses.title_ar is
-  '0275. A course title a coach or the desk wrote, in Arabic (0..80).';
+  '0278. A course title a coach or the desk wrote, in Arabic (0..80).';
 
 comment on table lessons is
-  '0275. One lesson session on one court: a private lesson, a group session, or one session of a course. Snapshots of the price (NULL for a course session), court share, places and coach_share_bp at creation. held (a private lesson awaiting its Qi payment) | scheduled | completed | cancelled | expired. Its court row is a reservations row of kind lesson (or hold while held) naming it. One coach has at most one live lesson at a time at every branch (lessons_coach_no_overlap).';
+  '0278. One lesson session on one court: a private lesson, a group session, or one session of a course. Snapshots of the price (NULL for a course session), court share, places and coach_share_bp at creation. held (a private lesson awaiting its Qi payment) | scheduled | completed | cancelled | expired. Its court row is a reservations row of kind lesson (or hold while held) naming it. One coach has at most one live lesson at a time at every branch (lessons_coach_no_overlap).';
 comment on column lessons.cutoff_at is
-  '0275. Group: start less cutoff_hours; course session: its course''s cut-off; private: NULL.';
+  '0278. Group: start less cutoff_hours; course session: its course''s cut-off; private: NULL.';
 comment on column lessons.cutoff_checked_at is
-  '0275. When the sweep judged a group session''s cut-off (R26); cleared by a reschedule whose new cut-off is still ahead (R32).';
+  '0278. When the sweep judged a group session''s cut-off (R26); cleared by a reschedule whose new cut-off is still ahead (R32).';
 comment on column lessons.rescheduled_at is
-  '0275. When the lesson last moved in time (R8, R32); a guest who booked before it may cancel free until the new start.';
+  '0278. When the lesson last moved in time (R8, R32); a guest who booked before it may cancel free until the new start.';
 comment on column lessons.coach_share_bp is
-  '0275. The branch''s coach_share_bp when the lesson was created (CD-5).';
+  '0278. The branch''s coach_share_bp when the lesson was created (CD-5).';
 
 comment on table lesson_enrolments is
-  '0275. A place in a lesson (private or group session) or in a course. Booked by the guest, by the coach for their own student (C-8) or at the desk. A coach- or desk-typed name and phone are kept as typed and shown to staff and the coach (R44); a typed phone links an account only on a verified match, pending until that person confirms (link_confirmed_at, C-21). held (awaiting Qi) | booked | cancelled | expired.';
+  '0278. A place in a lesson (private or group session) or in a course. Booked by the guest, by the coach for their own student (C-8) or at the desk. A coach- or desk-typed name and phone are kept as typed and shown to staff and the coach (R44); a typed phone links an account only on a verified match, pending until that person confirms (link_confirmed_at, C-21). held (awaiting Qi) | booked | cancelled | expired.';
 comment on column lesson_enrolments.guest_name is
-  '0275. The student a coach or the desk named (1..80); NULL on a guest''s own booking. Replaced by a fixed marker 365 days after the lesson (CD-8).';
+  '0278. The student a coach or the desk named (1..80); NULL on a guest''s own booking. Replaced by a fixed marker 365 days after the lesson (CD-8).';
 comment on column lesson_enrolments.guest_phone is
-  '0275. A student''s number typed by a coach or the desk; shown to the coach until 7 days after the session (CD-3, R54); purged after 365 days (CD-8).';
+  '0278. A student''s number typed by a coach or the desk; shown to the coach until 7 days after the session (CD-3, R54); purged after 365 days (CD-8).';
 comment on column lesson_enrolments.friend_names is
-  '0275. The friends a guest brings to a private lesson (at most 3, party_size - 1).';
+  '0278. The friends a guest brings to a private lesson (at most 3, party_size - 1).';
 comment on column lesson_enrolments.price_iqd is
-  '0275. What this place owes: the private lesson, one group place, the whole course, or the pro-rata share of a late course join (C-15).';
+  '0278. What this place owes: the private lesson, one group place, the whole course, or the pro-rata share of a late course join (C-15).';
 comment on column lesson_enrolments.link_confirmed_at is
-  '0275. When the account a typed phone matched confirmed "this is me" (C-21, R44). NULL with guest_id set = a pending link; set at insert for a guest''s own booking and for a customer the desk picked.';
+  '0278. When the account a typed phone matched confirmed "this is me" (C-21, R44). NULL with guest_id set = a pending link; set at insert for a guest''s own booking and for a customer the desk picked.';
 comment on column lesson_enrolments.refunded_outside_iqd is
-  '0275. Money handed back outside the till when Qi could not take a second refund on the payment (R75, lesson_blocked_refund_record); counted as refunded, never a payments or refunds row.';
+  '0278. Money handed back outside the till when Qi could not take a second refund on the payment (R75, lesson_blocked_refund_record); counted as refunded, never a payments or refunds row.';
 
 comment on table lesson_attendance is
-  '0275. A mark per session and enrolment, open from the start to 24 hours after it (CD-11): attended or no_show. Clearing deletes the row.';
+  '0278. A mark per session and enrolment, open from the start to 24 hours after it (CD-11): attended or no_show. Clearing deletes the row.';
 
 comment on table lesson_strikes is
-  '0275. The lesson strike ledger: a late cancel, a no-show or a lapsed online hold of an enrolment the guest booked themselves (CD-2, R30). Never applied inside a coach or court lock: hold_strikes_settle applies it to the hold ladder under the principal lock (§1.4).';
+  '0278. The lesson strike ledger: a late cancel, a no-show or a lapsed online hold of an enrolment the guest booked themselves (CD-2, R30). Never applied inside a coach or court lock: hold_strikes_settle applies it to the hold ladder under the principal lock (§1.4).';
 
 comment on table lesson_events is
-  '0275. Append-only: every move of a lesson, course or enrolment, who made it (guest, coach, staff or system) and a short code. data carries ids, times, counts, codes and flags only, never a name or a phone. The push fan-out reads it (0280).';
+  '0278. Append-only: every move of a lesson, course or enrolment, who made it (guest, coach, staff or system) and a short code. data carries ids, times, counts, codes and flags only, never a name or a phone. The push fan-out reads it (0283).';
 
 comment on table coach_statements is
-  '0275. A coach''s monthly statement at one branch (C-12): 60 % (coach_share_bp) of the collected lesson money less the court share, drafted monthly, approved by the branch manager, marked paid with a reference. draft | approved | paid | void. Money about a named person: never readable by the owner assistant or any LLM (C-28). Written only by Money''s statement functions (0284).';
+  '0278. A coach''s monthly statement at one branch (C-12): 60 % (coach_share_bp) of the collected lesson money less the court share, drafted monthly, approved by the branch manager, marked paid with a reference. draft | approved | paid | void. Money about a named person: never readable by the owner assistant or any LLM (C-28). Written only by Money''s statement functions (0287).';
 comment on column coach_statements.paid_reference is
-  '0275. The receipt or transfer number of the coach payment (1..80); never a card or account number (R49, R74).';
+  '0278. The receipt or transfer number of the coach payment (1..80); never a card or account number (R49, R74).';
 
 comment on table coach_statement_lines is
-  '0275. One line per lesson per statement (R24); is_adjustment marks a lesson that already has lines on an approved or paid statement. Frozen once its statement is approved, paid or void (R22). Never readable by the owner assistant or any LLM (C-28).';
+  '0278. One line per lesson per statement (R24); is_adjustment marks a lesson that already has lines on an approved or paid statement. Frozen once its statement is approved, paid or void (R22). Never readable by the owner assistant or any LLM (C-28).';
 
 comment on table coach_photo_purges is
-  '0275. Chain-wide. Coach photo folders queued for removal from menu-media on retirement or deletion (R43); a service path removes coaches/<folder>/* within a day and stamps purged_at.';
+  '0278. Chain-wide. Coach photo folders queued for removal from menu-media on retirement or deletion (R43); a service path removes coaches/<folder>/* within a day and stamps purged_at.';
 
 comment on column reservations.lesson_id is
-  '0275. The lesson a court row is for: kind lesson, or a hold while a private lesson''s online payment is open. Such a row has guest_id NULL, guest_name ''Lesson'' and no price; it is changed only through the coaching RPCs.';
+  '0278. The lesson a court row is for: kind lesson, or a hold while a private lesson''s online payment is open. Such a row has guest_id NULL, guest_name ''Lesson'' and no price; it is changed only through the coaching RPCs.';
 
 -- The owner's assistant may read the catalogue-like coaching tables by
 -- table_read (0109), without the profile link, the bios, the photo or the

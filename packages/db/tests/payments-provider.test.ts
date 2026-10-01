@@ -367,7 +367,7 @@ describe('boundary: only _shared/payments knows the gateway', () => {
   });
 
   it('the payment functions reach the gateway through the seam', () => {
-    // ticket-begin (0259, open-match tickets) and lesson-begin (0281, lessons) share deposit-begin's gateway half.
+    // ticket-begin (0259, open-match tickets) and lesson-begin (0284, lessons) share deposit-begin's gateway half.
     for (const fn of ['deposit-begin', 'deposit-status', 'deposit-webhook', 'deposit-reconcile', 'payments-fake', 'ticket-begin', 'lesson-begin']) {
       const src = readFileSync(join(FUNCTIONS, fn, 'index.ts'), 'utf8');
       expect(src, fn).toMatch(/from '\.\.\/_shared\/(payments\/index|deposits)\.ts'/);

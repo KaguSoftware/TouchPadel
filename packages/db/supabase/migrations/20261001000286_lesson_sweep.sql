@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0283 lesson_sweep — coaching, lane DB (docs/design/coaching/db.md §4.9;
+-- 0286 lesson_sweep — coaching, lane DB (docs/design/coaching/db.md §4.9;
 -- build contracts §1.1, §1.4, §1.5, §1.8, C-14, CD-2, CD-8, R25, R26, R28,
 -- R30, R31, R38, R44, R45, R63, R64, R65).
 --
@@ -37,11 +37,11 @@ set statement_timeout = '60s';
 -- the live set).
 --
 -- Functions of other coaching files this one calls (each bound late, by name):
---   0280 (DB)    app.enrolment_cancel_internal, app.lesson_cancel_internal,
+--   0283 (DB)    app.enrolment_cancel_internal, app.lesson_cancel_internal,
 --                app.course_cancel_internal, app.lesson_court_release,
 --                app.lesson_event, app.lesson_places_taken,
 --                app.course_places_taken
---   0281 (Money) app.lesson_hold_expire
+--   0284 (Money) app.lesson_hold_expire
 --   0252         app.hold_standing_key, app.hold_strike_apply
 
 -- ===========================================================================
@@ -58,7 +58,7 @@ set statement_timeout = '60s';
 -- `on conflict do nothing` absorbs a row committed meanwhile.
 create or replace function app.lesson_strike_record(p_enrolment_id uuid, p_lesson_id uuid, p_kind text)
 returns void
-language plpgsql security definer set search_path = public as $lesson_strike_record_0283$
+language plpgsql security definer set search_path = public as $lesson_strike_record_0286$
 declare
   v_e     lesson_enrolments%rowtype;
   v_venue uuid;
@@ -105,10 +105,10 @@ begin
   insert into lesson_strikes (enrolment_id, lesson_id, venue_id, guest_id, kind, struck_at)
   values (p_enrolment_id, p_lesson_id, v_e.venue_id, v_e.guest_id, p_kind, now())
   on conflict (enrolment_id, lesson_id) do nothing;
-end $lesson_strike_record_0283$;
+end $lesson_strike_record_0286$;
 
 comment on function app.lesson_strike_record(uuid, uuid, text) is
-  '0283 (db.md §4.9.1; CD-2, R30, R31, R65). Internal. Records one lesson strike (late_cancel | no_show | lapsed_hold) of enrolment p_enrolment_id on session p_lesson_id (its lesson, or a session of its course), for a guest-booked enrolment of a live account only; a coach- or desk-booked student, a walk-in and a deleted account never strike. The existence check is a plain read (a row being settled counts as there), then insert ... on conflict do nothing: it never waits on a strike row. Never touches hold_standing: hold_strikes_settle applies the row later under the principal lock or in tp_hold_strikes. Called under the coach lock by the guest cancel and the attendance marks (0280) and by Money''s lesson_hold_expire (0281). INVALID_ARGUMENT p_kind | p_enrolment_id | p_lesson_id.';
+  '0286 (db.md §4.9.1; CD-2, R30, R31, R65). Internal. Records one lesson strike (late_cancel | no_show | lapsed_hold) of enrolment p_enrolment_id on session p_lesson_id (its lesson, or a session of its course), for a guest-booked enrolment of a live account only; a coach- or desk-booked student, a walk-in and a deleted account never strike. The existence check is a plain read (a row being settled counts as there), then insert ... on conflict do nothing: it never waits on a strike row. Never touches hold_standing: hold_strikes_settle applies the row later under the principal lock or in tp_hold_strikes. Called under the coach lock by the guest cancel and the attendance marks (0283) and by Money''s lesson_hold_expire (0284). INVALID_ARGUMENT p_kind | p_enrolment_id | p_lesson_id.';
 
 revoke all on function app.lesson_strike_record(uuid, uuid, text) from public, anon, authenticated;
 
@@ -131,11 +131,11 @@ revoke all on function app.lesson_strike_record(uuid, uuid, text) from public, a
 --
 -- The callers are unchanged and none holds a coach or court key:
 -- tp_hold_strikes (every minute, its own transaction, 0268), hold_slot after
--- lock_principal (0269), and 0280's lesson_book_private, lesson_join and
+-- lock_principal (0269), and 0283's lesson_book_private, lesson_join and
 -- course_join after theirs.
 create or replace function app.hold_strikes_settle(p_guests uuid[] default null)
 returns int
-language plpgsql security definer set search_path = public as $hold_strikes_settle_0283$
+language plpgsql security definer set search_path = public as $hold_strikes_settle_0286$
 declare
   v_since timestamptz;
   v_key   text;
@@ -170,7 +170,7 @@ begin
            and h.hold_expires_at > now() - interval '2 days'
            and not exists (select 1 from hold_strikes s where s.reservation_id = h.id)
         union all
-        -- 0283: the lesson strikes not settled yet (late_cancel, no_show,
+        -- 0286: the lesson strikes not settled yet (late_cancel, no_show,
         -- lapsed_hold), recorded since the ladder was switched on.
         select 'lesson'::text,
                null::uuid,
@@ -226,10 +226,10 @@ begin
     end if;
   end loop;
   return v_count;
-end $hold_strikes_settle_0283$;
+end $hold_strikes_settle_0286$;
 
 comment on function app.hold_strikes_settle(uuid[]) is
-  '0252, lesson strikes since 0283 (db.md §4.9.2; R30, R31). Internal. Settles, oldest first by (time, source, id), one ladder: the lapsed mobile holds (taken since hold_strikes_since, lapsed within 2 days, not yet in hold_strikes; a hold with any booking_payments attempt is recorded uncounted) and the unsettled lesson strikes (late_cancel, no_show, lapsed_hold, struck since hold_strikes_since; each re-selected FOR UPDATE SKIP LOCKED, so a row a mark is deleting or another settle holds waits for the next run; one older than 2 days is settled uncounted). NULL = every account (tp_hold_strikes); else the given accounts (hold_slot and the lesson bookings, after their principal lock). Returns the strikes counted (holds and lessons). Never called under a coach or court lock.';
+  '0252, lesson strikes since 0286 (db.md §4.9.2; R30, R31). Internal. Settles, oldest first by (time, source, id), one ladder: the lapsed mobile holds (taken since hold_strikes_since, lapsed within 2 days, not yet in hold_strikes; a hold with any booking_payments attempt is recorded uncounted) and the unsettled lesson strikes (late_cancel, no_show, lapsed_hold, struck since hold_strikes_since; each re-selected FOR UPDATE SKIP LOCKED, so a row a mark is deleting or another settle holds waits for the next run; one older than 2 days is settled uncounted). NULL = every account (tp_hold_strikes); else the given accounts (hold_slot and the lesson bookings, after their principal lock). Returns the strikes counted (holds and lessons). Never called under a coach or court lock.';
 
 revoke all on function app.hold_strikes_settle(uuid[]) from public, anon, authenticated;
 grant execute on function app.hold_strikes_settle(uuid[]) to service_role;
@@ -243,13 +243,13 @@ grant execute on function app.hold_strikes_settle(uuid[]) to service_role;
 -- than 365 days ago loses the typed phone and the friend names; a coach- or
 -- staff-booked row's typed name becomes a fixed marker, never NULL (NULL would
 -- let a reader fall back to the account's name and reveal a link). The
--- deletion marker of 0286 is left as it is. No status change, no event, no
+-- deletion marker of 0289 is left as it is. No status change, no event, no
 -- lock: nothing reads these columns for state. The predicate narrows
--- lesson_enrolments_purge_due's (0276); created_at bounds the scan, since an
+-- lesson_enrolments_purge_due's (0279); created_at bounds the scan, since an
 -- enrolment is created before its last session ends.
 create or replace function app.lesson_typed_purge(p_limit int default 500)
 returns int
-language plpgsql security definer set search_path = public as $lesson_typed_purge_0283$
+language plpgsql security definer set search_path = public as $lesson_typed_purge_0286$
 declare
   c_marker constant text := 'Walk-in';
   v_n      int;
@@ -281,10 +281,10 @@ begin
    where e.id = due.id;
   get diagnostics v_n = row_count;
   return v_n;
-end $lesson_typed_purge_0283$;
+end $lesson_typed_purge_0286$;
 
 comment on function app.lesson_typed_purge(int) is
-  '0283 (db.md §4.9.3 phase 3; CD-8, R44). Internal, run once an hour by lesson_sweep. At most p_limit enrolments whose lesson (a course: the last covered session) ended more than 365 days ago lose the typed phone and the friend names, and a coach- or staff-booked row''s typed name becomes the fixed marker ''Walk-in'' (never NULL; a ''Deleted account'' marker stays). No status change, no event, no lock. Returns the rows purged.';
+  '0286 (db.md §4.9.3 phase 3; CD-8, R44). Internal, run once an hour by lesson_sweep. At most p_limit enrolments whose lesson (a course: the last covered session) ended more than 365 days ago lose the typed phone and the friend names, and a coach- or staff-booked row''s typed name becomes the fixed marker ''Walk-in'' (never NULL; a ''Deleted account'' marker stays). No status change, no event, no lock. Returns the rows purged.';
 
 revoke all on function app.lesson_typed_purge(int) from public, anon, authenticated;
 
@@ -314,7 +314,7 @@ revoke all on function app.lesson_typed_purge(int) from public, anon, authentica
 --   3 retired_lesson  a retired coach's held or scheduled private or group
 --     retired_course  lesson not yet started, and course with a session left
 --                     to start -> coach_retired (a coach retired by account
---                     deletion, 0286, which takes no coach lock; set_coach_status
+--                     deletion, 0289, which takes no coach lock; set_coach_status
 --                     cancels at once)
 --   4 cutoff_lesson   a scheduled group session whose cut-off is due
 --   5 cutoff_course   an open course whose cut-off is due
@@ -327,7 +327,7 @@ revoke all on function app.lesson_typed_purge(int) from public, anon, authentica
 --   8 complete_course a running course with no held or scheduled session left
 create or replace function app.lesson_sweep()
 returns jsonb
-language plpgsql security definer set search_path = public as $lesson_sweep_0283$
+language plpgsql security definer set search_path = public as $lesson_sweep_0286$
 declare
   v_c       jsonb := jsonb_build_object(
                        'held_expired', 0, 'held_waiting', 0, 'deleted_cancelled', 0, 'links_dropped', 0,
@@ -485,7 +485,7 @@ begin
             -- confirmed, so nobody knows it is that person. The link goes as
             -- "Not me" takes it away (silently, no event); the coach's or the
             -- desk's student stays booked under the typed name and phone.
-            -- (0286 does this at deletion; this catches an add that matched
+            -- (0289 does this at deletion; this catches an add that matched
             -- while the deletion was committing.)
             update lesson_enrolments
                set guest_id = null, updated_at = now()
@@ -674,10 +674,10 @@ begin
   end if;
 
   return v_c || jsonb_build_object('purged', v_purged, 'skipped', v_skipped, 'errors', v_errors);
-end $lesson_sweep_0283$;
+end $lesson_sweep_0286$;
 
 comment on function app.lesson_sweep() is
-  '0283 (db.md §4.9.3). Internal, service role (cron tp_lesson_sweep, every minute). Phase 1 finds at most 200 due items without a lock, by coach then step; phase 2 blocks on the first coach (lock_coach) and try-locks every later one (busy -> its items skipped), each item in its own exception block, re-read under the lock: 1 a held enrolment past its hold with no payment that can still land -> Money''s lesson_hold_expire (R25, R30); 2 a live enrolment of a deleted account not yet started -> enrolment_cancel_internal account_deleted (R28), or a pending typed-phone link dropped silently (C-21); 3 a retired coach''s lessons not started and courses with a session left -> coach_retired; 4, 5 the cut-off of a group session or a course, judged on booked places only before the session''s (session 1''s) start (R26: judged later it stamps and writes under_filled {late: true}, cancelling nothing), deferred while held places could reach the minimum until start - 10 minutes (R38), else under_filled (C-14); 6 open -> running at session 1''s start; 7 a scheduled lesson 15 minutes past its end -> completed with its court row; 8 a running course with no live session -> completed. Once an hour, the CD-8 purge: enrolments 365 days past their last session lose the typed phone and friend names, and a typed name becomes ''Walk-in'' (R44: a marker, never NULL), at most 500 a run. No court lock and no waiting FOR UPDATE on reservations (R6, R33, R64). Returns {held_expired, held_waiting, deleted_cancelled, links_dropped, retired_cancelled, under_filled, courses_under_filled, judged_late, cutoffs_confirmed, deferred, courses_running, completed, courses_completed, purged, skipped, errors}.';
+  '0286 (db.md §4.9.3). Internal, service role (cron tp_lesson_sweep, every minute). Phase 1 finds at most 200 due items without a lock, by coach then step; phase 2 blocks on the first coach (lock_coach) and try-locks every later one (busy -> its items skipped), each item in its own exception block, re-read under the lock: 1 a held enrolment past its hold with no payment that can still land -> Money''s lesson_hold_expire (R25, R30); 2 a live enrolment of a deleted account not yet started -> enrolment_cancel_internal account_deleted (R28), or a pending typed-phone link dropped silently (C-21); 3 a retired coach''s lessons not started and courses with a session left -> coach_retired; 4, 5 the cut-off of a group session or a course, judged on booked places only before the session''s (session 1''s) start (R26: judged later it stamps and writes under_filled {late: true}, cancelling nothing), deferred while held places could reach the minimum until start - 10 minutes (R38), else under_filled (C-14); 6 open -> running at session 1''s start; 7 a scheduled lesson 15 minutes past its end -> completed with its court row; 8 a running course with no live session -> completed. Once an hour, the CD-8 purge: enrolments 365 days past their last session lose the typed phone and friend names, and a typed name becomes ''Walk-in'' (R44: a marker, never NULL), at most 500 a run. No court lock and no waiting FOR UPDATE on reservations (R6, R33, R64). Returns {held_expired, held_waiting, deleted_cancelled, links_dropped, retired_cancelled, under_filled, courses_under_filled, judged_late, cutoffs_confirmed, deferred, courses_running, completed, courses_completed, purged, skipped, errors}.';
 
 revoke all on function app.lesson_sweep() from public, anon, authenticated;
 grant execute on function app.lesson_sweep() to service_role;
@@ -687,11 +687,11 @@ grant execute on function app.lesson_sweep() to service_role;
 --    tp_hold_strikes. After a hosted push, cron.job must have the row
 --    (packages/db/CLAUDE.md).
 -- ===========================================================================
-do $lesson_sweep_cron_0283$
+do $lesson_sweep_cron_0286$
 begin
   if not exists (select 1 from pg_extension where extname = 'pg_cron') then
     raise notice 'pg_cron absent - tp_lesson_sweep not scheduled';
     return;
   end if;
   perform cron.schedule('tp_lesson_sweep', '* * * * *', 'select app.lesson_sweep();');
-end $lesson_sweep_cron_0283$;
+end $lesson_sweep_cron_0286$;

@@ -1,5 +1,5 @@
 /**
- * Coaching, migration 0284 coach_statements (docs/design/coaching/money.md §7, §10 cases S1–S12;
+ * Coaching, migration 0287 coach_statements (docs/design/coaching/money.md §7, §10 cases S1–S12;
  * build contracts C-6, C-12, C-24, C-25, C-28, CM-7..CM-12, R4, R21, R24, R42, R59, R70, R72, R74).
  *
  * The money is money.md's worked numbers (private 40,000 with court share 10,000; group 15,000 a
@@ -23,7 +23,7 @@
  *   S8  my_coach_statements: approved and paid only, lines for a month, a retired coach still reads
  *   S11 the procedure commits per pair: a failing pair leaves the others' drafts (R59)
  *
- * The functions of 0278 (lesson_collected, the engine), 0279 (coach_of_caller) and 0280 (Guest's
+ * The functions of 0281 (lesson_collected, the engine), 0282 (coach_of_caller) and 0283 (Guest's
  * lesson_notify) are called as they are specified; this suite is their first consumer here.
  */
 import { describe, expect, it } from 'vitest';
@@ -131,7 +131,7 @@ const lineOf = (collected: number, court: number, adj = false): Line => ({
 });
 
 describe.skipIf(!docker)(
-  'coaching 0284: the statement math against the core twins (S1, S2, S10)',
+  'coaching 0287: the statement math against the core twins (S1, S2, S10)',
   () => {
     it('a month, its approval, a refund after it, two redrafts: one adjustment per lesson, every line named', () => {
       const lateJoin = courseLateJoinPrice(COURSE.price, COURSE.sessions, 3);
@@ -362,7 +362,7 @@ describe.skipIf(!docker)(
   },
 );
 
-describe.skipIf(!docker)('coaching 0284: mark paid and void (S3, S4)', () => {
+describe.skipIf(!docker)('coaching 0287: mark paid and void (S3, S4)', () => {
   it('PIN, reference, card guard, no till money; void from draft and approved; a void month redrafted', () => {
     const r = scenario('cf284-b', [
       ...BASE,
@@ -604,7 +604,7 @@ describe.skipIf(!docker)('coaching 0284: mark paid and void (S3, S4)', () => {
   });
 });
 
-describe.skipIf(!docker)('coaching 0284: drafting rules and the detail (S5, S6, S12, S7)', () => {
+describe.skipIf(!docker)('coaching 0287: drafting rules and the detail (S5, S6, S12, S7)', () => {
   it('one live draft per pair; stale until refreshed; coach-booked no-shows listed', () => {
     const r = scenario('cf284-d', [
       ...BASE,
@@ -734,7 +734,7 @@ describe.skipIf(!docker)('coaching 0284: drafting rules and the detail (S5, S6, 
   });
 });
 
-describe.skipIf(!docker)('coaching 0284: my_coach_statements (S8; C-25, CM-12, R45)', () => {
+describe.skipIf(!docker)('coaching 0287: my_coach_statements (S8; C-25, CM-12, R45)', () => {
   it('approved and paid only, lines for a month, never another coach; a retired coach still reads', () => {
     const r = scenario('cf284-f', [
       ...BASE,
@@ -796,7 +796,7 @@ describe.skipIf(!docker)('coaching 0284: my_coach_statements (S8; C-25, CM-12, R
  * transaction. It runs committed, for a month 30 months back that no other suite touches (every
  * other pair finds nothing to draft there), and cleans up after itself.
  */
-describe.skipIf(!docker)('coaching 0284: procedure coach_statements_draft (S11)', () => {
+describe.skipIf(!docker)('coaching 0287: procedure coach_statements_draft (S11)', () => {
   it('is a security-invoker procedure with no SET clause, granted to no client', () => {
     const out =
       psql(`select json_build_object('kind', p.prokind, 'definer', p.prosecdef, 'config', p.proconfig,

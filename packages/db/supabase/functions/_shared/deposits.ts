@@ -4,7 +4,7 @@
  * app.deposit_apply (0242, 0259), the only writer of a payment's outcome.
  * A row is a court deposit (purpose 'deposit'), a purchase of open-match
  * tickets (purpose 'ticket', 0259: no hold, no booking, no branch) or a lesson
- * place paid online (purpose 'lesson', 0281: a branch and an enrolment, no
+ * place paid online (purpose 'lesson', 0284: a branch and an enrolment, no
  * booking; hold_id the court hold of a private lesson).
  *
  * Never decides anything itself. A gateway that does not answer leaves the
@@ -40,12 +40,12 @@ export interface PaymentRow {
   created_at: string;
   /** NULL for a ticket purchase (0258, R7) and a group or course lesson: it holds no slot. */
   hold_id: string | null;
-  /** NULL for a ticket purchase and a lesson (0281, R22). */
+  /** NULL for a ticket purchase and a lesson (0284, R22). */
   reservation_id: string | null;
   purpose: 'deposit' | 'ticket' | 'lesson';
   /** 1..3 for a ticket purchase; NULL otherwise. */
   ticket_count: number | null;
-  /** The enrolment a purpose 'lesson' payment is for (0275); NULL otherwise. */
+  /** The enrolment a purpose 'lesson' payment is for (0278); NULL otherwise. */
   lesson_enrolment_id: string | null;
 }
 

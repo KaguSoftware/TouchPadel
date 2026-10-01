@@ -1,14 +1,14 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0278 lesson_money — coaching, lane Money (docs/design/coaching/money.md §5;
+-- 0281 lesson_money — coaching, lane Money (docs/design/coaching/money.md §5;
 -- build contracts §1.1, §1.5, §1.7, §1.8, C-6, C-15, C-23, C-31, CM-1…CM-5,
 -- R2, R5, R27, R28, R36, R37, R60, R62, R71, R75).
 --
 -- Where every dinar of a lesson lives (money.md §1): desk money is one fresh
 -- kind 'lesson' tab per payment, inserted and settled in the same call
 -- (lesson_settle); online money is a booking_payments row of purpose 'lesson'
--- (0281); what an enrolment owes, keeps and gets back is decided in one place,
+-- (0284); what an enrolment owes, keeps and gets back is decided in one place,
 -- the engine app.lesson_enrolment_money. In file order:
 --
 --   1. the arithmetic twins of @touch/core (iqd_split = splitEvenly, R2/R60;
@@ -17,7 +17,7 @@ set statement_timeout = '60s';
 --      lesson line), lesson_collected (a session's kept money);
 --   3. lesson_refund_start (R5/R28: the only coaching path that refunds online
 --      lesson money; DB's cancel internals call it) and lesson_money_open (R37:
---      close_branch, 0277);
+--      close_branch, 0280);
 --   4. the till: compute_tab_totals (dropped and created with lesson_iqd),
 --      settle_tab (stamps it), the no-goods wall (LESSON_TAB_NO_GOODS) and
 --      cafe_settled_tabs (no lesson tab is café money);
@@ -31,9 +31,9 @@ set statement_timeout = '60s';
 --
 -- Every internal function is security definer set search_path = public and
 -- revoked from public, anon and authenticated. Lesson events are written
--- through DB's app.lesson_event (0280; plpgsql binds it when the statement
--- first runs, and no lesson row exists before 0280). Nothing here queues a
--- push: the lesson_events_notify trigger (0280) maps no key to settled or
+-- through DB's app.lesson_event (0283; plpgsql binds it when the statement
+-- first runs, and no lesson row exists before 0283). Nothing here queues a
+-- push: the lesson_events_notify trigger (0283) maps no key to settled or
 -- refunded (R40).
 
 -- ===========================================================================
@@ -44,7 +44,7 @@ set statement_timeout = '60s';
 -- floor(t/n) each, plus 1 on the first t % n parts. Not app.split_evenly (the
 -- till's Split bill RPC, 0015:768): no overload of that name.
 create or replace function app.iqd_split(p_total bigint, p_n int) returns bigint[]
-language plpgsql immutable security definer set search_path = public as $iqd_split_0278$
+language plpgsql immutable security definer set search_path = public as $iqd_split_0281$
 begin
   if p_total is null or p_n is null then
     return null;
@@ -58,10 +58,10 @@ begin
   return array(select p_total / p_n + case when i <= p_total % p_n then 1 else 0 end
                  from generate_series(1, p_n) as g(i)
                 order by i);
-end $iqd_split_0278$;
+end $iqd_split_0281$;
 
 comment on function app.iqd_split(bigint, int) is
-  '0278. Internal (R2, R60). The even split of p_total IQD into p_n parts: floor(p_total / p_n) each, the first p_total % p_n parts one more (largest remainder, Σ = p_total, parts differ by at most 1). Twin of @touch/core splitEvenly (and match_shares(p) = iqd_split(p, 4)). NULL in, NULL out; INVALID_ARGUMENT detail p_total (< 0) or p_n (< 1).';
+  '0281. Internal (R2, R60). The even split of p_total IQD into p_n parts: floor(p_total / p_n) each, the first p_total % p_n parts one more (largest remainder, Σ = p_total, parts differ by at most 1). Twin of @touch/core splitEvenly (and match_shares(p) = iqd_split(p, 4)). NULL in, NULL out; INVALID_ARGUMENT detail p_total (< 0) or p_n (< 1).';
 
 revoke all on function app.iqd_split(bigint, int) from public, anon, authenticated;
 
@@ -69,7 +69,7 @@ revoke all on function app.iqd_split(bigint, int) from public, anon, authenticat
 -- non-negative value.
 create or replace function app.lesson_coach_share(p_collected bigint, p_court_share bigint, p_share_bp int)
 returns bigint
-language plpgsql immutable security definer set search_path = public as $lesson_coach_share_0278$
+language plpgsql immutable security definer set search_path = public as $lesson_coach_share_0281$
 begin
   if p_collected is null or p_court_share is null or p_share_bp is null then
     return null;
@@ -84,10 +84,10 @@ begin
     raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', detail = 'p_court_share';
   end if;
   return (p_share_bp::bigint * greatest(p_collected - p_court_share, 0)) / 10000;
-end $lesson_coach_share_0278$;
+end $lesson_coach_share_0281$;
 
 comment on function app.lesson_coach_share(bigint, bigint, int) is
-  '0278. Internal (C-6, CD-5). What a coach earns on one session: floor(p_share_bp × max(0, p_collected − p_court_share) / 10000). Twin of @touch/core lessonCoachShare. NULL in, NULL out; INVALID_ARGUMENT detail p_share_bp (outside 0..10000), p_collected or p_court_share (< 0).';
+  '0281. Internal (C-6, CD-5). What a coach earns on one session: floor(p_share_bp × max(0, p_collected − p_court_share) / 10000). Twin of @touch/core lessonCoachShare. NULL in, NULL out; INVALID_ARGUMENT detail p_share_bp (outside 0..10000), p_collected or p_court_share (< 0).';
 
 revoke all on function app.lesson_coach_share(bigint, bigint, int) from public, anon, authenticated;
 
@@ -96,7 +96,7 @@ revoke all on function app.lesson_coach_share(bigint, bigint, int) from public, 
 create or replace function app.course_late_join_price(p_course_price bigint, p_sessions_count int,
                                                       p_first_session_no int)
 returns bigint
-language plpgsql immutable security definer set search_path = public as $course_late_join_price_0278$
+language plpgsql immutable security definer set search_path = public as $course_late_join_price_0281$
 begin
   if p_course_price is null or p_sessions_count is null or p_first_session_no is null then
     return null;
@@ -107,17 +107,17 @@ begin
   return coalesce((select sum(u.s)
                      from unnest(app.iqd_split(p_course_price, p_sessions_count)) with ordinality as u(s, i)
                     where u.i >= p_first_session_no), 0)::bigint;
-end $course_late_join_price_0278$;
+end $course_late_join_price_0281$;
 
 comment on function app.course_late_join_price(bigint, int, int) is
-  '0278. Internal (C-15). The price of a course joined from session p_first_session_no (1-based): Σ iqd_split(p_course_price, p_sessions_count) from that session on; 1 is the whole price, a number past the last session 0. A late joiner pays per session exactly what a full member pays (money.md §5.1). Twin of @touch/core courseLateJoinPrice. NULL in, NULL out; INVALID_ARGUMENT detail p_first_session_no (< 1), and iqd_split''s.';
+  '0281. Internal (C-15). The price of a course joined from session p_first_session_no (1-based): Σ iqd_split(p_course_price, p_sessions_count) from that session on; 1 is the whole price, a number past the last session 0. A late joiner pays per session exactly what a full member pays (money.md §5.1). Twin of @touch/core courseLateJoinPrice. NULL in, NULL out; INVALID_ARGUMENT detail p_first_session_no (< 1), and iqd_split''s.';
 
 revoke all on function app.course_late_join_price(bigint, int, int) from public, anon, authenticated;
 
 -- One session's share of one course enrolment: the enrolment's own price split
 -- over the sessions it covers (so Σ shares = price_iqd always).
 create or replace function app.course_share_for(p_enrolment_id uuid, p_session_no int) returns bigint
-language sql stable security definer set search_path = public as $course_share_for_0278$
+language sql stable security definer set search_path = public as $course_share_for_0281$
   select case
            when e.course_id is null then null
            when p_session_no < e.first_session_no
@@ -126,10 +126,10 @@ language sql stable security definer set search_path = public as $course_share_f
          end
     from lesson_enrolments e
    where e.id = p_enrolment_id
-$course_share_for_0278$;
+$course_share_for_0281$;
 
 comment on function app.course_share_for(uuid, int) is
-  '0278. Internal (CM-4). A course enrolment''s share of session p_session_no: iqd_split(price_iqd, sessions_covered) at the session''s place among the sessions it covers; 0 outside them; NULL for a private or group enrolment or an unknown id.';
+  '0281. Internal (CM-4). A course enrolment''s share of session p_session_no: iqd_split(price_iqd, sessions_covered) at the session''s place among the sessions it covers; 0 outside them; NULL for a private or group enrolment or an unknown id.';
 
 revoke all on function app.course_share_for(uuid, int) from public, anon, authenticated;
 
@@ -138,9 +138,9 @@ revoke all on function app.course_share_for(uuid, int) from public, anon, authen
 -- ===========================================================================
 -- What an enrolment owes, what the venue keeps and what goes back, decided in
 -- one place. Every other lesson figure reads it: the till's lesson line, the
--- desk and guest reads (0280), lesson_settle, lesson_refund_start,
+-- desk and guest reads (0283), lesson_settle, lesson_refund_start,
 -- lesson_refunds_due, app.refund's lesson bound, the statements and reports
--- (0284, 0285). Stable, no locks, NULL for an unknown id; no name, phone or
+-- (0287, 0288). Stable, no locks, NULL for an unknown id; no name, phone or
 -- guest id (readers add identity under their own rules).
 --
 -- Covered sessions S_e: the lesson (private, group) or the course's sessions
@@ -171,7 +171,7 @@ revoke all on function app.course_share_for(uuid, int) from public, anon, authen
 -- (refund_iqd = the online money that would go back, kept_iqd, refund_due_iqd,
 -- kept_sessions, refund_sessions); DB's reads pick the one their rule applies.
 create or replace function app.lesson_enrolment_money(p_enrolment_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = public as $lesson_enrolment_money_0278$
+language plpgsql stable security definer set search_path = public as $lesson_enrolment_money_0281$
 declare
   v_e         lesson_enrolments%rowtype;
   v_kind      text;
@@ -406,10 +406,10 @@ begin
   end loop;
 
   return v_out || jsonb_build_object('if_cancelled', v_if);
-end $lesson_enrolment_money_0278$;
+end $lesson_enrolment_money_0281$;
 
 comment on function app.lesson_enrolment_money(uuid) is
-  '0278. Internal (money.md §5.3; C-9, C-23, CM-2, CM-3, CM-15, R62, R75). The money engine of one enrolment: {enrolment_id, kind, status, cancel_kind, payment_mode, price_iqd, due_iqd, payable, final, desk_paid_iqd, desk_refunded_iqd, online_paid_iqd, online_refunded_iqd, online_refundable_iqd, refunded_outside_iqd, paid_gross_iqd, net_iqd, kept_iqd, real_kept_iqd, owed_iqd, refund_due_iqd, refund_due_online_iqd, refund_due_desk_iqd, refund_blocked_iqd, sandbox, if_cancelled {guest_free, guest_late: {refund_iqd, kept_iqd, refund_due_iqd, kept_sessions, refund_sessions}} | null, sessions [{lesson_id, session_no, start_at, status, share_iqd, counts, alloc_iqd}]}. Identities: kept + refund_due = net; refund_due = refund_due_online + refund_due_desk + refund_blocked; kept ≤ due; owed ≤ due; Σ alloc = real_kept. Owed uses gross money (CM-2), kept and refunds net money. Stable, no locks; NULL for an unknown id; no name, phone or guest id. Key list: COACHING_SHAPES.lesson_enrolment_money (packages/core/src/coaching/shapes.ts).';
+  '0281. Internal (money.md §5.3; C-9, C-23, CM-2, CM-3, CM-15, R62, R75). The money engine of one enrolment: {enrolment_id, kind, status, cancel_kind, payment_mode, price_iqd, due_iqd, payable, final, desk_paid_iqd, desk_refunded_iqd, online_paid_iqd, online_refunded_iqd, online_refundable_iqd, refunded_outside_iqd, paid_gross_iqd, net_iqd, kept_iqd, real_kept_iqd, owed_iqd, refund_due_iqd, refund_due_online_iqd, refund_due_desk_iqd, refund_blocked_iqd, sandbox, if_cancelled {guest_free, guest_late: {refund_iqd, kept_iqd, refund_due_iqd, kept_sessions, refund_sessions}} | null, sessions [{lesson_id, session_no, start_at, status, share_iqd, counts, alloc_iqd}]}. Identities: kept + refund_due = net; refund_due = refund_due_online + refund_due_desk + refund_blocked; kept ≤ due; owed ≤ due; Σ alloc = real_kept. Owed uses gross money (CM-2), kept and refunds net money. Stable, no locks; NULL for an unknown id; no name, phone or guest id. Key list: COACHING_SHAPES.lesson_enrolment_money (packages/core/src/coaching/shapes.ts).';
 
 revoke all on function app.lesson_enrolment_money(uuid) from public, anon, authenticated;
 -- The service role reads it directly (the shapes and money suites); no client.
@@ -425,7 +425,7 @@ grant execute on function app.lesson_enrolment_money(uuid) to service_role;
 -- engine never counts; a settled lesson tab of the enrolment is added back.
 create or replace function app.lesson_fee_remaining(p_enrolment_id uuid, p_exclude_tab_id uuid default null)
 returns bigint
-language plpgsql stable security definer set search_path = public as $lesson_fee_remaining_0278$
+language plpgsql stable security definer set search_path = public as $lesson_fee_remaining_0281$
 declare
   v_m jsonb := app.lesson_enrolment_money(p_enrolment_id);
 begin
@@ -439,18 +439,18 @@ begin
                                  and t.lesson_enrolment_id = p_enrolment_id
                                  and t.status = 'settled'
                                  and t.merged_into_tab_id is null), 0), 0);
-end $lesson_fee_remaining_0278$;
+end $lesson_fee_remaining_0281$;
 
 comment on function app.lesson_fee_remaining(uuid, uuid) is
-  '0278. Internal (§1.5). What an enrolment still owes at the desk, tab p_exclude_tab_id left out: 0 unless payable, else max(0, due − paid_gross (+ that tab''s lesson_iqd when it is a settled lesson tab of the enrolment)). compute_tab_totals'' lesson line; 0 for an unknown id.';
+  '0281. Internal (§1.5). What an enrolment still owes at the desk, tab p_exclude_tab_id left out: 0 unless payable, else max(0, due − paid_gross (+ that tab''s lesson_iqd when it is a settled lesson tab of the enrolment)). compute_tab_totals'' lesson line; 0 for an unknown id.';
 
 revoke all on function app.lesson_fee_remaining(uuid, uuid) from public, anon, authenticated;
 
 -- The money one session collected: Σ alloc over every enrolment covering it,
 -- whatever its status (a late canceller's kept money counts). The statements
--- (0284) and reports (0285) read it per lesson.
+-- (0287) and reports (0288) read it per lesson.
 create or replace function app.lesson_collected(p_lesson_id uuid) returns bigint
-language plpgsql stable security definer set search_path = public as $lesson_collected_0278$
+language plpgsql stable security definer set search_path = public as $lesson_collected_0281$
 declare
   v_l   lessons%rowtype;
   v_eid uuid;
@@ -476,10 +476,10 @@ begin
                                 where s->>'lesson_id' = v_l.id::text), 0);
   end loop;
   return v_sum;
-end $lesson_collected_0278$;
+end $lesson_collected_0281$;
 
 comment on function app.lesson_collected(uuid) is
-  '0278. Internal (money.md §5.4, §7.1). The money one lesson session collected: Σ alloc_iqd of that session over every enrolment covering it, whatever its status (real money kept, sandbox excluded). 0 for an unknown id. collected_L of the coach statements.';
+  '0281. Internal (money.md §5.4, §7.1). The money one lesson session collected: Σ alloc_iqd of that session over every enrolment covering it, whatever its status (real money kept, sandbox excluded). 0 for an unknown id. collected_L of the coach statements.';
 
 revoke all on function app.lesson_collected(uuid) from public, anon, authenticated;
 
@@ -488,9 +488,9 @@ revoke all on function app.lesson_collected(uuid) from public, anon, authenticat
 -- ===========================================================================
 -- The only coaching path that refunds online lesson money (CM-5). Called, after
 -- their status writes, by DB's enrolment_cancel_internal,
--- lesson_cancel_internal and course_cancel_internal (0280; for every enrolment
+-- lesson_cancel_internal and course_cancel_internal (0283; for every enrolment
 -- with an applied online row, live or not) under the caller's coach mutex, and
--- by the reconciler's lesson loop (0281). Takes no coach or court lock: it
+-- by the reconciler's lesson loop (0284). Takes no coach or court lock: it
 -- locks only the enrolment's own payment rows. The amount is always the
 -- engine's refund_due_online_iqd (C-23 for a course leave, R62); the reason is
 -- always derived (R28): p_reason exists for the signature, NULL from every
@@ -500,7 +500,7 @@ revoke all on function app.lesson_collected(uuid) from public, anon, authenticat
 -- created|pending payment is left alone: its success is refunded by the apply,
 -- the enrolment being no longer live. Returns the refunds started (0 or 1).
 create or replace function app.lesson_refund_start(p_enrolment_id uuid, p_reason text) returns int
-language plpgsql security definer set search_path = public as $lesson_refund_start_0278$
+language plpgsql security definer set search_path = public as $lesson_refund_start_0281$
 declare
   v_e       lesson_enrolments%rowtype;
   v_m       jsonb;
@@ -631,22 +631,22 @@ begin
                            v_profile, v_staff, v_reason,
                            jsonb_build_object('payment_id', v_row.id, 'amount_iqd', v_amount));
   return 1;
-end $lesson_refund_start_0278$;
+end $lesson_refund_start_0281$;
 
 comment on function app.lesson_refund_start(uuid, text) is
-  '0278. Internal (R5, R28; money.md §5.5). Starts the online refund an enrolment is owed now: refund_due_online_iqd of app.lesson_enrolment_money (C-23''s course leave included) on its one applied succeeded booking_payments row (app.deposit_begin_refund, partial when less than the row), then app.deposit_nudge and a lesson_events row refunded (code the reason, data {payment_id, amount_iqd}). The reason is derived from the enrolment''s status and cancel_kind and the lesson''s or course''s cancel_reason (account_deleted stays account_deleted; expired is slot_lost); p_reason is for the signature (NULL), INVALID_ARGUMENT outside the refund and cancel vocabularies. Locks only the enrolment''s payment rows. Idempotent; returns 0 or 1. Called by DB''s cancel internals (0280) after their status writes, and by the reconciler (0281).';
+  '0281. Internal (R5, R28; money.md §5.5). Starts the online refund an enrolment is owed now: refund_due_online_iqd of app.lesson_enrolment_money (C-23''s course leave included) on its one applied succeeded booking_payments row (app.deposit_begin_refund, partial when less than the row), then app.deposit_nudge and a lesson_events row refunded (code the reason, data {payment_id, amount_iqd}). The reason is derived from the enrolment''s status and cancel_kind and the lesson''s or course''s cancel_reason (account_deleted stays account_deleted; expired is slot_lost); p_reason is for the signature (NULL), INVALID_ARGUMENT outside the refund and cancel vocabularies. Locks only the enrolment''s payment rows. Idempotent; returns 0 or 1. Called by DB''s cancel internals (0283) after their status writes, and by the reconciler (0284).';
 
 revoke all on function app.lesson_refund_start(uuid, text) from public, anon, authenticated;
 
 -- R37. True while a branch still has coaching money to settle; close_branch
--- (0277) refuses BRANCH_HAS_BOOKINGS detail coaching_money while it is. Three
+-- (0280) refuses BRANCH_HAS_BOOKINGS detail coaching_money while it is. Three
 -- tests, cheapest first: a draft or approved coach statement; a statement
 -- lesson (money.md §7.1: over, and completed, still scheduled, or a late guest
 -- cancel the venue kept money for) in a branch-local month with no non-void
 -- statement for its coach and branch; an enrolment that took desk money or had
 -- an online refund and still has desk money due back or online money blocked.
 create or replace function app.lesson_money_open(p_venue_id uuid) returns boolean
-language plpgsql stable security definer set search_path = public as $lesson_money_open_0278$
+language plpgsql stable security definer set search_path = public as $lesson_money_open_0281$
 declare
   v_tz text;
 begin
@@ -691,10 +691,10 @@ begin
   end if;
 
   return false;
-end $lesson_money_open_0278$;
+end $lesson_money_open_0281$;
 
 comment on function app.lesson_money_open(uuid) is
-  '0278. Internal (R37). True while branch p_venue_id still has coaching money to settle: a coach statement in draft or approved; a statement lesson (over, and completed, still scheduled, or a late guest cancel that kept money) in a branch-local month with no non-void statement for its coach; or an enrolment with lesson money still due back at the till or blocked on Qi (refund_due_desk_iqd, refund_blocked_iqd). close_branch (0277) refuses BRANCH_HAS_BOOKINGS detail coaching_money while it is.';
+  '0281. Internal (R37). True while branch p_venue_id still has coaching money to settle: a coach statement in draft or approved; a statement lesson (over, and completed, still scheduled, or a late guest cancel that kept money) in a branch-local month with no non-void statement for its coach; or an enrolment with lesson money still due back at the till or blocked on Qi (refund_due_desk_iqd, refund_blocked_iqd). close_branch (0280) refuses BRANCH_HAS_BOOKINGS detail coaching_money while it is.';
 
 revoke all on function app.lesson_money_open(uuid) from public, anon, authenticated;
 
@@ -720,9 +720,9 @@ returns table (
   tax_iqd      bigint,
   court_iqd    bigint,
   total_iqd    bigint,
-  lesson_iqd   bigint   -- 0278
+  lesson_iqd   bigint   -- 0281
 )
-language plpgsql stable security definer set search_path = public as $compute_tab_totals_0278$
+language plpgsql stable security definer set search_path = public as $compute_tab_totals_0281$
 declare
   v_subtotal  bigint;
   v_disc_line bigint;
@@ -732,7 +732,7 @@ declare
   v_tax       bigint;
   v_court     bigint;
   v_inclusive boolean;
-  v_lesson    bigint;   -- 0278
+  v_lesson    bigint;   -- 0281
 begin
   select coalesce(sum(oi.line_total_iqd), 0) into v_subtotal
     from order_items oi
@@ -770,7 +770,7 @@ begin
      and t.reservation_id is not null;
   v_court := coalesce(v_court, 0);
 
-  -- 0278 (CM-1): a kind 'lesson' tab bills what its enrolment still owes,
+  -- 0281 (CM-1): a kind 'lesson' tab bills what its enrolment still owes,
   -- this tab left out (lesson_fee_remaining); every other tab 0.
   select case when t.kind = 'lesson' then app.lesson_fee_remaining(t.lesson_enrolment_id, t.id) else 0 end
     into v_lesson
@@ -836,16 +836,16 @@ begin
   total_iqd    := greatest(
     v_subtotal - v_discount
       + case when coalesce(v_inclusive, false) then 0 else v_tax end,
-    0) + v_court + v_lesson;   -- 0278: the lesson line, like the court line
+    0) + v_court + v_lesson;   -- 0281: the lesson line, like the court line
   lesson_iqd   := v_lesson;
   return next;
-end $compute_tab_totals_0278$;
+end $compute_tab_totals_0281$;
 
 revoke all on function app.compute_tab_totals(uuid) from public, anon, authenticated;
 grant execute on function app.compute_tab_totals(uuid) to service_role;
 
 comment on function app.compute_tab_totals(uuid) is
-  '0053, 0106, 0211, 0262: a tab''s subtotal, discount, tax, court line and total. The court line is what the booking still owes (court_fee_remaining, this tab excluded), capped by tabs.court_cap_iqd when set (R2: a seat settle''s tab, or a normal bill closed by match_link_payment). Court time is outside subtotal_iqd (so percentage discounts apply to goods only) and outside the tax base (tax is per item group, L454-455). 0278 (CM-1): a sixth column, lesson_iqd: on a kind lesson tab, what its enrolment still owes (lesson_fee_remaining, this tab left out), outside subtotal_iqd and the tax base like the court line, and in total_iqd; 0 on every other tab.';
+  '0053, 0106, 0211, 0262: a tab''s subtotal, discount, tax, court line and total. The court line is what the booking still owes (court_fee_remaining, this tab excluded), capped by tabs.court_cap_iqd when set (R2: a seat settle''s tab, or a normal bill closed by match_link_payment). Court time is outside subtotal_iqd (so percentage discounts apply to goods only) and outside the tax base (tax is per item group, L454-455). 0281 (CM-1): a sixth column, lesson_iqd: on a kind lesson tab, what its enrolment still owes (lesson_fee_remaining, this tab left out), outside subtotal_iqd and the tax base like the court line, and in total_iqd; 0 on every other tab.';
 
 -- settle_tab: re-issued from 20260927000244_shop_desk_access.sql:312. The stamp
 -- and the answer carry lesson_iqd. assert_tab_kind_role already admits cashier,
@@ -861,7 +861,7 @@ create or replace function app.settle_tab(
   p_device_id          text   default null,
   p_expected_total_iqd bigint default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $settle_tab_0278$
+language plpgsql security definer set search_path = public as $settle_tab_0281$
 declare
   v_venue uuid;
   v_tab      tabs%rowtype;
@@ -925,7 +925,7 @@ begin
          tax_iqd      = v_totals.tax_iqd,
          court_iqd    = v_totals.court_iqd,
          total_iqd    = v_totals.total_iqd,
-         lesson_iqd   = v_totals.lesson_iqd   -- 0278
+         lesson_iqd   = v_totals.lesson_iqd   -- 0281
    where id = p_tab_id
    returning * into v_tab;
 
@@ -989,14 +989,14 @@ begin
   return jsonb_build_object('duplicate', false, 'payment_id', v_payment.id,
     'tab_id', v_tab.id, 'status', v_tab.status,
     'subtotal_iqd', v_tab.subtotal_iqd, 'discount_iqd', v_tab.discount_iqd,
-    'tax_iqd', v_tab.tax_iqd, 'court_iqd', v_tab.court_iqd, 'lesson_iqd', v_tab.lesson_iqd,   -- 0278
+    'tax_iqd', v_tab.tax_iqd, 'court_iqd', v_tab.court_iqd, 'lesson_iqd', v_tab.lesson_iqd,   -- 0281
     'total_iqd', v_tab.total_iqd,
     'amount_iqd', v_amount, 'change_iqd', v_change,
     'remaining_iqd', greatest(v_tab.total_iqd - v_paid - v_amount, 0));
-end $settle_tab_0278$;
+end $settle_tab_0281$;
 
 comment on function app.settle_tab(uuid, payment_method, bigint, bigint, text, text, bigint) is
-  '0106 (0053). Records one payment against a tab (cashier, court_desk, manager, owner); part payments leave it awaiting_payment. p_expected_total_iqd, when given, must equal the recomputed total or TOTAL_CHANGED is raised before anything is written. 0278 (CM-1): the stamp and the answer carry lesson_iqd (compute_tab_totals'' lesson line; 0 on every tab but a kind lesson one).';
+  '0106 (0053). Records one payment against a tab (cashier, court_desk, manager, owner); part payments leave it awaiting_payment. p_expected_total_iqd, when given, must equal the recomputed total or TOTAL_CHANGED is raised before anything is written. 0281 (CM-1): the stamp and the answer carry lesson_iqd (compute_tab_totals'' lesson line; 0 on every tab but a kind lesson one).';
 
 -- The no-goods wall: trg_match_booking_no_cafe, re-issued from
 -- 20260929000262_match_desk_money.sql:1413 (CM-1). A lesson tab carries the
@@ -1008,14 +1008,14 @@ comment on function app.settle_tab(uuid, payment_method, bigint, bigint, text, t
 -- are unchanged: create or replace keeps the binding. One primary-key probe of
 -- tabs per row.
 create or replace function app.trg_match_booking_no_cafe() returns trigger
-language plpgsql security definer set search_path = public as $trg_match_booking_no_cafe_0278$
+language plpgsql security definer set search_path = public as $trg_match_booking_no_cafe_0281$
 declare
   v_kind text;
   v_res  uuid;
 begin
   if new.tab_id is not null then
     select t.kind, t.reservation_id into v_kind, v_res from tabs t where t.id = new.tab_id;
-    -- 0278 (CM-1): a lesson tab carries the lesson line only.
+    -- 0281 (CM-1): a lesson tab carries the lesson line only.
     if v_kind = 'lesson' then
       raise exception 'LESSON_TAB_NO_GOODS' using errcode = 'P0001',
         hint = 'a lesson is paid on its own bill; café items go on a café bill';
@@ -1026,10 +1026,10 @@ begin
     end if;
   end if;
   return new;
-end $trg_match_booking_no_cafe_0278$;
+end $trg_match_booking_no_cafe_0281$;
 
 comment on function app.trg_match_booking_no_cafe() is
-  '0262 (R20, DF-16), 0278 (CM-1). Trigger on orders and tab_adjustments (insert, or a move of tab_id): refuses a row on a kind lesson tab with LESSON_TAB_NO_GOODS (a lesson tab carries the lesson line only), and a row on the tab of an open match''s booking with MATCH_BOOKING_NO_CAFE (the booking''s tabs carry court money only; café orders go on their own bill and a share is forgiven only by a write-off).';
+  '0262 (R20, DF-16), 0281 (CM-1). Trigger on orders and tab_adjustments (insert, or a move of tab_id): refuses a row on a kind lesson tab with LESSON_TAB_NO_GOODS (a lesson tab carries the lesson line only), and a row on the tab of an open match''s booking with MATCH_BOOKING_NO_CAFE (the booking''s tabs carry court money only; café orders go on their own bill and a share is forgiven only by a write-off).';
 
 revoke all on function app.trg_match_booking_no_cafe() from public, anon, authenticated;
 
@@ -1055,7 +1055,7 @@ create or replace function app.cafe_settled_tabs(
   cafe_gross_iqd  bigint,
   refunds_iqd     bigint,
   cafe_net_iqd    bigint
-) language sql stable security definer set search_path = public as $cafe_settled_tabs_0278$
+) language sql stable security definer set search_path = public as $cafe_settled_tabs_0281$
   select t.id,
          t.settled_at,
          t.reservation_id,
@@ -1076,15 +1076,15 @@ create or replace function app.cafe_settled_tabs(
        where p.venue_id = any((select app.report_venues())::uuid[]) and rf.venue_id = any((select app.report_venues())::uuid[]) and p.tab_id = t.id
     ) r on true
    where t.venue_id = any((select app.report_venues())::uuid[]) and t.status = 'settled'
-     and t.kind <> 'lesson'   -- 0278 (CM-1): lesson money is never café money
+     and t.kind <> 'lesson'   -- 0281 (CM-1): lesson money is never café money
      and t.merged_into_tab_id is null
      and t.settled_at is not null
      and (p_ts_from is null or t.settled_at >= p_ts_from)
      and (p_ts_to   is null or t.settled_at <  p_ts_to)
-$cafe_settled_tabs_0278$;
+$cafe_settled_tabs_0281$;
 
 comment on function app.cafe_settled_tabs(timestamptz, timestamptz) is
-  '0095, 0219, 0278. Internal (report scope): one row per settled, unmerged tab of the branches in scope settled in [p_ts_from, p_ts_to), with its stamped figures, goods_iqd (subtotal less discount), cafe_gross_iqd (total less the court line), the refunds on its payments and cafe_net_iqd. 0278 (CM-1): kind lesson tabs are left out (lesson money is reported on its own line, 0285).';
+  '0095, 0219, 0281. Internal (report scope): one row per settled, unmerged tab of the branches in scope settled in [p_ts_from, p_ts_to), with its stamped figures, goods_iqd (subtotal less discount), cafe_gross_iqd (total less the court line), the refunds on its payments and cafe_net_iqd. 0281 (CM-1): kind lesson tabs are left out (lesson money is reported on its own line, 0288).';
 
 -- ===========================================================================
 -- 5. Desk refunds of lesson money (R36; money.md §5.12)
@@ -1108,7 +1108,7 @@ create or replace function app.refund(
   p_device_id       text  default null,
   p_idempotency_key text  default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $refund_0278$
+language plpgsql security definer set search_path = public as $refund_0281$
 declare
   v_venue uuid;
   v_auth     uuid;
@@ -1122,7 +1122,7 @@ declare
   v_replay   jsonb;
   v_result   jsonb;
   v_day      uuid;
-  v_kind     text;    -- 0278 (R36)
+  v_kind     text;    -- 0281 (R36)
   v_enrol    uuid;
   v_coach    uuid;
   v_m        jsonb;
@@ -1175,7 +1175,7 @@ begin
   -- PIN_GRANT_REQUIRED whatever p_pin says, so guessing here reveals nothing.
   v_auth := app.consume_pin_grant(p_device_id);
 
-  -- 0278 (R36): a lesson tab's refund takes the coach mutex before the tab.
+  -- 0281 (R36): a lesson tab's refund takes the coach mutex before the tab.
   -- The tab's kind, its enrolment and the enrolment's coach never change, so
   -- an unlocked read is sound.
   select t.kind, t.lesson_enrolment_id into v_kind, v_enrol
@@ -1214,7 +1214,7 @@ begin
       detail = format('paid %s, already refunded %s', v_payment.amount_iqd, v_refunded);
   end if;
 
-  -- 0278 (R36): lesson money goes back at the till only as far as it is due
+  -- 0281 (R36): lesson money goes back at the till only as far as it is due
   -- (lesson_enrolment_money's refund_due_desk_iqd, read under the coach
   -- mutex), unless a manager gives more on purpose (lesson_goodwill).
   if v_kind = 'lesson' and p_reason_code is distinct from 'lesson_goodwill' then
@@ -1260,10 +1260,10 @@ begin
     'remaining_refundable_iqd', v_payment.amount_iqd - v_refunded - p_amount_iqd);
   perform app.finish_replay(p_idempotency_key, v_result);
   return v_result;
-end $refund_0278$;
+end $refund_0281$;
 
 comment on function app.refund(uuid, bigint, text, text, jsonb, text, text) is
-  'till_shifts (0139, 0120, 0044, 0115). Refunds part or all of one payment (manager, owner) behind a manager-PIN grant, inside an open day (NO_OPEN_DAY otherwise); naming order lines restocks them. The refunds row records p_device_id, and app.stamp_till_shift gives it the shift open at that station. p_idempotency_key: a replay of the same key by the same caller echoes the first result with duplicate:true (app.claim_replay). REFUND_EXCEEDS_PAYMENT (detail = paid/refunded), PAYMENT_NOT_FOUND, ITEM_NOT_ON_TAB, INVALID_QTY, INVALID_AMOUNT. 0278 (R36): on a kind lesson tab the coach mutex is taken before the tab, and a refund above the enrolment''s refund_due_desk_iqd is REFUND_EXCEEDS_DUE (detail due <n>) unless p_reason_code is lesson_goodwill. Reason codes on lesson money: lesson_refund (what is due), lesson_goodwill (beyond it).';
+  'till_shifts (0139, 0120, 0044, 0115). Refunds part or all of one payment (manager, owner) behind a manager-PIN grant, inside an open day (NO_OPEN_DAY otherwise); naming order lines restocks them. The refunds row records p_device_id, and app.stamp_till_shift gives it the shift open at that station. p_idempotency_key: a replay of the same key by the same caller echoes the first result with duplicate:true (app.claim_replay). REFUND_EXCEEDS_PAYMENT (detail = paid/refunded), PAYMENT_NOT_FOUND, ITEM_NOT_ON_TAB, INVALID_QTY, INVALID_AMOUNT. 0281 (R36): on a kind lesson tab the coach mutex is taken before the tab, and a refund above the enrolment''s refund_due_desk_iqd is REFUND_EXCEEDS_DUE (detail due <n>) unless p_reason_code is lesson_goodwill. Reason codes on lesson money: lesson_refund (what is due), lesson_goodwill (beyond it).';
 
 -- ===========================================================================
 -- 6. A refund is counted on the day it is made (C-31, R27, R71; money.md §5.13)
@@ -1272,9 +1272,9 @@ comment on function app.refund(uuid, bigint, text, text, jsonb, text, text) is
 -- else (no shift) by its payment's day:
 --   coalesce((select ts.day_session_id from till_shifts ts where ts.id = r.till_shift_id), p.day_session_id)
 -- in close_day, v_day_close_summary, ops_overview's expected cash and
--- day_close_shop (day_close_online learns it in 0285). Payments stay on their
+-- day_close_shop (day_close_online learns it in 0288). Payments stay on their
 -- own day. Closed days keep their stored figures; the view's derived
--- refunds_iqd of a day closed before 0278 is re-dated by the rule.
+-- refunds_iqd of a day closed before 0281 is re-dated by the rule.
 --
 -- day_sessions.cash_expected_iqd and card_expected_iqd become iqd_signed (as
 -- till_shifts.cash_expected_iqd already is, 0205): a refund made today of an
@@ -1291,9 +1291,9 @@ alter table day_sessions
   alter column card_expected_iqd type iqd_signed;
 
 comment on column day_sessions.cash_expected_iqd is
-  '0020, 0278. Stamped at close_day: opening float + the day''s cash payments - the cash refunds made that day (C-31: a refund counts on the day of the till shift it was made in, else its payment''s day). Signed since 0278: a refund of an earlier day''s payment can exceed the day''s float and takings.';
+  '0020, 0281. Stamped at close_day: opening float + the day''s cash payments - the cash refunds made that day (C-31: a refund counts on the day of the till shift it was made in, else its payment''s day). Signed since 0281: a refund of an earlier day''s payment can exceed the day''s float and takings.';
 comment on column day_sessions.card_expected_iqd is
-  '0020, 0278. Stamped at close_day: the day''s card payments - the card refunds made that day (C-31). Signed since 0278.';
+  '0020, 0281. Stamped at close_day: the day''s card payments - the card refunds made that day (C-31). Signed since 0281.';
 
 -- v_day_close_summary: re-created from 20260917000106_desk_payment.sql:1061
 -- (create or replace view there), the ref lateral dated by the refund's till
@@ -1322,7 +1322,7 @@ select d.id as day_session_id,
   left join lateral (
     select coalesce(sum(r.amount_iqd), 0) as refunds_iqd, count(r.id) as refund_count
       from refunds r join payments p on p.id = r.payment_id
-     where coalesce((select ts.day_session_id from till_shifts ts where ts.id = r.till_shift_id), p.day_session_id) = d.id   -- 0278 (C-31, R27)
+     where coalesce((select ts.day_session_id from till_shifts ts where ts.id = r.till_shift_id), p.day_session_id) = d.id   -- 0281 (C-31, R27)
   ) ref on true
   left join lateral (
     select coalesce(sum(a.amount_iqd), 0) as discounts_iqd,
@@ -1360,7 +1360,7 @@ select d.id as day_session_id,
 grant select on v_day_close_summary to authenticated;
 
 comment on view v_day_close_summary is
-  '0020, 0106, 0278. One row per business day: the stamped close figures, the day''s cash and card payments, the refunds made that day (C-31: dated by the till shift they were made in, else by their payment''s day), discounts, voided lines, waste, and the court desk''s own cash and card.';
+  '0020, 0106, 0281. One row per business day: the stamped close figures, the day''s cash and card payments, the refunds made that day (C-31: dated by the till shift they were made in, else by their payment''s day), discounts, voided lines, waste, and the court desk''s own cash and card.';
 
 -- close_day: re-issued from 20260926000216_day_per_venue.sql:114. The two refund
 -- sums are dated by the refund's till shift (C-31); the payment sums stay on
@@ -1373,7 +1373,7 @@ create or replace function app.close_day(
   p_device_id        text default null,
   p_venue_id         uuid default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $close_day_0278$
+language plpgsql security definer set search_path = public as $close_day_0281$
 declare
   v_day           day_sessions%rowtype;
   v_before        jsonb;
@@ -1445,13 +1445,13 @@ begin
     from payments p where p.day_session_id = v_day.id and p.method = 'cash';
   select coalesce(sum(r.amount_iqd), 0) into v_cash_refunds
     from refunds r join payments p on p.id = r.payment_id
-   where coalesce((select ts.day_session_id from till_shifts ts where ts.id = r.till_shift_id), p.day_session_id) = v_day.id   -- 0278 (C-31, R27)
+   where coalesce((select ts.day_session_id from till_shifts ts where ts.id = r.till_shift_id), p.day_session_id) = v_day.id   -- 0281 (C-31, R27)
      and p.method = 'cash';
   select coalesce(sum(p.amount_iqd), 0) into v_card_in
     from payments p where p.day_session_id = v_day.id and p.method = 'card';
   select coalesce(sum(r.amount_iqd), 0) into v_card_refunds
     from refunds r join payments p on p.id = r.payment_id
-   where coalesce((select ts.day_session_id from till_shifts ts where ts.id = r.till_shift_id), p.day_session_id) = v_day.id   -- 0278 (C-31, R27)
+   where coalesce((select ts.day_session_id from till_shifts ts where ts.id = r.till_shift_id), p.day_session_id) = v_day.id   -- 0281 (C-31, R27)
      and p.method = 'card';
 
   v_cash_expected := v_day.opening_float_iqd + v_cash_in - v_cash_refunds;
@@ -1482,16 +1482,16 @@ begin
     'card_expected_iqd', v_day.card_expected_iqd,
     'card_terminal_batch_iqd', v_day.card_terminal_batch_iqd,
     'shifts_closed_with_day', v_shifts_closed);
-end $close_day_0278$;
+end $close_day_0281$;
 
 comment on function app.close_day(bigint, bigint, text, text, uuid) is
-  '0020/0205, 0216. Manager or owner at the branch: close that branch''s open day (p_venue_id, else the station on the request / the caller''s only membership). Refuses with DAY_OPEN_TABS or DAY_UNSYNCED (that branch''s tills only); ends every open till shift of the day; stamps expected and counted cash and card. 0278 (C-31, R27): a refund counts on the day it was made: the day of the till shift it was made in, else its payment''s day; payments stay on their own day. Expected cash and card may be negative (a refund of an earlier day''s payment).';
+  '0020/0205, 0216. Manager or owner at the branch: close that branch''s open day (p_venue_id, else the station on the request / the caller''s only membership). Refuses with DAY_OPEN_TABS or DAY_UNSYNCED (that branch''s tills only); ends every open till shift of the day; stamps expected and counted cash and card. 0281 (C-31, R27): a refund counts on the day it was made: the day of the till shift it was made in, else its payment''s day; payments stay on their own day. Expected cash and card may be negative (a refund of an earlier day''s payment).';
 
 -- ops_overview: re-issued from 20260926000219_reports_venue_scope.sql:1254
 -- (R71): the live expected-cash tile dates refunds as close_day does.
 create or replace function app.ops_overview()
 returns jsonb
-language plpgsql stable security definer set search_path = public as $ops_overview_0278$
+language plpgsql stable security definer set search_path = public as $ops_overview_0281$
 declare
   v_rv uuid[] := app.report_venues();
   v_now      timestamptz := now();
@@ -1655,7 +1655,7 @@ begin
                - coalesce((select sum(rf.amount_iqd) from refunds rf
                              join payments p on p.id = rf.payment_id
                             where p.venue_id = any(v_rv) and rf.venue_id = any(v_rv)
-                              and coalesce((select ts.day_session_id from till_shifts ts where ts.id = rf.till_shift_id), p.day_session_id) = v_day.id   -- 0278 (C-31, R71)
+                              and coalesce((select ts.day_session_id from till_shifts ts where ts.id = rf.till_shift_id), p.day_session_id) = v_day.id   -- 0281 (C-31, R71)
                               and p.method = 'cash'), 0))::bigint)
       into v_close;
   else
@@ -1673,16 +1673,16 @@ begin
     'staffActivity', v_staff,
     'exceptions',    v_exc,
     'dayClose',      v_close);
-end $ops_overview_0278$;
+end $ops_overview_0281$;
 
 comment on function app.ops_overview() is
-  '0068, 0219, 0278. The operator''s Today screen for the branches in scope: today''s bookings, café, stock, staff activity and exceptions, and the open day (blocking tabs, expected cash). 0278 (C-31, R71): expectedCashIqd dates a refund by the till shift it was made in, else by its payment''s day, as close_day does.';
+  '0068, 0219, 0281. The operator''s Today screen for the branches in scope: today''s bookings, café, stock, staff activity and exceptions, and the open day (blocking tabs, expected cash). 0281 (C-31, R71): expectedCashIqd dates a refund by the till shift it was made in, else by its payment''s day, as close_day does.';
 
 -- day_close_shop: re-issued from 20260927000246_shop_products.sql:450 (R71): the
 -- shop's refunds are dated as close_day dates them.
 create or replace function app.day_close_shop(p_day_session_id uuid default null)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $day_close_shop_0278$
+language plpgsql stable security definer set search_path = public as $day_close_shop_0281$
 declare
   v_day      day_sessions%rowtype;
   v_by       jsonb;
@@ -1724,7 +1724,7 @@ begin
     join payments p on p.id = r.payment_id
     join tabs t on t.id = p.tab_id
    where t.kind = 'shop'
-     and coalesce((select ts.day_session_id from till_shifts ts where ts.id = r.till_shift_id), p.day_session_id) = v_day.id;   -- 0278 (C-31, R71)
+     and coalesce((select ts.day_session_id from till_shifts ts where ts.id = r.till_shift_id), p.day_session_id) = v_day.id;   -- 0281 (C-31, R71)
 
   select count(*) into v_settled
     from tabs t
@@ -1769,13 +1769,13 @@ begin
     'settled_sales',  v_settled,
     'open_sales',     v_open,
     'shifts',         v_shifts);
-end $day_close_shop_0278$;
+end $day_close_shop_0281$;
 
 comment on function app.day_close_shop(uuid) is
-  '0246 (Touch Shop own desk). The shop assistant, manager or owner at the day''s venue: the day close''s Shop block for p_day_session_id (default the branch''s open day, else its latest): {day_session_id, business_date, sales_iqd, by_method {cash, card, …}, refunds_iqd, net_iqd, settled_sales, open_sales [{tab_id, label, opened_at, total_iqd}] (these block close_day), shifts [{till_shift_id, station_id, staff_name, opened_at, closed_at, opening_float_iqd, cash_expected_iqd, cash_counted_iqd, cash_variance_iqd, card_payments_iqd}] (the till shifts of stations with mode shop)}. Shop sales are tabs of kind shop. FORBIDDEN, DAY_NOT_FOUND (also another branch''s). 0278 (C-31, R71): refunds_iqd counts the shop refunds made that day (the day of the till shift they were made in, else their payment''s day); sales stay on their payment''s day.';
+  '0246 (Touch Shop own desk). The shop assistant, manager or owner at the day''s venue: the day close''s Shop block for p_day_session_id (default the branch''s open day, else its latest): {day_session_id, business_date, sales_iqd, by_method {cash, card, …}, refunds_iqd, net_iqd, settled_sales, open_sales [{tab_id, label, opened_at, total_iqd}] (these block close_day), shifts [{till_shift_id, station_id, staff_name, opened_at, closed_at, opening_float_iqd, cash_expected_iqd, cash_counted_iqd, cash_variance_iqd, card_payments_iqd}] (the till shifts of stations with mode shop)}. Shop sales are tabs of kind shop. FORBIDDEN, DAY_NOT_FOUND (also another branch''s). 0281 (C-31, R71): refunds_iqd counts the shop refunds made that day (the day of the till shift they were made in, else their payment''s day); sales stay on their payment''s day.';
 
 -- till_shift_list: re-issued from 20260926000205_till_shifts.sql:901 so its
--- cross-day line keeps meaning what it says (TI6, V10). Before 0278 close_day
+-- cross-day line keeps meaning what it says (TI6, V10). Before 0281 close_day
 -- and v_day_close_summary dated every refund by its payment's day, and
 -- cross_day carried every refund made on another day than its payment's. Now a
 -- refund made in a till shift is dated by that shift's day in both, so only a
@@ -1792,7 +1792,7 @@ create or replace function app.till_shift_list(
   p_staff_id   uuid default null,
   p_venue_id   uuid default null
 ) returns jsonb
-language plpgsql stable security definer set search_path = public as $till_shift_list_0278$
+language plpgsql stable security definer set search_path = public as $till_shift_list_0281$
 declare
   v_venue   uuid;
   v_from    date;
@@ -1949,20 +1949,20 @@ begin
              'business_date',                 d.business_date,
              'earlier_days_cash_refunds_iqd', coalesce((select sum(m.amount_iqd) from made m
                                                          where m.made_day = d.id and m.paid_day <> d.id
-                                                           and m.till_shift_id is null   -- 0278 (C-31)
+                                                           and m.till_shift_id is null   -- 0281 (C-31)
                                                            and m.method = 'cash'), 0),
              'earlier_days_card_refunds_iqd', coalesce((select sum(m.amount_iqd) from made m
                                                          where m.made_day = d.id and m.paid_day <> d.id
-                                                           and m.till_shift_id is null   -- 0278 (C-31)
+                                                           and m.till_shift_id is null   -- 0281 (C-31)
                                                            and m.method = 'card'), 0),
              'later_cash_refunds_iqd',        coalesce((select sum(m.amount_iqd) from made m
                                                          where m.paid_day = d.id
-                                                           and m.till_shift_id is null   -- 0278 (C-31)
+                                                           and m.till_shift_id is null   -- 0281 (C-31)
                                                            and m.made_day is distinct from d.id
                                                            and m.method = 'cash'), 0),
              'later_card_refunds_iqd',        coalesce((select sum(m.amount_iqd) from made m
                                                          where m.paid_day = d.id
-                                                           and m.till_shift_id is null   -- 0278 (C-31)
+                                                           and m.till_shift_id is null   -- 0281 (C-31)
                                                            and m.made_day is distinct from d.id
                                                            and m.method = 'card'), 0))
              order by d.business_date), '[]'::jsonb) as j
@@ -1974,10 +1974,10 @@ begin
 
   return jsonb_build_object('from', v_from, 'to', v_to,
                             'shifts', v_shifts, 'outside', v_outside, 'cross_day', v_cross);
-end $till_shift_list_0278$;
+end $till_shift_list_0281$;
 
 comment on function app.till_shift_list(date, date, text, uuid, uuid) is
-  'till_shifts (§2.9.4, V10). Manager or owner at the venue: {from, to, shifts:[{id, day_session_id, business_date, station_id, staff_id, staff_name, opened_at, closed_at, closed_via, closed_by_name, authorized_by_name, opening_float_iqd, handover_difference_iqd, cash_payments_iqd, cash_refunds_iqd, cash_expected_iqd, cash_counted_iqd, cash_variance_iqd, card_payments_iqd, card_refunds_iqd, payment_count, refund_count, drawer_open_count, open_note, close_note}], outside:[{day_session_id, business_date, station_id, cash_payments_iqd, cash_refunds_iqd, card_payments_iqd, card_refunds_iqd, payment_count, refund_count}], cross_day:[{day_session_id, business_date, earlier_days_cash_refunds_iqd, earlier_days_card_refunds_iqd, later_cash_refunds_iqd, later_card_refunds_iqd}]} over the business days p_from..p_to (no dates: the open day, else the latest; at most 62 days). A refund belongs to the day it was made. FORBIDDEN, INVALID_ARGUMENT (hint range), VENUE_REQUIRED. 0278 (C-31): close_day and v_day_close_summary date a refund made in a till shift by that shift''s day, so cross_day counts only refunds made with no shift (still dated by their payment''s day there) on another day than their payment''s; TI6 and TI7 hold as before.';
+  'till_shifts (§2.9.4, V10). Manager or owner at the venue: {from, to, shifts:[{id, day_session_id, business_date, station_id, staff_id, staff_name, opened_at, closed_at, closed_via, closed_by_name, authorized_by_name, opening_float_iqd, handover_difference_iqd, cash_payments_iqd, cash_refunds_iqd, cash_expected_iqd, cash_counted_iqd, cash_variance_iqd, card_payments_iqd, card_refunds_iqd, payment_count, refund_count, drawer_open_count, open_note, close_note}], outside:[{day_session_id, business_date, station_id, cash_payments_iqd, cash_refunds_iqd, card_payments_iqd, card_refunds_iqd, payment_count, refund_count}], cross_day:[{day_session_id, business_date, earlier_days_cash_refunds_iqd, earlier_days_card_refunds_iqd, later_cash_refunds_iqd, later_card_refunds_iqd}]} over the business days p_from..p_to (no dates: the open day, else the latest; at most 62 days). A refund belongs to the day it was made. FORBIDDEN, INVALID_ARGUMENT (hint range), VENUE_REQUIRED. 0281 (C-31): close_day and v_day_close_summary date a refund made in a till shift by that shift''s day, so cross_day counts only refunds made with no shift (still dated by their payment''s day there) on another day than their payment''s; TI6 and TI7 hold as before.';
 
 -- ===========================================================================
 -- 7. The desk RPCs (§1.7; money.md §5.10, §5.11; R75)
@@ -1998,7 +1998,7 @@ create or replace function app.lesson_settle(
   p_idempotency_key   text default null,
   p_device_id         text default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $lesson_settle_0278$
+language plpgsql security definer set search_path = public as $lesson_settle_0281$
 declare
   v_e          lesson_enrolments%rowtype;
   v_coach      uuid;
@@ -2146,10 +2146,10 @@ begin
                           null, null, p_device_id);
   perform app.finish_replay(p_idempotency_key, v_result);
   return v_result;
-end $lesson_settle_0278$;
+end $lesson_settle_0281$;
 
 comment on function app.lesson_settle(uuid, payment_method, bigint, bigint, text, text) is
-  '0278 (money.md §5.10, CM-1). Desk payment of a lesson place: cashier, court_desk, manager, owner at the enrolment''s branch (not shop_staff), online only. Inserts one kind lesson tab (label Lesson, the branch''s open day) and settles it in the same call for what the enrolment owes now (lesson_enrolment_money owed_iqd, the compute_tab_totals lesson line). Refusals in order: FORBIDDEN; INVALID_ARGUMENT (detail p_enrolment_id, p_method, p_expected_owed_iqd >= 1, p_idempotency_key required); ENROLMENT_NOT_FOUND (unknown or outside the visible branches); VENUE_MISMATCH; a replay returns the stored result (duplicate true), IDEMPOTENCY_CONFLICT; NO_OPEN_DAY; then under the coach mutex LESSON_NOT_PAYABLE (detail held, expired, cancelled, lesson_cancelled, no_show, nothing_owed); LESSON_OWED_CHANGED (detail expected X, now Y, or tab_open); settle_tab''s TENDER_SHORT, TENDER_CARD. Writes a lesson_events row settled and the audit lesson.settle. Returns {duplicate, payment_id, tab_id, enrolment_id, amount_iqd, change_iqd, method, owed_iqd, status}.';
+  '0281 (money.md §5.10, CM-1). Desk payment of a lesson place: cashier, court_desk, manager, owner at the enrolment''s branch (not shop_staff), online only. Inserts one kind lesson tab (label Lesson, the branch''s open day) and settles it in the same call for what the enrolment owes now (lesson_enrolment_money owed_iqd, the compute_tab_totals lesson line). Refusals in order: FORBIDDEN; INVALID_ARGUMENT (detail p_enrolment_id, p_method, p_expected_owed_iqd >= 1, p_idempotency_key required); ENROLMENT_NOT_FOUND (unknown or outside the visible branches); VENUE_MISMATCH; a replay returns the stored result (duplicate true), IDEMPOTENCY_CONFLICT; NO_OPEN_DAY; then under the coach mutex LESSON_NOT_PAYABLE (detail held, expired, cancelled, lesson_cancelled, no_show, nothing_owed); LESSON_OWED_CHANGED (detail expected X, now Y, or tab_open); settle_tab''s TENDER_SHORT, TENDER_CARD. Writes a lesson_events row settled and the audit lesson.settle. Returns {duplicate, payment_id, tab_id, enrolment_id, amount_iqd, change_iqd, method, owed_iqd, status}.';
 
 revoke all on function app.lesson_settle(uuid, payment_method, bigint, bigint, text, text) from public, anon;
 grant execute on function app.lesson_settle(uuid, payment_method, bigint, bigint, text, text) to authenticated;
@@ -2162,7 +2162,7 @@ grant execute on function app.lesson_settle(uuid, payment_method, bigint, bigint
 -- guest's own booking the profile's name and phone (staff see phones; C-16
 -- limits coaches only).
 create or replace function app.lesson_refunds_due(p_venue_id uuid default null) returns jsonb
-language plpgsql stable security definer set search_path = public as $lesson_refunds_due_0278$
+language plpgsql stable security definer set search_path = public as $lesson_refunds_due_0281$
 declare
   v_venue uuid;
   v_items jsonb;
@@ -2252,10 +2252,10 @@ begin
     left join profiles p on p.id = r.guest_id;
 
   return jsonb_build_object('venue_id', v_venue, 'total_iqd', v_total, 'items', v_items);
-end $lesson_refunds_due_0278$;
+end $lesson_refunds_due_0281$;
 
 comment on function app.lesson_refunds_due(uuid) is
-  '0278 (money.md §5.11, X21, R44, R75). Manager or owner at the branch (p_venue_id, default the caller''s resolved branch; the role first, R57): the lesson money the branch owes back. {venue_id, total_iqd (Σ refund_due_desk_iqd + Σ online_blocked_iqd), items [{enrolment_id, lesson_id, course_id, kind, coach_id, coach_name_en, coach_name_ar, type_name_en, type_name_ar, start_at (a course: its first covered session), label, phone (a coach- or desk-booked student''s typed name and phone, a guest''s own booking the profile''s), cancel_kind, cancelled_at, refund_due_iqd, refund_due_desk_iqd, online_blocked_iqd, payments [{payment_id, tab_id, method, amount_iqd, refunded_iqd, refundable_iqd, created_at}]}]}, oldest lesson first. A desk item is refunded with app.refund (reason lesson_refund, up to refund_due_desk_iqd); an online_blocked_iqd item is handed back outside the till and recorded with lesson_blocked_refund_record. FORBIDDEN, VENUE_MISMATCH. Key list: COACHING_SHAPES.lesson_refunds_due.';
+  '0281 (money.md §5.11, X21, R44, R75). Manager or owner at the branch (p_venue_id, default the caller''s resolved branch; the role first, R57): the lesson money the branch owes back. {venue_id, total_iqd (Σ refund_due_desk_iqd + Σ online_blocked_iqd), items [{enrolment_id, lesson_id, course_id, kind, coach_id, coach_name_en, coach_name_ar, type_name_en, type_name_ar, start_at (a course: its first covered session), label, phone (a coach- or desk-booked student''s typed name and phone, a guest''s own booking the profile''s), cancel_kind, cancelled_at, refund_due_iqd, refund_due_desk_iqd, online_blocked_iqd, payments [{payment_id, tab_id, method, amount_iqd, refunded_iqd, refundable_iqd, created_at}]}]}, oldest lesson first. A desk item is refunded with app.refund (reason lesson_refund, up to refund_due_desk_iqd); an online_blocked_iqd item is handed back outside the till and recorded with lesson_blocked_refund_record. FORBIDDEN, VENUE_MISMATCH. Key list: COACHING_SHAPES.lesson_refunds_due.';
 
 revoke all on function app.lesson_refunds_due(uuid) from public, anon;
 grant execute on function app.lesson_refunds_due(uuid) to authenticated;
@@ -2278,7 +2278,7 @@ create or replace function app.lesson_blocked_refund_record(
   p_pin          text,
   p_device_id    text default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $lesson_blocked_refund_record_0278$
+language plpgsql security definer set search_path = public as $lesson_blocked_refund_record_0281$
 declare
   v_e       lesson_enrolments%rowtype;
   v_ref     text := nullif(btrim(p_reference), '');
@@ -2351,10 +2351,10 @@ begin
     'amount_iqd',           p_amount_iqd,
     'refunded_outside_iqd', v_e.refunded_outside_iqd::bigint,
     'online_blocked_iqd',   coalesce((v_m->>'refund_blocked_iqd')::bigint, 0));
-end $lesson_blocked_refund_record_0278$;
+end $lesson_blocked_refund_record_0281$;
 
 comment on function app.lesson_blocked_refund_record(uuid, bigint, text, text, text) is
-  '0278 (R75). Manager or owner at the enrolment''s branch, behind a manager PIN grant (PIN_GATED_RPCS): records p_amount_iqd of online lesson money handed back outside the till because its payment already had its one Qi refund. Adds to lesson_enrolments.refunded_outside_iqd (counted as refunded by the engine and the statements; never a payments or refunds row), under the coach mutex, at most the engine''s refund_blocked_iqd. Refusals in order: FORBIDDEN; INVALID_ARGUMENT (detail p_enrolment_id, p_amount_iqd >= 1, p_reference 1..80, p_reference hint digits for a run of 12 or more digits, R49/R74); ENROLMENT_NOT_FOUND; VENUE_MISMATCH; PIN_GRANT_REQUIRED; REFUND_EXCEEDS_DUE (detail due <n>). Writes a lesson_events row refunded (code outside) and the audit lesson.refund_outside with the reference. Returns {enrolment_id, amount_iqd, refunded_outside_iqd, online_blocked_iqd}.';
+  '0281 (R75). Manager or owner at the enrolment''s branch, behind a manager PIN grant (PIN_GATED_RPCS): records p_amount_iqd of online lesson money handed back outside the till because its payment already had its one Qi refund. Adds to lesson_enrolments.refunded_outside_iqd (counted as refunded by the engine and the statements; never a payments or refunds row), under the coach mutex, at most the engine''s refund_blocked_iqd. Refusals in order: FORBIDDEN; INVALID_ARGUMENT (detail p_enrolment_id, p_amount_iqd >= 1, p_reference 1..80, p_reference hint digits for a run of 12 or more digits, R49/R74); ENROLMENT_NOT_FOUND; VENUE_MISMATCH; PIN_GRANT_REQUIRED; REFUND_EXCEEDS_DUE (detail due <n>). Writes a lesson_events row refunded (code outside) and the audit lesson.refund_outside with the reference. Returns {enrolment_id, amount_iqd, refunded_outside_iqd, online_blocked_iqd}.';
 
 revoke all on function app.lesson_blocked_refund_record(uuid, bigint, text, text, text) from public, anon;
 grant execute on function app.lesson_blocked_refund_record(uuid, bigint, text, text, text) to authenticated;

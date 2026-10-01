@@ -1,14 +1,14 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0277 lesson_reservation_guards — coaching, lane DB (docs/design/coaching/db.md
+-- 0280 lesson_reservation_guards — coaching, lane DB (docs/design/coaching/db.md
 -- §4.5; build contracts §1.1, §1.8, R1, R7, R25, R35, R37, R64, R73).
 --
 -- A lesson's court row (reservations.kind 'lesson', or a 'hold' naming its
 -- lesson while a private lesson's Qi payment is open; guest_id NULL,
--- guest_name 'Lesson', lesson_id set, 0275) is taught to the reservation
+-- guest_name 'Lesson', lesson_id set, 0278) is taught to the reservation
 -- bodies. Every function keeps its signature (so its grants), is re-issued
--- verbatim from its latest body with the one change named, and says 0277 in
+-- verbatim from its latest body with the one change named, and says 0280 in
 -- its comment.
 --
 --   1. A lesson is FIRM: match_court_free_firm (0260), match_quote (0261),
@@ -38,21 +38,21 @@ set statement_timeout = '60s';
 --      RESERVATION_NOT_FOUND first; each body still takes its locks first, so
 --      the lock gate prints what it printed before.
 --
--- close_branch calls Money's app.lesson_money_open (0278) only for a branch
+-- close_branch calls Money's app.lesson_money_open (0281) only for a branch
 -- that has a lesson or a coach statement, in a nested IF (plpgsql prepares a
 -- statement when it first runs it), so a branch with no coaching closes as
--- before even where 0278 has not landed yet.
+-- before even where 0281 has not landed yet.
 
 -- ===========================================================================
 -- 1. A lesson is firm (db.md §4.5.1)
 -- ===========================================================================
 
--- match_court_free_firm: re-issued from 20260929000260_match_core.sql:508; 0277:
+-- match_court_free_firm: re-issued from 20260929000260_match_core.sql:508; 0280:
 -- a lesson counts as firm.
 create or replace function app.match_court_free_firm(p_venue uuid, p_period tstzrange, p_duration_min int,
                                                      p_need int default 1)
 returns boolean
-language sql stable security definer set search_path = public as $match_court_free_firm_0277$
+language sql stable security definer set search_path = public as $match_court_free_firm_0280$
   select count(*) >= coalesce(p_need, 1)
     from courts c
    where c.venue_id = p_venue
@@ -60,20 +60,20 @@ language sql stable security definer set search_path = public as $match_court_fr
      and p_duration_min = any (c.duration_options)
      and not exists (select 1 from reservations r
                       where r.court_id = c.id
-                        and r.kind in ('booking', 'maintenance', 'lesson')   -- 0277: a lesson is firm
+                        and r.kind in ('booking', 'maintenance', 'lesson')   -- 0280: a lesson is firm
                         and r.status in ('pending', 'confirmed', 'arrived')
                         and r.period && p_period)
-$match_court_free_firm_0277$;
+$match_court_free_firm_0280$;
 
 comment on function app.match_court_free_firm(uuid, tstzrange, int, int) is
-  '0260. Internal. True when at least p_need active courts of the branch offer p_duration_min and have no firm row (a live booking or maintenance; a hold is not firm, R22) overlapping p_period. OM-42 (start), the booking decision and the bump test read it. 0277 (db.md §4.5.1): a live lesson row is firm too (kind booking, maintenance or lesson).';
+  '0260. Internal. True when at least p_need active courts of the branch offer p_duration_min and have no firm row (a live booking or maintenance; a hold is not firm, R22) overlapping p_period. OM-42 (start), the booking decision and the bump test read it. 0280 (db.md §4.5.1): a live lesson row is firm too (kind booking, maintenance or lesson).';
 
--- match_quote: re-issued from 20260929000261_match_guest_rpcs.sql:860; 0277: a
+-- match_quote: re-issued from 20260929000261_match_guest_rpcs.sql:860; 0280: a
 -- lesson counts as firm in the free-court count.
 create or replace function app.match_quote(p_venue_id uuid, p_court_id uuid, p_start_at timestamptz,
                                            p_duration_min int)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $match_quote_0277$
+language plpgsql stable security definer set search_path = public as $match_quote_0280$
 declare
   v_p        profiles%rowtype := app.match_guest(false);
   v_court    courts%rowtype;
@@ -126,7 +126,7 @@ begin
     from courts c
    where c.venue_id = p_venue_id and c.is_active and p_duration_min = any (c.duration_options)
      and not exists (select 1 from reservations r
-                      where r.court_id = c.id and r.kind in ('booking', 'maintenance', 'lesson')   -- 0277
+                      where r.court_id = c.id and r.kind in ('booking', 'maintenance', 'lesson')   -- 0280
                         and r.status in ('pending', 'confirmed', 'arrived') and r.period && v_period);
   select count(*) into v_have from match_tickets k
    where k.guest_id = v_p.id and k.status = 'available' and k.sandbox = coalesce(v_p.payment_sandbox, false);
@@ -179,15 +179,15 @@ begin
     'filling_at_time', v_n,
     'courts_free', v_free,
     'refusal', v_refusal);
-end $match_quote_0277$;
+end $match_quote_0280$;
 
 comment on function app.match_quote(uuid, uuid, timestamptz, int) is
-  '0261 (db.md §4.6.1, guest.md §4.3). Guest: what starting an open match on this court and time would mean: {enabled, duration_min, price_iqd, shares_iqd (NULL on NO_RATE), fill_deadline_at, earliest_start_at, categories (open plus the caller''s, all three when unset), my_gender, tickets_available (own sandbox), ticket_price_iqd, seats_max 3, filling_at_time, courts_free, refusal}. refusal is the first of MATCHES_OFF, BEYOND_HORIZON, CLOSED_DATE, OUTSIDE_HOURS, SLOT_IN_PAST, MATCH_TOO_LATE, NO_RATE, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, MATCH_LIMIT_REACHED, MATCH_TIME_CLASH, SLOT_TAKEN, MATCH_SLOT_FULL (unlocked counts), never GENDER_REQUIRED or NEED_TICKETS. Raises AUTH_REQUIRED, ACCOUNT_REQUIRED, INVALID_ARGUMENT, COURT_NOT_FOUND, INVALID_DURATION. Nothing is locked or written. 0277 (db.md §4.5.1): a live lesson row is firm too (kind booking, maintenance or lesson).';
+  '0261 (db.md §4.6.1, guest.md §4.3). Guest: what starting an open match on this court and time would mean: {enabled, duration_min, price_iqd, shares_iqd (NULL on NO_RATE), fill_deadline_at, earliest_start_at, categories (open plus the caller''s, all three when unset), my_gender, tickets_available (own sandbox), ticket_price_iqd, seats_max 3, filling_at_time, courts_free, refusal}. refusal is the first of MATCHES_OFF, BEYOND_HORIZON, CLOSED_DATE, OUTSIDE_HOURS, SLOT_IN_PAST, MATCH_TOO_LATE, NO_RATE, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, MATCH_LIMIT_REACHED, MATCH_TIME_CLASH, SLOT_TAKEN, MATCH_SLOT_FULL (unlocked counts), never GENDER_REQUIRED or NEED_TICKETS. Raises AUTH_REQUIRED, ACCOUNT_REQUIRED, INVALID_ARGUMENT, COURT_NOT_FOUND, INVALID_DURATION. Nothing is locked or written. 0280 (db.md §4.5.1): a live lesson row is firm too (kind booking, maintenance or lesson).';
 
 -- desk_open_matches: re-issued from 20260929000262_match_desk_money.sql:1573;
--- 0277: courts_free_firm counts a lesson as firm.
+-- 0280: courts_free_firm counts a lesson as firm.
 create or replace function app.desk_open_matches(p_from timestamptz, p_to timestamptz) returns jsonb
-language plpgsql stable security definer set search_path = public as $desk_open_matches_0277$
+language plpgsql stable security definer set search_path = public as $desk_open_matches_0280$
 declare
   v_visible uuid[];
   v_venue   uuid;
@@ -245,7 +245,7 @@ begin
                                                and m.duration_min = any (c.duration_options)
                                                and not exists (select 1 from reservations r
                                                                 where r.court_id = c.id
-                                                                  and r.kind in ('booking', 'maintenance', 'lesson')   -- 0277
+                                                                  and r.kind in ('booking', 'maintenance', 'lesson')   -- 0280
                                                                   and r.status in ('pending', 'confirmed', 'arrived')
                                                                   and r.period && m.period)),
                        'courts_total', (select count(*) from courts c
@@ -258,15 +258,15 @@ begin
                  and (m.status in ('filling', 'awaiting_court')
                       or (m.status = 'booked' and now() < m.end_at
                           and cardinality(app.match_desk_numbers(m)) > 0))) x), '[]'::jsonb));
-end $desk_open_matches_0277$;
+end $desk_open_matches_0280$;
 
 comment on function app.desk_open_matches(timestamptz, timestamptz) is
-  '0262 (db.md §4.7.1 = operator.md §5.6.1, D12, D18). Desk (court_desk, manager, owner): {matches_enabled, fill_deadline_minutes, earliest_start_minutes (deadline + 60, OM-43), ticket_price_iqd, server_now, matches[]} for the branch in scope (app.resolve_venue; NULL = every visible branch, and the branch settings NULL). Rows: non-sandbox matches starting in [p_from, p_to) that are filling, awaiting_court, or booked with a number open for the desk before end_at: {match_id, venue_id, status, start_at, end_at, duration_min, category, join_policy, visibility, seats_taken (in or attended carriers), seats_left (numbers open for the desk), requests_pending, fill_deadline_at, organised_by, organiser {customer_id, full_name, phone} | null, price_iqd, shares_iqd, courts_free_firm, courts_total (active courts offering the length)}. INVALID_ARGUMENT for a NULL or a window over 3 days. 0277 (db.md §4.5.1): a live lesson row is firm too (kind booking, maintenance or lesson).';
+  '0262 (db.md §4.7.1 = operator.md §5.6.1, D12, D18). Desk (court_desk, manager, owner): {matches_enabled, fill_deadline_minutes, earliest_start_minutes (deadline + 60, OM-43), ticket_price_iqd, server_now, matches[]} for the branch in scope (app.resolve_venue; NULL = every visible branch, and the branch settings NULL). Rows: non-sandbox matches starting in [p_from, p_to) that are filling, awaiting_court, or booked with a number open for the desk before end_at: {match_id, venue_id, status, start_at, end_at, duration_min, category, join_policy, visibility, seats_taken (in or attended carriers), seats_left (numbers open for the desk), requests_pending, fill_deadline_at, organised_by, organiser {customer_id, full_name, phone} | null, price_iqd, shares_iqd, courts_free_firm, courts_total (active courts offering the length)}. INVALID_ARGUMENT for a NULL or a window over 3 days. 0280 (db.md §4.5.1): a live lesson row is firm too (kind booking, maintenance or lesson).';
 
 -- desk_match_detail: re-issued from 20260929000262_match_desk_money.sql:1707;
--- 0277: courts_free_firm counts a lesson as firm.
+-- 0280: courts_free_firm counts a lesson as firm.
 create or replace function app.desk_match_detail(p_match_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = public as $desk_match_detail_0277$
+language plpgsql stable security definer set search_path = public as $desk_match_detail_0280$
 declare
   v_m         matches%rowtype;
   v_r         reservations%rowtype;
@@ -321,7 +321,7 @@ begin
     from app.match_carriers(v_m.id) c;
   select count(*) filter (where not exists (select 1 from reservations r
                                              where r.court_id = c.id
-                                               and r.kind in ('booking', 'maintenance', 'lesson')   -- 0277
+                                               and r.kind in ('booking', 'maintenance', 'lesson')   -- 0280
                                                and r.status in ('pending', 'confirmed', 'arrived')
                                                and r.period && v_m.period)),
          count(*)
@@ -542,10 +542,10 @@ begin
                   where x.value->>'kind' = 'vacant'),
       'unassigned', coalesce(v_money->'unassigned', '[]'::jsonb)) end,
     'events', v_events);
-end $desk_match_detail_0277$;
+end $desk_match_detail_0280$;
 
 comment on function app.desk_match_detail(uuid) is
-  '0262 (db.md §4.7.3 = operator.md §5.6.3, D20, R31). Desk: one match. MATCH_NOT_FOUND when unknown, sandbox or outside the visible branches. {match {id, venue_id, status, ended_reason, start_at, end_at, duration_min, category, join_policy, visibility, price_iqd, shares_iqd, fill_deadline_at, share_token, organised_by, organiser_seat_id, organiser {customer_id, full_name, phone, flags} | null, reservation_id, reservation_status, court_id, court_name_en, court_name_ar (the booked court), sandbox, courts_free_firm, courts_total, started, marks_open, server_now, can {add_seat, cancel, call_off}}, seats[] (carriers by number, then ended seats: identity, holder and companion for friends and nameless desk extras, gender and gender_source, flags, marks, replacement links, ticket {ticket_id, status in_use|forfeited|released} | null, write_off_reason, money (Money''s match_seat_money row) | null, can {mark_attended, mark_no_show, unmark, remove_reasons[], take_share, write_off, replace}), requests[] (pending, with OM-41''s games_played and no_shows), money (app.match_money''s top level with vacant[] and unassigned[]) | null while there is no booking, events[] (the last 50, newest first, with the actor''s name)}. Staff see names and phones; players never read this. 0277 (db.md §4.5.1): a live lesson row is firm too (kind booking, maintenance or lesson).';
+  '0262 (db.md §4.7.3 = operator.md §5.6.3, D20, R31). Desk: one match. MATCH_NOT_FOUND when unknown, sandbox or outside the visible branches. {match {id, venue_id, status, ended_reason, start_at, end_at, duration_min, category, join_policy, visibility, price_iqd, shares_iqd, fill_deadline_at, share_token, organised_by, organiser_seat_id, organiser {customer_id, full_name, phone, flags} | null, reservation_id, reservation_status, court_id, court_name_en, court_name_ar (the booked court), sandbox, courts_free_firm, courts_total, started, marks_open, server_now, can {add_seat, cancel, call_off}}, seats[] (carriers by number, then ended seats: identity, holder and companion for friends and nameless desk extras, gender and gender_source, flags, marks, replacement links, ticket {ticket_id, status in_use|forfeited|released} | null, write_off_reason, money (Money''s match_seat_money row) | null, can {mark_attended, mark_no_show, unmark, remove_reasons[], take_share, write_off, replace}), requests[] (pending, with OM-41''s games_played and no_shows), money (app.match_money''s top level with vacant[] and unassigned[]) | null while there is no booking, events[] (the last 50, newest first, with the actor''s name)}. Staff see names and phones; players never read this. 0280 (db.md §4.5.1): a live lesson row is firm too (kind booking, maintenance or lesson).';
 
 -- ===========================================================================
 -- 2. The reservation trigger fires for a lesson row (db.md §4.5.1)
@@ -563,7 +563,7 @@ create trigger reservations_match
   execute function app.trg_reservation_match();
 
 comment on function app.trg_reservation_match() is
-  '0263, 0277. Internal (db.md §4.8.1, coaching db.md §4.5.1). Trigger reservations_match, after insert or update of kind, status, court_id, start_at, end_at on a booking, maintenance or lesson row (0277: a lesson''s court row is firm). Part A, a match''s own booking (UPDATE; waits for the branch mutex; errors propagate): cancelled -> match_end cancelled (reservation_cancelled; actor staff when cancelled_by is staff), completed -> match_end played (R37 auto-attend), no_show -> MATCH_MARK_SEATS, moved or extended -> the match''s times follow (event moved {court_id}); a lesson row books no match, so part A never runs for it. Part B, a newly firm or moved live row (a lesson''s hold row becoming kind lesson included): the branch''s non-sandbox filling and awaiting_court matches over its period with no firm-free court left are bumped (match_end bumped), except the match app.match_booking names; the mutex is only try-locked, a busy branch and any error are a warning and the sweep follows (D-2). Sets app.venue_id to the row''s branch and restores it.';
+  '0263, 0280. Internal (db.md §4.8.1, coaching db.md §4.5.1). Trigger reservations_match, after insert or update of kind, status, court_id, start_at, end_at on a booking, maintenance or lesson row (0280: a lesson''s court row is firm). Part A, a match''s own booking (UPDATE; waits for the branch mutex; errors propagate): cancelled -> match_end cancelled (reservation_cancelled; actor staff when cancelled_by is staff), completed -> match_end played (R37 auto-attend), no_show -> MATCH_MARK_SEATS, moved or extended -> the match''s times follow (event moved {court_id}); a lesson row books no match, so part A never runs for it. Part B, a newly firm or moved live row (a lesson''s hold row becoming kind lesson included): the branch''s non-sandbox filling and awaiting_court matches over its period with no firm-free court left are bumped (match_end bumped), except the match app.match_booking names; the mutex is only try-locked, a busy branch and any error are a warning and the sweep follows (D-2). Sets app.venue_id to the row''s branch and restores it.';
 
 -- ===========================================================================
 -- 3. court_availability shows a lesson as a booking (db.md §4.5.1)
@@ -586,7 +586,7 @@ select court_id,
 grant select on court_availability to anon, authenticated;
 
 comment on view court_availability is
-  '0008, 0277. The booking surface''s free/busy: every live reservation (a hold only until its TTL) as court, start, end and kind, with no guest, price or note. 0277: a lesson''s court row reads as a booking (a held private lesson as a hold). Owner rights on purpose (scripts/check-db-invariants.mjs AUDITED_OWNER_RIGHTS_VIEWS).';
+  '0008, 0280. The booking surface''s free/busy: every live reservation (a hold only until its TTL) as court, start, end and kind, with no guest, price or note. 0280: a lesson''s court row reads as a booking (a held private lesson as a hold). Owner rights on purpose (scripts/check-db-invariants.mjs AUDITED_OWNER_RIGHTS_VIEWS).';
 
 -- ===========================================================================
 -- 4. A lesson's court hold is not an orphan (R1, R25; db.md §4.5.2)
@@ -594,7 +594,7 @@ comment on view court_availability is
 -- expire_stale_holds (20261001000268_hold_sweep_split.sql:33) and its twin
 -- match_expire_holds (0268:71), re-issued together as the twin's comment asks.
 -- Only the orphan clause changes: a pending hold with no guest is an orphan
--- unless it names a lesson (the 0275 widening of reservations_live_hold_has_guest).
+-- unless it names a lesson (the 0278 widening of reservations_live_hold_has_guest).
 -- A lapsed lesson hold expires by TTL like any hold: at its hold_expires_at, or
 -- later while its payment is open (the same open-payment skip as a deposit
 -- hold). Same id-ordered single statement, same grants (create or replace keeps
@@ -603,7 +603,7 @@ create or replace function app.expire_stale_holds(
   p_court_id uuid default null,
   p_period   tstzrange default null
 ) returns int
-language plpgsql security definer set search_path = public as $expire_stale_holds_0277$
+language plpgsql security definer set search_path = public as $expire_stale_holds_0280$
 declare v_count int;
 begin
   update reservations
@@ -612,7 +612,7 @@ begin
      select r.id from reservations r
       where r.kind = 'hold' and r.status = 'pending'
         and (r.hold_expires_at < now() or (r.guest_id is null and r.lesson_id is null))   -- 0071 (SEC-07): orphans too;
-                                                                                          -- 0277 (R25): a lesson's court hold is no orphan
+                                                                                          -- 0280 (R25): a lesson's court hold is no orphan
         and (p_court_id is null or r.court_id = p_court_id)
         and (p_period is null or r.period && p_period)
         and not exists (select 1 from booking_payments bp
@@ -624,15 +624,15 @@ begin
    );
   get diagnostics v_count = row_count;
   return v_count;
-end $expire_stale_holds_0277$;
+end $expire_stale_holds_0280$;
 
 comment on function app.expire_stale_holds(uuid, tstzrange) is
-  '0071: expires holds past their TTL AND orphan holds (guest_id is null), which no caller can release through app.release_hold and which would otherwise occupy the court until TTL. 0242: skips a hold whose online payment is still open, until ten minutes after that payment''s deadline. 0268: only expires — strikes are settled by the tp_hold_strikes cron (app.hold_strikes_settle) in a transaction of their own — and is no longer granted to clients. 0277 (R25): a pending hold that names a lesson (reservations.lesson_id, a private lesson''s court hold while its Qi payment is open) is not an orphan: it expires by its TTL like any hold, and its open payment holds it as a deposit''s does.';
+  '0071: expires holds past their TTL AND orphan holds (guest_id is null), which no caller can release through app.release_hold and which would otherwise occupy the court until TTL. 0242: skips a hold whose online payment is still open, until ten minutes after that payment''s deadline. 0268: only expires — strikes are settled by the tp_hold_strikes cron (app.hold_strikes_settle) in a transaction of their own — and is no longer granted to clients. 0280 (R25): a pending hold that names a lesson (reservations.lesson_id, a private lesson''s court hold while its Qi payment is open) is not an orphan: it expires by its TTL like any hold, and its open payment holds it as a deposit''s does.';
 
 -- match_expire_holds: re-issued from 20261001000268_hold_sweep_split.sql:71 with
 -- the same one-line change.
 create or replace function app.match_expire_holds(p_venue uuid, p_period tstzrange) returns int
-language plpgsql security definer set search_path = public as $match_expire_holds_0277$
+language plpgsql security definer set search_path = public as $match_expire_holds_0280$
 declare
   v_count int;
 begin
@@ -642,7 +642,7 @@ begin
      select r.id from reservations r
       where r.kind = 'hold' and r.status = 'pending'
         and (r.hold_expires_at < now() or (r.guest_id is null and r.lesson_id is null))   -- 0071 (SEC-07): orphans too;
-                                                                                          -- 0277 (R25): a lesson's court hold is no orphan
+                                                                                          -- 0280 (R25): a lesson's court hold is no orphan
         and r.venue_id = p_venue
         and (p_period is null or r.period && p_period)
         and not exists (select 1 from booking_payments bp
@@ -654,10 +654,10 @@ begin
    );
   get diagnostics v_count = row_count;
   return v_count;
-end $match_expire_holds_0277$;
+end $match_expire_holds_0280$;
 
 comment on function app.match_expire_holds(uuid, tstzrange) is
-  '0260. Internal. The branch-scoped twin of app.expire_stale_holds (0242, 0252): expires the branch''s stale and orphan holds overlapping p_period in ONE id-ordered statement, skipping a hold whose online payment is still open. Settles no hold-ladder strike: like expire_stale_holds with arguments, it leaves a lapse to the guest''s next hold_slot or to tp_hold_sweep (0252). Whoever re-issues expire_stale_holds re-issues this in the same file (a test pins the two to the same rows). 0277 (R25): like expire_stale_holds, a pending hold that names a lesson is not an orphan; it expires by its TTL.';
+  '0260. Internal. The branch-scoped twin of app.expire_stale_holds (0242, 0252): expires the branch''s stale and orphan holds overlapping p_period in ONE id-ordered statement, skipping a hold whose online payment is still open. Settles no hold-ladder strike: like expire_stale_holds with arguments, it leaves a lapse to the guest''s next hold_slot or to tp_hold_sweep (0252). Whoever re-issues expire_stale_holds re-issues this in the same file (a test pins the two to the same rows). 0280 (R25): like expire_stale_holds, a pending hold that names a lesson is not an orphan; it expires by its TTL.';
 
 -- ===========================================================================
 -- 5. close_branch (db.md §4.5.1, R37)
@@ -673,7 +673,7 @@ create or replace function app.close_branch(p_venue uuid)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
-AS $close_branch_0277$
+AS $close_branch_0280$
 declare
   v_old venues%rowtype;
   v_row venues%rowtype;
@@ -706,7 +706,7 @@ begin
   select count(*) into v_n
     from reservations r
    where r.venue_id = p_venue
-     and r.kind in ('booking', 'hold', 'lesson')   -- 0277: a lesson's court row is a booking to come
+     and r.kind in ('booking', 'hold', 'lesson')   -- 0280: a lesson's court row is a booking to come
      and r.status in ('pending', 'confirmed')
      and r.end_at > now();
   v_n := v_n + (select count(*) from reservation_series s
@@ -717,8 +717,8 @@ begin
       hint = 'cancel or move the branch''s bookings, lessons, holds and series first';
   end if;
 
-  -- 0277 (R37): coaching money still to settle. Money's app.lesson_money_open
-  -- (0278) is true while the branch has a draft or approved coach statement, a
+  -- 0280 (R37): coaching money still to settle. Money's app.lesson_money_open
+  -- (0281) is true while the branch has a draft or approved coach statement, a
   -- statement lesson in a month with no non-void statement, or an enrolment
   -- whose lesson money is still due back at the till (or blocked on Qi). The
   -- outer test keeps the call off a branch that never had a lesson or a
@@ -747,10 +747,10 @@ begin
 
   update venues set status = 'closed' where id = p_venue returning * into v_row;
   return v_row;
-end $close_branch_0277$;
+end $close_branch_0280$;
 
 comment on function app.close_branch(uuid) is
-  '0223 (MV4). Owner-only: close a branch (never deleted). Refuses the last open branch (LAST_OPEN_BRANCH) and a branch whose day is still open (BRANCH_DAY_OPEN). Audited as venue.close. 0277: live lessons count with the bookings (BRANCH_HAS_BOOKINGS, detail the count); R37: a branch with coaching money to settle (a draft or approved coach statement, an undrafted month of statement lessons, a lesson refund still due at the till or blocked on Qi; app.lesson_money_open) is refused BRANCH_HAS_BOOKINGS detail coaching_money.';
+  '0223 (MV4). Owner-only: close a branch (never deleted). Refuses the last open branch (LAST_OPEN_BRANCH) and a branch whose day is still open (BRANCH_DAY_OPEN). Audited as venue.close. 0280: live lessons count with the bookings (BRANCH_HAS_BOOKINGS, detail the count); R37: a branch with coaching money to settle (a draft or approved coach statement, an undrafted month of statement lessons, a lesson refund still due at the till or blocked on Qi; app.lesson_money_open) is refused BRANCH_HAS_BOOKINGS detail coaching_money.';
 
 -- ===========================================================================
 -- 6. LESSON_VIA_COACHING (R7, R35, R73; db.md §4.5.3, §4.5.4)
@@ -764,7 +764,7 @@ create or replace function app.cancel_reservation(
   p_reservation_id uuid,
   p_reason         text default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $cancel_reservation_0277$
+language plpgsql security definer set search_path = public as $cancel_reservation_0280$
 declare
   v        reservations%rowtype;
   v_before jsonb;
@@ -784,7 +784,7 @@ begin
   end if;
 
   v_staff := app.is_staff('court_desk','manager','owner');
-  -- 0277 (R7, db.md §4.5.3): a lesson is cancelled through the coaching RPCs
+  -- 0280 (R7, db.md §4.5.3): a lesson is cancelled through the coaching RPCs
   -- (desk_cancel_lesson and friends), which refund and notify its students.
   if v_staff and v.lesson_id is not null then
     raise exception 'LESSON_VIA_COACHING' using errcode = 'P0001', detail = 'cancel',
@@ -820,10 +820,10 @@ begin
 
   return jsonb_build_object('reservation_id', v.id, 'status', v.status,
                             'cancelled_by', v.cancelled_by);
-end $cancel_reservation_0277$;
+end $cancel_reservation_0280$;
 
 comment on function app.cancel_reservation(uuid, text) is
-  '0088 = 0008 + the actor. Guest cancels an OWN booking outside cancellation_window_hours; staff cancel any live booking. Stamps reservations.cancelled_by from the same staff check the policy branch already makes, so the guest can be told whether they cancelled it or the venue did. 0277: a lesson''s court row (lesson_id set) is refused to staff with LESSON_VIA_COACHING detail cancel; a guest gets FORBIDDEN from the ownership check as for any row that is not theirs.';
+  '0088 = 0008 + the actor. Guest cancels an OWN booking outside cancellation_window_hours; staff cancel any live booking. Stamps reservations.cancelled_by from the same staff check the policy branch already makes, so the guest can be told whether they cancelled it or the venue did. 0280: a lesson''s court row (lesson_id set) is refused to staff with LESSON_VIA_COACHING detail cancel; a guest gets FORBIDDEN from the ownership check as for any row that is not theirs.';
 
 -- mark_reservation: re-issued from 20260929000262_match_desk_money.sql:3232.
 -- Right after RESERVATION_NOT_FOUND, before MATCH_MARK_SEATS, for every status:
@@ -833,7 +833,7 @@ create or replace function app.mark_reservation(
   p_status         reservation_status,
   p_reason         text default 'staff_op'      -- recorded in the audit row (0026)
 ) returns jsonb
-language plpgsql security definer set search_path = public as $mark_reservation_0277$
+language plpgsql security definer set search_path = public as $mark_reservation_0280$
 declare
   v        reservations%rowtype;
   v_before jsonb;
@@ -847,7 +847,7 @@ begin
   if not found then
     raise exception 'RESERVATION_NOT_FOUND' using errcode = 'P0001';
   end if;
-  -- 0277 (R7, R35, db.md §4.5.3): a lesson's court row is changed only through
+  -- 0280 (R7, R35, db.md §4.5.3): a lesson's court row is changed only through
   -- the coaching RPCs (the lesson screen), queued or not.
   if v.lesson_id is not null then
     raise exception 'LESSON_VIA_COACHING' using errcode = 'P0001', detail = 'mark',
@@ -899,10 +899,10 @@ begin
                           coalesce(p_reason, 'staff_op'));
 
   return jsonb_build_object('reservation_id', v.id, 'status', v.status);
-end $mark_reservation_0277$;
+end $mark_reservation_0280$;
 
 comment on function app.mark_reservation(uuid, reservation_status, text) is
-  '0262 = the 0089 body (0076 = 0075 + 0071/SEC-11) plus one refusal: no_show on a booking that is an open match''s reservation_id is MATCH_MARK_SEATS, whatever the match''s status (marks are per seat, mark_match_seats). arrived / no_show / completed. The two ENDINGS stamp cancelled_at (a no_show also stamps cancellation_reason) AND are refused before start_at with RESERVATION_NOT_STARTED, because both leave the exclusion set and would free a future court for resale. A no_show is not a cancellation: the reports count them separately. 0277: a lesson''s court row is refused LESSON_VIA_COACHING detail mark, whatever the status (attendance is per student, completion is the lesson sweep''s).';
+  '0262 = the 0089 body (0076 = 0075 + 0071/SEC-11) plus one refusal: no_show on a booking that is an open match''s reservation_id is MATCH_MARK_SEATS, whatever the match''s status (marks are per seat, mark_match_seats). arrived / no_show / completed. The two ENDINGS stamp cancelled_at (a no_show also stamps cancellation_reason) AND are refused before start_at with RESERVATION_NOT_STARTED, because both leave the exclusion set and would free a future court for resale. A no_show is not a cancellation: the reports count them separately. 0280: a lesson''s court row is refused LESSON_VIA_COACHING detail mark, whatever the status (attendance is per student, completion is the lesson sweep''s).';
 
 -- extend_reservation: re-issued from 20260906000071_booking_integrity.sql:444.
 -- After the FOR UPDATE read (under the court lock) and its RESERVATION_NOT_FOUND.
@@ -911,7 +911,7 @@ create or replace function app.extend_reservation(
   p_new_end_at     timestamptz,
   p_reason         text default 'staff_op'
 ) returns jsonb
-language plpgsql security definer set search_path = public as $extend_reservation_0277$
+language plpgsql security definer set search_path = public as $extend_reservation_0280$
 declare
   v          reservations%rowtype;
   v_before   jsonb;
@@ -937,7 +937,7 @@ begin
   if not found then
     raise exception 'RESERVATION_NOT_FOUND' using errcode = 'P0001';
   end if;
-  -- 0277 (R7, R35, db.md §4.5.3): a lesson's court row is changed only through
+  -- 0280 (R7, R35, db.md §4.5.3): a lesson's court row is changed only through
   -- the coaching RPCs (the lesson screen), queued or not.
   if v.lesson_id is not null then
     raise exception 'LESSON_VIA_COACHING' using errcode = 'P0001', detail = 'extend',
@@ -1013,10 +1013,10 @@ begin
   return jsonb_build_object('reservation_id', v.id, 'end_at', v.end_at,
     'rate_rule_id', v.rate_rule_id, 'price_iqd', v.price_iqd,
     'price_before', v_was, 'price_changed', (v.price_iqd is distinct from v_was));
-end $extend_reservation_0277$;
+end $extend_reservation_0280$;
 
 comment on function app.extend_reservation(uuid, timestamptz, text) is
-  '0071 (SEC-09), 0277. Desk (court_desk, manager, owner): extends a live reservation to p_new_end_at under its court lock, re-priced by its rate rule (a manual override kept); a price change needs a reason (REASON_REQUIRED). RESERVATION_NOT_FOUND, NOT_EXTENDABLE, INVALID_RANGE, RESERVATION_MOVED (40001), NO_RATE, SLOT_TAKEN. 0277: a lesson''s court row is refused LESSON_VIA_COACHING detail extend (a lesson keeps its length).';
+  '0071 (SEC-09), 0280. Desk (court_desk, manager, owner): extends a live reservation to p_new_end_at under its court lock, re-priced by its rate rule (a manual override kept); a price change needs a reason (REASON_REQUIRED). RESERVATION_NOT_FOUND, NOT_EXTENDABLE, INVALID_RANGE, RESERVATION_MOVED (40001), NO_RATE, SLOT_TAKEN. 0280: a lesson''s court row is refused LESSON_VIA_COACHING detail extend (a lesson keeps its length).';
 
 -- staff_create_reservation: re-issued from 20260929000263_match_reservation_triggers.sql:443.
 -- After the branch block, before INVALID_RANGE. It never sets lesson_id, so it
@@ -1040,7 +1040,7 @@ create or replace function app.staff_create_reservation(
   -- dropped by a later migration once every till and app build is past 0147.
   p_players            int default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $staff_create_reservation_0277$
+language plpgsql security definer set search_path = public as $staff_create_reservation_0280$
 declare
   v_venue uuid;
   v_status   reservation_status;
@@ -1063,7 +1063,7 @@ begin
     end if;
     perform set_config('app.venue_id', v_venue::text, true);
   end if;
-  -- 0277 (db.md §4.5.3): a lesson is booked through the coaching RPCs, which
+  -- 0280 (db.md §4.5.3): a lesson is booked through the coaching RPCs, which
   -- take the coach and pick the court (desk_book_lesson and friends).
   if p_kind = 'lesson' then
     raise exception 'LESSON_VIA_COACHING' using errcode = 'P0001', detail = 'create',
@@ -1183,10 +1183,10 @@ begin
 
   return jsonb_build_object('duplicate', false, 'reservation_id', v_res.id,
     'status', v_res.status, 'rate_rule_id', v_rule, 'price_iqd', v_price);
-end $staff_create_reservation_0277$;
+end $staff_create_reservation_0280$;
 
 comment on function app.staff_create_reservation(uuid, reservation_kind, timestamptz, timestamptz, text, text, uuid, text, text, text, text, bigint, int) is
-  'Desk (court_desk, manager, owner at the court''s branch, 0217): creates a booking, hold or maintenance row; serialised on the court (0042) with lazy hold expiry; a booking is priced by its rate rule, or by p_price_override_iqd (manager, owner; audited). 0263 (R22): a court an awaiting_court open match could still book is refused SLOT_TAKEN detail match_waiting (app.match_court_claimed), for every kind, so series (create_series) too; not while the branch is degraded with the match inside protected_horizon_hours (the sweep does not book it there; the new row bumps it instead). p_players is accepted and ignored (0147). 0277: p_kind lesson is refused LESSON_VIA_COACHING detail create (lessons are booked through the coaching RPCs).';
+  'Desk (court_desk, manager, owner at the court''s branch, 0217): creates a booking, hold or maintenance row; serialised on the court (0042) with lazy hold expiry; a booking is priced by its rate rule, or by p_price_override_iqd (manager, owner; audited). 0263 (R22): a court an awaiting_court open match could still book is refused SLOT_TAKEN detail match_waiting (app.match_court_claimed), for every kind, so series (create_series) too; not while the branch is degraded with the match inside protected_horizon_hours (the sweep does not book it there; the new row bumps it instead). p_players is accepted and ignored (0147). 0280: p_kind lesson is refused LESSON_VIA_COACHING detail create (lessons are booked through the coaching RPCs).';
 
 -- open_tab: re-issued from 20260927000244_shop_desk_access.sql:70. In the
 -- p_reservation_id branch the read also takes lesson_id; a lesson row is
@@ -1200,7 +1200,7 @@ create or replace function app.open_tab(
   p_device_id       text default null,
   p_kind            text default 'cafe'
 ) returns jsonb
-language plpgsql security definer set search_path = public as $open_tab_0277$
+language plpgsql security definer set search_path = public as $open_tab_0280$
 declare
   v_venue uuid;
   v_day        uuid;
@@ -1210,7 +1210,7 @@ declare
   v_live       uuid;
   v_constraint text;
   v_kind       text := coalesce(p_kind, 'cafe');
-  v_lesson     uuid;   -- 0277
+  v_lesson     uuid;   -- 0280
 begin
   if not app.is_staff('cashier','court_desk','manager','owner','shop_staff') then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
@@ -1259,7 +1259,7 @@ begin
     if not found then
       raise exception 'RESERVATION_NOT_FOUND' using errcode = 'P0001';
     end if;
-    -- 0277 (db.md §4.5.3): a lesson is paid on its own bill (lesson_settle),
+    -- 0280 (db.md §4.5.3): a lesson is paid on its own bill (lesson_settle),
     -- never on a tab opened against its court row.
     if v_lesson is not null then
       raise exception 'LESSON_VIA_COACHING' using errcode = 'P0001', detail = 'tab',
@@ -1325,10 +1325,10 @@ begin
   end;
 
   return jsonb_build_object('duplicate', false, 'tab_id', v_row.id);
-end $open_tab_0277$;
+end $open_tab_0280$;
 
 comment on function app.open_tab(uuid, text, uuid, text, text, text) is
-  '0106, 0145, 0217, 0244, 0277. Opens a staff tab at the branch of its table or booking (VENUE_MISMATCH elsewhere): kind cafe (cashier, court_desk, manager, owner; a table or a booking is its anchor, TAB_ANCHOR_REQUIRED) or shop (shop_staff, manager, owner; no anchor, a label, SHOP_TAB_NO_ANCHOR, LABEL_REQUIRED); any other p_kind is INVALID_ARGUMENT. A booking takes at most one live tab (BOOKING_TAB_OPEN, detail = that tab id) and an ended booking none (RESERVATION_NOT_LIVE). NO_OPEN_DAY, TABLE_NOT_FOUND, RESERVATION_NOT_FOUND, IDEMPOTENCY_CONFLICT. 0277: a tab against a lesson''s court row is refused LESSON_VIA_COACHING detail tab: a lesson is paid on its own kind lesson tab (lesson_settle).';
+  '0106, 0145, 0217, 0244, 0280. Opens a staff tab at the branch of its table or booking (VENUE_MISMATCH elsewhere): kind cafe (cashier, court_desk, manager, owner; a table or a booking is its anchor, TAB_ANCHOR_REQUIRED) or shop (shop_staff, manager, owner; no anchor, a label, SHOP_TAB_NO_ANCHOR, LABEL_REQUIRED); any other p_kind is INVALID_ARGUMENT. A booking takes at most one live tab (BOOKING_TAB_OPEN, detail = that tab id) and an ended booking none (RESERVATION_NOT_LIVE). NO_OPEN_DAY, TABLE_NOT_FOUND, RESERVATION_NOT_FOUND, IDEMPOTENCY_CONFLICT. 0280: a tab against a lesson''s court row is refused LESSON_VIA_COACHING detail tab: a lesson is paid on its own kind lesson tab (lesson_settle).';
 
 -- confirm_booking: re-issued from 20260927000242_online_deposit_rpcs.sql:1304
 -- (R35). After the FOR UPDATE read and the ownership check: staff are refused
@@ -1343,7 +1343,7 @@ create or replace function app.confirm_booking(
   -- dropped by a later migration once every till and app build is past 0147.
   p_players     int  default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $confirm_booking_0277$
+language plpgsql security definer set search_path = public as $confirm_booking_0280$
 declare
   v_uid    uuid := auth.uid();
   v        reservations%rowtype;
@@ -1365,7 +1365,7 @@ begin
      and v.guest_id is distinct from v_uid then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
-  -- 0277 (R7, R35, db.md §4.5.3): a lesson's court row is changed only through
+  -- 0280 (R7, R35, db.md §4.5.3): a lesson's court row is changed only through
   -- the coaching RPCs (the lesson screen), queued or not.
   if v.lesson_id is not null then
     raise exception 'LESSON_VIA_COACHING' using errcode = 'P0001', detail = 'confirm',
@@ -1454,14 +1454,14 @@ begin
 
   return jsonb_build_object('duplicate', false, 'reservation_id', v.id,
     'rate_rule_id', v.rate_rule_id, 'price_iqd', v.price_iqd);
-end $confirm_booking_0277$;
+end $confirm_booking_0280$;
 
 comment on function app.confirm_booking(uuid, text, text, int) is
-  '0092, 0242, 0277. Turns a live hold into a confirmed booking at the price its rate rule names now: the hold''s own guest (PHONE_REQUIRED, the degraded guard, DEPOSIT_REQUIRED when the branch asks for a deposit, PRICE_CHANGED when the quoted price moved) or the desk (court_desk, manager, owner). HOLD_NOT_FOUND, FORBIDDEN (not the guest''s hold), HOLD_EXPIRED, GUEST_REQUIRED, NO_RATE; a confirmed booking answers duplicate. 0277 (R35): a lesson''s court hold is refused LESSON_VIA_COACHING detail confirm (Money''s payment success confirms it); a guest gets FORBIDDEN from ownership first.';
+  '0092, 0242, 0280. Turns a live hold into a confirmed booking at the price its rate rule names now: the hold''s own guest (PHONE_REQUIRED, the degraded guard, DEPOSIT_REQUIRED when the branch asks for a deposit, PRICE_CHANGED when the quoted price moved) or the desk (court_desk, manager, owner). HOLD_NOT_FOUND, FORBIDDEN (not the guest''s hold), HOLD_EXPIRED, GUEST_REQUIRED, NO_RATE; a confirmed booking answers duplicate. 0280 (R35): a lesson''s court hold is refused LESSON_VIA_COACHING detail confirm (Money''s payment success confirms it); a guest gets FORBIDDEN from ownership first.';
 
 -- move_reservation: re-issued from 20260923000150_move_not_into_past.sql:37 (R7).
 -- After INVALID_RANGE and before RESERVATION_IN_PAST, whatever the new court
--- and times: desk_move_lesson_court (0280) is the only way to move a lesson's
+-- and times: desk_move_lesson_court (0283) is the only way to move a lesson's
 -- court, and a lesson moves in time through its reschedule.
 create or replace function app.move_reservation(
   p_reservation_id uuid,
@@ -1470,7 +1470,7 @@ create or replace function app.move_reservation(
   p_end_at         timestamptz default null,
   p_reason         text default 'staff_op'
 ) returns jsonb
-language plpgsql security definer set search_path = public as $move_reservation_0277$
+language plpgsql security definer set search_path = public as $move_reservation_0280$
 declare
   v          reservations%rowtype;
   v_before   jsonb;
@@ -1531,7 +1531,7 @@ begin
     raise exception 'INVALID_RANGE' using errcode = 'P0001';
   end if;
 
-  -- 0277 (R7, R35, db.md §4.5.3): a lesson's court row is changed only through
+  -- 0280 (R7, R35, db.md §4.5.3): a lesson's court row is changed only through
   -- the coaching RPCs (the lesson screen), queued or not.
   if v.lesson_id is not null then
     raise exception 'LESSON_VIA_COACHING' using errcode = 'P0001', detail = 'move',
@@ -1616,7 +1616,7 @@ begin
     'start_at', v.start_at, 'end_at', v.end_at,
     'rate_rule_id', v.rate_rule_id, 'price_iqd', v.price_iqd,
     'price_before', v_was, 'price_changed', (v.price_iqd is distinct from v_was));
-end $move_reservation_0277$;
+end $move_reservation_0280$;
 
 comment on function app.move_reservation(uuid, uuid, timestamptz, timestamptz, text) is
-  '0071, 0150, 0277. Desk (court_desk, manager, owner): moves a live reservation to another court and/or time under both court locks (id order), re-priced by its rate rule (a manual override kept; a price change needs a reason, REASON_REQUIRED); a start moved into the past is RESERVATION_IN_PAST. RESERVATION_NOT_FOUND, NOT_MOVABLE, RESERVATION_MOVED (40001), INVALID_RANGE, NO_RATE, SLOT_TAKEN. 0277 (R7): a lesson''s court row is refused LESSON_VIA_COACHING detail move, whatever the new court and times, queued or not; desk_move_lesson_court and the reschedule RPCs move lessons.';
+  '0071, 0150, 0280. Desk (court_desk, manager, owner): moves a live reservation to another court and/or time under both court locks (id order), re-priced by its rate rule (a manual override kept; a price change needs a reason, REASON_REQUIRED); a start moved into the past is RESERVATION_IN_PAST. RESERVATION_NOT_FOUND, NOT_MOVABLE, RESERVATION_MOVED (40001), INVALID_RANGE, NO_RATE, SLOT_TAKEN. 0280 (R7): a lesson''s court row is refused LESSON_VIA_COACHING detail move, whatever the new court and times, queued or not; desk_move_lesson_court and the reschedule RPCs move lessons.';

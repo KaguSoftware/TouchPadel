@@ -4,7 +4,7 @@ import { splitEvenly } from '../money/split';
 /**
  * Coaching money twins (docs/design/coaching/money.md §5.1, §5.2, §7.1; build contracts §1.11).
  *
- * Each function here has a SQL twin in migration 0278 and the database's parity tests pin them
+ * Each function here has a SQL twin in migration 0281 and the database's parity tests pin them
  * together over awkward amounts, so the arithmetic must stay exactly the SQL's:
  *
  *   lessonCoachShare     ↔ app.lesson_coach_share(bigint, bigint, int)
