@@ -38,7 +38,7 @@ import { addBreadcrumb, captureException } from '../../lib/telemetry';
 import { updatePushToken } from './api';
 import type { StaffHref } from '../staff/pushRoutes';
 import type { StaffStatusKind } from '../staff/status';
-import { isGuestPushKind } from '../matches/pushRoutes';
+import { isGuestPushKind, isLessonPushKind } from '../matches/pushRoutes';
 import {
   isGuestTap,
   isStaffTap,
@@ -390,10 +390,11 @@ export function installNotificationHandler(opts: {
 
       const sub = Notifications.addNotificationResponseReceivedListener(open);
       // A guest open-match push in the foreground: the screens under it
-      // refresh at once instead of waiting for their next poll.
+      // refresh at once instead of waiting for their next poll. A coaching push
+      // (outbox_lesson_kinds) is a guest kind too, but not a match one.
       const received = Notifications.addNotificationReceivedListener((notification) => {
         const data = notification.request.content.data as PushTapData | undefined;
-        if (isGuestPushKind(data?.kind)) opts.onMatchNotice?.();
+        if (isGuestPushKind(data?.kind) && !isLessonPushKind(data?.kind)) opts.onMatchNotice?.();
       });
       remove = () => {
         sub.remove();

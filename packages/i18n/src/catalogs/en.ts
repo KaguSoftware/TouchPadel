@@ -10,6 +10,7 @@ import { workEn } from './work.en';
 import { opErrorsProtocolsEn } from './opErrors.protocols.en';
 import { opErrorsMatchesEn } from './opErrors.matches.en';
 import { opErrorsCodesEn } from './opErrors.codes.en';
+import { opErrorsCoachingEn } from './opErrors.coaching.en';
 import { legalEn } from './legal.en';
 import { siteEn } from './site.en';
 import { branchesEn } from './branches.en';
@@ -2075,6 +2076,9 @@ export const en = {
       // Every code a migration raised that no app had worded (packages/i18n/src/errors.ts,
       // 2026-10-01): opErrors.codes.*.ts.
       ...opErrorsCodesEn,
+      // Coaching (docs/design/coaching/operator.md §5.19): opErrors.coaching.*.ts, each
+      // code with the migration that first raises it.
+      ...opErrorsCoachingEn,
     },
   },
   // Protocols and the staff phone (build-contracts-2026-09-23 §4): the words both apps

@@ -1,7 +1,7 @@
 /**
- * 0255 outbox_match_kinds — notification_outbox.kind is a closed CHECK, and
- * every kind it admits has copy in the deployed send-push
- * (docs/design/open-matches/guest.md §4.4).
+ * 0255 outbox_match_kinds and outbox_lesson_kinds outbox_lesson_kinds — notification_outbox.kind
+ * is a closed CHECK, and every kind it admits has copy in the deployed send-push
+ * (docs/design/open-matches/guest.md §4.4, docs/design/coaching/guest.md §4.4).
  *
  * send-push treats a kind it does not know as terminal (index.ts), so a kind
  * the CHECK admits without copy is a push that silently never arrives. Here
@@ -97,7 +97,7 @@ function tryKinds(kinds: string[]): Record<string, boolean> {
   );
 }
 
-describe('notification_outbox kinds (0255)', () => {
+describe('notification_outbox kinds (0255, outbox_lesson_kinds)', () => {
   it('lists every booking kind in send-push STRINGS, in both languages', () => {
     const strings = INDEX.slice(INDEX.indexOf('const STRINGS'), INDEX.indexOf('function formatWhen'));
     for (const lang of ['en', 'ar']) {
@@ -112,10 +112,10 @@ describe('notification_outbox kinds (0255)', () => {
 
   it.skipIf(!docker)('admits exactly the kinds send-push has copy for', () => {
     expect(checkKinds()).toEqual([...ALL_KINDS].sort());
-    expect(checkKinds()).toHaveLength(13);
+    expect(checkKinds()).toHaveLength(16);
   });
 
-  it.skipIf(!docker)('accepts each of the 13 kinds and refuses an unknown one', () => {
+  it.skipIf(!docker)('accepts each of the 16 kinds and refuses an unknown one', () => {
     const got = tryKinds([...ALL_KINDS, 'match_bogus']);
     for (const kind of ALL_KINDS) expect(got[kind], kind).toBe(true);
     expect(got.match_bogus).toBe(false);

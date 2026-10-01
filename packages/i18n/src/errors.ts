@@ -379,6 +379,14 @@ export const ERROR_CODE_KEYS = {
   EDGE_UPSTREAM: 'op.errors.EDGE_UPSTREAM',
   EDGE_RATE_LIMITED: 'op.errors.EDGE_RATE_LIMITED',
   EDGE_UNKNOWN: 'op.errors.EDGE_UNKNOWN',
+  // Coaching (docs/design/coaching/build-contracts-2026-10-01.md §1.10): each
+  // code lands with the migration that first raises it; the lines are in
+  // catalogs/opErrors.coaching.*.ts, worded for staff and guests alike.
+  // coaching_settings: set_coaching_settings refuses an online lesson payment mode before
+  // the lessons terms are live (detail terms; R50, R67).
+  ONLINE_PAYMENT_OFF: 'op.errors.ONLINE_PAYMENT_OFF',
+  // coaching_tables: the lines of an approved, paid or void coach statement are frozen (R22).
+  STATEMENT_NOT_DRAFT: 'op.errors.STATEMENT_NOT_DRAFT',
 
   // ── Guest refusals the desk never meets (the phone's lines) ───────────────
   // 0048/C1 + 0058: raised by app.hold_slot from the day it was hardened; the

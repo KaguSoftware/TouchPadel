@@ -5,6 +5,7 @@ import { workAr } from './work.ar';
 import { opErrorsProtocolsAr } from './opErrors.protocols.ar';
 import { opErrorsMatchesAr } from './opErrors.matches.ar';
 import { opErrorsCodesAr } from './opErrors.codes.ar';
+import { opErrorsCoachingAr } from './opErrors.coaching.ar';
 import { legalAr } from './legal.ar';
 import { siteAr } from './site.ar';
 import { branchesAr } from './branches.ar';
@@ -1933,6 +1934,7 @@ export const ar: Messages = {
       ...opErrorsProtocolsAr,
       ...opErrorsMatchesAr,
       ...opErrorsCodesAr,
+      ...opErrorsCoachingAr,
     },
   },
   work: workAr,

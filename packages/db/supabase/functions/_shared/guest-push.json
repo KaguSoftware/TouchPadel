@@ -1,6 +1,13 @@
 {
-  "_readme": "The guest push catalogue for open matches (build contracts §1.9, R3; docs/design/open-matches/guest.md §4.7). ONE list for three copies: send-push (a guest kind reads its copy by title_key from send-push/guestStrings.ts, and a row whose kind is not its title key's kind, or whose route is not listed here, is terminal), app.match_notify (c_keys, 0261; packages/db/tests/guest-push.test.ts compares), and apps/mobile/src/features/matches/pushRoutes.ts (routes). title_keys maps each key to the one kind it is queued under. Params are closed to the three names below: no name and no amount ever reaches a lock screen. Deno cannot import a workspace package, so this JSON is the shared artefact, as staff-push.json is. Add a key here, in guestStrings.ts (EN and AR) and in app.match_notify in the same change, and deploy send-push before a migration can queue it.",
-  "kinds": ["match_update", "match_reminder", "match_message"],
+  "_readme": "The guest push catalogue for open matches (build contracts §1.9, R3; docs/design/open-matches/guest.md §4.7) and coaching (§1.9 of docs/design/coaching/build-contracts-2026-10-01.md; docs/design/coaching/guest.md §4.6). ONE list for four copies: send-push (a guest kind reads its copy by title_key from send-push/guestStrings.ts, and a row whose kind is not its title key's kind, or whose route is not listed here, is terminal), app.match_notify (c_keys, 0261: the keys of the three match kinds; packages/db/tests/guest-push.test.ts compares), app.lesson_notify (c_keys, lesson_booking: the keys of the three lesson kinds; packages/db/tests/lesson-push.test.ts compares), and apps/mobile/src/features/matches/pushRoutes.ts (routes and kinds). Each notify function validates only its own params. title_keys maps each key to the one kind it is queued under. Params are closed to the names below: no name and no amount ever reaches a lock screen. Deno cannot import a workspace package, so this JSON is the shared artefact, as staff-push.json is. Add a key here, in guestStrings.ts (EN and AR) and in its notify function in the same change, and deploy send-push before a migration can queue it.",
+  "kinds": [
+    "match_update",
+    "match_reminder",
+    "match_message",
+    "lesson_update",
+    "lesson_reminder",
+    "coach_update"
+  ],
   "title_keys": {
     "request_new": "match_update",
     "request_expired": "match_update",
@@ -24,8 +31,26 @@
     "msg_on_my_way": "match_message",
     "msg_running_late": "match_message",
     "msg_cant_make_it": "match_message",
-    "msg_bring_balls": "match_message"
+    "msg_bring_balls": "match_message",
+    "lesson.booked": "lesson_update",
+    "lesson.cancelled_by_coach": "lesson_update",
+    "lesson.cancelled_by_staff": "lesson_update",
+    "lesson.under_filled": "lesson_update",
+    "lesson.rescheduled": "lesson_update",
+    "lesson.court_moved": "lesson_update",
+    "lesson.payment_expired": "lesson_update",
+    "lesson.added_by_coach": "lesson_update",
+    "lesson.reminder": "lesson_reminder",
+    "coach.new_student": "coach_update",
+    "coach.student_cancelled": "coach_update",
+    "coach.lesson_cancelled_by_staff": "coach_update",
+    "coach.under_filled": "coach_update",
+    "coach.statement_ready": "coach_update",
+    "coach.statement_paid": "coach_update",
+    "coach.session_added": "coach_update",
+    "coach.rescheduled_by_staff": "coach_update",
+    "coach.court_moved": "coach_update"
   },
-  "routes": ["match", "tickets"],
-  "params": ["seats_taken", "seats_total", "minutes"]
+  "routes": ["match", "tickets", "lesson", "coach_lesson", "coach_statements"],
+  "params": ["seats_taken", "seats_total", "minutes", "lesson_id", "places_taken", "places_total"]
 }

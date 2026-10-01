@@ -28,10 +28,10 @@ import { stackAvailable } from './helpers';
 const up = await stackAvailable();
 const docker = up && dockerReachable();
 
-/** The order of db.md §2.1 / contracts §1.4, verbatim. */
+/** The order of db.md §2.1 / contracts §1.4, verbatim; coach_advisory since coaching_tables (coaching db.md §2.1). */
 const DECLARED = [
-  'day_sessions', 'match_money_advisory', 'tabs', 'orders', 'order_items', 'tickets', 'payments', 'till_shifts',
-  'refunds', 'stock_batches', 'court_advisory', 'reservations', 'match_venue_advisory', 'match_tickets',
+  'day_sessions', 'match_money_advisory', 'coach_advisory', 'tabs', 'orders', 'order_items', 'tickets', 'payments',
+  'till_shifts', 'refunds', 'stock_batches', 'court_advisory', 'reservations', 'match_venue_advisory', 'match_tickets',
 ];
 
 // ── synthetic bodies, shaped like the real ones ─────────────────────────────
@@ -72,7 +72,11 @@ const BASE = [
 describe('the walker over synthetic catalogs (pure)', () => {
   it('declares the order of db.md §2.1', () => {
     expect(ORDER).toEqual(DECLARED);
-    expect(SERVICE_WALK).toEqual(['match_sweep', 'deposit_apply', 'ticket_settle_success', 'ticket_refund_deleted', 'tickets_cash_out', 'expire_stale_holds']);
+    expect(SERVICE_WALK).toEqual([
+      'match_sweep', 'deposit_apply', 'ticket_settle_success', 'ticket_refund_deleted', 'tickets_cash_out', 'expire_stale_holds',
+      // Coaching (coaching_tables, R33): walked once each exists.
+      'lesson_sweep', 'lesson_settle_success', 'lesson_payment_prepare', 'coach_statements_draft',
+    ]);
   });
 
   it('match_lock (R15): courts -> the booking row -> hold expiry -> the mutex', () => {

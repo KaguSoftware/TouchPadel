@@ -1,14 +1,16 @@
 /**
  * send-push, guest kinds of open matches (build contracts §1.9, R3;
- * docs/design/open-matches/guest.md §4.7). Pure: no stack, no network. The
- * copy and the message shape live in supabase/functions/send-push/guestStrings.ts
- * so they run here unchanged; the one list of kinds, title keys (each with its
- * kind) and routes is _shared/guest-push.json, which app.match_notify (0261)
- * and the phone's pushRoutes.ts are held to as well.
+ * docs/design/open-matches/guest.md §4.7) and of coaching (coaching build
+ * contracts §1.9, R18; docs/design/coaching/guest.md §4.6). Pure: no stack, no
+ * network. The copy and the message shape live in
+ * supabase/functions/send-push/guestStrings.ts so they run here unchanged; the
+ * one list of kinds, title keys (each with its kind) and routes is
+ * _shared/guest-push.json, which app.match_notify (0261), app.lesson_notify
+ * (lesson_booking) and the phone's pushRoutes.ts are held to as well.
  *
- * This file ships in the send-push commit, which deploys before 0255 lets the
- * outbox hold a guest kind (landing order push A, then push B), so nothing here
- * may need a migration.
+ * This file ships in the send-push commit, which deploys before 0255 (and
+ * outbox_lesson_kinds) lets the outbox hold a guest kind, so nothing here may need a
+ * migration.
  *
  * The plural copy is compared with Node's CLDR data (Intl.PluralRules). The
  * workspace's own pluralForm (packages/i18n/src/plural.ts) is hand-coded to the
@@ -23,6 +25,7 @@ import staffPush from '../supabase/functions/_shared/staff-push.json';
 import {
   GUEST_STRINGS,
   guestMessage,
+  guestMonth,
   guestTime,
   guestWhen,
   minutesPhrase,
@@ -45,7 +48,33 @@ const ltr = (s: string) => `${LRI}${s}${PDI}`;
 const ROUTES = new Set(guestPush.routes);
 const KEYS = Object.keys(guestPush.title_keys) as GuestTitleKey[];
 const MATCH_ID = '11111111-2222-4333-8444-555555555555';
+const ENROLMENT_ID = '22222222-3333-4444-8555-666666666666';
+const LESSON_ID = '33333333-4444-4555-8666-777777777777';
+const STATEMENT_ID = '44444444-5555-4666-8777-888888888888';
 const LANGS: Lang[] = ['en', 'ar'];
+
+const MATCH_KINDS = ['match_update', 'match_reminder', 'match_message'];
+const LESSON_KINDS = ['lesson_update', 'lesson_reminder', 'coach_update'];
+const MATCH_KEYS = KEYS.filter((k) => MATCH_KINDS.includes(kindOf(k)));
+const LESSON_KEYS = KEYS.filter((k) => LESSON_KINDS.includes(kindOf(k)));
+/** The keys whose body is the time and branch alone, the same in both languages. */
+const REMINDER_KEYS = ['reminder_3h', 'lesson.reminder'];
+
+/** The route a key is queued with (guest.md §4.6.1 and open-matches §4.7). */
+function routeOf(key: string): string {
+  if (key === 'tickets_refunded') return 'tickets';
+  if (key.startsWith('lesson.')) return 'lesson';
+  if (key === 'coach.statement_ready' || key === 'coach.statement_paid') return 'coach_statements';
+  if (key.startsWith('coach.')) return 'coach_lesson';
+  return 'match';
+}
+const ID_OF: Record<string, string | null> = {
+  match: MATCH_ID,
+  tickets: null,
+  lesson: ENROLMENT_ID,
+  coach_lesson: LESSON_ID,
+  coach_statements: STATEMENT_ID,
+};
 
 const CATEGORY_KEYS = [
   'request_new',
@@ -67,19 +96,21 @@ const ctx = (over: Partial<GuestContext> = {}): GuestContext => ({
   when: 'Tue 29 Sep, 18:00',
   time: '18:00',
   branch: '',
+  month: 'September 2026',
   ...over,
 });
 const payloadOf = (key: string, params: Record<string, unknown> = {}, route = 'match') => ({
   route,
-  id: route === 'match' ? MATCH_ID : null,
+  id: ID_OF[route] ?? null,
   title_key: key,
   params,
 });
-const kindOf = (key: string) => (guestPush.title_keys as Record<string, string>)[key]!;
+function kindOf(key: string): string {
+  return (guestPush.title_keys as Record<string, string>)[key]!;
+}
 
 function msg(lang: Lang, key: string, params: Record<string, unknown> = {}, over: Partial<GuestContext> = {}) {
-  const route = key === 'tickets_refunded' ? 'tickets' : 'match';
-  const m = guestMessage(lang, kindOf(key), payloadOf(key, params, route), ctx(over), ROUTES);
+  const m = guestMessage(lang, kindOf(key), payloadOf(key, params, routeOf(key)), ctx(over), ROUTES);
   if (!m.ok) throw new Error(m.error);
   return m;
 }
@@ -91,17 +122,48 @@ const FULL: GuestVars = {
   when: iso('Tue 29 Sep, 18:00'),
   time: iso('18:00'),
   branch: iso('Karrada'),
+  places: ltr('3/8'),
+  // No year: the "no money" scan below refuses any run of three digits.
+  month: iso('September'),
 };
 
 describe('guest-push.json', () => {
-  it('lists the three guest kinds, the two routes and the three params', () => {
-    expect(guestPush.kinds).toEqual(['match_update', 'match_reminder', 'match_message']);
-    expect(guestPush.routes).toEqual(['match', 'tickets']);
-    expect(guestPush.params).toEqual(['seats_taken', 'seats_total', 'minutes']);
+  it('lists the six guest kinds, the five routes and the six params', () => {
+    expect(guestPush.kinds).toEqual([...MATCH_KINDS, ...LESSON_KINDS]);
+    expect(guestPush.routes).toEqual(['match', 'tickets', 'lesson', 'coach_lesson', 'coach_statements']);
+    expect(guestPush.params).toEqual(['seats_taken', 'seats_total', 'minutes', 'lesson_id', 'places_taken', 'places_total']);
   });
 
-  it('maps the 23 title keys of §1.9 to their kind (R3)', () => {
-    expect(KEYS).toEqual([
+  it('maps the 18 lesson title keys of §1.9 (with R18) to their kind', () => {
+    expect(LESSON_KEYS).toEqual([
+      'lesson.booked',
+      'lesson.cancelled_by_coach',
+      'lesson.cancelled_by_staff',
+      'lesson.under_filled',
+      'lesson.rescheduled',
+      'lesson.court_moved',
+      'lesson.payment_expired',
+      'lesson.added_by_coach',
+      'lesson.reminder',
+      'coach.new_student',
+      'coach.student_cancelled',
+      'coach.lesson_cancelled_by_staff',
+      'coach.under_filled',
+      'coach.statement_ready',
+      'coach.statement_paid',
+      'coach.session_added',
+      'coach.rescheduled_by_staff',
+      'coach.court_moved',
+    ]);
+    for (const key of LESSON_KEYS) {
+      const want = key === 'lesson.reminder' ? 'lesson_reminder' : key.startsWith('coach.') ? 'coach_update' : 'lesson_update';
+      expect(kindOf(key), key).toBe(want);
+    }
+    expect(KEYS).toEqual([...MATCH_KEYS, ...LESSON_KEYS]);
+  });
+
+  it('maps the 23 match title keys of §1.9 to their kind (R3)', () => {
+    expect(MATCH_KEYS).toEqual([
       'request_new',
       'request_expired',
       'player_joined',
@@ -126,7 +188,7 @@ describe('guest-push.json', () => {
       'msg_cant_make_it',
       'msg_bring_balls',
     ]);
-    for (const key of KEYS) {
+    for (const key of MATCH_KEYS) {
       const want =
         key === 'reminder_3h' ? 'match_reminder' : key.startsWith('msg_') ? 'match_message' : 'match_update';
       expect(kindOf(key), key).toBe(want);
@@ -161,6 +223,16 @@ describe('GUEST_STRINGS', () => {
     }
     expect(GUEST_STRINGS.en.reminder_3h.title).toBe('reminder');
     expect(GUEST_STRINGS.en.tickets_refunded.title).toBe('tickets');
+    // Coaching (guest.md §4.6.4): four titles, every lesson key form 'none'.
+    for (const key of LESSON_KEYS) {
+      const want = key === 'lesson.reminder'
+        ? 'lessonReminder'
+        : key === 'coach.statement_ready' || key === 'coach.statement_paid'
+          ? 'statement'
+          : key.startsWith('coach.') ? 'coach' : 'lesson';
+      expect(GUEST_STRINGS.en[key].title, key).toBe(want);
+      expect(GUEST_STRINGS.en[key].form, key).toBe('none');
+    }
   });
 
   it('writes a non-empty body for every key, Arabic in Arabic and different from English', () => {
@@ -169,8 +241,8 @@ describe('GUEST_STRINGS', () => {
       const ar = GUEST_STRINGS.ar[key].body(FULL);
       expect(en.trim(), key).not.toBe('');
       expect(ar.trim(), key).not.toBe('');
-      if (key !== 'reminder_3h') {
-        // reminder_3h is "{time} · {branch}" in both languages.
+      if (!REMINDER_KEYS.includes(key)) {
+        // reminder_3h and lesson.reminder are "{time} · {branch}" in both languages.
         expect(ar, key).toMatch(/[؀-ۿ]/);
         expect(ar, key).not.toBe(en);
       }
@@ -191,6 +263,96 @@ describe('GUEST_STRINGS', () => {
         }
       }
     }
+  });
+});
+
+describe('guestMessage — coaching (docs/design/coaching/guest.md §4.6)', () => {
+  it('titles a lesson and a coach row with the lesson time and the branch only when given; the reminder and the statement alone', () => {
+    expect(msg('en', 'lesson.booked').title).toBe(`Lesson · ${iso('Tue 29 Sep, 18:00')}`);
+    expect(msg('ar', 'lesson.booked', {}, { when: 'الثلاثاء 29 أيلول، 18:00', branch: 'الكرادة' }).title).toBe(
+      `حصة · ${iso('الثلاثاء 29 أيلول، 18:00')} · ${iso('الكرادة')}`,
+    );
+    expect(msg('en', 'coach.new_student', {}, { branch: 'Karrada' }).title).toBe(
+      `Coaching · ${iso('Tue 29 Sep, 18:00')} · ${iso('Karrada')}`,
+    );
+    expect(msg('ar', 'coach.session_added').title).toBe(`تدريب · ${iso('Tue 29 Sep, 18:00')}`);
+    expect(msg('en', 'lesson.booked', {}, { when: '' }).title).toBe('Lesson');
+    expect(msg('en', 'lesson.reminder').title).toBe('Your lesson is in 3 hours');
+    expect(msg('ar', 'lesson.reminder').title).toBe('حصتك بعد 3 ساعات');
+    expect(msg('en', 'coach.statement_ready').title).toBe('Your coach statement');
+    expect(msg('ar', 'coach.statement_paid').title).toBe('كشف حساب المدرّب');
+  });
+
+  it('isolates the places LTR as one unit, and drops them without both counts (a private lesson)', () => {
+    expect(msg('en', 'coach.new_student', { lesson_id: LESSON_ID, places_taken: 3, places_total: 8 }).body).toBe(
+      `New booking in your lesson · ${ltr('3/8')}`,
+    );
+    expect(msg('ar', 'coach.student_cancelled', { places_taken: 2, places_total: 8 }).body).toBe(
+      `أُلغي حجز في حصتك · ${ltr('2/8')}`,
+    );
+    expect(msg('en', 'coach.new_student', { places_taken: 3 }).body).toBe('New booking in your lesson');
+    expect(msg('en', 'coach.new_student').body).toBe('New booking in your lesson');
+    // The seat counts of open matches are not places.
+    expect(msg('en', 'coach.new_student', { seats_taken: 3, seats_total: 4 }).body).toBe('New booking in your lesson');
+  });
+
+  it('names the statement month FSI-isolated, and sends the title alone without it', () => {
+    expect(msg('en', 'coach.statement_ready').body).toBe(`Your statement for ${iso('September 2026')} is ready to view.`);
+    expect(msg('ar', 'coach.statement_paid', {}, { month: 'أيلول 2026' }).body).toBe(
+      `سُجّل كشف حسابك لشهر ${iso('أيلول 2026')} مدفوعًا.`,
+    );
+    expect(msg('en', 'coach.statement_paid', {}, { month: '' }).body).toBe('');
+  });
+
+  it('moves a lesson to {when}, and reminds with {time} and the branch; each sends the title alone without its value', () => {
+    expect(msg('en', 'lesson.rescheduled').body).toBe(
+      `Your lesson moved to ${iso('Tue 29 Sep, 18:00')}. You can cancel free until it starts.`,
+    );
+    expect(msg('en', 'coach.rescheduled_by_staff').body).toBe(`The venue moved this session to ${iso('Tue 29 Sep, 18:00')}.`);
+    expect(msg('en', 'lesson.rescheduled', {}, { when: '' }).body).toBe('');
+    expect(msg('en', 'lesson.reminder', {}, { branch: 'Karrada' }).body).toBe(`${iso('18:00')} · ${iso('Karrada')}`);
+    expect(msg('ar', 'lesson.reminder', {}, { time: '' }).body).toBe('');
+  });
+
+  it('formats the month in the reader’s language with Latin digits, from the date in UTC', () => {
+    expect(guestMonth('2026-09-01', 'en')).toBe('September 2026');
+    const ar = guestMonth('2026-09-01', 'ar');
+    expect(ar).toMatch(/2026/);
+    expect(ar).toMatch(/[؀-ۿ]/);
+    expect(ar).not.toMatch(/[٠-٩۰-۹]/);
+    // The first of the month never slips back a day into the previous month.
+    expect(guestMonth('2026-01-01', 'en')).toBe('January 2026');
+  });
+
+  it('needs an id on the lesson and coach_lesson routes, never on coach_statements', () => {
+    const bad = (key: string, route: string) =>
+      guestMessage('en', kindOf(key), { title_key: key, route, id: null, params: {} }, ctx(), ROUTES);
+    expect(bad('lesson.booked', 'lesson')).toEqual({ ok: false, error: 'BAD_ROUTE' });
+    expect(bad('coach.new_student', 'coach_lesson')).toEqual({ ok: false, error: 'BAD_ROUTE' });
+    expect(bad('coach.statement_ready', 'coach_statements').ok).toBe(true);
+  });
+
+  it('carries {kind, route, title_key, id} and never the lesson_id param, a name or an amount', () => {
+    const m = msg('en', 'lesson.booked', { lesson_id: LESSON_ID, name: 'Ahmed', amount_iqd: 25000 });
+    expect(m.data).toEqual({ kind: 'lesson_update', route: 'lesson', title_key: 'lesson.booked', id: ENROLMENT_ID });
+    expect(m.body).not.toMatch(/Ahmed|25000/);
+    expect(msg('en', 'coach.statement_paid').data).toEqual({
+      kind: 'coach_update',
+      route: 'coach_statements',
+      title_key: 'coach.statement_paid',
+      id: STATEMENT_ID,
+    });
+  });
+
+  it('refuses a lesson key under a match kind and the reverse (KIND_MISMATCH)', () => {
+    expect(guestMessage('en', 'match_update', payloadOf('lesson.booked', {}, 'lesson'), ctx(), ROUTES)).toEqual({
+      ok: false,
+      error: 'KIND_MISMATCH:match_update/lesson.booked',
+    });
+    expect(guestMessage('en', 'coach_update', payloadOf('player_joined'), ctx(), ROUTES)).toEqual({
+      ok: false,
+      error: 'KIND_MISMATCH:coach_update/player_joined',
+    });
   });
 });
 
@@ -390,7 +552,7 @@ describe('guestMessage — data and refusals', () => {
 describe('send-push/index.ts wiring', () => {
   it('reads the guest kinds, key kinds and routes from the shared list and the copy from guestStrings.ts', () => {
     expect(INDEX).toMatch(/import guestPush from '\.\.\/_shared\/guest-push\.json' with \{ type: 'json' \};/);
-    expect(INDEX).toMatch(/import \{ guestMessage, guestTime, guestWhen \} from '\.\/guestStrings\.ts';/);
+    expect(INDEX).toMatch(/import \{ guestMessage, guestMonth, guestTime, guestWhen \} from '\.\/guestStrings\.ts';/);
     expect(INDEX).toMatch(/new Set\(guestPush\.kinds\)/);
     expect(INDEX).toMatch(/new Set\(guestPush\.routes\)/);
     expect(INDEX).toMatch(/= guestPush\.title_keys;/);
@@ -407,6 +569,18 @@ describe('send-push/index.ts wiring', () => {
     expect(branch).toMatch(/channelId: ANDROID_CHANNEL_ID/);
   });
 
+  it('caps attempts on a gone lesson, a gone statement and a stale lesson reminder (guest.md §4.6.3)', () => {
+    const branch = INDEX.slice(
+      INDEX.indexOf('if (GUEST_KINDS.has(row.kind))'),
+      INDEX.indexOf('const s = STRINGS[lang]'),
+    );
+    expect(branch).toMatch(/last_error: 'LESSON_GONE', attempts: RETRY_CAP/);
+    expect(branch).toMatch(/last_error: 'STATEMENT_GONE', attempts: RETRY_CAP/);
+    expect(branch).toMatch(/last_error: 'REMINDER_STALE', attempts: RETRY_CAP/);
+    expect(branch).toMatch(/title_key === 'lesson\.reminder' && lesson\?\.status !== 'scheduled'/);
+    expect(branch).toMatch(/month: statement \? guestMonth\(statement\.month, lang\) : ''/);
+  });
+
   it('never reads profiles.gender or matches for a claim without guest rows', () => {
     // The main profiles read is the pre-0256 one: this function deploys before
     // the column exists, and every booking and staff push goes through it.
@@ -416,5 +590,14 @@ describe('send-push/index.ts wiring', () => {
     expect(guarded).toMatch(/from\('matches'\)/);
     expect(guarded).toMatch(/select\('id, gender'\)/);
     expect(before).not.toMatch(/from\('matches'\)|select\('[^']*gender/);
+  });
+
+  it('never reads lessons or statements without lesson rows', () => {
+    const guarded = INDEX.slice(INDEX.indexOf('if (lessonRows.length > 0) {'));
+    const before = INDEX.slice(0, INDEX.indexOf('if (lessonRows.length > 0) {'));
+    expect(INDEX.indexOf('if (lessonRows.length > 0) {')).toBeGreaterThan(INDEX.indexOf('if (guestRows.length > 0) {'));
+    expect(guarded).toMatch(/from\('lessons'\)\.select\('id, start_at, venue_id, status'\)/);
+    expect(guarded).toMatch(/from\('coach_statements'\)\.select\('id, month, venue_id'\)/);
+    expect(before).not.toMatch(/from\('lessons'\)|from\('coach_statements'\)/);
   });
 });

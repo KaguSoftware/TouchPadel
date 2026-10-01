@@ -58,7 +58,28 @@ const FORBIDDEN = [
   // point at the organiser, a reporter, a reported player or a block.
   /given_name/i, /family_name/i, /\bgender\b/i, /share_token/i, /organiser_id/i,
   /reporter_id/i, /reported_id/i, /blocker_id/i, /blocked_id/i,
+  // Coaching (docs/design/coaching/db.md §4.7.10, R42): the friends a guest
+  // brings and a student are guest identity everywhere.
+  /friend_names/i, /student/i, /share_bp/i,
 ];
+
+/**
+ * Coaching (C-28, R42): a coach's pay never reaches an LLM. The coach patterns
+ * are underscore-optional so a camelCase key (coachId) is caught too; there is
+ * no /display_name/i (staff and coach display names are public by design).
+ * They apply to every scanned function except PERSON_MONEY_REPORTS.
+ */
+const COACH_FORBIDDEN = [/coach_?id/i, /coach_?name/i, /coach_?(share|iqd)/i];
+
+/**
+ * Person-money reports (R42): money about a named coach, read by managers and
+ * the owner in the operator and never by the assistant
+ * (tests/assistant-catalog.test.ts asserts no tool names them). Scanned for
+ * guest identity like every report, exempt from the coach patterns. Money's
+ * names, created in later coaching migrations (coach_statements,
+ * lesson_reports); a name not created yet is simply not scanned.
+ */
+const PERSON_MONEY_REPORTS = ['report_coach_statements', 'report_lessons'];
 
 /**
  * CLIENT-CALLABLE ONLY, and the distinction is the whole correctness of this
@@ -107,8 +128,9 @@ for (const f of fns) {
   for (const m of f.src.matchAll(/'([a-z0-9_]+)'\s*,/gi)) keys.add(m[1]);
   for (const m of (f.ret ?? '').matchAll(/([a-z0-9_]+)\s+[a-z]/gi)) keys.add(m[1]);
 
+  const patterns = PERSON_MONEY_REPORTS.includes(f.name) ? FORBIDDEN : [...FORBIDDEN, ...COACH_FORBIDDEN];
   for (const key of keys) {
-    const hit = FORBIDDEN.find((r) => r.test(key));
+    const hit = patterns.find((r) => r.test(key));
     if (hit) findings.push({ fn: f.name, key });
   }
 }

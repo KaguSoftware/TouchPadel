@@ -67,14 +67,24 @@ const list = (r: Results, label: string) => [...data<string[]>(r, label)].sort()
 const REM = (label: string, m: string) => Q(label, `select pg_temp.reminders('${m}')`);
 const CLEAR = `select pg_temp.clear();`;
 
-describe.skipIf(!docker)('c_keys in app.match_notify is _shared/guest-push.json', () => {
-  it('parses to the same key -> kind map', () => {
+// R18 (coaching build contracts): _shared/guest-push.json also carries the
+// lesson kinds' keys (outbox_lesson_kinds), which app.lesson_notify copies (lesson_booking,
+// lesson-push.test.ts). app.match_notify holds its own subset: the keys of the
+// three match kinds.
+const MATCH_KINDS = ['match_update', 'match_reminder', 'match_message'];
+const MATCH_KEYS = Object.fromEntries(
+  Object.entries(guestPush.title_keys as Record<string, string>).filter(([, kind]) => MATCH_KINDS.includes(kind)),
+);
+
+describe.skipIf(!docker)('c_keys in app.match_notify is the match subset of _shared/guest-push.json', () => {
+  it('parses to the same key -> kind map as the three match kinds’ keys', () => {
     const def = psql(
       `select pg_get_functiondef('app.match_notify(uuid,uuid[],text,jsonb,uuid,timestamptz,text)'::regprocedure)`,
     );
     const m = def.match(/c_keys constant jsonb := '(\{[\s\S]*?\})';/);
     expect(m).not.toBeNull();
-    expect(JSON.parse(m![1]!)).toEqual(guestPush.title_keys);
+    expect(JSON.parse(m![1]!)).toEqual(MATCH_KEYS);
+    expect(new Set(Object.values(MATCH_KEYS))).toEqual(new Set(MATCH_KINDS));
     expect(new Set(Object.values(guestPush.title_keys))).toEqual(new Set(guestPush.kinds));
   });
 });

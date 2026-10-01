@@ -1,5 +1,5 @@
 {
-  "generated_from": "41a8d36da9c349b85ccf92d1a5ec2aabf3c886db",
+  "generated_from": "a3d221f7f0f9f45601927da519c5e237bd8ad3be",
   "chunks": [
     {
       "kind": "page",
@@ -2419,6 +2419,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.coaching_settings",
+      "lang": "en",
+      "title": "app.coaching_settings",
+      "body": "0274. Manager and owner: the coaching rules of one branch (app.coaching_rules: coaching_enabled, lesson_payment_mode, coach_share_bp, lesson_prices_public, coach_max_open_private and the booking rules coaching reads) plus online_payments_available and lesson_terms_ready, both true once platform_settings.lesson_terms_version is set (R50, R67). The role is checked before the branch is resolved (R57); p_venue_id defaults to the caller's resolved branch. A manager reads coach_share_bp (they approve statements); only the owner writes it.\nSignature: app.coaching_settings(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, VENUE_SETTINGS_MISSING.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0274 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.confirm_booking",
       "lang": "en",
       "title": "app.confirm_booking",
@@ -4123,6 +4131,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.set_coaching_settings",
+      "lang": "en",
+      "title": "app.set_coaching_settings",
+      "body": "0274. Owner only: patch the coaching rules of branch p_venue_id (default: the caller's resolved branch). Keys: coaching_enabled (boolean), lesson_payment_mode (desk | online_optional | online_required), coach_share_bp (0..10000), coach_max_open_private (1..100), lesson_prices_public (boolean). Every shape refusal is INVALID_ARGUMENT naming the key (p_patch for an empty or non-object patch); nothing is written unless the whole patch is valid. A resulting online mode while no lessons terms version is live is ONLINE_PAYMENT_OFF detail terms (C-26, R50, R67). Audited as venue.coaching_settings; returns app.coaching_settings.\nSignature: app.set_coaching_settings(p_venue_id uuid, p_patch jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: venue.coaching_settings.\nError codes: FORBIDDEN, INVALID_ARGUMENT, ONLINE_PAYMENT_OFF.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0274 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.set_customer_flags",
       "lang": "en",
       "title": "app.set_customer_flags",
@@ -5126,7 +5142,7 @@
       "ref": "table:booking_payments",
       "lang": "en",
       "title": "table booking_payments",
-      "body": "0241, tickets since 0258. One online payment attempt (Qi Card hosted page): a deposit on a court booking (purpose deposit: venue_id, hold_id and reservation_id set) or a purchase of open-match tickets (purpose ticket: a chain row, venue_id, hold_id and reservation_id NULL, ticket_count 1..3, amount = ticket_count x quoted_price_iqd). Written only by the app.deposit_* and app.ticket_* functions; request_id is what Qi gets, provider_payment_id what Qi answered. reservation_id is the booking a deposit is for (it moves when a swept hold is re-created as a booking); hold_id is where the attempt began and never changes. Not a till payment: no recorded_by, no day, not in the cash count.\nCreated in migration 0241.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  venue_id uuid not null default app.current_venue() references venues(id)\n  reservation_id uuid not null references reservations(id)\n  hold_id uuid not null references reservations(id)\n  guest_id uuid references profiles(id) on delete set null\n  purpose text not null default 'deposit' check (purpose in ('deposit'))\n  provider text not null check (provider in ('qi', 'fake'))\n  sandbox boolean not null default false\n  request_id uuid not null unique\n  provider_payment_id text unique check (provider_payment_id is null or char_length(provider_payment_id) between 1 and 200)\n  amount_iqd iqd not null check (amount_iqd > 0)\n  quoted_price_iqd iqd not null\n  locale text not null default 'ar' check (locale in ('en', 'ar'))\n  status text not null default 'created' check (status in ('created', 'pending', 'succeeded', 'failed', 'expired', 'refund_pending', 'refunded', 'refund_failed'))\n  provider_status text check (provider_status is null or char_length(provider_status) <= 64)\n  form_url text check (form_url is null or (form_url ~ '^https?://' and char_length(form_url) <= 2048))\n  deadline_at timestamptz not null\n  last_checked_at timestamptz\n  succeeded_at timestamptz\n  failed_at timestamptz\n  expired_at timestamptz\n  forfeited_at timestamptz\n  failure_code text check (failure_code is null or failure_code in ('declined', 'auth_failed', 'bank_error', 'cancelled'))\n  refund_reason text check (refund_reason is null or refund_reason in ('guest_cancel', 'staff_cancel', 'no_show', 'slot_lost', 'venue_offline', 'amount_mismatch', 'duplicate_success', 'manual', 'staff_refund'))\n  refund_amount_iqd iqd\n  refund_request_id uuid unique\n  refund_provider_id text check (refund_provider_id is null or char_length(refund_provider_id) <= 200)\n  refund_note text check (refund_note is null or char_length(refund_note) <= 300)\n  refund_requested_at timestamptz\n  refunded_at timestamptz\n  refund_attempts int not null default 0\n  cancel_attempts int not null default 0\n  claimed_at timestamptz\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now() — Money moved exactly when these say it did (plan §3.2, I3).\n  ticket_count smallint — 0258. Open-match tickets bought by this payment (1..3); NULL for a deposit.",
+      "body": "0241, tickets since 0258, lessons since 0275. One online payment attempt (Qi Card hosted page): a deposit on a court booking (purpose deposit: venue_id, hold_id and reservation_id set), a purchase of open-match tickets (purpose ticket: a chain row, venue_id, hold_id and reservation_id NULL, ticket_count 1..3, amount = ticket_count x quoted_price_iqd), or a lesson place paid online (purpose lesson, 0281: venue_id and lesson_enrolment_id set, reservation_id NULL, hold_id the court hold of a private lesson). Written only by the app.deposit_*, app.ticket_* and app.lesson_* functions; request_id is what Qi gets, provider_payment_id what Qi answered. reservation_id is the booking a deposit is for (it moves when a swept hold is re-created as a booking); hold_id is where the attempt began and never changes. Not a till payment: no recorded_by, no day, not in the cash count.\nCreated in migration 0241.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  venue_id uuid not null default app.current_venue() references venues(id)\n  reservation_id uuid not null references reservations(id)\n  hold_id uuid not null references reservations(id)\n  guest_id uuid references profiles(id) on delete set null\n  purpose text not null default 'deposit' check (purpose in ('deposit'))\n  provider text not null check (provider in ('qi', 'fake'))\n  sandbox boolean not null default false\n  request_id uuid not null unique\n  provider_payment_id text unique check (provider_payment_id is null or char_length(provider_payment_id) between 1 and 200)\n  amount_iqd iqd not null check (amount_iqd > 0)\n  quoted_price_iqd iqd not null\n  locale text not null default 'ar' check (locale in ('en', 'ar'))\n  status text not null default 'created' check (status in ('created', 'pending', 'succeeded', 'failed', 'expired', 'refund_pending', 'refunded', 'refund_failed'))\n  provider_status text check (provider_status is null or char_length(provider_status) <= 64)\n  form_url text check (form_url is null or (form_url ~ '^https?://' and char_length(form_url) <= 2048))\n  deadline_at timestamptz not null\n  last_checked_at timestamptz\n  succeeded_at timestamptz\n  failed_at timestamptz\n  expired_at timestamptz\n  forfeited_at timestamptz\n  failure_code text check (failure_code is null or failure_code in ('declined', 'auth_failed', 'bank_error', 'cancelled'))\n  refund_reason text check (refund_reason is null or refund_reason in ('guest_cancel', 'staff_cancel', 'no_show', 'slot_lost', 'venue_offline', 'amount_mismatch', 'duplicate_success', 'manual', 'staff_refund'))\n  refund_amount_iqd iqd\n  refund_request_id uuid unique\n  refund_provider_id text check (refund_provider_id is null or char_length(refund_provider_id) <= 200)\n  refund_note text check (refund_note is null or char_length(refund_note) <= 300)\n  refund_requested_at timestamptz\n  refunded_at timestamptz\n  refund_attempts int not null default 0\n  cancel_attempts int not null default 0\n  claimed_at timestamptz\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now() — Money moved exactly when these say it did (plan §3.2, I3).\n  ticket_count smallint — 0258. Open-match tickets bought by this payment (1..3); NULL for a deposit.\n  lesson_enrolment_id uuid — 0275. The lesson enrolment a purpose 'lesson' payment is for; NULL otherwise.",
       "route": null
     },
     {
@@ -5175,6 +5191,86 @@
       "lang": "en",
       "title": "table checklist_templates",
       "body": "checklists (§2.14): the owner's open or close list for one role at one venue, EN and AR, saved through app.save_checklist_template. Each business day's list is a checklist_runs snapshot of it. Read by MGMT at the venue.\nCreated in migration 0165.\nColumns:\n  id uuid primary key default gen_random_uuid() — Checklist template id.\n  venue_id uuid not null references venues(id) — The venue the list belongs to.\n  role staff_role not null — The role whose list this is; everyone holding it at the venue ticks the same list. Never prep (soft-retired).\n  slot text not null check (slot in ('open','close')) — open (start of the day) or close (end of the day).\n  name_en text not null check (coalesce(length(btrim(name_en)),0) > 0) — List name, English.\n  name_ar text not null check (coalesce(length(btrim(name_ar)),0) > 0) — List name, Arabic.\n  version int not null default 1 — Bumped by every save; a save with a stale version is refused TEMPLATE_CHANGED.\n  updated_by uuid references staff(id) — The owner who saved it last.\n  updated_at timestamptz not null default now() — When it was last saved.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:coach_branches",
+      "lang": "en",
+      "title": "table coach_branches",
+      "body": "0275. The branches a coach teaches at; bookable there while active. Deactivating a branch keeps its lessons.\nCreated in migration 0275.\nColumns:\n  coach_id uuid not null references coaches(id)\n  venue_id uuid not null references venues(id)\n  active boolean not null default true\n  created_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:coach_hours",
+      "lang": "en",
+      "title": "table coach_hours",
+      "body": "0275. A coach's weekly hours at one branch: one window inside one local day (weekday 0 = Sunday in the branch time zone; end_time may be 24:00), on :00 or :30 (CD-10, D-18). The writers refuse overlapping windows of one coach on one weekday at any branch (HOURS_OVERLAP).\nCreated in migration 0275.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  coach_id uuid not null references coaches(id)\n  venue_id uuid not null references venues(id)\n  weekday smallint not null\n  start_time time not null\n  end_time time not null\n  set_by text not null\n  set_by_staff_id uuid references staff(id)\n  updated_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:coach_lesson_types",
+      "lang": "en",
+      "title": "table coach_lesson_types",
+      "body": "0275. Which lesson types a coach teaches at the type's branch.\nCreated in migration 0275.\nColumns:\n  coach_id uuid not null references coaches(id)\n  lesson_type_id uuid not null references lesson_types(id)\n  venue_id uuid not null references venues(id)\n  created_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:coach_photo_purges",
+      "lang": "en",
+      "title": "table coach_photo_purges",
+      "body": "0275. Chain-wide. Coach photo folders queued for removal from menu-media on retirement or deletion (R43); a service path removes coaches/<folder>/* within a day and stamps purged_at.\nCreated in migration 0275.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  coach_id uuid not null references coaches(id)\n  folder text not null\n  queued_at timestamptz not null default now()\n  purged_at timestamptz",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:coach_prices",
+      "lang": "en",
+      "title": "table coach_prices",
+      "body": "0275. A per-coach price for one lesson type (C-5), overriding the type's price. Written only by set_coach_price_internal: by the owner directly or through the price-or-promotion protocol (protocol_run_id).\nCreated in migration 0275.\nColumns:\n  coach_id uuid not null references coaches(id)\n  lesson_type_id uuid not null references lesson_types(id)\n  venue_id uuid not null references venues(id)\n  price_iqd iqd not null\n  set_at timestamptz not null default now()\n  protocol_run_id uuid references protocol_runs(id)",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:coach_statement_lines",
+      "lang": "en",
+      "title": "table coach_statement_lines",
+      "body": "0275. One line per lesson per statement (R24); is_adjustment marks a lesson that already has lines on an approved or paid statement. Frozen once its statement is approved, paid or void (R22). Never readable by the owner assistant or any LLM (C-28).\nCreated in migration 0275.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  statement_id uuid not null references coach_statements(id)\n  venue_id uuid not null references venues(id)\n  lesson_id uuid not null references lessons(id) — R24: every line, adjustments too\n  collected_iqd iqd_signed not null default 0\n  court_share_iqd iqd_signed not null default 0\n  share_bp int not null\n  coach_iqd iqd_signed not null\n  is_adjustment boolean not null default false\n  created_at timestamptz not null default now() — R22",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:coach_statements",
+      "lang": "en",
+      "title": "table coach_statements",
+      "body": "0275. A coach's monthly statement at one branch (C-12): 60 % (coach_share_bp) of the collected lesson money less the court share, drafted monthly, approved by the branch manager, marked paid with a reference. draft | approved | paid | void. Money about a named person: never readable by the owner assistant or any LLM (C-28). Written only by Money's statement functions (0284).\nCreated in migration 0275.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  coach_id uuid not null references coaches(id)\n  venue_id uuid not null references venues(id)\n  month date not null\n  status text not null default 'draft'\n  lessons_count int not null default 0\n  collected_iqd iqd not null default 0\n  court_share_iqd iqd not null default 0\n  coach_iqd iqd_signed not null default 0\n  adjustments_iqd iqd_signed not null default 0\n  drafted_at timestamptz not null default now()\n  refreshed_at timestamptz\n  approved_by uuid references staff(id)\n  approved_at timestamptz\n  paid_by uuid references staff(id)\n  paid_at timestamptz\n  paid_reference text — 0275. The receipt or transfer number of the coach payment (1..80); never a card or account number (R49, R74).\n  voided_by uuid references staff(id)\n  voided_at timestamptz\n  void_reason text",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:coach_time_off",
+      "lang": "en",
+      "title": "table coach_time_off",
+      "body": "0275. Chain-wide. A coach's time off, at every branch: no lesson can be offered or booked inside it. Set by the coach or a manager; cancelled_at ends it. Live periods of one coach never overlap (coach_time_off_no_overlap).\nCreated in migration 0275.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  coach_id uuid not null references coaches(id)\n  period tstzrange not null\n  reason text not null default '' — 0275. The coach's note on their time off (0..200), never shown to guests; emptied on the coach's deletion.\n  set_by text not null\n  set_by_staff_id uuid references staff(id)\n  created_at timestamptz not null default now()\n  cancelled_at timestamptz",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:coaches",
+      "lang": "en",
+      "title": "table coaches",
+      "body": "0275. Chain-wide. A guest profile a manager promoted to coach (C-7): the public display names (EN, AR), bio and photo, set only by managers. The profile's own name and phone are never public. active | paused (hidden from guests, keeps its lessons) | retired. Not listed in any public read until the coach accepts going public (public_accepted_at, C-22). Written only by the coaching definer bodies (0279 onward).\nCreated in migration 0275.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  profile_id uuid not null unique references profiles(id) — 0275. The coach's own guest profile (one coach row per profile); never in a public payload (R43).\n  display_name_en text not null — 0275. The coach's public name in English, chosen by the venue (1..60). Kept on a deleted coach for the statements the venue paid (C-29).\n  display_name_ar text not null — 0275. The coach's public name in Arabic, chosen by the venue (1..60). Kept on a deleted coach for the statements the venue paid (C-29).\n  bio_en text not null default '' — 0275. The coach's public bio in English, written by a manager (0..1000); emptied on deletion.\n  bio_ar text not null default '' — 0275. The coach's public bio in Arabic, written by a manager (0..1000); emptied on deletion.\n  photo_path text — 0275. The coach's photo in the menu-media bucket, coaches/<random uuid>/<file> (R43); NULL for none. Queued for removal on retirement or deletion.\n  status text not null default 'active' — 0275. active | paused (not bookable and hidden from guests, keeps its lessons; coach mode works) | retired (coach mode shows approved and paid statements only).\n  sort_order int not null default 0\n  public_accepted_at timestamptz — 0275. When the coach accepted that their profile is public on the app and the website (C-22, R61); NULL until then, and no public read lists them.\n  created_by_staff_id uuid references staff(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()\n  retired_at timestamptz",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:courses",
+      "lang": "en",
+      "title": "table courses",
+      "body": "0275. A fixed run of sessions (its lessons, session_no 1..sessions_count), one sign-up, one price per person (C-1). Snapshots of the type's price, court share and places and of the branch's coach_share_bp at creation. open | running (session 1 started) | completed | cancelled. Sign-up closes when the last session starts (signup_closes_at, C-15).\nCreated in migration 0275.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  venue_id uuid not null references venues(id)\n  coach_id uuid not null references coaches(id)\n  lesson_type_id uuid not null references lesson_types(id)\n  title_en text not null default '' — 0275. A course title a coach or the desk wrote (0..80).\n  title_ar text not null default '' — 0275. A course title a coach or the desk wrote, in Arabic (0..80).\n  price_iqd iqd not null\n  court_share_iqd iqd not null\n  coach_share_bp int not null\n  sessions_count smallint not null\n  max_places smallint not null\n  min_places smallint not null\n  cutoff_at timestamptz not null — 0275. Session 1's start less the type's cutoff_hours: below min_places at this time the course is cancelled under_filled (C-14).\n  cutoff_checked_at timestamptz — 0275. When the sweep judged the cut-off; a judged course is never judged again (R26).\n  signup_closes_at timestamptz not null\n  status text not null default 'open'\n  cancel_reason text\n  created_by_kind text not null\n  created_by_profile_id uuid references profiles(id)\n  created_by_staff_id uuid references staff(id)\n  idempotency_key text unique\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()\n  cancelled_at timestamptz",
       "route": null
     },
     {
@@ -5295,6 +5391,54 @@
       "lang": "en",
       "title": "table ingredients",
       "body": "Created in migration 0017.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  kind ingredient_kind not null default 'purchased'\n  name_en text not null\n  name_ar text not null\n  unit stock_unit not null — base unit: g / ml / pc\n  pack_size numeric(12,3) — e.g. 1000 (g) per bag\n  pack_cost_iqd iqd — supplier cost per pack (latest)\n  supplier_name text\n  shelf_life_days int — default expiry at goods-in if none captured\n  yield_percent numeric(5,2) not null default 100 check (yield_percent > 0 and yield_percent <= 100)\n  waste_allowance_percent numeric(5,2) not null default 0 check (waste_allowance_percent >= 0)\n  par_level numeric(12,3)\n  low_stock_threshold numeric(12,3)\n  is_active boolean not null default true\n  venue_id uuid\n  variant_id uuid unique references menu_item_variants(id)\n  supplier_id uuid references suppliers(id)\n  batch_yield numeric(12,3) — 0250. How much one batch of a prepared item makes, in the item's own unit; NULL when no batch size is set. Set by app.set_batch_yield; read by app.production_today, which the staff phone uses to fill in the amount made.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:lesson_attendance",
+      "lang": "en",
+      "title": "table lesson_attendance",
+      "body": "0275. A mark per session and enrolment, open from the start to 24 hours after it (CD-11): attended or no_show. Clearing deletes the row.\nCreated in migration 0275.\nColumns:\n  lesson_id uuid not null references lessons(id)\n  enrolment_id uuid not null references lesson_enrolments(id)\n  venue_id uuid not null references venues(id)\n  status text not null\n  marked_by_kind text not null\n  marked_by_profile_id uuid references profiles(id)\n  marked_by_staff_id uuid references staff(id)\n  marked_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:lesson_enrolments",
+      "lang": "en",
+      "title": "table lesson_enrolments",
+      "body": "0275. A place in a lesson (private or group session) or in a course. Booked by the guest, by the coach for their own student (C-8) or at the desk. A coach- or desk-typed name and phone are kept as typed and shown to staff and the coach (R44); a typed phone links an account only on a verified match, pending until that person confirms (link_confirmed_at, C-21). held (awaiting Qi) | booked | cancelled | expired.\nCreated in migration 0275.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  venue_id uuid not null references venues(id)\n  lesson_id uuid references lessons(id)\n  course_id uuid references courses(id)\n  guest_id uuid references profiles(id)\n  guest_name text — 0275. The student a coach or the desk named (1..80); NULL on a guest's own booking. Replaced by a fixed marker 365 days after the lesson (CD-8).\n  guest_phone text — 0275. A student's number typed by a coach or the desk; shown to the coach until 7 days after the session (CD-3, R54); purged after 365 days (CD-8).\n  party_size smallint not null default 1\n  friend_names text[] not null default '{}' — 0275. The friends a guest brings to a private lesson (at most 3, party_size - 1).\n  booked_by_kind text not null\n  booked_by_profile_id uuid references profiles(id)\n  booked_by_staff_id uuid references staff(id)\n  price_iqd iqd not null — 0275. What this place owes: the private lesson, one group place, the whole course, or the pro-rata share of a late course join (C-15).\n  first_session_no smallint\n  sessions_covered smallint\n  payment_mode text not null\n  status text not null default 'booked'\n  hold_expires_at timestamptz\n  cancel_kind text\n  cancelled_at timestamptz\n  link_confirmed_at timestamptz — 0275. When the account a typed phone matched confirmed \"this is me\" (C-21, R44). NULL with guest_id set = a pending link; set at insert for a guest's own booking and for a customer the desk picked.\n  refunded_outside_iqd iqd not null default 0 — 0275. Money handed back outside the till when Qi could not take a second refund on the payment (R75, lesson_blocked_refund_record); counted as refunded, never a payments or refunds row.\n  idempotency_key text unique\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:lesson_events",
+      "lang": "en",
+      "title": "table lesson_events",
+      "body": "0275. Append-only: every move of a lesson, course or enrolment, who made it (guest, coach, staff or system) and a short code. data carries ids, times, counts, codes and flags only, never a name or a phone. The push fan-out reads it (0280).\nCreated in migration 0275.\nColumns:\n  id bigint generated always as identity primary key\n  venue_id uuid not null references venues(id)\n  lesson_id uuid references lessons(id)\n  course_id uuid references courses(id)\n  enrolment_id uuid references lesson_enrolments(id)\n  type text not null\n  actor text not null\n  actor_profile_id uuid references profiles(id)\n  actor_staff_id uuid references staff(id)\n  code text\n  data jsonb not null default '{}'::jsonb\n  at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:lesson_strikes",
+      "lang": "en",
+      "title": "table lesson_strikes",
+      "body": "0275. The lesson strike ledger: a late cancel, a no-show or a lapsed online hold of an enrolment the guest booked themselves (CD-2, R30). Never applied inside a coach or court lock: hold_strikes_settle applies it to the hold ladder under the principal lock (§1.4).\nCreated in migration 0275.\nColumns:\n  enrolment_id uuid not null references lesson_enrolments(id)\n  lesson_id uuid not null references lessons(id)\n  venue_id uuid not null references venues(id)\n  guest_id uuid not null references profiles(id)\n  kind text not null\n  struck_at timestamptz not null default now()\n  settled_at timestamptz\n  counted boolean — R30",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:lesson_types",
+      "lang": "en",
+      "title": "table lesson_types",
+      "body": "0275. What a branch sells as lessons: private (party 1..4, one price for the lesson), group (one price per place) or course (one price for the whole run of sessions_count sessions). The venue sets prices (C-5); a launched type's price changes only through the owner's price-or-promotion protocol (C-17). court_share_iqd is the fixed court share per session (C-6). min_places and cutoff_hours decide an under-filled cancel (C-14, R26).\nCreated in migration 0275.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  venue_id uuid not null references venues(id)\n  kind text not null\n  name_en text not null\n  name_ar text not null\n  description_en text not null default ''\n  description_ar text not null default ''\n  duration_min smallint not null\n  price_iqd iqd — 0275. Private: the whole lesson; group: one place; course: the whole course for one person. NULL only on a draft (never launched).\n  court_share_iqd iqd not null default 0 — 0275. The fixed court share per session taken off collected money before the coach's share (C-6).\n  max_places smallint not null\n  min_places smallint not null default 1\n  cutoff_hours smallint not null default 0\n  sessions_count smallint\n  is_active boolean not null default false\n  launched_at timestamptz — 0275. When the type was first offered for sale (through the protocol for a manager); NULL on a draft, whose fields are edited directly.\n  sort_order int not null default 0\n  created_by_staff_id uuid references staff(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:lessons",
+      "lang": "en",
+      "title": "table lessons",
+      "body": "0275. One lesson session on one court: a private lesson, a group session, or one session of a course. Snapshots of the price (NULL for a course session), court share, places and coach_share_bp at creation. held (a private lesson awaiting its Qi payment) | scheduled | completed | cancelled | expired. Its court row is a reservations row of kind lesson (or hold while held) naming it. One coach has at most one live lesson at a time at every branch (lessons_coach_no_overlap).\nCreated in migration 0275.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  venue_id uuid not null references venues(id)\n  coach_id uuid not null references coaches(id)\n  lesson_type_id uuid not null references lesson_types(id)\n  kind text not null\n  course_id uuid references courses(id)\n  session_no smallint\n  start_at timestamptz not null\n  end_at timestamptz not null\n  period tstzrange generated always as (tstzrange(start_at, end_at, '[)')) stored\n  price_iqd iqd\n  court_share_iqd iqd not null\n  coach_share_bp int not null — 0275. The branch's coach_share_bp when the lesson was created (CD-5).\n  max_places smallint not null\n  min_places smallint not null\n  cutoff_at timestamptz — 0275. Group: start less cutoff_hours; course session: its course's cut-off; private: NULL.\n  cutoff_checked_at timestamptz — 0275. When the sweep judged a group session's cut-off (R26); cleared by a reschedule whose new cut-off is still ahead (R32).\n  status text not null default 'scheduled'\n  hold_expires_at timestamptz\n  booked_by_kind text not null\n  created_by_profile_id uuid references profiles(id)\n  created_by_staff_id uuid references staff(id)\n  cancel_reason text\n  cancelled_at timestamptz\n  completed_at timestamptz\n  rescheduled_at timestamptz — 0275. When the lesson last moved in time (R8, R32); a guest who booked before it may cancel free until the new start.\n  idempotency_key text unique\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()",
       "route": null
     },
     {
@@ -5590,7 +5734,7 @@
       "ref": "table:platform_settings",
       "lang": "en",
       "title": "table platform_settings",
-      "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the per-guest hold cap, and every LLM budget and price-list knob. Exactly one row. Written only by owner RPCs (assistant_set_default_model, assistant_set_monthly_cap) and migrations.\nCreated in migration 0207.\nColumns:\n  id boolean primary key default true check (id)\n  currency char(3) not null default 'IQD'\n  timezone text not null default 'Asia/Baghdad' — 0207. The chain's day for the global LLM budget (llm_usage is keyed by date). A branch's own trading day uses venues.timezone.\n  max_live_holds_per_guest int not null default 3 — 0207 (from venue_settings, 0048/C1). How many live holds one guest may have across every branch. Global because the guest is.\n  llm_daily_request_limit int not null default 200 — 0207 (from venue_settings, 0079). Requests per chain day; 0 turns every LLM surface off.\n  llm_monthly_cost_cap_micros bigint not null default 20000000 — 0207 (from venue_settings, 0079). USD micros per calendar month (chain timezone).\n  llm_cost_micros_per_mtok bigint not null default 500000 — 0207 (from venue_settings, 0079). Blended fallback rate for a model absent from llm_pricing.\n  llm_pricing jsonb not null default '{}'::jsonb — 0207 (from venue_settings, 0111). Model -> four rates in USD micros per 1,000,000 tokens.\n  llm_default_model text not null default 'claude-opus-5' — 0207 (from venue_settings, 0140). The model a new assistant chat uses. Must be a key of llm_pricing.\n  updated_at timestamptz not null default now()\n  hold_strikes_since timestamptz — 0252: holds taken from this moment on count toward the hold ladder (app.hold_strike_apply). NULL switches the ladder off. Set to the migration time so no hold taken before the rule counts.\n  match_ticket_price_iqd bigint not null default 10000 — 0257. The price of one open-match ticket, chain-wide (OM-46): 1,000..1,000,000 IQD in steps of 250, default 10,000. A change applies to purchases after it, never to tickets already bought (DF-21). Owner-set via app.set_match_settings.\n  max_filling_matches_per_guest int not null default 3 — 0257. How many filling open matches one guest may be in at once, chain-wide (OM-37), 1..10, default 3. Owner-set via app.set_match_settings.\n  match_terms_version text — 0257. The oldest accepted terms version that allows open matches (the 0153 format); NULL = any accepted version. Set by migration only, after a build carrying that CURRENT_TERMS_VERSION is on phones.",
+      "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the per-guest hold cap, and every LLM budget and price-list knob. Exactly one row. Written only by owner RPCs (assistant_set_default_model, assistant_set_monthly_cap) and migrations.\nCreated in migration 0207.\nColumns:\n  id boolean primary key default true check (id)\n  currency char(3) not null default 'IQD'\n  timezone text not null default 'Asia/Baghdad' — 0207. The chain's day for the global LLM budget (llm_usage is keyed by date). A branch's own trading day uses venues.timezone.\n  max_live_holds_per_guest int not null default 3 — 0207 (from venue_settings, 0048/C1). How many live holds one guest may have across every branch. Global because the guest is.\n  llm_daily_request_limit int not null default 200 — 0207 (from venue_settings, 0079). Requests per chain day; 0 turns every LLM surface off.\n  llm_monthly_cost_cap_micros bigint not null default 20000000 — 0207 (from venue_settings, 0079). USD micros per calendar month (chain timezone).\n  llm_cost_micros_per_mtok bigint not null default 500000 — 0207 (from venue_settings, 0079). Blended fallback rate for a model absent from llm_pricing.\n  llm_pricing jsonb not null default '{}'::jsonb — 0207 (from venue_settings, 0111). Model -> four rates in USD micros per 1,000,000 tokens.\n  llm_default_model text not null default 'claude-opus-5' — 0207 (from venue_settings, 0140). The model a new assistant chat uses. Must be a key of llm_pricing.\n  updated_at timestamptz not null default now()\n  hold_strikes_since timestamptz — 0252: holds taken from this moment on count toward the hold ladder (app.hold_strike_apply). NULL switches the ladder off. Set to the migration time so no hold taken before the rule counts.\n  match_ticket_price_iqd bigint not null default 10000 — 0257. The price of one open-match ticket, chain-wide (OM-46): 1,000..1,000,000 IQD in steps of 250, default 10,000. A change applies to purchases after it, never to tickets already bought (DF-21). Owner-set via app.set_match_settings.\n  max_filling_matches_per_guest int not null default 3 — 0257. How many filling open matches one guest may be in at once, chain-wide (OM-37), 1..10, default 3. Owner-set via app.set_match_settings.\n  match_terms_version text — 0257. The oldest accepted terms version that allows open matches (the 0153 format); NULL = any accepted version. Set by migration only, after a build carrying that CURRENT_TERMS_VERSION is on phones.\n  lesson_terms_version text — 0274. The oldest accepted terms version (the 0153 format) whose Terms and Privacy carry the lessons section (R50). NULL (the default) = none is live yet: online lesson payment cannot be switched on (ONLINE_PAYMENT_OFF detail terms) and the online booking paths answer TERMS_REQUIRED; desk-paid lessons run. Set by migration only, once a build carrying that CURRENT_TERMS_VERSION is on phones (the match_terms_version precedent).",
       "route": null
     },
     {
@@ -5774,7 +5918,7 @@
       "ref": "table:reservations",
       "lang": "en",
       "title": "table reservations",
-      "body": "Created in migration 0008.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  court_id uuid not null references courts(id)\n  kind reservation_kind not null\n  status reservation_status not null default 'pending'\n  start_at timestamptz not null\n  end_at timestamptz not null\n  period tstzrange generated always as (tstzrange(start_at, end_at, '[)')) stored\n  guest_id uuid references profiles(id)\n  guest_name text — walk-in without account\n  guest_phone text\n  created_by_staff_id uuid references staff(id)\n  source reservation_source not null\n  rate_rule_id uuid references rate_rules(id) — PRICE PROVENANCE\n  price_iqd iqd — snapshot at confirm; explainable forever\n  hold_expires_at timestamptz — kind='hold' only\n  cancelled_at timestamptz\n  cancellation_reason text\n  notes text\n  device_id text\n  idempotency_key text unique — '{station}:{mutation_type}:{ulid}' (override #2)\n  client_ref text unique — '{station}-{ulid}' client entity ref (override #2)\n  created_at timestamptz not null default now()\n  series_id uuid references reservation_series(id)\n  cancelled_by cancellation_actor — 0088. Who cancelled this booking, stamped by app.cancel_reservation. NULL = cancelled before 0088 with no audit row to recover the actor from, or never cancelled at all — read it together with status, never on its own. A no_show leaves it null: that stamps cancelled_at (0075) but was not cancelled by anybody.\n  venue_id uuid\n  block_purpose text — event_court_blocks (§2.11): 'event' on a maintenance block a tournament asked for (app.block_courts_for_event); NULL on every other row. Analytics counts an event block as open time and reports it as event_minutes; only a block that is not an event is subtracted from open time.\n  protocol_run_id uuid — event_court_blocks (§2.11): the tournament run an event block belongs to; its stop cancels the run's future blocks. NULL on every other row.",
+      "body": "Created in migration 0008.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  court_id uuid not null references courts(id)\n  kind reservation_kind not null\n  status reservation_status not null default 'pending'\n  start_at timestamptz not null\n  end_at timestamptz not null\n  period tstzrange generated always as (tstzrange(start_at, end_at, '[)')) stored\n  guest_id uuid references profiles(id)\n  guest_name text — walk-in without account\n  guest_phone text\n  created_by_staff_id uuid references staff(id)\n  source reservation_source not null\n  rate_rule_id uuid references rate_rules(id) — PRICE PROVENANCE\n  price_iqd iqd — snapshot at confirm; explainable forever\n  hold_expires_at timestamptz — kind='hold' only\n  cancelled_at timestamptz\n  cancellation_reason text\n  notes text\n  device_id text\n  idempotency_key text unique — '{station}:{mutation_type}:{ulid}' (override #2)\n  client_ref text unique — '{station}-{ulid}' client entity ref (override #2)\n  created_at timestamptz not null default now()\n  series_id uuid references reservation_series(id)\n  cancelled_by cancellation_actor — 0088. Who cancelled this booking, stamped by app.cancel_reservation. NULL = cancelled before 0088 with no audit row to recover the actor from, or never cancelled at all — read it together with status, never on its own. A no_show leaves it null: that stamps cancelled_at (0075) but was not cancelled by anybody.\n  venue_id uuid\n  block_purpose text — event_court_blocks (§2.11): 'event' on a maintenance block a tournament asked for (app.block_courts_for_event); NULL on every other row. Analytics counts an event block as open time and reports it as event_minutes; only a block that is not an event is subtracted from open time.\n  protocol_run_id uuid — event_court_blocks (§2.11): the tournament run an event block belongs to; its stop cancels the run's future blocks. NULL on every other row.\n  lesson_id uuid — 0275. The lesson a court row is for: kind lesson, or a hold while a private lesson's online payment is open. Such a row has guest_id NULL, guest_name 'Lesson' and no price; it is changed only through the coaching RPCs.",
       "route": null
     },
     {
@@ -5958,7 +6102,7 @@
       "ref": "table:tabs",
       "lang": "en",
       "title": "table tabs",
-      "body": "Created in migration 0015.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  day_session_id uuid not null references day_sessions(id)\n  status tab_status not null default 'open'\n  table_id uuid references cafe_tables(id)\n  reservation_id uuid references reservations(id) — CHARGE CAFE TO COURT BOOKING\n  label text — \"by name\"\n  opened_by_staff_id uuid references staff(id) — null when guest-web opened it\n  merged_into_tab_id uuid references tabs(id) — merge tables: donor points at survivor\n  subtotal_iqd iqd — stamped at settle\n  tax_iqd iqd\n  discount_iqd iqd\n  total_iqd iqd\n  opened_at timestamptz not null default now()\n  settled_at timestamptz\n  device_id text\n  idempotency_key text unique\n  court_iqd bigint not null default 0 — 0053: court fee for a tab charged to a booking (SOW L131). Excluded from subtotal_iqd so percentage discounts apply to goods only; included in total_iqd.\n  venue_id uuid\n  kind text not null default 'cafe' constraint tabs_kind_chk check (kind in ('cafe','shop'))\n  court_cap_iqd bigint — 0258. On a tab that settles open-match seat shares: the most court money this tab may carry (its court line is least(court_cap_iqd, court_fee_remaining)). Set only by match_seat_settle on the tab it settles and by match_link_payment when it closes a live court-only tab at what was paid (R2). NULL on every other tab.",
+      "body": "Created in migration 0015.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  day_session_id uuid not null references day_sessions(id)\n  status tab_status not null default 'open'\n  table_id uuid references cafe_tables(id)\n  reservation_id uuid references reservations(id) — CHARGE CAFE TO COURT BOOKING\n  label text — \"by name\"\n  opened_by_staff_id uuid references staff(id) — null when guest-web opened it\n  merged_into_tab_id uuid references tabs(id) — merge tables: donor points at survivor\n  subtotal_iqd iqd — stamped at settle\n  tax_iqd iqd\n  discount_iqd iqd\n  total_iqd iqd\n  opened_at timestamptz not null default now()\n  settled_at timestamptz\n  device_id text\n  idempotency_key text unique\n  court_iqd bigint not null default 0 — 0053: court fee for a tab charged to a booking (SOW L131). Excluded from subtotal_iqd so percentage discounts apply to goods only; included in total_iqd.\n  venue_id uuid\n  kind text not null default 'cafe' constraint tabs_kind_chk check (kind in ('cafe','shop'))\n  court_cap_iqd bigint — 0258. On a tab that settles open-match seat shares: the most court money this tab may carry (its court line is least(court_cap_iqd, court_fee_remaining)). Set only by match_seat_settle on the tab it settles and by match_link_payment when it closes a live court-only tab at what was paid (R2). NULL on every other tab.\n  lesson_enrolment_id uuid — 0275. The lesson enrolment a kind 'lesson' tab takes desk money for (one payment, settled in the same call by app.lesson_settle). NULL on every other tab.\n  lesson_iqd bigint not null default 0 — 0275. The lesson line stamped at settlement (app.settle_tab, from compute_tab_totals): what the enrolment still owed. Outside the tax base like the court line (CD-4). 0 on every other tab.",
       "route": null
     },
     {
@@ -6030,7 +6174,7 @@
       "ref": "table:venue_settings",
       "lang": "en",
       "title": "table venue_settings",
-      "body": "0006, per branch since 0208. One row per venue: opening hours, closed dates, booking and degraded-mode thresholds, guest cafe limits, tax and rounding. The chain's settings live in platform_settings (0207).\nCreated in migration 0006.\nColumns:\n  id boolean primary key default true check (id) — DEPRECATED 0208: the 0006 singleton key. Always true; no longer unique. Kept so a body not yet re-issued still compiles. Never use it in new code: key by venue_id.\n  venue_name text not null\n  currency char(3) not null default 'IQD'\n  timezone text not null default 'Asia/Baghdad'\n  opening_hours jsonb not null — {\"mon\":[[\"09:00\",\"23:00\"]],...} config blob\n  closed_dates date[] not null default '{}'\n  hold_ttl_seconds int not null default 300\n  protected_horizon_hours int not null default 48 — degraded-mode lockout window\n  heartbeat_stale_seconds int not null default 45 — till POSTs every 10s; stale past this\n  table_token_ttl_minutes int not null default 90 — guest session inactivity expiry\n  waiter_call_cooldown_seconds int not null default 120\n  cancellation_window_hours int not null default 12\n  cash_rounding_iqd int not null default 1 — 1 = no rounding (override #1)\n  expiring_soon_days int not null default 3\n  tax_inclusive boolean not null default false\n  phone text\n  max_live_holds_per_guest int not null default 3 — 0048/C1: cap on unexpired pending holds per auth.uid(). 0 disables the cap.\n  max_booking_horizon_days int not null default 180 — 0048/C1: how far ahead a guest may hold a slot. 0 disables the horizon. Default 180 is deliberately generous -- it exists to bound the C1 abuse (holds arbitrarily far out, forever), not to shorten the venue booking window; max_live_holds_per_guest is the tight constraint. Tighten here if Touch wants a shorter window.\n  llm_daily_request_limit int not null default 200 — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  llm_monthly_cost_cap_micros bigint not null default 20000000 — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  llm_cost_micros_per_mtok bigint not null default 500000 — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  guest_orders_per_minute int not null default 6 — 0082/SEC-25. Orders one guest table session may submit per rolling minute. 6 is generous for a real table — a group ordering in waves — and far below what a script does. 0 disables guest ordering entirely.\n  guest_items_per_order int not null default 40 — 0082/SEC-25. Line items in a single guest order. 40 covers a large table; it stops one request queueing hundreds of tickets.\n  tab_confirm_threshold_iqd bigint not null default 150000 — 0082/SEC-25. Tab value above which the TILL asks staff to confirm before adding more. Advisory: read by the operator UI, not enforced here — a genuine large tab must never be blocked by the database mid-service.\n  llm_pricing jsonb not null default '{}'::jsonb — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  venue_id uuid — 0126, key since 0208 (unique index venue_settings_venue_id_key; not null by the validated CHECK venue_settings_venue_id_present of 0139). One row per branch.\n  llm_default_model text not null default 'claude-opus-5' — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  deposit_mode text not null default 'off' — 0241. Online deposit on guest bookings: off (never asked), optional (Pay now or pay at the desk), required (pay first). Owner-set via app.set_deposit_settings. Ships off.\n  deposit_percent_bp int not null default 5000 — 0241. Deposit as basis points of the court price (5000 = 50 %), rounded up to 250 IQD, then held between deposit_min_iqd and deposit_max_iqd and never above the price.\n  deposit_min_iqd bigint not null default 10000\n  deposit_max_iqd bigint\n  deposit_window_seconds int not null default 900 — 0241. How long a guest has on the payment page; the hold is extended to cover it.\n  deposit_forfeit_no_show boolean not null default true — 0241. A no-show keeps the deposit (true) or refunds it (false). A cancelled booking always refunds.\n  offline_mode_enabled boolean not null default false — 0248. Offline (degraded) mode for this branch. False: app.is_degraded is always false (the owner's default). Owner-writable via app.set_venue_details.\n  matches_enabled boolean not null default false — 0257. Open matches at this branch. False (the default, every branch): no new match starts and no new player joins; matches already filling or booked carry on (R10). Owner-set via app.set_match_settings.\n  match_fill_deadline_minutes int not null default 120 — 0257. An open match must fill this many minutes before its start (OM-22), 60..2880, default 120. A match can start only at least this plus 60 minutes ahead (OM-43). Applies to matches started after a change. Owner-set via app.set_match_settings.",
+      "body": "0006, per branch since 0208. One row per venue: opening hours, closed dates, booking and degraded-mode thresholds, guest cafe limits, tax and rounding. The chain's settings live in platform_settings (0207).\nCreated in migration 0006.\nColumns:\n  id boolean primary key default true check (id) — DEPRECATED 0208: the 0006 singleton key. Always true; no longer unique. Kept so a body not yet re-issued still compiles. Never use it in new code: key by venue_id.\n  venue_name text not null\n  currency char(3) not null default 'IQD'\n  timezone text not null default 'Asia/Baghdad'\n  opening_hours jsonb not null — {\"mon\":[[\"09:00\",\"23:00\"]],...} config blob\n  closed_dates date[] not null default '{}'\n  hold_ttl_seconds int not null default 300\n  protected_horizon_hours int not null default 48 — degraded-mode lockout window\n  heartbeat_stale_seconds int not null default 45 — till POSTs every 10s; stale past this\n  table_token_ttl_minutes int not null default 90 — guest session inactivity expiry\n  waiter_call_cooldown_seconds int not null default 120\n  cancellation_window_hours int not null default 12\n  cash_rounding_iqd int not null default 1 — 1 = no rounding (override #1)\n  expiring_soon_days int not null default 3\n  tax_inclusive boolean not null default false\n  phone text\n  max_live_holds_per_guest int not null default 3 — 0048/C1: cap on unexpired pending holds per auth.uid(). 0 disables the cap.\n  max_booking_horizon_days int not null default 180 — 0048/C1: how far ahead a guest may hold a slot. 0 disables the horizon. Default 180 is deliberately generous -- it exists to bound the C1 abuse (holds arbitrarily far out, forever), not to shorten the venue booking window; max_live_holds_per_guest is the tight constraint. Tighten here if Touch wants a shorter window.\n  llm_daily_request_limit int not null default 200 — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  llm_monthly_cost_cap_micros bigint not null default 20000000 — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  llm_cost_micros_per_mtok bigint not null default 500000 — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  guest_orders_per_minute int not null default 6 — 0082/SEC-25. Orders one guest table session may submit per rolling minute. 6 is generous for a real table — a group ordering in waves — and far below what a script does. 0 disables guest ordering entirely.\n  guest_items_per_order int not null default 40 — 0082/SEC-25. Line items in a single guest order. 40 covers a large table; it stops one request queueing hundreds of tickets.\n  tab_confirm_threshold_iqd bigint not null default 150000 — 0082/SEC-25. Tab value above which the TILL asks staff to confirm before adding more. Advisory: read by the operator UI, not enforced here — a genuine large tab must never be blocked by the database mid-service.\n  llm_pricing jsonb not null default '{}'::jsonb — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  venue_id uuid — 0126, key since 0208 (unique index venue_settings_venue_id_key; not null by the validated CHECK venue_settings_venue_id_present of 0139). One row per branch.\n  llm_default_model text not null default 'claude-opus-5' — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  deposit_mode text not null default 'off' — 0241. Online deposit on guest bookings: off (never asked), optional (Pay now or pay at the desk), required (pay first). Owner-set via app.set_deposit_settings. Ships off.\n  deposit_percent_bp int not null default 5000 — 0241. Deposit as basis points of the court price (5000 = 50 %), rounded up to 250 IQD, then held between deposit_min_iqd and deposit_max_iqd and never above the price.\n  deposit_min_iqd bigint not null default 10000\n  deposit_max_iqd bigint\n  deposit_window_seconds int not null default 900 — 0241. How long a guest has on the payment page; the hold is extended to cover it.\n  deposit_forfeit_no_show boolean not null default true — 0241. A no-show keeps the deposit (true) or refunds it (false). A cancelled booking always refunds.\n  offline_mode_enabled boolean not null default false — 0248. Offline (degraded) mode for this branch. False: app.is_degraded is always false (the owner's default). Owner-writable via app.set_venue_details.\n  matches_enabled boolean not null default false — 0257. Open matches at this branch. False (the default, every branch): no new match starts and no new player joins; matches already filling or booked carry on (R10). Owner-set via app.set_match_settings.\n  match_fill_deadline_minutes int not null default 120 — 0257. An open match must fill this many minutes before its start (OM-22), 60..2880, default 120. A match can start only at least this plus 60 minutes ahead (OM-43). Applies to matches started after a change. Owner-set via app.set_match_settings.\n  coaching_enabled boolean not null default false — 0274. Lessons at this branch. False (the default, every branch): no new guest or coach booking, join, add or creation (COACHING_OFF); lessons already booked run to their end; coach mode and the desk keep working (R45, R51). Owner-set via app.set_coaching_settings.\n  lesson_payment_mode text not null default 'desk' — 0274. How guests pay for a lesson they book (CD-1): desk (the default), online_optional or online_required (Qi). Bookings made by a coach or the desk are always paid at the desk. An online mode needs platform_settings.lesson_terms_version (C-26, R50). Owner-set via app.set_coaching_settings.\n  coach_share_bp int not null default 6000 — 0274. The coach's share of collected lesson money less the court share, in basis points (CD-5, C-6): 0..10000, default 6000 (60 %). Snapshotted on every lesson and course at creation. Owner only; never in venue_settings_public.\n  lesson_prices_public boolean not null default false — 0274. Whether the website's /coaching page shows lesson prices (C-11). Presentation, not secrecy: the app shows prices to anyone. Default false until the owner agrees. Owner-set via app.set_coaching_settings.\n  coach_max_open_private int not null default 10 — 0274. How many upcoming coach-booked private lessons one coach may hold at this branch (C-24, R56): 1..100, default 10 (COACH_ADD_LIMIT detail live). Owner-set via app.set_coaching_settings.",
       "route": null
     },
     {
@@ -6150,7 +6294,7 @@
       "ref": "view:venue_settings_public",
       "lang": "en",
       "title": "view venue_settings_public",
-      "body": "0006/0048, per branch since 0208, open matches since 0257. The guest-safe settings of every active branch, with its id, slug, names and address, and whether it runs open matches and their fill deadline. The ONLY settings surface for anon.\nView, defined in migration 0257.\nDefinition: with (security_invoker = off) as select vs.venue_name, vs.currency, vs.timezone, vs.opening_hours, vs.closed_dates, vs.protected_horizon_hours, vs.cancellation_window_hours, vs.table_token_ttl_minutes, vs.phone, vs.max_booking_horizon_days, vs.venue_id, v.slug as venue_slug, v.name_en as venue_name_en, v.name_ar as venue_name_ar, v.address_en, v.address_ar, v.map_url, vs.matches_enabled, vs.match_fill_deadline_minutes from venue_settings vs join venues v on v.id = vs.venue_id and v.is_active",
+      "body": "0006/0048, per branch since 0208, open matches since 0257, coaching since 0274. The guest-safe settings of every active branch, with its id, slug, names and address, whether it runs open matches and their fill deadline, and whether it offers lessons, how they are paid and whether the website shows their prices. The ONLY settings surface for anon.\nView, defined in migration 0274.\nDefinition: with (security_invoker = off) as select vs.venue_name, vs.currency, vs.timezone, vs.opening_hours, vs.closed_dates, vs.protected_horizon_hours, vs.cancellation_window_hours, vs.table_token_ttl_minutes, vs.phone, vs.max_booking_horizon_days, vs.venue_id, v.slug as venue_slug, v.name_en as venue_name_en, v.name_ar as venue_name_ar, v.address_en, v.address_ar, v.map_url, vs.matches_enabled, vs.match_fill_deadline_minutes, vs.coaching_enabled, vs.lesson_payment_mode, vs.lesson_prices_public from venue_settings vs join venues v on v.id = vs.venue_id and v.is_active",
       "route": null
     },
     {
@@ -6859,6 +7003,14 @@
     },
     {
       "kind": "column",
+      "ref": "column:booking_payments.lesson_enrolment_id",
+      "lang": "en",
+      "title": "booking_payments.lesson_enrolment_id",
+      "body": "uuid\n0275. The lesson enrolment a purpose 'lesson' payment is for; NULL otherwise.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:booking_payments.ticket_count",
       "lang": "en",
       "title": "booking_payments.ticket_count",
@@ -7159,6 +7311,126 @@
       "lang": "en",
       "title": "checklist_templates.version",
       "body": "int not null default 1\nBumped by every save; a save with a stale version is refused TEMPLATE_CHANGED.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:coach_statement_lines.lesson_id",
+      "lang": "en",
+      "title": "coach_statement_lines.lesson_id",
+      "body": "uuid not null references lessons(id)\nR24: every line, adjustments too",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:coach_statements.paid_reference",
+      "lang": "en",
+      "title": "coach_statements.paid_reference",
+      "body": "text\n0275. The receipt or transfer number of the coach payment (1..80); never a card or account number (R49, R74).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:coach_time_off.reason",
+      "lang": "en",
+      "title": "coach_time_off.reason",
+      "body": "text not null default ''\n0275. The coach's note on their time off (0..200), never shown to guests; emptied on the coach's deletion.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:coaches.bio_ar",
+      "lang": "en",
+      "title": "coaches.bio_ar",
+      "body": "text not null default ''\n0275. The coach's public bio in Arabic, written by a manager (0..1000); emptied on deletion.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:coaches.bio_en",
+      "lang": "en",
+      "title": "coaches.bio_en",
+      "body": "text not null default ''\n0275. The coach's public bio in English, written by a manager (0..1000); emptied on deletion.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:coaches.display_name_ar",
+      "lang": "en",
+      "title": "coaches.display_name_ar",
+      "body": "text not null\n0275. The coach's public name in Arabic, chosen by the venue (1..60). Kept on a deleted coach for the statements the venue paid (C-29).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:coaches.display_name_en",
+      "lang": "en",
+      "title": "coaches.display_name_en",
+      "body": "text not null\n0275. The coach's public name in English, chosen by the venue (1..60). Kept on a deleted coach for the statements the venue paid (C-29).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:coaches.photo_path",
+      "lang": "en",
+      "title": "coaches.photo_path",
+      "body": "text\n0275. The coach's photo in the menu-media bucket, coaches/<random uuid>/<file> (R43); NULL for none. Queued for removal on retirement or deletion.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:coaches.profile_id",
+      "lang": "en",
+      "title": "coaches.profile_id",
+      "body": "uuid not null unique references profiles(id)\n0275. The coach's own guest profile (one coach row per profile); never in a public payload (R43).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:coaches.public_accepted_at",
+      "lang": "en",
+      "title": "coaches.public_accepted_at",
+      "body": "timestamptz\n0275. When the coach accepted that their profile is public on the app and the website (C-22, R61); NULL until then, and no public read lists them.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:coaches.status",
+      "lang": "en",
+      "title": "coaches.status",
+      "body": "text not null default 'active'\n0275. active | paused (not bookable and hidden from guests, keeps its lessons; coach mode works) | retired (coach mode shows approved and paid statements only).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:courses.cutoff_at",
+      "lang": "en",
+      "title": "courses.cutoff_at",
+      "body": "timestamptz not null\n0275. Session 1's start less the type's cutoff_hours: below min_places at this time the course is cancelled under_filled (C-14).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:courses.cutoff_checked_at",
+      "lang": "en",
+      "title": "courses.cutoff_checked_at",
+      "body": "timestamptz\n0275. When the sweep judged the cut-off; a judged course is never judged again (R26).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:courses.title_ar",
+      "lang": "en",
+      "title": "courses.title_ar",
+      "body": "text not null default ''\n0275. A course title a coach or the desk wrote, in Arabic (0..80).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:courses.title_en",
+      "lang": "en",
+      "title": "courses.title_en",
+      "body": "text not null default ''\n0275. A course title a coach or the desk wrote (0..80).",
       "route": null
     },
     {
@@ -7639,6 +7911,110 @@
       "lang": "en",
       "title": "ingredients.unit",
       "body": "stock_unit not null\nbase unit: g / ml / pc",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lesson_enrolments.friend_names",
+      "lang": "en",
+      "title": "lesson_enrolments.friend_names",
+      "body": "text[] not null default '{}'\n0275. The friends a guest brings to a private lesson (at most 3, party_size - 1).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lesson_enrolments.guest_name",
+      "lang": "en",
+      "title": "lesson_enrolments.guest_name",
+      "body": "text\n0275. The student a coach or the desk named (1..80); NULL on a guest's own booking. Replaced by a fixed marker 365 days after the lesson (CD-8).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lesson_enrolments.guest_phone",
+      "lang": "en",
+      "title": "lesson_enrolments.guest_phone",
+      "body": "text\n0275. A student's number typed by a coach or the desk; shown to the coach until 7 days after the session (CD-3, R54); purged after 365 days (CD-8).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lesson_enrolments.link_confirmed_at",
+      "lang": "en",
+      "title": "lesson_enrolments.link_confirmed_at",
+      "body": "timestamptz\n0275. When the account a typed phone matched confirmed \"this is me\" (C-21, R44). NULL with guest_id set = a pending link; set at insert for a guest's own booking and for a customer the desk picked.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lesson_enrolments.price_iqd",
+      "lang": "en",
+      "title": "lesson_enrolments.price_iqd",
+      "body": "iqd not null\n0275. What this place owes: the private lesson, one group place, the whole course, or the pro-rata share of a late course join (C-15).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lesson_enrolments.refunded_outside_iqd",
+      "lang": "en",
+      "title": "lesson_enrolments.refunded_outside_iqd",
+      "body": "iqd not null default 0\n0275. Money handed back outside the till when Qi could not take a second refund on the payment (R75, lesson_blocked_refund_record); counted as refunded, never a payments or refunds row.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lesson_types.court_share_iqd",
+      "lang": "en",
+      "title": "lesson_types.court_share_iqd",
+      "body": "iqd not null default 0\n0275. The fixed court share per session taken off collected money before the coach's share (C-6).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lesson_types.launched_at",
+      "lang": "en",
+      "title": "lesson_types.launched_at",
+      "body": "timestamptz\n0275. When the type was first offered for sale (through the protocol for a manager); NULL on a draft, whose fields are edited directly.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lesson_types.price_iqd",
+      "lang": "en",
+      "title": "lesson_types.price_iqd",
+      "body": "iqd\n0275. Private: the whole lesson; group: one place; course: the whole course for one person. NULL only on a draft (never launched).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lessons.coach_share_bp",
+      "lang": "en",
+      "title": "lessons.coach_share_bp",
+      "body": "int not null\n0275. The branch's coach_share_bp when the lesson was created (CD-5).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lessons.cutoff_at",
+      "lang": "en",
+      "title": "lessons.cutoff_at",
+      "body": "timestamptz\n0275. Group: start less cutoff_hours; course session: its course's cut-off; private: NULL.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lessons.cutoff_checked_at",
+      "lang": "en",
+      "title": "lessons.cutoff_checked_at",
+      "body": "timestamptz\n0275. When the sweep judged a group session's cut-off (R26); cleared by a reschedule whose new cut-off is still ahead (R32).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:lessons.rescheduled_at",
+      "lang": "en",
+      "title": "lessons.rescheduled_at",
+      "body": "timestamptz\n0275. When the lesson last moved in time (R8, R32); a guest who booked before it may cancel free until the new start.",
       "route": null
     },
     {
@@ -8775,6 +9151,14 @@
       "lang": "en",
       "title": "platform_settings.hold_strikes_since",
       "body": "timestamptz\n0252: holds taken from this moment on count toward the hold ladder (app.hold_strike_apply). NULL switches the ladder off. Set to the migration time so no hold taken before the rule counts.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:platform_settings.lesson_terms_version",
+      "lang": "en",
+      "title": "platform_settings.lesson_terms_version",
+      "body": "text\n0274. The oldest accepted terms version (the 0153 format) whose Terms and Privacy carry the lessons section (R50). NULL (the default) = none is live yet: online lesson payment cannot be switched on (ONLINE_PAYMENT_OFF detail terms) and the online booking paths answer TERMS_REQUIRED; desk-paid lessons run. Set by migration only, once a build carrying that CURRENT_TERMS_VERSION is on phones (the match_terms_version precedent).",
       "route": null
     },
     {
@@ -10283,6 +10667,14 @@
     },
     {
       "kind": "column",
+      "ref": "column:reservations.lesson_id",
+      "lang": "en",
+      "title": "reservations.lesson_id",
+      "body": "uuid\n0275. The lesson a court row is for: kind lesson, or a hold while a private lesson's online payment is open. Such a row has guest_id NULL, guest_name 'Lesson' and no price; it is changed only through the coaching RPCs.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:reservations.price_iqd",
       "lang": "en",
       "title": "reservations.price_iqd",
@@ -11219,6 +11611,22 @@
     },
     {
       "kind": "column",
+      "ref": "column:tabs.lesson_enrolment_id",
+      "lang": "en",
+      "title": "tabs.lesson_enrolment_id",
+      "body": "uuid\n0275. The lesson enrolment a kind 'lesson' tab takes desk money for (one payment, settled in the same call by app.lesson_settle). NULL on every other tab.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:tabs.lesson_iqd",
+      "lang": "en",
+      "title": "tabs.lesson_iqd",
+      "body": "bigint not null default 0\n0275. The lesson line stamped at settlement (app.settle_tab, from compute_tab_totals): what the enrolment still owed. Outside the tax base like the court line (CD-4). 0 on every other tab.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:tabs.merged_into_tab_id",
       "lang": "en",
       "title": "tabs.merged_into_tab_id",
@@ -11627,6 +12035,30 @@
     },
     {
       "kind": "column",
+      "ref": "column:venue_settings.coach_max_open_private",
+      "lang": "en",
+      "title": "venue_settings.coach_max_open_private",
+      "body": "int not null default 10\n0274. How many upcoming coach-booked private lessons one coach may hold at this branch (C-24, R56): 1..100, default 10 (COACH_ADD_LIMIT detail live). Owner-set via app.set_coaching_settings.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:venue_settings.coach_share_bp",
+      "lang": "en",
+      "title": "venue_settings.coach_share_bp",
+      "body": "int not null default 6000\n0274. The coach's share of collected lesson money less the court share, in basis points (CD-5, C-6): 0..10000, default 6000 (60 %). Snapshotted on every lesson and course at creation. Owner only; never in venue_settings_public.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:venue_settings.coaching_enabled",
+      "lang": "en",
+      "title": "venue_settings.coaching_enabled",
+      "body": "boolean not null default false\n0274. Lessons at this branch. False (the default, every branch): no new guest or coach booking, join, add or creation (COACHING_OFF); lessons already booked run to their end; coach mode and the desk keep working (R45, R51). Owner-set via app.set_coaching_settings.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:venue_settings.deposit_forfeit_no_show",
       "lang": "en",
       "title": "venue_settings.deposit_forfeit_no_show",
@@ -11687,6 +12119,22 @@
       "lang": "en",
       "title": "venue_settings.id",
       "body": "boolean primary key default true check (id)\nDEPRECATED 0208: the 0006 singleton key. Always true; no longer unique. Kept so a body not yet re-issued still compiles. Never use it in new code: key by venue_id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:venue_settings.lesson_payment_mode",
+      "lang": "en",
+      "title": "venue_settings.lesson_payment_mode",
+      "body": "text not null default 'desk'\n0274. How guests pay for a lesson they book (CD-1): desk (the default), online_optional or online_required (Qi). Bookings made by a coach or the desk are always paid at the desk. An online mode needs platform_settings.lesson_terms_version (C-26, R50). Owner-set via app.set_coaching_settings.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:venue_settings.lesson_prices_public",
+      "lang": "en",
+      "title": "venue_settings.lesson_prices_public",
+      "body": "boolean not null default false\n0274. Whether the website's /coaching page shows lesson prices (C-11). Presentation, not secrecy: the app shows prices to anyone. Default false until the owner agrees. Owner-set via app.set_coaching_settings.",
       "route": null
     },
     {
@@ -12059,6 +12507,30 @@
     },
     {
       "kind": "setting",
+      "ref": "setting:venue_settings.coach_max_open_private",
+      "lang": "en",
+      "title": "venue_settings.coach_max_open_private",
+      "body": "int not null default 10\n0274. How many upcoming coach-booked private lessons one coach may hold at this branch (C-24, R56): 1..100, default 10 (COACH_ADD_LIMIT detail live). Owner-set via app.set_coaching_settings.\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "setting",
+      "ref": "setting:venue_settings.coach_share_bp",
+      "lang": "en",
+      "title": "venue_settings.coach_share_bp",
+      "body": "int not null default 6000\n0274. The coach's share of collected lesson money less the court share, in basis points (CD-5, C-6): 0..10000, default 6000 (60 %). Snapshotted on every lesson and course at creation. Owner only; never in venue_settings_public.\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "setting",
+      "ref": "setting:venue_settings.coaching_enabled",
+      "lang": "en",
+      "title": "venue_settings.coaching_enabled",
+      "body": "boolean not null default false\n0274. Lessons at this branch. False (the default, every branch): no new guest or coach booking, join, add or creation (COACHING_OFF); lessons already booked run to their end; coach mode and the desk keep working (R45, R51). Owner-set via app.set_coaching_settings.\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "setting",
       "ref": "setting:venue_settings.currency",
       "lang": "en",
       "title": "venue_settings.currency",
@@ -12151,6 +12623,22 @@
       "lang": "en",
       "title": "venue_settings.hold_ttl_seconds",
       "body": "int not null default 300\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "setting",
+      "ref": "setting:venue_settings.lesson_payment_mode",
+      "lang": "en",
+      "title": "venue_settings.lesson_payment_mode",
+      "body": "text not null default 'desk'\n0274. How guests pay for a lesson they book (CD-1): desk (the default), online_optional or online_required (Qi). Bookings made by a coach or the desk are always paid at the desk. An online mode needs platform_settings.lesson_terms_version (C-26, R50). Owner-set via app.set_coaching_settings.\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "setting",
+      "ref": "setting:venue_settings.lesson_prices_public",
+      "lang": "en",
+      "title": "venue_settings.lesson_prices_public",
+      "body": "boolean not null default false\n0274. Whether the website's /coaching page shows lesson prices (C-11). Presentation, not secrecy: the app shows prices to anyone. Default false until the owner agrees. Owner-set via app.set_coaching_settings.\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
       "route": "/admin/settings"
     },
     {
@@ -12406,7 +12894,7 @@
       "ref": "enum:reservation_kind",
       "lang": "en",
       "title": "enum reservation_kind",
-      "body": "Values: booking, hold, maintenance.\nDefined in migration 0002.",
+      "body": "Values: booking, hold, maintenance, lesson.\nDefined in migration 0002.",
       "route": null
     },
     {
@@ -19038,7 +19526,7 @@
       "ref": "system:edge:send-push",
       "lang": "en",
       "title": "edge function send-push",
-      "body": "verify_jwt = true (supabase/config.toml).\nsend-push — outbox sender for Expo push notifications.\n\nInvoked through app.push_nudge (service-role Authorization header; see\npackages/db/README.md \"Edge functions\") — the moment a booking notification\nis queued, and by the tp_push_sweep cron every 30 s (migration 0090). Flow:\n  1. app.claim_due_notifications(limit) — due, unsent, attempts < 5, not\n     claimed in the last 60 s, SKIP LOCKED; claiming increments `attempts`\n     and stamps `claimed_at` (0024, lease 0090). Overlapping invocations\n     therefore never send the same row twice — as long as this function\n     finishes inside the lease, which is what EXPO_TIMEOUT_MS guarantees.\n  2. Resolve each row's CURRENT expo_push_token + preferred_lang from\n     profiles (tokens rot, language is a live preference) and court names.\n  3. Batch to https://exp.host/--/api/v2/push/send (max 100/request).\n  4. Per-ticket: ok -> sent_at; error -> last_error (row retries once its\n     lease runs out, until the attempts cap of 5); DeviceNotRegistered also clears\n     the profile's token so future bookings stop enqueueing.\n\nThree families of kind. The booking kinds (and `test`) take their copy from\nSTRINGS below, with the court and time. The staff kinds, queued only by\napp.notify_staff, name their copy by payload.title_key and read it from\nstaffStrings.ts (build-contracts-2026-09-23 §2.21); _shared/staff-push.json\nis the one list of their kinds, title keys and routes. The guest kinds of\nopen matches (match_update, match_reminder, match_message), queued only by\napp.match_notify (0261), do the same with guestStrings.ts and\n_shared/guest-push.json (docs/design/open-matches/guest.md §4.7), with the\nmatch's time and branch read from the match row. This function must be\ndeployed before the migration that lets the outbox hold a staff or guest\nkind: a kind or title key it does not know is terminal.",
+      "body": "verify_jwt = true (supabase/config.toml).\nsend-push — outbox sender for Expo push notifications.\n\nInvoked through app.push_nudge (service-role Authorization header; see\npackages/db/README.md \"Edge functions\") — the moment a booking notification\nis queued, and by the tp_push_sweep cron every 30 s (migration 0090). Flow:\n  1. app.claim_due_notifications(limit) — due, unsent, attempts < 5, not\n     claimed in the last 60 s, SKIP LOCKED; claiming increments `attempts`\n     and stamps `claimed_at` (0024, lease 0090). Overlapping invocations\n     therefore never send the same row twice — as long as this function\n     finishes inside the lease, which is what EXPO_TIMEOUT_MS guarantees.\n  2. Resolve each row's CURRENT expo_push_token + preferred_lang from\n     profiles (tokens rot, language is a live preference) and court names.\n  3. Batch to https://exp.host/--/api/v2/push/send (max 100/request).\n  4. Per-ticket: ok -> sent_at; error -> last_error (row retries once its\n     lease runs out, until the attempts cap of 5); DeviceNotRegistered also clears\n     the profile's token so future bookings stop enqueueing.\n\nFour families' worth of copy: booking, staff, open matches, coaching. The\nbooking kinds (and `test`) take their copy from STRINGS below, with the court\nand time. The staff kinds, queued only by app.notify_staff, name their copy\nby payload.title_key and read it from staffStrings.ts\n(build-contracts-2026-09-23 §2.21); _shared/staff-push.json is the one list\nof their kinds, title keys and routes. The guest kinds of open matches\n(match_update, match_reminder, match_message), queued only by\napp.match_notify (0261), do the same with guestStrings.ts and\n_shared/guest-push.json (docs/design/open-matches/guest.md §4.7), with the\nmatch's time and branch read from the match row. The coaching kinds\n(lesson_update, lesson_reminder, coach_update; queued by app.lesson_notify,\nlesson_booking) ride the same guest family (docs/design/coaching/guest.md §4.6), with\nthe lesson's time and branch read from the lesson row and a st",
       "route": null
     },
     {
@@ -25854,7 +26342,7 @@
       "ref": "doc:docs/design/multi-venue/slice-1-2026-09-21.md#10",
       "lang": "en",
       "title": "docs/design/multi-venue/slice-1-2026-09-21.md › Tables added after the slices",
-      "body": "## Tables added after the slices\n\n`packages/db/CLAUDE.md` points here for which tables are branch tables and which are chain-wide.\n\n- **0258, open matches** (`docs/design/open-matches/db.md` §4.4). Branch tables, each with\n  `venue_id` (no default: every writer names the match's branch) and `zz_branch_guard`:\n  `matches`, `match_seats`, `match_requests`, `match_events`, `match_reports`,\n  `match_exclusions`, `payment_match_seats`. Chain-wide, with no `venue_id` and no guard (like\n  `customer_flags`): `match_tickets`, `match_ticket_events`, `match_blocks`. A ticket purchase in\n  `booking_payments` is a chain row too: `purpose = 'ticket'`, `venue_id` NULL (R7).",
+      "body": "## Tables added after the slices\n\n`packages/db/CLAUDE.md` points here for which tables are branch tables and which are chain-wide.\n\n- **0258, open matches** (`docs/design/open-matches/db.md` §4.4). Branch tables, each with\n  `venue_id` (no default: every writer names the match's branch) and `zz_branch_guard`:\n  `matches`, `match_seats`, `match_requests`, `match_events`, `match_reports`,\n  `match_exclusions`, `payment_match_seats`. Chain-wide, with no `venue_id` and no guard (like\n  `customer_flags`): `match_tickets`, `match_ticket_events`, `match_blocks`. A ticket purchase in\n  `booking_payments` is a chain row too: `purpose = 'ticket'`, `venue_id` NULL (R7).\n- **Coaching, the `coaching_tables` migration** (`docs/design/coaching/db.md` §4.3). Branch tables,\n  each with `venue_id` (no default: every writer names the branch of its lesson, type or coach) and\n  `zz_branch_guard`: `coach_branches`, `coach_hours`, `lesson_types`, `coach_lesson_types`,\n  `coach_prices`, `courses`, `lessons`, `lesson_enrolments`, `lesson_attendance`,\n  `lesson_strikes`, `lesson_events`, `coach_statements`, `coach_statement_lines`. Chain-wide, with\n  no `venue_id` and no guard: `coaches`, `coach_time_off`, `coach_photo_purges` (a chain-wide\n  parent is never a guard link pair). The guards of `reservations`, `tabs` and `booking_payments`\n  gain the `lessons/lesson_id` and `lesson_enrolments/lesson_enrolment_id` pairs.",
       "route": null
     },
     {

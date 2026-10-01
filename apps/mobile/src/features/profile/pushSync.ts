@@ -145,7 +145,10 @@ export function isStaffTap(data: PushTapData | undefined): boolean {
  * reservation id, as it always did.
  *
  * A guest open-match kind is answered first, whatever the status: `match`
- * with an id opens that match, `tickets` the wallet (guest.md §4.21).
+ * with an id opens that match, `tickets` the wallet (guest.md §4.21). A
+ * coaching route (`lesson`, `coach_lesson`, `coach_statements`; coaching
+ * guest.md §4.11) is a guest tap too, and opens nothing until its screens land
+ * (G4, G5): never a match screen with a lesson's id.
  */
 export function tapDestination(data: PushTapData | undefined): string | null;
 export function tapDestination(data: PushTapData | undefined, status: StaffStatusKind): TapDestination;
@@ -160,6 +163,7 @@ export function tapDestination(
   // tabs, i.e. nothing, when a `match` push names none) or the wallet.
   if (isGuestTap(data)) {
     if (data?.route === 'tickets') return { kind: 'tickets' };
+    if (data?.route !== 'match') return null;
     const target = typeof data?.id === 'string' && data.id ? data.id : null;
     return target ? { kind: 'match', id: target } : null;
   }

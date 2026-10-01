@@ -46,6 +46,16 @@ describe('assistant catalog ↔ dispatcher', () => {
     for (const b of branches) expect(COUNTABLE_TOOL_NAMES, b).toContain(b);
   });
 
+  it('no tool names a person-money report (coaching C-28, R42)', () => {
+    // The coach statements and the lessons report are money about a named
+    // coach: managers read them in the operator, the assistant never does
+    // (check-analytics-payload.mjs PERSON_MONEY_REPORTS).
+    for (const rpc of ['report_coach_statements', 'report_lessons']) {
+      expect(ASSISTANT_TOOLS.map((t) => t.rpc), rpc).not.toContain(rpc);
+      expect(DISPATCHED_RPCS as readonly string[], rpc).not.toContain(rpc);
+    }
+  });
+
   it('rpc names are unique across tools and only rpc-backed tools dispatch', () => {
     const rpcs = ASSISTANT_TOOLS.filter((t) => t.rpc).map((t) => t.rpc);
     expect(new Set(rpcs).size).toBe(rpcs.length);

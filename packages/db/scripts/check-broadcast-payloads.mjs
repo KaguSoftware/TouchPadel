@@ -59,6 +59,9 @@ const FORBIDDEN = [
   // point at the organiser, a reporter, a reported player or a block.
   /given_name/i, /family_name/i, /\bgender\b/i, /share_token/i, /organiser_id/i,
   /reporter_id/i, /reported_id/i, /blocker_id/i, /blocked_id/i,
+  // Coaching (docs/design/coaching/db.md §4.7.10, R42): the friends a guest
+  // brings, a student, and a coach's share of the money.
+  /friend_names/i, /student/i, /share_bp/i,
 ];
 
 /** Split on top-level commas, respecting nesting and quotes. */

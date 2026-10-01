@@ -913,6 +913,8 @@ export type Database = {
         }
         Returns: Json
       }
+      coaching_rules: { Args: { p_venue: string }; Returns: Json }
+      coaching_settings: { Args: { p_venue_id?: string }; Returns: Json }
       compute_tab_totals: {
         Args: { p_tab_id: string }
         Returns: {
@@ -1487,6 +1489,7 @@ export type Database = {
       }
       jsonb_top_keys_text: { Args: { p: Json }; Returns: string }
       kitchen_board: { Args: { p_venue_id?: string }; Returns: Json }
+      lesson_terms_ok: { Args: { p_version: string }; Returns: boolean }
       like_escape: { Args: { p_text: string }; Returns: string }
       link_item_modifier_group: {
         Args: {
@@ -1550,6 +1553,7 @@ export type Database = {
             Returns: undefined
           }
       llm_usage_summary: { Args: never; Returns: Json }
+      lock_coach: { Args: { p_coach_id: string }; Returns: undefined }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
       lock_match_money: { Args: { p_match_id: string }; Returns: undefined }
       lock_match_venue: { Args: { p_venue: string }; Returns: undefined }
@@ -3088,6 +3092,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_coaching_settings: {
+        Args: { p_patch: Json; p_venue_id: string }
+        Returns: Json
+      }
       set_customer_flags: {
         Args: { p_customer_id: string; p_flags: Json }
         Returns: Json
@@ -3703,6 +3711,7 @@ export type Database = {
         }
         Returns: Json
       }
+      try_lock_coach: { Args: { p_coach_id: string }; Returns: boolean }
       try_lock_match_venue: {
         Args: { p_courts?: boolean; p_venue: string }
         Returns: boolean
@@ -4808,6 +4817,7 @@ export type Database = {
           hold_id: string | null
           id: string
           last_checked_at: string | null
+          lesson_enrolment_id: string | null
           locale: string
           provider: string
           provider_payment_id: string | null
@@ -4846,6 +4856,7 @@ export type Database = {
           hold_id?: string | null
           id?: string
           last_checked_at?: string | null
+          lesson_enrolment_id?: string | null
           locale?: string
           provider: string
           provider_payment_id?: string | null
@@ -4884,6 +4895,7 @@ export type Database = {
           hold_id?: string | null
           id?: string
           last_checked_at?: string | null
+          lesson_enrolment_id?: string | null
           locale?: string
           provider?: string
           provider_payment_id?: string | null
@@ -4920,6 +4932,13 @@ export type Database = {
             columns: ["hold_id"]
             isOneToOne: false
             referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payments_lesson_enrolment_fkey"
+            columns: ["lesson_enrolment_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_enrolments"
             referencedColumns: ["id"]
           },
           {
@@ -5199,6 +5218,628 @@ export type Database = {
           },
           {
             foreignKeyName: "checklist_templates_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_branches: {
+        Row: {
+          active: boolean
+          coach_id: string
+          created_at: string
+          venue_id: string
+        }
+        Insert: {
+          active?: boolean
+          coach_id: string
+          created_at?: string
+          venue_id: string
+        }
+        Update: {
+          active?: boolean
+          coach_id?: string
+          created_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_branches_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_branches_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_hours: {
+        Row: {
+          coach_id: string
+          end_time: string
+          id: string
+          set_by: string
+          set_by_staff_id: string | null
+          start_time: string
+          updated_at: string
+          venue_id: string
+          weekday: number
+        }
+        Insert: {
+          coach_id: string
+          end_time: string
+          id?: string
+          set_by: string
+          set_by_staff_id?: string | null
+          start_time: string
+          updated_at?: string
+          venue_id: string
+          weekday: number
+        }
+        Update: {
+          coach_id?: string
+          end_time?: string
+          id?: string
+          set_by?: string
+          set_by_staff_id?: string | null
+          start_time?: string
+          updated_at?: string
+          venue_id?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_hours_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_hours_set_by_staff_id_fkey"
+            columns: ["set_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_hours_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_lesson_types: {
+        Row: {
+          coach_id: string
+          created_at: string
+          lesson_type_id: string
+          venue_id: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          lesson_type_id: string
+          venue_id: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          lesson_type_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_lesson_types_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_lesson_types_lesson_type_id_fkey"
+            columns: ["lesson_type_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_lesson_types_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_photo_purges: {
+        Row: {
+          coach_id: string
+          folder: string
+          id: string
+          purged_at: string | null
+          queued_at: string
+        }
+        Insert: {
+          coach_id: string
+          folder: string
+          id?: string
+          purged_at?: string | null
+          queued_at?: string
+        }
+        Update: {
+          coach_id?: string
+          folder?: string
+          id?: string
+          purged_at?: string | null
+          queued_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_photo_purges_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_prices: {
+        Row: {
+          coach_id: string
+          lesson_type_id: string
+          price_iqd: number
+          protocol_run_id: string | null
+          set_at: string
+          venue_id: string
+        }
+        Insert: {
+          coach_id: string
+          lesson_type_id: string
+          price_iqd: number
+          protocol_run_id?: string | null
+          set_at?: string
+          venue_id: string
+        }
+        Update: {
+          coach_id?: string
+          lesson_type_id?: string
+          price_iqd?: number
+          protocol_run_id?: string | null
+          set_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_prices_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_prices_lesson_type_id_fkey"
+            columns: ["lesson_type_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_prices_protocol_run_id_fkey"
+            columns: ["protocol_run_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_prices_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_statement_lines: {
+        Row: {
+          coach_iqd: number
+          collected_iqd: number
+          court_share_iqd: number
+          created_at: string
+          id: string
+          is_adjustment: boolean
+          lesson_id: string
+          share_bp: number
+          statement_id: string
+          venue_id: string
+        }
+        Insert: {
+          coach_iqd: number
+          collected_iqd?: number
+          court_share_iqd?: number
+          created_at?: string
+          id?: string
+          is_adjustment?: boolean
+          lesson_id: string
+          share_bp: number
+          statement_id: string
+          venue_id: string
+        }
+        Update: {
+          coach_iqd?: number
+          collected_iqd?: number
+          court_share_iqd?: number
+          created_at?: string
+          id?: string
+          is_adjustment?: boolean
+          lesson_id?: string
+          share_bp?: number
+          statement_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_statement_lines_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_statement_lines_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "coach_statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_statement_lines_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_statements: {
+        Row: {
+          adjustments_iqd: number
+          approved_at: string | null
+          approved_by: string | null
+          coach_id: string
+          coach_iqd: number
+          collected_iqd: number
+          court_share_iqd: number
+          drafted_at: string
+          id: string
+          lessons_count: number
+          month: string
+          paid_at: string | null
+          paid_by: string | null
+          paid_reference: string | null
+          refreshed_at: string | null
+          status: string
+          venue_id: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          adjustments_iqd?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          coach_id: string
+          coach_iqd?: number
+          collected_iqd?: number
+          court_share_iqd?: number
+          drafted_at?: string
+          id?: string
+          lessons_count?: number
+          month: string
+          paid_at?: string | null
+          paid_by?: string | null
+          paid_reference?: string | null
+          refreshed_at?: string | null
+          status?: string
+          venue_id: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          adjustments_iqd?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          coach_id?: string
+          coach_iqd?: number
+          collected_iqd?: number
+          court_share_iqd?: number
+          drafted_at?: string
+          id?: string
+          lessons_count?: number
+          month?: string
+          paid_at?: string | null
+          paid_by?: string | null
+          paid_reference?: string | null
+          refreshed_at?: string | null
+          status?: string
+          venue_id?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_statements_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_statements_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_statements_paid_by_fkey"
+            columns: ["paid_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_statements_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_statements_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_time_off: {
+        Row: {
+          cancelled_at: string | null
+          coach_id: string
+          created_at: string
+          id: string
+          period: unknown
+          reason: string
+          set_by: string
+          set_by_staff_id: string | null
+        }
+        Insert: {
+          cancelled_at?: string | null
+          coach_id: string
+          created_at?: string
+          id?: string
+          period: unknown
+          reason?: string
+          set_by: string
+          set_by_staff_id?: string | null
+        }
+        Update: {
+          cancelled_at?: string | null
+          coach_id?: string
+          created_at?: string
+          id?: string
+          period?: unknown
+          reason?: string
+          set_by?: string
+          set_by_staff_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_time_off_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_time_off_set_by_staff_id_fkey"
+            columns: ["set_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coaches: {
+        Row: {
+          bio_ar: string
+          bio_en: string
+          created_at: string
+          created_by_staff_id: string | null
+          display_name_ar: string
+          display_name_en: string
+          id: string
+          photo_path: string | null
+          profile_id: string
+          public_accepted_at: string | null
+          retired_at: string | null
+          sort_order: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          bio_ar?: string
+          bio_en?: string
+          created_at?: string
+          created_by_staff_id?: string | null
+          display_name_ar: string
+          display_name_en: string
+          id?: string
+          photo_path?: string | null
+          profile_id: string
+          public_accepted_at?: string | null
+          retired_at?: string | null
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          bio_ar?: string
+          bio_en?: string
+          created_at?: string
+          created_by_staff_id?: string | null
+          display_name_ar?: string
+          display_name_en?: string
+          id?: string
+          photo_path?: string | null
+          profile_id?: string
+          public_accepted_at?: string | null
+          retired_at?: string | null
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coaches_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coaches_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courses: {
+        Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          coach_id: string
+          coach_share_bp: number
+          court_share_iqd: number
+          created_at: string
+          created_by_kind: string
+          created_by_profile_id: string | null
+          created_by_staff_id: string | null
+          cutoff_at: string
+          cutoff_checked_at: string | null
+          id: string
+          idempotency_key: string | null
+          lesson_type_id: string
+          max_places: number
+          min_places: number
+          price_iqd: number
+          sessions_count: number
+          signup_closes_at: string
+          status: string
+          title_ar: string
+          title_en: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          coach_id: string
+          coach_share_bp: number
+          court_share_iqd: number
+          created_at?: string
+          created_by_kind: string
+          created_by_profile_id?: string | null
+          created_by_staff_id?: string | null
+          cutoff_at: string
+          cutoff_checked_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          lesson_type_id: string
+          max_places: number
+          min_places: number
+          price_iqd: number
+          sessions_count: number
+          signup_closes_at: string
+          status?: string
+          title_ar?: string
+          title_en?: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          coach_id?: string
+          coach_share_bp?: number
+          court_share_iqd?: number
+          created_at?: string
+          created_by_kind?: string
+          created_by_profile_id?: string | null
+          created_by_staff_id?: string | null
+          cutoff_at?: string
+          cutoff_checked_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          lesson_type_id?: string
+          max_places?: number
+          min_places?: number
+          price_iqd?: number
+          sessions_count?: number
+          signup_closes_at?: string
+          status?: string
+          title_ar?: string
+          title_en?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courses_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_lesson_type_id_fkey"
+            columns: ["lesson_type_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -6153,6 +6794,575 @@ export type Database = {
           },
           {
             foreignKeyName: "ingredients_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_attendance: {
+        Row: {
+          enrolment_id: string
+          lesson_id: string
+          marked_at: string
+          marked_by_kind: string
+          marked_by_profile_id: string | null
+          marked_by_staff_id: string | null
+          status: string
+          venue_id: string
+        }
+        Insert: {
+          enrolment_id: string
+          lesson_id: string
+          marked_at?: string
+          marked_by_kind: string
+          marked_by_profile_id?: string | null
+          marked_by_staff_id?: string | null
+          status: string
+          venue_id: string
+        }
+        Update: {
+          enrolment_id?: string
+          lesson_id?: string
+          marked_at?: string
+          marked_by_kind?: string
+          marked_by_profile_id?: string | null
+          marked_by_staff_id?: string | null
+          status?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_attendance_enrolment_id_fkey"
+            columns: ["enrolment_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_enrolments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_attendance_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_attendance_marked_by_profile_id_fkey"
+            columns: ["marked_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_attendance_marked_by_staff_id_fkey"
+            columns: ["marked_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_attendance_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_enrolments: {
+        Row: {
+          booked_by_kind: string
+          booked_by_profile_id: string | null
+          booked_by_staff_id: string | null
+          cancel_kind: string | null
+          cancelled_at: string | null
+          course_id: string | null
+          created_at: string
+          first_session_no: number | null
+          friend_names: string[]
+          guest_id: string | null
+          guest_name: string | null
+          guest_phone: string | null
+          hold_expires_at: string | null
+          id: string
+          idempotency_key: string | null
+          lesson_id: string | null
+          link_confirmed_at: string | null
+          party_size: number
+          payment_mode: string
+          price_iqd: number
+          refunded_outside_iqd: number
+          sessions_covered: number | null
+          status: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          booked_by_kind: string
+          booked_by_profile_id?: string | null
+          booked_by_staff_id?: string | null
+          cancel_kind?: string | null
+          cancelled_at?: string | null
+          course_id?: string | null
+          created_at?: string
+          first_session_no?: number | null
+          friend_names?: string[]
+          guest_id?: string | null
+          guest_name?: string | null
+          guest_phone?: string | null
+          hold_expires_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          lesson_id?: string | null
+          link_confirmed_at?: string | null
+          party_size?: number
+          payment_mode: string
+          price_iqd: number
+          refunded_outside_iqd?: number
+          sessions_covered?: number | null
+          status?: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          booked_by_kind?: string
+          booked_by_profile_id?: string | null
+          booked_by_staff_id?: string | null
+          cancel_kind?: string | null
+          cancelled_at?: string | null
+          course_id?: string | null
+          created_at?: string
+          first_session_no?: number | null
+          friend_names?: string[]
+          guest_id?: string | null
+          guest_name?: string | null
+          guest_phone?: string | null
+          hold_expires_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          lesson_id?: string | null
+          link_confirmed_at?: string | null
+          party_size?: number
+          payment_mode?: string
+          price_iqd?: number
+          refunded_outside_iqd?: number
+          sessions_covered?: number | null
+          status?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_enrolments_booked_by_profile_id_fkey"
+            columns: ["booked_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_enrolments_booked_by_staff_id_fkey"
+            columns: ["booked_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_enrolments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_enrolments_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_enrolments_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_enrolments_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_events: {
+        Row: {
+          actor: string
+          actor_profile_id: string | null
+          actor_staff_id: string | null
+          at: string
+          code: string | null
+          course_id: string | null
+          data: Json
+          enrolment_id: string | null
+          id: number
+          lesson_id: string | null
+          type: string
+          venue_id: string
+        }
+        Insert: {
+          actor: string
+          actor_profile_id?: string | null
+          actor_staff_id?: string | null
+          at?: string
+          code?: string | null
+          course_id?: string | null
+          data?: Json
+          enrolment_id?: string | null
+          id?: never
+          lesson_id?: string | null
+          type: string
+          venue_id: string
+        }
+        Update: {
+          actor?: string
+          actor_profile_id?: string | null
+          actor_staff_id?: string | null
+          at?: string
+          code?: string | null
+          course_id?: string | null
+          data?: Json
+          enrolment_id?: string | null
+          id?: never
+          lesson_id?: string | null
+          type?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_events_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_events_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_events_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_events_enrolment_id_fkey"
+            columns: ["enrolment_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_enrolments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_events_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_strikes: {
+        Row: {
+          counted: boolean | null
+          enrolment_id: string
+          guest_id: string
+          kind: string
+          lesson_id: string
+          settled_at: string | null
+          struck_at: string
+          venue_id: string
+        }
+        Insert: {
+          counted?: boolean | null
+          enrolment_id: string
+          guest_id: string
+          kind: string
+          lesson_id: string
+          settled_at?: string | null
+          struck_at?: string
+          venue_id: string
+        }
+        Update: {
+          counted?: boolean | null
+          enrolment_id?: string
+          guest_id?: string
+          kind?: string
+          lesson_id?: string
+          settled_at?: string | null
+          struck_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_strikes_enrolment_id_fkey"
+            columns: ["enrolment_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_enrolments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_strikes_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_strikes_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_strikes_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_types: {
+        Row: {
+          court_share_iqd: number
+          created_at: string
+          created_by_staff_id: string | null
+          cutoff_hours: number
+          description_ar: string
+          description_en: string
+          duration_min: number
+          id: string
+          is_active: boolean
+          kind: string
+          launched_at: string | null
+          max_places: number
+          min_places: number
+          name_ar: string
+          name_en: string
+          price_iqd: number | null
+          sessions_count: number | null
+          sort_order: number
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          court_share_iqd?: number
+          created_at?: string
+          created_by_staff_id?: string | null
+          cutoff_hours?: number
+          description_ar?: string
+          description_en?: string
+          duration_min: number
+          id?: string
+          is_active?: boolean
+          kind: string
+          launched_at?: string | null
+          max_places: number
+          min_places?: number
+          name_ar: string
+          name_en: string
+          price_iqd?: number | null
+          sessions_count?: number | null
+          sort_order?: number
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          court_share_iqd?: number
+          created_at?: string
+          created_by_staff_id?: string | null
+          cutoff_hours?: number
+          description_ar?: string
+          description_en?: string
+          duration_min?: number
+          id?: string
+          is_active?: boolean
+          kind?: string
+          launched_at?: string | null
+          max_places?: number
+          min_places?: number
+          name_ar?: string
+          name_en?: string
+          price_iqd?: number | null
+          sessions_count?: number | null
+          sort_order?: number
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_types_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_types_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lessons: {
+        Row: {
+          booked_by_kind: string
+          cancel_reason: string | null
+          cancelled_at: string | null
+          coach_id: string
+          coach_share_bp: number
+          completed_at: string | null
+          course_id: string | null
+          court_share_iqd: number
+          created_at: string
+          created_by_profile_id: string | null
+          created_by_staff_id: string | null
+          cutoff_at: string | null
+          cutoff_checked_at: string | null
+          end_at: string
+          hold_expires_at: string | null
+          id: string
+          idempotency_key: string | null
+          kind: string
+          lesson_type_id: string
+          max_places: number
+          min_places: number
+          period: unknown
+          price_iqd: number | null
+          rescheduled_at: string | null
+          session_no: number | null
+          start_at: string
+          status: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          booked_by_kind: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          coach_id: string
+          coach_share_bp: number
+          completed_at?: string | null
+          course_id?: string | null
+          court_share_iqd: number
+          created_at?: string
+          created_by_profile_id?: string | null
+          created_by_staff_id?: string | null
+          cutoff_at?: string | null
+          cutoff_checked_at?: string | null
+          end_at: string
+          hold_expires_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          kind: string
+          lesson_type_id: string
+          max_places: number
+          min_places: number
+          period?: unknown
+          price_iqd?: number | null
+          rescheduled_at?: string | null
+          session_no?: number | null
+          start_at: string
+          status?: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          booked_by_kind?: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          coach_id?: string
+          coach_share_bp?: number
+          completed_at?: string | null
+          course_id?: string | null
+          court_share_iqd?: number
+          created_at?: string
+          created_by_profile_id?: string | null
+          created_by_staff_id?: string | null
+          cutoff_at?: string | null
+          cutoff_checked_at?: string | null
+          end_at?: string
+          hold_expires_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          kind?: string
+          lesson_type_id?: string
+          max_places?: number
+          min_places?: number
+          period?: unknown
+          price_iqd?: number | null
+          rescheduled_at?: string | null
+          session_no?: number | null
+          start_at?: string
+          status?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lessons_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lessons_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lessons_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lessons_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lessons_lesson_type_id_fkey"
+            columns: ["lesson_type_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lessons_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -8597,6 +9807,7 @@ export type Database = {
           currency: string
           hold_strikes_since: string | null
           id: boolean
+          lesson_terms_version: string | null
           llm_cost_micros_per_mtok: number
           llm_daily_request_limit: number
           llm_default_model: string
@@ -8613,6 +9824,7 @@ export type Database = {
           currency?: string
           hold_strikes_since?: string | null
           id?: boolean
+          lesson_terms_version?: string | null
           llm_cost_micros_per_mtok?: number
           llm_daily_request_limit?: number
           llm_default_model?: string
@@ -8629,6 +9841,7 @@ export type Database = {
           currency?: string
           hold_strikes_since?: string | null
           id?: boolean
+          lesson_terms_version?: string | null
           llm_cost_micros_per_mtok?: number
           llm_daily_request_limit?: number
           llm_default_model?: string
@@ -10167,6 +11380,7 @@ export type Database = {
           id: string
           idempotency_key: string | null
           kind: Database["public"]["Enums"]["reservation_kind"]
+          lesson_id: string | null
           notes: string | null
           period: unknown
           price_iqd: number | null
@@ -10198,6 +11412,7 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           kind: Database["public"]["Enums"]["reservation_kind"]
+          lesson_id?: string | null
           notes?: string | null
           period?: unknown
           price_iqd?: number | null
@@ -10229,6 +11444,7 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           kind?: Database["public"]["Enums"]["reservation_kind"]
+          lesson_id?: string | null
           notes?: string | null
           period?: unknown
           price_iqd?: number | null
@@ -10267,6 +11483,13 @@ export type Database = {
             columns: ["guest_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
             referencedColumns: ["id"]
           },
           {
@@ -11739,6 +12962,8 @@ export type Database = {
           idempotency_key: string | null
           kind: string
           label: string | null
+          lesson_enrolment_id: string | null
+          lesson_iqd: number
           merged_into_tab_id: string | null
           opened_at: string
           opened_by_staff_id: string | null
@@ -11761,6 +12986,8 @@ export type Database = {
           idempotency_key?: string | null
           kind?: string
           label?: string | null
+          lesson_enrolment_id?: string | null
+          lesson_iqd?: number
           merged_into_tab_id?: string | null
           opened_at?: string
           opened_by_staff_id?: string | null
@@ -11783,6 +13010,8 @@ export type Database = {
           idempotency_key?: string | null
           kind?: string
           label?: string | null
+          lesson_enrolment_id?: string | null
+          lesson_iqd?: number
           merged_into_tab_id?: string | null
           opened_at?: string
           opened_by_staff_id?: string | null
@@ -11809,6 +13038,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_day_close_summary"
             referencedColumns: ["day_session_id"]
+          },
+          {
+            foreignKeyName: "tabs_lesson_enrolment_fkey"
+            columns: ["lesson_enrolment_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_enrolments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tabs_merged_into_tab_id_fkey"
@@ -12340,6 +13576,9 @@ export type Database = {
           cancellation_window_hours: number
           cash_rounding_iqd: number
           closed_dates: string[]
+          coach_max_open_private: number
+          coach_share_bp: number
+          coaching_enabled: boolean
           currency: string
           deposit_forfeit_no_show: boolean
           deposit_max_iqd: number | null
@@ -12353,6 +13592,8 @@ export type Database = {
           heartbeat_stale_seconds: number
           hold_ttl_seconds: number
           id: boolean
+          lesson_payment_mode: string
+          lesson_prices_public: boolean
           llm_cost_micros_per_mtok: number
           llm_daily_request_limit: number
           llm_default_model: string
@@ -12378,6 +13619,9 @@ export type Database = {
           cancellation_window_hours?: number
           cash_rounding_iqd?: number
           closed_dates?: string[]
+          coach_max_open_private?: number
+          coach_share_bp?: number
+          coaching_enabled?: boolean
           currency?: string
           deposit_forfeit_no_show?: boolean
           deposit_max_iqd?: number | null
@@ -12391,6 +13635,8 @@ export type Database = {
           heartbeat_stale_seconds?: number
           hold_ttl_seconds?: number
           id?: boolean
+          lesson_payment_mode?: string
+          lesson_prices_public?: boolean
           llm_cost_micros_per_mtok?: number
           llm_daily_request_limit?: number
           llm_default_model?: string
@@ -12416,6 +13662,9 @@ export type Database = {
           cancellation_window_hours?: number
           cash_rounding_iqd?: number
           closed_dates?: string[]
+          coach_max_open_private?: number
+          coach_share_bp?: number
+          coaching_enabled?: boolean
           currency?: string
           deposit_forfeit_no_show?: boolean
           deposit_max_iqd?: number | null
@@ -12429,6 +13678,8 @@ export type Database = {
           heartbeat_stale_seconds?: number
           hold_ttl_seconds?: number
           id?: boolean
+          lesson_payment_mode?: string
+          lesson_prices_public?: boolean
           llm_cost_micros_per_mtok?: number
           llm_daily_request_limit?: number
           llm_default_model?: string
@@ -12930,7 +14181,10 @@ export type Database = {
           address_en: string | null
           cancellation_window_hours: number | null
           closed_dates: string[] | null
+          coaching_enabled: boolean | null
           currency: string | null
+          lesson_payment_mode: string | null
+          lesson_prices_public: boolean | null
           map_url: string | null
           match_fill_deadline_minutes: number | null
           matches_enabled: boolean | null
@@ -12980,7 +14234,7 @@ export type Database = {
       order_source: "guest_web" | "till"
       order_status: "sent" | "preparing" | "ready" | "served" | "voided"
       payment_method: "cash" | "card"
-      reservation_kind: "booking" | "hold" | "maintenance"
+      reservation_kind: "booking" | "hold" | "maintenance" | "lesson"
       reservation_source: "mobile" | "desk"
       reservation_status:
         | "pending"
@@ -13177,7 +14431,7 @@ export const Constants = {
       order_source: ["guest_web", "till"],
       order_status: ["sent", "preparing", "ready", "served", "voided"],
       payment_method: ["cash", "card"],
-      reservation_kind: ["booking", "hold", "maintenance"],
+      reservation_kind: ["booking", "hold", "maintenance", "lesson"],
       reservation_source: ["mobile", "desk"],
       reservation_status: [
         "pending",

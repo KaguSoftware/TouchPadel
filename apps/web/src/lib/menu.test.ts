@@ -285,6 +285,10 @@ describe('per-branch reads (multi-venue slice 4)', () => {
     // 0257 (open matches): the view's two appended columns.
     matches_enabled: false as boolean | null,
     match_fill_deadline_minutes: 120 as number | null,
+    // Coaching (coaching_settings migration): the view's three appended columns.
+    coaching_enabled: false as boolean | null,
+    lesson_payment_mode: 'desk' as string | null,
+    lesson_prices_public: false as boolean | null,
   });
 
   it('orders the open branches oldest first, whatever order the view returns', async () => {
