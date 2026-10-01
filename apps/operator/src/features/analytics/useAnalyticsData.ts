@@ -297,7 +297,7 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   let engagement: EngagementStatus = 'loading';
   if (posthog.isError) {
     engagement =
-      posthog.error instanceof EdgeError && posthog.error.code === 'NOT_CONFIGURED' ? 'unconfigured' : 'error';
+      posthog.error instanceof EdgeError && posthog.error.kind === 'NOT_CONFIGURED' ? 'unconfigured' : 'error';
   } else if (posthog.data) {
     engagement = posthog.data.configured ? 'ready' : 'unconfigured';
   }

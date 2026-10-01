@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import type { MessageKey } from '@touch/i18n';
+import { errorMessageKey, type ErrorOverrides, type MessageKey } from '@touch/i18n';
 
 /**
  * All business writes go through SECURITY DEFINER RPCs in schema `app`
@@ -16,12 +16,15 @@ export function appRpc<Fn extends keyof Database['app']['Functions'] & string>(
 
 /**
  * RPC failures raise `raise exception '<CODE>'` (errcode P0001) — the code IS
- * the PostgrestError message. Source of truth: migration SQL (0008/0013–0016/0021).
+ * the PostgrestError message. The codes, their lines and the matching rule are
+ * the one error catalogue (`ERROR_CODE_KEYS` / `errorMessageKey` in
+ * packages/i18n/src/errors.ts), shared with the operator and the phone; this
+ * map holds only the guest site's own words, consulted first. A new code goes
+ * into the catalogue with its line in both catalogs.
  */
-const RPC_ERROR_KEYS: Record<string, MessageKey> = {
+const WEB_OVERRIDES = {
   TOKEN_INVALID: 'cafe.invalidQr',
   AUTH_REQUIRED: 'cafe.invalidQr', // anonymous sign-in failed / raced — rescan restarts the boot
-  SESSION_EXPIRED: 'errors.sessionTableExpired',
   DEGRADED_LOCKOUT: 'degraded.orderingRefused',
   CAFE_CLOSED: 'cafe.cafeClosed',
   EMPTY_ORDER: 'cafe.basketEmpty',
@@ -49,12 +52,21 @@ const RPC_ERROR_KEYS: Record<string, MessageKey> = {
   // 0125: the server could not tell which branch; not actionable for a guest.
   // Guest writes resolve the branch from the session, so this is defensive.
   VENUE_REQUIRED: 'errors.generic',
-};
+  // Internal checks of the writers create_guest_order and raise_waiter_call
+  // call (the notification kind, a promotion's percentage, the referenced row):
+  // nothing a guest did or can fix, so not the staff line either.
+  INVALID_KIND: 'errors.generic',
+  INVALID_PCT: 'errors.generic',
+  REF_NOT_FOUND: 'errors.generic',
+} as const satisfies ErrorOverrides;
 
-/** Map a Postgrest/RPC error to a translatable message key (never throws). */
+/**
+ * Map a Postgrest/RPC error to a translatable message key (never throws): the
+ * guest site's word for the code, else the catalogue's, else the SQLSTATE's
+ * (a unique violation, a timeout), else errors.generic.
+ */
 export function rpcErrorKey(error: { message?: string } | null | undefined): MessageKey {
-  const code = error?.message?.trim();
-  return (code && RPC_ERROR_KEYS[code]) || 'errors.generic';
+  return errorMessageKey(error, { overrides: WEB_OVERRIDES });
 }
 
 /** True when the error is the given raise code. */

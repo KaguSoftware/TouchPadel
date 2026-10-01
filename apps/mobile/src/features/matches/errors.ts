@@ -2,9 +2,9 @@
  * Open-match refusals on the phone (docs/design/open-matches/guest.md §4.22,
  * §4.13, §4.10.3). PURE.
  *
- * The codes themselves map through `CODE_TO_KEY` (features/booking/errors.ts,
- * the only literal block `check-error-codes` reads). This file adds what that
- * map cannot do alone:
+ * The codes themselves map through the one error catalogue (packages/i18n/src/
+ * errors.ts, with the phone's overrides in features/booking/errors.ts). This
+ * file adds what that map cannot do alone:
  *  - the DETAIL a few refusals carry (PostgREST `details`, or the edge body's
  *    `detail`): MATCH_TOO_LATE's minutes, TICKET_COUNT_INVALID's
  *    `wallet_limit`, NEED_TICKETS' `{needed, available, buy}`;

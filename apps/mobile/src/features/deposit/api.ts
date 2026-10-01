@@ -37,7 +37,7 @@ export type DepositEdgeFunction = 'deposit-begin' | 'deposit-status' | 'ticket-b
  * Call a deposit edge function as the signed-in guest.
  *
  * A refusal (`{error: 'CODE', detail?}` with a 4xx/5xx) becomes a
- * DepositEdgeError whose message is the code, so it maps through CODE_TO_KEY
+ * DepositEdgeError whose message is the code, so it maps through the error catalogue
  * like an RPC refusal and the query client never retries a decision. The
  * open-match `ticket-begin` (features/matches/api.ts `ticketBegin`) is called
  * through here too, so its `detail` (`TICKET_COUNT_INVALID` `wallet_limit`)
