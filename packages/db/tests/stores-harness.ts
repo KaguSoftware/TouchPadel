@@ -29,11 +29,23 @@ export const OTHER_VENUE = '00000000-0000-4000-8000-00000000c5c5';
 
 export const TAX = 'b0000000-0000-4000-8000-000000000001';
 
+/** Hard ceiling for one synchronous psql call (above vitest's 60 s testTimeout). */
+export const EXEC_TIMEOUT_MS = 90_000;
+
 export function psql(sql: string): string {
   return execFileSync(
     'docker',
     ['exec', '-i', CONTAINER, 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-qAt'],
-    { input: sql, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 },
+    {
+      input: sql,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 64 * 1024 * 1024,
+      // execFileSync blocks the event loop, so vitest's own testTimeout can never fire
+      // on a stuck query; a wedged lock wait here once held CI for six hours.
+      timeout: EXEC_TIMEOUT_MS,
+      killSignal: 'SIGKILL',
+    },
   ).trim();
 }
 
@@ -54,7 +66,7 @@ export function psqlSession(sql: string): Promise<string> {
     const child = spawn(
       'docker',
       ['exec', '-i', CONTAINER, 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-qAt'],
-      { stdio: ['pipe', 'pipe', 'pipe'] },
+      { stdio: ['pipe', 'pipe', 'pipe'], timeout: 5 * EXEC_TIMEOUT_MS, killSignal: 'SIGKILL' },
     );
     let out = '';
     let err = '';

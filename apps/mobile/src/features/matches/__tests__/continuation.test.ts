@@ -67,6 +67,15 @@ describe('the in-memory continuation', () => {
     expect(continuationFor('r-2', null)).toBeNull();
   });
 
+  it('is not handed to a later purchase once it is bound to one (no join the buyer never picked)', () => {
+    setTicketContinuation(join);
+    bindTicketContinuation('r-1');
+    // The next buy (a Profile top-up, another account) reads the unbound one only.
+    expect(getTicketContinuation()).toBeNull();
+    // The purchase it belongs to still finds it.
+    expect(continuationFor('r-1', null)).toBe(join);
+  });
+
   it('wins over the pointer for the same ref, and the pointer’s is used otherwise (a cold start)', () => {
     setTicketContinuation(join);
     bindTicketContinuation('r-1');

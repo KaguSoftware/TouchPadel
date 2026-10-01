@@ -30,7 +30,11 @@ export type PendingJoin =
   /** The Book tab's "Open matches · Sign in" row. */
   | { kind: 'list'; venueId: string; date: string };
 
+/** How long an intent outlives the tap that made it: a guest backing out of sign-in must not be steered by it later. */
+export const PENDING_JOIN_TTL_MS = 30 * 60_000;
+
 let pending: PendingJoin | null = null;
+let pendingAt = 0;
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -39,10 +43,15 @@ function emit(): void {
 
 export function setPendingJoin(intent: PendingJoin): void {
   pending = intent;
+  pendingAt = Date.now();
   emit();
 }
 
 export function getPendingJoin(): PendingJoin | null {
+  if (pending !== null && Date.now() - pendingAt > PENDING_JOIN_TTL_MS) {
+    // Stale: forget it without emitting (this runs during render).
+    pending = null;
+  }
   return pending;
 }
 

@@ -1678,7 +1678,12 @@ export function assertMatchMoney(matchId: string): string[] {
     'docker',
     ['exec', '-i', process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_touchpadel', 'psql', '-U', 'postgres',
      '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-qAt'],
-    { input: `begin;\n${MATCH_MONEY_CHECK}\nselect pg_temp.money_of('${matchId}');\nrollback;\n`, encoding: 'utf8' },
+    {
+      input: `begin;\nset local lock_timeout = '30s';\n${MATCH_MONEY_CHECK}\nselect pg_temp.money_of('${matchId}');\nrollback;\n`,
+      encoding: 'utf8',
+      timeout: 90_000, // a sync exec blocks vitest's timers, so bound it here
+      killSignal: 'SIGKILL',
+    },
   ).trim();
   return JSON.parse(out.split('\n').at(-1)!) as string[];
 }
