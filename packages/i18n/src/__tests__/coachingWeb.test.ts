@@ -55,7 +55,9 @@ describe('coaching.web', () => {
     expect(countPhrase('coaching.common.count.placesLeft', 1, 'ar')).toBe('مكان واحد متاح');
     expect(countPhrase('coaching.common.count.placesLeft', 2, 'ar')).toBe('مكانان متاحان');
     expect(plain(countPhrase('coaching.common.count.placesLeft', 3, 'ar'))).toBe('3 أماكن متاحة');
-    expect(plain(countPhrase('coaching.common.count.placesLeft', 11, 'ar'))).toBe('11 مكانًا متاحًا');
+    expect(plain(countPhrase('coaching.common.count.placesLeft', 11, 'ar'))).toBe(
+      '11 مكانًا متاحًا',
+    );
     expect(plain(countPhrase('coaching.common.count.sessions', 8, 'ar'))).toBe('8 حصص');
     expect(plain(countPhrase('coaching.common.count.minutes', 90, 'ar'))).toBe('90 دقيقة');
     expect(plain(countPhrase('coaching.common.count.minutes', 210, 'ar'))).toBe('210 دقائق');

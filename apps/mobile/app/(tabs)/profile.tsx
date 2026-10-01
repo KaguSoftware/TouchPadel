@@ -298,7 +298,9 @@ export default function ProfileScreen() {
                 testID="profile.coach-mode"
                 icon={<CalendarIcon size={15} color={colors.gstrong} />}
                 label={t(
-                  coachEntry === '/coach-mode-statements' ? 'profile.coachStatements' : 'profile.coachMode',
+                  coachEntry === '/coach-mode-statements'
+                    ? 'profile.coachStatements'
+                    : 'profile.coachMode',
                 )}
                 onPress={() => router.push(coachEntry)}
               />

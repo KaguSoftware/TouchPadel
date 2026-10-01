@@ -42,7 +42,7 @@ describe('the guest push catalogue', () => {
     expect(isGuestPushKind(undefined)).toBe(false);
   });
 
-  it('appends the coaching family (features/coaching/pushRoutes.ts) after the open-match one', () => {
+  it('appends the coaching family (coaching/pushRoutes.ts) after the open-match one', () => {
     expect([...GUEST_PUSH_ROUTES]).toEqual([...MATCH_PUSH_ROUTES, ...LESSON_PUSH_ROUTES]);
     expect([...GUEST_PUSH_KINDS]).toEqual([...MATCH_PUSH_KINDS, ...LESSON_PUSH_KINDS]);
     for (const route of LESSON_PUSH_ROUTES) expect(isGuestPushRoute(route), route).toBe(true);

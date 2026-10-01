@@ -1206,4 +1206,3 @@ export function holdLive(
   const at = row.holdExpiresAt ? Date.parse(row.holdExpiresAt) : NaN;
   return Number.isFinite(at) && at > nowMs;
 }
-
