@@ -9,7 +9,9 @@ import type { BatchArgs, ProductionItem, ProductionLogRow } from './production';
 export async function fetchProductionToday(venueId: string): Promise<ProductionItem[]> {
   const { data, error } = await supabase.schema('app').rpc('production_today', { p_venue_id: venueId });
   if (error) throw error;
-  return ((data as unknown as { items?: ProductionItem[] } | null)?.items ?? []);
+  const items = (data as unknown as { items?: ProductionItem[] } | null)?.items ?? [];
+  // batch_yield arrived with 0250; a server before it reads as "no batch size".
+  return items.map((i) => ({ ...i, batch_yield: typeof i.batch_yield === 'number' ? i.batch_yield : null }));
 }
 
 export async function fetchProductionLog(venueId: string): Promise<ProductionLogRow[]> {

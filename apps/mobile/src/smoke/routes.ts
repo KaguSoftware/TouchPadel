@@ -16,8 +16,9 @@
  * else. The suites import the components themselves.
  *
  * The route name is the file path minus `app/`, `(tabs)`, and `.tsx`, with
- * three spellings fixed: `(tabs)/index` → `book`, `booking/[id]` →
- * `booking-detail`, `(tabs)/_layout` → `tabs`.
+ * five spellings fixed: `(tabs)/index` → `book`, `booking/[id]` →
+ * `booking-detail`, `(tabs)/_layout` → `tabs`, `match/[id]` → `match-detail`,
+ * `m/[token]` → `match-link`.
  */
 export interface SmokeRoute {
   /** Path under `app/`, '/'-separated — what the coverage test matches on. */
@@ -89,6 +90,12 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'staff-purchase.tsx', route: 'staff-purchase', primary: 'staff-purchase.save' },
   // Phase 2 Milestone 4b: the camera pages.
   { file: 'staff-order-slip.tsx', route: 'staff-order-slip', primary: 'staff-order-slip.send' },
+  // Place an order (0251): the tables, a table's menu, an item's sheet and the
+  // review, cased by staffOrder.smoke.test.tsx.
+  { file: 'staff-order.tsx', route: 'staff-order', primary: 'staff-order.tables' },
+  { file: 'staff-order-menu.tsx', route: 'staff-order-menu', primary: 'staff-order-menu.review' },
+  { file: 'staff-order-item.tsx', route: 'staff-order-item', primary: 'staff-order-item.add' },
+  { file: 'staff-order-review.tsx', route: 'staff-order-review', primary: 'staff-order-review.send' },
   { file: 'staff-receipt.tsx', route: 'staff-receipt', primary: 'staff-receipt.send' },
   { file: 'staff-marketing.tsx', route: 'staff-marketing', primary: 'staff-marketing.tab.take' },
   { file: 'staff-notes.tsx', route: 'staff-notes', primary: 'staff-notes.add' },
@@ -125,6 +132,19 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'staff-deductions.tsx', route: 'staff-deductions', primary: 'staff-deductions.propose' },
   { file: 'staff-incidents.tsx', route: 'staff-incidents', primary: 'staff-incidents.submit' },
   { file: 'staff-content.tsx', route: 'staff-content', primary: 'staff-content.submit' },
+  // ── open matches ──────────────────────────────────────────────────────────
+  // docs/design/open-matches/guest.md §4.27, cased by matches.smoke.test.tsx
+  // in EN and AR. Two spellings are fixed like booking/[id]: `match/[id]` →
+  // `match-detail` and `m/[token]` → `match-link`.
+  { file: 'matches.tsx', route: 'matches', primary: 'matches.start-one' },
+  { file: 'match/[id].tsx', route: 'match-detail', primary: 'match-detail.join' },
+  { file: 'match-new.tsx', route: 'match-new', primary: 'match-new.start' },
+  { file: 'm/[token].tsx', route: 'match-link', primary: 'match-link.sign-in' },
+  { file: 'match-report.tsx', route: 'match-report', primary: 'match-report.submit' },
+  { file: 'blocked-players.tsx', route: 'blocked-players', primary: 'blocked-players.list' },
+  // The wallet starts a ticket purchase: cased with the payment screens in
+  // deposit.smoke.test.tsx.
+  { file: 'tickets.tsx', route: 'tickets', primary: 'tickets.buy' },
   // ── root ──────────────────────────────────────────────────────────────────
   // No primary action of its own: the root layout is providers and chrome.
   // `app.direction-root` is the node every screen's mirroring is read from, so

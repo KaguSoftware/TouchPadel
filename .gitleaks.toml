@@ -88,4 +88,10 @@ regexes = [
   # same verdict; the dots are escaped because these are regexes.
   '''e3f1a2b4-5c6d-4e7f-8a9b-0c1d2e3f4a5b\.3\.9f2c7a10b4e6d38052fa1cbe77d049a3316ed8b5c02f4917ae6b3d8102cf54e7''',
   '''4_GitFxtTn-KmwwdLj9KW6QffAK-WdMUCGc''',
+  # Synthetic match-invite token in the open-matches web tests
+  # (apps/web/src/lib/site/matchInvite.test.ts,
+  # apps/web/app/[locale]/m/[token]/page.test.tsx, apps/web/src/lib/security/proxy.test.ts;
+  # commit 1dac393f). A hand-typed 22-char string walking the base64url alphabet;
+  # the tests need only the SHAPE of an invite token and never resolve one.
+  '''Ab3_-x9ZqT0kLm2NpQr7sU''',
 ]

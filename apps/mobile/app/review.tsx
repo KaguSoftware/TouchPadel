@@ -56,7 +56,7 @@ function ReviewScreen() {
     durationMin?: string;
     /** 'sheet' when the hold came from the Book tab's booking sheet (still mounted beneath). */
     origin?: string;
-    /** '1' when app.hold_slot said a hold of this guest's lapsed lately (0249). */
+    /** '1' when app.hold_slot said a hold of this guest's lapsed lately (0252). */
     holdWarning?: string;
   }>();
   const holdId = typeof params.holdId === 'string' ? params.holdId : '';
@@ -532,7 +532,7 @@ function ReviewScreen() {
           />
         </View>
 
-        {/* 0249: a hold of theirs lapsed lately. A kind word, nothing refused yet. */}
+        {/* 0252: a hold of theirs lapsed lately. A kind word, nothing refused yet. */}
         {params.holdWarning === '1' ? (
           <View
             testID="review.hold-warning"

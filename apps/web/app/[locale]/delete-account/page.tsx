@@ -89,6 +89,7 @@ function sections(locale: Locale): LegalSection[] {
       blocks: [
         { kind: 'p', key: 'legal.deleteAccount.what.deleted' },
         { kind: 'p', key: 'legal.deleteAccount.what.kept' },
+        { kind: 'p', key: 'legal.deleteAccount.what.tickets' },
         { kind: 'link', to: 'privacy', hash: 'retention', label: 'legal.deleteAccount.what.more' },
       ],
     },

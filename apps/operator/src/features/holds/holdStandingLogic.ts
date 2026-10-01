@@ -1,5 +1,5 @@
 /**
- * The hold ladder (migration 0249), staff side. PURE: node-tested next door.
+ * The hold ladder (migration 0252), staff side. PURE: node-tested next door.
  *
  * A guest who holds courts in the app and lets the holds lapse waits 2 hours,
  * then a day, then is suspended for 7 days and listed in the day close of the

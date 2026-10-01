@@ -41,11 +41,11 @@ export type GuestTabsDecision = 'tabs' | 'loading' | 'redirect-staff';
 
 /**
  * The guest tabs. A staff session never mounts them (or the 3D court under
- * the Book tab): it is sent to Today, which also shows the revoked and
+ * the Book tab) unless it asked to see the guest view: it is sent to Today, which also shows the revoked and
  * update-the-app screens. Every hard-coded `/(tabs)` target lands here, so this
  * one gate catches them all.
  */
-export function guestTabsGate(status: StaffStatus): GuestTabsDecision {
+export function guestTabsGate(status: StaffStatus, guestPreview = false): GuestTabsDecision {
   switch (status.kind) {
     case 'none':
     case 'guest':
@@ -53,6 +53,8 @@ export function guestTabsGate(status: StaffStatus): GuestTabsDecision {
     case 'pending':
       return 'loading';
     case 'staff':
+      // "Show guest view" (guestPreview.ts): an active staff account may look.
+      return guestPreview ? 'tabs' : 'redirect-staff';
     case 'revoked':
     case 'unsupported':
       return 'redirect-staff';

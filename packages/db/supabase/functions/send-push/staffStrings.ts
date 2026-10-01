@@ -116,6 +116,9 @@ const EN = {
   content_changes: { title: 'Changes asked', body: (v) => v.title },
   content_declined: { title: 'Content declined', body: (v) => v.title },
   waiter_call_new: { title: 'Guest call', body: (v) => (v.title ? `Table ${v.title}` : '') },
+  // Open matches (0261, R5/R43; docs/design/open-matches/guest.md §4.7.5): a player
+  // reported another. No params, so nothing personal reaches a lock screen.
+  match_report_new: { title: 'Player report', body: () => 'A report about a player is waiting for review.' },
 } satisfies Record<string, StaffCopy>;
 
 export type StaffTitleKey = keyof typeof EN;
@@ -130,22 +133,22 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
   run_stopped: { title: 'تم الإيقاف', body: named },
   run_live: {
     title: 'تم الإطلاق',
-    body: (v) => (named(v) ? `${named(v)} متوفر الآن في القائمة.` : ''),
+    body: (v) => (named(v) ? `${named(v)} أصبح الآن في المنيو.` : ''),
   },
   launch_not_ready: {
     title: 'تأجّل الإطلاق',
     body: (v) =>
-      named(v) ? `لم يكن ${named(v)} جاهزًا في الموعد. افتحه لإصلاحه ثم أطلقه من جديد.` : '',
+      named(v) ? `لم يكن ${named(v)} جاهزًا في الموعد المحدد. افتحه لإصلاحه ثم أطلقه من جديد.` : '',
   },
   apply_not_ready: {
     title: 'تأجّل التغيير',
-    body: (v) => (named(v) ? `تعذّر تطبيق ${named(v)} في الموعد.` : ''),
+    body: (v) => (named(v) ? `تعذّر تطبيق ${named(v)} في الموعد المحدد.` : ''),
   },
   review_ready: { title: 'مراجعة الثلاثين يومًا جاهزة', body: named },
   request_submitted: { title: 'طلب من موظف', body: (v) => (v.name ? `أرسل ${v.name} طلبًا.` : '') },
   request_approved: { title: 'تمت الموافقة على الطلب', body: () => '' },
   request_rejected: { title: 'رُفض الطلب', body: () => '' },
-  shopping_new: { title: 'قائمة المشتريات', body: () => 'أغراض جديدة للشراء.' },
+  shopping_new: { title: 'قائمة التسوق', body: () => 'أغراض جديدة للشراء.' },
   purchase_to_receive: {
     title: 'مشتريات بانتظار الاستلام',
     body: () => 'استلمها من المخزون ← استلام البضائع في تطبيق التشغيل.',
@@ -161,10 +164,10 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
   recipe_change_approved: { title: 'تمت الموافقة على تغيير الوصفة', body: (v) => v.step },
   recipe_change_declined: { title: 'رُفض تغيير الوصفة', body: (v) => v.step },
   shopping_to_approve: {
-    title: 'قائمة المشتريات',
+    title: 'قائمة التسوق',
     body: (v) => (v.name ? `أضاف ${v.name} أغراضًا بانتظار موافقتك.` : ''),
   },
-  shopping_declined: { title: 'قائمة المشتريات', body: () => 'رُفض غرض أضفته.' },
+  shopping_declined: { title: 'قائمة التسوق', body: () => 'رُفض غرض أضفته.' },
   marketing_request_new: { title: 'طلب تسويق', body: (v) => pair(v.name, v.title) },
   marketing_request_answered: { title: 'ردّ التسويق', body: named },
   deduction_proposed: {
@@ -174,13 +177,15 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
   deduction_approved: { title: 'تمت الموافقة على الخصم', body: () => 'تمت الموافقة على اقتراحك.' },
   deduction_declined: { title: 'رُفض الخصم', body: () => 'رُفض اقتراحك.' },
   deduction_recorded: { title: 'خصم من الراتب', body: () => 'أُضيف خصم إلى سجلّك.' },
-  incident_reported: { title: 'بلاغ حادثة', body: (v) => pair(v.name, v.step) },
+  incident_reported: { title: 'بلاغ عن حادثة', body: (v) => pair(v.name, v.step) },
   incident_reviewed: { title: 'تمت مراجعة البلاغ', body: (v) => v.step },
   content_submitted: { title: 'محتوى بانتظار الموافقة', body: (v) => pair(v.name, v.title) },
   content_approved: { title: 'تمت الموافقة على المحتوى', body: (v) => v.title },
   content_changes: { title: 'طُلبت تعديلات', body: (v) => v.title },
   content_declined: { title: 'رُفض المحتوى', body: (v) => v.title },
-  waiter_call_new: { title: 'نداء زبون', body: (v) => (v.title ? `طاولة ${v.title}` : '') },
+  waiter_call_new: { title: 'نداء ضيف', body: (v) => (v.title ? `طاولة ${v.title}` : '') },
+  // DRAFT-AR (guest.md §4.7.5): on the client's review list.
+  match_report_new: { title: 'بلاغ عن لاعب', body: () => 'بلاغ عن لاعب بانتظار المراجعة.' },
 };
 
 export const STAFF_STRINGS: Record<Lang, Record<StaffTitleKey, StaffCopy>> = { en: EN, ar: AR };

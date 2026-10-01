@@ -1,5 +1,5 @@
 /**
- * The hold ladder's staff RPCs (migration 0249). Feature-private query keys:
+ * The hold ladder's staff RPCs (migration 0252). Feature-private query keys:
  * nothing outside this feature invalidates them.
  */
 import { appRpc } from '../../lib/appRpc';

@@ -1,7 +1,7 @@
 # Telegram staff-group setup (owner checklist)
 
 New guest orders and waiter calls are posted to one Telegram group with inline
-buttons (`✅ شوهد / 🍽 تم التقديم / ❌ إلغاء`, `✅ أنا قادم / ✔️ تم`). Taps write
+buttons (`✅ شوهد / 🍽 تم التقديم / ❌ إلغاء`, `✅ في الطريق / ✔️ تم`). Taps write
 back to the KDS through `app.telegram_apply_action`. Three edge functions are
 involved: `telegram-send` (outbox sender), `telegram-callback` (webhook) and
 `telegram-diagnose` (owner health check + webhook registration, 0091).
@@ -149,7 +149,7 @@ trail. Every call writes a `telegram.staff_set` audit entry.
 | Message lands in the wrong group | Re-read the chat id (`getUpdates`) — supergroup conversion changes it. |
 | Slow (> 10 s) | Only the cron sweep is running: Vault names `service_role_key` / `functions_base_url` missing or `pg_net` disabled (step 5). |
 | Toast `غير ممكن الآن` on every tap | The ticket/call was already moved from the till; the tap is recorded in `telegram_actions` with `result = invalid`. |
-| Toast `الطلب مدفوع — الإلغاء من الكاشير` | The tab was settled; Telegram cannot void a paid order — cancel from the till. |
+| Toast `الطلب مدفوع. الإلغاء من الصندوق.` | The tab was settled; Telegram cannot void a paid order — cancel from the till. |
 | Every tap refused, nothing changes | `select action, result, detail from telegram_actions order by id desc limit 10;` — `wrong_chat` = the message came from a chat other than `cafe_settings.telegram_chat_id` (or that setting is unset); `not_allowlisted` = the tapper is missing from `telegram_staff`; `void_not_authorized` = allowlisted but without `can_void`. See step 8b. |
 
 ## Local development

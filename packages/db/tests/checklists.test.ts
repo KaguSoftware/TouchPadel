@@ -214,7 +214,8 @@ describe.skipIf(!docker)('checklists (rolled-back transactions)', () => {
       Q('lines', `select jsonb_agg(i.text_en order by i.position) from checklist_template_items i
                    join checklist_templates t on t.id = i.template_id
                   where t.venue_id = {{venue}} and t.role = 'barista' and t.slot = 'open'`),
-      Q('audit', `select jsonb_agg(jsonb_build_object('action', a.action, 'after', a.after) order by a.at)
+      // One transaction: both rows share now(), so the id orders them.
+      Q('audit', `select jsonb_agg(jsonb_build_object('action', a.action, 'after', a.after) order by a.at, a.id)
                     from audit_log a
                    where a.entity = 'checklist_template'
                      and a.entity_id = (select id::text from checklist_templates

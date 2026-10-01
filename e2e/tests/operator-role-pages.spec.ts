@@ -175,7 +175,7 @@ test.describe('operator role pages', () => {
     await expect(sheet).toBeVisible();
     await sheet.getByTestId('idea-decline').click();
     // No reason, no decline.
-    const confirm = sheet.getByRole('button', { name: 'ارفض الفكرة' });
+    const confirm = sheet.getByRole('button', { name: 'رفض الفكرة' });
     await expect(confirm).toBeDisabled();
     await sheet.locator('textarea').fill('التمر غالٍ هذا الموسم');
     await confirm.click();

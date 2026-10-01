@@ -89,11 +89,11 @@ interface CashPaymentRow {
   tab: {
     label: string | null;
     table: { table_number: string } | null;
-    reservation: { guest_name: string | null } | null;
+    reservation: { guest_id?: string | null; guest_name: string | null } | null;
   } | null;
 }
 
-async function fetchDrawerEvents(dayId: string, openedAt: string, tableWord: string, bookingWord: string): Promise<DrawerEvent[]> {
+async function fetchDrawerEvents(dayId: string, openedAt: string, tableWord: string, bookingWord: string, openMatchWord: string): Promise<DrawerEvent[]> {
   const [opens, cash] = await Promise.all([
     supabase
       .from('audit_log')
@@ -104,7 +104,7 @@ async function fetchDrawerEvents(dayId: string, openedAt: string, tableWord: str
       .limit(200),
     supabase
       .from('payments')
-      .select('id, created_at, amount_iqd, change_iqd, recorder:staff(display_name), tab:tabs(label, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_name))')
+      .select('id, created_at, amount_iqd, change_iqd, recorder:staff(display_name), tab:tabs(label, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_id, guest_name))')
       .eq('day_session_id', dayId)
       .eq('method', 'cash')
       .order('created_at', { ascending: false })
@@ -129,7 +129,7 @@ async function fetchDrawerEvents(dayId: string, openedAt: string, tableWord: str
     amount: p.amount_iqd,
     change: p.change_iqd,
     reason: null,
-    tab: p.tab ? tabAnchorLabel(p.tab, tableWord, bookingWord) : null,
+    tab: p.tab ? tabAnchorLabel(p.tab, tableWord, bookingWord, openMatchWord) : null,
     by: p.recorder?.display_name ?? null,
   }));
   return [...a, ...b].sort((x, y) => y.at.localeCompare(x.at));
@@ -152,7 +152,7 @@ export function CashDrawerScreen() {
   const eventsQ = useQuery({
     queryKey: ['drawerEvents', day?.id ?? null],
     enabled: Boolean(day) && seesLog,
-    queryFn: () => fetchDrawerEvents(day!.id, day!.opened_at, tr('op.till.table'), tr('op.till.forReservation')),
+    queryFn: () => fetchDrawerEvents(day!.id, day!.opened_at, tr('op.till.table'), tr('op.till.forReservation'), tr('ws.matches.common.openMatch')),
     refetchInterval: 30_000,
   });
 

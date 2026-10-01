@@ -166,8 +166,10 @@ describe.skipIf(!up)('protocols: the six new roles', () => {
   });
 
   it('only those involved read the run; the price step’s record and the run’s data stay hidden', async () => {
-    // Involved: the starter, the other head (propose actor), marketing (its step's actor).
-    for (const role of ['head_chef', 'head_barista', 'marketing'] as const) {
+    // Involved: the starter and marketing (its step's actor, still to come).
+    // The other head held the propose step's role only until the proposal was
+    // handed in (0249): a bar head does not follow a kitchen release.
+    for (const role of ['head_chef', 'marketing'] as const) {
       const { data, error } = await appRpc(as[role], 'protocol_run_detail', { p_run_id: runId });
       expect(error, role).toBeNull();
       const d = data as Detail;
@@ -182,8 +184,9 @@ describe.skipIf(!up)('protocols: the six new roles', () => {
       expect(s.error, role).toBeNull();
       expect(moneyKeys(s.data), role).toEqual([]);
     }
-    // Not involved: no step of a product release is theirs.
-    for (const role of ['barista', 'chef', 'driver'] as const) {
+    // Not involved: no step of a product release is theirs, or (the other
+    // head) no longer (0249).
+    for (const role of ['head_barista', 'barista', 'chef', 'driver'] as const) {
       for (const [fn, args] of [
         ['protocol_run_detail', { p_run_id: runId }],
         ['protocol_step_detail', { p_run_step_id: step.marketing }],

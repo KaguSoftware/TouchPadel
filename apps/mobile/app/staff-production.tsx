@@ -17,8 +17,10 @@ import { staffKeys } from '../src/features/staff/keys';
 import { mapStaffError } from '../src/features/staff/edge';
 import { clearStaffIntentKey, staffIntentKey } from '../src/lib/idempotency';
 import {
+  MAX_BATCHES,
   PRODUCTION_ROLES,
   batchArgs,
+  batchQtyText,
   batchIntent,
   sortProduction,
   validateBatch,
@@ -37,6 +39,7 @@ import { localName } from '../src/features/staff/checklists/logic';
 import { Lead, Tag } from '../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
 import { formatQty } from '../src/features/staff/supplies/logic';
+import { Stepper } from '../src/features/staff/floor/parts';
 
 /**
  * Production (build-contracts-2026-09-23 §2.16, §6.1; plan #25): the head
@@ -46,6 +49,12 @@ import { formatQty } from '../src/features/staff/supplies/logic';
  * through `record_batch`, which takes its components off the stock on the
  * server and returns no cost. "Made today" is the day's batches, with who
  * made each.
+ *
+ * Picking an item with a batch size (0250, set by a manager on the recipe)
+ * fills the amount in for one batch; the Batches stepper multiplies it, and
+ * the amount stays editable for a batch that came out different. Without a
+ * batch size the worker types the amount, as before, and is told who can set
+ * one.
  *
  * The batch carries an idempotency key kept per batch (its item, amount and
  * use-by), so a retry after a dropped reply replays the first answer instead
@@ -76,6 +85,7 @@ function ProductionScreen() {
   const pull = usePullRefresh(() => Promise.all([items.refetch(), log.refetch()]));
 
   const [draft, setDraft] = useState<BatchDraft>(FRESH);
+  const [batches, setBatches] = useState(1);
   const [issues, setIssues] = useState<BatchIssue[]>([]);
   const [error, setError] = useState<string | null>(null);
   const example = localIsoDate(new Date());
@@ -95,6 +105,7 @@ function ProductionScreen() {
       clearStaffIntentKey(batchIntent(args));
       toast(t('staff.checklists.production.recorded'), 'success');
       setDraft(FRESH);
+      setBatches(1);
       setIssues([]);
       void queryClient.invalidateQueries({ queryKey: staffKeys.production(venue) });
       void queryClient.invalidateQueries({ queryKey: staffKeys.productionLog(venue) });
@@ -104,6 +115,17 @@ function ProductionScreen() {
 
   const list = sortProduction(items.data ?? []);
   const picked = list.find((i) => i.ingredient_id === draft.ingredientId) ?? null;
+
+  // Pick an item: with a batch size, one batch's amount is filled in.
+  const pick = (id: string) => {
+    const item = list.find((i) => i.ingredient_id === id);
+    setBatches(1);
+    edit({ ingredientId: id, qty: item?.batch_yield ? batchQtyText(item.batch_yield, 1) : '' });
+  };
+  const setBatchCount = (n: number) => {
+    setBatches(n);
+    if (picked?.batch_yield) edit({ qty: batchQtyText(picked.batch_yield, n) });
+  };
 
   const qtyText = (qty: number, unit: StockUnit) =>
     // "1 piece", "12 pieces": the phone's one quantity format (shopping and purchases use it too).
@@ -159,7 +181,7 @@ function ProductionScreen() {
               testID={`staff-production.item.${item.ingredient_id}`}
               accessibilityRole="radio"
               accessibilityState={{ selected }}
-              onPress={() => edit({ ingredientId: item.ingredient_id })}
+              onPress={() => pick(item.ingredient_id)}
               style={({ pressed }) => ({
                 paddingStart: space.m,
                 paddingEnd: space.m,
@@ -270,6 +292,21 @@ function ProductionScreen() {
             <Hint style={{ marginTop: 0 }}>{t('staff.checklists.production.pickHint')}</Hint>
           )}
           {fieldError('item') ? <ErrorText>{fieldError('item')}</ErrorText> : null}
+          {picked?.batch_yield ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ fontFamily: fonts.body700, fontSize: 14, color: colors.ink }}>
+                {t('staff.checklists.production.batches')}
+              </Text>
+              <Stepper
+                testID="staff-production.batches"
+                value={batches}
+                onChange={setBatchCount}
+                max={MAX_BATCHES}
+                lessLabel={t('staff.checklists.production.lessBatch')}
+                moreLabel={t('staff.checklists.production.moreBatch')}
+              />
+            </View>
+          ) : null}
           <Field
             testID="staff-production.qty"
             label={
@@ -283,6 +320,13 @@ function ProductionScreen() {
             latin
             error={fieldError('qty')}
           />
+          {picked ? (
+            <Hint style={{ marginTop: 0 }}>
+              {picked.batch_yield
+                ? t('staff.checklists.production.batchMakes', { qty: qtyText(picked.batch_yield, picked.unit) })
+                : t('staff.checklists.production.noBatch')}
+            </Hint>
+          ) : null}
           <Field
             testID="staff-production.expiry"
             label={t('staff.checklists.production.expiry')}

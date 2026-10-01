@@ -44,7 +44,7 @@ export function templatedCafeInsights(lang: FallbackLang, data: CafeInsightsPayl
   if (best) {
     out.push({
       text: ar
-        ? `${best.name} كان الأكثر مبيعاً: ${fmt(best.qty)} وحدة بإيراد ${money(best.revenue_iqd, lang)} (${n(best.share_pct)}% من الكمية المباعة).`
+        ? `كان ${best.name} الصنف الأكثر مبيعًا: الكمية ${fmt(best.qty)}، والإيراد ${money(best.revenue_iqd, lang)} (${n(best.share_pct)}% من الكمية المباعة).`
         : `${best.name} was the best seller: ${fmt(best.qty)} sold for ${money(best.revenue_iqd, lang)} (${n(best.share_pct)}% of units).`,
       kind: 'summary',
       subjects: [best.name],
@@ -61,8 +61,8 @@ export function templatedCafeInsights(lang: FallbackLang, data: CafeInsightsPayl
     out.push({
       text: ar
         ? below
-          ? `${worst.name} يُباع بأقل من كلفته: هامش ${money(worst.margin_iqd, lang)} على ${fmt(worst.qty)} وحدة — راجع السعر أو الكلفة.`
-          : `${worst.name} صاحب أضعف هامش بين الأصناف المُكلَّفة: ${n(worst.margin_pct)}% (${money(worst.margin_iqd, lang)} من ${money(worst.revenue_iqd, lang)}) — فكّر برفع السعر أو خفض الكلفة.`
+          ? `يُباع ${worst.name} بأقل من كلفته: الهامش ${money(worst.margin_iqd, lang)}، والكمية المباعة ${fmt(worst.qty)}. راجع السعر أو الكلفة.`
+          : `لدى ${worst.name} أضعف هامش بين الأصناف المعروفة الكلفة: ${n(worst.margin_pct)}% (${money(worst.margin_iqd, lang)} من ${money(worst.revenue_iqd, lang)}). فكّر في رفع السعر قليلًا أو خفض كلفة الحصة.`
         : below
           ? `${worst.name} sells below cost: margin ${money(worst.margin_iqd, lang)} across ${fmt(worst.qty)} units — review its price or cost.`
           : `${worst.name} has the thinnest margin among costed items: ${n(worst.margin_pct)}% (${money(worst.margin_iqd, lang)} of ${money(worst.revenue_iqd, lang)}) — consider a small price rise or a cheaper portion.`,
@@ -79,7 +79,7 @@ export function templatedCafeInsights(lang: FallbackLang, data: CafeInsightsPayl
     const lift = pair.lift === null ? null : Math.round(n(pair.lift) * 10) / 10;
     out.push({
       text: ar
-        ? `${pair.a} و${pair.b} طُلبا معاً ${fmt(pair.both)} مرة (${n(pair.confidence_pct)}% من طلبات ${pair.a}${lift !== null ? `، رفع ${lift}×` : ''}) — جرّب اقتراح أحدهما عند إضافة الآخر.`
+        ? `طُلب ${pair.a} و${pair.b} معًا (عدد المرات: ${fmt(pair.both)}، ونسبتها ${n(pair.confidence_pct)}% من طلبات ${pair.a}${lift !== null ? `، ومعامل الرفع ${lift}×` : ''}). جرّب اقتراح أحدهما عند إضافة الآخر.`
         : `${pair.a} and ${pair.b} were ordered together ${fmt(pair.both)} times (${n(pair.confidence_pct)}% of orders with ${pair.a}${lift !== null ? `, lift ${lift}×` : ''}) — try suggesting one when the other is added.`,
       kind: 'structural',
       subjects: [pair.a, pair.b],
@@ -93,7 +93,7 @@ export function templatedCafeInsights(lang: FallbackLang, data: CafeInsightsPayl
     const p = data.promo;
     out.push({
       text: ar
-        ? `الأصناف المروَّجة باعت ${fmt(p.qty)} وحدة بإيراد ${money(p.revenue_iqd, lang)} مقابل خصومات بقيمة ${money(p.discount_iqd, lang)} في ${fmt(p.orders)} طلب.`
+        ? `الأصناف المشمولة بالعروض: الكمية المباعة ${fmt(p.qty)}، والإيراد ${money(p.revenue_iqd, lang)}، وقيمة الخصومات ${money(p.discount_iqd, lang)}، وعدد الطلبات ${fmt(p.orders)}.`
         : `Promoted items sold ${fmt(p.qty)} units for ${money(p.revenue_iqd, lang)}, giving away ${money(p.discount_iqd, lang)} in discounts across ${fmt(p.orders)} orders.`,
       kind: 'pricing',
       subjects: [],
@@ -109,7 +109,7 @@ export function templatedCafeInsights(lang: FallbackLang, data: CafeInsightsPayl
   if (busiest) {
     out.push({
       text: ar
-        ? `أعلى يوم مبيعاً كان ${busiest.date}: ${money(busiest.revenue_iqd, lang)} عبر ${fmt(busiest.orders)} طلب.`
+        ? `كان ${busiest.date} أعلى يوم مبيعًا: الإيراد ${money(busiest.revenue_iqd, lang)}، وعدد الطلبات ${fmt(busiest.orders)}.`
         : `Busiest day was ${busiest.date}: ${money(busiest.revenue_iqd, lang)} across ${fmt(busiest.orders)} orders.`,
       kind: 'movement',
       subjects: [busiest.date],
@@ -135,7 +135,7 @@ export function templatedCourtsInsights(lang: FallbackLang, data: CourtsInsights
     const slot = slotLabel(fullest);
     out.push({
       text: ar
-        ? `أكثر ساعة امتلاءً كانت ${slot}: إشغال ${n(fullest.occupancy_pct)}% عبر ${fmt(fullest.open_days)} يوم مفتوح (${fmt(fullest.bookings)} حجز)؛ الطلب هنا يفوق العرض، ففكّر برفع سعر هذه الساعة أو توجيه الحجوزات إلى الساعة المجاورة.`
+        ? `أكثر ساعة امتلاءً كانت ${slot}: نسبة الإشغال ${n(fullest.occupancy_pct)}% (عدد الأيام المفتوحة: ${fmt(fullest.open_days)}، وعدد الحجوزات: ${fmt(fullest.bookings)}). الطلب فيها يفوق العرض، لذا فكّر في رفع سعرها أو توجيه الحجوزات إلى الساعة المجاورة.`
         : `Fullest open hour was ${slot}: ${n(fullest.occupancy_pct)}% occupancy across ${fmt(fullest.open_days)} open days (${fmt(fullest.bookings)} bookings); demand outruns supply here, so consider pricing this hour up or steering bookings to the hour beside it.`,
       kind: 'occupancy',
       subjects: [slot],
@@ -153,7 +153,7 @@ export function templatedCourtsInsights(lang: FallbackLang, data: CourtsInsights
     const slot = slotLabel(emptiest);
     out.push({
       text: ar
-        ? `أقل ساعة إشغالاً كانت ${slot}: إشغال ${n(emptiest.occupancy_pct)}% عبر ${fmt(emptiest.open_days)} يوم مفتوح (${fmt(emptiest.bookings)} حجز)؛ سعر مخفّض خارج الذروة أو حجز ثابت أسبوعي قد يملؤها.`
+        ? `أقل ساعة إشغالًا كانت ${slot}: نسبة الإشغال ${n(emptiest.occupancy_pct)}% (عدد الأيام المفتوحة: ${fmt(emptiest.open_days)}، وعدد الحجوزات: ${fmt(emptiest.bookings)}). قد يملؤها سعر مخفّض خارج الذروة أو سلسلة حجوزات أسبوعية.`
         : `Emptiest open hour was ${slot}: ${n(emptiest.occupancy_pct)}% occupancy across ${fmt(emptiest.open_days)} open days (${fmt(emptiest.bookings)} bookings); a cheaper off-peak rate or a standing weekly booking would fill it.`,
       kind: 'occupancy',
       subjects: [slot],
@@ -171,7 +171,7 @@ export function templatedCourtsInsights(lang: FallbackLang, data: CourtsInsights
     const rate = canc.rate_pct !== null ? `${n(canc.rate_pct)}%` : ar ? `${fmt(canc.total)} من ${fmt(bookedTotal)}` : `${fmt(canc.total)} of ${fmt(bookedTotal)}`;
     out.push({
       text: ar
-        ? `أُلغي ${fmt(canc.total)} حجزاً (${rate} من كل الحجوزات)${worst ? `، والأسوأ في ${worst.label} بنسبة ${worst.rate}%` : ''}؛ اطلب تأكيداً قبل يوم من الموعد حيث تتكرر الإلغاءات.`
+        ? `عدد الحجوزات الملغاة: ${fmt(canc.total)} (نسبة الإلغاء: ${rate}${worst ? `، وأعلى نسبة في ${worst.label}: ${worst.rate}%` : ''}). اطلب تأكيد الحجز قبل يوم من الموعد في الحالات التي تتكرر فيها الإلغاءات.`
         : `${fmt(canc.total)} bookings were cancelled (${rate} of all bookings)${worst ? `, worst in ${worst.label} at ${worst.rate}%` : ''}; ask for a confirmation the day before where it clusters.`,
       kind: 'reliability',
       subjects: worst ? [worst.label] : [],
@@ -187,7 +187,7 @@ export function templatedCourtsInsights(lang: FallbackLang, data: CourtsInsights
     const lowest = attachCourts.reduce((a, b) => (n(b.attach_pct) < n(a.attach_pct) ? b : a));
     out.push({
       text: ar
-        ? `نسبة ربط الكافيه بالحجوزات ${n(cafe.attach_pct)}%، والأدنى في ${lowest.name} بنسبة ${n(lowest.attach_pct)}%؛ فتح حساب كافيه عند الوصول لحجوزات هذا الملعب هو أرخص طريقة لرفعها.`
+        ? `نسبة ارتباط الكافيه بالحجوزات ${n(cafe.attach_pct)}%، وأدناها في ${lowest.name}: ${n(lowest.attach_pct)}%. أرخص طريقة لرفعها هي فتح فاتورة كافيه عند تسجيل وصول حجوزات هذا الملعب.`
         : `Cafe attach is ${n(cafe.attach_pct)}% of bookings, lowest on ${lowest.name} at ${n(lowest.attach_pct)}%; opening a cafe tab at check-in for that court's bookings is the cheapest lift.`,
       kind: 'attach',
       subjects: [lowest.name],

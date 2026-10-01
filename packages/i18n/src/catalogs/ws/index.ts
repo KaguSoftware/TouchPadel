@@ -61,6 +61,11 @@ import { slipsAr } from './slips.ar';
 // Touch Shop own desk (0243–0246).
 import { shopEn } from './shop.en';
 import { shopAr } from './shop.ar';
+// Open matches (docs/design/open-matches/operator.md §5.21): matches.* is the
+// assembly; its lanes' groups come from matchesPlayers.*, matchesDesk.* and
+// matchesAdmin.*.
+import { matchesEn } from './matches.en';
+import { matchesAr } from './matches.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -88,6 +93,7 @@ export const wsEn = {
   receipts: receiptsEn,
   slips: slipsEn,
   shop: shopEn,
+  matches: matchesEn,
 } as const;
 
 export const wsAr = {
@@ -116,4 +122,5 @@ export const wsAr = {
   receipts: receiptsAr,
   slips: slipsAr,
   shop: shopAr,
+  matches: matchesAr,
 } as const;

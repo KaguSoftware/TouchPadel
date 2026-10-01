@@ -39,6 +39,7 @@ import { PhoneField } from '../src/components/phone';
 import { DEFAULT_ISO } from '../src/features/profile/phone';
 import { SocialSignInBlock } from '../src/components/social';
 import { useToast } from '../src/components/overlays';
+import { NAME_PART_MAX } from '../src/features/profile/names';
 
 type FieldErrors = {
   firstName?: string;
@@ -228,6 +229,8 @@ function SignUpScreen() {
           autoCapitalize="words"
           autoComplete="given-name"
           textContentType="givenName"
+          // Each part's CHECK (0256, guest.md §4.9): the server never has to clamp.
+          maxLength={NAME_PART_MAX}
           error={fieldErrors.firstName}
           style={{ marginTop: 6 }}
         />
@@ -239,6 +242,7 @@ function SignUpScreen() {
           autoCapitalize="words"
           autoComplete="family-name"
           textContentType="familyName"
+          maxLength={NAME_PART_MAX}
           error={fieldErrors.lastName}
         />
         {method === 'email' ? (

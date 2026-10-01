@@ -436,7 +436,8 @@ describe.skipIf(!docker)('wave 5 roles (rolled-back transactions)', () => {
       ok(r, `sug_${who}`);
       const mine = ok<{ suggestions: { body: string }[] }>(r, `mine_${who}`).suggestions;
       expect(mine.map((s) => s.body), who).toEqual(['More shade on court 2']);
-      ok(r, `ask_${who}`);
+      // Asking marketing is the manager's and the owner's only (0249).
+      expect(refused(r, `ask_${who}`), who).toBe('FORBIDDEN');
       expect(refused(r, `note_${who}`), who).toBe('ITEM_NOT_FOUND');
       ok(r, `work_${who}`);
     }

@@ -1,10 +1,10 @@
-# Recipes & Ingredients Template / قالب الوصفات والمكونات
+# Recipes & Ingredients Template / قالب الوصفات والمكوّنات
 
 **The contract names this the single largest risk of the whole phase.** Stock tracking, margin
 reporting and batch expiry all depend on it. Without measured recipes, Module 5 cannot be
 delivered.
 
-**العقد يسمي هذا البند أكبر خطر في المرحلة كلها.** بدون وصفات مقاسة لا يمكن تسليم نظام المخزون.
+**يعدّ العقد هذا البند أكبر خطر في المرحلة كلها.** ودون وصفات مقاسة لا يمكن تسليم نظام المخزون.
 
 ## The one rule: MEASURED quantities / القاعدة الوحيدة: كميات مقاسة
 
@@ -12,9 +12,9 @@ Every recipe line needs a **number and a unit**, weighed or measured in the kitc
 estimated from memory at a desk.
 
 - Good / صحيح: `Espresso beans, 18, g` · `Milk, 220, ml` · `Tortilla, 1, pc`
-- Useless / غير مقبول: "a scoop", "some milk", "a handful" / "ملعقة"، "قليل من الحليب"
+- Useless / غير مقبول: "a scoop", "some milk", "a handful" / «مغرفة» و«قليل من الحليب» و«حفنة»
 
-Units allowed: **g** (grams / غرام), **ml** (millilitres / ملليلتر), **pc** (pieces / قطعة).
+Units allowed: **g** (grams / غرام), **ml** (millilitres / مليلتر), **pc** (pieces / قطعة).
 Nothing else. If the kitchen has no scale, buying a $10 kitchen scale this week is the
 cheapest fix in the entire project.
 
@@ -41,10 +41,10 @@ inside another sub-recipe is not supported in this phase.
 
 | Column | Meaning / المعنى | Example |
 |---|---|---|
-| `name_en` / `name_ar` | Ingredient name / اسم المكون | `Espresso beans` / `حبوب إسبريسو` |
+| `name_en` / `name_ar` | Ingredient name / اسم المكوّن | `Espresso beans` / `حبوب إسبريسو` |
 | `pack_size` | Size of one purchased pack, with unit / حجم العبوة | `1000 g` |
 | `pack_cost_iqd` | Cost of one pack, whole IQD / كلفة العبوة بالدينار | `25000` |
-| `supplier` | Who you buy it from / المورد | `Al-Rasheed Foods` |
+| `supplier` | Who you buy it from / المورّد | `Al-Rasheed Foods` |
 | `shelf_life_days` | Days it keeps after opening/delivery / مدة الصلاحية بالأيام | `90` |
 
 Pack size + pack cost is how the system computes the real cost of every drink and dish sold.

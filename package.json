@@ -31,7 +31,7 @@
     "security:quiet-errors": "node scripts/security/check-quiet-errors.mjs",
     "security:config-push": "node scripts/security/check-no-config-push.mjs",
     "check:legal": "node scripts/check-legal-placeholders.mjs",
-    "security": "pnpm security:env-names && pnpm security:history && pnpm security:audit && pnpm security:data && pnpm security:web && pnpm security:quiet-errors && pnpm security:config-push && pnpm --filter @touch/operator-shell check:electron && pnpm --filter @touch/db check:rpc-registry && pnpm --filter @touch/db check:assistant-coverage && pnpm --filter @touch/db check:error-codes && pnpm --filter @touch/db check:config-env"
+    "security": "pnpm security:env-names && pnpm security:history && pnpm security:audit && pnpm security:data && pnpm security:web && pnpm security:quiet-errors && pnpm security:config-push && pnpm --filter @touch/operator-shell check:electron && pnpm --filter @touch/db check:rpc-registry && pnpm --filter @touch/db check:assistant-coverage && pnpm --filter @touch/db check:error-codes && pnpm --filter @touch/db check:config-env && pnpm --filter @touch/db check:verify-jwt"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
@@ -46,7 +46,12 @@
       "react-dom": "19.2.3",
       "@types/react": "19.2.18",
       "@types/react-dom": "19.2.7",
-      "js-yaml@4": "4.3.2"
+      "js-yaml@4": "4.3.2",
+      "fast-uri@3": "3.1.8",
+      "brace-expansion@<2": "1.1.21",
+      "brace-expansion@>=2 <3": "2.1.7",
+      "brace-expansion@>=4": "5.0.12",
+      "undici@6": "6.29.0"
     }
   },
   "workspaces": ["apps/*", "packages/*"]

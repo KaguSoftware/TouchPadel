@@ -1,0 +1,197 @@
+/**
+ * `matches.{list, create, detail, report, blocks, messages, gender}`: the
+ * open-match screens, quick messages, report and block, and the one-time
+ * gender ask (docs/design/open-matches/guest.md §4.9, §4.12–§4.14, §4.17).
+ * Owned by the mobile screens lane; spread into matches.en.ts. Mirror every
+ * key in matches.screens.ar.ts.
+ *
+ * A player in the third person comes as a pair `x` / `xF` (EN repeats the
+ * text) so the Arabic can follow the match category (guest.md §4.24).
+ *
+ * Placeholders: {name} is an isolated player name; {tickets}, {players},
+ * {games}, {noShows}, {seats} and {ready} are counted phrases
+ * (`countPhrase`, matches.count.*); {share}, {price} IQD amounts through
+ * `formatIQD`; {time}, {start} branch-local times; {taken} and {total}
+ * LTR-isolated digits.
+ */
+export const matchesScreensEn = {
+  // §4.12 app/matches.tsx
+  list: {
+    title: 'Open matches',
+    startOne: 'Start a match from any free time',
+    emptyTitle: 'No open matches yet',
+    emptyBody: 'Start one from any free time.',
+    tonight: 'Tonight',
+    tomorrow: 'Tomorrow',
+    day: '{weekday} {day} {month}',
+    perPlayer: '{share} per player at the desk',
+    refill: 'Court booked · a seat opened',
+    mine: 'Your match',
+    asked: 'Asked',
+  },
+  // §4.13 app/match-new.tsx
+  create: {
+    title: 'Start an open match',
+    fillsBy: "Fills by {time} or it's called off",
+    whoCanPlay: 'Who can play',
+    whoCanSee: 'Who can see it',
+    visibilityPublic: 'Public',
+    visibilityLink: 'Link only',
+    visibilityPublicHint: 'Listed in the app at this branch',
+    visibilityLinkHint: 'Only people you send the link to',
+    joining: 'Joining',
+    policyOpen: 'Anyone can join',
+    policyApprove: 'I approve each player',
+    seatsForYou: 'Seats for you',
+    seatsMe: 'Me',
+    seatsMePlus: 'Me {extra}',
+    seatsNote: 'For friends without the app; your tickets cover their seats.',
+    friendsWomen: 'My friends are women',
+    friendsMen: 'My friends are men',
+    friendsNeeded: 'Confirm who your friends are to take their seats.',
+    money: 'Court {price} · {share} per player, paid at the desk',
+    wallet: '{use} from your wallet · {ready}',
+    start: 'Start the match',
+    buyAndStart: 'Buy {tickets} and start',
+    priceChanged: 'The price is now {price}. Check it and start again.',
+    started: 'Your match is open. Share the link to fill it.',
+  },
+  // §4.14 app/match/[id].tsx
+  detail: {
+    // The poster's two-weight headline: EN "OPEN / MATCH", AR noun then adjective.
+    headlineTop: 'Open',
+    headlineBottom: 'Match',
+    when: '{day} · {branch}',
+    fillsBy: "Fills by {time} or it's called off",
+    timeLeft: '{minutes} left',
+    court: 'Court {name}',
+    visibilityPublic: 'Public',
+    visibilityLink: 'Link only',
+    policyOpen: 'Anyone can join',
+    policyApprove: 'Organiser approves',
+    policyApproveF: 'Organiser approves',
+    seats: 'Seats',
+    join: 'Join',
+    ask: 'Ask to join',
+    askCaption: 'Holds {tickets} until the organiser answers',
+    askCaptionF: 'Holds {tickets} until the organiser answers',
+    youHave: 'You have {ready}.',
+    // An empty wallet: `count.ticketsReady`'s zero form is a sentence of its own.
+    youHaveNone: 'You have no tickets yet.',
+    buyAndJoin: 'Buy {tickets} and join',
+    buyAndAsk: 'Buy {tickets} and ask',
+    callBranch: 'Call {branch}',
+    excluded: "The organiser removed you from this match. You can't rejoin it.",
+    excludedF: "The organiser removed you from this match. You can't rejoin it.",
+    requested: 'Request sent · {tickets} held until the organiser answers',
+    requestedF: 'Request sent · {tickets} held until the organiser answers',
+    withdraw: 'Withdraw request',
+    inWaiting: "You're in · waiting for {players}",
+    awaitingCourt: "Four players are in. We'll book the court as soon as one is free.",
+    booked: 'Booked · {court} · {share} at the desk',
+    bookedNoCourt: 'Booked · {share} at the desk',
+    leave: 'Leave match',
+    moneyTitle: 'Your share',
+    moneyShare: 'You pay {share} at the desk, and your ticket comes back after you play.',
+    moneyShareDesk: 'Your share at the desk: {share}',
+    moneyTickets: 'Tickets in this match: {count}',
+    moneyNote: "A ticket is not your share. If you don't come, it's lost.",
+    requestsTitle: 'Requests',
+    requestLine: '{games} at Touch · {noShows} · {seats}',
+    approve: 'Approve',
+    decline: 'Decline',
+    share: 'Share the link',
+    cancel: 'Cancel match',
+    cancelWhy: 'Why cancel?',
+    reasonNotEnoughPlayers: 'Not enough players',
+    reasonPlansChanged: 'Plans changed',
+    reasonOther: 'Something else',
+    cancelTitle: 'Cancel this match?',
+    cancelBody: "Everyone's tickets go back to their wallets.",
+    cancelConfirm: 'Cancel match',
+    cancelled: 'Match cancelled',
+    rulesTitle: 'How open matches work',
+    // The wallet's seven rules (matches.tickets.rule1..7) come first on the card.
+    courtRule:
+      "The court isn't held until four players are in. A group booking the last free court cancels the match, and everyone's tickets come back.",
+    questions: 'Questions? Call {branch}',
+    seatMenu: 'Options for {name}',
+    remove: 'Remove',
+    report: 'Report',
+    block: 'Block',
+    giveUp: 'Give up this seat',
+    removeTitle: 'Remove {name}?',
+    removeBody: "Their tickets go back to their wallet and they can't rejoin this match.",
+    removeBodyF: "Their tickets go back to their wallet and they can't rejoin this match.",
+    blockTitle: 'Block {name}?',
+    blockBody: "You won't see each other's open matches. They aren't told.",
+    blockBodyF: "You won't see each other's open matches. They aren't told.",
+    leaveTitle: 'Leave this match?',
+    leaveRelease: 'Your ticket goes back to your wallet.',
+    leaveFriends: "Your friends' seats go too.",
+    leaveLocked:
+      "The court is booked. If you leave now, your ticket stays held until another player takes your seat. If nobody does before {start}, it's lost.",
+    leaveOrganiser: 'Another player becomes the organiser; if nobody is left, the match closes.',
+    leaveConfirm: 'Leave',
+    giveUpTitle: 'Give up this seat?',
+    giveUpBody: 'Its ticket goes back to your wallet.',
+    stay: 'Stay',
+    joined: "You're in",
+    requestSent: 'Request sent',
+    withdrawn: 'Request withdrawn',
+    approved: 'Player approved',
+    declined: 'Request declined',
+    // eslint-disable-next-line no-restricted-syntax -- the status or event 'left', a catalog key, not CSS
+    left: 'You left the match',
+    removed: 'Player removed',
+    blocked: 'Player blocked',
+    notFoundTitle: "This match isn't available",
+  },
+  // §4.17 app/match-report.tsx
+  report: {
+    title: 'Report {name}',
+    reasonLabel: 'What happened?',
+    offensiveName: 'Offensive name',
+    abusiveBehaviour: 'Abusive behaviour',
+    harassment: 'Harassment',
+    unsafePlay: 'Unsafe play',
+    noShow: "Didn't show up",
+    noShowF: "Didn't show up",
+    other: 'Something else',
+    block: 'Also block this player',
+    blockF: 'Also block this player',
+    submit: 'Send report',
+    note: "Reports go to the venue's managers. The player isn't told who reported them.",
+    noteF: "Reports go to the venue's managers. The player isn't told who reported them.",
+    thanks: "Thanks. The venue's managers will look at it.",
+  },
+  // §4.17 app/blocked-players.tsx
+  blocks: {
+    title: 'Blocked players',
+    row: 'Blocked {date}',
+    unblock: 'Unblock',
+    unblockTitle: 'Unblock {name}?',
+    unblockBody: "You'll see each other's open matches again.",
+    unblocked: 'Player unblocked',
+    emptyTitle: 'No blocked players',
+    empty:
+      "You haven't blocked anyone. When you block a player, you won't see each other's open matches.",
+  },
+  // §4.17 QuickMessageBar and the feed
+  messages: {
+    title: 'Messages',
+    onMyWay: 'On my way',
+    runningLate: 'Running late',
+    cantMakeIt: "Can't make it",
+    bringBalls: "Who's bringing balls?",
+    line: '{name} · {label} · {time}',
+    sent: 'Sent to the players',
+    empty: 'No messages yet.',
+  },
+  // §4.9 GenderAsk
+  gender: {
+    ask: 'Before your first open match: are you a woman or a man? We ask once, so that women-only and men-only matches reach the right players. The front desk can correct it.',
+    female: 'Woman',
+    male: 'Man',
+  },
+};

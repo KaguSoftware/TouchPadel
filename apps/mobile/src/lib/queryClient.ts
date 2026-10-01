@@ -162,6 +162,28 @@ queryClient.setQueryDefaults(['deposit', 'quote'], {
 });
 
 /**
+ * Open matches (docs/design/open-matches/guest.md §4.23), keyed under
+ * `matchKeys` (features/matches/keys.ts).
+ *
+ * Every match write runs now or fails now (DF-11): nothing is queued, so a
+ * join never lands minutes after the tap on a match that has moved on. One
+ * retry is safe because every write is keyed (`match_start`) or answers a
+ * repeat as `duplicate`, and `ticket-begin` answers a live attempt with the
+ * same ref.
+ *
+ * The Book tab's chips fail FAST, like the deposit quote: a server without
+ * `match_slots` answers PGRST202, and the sheet must not sit on three
+ * backed-off retries of a call that can only fail again.
+ */
+queryClient.setMutationDefaults(['match', 'mutation'], {
+  networkMode: 'always',
+  retry: (failureCount, error) => failureCount < 1 && isRetriable(error),
+});
+queryClient.setQueryDefaults(['match', 'slots'], {
+  retry: (failureCount, error) => failureCount < 1 && isTransportError(error),
+});
+
+/**
  * Disk cache so a cold start paints real data immediately instead of spinners.
  *
  * `buster` is the app version: a build that changes query shapes must not read
@@ -179,7 +201,10 @@ export const persister = createAsyncStoragePersister({
  * memory: a staff row, a work list or a purchase read back from disk would be
  * shown before the account is re-checked, possibly a previous account's. So
  * does the `deposit` family: a payment's state painted from disk on a cold
- * start is exactly the "paid" (or "failed") the server never said.
+ * start is exactly the "paid" (or "failed") the server never said. And the
+ * `match` family (open matches, the ticket wallet): a match read carries other
+ * players' names, and a wallet read back from disk would be shown before it
+ * is re-checked (guest.md §4.23).
  */
 export const persistOptions = {
   persister,
@@ -190,7 +215,8 @@ export const persistOptions = {
       query.queryKey[0] !== 'my-bookings' &&
       query.queryKey[0] !== 'reservation' &&
       query.queryKey[0] !== 'staff' &&
-      query.queryKey[0] !== 'deposit',
+      query.queryKey[0] !== 'deposit' &&
+      query.queryKey[0] !== 'match',
   },
 } as const;
 

@@ -9,7 +9,7 @@ import { RequireSession } from '../src/features/auth/RequireSession';
 import { useOwnProfile, useUpdateProfile } from '../src/features/profile/hooks';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { radius, space, useTheme } from '../src/theme';
-import { Button, ErrorText, Field, FormScreen, Screen } from '../src/components/ui';
+import { Button, ErrorText, Field, FormScreen, Hint, Screen } from '../src/components/ui';
 import { useBack } from '../src/navigation/back';
 import { PhoneField } from '../src/components/phone';
 import {
@@ -24,9 +24,16 @@ import { mapOtpError, phoneOtpEnabled } from '../src/features/auth/phoneOtp';
 import { supabase } from '../src/lib/supabase';
 import { useToast } from '../src/components/overlays';
 import { SkeletonList } from '../src/components/states';
+import { NAME_PART_MAX, nameFieldsOf, namePatch } from '../src/features/profile/names';
 
 /**
- * Edit profile (design 2026-08-31): name and phone. Email is deliberately not
+ * Edit profile (design 2026-08-31): name and phone. The name is two fields
+ * since open matches (docs/design/open-matches/guest.md §4.9): other players
+ * see the first name and the surname's initial, so the parts are the guest's
+ * to set. The first is required; the surname is not, because single-name
+ * guests exist (sign-up still asks for one). The server rebuilds `full_name`.
+ * Once the gender is set (asked at the first open match), a read-only line
+ * says so: only the desk changes it. Email is deliberately not
  * editable here — it changes through re-verification (spec 05.18). Language is
  * NOT offered here either: it lives in Settings alone, where the switch owns
  * the whole screen (overlay + reload) instead of hiding inside a form whose
@@ -54,23 +61,27 @@ function EditProfileScreen() {
   const router = useRouter();
   const [sendingCode, setSendingCode] = useState(false);
 
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   // The phone is EDITED as country + national digits and STORED as E.164.
   const [iso, setIso] = useState(DEFAULT_ISO);
   const [national, setNational] = useState('');
-  const [initial, setInitial] = useState<{ name: string; phone: string } | null>(null);
+  const [initial, setInitial] = useState<{ first: string; last: string; phone: string } | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile.data && !initial) {
-      setName(profile.data.full_name ?? '');
+      const names = nameFieldsOf(profile.data);
+      setFirstName(names.first);
+      setLastName(names.last);
       const parsed = parsePhone(profile.data.phone);
       setIso(parsed.iso);
       setNational(parsed.national);
       setInitial({
-        name: profile.data.full_name ?? '',
+        first: names.first,
+        last: names.last,
         // The COMPOSED baseline, not the raw column: a number stored in an
         // older shape (`00964…`, or with spaces) round-trips through the
         // picker as normalized E.164.
@@ -80,6 +91,7 @@ function EditProfileScreen() {
   }, [profile.data, initial]);
 
   const phone = composePhone(iso, national);
+  const gender = profile.data?.gender ?? null;
 
   // Leaving does NOT ask about unsaved edits (owner, 2026-09-09): back pops
   // straight to Profile and pending changes are dropped. This drops the spec's
@@ -91,7 +103,7 @@ function EditProfileScreen() {
     setError(null);
     setNameError(null);
     setPhoneError(null);
-    if (!name.trim()) return setNameError(t('auth.nameRequired'));
+    if (!firstName.trim()) return setNameError(t('auth.firstNameRequired'));
     // Required from day one (spec 05.3): the desk calls it about bookings, and
     // the booking path refuses without it — so it cannot be cleared here.
     const badPhone = validatePhone(iso, national);
@@ -106,7 +118,7 @@ function EditProfileScreen() {
 
     if (!needsCode) {
       update.mutate(
-        { full_name: name.trim(), phone },
+        { ...namePatch(firstName, lastName), phone },
         {
           onSuccess: () => {
             toast(t('profile.updated'));
@@ -125,10 +137,10 @@ function EditProfileScreen() {
     void (async () => {
       setSendingCode(true);
       try {
-        if (name.trim() !== initial?.name) {
+        if (firstName.trim() !== initial?.first || lastName.trim() !== initial.last) {
           await new Promise<void>((resolve, reject) => {
             update.mutate(
-              { full_name: name.trim() },
+              namePatch(firstName, lastName),
               { onSuccess: () => resolve(), onError: (err) => reject(err) },
             );
           });
@@ -159,14 +171,29 @@ function EditProfileScreen() {
       ) : (
         <FormScreen contentStyle={{ paddingTop: 4 }}>
           <Field
-            testID="profile-edit.name"
-            label={t('profile.name')}
-            value={name}
-            onChangeText={setName}
+            testID="profile-edit.first-name"
+            label={t('auth.firstNameLabel')}
+            value={firstName}
+            onChangeText={setFirstName}
             autoCapitalize="words"
+            autoComplete="given-name"
+            textContentType="givenName"
+            maxLength={NAME_PART_MAX}
             dense
             error={nameError}
           />
+          <Field
+            testID="profile-edit.last-name"
+            label={t('auth.lastNameLabel')}
+            value={lastName}
+            onChangeText={setLastName}
+            autoCapitalize="words"
+            autoComplete="family-name"
+            textContentType="familyName"
+            maxLength={NAME_PART_MAX}
+            dense
+          />
+          <Hint>{t('profile.nameShownHint')}</Hint>
           <PhoneField
             testID="profile-edit.phone"
             label={t('auth.phoneLabel')}
@@ -199,6 +226,20 @@ function EditProfileScreen() {
             >
               {t('profile.emailLocked', { email: isolate(session?.user.email ?? '') })}
             </Text>
+            {gender ? (
+              <Text
+                style={{
+                  marginTop: 8,
+                  fontFamily: fonts.body400,
+                  fontSize: 12,
+                  lineHeight: 18,
+                  color: colors.mut,
+                  textAlign: 'auto',
+                }}
+              >
+                {t(gender === 'female' ? 'profile.genderFemale' : 'profile.genderMale')}
+              </Text>
+            ) : null}
           </View>
 
           <ErrorText>{error}</ErrorText>

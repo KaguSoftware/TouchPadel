@@ -51,10 +51,10 @@ function request(patch: Partial<MarketingRequest>): MarketingRequest {
 }
 
 describe('who asks and who answers (#73)', () => {
-  it('lets every role but marketing ask, and only marketing answer', () => {
+  it('lets only the manager and the owner ask, and only marketing answer (2026-09-28)', () => {
     for (const role of STAFF_ROLES) {
       const view = requestsView(role);
-      expect(view.asks, role).toBe(role !== 'marketing');
+      expect(view.asks, role).toBe(role === 'manager' || role === 'owner');
       expect(view.answers, role).toBe(role === 'marketing');
     }
   });

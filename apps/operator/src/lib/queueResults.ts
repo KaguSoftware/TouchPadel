@@ -23,25 +23,29 @@ import { QK, RESERVATION_LIST_KEYS } from './queryKeys';
  * instead of quietly invalidating nothing (the literals lived here until
  * 2026-09-20, mirrored by comment only).
  */
+// Open matches (operator.md §5.4): a booking can bump a filling match and a
+// cancel or move cascades to one, and the booking-level bill writes move a
+// match's unassigned money and what its seats owe. So each of those names the
+// whole QK.deskMatches family; only mounted match reads refetch.
 export const RESULT_INVALIDATIONS: Record<string, readonly QueryKey[]> = {
   'order.create': [QK.tab.all, QK.tabs],
   'order.add_items': [QK.tab.all, QK.tabs],
-  'tab.open': [QK.tabs, QK.bookingBill.all, QK.bookingBillStates.all],
-  'tab.settle': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all],
-  'payment.record': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all],
+  'tab.open': [QK.tabs, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
+  'tab.settle': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
+  'payment.record': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
   'ticket.status': [QK.tickets],
   'adjustment.apply': [QK.tab.all, QK.tabs],
-  'reservation.create': RESERVATION_LIST_KEYS,
+  'reservation.create': [...RESERVATION_LIST_KEYS, QK.deskMatches.all],
   // A move or extend re-prices the booking, so its bill moves with it (0106).
   // An open BookingDetail reads QK.reservation.one, so a late result refreshes it too.
-  'reservation.update': [...RESERVATION_LIST_KEYS, QK.reservation.all, QK.bookingBill.all, QK.bookingBillStates.all],
+  'reservation.update': [...RESERVATION_LIST_KEYS, QK.reservation.all, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
   'waiter_call.action': [QK.waiterCalls],
   'stock.waste': [QK.stock.all],
   // Item 9 / C3 (0120). The desk keys are named unconditionally, as tab.settle
   // does: only mounted queries refetch. A void flips tickets too (0039).
-  'tab.cancel': [QK.tabs, QK.tab.all, QK.bookingBill.all, QK.bookingBillStates.all],
-  'tab.settle_zero': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all],
-  'payment.refund': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all],
+  'tab.cancel': [QK.tabs, QK.tab.all, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
+  'tab.settle_zero': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
+  'payment.refund': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
   'order_item.void': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.tickets],
 };
 

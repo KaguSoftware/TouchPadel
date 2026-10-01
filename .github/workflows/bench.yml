@@ -4,20 +4,25 @@ name: Bench (db)
 #
 # Two modes, one job:
 #
-#   measure (the default, and what the schedule runs) — take the numbers and
-#            diff them against the COMMITTED bench/baseline.json. A row that is
-#            more than 10 % AND more than 10 ms slower than its baseline fails
-#            the run, as does a changed outcome, a failed invariant or a row
-#            that appeared or disappeared. bench/compare.ts is the whole rule.
-#   baseline — take the numbers and WRITE bench/baseline.json, then upload it.
-#            Download that artifact and commit the file. This is the only
-#            honest way to produce a baseline: it has to come from the same
-#            class of machine that will re-measure it, because a laptop and a
-#            hosted runner differ by far more than 10 % on every row.
+#   measure (the default, and what the schedule runs) — measure the REFERENCE
+#            commit (bench/baseline.json meta.sha) and HEAD back to back on
+#            THIS runner, and diff the two (compare.ts --against). A row more
+#            than 10 % AND more than 10 ms slower on HEAD fails the run, as does
+#            a changed outcome, a failed invariant or a row HEAD lost.
+#            Until 2026-10-01 HEAD was diffed against the committed numbers
+#            themselves, taken on another runner on 09-23. GitHub's runners
+#            differ by more than 10 %, so every scheduled run from 09-22 on was
+#            red (+40-120 % on every row, unrelated paths included) and the
+#            gate meant nothing.
+#   baseline — take HEAD's numbers and WRITE bench/baseline.json, then upload
+#            it. Download that artifact and commit the file: committing it is
+#            how the REFERENCE COMMIT moves forward (after an accepted
+#            slowdown, or to lock in a speed-up). Its numbers are a record for
+#            humans; the nightly re-measures the reference commit every time.
 #
 # It is deliberately not part of CI. A bench that has to finish before a pull
 # request merges gets tuned until it is fast rather than until it is true, and
-# a 45-minute job on every push would make the whole pipeline hostile.
+# a long job on every push would make the whole pipeline hostile.
 
 on:
   schedule:
@@ -27,12 +32,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'measure = diff against the committed baseline; baseline = write a new one'
+        description: 'measure = diff HEAD against the reference commit on this runner; baseline = write a new baseline from HEAD'
         type: choice
         options: [measure, baseline]
         default: measure
       repeat:
-        description: 'Runs of the whole suite; each row keeps the MEDIAN of its p95s'
+        description: 'Runs of the whole suite per tree; each row keeps the MEDIAN of its p95s'
         default: '3'
 
 # Never cancel a bench in flight. cancel-in-progress would leave a half-drained
@@ -49,14 +54,19 @@ jobs:
   bench:
     name: bench (booking, cafe, analytics, replay)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Two full passes (reference, then HEAD) since 2026-10-01.
+    timeout-minutes: 90
     env:
       # S10: the test OTP code lives in a repository variable, never in the
       # repo. config.toml reads env(SUPABASE_AUTH_SMS_TEST_OTP_CODE), and
       # `supabase start` below fails loudly without it.
       SUPABASE_AUTH_SMS_TEST_OTP_CODE: ${{ vars.SUPABASE_AUTH_SMS_TEST_OTP_CODE }}
+      MODE: ${{ inputs.mode || 'measure' }}
+      REPEAT: ${{ inputs.repeat || '3' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -75,48 +85,60 @@ jobs:
           # types.gen.ts in the same commit.
           version: 2.116.0
 
+      # The reference commit gets its own worktree and its own install, so its
+      # migrations, fixtures, seed, functions and bench code are the ones it
+      # shipped with.
+      - name: Check out the reference commit
+        if: env.MODE == 'measure'
+        run: |
+          set -euo pipefail
+          ref=$(node -e "console.log(require('./packages/db/bench/baseline.json').meta.sha)")
+          git worktree add "$RUNNER_TEMP/ref" "$ref"
+          pnpm install --frozen-lockfile --dir "$RUNNER_TEMP/ref"
+          echo "- Reference commit: ${ref:0:8}" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Start local Supabase stack
         working-directory: packages/db
         run: supabase start
 
-      - name: Apply migrations from a clean slate
-        working-directory: packages/db
-        run: supabase db reset
-
-      # The bench courts price through the fixture rate rules where those cover
-      # the hour, and analytics_open_minutes multiplies the venue's opening
-      # hours by every court — both live in fixtures, which `db reset` does not
-      # load. Without this the booking rows fail NO_RATE and every occupancy
-      # number is zero.
-      - name: Load fixtures
-        run: pnpm db:fixtures
-
-      # ~12,800 bookings, 1,200 expired holds, 281 closed cafe days and the live
-      # surface the runner writes onto. Idempotent, and removed by bench:teardown.
-      - name: Seed the bench fixture
-        run: pnpm --filter @touch/db bench:seed
-
-      # supabase start does NOT serve edge functions, and replay.drain_500 posts
-      # 500 times to /functions/v1/replay. Without the runtime that row records
-      # outcome: 'skipped' and compare.ts fails on it, which is the correct
-      # signal but a useless nightly.
-      - name: Serve edge functions
-        working-directory: packages/db
+      # One pass of the bench for one tree: a clean schema from THAT tree's
+      # migrations; the fixtures (courts, rate rules, opening hours — the
+      # booking rows fail NO_RATE and occupancy reads zero without them); the
+      # ~12,800-booking bench seed; that tree's edge functions served
+      # (replay.drain_500 posts to /functions/v1/replay, and `functions serve`
+      # restarts the gateway, so readiness is three consecutive 401s from replay
+      # with auth up — 2026-09-30); the bench; the teardown.
+      - name: Write the per-tree bench script
         run: |
-          nohup supabase functions serve > /tmp/functions.log 2>&1 &
-          # Any HTTP status means the runtime is answering; replay refuses an
-          # unauthenticated POST with 401, and that is an answer.
-          for _ in $(seq 1 60); do
-            curl -s -o /dev/null --max-time 2 "http://127.0.0.1:54321/functions/v1/replay" && break
+          cat > "$RUNNER_TEMP/bench-tree.sh" <<'SH'
+          set -euo pipefail
+          tree="$1"; out="$2"
+          cd "$tree"
+          (cd packages/db && supabase db reset)
+          pnpm db:fixtures
+          pnpm --filter @touch/db bench:seed
+          pkill -f 'supabase functions serve' || true
+          (cd packages/db && nohup supabase functions serve > "$out.functions.log" 2>&1 &)
+          ok=0
+          for _ in $(seq 1 90); do
+            fn=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -X POST "http://127.0.0.1:54321/functions/v1/replay" || true)
+            au=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:54321/auth/v1/health" || true)
+            if [ "$fn" = "401" ] && [ "$au" = "200" ]; then ok=$((ok+1)); else ok=0; fi
+            [ "$ok" -ge 3 ] && break
             sleep 2
           done
-          cat /tmp/functions.log
+          if [ "$ok" -lt 3 ]; then
+            echo "::error::the edge runtime never became ready for $tree"
+            cat "$out.functions.log"
+            exit 1
+          fi
+          pnpm --filter @touch/db bench -- --repeat="$REPEAT" --out="$out"
+          pnpm --filter @touch/db bench:teardown
+          SH
 
-      # A p95 means nothing without the machine it was taken on. GitHub's hosted
-      # runners are not homogeneous, and a baseline taken on one CPU model and
-      # re-measured on another is the most likely explanation for a surprising
-      # nightly — so the model is in the summary of every run, not only in the
-      # results JSON.
+      # A p95 means nothing without the machine it was taken on, so the model
+      # is in the summary of every run, not only in the results JSON. Both trees
+      # are measured on this one machine, which is the point of the A/B.
       - name: Record the runner
         run: |
           {
@@ -125,18 +147,22 @@ jobs:
             echo "- CPU: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')"
             echo "- Cores: $(nproc)"
             echo "- Memory: $(free -h | awk '/^Mem:/ {print $2}')"
-            echo "- Mode: ${{ inputs.mode || 'measure' }}"
+            echo "- Mode: ${MODE}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Run the bench
-        run: pnpm --filter @touch/db bench -- --repeat=${{ inputs.repeat || 3 }}
+      - name: Bench the reference commit
+        if: env.MODE == 'measure'
+        run: bash "$RUNNER_TEMP/bench-tree.sh" "$RUNNER_TEMP/ref" "$RUNNER_TEMP/ref-results"
 
-      - name: Compare against the committed baseline
-        if: ${{ (inputs.mode || 'measure') == 'measure' }}
-        run: pnpm --filter @touch/db bench:compare
+      - name: Bench HEAD
+        run: bash "$RUNNER_TEMP/bench-tree.sh" "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/packages/db/bench/results"
+
+      - name: Compare HEAD with the reference commit (same runner)
+        if: env.MODE == 'measure'
+        run: pnpm --filter @touch/db bench:compare -- --against="$RUNNER_TEMP/ref-results"
 
       - name: Write a new baseline
-        if: ${{ inputs.mode == 'baseline' }}
+        if: env.MODE == 'baseline'
         run: pnpm --filter @touch/db bench:baseline
 
       # if: always() — a red compare is exactly when somebody needs the numbers.
@@ -148,11 +174,11 @@ jobs:
           path: |
             packages/db/bench/results/
             packages/db/bench/baseline.json
+            ${{ runner.temp }}/ref-results/
           retention-days: 30
 
-      # What seed.sql wrote, removed — the step the seed comment above and
-      # teardown.sql both promise. `always()`: a red compare is the common
-      # case, and the teardown is idempotent (every delete is a predicate).
+      # The per-tree script tears down after each pass; this catches a pass
+      # that failed half-way. Idempotent (every delete is a predicate).
       - name: Tear down the bench fixture
         if: always()
         run: pnpm --filter @touch/db bench:teardown

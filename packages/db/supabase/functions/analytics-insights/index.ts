@@ -492,7 +492,7 @@ amounts, no decimals. You receive, for the date range ${req.range_from}..${req.r
 - "best_sellers": per item — name, qty, revenue_iqd, share_pct.
 - "margins": per item — name, qty, revenue_iqd, has_cost, cost_iqd, margin_iqd, margin_pct, quadrant,
   losing_money, plus "coverage" (share of revenue whose items have a cost entered). PROFIT IS THE LANGUAGE, NOT
-  REVENUE: a popular low-margin item ("يبيع كثيراً لكن لا يربح" / "sells a lot but earns little") is where the
+  REVENUE: a popular low-margin item ("يُباع كثيرًا لكن ربحه قليل" / "sells a lot but earns little") is where the
   money usually is; an item with a negative margin_iqd is sold below cost — always worth a finding. When
   coverage.revenue_with_cost_pct is low, a profit finding speaks ONLY for the costed items — say so. When
   "margins" is null or every has_cost is false: never mention cost, margin or profit, and never estimate them.

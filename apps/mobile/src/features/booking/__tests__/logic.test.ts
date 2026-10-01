@@ -37,7 +37,7 @@ describe('error mapping', () => {
     expect(mapErrorToKey(new Error('BEYOND_HORIZON'))).toBe('booking.beyondHorizon');
     expect(mapErrorToKey(new Error('ACCOUNT_REQUIRED'))).toBe('booking.accountRequired');
     expect(mapErrorToKey(new Error('NOT_A_HOLD'))).toBe('booking.notAHold');
-    // 0249, the hold ladder: no message of their own, by the owner's choice.
+    // 0252, the hold ladder: no message of their own, by the owner's choice.
     expect(mapErrorToKey(new Error('HOLD_COOLDOWN'))).toBe('errors.generic');
     expect(mapErrorToKey(new Error('BOOKING_SUSPENDED'))).toBe('errors.generic');
     // The online deposit (build-contracts-2026-09-27 §2.5), SQL and edge alike.
@@ -99,7 +99,7 @@ describe('parseHoldResult', () => {
     });
     expect(parsed.duplicate).toBe(true);
     expect(parsed.priceIqd).toBeNull();
-    // A replay (or a server before 0249) says nothing: no warning.
+    // A replay (or a server before 0252) says nothing: no warning.
     expect(parsed.holdWarning).toBe(false);
   });
 

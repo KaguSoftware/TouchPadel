@@ -36,10 +36,27 @@ interface PgError {
   code?: string | null;
 }
 
+/**
+ * PostgREST's "function not in the schema cache": this build calls an RPC the
+ * server it talks to does not have yet (a station updated before its
+ * migration reached hosted). Renderer-minted as RPC_MISSING, like PIN_OWN, so
+ * a feature that meets it can render nothing rather than "needs a connection"
+ * (open matches, docs/design/open-matches/operator.md §5.5).
+ */
+const PGRST_FUNCTION_MISSING = 'PGRST202';
+
 export function toAppRpcError(error: PgError): AppRpcError {
   const message = error.message ?? 'unknown error';
+  if (error.code === PGRST_FUNCTION_MISSING) {
+    return new AppRpcError('RPC_MISSING', message, error.hint ?? undefined, error.details ?? undefined);
+  }
   const code = CODE_RE.test(message) ? message : 'UNKNOWN';
   return new AppRpcError(code, message, error.hint ?? undefined, error.details ?? undefined);
+}
+
+/** True when the server has no such RPC (PGRST202): the feature is not there yet, not offline. */
+export function isRpcMissing(error: unknown): boolean {
+  return error instanceof AppRpcError && error.code === 'RPC_MISSING';
 }
 
 async function callAppRpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {

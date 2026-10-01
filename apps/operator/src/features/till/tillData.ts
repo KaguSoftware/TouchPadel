@@ -12,6 +12,7 @@
  */
 import { supabase } from '../../lib/supabase';
 import { cachedQuery } from '../../lib/refCache';
+import { MATCH_RESERVATION_NAME } from '../matches/matchLogic';
 
 // ---------------------------------------------------------------------------
 // Row shapes (manual mirrors of the nested selects)
@@ -142,6 +143,8 @@ export interface TabListRow {
   total_iqd: number | null;
   table: { table_number: string } | null;
   reservation: {
+    /** With `guest_name`, tells an open match's booking (tabAnchorLabel). Absent on a row cached before it joined the select. */
+    guest_id?: string | null;
     guest_name: string | null;
     /** `id` so the board groups on the court itself, not on a localised name. */
     court: { id: string; name_en: string; name_ar: string } | null;
@@ -164,7 +167,7 @@ export const OPEN_TABS_QUERY = {
         .select(
           `id, status, label, opened_at, total_iqd,
            table:cafe_tables(table_number),
-           reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(id, name_en, name_ar)),
+           reservation:reservations!tabs_reservation_id_fkey(guest_id, guest_name, court:courts!reservations_court_id_fkey(id, name_en, name_ar)),
            orders!orders_tab_id_fkey(source, status, order_items(id, line_total_iqd, voided, menu_item:menu_items(category_id))),
            tab_adjustments(kind, amount_iqd, order_item_id),
            payments(amount_iqd)`,
@@ -284,7 +287,7 @@ export interface TabDetail {
   court_iqd: number;
   reservation_id: string | null;
   table: { table_number: string } | null;
-  reservation: { guest_name: string | null; court: { name_en: string; name_ar: string } | null } | null;
+  reservation: { guest_id?: string | null; guest_name: string | null; court: { name_en: string; name_ar: string } | null } | null;
   orders: TabOrderRow[];
   payments: { id: string; method: string; amount_iqd: number; change_iqd: number | null; refunds: { amount_iqd: number }[] }[];
   tab_adjustments: TabAdjustmentRow[];
@@ -296,7 +299,7 @@ export async function fetchTabDetail(tabId: string): Promise<TabDetail> {
     .select(
       `id, status, label, opened_at, subtotal_iqd, total_iqd, court_iqd, reservation_id,
        table:cafe_tables(table_number),
-       reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar)),
+       reservation:reservations!tabs_reservation_id_fkey(guest_id, guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar)),
        orders!orders_tab_id_fkey (
          id, status, source, placed_at,
          order_items (
@@ -391,23 +394,37 @@ export function bookingTakesNewTab(r: { tabs?: readonly { status: string }[] | n
  * keeps its plain table label.
  */
 export function mergeDonorLabel(
-  tab: { table: { table_number: string } | null; reservation: { guest_name: string | null } | null; label: string | null },
-  words: { table: string; reservation: string },
+  tab: { table: { table_number: string } | null; reservation: AnchorReservation | null; label: string | null },
+  words: { table: string; reservation: string; openMatch?: string },
   courtName: string | null,
   time: string | null,
 ): string {
-  const anchor = tabAnchorLabel(tab, words.table, words.reservation);
+  const anchor = tabAnchorLabel(tab, words.table, words.reservation, words.openMatch);
   const extra = [courtName, time].filter((x): x is string => x !== null && x !== '');
   return extra.length > 0 ? `${anchor} · ${extra.join(' · ')}` : anchor;
 }
 
-/** The label a tab is known by on the floor: table number, guest name or free label. */
+/** A tab's booking as the labels read it: `guest_id` tells an open match's (absent on an older cached row). */
+type AnchorReservation = { guest_id?: string | null; guest_name: string | null };
+
+/**
+ * The label a tab is known by on the floor: table number, guest name or free
+ * label. An open match's booking carries the English literal 'Open match' as
+ * its name (0260); given `openMatchWord`, it reads that word in the screen's
+ * language instead (open matches operator.md §5.27).
+ */
 export function tabAnchorLabel(
-  tab: { table: { table_number: string } | null; reservation: { guest_name: string | null } | null; label: string | null },
+  tab: { table: { table_number: string } | null; reservation: AnchorReservation | null; label: string | null },
   tableWord: string,
   reservationWord: string,
+  openMatchWord?: string,
 ): string {
   if (tab.table) return `${tableWord} ${tab.table.table_number}`;
-  if (tab.reservation) return tab.reservation.guest_name ?? reservationWord;
+  if (tab.reservation) {
+    // `=== null`: a row without the column (cached before it joined) keeps its name.
+    const isMatch = tab.reservation.guest_id === null && tab.reservation.guest_name === MATCH_RESERVATION_NAME;
+    if (openMatchWord !== undefined && isMatch) return openMatchWord;
+    return tab.reservation.guest_name ?? reservationWord;
+  }
   return tab.label ?? '—';
 }

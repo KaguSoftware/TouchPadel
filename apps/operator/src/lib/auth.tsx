@@ -501,8 +501,32 @@ export const CAPABILITY_ROLES = {
    * (operator-shell main/owner-exit.ts) and asks for the PIN when it cannot.
    */
   leaveStationWithoutPin: ['owner'],
+
+  // Open matches (docs/design/open-matches/operator.md §5.3, R1). Screen-level
+  // buttons only: a row's own buttons follow the `can` objects of
+  // app.desk_match_detail, and every RPC re-checks its roles.
   /**
-   * The hold ladder (0249): lift a guest's wait, suspension or ban, or ban them
+   * Start, add, remove, cancel, the seat marks, call-off, the invite link and
+   * the gender correction; the record's Tickets panel and Matches list
+   * (app.guest_tickets has these roles).
+   */
+  runMatches: ['court_desk', 'manager', 'owner'],
+  /**
+   * Take share, Take several and Assign (app.match_seat_settle,
+   * app.match_link_payment). Never permissions.takeCourtPayment, which also
+   * holds the shop assistant: no seat money is theirs.
+   */
+  takeSeatPayment: ['cashier', 'court_desk', 'manager', 'owner'],
+  /** Write off a seat's share (app.match_seat_write_off); a manager's PIN authorises it (R1). */
+  writeOffSeat: ['court_desk', 'manager', 'owner'],
+  /** Cash out a purchase's unused tickets (app.ticket_cashout, R13). */
+  cashOutTickets: ['manager', 'owner'],
+  /** Ban from open matches and lift a ban on the record (app.set_match_ban; chain-wide, R40). */
+  banFromMatches: ['manager', 'owner'],
+  /** The Ops player-reports queue (app.match_reports_open, app.resolve_match_report). */
+  reviewMatchReports: ['manager', 'owner'],
+  /**
+   * The hold ladder (0252): lift a guest's wait, suspension or ban, or ban them
    * from holding courts in the app. The day close and the customer record both
    * show the standing; only MGMT decides (app.hold_standing_decide).
    */

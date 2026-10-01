@@ -10,7 +10,7 @@ export interface HoldResult {
   holdExpiresAt: string | null;
   rateRuleId: string | null;
   priceIqd: number | null;
-  /** 0249: a hold of this guest's lapsed lately; Review asks them kindly to take care. */
+  /** 0252: a hold of this guest's lapsed lately; Review asks them kindly to take care. */
   holdWarning: boolean;
 }
 

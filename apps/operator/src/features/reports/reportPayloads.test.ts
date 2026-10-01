@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { bucketRange, cafeIsEmpty, courtsIsEmpty, dayClosesOf, num, readCafe, readCompared, readCourts, readDrill, readRevenue, readStaff, readStock, sortBy } from './reportPayloads';
+import {
+  bucketRange,
+  cafeIsEmpty,
+  courtMatchesIsEmpty,
+  courtsIsEmpty,
+  dayClosesOf,
+  matchesReportIsEmpty,
+  num,
+  readCafe,
+  readCompared,
+  readCourts,
+  readDrill,
+  readMatchesReport,
+  readRevenue,
+  readStaff,
+  readStock,
+  sortBy,
+} from './reportPayloads';
 
 // The payloads below are cut from the local stack's real responses (migrations
 // 0068 / 0096 / 0097 / 0099). The screens used to read snake_case keys these
@@ -72,6 +89,41 @@ describe('readCourts', () => {
     // A period with only tournament hours still has something to show: the Events line.
     expect(courtsIsEmpty(readCourts({ ...payload, totals: { bookings: 0, cancellations: 0, noShows: 0, eventMinutes: 240 } }))).toBe(false);
     expect(courtsIsEmpty(readCourts({ rows: [] }))).toBe(true);
+  });
+  // Open matches (operator.md §5.19, money.md §7.4).
+  it('reads the matches block, null from a server before 0265', () => {
+    expect(readCourts(payload).matches).toBeNull();
+    const withMatches = { ...payload, matches: { bookings: 2, bookedIqd: '80000', deskPaidIqd: 60000, writtenOffIqd: 20000, noShowSeats: 1, calledOffShort: 0, ticketForfeitsIqd: 10000 } };
+    expect(readCourts(withMatches).matches).toEqual({ bookings: 2, bookedIqd: 80000, deskPaidIqd: 60000, writtenOffIqd: 20000, noShowSeats: 1, calledOffShort: 0, ticketForfeitsIqd: 10000 });
+    expect(readCourts({ ...payload, matches: {} }).matches).toMatchObject({ bookings: null, ticketForfeitsIqd: null });
+  });
+  it('a period whose only news is a lost match ticket is not empty', () => {
+    const quiet = { ...payload, totals: { bookings: 0, cancellations: 0, noShows: 0 } };
+    expect(courtsIsEmpty(readCourts({ ...quiet, matches: { bookings: 0, ticketForfeitsIqd: 10000 } }))).toBe(false);
+    expect(courtsIsEmpty(readCourts({ ...quiet, matches: { bookings: 0, ticketForfeitsIqd: 0 } }))).toBe(true);
+    expect(courtMatchesIsEmpty(null)).toBe(true);
+  });
+});
+
+describe('readMatchesReport', () => {
+  const payload = {
+    period: { from: '2026-09-01', to: '2026-09-28' },
+    totals: { started: 6, booked: 4, played: 3, bumped: 1, expired: 1, cancelled: 0, calledOffShort: 1, allNoShow: 0, fillRatePct: '66.7', seatsFilled: 20, accountSeats: 12, friendSeats: 3, deskSeats: 5, attendedSeats: 14, noShowSeats: 2, leftLateSeats: 1, refilledSeats: 1, bookedIqd: 160000, deskPaidIqd: 120000, writtenOffIqd: 20000, ticketForfeitsIqd: 20000, sandboxExcluded: 1 },
+    tickets: { soldIqd: 90000, chainWide: ['soldIqd'] },
+    byDay: [{ date: '2026-09-10', started: 2, booked: 1, bookedIqd: 40000, writtenOffIqd: 0, noShowSeats: 0 }, { started: 1 }],
+    columns: [],
+  };
+  it('reads the totals and the days by their keys; a missing figure is null', () => {
+    const r = readMatchesReport(payload);
+    expect(r.totals.started).toBe(6);
+    expect(r.totals.fillRatePct).toBe(66.7);
+    expect(r.byDay).toEqual([{ date: '2026-09-10', started: 2, booked: 1, bookedIqd: 40000, writtenOffIqd: 0, noShowSeats: 0 }]);
+    expect(readMatchesReport({}).totals.booked).toBeNull();
+  });
+  it('is empty when no match started', () => {
+    expect(matchesReportIsEmpty(readMatchesReport(payload))).toBe(false);
+    expect(matchesReportIsEmpty(readMatchesReport({ totals: { started: 0 }, byDay: [] }))).toBe(true);
+    expect(matchesReportIsEmpty(readMatchesReport(null))).toBe(true);
   });
 });
 

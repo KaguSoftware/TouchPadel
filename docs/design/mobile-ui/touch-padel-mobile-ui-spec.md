@@ -504,7 +504,7 @@ Point 8 is the one that gets missed. Availability and bookings both change while
 
 Nothing below appears in the mobile app. If a design or a conversation implies one of these, it is a change request, not a task.
 
-Cafe menu, ordering, table binding, waiter call (web only) · any payment, payment SDK, tipping · open matches, seat claiming, cost splitting · player levels and matchmaking · tournaments, leagues, fixtures · coaching and lesson booking · memberships, subscriptions, member rates · waiting lists · loyalty points, rewards, tiers · guest-created recurring series · household or family account linking · phone/SMS one-time-code login · Apple, Google or social sign-in · staff internal notes · behavioural analytics · any third language · offline use of any kind.
+Cafe menu, ordering, table binding, waiter call (web only) · any payment, payment SDK, tipping · ~~open matches, seat claiming, cost splitting~~ (superseded 2026-09-27: open matches are milestone 6, `docs/design/open-matches/`; each player still pays their share at the desk) · player levels and matchmaking · tournaments, leagues, fixtures · coaching and lesson booking · memberships, subscriptions, member rates · waiting lists · loyalty points, rewards, tiers · guest-created recurring series · household or family account linking · phone/SMS one-time-code login · Apple, Google or social sign-in · staff internal notes · behavioural analytics · any third language · offline use of any kind.
 
 ---
 

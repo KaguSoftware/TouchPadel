@@ -152,6 +152,26 @@ describe('proxy()', () => {
     expect(location(proxy(req('/menu', { cookie: 'tp-locale=en' })))).toBe('/en/menu');
   });
 
+  it('sends a locale-less open-match invite /m/<token> to the negotiated locale, the CSP on the hop', () => {
+    // The link a player shares (guest.md §4.20); a share token never has a dot, so the
+    // matcher always reaches it.
+    const token = 'Ab3_-x9ZqT0kLm2NpQr7sU';
+    for (const p of [`/m/${token}`, `/en/m/${token}`, `/ar/m/${token}`]) {
+      expect(matches(p), `${p} must be proxied`).toBe(true);
+    }
+    const res = proxy(req(`/m/${token}`));
+    expect(res.status).toBe(307);
+    expect(location(res)).toBe(`/ar/m/${token}`);
+    expect(res.headers.get('content-security-policy')).toMatch(/script-src 'nonce-/);
+    expect(res.headers.get('set-cookie'), 'an invite never touches the table cookie').toBeNull();
+    expect(location(proxy(req(`/m/${token}`, { cookie: 'tp-locale=en' })))).toBe(`/en/m/${token}`);
+    // A locale already in the path renders there, with the envelope on it.
+    const inPlace = proxy(req(`/en/m/${token}`));
+    expect(inPlace.status).toBe(200);
+    expect(inPlace.headers.get('location')).toBeNull();
+    expect(inPlace.headers.get('content-security-policy')).toMatch(/script-src 'nonce-/);
+  });
+
   it('redirects the old session URL /{locale}/t to the menu: a 307, the CSP and the table envelope on the hop, no cookie', () => {
     for (const [p, to] of [
       ['/en/t', '/en/menu'],

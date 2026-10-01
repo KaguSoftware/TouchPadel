@@ -997,6 +997,10 @@ export type Database = {
         Args: { p_exclude_tab_id?: string; p_reservation_id: string }
         Returns: number
       }
+      court_fee_written_off: {
+        Args: { p_exclude_tab_id?: string; p_reservation_id: string }
+        Returns: number
+      }
       cover_station: {
         Args: { p_device_id: string; p_pin: string; p_staff_id: string }
         Returns: Json
@@ -1082,6 +1086,7 @@ export type Database = {
         Args: { p_limit?: number; p_query: string }
         Returns: Json[]
       }
+      day_close_online: { Args: { p_day_session_id?: string }; Returns: Json }
       day_close_shop: { Args: { p_day_session_id?: string }; Returns: Json }
       decide_content: {
         Args: {
@@ -1257,6 +1262,31 @@ export type Database = {
       }
       deposit_status: { Args: { p_request_id: string }; Returns: Json }
       deposits_due_for_reconcile: { Args: { p_limit?: number }; Returns: Json }
+      desk_add_seat: {
+        Args: {
+          p_customer_id?: string
+          p_gender?: string
+          p_guest_name?: string
+          p_guest_phone?: string
+          p_idempotency_key?: string
+          p_match_id: string
+        }
+        Returns: Json
+      }
+      desk_call_off_short: { Args: { p_match_id: string }; Returns: Json }
+      desk_cancel_match: {
+        Args: { p_match_id: string; p_reason: string }
+        Returns: Json
+      }
+      desk_match_detail: { Args: { p_match_id: string }; Returns: Json }
+      desk_match_states: {
+        Args: { p_reservation_ids: string[] }
+        Returns: Json
+      }
+      desk_open_matches: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       desk_register_customer: {
         Args: {
           p_actor_id: string
@@ -1264,6 +1294,35 @@ export type Database = {
           p_full_name: string
           p_phone: string
           p_preferred_lang: string
+        }
+        Returns: Json
+      }
+      desk_remove_seat: {
+        Args: { p_reason: string; p_seat_id: string }
+        Returns: Json
+      }
+      desk_start_answer: {
+        Args: {
+          m: Database["public"]["Tables"]["matches"]["Row"]
+          p_duplicate: boolean
+        }
+        Returns: Json
+      }
+      desk_start_match: {
+        Args: {
+          p_category: string
+          p_court_id?: string
+          p_customer_id?: string
+          p_duration_min: number
+          p_extra_seats?: number
+          p_gender?: string
+          p_guest_name?: string
+          p_guest_phone?: string
+          p_idempotency_key?: string
+          p_join_policy: string
+          p_start_at: string
+          p_venue_id?: string
+          p_visibility: string
         }
         Returns: Json
       }
@@ -1312,9 +1371,18 @@ export type Database = {
         Returns: undefined
       }
       flag_expired_batches: { Args: never; Returns: undefined }
+      floor_menu: { Args: { p_venue_id?: string }; Returns: Json }
+      floor_menu_group: {
+        Args: { p_group_id: string; p_revealed: boolean }
+        Returns: Json
+      }
+      floor_tables: { Args: { p_venue_id?: string }; Returns: Json }
       generate_promo_code: { Args: { p_id: string }; Returns: string }
       generate_table_token: { Args: { p_table_id: string }; Returns: string }
+      guest_games_played: { Args: { p_guest_id: string }; Returns: number }
       guest_hold_standing: { Args: { p_customer_id: string }; Returns: Json }
+      guest_match_no_shows: { Args: { p_guest_id: string }; Returns: number }
+      guest_tickets: { Args: { p_customer_id: string }; Returns: Json }
       has_own_pin: { Args: never; Returns: boolean }
       header_station_venue: { Args: never; Returns: string }
       heartbeat: {
@@ -1483,6 +1551,8 @@ export type Database = {
           }
       llm_usage_summary: { Args: never; Returns: Json }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
+      lock_match_money: { Args: { p_match_id: string }; Returns: undefined }
+      lock_match_venue: { Args: { p_venue: string }; Returns: undefined }
       lock_stock_ingredients: {
         Args: { p_ingredients: string[] }
         Returns: undefined
@@ -1504,6 +1574,10 @@ export type Database = {
           p_note?: string
           p_photo_path?: string
         }
+        Returns: Json
+      }
+      mark_match_seats: {
+        Args: { p_attendance: string; p_seat_ids: string[] }
         Returns: Json
       }
       mark_reservation: {
@@ -1539,8 +1613,307 @@ export type Database = {
         Returns: Json
       }
       marketing_suggestions: { Args: { p_venue_id?: string }; Returns: Json }
+      match_block: {
+        Args: { p_match_id: string; p_request_id?: string; p_seat_id?: string }
+        Returns: Json
+      }
+      match_cancel: {
+        Args: { p_match_id: string; p_reason?: string }
+        Returns: Json
+      }
+      match_carriers: {
+        Args: { p_match_id: string }
+        Returns: {
+          seat_id: string
+          seat_no: number
+          status: string
+        }[]
+      }
+      match_court_claimed: {
+        Args: { p_court_id: string; p_period: unknown }
+        Returns: boolean
+      }
+      match_court_free_firm: {
+        Args: {
+          p_duration_min: number
+          p_need?: number
+          p_period: unknown
+          p_venue: string
+        }
+        Returns: boolean
+      }
+      match_decide: {
+        Args: { p_approve: boolean; p_request_id: string }
+        Returns: Json
+      }
+      match_desk_numbers: {
+        Args: { m: Database["public"]["Tables"]["matches"]["Row"] }
+        Returns: number[]
+      }
+      match_detail: {
+        Args: { p_match_id?: string; p_token?: string }
+        Returns: Json
+      }
+      match_display_name: { Args: { p_profile_id: string }; Returns: Json }
+      match_drop_ineligible: { Args: { p_match_id: string }; Returns: number }
+      match_eligibility: {
+        Args: { p_act: boolean; p_profile_id: string }
+        Returns: string
+      }
+      match_end: {
+        Args: {
+          p_actor: string
+          p_match_id: string
+          p_reason: string
+          p_status: string
+        }
+        Returns: boolean
+      }
+      match_event: {
+        Args: {
+          p_actor: string
+          p_code?: string
+          p_data?: Json
+          p_match_id: string
+          p_request_id?: string
+          p_seat_id?: string
+          p_type: string
+          p_venue_id: string
+        }
+        Returns: number
+      }
+      match_expire_holds: {
+        Args: { p_period: unknown; p_venue: string }
+        Returns: number
+      }
+      match_friends: { Args: { p_friends: Json }; Returns: string[] }
+      match_guest: {
+        Args: { p_act: boolean }
+        Returns: Database["public"]["Tables"]["profiles"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      match_guest_numbers: {
+        Args: { m: Database["public"]["Tables"]["matches"]["Row"] }
+        Returns: number[]
+      }
+      match_invite: { Args: { p_token: string }; Returns: Json }
+      match_join: {
+        Args: { p_friends?: Json; p_match_id: string; p_token?: string }
+        Returns: Json
+      }
+      match_join_refusal: {
+        Args: {
+          m: Database["public"]["Tables"]["matches"]["Row"]
+          p_friends: string[]
+          p_guest: string
+          p_mode: string
+        }
+        Returns: string
+      }
+      match_leave: {
+        Args: { p_match_id: string; p_seat_ids?: string[] }
+        Returns: Json
+      }
+      match_link_payment: {
+        Args: {
+          p_allocations: Json
+          p_idempotency_key?: string
+          p_payment_id: string
+        }
+        Returns: Json
+      }
+      match_lock: {
+        Args: { p_match_id: string }
+        Returns: Database["public"]["Tables"]["matches"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "matches"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      match_lock_courts: { Args: { p_venue: string }; Returns: undefined }
+      match_marks_open: { Args: { p_match_id: string }; Returns: boolean }
+      match_money: {
+        Args: { p_exclude_tab_id: string; p_match_id: string }
+        Returns: Json
+      }
+      match_my_seats: {
+        Args: { p_guest: string; p_match_id: string }
+        Returns: Json
+      }
+      match_notify: {
+        Args: {
+          p_actor?: string
+          p_dedupe?: string
+          p_match_id: string
+          p_params?: Json
+          p_recipients: string[]
+          p_scheduled_for?: string
+          p_title_key: string
+        }
+        Returns: number
+      }
+      match_pick_court: {
+        Args: { m: Database["public"]["Tables"]["matches"]["Row"] }
+        Returns: string
+      }
+      match_post_message: {
+        Args: { p_code: string; p_match_id: string }
+        Returns: Json
+      }
+      match_quote: {
+        Args: {
+          p_court_id: string
+          p_duration_min: number
+          p_start_at: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      match_raise: { Args: { p_refusal: string }; Returns: undefined }
+      match_reason_parts: { Args: { p_reason: string }; Returns: string[] }
       match_receipt_lines: { Args: { p_id: string }; Returns: number }
+      match_recompute_organiser: {
+        Args: { p_match_id: string }
+        Returns: boolean
+      }
+      match_remove_player: {
+        Args: { p_match_id: string; p_seat_id: string }
+        Returns: Json
+      }
+      match_report: {
+        Args: {
+          p_block?: boolean
+          p_match_id: string
+          p_reason: string
+          p_request_id?: string
+          p_seat_id?: string
+        }
+        Returns: Json
+      }
+      match_report_target: {
+        Args: {
+          p_match_id: string
+          p_request_id: string
+          p_seat_id: string
+          p_viewer: string
+        }
+        Returns: string
+      }
+      match_reports_open: { Args: { p_venue_id?: string }; Returns: Json }
+      match_request: {
+        Args: { p_friends?: Json; p_match_id: string; p_token?: string }
+        Returns: Json
+      }
+      match_seat_label: {
+        Args: { s: Database["public"]["Tables"]["match_seats"]["Row"] }
+        Returns: Json
+      }
+      match_seat_money: {
+        Args: { p_match_id: string }
+        Returns: {
+          carrying: boolean
+          credit_iqd: number
+          kind: string
+          open_iqd: number
+          owed_iqd: number
+          paid_desk_iqd: number
+          seat_id: string
+          seat_no: number
+          share_iqd: number
+          status: string
+          take_iqd: number
+          write_off: string
+          written_off_iqd: number
+        }[]
+      }
+      match_seat_settle: {
+        Args: {
+          p_amount_iqd?: number
+          p_device_id?: string
+          p_expected_owed_iqd: number
+          p_idempotency_key?: string
+          p_method: Database["public"]["Enums"]["payment_method"]
+          p_seat_ids: string[]
+          p_tendered_iqd?: number
+        }
+        Returns: Json
+      }
+      match_seat_ticket: {
+        Args: { s: Database["public"]["Tables"]["match_seats"]["Row"] }
+        Returns: Json
+      }
+      match_seat_write_off: {
+        Args: {
+          p_device_id?: string
+          p_pin: string
+          p_reason: string
+          p_seat_id: string
+        }
+        Returns: Json
+      }
+      match_settings: { Args: { p_venue_id?: string }; Returns: Json }
+      match_shares: { Args: { p_price: number }; Returns: number[] }
       match_slip_lines: { Args: { p_id: string }; Returns: number }
+      match_slots: {
+        Args: { p_from: string; p_to: string; p_venue_id: string }
+        Returns: Json
+      }
+      match_start: {
+        Args: {
+          p_category: string
+          p_court_id: string
+          p_duration_min: number
+          p_friends?: Json
+          p_idempotency_key?: string
+          p_join_policy: string
+          p_quoted_price_iqd?: number
+          p_start_at: string
+          p_venue_id: string
+          p_visibility: string
+        }
+        Returns: Json
+      }
+      match_sweep: { Args: { p_venue_id?: string }; Returns: Json }
+      match_sync_reminders: { Args: { p_match_id: string }; Returns: undefined }
+      match_take_seats: {
+        Args: {
+          m: Database["public"]["Tables"]["matches"]["Row"]
+          p_friends: string[]
+          p_guest: string
+          p_request_id?: string
+          p_tickets: string[]
+        }
+        Returns: Json
+      }
+      match_terms_ok: { Args: { p_version: string }; Returns: boolean }
+      match_time_clash: {
+        Args: {
+          p_except_key?: string
+          p_except_match?: string
+          p_guest: string
+          p_period: unknown
+        }
+        Returns: boolean
+      }
+      match_try_book: { Args: { p_match_id: string }; Returns: string }
+      match_unblock: { Args: { p_block_id: string }; Returns: Json }
+      match_visibility: {
+        Args: {
+          m: Database["public"]["Tables"]["matches"]["Row"]
+          p_gender: string
+          p_token: string
+          p_viewer: string
+        }
+        Returns: string
+      }
+      match_withdraw: { Args: { p_request_id: string }; Returns: Json }
       menu_availability: {
         Args: never
         Returns: {
@@ -1584,6 +1957,8 @@ export type Database = {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
       }
+      my_match_blocks: { Args: never; Returns: Json }
+      my_matches: { Args: { p_scope?: string }; Returns: Json }
       my_order_slips: { Args: { p_venue_id?: string }; Returns: Json }
       my_protocol_work: { Args: { p_venue_id?: string }; Returns: Json }
       my_purchases: {
@@ -1621,6 +1996,8 @@ export type Database = {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
       }
+      my_tickets: { Args: never; Returns: Json }
+      name_initial: { Args: { p_family: string }; Returns: string }
       normalize_finding: { Args: { p_text: string }; Returns: string }
       notify_staff: {
         Args: {
@@ -1648,6 +2025,10 @@ export type Database = {
           p_opening_float_iqd: number
           p_venue_id?: string
         }
+        Returns: Json
+      }
+      open_matches: {
+        Args: { p_from: string; p_to: string; p_venue_id: string }
         Returns: Json
       }
       open_tab: {
@@ -1711,6 +2092,16 @@ export type Database = {
       pin_grant_ttl: { Args: never; Returns: string }
       pin_is_weak: { Args: { p_pin: string }; Returns: boolean }
       pin_pad_to_floor: { Args: { p_started: string }; Returns: undefined }
+      place_floor_order: {
+        Args: {
+          p_idempotency_key?: string
+          p_items?: Json
+          p_label?: string
+          p_tab_id?: string
+          p_table_id: string
+        }
+        Returns: Json
+      }
       preview_series: {
         Args: {
           p_court_id: string
@@ -2429,6 +2820,10 @@ export type Database = {
         Args: { p_figure: string; p_from: string; p_key: string; p_to: string }
         Returns: Json
       }
+      report_matches: {
+        Args: { p_filters?: Json; p_from: string; p_to: string }
+        Returns: Json
+      }
       report_revenue: {
         Args: {
           p_filters?: Json
@@ -2471,6 +2866,10 @@ export type Database = {
           p_target_id: string
           p_venue_id?: string
         }
+        Returns: Json
+      }
+      resolve_match_report: {
+        Args: { p_outcome: string; p_report_id: string }
         Returns: Json
       }
       resolve_venue: { Args: { p_station_id?: string }; Returns: string }
@@ -2653,6 +3052,10 @@ export type Database = {
         Args: { p_item_id: string; p_suggested_item_ids: string[] }
         Returns: undefined
       }
+      set_batch_yield: {
+        Args: { p_batch_yield?: number; p_ingredient_id: string }
+        Returns: Json
+      }
       set_cafe_setting: {
         Args: { p_key: string; p_value: Json; p_venue_id?: string }
         Returns: Json
@@ -2705,10 +3108,19 @@ export type Database = {
         Args: { p_item_id: string; p_sold_out: boolean }
         Returns: undefined
       }
+      set_match_ban: {
+        Args: { p_banned: boolean; p_customer_id: string; p_reason: string }
+        Returns: Json
+      }
+      set_match_settings: {
+        Args: { p_patch: Json; p_venue_id?: string }
+        Returns: Json
+      }
       set_modifier_reveals: {
         Args: { p_group_ids: string[]; p_modifier_id: string }
         Returns: undefined
       }
+      set_my_gender: { Args: { p_gender: string }; Returns: Json }
       set_opening_hours: {
         Args: {
           p_closed_dates?: string[]
@@ -2883,6 +3295,7 @@ export type Database = {
         Args: { p_n: number; p_tab_id: string }
         Returns: number[]
       }
+      split_person_name: { Args: { p: string }; Returns: string[] }
       staff_create_reservation: {
         Args: {
           p_client_ref?: string
@@ -2940,6 +3353,10 @@ export type Database = {
       staff_role: {
         Args: never
         Returns: Database["public"]["Enums"]["staff_role"]
+      }
+      staff_set_customer_gender: {
+        Args: { p_customer_id: string; p_gender: string }
+        Returns: Json
       }
       staff_stock_view: {
         Args: { p_kind?: string; p_venue_id?: string }
@@ -3127,6 +3544,60 @@ export type Database = {
         Args: { p_done: boolean; p_item_id: string }
         Returns: Json
       }
+      ticket_cashout: {
+        Args: { p_customer_id: string; p_purchase_payment_id: string }
+        Returns: Json
+      }
+      ticket_cashout_block: { Args: { p_payment_id: string }; Returns: Json }
+      ticket_forfeit: {
+        Args: { p_seat_id: string; p_ticket_id: string }
+        Returns: boolean
+      }
+      ticket_lock: {
+        Args: {
+          p_request_id?: string
+          p_seat_ids?: string[]
+          p_ticket_ids: string[]
+        }
+        Returns: number
+      }
+      ticket_money_figures: {
+        Args: { p_ts_from: string; p_ts_to: string; p_venues: string[] }
+        Returns: Json
+      }
+      ticket_payment_prepare: {
+        Args: {
+          p_count: number
+          p_guest_id: string
+          p_locale: string
+          p_provider: string
+        }
+        Returns: Json
+      }
+      ticket_pick: {
+        Args: {
+          p_count: number
+          p_guest_id: string
+          p_request_id?: string
+          p_sandbox: boolean
+        }
+        Returns: string[]
+      }
+      ticket_refund_deleted: { Args: { p_guest_id?: string }; Returns: number }
+      ticket_release: {
+        Args: {
+          p_code: string
+          p_request_id?: string
+          p_seat_ids?: string[]
+          p_ticket_ids: string[]
+        }
+        Returns: number
+      }
+      ticket_restore: {
+        Args: { p_relock?: boolean; p_seat_id: string; p_ticket_id: string }
+        Returns: boolean
+      }
+      ticket_settle_success: { Args: { p_payment_id: string }; Returns: string }
       ticket_transition: {
         Args: {
           p_actor_label?: string
@@ -3134,6 +3605,14 @@ export type Database = {
           p_status: Database["public"]["Enums"]["ticket_status"]
           p_ticket_id: string
         }
+        Returns: Json
+      }
+      ticket_wallet: {
+        Args: { p_guest_id: string; p_staff: boolean }
+        Returns: Json
+      }
+      tickets_cash_out: {
+        Args: { p_payment_id: string; p_reason: string; p_staff_id: string }
         Returns: Json
       }
       till_add_items: {
@@ -3219,6 +3698,10 @@ export type Database = {
           p_venue_id?: string
         }
         Returns: Json
+      }
+      try_lock_match_venue: {
+        Args: { p_courts?: boolean; p_venue: string }
+        Returns: boolean
       }
       unpaid_played_bookings: {
         Args: { p_day_session_id?: string }
@@ -4318,7 +4801,7 @@ export type Database = {
           forfeited_at: string | null
           form_url: string | null
           guest_id: string | null
-          hold_id: string
+          hold_id: string | null
           id: string
           last_checked_at: string | null
           locale: string
@@ -4336,12 +4819,13 @@ export type Database = {
           refund_requested_at: string | null
           refunded_at: string | null
           request_id: string
-          reservation_id: string
+          reservation_id: string | null
           sandbox: boolean
           status: string
           succeeded_at: string | null
+          ticket_count: number | null
           updated_at: string
-          venue_id: string
+          venue_id: string | null
         }
         Insert: {
           amount_iqd: number
@@ -4355,7 +4839,7 @@ export type Database = {
           forfeited_at?: string | null
           form_url?: string | null
           guest_id?: string | null
-          hold_id: string
+          hold_id?: string | null
           id?: string
           last_checked_at?: string | null
           locale?: string
@@ -4373,12 +4857,13 @@ export type Database = {
           refund_requested_at?: string | null
           refunded_at?: string | null
           request_id: string
-          reservation_id: string
+          reservation_id?: string | null
           sandbox?: boolean
           status?: string
           succeeded_at?: string | null
+          ticket_count?: number | null
           updated_at?: string
-          venue_id?: string
+          venue_id?: string | null
         }
         Update: {
           amount_iqd?: number
@@ -4392,7 +4877,7 @@ export type Database = {
           forfeited_at?: string | null
           form_url?: string | null
           guest_id?: string | null
-          hold_id?: string
+          hold_id?: string | null
           id?: string
           last_checked_at?: string | null
           locale?: string
@@ -4410,12 +4895,13 @@ export type Database = {
           refund_requested_at?: string | null
           refunded_at?: string | null
           request_id?: string
-          reservation_id?: string
+          reservation_id?: string | null
           sandbox?: boolean
           status?: string
           succeeded_at?: string | null
+          ticket_count?: number | null
           updated_at?: string
-          venue_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -5573,6 +6059,7 @@ export type Database = {
       }
       ingredients: {
         Row: {
+          batch_yield: number | null
           id: string
           is_active: boolean
           kind: Database["public"]["Enums"]["ingredient_kind"]
@@ -5592,6 +6079,7 @@ export type Database = {
           yield_percent: number
         }
         Insert: {
+          batch_yield?: number | null
           id?: string
           is_active?: boolean
           kind?: Database["public"]["Enums"]["ingredient_kind"]
@@ -5611,6 +6099,7 @@ export type Database = {
           yield_percent?: number
         }
         Update: {
+          batch_yield?: number | null
           id?: string
           is_active?: boolean
           kind?: Database["public"]["Enums"]["ingredient_kind"]
@@ -6237,6 +6726,813 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_blocks_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_events: {
+        Row: {
+          actor: string
+          actor_guest_id: string | null
+          actor_staff_id: string | null
+          at: string
+          code: string | null
+          data: Json
+          id: number
+          match_id: string
+          request_id: string | null
+          seat_id: string | null
+          type: string
+          venue_id: string
+        }
+        Insert: {
+          actor: string
+          actor_guest_id?: string | null
+          actor_staff_id?: string | null
+          at?: string
+          code?: string | null
+          data?: Json
+          id?: never
+          match_id: string
+          request_id?: string | null
+          seat_id?: string | null
+          type: string
+          venue_id: string
+        }
+        Update: {
+          actor?: string
+          actor_guest_id?: string | null
+          actor_staff_id?: string | null
+          at?: string
+          code?: string | null
+          data?: Json
+          id?: never
+          match_id?: string
+          request_id?: string | null
+          seat_id?: string | null
+          type?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_events_actor_guest_id_fkey"
+            columns: ["actor_guest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_events_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_events_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "match_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_events_seat_id_fkey"
+            columns: ["seat_id"]
+            isOneToOne: false
+            referencedRelation: "match_seats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_exclusions: {
+        Row: {
+          created_at: string
+          guest_id: string
+          match_id: string
+          reason: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          guest_id: string
+          match_id: string
+          reason: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          guest_id?: string
+          match_id?: string
+          reason?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_exclusions_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_exclusions_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_exclusions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_reports: {
+        Row: {
+          created_at: string
+          id: string
+          match_id: string
+          reason: string
+          reported_id: string
+          reporter_id: string
+          request_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          seat_id: string | null
+          status: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          match_id: string
+          reason: string
+          reported_id: string
+          reporter_id: string
+          request_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          seat_id?: string | null
+          status?: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          match_id?: string
+          reason?: string
+          reported_id?: string
+          reporter_id?: string
+          request_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          seat_id?: string | null
+          status?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_reports_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_reports_reported_id_fkey"
+            columns: ["reported_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_reports_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "match_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_reports_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_reports_seat_id_fkey"
+            columns: ["seat_id"]
+            isOneToOne: false
+            referencedRelation: "match_seats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_reports_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          friend_genders: string[] | null
+          guest_id: string
+          id: string
+          match_id: string
+          seats_requested: number
+          status: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          friend_genders?: string[] | null
+          guest_id: string
+          id?: string
+          match_id: string
+          seats_requested: number
+          status?: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          friend_genders?: string[] | null
+          guest_id?: string
+          id?: string
+          match_id?: string
+          seats_requested?: number
+          status?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_requests_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_requests_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_requests_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_seats: {
+        Row: {
+          created_by_staff_id: string | null
+          end_reason: string | null
+          ended_at: string | null
+          gender: string | null
+          guest_id: string | null
+          guest_name: string | null
+          guest_phone: string | null
+          id: string
+          joined_at: string
+          kind: string
+          marked_at: string | null
+          marked_by_staff_id: string | null
+          match_id: string
+          replaces_seat_id: string | null
+          request_id: string | null
+          seat_no: number
+          share_iqd: number
+          status: string
+          ticket_id: string | null
+          venue_id: string
+          vouched: boolean | null
+          write_off_reason: string | null
+          written_off_at: string | null
+          written_off_by_staff_id: string | null
+        }
+        Insert: {
+          created_by_staff_id?: string | null
+          end_reason?: string | null
+          ended_at?: string | null
+          gender?: string | null
+          guest_id?: string | null
+          guest_name?: string | null
+          guest_phone?: string | null
+          id?: string
+          joined_at?: string
+          kind: string
+          marked_at?: string | null
+          marked_by_staff_id?: string | null
+          match_id: string
+          replaces_seat_id?: string | null
+          request_id?: string | null
+          seat_no: number
+          share_iqd: number
+          status?: string
+          ticket_id?: string | null
+          venue_id: string
+          vouched?: boolean | null
+          write_off_reason?: string | null
+          written_off_at?: string | null
+          written_off_by_staff_id?: string | null
+        }
+        Update: {
+          created_by_staff_id?: string | null
+          end_reason?: string | null
+          ended_at?: string | null
+          gender?: string | null
+          guest_id?: string | null
+          guest_name?: string | null
+          guest_phone?: string | null
+          id?: string
+          joined_at?: string
+          kind?: string
+          marked_at?: string | null
+          marked_by_staff_id?: string | null
+          match_id?: string
+          replaces_seat_id?: string | null
+          request_id?: string | null
+          seat_no?: number
+          share_iqd?: number
+          status?: string
+          ticket_id?: string | null
+          venue_id?: string
+          vouched?: boolean | null
+          write_off_reason?: string | null
+          written_off_at?: string | null
+          written_off_by_staff_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_seats_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_seats_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_seats_marked_by_staff_id_fkey"
+            columns: ["marked_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_seats_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_seats_replaces_seat_id_fkey"
+            columns: ["replaces_seat_id"]
+            isOneToOne: false
+            referencedRelation: "match_seats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_seats_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "match_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_seats_ticket_fk"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "match_tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_seats_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_seats_written_off_by_staff_id_fkey"
+            columns: ["written_off_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_ticket_events: {
+        Row: {
+          actor_staff_id: string | null
+          at: string
+          code: string | null
+          guest_id: string
+          id: number
+          match_id: string | null
+          payment_id: string | null
+          request_id: string | null
+          seat_id: string | null
+          ticket_id: string
+          type: string
+          venue_id: string | null
+        }
+        Insert: {
+          actor_staff_id?: string | null
+          at?: string
+          code?: string | null
+          guest_id: string
+          id?: never
+          match_id?: string | null
+          payment_id?: string | null
+          request_id?: string | null
+          seat_id?: string | null
+          ticket_id: string
+          type: string
+          venue_id?: string | null
+        }
+        Update: {
+          actor_staff_id?: string | null
+          at?: string
+          code?: string | null
+          guest_id?: string
+          id?: never
+          match_id?: string | null
+          payment_id?: string | null
+          request_id?: string | null
+          seat_id?: string | null
+          ticket_id?: string
+          type?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_ticket_events_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_ticket_events_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_ticket_events_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_ticket_events_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "booking_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_ticket_events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "match_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_ticket_events_seat_id_fkey"
+            columns: ["seat_id"]
+            isOneToOne: false
+            referencedRelation: "match_seats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_ticket_events_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "match_tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_ticket_events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_tickets: {
+        Row: {
+          cashed_out_at: string | null
+          cashout_payment_id: string | null
+          created_at: string
+          forfeited_at: string | null
+          forfeited_seat_id: string | null
+          forfeited_venue_id: string | null
+          guest_id: string
+          id: string
+          price_iqd: number
+          purchase_payment_id: string
+          request_id: string | null
+          sandbox: boolean
+          seat_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cashed_out_at?: string | null
+          cashout_payment_id?: string | null
+          created_at?: string
+          forfeited_at?: string | null
+          forfeited_seat_id?: string | null
+          forfeited_venue_id?: string | null
+          guest_id: string
+          id?: string
+          price_iqd: number
+          purchase_payment_id: string
+          request_id?: string | null
+          sandbox: boolean
+          seat_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cashed_out_at?: string | null
+          cashout_payment_id?: string | null
+          created_at?: string
+          forfeited_at?: string | null
+          forfeited_seat_id?: string | null
+          forfeited_venue_id?: string | null
+          guest_id?: string
+          id?: string
+          price_iqd?: number
+          purchase_payment_id?: string
+          request_id?: string | null
+          sandbox?: boolean
+          seat_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_tickets_cashout_payment_id_fkey"
+            columns: ["cashout_payment_id"]
+            isOneToOne: false
+            referencedRelation: "booking_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_tickets_forfeited_seat_id_fkey"
+            columns: ["forfeited_seat_id"]
+            isOneToOne: false
+            referencedRelation: "match_seats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_tickets_forfeited_venue_id_fkey"
+            columns: ["forfeited_venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_tickets_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_tickets_purchase_payment_id_fkey"
+            columns: ["purchase_payment_id"]
+            isOneToOne: false
+            referencedRelation: "booking_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_tickets_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "match_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_tickets_seat_id_fkey"
+            columns: ["seat_id"]
+            isOneToOne: false
+            referencedRelation: "match_seats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matches: {
+        Row: {
+          category: string
+          created_at: string
+          created_by_staff_id: string | null
+          deadline_warned_at: string | null
+          duration_min: number
+          end_at: string
+          ended_at: string | null
+          ended_reason: string | null
+          fill_deadline_at: string
+          id: string
+          idempotency_key: string | null
+          join_policy: string
+          organised_by: string
+          organiser_id: string | null
+          period: unknown
+          price_court_id: string
+          price_iqd: number
+          rate_rule_id: string | null
+          reservation_id: string | null
+          sandbox: boolean
+          share_token: string
+          shares_iqd: number[]
+          start_at: string
+          status: string
+          updated_at: string
+          venue_id: string
+          visibility: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          created_by_staff_id?: string | null
+          deadline_warned_at?: string | null
+          duration_min: number
+          end_at: string
+          ended_at?: string | null
+          ended_reason?: string | null
+          fill_deadline_at: string
+          id?: string
+          idempotency_key?: string | null
+          join_policy: string
+          organised_by: string
+          organiser_id?: string | null
+          period?: unknown
+          price_court_id: string
+          price_iqd: number
+          rate_rule_id?: string | null
+          reservation_id?: string | null
+          sandbox?: boolean
+          share_token: string
+          shares_iqd: number[]
+          start_at: string
+          status?: string
+          updated_at?: string
+          venue_id: string
+          visibility: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by_staff_id?: string | null
+          deadline_warned_at?: string | null
+          duration_min?: number
+          end_at?: string
+          ended_at?: string | null
+          ended_reason?: string | null
+          fill_deadline_at?: string
+          id?: string
+          idempotency_key?: string | null
+          join_policy?: string
+          organised_by?: string
+          organiser_id?: string | null
+          period?: unknown
+          price_court_id?: string
+          price_iqd?: number
+          rate_rule_id?: string | null
+          reservation_id?: string | null
+          sandbox?: boolean
+          share_token?: string
+          shares_iqd?: number[]
+          start_at?: string
+          status?: string
+          updated_at?: string
+          venue_id?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_price_court_id_fkey"
+            columns: ["price_court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_rate_rule_id_fkey"
+            columns: ["rate_rule_id"]
+            isOneToOne: false
+            referencedRelation: "rate_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -7145,6 +8441,62 @@ export type Database = {
           },
         ]
       }
+      payment_match_seats: {
+        Row: {
+          amount_iqd: number
+          created_at: string
+          linked_by: string
+          match_seat_id: string
+          payment_id: string
+          venue_id: string
+        }
+        Insert: {
+          amount_iqd: number
+          created_at?: string
+          linked_by: string
+          match_seat_id: string
+          payment_id: string
+          venue_id: string
+        }
+        Update: {
+          amount_iqd?: number
+          created_at?: string
+          linked_by?: string
+          match_seat_id?: string
+          payment_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_match_seats_linked_by_fkey"
+            columns: ["linked_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_match_seats_match_seat_id_fkey"
+            columns: ["match_seat_id"]
+            isOneToOne: false
+            referencedRelation: "match_seats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_match_seats_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_match_seats_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount_iqd: number
@@ -7246,6 +8598,9 @@ export type Database = {
           llm_default_model: string
           llm_monthly_cost_cap_micros: number
           llm_pricing: Json
+          match_terms_version: string | null
+          match_ticket_price_iqd: number
+          max_filling_matches_per_guest: number
           max_live_holds_per_guest: number
           timezone: string
           updated_at: string
@@ -7259,6 +8614,9 @@ export type Database = {
           llm_default_model?: string
           llm_monthly_cost_cap_micros?: number
           llm_pricing?: Json
+          match_terms_version?: string | null
+          match_ticket_price_iqd?: number
+          max_filling_matches_per_guest?: number
           max_live_holds_per_guest?: number
           timezone?: string
           updated_at?: string
@@ -7272,6 +8630,9 @@ export type Database = {
           llm_default_model?: string
           llm_monthly_cost_cap_micros?: number
           llm_pricing?: Json
+          match_terms_version?: string | null
+          match_ticket_price_iqd?: number
+          max_filling_matches_per_guest?: number
           max_live_holds_per_guest?: number
           timezone?: string
           updated_at?: string
@@ -7283,7 +8644,12 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           expo_push_token: string | null
+          family_name: string | null
           full_name: string
+          gender: string | null
+          gender_set_at: string | null
+          gender_set_by: string | null
+          given_name: string | null
           id: string
           payment_sandbox: boolean
           phone: string | null
@@ -7295,7 +8661,12 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           expo_push_token?: string | null
+          family_name?: string | null
           full_name: string
+          gender?: string | null
+          gender_set_at?: string | null
+          gender_set_by?: string | null
+          given_name?: string | null
           id: string
           payment_sandbox?: boolean
           phone?: string | null
@@ -7307,7 +8678,12 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           expo_push_token?: string | null
+          family_name?: string | null
           full_name?: string
+          gender?: string | null
+          gender_set_at?: string | null
+          gender_set_by?: string | null
+          given_name?: string | null
           id?: string
           payment_sandbox?: boolean
           phone?: string | null
@@ -10350,6 +11726,7 @@ export type Database = {
       }
       tabs: {
         Row: {
+          court_cap_iqd: number | null
           court_iqd: number
           day_session_id: string
           device_id: string | null
@@ -10371,6 +11748,7 @@ export type Database = {
           venue_id: string
         }
         Insert: {
+          court_cap_iqd?: number | null
           court_iqd?: number
           day_session_id: string
           device_id?: string | null
@@ -10392,6 +11770,7 @@ export type Database = {
           venue_id?: string
         }
         Update: {
+          court_cap_iqd?: number | null
           court_iqd?: number
           day_session_id?: string
           device_id?: string | null
@@ -10975,6 +12354,8 @@ export type Database = {
           llm_default_model: string
           llm_monthly_cost_cap_micros: number
           llm_pricing: Json
+          match_fill_deadline_minutes: number
+          matches_enabled: boolean
           max_booking_horizon_days: number
           max_live_holds_per_guest: number
           offline_mode_enabled: boolean
@@ -11011,6 +12392,8 @@ export type Database = {
           llm_default_model?: string
           llm_monthly_cost_cap_micros?: number
           llm_pricing?: Json
+          match_fill_deadline_minutes?: number
+          matches_enabled?: boolean
           max_booking_horizon_days?: number
           max_live_holds_per_guest?: number
           offline_mode_enabled?: boolean
@@ -11047,6 +12430,8 @@ export type Database = {
           llm_default_model?: string
           llm_monthly_cost_cap_micros?: number
           llm_pricing?: Json
+          match_fill_deadline_minutes?: number
+          matches_enabled?: boolean
           max_booking_horizon_days?: number
           max_live_holds_per_guest?: number
           offline_mode_enabled?: boolean
@@ -11543,6 +12928,8 @@ export type Database = {
           closed_dates: string[] | null
           currency: string | null
           map_url: string | null
+          match_fill_deadline_minutes: number | null
+          matches_enabled: boolean | null
           max_booking_horizon_days: number | null
           opening_hours: Json | null
           phone: string | null

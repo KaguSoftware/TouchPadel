@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { STAFF_ROLES, type StaffRole } from '@touch/core';
-import { staffRows } from '../rows';
+import { staffRows, todayRows } from '../rows';
 
 /**
  * What each role sees on Today (build-contracts-2026-09-23 §6.1, "Today rows
@@ -52,7 +52,6 @@ const EXPECTED: Record<StaffRole, string[]> = {
     'stock',
     'stock-log',
     'suggestions',
-    'ask-marketing',
   ],
   head_chef: [
     'protocols',
@@ -69,7 +68,6 @@ const EXPECTED: Record<StaffRole, string[]> = {
     'stock-log',
     'stock-count',
     'suggestions',
-    'ask-marketing',
   ],
   barista: [
     'protocols',
@@ -80,7 +78,6 @@ const EXPECTED: Record<StaffRole, string[]> = {
     'teachings',
     'recipes',
     'suggestions',
-    'ask-marketing',
   ],
   chef: [
     'protocols',
@@ -93,17 +90,16 @@ const EXPECTED: Record<StaffRole, string[]> = {
     'recipes',
     'stock-count',
     'suggestions',
-    'ask-marketing',
   ],
-  driver: ['protocols', 'run', 'purchases', 'requests', 'notes', 'suggestions', 'ask-marketing'],
+  driver: ['protocols', 'run', 'purchases', 'requests', 'notes', 'suggestions'],
   marketing: ['protocols', 'start', 'marketing', 'requests', 'notes', 'suggestions', 'marketing-inbox'],
   // 0245: the court desk keeps no stock; the shop assistant keeps the shop's.
-  court_desk: ['protocols', 'start', 'requests', 'notes', 'suggestions', 'ask-marketing'],
-  cashier: ['protocols', 'requests', 'notes', 'stock-log', 'suggestions', 'ask-marketing'],
-  prep: ['protocols', 'requests', 'notes', 'suggestions', 'ask-marketing'],
-  assistant_barista: ['protocols', 'requests', 'notes', 'teachings', 'recipes', 'suggestions', 'ask-marketing'],
-  waiter: ['protocols', 'requests', 'notes', 'stock', 'stock-move', 'suggestions', 'ask-marketing', 'calls'],
-  shop_staff: ['protocols', 'requests', 'notes', 'stock', 'stock-log', 'stock-count', 'suggestions', 'ask-marketing'],
+  court_desk: ['protocols', 'start', 'requests', 'notes', 'suggestions'],
+  cashier: ['protocols', 'requests', 'notes', 'stock-log', 'suggestions'],
+  prep: ['protocols', 'requests', 'notes', 'suggestions'],
+  assistant_barista: ['protocols', 'requests', 'notes', 'teachings', 'recipes', 'suggestions'],
+  waiter: ['protocols', 'requests', 'notes', 'stock', 'stock-move', 'suggestions', 'calls'],
+  shop_staff: ['protocols', 'requests', 'notes', 'stock', 'stock-log', 'stock-count', 'suggestions'],
 };
 
 /**
@@ -131,13 +127,13 @@ const PEOPLE: Record<StaffRole, string[]> = {
 };
 
 /**
- * Phase 2 Milestone 4b, the camera pages, after the people records: the floor
- * scans a waiter's order slip for the till, the driver and management a
- * supplier's receipt for Goods in.
+ * After the people records: the floor places an order from the phone (0251,
+ * which took "Scan an order" off Today; the slip photo is a link on the order
+ * page), and the driver and management scan a supplier's receipt for Goods in.
  */
 const SCAN: Record<StaffRole, string[]> = {
-  owner: ['order-slip', 'receipt'],
-  manager: ['order-slip', 'receipt'],
+  owner: ['order', 'receipt'],
+  manager: ['order', 'receipt'],
   head_barista: [],
   head_chef: [],
   barista: [],
@@ -145,10 +141,10 @@ const SCAN: Record<StaffRole, string[]> = {
   driver: ['receipt'],
   marketing: [],
   court_desk: [],
-  cashier: ['order-slip'],
+  cashier: ['order'],
   prep: [],
   assistant_barista: [],
-  waiter: ['order-slip'],
+  waiter: ['order'],
   shop_staff: [],
 };
 
@@ -177,11 +173,11 @@ describe('Today rows by role', () => {
     }
   });
 
-  it('send marketing to its inbox and every other role to ask', () => {
+  it('send marketing to its inbox, and only the manager and the owner to ask (2026-09-28)', () => {
     for (const role of STAFF_ROLES) {
       const ids = staffRows(role).map((r) => r.id);
       expect(ids.includes('marketing-inbox'), role).toBe(role === 'marketing');
-      expect(ids.includes('ask-marketing'), role).toBe(role !== 'marketing');
+      expect(ids.includes('ask-marketing'), role).toBe(role === 'manager' || role === 'owner');
     }
   });
 
@@ -195,6 +191,53 @@ describe('Today rows by role', () => {
     for (const role of STAFF_ROLES) {
       const row = staffRows(role).find((r) => r.id === 'requests');
       expect(row?.labelKey, role).toBe('staff.checklists.vacation.row');
+    }
+  });
+
+  it('place an order goes to the waiter, the cashier and management (0251)', () => {
+    for (const role of STAFF_ROLES) {
+      const row = staffRows(role).find((r) => r.id === 'order');
+      expect(!!row, role).toBe(['waiter', 'cashier', 'manager', 'owner'].includes(role));
+      if (row) expect(row).toMatchObject({ href: '/staff-order', labelKey: 'staff.floor.row' });
+      expect(staffRows(role).some((r) => r.id === 'order-slip'), role).toBe(false);
+    }
+  });
+});
+
+/**
+ * Two rows depend on the day, not the role (owner, 2026-09-28): Protocols
+ * for management always and for anyone else while a run in progress involves
+ * them; Notes on new items while one is at its feedback stage. Unknown (a read
+ * still out, or failed) hides the row.
+ */
+describe('Today rows that depend on the day', () => {
+  const ids = (role: StaffRole, runs: number | null, notes: number | null) =>
+    todayRows(role, { runs, notes }).map((r) => r.id);
+
+  it('shows Protocols to management always, and to others only with a run that involves them', () => {
+    for (const role of ['manager', 'owner'] as const) {
+      expect(ids(role, 0, 0), role).toContain('protocols');
+      expect(ids(role, null, null), role).toContain('protocols');
+    }
+    for (const role of ['waiter', 'cashier', 'barista', 'head_chef', 'marketing'] as const) {
+      expect(ids(role, 0, 0), role).not.toContain('protocols');
+      expect(ids(role, null, 0), role).not.toContain('protocols');
+      expect(ids(role, 2, 0), role).toContain('protocols');
+    }
+  });
+
+  it('shows Notes on new items only while one is at its feedback stage, to everyone', () => {
+    for (const role of STAFF_ROLES) {
+      expect(ids(role, 1, 0), role).not.toContain('notes');
+      expect(ids(role, 1, null), role).not.toContain('notes');
+      expect(ids(role, 1, 1), role).toContain('notes');
+    }
+  });
+
+  it('leaves every other row to the role', () => {
+    for (const role of STAFF_ROLES) {
+      const all = staffRows(role).map((r) => r.id).filter((id) => id !== 'protocols' && id !== 'notes');
+      expect(ids(role, 0, 0).filter((id) => id !== 'protocols'), role).toEqual(all);
     }
   });
 });

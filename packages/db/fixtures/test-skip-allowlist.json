@@ -1,0 +1,6 @@
+{
+  "_comment": "Tests that may legitimately SKIP in the CI db job (stack up, functions served, test-OTP variable set). scripts/check-no-skips.mjs fails the job on any other skipped test. Keys are '<file> :: <full test name>'; the value is why it skips by design. A test that skips because its probe failed is not allowed here — fix the probe.",
+  "tests": {
+    "tests/bench-contract.test.ts :: bench/baseline.json is absent — take one from the CI runner (Actions -> Bench (db) -> mode: baseline)": "the complement of the 'bench/baseline.json' suite: it runs only when the committed baseline is missing, and the baseline is committed"
+  }
+}

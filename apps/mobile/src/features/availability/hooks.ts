@@ -27,6 +27,7 @@ import {
 import { courtsTopic, pickGuestVenueId, showsBranchPicker, type Branch } from './branch';
 import { useStoredGuestVenue, writeGuestVenue } from './guestVenue';
 import { availabilityKeys } from './keys';
+import { matchKeys } from '../matches/keys';
 import type { CourtSlots } from '@touch/core';
 
 export { availabilityKeys };
@@ -501,6 +502,10 @@ export function useCourtsBroadcast(venueId: string | null): void {
     void queryClient.invalidateQueries({ queryKey: ['availability'] });
     void queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
     void queryClient.invalidateQueries({ queryKey: ['reservation'] });
+    // Open matches ride the same topic (guest.md §4.11 rule 8): a bump or a
+    // fourth seat booking the court is a reservation write, so a stale chip
+    // goes within a second; seat joins alone ride the chips' 60 s poll.
+    void queryClient.invalidateQueries({ queryKey: matchKeys.all });
   });
 
   useEffect(() => {

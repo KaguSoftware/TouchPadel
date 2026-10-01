@@ -52,10 +52,19 @@ export interface Issue<F extends string> {
 
 const MGMT: readonly StaffRole[] = ['manager', 'owner'];
 
+/**
+ * Who asks marketing for something: the manager and the owner only (owner,
+ * 2026-09-28; was every role but marketing). add_marketing_request holds the
+ * same line on the server (0249).
+ */
+export const ASK_MARKETING_ROLES: readonly StaffRole[] = MGMT;
+/** The requests page's gate: the askers and marketing, who answers. */
+export const MARKETING_REQUEST_ROLES: readonly StaffRole[] = [...ASK_MARKETING_ROLES, 'marketing'];
+
 // ── Who does what with requests to marketing (#73) ─────────────────────────
 
 export interface RequestsView {
-  /** Asks and follows their own: every role but marketing (PROPOSAL, §2.24.11). */
+  /** Asks and follows their own: the manager and the owner (ASK_MARKETING_ROLES). */
   asks: boolean;
   /** Answers: marketing only. */
   answers: boolean;
@@ -65,7 +74,7 @@ export interface RequestsView {
 
 export function requestsView(role: StaffRole): RequestsView {
   const marketing = role === 'marketing';
-  return { asks: !marketing, answers: marketing, readsAll: marketing || MGMT.includes(role) };
+  return { asks: ASK_MARKETING_ROLES.includes(role), answers: marketing, readsAll: marketing || MGMT.includes(role) };
 }
 
 /** The inbox filters of `marketing_requests_page`. */

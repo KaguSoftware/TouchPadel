@@ -5,7 +5,10 @@
 Next.js public site under `app/[locale]/`: the Touch Padel landing page at `/{locale}`, the café
 menu at `/{locale}/menu` (walk-in, or table-bound through the `tp-table` cookie that the QR exchange
 at `/t/{token}` sets; `t/[token]/route.ts` is its fallback and `/{locale}/t` a 307 to the menu),
-`download`, and the legal pages (`privacy`, `terms`, `support`, `delete-account`). The menu moved
+`download`, the legal pages (`privacy`, `terms`, `support`, `delete-account`), the payment return
+`/{locale}/pay/return`, and the open-match invite `/{locale}/m/[token]` (a shared match link where
+the app does not claim it; no names, no price, never indexed:
+`docs/design/open-matches/guest.md` §4.20). The menu moved
 off the root on 2026-09-23 (`docs/design/web-site/contracts-2026-09-23.md`). `AGENTS.md` above is
 Next's generated guide to this Next version; read it before touching routing, caching or server code. Written 2026-09-20 (Phase 2,
 Milestone 0 item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Database-side

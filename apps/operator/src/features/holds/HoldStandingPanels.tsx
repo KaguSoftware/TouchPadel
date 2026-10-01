@@ -1,5 +1,5 @@
 /**
- * The hold ladder (migration 0249) on two staff screens, one row body:
+ * The hold ladder (migration 0252) on two staff screens, one row body:
  *
  *   HoldReviewsPanel      day close, the day's record: guests the ladder
  *                         suspended at this branch, waiting for a decision.

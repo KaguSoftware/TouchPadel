@@ -406,7 +406,7 @@ export function TabDetailPanel({
     );
   }
 
-  const label = tabAnchorLabel(tab, tr('op.till.table'), tr('op.till.forReservation'));
+  const label = tabAnchorLabel(tab, tr('op.till.table'), tr('op.till.forReservation'), tr('ws.matches.common.openMatch'));
   const liveOrders = tab.orders.filter((o) => o.status !== 'voided');
   const allLines = liveOrders.flatMap((o) => o.order_items);
   /* Voided lines are waste, not the order: they used to sit in place among the

@@ -21,19 +21,40 @@ const googleIosUrlScheme = googleIosClientId
   ? 'com.googleusercontent.apps.' + googleIosClientId.replace(/\.apps\.googleusercontent\.com$/, '')
   : undefined;
 /**
- * The domain that proves this app owns its auth links — Security Layer 1,
- * Block 4 · Mobile (SEC-18).
+ * The domain that proves this app owns its links — Security Layer 1, Block 4 ·
+ * Mobile (SEC-18) — the auth links and, since open matches, the match invites
+ * (`/m/*`, `/en/m/*`, `/ar/m/*`; docs/design/open-matches/guest.md §4.19).
  *
- * It does not exist yet: the domain is a Block 0 item still waiting on the
- * client (SEC-06), and it blocks the privacy URL, HSTS and the printed QR cards
- * as well as this. The placeholder is deliberately a `.invalid` host — reserved
- * by RFC 2606 and guaranteed never to resolve — so an unconfigured build fails
- * the association cleanly instead of pointing at somebody else's domain.
- *
- * Set EXPO_PUBLIC_LINK_DOMAIN (and the matching NEXT_PUBLIC_SITE_URL on the web
- * app, which serves the two association files) the day DNS is delegated.
+ * The domain is live (www.touch-padel.com; the web app serves the two
+ * association files) and every eas.json profile sets EXPO_PUBLIC_LINK_DOMAIN
+ * to it; features/matches' links test holds that value equal to the share
+ * links' host. A staging build claims production links too, and answers them
+ * with the closed layout (accepted: staging builds are internal). The fallback
+ * is deliberately a `.invalid` host — reserved by RFC 2606 and guaranteed never
+ * to resolve — so a build without the variable (Expo Go, a local run) fails the
+ * association cleanly instead of pointing at somebody else's domain.
  */
 const LINK_DOMAIN = process.env.EXPO_PUBLIC_LINK_DOMAIN ?? 'touchpadel.invalid';
+
+/**
+ * Android App Links for the match invites (§4.19): `autoVerify`, so Android
+ * checks `/.well-known/assetlinks.json` and opens the app without a chooser.
+ * Only with a real domain; until the Play fingerprints are on the web app the
+ * verification fails closed and a link opens the web page, whose "Open in the
+ * app" still works. A native change: a new dev client and store builds.
+ */
+const MATCH_LINK_PREFIXES = ['/m/', '/en/m/', '/ar/m/'];
+const androidIntentFilters =
+  LINK_DOMAIN === 'touchpadel.invalid'
+    ? undefined
+    : [
+        {
+          action: 'VIEW',
+          autoVerify: true,
+          category: ['BROWSABLE', 'DEFAULT'],
+          data: MATCH_LINK_PREFIXES.map((pathPrefix) => ({ scheme: 'https', host: LINK_DOMAIN, pathPrefix })),
+        },
+      ];
 
 // EAS sets EAS_BUILD=true in every build job. A binary without the scheme has a
 // Google button that never returns to the app, so an EAS build with the env
@@ -249,11 +270,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // shared-credential API, and listing it would invite a password autofill
     // surface that nothing here handles.
     //
-    // Domain comes from the environment because it does not exist yet (Block 0,
-    // SEC-06 — waiting on the client). Until it is delegated, the entry resolves
-    // to the placeholder and Apple simply fails the association: the app falls
-    // back to the custom scheme, which is exactly today's behaviour. Nothing
-    // breaks by landing this early, and the day DNS lands it starts working.
+    // Domain comes from the environment (every eas.json profile names
+    // www.touch-padel.com). A build without it resolves to the placeholder and
+    // Apple simply fails the association: the app falls back to the custom
+    // scheme. The paths it claims are the web app's LINK_PATHS (the auth
+    // links and the match invites, apps/web/src/lib/security/applinks.ts).
     associatedDomains: [`applinks:${LINK_DOMAIN}`],
     // Sign in with Apple (owner decision D2, 2026-09-01: iOS only, native).
     usesAppleSignIn: true,
@@ -280,10 +301,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'NSPrivacyCollectedDataTypePhoneNumber',
         'NSPrivacyCollectedDataTypeUserID',
         'NSPrivacyCollectedDataTypeOtherDataTypes',
+        // Court deposits and open-match tickets paid by Qi Card on Qi's own
+        // page: what was bought, when and the amount. No card data.
+        'NSPrivacyCollectedDataTypePurchaseHistory',
         // Staff accounts only (build-contracts §6.10): work photos, and the
         // free text of step notes, requests, item notes and marketing drafts.
         'NSPrivacyCollectedDataTypePhotosorVideos',
         'NSPrivacyCollectedDataTypeOtherUserContent',
+        // Staff accounts only (wave 5): wage advances and pay deductions.
+        'NSPrivacyCollectedDataTypeOtherFinancialInfo',
       ].map((type) => ({
         NSPrivacyCollectedDataType: type,
         NSPrivacyCollectedDataTypeLinked: true,
@@ -304,6 +330,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.kagu.touchpadel',
+    // Match invites open the app (§4.19); see androidIntentFilters above.
+    ...(androidIntentFilters ? { intentFilters: androidIntentFilters } : {}),
     // FCM — Android push credentials. Android push IS Firebase Cloud Messaging,
     // so without this file expo-notifications cannot mint a token at all and
     // every Android notification silently never sends.

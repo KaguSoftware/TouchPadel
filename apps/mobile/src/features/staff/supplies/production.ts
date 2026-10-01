@@ -25,6 +25,8 @@ export interface ProductionItem {
   below_par: boolean;
   made_today: number;
   shelf_life_days: number | null;
+  /** How much one batch makes, in `unit`; null when no batch size is set (0250). */
+  batch_yield: number | null;
 }
 
 /** One row of `production_log_today`: a batch recorded today. */
@@ -117,4 +119,19 @@ export function batchIntent(args: BatchArgs): string {
 /** Below par first, then the rest; the server's order, kept stable for a re-render. */
 export function sortProduction(items: readonly ProductionItem[]): ProductionItem[] {
   return [...items].sort((a, b) => Number(b.below_par) - Number(a.below_par));
+}
+
+/** The most batches the stepper goes to. */
+export const MAX_BATCHES = 99;
+
+/**
+ * The amount made, filled in from the batch size (owner, 2026-09-28: "select
+ * a batch and the number is auto filled"): `batches` times what one batch
+ * makes, to the three places the stock keeps, as typed text in Western digits
+ * (the field reads either set). The worker can still change it by hand, when
+ * a batch came out bigger or smaller.
+ */
+export function batchQtyText(batchYield: number, batches: number): string {
+  const n = Math.round(batchYield * batches * 1000) / 1000;
+  return String(n);
 }

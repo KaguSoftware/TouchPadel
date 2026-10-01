@@ -38,7 +38,8 @@
     "content_approved",
     "content_changes",
     "content_declined",
-    "waiter_call_new"
+    "waiter_call_new",
+    "match_report_new"
   ],
   "routes": [
     "staff",

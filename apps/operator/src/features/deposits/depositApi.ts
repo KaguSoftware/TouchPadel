@@ -60,7 +60,10 @@ export type RefundReason =
   | 'amount_mismatch'
   | 'duplicate_success'
   | 'manual'
-  | 'staff_refund';
+  | 'staff_refund'
+  // Open matches (operator.md §5.17): a ticket purchase's refunds.
+  | 'ticket_cashout'
+  | 'account_deleted';
 
 export const REFUND_REASONS: readonly RefundReason[] = [
   'guest_cancel',
@@ -72,13 +75,25 @@ export const REFUND_REASONS: readonly RefundReason[] = [
   'duplicate_success',
   'manual',
   'staff_refund',
+  'ticket_cashout',
+  'account_deleted',
 ];
 
-/** One row of app.deposit_attention. */
+/**
+ * One row of app.deposit_attention. Since 0258 it also lists open-match
+ * ticket purchases whose cash-out or account-deletion refund failed, at every
+ * branch (chain money, money.md §5.10): `purpose = 'ticket'`, no reservation.
+ */
 export interface DepositAttentionRow {
   id: string;
   request_id: string;
   reservation_id: string | null;
+  /** `deposit` or `ticket` (0258); absent from an older server, which lists deposits only. */
+  purpose?: 'deposit' | 'ticket' | string | null;
+  /** A ticket purchase's number of tickets. */
+  ticket_count?: number | null;
+  /** The payer (booking_payments.guest_id), for Open customer. */
+  customer_id?: string | null;
   guest_name: string | null;
   guest_phone: string | null;
   amount_iqd: number;

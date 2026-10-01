@@ -145,13 +145,13 @@ way. The Latin form stays available through the English listing.
 احجز ملعب بادل خلال ثوانٍ
 ```
 
-### Promotional Text — 102 / 170
+### Promotional Text — 112 / 170
 
 ```
-الملاعب متاحة مباشرة في التطبيق. اختر اليوم والوقت، ويُحجز لك الوقت ريثما تؤكّد. والدفع عند الاستقبال.
+مواعيد الملاعب محدّثة لحظيًا في التطبيق. اختر اليوم والموعد، ويبقى محجوزًا لك إلى أن تؤكّد. الدفع عند الاستقبال.
 ```
 
-### Description — 1,002 / 4,000
+### Description — 1,076 / 4,000
 
 ```
 تطبيق تتش بادل لحجز ملاعب البادل في تتش بادل، العراق.
@@ -159,24 +159,24 @@ way. The Latin form stays available through the English listing.
 اعرف أي الملاعب متاحة، احجز الوقت الذي يناسبك، واحضر. هذا كل ما يفعله التطبيق.
 
 احجز خلال ثوانٍ
-افتح التطبيق، اختر اليوم، وستجد كل الأوقات المتاحة مع أسعارها. اضغط الوقت الذي تريده. يُحجز لك الوقت ريثما تراجع التفاصيل، فلا يأخذه أحد أثناء ذلك.
+افتح التطبيق واختر اليوم، وستجد كل مواعيد ذلك اليوم مع أسعارها. اضغط على الموعد الذي تريده، وسيبقى محجوزًا لك أثناء مراجعة التفاصيل، فلا يسبقك إليه أحد وأنت تقرّر.
 
 الدفع عند الاستقبال
-لا يوجد دفع إلكتروني في هذا التطبيق ولا تُطلب بيانات أي بطاقة. تحجز الملعب هنا وتدفع في الاستقبال عند وصولك.
+لا يوجد دفع إلكتروني في هذا التطبيق، ولا تُطلب منك بيانات أي بطاقة أبدًا. تحجز الملعب هنا وتدفع في الاستقبال عند وصولك.
 
 حجوزاتك في مكان واحد
-المباريات القادمة، والمباريات التي لعبتها، وما أُلغي — كل منها في قائمته، مع رقم الحجز الذي يطلبه الاستقبال.
+المباريات القادمة والمباريات التي لعبتها وما أُلغي من حجوزات: كل منها في قائمة مستقلة، مع رقم الحجز الذي يطلبه الاستقبال.
 
 إلغاء مجاني
-ألغِ من التطبيق ضمن مدة الإلغاء المجاني التي يحددها المكان. بعد ذلك يساعدك الاستقبال.
+ألغِ الحجز من التطبيق مجانًا خلال مهلة الإلغاء التي يحددها المكان. وبعد انتهائها يظل بإمكان الاستقبال مساعدتك.
 
 تذكيرات مفيدة فقط
 تأكيد عند الحجز، وتذكير قبل موعدك، وتنبيه إذا تغيّر شيء. لا شيء غير ذلك.
 
 بالعربية والإنجليزية
-التطبيق مبني باللغتين بالكامل، بما في ذلك الاتجاه من اليمين إلى اليسار — وليس ترجمة أُضيفت إلى تطبيق إنجليزي. غيّر اللغة متى شئت من الإعدادات.
+صُمّم التطبيق كله باللغتين، بما في ذلك الاتجاه من اليمين إلى اليسار، وليس ترجمة أُضيفت إلى تطبيق إنجليزي. غيّر اللغة متى شئت من الإعدادات.
 
-تتش بادل مخصص لحجز ملاعب البادل في تتش بادل فقط. ليس منصة تجمع أماكن أخرى ولا يعرضها.
+تتش بادل مخصص لحجز ملاعب البادل في تتش بادل فقط. وهو ليس منصة تجمع عدة أماكن، ولا يعرض أماكن أخرى.
 ```
 
 ### Keywords — 85 / 100
@@ -194,7 +194,7 @@ into Arabic script; use the words Iraqi players actually type.
 ```
 الإصدار الأول.
 
-احجز ملعب بادل في تتش بادل: الأوقات المتاحة مباشرة، ويُحجز لك الوقت ريثما تؤكّد، وإلغاء مجاني ضمن مدة المكان، وتذكيرات قبل موعدك. بالعربية والإنجليزية بالكامل.
+احجز ملعب بادل في تتش بادل: عرض مباشر للأوقات المتاحة، وحجز مؤقت للموعد إلى أن تؤكّد، وإلغاء مجاني خلال مهلة الإلغاء التي يحددها المكان، وتذكيرات قبل موعدك. بالعربية والإنجليزية في كل شاشة.
 ```
 
 ### URLs (Arabic)
@@ -218,9 +218,22 @@ metadata rejection on apps like this one:
 - **No prices in the description.** Court rates are venue config, they change,
   and a listing change needs a review. The app shows live prices; the listing
   says "with its price".
-- **No "payment", "pay online", "checkout"** as a capability. The app takes no
-  money. Saying it does invites both a rejection and an IAP interrogation.
+- **Online payment is Qi Card, for court deposits and open-match tickets, for a
+  service used at the venue.** Say exactly that, or nothing. Never "in-app
+  purchase", "top-up", "credit" or "checkout": a listing that sounds like
+  digital goods invites both a rejection and an IAP interrogation.
 - **No other venues, no city-wide claims.** One venue. Saying otherwise makes it
   a marketplace, which is a different review conversation entirely.
-- **No unreleased features** — no leagues, no ranking, no matchmaking, no cafe
-  ordering, however certain they feel for phase 2.
+- **No unreleased features** — no leagues, no ranking, no **level-based**
+  matchmaking (OM-16), no cafe ordering, however certain they feel for phase 2.
+- **Open matches appear only in the listing of a binary that has them** (1.0
+  and later). The line, once they ship, EN and AR (**DRAFT-AR**; store
+  marketing copy, where the imperative is the listing's register):
+
+  ```
+  Open matches: start a game at any free time, or join one. Four players book the court together, and each pays their share at the desk.
+  ```
+
+  ```
+  المباريات المفتوحة: ابدأ مباراة في أي وقت متاح أو انضم إلى واحدة. يحجز أربعة لاعبين الملعب معًا، ويدفع كلٌّ حصته عند الاستقبال.
+  ```

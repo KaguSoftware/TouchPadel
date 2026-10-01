@@ -253,7 +253,14 @@ describe('capability matrix', () => {
     reviewIncidents: ['manager', 'owner'],
     // Wave 5, till shifts (§5.2, §8 Q30): management works anyone's drawer.
     payOnOthersShift: ['manager', 'owner'],
-    // 0249: lift or ban a guest on the hold ladder.
+    // Open matches (operator.md §5.3, R1): each the guard of the RPC behind it.
+    runMatches: ['court_desk', 'manager', 'owner'],
+    takeSeatPayment: ['cashier', 'court_desk', 'manager', 'owner'],
+    writeOffSeat: ['court_desk', 'manager', 'owner'],
+    cashOutTickets: ['manager', 'owner'],
+    banFromMatches: ['manager', 'owner'],
+    reviewMatchReports: ['manager', 'owner'],
+    // 0252: lift or ban a guest on the hold ladder.
     decideHoldStanding: ['manager', 'owner'],
   };
   /** A role's own work, which the owner does not do: the RPC refuses the owner too. */
@@ -328,8 +335,34 @@ describe('capability matrix', () => {
         'decideContent',
         // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2).
         'payOnOthersShift',
+        // Open matches (docs/design/open-matches/operator.md §5.3).
+        'runMatches',
+        'takeSeatPayment',
+        'writeOffSeat',
+        'cashOutTickets',
+        'banFromMatches',
+        'reviewMatchReports',
       ].sort(),
     );
+  });
+
+  it('gives the open-match controls to the desk, seat money to the cashier too, and never to the shop (operator.md §5.3, R1)', () => {
+    // R1: the desk starts a write-off; the manager PIN authorises it.
+    expect(can('court_desk', 'writeOffSeat')).toBe(true);
+    expect(can('cashier', 'writeOffSeat')).toBe(false);
+    // The shop assistant holds a drawer (takeCourtPayment) but no seat money.
+    expect(permissionsFor('shop_staff').takeCourtPayment).toBe(true);
+    expect(can('shop_staff', 'takeSeatPayment')).toBe(false);
+    expect(can('cashier', 'takeSeatPayment')).toBe(true);
+    // The cashier takes seat money but runs no match (no /desk).
+    expect(can('cashier', 'runMatches')).toBe(false);
+    expect(can('court_desk', 'runMatches')).toBe(true);
+    // Cash-out, bans and the reports queue are management's.
+    for (const capability of ['cashOutTickets', 'banFromMatches', 'reviewMatchReports'] as const) {
+      expect(can('court_desk', capability), capability).toBe(false);
+      expect(can('manager', capability), capability).toBe(true);
+      expect(can('owner', capability), capability).toBe(true);
+    }
   });
 
   it('keeps cancelling a deduction, redacting a report and deciding content with the owner (wave5-addendum §2.5-§2.7, §8 Q14)', () => {

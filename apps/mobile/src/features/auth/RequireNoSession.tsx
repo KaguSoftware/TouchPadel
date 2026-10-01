@@ -7,11 +7,13 @@
  * remaining reason the app shipped a hand-drawn back button.
  *
  * The redirect rule is carried over EXACTLY, including its exemption. A
- * signed-in user is bounced to the tabs, except while a pending slot exists:
- * the screen's own post-auth continuation is about to place the hold and route
- * to Review, and a redirect racing it would win and strand the guest on the
- * tabs. `usePendingSlot` is a subscription, so this re-evaluates when it
- * changes, and the intent lives until the hold has settled.
+ * signed-in user is bounced to the tabs, except while a pending intent exists:
+ * a slot (the screen's own post-auth continuation is about to place the hold
+ * and route to Review) or an open-match intent (it is about to open the match,
+ * the list or the new-match form; docs/design/open-matches/guest.md §4.18). A
+ * redirect racing either would win and strand the guest on the tabs.
+ * `usePendingIntent` is a subscription over both stores, so this re-evaluates
+ * when either changes, and a slot lives until the hold has settled.
  *
  * verify-email / verify-result do NOT use this: they legitimately render around
  * the moment the session lands (the emailed link signs the user in mid-screen),
@@ -28,13 +30,13 @@ import { useAuth } from './context';
 import { noSessionGate } from './gate';
 import { profileGateState } from './social';
 import { useOwnProfile } from '../profile/hooks';
-import { usePendingSlot } from '../booking/pendingSlot';
+import { usePendingIntent } from '../booking/pendingIntent';
 import { useStaffStatus } from '../staff/StaffStatusProvider';
 import { Loading } from '../../components/ui';
 
 export function RequireNoSession({ children }: { children: ReactNode }) {
   const { session, initializing } = useAuth();
-  const pending = usePendingSlot();
+  const pending = usePendingIntent();
   const profile = useOwnProfile(session !== null);
   const { status: staff, answered: staffAnswered } = useStaffStatus();
   const gate = profileGateState(profile);
@@ -42,7 +44,7 @@ export function RequireNoSession({ children }: { children: ReactNode }) {
     noSessionGate({
       initializing,
       hasSession: session !== null,
-      hasPendingSlot: pending !== null,
+      hasPendingSlot: pending,
       // 'unknown' covers pending AND error; only a pending query should hold
       // the screen, an errored one fails open to the tabs.
       profile: gate === 'unknown' ? (profile.status === 'pending' ? 'pending' : 'complete') : gate,

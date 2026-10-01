@@ -329,7 +329,7 @@ interface MergeCandidate {
   label: string | null;
   opened_at: string;
   table: { table_number: string } | null;
-  reservation: { guest_name: string | null; court: { name_en: string; name_ar: string } | null } | null;
+  reservation: { guest_id?: string | null; guest_name: string | null; court: { name_en: string; name_ar: string } | null } | null;
 }
 
 export function MergeTabsDialog({
@@ -358,7 +358,7 @@ export function MergeTabsDialog({
         // human to be listed under: an account holder's booking carries no
         // guest_name, and this picker used to fall back to a UUID fragment.
         .select(
-          'id, label, opened_at, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar))',
+          'id, label, opened_at, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_id, guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar))',
         )
         .in('status', ['open', 'awaiting_payment'])
         .is('merged_into_tab_id', null)
@@ -372,7 +372,7 @@ export function MergeTabsDialog({
   function nameOf(t: MergeCandidate): string {
     return mergeDonorLabel(
       t,
-      { table: tr('op.till.table'), reservation: tr('op.till.forReservation') },
+      { table: tr('op.till.table'), reservation: tr('op.till.forReservation'), openMatch: tr('ws.matches.common.openMatch') },
       t.reservation?.court ? pickName(locale, t.reservation.court) : null,
       formatTime(new Date(t.opened_at), locale),
     );

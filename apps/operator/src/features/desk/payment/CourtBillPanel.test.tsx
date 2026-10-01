@@ -6,7 +6,7 @@ import { LocaleProvider } from '../../../lib/i18n';
 import { mutate } from '../../../lib/mutate';
 import { appRpc } from '../../../lib/appRpc';
 import { CourtBillView } from './CourtBillPanel';
-import type { BookingBill, LiveTab } from './deskPaymentLogic';
+import type { BookingBill, BookingBillMatch, LiveTab } from './deskPaymentLogic';
 
 // The bill panel over a real query client. Writes are mocked at mutate() and
 // appRpc(); the signed-in role at useAuth, so permissionsFor and canAccess run
@@ -233,5 +233,101 @@ describe('CourtBillView', () => {
     expect(screen.getByText(/This booking has an open bill/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Add a cafe bill' })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// An open match's booking (docs/design/open-matches/operator.md §5.14)
+// ---------------------------------------------------------------------------
+
+function matchMoney(over: Partial<BookingBillMatch> = {}): BookingBillMatch {
+  return {
+    id: 'm1',
+    status: 'booked',
+    phase: 'started',
+    price_iqd: 40000,
+    booking_price_iqd: 40000,
+    price_delta_iqd: 0,
+    unassigned_iqd: 0,
+    delta_owed_iqd: 0,
+    owed_iqd: 20000,
+    written_off_iqd: 0,
+    open_iqd: 0,
+    over_iqd: 0,
+    ...over,
+  };
+}
+
+function viewMatch(b: BookingBill, match = false) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={qc}>
+      <LocaleProvider>
+        <CourtBillView bill={b} tz="Asia/Baghdad" match={match} onRefetch={vi.fn(async () => undefined)} />
+      </LocaleProvider>
+    </QueryClientProvider>,
+  );
+}
+
+describe('CourtBillView — an open match booking', () => {
+  it('says what the players owe between them, keeps Cash and Card, and offers no cafe bill (DF-16)', () => {
+    viewMatch(bill({ match: matchMoney(), court_remaining_iqd: 40000 }));
+    expect(screen.getByText(/^Players owe 20,000 IQD between them\. Take each share under Players/)).toBeTruthy();
+    // The booking-level bill still takes money: the offline path, a price rise (DF-4).
+    expect(screen.getByRole('button', { name: 'Cash' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Card' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add a cafe bill' })).toBeNull();
+  });
+
+  it('adds rows for a write-off, a price change after booking and money not yet assigned, with the server figures', () => {
+    viewMatch(bill({ court_written_off_iqd: 10000, match: matchMoney({ owed_iqd: 0, price_delta_iqd: 5000, unassigned_iqd: 15000 }) }));
+    const rows = within(screen.getByTestId('match-bill-rows'));
+    expect(rows.getByText('Written off')).toBeTruthy();
+    expect(rows.getByText('Price changed after booking')).toBeTruthy();
+    expect(rows.getByText('Not assigned to players yet')).toBeTruthy();
+    expect(rows.getByText('15,000 IQD')).toBeTruthy();
+    // Nobody owes a share: no players sentence.
+    expect(screen.queryByText(/^Players owe/)).toBeNull();
+  });
+
+  it('names the seats a settled payment went to', () => {
+    viewMatch(
+      bill({
+        court_paid_iqd: 20000,
+        court_remaining_iqd: 20000,
+        match: matchMoney(),
+        settled_tabs: [
+          {
+            tab_id: 't0',
+            settled_at: '2099-09-03T18:05:00.000Z',
+            court_iqd: 20000,
+            total_iqd: 20000,
+            refunds_iqd: 0,
+            payments: [
+              {
+                id: 'p1',
+                method: 'cash',
+                amount_iqd: 20000,
+                tendered_iqd: 20000,
+                change_iqd: 0,
+                created_at: '2099-09-03T18:05:00.000Z',
+                recorded_by_name: 'Desk Dana',
+                seats: [
+                  { seat_no: 2, amount_iqd: 10000 },
+                  { seat_no: 1, amount_iqd: 10000 },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(screen.getByText('Seats: 1, 2')).toBeTruthy();
+  });
+
+  it('hides the cafe bill on the booking screen’s word before the bill carries the match (a server before 0262)', () => {
+    viewMatch(bill(), true);
+    expect(screen.queryByRole('button', { name: 'Add a cafe bill' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Cash' })).toBeTruthy();
   });
 });

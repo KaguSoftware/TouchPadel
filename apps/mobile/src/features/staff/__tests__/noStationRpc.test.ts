@@ -14,6 +14,11 @@ import { describe, expect, it } from 'vitest';
  * app/staff*.tsx; tests excluded) and fails on a string literal naming any of
  * the RPCs below, bare or schema-qualified.
  *
+ * Placing an order from the phone (owner, 2026-09-28; 0251) does not open
+ * this wall: the phone calls its own place_floor_order, which opens or adds to
+ * a café tab under the floor roles' guard on the server, never the till's
+ * open_tab or till_add_items.
+ *
  * The manager-only public writers are here too: the phone's price, promotion,
  * rate and new-item changes go through the protocols, never the menu and
  * price writers, so their codes (ITEM_IN_RELEASE, PRICE_VIA_PROTOCOL,

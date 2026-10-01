@@ -12,10 +12,17 @@
  * Each row says who, which booking, how much, what went wrong in plain words
  * and since when, and offers only the action the server will take for it
  * (depositAttentionLogic.attentionActions). A refusal stays on its row.
+ *
+ * Open matches (operator.md §5.17): "Settled another way" only on a failed
+ * refund (R23), so a slow one says it is waiting on Qi and offers nothing; a
+ * ticket purchase's refund (cash-out or account deletion) reads "Ticket
+ * refund · {tickets} · {name}", carries "Any branch can settle this" (chain
+ * money) and opens the customer rather than a booking.
  */
 import { useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatDateTime, formatIQD, formatNumber, VENUE_TZ, type MessageKey } from '@touch/i18n';
+import { useNavigate } from '@tanstack/react-router';
+import { countPhrase, formatDateTime, formatIQD, formatNumber, isolate, VENUE_TZ, type MessageKey } from '@touch/i18n';
 import { useLocale, pickName } from '../../lib/i18n';
 import { QK, fetchVenueSettings } from '../../lib/queries';
 import { currentBranchId } from '../../lib/venueScope';
@@ -34,7 +41,19 @@ import {
   settleDepositManually,
   type DepositAttentionRow,
 } from './depositApi';
-import { attentionActions, attentionAmount, attentionKindOf, attentionSince, knownRefundReason, showAttentionPanel, sortAttention, type AttentionKind } from './depositAttentionLogic';
+import {
+  attentionActions,
+  attentionAmount,
+  attentionHintKey,
+  attentionKindOf,
+  attentionSince,
+  isTicketRow,
+  knownRefundReason,
+  refundReasonKey,
+  showAttentionPanel,
+  sortAttention,
+  type AttentionKind,
+} from './depositAttentionLogic';
 
 const K = 'ws.manager.onlineRefunds';
 
@@ -102,6 +121,13 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
   const reason = knownRefundReason(row.refund_reason);
   const guest = row.guest_name?.trim() || tr(`${K}.noName`);
   const court = row.court_name_en && row.court_name_ar ? pickName(locale, { name_en: row.court_name_en, name_ar: row.court_name_ar }) : null;
+  const ticket = isTicketRow(row);
+  const title = ticket
+    ? tr('ws.matches.ops.ticketRow', {
+        tickets: row.ticket_count != null ? countPhrase('ws.matches.count.tickets', row.ticket_count, locale) : '—',
+        name: isolate(guest),
+      })
+    : guest;
 
   function refreshed() {
     void qc.invalidateQueries({ queryKey: ['depositAttention'] });
@@ -128,7 +154,7 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
   }
 
   const facts: ReactNode[] = [];
-  if (reason) facts.push(tr(`${K}.why`, { reason: tr(`${K}.reasons.${reason}` as MessageKey) }));
+  if (reason) facts.push(tr(`${K}.why`, { reason: tr(refundReasonKey(reason)) }));
   if (since) facts.push(tr(kind === 'paidNotLive' ? `${K}.paidAt` : `${K}.askedAt`, { time: formatDateTime(new Date(since), locale, tz) }));
   if ((row.refund_attempts ?? 0) > 1) facts.push(tr(`${K}.attempts`, { count: formatNumber(row.refund_attempts ?? 0, locale) }));
 
@@ -145,7 +171,7 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
         <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', flex: '1 1 18rem', minInlineSize: 0 }}>
           <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
             <strong>
-              <bdi>{guest}</bdi>
+              <bdi>{title}</bdi>
             </strong>
             {row.guest_phone && (
               <bdi dir="ltr" style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
@@ -153,6 +179,7 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
               </bdi>
             )}
             {row.sandbox && <StatusBadge tone="neutral" size="sm" dot={false} label={tr(`${K}.test`)} title={tr(`${K}.testHint`)} />}
+            {ticket && <StatusBadge tone="info" size="sm" dot={false} label={tr('ws.matches.ops.anyBranch')} />}
           </span>
           {(court || row.start_at) && (
             <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
@@ -165,7 +192,7 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
 
       <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
         <StatusBadge tone={KIND_TONE[kind]} size="sm" label={tr(`${K}.kind.${kind}.label` as MessageKey)} />
-        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', flex: '1 1 16rem' }}>{tr(`${K}.kind.${kind}.hint` as MessageKey)}</span>
+        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', flex: '1 1 16rem' }}>{tr(attentionHintKey(kind))}</span>
       </div>
       {facts.length > 0 && <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', margin: 0 }}>{facts.join(' · ')}</p>}
 
@@ -187,6 +214,7 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
             {tr(`${K}.settle`)}
           </Button>
         )}
+        {ticket && row.customer_id && <OpenCustomer customerId={row.customer_id} />}
       </div>
 
       <ConfirmDialog
@@ -219,6 +247,17 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
         />
       )}
     </li>
+  );
+}
+
+/** A ticket refund has no booking to open: the customer's record holds their tickets and purchases. */
+function OpenCustomer({ customerId }: { customerId: string }) {
+  const { tr } = useLocale();
+  const navigate = useNavigate();
+  return (
+    <Button size="sm" kind="ghost" icon="user" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/desk/customers/$id', params: { id: customerId } })}>
+      {tr('ws.matches.ops.openCustomer')}
+    </Button>
   );
 }
 

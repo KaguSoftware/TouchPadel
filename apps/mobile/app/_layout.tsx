@@ -34,6 +34,7 @@ import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { usePendingPaymentResume } from '../src/features/deposit/hooks';
+import { matchKeys } from '../src/features/matches/keys';
 import {
   forgetWrittenPushToken,
   installNotificationHandler,
@@ -278,6 +279,22 @@ function RootStack() {
           screen carries its own RequireSession, like the screens above. */}
           <Stack.Screen name="pay/return" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="pay/status" />
+          {/* Open matches (docs/design/open-matches/guest.md §4.12–§4.18). The
+          invite link's landing draws no bar and hands on in a frame, like the
+          payment return; the report is a modal, like the terms gate. Each
+          screen carries its own session guard. */}
+          <Stack.Screen name="matches" />
+          <Stack.Screen name="match/[id]" />
+          <Stack.Screen name="match-new" />
+          <Stack.Screen name="m/[token]" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="match-report" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="blocked-players" />
+          <Stack.Screen name="tickets" />
+          {/* Place an order (0251): an item's size and options, as the platform's sheet over the table's menu. */}
+          <Stack.Screen
+            name="staff-order-item"
+            options={{ presentation: 'formSheet', sheetAllowedDetents: [0.75, 1], sheetGrabberVisible: true }}
+          />
           <Stack.Screen name="+not-found" />
           <Stack.Screen name="reset-password" />
         </Stack>
@@ -353,12 +370,18 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
   // screen carries its own RequireSession, so a tap while signed out lands on
   // the sign-in it redirects to. A staff tap opens its staff screen, and only
   // once the phone is known to be signed in as staff (build-contracts §6.8).
+  // An open-match tap opens its match or the wallet whatever the staff status,
+  // and a match push landing in the foreground refreshes every match read at
+  // once (docs/design/open-matches/guest.md §4.21).
   useEffect(
     () =>
       installNotificationHandler({
         onOpenReservation: (id) => router.push({ pathname: '/booking/[id]', params: { id } }),
         onOpenStaff: (href) => router.push(href),
         staffStatus: settledStaffStatus,
+        onOpenMatch: (id) => router.push({ pathname: '/match/[id]', params: { id } }),
+        onOpenTickets: () => router.push('/tickets'),
+        onMatchNotice: () => void queryClient.invalidateQueries({ queryKey: matchKeys.all }),
       }),
     [],
   );

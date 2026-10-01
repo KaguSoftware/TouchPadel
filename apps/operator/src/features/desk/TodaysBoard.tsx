@@ -32,6 +32,13 @@
  * "customer request / weather / staff error / duplicate / other" — none of
  * which is why a guest walks in.
  *
+ * Open matches (docs/design/open-matches/operator.md §5.9) have a group of
+ * their own after the courts: the night's matches still needing players,
+ * with Add player, Open and "Start an open match". A match's booking reads
+ * its organiser's name (bookingLabel) with the seat chip, and offers
+ * **Players** (its booking screen) where another booking offers Mark arrived:
+ * a match is marked player by player, never as a whole.
+ *
  * `TodaysBoardView` is pure presentation (spec §06.1 data-in / events-out)
  * so its four states are testable without a database.
  */
@@ -48,9 +55,18 @@ import { Button, Skeleton } from '../../components/ui';
 import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, PageHeader, Panel, StatusBadge, type AsyncStatus } from '../../components/kit';
 import { ChevronForward, Icon, type IconName } from '../../components/icons';
 import { ChargeCell, ReservationBadge } from './deskStatus';
-import { arrivalsDue, courtAvailability, guestNameOf, isVisible, nightSummary, slotTaken, sortByStart, sortByStartDesc, type CourtAvailability } from './deskLogic';
+import { arrivalsDue, courtAvailability, isVisible, nightSummary, slotTaken, sortByStart, sortByStartDesc, type CourtAvailability } from './deskLogic';
 import type { CustomerFlag, ReservationRow } from './deskTypes';
-import { CreateReservationDialog } from './CreateReservationDialog';
+import { CreateReservationDialog, type StartMatchCarry } from './CreateReservationDialog';
+import { bookingLabel, isMatchLiteral, type MatchReadStatus } from '../matches/matchLogic';
+import type { MatchState, OpenMatches } from '../matches/matchPayloads';
+import { SeatChip } from '../matches/SeatChip';
+import { NeedsPlayersPanel } from '../matches/NeedsPlayersPanel';
+import { StartMatchDialog } from '../matches/StartMatchDialog';
+import { AddSeatDialog } from '../matches/AddSeatDialog';
+import { earliestStartAt } from '../matches/startMatchLogic';
+import { matchBookingIds, useMatchCaps, useMatchRead, useMatchStates, useOpenMatches } from '../matches/useMatches';
+import { useStationReach } from '../../lib/stationReach';
 import { todayInTz, tonightInTz, useTradingNight } from './useTradingNight';
 import { hasEnded, statesById, toSettle, unsettledBefore, type BillStateRow } from './payment/deskPaymentLogic';
 import { useBookingBillStates } from './payment/useBookingBill';
@@ -89,6 +105,18 @@ export interface TodaysBoardViewProps {
   onBookCourt: (courtId: string) => void;
   onSearchCustomer: () => void;
   onMarkArrived: (id: string) => void;
+  /** app.desk_open_matches read the §5.5 way; absent: no open-match group. */
+  openMatches?: MatchReadStatus<OpenMatches>;
+  /** app.desk_match_states by reservation id: a match booking's organiser and seat chip. */
+  matchStates?: Readonly<Record<string, MatchState>> | null;
+  /** CAPABILITY_ROLES.runMatches: Start an open match, Add player. */
+  runMatches?: boolean;
+  /** The station reaches the server: every match write is online only (DF-11). */
+  reachable?: boolean;
+  onAddPlayer?: (matchId: string) => void;
+  onOpenMatch?: (matchId: string) => void;
+  onStartMatch?: () => void;
+  onRetryOpenMatches?: () => void;
 }
 
 export function TodaysBoardView(p: TodaysBoardViewProps) {
@@ -140,7 +168,20 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
     />
   );
 
-  const courtsPanel = <CourtsNow availability={availability} reservations={p.reservations} courtName={courtName} tz={p.tz} live={p.live} onBook={p.onBookCourt} onOpen={p.onSelectReservation} />;
+  const states = p.matchStates ?? undefined;
+  const courtsPanel = <CourtsNow availability={availability} reservations={p.reservations} courtName={courtName} tz={p.tz} live={p.live} states={states} onBook={p.onBookCourt} onOpen={p.onSelectReservation} />;
+  const matchesPanel = p.openMatches ? (
+    <NeedsPlayersPanel
+      status={p.openMatches}
+      tz={p.tz}
+      runMatches={p.runMatches ?? false}
+      reachable={p.reachable ?? true}
+      onAddPlayer={(id) => p.onAddPlayer?.(id)}
+      onOpenMatch={(id) => p.onOpenMatch?.(id)}
+      onStartMatch={() => p.onStartMatch?.()}
+      onRetry={() => p.onRetryOpenMatches?.()}
+    />
+  ) : null;
 
   return (
     <div>
@@ -169,6 +210,7 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
               }
             />
             {courtsPanel}
+            {matchesPanel}
           </div>
         }
       >
@@ -181,12 +223,14 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
             nowIso={p.nowIso}
             tz={p.tz}
             courtName={courtName}
+            states={states}
             flagsByGuest={p.flagsByGuest}
             markingId={p.markingId}
             onMarkArrived={p.onMarkArrived}
             onOpen={p.onSelectReservation}
           />
           {courtsPanel}
+          {matchesPanel}
           <Panel title={<PanelTitle icon="calendar">{tr('ws.courtDesk.board.bookings')}</PanelTitle>} padded={false}>
             <div style={{ overflowX: 'auto' }}>
               <table className="tp-table" data-dense="true" aria-label={tr('ws.courtDesk.board.bookings')}>
@@ -210,6 +254,7 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
                       nowIso={p.nowIso}
                       billState={p.billStates?.get(r.id)}
                       flags={r.guest_id ? p.flagsByGuest?.get(r.guest_id) : undefined}
+                      match={states?.[r.id]}
                       marking={p.markingId === r.id}
                       onSelect={() => p.onSelectReservation(r.id)}
                       onMarkArrived={() => p.onMarkArrived(r.id)}
@@ -243,10 +288,16 @@ function PanelTitle({ icon, children }: { icon: IconName; children: ReactNode })
   );
 }
 
-function guestLabel(r: ReservationRow, tr: ReturnType<typeof useLocale>['tr']): string {
+/** The name a row shows; an open match's booking reads its organiser (or "Open match"). */
+function guestLabel(r: ReservationRow, tr: ReturnType<typeof useLocale>['tr'], states?: Readonly<Record<string, MatchState>>): string {
   if (r.kind === 'maintenance') return r.notes ?? tr('ws.courtDesk.board.blocked');
   if (r.kind === 'hold') return tr('ws.courtDesk.board.hold');
-  return guestNameOf(r) ?? tr('ws.courtDesk.board.walkIn');
+  return bookingLabel(r, states?.[r.id], tr) ?? tr('ws.courtDesk.board.walkIn');
+}
+
+/** A match's booking: its state says so, or its row does (no account, the literal name). */
+function isMatchRow(r: ReservationRow, match: MatchState | undefined): boolean {
+  return r.kind === 'booking' && (match !== undefined || isMatchLiteral(r));
 }
 
 const minutesBetween = (a: string, b: string) => Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60_000));
@@ -263,6 +314,7 @@ function ArrivalsPanel({
   nowIso,
   tz,
   courtName,
+  states,
   flagsByGuest,
   markingId,
   onMarkArrived,
@@ -275,6 +327,7 @@ function ArrivalsPanel({
   nowIso: string;
   tz: string;
   courtName: (id: string) => string;
+  states?: Readonly<Record<string, MatchState>>;
   flagsByGuest?: ReadonlyMap<string, readonly CustomerFlag[]>;
   markingId?: string | null;
   onMarkArrived: (id: string) => void;
@@ -284,7 +337,7 @@ function ArrivalsPanel({
   const nothing = due.late.length === 0 && due.soon.length === 0 && unpaid.length === 0;
   const previousUnpaid = (r: ReservationRow) => {
     const prev = unsettledBefore(r, reservations, billStates, nowIso);
-    return prev ? tr('ws.courtDesk.board.previousUnpaid', { name: guestLabel(prev, tr) }) : undefined;
+    return prev ? tr('ws.courtDesk.board.previousUnpaid', { name: guestLabel(prev, tr, states) }) : undefined;
   };
   // With nobody due, say when the next guest is — the question that follows.
   const next = nothing ? sortByStart(reservations).find((r) => r.kind === 'booking' && r.status === 'confirmed' && r.start_at > nowIso) : undefined;
@@ -299,7 +352,7 @@ function ArrivalsPanel({
             <bdi>
               {tr('ws.courtDesk.board.nextArrival', {
                 time: formatTime(new Date(next.start_at), locale, tz),
-                name: guestLabel(next, tr),
+                name: guestLabel(next, tr, states),
                 court: courtName(next.court_id),
               })}
             </bdi>
@@ -317,6 +370,8 @@ function ArrivalsPanel({
                   when={formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}
                   tz={tz}
                   courtName={courtName(r.court_id)}
+                  match={states?.[r.id]}
+                  started={r.start_at <= nowIso}
                   flags={r.guest_id ? flagsByGuest?.get(r.guest_id) : undefined}
                   marking={false}
                   billState={billStates?.get(r.id)}
@@ -335,6 +390,8 @@ function ArrivalsPanel({
                   when={tr('ws.courtDesk.board.startedAgo', { minutes: formatNumber(minutesBetween(r.start_at, nowIso), locale) })}
                   tz={tz}
                   courtName={courtName(r.court_id)}
+                  match={states?.[r.id]}
+                  started={r.start_at <= nowIso}
                   flags={r.guest_id ? flagsByGuest?.get(r.guest_id) : undefined}
                   marking={markingId === r.id}
                   notice={previousUnpaid(r)}
@@ -354,6 +411,8 @@ function ArrivalsPanel({
                   when={tr('ws.courtDesk.board.startsIn', { minutes: formatNumber(minutesBetween(nowIso, r.start_at), locale) })}
                   tz={tz}
                   courtName={courtName(r.court_id)}
+                  match={states?.[r.id]}
+                  started={r.start_at <= nowIso}
                   flags={r.guest_id ? flagsByGuest?.get(r.guest_id) : undefined}
                   marking={markingId === r.id}
                   notice={previousUnpaid(r)}
@@ -385,6 +444,8 @@ function ArrivalRow({
   when,
   tz,
   courtName,
+  match,
+  started,
   flags,
   marking,
   notice,
@@ -397,6 +458,10 @@ function ArrivalRow({
   when: string;
   tz: string;
   courtName: string;
+  /** app.desk_match_states for an open match's booking. */
+  match?: MatchState;
+  /** The booking has started by the board's clock (the seat chip's R39 reading). */
+  started: boolean;
   flags?: readonly CustomerFlag[];
   marking: boolean;
   /** One line the desk should know as this group walks in. */
@@ -408,7 +473,10 @@ function ArrivalRow({
   onOpen: () => void;
 }) {
   const { tr, locale } = useLocale();
-  const name = guestLabel(r, tr);
+  const name = guestLabel(r, tr, match ? { [r.id]: match } : undefined);
+  const isMatch = isMatchRow(r, match);
+  // A match's booking settles per player: say how many still owe (booking_bill_states, 0262).
+  const owing = isMatch && billState && (billState.seats_owing ?? 0) > 0 ? billState.seats_owing! : null;
   return (
     <li
       style={{
@@ -435,6 +503,7 @@ function ArrivalRow({
           <strong style={{ fontSize: 'var(--tp-fs-md)' }}>
             <bdi>{name}</bdi>
           </strong>
+          {match && <SeatChip state={match} started={started} />}
           {flags?.map((f, i) => (
             <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
           ))}
@@ -447,6 +516,9 @@ function ArrivalRow({
             </bdi>
           )}
         </span>
+        {owing !== null && (
+          <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-warn-fg)' }}>{tr('ws.matches.today.playersOwing', { count: formatNumber(owing, locale) })}</span>
+        )}
         {notice && (
           <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-warn-fg)' }}>
             <Icon name="alert" size={14} style={{ flex: '0 0 auto' }} />
@@ -461,9 +533,16 @@ function ArrivalRow({
             <Button kind="ghost" iconEnd="chevronEnd" onClick={onOpen} aria-label={`${tr('ws.courtDesk.board.open')} ${name}`}>
               {tr('ws.courtDesk.board.open')}
             </Button>
-            <Button kind="primary" icon="check" busy={marking} onClick={onMarkArrived}>
-              {tr('ws.courtDesk.board.markArrived')}
-            </Button>
+            {isMatch ? (
+              // Players are marked one by one, on the booking's Players panel.
+              <Button kind="primary" icon="users" onClick={onOpen} aria-label={`${tr('ws.matches.booking.players')} ${name}`}>
+                {tr('ws.matches.booking.players')}
+              </Button>
+            ) : (
+              <Button kind="primary" icon="check" busy={marking} onClick={onMarkArrived}>
+                {tr('ws.courtDesk.board.markArrived')}
+              </Button>
+            )}
           </>
         ) : (
           <Button kind="primary" icon="banknote" onClick={onOpen} aria-label={`${tr('ws.courtDesk.board.takePayment')} ${name}`}>
@@ -485,6 +564,7 @@ function CourtsNow({
   courtName,
   tz,
   live,
+  states,
   onBook,
   onOpen,
 }: {
@@ -493,6 +573,7 @@ function CourtsNow({
   courtName: (id: string) => string;
   tz: string;
   live: boolean;
+  states?: Readonly<Record<string, MatchState>>;
   onBook: (courtId: string) => void;
   onOpen: (id: string) => void;
 }) {
@@ -576,7 +657,7 @@ function CourtsNow({
                     {busy && busy.kind === 'booking' && (
                       <>
                         {' · '}
-                        <bdi>{guestLabel(busy, tr)}</bdi>
+                        <bdi>{guestLabel(busy, tr, states)}</bdi>
                       </>
                     )}
                   </span>
@@ -611,6 +692,7 @@ function BoardRow({
   nowIso,
   billState,
   flags,
+  match,
   marking,
   onSelect,
   onMarkArrived,
@@ -621,6 +703,8 @@ function BoardRow({
   nowIso: string;
   billState?: BillStateRow;
   flags?: readonly CustomerFlag[];
+  /** app.desk_match_states for an open match's booking. */
+  match?: MatchState;
   marking: boolean;
   onSelect: () => void;
   onMarkArrived: () => void;
@@ -628,7 +712,8 @@ function BoardRow({
   const { tr, locale } = useLocale();
   const inProgress = r.start_at <= nowIso && r.end_at > nowIso;
   const ended = hasEnded(r, nowIso);
-  const label = guestLabel(r, tr);
+  const label = guestLabel(r, tr, match ? { [r.id]: match } : undefined);
+  const isMatch = isMatchRow(r, match);
   return (
     <tr
       data-clickable="true"
@@ -655,6 +740,7 @@ function BoardRow({
           <strong style={{ color: ended ? 'var(--tp-muted-fg)' : 'var(--tp-fg)' }}>
             <bdi>{label}</bdi>
           </strong>
+          {match && <SeatChip state={match} started={r.start_at <= nowIso} />}
           {r.guest_phone && (
             <bdi dir="ltr" style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)', fontVariantNumeric: 'tabular-nums' }}>
               {r.guest_phone}
@@ -674,9 +760,16 @@ function BoardRow({
       <td style={{ textAlign: 'end', whiteSpace: 'nowrap' }}>
         <span style={{ display: 'inline-flex', gap: '0.3rem', alignItems: 'center' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           {r.kind === 'booking' && r.status === 'confirmed' && r.end_at > nowIso && (
-            <Button size="sm" icon="check" busy={marking} onClick={onMarkArrived}>
-              {tr('ws.courtDesk.board.markArrived')}
-            </Button>
+            isMatch ? (
+              // Players are marked one by one, on the booking's Players panel.
+              <Button size="sm" icon="users" onClick={onSelect} aria-label={`${tr('ws.matches.booking.players')} ${label}`}>
+                {tr('ws.matches.booking.players')}
+              </Button>
+            ) : (
+              <Button size="sm" icon="check" busy={marking} onClick={onMarkArrived}>
+                {tr('ws.courtDesk.board.markArrived')}
+              </Button>
+            )
           )}
           <Button size="sm" kind="ghost" icon="chevronEnd" onClick={onSelect} aria-label={`${tr('ws.courtDesk.board.open')} ${label}`} />
         </span>
@@ -716,6 +809,18 @@ export function TodaysBoardScreen() {
 
   const [createAt, setCreateAt] = useState<{ courtId: string; startAt: Date } | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
+
+  // Open matches over the same night (§5.9). A server without matches
+  // answers null: no group, no chips, no Players button.
+  const caps = useMatchCaps();
+  const { reachable } = useStationReach();
+  const openQ = useOpenMatches(night.dayStart, night.dayEnd, settingsQ.isSuccess);
+  const openStatus = useMatchRead(openQ);
+  const openMatches = openStatus.kind === 'ready' ? openStatus.data : null;
+  const matchIds = useMemo(() => matchBookingIds(visible), [visible]);
+  const matchStates = useMatchStates(matchIds).data ?? null;
+  const [startMatch, setStartMatch] = useState<StartMatchCarry | null>(null);
+  const [addPlayerTo, setAddPlayerTo] = useState<string | null>(null);
 
   const status: AsyncStatus =
     (settingsQ.isError && !settingsQ.data) || (courtsQ.isError && !courtsQ.data) || (reservationsQ.isError && !reservationsQ.data)
@@ -764,6 +869,24 @@ export function TodaysBoardScreen() {
     setCreateAt({ courtId: (free ?? first).id, startAt });
   }
 
+  /**
+   * "Start an open match": the first half-hour tonight the server will take
+   * (OM-43: its clock plus the lead), on the first court (a filling match holds
+   * no court; the court prices it). Court and time stay editable in the dialog.
+   */
+  function openStartMatch() {
+    const earliest = earliestStartAt({ serverNow: openMatches?.server_now, earliestStartMinutes: openMatches?.earliest_start_minutes });
+    const floor = Math.max(nowMs, earliest ? Date.parse(earliest) : 0);
+    const min = rows.find((m) => wallTimeToUtc(date, m, tz).getTime() >= floor);
+    const startAt = min === undefined ? nextStart() : wallTimeToUtc(date, min, tz);
+    const first = courts[0];
+    if (!startAt || !first) {
+      void navigate({ to: '/desk' });
+      return;
+    }
+    setStartMatch({ courtId: first.id, startAt, customer: null, guestName: '', guestPhone: '' });
+  }
+
   async function markArrived(id: string) {
     const r = visible.find((x) => x.id === id);
     if (!r) return;
@@ -773,7 +896,7 @@ export function TodaysBoardScreen() {
     try {
       const outcome = await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: 'arrived' });
       if (outcome.queued) toast.info(tr('ws.courtDesk.detail.queued'));
-      else toast.ok(tr('ws.courtDesk.board.arrivedToast', { name: guestNameOf(r) ?? tr('ws.courtDesk.board.walkIn') }));
+      else toast.ok(tr('ws.courtDesk.board.arrivedToast', { name: bookingLabel(r, matchStates?.[r.id], tr) ?? tr('ws.courtDesk.board.walkIn') }));
     } catch (e) {
       toast.err(e);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
@@ -807,6 +930,14 @@ export function TodaysBoardScreen() {
         onBookCourt={bookCourt}
         onSearchCustomer={() => void navigate({ to: '/desk/customers' })}
         onMarkArrived={(id) => void markArrived(id)}
+        openMatches={openStatus}
+        matchStates={matchStates}
+        runMatches={caps.runMatches}
+        reachable={reachable}
+        onAddPlayer={setAddPlayerTo}
+        onOpenMatch={(id) => void navigate({ to: '/desk/matches/$id', params: { id } })}
+        onStartMatch={openStartMatch}
+        onRetryOpenMatches={() => void openQ.refetch()}
       />
       {createAt && (
         <CreateReservationDialog
@@ -815,6 +946,15 @@ export function TodaysBoardScreen() {
           courts={courts}
           tz={tz}
           night={{ date, rows, reservations: visible }}
+          openMatches={openMatches?.matches ?? null}
+          onStartMatch={
+            caps.runMatches && openMatches?.matches_enabled
+              ? (carry) => {
+                  setCreateAt(null);
+                  setStartMatch(carry);
+                }
+              : undefined
+          }
           onClose={() => setCreateAt(null)}
           onCreated={(queued) => {
             setCreateAt(null);
@@ -825,6 +965,22 @@ export function TodaysBoardScreen() {
           }}
         />
       )}
+      {startMatch && (
+        <StartMatchDialog
+          courtId={startMatch.courtId}
+          startAt={startMatch.startAt}
+          courts={courts}
+          tz={tz}
+          night={{ date, rows, reservations: visible }}
+          customer={startMatch.customer}
+          guestName={startMatch.guestName}
+          guestPhone={startMatch.guestPhone}
+          openMatches={openMatches}
+          openMatchesAt={openQ.dataUpdatedAt}
+          onClose={() => setStartMatch(null)}
+        />
+      )}
+      {addPlayerTo && <AddSeatDialog matchId={addPlayerTo} onClose={() => setAddPlayerTo(null)} onAdded={() => setAddPlayerTo(null)} />}
     </>
   );
 }

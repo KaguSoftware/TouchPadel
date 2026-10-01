@@ -136,12 +136,12 @@ export function renderItemLine(item: OrderPayloadItem, lang: Lang): string {
 
 /**
  * Keep the joined item lines within `budget` characters. When lines are cut,
- * a bilingual `… و {n} أصناف أخرى / +{n} more` marker is appended.
+ * a bilingual `… وأصناف أخرى: {n} / +{n} more` marker is appended.
  */
 export function truncateItems(lines: string[], budget: number = MESSAGE_BUDGET): string[] {
   const total = lines.reduce((n, l) => n + l.length + 1, 0) - 1;
   if (lines.length === 0 || total <= budget) return lines;
-  const marker = (n: number) => `… و ${n} أصناف أخرى / +${n} more`;
+  const marker = (n: number) => `… وأصناف أخرى: ${n} / +${n} more`;
   const kept: string[] = [];
   let used = 0;
   for (let i = 0; i < lines.length; i++) {
@@ -169,7 +169,7 @@ export function renderOrder(payload: OrderPayload, lang: Lang = 'ar'): string {
   const foot = [
     RULE,
     `💰 <b>المجموع: ${total} د.ع</b> · Total ${total} IQD`,
-    `💵 الدفع عند الكاشير · Pay at the desk`,
+    `💵 الدفع عند الصندوق · Pay at the desk`,
   ].join('\n');
   const lines = (payload.items ?? []).map((it) => renderItemLine(it, lang));
   const budget = MESSAGE_BUDGET - head.length - foot.length - 2;
@@ -178,7 +178,7 @@ export function renderOrder(payload: OrderPayload, lang: Lang = 'ar'): string {
 }
 
 const REASON_LINES: Record<string, string> = {
-  order: '🍽 يريد الطلب · Wants to order',
+  order: '🍽 يريد أن يطلب · Wants to order',
   bill: '💳 الحساب · The bill',
   water: '💧 ماء · Water',
   assistance: '🙋 مساعدة · Assistance',
@@ -188,7 +188,7 @@ const REASON_LINES: Record<string, string> = {
 export function renderCall(payload: CallPayload, _lang: Lang = 'ar'): string {
   const reason = REASON_LINES[payload.reason] ?? `🙋 ${esc(payload.reason)}`;
   return [
-    `🙋 <b>نداء نادل · Waiter call</b>`,
+    `🙋 <b>نداء النادل · Waiter call</b>`,
     tableLine(payload.table_number),
     reason,
     `🕒 ${fmtTime(payload.raised_at)}`,
@@ -199,9 +199,9 @@ export function renderCall(payload: CallPayload, _lang: Lang = 'ar'): string {
 export function renderTest(payload: TestPayload): string {
   return [
     `🔔 <b>رسالة تجريبية · Test message</b>`,
-    `تم ربط تتش كافيه بهذه المجموعة بنجاح ✅`,
+    `تتش كافيه مرتبط بهذه المجموعة ✅`,
     `Touch Cafe is connected to this group.`,
-    `🕒 ${fmtTime(payload.at)} · بواسطة ${esc(payload.sent_by)}`,
+    `🕒 ${fmtTime(payload.at)} · المرسل: ${esc(payload.sent_by)}`,
   ].join('\n');
 }
 
@@ -209,7 +209,7 @@ const BTN = {
   seen: '✅ شوهد',
   served: '🍽 تم التقديم',
   void: '❌ إلغاء',
-  ack: '✅ أنا قادم',
+  ack: '✅ في الطريق',
   done: '✔️ تم',
 } as const;
 
@@ -246,7 +246,7 @@ const FOOTER_LABEL: Record<Action, string> = {
   'o:seen': '✅ شوهد · Seen',
   'o:served': '🍽 تم التقديم · Served',
   'o:void': '❌ أُلغي · Cancelled',
-  'w:ack': '✅ قادم · On the way',
+  'w:ack': '✅ في الطريق · On the way',
   'w:done': '✔️ تم · Done',
 };
 
@@ -270,7 +270,7 @@ const TOASTS: Record<ApplyResult, string> = {
   duplicate: 'سبق تسجيله',
   invalid: 'غير ممكن الآن',
   not_found: 'غير موجود',
-  refused: 'الطلب مدفوع — الإلغاء من الكاشير',
+  refused: 'الطلب مدفوع. الإلغاء من الصندوق.',
 };
 export const TOAST_UNKNOWN = 'غير معروف';
 

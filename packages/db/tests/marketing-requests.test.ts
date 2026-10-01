@@ -3,10 +3,11 @@
  * §8.2): staff ask marketing for something, marketing answers, and marketing
  * reads its campaigns' reach in counts only.
  *
- *   * a cashier, a driver and a barista each ask (marketing_request_new
- *     reaches marketing at the venue); marketing is refused; the text, date,
- *     item and photo checks refuse bad input; a retry under one key is one
- *     request;
+ *   * the owner and two managers each ask (marketing_request_new reaches
+ *     marketing at the venue); a cashier, a driver, a barista and marketing
+ *     are refused (0249: asking is the manager's and the owner's only); the
+ *     text, date, item and photo checks refuse bad input; a retry under one
+ *     key is one request;
  *   * marketing answers done or declined; the asker sees the answer and gets
  *     marketing_request_answered; a second answer, or a withdraw after it, is
  *     SUBMISSION_DECIDED; only the asker withdraws;
@@ -212,10 +213,10 @@ interface Req {
 }
 
 describe.skipIf(!docker)('marketing_requests (rolled-back transactions)', () => {
-  it('any role but marketing asks; the checks refuse bad input; marketing is told', () => {
+  it('the manager and the owner ask, nobody else; the checks refuse bad input; marketing is told', () => {
     const r = scenario([
       OTHER_VENUE_SQL,
-      MK('bar', 'barista'), MK('drv', 'driver'), MK('mkt', 'marketing'), MK('mkt2', 'marketing'),
+      MK('bar', 'barista'), MK('drv', 'driver'), MK('mkt', 'marketing'), MK('mkt2', 'marketing'), MK('mg2', 'manager'),
       KEEP('cat', `insert into menu_categories (name_en, name_ar, tax_group_id, venue_id)
                    values ('MR cat', 'تصنيف', 'b0000000-0000-4000-8000-000000000001', {{venue}}) returning id::text`),
       KEEP('item', `insert into menu_items (category_id, name_en, name_ar, venue_id)
@@ -224,53 +225,56 @@ describe.skipIf(!docker)('marketing_requests (rolled-back transactions)', () => 
                        values ('MR far', 'بعيد', (select id from tax_groups where venue_id = '${OTHER_VENUE}' limit 1), '${OTHER_VENUE}') returning id::text`),
       KEEP('far_item', `insert into menu_items (category_id, name_en, name_ar, venue_id)
                         values ({{far_cat}}::uuid, 'MR far', 'بعيد', '${OTHER_VENUE}') returning id::text`),
-      PHOTO('p1', 'bar', 'requests'),
-      PHOTO('p_steps', 'bar', 'steps'),
+      PHOTO('p1', 'mg2', 'requests'),
+      PHOTO('p_steps', 'mg2', 'steps'),
       PHOTO('p_drv', 'drv', 'requests'),
-      ask('cashier', 'a_cashier', `'  Poster for the new menu  '`, `'A1 poster, both languages.'`,
+      ask('owner', 'a_owner', `'  Poster for the new menu  '`, `'A1 poster, both languages.'`,
           `, p_want_by => current_date + 7, p_venue_id => {{venue}}`),
-      ask('drv', 'a_drv', `'Van sticker'`, `'Our logo on the van.'`),
-      ask('bar', 'a_bar', `'Rose latte post'`, `'A reel of the new latte.'`,
+      ask('manager', 'a_mgr', `'Van sticker'`, `'Our logo on the van.'`),
+      ask('mg2', 'a_mg2', `'Rose latte post'`, `'A reel of the new latte.'`,
           `, p_menu_item_id => {{item}}::uuid, p_photos => array[{{p1}}, {{p1}}]`),
       Q('push', `select jsonb_agg(jsonb_build_object('to', o.profile_id, 'kind', o.kind, 'payload', o.payload)
                                    order by o.payload->>'id', o.profile_id)
                    from notification_outbox o
                   where o.created_at = now() and o.payload->>'title_key' = 'marketing_request_new'
-                    and o.profile_id in ({{mkt}}::uuid, {{mkt2}}::uuid, {{bar}}::uuid, {{cashier}}::uuid)`),
+                    and o.profile_id in ({{mkt}}::uuid, {{mkt2}}::uuid, {{mg2}}::uuid, {{owner}}::uuid)`),
       ask('mkt', 'a_mkt', `'x'`, `'y'`),
-      ask('bar', 'no_title', `' '`, `'y'`),
-      ask('bar', 'no_body', `'x'`, `''`),
-      ask('bar', 'long_title', `repeat('t', 121)`, `'y'`),
-      ask('bar', 'long_body', `'x'`, `repeat('b', 2001)`),
-      ask('bar', 'past', `'x'`, `'y'`, `, p_want_by => current_date - 3`),
-      ask('bar', 'far_item', `'x'`, `'y'`, `, p_menu_item_id => {{far_item}}::uuid`),
-      ask('bar', 'too_many', `'x'`, `'y'`, `, p_photos => array['a','b','c','d','e']`),
-      ask('bar', 'wrong_folder', `'x'`, `'y'`, `, p_photos => array[{{p_steps}}]`),
-      ask('bar', 'foreign_photo', `'x'`, `'y'`, `, p_photos => array[{{p_drv}}]`),
-      ask('bar', 'other_venue', `'x'`, `'y'`, `, p_venue_id => '${OTHER_VENUE}'`),
-      ask('bar', 'replay1', `'Replay'`, `'Once.'`, `, p_idempotency_key => 'MR-KEY-1'`),
-      ask('bar', 'replay2', `'Replay'`, `'Once.'`, `, p_idempotency_key => 'MR-KEY-1'`),
+      ask('bar', 'a_bar', `'x'`, `'y'`),
+      ask('drv', 'a_drv', `'x'`, `'y'`),
+      ask('cashier', 'a_cashier', `'x'`, `'y'`),
+      ask('mg2', 'no_title', `' '`, `'y'`),
+      ask('mg2', 'no_body', `'x'`, `''`),
+      ask('mg2', 'long_title', `repeat('t', 121)`, `'y'`),
+      ask('mg2', 'long_body', `'x'`, `repeat('b', 2001)`),
+      ask('mg2', 'past', `'x'`, `'y'`, `, p_want_by => current_date - 3`),
+      ask('mg2', 'far_item', `'x'`, `'y'`, `, p_menu_item_id => {{far_item}}::uuid`),
+      ask('mg2', 'too_many', `'x'`, `'y'`, `, p_photos => array['a','b','c','d','e']`),
+      ask('mg2', 'wrong_folder', `'x'`, `'y'`, `, p_photos => array[{{p_steps}}]`),
+      ask('mg2', 'foreign_photo', `'x'`, `'y'`, `, p_photos => array[{{p_drv}}]`),
+      ask('mg2', 'other_venue', `'x'`, `'y'`, `, p_venue_id => '${OTHER_VENUE}'`),
+      ask('mg2', 'replay1', `'Replay'`, `'Once.'`, `, p_idempotency_key => 'MR-KEY-1'`),
+      ask('mg2', 'replay2', `'Replay'`, `'Once.'`, `, p_idempotency_key => 'MR-KEY-1'`),
       Q('replay_rows', `select to_jsonb(count(*)) from marketing_requests where title = 'Replay'`),
-      RES('bar_req', 'a_bar', 'id'),
+      RES('mg2_req', 'a_mg2', 'id'),
       Q('claimed', `select to_jsonb(used_by) from staff_media_uploads where path = {{p1}}`),
-      T('mine_bar', 'bar', `select app.my_marketing_requests({{venue}})`),
-      T('mine_cashier', 'cashier', `select app.my_marketing_requests()`),
+      T('mine_mg2', 'mg2', `select app.my_marketing_requests({{venue}})`),
+      T('mine_owner', 'owner', `select app.my_marketing_requests({{venue}})`),
       T('mine_mkt', 'mkt', `select app.my_marketing_requests({{venue}})`),
       Q('audit', `select jsonb_agg(jsonb_build_object('action', a.action, 'after', a.after))
-                    from audit_log a where a.entity = 'marketing_request' and a.entity_id = {{bar_req}}`),
+                    from audit_log a where a.entity = 'marketing_request' and a.entity_id = {{mg2_req}}`),
       // §8.2: the table is MGMT's.
       ...(['drv', 'mkt', 'bar', 'manager'] as const).map((who) =>
         T(`read_${who}`, who, `select to_jsonb(count(*)) from marketing_requests`)),
     ]);
-    const ids = ['a_cashier', 'a_drv', 'a_bar'].map((l) => ok<{ id: string }>(r, l).id);
+    const ids = ['a_owner', 'a_mgr', 'a_mg2'].map((l) => ok<{ id: string }>(r, l).id);
     const push = ok<Array<{ to: string; kind: string; payload: Record<string, unknown> }>>(r, 'push');
     // Both marketing accounts, for each of the three; no one else.
     expect(push.filter((p) => ids.includes(p.payload.id as string))).toHaveLength(6);
     expect(push.every((p) => p.kind === 'staff_task')).toBe(true);
     const barPush = push.find((p) => p.payload.id === ids[2])!;
     expect(barPush.payload).toEqual({ route: 'staff', id: ids[2], title_key: 'marketing_request_new',
-                                      params: { name: 'MR bar', title: 'Rose latte post' } });
-    expect(refused(r, 'a_mkt')).toBe('FORBIDDEN');
+                                      params: { name: 'MR mg2', title: 'Rose latte post' } });
+    for (const l of ['a_mkt', 'a_bar', 'a_drv', 'a_cashier']) expect(refused(r, l), l).toBe('FORBIDDEN');
     expect(refused(r, 'no_title')).toBe('TEXT_REQUIRED:title');
     expect(refused(r, 'no_body')).toBe('TEXT_REQUIRED:body');
     expect(refused(r, 'long_title')).toBe('TEXT_TOO_LONG:title');
@@ -286,11 +290,11 @@ describe.skipIf(!docker)('marketing_requests (rolled-back transactions)', () => 
     expect(ok<number>(r, 'replay_rows')).toBe(1);
     expect(ok<string>(r, 'claimed')).toBe(`marketing_request:${ids[2]}`);
 
-    const mine = ok<{ requests: Req[] }>(r, 'mine_bar').requests;
+    const mine = ok<{ requests: Req[] }>(r, 'mine_mg2').requests;
     expect(mine.map((q) => q.title).sort()).toEqual(['Replay', 'Rose latte post']);
     expect(mine.find((q) => q.title === 'Rose latte post')).toMatchObject({ body: 'A reel of the new latte.', want_by: null, item_name_en: 'MR Rose latte',
                                     photos: [expect.stringMatching(/\/requests\//)], status: 'open', answer: null });
-    expect(ok<{ requests: Req[] }>(r, 'mine_cashier').requests.map((q) => q.title)).toContain('Poster for the new menu');
+    expect(ok<{ requests: Req[] }>(r, 'mine_owner').requests.map((q) => q.title)).toContain('Poster for the new menu');
     expect(refused(r, 'mine_mkt')).toBe('FORBIDDEN');
     const audit = ok<Array<{ action: string; after: Record<string, unknown> }>>(r, 'audit');
     expect(audit).toEqual([{ action: 'marketing.request.add',
@@ -302,10 +306,10 @@ describe.skipIf(!docker)('marketing_requests (rolled-back transactions)', () => 
   it('marketing answers, the asker hears; decided requests stay decided; only the asker withdraws', () => {
     const r = scenario([
       OTHER_VENUE_SQL,
-      MK('bar', 'barista'), MK('drv', 'driver'), MK('mkt', 'marketing'), MK('hc', 'head_chef'),
-      ask('bar', 'q1', `'Rose latte post'`, `'A reel.'`),
-      ask('drv', 'q2', `'Van sticker'`, `'Our logo.'`),
-      ask('cashier', 'q3', `'Menu board'`, `'New prices board.'`),
+      MK('bar', 'barista'), MK('drv', 'driver'), MK('mkt', 'marketing'), MK('hc', 'head_chef'), MK('mg2', 'manager'),
+      ask('mg2', 'q1', `'Rose latte post'`, `'A reel.'`),
+      ask('manager', 'q2', `'Van sticker'`, `'Our logo.'`),
+      ask('owner', 'q3', `'Menu board'`, `'New prices board.'`),
       RES('q1', 'q1', 'id'), RES('q2', 'q2', 'id'), RES('q3', 'q3', 'id'),
       answer('bar', 'ans_bar', 'q1', `'done'`, `'x'`),
       answer('drv', 'ans_drv', 'q1', `'done'`, `'x'`),
@@ -320,14 +324,14 @@ describe.skipIf(!docker)('marketing_requests (rolled-back transactions)', () => 
                             from notification_outbox o
                            where o.created_at = now() and o.payload->>'title_key' = 'marketing_request_answered'`),
       answer('mkt', 'ans_again', 'q1', `'declined'`, `'No.'`),
-      T('wd_after', 'bar', `select app.withdraw_marketing_request({{q1}})`),
-      T('wd_other', 'bar', `select app.withdraw_marketing_request({{q2}})`),
+      T('wd_after', 'mg2', `select app.withdraw_marketing_request({{q1}})`),
+      T('wd_other', 'mg2', `select app.withdraw_marketing_request({{q2}})`),
       T('wd_mkt', 'mkt', `select app.withdraw_marketing_request({{q2}})`),
-      T('wd_own', 'drv', `select app.withdraw_marketing_request({{q2}})`),
-      T('wd_again', 'drv', `select app.withdraw_marketing_request({{q2}})`),
+      T('wd_own', 'manager', `select app.withdraw_marketing_request({{q2}})`),
+      T('wd_again', 'manager', `select app.withdraw_marketing_request({{q2}})`),
       answer('mkt', 'ans_withdrawn', 'q2', `'done'`, `'x'`),
       answer('mkt', 'decline', 'q3', `'declined'`, `'Not this month.'`),
-      T('mine_bar', 'bar', `select app.my_marketing_requests({{venue}})`),
+      T('mine_mg2', 'mg2', `select app.my_marketing_requests({{venue}})`),
       ...(['mkt', 'manager', 'owner'] as const).map((who) =>
         T(`page_${who}`, who, `select app.marketing_requests_page({{venue}}, 'all')`)),
       T('page_open', 'mkt', `select app.marketing_requests_page({{venue}})`),
@@ -357,13 +361,13 @@ describe.skipIf(!docker)('marketing_requests (rolled-back transactions)', () => 
     expect(refused(r, 'ans_withdrawn')).toBe('SUBMISSION_DECIDED');
     expect(ok<{ status: string }>(r, 'decline').status).toBe('declined');
 
-    const mine = ok<{ requests: Req[] }>(r, 'mine_bar').requests.find((q) => q.title === 'Rose latte post')!;
+    const mine = ok<{ requests: Req[] }>(r, 'mine_mg2').requests.find((q) => q.title === 'Rose latte post')!;
     expect(mine).toMatchObject({ status: 'done', answer: 'Posted on Friday.', answered_by_name: 'MR mkt' });
     type Page = { requests: Req[]; open_count: number; total: number };
     for (const who of ['mkt', 'manager', 'owner']) {
       const page = ok<Page>(r, `page_${who}`);
       const q = page.requests.find((x) => x.title === 'Menu board')!;
-      expect(q, who).toMatchObject({ status: 'declined', requested_by_name: 'Dev Cashier', requested_by_role: 'cashier' });
+      expect(q, who).toMatchObject({ status: 'declined', requested_by_name: 'Dev Owner', requested_by_role: 'owner' });
     }
     expect(ok<Page>(r, 'page_open').requests.every((q) => q.status === 'open')).toBe(true);
     expect(ok<Page>(r, 'page_answered').requests.map((q) => q.status).sort()).toEqual(
@@ -380,15 +384,15 @@ describe.skipIf(!docker)('marketing_requests (rolled-back transactions)', () => 
     ]);
   });
 
-  it('shows a request’s photo to the asker, marketing and MGMT only', () => {
+  it('shows a request’s photo to marketing and MGMT (who asked it) only', () => {
     const r = scenario([
-      MK('bar', 'barista'), MK('bar2', 'barista'), MK('drv', 'driver'), MK('mkt', 'marketing'),
-      PHOTO('p1', 'bar', 'requests'),
-      ask('bar', 'q', `'Rose latte post'`, `'A reel.'`, `, p_photos => array[{{p1}}]`),
-      ...(['bar', 'mkt', 'manager', 'owner', 'bar2', 'drv', 'cashier'] as const).map((who) => SEES(`sees_${who}`, who, 'p1')),
+      MK('mg2', 'manager'), MK('bar2', 'barista'), MK('drv', 'driver'), MK('mkt', 'marketing'),
+      PHOTO('p1', 'mg2', 'requests'),
+      ask('mg2', 'q', `'Rose latte post'`, `'A reel.'`, `, p_photos => array[{{p1}}]`),
+      ...(['mg2', 'mkt', 'manager', 'owner', 'bar2', 'drv', 'cashier'] as const).map((who) => SEES(`sees_${who}`, who, 'p1')),
     ]);
     ok(r, 'q');
-    for (const who of ['bar', 'mkt', 'manager', 'owner']) expect(ok<boolean>(r, `sees_${who}`), who).toBe(true);
+    for (const who of ['mg2', 'mkt', 'manager', 'owner']) expect(ok<boolean>(r, `sees_${who}`), who).toBe(true);
     for (const who of ['bar2', 'drv', 'cashier']) expect(ok<boolean>(r, `sees_${who}`), who).toBe(false);
   });
 

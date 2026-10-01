@@ -14,11 +14,23 @@
  * each hour shows capacity; the desk assigns the physical court. A day chip is
  * a TRADING NIGHT (09:00 through the small hours of the next date), not a
  * calendar day — see assembleTradingNight.
+ *
+ * Open matches (docs/design/open-matches/guest.md §4.11) sit BESIDE the grid,
+ * never in it: while the branch has them on and the sheet is open, one light
+ * `match_slots` query feeds the chips (`matchLineFor`), the entry row and the
+ * Book / Start / Join choice a tap on a free time may raise. With the switch
+ * off none of it runs, and a tap holds exactly as before.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { pickLocale } from '@touch/core';
-import { isolate } from '@touch/i18n';
+import {
+  formatDayNumber,
+  formatMonthShort,
+  formatTime,
+  formatWeekdayShort,
+  isolate,
+} from '@touch/i18n';
 import { useLocale } from '../../i18n/LocaleProvider';
 import {
   useCourts,
@@ -40,15 +52,39 @@ import {
   venuePhoneOf,
   type MergedCell,
 } from './assemble';
+import {
+  chipLines,
+  entryLabelOf,
+  joinableAhead,
+  matchTargetOf,
+  slotChoiceOptions,
+} from './matchChips';
 import { useHoldSlot } from '../booking/hooks';
-import { setPendingSlot, type SlotOrigin } from '../booking/pendingSlot';
+import { clearPendingSlot, setPendingSlot, type SlotOrigin } from '../booking/pendingSlot';
 import { isDegradedRefusal, mapErrorToKey } from '../booking/errors';
 import { useAuth } from '../auth/context';
-import { bookingGateState } from '../auth/social';
+import { bookingGateHref, bookingGateState } from '../auth/social';
 import { useOwnProfile } from '../profile/hooks';
+import { useFindMatchesAt, useMatchSlots } from '../matches/hooks';
+import {
+  canStartAt,
+  chipKey,
+  freeCourtsAt,
+  matchesEnabled,
+  slotActions,
+  type SlotMatch,
+} from '../matches/logic';
+import { matchErrorText } from '../matches/errors';
+import {
+  clearPendingJoin,
+  pendingJoinHref,
+  setPendingJoin,
+  type PendingJoin,
+} from '../matches/pendingJoin';
 import { callPhone } from '../../lib/phone';
 import { formatPrice } from '../../lib/price';
 import { useToast } from '../../components/overlays';
+import { nativeChoice } from '../../components/nativeChoice';
 
 export type AvailabilityNotice = 'blocked' | 'horizon' | null;
 
@@ -98,6 +134,14 @@ export interface AvailabilityBooking {
   /** "2 courts free" / "1 court left" — empty when not free. */
   capacityLineFor: (cell: MergedCell) => string;
   onCall: () => void;
+  /**
+   * The open-match chip of a lane cell ('' for none), or undefined while the
+   * branch has open matches off. Its identity follows the chips' answer and
+   * the lanes, never the tap handler's.
+   */
+  matchLineFor: ((cell: MergedCell) => string) | undefined;
+  /** The entry row under the courts, or null while the branch has open matches off. */
+  matchEntry: { label: string; onPress: () => void } | null;
 }
 
 export interface CourtLane {
@@ -111,10 +155,18 @@ export interface CourtLane {
 export interface AvailabilityBookingOptions {
   /** Which surface mounts the hook — carried into Review and the pending slot so the flow returns here. */
   origin: SlotOrigin;
+  /**
+   * The sheet is open. The open-match chips are read only then (§4.11 rule
+   * 3): a prewarmed, closed sheet polls nothing for them.
+   */
+  open?: boolean;
 }
 
+/** No chips: the stable answer while nothing is loaded. */
+const NO_SLOT_MATCHES: readonly SlotMatch[] = [];
+
 export function useAvailabilityBooking(
-  { origin }: AvailabilityBookingOptions = { origin: 'sheet' },
+  { origin, open = false }: AvailabilityBookingOptions = { origin: 'sheet' },
 ): AvailabilityBooking {
   const { t, locale } = useLocale();
   const router = useRouter();
@@ -296,24 +348,51 @@ export function useAvailabilityBooking(
 
   const isClosedDate = (d: string) => (day.settings?.closed_dates ?? []).includes(d);
 
+  // ── Open matches (guest.md §4.11) ─────────────────────────────────────────
+  // The branch's switch, off the settings row this hook already reads (0257's
+  // two knobs are declared on `VenueSettingsPublic`).
+  const matchSettings = venueSettings.data;
+  const matchesOn = matchesEnabled(matchSettings);
+  const slots = useMatchSlots(venueId, { enabled: matchesOn && open, timezone: tz });
+  // A disabled query still hands back what it cached: a switch turned off
+  // since then shows nothing all the same (rule 1).
+  const byStart = matchesOn ? slots.data : undefined;
+  const refetchSlots = slots.refetch;
+  const findMatchesAt = useFindMatchesAt();
+  const chips = useMemo(
+    () => (byStart ? chipLines(lanes, byStart, t, locale) : null),
+    [lanes, byStart, t, locale],
+  );
+  const matchLineFor = useMemo(
+    () =>
+      chips
+        ? (cell: MergedCell) =>
+            cell.courtId ? (chips.get(chipKey(cell.courtId, cell.startAt.getTime())) ?? '') : ''
+        : undefined,
+    [chips],
+  );
   /**
-   * STABLE across renders, deliberately — `SlotCell` is memoised and takes this
-   * function itself rather than a per-cell closure, so a re-render of the
-   * surface (the day strip's selection moving, the minute tick, a refetch flag)
-   * skips all ~34 cells instead of re-running them. A new identity here would
-   * quietly undo that; see the note on SlotCell.
+   * What a tap needs to know about matches, behind a ref (rule 6): the answer,
+   * the lanes and the settings change with every poll and every minute, and as
+   * dependencies of `onTapCell` they would hand all ~34 memoised cells a new
+   * handler each time.
    */
-  const onTapCell = useCallback((cell: MergedCell) => {
-    if (holdPending) return; // one hold at a time — no double-tap races
-    setError(null);
-    if (cell.state === 'blocked') return setNotice('blocked');
-    if (cell.state === 'horizon') return setNotice('horizon');
-    if (cell.state !== 'free' || !cell.courtId) return;
+  const live = useRef({ byStart, lanes, settings: matchSettings });
+  useEffect(() => {
+    live.current = { byStart, lanes, settings: matchSettings };
+  }, [byStart, lanes, matchSettings]);
+  /** One `open_matches` lookup at a time: a second tap waits for the first. */
+  const finding = useRef(false);
 
+  /** Today's path for a free time: hold it and go to Review. */
+  const bookCell = useCallback((cell: MergedCell) => {
+    if (!cell.courtId) return;
     const court = courts.data?.find((c) => c.id === cell.courtId);
     if (!session) {
       // Guest browsing: keep the intent, ask for an account, finish the hold
-      // right after auth (pendingSlot flow).
+      // right after auth (pendingSlot flow). The latest intent is the one the
+      // auth flow continues, so an older open-match one goes.
+      clearPendingJoin();
       setPendingSlot({
         courtId: cell.courtId,
         startAt: cell.startAt.toISOString(),
@@ -326,7 +405,9 @@ export function useAvailabilityBooking(
       router.push('/welcome');
       return;
     }
-    if (profileGate === 'incomplete' || profileGate === 'unverified') {
+    const stop = bookingGateHref(profileGate, profilePhone);
+    if (stop) {
+      clearPendingJoin();
       setPendingSlot({
         courtId: cell.courtId,
         startAt: cell.startAt.toISOString(),
@@ -336,11 +417,7 @@ export function useAvailabilityBooking(
         courtNameAr: court?.name_ar ?? '',
         origin,
       });
-      router.push(
-        profileGate === 'incomplete'
-          ? { pathname: '/complete-profile', params: { returnTo: 'continue' } }
-          : { pathname: '/phone-sign-in', params: { returnTo: 'continue', phone: profilePhone } },
-      );
+      router.push(stop);
       return;
     }
 
@@ -362,7 +439,7 @@ export function useAvailabilityBooking(
               startAt: cell.startAt.toISOString(),
               durationMin: String(durationMin),
               origin,
-              // 0249: Review shows the kind hold warning.
+              // 0252: Review shows the kind hold warning.
               holdWarning: result.holdWarning ? '1' : '',
             },
           });
@@ -384,7 +461,6 @@ export function useAvailabilityBooking(
       },
     );
   }, [
-    holdPending,
     holdMutate,
     durationMin,
     courts.data,
@@ -397,6 +473,160 @@ export function useAvailabilityBooking(
     router,
     t,
   ]);
+
+  /**
+   * "Join", "Your open match" or "Start an open match" on a free time. Signed
+   * out, or signed in with no phone, the intent waits in `pendingJoin` for the
+   * auth flow, which opens its screen and never joins by itself (§4.18).
+   *
+   * A start and a join end in a court booking, so a phone nobody has verified
+   * stops them as it stops a hold (owner, 2026-09-29): /phone-sign-in in
+   * continue mode, the intent still pending, exactly as `bookCell` does. The
+   * guest's own match books nothing; only a missing phone stops it, as before.
+   */
+  const matchCell = useCallback(
+    (action: 'join' | 'view-mine' | 'start', cell: MergedCell) => {
+      if (!venueId || !cell.courtId) return;
+      const startAt = cell.startAt.toISOString();
+      const intent: PendingJoin =
+        action === 'start'
+          ? {
+              kind: 'start',
+              venueId,
+              courtId: cell.courtId,
+              startAt,
+              durationMin,
+              priceIqd: cell.priceIqd,
+            }
+          : { kind: 'slot', venueId, startAt };
+      const stop = !session
+        ? '/welcome'
+        : action === 'view-mine' && profileGate !== 'incomplete'
+          ? null
+          : bookingGateHref(profileGate, profilePhone);
+      if (stop) {
+        clearPendingSlot();
+        setPendingJoin(intent);
+        router.push(stop);
+        return;
+      }
+      // A start holds nothing (OM-13): the form re-quotes, and the server decides.
+      if (action === 'start') {
+        router.push(pendingJoinHref(intent));
+        return;
+      }
+      // `match_slots` carries no ids, so the minute is read once to find the match.
+      if (finding.current) return;
+      finding.current = true;
+      findMatchesAt(venueId, cell.startAt)
+        .then(
+          (found) => {
+            const target = matchTargetOf(action, found);
+            if (target === null) {
+              // Gone since the chip was drawn: say so, and redraw the chips.
+              setError(t('matches.errors.notFound'));
+              void refetchSlots();
+            } else if (target === 'list') {
+              router.push(pendingJoinHref(intent));
+            } else {
+              router.push({ pathname: '/match/[id]', params: { id: target.matchId } });
+            }
+          },
+          (err: unknown) => setError(matchErrorText(err, t, { locale, timezone: tz, phone })),
+        )
+        .finally(() => {
+          finding.current = false;
+        });
+    },
+    [
+      venueId,
+      durationMin,
+      session,
+      profileGate,
+      profilePhone,
+      router,
+      findMatchesAt,
+      refetchSlots,
+      t,
+      locale,
+      tz,
+      phone,
+    ],
+  );
+
+  /**
+   * STABLE across renders, deliberately — `SlotCell` is memoised and takes this
+   * function itself rather than a per-cell closure, so a re-render of the
+   * surface (the day strip's selection moving, the minute tick, a refetch flag,
+   * an open-match poll) skips all ~34 cells instead of re-running them. A new
+   * identity here would quietly undo that; see the note on SlotCell. What it
+   * reads about open matches comes through `live`, never as a dependency.
+   *
+   * With open matches on, a free time that has a match to join, or room to
+   * start one, asks first in the platform's own sheet (§4.11: `slotActions`,
+   * `nativeChoice`); `['book']` alone skips the sheet and holds as before.
+   */
+  const onTapCell = useCallback(
+    (cell: MergedCell) => {
+      if (holdPending) return; // one hold at a time — no double-tap races
+      setError(null);
+      if (cell.state === 'blocked') return setNotice('blocked');
+      if (cell.state === 'horizon') return setNotice('horizon');
+      if (cell.state !== 'free' || !cell.courtId) return;
+      if (!matchesOn) return bookCell(cell);
+
+      const ms = cell.startAt.getTime();
+      const { byStart: known, lanes: shown, settings } = live.current;
+      const slotMatches = known?.get(ms) ?? NO_SLOT_MATCHES;
+      const actions = slotActions({
+        slotMatches,
+        canStart: canStartAt(settings, cell.startAt, new Date()),
+        freeCourts: freeCourtsAt(shown, ms),
+      });
+      if (actions.length === 1) return bookCell(cell);
+
+      const day = [
+        formatWeekdayShort(cell.startAt, locale, tz),
+        formatDayNumber(cell.startAt, locale, tz),
+        formatMonthShort(cell.startAt, locale, tz),
+      ].join(' ');
+      void nativeChoice({
+        title: t('matches.book.choiceTitle', { time: formatTime(cell.startAt, locale, tz), day }),
+        message: actions.includes('start') ? t('matches.book.choiceMessage') : undefined,
+        options: slotChoiceOptions(actions, slotMatches, t, locale),
+        cancelLabel: t('common.cancel'),
+      }).then((pick) => {
+        if (pick === 'book') bookCell(cell);
+        else if (pick) matchCell(pick, cell);
+      });
+    },
+    [holdPending, matchesOn, bookCell, matchCell, t, locale, tz],
+  );
+
+  // The entry row (§4.11): the list on the selected night, or sign-in first.
+  const joinable = useMemo(
+    () => (byStart ? joinableAhead(byStart, now.getTime()) : 0),
+    [byStart, now],
+  );
+  const signedIn = !!session;
+  const onOpenMatches = useCallback(() => {
+    if (!venueId) return;
+    const intent: PendingJoin = { kind: 'list', venueId, date };
+    if (!signedIn) {
+      clearPendingSlot();
+      setPendingJoin(intent);
+      router.push('/welcome');
+      return;
+    }
+    router.push(pendingJoinHref(intent));
+  }, [venueId, date, signedIn, router]);
+  const matchEntry = useMemo(
+    () =>
+      matchesOn
+        ? { label: entryLabelOf({ signedIn, joinable }, t, locale), onPress: onOpenMatches }
+        : null,
+    [matchesOn, signedIn, joinable, t, locale, onOpenMatches],
+  );
 
   const subFor = useCallback((cell: MergedCell): string => {
     switch (cell.state) {
@@ -466,5 +696,7 @@ export function useAvailabilityBooking(
     subFor,
     capacityLineFor,
     onCall,
+    matchLineFor,
+    matchEntry,
   };
 }

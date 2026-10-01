@@ -111,6 +111,10 @@ const PATHS = {
   frameExit: 'M8 3v2a3 3 0 0 1-3 3H3M16 3v2a3 3 0 0 0 3 3h2M21 16h-2a3 3 0 0 0-3 3v2M8 21v-2a3 3 0 0 0-3-3H3',
   /** A photograph: how many pictures a row carries (wave 5, /incidents). */
   image: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM21 15l-3.1-3.1a2 2 0 0 0-2.8 0L6 21',
+  /** Two chain links: an open match's invite link (Copy invite link, operator.md §5.12). */
+  link: 'M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7',
+  /** A ticket with its tear line: open-match tickets on the record and a seat's ticket chip. */
+  ticket: 'M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4zM14 5v2M14 11v2M14 17v2',
 } as const;
 
 export type IconName = keyof typeof PATHS;

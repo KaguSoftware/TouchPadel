@@ -88,7 +88,7 @@ test.describe('pay return page @ar', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'ارجع إلى تطبيق تتش بادل لتطّلع على حجزك',
+      'ارجع إلى تطبيق تتش بادل لترى حجزك',
     );
     await expect(page.getByRole('link', { name: 'افتح التطبيق' })).toHaveAttribute(
       'href',

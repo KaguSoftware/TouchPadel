@@ -5,16 +5,21 @@ import {
   canTakePayment,
   chargeLabelOf,
   closeBillPlan,
+  isMatchBill,
+  matchBillRows,
+  matchBillSentence,
   onlinePaymentsTaken,
   onlineRefundState,
   paidOnlineOnly,
   panelStateOf,
   paymentMethodKey,
+  paymentSeatNumbers,
   statesById,
   toSettle,
   unsettledBefore,
   type BillStateRow,
   type BookingBill,
+  type BookingBillMatch,
   type LiveTab,
 } from './deskPaymentLogic';
 
@@ -182,6 +187,64 @@ describe('canAddCafeBill', () => {
     expect(canAddCafeBill(bill({ day_open: false }))).toBe(false);
     expect(canAddCafeBill(bill({ live: false }))).toBe(false);
     expect(canAddCafeBill(bill({ court_refund_due_iqd: 1 }))).toBe(false);
+  });
+  it('never on an open match booking (DF-16)', () => {
+    expect(canAddCafeBill(bill({ match: matchMoney() }))).toBe(false);
+    // A server before 0262 sends no match key: an ordinary booking.
+    expect(canAddCafeBill(bill({ match: null }))).toBe(true);
+  });
+});
+
+function matchMoney(over: Partial<BookingBillMatch> = {}): BookingBillMatch {
+  return {
+    id: 'm1',
+    status: 'booked',
+    phase: 'started',
+    price_iqd: 40_000,
+    booking_price_iqd: 40_000,
+    price_delta_iqd: 0,
+    unassigned_iqd: 0,
+    delta_owed_iqd: 0,
+    owed_iqd: 20_000,
+    written_off_iqd: 0,
+    open_iqd: 0,
+    over_iqd: 0,
+    ...over,
+  };
+}
+
+describe('a match booking bill (open matches §5.14)', () => {
+  it('knows a match bill only from the server', () => {
+    expect(isMatchBill(bill({ match: matchMoney() }))).toBe(true);
+    expect(isMatchBill(bill())).toBe(false);
+  });
+
+  it('says what the players owe between them, and nothing once they owe nothing', () => {
+    expect(matchBillSentence(bill({ match: matchMoney() }))).toEqual({ key: 'ws.matches.bill.playersOwe', amount: 20_000 });
+    expect(matchBillSentence(bill({ match: matchMoney({ owed_iqd: 0 }) }))).toBeNull();
+    expect(matchBillSentence(bill())).toBeNull();
+  });
+
+  it('adds a row for a write-off, a price change after booking and unassigned money, each with the server figure', () => {
+    expect(matchBillRows(bill())).toEqual([]);
+    expect(matchBillRows(bill({ match: matchMoney() }))).toEqual([]);
+    expect(
+      matchBillRows(bill({ court_written_off_iqd: 10_000, match: matchMoney({ price_delta_iqd: -5_000, unassigned_iqd: 15_000 }) })),
+    ).toEqual([
+      { key: 'ws.matches.bill.writtenOff', amount: 10_000 },
+      { key: 'ws.matches.bill.priceChanged', amount: -5_000 },
+      { key: 'ws.matches.bill.unassigned', amount: 15_000 },
+    ]);
+  });
+
+  it('lists the seats a payment went to once each, in order', () => {
+    expect(paymentSeatNumbers({ seats: [{ seat_no: 2, amount_iqd: 10_000 }, { seat_no: 1, amount_iqd: 10_000 }, { seat_no: 2, amount_iqd: 1 }] })).toEqual([1, 2]);
+    expect(paymentSeatNumbers({})).toEqual([]);
+  });
+
+  it('leaves the panel state of a match booking to the booking-level figures', () => {
+    // The court fee is the booking's; shares are taken under Players.
+    expect(panelStateOf(bill({ match: matchMoney() }))).toBe('notCharged');
   });
 });
 

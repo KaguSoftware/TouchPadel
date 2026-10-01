@@ -128,8 +128,11 @@ runSmokeCases('staff supplies and marketing', [
     Component: StaffMarketingRequests,
     labelKey: 'staff.marketing.requests.submit',
     options: {
-      staff: { role: 'barista' },
-      queryData: [[staffKeys.myMarketingRequests(V), { requests: [] }]],
+      staff: { role: 'manager' },
+      queryData: [
+        [staffKeys.myMarketingRequests(V), { requests: [] }],
+        [staffKeys.marketingRequests(V, 'open'), NO_REQUESTS],
+      ],
     },
   },
   // Phase 2 Milestone 4b: the camera pages, each with a row in its log.
@@ -389,8 +392,9 @@ describe.each(LOCALES)('the marketing pages in %s', (locale) => {
   it('lets an asker withdraw an open request and read an answered one', () => {
     const screen = renderRoute(StaffMarketingRequests, {
       locale,
-      staff: { role: 'cashier' },
+      staff: { role: 'owner' },
       queryData: [
+        [staffKeys.marketingRequests(V, 'open'), NO_REQUESTS],
         [
           staffKeys.myMarketingRequests(V),
           {
@@ -406,10 +410,19 @@ describe.each(LOCALES)('the marketing pages in %s', (locale) => {
       expect(screen.getByTestId(`staff-marketing-requests.withdraw.${ID(31)}`)).toBeTruthy();
       expect(screen.queryByTestId(`staff-marketing-requests.withdraw.${ID(32)}`)).toBeNull();
       expect(screen.getByText(t('work.marketingRequest.status.done'))).toBeTruthy();
-      // A cashier does not read the venue's requests.
-      expect(screen.queryByTestId('staff-marketing-requests.filter')).toBeNull();
     } finally {
       screen.unmount();
+    }
+  });
+
+  it('keeps everyone but the manager, the owner and marketing off the requests page (2026-09-28)', () => {
+    for (const role of ['cashier', 'barista', 'waiter'] as const) {
+      const screen = renderRoute(StaffMarketingRequests, { locale, staff: { role } });
+      try {
+        expect(screen.queryByTestId('staff-marketing-requests.submit')).toBeNull();
+      } finally {
+        screen.unmount();
+      }
     }
   });
 

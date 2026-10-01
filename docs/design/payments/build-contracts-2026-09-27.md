@@ -118,8 +118,10 @@ refund_pending`. Refusals: `FORBIDDEN`, `PAYMENT_NOT_FOUND`, `PAYMENT_STATE`.
 
 `app.deposit_refund_manual(p_payment_id uuid, p_pin text, p_note text, p_device_id text default
 null) → jsonb` (manager, owner): in `PIN_GATED_RPCS`, so the caller proves the PIN to
-`verify_manager_pin` first and the RPC spends the 0115 grant. `refund_pending | refund_failed |
-succeeded → refunded` (reason `manual` when it was succeeded). Refusals: `FORBIDDEN`,
+`verify_manager_pin` first and the RPC spends the 0115 grant. `refund_failed → refunded` only,
+keeping the refund's reason (0258, open matches R23: a `refund_pending` refund may still be paid
+by Qi, and a `succeeded` deposit is refunded with `deposit_refund_request`; a stuck
+`refund_pending` turns `refund_failed` after ten unanswered attempts). Refusals: `FORBIDDEN`,
 `PIN_GRANT_REQUIRED`, `PAYMENT_NOT_FOUND`, `PAYMENT_STATE`, `REASON_REQUIRED`.
 
 `app.deposit_refund_request(p_payment_id uuid, p_amount_iqd bigint default null) → jsonb`

@@ -16,7 +16,7 @@
  *
  * PURE (vitest).
  */
-import { STAFF_ROLES, type StaffRole } from '@touch/core';
+import type { StaffRole } from '@touch/core';
 import type { MessageKey } from '@touch/i18n';
 import { IDEA_ROLES, START_ROLES } from './protocols/logic';
 import { PRODUCTION_ROLES } from './supplies/production';
@@ -28,7 +28,9 @@ import { COUNT_ROLES, LOG_ROLES, MOVE_ROLES } from './stores/logic';
 import { CALL_ROLES } from './calls/logic';
 import { DEDUCT_ROLES } from './deductions/logic';
 import { CONTENT_ROLES } from './content/logic';
-import { RECEIPT_ROLES, SLIP_ROLES } from './scan/logic';
+import { RECEIPT_ROLES } from './scan/logic';
+import { FLOOR_ROLES } from './floor/logic';
+import { ASK_MARKETING_ROLES } from './marketing/logic';
 
 export interface StaffRowDef {
   /** Stable name of the row. */
@@ -44,6 +46,8 @@ export interface StaffRowDef {
 
 export const STAFF_ROW_DEFS: readonly StaffRowDef[] = [
   // Involved runs for everyone, every run for management (staff-runs.tsx).
+  // Today shows it only to management and to someone a run in progress
+  // concerns (todayRows below; owner, 2026-09-28).
   {
     id: 'protocols',
     testID: 'staff.row.protocols',
@@ -106,7 +110,9 @@ export const STAFF_ROW_DEFS: readonly StaffRowDef[] = [
     href: '/staff-request',
     labelKey: 'staff.checklists.vacation.row',
   },
-  // Notes on new items in their first 30 days (Q9): every role.
+  // Notes on new items in their first 30 days (Q9): every role, and on Today
+  // only while a new item is at its feedback stage (todayRows below; owner,
+  // 2026-09-28; release_notes_for_me 0249).
   {
     id: 'notes',
     testID: 'staff.row.notes',
@@ -189,14 +195,14 @@ export const STAFF_ROW_DEFS: readonly StaffRowDef[] = [
     href: '/staff-suggestions',
     labelKey: 'staff.checklists.suggestions.title',
   },
-  // Requests to marketing (#73): every role but marketing asks, and
-  // marketing answers from its inbox on the same page.
+  // Requests to marketing (#73): the manager and the owner ask (owner,
+  // 2026-09-28), and marketing answers from its inbox on the same page.
   {
     id: 'ask-marketing',
     testID: 'staff.row.ask-marketing',
     href: '/staff-marketing-requests',
     labelKey: 'staff.marketing.rows.ask',
-    roles: STAFF_ROLES.filter((role) => role !== 'marketing'),
+    roles: ASK_MARKETING_ROLES,
   },
   {
     id: 'marketing-inbox',
@@ -240,15 +246,16 @@ export const STAFF_ROW_DEFS: readonly StaffRowDef[] = [
     labelKey: 'staff.content.row',
     roles: CONTENT_ROLES,
   },
-  // Phase 2 Milestone 4b: the camera pages. A waiter's order slip goes to the
-  // till (Today's floor group, beside the calls); a supplier's receipt goes to
-  // Goods in (the day's work).
+  // Place an order (owner, 2026-09-28; 0251): the floor picks a table, a tab,
+  // and sends to the kitchen from the phone (Today's floor group, beside the
+  // calls). It replaces "Scan an order" on Today; the slip photo is a link on
+  // the order page. A supplier's receipt goes to Goods in (the day's work).
   {
-    id: 'order-slip',
-    testID: 'staff.row.order-slip',
-    href: '/staff-order-slip',
-    labelKey: 'staff.scan.rows.slip',
-    roles: SLIP_ROLES,
+    id: 'order',
+    testID: 'staff.row.order',
+    href: '/staff-order',
+    labelKey: 'staff.floor.row',
+    roles: FLOOR_ROLES,
   },
   {
     id: 'receipt',
@@ -261,4 +268,32 @@ export const STAFF_ROW_DEFS: readonly StaffRowDef[] = [
 
 export function staffRows(role: StaffRole): StaffRowDef[] {
   return STAFF_ROW_DEFS.filter((row) => !row.roles || row.roles.includes(role));
+}
+
+/**
+ * What Today knows beyond the role (owner, 2026-09-28: a section is seen by
+ * the people it concerns): `runs`, the runs in progress that involve the
+ * person (protocol_runs_page 'active'; 0249 tightened "involved"); `notes`,
+ * the new items at their feedback stage (release_notes_for_me). Null while
+ * the read is out, or failed: the row stays hidden rather than flicker in.
+ */
+export interface TodaySignals {
+  runs: number | null;
+  notes: number | null;
+}
+
+const MGMT_ROLES: readonly StaffRole[] = ['manager', 'owner'];
+
+/**
+ * Today's rows: the role's (staffRows), less the two that depend on the day.
+ * Protocols: management always (they run them), anyone else while a run in
+ * progress involves them. Notes on new items: while one is at its feedback
+ * stage, for everyone who may write one.
+ */
+export function todayRows(role: StaffRole, signals: TodaySignals): StaffRowDef[] {
+  return staffRows(role).filter((row) => {
+    if (row.id === 'protocols') return MGMT_ROLES.includes(role) || (signals.runs ?? 0) > 0;
+    if (row.id === 'notes') return (signals.notes ?? 0) > 0;
+    return true;
+  });
 }

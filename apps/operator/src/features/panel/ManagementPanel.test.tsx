@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
@@ -40,7 +40,15 @@ function renderPanel() {
   );
 }
 
+// Pin the clock (Date only, so async waits still run). "This month" and "Last 30 days" are the
+// same window on the 30th of a 30-day month, and the presets then read differently.
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 8, 15, 12, 0, 0));
   rpc.mockReset();
   navigate.mockReset();
 });
@@ -102,6 +110,40 @@ describe('ManagementPanelScreen — four states', () => {
     expect(alerts.some((a) => a.textContent?.includes('This could not be loaded.'))).toBe(true);
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
     await waitFor(() => expect(rpc).toHaveBeenCalled());
+  });
+});
+
+// Open matches (operator.md §5.19): panel_headline's seven online keys (0265).
+describe('ManagementPanelScreen — Online money and open matches', () => {
+  it('draws the group when the server sends its figures; a row opens its report, never a drill', async () => {
+    rpc.mockResolvedValue({
+      figures: [
+        { key: 'revenue', value: 15000 },
+        { key: 'onlineDeposits', value: 45000, previous: 30000, changeAbs: 15000, changePct: 50 },
+        { key: 'ticketSales', value: 80000 },
+        { key: 'ticketLiability', value: 60000 },
+        { key: 'matchWrittenOff', value: 20000 },
+      ],
+    });
+    renderPanel();
+    const group = await screen.findByTestId('panel-online');
+    expect(screen.getByRole('heading', { name: 'Online money and open matches' })).toBeTruthy();
+    expect(screen.getByText('Online deposits')).toBeTruthy();
+    expect(screen.getByText('80,000 IQD')).toBeTruthy();
+    // Ticket sales and liability are counted at every branch, and say so.
+    expect(group.textContent?.match(/All branches/g)).toHaveLength(3);
+    fireEvent.click(screen.getByText('Match ticket sales'));
+    expect(navigate).toHaveBeenCalledWith({ to: '/reports/courts' });
+    fireEvent.click(screen.getByText('Online deposits'));
+    expect(navigate).toHaveBeenLastCalledWith({ to: '/reports/revenue' });
+    expect(rpc.mock.calls.some(([fn]) => fn === 'report_drill')).toBe(false);
+  });
+
+  it('is left out when none of its figures came back (a server before 0265)', async () => {
+    rpc.mockResolvedValue({ figures: [{ key: 'revenue', value: 15000 }] });
+    renderPanel();
+    expect(await screen.findByText('15,000 IQD')).toBeTruthy();
+    expect(screen.queryByTestId('panel-online')).toBeNull();
   });
 });
 

@@ -1988,6 +1988,59 @@ decisions and design in `docs/design/shop/shop-desk-2026-09-27.md`:
   shop assistant accounts. Also on this day: main was red on Majed's deposit push (quiet-error
   gate), fixed in `daad2256`.
 
+## Day 39 (2026-09-27 → 29) — open matches built (Milestone 6)
+
+Waits-for-four matches on a free slot: no court is held while a match fills (a normal booking of
+the last free court bumps it), the court is booked at the fourth seat, every seat is backed by a
+reusable open-match ticket (bought once through Qi, about one seat's price, lost only on a
+no-show), and the full shares are paid at the desk. Decisions OM-3…OM-48 and DF-1…DF-21 were
+settled with Parsa over 11 rounds (approved 09-27); the record is `docs/design/open-matches/`
+(`build-contracts-2026-09-27.md` §0, §1 and the rulings R1–R43 in §1.12, then the lane contracts
+`db.md`, `money.md`, `guest.md`, `operator.md`; `CONTINUE.md` has the step-by-step state). Paused
+09-28 after the design, then finished 09-29 as one parallel workflow run on Parsa's "finish in one
+go". **Built locally; not committed, not pushed.** Main's `b9a7c649` (0252, the hold ladder) was
+synced in during the run, so every open-matches ordinal moved up by one.
+
+- **Database 0253–0265** (dated 20260929): three CHECK widenings, each alone (0253 the
+  `match_ban` flag, 0254 the ticket checks on `booking_payments`, 0255 the outbox kinds); profile
+  first/last names and gender asked once (0256); per-branch and chain settings (0257); the nine
+  match tables, the `booking_payments` anchor, `tabs.court_cap_iqd` and the 0242 deposit hooks
+  scoped to `purpose = 'deposit'` (0258); ticket purchase, wallet, cash-out and refunds (0259); 29
+  internals: locks, eligibility, visibility, seats, courts, tickets, ending (0260); the guest RPCs
+  and `match_notify` (0261); the desk RPCs, the seat-money engine, Take share, Assign, the seat
+  write-off (manager PIN) and the café wall (0262); the reservation trigger, R22's kept court in
+  `hold_slot` / `staff_create_reservation`, and `app.match_sweep` on cron `tp_match_sweep` every
+  30 s (0263); `delete_my_account` scrubbing names, gender, seats, requests and blocks and refunding
+  unused tickets (0264); the ticket money figures, `day_close_online`, `report_matches` and the
+  panel's `online` keys (0265). Edge: new `ticket-begin`; `send-push` guest family
+  (`_shared/guest-push.json`, `guestStrings.ts`) and the staff key `match_report_new`.
+- **Phone:** Matches list, match detail (2x2 seats, action card, organiser tools, quick
+  messages), Start a match, the invite link `m/[token]` (universal links on `/m`, `/en/m`,
+  `/ar/m`), report and block, the ticket wallet and purchase through Qi, the Book tab's match
+  chips, My Reservations' open matches, name fields and the gender line.
+- **Operator:** seat chips on the calendar, the Today group and strip, `/desk/matches/$id`
+  (marks, Take share, Assign, write-off, remove, call off), Start an open match, the customer
+  record (tickets and cash-out, ban, gender), match settings, the Ops reports queue, the online
+  day-close card, the Courts report Open matches view, the assistant's pages and rules.
+- **Web and legal:** the invite page `/{locale}/m/[token]`, `LINK_PATHS`, privacy, terms (with an
+  open-matches section and a new terms version), delete-account, support, store docs.
+- **Every match write is online only** (DF-11; scope-ledger row below).
+- **Tested (09-29, on fresh local stacks):** the db suite, 166 files and 2,676 cases; every db
+  gate; RLS matrix floor 392/394; root typecheck, lint, test and build; mobile smoke, 20 suites and
+  393 cases; the whole e2e suite in both locales, `operator-matches` EN + `@ar` included (113
+  passed, 1 skipped). Root `security` passes every gate but `security:audit`: four HIGH Electron
+  advisories against the operator shell's Electron 33, published after main's fast-uri pin, not
+  waived, an owner decision. The full list is the "Step 4 (integration)" row of `CONTINUE.md`.
+- **Left** (owner and client, `CONTINUE.md` "Owner and client steps"):
+  - the hosted push in order: `send-push` alone, then 0253–0255 each alone, then the rest;
+  - the operator tag once 0262 and 0265 are on hosted;
+  - the production `eas build` (universal links need a native build);
+  - Qi secrets;
+  - `matches_enabled` at one branch for the TestFlight trial;
+  - the client's ticket price, the Arabic word for "ticket" and a review of every DRAFT-AR string;
+  - the ASK QI list (A8).
+  Next free migration ordinal: **0266**.
+
 ## File map (key files)
 - **`PHASE-2-PLAN.md`** (repo root) — the 2026-09-19 audit and the Phase 2 scope: Part A the repo as
   it is, Part B the criticals pass, Part C the scope items and the milestone plan, Part C+ the
@@ -2214,6 +2267,7 @@ decisions and design in `docs/design/shop/shop-desk-2026-09-27.md`:
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Multi-venue | ✔ Code-complete and live 2026-09-26 (0207–0227), audited and fixed the same day (0228–0235, `docs/design/multi-venue/audit-2026-09-26.md`): per-branch settings, day, guards, reports, realtime, "Open a new branch", the table-level branch guard, stations registered on purpose. **Held back on purpose:** no operator tag (the stations run the old build), no second branch, the mobile picker waits for the 1.0 build. **Partial:** the assistant reads the rail's branch but has no per-conversation branch choice; e2e helpers assume one venue; the legacy `kds`/`floor`/`courts` topics and `venue_settings.llm_*` are still there | Operator tag on every station, then a real second branch; a two-branch e2e spec; a cleanup migration dropping the legacy topics and columns | Before the second branch opens (tag, build); later migration (cleanup) |
 | Till online-only ops | `merge_tabs`, `record_drawer_open`, `open_day`, `close_day`, `open_till_shift`, `close_till_shift` and `close_till_shift_for` stay direct `appRpc` calls by decision (Parsa 2026-09-20, Phase 2 finding C3; the three till-shift RPCs, wave 5, `docs/design/protocols/wave5-addendum-2026-09-25.md` §2.9.4): a merge re-checks two tabs under lock, and the day boundary and a shift's start and count must be authoritative when they are written. `refund`, `cancel_tab`, `settle_zero_tab`, `void_after_send` and `record_waste` are queued mutation types since Milestone 0 item 9 (`payment.refund`, `tab.cancel`, `tab.settle_zero`, `order_item.void`, `stock.waste`; migration 0120 gave the first three `p_idempotency_key` + `app.claim_replay`) | Every till write on the durable queue | Later phase (full offline DB, SOW) |
+| Open matches online-only (DF-11) | Every match write is a direct `appRpc` call, never a queued mutation type. Desk: `desk_start_match`, `desk_add_seat`, `desk_remove_seat`, `desk_cancel_match`, `mark_match_seats`, `desk_call_off_short`, `match_seat_settle`, `match_link_payment`, `match_seat_write_off`, `set_match_ban`, `staff_set_customer_gender`, `resolve_match_report`, `ticket_cashout`, `set_match_settings`. Guest (D25): `match_start`, `match_join`, `match_request`, `match_withdraw`, `match_decide`, `match_leave`, `match_remove_player`, `match_cancel`, `match_post_message`, `match_report`, `match_block`, `match_unblock`, `set_my_gender`, and the ticket purchase through the `ticket-begin` edge function; each fails at once offline and nothing is queued (`match_start` is keyed, the rest are state-idempotent). Offline, a match booking's bill takes money through the queued `tab.open` and `tab.settle`, and Assign links it to players once online (`docs/design/open-matches/operator.md` §5.5, `guest.md` §4.0) | Queued seat marks and seat payments | Later phase (full offline DB, SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
 | Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **PUBLISHED 2026-09-07 as `v0.2.2`** (first working public build — the public repo, secrets, draft→publish pipeline, Electron-ABI rebuild proof and bundled `ws` all landed that day): durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS assisted installer at the stable `/download` link, first-run station setup + kitchen-screen pairing code, auto-update (feed verified: `latest.yml` 0.2.2), conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | Owner: swap `RELEASES_GH_TOKEN` for a fine-grained PAT; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred | Site visit before 2026-10-04 |

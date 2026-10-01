@@ -273,6 +273,8 @@ function RecipeDialog({
   const toast = useToast();
   const confirm = useConfirm();
   const [lines, setLines] = useState<LineDraft[] | null>(null);
+  /** 0250: a prepared item's batch size, as typed; null until the ingredient row lands. */
+  const [batch, setBatch] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -294,14 +296,21 @@ function RecipeDialog({
   if (lines === null && savedQ.isSuccess) {
     setLines(savedQ.data.map((l) => ({ key: crypto.randomUUID(), ingredientId: l.ingredient_id, qty: String(l.qty) })));
   }
+  const self = target.kind === 'output' ? ingredientOf.get(target.id) : undefined;
+  const savedBatch = self?.batch_yield != null ? String(self.batch_yield) : '';
+  if (target.kind === 'output' && batch === null && ingredientsQ.isSuccess) setBatch(savedBatch);
+  const batchText = (batch ?? '').trim();
+  const batchBad = batchText !== '' && !(Number(batchText) > 0 && Number(batchText) < 1e9);
+  const batchDirty = target.kind === 'output' && batch !== null && batchText !== savedBatch;
 
   const draft = lines ?? [];
   const started = draft.filter((l) => l.ingredientId || l.qty.trim() !== '');
   const incomplete = started.filter((l) => !l.ingredientId || !(Number(l.qty) > 0));
   const saved = savedQ.data ?? [];
-  const dirty =
+  const linesDirty =
     lines !== null &&
     JSON.stringify(started.map((l) => [l.ingredientId, Number(l.qty)]).sort()) !== JSON.stringify(saved.map((l) => [l.ingredient_id, Number(l.qty)]).sort());
+  const dirty = linesDirty || batchDirty;
 
   const patch = (key: string, part: Partial<LineDraft>) => setLines((ls) => (ls ?? []).map((x) => (x.key === key ? { ...x, ...part } : x)));
 
@@ -325,11 +334,19 @@ function RecipeDialog({
     setBusy(true);
     setError(null);
     try {
-      await appRpc('set_recipe', {
-        p_target: target.kind,
-        p_target_id: target.id,
-        p_lines: started.map((l) => ({ ingredient_id: l.ingredientId, qty: Number(l.qty) })),
-      });
+      if (linesDirty) {
+        await appRpc('set_recipe', {
+          p_target: target.kind,
+          p_target_id: target.id,
+          p_lines: started.map((l) => ({ ingredient_id: l.ingredientId, qty: Number(l.qty) })),
+        });
+      }
+      if (batchDirty) {
+        await appRpc('set_batch_yield', {
+          p_ingredient_id: target.id,
+          p_batch_yield: batchText === '' ? null : Number(batchText),
+        });
+      }
       toast.ok(tr('ws.manager.stock.recipes.saved'));
       void queryClient.invalidateQueries({ queryKey: ['stock'] });
       onClose();
@@ -361,8 +378,14 @@ function RecipeDialog({
             kind="primary"
             icon="check"
             busy={busy}
-            disabled={!dirty || incomplete.length > 0}
-            disabledReason={incomplete.length > 0 ? tr('ws.manager.stock.recipes.incompleteLine') : tr('ws.manager.stock.ingredients.form.nothingChanged')}
+            disabled={!dirty || incomplete.length > 0 || batchBad}
+            disabledReason={
+              incomplete.length > 0
+                ? tr('ws.manager.stock.recipes.incompleteLine')
+                : batchBad
+                  ? tr('ws.manager.stock.recipes.batchInvalid')
+                  : tr('ws.manager.stock.ingredients.form.nothingChanged')
+            }
             onClick={() => void save()}
           >
             {tr('ws.manager.stock.recipes.save')}
@@ -440,6 +463,24 @@ function RecipeDialog({
           </Button>
           {incomplete.length > 0 && (
             <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.manager.stock.recipes.incompleteLine')}</p>
+          )}
+          {target.kind === 'output' && batch !== null && (
+            <div style={{ marginBlockStart: 'var(--tp-sp-4)', maxInlineSize: '20rem' }}>
+              <Field label={tr('ws.manager.stock.recipes.batch', { unit: fmt.unit(target.unit ?? '') })} hint={tr('ws.manager.stock.recipes.batchHint')} style={{ marginBlockEnd: 0 }}>
+                <input
+                  style={{ ...inputStyle, borderColor: batchBad ? 'var(--tp-danger)' : undefined }}
+                  dir="ltr"
+                  inputMode="decimal"
+                  value={batch}
+                  disabled={busy}
+                  aria-invalid={batchBad}
+                  onChange={(e) => setBatch(e.target.value)}
+                />
+              </Field>
+              {batchBad && (
+                <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)', marginBlockStart: 'var(--tp-sp-1-5)' }}>{tr('ws.manager.stock.recipes.batchInvalid')}</p>
+              )}
+            </div>
           )}
           <ErrorText error={error} />
         </>

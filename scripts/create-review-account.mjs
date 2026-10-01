@@ -21,12 +21,28 @@
  * Idempotent: a re-run reuses the account, sets a NEW password (print it again)
  * and only books if there is no upcoming booking.
  *
+ * Open matches (docs/design/open-matches/guest.md §4.26, DF-19):
+ *   --sandbox  sets `profiles.payment_sandbox = true` on the account (until now
+ *              set by hand), so its deposits and open-match tickets are paid on
+ *              Qi's sandbox with the sandbox card, and it only ever sees and
+ *              joins sandbox matches, which never book a real court. The 0259
+ *              guard refuses the flip while the account holds live tickets.
+ *   --partner  works on a SECOND account, "Review Partner" (tagged
+ *              `user_metadata.app_review_partner = true`), instead of the
+ *              reviewer's. The owner signs in as it on a test phone, buys two
+ *              sandbox tickets and starts the public, open-join sandbox match
+ *              "Me + 1" the reviewer joins. Its login never goes to Apple.
+ * So the owner runs this twice before submitting: once as below with
+ * `--sandbox`, once with `--partner --sandbox --no-booking`.
+ *
  * Reads SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY from the environment, falling
  * back to apps/web/.env.local (same as create-operator-owner.mjs).
  *
  *   node scripts/create-review-account.mjs                 # create / refresh
  *   node scripts/create-review-account.mjs --phone +9647...  # choose the number (first run only)
  *   node scripts/create-review-account.mjs --no-booking    # account only
+ *   node scripts/create-review-account.mjs --sandbox       # and pay on Qi's sandbox (open matches)
+ *   node scripts/create-review-account.mjs --partner ...   # the same, for the partner account
  *   node scripts/create-review-account.mjs --delete        # after approval: cancel + delete
  *
  * Tell the desk: bookings under "App Review" are test bookings.
@@ -34,7 +50,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { randomInt } from 'node:crypto';
 
-const DISPLAY_NAME = 'App Review';
 const BOOK_DAYS_AHEAD = 60;
 /** Quiet afternoon starts first, venue-local (Baghdad, UTC+3, no DST). */
 const CANDIDATE_HOURS = [14, 15, 13, 16, 12, 11];
@@ -45,6 +60,12 @@ const option = (name) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
 };
+
+/** Which of the two accounts this run is about, and how it is tagged and named. */
+const PARTNER = flag('--partner');
+const ACCOUNT = PARTNER
+  ? { tag: 'app_review_partner', name: 'Review Partner', given: 'Review', family: 'Partner', label: 'Partner account' }
+  : { tag: 'app_review', name: 'App Review', given: 'App', family: 'Review', label: 'Review account' };
 
 function envFromFile(url) {
   const out = {};
@@ -109,7 +130,7 @@ function makePhone() {
 async function findReviewUser() {
   for (let page = 1; page < 50; page++) {
     const { users } = await call(`/auth/v1/admin/users?page=${page}&per_page=200`);
-    const hit = users.find((u) => u.user_metadata?.app_review === true);
+    const hit = users.find((u) => u.user_metadata?.[ACCOUNT.tag] === true);
     if (hit) return hit;
     if (users.length < 200) return null;
   }
@@ -122,6 +143,33 @@ async function signInAs(phone, password) {
     body: { phone, password },
   });
   return session.access_token;
+}
+
+/**
+ * `profiles.payment_sandbox = true` (0241), with the service role. The column has no
+ * RPC: it is the owner's switch. A flip while the account holds live tickets is refused
+ * by the 0259 guard (`INVALID_TRANSITION`, detail `live_tickets`); that account needs its
+ * tickets used or cashed out first, or a fresh account.
+ */
+async function setPaymentSandbox(userId) {
+  try {
+    const rows = await call(`/rest/v1/profiles?id=eq.${userId}&select=id,payment_sandbox`, {
+      method: 'PATCH',
+      body: { payment_sandbox: true },
+      headers: { Prefer: 'return=representation' },
+    });
+    if (!Array.isArray(rows) || rows[0]?.payment_sandbox !== true) {
+      throw new Error(`no profile row for ${userId}`);
+    }
+  } catch (err) {
+    if (/INVALID_TRANSITION/.test(err.message)) {
+      throw new Error(
+        'This account holds live open-match tickets, so it cannot move to the sandbox. ' +
+          'Use or cash out its tickets first, or delete it (--delete) and run again.',
+      );
+    }
+    throw err;
+  }
 }
 
 async function upcomingBookings(token) {
@@ -174,7 +222,7 @@ let user = await findReviewUser();
 // ── --delete: cancel upcoming bookings, then the app's own deletion path ────
 if (flag('--delete')) {
   if (!user) {
-    console.log('No review account found. Nothing to delete.');
+    console.log(`No ${ACCOUNT.label.toLowerCase()} found. Nothing to delete.`);
     process.exit(0);
   }
   const password = makePassword(24);
@@ -185,8 +233,9 @@ if (flag('--delete')) {
     await appRpc(rpc, { p_reservation_id: r.id }, token);
     console.log(`  ${rpc} ${r.id} (${r.start_at})`);
   }
+  // Its open matches and unused tickets are the deletion's own business (DF-20).
   await appRpc('delete_my_account', { p_confirm: 'DELETE' }, token);
-  console.log(`\nDeleted review account +${user.phone} (${user.id}).`);
+  console.log(`\nDeleted ${ACCOUNT.label.toLowerCase()} +${user.phone} (${user.id}).`);
   process.exit(0);
 }
 
@@ -195,7 +244,7 @@ const password = makePassword();
 let phone;
 if (user) {
   phone = `+${user.phone}`;
-  console.log(`Review account already exists (${phone}). Setting a new password.`);
+  console.log(`${ACCOUNT.label} already exists (${phone}). Setting a new password.`);
   user = await call(`/auth/v1/admin/users/${user.id}`, {
     method: 'PUT',
     body: { password, phone_confirm: true },
@@ -203,7 +252,7 @@ if (user) {
 } else {
   phone = option('--phone') ?? makePhone();
   if (!/^\+964\d{10}$/.test(phone)) throw new Error(`--phone must look like +9647XXXXXXXXX, got ${phone}`);
-  console.log(`Creating review account ${phone} ...`);
+  console.log(`Creating ${ACCOUNT.label.toLowerCase()} ${phone} ...`);
   user = await call('/auth/v1/admin/users', {
     method: 'POST',
     body: {
@@ -211,10 +260,10 @@ if (user) {
       password,
       phone_confirm: true,
       user_metadata: {
-        app_review: true,
-        full_name: DISPLAY_NAME,
-        given_name: 'App',
-        family_name: 'Review',
+        [ACCOUNT.tag]: true,
+        full_name: ACCOUNT.name,
+        given_name: ACCOUNT.given,
+        family_name: ACCOUNT.family,
         phone,
         preferred_lang: 'en',
       },
@@ -224,6 +273,11 @@ if (user) {
 
 const token = await signInAs(phone, password);
 console.log('Signed in with phone + password: OK');
+
+if (flag('--sandbox')) {
+  await setPaymentSandbox(user.id);
+  console.log("Payments on Qi's sandbox (profiles.payment_sandbox): ON");
+}
 
 let booking = null;
 if (!flag('--no-booking')) {
@@ -237,12 +291,15 @@ if (!flag('--no-booking')) {
 }
 
 const national = phone.replace(/^\+964/, '');
+const where = PARTNER
+  ? 'Sign in as it on a test phone to buy two sandbox tickets and start the partner match (never give it to Apple):'
+  : 'Paste into App Store Connect → App Review Information → Sign-in required:';
 console.log(`
-Review account ready. Paste into App Store Connect → App Review Information → Sign-in required:
+${ACCOUNT.label} ready. ${where}
 
   User name: ${phone}
   Password:  ${password}
 
 In the app: country Iraq (+964), phone ${national}, then the password.
 This password is not stored anywhere. Re-running this script sets a new one.
-${booking ? `\nTell the desk: "App Review" has a test booking on ${booking.court}, ${booking.startAt.toISOString()}.` : ''}`);
+${booking ? `\nTell the desk: "${ACCOUNT.name}" has a test booking on ${booking.court}, ${booking.startAt.toISOString()}.` : ''}`);

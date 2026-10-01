@@ -1,5 +1,5 @@
 /**
- * 0249 — the hold ladder. A guest who lets holds lapse waits, then is
+ * 0252 — the hold ladder. A guest who lets holds lapse waits, then is
  * suspended and listed for the day close.
  *
  *   1st strike  hold_warning on the next hold, nothing refused
@@ -40,7 +40,7 @@ interface Standing {
   banned_at: string | null;
 }
 
-describe.skipIf(!up)('0249 hold ladder', () => {
+describe.skipIf(!up)('0252 hold ladder', () => {
   let svc: SupabaseClient;
   let manager: SupabaseClient;
   let desk: SupabaseClient;
@@ -113,7 +113,7 @@ describe.skipIf(!up)('0249 hold ladder', () => {
     desk = await signedInClient(SEED_STAFF.court_desk);
     await signedInClient(SEED_STAFF.owner);
     await ensureTestRateRule(svc);
-    courtId = await createTestCourt(svc, 'R0249');
+    courtId = await createTestCourt(svc, 'R0252');
     // On a freshly reset stack the rule is seconds old, so a hold dated two
     // minutes back would predate it. Moving the line earlier changes nothing
     // else: no hold is older than the reset.

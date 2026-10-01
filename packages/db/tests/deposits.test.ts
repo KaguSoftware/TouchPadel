@@ -484,7 +484,7 @@ describe.skipIf(!up)('0242 online deposits', () => {
     await setRules({ deposit_forfeit_no_show: true });
   });
 
-  it('refunds: Qi says yes → refunded; no → refund_failed, listed, retried, settled by hand with a PIN', async () => {
+  it('refunds: Qi says yes → refunded; no → refund_failed, listed, retried, settled by hand with a PIN only from refund_failed', async () => {
     const one = await paidBooking('dep-refund-ok');
     await appRpc(one.guest, 'cancel_reservation', { p_reservation_id: one.id });
     const ok = await svcRpc('deposit_refund_apply', {
@@ -526,6 +526,19 @@ describe.skipIf(!up)('0242 online deposits', () => {
       p_payment_id: two.pay.id, p_pin: '000000', p_note: 'cash at the desk',
     }).then(outcome);
     expect(wrongPin.ok).toBe(false);
+
+    // 0258 (R23): never while Qi may still pay the refund (the guest would be
+    // paid twice); a stuck refund turns refund_failed first.
+    const whilePending = await appRpc(manager, 'deposit_refund_manual', {
+      p_payment_id: two.pay.id, p_pin: DEV_PINS.manager, p_note: 'cash at the desk',
+    }).then(outcome);
+    expect(whilePending.ok).toBe(false);
+    expect(whilePending.errorMessage).toContain('PAYMENT_STATE');
+    expect((await payment(two.pay.id)).status).toBe('refund_pending');
+    await svcRpc('deposit_refund_apply', {
+      p_payment_id: two.pay.id, p_outcome: 'failed', p_provider_status: '18', p_refund_provider_id: null, p_raw: {},
+    });
+    expect((await payment(two.pay.id)).status).toBe('refund_failed');
 
     const manual = await appRpc(manager, 'deposit_refund_manual', {
       p_payment_id: two.pay.id, p_pin: DEV_PINS.manager, p_note: 'cash at the desk',

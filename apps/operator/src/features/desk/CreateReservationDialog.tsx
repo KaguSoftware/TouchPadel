@@ -21,27 +21,52 @@
  * Start times the rows on screen already show as taken are marked and cannot
  * be picked; the exclusion constraint still has the final word.
  *
+ * OPEN MATCHES (docs/design/open-matches/operator.md §5.10)
+ *
+ * A filling open match holds no court (OM-12), and a firm booking of the last
+ * court free for its time cancels it (OM-13). The booking wins, so Create
+ * stays enabled; the dialog only says so first, one line per match
+ * (matchLogic.matchesBumpedBy, the client mirror), and after an online create
+ * toasts each warned match the server no longer lists. A match waiting for a
+ * court keeps it (R22): an info line, and a SLOT_TAKEN refusal says which
+ * match the court is kept for. The "Open match" kind hands the court, start
+ * and guest to the Start dialog (the caller mounts it).
+ *
  * e2e selectors kept: dialog 'New booking', label 'Guest name', label
  * 'Duration' (a native select whose option values are minutes), button
  * 'Create booking'.
  */
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { wallTimeToUtc } from '@touch/core';
 import { SLOT_MIN } from './useTradingNight';
-import { formatDate, formatNumber, formatTime, formatTimeRange } from '@touch/i18n';
+import { countPhrase, formatDate, formatNumber, formatTime, formatTimeRange, type Locale } from '@touch/i18n';
 import { clientRef } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
 import type { CourtRow } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
+import { QK } from '../../lib/queryKeys';
+import { useStationReach } from '../../lib/stationReach';
+import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../components/ui';
-import { ConflictNotice, Money, SegmentedControl } from '../../components/kit';
+import { ConflictNotice, MessagePresenter, Money, SegmentedControl } from '../../components/kit';
+import { awaitingCourtOverlap, matchesBumpedBy } from '../matches/matchLogic';
+import type { OpenMatch, OpenMatches } from '../matches/matchPayloads';
 import { CustomerPicker, type PickedCustomer } from './customers/CustomerPicker';
 import { durationsFitting, nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone, slotTaken } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
 
-export type CreateKind = 'booking' | 'maintenance';
+export type CreateKind = 'booking' | 'maintenance' | 'match';
+
+/** What the Open match kind hands to the Start dialog (§5.10): the draft's court, start and guest. */
+export interface StartMatchCarry {
+  courtId: string;
+  startAt: Date;
+  customer: PickedCustomer | null;
+  guestName: string;
+  guestPhone: string;
+}
 
 /** The trading night the dialog may move within: its date, its half-hour rows and what already holds them. */
 export interface CreateNight {
@@ -57,6 +82,8 @@ export function CreateReservationDialog({
   tz,
   night,
   customer: initialCustomer = null,
+  openMatches,
+  onStartMatch,
   onClose,
   onCreated,
 }: {
@@ -68,11 +95,26 @@ export function CreateReservationDialog({
   night?: CreateNight;
   /** A customer the booking starts linked to (the calendar's "book for" mode). */
   customer?: PickedCustomer | null;
+  /**
+   * The night's open matches (app.desk_open_matches, the caller's
+   * useOpenMatches read): the bump warning and the kept-court line read them.
+   * Absent or null: no match UI.
+   */
+  openMatches?: readonly OpenMatch[] | null;
+  /**
+   * Offer the "Open match" kind: passed by a caller whose role runs matches
+   * (runMatches) while matches are on. Choosing it closes this dialog; the
+   * caller opens the Start dialog with what it carries.
+   */
+  onStartMatch?: (carry: StartMatchCarry) => void;
   onClose: () => void;
   /** `queued`: saved on this station only, not yet accepted by the server. */
   onCreated: (queued: boolean) => void;
 }) {
   const { tr, locale } = useLocale();
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const { reachable } = useStationReach();
   const [courtId, setCourtId] = useState(initialCourtId);
   const [startIso, setStartIso] = useState(() => initialStartAt.toISOString());
   const court = courts.find((c) => c.id === courtId);
@@ -83,7 +125,7 @@ export function CreateReservationDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [soldKey],
   );
-  const [kind, setKind] = useState<CreateKind>('booking');
+  const [kind, setKind] = useState<Exclude<CreateKind, 'match'>>('booking');
   const [durationPick, setDuration] = useState<number>(sold[0] ?? 60);
   const [guestName, setGuestName] = useState(() => (initialCustomer ? sanitizeName(initialCustomer.name) : ''));
   const [guestPhone, setGuestPhone] = useState(() => (initialCustomer?.phone ? sanitizePhone(initialCustomer.phone) : ''));
@@ -156,6 +198,13 @@ export function CreateReservationDialog({
   // the server will refuse the booking. An error is not an answer — never block on it.
   const unpriced = kind === 'booking' && priceQ.isSuccess && (priceQ.data?.length ?? 0) === 0;
 
+  // The open matches this booking would cancel, and the ones a court here is
+  // kept for (§5.10). Client mirrors: the server decides.
+  const draftPeriod = { courtId, startAt: startAt.toISOString(), endAt: endAt.toISOString(), kind };
+  const bumped = matchesBumpedBy(openMatches, night?.reservations ?? [], courts, draftPeriod);
+  const waiting = awaitingCourtOverlap(openMatches, draftPeriod);
+  const matchTime = (m: OpenMatch) => formatTime(new Date(m.start_at), locale, tz);
+
   async function submit() {
     setBusy(true);
     setError(null);
@@ -174,6 +223,10 @@ export function CreateReservationDialog({
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       });
       onCreated(outcome.queued);
+      // A queued create says only "queued": the server decides at replay.
+      if (!outcome.queued && bumped.length > 0) {
+        void toastBumpedMatches(queryClient, bumped, (m) => toast.ok(tr('ws.matches.create.bumpedToast', { time: matchTime(m) })));
+      }
     } catch (e) {
       if (e instanceof AppRpcError && e.code === 'SLOT_TAKEN') setConflict(true);
       else setError(e);
@@ -226,7 +279,10 @@ export function CreateReservationDialog({
     >
       {conflict && (
         <ConflictNotice
-          body={tr('ws.courtDesk.create.conflictBody')}
+          body={
+            // R22: the court is kept for a match waiting for it.
+            waiting.length > 0 ? tr('ws.matches.errors.slotKept', { time: matchTime(waiting[0]!) }) : tr('ws.courtDesk.create.conflictBody')
+          }
           resolveLabel={tr('ws.courtDesk.create.pickAnother')}
           onResolve={night ? () => setConflict(false) : onClose}
           style={{ marginBlockEnd: '0.85rem' }}
@@ -236,13 +292,24 @@ export function CreateReservationDialog({
       <Field label={tr('op.desk.kind')} group>
         <SegmentedControl<CreateKind>
           value={kind}
-          onChange={setKind}
+          onChange={(next) => {
+            if (next !== 'match') {
+              setKind(next);
+              return;
+            }
+            // The Start dialog takes over with what is already chosen.
+            onStartMatch?.({ courtId, startAt, customer, guestName, guestPhone });
+          }}
           options={[
             { value: 'booking', label: tr('op.desk.kindBooking'), disabled: busy },
             { value: 'maintenance', label: tr('ws.courtDesk.create.kindBlock'), disabled: busy },
+            ...(onStartMatch ? [{ value: 'match' as const, label: tr('ws.matches.common.openMatch'), disabled: busy || !reachable }] : []),
           ]}
         />
       </Field>
+      {onStartMatch && !reachable && (
+        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: '-0.5rem', marginBlockEnd: '0.85rem' }}>{tr('ws.matches.offline.needsConnection')}</p>
+      )}
 
       {kind === 'booking' && (
         <>
@@ -335,10 +402,50 @@ export function CreateReservationDialog({
       <Field label={kind === 'maintenance' ? tr('ws.courtDesk.create.blockReason') : tr('op.common.notes')} optional={kind === 'booking'}>
         <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
       </Field>
+      {waiting.map((m) => (
+        <MessagePresenter key={m.match_id} tone="info" message={tr('ws.matches.create.kept', { time: matchTime(m) })} style={{ marginBlockEnd: '0.85rem' }} />
+      ))}
+      {bumped.length > 0 && (
+        // Above the price, the last thing read before Create. Create stays
+        // enabled: the booking wins (OM-13).
+        <div data-testid="bump-warning" style={{ display: 'grid', gap: 'var(--tp-sp-1)', marginBlockEnd: '0.85rem' }}>
+          {bumped.map((m) => (
+            <MessagePresenter key={m.match_id} tone="refused" icon="alert" message={tr('ws.matches.create.bump', { time: matchTime(m), players: playersIn(m, locale) })} />
+          ))}
+        </div>
+      )}
       {night && kind === 'booking' && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
       <ErrorText error={error} />
     </Modal>
   );
+}
+
+/** "3 players" in a match (the women's count in a women's match, R38); "—" when the server did not say. */
+function playersIn(m: OpenMatch, locale: Locale): string {
+  if (m.seats_taken === null) return '—';
+  return countPhrase(m.category === 'women' ? 'ws.matches.count.playersF' : 'ws.matches.count.players', m.seats_taken, locale);
+}
+
+/**
+ * After an online create that was warned about bumping (§5.10): refetch the
+ * open-match reads, and toast each warned match the server no longer lists.
+ * Runs after the dialog has closed; the client and toast outlive it.
+ */
+export async function toastBumpedMatches(
+  queryClient: Pick<QueryClient, 'refetchQueries' | 'getQueriesData'>,
+  warned: readonly OpenMatch[],
+  notify: (m: OpenMatch) => void,
+): Promise<void> {
+  try {
+    await queryClient.refetchQueries({ queryKey: QK.deskMatches.all, type: 'active' });
+  } catch {
+    return;
+  }
+  const listed = new Set<string>();
+  for (const [, data] of queryClient.getQueriesData<OpenMatches | null>({ queryKey: [...QK.deskMatches.all, 'open'] })) {
+    for (const m of data?.matches ?? []) listed.add(m.match_id);
+  }
+  for (const m of warned) if (!listed.has(m.match_id)) notify(m);
 }
 
 /** The price of what is about to be booked, or why there is none. */

@@ -9,11 +9,13 @@ import {
   PAYMENT_STATUSES,
   SLOW_POLL_MS,
   bodyErrorCode,
+  bodyErrorDetail,
   failureTextKey,
   fetchFailureOf,
   holdIdOf,
   isPollingScreen,
   isTerminalScreen,
+  isTicketPayment,
   onlinePaymentOf,
   openPaymentRef,
   parseDepositBegin,
@@ -26,6 +28,7 @@ import {
   screenFor,
   secondsLeft,
   serverNowMs,
+  ticketBeginRefusalOf,
   type DepositStatus,
   type PayScreenKind,
   type PaymentStatus,
@@ -568,5 +571,134 @@ describe('refund lines', () => {
     expect(refundDetailKey(row({ payment_status: 'refunded' }))).toBe('deposit.refundedDetail');
     expect(refundDetailKey(row({ payment_status: 'refund_failed' }))).toBe('deposit.refundFailedDetail');
     expect(refundDetailKey(row({}))).toBeNull();
+  });
+});
+
+// ── Open-match tickets (docs/design/open-matches/guest.md §4.10.4) ──────────
+
+/** A ticket purchase as deposit-status sends it (money.md §5.5): no hold, no reservation. */
+function ticket(over: Partial<DepositStatus> = {}): DepositStatus {
+  return status({
+    purpose: 'ticket',
+    ticketCount: 2,
+    unitPriceIqd: 10000,
+    amountIqd: 20000,
+    priceIqd: 20000,
+    restIqd: 0,
+    depositMode: 'off',
+    holdLive: false,
+    reservation: null,
+    ...over,
+  });
+}
+
+describe('parseDepositStatus: purpose', () => {
+  it('reads a ticket purchase with its count and unit price', () => {
+    const s = parseDepositStatus({
+      request_id: 'r-2',
+      purpose: 'ticket',
+      status: 'succeeded',
+      amount_iqd: 20000,
+      ticket_count: 2,
+      unit_price_iqd: '10000',
+      deposit_mode: null,
+      attempts_left: 2,
+      hold_live: false,
+      reservation: null,
+    });
+    expect(s.purpose).toBe('ticket');
+    expect(s.ticketCount).toBe(2);
+    expect(s.unitPriceIqd).toBe(10000);
+    // deposit_mode null on a ticket (conc-D15): the phone reads it as off.
+    expect(s.depositMode).toBe('off');
+    expect(isTicketPayment(s)).toBe(true);
+  });
+
+  it('reads a row with no purpose, or one it does not know, as a deposit', () => {
+    expect(parseDepositStatus({ request_id: 'r-3', status: 'pending' }).purpose).toBe('deposit');
+    expect(parseDepositStatus({ request_id: 'r-3', purpose: 'gift', status: 'pending' }).purpose).toBe(
+      'deposit',
+    );
+    expect(parseDepositStatus({ request_id: 'r-3', status: 'pending' }).ticketCount).toBeNull();
+    expect(isTicketPayment(status())).toBe(false);
+    expect(isTicketPayment(null)).toBe(false);
+  });
+});
+
+describe('screenFor: a ticket purchase', () => {
+  /** Every status, with a ticket's payload (window open, attempts left). */
+  const EXPECTED: Record<PaymentStatus, PayScreenKind> = {
+    created: 'checking',
+    pending: 'checking',
+    // Decided before the deposit switch: a ticket has no booking to wait for.
+    succeeded: 'ticketsBought',
+    failed: 'failed',
+    expired: 'expired',
+    refund_pending: 'refundPending',
+    refunded: 'refunded',
+    refund_failed: 'refundFailed',
+  };
+
+  it.each([...PAYMENT_STATUSES])('%s', (s) => {
+    expect(kindOf(ticket({ status: s }))).toBe(EXPECTED[s]);
+  });
+
+  it('carries the count the purchase was for', () => {
+    expect(screenFor({ status: ticket({ status: 'succeeded' }), failure: null, nowMs: NOW })).toEqual({
+      kind: 'ticketsBought',
+      count: 2,
+    });
+  });
+
+  it('is still checking past the window, like a deposit', () => {
+    expect(kindOf(ticket({ status: 'pending' }), null, Date.parse(DEADLINE) + 1)).toBe('stillChecking');
+  });
+
+  it('offers a new attempt while attempts are left, and never the desk', () => {
+    expect(
+      screenFor({ status: ticket({ status: 'failed', failureCode: 'declined' }), failure: null, nowMs: NOW }),
+    ).toEqual({
+      kind: 'failed',
+      reason: 'declined',
+      holdLive: false,
+      canRetry: true,
+      canPayAtDesk: false,
+      outOfAttempts: false,
+    });
+    expect(
+      screenFor({ status: ticket({ status: 'failed', attemptsLeft: 0 }), failure: null, nowMs: NOW }),
+    ).toMatchObject({ kind: 'failed', canRetry: false, outOfAttempts: true });
+  });
+
+  it('never reads a refund as a lost slot: amount_mismatch is the one a purchase can show', () => {
+    expect(kindOf(ticket({ status: 'refund_pending', refundReason: 'amount_mismatch' }))).toBe('refundPending');
+    expect(kindOf(status({ status: 'refund_pending', refundReason: 'amount_mismatch' }))).toBe('slotLost');
+  });
+
+  it('lets go of the pointer once the tickets are in', () => {
+    expect(isTerminalScreen('ticketsBought')).toBe(true);
+    expect(isPollingScreen('ticketsBought')).toBe(false);
+  });
+});
+
+describe('ticket-begin refusals', () => {
+  it('carries the body detail on the error', () => {
+    expect(bodyErrorDetail({ error: 'TICKET_COUNT_INVALID', detail: 'wallet_limit' })).toBe('wallet_limit');
+    expect(bodyErrorDetail({ error: 'X', detail: ' ' })).toBeNull();
+    expect(bodyErrorDetail(null)).toBeNull();
+    expect(new DepositEdgeError('TICKET_COUNT_INVALID', 400, 'wallet_limit').detail).toBe('wallet_limit');
+    expect(new DepositEdgeError('X', 400).detail).toBeNull();
+  });
+
+  it('sends each refusal where §4.10.1 says', () => {
+    expect(ticketBeginRefusalOf(new DepositEdgeError('PHONE_REQUIRED', 400))).toBe('phone');
+    expect(ticketBeginRefusalOf(new DepositEdgeError('TERMS_REQUIRED', 403))).toBe('terms');
+    expect(ticketBeginRefusalOf(new DepositEdgeError('TOO_MANY_ATTEMPTS', 429))).toBe('tooManyAttempts');
+    expect(ticketBeginRefusalOf(new DepositEdgeError('TICKET_COUNT_INVALID', 400, 'wallet_limit'))).toBe(
+      'walletLimit',
+    );
+    expect(ticketBeginRefusalOf(new DepositEdgeError('TICKET_COUNT_INVALID', 400, 'p_count'))).toBe('inline');
+    expect(ticketBeginRefusalOf(new DepositEdgeError('MATCHES_OFF', 409))).toBe('inline');
+    expect(ticketBeginRefusalOf(new TypeError('Network request failed'))).toBe('inline');
   });
 });

@@ -80,6 +80,11 @@ export interface VenueSettingsPublic {
   venue_id?: string | null;
   venue_name_en?: string | null;
   venue_name_ar?: string | null;
+  /** Open matches at this branch (0257). Optional: a row cached before the
+   *  column existed has neither knob, and reads as switched off. */
+  matches_enabled?: boolean | null;
+  /** Minutes before the start a filling match must be full (0257; 120 by default). */
+  match_fill_deadline_minutes?: number | null;
 }
 
 export const DEFAULT_TZ = 'Asia/Baghdad';

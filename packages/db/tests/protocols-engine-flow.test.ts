@@ -450,13 +450,14 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
     expect(steps[1]!.assigned_to).toBe(hcId);
     expect(steps[2]!.ok).toBe(true);
 
-    // Involvement: the proposer, another head (propose actor), marketing
-    // (marketing actor); not a chef, not the driver.
+    // Involvement: the proposer and marketing (marketing actor, still to
+    // come); not the other head once the proposal is handed in (0249), not a
+    // chef, not the driver.
     const hcDetail = ok<RunDetail>(r, 'hc_detail');
     expect(hcDetail.can.withdraw_run).toBe(true);
     expect(hcDetail.run.data).toEqual({});
     expect(hcDetail.steps[0]!.submissions[0]!.record).toEqual({ name_en: 'Rose latte', checked: true });
-    expect(v('hb_detail')!.ok).toBe(true);
+    expect(refused(r, 'hb_detail')).toBe('PROTOCOL_NOT_FOUND');
     expect(v('mk_detail')!.ok).toBe(true);
     expect(refused(r, 'chef_detail')).toBe('PROTOCOL_NOT_FOUND');
     expect(refused(r, 'drv_step')).toBe('PROTOCOL_NOT_FOUND');
@@ -884,18 +885,17 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
     const sees = (prefix: string, whos: readonly string[]) =>
       Object.fromEntries(whos.map((w) => [w, ok<boolean>(r, `${prefix}_${w}`)]));
     ok(r, 'test');
-    // Involved in the release: the proposer, the other head (propose's
-    // actor), marketing (its step's actor). Not the chef or the driver.
+    // Involved in the release: the proposer and marketing (its step's actor).
+    // Not the other head once the proposal is in (0249), the chef or the driver.
     expect(sees('see_test', WHO)).toEqual({
-      hc: true, hb: true, mk: true, mk2: true, chef: false, drv: false, cashier: false, manager: true, owner: true,
+      hc: true, hb: false, mk: true, mk2: true, chef: false, drv: false, cashier: false, manager: true, owner: true,
     });
 
     ok(r, 'h_add');
     expect(ok<Moved>(r, 'h_own_send').auto).toBe(true);
-    // The driver is involved (an actor of the owner's step) and the engine
-    // hides the photo from them; storage does too.
-    const drvStep = ok<{ step: StepRow }>(r, 'h_drv_step');
-    expect(drvStep.step.submissions[0]!.photos).toEqual([]);
+    // The owner handed in the driver's step, so the run no longer concerns
+    // the driver (0249): the engine refuses the step and storage hides the photo.
+    expect(refused(r, 'h_drv_step')).toBe('PROTOCOL_NOT_FOUND');
     expect(sees('see_hire', ['owner', 'manager', 'drv', 'hb'])).toEqual({
       owner: true, manager: true, drv: false, hb: false,
     });
@@ -944,6 +944,7 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
       T('skip_marketing', 'manager', `select app.skip_step({{s3}}, 'No campaign this time')`),
       T('skip_again', 'manager', `select app.skip_step({{s3}}, 'again')`),
       T('mk_step3', 'mk', `select app.protocol_step_detail({{s3}})`),
+      T('mgr_step3', 'manager', `select app.protocol_step_detail({{s3}})`),
 
       T('courts', 'desk', `select app.submit_step({{s4}}, '{"note":"blocked"}')`),
       RES('sub4', 'courts', 'submission_id'),
@@ -997,8 +998,10 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
     expect(refused(r, 'skip_courts')).toBe('STEP_NOT_OPTIONAL');
     expect(ok<Moved>(r, 'skip_marketing')).toMatchObject({ step_status: 'skipped', opened_step_ids: [] });
     expect(refused(r, 'skip_again')).toBe('STEP_CLOSED');
-    const mkStep3 = ok<{ step: { skip_note: string; skipped_by_name: string } }>(r, 'mk_step3');
-    expect(mkStep3.step.skip_note).toBe('No campaign this time');
+    // Its one step skipped, the tournament no longer concerns marketing (0249).
+    expect(refused(r, 'mk_step3')).toBe('PROTOCOL_NOT_FOUND');
+    const mgrStep3 = ok<{ step: { skip_note: string; skipped_by_name: string } }>(r, 'mgr_step3');
+    expect(mgrStep3.step.skip_note).toBe('No campaign this time');
 
     expect(ok<Moved>(r, 'courts').auto).toBe(false);
     expect(refused(r, 'desk_decides')).toBe('NOT_DECIDER');

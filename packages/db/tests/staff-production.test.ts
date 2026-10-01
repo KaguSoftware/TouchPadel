@@ -214,6 +214,8 @@ interface TodayItem {
   below_par: boolean;
   made_today: number;
   shelf_life_days: number | null;
+  /** 0250: how much one batch makes, in the item's unit. */
+  batch_yield: number | null;
 }
 interface LogRow {
   movement_id: number;
@@ -279,8 +281,10 @@ describe.skipIf(!docker)('staff production (rolled-back transactions)', () => {
     expect(mine(before)[1]).toMatchObject({ unit: 'pc', par_level: null, below_par: false });
     expect(moneyKeys(before)).toEqual([]);
     expect(Object.keys(before[0]!).sort()).toEqual(
-      ['below_par', 'ingredient_id', 'made_today', 'name_ar', 'name_en', 'on_hand', 'par_level', 'shelf_life_days', 'unit'],
+      ['batch_yield', 'below_par', 'ingredient_id', 'made_today', 'name_ar', 'name_en', 'on_hand', 'par_level',
+       'shelf_life_days', 'unit'],
     );
+    expect(mine(before).map((i) => i.batch_yield)).toEqual([null, null]);
 
     // Quantity and expiry, never the unit cost; a retried key is one batch.
     const batch = ok<Record<string, unknown>>(r, 'batch');
@@ -377,6 +381,41 @@ describe.skipIf(!docker)('staff production (rolled-back transactions)', () => {
     }
     // Only the manager's 100 g of dough moved.
     expect(ok<number>(r, 'moves')).toBe(1);
+  });
+
+  // 0250 (owner, 2026-09-28): the manager sets how much one batch makes, and
+  // the phone fills in the amount from it.
+  it('a batch size is the manager’s to set on a prepared item, and the chefs read it', () => {
+    const r = scenario([
+      MK('hc', 'head_chef'), MK('chef', 'chef'),
+      T('set_mgr', 'manager', `select app.set_batch_yield({{dough}}, 2500.5)`),
+      T('set_owner', 'owner', `select app.set_batch_yield({{cookies}}, 24)`),
+      T('set_hc', 'hc', `select app.set_batch_yield({{dough}}, 10)`),
+      T('set_chef', 'chef', `select app.set_batch_yield({{dough}}, 10)`),
+      T('set_bought', 'manager', `select app.set_batch_yield({{flour}}, 10)`),
+      T('set_zero', 'manager', `select app.set_batch_yield({{dough}}, 0)`),
+      T('set_neg', 'manager', `select app.set_batch_yield({{dough}}, -2)`),
+      T('set_nothing', 'manager', `select app.set_batch_yield('00000000-0000-4000-8000-000000000000', 5)`),
+      T('today', 'chef', `select app.production_today({{venue}})`),
+      Q('audit', `select jsonb_agg(jsonb_build_object('before', a.before, 'after', a.after) order by a.id)
+                    from audit_log a where a.action = 'stock.set_batch_yield' and a.entity_id = {{dough}}`),
+      T('clear', 'manager', `select app.set_batch_yield({{dough}}, null)`),
+      T('today_cleared', 'chef', `select app.production_today({{venue}})`),
+    ]);
+    expect(ok(r, 'set_mgr')).toMatchObject({ batch_yield: 2500.5 });
+    ok(r, 'set_owner');
+    expect(refused(r, 'set_hc')).toBe('FORBIDDEN');
+    expect(refused(r, 'set_chef')).toBe('FORBIDDEN');
+    expect(refused(r, 'set_bought')).toBe('NOT_PREPARED');
+    expect(refused(r, 'set_zero')).toBe('INVALID_QTY');
+    expect(refused(r, 'set_neg')).toBe('INVALID_QTY');
+    expect(refused(r, 'set_nothing')).toBe('INGREDIENT_NOT_FOUND');
+    const yields = (label: string) =>
+      Object.fromEntries(ok<{ items: TodayItem[] }>(r, label).items
+        .filter((i) => i.name_en.startsWith('PR ')).map((i) => [i.name_en, i.batch_yield]));
+    expect(yields('today')).toEqual({ 'PR dough': 2500.5, 'PR cookies': 24 });
+    expect(ok(r, 'audit')).toEqual([{ before: { batch_yield: null }, after: { batch_yield: 2500.5 } }]);
+    expect(yields('today_cleared')).toEqual({ 'PR dough': null, 'PR cookies': 24 });
   });
 
   // Wave 5 (wave5-addendum-2026-09-25 §2.8 D3, lane S): production is the

@@ -3,7 +3,7 @@
 The build is four weeks. Every item below is client-side, and the contract (Scope of Work,
 section 11) is explicit: **a week's delay here is a week off the end.**
 
-مدة البناء أربعة أسابيع فقط. كل بند أدناه من جهة العميل، وأي تأخير أسبوع هنا يعني أسبوعاً أقل في النهاية.
+مدة البناء أربعة أسابيع فقط. كل بند أدناه مطلوب من جهتكم، وتأخير أي بند أسبوعًا يعني اقتطاع أسبوع من نهاية المدة.
 
 > **Status 2026-08-30** (after intake pack 2, 16/21): answered — items 1, 2 (Mustafa), 3-partial
 > (courts + hours + cancellation ✓, **rates still missing**), 4 ✓, 5 (sent via WhatsApp — not yet
@@ -22,30 +22,30 @@ section 11) is explicit: **a week's delay here is a week off the end.**
 | # | Item / البند | Needed by | Consequence if late (per SOW) |
 |---|---|---|---|
 | 1 | Down payment / الدفعة الأولى | Before start | The four-week build begins on receipt, not before |
-| 2 | Named approver available weekly / موافق معتمد متاح أسبوعياً | Throughout | Phase acceptance cannot be signed |
-| 3 | Court list, hours, rates, cancellation policy / قائمة الملاعب، الأوقات، الأسعار، سياسة الإلغاء | **Week 1** | Module 2 (booking) cannot be configured or tested |
+| 2 | Named approver available weekly / جهة معتمدة محددة بالاسم ومتاحة أسبوعيًا | Throughout | Phase acceptance cannot be signed |
+| 3 | Court list, hours, rates, cancellation policy / قائمة الملاعب وساعات العمل والأسعار وسياسة الإلغاء | **Week 1** | Module 2 (booking) cannot be configured or tested |
 | 4 | Trading currency and tax decision / قرار العملة والضريبة | **Week 1** | Till and reporting cannot be finalised |
-| 5 | Branding assets — logo, colours, photography / أصول العلامة التجارية | **Week 1** | Interfaces ship in placeholder styling |
-| 6 | Full menu with prices, sizes and modifiers / القائمة الكاملة بالأسعار والأحجام والإضافات | **Week 1** | Track C has nothing to render; the website slips |
-| 7 | Domain registered, with DNS access / النطاق مسجل مع صلاحية DNS | **Week 1** | The website cannot go live on Touch's domain |
-| 8 | Supabase account funded in Touch's name / حساب Supabase ممول باسم Touch | **Week 1** | Production cannot be provisioned; the system stays on development limits |
-| 9 | English and Arabic copy for all content / النصوص بالإنجليزية والعربية | Week 2 | The Arabic build cannot be accepted |
-| 10 | Table numbering and floor layout / ترقيم الطاولات ومخطط الأرضية | Week 2 | QR artwork cannot be issued |
-| 11 | Measured recipes per product / وصفات مقاسة لكل منتج | Week 2 | Module 5 cannot be delivered — **the single largest risk in this phase** |
-| 12 | Ingredients — pack size, cost, supplier, shelf life / المكونات — حجم العبوة، الكلفة، المورد، مدة الصلاحية | Week 2 | Margin reporting and batch expiry are unusable |
+| 5 | Branding assets — logo, colours, photography / مواد العلامة التجارية | **Week 1** | Interfaces ship in placeholder styling |
+| 6 | Full menu with prices, sizes and modifiers / المنيو كاملًا بالأسعار والأحجام والإضافات | **Week 1** | Track C has nothing to render; the website slips |
+| 7 | Domain registered, with DNS access / تسجيل النطاق مع صلاحية الوصول إلى DNS | **Week 1** | The website cannot go live on Touch's domain |
+| 8 | Supabase account funded in Touch's name / حساب Supabase ممول باسم تتش | **Week 1** | Production cannot be provisioned; the system stays on development limits |
+| 9 | English and Arabic copy for all content / نصوص كل المحتوى بالإنجليزية والعربية | Week 2 | The Arabic build cannot be accepted |
+| 10 | Table numbering and floor layout / ترقيم الطاولات ومخطط الصالة | Week 2 | QR artwork cannot be issued |
+| 11 | Measured recipes per product / وصفات بكميات مقاسة لكل صنف | Week 2 | Module 5 cannot be delivered — **the single largest risk in this phase** |
+| 12 | Ingredients — pack size, cost, supplier, shelf life / المكوّنات: حجم العبوة والكلفة والمورّد ومدة الصلاحية | Week 2 | Margin reporting and batch expiry are unusable |
 | 13 | Staff list with intended roles / قائمة الموظفين وأدوارهم | Week 3 | Accounts cannot be created for training |
-| 14 | Hardware in place — till, kitchen screen, printer, network / الأجهزة في مكانها | Week 3 | Installation and testing cannot proceed |
+| 14 | Hardware in place — till, kitchen screen, printer, network / الأجهزة في أماكنها: الصندوق وشاشة المطبخ والطابعة والشبكة | Week 3 | Installation and testing cannot proceed |
 | 15 | Staff available for training / الموظفون متاحون للتدريب | Week 5 | Handover is incomplete |
 
 ## Additional items (practical, same deadlines)
 
 | Item / البند | Needed by | Why |
 |---|---|---|
-| ✔ **Font files** — received 2026-09-05 / ملفات الخطوط — تم الاستلام | Week 1 — done | Touch sent **Lama Sans**, not the Next Art / Frutiger LT Arabic pair the brand deck names. It covers Latin and Arabic in one family and permits embedding, so it is in the build. The deck's original faces would still need their own licences if Touch ever wants them |
+| ✔ **Font files** — received 2026-09-05 / ملفات الخطوط: استُلمت | Week 1 — done | Touch sent **Lama Sans**, not the Next Art / Frutiger LT Arabic pair the brand deck names. It covers Latin and Arabic in one family and permits embedding, so it is in the build. The deck's original faces would still need their own licences if Touch ever wants them |
 | **Printer purchase confirmation** — model per `01-printer-spec.md` / تأكيد شراء الطابعة | Week 1 (order), Week 3 (installed) | Receipt and kitchen printing cannot be tested on real hardware otherwise |
-| **Till machine static IP / DHCP reservation** on the venue network / عنوان IP ثابت لجهاز الكاشير | Week 3 | The kitchen screen finds the till over the local network by address; if the address changes, kitchen tickets stop |
+| **Till machine static IP / DHCP reservation** on the venue network / عنوان IP ثابت لجهاز الصندوق | Week 3 | The kitchen screen finds the till over the local network by address; if the address changes, kitchen tickets stop |
 | **Supabase region**: create the project in **Frankfurt (eu-central-1)** / منطقة Supabase: فرانكفورت | Week 1 (with item 8) | Closest well-supported region to Iraq; changing region later means a migration |
-| **PITR sign-off** (see below) / موافقة على كلفة الاسترجاع الزمني | Week 1 | Cost decision — needs your written OK |
+| **PITR sign-off** (see below) / الموافقة على كلفة الاستعادة إلى نقطة زمنية | Week 1 | Cost decision — needs your written OK |
 
 ## Point-in-time recovery (PITR) — cost note
 
@@ -60,7 +60,7 @@ to Touch's account like the rest of the database service). Two honest options:
 Please confirm in writing which option Touch funds. This is a Supabase cost, not a Kagu fee
 (SOW: only Supabase and the domain are billed to Touch).
 
-يرجى التأكيد كتابياً أي الخيارين تعتمدون: الاسترجاع الزمني الكامل (إضافة مدفوعة) أم النسخ الاحتياطي اليومي فقط.
+يُرجى التأكيد كتابيًا أيَّ الخيارين تعتمدون: الاستعادة إلى أي نقطة زمنية (إضافة مدفوعة) أم النسخ الاحتياطي اليومي فقط.
 
 > **Decided 2026-08-30: option 2 — daily backups only** (owner decision, superseding the pack's
 > "pitr" answer). Written acknowledgment of the SOW deviation requested in
