@@ -30,6 +30,11 @@ import { useNavigationTheme } from '../src/navigation/theme';
 import { useNativeBarDirection } from '../src/navigation/headerDirection';
 import { AuthProvider, useAuth } from '../src/features/auth/context';
 import { StaffStatusProvider, settledStaffStatus } from '../src/features/staff/StaffStatusProvider';
+import {
+  hasSeenWelcome,
+  markWelcomeSeen,
+  settleWelcomeDecision,
+} from '../src/features/auth/welcomeSeen';
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
@@ -182,7 +187,24 @@ function RootStack() {
   // `hasSession` is read through a ref so the lifecycle is installed ONCE and
   // still sees the current session; re-installing it per sign-in would drop
   // Expo's token-rotation listener on every auth event.
-  const { session } = useAuth();
+  const { session, initializing } = useAuth();
+  // First launch, signed out: the Welcome screen comes first, once per install.
+  // Marked seen as it is presented, so a signed-in or returning guest never
+  // sees it here (it stays reachable from the gated flows that need an account).
+  const welcomeChecked = useRef(false);
+  useEffect(() => {
+    if (initializing || welcomeChecked.current) return;
+    welcomeChecked.current = true;
+    if (session || hasSeenWelcome()) {
+      settleWelcomeDecision();
+      return;
+    }
+    markWelcomeSeen();
+    // Replace, not push: the tabs are not left mounted beneath it, and the boot
+    // cover stays up until this has landed.
+    router.replace('/welcome');
+    settleWelcomeDecision();
+  }, [initializing, session]);
   const sessionRef = useRef(session);
   const pushSync = useRef<((reason: string) => void) | null>(null);
   useEffect(() => {
