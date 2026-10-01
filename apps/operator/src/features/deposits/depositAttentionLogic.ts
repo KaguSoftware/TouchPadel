@@ -20,6 +20,12 @@
  * A ticket row (`purpose = 'ticket'`, open matches §5.17) is a ticket
  * purchase's cash-out or account-deletion refund: chain money, so any branch
  * can settle it; it has no booking and opens the customer instead.
+ *
+ * A lesson row (`purpose = 'lesson'`, coaching operator.md §5.17) is a lesson
+ * sign-up's online money going back (a coach cancel, too few students, a
+ * guest's cancel): "Lesson refund · {name}", opening the lesson and the
+ * customer. Asking a refund of a lesson still on answers PAYMENT_STATE
+ * `lesson_live`, which has its own line.
  */
 import type { MessageKey } from '@touch/i18n';
 import { REFUND_REASONS, type DepositAttentionRow, type RefundReason } from './depositApi';
@@ -58,13 +64,22 @@ export function isTicketRow(row: Pick<DepositAttentionRow, 'purpose'>): boolean 
   return row.purpose === 'ticket';
 }
 
-const TICKET_REFUND_REASONS: readonly RefundReason[] = ['ticket_cashout', 'account_deleted'];
+/** A lesson payment's refund (0281; coaching operator.md §5.17), not a booking deposit. */
+export function isLessonPaymentRow(row: Pick<DepositAttentionRow, 'purpose'>): boolean {
+  return row.purpose === 'lesson';
+}
 
-/** A known reason's words: the two ticket reasons are worded with open matches, the rest with online refunds. */
+const TICKET_REFUND_REASONS: readonly RefundReason[] = ['ticket_cashout', 'account_deleted'];
+const LESSON_REFUND_REASONS: readonly RefundReason[] = ['coach_cancel', 'under_filled'];
+
+/**
+ * A known reason's words: the two ticket reasons are worded with open
+ * matches, the two lesson reasons with coaching, the rest with online refunds.
+ */
 export function refundReasonKey(reason: RefundReason): MessageKey {
-  return TICKET_REFUND_REASONS.includes(reason)
-    ? `ws.matches.ops.refundReason.${reason as 'ticket_cashout' | 'account_deleted'}`
-    : `ws.manager.onlineRefunds.reasons.${reason as Exclude<RefundReason, 'ticket_cashout' | 'account_deleted'>}`;
+  if (TICKET_REFUND_REASONS.includes(reason)) return `ws.matches.ops.refundReason.${reason as 'ticket_cashout' | 'account_deleted'}`;
+  if (LESSON_REFUND_REASONS.includes(reason)) return `ws.coaching.deposits.refundReason.${reason as 'coach_cancel' | 'under_filled'}`;
+  return `ws.manager.onlineRefunds.reasons.${reason as Exclude<RefundReason, 'ticket_cashout' | 'account_deleted' | 'coach_cancel' | 'under_filled'>}`;
 }
 
 /** The amount at stake: what is being refunded when a refund was asked for, else what was paid. */

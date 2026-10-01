@@ -18,6 +18,11 @@
  * ticket purchase's refund (cash-out or account deletion) reads "Ticket
  * refund · {tickets} · {name}", carries "Any branch can settle this" (chain
  * money) and opens the customer rather than a booking.
+ *
+ * Coaching (docs/design/coaching/operator.md §5.17): a lesson payment's
+ * refund reads "Lesson refund · {name}" with Open lesson and Open customer;
+ * its reasons include the coach's cancel and too few students, and asking the
+ * refund of a lesson still on gives its own line (PAYMENT_STATE `lesson_live`).
  */
 import { useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -31,6 +36,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Button, ErrorText, Field, Modal, Skeleton, inputStyle } from '../../components/ui';
 import { AsyncStateWrapper, EmptyState, Money, Panel, StatusBadge, type Tone } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
+import { coachingErrorText } from '../coaching/lessonLogic';
 import {
   depositAttentionKey,
   depositSettingsKey,
@@ -47,6 +53,7 @@ import {
   attentionHintKey,
   attentionKindOf,
   attentionSince,
+  isLessonPaymentRow,
   isTicketRow,
   knownRefundReason,
   refundReasonKey,
@@ -120,12 +127,17 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
   const guest = row.guest_name?.trim() || tr(`${K}.noName`);
   const court = row.court_name_en && row.court_name_ar ? pickName(locale, { name_en: row.court_name_en, name_ar: row.court_name_ar }) : null;
   const ticket = isTicketRow(row);
+  const lesson = isLessonPaymentRow(row);
   const title = ticket
     ? tr('ws.matches.ops.ticketRow', {
         tickets: row.ticket_count != null ? countPhrase('ws.matches.count.tickets', row.ticket_count, locale) : '—',
         name: isolate(guest),
       })
-    : guest;
+    : lesson
+      ? tr('ws.coaching.deposits.lessonRow', { name: isolate(guest) })
+      : guest;
+  // A lesson row's refusals read their coaching line (PAYMENT_STATE lesson_live, §5.19).
+  const errorMessage = lesson && error != null ? coachingErrorText(error, tr) : null;
 
   function refreshed() {
     void qc.invalidateQueries({ queryKey: ['depositAttention'] });
@@ -194,7 +206,7 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
       </div>
       {facts.length > 0 && <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', margin: 0 }}>{facts.join(' · ')}</p>}
 
-      <ErrorText error={settling || confirmRefund ? null : error} style={{ marginBlock: 0 }} />
+      <ErrorText error={settling || confirmRefund ? null : error} message={errorMessage} style={{ marginBlock: 0 }} />
 
       <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
         {actions.retry && (
@@ -212,7 +224,8 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
             {tr(`${K}.settle`)}
           </Button>
         )}
-        {ticket && row.customer_id && <OpenCustomer customerId={row.customer_id} />}
+        {lesson && row.lesson_id && <OpenLesson lessonId={row.lesson_id} />}
+        {(ticket || lesson) && row.customer_id && <OpenCustomer customerId={row.customer_id} />}
       </div>
 
       <ConfirmDialog
@@ -222,7 +235,7 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
         body={
           <>
             <p>{tr(`${K}.refundBody`)}</p>
-            <ErrorText error={error} />
+            <ErrorText error={error} message={errorMessage} />
           </>
         }
         confirmLabel={tr(`${K}.refundConfirm`)}
@@ -245,6 +258,17 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
         />
       )}
     </li>
+  );
+}
+
+/** A lesson payment's refund opens its lesson (coaching operator.md §5.17). */
+function OpenLesson({ lessonId }: { lessonId: string }) {
+  const { tr } = useLocale();
+  const navigate = useNavigate();
+  return (
+    <Button size="sm" kind="ghost" icon="whistle" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/desk/lessons/$id', params: { id: lessonId } })}>
+      {tr('ws.coaching.common.openLesson')}
+    </Button>
   );
 }
 

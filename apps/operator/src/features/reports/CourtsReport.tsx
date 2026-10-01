@@ -35,13 +35,27 @@
  * filters, how the matches and their seats went and a By day table. The court
  * filter hides there, and "Compare with" is disabled (report_compare knows
  * three reports, not this one).
+ *
+ * Lessons (docs/design/coaching/operator.md §5.18.2): when report_courts
+ * carries its `lessons` block (0285), a "Lessons" view joins the list: a band
+ * from that block (lessons, the court hours they took, collected, court share,
+ * owed to coaches) and, from app.report_lessons for the same period, the
+ * counts, the money and three tables (By coach, By lesson type, By day), each
+ * exportable. Occupancy then counts lesson minutes as booked (Money CM-14), so
+ * its hint says so and the by-court table gains the lesson hours. The court
+ * filter hides on the view and "Compare with" is disabled, as for matches.
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
-import { Field, Select } from '../../components/ui';
+import { Button, Field, Select } from '../../components/ui';
 import { StatusBadge, type ComparisonMode } from '../../components/kit';
+import { downloadWorkbook } from '../analytics/exportTables';
+import { reportFilename } from './reportFile';
+import { readLessonsReport, type LessonsReport } from '../coaching/lessonPayloads';
+import { kindKey } from '../coaching/lessonLogic';
+import { lessonRead } from '../coaching/useCoaching';
 import {
   AsyncStateWrapper,
   asyncStatus,
@@ -77,9 +91,11 @@ import {
 import { CourtFilter } from './ReportFilterBar';
 import {
   courtsIsEmpty,
+  lessonsReportIsEmpty,
   matchesReportIsEmpty,
   readCourts,
   readMatchesReport,
+  type CourtLessons,
   type CourtMatches,
   type CourtRow,
   type MatchDayRow,
@@ -87,11 +103,14 @@ import {
   type MatchesReport,
 } from './reportPayloads';
 
-type View = 'byCourt' | 'cancellations' | 'peak' | 'byHour' | 'byDay' | 'matches';
+type View = 'byCourt' | 'cancellations' | 'peak' | 'byHour' | 'byDay' | 'matches' | 'lessons';
 const COURT_VIEWS: readonly View[] = ['byCourt', 'cancellations', 'peak', 'byHour', 'byDay'];
-/** The Open matches view is offered only when the server sends report_courts' `matches` block. */
-export function courtsViews(hasMatches: boolean): readonly View[] {
-  return hasMatches ? [...COURT_VIEWS, 'matches'] : COURT_VIEWS;
+/**
+ * The Open matches view is offered only when the server sends report_courts'
+ * `matches` block, the Lessons view only when it sends its `lessons` block.
+ */
+export function courtsViews(hasMatches: boolean, hasLessons = false): readonly View[] {
+  return [...COURT_VIEWS, ...(hasMatches ? (['matches'] as const) : []), ...(hasLessons ? (['lessons'] as const) : [])];
 }
 type Locale = ReturnType<typeof useLocale>['locale'];
 type DayRow = { date: string; bookings: number | null; revenueIqd: number | null };
@@ -117,10 +136,21 @@ export function CourtsReportScreen() {
   // every court at zero.
   const status = asyncStatus(q, (d) => courtsIsEmpty(d.current));
   const t = data?.totals ?? null;
-  const views = courtsViews(Boolean(data?.matches));
+  const views = courtsViews(Boolean(data?.matches), Boolean(data?.lessons));
   // A server that stops sending the block (a branch switch) falls back to the first view.
   const view: View = views.includes(picked) ? picked : 'byCourt';
   const onMatches = view === 'matches';
+  const onLessons = view === 'lessons';
+  // Coaching (§5.18.2): app.report_lessons for the same period, read when its view is open.
+  const lessonArgs = { p_from: period.from, p_to: period.to };
+  const lessonsQ = useQuery({
+    queryKey: ['reports', 'report_lessons', lessonArgs],
+    queryFn: () => lessonRead(() => appRpc('report_lessons', lessonArgs), readLessonsReport),
+    enabled: ready && onLessons,
+    refetchInterval: 120_000,
+  });
+  // Occupancy counts lesson minutes as booked once the server sends the block (Money CM-14).
+  const hasLessons = Boolean(data?.lessons);
   const matchArgs = {
     p_from: period.from,
     p_to: period.to,
@@ -163,6 +193,7 @@ export function CourtsReportScreen() {
       courtColumn,
       n('bookings', c('ws.reports.courts.columns.bookings'), (v) => count(v, locale)),
       { ...n('bookedMinutes', c('ws.reports.courts.columns.hours'), (v) => hoursOf(v, locale, tr)) },
+      ...(hasLessons ? [n('lessonMinutes', c('ws.reports.courts.columns.lessonHours'), (v) => hoursOf(v, locale, tr))] : []),
       ...(hasEvents ? [n('eventMinutes', c('ws.events.courts.eventHours'), (v) => hoursOf(v, locale, tr))] : []),
       n('occupancyPct', c('ws.reports.courts.columns.occupancy'), (v) => percent(v, locale, tr)),
       n('revenueIqd', c('ws.reports.courts.columns.revenue'), (v) => money(v, locale), true),
@@ -209,6 +240,7 @@ export function CourtsReportScreen() {
   }
 
   const matchDayColumns = matchDayColumnsOf(tr, locale);
+  const lessonTables = lessonTablesOf(tr, locale);
 
   const notes: Record<View, Parameters<Tr>[0][]> = {
     // The event column says what it is where it appears, like the two derived figures.
@@ -218,13 +250,34 @@ export function CourtsReportScreen() {
     byHour: [],
     byDay: [],
     matches: ['ws.matches.reports.compareOff'],
+    lessons: ['ws.coaching.reports.compareOff'],
   };
+
+  /** One lessons table, as its own file (§5.18.2: each exportable). */
+  function exportLessonTable(which: LessonTableKey) {
+    const report = lessonsQ.data;
+    if (!report) return;
+    exportTable(tr('ws.reports.export.courts'), locale, period, { view: 'lessons', table: which }, lessonTableCsv(lessonTables, report, which));
+  }
 
   function exportCsv() {
     if (!data) return;
-    const parts = { view, court: onMatches ? undefined : courtId || undefined };
+    const parts = { view, court: onMatches || onLessons ? undefined : courtId || undefined };
     const base = tr('ws.reports.export.courts');
     if (view === 'matches') return exportTable(base, locale, period, parts, tableCsv(matchDayColumns, matchesQ.data?.byDay ?? []));
+    if (view === 'lessons') {
+      // The three lessons tables, one sheet each.
+      const report = lessonsQ.data;
+      if (!report) return;
+      return downloadWorkbook(
+        reportFilename(base, period, parts),
+        locale,
+        LESSON_TABLES.map((which) => {
+          const t = lessonTableCsv(lessonTables, report, which);
+          return { name: tr(`ws.coaching.reports.${which}.title`), columns: t.headers, rows: t.body };
+        }),
+      );
+    }
     if (view === 'byDay') return exportTable(base, locale, period, parts, tableCsv(dayColumns, data.trend));
     if (view === 'byHour') {
       return exportTable(base, locale, period, parts, {
@@ -270,6 +323,9 @@ export function CourtsReportScreen() {
             {/* report_compare knows three reports; the note under the view says so. */}
             <CompareFilter value={compare} onChange={setCompare} disabled />
           </>
+        ) : onLessons ? (
+          // Lessons (§5.18.2): no court filter; comparison is not available yet.
+          <CompareFilter value={compare} onChange={setCompare} disabled />
         ) : (
           <>
             <CourtFilter value={courtId} onChange={setCourtId} />
@@ -293,7 +349,11 @@ export function CourtsReportScreen() {
               <HeadlineFigure
                 label={tr('ws.reports.courts.occupancy')}
                 value={percent(t?.occupancyPct ?? null, locale, tr)}
-                hint={t?.availableMinutes != null ? tr('ws.reports.courts.occupancyHint', { hours: count(Math.round(t.availableMinutes / 60), locale) }) : undefined}
+                hint={
+                  t?.availableMinutes != null
+                    ? tr(hasLessons ? 'ws.reports.courts.occupancyLessonsHint' : 'ws.reports.courts.occupancyHint', { hours: count(Math.round(t.availableMinutes / 60), locale) })
+                    : undefined
+                }
               />
               <HeadlineFigure label={tr('ws.reports.courts.revenue')} value={money(t?.revenueIqd ?? null, locale)} comparison={changeOf(changes, 'revenueIqd')} format={(n) => money(n, locale)} />
               <HeadlineFigure label={tr('ws.reports.courts.cancellations')} value={count(t?.cancellations ?? null, locale)} tone={t?.cancellations ? 'warn' : 'neutral'} comparison={changeOf(changes, 'cancellations')} format={(n) => count(n, locale)} invert />
@@ -320,8 +380,20 @@ export function CourtsReportScreen() {
                 onRetry={() => void matchesQ.refetch()}
                 dayColumns={matchDayColumns}
               />
+            ) : onLessons && data.lessons ? (
+              <LessonsView
+                band={data.lessons}
+                report={lessonsQ.data ?? null}
+                // A server without report_lessons answers null: the counts and tables are absent.
+                absent={lessonsQ.data === null}
+                status={asyncStatus(lessonsQ, (r) => r === null || lessonsReportIsEmpty(r))}
+                error={lessonsQ.error}
+                onRetry={() => void lessonsQ.refetch()}
+                tables={lessonTables}
+                onExport={exportLessonTable}
+              />
             ) : (
-              <CourtsView view={view === 'matches' ? 'byCourt' : view} data={data} columns={columns} dayColumns={dayColumns} onCourt={openCourt} onDay={openDay} tr={tr} locale={locale} />
+              <CourtsView view={view === 'matches' || view === 'lessons' ? 'byCourt' : view} data={data} columns={columns} dayColumns={dayColumns} onCourt={openCourt} onDay={openDay} tr={tr} locale={locale} />
             )}
             <ColumnNotes notes={notes[view].map((k) => tr(k))} />
           </>
@@ -473,6 +545,191 @@ function MatchesView({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Lessons (coaching operator.md §5.18.2)
+// ---------------------------------------------------------------------------
+
+type LessonCoachRow = LessonsReport['byCoach'][number];
+type LessonTypeRow = LessonsReport['byType'][number];
+type LessonDayRow = LessonsReport['byDay'][number];
+const LESSON_TABLES = ['byCoach', 'byType', 'byDay'] as const;
+type LessonTableKey = (typeof LESSON_TABLES)[number];
+
+interface LessonTables {
+  byCoach: ReportColumn<LessonCoachRow>[];
+  byType: ReportColumn<LessonTypeRow>[];
+  byDay: ReportColumn<LessonDayRow>[];
+}
+
+function lessonTablesOf(tr: Tr, locale: Locale): LessonTables {
+  const K = 'ws.coaching.reports';
+  const n = <R,>(key: string, header: string, value: (r: R) => number | null, fmt: (v: number | null) => string, strong?: boolean): ReportColumn<R> => ({
+    key,
+    header,
+    numeric: true,
+    render: (r) => <Fig value={value(r)} text={fmt(value(r))} strong={strong} />,
+    sort: value,
+    csv: value,
+  });
+  const cnt = (v: number | null) => count(v, locale);
+  const iqd = (v: number | null) => money(v, locale);
+  return {
+    byCoach: [
+      {
+        key: 'coach',
+        header: tr(`${K}.byCoach.coach`),
+        truncate: true,
+        truncateTitle: (r) => nameIn({ en: r.coachNameEn, ar: r.coachNameAr }, locale),
+        render: (r) => <bdi>{nameIn({ en: r.coachNameEn, ar: r.coachNameAr }, locale)}</bdi>,
+        sort: (r) => nameIn({ en: r.coachNameEn, ar: r.coachNameAr }, locale),
+        csv: (r) => nameIn({ en: r.coachNameEn, ar: r.coachNameAr }, locale),
+      },
+      n<LessonCoachRow>('lessons', tr(`${K}.byCoach.lessons`), (r) => r.lessons, cnt),
+      n<LessonCoachRow>('enrolments', tr(`${K}.byCoach.enrolments`), (r) => r.enrolments, cnt),
+      n<LessonCoachRow>('collectedIqd', tr(`${K}.byCoach.collected`), (r) => r.collectedIqd, iqd, true),
+      n<LessonCoachRow>('coachShareIqd', tr(`${K}.byCoach.coachShare`), (r) => r.coachShareIqd, iqd),
+    ],
+    byType: [
+      {
+        key: 'type',
+        header: tr(`${K}.byType.type`),
+        truncate: true,
+        truncateTitle: (r) => nameIn({ en: r.nameEn, ar: r.nameAr }, locale),
+        render: (r) => <bdi>{nameIn({ en: r.nameEn, ar: r.nameAr }, locale)}</bdi>,
+        sort: (r) => nameIn({ en: r.nameEn, ar: r.nameAr }, locale),
+        csv: (r) => nameIn({ en: r.nameEn, ar: r.nameAr }, locale),
+      },
+      {
+        key: 'kind',
+        header: tr(`${K}.byType.kind`),
+        render: (r) => (r.kind ? tr(kindKey(r.kind)) : '—'),
+        sort: (r) => r.kind,
+        csv: (r) => (r.kind ? tr(kindKey(r.kind)) : null),
+      },
+      n<LessonTypeRow>('lessons', tr(`${K}.byType.lessons`), (r) => r.lessons, cnt),
+      n<LessonTypeRow>('enrolments', tr(`${K}.byType.enrolments`), (r) => r.enrolments, cnt),
+      n<LessonTypeRow>('collectedIqd', tr(`${K}.byType.collected`), (r) => r.collectedIqd, iqd, true),
+    ],
+    byDay: [
+      { key: 'date', header: tr(`${K}.byDay.day`), render: (r) => <bdi>{r.date ? formatDay(r.date, locale) : '—'}</bdi>, sort: (r) => r.date, csv: (r) => r.date },
+      n<LessonDayRow>('lessons', tr(`${K}.byDay.lessons`), (r) => r.lessons, cnt),
+      n<LessonDayRow>('collectedIqd', tr(`${K}.byDay.collected`), (r) => r.collectedIqd, iqd, true),
+      n<LessonDayRow>('coachShareIqd', tr(`${K}.byDay.coachShare`), (r) => r.coachShareIqd, iqd),
+    ],
+  };
+}
+
+/** One lessons table as a sheet: its columns over its rows. */
+function lessonTableCsv(tables: LessonTables, report: LessonsReport, which: LessonTableKey) {
+  if (which === 'byCoach') return tableCsv(tables.byCoach, report.byCoach);
+  if (which === 'byType') return tableCsv(tables.byType, report.byType);
+  return tableCsv(tables.byDay, report.byDay);
+}
+
+const LESSON_COUNT_ROWS: readonly { key: keyof LessonsReport['totals']; label: Parameters<Tr>[0]; pct?: boolean; hint?: Parameters<Tr>[0] }[] = [
+  { key: 'lessons', label: 'ws.coaching.reports.counts.lessons' },
+  { key: 'private', label: 'ws.coaching.reports.counts.private' },
+  { key: 'group', label: 'ws.coaching.reports.counts.group' },
+  { key: 'courseSessions', label: 'ws.coaching.reports.counts.courseSessions' },
+  { key: 'cancelled', label: 'ws.coaching.reports.counts.cancelled' },
+  { key: 'underFilled', label: 'ws.coaching.reports.counts.underFilled' },
+  { key: 'expired', label: 'ws.coaching.reports.counts.expired' },
+  { key: 'enrolments', label: 'ws.coaching.reports.counts.enrolments' },
+  { key: 'attended', label: 'ws.coaching.reports.counts.attended' },
+  { key: 'noShows', label: 'ws.coaching.reports.counts.noShows' },
+  { key: 'lateCancels', label: 'ws.coaching.reports.counts.lateCancels' },
+  { key: 'fillRatePct', label: 'ws.coaching.reports.counts.fillRate', pct: true, hint: 'ws.coaching.reports.counts.fillRateHint' },
+];
+const LESSON_MONEY_ROWS: readonly { key: keyof LessonsReport['totals']; label: Parameters<Tr>[0] }[] = [
+  { key: 'collectedIqd', label: 'ws.coaching.reports.money.collected' },
+  { key: 'deskIqd', label: 'ws.coaching.reports.money.desk' },
+  { key: 'onlineIqd', label: 'ws.coaching.reports.money.online' },
+  { key: 'refundsIqd', label: 'ws.coaching.reports.money.refunds' },
+  { key: 'courtShareIqd', label: 'ws.coaching.reports.money.courtShare' },
+  { key: 'coachShareIqd', label: 'ws.coaching.reports.money.coachShare' },
+  { key: 'venueShareIqd', label: 'ws.coaching.reports.money.venueShare' },
+  { key: 'lessonRevenueIqd', label: 'ws.coaching.reports.money.lessonRevenue' },
+];
+
+/** The Lessons view: the report_courts band, then report_lessons' counts, money and three tables. */
+function LessonsView({
+  band: l,
+  report,
+  absent,
+  status,
+  error,
+  onRetry,
+  tables,
+  onExport,
+}: {
+  band: CourtLessons;
+  report: LessonsReport | null;
+  absent: boolean;
+  status: ReturnType<typeof asyncStatus>;
+  error: unknown;
+  onRetry: () => void;
+  tables: LessonTables;
+  onExport: (which: LessonTableKey) => void;
+}) {
+  const { tr, locale } = useLocale();
+  const K = 'ws.coaching.reports';
+  const table = (which: LessonTableKey, node: ReactNode) => (
+    <section key={which} aria-label={tr(`${K}.${which}.title`)} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+        <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>{tr(`${K}.${which}.title`)}</h3>
+        <Button size="sm" kind="ghost" icon="fileText" onClick={() => onExport(which)} style={{ marginInlineStart: 'auto' }}>
+          {tr(`${K}.exportTable`, { table: tr(`${K}.${which}.title`) })}
+        </Button>
+      </div>
+      {node}
+    </section>
+  );
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }} data-testid="courts-lessons">
+      <FigureBand label={tr('ws.reports.courts.views.lessons')}>
+        <HeadlineFigure label={tr(`${K}.band.lessons`)} value={count(l.lessons, locale)} />
+        <HeadlineFigure label={tr(`${K}.band.courtHours`)} value={hoursOf(l.lessonMinutes, locale, tr)} />
+        <HeadlineFigure label={tr(`${K}.band.collected`)} value={money(l.collectedIqd, locale)} />
+        <HeadlineFigure label={tr(`${K}.band.courtShare`)} value={money(l.courtShareIqd, locale)} />
+        <HeadlineFigure label={tr(`${K}.band.owedToCoaches`)} value={money(l.owedToCoachesIqd, locale)} />
+      </FigureBand>
+      {!absent && (
+        <AsyncStateWrapper
+          status={status}
+          error={error}
+          onRetry={onRetry}
+          compact
+          skeleton={<ReportSkeleton columns={[tr(`${K}.byCoach.coach`), tr(`${K}.byCoach.lessons`), tr(`${K}.byCoach.collected`)]} />}
+          emptyContent={<EmptyState compact kind="nothingToDo" icon="whistle" title={tr(`${K}.empty`)} />}
+        >
+          {report && (
+            <>
+              <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(18rem, 1fr))', alignItems: 'start' }}>
+                <CountList
+                  title={tr(`${K}.counts.title`)}
+                  rows={LESSON_COUNT_ROWS.map((r) => ({
+                    label: tr(r.label),
+                    hint: r.hint ? tr(r.hint) : undefined,
+                    value: r.pct ? percent(report.totals[r.key], locale, tr) : count(report.totals[r.key], locale),
+                  }))}
+                />
+                <CountList title={tr(`${K}.money.title`)} rows={LESSON_MONEY_ROWS.map((r) => ({ label: tr(r.label), value: money(report.totals[r.key], locale) }))} />
+              </div>
+              {report.byCoach.length > 0 &&
+                table('byCoach', <ReportTable<LessonCoachRow> label={tr(`${K}.byCoach.title`)} columns={tables.byCoach} rows={report.byCoach} rowKey={(r, i) => r.coachId ?? String(i)} />)}
+              {report.byType.length > 0 &&
+                table('byType', <ReportTable<LessonTypeRow> label={tr(`${K}.byType.title`)} columns={tables.byType} rows={report.byType} rowKey={(r, i) => r.lessonTypeId ?? String(i)} />)}
+              {report.byDay.length > 0 &&
+                table('byDay', <ReportTable<LessonDayRow> label={tr(`${K}.byDay.title`)} columns={tables.byDay} rows={report.byDay} rowKey={(r, i) => r.date ?? String(i)} />)}
+              {Boolean(report.totals.sandboxExcluded) && <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr(`${K}.sandboxExcluded`)}</p>}
+            </>
+          )}
+        </AsyncStateWrapper>
+      )}
+    </div>
+  );
+}
+
 /** Label and figure rows under a small heading: the counts that read better as a list than a band. */
 function CountList({ title, rows }: { title: string; rows: readonly { label: string; value: string; hint?: string }[] }) {
   return (
@@ -513,7 +770,7 @@ function CourtsView({
   tr,
   locale,
 }: {
-  view: Exclude<View, 'matches'>;
+  view: Exclude<View, 'matches' | 'lessons'>;
   data: ReturnType<typeof readCourts>;
   columns: Record<'byCourt' | 'cancellations' | 'peak', ReportColumn<CourtRow>[]>;
   dayColumns: ReportColumn<DayRow>[];
