@@ -51,13 +51,13 @@ const AR = {
   railButton: /^المساعد/,
   drawerTitle: 'المساعد',
   contextToggle: /^ما يمكن لهذه المحادثة/,
-  scopeCafe: /^المقهى/,
+  scopeCafe: /^الكافيه/,
   scopeHowto: /^الصفحات وطريقة الاستخدام/,
-  startLine: /^(كل سؤال يبدأ|تعذّر قياس حجم البداية)/,
+  startLine: /^(حجم البداية لكل سؤال|تعذّر قياس حجم البداية)/,
   ask: 'اسأل',
   stop: 'إيقاف',
   thisMessage: 'هذه الرسالة',
-  notConfigured: 'لا مفتاح ذكاء اصطناعي مضبوط لهذا المكان، فلم يُسأل شيء ولم يُحاسَب شيء.',
+  notConfigured: 'لم يُضبط مفتاح للذكاء الاصطناعي لهذا المكان، فلم يُرسل السؤال ولم يُحاسَب عليه شيء.',
   toEnglish: 'English',
 } as const;
 
@@ -254,7 +254,7 @@ test.describe('owner assistant @ar', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   }
 
-  test('rail button opens the drawer with المقهى + how-to pre-checked and the pack size', async ({ page }) => {
+  test('rail button opens the drawer with الكافيه + how-to pre-checked and the pack size', async ({ page }) => {
     await signInArabic(page);
     await page.goto(`${OPERATOR_URL}/analytics/cafe`);
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });

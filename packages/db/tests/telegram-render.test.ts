@@ -89,7 +89,7 @@ describe('renderOrder', () => {
       '1× ماء / Water',
       '────────────',
       '💰 <b>المجموع: 18,500 د.ع</b> · Total 18,500 IQD',
-      '💵 الدفع عند الكاشير · Pay at the desk',
+      '💵 الدفع عند الصندوق · Pay at the desk',
     ].join('\n');
     expect(renderOrder(order, 'ar')).toBe(expected);
   });
@@ -120,8 +120,8 @@ describe('renderOrder', () => {
     };
     const text = renderOrder(big);
     expect(text.length).toBeLessThan(4000);
-    expect(text).toMatch(/… و \d+ أصناف أخرى \/ \+\d+ more\n────────────/);
-    expect(text).toContain('💵 الدفع عند الكاشير · Pay at the desk');
+    expect(text).toMatch(/… وأصناف أخرى: \d+ \/ \+\d+ more\n────────────/);
+    expect(text).toContain('💵 الدفع عند الصندوق · Pay at the desk');
   });
 });
 
@@ -132,7 +132,7 @@ describe('truncateItems', () => {
   it('drops from the end and reports the dropped count', () => {
     const lines = Array.from({ length: 10 }, (_, i) => `line-${i}-xxxxxxxxxx`);
     const out = truncateItems(lines, 120);
-    expect(out.at(-1)).toMatch(/^… و (\d+) أصناف أخرى \/ \+\1 more$/);
+    expect(out.at(-1)).toMatch(/^… وأصناف أخرى: (\d+) \/ \+\1 more$/);
     expect(out.length).toBeLessThan(lines.length + 1);
     expect(out.join('\n').length).toBeLessThanOrEqual(120);
   });
@@ -142,9 +142,9 @@ describe('renderCall / renderTest', () => {
   it('renders each reason line', () => {
     const base = { call_id: CALL_ID, table_number: '3', raised_at: '2026-08-25T11:05:00Z' };
     expect(renderCall({ ...base, reason: 'bill' })).toBe(
-      ['🙋 <b>نداء نادل · Waiter call</b>', '🪑 <b>طاولة 3</b> · Table 3', '💳 الحساب · The bill', '🕒 14:05'].join('\n'),
+      ['🙋 <b>نداء النادل · Waiter call</b>', '🪑 <b>طاولة 3</b> · Table 3', '💳 الحساب · The bill', '🕒 14:05'].join('\n'),
     );
-    expect(renderCall({ ...base, reason: 'order' })).toContain('🍽 يريد الطلب · Wants to order');
+    expect(renderCall({ ...base, reason: 'order' })).toContain('🍽 يريد أن يطلب · Wants to order');
     expect(renderCall({ ...base, reason: 'water' })).toContain('💧 ماء · Water');
     expect(renderCall({ ...base, reason: 'assistance' })).toContain('🙋 مساعدة · Assistance');
   });
@@ -153,9 +153,9 @@ describe('renderCall / renderTest', () => {
     expect(renderTest({ sent_by: 'Ali <owner>', at: '2026-08-25T11:05:00Z' })).toBe(
       [
         '🔔 <b>رسالة تجريبية · Test message</b>',
-        'تم ربط تتش كافيه بهذه المجموعة بنجاح ✅',
+        'تتش كافيه مرتبط بهذه المجموعة ✅',
         'Touch Cafe is connected to this group.',
-        '🕒 14:05 · بواسطة Ali &lt;owner&gt;',
+        '🕒 14:05 · المرسل: Ali &lt;owner&gt;',
       ].join('\n'),
     );
   });
@@ -206,9 +206,9 @@ describe('callbacks', () => {
     expect(toastFor('duplicate')).toBe('سبق تسجيله');
     expect(toastFor('invalid')).toBe('غير ممكن الآن');
     expect(toastFor('not_found')).toBe('غير موجود');
-    expect(toastFor('refused')).toBe('الطلب مدفوع — الإلغاء من الكاشير');
+    expect(toastFor('refused')).toBe('الطلب مدفوع. الإلغاء من الصندوق.');
     expect(toastFor('???')).toBe('غير معروف');
     expect(statusFooter('o:seen', 'Ahmed <x>', '14:07')).toBe('✅ شوهد · Seen — Ahmed &lt;x&gt; · 14:07');
-    expect(statusFooter('w:ack', 'Sara', '09:00')).toBe('✅ قادم · On the way — Sara · 09:00');
+    expect(statusFooter('w:ack', 'Sara', '09:00')).toBe('✅ في الطريق · On the way — Sara · 09:00');
   });
 });

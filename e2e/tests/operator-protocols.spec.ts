@@ -187,12 +187,12 @@ test.describe('operator protocols', () => {
     await expect(panel).toBeVisible();
     await panel.getByTestId('decide').click();
     const dialog = page.getByRole('dialog', { name: /القرار/ });
-    await dialog.getByRole('button', { name: 'أعده للتعديل' }).click();
+    await dialog.getByRole('button', { name: 'إعادة للتعديل' }).click();
     await dialog.getByTestId('decision-send').click();
     await expect(dialog.getByText('السبب مطلوب.')).toBeVisible();
     await dialog.locator('textarea').fill('أضف ساعات العمل بدقة');
     await dialog.getByTestId('decision-send').click();
-    await expect(page.getByText('تمت الإعادة.')).toBeVisible();
+    await expect(page.getByText('أُعيدت الخطوة للتعديل.')).toBeVisible();
     await expect.poll(async () => {
       const s = await openStep(svc, arRun, 'open_position');
       return `${s.status}:${s.round}`;

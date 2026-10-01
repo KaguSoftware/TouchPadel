@@ -86,6 +86,6 @@ describe('SuggestionsPageScreen', () => {
     renderPage('ar');
     expect(screen.getByRole('heading', { level: 1, name: 'الاقتراحات' })).toBeTruthy();
     expect(await screen.findByText('كاشير')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'علِّم بأنه اطُّلع عليه' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'تعليم كمقروء' })).toBeTruthy();
   });
 });
