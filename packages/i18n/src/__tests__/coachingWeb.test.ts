@@ -67,4 +67,13 @@ describe('coaching.web', () => {
     expect(t('en', 'site.footer.coaching')).toBe('Coaching');
     expect(t('ar', 'site.footer.coaching')).toBe('التدريب');
   });
+
+  it('calls a lesson «حصة» across the whole site too (C-30)', () => {
+    expect(t('ar', 'site.nav.lessons')).toBe(`ال${coachingGlossary.ar.lessons}`);
+    expect(t('ar', 'site.footer.lessons')).toBe(`ال${coachingGlossary.ar.lessons}`);
+    expect(t('ar', 'site.lessons.cta')).toContain(coachingGlossary.ar.lessons);
+    for (const [key, value] of leaves(ar.site)) {
+      for (const word of FORBIDDEN) expect(bare(value), `site.${key}`).not.toContain(word);
+    }
+  });
 });

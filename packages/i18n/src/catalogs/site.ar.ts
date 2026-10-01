@@ -21,6 +21,9 @@ import type { siteEn } from './site.en';
  * word padel players use. The app band's live/hold lines now read better than their store
  * captions (framesAr in apps/mobile/store/frames.mjs); bring those in line at the next
  * store render.
+ *
+ * The lesson is «حصة» (coaching C-30, 2026-10-01), never «درس»: the nav and footer read
+ * «الحصص», as the coaching pages do (`coachingGlossary`).
  */
 export const siteAr: DeepMessages<typeof siteEn> = {
   skipToContent: 'انتقل إلى المحتوى',
@@ -28,7 +31,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
   nav: {
     label: 'التنقل الرئيسي',
     club: 'النادي',
-    lessons: 'الدروس',
+    lessons: 'الحصص',
     menu: 'منيو الكافيه',
     visit: 'زُرنا',
     book: 'احجز ملعبًا',
@@ -60,7 +63,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
   onWhatsApp: '، عبر واتساب',
   whatsapp: {
     court: 'مرحبًا تتش بادل، أودّ حجز ملعب.',
-    lesson: 'مرحبًا تتش بادل، أودّ حجز درس.',
+    lesson: 'مرحبًا تتش بادل، أودّ حجز حصة.',
     events: 'مرحبًا تتش بادل، أودّ التسجيل في البطولة القادمة. هل يمكنكم إرسال التفاصيل إليّ؟',
     eventsNamed:
       'مرحبًا تتش بادل، معكم {name}. أودّ التسجيل في البطولة القادمة. هل يمكنكم إرسال التفاصيل إليّ؟',
@@ -87,8 +90,8 @@ export const siteAr: DeepMessages<typeof siteEn> = {
   lessons: {
     titleOne: 'لمستك الأولى؟',
     titleTwo: 'ابدأ من هنا.',
-    body: 'نقدّم دروسًا في تتش. راسلنا عبر واتساب بالأوقات التي تناسبك، وسنخبرك بالمتاح منها.',
-    cta: 'اسأل عن الدروس',
+    body: 'نقدّم حصصًا في تتش. راسلنا عبر واتساب بالأوقات التي تناسبك، وسنخبرك بالمتاح منها.',
+    cta: 'اسأل عن الحصص',
   },
   events: {
     label: 'العب. سماش. اربح.',
@@ -168,7 +171,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
     lockersQ: 'هل يوجد مكان أحفظ فيه أغراضي؟',
     lockersA: 'نعم، في النادي خزائن لحفظ الأغراض.',
     beginnerQ: 'لم ألعب البادل من قبل، فهل في ذلك مشكلة؟',
-    beginnerA: 'لا مشكلة إطلاقًا، فكل لاعب بدأ بلمسته الأولى، ونحن نقدّم دروسًا. اسألنا عنها عبر واتساب.',
+    beginnerA: 'لا مشكلة إطلاقًا، فكل لاعب بدأ بلمسته الأولى، ونحن نقدّم حصصًا. اسألنا عنها عبر واتساب.',
     cancelQ: 'ماذا أفعل إن احتجت إلى الإلغاء؟',
     cancelA: 'راسل الاستقبال أو اتصل به في أقرب وقت ممكن.',
     hoursQ: 'ما ساعات العمل؟',
@@ -202,7 +205,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
     addressTitle: 'عنواننا',
     exploreTitle: 'تتش بادل',
     legalTitle: 'معلومات قانونية',
-    lessons: 'الدروس',
+    lessons: 'الحصص',
     coaching: 'التدريب',
     menu: 'منيو الكافيه',
     support: 'الدعم',
@@ -235,7 +238,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
   seo: {
     title: 'تتش بادل · نادي بادل وكافيه في كربلاء',
     description:
-      'نادي بادل وكافيه في درّة كربلاء، يضمّ ملعبين داخليين وتتش كافيه، ويقدّم دروسًا. احجز عبر واتساب أو اتصل بالاستقبال أو زُرنا مباشرة.',
+      'نادي بادل وكافيه في درّة كربلاء، يضمّ ملعبين داخليين وتتش كافيه، ويقدّم حصصًا. احجز عبر واتساب أو اتصل بالاستقبال أو زُرنا مباشرة.',
     ogAlt: 'تتش بادل. اللعبة لمسة واحدة.',
     menuTitle: 'المنيو · تتش كافيه',
   },
