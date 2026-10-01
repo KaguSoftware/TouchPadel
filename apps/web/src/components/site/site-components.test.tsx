@@ -77,12 +77,13 @@ describe('SiteShell', () => {
     ]);
     expect(links[1]?.textContent).toBe(t('en', 'site.footer.coaching'));
     expect(links[1]?.getAttribute('aria-current')).toBe('page');
-    // The header keeps Lessons on the home page's #lessons, which leads on to /coaching.
-    const nav = screen.getByRole('navigation', { name: t('en', 'site.nav.label'), ...hidden });
-    const navHrefs = within(nav)
-      .getAllByRole('link', hidden)
+    // The header carries no section links any more, so none to /coaching: the way in is the
+    // home page's #lessons and this footer link.
+    expect(screen.queryByRole('navigation', { name: t('en', 'site.nav.label'), ...hidden })).toBeNull();
+    const headerHrefs = within(screen.getByRole('banner'))
+      .queryAllByRole('link', hidden)
       .map((a) => a.getAttribute('href'));
-    expect(navHrefs).not.toContain('/en/coaching');
+    expect(headerHrefs).not.toContain('/en/coaching');
   });
 
   it('names the footer’s Coaching link in Arabic', () => {
