@@ -64,9 +64,12 @@ export interface RawCourt {
 export interface RawBooking {
   id: string;
   court_id: string;
+  /** 'booking' or 'lesson' (a lesson holds its court, coaching operator.md §5.8). */
+  kind?: string;
   status: string;
   start_at: string;
   end_at: string;
+  guest_id?: string | null;
   guest_name: string | null;
   /** The account a mobile booking came from; the desk-typed `guest_name` is null there. */
   guest?: { full_name: string | null } | null;
@@ -129,6 +132,19 @@ export interface FloorRaw {
 
 export type CourtStatus = 'in_play' | 'booked' | 'free';
 
+/**
+ * Whose booking it is, as the read returns it. The model does not word it:
+ * the screen names it with `reservationNameOf`, so a lesson's court row (the
+ * literal 'Lesson') and an open match read in the screen's language, as they
+ * do on the desk.
+ */
+export interface FloorGuest {
+  guest_id?: string | null;
+  guest_name: string | null;
+  guest?: { full_name: string | null } | null;
+  kind?: string;
+}
+
 export interface FloorCourt {
   id: string;
   /** 0-based place on the plan, null when the plan has no room for it. */
@@ -136,7 +152,7 @@ export interface FloorCourt {
   name_en: string;
   name_ar: string;
   status: CourtStatus;
-  guest: string | null;
+  guest: FloorGuest | null;
   /** ISO end of the current booking (in play or booked). */
   until: string | null;
   /** ISO start of the next booking, when the court is free. */
@@ -145,7 +161,7 @@ export interface FloorCourt {
    * A guest marked arrived whose slot on this court has not started yet: at
    * the venue, not on the court. Shown in words, never drawn as players.
    */
-  waiting: { guest: string | null; startsAt: string } | null;
+  waiting: { guest: FloorGuest | null; startsAt: string } | null;
 }
 
 export type TableStatus = 'occupied' | 'free';
@@ -239,6 +255,11 @@ function bookingGuest(b: { guest_name: string | null; guest?: { full_name: strin
   return b?.guest_name ?? b?.guest?.full_name ?? null;
 }
 
+/** A court booking's naming fields, for the screen to word (FloorGuest). */
+function courtGuest(b: RawBooking | undefined): FloorGuest | null {
+  return b ? { guest_id: b.guest_id, guest_name: b.guest_name, guest: b.guest ?? null, kind: b.kind } : null;
+}
+
 export function composeSnapshot(raw: FloorRaw, nowMs: number, staleMs = HEARTBEAT_STALE_MS): FloorSnapshot {
   // Courts -----------------------------------------------------------------
   const courtsSorted = raw.courts
@@ -265,10 +286,10 @@ export function composeSnapshot(raw: FloorRaw, nowMs: number, staleMs = HEARTBEA
       name_en: c.name_en,
       name_ar: c.name_ar,
       status: inPlay ? 'in_play' : booked ? 'booked' : 'free',
-      guest: bookingGuest(current),
+      guest: courtGuest(current),
       until: current?.end_at ?? null,
       nextAt: next?.start_at ?? null,
-      waiting: waiting ? { guest: bookingGuest(waiting), startsAt: waiting.start_at } : null,
+      waiting: waiting ? { guest: courtGuest(waiting), startsAt: waiting.start_at } : null,
     };
   });
 

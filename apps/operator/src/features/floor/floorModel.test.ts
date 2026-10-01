@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { t, type Locale, type MessageKey, type TParams } from '@touch/i18n';
+import { reservationNameOf } from '../matches/matchLogic';
 import { COURT_SLOTS, HEARTBEAT_STALE_MS, TABLE_SLOTS, ZOOM_MIN_DIST, composeSnapshot, countsOf, roomForRole, zoomDistanceAt, zoomLevelOf, type FloorRaw } from './floorModel';
 
 // Every claim the plan makes is derived here, so every claim is pinned here:
@@ -7,6 +9,7 @@ import { COURT_SLOTS, HEARTBEAT_STALE_MS, TABLE_SLOTS, ZOOM_MIN_DIST, composeSna
 
 const NOW = Date.parse('2026-09-18T18:00:00Z');
 const iso = (offsetMin: number) => new Date(NOW + offsetMin * 60_000).toISOString();
+const tr = (locale: Locale) => (key: MessageKey, params?: TParams) => t(locale, key, params);
 
 function raw(partial: Partial<FloorRaw> = {}): FloorRaw {
   return {
@@ -38,7 +41,7 @@ describe('courts', () => {
       raw({ bookings: [{ id: 'b1', court_id: 'c1', status: 'arrived', start_at: iso(-30), end_at: iso(60), guest_name: 'Ahmed K.' }] }),
       NOW,
     );
-    expect(s.courts[0]).toMatchObject({ id: 'c1', slot: 0, status: 'in_play', guest: 'Ahmed K.', until: iso(60), nextAt: null, waiting: null });
+    expect(s.courts[0]).toMatchObject({ id: 'c1', slot: 0, status: 'in_play', guest: { guest_name: 'Ahmed K.' }, until: iso(60), nextAt: null, waiting: null });
     expect(s.courts[1]).toMatchObject({ id: 'c2', slot: 1, status: 'free' });
   });
 
@@ -47,7 +50,7 @@ describe('courts', () => {
       raw({ bookings: [{ id: 'b1', court_id: 'c1', status: 'confirmed', start_at: iso(-10), end_at: iso(50), guest_name: 'Sara M.' }] }),
       NOW,
     );
-    expect(s.courts[0]).toMatchObject({ status: 'booked', guest: 'Sara M.', until: iso(50) });
+    expect(s.courts[0]).toMatchObject({ status: 'booked', guest: { guest_name: 'Sara M.' }, until: iso(50) });
   });
 
   it('arrived is not playing: a guest checked in before their slot is waiting, and the court is not in play', () => {
@@ -55,7 +58,7 @@ describe('courts', () => {
       raw({ bookings: [{ id: 'b1', court_id: 'c1', status: 'arrived', start_at: iso(20), end_at: iso(110), guest_name: 'Early E.' }] }),
       NOW,
     );
-    expect(s.courts[0]).toMatchObject({ status: 'free', guest: null, until: null, nextAt: iso(20), waiting: { guest: 'Early E.', startsAt: iso(20) } });
+    expect(s.courts[0]).toMatchObject({ status: 'free', guest: null, until: null, nextAt: iso(20), waiting: { guest: { guest_name: 'Early E.' }, startsAt: iso(20) } });
   });
 
   it('an early arrival waits while the previous booking is still on the court', () => {
@@ -68,7 +71,27 @@ describe('courts', () => {
       }),
       NOW,
     );
-    expect(s.courts[0]).toMatchObject({ status: 'in_play', guest: 'Now N.', waiting: { guest: 'Next X.', startsAt: iso(10) } });
+    expect(s.courts[0]).toMatchObject({ status: 'in_play', guest: { guest_name: 'Now N.' }, waiting: { guest: { guest_name: 'Next X.' }, startsAt: iso(10) } });
+  });
+
+  // Coaching (operator.md §5.8): a lesson's court row carries the literal
+  // 'Lesson'. The model keeps what tells it apart, so the screen words it as
+  // the desk does (reservationNameOf), never the stored English.
+  it('keeps a lesson’s kind and its empty account, so the screen names it in its own words', () => {
+    const s = composeSnapshot(
+      raw({
+        bookings: [
+          { id: 'l1', court_id: 'c1', kind: 'lesson', status: 'confirmed', start_at: iso(-10), end_at: iso(80), guest_id: null, guest_name: 'Lesson' },
+          { id: 'l2', court_id: 'c2', kind: 'lesson', status: 'arrived', start_at: iso(20), end_at: iso(110), guest_id: null, guest_name: 'Lesson' },
+        ],
+      }),
+      NOW,
+    );
+    expect(s.courts[0]).toMatchObject({ status: 'booked', guest: { kind: 'lesson', guest_id: null, guest_name: 'Lesson' } });
+    expect(s.courts[1]).toMatchObject({ status: 'free', waiting: { guest: { kind: 'lesson', guest_id: null }, startsAt: iso(20) } });
+    expect(reservationNameOf(s.courts[0]!.guest, tr('ar'))).toBe('حصة');
+    expect(reservationNameOf(s.courts[0]!.guest, tr('en'))).toBe('Lesson');
+    expect(reservationNameOf(s.courts[1]!.waiting!.guest, tr('ar'))).toBe('حصة');
   });
 
   it('a free court names its next confirmed booking within the lookahead, and ignores ended ones', () => {
