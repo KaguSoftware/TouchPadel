@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import { t, type Locale, type MessageKey, type TParams } from '@touch/i18n';
 import { LocaleProvider } from '../../lib/i18n';
 import type { FloorSnapshot } from './floorModel';
 import type { LiveFloorResult } from './floorData';
@@ -14,11 +15,11 @@ vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 const live = vi.fn<() => LiveFloorResult>();
 vi.mock('./floorData', () => ({ useLiveFloor: () => live() }));
 
-import { LiveFloor } from './LiveFloor';
+import { LiveFloor, describeTarget } from './LiveFloor';
 
 const snapshot: FloorSnapshot = {
   courts: [
-    { id: 'c1', slot: 0, name_en: 'Court 1', name_ar: 'ملعب ١', status: 'in_play', guest: 'Ahmed K.', until: '2026-09-18T19:30:00Z', nextAt: null, waiting: null },
+    { id: 'c1', slot: 0, name_en: 'Court 1', name_ar: 'ملعب ١', status: 'in_play', guest: { guest_id: 'g1', guest_name: 'Ahmed K.' }, until: '2026-09-18T19:30:00Z', nextAt: null, waiting: null },
     { id: 'c2', slot: 1, name_en: 'Court 2', name_ar: 'ملعب ٢', status: 'free', guest: null, until: null, nextAt: null, waiting: null },
     { id: 'c3', slot: null, name_en: 'Court 3', name_ar: 'ملعب ٣', status: 'free', guest: null, until: null, nextAt: null, waiting: null },
   ],
@@ -121,5 +122,45 @@ describe('LiveFloor', () => {
     live.mockReturnValue(result());
     renderFloor();
     expect(screen.getByText(/^Updated /)).toBeTruthy();
+  });
+});
+
+// The tooltip's words over a court (the plan itself needs WebGL, so its body is
+// read directly). Coaching (operator.md §5.8): a lesson's court row stores the
+// literal 'Lesson'; the floor names it as the desk does, in the screen's language.
+describe('describeTarget', () => {
+  const LESSON = { guest_id: null, guest_name: 'Lesson', kind: 'lesson' };
+  const lessonFloor: FloorSnapshot = {
+    ...snapshot,
+    courts: [
+      { id: 'c1', slot: 0, name_en: 'Court 1', name_ar: 'ملعب ١', status: 'booked', guest: LESSON, until: '2026-09-18T19:30:00Z', nextAt: null, waiting: null },
+      { id: 'c2', slot: 1, name_en: 'Court 2', name_ar: 'ملعب ٢', status: 'free', guest: null, until: null, nextAt: '2026-09-18T19:00:00Z', waiting: { guest: LESSON, startsAt: '2026-09-18T19:00:00Z' } },
+    ],
+  };
+  const words = (locale: Locale, id: string, floor: FloorSnapshot = lessonFloor) => {
+    const tr = (key: MessageKey, params?: TParams) => t(locale, key, params);
+    const { container, unmount } = render(<>{describeTarget({ kind: 'court', id }, floor, tr, locale)}</>);
+    const text = container.textContent ?? '';
+    unmount();
+    return text;
+  };
+
+  it.each([
+    ['en', 'Lesson'],
+    ['ar', 'حصة'],
+  ] as const)('names a lesson on its court, and one waiting for it, in %s', (locale, lesson) => {
+    const booked = words(locale, 'c1');
+    expect(booked).toContain(lesson);
+    const waiting = words(locale, 'c2');
+    expect(waiting).toContain(lesson);
+    if (locale === 'ar') {
+      expect(booked).not.toContain('Lesson');
+      expect(waiting).not.toContain('Lesson');
+    }
+  });
+
+  it('names any other booking by its guest, in either language', () => {
+    expect(words('en', 'c1', snapshot)).toContain('Ahmed K.');
+    expect(words('ar', 'c1', snapshot)).toContain('Ahmed K.');
   });
 });

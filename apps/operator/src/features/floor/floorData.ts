@@ -42,10 +42,14 @@ export async function fetchFloorRaw(nowMs = Date.now()): Promise<FloorRaw> {
   const laterIso = new Date(nowMs + LOOKAHEAD_MS).toISOString();
   const [courts, bookings, tables, tabs, staff, stationStaff, heartbeats, breaks] = await Promise.all([
     supabase.from('courts').select('id, name_en, name_ar, sort_order').eq('is_active', true).order('sort_order').then(unwrap<RawCourt[]>),
+    // Bookings and lessons (a lesson holds its court, coaching operator.md §5.8);
+    // never holds or blocks. Written as a NOT so it stays valid on a server
+    // whose reservation_kind has no 'lesson' yet. A lesson row carries the
+    // literal 'Lesson' as its name (reservationNameOf reads it in the screen's words).
     supabase
       .from('reservations')
-      .select('id, court_id, status, start_at, end_at, guest_name, guest:profiles!reservations_guest_id_fkey(full_name)')
-      .eq('kind', 'booking')
+      .select('id, court_id, kind, status, start_at, end_at, guest_id, guest_name, guest:profiles!reservations_guest_id_fkey(full_name)')
+      .not('kind', 'in', '(hold,maintenance)')
       .in('status', ['confirmed', 'arrived'])
       .gt('end_at', nowIso)
       .lt('start_at', laterIso)

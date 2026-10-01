@@ -214,6 +214,15 @@ describe('reservationNameOf (§5.27: screens with no match state)', () => {
     expect(reservationNameOf(null, ar)).toBeNull();
     expect(reservationNameOf(undefined, ar)).toBeNull();
   });
+
+  it("reads a lesson's court row as Lesson in the screen's language (coaching §5.8)", () => {
+    expect(reservationNameOf({ guest_id: null, guest_name: 'Lesson', kind: 'lesson' }, en)).toBe('Lesson');
+    expect(reservationNameOf({ guest_id: null, guest_name: 'Lesson', kind: 'lesson' }, ar)).toBe('حصة');
+    // The literal on an account-less row that is not a booking, kind unread.
+    expect(reservationNameOf({ guest_id: null, guest_name: 'Lesson' }, ar)).toBe('حصة');
+    // A walk-in booking the desk typed as "Lesson" keeps its name.
+    expect(reservationNameOf({ guest_id: null, guest_name: 'Lesson', kind: 'booking' }, ar)).toBe('Lesson');
+  });
 });
 
 describe('seatChipOf (§5.8)', () => {
@@ -685,6 +694,14 @@ describe('matchesBumpedBy and awaitingCourtOverlap (§5.10; OM-13, R22)', () => 
     expect(matchesBumpedBy([openMatch()], [{ ...firmOnC1, status: 'pending' }], courts, draft())).toHaveLength(1);
     const holdOnC1 = { ...firmOnC1, kind: 'hold' as const, status: 'pending' };
     expect(matchesBumpedBy([openMatch({ courts_free_firm: 2 })], [holdOnC1], courts, draft())).toEqual([]);
+  });
+
+  it('counts a live lesson as firm, as 0277 does (coaching §5.8): its court is not the free one', () => {
+    const lessonOnC1 = { ...firmOnC1, kind: 'lesson' as const, guest_name: 'Lesson' };
+    expect(matchesBumpedBy([openMatch()], [lessonOnC1], courts, draft()).map((m) => m.match_id)).toEqual(['m1']);
+    expect(matchesBumpedBy([openMatch()], [lessonOnC1], courts, draft({ courtId: 'c1' }))).toEqual([]);
+    // A cancelled lesson holds nothing.
+    expect(matchesBumpedBy([openMatch()], [{ ...lessonOnC1, status: 'cancelled' }], courts, draft({ courtId: 'c1' }))).toHaveLength(1);
   });
 
   it('does not warn on the court that is already firm, nor for a hold draft', () => {

@@ -6,9 +6,13 @@ Next.js public site under `app/[locale]/`: the Touch Padel landing page at `/{lo
 menu at `/{locale}/menu` (walk-in, or table-bound through the `tp-table` cookie that the QR exchange
 at `/t/{token}` sets; `t/[token]/route.ts` is its fallback and `/{locale}/t` a 307 to the menu),
 `download`, the legal pages (`privacy`, `terms`, `support`, `delete-account`), the payment return
-`/{locale}/pay/return`, and the open-match invite `/{locale}/m/[token]` (a shared match link where
+`/{locale}/pay/return`, the open-match invite `/{locale}/m/[token]` (a shared match link where
 the app does not claim it; no names, no price, never indexed:
-`docs/design/open-matches/guest.md` §4.20). The menu moved
+`docs/design/open-matches/guest.md` §4.20), coaching at `/{locale}/coaching` (coaches, lesson
+types and sessions with places; prices only behind the branch's `lesson_prices_public` switch,
+dropped by the parser in `src/lib/coaching.ts`) and the coach link `/{locale}/c/[id]` (the "Open in
+the app" fallback for `/c/<coachId>`; never indexed, no referrer:
+`docs/design/coaching/guest.md` §4.14). The menu moved
 off the root on 2026-09-23 (`docs/design/web-site/contracts-2026-09-23.md`). `AGENTS.md` above is
 Next's generated guide to this Next version; read it before touching routing, caching or server code. Written 2026-09-20 (Phase 2,
 Milestone 0 item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Database-side
@@ -50,9 +54,13 @@ rules are in `packages/db/CLAUDE.md`.
 
 ## Data
 
-- Every write is an `app.*` RPC through `appRpc` (`src/lib/appRpc.ts:9`); a failure's P0001 code
-  maps through `RPC_ERROR_KEYS` (`:21`) to a catalog key, fallback `errors.generic`. A new code gets
-  an entry and both catalogs.
+- Every write is an `app.*` RPC through `appRpc` (`src/lib/appRpc.ts:21`); a failure's P0001 code
+  maps through `rpcErrorKey` (`:97`), which reads the shared `@touch/i18n` catalogue with the web's
+  `WEB_OVERRIDES` (`:54`), to a catalog key, fallback `errors.generic`. A new code gets its
+  catalogue line in both languages, and an override only when the web words it differently.
+- A public read the site caches (`menu.server.ts`, `coaching.server.ts`) THROWS inside
+  `unstable_cache` and turns the throw into its `error` state outside it, so one failed read is
+  never served for the whole revalidate window.
 - One realtime channel per bound guest session: `src/hooks/cafe/useSessionChannel.ts`
   (`session:{id}`, private; `realtime.setAuth()` before subscribe). New live data fans out from it;
   never open a second channel.

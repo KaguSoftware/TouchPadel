@@ -14,7 +14,11 @@ import {
   unpaidPlayedRows,
   unfinishedChecklists,
   isMatchUnpaid,
+  crossDayKey,
+  LESSON_DAY_KEYS,
+  onlineGroupTitleKey,
   onlineIsEmpty,
+  onlineLabelKey,
   onlineMoneyOf,
   readDayCloseOnline,
   unpaidMatchLabel,
@@ -26,6 +30,7 @@ import {
 } from './dayCloseLogic';
 import { readShiftList } from '../tillShift/tillShiftLogic';
 import { MUTATION_TYPES } from '@touch/core/schemas/mutations';
+import { COACHING_SHAPES } from '@touch/core';
 
 const base = { dayLoaded: true, dayOpen: true, openTabCount: 0, queuedCount: 0, busy: false, closed: false, error: null };
 
@@ -414,6 +419,101 @@ describe('readDayCloseOnline / onlineMoneyOf / onlineIsEmpty', () => {
     expect(onlineIsEmpty(readDayCloseOnline({ deposits: { received_iqd: 0 }, matches: {} }))).toBe(true);
     expect(onlineIsEmpty(null)).toBe(true);
     expect(onlineIsEmpty(readDayCloseOnline(payload))).toBe(false);
+  });
+});
+
+// Coaching (coaching operator.md §5.18.1, X27, C-31, R27): the lessons group and the cross-day sentence.
+describe('day_close_online: the lessons group', () => {
+  const lessons = (over: Record<string, number> = {}) => ({
+    desk_paid_iqd: 0,
+    desk_paid_count: 0,
+    desk_refunded_iqd: 0,
+    online_received_iqd: 0,
+    online_received_count: 0,
+    online_refunded_iqd: 0,
+    online_refunded_count: 0,
+    online_refunds_waiting_iqd: 0,
+    online_refunds_waiting_count: 0,
+    refunds_due_desk_iqd: 0,
+    refunds_due_desk_count: 0,
+    kept_iqd: 0,
+    kept_count: 0,
+    lessons: 0,
+    owed_iqd: 0,
+    owed_count: 0,
+    owed_to_coaches_iqd: 0,
+    ...over,
+  });
+
+  it("reads exactly COACHING_SHAPES.day_close_online's lessons keys", () => {
+    expect([...LESSON_DAY_KEYS]).toEqual([...COACHING_SHAPES.day_close_online.nested!.lessons!]);
+  });
+
+  it('reads the block by its keys, a string number included; no block is null, not zeros', () => {
+    const d = readDayCloseOnline({ lessons: lessons({ desk_paid_iqd: 30000, desk_paid_count: 1, kept_iqd: '15000' as unknown as number }) })!;
+    expect(d.lessons?.desk_paid_iqd).toBe(30000);
+    expect(d.lessons?.kept_iqd).toBe(15000);
+    expect(readDayCloseOnline({ deposits: {} })!.lessons).toBeNull();
+    expect(readDayCloseOnline({ lessons: {} })!.lessons?.owed_iqd).toBeNull();
+  });
+
+  it('adds the group after matches and before the test payments, in the order of §5.18.1', () => {
+    const d = readDayCloseOnline({
+      matches: { bookings: 1 },
+      lessons: lessons({ online_received_iqd: 40000, online_received_count: 2, lessons: 3, owed_to_coaches_iqd: 54000 }),
+      sandbox_excluded: { deposits: 1, tickets: 0 },
+    })!;
+    const groups = onlineMoneyOf(d);
+    expect(groups.map((g) => g.id)).toEqual(['matches', 'lessons', 'sandbox']);
+    const rows = groups.find((g) => g.id === 'lessons')!.rows;
+    expect(rows.map((r) => [r.id, r.shows])).toEqual([
+      ['onlineReceived', 'both'],
+      ['onlineRefunded', 'both'],
+      ['onlineWaiting', 'both'],
+      ['kept', 'both'],
+      ['deskPaid', 'both'],
+      ['deskRefunded', 'amount'],
+      ['owed', 'both'],
+      ['refundsDueDesk', 'both'],
+      ['owedToCoaches', 'both'],
+    ]);
+    expect(rows.at(-1)).toEqual({ id: 'owedToCoaches', count: 3, amount: 54000, shows: 'both' });
+  });
+
+  it('is hidden when every lesson figure is zero, and the card with it', () => {
+    const d = readDayCloseOnline({ lessons: lessons() })!;
+    expect(onlineMoneyOf(d).some((g) => g.id === 'lessons')).toBe(false);
+    expect(onlineIsEmpty(d)).toBe(true);
+  });
+
+  it('R27 (operator half): a refund on day 2 of a day-1 payment shows on day 2, as desk_refunded_iqd', () => {
+    // Day 1: the lesson was paid at the desk.
+    const day1 = onlineMoneyOf(readDayCloseOnline({ business_date: '2026-10-01', lessons: lessons({ desk_paid_iqd: 30000, desk_paid_count: 1 }), refunds_dated_by_shift: true })!);
+    const day1Rows = day1.find((g) => g.id === 'lessons')!.rows;
+    expect(day1Rows.find((r) => r.id === 'deskPaid')).toMatchObject({ count: 1, amount: 30000 });
+    expect(day1Rows.find((r) => r.id === 'deskRefunded')).toMatchObject({ amount: 0 });
+    // Day 2: refunded at the desk; the day it was paid does not matter (C-31).
+    const day2 = readDayCloseOnline({ business_date: '2026-10-02', lessons: lessons({ desk_refunded_iqd: 30000 }), refunds_dated_by_shift: true })!;
+    const day2Rows = onlineMoneyOf(day2).find((g) => g.id === 'lessons')!.rows;
+    expect(day2Rows.find((r) => r.id === 'deskRefunded')).toEqual({ id: 'deskRefunded', count: null, amount: 30000, shows: 'amount' });
+    expect(day2Rows.find((r) => r.id === 'deskPaid')).toMatchObject({ amount: 0 });
+    expect(day2.refunds_dated_by_shift).toBe(true);
+  });
+
+  it('words the lessons group from the coaching catalog and the others from open matches', () => {
+    expect(onlineGroupTitleKey('lessons')).toBe('ws.coaching.dayClose.title');
+    expect(onlineGroupTitleKey('deposits')).toBe('ws.matches.dayClose.deposits.title');
+    expect(onlineLabelKey('lessons', { id: 'deskRefunded' })).toBe('ws.coaching.dayClose.rows.deskRefunded');
+    expect(onlineLabelKey('matches', { id: 'owed' })).toBe('ws.matches.dayClose.matches.owed');
+  });
+
+  it('the cross-day sentence counts refunds in only on a day dated by its till shifts (C-31, R71)', () => {
+    expect(readDayCloseOnline({ refunds_dated_by_shift: true })!.refunds_dated_by_shift).toBe(true);
+    expect(readDayCloseOnline({ refunds_dated_by_shift: false })!.refunds_dated_by_shift).toBe(false);
+    expect(readDayCloseOnline({})!.refunds_dated_by_shift).toBeNull();
+    expect(crossDayKey(true)).toBe('ws.tillShift.dayClose.crossDayCounted');
+    expect(crossDayKey(false)).toBe('ws.tillShift.dayClose.crossDay');
+    expect(crossDayKey(null)).toBe('ws.tillShift.dayClose.crossDay');
   });
 });
 

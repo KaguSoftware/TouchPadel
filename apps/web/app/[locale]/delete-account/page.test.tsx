@@ -60,6 +60,10 @@ describe.each(LOCALES)('delete-account page (%s)', (locale: Locale) => {
     expect(screen.getByText(t(locale, 'legal.deleteAccount.what.kept'))).toBeTruthy();
     // DF-20: unused open-match tickets go back to the card.
     expect(screen.getByText(t(locale, 'legal.deleteAccount.what.tickets'))).toBeTruthy();
+    // Coaching (guest.md §4.16, R50, R63): lessons cancelled and refunded; a coach's profile
+    // leaves, photo and bio deleted, statements kept.
+    expect(screen.getByText(t(locale, 'legal.deleteAccount.what.lessons'))).toBeTruthy();
+    expect(screen.getByText(t(locale, 'legal.deleteAccount.what.coaching'))).toBeTruthy();
     expect(
       screen.getByRole('link', { name: t(locale, 'legal.deleteAccount.what.more') }).getAttribute('href'),
     ).toBe(`/${locale}/privacy#retention`);

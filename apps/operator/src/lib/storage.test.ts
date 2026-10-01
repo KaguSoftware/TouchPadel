@@ -22,12 +22,27 @@ describe('mediaPath', () => {
   it('never reuses a name', () => {
     expect(mediaPath('hero', null, 'webp')).not.toBe(mediaPath('hero', null, 'webp'));
   });
+
+  it('files a coach photo in a fresh random folder, never under an owner id (coaching R43)', () => {
+    const a = mediaPath('coaches', null, 'webp');
+    const b = mediaPath('coaches', null, 'webp');
+    expect(a).toMatch(/^coaches\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/);
+    // A new folder on every call, not just a new file name.
+    expect(a.split('/')[1]).not.toBe(b.split('/')[1]);
+    // An id handed in (a profile or a coach) never reaches the path.
+    const withOwner = mediaPath('coaches', ITEM, 'jpg');
+    expect(withOwner).not.toContain(ITEM);
+    expect(withOwner).toMatch(/^coaches\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.jpg$/);
+  });
 });
 
 describe('path predicates', () => {
   it('isMediaPath mirrors the conventions', () => {
     expect(isMediaPath(mediaPath('items', ITEM, 'webp'))).toBe(true);
     expect(isMediaPath(mediaPath('hero', null, 'webm'))).toBe(true);
+    expect(isMediaPath(mediaPath('coaches', null, 'png'))).toBe(true);
+    expect(isMediaPath('coaches/not-a-uuid/x.webp')).toBe(false);
+    expect(isMediaPath(`coaches/${ITEM}/${ITEM}.mp4`)).toBe(false);
     expect(isMediaPath('items/not-a-uuid/x.webp')).toBe(false);
     expect(isMediaPath('../etc/passwd')).toBe(false);
   });

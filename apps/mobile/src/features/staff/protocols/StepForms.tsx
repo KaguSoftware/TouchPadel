@@ -196,7 +196,9 @@ function useSpec(p: StepFormProps): Spec | null {
     }
     if (kind === 'price_promo' && key === 'numbers' && change) {
       if (!reads.numbers.data) return null;
-      const n = priceNumbersStart(change, reads.numbers.data);
+      // The proposal says which lesson figures it carries (a coach price's
+      // own figure, or none for a removal), as the operator's prefill reads it.
+      const n = priceNumbersStart(change, reads.numbers.data, reads.propose);
       const draft: Draft = record
         ? { ...n.draft, recommendation: base.recommendation || n.draft.recommendation || 'go', note: base.note ?? '' }
         : n.draft;

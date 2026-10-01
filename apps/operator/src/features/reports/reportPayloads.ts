@@ -71,6 +71,13 @@ export interface RevenueFigures {
   taxIqd: number | null;
   orders: number | null;
   bookings: number | null;
+  /**
+   * Coaching (0285; coaching operator.md §5.18.3, X26, C-18): lesson money,
+   * inside `totalIqd` and outside `padelIqd`. Null from a server before 0285.
+   */
+  lessonIqd: number | null;
+  /** The coaches' share of lesson money, accrued (paid outside the till). Null before 0285. */
+  owedToCoachesIqd: number | null;
 }
 
 export interface RevenueRow extends RevenueFigures {
@@ -98,7 +105,14 @@ function revenueFigures(r: Raw): RevenueFigures {
     taxIqd: num(r.taxIqd),
     orders: num(r.orders),
     bookings: num(r.bookings),
+    lessonIqd: num(r.lessonIqd),
+    owedToCoachesIqd: num(r.owedToCoachesIqd),
   };
+}
+
+/** The server sends the lesson figures (0285 and later): the Lessons column and figure have something to show. */
+export function revenueHasLessons(r: RevenueReport): boolean {
+  return (r.totals?.lessonIqd ?? null) !== null || r.rows.some((row) => row.lessonIqd !== null);
 }
 
 export function readRevenue(payload: unknown): RevenueReport {
@@ -134,6 +148,9 @@ export interface CourtRow {
   noShowRatePct: number | null;
   peakBookings: number | null;
   offPeakBookings: number | null;
+  /** Coaching (0285, X25): the court's lessons and the minutes they held it; null before 0285. */
+  lessons: number | null;
+  lessonMinutes: number | null;
 }
 
 export interface CourtTotals {
@@ -147,7 +164,32 @@ export interface CourtTotals {
   noShows: number | null;
   peakBookings: number | null;
   offPeakBookings: number | null;
+  lessons: number | null;
+  lessonMinutes: number | null;
 }
+
+/**
+ * report_courts' `lessons` block (0285; coaching operator.md §5.18.2, X25,
+ * R72): the period's lessons at this branch. Occupancy counts lesson minutes
+ * as booked (Money CM-14). No names.
+ */
+export const COURT_LESSON_KEYS = [
+  'lessons',
+  'private',
+  'group',
+  'courseSessions',
+  'lessonMinutes',
+  'enrolments',
+  'attended',
+  'noShows',
+  'cancelled',
+  'underFilled',
+  'collectedIqd',
+  'courtShareIqd',
+  'owedToCoachesIqd',
+] as const;
+export type CourtLessonKey = (typeof COURT_LESSON_KEYS)[number];
+export type CourtLessons = Record<CourtLessonKey, number | null>;
 
 /**
  * report_courts' `matches` block (0265, open matches money.md §7.4): the
@@ -174,6 +216,8 @@ export interface CourtsReport {
   trend: { date: string; bookings: number | null; revenueIqd: number | null }[];
   /** null from a server before 0265: the report offers no Open matches view. */
   matches: CourtMatches | null;
+  /** null from a server before 0285: the report offers no Lessons view. */
+  lessons: CourtLessons | null;
 }
 
 export function readCourts(payload: unknown): CourtsReport {
@@ -197,6 +241,8 @@ export function readCourts(payload: unknown): CourtsReport {
       noShowRatePct: num(r.noShowRatePct),
       peakBookings: num(r.peakBookings),
       offPeakBookings: num(r.offPeakBookings),
+      lessons: num(r.lessons),
+      lessonMinutes: num(r.lessonMinutes),
     }));
   const t = obj(p.totals);
   const totals: CourtTotals | null = t
@@ -211,6 +257,8 @@ export function readCourts(payload: unknown): CourtsReport {
         noShows: num(t.noShows),
         peakBookings: num(t.peakBookings),
         offPeakBookings: num(t.offPeakBookings),
+        lessons: num(t.lessons),
+        lessonMinutes: num(t.lessonMinutes),
       }
     : null;
   const byHour = list(p.byHour)
@@ -231,18 +279,30 @@ export function readCourts(payload: unknown): CourtsReport {
         ticketForfeitsIqd: num(m.ticketForfeitsIqd),
       }
     : null;
-  return { rows, totals, byHour, trend, matches };
+  const l = obj(p.lessons);
+  const lessons: CourtLessons | null = l ? (Object.fromEntries(COURT_LESSON_KEYS.map((k) => [k, num(l[k])])) as CourtLessons) : null;
+  return { rows, totals, byHour, trend, matches, lessons };
 }
 
 /**
  * No courts, or nothing booked, cancelled, missed or held for a tournament on
- * any of them, and no open-match figure either (a period whose only news is a
- * lost ticket still has its Open matches view).
+ * any of them, and no open-match or lesson figure either (a period whose only
+ * news is a lost ticket, or a lesson, still has its view).
  */
 export function courtsIsEmpty(r: CourtsReport): boolean {
   if (r.rows.length === 0) return true;
   const t = r.totals;
-  return t !== null && !t.bookings && !t.cancellations && !t.noShows && !t.eventMinutes && courtMatchesIsEmpty(r.matches);
+  return t !== null && !t.bookings && !t.cancellations && !t.noShows && !t.eventMinutes && courtMatchesIsEmpty(r.matches) && courtLessonsIsEmpty(r.lessons);
+}
+
+/** The lessons band is empty when no lesson was held, cancelled or paid for in the period. */
+export function courtLessonsIsEmpty(l: CourtLessons | null): boolean {
+  return !l || COURT_LESSON_KEYS.every((k) => !l[k]);
+}
+
+/** report_lessons with no lesson in the period: the view says so instead of tables of zeros. */
+export function lessonsReportIsEmpty(r: { totals: Record<string, number | null>; byCoach: readonly unknown[]; byType: readonly unknown[]; byDay: readonly unknown[] }): boolean {
+  return !r.totals.lessons && !r.totals.cancelled && !r.totals.collectedIqd && r.byCoach.length === 0 && r.byType.length === 0 && r.byDay.length === 0;
 }
 
 // ---------------------------------------------------------------------------

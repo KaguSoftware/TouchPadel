@@ -266,6 +266,80 @@ describe('CourtsReportScreen', () => {
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('report_matches', expect.objectContaining({ p_filters: { category: 'women' } })));
   });
 
+  // Coaching (coaching operator.md §5.18.2): the Lessons view exists only when report_courts carries its block.
+  const LESSON_BLOCK = { lessons: 6, private: 3, group: 2, courseSessions: 1, lessonMinutes: 420, enrolments: 11, attended: 9, noShows: 1, cancelled: 1, underFilled: 1, collectedIqd: 330000, courtShareIqd: 60000, owedToCoachesIqd: 162000 };
+  const LESSONS_REPORT = {
+    period: { from: '2026-09-01', to: '2026-09-15' },
+    totals: { lessons: 6, private: 3, group: 2, courseSessions: 1, cancelled: 1, underFilled: 1, expired: 0, enrolments: 11, places: 16, placesTaken: 11, fillRatePct: 68.8, attended: 9, noShows: 1, lateCancels: 1, collectedIqd: 330000, courtShareIqd: 60000, coachShareIqd: 162000, venueShareIqd: 168000, deskIqd: 250000, onlineIqd: 80000, refundsIqd: 20000, lessonRevenueIqd: 310000, sandboxExcluded: 0 },
+    byCoach: [{ coachId: 'k1', coachNameEn: 'Coach Sara', coachNameAr: 'المدرّبة سارة', lessons: 6, enrolments: 11, collectedIqd: 330000, coachShareIqd: 162000 }],
+    byType: [{ lessonTypeId: 't1', nameEn: 'Beginners group', nameAr: 'مجموعة المبتدئين', kind: 'group', lessons: 2, enrolments: 7, collectedIqd: 140000 }],
+    byDay: [{ date: '2026-09-05', lessons: 2, collectedIqd: 110000, coachShareIqd: 54000 }],
+    columns: [],
+  };
+
+  it('offers no Lessons view to a server without the lessons block, and keeps the old occupancy hint', async () => {
+    rpc.mockResolvedValue(READY);
+    renderReport();
+    await screen.findByRole('table', { name: 'By court' });
+    expect(screen.queryByRole('button', { name: 'Lessons' })).toBeNull();
+    expect(screen.getByText('Of 20 open court hours')).toBeTruthy();
+    expect(within(screen.getByRole('table', { name: 'By court' })).queryByRole('columnheader', { name: 'Lesson hours' })).toBeNull();
+  });
+
+  it('with the block: occupancy says lesson time counts, and each court shows its lesson hours', async () => {
+    rpc.mockImplementation(async (fn) =>
+      fn === 'report_courts'
+        ? { ...READY, rows: [court('c1', 'Court 1', { bookings: 5, bookedMinutes: 450, lessons: 4, lessonMinutes: 240 }), READY.rows[1]], lessons: LESSON_BLOCK }
+        : LESSONS_REPORT,
+    );
+    renderReport();
+    const table = await screen.findByRole('table', { name: 'By court' });
+    expect(screen.getByText('Of 20 open court hours. Lesson time counts as booked.')).toBeTruthy();
+    expect(within(table).getByRole('columnheader', { name: 'Lesson hours' })).toBeTruthy();
+    expect(within(table).getByText('4 h')).toBeTruthy();
+  });
+
+  it('the Lessons view: the band, the counts and money from report_lessons, three tables, compare disabled', async () => {
+    const user = userEvent.setup();
+    rpc.mockImplementation(async (fn) => (fn === 'report_courts' ? { ...READY, lessons: LESSON_BLOCK } : fn === 'report_lessons' ? LESSONS_REPORT : {}));
+    renderReport();
+    await screen.findByRole('table', { name: 'By court' });
+    await user.click(screen.getByRole('button', { name: 'Lessons' }));
+    const view = await screen.findByTestId('courts-lessons');
+    const band = within(view).getByRole('region', { name: 'Lessons' });
+    expect(within(band).getByText('Court hours')).toBeTruthy();
+    expect(within(band).getByText('7 h')).toBeTruthy();
+    expect(within(band).getByText('162,000 IQD')).toBeTruthy();
+    expect(await within(view).findByText('Cancelled at the cut-off')).toBeTruthy();
+    expect(within(view).getByText('68.8%')).toBeTruthy();
+    expect(within(view).getByText("The venue's share")).toBeTruthy();
+    expect(within(view).getByText('168,000 IQD')).toBeTruthy();
+    expect(within(screen.getByRole('table', { name: 'By coach' })).getByText('Coach Sara')).toBeTruthy();
+    const byType = screen.getByRole('table', { name: 'By lesson type' });
+    expect(within(byType).getByText('Group session')).toBeTruthy();
+    expect(within(screen.getByRole('table', { name: 'By day' })).getByText('110,000 IQD')).toBeTruthy();
+    // Each table can be taken away on its own.
+    expect(within(view).getByRole('button', { name: 'Export By coach' })).toBeTruthy();
+    expect(screen.getByText("Comparison isn't available for lessons yet.")).toBeTruthy();
+    // The court filter hides; comparison is disabled.
+    expect(screen.queryByRole('combobox', { name: 'Court' })).toBeNull();
+    expect((screen.getByRole('combobox', { name: 'Compare with' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('report_lessons', { p_from: expect.any(String), p_to: expect.any(String) });
+  });
+
+  it('a Lessons period with no lesson says so', async () => {
+    const user = userEvent.setup();
+    rpc.mockImplementation(async (fn) =>
+      fn === 'report_courts'
+        ? { ...READY, lessons: { ...LESSON_BLOCK, lessons: 0, cancelled: 1, collectedIqd: 0 } }
+        : { totals: { lessons: 0 }, byCoach: [], byType: [], byDay: [] },
+    );
+    renderReport();
+    await screen.findByRole('table', { name: 'By court' });
+    await user.click(screen.getByRole('button', { name: 'Lessons' }));
+    expect(await screen.findByText('No lessons in this period.')).toBeTruthy();
+  });
+
   it('an Open matches period with no match says so', async () => {
     const user = userEvent.setup();
     rpc.mockImplementation(async (fn) =>

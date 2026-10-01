@@ -17,6 +17,8 @@ export const ownerEn = {
     headline: 'Headline',
     padel: 'Padel',
     cafe: 'Cafe',
+    // Coaching (coaching operator.md §5.18.4): the `lessons` group's word (the CSV's Group column).
+    lessons: 'Lessons',
     exceptions: 'Exceptions',
     openRevenue: 'Revenue report',
     openCourts: 'Courts report',
@@ -49,6 +51,9 @@ export const ownerEn = {
       ticketForfeits: 'Lost match tickets',
       ticketLiability: 'Unused tickets owed to players',
       matchWrittenOff: 'Written-off match shares',
+      // Coaching (coaching operator.md §5.18.4): the `lessons` group.
+      lessonRevenue: 'Lessons',
+      owedToCoaches: 'Owed to coaches',
     },
     // Three tables, so three files in a zip. Every column is one fact in words.
     csv: {
@@ -194,6 +199,8 @@ export const ownerEn = {
       tables: 'The cafe tables and the QR card on each one. Switch a waiter bell, print a card, or replace a lost one.',
       settings: 'Opening hours, closed days, when the business day starts, and the venue details fixed at setup.',
       guestSite: 'What guests see at the top of the menu after scanning a table card. Table QR codes and Telegram are tabs on the same page.',
+      // Coaching (coaching operator.md §5.3.3).
+      coaches: 'Coaches, the lessons they teach, prices and hours',
     },
     status: {
       staff: 'People with access',
@@ -202,6 +209,9 @@ export const ownerEn = {
       tables: 'Tables in use',
       dayStarts: 'Business day starts',
       homeScreen: 'Top of the menu',
+      // "Coaches 3 · Lesson types on sale 4" (coaching operator.md §5.3.3).
+      coaches: 'Coaches',
+      lessonTypesOnSale: 'Lesson types on sale',
     },
     heroMode: {
       none: 'Menu only',
@@ -630,6 +640,13 @@ export const ownerEn = {
       rates: 'What an hour on a court costs, by day and time. Changes apply to future bookings only.',
       menuPrices: 'Cafe prices. A change here moves tomorrow’s cafe revenue, not today’s.',
       wages: 'Each person’s salary and pay day, what comes off it, and marking it paid. Approve deductions here.',
+      // Coaching (coaching operator.md §5.3.3).
+      coachPay: 'Monthly coach statements: approve and mark paid',
+    },
+    // A card's status line: "To approve 2 · To pay 1" (coaching operator.md §5.3.3).
+    status: {
+      toApprove: 'To approve',
+      toPay: 'To pay',
     },
     headline: {
       title: 'This month so far',

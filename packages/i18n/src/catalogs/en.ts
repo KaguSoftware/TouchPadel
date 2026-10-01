@@ -15,6 +15,7 @@ import { legalEn } from './legal.en';
 import { siteEn } from './site.en';
 import { branchesEn } from './branches.en';
 import { matchesEn } from './matches.en';
+import { coachingEn } from './coaching.en';
 
 export const en = {
   // Operator workspace strings (spec §05–§07), one file pair per lane: catalogs/ws/*.
@@ -819,6 +820,11 @@ export const en = {
       "Women-only and men-only matches: you're listed as a man. The front desk can change this.",
     tickets: 'Open-match tickets',
     blockedPlayers: 'Blocked players',
+    // Coaching (docs/design/coaching/guest.md §4.8.1): My lessons, and coach
+    // mode for a coach (its statements for a retired one, C-25).
+    myLessons: 'My lessons',
+    coachMode: 'Coach mode',
+    coachStatements: 'Coach statements',
   },
   settings: {
     title: 'Settings',
@@ -1025,6 +1031,9 @@ export const en = {
   branches: branchesEn,
   // Open matches (docs/design/open-matches/guest.md §4.24): the guest app's words (matches.en.ts).
   matches: matchesEn,
+  // Coaching (docs/design/coaching/guest.md §4.15): lessons, coach mode and the website's
+  // coaching pages (coaching.en.ts).
+  coaching: coachingEn,
   seo: {
     // Site-wide defaults (the landing page at /{locale} is Touch Padel's front door since
     // 2026-09-23; the café menu moved to /{locale}/menu and sets its own title).
@@ -1222,6 +1231,11 @@ export const en = {
       walked_out: 'Left without paying',
       no_shows: 'Repeated no-shows',
       reported: 'Reported by players',
+      // Coaching (docs/design/coaching/operator.md §5.10.8, §5.10.10):
+      // COACHING_REASON_CODES' own code and LESSON_REFUND_REASON_CODES.
+      coach_unavailable: 'Coach unavailable',
+      lesson_refund: 'Lesson refund',
+      lesson_goodwill: 'Goodwill refund',
     },
     desk: {
       newBooking: 'New booking',

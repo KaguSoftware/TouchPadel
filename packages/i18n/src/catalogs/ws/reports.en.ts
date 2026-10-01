@@ -82,6 +82,10 @@ export const reportsEn = {
     revenue: 'Revenue',
     padel: 'Padel',
     cafe: 'Cafe',
+    // Coaching (coaching operator.md §5.18.3): lesson money, its own line (C-18).
+    lessons: 'Lessons',
+    owedToCoaches: 'Owed to coaches',
+    owedToCoachesHint: "Coaches' share of lesson money, paid outside the till",
     bookingsCount: 'Bookings: {count}',
     ordersCount: 'Orders: {count}',
     taken: 'Money taken',
@@ -113,6 +117,8 @@ export const reportsEn = {
       month: 'Month',
       padel: 'Padel',
       cafe: 'Cafe',
+      // Coaching (§5.18.3): shown when report_revenue sends `lessonIqd`.
+      lessons: 'Lessons',
       revenue: 'Revenue',
       bookings: 'Bookings',
       orders: 'Orders',
@@ -141,6 +147,8 @@ export const reportsEn = {
     hours: 'Hours booked',
     occupancy: 'Occupancy',
     occupancyHint: 'Of {hours} open court hours',
+    // Coaching (§5.18.2, Money CM-14): when report_courts sends its lessons block.
+    occupancyLessonsHint: 'Of {hours} open court hours. Lesson time counts as booked.',
     revenue: 'Court revenue',
     cancellations: 'Cancellations',
     noShows: 'No-shows',
@@ -152,9 +160,12 @@ export const reportsEn = {
       byDay: 'By day',
       // Open matches (operator.md §5.19), offered when report_courts carries its `matches` block.
       matches: 'Open matches',
+      // Coaching (coaching operator.md §5.18.2), offered when report_courts carries its `lessons` block.
+      lessons: 'Lessons',
     },
     lead: {
       matches: 'Open matches in this period: what they booked, what the desk took, and how the seats went.',
+      lessons: 'Lessons in this period: the court time they took, what was collected, and what is owed to the coaches.',
       byCourt: 'Each court’s bookings and earnings. Sort a column to find the strongest or weakest court.',
       cancellations: 'How often each court’s bookings were cancelled or not turned up to.',
       peak: 'Bookings at each court’s top price, against cheaper times.',
@@ -175,6 +186,8 @@ export const reportsEn = {
       peak: 'Peak',
       offPeak: 'Off-peak',
       day: 'Day',
+      // Coaching (§5.18.2): the court time lessons took.
+      lessonHours: 'Lesson hours',
     },
     notes: {
       occupancy: 'Occupancy is hours booked out of the hours the court was open.',

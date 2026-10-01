@@ -3,6 +3,7 @@ import type { ReservationRow } from '../desk/deskTypes';
 import {
   courtDaySummary,
   didNotHappen,
+  reservationPanelTarget,
   schedulePlacement,
   splitTabs,
   tablesNow,
@@ -67,6 +68,22 @@ describe('courtDaySummary', () => {
     expect(s.bookedMinutes).toBe(60 + 180 + 90);
   });
 
+  it('counts lessons apart from blocks, with none of their money in the bookings (coaching §5.8)', () => {
+    const s = courtDaySummary(
+      [
+        res({ kind: 'lesson', status: 'confirmed', guest_name: 'Lesson', price_iqd: null }),
+        res({ kind: 'lesson', status: 'completed', guest_name: 'Lesson', price_iqd: 45000 }),
+        res({ kind: 'lesson', status: 'cancelled', guest_name: 'Lesson' }),
+        res({ kind: 'hold', status: 'pending', price_iqd: null }),
+        res({ status: 'confirmed' }),
+      ],
+      NOW,
+    );
+    expect(s).toMatchObject({ booked: 1, lessons: 2, blocks: 1, cancelled: 0 });
+    expect(s.bookedIqd).toBe(30000);
+    expect(s.bookedMinutes).toBe(90);
+  });
+
   it('does not count a booking that started without arriving as upcoming', () => {
     const s = courtDaySummary([res({ status: 'confirmed', start_at: '2026-09-13T16:00:00Z' })], NOW);
     expect(s.booked).toBe(1);
@@ -98,6 +115,35 @@ describe('schedulePlacement', () => {
     const early = schedulePlacement({ start_at: '2026-09-13T05:00:00Z', end_at: '2026-09-13T06:30:00Z' }, dayStart, 540, 1020);
     expect(early).toEqual({ top: 0, height: 30 / 1020 });
     expect(schedulePlacement({ start_at: '2026-09-13T03:00:00Z', end_at: '2026-09-13T04:00:00Z' }, dayStart, 540, 1020)).toBeNull();
+  });
+});
+
+// Coaching (operator.md §5.8): a lesson's panel opens the lesson, in the desk's words.
+describe('reservationPanelTarget', () => {
+  it('opens a lesson on its own screen, as "Open lesson"', () => {
+    const r = res({ id: 'r1', kind: 'lesson', guest_name: 'Lesson', price_iqd: null });
+    expect(reservationPanelTarget(r, true, 'l1')).toEqual({
+      workspace: 'courtDesk',
+      to: '/desk/lessons/$id',
+      params: { id: 'l1' },
+      labelKey: 'ws.coaching.common.openLesson',
+    });
+  });
+
+  it('sends a lesson whose row is not to hand through its booking route, still as "Open lesson"', () => {
+    // A held lesson's hold row is a lesson too (isLessonRow), whatever its kind.
+    const hold = res({ id: 'h1', kind: 'hold' });
+    expect(reservationPanelTarget(hold, true, null)).toEqual({
+      workspace: 'courtDesk',
+      to: '/desk/bookings/$id',
+      params: { id: 'h1' },
+      labelKey: 'ws.coaching.common.openLesson',
+    });
+  });
+
+  it('keeps the workspace’s own words for a booking and a block', () => {
+    expect(reservationPanelTarget(res({ id: 'b1' }), false, null)).toEqual({ workspace: 'courtDesk', to: '/desk/bookings/$id', params: { id: 'b1' } });
+    expect(reservationPanelTarget(res({ id: 'm1', kind: 'maintenance' }), false, null)).toEqual({ workspace: 'courtDesk', to: '/desk' });
   });
 });
 

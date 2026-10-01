@@ -106,6 +106,8 @@ export function SiteFooter({
           <h2 className="tp-site-footer__title">{tr('site.footer.exploreTitle')}</h2>
           <ul>
             {link('#lessons', tr('site.footer.lessons'))}
+            {/* The coaches, lesson types and sessions (docs/design/coaching/guest.md §4.14.4). */}
+            {link('/coaching', tr('site.footer.coaching'))}
             {link('/menu', tr('site.footer.menu'))}
             {link('/support', tr('site.footer.support'))}
           </ul>

@@ -7,6 +7,7 @@ import {
   attentionHintKey,
   attentionKindOf,
   attentionSince,
+  isLessonPaymentRow,
   isTicketRow,
   knownRefundReason,
   refundReasonKey,
@@ -123,5 +124,28 @@ describe('showAttentionPanel', () => {
     expect(showAttentionPanel({ rows: 0, mode: 'required', hideWhenEmpty: true })).toBe(false);
     // Settings unreadable (an older server): say nothing rather than an error about a feature that is not there.
     expect(showAttentionPanel({ rows: null, mode: null, hideWhenEmpty: false })).toBe(false);
+  });
+});
+
+// Coaching (coaching operator.md §5.17): a lesson payment's refund (0272, 0281).
+describe('lesson rows', () => {
+  it('a lesson row is told apart from deposits and tickets', () => {
+    expect(isLessonPaymentRow(row({ purpose: 'lesson' }))).toBe(true);
+    expect(isLessonPaymentRow(row({ purpose: 'ticket' }))).toBe(false);
+    expect(isLessonPaymentRow(row())).toBe(false);
+  });
+
+  it('knows the two lesson reasons and words them with coaching', () => {
+    expect(knownRefundReason('coach_cancel')).toBe('coach_cancel');
+    expect(knownRefundReason('under_filled')).toBe('under_filled');
+    expect(refundReasonKey('coach_cancel')).toBe('ws.coaching.deposits.refundReason.coach_cancel');
+    expect(t('en', refundReasonKey('coach_cancel'))).toBe('the coach cancelled');
+    expect(t('en', refundReasonKey('under_filled'))).toBe('too few students');
+    expect(t('ar', refundReasonKey('coach_cancel'))).toBe('ألغاها المدرّب');
+  });
+
+  it('a lesson payment is acted on like any online payment', () => {
+    expect(attentionActions(row({ purpose: 'lesson', status: 'refund_failed' }))).toEqual({ retry: true, settle: true, refund: false });
+    expect(attentionActions(row({ purpose: 'lesson', status: 'succeeded' }))).toEqual({ retry: false, settle: false, refund: true });
   });
 });

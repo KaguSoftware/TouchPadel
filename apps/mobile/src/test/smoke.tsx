@@ -44,6 +44,9 @@ import { ThemeProvider } from '../theme';
 import { AuthProvider } from '../features/auth/context';
 import { StaffStatusProvider } from '../features/staff/StaffStatusProvider';
 import { staffKeys } from '../features/staff/keys';
+import { CoachStatusProvider } from '../features/coach/CoachStatusProvider';
+import { coachKeys } from '../features/coach/keys';
+import type { CoachMeRead } from '../features/coach/logic';
 import { ToastProvider } from '../components/overlays';
 import { resetRouterState } from './routerState';
 import { TEST_SESSION, setTestSession } from './authState';
@@ -79,6 +82,14 @@ export interface RenderRouteOptions {
    * with this role at these venues (one venue, venue A's id, when left out).
    */
   staff?: { role: StaffRole; venues?: string[] };
+  /**
+   * An account that coaches (docs/design/coaching/guest.md §4.17): signed in,
+   * CoachStatusProvider mounted inside StaffStatusProvider (as the app mounts
+   * it), and `coach_me` seeded under `coachKeys.me` for the test session's uid,
+   * so RequireCoach lets a coach-mode screen through on the first render.
+   * With `staff` too, a staff member who coaches (C-27).
+   */
+  coach?: CoachMeRead;
 }
 
 /** The venue a staff case works at unless it names others (packages/db tests' VENUE_A_ID). */
@@ -124,10 +135,11 @@ export function renderRoute(
     session = 'out',
     queryData = [],
     staff,
+    coach,
   }: RenderRouteOptions = {},
 ): SmokeResult {
   resetRouterState(params, pathname);
-  setTestSession(staff ? 'in' : session);
+  setTestSession(staff || coach ? (session === 'verified' ? 'verified' : 'in') : session);
 
   const client = new QueryClient({
     defaultOptions: {
@@ -140,11 +152,17 @@ export function renderRoute(
       mutations: { retry: false, gcTime: Infinity },
     },
   });
-  for (const [key, data] of [...(staff ? staffSeeds(staff) : []), ...queryData]) client.setQueryData(key, data);
+  const coachSeeds: [readonly unknown[], unknown][] = coach ? [[coachKeys.me(TEST_SESSION.user.id), coach]] : [];
+  for (const [key, data] of [...(staff ? staffSeeds(staff) : []), ...coachSeeds, ...queryData]) {
+    client.setQueryData(key, data);
+  }
 
-  // The app's order: AuthProvider, the toasts, then (for staff) StaffStatusProvider.
+  // The app's order: AuthProvider, the toasts, then (for staff) StaffStatusProvider,
+  // and inside it (for a coach) CoachStatusProvider.
+  const withCoach = (children: ReactNode) =>
+    coach ? <CoachStatusProvider>{children}</CoachStatusProvider> : children;
   const withStaff = (children: ReactNode) =>
-    staff ? <StaffStatusProvider>{children}</StaffStatusProvider> : children;
+    staff ? <StaffStatusProvider>{withCoach(children)}</StaffStatusProvider> : withCoach(children);
 
   const result = render(
     <QueryClientProvider client={client}>

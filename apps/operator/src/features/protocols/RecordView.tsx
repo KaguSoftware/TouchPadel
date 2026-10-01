@@ -10,13 +10,14 @@
  */
 import type { ReactNode } from 'react';
 import { formatDate, formatDateTime, formatIQD, formatNumber, isolate } from '@touch/i18n';
-import { stepForm, type FieldDef, type PriceChangeKind, type ProtocolKind, type TournamentVariant } from '@touch/core/protocols';
+import { isLessonChange, stepForm, type FieldDef, type PriceChangeKind, type ProtocolKind, type TournamentVariant } from '@touch/core/protocols';
 import { useLocale } from '../../lib/i18n';
 import { DescriptionList } from '../../components/kit';
 import { fieldLabelKey, optionLabelKey } from './labels';
 import { isObj, isPurged, pickText } from './protocolLogic';
-import { useCafeCategories, useCourts, useIngredients } from './api';
+import { useCafeCategories, useCourts, useIngredients, useTargets } from './api';
 import { PhotoStrip } from './PhotoField';
+import { lessonTargetNames } from './priceTargets';
 import { renameKeyOf, renameReadBack } from './renames';
 
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
@@ -44,8 +45,14 @@ export function RecordView({
   const courts = useCourts(JSON.stringify(record).includes('court'));
   const categories = useCafeCategories(typeof record.category_id === 'string');
   const ingredients = useIngredients(wantsIngredients);
+  // A lesson change names its type and coach from the targets list, as an
+  // item is named (coaching 0282). A launched draft has left the drafts list,
+  // so a launch also reads the launched types.
+  const lessonChange = isLessonChange(change) ? change : null;
+  const lessonTargets = useTargets(lessonChange);
+  const launchedTypes = useTargets(lessonChange === 'lesson_launch' ? 'lesson_price' : null);
 
-  const book: NameBook = { ...(names ?? {}) };
+  const book: NameBook = { ...lessonTargetNames(launchedTypes.data), ...lessonTargetNames(lessonTargets.data), ...(names ?? {}) };
   for (const c of courts.data ?? []) book[c.id] = { en: c.name_en, ar: c.name_ar };
   for (const c of categories.data ?? []) book[c.id] = { en: c.name_en, ar: c.name_ar };
   for (const i of ingredients.data ?? []) book[i.id] = { en: i.name_en, ar: i.name_ar };

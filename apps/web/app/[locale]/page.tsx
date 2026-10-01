@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { makeT } from '@touch/i18n';
 import { LOCALES, requireLocale } from '@/lib/locales';
 import { getCachedBranches, getCachedMenu } from '@/lib/menu.server';
+import { getCachedCoaching } from '@/lib/coaching.server';
 import { getRequestNonce, getSiteMode } from '@/lib/site/mode.server';
 import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
 import { crossesMidnight, everyDayWindow, formatWindow } from '@/lib/site/hours';
@@ -36,7 +37,9 @@ import { PhotoGrade } from '@/components/landing/PhotoGrade';
  * `menu`-tagged readers: the hours and phone (venue_settings_public) and the café
  * section the Touch Cafe steps draw on their phone (the menu). Each read degrades on
  * its own: no venue → no hours line, no open pill and no WhatsApp or call buttons ("Plan
- * your visit" instead); no menu → the café's mark on that phone.
+ * your visit" instead); no menu → the café's mark on that phone. The coaching read (the
+ * `coaching`-tagged `coaching_public`, docs/design/coaching/guest.md §4.14.4) adds the
+ * coaches strip to #lessons only when it is `ok`; any other state leaves #lessons as it was.
  *
  * Branches (multi-venue slice 4): the hero, the booking buttons and the FAQ speak for the
  * default (oldest open) branch; the Visit block and the JSON-LD list every open branch.
@@ -88,9 +91,10 @@ export async function generateMetadata({
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const locale = requireLocale((await params).locale);
-  const [branches, menu, mode, nonce] = await Promise.all([
+  const [branches, menu, coaching, mode, nonce] = await Promise.all([
     getCachedBranches(),
     getCachedMenu(),
+    getCachedCoaching(null),
     getSiteMode(),
     getRequestNonce(),
   ]);
@@ -111,7 +115,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         phone={phone}
       />
       <Club locale={locale} phone={phone} />
-      <Lessons locale={locale} phone={phone} />
+      <Lessons locale={locale} phone={phone} coaching={coaching} />
       <Events locale={locale} phone={phone} />
       <CafeHandoff locale={locale} phone={cafePhoneMenu(menu.categories, locale)} />
       <AppBand locale={locale} stores={getStoreLinks()} phone={phone} />

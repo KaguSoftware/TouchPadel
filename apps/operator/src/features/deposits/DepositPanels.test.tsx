@@ -202,6 +202,47 @@ describe('DepositAttentionPanel', () => {
     expect(navigate).toHaveBeenCalledWith({ to: '/desk/customers/$id', params: { id: 'cust-1' } });
   });
 
+  // Coaching (coaching operator.md §5.17).
+  it('a lesson refund: "Lesson refund · {name}", its reason, and it opens the lesson and the customer', async () => {
+    const user = userEvent.setup();
+    attention = [
+      row({
+        purpose: 'lesson',
+        reservation_id: null,
+        court_name_en: null,
+        court_name_ar: null,
+        lesson_id: 'lesson-1',
+        enrolment_id: 'enr-1',
+        customer_id: 'cust-1',
+        refund_reason: 'coach_cancel',
+      }),
+    ];
+    mount(<DepositAttentionPanel hideWhenEmpty />);
+    expect(await screen.findByText(/^Lesson refund · .*Sara/)).toBeTruthy();
+    expect(screen.getByText(/Why: the coach cancelled/)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Open lesson' }));
+    expect(navigate).toHaveBeenCalledWith({ to: '/desk/lessons/$id', params: { id: 'lesson-1' } });
+    await user.click(screen.getByRole('button', { name: 'Open customer' }));
+    expect(navigate).toHaveBeenLastCalledWith({ to: '/desk/customers/$id', params: { id: 'cust-1' } });
+  });
+
+  it('PAYMENT_STATE lesson_live: refunding a lesson still on says to cancel the sign-up first', async () => {
+    const user = userEvent.setup();
+    attention = [
+      row({ purpose: 'lesson', lesson_id: 'lesson-1', customer_id: 'cust-1', status: 'succeeded', refund_amount_iqd: null, refund_requested_at: null, refund_reason: null }),
+    ];
+    const { AppRpcError } = await import('../../lib/appRpc');
+    vi.mocked(appRpc).mockImplementation(async (fn: string) => {
+      if (fn === 'deposit_attention') return attention;
+      if (fn === 'deposit_refund_request') throw new AppRpcError('PAYMENT_STATE', 'PAYMENT_STATE', undefined, 'lesson_live');
+      return {};
+    });
+    mount(<DepositAttentionPanel hideWhenEmpty />);
+    await user.click(await screen.findByRole('button', { name: 'Refund to guest' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Refund' }));
+    expect(await screen.findByText("This lesson is still on. Cancel the sign-up from the lesson's screen; its refund follows.")).toBeTruthy();
+  });
+
   it('a paid deposit on a booking that is no longer on is refunded after a confirm', async () => {
     const user = userEvent.setup();
     attention = [row({ status: 'succeeded', refund_amount_iqd: null, refund_requested_at: null, refund_reason: null })];

@@ -147,6 +147,13 @@ describe('isResumeSafePath', () => {
       '/match-new',
       '/match-report',
       '/m/abcdefghijklmnopqrstuv',
+      // Coach mode (coaching guest.md §4.17): every coach-mode screen.
+      '/coach-mode',
+      '/coach-mode-hours',
+      '/coach-mode-lesson',
+      '/coach-mode-new',
+      '/coach-mode-book',
+      '/coach-mode-statements',
     ]) {
       expect(isResumeSafePath(p)).toBe(false);
     }

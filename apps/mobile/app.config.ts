@@ -44,6 +44,13 @@ const LINK_DOMAIN = process.env.EXPO_PUBLIC_LINK_DOMAIN ?? 'touchpadel.invalid';
  * app" still works. A native change: a new dev client and store builds.
  */
 const MATCH_LINK_PREFIXES = ['/m/', '/en/m/', '/ar/m/'];
+/**
+ * A coach's page (docs/design/coaching/guest.md §4.12; C-11): the website's
+ * `/c/<coachId>` and its locale spellings, folded onto `app/coach/[id].tsx` by
+ * app/+native-intent.ts. Same filter, same verification as the match links;
+ * iOS takes its paths from the web's association file (`LINK_PATHS`).
+ */
+const COACH_LINK_PREFIXES = ['/c/', '/en/c/', '/ar/c/'];
 const androidIntentFilters =
   LINK_DOMAIN === 'touchpadel.invalid'
     ? undefined
@@ -52,7 +59,11 @@ const androidIntentFilters =
           action: 'VIEW',
           autoVerify: true,
           category: ['BROWSABLE', 'DEFAULT'],
-          data: MATCH_LINK_PREFIXES.map((pathPrefix) => ({ scheme: 'https', host: LINK_DOMAIN, pathPrefix })),
+          data: [...MATCH_LINK_PREFIXES, ...COACH_LINK_PREFIXES].map((pathPrefix) => ({
+            scheme: 'https',
+            host: LINK_DOMAIN,
+            pathPrefix,
+          })),
         },
       ];
 

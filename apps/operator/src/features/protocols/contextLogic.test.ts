@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { COACHING_SHAPES, missingKeys } from '@touch/core/coaching';
+import { makeT } from '@touch/i18n';
 import {
+  NUMBERS_FIGURES,
   analysisPrefill,
   finalizeRecord,
   interviewsRecord,
+  lessonNumbersLines,
   numbersAddons,
   numbersPrefill,
   numbersSizes,
@@ -52,6 +56,63 @@ describe('context reads', () => {
     expect(numbersSizes(n)).toEqual([{ variant_id: 'v1', name_en: 'S', name_ar: 'ص', current: 4000 }]);
     expect(numbersAddons(n)[0]).toMatchObject({ modifier_id: 'm1', current: 500, group_en: 'Milk' });
     expect(n.promotion).toBeNull();
+    expect(n.lesson).toBeNull();
+  });
+});
+
+// Coaching (0282, operator.md §5.14.2): a lesson change's numbers.
+const LESSON = {
+  lesson_type_id: 'lt-1',
+  coach_id: null,
+  kind: 'group',
+  name_en: 'Beginners',
+  name_ar: 'مبتدئون',
+  current_price_iqd: 25000,
+  new_price_iqd: 30000,
+  current_court_share_iqd: 5000,
+  new_court_share_iqd: 6000,
+  places_30d: 40,
+  owed_30d_iqd: 1200000,
+};
+
+describe('a lesson change’s numbers (X28)', () => {
+  const strip = (s: string) => s.replace(/[⁦-⁩]/g, '');
+
+  it('reads the lesson block with exactly its COACHING_SHAPES keys, and nothing made up', () => {
+    const shape = COACHING_SHAPES.price_promo_numbers_lesson;
+    const n = readNumbers({ change: 'lesson_price', sizes: [], addons: [], lesson: LESSON });
+    expect(missingKeys({ change: n.change, lesson: n.lesson }, shape)).toEqual([]);
+    expect(Object.keys(n.lesson!).sort()).toEqual([...(shape.nested?.lesson ?? [])].sort());
+    expect(n.lesson).toEqual(LESSON);
+    const bare = readNumbers({ change: 'coach_price', lesson: { lesson_type_id: 'lt-1', coach_id: 'c-1' } }).lesson!;
+    expect(bare).toMatchObject({ coach_id: 'c-1', places_30d: null, owed_30d_iqd: null, current_price_iqd: null, name_en: '' });
+  });
+
+  it('says the price, the court share and the places sold in 30 days with their value', () => {
+    expect(lessonNumbersLines(LESSON, makeT('en'), 'en').map(strip)).toEqual([
+      'Price 25,000 IQD → 30,000 IQD',
+      'Court share per session 5,000 IQD → 6,000 IQD',
+      'Beginners: places sold in the last 30 days 40 · their value 1,200,000 IQD',
+    ]);
+    const ar = lessonNumbersLines(LESSON, makeT('ar'), 'ar').map(strip);
+    expect(ar[2]).toContain('مبتدئون: الأماكن المبيعة خلال 30 يومًا 40 · قيمتها');
+    // A coach price leaves the court share, and a figure not sent reads "—".
+    const coach = { ...LESSON, coach_id: 'c-1', places_30d: null, owed_30d_iqd: null };
+    expect(lessonNumbersLines(coach, makeT('en'), 'en').map(strip)).toEqual([
+      'Price 25,000 IQD → 30,000 IQD',
+      'Beginners: places sold in the last 30 days — · their value —',
+    ]);
+  });
+
+  it('opens the numbers with the figures the proposal carries, and sends them only to change them', () => {
+    expect(numbersPrefill({ change: 'lesson_price', lesson_type_id: 'lt-1', price_iqd: 30000 })).toEqual({ recommendation: 'go', price_iqd: 30000 });
+    expect(numbersPrefill({ change: 'lesson_launch', price_iqd: 30000, court_share_iqd: 0 })).toEqual({ recommendation: 'go', price_iqd: 30000, court_share_iqd: 0 });
+    // A coach price removal carries no figure.
+    expect(numbersPrefill({ change: 'coach_price', coach_id: 'c-1', price_iqd: null })).toEqual({ recommendation: 'go' });
+    expect(NUMBERS_FIGURES).toEqual(expect.arrayContaining(['price_iqd', 'court_share_iqd']));
+    const numbers = { recommendation: 'go', price_iqd: 30000, court_share_iqd: 6000, note: 'fine' };
+    expect(finalizeRecord('price_promo', 'numbers', numbers, new Map())).toEqual({ recommendation: 'go', note: 'fine' });
+    expect(finalizeRecord('price_promo', 'numbers', { ...numbers, recommendation: 'change' }, new Map())).toMatchObject({ price_iqd: 30000, court_share_iqd: 6000 });
   });
 });
 

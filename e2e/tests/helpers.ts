@@ -821,3 +821,471 @@ async function cancelReservations(svc: SupabaseClient, ids: readonly string[]): 
     .in('id', ids);
   if (error) throw new Error(`cancelReservations failed: ${error.message}`);
 }
+
+// ---------------------------------------------------------------------------
+// Coaching (docs/design/coaching/operator.md §5.22). Like the open-match seeds,
+// every coach, lesson type and lesson is made through the RPCs the operator,
+// coach mode and the phone call (build contracts §1.6–§1.7), never straight into
+// the coaching tables, so a seeded lesson holds the same money rules a real one
+// does. Coaches are guest accounts `e2e-coach-<letter>@dev.touch.local` (or a
+// seeded staff account), reused on a rerun; cleanE2eLessons ends what a run left.
+// ---------------------------------------------------------------------------
+
+/** Every name the desk types into an e2e lesson starts with this (letters only: the desk strips digits). */
+export const E2E_LESSON_NAME = 'Playwright Student';
+
+/** The lesson types the suite seeds, by their English names (letters only, found again on a rerun). */
+export const E2E_LESSON_TYPES = {
+  private: 'Playwright Private Hour',
+  group: 'Playwright Group Clinic',
+  course: 'Playwright Four Week Course',
+  draftGroup: 'Playwright Draft Group',
+} as const;
+
+/** The seeded figures (operator.md §5.22): a private hour at 30,000 with a 10,000 court share. */
+export const E2E_LESSON_PRICES = { private: 30_000, privateShare: 10_000, group: 20_000, groupShare: 5_000, course: 80_000, courseShare: 5_000 } as const;
+
+export type LessonPaymentMode = 'desk' | 'online_optional' | 'online_required';
+
+/**
+ * Switch lessons on (or off) at the fixture branch the way the owner does
+ * (app.set_coaching_settings), optionally with a payment mode. An online mode
+ * needs `setLessonTerms` first (R50, R67).
+ */
+export async function enableCoaching(opts: { enabled?: boolean; mode?: LessonPaymentMode } = {}): Promise<void> {
+  const patch: Record<string, unknown> = { coaching_enabled: opts.enabled ?? true };
+  if (opts.mode) patch.lesson_payment_mode = opts.mode;
+  const owner = await signedInClient(SEED_STAFF.owner);
+  try {
+    await appRpc(owner, 'set_coaching_settings', { p_venue_id: FIXTURE_VENUE_ID, p_patch: patch });
+  } finally {
+    await owner.auth.signOut();
+  }
+}
+
+/**
+ * The lessons terms version is live (R50, C-26): `platform_settings.lesson_terms_version`
+ * set to the version the seeded guests accepted (seedMatchPlayers, seedCoachAccount),
+ * so online lesson money may be switched on. `off` clears it again.
+ */
+export async function setLessonTerms(svc: SupabaseClient, version: string | null = '2026-09-29'): Promise<void> {
+  const { error } = await svc.from('platform_settings').update({ lesson_terms_version: version }).eq('id', true);
+  if (error) throw new Error(`setLessonTerms failed: ${error.message}`);
+}
+
+export interface SeededCoachAccount {
+  profileId: string;
+  email: string;
+  /** The account's full name (staff only; never public). */
+  name: string;
+  client: SupabaseClient;
+}
+
+export interface SeededCoach extends SeededCoachAccount {
+  coachId: string;
+  /** The public display name the desk shows ("Coach Alpha"). */
+  displayName: string;
+}
+
+const COACH_WORDS: Record<string, string> = { A: 'Alpha', B: 'Bravo', C: 'Charlie', D: 'Delta', M: 'Mike' };
+
+/**
+ * The guest account behind an e2e coach, made once and reused: the account name
+ * "Playwright Coach <Word>", a phone, the terms accepted. A `staff` coach is the
+ * seeded staff account itself (journey 9: a manager who coaches).
+ */
+export async function seedCoachAccount(
+  svc: SupabaseClient,
+  letter: string,
+  { staff }: { staff?: keyof typeof SEED_STAFF } = {},
+): Promise<SeededCoachAccount> {
+  const word = COACH_WORDS[letter] ?? letter;
+  const name = `Playwright Coach ${word}`;
+  const email = staff ? SEED_STAFF[staff] : `e2e-coach-${letter.toLowerCase()}@dev.touch.local`;
+  if (!staff) {
+    const phone = `+96477020000${String(letter.charCodeAt(0) % 100).padStart(2, '0')}`;
+    const created = await svc.auth.admin.createUser({
+      email,
+      password: DEV_PASSWORD,
+      email_confirm: true,
+      user_metadata: { full_name: name, phone },
+    });
+    if (created.error && !/already|registered|exists/i.test(created.error.message)) {
+      throw new Error(`seedCoachAccount ${letter}: ${created.error.message}`);
+    }
+    const client = await signedInClient(email);
+    const id = (await client.auth.getUser()).data.user?.id;
+    if (!id) throw new Error(`seedCoachAccount ${letter}: no user id`);
+    const now = new Date().toISOString();
+    const { error } = await svc
+      .from('profiles')
+      .update({ full_name: name, given_name: 'Playwright', family_name: `Coach ${word}`, phone, terms_version: '2026-09-29', terms_accepted_at: now })
+      .eq('id', id);
+    if (error) throw new Error(`seedCoachAccount ${letter} profile: ${error.message}`);
+    return { profileId: id, email, name, client };
+  }
+  const client = await signedInClient(email);
+  const id = (await client.auth.getUser()).data.user?.id;
+  if (!id) throw new Error(`seedCoachAccount ${staff}: no user id`);
+  const { data } = await svc.from('profiles').select('full_name').eq('id', id).single();
+  return { profileId: id, email, name: (data as { full_name: string | null } | null)?.full_name ?? name, client };
+}
+
+/** The coach row of a profile (service role), or null. */
+async function coachOfProfile(svc: SupabaseClient, profileId: string): Promise<{ id: string; status: string } | null> {
+  const { data, error } = await svc.from('coaches').select('id, status').eq('profile_id', profileId).maybeSingle();
+  if (error) throw new Error(`coachOfProfile failed: ${error.message}`);
+  return (data as { id: string; status: string } | null) ?? null;
+}
+
+/**
+ * A coach at the fixture branch, made the way the operator makes one: the owner
+ * promotes the account (app.coach_promote, reviving a retired coach), gives it
+ * the lesson types (app.set_coach_lesson_types) and hours 08:00–24:00 every day
+ * (app.set_coach_hours); the coach accepts the public profile in the app
+ * (app.coach_accept_public, R61) unless `accept: false` (journey 1's coach).
+ */
+export async function seedCoach(
+  svc: SupabaseClient,
+  letter: string,
+  opts: { staff?: keyof typeof SEED_STAFF; lessonTypeIds?: readonly string[]; accept?: boolean } = {},
+): Promise<SeededCoach> {
+  const account = await seedCoachAccount(svc, letter, { staff: opts.staff });
+  const word = COACH_WORDS[letter] ?? letter;
+  const displayName = `Coach ${word}`;
+  const owner = await signedInClient(SEED_STAFF.owner);
+  try {
+    let coach = await coachOfProfile(svc, account.profileId);
+    if (!coach || coach.status === 'retired') {
+      await appRpc(owner, 'coach_promote', {
+        p_profile_id: account.profileId,
+        p_display_name_en: displayName,
+        p_display_name_ar: `المدرّب ${word}`,
+        p_bio_en: '',
+        p_bio_ar: '',
+        p_photo_path: null,
+        p_venue_ids: [FIXTURE_VENUE_ID],
+      });
+      coach = await coachOfProfile(svc, account.profileId);
+    } else if (coach.status === 'paused') {
+      await appRpc(owner, 'set_coach_status', { p_coach_id: coach.id, p_status: 'active', p_reason: null });
+    }
+    if (!coach) throw new Error(`seedCoach ${letter}: no coach row after coach_promote`);
+    if (opts.lessonTypeIds?.length) {
+      await appRpc(owner, 'set_coach_lesson_types', {
+        p_coach_id: coach.id,
+        p_venue_id: FIXTURE_VENUE_ID,
+        p_lesson_type_ids: [...opts.lessonTypeIds],
+      });
+    }
+    await appRpc(owner, 'set_coach_hours', {
+      p_coach_id: coach.id,
+      p_venue_id: FIXTURE_VENUE_ID,
+      p_windows: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, start: '08:00', end: '24:00' })),
+    });
+    if (opts.accept ?? true) await appRpc(account.client, 'coach_accept_public', {});
+    return { ...account, coachId: coach.id, displayName };
+  } finally {
+    await owner.auth.signOut();
+  }
+}
+
+export interface SeededLessonTypes {
+  privateId: string;
+  groupId: string;
+  courseId: string;
+  /** A draft group type, never launched (journey 7 puts it on sale through the protocol). */
+  draftGroupId: string;
+}
+
+async function lessonTypeId(svc: SupabaseClient, nameEn: string): Promise<string | null> {
+  const { data, error } = await svc
+    .from('lesson_types')
+    .select('id')
+    .eq('venue_id', FIXTURE_VENUE_ID)
+    .eq('name_en', nameEn)
+    .order('created_at')
+    .limit(1);
+  if (error) throw new Error(`lessonTypeId failed: ${error.message}`);
+  return ((data ?? []) as { id: string }[])[0]?.id ?? null;
+}
+
+/**
+ * The suite's lesson types (owner client, app.upsert_lesson_type): a private
+ * 60-minute hour at 30,000 with a 10,000 court share, a group clinic of 2–8
+ * places with a 2-hour cut-off, a four-session course, each launched directly
+ * (the owner's `launchDirectly`), and one draft group type. Reused on a rerun;
+ * a rerun puts the seeded figures back.
+ */
+export async function seedLessonTypes(svc: SupabaseClient): Promise<SeededLessonTypes> {
+  const P = E2E_LESSON_PRICES;
+  const specs: [keyof SeededLessonTypes, Record<string, unknown>][] = [
+    ['privateId', { kind: 'private', name_en: E2E_LESSON_TYPES.private, name_ar: 'حصة خاصة لاختبار', duration_min: 60, price_iqd: P.private, court_share_iqd: P.privateShare, max_places: 4, min_places: 1, cutoff_hours: 0, is_active: true }],
+    ['groupId', { kind: 'group', name_en: E2E_LESSON_TYPES.group, name_ar: 'حصة جماعية لاختبار', duration_min: 90, price_iqd: P.group, court_share_iqd: P.groupShare, max_places: 8, min_places: 2, cutoff_hours: 2, is_active: true }],
+    ['courseId', { kind: 'course', name_en: E2E_LESSON_TYPES.course, name_ar: 'دورة لاختبار', duration_min: 60, price_iqd: P.course, court_share_iqd: P.courseShare, max_places: 6, min_places: 1, cutoff_hours: 0, sessions_count: 4, is_active: true }],
+    ['draftGroupId', { kind: 'group', name_en: E2E_LESSON_TYPES.draftGroup, name_ar: 'مسودة حصة جماعية لاختبار', duration_min: 90, price_iqd: 15_000, court_share_iqd: 5_000, max_places: 6, min_places: 2, cutoff_hours: 2 }],
+  ];
+  const out = {} as SeededLessonTypes;
+  const owner = await signedInClient(SEED_STAFF.owner);
+  try {
+    for (const [key, patch] of specs) {
+      const existing = await lessonTypeId(svc, patch.name_en as string);
+      // A rerun leaves a launched type's kind alone (it cannot change once on sale).
+      const write = existing ? Object.fromEntries(Object.entries(patch).filter(([k]) => k !== 'kind')) : patch;
+      const saved = await appRpc<Record<string, unknown> | null>(owner, 'upsert_lesson_type', {
+        p_venue_id: FIXTURE_VENUE_ID,
+        p_id: existing,
+        p_patch: write,
+      });
+      const id = existing ?? (saved && typeof saved === 'object' ? ((saved.lesson_type_id ?? saved.id) as string | undefined) : undefined) ?? (await lessonTypeId(svc, patch.name_en as string));
+      if (!id) throw new Error(`seedLessonTypes: no id for ${String(patch.name_en)}`);
+      out[key] = id;
+    }
+  } finally {
+    await owner.auth.signOut();
+  }
+  return out;
+}
+
+export interface SeededLesson {
+  lessonId: string;
+  enrolmentId: string | null;
+  reservationId: string | null;
+}
+
+/** The live court row of a lesson (service role), or null. */
+export async function lessonReservationId(svc: SupabaseClient, lessonId: string): Promise<string | null> {
+  const { data, error } = await svc
+    .from('reservations')
+    .select('id')
+    .eq('lesson_id', lessonId)
+    .in('status', ['pending', 'confirmed', 'arrived'])
+    .limit(1);
+  if (error) throw new Error(`lessonReservationId failed: ${error.message}`);
+  return ((data ?? []) as { id: string }[])[0]?.id ?? null;
+}
+
+/** A private lesson booked at the desk (app.desk_book_lesson, as the court desk) for a typed walk-in or a customer. */
+export async function seedPrivateLesson(
+  svc: SupabaseClient,
+  opts: { coachId: string; lessonTypeId: string; startAt: Date; name?: string; phone?: string; customerId?: string; partySize?: number },
+): Promise<SeededLesson> {
+  const desk = await signedInClient(SEED_STAFF.court_desk);
+  try {
+    const out = await appRpc<{ lesson_id: string; enrolment_id: string | null }>(desk, 'desk_book_lesson', {
+      p_coach_id: opts.coachId,
+      p_lesson_type_id: opts.lessonTypeId,
+      p_start_at: opts.startAt.toISOString(),
+      p_customer_id: opts.customerId ?? null,
+      p_name: opts.customerId ? null : (opts.name ?? `${E2E_LESSON_NAME} Seed`),
+      p_phone: opts.customerId ? null : (opts.phone ?? null),
+      p_party_size: opts.partySize ?? 1,
+      p_idempotency_key: `lesson.book:${crypto.randomUUID()}`,
+    });
+    return { lessonId: out.lesson_id, enrolmentId: out.enrolment_id, reservationId: await lessonReservationId(svc, out.lesson_id) };
+  } finally {
+    await desk.auth.signOut();
+  }
+}
+
+/** A group session created at the desk (app.desk_create_group), with typed walk-ins added (app.desk_add_student). */
+export async function seedGroupSession(
+  svc: SupabaseClient,
+  opts: { coachId: string; lessonTypeId: string; startAt: Date; students?: readonly ({ name: string; phone?: string } | { customerId: string })[] },
+): Promise<SeededLesson & { enrolmentIds: string[] }> {
+  const desk = await signedInClient(SEED_STAFF.court_desk);
+  try {
+    const out = await appRpc<{ lesson_id: string }>(desk, 'desk_create_group', {
+      p_coach_id: opts.coachId,
+      p_lesson_type_id: opts.lessonTypeId,
+      p_start_at: opts.startAt.toISOString(),
+      p_idempotency_key: `lesson.group:${crypto.randomUUID()}`,
+    });
+    const enrolmentIds: string[] = [];
+    for (const s of opts.students ?? []) {
+      const added = await appRpc<{ enrolment_id: string }>(desk, 'desk_add_student', {
+        p_lesson_id: out.lesson_id,
+        p_course_id: null,
+        p_customer_id: 'customerId' in s ? s.customerId : null,
+        p_name: 'customerId' in s ? null : s.name,
+        p_phone: 'customerId' in s ? null : (s.phone ?? null),
+        p_idempotency_key: `lesson.add:${crypto.randomUUID()}`,
+      });
+      enrolmentIds.push(added.enrolment_id);
+    }
+    return { lessonId: out.lesson_id, enrolmentId: enrolmentIds[0] ?? null, enrolmentIds, reservationId: await lessonReservationId(svc, out.lesson_id) };
+  } finally {
+    await desk.auth.signOut();
+  }
+}
+
+/**
+ * Take a sign-up's desk money as the court desk (app.lesson_settle, cash, the
+ * exact owed), the way Take payment does. The desk's drawer needs an open shift
+ * at the browser's station first; this beats from that station like the browser.
+ */
+export async function settleLessonCash(enrolmentId: string, owedIqd: number): Promise<void> {
+  const desk = await signedInClient(SEED_STAFF.court_desk);
+  try {
+    await appRpc(desk, 'lesson_settle', {
+      p_enrolment_id: enrolmentId,
+      p_method: 'cash',
+      p_expected_owed_iqd: owedIqd,
+      p_tendered_iqd: owedIqd,
+      p_idempotency_key: `lesson.settle:${crypto.randomUUID()}`,
+      p_device_id: BROWSER_STATION,
+    });
+  } finally {
+    await desk.auth.signOut();
+  }
+}
+
+/**
+ * Move a lesson (and its court row) so it started `minutesAgo` minutes ago: a
+ * lesson cannot be booked in the past, so a started one is made this way. The
+ * start never crosses back over 04:00, the business day's start.
+ */
+export async function backdateLesson(svc: SupabaseClient, lessonId: string, minutesAgo = 30): Promise<Date> {
+  const { data, error } = await svc.from('lessons').select('start_at, end_at').eq('id', lessonId).single();
+  if (error) throw new Error(`backdateLesson read: ${error.message}`);
+  const row = data as { start_at: string; end_at: string };
+  const length = Date.parse(row.end_at) - Date.parse(row.start_at);
+  const local = new Date(Date.now() + VENUE_UTC_OFFSET_H * 3_600_000);
+  const sinceDayStart = ((local.getUTCHours() - BUSINESS_DAY_START_H + 24) % 24) * 60 + local.getUTCMinutes();
+  const ago = Math.max(1, Math.min(minutesAgo, sinceDayStart - 1));
+  const start = new Date(Math.floor((Date.now() - ago * 60_000) / 60_000) * 60_000);
+  const end = new Date(start.getTime() + length);
+  const { error: lErr } = await svc.from('lessons').update({ start_at: start.toISOString(), end_at: end.toISOString() }).eq('id', lessonId);
+  if (lErr) throw new Error(`backdateLesson lesson: ${lErr.message}`);
+  const { error: rErr } = await svc
+    .from('reservations')
+    .update({ start_at: start.toISOString(), end_at: end.toISOString() })
+    .eq('lesson_id', lessonId)
+    .in('status', ['pending', 'confirmed', 'arrived']);
+  if (rErr) throw new Error(`backdateLesson court: ${rErr.message}`);
+  return start;
+}
+
+/**
+ * A private lesson a guest books online and pays through the fake provider, the
+ * grantTickets sequence (operator.md §5.22): app.lesson_book_private with
+ * `online`, app.lesson_payment_prepare (R3) with the fake provider,
+ * app.deposit_mark_created, then a SUCCESS through app.deposit_apply. Needs
+ * `setLessonTerms` and an online payment mode at the branch.
+ */
+export async function payLessonOnline(
+  svc: SupabaseClient,
+  guest: { id: string; client: SupabaseClient },
+  opts: { coachId: string; lessonTypeId: string; startAt: Date; priceIqd: number },
+): Promise<SeededLesson> {
+  const booked = await appRpc<{ enrolment_id: string; lesson_id: string }>(guest.client, 'lesson_book_private', {
+    p_coach_id: opts.coachId,
+    p_lesson_type_id: opts.lessonTypeId,
+    p_start_at: opts.startAt.toISOString(),
+    p_party_size: 1,
+    p_friend_names: [],
+    p_payment_mode: 'online',
+    p_expected_price_iqd: opts.priceIqd,
+    p_idempotency_key: `lesson.book:${crypto.randomUUID()}`,
+  });
+  const prep = await appRpc<{ request_id: string; amount_iqd: number; status: string }>(svc, 'lesson_payment_prepare', {
+    p_guest_id: guest.id,
+    p_enrolment_id: booked.enrolment_id,
+    p_locale: 'en',
+    p_provider: 'fake',
+  });
+  if (prep.status === 'created') {
+    await appRpc(svc, 'deposit_mark_created', {
+      p_request_id: prep.request_id,
+      p_provider_payment_id: `e2e-${prep.request_id}`,
+      p_form_url: `${SUPABASE_URL}/functions/v1/payments-fake?ref=${prep.request_id}`,
+      p_provider_status: 'CREATED',
+      p_raw: {},
+    });
+  }
+  await appRpc(svc, 'deposit_apply', {
+    p_request_id: prep.request_id,
+    p_provider_payment_id: null,
+    p_provider_status: 'SUCCESS',
+    p_amount: prep.amount_iqd,
+    p_currency: 'IQD',
+    p_canceled: false,
+    p_source: 'webhook',
+    p_signature_ok: true,
+    p_raw: { status: 'SUCCESS' },
+  });
+  return { lessonId: booked.lesson_id, enrolmentId: booked.enrolment_id, reservationId: await lessonReservationId(svc, booked.lesson_id) };
+}
+
+/** The first of last month on the branch's calendar ('YYYY-MM-01'). */
+export function lastMonth(): string {
+  const local = new Date(Date.now() + (VENUE_UTC_OFFSET_H - BUSINESS_DAY_START_H) * 3_600_000);
+  const d = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth() - 1, 1));
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Draft one coach's statement for a month at the fixture branch, the way the
+ * monthly procedure does it for each pair (app.coach_statement_draft_one, R59,
+ * R70). The procedure itself (`call app.coach_statements_draft`) is not
+ * reachable over PostgREST, so the suite drafts per coach.
+ */
+export async function draftCoachStatement(svc: SupabaseClient, coachId: string, month: string = lastMonth()): Promise<string | null> {
+  return await appRpc<string | null>(svc, 'coach_statement_draft_one', {
+    p_coach_id: coachId,
+    p_venue_id: FIXTURE_VENUE_ID,
+    p_month: month,
+  });
+}
+
+/**
+ * End whatever an earlier run left: every live lesson and course of an e2e
+ * coach is cancelled by the manager (app.desk_cancel_course,
+ * app.desk_cancel_lesson), and a paused e2e coach is resumed. A coach journey
+ * 11 retired is made a coach again by the next run's seedCoach
+ * (app.coach_promote revives the row), so the journey can retire them anew.
+ */
+export async function cleanE2eLessons(svc: SupabaseClient): Promise<void> {
+  const { data: profiles, error: pErr } = await svc.from('profiles').select('id').like('phone', '+96477020000%');
+  if (pErr) throw new Error(`cleanE2eLessons coaches: ${pErr.message}`);
+  const profileIds = ((profiles ?? []) as { id: string }[]).map((p) => p.id);
+  for (const staff of ['manager'] as const) {
+    const c = await signedInClient(SEED_STAFF[staff]);
+    const id = (await c.auth.getUser()).data.user?.id;
+    await c.auth.signOut();
+    if (id) profileIds.push(id);
+  }
+  if (profileIds.length === 0) return;
+  const { data: coaches, error: cErr } = await svc.from('coaches').select('id, status, profile_id').in('profile_id', profileIds);
+  if (cErr) throw new Error(`cleanE2eLessons coach rows: ${cErr.message}`);
+  const coachIds = ((coaches ?? []) as { id: string }[]).map((c) => c.id);
+  if (coachIds.length === 0) return;
+
+  const manager = await signedInClient(SEED_STAFF.manager);
+  try {
+    const { data: courses } = await svc.from('courses').select('id').in('coach_id', coachIds).in('status', ['open', 'running']);
+    for (const c of (courses ?? []) as { id: string }[]) {
+      await appRpc(manager, 'desk_cancel_course', { p_course_id: c.id, p_reason: 'staff_error: e2e cleanup' }).catch(() => undefined);
+    }
+    const { data: lessons } = await svc
+      .from('lessons')
+      .select('id, kind')
+      .in('coach_id', coachIds)
+      .eq('status', 'scheduled')
+      .neq('kind', 'course');
+    for (const l of (lessons ?? []) as { id: string }[]) {
+      await appRpc(manager, 'desk_cancel_lesson', { p_lesson_id: l.id, p_reason: 'staff_error: e2e cleanup' }).catch(() => undefined);
+    }
+  } finally {
+    await manager.auth.signOut();
+  }
+
+  const owner = await signedInClient(SEED_STAFF.owner);
+  try {
+    for (const c of (coaches ?? []) as { id: string; status: string; profile_id: string }[]) {
+      if (c.status === 'paused') await appRpc(owner, 'set_coach_status', { p_coach_id: c.id, p_status: 'active', p_reason: null });
+    }
+  } finally {
+    await owner.auth.signOut();
+  }
+}

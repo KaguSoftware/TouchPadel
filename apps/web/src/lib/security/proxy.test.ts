@@ -172,6 +172,25 @@ describe('proxy()', () => {
     expect(inPlace.headers.get('content-security-policy')).toMatch(/script-src 'nonce-/);
   });
 
+  it('sends a locale-less coach link /c/<id> to the negotiated locale, the CSP on the hop', () => {
+    // The link the website's "Book in the app" and the app's share sheet hand out
+    // (docs/design/coaching/guest.md §4.12, §4.14.3); a coach id is a uuid, never dotted.
+    const id = '3f2b8c1e-7a4d-4e6f-9b0a-1c2d3e4f5a6b';
+    for (const p of [`/c/${id}`, `/en/c/${id}`, `/ar/c/${id}`]) {
+      expect(matches(p), `${p} must be proxied`).toBe(true);
+    }
+    const res = proxy(req(`/c/${id}`));
+    expect(res.status).toBe(307);
+    expect(location(res)).toBe(`/ar/c/${id}`);
+    expect(res.headers.get('content-security-policy')).toMatch(/script-src 'nonce-/);
+    expect(res.headers.get('set-cookie'), 'a coach link never touches the table cookie').toBeNull();
+    expect(location(proxy(req(`/c/${id}`, { cookie: 'tp-locale=en' })))).toBe(`/en/c/${id}`);
+    const inPlace = proxy(req(`/en/c/${id}`));
+    expect(inPlace.status).toBe(200);
+    expect(inPlace.headers.get('location')).toBeNull();
+    expect(inPlace.headers.get('content-security-policy')).toMatch(/script-src 'nonce-/);
+  });
+
   it('redirects the old session URL /{locale}/t to the menu: a 307, the CSP and the table envelope on the hop, no cookie', () => {
     for (const [p, to] of [
       ['/en/t', '/en/menu'],

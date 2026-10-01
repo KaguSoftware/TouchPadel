@@ -8,6 +8,9 @@
  *                             prefill a price or promo start from the menu
  *                             editor, Stock ▸ Products, Add-ons, Promotions,
  *                             Rates and the hero builder (§5.5)
+ *   ?change=lesson_price|lesson_launch|coach_price&lessonType=<uuid>&coach=<uuid>
+ *                             prefill a lesson price start from /admin/coaches
+ *                             (coaching operator.md §5.14.2)
  *   ?filter=waiting|active|finished   which list is showing
  *   ?idea=<uuid>              a new-item start prefilled from a team idea
  *                             (role spec #65, with ?start=product_release)
@@ -21,7 +24,11 @@ export type ProtocolKind = (typeof PROTOCOL_KINDS)[number];
 export const TOURNAMENT_VARIANTS = ['type1', 'type2', 'type3'] as const;
 export type TournamentVariant = (typeof TOURNAMENT_VARIANTS)[number];
 
-/** The eight price or promo change kinds (§2.8); `shop_launch` is never offered on /tasks. */
+/**
+ * The eleven price or promo change kinds (§2.8), in `@touch/core/protocols`'
+ * order; the last three are the lesson kinds (coaching 0282). `shop_launch`
+ * and the lesson kinds are never offered on /tasks.
+ */
 export const PRICE_CHANGE_KINDS = [
   'price',
   'shop_launch',
@@ -31,6 +38,9 @@ export const PRICE_CHANGE_KINDS = [
   'promotion_enable',
   'rate',
   'featured_discount',
+  'lesson_price',
+  'lesson_launch',
+  'coach_price',
 ] as const;
 export type PriceChangeKind = (typeof PRICE_CHANGE_KINDS)[number];
 
@@ -47,6 +57,10 @@ export interface ProtocolsSearch {
   addon?: string;
   promotion?: string;
   rule?: string;
+  /** A lesson price change's type (`lesson_price`, `lesson_launch`, `coach_price`). */
+  lessonType?: string;
+  /** A `coach_price` change's coach (`coaches.id`). */
+  coach?: string;
   filter?: ProtocolFilter;
   idea?: string;
   recipeChange?: string;
@@ -62,7 +76,18 @@ function oneOf<T extends string>(list: readonly T[], v: unknown): T | undefined 
   return typeof v === 'string' && (list as readonly string[]).includes(v) ? (v as T) : undefined;
 }
 
-const UUID_PARAMS = ['run', 'step', 'item', 'addon', 'promotion', 'rule', 'idea', 'recipeChange'] as const;
+const UUID_PARAMS = [
+  'run',
+  'step',
+  'item',
+  'addon',
+  'promotion',
+  'rule',
+  'lessonType',
+  'coach',
+  'idea',
+  'recipeChange',
+] as const;
 
 export function validateProtocolsSearch(raw: Record<string, unknown>): ProtocolsSearch {
   const out: ProtocolsSearch = {};

@@ -82,6 +82,10 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
     revenue: 'الإيراد',
     padel: 'البادل',
     cafe: 'الكافيه',
+    // DRAFT-AR (coaching operator.md §5.18.3).
+    lessons: 'الحصص',
+    owedToCoaches: 'مستحق للمدرّبين',
+    owedToCoachesHint: 'نصيب المدرّبين من مبالغ الحصص، يُدفع خارج الصندوق',
     bookingsCount: 'الحجوزات: {count}',
     ordersCount: 'الطلبات: {count}',
     taken: 'المال المستلم',
@@ -113,6 +117,8 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
       month: 'الشهر',
       padel: 'البادل',
       cafe: 'الكافيه',
+      // DRAFT-AR
+      lessons: 'الحصص',
       revenue: 'الإيراد',
       bookings: 'الحجوزات',
       orders: 'الطلبات',
@@ -141,6 +147,8 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
     hours: 'الساعات المحجوزة',
     occupancy: 'الإشغال',
     occupancyHint: 'من ساعات فتح الملاعب ({hours} س)',
+    // DRAFT-AR (coaching operator.md §5.18.2).
+    occupancyLessonsHint: 'من ساعات فتح الملاعب ({hours} س). تُحتسب أوقات الحصص ضمن الإشغال.',
     revenue: 'إيراد الملاعب',
     cancellations: 'الإلغاءات',
     noShows: 'عدم الحضور',
@@ -152,6 +160,8 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
       byDay: 'حسب اليوم',
       // DRAFT-AR (open matches, operator.md §5.19, R38).
       matches: 'المباريات المفتوحة',
+      // DRAFT-AR (coaching operator.md §5.18.2).
+      lessons: 'الحصص',
     },
     lead: {
       byCourt: 'حجوزات كل ملعب وإيراده. رتّب عمودًا لتجد أقوى ملعب أو أضعفه.',
@@ -161,6 +171,8 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
       byDay: 'الحجوزات الفعلية وإيراد الملاعب لكل يوم. لا تظهر الأيام التي بلا حجوزات.',
       // DRAFT-AR
       matches: 'المباريات المفتوحة في هذه الفترة: ما حُجز منها، وما استُلم في الاستقبال، وحال المقاعد.',
+      // DRAFT-AR
+      lessons: 'الحصص في هذه الفترة: وقت الملاعب الذي شغلته، وما حُصّل، وما هو مستحق للمدرّبين.',
     },
     columns: {
       court: 'الملعب',
@@ -176,6 +188,8 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
       peak: 'الذروة',
       offPeak: 'خارج الذروة',
       day: 'اليوم',
+      // DRAFT-AR
+      lessonHours: 'ساعات الحصص',
     },
     notes: {
       occupancy: 'الإشغال هو نسبة الساعات المحجوزة من ساعات فتح الملعب.',

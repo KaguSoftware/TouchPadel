@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
 
@@ -146,6 +146,37 @@ describe('ManagementPanelScreen — Online money and open matches', () => {
     renderPanel();
     expect(await screen.findByText('15,000 IQD')).toBeTruthy();
     expect(screen.queryByTestId('panel-online')).toBeNull();
+  });
+});
+
+// Coaching (coaching operator.md §5.18.4, C-18): panel_headline's lesson keys (0285).
+describe('ManagementPanelScreen — Lessons', () => {
+  it('draws its own panel; a row opens its report, never a drill', async () => {
+    rpc.mockResolvedValue({
+      figures: [
+        { key: 'revenue', value: 15000 },
+        { key: 'lessonRevenue', value: 330000 },
+        { key: 'owedToCoaches', value: 162000 },
+      ],
+    });
+    renderPanel();
+    const group = await screen.findByTestId('panel-lessons');
+    expect(within(group).getByRole('heading', { name: 'Lessons' })).toBeTruthy();
+    expect(within(group).getByText('330,000 IQD')).toBeTruthy();
+    expect(within(group).getByText('Owed to coaches')).toBeTruthy();
+    expect(within(group).getByText('Paid outside the till')).toBeTruthy();
+    fireEvent.click(within(group).getByText('Owed to coaches'));
+    expect(navigate).toHaveBeenCalledWith({ to: '/reports/coaches' });
+    fireEvent.click(within(group).getAllByText('Lessons')[1]!);
+    expect(navigate).toHaveBeenLastCalledWith({ to: '/reports/revenue' });
+    expect(rpc.mock.calls.some(([fn]) => fn === 'report_drill')).toBe(false);
+  });
+
+  it('is left out when neither key came back (a server before 0285)', async () => {
+    rpc.mockResolvedValue({ figures: [{ key: 'revenue', value: 15000 }] });
+    renderPanel();
+    expect(await screen.findByText('15,000 IQD')).toBeTruthy();
+    expect(screen.queryByTestId('panel-lessons')).toBeNull();
   });
 });
 

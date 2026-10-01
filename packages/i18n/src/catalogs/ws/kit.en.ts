@@ -60,6 +60,8 @@ export const kitEn = {
     booking: 'Booking',
     hold: 'Hold',
     maintenance: 'Blocked',
+    // A lesson's court row (coaching operator.md §5.20).
+    lesson: 'Lesson',
   },
   source: {
     web: 'Website',

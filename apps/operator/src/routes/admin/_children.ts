@@ -11,6 +11,7 @@ import { adminSuggestedRoute } from './suggested';
 import { adminHeroRoute } from './hero';
 import { adminQrRoute } from './qr';
 import { adminCourtsRoute } from './courts';
+import { adminCoachesRoute } from './coaches';
 import { adminRatesRoute } from './rates';
 import { adminPromotionsRoute, adminPromotionEditorRoute } from './promotions';
 import { adminHoursRoute } from './hours';
@@ -30,6 +31,7 @@ export const adminChildren = [
   adminHeroRoute,
   adminQrRoute,
   adminCourtsRoute,
+  adminCoachesRoute,
   adminRatesRoute,
   adminPromotionsRoute,
   adminPromotionEditorRoute,

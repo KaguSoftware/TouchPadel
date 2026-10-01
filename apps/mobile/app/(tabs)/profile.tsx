@@ -11,15 +11,18 @@ import { phoneOtpEnabled } from '../../src/features/auth/phoneOtp';
 import { supabase } from '../../src/lib/supabase';
 import { signOut } from '../../src/features/auth/api';
 import { useOwnProfile } from '../../src/features/profile/hooks';
-import { useVenueSettings } from '../../src/features/availability/hooks';
+import { useBranches, useVenueSettings } from '../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { callPhone } from '../../src/lib/phone';
 import { brand, radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { MenuRow } from '../../src/components/booking';
+import { anyCoaching } from '../../src/features/coaching/logic';
+import { coachModeEntry, useCoachStatus } from '../../src/features/coach/useCoachStatus';
 import {
   BackChevronIcon,
+  CalendarIcon,
   ChevronIcon,
   CloseIcon,
   PhoneIcon,
@@ -45,6 +48,12 @@ export default function ProfileScreen() {
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
   const settings = useVenueSettings();
+  // Coaching (docs/design/coaching/guest.md §4.8.1): "My lessons" while some
+  // branch has coaching on, and coach mode for a coach whatever the switches
+  // say (`coach_me` is read on this screen's mount, R45).
+  const branches = useBranches();
+  const coaching = anyCoaching(branches.data);
+  const coachEntry = coachModeEntry(useCoachStatus({ read: true }).status);
   const toast = useToast();
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -300,6 +309,18 @@ export default function ProfileScreen() {
               overflow: 'hidden',
             }}
           >
+            {coachEntry ? (
+              <MenuRow
+                testID="profile.coach-mode"
+                icon={<CalendarIcon size={15} color={colors.gstrong} />}
+                label={t(
+                  coachEntry === '/coach-mode-statements'
+                    ? 'profile.coachStatements'
+                    : 'profile.coachMode',
+                )}
+                onPress={() => router.push(coachEntry)}
+              />
+            ) : null}
             {/* A social account with no verified number proves one here. */}
             {phoneOtpEnabled() && !session?.user.phone ? (
               <MenuRow
@@ -307,6 +328,14 @@ export default function ProfileScreen() {
                 icon={<PhoneIcon size={15} color={colors.gstrong} />}
                 label={t('auth.verifyPhoneRow')}
                 onPress={() => router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })}
+              />
+            ) : null}
+            {coaching ? (
+              <MenuRow
+                testID="profile.my-lessons"
+                icon={<CalendarIcon size={15} color={colors.gstrong} />}
+                label={t('profile.myLessons')}
+                onPress={() => router.push('/my-lessons')}
               />
             ) : null}
             {/* Open matches (docs/design/open-matches/guest.md §4.16): the

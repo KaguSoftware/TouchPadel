@@ -64,7 +64,9 @@ export interface NavItem {
     // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
     | 'deductions' | 'incidents'
     // Wages (0270–0272): the owner's pay list and the manager's attendance.
-    | 'wages' | 'attendance';
+    | 'wages' | 'attendance'
+    // Coaching (docs/design/coaching/operator.md §5.3.3): Setup's coaches, Financial's coach pay.
+    | 'coaches' | 'coachPay';
   icon: IconName;
   /**
    * A live count beside the row's name: what waits on the signed-in person
@@ -216,8 +218,17 @@ const MANAGER_RUN: readonly NavItem[] = [
   INCIDENTS,
 ];
 
+/**
+ * Coach pay (coaching operator.md §5.3.3): its exact `to` beats the Reports
+ * row's '/reports' prefix in `sectionForPath`, so it lights on its own screen.
+ */
+const COACH_PAY: NavItem = { to: '/reports/coaches', labelKey: 'coachPay', icon: 'whistle' };
+/** Coaches, lesson types and hours (coaching operator.md §5.3.3). */
+const COACHES: NavItem = { to: '/admin/coaches', labelKey: 'coaches', icon: 'whistle' };
+
 const MANAGER_RECORDS: readonly NavItem[] = [
   { to: '/reports/courts', labelKey: 'reports', icon: 'chart', activePrefix: '/reports' },
+  COACH_PAY,
   { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
 ];
 
@@ -227,6 +238,7 @@ const MENU_FAMILY = ['/admin/categories', '/admin/addons', '/admin/suggested'] a
 const MANAGER_SETUP: readonly NavItem[] = [
   { to: '/admin/menu', labelKey: 'menu', icon: 'layers', activePrefix: '/admin/menu', alsoActive: MENU_FAMILY },
   { to: '/admin/rates', labelKey: 'rates', icon: 'scale' },
+  COACHES,
   { to: '/admin/promotions', labelKey: 'promotions', icon: 'tag' },
 ];
 
@@ -270,6 +282,7 @@ const OWNER_FINANCIAL: readonly NavItem[] = [
   // Wages (0270–0272): what each person is paid, when, and what comes off it.
   // The count is the wages due now or overdue: the owner's pay-day reminder.
   { to: '/wages', labelKey: 'wages', icon: 'banknote', badge: 'wagesDue' },
+  COACH_PAY,
   { to: '/admin/rates', labelKey: 'rates', icon: 'scale' },
   { to: '/admin/menu', labelKey: 'menuPrices', icon: 'layers', activePrefix: '/admin/menu', alsoActive: MENU_FAMILY },
   // Opened from Wages ("Attendance"), so the Financial rail stays put.
@@ -358,6 +371,7 @@ const OWNER_SETUP: readonly NavItem[] = [
   { to: '/admin/staff', labelKey: 'staff', icon: 'shield' },
   { to: '/admin/branches', labelKey: 'branches', icon: 'home' },
   { to: '/admin/courts', labelKey: 'courts', icon: 'court' },
+  COACHES,
   { to: '/admin/qr', labelKey: 'tables', icon: 'qr' },
   { to: '/admin/settings', labelKey: 'settings', icon: 'settings', activePrefix: '/admin/settings' },
   { to: '/admin/hero', labelKey: 'guestSite', icon: 'globe', activePrefix: '/admin/hero' },

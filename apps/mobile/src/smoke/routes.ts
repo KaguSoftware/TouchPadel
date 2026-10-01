@@ -16,9 +16,10 @@
  * else. The suites import the components themselves.
  *
  * The route name is the file path minus `app/`, `(tabs)`, and `.tsx`, with
- * five spellings fixed: `(tabs)/index` → `book`, `booking/[id]` →
+ * eight spellings fixed: `(tabs)/index` → `book`, `booking/[id]` →
  * `booking-detail`, `(tabs)/_layout` → `tabs`, `match/[id]` → `match-detail`,
- * `m/[token]` → `match-link`.
+ * `m/[token]` → `match-link`, `coach/[id]` → `coach-detail`, `class/[id]` →
+ * `class-detail`, `lesson/[id]` → `lesson-detail`.
  */
 export interface SmokeRoute {
   /** Path under `app/`, '/'-separated — what the coverage test matches on. */
@@ -154,6 +155,33 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // The wallet starts a ticket purchase: cased with the payment screens in
   // deposit.smoke.test.tsx.
   { file: 'tickets.tsx', route: 'tickets', primary: 'tickets.buy' },
+  // ── coaching, the guest's side ────────────────────────────────────────────
+  // docs/design/coaching/guest.md §4.17, cased by coaching.smoke.test.tsx in
+  // EN and AR. Three spellings are fixed like match/[id]: `coach/[id]` →
+  // `coach-detail`, `class/[id]` → `class-detail`, `lesson/[id]` →
+  // `lesson-detail`. Coach mode's rows follow (coachMode.smoke.test.tsx).
+  { file: 'coaches.tsx', route: 'coaches', primary: 'coaches.list' },
+  { file: 'coach/[id].tsx', route: 'coach-detail', primary: 'coach-detail.offers' },
+  { file: 'classes.tsx', route: 'classes', primary: 'classes.list' },
+  { file: 'class/[id].tsx', route: 'class-detail', primary: 'class-detail.join' },
+  { file: 'lesson-review.tsx', route: 'lesson-review', primary: 'lesson-review.book' },
+  { file: 'lesson/[id].tsx', route: 'lesson-detail', primary: 'lesson-detail.cancel' },
+  { file: 'my-lessons.tsx', route: 'my-lessons', primary: 'my-lessons.filter.upcoming' },
+  // ── coach mode ────────────────────────────────────────────────────────────
+  // docs/design/coaching/guest.md §4.17, cased by coachMode.smoke.test.tsx in
+  // EN and AR with the `coach` render option (a signed-in account that
+  // coaches). A list primary carries no text of its own, so those cases name
+  // a `nearbyKey`.
+  { file: 'coach-mode.tsx', route: 'coach-mode', primary: 'coach-mode.schedule' },
+  { file: 'coach-mode-hours.tsx', route: 'coach-mode-hours', primary: 'coach-mode-hours.save' },
+  { file: 'coach-mode-lesson.tsx', route: 'coach-mode-lesson', primary: 'coach-mode-lesson.roster' },
+  { file: 'coach-mode-new.tsx', route: 'coach-mode-new', primary: 'coach-mode-new.create' },
+  { file: 'coach-mode-book.tsx', route: 'coach-mode-book', primary: 'coach-mode-book.book' },
+  {
+    file: 'coach-mode-statements.tsx',
+    route: 'coach-mode-statements',
+    primary: 'coach-mode-statements.month',
+  },
   // ── root ──────────────────────────────────────────────────────────────────
   // No primary action of its own: the root layout is providers and chrome.
   // `app.direction-root` is the node every screen's mirroring is read from, so

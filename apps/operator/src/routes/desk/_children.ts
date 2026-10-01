@@ -19,6 +19,7 @@ const CustomerSearch = lazyRouteComponent(() => import('../../features/desk/cust
 const CustomerCreate = lazyRouteComponent(() => import('../../features/desk/customers/CustomerCreate'), 'CustomerCreateScreen');
 const CustomerRecord = lazyRouteComponent(() => import('../../features/desk/customers/CustomerRecord'), 'CustomerRecordScreen');
 const MatchDetail = lazyRouteComponent(() => import('../../features/matches/MatchDetail'), 'MatchDetailScreen');
+const LessonDetail = lazyRouteComponent(() => import('../../features/coaching/LessonDetail'), 'LessonDetailScreen');
 
 // Kept here (not imported from the feature) so the route module stays a thin
 // shell that does not pull the lazy chunk in eagerly.
@@ -29,32 +30,53 @@ function uuidParam(v: unknown): string | undefined {
 }
 
 /**
- * Attach mode: a customer picked here goes back to a booking, a tab, or an
- * open match (`attach=match&match=<id>` returns to
- * `/desk/matches/$id?customer=<id>`, open matches operator.md §5.3). Attach to
- * a match needs the match's id; without it the screen is plain search.
+ * Attach mode: a customer picked here goes back to a booking, a tab, an open
+ * match (`attach=match&match=<id>` returns to `/desk/matches/$id?customer=<id>`,
+ * open matches operator.md §5.3), or a lesson (`attach=lesson&lesson=<id>`
+ * returns to `/desk/lessons/$id?customer=<id>`, coaching operator.md §5.3.2).
+ * Attach to a match or a lesson needs its id; without it the screen is plain
+ * search.
  */
-interface CustomerSearchParams {
-  attach?: 'booking' | 'tab' | 'match';
+export interface CustomerSearchParams {
+  attach?: 'booking' | 'tab' | 'match' | 'lesson';
   reservation?: string;
   tab?: string;
   match?: string;
+  lesson?: string;
 }
-function validateCustomerSearch(raw: Record<string, unknown>): CustomerSearchParams {
+export function validateCustomerSearch(raw: Record<string, unknown>): CustomerSearchParams {
   const match = uuidParam(raw.match);
+  const lesson = uuidParam(raw.lesson);
   const attach =
-    raw.attach === 'booking' || raw.attach === 'tab' ? raw.attach : raw.attach === 'match' && match ? ('match' as const) : undefined;
+    raw.attach === 'booking' || raw.attach === 'tab'
+      ? raw.attach
+      : raw.attach === 'match' && match
+        ? ('match' as const)
+        : raw.attach === 'lesson' && lesson
+          ? ('lesson' as const)
+          : undefined;
   return {
     ...(attach ? { attach } : {}),
     ...(typeof raw.reservation === 'string' ? { reservation: raw.reservation } : {}),
     ...(typeof raw.tab === 'string' ? { tab: raw.tab } : {}),
     ...(attach === 'match' ? { match } : {}),
+    ...(attach === 'lesson' ? { lesson } : {}),
   };
 }
-/** `/desk/customers/new?attach=match&match=<id>`: a new customer goes back to the open match. */
-function validateCustomerCreateSearch(raw: Record<string, unknown>): { attach?: 'match'; match?: string } {
+/**
+ * `/desk/customers/new?attach=match&match=<id>`: a new customer goes back to the
+ * open match; `attach=lesson&lesson=<id>`: back to the lesson's Add student.
+ */
+export function validateCustomerCreateSearch(raw: Record<string, unknown>): {
+  attach?: 'match' | 'lesson';
+  match?: string;
+  lesson?: string;
+} {
   const match = uuidParam(raw.match);
-  return raw.attach === 'match' && match ? { attach: 'match', match } : {};
+  const lesson = uuidParam(raw.lesson);
+  if (raw.attach === 'match' && match) return { attach: 'match', match };
+  if (raw.attach === 'lesson' && lesson) return { attach: 'lesson', lesson };
+  return {};
 }
 function validateBookingSearch(raw: Record<string, unknown>): { customer?: string } {
   return typeof raw.customer === 'string' ? { customer: raw.customer } : {};
@@ -64,17 +86,34 @@ function validateMatchSearch(raw: Record<string, unknown>): { customer?: string 
   const customer = uuidParam(raw.customer);
   return customer ? { customer } : {};
 }
+/**
+ * `/desk/lessons/$id?customer=<id>&pay=<enrolment>` (coaching operator.md
+ * §5.3.2): `customer` (handed back from search or create) opens Add student
+ * with that customer picked; `pay` (from the Today group or the record) opens
+ * Take payment on that enrolment once the detail has loaded.
+ */
+export function validateLessonSearch(raw: Record<string, unknown>): { customer?: string; pay?: string } {
+  const customer = uuidParam(raw.customer);
+  const pay = uuidParam(raw.pay);
+  return { ...(customer ? { customer } : {}), ...(pay ? { pay } : {}) };
+}
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * `/desk?date=YYYY-MM-DD&customer=<id>`: open on a day, and/or book for a
  * customer. `kind=match` (the record's "Start an open match"): a free slot
- * opens the Start dialog with that customer as organiser.
+ * opens the Start dialog with that customer as organiser. `kind=lesson` (the
+ * record's "Book a lesson", coaching operator.md §5.9): a free slot opens New
+ * lesson with the court, time and customer.
  */
-function validateCalendarSearch(raw: Record<string, unknown>): { date?: string; customer?: string; kind?: 'match' } {
+export function validateCalendarSearch(raw: Record<string, unknown>): {
+  date?: string;
+  customer?: string;
+  kind?: 'match' | 'lesson';
+} {
   return {
     ...(typeof raw.date === 'string' && ISO_DATE.test(raw.date) ? { date: raw.date } : {}),
     ...(typeof raw.customer === 'string' ? { customer: raw.customer } : {}),
-    ...(raw.kind === 'match' ? { kind: 'match' as const } : {}),
+    ...(raw.kind === 'match' ? { kind: 'match' as const } : raw.kind === 'lesson' ? { kind: 'lesson' as const } : {}),
   };
 }
 /**
@@ -159,6 +198,22 @@ export const matchDetailRoute = createRoute({
   validateSearch: validateMatchSearch,
 });
 
+/**
+ * One lesson, group session or course session (coaching operator.md §5.10).
+ * No ROUTE_ROLES key: it inherits `/desk` by longest prefix, as
+ * `/desk/matches/$id` does, so it needs no WORKSPACES, SUB_ROUTES or
+ * assistant-coverage entry. The cashier cannot open it (R20): lesson money
+ * from the till side is taken on the customer record.
+ */
+export const lessonDetailRoute = createRoute({
+  getParentRoute: () => deskRoute,
+  path: 'lessons/$id',
+  component: guarded('/desk', LessonDetail),
+  pendingComponent: RoutePending,
+  wrapInSuspense: true,
+  validateSearch: validateLessonSearch,
+});
+
 export const customerRecordRoute = createRoute({
   getParentRoute: () => deskRoute,
   path: 'customers/$id',
@@ -179,4 +234,5 @@ export const deskChildren = [
   customerCreateRoute,
   customerRecordRoute,
   matchDetailRoute,
+  lessonDetailRoute,
 ] as const;

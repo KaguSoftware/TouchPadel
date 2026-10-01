@@ -21,12 +21,16 @@
  *  3. **Online refunds needing attention** — online deposits whose refund
  *     failed or stalled, with Retry and "Settled another way" (contract §6).
  *     Shown once deposits are on, or whenever a row waits.
- *  4. **The screens**, one card each, as before.
+ *  4. **The screens**, one card each, as before. Coach pay's card (coaching
+ *     operator.md §5.3.3) says how many of this month's statements wait:
+ *     "To approve 2 · To pay 1" (drafts and approved ones, from
+ *     report_coach_statements), and nothing when both are zero or the server
+ *     has no statements yet (RPC_MISSING).
  */
 import { useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { formatDate, formatIQD, formatNumber, formatTime, type Locale } from '@touch/i18n';
+import { formatDate, formatIQD, formatNumber, formatTime, type Locale, type MessageKey } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { can, useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
@@ -43,11 +47,13 @@ import { DepositAttentionPanel } from '../deposits/DepositAttentionPanel';
 import { FigureGroup } from '../reports/FigureGroup';
 import { fetchWagesDue } from '../wages/api';
 import { wagesDueCount } from '../wages/wagesLogic';
+import { useCoachingCaps } from '../coaching/useCoaching';
+import { useCoachStatements } from '../reports/coaches/statementKeys';
+import { hasCoachPayWork, statementCounts } from '../reports/coaches/statementsLogic';
 
 type CardKey =
   | 'reports' | 'cashDrawer'
-  | 'dayClose' | 'rates' | 'menuPrices'
-  | 'wages';
+  | 'dayClose' | 'wages' | 'coachPay' | 'rates' | 'menuPrices';
 
 /** How many closed days the cash card lists. A week is what an owner scans. */
 export const RECENT_CLOSES = 7;
@@ -67,15 +73,34 @@ export function FinancialHomeScreen() {
   // The Wages card's live line: the rail badge's own read (QK.wagesDue), so the two agree.
   const wagesOn = can(staff?.role, 'manageWages');
   const wagesQ = useQuery({ queryKey: QK.wagesDue, queryFn: fetchWagesDue, enabled: wagesOn, refetchInterval: 60_000 });
+  // Coach pay's card line: this month's statements at the rail's branch.
+  const { settleCoaches } = useCoachingCaps();
+  const statementsQ = useCoachStatements(null, settleCoaches);
+  const coachPay = statementsQ.data ? statementCounts(statementsQ.data.statements) : null;
+
+  const figure = (label: MessageKey, n: number) => (
+    <>
+      <span style={{ color: 'var(--tp-muted-fg)' }}>{tr(label)}</span>
+      <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNumber(n, locale)}</strong>
+    </>
+  );
   function status(key: string): ReactNode {
-    if ((key as CardKey) !== 'wages' || !wagesOn || !wagesQ.isSuccess) return null;
+    if ((key as CardKey) === 'wages') {
+      if (!wagesOn || !wagesQ.isSuccess) return null;
+      return figure('ws.wages.financial.dueNow', wagesDueCount(wagesQ.data));
+    }
+    if ((key as CardKey) !== 'coachPay' || !coachPay || !hasCoachPayWork(coachPay)) return null;
     return (
-      <>
-        <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.wages.financial.dueNow')}</span>
-        <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNumber(wagesDueCount(wagesQ.data), locale)}</strong>
-      </>
+      <span data-testid="financial.coachPay.status" style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'baseline', flexWrap: 'wrap' }}>
+        {figure('ws.owner.financialHome.status.toApprove', coachPay.toApprove)}
+        <span aria-hidden="true" style={{ color: 'var(--tp-muted-fg)' }}>
+          ·
+        </span>
+        {figure('ws.owner.financialHome.status.toPay', coachPay.toPay)}
+      </span>
     );
   }
+
   return (
     <SectionHome
       sectionKey="financial"

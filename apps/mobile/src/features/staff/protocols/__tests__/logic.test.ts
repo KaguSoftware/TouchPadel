@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { STAFF_ROLES, startableKinds, validateStep, type StepRow, type SubmissionRow } from '@touch/core';
+import {
+  COACHING_SHAPES,
+  STAFF_ROLES,
+  missingKeys,
+  priceChangeKinds,
+  startableKinds,
+  validateStep,
+  type StepRow,
+  type SubmissionRow,
+} from '@touch/core';
 import { recordFromDraft } from '../assemble';
 import {
   IDEA_ROLES,
@@ -11,9 +20,13 @@ import {
   interviewsRecord,
   isProtocolQueryKey,
   launchPhotoChoices,
+  lessonTargetCoaches,
+  lessonTargetTypes,
+  numbersLesson,
   numbersRenames,
   parseRunFilter,
   parseVariant,
+  phoneStartChanges,
   plannedWindows,
   positionRole,
   priceNumbersStart,
@@ -31,7 +44,7 @@ import {
   titlesFromRecord,
 } from '../logic';
 import { stepForm } from '@touch/core';
-import type { PriceNumbers, PriceTargets } from '../types';
+import type { NumbersLesson, PriceNumbers, PriceTargets } from '../types';
 
 /**
  * The rules behind the phone's protocol pages (build-contracts-2026-09-23 §6.1,
@@ -284,6 +297,24 @@ describe('a price or promotion change', () => {
     expect(targetKindOf('rate')).toBe('rule');
     expect(targetKindOf('addon_price')).toBe('addons');
     expect(targetKindOf('promotion')).toBe('none');
+    // Lesson prices (coaching 0282) are started on the operator: no list here.
+    expect(targetKindOf('lesson_price')).toBe('none');
+    expect(targetKindOf('lesson_launch')).toBe('none');
+    expect(targetKindOf('coach_price')).toBe('none');
+  });
+
+  it('never offers a lesson price start on the phone, to the owner either (coaching 0282)', () => {
+    expect(phoneStartChanges(priceChangeKinds('owner'))).toEqual([
+      'price',
+      'shop_launch',
+      'addon_price',
+      'promotion',
+      'promotion_edit',
+      'promotion_enable',
+      'rate',
+      'featured_discount',
+    ]);
+    expect(phoneStartChanges(priceChangeKinds('marketing'))).toEqual(priceChangeKinds('marketing'));
   });
 
   it('prices a cafe item size by size, blank until typed, and sends only what changed', () => {
@@ -366,6 +397,90 @@ describe('a price or promotion change', () => {
     const fields = stepForm('price_promo', 'numbers', { change: 'price' })!.fields;
     const record = recordFromDraft(fields, s.draft, { fixedKeys: { prices: 'variant_id' } });
     expect(validateStep('price_promo', 'numbers', record, { change: 'price' })).toEqual([]);
+  });
+});
+
+// Coaching (0282, operator.md §5.14.3): a lesson run read and decided on the phone.
+describe('a lesson price change', () => {
+  const LESSON: NumbersLesson = {
+    lesson_type_id: A,
+    coach_id: null,
+    kind: 'group',
+    name_en: 'Beginners',
+    name_ar: 'مبتدئون',
+    current_price_iqd: 25000,
+    new_price_iqd: 30000,
+    current_court_share_iqd: 5000,
+    new_court_share_iqd: 5000,
+    places_30d: 40,
+    owed_30d_iqd: 1000000,
+  };
+  const numbersOf = (lesson: NumbersLesson | null): PriceNumbers => ({
+    change: 'lesson_price',
+    sizes: [],
+    addons: [],
+    promotion: null,
+    rate: null,
+    featured: null,
+    lesson,
+  });
+
+  it('reads the X28 targets and numbers by their COACHING_SHAPES lists, dropping rows with no id', () => {
+    const typesShape = COACHING_SHAPES.price_promo_targets_lesson_types;
+    const types = lessonTargetTypes({
+      lesson_types: [
+        { lesson_type_id: A, kind: 'group', name_en: 'Beginners', name_ar: 'مبتدئون', duration_min: 90, sessions_count: null, max_places: 6, price_iqd: 25000, court_share_iqd: 5000, is_active: true },
+        { name_en: 'no id' } as never,
+      ],
+    });
+    expect(types.map((t) => t.lesson_type_id)).toEqual([A]);
+    expect(missingKeys({ lesson_types: types }, typesShape)).toEqual([]);
+    expect(Object.keys(types[0]!).sort()).toEqual([...(typesShape.nested?.['lesson_types[]'] ?? [])].sort());
+
+    const coachesShape = COACHING_SHAPES.price_promo_targets_coaches;
+    const coaches = lessonTargetCoaches({
+      coaches: [
+        { coach_id: B, display_name_en: 'Sara', display_name_ar: 'سارة', lesson_types: [{ lesson_type_id: A, name_en: 'Beginners', name_ar: 'مبتدئون', kind: 'group', sessions_count: null, type_price_iqd: 25000, coach_price_iqd: null }] },
+      ],
+    });
+    expect(missingKeys({ coaches }, coachesShape)).toEqual([]);
+    expect(coaches[0]!.lesson_types[0]!.coach_price_iqd).toBeNull();
+
+    const numbersShape = COACHING_SHAPES.price_promo_numbers_lesson;
+    const lesson = numbersLesson(numbersOf(LESSON));
+    expect(lesson).toEqual(LESSON);
+    expect(missingKeys({ change: 'lesson_price', lesson }, numbersShape)).toEqual([]);
+    expect(numbersLesson(numbersOf(null))).toBeNull();
+    expect(numbersLesson(undefined)).toBeNull();
+  });
+
+  it('opens the numbers on the figures a lesson price moves, hiding the one it leaves', () => {
+    const s = priceNumbersStart('lesson_price', numbersOf(LESSON));
+    expect(s.draft).toMatchObject({ recommendation: 'go', price_iqd: '30000' });
+    expect(s.draft.court_share_iqd).toBe('');
+    expect(s.hidden).toContain('court_share_iqd');
+    const fields = stepForm('price_promo', 'numbers', { change: 'lesson_price' })!.fields;
+    const record = recordFromDraft(fields, s.draft, {});
+    expect(record).toEqual({ recommendation: 'go', price_iqd: 30000 });
+    expect(validateStep('price_promo', 'numbers', record, { change: 'lesson_price' })).toEqual([]);
+  });
+
+  it('opens a launch on both figures, and a coach price on what its proposal says', () => {
+    const launch = priceNumbersStart('lesson_launch', { ...numbersOf(LESSON), change: 'lesson_launch' });
+    expect(launch.draft).toMatchObject({ price_iqd: '30000', court_share_iqd: '5000' });
+    expect(launch.hidden).not.toContain('court_share_iqd');
+    const coachLesson = { ...LESSON, coach_id: B, current_price_iqd: 35000, new_price_iqd: 25000 };
+    const coachNumbers = { ...numbersOf(coachLesson), change: 'coach_price' };
+    // Without the proposal a removal cannot be told from a new price: left blank (the proposal's).
+    const blind = priceNumbersStart('coach_price', coachNumbers);
+    expect(blind.draft.price_iqd).toBe('');
+    expect(blind.hidden).not.toContain('price_iqd');
+    // A removal carries no figure: none is asked.
+    const removal = priceNumbersStart('coach_price', coachNumbers, { change: 'coach_price', coach_id: B, lesson_type_id: A, price_iqd: null });
+    expect(removal.hidden).toContain('price_iqd');
+    const priced = priceNumbersStart('coach_price', coachNumbers, { change: 'coach_price', coach_id: B, lesson_type_id: A, price_iqd: 25000 });
+    expect(priced.draft.price_iqd).toBe('25000');
+    expect(priced.draft).not.toHaveProperty('court_share_iqd');
   });
 });
 

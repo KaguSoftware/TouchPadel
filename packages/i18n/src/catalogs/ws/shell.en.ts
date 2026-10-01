@@ -212,6 +212,9 @@ export const shellEn = {
     // Wages (0270–0272).
     wages: 'Wages',
     attendance: 'Late and early',
+    // Coaching (docs/design/coaching/operator.md §5.3.3).
+    coaches: 'Coaches',
+    coachPay: 'Coach pay',
     // A rail row's count, for a screen reader: the pill itself is only a number.
     badge: '{count} waiting on you',
     groupOperations: 'Operations',

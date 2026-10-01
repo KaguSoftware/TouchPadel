@@ -147,6 +147,35 @@ describe('RevenueReportScreen', () => {
     renderIt(<RevenueReportScreen />);
     expect(await screen.findByText('No sales, bookings or payments in this period')).toBeTruthy();
   });
+
+  // Coaching (coaching operator.md §5.18.3, C-18): lesson money is its own line, the coaches' share beside it.
+  it('Earned shows Lessons and Owed to coaches, and the breakdown a Lessons column', async () => {
+    rpc.mockResolvedValue({
+      ...REVENUE,
+      rows: REVENUE.rows.map((r, i) => ({ ...r, lessonIqd: i === 0 ? 0 : 30000, owedToCoachesIqd: i === 0 ? 0 : 18000 })),
+      totals: { ...REVENUE.totals, lessonIqd: 30000, owedToCoachesIqd: 18000 },
+    });
+    renderIt(<RevenueReportScreen />);
+    const table = await screen.findByRole('table', { name: 'Earned' });
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Day', 'Padel', 'Cafe', 'Lessons', 'Revenue', 'Bookings', 'Orders']);
+    expect(within(table).getByText('30,000 IQD')).toBeTruthy();
+    const band = screen.getByRole('region', { name: 'Revenue' });
+    expect(within(band).getByText('Lessons')).toBeTruthy();
+    expect(within(band).getByText('Owed to coaches')).toBeTruthy();
+    expect(within(band).getByText("Coaches' share of lesson money, paid outside the till")).toBeTruthy();
+    expect(within(band).getByText('18,000 IQD')).toBeTruthy();
+  });
+
+  it('a server without the lesson keys shows "—", never a zero, and no Lessons column', async () => {
+    rpc.mockResolvedValue(REVENUE);
+    renderIt(<RevenueReportScreen />);
+    const table = await screen.findByRole('table', { name: 'Earned' });
+    expect(within(table).queryByRole('columnheader', { name: 'Lessons' })).toBeNull();
+    const band = screen.getByRole('region', { name: 'Revenue' });
+    const lessons = within(band).getByText('Lessons').closest('div')!;
+    expect(lessons.parentElement!.textContent).toContain('—');
+    expect(within(band).getByText('Owed to coaches')).toBeTruthy();
+  });
 });
 
 // ---------------------------------------------------------------------------

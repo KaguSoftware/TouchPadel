@@ -176,6 +176,9 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     // Wages (0270–0272).
     wages: 'الرواتب',
     attendance: 'التأخير والانصراف المبكر',
+    // DRAFT-AR (coaching operator.md §5.3.3).
+    coaches: 'المدرّبون',
+    coachPay: 'مستحقات المدرّبين',
     badge: 'بانتظارك: {count}',
     groupOperations: 'العمليات',
     groupRun: 'إدارة اليوم',

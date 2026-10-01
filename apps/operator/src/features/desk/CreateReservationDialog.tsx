@@ -32,6 +32,11 @@
  * match the court is kept for. The "Open match" kind hands the court, start
  * and guest to the Start dialog (the caller mounts it).
  *
+ * LESSONS (docs/design/coaching/operator.md §5.9): the "Lesson" kind does the
+ * same for New lesson (StartLessonDialog), offered when the caller passes
+ * `onStartLesson`. A lesson is never a queued `reservation.create`: it is a
+ * coaching write, online only, so offline the kind is disabled with the reason.
+ *
  * e2e selectors kept: dialog 'New booking', label 'Guest name', label
  * 'Duration' (a native select whose option values are minutes), button
  * 'Create booking'.
@@ -57,11 +62,25 @@ import { CustomerPicker, type PickedCustomer } from './customers/CustomerPicker'
 import { durationsFitting, nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone, slotTaken } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
 
-export type CreateKind = 'booking' | 'maintenance' | 'match';
+export type CreateKind = 'booking' | 'maintenance' | 'match' | 'lesson';
 
 /** What the Open match kind hands to the Start dialog (§5.10): the draft's court, start and guest. */
 export interface StartMatchCarry {
   courtId: string;
+  startAt: Date;
+  customer: PickedCustomer | null;
+  guestName: string;
+  guestPhone: string;
+}
+
+/**
+ * What the Lesson kind hands to New lesson (coaching operator.md §5.9): the
+ * pressed court (compared with the one the server picks, C-10), the start,
+ * and the picked customer or typed name and phone. `courtId` is null when New
+ * lesson opens with no court in hand (the Today group).
+ */
+export interface StartLessonCarry {
+  courtId: string | null;
   startAt: Date;
   customer: PickedCustomer | null;
   guestName: string;
@@ -84,6 +103,7 @@ export function CreateReservationDialog({
   customer: initialCustomer = null,
   openMatches,
   onStartMatch,
+  onStartLesson,
   onClose,
   onCreated,
 }: {
@@ -107,6 +127,13 @@ export function CreateReservationDialog({
    * caller opens the Start dialog with what it carries.
    */
   onStartMatch?: (carry: StartMatchCarry) => void;
+  /**
+   * Offer the "Lesson" kind (coaching operator.md §5.9): passed by a caller
+   * whose role runs lessons (runLessons) once the night's desk_lessons has
+   * answered, coaching on or off (the desk stages, R51). Choosing it closes
+   * this dialog; the caller opens New lesson with what it carries.
+   */
+  onStartLesson?: (carry: StartLessonCarry) => void;
   onClose: () => void;
   /** `queued`: saved on this station only, not yet accepted by the server. */
   onCreated: (queued: boolean) => void;
@@ -125,7 +152,7 @@ export function CreateReservationDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [soldKey],
   );
-  const [kind, setKind] = useState<Exclude<CreateKind, 'match'>>('booking');
+  const [kind, setKind] = useState<Exclude<CreateKind, 'match' | 'lesson'>>('booking');
   const [durationPick, setDuration] = useState<number>(sold[0] ?? 60);
   const [guestName, setGuestName] = useState(() => (initialCustomer ? sanitizeName(initialCustomer.name) : ''));
   const [guestPhone, setGuestPhone] = useState(() => (initialCustomer?.phone ? sanitizePhone(initialCustomer.phone) : ''));
@@ -292,22 +319,31 @@ export function CreateReservationDialog({
         <SegmentedControl<CreateKind>
           value={kind}
           onChange={(next) => {
-            if (next !== 'match') {
-              setKind(next);
+            if (next === 'match') {
+              // The Start dialog takes over with what is already chosen.
+              onStartMatch?.({ courtId, startAt, customer, guestName, guestPhone });
               return;
             }
-            // The Start dialog takes over with what is already chosen.
-            onStartMatch?.({ courtId, startAt, customer, guestName, guestPhone });
+            if (next === 'lesson') {
+              // New lesson takes over the same way (coaching §5.9); the server picks the court.
+              onStartLesson?.({ courtId, startAt, customer, guestName, guestPhone });
+              return;
+            }
+            setKind(next);
           }}
           options={[
             { value: 'booking', label: tr('op.desk.kindBooking'), disabled: busy },
             { value: 'maintenance', label: tr('ws.courtDesk.create.kindBlock'), disabled: busy },
             ...(onStartMatch ? [{ value: 'match' as const, label: tr('ws.matches.common.openMatch'), disabled: busy || !reachable }] : []),
+            ...(onStartLesson ? [{ value: 'lesson' as const, label: tr('ws.coaching.common.lesson'), disabled: busy || !reachable }] : []),
           ]}
         />
       </Field>
       {onStartMatch && !reachable && (
         <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: '-0.5rem', marginBlockEnd: '0.85rem' }}>{tr('ws.matches.offline.needsConnection')}</p>
+      )}
+      {onStartLesson && !reachable && (
+        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: onStartMatch ? 0 : '-0.5rem', marginBlockEnd: '0.85rem' }}>{tr('ws.coaching.offline.needsConnection')}</p>
       )}
 
       {kind === 'booking' && (

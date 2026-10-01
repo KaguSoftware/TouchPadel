@@ -1489,6 +1489,73 @@ const shapes = {
       ],
     },
   },
+
+  // ---- The lesson price change (price_promo_lessons, 0282; R81: added by the sub-step that
+  // builds these reads). X28: DB's shapes, which the operator's /protocols and the staff phone
+  // parse. Management-only `map:action` reads, never an assistant tool; the numbers carry no
+  // coach pay (C-28).
+
+  /** `price_promo_targets('lesson_price' | 'lesson_launch')`: launched types / drafts at the venue. */
+  price_promo_targets_lesson_types: {
+    rpc: 'price_promo_targets',
+    x: 'X28',
+    keys: ['lesson_types'],
+    nested: {
+      'lesson_types[]': [
+        'lesson_type_id',
+        'kind',
+        'name_en',
+        'name_ar',
+        'duration_min',
+        'sessions_count',
+        'max_places',
+        'price_iqd',
+        'court_share_iqd',
+        'is_active',
+      ],
+    },
+  },
+
+  /** `price_promo_targets('coach_price')`: coaches not retired at the venue, with the types they teach there. */
+  price_promo_targets_coaches: {
+    rpc: 'price_promo_targets',
+    x: 'X28',
+    keys: ['coaches'],
+    nested: {
+      'coaches[]': ['coach_id', 'display_name_en', 'display_name_ar', 'lesson_types'],
+      'coaches[].lesson_types[]': [
+        'lesson_type_id',
+        'name_en',
+        'name_ar',
+        'kind',
+        'sessions_count',
+        'type_price_iqd',
+        'coach_price_iqd',
+      ],
+    },
+  },
+
+  /** `price_promo_numbers` of a lesson run: its `lesson` block (null for every other change). */
+  price_promo_numbers_lesson: {
+    rpc: 'price_promo_numbers',
+    x: 'X28',
+    keys: ['change', 'lesson'],
+    nested: {
+      lesson: [
+        'lesson_type_id',
+        'coach_id',
+        'kind',
+        'name_en',
+        'name_ar',
+        'current_price_iqd',
+        'new_price_iqd',
+        'current_court_share_iqd',
+        'new_court_share_iqd',
+        'places_30d',
+        'owed_30d_iqd',
+      ],
+    },
+  },
 } satisfies Record<string, CoachingShape>;
 
 export type CoachingShapeName = keyof typeof shapes;

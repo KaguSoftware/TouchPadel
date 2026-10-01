@@ -15,6 +15,8 @@
 import { formatIQD } from '@touch/i18n';
 import { BookingStatusIndicator, StatusBadge, type Tone } from '../../components/kit';
 import { useLocale } from '../../lib/i18n';
+import { LessonBadge } from '../coaching/LessonBadge';
+import type { DeskLesson } from '../coaching/lessonPayloads';
 import type { ReservationKind } from './deskTypes';
 import { chargeLabelOf, type BillStateRow } from './payment/deskPaymentLogic';
 
@@ -74,6 +76,23 @@ export function reservationTone(r: ReservationLike): Tone {
   }
 }
 
+/**
+ * A block's tone (coaching operator.md §5.8): the kit's Tone does not grow, so
+ * the grids paint a lesson with its own family. A lesson's court row is
+ * `lesson`; so is a held lesson's hold row once the desk knows it is one
+ * (`heldLesson`, from desk_lessons). Everything else is reservationTone.
+ */
+export type BlockTone = Tone | 'lesson';
+
+export const BLOCK_SOFT: Record<BlockTone, string> = { ...TONE_SOFT, lesson: 'var(--tp-lesson-soft)' };
+export const BLOCK_FG: Record<BlockTone, string> = { ...TONE_FG, lesson: 'var(--tp-lesson)' };
+export const BLOCK_EDGE: Record<BlockTone, string> = { ...TONE_EDGE, lesson: 'var(--tp-lesson)' };
+
+export function reservationBlockTone(r: ReservationLike, heldLesson = false): BlockTone {
+  if (r.kind === 'lesson' || (heldLesson && r.kind === 'hold')) return 'lesson';
+  return reservationTone(r);
+}
+
 /** Tone per court in the availability strip, in the same vocabulary. */
 export function availabilityTone(a: { state: 'free' | 'busy'; kind?: ReservationKind | string }): Tone {
   if (a.state === 'free') return 'success';
@@ -84,9 +103,25 @@ export function availabilityTone(a: { state: 'free' | 'busy'; kind?: Reservation
  * The labelled status of one reservation. Five screens wrote this same
  * ternary; a block, a row, a chip and a dialog subtitle now all say it once.
  */
-export function ReservationBadge({ reservation: r, size }: { reservation: ReservationLike; size?: 'sm' | 'md' }) {
+export function ReservationBadge({
+  reservation: r,
+  size,
+  lesson,
+}: {
+  reservation: ReservationLike;
+  size?: 'sm' | 'md';
+  /**
+   * The desk_lessons row this reservation holds, when the caller knows it. A
+   * `lesson` row always reads as a lesson; a `hold` row does only when it is a
+   * held lesson's (coaching operator.md §5.8), so pass it for those.
+   */
+  lesson?: Pick<DeskLesson, 'kind' | 'status'> | null;
+}) {
   const { tr } = useLocale();
   if (r.kind === 'booking') return <BookingStatusIndicator status={r.status} size={size} />;
+  if (r.kind === 'lesson' || (r.kind === 'hold' && lesson)) {
+    return <LessonBadge kind={lesson?.kind ?? null} held={r.kind === 'hold' || lesson?.status === 'held'} size={size} />;
+  }
   const kind = (r.kind === 'hold' || r.kind === 'maintenance' ? r.kind : 'booking') satisfies ReservationKind;
   return <StatusBadge size={size} tone={reservationTone(r)} label={tr(`ws.kit.reservationKind.${kind}`)} />;
 }

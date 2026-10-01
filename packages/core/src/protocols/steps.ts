@@ -12,8 +12,10 @@
  */
 import { HIREABLE_ROLES, type StaffRole } from '../staff/roles';
 import {
+  LESSON_CHANGE_KINDS,
   PRICE_CHANGE_KINDS,
   STEP_KEYS,
+  type LessonChangeKind,
   type PhotoFolder,
   type PriceChangeKind,
   type ProtocolKind,
@@ -50,6 +52,11 @@ export const RECORD_CAPS = {
   hours: 300,
   /** A scheduled launch is at most this many days ahead. */
   launchDaysAhead: 90,
+  /**
+   * A lesson price or court share (price_promo_lessons, 0282). A price is at least 1, and a
+   * course's at least one dinar a session, which only the server can check.
+   */
+  lessonFigureMax: 100_000_000,
 } as const;
 
 // ── Role groups (§2.1) ──────────────────────────────────────────────────────
@@ -74,15 +81,26 @@ export function startableKinds(role: StaffRole | null | undefined): ProtocolKind
 }
 
 /**
+ * A lesson price change: `lesson_price`, `lesson_launch` or `coach_price`
+ * (coaching C-17, 0282). Here rather than in types.ts, which holds types and
+ * value lists only; both apps import the barrel.
+ */
+export function isLessonChange(kind: unknown): kind is LessonChangeKind {
+  return (LESSON_CHANGE_KINDS as readonly unknown[]).includes(kind);
+}
+
+/**
  * The change kinds a starter may pick for a price or promotion change: every
- * one for a manager and the owner; every one but `shop_launch` for marketing,
- * because hidden products are offered on no screen marketing sees (§2.8). Used
- * by the phone's start form and by `/tasks` on the operator.
+ * one for a manager and the owner. For marketing every one but `shop_launch`,
+ * because hidden products are offered on no screen marketing sees (§2.8), and
+ * but the lesson kinds, because lesson prices are the venue's (coaching C-5,
+ * C-17; the server answers NOT_STEP_ACTOR). Used by the phone's start form and
+ * by `/tasks` on the operator.
  */
 export function priceChangeKinds(role: StaffRole | null | undefined): PriceChangeKind[] {
   if (!role) return [];
   if (MGMT.includes(role)) return [...PRICE_CHANGE_KINDS];
-  if (role === 'marketing') return PRICE_CHANGE_KINDS.filter((k) => k !== 'shop_launch');
+  if (role === 'marketing') return PRICE_CHANGE_KINDS.filter((k) => k !== 'shop_launch' && !isLessonChange(k));
   return [];
 }
 
@@ -279,6 +297,20 @@ const f = {
 };
 
 const NOTES = f.long('notes');
+
+/**
+ * A lesson price, 1..lessonFigureMax, and a court share per session,
+ * 0..lessonFigureMax (0282). The walker marks a price of 0 by itself, so
+ * validate.ts needs no extra rule for `price_iqd > 0`.
+ */
+const LESSON_PRICE = (required: boolean): FieldDef => ({
+  ...f.iqd('price_iqd', required, 0, true),
+  max: RECORD_CAPS.lessonFigureMax,
+});
+const COURT_SHARE = (required: boolean): FieldDef => ({
+  ...f.iqd('court_share_iqd', required),
+  max: RECORD_CAPS.lessonFigureMax,
+});
 
 const SIZE_PRICES: FieldDef = {
   name: 'prices',
@@ -536,6 +568,12 @@ const PROPOSE_BY_CHANGE: Record<PriceChangeKind, readonly FieldDef[]> = {
   promotion_enable: [f.uuid('promotion_id')],
   rate: [f.uuid('rule_id', false), { name: 'rule', type: 'object', required: true, fields: RATE_RULE_FIELDS }],
   featured_discount: [f.uuid('menu_item_id'), f.int('discount_pct', true, 0, 99)],
+  // Lessons (0282): the type, and the coach of a coach price. `before` is the
+  // server's to write (R46). lesson_price needs one figure (validate.ts); a
+  // coach price left empty removes the coach's own.
+  lesson_price: [f.uuid('lesson_type_id'), LESSON_PRICE(false), COURT_SHARE(false)],
+  lesson_launch: [f.uuid('lesson_type_id'), LESSON_PRICE(true), COURT_SHARE(true)],
+  coach_price: [f.uuid('coach_id'), f.uuid('lesson_type_id'), LESSON_PRICE(false)],
 };
 
 /** Final figures at `numbers`: exactly the proposal's targets, same shapes. */
@@ -548,6 +586,11 @@ const NUMBERS_BY_CHANGE: Record<PriceChangeKind, readonly FieldDef[]> = {
   promotion_enable: [],
   rate: [{ name: 'rule_prices', type: 'priceMap', required: false, minItems: 1, maxItems: 12 }],
   featured_discount: [f.int('discount_pct', false, 0, 99)],
+  // Only the figures a lesson proposal can carry (the server refuses the
+  // others by name). No coach-pay figure (coaching C-28).
+  lesson_price: [LESSON_PRICE(false), COURT_SHARE(false)],
+  lesson_launch: [LESSON_PRICE(false), COURT_SHARE(false)],
+  coach_price: [LESSON_PRICE(false)],
 };
 
 /** The owner's own steps: a note and 0 to 6 photos in `steps` (§2.7). */
@@ -563,7 +606,7 @@ export const GENERIC_STEP_FORM: StepForm = {
 
 export interface StepFormOptions {
   variant?: TournamentVariant | null;
-  /** Price or promotion change: which of the eight kinds this run carries. */
+  /** Price or promotion change: which of the eleven kinds this run carries. */
   change?: PriceChangeKind | null;
 }
 

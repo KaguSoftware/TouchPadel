@@ -16,6 +16,12 @@ import { EdgeError } from '../../lib/edge';
 import { errorToMessageKey } from '../../lib/errors';
 
 export function protocolErrorKey(error: unknown): MessageKey {
+  // Coaching (0282, operator.md §5.19): a lesson price change whose type or
+  // coach price moved since the proposal has its own line, by the hook's hint.
+  if (error instanceof AppRpcError && error.code === 'PRICE_TARGET_CHANGED') {
+    const hint = (error.hint || error.details || '').trim();
+    if (hint === 'lesson_type' || hint === 'coach_price') return `ws.coaching.errors.priceTargetChanged.${hint}`;
+  }
   return errorToMessageKey(error);
 }
 
