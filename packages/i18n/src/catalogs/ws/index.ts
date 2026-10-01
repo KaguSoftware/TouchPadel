@@ -66,6 +66,11 @@ import { shopAr } from './shop.ar';
 // matchesAdmin.*.
 import { matchesEn } from './matches.en';
 import { matchesAr } from './matches.ar';
+// Coaching (docs/design/coaching/operator.md §5.20): coaching.* is the
+// assembly; its lanes' groups come from coachingDesk.*, coachingAdmin.* and
+// coachingMoney.*.
+import { coachingEn } from './coaching.en';
+import { coachingAr } from './coaching.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -94,6 +99,7 @@ export const wsEn = {
   slips: slipsEn,
   shop: shopEn,
   matches: matchesEn,
+  coaching: coachingEn,
 } as const;
 
 export const wsAr = {
@@ -123,4 +129,5 @@ export const wsAr = {
   slips: slipsAr,
   shop: shopAr,
   matches: matchesAr,
+  coaching: coachingAr,
 } as const;

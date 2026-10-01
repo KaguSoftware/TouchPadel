@@ -195,6 +195,8 @@ export const courtDeskEn = {
       booking: 'Booking',
       hold: 'App hold',
       maintenance: 'Court block',
+      // Coaching (coaching operator.md §5.8): a lesson's court row.
+      lesson: 'Lesson',
     },
     sourceLabel: {
       mobile: 'App',

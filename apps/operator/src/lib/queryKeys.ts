@@ -142,6 +142,37 @@ export const QK = {
     /** app.match_settings for the branch in scope: Venue details. */
     settings: (branchId: string | null) => ['deskMatches', 'settings', branchId ?? ''] as const satisfies QueryKey,
   },
+
+  // Coaching (docs/design/coaching/operator.md §5.4). One family so one root
+  // refreshes every coaching read: the till's queued refund (queueResults.ts)
+  // and the 'courts' broadcast name the root. NEVER persisted (lib/persist.ts
+  // PERSISTED_ROOTS leaves 'coaching' out) and never wrapped in cachedQuery:
+  // the rosters and desk_lessons.label carry student names and phones (P15).
+  /** Every coaching read at the desk, on the record and in setup (features/coaching/useCoaching.ts). */
+  coaching: {
+    all: ['coaching'] as const satisfies QueryKey,
+    /**
+     * app.desk_lessons over one trading night's window (the desk's envelope,
+     * R20). Every window sits under ['coaching', 'desk'], which
+     * features/coaching/useCoaching.ts invalidates as COACHING_DESK_ROOT.
+     */
+    desk: (fromIso: string, toIso: string) => ['coaching', 'desk', fromIso, toIso] as const satisfies QueryKey,
+    /** app.desk_lesson_detail for one lesson. */
+    lesson: (lessonId: string) => ['coaching', 'lesson', lessonId] as const satisfies QueryKey,
+    /** app.customer_lessons for one customer: the record's Lessons panel. */
+    customer: (customerId: string) => ['coaching', 'customer', customerId] as const satisfies QueryKey,
+    /** app.coaches_admin for the branch in scope: /admin/coaches and the Setup card. */
+    admin: (branchId: string | null) => ['coaching', 'admin', branchId ?? ''] as const satisfies QueryKey,
+    /** app.coaching_settings for the branch in scope: Venue details. */
+    settings: (branchId: string | null) => ['coaching', 'settings', branchId ?? ''] as const satisfies QueryKey,
+    /** app.coach_slots: one coach, one lesson type, one local day. */
+    slots: (coachId: string, typeId: string, fromIso: string, toIso: string) =>
+      ['coaching', 'slots', coachId, typeId, fromIso, toIso] as const satisfies QueryKey,
+    /** app.lesson_refunds_due for the branch in scope: Ops and the lesson screen. */
+    refundsDue: (branchId: string | null) => ['coaching', 'refundsDue', branchId ?? ''] as const satisfies QueryKey,
+    /** app.coach_statement_detail for one statement. */
+    statement: (statementId: string) => ['coaching', 'statement', statementId] as const satisfies QueryKey,
+  },
 } as const;
 
 /**

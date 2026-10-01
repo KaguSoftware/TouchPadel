@@ -43,7 +43,7 @@ import { FigureGroup } from '../reports/FigureGroup';
 
 type CardKey =
   | 'reports' | 'cashDrawer'
-  | 'dayClose' | 'rates' | 'menuPrices';
+  | 'dayClose' | 'coachPay' | 'rates' | 'menuPrices';
 
 /** How many closed days the cash card lists. A week is what an owner scans. */
 export const RECENT_CLOSES = 7;

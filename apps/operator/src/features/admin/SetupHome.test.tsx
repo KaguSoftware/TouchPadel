@@ -103,7 +103,16 @@ describe('SetupHomeScreen', () => {
     renderSetup('owner');
     expect(screen.getByRole('heading', { name: 'Setup' })).toBeTruthy();
     const links = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
-    expect(links).toEqual(['/admin/staff', '/admin/branches', '/admin/courts', '/admin/qr', '/admin/settings', '/admin/hero']);
+    expect(links).toEqual([
+      '/admin/staff',
+      '/admin/branches',
+      '/admin/courts',
+      // Coaching (coaching operator.md §5.3.3): Coaches sits after Courts.
+      '/admin/coaches',
+      '/admin/qr',
+      '/admin/settings',
+      '/admin/hero',
+    ]);
     // The card says more than its rail row could: names alone are not answers.
     expect(screen.getByText(/replace a lost one/)).toBeTruthy();
   });

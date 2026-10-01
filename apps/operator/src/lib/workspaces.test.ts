@@ -300,8 +300,12 @@ describe('sections', () => {
   it('puts every report in exactly one section: money in Financial, staff in Observe, stock in Stock', () => {
     const rows = (key: string) =>
       sectionRailItems((owner.sections ?? []).find((s) => s.key === key)!).filter((i) => i.to.startsWith('/reports'));
-    // Financial's one Reports row stands for its three tabs.
-    expect(rows('financial').map((i) => [i.to, i.labelKey])).toEqual([['/reports/revenue', 'reports']]);
+    // Financial's one Reports row stands for its three tabs; Coach pay
+    // (coaching operator.md §5.3.3) is its own screen with an exact row.
+    expect(rows('financial').map((i) => [i.to, i.labelKey])).toEqual([
+      ['/reports/revenue', 'reports'],
+      ['/reports/coaches', 'coachPay'],
+    ]);
     expect(rows('observation').map((i) => [i.to, i.labelKey])).toEqual([['/reports/staff', 'staffActivity']]);
     expect(rows('stock').map((i) => i.to)).toEqual(['/reports/stock']);
 
@@ -310,6 +314,9 @@ describe('sections', () => {
     expect(sectionForPath(owner, '/reports/cafe')?.key).toBe('financial');
     // An exact row beats Financial's '/reports' prefix.
     expect(sectionForPath(owner, '/reports/staff')?.key).toBe('observation');
+    // Coach pay lights its own row, not the Reports row (coaching operator.md §5.3.3).
+    expect(sectionForPath(owner, '/reports/coaches')?.key).toBe('financial');
+    expect(sectionForPath(owner, '/admin/coaches')?.key).toBe('setup');
     expect(sectionForPath(owner, '/reports/stock')?.key).toBe('stock');
   });
 
@@ -349,8 +356,8 @@ describe('the manager rail', () => {
     expect(WORKSPACES.manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([
       [null, ['today']],
       ['groupRun', ['bookings', 'openTabs', 'stock', 'dayClose', 'protocols', 'suggestions', 'deductions', 'incidents']],
-      ['groupRecords', ['reports', 'audit']],
-      ['groupSetup', ['menu', 'rates', 'promotions']],
+      ['groupRecords', ['reports', 'coachPay', 'audit']],
+      ['groupSetup', ['menu', 'rates', 'coaches', 'promotions']],
     ]);
   });
 

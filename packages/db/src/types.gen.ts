@@ -4070,6 +4070,199 @@ export type Database = {
         }
         Returns: undefined
       }
+      // PROVISIONAL coaching RPC types — replaced by the regenerated file at integration
+      // (docs/design/coaching/build-contracts-2026-10-01.md §1.7, §1.12–§1.14: R4, R70, R75).
+      // Only the RPCs the operator calls; signatures as the contracts name them, results Json.
+      add_coach_time_off: {
+        Args: {
+          p_coach_id: string
+          p_ends_at: string
+          p_reason?: string
+          p_starts_at: string
+        }
+        Returns: Json
+      }
+      cancel_coach_time_off: { Args: { p_id: string }; Returns: Json }
+      coach_promote: {
+        Args: {
+          p_bio_ar?: string
+          p_bio_en?: string
+          p_display_name_ar: string
+          p_display_name_en: string
+          p_photo_path?: string
+          p_profile_id: string
+          p_venue_ids?: string[]
+        }
+        Returns: Json
+      }
+      coach_slots: {
+        Args: {
+          p_coach_id: string
+          p_from: string
+          p_lesson_type_id: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      coach_statement_approve: { Args: { p_statement_id: string }; Returns: Json }
+      coach_statement_detail: { Args: { p_statement_id: string }; Returns: Json }
+      coach_statement_mark_paid: {
+        Args: {
+          p_device_id?: string
+          p_pin: string
+          p_reference: string
+          p_statement_id: string
+        }
+        Returns: Json
+      }
+      coach_statement_refresh: { Args: { p_statement_id: string }; Returns: Json }
+      coach_statement_void: {
+        Args: {
+          p_device_id?: string
+          p_pin?: string
+          p_reason: string
+          p_statement_id: string
+        }
+        Returns: Json
+      }
+      coach_update: { Args: { p_coach_id: string; p_patch: Json }; Returns: Json }
+      coaches_admin: { Args: { p_venue_id?: string }; Returns: Json }
+      coaching_settings: { Args: { p_venue_id?: string }; Returns: Json }
+      customer_lessons: { Args: { p_customer_id: string }; Returns: Json }
+      desk_add_student: {
+        Args: {
+          p_course_id?: string
+          p_customer_id?: string
+          p_idempotency_key: string
+          p_lesson_id?: string
+          p_name?: string
+          p_phone?: string
+        }
+        Returns: Json
+      }
+      desk_book_lesson: {
+        Args: {
+          p_coach_id: string
+          p_customer_id?: string
+          p_idempotency_key: string
+          p_lesson_type_id: string
+          p_name?: string
+          p_party_size?: number
+          p_phone?: string
+          p_start_at: string
+        }
+        Returns: Json
+      }
+      desk_cancel_course: {
+        Args: { p_course_id: string; p_reason: string }
+        Returns: Json
+      }
+      desk_cancel_enrolment: {
+        Args: { p_enrolment_id: string; p_reason: string }
+        Returns: Json
+      }
+      desk_cancel_lesson: {
+        Args: { p_lesson_id: string; p_reason: string }
+        Returns: Json
+      }
+      desk_create_course: {
+        Args: {
+          p_coach_id: string
+          p_idempotency_key: string
+          p_lesson_type_id: string
+          p_starts: string[]
+          p_title_ar?: string
+          p_title_en?: string
+        }
+        Returns: Json
+      }
+      desk_create_group: {
+        Args: {
+          p_coach_id: string
+          p_idempotency_key: string
+          p_lesson_type_id: string
+          p_start_at: string
+        }
+        Returns: Json
+      }
+      desk_lesson_detail: { Args: { p_lesson_id: string }; Returns: Json }
+      desk_lessons: {
+        Args: { p_from: string; p_to: string; p_venue_id?: string }
+        Returns: Json
+      }
+      desk_mark_attendance: {
+        Args: { p_enrolment_id: string; p_lesson_id: string; p_status: string }
+        Returns: Json
+      }
+      desk_move_lesson_court: {
+        Args: { p_court_id: string; p_lesson_id: string }
+        Returns: Json
+      }
+      desk_reschedule_session: {
+        Args: { p_lesson_id: string; p_start_at: string }
+        Returns: Json
+      }
+      lesson_blocked_refund_record: {
+        Args: {
+          p_amount_iqd: number
+          p_device_id?: string
+          p_enrolment_id: string
+          p_pin: string
+          p_reference: string
+        }
+        Returns: Json
+      }
+      lesson_refunds_due: { Args: { p_venue_id?: string }; Returns: Json }
+      lesson_settle: {
+        Args: {
+          p_device_id?: string
+          p_enrolment_id: string
+          p_expected_owed_iqd: number
+          p_idempotency_key: string
+          p_method: string
+          p_tendered_iqd?: number
+        }
+        Returns: Json
+      }
+      report_coach_statements: { Args: { p_month?: string }; Returns: Json }
+      report_lessons: { Args: { p_from: string; p_to: string }; Returns: Json }
+      set_coach_branches: {
+        Args: { p_coach_id: string; p_venue_ids: string[] }
+        Returns: Json
+      }
+      set_coach_hours: {
+        Args: { p_coach_id: string; p_venue_id: string; p_windows: Json }
+        Returns: Json
+      }
+      set_coach_lesson_types: {
+        Args: {
+          p_coach_id: string
+          p_lesson_type_ids: string[]
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      set_coach_price: {
+        Args: {
+          p_coach_id: string
+          p_lesson_type_id: string
+          p_price_iqd?: number
+        }
+        Returns: Json
+      }
+      set_coach_status: {
+        Args: { p_coach_id: string; p_reason?: string; p_status: string }
+        Returns: Json
+      }
+      set_coaching_settings: {
+        Args: { p_patch: Json; p_venue_id: string }
+        Returns: Json
+      }
+      upsert_lesson_type: {
+        Args: { p_id?: string; p_patch: Json; p_venue_id: string }
+        Returns: Json
+      }
+      // END PROVISIONAL coaching RPC types
     }
     Enums: {
       [_ in never]: never
@@ -12980,7 +13173,8 @@ export type Database = {
       order_source: "guest_web" | "till"
       order_status: "sent" | "preparing" | "ready" | "served" | "voided"
       payment_method: "cash" | "card"
-      reservation_kind: "booking" | "hold" | "maintenance"
+      // PROVISIONAL coaching (0270 adds 'lesson') — replaced by the regenerated file at integration
+      reservation_kind: "booking" | "hold" | "maintenance" | "lesson"
       reservation_source: "mobile" | "desk"
       reservation_status:
         | "pending"
@@ -13177,7 +13371,8 @@ export const Constants = {
       order_source: ["guest_web", "till"],
       order_status: ["sent", "preparing", "ready", "served", "voided"],
       payment_method: ["cash", "card"],
-      reservation_kind: ["booking", "hold", "maintenance"],
+      // PROVISIONAL coaching (0270) — replaced by the regenerated file at integration
+      reservation_kind: ["booking", "hold", "maintenance", "lesson"],
       reservation_source: ["mobile", "desk"],
       reservation_status: [
         "pending",

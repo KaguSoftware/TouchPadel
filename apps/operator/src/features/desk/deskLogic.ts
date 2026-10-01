@@ -5,7 +5,7 @@
  * price, a duration or a total. The board renders what the server returned.
  */
 import type { BookingStatus } from '../../components/kit';
-import type { ReservationRow } from './deskTypes';
+import type { ReservationKind, ReservationRow } from './deskTypes';
 
 /** Statuses that occupy a court (the exclusion constraint's own set). */
 export const BLOCKING_STATUSES: ReadonlySet<string> = new Set(['pending', 'confirmed', 'arrived']);
@@ -125,7 +125,7 @@ export function groupByStart<T extends { start_at: string; court_id: string }>(r
 
 export type CourtAvailability =
   | { courtId: string; state: 'free'; nextStartAt: string | null }
-  | { courtId: string; state: 'busy'; kind: 'booking' | 'hold' | 'maintenance'; untilAt: string; reservationId: string };
+  | { courtId: string; state: 'busy'; kind: ReservationKind; untilAt: string; reservationId: string };
 
 /**
  * What each court is doing right now, from rows already on screen. A court is

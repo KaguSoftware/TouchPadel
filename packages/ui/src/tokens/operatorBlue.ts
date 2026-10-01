@@ -28,6 +28,7 @@
  *   --tp-success-fg on -soft 5.6:1 · --tp-warn-fg on -soft 6.4:1 ·
  *   --tp-danger-fg on -soft 6.2:1 · white on --tp-danger 5.06:1
  *   the three -mark rungs on --tp-surface 3.7 – 4.2:1
+ *   --tp-lesson on --tp-lesson-soft 7.04:1 · on --tp-surface 4.72:1 · on --tp-bg 3.90:1
  *
  * Because the accent is white here, `--tp-accent` cannot carry the brand blue
  * itself: #3360AB on #3360AB is nothing. That is the same call the mobile
@@ -101,6 +102,11 @@ export const operatorBlueVars = {
   '--tp-neutral-soft': BLUE_L33,
   '--tp-neutral-mark': GRAY_SOFT,
   '--tp-neutral-fg': GRAY_LIGHT,
+  // Coaching lessons (operator.md §5.8): a pale violet ink on a deep violet
+  // ground. Computed 2026-10-01: --tp-lesson on --tp-lesson-soft 7.04:1 ·
+  // on --tp-surface 4.72:1 · on --tp-bg 3.90:1 (a mark wants 3:1).
+  '--tp-lesson': '#E8C0F4',
+  '--tp-lesson-soft': '#4B2F63',
 
   // ── the rail: two steps below the page; the active pill is the selection blue
   '--tp-rail': BLUE_L29,

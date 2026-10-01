@@ -1,0 +1,317 @@
+import type { DeepMessages } from './types';
+import type { coachingEn } from './coaching.en';
+import { coachingDeskAr } from './coachingDesk.ar';
+import { coachingAdminAr } from './coachingAdmin.ar';
+import { coachingMoneyAr } from './coachingMoney.ar';
+
+/**
+ * 'ws.coaching.*' بالعربية: الحصص والمدرّبون ومستحقاتهم في نظام التشغيل.
+ * Mirrors coaching.en.ts key-for-key (a missing key fails typecheck); the
+ * lanes' groups are spread in from their own file pairs, as in coaching.en.ts.
+ *
+ * DRAFT-AR: every line of this lane is on the client's review list
+ * (docs/design/coaching/operator.md §5.20), here and in coachingDesk.ar.ts,
+ * coachingAdmin.ar.ts and coachingMoney.ar.ts. The lesson words come from the
+ * one coaching glossary (C-30, R55, R72, R81): «حصة» the lesson, «أجرة الملعب»
+ * the court share, «نصيب المدرّب» the coach's share, «كشف حساب» a statement,
+ * «آخر موعد للتسجيل» the cut-off, «مستحق للمدرّبين» owed to coaches; «درس» is
+ * never used. Latin digits through 'formatNumber' / 'formatIQD'; buttons are
+ * verbal nouns (حجز، إنشاء، إضافة، استلام، تسجيل، إلغاء، نقل، تغيير، اعتماد،
+ * طرح، اقتراح), never imperatives; staff are addressed without gendered verbs
+ * (يلزم، يُرجى، يمكن + noun, passives); «حصة» is feminine, so its verbs and
+ * adjectives agree (حُجزت، أُلغيت، محجوزة); a coach or student in the third
+ * person is masculine in v1; 'isolateLtr' on "4/6", "+2" and counts; 'isolate'
+ * on names.
+ */
+export const coachingAr: DeepMessages<typeof coachingEn> = {
+  ...coachingDeskAr,
+  ...coachingAdminAr,
+  ...coachingMoneyAr,
+  common: {
+    lesson: 'حصة',
+    lessons: 'الحصص',
+    coach: 'المدرّب',
+    kind: {
+      private: 'حصة خاصة',
+      group: 'حصة جماعية',
+      course: 'دورة',
+    },
+    kindShort: {
+      private: 'خاصة',
+      group: 'جماعية',
+      course: 'دورة',
+    },
+    session: 'الحصة {n}',
+    sessionOf: 'الحصة {n} من {total}',
+    courseSession: 'دورة · الحصة {n} من {total}',
+    status: {
+      held: 'بانتظار الدفع',
+      scheduled: 'محجوزة',
+      completed: 'انتهت',
+      cancelled: 'ملغاة',
+      expired: 'لم تُؤكَّد',
+    },
+    courseStatus: {
+      open: 'مفتوحة',
+      running: 'جارية',
+      completed: 'انتهت',
+      cancelled: 'ملغاة',
+    },
+    enrolmentStatus: {
+      booked: 'مسجّل',
+      held: 'بانتظار الدفع',
+      cancelled: 'ملغى',
+      expired: 'لم يُدفع في الوقت',
+    },
+    coachStatus: {
+      active: 'نشط',
+      paused: 'موقوف مؤقتًا',
+      retired: 'متقاعد',
+    },
+    statementStatus: {
+      draft: 'مسودة',
+      approved: 'معتمد',
+      paid: 'مدفوع',
+      void: 'ملغى',
+    },
+    paymentMode: {
+      desk: 'في الاستقبال',
+      online: 'إلكترونيًا',
+    },
+    lessonPaymentMode: {
+      desk: 'في الاستقبال',
+      online_optional: 'في الاستقبال أو إلكترونيًا',
+      online_required: 'إلكترونيًا فقط',
+    },
+    bookedBy: {
+      guest: 'حُجز عبر التطبيق',
+      coach: 'أضافه المدرّب',
+      staff: 'أُضيف من الاستقبال',
+      staffBy: 'أُضيف من الاستقبال بواسطة {name}',
+    },
+    walkIn: 'زبون عابر',
+    label: {
+      pair: '{a} · {b}',
+      courseSession: '{coach} · {title} · الحصة {n}',
+    },
+    places: 'الأماكن {taken} من {total}',
+    placesAria: '{kind} · {taken} من {total} أماكن',
+    partyAria: 'حصة خاصة · {extra} مع صاحب الحجز',
+    pay: {
+      toPay: 'للدفع {count}',
+      toPayAmount: 'للدفع {count} · {amount}',
+      allPaid: 'مدفوع بالكامل',
+      paidOnline: 'مدفوع إلكترونيًا',
+      coachBookedUnpaid: 'حجزها المدرّب · غير مدفوعة',
+    },
+    tags: {
+      needsMore: 'تحتاج إلى {count} قبل {time}',
+      awaitingOnline: 'بانتظار الدفع الإلكتروني',
+      startsIn: 'تبدأ بعد {minutes} دقيقة',
+    },
+    lessonUntil: 'حصة حتى {time}',
+    inALesson: 'في حصة',
+    openLesson: 'فتح الحصة',
+    newLesson: 'حصة جديدة',
+    stagingOff: 'الحصص متوقفة في هذا الفرع، فلا يراها الزبائن ولا يحجزونها بعد.',
+    minutes: '{minutes} دقيقة',
+    money: {
+      toPayAtDesk: 'عليه {amount} يُدفع في الاستقبال',
+      paidAtDesk: 'دُفع في الاستقبال {amount}',
+      paidOnline: 'دُفع إلكترونيًا {amount}',
+      awaitingOnline: 'بانتظار الدفع الإلكتروني',
+      refunded: 'أُعيد {amount}',
+      keptLate: 'محتجز: إلغاء متأخر',
+      keptCourseLeave: 'محتجز: كانت الحصة التالية ضمن مهلة الإلغاء',
+      refundDue: 'مستحق الرد {amount}',
+    },
+    attendance: {
+      attended: 'حضر',
+      no_show: 'لم يحضر',
+      markedBy: '{status} · {name}',
+    },
+    take: {
+      button: 'استلام الدفع',
+      cash: 'نقدًا',
+      card: 'بطاقة',
+      subtitleLesson: 'حصة {name}',
+      subtitleCourse: 'دورة {name}',
+      took: 'استُلم {amount} عن {name}.',
+      change: 'الباقي {change}',
+    },
+    courseSignUp: 'تسجيل في الدورة · الحصص {from}–{to}',
+    joinedAt: 'انضمّ من الحصة {n}',
+    cancelCode: {
+      customer_request: 'طلب الزبون',
+      coach_unavailable: 'المدرّب غير متاح',
+      court_needed: 'الملعب مطلوب',
+      staff_error: 'خطأ من الموظف',
+      duplicate: 'إدخال مكرر',
+      other: 'أخرى',
+      guest_cancel: 'ألغاها الزبون',
+      coach_cancel: 'ألغاها المدرّب',
+      staff_cancel: 'أُلغيت من الاستقبال',
+      under_filled: 'قلة المتدرّبين',
+      payment_expired: 'انتهاء مهلة الدفع',
+      account_deleted: 'حذف الحساب',
+      coach_retired: 'إحالة المدرّب إلى التقاعد',
+    },
+  },
+  banner: {
+    held: 'بانتظار دفع الزبون الإلكتروني حتى {time}، وإن لم يصل تُلغى الحصة.',
+    underMin: 'تحتاج إلى {students} آخرين قبل {time}، وإلا أُلغيت وأُعيدت المبالغ للجميع.',
+    scheduled: 'محجوزة على {court}',
+    completed: 'انتهت',
+    cancelled: {
+      guest_cancel: 'ألغاها الزبون.',
+      coach_cancel: 'ألغاها المدرّب، وأُبلغ الجميع وأُعيدت المبالغ الإلكترونية.',
+      staff_cancel: 'أُلغيت من الاستقبال، وأُبلغ الجميع وأُعيدت المبالغ الإلكترونية.',
+      under_filled: 'أُلغيت عند آخر موعد للتسجيل لقلة المتدرّبين، وأُعيدت المبالغ للجميع.',
+      payment_expired: 'لم يصل دفع الزبون الإلكتروني في الوقت المحدد.',
+      account_deleted: 'حذف الزبون حسابه.',
+      coach_retired: 'أُلغيت لإحالة المدرّب إلى التقاعد، وأُبلغ الجميع وأُعيدت المبالغ الإلكترونية.',
+      other: 'ملغاة.',
+    },
+    expired: 'لم تُؤكَّد.',
+    refundDueDesk: 'مبلغ مدفوع في الاستقبال بانتظار الرد: {amount}.',
+  },
+  events: {
+    booked: 'حجز',
+    held: 'حجز بانتظار الدفع',
+    paid_online: 'دفع إلكتروني',
+    expired: 'انتهاء مهلة الدفع',
+    joined: 'انضمام',
+    added: 'إضافة متدرّب',
+    cancelled: 'إلغاء الحصة ({code})',
+    enrolment_cancelled: 'إلغاء تسجيل ({code})',
+    rescheduled: 'تغيير الموعد',
+    court_moved: 'نقل الملعب',
+    under_filled: 'إلغاء عند آخر موعد للتسجيل',
+    under_filled_late: 'فُحص آخر موعد للتسجيل متأخرًا: لم يُلغَ شيء',
+    completed: 'انتهاء الحصة',
+    attended: 'تسجيل حضور',
+    no_show: 'تسجيل غياب',
+    unmarked: 'التراجع عن التسجيل',
+    settled: 'دفع في الاستقبال',
+    refunded: 'رد المبلغ',
+    automatic: 'تلقائي',
+  },
+  count: {
+    lessons: {
+      zero: 'لا حصص',
+      one: 'حصة واحدة',
+      two: 'حصتان',
+      few: '{count} حصص',
+      many: '{count} حصة',
+      other: '{count} حصة',
+    },
+    students: {
+      zero: 'لا متدرّبين',
+      one: 'متدرّب واحد',
+      two: 'متدرّبان',
+      few: '{count} متدرّبين',
+      many: '{count} متدرّبًا',
+      other: '{count} متدرّب',
+    },
+    places: {
+      zero: 'لا أماكن',
+      one: 'مكان واحد',
+      two: 'مكانان',
+      few: '{count} أماكن',
+      many: '{count} مكانًا',
+      other: '{count} مكان',
+    },
+    sessions: {
+      zero: 'لا حصص',
+      one: 'حصة واحدة',
+      two: 'حصتان',
+      few: '{count} حصص',
+      many: '{count} حصة',
+      other: '{count} حصة',
+    },
+    coaches: {
+      zero: 'لا مدرّبين',
+      one: 'مدرّب واحد',
+      two: 'مدرّبان',
+      few: '{count} مدرّبين',
+      many: '{count} مدرّبًا',
+      other: '{count} مدرّب',
+    },
+  },
+  errors: {
+    sessionPrefix: 'الحصة {n}: {line}',
+    courseStarts: {
+      count: 'يلزم موعد لكل حصة من {sessions}.',
+      order: 'يجب أن تبدأ كل حصة بعد انتهاء سابقتها.',
+      span: 'لا تتجاوز مدة الدورة سنة واحدة.',
+    },
+    cutoffPassed: 'هذا الموعد قريب جدًا: فات آخر موعد للتسجيل. يُرجى اختيار موعد لاحق.',
+    notCancellable: {
+      status: 'هذه الحصة ملغاة أو منتهية.',
+      started: 'بدأت هذه الحصة.',
+      ended: 'انتهت الحصة أو آخر حصص الدورة.',
+      course_session: 'لا تُلغى حصة من دورة وحدها. يمكن نقلها أو إلغاء الدورة.',
+      private: 'يُلغى بدلًا من ذلك الحصة الخاصة نفسها.',
+    },
+    notMovable: {
+      ended: 'هذه الحصة ملغاة أو منتهية.',
+      started: 'بدأت هذه الحصة.',
+      order: 'يجب أن تبقى حصة الدورة بين الحصة السابقة واللاحقة.',
+    },
+    heldWaiting: 'بانتظار دفع الزبون الإلكتروني، ويمكن نقلها بعد الدفع.',
+    courtEnded: 'انتهت الحصة أو أُلغيت، فلا يتغيّر ملعبها.',
+    attendance: {
+      not_started: 'لا يُسجَّل الغياب قبل بدء الحصة',
+      marks_closed: 'فات الأوان: يُغلق التسجيل بعد 24 ساعة من البدء.',
+      not_booked: 'تسجيل هذا المتدرّب غير قائم.',
+      cancelled: 'أُلغيت هذه الحصة.',
+    },
+    voidPaid: 'لا يُلغى كشف حساب مدفوع.',
+    notPayable: {
+      held: 'الزبون يدفع إلكترونيًا.',
+      expired: 'انتهت صلاحية هذا التسجيل.',
+      cancelled: 'هذا التسجيل ملغى.',
+      lesson_cancelled: 'أُلغيت كل حصص هذا التسجيل.',
+      no_show: 'سُجّل هذا المتدرّب غائبًا.',
+      nothing_owed: 'لم يبقَ ما يُستلم عن هذا المتدرّب.',
+    },
+    hoursInvalid: '{day}: يجب أن تبدأ كل فترة قبل نهايتها، على نصف الساعة، وحتى 24:00.',
+    hoursOverlap: '{day}: تتداخل هذه الساعات مع أوقات تدريب المدرّب هنا أو في فرع آخر.',
+    hoursOverlapTimeOff: 'تتداخل هذه الفترة مع إجازة محدّدة سابقًا.',
+    timeOffHasLessons: 'لدى {name} {lessons} في هذه الفترة. يلزم إلغاؤها أو نقلها أولًا.',
+    lessonPriceViaProtocol: 'تتغيّر أسعار الحصص بموافقة المالك.',
+    lessonShapeViaProtocol: 'لتغيير المدة أو عدد الحصص أو عدد الأشخاص يلزم إنشاء نوع حصة جديد.',
+    priceTargetChanged: {
+      lesson_type: 'تغيّر نوع الحصة بعد الاقتراح (السعر أو المدة أو عدد الحصص أو عدد الأشخاص). يلزم بدء اقتراح جديد.',
+      coach_price: 'تغيّر سعر المدرّب أو حصصه بعد الاقتراح. يلزم بدء اقتراح جديد.',
+    },
+    onlineOff: {
+      provider: 'الدفع الإلكتروني غير مُعدّ لهذا الفرع.',
+      terms: 'يمكن تفعيل الدفع الإلكتروني للحصص بعد نشر الشروط ونص الخصوصية متضمّنين قسم الحصص.',
+    },
+    branchHasLessons: 'لدى المدرّب حصص في {branch}. يلزم إلغاؤها أولًا.',
+    coachingMoney: 'لا تزال لهذا الفرع كشوف حساب للمدرّبين للاعتماد أو الدفع، أو شهر لم يُعدّ كشفه، أو مبالغ حصص مستحقة الرد في الاستقبال. يلزم إنهاؤها من مستحقات المدرّبين والعمليات أولًا.',
+    ownStatement: 'هذا كشف حسابك أنت، ويعتمده ويدفعه مدير آخر أو المالك.',
+    liveDraft: 'لدى هذا المدرّب مسودة لذلك الشهر. يُرجى فتحها بدلًا من ذلك.',
+    negativeStatement: 'رصيد هذا الكشف دون الصفر ({amount}). يلزم إلغاؤه، ويُرحَّل إلى الكشف التالي.',
+    cardNumber: 'لا يُكتب هنا رقم بطاقة أو حساب. يُرجى استخدام رقم الإيصال أو التحويل.',
+    lessonLive: 'لا تزال هذه الحصة قائمة. يُلغى التسجيل من صفحة الحصة، ثم يتبعه الرد.',
+    viaCoaching: {
+      cancel: 'تُلغى الحصة من صفحتها.',
+      mark: 'يُسجَّل حضور كل متدرّب من صفحة الحصة.',
+      extend: 'لا تتغيّر مدة الحصة من هنا. يمكن تغيير موعدها من صفحتها.',
+      move: 'يُنقل ملعب الحصة من صفحتها.',
+      create: 'تُحجز الحصص من «حصة جديدة».',
+      tab: 'تُدفع الحصة من صفحتها، لا على فاتورة ملعب.',
+      held: 'هذا الحجز المؤقت حصة بانتظار دفع الزبون الإلكتروني.',
+    },
+    coachEnrolled: 'هذا الزبون هو مدرّب هذه الحصة.',
+    owedChanged: 'تغيّر المستحق على هذا المتدرّب إلى {amount}. يُرجى التحقق قبل الاستلام.',
+  },
+  offline: {
+    needsConnection: 'يلزم الاتصال: الحصص تعمل عبر الإنترنت فقط',
+    readFailed: 'تعذّر عرض الحصص دون اتصال',
+    lastUpdated: 'آخر تحديث {time}',
+    serverMissing: 'يتطلب التدريب تحديثًا للخادم لم يصل بعد.',
+  },
+};

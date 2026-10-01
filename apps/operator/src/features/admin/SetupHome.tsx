@@ -66,7 +66,7 @@ import { SK as STOCK_KEYS, fetchNeedsCostCount } from '../stock/stockKeys';
 import { permissionsFor } from '../../lib/auth';
 import { holdersWithoutPin } from '../tillShift/tillShiftLogic';
 
-type CardKey = 'staff' | 'branches' | 'courts' | 'tables' | 'settings' | 'guestSite';
+type CardKey = 'staff' | 'branches' | 'courts' | 'coaches' | 'tables' | 'settings' | 'guestSite';
 
 /** Telegram states that mean "switched on, and staff are still not being told". */
 const TELEGRAM_BROKEN: readonly TelegramHealth[] = ['noGroup', 'failing', 'stuck'];
