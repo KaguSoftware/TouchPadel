@@ -80,3 +80,6 @@ packages/db/vitest-report.json
 # vite/vitest transpile their config to a temp file next to it and delete it
 # on load; a crashed run can leave one behind.
 *.timestamp-*.mjs
+
+# Agent worktrees created by Claude Code inside the repo (never committed).
+.claude/worktrees/
