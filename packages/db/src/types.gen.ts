@@ -200,6 +200,96 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // PROVISIONAL coaching RPC types — replaced by the regenerated file at integration
+      // (coach mode, apps/mobile/src/features/coach; docs/design/coaching/build-contracts-2026-10-01.md
+      // §1.6, §1.13 R44/R61, §1.14). Exactly the RPCs coach mode calls.
+      add_my_time_off: {
+        Args: { p_ends_at: string; p_reason: string; p_starts_at: string }
+        Returns: Json
+      }
+      cancel_my_time_off: { Args: { p_id: string }; Returns: Json }
+      coach_accept_public: { Args: never; Returns: Json }
+      coach_add_student: {
+        Args: {
+          p_course_id: string
+          p_idempotency_key: string
+          p_lesson_id: string
+          p_name: string
+          p_phone: string
+        }
+        Returns: Json
+      }
+      coach_book_private: {
+        Args: {
+          p_idempotency_key: string
+          p_lesson_type_id: string
+          p_party_size: number
+          p_start_at: string
+          p_student_name: string
+          p_student_phone: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      coach_cancel_course: {
+        Args: { p_course_id: string; p_reason: string }
+        Returns: Json
+      }
+      coach_cancel_lesson: {
+        Args: { p_lesson_id: string; p_reason: string }
+        Returns: Json
+      }
+      coach_create_course: {
+        Args: {
+          p_idempotency_key: string
+          p_lesson_type_id: string
+          p_starts: string[]
+          p_title_ar: string
+          p_title_en: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      coach_create_group: {
+        Args: {
+          p_idempotency_key: string
+          p_lesson_type_id: string
+          p_start_at: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      coach_hours_mine: { Args: never; Returns: Json }
+      coach_lesson: { Args: { p_lesson_id: string }; Returns: Json }
+      coach_mark_attendance: {
+        Args: { p_enrolment_id: string; p_lesson_id: string; p_status: string }
+        Returns: Json
+      }
+      coach_me: { Args: never; Returns: Json }
+      coach_remove_student: {
+        Args: { p_enrolment_id: string; p_reason: string }
+        Returns: Json
+      }
+      coach_reschedule_session: {
+        Args: { p_lesson_id: string; p_start_at: string }
+        Returns: Json
+      }
+      coach_schedule: { Args: { p_from: string; p_to: string }; Returns: Json }
+      coach_slots: {
+        Args: {
+          p_coach_id: string
+          p_from: string
+          p_lesson_type_id: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      my_coach_statements: { Args: { p_month?: string }; Returns: Json }
+      set_my_coach_hours: {
+        Args: { p_venue_id: string; p_windows: Json }
+        Returns: Json
+      }
+      // END PROVISIONAL coaching RPC types
       accept_terms: { Args: { p_version?: string }; Returns: Json }
       ack_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       acknowledge_alert: { Args: { p_alert_id: string }; Returns: undefined }
