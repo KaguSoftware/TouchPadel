@@ -7,8 +7,13 @@
  * Arabic-Indic U+0660–U+0669 and Extended Arabic-Indic U+06F0–U+06F9 to ASCII,
  * then every non-digit dropped. The edge function uses it to refuse
  * INVALID_PHONE before touching GoTrue and to synthesise the account email;
- * the RPC re-checks with the SQL twin.
+ * the RPC re-checks with the SQL twin. It is the ONE edge copy,
+ * ../_shared/phone.ts (this file used to carry a second, identical one; the
+ * two agreed with the SQL and with each other, so they are now one).
  */
+import { phoneDigits } from '../_shared/phone.ts';
+
+export { phoneDigits };
 
 /** 7–15 digits: an Iraqi mobile is 11 (07XX XXX XXXX) or 13 with the +964 prefix. */
 export const MIN_PHONE_DIGITS = 7;
@@ -16,16 +21,6 @@ export const MAX_PHONE_DIGITS = 15;
 
 /** The domain every desk-created guest account lives under when no email was given. */
 export const GUEST_EMAIL_DOMAIN = 'guest.touch.local';
-
-export function phoneDigits(raw: unknown): string {
-  if (typeof raw !== 'string') return '';
-  return raw
-    .replace(/[٠-٩۰-۹]/g, (ch) => {
-      const code = ch.charCodeAt(0);
-      return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
-    })
-    .replace(/[^0-9]/g, '');
-}
 
 export function isValidPhone(raw: unknown): boolean {
   const n = phoneDigits(raw).length;
