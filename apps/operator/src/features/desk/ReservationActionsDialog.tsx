@@ -43,6 +43,11 @@ import type { ReservationRow } from './deskTypes';
 import { bookingLabel, isMatchLiteral } from '../matches/matchLogic';
 import type { MatchState } from '../matches/matchPayloads';
 import { SeatChip } from '../matches/SeatChip';
+import { LessonBadge } from '../coaching/LessonBadge';
+import { LessonPlacesChip } from '../coaching/LessonPlacesChip';
+import { LessonSummary } from '../coaching/LessonSummary';
+import { lessonLabel } from '../coaching/lessonLogic';
+import type { DeskLesson } from '../coaching/lessonPayloads';
 
 const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
 export const OVERRIDE_REASONS = ['customer_request', 'staff_error', 'weather', 'duplicate', 'other'] as const;
@@ -57,12 +62,22 @@ export function ReservationActionsDialog({
   tz,
   rows,
   match = null,
+  lesson = null,
+  lessonNowMs,
   onClose,
   onChanged,
 }: {
   reservation: ReservationRow;
   /** app.desk_match_states for this booking, when it is an open match's (the calendar's read). */
   match?: MatchState | null;
+  /**
+   * The desk_lessons row this reservation holds (the calendar's read): a
+   * lesson's court row, or a held lesson's hold row (coaching operator.md
+   * §5.8). Either opens the lesson branch, which offers only Open lesson.
+   */
+  lesson?: DeskLesson | null;
+  /** The lessons payload's clock (lessonLogic.nowOf); the station's when absent. */
+  lessonNowMs?: number;
   courts: readonly CourtRow[];
   date: string;
   tz: string;
@@ -84,6 +99,50 @@ export function ReservationActionsDialog({
   const [moveStartMin, setMoveStartMin] = useState<number | ''>('');
   const [cancelReason, setCancelReason] = useState<string>(CANCEL_REASONS[0]);
   const [reason, setReason] = useState<string>(OVERRIDE_REASONS[0]);
+
+  /*
+   * A lesson (coaching operator.md §5.8): its summary and Open lesson, nothing
+   * else. Arrived, Completed, No-show, Move, Extend, Shorten, Confirm and
+   * Cancel would each be refused LESSON_VIA_COACHING (R7, R35): a lesson
+   * changes on its own screen. Without its desk_lessons row (offline, an older
+   * server) the booking route forwards to it.
+   */
+  if (r.kind === 'lesson' || (r.kind === 'hold' && lesson)) {
+    const court = courts.find((c) => c.id === r.court_id);
+    const openLesson = () => {
+      onClose();
+      if (lesson) void navigate({ to: '/desk/lessons/$id', params: { id: lesson.lesson_id } });
+      else void navigate({ to: '/desk/bookings/$id', params: { id: r.id } });
+    };
+    return (
+      <Modal
+        title={lessonLabel(lesson, locale, tr)}
+        titleAfter={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: 'var(--tp-lesson)' }}>
+            <LessonBadge kind={lesson?.kind ?? null} held={r.kind === 'hold' || lesson?.status === 'held'} />
+            {lesson && <LessonPlacesChip lesson={lesson} />}
+          </span>
+        }
+        subtitle={
+          <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <bdi>{court ? pickName(locale, court) : ''}</bdi>
+            <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
+          </span>
+        }
+        onClose={onClose}
+        footer={(close) => (
+          <>
+            <Button onClick={close}>{tr('common.close')}</Button>
+            <Button kind="primary" iconEnd="chevronEnd" onClick={openLesson}>
+              {tr('ws.coaching.common.openLesson')}
+            </Button>
+          </>
+        )}
+      >
+        <LessonSummary lesson={lesson} held={r.kind === 'hold'} nowMs={lessonNowMs ?? Date.now()} tz={tz} />
+      </Modal>
+    );
+  }
 
   async function run(action: () => Promise<{ queued: boolean }>) {
     setBusy(true);

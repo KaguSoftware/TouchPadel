@@ -129,6 +129,9 @@ export const tillShiftAr: DeepMessages<typeof tillShiftEn> = {
     outsideLead: 'على محطة لم تكن فيها وردية مفتوحة. يحتسبه التسليم التالي على تلك المحطة.',
     crossDay:
       'المبالغ المستردة في هذا اليوم عن دفعات أيام سابقة: {amount} نقدًا. النقد المتوقّع لهذا اليوم لا يشملها.',
+    // DRAFT-AR (coaching operator.md §5.18.1, C-31).
+    crossDayCounted:
+      'مبالغ رُدّت في هذا اليوم عن دفعات أيام سابقة: {amount} نقدًا، وتُحتسب في النقد المتوقّع لهذا اليوم.',
     retry: 'إعادة المحاولة',
     csv: {
       shift: 'فرق وردية الصندوق: {name}، {station}',

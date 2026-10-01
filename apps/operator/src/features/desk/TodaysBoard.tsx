@@ -39,6 +39,12 @@
  * **Players** (its booking screen) where another booking offers Mark arrived:
  * a match is marked player by player, never as a whole.
  *
+ * Lessons (docs/design/coaching/operator.md §5.11) have the "Lessons today"
+ * group after the open matches. A lesson's court row reads `lessonLabel`, says
+ * "Lesson until {time}" on its court tile, shows what is still to pay where a
+ * booking shows its court fee, and offers **Open lesson** where a booking
+ * offers Mark arrived: students are marked one by one on the lesson's screen.
+ *
  * `TodaysBoardView` is pure presentation (spec §06.1 data-in / events-out)
  * so its four states are testable without a database.
  */
@@ -57,8 +63,15 @@ import { ChevronForward, Icon, type IconName } from '../../components/icons';
 import { ChargeCell, ReservationBadge } from './deskStatus';
 import { arrivalsDue, courtAvailability, isVisible, nightSummary, slotTaken, sortByStart, sortByStartDesc, type CourtAvailability } from './deskLogic';
 import type { CustomerFlag, ReservationRow } from './deskTypes';
-import { CreateReservationDialog, type StartMatchCarry } from './CreateReservationDialog';
+import { CreateReservationDialog, type StartLessonCarry, type StartMatchCarry } from './CreateReservationDialog';
 import { bookingLabel, isMatchLiteral, type MatchReadStatus } from '../matches/matchLogic';
+import { LessonPayCell } from '../coaching/LessonPayCell';
+import { LessonsTodayPanel } from '../coaching/LessonsTodayPanel';
+import { StartLessonDialog } from '../coaching/StartLessonDialog';
+import { isLessonRow, lessonLabel, lessonOfRow, lessonsByReservation, nowOf } from '../coaching/lessonLogic';
+import type { DeskLesson, DeskLessons } from '../coaching/lessonPayloads';
+import { initialStart, startOf } from '../coaching/startLessonLogic';
+import { useCoachingCaps, useDeskLessons, useLessonRead } from '../coaching/useCoaching';
 import type { MatchState, OpenMatches } from '../matches/matchPayloads';
 import { SeatChip } from '../matches/SeatChip';
 import { NeedsPlayersPanel } from '../matches/NeedsPlayersPanel';
@@ -117,6 +130,19 @@ export interface TodaysBoardViewProps {
   onOpenMatch?: (matchId: string) => void;
   onStartMatch?: () => void;
   onRetryOpenMatches?: () => void;
+  /**
+   * app.desk_lessons read the §5.5 way (coaching operator.md §5.11); absent:
+   * no Lessons group, and lesson rows read "Lesson" with no coach.
+   */
+  lessons?: MatchReadStatus<DeskLessons>;
+  /** CAPABILITY_ROLES.runLessons: New lesson. */
+  runLessons?: boolean;
+  /** CAPABILITY_ROLES.takeLessonPayment: Take payment on a lesson that owes. */
+  takeLessonPayment?: boolean;
+  onOpenLesson?: (lessonId: string) => void;
+  onPayLesson?: (lessonId: string) => void;
+  onNewLesson?: () => void;
+  onRetryLessons?: () => void;
 }
 
 export function TodaysBoardView(p: TodaysBoardViewProps) {
@@ -128,6 +154,11 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
   const unpaid = useMemo(() => toSettle(p.reservations, p.billStates, p.nowIso), [p.reservations, p.billStates, p.nowIso]);
   const dayNoon = new Date(`${p.date}T12:00:00Z`);
   const ready = p.status === 'ready' || p.status === 'empty';
+  // The night's lessons by the court row they hold, and the lessons payload's clock (§5.1).
+  const lessonData = p.lessons?.kind === 'ready' ? p.lessons.data : null;
+  const lessonsBy = useMemo(() => lessonsByReservation(lessonData), [lessonData]);
+  const nowMs = Date.parse(p.nowIso);
+  const lessonNow = p.lessons?.kind === 'ready' ? nowOf(lessonData?.server_now, Math.max(0, nowMs - p.lessons.updatedAt), nowMs) : nowMs;
 
   const header = (
     <PageHeader
@@ -144,6 +175,7 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
               <SubtitleFigure label={tr('ws.courtDesk.board.summaryBookings')} value={summary.bookings} />
               <SubtitleFigure label={tr('ws.courtDesk.board.summaryArrived')} value={summary.arrived} />
               <SubtitleFigure label={tr('ws.courtDesk.board.summaryToCome')} value={summary.toCome} />
+              {summary.lessons > 0 && <SubtitleFigure label={tr('ws.coaching.common.lessons')} value={summary.lessons} />}
               {unpaid.length > 0 && <SubtitleFigure label={tr('ws.courtDesk.board.toSettleTitle')} value={unpaid.length} />}
             </>
           )}
@@ -169,7 +201,23 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
   );
 
   const states = p.matchStates ?? undefined;
-  const courtsPanel = <CourtsNow availability={availability} reservations={p.reservations} courtName={courtName} tz={p.tz} live={p.live} states={states} onBook={p.onBookCourt} onOpen={p.onSelectReservation} />;
+  const courtsPanel = (
+    <CourtsNow availability={availability} reservations={p.reservations} courtName={courtName} tz={p.tz} live={p.live} states={states} lessonsBy={lessonsBy} onBook={p.onBookCourt} onOpen={p.onSelectReservation} />
+  );
+  const lessonsPanel = p.lessons ? (
+    <LessonsTodayPanel
+      status={p.lessons}
+      tz={p.tz}
+      nowMs={lessonNow}
+      runLessons={p.runLessons ?? false}
+      takeLessonPayment={p.takeLessonPayment ?? false}
+      reachable={p.reachable ?? true}
+      onOpenLesson={(id) => p.onOpenLesson?.(id)}
+      onPayLesson={(id) => p.onPayLesson?.(id)}
+      onNewLesson={() => p.onNewLesson?.()}
+      onRetry={() => p.onRetryLessons?.()}
+    />
+  ) : null;
   const matchesPanel = p.openMatches ? (
     <NeedsPlayersPanel
       status={p.openMatches}
@@ -211,6 +259,7 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
             />
             {courtsPanel}
             {matchesPanel}
+            {lessonsPanel}
           </div>
         }
       >
@@ -231,6 +280,7 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
           />
           {courtsPanel}
           {matchesPanel}
+          {lessonsPanel}
           <Panel title={<PanelTitle icon="calendar">{tr('ws.courtDesk.board.bookings')}</PanelTitle>} padded={false}>
             <div style={{ overflowX: 'auto' }}>
               <table className="tp-table" data-dense="true" aria-label={tr('ws.courtDesk.board.bookings')}>
@@ -255,6 +305,8 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
                       billState={p.billStates?.get(r.id)}
                       flags={r.guest_id ? p.flagsByGuest?.get(r.guest_id) : undefined}
                       match={states?.[r.id]}
+                      lessonsBy={lessonsBy}
+                      lessonNow={lessonNow}
                       marking={p.markingId === r.id}
                       onSelect={() => p.onSelectReservation(r.id)}
                       onMarkArrived={() => p.onMarkArrived(r.id)}
@@ -288,8 +340,18 @@ function PanelTitle({ icon, children }: { icon: IconName; children: ReactNode })
   );
 }
 
-/** The name a row shows; an open match's booking reads its organiser (or "Open match"). */
-function guestLabel(r: ReservationRow, tr: ReturnType<typeof useLocale>['tr'], states?: Readonly<Record<string, MatchState>>): string {
+/**
+ * The name a row shows; an open match's booking reads its organiser (or "Open
+ * match"); a lesson (its court row, or a held lesson's hold row) reads
+ * `lessonLabel`, "Lesson" when its desk_lessons row is not known (coaching §5.8).
+ */
+function guestLabel(
+  r: ReservationRow,
+  tr: ReturnType<typeof useLocale>['tr'],
+  states?: Readonly<Record<string, MatchState>>,
+  lessons?: { by: ReadonlyMap<string, DeskLesson>; locale: ReturnType<typeof useLocale>['locale'] },
+): string {
+  if (isLessonRow(r, lessons?.by)) return lessonLabel(lessonOfRow(r, lessons?.by), lessons?.locale ?? 'en', tr);
   if (r.kind === 'maintenance') return r.notes ?? tr('ws.courtDesk.board.blocked');
   if (r.kind === 'hold') return tr('ws.courtDesk.board.hold');
   return bookingLabel(r, states?.[r.id], tr) ?? tr('ws.courtDesk.board.walkIn');
@@ -565,6 +627,7 @@ function CourtsNow({
   tz,
   live,
   states,
+  lessonsBy,
   onBook,
   onOpen,
 }: {
@@ -574,6 +637,8 @@ function CourtsNow({
   tz: string;
   live: boolean;
   states?: Readonly<Record<string, MatchState>>;
+  /** desk_lessons rows by the court row they hold (coaching §5.11). */
+  lessonsBy?: ReadonlyMap<string, DeskLesson>;
   onBook: (courtId: string) => void;
   onOpen: (id: string) => void;
 }) {
@@ -610,9 +675,13 @@ function CourtsNow({
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fill, minmax(12rem, 1fr))' }}>
         {shown.map((a) => {
           const busy = a.state === 'busy' ? reservations.find((r) => r.id === a.reservationId) : undefined;
+          // A court a lesson holds says so (coaching §5.8): "Lesson until 19:00", the lesson's mark, its name.
+          const inLesson = busy !== undefined && isLessonRow(busy, lessonsBy);
           const line =
             a.state === 'busy'
-              ? tr(a.kind === 'maintenance' ? 'ws.courtDesk.board.busyBlocked' : 'ws.courtDesk.board.busyUntil', { time: formatTime(new Date(a.untilAt), locale, tz) })
+              ? tr(inLesson ? 'ws.coaching.common.lessonUntil' : a.kind === 'maintenance' ? 'ws.courtDesk.board.busyBlocked' : 'ws.courtDesk.board.busyUntil', {
+                  time: formatTime(new Date(a.untilAt), locale, tz),
+                })
               : a.nextStartAt
                 ? tr('ws.courtDesk.board.freeUntil', { time: formatTime(new Date(a.nextStartAt), locale, tz) })
                 : tr('ws.courtDesk.board.free');
@@ -645,7 +714,8 @@ function CourtsNow({
                     inlineSize: '0.6rem',
                     blockSize: '0.6rem',
                     borderRadius: '50%',
-                    background: a.state === 'free' ? 'var(--tp-success-mark)' : a.kind === 'maintenance' ? 'var(--tp-neutral-mark)' : 'var(--tp-accent)',
+                    background:
+                      a.state === 'free' ? 'var(--tp-success-mark)' : inLesson ? 'var(--tp-lesson)' : a.kind === 'maintenance' ? 'var(--tp-neutral-mark)' : 'var(--tp-accent)',
                   }}
                 />
                 <span style={{ display: 'grid', minInlineSize: 0, flex: 1 }}>
@@ -654,10 +724,10 @@ function CourtsNow({
                   </strong>
                   <span style={{ fontSize: 'var(--tp-fs-xs)', color: a.state === 'free' ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {line}
-                    {busy && busy.kind === 'booking' && (
+                    {busy && (busy.kind === 'booking' || inLesson) && (
                       <>
                         {' · '}
-                        <bdi>{guestLabel(busy, tr, states)}</bdi>
+                        <bdi>{guestLabel(busy, tr, states, lessonsBy ? { by: lessonsBy, locale } : undefined)}</bdi>
                       </>
                     )}
                   </span>
@@ -693,6 +763,8 @@ function BoardRow({
   billState,
   flags,
   match,
+  lessonsBy,
+  lessonNow,
   marking,
   onSelect,
   onMarkArrived,
@@ -705,6 +777,10 @@ function BoardRow({
   flags?: readonly CustomerFlag[];
   /** app.desk_match_states for an open match's booking. */
   match?: MatchState;
+  /** desk_lessons rows by the court row they hold (coaching §5.11). */
+  lessonsBy?: ReadonlyMap<string, DeskLesson>;
+  /** The lessons payload's clock. */
+  lessonNow: number;
   marking: boolean;
   onSelect: () => void;
   onMarkArrived: () => void;
@@ -712,8 +788,11 @@ function BoardRow({
   const { tr, locale } = useLocale();
   const inProgress = r.start_at <= nowIso && r.end_at > nowIso;
   const ended = hasEnded(r, nowIso);
-  const label = guestLabel(r, tr, match ? { [r.id]: match } : undefined);
+  const label = guestLabel(r, tr, match ? { [r.id]: match } : undefined, lessonsBy ? { by: lessonsBy, locale } : undefined);
   const isMatch = isMatchRow(r, match);
+  // A lesson's row (coaching §5.11): its pay cell where a booking shows its fee, Open lesson where it offers Mark arrived.
+  const isLesson = isLessonRow(r, lessonsBy);
+  const lesson = lessonOfRow(r, lessonsBy);
   return (
     <tr
       data-clickable="true"
@@ -752,13 +831,19 @@ function BoardRow({
         </span>
       </td>
       <td>
-        <ReservationBadge reservation={r} size="sm" />
+        <ReservationBadge reservation={r} size="sm" lesson={lesson} />
       </td>
       <td>
-        <ChargeCell state={billState} kind={r.kind} ended={ended} />
+        {isLesson ? lesson && <LessonPayCell lesson={lesson} nowMs={lessonNow} /> : <ChargeCell state={billState} kind={r.kind} ended={ended} />}
       </td>
       <td style={{ textAlign: 'end', whiteSpace: 'nowrap' }}>
         <span style={{ display: 'inline-flex', gap: '0.3rem', alignItems: 'center' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          {isLesson && r.end_at > nowIso && (
+            // Students are marked one by one on the lesson's screen (§5.10.6).
+            <Button size="sm" icon="whistle" onClick={onSelect} aria-label={`${tr('ws.coaching.common.openLesson')} ${label}`}>
+              {tr('ws.coaching.common.openLesson')}
+            </Button>
+          )}
           {r.kind === 'booking' && r.status === 'confirmed' && r.end_at > nowIso && (
             isMatch ? (
               // Players are marked one by one, on the booking's Players panel.
@@ -821,6 +906,15 @@ export function TodaysBoardScreen() {
   const matchStates = useMatchStates(matchIds).data ?? null;
   const [startMatch, setStartMatch] = useState<StartMatchCarry | null>(null);
   const [addPlayerTo, setAddPlayerTo] = useState<string | null>(null);
+
+  // Lessons over the same night (coaching operator.md §5.11). A server
+  // without coaching answers null: no group, no New lesson, no Lesson kind.
+  const coachingCaps = useCoachingCaps();
+  const lessonsQ = useDeskLessons(night.dayStart, night.dayEnd, settingsQ.isSuccess);
+  const lessonsStatus = useLessonRead(lessonsQ);
+  const deskLessons = lessonsStatus.kind === 'ready' ? lessonsStatus.data : null;
+  const lessonsBy = useMemo(() => lessonsByReservation(deskLessons), [deskLessons]);
+  const [startLesson, setStartLesson] = useState<StartLessonCarry | null>(null);
 
   const status: AsyncStatus =
     (settingsQ.isError && !settingsQ.data) || (courtsQ.isError && !courtsQ.data) || (reservationsQ.isError && !reservationsQ.data)
@@ -887,6 +981,23 @@ export function TodaysBoardScreen() {
     setStartMatch({ courtId: first.id, startAt, customer: null, guestName: '', guestPhone: '' });
   }
 
+  /**
+   * "New lesson" (§5.11): the next lesson-grid start, no court in hand (the
+   * server picks one, C-10). Kind, time and coach stay editable in the dialog.
+   */
+  function openNewLesson() {
+    const from = nextStart() ?? new Date(nowMs);
+    const at = initialStart(from, tz);
+    setStartLesson({ courtId: null, startAt: new Date(startOf(at.date, at.time, tz) ?? from.toISOString()), customer: null, guestName: '', guestPhone: '' });
+  }
+
+  /** A lesson's row opens its lesson; without its desk_lessons row the booking route forwards (§5.8). */
+  function selectReservation(id: string) {
+    const lesson = lessonsBy.get(id);
+    if (lesson) void navigate({ to: '/desk/lessons/$id', params: { id: lesson.lesson_id } });
+    else void navigate({ to: '/desk/bookings/$id', params: { id } });
+  }
+
   async function markArrived(id: string) {
     const r = visible.find((x) => x.id === id);
     if (!r) return;
@@ -925,7 +1036,7 @@ export function TodaysBoardScreen() {
         live={!reservationsQ.isError}
         markingId={markingId}
         onRetry={retry}
-        onSelectReservation={(id) => void navigate({ to: '/desk/bookings/$id', params: { id } })}
+        onSelectReservation={selectReservation}
         onCreateBooking={createBooking}
         onBookCourt={bookCourt}
         onSearchCustomer={() => void navigate({ to: '/desk/customers' })}
@@ -938,6 +1049,14 @@ export function TodaysBoardScreen() {
         onOpenMatch={(id) => void navigate({ to: '/desk/matches/$id', params: { id } })}
         onStartMatch={openStartMatch}
         onRetryOpenMatches={() => void openQ.refetch()}
+        lessons={lessonsStatus}
+        runLessons={coachingCaps.runLessons}
+        takeLessonPayment={coachingCaps.takeLessonPayment}
+        onOpenLesson={(id) => void navigate({ to: '/desk/lessons/$id', params: { id } })}
+        // desk_lessons carries no enrolment ids, so `?pay=` cannot be known here: the lesson screen picks the sign-up.
+        onPayLesson={(id) => void navigate({ to: '/desk/lessons/$id', params: { id } })}
+        onNewLesson={openNewLesson}
+        onRetryLessons={() => void lessonsQ.refetch()}
       />
       {createAt && (
         <CreateReservationDialog
@@ -952,6 +1071,15 @@ export function TodaysBoardScreen() {
               ? (carry) => {
                   setCreateAt(null);
                   setStartMatch(carry);
+                }
+              : undefined
+          }
+          // Coaching on or off, once the night's desk_lessons answered (the desk stages, R51).
+          onStartLesson={
+            coachingCaps.runLessons && deskLessons
+              ? (carry) => {
+                  setCreateAt(null);
+                  setStartLesson(carry);
                 }
               : undefined
           }
@@ -978,6 +1106,20 @@ export function TodaysBoardScreen() {
           openMatches={openMatches}
           openMatchesAt={openQ.dataUpdatedAt}
           onClose={() => setStartMatch(null)}
+        />
+      )}
+      {startLesson && (
+        <StartLessonDialog
+          courtId={startLesson.courtId}
+          startAt={startLesson.startAt}
+          courts={courts}
+          tz={tz}
+          customer={startLesson.customer}
+          guestName={startLesson.guestName}
+          guestPhone={startLesson.guestPhone}
+          lessons={lessonsStatus.kind === 'loading' ? undefined : deskLessons}
+          lessonsAt={lessonsQ.dataUpdatedAt}
+          onClose={() => setStartLesson(null)}
         />
       )}
       {addPlayerTo && <AddSeatDialog matchId={addPlayerTo} onClose={() => setAddPlayerTo(null)} onAdded={() => setAddPlayerTo(null)} />}

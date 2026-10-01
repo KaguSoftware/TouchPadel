@@ -116,6 +116,12 @@ export const FIELD_LABELS = {
   discount_pct: `${F}.discount_pct`,
   reservation_ids: `${F}.reservation_ids`,
   moved_note: `${F}.moved_note`,
+  // Lesson price changes (coaching 0282): never started here, but marketing
+  // works the announce step of any run, so their records read in words. The
+  // words are /protocols' own.
+  lesson_type_id: 'ws.protocols.fields.lesson_type_id',
+  coach_id: 'ws.protocols.fields.coach_id',
+  court_share_iqd: 'ws.protocols.fields.court_share_iqd',
 } as const satisfies Record<string, MessageKey>;
 
 type LabelPath = keyof typeof FIELD_LABELS;
@@ -154,5 +160,8 @@ export const OPTION_LABELS: Record<string, Record<string, MessageKey>> = {
     promotion_enable: 'work.protocol.change.promotion_enable',
     rate: 'work.protocol.change.rate',
     featured_discount: 'work.protocol.change.featured_discount',
+    lesson_price: 'work.protocol.change.lesson_price',
+    lesson_launch: 'work.protocol.change.lesson_launch',
+    coach_price: 'work.protocol.change.coach_price',
   },
 };

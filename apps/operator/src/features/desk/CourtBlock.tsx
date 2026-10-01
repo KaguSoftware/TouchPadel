@@ -370,7 +370,7 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
     return isolate(`${formatDateTime(a, locale, tz)}–${day(a) === day(b) ? formatTime(b, locale, tz) : formatDateTime(b, locale, tz)}`);
   }
   const kindLabel = (kind: string) =>
-    kind === 'booking' || kind === 'hold' || kind === 'maintenance' ? tr(`ws.events.block.conflictKind.${kind}`) : kind;
+    kind === 'booking' || kind === 'hold' || kind === 'maintenance' || kind === 'lesson' ? tr(`ws.events.block.conflictKind.${kind}`) : kind;
 
   const columns: Column<PlannedWindow>[] = [
     {
@@ -455,6 +455,12 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
                             {c.kind === 'booking' && (
                               <Button size="sm" onClick={() => void navigate({ to: '/desk/bookings/$id', params: { id: c.reservationId } })}>
                                 {tr('ws.events.block.openBooking')}
+                              </Button>
+                            )}
+                            {/* A lesson's court row: the booking route forwards to its lesson (coaching §5.8). */}
+                            {c.kind === 'lesson' && (
+                              <Button size="sm" onClick={() => void navigate({ to: '/desk/bookings/$id', params: { id: c.reservationId } })}>
+                                {tr('ws.coaching.common.openLesson')}
                               </Button>
                             )}
                           </span>

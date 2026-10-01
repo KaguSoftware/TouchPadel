@@ -21,6 +21,10 @@ export interface PriceChangeTarget {
   addon?: string;
   promotion?: string;
   rule?: string;
+  /** A lesson type (`lesson_price`, `lesson_launch`, `coach_price`; /admin/coaches). */
+  lessonType?: string;
+  /** The coach of a `coach_price` change (`coaches.id`). */
+  coach?: string;
 }
 
 /** The /protocols search that opens a price or promo start for `t`. */
@@ -30,6 +34,8 @@ export function priceChangeSearch(t: PriceChangeTarget): ProtocolsSearch {
   if (t.addon) out.addon = t.addon;
   if (t.promotion) out.promotion = t.promotion;
   if (t.rule) out.rule = t.rule;
+  if (t.lessonType) out.lessonType = t.lessonType;
+  if (t.coach) out.coach = t.coach;
   return out;
 }
 

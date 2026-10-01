@@ -455,6 +455,10 @@ export const staffProtocolsAr: DeepMessages<typeof staffProtocolsEn> = {
     recommendation: 'التوصية',
     finalRulePrices: 'الأسعار النهائية حسب المدة',
     promotionValue: 'الخصم النهائي',
+    // DRAFT-AR (coaching 0282).
+    lessonTypeId: 'نوع الحصة',
+    coachId: 'المدرّب',
+    courtShareIqd: 'أجرة الملعب لكل حصة (د.ع)',
   },
   option: {
     unit: {

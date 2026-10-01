@@ -6,7 +6,9 @@
  *   - REFUND   (L453) `app.refund` — manager role. Naming the items is what
  *              reverses the stock movement; the consequence is rendered
  *              BEFORE the action (spec 06.18 note). `can.refund` decides the
- *              refused state; the control stays visible (R9).
+ *              refused state; the control stays visible (R9). A refund of desk
+ *              lesson money (the refunds-due lists) passes `dueIqd`: capped at
+ *              what is due back unless marked goodwill (coaching R36).
  *   - OVERRIDE (L450-451) `app.override_price` via mutate('adjustment.apply').
  *   - MERGE    (L444) `app.merge_tabs`.
  *
@@ -23,8 +25,9 @@ import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
 import { mergeDonorLabel } from './tillData';
 import { requiredRoleFor } from '../../lib/auth';
-import { Button, ErrorText, Field, Modal, PinReasonModal, Select, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, Modal, PinReasonModal, Select, inputStyle, type ReasonCode } from '../../components/ui';
 import { MessagePresenter, Money, PermissionRefusedNotice } from '../../components/kit';
+import { Switch } from '../../components/Switch';
 import { kvRow, muted, numeric, reasonedFooter } from './tillStyles';
 
 // ---------------------------------------------------------------------------
@@ -45,6 +48,20 @@ export function refundableIqd(p: Pick<RefundablePayment, 'amount_iqd' | 'refunds
   return Math.max(0, p.amount_iqd - refunded);
 }
 
+/**
+ * The most a refund may give back (coaching R36). Without `dueIqd`, what is
+ * left on the payment, as every till refund. With it (desk lesson money, the
+ * refunds-due lists, docs/design/coaching/operator.md §5.10.10), no more than
+ * is due back on the sign-up as well, unless the manager marks the refund
+ * goodwill, which lifts the cap to the payment's remainder. The server
+ * re-checks it (REFUND_EXCEEDS_DUE unless the reason is lesson_goodwill).
+ */
+export function refundCap(payment: Pick<RefundablePayment, 'amount_iqd' | 'refunds'>, dueIqd?: number, goodwill = false): number {
+  const refundable = refundableIqd(payment);
+  if (dueIqd === undefined || goodwill) return refundable;
+  return Math.max(0, Math.min(refundable, dueIqd));
+}
+
 export interface RefundableLine {
   id: string;
   qty: number;
@@ -57,23 +74,36 @@ export function RefundDialog({
   payments,
   lines,
   canRefund,
+  dueIqd,
   onDone,
   onClose,
+  onRefused,
 }: {
   payments: readonly RefundablePayment[];
   lines: readonly RefundableLine[];
   /** `can.refund` — false renders the `refused` state; the controls stay visible. */
   canRefund: boolean;
   /**
+   * Desk lesson money (coaching R36, operator.md §5.10.10): what is due back on
+   * the sign-up (`refund_due_desk_iqd`). The amount is capped at it and the PIN
+   * prompt offers `lesson_refund` only; the goodwill switch lifts the cap to the
+   * payment's remainder and offers `lesson_goodwill` only. Absent for a till refund.
+   */
+  dueIqd?: number;
+  /**
    * `outcome.queued`: the refund is safe on the durable queue but the server has
    * not answered yet (item 9); `outcome.localId` is what its result will carry.
    */
   onDone(outcome: Pick<MutateOutcome, 'queued' | 'localId'>, paymentId: string): void;
   onClose(): void;
+  /** A refusal answered online (shown beside the control here); a lesson list re-reads on REFUND_EXCEEDS_DUE. */
+  onRefused?(error: unknown): void;
 }) {
   const { tr, locale } = useLocale();
+  const lesson = dueIqd !== undefined;
+  const [goodwill, setGoodwill] = useState(false);
   const [paymentId, setPaymentId] = useState(payments[0]?.id ?? '');
-  const [amount, setAmount] = useState<number>(payments[0] ? refundableIqd(payments[0]) : 0);
+  const [amount, setAmount] = useState<number>(payments[0] ? refundCap(payments[0], dueIqd) : 0);
   const [items, setItems] = useState<Record<string, number>>({});
   const [pinOpen, setPinOpen] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -82,7 +112,8 @@ export function RefundDialog({
   const payment = payments.find((p) => p.id === paymentId);
   // Capped at what is left on the payment, not what was paid: a second refund
   // may not exceed the remainder (the server refuses REFUND_EXCEEDS_PAYMENT too).
-  const max = payment ? refundableIqd(payment) : 0;
+  // Desk lesson money is capped at what is due back too, unless goodwill (R36).
+  const max = payment ? refundCap(payment, dueIqd, goodwill) : 0;
   const valid = !!payment && amount > 0 && amount <= max;
   /*
    * Rulebook 4.3, in the order the cashier meets them. The permission case is
@@ -124,10 +155,14 @@ export function RefundDialog({
     } catch (e) {
       setError(e);
       setPinOpen(false);
+      onRefused?.(e);
     } finally {
       setBusy(false);
     }
   }
+
+  // R36: a lesson refund names its own reason, one per mode, so the audit row says which it was.
+  const lessonReasons: readonly ReasonCode[] | undefined = lesson ? [goodwill ? 'lesson_goodwill' : 'lesson_refund'] : undefined;
 
   return (
     <>
@@ -160,7 +195,11 @@ export function RefundDialog({
           <>
             {/* Info, not a warning: a money-only refund is a legitimate choice,
                 and the dialog opened on an amber box before anything was done. */}
-            <MessagePresenter tone="info" icon="package" message={tr('ws.cashier.refund.consequence')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
+            {lesson ? (
+              <MessagePresenter tone="info" message={tr('ws.coaching.refunds.capLead', { amount: formatIQD(dueIqd, locale) })} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
+            ) : (
+              <MessagePresenter tone="info" icon="package" message={tr('ws.cashier.refund.consequence')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
+            )}
             <Field label={tr('op.till.refundPayment')}>
               <Select
                 value={paymentId}
@@ -168,7 +207,7 @@ export function RefundDialog({
                 onChange={(v) => {
                   setPaymentId(v);
                   const next = payments.find((p) => p.id === v);
-                  setAmount(next ? refundableIqd(next) : 0);
+                  setAmount(next ? refundCap(next, dueIqd, goodwill) : 0);
                 }}
                 options={payments.map((p) => ({
                   value: p.id,
@@ -186,39 +225,65 @@ export function RefundDialog({
                 onChange={(e) => setAmount(Number(e.target.value.replace(/\D/g, '')) || 0)}
               />
             </Field>
+            {lesson && (
+              <Switch
+                checked={goodwill}
+                disabled={!canRefund}
+                label={tr('ws.coaching.refunds.goodwill')}
+                onChange={(next) => {
+                  setGoodwill(next);
+                  // Back under the cap: an amount typed past the due comes down to it.
+                  if (!next && payment) setAmount((a) => Math.min(a, refundCap(payment, dueIqd, false)));
+                }}
+                style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
+              />
+            )}
 
-            <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-0)' }}>{tr('op.till.refundItems')}</h3>
-            <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-1-5)' }}>{tr('op.till.refundItemsHint')}</p>
-            <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', maxBlockSize: '12rem', overflowY: 'auto' }}>
-              {lines
-                .filter((l) => !l.voided)
-                .map((l) => (
-                  <div key={l.id} style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', minBlockSize: 'var(--tp-touch)', paddingBlock: 'var(--tp-sp-1)', paddingInline: 'var(--tp-sp-2-5)', borderBlockEnd: '1px solid var(--tp-border)' }}>
-                    <span style={{ flex: 1 }}>
-                      {l.qty}× <bdi>{pickName(locale, l.menu_item)}</bdi>
-                    </span>
-                    <input
-                      style={{ ...inputStyle, ...numeric, inlineSize: '4.5rem', textAlign: 'end' }}
-                      dir="ltr"
-                      inputMode="numeric"
-                      disabled={!canRefund}
-                      aria-label={pickName(locale, l.menu_item) || l.id}
-                      value={items[l.id] ?? 0}
-                      onChange={(e) => {
-                        const qty = Math.min(Math.max(Number(e.target.value.replace(/\D/g, '')) || 0, 0), l.qty);
-                        setItems((prev) => ({ ...prev, [l.id]: qty }));
-                      }}
-                    />
-                  </div>
-                ))}
-            </div>
+            {/* A lesson refund names no items: lesson money returns no stock. */}
+            {!(lesson && lines.length === 0) && (
+              <>
+                <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-0)' }}>{tr('op.till.refundItems')}</h3>
+                <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-1-5)' }}>{tr('op.till.refundItemsHint')}</p>
+                <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', maxBlockSize: '12rem', overflowY: 'auto' }}>
+                  {lines
+                    .filter((l) => !l.voided)
+                    .map((l) => (
+                      <div key={l.id} style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', minBlockSize: 'var(--tp-touch)', paddingBlock: 'var(--tp-sp-1)', paddingInline: 'var(--tp-sp-2-5)', borderBlockEnd: '1px solid var(--tp-border)' }}>
+                        <span style={{ flex: 1 }}>
+                          {l.qty}× <bdi>{pickName(locale, l.menu_item)}</bdi>
+                        </span>
+                        <input
+                          style={{ ...inputStyle, ...numeric, inlineSize: '4.5rem', textAlign: 'end' }}
+                          dir="ltr"
+                          inputMode="numeric"
+                          disabled={!canRefund}
+                          aria-label={pickName(locale, l.menu_item) || l.id}
+                          value={items[l.id] ?? 0}
+                          onChange={(e) => {
+                            const qty = Math.min(Math.max(Number(e.target.value.replace(/\D/g, '')) || 0, 0), l.qty);
+                            setItems((prev) => ({ ...prev, [l.id]: qty }));
+                          }}
+                        />
+                      </div>
+                    ))}
+                </div>
+              </>
+            )}
+            {/* REFUND_EXCEEDS_DUE (R36) and every other online refusal, beside the control. */}
             <ErrorText error={error} />
           </>
         )}
       </Modal>
 
       {pinOpen && (
-        <PinReasonModal title={tr('op.till.refund')} busy={busy} onSubmit={(pin, reason) => void submit(pin, reason)} onClose={() => setPinOpen(false)} />
+        <PinReasonModal
+          key={lessonReasons?.[0] ?? 'till'}
+          title={tr('op.till.refund')}
+          busy={busy}
+          reasons={lessonReasons}
+          onSubmit={(pin, reason) => void submit(pin, reason)}
+          onClose={() => setPinOpen(false)}
+        />
       )}
     </>
   );

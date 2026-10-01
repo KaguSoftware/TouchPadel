@@ -27,7 +27,7 @@
  * names the organiser; there is no one Contact (phones are per seat). A
  * cancel, move or extend says what it does to the match first.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { DateField } from '../../components/inputs';
@@ -103,6 +103,18 @@ export function BookingDetailScreen() {
     refetchInterval: 60_000,
   });
   const r = reservationQ.data ?? null;
+
+  /*
+   * A lesson's court row, or a held lesson's hold row (coaching operator.md
+   * §5.8): the lesson screen is where it changes, so this screen hands over to
+   * it. `lesson_id` comes from the `select('*')` above; an older server has no
+   * such column, and the row then says so here with no actions.
+   */
+  const lessonId = r && (r.kind === 'lesson' || r.kind === 'hold') ? (r.lesson_id ?? null) : null;
+  useEffect(() => {
+    if (lessonId) void navigate({ to: '/desk/lessons/$id', params: { id: lessonId }, replace: true });
+  }, [lessonId, navigate]);
+  const lessonRow = r !== null && (r.kind === 'lesson' || lessonId !== null);
 
   // An open match's booking: its state names the match and its organiser.
   const literalMatch = r !== null && r.kind === 'booking' && isMatchLiteral(r);
@@ -379,7 +391,9 @@ export function BookingDetailScreen() {
                 <MessagePresenter tone="refused" message={`${tr('ws.courtDesk.detail.refused')} ${tr(errorToMessageKey(refused))}`} style={{ marginBlockEnd: '0.75rem' }} />
               )}
               <ErrorText error={pending ? null : error} />
-              {!live && <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.courtDesk.detail.notLive', { status: tr(`ws.kit.bookingStatus.${r.status as 'completed'}`) })}</p>}
+              {/* A lesson changes on its own screen (R7, R35): no action here would be taken. */}
+              {lessonRow && <MessagePresenter tone="info" message={tr('ws.coaching.calendar.heldForLesson')} style={{ marginBlockEnd: '0.75rem' }} />}
+              {!live && !lessonRow && <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.courtDesk.detail.notLive', { status: tr(`ws.kit.bookingStatus.${r.status as 'completed'}`) })}</p>}
               {live && r.kind === 'booking' && (
                 <div style={{ display: 'grid', gap: '0.5rem' }}>
                   {marks.includes('arrived') && (
@@ -458,7 +472,7 @@ export function BookingDetailScreen() {
                   </Button>
                 </div>
               )}
-              {live && r.kind !== 'booking' && (
+              {live && !lessonRow && (r.kind === 'maintenance' || r.kind === 'hold') && (
                 <Button kind="danger" icon="ban" busy={busy === 'cancel'} disabled={busy !== null} onClick={() => setPending('cancel')}>
                   {tr('ws.courtDesk.detail.cancel')}
                 </Button>

@@ -65,8 +65,10 @@ import { KitchenPairingPanel } from './KitchenPairing';
 import { SK as STOCK_KEYS, fetchNeedsCostCount } from '../stock/stockKeys';
 import { permissionsFor } from '../../lib/auth';
 import { holdersWithoutPin } from '../tillShift/tillShiftLogic';
+import { useCoachesAdmin, useCoachingCaps } from '../coaching/useCoaching';
+import { onSaleCount } from './coaches/lessonTypeLogic';
 
-type CardKey = 'staff' | 'branches' | 'courts' | 'tables' | 'settings' | 'guestSite';
+type CardKey = 'staff' | 'branches' | 'courts' | 'coaches' | 'tables' | 'settings' | 'guestSite';
 
 /** Telegram states that mean "switched on, and staff are still not being told". */
 const TELEGRAM_BROKEN: readonly TelegramHealth[] = ['noGroup', 'failing', 'stuck'];
@@ -76,7 +78,10 @@ export function SetupHomeScreen() {
   const cafe = useCafeSettings();
 
   const staffQ = useQuery({ queryKey: STAFF_QUERY_KEY, queryFn: () => appRpc<StaffRow[]>('list_staff') });
-  const { venues } = useVenue();
+  const { venues, branchId } = useVenue();
+  // Coaching (operator.md §5.3.3): the Coaches card's line, from coaches_admin; none on a server without it.
+  const coachingCaps = useCoachingCaps();
+  const coachesQ = useCoachesAdmin(branchId, { enabled: coachingCaps.manageCoaches });
   const courtsQ = useQuery({
     queryKey: ['courts', 'setupHome'],
     queryFn: async () => {
@@ -136,6 +141,20 @@ export function SetupHomeScreen() {
         return figure('ws.owner.setupHome.status.courts', courtsQ.data);
       case 'tables':
         return figure('ws.owner.setupHome.status.tables', tablesQ.data);
+      case 'coaches': {
+        // "Coaches 3 · Lesson types on sale 4": coaches still teaching (active and paused).
+        const d = coachingCaps.manageCoaches ? coachesQ.data : null;
+        if (!d) return null;
+        return (
+          <span data-testid="coaches-status" style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'baseline', flexWrap: 'wrap' }}>
+            {figure('ws.owner.setupHome.status.coaches', d.coaches.filter((c) => c.status !== 'retired').length)}
+            <span aria-hidden="true" style={{ color: 'var(--tp-muted-fg)' }}>
+              ·
+            </span>
+            {figure('ws.owner.setupHome.status.lessonTypesOnSale', onSaleCount(d.lesson_types))}
+          </span>
+        );
+      }
       case 'settings': {
         if (!cafe.isSuccess) return null;
         const h = cafe.settings.analytics_business_day_start_hour;

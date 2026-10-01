@@ -154,6 +154,9 @@ export const tillShiftEn = {
       'At a station while no shift was open there. The next handover at that station counts it.',
     crossDay:
       'Refunds made on this day for earlier days’ payments: {amount} in cash. The day’s expected cash leaves them out.',
+    // C-31, R27 (coaching operator.md §5.18.1): a day whose refunds are dated by their till shift.
+    crossDayCounted:
+      'Refunds made on this day for earlier days’ payments: {amount} in cash. They count in this day’s expected cash.',
     retry: 'Try again',
     // CSV rows: the figure column; the value is the difference or the amount.
     csv: {

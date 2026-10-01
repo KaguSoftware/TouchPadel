@@ -11,9 +11,14 @@
  *    (app.tournament_feasibility); `courts` and `marketing`: the plan the desk
  *    and marketing may see (app.tournament_context);
  *  - price/promo `numbers` and `apply`: cost, margin and the last 30 days'
- *    sales of what the change touches (app.price_promo_numbers, MGMT only).
+ *    sales of what the change touches (app.price_promo_numbers, MGMT only);
+ *    for a lesson change (coaching 0282, X28) its `lesson` block: the type's
+ *    figures before and after, and the places sold in 30 days with their
+ *    value. No coach pay (C-28).
  */
-import type { PriceChangeKind } from '@touch/core/protocols';
+import { COACHING_SHAPES } from '@touch/core/coaching';
+import { isLessonChange, type PriceChangeKind } from '@touch/core/protocols';
+import { formatIQD, formatNumber, isolate, type Locale, type MessageKey } from '@touch/i18n';
 import type { Obj } from './formModel';
 import { isObj } from './protocolLogic';
 import { finalizeRenames, readNumbersRenames, type NumbersRename } from './renames';
@@ -164,6 +169,68 @@ export interface PriceNumbers {
   promotion: { current_value: number | null; new_value: number | null; discount_cost_30d_iqd: number; units_30d: number; revenue_30d_iqd: number } | null;
   rate: { durations: { duration_min: number; current_price_iqd: number | null; new_price_iqd: number | null }[]; bookings_30d: number; revenue_30d_iqd: number } | null;
   featured: { current_pct: number | null; new_pct: number | null; units_30d: number; discount_cost_30d_iqd: number } | null;
+  /** Coaching (0282): a lesson change's block; null for every other change. */
+  lesson: NumbersLesson | null;
+}
+
+/**
+ * `price_promo_numbers.lesson` (COACHING_SHAPES.price_promo_numbers_lesson,
+ * X28): exactly its keys. A figure the server did not send is null ("—").
+ */
+export interface NumbersLesson {
+  lesson_type_id: string;
+  /** `coach_price` only; null for a type's own price. */
+  coach_id: string | null;
+  kind: string;
+  name_en: string;
+  name_ar: string;
+  /** A coach price: the coach's own now, else the type's. */
+  current_price_iqd: number | null;
+  /** Once applied (a removed coach price falls back to the type's). */
+  new_price_iqd: number | null;
+  current_court_share_iqd: number | null;
+  new_court_share_iqd: number | null;
+  /** Sign-ups booked in the last 30 days (of that coach, for a coach price). */
+  places_30d: number | null;
+  /** What they were sold at. */
+  owed_30d_iqd: number | null;
+}
+
+const LESSON_NUMBERS_KEYS = COACHING_SHAPES.price_promo_numbers_lesson.nested?.lesson ?? [];
+const LESSON_TEXT_KEYS = new Set(['lesson_type_id', 'kind', 'name_en', 'name_ar']);
+
+function readNumbersLesson(raw: unknown): NumbersLesson | null {
+  if (!isObj(raw)) return null;
+  const out: Obj = {};
+  for (const k of LESSON_NUMBERS_KEYS) {
+    if (k === 'coach_id') out[k] = str(raw[k]);
+    else if (LESSON_TEXT_KEYS.has(k)) out[k] = str(raw[k]) ?? '';
+    else out[k] = num(raw[k]);
+  }
+  return out as unknown as NumbersLesson;
+}
+
+type Tr = (key: MessageKey, params?: Record<string, string | number>) => string;
+
+/**
+ * The numbers step's lines for a lesson change (operator.md §5.14.2): the
+ * price, then the court share (not for a coach price, which leaves it), and
+ * "{name}: places sold in the last 30 days 40 · their value 1,200,000".
+ */
+export function lessonNumbersLines(l: NumbersLesson, tr: Tr, locale: Locale): string[] {
+  const money = (v: number | null) => (v === null ? '—' : formatIQD(v, locale));
+  const lines = [tr('ws.protocols.context.numbers.lessonPrice', { now: money(l.current_price_iqd), next: money(l.new_price_iqd) })];
+  if (l.coach_id === null) {
+    lines.push(tr('ws.protocols.context.numbers.lessonCourtShare', { now: money(l.current_court_share_iqd), next: money(l.new_court_share_iqd) }));
+  }
+  lines.push(
+    tr('ws.protocols.context.numbers.lessonSold', {
+      name: isolate(locale === 'ar' ? l.name_ar || l.name_en : l.name_en || l.name_ar),
+      places: l.places_30d === null ? '—' : formatNumber(l.places_30d, locale),
+      amount: money(l.owed_30d_iqd),
+    }),
+  );
+  return lines;
 }
 
 export function readNumbers(raw: unknown): PriceNumbers {
@@ -219,6 +286,7 @@ export function readNumbers(raw: unknown): PriceNumbers {
     featured: f
       ? { current_pct: num(f.current_pct), new_pct: num(f.new_pct), units_30d: num(f.units_30d) ?? 0, discount_cost_30d_iqd: num(f.discount_cost_30d_iqd) ?? 0 }
       : null,
+    lesson: readNumbersLesson(o.lesson),
   };
 }
 
@@ -267,6 +335,11 @@ export function numbersPrefill(proposal: Obj | null): Obj {
   if (isObj(proposal.rule) && isObj(proposal.rule.prices)) out.rule_prices = proposal.rule.prices;
   if (typeof proposal.discount_pct === 'number') out.discount_pct = proposal.discount_pct;
   if (isObj(proposal.promotion) && typeof proposal.promotion.value === 'number') out.promotion_value = proposal.promotion.value;
+  // A lesson change (0282): only the figures the proposal carries.
+  if (isLessonChange(proposal.change)) {
+    if (typeof proposal.price_iqd === 'number') out.price_iqd = proposal.price_iqd;
+    if (typeof proposal.court_share_iqd === 'number') out.court_share_iqd = proposal.court_share_iqd;
+  }
   return out;
 }
 
@@ -287,13 +360,27 @@ export function interviewsRecord(candidates: readonly { id: string; picked: bool
   };
 }
 
-const NUMBERS_FIGURES = ['prices', 'new_sizes', 'addons', 'rule_prices', 'discount_pct', 'promotion_value'] as const;
+/** The numbers step's figures: sent, and shown, only with the recommendation to change them. */
+export const NUMBERS_FIGURES = [
+  'prices',
+  'new_sizes',
+  'addons',
+  'rule_prices',
+  'discount_pct',
+  'promotion_value',
+  // A lesson change's (0282).
+  'price_iqd',
+  'court_share_iqd',
+] as const;
 
 /**
  * The last touches before a record is sent:
  *  - a price change sends only the sizes whose price changed;
  *  - a price or add-on price change sends its renames trimmed, and none when
  *    nothing is renamed (renames.ts);
+ *  - a lesson price change sends only the figures that changed from the ones
+ *    it opened with (`before`, the server refuses the stored figure as a
+ *    change), and no lesson proposal sends `before`: the server writes it;
  *  - the numbers step sends its figures only with the recommendation to
  *    change them (otherwise the proposal's stand).
  */
@@ -303,6 +390,15 @@ export function finalizeRecord(
   record: Obj,
   current: ReadonlyMap<string, number | null>,
 ): Obj {
+  if (kind === 'price_promo' && stepKey === 'propose' && isLessonChange(record.change)) {
+    const { before, ...out } = record;
+    if (record.change === 'lesson_price' && isObj(before)) {
+      for (const k of ['price_iqd', 'court_share_iqd'] as const) {
+        if (typeof out[k] === 'number' && out[k] === before[k]) delete out[k];
+      }
+    }
+    return out;
+  }
   if (kind === 'price_promo' && stepKey === 'propose' && record.change === 'price' && Array.isArray(record.prices)) {
     return finalizeRenames({
       ...record,

@@ -34,6 +34,8 @@ export const eventsEn = {
       booking: 'Booking',
       hold: 'Being booked',
       maintenance: 'Block',
+      // A lesson's court row (coaching operator.md §5.8).
+      lesson: 'Lesson',
     },
     openBooking: 'Open booking',
     checkAgain: 'Check again',

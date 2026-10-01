@@ -59,7 +59,7 @@ const CARD_ICON: Record<ProtocolKind, IconName> = {
 };
 
 /** The params a start form reads; closing it drops them all. */
-const START_PARAMS = ['start', 'variant', 'change', 'item', 'addon', 'promotion', 'rule', 'idea'] as const;
+const START_PARAMS = ['start', 'variant', 'change', 'item', 'addon', 'promotion', 'rule', 'lessonType', 'coach', 'idea'] as const;
 
 export function ProtocolsPageScreen() {
   const { tr } = useLocale();
@@ -125,7 +125,7 @@ export function ProtocolsPageScreen() {
           kind={search.start}
           variant={search.variant as TournamentVariant | undefined}
           change={search.change}
-          link={{ item: search.item, addon: search.addon, promotion: search.promotion, rule: search.rule }}
+          link={{ item: search.item, addon: search.addon, promotion: search.promotion, rule: search.rule, lessonType: search.lessonType, coach: search.coach }}
           ideaId={search.idea}
           changeChoices={priceChangeKinds(staff?.role)}
           onClose={closeStart}

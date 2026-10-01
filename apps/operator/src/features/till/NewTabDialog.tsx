@@ -19,6 +19,7 @@ import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../compo
 import { MessagePresenter, SearchField } from '../../components/kit';
 import { bookingTakesNewTab, canReadBookings, type TabListRow } from './tillData';
 import { isMatchLiteral } from '../matches/matchLogic';
+import { isLessonLiteral } from '../coaching/lessonLogic';
 import { muted, reasonedFooter, touchTarget } from './tillStyles';
 
 export interface OpenReservationRow {
@@ -27,6 +28,8 @@ export interface OpenReservationRow {
   /** Read so an open match's booking (no account, the literal name) can be left out. */
   guest_id: string | null;
   guest_name: string | null;
+  /** Read so a lesson's court row can be left out (coaching operator.md §5.8); absent from rows built elsewhere. */
+  kind?: string;
   court: { name_en: string; name_ar: string } | null;
   tabs: { id: string; status: string }[];
 }
@@ -36,9 +39,12 @@ export interface OpenReservationRow {
  * match's booking. Cafe lines never go on a match booking (DF-16): its players
  * order on their own bills. The server refuses them anyway
  * (MATCH_BOOKING_NO_CAFE, R20); this keeps the picker from offering one.
+ *
+ * Nor a lesson's court row (coaching operator.md §5.8): a lesson is paid on
+ * its own screen, and open_tab refuses one (LESSON_VIA_COACHING `tab`).
  */
-export function tillMayBill(r: Pick<OpenReservationRow, 'guest_id' | 'guest_name' | 'tabs'>): boolean {
-  return bookingTakesNewTab(r) && !isMatchLiteral(r);
+export function tillMayBill(r: Pick<OpenReservationRow, 'guest_id' | 'guest_name' | 'tabs' | 'kind'>): boolean {
+  return bookingTakesNewTab(r) && !isMatchLiteral(r) && !isLessonLiteral(r);
 }
 
 /**
@@ -55,7 +61,7 @@ export function useTodaysOpenReservations(enabled = true) {
       const night = await tonightScope(() => queryClient.ensureQueryData({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings }));
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, start_at, end_at, guest_id, guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar), tabs!tabs_reservation_id_fkey(id, status)')
+        .select('id, start_at, end_at, kind, guest_id, guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar), tabs!tabs_reservation_id_fkey(id, status)')
         .in('status', ['confirmed', 'arrived'])
         .gte('start_at', night.start)
         .lt('start_at', night.end)

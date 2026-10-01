@@ -209,6 +209,9 @@ export const shellEn = {
     // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
     deductions: 'Pay deductions',
     incidents: 'Incidents',
+    // Coaching (docs/design/coaching/operator.md §5.3.3).
+    coaches: 'Coaches',
+    coachPay: 'Coach pay',
     // A rail row's count, for a screen reader: the pill itself is only a number.
     badge: '{count} waiting on you',
     groupOperations: 'Operations',

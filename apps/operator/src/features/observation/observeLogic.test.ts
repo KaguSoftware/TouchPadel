@@ -67,6 +67,22 @@ describe('courtDaySummary', () => {
     expect(s.bookedMinutes).toBe(60 + 180 + 90);
   });
 
+  it('counts lessons apart from blocks, with none of their money in the bookings (coaching §5.8)', () => {
+    const s = courtDaySummary(
+      [
+        res({ kind: 'lesson', status: 'confirmed', guest_name: 'Lesson', price_iqd: null }),
+        res({ kind: 'lesson', status: 'completed', guest_name: 'Lesson', price_iqd: 45000 }),
+        res({ kind: 'lesson', status: 'cancelled', guest_name: 'Lesson' }),
+        res({ kind: 'hold', status: 'pending', price_iqd: null }),
+        res({ status: 'confirmed' }),
+      ],
+      NOW,
+    );
+    expect(s).toMatchObject({ booked: 1, lessons: 2, blocks: 1, cancelled: 0 });
+    expect(s.bookedIqd).toBe(30000);
+    expect(s.bookedMinutes).toBe(90);
+  });
+
   it('does not count a booking that started without arriving as upcoming', () => {
     const s = courtDaySummary([res({ status: 'confirmed', start_at: '2026-09-13T16:00:00Z' })], NOW);
     expect(s.booked).toBe(1);

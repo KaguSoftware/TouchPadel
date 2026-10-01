@@ -173,6 +173,9 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
     deductions: 'الخصومات من الراتب',
     incidents: 'الحوادث',
+    // DRAFT-AR (coaching operator.md §5.3.3).
+    coaches: 'المدرّبون',
+    coachPay: 'مستحقات المدرّبين',
     badge: 'بانتظارك: {count}',
     groupOperations: 'العمليات',
     groupRun: 'إدارة اليوم',

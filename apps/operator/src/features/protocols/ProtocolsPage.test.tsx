@@ -59,7 +59,7 @@ vi.mock('../checklists/ChecklistsCard', () => ({ ChecklistsCard: () => <section 
 vi.mock('../roleExtras/Ideas', () => ({ IdeasFromTeamButton: () => null }));
 vi.mock('../roleExtras/RecipeChanges', () => ({ RecipeChangesCard: () => <section data-testid="recipe-changes-card" /> }));
 
-import { appRpc } from '../../lib/appRpc';
+import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { ProtocolsPageScreen } from './ProtocolsPage';
 
 const rpc = vi.mocked(appRpc);
@@ -536,6 +536,157 @@ describe('/protocols', () => {
     expect(within(sheet).queryByRole('textbox', { name: /New name \(English\)/ })).toBeNull();
     expect(within(sheet).queryByText(renamed('Regular → Regular cup'))).toBeNull();
     expect(within(sheet).getByRole('button', { name: 'Rename Regular' })).toBeTruthy();
+  });
+
+  // Coaching (0282, operator.md §5.14.2, §5.19): the three lesson change kinds.
+  const LT = '0f000000-0000-4000-8000-000000000001';
+  const LESSON_TYPES = {
+    lesson_types: [
+      { lesson_type_id: LT, kind: 'group', name_en: 'Beginners', name_ar: 'مبتدئون', duration_min: 90, sessions_count: null, max_places: 6, price_iqd: 25000, court_share_iqd: 5000, is_active: true },
+    ],
+  };
+
+  it('starts a lesson price from its link at the type’s figures, sending only the figure that changes', async () => {
+    const user = userEvent.setup();
+    const base = rpc.getMockImplementation()!;
+    rpc.mockImplementation(async (fn: string, args?: Record<string, unknown>) =>
+      fn === 'price_promo_targets' ? LESSON_TYPES : base(fn as Parameters<typeof base>[0], args),
+    );
+    search.start = 'price_promo';
+    search.change = 'lesson_price';
+    search.lessonType = LT;
+    renderPage();
+    const sheet = await screen.findByTestId('start-sheet');
+    expect((await within(sheet).findByTestId('lesson-now')).textContent).toBe('Now: price 25,000 IQD · court share 5,000 IQD');
+    expect(within(sheet).getByText('Beginners · Group 90 min')).toBeTruthy();
+    expect(rpc).toHaveBeenCalledWith('price_promo_targets', { p_change: 'lesson_price', p_venue_id: null });
+    const price = within(sheet).getByDisplayValue('25000');
+    expect(within(sheet).getByDisplayValue('5000')).toBeTruthy();
+    await user.clear(price);
+    await user.type(price, '30000');
+    await user.type(within(sheet).getByTestId('title-en'), 'Beginners price');
+    const textareas = within(sheet).getAllByRole('textbox').filter((el) => el.tagName === 'TEXTAREA');
+    await user.type(textareas[0]!, 'Every session is full');
+    await user.type(textareas[1]!, 'The same fill at a better price');
+    await user.click(screen.getByTestId('start-send'));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('start_protocol', expect.objectContaining({ p_kind: 'price_promo' })));
+    const args = rpc.mock.calls.find(([fn]) => fn === 'start_protocol')![1] as Record<string, unknown>;
+    // The court share left as it was is not sent (the server refuses the stored figure), nor the client's `before`.
+    expect(args.p_first_record).toEqual({
+      change: 'lesson_price',
+      lesson_type_id: LT,
+      price_iqd: 30000,
+      reason: 'Every session is full',
+      expected_effect: 'The same fill at a better price',
+    });
+  });
+
+  it('lists a coach price’s types from the picked coach only, at the coach’s price now', async () => {
+    const user = userEvent.setup();
+    const SARA = '0f100000-0000-4000-8000-000000000001';
+    const PRIVATE = '0f000000-0000-4000-8000-000000000002';
+    const base = rpc.getMockImplementation()!;
+    rpc.mockImplementation(async (fn: string, args?: Record<string, unknown>) =>
+      fn === 'price_promo_targets'
+        ? {
+            coaches: [
+              {
+                coach_id: SARA,
+                display_name_en: 'Sara',
+                display_name_ar: 'سارة',
+                lesson_types: [{ lesson_type_id: PRIVATE, name_en: 'One to one', name_ar: 'فردي', kind: 'private', sessions_count: null, type_price_iqd: 30000, coach_price_iqd: null }],
+              },
+            ],
+          }
+        : base(fn as Parameters<typeof base>[0], args),
+    );
+    search.start = 'price_promo';
+    search.change = 'coach_price';
+    renderPage();
+    const sheet = await screen.findByTestId('start-sheet');
+    expect(await within(sheet).findByText('Pick the coach first.')).toBeTruthy();
+    await user.click(within(sheet).getByRole('combobox', { name: 'Coach' }));
+    await user.click(await screen.findByRole('option', { name: 'Sara' }));
+    await user.click(within(sheet).getByRole('combobox', { name: 'Lesson type' }));
+    await user.click(await screen.findByRole('option', { name: 'One to one · Private' }));
+    expect((await within(sheet).findByTestId('lesson-now')).textContent).toBe('Now: the lesson type’s price, 30,000 IQD');
+    expect(within(sheet).getByText('Left empty, the coach’s own price is removed and the lesson type’s price applies.')).toBeTruthy();
+    expect(within(sheet).getByDisplayValue('30000')).toBeTruthy();
+  });
+
+  it('shows a lesson change’s figures at the apply, and says when its lesson type changed since the proposal', async () => {
+    const user = userEvent.setup();
+    const RUN = '0a000000-0000-4000-8000-000000000021';
+    const PROP = '0b000000-0000-4000-8000-000000000021';
+    const NUM = '0b000000-0000-4000-8000-000000000022';
+    const ANN = '0b000000-0000-4000-8000-000000000023';
+    const APPLY = '0b000000-0000-4000-8000-000000000024';
+    const lessonRun = { ...runRow, id: RUN, kind: 'price_promo', title_en: 'Beginners price', current_steps: [] };
+    const proposed = {
+      ...proposal,
+      decision: 'approve',
+      record: { change: 'lesson_price', lesson_type_id: LT, price_iqd: 30000, reason: 'Full', expected_effect: 'Better price' },
+    };
+    const lessonSteps = [
+      stepRow(PROP, 1, 'propose', 'Proposal', 'passed', { actor_roles: ['manager', 'marketing'], submissions: [proposed] }),
+      stepRow(NUM, 2, 'numbers', 'Numbers', 'passed', { actor_roles: ['manager'] }),
+      stepRow(ANN, 3, 'announce', 'Announce', 'skipped', { actor_roles: ['marketing'] }),
+      stepRow(APPLY, 4, 'apply', 'Apply', 'open', { actor_roles: ['manager'] }),
+    ];
+    const base = rpc.getMockImplementation()!;
+    rpc.mockImplementation(async (fn: string, args?: Record<string, unknown>) => {
+      switch (fn) {
+        case 'protocol_run_detail':
+          return { run: { ...lessonRun, template_name_en: 'Price', template_name_ar: 'سعر', data: {} }, steps: lessonSteps, can: { ...noCan, stop: true } };
+        case 'protocol_step_detail': {
+          const st = lessonSteps.find((x) => x.id === args?.p_run_step_id) ?? lessonSteps[3]!;
+          return { run: { ...lessonRun, data: {} }, step: st, can: st.id === APPLY ? { ...noCan, submit: true } : noCan, def: null };
+        }
+        case 'price_promo_targets':
+          return LESSON_TYPES;
+        case 'price_promo_numbers':
+          return {
+            change: 'lesson_price',
+            sizes: [],
+            addons: [],
+            renames: [],
+            promotion: null,
+            rate: null,
+            featured: null,
+            lesson: {
+              lesson_type_id: LT,
+              coach_id: null,
+              kind: 'group',
+              name_en: 'Beginners',
+              name_ar: 'مبتدئون',
+              current_price_iqd: 25000,
+              new_price_iqd: 30000,
+              current_court_share_iqd: 5000,
+              new_court_share_iqd: 5000,
+              places_30d: 40,
+              owed_30d_iqd: 1000000,
+            },
+          };
+        case 'submit_step':
+          throw new AppRpcError('PRICE_TARGET_CHANGED', 'PRICE_TARGET_CHANGED', 'lesson_type');
+        default:
+          return base(fn as Parameters<typeof base>[0], args);
+      }
+    });
+    search.run = RUN;
+    search.step = APPLY;
+    renderPage();
+    const lines = await screen.findByTestId('numbers-lesson');
+    expect(within(lines).getByText('Price 25,000 IQD → 30,000 IQD')).toBeTruthy();
+    expect(within(lines).getByText(/places sold in the last 30 days 40 · their value 1,000,000 IQD$/)).toBeTruthy();
+    // No coach pay on the numbers (C-28).
+    expect(lines.textContent).not.toMatch(/coach/i);
+    const form = await screen.findByTestId('step-form');
+    await user.click(within(form).getByRole('button', { name: 'Now' }));
+    await user.click(within(form).getByTestId('step-send'));
+    expect(
+      await within(form).findByText('This lesson type changed after the proposal (price, length, sessions or party size). Start a new proposal.'),
+    ).toBeTruthy();
   });
 
   it('reads in Arabic', async () => {

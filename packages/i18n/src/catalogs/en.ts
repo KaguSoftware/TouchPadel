@@ -1227,6 +1227,11 @@ export const en = {
       walked_out: 'Left without paying',
       no_shows: 'Repeated no-shows',
       reported: 'Reported by players',
+      // Coaching (docs/design/coaching/operator.md §5.10.8, §5.10.10):
+      // COACHING_REASON_CODES' own code and LESSON_REFUND_REASON_CODES.
+      coach_unavailable: 'Coach unavailable',
+      lesson_refund: 'Lesson refund',
+      lesson_goodwill: 'Goodwill refund',
     },
     desk: {
       newBooking: 'New booking',

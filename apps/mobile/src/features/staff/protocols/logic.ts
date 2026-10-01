@@ -8,9 +8,11 @@
  * PURE (vitest): no react-native, no supabase.
  */
 import {
+  COACHING_SHAPES,
   PROMOTION_FIELDS,
   RATE_RULE_FIELDS,
   STAFF_ROLES,
+  isLessonChange,
   stepForm,
   startableKinds,
   type PriceChangeKind,
@@ -23,7 +25,18 @@ import {
 } from '@touch/core';
 import type { Locale } from '@touch/i18n';
 import { draftFromRecord, emptyDraft, type Draft } from './assemble';
-import type { PriceNumbers, PriceTargets, TargetAddon, TargetItem, TargetPromotion, TargetRule } from './types';
+import type {
+  NumbersLesson,
+  PriceNumbers,
+  PriceTargets,
+  TargetAddon,
+  TargetCoach,
+  TargetCoachType,
+  TargetItem,
+  TargetLessonType,
+  TargetPromotion,
+  TargetRule,
+} from './types';
 
 // ── Roles ───────────────────────────────────────────────────────────────────
 
@@ -193,7 +206,79 @@ export function targetKindOf(change: PriceChangeKind): TargetKind {
       return 'addons';
     case 'promotion':
       return 'none';
+    // Lesson prices (coaching 0282) are started on the operator, where the
+    // lesson types are; the phone reads and decides them, and offers no start.
+    case 'lesson_price':
+    case 'lesson_launch':
+    case 'coach_price':
+      return 'none';
   }
+}
+
+/** The change kinds the phone's start page offers: a role's (`priceChangeKinds`), less the lesson kinds. */
+export function phoneStartChanges(changes: readonly PriceChangeKind[]): PriceChangeKind[] {
+  return changes.filter((c) => !isLessonChange(c));
+}
+
+// ── Lesson price changes: the X28 reads (coaching 0282) ─────────────────────
+
+type Row = Record<string, unknown>;
+
+function isRow(v: unknown): v is Row {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+/** The keys COACHING_SHAPES lists for a path of an X28 read (R81: the shapes file decides the names). */
+function shapeKeys(name: 'price_promo_targets_lesson_types' | 'price_promo_targets_coaches' | 'price_promo_numbers_lesson', path: string): readonly string[] {
+  return COACHING_SHAPES[name].nested?.[path] ?? [];
+}
+
+const LESSON_TEXT_KEYS = new Set(['lesson_type_id', 'kind', 'name_en', 'name_ar', 'display_name_en', 'display_name_ar']);
+
+/** One row with exactly `keys`: text '' when missing, a coach id or figure null, `is_active` true unless false. */
+function shapeRow(raw: Row, keys: readonly string[]): Row {
+  const out: Row = {};
+  for (const k of keys) {
+    if (k === 'lesson_types') continue;
+    if (k === 'is_active') out[k] = raw[k] !== false;
+    else if (k === 'coach_id') out[k] = typeof raw[k] === 'string' && raw[k] !== '' ? raw[k] : null;
+    else if (LESSON_TEXT_KEYS.has(k)) out[k] = typeof raw[k] === 'string' ? raw[k] : '';
+    else out[k] = typeof raw[k] === 'number' && Number.isFinite(raw[k]) ? raw[k] : null;
+  }
+  return out;
+}
+
+function rows(v: unknown): Row[] {
+  return Array.isArray(v) ? v.filter(isRow) : [];
+}
+
+/** `price_promo_targets(...).lesson_types`, read by its COACHING_SHAPES list; a row with no id is dropped. */
+export function lessonTargetTypes(targets: PriceTargets | null | undefined): TargetLessonType[] {
+  const keys = shapeKeys('price_promo_targets_lesson_types', 'lesson_types[]');
+  return rows(targets?.lesson_types)
+    .map((t) => shapeRow(t, keys) as unknown as TargetLessonType)
+    .filter((t) => t.lesson_type_id !== '');
+}
+
+/** `price_promo_targets('coach_price').coaches`, each with the types they teach, by their COACHING_SHAPES lists. */
+export function lessonTargetCoaches(targets: PriceTargets | null | undefined): TargetCoach[] {
+  const coachKeys = shapeKeys('price_promo_targets_coaches', 'coaches[]');
+  const typeKeys = shapeKeys('price_promo_targets_coaches', 'coaches[].lesson_types[]');
+  return rows(targets?.coaches)
+    .map((c) => ({
+      ...(shapeRow(c, coachKeys) as unknown as Omit<TargetCoach, 'lesson_types'>),
+      lesson_types: rows(c.lesson_types)
+        .map((t) => shapeRow(t, typeKeys) as unknown as TargetCoachType)
+        .filter((t) => t.lesson_type_id !== ''),
+    }))
+    .filter((c) => typeof c.coach_id === 'string');
+}
+
+/** `price_promo_numbers.lesson`, by its COACHING_SHAPES list; null for every other change (or an older server). */
+export function numbersLesson(numbers: PriceNumbers | null | undefined): NumbersLesson | null {
+  const raw = numbers?.lesson;
+  if (!isRow(raw)) return null;
+  return shapeRow(raw, shapeKeys('price_promo_numbers_lesson', 'lesson')) as unknown as NumbersLesson;
 }
 
 /** The fields of a propose record the start page picks itself, never typed. */
@@ -511,8 +596,21 @@ export function priceProposeResubmit(
  * The manager's `numbers` form, prefilled with the standing figures
  * (`price_promo_numbers`: the proposal's, or the last numbers sent), so a
  * "go" with no change is one tap.
+ *
+ * A lesson change (coaching 0282) takes its figures from `numbers.lesson`,
+ * and only those its proposal carries: the server refuses any other by name.
+ * Given the proposal (`proposal`), that is what it says. Without it, a launch
+ * carries both, a lesson price the figures it moves (a proposed figure is
+ * never the stored one), and a coach price is left blank (an empty proposal
+ * removes the coach's own price, which `numbers` cannot tell from a new
+ * one); blank is the proposal's figure. A figure known not to be carried is
+ * hidden.
  */
-export function priceNumbersStart(change: PriceChangeKind, numbers: PriceNumbers | null | undefined): PriceProposeStart {
+export function priceNumbersStart(
+  change: PriceChangeKind,
+  numbers: PriceNumbers | null | undefined,
+  proposal?: Record<string, unknown> | null,
+): PriceProposeStart {
   const fields = stepForm('price_promo', 'numbers', { change })?.fields ?? [];
   const draft: Draft = { ...emptyDraft(fields), recommendation: 'go' };
   const fixed: PriceProposeStart['fixed'] = {};
@@ -554,6 +652,25 @@ export function priceNumbersStart(change: PriceChangeKind, numbers: PriceNumbers
   }
   if (change === 'featured_discount' && numbers.featured) {
     draft.discount_pct = text(numbers.featured.new_pct);
+  }
+  const lesson = isLessonChange(change) ? numbersLesson(numbers) : null;
+  if (lesson) {
+    const figures = [
+      ['price_iqd', lesson.current_price_iqd, lesson.new_price_iqd],
+      ['court_share_iqd', lesson.current_court_share_iqd, lesson.new_court_share_iqd],
+    ] as const;
+    for (const [k, now, next] of figures) {
+      if (change === 'coach_price' && k === 'court_share_iqd') continue;
+      const carried: boolean | null = proposal
+        ? typeof proposal[k] === 'number'
+        : change === 'lesson_launch'
+          ? true
+          : change === 'lesson_price'
+            ? next !== null && next !== now
+            : null;
+      if (carried === true) draft[k] = text(next);
+      if (carried === false) hidden.push(k);
+    }
   }
   return { draft, fixed, hidden };
 }

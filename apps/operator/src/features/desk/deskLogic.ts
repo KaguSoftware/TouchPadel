@@ -5,7 +5,7 @@
  * price, a duration or a total. The board renders what the server returned.
  */
 import type { BookingStatus } from '../../components/kit';
-import type { ReservationRow } from './deskTypes';
+import type { ReservationKind, ReservationRow } from './deskTypes';
 
 /** Statuses that occupy a court (the exclusion constraint's own set). */
 export const BLOCKING_STATUSES: ReadonlySet<string> = new Set(['pending', 'confirmed', 'arrived']);
@@ -125,7 +125,7 @@ export function groupByStart<T extends { start_at: string; court_id: string }>(r
 
 export type CourtAvailability =
   | { courtId: string; state: 'free'; nextStartAt: string | null }
-  | { courtId: string; state: 'busy'; kind: 'booking' | 'hold' | 'maintenance'; untilAt: string; reservationId: string };
+  | { courtId: string; state: 'busy'; kind: ReservationKind; untilAt: string; reservationId: string };
 
 /**
  * What each court is doing right now, from rows already on screen. A court is
@@ -178,20 +178,31 @@ export interface NightSummary {
   arrived: number;
   /** Confirmed bookings that have not started yet. */
   toCome: number;
+  /**
+   * A lesson's court rows still standing (coaching operator.md §5.8): pending,
+   * confirmed, arrived or completed. Never a booking; the subtitle names them
+   * apart, and only when there are some.
+   */
+  lessons: number;
 }
 
-/** The three counts the board's subtitle states. Holds and blocks are not bookings. */
+/** The counts the board's subtitle states. Holds and blocks are not bookings; lessons are counted apart. */
 export function nightSummary(reservations: readonly ReservationRow[], nowIso: string): NightSummary {
   let bookings = 0;
   let arrived = 0;
   let toCome = 0;
+  let lessons = 0;
   for (const r of reservations) {
+    if (r.kind === 'lesson') {
+      if (isLive(r.status) || r.status === 'completed') lessons += 1;
+      continue;
+    }
     if (r.kind !== 'booking') continue;
     bookings += 1;
     if (r.status === 'arrived' || r.status === 'completed') arrived += 1;
     else if (r.status === 'confirmed' && r.start_at > nowIso) toCome += 1;
   }
-  return { bookings, arrived, toCome };
+  return { bookings, arrived, toCome, lessons };
 }
 
 /**

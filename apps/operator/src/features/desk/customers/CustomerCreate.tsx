@@ -7,7 +7,9 @@
  * `?attach=match&match=<id>` (open matches operator.md §5.3): the desk was
  * adding a player to an open match and the player had no record yet, so the
  * new customer goes straight back to `/desk/matches/$id?customer=<new id>`,
- * where Add player opens with them picked. Otherwise to the new record.
+ * where Add player opens with them picked. `?attach=lesson&lesson=<id>`
+ * (coaching operator.md §5.3.2) does the same for a lesson's Add student,
+ * back to `/desk/lessons/$id?customer=<new id>`. Otherwise to the new record.
  */
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -46,9 +48,11 @@ export function fieldErrorOf(e: unknown): FieldError | null {
 export function CustomerCreateScreen() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
-  // Validated at the route (customerCreateRoute): `match` is set only with attach=match.
-  const search = useSearch({ strict: false }) as { attach?: 'match'; match?: string };
+  // Validated at the route (customerCreateRoute): `match` is set only with
+  // attach=match, `lesson` only with attach=lesson.
+  const search = useSearch({ strict: false }) as { attach?: 'match' | 'lesson'; match?: string; lesson?: string };
   const forMatch = search.attach === 'match' && search.match ? search.match : null;
+  const forLesson = search.attach === 'lesson' && search.lesson ? search.lesson : null;
   const toast = useToast();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -77,6 +81,7 @@ export function CustomerCreateScreen() {
       // The Customers list is kept in memory; the new record belongs in it now.
       void queryClient.invalidateQueries({ queryKey: ['customerDirectory'] });
       if (forMatch) void navigate({ to: '/desk/matches/$id', params: { id: forMatch }, search: { customer: res.id } as never });
+      else if (forLesson) void navigate({ to: '/desk/lessons/$id', params: { id: forLesson }, search: { customer: res.id } as never });
       else void navigate({ to: '/desk/customers/$id', params: { id: res.id } });
     } catch (e) {
       const fe = fieldErrorOf(e);
@@ -98,6 +103,7 @@ export function CustomerCreateScreen() {
     <div>
       <PageHeader title={tr('ws.courtDesk.createCustomer.title')} subtitle={tr('ws.courtDesk.createCustomer.lead')} />
       {forMatch && <MessagePresenter tone="info" icon="userPlus" message={tr('ws.matches.customers.creatingForMatch')} style={{ marginBlockEnd: '0.75rem' }} />}
+      {forLesson && <MessagePresenter tone="info" icon="userPlus" message={tr('ws.coaching.create.creatingForLesson')} style={{ marginBlockEnd: '0.75rem' }} />}
       <Panel bodyClassName="tp-cq">
         <form
           onSubmit={(e) => {
