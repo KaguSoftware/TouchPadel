@@ -1,5 +1,7 @@
 import type { DeepMessages } from './ws/types';
 import type { coachingEn } from './coaching.en';
+import { coachingCommonAr } from './coaching.common.ar';
+import { coachingGuestAr } from './coaching.guest.ar';
 import { coachingCoachAr } from './coaching.coach.ar';
 import { coachingWebAr } from './coaching.web.ar';
 
@@ -13,6 +15,8 @@ import { coachingWebAr } from './coaching.web.ar';
  * «نصيب المدرّب» the coach's share (R55), from `coachingGlossary`.
  */
 export const coachingAr: DeepMessages<typeof coachingEn> = {
+  ...coachingCommonAr,
+  ...coachingGuestAr,
   coach: coachingCoachAr,
   ...coachingWebAr,
 };

@@ -59,11 +59,12 @@ const modeOf = (v: unknown): DepositMode =>
 
 /**
  * What a `booking_payments` row pays for (open matches, money.md §5.5): a
- * court deposit, or open-match tickets (docs/design/open-matches/guest.md
- * §4.10.4). A row from before 0259, or any value this build does not know, is
+ * court deposit, open-match tickets (docs/design/open-matches/guest.md
+ * §4.10.4), or a lesson (coaching, 0272; docs/design/coaching/guest.md
+ * §4.9.3). A row from before 0259, or any value this build does not know, is
  * a deposit.
  */
-export type PaymentPurpose = 'deposit' | 'ticket';
+export type PaymentPurpose = 'deposit' | 'ticket' | 'lesson';
 
 // ── app.deposit_quote ───────────────────────────────────────────────────────
 
@@ -178,6 +179,23 @@ export interface PaymentReservation {
   venueId: string | null;
 }
 
+/** The enrolment a lesson payment is for (X14): its first covered session, the coach and type names. */
+export interface PaymentLesson {
+  enrolmentId: string | null;
+  enrolmentStatus: string | null;
+  kind: string | null;
+  lessonId: string | null;
+  courseId: string | null;
+  startAt: string | null;
+  endAt: string | null;
+  venueId: string | null;
+  coachId: string | null;
+  coachNameEn: string | null;
+  coachNameAr: string | null;
+  typeNameEn: string | null;
+  typeNameAr: string | null;
+}
+
 export interface DepositStatus {
   ref: string;
   /** Null when the server sent a status this build has never heard of. */
@@ -206,6 +224,8 @@ export interface DepositStatus {
   ticketCount?: number | null;
   /** A ticket purchase's price per ticket; null on a deposit. */
   unitPriceIqd?: number | null;
+  /** A lesson payment's enrolment (X14); null on a deposit or a ticket purchase. */
+  lesson?: PaymentLesson | null;
 }
 
 /** Parse deposit-status's 200 (the `deposit_status` jsonb). Throws without a ref. */
@@ -216,6 +236,7 @@ export function parseDepositStatus(json: unknown): DepositStatus {
   const r = o.reservation && typeof o.reservation === 'object'
     ? (o.reservation as Record<string, unknown>)
     : null;
+  const l = o.lesson && typeof o.lesson === 'object' ? (o.lesson as Record<string, unknown>) : null;
   return {
     ref,
     status: oneOf(PAYMENT_STATUSES, o.status),
@@ -244,15 +265,37 @@ export function parseDepositStatus(json: unknown): DepositStatus {
         }
       : null,
     serverNow: str(o.server_now),
-    purpose: o.purpose === 'ticket' ? 'ticket' : 'deposit',
+    purpose: o.purpose === 'ticket' ? 'ticket' : o.purpose === 'lesson' ? 'lesson' : 'deposit',
     ticketCount: int(o.ticket_count),
     unitPriceIqd: int(o.unit_price_iqd),
+    lesson: l
+      ? {
+          enrolmentId: str(l.enrolment_id),
+          enrolmentStatus: str(l.enrolment_status),
+          kind: str(l.kind),
+          lessonId: str(l.lesson_id),
+          courseId: str(l.course_id),
+          startAt: str(l.start_at),
+          endAt: str(l.end_at),
+          venueId: str(l.venue_id),
+          coachId: str(l.coach_id),
+          coachNameEn: str(l.coach_name_en),
+          coachNameAr: str(l.coach_name_ar),
+          typeNameEn: str(l.type_name_en),
+          typeNameAr: str(l.type_name_ar),
+        }
+      : null,
   };
 }
 
 /** A ticket purchase, not a deposit (§4.10.4): no hold, no reservation, no desk. */
 export function isTicketPayment(s: Pick<DepositStatus, 'purpose'> | null | undefined): boolean {
   return s?.purpose === 'ticket';
+}
+
+/** A lesson payment (coaching guest.md §4.9.3): an enrolment, no reservation, no desk on this screen. */
+export function isLessonPayment(s: Pick<DepositStatus, 'purpose'> | null | undefined): boolean {
+  return s?.purpose === 'lesson';
 }
 
 /**
@@ -379,6 +422,8 @@ export type PayScreen =
   | { kind: 'paid' }
   /** succeeded on a ticket purchase: `count` tickets are in the wallet (§4.10.4). */
   | { kind: 'ticketsBought'; count: number }
+  /** succeeded on a lesson: the enrolment is booked (coaching guest.md §4.9.3). */
+  | { kind: 'lessonBooked'; enrolmentId: string | null }
   | {
       kind: 'failed';
       reason: FailureCode | null;
@@ -425,6 +470,8 @@ export function screenFor({ status, failure, nowMs }: ScreenInput): PayScreen {
   // A ticket has no reservation, so the deposit switch below would read its
   // success as "still checking" for ever: it is decided first (§4.10.4).
   if (status.purpose === 'ticket') return ticketScreenFor(status, s, nowMs);
+  // A lesson has no reservation either (coaching guest.md §4.9.3).
+  if (status.purpose === 'lesson') return lessonScreenFor(status, s, nowMs);
   switch (s) {
     case 'created':
     case 'pending':
@@ -499,6 +546,45 @@ function ticketScreenFor(status: DepositStatus, s: PaymentStatus, nowMs: number)
         canPayAtDesk: false,
         outOfAttempts: status.attemptsLeft <= 0,
       };
+    case 'expired':
+      return { kind: 'expired' };
+    case 'refund_pending':
+      return { kind: 'refundPending' };
+    case 'refunded':
+      return { kind: 'refunded' };
+    case 'refund_failed':
+      return { kind: 'refundFailed' };
+    default: {
+      const unreachable: never = s;
+      return unreachable;
+    }
+  }
+}
+
+/**
+ * The lesson half of `screenFor` (coaching guest.md §4.9.3). A failure can be
+ * tried again while the enrolment's hold is live and attempts are left, never
+ * paid at the desk from this screen; a payment that landed after the place was
+ * released is `refundPending` (its own line), never `slotLost`.
+ */
+function lessonScreenFor(status: DepositStatus, s: PaymentStatus, nowMs: number): PayScreen {
+  switch (s) {
+    case 'created':
+    case 'pending':
+      return openScreen(status, nowMs);
+    case 'succeeded':
+      return { kind: 'lessonBooked', enrolmentId: status.lesson?.enrolmentId ?? null };
+    case 'failed': {
+      const canRetry = status.holdLive && status.attemptsLeft > 0;
+      return {
+        kind: 'failed',
+        reason: status.failureCode,
+        holdLive: status.holdLive,
+        canRetry,
+        canPayAtDesk: false,
+        outOfAttempts: status.holdLive && status.attemptsLeft <= 0,
+      };
+    }
     case 'expired':
       return { kind: 'expired' };
     case 'refund_pending':

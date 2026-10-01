@@ -21,20 +21,29 @@
  * `purpose: 'ticket'`, an empty `reservationId` (a ticket holds no slot), and
  * the action the tickets were bought for as `after`, so a purchase killed on
  * Qi's page still continues into the join once the payment lands (§4.10.3).
+ *
+ * A lesson payment uses it too (docs/design/coaching/guest.md §4.9.3):
+ * `purpose: 'lesson'`, an empty `reservationId` and the enrolment as
+ * `lessonEnrolmentId`, so a payment killed on Qi's page resumes the payment
+ * screen and its "View the lesson" opens the right enrolment. Same key, same
+ * SEC-16 purge: no new storage key.
  */
 import { parseTicketContinuation, type TicketContinuation } from '../matches/continuation';
+import type { PaymentPurpose } from './logic';
 
 export interface PendingPayment {
   /** The attempt's request_id — what deposit-status is asked about. */
   ref: string;
-  /** The hold the payment began on; '' for a ticket purchase. */
+  /** The hold the payment began on; '' for a ticket purchase or a lesson. */
   reservationId: string;
   /** The payment window's end (ISO). */
   deadlineAt: string;
   /** Absent on every pointer written before open matches: a deposit. */
-  purpose?: 'deposit' | 'ticket';
+  purpose?: PaymentPurpose;
   /** A ticket purchase's continuation (§4.10.3), when it was bought for one. */
   after?: TicketContinuation;
+  /** A lesson payment's enrolment (coaching guest.md §4.9.3). */
+  lessonEnrolmentId?: string;
 }
 
 /** The three calls the pointer needs; AsyncStorage satisfies it. */
@@ -61,6 +70,10 @@ export function serializePendingPayment(p: PendingPayment): string {
     deadlineAt: p.deadlineAt,
     ...(p.purpose === 'ticket' ? { purpose: 'ticket' } : {}),
     ...(p.purpose === 'ticket' && p.after ? { after: p.after } : {}),
+    ...(p.purpose === 'lesson' ? { purpose: 'lesson' } : {}),
+    ...(p.purpose === 'lesson' && p.lessonEnrolmentId
+      ? { lessonEnrolmentId: p.lessonEnrolmentId }
+      : {}),
   });
 }
 
@@ -77,6 +90,13 @@ export function parsePendingPayment(raw: string | null): PendingPayment | null {
     if (typeof o.ref !== 'string' || !o.ref) return null;
     if (typeof o.reservationId !== 'string' || typeof o.deadlineAt !== 'string') return null;
     const base = { ref: o.ref, reservationId: o.reservationId, deadlineAt: o.deadlineAt };
+    if (o.purpose === 'lesson') {
+      const enrolment =
+        typeof o.lessonEnrolmentId === 'string' && o.lessonEnrolmentId ? o.lessonEnrolmentId : null;
+      return enrolment
+        ? { ...base, purpose: 'lesson', lessonEnrolmentId: enrolment }
+        : { ...base, purpose: 'lesson' };
+    }
     if (o.purpose !== 'ticket') return base;
     const after = o.after === undefined ? null : parseTicketContinuation(o.after);
     return after ? { ...base, purpose: 'ticket', after } : { ...base, purpose: 'ticket' };
@@ -162,6 +182,9 @@ const NOT_RESTING = new Set([
   '/tickets',
   '/match-new',
   '/match-report',
+  // Coaching (coaching guest.md §4.9.3): the lesson review is a form the
+  // guest is filling in.
+  '/lesson-review',
 ]);
 
 export function isResumeSafePath(pathname: string | null | undefined): boolean {
@@ -173,7 +196,7 @@ export function isResumeSafePath(pathname: string | null | undefined): boolean {
   if (pathname === '/staff' || pathname.startsWith('/staff-') || pathname.startsWith('/staff/')) {
     return false;
   }
-  // Coach mode (docs/design/coaching/guest.md §4.17): a working area with
+  // Coach mode (docs/design/coaching/guest.md §4.17, §4.9.3): a working area with
   // forms in progress (hours, a new session, a booking for a student), never
   // somewhere a guest payment should take over the screen.
   if (pathname === '/coach-mode' || pathname.startsWith('/coach-mode-')) return false;

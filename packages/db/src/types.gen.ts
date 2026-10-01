@@ -201,8 +201,9 @@ export type Database = {
     }
     Functions: {
       // PROVISIONAL coaching RPC types — replaced by the regenerated file at integration
-      // (coach mode, apps/mobile/src/features/coach; docs/design/coaching/build-contracts-2026-10-01.md
-      // §1.6, §1.13 R44/R61, §1.14). Exactly the RPCs coach mode calls.
+      // (docs/design/coaching/build-contracts-2026-10-01.md §1.6, §1.7, §1.12–§1.14; R17, R44,
+      // R61): the union of what the website, the guest's lessons and coach mode call. R17:
+      // p_venue_id may be NULL on coaching_public and coach_profile.
       add_my_time_off: {
         Args: { p_ends_at: string; p_reason: string; p_starts_at: string }
         Returns: Json
@@ -266,6 +267,10 @@ export type Database = {
         Returns: Json
       }
       coach_me: { Args: never; Returns: Json }
+      coach_profile: {
+        Args: { p_coach_id: string; p_venue_id?: string | null }
+        Returns: Json
+      }
       coach_remove_student: {
         Args: { p_enrolment_id: string; p_reason: string }
         Returns: Json
@@ -284,7 +289,50 @@ export type Database = {
         }
         Returns: Json
       }
+      coaching_public: { Args: { p_venue_id?: string | null }; Returns: Json }
+      course_join: {
+        Args: {
+          p_course_id: string
+          p_expected_price_iqd: number
+          p_idempotency_key: string
+          p_payment_mode: string
+        }
+        Returns: Json
+      }
+      lesson_book_private: {
+        Args: {
+          p_coach_id: string
+          p_expected_price_iqd: number
+          p_friend_names: string[]
+          p_idempotency_key: string
+          p_lesson_type_id: string
+          p_party_size: number
+          p_payment_mode: string
+          p_start_at: string
+        }
+        Returns: Json
+      }
+      lesson_cancel_mine: { Args: { p_enrolment_id: string }; Returns: Json }
+      lesson_join: {
+        Args: {
+          p_expected_price_iqd: number
+          p_idempotency_key: string
+          p_lesson_id: string
+          p_payment_mode: string
+        }
+        Returns: Json
+      }
+      lesson_link_confirm: {
+        Args: { p_enrolment_id: string; p_yes: boolean }
+        Returns: Json
+      }
+      lesson_offer: {
+        Args: { p_course_id?: string; p_lesson_id?: string }
+        Returns: Json
+      }
       my_coach_statements: { Args: { p_month?: string }; Returns: Json }
+      my_lesson: { Args: { p_enrolment_id: string }; Returns: Json }
+      my_lessons: { Args: { p_scope?: string }; Returns: Json }
       set_my_coach_hours: {
         Args: { p_venue_id: string; p_windows: Json }
         Returns: Json
@@ -1003,14 +1051,6 @@ export type Database = {
         }
         Returns: Json
       }
-      // PROVISIONAL coaching RPC types — replaced by the regenerated file at integration
-      // (docs/design/coaching/build-contracts-2026-10-01.md §1.6, R17: p_venue_id may be NULL).
-      coach_profile: {
-        Args: { p_coach_id: string; p_venue_id?: string | null }
-        Returns: Json
-      }
-      coaching_public: { Args: { p_venue_id?: string | null }; Returns: Json }
-      // END PROVISIONAL coaching RPC types
       coaching_rules: { Args: { p_venue: string }; Returns: Json }
       coaching_settings: { Args: { p_venue_id?: string }; Returns: Json }
       compute_tab_totals: {

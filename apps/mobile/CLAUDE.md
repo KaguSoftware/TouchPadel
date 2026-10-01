@@ -53,17 +53,23 @@ who coach from the "Coach mode" row of the staff hub (C-27).
 
 - Query keys are families exported next to their hooks: `availabilityKeys`, `bookingKeys`,
   `profileKeys` (`src/features/*/hooks.ts`), `historyKeys` (`src/features/booking/history.ts`) and
-  `matchKeys` (`src/features/matches/keys.ts`, re-exported by its `hooks.ts`). Extend a family;
-  never inline a key array in a component.
+  `matchKeys` (`src/features/matches/keys.ts`, re-exported by its `hooks.ts`), and coaching's
+  `coachingKeys` (`src/features/coaching/keys.ts`, the guest's lessons) and `coachKeys`
+  (`src/features/coach/keys.ts`, coach mode). Extend a family; never inline a key array in a
+  component.
+- Coaching (`docs/design/coaching/guest.md` §4.7): everything under `['coaching']` (the guest's
+  lessons) and `['coach']` (coach mode: a roster carries students' phones, a statement the coach's
+  pay) stays off disk, and every lesson and coach write runs now or fails now (CD-6,
+  `src/lib/queryClient.ts`). Bookings, joins, creations and adds take
+  `lessonIntentKey(intent, kind)` (`src/lib/idempotency.ts`): a guest's key is kept across
+  PHONE_REQUIRED, TERMS_REQUIRED and PRICE_CHANGED, a coach's only across a transport failure.
+  Cancels, the link confirm and attendance marks take none. Lesson push routes live in
+  `src/features/coaching/pushRoutes.ts`.
 - Open matches (`docs/design/open-matches/guest.md` §4.23): everything under `['match']` is live
   state and is never persisted (`src/lib/queryClient.ts` leaves it out of the dehydrate filter).
   `match_start` is the only match write with a key: `matchIntentKey(matchStartIntent(…))` from
   `src/lib/idempotency.ts`, kept across the refusals the guest fixes and the ticket continuation
   that replays the start. Every other match write is state-idempotent and takes none.
-- Coach mode: `coachKeys` (`src/features/coach/keys.ts`, `['coach', …]`) is never persisted (a
-  roster carries students' phones, a statement the coach's pay), and every coach write runs now or
-  fails now (CD-6). Bookings, creations and adds carry `lessonIntentKey(intent, kind)` from
-  `src/lib/idempotency.ts`, kept only across a transport failure.
 - Retry, online-pause, focus refetch and persistence are set once in `src/lib/queryClient.ts`; a
   screen does not override them.
 
@@ -122,7 +128,8 @@ who coach from the "Coach mode" row of the staff hub (C-27).
   (`sign-in.submit`, `bookings.filter.upcoming`); a list row appends its entity id
   (`bookings.upcoming.<reservationId>`). Route = the file path minus `app/`, `(tabs)` and `.tsx`,
   with `(tabs)/index` → `book`, `booking/[id]` → `booking-detail`, `(tabs)/_layout` → `tabs`,
-  `match/[id]` → `match-detail`, `m/[token]` → `match-link`.
+  `match/[id]` → `match-detail`, `m/[token]` → `match-link`, `coach/[id]` → `coach-detail`,
+  `class/[id]` → `class-detail`, `lesson/[id]` → `lesson-detail`.
   A shared component NEVER mints an id: it takes `testID?: string` and forwards it EXPLICITLY
   (`testID={testID}` — a `{...spread}` does not count, because the lint rule reads the JSX).
 - `testIdRules` from `@touch/config/eslint` fails `lint` on any interactive element without one

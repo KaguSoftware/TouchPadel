@@ -724,6 +724,10 @@ export const ar: Messages = {
     genderMale: 'مباريات النساء ومباريات الرجال: أنتَ مسجّل رجلًا، ويمكن لموظفي الاستقبال تعديل ذلك.',
     tickets: 'تذاكر المباريات المفتوحة',
     blockedPlayers: 'اللاعبون المحظورون',
+    // DRAFT-AR (coaching guest.md §4.15).
+    myLessons: 'حصصي',
+    coachMode: 'وضع المدرّب',
+    coachStatements: 'كشوف حساب المدرّب',
   },
   settings: {
     title: 'الإعدادات',

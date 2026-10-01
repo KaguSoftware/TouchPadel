@@ -166,14 +166,22 @@ export function clearAllMatchIntentKeys(): void {
 }
 
 /**
- * Coaching (docs/design/coaching/guest.md §4.7.4): every lesson booking,
- * join, creation and add takes `p_idempotency_key`, `MOBILE:lesson.<kind>:<ulid>`.
+ * Coaching (docs/design/coaching/guest.md §4.7.4). The booking and creation
+ * writes take `p_idempotency_key`; every other lesson write is
+ * state-idempotent on the server and takes none (cancels, the link confirm,
+ * attendance marks).
  *
- * The intent carries every mutable argument (`coach-book:<typeId>|<venueId>|
- * <startAt>|<party>|<name>` and the like), so a changed form sends a new key
- * and the server's replay of an old key never answers a different request.
- * A coach-mode key survives only a transport failure (the write may have
- * landed); any refusal created nothing, so it is cleared, as is a success.
+ * The intent names the mutable arguments (`private:<coachId>|<typeId>|
+ * <startAt>|<party>|<mode>`, `join:<lessonId>|<mode>`, `course:<courseId>|
+ * <mode>`, features/coaching/logic.ts), so a guest who changes the party or
+ * the payment mode after a refusal sends a new key and a replay never answers
+ * a different request. A guest's key survives the refusals the guest fixes
+ * (PHONE_REQUIRED, TERMS_REQUIRED, PRICE_CHANGED) and a dropped connection;
+ * it is cleared on success and on any other refusal. Coach mode's keys
+ * (`coach_book`, `create_group`, `create_course`, `add_student`; intents such
+ * as `coach-book:<typeId>|<venueId>|<startAt>|<party>|<name>`,
+ * features/coach) survive a dropped connection only (the write may have
+ * landed): any refusal created nothing, so it is cleared, as is a success.
  */
 export type LessonMutation =
   | 'book_private'
@@ -184,7 +192,7 @@ export type LessonMutation =
   | 'create_course'
   | 'add_student';
 
-/** Fresh lesson key. Only for a genuinely new intent. */
+/** Fresh lesson key, `MOBILE:lesson.<kind>:<ulid>`. Only for a genuinely new intent. */
 export function lessonIdemKey(kind: LessonMutation): string {
   return `MOBILE:lesson.${kind}:${ulid()}`;
 }

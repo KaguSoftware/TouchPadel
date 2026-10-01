@@ -31,6 +31,7 @@ import {
   failureTextKey,
   fetchFailureOf,
   holdIdOf,
+  isLessonPayment,
   isTerminalScreen,
   isTicketPayment,
   screenFor,
@@ -51,6 +52,9 @@ import {
   type TicketContinuation,
 } from '../../src/features/matches/continuation';
 import { matchErrorText } from '../../src/features/matches/errors';
+import { useStartLessonPayment } from '../../src/features/coaching/payment';
+import { lessonBeginRefusalOf, lessonErrorText } from '../../src/features/coaching/errors';
+import { pick } from '../../src/features/coaching/logic';
 import { openPaymentPage } from '../../src/features/deposit/browser';
 import { PayStateLayout, type PayTone } from '../../src/features/deposit/PayStateLayout';
 import { callPhone } from '../../src/lib/phone';
@@ -91,6 +95,13 @@ import { CalendarIcon, CardIcon, ClockIcon, TagIcon } from '../../src/components
  * here AT MOUNT, before the terminal effect forgets the pointer; once the
  * tickets are in, the same RPC runs once by itself (`continuationPlan`), or on
  * one tap when it is stale (§4.10.3).
+ *
+ * LESSONS (docs/design/coaching/guest.md §4.9.3) come through with `purpose:
+ * 'lesson'`: an enrolment, no reservation and no desk on this screen. Success
+ * is `lessonBooked` ("View the lesson" opens the pointer's enrolment, else the
+ * status's); a failure is tried again with a new `lesson-begin` while the hold
+ * is live; a payment that landed after the place was released is on its way
+ * back, never "slot lost".
  */
 function PayStatusScreen() {
   const { t, locale } = useLocale();
@@ -110,6 +121,7 @@ function PayStatusScreen() {
   const payment = useStartPayment();
   const ticketPurchase = useStartTicketPurchase();
   const runner = useRunTicketContinuation();
+  const lessonPayment = useStartLessonPayment();
   const courts = useAllCourts();
   const [error, setError] = useState<string | null>(null);
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -121,15 +133,27 @@ function PayStatusScreen() {
 
   // The pointer's continuation, read once at mount (§4.10.3 step 3): the
   // terminal effect below forgets the pointer, so it waits for this read.
-  const [pointer, setPointer] = useState<{ read: boolean; after: TicketContinuation | null }>(() => ({
+  const [pointer, setPointer] = useState<{
+    read: boolean;
+    after: TicketContinuation | null;
+    lessonEnrolmentId: string | null;
+  }>(() => ({
     read: !userId || !ref,
     after: null,
+    lessonEnrolmentId: null,
   }));
   useEffect(() => {
     if (!userId || !ref) return;
     let live = true;
     void loadPendingPayment(userId).then((stored) => {
-      if (live) setPointer({ read: true, after: stored?.ref === ref ? (stored.after ?? null) : null });
+      if (live) {
+        const mine = stored?.ref === ref ? stored : null;
+        setPointer({
+          read: true,
+          after: mine?.after ?? null,
+          lessonEnrolmentId: mine?.lessonEnrolmentId ?? null,
+        });
+      }
     });
     return () => {
       live = false;
@@ -143,6 +167,9 @@ function PayStatusScreen() {
 
   const data: DepositStatus | null = status.data ?? null;
   const isTicket = isTicketPayment(data);
+  const isLesson = isLessonPayment(data);
+  // The lesson the payment is for: the pointer's (this device began it), else the server's.
+  const lessonEnrolmentId = pointer.lessonEnrolmentId ?? data?.lesson?.enrolmentId ?? null;
   // A clock that moves between polls, so the countdown ticks and the window
   // can close on screen even while a poll is paused offline.
   const [deviceNow, setDeviceNow] = useState(() => Date.now());
@@ -162,7 +189,9 @@ function PayStatusScreen() {
     : undefined;
   const courtName = court ? pickLocale({ en: court.name_en, ar: court.name_ar }, locale) : '';
   // The booking's own branch: its phone is the one to call about this money.
-  const settings = useVenueSettings(reservation?.venueId ?? (data ? undefined : null));
+  const settings = useVenueSettings(
+    reservation?.venueId ?? data?.lesson?.venueId ?? (data ? undefined : null),
+  );
   const phone = venuePhoneOf(settings.data);
   const holdId = data ? holdIdOf(data, null) : null;
 
@@ -181,6 +210,12 @@ function PayStatusScreen() {
 
   const toBookings = () => go(() => router.replace('/(tabs)/bookings'));
   const toTickets = () => go(() => router.replace('/tickets'));
+  const toLesson = () =>
+    go(() =>
+      lessonEnrolmentId
+        ? router.replace({ pathname: '/lesson/[id]', params: { id: lessonEnrolmentId } })
+        : router.replace('/my-lessons'),
+    );
   const toGrid = () =>
     go(() => {
       requestBookingSheet();
@@ -339,6 +374,23 @@ function PayStatusScreen() {
     });
   };
 
+  /** A new `lesson-begin` for the same enrolment (§4.9.3): Money answers a live attempt with its own ref. */
+  const tryAgainLesson = () => {
+    if (!lessonEnrolmentId) return;
+    setError(null);
+    lessonPayment.start(lessonEnrolmentId, {
+      beforeNavigate: () => leave(() => {}),
+      onError: (err) => {
+        if (lessonBeginRefusalOf(err) === 'phone') {
+          go(() => router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } }));
+          return;
+        }
+        void status.refetch();
+        setError(lessonErrorText(err, t, { locale, phone }));
+      },
+    });
+  };
+
   /** Leave a purchase that did not go through: back to what it was for, else the wallet. */
   const backFromTickets = () => {
     const c = continuation;
@@ -485,9 +537,75 @@ function PayStatusScreen() {
     );
   })();
 
+  // ── The lesson the payment is for (§4.9.3): "{type} · {coach}", the day and time ──
+  const lessonSummary = (() => {
+    if (!data || !isLesson) return null;
+    const l = data.lesson ?? null;
+    const type = l ? pick(l.typeNameEn, l.typeNameAr, locale) : '';
+    const coach = l ? pick(l.coachNameEn, l.coachNameAr, locale) : '';
+    const start = l?.startAt ? new Date(l.startAt) : null;
+    const end = l?.endAt ? new Date(l.endAt) : null;
+    const rows: SummaryRow[] = [];
+    if (start) {
+      rows.push({ icon: CalendarIcon, label: t('booking.date'), value: formatDate(start, locale) });
+      rows.push({
+        icon: ClockIcon,
+        label: t('booking.time'),
+        value: end ? formatTimeRange(start, end, locale) : formatDateTime(start, locale),
+      });
+    }
+    if (refundish) {
+      rows.push({
+        icon: CardIcon,
+        label: t('deposit.refund'),
+        value: formatIQD(data.refundAmountIqd ?? data.amountIqd ?? 0, locale),
+        valueColor: colors.gtext,
+        emphasis: true,
+      });
+    } else if (screen.kind !== 'expired' && data.amountIqd != null) {
+      rows.push({
+        icon: CardIcon,
+        label: t(screen.kind === 'lessonBooked' ? 'deposit.paidOnline' : 'deposit.payingNow'),
+        value: formatIQD(data.amountIqd, locale),
+        valueColor: colors.gtext,
+        emphasis: true,
+      });
+    }
+    return (
+      <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              flexShrink: 1,
+              alignSelf: 'flex-start',
+              fontFamily: fonts.display900,
+              fontSize: 18,
+              textTransform: 'uppercase',
+              color: colors.ink,
+            }}
+          >
+            {type && coach
+              ? t('coaching.guest.pay.summary', { type: isolate(type), coach: isolate(coach) })
+              : type || coach || t('coaching.common.lesson')}
+          </Text>
+          <View style={{ flex: 1 }} />
+          {sandboxPill}
+        </View>
+        {rows.length > 0 ? (
+          <>
+            <DashedDivider style={{ marginTop: 12, marginBottom: 12 }} />
+            <SummaryGrid rows={rows} />
+          </>
+        ) : null}
+      </Card>
+    );
+  })();
+
   // ── The booking the payment is for ──────────────────────────────────────
   const summary = (() => {
     if (isTicket) return ticketSummary;
+    if (isLesson) return lessonSummary;
     if (!data || !reservation?.startAt) return null;
     const start = new Date(reservation.startAt);
     const end = reservation.endAt ? new Date(reservation.endAt) : null;
@@ -649,7 +767,14 @@ function PayStatusScreen() {
           t('deposit.stillCheckingTitle'),
           t(isTicket ? 'matches.pay.stillCheckingBody' : 'deposit.stillCheckingBody'),
           <>
-            {isTicket ? (
+            {isLesson ? (
+              <Button
+                testID="pay-status.view-lesson"
+                label={t('coaching.guest.pay.viewLesson')}
+                variant="cta"
+                onPress={toLesson}
+              />
+            ) : isTicket ? (
               <Button
                 testID="pay-status.view-tickets"
                 label={t('matches.pay.viewTickets')}
@@ -710,6 +835,19 @@ function PayStatusScreen() {
           ),
         );
 
+      case 'lessonBooked':
+        return layout(
+          'good',
+          t('coaching.guest.pay.lessonBooked'),
+          t('coaching.guest.pay.lessonBookedBody'),
+          <Button
+            testID="pay-status.view-lesson"
+            label={t('coaching.guest.pay.viewLesson')}
+            variant="cta"
+            onPress={toLesson}
+          />,
+        );
+
       case 'ticketsBought': {
         const running = runner.busy;
         const runningKey =
@@ -749,6 +887,32 @@ function PayStatusScreen() {
       }
 
       case 'failed':
+        if (isLesson) {
+          return layout(
+            'bad',
+            t('deposit.failedTitle'),
+            t(failureTextKey(screen.reason)),
+            <>
+              {screen.canRetry ? (
+                <Button
+                  testID="pay-status.try-again"
+                  label={t('deposit.tryAgain')}
+                  variant="cta"
+                  busy={lessonPayment.busy}
+                  onPress={tryAgainLesson}
+                />
+              ) : null}
+              <Button
+                testID="pay-status.back"
+                label={t('common.back')}
+                variant={screen.canRetry ? 'ghost' : 'cta'}
+                disabled={lessonPayment.busy}
+                onPress={toLesson}
+              />
+            </>,
+            [screen.outOfAttempts ? t('deposit.failedNoAttempts') : null],
+          );
+        }
         if (isTicket) {
           return layout(
             'bad',
@@ -818,6 +982,19 @@ function PayStatusScreen() {
         );
 
       case 'expired':
+        if (isLesson) {
+          return layout(
+            'neutral',
+            t('deposit.expiredTitle'),
+            t('coaching.guest.pay.expiredBody'),
+            <Button
+              testID="pay-status.back"
+              label={t('common.back')}
+              variant="cta"
+              onPress={toLesson}
+            />,
+          );
+        }
         if (isTicket) {
           const canRetry = (data?.attemptsLeft ?? 0) > 0;
           return layout(
@@ -879,6 +1056,19 @@ function PayStatusScreen() {
         );
 
       case 'refundPending':
+        if (isLesson) {
+          return layout(
+            'wait',
+            t('deposit.refundPendingTitle'),
+            t('coaching.guest.pay.refundPending'),
+            <Button
+              testID="pay-status.view-lesson"
+              label={t('coaching.guest.pay.viewLesson')}
+              variant="cta"
+              onPress={toLesson}
+            />,
+          );
+        }
         return layout(
           'wait',
           t('deposit.refundPendingTitle'),
@@ -903,12 +1093,21 @@ function PayStatusScreen() {
           at && Number.isFinite(at.getTime())
             ? t('deposit.refundedBody', { amount, date: formatDate(at, locale) })
             : t('deposit.refundedBodyNoDate', { amount }),
-          <Button
-            testID="pay-status.bookings"
-            label={t('booking.myBookings')}
-            variant="cta"
-            onPress={toBookings}
-          />,
+          isLesson ? (
+            <Button
+              testID="pay-status.view-lesson"
+              label={t('coaching.guest.pay.viewLesson')}
+              variant="cta"
+              onPress={toLesson}
+            />
+          ) : (
+            <Button
+              testID="pay-status.bookings"
+              label={t('booking.myBookings')}
+              variant="cta"
+              onPress={toBookings}
+            />
+          ),
         );
       }
 
@@ -926,10 +1125,10 @@ function PayStatusScreen() {
               onPress={callVenue}
             />
             <Button
-              testID="pay-status.bookings"
-              label={t('booking.myBookings')}
+              testID={isLesson ? 'pay-status.view-lesson' : 'pay-status.bookings'}
+              label={t(isLesson ? 'coaching.guest.pay.viewLesson' : 'booking.myBookings')}
               variant="ghost"
-              onPress={toBookings}
+              onPress={isLesson ? toLesson : toBookings}
             />
           </>,
         );
@@ -956,14 +1155,21 @@ function PayStatusScreen() {
       <ConfirmAlert
         visible={leaveOpen}
         title={t('deposit.leaveTitle')}
-        body={t(isTicket ? 'matches.pay.leaveBody' : 'deposit.leaveBody')}
+        body={t(
+          isLesson
+            ? 'coaching.guest.pay.leaveBody'
+            : isTicket
+              ? 'matches.pay.leaveBody'
+              : 'deposit.leaveBody',
+        )}
         confirmLabel={t('deposit.leave')}
         cancelLabel={t('deposit.stay')}
         onConfirm={() => {
           setLeaveOpen(false);
           // My reservations is where a payment that settles later shows up;
           // the wallet, for tickets (it shows the purchase in progress).
-          if (isTicket) toTickets();
+          if (isLesson) toLesson();
+          else if (isTicket) toTickets();
           else toBookings();
         }}
         onDismiss={() => setLeaveOpen(false)}

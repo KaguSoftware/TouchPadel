@@ -816,6 +816,11 @@ export const en = {
       "Women-only and men-only matches: you're listed as a man. The front desk can change this.",
     tickets: 'Open-match tickets',
     blockedPlayers: 'Blocked players',
+    // Coaching (docs/design/coaching/guest.md §4.8.1): My lessons, and coach
+    // mode for a coach (its statements for a retired one, C-25).
+    myLessons: 'My lessons',
+    coachMode: 'Coach mode',
+    coachStatements: 'Coach statements',
   },
   settings: {
     title: 'Settings',

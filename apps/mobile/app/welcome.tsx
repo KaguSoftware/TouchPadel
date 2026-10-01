@@ -13,6 +13,7 @@ import { mirror } from '../src/i18n/direction';
 import { usePendingSlot } from '../src/features/booking/pendingSlot';
 import { clearPendingIntents } from '../src/features/booking/pendingIntent';
 import { usePendingJoin } from '../src/features/matches/pendingJoin';
+import { usePendingLesson } from '../src/features/coaching/pendingLesson';
 import { brand, radius, useTheme } from '../src/theme';
 import { Button } from '../src/components/ui';
 import { useBack } from '../src/navigation/back';
@@ -39,6 +40,8 @@ function WelcomeScreen() {
   // the banner names the match, not a seat. A held slot wins: it is the one
   // with a clock on it.
   const pendingJoin = usePendingJoin();
+  // A lesson time or a class the guest was about to book (coaching guest.md §4.9.5).
+  const pendingLesson = usePendingLesson();
 
   const pendingLabel = pending
     ? `${pickLocale({ en: pending.courtNameEn, ar: pending.courtNameAr }, locale)} · ${formatTime(
@@ -50,7 +53,9 @@ function WelcomeScreen() {
     ? t('auth.pendingSlotBanner', { label: isolate(pendingLabel) })
     : pendingJoin
       ? t('matches.link.pendingBanner')
-      : null;
+      : pendingLesson
+        ? t('coaching.guest.welcome.banner')
+        : null;
 
   return (
     // The design's 168deg three-stop ramp; art bleeds under the status bar.
