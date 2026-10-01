@@ -32,7 +32,7 @@
  *    never money.
  */
 import { createServiceClient } from '../_shared/supabase.ts';
-import { json } from '../_shared/http.ts';
+import { fetchWithTimeout, handle, json, KB, logError, readJsonBody } from '../_shared/http.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
 import {
   MIN_ATTACH_BOOKINGS,
@@ -279,23 +279,25 @@ async function chat(
 ): Promise<string> {
   const remaining = deadline - Date.now();
   if (remaining < 1500) throw new UpstreamError(504, 'budget exhausted');
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), remaining);
   try {
-    const res = await fetch(GROQ_URL, {
-      method: 'POST',
-      signal: ctrl.signal,
-      headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        temperature: 0,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-      }),
-    });
+    // The request's whole budget is the deadline, reply body included.
+    const res = await fetchWithTimeout(
+      GROQ_URL,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          temperature: 0,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+        }),
+      },
+      remaining,
+    );
     const text = await res.text();
     if (!res.ok) throw new UpstreamError(res.status, `groq ${res.status}: ${text.slice(0, 300)}`);
     const parsed = JSON.parse(text) as {
@@ -312,8 +314,6 @@ async function chat(
   } catch (err) {
     if (err instanceof UpstreamError) throw err;
     throw new UpstreamError(504, err instanceof Error ? err.message : String(err));
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -888,20 +888,22 @@ async function modePatterns(req: Req, deadline: number, tally: Tally): Promise<{
 }
 
 // ---------------------------------------------------------------------------
-Deno.serve(async (req) => {
+/** The page's aggregates for one card: tens of KB at most; 512 KB is generous and still bounded. */
+const MAX_BODY = 512 * KB;
+
+Deno.serve(handle('analytics-insights', async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 
   const service = createServiceClient();
   const auth = await requireStaffRole(req, service, ['owner']);
   if (auth instanceof Response) return auth;
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400);
-  }
-  const parsed = parseBody(body);
+  const read = await readJsonBody(req, {
+    maxBytes: MAX_BODY,
+    badJson: () => json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400),
+  });
+  if (!read.ok) return read.response;
+  const parsed = parseBody(read.value);
   if (typeof parsed === 'string') return json({ error: 'INVALID_REQUEST', message: parsed }, 400);
 
   // Degraded path: no key → templated sentences, 200 (the card still renders).
@@ -946,8 +948,8 @@ Deno.serve(async (req) => {
         429,
       );
     }
-    console.error('[analytics-insights] budget gate failed', code);
-    return json({ error: 'UPSTREAM', code: 'UPSTREAM', message: code }, 502);
+    logError('analytics-insights', budget.error, 'budget gate failed');
+    return json({ error: 'UPSTREAM', code: 'UPSTREAM' }, 502);
   }
 
   const deadline = Date.now() + BUDGET_MS;
@@ -968,11 +970,11 @@ Deno.serve(async (req) => {
     }
   } catch (err) {
     const status = err instanceof UpstreamError ? err.status : 500;
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[analytics-insights] upstream failure', status, message);
+    logError('analytics-insights', err, `upstream failure ${status}`);
     // 429 / 5xx / timeout at Groq → 502 UPSTREAM (operator maps 5xx → EDGE_UPSTREAM, one retry).
-    // Other 4xx (bad key, retired model) are permanent: 502 too, but say so in detail.
-    return json({ error: 'UPSTREAM', code: 'UPSTREAM', upstream_status: status, message }, 502);
+    // Other 4xx (bad key, retired model) are permanent: 502 too, and upstream_status says
+    // which. Groq's own text stays in the log.
+    return json({ error: 'UPSTREAM', code: 'UPSTREAM', upstream_status: status }, 502);
   } finally {
     // In `finally` on purpose: a request that burned five calls and then timed
     // out on the sixth has still spent the money, and a cap that only counts
@@ -987,4 +989,4 @@ Deno.serve(async (req) => {
       if (rec.error) console.error('[analytics-insights] usage not recorded', rec.error.message);
     }
   }
-});
+}));

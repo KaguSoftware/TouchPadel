@@ -7,6 +7,7 @@
  * nothing); a named vendor with missing secrets, or an unknown name, fails
  * every send loudly rather than falling back to `log`.
  */
+import { isLocalRuntime } from '../http.ts';
 import { logProvider } from './log.ts';
 import { otpiqProvider } from './otpiq.ts';
 import { twilioProvider } from './twilio.ts';
@@ -43,16 +44,11 @@ export async function sendSms(args: SmsSendArgs, get: EnvGetter): Promise<SmsSen
 }
 
 /**
- * True only when this clearly runs under `supabase functions serve`: the
- * platform URL points at the local gateway. Anything else, including a
- * missing URL, counts as HOSTED so the log adapter redacts the code.
- * (Supabase injects no environment-name variable on hosted, so the URL is the
- * signal both runtimes share.)
+ * True only when this clearly runs under `supabase functions serve`; anything
+ * else, including a missing URL, counts as HOSTED so the log adapter redacts
+ * the code. One copy for every function (../http.ts), re-exported here.
  */
-export function isLocalRuntime(get: EnvGetter): boolean {
-  const url = (get('SUPABASE_URL') ?? '').trim();
-  return /^http:\/\/(kong|localhost|127\.0\.0\.1|host\.docker\.internal)(:\d+)?(\/|$)/.test(url);
-}
+export { isLocalRuntime };
 
 /**
  * An adapter that refuses every send. Used when SMS_PROVIDER names a vendor

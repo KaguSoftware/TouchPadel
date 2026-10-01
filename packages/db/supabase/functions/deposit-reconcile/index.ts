@@ -21,7 +21,7 @@
  * Bounded: 50 rows and a 45 s budget, under the cron's 60 s lease.
  */
 import { applyGateway, checkNow, describe, loadPayment, providerFor, synthetic } from '../_shared/deposits.ts';
-import { json } from '../_shared/http.ts';
+import { handle, json, logError } from '../_shared/http.ts';
 import { PaymentProviderError } from '../_shared/payments/index.ts';
 import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 
@@ -48,7 +48,7 @@ interface DueRow {
   ticket_count: number | null;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(handle('deposit-reconcile', async (req) => {
   if (req.method !== 'POST') return json({ error: 'BAD_REQUEST' }, 405);
   if (!isServiceRoleRequest(req)) return json({ error: 'FORBIDDEN' }, 403);
 
@@ -93,6 +93,7 @@ Deno.serve(async (req) => {
     } catch (error) {
       console.warn(`[deposit-reconcile] cancel ${full.request_id}: ${describe(error)}`);
       const n = await service.schema('app').rpc('deposit_note_cancel_attempt', { p_payment_id: full.id });
+      if (n.error) logError('deposit-reconcile', n.error, `cancel attempt not counted for ${full.request_id}`);
       if (!n.error && Number(n.data) >= MAX_CANCEL_ATTEMPTS) {
         // One last look: a payment that turned SUCCESS meanwhile is applied as such.
         const last = await checkNow(env, service, full, 'reconcile');
@@ -142,4 +143,4 @@ Deno.serve(async (req) => {
       await outcome('unknown', null, null, { error: describe(error) });
     }
   }
-});
+}));

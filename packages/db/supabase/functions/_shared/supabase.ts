@@ -20,6 +20,19 @@ export function createServiceClient(): SupabaseClient {
 }
 
 /**
+ * A client bound to the CALLER's JWT (the request's Authorization header), so
+ * RLS, every RPC's role guard and every audit row see the real auth.uid() —
+ * never the service role. `headers` adds request headers the database reads
+ * (`x-station-id`, `x-venue-scope`, 0215/0228).
+ */
+export function callerClient(req: Request, headers: Record<string, string> = {}): SupabaseClient {
+  return createClient(env('SUPABASE_URL'), env('SUPABASE_ANON_KEY'), {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: req.headers.get('Authorization') ?? '', ...headers } },
+  });
+}
+
+/**
  * True when the request carries the service-role key (cron / trusted server).
  *
  * Two shapes are accepted:

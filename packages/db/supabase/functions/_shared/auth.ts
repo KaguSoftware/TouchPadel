@@ -11,7 +11,7 @@
  */
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { getCallerUserId } from './supabase.ts';
-import { json } from './http.ts';
+import { json, logError } from './http.ts';
 
 export type StaffRole =
   | 'cashier'
@@ -50,7 +50,11 @@ export async function requireStaffRole(
     .select('id, role, is_active')
     .eq('id', userId)
     .maybeSingle();
-  if (error) return json({ error: 'INTERNAL', message: error.message }, 500);
+  if (error) {
+    // The staff read failed: the caller gets the code, the log gets the text.
+    logError('auth', error, 'staff lookup');
+    return json({ error: 'INTERNAL' }, 500);
+  }
   if (!data || !data.is_active) {
     return json({ error: 'FORBIDDEN', message: 'caller is not active staff' }, 403);
   }

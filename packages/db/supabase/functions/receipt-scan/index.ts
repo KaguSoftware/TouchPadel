@@ -16,15 +16,14 @@
  *
  * verify_jwt = true (config.toml).
  */
-import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { json } from '../_shared/http.ts';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { handle, isUuid, json, KB, readJsonBody } from '../_shared/http.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
-import { createServiceClient } from '../_shared/supabase.ts';
+import { callerClient, createServiceClient } from '../_shared/supabase.ts';
 import { readerFromEnv, type ScanKind } from '../_shared/receipts/index.ts';
 import { PortError, SCAN_SURFACE, scanReceipt, type ScanPorts } from './scan.ts';
 
 const STAFF_BUCKET = 'staff-media';
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Per kind: who may ask, and the RPCs behind the ports. */
 const KINDS: Record<ScanKind, {
@@ -55,13 +54,6 @@ const KINDS: Record<ScanKind, {
     notFound: 'SLIP_NOT_FOUND',
   },
 };
-
-function callerClient(req: Request): SupabaseClient {
-  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: req.headers.get('Authorization')! } },
-  });
-}
 
 const log = (message: string) => console.error('[receipt-scan]', message);
 
@@ -116,17 +108,17 @@ function ports(service: SupabaseClient, kind: ScanKind, requestedBy: string): Sc
   };
 }
 
-Deno.serve(async (req) => {
+Deno.serve(handle('receipt-scan', async (req) => {
   if (req.method !== 'POST') return json({ error: 'BAD_REQUEST', message: 'POST only' }, 405);
-  let body: { receipt_id?: unknown; slip_id?: unknown } = {};
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return json({ error: 'BAD_REQUEST', message: 'invalid JSON body' }, 400);
-  }
+  const read = await readJsonBody<{ receipt_id?: unknown; slip_id?: unknown }>(req, {
+    maxBytes: 4 * KB,
+    badJson: () => json({ error: 'BAD_REQUEST', message: 'invalid JSON body' }, 400),
+  });
+  if (!read.ok) return read.response;
+  const body = read.value;
   const kind: ScanKind | null = typeof body.slip_id === 'string' ? 'order_slip' : typeof body.receipt_id === 'string' ? 'receipt' : null;
   const id = kind === 'order_slip' ? String(body.slip_id) : String(body.receipt_id ?? '');
-  if (!kind || !UUID_RE.test(id)) {
+  if (!kind || !isUuid(id)) {
     return json({ error: 'BAD_REQUEST', message: 'receipt_id or slip_id must be a uuid' }, 400);
   }
   const k = KINDS[kind];
@@ -152,4 +144,4 @@ Deno.serve(async (req) => {
     log(`failed ${id}: ${e instanceof Error ? e.message : String(e)}`);
     return json({ error: 'INTERNAL' }, 500);
   }
-});
+}));

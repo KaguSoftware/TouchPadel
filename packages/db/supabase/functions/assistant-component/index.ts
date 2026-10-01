@@ -33,10 +33,10 @@
  * The door (plan §11.0): tool rows reach the model only as `cleanedText()` of
  * a `Cleaned` value; nothing else compiles into a ProviderMessage.
  */
-import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { callerClient, createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
-import { json, mapPgError } from '../_shared/http.ts';
+import { handle, isUuid, json, KB, logError, mapPgError, pgErrorBody, readJsonBody } from '../_shared/http.ts';
 import { clean, CleanError, cleanedNotice, sourceForTool, type Cleaned, type CleanStats } from '../_shared/assistant/clean.ts';
 import { gateAnswer, retryMessage, type GateResult } from '../_shared/assistant/gate.ts';
 import { newHandleTable } from '../_shared/assistant/handles.ts';
@@ -52,7 +52,8 @@ const WALL_MS = 50_000;
 const PREWARM_WALL_MS = 120_000;
 const DEFAULT_TZ = 'Asia/Baghdad';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A card key, its params and an optional rejection sentence. */
+const MAX_BODY = 32 * KB;
 const KEY_RE = /^[a-z][a-z0-9_]{2,63}$/;
 const COMPARES = ['none', 'previousPeriod', 'sameLastYear'] as const;
 const SCOPES = ['cafe', 'courts'] as const;
@@ -136,7 +137,7 @@ function parseParams(v: unknown): Params | string {
     out.scope = p.scope as Scope;
   }
   if (p.court !== undefined && p.court !== null && p.court !== '') {
-    if (typeof p.court !== 'string' || !UUID_RE.test(p.court)) return 'params.court must be a court uuid';
+    if (!isUuid(p.court)) return 'params.court must be a court uuid';
     out.court = p.court.toLowerCase();
   }
   return out;
@@ -171,12 +172,17 @@ interface Reader {
   timezone(): Promise<string>;
 }
 
-function ownerClient(req: Request): SupabaseClient {
-  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: req.headers.get('Authorization')! } },
-  });
-}
+/**
+ * The sentence a failed generation answers with, by code; the vendor's or the
+ * database's own text goes to the log only.
+ */
+const FILL_ERROR_TEXT: Record<string, string> = {
+  UPSTREAM: 'the card could not be generated',
+  RATE_LIMITED: 'the model is rate-limited right now; try again in a minute',
+  NOT_CONFIGURED: 'the model is not configured',
+  TIMEOUT: 'the model call timed out',
+};
+const fillErrorText = (code: string) => FILL_ERROR_TEXT[code] ?? FILL_ERROR_TEXT.UPSTREAM!;
 
 function asLookup(data: unknown): Lookup {
   const d = data as Lookup | null;
@@ -523,8 +529,8 @@ async function fill(ctx: Ctx, component: ComponentRow, params: Params, force: bo
       const which = code.includes('LLM_MONTHLY_CAP') ? 'LLM_MONTHLY_CAP' : 'LLM_DAILY_QUOTA';
       return { status: 429, body: { error: which, code: which, message: budget.error.details ?? code, hint: budget.error.hint ?? null } };
     }
-    console.error(`[${ctx.log}] budget gate failed`, code);
-    return { status: 502, body: { error: 'UPSTREAM', code: 'UPSTREAM', message: code } };
+    logError(ctx.log, budget.error, 'budget gate failed');
+    return { status: 502, body: { error: 'UPSTREAM', code: 'UPSTREAM', message: fillErrorText('UPSTREAM') } };
   }
 
   const rejections = component.key.endsWith('_findings') ? await ctx.reader.rejections() : [];
@@ -534,7 +540,8 @@ async function fill(ctx: Ctx, component: ComponentRow, params: Params, force: bo
   } catch (e) {
     const pe = e instanceof ProviderError ? e : new ProviderError('UPSTREAM', errorText(e));
     const status = pe.code === 'NOT_CONFIGURED' ? 503 : pe.code === 'RATE_LIMITED' ? 429 : 502;
-    return { status, body: { error: pe.code, code: pe.code, message: pe.message } };
+    logError(ctx.log, pe, `generate ${component.key} failed (${pe.code})`);
+    return { status, body: { error: pe.code, code: pe.code, message: fillErrorText(pe.code) } };
   }
 
   // Record usage once (priced by the database), then store the row with the cost it reported.
@@ -556,8 +563,8 @@ async function fill(ctx: Ctx, component: ComponentRow, params: Params, force: bo
     p: { key: component.key, params, inputs_fingerprint: fingerprint, content: gen.content, sources, gate: gen.gate, tokens },
   });
   if (up.error) {
-    console.error(`[${ctx.log}] upsert`, up.error.message);
-    return { status: 502, body: { error: 'UPSTREAM', code: 'UPSTREAM', message: up.error.message } };
+    logError(ctx.log, up.error, `upsert ${component.key} failed`);
+    return { status: 502, body: { error: 'UPSTREAM', code: 'UPSTREAM', message: fillErrorText('UPSTREAM') } };
   }
   const row = up.data as { generated_at?: string } | null;
   return {
@@ -602,7 +609,10 @@ function prewarmLangs(): Lang[] {
 
 async function prewarm(ctx: Ctx, startedAt: number): Promise<Response> {
   const { data, error } = await ctx.service.from('assistant_components').select('key, kind, question, output_schema, tools, default_params').eq('kind', 'builtin').is('archived_at', null).order('key');
-  if (error) return json({ error: 'UPSTREAM', message: error.message }, 502);
+  if (error) {
+    logError('assistant-component', error, 'prewarm: components read failed');
+    return json({ error: 'UPSTREAM' }, 502);
+  }
   const components = (data ?? []) as ComponentRow[];
   const today = localDate(new Date(), ctx.tz);
   const report: { key: string; range: string; lang: Lang; result: string }[] = [];
@@ -629,7 +639,8 @@ async function prewarm(ctx: Ctx, startedAt: number): Promise<Response> {
             break outer; // over the cap or the day's quota: stop spending
           }
         } catch (e) {
-          report.push({ key: component.key, range: range.name, lang, result: `error: ${errorText(e)}` });
+          logError('assistant-component', e, `prewarm ${component.key} ${range.name} ${lang} failed`);
+          report.push({ key: component.key, range: range.name, lang, result: 'error' });
         }
       }
     }
@@ -640,17 +651,17 @@ async function prewarm(ctx: Ctx, startedAt: number): Promise<Response> {
 // ---------------------------------------------------------------------------
 // Serve
 // ---------------------------------------------------------------------------
-Deno.serve(async (req) => {
+Deno.serve(handle('assistant-component', async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   const startedAt = Date.now();
   const service = createServiceClient();
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400);
-  }
+  const read = await readJsonBody(req, {
+    maxBytes: MAX_BODY,
+    badJson: () => json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400),
+  });
+  if (!read.ok) return read.response;
+  const body: unknown = read.value;
 
   // 0140: components generate on the chain default model (its vendor decides the key; platform_settings since 0207).
   const { data: vsRow } = await service.from('platform_settings').select('llm_default_model').eq('id', true).maybeSingle();
@@ -667,7 +678,7 @@ Deno.serve(async (req) => {
       return await prewarm({ service, reader, provider, tz, signal: abort.signal, log: 'assistant-component/prewarm' }, startedAt);
     } catch (e) {
       console.error('[assistant-component] prewarm failed', errorText(e));
-      return json({ error: 'UPSTREAM', message: errorText(e) }, 502);
+      return json({ error: 'UPSTREAM' }, 502);
     } finally {
       clearTimeout(wall);
     }
@@ -678,7 +689,7 @@ Deno.serve(async (req) => {
 
   const auth = await requireStaffRole(req, service, ['owner']);
   if (auth instanceof Response) return auth;
-  const asOwner = ownerClient(req);
+  const asOwner = callerClient(req);
   const reader = ownerReader(asOwner);
 
   const wall = setTimeout(() => abort.abort(), WALL_MS);
@@ -691,8 +702,8 @@ Deno.serve(async (req) => {
       // Hide a finding: store the rejection as the owner FIRST (the regeneration must know it), then rewrite.
       const rej = await asOwner.schema('app').rpc('reject_insight', { p_text: parsed.reject.text, p_reason: parsed.reject.reason });
       if (rej.error) {
-        const mapped = mapPgError(rej.error);
-        return json({ error: mapped.code, code: mapped.code, message: mapped.message }, mapped.status);
+        const refused = pgErrorBody(rej.error, 'assistant-component');
+        return json({ ...refused.body, code: refused.body.error }, refused.status);
       }
       force = true;
     }
@@ -702,15 +713,20 @@ Deno.serve(async (req) => {
     if (parsed.reject && out.status === 200 && out.body.hit !== true) {
       // Degraded after a rejection: the live row still shows the hidden finding, so retire it.
       const lookup = await reader.lookup(component.key, parsed.params);
-      if (lookup.hit) await service.schema('app').rpc('assistant_component_supersede', { p_key: component.key, p_params_hash: lookup.params_hash });
+      if (lookup.hit) {
+        const sup = await service.schema('app').rpc('assistant_component_supersede', { p_key: component.key, p_params_hash: lookup.params_hash });
+        // The hidden finding stays on the card until the next fill: logged, not fatal.
+        if (sup.error) logError('assistant-component', sup.error, `supersede after a rejection failed for ${component.key}`);
+      }
     }
     return json(out.body, out.status);
   } catch (e) {
     const mapped = e && typeof e === 'object' && 'code' in e ? mapPgError(e as { code?: string; message?: string }) : null;
-    if (mapped && mapped.code === 'COMPONENT_NOT_FOUND') return json({ error: mapped.code, code: mapped.code, message: mapped.message }, 404);
+    // COMPONENT_NOT_FOUND is our own P0001 code: its message IS the code.
+    if (mapped && mapped.code === 'COMPONENT_NOT_FOUND') return json({ error: mapped.code, code: mapped.code, message: mapped.code }, 404);
     console.error('[assistant-component] failed', errorText(e));
-    return json({ error: 'UPSTREAM', code: 'UPSTREAM', message: errorText(e) }, 502);
+    return json({ error: 'UPSTREAM', code: 'UPSTREAM', message: fillErrorText('UPSTREAM') }, 502);
   } finally {
     clearTimeout(wall);
   }
-});
+}));

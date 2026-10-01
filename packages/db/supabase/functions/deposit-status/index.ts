@@ -11,32 +11,28 @@
  * (source 'poll'): this is what makes a lost webhook harmless. A gateway that
  * does not answer changes nothing; the screen keeps showing "checking".
  */
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import { OPEN, checkNow, describe, isUuid, loadPayment } from '../_shared/deposits.ts';
-import { isRetryablePgError, json } from '../_shared/http.ts';
-import { createServiceClient } from '../_shared/supabase.ts';
+import { handle, isRetryablePgError, json, KB, readJsonBody } from '../_shared/http.ts';
+import { callerClient, createServiceClient } from '../_shared/supabase.ts';
 
 const env = (name: string) => Deno.env.get(name);
 const RECHECK_MS = 3_000;
 
-Deno.serve(async (req) => {
+Deno.serve(handle('deposit-status', async (req) => {
   if (req.method !== 'POST') return json({ error: 'BAD_REQUEST', message: 'POST only' }, 405);
   const authorization = req.headers.get('Authorization') ?? '';
   if (!authorization.startsWith('Bearer ')) return json({ error: 'AUTH_REQUIRED' }, 401);
 
-  let body: { ref?: unknown };
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return json({ error: 'BAD_REQUEST', message: 'invalid JSON body' }, 400);
-  }
-  if (!isUuid(body.ref)) return json({ error: 'BAD_REQUEST', message: 'ref must be a uuid' }, 400);
-  const ref = body.ref;
-
-  const caller = createClient(env('SUPABASE_URL')!, env('SUPABASE_ANON_KEY')!, {
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false, autoRefreshToken: false },
+  const body = await readJsonBody<{ ref?: unknown }>(req, {
+    maxBytes: 4 * KB,
+    badJson: () => json({ error: 'BAD_REQUEST', message: 'invalid JSON body' }, 400),
   });
+  if (!body.ok) return body.response;
+  const ref = body.value.ref;
+  if (!isUuid(ref)) return json({ error: 'BAD_REQUEST', message: 'ref must be a uuid' }, 400);
+
+  // deposit_status runs AS the guest's JWT: ownership is the database's check.
+  const caller = callerClient(req);
   const read = () => caller.schema('app').rpc('deposit_status', { p_request_id: ref });
 
   let res = await read();
@@ -67,4 +63,4 @@ Deno.serve(async (req) => {
 
   if (res.error) return json({ error: 'RETRY_LATER' }, 503);
   return json(res.data);
-});
+}));

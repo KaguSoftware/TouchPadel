@@ -15,6 +15,10 @@
  * A request that fails ANY of these is not from our GoTrue: an unknown caller
  * could otherwise make the venue pay for SMS to any number.
  */
+import { constantTimeEqual } from '../_shared/http.ts';
+
+/** One copy for every function (../_shared/http.ts), re-exported for the hook's callers. */
+export { constantTimeEqual };
 
 export interface StandardWebhookHeaders {
   id: string | null;
@@ -120,14 +124,6 @@ export async function signStandardWebhook(
   const timestamp = String(opts.timestampS ?? Math.floor(Date.now() / 1000));
   const sig = await hmacSha256Base64(key, `${id}.${timestamp}.${body}`);
   return { 'webhook-id': id, 'webhook-timestamp': timestamp, 'webhook-signature': `v1,${sig}` };
-}
-
-/** Constant-time compare (lengths must already be equal, else false). */
-export function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
 }
 
 // atob / btoa exist as globals on Deno and Node 18+; byte-safe wrappers.

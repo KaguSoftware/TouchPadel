@@ -245,6 +245,14 @@ is a line in that file.
   `createServiceClient` (`_shared/supabase.ts:16`). Deno cannot import `packages/core`: shared data
   is JSON under `_shared/` or a byte-identical copy checked by a test
   (`tests/assistant-catalog.test.ts:56` for `assistant/tools.ts`).
+- Every handler goes through `_shared/http.ts` (2026-10-01): `Deno.serve(handle(name, …))`,
+  `readJsonBody` with a byte cap, `fetchWithTimeout` for every outbound call, `errorResponse` /
+  `pgErrorBody` / `logError` so a caller never sees raw database, vendor or exception text (keep
+  the `error` code and status), `isUuid`, `constantTimeEqual`; the caller-JWT client is
+  `callerClient` (`_shared/supabase.ts`). A write whose failure means a duplicate side effect
+  (an outbox `sent` stamp) logs loudly with the row id. CI type-checks every entry
+  (`ci.yml` job `edge-functions`); locally, from this package:
+  `DENO_NO_PACKAGE_JSON=1 npx --yes deno@2.5.6 check --no-config --node-modules-dir=none supabase/functions/*/index.ts`.
 - LLM code uses `npm:@anthropic-ai/sdk`, model `claude-opus-5` unless Parsa names another, meters
   spend through `app.llm_record_usage` (0079, 0111), puts no guest identity in a prompt (SEC-29) and
   never computes a number the page did not already have.

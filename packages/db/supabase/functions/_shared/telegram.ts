@@ -4,8 +4,8 @@
  *
  * No `Deno.*`, no supabase-js, no fetch: this module runs unchanged under
  * Deno (edge functions) and under vitest (tests/telegram-render.test.ts), so
- * the exact message text is unit-tested. The Bot API transport lives in the
- * functions themselves (`tg()` in each index.ts).
+ * the exact message text is unit-tested. The Bot API transport is
+ * ./telegramApi.ts (`tg()`, with a timeout), shared by the three functions.
  *
  * Templates are VERBATIM from docs/design/cafe-rebuild/db-slice.md "Wave 4"
  * (Arabic-first bilingual). Every user-provided string goes through `esc`.

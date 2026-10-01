@@ -19,6 +19,14 @@
  * the code in the vendor's own template and ignores `body`; Meta's WhatsApp
  * Cloud API sends the approved authentication template for `lang`.
  */
+
+/**
+ * Deadline on one vendor call, reply included. A stalled vendor otherwise holds
+ * the hook until the platform kills it; a timeout is a failed send (stamped
+ * `failed`, SMS_SEND_FAILED) like any other transport error.
+ */
+export const SMS_TIMEOUT_MS = 10_000;
+
 export type SmsChannel = 'sms' | 'whatsapp' | 'telegram' | 'log';
 
 /** The app's two languages — what a per-language vendor template is picked by. */

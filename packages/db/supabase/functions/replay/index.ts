@@ -8,33 +8,76 @@
  *  - applied                    -> RPC result echo, HTTP 200, sync_replays 'applied'
  *  - exclusion conflict (23P01 / SLOT_TAKEN) -> HTTP 409, sync_replays 'conflict'
  *    + manager_alerts('replay_conflict') — the desk resolves manually, no overwrite
- *  - transient (serialization, deadlock, lock/statement timeout, pool, connection)
- *                               -> HTTP 503 { result: 'retry' }, NOTHING recorded: the
- *    write was never judged, and a sync_replays row here would turn the till's
- *    retry into a 'duplicate' ack of a settle that never happened (C1)
+ *  - the server could not judge the write: any answer ≥ 500 that is not a
+ *    deterministic SQLSTATE (_shared/http.ts isUnjudgedReplayError) — 503
+ *    RETRY_LATER (serialization, deadlock, lock/statement timeout, pool,
+ *    connection), 501 RPC_NOT_DEPLOYED (a till updated ahead of its migration),
+ *    503 DEGRADED_LOCKOUT, a transport-ish 500 (no SQLSTATE, PGRST*, system or
+ *    internal errors)
+ *                               -> that status with { result: 'retry' }, NOTHING
+ *    recorded. The till's sync worker retries every ≥ 500; a sync_replays row
+ *    written here would turn that retry into a 'duplicate' of a 'conflict', a
+ *    permanent refusal for a write that was never judged (C1, W2 #11)
  *  - PIN-gated types (adjustment.apply): verify_manager_pin runs first as the staff
  *    session (0115) so the lockout counts; its refusal is handled like the RPC's
- *  - anything else (validation, forbidden, ...) -> mapped error, AND a
- *    sync_replays row (result 'conflict' with the error detail): a queued write
- *    must never vanish without a durable trace — the till still marks the queue
- *    row failed and surfaces it, but the server keeps the record. Secrets in
- *    the payload (a manager PIN on adjustment.apply) are redacted before the
- *    record is written or echoed (S2).
+ *  - anything else (validation, forbidden, a deterministic SQLSTATE, ...) ->
+ *    mapped error, AND a sync_replays row (result 'conflict' with the error
+ *    detail): a queued write must never vanish without a durable trace — the
+ *    till still marks the queue row failed and surfaces it, but the server
+ *    keeps the record. Secrets in the payload (a manager PIN on
+ *    adjustment.apply) are redacted before the record is written or echoed (S2).
+ *
+ * Bodies: capped at 256 KB (413). A response carries the stable code, never
+ * raw Postgres text: a P0001 refusal answers its code and its own detail, any
+ * other SQLSTATE its code (the raw text goes to the log and to the
+ * sync_replays record, the server-side trace).
  *
  * AuthZ: the request must carry a STAFF session JWT. The RPC dispatch reuses
  * that JWT (a client bound to the caller's Authorization header) so every
  * role guard / audit row inside the app.* functions sees the real staff
  * auth.uid() — the service client is used only for verification + bookkeeping
- * (sync_replays, manager_alerts), never to bypass RPC security.
+ * (sync_replays, manager_alerts), never to bypass RPC security. The staff check
+ * is replay's own, not requireStaffRole: it checks two people (the caller and
+ * the queued actor) and answers its historical error strings, which the till
+ * surfaces.
  */
 import {
+  callerClient,
   createServiceClient,
   getCallerUserId,
 } from '../_shared/supabase.ts';
-import { json, mapPgError, isExclusionConflict, isRetryablePgError, type PgError } from '../_shared/http.ts';
+import {
+  handle,
+  isExclusionConflict,
+  isUnjudgedReplayError,
+  isUuid,
+  json,
+  KB,
+  logError,
+  mapPgError,
+  readJsonBody,
+  type MappedError,
+  type PgError,
+} from '../_shared/http.ts';
 import { redactSecrets } from '../_shared/redact.ts';
 import mutationTypes from '../_shared/mutation-types.json' with { type: 'json' };
-import { createClient } from 'npm:@supabase/supabase-js@2';
+
+/** A queued order with every modifier is a few KB; 256 KB is generous and still bounded. */
+const MAX_BODY = 256 * KB;
+
+/**
+ * What the till sees of a refusal: the mapped code and status; `message` is the
+ * code (for a P0001 refusal it always was); `details` only when our own RAISE
+ * set it (P0001), never a raw constraint's "Key (...)=(...)".
+ */
+function publicMapped(mapped: MappedError, err: PgError): MappedError {
+  return {
+    status: mapped.status,
+    code: mapped.code,
+    message: mapped.code,
+    details: err.code === 'P0001' ? (err.details ?? null) : null,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // mutation_type -> RPC map. MIRRORS packages/core/src/schemas/mutations.ts
@@ -325,18 +368,22 @@ interface ReplayBody {
   venue_scope?: string;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A failed bookkeeping read: the till gets a 500 (it retries), the log gets the text. */
+function readFailed(what: string, error: unknown): Response {
+  logError('replay', error, `${what} read failed`);
+  return json({ error: 'INTERNAL' }, 500);
+}
 
-Deno.serve(async (req) => {
+Deno.serve(handle('replay', async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 
-  let body: ReplayBody;
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'invalid JSON body' }, 400);
-  }
-  const { idempotency_key, mutation_type, payload, station_id, staff_id, venue_scope } = body ?? {};
+  // Typed as the contract; every field is still checked below.
+  const read = await readJsonBody<ReplayBody>(req, {
+    maxBytes: MAX_BODY,
+    badJson: () => json({ error: 'invalid JSON body' }, 400),
+  });
+  if (!read.ok) return read.response;
+  const { idempotency_key, mutation_type, payload, station_id, staff_id, venue_scope } = read.value;
   if (
     typeof idempotency_key !== 'string' || !idempotency_key ||
     typeof mutation_type !== 'string' ||
@@ -345,7 +392,7 @@ Deno.serve(async (req) => {
   ) {
     return json({ error: 'idempotency_key, mutation_type, payload, station_id, staff_id required' }, 400);
   }
-  if (venue_scope !== undefined && venue_scope !== null && (typeof venue_scope !== 'string' || !UUID_RE.test(venue_scope))) {
+  if (venue_scope !== undefined && venue_scope !== null && !isUuid(venue_scope)) {
     return json({ error: 'venue_scope must be a uuid' }, 400);
   }
   // Key discipline (mirrors mutationEnvelopeSchema): "{station}:{type}:{ulid}".
@@ -365,7 +412,7 @@ Deno.serve(async (req) => {
     .select('id')
     .in('id', callerId === staff_id ? [callerId] : [callerId, staff_id])
     .eq('is_active', true);
-  if (staffCheck.error) return json({ error: staffCheck.error.message }, 500);
+  if (staffCheck.error) return readFailed('staff', staffCheck.error);
   const activeIds = new Set((staffCheck.data ?? []).map((s) => s.id));
   if (!activeIds.has(callerId)) return json({ error: 'caller is not active staff' }, 403);
   if (!activeIds.has(staff_id)) return json({ error: 'staff_id is not active staff' }, 403);
@@ -376,7 +423,7 @@ Deno.serve(async (req) => {
     .select('result, conflict_detail')
     .eq('idempotency_key', idempotency_key)
     .maybeSingle();
-  if (dup.error) return json({ error: dup.error.message }, 500);
+  if (dup.error) return readFailed('sync_replays', dup.error);
   if (dup.data) {
     return json({ result: 'duplicate', prior_result: dup.data.result, echo: redactSecrets(dup.data.conflict_detail) });
   }
@@ -398,7 +445,7 @@ Deno.serve(async (req) => {
       .select('id')
       .eq('idempotency_key', p.tabIdemKey)
       .maybeSingle();
-    if (tab.error) return json({ error: tab.error.message }, 500);
+    if (tab.error) return readFailed('tabs', tab.error);
     if (!tab.data) {
       return json(
         { error: `no tab for tabIdemKey '${p.tabIdemKey}' — its tab.open never applied` },
@@ -417,7 +464,7 @@ Deno.serve(async (req) => {
       .select('id, tickets(id)')
       .eq('idempotency_key', pt.ticketIdemKey)
       .maybeSingle();
-    if (order.error) return json({ error: order.error.message }, 500);
+    if (order.error) return readFailed('orders', order.error);
     const ticketId = (order.data?.tickets as { id: string }[] | null)?.[0]?.id;
     if (!ticketId) {
       return json(
@@ -438,24 +485,14 @@ Deno.serve(async (req) => {
   }
 
   // Dispatch AS THE STAFF SESSION so role guards + audit attribution hold.
-  const asStaff = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    {
-      auth: { persistSession: false, autoRefreshToken: false },
-      // 0215: the queued write's station names the branch on the replayed
-      // request, exactly as the till did when it queued it; 0228: so does the
-      // branch the screens showed then (a machine that is not a station). Both
-      // count on the server only for the owner or a member of that branch.
-      global: {
-        headers: {
-          Authorization: req.headers.get('Authorization')!,
-          'x-station-id': station_id,
-          ...(venue_scope ? { 'x-venue-scope': venue_scope } : {}),
-        },
-      },
-    },
-  );
+  // 0215: the queued write's station names the branch on the replayed
+  // request, exactly as the till did when it queued it; 0228: so does the
+  // branch the screens showed then (a machine that is not a station). Both
+  // count on the server only for the owner or a member of that branch.
+  const asStaff = callerClient(req, {
+    'x-station-id': station_id,
+    ...(venue_scope ? { 'x-venue-scope': venue_scope } : {}),
+  });
   // 0115 (S3): a queued PIN-gated mutation still carries the typed PIN. Prove
   // it to verify_manager_pin FIRST, as the staff session — its own statement, so
   // the attempt persists whatever the money RPC does next — and let the RPC
@@ -502,19 +539,26 @@ Deno.serve(async (req) => {
         .select('result, conflict_detail')
         .eq('idempotency_key', idempotency_key)
         .maybeSingle();
+      if (prior.error) logError('replay', prior.error, `sync_replays re-read failed for ${idempotency_key}`);
       return prior.data ?? null;
     }
-    if (ins.error) console.error('sync_replays insert failed:', ins.error.message);
+    // The write itself stands (the RPC's own key still guards a retry), but the
+    // replay-level record is missing: loud, with the key.
+    if (ins.error) logError('replay', ins.error, `sync_replays insert (${result}) failed for ${idempotency_key}`);
     return null;
   }
 
   if (rpcError) {
     const pgErr = rpcError as PgError;
-    // Transient: the write was never judged. Record NOTHING (see header) and
-    // answer 503 so the worker releases the row to pending with backoff.
-    if (isRetryablePgError(pgErr)) {
+    // Not judged: transient, not deployed, degraded, transport-ish 5xx. Record
+    // NOTHING (see header) and answer its ≥ 500 status so the worker releases
+    // the row to pending with backoff and sends it again.
+    if (isUnjudgedReplayError(pgErr)) {
       const mapped = mapPgError(pgErr);
-      return json({ result: 'retry', ...mapped }, mapped.status);
+      if (mapped.code !== 'RETRY_LATER' && mapped.code !== 'DEGRADED_LOCKOUT') {
+        logError('replay', pgErr, `${mutation_type} not judged (${mapped.status} ${mapped.code}); left for the till to retry`);
+      }
+      return json({ result: 'retry', ...publicMapped(mapped, pgErr) }, mapped.status);
     }
     if (isExclusionConflict(pgErr)) {
       const detail = {
@@ -528,7 +572,8 @@ Deno.serve(async (req) => {
       if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: redactSecrets(prior.conflict_detail) });
       // Surface to the desk: shows a conflict rather than an overwrite (SoW).
       // 0220: filed at the station's branch (the service role resolves no venue).
-      const { data: stationRow } = await service.from('stations').select('venue_id').eq('id', station_id).maybeSingle();
+      const { data: stationRow, error: stationErr } = await service.from('stations').select('venue_id').eq('id', station_id).maybeSingle();
+      if (stationErr) logError('replay', stationErr, `station ${station_id} read failed; alert filed without a branch`);
       const stationVenue = (stationRow as { venue_id?: string } | null)?.venue_id;
       const alert = await service.from('manager_alerts').insert({
         ...(stationVenue ? { venue_id: stationVenue } : {}),
@@ -541,8 +586,9 @@ Deno.serve(async (req) => {
           detail: pgErr.details ?? pgErr.message,
         },
       });
-      if (alert.error) console.error('manager_alerts insert failed:', alert.error.message);
-      return json({ result: 'conflict', error: 'SLOT_TAKEN', detail: pgErr.details ?? null }, 409);
+      if (alert.error) logError('replay', alert.error, `manager_alerts insert failed for ${idempotency_key}`);
+      // The detail only when our own RAISE set it; a raw 23P01 names key values.
+      return json({ result: 'conflict', error: 'SLOT_TAKEN', detail: pgErr.code === 'P0001' ? (pgErr.details ?? null) : null }, 409);
     }
     // Not a conflict: validation/authz/... error. STILL recorded (result
     // 'conflict', detail = the error) so the queued write never vanishes —
@@ -559,7 +605,8 @@ Deno.serve(async (req) => {
     if (priorErr) {
       return json({ result: 'duplicate', prior_result: priorErr.result, echo: redactSecrets(priorErr.conflict_detail) });
     }
-    return json({ result: 'error', ...mapped }, mapped.status);
+    if (pgErr.code !== 'P0001') logError('replay', pgErr, `${mutation_type} refused (${mapped.status} ${mapped.code})`);
+    return json({ result: 'error', ...publicMapped(mapped, pgErr) }, mapped.status);
   }
 
   // RPCs are themselves idempotent and echo { duplicate: true } when the write
@@ -569,4 +616,4 @@ Deno.serve(async (req) => {
   if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: redactSecrets(prior.conflict_detail) });
 
   return json({ result: wasDuplicate ? 'duplicate' : 'applied', echo: rpcResult });
-});
+}));

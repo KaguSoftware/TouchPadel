@@ -59,22 +59,25 @@
  * covered by packages/db/tests/apple-revoke.test.ts
  */
 import { createServiceClient, getCallerUserId } from '../_shared/supabase.ts';
-import { json } from '../_shared/http.ts';
+import { fetchWithTimeout, handle, json, KB, readJsonBody } from '../_shared/http.ts';
 import { appleConfigFromEnv, missingSecrets, revokeWithAuthorizationCode } from './apple.ts';
 
-Deno.serve(async (req: Request) => {
+/** Per Apple call (token, then revoke), reply included. */
+const APPLE_TIMEOUT_MS = 10_000;
+
+Deno.serve(handle('apple-revoke', async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
 
   const service = createServiceClient();
   const userId = await getCallerUserId(req, service);
   if (!userId) return json({ error: 'AUTH_REQUIRED' }, 401);
 
-  let body: { authorizationCode?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'BAD_REQUEST', message: 'expected a JSON body' }, 400);
-  }
+  const read = await readJsonBody<{ authorizationCode?: unknown }>(req, {
+    maxBytes: 16 * KB,
+    badJson: () => json({ error: 'BAD_REQUEST', message: 'expected a JSON body' }, 400),
+  });
+  if (!read.ok) return read.response;
+  const body = read.value;
   const authorizationCode = typeof body.authorizationCode === 'string' ? body.authorizationCode.trim() : '';
   if (!authorizationCode) {
     return json({ error: 'BAD_REQUEST', message: 'authorizationCode is required' }, 400);
@@ -100,7 +103,13 @@ Deno.serve(async (req: Request) => {
 
   let result;
   try {
-    result = await revokeWithAuthorizationCode({ config, authorizationCode, fetch: (url, init) => fetch(url, init) });
+    // Both Apple calls go through this fetch: each one has a deadline (a timeout
+    // reads as Apple unreachable, status null).
+    result = await revokeWithAuthorizationCode({
+      config,
+      authorizationCode,
+      fetch: (url, init) => fetchWithTimeout(url, init, APPLE_TIMEOUT_MS),
+    });
   } catch (err) {
     // Only signing can throw: the .p8 secret is malformed. Never echo it.
     console.error(`[apple-revoke] client secret signing failed: ${err instanceof Error ? err.name : 'error'}`);
@@ -133,4 +142,4 @@ Deno.serve(async (req: Request) => {
 
   console.log(`[apple-revoke] revoked token_type_hint=${result.tokenTypeHint} identity_matched=${identityMatched}`);
   return json({ revoked: true, tokenTypeHint: result.tokenTypeHint, identityMatched });
-});
+}));
