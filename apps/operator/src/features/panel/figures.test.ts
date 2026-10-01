@@ -133,12 +133,12 @@ describe('the lessons group', () => {
     expect(hasLessonFigures(mapFigures({ figures: [{ key: 'owedToCoaches', value: 54000 }] }))).toBe(true);
     expect(hasLessonFigures(mapFigures({ figures: [{ key: 'revenue', value: 100 }] }))).toBe(false);
   });
-  it('exports its rows with the lessons group worded by its lead figure', () => {
+  it('exports its rows with the lessons group worded as every group is, by its own word', () => {
     const m = mapFigures({ figures: [{ key: 'owedToCoaches', value: 54000 }, { key: 'revenue', value: 100 }] });
-    const rows = figuresToCsvRows(m, (k) => (k === 'lessonRevenue' ? 'Lessons' : k), (g) => `G:${g}`);
+    const rows = figuresToCsvRows(m, (k) => k, (g) => `G:${g}`);
     expect(rows).toEqual([
       ['revenue', 'G:headline', 'money', 100, null, null, null, 'revenue'],
-      ['owedToCoaches', 'Lessons', 'money', 54000, null, null, null, 'owedToCoaches'],
+      ['owedToCoaches', 'G:lessons', 'money', 54000, null, null, null, 'owedToCoaches'],
     ]);
   });
 });

@@ -221,4 +221,26 @@ describe('buildPanelExport', () => {
     // Every column has a width, which is what a CSV could never carry.
     expect(figuresSheet).toMatch(/<col min="1" max="1" width="\d+"/);
   });
+
+  // Coaching (operator.md §5.18.4): the lessons group reads its own word,
+  // `ws.owner.panel.lessons`, in the reader's language like every other group.
+  it.each([
+    ['en', 'Lessons', 'Owed to coaches'],
+    ['ar', 'الحصص', 'مستحق للمدرّبين'],
+  ] as const)('words the lessons group in %s', (locale, group, owed) => {
+    const [, lessonFigures] = buildPanelExport({
+      period: { from: '2026-09-01', to: '2026-09-30' },
+      compare: 'none',
+      comparison: null,
+      figures: mapFigures({ figures: [{ key: 'lessonRevenue', value: 90000 }, { key: 'owedToCoaches', value: 54000 }] }),
+      transactions: [],
+      exportedAt: new Date(2026, 8, 30, 12, 0),
+      tr: (key, params) => t(locale, key, params),
+      locale,
+    });
+    expect(lessonFigures!.rows.map((r) => [r[0], r[1], r[7]])).toEqual([
+      [group, group, 'lessonRevenue'],
+      [owed, group, 'owedToCoaches'],
+    ]);
+  });
 });

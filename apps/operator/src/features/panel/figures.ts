@@ -56,9 +56,9 @@ export const ALL_FIGURE_KEYS: readonly FigureKey[] = [...FIGURE_KEYS, ...ONLINE_
  */
 export type FigureGroup = 'headline' | 'padel' | 'cafe' | 'losses' | 'online';
 /**
- * Every group a figure sits in: the five above, whose words are
- * `ws.owner.panel.<group>`, and the coaching `lessons` group, worded by the
- * coaching catalog (its CSV word is the lesson-revenue label, "Lessons").
+ * Every group a figure sits in: the five above and the coaching `lessons`
+ * group. Each group's word is `ws.owner.panel.<group>` (the CSV's Group
+ * column); the lessons panel's own heading is the coaching catalog's.
  */
 export type PanelGroup = FigureGroup | 'lessons';
 export type ReportPath = '/reports/revenue' | '/reports/courts' | '/reports/cafe' | '/reports/stock' | '/reports/staff' | '/reports/coaches';
@@ -164,7 +164,7 @@ export function panelIsEmpty(result: PanelHeadline | null | undefined): boolean 
 export function figuresToCsvRows(
   figures: ReadonlyMap<FigureKey, HeadlineFigureRow>,
   labelOf: (key: FigureKey) => string,
-  groupOf: (group: FigureGroup) => string = (g) => g,
+  groupOf: (group: PanelGroup) => string = (g) => g,
   kindOf: (kind: FigureMeta['kind']) => string = (k) => k,
 ): CsvCell[][] {
   const rows: CsvCell[][] = [];
@@ -172,9 +172,7 @@ export function figuresToCsvRows(
     const f = figures.get(key);
     if (!f) continue;
     const meta = FIGURES[key];
-    // The lessons group's word is its lead figure's ("Lessons" / «الحصص»).
-    const group = meta.group === 'lessons' ? labelOf('lessonRevenue') : groupOf(meta.group);
-    rows.push([labelOf(key), group, kindOf(meta.kind), f.value ?? null, f.previous ?? null, f.changeAbs ?? null, f.changePct ?? null, key]);
+    rows.push([labelOf(key), groupOf(meta.group), kindOf(meta.kind), f.value ?? null, f.previous ?? null, f.changeAbs ?? null, f.changePct ?? null, key]);
   }
   return rows;
 }

@@ -17,6 +17,8 @@ export const ownerEn = {
     headline: 'Headline',
     padel: 'Padel',
     cafe: 'Cafe',
+    // Coaching (coaching operator.md §5.18.4): the `lessons` group's word (the CSV's Group column).
+    lessons: 'Lessons',
     exceptions: 'Exceptions',
     openRevenue: 'Revenue report',
     openCourts: 'Courts report',

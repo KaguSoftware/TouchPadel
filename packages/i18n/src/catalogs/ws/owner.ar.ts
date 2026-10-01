@@ -19,6 +19,8 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
     headline: 'الأرقام الرئيسية',
     padel: 'البادل',
     cafe: 'الكافيه',
+    // DRAFT-AR (coaching operator.md §5.18.4).
+    lessons: 'الحصص',
     exceptions: 'الاستثناءات',
     openRevenue: 'تقرير الإيرادات',
     openCourts: 'تقرير الملاعب',
