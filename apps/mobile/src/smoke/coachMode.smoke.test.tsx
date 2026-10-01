@@ -11,13 +11,18 @@
  *
  * Then the states the cases cannot show: the accept sheet (R61), paused (R16),
  * a branch switched off (R45), a retired coach (C-25), and a staff member who
- * coaches (C-27), on coach mode and on the staff hub's row.
+ * coaches (C-27), on coach mode and on the staff hub's row; and the one
+ * "Coach mode" row on Profile (guest.md §4.8.1).
  */
 import { describe, expect, it } from '@jest/globals';
-import { within } from '@testing-library/react-native';
+import { fireEvent, within } from '@testing-library/react-native';
 import { isolate, makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
 import { renderRoute } from '../test/smoke';
+import { routerState } from '../test/routerState';
+import { TEST_VENUE_ID, branchFixture, profileFixture } from '../test/fixtures';
+import { availabilityKeys } from '../features/availability/hooks';
+import { profileKeys } from '../features/profile/hooks';
 import { coachKeys } from '../features/coach/keys';
 import {
   COACH_VENUE_ID,
@@ -43,6 +48,7 @@ import CoachModeNew from '../../app/coach-mode-new';
 import CoachModeBook from '../../app/coach-mode-book';
 import CoachModeStatements from '../../app/coach-mode-statements';
 import StaffToday from '../../app/staff';
+import ProfileScreen from '../../app/(tabs)/profile';
 
 const scheduleSeed = (): [readonly unknown[], unknown] => [
   coachScheduleKey(),
@@ -301,6 +307,49 @@ describe.each(LOCALES)('coach mode’s states in %s', (locale) => {
       expect(plain.queryByTestId('staff.coach-mode')).toBeNull();
     } finally {
       plain.unmount();
+    }
+  });
+
+  it('gives Profile one Coach mode row for a coach, the statements for a retired one, none for a guest', () => {
+    // Coaching switched off everywhere: the row is there all the same (R45).
+    const seeds: [readonly unknown[], unknown][] = [
+      [profileKeys.own, profileFixture()],
+      [availabilityKeys.branches, [branchFixture({ coaching_enabled: false })]],
+      [availabilityKeys.settings(TEST_VENUE_ID), null],
+    ];
+    const coach = renderRoute(ProfileScreen, { locale, coach: coachMeFixture(), queryData: seeds });
+    try {
+      const row = coach.getByTestId('profile.coach-mode');
+      expect(within(row).getByText(t('profile.coachMode'))).toBeTruthy();
+      expect(coach.getAllByTestId('profile.coach-mode')).toHaveLength(1);
+      fireEvent.press(row);
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/coach-mode' });
+    } finally {
+      coach.unmount();
+    }
+    const retired = renderRoute(ProfileScreen, {
+      locale,
+      coach: coachMeRetiredFixture(),
+      queryData: seeds,
+    });
+    try {
+      const row = retired.getByTestId('profile.coach-mode');
+      expect(within(row).getByText(t('profile.coachStatements'))).toBeTruthy();
+      fireEvent.press(row);
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/coach-mode-statements' });
+    } finally {
+      retired.unmount();
+    }
+    const guest = renderRoute(ProfileScreen, {
+      locale,
+      session: 'in',
+      coach: { coach: null, serverNow: null },
+      queryData: seeds,
+    });
+    try {
+      expect(guest.queryByTestId('profile.coach-mode')).toBeNull();
+    } finally {
+      guest.unmount();
     }
   });
 });
