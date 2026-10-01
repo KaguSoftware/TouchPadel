@@ -25,14 +25,14 @@ import { asyncStatus, type AsyncStatus } from '../../components/kit';
 import { lanTicketViews, useLanTickets, useVariantNames } from './LanBoard';
 import { useKdsAlarms } from './useKdsAlarms';
 import { KitchenDisplayScreen } from './KitchenDisplayScreen';
-import { ticketViews, type TicketAction, type TicketRow } from './ticketView';
+import { BOARD_REFETCH_MS, COMPLETED_LINGER_MS, ticketViews, type TicketAction, type TicketRow } from './ticketView';
 import { TK } from '../tasks/keys';
 import { fetchMyWork } from '../tasks/api';
 import { kitchenTaskCount } from '../tasks/tasksLogic';
 import { fetchIdeasToReview } from '../roleExtras/api';
 import { ideasWaiting } from '../roleExtras/roleExtrasLogic';
+import { useGuideOrNull } from '../guide/GuideProvider';
 
-const COMPLETED_LINGER_MS = 2 * 60 * 1000;
 
 export function KdsBoard() {
   const { tr, locale } = useLocale();
@@ -58,7 +58,7 @@ export function KdsBoard() {
       const { tickets } = await appRpc<{ tickets: TicketRow[] }>('kitchen_board', { p_venue_id: null });
       return tickets;
     },
-    refetchInterval: 30_000, // safety net under the broadcast — no control in the UI
+    refetchInterval: BOARD_REFETCH_MS, // safety net under the broadcast — no control in the UI
   });
 
   const setStatus = useMutation({
@@ -237,6 +237,8 @@ export function KdsBoard() {
     // renders in the desk palette and "You are here" points at the right tile.
     void navigate({ to: several ? '/workspaces' : WORKSPACES[exitTo].home });
   }, [exitTo, several, navigate, workspace]);
+  // The shell's workspace guide: the legend's pill and the `?` key.
+  const guide = useGuideOrNull();
 
   return (
     <KitchenDisplayScreen
@@ -254,6 +256,7 @@ export function KdsBoard() {
       onItemReady={onItemReady}
       onExit={exitTo ? onExit : undefined}
       tasks={hasTasks ? { count: taskCount, onOpen: onTasks } : undefined}
+      onGuide={guide?.available ? guide.openGuide : undefined}
     />
   );
 }

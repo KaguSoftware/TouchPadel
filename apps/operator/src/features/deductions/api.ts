@@ -8,7 +8,7 @@
  * decide" rows always agree. Every other read of the page sits under the same
  * ['deductions'] root, so one invalidation after a write refreshes them all.
  */
-import type { QueryKey } from '@tanstack/react-query';
+import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import { appRpc } from '../../lib/appRpc';
 import { DEDUCTIONS_PAGE_SIZE } from './deductionsLogic';
 
@@ -24,3 +24,16 @@ export const DK = {
   month: (month: string | null) => ['deductions', 'month', month ?? 'current'] as const satisfies QueryKey,
   targets: ['deductions', 'targets'] as const satisfies QueryKey,
 } as const;
+
+/**
+ * The Wages page's root key (0270-0272): an approval, an owner's entry or a
+ * cancel changes what comes off a wage, so every Wages read (QK.wagesDue
+ * among them) refetches with the deduction lists.
+ */
+export const WAGES_ROOT = ['wages'] as const satisfies QueryKey;
+
+/** After a deduction write: the deduction lists and the wages they come off. */
+export function refreshAfterWrite(qc: QueryClient): void {
+  void qc.invalidateQueries({ queryKey: DK.all });
+  void qc.invalidateQueries({ queryKey: WAGES_ROOT });
+}

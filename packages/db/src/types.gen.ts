@@ -671,6 +671,10 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      attendance_month: {
+        Args: { p_month?: string; p_venue_id?: string }
+        Returns: Json
+      }
       audit_log_page: {
         Args: {
           p_action_prefix?: string
@@ -858,6 +862,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      clear_attendance: { Args: { p_id: string }; Returns: Json }
       clear_pin_lockout: { Args: { p_staff_id: string }; Returns: Json }
       clear_staff_pin: { Args: { p_staff_id: string }; Returns: undefined }
       clear_table_token_secret_prev: { Args: never; Returns: Json }
@@ -1561,6 +1566,10 @@ export type Database = {
         Args: { p_ingredients: string[] }
         Returns: undefined
       }
+      lock_wage: {
+        Args: { p_staff: string; p_venue: string }
+        Returns: undefined
+      }
       log_stock: {
         Args: {
           p_idempotency_key?: string
@@ -1593,6 +1602,16 @@ export type Database = {
         Returns: Json
       }
       mark_suggestion_seen: { Args: { p_id: string }; Returns: Json }
+      mark_wage_paid: {
+        Args: {
+          p_expected_net_iqd?: number
+          p_idempotency_key?: string
+          p_month: string
+          p_staff_id: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       marketing_audience_reach: { Args: { p_rule: Json }; Returns: number }
       marketing_campaign_performance: {
         Args: { p_campaign: string }
@@ -2617,6 +2636,17 @@ export type Database = {
         Args: { p_menu_item_id?: string; p_venue_id?: string }
         Returns: Json
       }
+      record_attendance: {
+        Args: {
+          p_date: string
+          p_early_leave_minutes: number
+          p_late_minutes: number
+          p_note?: string
+          p_staff_id: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       record_batch: {
         Args: {
           p_expiry_date?: string
@@ -3187,6 +3217,16 @@ export type Database = {
         Args: { p_staff_id: string; p_venue_ids: string[] }
         Returns: Json
       }
+      set_staff_wage: {
+        Args: {
+          p_from_month?: string
+          p_pay_day: number
+          p_salary_iqd: number
+          p_staff_id: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       set_station_staff: {
         Args: { p_staff_id: string; p_station_ids: string[] }
         Returns: Json
@@ -3707,6 +3747,10 @@ export type Database = {
         Args: { p_courts?: boolean; p_venue: string }
         Returns: boolean
       }
+      undo_wage_paid: {
+        Args: { p_id: string; p_reason: string }
+        Returns: Json
+      }
       unpaid_played_bookings: {
         Args: { p_day_session_id?: string }
         Returns: Json
@@ -4016,6 +4060,33 @@ export type Database = {
           p_order_item_id: string
           p_reason_code: string
         }
+        Returns: Json
+      }
+      wage_due_date: {
+        Args: { p_month: string; p_pay_day: number }
+        Returns: string
+      }
+      wage_line: {
+        Args: {
+          p_month: string
+          p_remind: number
+          p_staff: string
+          p_today: string
+          p_venue: string
+        }
+        Returns: Json
+      }
+      wage_month_paid: {
+        Args: { p_month: string; p_staff: string; p_venue: string }
+        Returns: boolean
+      }
+      wage_open_month: {
+        Args: { p_from: string; p_staff: string; p_venue: string }
+        Returns: string
+      }
+      wages_due: { Args: { p_venue_id?: string }; Returns: Json }
+      wages_month: {
+        Args: { p_month?: string; p_venue_id?: string }
         Returns: Json
       }
       waiter_call_transition: {
@@ -10586,6 +10657,76 @@ export type Database = {
           },
         ]
       }
+      staff_attendance: {
+        Row: {
+          early_leave_minutes: number
+          grace_minutes: number
+          id: string
+          late_minutes: number
+          note: string | null
+          pay_month: string
+          penalty_iqd: number | null
+          penalty_rule_iqd: number
+          recorded_at: string
+          recorded_by: string
+          staff_id: string
+          venue_id: string
+          work_date: string
+        }
+        Insert: {
+          early_leave_minutes?: number
+          grace_minutes: number
+          id?: string
+          late_minutes?: number
+          note?: string | null
+          pay_month: string
+          penalty_iqd?: number | null
+          penalty_rule_iqd: number
+          recorded_at?: string
+          recorded_by: string
+          staff_id: string
+          venue_id: string
+          work_date: string
+        }
+        Update: {
+          early_leave_minutes?: number
+          grace_minutes?: number
+          id?: string
+          late_minutes?: number
+          note?: string | null
+          pay_month?: string
+          penalty_iqd?: number | null
+          penalty_rule_iqd?: number
+          recorded_at?: string
+          recorded_by?: string
+          staff_id?: string
+          venue_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_attendance_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_attendance_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_attendance_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_breaks: {
         Row: {
           business_date: string
@@ -10840,6 +10981,61 @@ export type Database = {
           },
           {
             foreignKeyName: "staff_venues_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_wages: {
+        Row: {
+          effective_month: string
+          id: string
+          pay_day: number
+          salary_iqd: number
+          set_at: string
+          set_by: string
+          staff_id: string
+          venue_id: string
+        }
+        Insert: {
+          effective_month: string
+          id?: string
+          pay_day: number
+          salary_iqd: number
+          set_at?: string
+          set_by: string
+          staff_id: string
+          venue_id: string
+        }
+        Update: {
+          effective_month?: string
+          id?: string
+          pay_day?: number
+          salary_iqd?: number
+          set_at?: string
+          set_by?: string
+          staff_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_wages_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_wages_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_wages_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -12496,6 +12692,98 @@ export type Database = {
           timezone?: string
         }
         Relationships: []
+      }
+      wage_payments: {
+        Row: {
+          deduction_count: number
+          deductions_iqd: number
+          due_date: string
+          id: string
+          net_iqd: number
+          paid_at: string
+          paid_by: string
+          paid_iqd: number
+          pay_month: string
+          penalties_iqd: number
+          penalty_days: number
+          salary_iqd: number
+          staff_id: string
+          status: string
+          undo_reason: string | null
+          undone_at: string | null
+          undone_by: string | null
+          venue_id: string
+        }
+        Insert: {
+          deduction_count: number
+          deductions_iqd: number
+          due_date: string
+          id?: string
+          net_iqd: number
+          paid_at?: string
+          paid_by: string
+          paid_iqd: number
+          pay_month: string
+          penalties_iqd: number
+          penalty_days: number
+          salary_iqd: number
+          staff_id: string
+          status?: string
+          undo_reason?: string | null
+          undone_at?: string | null
+          undone_by?: string | null
+          venue_id: string
+        }
+        Update: {
+          deduction_count?: number
+          deductions_iqd?: number
+          due_date?: string
+          id?: string
+          net_iqd?: number
+          paid_at?: string
+          paid_by?: string
+          paid_iqd?: number
+          pay_month?: string
+          penalties_iqd?: number
+          penalty_days?: number
+          salary_iqd?: number
+          staff_id?: string
+          status?: string
+          undo_reason?: string | null
+          undone_at?: string | null
+          undone_by?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wage_payments_paid_by_fkey"
+            columns: ["paid_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wage_payments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wage_payments_undone_by_fkey"
+            columns: ["undone_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wage_payments_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       waiter_calls: {
         Row: {

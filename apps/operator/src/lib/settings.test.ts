@@ -70,4 +70,22 @@ describe('key registries', () => {
     }
     for (const k of PUBLIC_SETTING_KEYS) expect(k.startsWith('telegram_')).toBe(false);
   });
+
+  it('carries the wages settings with 0270’s defaults: the reminder is the owner’s, the attendance rule the manager’s too', () => {
+    expect(CAFE_SETTING_DEFAULTS.attendance_grace_minutes).toBe(0);
+    expect(CAFE_SETTING_DEFAULTS.attendance_penalty_iqd).toBe(0);
+    expect(CAFE_SETTING_DEFAULTS.wage_reminder_days).toBe(3);
+    expect(OWNER_ONLY_SETTING_KEYS).toContain('wage_reminder_days');
+    expect(OWNER_ONLY_SETTING_KEYS).not.toContain('attendance_grace_minutes');
+    expect(OWNER_ONLY_SETTING_KEYS).not.toContain('attendance_penalty_iqd');
+    for (const k of ['attendance_grace_minutes', 'attendance_penalty_iqd', 'wage_reminder_days'] as const) expect(PUBLIC_SETTING_KEYS).not.toContain(k);
+    const s = foldCafeSettings([
+      { key: 'attendance_grace_minutes', value: 15 },
+      { key: 'attendance_penalty_iqd', value: 5000 },
+      { key: 'wage_reminder_days', value: 'soon' },
+    ]);
+    expect(s.attendance_grace_minutes).toBe(15);
+    expect(s.attendance_penalty_iqd).toBe(5000);
+    expect(s.wage_reminder_days).toBe(3);
+  });
 });

@@ -2,15 +2,18 @@
  * The Month tab of /deductions (wave5-addendum-2026-09-25 §2.5.3,
  * app.deductions_month): what comes off each person's pay in one month.
  *
- * A deduction counts in the month it was approved in (V16). The month's
- * figures are the server's: the approved total per person and for the venue,
- * with the cancelled ones listed but in no total, and, in the current month
- * only, what is still waiting (a waiting deduction has no pay month yet).
+ * A deduction counts in the person's first unpaid month on or after its
+ * approval (V16, 0272). The month's figures are the server's: the approved
+ * total per person and for the venue, with the cancelled ones listed but in
+ * no total, and, in the current month only, what is still waiting (a waiting
+ * deduction has no pay month yet).
  *
  * One row per person, opened to the deductions behind it; the stepper never
  * passes the current month. The owner cancels an approval from the opened row
  * (cancelDeductions): the dialog is the page's, so the Waiting and All tabs
- * share it.
+ * share it. Once the owner marks a person's wage for the month paid, the row
+ * says "Wage paid" and offers no Cancel: the server refuses it then
+ * (WAGE_ALREADY_PAID, 0272).
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -23,7 +26,7 @@ import { EmptyState, Money, StatusBadge } from '../../components/kit';
 import { ChevronBack, ChevronForward, Icon } from '../../components/icons';
 import { DK } from './api';
 import { canStepForward, deductionTone, readDeductionsMonth, type MonthPerson } from './deductionsLogic';
-import type { DeductionRef } from './DeductionsPage';
+import type { DeductionRef } from './DeductionDialogs';
 import { dayLabel, monthLabel, shiftMonth } from './venueDate';
 
 const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
@@ -162,7 +165,8 @@ function PersonRow({ person: p, first, onCancel }: { person: MonthPerson; first:
   const { staff } = useAuth();
   const [open, setOpen] = useState(false);
   const panelId = `deductions-person-${p.staffId}`;
-  const mayCancel = can(staff?.role, 'cancelDeductions');
+  // A paid month is frozen (0272): nothing in it can be cancelled.
+  const mayCancel = can(staff?.role, 'cancelDeductions') && !p.wagePaid;
   return (
     <li style={{ borderBlockStart: first ? undefined : '1px solid var(--tp-border)' }}>
       <button
@@ -193,6 +197,7 @@ function PersonRow({ person: p, first, onCancel }: { person: MonthPerson; first:
           <bdi style={{ fontWeight: 700 }}>{p.displayName}</bdi>
           {p.role && <span style={muted}>{tr(`op.roles.${p.role}`)}</span>}
           {!p.isActive && <StatusBadge size="sm" tone="neutral" label={tr('ws.deductions.month.leftStaff')} />}
+          {p.wagePaid && <StatusBadge size="sm" tone="success" label={tr('ws.deductions.month.wagePaid')} />}
         </span>
         {/* What comes off this person's pay; someone with nothing approved yet
             shows what waits instead of a zero. */}
@@ -217,6 +222,11 @@ function PersonRow({ person: p, first, onCancel }: { person: MonthPerson; first:
       </button>
       {open && (
         <ul id={panelId} style={{ listStyle: 'none', margin: 0, paddingBlock: 'var(--tp-sp-1) var(--tp-sp-3)', paddingInline: 'var(--tp-sp-4)', display: 'grid', gap: 'var(--tp-sp-2)' }}>
+          {p.wagePaid && can(staff?.role, 'cancelDeductions') && (
+            <li style={muted} data-testid={`deductions.paid-locked.${p.staffId}`}>
+              {tr('ws.deductions.cancel.paidLocked')}
+            </li>
+          )}
           {p.deductions.map((d) => (
             <li
               key={d.id}

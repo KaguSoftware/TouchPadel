@@ -411,6 +411,27 @@ button.tp-nav-item { background: transparent; }
 [data-workspace='prep'] ::selection { background: var(--tp-kds-card-2); color: var(--tp-kds-fg); }
 [data-workspace='prep'] .tp-skel { background: var(--tp-kds-card-2); }
 [data-workspace='prep'] .tp-skel::after { background: linear-gradient(90deg, transparent, var(--tp-kds-border), transparent); }
+/* A dialog over the board (Modal tone="board"): the desk tokens re-pointed at
+   the board's own, so the panel is dark like the wall it opens on. Only
+   existing tokens: --tp-kds-* already carry their blue-mode values. */
+[data-tone='board'] {
+  --tp-surface: var(--tp-kds-card);
+  --tp-surface-2: var(--tp-kds-card-2);
+  --tp-surface-3: var(--tp-kds-card-2);
+  --tp-fg: var(--tp-kds-fg);
+  --tp-muted-fg: var(--tp-kds-muted);
+  --tp-border: var(--tp-kds-border);
+  --tp-border-strong: var(--tp-kds-border);
+  --tp-accent: var(--tp-kds-fresh);
+  --tp-accent-soft: var(--tp-kds-card-2);
+  --tp-accent-soft-fg: var(--tp-kds-fg);
+  --tp-hover: var(--tp-kds-card-2);
+  --tp-hover-fg: var(--tp-kds-fg);
+  color: var(--tp-kds-fg);
+}
+[data-tone='board'] :focus-visible { outline-color: var(--tp-kds-fg); }
+[data-tone='board'] input[type='checkbox'] { accent-color: var(--tp-kds-fresh); }
+[data-tone='board'] * { scrollbar-color: var(--tp-kds-border) transparent; }
 
 /* ---- live floor: the zoom track beside the two step buttons ----
    A native range input keeps the keyboard, touch and slider semantics; only

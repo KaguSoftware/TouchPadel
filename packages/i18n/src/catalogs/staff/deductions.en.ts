@@ -5,7 +5,8 @@
  * Mirror every key in deductions.ar.ts.
  *
  * Statuses are `work.deduction.status.*`, shared with the operator; role names
- * are `op.roles.*`. Deciding is on the operator only (§8 Q8).
+ * are `op.roles.*`. Deciding is on the operator only (§8 Q8), and only the
+ * owner decides (0272): the owner's own entry is recorded approved at once.
  */
 export const staffDeductionsEn = {
   // Today's row (rows.ts), for the heads and management.
@@ -18,15 +19,16 @@ export const staffDeductionsEn = {
     propose: 'Propose',
     mine: 'Your deductions',
   },
-  // Management only: how many wait on the operator.
+  // The owner only (0272): how many wait on the operator.
   // Names the operator rail's row exactly (ws.shell nav deductions).
   waiting: 'Waiting for a decision: {count}. Decide them on the operator, under Pay deductions.',
   propose: {
-    lead: 'Propose a deduction for someone on your team. A manager or the owner decides.',
+    lead: 'Propose a deduction for someone on your team. The owner decides.',
     leadMgmt:
-      'Propose a deduction for anyone at the venue but yourself and the owners. Another manager or the owner decides.',
-    // The owner's own proposal: nobody decides their own, so a manager does (0197).
-    leadOwner: 'Propose a deduction for anyone at the venue but the owners. A manager decides.',
+      'Propose a deduction for anyone at the venue but yourself and the owners. The owner decides.',
+    // The owner's own entry needs nobody else: it is recorded approved at once (0272).
+    leadOwner:
+      'Deduct from the pay of anyone at the venue but the owners. It is recorded at once and comes off their next unpaid wage.',
     open: 'Propose a deduction',
     title: 'New deduction',
     who: 'Who',
@@ -35,17 +37,18 @@ export const staffDeductionsEn = {
     dateHint: 'Year-month-day, within the last 60 days. For example {example}.',
     reason: 'Why',
     consequence:
-      'A manager or the owner decides. {name} sees it only if it is approved, and never sees who proposed it.',
+      'The owner decides. {name} sees it only if it is approved, and never sees who proposed it.',
     consequenceAnyone:
-      'A manager or the owner decides. The person sees it only if it is approved, and never sees who proposed it.',
+      'The owner decides. The person sees it only if it is approved, and never sees who proposed it.',
     consequenceOwner:
-      'A manager decides. {name} sees it only if it is approved, and never sees who proposed it.',
+      'Recorded at once: it comes off their next unpaid wage. {name} is told, and never sees who entered it.',
     consequenceAnyoneOwner:
-      'A manager decides. The person sees it only if it is approved, and never sees who proposed it.',
+      'Recorded at once: it comes off the person’s next unpaid wage. They are told, and never see who entered it.',
     submit: 'Send for approval',
+    submitOwner: 'Deduct from wage',
     cancel: 'Cancel',
-    sent: 'Sent. A manager or the owner decides.',
-    sentOwner: 'Sent. A manager decides.',
+    sent: 'Sent. The owner decides.',
+    recorded: 'Deduction recorded. It comes off their next unpaid wage.',
     noTargets: 'There is nobody you can propose a deduction for right now.',
     errors: {
       who: 'Choose who it is for.',
@@ -70,7 +73,7 @@ export const staffDeductionsEn = {
     withdrawn: 'Proposal withdrawn.',
   },
   mine: {
-    lead: 'What a manager or the owner approved to take from your pay, by the month it counts in.',
+    lead: 'What the owner approved to take from your pay, by the month it counts in.',
     prev: 'Previous month',
     next: 'Next month',
     total: 'Approved in {month}',

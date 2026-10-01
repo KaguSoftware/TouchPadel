@@ -19,6 +19,7 @@ import {
   type Selection,
 } from './kdsKeyboard';
 import type { TicketAction } from './ticketView';
+import { isModalOpen } from '../../lib/overlay';
 
 export interface UseKdsKeyboardOptions {
   tickets: readonly ActionableTicket[];
@@ -26,6 +27,8 @@ export interface UseKdsKeyboardOptions {
   enabled: boolean;
   onStatus: (ticketId: string, status: TicketAction) => void;
   onToggleItem: (ticketId: string, itemIndex: number) => void;
+  /** `?` opens the workspace guide. Absent, the key does nothing. */
+  onGuide?: () => void;
 }
 
 export interface KdsKeyboard {
@@ -45,6 +48,8 @@ export function useKdsKeyboard(opts: UseKdsKeyboardOptions): KdsKeyboard {
   onStatusRef.current = opts.onStatus;
   const onToggleRef = useRef(opts.onToggleItem);
   onToggleRef.current = opts.onToggleItem;
+  const onGuideRef = useRef(opts.onGuide);
+  onGuideRef.current = opts.onGuide;
 
   const commit = useCallback((next: Selection) => {
     if (next === selRef.current) return;
@@ -66,8 +71,19 @@ export function useKdsKeyboard(opts: UseKdsKeyboardOptions): KdsKeyboard {
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || isTypingTarget(e.target)) return;
+      // A dialog over the board (the guide, the idle lock) owns the keyboard:
+      // 1–9, S/R/C and Space must not act on the tickets behind it. An early
+      // return, not `enabled: false`, which would also drop the selection.
+      if (isModalOpen()) return;
       const cmd = commandForKey(e, dir);
       if (!cmd) return;
+      if (cmd.type === 'guide') {
+        const open = onGuideRef.current;
+        if (!open) return;
+        e.preventDefault();
+        open();
+        return;
+      }
       // A focused checkbox toggles itself on Space; do not double-fire.
       if (cmd.type === 'toggleItem' && isCheckboxTarget(e.target)) return;
       e.preventDefault();

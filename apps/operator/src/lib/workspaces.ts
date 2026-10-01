@@ -62,7 +62,9 @@ export interface NavItem {
     // Protocols and the staff suggestion box (build-contracts-2026-09-23 §5.1).
     | 'protocols' | 'suggestions'
     // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
-    | 'deductions' | 'incidents';
+    | 'deductions' | 'incidents'
+    // Wages (0270–0272): the owner's pay list and the manager's attendance.
+    | 'wages' | 'attendance';
   icon: IconName;
   /**
    * A live count beside the row's name: what waits on the signed-in person
@@ -72,9 +74,10 @@ export interface NavItem {
    * nobody has marked seen (app.suggestions_page's new_count). Wave 5:
    * Deductions the proposals to decide, Incidents the reports to review (for
    * management only; the desk's and the till's row carries no count), and
-   * Marketing the owner's posts to approve.
+   * Marketing the owner's posts to approve. Wages: the wages due now or
+   * overdue (app.wages_due, the owner's reminder).
    */
-  badge?: 'protocolsWaiting' | 'suggestionsNew' | 'deductionsWaiting' | 'incidentsOpen' | 'contentWaiting' | 'stockCountsWaiting';
+  badge?: 'protocolsWaiting' | 'suggestionsNew' | 'deductionsWaiting' | 'incidentsOpen' | 'contentWaiting' | 'stockCountsWaiting' | 'wagesDue';
   /** Match active state on this prefix (default: exact path or prefix of `to`). */
   activePrefix?: string;
   /**
@@ -149,6 +152,8 @@ const MY_TASKS: NavItem = { to: '/tasks', labelKey: 'myTasks', icon: 'checkCircl
  */
 const INCIDENTS: NavItem = { to: '/incidents', labelKey: 'incidents', icon: 'alert', badge: 'incidentsOpen' };
 const DEDUCTIONS: NavItem = { to: '/deductions', labelKey: 'deductions', icon: 'banknote', badge: 'deductionsWaiting' };
+/** Late arrivals and early leaves (0271): the manager records them; the owner reaches them from Wages. */
+const ATTENDANCE: NavItem = { to: '/attendance', labelKey: 'attendance', icon: 'clock' };
 
 const COURT_DESK: readonly NavItem[] = [
   { to: '/desk/today', labelKey: 'today', icon: 'today' },
@@ -207,6 +212,7 @@ const MANAGER_RUN: readonly NavItem[] = [
   PROTOCOLS,
   SUGGESTIONS,
   DEDUCTIONS,
+  ATTENDANCE,
   INCIDENTS,
 ];
 
@@ -261,8 +267,13 @@ const OWNER_FINANCIAL: readonly NavItem[] = [
   { to: '/reports/revenue', labelKey: 'reports', icon: 'chart', activePrefix: '/reports' },
   { to: '/till/drawer', labelKey: 'cashDrawer', icon: 'drawer' },
   { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
+  // Wages (0270–0272): what each person is paid, when, and what comes off it.
+  // The count is the wages due now or overdue: the owner's pay-day reminder.
+  { to: '/wages', labelKey: 'wages', icon: 'banknote', badge: 'wagesDue' },
   { to: '/admin/rates', labelKey: 'rates', icon: 'scale' },
   { to: '/admin/menu', labelKey: 'menuPrices', icon: 'layers', activePrefix: '/admin/menu', alsoActive: MENU_FAMILY },
+  // Opened from Wages ("Attendance"), so the Financial rail stays put.
+  { ...ATTENDANCE, hidden: true },
 ];
 
 /**
@@ -501,6 +512,7 @@ export function workspaceForRoute(path: string): WorkspaceKey | null {
   // subtree resolves here rather than only its landing screen.
   if (path === '/financial' || path === '/observation' || path.startsWith('/observation/')) return 'owner';
   if (path === '/marketing' || path.startsWith('/marketing/')) return 'owner';
+  if (path === '/wages') return 'owner';
   if (path === '/ops') return 'manager';
   if (path === '/shop' || path.startsWith('/shop/')) return 'shop';
   // /tasks is not pinned: eight roles open it in their own workspace (the

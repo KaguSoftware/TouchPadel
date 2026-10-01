@@ -209,6 +209,9 @@ export const shellEn = {
     // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
     deductions: 'Pay deductions',
     incidents: 'Incidents',
+    // Wages (0270–0272).
+    wages: 'Wages',
+    attendance: 'Late and early',
     // A rail row's count, for a screen reader: the pill itself is only a number.
     badge: '{count} waiting on you',
     groupOperations: 'Operations',

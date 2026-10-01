@@ -112,6 +112,12 @@ export const QK = {
   incidentsOpen: ['incidents', 'open'] as const satisfies QueryKey,
   /** app.content_page, filter 'waiting', first page: waiting_count (the owner's badge; marketing reads it too). */
   contentWaiting: ['content', 'waiting'] as const satisfies QueryKey,
+  /**
+   * app.wages_due as returned: every unpaid pay month due now or overdue (the
+   * owner's Wages badge, the "Due now" strip and the panel card). Under the
+   * ['wages'] root, so one invalidation after a pay write refreshes it too.
+   */
+  wagesDue: ['wages', 'due'] as const satisfies QueryKey,
 
   // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2). The station's shift
   // as app.till_shift_status reads it: the rail row, the payment gate, the

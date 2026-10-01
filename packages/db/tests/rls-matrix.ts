@@ -3643,8 +3643,8 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'decide_deduction',
-    args: { p_id: NIL_UUID, p_approve: true }, expect: STAFF_ANY,
-    note: 'any active staff member; then MGMT at the deduction\'s venue, never the proposer or the person. An unknown deduction is REF_NOT_FOUND',
+    args: { p_id: NIL_UUID, p_approve: true }, expect: OWNER_ONLY,
+    note: '0272: the owner only, never on their own proposal or one against themselves. An unknown deduction is REF_NOT_FOUND',
     drop: 18,
   },
   {
@@ -4839,5 +4839,87 @@ export const matrix: MatrixRule[] = [
     args: { p_customer_id: NIL_UUID }, expect: CASHIER_DESK_UP,
     note: '0252: the customer record staff read a guest\'s hold-ladder standing (null when none)',
     drop: 23,
+  },
+
+  // ── 0270–0272: wages and attendance (wages.test.ts) ─────────────────────
+  // Money about a named person: the owner reads wages and payments, MGMT the
+  // attendance days. Every table refuses a client write; the matrix has no
+  // probe row in them, so a read rule would prove nothing beyond the policy
+  // the stack test already runs against rolled-back rows.
+  {
+    kind: 'write',
+    name: 'staff_wages',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0270: no client write grant: app.set_staff_wage only',
+    drop: 25,
+  },
+  {
+    kind: 'write',
+    name: 'wage_payments',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0270: no client write grant: app.mark_wage_paid and app.undo_wage_paid only',
+    drop: 25,
+  },
+  {
+    kind: 'write',
+    name: 'staff_attendance',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0270: no client write grant: app.record_attendance and app.clear_attendance only',
+    drop: 25,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'wages_month',
+    args: { p_venue_id: VENUE_A, p_month: DAY_FROM }, expect: OWNER_ONLY,
+    note: '0271: the owner at the branch: one pay month, person by person',
+    drop: 25,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'wages_due',
+    args: { p_venue_id: VENUE_A }, expect: OWNER_ONLY,
+    note: '0271: the owner at the branch: the wages to pay now (the reminder)',
+    drop: 25,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_staff_wage',
+    args: { p_staff_id: NIL_UUID, p_salary_iqd: -1, p_pay_day: 1, p_venue_id: VENUE_A }, expect: OWNER_ONLY,
+    note: '0271: the owner; a negative salary stops at INVALID_AMOUNT before the target check, so nothing is written',
+    drop: 25,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'mark_wage_paid',
+    args: { p_staff_id: NIL_UUID, p_month: '2099-01-01', p_venue_id: VENUE_A }, expect: OWNER_ONLY,
+    note: '0271: the owner; a month past next month stops at INVALID_ARGUMENT:month before the person check, so nothing is written',
+    drop: 25,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'undo_wage_paid',
+    args: { p_id: NIL_UUID, p_reason: 'matrix' }, expect: OWNER_ONLY,
+    note: '0271: the owner; an unknown payment is REF_NOT_FOUND',
+    drop: 25,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'attendance_month',
+    args: { p_venue_id: VENUE_A, p_month: DAY_FROM }, expect: MANAGER_UP,
+    note: '0271: MGMT at the branch: one month of recorded days, never a day about the caller',
+    drop: 25,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'record_attendance',
+    args: { p_staff_id: NIL_UUID, p_date: DAY_FROM, p_late_minutes: 5, p_early_leave_minutes: 0, p_venue_id: VENUE_A },
+    expect: MANAGER_UP,
+    note: '0271: MGMT at the branch; a date outside the 60-day window stops at INVALID_ARGUMENT:date before the target check',
+    drop: 25,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'clear_attendance',
+    args: { p_id: NIL_UUID }, expect: MANAGER_UP,
+    note: '0271: MGMT at the branch; an unknown day is REF_NOT_FOUND',
+    drop: 25,
   },
 ];

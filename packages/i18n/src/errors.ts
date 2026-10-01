@@ -559,6 +559,10 @@ export const ERROR_CODE_KEYS = {
   // llm_begin_request: the AI budget, for the assistant and the scan reader.
   LLM_DAILY_QUOTA: 'op.errors.LLM_DAILY_QUOTA',
   LLM_MONTHLY_CAP: 'op.errors.LLM_MONTHLY_CAP',
+  // Wages (0271–0272): the owner's pay list.
+  WAGE_NOT_SET: 'op.errors.WAGE_NOT_SET',
+  WAGE_ALREADY_PAID: 'op.errors.WAGE_ALREADY_PAID',
+  WAGE_CHANGED: 'op.errors.WAGE_CHANGED',
 
   // ── Edge functions' own body codes (never raised by SQL) ──────────────────
   // _shared/http.ts mapPgError: a unique violation, a retryable database error

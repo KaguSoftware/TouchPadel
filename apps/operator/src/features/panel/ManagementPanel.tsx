@@ -69,6 +69,7 @@ import { readDrill } from '../reports/reportPayloads';
 import { LiveFloor } from '../floor/LiveFloor';
 import { FIGURES, figuresIn, hasOnlineFigures, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
 import { DRILLABLE_FIGURES, buildPanelExport, fetchAllTransactions, type DrillRange } from './exportAll';
+import { WagesDueCard } from '../wages/WagesDueCard';
 
 export const PANEL_QUERY_KEY = ['panel', 'headline'] as const;
 
@@ -155,6 +156,8 @@ export function ManagementPanelScreen() {
           {tr('ws.owner.panel.csv.failed')}
         </p>
       )}
+      {/* The owner's pay-day reminder (0271): hidden when nothing is due. */}
+      <WagesDueCard />
       {/* Now, before the period: the floor this minute is the one thing on the
           screen the date range does not govern, so it sits above the range
           control rather than among the figures it would otherwise seem to

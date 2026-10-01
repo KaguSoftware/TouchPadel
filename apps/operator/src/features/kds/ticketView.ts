@@ -12,6 +12,11 @@ import type { Locale } from '@touch/i18n';
 import { pickName } from '../../lib/i18n';
 import { ageState, type AgeState } from './ageColor';
 
+/** A completed ticket stays on the board this long, faded, then drops off (KdsBoard). */
+export const COMPLETED_LINGER_MS = 2 * 60 * 1000;
+/** The board's re-read under the broadcast, and its retry after a failed load (KdsBoard). */
+export const BOARD_REFETCH_MS = 30_000;
+
 export type TicketStatus = 'queued' | 'preparing' | 'ready' | 'completed';
 export type TicketAction = 'preparing' | 'ready' | 'completed';
 export type TicketSource = 'web' | 'till';

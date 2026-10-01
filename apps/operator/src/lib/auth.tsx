@@ -284,10 +284,16 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // management reads here.
   '/suggestions': ['manager', 'owner'],
   // Wave 5, people records (wave5-addendum-2026-09-25 §5.2). Pay deductions
-  // are decided by management (heads propose on the phone); incidents are
-  // reported at the desk and the till as well as reviewed by management.
+  // are proposed by management (heads propose on the phone) and decided by the
+  // owner (0272); incidents are reported at the desk and the till as well as
+  // reviewed by management.
   '/deductions': ['manager', 'owner'],
   '/incidents': ['court_desk', 'cashier', 'manager', 'owner'],
+  // Wages (0270–0272): salaries, pay days and payments are the owner's alone;
+  // a manager records late arrivals and early leaves, and sets the rule that
+  // turns them into a penalty.
+  '/wages': ['owner'],
+  '/attendance': ['manager', 'owner'],
 };
 
 /** Every known sub-route per layout prefix — drives the admin sub-nav. */
@@ -473,10 +479,12 @@ export const CAPABILITY_ROLES = {
   // of the RPC behind it; a row's own buttons still follow the RPC's can_*.
   /** Propose a pay deduction (app.propose_deduction; the heads on the phone, MGMT here too). */
   proposeDeductions: ['head_barista', 'head_chef', 'manager', 'owner'],
-  /** Approve or decline one (app.decide_deduction), never one's own or one against oneself. */
-  decideDeductions: ['manager', 'owner'],
+  /** Approve or decline one (app.decide_deduction): the owner only since 0272, never their own proposal. */
+  decideDeductions: ['owner'],
   /** Take back an approval, with a reason (app.cancel_deduction). */
   cancelDeductions: ['owner'],
+  /** Set salaries and pay days, mark wages paid, read the reminder (app.set_staff_wage, app.wages_due, 0271). */
+  manageWages: ['owner'],
   /** File an incident report on the operator (every role files on the phone, app.submit_incident). */
   reportIncidents: ['court_desk', 'cashier', 'manager', 'owner'],
   /** Review a report with a note the reporter reads (app.review_incident, app.incidents_page). */

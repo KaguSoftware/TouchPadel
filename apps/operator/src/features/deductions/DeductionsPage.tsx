@@ -1,20 +1,24 @@
 /**
  * Pay deductions (/deductions), manager and owner (wave5-addendum-2026-09-25
- * §2.5, §5.2; Majed's answer #2: "heads can do salary deductions, however
- * deduction needs approval from manager/owner").
+ * §2.5, §5.2; Parsa 2026-10-01, migration 0272: "approval is owner only,
+ * managers and heads propose").
  *
- * A head proposes a deduction for someone on their team from the phone; a
- * manager or the owner decides it here. The page answers three questions, one
- * tab each:
+ * A head proposes a deduction for someone on their team from the phone, and a
+ * manager proposes one here; the owner alone decides it, here or under Wages,
+ * and an approved one comes off the person's next unpaid wage. The owner's own
+ * entry needs nobody else, so it is recorded approved at once. The page
+ * answers three questions, one tab each:
  *
- *  - **Waiting.** What waits on me: every proposal I may decide, with Approve
- *    and Decline (a reason, which the proposer reads), in the decision-dialog
- *    shape of the staff requests. A proposal I sent myself shows with
- *    Withdraw instead: nobody decides their own, and the server says so too.
+ *  - **Waiting.** What waits on a decision. The owner gets Approve and Decline
+ *    (a reason, which the proposer reads), in the decision-dialog shape of the
+ *    staff requests. A proposal the viewer sent shows Withdraw instead; any
+ *    other waiting row tells a manager it waits for the owner. Each row
+ *    follows the server's can_decide and can_withdraw, never a guess.
  *  - **Month.** What comes off each person's pay this month: the approved
  *    total per person, opened to the deductions behind it. A deduction counts
- *    in the month it was approved in (V16), and one that happened in an
- *    earlier month says so. The owner may cancel an approval, with a reason.
+ *    in the person's first unpaid month on or after its approval (V16, 0272),
+ *    and one that happened in an earlier month says so. The owner may cancel
+ *    an approval, with a reason, until that month's wage is marked paid.
  *  - **All.** Every deduction and what became of it.
  *
  * Money about a named person: nothing here reaches the owner assistant (the
@@ -32,7 +36,7 @@ import { QK } from '../../lib/queryKeys';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { Button, ErrorText } from '../../components/ui';
 import {
   AsyncStateWrapper,
   DataTable,
@@ -49,12 +53,10 @@ import { Icon } from '../../components/icons';
 import { DK, fetchDeductionsWaiting } from './api';
 import {
   DEDUCTIONS_PAGE_SIZE,
-  NOTE_MAX,
-  decisionIssue,
   deductionTone,
   deductionsWaitingCount,
   isStaleRefusal,
-  onlyManagerDecides,
+  ownerRecordsAtOnce,
   readDeductionsPage,
   waitingAction,
   type DeductionRow,
@@ -63,14 +65,8 @@ import {
 import { refusalCode } from '../protocols/errors';
 import { DeductionsMonthView } from './DeductionsMonth';
 import { ProposeDeduction } from './ProposeDeduction';
+import { CancelDialog, DecideDialog, type DeductionRef } from './DeductionDialogs';
 import { dayLabel, monthLabel } from './venueDate';
-
-/** A deduction a dialog is about: enough to name it in a sentence. */
-export interface DeductionRef {
-  id: string;
-  staffName: string;
-  amountIqd: number;
-}
 
 const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
 
@@ -109,7 +105,7 @@ export function DeductionsPageScreen() {
         actions={
           can(staff?.role, 'proposeDeductions') && !proposing ? (
             <Button kind="primary" icon="plus" onClick={() => setProposing(true)} data-testid="deductions.propose">
-              {tr('ws.deductions.propose.open')}
+              {tr(ownerRecordsAtOnce(staff?.role) ? 'ws.deductions.propose.openOwner' : 'ws.deductions.propose.open')}
             </Button>
           ) : undefined
         }
@@ -382,9 +378,10 @@ function StatusCell({ row: r }: { row: DeductionRow }) {
 }
 
 /**
- * What a row offers: Approve and Decline when the viewer may decide it;
- * Withdraw on the viewer's own proposal, with the reason they cannot decide
- * it; Cancel on an approval the owner may take back. Nothing on a settled row.
+ * What a row offers: Approve and Decline when the viewer may decide it (the
+ * owner); Withdraw on the viewer's own proposal, with who decides it; a muted
+ * "waiting for the owner" line on anyone else's waiting proposal; Cancel on an
+ * approval the owner may still take back. Nothing on a settled row.
  */
 function RowButtons({
   row,
@@ -414,12 +411,17 @@ function RowButtons({
   if (action === 'withdraw') {
     return (
       <span style={{ display: 'inline-grid', gap: 'var(--tp-sp-1)', justifyItems: 'end' }}>
-        <span style={{ ...muted, textAlign: 'end', maxInlineSize: '16rem' }}>
-          {tr(onlyManagerDecides(row.proposedByRole) ? 'ws.deductions.yoursOwner' : 'ws.deductions.yours')}
-        </span>
+        <span style={{ ...muted, textAlign: 'end', maxInlineSize: '16rem' }}>{tr('ws.deductions.yours')}</span>
         <Button size="sm" kind="ghost" icon="undo" onClick={() => onWithdraw(row)} data-testid={`deductions.withdraw.${row.id}`}>
           {tr('ws.deductions.withdraw.open')}
         </Button>
+      </span>
+    );
+  }
+  if (action === 'awaitingOwner') {
+    return (
+      <span style={{ ...muted, display: 'inline-block', textAlign: 'end', maxInlineSize: '16rem' }} data-testid={`deductions.awaiting.${row.id}`}>
+        {tr('ws.deductions.waitingForOwner')}
       </span>
     );
   }
@@ -431,147 +433,4 @@ function RowButtons({
     );
   }
   return null;
-}
-
-/**
- * Approve or decline, with the note the decision carries (the staff requests'
- * DecisionDialog shape, StaffRequests.tsx). Declining needs a reason: the form
- * says so before the server would (REASON_REQUIRED), and the proposer reads
- * it. The person is told only of an approval, and never who proposed it.
- */
-function DecideDialog({ row, approve, onClose, onDone }: { row: DeductionRow; approve: boolean; onClose: () => void; onDone: () => void }) {
-  const { tr, locale } = useLocale();
-  const toast = useToast();
-  const [note, setNote] = useState('');
-  const [tried, setTried] = useState(false);
-  const issue = decisionIssue(approve, note);
-  const qc = useQueryClient();
-  const decide = useMutation({
-    mutationFn: () => appRpc('decide_deduction', { p_id: row.id, p_approve: approve, p_note: note.trim() === '' ? null : note.trim() }),
-    onSuccess: () => {
-      toast.ok(tr(approve ? 'ws.deductions.decide.approved' : 'ws.deductions.decide.declined'));
-      onDone();
-    },
-    onError: (e) => isStaleRefusal(refusalCode(e)) && void qc.invalidateQueries({ queryKey: DK.all }),
-  });
-  const amount = isolate(formatIQD(row.amountIqd, locale));
-  const name = isolate(row.staffName);
-
-  return (
-    <Modal
-      title={tr(approve ? 'ws.deductions.decide.approveTitle' : 'ws.deductions.decide.declineTitle')}
-      onClose={onClose}
-      dismissible={!decide.isPending}
-      footer={(close) => (
-        <>
-          <Button onClick={close} disabled={decide.isPending}>
-            {tr('common.cancel')}
-          </Button>
-          <Button
-            kind={approve ? 'primary' : 'danger'}
-            busy={decide.isPending}
-            data-testid="deductions.decide.confirm"
-            onClick={() => {
-              setTried(true);
-              if (issue === null) decide.mutate();
-            }}
-          >
-            {tr(approve ? 'ws.deductions.decide.approveConfirm' : 'ws.deductions.decide.declineConfirm')}
-          </Button>
-        </>
-      )}
-    >
-      <p style={{ marginBlockStart: 0 }}>{tr(approve ? 'ws.deductions.decide.approveBody' : 'ws.deductions.decide.declineBody', { name, amount })}</p>
-      <blockquote dir="auto" style={{ margin: 0, marginBlockEnd: 'var(--tp-sp-3)', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', background: 'var(--tp-surface-2)', borderRadius: 'var(--tp-radius-ctl)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-        {row.reason}
-      </blockquote>
-      <Field
-        label={tr(approve ? 'ws.deductions.decide.note' : 'ws.deductions.decide.reason')}
-        hint={tr('ws.deductions.decide.readByProposer')}
-        required={!approve}
-        optional={approve}
-        error={tried && issue ? tr(issue === 'required' ? 'op.errors.REASON_REQUIRED' : 'op.errors.TEXT_TOO_LONG') : undefined}
-      >
-        <textarea
-          value={note}
-          rows={3}
-          maxLength={NOTE_MAX}
-          dir="auto"
-          disabled={decide.isPending}
-          onChange={(e) => setNote(e.target.value)}
-          style={{ ...inputStyle, minBlockSize: '4.5rem', resize: 'vertical', fontFamily: 'inherit' }}
-        />
-      </Field>
-      <ErrorText error={decide.error} />
-    </Modal>
-  );
-}
-
-/**
- * The owner takes back an approval (app.cancel_deduction): the row stays, as
- * cancelled, and leaves every total. A reason is required, and the red
- * confirm sits apart from Keep it.
- */
-function CancelDialog({ target, onClose, onDone }: { target: DeductionRef; onClose: () => void; onDone: () => void }) {
-  const { tr, locale } = useLocale();
-  const toast = useToast();
-  const [reason, setReason] = useState('');
-  const [tried, setTried] = useState(false);
-  const issue = decisionIssue(false, reason);
-  const qc = useQueryClient();
-  const cancel = useMutation({
-    mutationFn: () => appRpc('cancel_deduction', { p_id: target.id, p_reason: reason.trim() }),
-    onSuccess: () => {
-      toast.ok(tr('ws.deductions.cancel.done'));
-      onDone();
-    },
-    onError: (e) => isStaleRefusal(refusalCode(e)) && void qc.invalidateQueries({ queryKey: DK.all }),
-  });
-  return (
-    <Modal
-      title={tr('ws.deductions.cancel.title')}
-      onClose={onClose}
-      dismissible={!cancel.isPending}
-      footer={(close) => (
-        <>
-          <Button onClick={close} disabled={cancel.isPending}>
-            {tr('ws.deductions.cancel.keep')}
-          </Button>
-          <Button
-            kind="danger"
-            busy={cancel.isPending}
-            style={{ marginInlineStart: 'auto' }}
-            data-testid="deductions.cancel.confirm"
-            onClick={() => {
-              setTried(true);
-              if (issue === null) cancel.mutate();
-            }}
-          >
-            {tr('ws.deductions.cancel.confirm')}
-          </Button>
-        </>
-      )}
-    >
-      <p style={{ marginBlockStart: 0 }}>
-        {tr('ws.deductions.cancel.body', { name: isolate(target.staffName), amount: isolate(formatIQD(target.amountIqd, locale)) })}
-      </p>
-      <Field
-        label={tr('ws.deductions.cancel.reason')}
-        hint={tr('ws.deductions.cancel.reasonHint')}
-        required
-        error={tried && issue ? tr(issue === 'required' ? 'op.errors.REASON_REQUIRED' : 'op.errors.TEXT_TOO_LONG') : undefined}
-      >
-        <textarea
-          value={reason}
-          rows={3}
-          maxLength={NOTE_MAX}
-          dir="auto"
-          disabled={cancel.isPending}
-          onChange={(e) => setReason(e.target.value)}
-          style={{ ...inputStyle, minBlockSize: '4.5rem', resize: 'vertical', fontFamily: 'inherit' }}
-        />
-      </Field>
-      <ErrorText error={cancel.error} />
-    </Modal>
-  );
 }

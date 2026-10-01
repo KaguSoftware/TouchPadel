@@ -36,6 +36,9 @@ import { suggestionsRoute } from './routes/suggestions';
 // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
 import { deductionsRoute } from './routes/deductions';
 import { incidentsRoute } from './routes/incidents';
+// Wages and attendance (0270–0272).
+import { wagesRoute } from './routes/wages';
+import { attendanceRoute } from './routes/attendance';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
 import { analyticsChildren } from './routes/analytics/_children';
@@ -74,6 +77,8 @@ const routeTree = rootRoute.addChildren([
   suggestionsRoute,
   deductionsRoute,
   incidentsRoute,
+  wagesRoute,
+  attendanceRoute,
 ]);
 
 /** Send the operator back to the screen their role starts on; fall back to `/`. */

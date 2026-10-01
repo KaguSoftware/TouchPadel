@@ -62,6 +62,9 @@ import { fetchIncidentsOpen } from '../features/incidents/api';
 import { incidentsOpenCount } from '../features/incidents/incidentsLogic';
 import { fetchContentWaiting } from '../features/content/api';
 import { contentWaitingCount } from '../features/content/contentLogic';
+// Wages (0271): the owner's pay-day reminder on the Wages row.
+import { fetchWagesDue } from '../features/wages/api';
+import { wagesDueCount } from '../features/wages/wagesLogic';
 import { Button, ErrorText, Field, Modal, Spinner, card, inputStyle, trapTab } from '../components/ui';
 import { PermissionRefusedNotice, StatusBadge } from '../components/kit';
 import { ChevronBack, ChevronForward, Icon, CourtLines, ThemeModeIcon } from '../components/icons';
@@ -89,6 +92,8 @@ import { BreakProvider, useBreak } from '../features/breaks/BreakProvider';
 import { BreakOverlay } from '../features/breaks/BreakOverlay';
 import { BreakRailControl } from '../features/breaks/BreakRailControl';
 import { AssistantDrawer, AssistantDrawerProvider } from '../features/assistant/AssistantDrawer';
+import { GuideProvider, WorkspaceGuideHost } from '../features/guide/GuideProvider';
+import { GuideRailButton } from '../features/guide/GuideRailButton';
 import { ShiftProvider } from '../features/tillShift/ShiftProvider';
 import { StationReachProvider } from '../lib/stationReach';
 import { ShiftRailControl } from '../features/tillShift/ShiftRailControl';
@@ -438,6 +443,9 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           sheet for the whole shell: the rail footer row and Ctrl/⌘ K open it,
           and it is mounted once, beside the break overlay. */}
       <AssistantDrawerProvider>
+      {/* The workspace guide (court desk, till, kitchen, Touch Shop): opened
+          from the rail footer or the kitchen legend, shown by the host below. */}
+      <GuideProvider workspace={active}>
       <div
         data-workspace={noNav && !board ? undefined : active}
         style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: board ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
@@ -445,6 +453,7 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
         <IdleLock />
         <BreakOverlay />
         <AssistantDrawer />
+        <WorkspaceGuideHost />
         {/* On the kitchen screen there is no rail, so the strip spans the
             window as it always has. Where there IS a rail it moves inside the
             content column instead — see below. */}
@@ -483,6 +492,7 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           </div>
         </div>
       </div>
+      </GuideProvider>
       </AssistantDrawerProvider>
       </StationReachProvider>
       </ShiftProvider>
@@ -536,6 +546,7 @@ function useBadgeSum(badges: readonly (NavItem['badge'] | undefined)[]): number 
   const deductionsOn = on.has('deductionsWaiting') && can(staff?.role, 'decideDeductions');
   const incidentsOn = on.has('incidentsOpen') && can(staff?.role, 'reviewIncidents');
   const contentOn = on.has('contentWaiting') && can(staff?.role, 'decideContent');
+  const wagesOn = on.has('wagesDue') && can(staff?.role, 'manageWages');
   const deductions = useQuery({
     queryKey: QK.deductionsWaiting,
     queryFn: fetchDeductionsWaiting,
@@ -554,6 +565,12 @@ function useBadgeSum(badges: readonly (NavItem['badge'] | undefined)[]): number 
     enabled: contentOn,
     refetchInterval: 60_000,
   });
+  const wages = useQuery({
+    queryKey: QK.wagesDue,
+    queryFn: fetchWagesDue,
+    enabled: wagesOn,
+    refetchInterval: 60_000,
+  });
   // The phone counts waiting on the Stock count row: the same read the stock
   // screens make, so the rail and the screen agree.
   const stockCounts = useQuery({
@@ -568,6 +585,7 @@ function useBadgeSum(badges: readonly (NavItem['badge'] | undefined)[]): number 
     (deductionsOn && deductions.isSuccess ? deductionsWaitingCount(deductions.data) : 0) +
     (incidentsOn && incidents.isSuccess ? incidentsOpenCount(incidents.data) : 0) +
     (contentOn && content.isSuccess ? contentWaitingCount(content.data) : 0) +
+    (wagesOn && wages.isSuccess ? wagesDueCount(wages.data) : 0) +
     (on.has('stockCountsWaiting') && stockCounts.isSuccess ? phoneCountsWaiting(stockCounts.data).length : 0)
   );
 }
@@ -964,6 +982,9 @@ function WorkspaceNav({
       </div>
 
       <div style={{ borderBlockStart: '1px solid var(--tp-rail-border)', paddingBlock: 'var(--tp-sp-2-5)', paddingInline: RAIL_PAD, display: 'grid', gap: 'var(--tp-sp-0)' }}>
+        {/* The workspace's guide, first in the footer so it is always in
+            reach. Renders nothing where there is no guide (manager, owner). */}
+        <GuideRailButton style={navButtonStyle} />
         {/* Workspace, assistant, language and appearance behind one row. The
             assistant is owner-only and the switch manager-and-up, so the menu
             holds two items for a cashier and four for an owner. */}

@@ -7,7 +7,7 @@
  *
  * Nothing here computes money: every amount and total is the server's.
  */
-import type { StaffRole } from '../../lib/auth';
+import { can, type StaffRole } from '../../lib/auth';
 import type { Tone } from '../../components/kit';
 import { isObject, list, num, role, str } from '../roleExtras/roleExtrasLogic';
 import { addDays } from './venueDate';
@@ -56,7 +56,11 @@ export interface DeductionRow {
   cancelledByName: string | null;
   cancelledAt: string | null;
   cancelReason: string | null;
+  /** The owner, on a waiting row they neither proposed nor are the person of (0272). */
   canDecide: boolean;
+  /** The viewer proposed this waiting row, so only they may take it back (0272). */
+  canWithdraw: boolean;
+  /** The owner, on an approved row whose pay month's wage is not paid yet (0272). */
   canCancel: boolean;
 }
 
@@ -92,6 +96,7 @@ export function readDeductionsPage(payload: unknown): DeductionsPage {
         cancelledAt: str(r.cancelled_at),
         cancelReason: str(r.cancel_reason),
         canDecide: r.can_decide === true,
+        canWithdraw: r.can_withdraw === true,
         canCancel: r.can_cancel === true,
       }),
     );
@@ -100,34 +105,40 @@ export function readDeductionsPage(payload: unknown): DeductionsPage {
 
 /**
  * The rail badge, the Waiting tab, /ops and Observe: waiting deductions the
- * viewer can decide. `waiting_count` counts the viewer's own proposals too,
- * which only they may withdraw (CANNOT_DECIDE_OWN), so the waiting rows the
- * page marks `can_decide: false` come off it. Read from the first page (50
- * rows); an own proposal past it is still counted, which only overstates.
+ * viewer can decide. `waiting_count` counts every waiting row, the ones the
+ * viewer cannot decide too (their own proposals, and since 0272 everything a
+ * manager sees), so the waiting rows the page marks `can_decide: false` come
+ * off it. Read from the first page (50 rows); a row past it is still counted,
+ * which only overstates.
  */
 export function deductionsWaitingCount(payload: unknown): number {
   const page = readDeductionsPage(payload);
-  const own = page.rows.filter((r) => r.status === 'waiting' && !r.canDecide).length;
-  return Math.max(0, page.waitingCount - own);
+  const undecidable = page.rows.filter((r) => r.status === 'waiting' && !r.canDecide).length;
+  return Math.max(0, page.waitingCount - undecidable);
 }
 
 /**
- * What a waiting row offers the viewer. The page leaves out every row whose
- * person is the viewer (F6), so a waiting row they cannot decide is one they
- * proposed themselves, which only they may withdraw.
+ * Whether the viewer's own entry needs nobody else (0272): the owner decides,
+ * so the owner's deduction is recorded approved at once and comes off the
+ * person's next unpaid wage. Anyone else's waits for the owner.
  */
-/**
- * Who decides a proposal, as its copy says: never its proposer
- * (CANNOT_DECIDE_OWN, 0197), so an owner's goes to a manager, and anyone
- * else's to another manager or the owner.
- */
-export function onlyManagerDecides(proposerRole: StaffRole | null | undefined): boolean {
-  return proposerRole === 'owner';
+export function ownerRecordsAtOnce(viewerRole: StaffRole | null | undefined): boolean {
+  return can(viewerRole ?? undefined, 'decideDeductions');
 }
 
-export function waitingAction(row: Pick<DeductionRow, 'status' | 'canDecide'>): 'decide' | 'withdraw' | null {
+/**
+ * What a waiting row offers the viewer: Approve and Decline when they may
+ * decide it, Withdraw on a proposal they sent, and otherwise a line saying it
+ * waits for the owner (a manager reading a head's proposal). Each follows the
+ * server's own flag, so "cannot decide" never stands for "my own proposal".
+ */
+export type WaitingAction = 'decide' | 'withdraw' | 'awaitingOwner';
+
+export function waitingAction(row: Pick<DeductionRow, 'status' | 'canDecide' | 'canWithdraw'>): WaitingAction | null {
   if (row.status !== 'waiting') return null;
-  return row.canDecide ? 'decide' : 'withdraw';
+  if (row.canDecide) return 'decide';
+  if (row.canWithdraw) return 'withdraw';
+  return 'awaitingOwner';
 }
 
 /** Waiting is amber, approved green, declined red; withdrawn and cancelled are neutral (they count for nothing). */
@@ -169,6 +180,8 @@ export interface MonthPerson {
   approvedCount: number;
   waitingIqd: number;
   waitingCount: number;
+  /** The owner marked this person's wage for the month paid: nothing in it can be cancelled (0272). */
+  wagePaid: boolean;
   deductions: MonthDeduction[];
 }
 
@@ -202,6 +215,7 @@ export function readDeductionsMonth(payload: unknown): DeductionsMonth {
         approvedCount: count(r.approved_count),
         waitingIqd: num(r.waiting_iqd) ?? 0,
         waitingCount: count(r.waiting_count),
+        wagePaid: r.wage_paid === true,
         deductions: list(r.deductions)
           .filter((d) => typeof d.id === 'string')
           .map((d) => ({

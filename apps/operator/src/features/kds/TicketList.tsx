@@ -13,6 +13,7 @@ import { formatNumber, formatTime, type MessageKey, type TParams } from '@touch/
 import { useLocale } from '../../lib/i18n';
 import { Button } from '../../components/ui';
 import { Icon } from '../../components/icons';
+import { isModalOpen } from '../../lib/overlay';
 import { ageParts, ageStateVar, type AgeState } from './ageColor';
 import type { TicketAction, TicketItemView, TicketView } from './ticketView';
 
@@ -235,7 +236,9 @@ export const TicketCard = memo(function TicketCard({
   useEffect(() => {
     const el = ref.current;
     if (!selected || !el) return;
-    if (!el.contains(document.activeElement)) el.focus({ preventScroll: true });
+    // Not from under a dialog: a ticket dropping off moves the selection, and
+    // pulling focus out of the open guide would break its focus trap.
+    if (!el.contains(document.activeElement) && !isModalOpen()) el.focus({ preventScroll: true });
     el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }, [selected]);
 

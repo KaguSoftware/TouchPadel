@@ -248,7 +248,6 @@ describe('capability matrix', () => {
     launchDirectly: ['shop_staff', 'owner'],
     // Wave 5, people records (§5.2): each the guard of the RPC behind it.
     proposeDeductions: ['head_barista', 'head_chef', 'manager', 'owner'],
-    decideDeductions: ['manager', 'owner'],
     reportIncidents: ['court_desk', 'cashier', 'manager', 'owner'],
     reviewIncidents: ['manager', 'owner'],
     // Wave 5, till shifts (§5.2, §8 Q30): management works anyone's drawer.
@@ -328,6 +327,8 @@ describe('capability matrix', () => {
         'decideDeductions',
         'decideHoldStanding',
         'cancelDeductions',
+        // Wages (0270–0272).
+        'manageWages',
         'reportIncidents',
         'reviewIncidents',
         'redactIncidents',
@@ -365,8 +366,8 @@ describe('capability matrix', () => {
     }
   });
 
-  it('keeps cancelling a deduction, redacting a report and deciding content with the owner (wave5-addendum §2.5-§2.7, §8 Q14)', () => {
-    for (const capability of ['cancelDeductions', 'redactIncidents', 'decideContent'] as const) {
+  it('keeps deciding and cancelling a deduction, wages, redacting a report and deciding content with the owner (wave5-addendum §2.5-§2.7, §8 Q14; 0272)', () => {
+    for (const capability of ['decideDeductions', 'cancelDeductions', 'manageWages', 'redactIncidents', 'decideContent'] as const) {
       expect(can('owner', capability), capability).toBe(true);
       expect(can('manager', capability), capability).toBe(false);
     }

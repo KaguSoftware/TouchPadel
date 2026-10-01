@@ -7,7 +7,7 @@
 --
 -- WHAT IT KEEPS. Everything the venue was CONFIGURED with: the menu and its
 -- modifiers, allergens, tax groups, ingredients and recipes, courts, cafe
--- tables, rate rules, promotions, staff, venues, venue_settings, cafe_settings,
+-- tables, rate rules, promotions, staff and their salaries (staff_wages), venues, venue_settings, cafe_settings,
 -- the Telegram links, and the assistant's schema/doc index. Guest accounts stay
 -- too (`profiles`, `customer_notes`, `customer_flags`) — their bookings and tabs
 -- go, the people do not.
@@ -135,6 +135,10 @@ truncate table
   public.staff_requests,
   -- wave 5, lane P (wave5-addendum §7.8, PROPOSAL): test-period records.
   public.salary_deductions,
+  -- wages (0270): the payments and recorded days of the test period; the
+  -- salaries themselves (staff_wages) are set-up and stay.
+  public.wage_payments,
+  public.staff_attendance,
   public.incident_reports,
   public.station_staff,
   -- `stations` is the device registry (0124). Dev sessions and test tills

@@ -248,3 +248,51 @@ describe('KitchenDisplayScreen keyboard (spec R11)', () => {
     expect(props.onItemReady).toHaveBeenCalledWith('t1', 'i1', true);
   });
 });
+
+describe('KitchenDisplayScreen guide', () => {
+  it('the Guide pill sits in the key legend only when the shell passes onGuide', async () => {
+    renderScreen();
+    expect(screen.queryByTestId('kds-guide')).toBeNull();
+  });
+
+  it('the pill and the ? key open the guide', async () => {
+    const user = userEvent.setup();
+    const onGuide = vi.fn();
+    renderScreen({ onGuide });
+    const pill = within(screen.getByTestId('key-legend')).getByTestId('kds-guide');
+    expect(pill.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(within(pill).getByText('?')).toBeTruthy();
+    await user.click(pill);
+    expect(onGuide).toHaveBeenCalledTimes(1);
+    await user.keyboard('?');
+    expect(onGuide).toHaveBeenCalledTimes(2);
+  });
+
+  it('with a dialog open, 1, S and Space leave the tickets alone; closed, they work again', async () => {
+    const user = userEvent.setup();
+    const props = renderScreen({ onGuide: vi.fn() });
+    const cards = screen.getAllByTestId('ticket-card');
+
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    document.body.appendChild(dialog);
+
+    await user.keyboard('1');
+    await user.keyboard('s');
+    await user.keyboard(' ');
+    await user.keyboard(' ');
+    expect(props.onStatus).not.toHaveBeenCalled();
+    expect(props.onItemReady).not.toHaveBeenCalled();
+    expect(cards[0]!.getAttribute('data-selected')).toBeNull();
+
+    dialog.remove();
+
+    await user.keyboard('1');
+    await user.keyboard('s');
+    expect(props.onStatus).toHaveBeenCalledWith('t1', 'preparing');
+    await user.keyboard(' ');
+    await user.keyboard(' ');
+    expect(props.onItemReady).toHaveBeenCalledWith('t1', 'i1', true);
+  });
+});
