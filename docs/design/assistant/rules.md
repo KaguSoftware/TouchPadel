@@ -86,6 +86,14 @@ Tickets are bought online at a chain-wide price and are not court money. A playe
 
 A match booking is never marked no-show as a whole (MATCH_MARK_SEATS); unmarked seats count as arrived at completion or three hours after the end. A no-show's share is written off and `court_fee_remaining` nets it; a walk-out's share is written off only with a manager PIN; a match called off short cancels the booking and nobody pays (OM-47, R1, R12, R37).
 
+## Lesson money is its own revenue line, and coaches are paid outside the till
+
+Lesson money is part of headline revenue as its own line (`lessonRevenue`), apart from court and café money. A coach earns their share (`coach_share_bp`, 60 % by default, snapshotted on each lesson) of what was collected for their lessons less a fixed court share per session; only money collected counts. Each month the system drafts one statement per coach per branch; the branch manager or the owner approves it (no PIN) and then marks it paid with a payment reference under a manager PIN, which moves no till money: the money is handed over outside the drawer. Coach pay is never read by the assistant (coaching build contracts C-6, C-12, C-18, C-28, R4, R59).
+
+## Lesson prices go through the owner
+
+The venue sets every lesson price: a price per lesson type, with an optional per-coach price; a coach never sets one. A draft lesson type is edited directly, price included. Once a type is on sale, its price, court share, length, sessions and a private type's party size, and every per-coach price, change only through a price or promo change the owner approves (`lesson_price`, `lesson_launch`, `coach_price`); the owner edits directly. Switching a launched type off and on stays direct (coaching build contracts C-5, C-17, R46).
+
 ## Breaks are counted per business day; cover is recorded, not signed in
 
 A break (migration 0105) starts and ends with the person's own PIN, counts against `cafe_settings.break_allowance_minutes` (default 60) per business day, and is never cut short — a break that runs over is recorded with the overrun. While they are away another person assigned to the station in `station_staff` (or any manager or owner) can cover by entering their PIN; the machine's session stays the first person's, and the cover is written on the `staff_breaks` row and in the audit log, not minted as a login.
