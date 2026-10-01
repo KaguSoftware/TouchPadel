@@ -203,6 +203,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
     exploreTitle: 'تتش بادل',
     legalTitle: 'معلومات قانونية',
     lessons: 'الدروس',
+    coaching: 'التدريب',
     menu: 'منيو الكافيه',
     support: 'الدعم',
     privacy: 'سياسة الخصوصية',

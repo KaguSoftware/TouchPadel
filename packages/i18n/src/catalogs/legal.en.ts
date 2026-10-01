@@ -23,6 +23,11 @@
  * blocks, the conduct clause, and what deleting an account does to matches and tickets. One
  * terms-version bump covers the deposit wording and open matches. The Arabic was written in
  * the same change and is for the client's lawyer (DRAFT-AR); the Arabic version governs.
+ *
+ * 1 October 2026 (docs/design/coaching/guest.md §4.16, R50, R63): what deleting an account does to
+ * lessons and to a coach's profile (`deleteAccount.what.lessons`, `.coaching`, and the same two
+ * sentences in `privacy.retention.deleted`). The rest of the coaching text (privacy for students
+ * and coaches, the terms' lessons section) lands with its terms bump (G7, C-26).
  */
 export const legalEn = {
   lastUpdated: 'Last updated: 29 September 2026',
@@ -147,7 +152,7 @@ export const legalEn = {
       title: 'How long we keep it',
       active: 'We keep your account information for as long as you have an account.',
       deleted:
-        'When you delete your account, your login, your first name, surname and gender, your phone number, email address and linked Apple or Google sign-in are removed immediately, and you are signed out on every device. Your notification token, staff notes about you, the list of players you blocked and any notifications waiting to be sent are deleted too.',
+        'When you delete your account, your login, your first name, surname and gender, your phone number, email address and linked Apple or Google sign-in are removed immediately, and you are signed out on every device. Your notification token, staff notes about you, the list of players you blocked and any notifications waiting to be sent are deleted too. Your booked lessons are cancelled, and anything you paid online for them is refunded to the card you paid with. If you coach at Touch, your coach profile leaves the app and the website, your photo and bio are deleted, and your upcoming lessons are cancelled and refunded; your monthly statements are kept with your coach name, as the venue’s pay records.',
       bookings:
         'Bookings and café orders you have already made stay in the venue’s records with no name, phone number or notes attached, because the venue has to keep its own accounts. They can no longer be linked to you. The record that you accepted our terms stays with them, without your name.',
       matches:
@@ -371,6 +376,11 @@ export const legalEn = {
         'Deleted immediately: your login, your first name, surname and gender, phone number, email address, linked Apple or Google sign-in, notification token, the players you blocked, the staff notes about you and any notifications waiting to be sent. You are signed out on every device.',
       kept: 'Kept, without your name: bookings and café orders you have already made, open matches you played in, and reports between players (for 12 months), because the venue has to keep its own accounts. They can no longer be linked to you.',
       tickets: 'Open-match tickets you have not used are refunded to the card you paid with.',
+      // Coaching (docs/design/coaching/guest.md §4.16, R50, R63; app.delete_my_account, 0286).
+      lessons:
+        'Your booked lessons are cancelled, and anything you paid online for them is refunded to the card you paid with.',
+      coaching:
+        'If you coach at Touch, your coach profile leaves the app and the website, your photo and bio are deleted, and your upcoming lessons are cancelled and refunded. Your monthly statements are kept with your coach name, as the venue’s pay records.',
       more: 'Read the full retention details in the Privacy Policy',
     },
     web: {

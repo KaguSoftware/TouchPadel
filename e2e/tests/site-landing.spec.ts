@@ -105,6 +105,8 @@ test.describe('site home', () => {
         '#visit',
         '/ar',
         '/en#lessons',
+        // The footer's Coaching link (docs/design/coaching/guest.md §4.14.4).
+        '/en/coaching',
         '/en/support',
         '/en/privacy',
         '/en/terms',

@@ -231,6 +231,8 @@ export const siteEn = {
     exploreTitle: 'Touch Padel',
     legalTitle: 'Legal',
     lessons: 'Lessons',
+    // The /coaching page (docs/design/coaching/guest.md §4.14.4), after Lessons.
+    coaching: 'Coaching',
     menu: 'Café menu',
     support: 'Support',
     privacy: 'Privacy Policy',

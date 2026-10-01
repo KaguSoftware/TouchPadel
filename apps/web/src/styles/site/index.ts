@@ -1,5 +1,6 @@
 /**
- * The Touch Padel site stylesheet: the home page, the legal pages and the 404. Inlined by
+ * The Touch Padel site stylesheet: the home page, the coaching page, the legal pages and the
+ * 404. Inlined by
  * `SiteStyles` into those pages only (never into the root layout, so the café menu and a
  * table guest on venue wifi never download it), after the layout's theme tokens.
  *
@@ -17,6 +18,7 @@ import { sitePhotoCss } from './photo.css';
 import { siteHeroCss } from './hero.css';
 import { siteClubCss } from './club.css';
 import { siteStoriesCss } from './stories.css';
+import { siteCoachingCss } from './coaching.css';
 import { siteEventsCss } from './events.css';
 import { siteAppBandCss } from './appband.css';
 import { siteFaqCss } from './faq.css';
@@ -35,6 +37,7 @@ export const siteCssModules = {
   hero: siteHeroCss,
   club: siteClubCss,
   stories: siteStoriesCss,
+  coaching: siteCoachingCss,
   events: siteEventsCss,
   appband: siteAppBandCss,
   faq: siteFaqCss,

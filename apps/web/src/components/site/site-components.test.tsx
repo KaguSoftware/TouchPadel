@@ -53,6 +53,36 @@ describe('SiteShell', () => {
     expect(document.querySelector('.tp-site')?.getAttribute('data-page')).toBe('page');
   });
 
+  it('lists the site’s pages in the footer, Coaching after Lessons (docs/design/coaching/guest.md §4.14.4)', () => {
+    renderShell({ path: '/coaching' });
+    const explore = within(screen.getByRole('contentinfo')).getByRole('navigation', {
+      name: t('en', 'site.footer.exploreTitle'),
+    });
+    const links = within(explore).getAllByRole('link');
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      '/en#lessons',
+      '/en/coaching',
+      '/en/menu',
+      '/en/support',
+    ]);
+    expect(links[1]?.textContent).toBe(t('en', 'site.footer.coaching'));
+    expect(links[1]?.getAttribute('aria-current')).toBe('page');
+    // The header keeps Lessons on the home page's #lessons, which leads on to /coaching.
+    const nav = screen.getByRole('navigation', { name: t('en', 'site.nav.label'), ...hidden });
+    const navHrefs = within(nav)
+      .getAllByRole('link', hidden)
+      .map((a) => a.getAttribute('href'));
+    expect(navHrefs).not.toContain('/en/coaching');
+  });
+
+  it('names the footer’s Coaching link in Arabic', () => {
+    renderShell({ locale: 'ar', path: '/privacy' });
+    const footer = within(screen.getByRole('contentinfo'));
+    const link = footer.getByRole('link', { name: t('ar', 'site.footer.coaching') });
+    expect(link.getAttribute('href')).toBe('/ar/coaching');
+    expect(link.getAttribute('aria-current')).toBeNull();
+  });
+
   it('has Book a court in the bar and the sheet; the menu opens and closes from the keyboard', async () => {
     renderShell();
     const banner = screen.getByRole('banner');

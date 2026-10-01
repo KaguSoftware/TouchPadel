@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { screen, within } from '@testing-library/react';
-import { t, type MessageKey, type TParams } from '@touch/i18n';
+import { formatIQD, t, type MessageKey, type TParams } from '@touch/i18n';
 import {
   MENU_ERROR,
   resetServerData,
@@ -13,6 +13,15 @@ import { MAPS_URL } from '@/lib/site/contact';
 import { renderServerPage } from '@/test/renderPage';
 import { resetSiteRequest } from '@/lib/site/testSupport';
 import { PHOTO_GRADE_ID } from '@/lib/site/photoGrade';
+import {
+  COACH_ALI,
+  COACH_SARA,
+  COACHING_ERROR,
+  PRICES,
+  coachingAnswer,
+  coachingRead,
+  resetCoachingServer,
+} from '@/test/coachingFixtures';
 import HomePage, { generateMetadata } from './page';
 
 /**
@@ -31,6 +40,13 @@ vi.mock('@/lib/menu.server', async () => {
     getCachedBranches: () => Promise.resolve(fixtureBranches()),
     getCachedVenue: () => Promise.resolve(fixtureBranches()[0] ?? null),
   };
+});
+
+// The coaching read (docs/design/coaching/guest.md §4.14.4): `off` by default, so every case
+// below sees #lessons exactly as before coaching; the `ok` case sets its own answer.
+vi.mock('@/lib/coaching.server', async () => {
+  const { coachingServer } = await import('@/test/coachingFixtures');
+  return { getCachedCoaching: () => Promise.resolve(coachingServer.read) };
 });
 
 vi.mock('@/lib/site/mode.server', async () => {
@@ -89,6 +105,7 @@ const faqAnswers = () =>
 beforeEach(() => {
   resetServerData();
   resetSiteRequest();
+  resetCoachingServer();
 });
 
 describe('home page', () => {
@@ -308,6 +325,108 @@ describe('home page', () => {
     }
     const night = [...document.querySelectorAll('.tp-photo--night')];
     expect(night).toEqual([section('.tp-front').querySelector('.tp-photo')]);
+  });
+});
+
+describe('home page, #lessons and coaching', () => {
+  const lessons = () => section('#lessons');
+
+  it('stays exactly as it was until coaching is live: the WhatsApp ask, no strip, no coaches link', async () => {
+    for (const read of [
+      coachingRead({ off: true }),
+      coachingRead({ ...coachingAnswer(), coaches: [] }),
+      COACHING_ERROR,
+    ]) {
+      document.body.innerHTML = '';
+      resetCoachingServer(read);
+      await renderServerPage(HomePage, 'en');
+      expect(lessons().querySelector('.tp-lessons__body')?.textContent).toBe(
+        tr('site.lessons.body'),
+      );
+      expect(lessons().querySelector('.tp-lessons__coaches')).toBeNull();
+      expect(lessons().querySelector('a[href="/en/coaching"]')).toBeNull();
+      const ask = lessons().querySelector('a[data-contact="whatsapp"]');
+      expect(ask?.textContent).toContain(tr('site.lessons.cta'));
+    }
+  });
+
+  it('with coaches, shows the strip (each face its /c/ link), Meet the coaches and the WhatsApp ask', async () => {
+    resetCoachingServer(coachingRead(coachingAnswer({ pricesPublic: false })));
+    await renderServerPage(HomePage, 'en');
+    expect(lessons().querySelector('.tp-lessons__body')?.textContent).toBe(
+      tr('coaching.web.landing.body'),
+    );
+
+    const strip = within(lessons()).getByRole('list', {
+      name: tr('coaching.web.landing.coachesLabel'),
+    });
+    const faces = within(strip).getAllByRole('link');
+    expect(faces.map((a) => a.getAttribute('href'))).toEqual([
+      `/en/c/${COACH_ALI}`,
+      `/en/c/${COACH_SARA}`,
+    ]);
+    // The name is the link's text; the letter placeholder beside it is hidden from screen readers.
+    expect(faces.map((a) => a.querySelector('.tp-coach-face__name')?.textContent)).toEqual([
+      'Ali Fixture',
+      'Sara Fixture',
+    ]);
+    expect(
+      faces.map((a) => a.querySelector('.tp-coach-face__photo')?.getAttribute('aria-hidden')),
+    ).toEqual(['true', 'true']);
+
+    expect(
+      within(lessons())
+        .getByRole('link', { name: tr('coaching.web.landing.cta') })
+        .getAttribute('href'),
+    ).toBe('/en/coaching');
+    // The WhatsApp button stays beside it.
+    expect(lessons().querySelector('a[data-contact="whatsapp"]')?.textContent).toContain(
+      tr('site.lessons.cta'),
+    );
+    // No price on the landing, ever (and none is public here anyway).
+    const text = plain(lessons().textContent);
+    for (const p of Object.values(PRICES)) expect(text).not.toContain(formatIQD(p, 'en'));
+    expect(text).not.toMatch(/IQD|د\.ع/);
+  });
+
+  it('shows four coaches at most', async () => {
+    const raw = coachingAnswer();
+    const [ali] = raw.coaches as Record<string, unknown>[];
+    raw.coaches = [0, 1, 2, 3, 4, 5].map((n) => ({
+      ...ali,
+      id: `a1b2c3d4-0000-4000-8000-00000000010${n}`,
+      display_name_en: `Coach ${'ABCDEF'[n]}`,
+      sort_order: n,
+    }));
+    resetCoachingServer(coachingRead(raw));
+    await renderServerPage(HomePage, 'en');
+    expect(lessons().querySelectorAll('.tp-coach-face')).toHaveLength(4);
+  });
+
+  it('keeps the Plan your visit count when the phone cannot be dialled, coaches or not', async () => {
+    resetCoachingServer(coachingRead(coachingAnswer()));
+    serverData.venue = { ...VENUE_FIXTURE, phone: '030 123 4567' };
+    await renderServerPage(HomePage, 'en');
+    expect(document.querySelectorAll('a[data-contact="visit"]')).toHaveLength(8);
+  });
+
+  it('says it in Arabic at /ar', async () => {
+    resetCoachingServer(coachingRead(coachingAnswer()));
+    await renderServerPage(HomePage, 'ar');
+    expect(lessons().querySelector('.tp-lessons__body')?.textContent).toBe(
+      t('ar', 'coaching.web.landing.body'),
+    );
+    const faces = [...lessons().querySelectorAll('.tp-coach-face')];
+    expect(faces.map((a) => a.querySelector('.tp-coach-face__name')?.textContent)).toEqual([
+      'علي التجربة',
+      'سارة التجربة',
+    ]);
+    expect(faces[0]?.getAttribute('href')).toBe(`/ar/c/${COACH_ALI}`);
+    expect(
+      within(lessons())
+        .getByRole('link', { name: t('ar', 'coaching.web.landing.cta') })
+        .getAttribute('href'),
+    ).toBe('/ar/coaching');
   });
 });
 
