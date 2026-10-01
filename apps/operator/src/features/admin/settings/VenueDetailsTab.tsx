@@ -27,6 +27,7 @@ import { Button, ErrorText, Field, Skeleton, inputStyle } from '../../../compone
 import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
 import { DepositSettingsPanel } from '../../deposits/DepositSettingsPanel';
 import { MatchSettingsPanel } from './MatchSettingsPanel';
+import { CoachingSettingsPanel } from './CoachingSettingsPanel';
 import { TAX_GROUPS_KEY, VENUE_ADMIN_KEY, bpToPercent, fetchTaxGroups, fetchVenueAdmin, type TaxGroupRow, type VenueAdminRow } from './venueQueries';
 import { DevicesPanel } from './DevicesPanel';
 import { StationsPanel } from './StationsPanel';
@@ -97,6 +98,8 @@ export function VenueDetailsTab() {
                   <DepositSettingsPanel canEdit />
                   {/* Open matches (operator.md §5.16): own draft, own Save. */}
                   <MatchSettingsPanel canEdit />
+                  {/* Lessons and coaches (coaching operator.md §5.12): own draft, own Save. */}
+                  <CoachingSettingsPanel canEdit />
                 </>
               }
             />
@@ -135,6 +138,7 @@ export function VenueDetailsTab() {
               </Panel>
               <DepositSettingsPanel canEdit={false} />
               <MatchSettingsPanel canEdit={false} />
+              <CoachingSettingsPanel canEdit={false} />
               <Panel title={tr('ws.owner.settings.details.offlineTitle')}>
                 <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.owner.settings.details.offlineLead')}</p>
                 <Facts
