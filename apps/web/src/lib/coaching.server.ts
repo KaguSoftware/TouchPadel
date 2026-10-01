@@ -28,7 +28,7 @@ export type { CoachingRead, CoachingStatus } from './coaching';
 async function fetchCoaching(venueId: string | null): Promise<PublicCoaching> {
   const { data, error } = await createStaticSupabase()
     .schema('app')
-    .rpc('coaching_public', { p_venue_id: venueId });
+    .rpc('coaching_public', { p_venue_id: venueId ?? undefined });
   if (error) throw error;
   const coaching = parseCoachingPublic(data);
   if (!coaching) throw new Error('coaching_public answered in a shape the site cannot read');
