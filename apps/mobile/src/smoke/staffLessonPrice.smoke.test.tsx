@@ -13,7 +13,7 @@ import { formatIQD, makeT, type Locale } from '@touch/i18n';
 import type { Can, RunRow, StepRow } from '@touch/core';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { staffKeys } from '../features/staff/keys';
-import type { PriceTargets } from '../features/staff/protocols/types';
+import type { PriceNumbers, PriceTargets } from '../features/staff/protocols/types';
 import StaffStep from '../../app/staff-step';
 
 const V = TEST_VENUE_ID;
@@ -181,6 +181,158 @@ describe.each(LOCALES)('a lesson price change on the phone in %s', (locale) => {
       expect(screen.getByTestId('staff-step.decide.send-back')).toBeTruthy();
       expect(screen.getByTestId('staff-step.decide.stop')).toBeTruthy();
       expect(screen.queryByTestId('staff-step.submit')).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+  });
+});
+
+// A coach price's numbers step (operator.md §5.14.3): the manager's form opens
+// on the figure the proposal carries, as the operator's prefill does; a
+// removal (no figure) asks for none. `numbers` alone cannot tell the two apart.
+const COACH = 'f0000000-0000-4000-8000-00000000f0d1';
+const NUMBERS = 'b0000000-0000-4000-8000-00000000b0d2';
+
+const COACH_TARGETS: PriceTargets = {
+  coaches: [
+    {
+      coach_id: COACH,
+      display_name_en: 'Sara',
+      display_name_ar: 'سارة',
+      lesson_types: [
+        {
+          lesson_type_id: LESSON_TYPE,
+          name_en: 'Beginners group',
+          name_ar: 'مجموعة المبتدئين',
+          kind: 'group',
+          sessions_count: null,
+          type_price_iqd: 25000,
+          coach_price_iqd: 35000,
+        },
+      ],
+    },
+  ],
+};
+
+const COACH_NUMBERS: PriceNumbers = {
+  change: 'coach_price',
+  sizes: [],
+  addons: [],
+  promotion: null,
+  rate: null,
+  featured: null,
+  lesson: {
+    lesson_type_id: LESSON_TYPE,
+    coach_id: COACH,
+    kind: 'group',
+    name_en: 'Beginners group',
+    name_ar: 'مجموعة المبتدئين',
+    current_price_iqd: 35000,
+    new_price_iqd: 40000,
+    current_court_share_iqd: 5000,
+    new_court_share_iqd: 5000,
+    places_30d: 12,
+    owed_30d_iqd: 0,
+  },
+};
+
+function coachPriceRun(priceIqd: number | null) {
+  const propose: StepRow = {
+    ...PROPOSE_ROW,
+    status: 'passed',
+    submissions: [
+      {
+        ...PROPOSE_ROW.submissions[0]!,
+        decision: 'approve',
+        record: {
+          change: 'coach_price',
+          coach_id: COACH,
+          lesson_type_id: LESSON_TYPE,
+          price_iqd: priceIqd,
+          reason: 'Her sessions fill first',
+          expected_effect: 'The same fill at a better price',
+        },
+      },
+    ],
+  };
+  const numbers: StepRow = {
+    ...PROPOSE_ROW,
+    id: NUMBERS,
+    position: 2,
+    step_key: 'numbers',
+    name_en: 'Numbers',
+    name_ar: 'Numbers',
+    status: 'open',
+    actor_roles: ['manager'],
+    needs_owner_ok: false,
+    submissions: [],
+  };
+  const run: RunRow = {
+    ...RUN_ROW,
+    title_en: 'Sara’s price',
+    current_steps: [
+      {
+        id: NUMBERS,
+        position: 2,
+        step_key: 'numbers',
+        name_en: 'Numbers',
+        name_ar: 'Numbers',
+        status: 'open',
+        round: 1,
+      },
+    ],
+  };
+  return { propose, numbers, run };
+}
+
+describe.each(LOCALES)('a coach price’s numbers on the phone in %s', (locale) => {
+  const render = (priceIqd: number | null) => {
+    const { propose, numbers, run } = coachPriceRun(priceIqd);
+    return renderRoute(StaffStep, {
+      locale,
+      staff: { role: 'manager' },
+      params: { id: NUMBERS },
+      queryData: [
+        [
+          staffKeys.step(NUMBERS),
+          {
+            run: { ...run, data: null },
+            step: numbers,
+            can: { ...NO_CAN, submit: true },
+            def: null,
+          },
+        ],
+        [
+          staffKeys.run(RUN),
+          {
+            run: { ...run, template_name_en: 'Price', template_name_ar: 'سعر', data: null },
+            steps: [propose, numbers],
+            can: NO_CAN,
+          },
+        ],
+        [staffKeys.context('numbers', RUN), COACH_NUMBERS],
+        [staffKeys.priceTargets(V, 'coach_price'), COACH_TARGETS],
+      ],
+    });
+  };
+
+  it('opens on the standing figure the proposal carries, so “go” is one tap', () => {
+    const screen = render(40000);
+    try {
+      expect(screen.direction()).toBe(locale === 'ar' ? 'rtl' : 'ltr');
+      expect(screen.getByTestId('staff-step.field.price_iqd').props.value).toBe('40000');
+      expect(screen.queryByTestId('staff-step.field.court_share_iqd')).toBeNull();
+      expect(screen.getByTestId('staff-step.submit')).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('asks for no figure when the proposal removes the coach’s own price', () => {
+    const screen = render(null);
+    try {
+      expect(screen.queryByTestId('staff-step.field.price_iqd')).toBeNull();
+      expect(screen.getByTestId('staff-step.submit')).toBeTruthy();
     } finally {
       screen.unmount();
     }
