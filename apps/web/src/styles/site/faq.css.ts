@@ -10,8 +10,10 @@
  * turns green and the green plus chip turns a quarter into a cross. The answer rises in
  * (motion.css.ts). The poster-black "still wondering?" card, court-line bands behind it
  * and the green WhatsApp button, follows the stack on a phone; on a wide screen it sits in
- * the title's column, under the title and stretched down to the last question (grid areas; the source order stays title,
- * questions, card, so the tab order matches a phone's).
+ * the title's column, under the title at a fixed size, so opening a question never stretches or
+ * shrinks it (grid areas; the source order stays title, questions, card, so the tab order
+ * matches a phone's). FaqMotion animates the card height on open and close; while a card
+ * folds shut it carries data-closing, so the flood and the cross turn back as it shrinks.
  */
 export const siteFaqCss = `
 .tp-faq { background: var(--tp-site-hero-bg); padding-block: var(--tp-site-section-pad); }
@@ -43,7 +45,12 @@ export const siteFaqCss = `
   text-wrap: pretty;
 }
 
-.tp-faq__list { display: grid; gap: 0.75rem; }
+.tp-faq__list {
+  display: grid;
+  /* FaqMotion reserves room for the tallest answer; the cards stay at the top of it. */
+  align-content: start;
+  gap: 0.75rem;
+}
 .tp-faq__item {
   position: relative;
   isolation: isolate;
@@ -63,8 +70,8 @@ export const siteFaqCss = `
   opacity: 0;
   transition: opacity var(--tp-site-dur-base) var(--tp-site-ease-out);
 }
-.tp-faq__item[open]::before { opacity: 1; }
-.tp-faq__item[open] {
+.tp-faq__item[open]:not([data-closing])::before { opacity: 1; }
+.tp-faq__item[open]:not([data-closing]) {
   --tp-fg: var(--tp-brand-white);
   --tp-site-ink-2: var(--tp-site-block-muted);
   --tp-site-ring: var(--tp-brand-white);
@@ -98,7 +105,7 @@ export const siteFaqCss = `
   letter-spacing: var(--tp-site-track-display);
   color: var(--tp-site-display-2);
 }
-.tp-faq__item[open] .tp-faq__n { color: var(--tp-brand-green); }
+.tp-faq__item[open]:not([data-closing]) .tp-faq__n { color: var(--tp-brand-green); }
 .tp-faq__qtext { flex: 1; min-inline-size: 0; text-wrap: balance; }
 .tp-faq__mark {
   flex: none;
@@ -112,7 +119,7 @@ export const siteFaqCss = `
   transition: transform var(--tp-site-dur-base) var(--tp-site-ease-out);
 }
 .tp-faq__mark .tp-icon { inline-size: 1.25rem; block-size: 1.25rem; }
-.tp-faq__item[open] .tp-faq__mark { transform: rotate(135deg); }
+.tp-faq__item[open]:not([data-closing]) .tp-faq__mark { transform: rotate(135deg); }
 .tp-faq__a {
   max-inline-size: 58ch;
   padding-block: 0 1.5rem;
@@ -165,8 +172,8 @@ export const siteFaqCss = `
   }
   .tp-faq__head { grid-area: head; }
   .tp-faq__list { grid-area: list; }
-  /* Down to the last question's edge: the title at the top, the button at the foot. */
-  .tp-faq__ask { grid-area: ask; flex-direction: column; align-items: flex-start; justify-content: space-between; min-block-size: 18rem; }
+  /* A fixed size at the top of its row: the list growing as a card opens must not move it. */
+  .tp-faq__ask { grid-area: ask; align-self: start; flex-direction: column; align-items: flex-start; justify-content: space-between; min-block-size: 18rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .tp-faq__item, .tp-faq__item::before, .tp-faq__mark { transition: none; }

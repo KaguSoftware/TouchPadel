@@ -36,7 +36,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ZOOM_MIN_DIST, zoomDistanceAt, zoomLevelOf, type FloorSnapshot, type FloorTarget, type Room } from './floorModel';
+import { BALL_D, SWOOSH_D, VB, WORDMARK_D } from '../../components/brandMark';
 import { buildRacketKit, type RacketKit, type RacketRig } from './rally/racket';
+import { groupSubpaths, parseSvgPath } from './rally/svgPath';
 import { BALL_RADIUS, PLAYERS, layAngle, nextLegStart, rallyAt } from './rally/rally';
 
 export interface FloorSceneEvents {
@@ -133,6 +135,65 @@ const HOME_DIR = new THREE.Vector3(10, 30, 36).normalize();
 const HOME_BOX = new THREE.Box3(new THREE.Vector3(-25.5, 0, -17.5), new THREE.Vector3(25.5, 4.2, 13));
 /** How much of the view the venue should fill from the whole-floor camera. */
 const HOME_FILL = 0.92;
+
+/**
+ * The entrance sign's face: the full-colour lockup (`components/brand.tsx`) on
+ * white, drawn from the same vectors so it stays sharp when zoomed in. Null
+ * where the canvas cannot draw (tests); the sign is then plain white.
+ */
+function logoTexture(aspect: number): THREE.CanvasTexture | null {
+  const h = 512;
+  const w = Math.round(h * aspect);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx || typeof Path2D === 'undefined') return null;
+  const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+  const s = (h * 0.68) / VB.h;
+  ctx.translate((w - VB.w * s) / 2, (h - VB.h * s) / 2);
+  ctx.scale(s, s);
+  const sweep = ctx.createLinearGradient(7.7, 17, 50.5, 9);
+  sweep.addColorStop(0, hex(GREEN));
+  sweep.addColorStop(1, hex(BLUE));
+  ctx.fillStyle = sweep;
+  ctx.fill(new Path2D(SWOOSH_D));
+  ctx.fillStyle = hex(BLUE);
+  for (const d of WORDMARK_D) ctx.fill(new Path2D(d));
+  ctx.fillStyle = hex(GREEN);
+  for (const d of BALL_D) ctx.fill(new Path2D(d));
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+/**
+ * A table's number, ink on transparent, for the label lying on its top. The
+ * face is the page's own (no family named here). Null where the canvas
+ * cannot draw (tests); the table then goes unlabelled.
+ */
+function numberTexture(text: string, color: number): THREE.CanvasTexture | null {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const family = getComputedStyle(document.body).fontFamily || 'sans-serif';
+  const px = text.length > 2 ? 96 : 150;
+  ctx.font = `700 ${px}px ${family}`;
+  ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, size / 2, size / 2, size * 0.92);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
 
 export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, opts: { reducedMotion: boolean }): FloorSceneHandle {
   // ---- renderer, camera, controls ---------------------------------------
@@ -471,6 +532,41 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
   bar.position.set(0, 1.1, -2.1);
   bar.castShadow = true;
   arch.add(bar);
+  // The lockup in relief on the bar's blue front, the straight run facing the
+  // stools: the brand's blue-ground treatment (white wordmark, green ball, the
+  // green-to-blue swoosh), extruded so it stands off the counter.
+  const LOGO_S = 0.9 / VB.h; // 0.9 m tall
+  const LOGO_DEPTH = 0.07 / LOGO_S;
+  const extrudeMark = (ds: readonly string[], m: THREE.Material) => {
+    const shapes = ds.flatMap((d) => groupSubpaths(parseSvgPath(d)));
+    const g = geo(new THREE.ExtrudeGeometry(shapes, { depth: LOGO_DEPTH, curveSegments: 10, bevelEnabled: true, bevelThickness: 0.25, bevelSize: 0.06, bevelSegments: 2 }));
+    const mesh = new THREE.Mesh(g, m);
+    mesh.castShadow = true;
+    return mesh;
+  };
+  const swooshMesh = extrudeMark([SWOOSH_D], mat(0xffffff, { vertexColors: true, roughness: 0.5 }));
+  {
+    // The swoosh gradient, along the same axis `brand.tsx` runs it.
+    const pos = swooshMesh.geometry.getAttribute('position');
+    const from = new THREE.Vector2(7.7, 17);
+    const axis = new THREE.Vector2(50.5, 9).sub(from);
+    const len2 = axis.lengthSq();
+    const green = new THREE.Color(GREEN);
+    const blue = new THREE.Color(BLUE);
+    const c = new THREE.Color();
+    const colors = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      const t = THREE.MathUtils.clamp(((pos.getX(i) - from.x) * axis.x + (pos.getY(i) - from.y) * axis.y) / len2, 0, 1);
+      c.copy(green).lerp(blue, t).toArray(colors, i * 3);
+    }
+    swooshMesh.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  }
+  const barMark = new THREE.Group();
+  barMark.add(swooshMesh, extrudeMark(WORDMARK_D, M.line), extrudeMark(BALL_D, M.green));
+  // SVG y runs down; the negative y scale stands the mark upright.
+  barMark.scale.set(LOGO_S, -LOGO_S, LOGO_S);
+  barMark.position.set((-VB.w * LOGO_S) / 2, 0.1 + VB.h * LOGO_S, -2.1 + BD);
+  arch.add(barMark);
   const barTop = new THREE.Mesh(geo(new THREE.ExtrudeGeometry(barShape, { depth: 0.05, bevelEnabled: false })), M.wood);
   barTop.rotation.x = Math.PI / 2;
   barTop.position.set(0, 1.15, -2.1);
@@ -496,10 +592,29 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
   pad.receiveShadow = true;
   arch.add(pad);
   const tableTops: THREE.Mesh[] = [];
+  const tableLabels: THREE.Mesh[] = [];
+  const labelGeo = geo(new THREE.PlaneGeometry(0.5, 0.5));
+  // One material per table number, kept for the scene's life (a venue has a handful).
+  const labelMats = new Map<string, THREE.Material | null>();
+  const labelMat = (text: string) => {
+    if (!labelMats.has(text)) {
+      const tex = numberTexture(text, 0x1b2c47);
+      if (tex) disposables.push(tex);
+      labelMats.set(text, tex ? mat(0xffffff, { map: tex, transparent: true, depthWrite: false, roughness: 0.9 }) : null);
+    }
+    return labelMats.get(text) ?? null;
+  };
   TABLE_DEF.forEach(([x, z, seats], i) => {
     cyl(0.26, 0.03, M.ink, x, 0.015, z, 20);
     cyl(0.04, 0.72, M.ink, x, 0.37, z, 10);
     tableTops.push(cyl(seats === 2 ? 0.38 : 0.45, 0.05, M.gray, x, 0.75, z, 32));
+    // The number, flat on the top and upright to the entrance-side camera; set on apply().
+    const label = new THREE.Mesh(labelGeo, M.hit);
+    label.rotation.x = -Math.PI / 2;
+    label.position.set(x, 0.777, z);
+    label.visible = false;
+    arch.add(label);
+    tableLabels.push(label);
     for (let k = 0; k < seats; k++) {
       const [sx, sz] = seatAt(i, k);
       cyl(0.17, STOOL_H, M.ink, sx, STOOL_H / 2, sz, 14);
@@ -564,6 +679,16 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
   box(0.12, 2.6, 0.12, M.ink, 1.5, 1.3, 11.1);
   box(3.12, 0.12, 0.12, M.ink, 0, 2.66, 11.1);
   box(3.0, 0.02, 1.6, M.blue, 0, 0.011, 11.9);
+  // The sign over the door: a white board the lintel runs through (thicker than the lintel, so it hides inside), the lockup on the street side only.
+  const SIGN_W = 2.6;
+  const SIGN_H = 0.8;
+  const logo = logoTexture(SIGN_W / SIGN_H);
+  if (logo) disposables.push(logo);
+  const signFace = logo ? mat(0xffffff, { map: logo, roughness: 0.9 }) : M.paper;
+  const sign = new THREE.Mesh(geo(new THREE.BoxGeometry(SIGN_W, SIGN_H, 0.2)), [M.paper, M.paper, M.paper, M.paper, signFace, M.paper]);
+  sign.position.set(0, 2.66, 11.1);
+  sign.castShadow = true;
+  arch.add(sign);
 
   // ---- hit zones (invisible; what the pointer can be over) ---------------
   interface Zone {
@@ -749,11 +874,17 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     for (const [slot, r] of rallies) if (!inPlay.has(slot)) r.group.visible = false;
 
     tableTops.forEach((t) => (t.material = M.gray));
+    tableLabels.forEach((l) => (l.visible = false));
     tableZones.forEach((z, i) => (zoneOf(z)!.target = { kind: 'table', id: `slot-${i}` }));
     for (const t of snapshot.tables) {
       if (t.slot === null || t.slot >= TABLE_DEF.length) continue;
       zoneOf(tableZones[t.slot]!)!.target = { kind: 'table', id: t.id };
       tableTops[t.slot]!.material = t.status === 'occupied' ? M.green : M.gray;
+      const lm = labelMat(t.number);
+      if (lm) {
+        tableLabels[t.slot]!.material = lm;
+        tableLabels[t.slot]!.visible = true;
+      }
       if (t.tab) {
         // One figure per open tab, on the table's first stool. Nothing records
         // how many guests sit there, so nothing more is drawn.

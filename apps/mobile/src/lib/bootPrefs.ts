@@ -23,6 +23,7 @@ import { rememberStaffHint } from '../features/staff/hint';
 import { STAFF_HINT_KEY } from '../features/staff/status';
 import { rememberGuestVenue } from '../features/availability/guestVenue';
 import { GUEST_VENUE_KEY } from '../features/availability/branch';
+import { rememberWelcomeSeen, WELCOME_SEEN_KEY } from '../features/auth/welcomeSeen';
 import { addBreadcrumb, captureException } from './telemetry';
 
 export const APPEARANCE_KEY = 'tp.appearance';
@@ -100,6 +101,7 @@ export async function loadBootPrefs(): Promise<BootPrefs> {
       LOCALE_KEY,
       STAFF_HINT_KEY,
       GUEST_VENUE_KEY,
+      WELCOME_SEEN_KEY,
     ]);
     for (const [key, value] of pairs) {
       if (key === APPEARANCE_KEY && (value === 'light' || value === 'dark' || value === 'automatic'))
@@ -107,6 +109,7 @@ export async function loadBootPrefs(): Promise<BootPrefs> {
       if (key === LOCALE_KEY) locale = asLocale(value);
       if (key === STAFF_HINT_KEY) rememberStaffHint(value);
       if (key === GUEST_VENUE_KEY) rememberGuestVenue(value);
+      if (key === WELCOME_SEEN_KEY) rememberWelcomeSeen(value);
     }
   } catch (error) {
     captureException(error, { label: 'bootPrefs.read' });

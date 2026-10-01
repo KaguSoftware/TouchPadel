@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Image, ScrollView, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
 import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
@@ -8,7 +8,6 @@ import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
 import { phoneOtpEnabled } from '../../src/features/auth/phoneOtp';
-import { passwordProofOf } from '../../src/features/profile/changePasswordFlow';
 import { supabase } from '../../src/lib/supabase';
 import { signOut } from '../../src/features/auth/api';
 import { useOwnProfile } from '../../src/features/profile/hooks';
@@ -17,12 +16,12 @@ import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { callPhone } from '../../src/lib/phone';
 import { brand, radius, space, useTheme } from '../../src/theme';
-import { Button, Card, ErrorText, Screen, Title } from '../../src/components/ui';
+import { Button, Card, ErrorText, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { MenuRow } from '../../src/components/booking';
 import {
+  BackChevronIcon,
+  ChevronIcon,
   CloseIcon,
-  LockIcon,
-  PencilIcon,
   PhoneIcon,
   ReceiptIcon,
   SlidersIcon,
@@ -39,7 +38,7 @@ const LOGO_W = Math.round(LOGO_H * (900 / 332));
  * the sign-in / create-account pitch when signed out (browsing is public).
  */
 export default function ProfileScreen() {
-  const { t } = useLocale();
+  const { t, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const router = useRouter();
   const tabBarHeight = useTabBarHeight();
@@ -88,7 +87,7 @@ export default function ProfileScreen() {
   };
 
   const header = (
-    <View style={{ paddingTop: space.l }}>
+    <View style={{ paddingTop: TAB_TITLE_TOP }}>
       <Title>{t('profile.title')}</Title>
     </View>
   );
@@ -189,6 +188,14 @@ export default function ProfileScreen() {
           contentContainerStyle={{ paddingBottom: tabBarHeight + 24 }}
           showsVerticalScrollIndicator={false}
         >
+          {/* Tapping the identity card (avatar + name) opens the edit form; there is no separate Edit profile row. */}
+          <Pressable
+            testID="profile.edit-profile"
+            accessibilityRole="button"
+            accessibilityLabel={t('profile.editProfile')}
+            onPress={() => router.push('/profile-edit')}
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          >
           <Card style={{ flexDirection: 'row', direction: 'ltr', gap: 13, alignItems: 'center' }}>
             <View
               style={{
@@ -253,7 +260,16 @@ export default function ProfileScreen() {
                 </Text>
               ) : null}
             </View>
+            {/* The card is LTR in both locales, so the chevron must point right in
+                both; the icons flip themselves in RTL, so Arabic takes the back
+                chevron, which that flip turns to face right. */}
+            {dir === 'rtl' ? (
+              <BackChevronIcon size={16} color={colors.fnt2} />
+            ) : (
+              <ChevronIcon size={16} color={colors.fnt2} />
+            )}
           </Card>
+          </Pressable>
 
           {profileGateState(profile) === 'incomplete' ? (
             // D3: a social sign-in that left before completing its profile.
@@ -284,25 +300,6 @@ export default function ProfileScreen() {
               overflow: 'hidden',
             }}
           >
-            <MenuRow
-              testID="profile.edit-profile"
-              icon={<PencilIcon size={15} color={colors.gstrong} />}
-              label={t('profile.editProfile')}
-              onPress={() => router.push('/profile-edit')}
-            />
-            {/* Only for an account that HAS a password — a phone sign-up, or an
-              older email account. A guest who only ever signed in with Google or
-              Apple has none, and for them every "current password" is wrong — the
-              row looked broken, not absent. A desk-created walk-in's synthetic
-              address has nothing to prove either. */}
-            {passwordProofOf(session?.user) ? (
-              <MenuRow
-                testID="profile.change-password"
-                icon={<LockIcon size={15} color={colors.gstrong} />}
-                label={t('profile.changePassword')}
-                onPress={() => router.push('/change-password')}
-              />
-            ) : null}
             {/* A social account with no verified number proves one here. */}
             {phoneOtpEnabled() && !session?.user.phone ? (
               <MenuRow
@@ -312,12 +309,6 @@ export default function ProfileScreen() {
                 onPress={() => router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })}
               />
             ) : null}
-            <MenuRow
-              testID="profile.settings"
-              icon={<SlidersIcon size={15} color={colors.gstrong} />}
-              label={t('settings.title')}
-              onPress={() => router.push('/settings')}
-            />
             {/* Open matches (docs/design/open-matches/guest.md §4.16): the
               ticket wallet, and the players this guest blocked. */}
             <MenuRow
@@ -338,6 +329,12 @@ export default function ProfileScreen() {
               label={t('profile.callVenue')}
               onPress={onCallVenue}
               disabled={settings.isLoading}
+            />
+            <MenuRow
+              testID="profile.settings"
+              icon={<SlidersIcon size={15} color={colors.gstrong} />}
+              label={t('settings.title')}
+              onPress={() => router.push('/settings')}
             />
             {/* SEC-16. Last in the list and rendered in the error colour: both
               stores require account deletion to be reachable from inside the

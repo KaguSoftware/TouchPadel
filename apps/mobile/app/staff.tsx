@@ -1,41 +1,37 @@
 import { useCallback, useEffect, useState, type ComponentType } from 'react';
-import { Alert, AppState, Linking, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import {
+  Alert,
+  Animated,
+  AppState,
+  Easing,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatNumber } from '@touch/i18n';
 import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { space, useTheme } from '../src/theme';
-import { Button, Card, ErrorText, Hint, LinkText, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
-import { MenuRow } from '../src/components/booking';
+import { brand, radius, space, useTheme } from '../src/theme';
+import {
+  Button,
+  Card,
+  ErrorText,
+  Hint,
+  LinkText,
+  MicroLabel,
+  Screen,
+  SegmentedControl,
+} from '../src/components/ui';
 import {
   BellIcon,
-  CalendarIcon,
-  CardIcon,
-  CheckIcon,
   ChevronIcon,
-  ClipboardIcon,
-  ClockIcon,
-  DeductionIcon,
   EyeIcon,
-  EnvelopeIcon,
-  GlobeIcon,
-  ImageIcon,
-  LockIcon,
-  PencilIcon,
-  PhoneIcon,
-  PlusSquareIcon,
-  ReceiptIcon,
-  RoofIcon,
-  SearchIcon,
   SlidersIcon,
-  StopwatchIcon,
-  SunIcon,
-  SwapIcon,
-  TableIcon,
-  TagIcon,
-  WarningIcon,
   type IconProps,
 } from '../src/components/icons';
 import {
@@ -48,95 +44,172 @@ import { RequireStaff, useStaffSignOut } from '../src/features/staff/RequireStaf
 import { setGuestPreview } from '../src/features/staff/guestPreview';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
 import { staffKeys } from '../src/features/staff/keys';
-import { todayRows, type StaffRowDef } from '../src/features/staff/rows';
 import { showsVenuePicker } from '../src/features/staff/venue';
 import { mapStaffError } from '../src/features/staff/edge';
 import { fetchChecklistsToday } from '../src/features/staff/checklists/api';
-import { fetchRuns } from '../src/features/staff/protocols/api';
-import { fetchNoteItems } from '../src/features/staff/notes/api';
 import { checklistTodos, localName } from '../src/features/staff/checklists/logic';
 import { WorkList } from '../src/features/staff/protocols/WorkList';
 import { ListCard } from '../src/features/staff/protocols/parts';
-import { usePullRefresh } from '../src/lib/usePullRefresh';
-import { CALL_ROLES } from '../src/features/staff/calls/logic';
-import { useOpenCallCount } from '../src/features/staff/calls/useOpenCallCount';
-import { reviewsIncidents } from '../src/features/staff/incidents/logic';
-import { useToReviewCount } from '../src/features/staff/incidents/useToReviewCount';
-import { useContentRowCount } from '../src/features/staff/content/useContentRowCount';
+import { GroupRows, useTodayGroups, type TodayGroup } from '../src/features/staff/todayGroups';
+import type { StaffRowDef } from '../src/features/staff/rows';
+import { useReduceMotion } from '../src/lib/useReduceMotion';
 import { addBreadcrumb } from '../src/lib/telemetry';
 import { useToast } from '../src/components/overlays';
 
 /**
- * Today: the staff phone's home (build-contracts-2026-09-23 §6.1).
+ * Today: the staff phone's home (build-contracts-2026-09-23 §6.1; layout:
+ * owner, 2026-10-01, design option A).
  *
  * Top to bottom: who and where, the venue picker (only with more than one
- * venue), the "Turn on work alerts" row until push is allowed, the work list,
- * the pages this role has (rows.ts), and the account. Reached by replacing,
- * after a staff sign-in or from the tabs' gate, so there is nothing to go back
- * to and the back item is hidden.
+ * venue), the work list, the pages this role has as a grid of group tiles
+ * (todayGroups.ts; a tile opens its rows in a sheet, app/staff-group.tsx), and
+ * the account as three buttons: work alerts, guest view, Settings. Reached by
+ * replacing, after a staff sign-in or from the tabs' gate, so there is nothing
+ * to go back to: no header at all, since the page has no date to change.
  */
 
 /**
- * The icon of each Today row; a page lane adds its row's icon with the row.
- * No two rows one role sees share an icon, and none is the Settings sliders.
+ * One group as a tile: its icon (with an amber dot when a row in it is
+ * waiting on the person), the title and a one-line preview of its pages.
  */
-const ROW_ICONS: Record<string, ComponentType<IconProps>> = {
-  protocols: ClockIcon,
-  start: PencilIcon,
-  production: StopwatchIcon,
-  shopping: TagIcon,
-  run: TagIcon,
-  purchases: CardIcon,
-  marketing: GlobeIcon,
-  requests: EnvelopeIcon,
-  notes: CalendarIcon,
-  ideas: SunIcon,
-  teachings: CheckIcon,
-  recipes: SearchIcon,
-  'recipe-changes': LockIcon,
-  stock: RoofIcon,
-  suggestions: BellIcon,
-  'ask-marketing': GlobeIcon,
-  'marketing-inbox': CheckIcon,
-  // Wave 5, lane R: a guest's call comes from the phone at the table.
-  calls: PhoneIcon,
-  // Wave 5, lane P: people records.
-  deductions: DeductionIcon,
-  incidents: WarningIcon,
-  content: ImageIcon,
-  // Wave 5, lane S: the two stores.
-  'stock-log': PlusSquareIcon,
-  'stock-move': SwapIcon,
-  'stock-count': ClipboardIcon,
-  // Place an order (0251); Phase 2 Milestone 4b: the receipt camera page.
-  order: TableIcon,
-  receipt: ReceiptIcon,
-};
+function GroupTile({
+  group,
+  waiting,
+  preview,
+  onPress,
+}: {
+  group: TodayGroup;
+  waiting: boolean;
+  preview: string;
+  onPress: () => void;
+}) {
+  const { t } = useLocale();
+  const { colors, fonts } = useTheme();
+  const Icon = group.icon;
+  return (
+    <Pressable
+      testID={`staff.group.${group.key}`}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flex: 1,
+        padding: space.m,
+        gap: space.m,
+        justifyContent: 'space-between',
+        backgroundColor: pressed ? colors.sub : colors.card,
+        borderWidth: 1,
+        borderColor: colors.line,
+        borderRadius: radius.card,
+      })}
+    >
+      <View
+        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}
+      >
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 10,
+            backgroundColor: colors.gtint,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon size={16} color={colors.gstrong} />
+        </View>
+        {/* No page count (owner, 2026-10-01); an amber dot says something in
+            the group is waiting on the person. */}
+        {waiting ? (
+          <View
+            testID={`staff.group.${group.key}.waiting`}
+            style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.ambtext }}
+          />
+        ) : null}
+      </View>
+      <View style={{ gap: 2 }}>
+        <Text
+          numberOfLines={2}
+          style={{
+            fontFamily: fonts.display800,
+            fontSize: 14.5,
+            lineHeight: 19,
+            // Always two lines tall, so a one-line title ("Daily work") makes
+            // the same tile as a two-line one: every tile is one size.
+            minHeight: 38,
+            color: colors.ink,
+          }}
+        >
+          {t(group.titleKey)}
+        </Text>
+        <Text
+          numberOfLines={1}
+          style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}
+        >
+          {preview}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
 
-/**
- * Today's pages in three short lists rather than one of up to fourteen rows:
- * the protocols and what feeds them, the day's work, and what the person asks
- * of others. A row this table does not name (a page lane's new row) joins the
- * day's work, so it is never lost. Order inside a group is rows.ts's.
- */
-const ROW_GROUPS = [
-  // Wave 5, lane R (§2.1.8): a waiter's guest calls come first, above the
-  // protocols: the `waiter_call_new` push lands on Today.
-  // Placing an order (0251) is floor work too.
-  { key: 'floor', titleKey: 'staff.calls.group', ids: ['calls', 'order'] },
-  { key: 'protocols', titleKey: 'staff.shell.today.groups.protocols', ids: ['protocols', 'start', 'ideas', 'notes'] },
-  { key: 'daily', titleKey: 'staff.shell.today.groups.daily', ids: null },
-  // Wave 5, lane P: a deduction is proposed about someone, like a request (§5.3).
-  { key: 'team', titleKey: 'staff.shell.today.groups.team', ids: ['requests', 'deductions', 'suggestions', 'ask-marketing'] },
-] as const;
-
-function groupRows(rows: readonly StaffRowDef[]): { key: string; titleKey: (typeof ROW_GROUPS)[number]['titleKey']; rows: StaffRowDef[] }[] {
-  const named = new Set<string>(ROW_GROUPS.flatMap((g) => (g.ids ? [...g.ids] : [])));
-  return ROW_GROUPS.map((g) => ({
-    key: g.key,
-    titleKey: g.titleKey,
-    rows: rows.filter((r) => (g.ids ? (g.ids as readonly string[]).includes(r.id) : !named.has(r.id))),
-  })).filter((g) => g.rows.length > 0);
+/** One of the account's three buttons: an icon tile over a short name. */
+function AccountButton({
+  testID,
+  icon: Icon,
+  label,
+  warn,
+  busy,
+  onPress,
+}: {
+  testID: string;
+  icon: ComponentType<IconProps>;
+  label: string;
+  warn?: boolean;
+  busy?: boolean;
+  onPress: () => void;
+}) {
+  const { colors, fonts } = useTheme();
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ busy: !!busy }}
+      disabled={busy}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flex: 1,
+        alignItems: 'center',
+        gap: 7,
+        paddingVertical: space.m,
+        paddingHorizontal: 6,
+        backgroundColor: pressed ? colors.sub : colors.card,
+        borderWidth: 1,
+        borderColor: colors.line,
+        borderRadius: 14,
+        opacity: busy ? 0.6 : 1,
+      })}
+    >
+      <View
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 11,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: warn ? colors.amb : colors.gtint,
+        }}
+      >
+        <Icon size={16} color={warn ? colors.ambtext : colors.gstrong} />
+      </View>
+      <Text
+        numberOfLines={1}
+        style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.ink, textAlign: 'center' }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
 }
 
 /**
@@ -162,13 +235,19 @@ function TodayChecklists({ venueId }: { venueId: string }) {
   return (
     <View style={{ gap: space.xs }}>
       <MicroLabel style={{ paddingStart: 4 }}>
-        {lists.isError ? t('staff.checklists.title') : `${t('staff.checklists.title')} · ${todos.length}`}
+        {lists.isError
+          ? t('staff.checklists.title')
+          : `${t('staff.checklists.title')} · ${todos.length}`}
       </MicroLabel>
       {lists.isError ? (
         // The same failed-read line as the work list below: why, then the retry.
         <View style={{ gap: space.xs }}>
           <Hint>{t(mapStaffError(lists.error))}</Hint>
-          <LinkText testID="staff.checklists.retry" label={t('common.retry')} onPress={() => void lists.refetch()} />
+          <LinkText
+            testID="staff.checklists.retry"
+            label={t('common.retry')}
+            onPress={() => void lists.refetch()}
+          />
         </View>
       ) : (
         <ListCard>
@@ -177,7 +256,9 @@ function TodayChecklists({ venueId }: { venueId: string }) {
               key={list.runId}
               testID={`staff.checklist.${list.runId}`}
               accessibilityRole="button"
-              onPress={() => router.push({ pathname: '/staff-checklist', params: { id: list.runId } })}
+              onPress={() =>
+                router.push({ pathname: '/staff-checklist', params: { id: list.runId } })
+              }
               style={({ pressed }) => ({
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -192,7 +273,10 @@ function TodayChecklists({ venueId }: { venueId: string }) {
               })}
             >
               <View style={{ flex: 1, gap: 2 }}>
-                <Text numberOfLines={2} style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
+                <Text
+                  numberOfLines={2}
+                  style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}
+                >
                   {localName(list, locale)}
                 </Text>
                 <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut }}>
@@ -257,45 +341,139 @@ function useWorkAlerts() {
   return { state, busy, enable };
 }
 
+/**
+ * A group's pages in a bottom sheet of our own, on Android only: the native
+ * formSheet (app/staff-group.tsx, iOS) never opened there. The pattern is the
+ * country picker's (src/components/phone.tsx): a scrim that fades in place
+ * behind a sheet that slides up, both closed by the scrim, the back button or
+ * a row. The modal sits outside the app's direction root, so it takes `dir`.
+ */
+function GroupModal({
+  group,
+  label,
+  onClosed,
+  onOpen,
+}: {
+  group: TodayGroup | null;
+  label: (row: StaffRowDef) => string;
+  onClosed: () => void;
+  onOpen: (row: StaffRowDef) => void;
+}) {
+  const { t, dir } = useLocale();
+  const { colors, fonts } = useTheme();
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReduceMotion();
+  const [shown] = useState(() => new Animated.Value(0));
+  const duration = reduceMotion ? 0 : 240;
+
+  useEffect(() => {
+    if (!group) return;
+    shown.setValue(0);
+    Animated.timing(shown, {
+      toValue: 1,
+      duration,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [group, duration, shown]);
+
+  const close = () =>
+    Animated.timing(shown, {
+      toValue: 0,
+      duration: reduceMotion ? 0 : 180,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => onClosed());
+
+  return (
+    <Modal
+      visible={group !== null}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={close}
+    >
+      <View style={{ flex: 1, direction: dir, justifyContent: 'flex-end' }}>
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            start: 0,
+            end: 0,
+            bottom: 0,
+            backgroundColor: brand.scrim,
+            opacity: shown,
+          }}
+        >
+          <Pressable
+            testID="staff.sheet.scrim"
+            accessibilityRole="button"
+            accessibilityLabel={t('common.close')}
+            onPress={close}
+            style={{ flex: 1 }}
+          />
+        </Animated.View>
+        <Animated.View
+          style={{
+            maxHeight: '85%',
+            backgroundColor: colors.bg,
+            borderTopStartRadius: radius.sheet,
+            borderTopEndRadius: radius.sheet,
+            transform: [
+              { translateY: shown.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) },
+            ],
+          }}
+        >
+          <ScrollView
+            contentContainerStyle={{
+              paddingTop: space.s,
+              paddingStart: space.l,
+              paddingEnd: space.l,
+              paddingBottom: space.xl + insets.bottom,
+              gap: space.m,
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View
+              style={{
+                alignSelf: 'center',
+                width: 36,
+                height: 5,
+                borderRadius: 3,
+                backgroundColor: colors.line,
+              }}
+            />
+            {group ? (
+              <>
+                <Text style={{ fontFamily: fonts.display800, fontSize: 19, color: colors.ink }}>
+                  {t(group.titleKey)}
+                </Text>
+                <View testID="staff.sheet.list">
+                  <GroupRows group={group} label={label} onOpen={onOpen} />
+                </View>
+              </>
+            ) : null}
+          </ScrollView>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
 function TodayScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
   const { status, venueId, venues, setVenueId } = useStaffStatus();
   const alerts = useWorkAlerts();
   const toast = useToast();
   const out = useStaffSignOut();
-  // Wave 5, lane R (§2.1.8): the open-call count on the waiter's calls row.
-  const openCalls = useOpenCallCount(
-    venueId,
-    status.kind === 'staff' && CALL_ROLES.includes(status.staff.role),
-  );
-  // Wave 5, lane P (§5.3): management's reports to review, and the content
-  // waiting on the owner or sent back to marketing.
-  const toReview = useToReviewCount(
-    venueId,
-    status.kind === 'staff' && reviewsIncidents(status.staff.role),
-  );
-  const content = useContentRowCount(venueId, status.kind === 'staff' ? status.staff.role : null);
-  // Two rows depend on the day, not the role (rows.ts todayRows): Protocols
-  // while a run in progress involves the person (management always), and
-  // Notes on new items while one is at its feedback stage. The same cache
-  // entries as the runs page's "In progress" and the notes page.
-  const staffRole = status.kind === 'staff' ? status.staff.role : null;
-  const involvedRuns = useQuery({
-    queryKey: staffKeys.runs(venueId ?? '', 'active'),
-    queryFn: () => fetchRuns(venueId ?? '', 'active'),
-    enabled: !!venueId && staffRole !== null && staffRole !== 'manager' && staffRole !== 'owner',
-  });
-  const noteItems = useQuery({
-    queryKey: staffKeys.notes(venueId ?? ''),
-    queryFn: () => fetchNoteItems(venueId ?? ''),
-    enabled: !!venueId && staffRole !== null,
-  });
-  const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: staffKeys.all }), [queryClient]);
-  const pull = usePullRefresh(refresh);
+  const { groups, label, waiting } = useTodayGroups();
+  // Android's group sheet (GroupModal); iOS routes to the native one.
+  const [sheetKey, setSheetKey] = useState<string | null>(null);
+  const sheetGroup = groups.find((g) => g.key === sheetKey) ?? null;
 
   // RequireStaff renders this only for a staff status.
   if (status.kind !== 'staff') return null;
@@ -316,24 +494,45 @@ function TodayScreen() {
     ]);
   };
 
-  const rows = todayRows(staff.role, {
-    runs: involvedRuns.data ? involvedRuns.data.total : null,
-    notes: noteItems.data ? noteItems.data.length : null,
-  });
-  const bodyText = { fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.mut2 };
+  // Work alerts: until push is allowed the button asks for it (the only
+  // prompting call in the staff area), and once refused it opens the system
+  // settings, the one place it can be turned back on.
+  const alertsOff = alerts.state === 'undetermined' || alerts.state === 'denied';
+  const onAlerts = () => {
+    if (alerts.state === 'undetermined') void alerts.enable();
+    else void Linking.openSettings().catch(() => {});
+  };
 
   return (
-    <Screen edges={[]}>
-      <Stack.Screen
-        options={{ title: t('staff.shell.today.title'), headerBackVisible: false, gestureEnabled: false }}
-      />
+    <Screen>
+      <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
       <ScrollView
-        contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: space.l,
+          paddingBottom: 40 + insets.bottom,
+          gap: space.sm,
+        }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
+        // The page does not scroll or bounce (owner, 2026-10-01): it fits the
+        // screen, and only a long work list on a small phone makes it move.
+        // No pull to refresh, then; the queries refetch when the app comes
+        // back to the foreground (src/lib/queryClient.ts).
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
       >
-        <View style={{ gap: 2, marginBottom: space.xs }}>
-          <Text style={{ fontFamily: fonts.display800, fontSize: 22, lineHeight: 28, color: colors.ink }}>
+        {/* The room under the greeting is the room the old "Nothing is
+            waiting on you" line took, kept now that the line is gone. */}
+        <View style={{ gap: 2, marginBottom: space.xxl + space.sm }}>
+          <Text
+            style={{
+              fontFamily: fonts.display800,
+              fontSize: 24,
+              lineHeight: 30,
+              color: colors.ink,
+            }}
+          >
             {t('staff.shell.today.greeting', { name: staff.displayName })}
           </Text>
           <Text style={{ fontFamily: fonts.body600, fontSize: 13, color: colors.mut }}>
@@ -356,121 +555,103 @@ function TodayScreen() {
         ) : null}
         {status.venues.length === 0 ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
 
-        {alerts.state === 'undetermined' || alerts.state === 'denied' ? (
-          <Card style={{ padding: space.m, backgroundColor: colors.amb, borderColor: colors.ambline }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <BellIcon size={13} color={colors.ambstrong} />
-              <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.ambtext }}>
-                {t('staff.shell.alerts.title')}
-              </Text>
-            </View>
-            <Text style={{ ...bodyText, color: colors.ambtext, marginTop: 6 }}>
-              {t(alerts.state === 'denied' ? 'staff.shell.alerts.deniedBody' : 'staff.shell.alerts.body')}
-            </Text>
-            {alerts.state === 'denied' ? (
-              <Button
-                testID="staff.alerts.open-settings"
-                label={t('staff.shell.alerts.openSettings')}
-                variant="secondary"
-                size="compact"
-                onPress={() => void Linking.openSettings().catch(() => {})}
-                style={{ marginTop: 10, alignSelf: 'flex-start' }}
-              />
-            ) : (
-              <Button
-                testID="staff.alerts.enable"
-                label={t('staff.shell.alerts.enable')}
-                variant="cta"
-                size="compact"
-                busy={alerts.busy}
-                onPress={() => void alerts.enable()}
-                style={{ marginTop: 10, alignSelf: 'flex-start' }}
-              />
-            )}
-          </Card>
-        ) : null}
-
         {/* The work list: today's checklists first, then what waits on the
             person to decide, their open steps, what they sent and what was
             decided (my_checklists_today, my_protocol_work), at `venueId`. */}
         {venueId ? <TodayChecklists venueId={venueId} /> : null}
         {venueId ? <WorkList venueId={venueId} /> : null}
 
-        {groupRows(rows).map((group) => (
-          <View key={group.key} style={{ gap: space.xs }}>
-            <MicroLabel style={{ paddingStart: 4 }}>{t(group.titleKey)}</MicroLabel>
-            <ListCard>
-              {group.rows.map((row, i) => {
-                const Icon = ROW_ICONS[row.id] ?? SlidersIcon;
-                return (
-                  <MenuRow
-                    key={row.id}
-                    testID={row.testID}
-                    icon={<Icon size={15} color={colors.gstrong} />}
-                    label={
-                      row.id === 'calls' && openCalls > 0
-                        ? t('staff.calls.rowCount', { count: formatNumber(openCalls, locale) })
-                        : row.id === 'incidents' && toReview > 0
-                          ? t('staff.incidents.rowCount', { count: formatNumber(toReview, locale) })
-                          : row.id === 'content' && content.count > 0
-                            ? t(content.changes ? 'staff.content.rowChanges' : 'staff.content.rowCount', {
-                                count: formatNumber(content.count, locale),
-                              })
-                            : t(row.labelKey)
-                    }
-                    onPress={() => router.push(row.href)}
-                    last={i === group.rows.length - 1}
-                  />
-                );
-              })}
-            </ListCard>
-          </View>
-        ))}
-
-        {/* The account is one group like the lists above it: its caption
-            outside, what the phone is set to, then Settings. */}
-        <View style={{ gap: space.xs }}>
-          <MicroLabel style={{ paddingStart: 4 }}>{t('staff.shell.account.title')}</MicroLabel>
-          <ListCard>
-            <View style={{ padding: space.l, gap: space.s, borderBottomWidth: 1, borderBottomColor: colors.sub }}>
-              <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
-                {t(alerts.state === 'granted' ? 'staff.shell.account.alertsOn' : 'staff.shell.account.alertsOff')}
-              </Text>
-              <Text style={bodyText}>{t('staff.shell.account.onePhone')}</Text>
-              <Text style={bodyText}>{t('staff.shell.account.passwordNote')}</Text>
+        {/* Two tiles a row, each a fixed share of the width: a lone last tile
+            keeps the same size as the rest instead of stretching. */}
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            rowGap: space.s,
+          }}
+        >
+          {groups.map((group) => (
+            <View key={group.key} style={{ width: '48.5%', flexDirection: 'row' }}>
+              <GroupTile
+                group={group}
+                waiting={waiting(group)}
+                preview={group.rows.map(label).join(', ')}
+                onPress={() =>
+                  Platform.OS === 'ios'
+                    ? router.push({ pathname: '/staff-group', params: { group: group.key } })
+                    : setSheetKey(group.key)
+                }
+              />
             </View>
-            {/* The guest app as a guest sees it (guestPreview.ts); a pill over the
-                tabs comes back here. The toast says it is live, not a demo. */}
-            <MenuRow
-              testID="staff.guest-view"
-              icon={<EyeIcon size={15} color={colors.gstrong} />}
-              label={t('staff.shell.guestView.row')}
-              onPress={() => {
-                setGuestPreview(true);
-                toast(t('staff.shell.guestView.note'), 'info');
-                router.replace('/(tabs)');
-              }}
-            />
-            <MenuRow
-              testID="staff.settings"
-              icon={<SlidersIcon size={15} color={colors.gstrong} />}
-              label={t('settings.title')}
-              onPress={() => router.push('/settings')}
-              last
-            />
-          </ListCard>
+          ))}
         </View>
-        <ErrorText>{out.error}</ErrorText>
-        <Button
-          testID="staff.sign-out"
-          label={t('auth.signOut')}
-          variant="secondary"
-          size="medium"
-          busy={out.busy}
-          onPress={confirmSignOut}
-          style={{ backgroundColor: 'transparent' }}
-        />
+
+        {/* The account and sign-out sit at the foot of the page: pushed to the
+            bottom of the screen when the page is short, after the tiles when it
+            scrolls. */}
+        <View style={{ marginTop: 'auto', paddingTop: space.m, gap: space.sm }}>
+          <View style={{ gap: space.xs }}>
+            <MicroLabel style={{ paddingStart: 4 }}>{t('staff.shell.account.title')}</MicroLabel>
+            <View style={{ flexDirection: 'row', gap: space.s }}>
+              <AccountButton
+                testID={
+                  alerts.state === 'undetermined'
+                    ? 'staff.alerts.enable'
+                    : alerts.state === 'denied'
+                      ? 'staff.alerts.open-settings'
+                      : 'staff.alerts.on'
+                }
+                icon={BellIcon}
+                label={t('staff.shell.account.alerts')}
+                warn={alertsOff}
+                busy={alerts.busy}
+                onPress={onAlerts}
+              />
+              {/* The guest app as a guest sees it (guestPreview.ts); a pill over
+                the tabs comes back here. The toast says it is live, not a demo. */}
+              <AccountButton
+                testID="staff.guest-view"
+                icon={EyeIcon}
+                label={t('staff.shell.guestView.tile')}
+                onPress={() => {
+                  setGuestPreview(true);
+                  toast(t('staff.shell.guestView.note'), 'info');
+                  router.replace('/(tabs)');
+                }}
+              />
+              <AccountButton
+                testID="staff.settings"
+                icon={SlidersIcon}
+                label={t('settings.title')}
+                onPress={() => router.push('/settings')}
+              />
+            </View>
+          </View>
+
+          <ErrorText>{out.error}</ErrorText>
+          <Button
+            testID="staff.sign-out"
+            label={t('auth.signOut')}
+            variant="secondary"
+            size="medium"
+            busy={out.busy}
+            onPress={confirmSignOut}
+            style={{ backgroundColor: 'transparent' }}
+          />
+        </View>
       </ScrollView>
+      {Platform.OS === 'ios' ? null : (
+        <GroupModal
+          group={sheetGroup}
+          label={label}
+          onClosed={() => setSheetKey(null)}
+          onOpen={(row) => {
+            setSheetKey(null);
+            router.push(row.href);
+          }}
+        />
+      )}
     </Screen>
   );
 }

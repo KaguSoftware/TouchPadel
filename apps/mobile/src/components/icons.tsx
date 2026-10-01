@@ -6,7 +6,7 @@
  * Yoga mirrors LAYOUT, never path data, so a directional glyph flips itself
  * with `mirror(dir)` — from the locale context, the app's one direction.
  */
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
 import type { ColorValue } from 'react-native';
 import { useLocale } from '../i18n/LocaleProvider';
 import { mirror } from '../i18n/direction';
@@ -221,8 +221,9 @@ type TabIconProps = { size?: number; color: ColorValue };
 
 export const TabBookIcon = ({ size = 21, color }: TabIconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
-    <Rect x={3.5} y={4.5} width={17} height={15} rx={2.5} stroke={color} strokeWidth={2} />
-    <Path d="M12 4.5v15M3.5 12h17" stroke={color} strokeWidth={2} />
+    <Ellipse cx={9} cy={9} rx={4.6} ry={6} stroke={color} strokeWidth={2} rotation={-45} origin="9, 9" />
+    <Path d="M13.3 13.3L19.5 19.5" stroke={color} strokeWidth={2.4} strokeLinecap="round" />
+    <Circle cx={18.5} cy={6} r={2.2} fill={color} />
   </Svg>
 );
 export const TabBookingsIcon = ({ size = 21, color }: TabIconProps) => (

@@ -101,7 +101,7 @@ export const STAFF_ROW_DEFS: readonly StaffRowDef[] = [
     roles: ['marketing'],
   },
   // Every role asks for leave, a swap, an advance or a correction here (0072),
-  // and the page opens on leave, so the row reads "Vacation and requests"
+  // and the page opens on leave, so the row reads "Vacation & requests"
   // (#62). The owner reads the requests on this page and decides them on the
   // operator only (plan #16, #56), which the page says.
   {

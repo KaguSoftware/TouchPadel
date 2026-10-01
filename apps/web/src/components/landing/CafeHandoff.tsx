@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { formatIQD, formatNumber, makeT, type Locale, type MessageKey } from '@touch/i18n';
 import { QrIllustration } from '@/components/cafe/QrRequiredSheet/QrIllustration';
 import { CafeMark } from '@/components/site/brand/CafeMark';
@@ -12,8 +13,8 @@ const STEPS: readonly { title: MessageKey; body: MessageKey }[] = [
 
 /**
  * Touch Cafe, part of the club: "BEFORE THE GAME. / AFTER IT.", and how ordering works,
- * as three drawn steps with no photograph: take a table (a table from above, a cup and
- * the table's code), scan the code (a phone framing it), order from your phone (a phone
+ * as three drawn steps with no photograph: take a table (a table from above with its
+ * chairs, a coffee, a ball and the table's card with its code), scan the code (a phone framing it), order from your phone (a phone
  * showing a real menu section with its list prices, `cafePhoneMenu`; the café's mark
  * when the menu read failed). The drawings are pictures of the words beside them, so
  * they are hidden from screen readers; the steps are an ordered list.
@@ -26,10 +27,16 @@ export function CafeHandoff({ locale, phone }: { locale: Locale; phone: CafePhon
   const basket = phone ? phone.rows.slice(0, 2).reduce((sum, r) => sum + r.priceIqd, 0) : 0;
   const art = [
     <div key="table" className="tp-cafe-table">
-      <span className="tp-cafe-table__no">{tr('site.cafe.artTable')}</span>
-      <span className="tp-cafe-table__cup" />
-      <span className="tp-cafe-table__tent">
-        <QrIllustration className="tp-cafe-qr" />
+      {[45, 135, 225, 315].map((deg) => (
+        <span key={deg} className="tp-cafe-table__chair" style={{ '--tp-chair': `${deg}deg` } as CSSProperties} />
+      ))}
+      <span className="tp-cafe-table__top">
+        <span className="tp-cafe-table__cup" />
+        <span className="tp-cafe-table__ball" />
+        <span className="tp-cafe-table__tent">
+          <span className="tp-cafe-table__no">{tr('site.cafe.artTable')}</span>
+          <QrIllustration className="tp-cafe-qr" />
+        </span>
       </span>
     </div>,
     <div key="scan" className="tp-cafe-phone">

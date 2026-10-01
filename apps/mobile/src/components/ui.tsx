@@ -126,18 +126,32 @@ export function FormScreen({
   );
 }
 
+/**
+ * Space above a tab's page title, under the status-bar inset the Screen pads.
+ *
+ * Android matches the Book tab's heading row (10 + its 14 pt PICK_PILL_TOP_AIR,
+ * app/(tabs)/index.tsx): Android's inset stops right at the status icons, so a
+ * 16 pt gap put the title against them, and the tabs sat at two different
+ * heights (owner, 2026-09-29). iOS keeps its 16 — its inset already has air.
+ */
+export const TAB_TITLE_TOP = Platform.OS === 'android' ? 24 : space.l;
+
 /** Big uppercase page title with the green squiggle underneath. */
 export function Title({
   children,
   squiggle = true,
   plain = false,
   size = 26,
+  fit = false,
 }: {
   children: ReactNode;
   squiggle?: boolean;
   /** Auth-screen variant: no tracking, no squiggle (design `font:900 26px`). */
   plain?: boolean;
   size?: number;
+  /** Hold the heading to one line: shrink below `size` when it would wrap,
+   *  never grow past it. */
+  fit?: boolean;
 }) {
   const { colors, fonts, tracking } = useTheme();
   const { dir } = useLocale();
@@ -149,6 +163,9 @@ export function Title({
   return (
     <View style={{ marginBottom: plain ? 0 : space.s }}>
       <Text
+        numberOfLines={fit ? 1 : undefined}
+        adjustsFontSizeToFit={fit}
+        minimumFontScale={fit ? 0.5 : undefined}
         style={{
           fontFamily: fonts.display900,
           fontSize: size,

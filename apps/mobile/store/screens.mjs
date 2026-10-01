@@ -25,7 +25,11 @@
  * (src/navigation/headerOptions.tsx). Both are drawn here in their iOS 26
  * (Liquid Glass) form. The SF Symbols are approximations.
  */
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { dark as c, brand, lightGreens, DEVICE_PT } from './tokens.mjs';
+
+const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
 
 const W = DEVICE_PT.width;
 const H = DEVICE_PT.height;
@@ -130,7 +134,7 @@ function pattern(bw, bh, color, alpha) {
  * iOS status bar. ALWAYS left-to-right: the system bar does not follow the
  * app's in-app language (the native root is pinned LTR, src/i18n/nativeDirection.ts).
  */
-function statusBar(t) {
+function statusBarIos(t) {
   return `
   <div class="sb" dir="ltr">
     <div class="island"></div>
@@ -143,7 +147,34 @@ function statusBar(t) {
   </div>`;
 }
 
+/**
+ * Android status bar: left-aligned digital clock, punch-hole camera cut-out,
+ * Material glyphs for signal/wifi/battery on the right. No Dynamic Island.
+ */
+function statusBarAndroid(t) {
+  return `
+  <div class="sb sb-android" dir="ltr">
+    <div class="sb-time">${t.statusTime}</div>
+    <div class="punchhole"></div>
+    <div class="sb-icons">
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="#fff"><rect x="0" y="8" width="2.6" height="4" rx="0.6"/><rect x="4.4" y="5.5" width="2.6" height="6.5" rx="0.6"/><rect x="8.8" y="3" width="2.6" height="9" rx="0.6"/><rect x="13.2" y="0" width="2.6" height="12" rx="0.6"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><path d="M1 4.2a10 10 0 0 1 14 0"/><path d="M3.6 6.9a6.4 6.4 0 0 1 8.8 0"/><circle cx="8" cy="10" r="1.1" fill="#fff" stroke="none"/></svg>
+      <svg width="22" height="12" viewBox="0 0 22 12" fill="none"><rect x=".6" y=".6" width="18.5" height="10.8" rx="2.2" stroke="#fff" stroke-opacity=".6"/><rect x="2.1" y="2.1" width="12.5" height="7.6" fill="#fff"/><path d="M20.1 4.3v3.4a1.7 1.7 0 0 0 0-3.4Z" fill="#fff" fill-opacity=".6"/></svg>
+    </div>
+  </div>`;
+}
+
+function statusBar(t, platform = 'ios') {
+  return platform === 'android' ? statusBarAndroid(t) : statusBarIos(t);
+}
+
 const homeIndicator = `<div class="home-ind"></div>`;
+/** Android 3-button/gesture nav: a single centered pill, no notch cut. */
+const navGestureAndroid = `<div class="nav-gesture-android"></div>`;
+
+function bottomChrome(platform = 'ios') {
+  return platform === 'android' ? navGestureAndroid : homeIndicator;
+}
 
 /** Native UINavigationBar: chevron-only glass back item + centred title (mirrors in RTL). */
 function navBar(title) {
@@ -165,19 +196,20 @@ const SF = {
 };
 
 /** iOS 26 tab bar (NativeTabs). Order is fixed: Bookings · Book · Profile. */
-function tabBar(t, active) {
+function tabBar(t, active, platform = 'ios') {
   const item = (key, icon, label) => {
     const on = active === key;
     const col = on ? brand.green : c.fnt2;
     return `<div class="tab ${on ? 'on' : ''}">${SF[icon](col)}<div class="tab-l">${label}</div></div>`;
   };
+  const cls = platform === 'android' ? 'tabbar tabbar-android' : 'tabbar';
   return `
-  <div class="tabbar" dir="ltr">
+  <div class="${cls}" dir="ltr">
     ${item('bookings', 'calendar', t.tabBookings)}
     ${item('book', 'tennis', t.tabBook)}
     ${item('profile', 'person', t.tabProfile)}
   </div>
-  ${homeIndicator}`;
+  ${bottomChrome(platform)}`;
 }
 
 /** ui.tsx Title: 26 pt Black, uppercase + tracking in Latin only, squiggle below. */
@@ -237,148 +269,41 @@ function bookGeometry() {
   return { stageTop, boxTop: stageTop - m, boxH: stageBox + m };
 }
 
-function courtSvg(boxH) {
-  const P = courtProjector(W, boxH);
-  const pt = (p) => P(p).map((v) => v.toFixed(1)).join(',');
-  const poly = (pts, attrs) => `<polygon points="${pts.map(pt).join(' ')}" ${attrs}/>`;
-  const seg = (a, b, attrs) => {
-    const [x1, y1] = P(a);
-    const [x2, y2] = P(b);
-    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" ${attrs}/>`;
-  };
-  const pxPerM = P([1, 0, 0])[0] - P([0, 0, 0])[0];
-  const out = [];
+/**
+ * The court is the app's own pixels: art/book-court.png is cropped from a real
+ * capture of the Book tab (the 3D court3d scene), 1206 px wide at 3x. The CTA is
+ * redrawn over the capture's own button so the Arabic frame reads in Arabic.
+ */
+const COURT_ART = { url: pathToFileURL(path.join(HERE, 'art', 'book-court.png')).href, w: 1206, h: 1770 };
+const COURT_CTA = { top: 825, bottom: 968, left: 184, right: 1021 };
 
-  // base slab + turf (scene.ts: navy slab 11.4 × 21.4, turf 10 × 20 in TURF)
-  out.push(poly([[-5.7, -0.06, -10.7], [5.7, -0.06, -10.7], [5.7, -0.06, 10.7], [-5.7, -0.06, 10.7]], `fill="#1E3966"`));
-  out.push(poly([[-5, 0, -10], [5, 0, -10], [5, 0, 10], [-5, 0, 10]], `fill="#3A63A9"`));
-
-  // lines (scene.ts `line(...)` calls, 0.1 m wide, white)
-  const lw = (0.1 * pxPerM).toFixed(2);
-  const L = `stroke="#FFFFFF" stroke-width="${lw}"`;
-  out.push(seg([-5, 0.02, -9.95], [5, 0.02, -9.95], L), seg([-5, 0.02, 9.95], [5, 0.02, 9.95], L));
-  out.push(seg([-4.95, 0.02, -10], [-4.95, 0.02, 10], L), seg([4.95, 0.02, -10], [4.95, 0.02, 10], L));
-  out.push(seg([-5, 0.02, -7], [5, 0.02, -7], L), seg([-5, 0.02, 7], [5, 0.02, 7], L));
-  out.push(seg([0, 0.02, -10], [0, 0.02, -7], L), seg([0, 0.02, 10], [0, 0.02, 7], L));
-
-  // ball's cast shadow on the turf
-  const ball = [1.4, 2.4, 3.2];
-  const [sx, sy] = P([ball[0] + 0.35, 0.01, ball[2] + 0.2]);
-  out.push(`<ellipse cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" rx="${(0.3 * pxPerM).toFixed(1)}" ry="${(0.22 * pxPerM).toFixed(1)}" fill="${brand.navy}" opacity=".28"/>`);
-
-  // rackets (brand sticker: blue face, white perforations, lime grip), flat
-  const rackets = [
-    { x: -2.3, z: -6.3, rot: 200 },
-    { x: 2.3, z: -6.3, rot: 160 },
-    { x: -2.3, z: 6.3, rot: -20 },
-    { x: 2.3, z: 6.3, rot: 25 },
-  ];
-  for (const r of rackets) {
-    const [rx, ry] = P([r.x, 0.75, r.z]);
-    const k = pxPerM;
-    const dots = [[-0.12, -0.2], [0.12, -0.2], [0, -0.08], [-0.12, 0.04], [0.12, 0.04], [0, 0.16]]
-      .map(([dx, dy]) => `<circle cx="${(dx * k).toFixed(1)}" cy="${(dy * k).toFixed(1)}" r="${(0.035 * k).toFixed(2)}" fill="#fff" opacity=".85"/>`)
-      .join('');
-    out.push(`<g transform="translate(${rx.toFixed(1)} ${ry.toFixed(1)}) rotate(${r.rot})">
-      <rect x="${(-0.05 * k).toFixed(1)}" y="${(0.3 * k).toFixed(1)}" width="${(0.1 * k).toFixed(1)}" height="${(0.36 * k).toFixed(1)}" rx="${(0.05 * k).toFixed(1)}" fill="${brand.green}"/>
-      <path d="M0 ${(-0.42 * k).toFixed(1)} C ${(0.3 * k).toFixed(1)} ${(-0.42 * k).toFixed(1)} ${(0.32 * k).toFixed(1)} ${(0.05 * k).toFixed(1)} 0 ${(0.34 * k).toFixed(1)} C ${(-0.32 * k).toFixed(1)} ${(0.05 * k).toFixed(1)} ${(-0.3 * k).toFixed(1)} ${(-0.42 * k).toFixed(1)} 0 ${(-0.42 * k).toFixed(1)} Z" fill="${brand.blue}" stroke="#fff" stroke-width="${(0.04 * k).toFixed(2)}"/>
-      ${dots}
-    </g>`);
-  }
-
-  // net: navy wire mesh (edge-on from above), white tape, navy posts
-  out.push(seg([-5.15, 0.02, 0], [5.15, 0.02, 0], `stroke="${brand.navy}" stroke-opacity=".55" stroke-width="1.2"`));
-  out.push(seg([-5.15, 0.9, 0], [5.15, 0.9, 0], `stroke="#FFFFFF" stroke-width="${(0.07 * pxPerM).toFixed(2)}"`));
-  for (const x of [-5.3, 5.3]) {
-    const [px, py] = P([x, 1.05, 0]);
-    out.push(`<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${(0.09 * pxPerM).toFixed(1)}" fill="${brand.navy}"/>`);
-  }
-
-  // the cage: lime glass with white window panes, navy mesh, rails, posts, mint caps
-  const glass = `fill="${brand.green}" fill-opacity=".55"`;
-  const paneA = `fill="#FFFFFF" fill-opacity=".75"`;
-  const frame = `stroke="${brand.navy}" stroke-width="${Math.max(1, 0.08 * pxPerM).toFixed(2)}"`;
-  const vquad = (a, b, y0, y1, attrs) =>
-    poly([[a[0], y0, a[1]], [b[0], y0, b[1]], [b[0], y1, b[1]], [a[0], y1, a[1]]], attrs);
-  const mesh = (a, b, y0, y1) => {
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const n = Math.round(len * 4);
-    const parts = [];
-    for (let i = 0; i <= n; i++) {
-      const u = i / n;
-      const x = a[0] + (b[0] - a[0]) * u;
-      const z = a[1] + (b[1] - a[1]) * u;
-      parts.push(seg([x, y0, z], [x, y1, z], `stroke="${brand.navy}" stroke-opacity=".42" stroke-width=".6"`));
-    }
-    for (let j = 0; j <= Math.round((y1 - y0) * 4); j++) {
-      const y = y0 + j / 4;
-      parts.push(seg([a[0], y, a[1]], [b[0], y, b[1]], `stroke="${brand.navy}" stroke-opacity=".42" stroke-width=".6"`));
-    }
-    return parts.join('');
-  };
-  const post = (x, z, h) => {
-    const parts = [seg([x, 0, z], [x, h, z], `stroke="${brand.navy}" stroke-width="${Math.max(1.2, 0.1 * pxPerM).toFixed(2)}"`)];
-    const [px, py] = P([x, h + 0.04, z]);
-    const s = 0.18 * pxPerM * 1.07;
-    parts.push(`<rect x="${(px - s / 2).toFixed(1)}" y="${(py - s / 2).toFixed(1)}" width="${s.toFixed(1)}" height="${s.toFixed(1)}" fill="#9FE0C8"/>`);
-    return parts.join('');
-  };
-  for (const s of [-1, 1]) {
-    const z = s * 10;
-    out.push(vquad([-5, z], [5, z], 0, 3, glass));
-    for (const o of [-4, -2, 0, 2, 4]) out.push(vquad([o - 0.7, z - s * 0.01], [o + 0.7, z - s * 0.01], 0.4, 2.6, paneA));
-    out.push(mesh([-5, z], [5, z], 3, 4));
-    out.push(seg([-5.05, 4, z], [5.05, 4, z], frame), seg([-5.05, 3, z], [5.05, 3, z], frame));
-    for (const sx of [-1, 1]) {
-      const x = sx * 5;
-      out.push(vquad([x, s * 6], [x, s * 10], 0, 3, glass));
-      for (const o of [-1, 1]) out.push(vquad([x - sx * 0.01, s * 8 + o - 0.7], [x - sx * 0.01, s * 8 + o + 0.7], 0.4, 2.6, paneA));
-      out.push(mesh([x, s * 6], [x, s * 10], 3, 4));
-      out.push(mesh([x, 0], [x, s * 6], 0, 3));
-      out.push(seg([x, 4, s * 5.95], [x, 4, s * 10.05], frame), seg([x, 3, s * 5.95], [x, 3, s * 10.05], frame));
-      out.push(seg([x, 3, s * -0.05], [x, 3, s * 6.05], frame));
-    }
-    for (const x of [-2.5, 0, 2.5]) out.push(post(x, z, 4));
-    for (const sx of [-1, 1]) {
-      out.push(post(sx * 5, s * 10, 4), post(sx * 5, s * 6, 4), post(sx * 5, s * 2, 3));
-    }
-  }
-
-  const ballPx = P(ball);
-  return {
-    svg: `<svg class="court3d" width="${W}" height="${boxH}" viewBox="0 0 ${W} ${boxH}">${out.join('')}</svg>`,
-    ball: { x: ballPx[0], y: ballPx[1], r: 0.22 * pxPerM * 1.05 },
-    net: { left: P([-5.15, 0.9, 0])[0], right: P([5.15, 0.9, 0])[0], y: P([0, 0.9, 0])[1] },
-  };
-}
-
-function screenBook(t, logoUrl) {
+function screenBook(t, logoUrl, platform = 'ios') {
   const g = bookGeometry();
-  const court = courtSvg(g.boxH);
-  const ctaTop = g.boxTop + court.net.y - 24;
-  const ballSvg = `<svg class="ball" style="left:${(court.ball.x - court.ball.r).toFixed(1)}px;top:${(g.boxTop + court.ball.y - court.ball.r).toFixed(1)}px" width="${(court.ball.r * 2).toFixed(1)}" height="${(court.ball.r * 2).toFixed(1)}" viewBox="-1 -1 2 2"><circle r="1" fill="${brand.green}"/><path d="M-.62 -.78c.5.45.62 1.2.18 1.62M.6 -.8c-.4.5-.5 1.25-.05 1.62" stroke="#F3F5F9" stroke-width=".16" fill="none"/></svg>`;
+  const s = W / COURT_ART.w;
+  const artTop = g.stageTop;
+  const artH = COURT_ART.h * s;
+  const ctaH = (COURT_CTA.bottom - COURT_CTA.top) * s;
   return `
 <div class="scr page">
   ${pattern(W, H, brand.green, 0.45)}
-  <div class="abs" style="top:${g.boxTop}px;height:${g.boxH}px">${court.svg}</div>
-  <div class="net-cta" style="top:${ctaTop.toFixed(1)}px;left:${court.net.left.toFixed(1)}px;width:${(court.net.right - court.net.left).toFixed(1)}px">
+  <img class="court-art" src="${COURT_ART.url}" style="top:${artTop.toFixed(1)}px;height:${artH.toFixed(1)}px" alt=""/>
+  <div class="net-cta" style="box-shadow:none;top:${(artTop + COURT_CTA.top * s).toFixed(1)}px;height:${ctaH.toFixed(1)}px;left:${(COURT_CTA.left * s).toFixed(1)}px;width:${((COURT_CTA.right - COURT_CTA.left) * s).toFixed(1)}px">
     <div class="net-cta-l">${t.checkAvailability}</div>
   </div>
-  ${ballSvg}
-  ${statusBar(t)}
+  ${statusBar(t, platform)}
   <div class="book-head">
     <img class="wordmark" src="${logoUrl}" alt=""/>
     <div class="openpill"><span class="dot"></span><span>${t.openNow}</span></div>
   </div>
   <div class="book-title">${title(t.bookTitle)}</div>
   <div class="court-foot" style="bottom:${TAB_BAR_H + 10}px"><div class="court-foot-shade"></div><span>${t.reserveFooter}</span></div>
-  ${tabBar(t, 'book')}
+  ${tabBar(t, 'book', platform)}
 </div>`;
 }
 
 /* ── 2 · Availability — app/availability.tsx ───────────────────────────────── */
 
-function screenAvailability(t) {
+function screenAvailability(t, logoUrl, platform = 'ios') {
   const days = t.days
     .map(
       (d, i) =>
@@ -399,7 +324,7 @@ function screenAvailability(t) {
 
   return `
 <div class="scr bg">
-  ${statusBar(t)}
+  ${statusBar(t, platform)}
   ${navBar(t.availabilityTitle)}
   <div class="dayrail"><div class="dayrail-in">${days}</div></div>
   <div class="seg-fit-row"><div class="seg fit"><div class="seg-i on">${t.duration60}</div></div></div>
@@ -407,7 +332,7 @@ function screenAvailability(t) {
     ${rows.join('')}
     <div class="avail-foot">${t.availFooter}</div>
   </div>
-  ${homeIndicator}
+  ${bottomChrome(platform)}
 </div>`;
 }
 
@@ -425,10 +350,10 @@ function summaryGrid(rows, { iconColor, labelColor, valueColor }) {
     .join('')}</div>`;
 }
 
-function screenReview(t) {
+function screenReview(t, logoUrl, platform = 'ios') {
   return `
 <div class="scr bg">
-  ${statusBar(t)}
+  ${statusBar(t, platform)}
   ${navBar(t.reviewTitle)}
   <div class="pad-x">
     <div class="hold">
@@ -464,16 +389,16 @@ function screenReview(t) {
   <div class="rv-dock">
     <div class="btn cta big">${t.reserveCta}</div>
   </div>
-  ${homeIndicator}
+  ${bottomChrome(platform)}
 </div>`;
 }
 
 /* ── 4 · Court reserved — app/success.tsx ──────────────────────────────────── */
 
-function screenSuccess(t) {
+function screenSuccess(t, logoUrl, platform = 'ios') {
   return `
 <div class="scr navy">
-  ${statusBar(t)}
+  ${statusBar(t, platform)}
   <div class="succ">
     <div class="succ-ring">${I.check(30, brand.greenInk, 3)}</div>
     <div class="succ-t">${t.successTitle}</div>
@@ -496,13 +421,13 @@ function screenSuccess(t) {
     <div class="btn cta">${t.viewBooking}</div>
     <div class="btn done">${t.done}</div>
   </div>
-  ${homeIndicator}
+  ${bottomChrome(platform)}
 </div>`;
 }
 
 /* ── 5 · My reservations — app/(tabs)/bookings.tsx ─────────────────────────── */
 
-function screenBookings(t) {
+function screenBookings(t, logoUrl, platform = 'ios') {
   const fchip = (icon, label, on) =>
     `<div class="fchip ${on ? 'on' : ''}">${icon(13, on ? brand.white : c.fnt, 2.2)}<span>${label}</span></div>`;
 
@@ -553,7 +478,7 @@ function screenBookings(t) {
 
   return `
 <div class="scr bg">
-  ${statusBar(t)}
+  ${statusBar(t, platform)}
   <div class="pad-x bk">
     ${title(t.myBookings)}
     <div class="fchips">
@@ -565,19 +490,19 @@ function screenBookings(t) {
     ${hero}
     ${t.bookings.map(row).join('')}
   </div>
-  ${tabBar(t, 'bookings')}
+  ${tabBar(t, 'bookings', platform)}
 </div>`;
 }
 
 /* ── 6 · Settings — app/settings.tsx ───────────────────────────────────────── */
 
-function screenSettings(t) {
+function screenSettings(t, logoUrl, platform = 'ios') {
   const group = (icon, label) => `<div class="grp">${icon(13, c.gstrong, 2)}<span class="micro">${label}</span></div>`;
   const seg = (items, pinLtr) =>
     `<div class="seg" ${pinLtr ? 'dir="ltr"' : ''}>${items.map(([label, on]) => `<div class="seg-i ${on ? 'on' : ''}">${label}</div>`).join('')}</div>`;
   return `
 <div class="scr bg">
-  ${statusBar(t)}
+  ${statusBar(t, platform)}
   ${navBar(t.settingsTitle)}
   <div class="pad-x set">
     <div class="card sc">
@@ -610,7 +535,7 @@ function screenSettings(t) {
     </div>
     <div class="version">${t.versionLine}</div>
   </div>
-  ${homeIndicator}
+  ${bottomChrome(platform)}
 </div>`;
 }
 
@@ -663,6 +588,13 @@ export const screenCss = `
 .home-ind{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:139px;height:5px;
   border-radius:99px;background:rgba(255,255,255,.7);z-index:6;}
 
+/* Android status bar + gesture nav */
+.sb-android{padding:6px 16px 0 16px;}
+.punchhole{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:14px;height:14px;
+  border-radius:99px;background:#000;}
+.nav-gesture-android{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:108px;height:4px;
+  border-radius:99px;background:rgba(255,255,255,.55);z-index:6;}
+
 /* native navigation bar (iOS 26) */
 .nav{height:${NAV_H}px;flex:0 0 ${NAV_H}px;position:relative;display:flex;align-items:center;padding-inline:16px;}
 .nav-back{width:44px;height:44px;border-radius:99px;display:flex;align-items:center;justify-content:center;
@@ -680,6 +612,15 @@ export const screenCss = `
 .tab.on{background:rgba(255,255,255,.12);}
 .tab-l{font-size:10px;font-weight:600;color:${c.fnt2};line-height:12px;}
 .tab.on .tab-l{font-weight:800;color:${brand.green};}
+
+/* Android Material 3 bottom nav: full-width flat bar, no floating pill */
+.tabbar-android{left:0;right:0;bottom:0;height:80px;border-radius:0;
+  align-items:flex-start;padding:8px 5px 0;background:${c.seg};
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+  box-shadow:0 -1px 0 rgba(255,255,255,.08);}
+.tabbar-android .tab{border-radius:20px;height:48px;justify-content:flex-start;padding-top:6px;}
+.tabbar-android .tab.on{background:transparent;}
+.tabbar-android .tab.on .tab-l{color:${brand.green};}
 
 /* Title (ui.tsx) */
 .title{margin-bottom:8px;}
@@ -710,6 +651,9 @@ export const screenCss = `
 .openpill .dot{width:7px;height:7px;border-radius:99px;background:${brand.green};}
 .book-title{position:relative;z-index:3;padding:12px 16px 0;}
 .court3d{display:block;}
+.court-art{position:absolute;left:0;width:${W}px;z-index:1;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);
+  mask-image:linear-gradient(to bottom,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);}
 .net-cta{position:absolute;height:48px;border-radius:14px;background:${brand.green};z-index:2;
   display:flex;align-items:center;justify-content:center;padding-inline:16px;box-shadow:0 8px 0 ${brand.navy};}
 .net-cta-l{font-weight:800;font-size:14px;letter-spacing:calc(var(--k) * .7px);text-transform:uppercase;

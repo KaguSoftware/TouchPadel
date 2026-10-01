@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../src/lib/supabase';
 import { resendSignUpCode, signIn, signInWithPhone } from '../src/features/auth/api';
@@ -33,7 +33,6 @@ import {
   LinkText,
   Screen,
   SegmentedControl,
-  Title,
 } from '../src/components/ui';
 import { useToast } from '../src/components/overlays';
 
@@ -193,8 +192,8 @@ function SignInScreen() {
 
   return (
     <Screen gutter={20} edges={[]}>
+      <Stack.Screen options={{ title: t('auth.signIn') }} />
       <FormScreen>
-        <Title plain>{t('auth.signIn')}</Title>
         <SocialSignInBlock
           testID="sign-in.social"
           available={social.available}
@@ -235,15 +234,19 @@ function SignInScreen() {
             style={{ marginTop: 6 }}
           />
         ) : (
-          <PhoneField
-            testID="sign-in.phone"
-            placeholder={t('auth.phoneLabel')}
-            iso={iso}
-            onChangeIso={setIso}
-            national={national}
-            onChangeNational={setNational}
-            error={phoneError}
-          />
+          // Same 6pt the email Field takes, so the fields below sit at one
+          // height whichever segment is selected.
+          <View style={{ marginTop: 6 }}>
+            <PhoneField
+              testID="sign-in.phone"
+              placeholder={t('auth.phoneLabel')}
+              iso={iso}
+              onChangeIso={setIso}
+              national={national}
+              onChangeNational={setNational}
+              error={phoneError}
+            />
+          </View>
         )}
         <Field
           testID="sign-in.password"

@@ -35,8 +35,9 @@ const has = (name) => process.argv.includes(`--${name}`);
  * A real device capture wins over the recreation whenever one exists.
  * capture/<locale>/<slug>.png — see capture/README.md.
  */
-async function captureFor(locale, slug) {
-  const p = path.join(CAPTURES, locale, `${slug}.png`);
+async function captureFor(locale, slug, platform) {
+  const base = platform === 'android' ? path.join(CAPTURES, 'android') : CAPTURES;
+  const p = path.join(base, locale, `${slug}.png`);
   try {
     await fs.access(p);
     return pathToFileURL(p).href;
@@ -81,7 +82,7 @@ async function main() {
     for (const frame of conf.frames) {
       if (onlyFrame && frame.slug !== onlyFrame) continue;
 
-      const capture = await captureFor(locale, frame.slug);
+      const capture = await captureFor(locale, frame.slug, size.platform);
       if (capture) usedCaptures.push(`${locale}/${frame.slug}`);
 
       const html = posterHtml({

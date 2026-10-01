@@ -8,8 +8,10 @@ export const staffShellAr: DeepMessages<typeof staffShellEn> = {
     roleAtVenue: '{role} · {venue}',
     groups: {
       protocols: 'البروتوكولات والأفكار',
+      supplies: 'المخزون والمشتريات',
+      recipes: 'الوصفات والتدريب',
       daily: 'العمل اليومي',
-      team: 'الطلبات والاقتراحات',
+      team: 'الطلبات',
     },
   },
   venue: {
@@ -24,6 +26,7 @@ export const staffShellAr: DeepMessages<typeof staffShellEn> = {
     openSettings: 'فتح الإعدادات',
   },
   account: {
+    alerts: 'تنبيهات العمل',
     title: 'الحساب',
     alertsOn: 'تنبيهات العمل مفعّلة على هذا الهاتف.',
     alertsOff: 'تنبيهات العمل موقوفة على هذا الهاتف.',
@@ -33,6 +36,7 @@ export const staffShellAr: DeepMessages<typeof staffShellEn> = {
     signOutConfirm: 'ستحتاج إلى بريدك الإلكتروني وكلمة المرور لتسجيل الدخول مرة أخرى.',
   },
   guestView: {
+    tile: 'واجهة الضيوف',
     row: 'عرض واجهة الضيوف',
     back: 'العودة إلى واجهة الموظفين',
     note: 'هذا التطبيق كما يراه الضيوف. أي حجز أو طلب هنا حقيقي.',

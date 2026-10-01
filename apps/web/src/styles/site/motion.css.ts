@@ -38,10 +38,10 @@ export const siteMotionCss = `
 .tp-site[data-reveal='on'] .tp-events__word--hit { transition-delay: 110ms; }
 .tp-site[data-reveal='on'] .tp-events__word--win { transition-delay: 220ms; }
 
-.tp-faq__item[open] .tp-faq__a { animation: tp-site-rise var(--tp-site-dur-base) var(--tp-site-ease-out) both; }
+.tp-faq__item[open]:not([data-closing]) .tp-faq__a { animation: tp-site-rise var(--tp-site-dur-base) var(--tp-site-ease-out) both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .tp-rise, .tp-faq__item[open] .tp-faq__a { animation: none; }
+  .tp-rise, .tp-faq__item[open]:not([data-closing]) .tp-faq__a { animation: none; }
   .tp-site [data-reveal], .tp-events__word { transition: none; clip-path: none; }
   .tp-site[data-reveal='on'] [data-reveal]:not([data-revealed]) { opacity: 1; transform: none; clip-path: none; }
 }

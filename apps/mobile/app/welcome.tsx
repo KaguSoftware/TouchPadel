@@ -1,4 +1,4 @@
-import { Image, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
@@ -16,7 +16,7 @@ import { usePendingJoin } from '../src/features/matches/pendingJoin';
 import { brand, radius, useTheme } from '../src/theme';
 import { Button } from '../src/components/ui';
 import { useBack } from '../src/navigation/back';
-import { PadelBallIcon } from '../src/components/icons';
+import { GlobeIcon, PadelBallIcon } from '../src/components/icons';
 
 const LOGO_H = 44;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
@@ -28,7 +28,7 @@ const LOGO_W = Math.round(LOGO_H * (900 / 332));
  * browsing" clears the intent and returns.
  */
 function WelcomeScreen() {
-  const { t, locale, dir } = useLocale();
+  const { t, locale, dir, setLocale } = useLocale();
   const router = useRouter();
   const back = useBack();
   const insets = useSafeAreaInsets();
@@ -160,6 +160,35 @@ function WelcomeScreen() {
           labelColor={brand.navyText}
         />
       </View>
+      {/* Language switch: shows the OTHER language's name, flips the whole app. */}
+      <Pressable
+        testID="welcome.language"
+        accessibilityRole="button"
+        accessibilityLabel={t('settings.language')}
+        onPress={() => void setLocale(locale === 'en' ? 'ar' : 'en')}
+        hitSlop={8}
+        style={{
+          position: 'absolute',
+          top: insets.top + 10,
+          end: 20,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          backgroundColor: `${brand.white}22`,
+          borderWidth: 1,
+          borderColor: `${brand.white}36`,
+          borderRadius: 999,
+          paddingStart: 12,
+          paddingEnd: 12,
+          paddingTop: 7,
+          paddingBottom: 7,
+        }}
+      >
+        <GlobeIcon size={14} color={brand.white} />
+        <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: brand.white }}>
+          {locale === 'en' ? t('settings.arabic') : t('settings.english')}
+        </Text>
+      </Pressable>
     </LinearGradient>
   );
 }

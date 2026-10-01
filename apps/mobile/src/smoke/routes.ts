@@ -66,7 +66,7 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: '+not-found.tsx', route: 'not-found', primary: 'not-found.bookings' },
   // ── profile ───────────────────────────────────────────────────────────────
   { file: 'settings.tsx', route: 'settings', primary: 'settings.language' },
-  { file: 'profile-edit.tsx', route: 'profile-edit', primary: 'profile-edit.save' },
+  { file: 'profile-edit.tsx', route: 'profile-edit', primary: 'profile-edit.name' },
   { file: 'change-password.tsx', route: 'change-password', primary: 'change-password.submit' },
   { file: 'delete-account.tsx', route: 'delete-account', primary: 'delete-account.confirm' },
   { file: 'accept-terms.tsx', route: 'accept-terms', primary: 'accept-terms.accept' },
@@ -78,7 +78,8 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // (checklist, production, stock, teachings, suggestions, recipes, recipe
   // change) and staffSuppliesMarketing.smoke.test.tsx (shopping, purchase,
   // marketing, requests to marketing).
-  { file: 'staff.tsx', route: 'staff', primary: 'staff.requests' },
+  { file: 'staff.tsx', route: 'staff', primary: 'staff.settings' },
+  { file: 'staff-group.tsx', route: 'staff-group', primary: 'staff-group.list' },
   { file: 'staff-request.tsx', route: 'staff-request', primary: 'staff-request.submit' },
   { file: 'staff-checklist.tsx', route: 'staff-checklist', primary: 'staff-checklist.done' },
   { file: 'staff-start.tsx', route: 'staff-start', primary: 'staff-start.submit' },
@@ -95,7 +96,11 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'staff-order.tsx', route: 'staff-order', primary: 'staff-order.tables' },
   { file: 'staff-order-menu.tsx', route: 'staff-order-menu', primary: 'staff-order-menu.review' },
   { file: 'staff-order-item.tsx', route: 'staff-order-item', primary: 'staff-order-item.add' },
-  { file: 'staff-order-review.tsx', route: 'staff-order-review', primary: 'staff-order-review.send' },
+  {
+    file: 'staff-order-review.tsx',
+    route: 'staff-order-review',
+    primary: 'staff-order-review.send',
+  },
   { file: 'staff-receipt.tsx', route: 'staff-receipt', primary: 'staff-receipt.send' },
   { file: 'staff-marketing.tsx', route: 'staff-marketing', primary: 'staff-marketing.tab.take' },
   { file: 'staff-notes.tsx', route: 'staff-notes', primary: 'staff-notes.add' },
@@ -126,7 +131,11 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // staffStores.smoke.test.tsx.
   { file: 'staff-stock-log.tsx', route: 'staff-stock-log', primary: 'staff-stock-log.save' },
   { file: 'staff-stock-move.tsx', route: 'staff-stock-move', primary: 'staff-stock-move.move' },
-  { file: 'staff-stock-count.tsx', route: 'staff-stock-count', primary: 'staff-stock-count.submit' },
+  {
+    file: 'staff-stock-count.tsx',
+    route: 'staff-stock-count',
+    primary: 'staff-stock-count.submit',
+  },
   // Wave 5, lane P (wave5-addendum-2026-09-25 §5.3): the people records,
   // cased by staffPeople.smoke.test.tsx.
   { file: 'staff-deductions.tsx', route: 'staff-deductions', primary: 'staff-deductions.propose' },

@@ -57,12 +57,18 @@ export const SPEC = {
     opacity: [1, 1] as Range,
   },
   lines: { range: [0.3, 0.7] as Range, opacity: [1, 0.4] as Range },
-  /** Near-side half of the cage fades with the pitch so it does not block the view: mesh, glass, frame, window panes. */
+  /**
+   * The bottom end wall and the side walls' bottom glass sections fade with the
+   * pitch so they do not block the view: mesh, glass, frame. The side walls' mesh
+   * sections do not fade (owner, 2026-09-29). The window panes
+   * of the whole near half go all the way out, so in the pitched view only the
+   * upper (far) side of the cage carries them.
+   */
   nearCage: {
     fence: [0.42, 0.1] as Range,
     glass: [0.55, 0.12] as Range,
     frame: [1, 0.25] as Range,
-    pane: [0.75, 0.1] as Range,
+    pane: [1, 0] as Range,
   },
   button: {
     fade: [0, 0.25] as Range,
