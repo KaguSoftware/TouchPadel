@@ -20,7 +20,7 @@
  * screen's polls and the reconciler do, through app.deposit_apply.
  */
 import { createAtGateway, isUuid } from '../_shared/deposits.ts';
-import { isRetryablePgError, json } from '../_shared/http.ts';
+import { handle, isRetryablePgError, json, KB, readJsonBody } from '../_shared/http.ts';
 import { configuredProviderName } from '../_shared/payments/index.ts';
 import { createServiceClient, getCallerUserId } from '../_shared/supabase.ts';
 
@@ -40,15 +40,15 @@ const REFUSAL_STATUS: Record<string, number> = {
 
 const unavailable = () => json({ error: 'PROVIDER_UNAVAILABLE' }, 503);
 
-Deno.serve(async (req) => {
+Deno.serve(handle('deposit-begin', async (req) => {
   if (req.method !== 'POST') return json({ error: 'BAD_REQUEST', message: 'POST only' }, 405);
 
-  let body: { hold_id?: unknown; locale?: unknown };
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return json({ error: 'BAD_REQUEST', message: 'invalid JSON body' }, 400);
-  }
+  const read = await readJsonBody<{ hold_id?: unknown; locale?: unknown }>(req, {
+    maxBytes: 4 * KB,
+    badJson: () => json({ error: 'BAD_REQUEST', message: 'invalid JSON body' }, 400),
+  });
+  if (!read.ok) return read.response;
+  const body = read.value;
   if (!isUuid(body.hold_id)) return json({ error: 'BAD_REQUEST', message: 'hold_id must be a uuid' }, 400);
   const locale = body.locale === 'en' ? 'en' : 'ar';
 
@@ -112,4 +112,4 @@ Deno.serve(async (req) => {
       : json({ error: created.error }, created.error === 'RETRY_LATER' ? 503 : 500);
   }
   return ok(created.formUrl);
-});
+}));

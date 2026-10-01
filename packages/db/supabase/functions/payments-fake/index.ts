@@ -21,9 +21,15 @@ import {
   notificationUrl,
   signFakeNotification,
 } from '../_shared/payments/index.ts';
+import { fetchWithTimeout, handle, KB, readTextCapped } from '../_shared/http.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 
 const env = (name: string) => Deno.env.get(name);
+
+/** The page's form is two short fields. */
+const MAX_FORM = 4 * KB;
+/** The notification to deposit-webhook: a local call, but never an unbounded one. */
+const NOTIFY_TIMEOUT_MS = 10_000;
 
 const ACTIONS: Record<string, { status: string; label: string } | null> = {
   succeed: { status: 'SUCCESS', label: 'Pay (card approved)' },
@@ -46,7 +52,7 @@ button.go{background:#1f7a3a;color:#fff;border-color:#1f7a3a}.box{background:#ff
   );
 }
 
-Deno.serve(async (req) => {
+Deno.serve(handle('payments-fake', async (req) => {
   if (!isLocalRuntime(env)) return new Response('Not found', { status: 404 });
 
   const service = createServiceClient();
@@ -76,7 +82,10 @@ Deno.serve(async (req) => {
   }
 
   if (req.method === 'POST') {
-    const form = await req.formData();
+    // The page posts application/x-www-form-urlencoded; read it capped.
+    const text = await readTextCapped(req, MAX_FORM);
+    if (text === null) return page('Fake payment', '<p>Bad request.</p>', 413);
+    const form = new URLSearchParams(text);
     const ref = String(form.get('ref') ?? '');
     const action = String(form.get('action') ?? '');
     if (!isUuid(ref) || !(action in ACTIONS)) return page('Fake payment', '<p>Bad request.</p>', 400);
@@ -98,14 +107,18 @@ Deno.serve(async (req) => {
         creationDate: String(row.created_at).slice(0, 19),
       });
       try {
-        const res = await fetch(notificationUrl(env), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Fake-Signature': await signFakeNotification(env('SUPABASE_SERVICE_ROLE_KEY') ?? '', body),
+        const res = await fetchWithTimeout(
+          notificationUrl(env),
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Fake-Signature': await signFakeNotification(env('SUPABASE_SERVICE_ROLE_KEY') ?? '', body),
+            },
+            body,
           },
-          body,
-        });
+          NOTIFY_TIMEOUT_MS,
+        );
         await res.body?.cancel();
       } catch (error) {
         // Like a lost webhook: the app's polls still find the outcome.
@@ -116,4 +129,4 @@ Deno.serve(async (req) => {
   }
 
   return new Response('Method not allowed', { status: 405 });
-});
+}));

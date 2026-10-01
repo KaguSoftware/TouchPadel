@@ -114,10 +114,15 @@ export interface HttpResult {
   body: Record<string, unknown>;
 }
 
-/** A refused RPC as the function answers it: mapPgError's code and status, with the hint. */
+/**
+ * A refused RPC as the function answers it: mapPgError's code and status, with
+ * the hint. `message` is the code (for a P0001 refusal it always was) and the
+ * hint is only our own RAISE's: a raw Postgres error's text and hint never
+ * reach the caller.
+ */
 export function refusal(err: PgError & { hint?: string | null }): HttpResult {
   const m = mapPgError(err);
-  return { status: m.status, body: { error: m.code, message: m.message, hint: err.hint ?? null } };
+  return { status: m.status, body: { error: m.code, message: m.code, hint: err.code === 'P0001' ? (err.hint ?? null) : null } };
 }
 
 export interface LaunchStep {
@@ -195,7 +200,9 @@ export async function launch(req: LaunchRequest, ports: LaunchPorts): Promise<Ht
       try {
         await ports.copyPhoto(req.photo_path, menuPath, contentTypeOf(extOf(req.photo_path)!));
       } catch (e) {
-        return { status: 502, body: { error: 'UPSTREAM', message: `photo copy failed: ${e instanceof Error ? e.message : String(e)}`, hint: null } };
+        // The storage error is logged; the caller gets the code.
+        ports.log(`photo copy failed: ${e instanceof Error ? e.message : String(e)}`);
+        return { status: 502, body: { error: 'UPSTREAM', message: 'UPSTREAM', hint: null } };
       }
       copied = true;
     }

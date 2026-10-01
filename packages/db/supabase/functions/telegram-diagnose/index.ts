@@ -22,8 +22,9 @@
  * verify_jwt = true (config.toml); the body re-checks the owner staff row.
  */
 import { createServiceClient } from '../_shared/supabase.ts';
-import { json } from '../_shared/http.ts';
+import { handle, isUuid, json, KB, logError, readJsonBody } from '../_shared/http.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
+import { scrubToken, tg } from '../_shared/telegramApi.ts';
 import {
   checkAllowlist,
   checkBot,
@@ -40,39 +41,20 @@ import {
   type TgBot,
   type TgChat,
   type TgChatMember,
-  type TgResult,
   type TgWebhookInfo,
 } from '../_shared/telegramDiagnose.ts';
 
-async function tg<T>(token: string, method: string, body: Record<string, unknown> = {}): Promise<TgResult<T>> {
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10_000),
-    });
-    const data = (await res.json().catch(() => null)) as TgResult<T> | null;
-    if (!data) return { ok: false, error_code: res.status, description: res.statusText };
-    return data;
-  } catch (e) {
-    return { ok: false, transport: `fetch: ${e instanceof Error ? e.message : String(e)}` };
-  }
-}
-
-Deno.serve(async (req) => {
+Deno.serve(handle('telegram-diagnose', async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 
   const service = createServiceClient();
   const caller = await requireStaffRole(req, service, ['owner']);
   if (caller instanceof Response) return caller;
 
-  let body: { action?: unknown; venue_id?: unknown } = {};
-  try {
-    body = (await req.json()) as { action?: unknown; venue_id?: unknown };
-  } catch {
-    // An empty body is a plain diagnose.
-  }
+  // An empty (or unreadable) body is a plain diagnose; an oversized one is refused.
+  const read = await readJsonBody<{ action?: unknown; venue_id?: unknown }>(req, { maxBytes: 16 * KB, allowEmpty: true });
+  if (!read.ok && read.reason === 'too_large') return read.response;
+  const body: { action?: unknown; venue_id?: unknown } = read.ok ? read.value : {};
 
   const token = Deno.env.get('TELEGRAM_BOT_TOKEN')?.trim() ?? '';
   const callbackUrl = webhookUrl(Deno.env.get('SUPABASE_URL') ?? '');
@@ -88,7 +70,8 @@ Deno.serve(async (req) => {
       allowed_updates: WEBHOOK_ALLOWED_UPDATES,
     });
     if (!res.ok) {
-      return json({ error: 'UPSTREAM', message: res.transport ?? `HTTP ${res.error_code}: ${res.description}` }, 502);
+      // Telegram's own words (scrubbed of the token), for the owner's DevTools.
+      return json({ error: 'UPSTREAM', message: scrubToken(res.transport ?? `HTTP ${res.error_code}: ${res.description}`, token) }, 502);
     }
     return json({ ok: true, url: callbackUrl });
   }
@@ -101,22 +84,19 @@ Deno.serve(async (req) => {
 
   // The branch to diagnose (0212, MV3: one Telegram group per branch): the body's
   // venue_id, else the oldest active branch.
-  if (
-    body.venue_id != null &&
-    (typeof body.venue_id !== 'string' ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.venue_id))
-  ) {
+  if (body.venue_id != null && !isUuid(body.venue_id)) {
     return json({ error: 'BAD_REQUEST', message: 'venue_id must be a uuid' }, 400);
   }
   let venueId = typeof body.venue_id === 'string' && body.venue_id ? body.venue_id : null;
   if (!venueId) {
-    const { data: v } = await service
+    const { data: v, error: venueErr } = await service
       .from('venues')
       .select('id')
       .eq('is_active', true)
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
+    if (venueErr) logError('telegram-diagnose', venueErr, 'default branch read failed');
     venueId = (v as { id?: string } | null)?.id ?? null;
   }
 
@@ -136,9 +116,8 @@ Deno.serve(async (req) => {
     service.from('telegram_staff').select('is_active, staff:staff_id(is_active)'),
   ]);
   if (settingsQ.error || outboxQ.error || allowQ.error) {
-    const msg = settingsQ.error?.message ?? outboxQ.error?.message ?? allowQ.error?.message;
-    console.error('telegram-diagnose read failed:', msg);
-    return json({ error: 'INTERNAL', message: msg }, 500);
+    logError('telegram-diagnose', settingsQ.error ?? outboxQ.error ?? allowQ.error, 'read failed');
+    return json({ error: 'INTERNAL' }, 500);
   }
   const settings = new Map((settingsQ.data ?? []).map((r) => [r.key as string, r.value as unknown]));
   const enabled = settings.get('telegram_enabled') === true;
@@ -189,4 +168,4 @@ Deno.serve(async (req) => {
   );
 
   return json({ checks, bot: bot ? { username: bot.username ?? null } : null, webhookUrl: callbackUrl });
-});
+}));

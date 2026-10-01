@@ -16,7 +16,7 @@
  * verify_jwt = true (config.toml).
  */
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { json } from '../_shared/http.ts';
+import { handle, json, KB, logError, readJsonBody } from '../_shared/http.ts';
 import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 import { providerFromEnv, textOf } from '../_shared/assistant/provider.ts';
 import {
@@ -103,22 +103,22 @@ function ports(service: SupabaseClient): ReviewPorts {
   };
 }
 
-Deno.serve(async (req) => {
+Deno.serve(handle('release-review', async (req) => {
   if (req.method !== 'POST') return json({ error: 'BAD_REQUEST', message: 'POST only' }, 405);
-  let body: { action?: unknown } = {};
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return json({ error: 'BAD_REQUEST', message: 'invalid JSON body' }, 400);
-  }
+  const read = await readJsonBody<{ action?: unknown }>(req, {
+    maxBytes: 4 * KB,
+    badJson: () => json({ error: 'BAD_REQUEST', message: 'invalid JSON body' }, 400),
+  });
+  if (!read.ok) return read.response;
+  const body = read.value;
   if (body.action !== 'tick') return json({ error: 'BAD_REQUEST', message: "action must be 'tick'" }, 400);
   if (!isServiceRoleRequest(req)) return json({ error: 'FORBIDDEN', message: 'service role only' }, 403);
 
   try {
     return json(await reviewTick(ports(createServiceClient())));
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    console.error('[release-review] failed', message);
-    return json({ error: 'INTERNAL', message }, 500);
+    // Logged in full; the cron caller gets the code.
+    logError('release-review', e, 'tick failed');
+    return json({ error: 'INTERNAL' }, 500);
   }
-});
+}));

@@ -26,8 +26,11 @@
  */
 import { createServiceClient } from '../_shared/supabase.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
-import { json, mapPgError } from '../_shared/http.ts';
+import { handle, isUuid, json, KB, logError, pgErrorBody, readJsonBody } from '../_shared/http.ts';
 import { checkCreateRole } from './role.ts';
+
+/** A create carries an email, a password, a name and a role: a few hundred bytes. */
+const MAX_BODY = 16 * KB;
 
 /** Long enough to be worth typing once, short enough to read aloud accurately. */
 const MIN_PASSWORD = 10;
@@ -60,19 +63,16 @@ function validPassword(password: unknown): string | null {
   return password;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(handle('staff-admin', async (req) => {
   if (req.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
 
   const service = createServiceClient();
   const caller = await requireStaffRole(req, service, ['owner']);
   if (caller instanceof Response) return caller;
 
-  let body: CreateBody | ResetBody;
-  try {
-    body = (await req.json()) as CreateBody | ResetBody;
-  } catch {
-    return badRequest('body must be JSON');
-  }
+  const read = await readJsonBody<CreateBody | ResetBody>(req, { maxBytes: MAX_BODY, badJson: () => badRequest('body must be JSON') });
+  if (!read.ok) return read.response;
+  const body = read.value;
 
   if (body?.action === 'create') {
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
@@ -82,8 +82,7 @@ Deno.serve(async (req) => {
     // 0218: the branch the new account works at (optional; the default branch otherwise).
     // Multi-venue audit: a malformed id is refused, never quietly turned into
     // "the default branch" (the account would land at the wrong one).
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (body.venue_id != null && (typeof body.venue_id !== 'string' || !UUID_RE.test(body.venue_id))) {
+    if (body.venue_id != null && !isUuid(body.venue_id)) {
       return badRequest('venue_id must be a uuid');
     }
     const venueId = typeof body.venue_id === 'string' ? body.venue_id : null;
@@ -108,12 +107,13 @@ Deno.serve(async (req) => {
     if (created.error || !created.data.user) {
       const message = created.error?.message ?? 'could not create the account';
       // GoTrue says "already been registered" for a duplicate; that is an
-      // ordinary owner mistake, not a server fault.
+      // ordinary owner mistake, not a server fault. The caller gets a fixed
+      // sentence, never GoTrue's own text (logged instead).
       const duplicate = /already/i.test(message);
-      return json(
-        { error: duplicate ? 'EMAIL_IN_USE' : 'INTERNAL', message },
-        duplicate ? 409 : 500,
-      );
+      if (!duplicate) logError('staff-admin', created.error ?? message, 'createUser failed');
+      return duplicate
+        ? json({ error: 'EMAIL_IN_USE', message: 'this email is already registered' }, 409)
+        : json({ error: 'INTERNAL' }, 500);
     }
 
     const userId = created.data.user.id;
@@ -128,10 +128,10 @@ Deno.serve(async (req) => {
     if (error) {
       // The auth user exists but has no staff row: it would be an account that
       // can sign in and then be told it is not staff. Roll it back rather than
-      // leave that behind.
-      await service.auth.admin.deleteUser(userId).catch(() => undefined);
-      const mapped = mapPgError(error);
-      return json({ error: mapped.code, message: mapped.message }, mapped.status);
+      // leave that behind. The admin API answers { error }, it does not throw.
+      await rollBackUser(service, userId);
+      const refused = pgErrorBody(error, 'staff-admin');
+      return json(refused.body, refused.status);
     }
 
     return json({ result: 'created', staff: data }, 201);
@@ -153,24 +153,40 @@ Deno.serve(async (req) => {
       .select('id, display_name')
       .eq('id', staffId)
       .maybeSingle();
-    if (lookupError) return json({ error: 'INTERNAL', message: lookupError.message }, 500);
+    if (lookupError) {
+      logError('staff-admin', lookupError, 'staff lookup failed');
+      return json({ error: 'INTERNAL' }, 500);
+    }
     if (!row) return json({ error: 'STAFF_NOT_FOUND', message: 'no such staff member' }, 404);
 
     const updated = await service.auth.admin.updateUserById(staffId, { password });
     if (updated.error) {
-      return json({ error: 'INTERNAL', message: updated.error.message }, 500);
+      logError('staff-admin', updated.error, `password reset failed for ${staffId}`);
+      return json({ error: 'INTERNAL' }, 500);
     }
 
     // Audit the change, never the password. Not `write_audit_external`: that one
     // writes actor_id = null by design (right for Telegram, where the tapper is
     // not an auth user), and a password reset must name the owner who did it.
-    await service.schema('app').rpc('audit_staff_password_reset', {
+    const audit = await service.schema('app').rpc('audit_staff_password_reset', {
       p_staff_id: staffId,
       p_actor_id: caller.userId,
     });
+    // The password IS changed; a missing audit row is logged loudly, not undone.
+    if (audit.error) logError('staff-admin', audit.error, `AUDIT MISSING: password of ${staffId} reset by ${caller.userId}`);
 
     return json({ result: 'reset' }, 200);
   }
 
   return badRequest("action must be 'create' or 'reset_password'");
-});
+}));
+
+/** Delete an auth user created moments ago; the admin API reports a failure as { error }, never a throw. */
+async function rollBackUser(service: ReturnType<typeof createServiceClient>, userId: string): Promise<void> {
+  try {
+    const { error } = await service.auth.admin.deleteUser(userId);
+    if (error) logError('staff-admin', error, `ROLLBACK FAILED: auth user ${userId} has no staff row; delete it by hand`);
+  } catch (e) {
+    logError('staff-admin', e, `ROLLBACK FAILED: auth user ${userId} has no staff row; delete it by hand`);
+  }
+}

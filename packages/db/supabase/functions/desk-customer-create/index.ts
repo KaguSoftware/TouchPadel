@@ -41,7 +41,7 @@
  */
 import { createServiceClient } from '../_shared/supabase.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
-import { json, mapPgError } from '../_shared/http.ts';
+import { handle, json, KB, logError, pgErrorBody, readJsonBody } from '../_shared/http.ts';
 import {
   isSyntheticEmail,
   isValidPhone,
@@ -74,19 +74,39 @@ function randomPassword(): string {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-Deno.serve(async (req) => {
+/**
+ * The 409 sentences, fixed (never GoTrue's own text). An operator build that
+ * predates reading `error` as the code tells the two apart by the word
+ * "email" in the message (CustomerCreate.tsx fieldErrorOf), so both stay.
+ */
+const DUPLICATE_MESSAGE = {
+  DUPLICATE_PHONE: 'a customer with this phone already exists',
+  DUPLICATE_EMAIL: 'this email is already registered',
+} as const;
+
+/** A name, a phone, an email and a language: a few hundred bytes. */
+const MAX_BODY = 16 * KB;
+
+/** Delete an auth user created moments ago; the admin API reports a failure as { error }, never a throw. */
+async function rollBackUser(service: ReturnType<typeof createServiceClient>, userId: string): Promise<void> {
+  try {
+    const { error } = await service.auth.admin.deleteUser(userId);
+    if (error) logError('desk-customer-create', error, `ROLLBACK FAILED: auth user ${userId} has no customer record; delete it by hand`);
+  } catch (e) {
+    logError('desk-customer-create', e, `ROLLBACK FAILED: auth user ${userId} has no customer record; delete it by hand`);
+  }
+}
+
+Deno.serve(handle('desk-customer-create', async (req) => {
   if (req.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
 
   const service = createServiceClient();
   const caller = await requireStaffRole(req, service, ['court_desk', 'manager', 'owner']);
   if (caller instanceof Response) return caller;
 
-  let body: CreateBody;
-  try {
-    body = (await req.json()) as CreateBody;
-  } catch {
-    return badRequest('body must be JSON');
-  }
+  const read = await readJsonBody<CreateBody>(req, { maxBytes: MAX_BODY, badJson: () => badRequest('body must be JSON') });
+  if (!read.ok) return read.response;
+  const body = read.value;
 
   const fullName = typeof body?.fullName === 'string' ? body.fullName.trim() : '';
   const phone = typeof body?.phone === 'string' ? body.phone.trim() : '';
@@ -111,12 +131,12 @@ Deno.serve(async (req) => {
   // auth user is a visible churn in the users list for an ordinary desk mistake.
   const dup = await service.schema('app').rpc('find_customer_by_phone', { p_phone: phone });
   if (dup.error) {
-    const mapped = mapPgError(dup.error);
-    return json({ error: mapped.code, message: mapped.message }, mapped.status);
+    const refused = pgErrorBody(dup.error, 'desk-customer-create');
+    return json(refused.body, refused.status);
   }
   if (dup.data) {
     return json(
-      { error: 'DUPLICATE_PHONE', message: 'a customer with this phone already exists', id: dup.data },
+      { error: 'DUPLICATE_PHONE', message: DUPLICATE_MESSAGE.DUPLICATE_PHONE, id: dup.data },
       409,
     );
   }
@@ -140,9 +160,10 @@ Deno.serve(async (req) => {
     // cleared the phone from their profile), so name it as such.
     if (/already/i.test(message)) {
       const code = isSyntheticEmail(email) ? 'DUPLICATE_PHONE' : 'DUPLICATE_EMAIL';
-      return json({ error: code, message }, 409);
+      return json({ error: code, message: DUPLICATE_MESSAGE[code] }, 409);
     }
-    return json({ error: 'INTERNAL', message }, 500);
+    logError('desk-customer-create', created.error ?? message, 'createUser failed');
+    return json({ error: 'INTERNAL' }, 500);
   }
 
   const userId = created.data.user.id;
@@ -158,11 +179,12 @@ Deno.serve(async (req) => {
     // The auth user exists but the record was refused (a duplicate that raced
     // the pre-check, or a validation slip): roll the account back rather than
     // leave a guest who can sign in to an empty profile.
-    await service.auth.admin.deleteUser(userId).catch(() => undefined);
-    const mapped = mapPgError(error);
-    const status = mapped.code === 'DUPLICATE_PHONE' ? 409 : mapped.status;
-    return json({ error: mapped.code, message: mapped.message }, status);
+    // The admin API answers { error }, it does not throw: rollBackUser checks it.
+    await rollBackUser(service, userId);
+    const refused = pgErrorBody(error, 'desk-customer-create');
+    const status = refused.body.error === 'DUPLICATE_PHONE' ? 409 : refused.status;
+    return json(refused.body, status);
   }
 
   return json({ id: userId, customer: data }, 201);
-});
+}));

@@ -19,10 +19,10 @@
  *
  * verify_jwt = true (config.toml). The flows are in logic.ts, pure.
  */
-import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { requireStaffRole } from '../_shared/auth.ts';
-import { json } from '../_shared/http.ts';
-import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
+import { handle, json, KB, logError, readJsonBody } from '../_shared/http.ts';
+import { callerClient, createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 import {
   launch,
   parseRequest,
@@ -37,13 +37,8 @@ import {
 
 const STAFF_BUCKET = 'staff-media';
 const MENU_BUCKET = 'menu-media';
-
-function callerClient(req: Request): SupabaseClient {
-  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: req.headers.get('Authorization')! } },
-  });
-}
+/** A launch request is a handful of ids and a timestamp. */
+const MAX_BODY = 16 * KB;
 
 /** staff-media → menu-media. A copy onto an existing object is refused, so the fallback overwrites. */
 async function copyPhoto(service: SupabaseClient, from: string, to: string, contentType: string): Promise<void> {
@@ -141,15 +136,14 @@ function tickPorts(service: SupabaseClient): TickPorts {
   };
 }
 
-Deno.serve(async (req) => {
+Deno.serve(handle('protocol-action', async (req) => {
   if (req.method !== 'POST') return json({ error: 'BAD_REQUEST', message: 'POST only' }, 405);
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'BAD_REQUEST', message: 'invalid JSON body' }, 400);
-  }
-  const parsed = parseRequest(body);
+  const read = await readJsonBody(req, {
+    maxBytes: MAX_BODY,
+    badJson: () => json({ error: 'BAD_REQUEST', message: 'invalid JSON body' }, 400),
+  });
+  if (!read.ok) return read.response;
+  const parsed = parseRequest(read.value);
   if ('message' in parsed) return json({ error: 'BAD_REQUEST', message: parsed.message }, 400);
 
   const service = createServiceClient();
@@ -164,8 +158,8 @@ Deno.serve(async (req) => {
     const res = await launch(parsed.value, launchPorts(service, req));
     return json(res.body, res.status);
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    console.error('[protocol-action] failed', parsed.value.action, message);
-    return json({ error: 'INTERNAL', message }, 500);
+    // Logged in full; the caller gets the code, no database or storage text.
+    logError('protocol-action', e, parsed.value.action);
+    return json({ error: 'INTERNAL' }, 500);
   }
-});
+}));
