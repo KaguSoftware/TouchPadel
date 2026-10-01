@@ -70,11 +70,38 @@ describe.skipIf(!up)('0252 hold ladder', () => {
 
   const holdAndLapse = async (guest: SupabaseClient) => lapse((await hold(guest)).reservation_id);
 
-  /** The tp_hold_sweep cron's call: writes the strikes a refused hold_slot rolled back. */
-  const sweep = async (c: SupabaseClient) => {
-    const res = await appRpc(c, 'expire_stale_holds', {}).then(outcome);
-    expect(res.ok, res.errorMessage).toBe(true);
+  /**
+   * The two crons, in their order: tp_hold_sweep expires, tp_hold_strikes
+   * (0268, its own transaction) writes the strikes a refused hold_slot rolled
+   * back. Both are service-role only since 0268.
+   */
+  const sweep = async () => {
+    const swept = await appRpc(svc, 'expire_stale_holds', {}).then(outcome);
+    expect(swept.ok, swept.errorMessage).toBe(true);
+    const settled = await appRpc(svc, 'hold_strikes_settle', { p_guests: null }).then(outcome);
+    expect(settled.ok, settled.errorMessage).toBe(true);
   };
+
+  it('0268: the hold sweep only expires; the strike is written by tp_hold_strikes, in its own call', async () => {
+    const guest = await guestClient(svc, 'ladder-0268');
+    const { reservation_id } = await hold(guest);
+    await lapse(reservation_id);
+
+    const swept = await appRpc(svc, 'expire_stale_holds', {}).then(outcome);
+    expect(swept.ok, swept.errorMessage).toBe(true);
+    const unsettled = await svc.from('hold_strikes').select('reservation_id').eq('reservation_id', reservation_id);
+    expect(unsettled.error).toBeNull();
+    expect(unsettled.data).toEqual([]);
+
+    const settled = await appRpc(svc, 'hold_strikes_settle', { p_guests: null }).then(outcome);
+    expect(settled.ok, settled.errorMessage).toBe(true);
+    const written = await svc.from('hold_strikes').select('reservation_id').eq('reservation_id', reservation_id);
+    expect(written.data).toHaveLength(1);
+
+    // And no client may run the chain-wide sweep any more.
+    const asGuest = await appRpc(guest, 'expire_stale_holds', {}).then(outcome);
+    expect(asGuest.ok).toBe(false);
+  });
 
   const guestIdOf = async (c: SupabaseClient) => (await c.auth.getUser()).data.user!.id;
 
@@ -145,7 +172,7 @@ describe.skipIf(!up)('0252 hold ladder', () => {
     const cooled = await tryHold(guest);
     expect(cooled.ok).toBe(false);
     expect(cooled.errorMessage).toContain('HOLD_COOLDOWN');
-    await sweep(guest);
+    await sweep();
     let s = (await standingOf(guest))!;
     expect(s.strikes).toBe(2);
     const twoHours = new Date(s.blocked_until!).getTime() - Date.now();
@@ -156,7 +183,7 @@ describe.skipIf(!up)('0252 hold ladder', () => {
     await waitOut(s);
     await holdAndLapse(guest);
     expect((await tryHold(guest)).errorMessage).toContain('HOLD_COOLDOWN');
-    await sweep(guest);
+    await sweep();
     s = (await standingOf(guest))!;
     expect(s.strikes).toBe(3);
     expect(new Date(s.blocked_until!).getTime() - Date.now()).toBeGreaterThan(23 * 3600_000);
@@ -166,7 +193,7 @@ describe.skipIf(!up)('0252 hold ladder', () => {
     await holdAndLapse(guest);
     const suspended = await tryHold(guest);
     expect(suspended.errorMessage).toContain('BOOKING_SUSPENDED');
-    await sweep(guest);
+    await sweep();
     s = (await standingOf(guest))!;
     expect(s.strikes).toBe(4);
     expect(s.needs_review).toBe(true);
@@ -224,7 +251,7 @@ describe.skipIf(!up)('0252 hold ladder', () => {
     await holdAndLapse(guest);
     await holdAndLapse(guest);
     expect((await tryHold(guest)).errorMessage).toContain('HOLD_COOLDOWN');
-    await sweep(guest);
+    await sweep();
     const s = (await standingOf(guest))!;
 
     // Both strikes and the wait are two days old.
@@ -292,7 +319,7 @@ describe.skipIf(!up)('0252 hold ladder', () => {
     const guest = await guestClient(svc, 'h249-sweep');
     await holdAndLapse(guest);
     await holdAndLapse(guest);
-    await sweep(guest);
+    await sweep();
     const s = (await standingOf(guest))!;
     expect(s.strikes).toBe(2);
     expect(new Date(s.blocked_until!).getTime()).toBeGreaterThan(Date.now());
@@ -303,7 +330,7 @@ describe.skipIf(!up)('0252 hold ladder', () => {
     const a = await verifiedPhoneGuest('pa', phone);
     await holdAndLapse(a);
     await holdAndLapse(a);
-    await sweep(a);
+    await sweep();
     const s = (await standingOf(a))!;
     expect(s.key).toMatch(/^p:[0-9a-f]{64}$/);
     // The number itself is never stored.

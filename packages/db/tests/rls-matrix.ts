@@ -452,8 +452,8 @@ export const matrix: MatrixRule[] = [
     schema: 'app',
     name: 'expire_stale_holds',
     args: {},
-    expect: ex<RpcExpectation>('execute', { anon: 'denied' }),
-    note: 'flips truly-expired holds only; safe for any authenticated caller',
+    expect: ex<RpcExpectation>('denied'),
+    note: '0268: no client EXECUTE — the chain-wide sweep is the cron and hold_slot (as definer), never a guest',
     drop: 1,
   },
   {

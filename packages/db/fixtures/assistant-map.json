@@ -1,5 +1,5 @@
 {
-  "generated_from": "ee6923f8189b68ea6ee32fd2aef6c212e4b4e664",
+  "generated_from": "74d28d79fec971b6d4388c740a8a4c277163c62b",
   "chunks": [
     {
       "kind": "page",
@@ -2814,7 +2814,7 @@
       "ref": "action:app.expire_stale_holds",
       "lang": "en",
       "title": "app.expire_stale_holds",
-      "body": "0071: expires holds past their TTL AND orphan holds (guest_id is null), which no caller can release through app.release_hold and which would otherwise occupy the court until TTL. 0242: skips a hold whose online payment is still open, until ten minutes after that payment's deadline. 0252: with no arguments (the cron sweep) it also settles lapsed holds into hold-ladder strikes.\nSignature: app.expire_stale_holds(p_court_id uuid default null, p_period tstzrange default null) returns int.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0252 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0071: expires holds past their TTL AND orphan holds (guest_id is null), which no caller can release through app.release_hold and which would otherwise occupy the court until TTL. 0242: skips a hold whose online payment is still open, until ten minutes after that payment's deadline. 0268: only expires — strikes are settled by the tp_hold_strikes cron (app.hold_strikes_settle) in a transaction of their own — and is no longer granted to clients.\nSignature: app.expire_stale_holds(p_court_id uuid default null, p_period tstzrange default null) returns int.\nGranted to: authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0268 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2918,7 +2918,7 @@
       "ref": "action:app.hold_slot",
       "lang": "en",
       "title": "app.hold_slot",
-      "body": "0008, re-issued by 0048, 0117, 0210, 0225, 0252 and 0263. Guest: holds a court for the hold TTL of its branch at the stamped quote (0117), after the account check, the replay lookup, the hold ladder (0252: the caller's lapsed holds settled first, then BOOKING_SUSPENDED or HOLD_COOLDOWN; hold_warning in the answer after a strike) and the open-branch, duration, horizon, hours, past, degraded and live-hold-cap checks; serialised on the court (0042) with lazy hold expiry. 0263 (R22): a court an awaiting_court open match could still book is refused SLOT_TAKEN detail match_waiting (app.match_court_claimed). SLOT_TAKEN detail reservations_no_overlap on an overlap; a replayed key answers duplicate.\nSignature: app.hold_slot(p_court_id uuid, p_start_at timestamptz, p_duration_min int, p_idempotency_key text default null, p_client_ref text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: reservation.hold.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, IDEMPOTENCY_CONFLICT, BOOKING_SUSPENDED, HOLD_COOLDOWN, COURT_NOT_FOUND, INVALID_DURATION, BEYOND_HORIZON, SLOT_IN_PAST, HOLD_QUOTA_EXCEEDED, SLOT_TAKEN, NO_RATE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0263 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0008, re-issued by 0048, 0117, 0210, 0225, 0252 and 0263. Guest: holds a court for the hold TTL of its branch at the stamped quote (0117), after the account check, the replay lookup, the hold ladder (0252: the caller's lapsed holds settled first, then BOOKING_SUSPENDED or HOLD_COOLDOWN; hold_warning in the answer after a strike) and the open-branch, duration, horizon, hours, past, degraded and live-hold-cap checks; serialised on the court (0042) with lazy hold expiry. 0263 (R22): a court an awaiting_court open match could still book is refused SLOT_TAKEN detail match_waiting (app.match_court_claimed). SLOT_TAKEN detail reservations_no_overlap on an overlap; a replayed key answers duplicate.\nSignature: app.hold_slot(p_court_id uuid, p_start_at timestamptz, p_duration_min int, p_idempotency_key text default null, p_client_ref text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: reservation.hold.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, IDEMPOTENCY_CONFLICT, BOOKING_SUSPENDED, HOLD_COOLDOWN, COURT_NOT_FOUND, INVALID_DURATION, BEYOND_HORIZON, SLOT_IN_PAST, HOLD_QUOTA_EXCEEDED, SLOT_TAKEN, NO_RATE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0269 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -18807,6 +18807,14 @@
       "lang": "en",
       "title": "cron job tp_hiring_purge",
       "body": "Runs select app.hiring_purge_due();. Schedules seen in migrations, latest last: '40 3 * * *' (0176). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:cron:tp_hold_strikes",
+      "lang": "en",
+      "title": "cron job tp_hold_strikes",
+      "body": "Runs select app.hold_strikes_settle(null);. Schedules seen in migrations, latest last: '* * * * *' (0268). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {

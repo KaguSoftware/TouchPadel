@@ -27,7 +27,6 @@
     "current_venue_or_default": "0125/multi-venue: current_venue with the oldest active venue as a fallback instead of a raise. Granted to anon because the guest menu's pre-identity calls (is_degraded, venue_mode) delegate through it and must never fail on a first page load",
     "deposit_quote": "online deposit: guarded by hold OWNERSHIP, not by role (Review reads its own terms)",
     "deposit_status": "online deposit: guarded by payment OWNERSHIP (or staff at its branch), not by role",
-    "expire_stale_holds": "booking: idempotent sweep, safe for any signed-in account to trigger",
     "has_own_pin": "0087/SEC-34: tells the caller only about the caller — whether THEIR OWN account has an idle-lock PIN. No argument, so it cannot be pointed at another account; false for anyone who is not active staff. Same shape as is_staff / staff_role.",
     "is_degraded": "guest menu, pre-identity: degraded-mode banner. 0137 adds an optional p_venue argument so the banner can name a venue; the zero-arg form falls back to app.current_venue_or_default() and still never raises",
     "is_own_session": "tells the caller only about the caller",

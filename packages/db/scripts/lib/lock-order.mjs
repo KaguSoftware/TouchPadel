@@ -63,6 +63,7 @@ export const SERVICE_WALK = [
   'ticket_settle_success',
   'ticket_refund_deleted',
   'tickets_cash_out',
+  'expire_stale_holds', // 0268: no longer granted to clients; the tp_hold_sweep cron still takes its row locks
 ];
 
 /**

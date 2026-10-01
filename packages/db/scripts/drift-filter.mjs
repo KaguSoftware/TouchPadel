@@ -20,7 +20,25 @@ const PLATFORM_OWNED = new Map([
   ['public.rls_auto_enable', 'Supabase dashboard: "Enable automatic RLS" event-trigger function (platform-created, not in any migration)'],
 ]);
 
-const sql = readFileSync(0, 'utf8');
+/**
+ * The CLI prints plain SQL on a CI runner but, off a TTY on some versions, a
+ * JSON envelope ({"diff": "…", "dropStatements": […], …}). Read through the
+ * envelope: one JSON line holds no `create` at the start of a line, so the
+ * drift job's grep would call a real drift clean.
+ */
+function unwrap(text) {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{')) return text;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (typeof parsed?.diff === 'string') return parsed.diff;
+  } catch {
+    /* not JSON after all: treat it as SQL */
+  }
+  return text;
+}
+
+const sql = unwrap(readFileSync(0, 'utf8'));
 
 /**
  * Split on statement boundaries the way `db diff` prints them: a statement ends

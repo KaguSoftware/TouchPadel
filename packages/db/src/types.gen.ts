@@ -1553,6 +1553,10 @@ export type Database = {
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
       lock_match_money: { Args: { p_match_id: string }; Returns: undefined }
       lock_match_venue: { Args: { p_venue: string }; Returns: undefined }
+      lock_principal: {
+        Args: { p_id: string; p_kind: string }
+        Returns: undefined
+      }
       lock_stock_ingredients: {
         Args: { p_ingredients: string[] }
         Returns: undefined
