@@ -50,7 +50,7 @@ import { fetchBookingCounts } from '../../desk/calendar/monthFetchers';
 import { tradingDateOf } from '../../desk/calendar/monthLogic';
 import { ObserveDateBar } from '../ObserveDateBar';
 import { DetailPanel, PanelSection } from '../DetailPanel';
-import { courtDaySummary, didNotHappen, isOnSchedule, schedulePlacement } from '../observeLogic';
+import { courtDaySummary, didNotHappen, isOnSchedule, reservationPanelTarget, schedulePlacement } from '../observeLogic';
 
 /** Two-hour rows (owner call): the shape of the night, not the minute. */
 const BAND_MIN = 120;
@@ -731,12 +731,8 @@ function BookingPanel({
       }
       onClose={onClose}
       target={
-        // A lesson opens on its own screen; without its row the booking route forwards to it.
-        isLesson && lesson
-          ? { workspace: 'courtDesk', to: '/desk/lessons/$id', params: { id: lesson.lesson_id } }
-          : r.kind === 'booking' || isLesson
-            ? { workspace: 'courtDesk', to: '/desk/bookings/$id', params: { id: r.id } }
-            : { workspace: 'courtDesk', to: '/desk' }
+        // A lesson opens on its own screen ("Open lesson"); without its row the booking route forwards to it.
+        reservationPanelTarget(r, isLesson, lesson?.lesson_id)
       }
     >
       <DescriptionList

@@ -10,6 +10,7 @@
  */
 import type { ReservationRow } from '../desk/deskTypes';
 import { compareTableNumbers } from '../../lib/queries';
+import type { WorkspaceTarget } from './DetailPanel';
 
 // ---------------------------------------------------------------------------
 // Courts
@@ -98,6 +99,26 @@ export function schedulePlacement(
   const to = Math.min(spanMin, end);
   if (to <= from) return null;
   return { top: from / spanMin, height: (to - from) / spanMin };
+}
+
+/**
+ * Where a reservation's panel leads (DetailPanel's one button), in the court
+ * desk. A lesson opens on its own screen, `/desk/lessons/$id`, and the button
+ * says "Open lesson" as the desk does (coaching operator.md §5.8); a lesson
+ * whose desk_lessons row is not to hand goes through its booking route, which
+ * forwards to it. A booking opens its record; a hold or a block, the desk.
+ * The panel shows the button only to a role whose workspaces include the
+ * court desk (the `/desk` routes' roles), so no other role is offered it.
+ */
+export function reservationPanelTarget(
+  r: Pick<ReservationRow, 'id' | 'kind'>,
+  isLesson: boolean,
+  lessonId: string | null | undefined,
+): WorkspaceTarget {
+  if (isLesson && lessonId) return { workspace: 'courtDesk', to: '/desk/lessons/$id', params: { id: lessonId }, labelKey: 'ws.coaching.common.openLesson' };
+  if (isLesson) return { workspace: 'courtDesk', to: '/desk/bookings/$id', params: { id: r.id }, labelKey: 'ws.coaching.common.openLesson' };
+  if (r.kind === 'booking') return { workspace: 'courtDesk', to: '/desk/bookings/$id', params: { id: r.id } };
+  return { workspace: 'courtDesk', to: '/desk' };
 }
 
 // ---------------------------------------------------------------------------
