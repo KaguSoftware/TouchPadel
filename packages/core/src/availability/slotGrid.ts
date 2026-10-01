@@ -45,7 +45,11 @@ const BLOCKING_STATUSES = new Set(['pending', 'confirmed', 'arrived']);
 
 export interface ReservationInput {
   courtId: string;
-  kind: 'booking' | 'maintenance' | 'hold';
+  /**
+   * reservation_kind. A `lesson` row is a coaching lesson's court (0270; R13) and reads as booked;
+   * a private lesson awaiting its Qi payment holds its court with an ordinary `hold` row.
+   */
+  kind: 'booking' | 'maintenance' | 'hold' | 'lesson';
   status: string; // reservation_status; only pending/confirmed/arrived block
   startAt: Date;
   endAt: Date;
@@ -114,7 +118,7 @@ function slotState(
       if (r.holdExpiresAt != null && r.holdExpiresAt.getTime() > nowMs) held = true;
       continue;
     }
-    booked = true;
+    booked = true; // 'booking', and 'lesson' (R13: a lesson's court is booked)
   }
   if (booked) return 'booked';
   if (startMs < nowMs) return 'past';

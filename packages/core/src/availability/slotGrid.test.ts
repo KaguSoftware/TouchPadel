@@ -184,6 +184,95 @@ describe('buildSlotGrid — states', () => {
     expect(slotStarting(grid?.slots ?? [], '11:00').state).toBe('blocked');
   });
 
+  it('a lesson row reads as booked (R13), and frees its slot once it stops blocking', () => {
+    const lesson = (status: string) =>
+      buildSlotGrid(
+        base({
+          reservations: [
+            {
+              courtId: 'court-1',
+              kind: 'lesson',
+              status,
+              startAt: at('18:00'),
+              endAt: at('19:00'),
+            },
+          ],
+        }),
+      )[0]?.slots ?? [];
+    for (const status of ['confirmed', 'arrived']) {
+      const slots = lesson(status);
+      expect(slotStarting(slots, '17:00').state).toBe('free');
+      expect(slotStarting(slots, '18:00').state).toBe('booked');
+      expect(slotStarting(slots, '19:00').state).toBe('free'); // half-open, as a booking
+    }
+    for (const status of ['cancelled', 'completed']) {
+      expect(slotStarting(lesson(status), '18:00').state).toBe('free');
+    }
+  });
+
+  it('a lesson shows booked over a live hold and as booked while it runs; maintenance still wins', () => {
+    const now = at('18:30');
+    const [grid] = buildSlotGrid(
+      base({
+        now,
+        reservations: [
+          {
+            courtId: 'court-1',
+            kind: 'lesson',
+            status: 'confirmed',
+            startAt: at('18:00'),
+            endAt: at('19:00'),
+          },
+          {
+            courtId: 'court-1',
+            kind: 'lesson',
+            status: 'confirmed',
+            startAt: at('20:00'),
+            endAt: at('21:00'),
+          },
+          {
+            courtId: 'court-1',
+            kind: 'maintenance',
+            status: 'confirmed',
+            startAt: at('20:00'),
+            endAt: at('21:00'),
+          },
+        ],
+        holds: [
+          {
+            courtId: 'court-1',
+            startAt: at('18:00'),
+            endAt: at('19:00'),
+            holdExpiresAt: new Date(now.getTime() + 60_000),
+          },
+        ],
+      }),
+    );
+    const slots = grid?.slots ?? [];
+    expect(slotStarting(slots, '18:00').state).toBe('booked'); // running now, not 'past' or 'held'
+    expect(slotStarting(slots, '20:00').state).toBe('blocked');
+  });
+
+  it('a private lesson awaiting its Qi payment holds the court with an ordinary hold row', () => {
+    const now = at('12:00');
+    const [grid] = buildSlotGrid(
+      base({
+        now,
+        reservations: [
+          {
+            courtId: 'court-1',
+            kind: 'hold', // R1/R25: the lesson's court hold carries lesson_id, kind 'hold'
+            status: 'pending',
+            startAt: at('14:00'),
+            endAt: at('15:00'),
+            holdExpiresAt: new Date(now.getTime() + 600_000),
+          },
+        ],
+      }),
+    );
+    expect(slotStarting(grid?.slots ?? [], '14:00').state).toBe('held');
+  });
+
   it('live holds show held; expired holds count as FREE', () => {
     const now = at('12:00');
     const [grid] = buildSlotGrid(
