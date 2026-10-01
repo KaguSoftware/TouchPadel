@@ -409,7 +409,9 @@ export function inventoryRail() {
     named.set(m[1], { to: m[2], labelKey: m[3], hidden: /hidden:\s*true/.test(m[4]) });
   }
   const lists = new Map();
-  for (const m of src.matchAll(/^const ([A-Z_]+): readonly NavItem\[\] = \[([\s\S]*?)\n\];/gm)) {
+  // A list ends at the first line that ends in `];`: a one-line list (MANAGER_TODAY) included,
+  // which `\n];` ran past into the next list.
+  for (const m of src.matchAll(/^const ([A-Z_]+): readonly NavItem\[\] = \[([\s\S]*?)\];[ \t]*$/gm)) {
     const items = [];
     const body = m[2].replace(/\/\/[^\n]*/g, '');
     for (const it of body.matchAll(/\{\s*to:\s*'([^']+)',\s*labelKey:\s*'([^']+)'([^}]*)\}|\{\s*\.\.\.([A-Z_]+)([^}]*)\}|^\s*([A-Z_]+),?\s*$/gm)) {
