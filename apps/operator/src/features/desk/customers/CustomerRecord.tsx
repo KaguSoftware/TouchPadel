@@ -69,7 +69,6 @@ export function CustomerRecordScreen() {
   const recordQ = useQuery({
     queryKey: ['customer', id],
     queryFn: () => appRpc<CustomerRecord | null>('customer_record', { p_customer_id: id }),
-    retry: false,
   });
   const rec = recordQ.data ?? null;
   const [flagsOpen, setFlagsOpen] = useState(false);

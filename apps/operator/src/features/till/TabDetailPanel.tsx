@@ -165,7 +165,6 @@ export function TabDetailPanel({
   const billQ = useQuery({
     queryKey: ['bookingBill', reservationId],
     enabled: Boolean(reservationId) && tab !== undefined && !settled,
-    retry: false,
     queryFn: () => appRpc<TillBookingBill>('booking_bill', { p_reservation_id: reservationId }),
   });
   const bill = billQ.data;

@@ -611,7 +611,6 @@ function BookingPanel({ reservation: r, courts, tz, onClose }: { reservation: Re
       if (error) throw error;
       return (data ?? []) as LinkedTab[];
     },
-    retry: false,
   });
   const minutes = Math.round((new Date(r.end_at).getTime() - new Date(r.start_at).getTime()) / 60_000);
   const eyebrow = tr(r.kind === 'maintenance' ? 'ws.owner.observe.courts.peek.maintenance' : r.kind === 'hold' ? 'ws.owner.observe.courts.peek.hold' : 'ws.owner.observe.courts.peek.booking');

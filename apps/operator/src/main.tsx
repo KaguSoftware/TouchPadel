@@ -4,6 +4,7 @@ import { RouterProvider, createHashHistory, createRouter, useNavigate } from '@t
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { PERSIST_BUSTER, makePersister, shouldPersistQuery } from './lib/persist';
+import { MUTATION_RETRY, queryRetry } from './lib/queryPolicy';
 import { ThemeProvider } from '@touch/ui';
 import { rootRoute } from './routes/__root';
 import { indexRoute } from './routes/index';
@@ -122,9 +123,13 @@ declare module '@tanstack/react-router' {
 // registered mutation types flow renderer -> IPC -> SQLite queue -> replay
 // (lib/mutate.ts), and their results land here through initQueueResults.
 const queryClient = new QueryClient({
-  // gcTime must outlive the persister's maxAge or restored queries are
-  // garbage-collected before they can paint.
-  defaultOptions: { queries: { staleTime: 10_000, retry: 1, gcTime: 24 * 60 * 60 * 1000 } },
+  defaultOptions: {
+    // gcTime must outlive the persister's maxAge or restored queries are
+    // garbage-collected before they can paint. Retry: one more go for a
+    // failure the server never judged, never for a refusal (lib/queryPolicy.ts).
+    queries: { staleTime: 10_000, retry: queryRetry, gcTime: 24 * 60 * 60 * 1000 },
+    mutations: { retry: MUTATION_RETRY },
+  },
 });
 initQueueResults(queryClient);
 initOfflineTabRetirement();

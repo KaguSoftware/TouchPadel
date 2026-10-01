@@ -66,7 +66,6 @@ export function DepositAttentionPanel({ hideWhenEmpty = false }: { hideWhenEmpty
     queryKey: depositAttentionKey(branch),
     queryFn: () => fetchDepositAttention(branch),
     refetchInterval: 60_000,
-    retry: false,
   });
   // Only the home asks whether deposits are on, to decide whether an empty list is news.
   const settingsQ = useQuery({
@@ -74,7 +73,6 @@ export function DepositAttentionPanel({ hideWhenEmpty = false }: { hideWhenEmpty
     queryFn: () => fetchDepositSettings(branch),
     enabled: !hideWhenEmpty,
     staleTime: 60_000,
-    retry: false,
   });
 
   const rows = attentionQ.data ? sortAttention(attentionQ.data) : null;

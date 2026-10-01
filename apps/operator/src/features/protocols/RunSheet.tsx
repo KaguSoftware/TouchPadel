@@ -274,7 +274,6 @@ function ReleaseExtras({ d }: { d: RunDetail }) {
   const launched = run.status === 'live' || run.status === 'done';
   const take = useQuery({
     queryKey: PK.context('marketingTake', run.id),
-    retry: false,
     queryFn: async () => {
       const [onRun, onItem] = await Promise.all([
         appRpc<unknown>('marketing_notes_for', { p_subject_kind: 'run', p_subject_id: run.id }),
@@ -286,13 +285,11 @@ function ReleaseExtras({ d }: { d: RunDetail }) {
   const notes = useQuery({
     queryKey: PK.context('notes', run.id),
     enabled: launched && Boolean(run.menu_item_id),
-    retry: false,
     queryFn: async () => readNotes(await appRpc<unknown>('release_notes_for_item', { p_menu_item_id: run.menu_item_id })),
   });
   const review = useQuery({
     queryKey: PK.review(run.id),
     enabled: launched,
-    retry: false,
     queryFn: () => appRpc<unknown>('release_review', { p_run_id: run.id }),
   });
 

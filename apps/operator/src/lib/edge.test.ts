@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_REQUEST_TIMEOUT_MS, RequestTimeoutError } from '@touch/core';
 import { supabase } from './supabase';
 import {
   EDGE_CACHE_TTL_MS,
   EdgeError,
   callEdge,
+  edgeTimeoutMs,
   invalidateEdgeCache,
   stableStringify,
   statusToEdgeCode,
@@ -54,6 +56,52 @@ describe('stableStringify', () => {
     expect(stableStringify({ b: 1, a: [1, { d: 2, c: 3 }], u: undefined })).toBe(
       stableStringify({ a: [1, { c: 3, d: 2 }], b: 1 }),
     );
+  });
+});
+
+describe('callEdge deadlines', () => {
+  /** A fetch that only ever ends by its signal aborting. */
+  function hangingFetch() {
+    return vi.fn((_url: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(Object.assign(new Error('Aborted'), { name: 'AbortError' })));
+      }),
+    );
+  }
+
+  it('a function that never answers throws RequestTimeoutError after its deadline', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', hangingFetch());
+    const caught = callEdge('staff-admin', { action: 'list' }, { ttlMs: 0 }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TIMEOUT_MS);
+    const err = await caught;
+    expect(err).toBeInstanceOf(RequestTimeoutError);
+    expect((err as Error).message).toContain('staff-admin');
+  });
+
+  it('the slow functions get longer, and a caller may set its own', async () => {
+    expect(edgeTimeoutMs('staff-admin')).toBe(DEFAULT_REQUEST_TIMEOUT_MS);
+    expect(edgeTimeoutMs('analytics-insights')).toBeGreaterThan(DEFAULT_REQUEST_TIMEOUT_MS);
+    expect(edgeTimeoutMs('analytics-posthog')).toBeGreaterThan(DEFAULT_REQUEST_TIMEOUT_MS);
+
+    vi.useFakeTimers();
+    const fetchMock = hangingFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    const caught = callEdge('analytics-insights', { a: 1 }, { ttlMs: 0, timeoutMs: 1_000 }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(await caught).toBeInstanceOf(RequestTimeoutError);
+  });
+
+  it('a caller abort (the Stop button) is not a timeout', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', hangingFetch());
+    const stop = new AbortController();
+    const caught = callEdge('staff-admin', {}, { ttlMs: 0, signal: stop.signal }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(0);
+    stop.abort();
+    const err = await caught;
+    expect(err).not.toBeInstanceOf(RequestTimeoutError);
+    expect((err as Error).name).toBe('AbortError');
   });
 });
 
