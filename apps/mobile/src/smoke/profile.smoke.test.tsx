@@ -42,7 +42,7 @@ const CASES: SmokeCase[] = [
   {
     route: 'profile-edit',
     Component: ProfileEditScreen,
-    labelKey: 'profile.saveChanges',
+    labelKey: 'profile.nameSection',
     options: { session: 'in', queryData: SIGNED_IN },
   },
   {

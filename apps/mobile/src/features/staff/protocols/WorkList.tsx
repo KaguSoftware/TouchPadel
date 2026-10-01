@@ -110,7 +110,9 @@ export function WorkList({ venueId }: { venueId: string }) {
     bilingual(locale, row.title_en, row.title_ar) ?? t(`work.protocol.kind.${row.kind}` as MessageKey);
   const stepName = (row: { name_en: string; name_ar: string }) => bilingual(locale, row.name_en, row.name_ar) ?? '';
   const open = (runStepId: string) => router.push({ pathname: '/staff-step', params: { id: runStepId } });
-  const empty = w.to_decide.length + w.todo.length + w.waiting.length + w.decided.length === 0;
+  // Nothing to show: no line at all (owner, 2026-10-01), so Today goes
+  // straight from the greeting to the tiles.
+  if (w.to_decide.length + w.todo.length + w.waiting.length + w.decided.length === 0) return null;
 
   return (
     <View style={{ gap: space.sm }}>
@@ -172,7 +174,6 @@ export function WorkList({ venueId }: { venueId: string }) {
           />
         ))}
       </Group>
-      {empty ? <Hint>{t('staff.protocols.work.empty')}</Hint> : null}
     </View>
   );
 }

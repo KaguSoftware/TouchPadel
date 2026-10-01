@@ -5,7 +5,7 @@ import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
 import { BrandLockup } from './brand/BrandLockup';
 import { WhatsAppButton } from './ContactButton';
 import { LanguageLink } from './LanguageLink';
-import { ArrowIcon, GlobeIcon } from './icons';
+import { GlobeIcon } from './icons';
 import { HeaderScrollState } from './Reveal';
 import { SiteMenuToggle } from './SiteMenuToggle';
 import { ThemeToggle } from './ThemeToggle';
@@ -54,13 +54,6 @@ export function SiteHeader({
   const other = otherLocale(locale);
   const onHome = path === '';
   const solid = path !== null && SOLID_HEADER_PATHS.includes(path);
-  const section = (id: string) => (onHome ? `#${id}` : `/${locale}#${id}`);
-  const links = [
-    { href: section('club'), label: tr('site.nav.club') },
-    { href: section('lessons'), label: tr('site.nav.lessons') },
-    { href: `/${locale}/menu`, label: tr('site.nav.menu') },
-    { href: section('visit'), label: tr('site.nav.visit') },
-  ];
   return (
     <header className="tp-site-header" data-menu="closed" data-solid={solid ? 'true' : undefined}>
       <div className="tp-site-header__inner">
@@ -69,18 +62,6 @@ export function SiteHeader({
         </a>
         <SiteMenuToggle controls={MENU_ID} label={tr('site.nav.toggle')} />
         <div className="tp-site-menu" id={MENU_ID}>
-          <nav className="tp-site-nav" aria-label={tr('site.nav.label')}>
-            <ul className="tp-site-nav__list">
-              {links.map((link) => (
-                <li key={link.href}>
-                  <a className="tp-site-nav__link" href={link.href}>
-                    <span>{link.label}</span>
-                    <ArrowIcon className="tp-site-nav__arrow" />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
           <WhatsAppButton
             locale={locale}
             phone={phone}

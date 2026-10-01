@@ -187,7 +187,7 @@ describe('Today rows by role', () => {
     }
   });
 
-  it('relabel the requests row "Vacation and requests" (#62)', () => {
+  it('relabel the requests row "Vacation & requests" (#62)', () => {
     for (const role of STAFF_ROLES) {
       const row = staffRows(role).find((r) => r.id === 'requests');
       expect(row?.labelKey, role).toBe('staff.checklists.vacation.row');

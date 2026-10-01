@@ -315,7 +315,22 @@ function RootStack() {
           {/* Place an order (0251): an item's size and options, as the platform's sheet over the table's menu. */}
           <Stack.Screen
             name="staff-order-item"
-            options={{ presentation: 'formSheet', sheetAllowedDetents: [0.75, 1], sheetGrabberVisible: true }}
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.75, 1],
+              sheetGrabberVisible: true,
+            }}
+          />
+          {/* A Today group's pages on iOS (owner, 2026-10-01): the platform's
+          sheet, sized to its rows. Android shows them in a modal on Today. */}
+          <Stack.Screen
+            name="staff-group"
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: 'fitToContents',
+              sheetGrabberVisible: true,
+              headerShown: false,
+            }}
           />
           <Stack.Screen name="+not-found" />
           <Stack.Screen name="reset-password" />

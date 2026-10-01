@@ -183,15 +183,27 @@ describe.each(LOCALES)('book branch picker in %s', (locale) => {
 describe.each<Locale>(['en', 'ar'])('the guest view for staff in %s', (locale) => {
   const t = makeT(locale);
 
-  it('shows the tabs and a Back to staff view pill that ends the preview', () => {
+  it('shows the tabs and, on Profile, a Back to staff view pill that ends the preview', () => {
     setGuestPreview(true);
-    const screen = renderRoute(TabsLayout, { locale, staff: { role: 'manager' } });
+    const screen = renderRoute(TabsLayout, { locale, staff: { role: 'manager' }, pathname: '/profile' });
     try {
       expect(screen.getByText(t('tabs.book'))).toBeTruthy();
       const back = screen.getByTestId('tabs.back-to-staff');
       expect(within(back).getByText(t('staff.shell.guestView.back'))).toBeTruthy();
       fireEvent.press(back);
       expect(isGuestPreview()).toBe(false);
+    } finally {
+      screen.unmount();
+      setGuestPreview(false);
+    }
+  });
+
+  it('shows the pill on the Profile tab only', () => {
+    setGuestPreview(true);
+    const screen = renderRoute(TabsLayout, { locale, staff: { role: 'manager' }, pathname: '/book' });
+    try {
+      expect(screen.getByText(t('tabs.book'))).toBeTruthy();
+      expect(screen.queryByTestId('tabs.back-to-staff')).toBeNull();
     } finally {
       screen.unmount();
       setGuestPreview(false);

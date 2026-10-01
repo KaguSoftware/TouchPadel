@@ -755,6 +755,10 @@ export const en = {
     title: 'Profile',
     editProfile: 'Edit profile',
     changePassword: 'Change password',
+    // Edit profile hub rows (app/profile-edit.tsx), each opening its own form.
+    nameSection: 'Name & surname',
+    phoneSection: 'Mobile phone',
+    notSet: 'Not set',
     callVenue: 'Call the venue',
     name: 'Name',
     emailLocked: "Email {email} can't be changed here — it requires re-verification through support.",

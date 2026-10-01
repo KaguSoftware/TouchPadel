@@ -20,6 +20,7 @@ import { staffKeys } from '../features/staff/keys';
 import type { WaiterCall } from '../features/staff/calls/logic';
 import StaffCalls from '../../app/staff-calls';
 import StaffToday from '../../app/staff';
+import StaffGroup from '../../app/staff-group';
 
 const V = TEST_VENUE_ID;
 const RAISED = 'ca110000-0000-4000-8000-000000000001';
@@ -119,25 +120,47 @@ describe.each(LOCALES)('guest calls in %s', (locale) => {
     }
   });
 
-  it('puts the open count on the waiter’s Today row, first on the page', () => {
-    const screen = renderRoute(StaffToday, {
+  it('puts the open count on the waiter’s calls row, first on the page', () => {
+    const today = renderRoute(StaffToday, {
       locale,
       staff: { role: 'waiter' },
       queryData: [[staffKeys.calls(V), CALLS]],
     });
     try {
-      const row = screen.getByTestId('staff.row.calls');
+      // The floor tile comes first, and its preview carries the count.
+      const tiles = today.queryAllByTestId(/^staff\.group\./);
+      expect(tiles[0]?.props.testID).toBe('staff.group.floor');
+      expect(within(tiles[0]!).getByText(t('staff.calls.group'))).toBeTruthy();
+      expect(
+        within(tiles[0]!).getByText(
+          new RegExp(t('staff.calls.rowCount', { count: formatNumber(2, locale) })),
+        ),
+      ).toBeTruthy();
+    } finally {
+      today.unmount();
+    }
+    const sheet = renderRoute(StaffGroup, {
+      locale,
+      staff: { role: 'waiter' },
+      params: { group: 'floor' },
+      queryData: [[staffKeys.calls(V), CALLS]],
+    });
+    try {
+      const row = sheet.getByTestId('staff.row.calls');
       expect(
         within(row).getByText(t('staff.calls.rowCount', { count: formatNumber(2, locale) })),
       ).toBeTruthy();
-      expect(screen.getByText(t('staff.calls.group'))).toBeTruthy();
     } finally {
-      screen.unmount();
+      sheet.unmount();
     }
   });
 
   it('gives no calls row to the cashier, who answers on the till', () => {
-    const screen = renderRoute(StaffToday, { locale, staff: { role: 'cashier' } });
+    const screen = renderRoute(StaffGroup, {
+      locale,
+      staff: { role: 'cashier' },
+      params: { group: 'floor' },
+    });
     try {
       expect(screen.queryByTestId('staff.row.calls')).toBeNull();
     } finally {

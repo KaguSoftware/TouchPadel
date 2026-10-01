@@ -9,11 +9,12 @@
  *
  * The one exception is "Show guest view" (guestPreview.ts, owner 2026-09-28):
  * a staff session that asked for it gets the tabs with a "Back to staff view"
- * pill over them. Anything but an active staff account drops the preview.
+ * pill over the Profile tab only (iOS and Android). Anything but an active
+ * staff account drops the preview.
  */
 import { useEffect } from 'react';
 import { View } from 'react-native';
-import { Redirect } from 'expo-router';
+import { Redirect, usePathname } from 'expo-router';
 import TabsLayout from '../../navigation/TabsLayout';
 import { guestTabsGate } from './gate';
 import { GuestPreviewPill } from './GuestPreviewPill';
@@ -25,6 +26,7 @@ export default function GuestTabsGate() {
   const { status } = useStaffStatus();
   const previewing = useGuestPreview();
   const staff = status.kind === 'staff';
+  const onProfile = usePathname().endsWith('/profile');
 
   useEffect(() => {
     if (!staff && status.kind !== 'pending' && previewing) setGuestPreview(false);
@@ -40,7 +42,7 @@ export default function GuestTabsGate() {
       return (
         <View style={{ flex: 1 }}>
           <TabsLayout />
-          <GuestPreviewPill />
+          {onProfile ? <GuestPreviewPill /> : null}
         </View>
       );
   }

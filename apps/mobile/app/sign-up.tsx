@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { isPhoneTaken, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
 import {
@@ -33,7 +33,6 @@ import {
   MicroLabel,
   Screen,
   SegmentedControl,
-  Title,
 } from '../src/components/ui';
 import { PhoneField } from '../src/components/phone';
 import { DEFAULT_ISO } from '../src/features/profile/phone';
@@ -193,8 +192,8 @@ function SignUpScreen() {
 
   return (
     <Screen gutter={20} edges={[]}>
+      <Stack.Screen options={{ title: t('auth.signUp') }} />
       <FormScreen contentStyle={{ flexGrow: 1 }}>
-        <Title plain>{t('auth.signUp')}</Title>
         <SocialSignInBlock
           testID="sign-up.social"
           available={social.available}

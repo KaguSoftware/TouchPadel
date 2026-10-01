@@ -39,18 +39,16 @@ describe('SiteShell', () => {
   });
 
   it.each([
+    ['home', ''],
     ['a legal page', '/privacy'],
     ['the 404', null],
-  ])('links the sections home first off the home page (%s)', (_page, path) => {
+  ])('has no section links in the header (%s)', (_page, path) => {
     renderShell({ path });
-    const nav = screen.getByRole('navigation', { name: t('en', 'site.nav.label'), ...hidden });
-    expect(
-      within(nav)
-        .getAllByRole('link', hidden)
-        .map((a) => a.getAttribute('href')),
-    ).toEqual(['/en#club', '/en#lessons', '/en/menu', '/en#visit']);
+    expect(screen.queryByRole('navigation', { name: t('en', 'site.nav.label'), ...hidden })).toBeNull();
     // Never framed as the home page (whose header floats transparent over a photo).
-    expect(document.querySelector('.tp-site')?.getAttribute('data-page')).toBe('page');
+    if (path !== '') {
+      expect(document.querySelector('.tp-site')?.getAttribute('data-page')).toBe('page');
+    }
   });
 
   it.each([
