@@ -12,6 +12,7 @@
 import { localParts, wallTimeToUtc } from '@touch/core';
 import { coachKeys } from '../features/coach/keys';
 import {
+  nightOf,
   parseCoachHours,
   parseCoachLesson,
   parseCoachMe,
@@ -42,9 +43,13 @@ export const STATEMENT_MONTH = '2026-09-01';
 const HOUR = 3_600_000;
 const iso = (ms: number) => new Date(ms).toISOString();
 
-/** The next whole hour from now, local, plus `days` days: a start the grid accepts. */
+/**
+ * `hour` o'clock local on the night `days` after tonight: a start the grid accepts. Counted
+ * from coach mode's own night (nightOf: a night runs until 06:00), not the calendar date, so
+ * "tomorrow" means the same thing to the fixture and the screen at any hour, after midnight too.
+ */
 function startIn(days: number, hour = 18): string {
-  const today = localParts(new Date(), COACH_TZ).date;
+  const today = nightOf(new Date(), COACH_TZ);
   const [y, m, d] = today.split('-').map(Number);
   const date = new Date(Date.UTC(y!, m! - 1, d! + days)).toISOString().slice(0, 10);
   return wallTimeToUtc(date, hour * 60, COACH_TZ).toISOString();
