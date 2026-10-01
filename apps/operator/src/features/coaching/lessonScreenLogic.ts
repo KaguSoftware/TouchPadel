@@ -387,9 +387,10 @@ export function studentFieldOf(error: unknown): 'name' | 'phone' | null {
 }
 
 /** desk_add_student's target: the lesson for a group session, the course for a course session. */
-export function addStudentTarget(
-  lesson: Pick<LessonInfo, 'id' | 'kind' | 'course'>,
-): { p_lesson_id: string | null; p_course_id: string | null } {
+export function addStudentTarget(lesson: Pick<LessonInfo, 'id' | 'kind' | 'course'>): {
+  p_lesson_id: string | null;
+  p_course_id: string | null;
+} {
   // Both are sent, the other one null: app.desk_add_student has no defaults, and PostgREST
   // finds a function by the names of the arguments it is given.
   if (lesson.course) return { p_lesson_id: null, p_course_id: lesson.course.course_id };
