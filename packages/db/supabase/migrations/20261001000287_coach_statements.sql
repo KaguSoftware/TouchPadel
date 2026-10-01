@@ -344,6 +344,9 @@ comment on function app.coach_statement_draft_one(uuid, uuid, date) is
   '0287 (money.md §7.3; R59, R70). Internal. One (coach, branch) pair of the monthly run: under lock_coach, refreshes the pair''s live draft of an older month if there is one, else builds the month p_month (app.coach_statement_build). True when a draft was built or refreshed. Any error is a warning and false: one bad pair never stops the run.';
 
 revoke all on function app.coach_statement_draft_one(uuid, uuid, date) from public, anon, authenticated;
+-- The procedure is not reachable over PostgREST; the service role drafts one pair the way the
+-- run does (the e2e coach-pay journey, and a manual re-run of one pair).
+grant execute on function app.coach_statement_draft_one(uuid, uuid, date) to service_role;
 
 -- ===========================================================================
 -- 5. procedure app.coach_statements_draft (money.md §7.3; R59, R70)
