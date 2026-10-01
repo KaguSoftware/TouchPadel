@@ -1,11 +1,15 @@
 /**
  * 0049 — a replayed mutation must apply exactly once.
  *
- * functions/replay/index.ts applies the RPC (:303) and only then records
- * sync_replays (:313). If that second statement fails, or the response is lost
- * on the way back to the till, the till's retry (:272-280) finds no record and
- * dispatches the SAME mutation again. Seven routed RPCs already carried
- * p_idempotency_key; these three did not, and two of them are money.
+ * functions/replay/index.ts applies the RPC and only then records
+ * sync_replays. If that second statement fails, or the response is lost on the
+ * way back to the till, the till's retry finds no record and dispatches the
+ * SAME mutation again; since W2 #11 replay also leaves every unjudged ≥ 500
+ * (RETRY_LATER, RPC_NOT_DEPLOYED, DEGRADED_LOCKOUT, transport-ish) unrecorded
+ * on purpose, so the RPC's own key is what makes those retries safe
+ * (tests/replay-transport.test.ts holds the recording contract). Seven routed
+ * RPCs already carried p_idempotency_key; these three did not, and two of them
+ * are money.
  *
  * Each test replays the identical call and asserts the EFFECT happened once,
  * not merely that the second call returned something.
