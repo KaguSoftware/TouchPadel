@@ -25,12 +25,30 @@
  *   * coach_me: not a coach, a retired coach (R45), a staff member who
  *     coaches (C-27), a branch with coaching off; the R81 shapes.
  *
+ * 0290 (coaching_admin_fixes, the post-build review): a save keeps the
+ * branches the caller cannot show and never adds one (DB-01); hours at a
+ * dropped or closed branch never block hours elsewhere (DB-02); a replaced
+ * photo is queued and a deleted profile is never promoted (DB-03); a relink
+ * starts from the type price (DB-04); touching windows join and a lesson may
+ * cross local midnight (DB-05, §1.15 D3); a retried time off is the same row
+ * (DB-06). Then three committed two-connection races: unlink against
+ * set_coach_price in both orders, retirement against coach_update.
+ *
  * One rolled-back psql transaction (coaching-core-harness.ts).
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import { COACHING_SHAPES, missingKeys } from '../../core/src/coaching/shapes';
-import { stackAvailable } from './helpers';
-import { dockerReachable, MK, scenario, X, type Results } from './stores-harness';
+import { SEED_STAFF_IDS, stackAvailable } from './helpers';
+import {
+  dockerReachable,
+  MK,
+  psql,
+  psqlSession,
+  scenario,
+  waitForSleeper,
+  X,
+  type Results,
+} from './stores-harness';
 import { at, code, data, E, failed, FROM, K, R, SETUP } from './coaching-core-harness';
 
 const up = await stackAvailable();
@@ -347,6 +365,168 @@ const BODY: string[] = [
   E('admin_v', 'manager', `select app.coaches_admin({{v}})`),
   E('admin_x_manager', 'manager', `select app.coaches_admin({{x}})`),
   E('admin_desk', 'desk', `select app.coaches_admin({{v}})`),
+
+  // ── 0290 DB-01: a save keeps the branches the caller cannot show ────────
+  `select pg_temp.guest('g6');`,
+  `select pg_temp.coach('c5', 'g6', 'v');`,
+  `select pg_temp.at_branch('c5', 'x');`,
+  E(
+    'mgr_save_vwx',
+    'manager',
+    `select app.set_coach_branches({{c5}}, array[{{v}}, {{w}}, {{x}}]::uuid[])`,
+  ),
+  E('mgr_untick_own', 'manager', `select app.set_coach_branches({{c5}}, array[{{x}}]::uuid[])`),
+  R(
+    'c5_branches',
+    `select jsonb_object_agg(case b.venue_id when {{v}}::uuid then 'v' when {{w}}::uuid then 'w' else 'x' end, b.active)
+       from coach_branches b where b.coach_id = {{c5}}::uuid`,
+  ),
+  // A closed branch: the owner keeps it by listing it, then drops it.
+  `select pg_temp.guest('g7');`,
+  `select pg_temp.coach('c6', 'g7', 'v');`,
+  `select pg_temp.branch('cl');`,
+  `select pg_temp.at_branch('c6', 'cl');`,
+  X(`update venues set status = 'closed', is_active = false where id = {{cl}}::uuid`),
+  E(
+    'mgr_new_foreign',
+    'manager',
+    `select app.set_coach_branches({{c6}}, array[{{v}}, {{x}}]::uuid[])`,
+  ),
+  // DB-02: the closed branch's 24/7 hours no longer clash with hours at v.
+  E(
+    'hours_beside_closed',
+    'manager',
+    `select app.set_coach_hours({{c6}}, {{v}}, '[{"weekday": 1, "start": "09:00", "end": "12:00"}]'::jsonb)`,
+  ),
+  E('admin_beside_closed', 'manager', `select app.coaches_admin({{v}})`),
+  E(
+    'owner_keep_closed',
+    'owner',
+    `select app.set_coach_branches({{c6}}, array[{{v}}, {{cl}}]::uuid[])`,
+  ),
+  E('owner_drop_closed', 'owner', `select app.set_coach_branches({{c6}}, array[{{v}}]::uuid[])`),
+  R(
+    'c6_cl_hours',
+    `select to_jsonb(count(*)) from coach_hours where coach_id = {{c6}}::uuid and venue_id = {{cl}}::uuid`,
+  ),
+
+  // ── 0290 DB-02: hours at a dropped branch go with it ────────────────────
+  `select pg_temp.guest('g8');`,
+  `select pg_temp.coach('c7', 'g8', 'v');`,
+  `select pg_temp.at_branch('c7', 'w');`,
+  E(
+    'hours_blocked',
+    'manager',
+    `select app.set_coach_hours({{c7}}, {{v}}, '[{"weekday": 1, "start": "09:00", "end": "12:00"}]'::jsonb)`,
+  ),
+  E('drop_w_c7', 'manager', `select app.set_coach_branches({{c7}}, array[{{v}}]::uuid[])`),
+  R(
+    'c7_w_hours',
+    `select to_jsonb(count(*)) from coach_hours where coach_id = {{c7}}::uuid and venue_id = {{w}}::uuid`,
+  ),
+  R(
+    'c7_hours_audit',
+    `select coalesce(jsonb_agg(after), '[]'::jsonb) from audit_log
+      where action = 'coaching.hours' and entity_id = {{c7}}::text and (after->>'windows')::int = 0`,
+  ),
+  E(
+    'hours_after_drop',
+    'manager',
+    `select app.set_coach_hours({{c7}}, {{v}}, '[{"weekday": 1, "start": "09:00", "end": "12:00"}]'::jsonb)`,
+  ),
+  E('readd_w', 'manager', `select app.set_coach_branches({{c7}}, array[{{v}}, {{w}}]::uuid[])`),
+  R(
+    'c7_w_hours_after',
+    `select to_jsonb(count(*)) from coach_hours where coach_id = {{c7}}::uuid and venue_id = {{w}}::uuid`,
+  ),
+
+  // ── 0290 DB-03: a replaced photo is queued; a deleted profile is never promoted
+  K('photo_a', `select 'coaches/' || gen_random_uuid() || '/a.jpg'`),
+  K('photo_b', `select 'coaches/' || gen_random_uuid() || '/b.jpg'`),
+  E(
+    'photo_set_a',
+    'owner',
+    `select app.coach_update({{c7}}, jsonb_build_object('photo_path', {{photo_a}}))`,
+  ),
+  E(
+    'photo_set_b',
+    'owner',
+    `select app.coach_update({{c7}}, jsonb_build_object('photo_path', {{photo_b}}))`,
+  ),
+  R(
+    'c7_purges',
+    `select coalesce(jsonb_agg(q.folder order by q.queued_at), '[]'::jsonb) from coach_photo_purges q
+      where q.coach_id = {{c7}}::uuid`,
+  ),
+  R('photo_a_folder', `select to_jsonb(substring({{photo_a}} from '^(coaches/[0-9a-f-]{36})/'))`),
+  `select pg_temp.guest('g9');`,
+  X(`update profiles set deleted_at = now() where id = {{g9}}::uuid`),
+  E('promote_deleted', 'owner', PROMOTE('owner', 'g9', '{{v}}')),
+
+  // ── 0290 DB-04: a relink starts from the type price; the internal needs the link
+  X(
+    `insert into coach_prices (coach_id, lesson_type_id, venue_id, price_iqd) values ({{c1}}, {{lt_vp}}, {{v}}, 27000)`,
+  ),
+  E(
+    'relink',
+    'owner',
+    `select app.set_coach_lesson_types({{c1}}, {{v}}, array[{{lt_vp}}]::uuid[])`,
+  ),
+  R('relink_prices', `select to_jsonb(count(*)) from coach_prices where coach_id = {{c1}}::uuid`),
+  E(
+    'internal_not_offered',
+    'owner',
+    `select app.set_coach_price_internal({{c1}}, {{lt_vx}}, 1000, null)`,
+  ),
+
+  // ── 0290 DB-05 (§1.15 D3): touching windows join, a lesson may cross midnight
+  `select pg_temp.guest('g10');`,
+  `select pg_temp.coach('c9', 'g10', 'v');`,
+  E(
+    'hours_c9',
+    'owner',
+    `select app.set_coach_hours({{c9}}, {{v}}, '[{"weekday": 6, "start": "10:00", "end": "12:00"},
+       {"weekday": 6, "start": "12:00", "end": "16:00"}, {"weekday": 6, "start": "18:00", "end": "24:00"},
+       {"weekday": 0, "start": "00:00", "end": "02:00"}]'::jsonb)`,
+  ),
+  ...(
+    [
+      ['in_touching', 0, '11:30', 0, '12:30'],
+      ['in_gap', 0, '15:30', 0, '16:30'],
+      ['in_across_gap', 0, '11:00', 0, '19:00'],
+      ['in_midnight', 0, '23:30', 1, '00:30'],
+      ['in_evening_to_2', 0, '18:00', 1, '02:00'],
+      ['in_past_2', 1, '01:30', 1, '02:30'],
+      ['in_sunday_start', 1, '00:00', 1, '01:00'],
+      ['in_friday_night', -1, '23:30', 0, '00:30'],
+      ['in_saturday_1am', 0, '01:00', 0, '02:00'],
+    ] as const
+  ).map(([label, d1, t1, d2, t2]) =>
+    R(
+      label,
+      `select to_jsonb(app.coach_in_hours({{c9}}::uuid, {{v}}::uuid, tstzrange(
+         ((date_trunc('week', now())::date + 5 + ${d1}) + time '${t1}') at time zone 'Asia/Baghdad',
+         ((date_trunc('week', now())::date + 5 + ${d2}) + time '${t2}') at time zone 'Asia/Baghdad', '[)')))`,
+    ),
+  ),
+
+  // ── 0290 DB-06: a retried time off is the same row ──────────────────────
+  E('off_retry_1', 'g4', `select app.add_my_time_off(${at(20)}, ${at(21)}, 'clinic')`),
+  E('off_retry_2', 'g4', `select app.add_my_time_off(${at(20)}, ${at(21)}, 'clinic')`),
+  E(
+    'off_retry_staff',
+    'owner',
+    `select app.add_coach_time_off({{c4}}, ${at(20)}, ${at(21)}, 'clinic')`,
+  ),
+  R(
+    'off_retry_rows',
+    `select jsonb_build_object(
+       'rows', (select count(*) from coach_time_off t where t.coach_id = {{c4}}::uuid and t.cancelled_at is null
+                   and t.period = tstzrange(${at(20)}, ${at(21)}, '[)')),
+       'audits', (select count(*) from audit_log a where a.action = 'coaching.time_off'
+                   and a.entity_id in (select t.id::text from coach_time_off t where t.coach_id = {{c4}}::uuid
+                                         and t.period = tstzrange(${at(20)}, ${at(21)}, '[)'))))`,
+  ),
 ];
 
 describe.skipIf(!docker)(
@@ -530,5 +710,199 @@ describe.skipIf(!docker)(
       expect(code(r, 'admin_x_manager')).toBe('FORBIDDEN');
       expect(code(r, 'admin_desk')).toBe('FORBIDDEN');
     });
+
+    it('0290 DB-01: a save keeps the branches the caller cannot show, and never adds one', () => {
+      const ids = (k: string) => [...(data<Json>(r, k).venue_ids as string[])].sort();
+      expect(data<Json>(r, 'mgr_save_vwx')).toMatchObject({ dropped: [] });
+      expect(ids('mgr_save_vwx')).toHaveLength(3);
+      // The manager unticks every branch of their own: x (not theirs) stays.
+      expect(ids('mgr_untick_own')).toHaveLength(1);
+      expect((data<Json>(r, 'mgr_untick_own').dropped as string[]).length).toBe(2);
+      expect(data<Json>(r, 'c5_branches')).toEqual({ v: false, w: false, x: true });
+      // A branch the manager does not work at and the coach is not at: still FORBIDDEN.
+      expect(code(r, 'mgr_new_foreign')).toBe('FORBIDDEN');
+      // The owner keeps a closed branch by listing it, and may drop it.
+      expect(ids('owner_keep_closed')).toHaveLength(2);
+      expect(data<Json>(r, 'owner_keep_closed')).toMatchObject({ dropped: [] });
+      expect((data<Json>(r, 'owner_drop_closed').dropped as string[]).length).toBe(1);
+      expect(ids('owner_drop_closed')).toHaveLength(1);
+      expect(data(r, 'c6_cl_hours')).toBe(0);
+    });
+
+    it('0290 DB-02: hours at a dropped or closed branch never block hours elsewhere', () => {
+      expect(data<Json>(r, 'hours_beside_closed')).toMatchObject({
+        windows: [expect.objectContaining({ weekday: 1, start_time: '09:00' })],
+      });
+      const c6 = (data<Json>(r, 'admin_beside_closed').coaches as Json[]).find(
+        (c) => c.coach_id === data<Json>(r, 'owner_keep_closed').coach_id,
+      );
+      expect(c6?.hours_elsewhere).toEqual([]);
+      expect(code(r, 'hours_blocked')).toBe('HOURS_OVERLAP:0');
+      expect((data<Json>(r, 'drop_w_c7').dropped as string[]).length).toBe(1);
+      expect(data(r, 'c7_w_hours')).toBe(0);
+      expect(data<Json[]>(r, 'c7_hours_audit')).toEqual([
+        expect.objectContaining({ windows: 0, branch_dropped: true }),
+      ]);
+      expect(data<Json>(r, 'hours_after_drop')).toMatchObject({
+        windows: [expect.objectContaining({ weekday: 1, start_time: '09:00', end_time: '12:00' })],
+      });
+      expect((data<Json>(r, 'readd_w').venue_ids as string[]).length).toBe(2);
+      expect(data(r, 'c7_w_hours_after')).toBe(0);
+    });
+
+    it('0290 DB-03: a replaced photo is queued for removal; a deleted profile is never promoted', () => {
+      expect(data<Json>(r, 'photo_set_a')).toMatchObject({ photo_path: expect.any(String) });
+      expect(data<Json>(r, 'photo_set_b')).toMatchObject({ photo_path: expect.any(String) });
+      expect(data(r, 'c7_purges')).toEqual([data(r, 'photo_a_folder')]);
+      expect(code(r, 'promote_deleted')).toBe('CUSTOMER_NOT_FOUND');
+    });
+
+    it('0290 DB-04: a relink starts from the type price; a price needs the link', () => {
+      expect(data<Json>(r, 'relink')).toMatchObject({
+        prices_removed: [expect.objectContaining({ price_iqd: 27000 })],
+      });
+      expect(data(r, 'relink_prices')).toBe(0);
+      expect(code(r, 'internal_not_offered')).toBe('LESSON_TYPE_NOT_OFFERED');
+    });
+
+    it('0290 DB-05 (§1.15 D3): touching windows join and a lesson may cross local midnight', () => {
+      expect(data<Json>(r, 'hours_c9').windows as Json[]).toHaveLength(4);
+      expect(data(r, 'in_touching')).toBe(true);
+      expect(data(r, 'in_gap')).toBe(false);
+      expect(data(r, 'in_across_gap')).toBe(false);
+      expect(data(r, 'in_midnight')).toBe(true);
+      expect(data(r, 'in_evening_to_2')).toBe(true);
+      expect(data(r, 'in_past_2')).toBe(false);
+      expect(data(r, 'in_sunday_start')).toBe(true);
+      expect(data(r, 'in_friday_night')).toBe(false);
+      // 01:00 Saturday local is Friday 22:00 UTC: the weekday is the branch's.
+      expect(data(r, 'in_saturday_1am')).toBe(false);
+    });
+
+    it('0290 DB-06: a retried time off is the row already there, audited once', () => {
+      const first = data<Json>(r, 'off_retry_1');
+      expect(missingKeys(first, COACHING_SHAPES.add_my_time_off)).toEqual([]);
+      expect(first).toMatchObject({ duplicate: false, set_by: 'coach' });
+      expect(data<Json>(r, 'off_retry_2')).toMatchObject({ id: first.id, duplicate: true });
+      // Another person adding the same period is not a retry.
+      expect(code(r, 'off_retry_staff')).toBe('HOURS_OVERLAP:time_off');
+      expect(data<Json>(r, 'off_retry_rows')).toEqual({ rows: 1, audits: 1 });
+    });
   },
 );
+
+// ── 0290: two connections, committed (DB-03, DB-04) ──────────────────────────
+
+describe.skipIf(!docker)('coach admin races (0290, committed, two connections)', () => {
+  const OWNER = SEED_STAFF_IDS.owner;
+
+  /** A branch, one accepted coach with a photo teaching one private type there. */
+  function fixture() {
+    const id = () => crypto.randomUUID();
+    const f = {
+      tag: id().slice(0, 8),
+      venue: id(),
+      type: id(),
+      coach: id(),
+      prof: id(),
+      folder: `coaches/${id()}`,
+    };
+    psql(`begin;
+select set_config('request.jwt.claims', '', true);
+insert into venues (id, slug, name_en, name_ar, timezone, is_active)
+values ('${f.venue}', 'c290-race-${f.tag}', 'C290 race', 'سباق', 'Asia/Baghdad', true);
+insert into venue_settings (venue_id, venue_name, opening_hours, coaching_enabled)
+select '${f.venue}', 'C290 race', jsonb_object_agg(d, '[["00:00","24:00"]]'::jsonb), true
+  from unnest(array['mon','tue','wed','thu','fri','sat','sun']) d;
+insert into auth.users (id, email, raw_user_meta_data, aud, role)
+values ('${f.prof}', 'c290-race-${f.prof}@test.touch.local', '{"full_name": "Race"}'::jsonb, 'authenticated', 'authenticated');
+insert into coaches (id, profile_id, display_name_en, display_name_ar, bio_en, bio_ar, photo_path, public_accepted_at)
+values ('${f.coach}', '${f.prof}', 'Race', 'سباق', 'Bio', 'سيرة', '${f.folder}/p.jpg', now());
+insert into coach_branches (coach_id, venue_id, active) values ('${f.coach}', '${f.venue}', true);
+insert into lesson_types (id, venue_id, kind, name_en, name_ar, duration_min, price_iqd, court_share_iqd, max_places,
+                          min_places, cutoff_hours, is_active, launched_at)
+values ('${f.type}', '${f.venue}', 'private', 'Race private', 'حصة', 60, 30000, 5000, 2, 1, 0, true, now());
+insert into coach_lesson_types (coach_id, lesson_type_id, venue_id) values ('${f.coach}', '${f.type}', '${f.venue}');
+commit;`);
+    return f;
+  }
+
+  function cleanup(f: ReturnType<typeof fixture>) {
+    psql(`begin;
+select set_config('request.jwt.claims', '', true);
+update coaches set status = 'retired', retired_at = coalesce(retired_at, now()) where id = '${f.coach}';
+update venue_settings set coaching_enabled = false where venue_id = '${f.venue}';
+update venues set is_active = false where id = '${f.venue}';
+commit;`);
+  }
+
+  /** One call as the owner in a committed session of its own, optionally holding it two seconds. */
+  const asOwner = (sql: string, app?: string) =>
+    psqlSession(`${app ? `set application_name = '${app}';\n` : ''}begin;
+select set_config('request.jwt.claims', '{"sub": "${OWNER}", "role": "authenticated"}', true);
+${sql};
+${app ? 'select pg_sleep(2);\n' : ''}commit;`);
+
+  const prices = (f: ReturnType<typeof fixture>) =>
+    psql(`select count(*) from coach_prices where coach_id = '${f.coach}'`);
+
+  it('DB-04: an unlink holding the coach makes a concurrent set_coach_price LESSON_TYPE_NOT_OFFERED', async () => {
+    const f = fixture();
+    try {
+      const app = `c290-unlink-${f.tag}`;
+      const holder = asOwner(
+        `select app.set_coach_lesson_types('${f.coach}', '${f.venue}', array[]::uuid[])`,
+        app,
+      );
+      await waitForSleeper(app);
+      const price = asOwner(`select app.set_coach_price('${f.coach}', '${f.type}', 27000)`);
+      const [h, p] = await Promise.allSettled([holder, price]);
+      expect(h.status).toBe('fulfilled');
+      expect(p.status).toBe('rejected');
+      expect(String((p as PromiseRejectedResult).reason)).toMatch(/LESSON_TYPE_NOT_OFFERED/);
+      expect(prices(f)).toBe('0');
+    } finally {
+      cleanup(f);
+    }
+  }, 60_000);
+
+  it('DB-04: a price holding the coach is deleted by the unlink that waited for it', async () => {
+    const f = fixture();
+    try {
+      const app = `c290-price-${f.tag}`;
+      const holder = asOwner(`select app.set_coach_price('${f.coach}', '${f.type}', 27000)`, app);
+      await waitForSleeper(app);
+      const unlink = asOwner(
+        `select app.set_coach_lesson_types('${f.coach}', '${f.venue}', array[]::uuid[])`,
+      );
+      const [h, u] = await Promise.allSettled([holder, unlink]);
+      expect(h.status).toBe('fulfilled');
+      expect(u.status).toBe('fulfilled');
+      expect(prices(f)).toBe('0');
+    } finally {
+      cleanup(f);
+    }
+  }, 60_000);
+
+  it('DB-03: a retirement holding the coach makes a concurrent coach_update INVALID_ARGUMENT retired', async () => {
+    const f = fixture();
+    try {
+      const app = `c290-retire-${f.tag}`;
+      const holder = asOwner(`select app.set_coach_status('${f.coach}', 'retired', null)`, app);
+      await waitForSleeper(app);
+      const update = asOwner(
+        `select app.coach_update('${f.coach}', '{"bio_en": "Stale", "sort_order": 4}'::jsonb)`,
+      );
+      const [h, u] = await Promise.allSettled([holder, update]);
+      expect(h.status).toBe('fulfilled');
+      expect(u.status).toBe('rejected');
+      expect(String((u as PromiseRejectedResult).reason)).toMatch(/INVALID_ARGUMENT[\s\S]*retired/);
+      expect(
+        psql(`select status || '|' || bio_en || '|' || coalesce(photo_path, '-') || '|' || sort_order
+                from coaches where id = '${f.coach}'`),
+      ).toBe('retired|Bio|-|0');
+    } finally {
+      cleanup(f);
+    }
+  }, 60_000);
+});

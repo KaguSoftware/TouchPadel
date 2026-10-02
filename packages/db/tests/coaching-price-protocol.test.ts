@@ -32,6 +32,7 @@
  * docker on PATH the suite skips itself.
  */
 import { describe, expect, it } from 'vitest';
+import { COACHING_SHAPES, missingKeys } from '../../core/src/coaching/shapes';
 import { stackAvailable } from './helpers';
 import {
   dockerReachable,
@@ -481,6 +482,7 @@ describe.skipIf(!docker)(
 
       const figures = ok<{ change: string; lesson: Lesson; sizes: unknown[] }>(r, 'a_figures');
       expect(figures.change).toBe('lesson_price');
+      expect(missingKeys(figures, COACHING_SHAPES.price_promo_numbers_lesson)).toEqual([]);
       expect(Object.keys(figures.lesson)).toEqual(expect.arrayContaining(X28.numbers));
       expect(figures.lesson).toMatchObject({
         lesson_type_id: v(r, 'lt'),
@@ -770,6 +772,14 @@ describe.skipIf(!docker)(
         COACH_PRICE_ROW('s_unlinked', 'c1', 'lt'),
         COACH_PRICE_ROW('s_kept', 'c1', 'd'),
         APPLY_NOW('s'),
+        // 0290 (DB-04): a relink starts from the type price, the stale run applied nothing.
+        T(
+          'relink',
+          'manager',
+          `select app.set_coach_lesson_types({{c1}}::uuid, {{venue}}::uuid,
+                                                                array[{{d}}, {{lt_course}}, {{lt}}]::uuid[])`,
+        ),
+        COACH_PRICE_ROW('s_relinked', 'c1', 'lt'),
         VARS,
       ]);
 
@@ -826,6 +836,35 @@ describe.skipIf(!docker)(
       expect(ok(r, 's_unlinked')).toBeNull();
       expect(ok(r, 's_kept')).toEqual({ price: 22000, run: v(r, 'b') });
       expect(why(r, 's_apply')).toBe('PRICE_TARGET_CHANGED:coach_price');
+      ok(r, 'relink');
+      expect(ok(r, 's_relinked')).toBeNull();
+    });
+
+    it('0290 (DB-04): a coach_price apply takes the coach lock before the type row, as bookings do', () => {
+      const r = scenario('cpp-g', [
+        SETUP,
+        Q(
+          'src',
+          `select to_jsonb(prosrc) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                    where n.nspname = 'app' and p.proname = 'price_promo_apply_internal'`,
+        ),
+        Q(
+          'price_src',
+          `select to_jsonb(prosrc) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                    where n.nspname = 'app' and p.proname = 'set_coach_price'`,
+        ),
+      ]);
+      const src = ok<string>(r, 'src');
+      const coach = src.indexOf('app.lock_coach(');
+      expect(coach).toBeGreaterThan(-1);
+      expect(coach).toBeLessThan(src.indexOf('from lesson_types lt where lt.id'));
+      expect(coach).toBeLessThan(src.indexOf('app.price_promo_check_targets('));
+      // set_coach_price checks the link only under the coach lock.
+      const price = ok<string>(r, 'price_src');
+      expect(price.indexOf('app.lock_coach(')).toBeGreaterThan(-1);
+      expect(price.indexOf('app.lock_coach(')).toBeLessThan(
+        price.indexOf('from coach_lesson_types'),
+      );
     });
 
     it('marketing never proposes or reads a lesson price; the targets carry X28’s keys and no sales', () => {
@@ -889,6 +928,15 @@ describe.skipIf(!docker)(
       }
 
       type TypeRow = Record<string, unknown> & { lesson_type_id: string };
+      expect(
+        missingKeys(
+          ok(r, 'mgr_targets_lesson_price'),
+          COACHING_SHAPES.price_promo_targets_lesson_types,
+        ),
+      ).toEqual([]);
+      expect(
+        missingKeys(ok(r, 'mgr_targets_coach_price'), COACHING_SHAPES.price_promo_targets_coaches),
+      ).toEqual([]);
       const priced = ok<{ lesson_types: TypeRow[] }>(r, 'mgr_targets_lesson_price').lesson_types;
       const ids = priced.map((t) => t.lesson_type_id);
       expect(ids).toEqual(expect.arrayContaining([v(r, 'lt'), v(r, 'lt_off'), v(r, 'lt_course')]));

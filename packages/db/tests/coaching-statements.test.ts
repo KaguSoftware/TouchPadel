@@ -40,7 +40,8 @@ import {
   X,
   type Results,
 } from './stores-harness';
-import { E, GUEST, PLANT } from './coaching-plant';
+import { CARD_LIKE, E, GUEST, PLANT, PLANT_BRANCH, at as bat } from './coaching-plant';
+import { SETUP, GUEST as MGUEST, K, data as mdata, failed as mfailed } from './matches-harness';
 import {
   allocateCourseMoney,
   courseLateJoinPrice,
@@ -527,6 +528,8 @@ describe.skipIf(!docker)('coaching 0287: mark paid and void (S3, S4)', () => {
     });
     expect(ok(r, 'void_draft')).toMatchObject({ duplicate: false, status: 'void' });
     expect(ok(r, 'void_again')).toMatchObject({ duplicate: true, status: 'void' });
+    for (const label of ['void_draft', 'void_again'])
+      expect(missingKeys(ok(r, label), COACHING_SHAPES.coach_statement_void), label).toEqual([]);
     expect(ok(r, 'refresh_void')).toMatchObject({
       status: 'draft',
       created: true,
@@ -879,5 +882,318 @@ describe.skipIf(!docker)('coaching 0287: procedure coach_statements_draft (S11)'
     } finally {
       psql(cleanup);
     }
+  });
+});
+
+// ── 0292 (DB-19): the close gate waits for adjustments and refunds in flight ──
+
+describe.skipIf(!docker)(
+  'coaching 0292: R37 counts undrafted adjustments and pending refunds (DB-19)',
+  () => {
+    it('a paid month, then a late desk payment on one of its lessons: close_branch refuses coaching_money', () => {
+      const r = scenario('c292s', [
+        SETUP,
+        PLANT_BRANCH,
+        'select pg_temp.branch();',
+        'select pg_temp.staff();',
+        'select pg_temp.coaching();',
+        MGUEST('g1'),
+        X(`select pg_temp.day('day')`),
+        // Last month: a lesson taught to a walk-in who has not paid yet, on a paid statement.
+        X(
+          `select pg_temp.lesson('l0', 'lt_private', 'c1', date_trunc('month', now()) - interval '10 days',
+                               '{"status": "completed"}')`,
+        ),
+        X(
+          `select pg_temp.enrol('e0', 'l0', '{"name": "Huda Walk-in", "phone": "+9647705550001"}')`,
+        ),
+        K(
+          'st',
+          `insert into coach_statements (coach_id, venue_id, month, status, lessons_count, court_share_iqd)
+         values ({{coach}}, {{v}}, (date_trunc('month', now()) - interval '1 month')::date, 'draft', 1, 10000)
+         returning id`,
+        ),
+        X(`insert into coach_statement_lines (statement_id, venue_id, lesson_id, collected_iqd, court_share_iqd,
+                                          share_bp, coach_iqd, is_adjustment)
+         values ({{st}}, {{v}}, {{l0}}, 0, 10000, 6000, 0, false)`),
+        X(`update coach_statements set status = 'paid', approved_at = now(), approved_by = {{manager}},
+                                     paid_at = now(), paid_by = {{manager}}, paid_reference = 'TRF-0292'
+          where id = {{st}}`),
+        Q('open_paid', `select to_jsonb(app.lesson_money_open({{v}}))`),
+
+        // An online lesson refund still on its way keeps the branch open until it lands.
+        X(`select pg_temp.lesson('lx', 'lt_private', 'c2', ${bat(5)}, '{"status": "cancelled"}')`),
+        X(`select pg_temp.enrol('ex', 'lx', '{"guest": "g1", "mode": "online", "status": "cancelled",
+                                          "cancel_kind": "guest_free"}')`),
+        X(`select pg_temp.online('ex_pay', 'ex', 40000)`),
+        X(`update booking_payments set status = 'refund_pending', refund_amount_iqd = 40000,
+                                    refund_reason = 'guest_cancel', refund_requested_at = now()
+          where id = {{ex_pay}}`),
+        Q('open_pending', `select to_jsonb(app.lesson_money_open({{v}}))`),
+        X(
+          `update booking_payments set status = 'refunded', refunded_at = now() where id = {{ex_pay}}`,
+        ),
+        Q('open_refunded', `select to_jsonb(app.lesson_money_open({{v}}))`),
+
+        // The walk-in pays late: last month's lesson now collected money its paid statement lacks.
+        T(
+          'settle',
+          'cashier',
+          `select app.lesson_settle({{e0}}, 'cash', 40000, 40000, 'k-c292s-settle', null)`,
+        ),
+        Q(
+          'adjustments',
+          `select coalesce(jsonb_agg(x), '[]'::jsonb)
+           from jsonb_array_elements(app.coach_statement_plan({{coach}}, {{v}},
+                  (now() at time zone 'Asia/Baghdad')::date)) x
+          where (x ->> 'is_adjustment')::boolean`,
+        ),
+        Q('open_late', `select to_jsonb(app.lesson_money_open({{v}}))`),
+        X(
+          `update day_sessions set status = 'closed', closed_at = now(), closed_by = {{manager}} where id = {{day}}`,
+        ),
+        T('close', 'owner', `select to_jsonb(app.close_branch({{v}}))`),
+      ]);
+      expect(mdata(r, 'open_paid')).toBe(false);
+      expect(mdata(r, 'open_pending')).toBe(true);
+      expect(mdata(r, 'open_refunded')).toBe(false);
+      expect(mdata<Record<string, unknown>>(r, 'settle')).toMatchObject({ amount_iqd: 40000 });
+      const adj = mdata<Array<Record<string, unknown>>>(r, 'adjustments');
+      expect(adj).toHaveLength(1);
+      expect(adj[0]).toMatchObject({ collected_iqd: 40000, is_adjustment: true });
+      expect(mdata(r, 'open_late')).toBe(true);
+      expect(mfailed(r, 'close')).toMatchObject({
+        code: 'BRANCH_HAS_BOOKINGS',
+        detail: 'coaching_money',
+      });
+    });
+  },
+);
+
+// ── 0293: the card guard's three scripts, the coach's own PIN, missing, Redraft, the run ──
+
+describe.skipIf(!docker)('coaching 0293: coach statements fixes (DB-21..DB-26)', () => {
+  it('DB-21: Arabic-Indic, Extended Arabic-Indic and dotted card numbers are refused by void, mark paid and the CHECK', () => {
+    const r = scenario('c293-card', [
+      ...BASE,
+      PRIVATE_LESSON('l1', -2, 5),
+      PRIVATE_LESSON('l2', -1, 5),
+      E('build', `select to_jsonb(app.coach_statement_build({{c1}}, {{venue}}, pg_temp.mon(-2)))`),
+      STATEMENT_ID('st1', -2),
+      T('approve', 'manager', `select app.coach_statement_approve({{st1}})`),
+      STATEMENT_ID('st2', -1, `status = 'draft'`),
+      ...Object.entries(CARD_LIKE).flatMap(([k, ref]) => [
+        T(
+          `paid_${k}`,
+          'manager',
+          `select app.coach_statement_mark_paid({{st1}}, '${ref}', '380517', null)`,
+        ),
+        T(
+          `void_${k}`,
+          'manager',
+          `select app.coach_statement_void({{st2}}, 'card ${ref}', null, null)`,
+        ),
+        E(
+          `check_${k}`,
+          `update coach_statements set status = 'void', voided_at = now(), voided_by = {{manager}},
+                  void_reason = 'card ${ref}' where id = {{st2}} returning to_jsonb(id)`,
+        ),
+      ]),
+      // A receipt number with a date and short runs of digits is still fine.
+      T(
+        'void_ok',
+        'manager',
+        `select app.coach_statement_void({{st2}}, 'TRX 2026.10.01-44', null, null)`,
+      ),
+    ]);
+    for (const k of Object.keys(CARD_LIKE)) {
+      expect(failure(r, `paid_${k}`), k).toMatchObject({
+        code: 'INVALID_ARGUMENT',
+        detail: 'p_reference',
+        hint: 'digits',
+      });
+      expect(failure(r, `void_${k}`), k).toMatchObject({
+        code: 'INVALID_ARGUMENT',
+        detail: 'p_reason',
+        hint: 'digits',
+      });
+      expect(r[`check_${k}`]?.ok, k).toBe(false);
+      expect(JSON.stringify(r[`check_${k}`]), k).toContain('coach_statements_no_card');
+    }
+    expect(ok(r, 'void_ok')).toMatchObject({ duplicate: false, status: 'void' });
+  });
+
+  it('DB-22: the PIN of the statement coach never authorises it; another manager PIN does', () => {
+    const r = scenario('c293-pin', [
+      ...BASE,
+      `select pg_temp.mk('mgr_coach', 'manager');`,
+      KEEP('c_own', `select pg_temp.coach({{mgr_coach}})`),
+      KEEP(
+        'own_l',
+        `select pg_temp.lesson(jsonb_build_object('coach_id', {{c_own}}, 'lesson_type_id', {{lt}},
+        'status', 'completed', 'completed_at', now(),
+        'start_at', pg_temp.at(-2, 8, 10), 'end_at', pg_temp.at(-2, 8, 11)))`,
+      ),
+      E(
+        'build',
+        `select to_jsonb(app.coach_statement_build({{c_own}}, {{venue}}, pg_temp.mon(-2)))`,
+      ),
+      KEEP(
+        'own_st',
+        `select id from coach_statements where coach_id = {{c_own}} and month = pg_temp.mon(-2)`,
+      ),
+      T('approve', 'manager', `select app.coach_statement_approve({{own_st}})`),
+      // Other suites' committed grants for the shared seed manager age out in this transaction.
+      X(
+        `update app.pin_grants set created_at = now() - interval '1 day' where caller_id = {{manager}} and consumed_at is null`,
+      ),
+      // The seed manager's call carries a grant the coaching manager's own PIN minted.
+      X(
+        `insert into app.pin_grants (caller_id, authorizer_id) values ({{manager}}, {{mgr_coach}})`,
+      ),
+      T(
+        'paid_own_pin',
+        'manager',
+        `select app.coach_statement_mark_paid({{own_st}}, 'TRX-293', '380517', null)`,
+      ),
+      T(
+        'void_own_pin',
+        'manager',
+        `select app.coach_statement_void({{own_st}}, 'recount', '380517', null)`,
+      ),
+      Q(
+        'unspent',
+        `select to_jsonb(count(*)) from app.pin_grants
+          where caller_id = {{manager}} and authorizer_id = {{mgr_coach}} and consumed_at is null`,
+      ),
+      Q('status_after', `select to_jsonb(status) from coach_statements where id = {{own_st}}`),
+      // The retry with another manager's PIN.
+      X(
+        `update app.pin_grants set created_at = now() - interval '1 day' where caller_id = {{manager}} and consumed_at is null`,
+      ),
+      X(`select pg_temp.grant_pin({{manager}})`),
+      T(
+        'paid',
+        'manager',
+        `select app.coach_statement_mark_paid({{own_st}}, 'TRX-293', '380517', null)`,
+      ),
+    ]);
+    expect(failure(r, 'paid_own_pin')).toMatchObject({
+      code: 'FORBIDDEN',
+      detail: 'own_statement_pin',
+    });
+    expect(failure(r, 'void_own_pin')).toMatchObject({
+      code: 'FORBIDDEN',
+      detail: 'own_statement_pin',
+    });
+    // The refusals rolled back: the grant was never spent.
+    expect(ok(r, 'unspent')).toBe(1);
+    expect(ok(r, 'status_after')).toBe('approved');
+    expect(ok(r, 'paid')).toMatchObject({ duplicate: false, status: 'paid' });
+  });
+
+  it('DB-24: a pair waiting on a draft says older_draft or newer_draft and names the draft', () => {
+    const r = scenario('c293-missing', [
+      ...BASE,
+      PRIVATE_LESSON('l3', -3, 5),
+      PRIVATE_LESSON('l2', -2, 5),
+      PRIVATE_LESSON('l1', -1, 5),
+      E('build', `select to_jsonb(app.coach_statement_build({{c1}}, {{venue}}, pg_temp.mon(-3)))`),
+      STATEMENT_ID('st3', -3),
+      T('older', 'manager', `select app.report_coach_statements({{m2}}::date)`),
+      T('approve3', 'manager', `select app.coach_statement_approve({{st3}})`),
+      STATEMENT_ID('st2', -2, `status = 'draft'`),
+      // Approving M-2 drafts M-1; voiding M-2 leaves M-1's draft in its way.
+      T('approve2', 'manager', `select app.coach_statement_approve({{st2}})`),
+      STATEMENT_ID('st1', -1, `status = 'draft'`),
+      X(
+        `update app.pin_grants set created_at = now() - interval '1 day' where caller_id = {{manager}} and consumed_at is null`,
+      ),
+      X(`select pg_temp.grant_pin({{manager}})`),
+      T('void2', 'manager', `select app.coach_statement_void({{st2}}, 'recount', '380517', null)`),
+      T('newer', 'manager', `select app.report_coach_statements({{m2}}::date)`),
+      Q(
+        'ids',
+        `select jsonb_build_object('st3', {{st3}}, 'st1', {{st1}}, 'c1', {{c1}},
+                                  'm3', pg_temp.mon(-3), 'm1', pg_temp.mon(-1))`,
+      ),
+    ]);
+    const ids = ok<{ st3: string; st1: string; c1: string; m3: string; m1: string }>(r, 'ids');
+    const mine = (label: string) =>
+      (ok<{ missing: Array<Record<string, unknown>> }>(r, label).missing ?? []).filter(
+        (m) => m.coach_id === ids.c1,
+      );
+    const older = ok<Record<string, unknown>>(r, 'older');
+    expect(missingKeys(older, COACHING_SHAPES.report_coach_statements)).toEqual([]);
+    expect(mine('older')).toEqual([
+      expect.objectContaining({
+        reason: 'older_draft',
+        blocking_month: ids.m3,
+        blocking_statement_id: ids.st3,
+      }),
+    ]);
+    ok(r, 'void2');
+    expect(mine('newer')).toEqual([
+      expect.objectContaining({
+        reason: 'newer_draft',
+        blocking_month: ids.m1,
+        blocking_statement_id: ids.st1,
+      }),
+    ]);
+  });
+
+  it('DB-25: a voided month settled as adjustments on a paid later month is not missing, and Redraft is off', () => {
+    const r = scenario('c293-settled', [
+      ...BASE,
+      GUEST('s1'),
+      PRIVATE_LESSON('a', -2, 5),
+      KEEP('ae', `select pg_temp.genrol({{s1}}, jsonb_build_object('lesson_id', {{a}}))`),
+      X(`select pg_temp.paid({{ae}})`),
+      PRIVATE_LESSON('b', -1, 5),
+      E('build2', `select to_jsonb(app.coach_statement_build({{c1}}, {{venue}}, pg_temp.mon(-2)))`),
+      STATEMENT_ID('st2', -2),
+      T('void2', 'manager', `select app.coach_statement_void({{st2}}, 'wrong rate', null, null)`),
+      T('detail_void_free', 'manager', `select app.coach_statement_detail({{st2}})`),
+      T('missing_before', 'manager', `select app.report_coach_statements({{m2}}::date)`),
+      // M-1's draft carries M-2's lesson as an adjustment; approved and paid.
+      E('build1', `select to_jsonb(app.coach_statement_build({{c1}}, {{venue}}, pg_temp.mon(-1)))`),
+      STATEMENT_ID('st1', -1),
+      LINES('lines1', 'st1'),
+      T('approve1', 'manager', `select app.coach_statement_approve({{st1}})`),
+      X(
+        `update app.pin_grants set created_at = now() - interval '1 day' where caller_id = {{manager}} and consumed_at is null`,
+      ),
+      X(`select pg_temp.grant_pin({{manager}})`),
+      T(
+        'paid1',
+        'manager',
+        `select app.coach_statement_mark_paid({{st1}}, 'TRX-1', '380517', null)`,
+      ),
+      T('missing_after', 'manager', `select app.report_coach_statements({{m2}}::date)`),
+      T('detail_void', 'manager', `select app.coach_statement_detail({{st2}})`),
+      Q('ids', `select jsonb_build_object('a', {{a}}, 'c1', {{c1}})`),
+    ]);
+    const ids = ok<{ a: string; c1: string }>(r, 'ids');
+    const mine = (label: string) =>
+      (ok<{ missing: Array<Record<string, unknown>> }>(r, label).missing ?? []).filter(
+        (m) => m.coach_id === ids.c1,
+      );
+    // Before: nothing settled the voided month yet, and a redraft would hold its lesson.
+    expect(mine('missing_before')).toEqual([
+      expect.objectContaining({ reason: 'not_drafted', blocking_month: null }),
+    ]);
+    expect(ok<{ can: Record<string, boolean> }>(r, 'detail_void_free').can.refresh).toBe(true);
+    expect(ok<Record<string, Line>>(r, 'lines1')[ids.a]).toEqual(lineOf(40_000, 10_000, true));
+    ok(r, 'paid1');
+    // After: the lesson sits on a paid statement, so M-2 waits for nothing and Redraft is off.
+    expect(mine('missing_after')).toEqual([]);
+    expect(ok<{ can: Record<string, boolean> }>(r, 'detail_void').can.refresh).toBe(false);
+  });
+
+  it('DB-26: the monthly run is at noon UTC on the 1st, when every zone is on its own 1st or 2nd', () => {
+    const job = psql(
+      `select schedule || ' | ' || command from cron.job where jobname = 'tp_coach_statements';`,
+    );
+    expect(job).toBe('0 12 1 * * | call app.coach_statements_draft(null);');
   });
 });

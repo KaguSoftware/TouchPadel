@@ -29,15 +29,14 @@
  *   * hoarding (R56) and the daily cap (CD-9);
  *   * attendance (CD-11, CD-2), the desk's court move (R7), cancels;
  *   * a paused coach (R16) and retirement cancelling everything (C-25, R45).
- * Committed, two connections: two guests for one coach and slot (one wins,
- * COACH_BUSY), two coaches for the branch's last court (one wins,
- * NO_COURT_FREE).
+ * The committed two-connection races (two guests for one coach and slot, two
+ * coaches for the branch's last court) are in coaching-races.test.ts (TG-03).
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import { COACHING_SHAPES, missingKeys } from '../../core/src/coaching/shapes';
 import { stackAvailable } from './helpers';
-import { dockerReachable, psql, psqlSession, scenario, X, type Results } from './stores-harness';
-import { at, code, data, E, failed, FROM, R, SETUP } from './coaching-core-harness';
+import { dockerReachable, scenario, X, type Results } from './stores-harness';
+import { at, code, data, E, failed, FROM, K as KEEP, R, SETUP } from './coaching-core-harness';
 
 const up = await stackAvailable();
 const docker = up && dockerReachable();
@@ -717,126 +716,344 @@ describe.skipIf(!docker)('coaching booking (0283 core writes), one transaction',
   });
 });
 
-// ── two connections, committed ───────────────────────────────────────────────
+// ── 0291 lesson_booking_guards (DB-07, DB-08, DB-10 to DB-14), one transaction ─
 
-describe.skipIf(!docker)('booking races (committed, two connections)', () => {
-  /** A branch with ONE court, two accepted coaches, two guests, one private type. */
-  function fixture() {
-    const id = () => crypto.randomUUID();
-    const f = {
-      tag: id().slice(0, 8),
-      venue: id(),
-      court: id(),
-      type: id(),
-      coachA: id(),
-      coachB: id(),
-      profA: id(),
-      profB: id(),
-      guest1: id(),
-      guest2: id(),
-    };
-    psql(`begin;
-select set_config('request.jwt.claims', '', true);
-insert into venues (id, slug, name_en, name_ar, timezone, is_active)
-values ('${f.venue}', 'c280-race-${f.tag}', 'C280 race', 'سباق', 'Asia/Baghdad', true);
-insert into venue_settings (venue_id, venue_name, opening_hours, coaching_enabled)
-select '${f.venue}', 'C280 race', jsonb_object_agg(d, '[["00:00","24:00"]]'::jsonb), true
-  from unnest(array['mon','tue','wed','thu','fri','sat','sun']) d;
-insert into courts (id, venue_id, name_en, name_ar, duration_options, sort_order, is_active)
-values ('${f.court}', '${f.venue}', 'C280 race court', 'ملعب', '{60,90,120}', 1, true);
-insert into auth.users (id, email, raw_user_meta_data, aud, role)
-select x, 'c280-race-' || x || '@test.touch.local', '{"full_name": "Race"}'::jsonb, 'authenticated', 'authenticated'
-  from unnest(array['${f.profA}', '${f.profB}', '${f.guest1}', '${f.guest2}']::uuid[]) x;
-update profiles set phone = '+9647700000000', terms_version = '2026-09-23'
- where id in ('${f.profA}', '${f.profB}', '${f.guest1}', '${f.guest2}');
-insert into coaches (id, profile_id, display_name_en, display_name_ar, public_accepted_at)
-values ('${f.coachA}', '${f.profA}', 'Race A', 'أ', now()), ('${f.coachB}', '${f.profB}', 'Race B', 'ب', now());
-insert into coach_branches (coach_id, venue_id, active)
-values ('${f.coachA}', '${f.venue}', true), ('${f.coachB}', '${f.venue}', true);
-insert into coach_hours (coach_id, venue_id, weekday, start_time, end_time, set_by)
-select c, '${f.venue}', d, '00:00', '24:00', 'coach'
-  from unnest(array['${f.coachA}', '${f.coachB}']::uuid[]) c, generate_series(0, 6) d;
-insert into lesson_types (id, venue_id, kind, name_en, name_ar, duration_min, price_iqd, court_share_iqd, max_places,
-                          min_places, cutoff_hours, is_active, launched_at)
-values ('${f.type}', '${f.venue}', 'private', 'Race private', 'حصة', 60, 30000, 5000, 2, 1, 0, true, now());
-insert into coach_lesson_types (coach_id, lesson_type_id, venue_id)
-values ('${f.coachA}', '${f.type}', '${f.venue}'), ('${f.coachB}', '${f.type}', '${f.venue}');
-commit;`);
-    return f;
-  }
+/** A lapsed hold of another guest (sh, whose ladder it strikes) on a court, kept as `name`. */
+const LAPSED = (name: string, court: string, when: string) =>
+  KEEP(
+    name,
+    `insert into reservations (venue_id, court_id, kind, status, start_at, end_at, guest_id, guest_name, source,
+                               hold_expires_at)
+     select c.venue_id, c.id, 'hold', 'pending', ${when}, ${when} + interval '60 minutes', {{sh}}::uuid,
+            'Foreign hold', 'mobile', now() - interval '1 minute'
+       from courts c where c.id = {{${court}}}::uuid
+     returning id`,
+  );
 
-  function cleanup(f: ReturnType<typeof fixture>) {
-    psql(`begin;
-select set_config('request.jwt.claims', '', true);
-update reservations set status = 'cancelled', cancelled_at = now(), cancellation_reason = 'C280 cleanup'
- where venue_id = '${f.venue}' and status in ('pending', 'confirmed', 'arrived');
-update lesson_enrolments set status = 'cancelled', cancel_kind = 'staff', cancelled_at = now(), hold_expires_at = null
- where venue_id = '${f.venue}' and status in ('held', 'booked');
-update lessons set status = 'cancelled', cancel_reason = 'staff_cancel', cancelled_at = now(), hold_expires_at = null
- where venue_id = '${f.venue}' and status in ('held', 'scheduled');
-update coaches set status = 'retired', retired_at = now() where id in ('${f.coachA}', '${f.coachB}');
-update courts set is_active = false where venue_id = '${f.venue}';
-update venue_settings set coaching_enabled = false where venue_id = '${f.venue}';
-update venues set is_active = false where id = '${f.venue}';
-commit;`);
-  }
+/** A court row's status, recorded under `label`. */
+const ROW_STATUS = (label: string, res: string) =>
+  R(label, `select to_jsonb(status) from reservations where id = {{${res}}}::uuid`);
 
-  /** One guest's booking in a session of its own, held two seconds before the commit. */
-  const book = (guest: string, coach: string, type: string, start: string, key: string) =>
-    psqlSession(`begin;
-select set_config('request.jwt.claims', '{"sub": "${guest}", "role": "authenticated"}', true);
-select app.lesson_book_private('${coach}', '${type}', ${start}, 1, '{}'::text[], 'desk', 30000, '${key}');
-select pg_sleep(2);
-commit;`);
+const BODY_291: string[] = [
+  SETUP,
+  `select pg_temp.branch('v');`,
+  `select pg_temp.branch('x', true, false);`,
+  `select pg_temp.branch('y');`,
+  ...['g1', 'g2', 'g3', 'g4', 'gx', 's1', 's2', 'sh'].map((g) => `select pg_temp.guest('${g}');`),
+  `select pg_temp.guest('s4', '{"verified": "9647790012345"}');`,
+  `select pg_temp.coach('c1', 'g1', 'v');`,
+  `select pg_temp.at_branch('c1', 'y');`,
+  `select pg_temp.coach('c2', 'g2', 'v');`,
+  `select pg_temp.coach('c3', 'g3', 'v');`,
+  `select pg_temp.coach('c4', 'g4', 'v');`,
+  `select pg_temp.coach('cx', 'gx', 'x');`,
+  `select pg_temp.lt('lt_p', 'private', 'v');`,
+  `select pg_temp.lt('lt_off', 'private', 'v', '{"is_active": false}');`,
+  `select pg_temp.lt('lt_g', 'group', 'v');`,
+  `select pg_temp.lt('lt_c', 'course', 'v');`,
+  `select pg_temp.lt('lt_px', 'private', 'x');`,
+  `select pg_temp.lt('lt_py', 'private', 'y');`,
+  ...['lt_p', 'lt_off', 'lt_g', 'lt_py'].map((t) => `select pg_temp.teach('c1', '${t}');`),
+  `select pg_temp.teach('c2', 'lt_g');`,
+  `select pg_temp.teach('c3', 'lt_p');`,
+  `select pg_temp.teach('c4', 'lt_c');`,
+  `select pg_temp.teach('cx', 'lt_px');`,
+  X(`insert into day_sessions (venue_id, business_date, status, opened_by, opening_float_iqd)
+     values ({{v}}::uuid, app.venue_business_date({{v}}::uuid, now()), 'open', {{manager}}::uuid, 0)`),
 
-  const startIn = (days: number, hours: number) =>
-    `(date_trunc('hour', now()) + interval '${days} days ${hours} hours')`;
+  // ── DB-07: a started private lesson's place is not cancelled at the desk ──
+  E(
+    'd7s',
+    'desk',
+    `select app.desk_book_lesson({{c1}}, {{lt_p}}, ${at(2)}, null, 'Walk Started', null, 1, 'k-d7s')`,
+  ),
+  FROM('d7s_lesson', 'd7s', 'lesson_id'),
+  FROM('d7s_e', 'd7s', 'enrolment_id'),
+  E(
+    'd7s_pay',
+    'desk',
+    `select app.lesson_settle({{d7s_e}}, 'cash', 30000, 30000, 'k-d7s-pay', null)`,
+  ),
+  X(`update lessons set start_at = now() - interval '30 minutes', end_at = now() + interval '30 minutes'
+      where id = {{d7s_lesson}}::uuid`),
+  E('d7s_mark', 'desk', `select app.desk_mark_attendance({{d7s_lesson}}, {{d7s_e}}, 'attended')`),
+  R('d7s_money_before', `select app.lesson_enrolment_money({{d7s_e}}::uuid)`),
+  E('d7s_cancel', 'desk', `select app.desk_cancel_enrolment({{d7s_e}}, 'customer_request')`),
+  R(
+    'd7s_after',
+    `select jsonb_build_object(
+       'lesson', (select status from lessons where id = {{d7s_lesson}}::uuid),
+       'enrolment', (select status from lesson_enrolments where id = {{d7s_e}}::uuid),
+       'attendance', (select status from lesson_attendance
+                       where lesson_id = {{d7s_lesson}}::uuid and enrolment_id = {{d7s_e}}::uuid),
+       'money', app.lesson_enrolment_money({{d7s_e}}::uuid))`,
+  ),
+  // Before the start the cancel still works, and the desk money is due back.
+  E(
+    'd7f',
+    'desk',
+    `select app.desk_book_lesson({{c1}}, {{lt_p}}, ${at(3)}, null, 'Walk Future', null, 1, 'k-d7f')`,
+  ),
+  FROM('d7f_e', 'd7f', 'enrolment_id'),
+  E(
+    'd7f_pay',
+    'desk',
+    `select app.lesson_settle({{d7f_e}}, 'cash', 30000, 30000, 'k-d7f-pay', null)`,
+  ),
+  E('d7f_cancel', 'desk', `select app.desk_cancel_enrolment({{d7f_e}}, 'customer_request')`),
+  // A group sign-up keeps the end_at rule: cancelled after the start, before the end.
+  E('d7g', 'desk', `select app.desk_create_group({{c2}}, {{lt_g}}, ${at(1)}, 'k-d7g')`),
+  FROM('d7g_lesson', 'd7g', 'lesson_id'),
+  E(
+    'd7g_add',
+    'desk',
+    `select app.desk_add_student({{d7g_lesson}}, null, null, 'Walk G', null, 'k-d7g-add')`,
+  ),
+  FROM('d7g_e', 'd7g_add', 'enrolment_id'),
+  X(`update lessons set start_at = now() - interval '30 minutes', end_at = now() + interval '30 minutes'
+      where id = {{d7g_lesson}}::uuid`),
+  E('d7g_cancel', 'desk', `select app.desk_cancel_enrolment({{d7g_e}}, 'customer_request')`),
 
-  it('two guests book one coach at one slot: one wins, the other is COACH_BUSY', async () => {
-    const f = fixture();
-    try {
-      const results = await Promise.allSettled([
-        book(f.guest1, f.coachA, f.type, startIn(3, 2), `race-a-${f.tag}`),
-        book(f.guest2, f.coachA, f.type, startIn(3, 2), `race-b-${f.tag}`),
-      ]);
-      const won = results.filter((x) => x.status === 'fulfilled');
-      const lost = results.filter((x): x is PromiseRejectedResult => x.status === 'rejected');
-      expect(won).toHaveLength(1);
-      expect(lost).toHaveLength(1);
-      expect(String(lost[0]!.reason)).toMatch(/COACH_BUSY/);
-      expect(
-        psql(
-          `select count(*) from lessons where coach_id = '${f.coachA}' and status = 'scheduled';`,
-        ),
-      ).toBe('1');
-      expect(
-        psql(`select count(*) from reservations where venue_id = '${f.venue}' and kind = 'lesson'
-                     and status = 'confirmed';`),
-      ).toBe('1');
-    } finally {
-      cleanup(f);
-    }
-  }, 60_000);
+  // ── DB-08: the helper, and where the creation bodies call it ──
+  E('b_ok', null, `select to_jsonb(app.lesson_assert_coach_bookable({{c1}}, {{lt_p}}, 'staff'))`),
+  E(
+    'b_unlinked',
+    null,
+    `select to_jsonb(app.lesson_assert_coach_bookable({{c2}}, {{lt_p}}, 'staff'))`,
+  ),
+  E(
+    'b_inactive',
+    null,
+    `select to_jsonb(app.lesson_assert_coach_bookable({{c1}}, {{lt_off}}, 'staff'))`,
+  ),
+  X(`update coaches set status = 'paused' where id = {{c3}}::uuid`),
+  E(
+    'b_paused',
+    null,
+    `select to_jsonb(app.lesson_assert_coach_bookable({{c3}}, {{lt_p}}, 'coach'))`,
+  ),
+  X(`update coaches set status = 'retired', retired_at = now() where id = {{c3}}::uuid`),
+  E(
+    'b_retired_staff',
+    null,
+    `select to_jsonb(app.lesson_assert_coach_bookable({{c3}}, {{lt_p}}, 'staff'))`,
+  ),
+  E(
+    'b_retired_coach',
+    null,
+    `select to_jsonb(app.lesson_assert_coach_bookable({{c3}}, {{lt_p}}, 'coach'))`,
+  ),
+  R(
+    'b_order',
+    `select jsonb_object_agg(p.proname,
+       position('app.lesson_assert_coach_bookable(' in p.prosrc) > position('app.lock_coach(' in p.prosrc)
+       and position('app.lock_coach(' in p.prosrc) > 0
+       and position('app.lesson_assert_coach_bookable(' in p.prosrc)
+           < position('app.lesson_lock_branch_courts(' in p.prosrc))
+       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'app'
+        and p.proname in ('desk_book_lesson', 'coach_book_private', 'lesson_group_create_internal',
+                          'lesson_course_create_internal')`,
+  ),
 
-  it("two coaches race for the branch's last court: one wins, the other is NO_COURT_FREE", async () => {
-    const f = fixture();
-    try {
-      const results = await Promise.allSettled([
-        book(f.guest1, f.coachA, f.type, startIn(4, 2), `race-c-${f.tag}`),
-        book(f.guest2, f.coachB, f.type, startIn(4, 2), `race-d-${f.tag}`),
-      ]);
-      const won = results.filter((x) => x.status === 'fulfilled');
-      const lost = results.filter((x): x is PromiseRejectedResult => x.status === 'rejected');
-      expect(won).toHaveLength(1);
-      expect(lost).toHaveLength(1);
-      expect(String(lost[0]!.reason)).toMatch(/NO_COURT_FREE/);
-      expect(
-        psql(
-          `select count(*) from lessons where venue_id = '${f.venue}' and status = 'scheduled';`,
-        ),
-      ).toBe('1');
-    } finally {
-      cleanup(f);
-    }
-  }, 60_000);
+  // ── DB-10: a staff member coaching where they are not staff, over lapsed holds there ──
+  X(
+    `update profiles set phone = '+9647700000000', terms_version = '2026-09-23' where id = {{desk}}::uuid`,
+  ),
+  `select pg_temp.coach('cd', 'desk', 'x');`,
+  `select pg_temp.teach('cd', 'lt_px');`,
+  LAPSED('xh1', 'x_c1', at(2)),
+  LAPSED('xh1b', 'x_c2', at(2)),
+  E(
+    'x_cb',
+    'desk',
+    `select app.coach_book_private({{lt_px}}, {{x}}, ${at(2)}, 'Student X', null, 1, 'k-x_cb')`,
+  ),
+  FROM('x_cb_lesson', 'x_cb', 'lesson_id'),
+  ROW_STATUS('xh1_after', 'xh1'),
+  LAPSED('xh2', 'x_c1', at(2, 2)),
+  LAPSED('xh2b', 'x_c2', at(2, 2)),
+  E('x_rs', 'desk', `select app.coach_reschedule_session({{x_cb_lesson}}, ${at(2, 2)})`),
+  ROW_STATUS('xh2_after', 'xh2'),
+  LAPSED('xh3', 'x_c1', at(3)),
+  LAPSED('xh3b', 'x_c2', at(3)),
+  E(
+    'x_guest',
+    'desk',
+    `select app.lesson_book_private({{cx}}, {{lt_px}}, ${at(3)}, 1, '{}'::text[], 'desk', 30000, 'k-x_guest')`,
+  ),
+  ROW_STATUS('xh3_after', 'xh3'),
+
+  // ── DB-11: a closed branch takes no new lesson ──
+  X(`update venues set status = 'closed' where id = {{y}}::uuid`),
+  E(
+    'y_create',
+    null,
+    `select to_jsonb((app.lesson_create_internal({{c1}}, {{lt_py}}, ${at(5)}, null, null, 30000, false,
+                                                 'staff', null, {{desk}}, null,
+                                                 app.lesson_lock_branch_courts({{y}}))).id)`,
+  ),
+
+  // ── DB-12, DB-14: a course cancelled during session 3 ──
+  E(
+    'k12',
+    'g4',
+    `select app.coach_create_course({{lt_c}}, {{v}}, array[${at(1, 3)}, ${at(2, 3)}, ${at(3, 3)}, ${at(4, 3)}], '', '', 'k-k12')`,
+  ),
+  FROM('k12_id', 'k12', 'course_id'),
+  FROM('k12_s1', 'k12', 'sessions,0,lesson_id'),
+  FROM('k12_s2', 'k12', 'sessions,1,lesson_id'),
+  FROM('k12_s3', 'k12', 'sessions,2,lesson_id'),
+  FROM('k12_s4', 'k12', 'sessions,3,lesson_id'),
+  E('k12_j', 's1', `select app.course_join({{k12_id}}, 'desk', 80000, 'k-k12_j')`),
+  FROM('k12_e', 'k12_j', 'enrolment_id'),
+  E('k12_j2', 's2', `select app.course_join({{k12_id}}, 'desk', 80000, 'k-k12_j2')`),
+  FROM('k12_e2', 'k12_j2', 'enrolment_id'),
+  // Session 1 two days ago, session 2 earlier today, session 3 in progress.
+  X(`update lessons set start_at = now() - interval '2 days', end_at = now() - interval '47 hours'
+      where id = {{k12_s1}}::uuid`),
+  X(`update lessons set start_at = now() - interval '4 hours', end_at = now() - interval '3 hours'
+      where id = {{k12_s2}}::uuid`),
+  X(`update lessons set start_at = now() - interval '20 minutes', end_at = now() + interval '40 minutes'
+      where id = {{k12_s3}}::uuid`),
+  // The control: a place the desk cancelled before the course was.
+  E('k12_rm2', 'desk', `select app.desk_cancel_enrolment({{k12_e2}}, 'customer_request')`),
+  E('k12_cancel', 'g4', `select app.coach_cancel_course({{k12_id}}, 'coach_unavailable')`),
+  E('k12_cancel_again', 'g4', `select app.coach_cancel_course({{k12_id}}, 'coach_unavailable')`),
+  R(
+    'k12_state',
+    `select jsonb_build_object(
+       'course', (select status from courses where id = {{k12_id}}::uuid),
+       'e', (select status || ':' || cancel_kind from lesson_enrolments where id = {{k12_e}}::uuid),
+       's3', (select status from lessons where id = {{k12_s3}}::uuid),
+       's4', (select status from lessons where id = {{k12_s4}}::uuid))`,
+  ),
+  E('k12_s3_att', 'desk', `select app.desk_mark_attendance({{k12_s3}}, {{k12_e}}, 'attended')`),
+  E('k12_s3_ns', 'g4', `select app.coach_mark_attendance({{k12_s3}}, {{k12_e}}, 'no_show')`),
+  E('k12_s3_clear', 'desk', `select app.desk_mark_attendance({{k12_s3}}, {{k12_e}}, 'clear')`),
+  E('k12_s2_att', 'desk', `select app.desk_mark_attendance({{k12_s2}}, {{k12_e}}, 'attended')`),
+  E('k12_s1_att', 'desk', `select app.desk_mark_attendance({{k12_s1}}, {{k12_e}}, 'attended')`),
+  E('k12_s4_att', 'desk', `select app.desk_mark_attendance({{k12_s4}}, {{k12_e}}, 'attended')`),
+  E('k12_e2_att', 'desk', `select app.desk_mark_attendance({{k12_s3}}, {{k12_e2}}, 'attended')`),
+  R(
+    'k12_marks',
+    `select jsonb_object_agg(l.session_no, a.status)
+       from lesson_attendance a join lessons l on l.id = a.lesson_id
+      where a.enrolment_id = {{k12_e}}::uuid`,
+  ),
+
+  // ── DB-13: "Is this you?" on a place that was removed ──
+  E('l13', 'g1', `select app.coach_create_group({{lt_g}}, {{v}}, ${at(5)}, 'k-l13')`),
+  FROM('l13_lesson', 'l13', 'lesson_id'),
+  E(
+    'a13',
+    'g1',
+    `select app.coach_add_student({{l13_lesson}}, null, 'Mona', '+964 779 001 2345', 'k-a13')`,
+  ),
+  FROM('a13_e', 'a13', 'enrolment_id'),
+  R(
+    'a13_linked',
+    `select to_jsonb(guest_id = {{s4}}::uuid and link_confirmed_at is null)
+       from lesson_enrolments where id = {{a13_e}}::uuid`,
+  ),
+  E('a13_rm', 'g1', `select app.coach_remove_student({{a13_e}}, 'other')`),
+  E('a13_yes', 's4', `select app.lesson_link_confirm({{a13_e}}, true)`),
+  E('a13_no', 's4', `select app.lesson_link_confirm({{a13_e}}, false)`),
+  R(
+    'a13_after',
+    `select to_jsonb(guest_id is null and link_confirmed_at is null)
+       from lesson_enrolments where id = {{a13_e}}::uuid`,
+  ),
+];
+
+describe.skipIf(!docker)('0291 lesson booking guards, one transaction', () => {
+  let r: Results;
+  beforeAll(() => {
+    r = scenario('c291', BODY_291);
+  });
+
+  it('DB-07: the desk cannot cancel a started private lesson; before the start it can; a group sign-up keeps end_at', () => {
+    expect(data<Json>(r, 'd7s_pay')).toBeTruthy();
+    expect(data<Json>(r, 'd7s_mark')).toMatchObject({ attendance: 'attended' });
+    expect(code(r, 'd7s_cancel')).toBe('LESSON_NOT_CANCELLABLE:started');
+    const after = data<Json>(r, 'd7s_after');
+    expect(after).toMatchObject({
+      lesson: 'scheduled',
+      enrolment: 'booked',
+      attendance: 'attended',
+    });
+    expect(after.money).toEqual(data(r, 'd7s_money_before'));
+    expect(after.money).toMatchObject({ desk_paid_iqd: 30000, refund_due_iqd: 0 });
+
+    const fut = data<Json>(r, 'd7f_cancel');
+    expect(missingKeys(fut, COACHING_SHAPES.desk_cancel_enrolment)).toEqual([]);
+    expect(fut).toMatchObject({
+      status: 'cancelled',
+      lesson_cancelled: true,
+      refund_due_iqd: 30000,
+    });
+
+    expect(data<Json>(r, 'd7g_cancel')).toMatchObject({
+      status: 'cancelled',
+      lesson_cancelled: false,
+    });
+  });
+
+  it('DB-08: lesson_assert_coach_bookable reads the coach, the link and the type; each creation body calls it after lock_coach', () => {
+    expect(data(r, 'b_ok')).toBe(30000);
+    expect(code(r, 'b_unlinked')).toBe('LESSON_TYPE_NOT_OFFERED');
+    expect(code(r, 'b_inactive')).toBe('LESSON_TYPE_INACTIVE');
+    expect(code(r, 'b_paused')).toBe('COACH_INACTIVE');
+    expect(code(r, 'b_retired_staff')).toBe('COACH_NOT_FOUND');
+    expect(code(r, 'b_retired_coach')).toBe('NOT_A_COACH');
+    expect(data(r, 'b_order')).toEqual({
+      desk_book_lesson: true,
+      coach_book_private: true,
+      lesson_group_create_internal: true,
+      lesson_course_create_internal: true,
+    });
+  });
+
+  it('DB-10: a staff member who coaches where they are not staff books, moves and is booked over lapsed holds there', () => {
+    expect(data<Json>(r, 'x_cb')).toMatchObject({ duplicate: false });
+    expect(data(r, 'xh1_after')).toBe('expired');
+    expect(data<Json>(r, 'x_rs')).toMatchObject({ duplicate: false });
+    expect(data(r, 'xh2_after')).toBe('expired');
+    expect(data<Json>(r, 'x_guest')).toMatchObject({ duplicate: false, status: 'booked' });
+    expect(data(r, 'xh3_after')).toBe('expired');
+  });
+
+  it('DB-11: lesson_create_internal refuses a branch that is not open', () => {
+    expect(code(r, 'y_create')).toBe('COACH_NOT_AT_BRANCH');
+  });
+
+  it('DB-12: a course cancelled during session 3 leaves it and an earlier session markable; DB-14: the duplicate carries sessions_cancelled', () => {
+    expect(data<Json>(r, 'k12_rm2')).toMatchObject({ status: 'cancelled' });
+    expect(data<Json>(r, 'k12_cancel')).toMatchObject({ duplicate: false, sessions_cancelled: 1 });
+    const again = data<Json>(r, 'k12_cancel_again');
+    expect(missingKeys(again, COACHING_SHAPES.coach_cancel_course)).toEqual([]);
+    expect(again).toMatchObject({ duplicate: true, sessions_cancelled: 0 });
+    expect(data<Json>(r, 'k12_state')).toEqual({
+      course: 'cancelled',
+      e: 'cancelled:course_cancelled',
+      s3: 'scheduled',
+      s4: 'cancelled',
+    });
+    expect(data<Json>(r, 'k12_s3_att')).toMatchObject({ attendance: 'attended', duplicate: false });
+    expect(data<Json>(r, 'k12_s3_ns')).toMatchObject({ attendance: 'no_show', duplicate: false });
+    expect(data<Json>(r, 'k12_s3_clear')).toMatchObject({ attendance: null, duplicate: false });
+    expect(data<Json>(r, 'k12_s2_att')).toMatchObject({ attendance: 'attended' });
+    expect(code(r, 'k12_s1_att')).toBe('INVALID_TRANSITION:marks_closed');
+    expect(code(r, 'k12_s4_att')).toBe('INVALID_TRANSITION:not_started');
+    expect(code(r, 'k12_e2_att')).toBe('INVALID_TRANSITION:not_booked');
+    expect(data(r, 'k12_marks')).toEqual({ '2': 'attended' });
+  });
+
+  it('DB-13: "yes" on a removed place is refused; "Not me" still unlinks it', () => {
+    expect(data(r, 'a13_linked')).toBe(true);
+    expect(data<Json>(r, 'a13_rm')).toMatchObject({ ok: true });
+    expect(code(r, 'a13_yes')).toBe('INVALID_TRANSITION:status');
+    expect(data<Json>(r, 'a13_no')).toMatchObject({ linked: false, duplicate: false });
+    expect(data(r, 'a13_after')).toBe(true);
+  });
 });

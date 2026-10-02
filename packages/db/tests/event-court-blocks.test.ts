@@ -160,6 +160,63 @@ const LIVE_SUB = (name: string, step: string) =>
 /** A venue-local instant on a kept day, as SQL (plain SQL: the call runs as authenticated). */
 const AT = (day: string, time: string) => `((({{${day}}})::date + time '${time}') at time zone {{tz}})`;
 
+/**
+ * 0294 (DB-34): three private lessons of one coach on `court`, planted as postgres (no RPC
+ * reaches these states): les1 scheduled 19:00-20:00 with a booked desk student; les2 held
+ * 20:00-21:00, its hold live, with a held online student; les3 held 21:00-22:00, its hold and
+ * its student's hold lapsed, no payment open.
+ */
+function LESSONS_ON(court: string, day: string): string[] {
+  const user = (name: string) =>
+    KEEP(name, `insert into auth.users (id, email, raw_user_meta_data, aud, role)
+                values (gen_random_uuid(), 'ev294-${name}-' || gen_random_uuid() || '@test.touch.local', '{}',
+                        'authenticated', 'authenticated') returning id::text`);
+  const lesson = (name: string, from: string, to: string, held: string | null) =>
+    KEEP(name, `insert into lessons (venue_id, coach_id, lesson_type_id, kind, start_at, end_at, price_iqd,
+                                     court_share_iqd, coach_share_bp, max_places, min_places, status,
+                                     hold_expires_at, booked_by_kind, created_by_staff_id)
+                values ({{venue}}, {{lcoach}}, {{ltype}}, 'private', ${AT(day, from)}, ${AT(day, to)}, 30000, 0,
+                        6000, 4, 1, '${held ? 'held' : 'scheduled'}', ${held ?? 'null'}, 'staff', {{desk}})
+                returning id::text`);
+  const courtRow = (lessonName: string, from: string, to: string, held: string | null) =>
+    KEEP(`${lessonName}_r`, `insert into reservations (venue_id, court_id, kind, status, start_at, end_at, guest_name,
+                                                       source, lesson_id, hold_expires_at)
+                            values ({{venue}}, {{${court}}}, '${held ? 'hold' : 'lesson'}',
+                                    '${held ? 'pending' : 'confirmed'}', ${AT(day, from)}, ${AT(day, to)}, 'Lesson',
+                                    'desk', {{${lessonName}}}, ${held ?? 'null'})
+                            returning id::text`);
+  const live = `now() + interval '10 minutes'`;
+  const lapsed = `now() - interval '20 minutes'`;
+  return [
+    user('lc_prof'),
+    user('stud'),
+    KEEP('lcoach', `insert into coaches (profile_id, display_name_en, display_name_ar, status, public_accepted_at)
+                    values ({{lc_prof}}, 'EV coach', 'مدرّب', 'active', now()) returning id::text`),
+    KEEP('ltype', `insert into lesson_types (venue_id, kind, name_en, name_ar, duration_min, price_iqd, max_places,
+                                             min_places, cutoff_hours, is_active, launched_at)
+                   values ({{venue}}, 'private', 'EV private', 'خاصة', 60, 30000, 4, 1, 0, true, now())
+                   returning id::text`),
+    lesson('les1', '19:00', '20:00', null),
+    courtRow('les1', '19:00', '20:00', null),
+    KEEP('les1_e', `insert into lesson_enrolments (venue_id, lesson_id, guest_name, booked_by_kind, booked_by_staff_id,
+                                                   price_iqd, payment_mode, status)
+                    values ({{venue}}, {{les1}}, 'EV student', 'staff', {{desk}}, 30000, 'desk', 'booked')
+                    returning id::text`),
+    lesson('les2', '20:00', '21:00', live),
+    courtRow('les2', '20:00', '21:00', live),
+    KEEP('les2_e', `insert into lesson_enrolments (venue_id, lesson_id, guest_id, booked_by_kind, booked_by_profile_id,
+                                                   price_iqd, payment_mode, status, hold_expires_at, link_confirmed_at)
+                    values ({{venue}}, {{les2}}, {{stud}}, 'guest', {{stud}}, 30000, 'online', 'held', ${live}, now())
+                    returning id::text`),
+    lesson('les3', '21:00', '22:00', lapsed),
+    courtRow('les3', '21:00', '22:00', lapsed),
+    KEEP('les3_e', `insert into lesson_enrolments (venue_id, lesson_id, guest_id, booked_by_kind, booked_by_profile_id,
+                                                   price_iqd, payment_mode, status, hold_expires_at, link_confirmed_at)
+                    values ({{venue}}, {{les3}}, {{stud}}, 'guest', {{stud}}, 30000, 'online', 'held', ${lapsed}, now())
+                    returning id::text`),
+  ];
+}
+
 /** A plan record as SQL (type 1 / 3 carry the format and the figures). */
 function plan(opts: {
   courts: string[];
@@ -271,6 +328,13 @@ describe.skipIf(!docker)('event_court_blocks: blocking courts for a tournament',
       RES('sub_feas', 'feas', 'submission_id'),
       T('feas_ok', 'owner', `select app.decide_step({{sub_feas}}, 'approve')`),
 
+      // 0294 (DB-34): lessons on the second court inside the window: a
+      // scheduled one with a booked student (19:00), a held one whose hold is
+      // live with a held student (20:00), and a held one whose hold lapsed with
+      // no payment open (21:00), which counts for nothing.
+      Q('fixture_claims', `select to_jsonb(set_config('request.jwt.claims', '', true))`),
+      ...LESSONS_ON('court2', 'day'),
+
       // The reads each role gets.
       T('feasibility', 'manager', `select app.tournament_feasibility({{run}})`),
       T('feasibility_desk', 'desk', `select app.tournament_feasibility({{run}})`),
@@ -284,6 +348,13 @@ describe.skipIf(!docker)('event_court_blocks: blocking courts for a tournament',
       T('ctx_cashier', 'cashier', `select app.tournament_context({{s_courts}})`),
       T('ctx_driver', 'driver', `select app.tournament_context({{s_courts}})`),
       T('ctx_nil', 'desk', `select app.tournament_context('00000000-0000-4000-8000-000000000000')`),
+      // The lessons go, so the blocks below meet only the booking.
+      Q('fixture_claims_2', `select to_jsonb(set_config('request.jwt.claims', '', true))`),
+      Q('lessons_gone', `with e as (delete from lesson_enrolments where lesson_id in ({{les1}}, {{les2}}, {{les3}}) returning 1),
+                              r as (delete from reservations where lesson_id in ({{les1}}, {{les2}}, {{les3}}) returning 1)
+                         select to_jsonb((select count(*) from e) + (select count(*) from r))`),
+      Q('lessons_gone_2', `with l as (delete from lessons where id in ({{les1}}, {{les2}}, {{les3}}) returning 1)
+                           select to_jsonb(count(*)) from l`),
 
       // Refusals before anything is written.
       T('bad_range', 'desk', `select app.block_courts_for_event({{run}}, ${blocks([['court', 'day', '22:00', '18:00']])})`),
@@ -332,12 +403,22 @@ describe.skipIf(!docker)('event_court_blocks: blocking courts for a tournament',
     expect(ok(r, 'feas_ok')).toMatchObject({ decision: 'approve' });
 
     // tournament_feasibility: the booking in the way, per court of the range.
-    const feas = ok<{ ranges: Array<{ court_id: string; court_name_en: string; bookings: number; guests: number }> }>(r, 'feasibility');
+    const feas = ok<{
+      ranges: Array<{ court_id: string; court_name_en: string; bookings: number; guests: number; lessons: number; students: number }>;
+    }>(r, 'feasibility');
     expect(feas.ranges).toHaveLength(2);
     expect(feas.ranges.map((x) => [x.court_name_en, x.bookings, x.guests])).toEqual([
       ['EV court', 1, 1],
       ['EV court2', 0, 0],
     ]);
+    // 0294 (DB-34): the lessons in the way and their students, apart from the
+    // bookings; a lapsed lesson hold is not in the way.
+    expect(feas.ranges.map((x) => [x.court_name_en, x.lessons, x.students])).toEqual([
+      ['EV court', 0, 0],
+      ['EV court2', 2, 2],
+    ]);
+    expect(ok(r, 'lessons_gone')).toBe(6);
+    expect(ok(r, 'lessons_gone_2')).toBe(3);
     for (const who of ['feasibility_desk', 'feasibility_driver', 'feasibility_mk']) expect(refused(r, who), who).toBe('FORBIDDEN');
 
     // tournament_context: names, ranges and blocks, never money.

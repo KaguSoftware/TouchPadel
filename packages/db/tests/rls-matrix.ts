@@ -249,6 +249,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'venue_settings',
+    columns: 'venue_id, timezone, opening_hours, tax_inclusive',
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
       cashier: 'rows',
@@ -257,7 +258,7 @@ export const matrix: MatrixRule[] = [
       manager: 'rows',
       owner: 'rows',
     }),
-    note: 'full settings row is staff-only',
+    note: 'the settings row is staff-only; since 0297 the grant is per column (the two coach columns are not granted, so * is denied)',
     drop: 1,
   },
   {
@@ -5225,9 +5226,10 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'lesson_blocked_refund_record',
-    args: { p_enrolment_id: NIL_UUID, p_amount_iqd: 1000, p_reference: 'matrix', p_pin: MANAGER_PIN },
+    args: { p_enrolment_id: NIL_UUID, p_amount_iqd: 1000, p_reference: 'matrix', p_pin: MANAGER_PIN,
+            p_idempotency_key: 'matrix-lesson-blocked-refund' },
     expect: MANAGER_UP,
-    note: 'lesson_money (R75): the helper proves the PIN first (0115), then the role guard; a nil enrolment is ENROLMENT_NOT_FOUND before any grant is spent',
+    note: 'lesson_money (R75): the helper proves the PIN first (0115), then the role guard; a nil enrolment is ENROLMENT_NOT_FOUND before the key is claimed (0293, DB-23) or any grant is spent',
     drop: 25,
   },
   // ── coaching 0282: coaching_admin, staff (manager and owner; the role first, R57) ──
@@ -5675,5 +5677,29 @@ export const matrix: MatrixRule[] = [
     expect: MANAGER_UP,
     note: 'lesson_reports: a person-money report (R42), manager and owner',
     drop: 25,
+  },
+  // ── coaching 0297: venue_settings column grants (DB-46) ──────────────────────
+  {
+    kind: 'select',
+    name: 'venue_settings',
+    columns: 'coach_share_bp',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0297 (DB-46): no column grant; managers and the owner read it through app.coaching_settings',
+    drop: 26,
+  },
+  {
+    kind: 'select',
+    name: 'venue_settings',
+    columns: 'coach_max_open_private',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0297 (DB-46): no column grant; read through app.coaching_settings',
+    drop: 26,
+  },
+  {
+    kind: 'select',
+    name: 'venue_settings',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0297 (DB-46): select * names the two ungranted coach columns, so every principal is refused',
+    drop: 26,
   },
 ];

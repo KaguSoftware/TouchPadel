@@ -35,6 +35,11 @@ import {
   type GuestVars,
   type Lang,
 } from '../supabase/functions/send-push/guestStrings.ts';
+import {
+  REMINDER_LEAD_MS,
+  REMINDER_SLACK_MS,
+  reminderStale,
+} from '../supabase/functions/send-push/lessonReminder.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const INDEX = readFileSync(resolve(here, '../supabase/functions/send-push/index.ts'), 'utf8');
@@ -577,7 +582,9 @@ describe('send-push/index.ts wiring', () => {
     expect(branch).toMatch(/last_error: 'LESSON_GONE', attempts: RETRY_CAP/);
     expect(branch).toMatch(/last_error: 'STATEMENT_GONE', attempts: RETRY_CAP/);
     expect(branch).toMatch(/last_error: 'REMINDER_STALE', attempts: RETRY_CAP/);
-    expect(branch).toMatch(/title_key === 'lesson\.reminder' && lesson\?\.status !== 'scheduled'/);
+    // EC-02: the lesson's status, the enrolment and the due time, in lessonReminder.ts.
+    expect(branch).toMatch(/title_key === 'lesson\.reminder' &&\s*reminderStale\(\s*row,\s*lesson,/);
+    expect(branch).toMatch(/reminderEnrolments\.get\(row\.payload\.id\)/);
     expect(branch).toMatch(/month: statement \? guestMonth\(statement\.month, lang\) : ''/);
   });
 
@@ -599,5 +606,66 @@ describe('send-push/index.ts wiring', () => {
     expect(guarded).toMatch(/from\('lessons'\)\.select\('id, start_at, venue_id, status'\)/);
     expect(guarded).toMatch(/from\('coach_statements'\)\.select\('id, month, venue_id'\)/);
     expect(before).not.toMatch(/from\('lessons'\)|from\('coach_statements'\)/);
+  });
+
+  it('reads the enrolments of the claimed lesson reminders only, beside the lessons (EC-02)', () => {
+    const guarded = INDEX.slice(INDEX.indexOf('if (lessonRows.length > 0) {'));
+    const before = INDEX.slice(0, INDEX.indexOf('if (lessonRows.length > 0) {'));
+    expect(guarded).toMatch(/lessonRows\.filter\(isLessonReminder\)\.map\(\(r\) => r\.payload\.id\)\.filter\(\(id\): id is string => isUuid\(id\)\)/);
+    expect(guarded).toMatch(
+      /from\('lesson_enrolments'\)\s*\.select\('id, guest_id, status, booked_by_kind, link_confirmed_at'\)\s*\.in\('id', enrolmentIds\)/,
+    );
+    expect(guarded).toMatch(/return readFailed\('lesson_enrolments', enrolmentsRes\.error\)/);
+    expect(before).not.toMatch(/from\('lesson_enrolments'\)/);
+    expect(INDEX).toMatch(/import \{ reminderStale, type ReminderEnrolment \} from '\.\/lessonReminder\.ts';/);
+    // The claim returns the whole outbox row (0090), scheduled_for included.
+    expect(INDEX).toMatch(/\n {2}scheduled_for: string;\n/);
+  });
+});
+
+describe('send-push: a lesson reminder already due after a cancel or a move (EC-02)', () => {
+  const PROFILE = '55555555-6666-4777-8888-999999999999';
+  const START = '2026-10-10T15:00:00+00:00';
+  const DUE = '2026-10-10T12:00:00+00:00';
+  const row = { profile_id: PROFILE, scheduled_for: DUE };
+  const lesson = { start_at: START, status: 'scheduled' };
+  const enrolment = {
+    id: ENROLMENT_ID,
+    guest_id: PROFILE,
+    status: 'booked',
+    booked_by_kind: 'guest',
+    link_confirmed_at: '2026-10-01T10:00:00+00:00',
+  };
+
+  it('sends a reminder whose student is still booked on a lesson that has not moved', () => {
+    expect(reminderStale(row, lesson, enrolment)).toBe(false);
+    // A coach-added place whose link the guest confirmed is a student's too.
+    expect(reminderStale(row, lesson, { ...enrolment, booked_by_kind: 'coach' })).toBe(false);
+    // Within the 2-minute slack either way; the database's microseconds parse.
+    expect(reminderStale({ ...row, scheduled_for: '2026-10-10T12:01:59.123456+00:00' }, lesson, enrolment)).toBe(false);
+    expect(reminderStale({ ...row, scheduled_for: '2026-10-10T11:58:00Z' }, lesson, enrolment)).toBe(false);
+    expect(REMINDER_LEAD_MS).toBe(3 * 3600 * 1000);
+    expect(REMINDER_SLACK_MS).toBe(2 * 60 * 1000);
+  });
+
+  it('is stale for a cancelled, expired or held enrolment, or one gone', () => {
+    for (const status of ['cancelled', 'expired', 'held', 'no_show']) {
+      expect(reminderStale(row, lesson, { ...enrolment, status }), status).toBe(true);
+    }
+    expect(reminderStale(row, lesson, undefined)).toBe(true);
+  });
+
+  it('is stale for an enrolment that is not this account’s, or an unconfirmed link', () => {
+    expect(reminderStale(row, lesson, { ...enrolment, guest_id: null })).toBe(true);
+    expect(reminderStale(row, lesson, { ...enrolment, guest_id: MATCH_ID })).toBe(true);
+    expect(reminderStale(row, lesson, { ...enrolment, booked_by_kind: 'staff', link_confirmed_at: null })).toBe(true);
+  });
+
+  it('is stale for a lesson moved since the reminder was queued, or no longer scheduled', () => {
+    expect(reminderStale(row, { ...lesson, start_at: '2026-10-10T18:00:00+00:00' }, enrolment)).toBe(true);
+    expect(reminderStale(row, { ...lesson, start_at: '2026-10-10T14:57:59+00:00' }, enrolment)).toBe(true);
+    expect(reminderStale(row, { ...lesson, status: 'cancelled' }, enrolment)).toBe(true);
+    expect(reminderStale(row, undefined, enrolment)).toBe(true);
+    expect(reminderStale({ ...row, scheduled_for: 'not a time' }, lesson, enrolment)).toBe(true);
   });
 });

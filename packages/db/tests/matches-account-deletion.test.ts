@@ -59,12 +59,17 @@ type Json = Record<string, unknown>;
 describe.skipIf(!docker)('0264 delete_my_account as the stack holds it', () => {
   it('takes no match, court or ticket lock it could wait on (R25), and refunds last', () => {
     // pg_get_functiondef prints its own $function$ tag, so the comment names the file.
-    // 0289 (lesson_account_deletion) re-issued it from 0264's body, coaching scrubs added.
-    expect(psql(`select obj_description('app.delete_my_account(text)'::regprocedure, 'pg_proc')`)).toMatch(/^0289, from 0264 /);
+    // 0289 (lesson_account_deletion) re-issued it from 0264's body, coaching scrubs added; 0290
+    // (coaching_admin_fixes, DB-03) re-issued it again with the coach rows locked.
+    expect(psql(`select obj_description('app.delete_my_account(text)'::regprocedure, 'pg_proc')`)).toMatch(/^0290 \(DB-03\), 0289, from 0264 /);
     const def = psql(`select pg_get_functiondef('app.delete_my_account(text)'::regprocedure)`);
-    for (const lock of ['lock_match_venue', 'lock_match_money', 'match_lock', 'lock_court', 'pg_advisory', 'for update']) {
+    for (const lock of ['lock_match_venue', 'lock_match_money', 'match_lock', 'lock_court', 'pg_advisory', 'lock_coach(']) {
       expect(def.toLowerCase(), lock).not.toContain(lock);
     }
+    // The one row lock is 0290's (DB-03): the account's own coach rows, never a match, court or ticket.
+    expect(def.toLowerCase().match(/[^\n]*for update[^\n]*/g)).toEqual([
+      '  perform 1 from coaches c where c.profile_id = v_uid for update;',
+    ]);
     const pos = (s: string) => {
       const i = def.indexOf(s);
       expect(i, s).toBeGreaterThan(-1);

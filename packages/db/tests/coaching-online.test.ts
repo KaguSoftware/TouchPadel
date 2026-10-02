@@ -29,14 +29,19 @@
  *   * O5  EXPIRED: enrolment, lesson (payment_expired) and hold expired, the
  *         expired event, a lapsed_hold strike (R30);
  *   * O6  a late SUCCESS: revived when still free (revived: true, the strike
- *         withdrawn, R29, R65); slot_lost when the coach was booked meanwhile;
+ *         withdrawn, R29, R65; 0296, DB-43: the guest hears payment_expired,
+ *         then lesson.booked, the coach coach.new_student); slot_lost when the
+ *         coach was booked meanwhile;
  *   * O7  a hold expired by TTL past the payment's grace: SUCCESS re-picks a
  *         court from the locked set (R34);
  *   * O9  the reconciler's net (R28) starts the refund a cancel never started;
  *         the refund outcome, the attention list, retry; deposit_refund_request
  *         on a live enrolment is PAYMENT_STATE lesson_live (CM-5);
  *   * O12 a full group (R29): a held place past its grace loses the last place
- *         to the desk; its SUCCESS is slot_lost, never a ninth place;
+ *         to the desk; its SUCCESS is slot_lost, never a ninth place; 0295
+ *         (DB-35): the place ends expired with no strike and is not payable;
+ *   * O13 (0295, DB-35) a place whose session has started is LESSON_NOT_PAYABLE
+ *         started; a payment window never stretches the hold past the start;
  *   * the source rules: no push call in Money's two bodies (R40).
  */
 import { readdirSync, readFileSync } from 'node:fs';
@@ -121,6 +126,7 @@ describe.skipIf(!up)('0284 lessons paid online (fake provider through deposit_ap
   let manager: SupabaseClient;
   let court: string;
   let coach: string;
+  let coachProfile: string;
   const lt = { private: '', group: '', course: '' };
   let saved: {
     coaching_enabled: boolean;
@@ -358,6 +364,25 @@ describe.skipIf(!up)('0284 lessons paid online (fake provider through deposit_ap
       .eq('enrolment_id', enrolment);
     return (data ?? []) as Json[];
   };
+  /** The lesson-family pushes queued for a profile about these ids, oldest first, as title keys. */
+  const pushKeysOf = async (profile: string, ids: string[]) => {
+    const { data } = await svc
+      .from('notification_outbox')
+      .select('payload')
+      .eq('profile_id', profile)
+      .in('kind', ['lesson_update', 'coach_update'])
+      .order('id');
+    return ((data ?? []) as { payload: Json }[])
+      .filter((o) => ids.includes(o.payload.id as string))
+      .map((o) => o.payload.title_key as string);
+  };
+  const setPushToken = async (profile: string, token: string | null) => {
+    const { error } = await svc
+      .from('profiles')
+      .update({ expo_push_token: token })
+      .eq('id', profile);
+    if (error) throw new Error(`profiles: ${error.message}`);
+  };
   const liveCourtRows = async (lesson: string) => {
     const { data } = await svc
       .from('reservations')
@@ -401,7 +426,7 @@ describe.skipIf(!up)('0284 lessons paid online (fake provider through deposit_ap
     court = await createTestCourt(svc, `L0284 ${Date.now()}`);
 
     const coachGuest = await guestClient(svc, 'l0284-coach');
-    const coachProfile = (await coachGuest.auth.getUser()).data.user!.id;
+    coachProfile = (await coachGuest.auth.getUser()).data.user!.id;
     coach = await ins('coaches', {
       profile_id: coachProfile,
       display_name_en: 'Coach 0284',
@@ -940,15 +965,37 @@ describe.skipIf(!up)('0284 lessons paid online (fake provider through deposit_ap
     expect((await strikesOf(p.enrolment)).filter((s2) => s2.settled_at === null)).toEqual([]);
   });
 
-  it('O6 a late SUCCESS while everything is still free revives the lesson (R29) and withdraws the strike (R65)', async () => {
+  it('O6 a late SUCCESS while everything is still free revives the lesson (R29), withdraws the strike (R65) and tells the guest (0296, DB-43)', async () => {
     const g = await newGuest('l0284-o6');
     const p = await plantPrivate(g.id, 8);
+    // Push tokens, so the fan-out queues rows for the guest and the coach (taken off again below).
+    await setPushToken(g.id, 'ExponentPushToken[l0296-o6-guest]');
+    await setPushToken(coachProfile, 'ExponentPushToken[l0296-o6-coach]');
+    let guestKeys: string[] = [];
+    let coachKeys: string[] = [];
+    let late: Awaited<ReturnType<typeof apply>> | null = null;
     const a = await begin(g.id, p.enrolment);
-    expect((await apply(a.request_id, 'EXPIRED', null)).data).toMatchObject({ status: 'expired' });
-    expect(await one('lesson_enrolments', p.enrolment)).toMatchObject({ status: 'expired' });
-
-    const late = await apply(a.request_id, 'SUCCESS', 40_000);
-    expect(late.data).toMatchObject({ status: 'succeeded' });
+    try {
+      expect((await apply(a.request_id, 'EXPIRED', null)).data).toMatchObject({
+        status: 'expired',
+      });
+      expect(await one('lesson_enrolments', p.enrolment)).toMatchObject({ status: 'expired' });
+      late = await apply(a.request_id, 'SUCCESS', 40_000);
+      guestKeys = await pushKeysOf(g.id, [p.enrolment]);
+      coachKeys = await pushKeysOf(coachProfile, [p.lesson]);
+    } finally {
+      await setPushToken(g.id, null);
+      await setPushToken(coachProfile, null);
+      await svc
+        .from('notification_outbox')
+        .delete()
+        .in('profile_id', [g.id, coachProfile])
+        .in('kind', ['lesson_update', 'coach_update']);
+    }
+    // The guest heard payment_expired, then lesson.booked once revived; the coach a new student.
+    expect(guestKeys).toEqual(['lesson.payment_expired', 'lesson.booked']);
+    expect(coachKeys).toEqual(['coach.new_student']);
+    expect(late!.data).toMatchObject({ status: 'succeeded' });
     expect(await one('lessons', p.lesson)).toMatchObject({
       status: 'scheduled',
       cancel_reason: null,
@@ -1009,9 +1056,88 @@ describe.skipIf(!up)('0284 lessons paid online (fake provider through deposit_ap
       refund_reason: 'slot_lost',
       refund_amount_iqd: 15_000,
     });
-    // Never a fourth place (held, or expired by the sweep meanwhile: never booked).
+    // Never a fourth place. 0295 (DB-35): the place ends with the refund (or the sweep expired it
+    // first, the payment still open), and no lapsed_hold strike is left on a guest who paid (D5).
     expect(await bookedPlaces(grp.lesson)).toBe(3);
-    expect(['held', 'expired']).toContain((await one('lesson_enrolments', e1)).status);
+    expect(await one('lesson_enrolments', e1)).toMatchObject({
+      status: 'expired',
+      cancel_kind: 'expired',
+    });
+    expect(await strikesOf(e1)).toEqual([]);
+    const again = await svcCall('lesson_payment_prepare', {
+      p_guest_id: g1.id,
+      p_enrolment_id: e1,
+      p_locale: 'en',
+      p_provider: 'fake',
+    });
+    expect([again.code, again.detail]).toEqual(['LESSON_NOT_PAYABLE', 'expired']);
+  });
+
+  // ── O13 (0295) ────────────────────────────────────────────────────────────
+  it('O13 (0295, DB-35): a place whose session has started is not payable; the hold never stretches past the start', async () => {
+    const g = await newGuest('l0295-o13');
+    // A coach of its own: these sessions sit around now, where a rerun must not collide.
+    const coachGuest = await guestClient(svc, 'l0295-o13-coach');
+    const c13 = await ins('coaches', {
+      profile_id: (await coachGuest.auth.getUser()).data.user!.id,
+      display_name_en: 'Coach 0295',
+      display_name_ar: 'مدرّب ٠٢٩٥',
+      public_accepted_at: new Date().toISOString(),
+    });
+    {
+      const { error } = await svc
+        .from('coach_branches')
+        .insert({ coach_id: c13, venue_id: VENUE_A_ID });
+      if (error) throw new Error(`coach_branches: ${error.message}`);
+    }
+    /** A group session from `startMin` minutes from now, its cut-off already judged. */
+    const groupAt = (startMin: number) =>
+      ins('lessons', {
+        venue_id: VENUE_A_ID,
+        coach_id: c13,
+        lesson_type_id: lt.group,
+        kind: 'group',
+        start_at: soon(startMin),
+        end_at: soon(startMin + 60),
+        price_iqd: 15_000,
+        court_share_iqd: 10_000,
+        coach_share_bp: 6000,
+        max_places: 4,
+        min_places: 1,
+        cutoff_at: soon(startMin - 120),
+        cutoff_checked_at: new Date().toISOString(),
+        status: 'scheduled',
+        booked_by_kind: 'staff',
+        created_by_staff_id: SEED_STAFF_IDS.court_desk,
+      });
+
+    // Began an hour ago: a SUCCESS could only be slot_lost, so no attempt is opened.
+    const started = await groupAt(-60);
+    const e1 = await heldPlace(g.id, { lesson: started }, 15_000);
+    const r1 = await svcCall('lesson_payment_prepare', {
+      p_guest_id: g.id,
+      p_enrolment_id: e1,
+      p_locale: 'en',
+      p_provider: 'fake',
+    });
+    expect([r1.code, r1.detail]).toEqual(['LESSON_NOT_PAYABLE', 'started']);
+    const { data: none } = await svc
+      .from('booking_payments')
+      .select('id')
+      .eq('lesson_enrolment_id', e1);
+    expect(none ?? []).toHaveLength(0);
+
+    // Starts in five minutes: the fifteen-minute payment window stretches the hold only to the start.
+    const near = await groupAt(5);
+    const e2 = await heldPlace(g.id, { lesson: near }, 15_000);
+    await setRow('lesson_enrolments', e2, { hold_expires_at: soon(2) });
+    const a = await begin(g.id, e2);
+    const startAt = Date.parse((await one('lessons', near, 'start_at')).start_at as string);
+    expect(Date.parse(a.deadline_at)).toBeGreaterThan(startAt);
+    const held = await one('lesson_enrolments', e2, 'hold_expires_at');
+    expect(Date.parse(held.hold_expires_at as string)).toBe(startAt);
+    // Paused: kept off every guest list (its lessons stay, as the file's own coach's do).
+    await setRow('coaches', c13, { status: 'paused' });
   });
 
   // ── O9, O11 ───────────────────────────────────────────────────────────────

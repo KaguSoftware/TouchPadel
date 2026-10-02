@@ -987,6 +987,194 @@ describe.skipIf(!docker)(
   },
 );
 
+/**
+ * 0296 (DB-42, DB-43, DB-44): the dedupe across steps. No CLEAR anywhere in
+ * this scenario: every push stays queued inside the 15-minute window (one
+ * transaction, one now()), so a dedupe key that is too coarse swallows the
+ * later push here, where the traces above only pass because CLEAR deletes
+ * the earlier one.
+ */
+describe.skipIf(!docker)('the dedupe across steps, nothing cleared (0296, rolled back)', () => {
+  let r: Results;
+
+  it('runs the scenario', () => {
+    r = scenario('c296d', [
+      SETUP,
+      COACH_SETUP,
+      PUSHES,
+      `select pg_temp.cbranch();`,
+      `select pg_temp.coach('ca');`,
+      ...['ga', 'gb', 'gc', 'gd', 'ge', 'gf', 'gg', 'gh'].map(PLAYER),
+
+      // ── DB-44: A joins, A cancels, B joins, inside 15 minutes.
+      E('j', 'ca', `select app.coach_create_group({{tg}}, {{v}}, ${LT(3, 10)}, 'c296-j')`),
+      KEPT('J', 'j', 'lesson_id'),
+      E('j1', 'ga', `select app.lesson_join({{J}}, 'desk', 15000, 'c296-j1')`),
+      KEPT('eA', 'j1', 'enrolment_id'),
+      E('j2', 'ga', `select app.lesson_cancel_mine({{eA}})`),
+      E('j3', 'gb', `select app.lesson_join({{J}}, 'desk', 15000, 'c296-j3')`),
+      KEPT('eB', 'j3', 'enrolment_id'),
+      Q(
+        'j_pushes',
+        `select coalesce(jsonb_agg(x.t order by x.t), '[]'::jsonb) from jsonb_array_elements_text(pg_temp.pushes()) x(t)
+          where x.t like '%#J%'`,
+      ),
+
+      // ── DB-42: two sessions of one course moved back to back by the desk.
+      E(
+        'k',
+        'desk',
+        `select app.desk_create_course({{co_ca}}, {{tc}},
+                      array[${LT(4, 12)}, ${LT(5, 12)}, ${LT(6, 12)}, ${LT(7, 12)}]::timestamptz[],
+                      'C296 course', 'دورة', 'c296-k')`,
+      ),
+      KEPT('K', 'k', 'course_id'),
+      KEPT('S1', 'k', 'lesson_ids,0'),
+      KEPT('S2', 'k', 'lesson_ids,1'),
+      KEPT('S3', 'k', 'lesson_ids,2'),
+      E('k1', 'gc', `select app.course_join({{K}}, 'desk', 60000, 'c296-k1')`),
+      KEPT('eC', 'k1', 'enrolment_id'),
+      E('k2', 'gd', `select app.course_join({{K}}, 'desk', 60000, 'c296-k2')`),
+      KEPT('eD', 'k2', 'enrolment_id'),
+      E('k3', 'desk', `select app.desk_reschedule_session({{S2}}, ${LT(5, 14)})`),
+      E('k4', 'desk', `select app.desk_reschedule_session({{S3}}, ${LT(6, 14)})`),
+      Q(
+        'k_pushes',
+        `select coalesce(jsonb_agg(x.t order by x.t), '[]'::jsonb) from jsonb_array_elements_text(pg_temp.pushes()) x(t)
+          where x.t like '%rescheduled%'`,
+      ),
+
+      // ── DB-42: one group session moved, then corrected; then an identical
+      // replay of the last move's event; then two court moves and a replay.
+      E('m', 'desk', `select app.desk_create_group({{co_ca}}, {{tg}}, ${LT(8, 10)}, 'c296-m')`),
+      KEPT('M', 'm', 'lesson_id'),
+      E('m1', 'ge', `select app.lesson_join({{M}}, 'desk', 15000, 'c296-m1')`),
+      KEPT('eE', 'm1', 'enrolment_id'),
+      E('m2', 'desk', `select app.desk_reschedule_session({{M}}, ${LT(8, 12)})`),
+      E('m3', 'desk', `select app.desk_reschedule_session({{M}}, ${LT(8, 14)})`),
+      // The same start again: a duplicate, no event.
+      E('m4', 'desk', `select app.desk_reschedule_session({{M}}, ${LT(8, 14)})`),
+      // A writer's retry that writes the same event twice.
+      X(`insert into lesson_events (venue_id, lesson_id, course_id, enrolment_id, type, actor, actor_staff_id, code, data)
+         select venue_id, lesson_id, course_id, enrolment_id, type, actor, actor_staff_id, code, data
+           from lesson_events where lesson_id = {{M}} and type = 'rescheduled' order by id desc limit 1`),
+      Q(
+        'm_pushes',
+        `select coalesce(jsonb_agg(x.t order by x.t), '[]'::jsonb) from jsonb_array_elements_text(pg_temp.pushes()) x(t)
+          where x.t like '%rescheduled%#%M' or x.t like '%rescheduled%@M'`,
+      ),
+      `select pg_temp.keep('court0', $q$select court_id::text from reservations
+                                         where lesson_id = {{M}} and status in ('pending', 'confirmed', 'arrived')$q$);`,
+      `select pg_temp.keep('courtX', $q$select c.id::text from courts c
+                                         where c.venue_id = {{v}} and c.is_active and c.id <> {{court0}}
+                                         order by c.sort_order limit 1$q$);`,
+      E('m5', 'desk', `select app.desk_move_lesson_court({{M}}, {{courtX}})`),
+      E('m6', 'desk', `select app.desk_move_lesson_court({{M}}, {{court0}})`),
+      X(`insert into lesson_events (venue_id, lesson_id, course_id, enrolment_id, type, actor, actor_staff_id, code, data)
+         select venue_id, lesson_id, course_id, enrolment_id, type, actor, actor_staff_id, code, data
+           from lesson_events where lesson_id = {{M}} and type = 'court_moved' order by id desc limit 1`),
+      Q(
+        'm_court_pushes',
+        `select coalesce(jsonb_agg(x.t order by x.t), '[]'::jsonb) from jsonb_array_elements_text(pg_temp.pushes()) x(t)
+          where x.t like '%court_moved%'`,
+      ),
+
+      // ── DB-43: a held place lapses, then the bank pays late and the place is
+      // revived (events planted the way 0295 writes them). A normal
+      // paid_online tells only the coach; a paid place refunded slot_lost
+      // (an expired event with data.reason) tells the guest nothing.
+      E('n', 'ca', `select app.coach_create_group({{tg}}, {{v}}, ${LT(9, 10)}, 'c296-n')`),
+      KEPT('N', 'n', 'lesson_id'),
+      X(`select pg_temp.plant_enrolment('eF', '{"lesson": "N", "guest": "gf", "payment_mode": "online",
+                                             "status": "expired", "price": 15000}'::jsonb)`),
+      X(`insert into lesson_events (venue_id, lesson_id, enrolment_id, type, actor, code, data)
+         values ({{v}}, {{N}}, {{eF}}, 'expired', 'system', 'payment_expired',
+                 jsonb_build_object('lesson_id', {{N}}::text))`),
+      X(
+        `update lesson_enrolments set status = 'booked', cancel_kind = null, cancelled_at = null where id = {{eF}}`,
+      ),
+      X(`insert into lesson_events (venue_id, lesson_id, enrolment_id, type, actor, data)
+         values ({{v}}, {{N}}, {{eF}}, 'paid_online', 'system',
+                 jsonb_build_object('lesson_id', {{N}}::text, 'payment_id', gen_random_uuid(), 'amount_iqd', 15000,
+                                    'places_taken', 1, 'places_total', 4, 'revived', true))`),
+      Q(
+        'n_order',
+        `select coalesce(jsonb_agg(pg_temp.nm(o.profile_id::text) || ':' || (o.payload->>'title_key') order by o.id),
+                         '[]'::jsonb)
+           from notification_outbox o
+          where o.kind in ('lesson_update', 'coach_update')
+            and o.payload->>'id' in ({{eF}}::text, {{N}}::text)`,
+      ),
+      X(`select pg_temp.plant_enrolment('eG', '{"lesson": "N", "guest": "gg", "payment_mode": "online",
+                                             "price": 15000}'::jsonb)`),
+      X(`insert into lesson_events (venue_id, lesson_id, enrolment_id, type, actor, data)
+         values ({{v}}, {{N}}, {{eG}}, 'paid_online', 'system',
+                 jsonb_build_object('lesson_id', {{N}}::text, 'payment_id', gen_random_uuid(), 'amount_iqd', 15000,
+                                    'places_taken', 2, 'places_total', 4))`),
+      X(`select pg_temp.plant_enrolment('eH', '{"lesson": "N", "guest": "gh", "payment_mode": "online",
+                                             "status": "expired", "price": 15000}'::jsonb)`),
+      X(`insert into lesson_events (venue_id, lesson_id, enrolment_id, type, actor, code, data)
+         values ({{v}}, {{N}}, {{eH}}, 'expired', 'system', 'payment_expired',
+                 jsonb_build_object('lesson_id', {{N}}::text, 'reason', 'slot_lost'))`),
+      Q(
+        'n_pushes',
+        `select coalesce(jsonb_agg(x.t order by x.t), '[]'::jsonb) from jsonb_array_elements_text(pg_temp.pushes()) x(t)
+          where x.t like '%#N%' or x.t like '%@N%'`,
+      ),
+    ]);
+  });
+
+  it('DB-44 — A joins, A cancels, B joins: two coach.new_student rows and one coach.student_cancelled', () => {
+    expect(list(r, 'j_pushes')).toEqual([
+      'ca:coach.new_student#J[1/4]',
+      'ca:coach.new_student#J[1/4]',
+      'ca:coach.student_cancelled#J[0/4]',
+    ]);
+  });
+
+  it('DB-42 — two sessions of a course moved back to back: two pushes per student, and two to the coach', () => {
+    expect(list(r, 'k_pushes')).toEqual([
+      'ca:coach.rescheduled_by_staff#S2',
+      'ca:coach.rescheduled_by_staff#S3',
+      'gc:lesson.rescheduled#eC@S2',
+      'gc:lesson.rescheduled#eC@S3',
+      'gd:lesson.rescheduled#eD@S2',
+      'gd:lesson.rescheduled#eD@S3',
+    ]);
+  });
+
+  it('DB-42 — one session moved, then corrected: two pushes each; an identical replay adds none', () => {
+    expect(data(r, 'm4')).toMatchObject({ duplicate: true });
+    expect(list(r, 'm_pushes')).toEqual([
+      'ca:coach.rescheduled_by_staff#M',
+      'ca:coach.rescheduled_by_staff#M',
+      'ge:lesson.rescheduled#eE@M',
+      'ge:lesson.rescheduled#eE@M',
+    ]);
+    // Two court moves (away and back): two each; the replayed event adds none.
+    expect(list(r, 'm_court_pushes')).toEqual([
+      'ca:coach.court_moved#M',
+      'ca:coach.court_moved#M',
+      'ge:lesson.court_moved#eE@M',
+      'ge:lesson.court_moved#eE@M',
+    ]);
+  });
+
+  it('DB-43 — a late success that revives a lapsed place tells the guest; a normal one and a refunded one do not', () => {
+    expect(data(r, 'n_order')).toEqual([
+      'gf:lesson.payment_expired',
+      'gf:lesson.booked',
+      'ca:coach.new_student',
+    ]);
+    expect(list(r, 'n_pushes')).toEqual([
+      'ca:coach.new_student#N[1/4]',
+      'ca:coach.new_student#N[2/4]',
+      'gf:lesson.booked#eF@N',
+      'gf:lesson.payment_expired#eF@N',
+    ]);
+  });
+});
+
 describe.skipIf(!docker)('reminders follow the rows (rolled back)', () => {
   let r: Results;
 

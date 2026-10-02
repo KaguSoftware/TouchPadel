@@ -383,6 +383,8 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
       onDelete: 'keep',
     },
     idempotency_key: n, created_at: n, updated_at: n,
+    // 0292 (DB-18): a time (cancelled_at plus the window), no guest data.
+    kept_until: n,
   },
   // ids, codes, counts and times only.
   lesson_attendance: {

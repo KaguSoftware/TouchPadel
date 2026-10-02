@@ -15,7 +15,11 @@
  *     the others; then it removes the photos of incident reports past their
  *     purge date (wave5-addendum-2026-09-25 §2.6.2), and last the incident
  *     and campaign photos nobody claimed a day on; a database without either
- *     yet costs one failure each and none of the counts before it;
+ *     yet costs one failure each and none of the counts before it; after
+ *     them the coach photo folders queued for removal (R43, coaching review
+ *     EC-01): each listed in menu-media, a photo a row still shows kept, the
+ *     folder marked, an empty one too, a storage error leaving it queued;
+ *     the wiring and 0298's nudge held by their source text;
  *   * with the stack (a rolled-back transaction): the SQL the function drives
  *     (the incident and orphan photo pairs included) answers the service role and
  *     refuses every client role (42501), the driver and marketing included; neither may send a launch step
@@ -26,6 +30,9 @@
  *     the service key is refused.
  */
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
@@ -205,6 +212,15 @@ describe('protocol-action: the launch', () => {
 });
 
 describe('protocol-action: the tick', () => {
+  /** The coach photo phase with nothing queued (EC-01). */
+  const NO_COACH_PURGE: Pick<TickPorts, 'coachPurgeDue' | 'listMenuFolder' | 'pathInUse' | 'removeMenuPhotos' | 'markCoachPurged'> = {
+    coachPurgeDue: async () => [],
+    listMenuFolder: async () => [],
+    pathInUse: async () => false,
+    removeMenuPhotos: async () => undefined,
+    markCoachPurged: async () => undefined,
+  };
+
   it('launches, reverts, skips and purges, and one bad run never stops the others', async () => {
     const log: string[] = [];
     const ports: TickPorts = {
@@ -246,8 +262,9 @@ describe('protocol-action: the tick', () => {
         log.push(`remove menu ${path}`);
       },
       log: () => undefined,
+      ...NO_COACH_PURGE,
     };
-    expect(await tick(ports)).toEqual({ launched: 1, reverted: 1, skipped: 1, failed: 4, purged: 2, incidents_purged: 0, orphans_purged: 0 });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 1, skipped: 1, failed: 4, purged: 2, incidents_purged: 0, orphans_purged: 0, coach_purged: 0 });
     expect(log).toContain(`copy items/i1/r1.webp`);
     // What did not launch leaves nothing public: the reverted copy and the
     // refused one are removed; the launched one, a copy that never landed
@@ -291,6 +308,7 @@ describe('protocol-action: the tick', () => {
       menuPhotoInUse: async () => false,
       removeMenuPhoto: async () => undefined,
       log: (m) => log.push(`log ${m}`),
+      ...NO_COACH_PURGE,
     };
   }
 
@@ -304,7 +322,7 @@ describe('protocol-action: the tick', () => {
       ],
       log,
     );
-    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 2, orphans_purged: 0 });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 2, orphans_purged: 0, coach_purged: 0 });
     // Only staff-media paths are removed; a report whose removal failed stays
     // due; one with nothing left to remove is still marked.
     expect(log).toContain(`remove ${INCIDENT}`);
@@ -319,14 +337,14 @@ describe('protocol-action: the tick', () => {
     const ports = incidentPorts(async () => {
       throw new Error('incident_photo_purge_due: Could not find the function (PGRST202)');
     }, log);
-    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0 });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0 });
     expect(log.some((l) => /^log incident purge: .*PGRST202/.test(l))).toBe(true);
   });
 
   it('removes the photos nobody claimed, last, then lets their slots go', async () => {
     const log: string[] = [];
     const ports = incidentPorts(async () => [{ incident_id: 'n1', paths: [INCIDENT] }], log, async () => [ORPHAN, CAMPAIGN]);
-    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 0, purged: 1, incidents_purged: 1, orphans_purged: 2 });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 0, purged: 1, incidents_purged: 1, orphans_purged: 2, coach_purged: 0 });
     expect(log.slice(-2)).toEqual([`remove ${ORPHAN},${CAMPAIGN}`, `orphans ${ORPHAN},${CAMPAIGN}`]);
     expect(log.indexOf('incident n1')).toBeLessThan(log.indexOf(`remove ${ORPHAN},${CAMPAIGN}`));
   });
@@ -334,12 +352,121 @@ describe('protocol-action: the tick', () => {
   it('keeps the slots when the objects could not be removed, and every count before', async () => {
     const log: string[] = [];
     const failing = incidentPorts(async () => [], log, async () => [ORPHAN, OTHER]);
-    expect(await tick(failing)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0 });
+    expect(await tick(failing)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0 });
     expect(log.some((l) => l.startsWith('orphans'))).toBe(false);
     const missing = incidentPorts(async () => [], [], async () => {
       throw new Error('staff_media_orphan_purge_due: Could not find the function (PGRST202)');
     });
-    expect(await tick(missing)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0 });
+    expect(await tick(missing)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0 });
+  });
+
+  // EC-01 (R43): the coach photo folders queued by a retirement, an account
+  // deletion or a replaced photo.
+  const C1 = 'coaches/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const C2 = 'coaches/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const C3 = 'coaches/cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  /** Ports with one launch and one run purge, then the coach phase over the given folders. */
+  function coachPorts(
+    log: string[],
+    opts: {
+      due?: () => Promise<Array<{ id: string; folder: string }>>;
+      objects?: Record<string, string[]>;
+      inUse?: string[];
+      failList?: string;
+      failRemove?: string;
+    },
+  ): TickPorts {
+    return {
+      ...incidentPorts(async () => [], log),
+      coachPurgeDue: opts.due ?? (async () => []),
+      listMenuFolder: async (folder) => {
+        log.push(`list ${folder}`);
+        if (folder === opts.failList) throw new Error('list menu-media: storage down');
+        return opts.objects?.[folder] ?? [];
+      },
+      pathInUse: async (path) => (opts.inUse ?? []).includes(path),
+      removeMenuPhotos: async (paths) => {
+        log.push(`remove menu ${paths.join(',')}`);
+        if (opts.failRemove && paths.some((p) => p.startsWith(`${opts.failRemove}/`))) throw new Error('remove failed');
+      },
+      markCoachPurged: async (id) => {
+        log.push(`coach ${id}`);
+      },
+    };
+  }
+
+  it('empties each queued coach folder in menu-media, last, keeps a photo a row still shows, and marks an empty folder', async () => {
+    const log: string[] = [];
+    const ports = coachPorts(log, {
+      due: async () => [
+        { id: 'q1', folder: C1 },
+        { id: 'q2', folder: C2 },
+        { id: 'q3', folder: C3 },
+      ],
+      objects: {
+        [C1]: [`${C1}/a.jpg`, `${C1}/b.webp`, 'items/not/this/folder.jpg'],
+        [C2]: [`${C2}/live.jpg`, `${C2}/old.jpg`],
+        [C3]: [],
+      },
+      // A coach brought back with the same photo: that object stays.
+      inUse: [`${C2}/live.jpg`],
+    });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 0, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 3 });
+    expect(log.filter((l) => l.startsWith('remove menu'))).toEqual([`remove menu ${C1}/a.jpg,${C1}/b.webp`, `remove menu ${C2}/old.jpg`]);
+    expect(log.filter((l) => l.startsWith('coach '))).toEqual(['coach q1', 'coach q2', 'coach q3']);
+    // The coach phase runs after every earlier one.
+    expect(log.indexOf('purged p1')).toBeLessThan(log.indexOf(`list ${C1}`));
+  });
+
+  it('leaves a folder queued when storage fails, and one bad folder never stops the others', async () => {
+    const log: string[] = [];
+    const ports = coachPorts(log, {
+      due: async () => [
+        { id: 'q1', folder: C1 },
+        { id: 'q2', folder: C2 },
+        { id: 'q3', folder: C3 },
+        { id: 'q4', folder: 'items/not-a-coach' },
+      ],
+      objects: { [C2]: [`${C2}/x.jpg`], [C3]: [`${C3}/y.jpg`] },
+      failList: C1,
+      failRemove: C2,
+    });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 3, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 1 });
+    expect(log.filter((l) => l.startsWith('coach '))).toEqual(['coach q3']);
+    // A folder outside coaches/ is never listed.
+    expect(log).not.toContain('list items/not-a-coach');
+    expect(log.some((l) => /^log coach photos q1: .*storage down/.test(l))).toBe(true);
+  });
+
+  it('keeps every count before it when the coach queue cannot be read (PGRST202)', async () => {
+    const log: string[] = [];
+    const ports = coachPorts(log, {
+      due: async () => {
+        throw new Error('coach_photo_purge_due: Could not find the function (PGRST202)');
+      },
+    });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0 });
+    expect(log.some((l) => /^log coach photo purge: .*PGRST202/.test(l))).toBe(true);
+  });
+});
+
+describe('protocol-action: the coach photo purge wiring (EC-01)', () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const INDEX = readFileSync(resolve(here, '../supabase/functions/protocol-action/index.ts'), 'utf8');
+  const NUDGE = readFileSync(resolve(here, '../supabase/migrations/20261002000298_coach_photo_purge_tick.sql'), 'utf8');
+
+  it('the tick reads the coach queue, asks storage_path_in_use, removes from menu-media and marks the folder', () => {
+    expect(INDEX).toMatch(/rpc\('coach_photo_purge_due', \{ p_limit: 20 \}\)/);
+    expect(INDEX).toMatch(/rpc\('storage_path_in_use', \{ p_path: path \}\)/);
+    expect(INDEX).toMatch(/rpc\('coach_photo_purged', \{ p_id: id \}\)/);
+    expect(INDEX).toMatch(/storage\s*\.from\(MENU_BUCKET\)\s*\.list\(folder, \{ limit: LIST_PAGE, offset/);
+    expect(INDEX).toMatch(/storage\.from\(MENU_BUCKET\)\.remove\(paths\)/);
+  });
+
+  it('the 5-minute nudge counts a queued coach folder as due work, and the service role may ask storage_path_in_use', () => {
+    expect(NUDGE).toMatch(/create or replace function app\.protocol_tick_nudge\(\)/);
+    expect(NUDGE).toMatch(/not exists \(select 1 from coach_photo_purges q where q\.purged_at is null\)/);
+    expect(NUDGE).toMatch(/grant execute on function app\.storage_path_in_use\(text\) to authenticated, service_role;/);
   });
 });
 
@@ -427,6 +554,9 @@ function stackScenario(): Record<string, { ok: boolean; data?: unknown; state?: 
     ${call('inc_due', svc, 'service_role', `app.incident_photo_purge_due(10)`)}
     ${call('orph_due', svc, 'service_role', `app.staff_media_orphan_purge_due(10)`)}
     ${call('orph_purged', svc, 'service_role', `to_jsonb(app.staff_media_orphans_purged('{}'::text[]))`)}
+    ${call('coach_due', svc, 'service_role', `app.coach_photo_purge_due(10)`)}
+    ${call('coach_purged', svc, 'service_role', `to_jsonb(app.coach_photo_purged(gen_random_uuid()) is null)`)}
+    ${call('in_use', svc, 'service_role', `to_jsonb(app.storage_path_in_use('coaches/' || gen_random_uuid() || '/q.jpg'))`)}
     ${['drv', 'mkt']
       .map(
         (w) => `
@@ -437,7 +567,9 @@ function stackScenario(): Record<string, { ok: boolean; data?: unknown; state?: 
     ${call(`${w}_inc_due`, staff(w), 'authenticated', `app.incident_photo_purge_due(10)`)}
     ${call(`${w}_inc_purged`, staff(w), 'authenticated', `to_jsonb(app.incident_photos_purged(gen_random_uuid()))`)}
     ${call(`${w}_orph_due`, staff(w), 'authenticated', `app.staff_media_orphan_purge_due(10)`)}
-    ${call(`${w}_orph_purged`, staff(w), 'authenticated', `to_jsonb(app.staff_media_orphans_purged('{}'::text[]))`)}`,
+    ${call(`${w}_orph_purged`, staff(w), 'authenticated', `to_jsonb(app.staff_media_orphans_purged('{}'::text[]))`)}
+    ${call(`${w}_coach_due`, staff(w), 'authenticated', `app.coach_photo_purge_due(10)`)}
+    ${call(`${w}_coach_purged`, staff(w), 'authenticated', `to_jsonb(app.coach_photo_purged(gen_random_uuid()) is null)`)}`,
       )
       .join('\n')}
     ${call('owner_launch', staff('owner'), 'authenticated', `app.submit_step(${val('launch')}::uuid, ${launchRecord}, '{}'::text[], null)`)}
@@ -464,9 +596,13 @@ describe.skipIf(!docker)('protocol-action: the SQL it drives (rolled-back transa
     expect(r.inc_due!.ok).toBe(true);
     expect(r.orph_due!.ok).toBe(true);
     expect(r.orph_purged).toMatchObject({ ok: true, data: 0 });
+    // EC-01: the coach photo pair, and storage_path_in_use for the service role (0298).
+    expect(r.coach_due!.ok).toBe(true);
+    expect(r.coach_purged).toMatchObject({ ok: true, data: true });
+    expect(r.in_use).toEqual({ ok: true, data: false });
     for (const w of ['drv', 'mkt']) {
       expect(r[`${w}_launch`], w).toMatchObject({ ok: false, code: 'NOT_STEP_ACTOR' });
-      for (const fn of ['photos', 'due', 'purged', 'inc_due', 'inc_purged', 'orph_due', 'orph_purged']) {
+      for (const fn of ['photos', 'due', 'purged', 'inc_due', 'inc_purged', 'orph_due', 'orph_purged', 'coach_due', 'coach_purged']) {
         expect(r[`${w}_${fn}`], `${w}_${fn}`).toMatchObject({ ok: false, state: '42501' });
       }
     }
