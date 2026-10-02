@@ -4,6 +4,25 @@ Written 2026-09-19 at `main` @ `3d70643` (clean tree, `two` fully merged). Sourc
 
 **Status 2026-09-20: approved and building.** Change-control is agreed; the build runs on `main`, Parsa + agents only, criticals first. The newest dated "Status" section below is the live status; Parts A–D are the 09-19 audit and stand as written except where the status section corrects them. The fuller decision record and per-milestone design were written to `~/.claude/plans/i-got-this-scope-binary-piglet.md`, which is **not on the dev machine** (checked 2026-09-23). Until Parsa copies it into the repo, the repo files — this file, `PHASE-2-CHECKLIST.md` and `HANDOFF.md` — are the record, and where they disagree with a memory of that file, the repo wins.
 
+## Status 2026-10-02: coaching built
+
+- **Coaching (milestone 5, change-order item 2) was planned with Parsa and approved on 2026-10-01,
+  then built by 2026-10-02.** It replaces §C2 below. Decisions C-1…C-31 and rulings R1–R84 are in
+  `docs/design/coaching/build-contracts-2026-10-01.md`; `CONTINUE.md` there says where it stands.
+- **The model:** a coach is a guest with a coach record (no staff role) and works from a coach mode
+  in the phone app. Three kinds: private (booked instantly), group sessions and courses (created by
+  the coach or a manager). A lesson is its own `reservation_kind 'lesson'` on a court chosen
+  automatically. Desk payment by default, Qi when the owner switches it on. Every lesson price and
+  court share goes through the price/promo protocol. Monthly statements: 60 % of what was
+  collected less a fixed court share per session, approved by the branch manager, paid outside the
+  till. A `/coaching` web page, prices behind a per-branch switch.
+- **Migrations 0273–0289** (written as 0270–0286; renumbered when the wages migrations took
+  0270–0272). Shipped switched off on every branch.
+- **Also changed by it:** refunds are counted on the day they are made, for every refund (C-31), so
+  `day_sessions.cash_expected_iqd` / `card_expected_iqd` became signed.
+- **Left:** the push, the operator tag, the production `eas build`, the client's coach list and
+  prices, the terms' lessons section before online lesson payment, and a TestFlight trial.
+
 ## Status 2026-09-27: open matches designed
 
 - **Open matches (item 3) were planned with Parsa and approved on 2026-09-27**, as their own milestone 6, built next, before coaching; tournaments become milestone 7. The change order is revised to match (EN + AR), still unsigned.

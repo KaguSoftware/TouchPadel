@@ -2162,6 +2162,41 @@ synced in during the run, so every open-matches ordinal moved up by one.
   `features/availability/useAvailabilityBooking.ts`.
 - `e2e/` — Playwright config + specs (EN + AR).
 
+## Day 40 (2026-10-01 → 02) — coaching built (Milestone 5)
+
+- **Planned and approved with Parsa on 2026-10-01** (six rounds; decisions C-1…C-20, then C-21…C-31
+  from two adversarial reviews). Record: `docs/design/coaching/` — the build contracts (§0
+  decisions, §1 names, rulings R1–R84 in §1.12–§1.14), four lane files, the two reviews and
+  `CONTINUE.md`.
+- **Built by a fast track:** the remaining migrations were drafted in parallel into an untracked
+  staging folder and verified in order on the local stack; the four app lanes (phone guest, coach
+  mode, operator, web) were built in git worktrees and merged on one integration branch.
+- **Migrations 0273–0289.** Written as 0270–0286; the teammates' wages migrations took 0270–0272 the
+  same evening, so ours moved up by three at the merge (the design docs still say 0270–0286). No
+  re-issued function overlaps the wages ones.
+- **What it is:** coaches are guests with a coach record and a coach mode in the phone app (reachable
+  from the staff hub too). Private lessons are booked instantly on a 30-minute grid; group sessions
+  and courses are created by the coach or a manager, with a minimum and a cut-off. A lesson is its
+  own `reservation_kind 'lesson'` on a court chosen automatically; every other path that could
+  cancel, move or bill that court row refuses `LESSON_VIA_COACHING`. A lesson is paid on its own
+  `kind 'lesson'` tab at the desk, or by Qi (`lesson-begin`) when the owner switches it on. Prices
+  and court shares go through the price/promo protocol (`lesson_price`, `lesson_launch`,
+  `coach_price`). Monthly statements: 60 % of what was collected less a fixed court share per
+  session, approved by the branch manager, marked paid with a PIN, never a till movement. Every
+  lesson push is queued by one trigger on `lesson_events`. A `/coaching` web page shows coaches
+  who accepted a public profile, with prices behind a per-branch switch.
+- **A change for every refund (C-31):** day close, its summary, `ops_overview` and `day_close_shop`
+  date a refund by the till shift it was made in; `day_sessions` expected cash/card became signed.
+- **Verified on a fresh stack:** full db suite (3087), every db gate, `pnpm security`, root
+  typecheck/lint/test, mobile smoke (487), e2e EN + AR (139, incl. 13 coaching journeys).
+- **Switched off on every branch** (`coaching_enabled = false`). Left: the operator tag, the
+  production `eas build` (coach mode, the new date-time picker, the `/c/` links), the client's coach
+  list and prices, the terms' lessons section before online lesson payment (C-26), a TestFlight
+  trial at one branch.
+- **Also on 2026-10-02:** main was red from the teammates' push (the landing-page e2e test still
+  expected the removed header links); fixed on its own first (`b9f35c4e`), with a node-forge audit
+  waiver until 2026-10-16 (no fix published; reached only through `@expo/cli`).
+
 ## Roadmap / next steps
 1. ✔ DONE Day 1: platform foundation (see above).
 2. ✔ DONE Day 2 waves 0–6, 9–12: design pack, DB 0027–0035 + tests, edge functions, core analytics,
