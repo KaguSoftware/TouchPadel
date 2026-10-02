@@ -442,7 +442,8 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     expect(minutes).toBe(270);
     expect(Object.keys(s.kpis).sort()).toEqual([
       'booked_minutes', 'booked_total', 'booking_days', 'bookings', 'cancellation_rate_pct', 'cancellations',
-      'desk_bookings', 'holds_expired', 'mobile_bookings', 'no_show_rate_pct', 'no_shows', 'occupancy_pct',
+      // 0288 (coaching, CM-14): a lesson's court time is occupied time.
+      'desk_bookings', 'holds_expired', 'lesson_minutes', 'lessons', 'mobile_bookings', 'no_show_rate_pct', 'no_shows', 'occupancy_pct',
       'price_per_booked_hour_iqd', 'rev_per_open_hour_iqd', 'revenue_iqd',
     ]);
     expect(s.kpis).toMatchObject({
@@ -471,7 +472,8 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     const pc = s.per_court[0]!;
     expect(Object.keys(pc).sort()).toEqual([
       'avg_duration_min', 'booked_minutes', 'booked_total', 'bookings', 'cancellation_rate_pct', 'cancellations',
-      'court_id', 'desk_bookings', 'is_active', 'mobile_bookings', 'name_ar', 'name_en', 'no_show_rate_pct', 'no_shows',
+      'court_id', 'desk_bookings', 'is_active', 'lesson_minutes', 'lessons', 'mobile_bookings', 'name_ar', 'name_en',
+      'no_show_rate_pct', 'no_shows',
       'occupancy_pct', 'open_minutes', 'rev_per_open_hour_iqd', 'revenue_iqd',
     ]);
     expect(pc).toMatchObject({
@@ -526,7 +528,8 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     expect(s.heatmap.some((c) => c.booked_minutes === 0 && (c as unknown as { open_minutes: number }).open_minutes > 0)).toBe(true);
     for (const c of s.heatmap) {
       expect(Object.keys(c).sort()).toEqual([
-        'booked_minutes', 'bookings', 'cancellations', 'dow', 'holds_expired', 'hour', 'no_shows', 'open_days', 'open_minutes', 'revenue_iqd',
+        'booked_minutes', 'bookings', 'cancellations', 'dow', 'holds_expired', 'hour', 'lesson_minutes', 'no_shows', 'open_days',
+        'open_minutes', 'revenue_iqd',
       ]);
     }
   });

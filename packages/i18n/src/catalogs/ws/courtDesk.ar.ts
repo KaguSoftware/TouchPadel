@@ -189,6 +189,8 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
       booking: 'حجز',
       hold: 'حجز مؤقت من التطبيق',
       maintenance: 'إيقاف ملعب',
+      // DRAFT-AR (coaching operator.md §5.8).
+      lesson: 'حصة',
     },
     sourceLabel: {
       mobile: 'التطبيق',

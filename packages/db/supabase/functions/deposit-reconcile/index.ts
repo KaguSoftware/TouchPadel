@@ -43,9 +43,14 @@ interface DueRow {
   refund_request_id: string | null;
   refund_amount_iqd: number | null;
   refund_reason: string | null;
-  /** 0258: 'ticket' for a purchase of open-match tickets (a cash-out or a DF-20 refund). */
-  purpose: 'deposit' | 'ticket';
+  /**
+   * 0258: 'ticket' for a purchase of open-match tickets (a cash-out or a DF-20 refund);
+   * 0284: 'lesson' for a lesson place paid online (a coaching refund, or a SUCCESS that did not book).
+   */
+  purpose: 'deposit' | 'ticket' | 'lesson';
   ticket_count: number | null;
+  /** 0284: the enrolment of a purpose 'lesson' row; NULL otherwise. */
+  lesson_enrolment_id: string | null;
 }
 
 Deno.serve(handle('deposit-reconcile', async (req) => {
@@ -128,7 +133,7 @@ Deno.serve(handle('deposit-reconcile', async (req) => {
         paymentId: row.provider_payment_id,
         refundRequestId: row.refund_request_id,
         amountIqd: Number(row.refund_amount_iqd),
-        message: `Touch Padel ${row.purpose === 'ticket' ? 'ticket' : 'deposit'} refund (${row.refund_reason ?? 'refund'})`,
+        message: `Touch Padel ${row.purpose === 'ticket' ? 'ticket' : row.purpose === 'lesson' ? 'lesson' : 'deposit'} refund (${row.refund_reason ?? 'refund'})`,
       });
       const s = r.status.toUpperCase();
       await outcome(s === 'SUCCESS' ? 'succeeded' : s === 'FAILED' ? 'failed' : 'pending', r.status, r.refundId, r.raw);

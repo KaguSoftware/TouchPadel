@@ -119,6 +119,13 @@
       "reason": "NO FIX PUBLISHED (advisory lists fixed in <0.0.0). Arbitrary file write via symlink entries when extracting an untrusted zip. Same reachability as GHSA-jmr9-qjv8-65gv: only electron-builder unpacking the Electron distribution it downloaded over TLS with a checksum. Re-check with the Electron 33 -> 39 upgrade or at expiry.",
       "owner": "DEV",
       "expires": "2026-12-31"
+    },
+    {
+      "id": "GHSA-86w9-cpqp-85rv",
+      "module": "node-forge",
+      "reason": "NO FIX PUBLISHED (advisory lists fixed in <0.0.0). RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements. Reached only through @expo/cli (its own use and @expo/code-signing-certificates): a development and build-time tool for expo-updates code signing, never in an app bundle, the web build or an edge function. Re-check at expiry, or upgrade when Expo ships a node-forge with the fix.",
+      "owner": "DEV",
+      "expires": "2026-10-16"
     }
   ]
 }

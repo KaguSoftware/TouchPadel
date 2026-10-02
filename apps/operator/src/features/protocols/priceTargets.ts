@@ -7,15 +7,24 @@
  *
  * List prices, rules and discounts only: the targets carry no cost and no
  * sales (those are the numbers step's, price_promo_numbers, MGMT only).
+ *
+ * Coaching (0285, operator.md §5.14.2): `lesson_price` and `lesson_launch`
+ * name a lesson type (`lessonTypes`), `coach_price` a coach and one of the
+ * types they teach (`coaches`, each with its types nested). Those rows carry
+ * exactly the keys of their COACHING_SHAPES entries (R81, X28), under the
+ * same names; a figure the answer lacks is null, never a made-up zero.
  */
+import { COACHING_SHAPES } from '@touch/core/coaching';
 import type { PriceChangeKind } from '@touch/core/protocols';
-import type { Locale } from '@touch/i18n';
+import { countPhrase, formatIQD, formatNumber, type Locale, type MessageKey } from '@touch/i18n';
 import { isObj, pickText } from './protocolLogic';
 import type { Obj } from './formModel';
 
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
+type Tr = (key: MessageKey, params?: Record<string, string | number>) => string;
 
 export interface TargetSize {
   variant_id: string;
@@ -61,15 +70,100 @@ export interface TargetRule {
   fields: Obj;
 }
 
+export type LessonKindWord = 'private' | 'group' | 'course';
+
+/** One `lesson_types[]` row (COACHING_SHAPES.price_promo_targets_lesson_types). */
+export interface TargetLessonType {
+  lesson_type_id: string;
+  kind: string;
+  name_en: string;
+  name_ar: string;
+  duration_min: number | null;
+  /** A course's sessions; null otherwise. */
+  sessions_count: number | null;
+  max_places: number | null;
+  price_iqd: number | null;
+  court_share_iqd: number | null;
+  is_active: boolean;
+}
+
+/** One type a coach teaches here (COACHING_SHAPES.price_promo_targets_coaches, `coaches[].lesson_types[]`). */
+export interface TargetCoachType {
+  lesson_type_id: string;
+  name_en: string;
+  name_ar: string;
+  kind: string;
+  sessions_count: number | null;
+  /** The type's price. */
+  type_price_iqd: number | null;
+  /** The coach's own price for it, null when the type's applies. */
+  coach_price_iqd: number | null;
+}
+
+/** One `coaches[]` row: a coach not retired at the venue, and the types they teach there. */
+export interface TargetCoach {
+  coach_id: string;
+  display_name_en: string;
+  display_name_ar: string;
+  lesson_types: TargetCoachType[];
+}
+
 export interface Targets {
   items: TargetItem[];
   addons: TargetAddon[];
   promotions: TargetPromotion[];
   rules: TargetRule[];
   featured: { item_id: string | null; pct: number; hero_mode: string | null } | null;
+  /**
+   * Coaching (0285): the lesson types of a `lesson_price` / `lesson_launch`
+   * change, and the coaches of a `coach_price` one. `readTargets` always sets
+   * both; they are optional so an empty list built by hand stays a `Targets`.
+   */
+  lessonTypes?: TargetLessonType[];
+  coaches?: TargetCoach[];
 }
 
-const EMPTY: Targets = { items: [], addons: [], promotions: [], rules: [], featured: null };
+const EMPTY: Targets = { items: [], addons: [], promotions: [], rules: [], featured: null, lessonTypes: [], coaches: [] };
+
+/** The X28 key lists the rows below carry (R81): the shapes file decides the names. */
+const LESSON_TYPE_KEYS = COACHING_SHAPES.price_promo_targets_lesson_types.nested?.['lesson_types[]'] ?? [];
+const COACH_KEYS = COACHING_SHAPES.price_promo_targets_coaches.nested?.['coaches[]'] ?? [];
+const COACH_TYPE_KEYS = COACHING_SHAPES.price_promo_targets_coaches.nested?.['coaches[].lesson_types[]'] ?? [];
+
+/** The text keys of a row; every other listed key is a figure (or `is_active`, a flag). */
+const TEXT_KEYS = new Set(['lesson_type_id', 'coach_id', 'kind', 'name_en', 'name_ar', 'display_name_en', 'display_name_ar']);
+
+/** A row with exactly `keys`: text as text ('' when missing), figures as numbers or null, flags as booleans. */
+function pickRow(raw: Obj, keys: readonly string[]): Obj {
+  const out: Obj = {};
+  for (const k of keys) {
+    if (k === 'lesson_types') continue;
+    if (k === 'is_active') out[k] = raw[k] !== false;
+    else if (TEXT_KEYS.has(k)) out[k] = str(raw[k]) ?? '';
+    else out[k] = num(raw[k]);
+  }
+  return out;
+}
+
+function readLessonTypes(raw: unknown): TargetLessonType[] {
+  return arr(raw)
+    .filter(isObj)
+    .map((t) => pickRow(t, LESSON_TYPE_KEYS) as unknown as TargetLessonType)
+    .filter((t) => t.lesson_type_id !== '');
+}
+
+function readCoaches(raw: unknown): TargetCoach[] {
+  return arr(raw)
+    .filter(isObj)
+    .map((c) => ({
+      ...(pickRow(c, COACH_KEYS) as unknown as Omit<TargetCoach, 'lesson_types'>),
+      lesson_types: arr(c.lesson_types)
+        .filter(isObj)
+        .map((t) => pickRow(t, COACH_TYPE_KEYS) as unknown as TargetCoachType)
+        .filter((t) => t.lesson_type_id !== ''),
+    }))
+    .filter((c) => c.coach_id !== '');
+}
 
 function readSize(raw: unknown): TargetSize | null {
   if (!isObj(raw) || typeof raw.variant_id !== 'string') return null;
@@ -179,7 +273,7 @@ export function readTargets(raw: unknown): Targets {
           hero_mode: str(raw.hero_mode),
         }
       : null;
-  return { items, addons, promotions, rules, featured };
+  return { items, addons, promotions, rules, featured, lessonTypes: readLessonTypes(raw.lesson_types), coaches: readCoaches(raw.coaches) };
 }
 
 /** A new court rate as the form starts it: every day, no prices yet, switched on. */
@@ -206,6 +300,28 @@ export interface TargetLink {
   addon?: string;
   promotion?: string;
   rule?: string;
+  /** A lesson type (`/protocols?…&lessonType=`, from /admin/coaches). */
+  lessonType?: string;
+  /** A `coach_price` change's coach (`&coach=`). */
+  coach?: string;
+}
+
+/**
+ * A lesson type's figures as the proposal opens with them. `lesson_price`
+ * also keeps them as `before`, so the send drops a figure left as it is: the
+ * server refuses a "change" to the stored figure (0285), and the client copy
+ * of `before` is never sent (`finalizeRecord`; the server writes its own).
+ */
+function lessonFigures(change: 'lesson_price' | 'lesson_launch', t: TargetLessonType): Obj {
+  const figures = { price_iqd: t.price_iqd, court_share_iqd: t.court_share_iqd };
+  return change === 'lesson_price'
+    ? { lesson_type_id: t.lesson_type_id, ...figures, before: { ...figures } }
+    : { lesson_type_id: t.lesson_type_id, ...figures };
+}
+
+/** A coach's price for a type as a proposal opens with it: their own, else the type's. */
+function coachFigure(t: TargetCoachType | undefined): number | null {
+  return t ? (t.coach_price_iqd ?? t.type_price_iqd) : null;
 }
 
 /**
@@ -244,11 +360,31 @@ export function priceProposalPrefill(change: PriceChangeKind, targets: Targets, 
       const on = f?.item_id && targets.items.some((i) => i.menu_item_id === f.item_id) ? f.item_id : '';
       return { change, menu_item_id: on ?? '', discount_pct: f ? f.pct : null };
     }
+    // Coaching (0285): the type's price and court share now (a draft's, for a
+    // launch); a coach's own price, else the type's.
+    case 'lesson_price':
+    case 'lesson_launch': {
+      const t = (targets.lessonTypes ?? []).find((x) => x.lesson_type_id === link.lessonType);
+      return t ? { change, ...lessonFigures(change, t) } : { change };
+    }
+    case 'coach_price': {
+      const coach = (targets.coaches ?? []).find((c) => c.coach_id === link.coach);
+      if (!coach) return { change };
+      const t = coach.lesson_types.find((x) => x.lesson_type_id === link.lessonType);
+      return t
+        ? { change, coach_id: coach.coach_id, lesson_type_id: t.lesson_type_id, price_iqd: coachFigure(t) }
+        : { change, coach_id: coach.coach_id };
+    }
   }
 }
 
-/** What picking a target does to the proposal: an item brings its sizes, a promotion or a rule its fields. */
-export function pickTarget(change: PriceChangeKind, targets: Targets, record: Obj, id: string): Obj {
+/**
+ * What picking a target does to the proposal: an item brings its sizes, a
+ * promotion or a rule its fields, a lesson type its figures. `field` names
+ * the picker when a change has two (`coach_price`: the coach, then one of
+ * their types; another coach keeps the type only when they teach it too).
+ */
+export function pickTarget(change: PriceChangeKind, targets: Targets, record: Obj, id: string, field?: string): Obj {
   switch (change) {
     case 'price':
     case 'shop_launch': {
@@ -269,6 +405,23 @@ export function pickTarget(change: PriceChangeKind, targets: Targets, record: Ob
     }
     case 'featured_discount':
       return { ...record, menu_item_id: id };
+    case 'lesson_price':
+    case 'lesson_launch': {
+      const t = (targets.lessonTypes ?? []).find((x) => x.lesson_type_id === id);
+      const { before: _drop, ...rest } = record;
+      return t ? { ...rest, ...lessonFigures(change, t) } : { ...rest, lesson_type_id: id, price_iqd: null, court_share_iqd: null };
+    }
+    case 'coach_price': {
+      if (field === 'coach_id') {
+        const coach = (targets.coaches ?? []).find((c) => c.coach_id === id);
+        const kept = coach?.lesson_types.find((x) => x.lesson_type_id === record.lesson_type_id);
+        return kept
+          ? { ...record, coach_id: id, price_iqd: coachFigure(kept) }
+          : { ...record, coach_id: id, lesson_type_id: '', price_iqd: null };
+      }
+      const coach = (targets.coaches ?? []).find((c) => c.coach_id === record.coach_id);
+      return { ...record, lesson_type_id: id, price_iqd: coachFigure(coach?.lesson_types.find((x) => x.lesson_type_id === id)) };
+    }
     default:
       return record;
   }
@@ -278,4 +431,75 @@ export function pickTarget(change: PriceChangeKind, targets: Targets, record: Ob
 export function targetItemName(targets: Targets, id: unknown, locale: Locale): string {
   const item = targets.items.find((i) => i.menu_item_id === id);
   return item ? pickText(locale, item.name_en, item.name_ar) : '';
+}
+
+// ── Lesson targets in words (coaching 0285) ─────────────────────────────────
+
+function kindWord(kind: string): LessonKindWord | null {
+  return kind === 'private' || kind === 'group' || kind === 'course' ? kind : null;
+}
+
+/**
+ * A lesson type as a picker lists it: "Beginners · Group 90 min", a course's
+ * sessions after it, then "Draft" for a launch's draft or "off" for a type
+ * switched off. A coach's types carry no length (X28), so theirs read
+ * "Beginners · Group".
+ */
+export function lessonTypeLabel(
+  t: Pick<TargetLessonType, 'name_en' | 'name_ar' | 'kind' | 'sessions_count'> & { duration_min?: number | null; is_active?: boolean },
+  tr: Tr,
+  locale: Locale,
+  status: 'draft' | 'off' | null = null,
+): string {
+  const name = pickText(locale, t.name_en, t.name_ar);
+  const kind = kindWord(t.kind);
+  const kindText = kind ? tr(`ws.coaching.common.kindShort.${kind}`) : '';
+  const length = typeof t.duration_min === 'number' ? tr('ws.coaching.common.minutes', { minutes: formatNumber(t.duration_min, locale) }) : '';
+  const parts = [kind || length ? tr('ws.protocols.form.lessonType', { name, kind: kindText, length }).trim() : name];
+  if (kind === 'course' && typeof t.sessions_count === 'number') parts.push(countPhrase('ws.coaching.count.sessions', t.sessions_count, locale));
+  if (status === 'draft') parts.push(tr('ws.protocols.form.draft'));
+  if (status === 'off') parts.push(tr('ws.protocols.form.off'));
+  return parts.join(' · ');
+}
+
+/** A coach's name as a picker and a record read it. */
+export function coachLabel(c: Pick<TargetCoach, 'display_name_en' | 'display_name_ar'>, locale: Locale): string {
+  return pickText(locale, c.display_name_en, c.display_name_ar);
+}
+
+/**
+ * The "Now: …" line under a lesson proposal's figures: a type's price and
+ * court share today (a draft's, for a launch), or the coach's own price, else
+ * the type's. Null until the target is picked. A figure the server did not
+ * send reads "—".
+ */
+export function lessonNowLine(change: PriceChangeKind | null, targets: Targets | undefined, record: Obj, tr: Tr, locale: Locale): string | null {
+  const money = (v: number | null) => (v === null ? '—' : formatIQD(v, locale));
+  if (change === 'lesson_price' || change === 'lesson_launch') {
+    const t = (targets?.lessonTypes ?? []).find((x) => x.lesson_type_id === record.lesson_type_id);
+    return t ? tr('ws.protocols.form.lessonNow', { price: money(t.price_iqd), share: money(t.court_share_iqd) }) : null;
+  }
+  if (change === 'coach_price') {
+    const coach = (targets?.coaches ?? []).find((c) => c.coach_id === record.coach_id);
+    const t = coach?.lesson_types.find((x) => x.lesson_type_id === record.lesson_type_id);
+    if (!t) return null;
+    return t.coach_price_iqd !== null
+      ? tr('ws.protocols.form.coachNow', { price: money(t.coach_price_iqd) })
+      : tr('ws.protocols.form.coachNowType', { price: money(t.type_price_iqd) });
+  }
+  return null;
+}
+
+/**
+ * Names a lesson change's ids by (RecordView): its types, its coaches, and
+ * the types a coach teaches.
+ */
+export function lessonTargetNames(targets: Targets | undefined): Record<string, { en: string; ar: string }> {
+  const out: Record<string, { en: string; ar: string }> = {};
+  for (const t of targets?.lessonTypes ?? []) out[t.lesson_type_id] = { en: t.name_en, ar: t.name_ar };
+  for (const c of targets?.coaches ?? []) {
+    out[c.coach_id] = { en: c.display_name_en, ar: c.display_name_ar };
+    for (const t of c.lesson_types) out[t.lesson_type_id] ??= { en: t.name_en, ar: t.name_ar };
+  }
+  return out;
 }

@@ -29,7 +29,12 @@ export type Decision = (typeof DECISIONS)[number];
 /** What a person can press; 'auto' is the engine's own. */
 export type DecisionChoice = Exclude<Decision, 'auto'>;
 
-/** The eight kinds of a price or promotion change (the `propose` record's `change`). */
+/**
+ * The eleven kinds of a price or promotion change (the `propose` record's `change`). The order is
+ * pinned by both apps and their tests, so new kinds are appended: the last three are coaching's
+ * (price_promo_lessons, 0285; coaching build contracts C-17): a lesson type's price or court
+ * share, a draft lesson type put on sale, and one coach's own price for a type.
+ */
 export const PRICE_CHANGE_KINDS = [
   'price',
   'shop_launch',
@@ -39,8 +44,23 @@ export const PRICE_CHANGE_KINDS = [
   'promotion_enable',
   'rate',
   'featured_discount',
+  'lesson_price',
+  'lesson_launch',
+  'coach_price',
 ] as const;
 export type PriceChangeKind = (typeof PRICE_CHANGE_KINDS)[number];
+
+/**
+ * The lesson kinds (C-5, C-17): started by managers and the owner only, like `shop_launch`;
+ * marketing never (the server answers NOT_STEP_ACTOR hint `change`). `isLessonChange` (steps.ts)
+ * tests a value against this list.
+ */
+export const LESSON_CHANGE_KINDS = [
+  'lesson_price',
+  'lesson_launch',
+  'coach_price',
+] as const satisfies readonly PriceChangeKind[];
+export type LessonChangeKind = (typeof LESSON_CHANGE_KINDS)[number];
 
 /**
  * `staff_media_uploads.folder`: where a slot's photo is filed. Checklists,
@@ -251,6 +271,35 @@ export interface PriceRename {
   before_ar?: string | null;
 }
 
+/**
+ * What an approved lesson price buys (coaching R46, R82): the target check compares it at the
+ * apply, so a type whose length, sessions or party size changed after the proposal is
+ * PRICE_TARGET_CHANGED hint `lesson_type`.
+ */
+export interface LessonShape {
+  kind: 'private' | 'group' | 'course';
+  duration_min: number;
+  /** A course's sessions; null for a private lesson or a group session. */
+  sessions_count: number | null;
+  /**
+   * A PRIVATE type's party size only; null for a group or course type. Their places stay a direct
+   * manager edit on a launched type, so they are not part of what the owner approved (R82).
+   */
+  max_places: number | null;
+}
+
+/**
+ * A lesson change's snapshot, written by the propose check at submit like `PriceRename.before_*`
+ * (a copy the client sends is replaced) and compared by the target check (PRICE_TARGET_CHANGED
+ * hint `lesson_type`, or `coach_price`). `lesson_price` and `lesson_launch` carry the type's
+ * figures, `coach_price` the coach's own price (null when none); all three the shape.
+ */
+export interface LessonBefore {
+  price_iqd?: number | null;
+  court_share_iqd?: number | null;
+  shape: LessonShape;
+}
+
 export type PriceProposeRecord = PriceProposeBase &
   (
     | {
@@ -272,6 +321,29 @@ export type PriceProposeRecord = PriceProposeBase &
     | { change: 'promotion_enable'; promotion_id: string }
     | { change: 'rate'; rule_id?: string | null; rule: RateRuleFields }
     | { change: 'featured_discount'; menu_item_id: string; discount_pct: number }
+    | {
+        change: 'lesson_price';
+        lesson_type_id: string;
+        /** At least one of the two (validate.ts); each a change from the stored figure (the server's to say). */
+        price_iqd?: number | null;
+        court_share_iqd?: number | null;
+        before?: LessonBefore | null;
+      }
+    | {
+        change: 'lesson_launch';
+        lesson_type_id: string;
+        price_iqd: number;
+        court_share_iqd: number;
+        before?: LessonBefore | null;
+      }
+    | {
+        change: 'coach_price';
+        coach_id: string;
+        lesson_type_id: string;
+        /** Null (or left out) removes the coach's own price, so the type's applies again. */
+        price_iqd: number | null;
+        before?: LessonBefore | null;
+      }
   );
 
 export interface PriceNumbersRecord {
@@ -282,6 +354,12 @@ export interface PriceNumbersRecord {
   rule_prices?: Record<string, number> | null;
   discount_pct?: number | null;
   promotion_value?: number | null;
+  /**
+   * A lesson change's final figures (0285): only those its proposal carries. No coach-pay figure
+   * travels here (coaching C-28).
+   */
+  price_iqd?: number | null;
+  court_share_iqd?: number | null;
   note?: string | null;
 }
 

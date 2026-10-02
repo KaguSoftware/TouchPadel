@@ -40,16 +40,29 @@ export const ANDROID_SHA256_FINGERPRINTS = (process.env.ANDROID_SHA256_FINGERPRI
   .filter((f) => /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(f));
 
 /**
- * The paths the mobile app may claim: the auth links, and the open-match invite
+ * The paths the mobile app may claim: the auth links, the open-match invite
  * `/m/<token>` a player shares (docs/design/open-matches/guest.md §4.19, OM-32),
- * each bare and under both locales, because the proxy's locale hop is a web
- * thing and a link can arrive in any of the three spellings. Where the app does
- * not claim an invite (no app, or Android before the Play fingerprints above are
- * published), `/{locale}/m/<token>` renders the web invite page instead.
+ * and the coach link `/c/<coachId>` the website's "Book in the app" and the
+ * app's share sheet hand out (docs/design/coaching/guest.md §4.12), each bare
+ * and under both locales, because the proxy's locale hop is a web thing and a
+ * link can arrive in any of the three spellings. Where the app does not claim a
+ * link (no app, or Android before the Play fingerprints above are published),
+ * `/{locale}/m/<token>` renders the web invite page and `/{locale}/c/<id>` the
+ * coach's "Open in the app" page instead.
  *
  * Deliberately NOT `/*`. The table-session route `/t/*` must stay in the
  * browser: it is the guest cafe surface, it has no mobile equivalent, and
  * handing those URLs to the app would send the table token through an
  * additional hop for no benefit.
  */
-export const LINK_PATHS = ['/auth/*', '/en/auth/*', '/ar/auth/*', '/m/*', '/en/m/*', '/ar/m/*'];
+export const LINK_PATHS = [
+  '/auth/*',
+  '/en/auth/*',
+  '/ar/auth/*',
+  '/m/*',
+  '/en/m/*',
+  '/ar/m/*',
+  '/c/*',
+  '/en/c/*',
+  '/ar/c/*',
+];

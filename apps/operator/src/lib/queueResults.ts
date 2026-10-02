@@ -45,7 +45,9 @@ export const RESULT_INVALIDATIONS: Record<string, readonly QueryKey[]> = {
   // does: only mounted queries refetch. A void flips tickets too (0039).
   'tab.cancel': [QK.tabs, QK.tab.all, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
   'tab.settle_zero': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
-  'payment.refund': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
+  // A refund of desk lesson money is this queued refund too (coaching operator.md §5.4, R36):
+  // the lesson screen, the refunds-due lists and the record re-read through the coaching root.
+  'payment.refund': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all, QK.coaching.all],
   'order_item.void': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.tickets],
 };
 

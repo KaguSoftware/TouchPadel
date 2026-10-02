@@ -62,6 +62,7 @@ import { useShiftDifferences } from '../tillShift/useShiftDifferences';
 import { usePeopleRecordCounts } from '../deductions/peopleRecordCounts';
 import { DepositAttentionPanel } from '../deposits/DepositAttentionPanel';
 import { MatchReportsPanel } from './MatchReportsPanel';
+import { LessonRefundsDuePanel } from './LessonRefundsDuePanel';
 import {
   DAY_CLOSE_TONE,
   STOCK_HREF,
@@ -185,6 +186,8 @@ function Dashboard({ data, queued, go }: { data: OpsOverview; queued: number; go
       <DepositAttentionPanel hideWhenEmpty />
       {/* Open matches' player reports (manager, owner); only when one waits. */}
       <MatchReportsPanel hideWhenEmpty />
+      {/* Desk lesson money to refund (manager, owner); only when some is due. */}
+      <LessonRefundsDuePanel hideWhenEmpty />
 
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(15rem, 1fr))', alignItems: 'stretch' }}>
         <CourtsCard data={data} go={go} />

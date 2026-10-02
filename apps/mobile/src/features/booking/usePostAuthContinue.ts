@@ -48,6 +48,12 @@ import {
   pendingJoinHref,
   type PendingJoin,
 } from '../matches/pendingJoin';
+import {
+  clearPendingLesson,
+  getPendingLesson,
+  pendingLessonHref,
+  type PendingLesson,
+} from '../coaching/pendingLesson';
 import { requestBookingSheet } from '../courtTransition/openIntent';
 import { findPaymentToResume } from '../deposit/hooks';
 import { supabase } from '../../lib/supabase';
@@ -119,9 +125,25 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
     clearPendingJoin();
   }, [router]);
 
+  /**
+   * A lesson intent (coaching guest.md §4.9.5) opens its review or its class:
+   * signing in never books by itself, and those screens run the booking gate
+   * on their own primary (back mode), so there is nothing to gate here.
+   */
+  const openLesson = useCallback((lesson: PendingLesson) => {
+    router.replace(pendingLessonHref(lesson));
+    // After navigation, so the signed-out gate's exemption holds until we are gone.
+    clearPendingLesson();
+  }, [router]);
+
   const continueWithSlot = useCallback(() => {
     const pending = getPendingSlot();
     const join = pending ? null : getPendingJoin();
+    const lesson = pending || join ? null : getPendingLesson();
+    if (lesson) {
+      openLesson(lesson);
+      return;
+    }
     if (!pending && !join) {
       router.replace('/(tabs)');
       return;
@@ -137,7 +159,7 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
       else if (pending) holdPending(pending);
       else if (join) openJoin(join);
     });
-  }, [holdPending, openJoin, router]);
+  }, [holdPending, openJoin, openLesson, router]);
 
   const continueAfterAuth = useCallback(() => {
     void findPaymentToResume().then((resume) => {

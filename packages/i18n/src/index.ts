@@ -1,6 +1,8 @@
 export { en } from './catalogs/en';
 export { ar } from './catalogs/ar';
 export type { Messages } from './catalogs/en';
+export { coachingGlossary } from './catalogs/coaching.glossary';
+export type { CoachingGlossary, CoachingTerm } from './catalogs/coaching.glossary';
 export { t, makeT, catalogs } from './t';
 export type { Locale, MessageKey, TParams } from './t';
 export {

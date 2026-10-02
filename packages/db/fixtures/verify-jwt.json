@@ -13,6 +13,7 @@
     "deposit-status": true,
     "deposit-webhook": false,
     "desk-customer-create": true,
+    "lesson-begin": true,
     "payments-fake": false,
     "protocol-action": true,
     "receipt-scan": true,

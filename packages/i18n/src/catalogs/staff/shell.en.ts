@@ -48,6 +48,9 @@ export const staffShellEn = {
     back: 'Back to staff view',
     note: 'This is the app as guests see it. Anything you book or order here is real.',
   },
+  // Coaching (docs/design/coaching/guest.md §4.8.1, C-27): the hub row for staff who coach.
+  coachMode: 'Coach mode',
+  coachStatements: 'Coach statements',
   pending: {
     slow: 'Checking your account is taking longer than usual. Check your connection and try again.',
   },

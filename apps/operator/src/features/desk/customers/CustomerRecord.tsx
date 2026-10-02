@@ -13,6 +13,12 @@
  * (TicketsPanel) holds the wallet and the cash-out. A server before 0262
  * sends no gender and no matches, and the record shows none of it. Every
  * match write is online only (DF-11).
+ *
+ * Coaching (docs/design/coaching/operator.md §5.15): `customer_lessons`
+ * gives the coach badge (not a flag), Make coach / Open in Coaches
+ * (`manageCoaches`), Book a lesson (`runLessons`), the lesson counts and the
+ * Lessons panel, where a cashier takes lesson money (R20). A server without
+ * coaching (RPC_MISSING) shows none of it.
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -51,6 +57,9 @@ import { GenderDialog } from './GenderDialog';
 import { TicketsPanel } from './TicketsPanel';
 import { editableFlags, isHereMatch, isMatchBanned, playsAsLine, playsAsOf, recordMatches, seatKindKey, seatStatusKey } from './ticketsLogic';
 import { CustomerHoldStanding } from '../../holds/HoldStandingPanels';
+import { CoachBadge } from '../../coaching/CoachBadge';
+import { CustomerLessonsPanel } from '../../coaching/CustomerLessonsPanel';
+import { useCoachingCaps, useCustomerLessons } from '../../coaching/useCoaching';
 
 const FLAG_TYPES: readonly CustomerFlagType[] = ['vip', 'birthday', 'payment_note', 'special_request', 'deposit_exempt'];
 
@@ -96,6 +105,10 @@ export function CustomerRecordScreen() {
   const { staff } = useAuth();
   const canBook = canAccess(staff?.role, '/desk');
   const caps = useMatchCaps();
+  // Coaching (§5.15): null on a server without customer_lessons (RPC_MISSING), and then no coaching UI.
+  const lessonsQ = useCustomerLessons(id);
+  const lessons = lessonsQ.data ?? null;
+  const coachCaps = useCoachingCaps();
   // A server before 0262 sends no gender key and no matches: no open-match block on the record.
   const matchesKnown = rec ? playsAsOf(rec.customer).known || rec.matches !== undefined : false;
   const flagCount = rec ? editableFlags(rec.flags).length : 0;
@@ -114,6 +127,7 @@ export function CustomerRecordScreen() {
         subtitle={
           rec ? (
             <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              {lessons?.coach && <CoachBadge status={lessons.coach.status} />}
               {rec.flags.map((f, i) => (
                 <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} size="md" />
               ))}
@@ -131,6 +145,24 @@ export function CustomerRecordScreen() {
             {params.attach && (
               <Button kind="primary" icon="userPlus" onClick={attach}>
                 {attachLabel}
+              </Button>
+            )}
+            {lessons && coachCaps.manageCoaches && !params.attach && (
+              <Button
+                icon="whistle"
+                onClick={() =>
+                  void navigate({
+                    to: '/admin/coaches',
+                    search: (lessons.coach ? { coach: lessons.coach.coach_id } : { tab: 'coaches', promote: id }) as never,
+                  })
+                }
+              >
+                {lessons.coach ? tr('ws.coaching.customers.openInCoaches') : tr('ws.coaching.customers.makeCoach')}
+              </Button>
+            )}
+            {lessons && canBook && coachCaps.runLessons && !params.attach && (
+              <Button icon="whistle" onClick={() => void navigate({ to: '/desk', search: { customer: id, kind: 'lesson' } as never })}>
+                {tr('ws.coaching.customers.bookLesson')}
               </Button>
             )}
             {canBook && matchesKnown && caps.runMatches && !params.attach && (
@@ -177,6 +209,14 @@ export function CustomerRecordScreen() {
                 />
               </Panel>
               {matchesKnown && caps.runMatches && <MatchesPanel record={rec} tz={tz} onChanged={invalidate} />}
+              {lessons && (
+                <CustomerLessonsPanel
+                  customerName={rec.customer.full_name}
+                  data={lessons}
+                  tz={tz}
+                  refetch={async () => (await lessonsQ.refetch()).data}
+                />
+              )}
               <TicketsPanel customerId={id} />
               <CustomerHoldStanding customerId={id} />
               <BookingsPanel title={tr('ws.courtDesk.record.upcoming')} empty={tr('ws.courtDesk.record.upcomingEmpty')} rows={rec.upcoming} tz={tz} courtName={courtName} />

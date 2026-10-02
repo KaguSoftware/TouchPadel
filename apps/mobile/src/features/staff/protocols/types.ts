@@ -185,6 +185,42 @@ export interface TargetRule {
   prices: Record<string, number>;
 }
 
+/**
+ * One lesson type of `price_promo_targets('lesson_price' | 'lesson_launch')`
+ * (coaching 0285, X28): the keys of COACHING_SHAPES.price_promo_targets_lesson_types.
+ */
+export interface TargetLessonType {
+  lesson_type_id: string;
+  kind: 'private' | 'group' | 'course' | string;
+  name_en: string;
+  name_ar: string;
+  duration_min: number | null;
+  sessions_count: number | null;
+  max_places: number | null;
+  price_iqd: number | null;
+  court_share_iqd: number | null;
+  is_active: boolean;
+}
+
+/** A type a coach teaches here (`coaches[].lesson_types[]`, X28). */
+export interface TargetCoachType {
+  lesson_type_id: string;
+  name_en: string;
+  name_ar: string;
+  kind: 'private' | 'group' | 'course' | string;
+  sessions_count: number | null;
+  type_price_iqd: number | null;
+  coach_price_iqd: number | null;
+}
+
+/** One coach of `price_promo_targets('coach_price')` (COACHING_SHAPES.price_promo_targets_coaches). */
+export interface TargetCoach {
+  coach_id: string;
+  display_name_en: string;
+  display_name_ar: string;
+  lesson_types: TargetCoachType[];
+}
+
 /** `app.price_promo_targets(change)`: the one list its change kind reads. */
 export interface PriceTargets {
   items?: TargetItem[];
@@ -194,6 +230,29 @@ export interface PriceTargets {
   featured_item_id?: string | null;
   featured_discount_pct?: number | null;
   hero_mode?: string | null;
+  /** Coaching (0285): `lesson_price` and `lesson_launch`. */
+  lesson_types?: TargetLessonType[];
+  /** Coaching (0285): `coach_price`. */
+  coaches?: TargetCoach[];
+}
+
+/**
+ * `price_promo_numbers.lesson` (coaching 0285, X28; COACHING_SHAPES.price_promo_numbers_lesson).
+ * No coach pay (C-28).
+ */
+export interface NumbersLesson {
+  lesson_type_id: string;
+  /** `coach_price` only. */
+  coach_id: string | null;
+  kind: string;
+  name_en: string;
+  name_ar: string;
+  current_price_iqd: number | null;
+  new_price_iqd: number | null;
+  current_court_share_iqd: number | null;
+  new_court_share_iqd: number | null;
+  places_30d: number | null;
+  owed_30d_iqd: number | null;
 }
 
 /** `app.price_promo_numbers`: management only. */
@@ -245,6 +304,8 @@ export interface PriceNumbers {
     units_30d: number;
     discount_cost_30d_iqd: number;
   } | null;
+  /** Coaching (0285): a lesson change's block; null (or absent, an older server) otherwise. */
+  lesson?: NumbersLesson | null;
 }
 
 export interface TournamentFeasibility {

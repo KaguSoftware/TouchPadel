@@ -53,6 +53,8 @@ import { wallTimeToUtc } from '@touch/core';
 import { formatDayNumber, formatTime, formatWeekdayShort, isolate } from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../features/availability/useAvailabilityBooking';
+import { useGuestVenue } from '../features/availability/hooks';
+import { useLessonEntry } from '../features/coaching/hooks';
 import { mapErrorToKey } from '../features/booking/errors';
 import {
   pillSlice,
@@ -82,7 +84,9 @@ const GRID_H = 240;
 /**
  * The open matches entry row under the court cards (guest.md §4.11): its 40 pt
  * and the gap above it. Added to the block only while the branch has open
- * matches on, so with the switch off the card is exactly as before.
+ * matches on, so with the switch off the card is exactly as before. The
+ * lessons row (coaching guest.md §4.8.1) is the same height, under it, while
+ * the branch has coaching on: the block grows by one ENTRY_H per row.
  */
 const ENTRY_H = 46;
 const PAD = 10;
@@ -135,6 +139,11 @@ export function BookingSheet({
   const dark = appearance === 'dark';
   // `open` gates the open-match chips' query: a prewarmed, closed card reads none.
   const a = useAvailabilityBooking({ origin: 'sheet', open: isOpen });
+  // "Lessons with a coach" (coaching guest.md §4.8.1): a static label and no
+  // query of its own (the branch's settings read is already cached), so the
+  // rally's thread gets no new work. `useAvailabilityBooking` is not touched.
+  const lessonEntry = useLessonEntry(useGuestVenue().venueId);
+  const entries = (a.matchEntry ? 1 : 0) + (lessonEntry ? 1 : 0);
   // Seeded from the window rather than starting at zero. This box spans the
   // stage's full width, so `width` is already exact; `height` is an
   // over-estimate that only ever relaxes the card's cap, and onLayout corrects
@@ -331,7 +340,7 @@ export function BookingSheet({
       // can still reach the row.
       <ScrollView
         ref={gridRef}
-        scrollEnabled={a.matchEntry !== null}
+        scrollEnabled={entries > 0}
         bounces={false}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={(_w, h) => setGridContentH((prev) => (prev === h ? prev : h))}
@@ -386,6 +395,25 @@ export function BookingSheet({
               testID={`${testID}.open-matches`}
               label={a.matchEntry.label}
               onPress={a.matchEntry.onPress}
+            />
+          </Animated.View>
+        ) : null}
+        {/* After the match row, in the same wash: no interpolation of its own. */}
+        {lessonEntry ? (
+          <Animated.View
+            style={{
+              marginTop: 6,
+              opacity: rows[SPEC.grid.sharedFromRow]!.opacity,
+              transform: [
+                { translateY: rows[SPEC.grid.sharedFromRow]!.translateY },
+                { scale: rows[SPEC.grid.sharedFromRow]!.scale },
+              ],
+            }}
+          >
+            <MatchEntryRow
+              testID={`${testID}.lessons`}
+              label={lessonEntry.label}
+              onPress={lessonEntry.onPress}
             />
           </Animated.View>
         ) : null}
@@ -653,7 +681,7 @@ export function BookingSheet({
                   gives way on a short stage */}
               <View
                 style={{
-                  height: Math.max(a.matchEntry ? GRID_H + ENTRY_H : GRID_H, gridContentH),
+                  height: Math.max(GRID_H + ENTRY_H * entries, gridContentH),
                   minHeight: 96,
                   flexShrink: 1,
                   marginTop: 6,

@@ -9,6 +9,13 @@ describe('protocol refusals', () => {
     expect(protocolErrorKey(new AppRpcError('SOMETHING_NEW', 'SOMETHING_NEW'))).toBe('errors.generic');
   });
 
+  it('says a lesson price change gone stale in its own words (coaching 0285, operator.md §5.19)', () => {
+    expect(protocolErrorKey(new AppRpcError('PRICE_TARGET_CHANGED', 'x', 'lesson_type'))).toBe('ws.coaching.errors.priceTargetChanged.lesson_type');
+    expect(protocolErrorKey(new AppRpcError('PRICE_TARGET_CHANGED', 'x', undefined, 'coach_price'))).toBe('ws.coaching.errors.priceTargetChanged.coach_price');
+    // Any other hint (a menu item, a rate) keeps the shared line.
+    expect(protocolErrorKey(new AppRpcError('PRICE_TARGET_CHANGED', 'x', 'menu_item_id'))).toBe('op.errors.PRICE_TARGET_CHANGED');
+  });
+
   it('says the engine’s own code when the launch function passes it back (§3 "Edge failures")', () => {
     expect(protocolErrorKey(new EdgeError(400, 'UNKNOWN', 'RELEASE_NOT_READY', 'RELEASE_NOT_READY'))).toBe('op.errors.RELEASE_NOT_READY');
     expect(protocolErrorKey(new EdgeError(403, 'FORBIDDEN', 'no', 'FORBIDDEN'))).toBe('op.errors.FORBIDDEN');

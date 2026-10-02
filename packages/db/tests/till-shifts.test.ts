@@ -16,7 +16,8 @@
  *     station with no shift open in between (V18), a payment that began
  *     before the last close and landed after it included;
  *   * close_day's math is 0020's (TI5), and the day partitions exactly into
- *     shifts plus outside rows, with the cross-day refund term (TI6, V10); on a
+ *     shifts plus outside rows, with the cross-day refund term (refunds made with no
+ *     shift on another day than their payment's, C-31) (TI6, V10); on a
  *     clean one-till day the day variance is the shift variances plus the
  *     handover differences minus the earlier days' cash refunds (TI7);
  *   * every count is signed by the holder's own PIN or a manager's grant; a
@@ -1310,14 +1311,14 @@ commit;`);
       await call(manager, 'close_day', { p_cash_counted_iqd: 116_500 }),
     );
     expect(day.shifts_closed_with_day).toBe(0);
-    // close_day counts the refund under its payment's day (D1), so D2 expects
-    // the float plus D2's cash only.
-    expect(day.cash_expected_iqd).toBe(100_000 + 47_000);
-    expect(day.cash_variance_iqd).toBe(-30_500);
+    // C-31 (0281): close_day counts the refund on the day it was made (D2's
+    // shift), so D2 expects the float plus D2's cash less that refund.
+    expect(day.cash_expected_iqd).toBe(100_000 + 47_000 - 30_000);
+    expect(day.cash_variance_iqd).toBe(-500);
 
     const p2 = await assertPartition(d2);
-    expect(Number(p2.summary.refunds_iqd)).toBe(0);
-    expect(Number(p2.cross.earlier_days_cash_refunds_iqd)).toBe(30_000);
+    expect(Number(p2.summary.refunds_iqd)).toBe(30_000);
+    expect(Number(p2.cross.earlier_days_cash_refunds_iqd)).toBe(0);
     const shifts = p2.shifts;
     expect(shifts.map((s) => s.id).sort()).toEqual([s1.id, s2.id].sort());
     // TI7: Σ shift variances + Σ handover differences − earlier days' cash refunds.
@@ -1325,11 +1326,11 @@ commit;`);
     const sumHand = shifts.reduce((a, s) => a + Number(s.handover_difference_iqd ?? 0), 0);
     expect(sumVar + sumHand - Number(p2.cross.earlier_days_cash_refunds_iqd)).toBe(day.cash_variance_iqd);
 
-    // Yesterday's live summary now counts it; its later term carries it.
+    // C-31: yesterday's live summary does not count it, and no cross-day term carries it.
     const { data: d1SumAfter } = await svc.from('v_day_close_summary').select('refunds_iqd').eq('day_session_id', d1).single();
-    expect(Number((d1SumAfter as { refunds_iqd: number }).refunds_iqd)).toBe(Number((d1SumBefore as { refunds_iqd: number }).refunds_iqd) + 30_000);
+    expect(Number((d1SumAfter as { refunds_iqd: number }).refunds_iqd)).toBe(Number((d1SumBefore as { refunds_iqd: number }).refunds_iqd));
     const p1 = await assertPartition(d1);
-    expect(p1.cross.later_cash_refunds_iqd).toBe(Number(d1LaterBefore) + 30_000);
+    expect(p1.cross.later_cash_refunds_iqd).toBe(Number(d1LaterBefore));
   });
 
   // ── T10 + T12 ────────────────────────────────────────────────────────────
@@ -1381,13 +1382,14 @@ commit;`);
 
     // TI6 on every day this suite made, with the cross-day terms it created.
     const p3 = await assertPartition(d3);
-    expect(p3.cross.earlier_days_cash_refunds_iqd).toBe(20_000);
+    // C-31 (0281): the 20,000 was made in D3's shift, so it is D3's, not a cross-day term.
+    expect(p3.cross.earlier_days_cash_refunds_iqd).toBe(0);
     expect(p3.cross.later_cash_refunds_iqd).toBe(1_000);
     const p4 = await assertPartition(d4);
     expect(p4.cross.earlier_days_cash_refunds_iqd).toBe(1_000);
     expect(p4.outside.find((o) => o.station_id === DESK)).toMatchObject({ cash_refunds_iqd: 1_000, refund_count: 1 });
     const p2 = await assertPartition(d2);
-    expect(p2.cross.later_cash_refunds_iqd).toBe(20_000);
+    expect(p2.cross.later_cash_refunds_iqd).toBe(0);
     for (const id of days) await assertPartition(id);
   });
 
@@ -1503,7 +1505,26 @@ commit;`);
     );
     const settle0244 = /\$settle_tab_0244\$([\s\S]*?)\$settle_tab_0244\$/.exec(m0244)?.[1];
     expect(settle0244).toBeTruthy();
-    expect(settleLive).toBe(settle0244!.trim());
+    // Coaching lesson_money (0281) re-issued it again, stamping the lesson line
+    // (lesson_iqd) and answering it, and nothing else: the live body is 0281's,
+    // and 0281's without those two lines is 0244's.
+    const m0281 = readFileSync(
+      fileURLToPath(new URL('../supabase/migrations/20261001000281_lesson_money.sql', import.meta.url)),
+      'utf8',
+    );
+    const settle0281 = /\$settle_tab_0281\$([\s\S]*?)\$settle_tab_0281\$/.exec(m0281)?.[1];
+    expect(settle0281).toBeTruthy();
+    expect(settleLive).toBe(settle0281!.trim());
+    const unlesson = settle0281!
+      .replace(
+        '         total_iqd    = v_totals.total_iqd,\n         lesson_iqd   = v_totals.lesson_iqd   -- 0281\n',
+        '         total_iqd    = v_totals.total_iqd\n',
+      )
+      .replace(
+        "'court_iqd', v_tab.court_iqd, 'lesson_iqd', v_tab.lesson_iqd,   -- 0281\n    'total_iqd', v_tab.total_iqd,",
+        "'court_iqd', v_tab.court_iqd, 'total_iqd', v_tab.total_iqd,",
+      );
+    expect(unlesson.trim()).toBe(settle0244!.trim());
     const unshop = settle0244!
       .replaceAll(",'shop_staff')", ')')
       .replace('  perform app.assert_tab_kind_role(v_tab.kind);   -- 0244\n', '');
@@ -1541,6 +1562,15 @@ commit;`);
     );
     const math = /( {2}v_before := to_jsonb\(v_day\);[\s\S]*?returning \* into v_day;)/.exec(m0020)?.[1];
     expect(math).toBeTruthy();
-    expect(src.includes(math!)).toBe(true);
+    // 0281 (C-31, R27): a refund is dated by its till shift's day (else its
+    // payment's); with that one predicate put back, the math is 0020's.
+    const c31 = (method: string) =>
+      `   where coalesce((select ts.day_session_id from till_shifts ts where ts.id = r.till_shift_id), p.day_session_id) = v_day.id   -- 0281 (C-31, R27)\n     and p.method = '${method}';`;
+    expect(src).toContain(c31('cash'));
+    expect(src).toContain(c31('card'));
+    const unc31 = src
+      .replace(c31('cash'), "   where p.day_session_id = v_day.id and p.method = 'cash';")
+      .replace(c31('card'), "   where p.day_session_id = v_day.id and p.method = 'card';");
+    expect(unc31.includes(math!)).toBe(true);
   });
 });

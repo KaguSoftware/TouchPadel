@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { COACHING_SHAPES } from '@touch/core';
+import { readLessonsReport } from '../coaching/lessonPayloads';
 import {
   bucketRange,
   cafeIsEmpty,
+  COURT_LESSON_KEYS,
+  courtLessonsIsEmpty,
   courtMatchesIsEmpty,
   courtsIsEmpty,
   dayClosesOf,
+  lessonsReportIsEmpty,
   matchesReportIsEmpty,
   num,
   readCafe,
@@ -15,6 +20,7 @@ import {
   readRevenue,
   readStaff,
   readStock,
+  revenueHasLessons,
   sortBy,
 } from './reportPayloads';
 
@@ -45,14 +51,46 @@ describe('readRevenue', () => {
     const r = readRevenue(payload);
     expect(r.group).toBe('day');
     expect(r.rows).toEqual([
-      { period: '2026-09-11', padelIqd: 40000, cafeIqd: 0, cafeNetIqd: 0, totalIqd: 40000, cashIqd: 0, cardIqd: 0, discountsIqd: 0, voidsIqd: 0, refundsIqd: 0, taxIqd: 0, orders: 0, bookings: 1 },
+      {
+        period: '2026-09-11',
+        padelIqd: 40000,
+        cafeIqd: 0,
+        cafeNetIqd: 0,
+        totalIqd: 40000,
+        cashIqd: 0,
+        cardIqd: 0,
+        discountsIqd: 0,
+        voidsIqd: 0,
+        refundsIqd: 0,
+        taxIqd: 0,
+        orders: 0,
+        bookings: 1,
+        // A server before 0288 sends no lesson figures: null, never 0.
+        lessonIqd: null,
+        owedToCoachesIqd: null,
+      },
     ]);
     expect(r.totals?.totalIqd).toBe(2548219);
     expect(r.totals?.cafeNetIqd).toBe(1878219);
+    expect(revenueHasLessons(r)).toBe(false);
   });
   it('survives a missing or malformed payload', () => {
     expect(readRevenue(null)).toEqual({ group: null, rows: [], totals: null });
     expect(readRevenue({ rows: [{ padelIqd: 1 }] }).rows).toEqual([]);
+  });
+  // Coaching (coaching operator.md §5.18.3, X26): COACHING_SHAPES.report_revenue's keys.
+  it('reads lessonIqd and owedToCoachesIqd on every row and the totals', () => {
+    const shape = COACHING_SHAPES.report_revenue.nested!;
+    expect([...shape['rows[]']!]).toEqual(['lessonIqd', 'owedToCoachesIqd']);
+    expect([...shape.totals!]).toEqual(['lessonIqd', 'owedToCoachesIqd']);
+    const r = readRevenue({
+      ...payload,
+      rows: [{ ...payload.rows[0], lessonIqd: 30000, owedToCoachesIqd: '18000' }],
+      totals: { ...payload.totals, lessonIqd: 120000, owedToCoachesIqd: 72000 },
+    });
+    expect(r.rows[0]).toMatchObject({ lessonIqd: 30000, owedToCoachesIqd: 18000 });
+    expect(r.totals).toMatchObject({ lessonIqd: 120000, owedToCoachesIqd: 72000 });
+    expect(revenueHasLessons(r)).toBe(true);
   });
 });
 
@@ -102,6 +140,33 @@ describe('readCourts', () => {
     expect(courtsIsEmpty(readCourts({ ...quiet, matches: { bookings: 0, ticketForfeitsIqd: 10000 } }))).toBe(false);
     expect(courtsIsEmpty(readCourts({ ...quiet, matches: { bookings: 0, ticketForfeitsIqd: 0 } }))).toBe(true);
     expect(courtMatchesIsEmpty(null)).toBe(true);
+  });
+  // Coaching (coaching operator.md §5.18.2, X25, R72).
+  it("reads the lessons block by COACHING_SHAPES.report_courts' keys, null from a server before 0288", () => {
+    expect([...COURT_LESSON_KEYS]).toEqual([...COACHING_SHAPES.report_courts.nested!.lessons!]);
+    expect(readCourts(payload).lessons).toBeNull();
+    const block = { lessons: 6, private: 3, group: 2, courseSessions: 1, lessonMinutes: '420', enrolments: 11, attended: 9, noShows: 1, cancelled: 1, underFilled: 0, collectedIqd: 330000, courtShareIqd: 60000, owedToCoachesIqd: 162000 };
+    const r = readCourts({ ...payload, lessons: block });
+    expect(r.lessons).toEqual({ ...block, lessonMinutes: 420 });
+    expect(readCourts({ ...payload, lessons: {} }).lessons).toMatchObject({ lessons: null, owedToCoachesIqd: null });
+  });
+  it('reads each court’s lessons and lesson minutes, and the period’s', () => {
+    expect([...COACHING_SHAPES.report_courts.nested!['rows[]']!]).toEqual(['lessons', 'lessonMinutes']);
+    const withLessons = { ...payload, rows: [{ ...payload.rows[0], lessons: 4, lessonMinutes: 240 }], totals: { ...payload.totals, lessons: 4, lessonMinutes: 240 } };
+    expect(readCourts(withLessons).rows[0]).toMatchObject({ lessons: 4, lessonMinutes: 240 });
+    expect(readCourts(withLessons).totals).toMatchObject({ lessons: 4, lessonMinutes: 240 });
+    expect(readCourts(payload).rows[0]).toMatchObject({ lessons: null, lessonMinutes: null });
+  });
+  it('a period whose only news is a lesson is not empty', () => {
+    const quiet = { ...payload, totals: { bookings: 0, cancellations: 0, noShows: 0 } };
+    expect(courtsIsEmpty(readCourts({ ...quiet, lessons: { lessons: 2, collectedIqd: 60000 } }))).toBe(false);
+    expect(courtsIsEmpty(readCourts({ ...quiet, lessons: { lessons: 0, collectedIqd: 0 } }))).toBe(true);
+    expect(courtLessonsIsEmpty(null)).toBe(true);
+  });
+  it('report_lessons with no lesson is empty', () => {
+    expect(lessonsReportIsEmpty(readLessonsReport({ totals: { lessons: 0 }, byCoach: [], byType: [], byDay: [] }))).toBe(true);
+    expect(lessonsReportIsEmpty(readLessonsReport({ totals: { lessons: 2 }, byCoach: [], byType: [], byDay: [] }))).toBe(false);
+    expect(lessonsReportIsEmpty(readLessonsReport(null))).toBe(true);
   });
 });
 

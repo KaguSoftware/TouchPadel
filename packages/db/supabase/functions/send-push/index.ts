@@ -16,24 +16,29 @@
  *      lease runs out, until the attempts cap of 5); DeviceNotRegistered also clears
  *      the profile's token so future bookings stop enqueueing.
  *
- * Three families of kind. The booking kinds (and `test`) take their copy from
- * STRINGS below, with the court and time. The staff kinds, queued only by
- * app.notify_staff, name their copy by payload.title_key and read it from
- * staffStrings.ts (build-contracts-2026-09-23 §2.21); _shared/staff-push.json
- * is the one list of their kinds, title keys and routes. The guest kinds of
- * open matches (match_update, match_reminder, match_message), queued only by
+ * Four families' worth of copy: booking, staff, open matches, coaching. The
+ * booking kinds (and `test`) take their copy from STRINGS below, with the court
+ * and time. The staff kinds, queued only by app.notify_staff, name their copy
+ * by payload.title_key and read it from staffStrings.ts
+ * (build-contracts-2026-09-23 §2.21); _shared/staff-push.json is the one list
+ * of their kinds, title keys and routes. The guest kinds of open matches
+ * (match_update, match_reminder, match_message), queued only by
  * app.match_notify (0261), do the same with guestStrings.ts and
  * _shared/guest-push.json (docs/design/open-matches/guest.md §4.7), with the
- * match's time and branch read from the match row. This function must be
- * deployed before the migration that lets the outbox hold a staff or guest
- * kind: a kind or title key it does not know is terminal.
+ * match's time and branch read from the match row. The coaching kinds
+ * (lesson_update, lesson_reminder, coach_update; queued by app.lesson_notify,
+ * lesson_booking) ride the same guest family (docs/design/coaching/guest.md §4.6), with
+ * the lesson's time and branch read from the lesson row and a statement's
+ * month from the statement row. This function must be deployed before the
+ * migration that lets the outbox hold a staff or guest kind: a kind or title
+ * key it does not know is terminal.
  */
 import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 import { errorMessage, fetchWithTimeout, handle, isUuid, json, logError } from '../_shared/http.ts';
 import staffPush from '../_shared/staff-push.json' with { type: 'json' };
 import guestPush from '../_shared/guest-push.json' with { type: 'json' };
 import { staffMessage } from './staffStrings.ts';
-import { guestMessage, guestTime, guestWhen } from './guestStrings.ts';
+import { guestMessage, guestMonth, guestTime, guestWhen } from './guestStrings.ts';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EXPO_BATCH_SIZE = 100;
@@ -63,6 +68,8 @@ const STAFF_ROUTES: ReadonlySet<string> = new Set(staffPush.routes);
 const GUEST_KINDS: ReadonlySet<string> = new Set(guestPush.kinds);
 const GUEST_ROUTES: ReadonlySet<string> = new Set(guestPush.routes);
 const GUEST_KEY_KINDS: Readonly<Record<string, string>> = guestPush.title_keys;
+/** The coaching routes (guest.md §4.6.3): only a row on one of these reads lessons or statements. */
+const LESSON_ROUTES: ReadonlySet<string> = new Set(['lesson', 'coach_lesson', 'coach_statements']);
 const DEFAULT_TZ = 'Asia/Baghdad';
 
 // Booking notification copy, EN/AR. SOURCE OF TRUTH: packages/i18n (@touch/i18n) —
@@ -156,7 +163,10 @@ interface OutboxRow {
     | 'deposit_refunded'
     | 'match_update'
     | 'match_reminder'
-    | 'match_message';
+    | 'match_message'
+    | 'lesson_update'
+    | 'lesson_reminder'
+    | 'coach_update';
   /**
    * Reservation snapshot for the booking kinds; `{ source }` only for `test`;
    * `{ route, id, title_key, params, dedupe? }` for the staff and guest kinds.
@@ -221,11 +231,29 @@ Deno.serve(handle('send-push', async (req) => {
   // never depend on either.
   type MatchRow = { id: string; start_at: string; venue_id: string; category: string };
   type VenueRow = { id: string; name_en: string; name_ar: string; timezone: string; is_active: boolean };
+  type LessonRow = { id: string; start_at: string; venue_id: string; status: string };
+  type StatementRow = { id: string; month: string; venue_id: string };
   const guestRows = rows.filter((r) => GUEST_KINDS.has(r.kind));
   const matches = new Map<string, MatchRow>();
   const venues = new Map<string, VenueRow>();
   const genders = new Map<string, string | null>();
+  const lessons = new Map<string, LessonRow>();
+  const statements = new Map<string, StatementRow>();
   let activeVenues = 0;
+  /** The lesson a coaching row is about: route lesson names it in params.lesson_id, coach_lesson in its id. */
+  const lessonIdOf = (r: OutboxRow): string | null => {
+    const raw =
+      r.payload.route === 'lesson'
+        ? (r.payload.params as { lesson_id?: unknown } | null | undefined)?.lesson_id
+        : r.payload.route === 'coach_lesson'
+          ? r.payload.id
+          : null;
+    return typeof raw === 'string' && raw ? raw : null;
+  };
+  const statementIdOf = (r: OutboxRow): string | null =>
+    r.payload.route === 'coach_statements' && typeof r.payload.id === 'string' && r.payload.id
+      ? r.payload.id
+      : null;
   if (guestRows.length > 0) {
     const matchIds = [
       ...new Set(
@@ -252,6 +280,28 @@ Deno.serve(handle('send-push', async (req) => {
       genders.set(g.id, g.gender);
     }
     activeVenues = [...venues.values()].filter((v) => v.is_active).length;
+
+    // Coaching rows (guest.md §4.6.3): one more batch read each for the lessons
+    // and the statements they name, only when such a row was claimed (no
+    // coaching row can be queued before app.lesson_notify, lesson_booking; the tables
+    // exist from coaching_tables). Only uuids are looked up.
+    const lessonRows = guestRows.filter((r) => typeof r.payload.route === 'string' && LESSON_ROUTES.has(r.payload.route));
+    if (lessonRows.length > 0) {
+      const lessonIds = [...new Set(lessonRows.map(lessonIdOf).filter((id): id is string => isUuid(id)))];
+      const statementIds = [...new Set(lessonRows.map(statementIdOf).filter((id): id is string => isUuid(id)))];
+      const [lessonsRes, statementsRes] = await Promise.all([
+        lessonIds.length > 0
+          ? db.from('lessons').select('id, start_at, venue_id, status').in('id', lessonIds)
+          : Promise.resolve({ data: [] as LessonRow[], error: null }),
+        statementIds.length > 0
+          ? db.from('coach_statements').select('id, month, venue_id').in('id', statementIds)
+          : Promise.resolve({ data: [] as StatementRow[], error: null }),
+      ]);
+      if (lessonsRes.error) return readFailed('lessons', lessonsRes.error);
+      if (statementsRes.error) return readFailed('coach_statements', statementsRes.error);
+      for (const l of (lessonsRes.data ?? []) as LessonRow[]) lessons.set(l.id, l);
+      for (const s of (statementsRes.data ?? []) as StatementRow[]) statements.set(s.id, s);
+    }
   }
 
   type Prepared = { row: OutboxRow; message: Record<string, unknown> };
@@ -300,7 +350,31 @@ Deno.serve(handle('send-push', async (req) => {
         await stamp(row.id, { last_error: 'MATCH_GONE', attempts: RETRY_CAP });
         continue;
       }
-      const venue = match ? venues.get(match.venue_id) : undefined;
+      // A coaching row names its lesson or statement; one that no longer
+      // exists is terminal, and so is a reminder whose lesson is no longer
+      // scheduled (the reminder sync should have deleted it: the backstop).
+      const lessonId = lessonIdOf(row);
+      const lesson = lessonId ? lessons.get(lessonId) : undefined;
+      if (lessonId && !lesson) {
+        failed++;
+        await stamp(row.id, { last_error: 'LESSON_GONE', attempts: RETRY_CAP });
+        continue;
+      }
+      if (row.payload.title_key === 'lesson.reminder' && lesson?.status !== 'scheduled') {
+        failed++;
+        await stamp(row.id, { last_error: 'REMINDER_STALE', attempts: RETRY_CAP });
+        continue;
+      }
+      const statementId = statementIdOf(row);
+      const statement = statementId ? statements.get(statementId) : undefined;
+      if (statementId && !statement) {
+        failed++;
+        await stamp(row.id, { last_error: 'STATEMENT_GONE', attempts: RETRY_CAP });
+        continue;
+      }
+      const startAt = match?.start_at ?? lesson?.start_at ?? null;
+      const venueId = match?.venue_id ?? lesson?.venue_id ?? statement?.venue_id ?? null;
+      const venue = venueId ? venues.get(venueId) : undefined;
       const tz = venue?.timezone || DEFAULT_TZ;
       const g = guestMessage(
         lang,
@@ -310,9 +384,10 @@ Deno.serve(handle('send-push', async (req) => {
           keyKinds: GUEST_KEY_KINDS,
           category: match?.category ?? null,
           readerGender: genders.get(row.profile_id) ?? null,
-          when: match ? guestWhen(match.start_at, lang, tz) : '',
-          time: match ? guestTime(match.start_at, lang, tz) : '',
+          when: startAt ? guestWhen(startAt, lang, tz) : '',
+          time: startAt ? guestTime(startAt, lang, tz) : '',
           branch: venue && activeVenues > 1 ? (lang === 'ar' ? venue.name_ar : venue.name_en) : '',
+          month: statement ? guestMonth(statement.month, lang) : '',
         },
         GUEST_ROUTES,
       );

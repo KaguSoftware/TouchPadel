@@ -20,6 +20,15 @@
  * sequence, and the service-role functions of contracts §1.4 (R8) are walked
  * too. The full order and the rules live in scripts/lib/lock-order.mjs.
  *
+ * Coaching (coaching_tables, docs/design/coaching/db.md §2; build contracts §1.4, R6,
+ * R33, R64) added the coach mutex, coach_advisory (app.lock_coach), right
+ * after match_money_advisory and before tabs, counted once per sequence; its
+ * try-lock twin is never printed. A reservations row taken FOR UPDATE ... SKIP
+ * LOCKED never waits, so it is not a lock here either (the statement that
+ * expires a held lesson's court hold); every other skip locked still prints.
+ * The service-role walk adds lesson_sweep, lesson_settle_success,
+ * lesson_payment_prepare and coach_statements_draft once each exists.
+ *
  * Two 0043 defects were both violations of exactly this rule — override_price
  * took order_items before tabs (a reproducible deadlock against void_after_send),
  * and refund took payments without ever taking tabs (so app.tab_net_paid, which

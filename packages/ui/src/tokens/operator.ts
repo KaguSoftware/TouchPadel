@@ -115,6 +115,15 @@ export const operatorVars = {
   '--tp-neutral-mark': `oklch(55% 0.02 ${HUE})`,
   '--tp-neutral-fg': `oklch(40% 0.02 ${HUE})`,
 
+  // Coaching lessons (docs/design/coaching/operator.md §5.8, §1.11): one violet
+  // family, hue 318, clear of the accent blue (260), Padel Green (128), warn
+  // (65–85) and danger (27). --tp-lesson is both the ink on the soft ground and
+  // the mark (edge, icon, dot), so it clears 4.5:1 on its soft ground and 3:1
+  // on the page and the panels (computed 2026-10-01): on --tp-lesson-soft
+  // 6.60:1 · on --tp-surface 7.59:1 · on --tp-bg 6.98:1.
+  '--tp-lesson': 'oklch(46% 0.15 318)',
+  '--tp-lesson-soft': 'oklch(95% 0.035 318)',
+
   // the navigation rail — the one committed brand surface
   '--tp-rail': `oklch(25% 0.05 ${HUE})`,
   '--tp-rail-2': `oklch(30% 0.055 ${HUE})`,

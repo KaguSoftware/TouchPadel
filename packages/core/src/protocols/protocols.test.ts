@@ -11,6 +11,7 @@ import { STAFF_ROLES } from '../staff/roles';
 import { isGeneratedPromoCode } from '../money/promotion';
 import {
   GENERIC_STEP_FORM,
+  LESSON_CHANGE_KINDS,
   PRICE_CHANGE_KINDS,
   PROTOCOL_KINDS,
   RECORD_CAPS,
@@ -19,6 +20,7 @@ import {
   builtInStep,
   builtInSteps,
   decisionFields,
+  isLessonChange,
   priceChangeKinds,
   randomPromoCode,
   startForm,
@@ -143,12 +145,29 @@ describe('who starts what', () => {
     expect(startableKinds(null)).toEqual([]);
   });
 
-  it('offers marketing every change kind but shop_launch, and management all eight', () => {
+  it('offers marketing every change kind but shop_launch and the lesson kinds, and management all eleven', () => {
+    expect(PRICE_CHANGE_KINDS).toHaveLength(11);
     expect(priceChangeKinds('owner')).toEqual([...PRICE_CHANGE_KINDS]);
     expect(priceChangeKinds('manager')).toEqual([...PRICE_CHANGE_KINDS]);
-    expect(priceChangeKinds('marketing')).toEqual(PRICE_CHANGE_KINDS.filter((k) => k !== 'shop_launch'));
+    expect(priceChangeKinds('marketing')).toEqual([
+      'price',
+      'addon_price',
+      'promotion',
+      'promotion_edit',
+      'promotion_enable',
+      'rate',
+      'featured_discount',
+    ]);
     expect(priceChangeKinds('head_chef')).toEqual([]);
     expect(priceChangeKinds(undefined)).toEqual([]);
+  });
+
+  it('names the three lesson kinds last (price_promo_lessons, 0285)', () => {
+    expect(LESSON_CHANGE_KINDS).toEqual(['lesson_price', 'lesson_launch', 'coach_price']);
+    expect(PRICE_CHANGE_KINDS.slice(-3)).toEqual([...LESSON_CHANGE_KINDS]);
+    expect(PRICE_CHANGE_KINDS.filter(isLessonChange)).toEqual([...LESSON_CHANGE_KINDS]);
+    expect(isLessonChange('shop_launch')).toBe(false);
+    expect(isLessonChange(undefined)).toBe(false);
   });
 });
 
@@ -194,6 +213,9 @@ describe('forms', () => {
     expect(names('addon_price')).toEqual(['change', 'reason', 'expected_effect', 'addons', 'renames']);
     expect(names('promotion_enable')).toEqual(['change', 'reason', 'expected_effect', 'promotion_id']);
     expect(names('rate')).toEqual(['change', 'reason', 'expected_effect', 'rule_id', 'rule']);
+    expect(names('lesson_price')).toEqual(['change', 'reason', 'expected_effect', 'lesson_type_id', 'price_iqd', 'court_share_iqd']);
+    expect(names('lesson_launch')).toEqual(['change', 'reason', 'expected_effect', 'lesson_type_id', 'price_iqd', 'court_share_iqd']);
+    expect(names('coach_price')).toEqual(['change', 'reason', 'expected_effect', 'coach_id', 'lesson_type_id', 'price_iqd']);
   });
 
   it('asks the decider of a release proposal for its category, and nobody else for decision data', () => {
@@ -441,6 +463,62 @@ describe('validateStep: price or promotion change', () => {
     expect(fields(validateStep('price_promo', 'numbers', { recommendation: 'maybe' }, { change: 'price' }))).toEqual([
       'recommendation:RECORD_INVALID',
     ]);
+  });
+
+  it('takes a lesson price change with a figure, in the server’s bounds (0285)', () => {
+    expect(propose({ change: 'lesson_price', lesson_type_id: U1, price_iqd: 30000 })).toEqual([]);
+    expect(propose({ change: 'lesson_price', lesson_type_id: U1, court_share_iqd: 0 })).toEqual([]);
+    expect(propose({ change: 'lesson_price', lesson_type_id: U1, price_iqd: 30000, court_share_iqd: 5000 })).toEqual([]);
+    expect(propose({ change: 'lesson_price', lesson_type_id: U1 })).toEqual(['price_iqd:RECORD_INVALID']);
+    expect(propose({ change: 'lesson_price', lesson_type_id: U1, price_iqd: null, court_share_iqd: null })).toEqual([
+      'price_iqd:RECORD_INVALID',
+    ]);
+    expect(propose({ change: 'lesson_price', lesson_type_id: U1, price_iqd: 0 })).toEqual(['price_iqd:RECORD_INVALID']);
+    expect(propose({ change: 'lesson_price', lesson_type_id: U1, price_iqd: RECORD_CAPS.lessonFigureMax })).toEqual([]);
+    expect(propose({ change: 'lesson_price', lesson_type_id: U1, price_iqd: RECORD_CAPS.lessonFigureMax + 1 })).toEqual([
+      'price_iqd:RECORD_INVALID',
+    ]);
+    expect(propose({ change: 'lesson_price', lesson_type_id: U1, court_share_iqd: -1 })).toEqual([
+      'court_share_iqd:RECORD_INVALID',
+    ]);
+    expect(propose({ change: 'lesson_price', price_iqd: 30000 })).toEqual(['lesson_type_id:RECORD_INVALID']);
+  });
+
+  it('puts a lesson type on sale only with both figures (0285)', () => {
+    expect(propose({ change: 'lesson_launch', lesson_type_id: U1, price_iqd: 30000, court_share_iqd: 5000 })).toEqual([]);
+    expect(propose({ change: 'lesson_launch', lesson_type_id: U1, price_iqd: 30000, court_share_iqd: 0 })).toEqual([]);
+    expect(propose({ change: 'lesson_launch', lesson_type_id: U1, price_iqd: 30000 })).toEqual([
+      'court_share_iqd:RECORD_INVALID',
+    ]);
+    expect(propose({ change: 'lesson_launch', lesson_type_id: U1, price_iqd: 0, court_share_iqd: 0 })).toEqual([
+      'price_iqd:RECORD_INVALID',
+    ]);
+  });
+
+  it('removes a coach’s own price when it is left empty, and needs the coach and the type (0285)', () => {
+    expect(propose({ change: 'coach_price', coach_id: U2, lesson_type_id: U1, price_iqd: null })).toEqual([]);
+    expect(propose({ change: 'coach_price', coach_id: U2, lesson_type_id: U1 })).toEqual([]);
+    expect(propose({ change: 'coach_price', coach_id: U2, lesson_type_id: U1, price_iqd: 35000 })).toEqual([]);
+    expect(propose({ change: 'coach_price', coach_id: U2, lesson_type_id: U1, price_iqd: 0 })).toEqual([
+      'price_iqd:RECORD_INVALID',
+    ]);
+    expect(propose({ change: 'coach_price', lesson_type_id: U1, price_iqd: 35000 })).toEqual(['coach_id:RECORD_INVALID']);
+    expect(propose({ change: 'coach_price', coach_id: U2, price_iqd: 35000 })).toEqual(['lesson_type_id:RECORD_INVALID']);
+  });
+
+  it('takes only a lesson change’s own figures at numbers, and no coach pay (0285, C-28)', () => {
+    const numbers = (change: (typeof PRICE_CHANGE_KINDS)[number]) =>
+      stepForm('price_promo', 'numbers', { change })!.fields.map((f) => f.name);
+    expect(numbers('lesson_price')).toEqual(['recommendation', 'price_iqd', 'court_share_iqd', 'note']);
+    expect(numbers('lesson_launch')).toEqual(['recommendation', 'price_iqd', 'court_share_iqd', 'note']);
+    expect(numbers('coach_price')).toEqual(['recommendation', 'price_iqd', 'note']);
+    expect(validateStep('price_promo', 'numbers', { recommendation: 'go' }, { change: 'lesson_price' })).toEqual([]);
+    expect(
+      validateStep('price_promo', 'numbers', { recommendation: 'change', price_iqd: 32000, court_share_iqd: 6000 }, { change: 'lesson_launch' }),
+    ).toEqual([]);
+    expect(
+      fields(validateStep('price_promo', 'numbers', { recommendation: 'go', price_iqd: 0 }, { change: 'coach_price' })),
+    ).toEqual(['price_iqd:RECORD_INVALID']);
   });
 
   it('applies on a date only when the date is ahead', () => {

@@ -2162,6 +2162,41 @@ synced in during the run, so every open-matches ordinal moved up by one.
   `features/availability/useAvailabilityBooking.ts`.
 - `e2e/` — Playwright config + specs (EN + AR).
 
+## Day 40 (2026-10-01 → 02) — coaching built (Milestone 5)
+
+- **Planned and approved with Parsa on 2026-10-01** (six rounds; decisions C-1…C-20, then C-21…C-31
+  from two adversarial reviews). Record: `docs/design/coaching/` — the build contracts (§0
+  decisions, §1 names, rulings R1–R84 in §1.12–§1.14), four lane files, the two reviews and
+  `CONTINUE.md`.
+- **Built by a fast track:** the remaining migrations were drafted in parallel into an untracked
+  staging folder and verified in order on the local stack; the four app lanes (phone guest, coach
+  mode, operator, web) were built in git worktrees and merged on one integration branch.
+- **Migrations 0273–0289.** Written as 0270–0286; the teammates' wages migrations took 0270–0272 the
+  same evening, so ours moved up by three at the merge (the design docs still say 0270–0286). No
+  re-issued function overlaps the wages ones.
+- **What it is:** coaches are guests with a coach record and a coach mode in the phone app (reachable
+  from the staff hub too). Private lessons are booked instantly on a 30-minute grid; group sessions
+  and courses are created by the coach or a manager, with a minimum and a cut-off. A lesson is its
+  own `reservation_kind 'lesson'` on a court chosen automatically; every other path that could
+  cancel, move or bill that court row refuses `LESSON_VIA_COACHING`. A lesson is paid on its own
+  `kind 'lesson'` tab at the desk, or by Qi (`lesson-begin`) when the owner switches it on. Prices
+  and court shares go through the price/promo protocol (`lesson_price`, `lesson_launch`,
+  `coach_price`). Monthly statements: 60 % of what was collected less a fixed court share per
+  session, approved by the branch manager, marked paid with a PIN, never a till movement. Every
+  lesson push is queued by one trigger on `lesson_events`. A `/coaching` web page shows coaches
+  who accepted a public profile, with prices behind a per-branch switch.
+- **A change for every refund (C-31):** day close, its summary, `ops_overview` and `day_close_shop`
+  date a refund by the till shift it was made in; `day_sessions` expected cash/card became signed.
+- **Verified on a fresh stack:** full db suite (3087), every db gate, `pnpm security`, root
+  typecheck/lint/test, mobile smoke (487), e2e EN + AR (139, incl. 13 coaching journeys).
+- **Switched off on every branch** (`coaching_enabled = false`). Left: the operator tag, the
+  production `eas build` (coach mode, the new date-time picker, the `/c/` links), the client's coach
+  list and prices, the terms' lessons section before online lesson payment (C-26), a TestFlight
+  trial at one branch.
+- **Also on 2026-10-02:** main was red from the teammates' push (the landing-page e2e test still
+  expected the removed header links); fixed on its own first (`b9f35c4e`), with a node-forge audit
+  waiver until 2026-10-16 (no fix published; reached only through `@expo/cli`).
+
 ## Roadmap / next steps
 1. ✔ DONE Day 1: platform foundation (see above).
 2. ✔ DONE Day 2 waves 0–6, 9–12: design pack, DB 0027–0035 + tests, edge functions, core analytics,
@@ -2268,6 +2303,7 @@ synced in during the run, so every open-matches ordinal moved up by one.
 | Multi-venue | ✔ Code-complete and live 2026-09-26 (0207–0227), audited and fixed the same day (0228–0235, `docs/design/multi-venue/audit-2026-09-26.md`): per-branch settings, day, guards, reports, realtime, "Open a new branch", the table-level branch guard, stations registered on purpose. **Held back on purpose:** no operator tag (the stations run the old build), no second branch, the mobile picker waits for the 1.0 build. **Partial:** the assistant reads the rail's branch but has no per-conversation branch choice; e2e helpers assume one venue; the legacy `kds`/`floor`/`courts` topics and `venue_settings.llm_*` are still there | Operator tag on every station, then a real second branch; a two-branch e2e spec; a cleanup migration dropping the legacy topics and columns | Before the second branch opens (tag, build); later migration (cleanup) |
 | Till online-only ops | `merge_tabs`, `record_drawer_open`, `open_day`, `close_day`, `open_till_shift`, `close_till_shift` and `close_till_shift_for` stay direct `appRpc` calls by decision (Parsa 2026-09-20, Phase 2 finding C3; the three till-shift RPCs, wave 5, `docs/design/protocols/wave5-addendum-2026-09-25.md` §2.9.4): a merge re-checks two tabs under lock, and the day boundary and a shift's start and count must be authoritative when they are written. `refund`, `cancel_tab`, `settle_zero_tab`, `void_after_send` and `record_waste` are queued mutation types since Milestone 0 item 9 (`payment.refund`, `tab.cancel`, `tab.settle_zero`, `order_item.void`, `stock.waste`; migration 0120 gave the first three `p_idempotency_key` + `app.claim_replay`) | Every till write on the durable queue | Later phase (full offline DB, SOW) |
 | Open matches online-only (DF-11) | Every match write is a direct `appRpc` call, never a queued mutation type. Desk: `desk_start_match`, `desk_add_seat`, `desk_remove_seat`, `desk_cancel_match`, `mark_match_seats`, `desk_call_off_short`, `match_seat_settle`, `match_link_payment`, `match_seat_write_off`, `set_match_ban`, `staff_set_customer_gender`, `resolve_match_report`, `ticket_cashout`, `set_match_settings`. Guest (D25): `match_start`, `match_join`, `match_request`, `match_withdraw`, `match_decide`, `match_leave`, `match_remove_player`, `match_cancel`, `match_post_message`, `match_report`, `match_block`, `match_unblock`, `set_my_gender`, and the ticket purchase through the `ticket-begin` edge function; each fails at once offline and nothing is queued (`match_start` is keyed, the rest are state-idempotent). Offline, a match booking's bill takes money through the queued `tab.open` and `tab.settle`, and Assign links it to players once online (`docs/design/open-matches/operator.md` §5.5, `guest.md` §4.0) | Queued seat marks and seat payments | Later phase (full offline DB, SOW) |
+| Coaching online-only (CD-6) | Every coaching write is a direct appRpc call, never a queued type: the desk's desk_book_lesson, desk_create_group, desk_create_course, desk_add_student, desk_cancel_enrolment, desk_cancel_lesson, desk_cancel_course, desk_reschedule_session, desk_move_lesson_court, desk_mark_attendance, lesson_settle; setup's coach_promote, coach_update, set_coach_status, set_coach_branches, set_coach_lesson_types, upsert_lesson_type, set_coach_price, set_coach_hours, add_coach_time_off, cancel_coach_time_off, set_coaching_settings; the statement actions; and every guest and coach-mode RPC. A refund of desk lesson money is the till's queued payment.refund, capped at what is due (coaching operator contract §5.5, R36) | Queued lesson payments and marks | Later phase (full offline DB, SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
 | Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **PUBLISHED 2026-09-07 as `v0.2.2`** (first working public build — the public repo, secrets, draft→publish pipeline, Electron-ABI rebuild proof and bundled `ws` all landed that day): durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS assisted installer at the stable `/download` link, first-run station setup + kitchen-screen pairing code, auto-update (feed verified: `latest.yml` 0.2.2), conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | Owner: swap `RELEASES_GH_TOKEN` for a fine-grained PAT; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred | Site visit before 2026-10-04 |

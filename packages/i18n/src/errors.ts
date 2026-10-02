@@ -379,6 +379,64 @@ export const ERROR_CODE_KEYS = {
   EDGE_UPSTREAM: 'op.errors.EDGE_UPSTREAM',
   EDGE_RATE_LIMITED: 'op.errors.EDGE_RATE_LIMITED',
   EDGE_UNKNOWN: 'op.errors.EDGE_UNKNOWN',
+  // Coaching (docs/design/coaching/build-contracts-2026-10-01.md §1.10): each
+  // code lands with the migration that first raises it; the lines are in
+  // catalogs/opErrors.coaching.*.ts, worded for staff and guests alike.
+  // coaching_settings: set_coaching_settings refuses an online lesson payment mode before
+  // the lessons terms are live (detail terms; R50, R67).
+  ONLINE_PAYMENT_OFF: 'op.errors.ONLINE_PAYMENT_OFF',
+  // coaching_tables: the lines of an approved, paid or void coach statement are frozen (R22).
+  STATEMENT_NOT_DRAFT: 'op.errors.STATEMENT_NOT_DRAFT',
+  // lesson_reservation_guards: a lesson's court row is changed only through the coaching RPCs
+  // (cancel_reservation, mark_reservation, extend_reservation, staff_create_reservation,
+  // open_tab, confirm_booking, move_reservation; detail cancel | mark | extend | create | tab |
+  // confirm | move; R7, R35, R73). A replayed offline envelope meets it too (a conflict row).
+  LESSON_VIA_COACHING: 'op.errors.LESSON_VIA_COACHING',
+  // lesson_money: the desk payment of a lesson place (lesson_settle; detail held | expired |
+  // cancelled | lesson_cancelled | no_show | nothing_owed; lesson-begin adds booked | desk |
+  // free), what it owes moving under the clerk (detail "expected X, now Y" | tab_open), a
+  // lesson tab's wall, an unknown or unseen enrolment, and lesson money refunded beyond what is
+  // due (app.refund, R36; lesson_blocked_refund_record, R75; detail "due <n>").
+  ENROLMENT_NOT_FOUND: 'op.errors.ENROLMENT_NOT_FOUND',
+  LESSON_NOT_PAYABLE: 'op.errors.LESSON_NOT_PAYABLE',
+  LESSON_OWED_CHANGED: 'op.errors.LESSON_OWED_CHANGED',
+  LESSON_TAB_NO_GOODS: 'op.errors.LESSON_TAB_NO_GOODS',
+  REFUND_EXCEEDS_DUE: 'op.errors.REFUND_EXCEEDS_DUE',
+  // coaching_admin: coaches, lesson types, hours and time off (HOURS_INVALID / HOURS_OVERLAP
+  // detail the 0-based window index, or time_off, R73), and coach mode for a non-coach.
+  NOT_A_COACH: 'op.errors.NOT_A_COACH',
+  ALREADY_COACH: 'op.errors.ALREADY_COACH',
+  COACH_NOT_FOUND: 'op.errors.COACH_NOT_FOUND',
+  COACH_NOT_AT_BRANCH: 'op.errors.COACH_NOT_AT_BRANCH',
+  LESSON_TYPE_NOT_FOUND: 'op.errors.LESSON_TYPE_NOT_FOUND',
+  LESSON_TYPE_NOT_OFFERED: 'op.errors.LESSON_TYPE_NOT_OFFERED',
+  HOURS_INVALID: 'op.errors.HOURS_INVALID',
+  HOURS_OVERLAP: 'op.errors.HOURS_OVERLAP',
+  TIME_OFF_HAS_LESSONS: 'op.errors.TIME_OFF_HAS_LESSONS',
+  // lesson_booking: booking, joining, adding, cancelling, moving and marks (a course's per-start
+  // codes carry the 1-based session number as detail; ALREADY_ENROLLED detail coach, R56, R73;
+  // LESSON_CLOSED detail cutoff, R47; COACH_ADD_LIMIT detail day | live, CD-9, R56).
+  COACHING_OFF: 'op.errors.COACHING_OFF',
+  COACH_INACTIVE: 'op.errors.COACH_INACTIVE',
+  LESSON_TYPE_INACTIVE: 'op.errors.LESSON_TYPE_INACTIVE',
+  COACH_UNAVAILABLE: 'op.errors.COACH_UNAVAILABLE',
+  COACH_BUSY: 'op.errors.COACH_BUSY',
+  NO_COURT_FREE: 'op.errors.NO_COURT_FREE',
+  SLOT_NOT_ON_GRID: 'op.errors.SLOT_NOT_ON_GRID',
+  PARTY_TOO_LARGE: 'op.errors.PARTY_TOO_LARGE',
+  LESSON_FULL: 'op.errors.LESSON_FULL',
+  LESSON_CLOSED: 'op.errors.LESSON_CLOSED',
+  ALREADY_ENROLLED: 'op.errors.ALREADY_ENROLLED',
+  LESSON_NOT_FOUND: 'op.errors.LESSON_NOT_FOUND',
+  LESSON_NOT_CANCELLABLE: 'op.errors.LESSON_NOT_CANCELLABLE',
+  ONLINE_PAYMENT_REQUIRED: 'op.errors.ONLINE_PAYMENT_REQUIRED',
+  COURSE_STARTS_INVALID: 'op.errors.COURSE_STARTS_INVALID',
+  SESSION_NOT_MOVABLE: 'op.errors.SESSION_NOT_MOVABLE',
+  COACH_ADD_LIMIT: 'op.errors.COACH_ADD_LIMIT',
+  // coach_statements: mark paid needs an approved statement whose total is not negative (detail
+  // the status, or negative: R59) and a receipt or transfer reference (R4, R49, R74).
+  STATEMENT_NOT_APPROVED: 'op.errors.STATEMENT_NOT_APPROVED',
+  STATEMENT_REFERENCE_REQUIRED: 'op.errors.STATEMENT_REFERENCE_REQUIRED',
 
   // ── Guest refusals the desk never meets (the phone's lines) ───────────────
   // 0048/C1 + 0058: raised by app.hold_slot from the day it was hardened; the

@@ -35,6 +35,11 @@
  * sales, refunds and liability are counted at every branch whatever the scope,
  * and say so. A row opens its report: report_drill has no transactions for
  * these, so they are never drilled.
+ *
+ * Coaching (docs/design/coaching/operator.md §5.18.4, C-18): a "Lessons" panel
+ * holds panel_headline's two lesson keys (lesson revenue, owed to coaches),
+ * left out when the server sent neither (before 0288). Like the online group,
+ * a row opens its report (revenue; Coach pay) and is never drilled.
  */
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -67,7 +72,7 @@ import { DrillDialog } from '../reports/DrillDialog';
 import { FigureGroup } from '../reports/FigureGroup';
 import { readDrill } from '../reports/reportPayloads';
 import { LiveFloor } from '../floor/LiveFloor';
-import { FIGURES, figuresIn, hasOnlineFigures, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
+import { FIGURES, figuresIn, hasLessonFigures, hasOnlineFigures, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
 import { DRILLABLE_FIGURES, buildPanelExport, fetchAllTransactions, type DrillRange } from './exportAll';
 import { WagesDueCard } from '../wages/WagesDueCard';
 
@@ -252,6 +257,22 @@ export function ManagementPanelScreen() {
                 onDrill={setDrill}
                 onOpen={(meta) => go(meta.report)}
                 hintOf={(meta) => (meta.chainWide ? tr('ws.matches.reports.allBranches') : undefined)}
+              />
+            </Panel>
+          )}
+          {hasLessonFigures(figures) && (
+            <Panel title={tr('ws.coaching.panel.title')} padded={false} className="tp-figure-panel" style={FIGURE_PANEL_STRIP} data-testid="panel-lessons">
+              <FigureRows
+                metas={figuresIn('lessons')}
+                figures={figures}
+                compare={compare}
+                label={label}
+                valueOf={valueOf}
+                money={money}
+                count={count}
+                onDrill={setDrill}
+                onOpen={(meta) => go(meta.report)}
+                hintOf={(meta) => (meta.key === 'owedToCoaches' ? tr('ws.coaching.panel.owedToCoachesHint') : undefined)}
               />
             </Panel>
           )}

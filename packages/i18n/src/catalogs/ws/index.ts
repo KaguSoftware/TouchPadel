@@ -72,6 +72,11 @@ import { guideAr } from './guide.ar';
 // Wages and attendance (0270–0272): the owner's Wages page, the manager's Late and early page.
 import { wagesEn } from './wages.en';
 import { wagesAr } from './wages.ar';
+// Coaching (docs/design/coaching/operator.md §5.20): coaching.* is the
+// assembly; its lanes' groups come from coachingDesk.*, coachingAdmin.* and
+// coachingMoney.*.
+import { coachingEn } from './coaching.en';
+import { coachingAr } from './coaching.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -102,6 +107,7 @@ export const wsEn = {
   matches: matchesEn,
   guide: guideEn,
   wages: wagesEn,
+  coaching: coachingEn,
 } as const;
 
 export const wsAr = {
@@ -133,4 +139,5 @@ export const wsAr = {
   matches: matchesAr,
   guide: guideAr,
   wages: wagesAr,
+  coaching: coachingAr,
 } as const;

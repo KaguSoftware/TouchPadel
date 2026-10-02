@@ -56,6 +56,11 @@ export const PIN_GATED_RPCS = [
   'deposit_refund_manual',
   // 0262 (R1): the manager write-off of an open-match share.
   'match_seat_write_off',
+  // lesson_money (R75): recording online lesson money handed back outside the till.
+  'lesson_blocked_refund_record',
+  // coach_statements (R4, R70): marking a coach statement paid; voiding an approved one.
+  'coach_statement_mark_paid',
+  'coach_statement_void',
 ] as const;
 export const PIN_GATED_RPC_SET: ReadonlySet<string> = new Set(PIN_GATED_RPCS);
 

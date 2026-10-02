@@ -11,7 +11,12 @@ export const MEDIA_BUCKET = 'menu-media';
 /** One month — objects are immutable (new name per upload). */
 export const MEDIA_CACHE_CONTROL = '2592000';
 
-export type MediaFolder = 'items' | 'categories' | 'hero' | 'courts';
+/**
+ * `coaches` (coaching operator.md §5.13.1, R43): a coach's photo goes to
+ * `coaches/<random uuid>/<random uuid>.<ext>`, a FRESH folder per upload, never
+ * one named by a profile or coach id, so no public path carries an identity.
+ */
+export type MediaFolder = 'items' | 'categories' | 'hero' | 'courts' | 'coaches';
 export type MediaExt = 'webp' | 'jpg' | 'png' | 'mp4' | 'webm';
 
 const CONTENT_TYPES: Record<MediaExt, string> = {
@@ -22,17 +27,24 @@ const CONTENT_TYPES: Record<MediaExt, string> = {
   webm: 'video/webm',
 };
 
-/** Build a bucket path; `ownerId` is the item/category id (ignored for `hero`). */
+/**
+ * Build a bucket path; `ownerId` is the item/category id (ignored for `hero`).
+ * `coaches` ignores it too and mints a new random folder on every call (R43).
+ */
 export function mediaPath(folder: MediaFolder, ownerId: string | null, ext: MediaExt): string {
   const name = `${crypto.randomUUID()}.${ext}`;
   if (folder === 'hero') return `hero/${name}`;
+  if (folder === 'coaches') return `coaches/${crypto.randomUUID()}/${name}`;
   if (!ownerId) throw new Error(`ownerId is required for ${folder} media`);
   return `${folder}/${ownerId}/${name}`;
 }
 
-/** True for paths shaped like our conventions (mirrors `app.is_media_path`). */
+/**
+ * True for paths shaped like our conventions (mirrors `app.is_media_path`).
+ * A coach photo is `coaches/<uuid>/<uuid>.<image ext>` (§1.2's `photo_path`).
+ */
 export function isMediaPath(path: string): boolean {
-  return /^(items|categories)\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(webp|jpg|png)$|^hero\/[0-9a-f-]{36}\.(webp|jpg|png|mp4|webm)$/i.test(
+  return /^(items|categories|coaches)\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(webp|jpg|png)$|^hero\/[0-9a-f-]{36}\.(webp|jpg|png|mp4|webm)$/i.test(
     path,
   );
 }

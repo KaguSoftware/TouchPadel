@@ -17,6 +17,7 @@
 import { Fragment, useState, type CSSProperties, type ReactNode } from 'react';
 import { formatIQD, formatNumber, isolate, type MessageKey } from '@touch/i18n';
 import {
+  isLessonChange,
   randomPromoCode,
   type FieldDef,
   type FieldIssue,
@@ -34,7 +35,8 @@ import { StaffPhotoThumb } from '../checklists/StaffPhoto';
 import { blankObject, fromLocalInput, getAt, issueAt, setAt, toLocalInput, toTimeInput, type Obj } from './formModel';
 import { fieldHintKey, fieldLabelKey, optionLabelKey } from './labels';
 import { pickText } from './protocolLogic';
-import { pickTarget, type Targets } from './priceTargets';
+import { coachLabel, lessonNowLine, lessonTypeLabel, pickTarget, type Targets } from './priceTargets';
+import { NUMBERS_FIGURES as NUMBERS_FIGURE_NAMES } from './contextLogic';
 import { dropRename, putRename, renameEntries, renameIndex, type RenameKey } from './renames';
 import { useAllCategories, useCafeCategories, useCampaigns, useCourts, useIngredients, useMenuItems, type NamedRow } from './api';
 
@@ -83,8 +85,11 @@ export interface FormEnv {
 /** Fields another screen or panel writes: the walker leaves them out. */
 const WRITTEN_ELSEWHERE = new Set(['candidate_ids', 'picked_id', 'staff_id', 'reservation_ids', 'photo_path', 'variant_id', 'modifier_id']);
 
-/** Figures of the numbers step, asked only when the recommendation is to change them. */
-const NUMBERS_FIGURES = new Set(['prices', 'new_sizes', 'addons', 'rule_prices', 'discount_pct', 'promotion_value']);
+/** Figures of the numbers step, asked only when the recommendation is to change them (a lesson change's too). */
+const NUMBERS_FIGURES: ReadonlySet<string> = new Set(NUMBERS_FIGURE_NAMES);
+
+/** The pickers of a price or promo proposal's target, fed by app.price_promo_targets. */
+const TARGET_FIELDS = new Set(['menu_item_id', 'promotion_id', 'rule_id', 'lesson_type_id', 'coach_id']);
 
 type Path = (string | number)[];
 
@@ -146,21 +151,32 @@ export function RecordForm({
       : shown;
   const set = (path: Path, next: unknown) => onChange(setAt(value, path, next) as Obj);
   const launch = env.kind === 'product_release' && env.stepKey === 'launch';
+  // A lesson proposal (coaching 0285): today's figures under the new ones.
+  const lessonAnchor =
+    env.kind === 'price_promo' && env.stepKey === 'propose' && isLessonChange(env.change) ? (env.change === 'coach_price' ? 'price_iqd' : 'court_share_iqd') : null;
   // Nothing typed here (the interviews send the candidates list): no empty block.
   if (ordered.length === 0 && !launch) return null;
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
-      {pairUp(ordered).map((group) =>
-        group.length === 2 ? (
-          <div key={group[0]!.name} style={PAIR}>
-            {group.map((f) => (
-              <FieldControl key={f.name} def={f} path={[f.name]} value={value} set={set} issues={issues} env={env} disabled={disabled} onRecord={onChange} />
-            ))}
-          </div>
-        ) : (
-          <FieldControl key={group[0]!.name} def={group[0]!} path={[group[0]!.name]} value={value} set={set} issues={issues} env={env} disabled={disabled} onRecord={onChange} />
-        ),
-      )}
+      {pairUp(ordered).map((group) => {
+        const node =
+          group.length === 2 ? (
+            <div key={group[0]!.name} style={PAIR}>
+              {group.map((f) => (
+                <FieldControl key={f.name} def={f} path={[f.name]} value={value} set={set} issues={issues} env={env} disabled={disabled} onRecord={onChange} />
+              ))}
+            </div>
+          ) : (
+            <FieldControl key={group[0]!.name} def={group[0]!} path={[group[0]!.name]} value={value} set={set} issues={issues} env={env} disabled={disabled} onRecord={onChange} />
+          );
+        if (lessonAnchor === null || group[0]!.name !== lessonAnchor) return node;
+        return (
+          <Fragment key={group[0]!.name}>
+            {node}
+            <LessonNow env={env} value={value} />
+          </Fragment>
+        );
+      })}
       {launch && (
         <LaunchPhotoPicker
           photos={env.launchPhotos ?? []}
@@ -170,6 +186,25 @@ export function RecordForm({
           disabled={disabled}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Under a lesson proposal's figures (operator.md §5.14.2): "Now: price … ·
+ * court share …", or a coach's price now; and, for a coach price, what an
+ * empty box does. Nothing until the target is picked.
+ */
+function LessonNow({ env, value }: { env: FormEnv; value: Obj }) {
+  const { tr, locale } = useLocale();
+  const now = lessonNowLine(env.change, env.targets, value, tr, locale);
+  if (now === null) return null;
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+      <p data-testid="lesson-now" style={{ ...muted, margin: 0 }}>
+        {now}
+      </p>
+      {env.change === 'coach_price' && <p style={{ ...muted, margin: 0 }}>{tr('ws.protocols.form.coachPriceHint')}</p>}
     </div>
   );
 }
@@ -235,7 +270,7 @@ function FieldControl(props: ControlProps) {
       </Field>
     );
   }
-  if (env.kind === 'price_promo' && env.stepKey === 'propose' && (top === 'menu_item_id' || top === 'promotion_id' || top === 'rule_id')) {
+  if (env.kind === 'price_promo' && env.stepKey === 'propose' && top !== null && TARGET_FIELDS.has(top)) {
     return <TargetSelect {...props} label={label} error={error} />;
   }
   // A proposal's new names are asked row by row inside the size and add-on
@@ -662,7 +697,25 @@ function TargetSelect({ path, value, env, disabled, onRecord, label, error }: Co
   const change = env.change;
   const v = typeof value[top] === 'string' ? (value[top] as string) : '';
   let options: { value: string; label: string }[] = [];
-  if (top === 'menu_item_id') {
+  // A coach price lists only the picked coach's types (coaching 0285).
+  const coach = change === 'coach_price' ? (targets?.coaches ?? []).find((c) => c.coach_id === value.coach_id) : undefined;
+  if (top === 'lesson_type_id' && change === 'coach_price' && !coach) {
+    return (
+      <Field label={label} error={error} required>
+        <p style={{ ...muted, margin: 0 }}>{tr('ws.protocols.form.pickCoachFirst')}</p>
+      </Field>
+    );
+  }
+  if (top === 'lesson_type_id') {
+    options = coach
+      ? coach.lesson_types.map((t) => ({ value: t.lesson_type_id, label: lessonTypeLabel(t, tr, locale) }))
+      : (targets?.lessonTypes ?? []).map((t) => ({
+          value: t.lesson_type_id,
+          label: lessonTypeLabel(t, tr, locale, change === 'lesson_launch' ? 'draft' : t.is_active ? null : 'off'),
+        }));
+  } else if (top === 'coach_id') {
+    options = (targets?.coaches ?? []).map((c) => ({ value: c.coach_id, label: coachLabel(c, locale) }));
+  } else if (top === 'menu_item_id') {
     options = (targets?.items ?? []).map((i) => ({
       value: i.menu_item_id,
       label: `${pickText(locale, i.name_en, i.name_ar)}${i.category_kind === 'shop' ? ` · ${tr('ws.protocols.form.shop')}` : ''}`,
@@ -692,7 +745,7 @@ function TargetSelect({ path, value, env, disabled, onRecord, label, error }: Co
           disabled={disabled || env.lockTarget}
           placeholder={tr('ws.protocols.form.choose')}
           options={options}
-          onChange={(id) => change && targets && onRecord(pickTarget(change, targets, value, id))}
+          onChange={(id) => change && targets && onRecord(pickTarget(change, targets, value, id, top))}
         />
       )}
     </Field>

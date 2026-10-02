@@ -231,6 +231,26 @@ const testIdElements = [
   'MatchEntryRow',
   'MatchRulesCard',
   'MatchRestrictedCard',
+  // Coaching, the guest's side (docs/design/coaching/guest.md §4.17): each takes
+  // a required testID and forwards it, or `${testID}.<child>`, explicitly.
+  // LessonPoster renders no Pressable.
+  'CoachCard',
+  'OfferRow',
+  'ClassRow',
+  'LessonRow',
+  'PaymentModeChoice',
+  'PartyStepper',
+  'LinkConfirmCard',
+  // Coach mode (docs/design/coaching/guest.md §4.13, §4.17): each takes a
+  // required testID and forwards `${testID}.<child>` explicitly
+  // (apps/mobile src/components/{coachMode,DateTimeField}.tsx).
+  'DateTimeField',
+  'CoachBanners',
+  'CoachLessonRow',
+  'RosterRow',
+  'ReasonCard',
+  'HoursDayEditor',
+  'TimeOffRow',
 ].join('|');
 
 const TEST_ID_MESSAGE =

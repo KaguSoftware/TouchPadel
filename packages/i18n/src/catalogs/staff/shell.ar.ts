@@ -41,6 +41,9 @@ export const staffShellAr: DeepMessages<typeof staffShellEn> = {
     back: 'العودة إلى واجهة الموظفين',
     note: 'هذا التطبيق كما يراه الضيوف. أي حجز أو طلب هنا حقيقي.',
   },
+  // DRAFT-AR (docs/design/coaching/guest.md §4.15).
+  coachMode: 'وضع المدرّب',
+  coachStatements: 'كشوف حساب المدرّب',
   pending: {
     slow: 'يستغرق التحقق من حسابك وقتًا أطول من المعتاد. تأكد من الاتصال وحاول مرة أخرى.',
   },

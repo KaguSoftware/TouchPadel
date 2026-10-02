@@ -37,6 +37,25 @@ export interface TargetAddon {
   launched: boolean;
 }
 
+/**
+ * A lesson type a lesson price change names (coaching 0285, X28), under the
+ * key names of COACHING_SHAPES.price_promo_targets_lesson_types (R81). Only
+ * what /tasks reads back: the id and the names.
+ */
+export interface TargetLessonType {
+  lesson_type_id: string;
+  name_en: string | null;
+  name_ar: string | null;
+}
+
+/** A coach of a `coach_price` change, with the types they teach (COACHING_SHAPES.price_promo_targets_coaches). */
+export interface TargetCoach {
+  coach_id: string;
+  display_name_en: string | null;
+  display_name_ar: string | null;
+  lesson_types: TargetLessonType[];
+}
+
 export interface Targets {
   items: TargetItem[];
   addons: TargetAddon[];
@@ -44,11 +63,25 @@ export interface Targets {
   rules: (Record<string, unknown> & { rule_id: string; name: string | null })[];
   featuredItemId: string | null;
   featuredPct: number | null;
+  /**
+   * Coaching (0285): a lesson change's types and coaches. Marketing never
+   * starts one (`priceChangeKinds`), but a record of one reads by name here.
+   */
+  lessonTypes: TargetLessonType[];
+  coaches: TargetCoach[];
 }
 
-/** The change kinds that pick a target from app.price_promo_targets; a new promotion picks none. */
+/**
+ * The change kinds that pick a target from app.price_promo_targets; a new
+ * promotion picks none. Every lesson change names a type (and a coach price
+ * its coach), so it reads them too.
+ */
 export function needsTargets(change: PriceChangeKind): boolean {
   return change !== 'promotion';
+}
+
+function readLessonType(t: Record<string, unknown>): TargetLessonType {
+  return { lesson_type_id: t.lesson_type_id as string, name_en: str(t.name_en), name_ar: str(t.name_ar) };
 }
 
 export function readTargets(payload: unknown): Targets {
@@ -83,6 +116,19 @@ export function readTargets(payload: unknown): Targets {
       .map((x) => ({ ...x, rule_id: x.rule_id as string, name: str(x.name) })),
     featuredItemId: str(p.featured_item_id),
     featuredPct: num(p.featured_discount_pct),
+    lessonTypes: list(p.lesson_types)
+      .filter((t) => typeof t.lesson_type_id === 'string')
+      .map(readLessonType),
+    coaches: list(p.coaches)
+      .filter((c) => typeof c.coach_id === 'string')
+      .map((c) => ({
+        coach_id: c.coach_id as string,
+        display_name_en: str(c.display_name_en),
+        display_name_ar: str(c.display_name_ar),
+        lesson_types: list(c.lesson_types)
+          .filter((t) => typeof t.lesson_type_id === 'string')
+          .map(readLessonType),
+      })),
   };
 }
 
@@ -94,6 +140,7 @@ export interface Option {
 /** The id choices a change kind's form offers, by the form's dotted paths. */
 export function targetSources(targets: Targets, draft: Draft, locale: 'en' | 'ar'): Record<string, Option[]> {
   const item = targets.items.find((i) => i.id === draft.menu_item_id);
+  const coach = targets.coaches.find((c) => c.coach_id === draft.coach_id);
   return {
     menu_item_id: targets.items.map((i) => ({ value: i.id, label: bilingual(locale, i.nameEn, i.nameAr) })),
     'prices.variant_id': (item?.sizes ?? []).map((s) => ({ value: s.variantId, label: bilingual(locale, s.nameEn, s.nameAr) })),
@@ -111,6 +158,9 @@ export function targetSources(targets: Targets, draft: Draft, locale: 'en' | 'ar
       })),
     promotion_id: targets.promotions.map((x) => ({ value: x.promotion_id, label: bilingual(locale, x.name_en, x.name_ar) })),
     rule_id: targets.rules.map((x) => ({ value: x.rule_id, label: x.name ?? '—' })),
+    // Lessons (coaching 0285): a coach price lists the picked coach's types only.
+    lesson_type_id: (coach ? coach.lesson_types : targets.lessonTypes).map((t) => ({ value: t.lesson_type_id, label: bilingual(locale, t.name_en, t.name_ar) })),
+    coach_id: targets.coaches.map((c) => ({ value: c.coach_id, label: bilingual(locale, c.display_name_en, c.display_name_ar) })),
   };
 }
 

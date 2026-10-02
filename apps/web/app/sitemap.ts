@@ -20,6 +20,9 @@ import { siteOrigin } from '@/lib/site/origin';
 const PAGES: ReadonlyArray<{ path: string; priority: number }> = [
   { path: '', priority: 1 },
   { path: '/menu', priority: 0.8 },
+  // The coaches and their sessions (docs/design/coaching/guest.md §4.14.5). The coach links
+  // `/c/<id>` are never listed: they are noindex, and `/coaching` is the page to find.
+  { path: '/coaching', priority: 0.7 },
   { path: '/support', priority: 0.5 },
   { path: '/privacy', priority: 0.3 },
   { path: '/terms', priority: 0.3 },

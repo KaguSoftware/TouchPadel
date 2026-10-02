@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./analytics": "./src/analytics/index.ts",
     "./protocols": "./src/protocols/index.ts",
+    "./coaching": "./src/coaching/index.ts",
     "./*": "./src/*.ts"
   },
   "scripts": {

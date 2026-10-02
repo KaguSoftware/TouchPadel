@@ -19,6 +19,8 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
     headline: 'الأرقام الرئيسية',
     padel: 'البادل',
     cafe: 'الكافيه',
+    // DRAFT-AR (coaching operator.md §5.18.4).
+    lessons: 'الحصص',
     exceptions: 'الاستثناءات',
     openRevenue: 'تقرير الإيرادات',
     openCourts: 'تقرير الملاعب',
@@ -51,6 +53,9 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       ticketForfeits: 'تذاكر المباريات المفقودة',
       ticketLiability: 'تذاكر غير مستخدمة مستحقة للاعبين',
       matchWrittenOff: 'حصص المباريات المشطوبة',
+      // DRAFT-AR (coaching operator.md §5.18.4).
+      lessonRevenue: 'الحصص',
+      owedToCoaches: 'مستحق للمدرّبين',
     },
     csv: {
       tabs: { window: 'الفترة', figures: 'الأرقام', transactions: 'المعاملات' },
@@ -178,6 +183,8 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       tables: 'طاولات الكافيه وبطاقة QR على كل طاولة. تشغيل جرس النادل أو إيقافه، وطباعة البطاقة، واستبدال البطاقة المفقودة.',
       settings: 'ساعات العمل وأيام الإغلاق ووقت بداية يوم العمل وبيانات المكان المثبّتة عند الإعداد.',
       guestSite: 'ما يراه الضيوف في أعلى المنيو بعد مسح بطاقة الطاولة. رموز QR للطاولات وتيليغرام في تبويبين ضمن الصفحة نفسها.',
+      // DRAFT-AR (coaching operator.md §5.3.3).
+      coaches: 'المدرّبون والحصص التي يقدّمونها وأسعارها وأوقات التدريب',
     },
     status: {
       staff: 'أشخاص لديهم صلاحية الدخول',
@@ -186,6 +193,9 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       tables: 'طاولات مستخدمة',
       dayStarts: 'بداية يوم العمل',
       homeScreen: 'أعلى المنيو',
+      // DRAFT-AR: «المدرّبون 3 · أنواع الحصص المعروضة 4».
+      coaches: 'المدرّبون',
+      lessonTypesOnSale: 'أنواع الحصص المعروضة',
     },
     heroMode: {
       none: 'المنيو فقط',
@@ -593,6 +603,13 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       rates: 'كم تكلّف ساعة الملعب، حسب اليوم والوقت. التغيير يسري على الحجوزات القادمة فقط.',
       menuPrices: 'أسعار الكافيه. التغيير هنا يؤثر في إيراد الغد، لا إيراد اليوم.',
       wages: 'راتب كل شخص ويوم صرفه، وما يُخصم منه، وتسجيل صرفه. وافق على الخصومات من هنا.',
+      // DRAFT-AR (coaching operator.md §5.3.3).
+      coachPay: 'كشوف حساب المدرّبين الشهرية: الاعتماد وتسجيل الدفع',
+    },
+    // DRAFT-AR: «للاعتماد 2 · للدفع 1».
+    status: {
+      toApprove: 'للاعتماد',
+      toPay: 'للدفع',
     },
     headline: {
       title: 'هذا الشهر حتى الآن',

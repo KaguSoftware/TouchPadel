@@ -23,6 +23,7 @@ import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Button, ErrorText, Field, Modal, Select, Skeleton, inputStyle } from '../../../components/ui';
 import { EmptyState, PageHeader, Panel, StatusBadge, type Tone } from '../../../components/kit';
+import { coachingErrorText } from '../../coaching/lessonLogic';
 import {
   createBranchArgs,
   draftProblems,
@@ -191,7 +192,10 @@ function BranchPanel({ branch }: { branch: BranchRow }) {
       toast.ok(tr('ws.branches.readiness.closed', { name }));
       await refresh();
     },
-    onError: (e) => toast.err(e),
+    // Coaching R37: BRANCH_HAS_BOOKINGS `coaching_money` (statements to approve
+    // or pay, a month not drafted, lesson money to refund) has its own line;
+    // any other refusal reads its shared line, as before.
+    onError: (e) => toast.err(coachingErrorText(e, tr)),
   });
 
   const goFix = (key: ReadinessKey) => {
@@ -288,6 +292,8 @@ function BranchPanel({ branch }: { branch: BranchRow }) {
             </Button>
           )}
         </div>
+        {/* A refusal to close stays beside the button: the coaching one names two screens to visit. */}
+        <ErrorText error={closeM.error} message={closeM.error ? coachingErrorText(closeM.error, tr) : null} />
       </div>
     </Panel>
   );

@@ -85,6 +85,13 @@ export interface VenueSettingsPublic {
   matches_enabled?: boolean | null;
   /** Minutes before the start a filling match must be full (0257; 120 by default). */
   match_fill_deadline_minutes?: number | null;
+  /** Coaching at this branch (0277, coaching guest.md §4.7.5). Optional: a row
+   *  cached before the column existed reads as switched off. */
+  coaching_enabled?: boolean | null;
+  /** `desk`, `online_optional` or `online_required` (CD-1). */
+  lesson_payment_mode?: string | null;
+  /** The website's price switch (C-11); the app shows prices whatever it says. */
+  lesson_prices_public?: boolean | null;
 }
 
 export const DEFAULT_TZ = 'Asia/Baghdad';

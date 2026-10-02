@@ -38,12 +38,14 @@
  * before the close: each shift with its difference as a sign word, the cash
  * taken or paid out at a station with no shift open, and one line for refunds
  * made today for earlier days' payments, which the day's expected cash leaves
- * out (TI5). An open shift is a WARNING, never a block: close_day ends it
+ * out (TI5) — or, on a day whose refunds are dated by their till shift
+ * (C-31, R27; day_close_online.refunds_dated_by_shift), counts in. An open
+ * shift is a WARNING, never a block: close_day ends it
  * uncounted, and nothing about shifts reaches deriveDayCloseState or
  * closeBlock. The CSV gains a row per shift.
  */
 import { DayCloseShop } from '../shop/DayCloseShop';
-import { DayCloseOnline } from './DayCloseOnline';
+import { DayCloseOnline, useDayCloseOnline } from './DayCloseOnline';
 import { reservationNameOf } from '../matches/matchLogic';
 import { useMatchStates } from '../matches/useMatches';
 import { HoldReviewsPanel } from '../holds/HoldStandingPanels';
@@ -83,6 +85,7 @@ import { fetchShiftList, tillShiftListKey } from '../tillShift/api';
 import { ShiftRows } from '../tillShift/ShiftRows';
 import {
   closeBlock,
+  crossDayKey,
   dayCloseCsv,
   deriveDayCloseState,
   describeAdjustmentKind,
@@ -230,6 +233,11 @@ export function DayClose() {
     refetchInterval: 30_000,
   });
   const shiftDay = tillShiftRows(shiftsQ.data, daySessionId);
+  // C-31 (coaching operator.md §5.18.1): whether this day dates its refunds by
+  // their till shift, which decides the cross-day sentence. The same read as
+  // the "Money outside the drawer" card, so it is fetched once.
+  const onlineQ = useDayCloseOnline(day?.id ?? null, Boolean(day));
+  const refundsDatedByShift = onlineQ.data?.refunds_dated_by_shift ?? null;
 
   const adjustmentsQ = useQuery({
     queryKey: ['dayCloseAdjustments', daySessionId],
@@ -683,6 +691,7 @@ export function DayClose() {
               <TillShiftsStep
                 index={5}
                 day={shiftDay}
+                refundsDatedByShift={refundsDatedByShift}
                 loaded={shiftsQ.data !== undefined}
                 error={shiftsQ.isError ? shiftsQ.error : null}
                 onRetry={() => void shiftsQ.refetch()}
@@ -945,12 +954,15 @@ function UnpaidPlayed({
 function TillShiftsStep({
   index,
   day,
+  refundsDatedByShift,
   loaded,
   error,
   onRetry,
 }: {
   index: number;
   day: TillShiftDay;
+  /** day_close_online's `refunds_dated_by_shift` (C-31): which cross-day sentence is true. */
+  refundsDatedByShift: boolean | null;
   loaded: boolean;
   error: unknown;
   onRetry: () => void;
@@ -1008,7 +1020,7 @@ function TillShiftsStep({
           )}
           {day.earlierDaysCashRefundsIqd !== 0 && (
             <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-              {tr('ws.tillShift.dayClose.crossDay', { amount: money(day.earlierDaysCashRefundsIqd) })}
+              {tr(crossDayKey(refundsDatedByShift), { amount: money(day.earlierDaysCashRefundsIqd) })}
             </p>
           )}
         </div>

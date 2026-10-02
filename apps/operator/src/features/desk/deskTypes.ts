@@ -4,7 +4,12 @@
  */
 import type { CustomerFlagType } from '../../components/kit';
 
-export type ReservationKind = 'booking' | 'hold' | 'maintenance';
+/**
+ * `lesson` (coaching, R13): a lesson's court row (`guest_id` null, `guest_name`
+ * exactly 'Lesson'). Lessons are changed from their own screen only; the desk
+ * learns which rows are lessons from `desk_lessons` and from this kind.
+ */
+export type ReservationKind = 'booking' | 'hold' | 'maintenance' | 'lesson';
 
 export interface ReservationRow {
   id: string;
@@ -27,6 +32,12 @@ export interface ReservationRow {
   notes: string | null;
   /** Added by migration 0066; absent on older rows/servers. */
   series_id?: string | null;
+  /**
+   * A lesson's court row (0278): present only where a screen selects `*`
+   * (BookingDetail); never in RESERVATION_COLUMNS, which a server without
+   * coaching could not answer (coaching operator.md §5.1).
+   */
+  lesson_id?: string | null;
   source?: 'mobile' | 'desk' | string;
 }
 

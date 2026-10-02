@@ -4,10 +4,13 @@ import { describe, expect, it } from 'vitest';
 import {
   GUEST_PUSH_KINDS,
   GUEST_PUSH_ROUTES,
+  MATCH_PUSH_KINDS,
+  MATCH_PUSH_ROUTES,
   guestPushHref,
   isGuestPushKind,
   isGuestPushRoute,
 } from '../pushRoutes';
+import { LESSON_PUSH_KINDS, LESSON_PUSH_ROUTES } from '../../coaching/pushRoutes';
 import { isGuestTap, isStaffTap, tapDestination } from '../../profile/pushSync';
 
 /**
@@ -37,6 +40,13 @@ describe('the guest push catalogue', () => {
     expect(isGuestPushKind('match_update')).toBe(true);
     expect(isGuestPushKind('booking_confirmed')).toBe(false);
     expect(isGuestPushKind(undefined)).toBe(false);
+  });
+
+  it('appends the coaching family (coaching/pushRoutes.ts) after the open-match one', () => {
+    expect([...GUEST_PUSH_ROUTES]).toEqual([...MATCH_PUSH_ROUTES, ...LESSON_PUSH_ROUTES]);
+    expect([...GUEST_PUSH_KINDS]).toEqual([...MATCH_PUSH_KINDS, ...LESSON_PUSH_KINDS]);
+    for (const route of LESSON_PUSH_ROUTES) expect(isGuestPushRoute(route), route).toBe(true);
+    for (const kind of LESSON_PUSH_KINDS) expect(isGuestPushKind(kind), kind).toBe(true);
   });
 });
 

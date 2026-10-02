@@ -29,6 +29,7 @@ import {
 } from '../src/components/ui';
 import {
   BellIcon,
+  CalendarIcon,
   ChevronIcon,
   EyeIcon,
   SlidersIcon,
@@ -43,6 +44,7 @@ import {
 import { RequireStaff, useStaffSignOut } from '../src/features/staff/RequireStaff';
 import { setGuestPreview } from '../src/features/staff/guestPreview';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
+import { coachModeEntry, useCoachStatus } from '../src/features/coach/useCoachStatus';
 import { staffKeys } from '../src/features/staff/keys';
 import { showsVenuePicker } from '../src/features/staff/venue';
 import { mapStaffError } from '../src/features/staff/edge';
@@ -152,7 +154,7 @@ function GroupTile({
   );
 }
 
-/** One of the account's three buttons: an icon tile over a short name. */
+/** One of the account's buttons: an icon tile over a short name. */
 function AccountButton({
   testID,
   icon: Icon,
@@ -467,6 +469,9 @@ function TodayScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { status, venueId, venues, setVenueId } = useStaffStatus();
+  // C-27, R45: the hub reads coach_me on mount, like Profile, whatever the
+  // staff status and the coaching switches say.
+  const coachEntry = coachModeEntry(useCoachStatus({ read: true }).status);
   const alerts = useWorkAlerts();
   const toast = useToast();
   const out = useStaffSignOut();
@@ -593,6 +598,21 @@ function TodayScreen() {
         <View style={{ marginTop: 'auto', paddingTop: space.m, gap: space.sm }}>
           <View style={{ gap: space.xs }}>
             <MicroLabel style={{ paddingStart: 4 }}>{t('staff.shell.account.title')}</MicroLabel>
+            {/* Staff who coach reach coach mode here (coaching C-27, R45): the
+                tabs, and Profile with them, are out of reach for a staff
+                session. A retired coach keeps the statements (C-25). */}
+            {coachEntry ? (
+              <View style={{ flexDirection: 'row' }}>
+                <AccountButton
+                  testID="staff.coach-mode"
+                  icon={CalendarIcon}
+                  label={t(
+                    coachEntry === '/coach-mode' ? 'staff.shell.coachMode' : 'staff.shell.coachStatements',
+                  )}
+                  onPress={() => router.push(coachEntry)}
+                />
+              </View>
+            ) : null}
             <View style={{ flexDirection: 'row', gap: space.s }}>
               <AccountButton
                 testID={

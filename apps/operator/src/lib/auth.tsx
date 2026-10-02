@@ -306,6 +306,8 @@ export const SUB_ROUTES = {
     '/admin/hero',
     '/admin/qr',
     '/admin/courts',
+    // Coaching (docs/design/coaching/operator.md §5.3.2): coaches, lesson types, hours.
+    '/admin/coaches',
     '/admin/rates',
     '/admin/hours',
     '/admin/promotions',
@@ -539,6 +541,27 @@ export const CAPABILITY_ROLES = {
    * show the standing; only MGMT decides (app.hold_standing_decide).
    */
   decideHoldStanding: ['manager', 'owner'],
+
+  // Coaching (docs/design/coaching/operator.md §5.3.1). Screen-level buttons
+  // only: a row's own buttons follow the `can` objects of
+  // app.desk_lesson_detail and app.coach_statement_detail, and every RPC
+  // re-checks its roles first (R57).
+  /**
+   * New lesson (all three kinds), Add student, the cancels, Reschedule, Move
+   * court, Arrived / No-show / Undo, the record's Lessons panel and "Book a
+   * lesson", the Today group's New lesson (the app.desk_* lesson writes).
+   */
+  runLessons: ['court_desk', 'manager', 'owner'],
+  /**
+   * Take payment for a lesson (app.lesson_settle), on the lesson screen and on
+   * the customer record (the cashier's way in, R20). Never
+   * permissions.takeCourtPayment, which also holds the shop assistant.
+   */
+  takeLessonPayment: ['cashier', 'court_desk', 'manager', 'owner'],
+  /** /admin/coaches writes, "Make coach" and "Open in Coaches" on the record, the Setup card's line. */
+  manageCoaches: ['manager', 'owner'],
+  /** Coach pay (/reports/coaches): Recount, Approve, Void, Redraft, Mark paid. */
+  settleCoaches: ['manager', 'owner'],
 } as const satisfies Record<string, readonly StaffRole[]>;
 
 export type Capability = keyof typeof CAPABILITY_ROLES;

@@ -469,6 +469,10 @@ export const staffProtocolsEn = {
     recommendation: 'Recommendation',
     finalRulePrices: 'Final prices by length',
     promotionValue: 'Final discount',
+    // Lesson price changes (coaching 0285): read and decided on the phone, started on the operator.
+    lessonTypeId: 'Lesson type',
+    coachId: 'Coach',
+    courtShareIqd: 'Court share per session (IQD)',
   },
   option: {
     unit: {

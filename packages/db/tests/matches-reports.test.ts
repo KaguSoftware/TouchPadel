@@ -632,6 +632,8 @@ describe.skipIf(!docker)('0265 reports: day close online, report figures, report
       'discounts', 'refunds', 'waste', 'noShows',
       'onlineDeposits', 'depositForfeits', 'ticketSales', 'ticketRefunds', 'ticketForfeits', 'ticketLiability',
       'matchWrittenOff',
+      // 0288 (coaching, money.md §8.2): lesson revenue as its own line, and the coaches' share.
+      'lessonRevenue', 'owedToCoaches',
     ]);
     const v = minus(figures(p), figures(data<Json>(r, 'base_panel_v')));
     expect(pick(v, ['onlineDeposits', 'depositForfeits', 'ticketSales', 'ticketRefunds', 'ticketForfeits',

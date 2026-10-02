@@ -9,8 +9,9 @@ import {
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { clearAllCaches } from '../../lib/queryClient';
-import { clearAllMatchIntentKeys } from '../../lib/idempotency';
+import { clearAllLessonIntentKeys, clearAllMatchIntentKeys } from '../../lib/idempotency';
 import { clearPendingJoin } from '../matches/pendingJoin';
+import { clearPendingLesson } from '../coaching/pendingLesson';
 import { clearTicketContinuation } from '../matches/continuation';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
 import { clearStaffHint } from '../staff/hint';
@@ -83,10 +84,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void clearStaffHint();
         // An open match's start keys belong to the account that left (§4.23).
         clearAllMatchIntentKeys();
+        // ...and so do lesson keys, a coach's included (coaching guest.md §4.7.4).
+        clearAllLessonIntentKeys();
         // ...and so do the open-match intents they left in memory: a pending invite or a
         // ticket continuation would otherwise steer the next account on this phone.
         clearPendingJoin();
         clearTicketContinuation();
+        // Coaching (guest.md §4.9.5): a signed-out lesson intent belongs to the
+        // account that left too.
+        clearPendingLesson();
       }
     });
     return () => {

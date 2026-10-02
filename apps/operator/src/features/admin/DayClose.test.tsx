@@ -215,6 +215,42 @@ describe('Day close ▸ Till shifts', () => {
     expect(screen.getByTestId('day-close-shifts')).toBeTruthy();
   });
 
+  // C-31, R27, R71 (coaching operator.md §5.18.1): a day whose refunds are
+  // dated by their till shift counts the earlier days' refunds in its cash.
+  it('on a day dated by its till shifts, the cross-day refunds count in the expected cash', async () => {
+    checklists = { business_date: '2026-09-24', lists: [] };
+    shifts = {
+      from: '2026-09-24',
+      to: '2026-09-24',
+      shifts: [],
+      outside: [],
+      cross_day: [{ day_session_id: 'ds1', business_date: '2026-09-24', earlier_days_cash_refunds_iqd: 30000, earlier_days_card_refunds_iqd: 0, later_cash_refunds_iqd: 0, later_card_refunds_iqd: 0 }],
+    };
+    online = { refunds_dated_by_shift: true };
+    mount();
+    const step = await screen.findByTestId('day-close-shifts');
+    await waitFor(() => expect(step.textContent).toContain('They count in this day’s expected cash.'));
+    expect(step.textContent).toContain('Refunds made on this day for earlier days’ payments: 30,000 IQD in cash');
+    expect(step.textContent).not.toContain('leaves them out');
+  });
+
+  it('on a day closed before that rule, or an older server, the old sentence stays', async () => {
+    checklists = { business_date: '2026-09-24', lists: [] };
+    shifts = {
+      from: '2026-09-24',
+      to: '2026-09-24',
+      shifts: [],
+      outside: [],
+      cross_day: [{ day_session_id: 'ds1', business_date: '2026-09-24', earlier_days_cash_refunds_iqd: 30000, earlier_days_card_refunds_iqd: 0, later_cash_refunds_iqd: 0, later_card_refunds_iqd: 0 }],
+    };
+    online = { refunds_dated_by_shift: false };
+    mount();
+    const step = await screen.findByTestId('day-close-shifts');
+    await waitFor(() => expect(calls.some((c) => c.fn === 'day_close_online')).toBe(true));
+    expect(step.textContent).toContain('The day’s expected cash leaves them out.');
+    expect(step.textContent).not.toContain('They count in');
+  });
+
   it('shows a retry when the shifts cannot be read, and the close stays open', async () => {
     checklists = { business_date: '2026-09-24', lists: [] };
     shifts = new AppRpcError('UNKNOWN', 'network down');
@@ -260,6 +296,49 @@ describe('Day close ▸ Money outside the drawer', () => {
     expect(within(card).queryByText('Match tickets, all branches')).toBeNull();
     expect(within(card).queryByText('Test payments left out')).toBeNull();
     expect(calls.find((c) => c.fn === 'day_close_online')?.args).toEqual({ p_day_session_id: 'ds1' });
+    await countTheCash();
+  });
+
+  // Coaching (coaching operator.md §5.18.1): information only, never in the cash count.
+  it('shows the day’s lesson money as its own group, and the close stays open', async () => {
+    checklists = { business_date: '2026-09-24', lists: [] };
+    online = {
+      day_session_id: 'ds1',
+      business_date: '2026-09-24',
+      deposits: { received_iqd: 0 },
+      matches: { bookings: 0 },
+      lessons: {
+        desk_paid_iqd: 60000,
+        desk_paid_count: 2,
+        desk_refunded_iqd: 30000,
+        online_received_iqd: 40000,
+        online_received_count: 1,
+        online_refunded_iqd: 0,
+        online_refunded_count: 0,
+        online_refunds_waiting_iqd: 0,
+        online_refunds_waiting_count: 0,
+        refunds_due_desk_iqd: 0,
+        refunds_due_desk_count: 0,
+        kept_iqd: 0,
+        kept_count: 0,
+        lessons: 3,
+        owed_iqd: 0,
+        owed_count: 0,
+        owed_to_coaches_iqd: 54000,
+      },
+      refunds_dated_by_shift: true,
+    };
+    mount();
+    const group = await screen.findByTestId('day-close-online-lessons');
+    expect(within(group).getByText('Lessons today')).toBeTruthy();
+    expect(within(group).getByText('Paid at the desk (in the drawer)')).toBeTruthy();
+    expect(within(group).getByText('60,000 IQD')).toBeTruthy();
+    expect(within(group).getByText('Refunded at the desk today, whatever day it was paid (out of the drawer)')).toBeTruthy();
+    expect(within(group).getByText('30,000 IQD')).toBeTruthy();
+    expect(within(group).getByText("Owed to coaches for today's lessons (paid outside the till)")).toBeTruthy();
+    expect(within(group).getByText('54,000 IQD')).toBeTruthy();
+    // Nothing of the matches or deposits moved: only the lessons group is drawn.
+    expect(screen.queryByTestId('day-close-online-matches')).toBeNull();
     await countTheCash();
   });
 

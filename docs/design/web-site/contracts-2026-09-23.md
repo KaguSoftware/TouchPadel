@@ -24,7 +24,7 @@ Revision B makes **the club** the subject. Interview answers (owner, 2026-09-23)
 | How people book today | **WhatsApp, a phone call, or walking in**. The app is not in the stores yet |
 | Sections wanted | Courts & experience · Coaching & lessons · Events & tournaments · Touch Cafe · Location & contact · First visit FAQ. **Not** prices, **not** a gallery |
 | Imagery | **Stock photos for now** — licensed padel action in the brand's night-court style, clearly swappable for Touch's own photos later (credits file). The 3D court stays as brand art |
-| Coaching | **Offered today**, nothing specific to promise (no levels/format/coach names) |
+| Coaching | **Offered today**, nothing specific to promise (no levels/format/coach names). *Amended 2026-10-01 by coaching C-11 (`docs/design/coaching/build-contracts-2026-10-01.md`): a `/coaching` page with coach names, photos and bios (coaches who accepted a public profile), lesson types and upcoming sessions with places left; prices only behind each branch's `lesson_prices_public` switch, off until Mustafa agrees. "Book in the app" via `/c/<id>`* |
 | Events | **Coming soon** — "join the list on WhatsApp" |
 | The app | **A short section**, not the story |
 | Location | "darra karbela" → **Durrat Karbala (درّة كربلاء), Karbala** — spelling to be confirmed by the owner |

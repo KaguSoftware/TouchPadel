@@ -28,10 +28,10 @@ import { stackAvailable } from './helpers';
 const up = await stackAvailable();
 const docker = up && dockerReachable();
 
-/** The order of db.md §2.1 / contracts §1.4, verbatim. */
+/** The order of db.md §2.1 / contracts §1.4, verbatim; coach_advisory since coaching_tables (coaching db.md §2.1). */
 const DECLARED = [
-  'day_sessions', 'match_money_advisory', 'tabs', 'orders', 'order_items', 'tickets', 'payments', 'till_shifts',
-  'refunds', 'stock_batches', 'court_advisory', 'reservations', 'match_venue_advisory', 'match_tickets',
+  'day_sessions', 'match_money_advisory', 'coach_advisory', 'tabs', 'orders', 'order_items', 'tickets', 'payments',
+  'till_shifts', 'refunds', 'stock_batches', 'court_advisory', 'reservations', 'match_venue_advisory', 'match_tickets',
 ];
 
 // ── synthetic bodies, shaped like the real ones ─────────────────────────────
@@ -72,7 +72,11 @@ const BASE = [
 describe('the walker over synthetic catalogs (pure)', () => {
   it('declares the order of db.md §2.1', () => {
     expect(ORDER).toEqual(DECLARED);
-    expect(SERVICE_WALK).toEqual(['match_sweep', 'deposit_apply', 'ticket_settle_success', 'ticket_refund_deleted', 'tickets_cash_out', 'expire_stale_holds']);
+    expect(SERVICE_WALK).toEqual([
+      'match_sweep', 'deposit_apply', 'ticket_settle_success', 'ticket_refund_deleted', 'tickets_cash_out', 'expire_stale_holds',
+      // Coaching (coaching_tables, R33): walked once each exists.
+      'lesson_sweep', 'lesson_settle_success', 'lesson_payment_prepare', 'coach_statements_draft',
+    ]);
   });
 
   it('match_lock (R15): courts -> the booking row -> hold expiry -> the mutex', () => {
@@ -225,7 +229,8 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
 
   it("walks Money's service-role paths (R8): tickets only, after the deposit locks", () => {
     gate ??= runGate();
-    expect(rowOf(gate.out, 'deposit_apply')).toBe('court_advisory -> reservations -> match_venue_advisory -> match_tickets');
+    // 0284 (R33): a lesson row's coach first, then the courts, the rows, the trigger.
+    expect(rowOf(gate.out, 'deposit_apply')).toBe('coach_advisory -> court_advisory -> reservations -> match_venue_advisory -> match_tickets');
     for (const fn of ['ticket_settle_success', 'ticket_refund_deleted', 'tickets_cash_out']) {
       expect(rowOf(gate.out, fn), fn).toBe('match_tickets');
     }
@@ -296,9 +301,11 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
     }
   });
 
-  it('0263: deposit_apply prints courts -> its rows -> the mutex -> tickets with the reservation trigger (R15, money.md §8)', () => {
+  it('0263, 0284: deposit_apply prints the coach -> courts -> its rows -> the mutex -> tickets with the reservation trigger (R15, R33)', () => {
     gate ??= runGate();
-    expect(rowOf(gate.out, 'deposit_apply')).toBe('court_advisory -> reservations -> match_venue_advisory -> match_tickets');
+    expect(rowOf(gate.out, 'deposit_apply')).toBe(
+      'coach_advisory -> court_advisory -> reservations -> match_venue_advisory -> match_tickets',
+    );
   });
 
   it('0263: the sweep and every reservations writer print in order with the trigger expanded (§2.5)', () => {

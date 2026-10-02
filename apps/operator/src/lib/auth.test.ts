@@ -261,6 +261,11 @@ describe('capability matrix', () => {
     reviewMatchReports: ['manager', 'owner'],
     // 0252: lift or ban a guest on the hold ladder.
     decideHoldStanding: ['manager', 'owner'],
+    // Coaching (coaching operator.md §5.3.1): each the guard of the RPC behind it.
+    runLessons: ['court_desk', 'manager', 'owner'],
+    takeLessonPayment: ['cashier', 'court_desk', 'manager', 'owner'],
+    manageCoaches: ['manager', 'owner'],
+    settleCoaches: ['manager', 'owner'],
   };
   /** A role's own work, which the owner does not do: the RPC refuses the owner too. */
   const OWN_WORK: Partial<Record<Capability, readonly StaffRole[]>> = {
@@ -343,6 +348,11 @@ describe('capability matrix', () => {
         'cashOutTickets',
         'banFromMatches',
         'reviewMatchReports',
+        // Coaching (docs/design/coaching/operator.md §5.3.1).
+        'runLessons',
+        'takeLessonPayment',
+        'manageCoaches',
+        'settleCoaches',
       ].sort(),
     );
   });
@@ -364,6 +374,31 @@ describe('capability matrix', () => {
       expect(can('manager', capability), capability).toBe(true);
       expect(can('owner', capability), capability).toBe(true);
     }
+  });
+
+  it('gives lessons to the desk, lesson money to the cashier too, and never to the shop (coaching operator.md §5.3.1)', () => {
+    // The cashier takes lesson money from the record (R20) but runs no lesson (no /desk).
+    expect(can('cashier', 'takeLessonPayment')).toBe(true);
+    expect(can('cashier', 'runLessons')).toBe(false);
+    // The shop assistant holds a drawer (takeCourtPayment) but no lesson money.
+    expect(permissionsFor('shop_staff').takeCourtPayment).toBe(true);
+    expect(can('shop_staff', 'takeLessonPayment')).toBe(false);
+    expect(can('court_desk', 'runLessons')).toBe(true);
+    expect(can('court_desk', 'takeLessonPayment')).toBe(true);
+    // Coaches, their prices and hours, and coach pay are management's.
+    for (const capability of ['manageCoaches', 'settleCoaches'] as const) {
+      expect(can('court_desk', capability), capability).toBe(false);
+      expect(can('cashier', capability), capability).toBe(false);
+      expect(can('manager', capability), capability).toBe(true);
+      expect(can('owner', capability), capability).toBe(true);
+    }
+    // /admin/coaches inherits /admin; the lesson screen inherits /desk; Coach pay inherits /reports.
+    expect(canAccess('manager', '/admin/coaches')).toBe(true);
+    expect(canAccess('court_desk', '/admin/coaches')).toBe(false);
+    expect(canAccess('court_desk', '/desk/lessons/x')).toBe(true);
+    expect(canAccess('cashier', '/desk/lessons/x')).toBe(false);
+    expect(canAccess('manager', '/reports/coaches')).toBe(true);
+    expect(allowedSubRoutes('manager', '/admin')).toContain('/admin/coaches');
   });
 
   it('keeps deciding and cancelling a deduction, wages, redacting a report and deciding content with the owner (wave5-addendum §2.5-§2.7, §8 Q14; 0272)', () => {

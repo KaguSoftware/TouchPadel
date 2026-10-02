@@ -148,7 +148,9 @@ export function useTradingNight(date: string): TradingNight {
     events: ['slot_changed'],
     // Open matches too: slot_changed fires when a match books and when a
     // booking bumps one (both write reservations; open-matches operator.md §5.4).
-    invalidateKeys: [['reservations'], ['reservationsMonth'], ['reservation'], QK.deskMatches.all],
+    // Lessons too: every lesson create, cancel, reschedule and court move writes
+    // reservations (coaching operator.md §5.4).
+    invalidateKeys: [['reservations'], ['reservationsMonth'], ['reservation'], QK.deskMatches.all, QK.coaching.all],
   });
 
   return {

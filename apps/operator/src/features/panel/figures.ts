@@ -11,6 +11,11 @@
  * report_drill has no transactions for them, so the export's drill set
  * (exportAll.ts DRILLABLE_FIGURES, drawn from FIGURE_KEYS) must not grow, and
  * a row of the group opens its report instead of a drill window.
+ *
+ * Coaching (docs/design/coaching/operator.md §5.18.4; panel_headline's two
+ * lesson keys since 0288, C-18): the `lessons` group, LESSON_FIGURE_KEYS,
+ * likewise outside FIGURE_KEYS and never drilled. Lesson revenue opens the
+ * revenue report, what is owed to coaches opens Coach pay.
  */
 import type { CsvCell } from '../analytics/exportTables';
 
@@ -34,10 +39,14 @@ export const FIGURE_KEYS = [
 export const ONLINE_FIGURE_KEYS = ['onlineDeposits', 'depositForfeits', 'ticketSales', 'ticketRefunds', 'ticketForfeits', 'ticketLiability', 'matchWrittenOff'] as const;
 export type OnlineFigureKey = (typeof ONLINE_FIGURE_KEYS)[number];
 
-export type FigureKey = (typeof FIGURE_KEYS)[number] | OnlineFigureKey;
+/** panel_headline's lesson figures (0288, C-18), in panel order. Never drilled; each opens its report. */
+export const LESSON_FIGURE_KEYS = ['lessonRevenue', 'owedToCoaches'] as const;
+export type LessonFigureKey = (typeof LESSON_FIGURE_KEYS)[number];
 
-/** Every figure the panel knows, in panel order: the thirteen, then the online group. */
-export const ALL_FIGURE_KEYS: readonly FigureKey[] = [...FIGURE_KEYS, ...ONLINE_FIGURE_KEYS];
+export type FigureKey = (typeof FIGURE_KEYS)[number] | OnlineFigureKey | LessonFigureKey;
+
+/** Every figure the panel knows, in panel order: the thirteen, then the online group, then the lessons group. */
+export const ALL_FIGURE_KEYS: readonly FigureKey[] = [...FIGURE_KEYS, ...ONLINE_FIGURE_KEYS, ...LESSON_FIGURE_KEYS];
 
 /**
  * `losses` is money given away or thrown out: discounts, refunds, waste. They
@@ -46,7 +55,13 @@ export const ALL_FIGURE_KEYS: readonly FigureKey[] = [...FIGURE_KEYS, ...ONLINE_
  * discount is not only a cafe matter to an owner reading the list.
  */
 export type FigureGroup = 'headline' | 'padel' | 'cafe' | 'losses' | 'online';
-export type ReportPath = '/reports/revenue' | '/reports/courts' | '/reports/cafe' | '/reports/stock' | '/reports/staff';
+/**
+ * Every group a figure sits in: the five above and the coaching `lessons`
+ * group. Each group's word is `ws.owner.panel.<group>` (the CSV's Group
+ * column); the lessons panel's own heading is the coaching catalog's.
+ */
+export type PanelGroup = FigureGroup | 'lessons';
+export type ReportPath = '/reports/revenue' | '/reports/courts' | '/reports/cafe' | '/reports/stock' | '/reports/staff' | '/reports/coaches';
 
 export interface FigureMeta {
   key: FigureKey;
@@ -54,7 +69,7 @@ export interface FigureMeta {
   /** A rise is bad. */
   invert?: boolean;
   report: ReportPath;
-  group: FigureGroup;
+  group: PanelGroup;
   /** Counted across every branch whatever the scope (ticket money is chain-wide): the row says "All branches". */
   chainWide?: boolean;
 }
@@ -82,16 +97,24 @@ export const FIGURES: Record<FigureKey, FigureMeta> = {
   ticketForfeits: { key: 'ticketForfeits', kind: 'money', report: '/reports/courts', group: 'online' },
   ticketLiability: { key: 'ticketLiability', kind: 'money', report: '/reports/courts', group: 'online', chainWide: true },
   matchWrittenOff: { key: 'matchWrittenOff', kind: 'money', invert: true, report: '/reports/courts', group: 'online' },
+  // Coaching (0288): lesson money opens the revenue report, the coaches' share Coach pay.
+  lessonRevenue: { key: 'lessonRevenue', kind: 'money', report: '/reports/revenue', group: 'lessons' },
+  owedToCoaches: { key: 'owedToCoaches', kind: 'money', report: '/reports/coaches', group: 'lessons' },
 };
 
 /** Figures per group in display order. */
-export function figuresIn(group: FigureGroup): FigureMeta[] {
+export function figuresIn(group: PanelGroup): FigureMeta[] {
   return ALL_FIGURE_KEYS.map((k) => FIGURES[k]).filter((f) => f.group === group);
 }
 
 /** The online group is drawn only when the server sent at least one of its figures (0265 and later). */
 export function hasOnlineFigures(figures: ReadonlyMap<FigureKey, HeadlineFigureRow>): boolean {
   return ONLINE_FIGURE_KEYS.some((k) => figures.has(k));
+}
+
+/** The lessons group is drawn only when the server sent at least one of its figures (0288 and later). */
+export function hasLessonFigures(figures: ReadonlyMap<FigureKey, HeadlineFigureRow>): boolean {
+  return LESSON_FIGURE_KEYS.some((k) => figures.has(k));
 }
 
 export interface HeadlineFigureRow {
@@ -141,7 +164,7 @@ export function panelIsEmpty(result: PanelHeadline | null | undefined): boolean 
 export function figuresToCsvRows(
   figures: ReadonlyMap<FigureKey, HeadlineFigureRow>,
   labelOf: (key: FigureKey) => string,
-  groupOf: (group: FigureGroup) => string = (g) => g,
+  groupOf: (group: PanelGroup) => string = (g) => g,
   kindOf: (kind: FigureMeta['kind']) => string = (k) => k,
 ): CsvCell[][] {
   const rows: CsvCell[][] = [];

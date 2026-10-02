@@ -52,6 +52,7 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     booking: 'حجز',
     hold: 'حجز مؤقت',
     maintenance: 'موقوف',
+    lesson: 'حصة',
   },
   source: {
     web: 'الموقع',

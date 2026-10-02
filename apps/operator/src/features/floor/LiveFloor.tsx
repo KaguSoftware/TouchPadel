@@ -34,6 +34,7 @@ import { touch } from '../../ipc/bridge';
 import { AsyncStateWrapper, Panel } from '../../components/kit';
 import { ConnectionPill } from '../../components/ConnectionPill';
 import { CardTitle, MARK, MARK_FG } from '../ops/OpsVisuals';
+import { reservationNameOf } from '../matches/matchLogic';
 import { countsOf, type FloorSnapshot, type FloorTarget, type Room } from './floorModel';
 import { useLiveFloor } from './floorData';
 import type { FloorSceneHandle } from './floorScene';
@@ -561,7 +562,7 @@ function ZoomSlider({ value, onChange }: { value: number; onChange: (v: number) 
 /** What the pointer is over, in words, beside the pointer. */
 function Tooltip({ hover, snapshot, host, locale }: { hover: Hover; snapshot: FloorSnapshot; host: HTMLDivElement | null; locale: ReturnType<typeof useLocale>['locale'] }) {
   const { tr } = useLocale();
-  const body = describe(hover.target, snapshot, tr, locale);
+  const body = describeTarget(hover.target, snapshot, tr, locale);
   if (!body) return null;
   // Keep it inside the stage: flip to the other side of the pointer near the far edge.
   const w = host?.clientWidth ?? 0;
@@ -606,26 +607,33 @@ function Tooltip({ hover, snapshot, host, locale }: { hover: Hover; snapshot: Fl
 
 type Tr = ReturnType<typeof useLocale>['tr'];
 
-function describe(target: FloorTarget, s: FloorSnapshot, tr: Tr, locale: ReturnType<typeof useLocale>['locale']): ReactNode {
+/**
+ * What the pointer is over, in words (the tooltip's body). A court's booking is
+ * named as the desk names it (`reservationNameOf`): a lesson reads "Lesson" and
+ * an open match "Open match" in the screen's language, not the stored literal.
+ */
+export function describeTarget(target: FloorTarget, s: FloorSnapshot, tr: Tr, locale: ReturnType<typeof useLocale>['locale']): ReactNode {
   const time = (iso: string) => formatTime(new Date(iso), locale);
   if (target.kind === 'court') {
     const c = s.courts.find((x) => x.id === target.id);
     if (!c) return null;
     const tone = c.status === 'in_play' ? 'success' : c.status === 'booked' ? 'warn' : 'neutral';
+    const guest = reservationNameOf(c.guest, tr);
+    const waitingGuest = c.waiting ? reservationNameOf(c.waiting.guest, tr) : null;
     return (
       <>
         <strong>{pickName(locale, c)}</strong>
         <Status tone={tone}>{tr(`ws.owner.floor.court.${c.status === 'in_play' ? 'inPlay' : c.status}`)}</Status>
         {c.status !== 'free' && (
           <Parts>
-            {c.guest && <bdi>{c.guest}</bdi>}
+            {guest && <bdi>{guest}</bdi>}
             {c.until && <span>{tr('ws.owner.floor.court.until', { time: time(c.until) })}</span>}
           </Parts>
         )}
         {c.waiting ? (
           <span style={{ color: 'var(--tp-muted-fg)' }}>
-            {c.waiting.guest
-              ? tr('ws.owner.floor.court.waiting', { guest: c.waiting.guest, time: time(c.waiting.startsAt) })
+            {waitingGuest
+              ? tr('ws.owner.floor.court.waiting', { guest: waitingGuest, time: time(c.waiting.startsAt) })
               : tr('ws.owner.floor.court.waitingAnon', { time: time(c.waiting.startsAt) })}
           </span>
         ) : (

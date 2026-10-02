@@ -213,6 +213,14 @@ export const protocolsAr: DeepMessages<typeof protocolsEn> = {
     noCampaign: 'بلا حملة',
     noLaunchPhotos: 'لم تُرسل صورة مع التجربة أو مع خطوة التسويق. أرسل واحدة هناك أولًا.',
     useLaunchPhoto: 'استخدام الصورة {n}',
+    // DRAFT-AR (coaching 0285).
+    lessonType: '{name} · {kind} {length}',
+    draft: 'مسودة',
+    lessonNow: 'الآن: السعر {price} · أجرة الملعب {share}',
+    coachNow: 'الآن: السعر {price}',
+    coachNowType: 'الآن: سعر نوع الحصة، {price}',
+    coachPriceHint: 'إن تُرك فارغًا يُزال سعر المدرّب الخاص ويُطبَّق سعر نوع الحصة.',
+    pickCoachFirst: 'يلزم اختيار المدرّب أولًا.',
   },
   photos: {
     label: 'الصور',
@@ -350,6 +358,10 @@ export const protocolsAr: DeepMessages<typeof protocolsEn> = {
     rule_is_active: 'مفعّل',
     discount_pct: 'الخصم (%)',
     recommendation: 'التوصية',
+    // DRAFT-AR (coaching 0285).
+    lesson_type_id: 'نوع الحصة',
+    coach_id: 'المدرّب',
+    court_share_iqd: 'أجرة الملعب لكل حصة',
   },
   hints: {
     link: 'يبدأ بـ https://',
@@ -428,6 +440,11 @@ export const protocolsAr: DeepMessages<typeof protocolsEn> = {
       rate: 'الحجوزات خلال آخر 30 يومًا: {count}، والإيراد: {revenue}.',
       featured: 'الخصم {now}% ← {next}%. مبيعات الصنف المميز خلال 30 يومًا: {units}، وبلغ الخصم الممنوح {cost}.',
       basis: 'الكلفة هي كلفة الوصفة بسعر آخر استلام للبضائع، والمبيعات هي الفواتير المسدّدة في آخر 30 يومًا.',
+      // DRAFT-AR (coaching 0285).
+      lessonPrice: 'السعر {now} ← {next}',
+      lessonCourtShare: 'أجرة الملعب لكل حصة {now} ← {next}',
+      lessonSold: '{name}: الأماكن المبيعة خلال 30 يومًا {places} · قيمتها {amount}',
+      lessonBasis: 'الأماكن هي تسجيلات آخر 30 يومًا، بالسعر الذي بيع به كلٌّ منها.',
     },
   },
   candidates: {

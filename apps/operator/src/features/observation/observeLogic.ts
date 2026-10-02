@@ -10,6 +10,7 @@
  */
 import type { ReservationRow } from '../desk/deskTypes';
 import { compareTableNumbers } from '../../lib/queries';
+import type { WorkspaceTarget } from './DetailPanel';
 
 // ---------------------------------------------------------------------------
 // Courts
@@ -30,6 +31,11 @@ export interface CourtDaySummary {
   cancelled: number;
   /** Maintenance blocks and private holds on the grid. */
   blocks: number;
+  /**
+   * Lessons on the grid (coaching operator.md §5.8): a lesson's court row,
+   * counted apart from the blocks. Its money is the lesson's, not the row's.
+   */
+  lessons: number;
   /** Sum of `price_iqd` over `booked`. A booking with no price adds nothing. */
   bookedIqd: number;
   /** Minutes of court time under `booked`. */
@@ -37,8 +43,12 @@ export interface CourtDaySummary {
 }
 
 export function courtDaySummary(rows: readonly ReservationRow[], nowMs: number): CourtDaySummary {
-  const s: CourtDaySummary = { booked: 0, arrived: 0, upcoming: 0, noShows: 0, cancelled: 0, blocks: 0, bookedIqd: 0, bookedMinutes: 0 };
+  const s: CourtDaySummary = { booked: 0, arrived: 0, upcoming: 0, noShows: 0, cancelled: 0, blocks: 0, lessons: 0, bookedIqd: 0, bookedMinutes: 0 };
   for (const r of rows) {
+    if (r.kind === 'lesson') {
+      if (r.status !== 'cancelled' && r.status !== 'expired') s.lessons += 1;
+      continue;
+    }
     if (r.kind !== 'booking') {
       if (r.status !== 'cancelled' && r.status !== 'expired') s.blocks += 1;
       continue;
@@ -89,6 +99,26 @@ export function schedulePlacement(
   const to = Math.min(spanMin, end);
   if (to <= from) return null;
   return { top: from / spanMin, height: (to - from) / spanMin };
+}
+
+/**
+ * Where a reservation's panel leads (DetailPanel's one button), in the court
+ * desk. A lesson opens on its own screen, `/desk/lessons/$id`, and the button
+ * says "Open lesson" as the desk does (coaching operator.md §5.8); a lesson
+ * whose desk_lessons row is not to hand goes through its booking route, which
+ * forwards to it. A booking opens its record; a hold or a block, the desk.
+ * The panel shows the button only to a role whose workspaces include the
+ * court desk (the `/desk` routes' roles), so no other role is offered it.
+ */
+export function reservationPanelTarget(
+  r: Pick<ReservationRow, 'id' | 'kind'>,
+  isLesson: boolean,
+  lessonId: string | null | undefined,
+): WorkspaceTarget {
+  if (isLesson && lessonId) return { workspace: 'courtDesk', to: '/desk/lessons/$id', params: { id: lessonId }, labelKey: 'ws.coaching.common.openLesson' };
+  if (isLesson) return { workspace: 'courtDesk', to: '/desk/bookings/$id', params: { id: r.id }, labelKey: 'ws.coaching.common.openLesson' };
+  if (r.kind === 'booking') return { workspace: 'courtDesk', to: '/desk/bookings/$id', params: { id: r.id } };
+  return { workspace: 'courtDesk', to: '/desk' };
 }
 
 // ---------------------------------------------------------------------------

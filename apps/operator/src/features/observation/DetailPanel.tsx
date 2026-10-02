@@ -15,6 +15,7 @@
  */
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import type { MessageKey } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { trapTab, Button } from '../../components/ui';
 import { Icon } from '../../components/icons';
@@ -28,6 +29,11 @@ export interface WorkspaceTarget {
   to: string;
   search?: Record<string, string>;
   params?: Record<string, string>;
+  /**
+   * The button's words when the record has its own screen there (a lesson:
+   * "Open lesson", as the desk says it); "Go to {workspace}" otherwise.
+   */
+  labelKey?: MessageKey;
 }
 
 /**
@@ -178,7 +184,7 @@ export function DetailPanel({
           <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.observe.panel.readOnly')}</p>
           {canGo && target && (
             <Button kind="primary" iconEnd="arrowUpRight" onClick={go}>
-              {tr(target.workspace === 'courtDesk' ? 'ws.owner.observe.panel.goCourtDesk' : 'ws.owner.observe.panel.goCashier')}
+              {tr(target.labelKey ?? (target.workspace === 'courtDesk' ? 'ws.owner.observe.panel.goCourtDesk' : 'ws.owner.observe.panel.goCashier'))}
             </Button>
           )}
         </footer>

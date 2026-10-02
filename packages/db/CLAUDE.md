@@ -17,8 +17,12 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0272`
-  (`20261001000272_deductions_owner_decides.sql`; 0270–0272 wages: staff_wages, wage_payments,
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0289`
+  (`20261001000289_lesson_account_deletion.sql`; 0273–0289 coaching, Phase 2 milestone 5: lesson
+  kind, lesson push kinds, settings, tables, reservation guards, lesson money, coach admin,
+  booking, Qi lessons, price-protocol lesson kinds, sweep, statements, reports, account deletion —
+  written as 0270–0286 and renumbered +3 at the merge because the wages migrations took 0270–0272,
+  so `docs/design/coaching/` still says 0270–0286; 0270–0272 wages: staff_wages, wage_payments,
   staff_attendance, their RPCs, and owner-only deduction approval; 0266–0269 hosted drift, deposit
   match, hold sweep split, principal lock caps; 0253–0265 open matches; 0252 the hold ladder (lapsed holds → waits, suspension, day-close review), written as 0249 on the kemal branch and renumbered at the merge because 0249–0251 were already on hosted; 0249–0251 staff page scopes, batch sizes, floor orders; 0248 the owner's offline-mode switch, off by default; 0247 degraded mode only while a day is open; 0243–0246 Touch Shop as its own desk; 0241–0242 online
   deposits; 0240 the scanned-paper audit fixes; 0236–0239 scanned paper, Milestone 4b; 0228–0235 the multi-venue audit fixes; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
@@ -26,7 +30,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0273`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0290`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -63,7 +67,17 @@ is a line in that file.
   0270 (wages tables) holds `cafe_setting_specs` (0105 is no longer the latest). 0272 holds
   `propose_deduction`, `decide_deduction`, `cancel_deduction`, `deductions_page` and
   `deductions_month` (0197 is no longer the latest; decide is the owner's alone and takes
-  `app.lock_wage` before the row lock).
+  `app.lock_wage` before the row lock). Coaching holds: 0280 `cancel_reservation`,
+  `close_branch`, `confirm_booking`, `desk_match_detail`, `desk_open_matches`,
+  `expire_stale_holds`, `extend_reservation`, `mark_reservation`, `match_court_free_firm`,
+  `match_expire_holds`, `match_quote`, `move_reservation`, `open_tab`, `staff_create_reservation`;
+  0281 `cafe_settled_tabs`, `close_day`, `compute_tab_totals`, `day_close_shop`, `ops_overview`,
+  `refund`, `settle_tab`, `till_shift_list`, `trg_match_booking_no_cafe`; 0282
+  `storage_path_in_use`; 0284 `deposit_apply`, `deposit_attention`, `deposit_refund_apply`,
+  `deposit_refund_request`, `deposit_status`, `deposits_due_for_reconcile`; 0285 the six
+  price/promo protocol hooks; 0286 `hold_strikes_settle`; 0288 `analytics_courts_summary`,
+  `day_close_online`, `panel_headline`, `report_courts`, `report_revenue`, `reports_figures`;
+  0289 `delete_my_account`.
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
   GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows
@@ -78,14 +92,17 @@ is a line in that file.
   file that uses the value. Precedents: 0143 (`ingredient_kind` `retail`, first used by 0144) and
   0155 (six `staff_role` values, first used by 0156).
 - New push kind: `notification_outbox.kind` is a closed CHECK (`0024:22`, re-issued by
-  `0075:36-58`, latest `0255`); widen it by migration and add EN/AR copy: a booking kind to
+  `0075:36-58`, latest `0274`, which added `lesson_update`, `lesson_reminder`, `coach_update`);
+  widen it by migration and add EN/AR copy: a booking kind to
   `STRINGS` in `supabase/functions/send-push/index.ts:48`; a staff kind to `staffStrings.ts` and
   `_shared/staff-push.json`; the guest kinds of open matches take their copy from
   `send-push/guestStrings.ts` and `_shared/guest-push.json`, not `STRINGS`.
   `tests/outbox-kinds.test.ts` holds the CHECK to the three lists. A new staff title key also
   joins `app.notify_staff`'s `c_title_keys` (latest `0261`, which appended `match_report_new`) in
-  the same commit, and a guest title key `app.match_notify`'s `c_keys` (`0261`); the stack tests
-  (`staff-push.test.ts`, `guest-push.test.ts`) compare each with its JSON.
+  the same commit, and a guest title key `app.match_notify`'s `c_keys` (`0261`) or, for a
+  lesson or coach key, `app.lesson_notify`'s `c_keys` (`0283`; every lesson push is queued by the
+  `lesson_events_notify` trigger except the two statement keys); the stack tests
+  (`staff-push.test.ts`, `guest-push.test.ts`, `lesson-push.test.ts`) compare each with its JSON.
 - `send-push` deploys before the migration: `.github/workflows/deploy.yml` (started by a green CI
   run on `main`, or `workflow_dispatch`) deploys `send-push`, then pushes the migrations, then
   deploys every other function. An unknown kind is terminal in send-push
@@ -180,13 +197,16 @@ is a line in that file.
   and `app.staff_role() is not null` in a policy (the 0072 form), never a list of every role. 0156
   converted the old five-role lists, so a new role needs no re-issue; a guard for a subset (kitchen,
   till, money, stock) still names its roles.
-- Errors are `raise exception 'CODE'` (P0001). Every new code gets a client mapping in the same
-  commit: `MAPPED_CODES` (`apps/operator/src/lib/errors.ts:10`), `RPC_ERROR_KEYS`
-  (`apps/web/src/lib/appRpc.ts:21`) or `CODE_TO_KEY`
-  (`apps/mobile/src/features/booking/errors.ts:12`), with both catalogs.
+- Errors are `raise exception 'CODE'` (P0001). Every new code gets its line in the one error
+  catalogue, `ERROR_CODE_KEYS` in `packages/i18n/src/errors.ts`, EN and AR, in the same commit
+  (`check:error-codes` fails otherwise); the operator's `MAPPED_CODES`, the web's `rpcErrorKey` and
+  the phone's `mapErrorToKey` all resolve through it, with per-app wording only as overrides
+  (`WEB_OVERRIDES`, `MOBILE_OVERRIDES`).
 - No WHERE-less write (`scripts/check-safe-update.mjs`). `app.lock_court` (0042) before any
   reservation write. Lock order
-  `day_sessions → match_money_advisory → tabs → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → reservations → match_venue_advisory → match_tickets`
+  `day_sessions → match_money_advisory → coach_advisory → tabs → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → reservations → match_venue_advisory → match_tickets`
+  (`coach_advisory` since coaching, `app.lock_coach`, once per sequence; a `FOR UPDATE … SKIP
+  LOCKED` on reservations never waits and is not ranked, like `pg_try_advisory_xact_lock`)
   (`scripts/check-lock-order.mjs`, walker in `scripts/lib/lock-order.mjs`; `till_shifts` since
   wave 5, whose stamp trigger takes the open shift FOR SHARE on every payment and refund insert;
   the three open-match ranks since 0260: `app.lock_match_money`, the branch mutex

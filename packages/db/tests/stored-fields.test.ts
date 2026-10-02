@@ -65,6 +65,8 @@ type Category =
   | 'Photos'
   // 0256 (open matches): gender, the stores' "other personal info" (G5f).
   | 'Other personal info'
+  // Coaching (R49): a coach's monthly pay, the stores' "financial info".
+  | 'Financial info'
   | null;
 
 interface Field {
@@ -81,8 +83,13 @@ interface Field {
    *   'keep'       deliberately RETAINED, with the reason in `why`
    *   'purge'      UNLINKED_PERSONAL only: no account reaches it, so it goes
    *                by retention (a marker, NULL or an emptied list)
+   *   'empty'      the row survives and the column is a NOT NULL text or
+   *                array, so it is set to '' or '{}' (coaching R22, R49: a
+   *                coach's bio, a guest's friend names, a coach's time-off
+   *                reason; the deletion re-issue of delete_my_account in the
+   *                coaching build proves it)
    */
-  onDelete?: 'scrub' | 'anonymise' | 'row' | 'auth' | 'keep' | 'purge';
+  onDelete?: 'scrub' | 'anonymise' | 'row' | 'auth' | 'keep' | 'purge' | 'empty';
 }
 
 /** Nothing personal: an id, a timestamp, a status, a foreign key. */
@@ -99,6 +106,10 @@ const TOMBSTONE_NAME = 'Deleted account';
 const LINK_COLUMNS = [
   'guest_id', 'profile_id', 'customer_id', 'linked_profile_id', 'auth_user_id',
   'organiser_id', 'blocker_id', 'blocked_id', 'reporter_id', 'reported_id', 'actor_guest_id',
+  // Coaching (docs/design/coaching/db.md §4.3.16): the ways a lesson row names
+  // the guest (or coach) who made it, beside coaches.profile_id and the
+  // enrolment's and strike's guest_id.
+  'created_by_profile_id', 'booked_by_profile_id', 'marked_by_profile_id', 'actor_profile_id',
 ];
 
 /**
@@ -162,6 +173,8 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     // event_court_blocks: an event block's purpose and the tournament run
     // that asked for it. Only on maintenance rows; identify nobody.
     block_purpose: n, protocol_run_id: n,
+    // Coaching: the lesson a court row is for (guest_id NULL on such a row).
+    lesson_id: n,
   },
   reservation_series: {
     id: n, court_id: n, pattern: n, weekdays: n, start_time: n, duration_min: n,
@@ -196,9 +209,11 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     failure_code: n, refund_reason: n, refund_request_id: n, refund_provider_id: n,
     refund_requested_at: n, refunded_at: n, refund_attempts: n, cancel_attempts: n, claimed_at: n,
     created_at: n, updated_at: n, ticket_count: n,
-    amount_iqd: { category: 'Purchase history', why: 'a deposit or open-match tickets paid online; the venue reconciles it with Qi Card', onDelete: 'keep' },
-    quoted_price_iqd: { category: 'Purchase history', why: 'the court price a deposit was taken against, or the price of one open-match ticket', onDelete: 'keep' },
-    refund_amount_iqd: { category: 'Purchase history', why: 'what went back to the card for a deposit or open-match tickets paid online', onDelete: 'keep' },
+    // Coaching: the lesson enrolment a purpose 'lesson' payment is for.
+    lesson_enrolment_id: n,
+    amount_iqd: { category: 'Purchase history', why: 'a deposit, open-match tickets or a lesson paid online; the venue reconciles it with Qi Card', onDelete: 'keep' },
+    quoted_price_iqd: { category: 'Purchase history', why: 'the court price a deposit was taken against, the price of one open-match ticket, or a lesson’s price', onDelete: 'keep' },
+    refund_amount_iqd: { category: 'Purchase history', why: 'what went back to the card for a deposit, open-match tickets or a lesson paid online', onDelete: 'keep' },
     refund_note: { category: 'Purchase history', why: 'how a manager settled a refund by hand (cash at the desk…); part of the money trail', onDelete: 'keep' },
   },
   // 0252: the hold ladder. The key is a SHA-256 of a VERIFIED phone number's
@@ -297,6 +312,128 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
   },
   match_blocks: { id: n, blocker_id: n, blocked_id: n, created_at: n },
   match_exclusions: { match_id: n, guest_id: n, venue_id: n, reason: n, created_at: n },
+  // ── coaching (docs/design/coaching/db.md §4.3.16, R22, R44, R49, R63) ────
+  // The coaching deletion re-issue of delete_my_account erases these and the
+  // deletion proof above gains them in that commit; until then no coaching
+  // row can exist (the writers land after the tables).
+  coaches: {
+    id: n, profile_id: n,
+    display_name_en: {
+      category: 'Name',
+      why: 'the coach’s public name, chosen by the venue; kept on a deleted coach for the statements the venue paid (C-29, R63)',
+      onDelete: 'keep',
+    },
+    display_name_ar: {
+      category: 'Name',
+      why: 'the coach’s public name, chosen by the venue; kept on a deleted coach for the statements the venue paid (C-29, R63)',
+      onDelete: 'keep',
+    },
+    bio_en: { category: 'User content', why: 'the coach’s public bio, written by a manager', onDelete: 'empty' },
+    bio_ar: { category: 'User content', why: 'the coach’s public bio, written by a manager', onDelete: 'empty' },
+    photo_path: {
+      category: 'Photos',
+      why: 'the coach’s public photo; the object is queued for removal on retirement or deletion (R43)',
+      onDelete: 'scrub',
+    },
+    status: n, sort_order: n, public_accepted_at: n, created_by_staff_id: n, created_at: n, updated_at: n,
+    retired_at: n,
+  },
+  courses: {
+    id: n, venue_id: n, coach_id: n, lesson_type_id: n,
+    title_en: { category: 'User content', why: 'a course title a coach or the desk wrote', onDelete: 'keep' },
+    title_ar: { category: 'User content', why: 'a course title a coach or the desk wrote', onDelete: 'keep' },
+    price_iqd: { category: 'Purchase history', why: 'the course’s price when it was set up', onDelete: 'keep' },
+    court_share_iqd: n, coach_share_bp: n, sessions_count: n, max_places: n, min_places: n, cutoff_at: n,
+    cutoff_checked_at: n, signup_closes_at: n, status: n, cancel_reason: n, created_by_kind: n,
+    created_by_profile_id: n, created_by_staff_id: n, idempotency_key: n, created_at: n, updated_at: n,
+    cancelled_at: n,
+  },
+  lessons: {
+    id: n, venue_id: n, coach_id: n, lesson_type_id: n, kind: n, course_id: n, session_no: n, start_at: n,
+    end_at: n, period: n,
+    price_iqd: { category: 'Purchase history', why: 'the lesson’s price when it was booked', onDelete: 'keep' },
+    court_share_iqd: n, coach_share_bp: n, max_places: n, min_places: n, cutoff_at: n, cutoff_checked_at: n,
+    status: n, hold_expires_at: n, booked_by_kind: n, created_by_profile_id: n, created_by_staff_id: n,
+    cancel_reason: n, cancelled_at: n, completed_at: n, rescheduled_at: n, idempotency_key: n, created_at: n,
+    updated_at: n,
+  },
+  lesson_enrolments: {
+    id: n, venue_id: n, lesson_id: n, course_id: n, guest_id: n,
+    // NOT NULL on a coach- or desk-booked row (lesson_enrolments_typed), so a
+    // deletion writes the placeholder; a guest-booked row's stays NULL.
+    guest_name: {
+      category: 'Name',
+      why: 'a student a coach or the desk named; replaced by a fixed marker 365 days after the lesson (CD-8, R44)',
+      onDelete: 'anonymise',
+    },
+    guest_phone: {
+      category: 'Phone number',
+      why: 'a student’s number typed by a coach or the desk, shown to the coach until 7 days after the session (CD-3, R54), purged after 365 (CD-8)',
+      onDelete: 'scrub',
+    },
+    party_size: n,
+    friend_names: { category: 'Name', why: 'the friends a guest brings to a private lesson', onDelete: 'empty' },
+    booked_by_kind: n, booked_by_profile_id: n, booked_by_staff_id: n,
+    price_iqd: { category: 'Purchase history', why: 'what the lesson place cost', onDelete: 'keep' },
+    first_session_no: n, sessions_covered: n, payment_mode: n, status: n, hold_expires_at: n, cancel_kind: n,
+    cancelled_at: n, link_confirmed_at: n,
+    refunded_outside_iqd: {
+      category: 'Purchase history',
+      why: 'lesson money handed back outside the till when the card could not take a second refund (R75)',
+      onDelete: 'keep',
+    },
+    idempotency_key: n, created_at: n, updated_at: n,
+  },
+  // ids, codes, counts and times only.
+  lesson_attendance: {
+    lesson_id: n, enrolment_id: n, venue_id: n, status: n, marked_by_kind: n, marked_by_profile_id: n,
+    marked_by_staff_id: n, marked_at: n,
+  },
+  lesson_strikes: {
+    enrolment_id: n, lesson_id: n, venue_id: n, guest_id: n, kind: n, struck_at: n, settled_at: n, counted: n,
+  },
+  lesson_events: {
+    id: n, venue_id: n, lesson_id: n, course_id: n, enrolment_id: n, type: n, actor: n, actor_profile_id: n,
+    actor_staff_id: n, code: n, data: n, at: n,
+  },
+};
+
+/**
+ * Coaching (R49): what the venue keeps about a coach, in tables that carry no
+ * guest link column: reached through coaches.profile_id (the UNLINKED_PERSONAL
+ * precedent, an explicit block with its own proof). A coach's time-off reason
+ * is emptied on deletion; a coach's monthly pay and its payment reference are
+ * the venue's accounts and are kept (C-29). The coaching deletion re-issue of
+ * delete_my_account proves the 'empty' route.
+ */
+const COACH_DATA: Record<string, Record<string, Field>> = {
+  coach_time_off: {
+    id: n, coach_id: n, period: n,
+    reason: { category: 'User content', why: 'a coach’s note on their time off', onDelete: 'empty' },
+    set_by: n, set_by_staff_id: n, created_at: n, cancelled_at: n,
+  },
+  coach_statements: {
+    id: n, coach_id: n, venue_id: n, month: n, status: n, lessons_count: n,
+    collected_iqd: { category: 'Financial info', why: 'a coach’s monthly pay: the lesson money collected', onDelete: 'keep' },
+    court_share_iqd: { category: 'Financial info', why: 'a coach’s monthly pay: the court share taken off', onDelete: 'keep' },
+    coach_iqd: { category: 'Financial info', why: 'a coach’s monthly pay: the coach’s share', onDelete: 'keep' },
+    adjustments_iqd: { category: 'Financial info', why: 'a coach’s monthly pay: corrections to earlier months', onDelete: 'keep' },
+    drafted_at: n, refreshed_at: n, approved_by: n, approved_at: n, paid_by: n, paid_at: n,
+    paid_reference: {
+      category: 'Financial info',
+      why: 'the receipt or transfer number of a coach payment, never a card or account number (R49, R74)',
+      onDelete: 'keep',
+    },
+    voided_by: n, voided_at: n, void_reason: n,
+  },
+  coach_statement_lines: {
+    id: n, statement_id: n, venue_id: n, lesson_id: n,
+    collected_iqd: { category: 'Financial info', why: 'a coach’s monthly pay, per lesson', onDelete: 'keep' },
+    court_share_iqd: { category: 'Financial info', why: 'a coach’s monthly pay, per lesson', onDelete: 'keep' },
+    share_bp: n,
+    coach_iqd: { category: 'Financial info', why: 'a coach’s monthly pay, per lesson', onDelete: 'keep' },
+    is_adjustment: n, created_at: n,
+  },
 };
 
 /**
@@ -545,6 +682,69 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     ]);
     if (blocks.error) throw new Error(`match_blocks: ${blocks.error.message}`);
 
+    // 0289 (coaching; db.md §4.10, R43, R49, R63, R83): the guest is a coach
+    // (bios, a photo, a time-off reason), a student a coach typed and the
+    // guest confirmed (C-21), a guest who booked a private lesson with a
+    // friend, and a typed student whose phone matched the guest but was never
+    // confirmed (unlinked silently, as "Not me"). The lessons were cancelled
+    // weeks ago, so no sweep, statement or report reads them; every row is
+    // removed at the end.
+    const ins = async (table: string, row: Record<string, unknown>) => {
+      const { data, error } = await svc.from(table).insert(row).select('id').single();
+      if (error) throw new Error(`${table}: ${error.message}`);
+      return (data as { id: string }).id;
+    };
+    const teacher = await ins('coaches', {
+      profile_id: otherId, display_name_en: 'SEC20 Teacher', display_name_ar: 'مدرّب SEC20',
+    });
+    const photoFolder = `coaches/${crypto.randomUUID()}`;
+    const coachId = await ins('coaches', {
+      profile_id: uid,
+      display_name_en: 'SEC20 Coach',
+      display_name_ar: 'مدرّب SEC20 الثاني',
+      bio_en: 'sec20 bio',
+      bio_ar: 'نبذة sec20',
+      photo_path: `${photoFolder}/a.jpg`,
+      public_accepted_at: new Date().toISOString(),
+    });
+    const timeOffId = await ins('coach_time_off', {
+      coach_id: coachId,
+      period: `[${new Date(Date.now() + 400 * 86_400_000).toISOString()},${new Date(Date.now() + 401 * 86_400_000).toISOString()})`,
+      reason: 'sec20 holiday',
+      set_by: 'coach',
+    });
+    const typeId = await ins('lesson_types', {
+      venue_id: VENUE_A_ID, kind: 'private', name_en: 'SEC20 private', name_ar: 'حصة SEC20', duration_min: 60,
+      price_iqd: 40_000, court_share_iqd: 10_000, max_places: 4, min_places: 1, cutoff_hours: 0,
+    });
+    const weeksAgo = Date.now() - 45 * 86_400_000;
+    const cancelledLesson = (i: number) =>
+      ins('lessons', {
+        venue_id: VENUE_A_ID, coach_id: teacher, lesson_type_id: typeId, kind: 'private',
+        start_at: new Date(weeksAgo + i * 3 * 3_600_000).toISOString(),
+        end_at: new Date(weeksAgo + i * 3 * 3_600_000 + 3_600_000).toISOString(),
+        price_iqd: 40_000, court_share_iqd: 10_000, coach_share_bp: 6000, max_places: 4, min_places: 1,
+        status: 'cancelled', cancel_reason: 'staff_cancel', cancelled_at: new Date().toISOString(),
+        booked_by_kind: 'staff', created_by_staff_id: SEED_STAFF_IDS.court_desk,
+      });
+    const lessonIds = [await cancelledLesson(0), await cancelledLesson(1), await cancelledLesson(2)];
+    const ended = { status: 'cancelled', cancel_kind: 'staff', cancelled_at: new Date().toISOString() };
+    const confirmedId = await ins('lesson_enrolments', {
+      venue_id: VENUE_A_ID, lesson_id: lessonIds[0], guest_id: uid, guest_name: 'SEC20 Student',
+      guest_phone: '07700020021', booked_by_kind: 'coach', booked_by_profile_id: otherId,
+      link_confirmed_at: new Date().toISOString(), price_iqd: 40_000, payment_mode: 'desk', ...ended,
+    });
+    const ownId = await ins('lesson_enrolments', {
+      venue_id: VENUE_A_ID, lesson_id: lessonIds[1], guest_id: uid, party_size: 2, friend_names: ['SEC20 Friend'],
+      booked_by_kind: 'guest', booked_by_profile_id: uid, link_confirmed_at: new Date().toISOString(),
+      price_iqd: 40_000, payment_mode: 'desk', ...ended,
+    });
+    const pendingId = await ins('lesson_enrolments', {
+      venue_id: VENUE_A_ID, lesson_id: lessonIds[2], guest_id: uid, guest_name: 'SEC20 Pending',
+      guest_phone: '07700020022', booked_by_kind: 'coach', booked_by_profile_id: otherId,
+      price_iqd: 40_000, payment_mode: 'desk', ...ended,
+    });
+
     const del = await appRpc(guest, 'delete_my_account', { p_confirm: 'DELETE' });
     expect(del.error).toBeNull();
 
@@ -557,6 +757,8 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       ['reservations', 'id', reservationId],
       ['match_seats', 'id', (seat as { id: string }).id],
       ['match_requests', 'id', (request as { id: string }).id],
+      ['coaches', 'profile_id', uid],
+      ['lesson_enrolments', 'id', confirmedId],
     ] as const) {
       const erasable = Object.entries(GUEST_DATA[table] ?? {}).filter(
         ([, f]) => f.category && (f.onDelete === 'scrub' || f.onDelete === 'anonymise'),
@@ -592,7 +794,49 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       if ((data ?? []).length > 0) leaks.push(`${table} still has ${(data ?? []).length} row(s)`);
     }
 
+    // 'empty' (0289): the row survives, the column is '' or {}.
+    for (const [table, id, cols] of [
+      ['coaches', coachId, ['bio_en', 'bio_ar']],
+      ['lesson_enrolments', ownId, ['friend_names']],
+      ['coach_time_off', timeOffId, ['reason']],
+    ] as const) {
+      const { data, error } = await svc.from(table).select(cols.join(',')).eq('id', id).single();
+      if (error) throw new Error(`${table}: ${error.message}`);
+      for (const col of cols) {
+        const value = (data as unknown as Record<string, unknown>)[col];
+        if (value !== '' && !(Array.isArray(value) && value.length === 0)) {
+          leaks.push(`${table}.${col} should be empty, holds ${JSON.stringify(value)}`);
+        }
+      }
+    }
+
     expect(leaks).toEqual([]);
+
+    // The deleted coach is retired, keeps the display names for the statements
+    // (C-29, R63), and its photo folder is queued for removal (R43).
+    const { data: coachRow } = await svc
+      .from('coaches')
+      .select('status, display_name_en, retired_at')
+      .eq('id', coachId)
+      .single();
+    expect(coachRow).toMatchObject({ status: 'retired', display_name_en: 'SEC20 Coach' });
+    const { data: purges } = await svc.from('coach_photo_purges').select('folder').eq('coach_id', coachId);
+    expect((purges ?? []).map((p) => (p as { folder: string }).folder)).toEqual([photoFolder]);
+    // A pending link is dropped silently, as "Not me" (C-21, R83): the coach's
+    // typed student stays exactly as typed.
+    const { data: pending } = await svc
+      .from('lesson_enrolments')
+      .select('guest_id, guest_name, guest_phone')
+      .eq('id', pendingId)
+      .single();
+    expect(pending).toEqual({ guest_id: null, guest_name: 'SEC20 Pending', guest_phone: '07700020022' });
+
+    await svc.from('lesson_enrolments').delete().in('id', [confirmedId, ownId, pendingId]);
+    await svc.from('lessons').delete().in('id', lessonIds);
+    await svc.from('lesson_types').delete().eq('id', typeId);
+    await svc.from('coach_time_off').delete().eq('id', timeOffId);
+    await svc.from('coach_photo_purges').delete().eq('coach_id', coachId);
+    await svc.from('coaches').delete().in('id', [coachId, teacher]);
 
     // The two gender stamps are declared n (they identify nobody alone), but
     // they go with gender: the tombstone has no trace of it.
@@ -636,6 +880,28 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     expect(drift).toEqual([]);
   });
 
+  it('COACH_DATA tables carry no guest link, match the live columns exactly, and declare every personal column (R49)', () => {
+    const drift: string[] = [];
+    for (const [table, fields] of Object.entries(COACH_DATA)) {
+      expect(live[table]?.length ?? 0, `${table} is not exposed by PostgREST`).toBeGreaterThan(0);
+      expect(live[table]!.filter((c) => LINK_COLUMNS.includes(c)), table).toEqual([]);
+      expect(Object.keys(GUEST_DATA), table).not.toContain(table);
+      expect(Object.keys(UNLINKED_PERSONAL), table).not.toContain(table);
+      const actual = [...(live[table] ?? [])].sort();
+      const declared = Object.keys(fields).sort();
+      for (const c of actual.filter((c) => !declared.includes(c))) drift.push(`${table}.${c} exists but is not declared`);
+      for (const c of declared.filter((c) => !actual.includes(c))) drift.push(`${table}.${c} is declared but no longer exists`);
+      for (const [col, f] of Object.entries(fields)) {
+        if (f.category && (!f.why || !f.onDelete || !['empty', 'keep'].includes(f.onDelete))) {
+          drift.push(`${table}.${col} needs a purpose and 'empty' or 'keep'`);
+        }
+      }
+    }
+    expect(drift).toEqual([]);
+    // Every coach is reached through coaches.profile_id, a link column GUEST_DATA declares.
+    expect(GUEST_DATA.coaches?.profile_id).toEqual(n);
+  });
+
   it.skipIf(!docker)('the purge empties every UNLINKED_PERSONAL column declared purge', () => {
     // One rolled-back transaction: a report past its date, the text purge the
     // cron runs, and the photo pair the protocol-action tick calls.
@@ -676,7 +942,7 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
    */
   it('prints the data-safety declaration for both store forms', () => {
     const byCategory = new Map<string, { where: string; why: string; fate: string }[]>();
-    for (const [table, fields] of Object.entries({ ...GUEST_DATA, ...UNLINKED_PERSONAL })) {
+    for (const [table, fields] of Object.entries({ ...GUEST_DATA, ...UNLINKED_PERSONAL, ...COACH_DATA })) {
       for (const [col, f] of Object.entries(fields)) {
         if (!f.category) continue;
         if (!byCategory.has(f.category)) byCategory.set(f.category, []);
@@ -695,6 +961,8 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     lines.push('  "keep" is deliberate retention — the venue’s takings, not the guest’s identity.');
     lines.push('  "purge" is retention: staff-typed records with no guest link, emptied after a year');
     lines.push('            (incident reports: app.incident_purge_due and the protocol-action tick).');
+    lines.push('  "empty" sets a NOT NULL text or list to empty on deletion (a coach’s bio and time-off');
+    lines.push('            reasons, a guest’s friend names); a coach’s pay is the venue’s accounts and is kept.');
     console.log(lines.join('\n'));
     expect(byCategory.size).toBeGreaterThan(0);
   });

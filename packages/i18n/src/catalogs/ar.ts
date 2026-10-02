@@ -5,10 +5,12 @@ import { workAr } from './work.ar';
 import { opErrorsProtocolsAr } from './opErrors.protocols.ar';
 import { opErrorsMatchesAr } from './opErrors.matches.ar';
 import { opErrorsCodesAr } from './opErrors.codes.ar';
+import { opErrorsCoachingAr } from './opErrors.coaching.ar';
 import { legalAr } from './legal.ar';
 import { siteAr } from './site.ar';
 import { branchesAr } from './branches.ar';
 import { matchesAr } from './matches.ar';
+import { coachingAr } from './coaching.ar';
 
 /**
  * Arabic (Iraq) message catalog. Mirrors `en.ts` key-for-key — the `Messages`
@@ -725,6 +727,10 @@ export const ar: Messages = {
     genderMale: 'مباريات النساء ومباريات الرجال: أنتَ مسجّل رجلًا، ويمكن لموظفي الاستقبال تعديل ذلك.',
     tickets: 'تذاكر المباريات المفتوحة',
     blockedPlayers: 'اللاعبون المحظورون',
+    // DRAFT-AR (coaching guest.md §4.15).
+    myLessons: 'حصصي',
+    coachMode: 'وضع المدرّب',
+    coachStatements: 'كشوف حساب المدرّب',
   },
   settings: {
     title: 'الإعدادات',
@@ -927,6 +933,7 @@ export const ar: Messages = {
   site: siteAr,
   branches: branchesAr,
   matches: matchesAr,
+  coaching: coachingAr,
   seo: {
     siteTitle: 'تتش بادل',
     menuTitle: 'منيو تتش كافيه',
@@ -1099,6 +1106,10 @@ export const ar: Messages = {
       walked_out: 'مغادرة دون دفع',
       no_shows: 'تكرار الغياب',
       reported: 'بلاغات من لاعبين',
+      // Coaching (operator.md §5.10.8, §5.10.10). DRAFT-AR: on the client's review list.
+      coach_unavailable: 'المدرّب غير متاح',
+      lesson_refund: 'رد مبلغ حصة',
+      lesson_goodwill: 'رد بحسن نية',
     },
     desk: {
       newBooking: 'حجز جديد',
@@ -1837,7 +1848,7 @@ export const ar: Messages = {
       BRANCH_DAY_OPEN: 'أغلق يوم هذا الفرع قبل إغلاق الفرع.',
       STATION_RETIRED: 'أُوقفت هذه المحطة. سجّلها من جديد من الإعدادات ← تفاصيل المكان ← المحطات.',
       STATION_HAS_HISTORY: 'لاسم هذه المحطة ورديات صندوق في فرع آخر. اختر اسمًا آخر.',
-      BRANCH_HAS_BOOKINGS: 'لا تزال لهذا الفرع حجوزات أو حجوزات مؤقتة أو سلاسل قادمة. ألغها أو انقلها أولًا.',
+      BRANCH_HAS_BOOKINGS: 'لا تزال لهذا الفرع حجوزات أو حصص أو حجوزات مؤقتة أو سلاسل قادمة. ألغها أو انقلها أولًا.',
       VENUE_CLOSED: 'هذا الفرع مغلق.',
       NO_PIN_SET: 'لا يوجد رقم سري لهذا الحساب بعد. اطلب من المالك تحديده.',
       BOOKING_TAB_OPEN: 'لهذا الحجز فاتورة مفتوحة بالفعل. أضف إلى تلك الفاتورة.',
@@ -1936,6 +1947,7 @@ export const ar: Messages = {
       ...opErrorsProtocolsAr,
       ...opErrorsMatchesAr,
       ...opErrorsCodesAr,
+      ...opErrorsCoachingAr,
     },
   },
   work: workAr,

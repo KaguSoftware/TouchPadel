@@ -5,6 +5,7 @@
  * and how to lay the server figures out for a CSV.
  */
 import type { MutationType } from '@touch/core/schemas/mutations';
+import type { MessageKey } from '@touch/i18n';
 import { errorStringCode } from '../../lib/queueResults';
 import type { CsvCell, ExportBundle, ExportTable } from '../analytics/exportTables';
 import { cellText, momentCells, shortId } from '../analytics/cellFormat';
@@ -418,7 +419,41 @@ export interface DayCloseOnline {
   >;
   matches: Record<'bookings' | 'price_iqd' | 'desk_paid_iqd' | 'written_off_iqd' | 'owed_iqd' | 'called_off' | 'no_show_seats', number | null>;
   sandbox_excluded: Record<'deposits' | 'tickets', number | null>;
+  /**
+   * Coaching (0288; coaching operator.md §5.18.1, X27: Money's keys plus
+   * `kept_*`): the day's lesson money. Null from a server before 0288, which
+   * sends no block: the card then has no lessons group.
+   */
+  lessons: Record<LessonDayKey, number | null> | null;
+  /**
+   * C-31, R27, R71: true when this day's refunds are dated by the till shift
+   * they were made in (an open day, or one closed under that rule); false for
+   * a day closed before it; null from a server that does not say.
+   */
+  refunds_dated_by_shift: boolean | null;
 }
+
+/** `day_close_online.lessons` (COACHING_SHAPES.day_close_online, X27). */
+export const LESSON_DAY_KEYS = [
+  'desk_paid_iqd',
+  'desk_paid_count',
+  'desk_refunded_iqd',
+  'online_received_iqd',
+  'online_received_count',
+  'online_refunded_iqd',
+  'online_refunded_count',
+  'online_refunds_waiting_iqd',
+  'online_refunds_waiting_count',
+  'refunds_due_desk_iqd',
+  'refunds_due_desk_count',
+  'kept_iqd',
+  'kept_count',
+  'lessons',
+  'owed_iqd',
+  'owed_count',
+  'owed_to_coaches_iqd',
+] as const;
+export type LessonDayKey = (typeof LESSON_DAY_KEYS)[number];
 
 type RawObj = Record<string, unknown>;
 const objOf = (v: unknown): RawObj => (v && typeof v === 'object' && !Array.isArray(v) ? (v as RawObj) : {});
@@ -453,14 +488,16 @@ export function readDayCloseOnline(raw: unknown): DayCloseOnline | null {
     ]),
     matches: pickNums(r.matches, ['bookings', 'price_iqd', 'desk_paid_iqd', 'written_off_iqd', 'owed_iqd', 'called_off', 'no_show_seats']),
     sandbox_excluded: pickNums(r.sandbox_excluded, ['deposits', 'tickets']),
+    lessons: r.lessons && typeof r.lessons === 'object' && !Array.isArray(r.lessons) ? pickNums(r.lessons, LESSON_DAY_KEYS) : null,
+    refunds_dated_by_shift: typeof r.refunds_dated_by_shift === 'boolean' ? r.refunds_dated_by_shift : null,
   };
 }
 
-export type OnlineGroupId = 'deposits' | 'ticketsHere' | 'ticketsChain' | 'matches' | 'sandbox';
+export type OnlineGroupId = 'deposits' | 'ticketsHere' | 'ticketsChain' | 'matches' | 'lessons' | 'sandbox';
 
 /** One label-and-figure row: a count, an amount, or both, as the table in §5.18 lays them out. */
 export interface OnlineRow {
-  /** The row's word under `ws.matches.dayClose.<group>.<id>`. */
+  /** The row's word under `ws.matches.dayClose.<group>.<id>` (the lessons group: `ws.coaching.dayClose.rows.<id>`). */
   id: string;
   count: number | null;
   amount: number | null;
@@ -519,9 +556,47 @@ export function onlineMoneyOf(d: DayCloseOnline): OnlineGroup[] {
         countOnly('noShowSeats', d.matches.no_show_seats),
       ],
     },
+    // Coaching (0288; coaching operator.md §5.18.1): information only, never in the cash count.
+    ...(d.lessons ? [{ id: 'lessons' as const, rows: lessonRows(d.lessons) }] : []),
     { id: 'sandbox', rows: [countOnly('deposits', d.sandbox_excluded.deposits), countOnly('tickets', d.sandbox_excluded.tickets)] },
   ];
   return groups.filter((g) => g.rows.some((r) => Boolean(r.count) || Boolean(r.amount)));
+}
+
+/** The lessons group's rows, in the order of coaching operator.md §5.18.1's table. */
+function lessonRows(l: Record<LessonDayKey, number | null>): OnlineRow[] {
+  return [
+    both('onlineReceived', l.online_received_count, l.online_received_iqd),
+    both('onlineRefunded', l.online_refunded_count, l.online_refunded_iqd),
+    both('onlineWaiting', l.online_refunds_waiting_count, l.online_refunds_waiting_iqd),
+    both('kept', l.kept_count, l.kept_iqd),
+    both('deskPaid', l.desk_paid_count, l.desk_paid_iqd),
+    // C-31: refunded at the desk today, whatever day the money was taken.
+    amountOnly('deskRefunded', l.desk_refunded_iqd),
+    both('owed', l.owed_count, l.owed_iqd),
+    both('refundsDueDesk', l.refunds_due_desk_count, l.refunds_due_desk_iqd),
+    both('owedToCoaches', l.lessons, l.owed_to_coaches_iqd),
+  ];
+}
+
+/** A group's title: open matches and deposits read `ws.matches.dayClose.*`, the lessons group `ws.coaching.dayClose.*`. */
+export function onlineGroupTitleKey(group: OnlineGroupId): MessageKey {
+  return group === 'lessons' ? 'ws.coaching.dayClose.title' : `ws.matches.dayClose.${group}.title`;
+}
+
+/** A row's words, by its group (coaching operator.md §5.18.1). */
+export function onlineLabelKey(group: OnlineGroupId, row: Pick<OnlineRow, 'id'>): MessageKey {
+  return (group === 'lessons' ? `ws.coaching.dayClose.rows.${row.id}` : `ws.matches.dayClose.${group}.${row.id}`) as MessageKey;
+}
+
+/**
+ * The till-shifts step's cross-day sentence (C-31, R27, R71): on a day whose
+ * refunds are dated by their till shift, the earlier days' cash refunds count
+ * in this day's expected cash; on a day closed before that rule, or from a
+ * server that does not say, they are left out, as the sentence always said.
+ */
+export function crossDayKey(datedByShift: boolean | null | undefined): MessageKey {
+  return datedByShift === true ? 'ws.tillShift.dayClose.crossDayCounted' : 'ws.tillShift.dayClose.crossDay';
 }
 
 /** Every figure zero or missing: the card is not drawn. */

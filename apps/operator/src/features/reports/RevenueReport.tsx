@@ -20,6 +20,12 @@
  * period on screen — for the breakdown's figures. The staff filter scopes the
  * drill too; the payment filter cannot (report_drill has no method key), and
  * the dialog says so.
+ *
+ * Coaching (coaching operator.md §5.18.3, C-18): Earned gains Lessons
+ * (`lessonIqd`, inside revenue, outside padel) and Owed to coaches
+ * (`owedToCoachesIqd`, the coaches' share, paid outside the till). Neither is
+ * drilled (report_drill has no lesson figure). On a server without the keys
+ * the figures read "—" and the breakdown has no Lessons column.
  */
 import { useState } from 'react';
 import { formatMonthYear, type MessageKey } from '@touch/i18n';
@@ -55,7 +61,7 @@ import {
   type ReportColumn,
 } from './ReportParts';
 import { GroupFilter, PaymentFilter, StaffFilter, useReportStaff } from './ReportFilterBar';
-import { bucketRange, readRevenue, type RevenueRow } from './reportPayloads';
+import { bucketRange, readRevenue, revenueHasLessons, type RevenueRow } from './reportPayloads';
 import type { PaymentMethodFilter, ReportGroup } from './reportTypes';
 
 type View = 'earned' | 'taken' | 'givenAway' | 'tax';
@@ -142,7 +148,9 @@ function RevenueReport() {
 
   const periodLabel = (r: RevenueRow) =>
     group === 'month' ? formatMonthYear(new Date(`${r.period}T12:00:00Z`), locale, 'UTC') : formatDay(r.period, locale);
-  const columns = columnsFor(view, group, periodLabel, tr, locale);
+  // Lessons (0288): a column only when the server sends the figure.
+  const lessons = data ? revenueHasLessons(data) : false;
+  const columns = columnsFor(view, group, periodLabel, tr, locale, lessons);
 
   const notes: Record<View, MessageKey[]> = {
     earned: ['ws.reports.revenue.notes.revenue', 'ws.reports.revenue.notes.bookings'],
@@ -155,7 +163,7 @@ function RevenueReport() {
     if (!data) return;
     // Every figure the row carries, whichever breakdown is on screen: the
     // breakdown is a way of reading the rows, not a limit on what is taken away.
-    const all = allColumns(group, periodLabel, tr, locale);
+    const all = allColumns(group, periodLabel, tr, locale, lessons);
     exportTable(tr('ws.reports.export.revenue'), locale, period, { group, pay: method || undefined, staff: staffId || undefined }, tableCsv(all, data.rows));
   }
 
@@ -193,6 +201,18 @@ function RevenueReport() {
                 {figure('revenue', 'ws.reports.revenue.revenue', t?.totalIqd ?? null, undefined, 'totalIqd')}
                 {figure('padelRevenue', 'ws.reports.revenue.padel', t?.padelIqd ?? null, t?.bookings != null ? tr('ws.reports.revenue.bookingsCount', { count: count(t.bookings, locale) }) : undefined, 'padelIqd')}
                 {figure('cafeNet', 'ws.reports.revenue.cafe', t?.cafeNetIqd ?? null, t?.orders != null ? tr('ws.reports.revenue.ordersCount', { count: count(t.orders, locale) }) : undefined, 'cafeNetIqd')}
+                {/* Coaching (§5.18.3): plain figures, "—" on a server without them; report_drill has no lesson figure. */}
+                <HeadlineFigure
+                  label={tr('ws.reports.revenue.lessons')}
+                  value={money(t?.lessonIqd ?? null, locale)}
+                  comparison={changeOf(changes, 'lessonIqd')}
+                  format={(n) => money(n, locale)}
+                />
+                <HeadlineFigure
+                  label={tr('ws.reports.revenue.owedToCoaches')}
+                  value={money(t?.owedToCoachesIqd ?? null, locale)}
+                  hint={tr('ws.reports.revenue.owedToCoachesHint')}
+                />
               </FigureGroup>
               <FigureGroup title={tr('ws.reports.revenue.taken')} hint={tr('ws.reports.revenue.takenHint')}>
                 {figure('cash', 'ws.reports.revenue.cash', t?.cashIqd ?? null, undefined, 'cashIqd')}
@@ -274,7 +294,7 @@ function periodColumn(group: ReportGroup, label: (r: RevenueRow) => string, tr: 
   };
 }
 
-function columnsFor(view: View, group: ReportGroup, label: (r: RevenueRow) => string, tr: Tr, locale: Locale): ReportColumn<RevenueRow>[] {
+function columnsFor(view: View, group: ReportGroup, label: (r: RevenueRow) => string, tr: Tr, locale: Locale, lessons = false): ReportColumn<RevenueRow>[] {
   {
     const c = (k: MessageKey) => tr(k);
     const first = periodColumn(group, label, tr);
@@ -284,6 +304,7 @@ function columnsFor(view: View, group: ReportGroup, label: (r: RevenueRow) => st
           first,
           moneyColumn('padelIqd', c('ws.reports.revenue.columns.padel'), locale),
           moneyColumn('cafeNetIqd', c('ws.reports.revenue.columns.cafe'), locale),
+          ...(lessons ? [moneyColumn('lessonIqd', c('ws.reports.revenue.columns.lessons'), locale)] : []),
           moneyColumn('totalIqd', c('ws.reports.revenue.columns.revenue'), locale, true),
           countColumn('bookings', c('ws.reports.revenue.columns.bookings'), locale),
           countColumn('orders', c('ws.reports.revenue.columns.orders'), locale),
@@ -304,11 +325,17 @@ function columnsFor(view: View, group: ReportGroup, label: (r: RevenueRow) => st
 }
 
 /** Every revenue figure, for the CSV. */
-function allColumns(group: ReportGroup, label: (r: RevenueRow) => string, tr: Tr, locale: Locale): ReportColumn<RevenueRow>[] {
+function allColumns(group: ReportGroup, label: (r: RevenueRow) => string, tr: Tr, locale: Locale, lessons = false): ReportColumn<RevenueRow>[] {
   return [
     periodColumn(group, label, tr),
     moneyColumn('padelIqd', tr('ws.reports.revenue.columns.padel'), locale),
     moneyColumn('cafeNetIqd', tr('ws.reports.revenue.columns.cafe'), locale),
+    ...(lessons
+      ? [
+          moneyColumn('lessonIqd', tr('ws.reports.revenue.columns.lessons'), locale),
+          moneyColumn('owedToCoachesIqd', tr('ws.reports.revenue.owedToCoaches'), locale),
+        ]
+      : []),
     moneyColumn('totalIqd', tr('ws.reports.revenue.columns.revenue'), locale),
     moneyColumn('cafeIqd', tr('ws.reports.revenue.columns.cafeSales'), locale),
     moneyColumn('cashIqd', tr('ws.reports.revenue.columns.cash'), locale),

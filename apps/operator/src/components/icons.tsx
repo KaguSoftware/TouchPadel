@@ -117,6 +117,8 @@ const PATHS = {
   ticket: 'M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4zM14 5v2M14 11v2M14 17v2',
   /** An open book: the workspace guide (rail footer row and the kitchen legend's pill). */
   bookOpen: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z',
+  /** A coach's whistle: coaches, the lesson badge and the Coaches / Coach pay rows (coaching operator.md §5.3.3). */
+  whistle: 'M3 14a5 5 0 1 0 10 0a5 5 0 1 0-10 0M8 9h12a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-7.4M8 14h.01M4.5 10.5 2.5 8.5',
 } as const;
 
 export type IconName = keyof typeof PATHS;

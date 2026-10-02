@@ -213,7 +213,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     scope: 'money',
     kind: 'aggregate',
     description:
-      'The management panel headline figures for a date range: revenue, padel revenue, cafe revenue and net, cash, card, bookings, orders, average order value, discounts, refunds, waste, no-shows, ticket sales, refunds, forfeits and liability, online deposits, written-off match shares; optionally against a comparison period. Prefer this for any "how much did we make" question.',
+      'The management panel headline figures for a date range: revenue, padel revenue, cafe revenue and net, cash, card, bookings, orders, average order value, discounts, refunds, waste, no-shows, ticket sales, refunds, forfeits and liability, online deposits, written-off match shares, then lesson revenue and the share owed to coaches (lessonRevenue, owedToCoaches; what the coaches are owed is information, never cash); optionally against a comparison period. Prefer this for any "how much did we make" question.',
     route: '/panel',
     rpc: 'panel_headline',
     args: {
@@ -431,7 +431,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'report_courts',
     scope: 'courts',
     kind: 'aggregate',
-    description: 'The courts report for a range: bookings, hours booked, revenue per court, occupancy, cancellations, no-shows, and an open matches block (match bookings, their court money paid at the desk and written off, no-show seats, call-offs, tickets lost at the branch).',
+    description: 'The courts report for a range: bookings, hours booked, revenue per court, occupancy, cancellations, no-shows, and an open matches block (match bookings, their court money paid at the desk and written off, no-show seats, call-offs, tickets lost at the branch). Lesson court time counts as occupied time (occupancy over booked plus lesson minutes); a lessons block gives the lessons, places, attendance, money collected, the court share and what is owed to coaches.',
     route: '/reports/courts',
     rpc: 'report_courts',
     args: { ...RANGE, filters: FILTERS },

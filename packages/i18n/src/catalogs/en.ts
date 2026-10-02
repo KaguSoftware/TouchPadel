@@ -10,10 +10,12 @@ import { workEn } from './work.en';
 import { opErrorsProtocolsEn } from './opErrors.protocols.en';
 import { opErrorsMatchesEn } from './opErrors.matches.en';
 import { opErrorsCodesEn } from './opErrors.codes.en';
+import { opErrorsCoachingEn } from './opErrors.coaching.en';
 import { legalEn } from './legal.en';
 import { siteEn } from './site.en';
 import { branchesEn } from './branches.en';
 import { matchesEn } from './matches.en';
+import { coachingEn } from './coaching.en';
 
 export const en = {
   // Operator workspace strings (spec §05–§07), one file pair per lane: catalogs/ws/*.
@@ -818,6 +820,11 @@ export const en = {
       "Women-only and men-only matches: you're listed as a man. The front desk can change this.",
     tickets: 'Open-match tickets',
     blockedPlayers: 'Blocked players',
+    // Coaching (docs/design/coaching/guest.md §4.8.1): My lessons, and coach
+    // mode for a coach (its statements for a retired one, C-25).
+    myLessons: 'My lessons',
+    coachMode: 'Coach mode',
+    coachStatements: 'Coach statements',
   },
   settings: {
     title: 'Settings',
@@ -1024,6 +1031,9 @@ export const en = {
   branches: branchesEn,
   // Open matches (docs/design/open-matches/guest.md §4.24): the guest app's words (matches.en.ts).
   matches: matchesEn,
+  // Coaching (docs/design/coaching/guest.md §4.15): lessons, coach mode and the website's
+  // coaching pages (coaching.en.ts).
+  coaching: coachingEn,
   seo: {
     // Site-wide defaults (the landing page at /{locale} is Touch Padel's front door since
     // 2026-09-23; the café menu moved to /{locale}/menu and sets its own title).
@@ -1221,6 +1231,11 @@ export const en = {
       walked_out: 'Left without paying',
       no_shows: 'Repeated no-shows',
       reported: 'Reported by players',
+      // Coaching (docs/design/coaching/operator.md §5.10.8, §5.10.10):
+      // COACHING_REASON_CODES' own code and LESSON_REFUND_REASON_CODES.
+      coach_unavailable: 'Coach unavailable',
+      lesson_refund: 'Lesson refund',
+      lesson_goodwill: 'Goodwill refund',
     },
     desk: {
       newBooking: 'New booking',
@@ -1973,7 +1988,7 @@ export const en = {
       BRANCH_DAY_OPEN: 'Close this branch’s day before closing the branch.',
       STATION_RETIRED: 'This station was retired. Register it again in Settings → Venue details → Stations.',
       STATION_HAS_HISTORY: 'This station name has till shifts at another branch. Pick another name.',
-      BRANCH_HAS_BOOKINGS: 'This branch still has bookings, holds or series to come. Cancel or move them first.',
+      BRANCH_HAS_BOOKINGS: 'This branch still has bookings, lessons, holds or series to come. Cancel or move them first.',
       VENUE_CLOSED: 'This branch is closed.',
       NO_PIN_SET: 'This account has no PIN yet. Ask the owner to set one.',
       BOOKING_TAB_OPEN: 'This booking already has an open bill. Add to that bill instead.',
@@ -2079,6 +2094,9 @@ export const en = {
       // Every code a migration raised that no app had worded (packages/i18n/src/errors.ts,
       // 2026-10-01): opErrors.codes.*.ts.
       ...opErrorsCodesEn,
+      // Coaching (docs/design/coaching/operator.md §5.19): opErrors.coaching.*.ts, each
+      // code with the migration that first raises it.
+      ...opErrorsCoachingEn,
     },
   },
   // Protocols and the staff phone (build-contracts-2026-09-23 §4): the words both apps

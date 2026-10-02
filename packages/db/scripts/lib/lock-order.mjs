@@ -22,12 +22,33 @@
  *     ticket_pick's shape) is a lock too. It was invisible before, which also
  *     hid wave 5's stock_batches locks in consume_fefo_at and its callers
  *     (all in order: no sequence broke when they appeared).
+ *
+ * Coaching (coaching_tables, docs/design/coaching/db.md §2.5; build contracts §1.4, R6,
+ * R33, R64) taught it two more:
+ *   * the coach mutex, app.lock_coach() (coach_advisory), ranked after
+ *     match_money_advisory and before tabs, once per sequence: no path takes
+ *     two coaches' keys and a lesson's coach never changes. app.try_lock_coach
+ *     (the sweep's later coaches) is never emitted: it never waits. lessons,
+ *     courses, lesson_enrolments, lesson_attendance, lesson_strikes and
+ *     coach_statements stay out of ORDER, like booking_payments: the coach
+ *     mutex serialises every change to them;
+ *   * `FOR UPDATE ... SKIP LOCKED` on reservations never waits (R64, D-25), so
+ *     it is not emitted, for the reason pg_try_advisory_xact_lock is not: the
+ *     statement that ends a held lesson's court hold
+ *     (`update reservations ... where id in (select ... for update skip
+ *     locked)`, lesson_court_release) takes no lock that can wait, and no
+ *     coaching name joins STATUS_ONLY_RESERVATION_WRITERS (R33). Every other
+ *     skip locked (match_tickets in 0264, the outboxes) is emitted as before.
+ *     The service-role walk gains lesson_sweep, lesson_settle_success,
+ *     lesson_payment_prepare and coach_statements_draft (skipped until each
+ *     exists).
  */
 
 /** The declared total order. Adding a table here is a deliberate act. */
 export const ORDER = [
   'day_sessions',
   'match_money_advisory', // app.lock_match_money() -- 0260 (R19): a match's seat money
+  'coach_advisory', // app.lock_coach() -- coaching_tables (R6): a coach's lessons, enrolments and statements
   'tabs',
   'orders',
   'order_items',
@@ -47,10 +68,14 @@ export const ADVISORY = [
   { fn: 'lock_court', lock: 'court_advisory' },
   { fn: 'lock_match_money', lock: 'match_money_advisory' },
   { fn: 'lock_match_venue', lock: 'match_venue_advisory' },
+  { fn: 'lock_coach', lock: 'coach_advisory' }, // coaching_tables; try_lock_coach is never emitted (it never waits)
 ];
 
-/** Keys a blocking body holds at most once: a later occurrence is dropped (db.md §2.6 rule 3). */
-export const ONCE_PER_SEQUENCE = new Set(['match_venue_advisory', 'match_money_advisory']);
+/**
+ * Keys a blocking body holds at most once: a later occurrence is dropped
+ * (open-matches db.md §2.6 rule 3; coaching db.md §2.5 item 3).
+ */
+export const ONCE_PER_SEQUENCE = new Set(['match_venue_advisory', 'match_money_advisory', 'coach_advisory']);
 
 /**
  * Service-role functions walked as if client-callable (contracts §1.4 + R8).
@@ -64,6 +89,11 @@ export const SERVICE_WALK = [
   'ticket_refund_deleted',
   'tickets_cash_out',
   'expire_stale_holds', // 0268: no longer granted to clients; the tp_hold_sweep cron still takes its row locks
+  // Coaching (R33; listed in the coaching_tables commit, walked once each exists):
+  'lesson_sweep', // the lesson_sweep migration, the tp_lesson_sweep cron
+  'lesson_settle_success', // lesson_online_payment, under deposit_apply's lesson arm
+  'lesson_payment_prepare', // lesson_online_payment, lesson-begin
+  'coach_statements_draft', // the coach_statements migration, the tp_coach_statements cron
 ];
 
 /**
@@ -160,14 +190,22 @@ export function createWalker({ fns, triggers }) {
       const lockM = /\bfor\s+(?:no\s+key\s+)?update(\s+of\s+([a-z_,\s]+?))?(?=[\s)]|$)/i.exec(stmt);
       if (lockM) {
         const al = aliases(stmt);
+        // Coaching (coaching_tables, R64, D-25): a reservations row taken SKIP LOCKED is
+        // never waited for, like pg_try_advisory_xact_lock below, so it is not
+        // emitted. Only reservations: every other skip locked (match_tickets,
+        // the outboxes) prints as it always did.
+        const skipLocked = /^\s+skip\s+locked\b/i.test(stmt.slice(lockM.index + lockM[0].length));
+        const emit = (t) => {
+          if (!(skipLocked && t === 'reservations')) out.push({ lock: t });
+        };
         if (lockM[2]) {
           for (const a of lockM[2].split(',').map((x) => x.trim().toLowerCase()).filter(Boolean)) {
             const t = al.get(a);
-            if (t) out.push({ lock: t });
+            if (t) emit(t);
           }
         } else {
           // A bare FOR UPDATE locks every base relation in the FROM list.
-          for (const t of new Set([...al.values()])) out.push({ lock: t });
+          for (const t of new Set([...al.values()])) emit(t);
         }
       }
       // app.lock_court() takes pg_advisory_xact_lock on the court -- a real lock

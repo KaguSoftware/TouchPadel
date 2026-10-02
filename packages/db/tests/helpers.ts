@@ -175,7 +175,7 @@ export async function shapedGuest(
  */
 const PIN_GATED_RPCS = new Set([
   'apply_discount', 'override_price', 'refund', 'void_after_send', 'write_off_expired', 'deposit_refund_manual',
-  'match_seat_write_off',
+  'match_seat_write_off', 'lesson_blocked_refund_record', 'coach_statement_mark_paid', 'coach_statement_void',
 ]);
 
 /**

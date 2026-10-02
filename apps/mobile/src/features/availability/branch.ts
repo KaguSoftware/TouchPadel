@@ -35,6 +35,8 @@ export interface Branch {
   map_url: string | null;
   phone: string | null;
   timezone: string | null;
+  /** Coaching is on at this branch (0277; coaching guest.md §4.7.5). False for a row from before it. */
+  coaching_enabled: boolean;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -71,6 +73,7 @@ export function toBranches(rows: readonly Record<string, unknown>[] | null | und
       map_url: str(r.map_url),
       phone: str(r.phone),
       timezone: str(r.timezone),
+      coaching_enabled: r.coaching_enabled === true,
     });
   }
   return out.sort((a, b) => {

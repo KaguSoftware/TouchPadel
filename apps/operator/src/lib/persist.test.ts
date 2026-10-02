@@ -2,6 +2,7 @@
 // jsdom: the flush is wired to the window's `pagehide` event.
 import { describe, expect, it } from 'vitest';
 import { makePersister, shouldPersistQuery } from './persist';
+import { QK } from './queryKeys';
 
 function fakeQuery(key: unknown[], status: 'success' | 'error' = 'success') {
   return { queryKey: key, state: { status } };
@@ -22,6 +23,22 @@ describe('shouldPersistQuery', () => {
 
   it('never persists a failed query — an error snapshot is not a warm start', () => {
     expect(shouldPersistQuery(fakeQuery(['menu'], 'error'))).toBe(false);
+  });
+
+  it('never persists a coaching read: rosters and lesson labels carry student names and phones (coaching P15)', () => {
+    for (const key of [
+      QK.coaching.all,
+      QK.coaching.desk('2026-10-01T00:00:00Z', '2026-10-02T00:00:00Z'),
+      QK.coaching.lesson('lesson-1'),
+      QK.coaching.customer('customer-1'),
+      QK.coaching.admin('venue-1'),
+      QK.coaching.settings('venue-1'),
+      QK.coaching.slots('c', 't', 'a', 'b'),
+      QK.coaching.refundsDue('venue-1'),
+      QK.coaching.statement('s-1'),
+    ]) {
+      expect(shouldPersistQuery(fakeQuery([...key])), key.join()).toBe(false);
+    }
   });
 });
 

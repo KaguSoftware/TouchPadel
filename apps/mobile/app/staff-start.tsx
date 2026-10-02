@@ -12,6 +12,7 @@ import {
   startableKinds,
   validateStart,
   type FieldIssue,
+  type LessonChangeKind,
   type PriceChangeKind,
   type ProtocolKind,
   type StaffRole,
@@ -48,6 +49,7 @@ import {
   bilingual,
   completeRenames,
   parseVariant,
+  phoneStartChanges,
   priceProposeStart,
   startDecidedByStarter,
   targetKindOf,
@@ -163,7 +165,7 @@ function TargetChooser({
   const shown = rows.filter((r) => matches(r.title));
   return (
     <View style={{ gap: space.s }}>
-      <Strong>{t(`staff.protocols.start.targetTitle.${change as Exclude<PriceChangeKind, 'addon_price' | 'promotion'>}`)}</Strong>
+      <Strong>{t(`staff.protocols.start.targetTitle.${change as Exclude<PriceChangeKind, 'addon_price' | 'promotion' | LessonChangeKind>}`)}</Strong>
       {kind === 'featured' ? (
         featured ? (
           <ListCard>
@@ -488,7 +490,9 @@ function StartScreen() {
   }>();
   const role = status.kind === 'staff' ? status.staff.role : null;
   const kinds = startableKinds(role);
-  const changes = priceChangeKinds(role);
+  // Lesson prices are started on the operator, where the lesson types are
+  // (coaching 0285): neither the list nor a link starts one here.
+  const changes = phoneStartChanges(priceChangeKinds(role));
   const paramKind = kinds.find((k) => k === params.kind) ?? null;
   const [kind, setKind] = useState<ProtocolKind | null>(paramKind ?? (kinds.length === 1 ? kinds[0]! : null));
   const [variant, setVariant] = useState<TournamentVariant | null>(parseVariant(params.variant));
