@@ -5,6 +5,8 @@ import {
   NUMBERS_FIGURES,
   analysisPrefill,
   finalizeRecord,
+  numbersFields,
+  readFeasibility,
   interviewsRecord,
   lessonNumbersLines,
   numbersAddons,
@@ -114,6 +116,19 @@ describe('a lesson change’s numbers (X28)', () => {
     expect(finalizeRecord('price_promo', 'numbers', numbers, new Map())).toEqual({ recommendation: 'go', note: 'fine' });
     expect(finalizeRecord('price_promo', 'numbers', { ...numbers, recommendation: 'change' }, new Map())).toMatchObject({ price_iqd: 30000, court_share_iqd: 6000 });
   });
+
+  it('a proposal carrying only a court share offers and sends only the court share (OP-20)', () => {
+    const proposal = { change: 'lesson_price', lesson_type_id: 'lt-1', court_share_iqd: 6000 };
+    const fields = [{ name: 'recommendation' }, { name: 'price_iqd' }, { name: 'court_share_iqd' }, { name: 'note' }];
+    expect(numbersFields(fields, proposal).map((f) => f.name)).toEqual(['recommendation', 'court_share_iqd', 'note']);
+    const typed = { recommendation: 'change', price_iqd: 35000, court_share_iqd: 7000 };
+    expect(finalizeRecord('price_promo', 'numbers', typed, new Map(), proposal)).toEqual({ recommendation: 'change', court_share_iqd: 7000 });
+    // A coach price removal carries no figure: none is offered.
+    const removal = { change: 'coach_price', coach_id: 'c-1', lesson_type_id: 'lt-1', price_iqd: null };
+    expect(numbersFields(fields, removal).map((f) => f.name)).toEqual(['recommendation', 'note']);
+    // Any other change keeps every field.
+    expect(numbersFields(fields, { change: 'price' })).toHaveLength(4);
+  });
 });
 
 describe('prefills', () => {
@@ -169,5 +184,20 @@ describe('the interviews record', () => {
   it('says what is missing: no candidates yet, or none picked', () => {
     expect(interviewsRecord([]).state).toBe('none');
     expect(interviewsRecord([{ id: 'c1', picked: false }])).toEqual({ record: { candidate_ids: ['c1'], picked_id: null }, state: 'noPick' });
+  });
+});
+
+describe('tournament feasibility (OP-21, DB-34)', () => {
+  it('reads the lessons and students in each window, zero when an older server sends none', () => {
+    const f = readFeasibility({
+      ranges: [
+        { court_name_en: 'Court 1', court_name_ar: 'الملعب 1', from: 'a', to: 'b', bookings: 1, guests: 2, lessons: 2, students: 5 },
+        { court_name_en: 'Court 2', court_name_ar: 'الملعب 2', from: 'a', to: 'b', bookings: 0, guests: 0 },
+      ],
+    });
+    expect(f.ranges.map((r) => [r.lessons, r.students])).toEqual([
+      [2, 5],
+      [0, 0],
+    ]);
   });
 });

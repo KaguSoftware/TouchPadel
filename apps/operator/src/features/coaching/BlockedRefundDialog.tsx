@@ -5,7 +5,10 @@
  * kept session), `lesson_refunds_due` lists it as `online_blocked_iqd`. The
  * manager hands it back another way and records it here:
  * app.lesson_blocked_refund_record(p_enrolment_id, p_amount_iqd, p_reference,
- * p_pin, p_device_id), under the manager PIN.
+ * p_pin, p_idempotency_key, p_device_id), under the manager PIN. The key is
+ * minted once per amount and reference (0293, DB-23): a retry after a lost
+ * answer replays the first record instead of adding the money twice, and an
+ * edited amount or reference is a new record.
  *
  * The amount starts at what is blocked and can never be more; the reference
  * is 1..80 characters and never a card number (a run of 12 or more digits once
@@ -13,7 +16,7 @@
  * drawer through this record: the server stores it on the sign-up, never as a
  * payment or refund row. A direct write, so online only (CD-6).
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatNumber, isolate } from '@touch/i18n';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
@@ -27,6 +30,7 @@ import { MoneyInput } from '../../components/inputs';
 import { MessagePresenter, PinPromptOverlay } from '../../components/kit';
 import { coachingErrorText } from './lessonLogic';
 import type { RefundDueItem } from './lessonPayloads';
+import { useLessonIdemKey } from './useCoaching';
 import {
   BLOCKED_REFERENCE_MAX,
   blockedRefundErrors,
@@ -56,6 +60,12 @@ export function BlockedRefundDialog({
   const [busy, setBusy] = useState(false);
   const [pinError, setPinError] = useState<unknown>(null);
   const [error, setError] = useState<unknown>(null);
+  const recordKey = useLessonIdemKey('blocked_refund');
+
+  // A changed amount or reference is a different record: its own key.
+  useEffect(() => {
+    recordKey.renew();
+  }, [amount, reference, recordKey]);
 
   const errs = blockedRefundErrors({ amount, max, reference });
   const amountLine =
@@ -94,8 +104,10 @@ export function BlockedRefundDialog({
         p_amount_iqd: amount,
         p_reference: reference.trim(),
         p_pin: pin,
+        p_idempotency_key: recordKey.key(),
         p_device_id: deviceId(),
       });
+      recordKey.renew();
       void qc.invalidateQueries({ queryKey: [...QK.coaching.all] });
       toast.ok(tr('ws.coaching.refunds.blocked.done'));
       setPinOpen(false);

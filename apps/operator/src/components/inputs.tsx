@@ -12,7 +12,7 @@ import { dateKeystroke, MAX_ISO_DATE } from './dateFieldLogic';
 
 const numericStyle: CSSProperties = { ...inputStyle, fontVariantNumeric: 'tabular-nums' };
 
-function digitsOnly(raw: string): string {
+export function digitsOnly(raw: string): string {
   // Accept Arabic-Indic digits from an Arabic keyboard, then strip everything else.
   return raw
     .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))

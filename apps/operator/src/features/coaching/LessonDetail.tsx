@@ -65,6 +65,7 @@ import {
   courseStatusKey,
   courseTitleOf,
   countOf,
+  blockedRefundDue,
   deskRefundDue,
   eventSentence,
   lessonBannerKey,
@@ -268,6 +269,7 @@ function LessonScreen({
   const statusKey = lessonStatusKey(l.status);
   const banner = lessonBannerKey(l, nowMs);
   const refundDue = deskRefundDue(detail.enrolments);
+  const refundBlocked = blockedRefundDue(detail.enrolments);
   const places = placesOf(l);
   const coachUnpaid = coachBookedUnpaid(l, detail.enrolments);
   const handing = Boolean(handedCustomer) && caps.runLessons && l.can.add_student;
@@ -436,6 +438,14 @@ function LessonScreen({
             icon="undo"
             message={tr('ws.coaching.banner.refundDueDesk', {
               amount: formatIQD(refundDue, locale),
+            })}
+          />
+        )}
+        {refundBlocked > 0 && (
+          <MessagePresenter
+            tone="refused"
+            message={tr('ws.coaching.banner.refundBlocked', {
+              amount: formatIQD(refundBlocked, locale),
             })}
           />
         )}

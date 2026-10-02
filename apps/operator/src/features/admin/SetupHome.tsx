@@ -67,6 +67,7 @@ import { permissionsFor } from '../../lib/auth';
 import { holdersWithoutPin } from '../tillShift/tillShiftLogic';
 import { useCoachesAdmin, useCoachingCaps } from '../coaching/useCoaching';
 import { onSaleCount } from './coaches/lessonTypeLogic';
+import { teachingHere } from './coaches/coachesLogic';
 
 type CardKey = 'staff' | 'branches' | 'courts' | 'coaches' | 'tables' | 'settings' | 'guestSite';
 
@@ -142,12 +143,12 @@ export function SetupHomeScreen() {
       case 'tables':
         return figure('ws.owner.setupHome.status.tables', tablesQ.data);
       case 'coaches': {
-        // "Coaches 3 · Lesson types on sale 4": coaches still teaching (active and paused).
+        // "Coaches 3 · Lesson types on sale 4": coaches still teaching here (active and paused, active at this branch; OP-06).
         const d = coachingCaps.manageCoaches ? coachesQ.data : null;
         if (!d) return null;
         return (
           <span data-testid="coaches-status" style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'baseline', flexWrap: 'wrap' }}>
-            {figure('ws.owner.setupHome.status.coaches', d.coaches.filter((c) => c.status !== 'retired').length)}
+            {figure('ws.owner.setupHome.status.coaches', teachingHere(d.coaches).length)}
             <span aria-hidden="true" style={{ color: 'var(--tp-muted-fg)' }}>
               ·
             </span>

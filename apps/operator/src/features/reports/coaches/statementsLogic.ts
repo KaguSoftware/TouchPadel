@@ -8,12 +8,18 @@
  *   actions, the detail's `can` (CM-11: all false on the caller's own
  *   statement) and `settleCoaches` decide whether they are offered, approve is
  *   a confirm (R4), voiding an approved statement takes a PIN (R59, R70), and
- *   Mark paid is off below zero (R59).
+ *   Mark paid is off below zero (R59): the server's `can.mark_paid` is false
+ *   then, so it is offered blocked regardless, with its reason (OP-08).
  * - The reference and void-reason guard (R49, R74, operator.md Addition 18): a
- *   run of 12 or more digits, counted across spaces, hyphens and dots, is a
- *   card or account number and is refused before anything is sent.
- * - The month stepper's bounds: never past the server's `current_month`.
+ *   run of 12 or more digits in any of the three scripts, counted across
+ *   spaces, hyphens and dots, is a card or account number and is refused
+ *   before anything is sent (`looksLikeCardNumber` from @touch/core, the
+ *   server's app.looks_like_card twin; OP-04).
+ * - The month stepper's bounds: never past the default month, the server's
+ *   `month` when none is asked for (the month before `current_month`, the
+ *   latest one statements are drafted for; OP-02).
  */
+import { looksLikeCardNumber } from '@touch/core';
 import { formatIQD, formatNumber, isolateLtr, type Locale, type MessageKey } from '@touch/i18n';
 import type {
   MissingStatement,
@@ -170,20 +176,35 @@ export function totalsFigures(t: StatementTotals): TotalsFigure[] {
 export interface MissingRow {
   key: string;
   coach: string;
-  /** "{coach}: not drafted yet" or "{coach}: waits for an older month's draft". */
+  /**
+   * "{coach}: not drafted yet", "{coach}: waits for an older month's draft",
+   * or "{coach}: waits for the {month} draft" (`newer_draft`, 0293 DB-24; OP-22).
+   */
   textKey: MessageKey;
+  /** The month of the draft in the way (`blocking_month`), which the newer_draft line names. */
+  month: string | null;
 }
+
+const MISSING_KEY: Record<string, MessageKey> = {
+  older_draft: 'ws.coaching.coachPay.missing.older_draft',
+  newer_draft: 'ws.coaching.coachPay.missing.newer_draft',
+};
 
 /** The coaches with no statement for the month, as muted lines under the table. */
 export function missingRows(missing: readonly MissingStatement[], locale: Locale): MissingRow[] {
-  return missing.map((m, i) => ({
-    key: `${m.coach_id ?? i}:${m.venue_id ?? ''}`,
-    coach: bilingual(locale, m.coach_name_en, m.coach_name_ar),
-    textKey:
-      m.reason === 'older_draft'
-        ? 'ws.coaching.coachPay.missing.older_draft'
-        : 'ws.coaching.coachPay.missing.not_drafted',
-  }));
+  return missing.map((m, i) => {
+    const textKey = MISSING_KEY[m.reason ?? ''] ?? 'ws.coaching.coachPay.missing.not_drafted';
+    return {
+      key: `${m.coach_id ?? i}:${m.venue_id ?? ''}`,
+      coach: bilingual(locale, m.coach_name_en, m.coach_name_ar),
+      // A newer_draft line with no month to name says "not drafted yet".
+      textKey:
+        m.reason === 'newer_draft' && !m.blocking_month
+          ? 'ws.coaching.coachPay.missing.not_drafted'
+          : textKey,
+      month: m.blocking_month,
+    };
+  });
 }
 
 /** The Financial card's line (§5.3.3): drafts to approve and approved statements to pay. */
@@ -268,7 +289,11 @@ export function statementActions(
       add('void', 'void');
       break;
     case 'approved':
-      add('markPaid', 'mark_paid', true);
+      // Below zero the server answers can.mark_paid false; Mark paid stays,
+      // blocked, so the reason shows instead of the button vanishing (OP-08).
+      if (s.total_iqd !== null && s.total_iqd < 0)
+        actions.push({ key: 'markPaid', pin: true, blocked: 'negative' });
+      else add('markPaid', 'mark_paid', true);
       add('void', 'void', true);
       break;
     case 'void':
@@ -287,18 +312,8 @@ export function statementActions(
 export const REFERENCE_MAX = 80;
 export const VOID_REASON_MAX = 200;
 
-/**
- * Spaces, hyphens (and the Unicode dashes a keyboard may type) and dots
- * between digits, as a card typed in groups ("4111 1111 1111 1111").
- */
-const DIGIT_GAPS = /[\s\-.‐-―−]/g;
-/** ASCII, Arabic-Indic and Eastern Arabic-Indic digits. */
-const DIGIT_RUN = /[0-9٠-٩۰-۹]{12,}/;
-
-/** True when the text holds a run of 12 or more digits once its gaps are taken out (R74). */
-export function looksLikeCardNumber(text: string): boolean {
-  return DIGIT_RUN.test(text.replace(DIGIT_GAPS, ''));
-}
+/** The one card guard (R74; OP-04), shared with the lesson screen. */
+export { looksLikeCardNumber };
 
 export type TextError = 'required' | 'tooLong' | 'cardNumber';
 
@@ -361,24 +376,33 @@ export function addMonths(month: string, by: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** The month on screen: the one asked for, never past the server's current month. */
-export function shownMonth(asked: string | null, current: string | null): string | null {
-  if (asked === null) return current;
-  if (current !== null && asked > current) return current;
+/**
+ * The month on screen: the one asked for, never past `top`, the default
+ * month (the server's `month` when none is asked for: the month before
+ * `current_month`, OP-02). Nothing asked shows `top`.
+ */
+export function shownMonth(asked: string | null, top: string | null): string | null {
+  if (asked === null) return top;
+  if (top !== null && asked > top) return top;
   return asked;
 }
 
-export function canStepForward(shown: string | null, current: string | null): boolean {
-  return shown !== null && current !== null && shown < current;
+/** Whether the default view is on screen: nothing asked, or a month at or past `top`. */
+export function isDefaultView(asked: string | null, top: string | null): boolean {
+  return asked === null || (top !== null && asked >= top);
+}
+
+export function canStepForward(shown: string | null, top: string | null): boolean {
+  return shown !== null && top !== null && shown < top;
 }
 
 /**
  * The `?month=` after a step: null when the step lands on (or past) the
- * current month, so the URL of "this month" carries no month.
+ * default month `top`, so the URL of the default view carries no month.
  */
-export function stepMonth(shown: string, by: number, current: string | null): string | null {
+export function stepMonth(shown: string, by: number, top: string | null): string | null {
   const next = addMonths(shown, by);
-  if (current !== null && next >= current) return null;
+  if (top !== null && next >= top) return null;
   return next;
 }
 

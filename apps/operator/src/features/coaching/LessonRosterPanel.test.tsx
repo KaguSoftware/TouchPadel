@@ -454,6 +454,21 @@ describe('LessonRosterPanel: Take payment and cancel (§5.10.5, §5.10.8)', () =
     ).toBeTruthy();
   });
 
+  it('a group sign-up cancelled after its start: no refund is promised (OP-15)', async () => {
+    const user = userEvent.setup();
+    raw = rawDetail({ server_now: AFTER }, [
+      rawEnrolment('e1', {
+        money: { ...MONEY, desk_paid_iqd: 15000, take_iqd: 0 },
+        can: { ...NO_CAN, cancel: true },
+      }),
+    ]);
+    await mount();
+    await user.click(button(row('e1'), 'Cancel sign-up'));
+    const prompt = await screen.findByRole('dialog');
+    expect(within(prompt).getByText('The session has begun, so the money is kept.')).toBeTruthy();
+    expect(within(prompt).queryByText(/becomes a refund/)).toBeNull();
+  });
+
   it('cancel says what happens to the money and sends `<code>: <note>`', async () => {
     const user = userEvent.setup();
     handlers.desk_cancel_enrolment = () => ({
@@ -462,7 +477,8 @@ describe('LessonRosterPanel: Take payment and cancel (§5.10.5, §5.10.8)', () =
       refund_due_iqd: 15000,
       online_refund: null,
     });
-    raw = rawDetail({}, [
+    // Before the session starts (OP-15: after it, the money is kept).
+    raw = rawDetail({ server_now: BEFORE }, [
       rawEnrolment('e1', {
         money: { ...MONEY, desk_paid_iqd: 15000, take_iqd: 0 },
         can: { ...NO_CAN, cancel: true },

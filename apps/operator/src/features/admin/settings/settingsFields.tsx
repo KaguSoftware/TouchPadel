@@ -6,6 +6,7 @@
  */
 import type { ReactNode } from 'react';
 import { Field, inputStyle } from '../../../components/ui';
+import { digitsOnly } from '../../../components/inputs';
 
 export function NumberField({
   label,
@@ -43,7 +44,8 @@ export function UnitInput({ unit, value, onChange, ...rest }: { unit: string; va
         dir="ltr"
         inputMode="numeric"
         value={value}
-        onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ''))}
+        // Arabic-Indic digits from an Arabic keyboard are kept, as Latin (OP-16).
+        onChange={(e) => onChange(digitsOnly(e.target.value))}
       />
       <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{unit}</span>
     </span>

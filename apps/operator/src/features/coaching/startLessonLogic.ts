@@ -31,6 +31,7 @@ import {
   wallTimeToUtc,
   weeklyLessonStarts,
 } from '@touch/core';
+import { AppRpcError } from '../../lib/appRpc';
 import {
   LESSON_KINDS,
   type DeskCoach,
@@ -395,6 +396,68 @@ export function startDraftErrors(draft: StartDraft, ctx: StartDraftContext): Sta
       out.push('party');
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Idempotency per draft (OP-11)
+// ---------------------------------------------------------------------------
+
+/**
+ * What a create sends, without its key: the kind, type, coach, start(s), the
+ * customer or the typed name and phone, the party and the course titles. Two
+ * drafts with one fingerprint are the same write (OP-11).
+ */
+export function draftFingerprint(kind: LessonKind, draft: StartDraft, tz: string): string {
+  return JSON.stringify([kind, startArgs(kind, draft, '', tz)]);
+}
+
+/**
+ * The key for this draft: the one it was sent with before in this dialog, or
+ * a new one (`mint`). An edited draft gets a new key, so a retry never gets
+ * the earlier lesson back as its answer; a draft edited back to what was sent
+ * reuses that key, so it cannot book twice. The map lives as long as the
+ * dialog and is cleared after a success (OP-11).
+ */
+export function keyForDraft(
+  keys: Map<string, string>,
+  fingerprint: string,
+  mint: () => string,
+): string {
+  const known = keys.get(fingerprint);
+  if (known) return known;
+  const key = mint();
+  keys.set(fingerprint, key);
+  return key;
+}
+
+/**
+ * A failure that may still have landed: no answer came back (a fetch
+ * TypeError, a timeout) or the server failed without a code. The desk lessons
+ * are read again and the dialog says the last attempt may have gone through
+ * (OP-11).
+ */
+export function mayHaveLanded(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  return (
+    error instanceof AppRpcError &&
+    error.code === 'UNKNOWN' &&
+    (error.status === undefined || error.status >= 500)
+  );
+}
+
+/**
+ * A `duplicate: true` answer whose start is not the draft's: the key was
+ * spent on an earlier lesson, so the desk is told it was already booked then
+ * (OP-11). False when either start is unknown.
+ */
+export function duplicateElsewhere(
+  answer: { duplicate: boolean; start_at: string | null },
+  draftStart: string | null,
+): boolean {
+  if (!answer.duplicate) return false;
+  const a = ms(answer.start_at);
+  const d = ms(draftStart);
+  return a !== null && d !== null && a !== d;
 }
 
 /** The arguments of the create RPC for the draft's kind (§1.7, §5.7), with the dialog's key. */

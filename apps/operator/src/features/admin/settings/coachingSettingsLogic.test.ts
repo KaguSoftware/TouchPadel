@@ -9,6 +9,7 @@ import {
   isOnlineMode,
   onlineModeBlock,
   onlineRefusalOf,
+  percentInput,
   percentTextToBp,
   serverFieldOf,
 } from './coachingSettingsLogic';
@@ -43,6 +44,14 @@ describe('percent ↔ basis points (CD-5)', () => {
     expect(percentTextToBp('62,55')).toBe(6255);
     expect(percentTextToBp(' 0 ')).toBe(0);
     expect(percentTextToBp('100')).toBe(10000);
+  });
+
+  it('reads Arabic digits and the Arabic decimal separator (OP-16)', () => {
+    expect(percentTextToBp('٦٢٫٥')).toBe(6250);
+    expect(percentTextToBp('۶۰')).toBe(6000);
+    expect(percentInput('٦٢٫٥')).toBe('62.5');
+    expect(percentInput('١٬٠٠')).toBe('100');
+    expect(percentInput('60%')).toBe('60');
   });
 
   it('refuses above 100, three decimals and anything not a number', () => {

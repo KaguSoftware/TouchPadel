@@ -6,8 +6,11 @@
  * opened.
  *
  * Three kinds, each its own create RPC (a direct `appRpc('<name>', …)` with
- * the literal name, CD-6), each with its own idempotency key minted per
- * dialog and sent again on a retry:
+ * the literal name, CD-6), each with its own idempotency keys: one per draft
+ * (`draftFingerprint`), sent again on a retry of that same draft, a new one
+ * once the draft is edited, all cleared on a success (OP-11). A failure with
+ * no answer re-reads the desk lessons and says the last attempt may have gone
+ * through; a `duplicate` answer at another start says it was booked earlier:
  *  - a private lesson (`desk_book_lesson`): only the starts `coach_slots`
  *    offers for that coach, type and local day; the court is picked by the
  *    server from the free ones (C-2, C-10). When it is not the court pressed,
@@ -64,16 +67,19 @@ import {
   type DeskLessons,
   type LessonKind,
 } from './lessonPayloads';
-import { invalidateLessonBooking, useCoachSlots, useLessonIdemKey } from './useCoaching';
+import { invalidateLessonBooking, useCoachSlots, useDraftIdemKeys } from './useCoaching';
 import {
   COURSE_TITLE_MAX,
   coachesFor,
   cutoffAtOf,
+  draftFingerprint,
+  duplicateElsewhere,
   gridStarts,
   initialStart,
   kindsOnSale,
   localDayWindow,
   localStartOf,
+  mayHaveLanded,
   priceFor,
   slotChoice,
   startArgs,
@@ -134,10 +140,13 @@ export function StartLessonDialog({
   const queryClient = useQueryClient();
   const toast = useToast();
   const { reachable } = useStationReach();
-  // One key per create RPC, so switching kind after a refusal never replays another RPC's key.
-  const bookKey = useLessonIdemKey('book');
-  const groupKey = useLessonIdemKey('group');
-  const courseKey = useLessonIdemKey('course');
+  // Keys per create RPC and per draft (OP-11): switching kind never replays another RPC's key,
+  // and an edited draft never replays the key of what was sent before.
+  const bookKey = useDraftIdemKeys('book');
+  const groupKey = useDraftIdemKeys('group');
+  const courseKey = useDraftIdemKeys('course');
+  // OP-11: the last attempt got no answer, so it may have gone through.
+  const [maybeLanded, setMaybeLanded] = useState(false);
 
   const pressedIso = pressedStart.toISOString();
   const opening = useMemo(() => initialStart(pressedStart, tz), [pressedStart, tz]);
@@ -302,18 +311,34 @@ export function StartLessonDialog({
   const canSubmit = !busy && blockedReason === undefined && kind !== null;
   const refusedRow = refusedSessionNo(error);
 
+  /** A duplicate answer whose start is not the draft's: booked earlier, at that time (OP-11). */
+  function sayAlreadyBooked(
+    answer: { duplicate: boolean; start_at: string | null },
+    at: string | null,
+  ) {
+    if (!duplicateElsewhere(answer, at) || !answer.start_at) return false;
+    toast.info(tr('ws.coaching.start.alreadyBooked', { time: timeText(answer.start_at) }));
+    return true;
+  }
+
   async function submit() {
     if (!kind || !type) return;
     setBusy(true);
     setError(null);
+    setMaybeLanded(false);
+    const fingerprint = draftFingerprint(kind, draft, tz);
     try {
       // No type argument on the calls: the assistant map finds callers by `appRpc('<name>'` (§5.1).
       if (kind === 'private') {
         const r = readBookedLesson(
-          await appRpc('desk_book_lesson', startArgs('private', draft, bookKey.key(), tz)),
+          await appRpc(
+            'desk_book_lesson',
+            startArgs('private', draft, bookKey.keyFor(fingerprint), tz),
+          ),
         );
-        bookKey.renew();
+        bookKey.reset();
         invalidateLessonBooking(queryClient);
+        if (sayAlreadyBooked(r, draft.startAt)) return landOn(r.lesson_id);
         const court = courtNameOf(r, locale);
         const pressed = pressedCourtId
           ? pickName(
@@ -338,18 +363,34 @@ export function StartLessonDialog({
         landOn(r.lesson_id);
       } else if (kind === 'group') {
         const r = readCreatedGroup(
-          await appRpc('desk_create_group', startArgs('group', draft, groupKey.key(), tz)),
+          await appRpc(
+            'desk_create_group',
+            startArgs('group', draft, groupKey.keyFor(fingerprint), tz),
+          ),
         );
-        groupKey.renew();
+        groupKey.reset();
         invalidateLessonBooking(queryClient);
+        if (sayAlreadyBooked(r, draft.startAt)) return landOn(r.lesson_id);
         toast.ok(tr('ws.coaching.start.groupCreated'));
         landOn(r.lesson_id);
       } else {
         const r = readCreatedCourse(
-          await appRpc('desk_create_course', startArgs('course', draft, courseKey.key(), tz)),
+          await appRpc(
+            'desk_create_course',
+            startArgs('course', draft, courseKey.keyFor(fingerprint), tz),
+          ),
         );
-        courseKey.renew();
+        courseKey.reset();
         invalidateLessonBooking(queryClient);
+        const first = [...r.sessions].sort((a, b) => (a.session_no ?? 0) - (b.session_no ?? 0))[0];
+        const firstRow = draft.rows[0];
+        if (
+          sayAlreadyBooked(
+            { duplicate: r.duplicate, start_at: first?.start_at ?? null },
+            firstRow ? startOf(firstRow.date, firstRow.time, tz) : null,
+          )
+        )
+          return landOn(firstSessionId(r));
         const booked = r.lesson_ids.length || r.sessions.length || rows.length;
         toast.ok(
           tr('ws.coaching.start.courseCreated', { sessions: countOf('sessions', booked, locale) }),
@@ -358,6 +399,11 @@ export function StartLessonDialog({
       }
     } catch (e) {
       setError(e);
+      // No answer: it may have landed. Read the desk lessons again and say so (OP-11).
+      if (mayHaveLanded(e)) {
+        setMaybeLanded(true);
+        invalidateLessonBooking(queryClient);
+      }
       // A private refusal (the coach or the courts changed) re-reads the coach's free starts (§5.7).
       if (kind === 'private')
         void queryClient.invalidateQueries({ queryKey: ['coaching', 'slots'] });
@@ -715,6 +761,9 @@ export function StartLessonDialog({
         error={error}
         message={error ? coachingErrorText(error, tr, { sessions: sessionsPhrase }) : null}
       />
+      {maybeLanded && (
+        <MessagePresenter tone="info" message={tr('ws.coaching.start.maybeLanded')} />
+      )}
     </Modal>
   );
 }

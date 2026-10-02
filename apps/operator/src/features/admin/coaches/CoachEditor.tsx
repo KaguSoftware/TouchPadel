@@ -6,10 +6,16 @@
  * - Account (read-only): the account name and phone (staff only, never
  *   public), Open customer; a deleted account says what was cleared (R63).
  * - While the coach has not accepted a public profile: who sees what (C-22, R61).
- * - Public profile: display names, bios, photo (a fresh random folder, R43),
- *   order → `coach_update` with the changed keys; a replaced photo's old
- *   object is removed after the save.
- * - Branches → `set_coach_branches` (BRANCH_HAS_BOOKINGS names the branch).
+ * - Public profile: display names, bios, photo (a fresh random folder, R43)
+ *   → `coach_update` with the changed keys; a replaced photo's old object is
+ *   removed after the save. The order arrows save on their own (OP-01): the
+ *   coach swaps with a neighbour, the list is renumbered in steps of 10 and
+ *   each row whose order changed gets its own `coach_update`. The order is
+ *   the coach's, so it holds at every branch.
+ * - Branches → `set_coach_branches` (BRANCH_HAS_BOOKINGS names the branch
+ *   in its hint).
+ * - A coach not active at this branch (`active_here` false, OP-06) says so;
+ *   their lesson types and prices here are read-only, the branches editable.
  * - Lesson types here → `set_coach_lesson_types`; unticking a type the coach
  *   has an own price for asks first (R46: the price goes with it).
  * - Prices: the owner sets an own price (`set_coach_price`, empty removes);
@@ -65,6 +71,7 @@ import {
   toggleId,
   typeChange,
   type CoachProfileDraft,
+  type OrderWrite,
 } from './coachesLogic';
 
 const K = 'ws.coaching.coachesAdmin';
@@ -213,6 +220,9 @@ export function CoachEditor({
                 message={tr(`${E}.notAccepted`, { name: isolate(name) })}
               />
             )}
+            {!c.active_here && (
+              <MessagePresenter tone="info" icon="lock" message={tr(`${E}.notHere`)} />
+            )}
             <ProfileSection coach={c} coaches={data.coaches} reachable={reachable} />
             <BranchesSection coach={c} reachable={reachable} />
             <TypesSection
@@ -344,13 +354,30 @@ function ProfileSection({
   const problems = profileProblems(draft);
   const set = (p: Partial<CoachProfileDraft>) => setDraft((d) => ({ ...d, ...p }));
 
-  // The order arrows move this coach past a neighbour among the coaches still teaching.
-  const listed = sortCoaches(coaches.filter((x) => x.status !== 'retired')).map((x) =>
-    x.coach_id === c.coach_id ? { ...x, sort_order: draft.sortOrder } : x,
-  );
+  // The order arrows move this coach past a neighbour among the coaches still
+  // teaching, and save on their own (OP-01): only the rows whose order changed.
+  const listed = sortCoaches(coaches.filter((x) => x.status !== 'retired'));
   const up = orderAfterMove(listed, c.coach_id, -1);
   const down = orderAfterMove(listed, c.coach_id, 1);
-  const position = sortCoaches(listed).findIndex((x) => x.coach_id === c.coach_id) + 1;
+  const position = listed.findIndex((x) => x.coach_id === c.coach_id) + 1;
+  const [ordering, setOrdering] = useState(false);
+  const [orderError, setOrderError] = useState<unknown>(null);
+
+  async function move(writes: OrderWrite[] | null) {
+    if (!writes || writes.length === 0) return;
+    setOrdering(true);
+    setOrderError(null);
+    try {
+      for (const w of writes) {
+        await appRpc('coach_update', { p_coach_id: w.id, p_patch: { sort_order: w.sort_order } });
+      }
+    } catch (e) {
+      setOrderError(e);
+    } finally {
+      setOrdering(false);
+      invalidateCoachesAdmin(qc, branchId);
+    }
+  }
 
   async function save() {
     setBusy(true);
@@ -422,12 +449,16 @@ function ProfileSection({
           </span>
         </span>
         <SortButtons
-          onUp={() => up !== null && set({ sortOrder: up })}
-          onDown={() => down !== null && set({ sortOrder: down })}
-          disabledUp={up === null || busy}
-          disabledDown={down === null || busy}
+          onUp={() => void move(up)}
+          onDown={() => void move(down)}
+          disabledUp={up === null || busy || ordering || !reachable}
+          disabledDown={down === null || busy || ordering || !reachable}
         />
       </div>
+      <ErrorText
+        error={orderError}
+        message={orderError ? coachingErrorText(orderError, tr, {}, { scope: 'admin' }) : null}
+      />
       <ErrorText
         error={error}
         message={error ? coachingErrorText(error, tr, {}, { scope: 'admin' }) : null}
@@ -512,7 +543,8 @@ function BranchesSection({ coach: c, reachable }: { coach: AdminCoach; reachable
 
   const refusalText = (() => {
     if (!error) return null;
-    const detail = error instanceof AppRpcError ? (error.details ?? error.hint) : null;
+    // The branch id is in the hint; the detail is `coach_lessons` (OP-07).
+    const detail = error instanceof AppRpcError ? error.hint || error.details : null;
     const names = refusedBranchIds(detail, sentRemoved)
       .map(branchName)
       .join(locale === 'ar' ? '، ' : ', ');
@@ -606,6 +638,8 @@ function TypesSection({
 
   const change = typeChange(c, ticked);
   const dirty = change.added.length > 0 || change.removed.length > 0;
+  // OP-06: a coach not active at this branch teaches nothing here; the types are read-only.
+  const here = c.active_here;
 
   async function save() {
     if (change.priceLosses.length > 0) {
@@ -668,7 +702,7 @@ function TypesSection({
               <input
                 type="checkbox"
                 checked={ticked.includes(t.lesson_type_id)}
-                disabled={busy}
+                disabled={busy || !here}
                 onChange={(e) => setTicked((x) => toggleId(x, t.lesson_type_id, e.target.checked))}
               />
               <bdi>{pickName(locale, t)}</bdi>
@@ -689,7 +723,7 @@ function TypesSection({
         error={error}
         message={error ? coachingErrorText(error, tr, {}, { scope: 'admin' }) : null}
       />
-      {(dirty || (fromPromote && error != null)) && (
+      {here && (dirty || (fromPromote && error != null)) && (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Button
             kind="primary"
@@ -754,6 +788,7 @@ function PricesSection({
                 type={t}
                 reachable={reachable}
                 canSet={caps.editLaunchedPrices}
+                here={c.active_here}
               />
             ))}
           </ul>
@@ -769,12 +804,15 @@ function PriceRow({
   type: t,
   reachable,
   canSet,
+  here,
 }: {
   coach: AdminCoach;
   coachLabel: string;
   type: AdminLessonType;
   reachable: boolean;
   canSet: boolean;
+  /** Active at this branch (OP-06): when not, the price is read-only. */
+  here: boolean;
 }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
@@ -839,21 +877,21 @@ function PriceRow({
             value={value}
             onChange={setValue}
             allowEmpty
-            disabled={busy}
+            disabled={busy || !here}
             aria-label={tr(`${E}.priceAria`, { coach: coachLabel, type: typeLabel })}
             style={{ flex: '1 1 10rem' }}
           />
           <Button
             size="sm"
             busy={busy}
-            disabled={!reachable || value === own}
-            disabledReason={!reachable ? offline : undefined}
+            disabled={!reachable || !here || value === own}
+            disabledReason={!reachable ? offline : !here ? tr(`${E}.notHere`) : undefined}
             onClick={() => void set()}
           >
             {tr(`${E}.setPrice`)}
           </Button>
         </div>
-      ) : (
+      ) : !here ? null : (
         <div>
           <PriceChangeButton
             target={{ change: 'coach_price', coach: c.coach_id, lessonType: t.lesson_type_id }}

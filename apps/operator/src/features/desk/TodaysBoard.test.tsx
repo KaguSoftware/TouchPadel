@@ -418,6 +418,8 @@ function lesson(over: Partial<DeskLesson> & { lesson_id: string }): DeskLesson {
     owing: 2,
     owing_iqd: 30000,
     paid_online: 0,
+    awaiting: 0,
+    paid_places: 2,
     ...over,
   };
 }

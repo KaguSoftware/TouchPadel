@@ -9,8 +9,11 @@
  * (detail `provider` or `terms`) lands on the payment mode. The coach's share
  * is typed as a percent with up to two decimals and stored as basis points
  * (CD-5). The bounds mirror 0277's so a typo is caught before the round trip;
- * the server is still the wall.
+ * the server is still the wall. Arabic-Indic and Extended Arabic-Indic digits,
+ * the Arabic decimal separator (٫) and thousands separator (٬) are read as an
+ * Arabic keyboard types them (OP-16).
  */
+import { latinDigits } from '@touch/core';
 import type { CoachingSettings, LessonPaymentMode } from '../../coaching/lessonPayloads';
 
 /** The form as the owner types it. */
@@ -60,11 +63,27 @@ export function bpToPercentText(bp: number | null | undefined): string {
 const PERCENT = /^(\d{1,3})(?:[.,](\d{1,2}))?$/;
 
 /**
+ * A percent as typed on any keyboard, in Latin digits (OP-16): ٠-٩ and ۰-۹ as
+ * 0-9, the Arabic decimal separator ٫ as '.', the Arabic thousands separator ٬
+ * dropped. Nothing else changes, so "-5" stays not a percent.
+ */
+export function normalisePercentText(raw: string): string {
+  return latinDigits(raw)
+    .replace(/\u066B/g, '.')
+    .replace(/\u066C/g, '');
+}
+
+/** What the coach-share box keeps of a keystroke: the normalised digits and separators (OP-16). */
+export function percentInput(raw: string): string {
+  return normalisePercentText(raw).replace(/[^0-9.,]/g, '');
+}
+
+/**
  * A typed percent as basis points, or null when it is not 0..100 with at most
  * two decimals. Read as text, never through a float, so "62.55" is exactly 6255.
  */
 export function percentTextToBp(text: string): number | null {
-  const m = PERCENT.exec(text.trim());
+  const m = PERCENT.exec(normalisePercentText(text).trim());
   if (!m) return null;
   const whole = Number(m[1]);
   const frac = Number((m[2] ?? '').padEnd(2, '0'));

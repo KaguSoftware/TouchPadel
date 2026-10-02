@@ -26,7 +26,7 @@ import { Button, Modal } from '../../components/ui';
 import { AsyncStateWrapper, MessagePresenter, StatusBadge, asyncStatus } from '../../components/kit';
 import { invalidateProtocols, useRunDetail, useStepDetail, useTargets } from './api';
 import { CandidatesPanel, useCandidates } from './CandidatesPanel';
-import { analysisPrefill, finalizeRecord, interviewsRecord, numbersAddons, numbersPrefill, numbersSizes } from './contextLogic';
+import { analysisPrefill, finalizeRecord, interviewsRecord, numbersAddons, numbersFields, numbersPrefill, numbersSizes } from './contextLogic';
 import { DecisionDialog, ReasonDialog } from './DecisionDialog';
 import { protocolErrorKey } from './errors';
 import { cleanRecord, initialValue, mintKey, type Obj } from './formModel';
@@ -427,7 +427,12 @@ function StepSubmitForm({ d, runDetail, ctx }: { d: StepDetail; runDetail: RunDe
   const proposal = run.kind === 'price_promo' ? standingRecord(runDetail.steps, 'propose') : null;
   const again = resubmitPrefill(step);
   const change = (typeof again?.record.change === 'string' ? again.record.change : typeof proposal?.change === 'string' ? proposal.change : null) as PriceChangeKind | null;
-  const form = stepForm(run.kind, stepKey, { variant: run.variant, change });
+  const baseForm = stepForm(run.kind, stepKey, { variant: run.variant, change });
+  // A lesson change's numbers offer only the figures its proposal carries (OP-20).
+  const form =
+    baseForm && run.kind === 'price_promo' && stepKey === 'numbers'
+      ? { ...baseForm, fields: numbersFields(baseForm.fields, proposal) }
+      : baseForm;
   const submitterDecides = decidesStep(staff?.role, step.needs_owner_ok);
   // A manager or the owner covering a step whose actors they are not (§2.7 "Who may act").
   const covering = step.assigned_to !== staff?.id && !(staff?.role && step.actor_roles.includes(staff.role));
@@ -479,7 +484,7 @@ function StepSubmitForm({ d, runDetail, ctx }: { d: StepDetail; runDetail: RunDe
 
   async function send() {
     if (!form) return;
-    const record = { ...finalizeRecord(run.kind, stepKey, cleanRecord(form.fields, value), current), ...(interviews?.record ?? {}) };
+    const record = { ...finalizeRecord(run.kind, stepKey, cleanRecord(form.fields, value), current, proposal), ...(interviews?.record ?? {}) };
     const found = validateStep(run.kind, stepKey, record, { variant: run.variant, change }, { photos: form.photosMax > 0 ? photos.length : undefined, submitterDecides });
     // The price step prices every size of the draft (§2.8 release `analysis`).
     if (run.kind === 'product_release' && stepKey === 'analysis' && sizes && Array.isArray(record.prices) && record.prices.length < sizes.length) {

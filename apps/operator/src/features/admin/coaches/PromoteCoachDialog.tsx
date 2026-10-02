@@ -11,7 +11,14 @@
  *
  * **Make coach** sends `coach_promote`, then `set_coach_lesson_types` when
  * types were ticked. If the second call is refused the coach exists anyway:
- * the editor opens on them with the refusal beside the types.
+ * the editor opens on them with the refusal beside the types. The types are
+ * this branch's, so they can be ticked only while this branch is (OP-09):
+ * unticking it clears them and no types call is made, so a refusal always
+ * has the editor (the coach is listed here) to show it.
+ *
+ * Only the branches this screen shows (the caller's own) are offered and sent:
+ * "Make a coach again" leaves the retired coach's other branches to their
+ * managers (OP-03), and says so.
  * `ALREADY_COACH` offers "Open {name}" when that coach is on this screen.
  */
 import { useEffect, useState } from 'react';
@@ -86,9 +93,14 @@ export function PromoteCoachDialog({
   const toast = useToast();
   const qc = useQueryClient();
   const { branchId, venues } = useVenue();
+  const shownIds = venues.map((v) => v.id);
   const [draft, setDraft] = useState<PromoteDraft>(() =>
-    newPromoteDraft(branchId, seed.customer, seed.from),
+    newPromoteDraft(branchId, seed.customer, seed.from, shownIds),
   );
+  // OP-03: the retired coach's branches this screen can't show are left to their managers.
+  const otherBranches = (seed.from?.venue_ids ?? []).some((id) => !shownIds.includes(id));
+  // OP-09: the lesson types are this branch's; they apply only while it is ticked.
+  const railTicked = !!branchId && draft.venueIds.includes(branchId);
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -118,9 +130,9 @@ export function PromoteCoachDialog({
     setBusy(true);
     setError(null);
     try {
-      const out = readPromoted(await appRpc('coach_promote', promoteArgs(draft)));
+      const out = readPromoted(await appRpc('coach_promote', promoteArgs(draft, shownIds)));
       let refusal: TypesRefusal | null = null;
-      if (out.coach_id && draft.typeIds.length > 0) {
+      if (out.coach_id && railTicked && draft.typeIds.length > 0) {
         try {
           await appRpc('set_coach_lesson_types', {
             p_coach_id: out.coach_id,
@@ -255,15 +267,26 @@ export function PromoteCoachDialog({
                   checked={draft.venueIds.includes(v.id)}
                   disabled={busy}
                   onChange={(e) =>
-                    set({ venueIds: toggleId(draft.venueIds, v.id, e.target.checked) })
+                    set(
+                      // Unticking this branch clears its lesson types (OP-09).
+                      v.id === branchId && !e.target.checked
+                        ? { venueIds: toggleId(draft.venueIds, v.id, false), typeIds: [] }
+                        : { venueIds: toggleId(draft.venueIds, v.id, e.target.checked) },
+                    )
                   }
                 />
                 <bdi>{pickName(locale, v)}</bdi>
               </label>
             ))}
           </div>
+          {otherBranches && (
+            <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+              {tr(`${P}.otherBranches`)}
+            </p>
+          )}
         </fieldset>
         <fieldset
+          disabled={!railTicked}
           style={{ border: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}
         >
           <legend
@@ -275,6 +298,11 @@ export function PromoteCoachDialog({
           >
             {tr(`${P}.types`)}
           </legend>
+          {!railTicked && data.lesson_types.length > 0 && (
+            <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+              {tr(`${P}.typesNeedBranch`)}
+            </p>
+          )}
           {data.lesson_types.length === 0 ? (
             <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
               {tr(`${P}.noTypes`)}
@@ -294,7 +322,7 @@ export function PromoteCoachDialog({
                   <input
                     type="checkbox"
                     checked={draft.typeIds.includes(t.lesson_type_id)}
-                    disabled={busy}
+                    disabled={busy || !railTicked}
                     onChange={(e) =>
                       set({ typeIds: toggleId(draft.typeIds, t.lesson_type_id, e.target.checked) })
                     }

@@ -290,6 +290,8 @@ describe('LessonRefundsDuePanel', () => {
         p_amount_iqd: 7000,
         p_reference: 'TRX-55102',
         p_pin: '1234',
+        // 0293 (DB-23): one key per amount and reference, replayed on a retry.
+        p_idempotency_key: expect.stringMatching(/^lesson\.blocked_refund:/),
         p_device_id: 'DESK-1',
       }),
     );
@@ -311,6 +313,89 @@ describe('LessonRefundsDuePanel', () => {
     expect(
       (within(dialog).getByRole('button', { name: 'Record' }) as HTMLButtonElement).title,
     ).toBe('Needs a connection: lessons work online only');
+  });
+
+  it('a handback retried after a lost answer sends the same key (DB-23)', async () => {
+    const user = userEvent.setup();
+    refunds = {
+      venue_id: 'v1',
+      total_iqd: 0,
+      items: [rawItem({ refund_due_desk_iqd: 0, online_blocked_iqd: 7000 })],
+    };
+    let lost = true;
+    rpc.mockImplementation(async (fn: string, args: Record<string, unknown> = {}) => {
+      calls.push({ fn, args });
+      if (fn === 'lesson_refunds_due') return structuredClone(refunds);
+      if (fn === 'lesson_blocked_refund_record' && lost) {
+        lost = false;
+        throw new AppRpcError('UNKNOWN', 'Failed to fetch');
+      }
+      if (fn === 'lesson_blocked_refund_record') return { enrolment_id: 'e1' };
+      return {};
+    });
+    mount({ hideWhenEmpty: true });
+    const row = await screen.findByTestId('lesson-refund');
+    await user.click(within(row).getByRole('button', { name: 'Record the handback' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Record money handed back' });
+    const reference = within(dialog).getByLabelText(/^Reference/);
+    await user.type(reference, 'TRX-1');
+    const record = within(dialog).getByRole('button', { name: 'Record' });
+    const sendWithPin = async () => {
+      await user.click(record);
+      await user.type(await screen.findByLabelText('PIN'), '1234');
+      await user.click(screen.getByRole('button', { name: 'Authorise' }));
+    };
+    const keys = () =>
+      calls
+        .filter((c) => c.fn === 'lesson_blocked_refund_record')
+        .map((c) => c.args.p_idempotency_key as string);
+    await sendWithPin();
+    await waitFor(() => expect(keys()).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByLabelText('PIN')).toBeNull());
+    // The same amount and reference again: the server replays the first record, if it landed.
+    await sendWithPin();
+    await waitFor(() => expect(keys()).toHaveLength(2));
+    expect(keys()[1]).toBe(keys()[0]);
+    expect(toast.ok).toHaveBeenCalledWith('Handback recorded.');
+  });
+
+  it('an edited reference is a new record with its own key (DB-23)', async () => {
+    const user = userEvent.setup();
+    refunds = {
+      venue_id: 'v1',
+      total_iqd: 0,
+      items: [rawItem({ refund_due_desk_iqd: 0, online_blocked_iqd: 7000 })],
+    };
+    rpc.mockImplementation(async (fn: string, args: Record<string, unknown> = {}) => {
+      calls.push({ fn, args });
+      if (fn === 'lesson_refunds_due') return structuredClone(refunds);
+      if (fn === 'lesson_blocked_refund_record')
+        throw new AppRpcError('UNKNOWN', 'Failed to fetch');
+      return {};
+    });
+    mount({ hideWhenEmpty: true });
+    const row = await screen.findByTestId('lesson-refund');
+    await user.click(within(row).getByRole('button', { name: 'Record the handback' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Record money handed back' });
+    const reference = within(dialog).getByLabelText(/^Reference/);
+    await user.type(reference, 'TRX-1');
+    const record = within(dialog).getByRole('button', { name: 'Record' });
+    const sendWithPin = async () => {
+      await user.click(record);
+      await user.type(await screen.findByLabelText('PIN'), '1234');
+      await user.click(screen.getByRole('button', { name: 'Authorise' }));
+    };
+    const keys = () =>
+      calls
+        .filter((c) => c.fn === 'lesson_blocked_refund_record')
+        .map((c) => c.args.p_idempotency_key as string);
+    await sendWithPin();
+    await waitFor(() => expect(keys()).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByLabelText('PIN')).toBeNull());
+    await user.type(reference, '2');
+    await sendWithPin();
+    await waitFor(() => expect(keys()).toHaveLength(2));
+    expect(keys()[1]).not.toBe(keys()[0]);
   });
 
   it('a role without refund sees nothing and reads nothing', async () => {

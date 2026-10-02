@@ -9,11 +9,15 @@
  *   (C-17); **Put on sale** is a direct `is_active: true` for the owner
  *   (`launchDirectly`) and a `lesson_launch` proposal for a manager, disabled
  *   until a price is set;
- * - launched: the kind is fixed; for a manager the price and court share are
+ * - saved (draft or launched): the kind is fixed (OP-05), with **Make a new
+ *   lesson type…** beside it;
+ * - launched: for a manager the price and court share are
  *   read-only with **Propose a price** (`lesson_price`), and the length,
  *   sessions and a private type's party size with **Make a new lesson
  *   type…** (a new draft prefilled from this one). The owner edits all of it;
- * - the Active switch of a launched type is a direct write for both (R46).
+ * - the Active switch of a launched type is a direct write for both (R46);
+ * - the order arrows save on their own (OP-01): `sort_order` alone, for each
+ *   type of the kind whose place changed.
  *
  * A stale screen's refusal shows its way out, never the item wording of
  * `op.errors.PRICE_VIA_PROTOCOL`: `PRICE_VIA_PROTOCOL` `price` and
@@ -67,6 +71,7 @@ import {
   type LessonTypeDraft,
   type LessonTypeField,
 } from './lessonTypeLogic';
+import type { OrderWrite } from './coachesLogic';
 
 const T = 'ws.coaching.lessonTypes';
 const ED = 'ws.coaching.lessonTypes.editor';
@@ -165,6 +170,29 @@ export function LessonTypeEditor({
     void write(patch, type ? tr(`${ED}.saved`) : tr(`${ED}.created`, { name: isolate(label) }));
   }
 
+  /** The order arrows (OP-01): each changed type's `sort_order` alone, apart from the form's save. */
+  const [ordering, setOrdering] = useState(false);
+  const [orderError, setOrderError] = useState<unknown>(null);
+  async function move(writes: OrderWrite[] | null) {
+    if (!writes || writes.length === 0) return;
+    setOrdering(true);
+    setOrderError(null);
+    try {
+      for (const w of writes) {
+        await appRpc('upsert_lesson_type', {
+          p_venue_id: currentBranchId(),
+          p_id: w.id,
+          p_patch: { sort_order: w.sort_order },
+        });
+      }
+    } catch (e) {
+      setOrderError(e);
+    } finally {
+      setOrdering(false);
+      invalidateCoachesAdmin(qc, branchId);
+    }
+  }
+
   /** The Active switch: a direct write for both roles (R46). Thrown back so the switch reverts. */
   async function setActive(next: boolean) {
     if (!type) return;
@@ -214,11 +242,15 @@ export function LessonTypeEditor({
   const coachesHere = data.coaches.filter((c) => type?.coach_ids.includes(c.coach_id));
   // The order arrows, among this kind's types (a direct edit for a manager too, R46).
   const orderUp = type
-    ? typeOrderAfterMove(data.lesson_types, type.lesson_type_id, type.kind, draft.sortOrder, -1)
+    ? typeOrderAfterMove(data.lesson_types, type.lesson_type_id, type.kind, -1)
     : null;
   const orderDown = type
-    ? typeOrderAfterMove(data.lesson_types, type.lesson_type_id, type.kind, draft.sortOrder, 1)
+    ? typeOrderAfterMove(data.lesson_types, type.lesson_type_id, type.kind, 1)
     : null;
+  const orderRefused =
+    orderError instanceof AppRpcError &&
+    orderError.code === 'INVALID_ARGUMENT' &&
+    lessonTypeFieldOf(orderError.details) === 'order';
   const minutes = (m: number) =>
     tr('ws.coaching.common.minutes', { minutes: formatNumber(m, locale) });
 
@@ -258,16 +290,35 @@ export function LessonTypeEditor({
       data-testid="lesson-type-editor"
     >
       <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
-        <Field label={tr(`${ED}.kind`)} hint={lock.kind ? tr(`${ED}.kindLocked`) : undefined} group>
-          <SegmentedControl<LessonKind>
-            value={draft.kind}
-            onChange={(k) => setDraft((d) => withKind(d, k))}
-            options={LESSON_KINDS.map((k) => ({
-              value: k,
-              label: tr(`ws.coaching.common.kind.${k}`),
-              disabled: busy || lock.kind,
-            }))}
-          />
+        <Field
+          label={tr(`${ED}.kind`)}
+          hint={lock.kind ? tr(`${ED}.kindLocked`) : undefined}
+          error={errorFor('kind')}
+          group
+        >
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--tp-sp-2)',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
+            <SegmentedControl<LessonKind>
+              value={draft.kind}
+              onChange={(k) => setDraft((d) => withKind(d, k))}
+              options={LESSON_KINDS.map((k) => ({
+                value: k,
+                label: tr(`ws.coaching.common.kind.${k}`),
+                disabled: busy || lock.kind,
+              }))}
+            />
+            {lock.kind && type && !lockedShape && (
+              <Button size="sm" icon="plus" onClick={() => onMakeNew(draftCopyOf(type))}>
+                {tr(`${ED}.makeNew`)}
+              </Button>
+            )}
+          </div>
         </Field>
         <BilingualFields
           labelEn={tr(`${ED}.nameEn`)}
@@ -508,12 +559,24 @@ export function LessonTypeEditor({
               {tr(`${ED}.order`)}
             </span>
             <SortButtons
-              onUp={() => orderUp !== null && set({ sortOrder: orderUp })}
-              onDown={() => orderDown !== null && set({ sortOrder: orderDown })}
-              disabledUp={orderUp === null || busy}
-              disabledDown={orderDown === null || busy}
+              onUp={() => void move(orderUp)}
+              onDown={() => void move(orderDown)}
+              disabledUp={orderUp === null || busy || ordering || !reachable}
+              disabledDown={orderDown === null || busy || ordering || !reachable}
             />
           </div>
+        )}
+        {type && (
+          <ErrorText
+            error={orderError}
+            message={
+              orderRefused
+                ? tr(`${T}.errors.refused`)
+                : orderError
+                  ? coachingErrorText(orderError, tr, {}, { scope: 'admin' })
+                  : null
+            }
+          />
         )}
 
         {type && lock.activeSwitch && (

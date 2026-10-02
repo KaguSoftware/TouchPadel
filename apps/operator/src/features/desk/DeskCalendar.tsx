@@ -1344,6 +1344,10 @@ export function DeskCalendar() {
                                   <>
                                     <LessonBadge kind={lesson?.kind ?? null} held={r.kind === 'hold' || lesson?.status === 'held'} />
                                     {/* After the start, what is still owed; from the booking, the C-24 flag. */}
+                                    {/* OP-13: places still waiting on Qi (a held lesson already shows the held badge). */}
+                                    {pay && pay.pay === 'awaiting' && r.kind !== 'hold' && lesson?.status !== 'held' && (
+                                      <StatusBadge size="sm" tone="info" label={tr('ws.coaching.common.pay.awaiting')} />
+                                    )}
                                     {pay && pay.pay === 'owing' && pay.warn && (
                                       <StatusBadge size="sm" tone="warn" label={tr('ws.coaching.common.pay.toPay', { count: formatNumber(pay.owing, locale) })} />
                                     )}

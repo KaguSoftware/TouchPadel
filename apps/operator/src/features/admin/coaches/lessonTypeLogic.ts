@@ -12,10 +12,17 @@
  *   manager's price and court share are read-only (Propose a price), and so is
  *   the shape that a price proposal snapshots (length, sessions, a private
  *   type's party size: Make a new lesson type…). The owner edits every field.
- *   Switching a launched type off and on is a direct write for both.
- * - `lessonTypePatch` sends only the keys that changed, never a locked one.
+ *   Switching a launched type off and on is a direct write for both. The kind
+ *   is fixed once the type is saved, draft or not (OP-05: the server refuses
+ *   a kind change): Make a new lesson type… instead.
+ * - `lessonTypePatch` sends only the keys that changed, never a locked one,
+ *   and never the kind or the order of a saved type.
+ * - The order arrows save on their own (OP-01, `typeOrderAfterMove`): the
+ *   type swaps with its neighbour among its kind, the kind is renumbered in
+ *   steps of 10, and each type whose order changed gets its own write.
  */
 import type { AdminLessonType, LessonKind } from '../../coaching/lessonPayloads';
+import { orderWrites, type OrderWrite } from './coachesLogic';
 
 /** The form as typed. Counts stay strings until they are checked. */
 export interface LessonTypeDraft {
@@ -42,6 +49,8 @@ export interface LessonTypeDraft {
 }
 
 export type LessonTypeField =
+  | 'kind'
+  | 'order'
   | 'names'
   | 'descriptions'
   | 'durationMin'
@@ -219,7 +228,7 @@ export function rangeOf(
 
 /** Who edits what on this type (R46). */
 export interface PriceLock {
-  /** The kind is fixed once the type has gone on sale (both roles). */
+  /** The kind is fixed once the type is saved, draft or not (both roles; OP-05). */
   kind: boolean;
   /** Price and court share are read-only (a manager on a launched type: Propose a price). */
   price: boolean;
@@ -239,7 +248,7 @@ export interface LessonTypeCaps {
 export function priceLock(type: AdminLessonType | null, caps: LessonTypeCaps): PriceLock {
   if (!isLaunched(type)) {
     return {
-      kind: false,
+      kind: type !== null,
       price: false,
       shape: false,
       launch: caps.launchDirectly ? 'direct' : 'protocol',
@@ -288,7 +297,9 @@ function fullPatch(d: LessonTypeDraft): Record<string, unknown> {
 /**
  * Only what changed, in the server's keys; every key for a new type. A locked
  * field (R46) is never sent, so a stale screen cannot re-send an old price.
- * Call it on a draft without errors.
+ * A saved type's kind is never sent (the server refuses a change, OP-05), nor
+ * its order (the arrows save it on their own, OP-01). Call it on a draft
+ * without errors.
  */
 export function lessonTypePatch(
   saved: AdminLessonType | null,
@@ -298,8 +309,7 @@ export function lessonTypePatch(
   const next = fullPatch(d);
   if (!saved) return next;
   const was = fullPatch(draftFromType(saved));
-  const locked = new Set<string>();
-  if (lock.kind) locked.add('kind');
+  const locked = new Set<string>(['kind', 'sort_order']);
   if (lock.price) {
     locked.add('price_iqd');
     locked.add('court_share_iqd');
@@ -319,6 +329,8 @@ export function lessonTypePatch(
 
 /** The server's patch key → the field a refusal lands on (INVALID_ARGUMENT detail). */
 export const LESSON_TYPE_SERVER_FIELD: Record<string, LessonTypeField> = {
+  kind: 'kind',
+  sort_order: 'order',
   name_en: 'names',
   name_ar: 'names',
   description_en: 'descriptions',
@@ -351,26 +363,22 @@ export function groupTypes(
 }
 
 /**
- * The order arrows: the `sort_order` that moves a type one place up (-1) or
- * down (+1) among the types of its kind (`sortOrder` is this type's draft
- * value), written to this type alone. Null at either end. A direct edit for a
- * manager too (R46).
+ * The order arrows (OP-01): the `upsert_lesson_type` writes (`sort_order`
+ * alone, one per type whose order changed) that move a type one place up (-1)
+ * or down (+1) among the types of its kind. Null at either end. A direct edit
+ * for a manager too (R46).
  */
 export function typeOrderAfterMove(
   types: readonly AdminLessonType[],
   typeId: string,
   kind: LessonKind,
-  sortOrder: number,
   delta: -1 | 1,
-): number | null {
-  const list = groupTypes(
-    types.map((t) => (t.lesson_type_id === typeId ? { ...t, sort_order: sortOrder } : t)),
-  )[kind];
-  const i = list.findIndex((t) => t.lesson_type_id === typeId);
-  const j = i + delta;
-  if (i < 0 || j < 0 || j >= list.length) return null;
-  const neighbour = list[j]!.sort_order ?? 0;
-  return delta < 0 ? neighbour - 1 : neighbour + 1;
+): OrderWrite[] | null {
+  return orderWrites(
+    groupTypes(types)[kind].map((t) => ({ id: t.lesson_type_id, sort_order: t.sort_order })),
+    typeId,
+    delta,
+  );
 }
 
 /** The count of types on sale (the Setup card's "Lesson types on sale 4"). */

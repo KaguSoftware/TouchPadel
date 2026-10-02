@@ -81,7 +81,8 @@ item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Databa
   step 2c). On a registered station the station outranks the switcher, for reads and writes alike
   (0228). So a list query needs **no** `.eq('venue_id', …)`; do not add one. Staff screens read
   `venue_settings` (RLS-scoped, holds a preparing branch), not `venue_settings_public` (open branches
-  only).
+  only). Name the columns: since 0297 the table is granted by column and `select('*')` is refused
+  (`coach_share_bp` and `coach_max_open_private` are read through `app.coaching_settings` only).
 - Switching branch resets the query cache (`VenueProvider`) and remounts the routed screen (keyed on
   `branchId` in `routes/__root.tsx`), so no editor keeps another branch's draft. The first requests
   of a boot carry the branch remembered on the machine. A registered station never switches; a

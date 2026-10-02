@@ -78,7 +78,7 @@ async function close(user: ReturnType<typeof userEvent.setup>) {
 }
 
 const COACHING_MONEY =
-  'This branch still has coach statements to approve or pay, a month not drafted yet, or lesson money to refund at the desk. Settle them in Coach pay and Ops first.';
+  'This branch still has coach statements to approve or pay, a month or a pay adjustment not drafted yet, or lesson money still to refund or being refunded. Settle them in Coach pay and Ops first.';
 
 beforeEach(() => {
   rpc.mockReset();

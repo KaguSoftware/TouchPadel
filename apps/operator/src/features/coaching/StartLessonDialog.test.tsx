@@ -49,9 +49,13 @@ vi.mock('../../lib/appRpc', () => ({
     return [];
   }),
 }));
-const { navigateSpy, toastOk } = vi.hoisted(() => ({ navigateSpy: vi.fn(), toastOk: vi.fn() }));
+const { navigateSpy, toastOk, toastInfo } = vi.hoisted(() => ({
+  navigateSpy: vi.fn(),
+  toastOk: vi.fn(),
+  toastInfo: vi.fn(),
+}));
 vi.mock('../../components/toast', () => ({
-  useToast: () => ({ ok: toastOk, err: vi.fn(), info: vi.fn() }),
+  useToast: () => ({ ok: toastOk, err: vi.fn(), info: toastInfo }),
 }));
 vi.mock('../../lib/stationReach', () => ({ useStationReach: () => ({ reachable }) }));
 vi.mock('@tanstack/react-router', () => ({
@@ -181,6 +185,7 @@ beforeEach(() => {
   vi.mocked(appRpc).mockClear();
   navigateSpy.mockClear();
   toastOk.mockClear();
+  toastInfo.mockClear();
 });
 
 describe('StartLessonDialog — kinds, types and coaches', () => {
@@ -315,6 +320,60 @@ describe('StartLessonDialog — a private lesson', () => {
     await user.click(createButton());
     await waitFor(() => expect(toastOk).toHaveBeenCalled());
     expect(plain(toastOk.mock.calls[0]![0] as string)).toBe('Lesson booked on Court 1.');
+  });
+});
+
+describe('StartLessonDialog — retries (OP-11)', () => {
+  const keyOf = (n: number) =>
+    String((calls('desk_book_lesson')[n]![1] as Record<string, unknown>).p_idempotency_key);
+
+  it('a retry of the same draft sends the same key; an edited draft gets a new one', async () => {
+    const user = userEvent.setup();
+    created = new AppRpcError('COACH_BUSY', 'COACH_BUSY');
+    open();
+    await screen.findByRole('button', { name: '6:00 PM' });
+    await user.click(createButton());
+    await waitFor(() => expect(calls('desk_book_lesson')).toHaveLength(1));
+    await user.click(createButton());
+    await waitFor(() => expect(calls('desk_book_lesson')).toHaveLength(2));
+    expect(keyOf(1)).toBe(keyOf(0));
+    // The draft changes (the party): a new write, a new key.
+    await user.click(screen.getByRole('button', { name: /\+2/ }));
+    await user.click(createButton());
+    await waitFor(() => expect(calls('desk_book_lesson')).toHaveLength(3));
+    expect(keyOf(2)).not.toBe(keyOf(0));
+  });
+
+  it('a duplicate answer at another start says it was already booked earlier', async () => {
+    const user = userEvent.setup();
+    created = {
+      duplicate: true,
+      lesson_id: 'l-old',
+      court_id: 'c1',
+      court_name_en: 'Court 1',
+      court_name_ar: 'الملعب 1',
+      start_at: at(DATE, 17),
+    };
+    open();
+    await screen.findByRole('button', { name: '6:00 PM' });
+    await user.click(createButton());
+    await waitFor(() => expect(toastInfo).toHaveBeenCalled());
+    expect(plain(toastInfo.mock.calls[0]![0] as string)).toBe('Already booked earlier at 5:00 PM.');
+    expect(toastOk).not.toHaveBeenCalled();
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/desk/lessons/$id', params: { id: 'l-old' } });
+  });
+
+  it('no answer at all: the last attempt may have gone through', async () => {
+    const user = userEvent.setup();
+    created = new TypeError('Failed to fetch');
+    open();
+    await screen.findByRole('button', { name: '6:00 PM' });
+    await user.click(createButton());
+    expect(
+      await screen.findByText(
+        'The last attempt may have gone through. Check the lessons before trying again.',
+      ),
+    ).toBeTruthy();
   });
 });
 

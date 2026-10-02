@@ -30,6 +30,7 @@ import { useBroadcast } from '../../lib/realtime';
 import { useStationReach } from '../../lib/stationReach';
 import { currentBranchId } from '../../lib/venueScope';
 import { matchReadStatus, type MatchReadStatus } from '../matches/matchLogic';
+import { keyForDraft } from './startLessonLogic';
 import {
   readCoachesAdmin,
   readCoachingSettings,
@@ -306,6 +307,25 @@ export function mintLessonKey(action: string): string {
  * precedent). `desk_book_lesson`, `desk_create_group`, `desk_create_course`,
  * `desk_add_student` and `lesson_settle` send one.
  */
+/**
+ * Keys per draft (OP-11): `keyFor(fingerprint)` gives the key a draft was
+ * sent with earlier in this dialog, or a new one; `reset()` after a success.
+ * An edited draft is a new write with a new key; one edited back reuses its
+ * old key, so it cannot double-book.
+ */
+export function useDraftIdemKeys(action: string): {
+  keyFor: (fingerprint: string) => string;
+  reset: () => void;
+} {
+  const ref = useRef(new Map<string, string>());
+  const keyFor = useCallback(
+    (fingerprint: string) => keyForDraft(ref.current, fingerprint, () => mintLessonKey(action)),
+    [action],
+  );
+  const reset = useCallback(() => ref.current.clear(), []);
+  return useMemo(() => ({ keyFor, reset }), [keyFor, reset]);
+}
+
 export function useLessonIdemKey(action: string): { key: () => string; renew: () => void } {
   const ref = useRef<string | null>(null);
   if (ref.current === null) ref.current = mintLessonKey(action);

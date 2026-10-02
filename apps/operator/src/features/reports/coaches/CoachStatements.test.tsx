@@ -38,6 +38,16 @@ vi.mock('../../../lib/venue', async (importOriginal) => ({
     setBranch: () => undefined,
   }),
 }));
+// The rail branch's zone (OP-18): the dialog's dates follow it.
+const venueTz = { current: 'Asia/Baghdad' };
+vi.mock('../../../lib/queries', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  fetchVenueSettings: async () => ({
+    timezone: venueTz.current,
+    opening_hours: {},
+    closed_dates: [],
+  }),
+}));
 const role = { current: 'manager' };
 vi.mock('../../../lib/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -59,6 +69,7 @@ function statement(over: Record<string, unknown> = {}) {
     venue_id: 'venue-a',
     venue_name_en: 'Mansour',
     venue_name_ar: 'المنصور',
+    month: '2026-09-01',
     status: 'draft',
     lessons_count: 4,
     collected_iqd: 200000,
@@ -93,9 +104,10 @@ const TOTALS = {
   paid_iqd: 0,
 };
 
+/** The server's answer: with no month asked, `month` is the month before `current_month` (OP-02). */
 function list(statements: unknown[], over: Record<string, unknown> = {}) {
   return {
-    month: '2026-10-01',
+    month: '2026-09-01',
     current_month: '2026-10-01',
     server_now: '2026-10-05T10:00:00Z',
     statements,
@@ -109,7 +121,7 @@ function line(over: Record<string, unknown> = {}) {
   return {
     line_id: 'l1',
     lesson_id: 'lesson-1',
-    start_at: '2026-10-02T15:00:00Z',
+    start_at: '2026-09-02T15:00:00Z',
     kind: 'group',
     type_name_en: 'Beginners',
     type_name_ar: 'مبتدئون',
@@ -143,6 +155,7 @@ function detail(st: Record<string, unknown>, over: Record<string, unknown> = {})
   };
 }
 
+/** The list's answer, or a function of the read's arguments (a month asked gets its own). */
 let listPayload: unknown;
 let details: Record<string, unknown>;
 let writes: Record<string, unknown>;
@@ -151,11 +164,17 @@ function mount() {
   rpc.mockImplementation(async (fn: string, args?: Record<string, unknown>) => {
     if (fn === 'report_coach_statements') {
       if (listPayload instanceof Error) throw listPayload;
-      return listPayload;
+      return typeof listPayload === 'function'
+        ? (listPayload as (a?: Record<string, unknown>) => unknown)(args)
+        : listPayload;
     }
     if (fn === 'coach_statement_detail') return details[String(args?.p_statement_id)];
     if (fn in writes) {
-      const w = writes[fn];
+      const entry = writes[fn];
+      const w =
+        typeof entry === 'function'
+          ? (entry as (a?: Record<string, unknown>) => unknown)(args)
+          : entry;
       if (w instanceof Error) throw w;
       return w;
     }
@@ -188,14 +207,16 @@ beforeEach(() => {
   toast.ok.mockReset();
   search.current = {};
   venue.branchId = 'venue-a';
+  venueTz.current = 'Asia/Baghdad';
   role.current = 'manager';
+  toast.info.mockReset();
   listPayload = list([statement()]);
   details = { s1: detail(statement()) };
   writes = {};
 });
 
 describe('Coach pay: the month', () => {
-  it('reads the current month with no month sent, and shows its figures and rows', async () => {
+  it('reads the default month with no month sent, and shows its figures and rows', async () => {
     listPayload = list([
       statement(),
       statement({
@@ -208,7 +229,7 @@ describe('Coach pay: the month', () => {
     mount();
     const table = await screen.findByRole('table', { name: 'Statements' });
     expect(callsOf('report_coach_statements')[0]![1]).toEqual({});
-    expect(screen.getByRole('heading', { name: 'October 2026' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'September 2026' })).toBeTruthy();
     const band = screen.getByTestId('coachPay.totals');
     expect(within(band).getByText('Collected')).toBeTruthy();
     expect(within(band).getByText('320,000 IQD')).toBeTruthy();
@@ -218,8 +239,23 @@ describe('Coach pay: the month', () => {
     expect(plain(table.textContent)).toContain('-6,000 IQD');
     // One branch on screen: no branch column.
     expect(within(table).queryByRole('columnheader', { name: 'Branch' })).toBeNull();
-    // The stepper never passes the current month.
+    // The stepper never passes the default month.
     expect((screen.getByTestId('coachPay.month.next') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('month 2026-09-01, current_month 2026-10-01: the header and the approve confirm say September, and › is disabled (OP-02)', async () => {
+    mount();
+    expect(await screen.findByRole('heading', { name: 'September 2026' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'October 2026' })).toBeNull();
+    expect((screen.getByTestId('coachPay.month.next') as HTMLButtonElement).disabled).toBe(true);
+    const { user, dialog } = await openStatement('Sara');
+    expect(plain(dialog.getAttribute('aria-label') ?? dialog.textContent)).toContain(
+      'September 2026',
+    );
+    await user.click(within(dialog).getByTestId('statement.action.approve'));
+    expect(
+      await screen.findByRole('dialog', { name: /Approve .*Sara.*statement for September 2026/ }),
+    ).toBeTruthy();
   });
 
   it('steps back through ?month=, and the asked month is read', async () => {
@@ -229,14 +265,15 @@ describe('Coach pay: the month', () => {
     await user.click(screen.getByTestId('coachPay.month.prev'));
     expect(navigate).toHaveBeenCalledWith({
       to: '/reports/coaches',
-      search: { month: '2026-09-01' },
+      search: { month: '2026-08-01' },
       replace: true,
     });
   });
 
   it('an earlier month with nothing says so, and the current month explains when statements come', async () => {
     search.current = { month: '2026-08-01' };
-    listPayload = list([], { month: '2026-08-01' });
+    listPayload = (a?: Record<string, unknown>) =>
+      list(a?.p_month ? [] : [statement()], a?.p_month ? { month: a.p_month } : {});
     mount();
     expect(await screen.findByText('No statements for August 2026.')).toBeTruthy();
     expect(
@@ -246,7 +283,7 @@ describe('Coach pay: the month', () => {
     ).toBe(true);
   });
 
-  it('the current month, empty, says statements are drafted on the 1st', async () => {
+  it('the default month, empty, says statements are drafted on the 1st', async () => {
     listPayload = list([]);
     mount();
     expect(
@@ -271,12 +308,23 @@ describe('Coach pay: the month', () => {
           venue_id: 'venue-a',
           reason: 'older_draft',
         },
+        {
+          coach_id: 'c4',
+          coach_name_en: 'Ali',
+          coach_name_ar: 'علي',
+          venue_id: 'venue-a',
+          reason: 'newer_draft',
+          blocking_month: '2026-10-01',
+          blocking_statement_id: 'st-10',
+        },
       ],
     });
     mount();
     const missing = await screen.findByTestId('coachPay.missing');
     expect(plain(missing.textContent)).toContain('Omar: not drafted yet');
     expect(plain(missing.textContent)).toContain("Lina: waits for an older month's draft");
+    // OP-22 (DB-24): a later month's draft in the way, named.
+    expect(plain(missing.textContent)).toContain('Ali: waits for the October 2026 draft');
   });
 
   it('on a server without statements, says coaching needs an update', async () => {
@@ -321,7 +369,7 @@ describe('Coach pay: the statement dialog', () => {
     expect(callsOf('coach_statement_detail')[0]![1]).toEqual({ p_statement_id: 's1' });
     await user.click(within(dialog).getByTestId('statement.action.approve'));
     const confirm = await screen.findByRole('dialog', {
-      name: /Approve .*Sara.*statement for October 2026/,
+      name: /Approve .*Sara.*statement for September 2026/,
     });
     expect(
       within(confirm).getByText("It can't change after this, except by voiding it."),
@@ -410,7 +458,10 @@ describe('Coach pay: the statement dialog', () => {
       adjustments_iqd: -60000,
     });
     listPayload = list([negative]);
-    details.s3 = detail(negative);
+    // The server's real can: mark_paid false below zero (OP-08).
+    details.s3 = detail(negative, {
+      can: { refresh: false, approve: false, void: true, mark_paid: false },
+    });
     mount();
     const { dialog } = await openStatement('Sara');
     expect(
@@ -466,6 +517,35 @@ describe('Coach pay: the statement dialog', () => {
       p_pin: '4821',
       p_device_id: 'DESK-1',
     });
+  });
+
+  it('a draft approved meanwhile: PIN_GRANT_REQUIRED opens the PIN prompt with the reason kept, and the second call carries the PIN (OP-10)', async () => {
+    writes.coach_statement_void = (a?: Record<string, unknown>) =>
+      a?.p_pin
+        ? { statement_id: 's1', status: 'void' }
+        : new AppRpcError('PIN_GRANT_REQUIRED', 'PIN_GRANT_REQUIRED');
+    mount();
+    const { user, dialog } = await openStatement('Sara');
+    await user.click(within(dialog).getByTestId('statement.action.void'));
+    const voidDialog = await screen.findByRole('dialog', { name: 'Void statement' });
+    await user.type(within(voidDialog).getByRole('textbox', { name: /Reason/ }), 'Counted twice');
+    await user.click(within(voidDialog).getByTestId('void.confirm'));
+    await waitFor(() => expect(callsOf('coach_statement_void')).toHaveLength(1));
+    expect(callsOf('coach_statement_void')[0]![1]).toEqual({
+      p_statement_id: 's1',
+      p_reason: 'Counted twice',
+    });
+    // The statement is read again, and the PIN prompt opens.
+    await user.type(await screen.findByLabelText(/^PIN/), '4821');
+    await user.click(screen.getByRole('button', { name: 'Authorise' }));
+    await waitFor(() => expect(callsOf('coach_statement_void')).toHaveLength(2));
+    expect(callsOf('coach_statement_void')[1]![1]).toEqual({
+      p_statement_id: 's1',
+      p_reason: 'Counted twice',
+      p_pin: '4821',
+      p_device_id: 'DESK-1',
+    });
+    expect(callsOf('coach_statement_detail').length).toBeGreaterThan(1);
   });
 
   it("the caller's own statement offers nothing and says who settles it (CM-11)", async () => {
@@ -544,6 +624,39 @@ describe('Coach pay: the statement dialog', () => {
     );
     expect(within(dialog).queryByText(/your own statement/)).toBeNull();
     expect(within(dialog).queryByTestId('statement.action.void')).toBeNull();
+  });
+
+  it('dates follow the branch zone: an Asia/Dubai lesson at 00:00 on 1 Nov shows 1 Nov (OP-18)', async () => {
+    venueTz.current = 'Asia/Dubai';
+    details.s1 = detail(statement(), {
+      // 00:00 on 1 Nov in Dubai (UTC+4) is still 31 Oct in Baghdad (UTC+3).
+      lines: [line({ start_at: '2026-10-31T20:00:00Z' })],
+    });
+    mount();
+    const { dialog } = await openStatement('Sara');
+    const lines = within(dialog).getByRole('table', { name: 'Lessons on this statement' });
+    expect(await within(lines).findByText(/Nov 1, 2026|1 Nov 2026/)).toBeTruthy();
+    expect(within(lines).queryByText(/Oct 31, 2026|31 Oct 2026/)).toBeNull();
+  });
+
+  it('a redraft that drafts nothing says the month was settled on a later statement (OP-22, DB-25)', async () => {
+    const voided = statement({
+      status: 'void',
+      voided_at: '2026-10-03T10:00:00Z',
+      void_reason: 'Wrong month',
+    });
+    listPayload = list([voided]);
+    details.s1 = detail(voided);
+    writes.coach_statement_refresh = { statement_id: 's1', status: 'void', created: false };
+    mount();
+    const { user, dialog } = await openStatement('Sara');
+    await user.click(within(dialog).getByTestId('statement.action.redraft'));
+    await waitFor(() =>
+      expect(toast.info).toHaveBeenCalledWith(
+        "Nothing to draft: this month's lessons were settled on a later statement.",
+      ),
+    );
+    expect(toast.ok).not.toHaveBeenCalledWith('Drafted again.');
   });
 
   it('a refusal shows its own line in place (STATEMENT_NOT_DRAFT live_draft)', async () => {

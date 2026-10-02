@@ -62,6 +62,8 @@ export function customerMoneyLines(l: CustomerLesson): MoneyLine[] {
       refunded_iqd: null,
       kept_iqd: null,
       refund_due_iqd: l.money.refund_due_iqd,
+      refund_due_desk_iqd: null,
+      refund_blocked_iqd: null,
       take_iqd: l.money.take_iqd,
     },
   });

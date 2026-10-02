@@ -50,6 +50,7 @@ import {
   isOnlineMode,
   onlineModeBlock,
   onlineRefusalOf,
+  percentInput,
   serverFieldOf,
   type CoachingSettingsDraft,
   type CoachingSettingsField,
@@ -305,7 +306,8 @@ function CoachingSettingsForm({ saved }: { saved: CoachingSettings }) {
               autoComplete="off"
               value={draft.sharePercent}
               disabled={save.isPending}
-              onChange={(e) => set('sharePercent', e.target.value.replace(/[^\d.,]/g, ''))}
+              // Arabic digits and ٫ are read, not dropped (OP-16).
+              onChange={(e) => set('sharePercent', percentInput(e.target.value))}
             />
             <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
               {tr('ws.kit.common.percent')}

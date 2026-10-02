@@ -46,7 +46,7 @@ import { SeatChip } from '../matches/SeatChip';
 import { LessonBadge } from '../coaching/LessonBadge';
 import { LessonPlacesChip } from '../coaching/LessonPlacesChip';
 import { LessonSummary } from '../coaching/LessonSummary';
-import { lessonLabel } from '../coaching/lessonLogic';
+import { isLessonLiteral, lessonLabel } from '../coaching/lessonLogic';
 import type { DeskLesson } from '../coaching/lessonPayloads';
 
 const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
@@ -105,9 +105,11 @@ export function ReservationActionsDialog({
    * else. Arrived, Completed, No-show, Move, Extend, Shorten, Confirm and
    * Cancel would each be refused LESSON_VIA_COACHING (R7, R35): a lesson
    * changes on its own screen. Without its desk_lessons row (offline, an older
-   * server) the booking route forwards to it.
+   * server) the booking route forwards to it; a held lesson's hold is then
+   * known by its literal (no guest, the name 'Lesson'), so Extend, Shorten and
+   * Cancel are never queued for it (OP-19).
    */
-  if (r.kind === 'lesson' || (r.kind === 'hold' && lesson)) {
+  if (r.kind === 'lesson' || (r.kind === 'hold' && (lesson || isLessonLiteral(r)))) {
     const court = courts.find((c) => c.id === r.court_id);
     const openLesson = () => {
       onClose();

@@ -7,6 +7,7 @@ import {
   coachingErrorKey,
   coachingErrorText,
   cutoffState,
+  blockedRefundDue,
   deskRefundDue,
   enrolmentActionsOf,
   enrolmentLine,
@@ -70,6 +71,8 @@ function desk(over: Partial<DeskLesson> = {}): DeskLesson {
     owing: 0,
     owing_iqd: 0,
     paid_online: 0,
+    awaiting: 0,
+    paid_places: 0,
     ...over,
   };
 }
@@ -103,6 +106,8 @@ function enrolment(over: Partial<Enrolment> = {}): Enrolment {
       refunded_iqd: 0,
       kept_iqd: 0,
       refund_due_iqd: 0,
+      refund_due_desk_iqd: 0,
+      refund_blocked_iqd: 0,
       take_iqd: 30000,
     },
     can: {
@@ -193,6 +198,13 @@ describe('the court row literal (§5.8)', () => {
     expect(isLessonRow({ id: 'hold-1', kind: 'hold' }, map)).toBe(true);
     expect(isLessonRow({ id: 'other', kind: 'hold' }, map)).toBe(false);
     expect(isLessonRow({ id: 'any', kind: 'lesson' })).toBe(true);
+    // OP-19: offline, no desk_lessons row: a hold with no guest named 'Lesson' is still a lesson's.
+    expect(
+      isLessonRow({ id: 'h2', kind: 'hold', guest_id: null, guest_name: 'Lesson' }, null),
+    ).toBe(true);
+    expect(
+      isLessonRow({ id: 'h3', kind: 'hold', guest_id: 'g1', guest_name: 'Lesson' }, null),
+    ).toBe(false);
   });
 });
 
@@ -270,13 +282,37 @@ describe('places, pay and tags (§5.8, §5.11, C-14, C-24)', () => {
     expect(lessonPayState(desk({ owing: 2, owing_iqd: 60000 }), T0 - 1).warn).toBe(false);
     const started = lessonPayState(desk({ owing: 2, owing_iqd: 60000 }), T0 + 1);
     expect(started).toMatchObject({ pay: 'owing', owing: 2, owingIqd: 60000, warn: true });
-    expect(lessonPayState(desk({ owing: 0, enrolments: 3, paid_online: 1 }), T0).pay).toBe(
-      'allPaid',
-    );
+    expect(
+      lessonPayState(desk({ owing: 0, enrolments: 3, paid_online: 1, paid_places: 3 }), T0).pay,
+    ).toBe('allPaid');
     expect(lessonPayState(desk({ owing: 0, enrolments: 2, paid_online: 2 }), T0).pay).toBe(
       'online',
     );
     expect(lessonPayState(desk({ owing: 0, enrolments: 0 }), T0).pay).toBe('none');
+  });
+
+  it('OP-13 (DB-32): held, held plus paid, an unpaid no-show, a cancelled online place', () => {
+    // A held private lesson waits on Qi: never "All paid".
+    expect(lessonPayState(desk({ status: 'held', enrolments: 1, awaiting: 1 }), T0).pay).toBe(
+      'awaiting',
+    );
+    // A group with one place paid and one still held: awaiting, not all paid.
+    expect(
+      lessonPayState(
+        desk({ kind: 'group', enrolments: 2, awaiting: 1, paid_places: 1, paid_online: 1 }),
+        T0,
+      ).pay,
+    ).toBe('awaiting');
+    // A no-show who never paid: owing 0 (the server stops asking), not all paid.
+    expect(
+      lessonPayState(desk({ kind: 'group', enrolments: 2, owing: 0, paid_places: 1 }), T0 + 1).pay,
+    ).toBe('none');
+    // An online place refunded after a cancel: no live online payer, nothing paid.
+    expect(
+      lessonPayState(desk({ enrolments: 1, owing: 0, paid_online: 0, paid_places: 0 }), T0).pay,
+    ).toBe('none');
+    // Every place paid at the desk.
+    expect(lessonPayState(desk({ enrolments: 2, paid_places: 2 }), T0).pay).toBe('allPaid');
   });
 
   it('flags a coach-booked private lesson that still owes, from the moment it is booked (C-24)', () => {
@@ -374,8 +410,24 @@ describe('the banner (§5.10.2)', () => {
   });
 
   it('adds up desk money waiting to go back', () => {
-    const due = (n: number) => enrolment({ money: { ...enrolment().money, refund_due_iqd: n } });
+    const due = (n: number) =>
+      enrolment({
+        money: { ...enrolment().money, refund_due_iqd: n, refund_due_desk_iqd: n },
+      });
     expect(deskRefundDue([due(10000), due(5000), due(0)])).toBe(15000);
+  });
+
+  it('desk 0 and blocked 10,000: no desk line, a blocked line (OP-14, DB-31)', () => {
+    const blocked = enrolment({
+      money: {
+        ...enrolment().money,
+        refund_due_iqd: 10000,
+        refund_due_desk_iqd: 0,
+        refund_blocked_iqd: 10000,
+      },
+    });
+    expect(deskRefundDue([blocked])).toBe(0);
+    expect(blockedRefundDue([blocked])).toBe(10000);
   });
 });
 
@@ -728,6 +780,7 @@ describe('coachingErrorKey (§5.19 details)', () => {
       ['BRANCH_HAS_BOOKINGS', 'coach_lessons', 'ws.coaching.errors.branchHasLessons'],
       ['BRANCH_HAS_BOOKINGS', 'coaching_money', 'ws.coaching.errors.coachingMoney'],
       ['FORBIDDEN', 'own_statement', 'ws.coaching.errors.ownStatement'],
+      ['FORBIDDEN', 'own_statement_pin', 'ws.coaching.errors.ownStatementPin'],
       ['STATEMENT_NOT_DRAFT', 'live_draft', 'ws.coaching.errors.liveDraft'],
       ['STATEMENT_NOT_APPROVED', 'negative', 'ws.coaching.errors.negativeStatement'],
       ['INVALID_ARGUMENT', 'p_reference', 'ws.coaching.errors.cardNumber'],

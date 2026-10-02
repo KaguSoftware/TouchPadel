@@ -181,8 +181,12 @@ export interface DeskLesson {
   /** Booked desk enrolments with something still to take. */
   owing: number | null;
   owing_iqd: number | null;
-  /** Enrolments paid online. */
+  /** Booked enrolments with online money left after refunds (0294, DB-32). */
   paid_online: number | null;
+  /** Held places, waiting on a payment (0294, DB-32). */
+  awaiting: number | null;
+  /** Booked places with desk or online money left after refunds (0294, DB-32). */
+  paid_places: number | null;
 }
 
 export interface DeskLessons {
@@ -274,6 +278,8 @@ export function readDeskLesson(r: Raw): DeskLesson | null {
     owing: num(r.owing),
     owing_iqd: num(r.owing_iqd),
     paid_online: countOrFlag(r.paid_online),
+    awaiting: num(r.awaiting),
+    paid_places: num(r.paid_places),
   };
 }
 
@@ -392,6 +398,10 @@ export interface EnrolmentMoney {
   refunded_iqd: number | null;
   kept_iqd: number | null;
   refund_due_iqd: number | null;
+  /** The part of refund_due owed back at the desk (0294, DB-31). */
+  refund_due_desk_iqd: number | null;
+  /** The part no channel can return: handed back outside the till (R75; 0294, DB-31). */
+  refund_blocked_iqd: number | null;
   take_iqd: number | null;
 }
 
@@ -530,6 +540,8 @@ export function readEnrolmentMoney(v: unknown): EnrolmentMoney {
     refunded_iqd: num(m.refunded_iqd),
     kept_iqd: num(m.kept_iqd),
     refund_due_iqd: num(m.refund_due_iqd),
+    refund_due_desk_iqd: num(m.refund_due_desk_iqd),
+    refund_blocked_iqd: num(m.refund_blocked_iqd),
     take_iqd: num(m.take_iqd),
   };
 }
@@ -802,6 +814,11 @@ export interface AdminCoach {
   public_accepted_at: string | null;
   sort_order: number | null;
   venue_ids: string[];
+  /**
+   * Active at this branch. False for a coach whose branch was switched off:
+   * still listed, not taught here (OP-06). Missing reads as true.
+   */
+  active_here: boolean;
   /** The types this coach teaches at this branch. */
   lesson_type_ids: string[];
   /** The coach's own prices at this branch. */
@@ -875,6 +892,7 @@ function readAdminCoach(c: Raw): AdminCoach | null {
     public_accepted_at: str(c.public_accepted_at),
     sort_order: num(c.sort_order),
     venue_ids: strs(c.venue_ids),
+    active_here: c.active_here !== false,
     lesson_type_ids: strs(c.lesson_type_ids),
     prices: priceRows(c.prices),
     hours: list(c.hours)
@@ -1132,6 +1150,8 @@ export interface StatementRow {
   venue_id: string | null;
   venue_name_en: string | null;
   venue_name_ar: string | null;
+  /** The statement's month, 'YYYY-MM-01' (OP-02: the dialog names it from here). */
+  month: string | null;
   status: string;
   lessons_count: number | null;
   collected_iqd: number | null;
@@ -1157,8 +1177,11 @@ export interface MissingStatement {
   coach_name_en: string | null;
   coach_name_ar: string | null;
   venue_id: string | null;
-  /** 'older_draft' or 'not_drafted'. */
+  /** 'older_draft', 'newer_draft' (0293, DB-24) or 'not_drafted'. */
   reason: string | null;
+  /** The month of the draft in the way (older_draft, newer_draft); null for not_drafted. */
+  blocking_month: string | null;
+  blocking_statement_id: string | null;
 }
 
 export interface StatementTotals {
@@ -1195,6 +1218,7 @@ export function readStatementRow(r: Raw): StatementRow | null {
     venue_id: str(r.venue_id),
     venue_name_en: str(r.venue_name_en),
     venue_name_ar: str(r.venue_name_ar),
+    month: str(r.month),
     status: str(r.status) ?? 'draft',
     lessons_count: num(r.lessons_count),
     collected_iqd: num(r.collected_iqd),
@@ -1231,6 +1255,8 @@ export function readStatements(raw: unknown): CoachStatements {
       coach_name_ar: str(m.coach_name_ar),
       venue_id: str(m.venue_id),
       reason: str(m.reason),
+      blocking_month: str(m.blocking_month),
+      blocking_statement_id: str(m.blocking_statement_id),
     })),
     totals: {
       statements: num(t.statements),
