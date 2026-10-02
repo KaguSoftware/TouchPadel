@@ -98,12 +98,10 @@ test.describe('site home', () => {
       ]);
     expect(hrefs).toEqual(
       expect.arrayContaining([
+        // The header has no section links any more: the lockup, Book a court and the language.
         '/en',
-        '#club',
-        '#lessons',
-        '/en/menu',
-        '#visit',
         '/ar',
+        '/en/menu',
         '/en#lessons',
         // The footer's Coaching link (docs/design/coaching/guest.md §4.14.4).
         '/en/coaching',
@@ -213,22 +211,20 @@ test.describe('site home', () => {
     }
   });
 
-  test('on a phone the section links and Book a court fold into the menu sheet', async ({
-    page,
-  }) => {
+  test('on a phone Book a court folds into the menu sheet', async ({ page }) => {
     await page.setViewportSize(SMALL);
     await page.goto('/en');
     const banner = page.getByRole('banner');
     // The bar is just the lockup and the toggle.
     await expect(banner.getByRole('link', { name: 'Book a court' })).toBeHidden();
-    await expect(banner.getByRole('link', { name: 'Lessons' })).toBeHidden();
+    // No section links in the header (the home page's sections are reached by scrolling).
+    await expect(banner.getByRole('link', { name: 'Lessons' })).toHaveCount(0);
     const toggle = banner.getByRole('button', { name: 'Site menu' });
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     // Open, the sheet has it, full width, at the thumb's end of the screen.
     await expect(page.locator('#tp-site-menu').getByRole('link', { name: 'Book a court' })).toBeVisible();
-    await banner.getByRole('link', { name: 'Lessons' }).click();
-    await expect(page).toHaveURL(/\/en#lessons$/);
+    await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   });
 

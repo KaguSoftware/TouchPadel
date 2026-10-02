@@ -67,6 +67,7 @@ import {
   ensureOpenDay,
   ensureTillFresh,
   lastMonth,
+  moveLessonToDay,
   lessonReservationId,
   passShiftGate,
   payLessonOnline,
@@ -226,11 +227,14 @@ test.describe('operator coaching', () => {
   // ---------------------------------------------------------------------
   test('a manager makes a coach, sets the hours, and meets the launched type locks', async ({ browser }) => {
     const bravo = await seedCoachAccount(svc, 'B');
-    // A rerun: Bravo is a coach from the last run; retire them so Make a coach revives the row.
+    // A rerun: Bravo is a coach from the last run; clear the hours that run set (a revived coach
+    // keeps them, and this journey expects "No hours yet") and retire them so Make a coach
+    // revives the row.
     const { data: existing } = await svc.from('coaches').select('id, status').eq('profile_id', bravo.profileId).maybeSingle();
     if (existing && (existing as { status: string }).status !== 'retired') {
       const owner = await signedInClient(SEED_STAFF.owner);
       try {
+        await appRpc(owner, 'set_coach_hours', { p_coach_id: (existing as { id: string }).id, p_venue_id: FIXTURE_VENUE_ID, p_windows: [] });
         await appRpc(owner, 'set_coach_status', { p_coach_id: (existing as { id: string }).id, p_status: 'retired', p_reason: 'e2e rerun' });
       } finally {
         await owner.auth.signOut();
@@ -263,7 +267,11 @@ test.describe('operator coaching', () => {
     expect(coach.photo_path).not.toContain(bravo.profileId);
     expect(coach.photo_path).not.toContain(coach.id);
 
+    // Make a coach opens the new coach's editor, where the row keeps its status column only;
+    // the list with no editor open shows every column, "No hours yet" among them.
+    await page.goto(`${OPERATOR_URL}/admin/coaches?tab=coaches`);
     const listRow = page.getByRole('row', { name: /Coach Bravo/ }).first();
+    await expect(listRow).toBeVisible({ timeout: 30_000 });
     await expect(listRow).toContainText(en.ws.coaching.common.coachStatus.active);
     await expect(listRow).toContainText(A.waitingAccept);
     await expect(listRow).toContainText(A.noHours);
@@ -308,6 +316,7 @@ test.describe('operator coaching', () => {
     await booking.getByRole('button', { name: C.common.lesson, exact: true }).click();
     const start = page.getByRole('dialog', { name: C.common.newLesson });
     await start.getByRole('button', { name: C.common.kind.private, exact: true }).click();
+    await choose(start.getByLabel(C.start.type), types.privateId);
     await choose(start.getByLabel(C.start.coach), { label: alpha.displayName });
     await start.getByRole('button', { name: /^10:00/ }).first().click();
     await expect(start.getByLabel(en.op.desk.guestName)).toHaveValue(student);
@@ -351,7 +360,8 @@ test.describe('operator coaching', () => {
     await page.goto(`${OPERATOR_URL}/desk/today`);
     const row = lessonsToday(page).getByRole('listitem').filter({ hasText: student }).first();
     await expect(row).toBeVisible({ timeout: 30_000 });
-    await row.getByRole('button', { name: C.today.open, exact: true }).click();
+    // Its accessible name goes on to name the lesson ("Open <type> · <coach> · <student>").
+    await row.getByRole('button', { name: new RegExp(`^${C.today.open} `) }).click();
     await expect(page).toHaveURL(new RegExp(`/desk/lessons/${lesson.lessonId}`));
 
     const sign = rosterRow(page, student);
@@ -388,6 +398,7 @@ test.describe('operator coaching', () => {
     await page.getByRole('dialog', { name: en.op.desk.newBooking }).getByRole('button', { name: C.common.lesson, exact: true }).click();
     const start = page.getByRole('dialog', { name: C.common.newLesson });
     await start.getByRole('button', { name: C.common.kind.group, exact: true }).click();
+    await choose(start.getByLabel(C.start.type), types.groupId);
     await choose(start.getByLabel(C.start.coach), { label: alpha.displayName });
     await start.getByRole('button', { name: C.start.submit }).click();
     await expect(page).toHaveURL(/\/desk\/lessons\/[0-9a-f-]{36}/, { timeout: 30_000 });
@@ -453,6 +464,7 @@ test.describe('operator coaching', () => {
     await page.getByRole('dialog', { name: en.op.desk.newBooking }).getByRole('button', { name: C.common.lesson, exact: true }).click();
     const start = page.getByRole('dialog', { name: C.common.newLesson });
     await start.getByRole('button', { name: C.common.kind.course, exact: true }).click();
+    await choose(start.getByLabel(C.start.type), types.courseId);
     await choose(start.getByLabel(C.start.coach), { label: alpha.displayName });
     await expect(start.getByTestId('course-starts').getByRole('listitem')).toHaveCount(4);
     // Session 3 a day later than the weekly rhythm puts it.
@@ -503,7 +515,7 @@ test.describe('operator coaching', () => {
 
     const manager = await signIn(browser, SEED_STAFF.manager);
     await manager.goto(`${OPERATOR_URL}/ops`);
-    const due = manager.getByTestId('lesson-refunds-due');
+    const due = manager.getByTestId('lesson-refunds');
     const row = due.getByTestId('lesson-refund').filter({ hasText: student }).first();
     await expect(row).toContainText(/Due .*30,000/, { timeout: 30_000 });
     await row.getByRole('button', { name: C.refunds.refund }).first().click();
@@ -518,8 +530,17 @@ test.describe('operator coaching', () => {
     await manager.goto(`${OPERATOR_URL}/admin/day-close`);
     await expect(manager.getByText(C.dayClose.rows.deskRefunded).first()).toBeVisible({ timeout: 30_000 });
 
-    // Statements: last month's statement of Coach Alpha, drafted by the service client.
+    // Statements: last month's statement of Coach Alpha, drafted by the service client. It needs a
+    // lesson of last month: one booked and paid at the desk, then moved there.
     const P = C.coachPay;
+    const past = await seedPrivateLesson(svc, {
+      coachId: alpha.coachId,
+      lessonTypeId: types.privateId,
+      startAt: venueTime(day, '13:00'),
+      name: `${E2E_LESSON_NAME} Juliet`,
+    });
+    await settleLessonCash(past.enrolmentId!, E2E_LESSON_PRICES.private);
+    await moveLessonToDay(svc, past.lessonId, `${lastMonth().slice(0, 8)}15`, '10:00');
     await draftCoachStatement(svc, alpha.coachId, lastMonth());
     await manager.goto(`${OPERATOR_URL}/reports/coaches?month=${lastMonth()}`);
     await expect(manager.getByRole('heading', { name: P.title })).toBeVisible({ timeout: 30_000 });
@@ -535,6 +556,8 @@ test.describe('operator coaching', () => {
     await statement.getByRole('button', { name: P.actions.markPaid }).click();
     const markPaid = manager.getByRole('dialog', { name: P.markPaid.title }).last();
     await markPaid.getByLabel(P.markPaid.reference).fill('4111 1111 1111');
+    // The field speaks once Next is pressed, and the PIN never opens on a card number.
+    await markPaid.getByRole('button', { name: P.markPaid.next }).click();
     await expect(markPaid.getByText(C.errors.cardNumber)).toBeVisible();
     await markPaid.getByLabel(P.markPaid.reference).fill('E2E REF');
     await markPaid.getByRole('button', { name: P.markPaid.next }).click();
@@ -576,25 +599,38 @@ test.describe('operator coaching', () => {
       await manager.auth.signOut();
     }
 
-    // The owner decides the lesson_price proposal in the operator, under "Waiting on you".
+    // A price_promo proposal needs no owner's OK (it passes as it is sent); the owner decides at
+    // Numbers, which the manager sends for both runs.
+    const managerNumbers = await signedInClient(SEED_STAFF.manager);
+    try {
+      for (const run of [priceRun, launchRun]) {
+        await appRpc(managerNumbers, 'submit_step', { p_run_step_id: await stepOf(svc, run, 'numbers'), p_record: { recommendation: 'go' } });
+      }
+    } finally {
+      await managerNumbers.auth.signOut();
+    }
+
+    // The owner decides the lesson_price numbers in the operator, the lesson's figures in view.
     const page = await signIn(browser, SEED_STAFF.owner);
     await page.goto(`${OPERATOR_URL}/protocols?run=${priceRun}`);
-    await expect(page.getByText(en.work.protocol.change.lesson_price).first()).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Approve', exact: true }).first().click();
-    await expect(page.getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByText(/30,000 IQD → 35,000 IQD/).first()).toBeVisible({ timeout: 30_000 });
+    // The step panel's Decide, then Approve in its dialog (operator-protocols.spec.ts's way).
+    await page.getByTestId('step-panel').getByTestId('decide').click();
+    const decide = page.getByRole('dialog', { name: /Decide: Numbers/ });
+    await expect(decide).toBeVisible();
+    await decide.getByTestId('decision-send').click();
+    await expect(page.getByText('Approved.')).toBeVisible();
+    await expect.poll(async () => liveSubmissionOf(svc, await stepOf(svc, priceRun, 'numbers'))).toBeNull();
     await page.context().close();
 
     const managerAgain = await signedInClient(SEED_STAFF.manager);
     try {
-      // The lesson_launch proposal is decided exactly as the staff phone sends it (app.decide_step).
-      const launchProp = await liveSubmissionOf(svc, await stepOf(svc, launchRun, 'propose'));
-      if (launchProp) await appRpc(owner, 'decide_step', { p_submission_id: launchProp, p_decision: 'approve' });
+      // The lesson_launch numbers are decided exactly as the staff phone sends it (app.decide_step).
+      const launchNum = await liveSubmissionOf(svc, await stepOf(svc, launchRun, 'numbers'));
+      if (launchNum) await appRpc(owner, 'decide_step', { p_submission_id: launchNum, p_decision: 'approve' });
 
-      // Numbers, announce skipped, apply now, for both runs.
+      // Announce skipped, apply now, for both runs.
       for (const run of [priceRun, launchRun]) {
-        await appRpc(managerAgain, 'submit_step', { p_run_step_id: await stepOf(svc, run, 'numbers'), p_record: { recommendation: 'go' } });
-        const num = await liveSubmissionOf(svc, await stepOf(svc, run, 'numbers'));
-        if (num) await appRpc(owner, 'decide_step', { p_submission_id: num, p_decision: 'approve' });
         await appRpc(managerAgain, 'skip_step', { p_run_step_id: await stepOf(svc, run, 'announce'), p_note: 'No announcement' });
         await appRpc(managerAgain, 'submit_step', { p_run_step_id: await stepOf(svc, run, 'apply'), p_record: { when: 'now' } });
       }
@@ -631,6 +667,9 @@ test.describe('operator coaching', () => {
       students: [{ customerId: guest!.id }],
     });
 
+    // The desk's journeys left the court desk's shift open on this station; the cashier starts
+    // their own once it is closed (one drawer per station).
+    await closeStationShift();
     const page = await signIn(browser, SEED_STAFF.cashier);
     await page.goto(`${OPERATOR_URL}/desk/customers/${guest!.id}`);
     const panel = page.getByTestId('customer-lessons');
@@ -653,6 +692,15 @@ test.describe('operator coaching', () => {
   // ---------------------------------------------------------------------
   test('a manager who coaches sees their own statement and cannot approve it', async ({ browser }) => {
     const mike = await seedCoach(svc, 'M', { staff: 'manager', lessonTypeIds: [types.privateId] });
+    // A statement needs a lesson of last month: one booked and paid at the desk, then moved there.
+    const past = await seedPrivateLesson(svc, {
+      coachId: mike.coachId,
+      lessonTypeId: types.privateId,
+      startAt: venueTime(day, '11:00'),
+      name: `${E2E_LESSON_NAME} Kilo`,
+    });
+    await settleLessonCash(past.enrolmentId!, E2E_LESSON_PRICES.private);
+    await moveLessonToDay(svc, past.lessonId, `${lastMonth().slice(0, 8)}16`, '10:00');
     const statementId = await draftCoachStatement(svc, mike.coachId, lastMonth());
 
     const P = C.coachPay;
@@ -692,6 +740,7 @@ test.describe('operator coaching', () => {
       const start = page.getByRole('dialog', { name: C.common.newLesson });
       await expect(start.getByText(C.common.stagingOff)).toBeVisible();
       await start.getByRole('button', { name: C.common.kind.private, exact: true }).click();
+      await choose(start.getByLabel(C.start.type), types.privateId);
       await choose(start.getByLabel(C.start.coach), { label: alpha.displayName });
       await start.getByRole('button', { name: /^11:00/ }).first().click();
       await start.getByRole('button', { name: C.start.submit }).click();
@@ -727,7 +776,8 @@ test.describe('operator coaching', () => {
     await page.goto(`${OPERATOR_URL}/admin/coaches?tab=coaches&coach=${charlie.coachId}`);
     await page.getByRole('button', { name: E.retire, exact: true }).click();
     const confirm = page.getByRole('dialog', { name: phrase(E.retireTitle) });
-    await expect(confirm).toContainText(/two lessons|2 lessons/);
+    // The count is a direction-isolated number ("⁦2⁩ lessons").
+    await expect(confirm).toContainText(/two lessons|2⁩? lessons/);
     await confirm.getByLabel(E.retireNote).fill('Moved away');
     await confirm.getByRole('button', { name: E.retireConfirm }).click();
     await expect(page.getByText(phrase(E.retired))).toBeVisible({ timeout: 30_000 });
@@ -738,7 +788,7 @@ test.describe('operator coaching', () => {
       await expect(page.getByText(C.banner.cancelled.coach_retired)).toBeVisible({ timeout: 30_000 });
     }
     await page.goto(`${OPERATOR_URL}/ops`);
-    await expect(page.getByTestId('lesson-refunds-due')).toContainText(paid, { timeout: 30_000 });
+    await expect(page.getByTestId('lesson-refunds')).toContainText(paid, { timeout: 30_000 });
     await page.context().close();
   });
 
@@ -771,6 +821,15 @@ test.describe('operator coaching', () => {
       const { data } = await svc.from('booking_payments').select('status, refund_reason').eq('lesson_enrolment_id', lesson.enrolmentId!).single();
       expect(['refund_pending', 'refunded']).toContain((data as { status: string }).status);
 
+      // A refund on its way is no one's business for a day: deposit_attention lists a failed one,
+      // or one pending for more than 24 hours. This one is made overdue to see its lesson line.
+      const { error: overdueErr } = await svc
+        .from('booking_payments')
+        .update({ refund_requested_at: new Date(Date.now() - 25 * 3_600_000).toISOString() })
+        .eq('lesson_enrolment_id', lesson.enrolmentId!)
+        .eq('status', 'refund_pending');
+      if (overdueErr) throw new Error(`overdue refund: ${overdueErr.message}`);
+
       const manager = await signIn(browser, SEED_STAFF.manager);
       await manager.goto(`${OPERATOR_URL}/ops`);
       await expect(manager.getByText(new RegExp(`Lesson refund · .*${guest!.name}`)).first()).toBeVisible({ timeout: 30_000 });
@@ -797,7 +856,8 @@ test.describe('operator coaching', () => {
     await booking.getByRole('button', { name: a.common.lesson, exact: true }).click();
     const start = page.getByRole('dialog', { name: a.common.newLesson });
     await start.getByRole('button', { name: a.common.kind.private, exact: true }).click();
-    await choose(start.getByLabel(a.start.coach), { label: alpha.displayName });
+    await choose(start.getByLabel(a.start.type), types.privateId);
+    await choose(start.getByLabel(a.start.coach), { label: alpha.displayNameAr });
     await start.getByRole('button', { name: /^(15:00|3:00)/ }).first().click();
     await start.getByRole('button', { name: a.start.submit }).click();
     await expect(page).toHaveURL(/\/desk\/lessons\/[0-9a-f-]{36}/, { timeout: 30_000 });
@@ -806,9 +866,12 @@ test.describe('operator coaching', () => {
     await expect(page.getByTestId('lesson-roster')).toContainText('30,000');
     await expect(page.getByTestId('lesson-roster')).not.toContainText(/[٠-٩]/);
 
-    // Journey 3, condensed: a started lesson, marked arrived.
+    // Journey 3, condensed: a started lesson, marked arrived. Coach Delta's: journey 3 left a
+    // started lesson of Alpha's in this run, and a coach has one live lesson at a time
+    // (lessons_coach_no_overlap), so a second started one of Alpha's could not exist.
+    const delta = await seedCoach(svc, 'D', { lessonTypeIds: [types.privateId] });
     const student = `${E2E_LESSON_NAME} India`;
-    const lesson = await seedPrivateLesson(svc, { coachId: alpha.coachId, lessonTypeId: types.privateId, startAt: venueTime(day, '21:00'), name: student });
+    const lesson = await seedPrivateLesson(svc, { coachId: delta.coachId, lessonTypeId: types.privateId, startAt: venueTime(day, '21:00'), name: student });
     await backdateLesson(svc, lesson.lessonId, 30);
     await page.goto(`${OPERATOR_URL}/desk/lessons/${lesson.lessonId}`);
     const sign = rosterRow(page, student);

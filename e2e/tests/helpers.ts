@@ -885,6 +885,8 @@ export interface SeededCoach extends SeededCoachAccount {
   coachId: string;
   /** The public display name the desk shows ("Coach Alpha"). */
   displayName: string;
+  /** The same name as the Arabic desk shows it ("المدرّب Alpha"). */
+  displayNameAr: string;
 }
 
 const COACH_WORDS: Record<string, string> = { A: 'Alpha', B: 'Bravo', C: 'Charlie', D: 'Delta', M: 'Mike' };
@@ -953,6 +955,7 @@ export async function seedCoach(
   const account = await seedCoachAccount(svc, letter, { staff: opts.staff });
   const word = COACH_WORDS[letter] ?? letter;
   const displayName = `Coach ${word}`;
+  const displayNameAr = `المدرّب ${word}`;
   const owner = await signedInClient(SEED_STAFF.owner);
   try {
     let coach = await coachOfProfile(svc, account.profileId);
@@ -960,7 +963,7 @@ export async function seedCoach(
       await appRpc(owner, 'coach_promote', {
         p_profile_id: account.profileId,
         p_display_name_en: displayName,
-        p_display_name_ar: `المدرّب ${word}`,
+        p_display_name_ar: displayNameAr,
         p_bio_en: '',
         p_bio_ar: '',
         p_photo_path: null,
@@ -984,7 +987,7 @@ export async function seedCoach(
       p_windows: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, start: '08:00', end: '24:00' })),
     });
     if (opts.accept ?? true) await appRpc(account.client, 'coach_accept_public', {});
-    return { ...account, coachId: coach.id, displayName };
+    return { ...account, coachId: coach.id, displayName, displayNameAr };
   } finally {
     await owner.auth.signOut();
   }
@@ -1167,6 +1170,27 @@ export async function backdateLesson(svc: SupabaseClient, lessonId: string, minu
 }
 
 /**
+ * Move a lesson (and its court row) to a day already over, keeping its time of day and length:
+ * a lesson of last month for a coach statement (app.coach_statement_plan reads a scheduled or
+ * completed lesson that ended in the month). backdateLesson's way, since nothing books the past.
+ */
+export async function moveLessonToDay(svc: SupabaseClient, lessonId: string, date: string, hhmm: string): Promise<void> {
+  const { data, error } = await svc.from('lessons').select('start_at, end_at').eq('id', lessonId).single();
+  if (error) throw new Error(`moveLessonToDay read: ${error.message}`);
+  const row = data as { start_at: string; end_at: string };
+  const start = venueTime(date, hhmm);
+  const end = new Date(start.getTime() + Date.parse(row.end_at) - Date.parse(row.start_at));
+  const { error: lErr } = await svc.from('lessons').update({ start_at: start.toISOString(), end_at: end.toISOString() }).eq('id', lessonId);
+  if (lErr) throw new Error(`moveLessonToDay lesson: ${lErr.message}`);
+  const { error: rErr } = await svc
+    .from('reservations')
+    .update({ start_at: start.toISOString(), end_at: end.toISOString() })
+    .eq('lesson_id', lessonId)
+    .in('status', ['pending', 'confirmed', 'arrived']);
+  if (rErr) throw new Error(`moveLessonToDay court: ${rErr.message}`);
+}
+
+/**
  * A private lesson a guest books online and pays through the fake provider, the
  * grantTickets sequence (operator.md §5.22): app.lesson_book_private with
  * `online`, app.lesson_payment_prepare (R3) with the fake provider,
@@ -1231,11 +1255,23 @@ export function lastMonth(): string {
  * reachable over PostgREST, so the suite drafts per coach.
  */
 export async function draftCoachStatement(svc: SupabaseClient, coachId: string, month: string = lastMonth()): Promise<string | null> {
-  return await appRpc<string | null>(svc, 'coach_statement_draft_one', {
+  // The function answers whether a draft was built or refreshed, not its id.
+  const built = await appRpc<boolean>(svc, 'coach_statement_draft_one', {
     p_coach_id: coachId,
     p_venue_id: FIXTURE_VENUE_ID,
     p_month: month,
   });
+  if (!built) return null;
+  const { data, error } = await svc
+    .from('coach_statements')
+    .select('id')
+    .eq('coach_id', coachId)
+    .eq('venue_id', FIXTURE_VENUE_ID)
+    .eq('month', month)
+    .neq('status', 'void')
+    .maybeSingle();
+  if (error) throw new Error(`draftCoachStatement read: ${error.message}`);
+  return (data as { id: string } | null)?.id ?? null;
 }
 
 /**
@@ -1245,6 +1281,46 @@ export async function draftCoachStatement(svc: SupabaseClient, coachId: string, 
  * 11 retired is made a coach again by the next run's seedCoach
  * (app.coach_promote revives the row), so the journey can retire them anew.
  */
+/**
+ * A started lesson (backdateLesson) cannot be cancelled, and it holds its coach and its court
+ * over "now": a later started lesson of that coach (lessons_coach_no_overlap) or another suite's
+ * started booking on that court (operator-matches) would collide with it. Each one is moved to
+ * have ended 16 minutes ago, one coach's one after another, and the sweep (app.lesson_sweep,
+ * the tp_lesson_sweep cron's body) completes it, which releases its court row. The sweep runs
+ * first as well, so a lesson already over is completed before anything is moved next to it.
+ */
+async function endStartedLessons(svc: SupabaseClient, coachIds: readonly string[]): Promise<void> {
+  const sweep = async () => {
+    const { error } = await svc.schema('app').rpc('lesson_sweep');
+    if (error) throw new Error(`endStartedLessons sweep: ${error.message}`);
+  };
+  await sweep();
+  const now = Date.now();
+  const { data, error } = await svc
+    .from('lessons')
+    .select('id, coach_id, start_at, end_at')
+    .in('coach_id', [...coachIds])
+    .eq('status', 'scheduled')
+    .lte('start_at', new Date(now).toISOString())
+    .order('start_at', { ascending: false });
+  if (error) throw new Error(`endStartedLessons read: ${error.message}`);
+  const rows = (data ?? []) as { id: string; coach_id: string; start_at: string; end_at: string }[];
+  if (rows.length === 0) return;
+  const cursor = new Map<string, number>();
+  for (const l of rows) {
+    const length = Date.parse(l.end_at) - Date.parse(l.start_at);
+    const end = cursor.get(l.coach_id) ?? Math.floor((now - 16 * 60_000) / 60_000) * 60_000;
+    const start = end - length;
+    cursor.set(l.coach_id, start);
+    const { error: uErr } = await svc
+      .from('lessons')
+      .update({ start_at: new Date(start).toISOString(), end_at: new Date(end).toISOString() })
+      .eq('id', l.id);
+    if (uErr) throw new Error(`endStartedLessons move: ${uErr.message}`);
+  }
+  await sweep();
+}
+
 export async function cleanE2eLessons(svc: SupabaseClient): Promise<void> {
   const { data: profiles, error: pErr } = await svc.from('profiles').select('id').like('phone', '+96477020000%');
   if (pErr) throw new Error(`cleanE2eLessons coaches: ${pErr.message}`);
@@ -1260,6 +1336,7 @@ export async function cleanE2eLessons(svc: SupabaseClient): Promise<void> {
   if (cErr) throw new Error(`cleanE2eLessons coach rows: ${cErr.message}`);
   const coachIds = ((coaches ?? []) as { id: string }[]).map((c) => c.id);
   if (coachIds.length === 0) return;
+  await endStartedLessons(svc, coachIds);
 
   const manager = await signedInClient(SEED_STAFF.manager);
   try {
