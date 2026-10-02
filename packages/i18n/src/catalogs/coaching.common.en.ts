@@ -193,6 +193,9 @@ export const coachingCommonEn = {
       notPayable: "This booking can't be paid online any more.",
       onlineRequired: 'Lessons at this branch are paid online by Qi Card.',
       onlineOff: 'Online payment is off at this branch. You can pay at the desk.',
+      // MB-11: lesson-begin refused a held place (online payment or lessons switched off).
+      heldOff:
+        "This place can't be paid online right now. Nothing has been paid yet, so you can cancel it for free.",
       notCoach: "Coach mode isn't available for this account.",
       hoursInvalid: 'Check the times: each one must end after it starts, and by midnight.',
       hoursOverlap: 'These hours overlap hours you already have, here or at another branch.',

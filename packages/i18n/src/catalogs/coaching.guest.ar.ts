@@ -67,6 +67,7 @@ export const coachingGuestAr: DeepMessages<typeof coachingGuestEn> = {
       cancelled: 'أُلغيت',
       mine: 'لديك حجز فيها',
       seeBooking: 'عرض حجزك',
+      mineConfirm: 'أُضيف مكان في هذه الحصة برقم هاتفك. أكّد أن الحجز لك للاحتفاظ به.',
       cancelGroup:
         'الإلغاء مجاني حتى {hours} قبل البدء، وبعدها لا يُعاد المبلغ المدفوع إلكترونيًا.',
       cancelCourse:
@@ -112,6 +113,8 @@ export const coachingGuestAr: DeepMessages<typeof coachingGuestEn> = {
     },
     cancel: {
       free: 'إلغاء هذه الحصة؟ الإلغاء مجاني حتى {time}. {refund}',
+      freeHeld: 'إلغاء هذه الحصة؟ لم يُدفع شيء بعد، فالإلغاء مجاني.',
+      freeNoTime: 'إلغاء هذه الحصة؟ الإلغاء مجاني. {refund}',
       freeMoved: 'إلغاء هذه الحصة؟ نُقلت بعد حجزك، فالإلغاء مجاني حتى موعد بدئها. {refund}',
       lateCounts:
         'بقي أقل من {hours} على الحصة. عند الإلغاء الآن لا يُعاد {kept} المدفوع إلكترونيًا، ويُحسب إلغاءً متأخرًا.',
@@ -119,8 +122,10 @@ export const coachingGuestAr: DeepMessages<typeof coachingGuestEn> = {
       lateNothingPaidCounts: 'بقي أقل من {hours} على الحصة. عند الإلغاء الآن يُحسب إلغاءً متأخرًا.',
       lateNothingPaid: 'بقي أقل من {hours} على الحصة.',
       courseFree: 'الانسحاب من الدورة؟ يُلغى مكانك في كل حصة لم تحضرها بعد. {refund}',
-      courseLate:
-        'الانسحاب من الدورة؟ بقي أقل من {hours} على حصتك التالية ({when})، فلا يُعاد نصيبها ({kept}){late}. وتُلغى {refundSessions} بعدها: {refund}',
+      courseLate: 'الانسحاب من الدورة؟ بقي أقل من {hours} على حصتك التالية ({when}).',
+      courseLateKept: 'لا يُعاد نصيبها ({kept}){late}.',
+      courseLateCounts: 'الانسحاب الآن يُحسب إلغاءً متأخرًا.',
+      courseLateRest: 'وتُلغى {refundSessions} بعدها.',
       refund: 'يُعاد {amount} المدفوع إلكترونيًا إلى بطاقتك.',
       lateClause: '، ويُحسب إلغاءً متأخرًا',
       keep: 'الإبقاء عليها',

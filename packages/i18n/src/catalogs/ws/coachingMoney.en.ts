@@ -11,7 +11,8 @@ export const coachingMoneyEn = {
     title: 'Coach pay',
     lead: "Each coach's monthly statement: what was collected for their lessons, less the court share, and their share of the rest. The money is handed over outside the till.",
     month: {
-      thisMonth: 'This month',
+      // OP-02: back to the default view, the latest month statements are drafted for.
+      thisMonth: 'Latest month',
     },
     // The totals band (the server's `totals`).
     totals: {
@@ -43,6 +44,8 @@ export const coachingMoneyEn = {
       title: 'Not drafted',
       not_drafted: '{coach}: not drafted yet',
       older_draft: "{coach}: waits for an older month's draft",
+      // 0293 (DB-24, OP-22): a later month's draft stands in the way.
+      newer_draft: '{coach}: waits for the {month} draft',
     },
     emptyCurrent: 'Statements are drafted on the 1st for the month before.',
     emptyMonth: 'No statements for {month}.',
@@ -90,6 +93,8 @@ export const coachingMoneyEn = {
         void: 'Statement voided.',
         redraft: 'Drafted again.',
       },
+      // OP-22 (DB-25): a redraft that drafted nothing.
+      redraftSettled: "Nothing to draft: this month's lessons were settled on a later statement.",
     },
     markPaid: {
       title: 'Mark paid',

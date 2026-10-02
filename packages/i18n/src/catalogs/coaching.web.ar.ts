@@ -36,6 +36,7 @@ export const coachingWebAr: DeepMessages<typeof coachingWebEn> = {
     pricePrivate: `{price} لل${g.session}`,
     pricePlace: `{price} لل${g.place}`,
     priceCourse: `{price} لل${g.course} كاملة`,
+    priceLateJoin: `{price} لل${g.sessions} المتبقية`,
     when: '{weekday} {date} · {time}',
     courseStarts: 'تبدأ {date} · {sessions}',
     courseNext: `ال${g.session} التالية {date} · {sessionsLeft}`,

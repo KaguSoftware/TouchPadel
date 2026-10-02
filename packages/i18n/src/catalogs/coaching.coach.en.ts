@@ -294,6 +294,7 @@ export const coachingCoachEn = {
     lines: 'Lessons',
     line: '{date} · {type}',
     lineMoney: 'Collected {collected} · court {court} · yours {coach}',
+    lineMoneyPct: 'Collected {collected} · court {court} · yours ({pct}) {coach}',
     adjustment: 'Adjustment',
     thisMonth: 'This month so far · an estimate, not a statement',
     note: 'Statements are drafted at the start of each month. You see them once the branch manager approves them; the money is paid to you outside the app.',

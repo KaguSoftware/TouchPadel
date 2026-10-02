@@ -292,6 +292,7 @@ export const coachingCoachAr: DeepMessages<typeof coachingCoachEn> = {
     lines: 'الحصص',
     line: '{date} · {type}',
     lineMoney: 'المحصَّل {collected} · الملعب {court} · نصيبك {coach}',
+    lineMoneyPct: 'المحصَّل {collected} · الملعب {court} · نصيبك ({pct}) {coach}',
     adjustment: 'تسوية',
     thisMonth: `هذا الشهر حتى الآن · تقدير وليس ${g.statement}`,
     note: 'تُعدّ كشوف الحساب في بداية كل شهر، وتظهر هنا بعد أن يعتمدها مدير الفرع، ويُسلَّم المبلغ خارج التطبيق.',

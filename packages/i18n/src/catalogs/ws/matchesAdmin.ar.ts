@@ -196,6 +196,7 @@ export const matchesAdminAr: DeepMessages<typeof matchesAdminEn> = {
       title: 'دفعات تجريبية مستبعدة',
       deposits: 'العربون',
       tickets: 'مشتريات التذاكر',
+      lessons: 'دفعات الحصص',
     },
     unpaidMatch: 'مباراة مفتوحة · {label}',
     seatOwing: 'المقعد {seat} · {name} · {amount}',

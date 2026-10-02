@@ -64,6 +64,10 @@ export const coachingAdminEn = {
       needAccount: 'Pick a guest account first.',
       needNames: 'Both display names are needed.',
       needBranch: 'Tick at least one branch.',
+      // OP-03: Make a coach again offers only the caller's own branches.
+      otherBranches: 'Their other branches are left to the managers there.',
+      // OP-09: the lesson types are this branch's.
+      typesNeedBranch: 'Tick this branch to choose its lesson types.',
     },
     // The coach editor (CoachEditor).
     editor: {
@@ -78,7 +82,9 @@ export const coachingAdminEn = {
       notAccepted: "{name} hasn't accepted a public profile yet. Guests don't see them until they accept in the app; lessons booked at the desk or by the coach work now.",
       profile: 'Public profile',
       order: 'Place in the list',
-      orderHint: 'Guests see coaches in this order.',
+      orderHint: 'Guests see coaches in this order, at every branch they teach at.',
+      // OP-06: active_here false.
+      notHere: "Not teaching at this branch. Their lesson types and prices here can't change until this branch is ticked again under Branches.",
       save: 'Save profile',
       saved: 'Profile saved.',
       discard: 'Discard',
@@ -158,7 +164,7 @@ export const coachingAdminEn = {
       close: 'Close',
       unsaved: 'Unsaved',
       kind: 'Kind',
-      kindLocked: "The kind can't change after it goes on sale.",
+      kindLocked: "The kind can't change once saved. Make a new lesson type instead.",
       nameEn: 'Name (English)',
       nameAr: 'Name (Arabic)',
       descEn: 'Description (English)',

@@ -434,6 +434,8 @@ export const protocolsEn = {
       title: 'Bookings in the way',
       none: 'The plan names no courts yet.',
       row: '{court}, {when}: {bookings} bookings, {guests} guests',
+      // OP-21 (DB-34): lessons in the window are in the way too.
+      rowLessons: '{court}, {when}: {bookings} bookings, {guests} guests, {lessons} lessons, {students} students',
     },
     tournament: {
       title: 'The plan: {name}',

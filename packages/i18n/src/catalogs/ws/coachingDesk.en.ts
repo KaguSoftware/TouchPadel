@@ -85,6 +85,9 @@ export const coachingDeskEn = {
     created: 'Lesson created.',
     groupCreated: 'Group session created. Add students or share it in the app.',
     courseCreated: 'Course created: {sessions} booked.',
+    // OP-11: a retry answered with an earlier lesson, or no answer at all.
+    alreadyBooked: 'Already booked earlier at {time}.',
+    maybeLanded: 'The last attempt may have gone through. Check the lessons before trying again.',
   },
   // The lesson screen (§5.10.1–§5.10.3, §5.10.11).
   lesson: {
@@ -140,6 +143,9 @@ export const coachingDeskEn = {
     findInDirectory: 'Find in the directory',
     joinsFrom: 'Joins from session {n}: pays for {sessions}.',
     added: '{name} is in.',
+    // OP-11: a retry the server had already taken.
+    alreadyAdded: '{name} was already added.',
+    maybeLanded: 'The last attempt may have gone through. Check the list before trying again.',
     addedFull: '{name} is in. The session is full.',
     addedFullCourse: '{name} is in. The course is full.',
   },
@@ -150,6 +156,8 @@ export const coachingDeskEn = {
     online: "The online payment goes back to the guest's card.",
     courseSignUp: 'Money for the sessions not yet held goes back: online to the card, desk money as a refund due.',
     nothingPaid: 'Nothing was paid, so nothing is refunded.',
+    // OP-15: a group sign-up cancelled after its session started.
+    begunKept: 'The session has begun, so the money is kept.',
     privateBooker: 'This is the private lesson itself: cancelling it cancels the lesson.',
     lesson: 'Cancels the lesson for {students}, releases the court and tells everyone. Online money goes back; desk money becomes a refund due.',
     course: 'Cancels the sessions still to come for everyone signed up. Each payment gets back what the sessions not held are worth, in one refund.',

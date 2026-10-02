@@ -71,6 +71,8 @@ export const coachingGuestEn = {
       cancelled: 'Cancelled',
       mine: "You're booked on this",
       seeBooking: 'See your booking',
+      // MB-14: a coach- or desk-added place from the guest's phone, not confirmed yet (C-21).
+      mineConfirm: "A place on this was added with your phone number. Confirm it's you to keep it.",
       cancelGroup: 'Free to cancel until {hours} before. After that, online payment is kept.',
       cancelCourse:
         "Free to leave until {hours} before your next session. Leaving later keeps that session's share; the sessions after it are refunded.",
@@ -116,6 +118,9 @@ export const coachingGuestEn = {
     cancel: {
       // §4.9.4: a private lesson or a group session, from `my_lesson.cancel`.
       free: "Cancel this lesson? It's free to cancel until {time}. {refund}",
+      // MB-11: a held place (nothing paid yet), and a free cancel with no deadline sent.
+      freeHeld: "Cancel this lesson? Nothing has been paid yet, so it's free to cancel.",
+      freeNoTime: "Cancel this lesson? It's free to cancel. {refund}",
       freeMoved:
         "Cancel this lesson? It was moved after you booked, so it's free to cancel until it starts. {refund}",
       lateCounts:
@@ -127,8 +132,11 @@ export const coachingGuestEn = {
       // A course (C-23, R62).
       courseFree:
         "Leave the course? Your place on every session you haven't had is cancelled. {refund}",
-      courseLate:
-        'Leave the course? Your next session, {when}, is less than {hours} away, so its share ({kept}) is kept{late}. The {refundSessions} after it are cancelled: {refund}',
+      // MB-15: built from parts, each only when it has something to say.
+      courseLate: 'Leave the course? Your next session, {when}, is less than {hours} away.',
+      courseLateKept: 'Its share ({kept}) is kept{late}.',
+      courseLateCounts: 'Leaving now counts as a late cancellation.',
+      courseLateRest: 'The {refundSessions} after it are cancelled.',
       refund: '{amount} paid online goes back to your card.',
       lateClause: ', and it counts as a late cancellation',
       keep: 'Keep it',

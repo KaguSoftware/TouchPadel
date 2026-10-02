@@ -415,6 +415,7 @@ export const protocolsAr: DeepMessages<typeof protocolsEn> = {
       title: 'حجوزات تتعارض مع الخطة',
       none: 'لم تحدد الخطة ملاعب بعد.',
       row: '{court}، {when}: الحجوزات {bookings}، الضيوف {guests}',
+      rowLessons: '{court}، {when}: الحجوزات {bookings}، الضيوف {guests}، الحصص {lessons}، المتدرّبون {students}',
     },
     tournament: {
       title: 'الخطة: {name}',
