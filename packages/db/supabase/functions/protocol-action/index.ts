@@ -14,8 +14,10 @@
  *     service role (cron tp_protocol_tick through app.protocol_tick_nudge):
  *     the due scheduled launches, then the photo purge, then the photos of
  *     incident reports past their purge date, then the incidents and campaigns
- *     photos nobody claimed within a day. Returns
- *     {launched, reverted, skipped, failed, purged, incidents_purged, orphans_purged}.
+ *     photos nobody claimed within a day, then the coach photo folders queued
+ *     for removal (R43): menu-media coaches/<uuid>/* listed page by page, each
+ *     object app.storage_path_in_use still counts kept. Returns
+ *     {launched, reverted, skipped, failed, purged, incidents_purged, orphans_purged, coach_purged}.
  *
  * verify_jwt = true (config.toml). The flows are in logic.ts, pure.
  */
@@ -27,6 +29,7 @@ import {
   launch,
   parseRequest,
   tick,
+  type CoachPurgeDue,
   type DueLaunch,
   type IncidentPurgeDue,
   type LaunchPorts,
@@ -39,6 +42,8 @@ const STAFF_BUCKET = 'staff-media';
 const MENU_BUCKET = 'menu-media';
 /** A launch request is a handful of ids and a timestamp. */
 const MAX_BODY = 16 * KB;
+/** One storage list page of a coach photo folder. */
+const LIST_PAGE = 100;
 
 /** staff-media → menu-media. A copy onto an existing object is refused, so the fallback overwrites. */
 async function copyPhoto(service: SupabaseClient, from: string, to: string, contentType: string): Promise<void> {
@@ -60,6 +65,19 @@ async function menuPhotoInUse(service: SupabaseClient, menuItemId: string, path:
 async function removeMenuPhoto(service: SupabaseClient, path: string): Promise<void> {
   const { error } = await service.storage.from(MENU_BUCKET).remove([path]);
   if (error) throw new Error(`remove ${path}: ${error.message}`);
+}
+
+/** Every object under a menu-media folder, page by page until an empty page; a sub-folder (no id) is not an object. */
+async function listMenuFolder(service: SupabaseClient, folder: string): Promise<string[]> {
+  const paths: string[] = [];
+  for (let offset = 0; ; offset += LIST_PAGE) {
+    const { data, error } = await service.storage
+      .from(MENU_BUCKET)
+      .list(folder, { limit: LIST_PAGE, offset, sortBy: { column: 'name', order: 'asc' } });
+    if (error) throw new Error(`list ${folder}: ${error.message}`);
+    if (!data || data.length === 0) return paths;
+    for (const entry of data) if (entry.id) paths.push(`${folder}/${entry.name}`);
+  }
 }
 
 const log = (message: string) => console.error('[protocol-action]', message);
@@ -132,6 +150,16 @@ function tickPorts(service: SupabaseClient): TickPorts {
     orphanPurgeDue: async () => ((await rpc('staff_media_orphan_purge_due', { p_limit: 50 })) as string[] | null) ?? [],
     markOrphansPurged: async (paths) => {
       await rpc('staff_media_orphans_purged', { p_paths: paths });
+    },
+    coachPurgeDue: async () => ((await rpc('coach_photo_purge_due', { p_limit: 20 })) as CoachPurgeDue[] | null) ?? [],
+    listMenuFolder: (folder) => listMenuFolder(service, folder),
+    pathInUse: async (path) => (await rpc('storage_path_in_use', { p_path: path })) === true,
+    async removeMenuPhotos(paths) {
+      const { error } = await service.storage.from(MENU_BUCKET).remove(paths);
+      if (error) throw new Error(`remove: ${error.message}`);
+    },
+    markCoachPurged: async (id) => {
+      await rpc('coach_photo_purged', { p_id: id });
     },
   };
 }

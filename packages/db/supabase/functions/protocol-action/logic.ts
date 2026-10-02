@@ -21,7 +21,10 @@
  *                           incident reports past their purge date
  *                           (wave5-addendum-2026-09-25 §2.6.2), then the
  *                           incidents and campaigns photos nobody claimed
- *                           within a day.
+ *                           within a day, then the coach photo folders
+ *                           queued for removal (R43, coaching review EC-01):
+ *                           every menu-media object under coaches/<uuid>/
+ *                           that no row still points at.
  *
  * Errors keep the SQL contract: a refused RPC passes through mapPgError as
  * {error: '<CODE>', message, hint} with its status, and a malformed body is
@@ -231,6 +234,15 @@ export interface IncidentPurgeDue {
   paths: string[];
 }
 
+/** One app.coach_photo_purge_due row: a coach photo folder queued for removal (R43). */
+export interface CoachPurgeDue {
+  id: string;
+  folder: string;
+}
+
+/** A queued coach photo folder, as the coach_photo_purges_folder CHECK (0278) holds it. */
+export const COACH_FOLDER_RE = /^coaches\/[0-9a-f-]{36}$/;
+
 export interface TickPorts extends MenuPhotoPorts {
   dueLaunches(): Promise<DueLaunch[]>;
   copyPhoto(from: string, to: string, contentType: string): Promise<void>;
@@ -248,6 +260,16 @@ export interface TickPorts extends MenuPhotoPorts {
   orphanPurgeDue(): Promise<string[]>;
   /** app.staff_media_orphans_purged: lets the held slots go. */
   markOrphansPurged(paths: string[]): Promise<void>;
+  /** app.coach_photo_purge_due: the oldest queued coach folders. Throws on failure, a missing function included. */
+  coachPurgeDue(): Promise<CoachPurgeDue[]>;
+  /** Every menu-media object path under the folder, paged until an empty page. Throws on a storage error. */
+  listMenuFolder(folder: string): Promise<string[]>;
+  /** app.storage_path_in_use as the service role (0298): a row still points at this path. Throws on failure. */
+  pathInUse(path: string): Promise<boolean>;
+  /** Removes menu-media objects. Throws on failure. */
+  removeMenuPhotos(paths: string[]): Promise<void>;
+  /** app.coach_photo_purged. */
+  markCoachPurged(id: string): Promise<void>;
 }
 
 export interface TickResult {
@@ -258,11 +280,22 @@ export interface TickResult {
   purged: number;
   incidents_purged: number;
   orphans_purged: number;
+  /** Coach photo folders emptied and marked (R43, coaching review EC-01). */
+  coach_purged: number;
 }
 
 /** One pass of the 5-minute tick. One bad run never stops the others. */
 export async function tick(ports: TickPorts): Promise<TickResult> {
-  const out: TickResult = { launched: 0, reverted: 0, skipped: 0, failed: 0, purged: 0, incidents_purged: 0, orphans_purged: 0 };
+  const out: TickResult = {
+    launched: 0,
+    reverted: 0,
+    skipped: 0,
+    failed: 0,
+    purged: 0,
+    incidents_purged: 0,
+    orphans_purged: 0,
+    coach_purged: 0,
+  };
 
   for (const due of await ports.dueLaunches()) {
     const menuPath = due.menu_item_id && due.photo_path ? menuPhotoPath(due.menu_item_id, due.run_id, due.photo_path) : null;
@@ -338,6 +371,35 @@ export async function tick(ports: TickPorts): Promise<TickResult> {
   } catch (e) {
     out.failed += 1;
     ports.log(`orphan purge: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  // Coach photo folders queued by a retirement, an account deletion or a
+  // replaced photo (R43, coaching review EC-01), last and wrapped the same
+  // way. An object a row still points at (a coach brought back with the same
+  // photo) stays; the rest go, then the folder is marked, an empty one
+  // included. A storage error leaves the folder queued for the next tick.
+  let coachFolders: CoachPurgeDue[] = [];
+  try {
+    coachFolders = await ports.coachPurgeDue();
+  } catch (e) {
+    out.failed += 1;
+    ports.log(`coach photo purge: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  for (const queued of coachFolders) {
+    try {
+      if (!COACH_FOLDER_RE.test(queued.folder)) throw new Error(`not a coach folder: ${queued.folder}`);
+      const paths = (await ports.listMenuFolder(queued.folder)).filter((p) => p.startsWith(`${queued.folder}/`));
+      const removable: string[] = [];
+      for (const path of paths) {
+        if (!(await ports.pathInUse(path))) removable.push(path);
+      }
+      if (removable.length > 0) await ports.removeMenuPhotos(removable);
+      await ports.markCoachPurged(queued.id);
+      out.coach_purged += 1;
+    } catch (e) {
+      out.failed += 1;
+      ports.log(`coach photos ${queued.id}: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
   return out;
 }

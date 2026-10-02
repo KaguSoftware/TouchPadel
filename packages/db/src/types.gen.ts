@@ -1772,6 +1772,10 @@ export type Database = {
         }
         Returns: string
       }
+      hold_is_live: {
+        Args: { p_r: Database["public"]["Tables"]["reservations"]["Row"] }
+        Returns: boolean
+      }
       hold_key_guests: { Args: { p_key: string }; Returns: string[] }
       hold_reviews: { Args: { p_venue_id?: string }; Returns: Json }
       hold_slot: {
@@ -1849,11 +1853,16 @@ export type Database = {
       }
       jsonb_top_keys_text: { Args: { p: Json }; Returns: string }
       kitchen_board: { Args: { p_venue_id?: string }; Returns: Json }
+      lesson_assert_coach_bookable: {
+        Args: { p_by: string; p_coach_id: string; p_lesson_type_id: string }
+        Returns: number
+      }
       lesson_blocked_refund_record: {
         Args: {
           p_amount_iqd: number
           p_device_id?: string
           p_enrolment_id: string
+          p_idempotency_key: string
           p_pin: string
           p_reference: string
         }
@@ -1977,6 +1986,10 @@ export type Database = {
         Returns: Json
       }
       lesson_customer_label: { Args: { p_profile_id: string }; Returns: Json }
+      lesson_enrolment_may_owe: {
+        Args: { p_enrolment_id: string }
+        Returns: boolean
+      }
       lesson_enrolment_money: {
         Args: { p_enrolment_id: string }
         Returns: Json
@@ -2161,13 +2174,20 @@ export type Database = {
       }
       lesson_read_my_row: { Args: { p_enrolment_id: string }; Returns: Json }
       lesson_read_push_coach: {
-        Args: { p_lesson_id: string; p_places?: Json; p_title_key: string }
+        Args: {
+          p_enrolment_id?: string
+          p_lesson_id: string
+          p_places?: Json
+          p_suffix?: string
+          p_title_key: string
+        }
         Returns: number
       }
       lesson_read_push_guest: {
         Args: {
           p_enrolment_id: string
           p_lesson_id: string
+          p_suffix?: string
           p_title_key: string
         }
         Returns: number
@@ -2181,6 +2201,7 @@ export type Database = {
         Returns: undefined
       }
       lesson_reason_code: { Args: { p_reason: string }; Returns: string }
+      lesson_refund_net: { Args: never; Returns: number }
       lesson_refund_start: {
         Args: { p_enrolment_id: string; p_reason: string }
         Returns: number
@@ -2347,6 +2368,7 @@ export type Database = {
         }
         Returns: Json
       }
+      looks_like_card: { Args: { p_text: string }; Returns: boolean }
       mark_checklist_item: {
         Args: {
           p_done: boolean
@@ -7781,6 +7803,7 @@ export type Database = {
           hold_expires_at: string | null
           id: string
           idempotency_key: string | null
+          kept_until: string | null
           lesson_id: string | null
           link_confirmed_at: string | null
           party_size: number
@@ -7808,6 +7831,7 @@ export type Database = {
           hold_expires_at?: string | null
           id?: string
           idempotency_key?: string | null
+          kept_until?: string | null
           lesson_id?: string | null
           link_confirmed_at?: string | null
           party_size?: number
@@ -7835,6 +7859,7 @@ export type Database = {
           hold_expires_at?: string | null
           id?: string
           idempotency_key?: string | null
+          kept_until?: string | null
           lesson_id?: string | null
           link_confirmed_at?: string | null
           party_size?: number

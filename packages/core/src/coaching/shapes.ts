@@ -67,6 +67,8 @@ const SESSION_LISTING = [
   'max_places',
   'signup_closes_at',
   'cutoff_at',
+  'price_iqd',
+  'full_price_iqd',
 ] as const;
 
 /** One `my_lessons` row; `my_lesson` adds its detail (X7, X8). */
@@ -122,6 +124,7 @@ const STATEMENT_ROW = [
   'venue_id',
   'venue_name_en',
   'venue_name_ar',
+  'month',
   'status',
   'lessons_count',
   'collected_iqd',
@@ -209,8 +212,8 @@ const HOURS_WRITTEN = {
   },
 } as const;
 
-/** `add_coach_time_off` and `add_my_time_off`. */
-const TIME_OFF_ADDED = ['id', 'starts_at', 'ends_at', 'reason', 'set_by'] as const;
+/** `add_coach_time_off` and `add_my_time_off` (`duplicate` since 0290, DB-06: a retry is the row already there). */
+const TIME_OFF_ADDED = ['id', 'starts_at', 'ends_at', 'reason', 'set_by', 'duplicate'] as const;
 
 /** `cancel_coach_time_off` and `cancel_my_time_off`. */
 const TIME_OFF_CANCELLED = ['id', 'cancelled_at', 'duplicate'] as const;
@@ -355,13 +358,14 @@ const shapes = {
       'server_now',
     ],
     oneOf: [['lesson_id', 'course_id']],
-    optional: ['sessions'],
+    // `off`: the whole answer while coaching is off at the branch, {off: true} (MB-12).
+    optional: ['sessions', 'off'],
     nested: {
       coach: COACH_CARD,
       type: ['id', 'name_en', 'name_ar', 'description_en', 'description_ar', 'duration_min'],
       'sessions[]': ['lesson_id', 'session_no', 'start_at', 'end_at', 'status', 'started'],
       late_join: ['sessions_left', 'sessions_count'],
-      mine: ['enrolment_id', 'status'],
+      mine: ['enrolment_id', 'status', 'confirm_needed'],
     },
   },
 
@@ -510,7 +514,15 @@ const shapes = {
         'private_open',
         'private_cap',
       ],
-      'coach.branches[]': ['venue_id', 'name_en', 'name_ar', 'timezone', 'coaching_enabled'],
+      'coach.branches[]': [
+        'venue_id',
+        'name_en',
+        'name_ar',
+        'timezone',
+        'coaching_enabled',
+        'open_private',
+        'open_private_cap',
+      ],
       'coach.lesson_types[]': [
         'id',
         'venue_id',
@@ -749,6 +761,7 @@ const shapes = {
         'public_accepted_at',
         'sort_order',
         'venue_ids',
+        'active_here',
         'lesson_type_ids',
         'prices',
         'hours',
@@ -939,6 +952,8 @@ const shapes = {
         'owing',
         'owing_iqd',
         'paid_online',
+        'awaiting',
+        'paid_places',
       ],
       'lessons[].course': ['course_id', 'title_en', 'title_ar', 'session_no', 'sessions_count'],
     },
@@ -1037,6 +1052,8 @@ const shapes = {
         'refunded_iqd',
         'kept_iqd',
         'refund_due_iqd',
+        'refund_due_desk_iqd',
+        'refund_blocked_iqd',
         'take_iqd',
       ],
       'enrolments[].can': ['take_payment', 'cancel', 'mark_attended', 'mark_no_show', 'unmark'],
@@ -1225,11 +1242,14 @@ const shapes = {
     },
   },
 
-  /** R75: online lesson money recorded as handed back outside the till (manager PIN). */
+  /**
+   * R75: online lesson money recorded as handed back outside the till (manager PIN). 0293
+   * (DB-23): keyed; a replay of the key answers the stored result with `duplicate` true.
+   */
   lesson_blocked_refund_record: {
     rpc: 'lesson_blocked_refund_record',
     x: null,
-    keys: ['enrolment_id', 'amount_iqd', 'refunded_outside_iqd', 'online_blocked_iqd'],
+    keys: ['duplicate', 'enrolment_id', 'amount_iqd', 'refunded_outside_iqd', 'online_blocked_iqd'],
   },
 
   /** `deposit_status` for a `purpose 'lesson'` row (money.md §6.6; the `lesson` block is X14's union). */
@@ -1298,7 +1318,16 @@ const shapes = {
     keys: ['month', 'current_month', 'server_now', 'statements', 'missing', 'totals'],
     nested: {
       'statements[]': STATEMENT_ROW,
-      'missing[]': ['coach_id', 'coach_name_en', 'coach_name_ar', 'venue_id', 'reason'],
+      // 0293 (DB-24): reason older_draft | newer_draft | not_drafted, and the blocking draft.
+      'missing[]': [
+        'coach_id',
+        'coach_name_en',
+        'coach_name_ar',
+        'venue_id',
+        'reason',
+        'blocking_month',
+        'blocking_statement_id',
+      ],
       totals: [
         'statements',
         'collected_iqd',

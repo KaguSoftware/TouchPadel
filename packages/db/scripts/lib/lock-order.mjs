@@ -42,6 +42,32 @@
  *     The service-role walk gains lesson_sweep, lesson_settle_success,
  *     lesson_payment_prepare and coach_statements_draft (skipped until each
  *     exists).
+ *
+ * 0290 (the coaching review, DB-03/DB-04) added no rank. The coaches row (FOR
+ * UPDATE in coach_update and delete_my_account) and the profiles row (FOR
+ * SHARE in coach_promote) stay out of ORDER, like lessons: the coach mutex
+ * serialises the writers, and the one unmutexed writer, delete_my_account,
+ * takes profile then coach, the order coach_promote reads them in.
+ * price_promo_apply_internal takes the coach mutex before its lesson_types
+ * row (unranked) on a coach_price change: a booking holds the mutex and then
+ * a key share on lesson_types through its foreign key, so the type first
+ * would deadlock with it. The walk cannot follow the protocol hook dispatch,
+ * so lock-order-coaching.test.ts pins it with --show.
+ *
+ * 0291 (the coaching review, DB-11) ranks one row: `venues`. Every lesson
+ * insert (app.lesson_create_internal) takes its branch row FOR KEY SHARE and
+ * refuses a branch that is no longer open, so a lesson never lands at a
+ * branch close_branch (venues FOR UPDATE) has just closed: whichever comes
+ * second sees the other's result. app.lesson_lock_branch_courts, which every
+ * creating body calls first, takes the same key share right after the
+ * courts, so `venues` sits between `court_advisory` and `reservations`, once
+ * per sequence: a lesson body only ever touches one branch, and
+ * lesson_create_internal's own key share (after match_expire_holds, whose
+ * update the walk expands into the reservations trigger's mutex and
+ * tickets) is a re-grant of the same row. A share lock (`for share`,
+ * `for key share`) is emitted only for a table in SHARE_RANKED; every other
+ * share lock stays invisible, as before. open_branch and close_branch take
+ * the row FOR UPDATE and nothing ranked after it.
  */
 
 /** The declared total order. Adding a table here is a deliberate act. */
@@ -58,10 +84,18 @@ export const ORDER = [
   'refunds',
   'stock_batches',
   'court_advisory', // app.lock_court() -- 0042
+  'venues', // 0291 (DB-11): a lesson body's branch row FOR KEY SHARE, once per sequence; open/close_branch FOR UPDATE
   'reservations',
   'match_venue_advisory', // app.lock_match_venue() -- 0260: the branch mutex of open matches
   'match_tickets', // 0260: open-match tickets, FOR UPDATE, always in id order
 ];
+
+/**
+ * Tables whose share locks (`for share`, `for key share`) are ranked too: a
+ * key share waits behind a FOR UPDATE of the same row, so it can deadlock
+ * (0291, DB-11). Every other share lock is left out, as it always was.
+ */
+export const SHARE_RANKED = new Set(['venues']);
 
 /** Advisory locks: a call to `app.<fn>(` is a lock on `lock`, never a call to expand. */
 export const ADVISORY = [
@@ -73,9 +107,16 @@ export const ADVISORY = [
 
 /**
  * Keys a blocking body holds at most once: a later occurrence is dropped
- * (open-matches db.md §2.6 rule 3; coaching db.md §2.5 item 3).
+ * (open-matches db.md §2.6 rule 3; coaching db.md §2.5 item 3). 0291: the
+ * branch's venues row too (a lesson body locks one branch's row, then takes
+ * it again in app.lesson_create_internal).
  */
-export const ONCE_PER_SEQUENCE = new Set(['match_venue_advisory', 'match_money_advisory', 'coach_advisory']);
+export const ONCE_PER_SEQUENCE = new Set([
+  'match_venue_advisory',
+  'match_money_advisory',
+  'coach_advisory',
+  'venues',
+]);
 
 /**
  * Service-role functions walked as if client-callable (contracts §1.4 + R8).
@@ -188,6 +229,15 @@ export function createWalker({ fns, triggers }) {
       // ticket_pick, wave 5's consume_fefo_at). Until 0260 the lookahead took
       // whitespace only, and those locks were invisible to the gate.
       const lockM = /\bfor\s+(?:no\s+key\s+)?update(\s+of\s+([a-z_,\s]+?))?(?=[\s)]|$)/i.exec(stmt);
+      // 0291 (DB-11): a share lock on a SHARE_RANKED table (venues) is a lock too.
+      const shareM = lockM ? null : /\bfor\s+(?:key\s+)?share(\s+of\s+([a-z_,\s]+?))?(?=[\s)]|$)/i.exec(stmt);
+      if (shareM) {
+        const al = aliases(stmt);
+        const named = shareM[2]
+          ? shareM[2].split(',').map((x) => al.get(x.trim().toLowerCase())).filter(Boolean)
+          : [...new Set(al.values())];
+        for (const t of named) if (SHARE_RANKED.has(t)) out.push({ lock: t });
+      }
       if (lockM) {
         const al = aliases(stmt);
         // Coaching (coaching_tables, R64, D-25): a reservations row taken SKIP LOCKED is

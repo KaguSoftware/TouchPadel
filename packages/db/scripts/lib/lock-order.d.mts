@@ -17,6 +17,7 @@ export type LockEvent = { lock: string } | { call: string } | { write: string };
 export const ORDER: string[];
 export const ADVISORY: { fn: string; lock: string }[];
 export const ONCE_PER_SEQUENCE: Set<string>;
+export const SHARE_RANKED: Set<string>;
 export const SERVICE_WALK: string[];
 export const BALANCE_TABLES: string[];
 export const STATUS_ONLY_RESERVATION_WRITERS: Set<string>;
