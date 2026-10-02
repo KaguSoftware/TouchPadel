@@ -285,13 +285,18 @@ or off (staging, R51).
                                        -- coach or the desk booked it); else null
                    party_size,         -- private: the booker's party; else null
                    places_taken, max_places, min_places, cutoff_at,
-                   enrolments, owing, owing_iqd, paid_online }] }
+                   enrolments, owing, owing_iqd, paid_online,
+                   awaiting, paid_places }] }            -- 0294 (DB-32)
 ```
 
 Rows: lessons of the branch with status `held`, `scheduled` or `completed` and `start_at` in the
 window. `reservation_id` is the lesson's live court row, `kind 'lesson'`, or the `hold` row of a
 private lesson awaiting Qi (§1.2 "Changed tables"), so a held lesson's block is recognised too.
 `owing` counts `booked` desk enrolments whose `take_iqd > 0`; `owing_iqd` sums them.
+**Amended 2026-10-02 (0294, DB-32):** `paid_online` counts `booked` enrolments with online money
+left after refunds (a cancelled or refunded place, or a held one, is not paid); `awaiting` counts the
+`held` places; `paid_places` the `booked` places with desk or online money left after refunds. The
+pay cell reads these, never "All paid" for a held place (OP-13).
 `booked_by_kind` drives the C-24 flag (§5.8).
 
 ### 5.6.2 `desk_lesson_detail(p_lesson_id)` (DB, 0280; money from Money's 0278 internals; X17)
@@ -319,7 +324,8 @@ enrolments: [{ enrolment_id, scope,              -- 'lesson' | 'course'
                booked_by_kind, booked_by_name, payment_mode, created_at,
                attendance: { status, marked_at, marked_by_name } | null,   -- this session's
                money: { price_iqd, owed_iqd, desk_paid_iqd, online_paid_iqd, refunded_iqd,
-                        kept_iqd, refund_due_iqd, take_iqd },
+                        kept_iqd, refund_due_iqd, refund_due_desk_iqd, refund_blocked_iqd,
+                        take_iqd },                                  -- 0294 (DB-31)
                can: { take_payment, cancel, mark_attended, mark_no_show, unmark } }]
 events:     [{ at, type, actor, actor_name, enrolment_id, code, late }]  -- last 50, newest first
 ```
@@ -333,14 +339,19 @@ reads `customer_id: null`, exactly like an unmatched walk-in. Staff see phones (
 not staff).
 
 `money` is `lesson_enrolment_money` plus `take_iqd` = `lesson_fee_remaining` (what Take payment
-collects; a course sign-up's money is the whole sign-up's, shown on every session). `late` is true
+collects; a course sign-up's money is the whole sign-up's, shown on every session); since 0294
+(DB-31) it also carries the engine's `refund_due_desk_iqd` (owed back at the desk) and
+`refund_blocked_iqd` (online money no channel can return, handed back outside the till, R75), so the
+banner never calls blocked online money "paid at the desk" (OP-14). `late` is true
 on an `under_filled` event judged after the start (R26: nothing was cancelled). `can` rules the
 operator mirrors only for offline and capability: `add_student` (scheduled; a group session before
 its end, a course before `signup_closes_at`, R39/R48; a place left); `cancel` (held or scheduled,
 not started; a private lesson or group session); `cancel_course` (a course session whose course is
 open or running with a session left to start); `reschedule` (scheduled, not started, any kind, R8;
 never held, R32); `move_court` (scheduled, not held, before `end_at`); `enrolment.can.take_payment`
-(booked, desk mode, `take_iqd > 0`, the lesson not cancelled); `mark_no_show` from the start until
+(booked, desk mode, `take_iqd > 0`, the lesson not cancelled); `enrolment.can.cancel` (held or
+booked; a private lesson's place until its start, 0294 DB-31 after 0291 DB-07; a group place until
+the session's end; a course place until the course's last end); `mark_no_show` from the start until
 24 h after (CD-11); `unmark` while the mark can still change.
 
 ### 5.6.3 The other reads
@@ -348,7 +359,7 @@ never held, R32); `move_court` (scheduled, not held, before `end_at`); `enrolmen
 | RPC (owner lane) | Called from | Keys read |
 | --- | --- | --- |
 | `customer_lessons(p_customer_id)` (DB, 0280; X18) | record | `coach: { coach_id, status, display_name_en, display_name_ar, venue_ids[] } \| null`, `counts: { lessons, no_shows }`, `lesson_strikes_30d`, `lessons[]: { enrolment_id, lesson_id, course_id, venue_id, kind, start_at, end_at, status, enrolment_status, attendance, type_name_en, type_name_ar, coach_name_en, coach_name_ar, course_title_en, course_title_ar, payment_mode, money: { owed_iqd, desk_paid_iqd, online_paid_iqd, refund_due_iqd, take_iqd } }` (upcoming, then the last 20). Lists only enrolments this customer booked, the desk picked them for, or they confirmed (C-21) |
-| `coaches_admin(p_venue_id)` (DB, 0279; X19) | `/admin/coaches`, Setup card | `coaching_enabled, server_now, coaches[]: { coach_id, profile_id, full_name, phone, account_deleted, display_name_en, display_name_ar, bio_en, bio_ar, photo_path, status, public_accepted_at, sort_order, venue_ids[], lesson_type_ids[] (this branch), prices[]: { lesson_type_id, price_iqd }, hours[]: { weekday, start_time, end_time }, hours_set_by, hours_set_by_name, hours_updated_at, hours_elsewhere[]: { venue_id, venue_name_en, venue_name_ar, weekday, start_time, end_time }, time_off[]: { id, starts_at, ends_at, reason, set_by, set_by_name }, upcoming_lessons, open_courses }`, `lesson_types[]: { lesson_type_id, kind, name_en, name_ar, description_en, description_ar, duration_min, price_iqd, court_share_iqd, max_places, min_places, cutoff_hours, sessions_count, is_active, launched_at, sort_order, coach_ids[], pending_run: { run_id, change } \| null }` |
+| `coaches_admin(p_venue_id)` (DB, 0279; X19) | `/admin/coaches`, Setup card | `coaching_enabled, server_now, coaches[]: { coach_id, profile_id, full_name, phone, account_deleted, display_name_en, display_name_ar, bio_en, bio_ar, photo_path, status, public_accepted_at, sort_order, venue_ids[], active_here, lesson_type_ids[] (this branch), prices[]: { lesson_type_id, price_iqd }, hours[]: { weekday, start_time, end_time }, hours_set_by, hours_set_by_name, hours_updated_at, hours_elsewhere[]: { venue_id, venue_name_en, venue_name_ar, weekday, start_time, end_time }, time_off[]: { id, starts_at, ends_at, reason, set_by, set_by_name }, upcoming_lessons, open_courses }`, `lesson_types[]: { lesson_type_id, kind, name_en, name_ar, description_en, description_ar, duration_min, price_iqd, court_share_iqd, max_places, min_places, cutoff_hours, sessions_count, is_active, launched_at, sort_order, coach_ids[], pending_run: { run_id, change } \| null }` |
 | `coaching_settings(p_venue_id)` (DB, 0274; X20, R50, R56) | settings panel | `venue_id, coaching_enabled, lesson_payment_mode, coach_share_bp, lesson_prices_public, coach_max_open_private, online_payments_available` (a Qi provider is configured), `lesson_terms_ready` (`platform_settings.lesson_terms_version` is set) |
 | `coach_slots(p_coach_id, p_lesson_type_id, p_from, p_to)` (DB, 0280; public; X3, R51) | new private lesson | `{ off, venue_id, lesson_type_id, duration_min, bookable, starts: [{ start_at, end_at }] }`; one local day per call; a staff caller at the type's branch is answered whether coaching is on or off; a paused coach answers `bookable: false, starts: []` |
 | `lesson_refunds_due(p_venue_id)` (Money, 0278; X21) | Ops panel, lesson screen | `{ venue_id, total_iqd, items: [{ enrolment_id, lesson_id, course_id, kind, coach_id, coach_name_en, coach_name_ar, start_at, label, phone, cancel_kind, refund_due_iqd, refund_due_desk_iqd, online_blocked_iqd, payments: [{ payment_id, tab_id, method, amount_iqd, refunded_iqd, refundable_iqd, created_at }] }] }`, oldest lesson first; `label` per R44; includes course-leave refunds (R62) |
@@ -374,7 +385,7 @@ Refusals are the X31 vocabulary (R52): only codes a server raises, each detail w
 | `desk_create_group` | New lesson, group | §1.7 args; key | `lesson_id, cutoff_at` → `/desk/lessons/$id` | as above, less the party, customer and coach-enrolled codes; `LESSON_CLOSED` `cutoff` (R47) |
 | `desk_create_course` | New lesson, course | `p_starts` (every session, ascending), `p_title_en`, `p_title_ar` ('' when blank); key | `course_id, lesson_ids[]` (and `sessions[]`, X13) → first session's screen | `COURSE_STARTS_INVALID` `count` / `order` / `span`; per start `SLOT_NOT_ON_GRID`, `SLOT_IN_PAST`, `CLOSED_DATE`, `OUTSIDE_HOURS`, `COACH_UNAVAILABLE`, `COACH_BUSY`, `NO_COURT_FREE` with detail the session number; `LESSON_CLOSED` `cutoff` (session 1, R47) |
 | `desk_add_student` | Add student | `p_lesson_id` (group) or `p_course_id` (course), `p_customer_id` or `p_name` + `p_phone`; key | `enrolment_id, places_left` | `LESSON_FULL`, `LESSON_CLOSED` (a group session over; a course from its last start, R39), `ALREADY_ENROLLED` (and `coach`), `CUSTOMER_NOT_FOUND`, `LESSON_NOT_FOUND`, `VENUE_MISMATCH` (field errors in the dialog) |
-| `desk_cancel_enrolment` | roster row | `p_enrolment_id`, `p_reason` (`<code>` or `<code>: <note>`) | `status, refund_due_iqd, online_refund` | `ENROLMENT_NOT_FOUND` (refetch), `LESSON_NOT_CANCELLABLE` `status` / `ended` |
+| `desk_cancel_enrolment` | roster row | `p_enrolment_id`, `p_reason` (`<code>` or `<code>: <note>`) | `status, refund_due_iqd, online_refund` | `ENROLMENT_NOT_FOUND` (refetch), `LESSON_NOT_CANCELLABLE` `status` / `ended` / `started` (a private lesson once it has started, 0291 DB-07; `can.cancel` follows in 0294, DB-31) |
 | `desk_cancel_lesson` | lesson header | `p_lesson_id`, `p_reason` | `status` | `LESSON_NOT_CANCELLABLE` `course_session` / `status` / `started` |
 | `desk_cancel_course` | lesson header (course) | `p_course_id`, `p_reason` | `status, sessions_cancelled` | `LESSON_NOT_CANCELLABLE` `status` / `ended` |
 | `desk_reschedule_session` | Reschedule dialog (every kind, R8) | `p_lesson_id`, `p_start_at` | `start_at, end_at, court_name_en, court_name_ar` | `SESSION_NOT_MOVABLE` `ended` / `started` / `order`, `INVALID_TRANSITION` `held` (R32), `LESSON_CLOSED` `cutoff` (R47), `SLOT_NOT_ON_GRID`, `SLOT_IN_PAST`, `CLOSED_DATE`, `OUTSIDE_HOURS`, `COACH_UNAVAILABLE`, `COACH_BUSY`, `NO_COURT_FREE` |
@@ -385,7 +396,7 @@ Refusals are the X31 vocabulary (R52): only codes a server raises, each detail w
 | `coach_promote` | Make a coach | all §1.7 args; `p_venue_ids` default `[currentBranchId()]` | `coach_id` | `ALREADY_COACH` (link to the coach), `CUSTOMER_NOT_FOUND`, `INVALID_ARGUMENT` |
 | `coach_update` | coach editor | `p_coach_id`, `p_patch` ⊆ `display_name_en, display_name_ar, bio_en, bio_ar, photo_path, sort_order` | the coach | `COACH_NOT_FOUND`, `INVALID_ARGUMENT` |
 | `set_coach_status` | coach editor | `p_coach_id`, `p_status` ∈ `active, paused, retired`, `p_reason` (note, 1..200; optional for pause and resume) | `status, lessons_cancelled` | `INVALID_ARGUMENT`. Retiring is never refused (R45) |
-| `set_coach_branches` | coach editor | `p_coach_id`, `p_venue_ids` | `venue_ids` | `BRANCH_HAS_BOOKINGS` (detail: the removed branch with lessons to come, R52), `INVALID_ARGUMENT`, `FORBIDDEN` |
+| `set_coach_branches` | coach editor | `p_coach_id`, `p_venue_ids` | `venue_ids` | `BRANCH_HAS_BOOKINGS` (detail `coach_lessons`, hint: the removed branch with lessons to come, R52), `INVALID_ARGUMENT`, `FORBIDDEN` |
 | `set_coach_lesson_types` | coach editor, Make a coach | `p_coach_id`, `p_venue_id = currentBranchId()`, `p_lesson_type_ids` | `lesson_type_ids` | `LESSON_TYPE_NOT_FOUND`, `COACH_NOT_AT_BRANCH`. Unlinking a type deletes the coach's own price for it (R46) |
 | `upsert_lesson_type` | lesson type editor | `p_venue_id`, `p_id` (null for new), `p_patch` (changed keys only) | the type | `PRICE_VIA_PROTOCOL` `price` / `shape`, `LAUNCH_VIA_PROTOCOL` (each turns into its way out, §5.13.2), `INVALID_ARGUMENT` (detail = key → field) |
 | `set_coach_price` | coach editor (owner) | `p_coach_id`, `p_lesson_type_id`, `p_price_iqd` (NULL removes) | — | `INVALID_ARGUMENT`, `LESSON_TYPE_NOT_OFFERED` |
@@ -394,8 +405,8 @@ Refusals are the X31 vocabulary (R52): only codes a server raises, each detail w
 | `cancel_coach_time_off` | Hours tab | `p_id` | — | `INVALID_ARGUMENT` `p_id` (refetch) |
 | `coach_statement_refresh` | statement dialog (Recount on a draft, Redraft on a void) | `p_statement_id` | `statement_id, status, created` | `STATEMENT_NOT_DRAFT` (and `live_draft`), `FORBIDDEN` `own_statement` |
 | `coach_statement_approve` | statement dialog | `p_statement_id` | `statement_id, status` | `STATEMENT_NOT_DRAFT`, `FORBIDDEN` `own_statement` |
-| `coach_statement_void` | Void dialog | `p_statement_id`, `p_reason` (1..200); from `approved` also `p_pin`, `p_device_id` (R59) | the statement | `REASON_REQUIRED`, `INVALID_TRANSITION` `paid`, `INVALID_ARGUMENT` `p_reason` (a run of 12 or more digits, R49), `PIN_INVALID`, `PIN_LOCKED`, `PIN_GRANT_REQUIRED`, `FORBIDDEN` `own_statement` |
-| `coach_statement_mark_paid` | Mark paid dialog | `p_statement_id`, `p_reference` (1..80), `p_pin`, `p_device_id` (R4) | `status, paid_at, total_iqd` | `STATEMENT_NOT_APPROVED` (and `negative`, R59), `STATEMENT_REFERENCE_REQUIRED`, `INVALID_ARGUMENT` `p_reference` (R49), `PIN_INVALID`, `PIN_LOCKED`, `PIN_GRANT_REQUIRED`, `FORBIDDEN` `own_statement` |
+| `coach_statement_void` | Void dialog | `p_statement_id`, `p_reason` (1..200); from `approved` also `p_pin`, `p_device_id` (R59) | the statement | `REASON_REQUIRED`, `INVALID_TRANSITION` `paid`, `INVALID_ARGUMENT` `p_reason` (a run of 12 or more digits, R49), `PIN_INVALID`, `PIN_LOCKED`, `PIN_GRANT_REQUIRED`, `FORBIDDEN` `own_statement`, `own_statement_pin` (the coach's own PIN, 0293) |
+| `coach_statement_mark_paid` | Mark paid dialog | `p_statement_id`, `p_reference` (1..80), `p_pin`, `p_device_id` (R4) | `status, paid_at, total_iqd` | `STATEMENT_NOT_APPROVED` (and `negative`, R59), `STATEMENT_REFERENCE_REQUIRED`, `INVALID_ARGUMENT` `p_reference` (R49), `PIN_INVALID`, `PIN_LOCKED`, `PIN_GRANT_REQUIRED`, `FORBIDDEN` `own_statement`, `own_statement_pin` (the coach's own PIN, 0293) |
 
 Existing writes that meet coaching refusals: `close_branch` (Setup › Branches) `BRANCH_HAS_BOOKINGS`
 with no detail (live lessons, 0277) or detail `coaching_money` (R37); the till's queued
@@ -454,13 +465,17 @@ lessonsByReservation.get(r.id)` from `useDeskLessons(dayStart, dayEnd)`:
 - name (`:1161-1167`): `lessonLabel(lesson, locale, tr)`: private "{coach} · {booker}" ("Coach Sara ·
   Ali Hasan", the booker's name per R44), group "{coach} · {type}", course "{coach} · {title, else
   type} · Session 2" / "… · الحصة 2"; with no lesson row (offline, or the read failed) "Lesson" /
-  "حصة";
+  "حصة"; without that row a held lesson's `hold` is still known by its literal (`guest_id` null,
+  `guest_name` 'Lesson', `isLessonLiteral`), so `isLessonRow` and the booking dialog treat it as the
+  lesson and never offer Extend, Shorten or Cancel to be queued and refused (OP-19); `lesson_id` is
+  not added to `RESERVATION_COLUMNS`;
 - after the name, `LessonPlacesChip` for a group session or course: `isolateLtr('4/6')`, drawn in the
   tile's own ink (`border: 1px solid currentColor`, transparent ground, `users` icon 12 px; the
   `SeatChip` treatment, no token), `aria-label` "Group session · 4 of 6 places" / "حصة جماعية · 4 من
   6 أماكن"; a private lesson with a party shows `isolateLtr('+2')`;
-- the third line is `LessonBadge`; after the start, a lesson with `owing > 0` adds a warn
-  `StatusBadge` "To pay 2" / "للدفع 2"; a private lesson with `booked_by_kind 'coach'` and
+- the third line is `LessonBadge`; places still waiting on Qi (`awaiting > 0` on a lesson that is
+  not itself held) add an info "Awaiting online payment" / "بانتظار الدفع الإلكتروني" (OP-13); after
+  the start, a lesson with `owing > 0` adds a warn `StatusBadge` "To pay 2" / "للدفع 2"; a private lesson with `booked_by_kind 'coach'` and
   `owing > 0` shows, from the moment it is booked, the warn flag "Booked by the coach · unpaid" /
   "حجزها المدرّب · غير مدفوعة" (C-24, `lessonPayState`);
 - never draggable: `canMoveReservation` already refuses any kind but `booking` (`deskLogic.ts:66-73`),
@@ -580,6 +595,17 @@ group "Group session created. Add students or share it in the app." / "أُنش�
 الدورة وحُجزت {sessions}.". A refusal with a session number in its detail marks that row of the
 course list.
 
+**Retries (OP-11).** Each create RPC keeps one idempotency key per draft for the life of the dialog
+(`draftFingerprint`: kind, type, coach, start or starts, the customer or the typed name and phone,
+the party, the course titles), cleared after a success: a retry of the same draft replays, an
+edited draft is a new write with a new key, and a draft edited back to what was sent reuses that
+key, so it cannot book twice. A failure with no answer (a fetch error, a timeout, a server error
+with no code) re-reads the desk lessons and says "The last attempt may have gone through. Check the
+lessons before trying again." / "ربما نجحت المحاولة الأخيرة. يُرجى التحقق من الحصص قبل إعادة
+المحاولة."; a `duplicate: true` answer whose start is not the draft's says "Already booked earlier at
+{time}." / "حُجزت سابقًا في {time}." and opens that lesson. Add student (§5.10.7) keys the same way
+on the student and answers a duplicate with "{name} was already added." / "أُضيف {name} سابقًا."
+
 ## 5.10 Lesson screen (`/desk/lessons/$id`, `op/features/coaching/LessonDetail.tsx`)
 
 For every status. Reads `desk_lesson_detail` (`QK.coaching.lesson(id)`) and, for a manager,
@@ -616,7 +642,10 @@ For every status. Reads `desk_lesson_detail` (`QK.coaching.lesson(id)`) and, for
 
 "Refunded" here names what the server does; desk money still waits on a manager (§5.10.10), and the
 banner adds "Money paid at the desk is waiting for a refund: {amount}." / "مبلغ مدفوع في الاستقبال
-بانتظار الرد: {amount}." when any enrolment has `refund_due_iqd > 0`.
+بانتظار الرد: {amount}." when any enrolment has `refund_due_desk_iqd > 0` (its sum). **Amended
+2026-10-02 (0294 DB-31, OP-14):** online money whose refund is blocked on Qi (`refund_blocked_iqd`)
+is never called desk money: it gets its own line, "Online refund needs attention: {amount}." /
+"استرداد إلكتروني يحتاج إلى متابعة: {amount}.".
 
 ### 5.10.3 Course strip
 
@@ -700,6 +729,9 @@ is already in `MATCH_REASON_CODES`). Consequence lines by money state, from the 
   a refund due." / "يُرد المبلغ عن الحصص التي لم تُعقد بعد: الإلكتروني إلى البطاقة، والمدفوع في
   الاستقبال يصبح مستحق الرد.";
 - enrolment, nothing paid: "Nothing was paid, so nothing is refunded." / "لم يُدفع شيء، فلا شيء يُرد.";
+- a group or private sign-up once its session has begun (`server_now >= start_at`), paid: "The
+  session has begun, so the money is kept." / "بدأت الحصة، فلا يُرد المبلغ." in place of the refund
+  lines (OP-15; a started private lesson cannot be cancelled at all, DB-07);
 - lesson: "Cancels the lesson for {students}, releases the court and tells everyone. Online money
   goes back; desk money becomes a refund due." / "تُلغى الحصة لـ{students} ويُحرَّر الملعب ويُبلَّغ
   الجميع. تعود المبالغ الإلكترونية، ويصبح المدفوع في الاستقبال مستحق الرد.";
@@ -767,7 +799,7 @@ undone / التراجع عن التسجيل; `settled` Paid at the desk / دفع
 | Kind | `LessonBadge` | — |
 | What | "{type} · {coach}"; private adds the booker | — |
 | Places | "Places 4 of 6" (group, course); private "+2" | "الأماكن 4 من 6" |
-| Pay | "To pay 2" (warn once started), "All paid" (success), "Paid online" (neutral) | "للدفع 2"، "مدفوع بالكامل"، "مدفوع إلكترونيًا" |
+| Pay | in order (OP-13): "Awaiting online payment" (info; held, or `awaiting > 0`), "To pay 2" (warn once started), "Paid online" (neutral; live online payers ≥ sign-ups), "All paid" (success; `paid_places` = sign-ups), else nothing (an unpaid no-show, a refunded online place) | "بانتظار الدفع الإلكتروني"، "للدفع 2"، "مدفوع إلكترونيًا"، "مدفوع بالكامل" |
 | Tags | "Needs 2 more by 16:00" (warn), "Awaiting online payment" (info), "Starts in 20 min", "Booked by the coach · unpaid" (warn, C-24) | "تحتاج إلى 2 قبل 16:00"، "بانتظار الدفع الإلكتروني"، "تبدأ بعد 20 دقيقة"، "حجزها المدرّب · غير مدفوعة" |
 | Actions | **Take payment** (`takeLessonPayment`, `owing > 0`; one owing enrolment → `/desk/lessons/$id?pay=<enrolment>`, several → the lesson), **Open** | **استلام الدفع**، **فتح** |
 
@@ -795,9 +827,9 @@ percent ↔ basis points, `onlineModeBlock(settings)`). Title "Lessons and coach
 | --- | --- | --- |
 | Lessons at this branch (`coaching_enabled`) | switch | Off: "Guests can't book lessons here and the website leaves this branch out. Lessons already booked carry on, and the desk can still set lessons up." / "لا يمكن للزبائن حجز حصص هنا، ولا يعرض الموقع هذا الفرع. تستمر الحصص المحجوزة، ويمكن للاستقبال إعداد الحصص." |
 | How lessons are paid (`lesson_payment_mode`) | At the desk · At the desk or online · Online only / في الاستقبال · في الاستقبال أو إلكترونيًا · إلكترونيًا فقط | "Lessons booked by a coach or at the desk are always paid at the desk." / "تُدفع دائمًا في الاستقبال الحصص التي يحجزها مدرّب أو الاستقبال." The two online choices are disabled, with every reason that applies shown under them (C-26, R50, X20): `online_payments_available` false: "Online payment isn't set up for this branch." / "الدفع الإلكتروني غير مُعدّ لهذا الفرع."; `lesson_terms_ready` false: "Online lesson payment can be switched on once the terms and privacy text with a lessons section are live." / "يمكن تفعيل الدفع الإلكتروني للحصص بعد نشر الشروط ونص الخصوصية متضمّنين قسم الحصص." |
-| Coach's share (`coach_share_bp`) | 0..100 %, two decimals (`PercentInput`, sent as basis points) | Label "Coach's share" / "نصيب المدرّب". "Coaches earn this share of what is collected for a lesson, after the court share. Each lesson keeps the share it was booked with." / "يحصل المدرّب على هذه النسبة مما يُحصَّل عن الحصة بعد خصم أجرة الملعب، وتحتفظ كل حصة بالنسبة التي حُجزت بها." |
+| Coach's share (`coach_share_bp`) | 0..100 %, two decimals (`PercentInput`, sent as basis points; Arabic-Indic and Extended Arabic-Indic digits read as 0-9, ٫ as the decimal point, ٬ dropped, OP-16) | Label "Coach's share" / "نصيب المدرّب". "Coaches earn this share of what is collected for a lesson, after the court share. Each lesson keeps the share it was booked with." / "يحصل المدرّب على هذه النسبة مما يُحصَّل عن الحصة بعد خصم أجرة الملعب، وتحتفظ كل حصة بالنسبة التي حُجزت بها." |
 | Prices on the website (`lesson_prices_public`) | switch | "Lesson prices show on the website's coaching page only when this is on. The app shows them either way." / "تظهر أسعار الحصص في صفحة التدريب على الموقع فقط عند تفعيل هذا الخيار، ويعرضها التطبيق في الحالتين." |
-| Private lessons a coach can hold (`coach_max_open_private`, C-24, R56) | whole number 1..100, default 10 | Label "Private lessons a coach can hold for their students" / "الحصص الخاصة التي يحجزها المدرّب لمتدرّبيه". "At most this many upcoming private lessons booked by a coach at once. Lessons booked in the app or at the desk don't count." / "حدّ أقصى للحصص الخاصة القادمة التي يحجزها المدرّب في الوقت نفسه، ولا تُحتسب الحصص المحجوزة عبر التطبيق أو من الاستقبال." |
+| Private lessons a coach can hold (`coach_max_open_private`, C-24, R56) | whole number 1..100, default 10 (`UnitInput` keeps Arabic digits, as Latin, OP-16) | Label "Private lessons a coach can hold for their students" / "الحصص الخاصة التي يحجزها المدرّب لمتدرّبيه". "At most this many upcoming private lessons booked by a coach at once. Lessons booked in the app or at the desk don't count." / "حدّ أقصى للحصص الخاصة القادمة التي يحجزها المدرّب في الوقت نفسه، ولا تُحتسب الحصص المحجوزة عبر التطبيق أو من الاستقبال." |
 
 A manager sees `Facts` rows and "Only the owner can change these." / "يغيّر هذه الإعدادات المالك فقط."
 `INVALID_ARGUMENT` with a key in its detail lands on that field; `ONLINE_PAYMENT_OFF` `provider` or
@@ -836,7 +868,11 @@ bio EN and AR (multiline, 0..1000); photo (`ImageField`, `op/components/ImageFie
 `'coaches'`, and `mediaPath('coaches', …)` writes `coaches/<random uuid>/<random uuid>.<ext>`: a fresh
 folder per upload, never a profile or coach id (R43), matching §1.2's `photo_path` pattern;
 `isMediaPath` learns the `coaches/` shape); branches (checkboxes of `useVenue().venues`, the rail's
-branch ticked); lesson types at this branch (checkboxes). Under the form: "The coach is asked in the
+branch ticked); lesson types at this branch (checkboxes, enabled only while the rail's branch is
+ticked; unticking it clears them, and no `set_coach_lesson_types` call is made, OP-09). Make a coach
+again offers and sends only the retired coach's branches this screen shows, the caller's own
+(`coach_promote` refuses another branch, OP-03), with "Their other branches are left to the managers
+there." / "فروعه الأخرى يتولّاها مديرو تلك الفروع." when there are others. Under the form: "The coach is asked in the
 app to accept being shown publicly. Until then guests don't see them." / "يُطلب من المدرّب في
 التطبيق الموافقة على ظهوره للعموم، ولا يراه الزبائن قبل ذلك." **Make coach** / **تعيين مدرّب**
 sends `coach_promote`, then `set_coach_lesson_types` when types were ticked; if the second call fails
@@ -851,13 +887,24 @@ offers "Open {name}" / "فتح {name}".
   accept in the app; lessons booked at the desk or by the coach work now." / "لم يوافق {name} على
   ملف عام بعد، فلا يراه الزبائن حتى يوافق في التطبيق، وتعمل الحصص المحجوزة من الاستقبال أو من
   المدرّب الآن.";
-- display names, bio, photo (`ImageField` as above), order arrows (`SortButtons`, `sort_order`
-  through `coach_update`); **Save** sends `coach_update` with the changed keys; a replaced photo's
-  old object is removed with `removeMedia` after the save (`app.storage_path_in_use` counts
-  `coaches.photo_path`, R43);
+- display names, bio, photo (`ImageField` as above); **Save** sends `coach_update` with the
+  changed keys; a replaced photo's old object is removed with `removeMedia` after the save
+  (`app.storage_path_in_use` counts `coaches.photo_path`, R43);
+- order arrows (`SortButtons`), saved on their own, apart from **Save** (OP-01): the coach swaps
+  with its neighbour among the coaches still teaching, the list is renumbered 0, 10, 20 …, and each
+  coach whose `sort_order` changed gets its own `coach_update` (`sort_order` alone; never below
+  0, and coaches tied on `sort_order` move one place). `sort_order` is the coach's, not the
+  branch's: the order holds at every branch the coach teaches at ("Guests see coaches in this order,
+  at every branch they teach at." / "يرى الزبائن المدرّبين بهذا الترتيب في كل فرع يدرّبون فيه.");
+- a coach not active at this branch (`active_here` false, a branch switched off) says "Not teaching
+  at this branch. Their lesson types and prices here can't change until this branch is ticked again
+  under Branches." / "لا يدرّب في هذا الفرع. لا تتغيّر أنواع حصصه وأسعاره هنا حتى يُحدَّد هذا الفرع
+  من جديد ضمن الفروع."; the types and prices are read-only, Branches stays editable, and the coach
+  is left out of the Hours tab and the Setup count (OP-06);
 - Branches: checkboxes → `set_coach_branches`; removing one with lessons to come is refused
-  (`BRANCH_HAS_BOOKINGS`, the detail naming the branch): "This coach has lessons at {branch}. Cancel
-  them first." / "لدى المدرّب حصص في {branch}. يلزم إلغاؤها أولًا.";
+  (`BRANCH_HAS_BOOKINGS` detail `coach_lessons`, the hint naming the branch; with no id in the
+  hint, every removed branch is named, OP-07): "This coach has lessons at {branch}. Cancel them
+  first." / "لدى المدرّب حصص في {branch}. يلزم إلغاؤها أولًا.";
 - Lesson types here: checkboxes → `set_coach_lesson_types`; unticking a type the coach has an own
   price for asks first: "Unticking {type} also removes {coach}'s own price for it." / "إلغاء تحديد
   {type} يحذف أيضًا السعر الخاص بـ{coach} له." (R46);
@@ -891,8 +938,10 @@ badge: Draft / مسودة (neutral), On sale / معروض للبيع (success), 
 change in progress" / "تغيير سعر قيد الموافقة" (info, from `pending_run`, linking `/protocols?run=`).
 Header **New lesson type** / **نوع حصة جديد** (`manageCoaches`).
 
-Editor fields: kind (SegmentedControl; locked once launched: "The kind can't change after it goes
-on sale." / "لا يتغيّر النوع بعد طرحه للبيع."); names EN and AR (1..60); descriptions EN and AR
+Editor fields: kind (SegmentedControl; locked once saved, draft or not, since the server refuses a
+kind change (OP-05): "The kind can't change once saved. Make a new lesson type instead." / "لا يتغيّر
+النوع بعد الحفظ. أنشئ نوع حصة جديدًا بدلًا من ذلك.", with **Make a new lesson type…** beside it; a
+saved type's patch never carries `kind`); names EN and AR (1..60); descriptions EN and AR
 (0..500); duration (Select 30..240 by 30); largest party (private, 1..4) or places max and minimum
 (group and course, 2..16, minimum 1..max); cut-off hours (group and course, 0..168, at least 1 when
 the minimum is above 1; a new group or course type starts at 2, R26: "Below the minimum this long
@@ -900,7 +949,11 @@ before the start, it is cancelled and refunded. At least 1 hour when the minimum
 قلّ العدد عن الحد الأدنى قبل البدء بهذه المدة، تُلغى وتُعاد المبالغ. ساعة واحدة على الأقل إن زاد
 الحد الأدنى عن 1."); sessions (course, 2..52); price and court share (`MoneyInput`); coaches
 teaching it (chips, read-only: "Choose coaches on the Coaches tab." / "يُختار المدرّبون من تبويب
-المدرّبين."). Pure `lessonTypeDraftErrors` mirrors the §1.2 CHECKs and `lesson_types_cutoff`.
+المدرّبين."); order arrows on a saved type, saved on their own like the coaches' (OP-01): the type
+swaps with its neighbour among its kind, the kind is renumbered 0, 10, 20 …, and each type whose
+`sort_order` changed gets its own `upsert_lesson_type` with `sort_order` alone (a refused one lands
+on the order row: `sort_order` is in the server-field map). Pure `lessonTypeDraftErrors` mirrors
+the §1.2 CHECKs and `lesson_types_cutoff`.
 
 Who edits what (`priceLock(type, caps)`, R46):
 
@@ -995,6 +1048,15 @@ same record keys (accepted §1.12 addition; `before.shape` per R46).
   "{name}: places sold in the last 30 days 40 · their value 1,200,000" / "{name}: الأماكن المبيعة
   خلال 30 يومًا 40 · قيمتها 1,200,000" (`places_30d`, `owed_30d_iqd`); `numbersPrefill`
   (`:261-271`) copies `price_iqd` and `court_share_iqd`; `NUMBERS_FIGURES` (`:290`) gains both.
+  **Amended 2026-10-02 (OP-20):** the numbers form offers only the lesson figures the proposal
+  carries (`numbersFields`: `price_iqd` and `court_share_iqd` each only when the proposal holds a
+  number for it; a `coach_price` removal offers none), and `finalizeRecord` drops any other figure
+  before it is sent, since the server refuses a figure the proposal did not carry.
+- Tournament `feasibility` (0294, DB-34; OP-21): each court window also counts the lessons in it
+  and their students: "{court}, {when}: {bookings} bookings, {guests} guests, {lessons} lessons,
+  {students} students" / "{court}، {when}: الحجوزات {bookings}، الضيوف {guests}، الحصص {lessons}،
+  المتدرّبون {students}" (`rowLessons`, shown when `lessons > 0`). The phone's staff protocols
+  read is the mobile lane's (`apps/mobile/src/features/staff/protocols/api.ts`).
 - `RecordView.tsx` names the target from the targets list (lesson type, coach) as it does items.
 - `PRICE_TARGET_CHANGED` hint `lesson_type` and `coach_price` have their own lines (§5.19).
 - Labels: `ws.protocols.fields.lesson_type_id` "Lesson type" / "نوع الحصة", `.coach_id` "Coach" /
@@ -1050,8 +1112,12 @@ The money is handed over outside the till." / "كشف شهري لكل مدرّب
 five reports, `ReportTabs.tsx:31-37`); the `/reports` layout's `ReportBranchScope` applies. A
 retired or deleted coach keeps their display name here (C-29).
 
-- **Month stepper**: ‹ and › around "October 2026" / "أكتوبر 2026"; never past the server's
-  `current_month`; `?month=` keeps it across reloads.
+- **Month stepper**: ‹ and › around "September 2026" / "سبتمبر 2026"; the default view (no
+  `?month=`) shows the server's `month`, the month before `current_month` (statements are drafted
+  on the 1st for the month before), and the stepper never passes it; `?month=` keeps another month
+  across reloads, and "Latest month" / "أحدث شهر" goes back to the default view. **Amended
+  2026-10-02 (OP-02):** the header, the empty copy and the statement dialog no longer label the
+  default view with `current_month`; the dialog names the statement's own `month`.
 - **Totals band** (`HeadlineFigure`s, `totals`): Collected · Court share · Coach's share ·
   Adjustments · To pay (`total_iqd`) · Approved, not paid · Paid / المحصَّل · أجرة الملعب · نصيب
   المدرّب · التسويات · للدفع · معتمد ولم يُدفع · المدفوع.
@@ -1061,8 +1127,11 @@ retired or deleted coach keeps their display name here (C-29).
   "Paid" / "مدفوع", "Void" / "ملغى"); a row opens the statement dialog.
 - **Not drafted** (`missing[]`): muted rows under the table, "{coach}: not drafted yet" / "{coach}:
   لم يُعدّ بعد", or with `older_draft` "{coach}: waits for an older month's draft" / "{coach}: بانتظار
-  مسودة شهر سابق".
-- **Empty**: current month "Statements are drafted on the 1st for the month before." / "تُعدّ الكشوف
+  مسودة شهر سابق". **Amended 2026-10-02 (0293, DB-24):** the server also answers `newer_draft` (an
+  approved month voided after its approval drafted a later one), with `blocking_month` and
+  `blocking_statement_id` for either draft reason; the `newer_draft` line names that month:
+  "{coach}: waits for the {month} draft" / "{coach}: بانتظار مسودة {month}" (OP-22). A pair whose lessons a later statement settled is no longer listed (DB-25).
+- **Empty**: the default view "Statements are drafted on the 1st for the month before." / "تُعدّ الكشوف
   في اليوم الأول من كل شهر عن الشهر السابق."; another month "No statements for {month}." / "لا كشوف
   لشهر {month}."
 - **Other branches (R21).** Under "All branches", a row of a branch other than the rail's is
@@ -1070,7 +1139,8 @@ retired or deleted coach keeps their display name here (C-29).
   للاعتماد أو الدفع." (writes and the detail read stay on the rail's branch, `apps/operator/CLAUDE.md`
   "Branches").
 
-**Statement dialog** (`StatementDialog.tsx`, `Modal size="lg"`): title "{coach} · {month}"; the
+**Statement dialog** (`StatementDialog.tsx`, `Modal size="lg"`): title "{coach} · {month}" (the
+statement's `month`); the
 figures; lines (`DataTable`, every line carries its lesson, R24): date, lesson ("Group · Session 3" /
 "جماعية · الحصة 3"), sign-ups, attended, no-shows, collected, court share, share %, coach amount; a
 line opens `/desk/lessons/$id`; an adjustment line is marked "Adjustment" / "تسوية" with "This lesson
@@ -1079,7 +1149,9 @@ was on an approved statement; its money changed since." / "كانت هذه ال�
 Recount to include them." / "تغيّرت حصص منذ احتساب هذه المسودة. يلزم إعادة الاحتساب لإدراجها.";
 the coach-booked no-shows (C-24, R56) under "Booked by the coach, the student didn't come" /
 "حجزها المدرّب ولم يحضر المتدرّب": date and type, each linking its lesson; the paid line "Paid {date}
-by {name} · Ref {reference}" / "دُفع في {date} بواسطة {name} · المرجع {reference}". On the caller's
+by {name} · Ref {reference}" / "دُفع في {date} بواسطة {name} · المرجع {reference}". Every date is
+the branch's (`venue_settings.timezone` of the rail's branch, whose statement it is), not Baghdad's
+(OP-18). On the caller's
 own statement (every `can` false, CM-11): "This is your own statement. Another manager or the owner
 approves and pays it." / "هذا كشفك أنت، ويعتمده ويدفعه مدير آخر أو المالك." Actions
 (`settleCoaches`, the statement's `can`, `statementActions`):
@@ -1090,15 +1162,22 @@ approves and pays it." / "هذا كشفك أنت، ويعتمده ويدفعه �
   **Void** / **إلغاء الكشف** (no PIN);
 - approved: **Mark paid** / **تسجيل الدفع**, **Void** (manager PIN, R59). A total below zero
   disables Mark paid: "This statement is below zero ({amount}). Void it; the next statement carries
-  it." / "هذا الكشف دون الصفر ({amount}). يلزم إلغاؤه، ويُرحَّل إلى الكشف التالي.";
+  it." / "هذا الكشف دون الصفر ({amount}). يلزم إلغاؤه، ويُرحَّل إلى الكشف التالي."; the server's
+  `can.mark_paid` is false then, so Mark paid is drawn blocked with that line whatever `can` says
+  (OP-08);
 - void: **Redraft** / **إعادة الإعداد** (`coach_statement_refresh`, "Drafts this month again from
-  its lessons." / "يُعدّ كشف هذا الشهر من جديد من حصصه."); paid: none.
+  its lessons." / "يُعدّ كشف هذا الشهر من جديد من حصصه."); an answer with `created` false drafted
+  nothing (the month's lessons were settled on a later statement, DB-25) and says "Nothing to draft:
+  this month's lessons were settled on a later statement." / "لا شيء لإعداده: سُوّيت حصص هذا الشهر في
+  كشف لاحق." (OP-22); paid: none.
 
 **Mark paid** (`MarkPaidDialog.tsx`): a reference field (1..80, "Receipt or transfer number, or a
 note on how it was paid. Never a card or account number." / "رقم الإيصال أو التحويل، أو ملاحظة عن
 طريقة الدفع. لا يُكتب رقم بطاقة أو حساب أبدًا."; `referenceErrors` mirrors R49: a run of 12 or more
-digits, "A card or account number can't go here. Use a receipt or transfer number." / "لا يُكتب هنا
-رقم بطاقة أو حساب. يُرجى استخدام رقم الإيصال أو التحويل."), then `PinPromptOverlay` (`kit.tsx:1620`)
+digits in any of the three scripts, spaces, dots and dashes taken out, through `looksLikeCardNumber`
+in `@touch/core`, the twin of the server's `app.looks_like_card` (0293, DB-21, OP-04), "A card or
+account number can't go here. Use a receipt or transfer number." / "لا يُكتب هنا رقم بطاقة أو حساب.
+يُرجى استخدام رقم الإيصال أو التحويل."), then `PinPromptOverlay` (`kit.tsx:1620`)
 "Mark {amount} paid to {coach}" / "تسجيل دفع {amount} إلى {coach}"; sends `coach_statement_mark_paid`
 with `p_pin` and `p_device_id`, so `appRpc` proves the PIN to `verify_manager_pin` first
 (`appRpc.ts:147-155`; `PIN_GATED_RPCS`, R4). Body: "Records that the money was handed over. Nothing
@@ -1110,7 +1189,10 @@ statement is redrafted from the lessons next time statements are drafted." / "ي
 over for an approved statement. Voiding it needs a manager PIN, and the next statement counts these
 lessons again." / "قد يكون المبلغ سُلّم فعلًا عن الكشف المعتمد. يتطلب إلغاؤه رمز مدير، ويحتسب الكشف
 التالي هذه الحصص من جديد." and `PinPromptOverlay` "Void {coach}'s approved statement" / "إلغاء كشف
-{coach} المعتمد", sending `p_pin` and `p_device_id` (R59).
+{coach} المعتمد", sending `p_pin` and `p_device_id` (R59). A draft approved by someone else while
+the dialog was open refuses the PIN-less void with `PIN_GRANT_REQUIRED`: the statement is read
+again and the PIN prompt opens with the typed reason kept, so the second call carries the PIN; any
+other refusal also reads the statement again (OP-10).
 
 **Financial card** (§5.3.3). The owner's Financial home also shows nothing new above the cards: the
 month-so-far card reads `panel_headline`, which gains the lesson line (§5.18.4).
@@ -1160,6 +1242,9 @@ the cash count, hidden when every figure is zero. `OnlineGroupId` (`dayCloseLogi
 | `lessons`, `owed_to_coaches_iqd` | Owed to coaches for today's lessons (paid outside the till) | مستحق للمدرّبين عن حصص اليوم (يُدفع خارج الصندوق) |
 
 The group's title "Lessons today" / "حصص اليوم".
+The test-payments group (`sandbox_excluded`) also counts `lessons`, the sandbox lesson payments
+left out: "Lesson payments" / "دفعات الحصص" (`ws.matches.dayClose.sandbox.lessons`), so a day whose
+only test payments were lessons still shows the group (OP-17).
 
 **Refunds count on the day they are made (C-31, R27).** From 0278 `close_day`,
 `v_day_close_summary` and `day_close_online` date every refund (café, court, lesson) by the till
@@ -1290,9 +1375,10 @@ own line (R52):
 | `PRICE_VIA_PROTOCOL` · `shape` (R46) | "Make a new lesson type to change its length, sessions or party size." | "لتغيير المدة أو عدد الحصص أو عدد الأشخاص يلزم إنشاء نوع حصة جديد." |
 | `PRICE_TARGET_CHANGED` · `lesson_type` / `coach_price` | "This lesson type changed after the proposal (price, length, sessions or party size). Start a new proposal." / "This coach's price or lessons changed after the proposal. Start a new proposal." | "تغيّر نوع الحصة بعد الاقتراح (السعر أو المدة أو عدد الحصص أو عدد الأشخاص). يلزم بدء اقتراح جديد." / "تغيّر سعر المدرّب أو حصصه بعد الاقتراح. يلزم بدء اقتراح جديد." |
 | `ONLINE_PAYMENT_OFF` · `provider` / `terms` (settings) | the two §5.12 lines | — |
-| `BRANCH_HAS_BOOKINGS` · a branch id (`set_coach_branches`) | the §5.13.1 line | — |
-| `BRANCH_HAS_BOOKINGS` · `coaching_money` (`close_branch`, R37; `BranchesAdmin.tsx` `closeM.onError`) | "This branch still has coach statements to approve or pay, a month not drafted yet, or lesson money to refund at the desk. Settle them in Coach pay and Ops first." | "لا تزال لهذا الفرع كشوف مدرّبين للاعتماد أو الدفع، أو شهر لم يُعدّ كشفه، أو مبالغ حصص مستحقة الرد في الاستقبال. يلزم إنهاؤها من مستحقات المدرّبين والعمليات أولًا." |
+| `BRANCH_HAS_BOOKINGS` · `coach_lessons`, hint a branch id (`set_coach_branches`) | the §5.13.1 line | — |
+| `BRANCH_HAS_BOOKINGS` · `coaching_money` (`close_branch`, R37; `BranchesAdmin.tsx` `closeM.onError`) | "This branch still has coach statements to approve or pay, a month or a pay adjustment not drafted yet, or lesson money still to refund or being refunded. Settle them in Coach pay and Ops first." | "لا تزال لهذا الفرع كشوف حساب للمدرّبين للاعتماد أو الدفع، أو شهر أو تسوية لم يُعدّ كشفها بعد، أو مبالغ حصص مستحقة الرد أو قيد الرد. يلزم إنهاؤها من مستحقات المدرّبين والعمليات أولًا." (0292, R37 amended: undrafted adjustments and refunds still pending, DB-19) |
 | `FORBIDDEN` · `own_statement` | the §5.16 own-statement line | — |
+| `FORBIDDEN` · `own_statement_pin` (0293, DB-22) | "That PIN belongs to this statement's coach. Another manager or the owner enters theirs." / "هذا الرقم السري لمدرّب الكشف نفسه. يُدخل مدير آخر أو المالك رقمه السري." (`ws.coaching.errors.ownStatementPin`; Mark paid and a Void from approved) | — |
 | `STATEMENT_NOT_DRAFT` · `live_draft` | "This coach already has a draft for that month. Open it instead." | "لدى هذا المدرّب مسودة لذلك الشهر. يُرجى فتحها بدلًا من ذلك." |
 | `STATEMENT_NOT_APPROVED` · `negative` (R59) | the §5.16 below-zero line | — |
 | `INVALID_ARGUMENT` · `p_reference` / `p_reason` (statements, R49) | "A card or account number can't go here. Use a receipt or transfer number." | "لا يُكتب هنا رقم بطاقة أو حساب. يُرجى استخدام رقم الإيصال أو التحويل." |
@@ -1745,7 +1831,8 @@ New in this pass (for DB and Money to confirm; each follows a ruling that names 
 16. `coach_statement_void(p_statement_id uuid, p_reason text, p_pin text default null, p_device_id
     text default null)` joins every `PIN_GATED_RPCS` copy; the grant is consumed only from
     `approved` (R59).
-17. `set_coach_branches`' `BRANCH_HAS_BOOKINGS` carries the removed branch's id as its detail (R52).
+17. `set_coach_branches`' `BRANCH_HAS_BOOKINGS` carries detail `coach_lessons` and the removed
+    branch's id as its hint (R52; the editor reads the hint first, OP-07).
 18. R49's run of 12 or more digits is counted across spaces, dots and hyphens (a card typed in
     groups of four); the operator mirrors that.
 19. `day_close_online` carries `refunds_dated_by_shift boolean` per day (C-31 copy, §5.18.1): true
