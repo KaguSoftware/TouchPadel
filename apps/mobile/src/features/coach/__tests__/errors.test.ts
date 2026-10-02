@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { countPhrase, makeT, type Locale, type MessageKey } from '@touch/i18n';
-import { coachErrorCode, coachErrorText, isNotACoach, keepsIntentKey } from '../errors';
+import {
+  coachErrorCode,
+  coachErrorText,
+  isNotACoach,
+  isSlotRefusal,
+  keepsIntentKey,
+  refreshAfterRefusal,
+} from '../errors';
 
 /**
  * docs/design/coaching/guest.md §4.10 (R52, R73): every code and detail a
@@ -108,5 +115,20 @@ describe('the refusal helpers', () => {
   it('keeps an idempotency key across a transport failure only (guest.md §4.7.4)', () => {
     expect(keepsIntentKey(new TypeError('Network request failed'))).toBe(true);
     expect(keepsIntentKey(pg('COACH_BUSY'))).toBe(false);
+  });
+
+  it('re-reads what a refusal shows to be stale (MB-06, MB-08)', () => {
+    const none = { me: false, slots: false, all: false };
+    for (const code of ['COACH_BUSY', 'NO_COURT_FREE', 'COACH_UNAVAILABLE']) {
+      expect(refreshAfterRefusal(pg(code))).toEqual({ ...none, slots: true });
+      expect(isSlotRefusal(pg(code))).toBe(true);
+    }
+    for (const code of ['NOT_A_COACH', 'COACH_INACTIVE', 'COACHING_OFF']) {
+      expect(refreshAfterRefusal(pg(code))).toEqual({ ...none, me: true });
+      expect(isSlotRefusal(pg(code))).toBe(false);
+    }
+    expect(refreshAfterRefusal(pg('HOURS_OVERLAP', 'time_off'))).toEqual({ ...none, all: true });
+    expect(refreshAfterRefusal(pg('LESSON_FULL'))).toEqual(none);
+    expect(refreshAfterRefusal(new TypeError('Network request failed'))).toEqual(none);
   });
 });

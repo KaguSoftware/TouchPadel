@@ -213,8 +213,12 @@ queryClient.setQueryDefaults(['match', 'slots'], {
 /**
  * Coach mode (docs/design/coaching/guest.md §4.7.3), keyed under `coachKeys`
  * (features/coach/keys.ts). Every coaching write runs now or fails now (CD-6):
- * nothing is queued. One retry is safe because the booking and creation
- * writes are keyed and every other coach write is state-idempotent. The book
+ * nothing is queued. One retry is safe because the booking, creation and add
+ * writes are keyed; add_my_time_off is NOT state-idempotent, but since 0290
+ * (DB-06) it answers a retry (the same live period, set by the same person)
+ * with duplicate instead of HOURS_OVERLAP (MB-06); and every other coach
+ * write sets state (hours, marks, cancels, removals), so a second run changes
+ * nothing. The book
  * screen's free times fail fast, like the match chips: the screen falls back
  * to a start picker.
  */

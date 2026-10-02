@@ -12,7 +12,7 @@ import { useMatchByToken, useMatchInvite } from '../../src/features/matches/hook
 import { byCategory, type MatchCategory } from '../../src/features/matches/logic';
 import { errorCodeOf, refusalKey } from '../../src/features/matches/errors';
 import { isMatchToken } from '../../src/features/matches/links';
-import { setPendingJoin } from '../../src/features/matches/pendingJoin';
+import { setOnlyPendingJoin } from '../../src/features/booking/pendingIntent';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, Screen } from '../../src/components/ui';
 import { ErrorState } from '../../src/components/states';
@@ -188,7 +188,7 @@ function SignedOut({ token }: { token: string }) {
   const branch = pickLocale({ en: m.venue.nameEn ?? '', ar: m.venue.nameAr ?? '' }, locale);
   // Both ways in come back here after the auth flow (continueAfterAuth).
   const go = (pathname: '/sign-in' | '/sign-up') => {
-    setPendingJoin({ kind: 'link', token });
+    setOnlyPendingJoin({ kind: 'link', token });
     router.push(pathname);
   };
   const cat: MatchCategory = m.category;

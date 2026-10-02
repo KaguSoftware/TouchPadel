@@ -281,6 +281,41 @@ export function numbersLesson(numbers: PriceNumbers | null | undefined): Numbers
   return shapeRow(raw, shapeKeys('price_promo_numbers_lesson', 'lesson')) as unknown as NumbersLesson;
 }
 
+/**
+ * What the step page shows of a lesson change's figures (MB-20): the type,
+ * the price and (not for a coach price) the court share as they are and as
+ * they will be, a coach price the proposal removes, and the last 30 days'
+ * places. Never coach pay (C-28): the block carries none. Null when the
+ * numbers have no lesson block (every other change, an older server).
+ */
+export interface LessonNumbersView {
+  lesson: NumbersLesson;
+  price: { current: number | null; next: number | null } | null;
+  courtShare: { current: number | null; next: number | null } | null;
+  /** `coach_price` whose proposal leaves the price empty: the coach's own goes, the type's applies. */
+  coachPriceRemoved: boolean;
+  sold: { places: number; amount: number | null } | null;
+}
+
+export function lessonNumbersView(
+  numbers: PriceNumbers | null | undefined,
+  change: PriceChangeKind | null,
+  proposal: Record<string, unknown> | null | undefined,
+): LessonNumbersView | null {
+  const lesson = numbersLesson(numbers);
+  if (!lesson) return null;
+  const pair = (current: number | null, next: number | null) =>
+    current === null && next === null ? null : { current, next };
+  const coach = change === 'coach_price';
+  return {
+    lesson,
+    price: pair(lesson.current_price_iqd, lesson.new_price_iqd),
+    courtShare: coach ? null : pair(lesson.current_court_share_iqd, lesson.new_court_share_iqd),
+    coachPriceRemoved: coach && !!proposal && typeof proposal.price_iqd !== 'number',
+    sold: lesson.places_30d === null ? null : { places: lesson.places_30d, amount: lesson.owed_30d_iqd },
+  };
+}
+
 /** The fields of a propose record the start page picks itself, never typed. */
 export const PROPOSE_PICKED_FIELDS = ['change', 'menu_item_id', 'promotion_id', 'rule_id'] as const;
 

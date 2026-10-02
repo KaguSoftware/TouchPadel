@@ -164,12 +164,17 @@ export default function BookingsScreen() {
   // some branch has coaching on, so a failed read never turns the bookings
   // into an error (the match rows' rule).
   const branches = useBranches();
-  const lessons = useMyLessons('upcoming', { enabled: anyCoaching(branches.data) });
+  const lessonsOn = anyCoaching(branches.data) && !!session;
+  const lessons = useMyLessons('upcoming', { enabled: lessonsOn });
   const { refetch: refetchBookings } = bookings;
   const { refetch: refetchMatches } = matches;
+  const { refetch: refetchLessons } = lessons;
+  // The lessons too (MB-19), gated by hand: refetch() ignores `enabled`, and a
+  // read that is off must stay off.
   const refetchAll = useCallback(
-    () => Promise.all([refetchBookings(), refetchMatches()]),
-    [refetchBookings, refetchMatches],
+    () =>
+      Promise.all([refetchBookings(), refetchMatches(), lessonsOn ? refetchLessons() : null]),
+    [refetchBookings, refetchMatches, refetchLessons, lessonsOn],
   );
   const pull = usePullRefresh(refetchAll);
   const [tab, setTab] = useState<Tab>('upcoming');

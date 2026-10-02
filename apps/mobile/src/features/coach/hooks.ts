@@ -5,13 +5,17 @@
  * Retry, online-pause and persistence are set once in lib/queryClient.ts by
  * the key prefix: nothing under `['coach']` is written to disk, and every
  * write runs now or fails now (CD-6), with one retry on a dropped connection
- * (the booking and creation writes are keyed, and every other write is
- * state-idempotent on the server). A screen never overrides them.
+ * (the booking and creation writes are keyed, add_my_time_off answers a retry
+ * as duplicate since 0290, DB-06, and every other write is state-idempotent
+ * on the server). A screen never overrides them.
  *
  * After every write the whole `['coach']` root is refetched (coach_me's
  * counts, the schedule, the roster, the hours). A write that takes or frees a
- * court refreshes the guest grid too. A NOT_A_COACH refusal re-reads coach_me,
- * so RequireCoach re-gates (a retired coach lands on the statements).
+ * court refreshes the guest grid too. A refusal re-reads what it shows to be
+ * stale (refreshAfterRefusal, MB-06, MB-08): NOT_A_COACH, COACH_INACTIVE and
+ * COACHING_OFF re-read coach_me, so RequireCoach re-gates (a retired coach
+ * lands on the statements); a taken start re-reads the free times and the
+ * schedule; HOURS_OVERLAP re-reads every coach read.
  */
 import { useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
@@ -38,7 +42,7 @@ import {
   fetchMyCoachStatements,
   setMyCoachHours,
 } from './api';
-import { isNotACoach, keepsIntentKey } from './errors';
+import { isNotACoach, keepsIntentKey, refreshAfterRefusal } from './errors';
 import { coachKeys } from './keys';
 import type { AttendanceMark, HoursWindow } from './logic';
 
@@ -56,7 +60,16 @@ function useAfterWrite(): { done: (courts?: boolean) => void; failed: (err: unkn
   );
   const failed = useCallback(
     (err: unknown) => {
-      if (isNotACoach(err)) void queryClient.invalidateQueries({ queryKey: coachKeys.meAny });
+      const refresh = refreshAfterRefusal(err);
+      if (refresh.all) {
+        void queryClient.invalidateQueries({ queryKey: coachKeys.all });
+        return;
+      }
+      if (refresh.me) void queryClient.invalidateQueries({ queryKey: coachKeys.meAny });
+      if (refresh.slots) {
+        void queryClient.invalidateQueries({ queryKey: coachKeys.slotsAny });
+        void queryClient.invalidateQueries({ queryKey: coachKeys.scheduleAny });
+      }
     },
     [queryClient],
   );

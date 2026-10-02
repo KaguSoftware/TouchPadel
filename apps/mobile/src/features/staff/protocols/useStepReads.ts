@@ -109,6 +109,14 @@ export function useStepReads(
         ? mgmt
         : is('price_promo', 'propose') && acting && (mgmt || role === 'marketing') && (change !== 'shop_launch' || mgmt)),
   });
+  // MB-20: a lesson_launch run's targets list only types never launched, so
+  // once its type is launched the record would name nothing; the lesson_price
+  // targets (launched types) name it then.
+  const launchedTypes = useQuery({
+    queryKey: staffKeys.priceTargets(venue, 'lesson_price'),
+    queryFn: () => fetchPriceTargets(venue, 'lesson_price'),
+    enabled: !!venue && change === 'lesson_launch' && mgmt,
+  });
   const tournament = useQuery({
     queryKey: staffKeys.context(`tournament:${key ?? ''}`, stepId),
     queryFn: () => fetchTournamentContext(stepId),
@@ -166,6 +174,7 @@ export function useStepReads(
     // Coaching (0285): a lesson run's type and coach, by name. The numbers
     // name the type too, when the targets list no longer holds it (a launched draft).
     for (const t of lessonTargetTypes(targets.data)) put(t.lesson_type_id, t.name_en, t.name_ar);
+    for (const t of lessonTargetTypes(launchedTypes.data)) if (!out[t.lesson_type_id]) put(t.lesson_type_id, t.name_en, t.name_ar);
     for (const c of lessonTargetCoaches(targets.data)) {
       put(c.coach_id, c.display_name_en, c.display_name_ar);
       for (const t of c.lesson_types) if (!out[t.lesson_type_id]) put(t.lesson_type_id, t.name_en, t.name_ar);
@@ -184,6 +193,7 @@ export function useStepReads(
     cost.data,
     numbers.data,
     targets.data,
+    launchedTypes.data,
     candidates.data,
     campaigns.data,
   ]);

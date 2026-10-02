@@ -78,6 +78,8 @@ export function coachMeRaw(
           name_ar: 'تتش بادل',
           timezone: COACH_TZ,
           coaching_enabled: true,
+          open_private: 4,
+          open_private_cap: 10,
           ...branchOver,
         },
       ],

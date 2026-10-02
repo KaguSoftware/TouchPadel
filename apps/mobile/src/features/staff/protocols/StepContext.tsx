@@ -12,7 +12,7 @@ import { useLocale } from '../../../i18n/LocaleProvider';
 import { space } from '../../../theme';
 import { Hint } from '../../../components/ui';
 import { mapStaffError } from '../edge';
-import { bilingual } from './logic';
+import { bilingual, lessonNumbersView } from './logic';
 import { Muted, Section, Strong } from './parts';
 import type { StepDetail } from './types';
 import type { StepReads } from './useStepReads';
@@ -175,11 +175,50 @@ export function StepContext({ detail, reads }: { detail: StepDetail; reads: Step
         </View>,
       );
     }
-    out.push(
-      <Section key="numbers" title={t('staff.protocols.context.numbers')}>
-        <View style={{ gap: space.s }}>{rows}</View>
-      </Section>,
-    );
+    // Coaching (0285, MB-20): a lesson change's type, price, court share and
+    // last 30 days, and a coach price the proposal removes. Never coach pay (C-28).
+    const lesson = lessonNumbersView(n, reads.change, reads.propose);
+    if (lesson) {
+      rows.push(
+        <View key="lesson" style={{ gap: 1 }}>
+          <Strong style={{ fontSize: 13 }}>{name(lesson.lesson.name_en, lesson.lesson.name_ar)}</Strong>
+          {lesson.coachPriceRemoved ? (
+            <Muted>{t('staff.protocols.context.coachPriceRemoved', { next: money(lesson.price?.next) })}</Muted>
+          ) : lesson.price ? (
+            <Muted>
+              {t('staff.protocols.context.lessonPrice', {
+                current: money(lesson.price.current),
+                next: money(lesson.price.next),
+              })}
+            </Muted>
+          ) : null}
+          {lesson.courtShare ? (
+            <Muted>
+              {t('staff.protocols.context.lessonCourtShare', {
+                current: money(lesson.courtShare.current),
+                next: money(lesson.courtShare.next),
+              })}
+            </Muted>
+          ) : null}
+          {lesson.sold ? (
+            <Muted>
+              {t('staff.protocols.context.lessonSold', {
+                places: formatNumber(lesson.sold.places, locale),
+                amount: money(lesson.sold.amount),
+              })}
+            </Muted>
+          ) : null}
+        </View>,
+      );
+    }
+    // A change with nothing to show (MB-20) gets no empty card.
+    if (rows.length > 0) {
+      out.push(
+        <Section key="numbers" title={t('staff.protocols.context.numbers')}>
+          <View style={{ gap: space.s }}>{rows}</View>
+        </Section>,
+      );
+    }
   } else if (reads.numbers.isError) out.push(<View key="numbers-e">{failed(reads.numbers.error)}</View>);
 
   if (reads.tournament.data && key === 'marketing') {

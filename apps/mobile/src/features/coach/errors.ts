@@ -32,6 +32,43 @@ export function isNotACoach(err: unknown): boolean {
   return coachErrorCode(err) === 'NOT_A_COACH';
 }
 
+/** A refusal that says the free times the screen showed are stale: someone took the time first. */
+const SLOT_REFUSALS = new Set(['COACH_BUSY', 'NO_COURT_FREE', 'COACH_UNAVAILABLE']);
+/** A refusal that says coach_me is stale: the coach or the branch changed under the screen. */
+const STATUS_REFUSALS = new Set(['NOT_A_COACH', 'COACH_INACTIVE', 'COACHING_OFF']);
+
+/** What a refused coach write re-reads (MB-06, MB-08). */
+export interface RefusalRefresh {
+  /** coach_me (RequireCoach re-gates; a paused coach or a branch switched off shows its banner). */
+  me: boolean;
+  /** The free times and the schedule: the start the screen offered is taken. */
+  slots: boolean;
+  /** Every coach read: the hours and time off the screen shows are not the server's. */
+  all: boolean;
+}
+
+/**
+ * The reads a refused coach write refreshes, so the screen stops offering
+ * what the server just refused: a taken start (COACH_BUSY, NO_COURT_FREE,
+ * COACH_UNAVAILABLE) re-reads the free times and the schedule, a status
+ * refusal (NOT_A_COACH, COACH_INACTIVE, COACHING_OFF) re-reads coach_me, and
+ * HOURS_OVERLAP re-reads everything (a time-off period the screen does not
+ * show yet, such as one the venue set).
+ */
+export function refreshAfterRefusal(err: unknown): RefusalRefresh {
+  const code = coachErrorCode(err);
+  return {
+    me: code !== null && STATUS_REFUSALS.has(code),
+    slots: code !== null && SLOT_REFUSALS.has(code),
+    all: code === 'HOURS_OVERLAP',
+  };
+}
+
+/** A refusal that means the start picked is no longer free (the book screen clears its pick). */
+export function isSlotRefusal(err: unknown): boolean {
+  return refreshAfterRefusal(err).slots;
+}
+
 /**
  * Whether a keyed write's idempotency key survives the failure (guest.md
  * §4.7.4): only a transport failure, where the write may have landed. Any

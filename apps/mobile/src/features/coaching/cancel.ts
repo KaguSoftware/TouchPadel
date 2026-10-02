@@ -32,7 +32,14 @@ export interface CancelCopy {
 export function cancelCopy(
   preview: CancelPreview,
   kind: LessonKind | null,
-  ctx: { t: T; locale: Locale; tz: string; windowHours: number },
+  ctx: {
+    t: T;
+    locale: Locale;
+    tz: string;
+    windowHours: number;
+    /** The place is `held`: nothing has been paid yet (MB-11). */
+    held?: boolean;
+  },
 ): CancelCopy {
   const { t, locale, tz } = ctx;
   const money = (n: number) => isolate(formatIQD(n, locale));
@@ -48,21 +55,28 @@ export function cancelCopy(
 
   if (course) {
     if (preview.policy === 'late') {
-      return {
-        ...base,
-        body: t('coaching.guest.cancel.courseLate', {
-          when: when(preview.nextStartAt),
-          hours,
-          kept: money(preview.keptIqd),
-          late: preview.countsLate ? t('coaching.guest.cancel.lateClause') : '',
-          refundSessions: countPhrase(
-            'coaching.common.count.sessions',
-            preview.refundSessions ?? 0,
-            locale,
-          ),
-          refund,
-        }).trim(),
-      };
+      // MB-15: sentence by sentence, each only when it has something to say:
+      // never "its share (IQD 0) is kept", never "after it are cancelled:" with
+      // nothing after the colon.
+      const refundSessions = preview.refundSessions ?? 0;
+      const parts = [
+        t('coaching.guest.cancel.courseLate', { when: when(preview.nextStartAt), hours }),
+        preview.keptIqd > 0
+          ? t('coaching.guest.cancel.courseLateKept', {
+              kept: money(preview.keptIqd),
+              late: preview.countsLate ? t('coaching.guest.cancel.lateClause') : '',
+            })
+          : preview.countsLate
+            ? t('coaching.guest.cancel.courseLateCounts')
+            : '',
+        refundSessions > 0
+          ? t('coaching.guest.cancel.courseLateRest', {
+              refundSessions: countPhrase('coaching.common.count.sessions', refundSessions, locale),
+            })
+          : '',
+        refund,
+      ];
+      return { ...base, body: parts.filter((p) => p !== '').join(' ') };
     }
     return { ...base, body: t('coaching.guest.cancel.courseFree', { refund }).trim() };
   }
@@ -78,8 +92,14 @@ export function cancelCopy(
         : 'coaching.guest.cancel.lateNothingPaid';
     return { ...base, body: t(key, { hours, kept: money(preview.keptIqd) }) };
   }
+  // MB-11: a held place has nothing to refund and no "{time}" to promise; a
+  // free cancel the server gave no deadline for never shows an empty time.
+  if (ctx.held) return { ...base, body: t('coaching.guest.cancel.freeHeld') };
   if (preview.freeBecause === 'rescheduled') {
     return { ...base, body: t('coaching.guest.cancel.freeMoved', { refund }).trim() };
+  }
+  if (!preview.freeUntil) {
+    return { ...base, body: t('coaching.guest.cancel.freeNoTime', { refund }).trim() };
   }
   return {
     ...base,

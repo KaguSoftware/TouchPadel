@@ -99,6 +99,10 @@ export interface CoachBranch {
   nameAr: string;
   timezone: string;
   coachingEnabled: boolean;
+  /** R56: upcoming coach-booked private lessons at this branch (0282 `open_private`). */
+  openPrivate: number;
+  /** R56: this branch's `coach_max_open_private` (0282 `open_private_cap`, default 10). */
+  openPrivateCap: number;
 }
 
 export interface CoachLessonType {
@@ -130,6 +134,11 @@ export interface CoachMe {
   lessonTypes: CoachLessonType[];
   addsToday: number;
   addCap: number;
+  /**
+   * DISPLAY ONLY: every branch's `open_private` summed, and the lowest branch
+   * cap. R56 counts per branch (0283), so a check reads
+   * `privateCapAt(coach, venueId)` (MB-01).
+   */
   privateOpen: number;
   privateCap: number;
 }
@@ -161,6 +170,8 @@ function parseBranch(raw: unknown): CoachBranch | null {
     nameAr: str(raw.name_ar),
     timezone: str(raw.timezone) || DEFAULT_TZ,
     coachingEnabled: bool(raw.coaching_enabled),
+    openPrivate: Math.max(0, int(raw.open_private)),
+    openPrivateCap: Math.max(0, int(raw.open_private_cap, 10)),
   };
 }
 
@@ -257,9 +268,23 @@ export function addsLeftToShow(coach: CoachMe): number | null {
   return left <= 5 ? left : null;
 }
 
-/** R56, C-24: the coach holds as many upcoming coach-booked private lessons as allowed. */
-export function atPrivateCap(coach: CoachMe): boolean {
-  return coach.privateCap > 0 && coach.privateOpen >= coach.privateCap;
+/**
+ * R56, C-24: the coach's upcoming coach-booked private lessons at one branch
+ * and that branch's cap (the server counts per branch, 0283), or null for a
+ * branch the coach is not at.
+ */
+export function privateCapAt(
+  coach: CoachMe,
+  venueId: string | null | undefined,
+): { open: number; cap: number } | null {
+  const b = venueId ? coach.branches.find((x) => x.venueId === venueId) : undefined;
+  return b ? { open: b.openPrivate, cap: b.openPrivateCap } : null;
+}
+
+/** R56, C-24: the coach holds as many upcoming coach-booked private lessons at this branch as allowed. */
+export function atPrivateCap(coach: CoachMe, venueId: string | null | undefined): boolean {
+  const at = privateCapAt(coach, venueId);
+  return at !== null && at.cap > 0 && at.open >= at.cap;
 }
 
 /** The branch's timezone, or the venue default. */
@@ -399,7 +424,8 @@ export interface ScheduleSection {
  * The schedule as sections by trading night (guest.md §4.13.2): lessons at the
  * branch picked (null: every branch), soonest first, and time off as a band
  * on each night it touches. Yesterday's lessons stay only while one still has
- * students to mark; everything else that ended before tonight is left out.
+ * students to mark and its marking window is open (start + 24 h, MB-09);
+ * everything else that ended before tonight is left out.
  */
 export function scheduleSections(
   schedule: CoachSchedule,
@@ -416,7 +442,10 @@ export function scheduleSections(
   for (const lesson of schedule.lessons) {
     if (venueId && lesson.venueId !== venueId) continue;
     const night = nightOf(new Date(lesson.startAt), tz);
-    if (night < tonight && lesson.unmarked === 0) continue;
+    // A past night's lesson stays only while it has students to mark AND its
+    // marking window (start + 24 h, CD-11) is still open (MB-09).
+    if (night < tonight && !(lesson.unmarked > 0 && canMarkNow({ startAt: lesson.startAt }, now)))
+      continue;
     push(night, { type: 'lesson', key: `lesson.${lesson.lessonId}`, lesson });
   }
   for (const band of schedule.timeOff) {
@@ -957,6 +986,8 @@ export interface StatementLine {
   typeNameAr: string;
   collectedIqd: number;
   courtShareIqd: number;
+  /** The line's own rate in basis points; null when the server sends none (an adjustment). */
+  shareBp: number | null;
   coachIqd: number;
   isAdjustment: boolean;
 }
@@ -976,7 +1007,11 @@ export interface CoachStatement {
   adjustmentsIqd: number;
   /** The statement's total (coach's share plus adjustments), when the server sends it. */
   totalIqd: number | null;
-  shareBp: number;
+  /**
+   * The month's one rate in basis points, or null when the server sends none
+   * (mixed rates, adjustments only): never a made-up default (MB-02).
+   */
+  shareBp: number | null;
   approvedAt: string | null;
   paidAt: string | null;
   paidReference: string | null;
@@ -1032,7 +1067,7 @@ export function parseCoachStatements(raw: unknown): CoachStatements {
         coachIqd: int(s.coach_iqd),
         adjustmentsIqd: int(s.adjustments_iqd),
         totalIqd: intOrNull(s.total_iqd),
-        shareBp: int(s.share_bp, 6000),
+        shareBp: intOrNull(s.share_bp),
         approvedAt: strOrNull(s.approved_at),
         paidAt: strOrNull(s.paid_at),
         paidReference: strOrNull(s.paid_reference),
@@ -1048,6 +1083,7 @@ export function parseCoachStatements(raw: unknown): CoachStatements {
                   typeNameAr: str(l.type_name_ar),
                   collectedIqd: int(l.collected_iqd),
                   courtShareIqd: int(l.court_share_iqd),
+                  shareBp: intOrNull(l.share_bp),
                   coachIqd: int(l.coach_iqd),
                   isAdjustment: bool(l.is_adjustment),
                 },
@@ -1209,27 +1245,35 @@ export function parseRescheduled(raw: unknown): {
 
 // ── Idempotency intents (guest.md §4.7.4) ───────────────────────────────────
 
-/** `coach_book_private`: the mutable arguments are in the intent, so a changed form sends a new key. */
+/**
+ * `coach_book_private`: every argument sent is in the intent (the composed
+ * phone too, MB-07), so a changed form sends a new key and a replay after a
+ * dropped connection never answers for an older request.
+ */
 export function coachBookIntent(a: {
   typeId: string;
   venueId: string;
   startAt: string;
   party: number;
   name: string;
+  phone: string | null;
 }): string {
-  return `coach-book:${a.typeId}|${a.venueId}|${a.startAt}|${a.party}|${a.name.trim()}`;
+  return `coach-book:${a.typeId}|${a.venueId}|${a.startAt}|${a.party}|${a.name.trim()}|${a.phone ?? ''}`;
 }
 
 export function groupIntent(a: { typeId: string; venueId: string; startAt: string }): string {
   return `group:${a.typeId}|${a.venueId}|${a.startAt}`;
 }
 
+/** `coach_create_course`: the starts and the trimmed titles as sent (MB-07). */
 export function courseIntent(a: {
   typeId: string;
   venueId: string;
   starts: readonly string[];
+  titleEn: string;
+  titleAr: string;
 }): string {
-  return `course-new:${a.typeId}|${a.venueId}|${a.starts.join(',')}`;
+  return `course-new:${a.typeId}|${a.venueId}|${a.starts.join(',')}|${a.titleEn.trim()}|${a.titleAr.trim()}`;
 }
 
 export function addIntent(a: { targetId: string; name: string; phone: string | null }): string {

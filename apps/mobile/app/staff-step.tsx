@@ -272,6 +272,12 @@ function SubmissionCard({
           record={sub.record}
           names={reads.names}
           skip={new Set(['photo_path', 'menu_photo_path'])}
+          // MB-20: a coach price proposed empty removes the coach's own price; say so.
+          emptyLines={
+            change === 'coach_price' && step.step_key === 'propose'
+              ? { price_iqd: t('staff.protocols.context.coachPriceRemovedRecord') }
+              : undefined
+          }
         />
       ) : (
         <Hint>{t('staff.protocols.step.hiddenRecord')}</Hint>

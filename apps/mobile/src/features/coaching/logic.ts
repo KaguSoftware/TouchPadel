@@ -18,7 +18,16 @@
  * night a start belongs to, which branch a screen reads, which payment choice
  * a branch's mode offers.
  */
-import { localParts, pickLocale, wallTimeToUtc } from '@touch/core';
+import {
+  addDays,
+  dayOfWeekOfDate,
+  isOvernightTail,
+  localParts,
+  parseHHMM,
+  pickLocale,
+  wallTimeToUtc,
+  type OpeningHours,
+} from '@touch/core';
 import type { Locale } from '@touch/i18n';
 import type { MergedCell } from '../availability/assemble';
 import { tradingNightOf } from '../matches/logic';
@@ -188,6 +197,10 @@ export interface SessionListing {
   maxPlaces: number;
   signupClosesAt: string | null;
   cutoffAt: string | null;
+  /** What a guest pays now: the place, or a running course's sessions not yet started (0294, DB-28). */
+  priceIqd: number | null;
+  /** The place's or the whole course's price (0294, DB-28). */
+  fullPriceIqd: number | null;
 }
 
 export interface CoachingPublic {
@@ -238,6 +251,8 @@ function parseSessionListing(raw: unknown): SessionListing | null {
     maxPlaces: Math.max(0, int(o.max_places) ?? 0),
     signupClosesAt: str(o.signup_closes_at),
     cutoffAt: str(o.cutoff_at),
+    priceIqd: int(o.price_iqd),
+    fullPriceIqd: int(o.full_price_iqd),
   };
 }
 
@@ -494,6 +509,12 @@ export interface OfferSession {
 }
 
 export interface LessonOffer {
+  /**
+   * `{off: true}`: coaching is off at the offer's branch (0283, 0294); the
+   * rest of the answer is empty, and the class screen shows the off notice
+   * instead of a closed offer (MB-12).
+   */
+  off: boolean;
   kind: ClassLessonKind;
   lessonId: string | null;
   courseId: string | null;
@@ -529,7 +550,8 @@ export interface LessonOffer {
   lateJoin: { sessionsLeft: number; sessionsCount: number } | null;
   paymentMode: LessonPaymentMode;
   cancellationWindowHours: number | null;
-  mine: { enrolmentId: string; status: 'held' | 'booked' } | null;
+  /** The caller's own live place; confirmNeeded: a coach- or desk-added place still to confirm (C-21, 0294 DB-33). */
+  mine: { enrolmentId: string; status: 'held' | 'booked'; confirmNeeded: boolean } | null;
   serverNow: string | null;
 }
 
@@ -558,6 +580,7 @@ export function parseLessonOffer(json: unknown): LessonOffer {
     });
   }
   return {
+    off: bool(o.off),
     kind: oneOf(['group', 'course'] as const, o.kind) ?? (courseId ? 'course' : 'group'),
     lessonId,
     courseId,
@@ -600,7 +623,11 @@ export function parseLessonOffer(json: unknown): LessonOffer {
     cancellationWindowHours: int(o.cancellation_window_hours),
     mine:
       mine && mineId
-        ? { enrolmentId: mineId, status: mine.status === 'held' ? 'held' : 'booked' }
+        ? {
+            enrolmentId: mineId,
+            status: mine.status === 'held' ? 'held' : 'booked',
+            confirmNeeded: mine.confirm_needed === true,
+          }
         : null,
     serverNow: str(o.server_now),
   };
@@ -612,8 +639,12 @@ export interface LessonWrite {
   enrolmentId: string;
   lessonId: string | null;
   courseId: string | null;
-  /** The ENROLMENT's: `booked` for the desk, `held` for Qi (never the lesson's `scheduled`). */
-  status: 'held' | 'booked';
+  /**
+   * The ENROLMENT's: `booked` for the desk, `held` for Qi (never the lesson's
+   * `scheduled`). A replay of a spent key answers the enrolment as it is now,
+   * `cancelled` or `expired` included (MB-10: never read as "Booked").
+   */
+  status: EnrolmentStatus;
   holdExpiresAt: string | null;
   paymentMode: PaymentChoice;
   priceIqd: number | null;
@@ -640,7 +671,7 @@ export function parseLessonWrite(json: unknown, rpc: LessonWriteRpc): LessonWrit
   if (!enrolmentId) throw new Error('MALFORMED_LESSON_WRITE');
   const common = {
     enrolmentId,
-    status: o.status === 'held' ? ('held' as const) : ('booked' as const),
+    status: oneOf(ENROLMENT_STATUSES, o.status) ?? ('booked' as const),
     holdExpiresAt: str(o.hold_expires_at),
     paymentMode: oneOf(ENROLMENT_PAYMENT_MODES, o.payment_mode) ?? 'desk',
     priceIqd: int(o.price_iqd),
@@ -671,6 +702,33 @@ export function parseLessonWrite(json: unknown, rpc: LessonWriteRpc): LessonWrit
     venueId: null,
     placesLeft,
   };
+}
+
+/**
+ * A replay of a key whose enrolment has since been cancelled or has expired
+ * (MB-10): the server answers `duplicate` with the dead enrolment, which is
+ * not a booking.
+ */
+export function isSpentReplay(w: Pick<LessonWrite, 'duplicate' | 'status'>): boolean {
+  return w.duplicate && (w.status === 'cancelled' || w.status === 'expired');
+}
+
+/**
+ * Runs a keyed guest write, and once more with a fresh key when the first
+ * answer is a spent replay (MB-10): `forget` clears the intent's key, so
+ * `run` mints a new one. A second spent answer (it cannot happen with a fresh
+ * key) is refused as IDEMPOTENCY_CONFLICT, never shown as "Booked".
+ */
+export async function writeOnceMore(
+  run: () => Promise<LessonWrite>,
+  forget: () => void,
+): Promise<LessonWrite> {
+  const first = await run();
+  if (!isSpentReplay(first)) return first;
+  forget();
+  const second = await run();
+  if (isSpentReplay(second)) throw new Error('IDEMPOTENCY_CONFLICT');
+  return second;
 }
 
 export interface CancelResult {
@@ -1019,6 +1077,36 @@ export function lessonWindow(
 }
 
 type NightSettings = { timezone?: string | null; opening_hours?: unknown };
+
+const NIGHT_DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+
+/**
+ * When trading night `date` ends: the end of the next calendar day's overnight
+ * tail (a 16:00–02:00 branch: 02:00 the next day), else the midnight after it.
+ */
+export function nightEndsAt(date: string, tz: string, openingHours: unknown): Date {
+  const next = addDays(date, 1);
+  const key = NIGHT_DAY_KEYS[dayOfWeekOfDate(next)];
+  const hours = openingHours as OpeningHours | null | undefined;
+  const tail = key ? (hours?.[key] ?? []).find(isOvernightTail) : undefined;
+  return wallTimeToUtc(next, tail ? parseHHMM(tail[1]) : 0, tz);
+}
+
+/**
+ * The strip's nights whose WHOLE trading night fits the `coach_slots` window
+ * (MB-16): with an overnight tail the last night would end past the window's
+ * 14 days and show its evening without its post-midnight starts, so it is
+ * dropped instead of shown cut short.
+ */
+export function nightsInWindow(
+  strip: readonly string[],
+  windowTo: string,
+  tz: string,
+  openingHours: unknown,
+): string[] {
+  const end = Date.parse(windowTo);
+  return strip.filter((d) => nightEndsAt(d, tz, openingHours).getTime() <= end);
+}
 
 /** The starts grouped by trading night ('YYYY-MM-DD'): a 00:30 start is the night before's. */
 export function slotsByNight(

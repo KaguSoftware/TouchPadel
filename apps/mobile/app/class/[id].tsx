@@ -21,7 +21,7 @@ import { useOwnConsent, useOwnProfile } from '../../src/features/profile/hooks';
 import { rpcErrorDetail } from '../../src/features/booking/errors';
 import { useJoinCourse, useJoinLesson, useLessonOffer } from '../../src/features/coaching/hooks';
 import { useStartLessonPayment } from '../../src/features/coaching/payment';
-import { setPendingLesson } from '../../src/features/coaching/pendingLesson';
+import { setOnlyPendingLesson } from '../../src/features/booking/pendingIntent';
 import {
   joinRefusalOf,
   lessonErrorCode,
@@ -81,6 +81,10 @@ export default function ClassDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [priceNote, setPriceNote] = useState<string | null>(null);
+  // MB-13: a join refused LESSON_NOT_FOUND, or a re-read that says so, ends
+  // the offer even while the old answer is still cached.
+  const [joinGone, setJoinGone] = useState(false);
+  const gone = joinGone || (offer.isError && lessonErrorCode(offer.error) === 'LESSON_NOT_FOUND');
   // The clock the cut-off is judged on when the answer carries no server_now.
   const [openedAt] = useState(() => Date.now());
 
@@ -107,12 +111,11 @@ export default function ClassDetailScreen() {
     );
   }
 
-  if (!o) {
-    const code = lessonErrorCode(offer.error);
+  if (!o || gone) {
     return (
       <Screen edges={[]}>
         {header}
-        {offer.isError && code === 'LESSON_NOT_FOUND' ? (
+        {gone ? (
           <EmptyState
             testID="class-detail.not-found"
             fill
@@ -130,6 +133,16 @@ export default function ClassDetailScreen() {
         ) : (
           <SkeletonList rows={3} height={96} />
         )}
+      </Screen>
+    );
+  }
+
+  // MB-12: coaching is off at the offer's branch; nothing else came back.
+  if (o.off) {
+    return (
+      <Screen edges={[]}>
+        {header}
+        <EmptyState testID="class-detail.off" fill title={t('coaching.common.errors.off')} />
       </Screen>
     );
   }
@@ -182,6 +195,7 @@ export default function ClassDetailScreen() {
         setError(lessonErrorText(err, t, errorCtx));
         return;
       case 'notFound':
+        setJoinGone(true);
         void offer.refetch();
         return;
       case 'banner':
@@ -197,7 +211,7 @@ export default function ClassDetailScreen() {
     setError(null);
     setPriceNote(null);
     if (!session) {
-      setPendingLesson({ kind: 'class', classKind: kind, id });
+      setOnlyPendingLesson({ kind: 'class', classKind: kind, id });
       router.push('/welcome');
       return;
     }
@@ -352,11 +366,22 @@ export default function ClassDetailScreen() {
 
         {o.mine ? (
           <View style={{ gap: space.s }}>
-            <MatchNotice text={t('coaching.guest.class.mine')} />
+            {/* MB-14: an unconfirmed coach- or desk-added place goes to "Is this you?" (C-21). */}
+            <MatchNotice
+              text={t(
+                o.mine.confirmNeeded
+                  ? 'coaching.guest.class.mineConfirm'
+                  : 'coaching.guest.class.mine',
+              )}
+            />
             <Button
               testID="class-detail.mine"
-              label={t('coaching.guest.class.seeBooking')}
-              variant="secondary"
+              label={t(
+                o.mine.confirmNeeded
+                  ? 'coaching.guest.bookings.confirm'
+                  : 'coaching.guest.class.seeBooking',
+              )}
+              variant={o.mine.confirmNeeded ? 'cta' : 'secondary'}
               onPress={() =>
                 router.push({ pathname: '/lesson/[id]', params: { id: o.mine!.enrolmentId } })
               }

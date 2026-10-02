@@ -286,6 +286,7 @@ function coachPriceRun(priceIqd: number | null) {
 }
 
 describe.each(LOCALES)('a coach price’s numbers on the phone in %s', (locale) => {
+  const t = makeT(locale);
   const render = (priceIqd: number | null) => {
     const { propose, numbers, run } = coachPriceRun(priceIqd);
     return renderRoute(StaffStep, {
@@ -323,6 +324,28 @@ describe.each(LOCALES)('a coach price’s numbers on the phone in %s', (locale) 
       expect(screen.getByTestId('staff-step.field.price_iqd').props.value).toBe('40000');
       expect(screen.queryByTestId('staff-step.field.court_share_iqd')).toBeNull();
       expect(screen.getByTestId('staff-step.submit')).toBeTruthy();
+      // MB-20: the lesson's figures beside the form; no court share for a coach price, no coach pay.
+      expect(
+        screen.getByText(
+          t('staff.protocols.context.lessonPrice', {
+            current: formatIQD(35000, locale),
+            next: formatIQD(40000, locale),
+          }),
+        ),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(
+          t('staff.protocols.context.lessonSold', { places: '12', amount: formatIQD(0, locale) }),
+        ),
+      ).toBeTruthy();
+      expect(
+        screen.queryByText(
+          t('staff.protocols.context.lessonCourtShare', {
+            current: formatIQD(5000, locale),
+            next: formatIQD(5000, locale),
+          }),
+        ),
+      ).toBeNull();
     } finally {
       screen.unmount();
     }
@@ -333,6 +356,51 @@ describe.each(LOCALES)('a coach price’s numbers on the phone in %s', (locale) 
     try {
       expect(screen.queryByTestId('staff-step.field.price_iqd')).toBeNull();
       expect(screen.getByTestId('staff-step.submit')).toBeTruthy();
+      // MB-20: the removal is said in words, not left as a price that moves.
+      expect(
+        screen.getByText(
+          t('staff.protocols.context.coachPriceRemoved', { next: formatIQD(40000, locale) }),
+        ),
+      ).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('reads a proposal that removes the coach’s own price as a removal (MB-20)', () => {
+    const { propose, run } = coachPriceRun(null);
+    const waiting: StepRow = {
+      ...propose,
+      status: 'submitted',
+      submissions: [{ ...propose.submissions[0]!, decision: null }],
+    };
+    const screen = renderRoute(StaffStep, {
+      locale,
+      staff: { role: 'owner' },
+      params: { id: PROPOSE },
+      queryData: [
+        [
+          staffKeys.step(PROPOSE),
+          {
+            run: { ...run, data: null },
+            step: waiting,
+            can: { ...NO_CAN, decide_submission_id: SUB, send_back_targets: [PROPOSE] },
+            def: null,
+          },
+        ],
+        [
+          staffKeys.run(RUN),
+          {
+            run: { ...run, template_name_en: 'Price', template_name_ar: 'سعر', data: null },
+            steps: [waiting],
+            can: NO_CAN,
+          },
+        ],
+        [staffKeys.priceTargets(V, 'coach_price'), COACH_TARGETS],
+      ],
+    });
+    try {
+      expect(screen.getByText(t('staff.protocols.context.coachPriceRemovedRecord'))).toBeTruthy();
     } finally {
       screen.unmount();
     }
