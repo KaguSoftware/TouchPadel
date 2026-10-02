@@ -146,9 +146,11 @@ test.describe('site home', () => {
     await join.click();
     await expect(events.locator('.tp-ticket[data-torn]')).toHaveCount(1);
     await expect(name).toHaveJSProperty('readOnly', true);
-    await expect.poll(() => left?.searchParams.get('text') ?? null).toBe(
-      "Hi Touch Padel, this is Sara Ahmed. I'd like to sign up for the next tournament. Can you send me the details?",
-    );
+    await expect
+      .poll(() => left?.searchParams.get('text') ?? null)
+      .toBe(
+        "Hi Touch Padel, this is Sara Ahmed. I'd like to sign up for the next tournament. Can you send me the details?",
+      );
   });
 
   test('every WhatsApp button opens a chat with the desk, pre-filled; Call dials the same number', async ({
@@ -177,14 +179,14 @@ test.describe('site home', () => {
         'Hi Touch Padel, I would like to book a court.',
       ],
       [
-        page
-          .locator('#lessons')
-          .getByRole('link', { name: /^Ask about lessons\s*, on WhatsApp$/ }),
+        page.locator('#lessons').getByRole('link', { name: /^Ask about lessons\s*, on WhatsApp$/ }),
         'Hi Touch Padel, I would like to book a lesson.',
       ],
       [
         // The ticket's link before a name is written (and the whole of it with no JS).
-        page.locator('.tp-events').getByRole('link', { name: /^Join a tournament\s*, on WhatsApp$/ }),
+        page
+          .locator('.tp-events')
+          .getByRole('link', { name: /^Join a tournament\s*, on WhatsApp$/ }),
         "Hi Touch Padel, I'd like to sign up for the next tournament. Can you send me the details?",
       ],
       [page.locator('#visit').getByRole('link', { name: 'WhatsApp' }), 'Hi Touch Padel,'],
@@ -223,7 +225,9 @@ test.describe('site home', () => {
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     // Open, the sheet has it, full width, at the thumb's end of the screen.
-    await expect(page.locator('#tp-site-menu').getByRole('link', { name: 'Book a court' })).toBeVisible();
+    await expect(
+      page.locator('#tp-site-menu').getByRole('link', { name: 'Book a court' }),
+    ).toBeVisible();
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   });
@@ -232,10 +236,9 @@ test.describe('site home', () => {
     const res = await page.goto('/en/does-not-exist');
     expect(res?.status()).toBe(404);
     await expect(page.getByRole('heading', { level: 1, name: 'Out of bounds' })).toBeVisible();
-    await expect(page.getByRole('main').getByRole('link', { name: 'Back to Touch Padel' })).toHaveAttribute(
-      'href',
-      '/en',
-    );
+    await expect(
+      page.getByRole('main').getByRole('link', { name: 'Back to Touch Padel' }),
+    ).toHaveAttribute('href', '/en');
     // Deeper paths and paths under real pages land there too.
     for (const path of ['/en/privacy/x', '/en/menu/x']) {
       const deeper = await page.goto(path);
