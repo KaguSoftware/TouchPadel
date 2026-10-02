@@ -173,8 +173,12 @@ test.describe('site coaching', () => {
     page,
   }) => {
     const card = page.locator(`.tp-coach-card[data-coach="${coachId}"]`);
+    // Polled until no price shows: a rerun can meet a price-on read still in the 60 s cache.
     await pollPage(page, '/en/coaching', async () => {
       await expect(card).toBeVisible({ timeout: 2_000 });
+      await expect(page.locator('.tp-coach-card__price, .tp-coach-type__price')).toHaveCount(0, {
+        timeout: 2_000,
+      });
     });
     await expect(page).toHaveTitle(`${en.coaching.web.metaTitle} · Touch Padel`);
     await expect(card.getByRole('heading', { name: COACH_NAME.en })).toBeVisible();
@@ -273,8 +277,11 @@ test.describe('site coaching @ar', () => {
     page,
   }) => {
     const card = page.locator(`.tp-coach-card[data-coach="${coachId}"]`);
+    // Polled until no price shows: the English price test's switch-on read stays in the 60 s
+    // cache for up to a minute after that test switches prices back off.
     await pollPage(page, '/ar/coaching', async () => {
       await expect(card).toBeVisible({ timeout: 2_000 });
+      await expect(page.locator('main')).not.toContainText(/د\.ع/, { timeout: 2_000 });
     });
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('heading', { level: 1 })).toContainText(ar.coaching.web.titleOne);

@@ -157,7 +157,7 @@ function Session({
   const type = coaching.lesson_types.find((t) => t.id === session.lesson_type_id) ?? null;
   const coach = coaching.coaches.find((c) => c.id === session.coach_id);
   const when = sessionWhen(session, branch.timezone, locale);
-  const price = sessionPrice(session, type, locale);
+  const price = sessionPrice(session, locale);
   if (!coach || !when) return null;
   return (
     <li>

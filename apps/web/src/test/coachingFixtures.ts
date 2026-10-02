@@ -41,8 +41,19 @@ export const NEVER_SHOWN = [
   'Kareem', // a profile surname
 ];
 
-/** The prices in the answer (IQD), for the price-hidden and price-shown cases. */
-export const PRICES = { private: 30000, aliPrivate: 35000, group: 15000, course: 120000 } as const;
+/**
+ * The prices in the answer (IQD), for the price-hidden and price-shown cases. The session rows
+ * carry their own (0294, DB-28): Ali's group session was made at his price and the course at its
+ * own, neither the type's, so a page that showed a type's base price on a session fails.
+ */
+export const PRICES = {
+  private: 30000,
+  aliPrivate: 35000,
+  group: 15000,
+  course: 120000,
+  groupSession: 18000,
+  courseOwn: 110000,
+} as const;
 
 const branch = (venueId: string, nameEn: string, nameAr: string, pricesPublic: boolean) => ({
   venue_id: venueId,
@@ -195,6 +206,8 @@ export function coachingAnswer({
         max_places: 8,
         signup_closes_at: '2026-10-02T16:30:00+00:00',
         cutoff_at: '2026-10-02T14:30:00+00:00',
+        price_iqd: PRICES.groupSession,
+        full_price_iqd: PRICES.groupSession,
         // Never public (C-11): a count of places is all the page may say.
         students: [{ name: 'Zainab H.', phone: '+9647701234567' }],
       },
@@ -215,6 +228,8 @@ export function coachingAnswer({
         max_places: 6,
         signup_closes_at: '2026-11-22T15:00:00+00:00',
         cutoff_at: '2026-10-03T15:00:00+00:00',
+        price_iqd: PRICES.courseOwn,
+        full_price_iqd: PRICES.courseOwn,
       },
       {
         // A coach the server should not have sent: the parser drops their session.
@@ -234,6 +249,8 @@ export function coachingAnswer({
         max_places: 8,
         signup_closes_at: '2026-10-03T16:30:00+00:00',
         cutoff_at: '2026-10-03T14:30:00+00:00',
+        price_iqd: PRICES.group,
+        full_price_iqd: PRICES.group,
       },
     ],
     server_now: '2026-10-01T09:00:00+00:00',
