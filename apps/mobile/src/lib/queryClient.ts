@@ -247,6 +247,18 @@ queryClient.setQueryDefaults(['coaching', 'slots'], {
 });
 
 /**
+ * Tournaments, the guest's side (plan §5.2), keyed under `tournamentKeys`
+ * (features/tournaments/keys.ts). As for lessons: register and withdraw run
+ * now or fail now (nothing is queued, so a registration never lands after the
+ * cut-off it was refused for); one retry is safe because both are
+ * state-idempotent (a repeat answers `duplicate`).
+ */
+queryClient.setMutationDefaults(['tournament', 'mutation'], {
+  networkMode: 'always',
+  retry: retryKeyedWriteOnce,
+});
+
+/**
  * Disk cache so a cold start paints real data immediately instead of spinners.
  *
  * `buster` is the app version: a build that changes query shapes must not read
@@ -271,7 +283,10 @@ export const persister = createAsyncStoragePersister({
  * lesson read carries money, and a held enrolment read back from disk would
  * be shown before it is re-checked (coaching guest.md §4.7.3). And the
  * `coach` family (coach mode): a roster carries students' phones and a
- * statement the coach's pay (coaching guest.md §4.7.3).
+ * statement the coach's pay (coaching guest.md §4.7.3). And the
+ * `tournament` family: a detail carries other players' names and the guest's
+ * own entry and money, and a "registered" read back from disk would be shown
+ * before it is re-checked (tournaments plan §5.2).
  */
 export const persistOptions = {
   persister,
@@ -285,7 +300,8 @@ export const persistOptions = {
       query.queryKey[0] !== 'deposit' &&
       query.queryKey[0] !== 'match' &&
       query.queryKey[0] !== 'coaching' &&
-      query.queryKey[0] !== 'coach',
+      query.queryKey[0] !== 'coach' &&
+      query.queryKey[0] !== 'tournament',
   },
 } as const;
 

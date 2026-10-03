@@ -16,6 +16,7 @@ import {
   bilingual,
   blocksToSend,
   completeRenames,
+  conflictKindKey,
   courtsRecord,
   interviewsRecord,
   isProtocolQueryKey,
@@ -544,6 +545,25 @@ describe('the court desk’s windows (§2.11)', () => {
       conflicts: [{ court_id: B, start_at: 'x', end_at: 'y', reservation_id: A, kind: 'booking', status: 'confirmed' }],
     });
     expect(answer.conflicts).toEqual([{ reservationId: A, courtId: B, startAt: 'x', endAt: 'y', kind: 'booking' }]);
+  });
+
+  it('keeps a waiting open match, which names no reservation, and drops any other conflict without one (tournaments S11)', () => {
+    const answer = readBlockAnswer({
+      blocked: [],
+      conflicts: [
+        { court_id: B, start_at: 'x', end_at: 'y', reservation_id: null, kind: 'match_waiting', status: 'awaiting_court' },
+        { court_id: C, start_at: 'x', end_at: 'y', reservation_id: null, kind: 'booking', status: 'confirmed' },
+      ],
+    });
+    expect(answer.conflicts).toEqual([{ reservationId: null, courtId: B, startAt: 'x', endAt: 'y', kind: 'match_waiting' }]);
+  });
+
+  it('words every conflict kind the server sends, and leaves an unknown one to print as sent', () => {
+    expect(conflictKindKey('booking')).toBe('staff.protocols.courts.conflict.booking');
+    expect(conflictKindKey('maintenance')).toBe('staff.protocols.courts.conflict.maintenance');
+    expect(conflictKindKey('match_waiting')).toBe('ws.events.block.conflictKind.match_waiting');
+    expect(conflictKindKey('lesson')).toBe('ws.events.block.conflictKind.lesson');
+    expect(conflictKindKey('something_new')).toBeNull();
   });
 });
 

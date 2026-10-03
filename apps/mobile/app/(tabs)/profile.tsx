@@ -19,6 +19,7 @@ import { brand, radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { MenuRow } from '../../src/components/booking';
 import { anyCoaching } from '../../src/features/coaching/logic';
+import { anyTournaments } from '../../src/features/tournaments/logic';
 import { coachModeEntry, useCoachStatus } from '../../src/features/coach/useCoachStatus';
 import {
   BackChevronIcon,
@@ -53,6 +54,8 @@ export default function ProfileScreen() {
   // say (`coach_me` is read on this screen's mount, R45).
   const branches = useBranches();
   const coaching = anyCoaching(branches.data);
+  // Tournaments (tournaments plan §5.2): "My tournaments" while some branch has them on.
+  const tournaments = anyTournaments(branches.data);
   const coachEntry = coachModeEntry(useCoachStatus({ read: true }).status);
   const toast = useToast();
   const [error, setError] = useState<string | null>(null);
@@ -336,6 +339,16 @@ export default function ProfileScreen() {
                 icon={<CalendarIcon size={15} color={colors.gstrong} />}
                 label={t('profile.myLessons')}
                 onPress={() => router.push('/my-lessons')}
+              />
+            ) : null}
+            {tournaments ? (
+              <MenuRow
+                testID="profile.my-tournaments"
+                icon={<CalendarIcon size={15} color={colors.gstrong} />}
+                label={t('tournaments.guest.entry.mine')}
+                onPress={() =>
+                  router.push({ pathname: '/tournaments', params: { filter: 'mine' } })
+                }
               />
             ) : null}
             {/* Open matches (docs/design/open-matches/guest.md §4.16): the

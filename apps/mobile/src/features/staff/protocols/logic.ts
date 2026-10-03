@@ -23,7 +23,7 @@ import {
   type SubmissionRow,
   type TournamentVariant,
 } from '@touch/core';
-import type { Locale } from '@touch/i18n';
+import type { Locale, MessageKey } from '@touch/i18n';
 import { draftFromRecord, emptyDraft, type Draft } from './assemble';
 import type {
   NumbersLesson,
@@ -822,14 +822,21 @@ export function blocksToSend(windows: readonly PlannedWindow[]): { court_id: str
 }
 
 export interface BlockConflict {
-  reservationId: string;
+  /** The reservation in the way; null for a `match_waiting` conflict, which names none. */
+  reservationId: string | null;
   courtId: string;
   startAt: string;
   endAt: string;
   kind: string;
 }
 
-/** `app.block_courts_for_event`: what was blocked, or what is in the way. */
+/**
+ * `app.block_courts_for_event`: what was blocked, or what is in the way. A conflict
+ * names the reservation in the way, except `match_waiting` (tournaments S11): an
+ * open match waiting for a court that this block would take, answered per requested
+ * block with `reservation_id: null`. Any other conflict without a reservation is
+ * dropped, as before.
+ */
 export function readBlockAnswer(payload: unknown): { blocked: EventBlock[]; conflicts: BlockConflict[] } {
   const p = obj(payload);
   return {
@@ -838,14 +845,33 @@ export function readBlockAnswer(payload: unknown): { blocked: EventBlock[]; conf
       .filter((b): b is EventBlock => b !== null),
     conflicts: list(p.conflicts)
       .map((c) => ({
-        reservationId: str(c.reservation_id) ?? '',
+        reservationId: str(c.reservation_id),
         courtId: str(c.court_id) ?? '',
         startAt: str(c.start_at) ?? '',
         endAt: str(c.end_at) ?? '',
         kind: str(c.kind) ?? '',
       }))
-      .filter((c) => c.reservationId !== ''),
+      .filter((c) => c.reservationId !== null || c.kind === 'match_waiting'),
   };
+}
+
+/**
+ * The word a conflict's kind reads: the courts step's own for a booking, a hold or a
+ * block; the desk's (`ws.events.block.conflictKind.*`) for a lesson's court row and a
+ * waiting open match. Null for a kind this build does not know, which prints as sent.
+ */
+export function conflictKindKey(kind: string): MessageKey | null {
+  switch (kind) {
+    case 'booking':
+    case 'hold':
+    case 'maintenance':
+      return `staff.protocols.courts.conflict.${kind}`;
+    case 'lesson':
+    case 'match_waiting':
+      return `ws.events.block.conflictKind.${kind}`;
+    default:
+      return null;
+  }
 }
 
 /**

@@ -92,6 +92,9 @@ export interface VenueSettingsPublic {
   lesson_payment_mode?: string | null;
   /** The website's price switch (C-11); the app shows prices whatever it says. */
   lesson_prices_public?: boolean | null;
+  /** Tournaments at this branch (tournaments file 1, plan §5.2). Optional: a row cached before
+   *  the column existed reads as switched off. */
+  tournaments_enabled?: boolean | null;
 }
 
 export const DEFAULT_TZ = 'Asia/Baghdad';
