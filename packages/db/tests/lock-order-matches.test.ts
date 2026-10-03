@@ -77,6 +77,8 @@ describe('the walker over synthetic catalogs (pure)', () => {
       'match_sweep', 'deposit_apply', 'ticket_settle_success', 'ticket_refund_deleted', 'tickets_cash_out', 'expire_stale_holds',
       // Coaching (coaching_tables, R33): walked once each exists.
       'lesson_sweep', 'lesson_settle_success', 'lesson_payment_prepare', 'coach_statements_draft',
+      // Tournaments (M7): the tp_tournament_sweep cron.
+      'tournament_sweep',
     ]);
   });
 

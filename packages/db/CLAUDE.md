@@ -17,8 +17,9 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0289`
-  (`20261001000289_lesson_account_deletion.sql`; 0273–0289 coaching, Phase 2 milestone 5: lesson
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0301`
+  (`20261003000301_tournaments_play.sql`; 0299–0301 tournaments, Phase 2 milestone 7: schema and
+  money, lifecycle, play; 0290–0298 the coaching review fixes; 0273–0289 coaching, Phase 2 milestone 5: lesson
   kind, lesson push kinds, settings, tables, reservation guards, lesson money, coach admin,
   booking, Qi lessons, price-protocol lesson kinds, sweep, statements, reports, account deletion —
   written as 0270–0286 and renumbered +3 at the merge because the wages migrations took 0270–0272,
@@ -30,7 +31,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0290`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0302`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -117,6 +118,13 @@ is a line in that file.
   0298 `storage_path_in_use` (0282 is no longer the latest; it answers the service role too, for
   `protocol-action`'s coach photo purge, EC-01) and `protocol_tick_nudge` (0240 is no longer the
   latest; a queued `coach_photo_purges` row is due work).
+  Tournaments (0299–0301): 0299 `compute_tab_totals` and `cafe_settled_tabs` (0281 is no longer
+  the latest; a kind `tournament` tab adds `tournament_fee_remaining` to `total_iqd` only, and is
+  never café money); 0300 `block_courts_for_event` (0174 is no longer the latest: branches in
+  scope, active courts, `DEGRADED_LOCKOUT`, the combined R22 check with `match_waiting`
+  conflicts), plus the `reservations_tournament_guard` trigger, which refuses a status, court,
+  time or kind change of a published tournament's event block (`TOURNAMENT_VIA_EVENTS`) instead
+  of re-issuing cancel, move, mark or extend.
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
   GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows
@@ -131,7 +139,8 @@ is a line in that file.
   file that uses the value. Precedents: 0143 (`ingredient_kind` `retail`, first used by 0144) and
   0155 (six `staff_role` values, first used by 0156).
 - New push kind: `notification_outbox.kind` is a closed CHECK (`0024:22`, re-issued by
-  `0075:36-58`, latest `0274`, which added `lesson_update`, `lesson_reminder`, `coach_update`);
+  `0075:36-58`, `0274` added `lesson_update`, `lesson_reminder`, `coach_update`; latest `0299`, which added
+  `tournament_update`, whose two keys are `app.tournament_notify`'s `c_keys`);
   widen it by migration and add EN/AR copy: a booking kind to
   `STRINGS` in `supabase/functions/send-push/index.ts:48`; a staff kind to `staffStrings.ts` and
   `_shared/staff-push.json`; the guest kinds of open matches take their copy from

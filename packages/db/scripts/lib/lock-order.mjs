@@ -135,6 +135,8 @@ export const SERVICE_WALK = [
   'lesson_settle_success', // lesson_online_payment, under deposit_apply's lesson arm
   'lesson_payment_prepare', // lesson_online_payment, lesson-begin
   'coach_statements_draft', // the coach_statements migration, the tp_coach_statements cron
+  // Tournaments (M7; walked once tournaments_lifecycle exists):
+  'tournament_sweep', // the tp_tournament_sweep cron: the cut-off cancel releases courts
 ];
 
 /**
