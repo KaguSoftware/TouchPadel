@@ -32,6 +32,7 @@ export const eventsAr: DeepMessages<typeof eventsEn> = {
       hold: 'حجز مؤقت',
       maintenance: 'إيقاف',
       lesson: 'حصة',
+      match_waiting: 'مباراة مفتوحة بانتظار ملعب',
     },
     openBooking: 'فتح الحجز',
     checkAgain: 'إعادة التحقق',

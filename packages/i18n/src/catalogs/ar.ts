@@ -6,11 +6,13 @@ import { opErrorsProtocolsAr } from './opErrors.protocols.ar';
 import { opErrorsMatchesAr } from './opErrors.matches.ar';
 import { opErrorsCodesAr } from './opErrors.codes.ar';
 import { opErrorsCoachingAr } from './opErrors.coaching.ar';
+import { opErrorsTournamentsAr } from './opErrors.tournaments.ar';
 import { legalAr } from './legal.ar';
 import { siteAr } from './site.ar';
 import { branchesAr } from './branches.ar';
 import { matchesAr } from './matches.ar';
 import { coachingAr } from './coaching.ar';
+import { tournamentsAr } from './tournaments.ar';
 
 /**
  * Arabic (Iraq) message catalog. Mirrors `en.ts` key-for-key — the `Messages`
@@ -934,6 +936,7 @@ export const ar: Messages = {
   branches: branchesAr,
   matches: matchesAr,
   coaching: coachingAr,
+  tournaments: tournamentsAr,
   seo: {
     siteTitle: 'تتش بادل',
     menuTitle: 'منيو تتش كافيه',
@@ -1948,6 +1951,7 @@ export const ar: Messages = {
       ...opErrorsMatchesAr,
       ...opErrorsCodesAr,
       ...opErrorsCoachingAr,
+      ...opErrorsTournamentsAr,
     },
   },
   work: workAr,
