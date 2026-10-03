@@ -12,7 +12,10 @@ the app does not claim it; no names, no price, never indexed:
 types and sessions with places; prices only behind the branch's `lesson_prices_public` switch,
 dropped by the parser in `src/lib/coaching.ts`) and the coach link `/{locale}/c/[id]` (the "Open in
 the app" fallback for `/c/<coachId>`; never indexed, no referrer:
-`docs/design/coaching/guest.md` §4.14). The menu moved
+`docs/design/coaching/guest.md` §4.14), and a tournament's page `/{locale}/events/[id]` (schedule
+and standings, players "First I." only; never indexed or followed, no referrer; refreshes itself
+every 30 s while in play; the landing's Events cards link to it:
+`docs/design/tournaments/build-contracts-2026-10-03.md` §1.8, §1.11). The menu moved
 off the root on 2026-09-23 (`docs/design/web-site/contracts-2026-09-23.md`). `AGENTS.md` above is
 Next's generated guide to this Next version; read it before touching routing, caching or server code. Written 2026-09-20 (Phase 2,
 Milestone 0 item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Database-side

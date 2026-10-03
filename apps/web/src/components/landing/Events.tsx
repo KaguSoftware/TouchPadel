@@ -2,8 +2,25 @@ import { makeT, type Locale } from '@touch/i18n';
 import { CourtPattern } from '@/components/site/brand/CourtPattern';
 import { WhatsAppButton } from '@/components/site/ContactButton';
 import { whatsappUrl } from '@/lib/site/contact';
+import {
+  branchOf,
+  feeLine,
+  formatLine,
+  localText,
+  placesLine,
+  registrationOpen,
+  tournamentName,
+  tournamentPath,
+  tournamentWhen,
+  upcomingTournaments,
+  type PublicTournaments,
+  type TournamentsRead,
+} from '@/lib/tournaments';
 import { EventsTicket } from './EventsTicket';
 import { Photo } from './Photo';
+
+/** How many tournaments the landing lists (T-8): the next few, not a calendar. */
+const CARDS = 3;
 
 type Crop = readonly [x: number, y: number, w: number, h: number];
 
@@ -58,11 +75,28 @@ const KNOCKOUT_RADII = [
  * message. (It used to share the poster's black, and the bands had to stop short of it
  * along a flat line in open black.) Screen readers hear "Play. Smash. Win." once; the
  * giant words are its picture.
+ *
+ * Once a branch has tournaments on and one is coming up (`tournaments.status === 'ok'`, the
+ * `tournaments`-tagged `tournaments_public` read; T-8, build contracts §1.11), the next three
+ * sit above the poster as cards: when (in the branch's timezone), the name, the format and
+ * category, the fee, the places left, "Register in the app" while registration is open, and
+ * "Details" to the tournament's `/{locale}/events/<id>` page. Any other state (off, none coming
+ * up, a failed read) leaves the section exactly as it was.
  */
-export function Events({ locale, phone }: { locale: Locale; phone: string | null }) {
+export function Events({
+  locale,
+  phone,
+  tournaments,
+}: {
+  locale: Locale;
+  phone: string | null;
+  tournaments: TournamentsRead;
+}) {
   const tr = makeT(locale);
+  const list = tournaments.status === 'ok' ? tournaments.tournaments : null;
   return (
-    <section className="tp-events" aria-labelledby="events-title">
+    <section id="events" className="tp-events" aria-labelledby="events-title">
+      {list ? <EventsCards locale={locale} list={list} /> : null}
       <div className="tp-events__stage tp-on-dark">
         <svg className="tp-events__defs" width="0" height="0" aria-hidden="true" focusable="false">
           <defs>
@@ -155,5 +189,57 @@ export function Events({ locale, phone }: { locale: Locale; phone: string | null
         </p>
       </div>
     </section>
+  );
+}
+
+/** The next tournaments, as cards above the poster (no names, no court: §1.8). */
+function EventsCards({ locale, list }: { locale: Locale; list: PublicTournaments }) {
+  const tr = makeT(locale);
+  const cards = upcomingTournaments(list).slice(0, CARDS);
+  const manyBranches = list.branches.length > 1;
+  return (
+    <div className="tp-events__cards" data-reveal="">
+      <h2 id="events-cards-title" className="tp-events__cards-title">
+        {tr('tournaments.web.eventsCards.title')}
+      </h2>
+      <ul className="tp-tour-cards" aria-labelledby="events-cards-title">
+        {cards.map((card) => {
+          const branch = branchOf(list, card.venue_id);
+          const when = tournamentWhen(card, branch?.timezone ?? '', locale);
+          const what = formatLine(card, locale);
+          return (
+            <li key={card.id} className="tp-tour-card" data-tournament={card.id}>
+              {when ? <p className="tp-tour-card__when tp-num">{when}</p> : null}
+              <h3 className="tp-tour-card__name">{tournamentName(card, locale)}</h3>
+              <p className="tp-tour-card__what">
+                {manyBranches && branch
+                  ? `${what} · ${localText(locale, branch.name_en, branch.name_ar)}`
+                  : what}
+              </p>
+              <p className="tp-tour-card__fee tp-num">{feeLine(card.entry_fee_iqd, locale)}</p>
+              <p className="tp-tour-card__places tp-num" data-status={card.status}>
+                {placesLine(card, locale)}
+              </p>
+              <div className="tp-tour-card__ctas">
+                {registrationOpen(card, list.server_now) ? (
+                  <a
+                    className="tp-site-btn tp-site-btn--primary tp-site-btn--sm"
+                    href={`/${locale}#app`}
+                  >
+                    {tr('tournaments.web.eventsCards.registerInApp')}
+                  </a>
+                ) : null}
+                <a
+                  className="tp-site-btn tp-site-btn--ghost tp-site-btn--sm"
+                  href={tournamentPath(locale, card.id)}
+                >
+                  {tr('tournaments.web.eventsCards.details')}
+                </a>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
