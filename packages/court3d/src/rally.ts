@@ -210,37 +210,15 @@ function racketAt(i: number, t: number, camK: number): RacketPose {
  * flat on the turf (y 0.75) → front view upright at chest height (y 1.55).
  */
 export function rallyAt(t: number, camK: number): RallyState {
-  // Snap a t that is a leg start within float noise (n × LEG_SECONDS) onto
-  // u = 0 rather than u ≈ 1 of the leg before.
-  const legs = t / LEG_SECONDS;
-  let leg = Math.floor(legs);
-  let u = legs - leg;
-  if (u > 1 - 1e-9) {
-    leg += 1;
-    u = 0;
-  }
+  const { leg, u } = legAt(t);
   const legIdx = leg % 4;
   const from = RALLY_ORDER[legIdx]!;
   const to = RALLY_ORDER[(legIdx + 1) % 4]!;
 
   const rackets = PLAYERS.map((_, i) => racketAt(i, t, camK));
 
-  // The strike and the reception, each sampled at ITS OWN moment: the hitter's
-  // face where it was when the ball left, the receiver's where it will be when
-  // the ball arrives. (Reading the live positions instead would drag the whole
-  // arc along with the follow-through.)
-  const legStart = leg * LEG_SECONDS;
-  const A = racketAt(from, legStart, camK).contact;
-  const B = racketAt(to, legStart + LEG_SECONDS, camK).contact;
-  const bounce = { ...lerp3(A, B, 0.8), y: BALL_RADIUS };
-  let ball: Vec3;
-  if (u < 0.62) {
-    const w = u / 0.62;
-    ball = { ...lerp3(A, bounce, w), y: lerp(A.y, bounce.y, w) + 1.9 * Math.sin(Math.PI * w) };
-  } else {
-    const w = (u - 0.62) / 0.38;
-    ball = { ...lerp3(bounce, B, w), y: lerp(bounce.y, B.y, w) + 0.6 * Math.sin(Math.PI * w) };
-  }
+  const { A, B } = legEnds(leg, camK);
+  const ball = ballOnLeg(A, B, u);
 
   // The disc lands where the sun (6, 30, 10) would cast it.
   const hs = 1 - Math.min(1, ball.y / 3);
@@ -256,5 +234,69 @@ export function rallyAt(t: number, camK: number): RallyState {
       scale: 0.8 + 0.3 * hs,
       opacity: 0.16 + 0.14 * hs,
     },
+  };
+}
+
+/** Which leg t falls in, and how far through it (0..1). */
+function legAt(t: number): { leg: number; u: number } {
+  // Snap a t that is a leg start within float noise (n × LEG_SECONDS) onto
+  // u = 0 rather than u ≈ 1 of the leg before.
+  const legs = t / LEG_SECONDS;
+  let leg = Math.floor(legs);
+  let u = legs - leg;
+  if (u > 1 - 1e-9) {
+    leg += 1;
+    u = 0;
+  }
+  return { leg, u };
+}
+
+/**
+ * The strike and the reception, each sampled at ITS OWN moment: the hitter's
+ * face where it was when the ball left, the receiver's where it will be when
+ * the ball arrives. (Reading the live positions instead would drag the whole
+ * arc along with the follow-through.)
+ */
+function legEnds(leg: number, camK: number): { A: Vec3; B: Vec3 } {
+  const legIdx = leg % 4;
+  const from = RALLY_ORDER[legIdx]!;
+  const to = RALLY_ORDER[(legIdx + 1) % 4]!;
+  const legStart = leg * LEG_SECONDS;
+  return {
+    A: racketAt(from, legStart, camK).contact,
+    B: racketAt(to, legStart + LEG_SECONDS, camK).contact,
+  };
+}
+
+/** The ball u of the way along the leg from face A to face B. */
+function ballOnLeg(A: Vec3, B: Vec3, u: number): Vec3 {
+  const bounce = { ...lerp3(A, B, 0.8), y: BALL_RADIUS };
+  if (u < 0.62) {
+    const w = u / 0.62;
+    return { ...lerp3(A, bounce, w), y: lerp(A.y, bounce.y, w) + 1.9 * Math.sin(Math.PI * w) };
+  }
+  const w = (u - 0.62) / 0.38;
+  return { ...lerp3(bounce, B, w), y: lerp(bounce.y, B.y, w) + 0.6 * Math.sin(Math.PI * w) };
+}
+
+/**
+ * The ball alone, for callers that sample it many times a frame (the trail's
+ * ghosts). `rallyAt(t, camK).ball` to the bit, without the four live rackets
+ * it would also pose: only the leg's two ends matter to the ball, and every
+ * ghost on one leg shares them, so the sampler keeps the last leg's ends and
+ * re-poses them only when the leg or camK changes. One sampler per scene.
+ */
+export function ballSampler(): (t: number, camK: number) => Vec3 {
+  let lastLeg = NaN;
+  let lastK = NaN;
+  let ends: { A: Vec3; B: Vec3 } | null = null;
+  return (t, camK) => {
+    const { leg, u } = legAt(t);
+    if (ends === null || leg !== lastLeg || camK !== lastK) {
+      ends = legEnds(leg, camK);
+      lastLeg = leg;
+      lastK = camK;
+    }
+    return ballOnLeg(ends.A, ends.B, u);
   };
 }

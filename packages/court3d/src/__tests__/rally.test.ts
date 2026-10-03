@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BALL_RADIUS,
+  ballSampler,
   cameraPose,
   layAngle,
   LEG_SECONDS,
@@ -187,5 +188,25 @@ describe('rally (prototype updateRally)', () => {
     const low = rallyAt(0.62 * LEG_SECONDS, 0);
     expect(low.shade.opacity).toBeGreaterThan(s.shade.opacity);
     expect(low.shade.scale).toBeGreaterThan(s.shade.scale);
+  });
+});
+
+describe('ballSampler (the trail\'s ball-only read)', () => {
+  it('is rallyAt(t, camK).ball to the bit, across legs, leg starts and pitch changes', () => {
+    const ball = ballSampler();
+    // Sampled the way the trail reads it: many t a frame, the pitch moving
+    // between frames, legs rolling over (and t exactly on a leg start).
+    for (let frame = 0; frame < 400; frame++) {
+      const camK = Math.min(1, Math.max(0, Math.sin(frame / 37) * 0.6 + 0.4));
+      const t = frame / 60;
+      for (let i = 0; i <= 36; i++) {
+        const at = t - (i * (22 / 60)) / 36;
+        if (at < 0) continue; // before the rally starts: the scene never reads it
+        expect(ball(at, camK)).toStrictEqual(rallyAt(at, camK).ball);
+      }
+    }
+    for (let leg = 0; leg < 8; leg++) {
+      expect(ball(leg * LEG_SECONDS, 0.5)).toStrictEqual(rallyAt(leg * LEG_SECONDS, 0.5).ball);
+    }
   });
 });

@@ -974,7 +974,9 @@ export function Court3D({
           renderer.setClearColor(0x000000, 0); // see-through: the button shows between the ghosts
         }
         if (!court.current) {
-          court.current = buildPhoneCourt(quality);
+          // Android's frames are bound by the JS thread: it gets the lean
+          // update (the same picture to the bit, scene.ts). iOS is unchanged.
+          court.current = buildPhoneCourt(quality, Platform.OS === 'android');
           pushViewport();
         }
         // Outside the branch above: Android destroys the surface while the app
