@@ -39,6 +39,8 @@ import { QK, fetchActiveCourts, fetchVenueSettings } from '../../lib/queries';
 import { isMatchLiteral } from '../matches/matchLogic';
 import { MatchPlayersPanel } from '../matches/MatchPlayersPanel';
 import { useMatchStates } from '../matches/useMatches';
+import { isLiveAdoptedBlock, tournamentsByReservation } from '../tournaments/tournamentLogic';
+import { useDeskTournaments } from '../tournaments/useTournaments';
 import { errorToMessageKey } from '../../lib/errors';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
@@ -115,6 +117,17 @@ export function BookingDetailScreen() {
     if (lessonId) void navigate({ to: '/desk/lessons/$id', params: { id: lessonId }, replace: true });
   }, [lessonId, navigate]);
   const lessonRow = r !== null && (r.kind === 'lesson' || lessonId !== null);
+
+  /*
+   * A tournament's adopted event block (tournaments build contracts §1.11):
+   * the guard trigger refuses a cancel or a move while the tournament holds it
+   * (TOURNAMENT_VIA_EVENTS), so Cancel is not offered and the screen points to
+   * the tournament instead. Read from desk_tournaments over the block's window.
+   */
+  const blockRow = r !== null && r.kind === 'maintenance';
+  const tournamentsQ = useDeskTournaments(blockRow ? new Date(r.start_at) : null, blockRow ? new Date(r.end_at) : null, blockRow);
+  const adopted = tournamentsByReservation(tournamentsQ.data).get(id) ?? null;
+  const tournamentBlock = isLiveAdoptedBlock(adopted);
 
   // An open match's booking: its state names the match and its organiser.
   const literalMatch = r !== null && r.kind === 'booking' && isMatchLiteral(r);
@@ -472,7 +485,15 @@ export function BookingDetailScreen() {
                   </Button>
                 </div>
               )}
-              {live && !lessonRow && (r.kind === 'maintenance' || r.kind === 'hold') && (
+              {adopted && (
+                <div style={{ display: 'grid', gap: '0.5rem', marginBlockEnd: '0.75rem' }}>
+                  {tournamentBlock && <MessagePresenter tone="info" message={tr('ws.tournaments.calendar.adopted')} />}
+                  <Button icon="trophy" onClick={() => void navigate({ to: '/desk/tournaments/$id', params: { id: adopted.id } })}>
+                    {tr('ws.tournaments.calendar.open')}
+                  </Button>
+                </div>
+              )}
+              {live && !lessonRow && !tournamentBlock && (r.kind === 'maintenance' || r.kind === 'hold') && (
                 <Button kind="danger" icon="ban" busy={busy === 'cancel'} disabled={busy !== null} onClick={() => setPending('cancel')}>
                   {tr('ws.courtDesk.detail.cancel')}
                 </Button>

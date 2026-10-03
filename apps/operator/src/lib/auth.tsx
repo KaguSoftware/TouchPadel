@@ -227,6 +227,11 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // Customers are shared between the desk and the till (spec 06.8: attach to booking OR tab).
   '/desk/customers': ['court_desk', 'cashier', 'manager', 'owner'],
   '/desk/customers/new': ['court_desk', 'manager', 'owner'],
+  // Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.11):
+  // the list and, by prefix, one tournament. The desk's roles, named on their
+  // own so the assistant map and the rail know the page (the cashier takes an
+  // entry fee from the customer record, not here).
+  '/desk/tournaments': ['court_desk', 'manager', 'owner'],
   // The bar and kitchen family (0155) has exactly what prep had: this board
   // and nothing else. Prep stays listed while accounts still hold it. The
   // assistant barista (wave 5 §2.1) works the bar's tickets here too.
@@ -562,6 +567,17 @@ export const CAPABILITY_ROLES = {
   manageCoaches: ['manager', 'owner'],
   /** Coach pay (/reports/coaches): Recount, Approve, Void, Redraft, Mark paid. */
   settleCoaches: ['manager', 'owner'],
+
+  // Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.6,
+  // §1.11). Screen-level buttons only: a row's own buttons follow the `can`
+  // object of app.desk_tournament_detail, and every RPC re-checks its roles
+  // first (R57).
+  /** Add a walk-in, remove, no-show and substitute, draw the rounds, enter and correct scores. */
+  runTournaments: ['court_desk', 'manager', 'owner'],
+  /** "Publish as tournament" on a done run, and cancelling a tournament (app.tournament_publish, app.tournament_cancel). */
+  publishTournaments: ['manager', 'owner'],
+  /** Take an entry fee (app.tournament_settle). Never permissions.takeCourtPayment, which also holds the shop assistant. */
+  takeTournamentPayment: ['cashier', 'court_desk', 'manager', 'owner'],
 } as const satisfies Record<string, readonly StaffRole[]>;
 
 export type Capability = keyof typeof CAPABILITY_ROLES;

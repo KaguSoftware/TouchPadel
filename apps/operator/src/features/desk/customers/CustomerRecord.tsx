@@ -98,6 +98,9 @@ export function CustomerRecordScreen() {
     } else if (params.attach === 'match' && params.match) {
       // Open matches §5.3: the match screen opens Add player with this customer picked.
       void navigate({ to: '/desk/matches/$id', params: { id: params.match }, search: { customer: id } as never });
+    } else if (params.attach === 'tournament' && params.tournament) {
+      // Tournaments §1.11: the tournament screen adds this customer as a walk-in.
+      void navigate({ to: '/desk/tournaments/$id', params: { id: params.tournament }, search: { customer: id } as never });
     }
   }
 
@@ -117,7 +120,9 @@ export function CustomerRecordScreen() {
       ? tr('ws.courtDesk.customers.attachBooking')
       : params.attach === 'match'
         ? tr('ws.matches.customers.attachMatch')
-        : tr('ws.courtDesk.customers.attachTab');
+        : params.attach === 'tournament'
+          ? tr('ws.tournaments.entries.attach')
+          : tr('ws.courtDesk.customers.attachTab');
 
   return (
     <div>

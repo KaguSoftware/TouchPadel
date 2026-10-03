@@ -40,8 +40,10 @@ import { blockRangeInvalid } from './deskLogic';
 import { todayInTz, tonightInTz } from './useTradingNight';
 import { nightTimeToUtc, tradingDateOf } from './calendar/monthLogic';
 import {
+  MATCH_WAITING,
   MOVED_NOTE_MAX,
   blocksToSend,
+  conflictKey,
   courtsRecord,
   plannedBlockIds,
   plannedWindows,
@@ -370,7 +372,9 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
     return isolate(`${formatDateTime(a, locale, tz)}–${day(a) === day(b) ? formatTime(b, locale, tz) : formatDateTime(b, locale, tz)}`);
   }
   const kindLabel = (kind: string) =>
-    kind === 'booking' || kind === 'hold' || kind === 'maintenance' || kind === 'lesson' ? tr(`ws.events.block.conflictKind.${kind}`) : kind;
+    kind === 'booking' || kind === 'hold' || kind === 'maintenance' || kind === 'lesson' || kind === MATCH_WAITING
+      ? tr(`ws.events.block.conflictKind.${kind}`)
+      : kind;
 
   const columns: Column<PlannedWindow>[] = [
     {
@@ -441,7 +445,7 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
                   >
                     <ul style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', margin: 0, paddingInlineStart: 'var(--tp-sp-4)' }}>
                       {conflicts.map((c) => (
-                        <li key={c.reservationId}>
+                        <li key={conflictKey(c)}>
                           <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
                             <span>
                               {courtName(c.courtId) && (
@@ -452,14 +456,14 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
                               )}
                               {windowText(c.startAt, c.endAt)} · {kindLabel(c.kind)}
                             </span>
-                            {c.kind === 'booking' && (
-                              <Button size="sm" onClick={() => void navigate({ to: '/desk/bookings/$id', params: { id: c.reservationId } })}>
+                            {c.kind === 'booking' && c.reservationId && (
+                              <Button size="sm" onClick={() => void navigate({ to: '/desk/bookings/$id', params: { id: c.reservationId! } })}>
                                 {tr('ws.events.block.openBooking')}
                               </Button>
                             )}
                             {/* A lesson's court row: the booking route forwards to its lesson (coaching §5.8). */}
-                            {c.kind === 'lesson' && (
-                              <Button size="sm" onClick={() => void navigate({ to: '/desk/bookings/$id', params: { id: c.reservationId } })}>
+                            {c.kind === 'lesson' && c.reservationId && (
+                              <Button size="sm" onClick={() => void navigate({ to: '/desk/bookings/$id', params: { id: c.reservationId! } })}>
                                 {tr('ws.coaching.common.openLesson')}
                               </Button>
                             )}

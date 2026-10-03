@@ -138,12 +138,25 @@ export function blocksToSend(windows: readonly PlannedWindow[]): Array<{ court_i
 }
 
 export interface BlockConflict {
-  reservationId: string;
+  /** The reservation in the way; null for a `match_waiting` conflict, which has none. */
+  reservationId: string | null;
   courtId: string;
   startAt: string;
   endAt: string;
-  kind: 'booking' | 'hold' | 'maintenance' | string;
+  kind: 'booking' | 'hold' | 'maintenance' | 'lesson' | 'match_waiting' | string;
   status: string;
+}
+
+/**
+ * The open-match conflict (tournaments build contracts §1.10, S11): the blocks
+ * asked for would leave an open match that is waiting for a court with none.
+ * It names the requested block, not a reservation, so it carries no id.
+ */
+export const MATCH_WAITING = 'match_waiting';
+
+/** A stable list key for a conflict (a `match_waiting` row has no reservation id). */
+export function conflictKey(c: BlockConflict): string {
+  return c.reservationId ?? `${c.kind}|${c.courtId}|${c.startAt}|${c.endAt}`;
 }
 
 export interface BlockAnswer {
@@ -160,14 +173,17 @@ export function readBlockAnswer(payload: unknown): BlockAnswer {
       .filter((b): b is EventBlock => b !== null),
     conflicts: list(p.conflicts)
       .map((c) => ({
-        reservationId: str(c.reservation_id) ?? '',
+        reservationId: str(c.reservation_id),
         courtId: str(c.court_id) ?? '',
         startAt: str(c.start_at) ?? '',
         endAt: str(c.end_at) ?? '',
         kind: str(c.kind) ?? '',
         status: str(c.status) ?? '',
       }))
-      .filter((c) => c.reservationId !== ''),
+      // A conflict without a reservation is dropped, except the waiting open
+      // match, which never has one: dropping it would read as "nothing in the
+      // way" while the server wrote nothing.
+      .filter((c) => c.reservationId !== null || (c.kind === MATCH_WAITING && c.courtId !== '')),
   };
 }
 

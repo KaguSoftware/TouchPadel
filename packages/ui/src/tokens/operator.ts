@@ -124,6 +124,15 @@ export const operatorVars = {
   '--tp-lesson': 'oklch(46% 0.15 318)',
   '--tp-lesson-soft': 'oklch(95% 0.035 318)',
 
+  // Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.11): a
+  // tournament's adopted event block on the desk calendar. One teal family, hue
+  // 195, clear of the accent blue (260), Padel Green (128), warn (65–85), danger
+  // (27) and the lesson violet (318). Built like the lesson pair: the ink is
+  // also the mark, at the lesson's lightness steps (46% on 95%), so it keeps
+  // the same contrast class (4.5:1 on its soft ground, 3:1 on the page).
+  '--tp-tournament': 'oklch(45% 0.09 195)',
+  '--tp-tournament-soft': 'oklch(95% 0.03 195)',
+
   // the navigation rail — the one committed brand surface
   '--tp-rail': `oklch(25% 0.05 ${HUE})`,
   '--tp-rail-2': `oklch(30% 0.055 ${HUE})`,
