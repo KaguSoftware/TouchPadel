@@ -20,6 +20,8 @@
     "Baseline 2026-09-04: 19 public, 108 guarded, 60 of 127 covered by tests/rls-matrix.ts."
   ],
   "publicByDesign": {
+    "avatar_owner": "profile_avatar_birth_date (0302): pure text — splits the profile segment off an avatar storage path (NULL for any other name), reads no data and never raises; a storage policy evaluates it as the reading role",
+    "avatar_upload_room": "profile_avatar_birth_date (0302): answers only about the caller — whether their own avatars folder has room for one more object (the insert policy's cap); no argument, never raises",
     "cancel_reservation": "booking: guarded by reservation OWNERSHIP, not by role",
     "coach_me": "coaching (0282): answers only about the caller — their own coach row, branches and lesson types, {coach: null} for anyone else, the card alone for a retired coach; no argument, never raises (R12, R45)",
     "coach_profile": "coaching (0283): one accepted coach’s public card, lesson types and open sessions at an open branch with coaching on; no student, phone, profile id or court id (R17, R43)",
@@ -32,6 +34,7 @@
     "deposit_quote": "online deposit: guarded by hold OWNERSHIP, not by role (Review reads its own terms)",
     "deposit_status": "online deposit: guarded by payment OWNERSHIP (or staff at its branch), not by role",
     "has_own_pin": "0087/SEC-34: tells the caller only about the caller — whether THEIR OWN account has an idle-lock PIN. No argument, so it cannot be pointed at another account; false for anyone who is not active staff. Same shape as is_staff / staff_role.",
+    "is_avatar_path": "profile_avatar_birth_date (0302): pure text — says whether a storage object name is an avatar path, reads no data and never raises; granted to anon and authenticated because the avatars policies on storage.objects evaluate it as the reading role",
     "is_degraded": "guest menu, pre-identity: degraded-mode banner. 0137 adds an optional p_venue argument so the banner can name a venue; the zero-arg form falls back to app.current_venue_or_default() and still never raises",
     "is_own_session": "tells the caller only about the caller",
     "is_staff": "tells the caller only about the caller",
@@ -277,6 +280,7 @@
     "match_withdraw",
     "merge_tabs",
     "move_reservation",
+    "my_birth_date",
     "my_campaign_drafts",
     "my_checklists_today",
     "my_coach_statements",
@@ -402,6 +406,8 @@
     "set_match_ban",
     "set_match_settings",
     "set_modifier_reveals",
+    "set_my_avatar",
+    "set_my_birth_date",
     "set_my_coach_hours",
     "set_my_gender",
     "set_opening_hours",

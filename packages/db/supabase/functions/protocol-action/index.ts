@@ -17,7 +17,8 @@
  *     photos nobody claimed within a day, then the coach photo folders queued
  *     for removal (R43): menu-media coaches/<uuid>/* listed page by page, each
  *     object app.storage_path_in_use still counts kept. Returns
- *     {launched, reverted, skipped, failed, purged, incidents_purged, orphans_purged, coach_purged}.
+ *     {launched, reverted, skipped, failed, purged, incidents_purged, orphans_purged, coach_purged,
+ *      avatars_purged}.
  *
  * verify_jwt = true (config.toml). The flows are in logic.ts, pure.
  */
@@ -29,6 +30,7 @@ import {
   launch,
   parseRequest,
   tick,
+  type AvatarPurgeDue,
   type CoachPurgeDue,
   type DueLaunch,
   type IncidentPurgeDue,
@@ -40,6 +42,7 @@ import {
 
 const STAFF_BUCKET = 'staff-media';
 const MENU_BUCKET = 'menu-media';
+const AVATAR_BUCKET = 'avatars';
 /** A launch request is a handful of ids and a timestamp. */
 const MAX_BODY = 16 * KB;
 /** One storage list page of a coach photo folder. */
@@ -73,6 +76,19 @@ async function listMenuFolder(service: SupabaseClient, folder: string): Promise<
   for (let offset = 0; ; offset += LIST_PAGE) {
     const { data, error } = await service.storage
       .from(MENU_BUCKET)
+      .list(folder, { limit: LIST_PAGE, offset, sortBy: { column: 'name', order: 'asc' } });
+    if (error) throw new Error(`list ${folder}: ${error.message}`);
+    if (!data || data.length === 0) return paths;
+    for (const entry of data) if (entry.id) paths.push(`${folder}/${entry.name}`);
+  }
+}
+
+/** Every object under a profile's avatars folder (0302), paged the same way. */
+async function listAvatarFolder(service: SupabaseClient, folder: string): Promise<string[]> {
+  const paths: string[] = [];
+  for (let offset = 0; ; offset += LIST_PAGE) {
+    const { data, error } = await service.storage
+      .from(AVATAR_BUCKET)
       .list(folder, { limit: LIST_PAGE, offset, sortBy: { column: 'name', order: 'asc' } });
     if (error) throw new Error(`list ${folder}: ${error.message}`);
     if (!data || data.length === 0) return paths;
@@ -160,6 +176,16 @@ function tickPorts(service: SupabaseClient): TickPorts {
     },
     markCoachPurged: async (id) => {
       await rpc('coach_photo_purged', { p_id: id });
+    },
+    avatarPurgeDue: async () => ((await rpc('avatar_purge_due', { p_limit: 20 })) as AvatarPurgeDue[] | null) ?? [],
+    listAvatarFolder: (folder) => listAvatarFolder(service, folder),
+    avatarInUse: async (path) => (await rpc('avatar_in_use', { p_path: path })) === true,
+    async removeAvatars(paths) {
+      const { error } = await service.storage.from(AVATAR_BUCKET).remove(paths);
+      if (error) throw new Error(`remove: ${error.message}`);
+    },
+    markAvatarPurged: async (id) => {
+      await rpc('avatar_purged', { p_id: id });
     },
   };
 }

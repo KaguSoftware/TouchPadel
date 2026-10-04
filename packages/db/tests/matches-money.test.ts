@@ -1037,7 +1037,12 @@ describe.skipIf(!docker)('0262 match_seat_write_off (rolled back)', () => {
       // Already written off: answered before a grant is spent.
       GRANT('desk'),
       T('again', 'desk', `select app.match_seat_write_off({{w1a}}, 'walked_out', '${MANAGER_PIN}')`),
-      Q('grants_after_again', `select to_jsonb(count(*)) from app.pin_grants where caller_id = {{desk}} and consumed_at is null`),
+      // Only this scenario's grants: `desk` is the seeded account, and committed
+      // suites leave their own unspent grants on it, so a bare count drifted
+      // with test order (10 instead of 1 on a second local run). The scenario is
+      // one transaction, so its inserts carry now().
+      Q('grants_after_again', `select to_jsonb(count(*)) from app.pin_grants
+                                 where caller_id = {{desk}} and consumed_at is null and created_at = now()`),
       T('not_started', 'desk', `select app.match_seat_write_off({{w2a}}, 'walked_out', '${MANAGER_PIN}')`),
       T('no_show', 'desk', `select app.match_seat_write_off({{w1c}}, 'walked_out', '${MANAGER_PIN}')`),
       T('cancelled', 'desk', `select app.match_seat_write_off({{w4a}}, 'walked_out', '${MANAGER_PIN}')`),

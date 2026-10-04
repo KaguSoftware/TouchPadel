@@ -196,8 +196,8 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
   [
     'expo-image-picker',
     {
-      photosPermission: 'Touch Padel uses your photos only when you attach a work photo.',
-      cameraPermission: 'Touch Padel uses the camera only when you take a work photo.',
+      photosPermission: 'Touch Padel uses your photos only when you choose a profile photo or attach a work photo.',
+      cameraPermission: 'Touch Padel uses the camera only when you take a profile photo or a work photo.',
       microphonePermission: false,
     },
   ],
@@ -315,8 +315,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         // Court deposits and open-match tickets paid by Qi Card on Qi's own
         // page: what was bought, when and the amount. No card data.
         'NSPrivacyCollectedDataTypePurchaseHistory',
-        // Staff accounts only (build-contracts §6.10): work photos, and the
-        // free text of step notes, requests, item notes and marketing drafts.
+        // Work photos on staff accounts (build-contracts §6.10) and a guest's
+        // own profile photo (0302); the free text of step notes, requests,
+        // item notes and marketing drafts (staff only).
         'NSPrivacyCollectedDataTypePhotosorVideos',
         'NSPrivacyCollectedDataTypeOtherUserContent',
         // Staff accounts only (wave 5): wage advances and pay deductions.

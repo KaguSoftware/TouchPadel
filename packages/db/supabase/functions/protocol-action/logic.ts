@@ -243,6 +243,18 @@ export interface CoachPurgeDue {
 /** A queued coach photo folder, as the coach_photo_purges_folder CHECK (0278) holds it. */
 export const COACH_FOLDER_RE = /^coaches\/[0-9a-f-]{36}$/;
 
+/** One app.avatar_purge_due row (0302): a replaced avatar, or a deleted account's whole folder. */
+export interface AvatarPurgeDue {
+  id: string;
+  path: string;
+}
+
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+/** A deleted account's avatars folder: the bare profile id (avatar_purges_path_chk, 0302). */
+export const AVATAR_FOLDER_RE = new RegExp(`^${UUID}$`);
+/** One avatar object, <profile id>/<uuid>.<ext> (app.is_avatar_path, 0302). */
+export const AVATAR_OBJECT_RE = new RegExp(`^${UUID}/${UUID}\\.(jpg|png|webp)$`);
+
 export interface TickPorts extends MenuPhotoPorts {
   dueLaunches(): Promise<DueLaunch[]>;
   copyPhoto(from: string, to: string, contentType: string): Promise<void>;
@@ -270,6 +282,16 @@ export interface TickPorts extends MenuPhotoPorts {
   removeMenuPhotos(paths: string[]): Promise<void>;
   /** app.coach_photo_purged. */
   markCoachPurged(id: string): Promise<void>;
+  /** app.avatar_purge_due (0302): the oldest queued avatars. Throws on failure, a missing function included. */
+  avatarPurgeDue(): Promise<AvatarPurgeDue[]>;
+  /** Every avatars object path under a profile folder, paged until an empty page. Throws on a storage error. */
+  listAvatarFolder(folder: string): Promise<string[]>;
+  /** app.avatar_in_use (0302): a profile still shows this photo. Throws on failure. */
+  avatarInUse(path: string): Promise<boolean>;
+  /** Removes avatars objects. Throws on failure. */
+  removeAvatars(paths: string[]): Promise<void>;
+  /** app.avatar_purged. */
+  markAvatarPurged(id: string): Promise<void>;
 }
 
 export interface TickResult {
@@ -282,6 +304,8 @@ export interface TickResult {
   orphans_purged: number;
   /** Coach photo folders emptied and marked (R43, coaching review EC-01). */
   coach_purged: number;
+  /** Avatars and avatar folders removed and marked (0302). */
+  avatars_purged: number;
 }
 
 /** One pass of the 5-minute tick. One bad run never stops the others. */
@@ -295,6 +319,7 @@ export async function tick(ports: TickPorts): Promise<TickResult> {
     incidents_purged: 0,
     orphans_purged: 0,
     coach_purged: 0,
+    avatars_purged: 0,
   };
 
   for (const due of await ports.dueLaunches()) {
@@ -399,6 +424,40 @@ export async function tick(ports: TickPorts): Promise<TickResult> {
     } catch (e) {
       out.failed += 1;
       ports.log(`coach photos ${queued.id}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  // Avatars (0302): a photo the guest replaced, or a deleted account's whole
+  // folder (orphaned uploads included). Last, wrapped the same way. A photo a
+  // profile still shows is never removed; a storage error leaves the row
+  // queued for the next tick.
+  let avatars: AvatarPurgeDue[] = [];
+  try {
+    avatars = await ports.avatarPurgeDue();
+  } catch (e) {
+    out.failed += 1;
+    ports.log(`avatar purge: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  for (const queued of avatars) {
+    try {
+      let paths: string[];
+      if (AVATAR_FOLDER_RE.test(queued.path)) {
+        paths = (await ports.listAvatarFolder(queued.path)).filter((p) => p.startsWith(`${queued.path}/`));
+      } else if (AVATAR_OBJECT_RE.test(queued.path)) {
+        paths = [queued.path];
+      } else {
+        throw new Error(`not an avatar path: ${queued.path}`);
+      }
+      const removable: string[] = [];
+      for (const path of paths) {
+        if (!(await ports.avatarInUse(path))) removable.push(path);
+      }
+      if (removable.length > 0) await ports.removeAvatars(removable);
+      await ports.markAvatarPurged(queued.id);
+      out.avatars_purged += 1;
+    } catch (e) {
+      out.failed += 1;
+      ports.log(`avatars ${queued.id}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   return out;

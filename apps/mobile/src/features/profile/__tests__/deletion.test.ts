@@ -390,14 +390,16 @@ describe('the deletion screen is actually reachable', () => {
   // SEC-16's failure mode for eight days was not a broken screen — it was a
   // correct RPC that nothing called. These read the tree so "shipped" cannot
   // again mean "written".
-  it('routes the profile menu at the delete screen', async () => {
+  it('routes Profile → Edit profile → the delete screen', async () => {
     const { readFileSync } = await import('node:fs');
     const { join } = await import('node:path');
-    const profile = readFileSync(
-      join(__dirname, '..', '..', '..', '..', 'app', '(tabs)', 'profile.tsx'),
-      'utf8',
-    );
-    expect(profile).toContain("router.push('/delete-account')");
+    const app = join(__dirname, '..', '..', '..', '..', 'app');
+    // The row moved to the foot of Edit profile (2026-10-04); the Profile tab's
+    // identity card is the way in. Both links of the chain must hold.
+    const profile = readFileSync(join(app, '(tabs)', 'profile.tsx'), 'utf8');
+    expect(profile).toContain("router.push('/profile-edit')");
+    const edit = readFileSync(join(app, 'profile-edit.tsx'), 'utf8');
+    expect(edit).toContain("router.push('/delete-account')");
   });
 
   it('has the screen call deleteAccount, not merely import it', async () => {

@@ -126,6 +126,13 @@
       "reason": "NO FIX PUBLISHED (advisory lists fixed in <0.0.0). RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements. Reached only through @expo/cli (its own use and @expo/code-signing-certificates): a development and build-time tool for expo-updates code signing, never in an app bundle, the web build or an edge function. Re-check at expiry, or upgrade when Expo ships a node-forge with the fix.",
       "owner": "DEV",
       "expires": "2026-10-16"
+    },
+    {
+      "id": "GHSA-vfj7-8cjw-p6xm",
+      "module": "braces",
+      "reason": "Stack exhaustion on deeply nested brace patterns. braces is reached only through metro-file-map > micromatch, the Expo/Metro bundler's file watcher, which runs on a developer machine or the EAS build host and expands the repo's own fixed glob patterns; no pattern comes from a user, and nothing ships it in the app bundle. 3.0.3 is the latest release and the advisory (2026-09-18) names no patched version, so there is nothing to upgrade to yet. Remove when braces publishes a fix and the override can pin it.",
+      "owner": "DEV",
+      "expires": "2026-11-04"
     }
   ]
 }
