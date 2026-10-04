@@ -40,6 +40,7 @@ import type { StaffHref } from '../staff/pushRoutes';
 import type { StaffStatusKind } from '../staff/status';
 import { isGuestPushKind } from '../matches/pushRoutes';
 import { isLessonPushKind } from '../coaching/pushRoutes';
+import { isTournamentPushKind } from '../tournaments/pushRoutes';
 import {
   isGuestTap,
   isStaffTap,
@@ -324,6 +325,10 @@ export function installNotificationHandler(opts: {
   onOpenCoachStatements?: () => void;
   /** A coaching push arrived while the app was in the foreground. */
   onLessonNotice?: () => void;
+  /** A `tournament` push tapped (tournaments build contracts §1.10): open that tournament. */
+  onOpenTournament?: (tournamentId: string) => void;
+  /** A tournament push arrived while the app was in the foreground. */
+  onTournamentNotice?: () => void;
 }): () => void {
   let cancelled = false;
   let remove: (() => void) | null = null;
@@ -375,6 +380,9 @@ export function installNotificationHandler(opts: {
           } else if (dest?.kind === 'coachStatements' && opts.onOpenCoachStatements) {
             addBreadcrumb('push.open', { kind: data?.kind, route: 'coach_statements' });
             opts.onOpenCoachStatements();
+          } else if (dest?.kind === 'tournament' && opts.onOpenTournament) {
+            addBreadcrumb('push.open', { kind: data?.kind, route: 'tournament' });
+            opts.onOpenTournament(dest.id);
           } else {
             addBreadcrumb('push.open.noRoute', { kind: data?.kind });
           }
@@ -410,10 +418,12 @@ export function installNotificationHandler(opts: {
       // A guest push in the foreground: the screens under it refresh at once
       // instead of waiting for their next poll. A coaching push
       // (outbox_lesson_kinds) is a guest kind too, and refreshes the lessons,
-      // never the matches (coaching guest.md §4.11).
+      // never the matches (coaching guest.md §4.11). A tournament push
+      // refreshes the tournaments, and only them.
       const received = Notifications.addNotificationReceivedListener((notification) => {
         const data = notification.request.content.data as PushTapData | undefined;
         if (isLessonPushKind(data?.kind)) opts.onLessonNotice?.();
+        else if (isTournamentPushKind(data?.kind)) opts.onTournamentNotice?.();
         else if (isGuestPushKind(data?.kind)) opts.onMatchNotice?.();
       });
       remove = () => {

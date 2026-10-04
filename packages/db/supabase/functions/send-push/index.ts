@@ -71,6 +71,8 @@ const GUEST_ROUTES: ReadonlySet<string> = new Set(guestPush.routes);
 const GUEST_KEY_KINDS: Readonly<Record<string, string>> = guestPush.title_keys;
 /** The coaching routes (guest.md §4.6.3): only a row on one of these reads lessons or statements. */
 const LESSON_ROUTES: ReadonlySet<string> = new Set(['lesson', 'coach_lesson', 'coach_statements']);
+/** The tournament route (tournaments build contracts §1.10): only a row on it reads tournaments. */
+const TOURNAMENT_ROUTE = 'tournament';
 const DEFAULT_TZ = 'Asia/Baghdad';
 
 // Booking notification copy, EN/AR. SOURCE OF TRUTH: packages/i18n (@touch/i18n) —
@@ -236,6 +238,7 @@ Deno.serve(handle('send-push', async (req) => {
   type VenueRow = { id: string; name_en: string; name_ar: string; timezone: string; is_active: boolean };
   type LessonRow = { id: string; start_at: string; venue_id: string; status: string };
   type StatementRow = { id: string; month: string; venue_id: string };
+  type TournamentRow = { id: string; venue_id: string; starts_at: string; status: string };
   const guestRows = rows.filter((r) => GUEST_KINDS.has(r.kind));
   const matches = new Map<string, MatchRow>();
   const venues = new Map<string, VenueRow>();
@@ -243,6 +246,7 @@ Deno.serve(handle('send-push', async (req) => {
   const lessons = new Map<string, LessonRow>();
   const statements = new Map<string, StatementRow>();
   const reminderEnrolments = new Map<string, ReminderEnrolment>();
+  const tournaments = new Map<string, TournamentRow>();
   let activeVenues = 0;
   /** A lesson.reminder names its enrolment in payload.id (app.lesson_notify, 0283). */
   const isLessonReminder = (r: OutboxRow): boolean => r.payload.route === 'lesson' && r.payload.title_key === 'lesson.reminder';
@@ -256,6 +260,9 @@ Deno.serve(handle('send-push', async (req) => {
           : null;
     return typeof raw === 'string' && raw ? raw : null;
   };
+  /** The tournament a tournament row is about: its id (app.tournament_notify). */
+  const tournamentIdOf = (r: OutboxRow): string | null =>
+    r.payload.route === TOURNAMENT_ROUTE && typeof r.payload.id === 'string' && r.payload.id ? r.payload.id : null;
   const statementIdOf = (r: OutboxRow): string | null =>
     r.payload.route === 'coach_statements' && typeof r.payload.id === 'string' && r.payload.id
       ? r.payload.id
@@ -319,6 +326,19 @@ Deno.serve(handle('send-push', async (req) => {
       for (const l of (lessonsRes.data ?? []) as LessonRow[]) lessons.set(l.id, l);
       for (const s of (statementsRes.data ?? []) as StatementRow[]) statements.set(s.id, s);
       for (const e of (enrolmentsRes.data ?? []) as ReminderEnrolment[]) reminderEnrolments.set(e.id, e);
+    }
+
+    // Tournament rows (§1.10): one more batch read, only when such a row was
+    // claimed (no tournament row can be queued before app.tournament_notify,
+    // tournaments_lifecycle; the table exists from tournaments_schema_money).
+    const tournamentIds = [...new Set(guestRows.map(tournamentIdOf).filter((id): id is string => isUuid(id)))];
+    if (tournamentIds.length > 0) {
+      const tournamentsRes = await db
+        .from('tournaments')
+        .select('id, venue_id, starts_at, status')
+        .in('id', tournamentIds);
+      if (tournamentsRes.error) return readFailed('tournaments', tournamentsRes.error);
+      for (const t of (tournamentsRes.data ?? []) as TournamentRow[]) tournaments.set(t.id, t);
     }
   }
 
@@ -399,8 +419,17 @@ Deno.serve(handle('send-push', async (req) => {
         await stamp(row.id, { last_error: 'STATEMENT_GONE', attempts: RETRY_CAP });
         continue;
       }
-      const startAt = match?.start_at ?? lesson?.start_at ?? null;
-      const venueId = match?.venue_id ?? lesson?.venue_id ?? statement?.venue_id ?? null;
+      // A tournament row names its tournament; one that no longer exists is terminal.
+      const tournamentId = tournamentIdOf(row);
+      const tournament = tournamentId ? tournaments.get(tournamentId) : undefined;
+      if (tournamentId && !tournament) {
+        failed++;
+        await stamp(row.id, { last_error: 'TOURNAMENT_GONE', attempts: RETRY_CAP });
+        continue;
+      }
+      const startAt = match?.start_at ?? lesson?.start_at ?? tournament?.starts_at ?? null;
+      const venueId =
+        match?.venue_id ?? lesson?.venue_id ?? statement?.venue_id ?? tournament?.venue_id ?? null;
       const venue = venueId ? venues.get(venueId) : undefined;
       const tz = venue?.timezone || DEFAULT_TZ;
       const g = guestMessage(

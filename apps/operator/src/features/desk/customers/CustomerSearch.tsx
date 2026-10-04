@@ -21,7 +21,9 @@
  * customer back to `/desk/matches/$id?customer=<id>`, where Add player opens
  * with them picked; a lesson (`?attach=lesson&lesson=<id>`, coaching
  * operator.md §5.3.2) back to `/desk/lessons/$id?customer=<id>`, where Add
- * student opens with them picked.
+ * student opens with them picked; a tournament (`?attach=tournament&tournament=<id>`,
+ * tournaments build contracts §1.11) back to `/desk/tournaments/$id?customer=<id>`,
+ * which adds them as a walk-in.
  */
 import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -45,13 +47,15 @@ import {
 } from './customerDirectoryLogic';
 
 export interface CustomerSearchParams {
-  attach?: 'booking' | 'tab' | 'match' | 'lesson';
+  attach?: 'booking' | 'tab' | 'match' | 'lesson' | 'tournament';
   reservation?: string;
   tab?: string;
   /** The open match a picked customer goes back to (`attach=match`). */
   match?: string;
   /** The lesson a picked customer goes back to (`attach=lesson`, coaching operator.md §5.3.2). */
   lesson?: string;
+  /** The tournament a picked customer goes back to (`attach=tournament`). */
+  tournament?: string;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -64,6 +68,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function validateCustomerSearch(raw: Record<string, unknown>): CustomerSearchParams {
   const match = typeof raw.match === 'string' && UUID.test(raw.match) ? raw.match.toLowerCase() : undefined;
   const lesson = typeof raw.lesson === 'string' && UUID.test(raw.lesson) ? raw.lesson.toLowerCase() : undefined;
+  const tournament = typeof raw.tournament === 'string' && UUID.test(raw.tournament) ? raw.tournament.toLowerCase() : undefined;
   const attach =
     raw.attach === 'booking' || raw.attach === 'tab'
       ? raw.attach
@@ -71,13 +76,16 @@ export function validateCustomerSearch(raw: Record<string, unknown>): CustomerSe
         ? ('match' as const)
         : raw.attach === 'lesson' && lesson
           ? ('lesson' as const)
-          : undefined;
+          : raw.attach === 'tournament' && tournament
+            ? ('tournament' as const)
+            : undefined;
   return {
     ...(attach ? { attach } : {}),
     ...(typeof raw.reservation === 'string' ? { reservation: raw.reservation } : {}),
     ...(typeof raw.tab === 'string' ? { tab: raw.tab } : {}),
     ...(attach === 'match' ? { match } : {}),
     ...(attach === 'lesson' ? { lesson } : {}),
+    ...(attach === 'tournament' ? { tournament } : {}),
   };
 }
 
@@ -86,6 +94,7 @@ function attachLabelKey(attach: NonNullable<CustomerSearchParams['attach']>) {
   if (attach === 'booking') return 'ws.courtDesk.customers.attachBooking' as const;
   if (attach === 'match') return 'ws.matches.customers.attachMatch' as const;
   if (attach === 'lesson') return 'ws.coaching.create.attachLesson' as const;
+  if (attach === 'tournament') return 'ws.tournaments.entries.attach' as const;
   return 'ws.courtDesk.customers.attachTab' as const;
 }
 
@@ -94,6 +103,7 @@ function attachingKey(attach: NonNullable<CustomerSearchParams['attach']>) {
   if (attach === 'booking') return 'ws.courtDesk.customers.attachingBooking' as const;
   if (attach === 'match') return 'ws.matches.customers.attachingMatch' as const;
   if (attach === 'lesson') return 'ws.coaching.create.attachingLesson' as const;
+  if (attach === 'tournament') return 'ws.tournaments.entries.attaching' as const;
   return 'ws.courtDesk.customers.attachingTab' as const;
 }
 
@@ -166,6 +176,9 @@ export function CustomerSearchScreen() {
     } else if (params.attach === 'lesson' && params.lesson) {
       // The lesson screen opens Add student with them picked (coaching operator.md §5.3.2).
       void navigate({ to: '/desk/lessons/$id', params: { id: params.lesson }, search: { customer: c.id } as never });
+    } else if (params.attach === 'tournament' && params.tournament) {
+      // The tournament screen adds them as a walk-in (tournaments §1.11).
+      void navigate({ to: '/desk/tournaments/$id', params: { id: params.tournament }, search: { customer: c.id } as never });
     }
   }
 
@@ -178,7 +191,9 @@ export function CustomerSearchScreen() {
           ? { attach: 'match', match: params.match }
           : params.attach === 'lesson' && params.lesson
             ? { attach: 'lesson', lesson: params.lesson }
-            : {}) as never
+            : params.attach === 'tournament' && params.tournament
+              ? { attach: 'tournament', tournament: params.tournament }
+              : {}) as never
       }
       className="tp-btn"
       data-kind="primary"

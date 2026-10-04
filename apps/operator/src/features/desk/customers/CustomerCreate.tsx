@@ -50,9 +50,10 @@ export function CustomerCreateScreen() {
   const navigate = useNavigate();
   // Validated at the route (customerCreateRoute): `match` is set only with
   // attach=match, `lesson` only with attach=lesson.
-  const search = useSearch({ strict: false }) as { attach?: 'match' | 'lesson'; match?: string; lesson?: string };
+  const search = useSearch({ strict: false }) as { attach?: 'match' | 'lesson' | 'tournament'; match?: string; lesson?: string; tournament?: string };
   const forMatch = search.attach === 'match' && search.match ? search.match : null;
   const forLesson = search.attach === 'lesson' && search.lesson ? search.lesson : null;
+  const forTournament = search.attach === 'tournament' && search.tournament ? search.tournament : null;
   const toast = useToast();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -82,6 +83,7 @@ export function CustomerCreateScreen() {
       void queryClient.invalidateQueries({ queryKey: ['customerDirectory'] });
       if (forMatch) void navigate({ to: '/desk/matches/$id', params: { id: forMatch }, search: { customer: res.id } as never });
       else if (forLesson) void navigate({ to: '/desk/lessons/$id', params: { id: forLesson }, search: { customer: res.id } as never });
+      else if (forTournament) void navigate({ to: '/desk/tournaments/$id', params: { id: forTournament }, search: { customer: res.id } as never });
       else void navigate({ to: '/desk/customers/$id', params: { id: res.id } });
     } catch (e) {
       const fe = fieldErrorOf(e);

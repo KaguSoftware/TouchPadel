@@ -77,6 +77,10 @@ import { wagesAr } from './wages.ar';
 // coachingMoney.*.
 import { coachingEn } from './coaching.en';
 import { coachingAr } from './coaching.ar';
+// Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.11): the operator lane's
+// one file pair.
+import { tournamentsEn } from './tournaments.en';
+import { tournamentsAr } from './tournaments.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -108,6 +112,7 @@ export const wsEn = {
   guide: guideEn,
   wages: wagesEn,
   coaching: coachingEn,
+  tournaments: tournamentsEn,
 } as const;
 
 export const wsAr = {
@@ -140,4 +145,5 @@ export const wsAr = {
   guide: guideAr,
   wages: wagesAr,
   coaching: coachingAr,
+  tournaments: tournamentsAr,
 } as const;

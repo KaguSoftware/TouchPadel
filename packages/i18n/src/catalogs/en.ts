@@ -11,11 +11,13 @@ import { opErrorsProtocolsEn } from './opErrors.protocols.en';
 import { opErrorsMatchesEn } from './opErrors.matches.en';
 import { opErrorsCodesEn } from './opErrors.codes.en';
 import { opErrorsCoachingEn } from './opErrors.coaching.en';
+import { opErrorsTournamentsEn } from './opErrors.tournaments.en';
 import { legalEn } from './legal.en';
 import { siteEn } from './site.en';
 import { branchesEn } from './branches.en';
 import { matchesEn } from './matches.en';
 import { coachingEn } from './coaching.en';
+import { tournamentsEn } from './tournaments.en';
 
 export const en = {
   // Operator workspace strings (spec §05–§07), one file pair per lane: catalogs/ws/*.
@@ -1034,6 +1036,9 @@ export const en = {
   // Coaching (docs/design/coaching/guest.md §4.15): lessons, coach mode and the website's
   // coaching pages (coaching.en.ts).
   coaching: coachingEn,
+  // Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.11): the phone's and
+  // the website's words (tournaments.en.ts).
+  tournaments: tournamentsEn,
   seo: {
     // Site-wide defaults (the landing page at /{locale} is Touch Padel's front door since
     // 2026-09-23; the café menu moved to /{locale}/menu and sets its own title).
@@ -2097,6 +2102,8 @@ export const en = {
       // Coaching (docs/design/coaching/operator.md §5.19): opErrors.coaching.*.ts, each
       // code with the migration that first raises it.
       ...opErrorsCoachingEn,
+      // Tournaments (build-contracts-2026-10-03 §1.9): opErrors.tournaments.*.ts.
+      ...opErrorsTournamentsEn,
     },
   },
   // Protocols and the staff phone (build-contracts-2026-09-23 §4): the words both apps

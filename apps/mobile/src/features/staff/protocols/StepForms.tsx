@@ -63,6 +63,7 @@ import {
   bilingual,
   blocksToSend,
   completeRenames,
+  conflictKindKey,
   courtsRecord,
   interviewsRecord,
   isMgmt,
@@ -583,15 +584,17 @@ export function CourtsForm({ detail, reads }: StepFormProps) {
       {conflicts.length > 0 ? (
         <View style={{ gap: 4 }}>
           <Muted style={{ color: colors.redtext }}>{t('staff.protocols.courts.conflictBody')}</Muted>
-          {conflicts.map((c) => (
-            <Muted key={c.reservationId}>
-              {`${courtName(c.courtId)} · ${formatDateTime(new Date(c.startAt), locale)} · ${
-                c.kind === 'booking' || c.kind === 'hold' || c.kind === 'maintenance'
-                  ? t(`staff.protocols.courts.conflict.${c.kind}`)
-                  : c.kind
-              }`}
-            </Muted>
-          ))}
+          {conflicts.map((c) => {
+            const kindKey = conflictKindKey(c.kind);
+            return (
+              // A waiting-match conflict names no reservation: its court and start key it.
+              <Muted key={c.reservationId ?? `${c.kind}:${c.courtId}:${c.startAt}`}>
+                {`${courtName(c.courtId)} · ${formatDateTime(new Date(c.startAt), locale)} · ${
+                  kindKey ? t(kindKey) : c.kind
+                }`}
+              </Muted>
+            );
+          })}
         </View>
       ) : null}
       {remaining.length > 0 ? (

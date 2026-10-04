@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   blocksToSend,
+  conflictKey,
   courtsRecord,
   plannedWindows,
   readBlockAnswer,
@@ -87,6 +88,22 @@ describe('the desk’s event mode', () => {
     });
     expect(answer.conflicts).toEqual([{ reservationId: R1, courtId: C2, startAt: 'a', endAt: 'b', kind: 'booking', status: 'confirmed' }]);
     expect(readBlockAnswer(undefined)).toEqual({ blocked: [], conflicts: [] });
+  });
+
+  it('keeps the waiting open match, which names no reservation, and still drops any other id-less row (tournaments S11)', () => {
+    const answer = readBlockAnswer({
+      blocked: [],
+      conflicts: [
+        { reservation_id: null, court_id: C1, start_at: 'a', end_at: 'b', kind: 'match_waiting', status: 'awaiting_court' },
+        { reservation_id: null, court_id: C2, start_at: 'a', end_at: 'b', kind: 'booking', status: 'confirmed' },
+        { reservation_id: null, court_id: null, start_at: 'a', end_at: 'b', kind: 'match_waiting', status: 'awaiting_court' },
+      ],
+    });
+    expect(answer.conflicts).toEqual([
+      { reservationId: null, courtId: C1, startAt: 'a', endAt: 'b', kind: 'match_waiting', status: 'awaiting_court' },
+    ]);
+    expect(conflictKey(answer.conflicts[0]!)).toBe(`match_waiting|${C1}|a|b`);
+    expect(conflictKey({ ...answer.conflicts[0]!, reservationId: R1 })).toBe(R1);
   });
 
   it('sends the courts step with the run’s blocks of the plan’s windows, and the note only when written', () => {

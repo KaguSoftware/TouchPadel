@@ -70,6 +70,11 @@ who coach from the "Coach mode" row of the staff hub (C-27).
   `match_start` is the only match write with a key: `matchIntentKey(matchStartIntent(…))` from
   `src/lib/idempotency.ts`, kept across the refusals the guest fixes and the ticket continuation
   that replays the start. Every other match write is state-idempotent and takes none.
+- Tournaments (tournaments plan §5.2; `docs/design/tournaments/build-contracts-2026-10-03.md`):
+  `tournamentKeys` (`src/features/tournaments/keys.ts`), everything under `['tournament']` stays
+  off disk and register / withdraw run now or fail now. Both are state-idempotent and take no key;
+  every argument is sent, nulls included. The push route and kind live in
+  `src/features/tournaments/pushRoutes.ts`.
 - Retry, online-pause, focus refetch and persistence are set once in `src/lib/queryClient.ts`; a
   screen does not override them.
 
@@ -129,7 +134,8 @@ who coach from the "Coach mode" row of the staff hub (C-27).
   (`bookings.upcoming.<reservationId>`). Route = the file path minus `app/`, `(tabs)` and `.tsx`,
   with `(tabs)/index` → `book`, `booking/[id]` → `booking-detail`, `(tabs)/_layout` → `tabs`,
   `match/[id]` → `match-detail`, `m/[token]` → `match-link`, `coach/[id]` → `coach-detail`,
-  `class/[id]` → `class-detail`, `lesson/[id]` → `lesson-detail`.
+  `class/[id]` → `class-detail`, `lesson/[id]` → `lesson-detail`, `tournament/[id]` →
+  `tournament-detail`.
   A shared component NEVER mints an id: it takes `testID?: string` and forwards it EXPLICITLY
   (`testID={testID}` — a `{...spread}` does not count, because the lint rule reads the JSX).
 - `testIdRules` from `@touch/config/eslint` fails `lint` on any interactive element without one

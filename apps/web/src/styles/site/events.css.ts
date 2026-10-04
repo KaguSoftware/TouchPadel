@@ -343,4 +343,42 @@ export const siteEventsCss = `
   .tp-ticket, .tp-ticket__main, .tp-ticket__stub { transition: none; }
   .tp-ticket__name[data-nudge] .tp-ticket__input { animation: none; }
 }
+
+/* The tournaments coming up (T-8): only while one is, above the poster on the band ground.
+   Up to three cards, one column on a phone, as many as fit from tablets up. Nothing moves. */
+.tp-events__cards {
+  display: grid;
+  gap: clamp(1.25rem, 3vw, 1.75rem);
+  max-inline-size: var(--tp-site-max);
+  margin-inline: auto;
+  padding-block: var(--tp-site-section-pad) clamp(2rem, 5vw, 3rem);
+  padding-inline: var(--tp-site-gutter);
+  color: var(--tp-fg);
+}
+.tp-events__cards-title {
+  font-family: var(--tp-font-display);
+  font-size: var(--tp-site-fs-xl);
+  font-weight: var(--tp-site-fw-display);
+  line-height: 1.05;
+  letter-spacing: var(--tp-site-track-display);
+  text-transform: uppercase;
+  color: var(--tp-site-display-1);
+}
+[dir='rtl'] .tp-events__cards-title { text-transform: none; letter-spacing: 0; line-height: var(--tp-site-lh-display-ar); }
+.tp-tour-cards { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); }
+.tp-tour-card {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  padding: clamp(1.25rem, 3vw, 1.5rem);
+  border: 1.5px solid var(--tp-border);
+  border-radius: var(--tp-site-radius-md);
+  background: var(--tp-site-hero-bg);
+}
+.tp-tour-card :where(h3, p) { margin: 0; }
+.tp-tour-card__when { font-size: var(--tp-site-fs-sm); font-weight: var(--tp-site-fw-label); color: var(--tp-site-green-text); }
+.tp-tour-card__name { font-size: 1.375rem; font-weight: var(--tp-site-fw-label); line-height: 1.25; color: var(--tp-fg); text-wrap: balance; }
+.tp-tour-card__what, .tp-tour-card__fee { font-size: var(--tp-site-fs-sm); color: var(--tp-site-ink-2); }
+.tp-tour-card__places { font-weight: 700; }
+.tp-tour-card__ctas { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-block-start: 0.5rem; }
 `;

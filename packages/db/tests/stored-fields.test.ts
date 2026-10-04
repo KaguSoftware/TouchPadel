@@ -398,6 +398,16 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     id: n, venue_id: n, lesson_id: n, course_id: n, enrolment_id: n, type: n, actor: n, actor_profile_id: n,
     actor_staff_id: n, code: n, data: n, at: n,
   },
+  // Tournaments (build-contracts-2026-10-03 §1.2): ids, codes, a seed and times only. The guest
+  // link survives deletion (the 0290 tombstone keeps guest_id; the sweep withdraws a deleted
+  // account's live entries, account_deleted) and public reads show "Former player". The matches
+  // and the score audit name entries, not guests, so they carry no link column and are not
+  // declared here (a declared table without one fails "declares every table", review M7).
+  tournament_entries: {
+    id: n, venue_id: n, tournament_id: n, guest_id: n, status: n, seed_no: n, entered_at: n,
+    added_by_kind: n, added_by_staff_id: n, withdrawn_reason: n, withdrawn_at: n, promoted_at: n,
+    no_show_at: n, substitute_for: n, created_at: n, updated_at: n,
+  },
 };
 
 /**

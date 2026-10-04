@@ -20,6 +20,8 @@ const CustomerCreate = lazyRouteComponent(() => import('../../features/desk/cust
 const CustomerRecord = lazyRouteComponent(() => import('../../features/desk/customers/CustomerRecord'), 'CustomerRecordScreen');
 const MatchDetail = lazyRouteComponent(() => import('../../features/matches/MatchDetail'), 'MatchDetailScreen');
 const LessonDetail = lazyRouteComponent(() => import('../../features/coaching/LessonDetail'), 'LessonDetailScreen');
+const TournamentsList = lazyRouteComponent(() => import('../../features/tournaments/TournamentsList'), 'TournamentsListScreen');
+const TournamentDetail = lazyRouteComponent(() => import('../../features/tournaments/TournamentDetail'), 'TournamentDetailScreen');
 
 // Kept here (not imported from the feature) so the route module stays a thin
 // shell that does not pull the lazy chunk in eagerly.
@@ -33,20 +35,23 @@ function uuidParam(v: unknown): string | undefined {
  * Attach mode: a customer picked here goes back to a booking, a tab, an open
  * match (`attach=match&match=<id>` returns to `/desk/matches/$id?customer=<id>`,
  * open matches operator.md §5.3), or a lesson (`attach=lesson&lesson=<id>`
- * returns to `/desk/lessons/$id?customer=<id>`, coaching operator.md §5.3.2).
- * Attach to a match or a lesson needs its id; without it the screen is plain
- * search.
+ * returns to `/desk/lessons/$id?customer=<id>`, coaching operator.md §5.3.2),
+ * or a tournament (`attach=tournament&tournament=<id>` returns to
+ * `/desk/tournaments/$id?customer=<id>`, a walk-in). Attach to a match, a lesson
+ * or a tournament needs its id; without it the screen is plain search.
  */
 export interface CustomerSearchParams {
-  attach?: 'booking' | 'tab' | 'match' | 'lesson';
+  attach?: 'booking' | 'tab' | 'match' | 'lesson' | 'tournament';
   reservation?: string;
   tab?: string;
   match?: string;
   lesson?: string;
+  tournament?: string;
 }
 export function validateCustomerSearch(raw: Record<string, unknown>): CustomerSearchParams {
   const match = uuidParam(raw.match);
   const lesson = uuidParam(raw.lesson);
+  const tournament = uuidParam(raw.tournament);
   const attach =
     raw.attach === 'booking' || raw.attach === 'tab'
       ? raw.attach
@@ -54,13 +59,16 @@ export function validateCustomerSearch(raw: Record<string, unknown>): CustomerSe
         ? ('match' as const)
         : raw.attach === 'lesson' && lesson
           ? ('lesson' as const)
-          : undefined;
+          : raw.attach === 'tournament' && tournament
+            ? ('tournament' as const)
+            : undefined;
   return {
     ...(attach ? { attach } : {}),
     ...(typeof raw.reservation === 'string' ? { reservation: raw.reservation } : {}),
     ...(typeof raw.tab === 'string' ? { tab: raw.tab } : {}),
     ...(attach === 'match' ? { match } : {}),
     ...(attach === 'lesson' ? { lesson } : {}),
+    ...(attach === 'tournament' ? { tournament } : {}),
   };
 }
 /**
@@ -68,14 +76,17 @@ export function validateCustomerSearch(raw: Record<string, unknown>): CustomerSe
  * open match; `attach=lesson&lesson=<id>`: back to the lesson's Add student.
  */
 export function validateCustomerCreateSearch(raw: Record<string, unknown>): {
-  attach?: 'match' | 'lesson';
+  attach?: 'match' | 'lesson' | 'tournament';
   match?: string;
   lesson?: string;
+  tournament?: string;
 } {
   const match = uuidParam(raw.match);
   const lesson = uuidParam(raw.lesson);
+  const tournament = uuidParam(raw.tournament);
   if (raw.attach === 'match' && match) return { attach: 'match', match };
   if (raw.attach === 'lesson' && lesson) return { attach: 'lesson', lesson };
+  if (raw.attach === 'tournament' && tournament) return { attach: 'tournament', tournament };
   return {};
 }
 function validateBookingSearch(raw: Record<string, unknown>): { customer?: string } {
@@ -96,6 +107,11 @@ export function validateLessonSearch(raw: Record<string, unknown>): { customer?:
   const customer = uuidParam(raw.customer);
   const pay = uuidParam(raw.pay);
   return { ...(customer ? { customer } : {}), ...(pay ? { pay } : {}) };
+}
+/** `/desk/tournaments/$id?customer=<id>`: a customer handed back from search or create is added as a walk-in. */
+export function validateTournamentSearch(raw: Record<string, unknown>): { customer?: string } {
+  const customer = uuidParam(raw.customer);
+  return customer ? { customer } : {};
 }
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /**
@@ -214,6 +230,28 @@ export const lessonDetailRoute = createRoute({
   validateSearch: validateLessonSearch,
 });
 
+/**
+ * Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.11).
+ * The list has its own ROUTE_ROLES key (`/desk/tournaments`, the desk's roles);
+ * one tournament inherits it by longest prefix.
+ */
+export const tournamentsListRoute = createRoute({
+  getParentRoute: () => deskRoute,
+  path: 'tournaments',
+  component: guarded('/desk/tournaments', TournamentsList),
+  pendingComponent: RoutePending,
+  wrapInSuspense: true,
+});
+
+export const tournamentDetailRoute = createRoute({
+  getParentRoute: () => deskRoute,
+  path: 'tournaments/$id',
+  component: guarded('/desk/tournaments', TournamentDetail),
+  pendingComponent: RoutePending,
+  wrapInSuspense: true,
+  validateSearch: validateTournamentSearch,
+});
+
 export const customerRecordRoute = createRoute({
   getParentRoute: () => deskRoute,
   path: 'customers/$id',
@@ -235,4 +273,6 @@ export const deskChildren = [
   customerRecordRoute,
   matchDetailRoute,
   lessonDetailRoute,
+  tournamentsListRoute,
+  tournamentDetailRoute,
 ] as const;

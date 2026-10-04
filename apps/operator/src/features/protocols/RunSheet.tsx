@@ -10,14 +10,20 @@
  * Withdraw (the starter, before any decision), Cancel the date (a scheduled
  * launch or apply). The owner's changes to this one run (`editProtocols`,
  * Q11) sit on the steps: a checklist, and a step of their own.
+ *
+ * A done tournament run offers "Publish as tournament" to management
+ * (tournaments build contracts §1.6 publish), which opens PublishDialog.
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatDate, formatDateTime, formatIQD, formatNumber, isolate, type MessageKey } from '@touch/i18n';
+import { VENUE_TZ, formatDate, formatDateTime, formatIQD, formatNumber, isolate, type MessageKey } from '@touch/i18n';
 import type { StepRow } from '@touch/core/protocols';
 import { appRpc } from '../../lib/appRpc';
 import { can as canDo, useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
+import { QK, fetchVenueSettings } from '../../lib/queries';
+import { PublishDialog } from '../tournaments/PublishDialog';
+import { canOfferPublish } from '../tournaments/publishLogic';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Modal } from '../../components/ui';
@@ -82,12 +88,15 @@ function RunBody({ d, selected, onStep }: { d: RunDetail; selected: string | nul
   const [stopping, setStopping] = useState(false);
   const [editing, setEditing] = useState<StepRow | null>(null);
   const [adding, setAdding] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const { run, steps, can } = d;
   const owner = canDo(staff?.role, 'editProtocols');
   const lastKey = steps[steps.length - 1]?.step_key ?? null;
   const afterChoices = owner && can.add_step ? addStepAfterChoices(steps, lastKey) : [];
+  const offerPublish = canOfferPublish(run, canDo(staff?.role, 'publishTournaments'));
+  const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings, enabled: offerPublish });
 
   async function act(tag: string, fn: () => Promise<unknown>, done: MessageKey) {
     setBusy(tag);
@@ -111,10 +120,15 @@ function RunBody({ d, selected, onStep }: { d: RunDetail; selected: string | nul
 
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }} data-testid="run-sheet">
-      {(dates.length > 0 || can.stop || can.withdraw_run || can.cancel_schedule) && (
+      {(dates.length > 0 || can.stop || can.withdraw_run || can.cancel_schedule || offerPublish) && (
         <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
           <span style={muted}>{dates.join(' · ')}</span>
           <span style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+            {offerPublish && (
+              <Button size="sm" kind="primary" icon="trophy" onClick={() => setPublishing(true)}>
+                {tr('ws.tournaments.publish.action')}
+              </Button>
+            )}
             {can.cancel_schedule && (
               <Button
                 size="sm"
@@ -226,6 +240,9 @@ function RunBody({ d, selected, onStep }: { d: RunDetail; selected: string | nul
         </div>
       </div>
 
+      {publishing && (
+        <PublishDialog runId={run.id} data={run.data} tz={settingsQ.data?.timezone ?? VENUE_TZ} onClose={() => setPublishing(false)} />
+      )}
       {stopping && (
         <ReasonDialog
           title={tr('ws.protocols.run.stopTitle')}

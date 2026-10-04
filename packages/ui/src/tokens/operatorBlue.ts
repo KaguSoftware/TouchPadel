@@ -107,6 +107,10 @@ export const operatorBlueVars = {
   // on --tp-surface 4.72:1 · on --tp-bg 3.90:1 (a mark wants 3:1).
   '--tp-lesson': '#E8C0F4',
   '--tp-lesson-soft': '#4B2F63',
+  // Tournaments (build contracts §1.11): a pale teal ink on a deep teal ground,
+  // the lesson pair's construction (light ink, dark ground) at hue 185–190.
+  '--tp-tournament': '#B9EEE8',
+  '--tp-tournament-soft': '#1E4F55',
 
   // ── the rail: two steps below the page; the active pill is the selection blue
   '--tp-rail': BLUE_L29,

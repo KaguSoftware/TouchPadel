@@ -36,6 +36,8 @@ export const eventsEn = {
       maintenance: 'Block',
       // A lesson's court row (coaching operator.md §5.8).
       lesson: 'Lesson',
+      // An open match waiting for a court that this block would take (tournaments S11).
+      match_waiting: 'Open match waiting for a court',
     },
     openBooking: 'Open booking',
     checkAgain: 'Check again',

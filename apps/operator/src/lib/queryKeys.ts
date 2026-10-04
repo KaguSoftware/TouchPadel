@@ -179,6 +179,21 @@ export const QK = {
     /** app.coach_statement_detail for one statement. */
     statement: (statementId: string) => ['coaching', 'statement', statementId] as const satisfies QueryKey,
   },
+
+  // Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.11).
+  // One family so one root refreshes every tournament read. NEVER persisted
+  // (lib/persist.ts PERSISTED_ROOTS leaves 'tournaments' out), as coaching:
+  // the detail carries players' names and phones.
+  /** Every tournament read at the desk (features/tournaments/useTournaments.ts). */
+  tournaments: {
+    all: ['tournaments'] as const satisfies QueryKey,
+    /** app.desk_tournaments over a window; every window sits under ['tournaments', 'desk']. */
+    desk: (fromIso: string, toIso: string) => ['tournaments', 'desk', fromIso, toIso] as const satisfies QueryKey,
+    /** app.desk_tournament_detail for one tournament. */
+    one: (tournamentId: string) => ['tournaments', 'one', tournamentId] as const satisfies QueryKey,
+    /** venue_settings.tournaments_enabled for the branch in scope: Venue details. */
+    settings: (branchId: string | null) => ['tournaments', 'settings', branchId ?? ''] as const satisfies QueryKey,
+  },
 } as const;
 
 /**

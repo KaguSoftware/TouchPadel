@@ -110,6 +110,8 @@ export function venueSettingsFixture(over: Record<string, unknown> = {}) {
     coaching_enabled: false,
     lesson_payment_mode: 'desk',
     lesson_prices_public: false,
+    // Tournaments off by default: every existing case renders as before.
+    tournaments_enabled: false,
     ...over,
   };
 }
@@ -133,6 +135,8 @@ export function branchFixture(over: Record<string, unknown> = {}) {
     timezone: 'Asia/Baghdad',
     // Coaching off by default (0277), so every existing case renders as before.
     coaching_enabled: false,
+    // Tournaments off by default, likewise.
+    tournaments_enabled: false,
     ...over,
   };
 }

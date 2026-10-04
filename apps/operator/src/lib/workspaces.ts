@@ -66,7 +66,9 @@ export interface NavItem {
     // Wages (0270–0272): the owner's pay list and the manager's attendance.
     | 'wages' | 'attendance'
     // Coaching (docs/design/coaching/operator.md §5.3.3): Setup's coaches, Financial's coach pay.
-    | 'coaches' | 'coachPay';
+    | 'coaches' | 'coachPay'
+    // Tournaments (build-contracts-2026-10-03 §1.11): the desk's list.
+    | 'tournaments';
   icon: IconName;
   /**
    * A live count beside the row's name: what waits on the signed-in person
@@ -163,6 +165,8 @@ const COURT_DESK: readonly NavItem[] = [
   { to: '/desk/customers', labelKey: 'customers', icon: 'users' },
   { to: '/desk/series/new', labelKey: 'newSeries', icon: 'repeat', activePrefix: '/desk/series' },
   { to: '/desk/block', labelKey: 'blockCourt', icon: 'ban' },
+  // Tournaments (build-contracts-2026-10-03 §1.11): the list; one opens from it or its calendar block.
+  { to: '/desk/tournaments', labelKey: 'tournaments', icon: 'trophy' },
   INCIDENTS,
   MY_TASKS,
 ];

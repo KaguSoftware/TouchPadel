@@ -19,6 +19,10 @@
  * these lock screens has a known gender, and the role nouns are the generic
  * forms.
  *
+ * Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.10): one kind,
+ * `tournament_update`, queued only by app.tournament_notify (tournaments_lifecycle), with
+ * route `tournament`, id = the tournament and `params` empty. Both keys are form 'none'.
+ *
  * No body names a person or carries an amount (OM-31, CD-7): a lock screen
  * shows "a player" or "a booking", never who or how much. The time and branch
  * come from the match or lesson row and a statement's month from the statement
@@ -37,7 +41,7 @@ export type Lang = 'en' | 'ar';
 /**
  * Which title a key shows: the match line, the 3-hour match reminder, the
  * ticket refund; the lesson line, the 3-hour lesson reminder, the coach's
- * line, or the coach's statement.
+ * line, the coach's statement, or the tournament line.
  */
 export type GuestTitle =
   | 'match'
@@ -46,7 +50,8 @@ export type GuestTitle =
   | 'lesson'
   | 'lessonReminder'
   | 'coach'
-  | 'statement';
+  | 'statement'
+  | 'tournament';
 
 /**
  * How the Arabic body picks its form: 'category' uses `bodyF` in a women's
@@ -281,6 +286,17 @@ const EN = {
     form: 'none',
     body: () => 'This lesson moved to another court, at the same time.',
   },
+  // ── tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.10) ─
+  'tournament.cancelled': {
+    title: 'tournament',
+    form: 'none',
+    body: () => 'This tournament was cancelled. If you paid at the desk, the venue refunds you there.',
+  },
+  'tournament.promoted': {
+    title: 'tournament',
+    form: 'none',
+    body: () => "A place opened up: you're now registered for this tournament.",
+  },
 } satisfies Record<string, GuestCopy>;
 
 export type GuestTitleKey = keyof typeof EN;
@@ -500,11 +516,22 @@ const AR: Record<GuestTitleKey, GuestCopy> = {
     form: 'none',
     body: () => 'نُقلت هذه الحصة إلى ملعب آخر في الوقت نفسه.',
   },
+  // ── tournaments: «بطولة»; every line DRAFT-AR ───────────────────────────────
+  'tournament.cancelled': {
+    title: 'tournament',
+    form: 'none',
+    body: () => 'أُلغيت هذه البطولة، ومن دفع في النادي يُعاد إليه المبلغ هناك.',
+  },
+  'tournament.promoted': {
+    title: 'tournament',
+    form: 'none',
+    body: () => 'توفّر مكان، وتمّ تسجيلك في هذه البطولة.',
+  },
 };
 
 export const GUEST_STRINGS: Record<Lang, Record<GuestTitleKey, GuestCopy>> = { en: EN, ar: AR };
 
-/** The seven titles. `{when}` and `{branch}` arrive isolated; either may be ''. */
+/** The eight titles. `{when}` and `{branch}` arrive isolated; either may be ''. */
 const TITLES: Record<Lang, Record<GuestTitle, (when: string, branch: string) => string>> = {
   en: {
     match: (when, branch) => ['Open match', when, branch].filter(Boolean).join(' · '),
@@ -514,6 +541,7 @@ const TITLES: Record<Lang, Record<GuestTitle, (when: string, branch: string) => 
     lessonReminder: () => 'Your lesson is in 3 hours',
     coach: (when, branch) => ['Coaching', when, branch].filter(Boolean).join(' · '),
     statement: () => 'Your coach statement',
+    tournament: (when, branch) => ['Tournament', when, branch].filter(Boolean).join(' · '),
   },
   // DRAFT-AR
   ar: {
@@ -524,11 +552,12 @@ const TITLES: Record<Lang, Record<GuestTitle, (when: string, branch: string) => 
     lessonReminder: () => 'حصتك بعد 3 ساعات',
     coach: (when, branch) => ['تدريب', when, branch].filter(Boolean).join(' · '),
     statement: () => 'كشف حساب المدرّب',
+    tournament: (when, branch) => ['بطولة', when, branch].filter(Boolean).join(' · '),
   },
 };
 
 /** The routes whose payload must name an id (`tickets` and `coach_statements` need none). */
-const ROUTES_WITH_ID: ReadonlySet<string> = new Set(['match', 'lesson', 'coach_lesson']);
+const ROUTES_WITH_ID: ReadonlySet<string> = new Set(['match', 'lesson', 'coach_lesson', 'tournament']);
 
 // ── plurals ─────────────────────────────────────────────────────────────────
 // A copy of packages/i18n's pluralForm (Deno cannot import a workspace

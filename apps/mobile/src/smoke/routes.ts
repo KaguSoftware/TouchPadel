@@ -16,10 +16,11 @@
  * else. The suites import the components themselves.
  *
  * The route name is the file path minus `app/`, `(tabs)`, and `.tsx`, with
- * eight spellings fixed: `(tabs)/index` → `book`, `booking/[id]` →
+ * nine spellings fixed: `(tabs)/index` → `book`, `booking/[id]` →
  * `booking-detail`, `(tabs)/_layout` → `tabs`, `match/[id]` → `match-detail`,
  * `m/[token]` → `match-link`, `coach/[id]` → `coach-detail`, `class/[id]` →
- * `class-detail`, `lesson/[id]` → `lesson-detail`.
+ * `class-detail`, `lesson/[id]` → `lesson-detail`, `tournament/[id]` →
+ * `tournament-detail`.
  */
 export interface SmokeRoute {
   /** Path under `app/`, '/'-separated — what the coverage test matches on. */
@@ -167,6 +168,17 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'lesson-review.tsx', route: 'lesson-review', primary: 'lesson-review.book' },
   { file: 'lesson/[id].tsx', route: 'lesson-detail', primary: 'lesson-detail.cancel' },
   { file: 'my-lessons.tsx', route: 'my-lessons', primary: 'my-lessons.filter.upcoming' },
+  // ── tournaments, the guest's side ─────────────────────────────────────────
+  // Tournaments plan §5.2, cased by tournaments.smoke.test.tsx in EN and AR.
+  // One spelling is fixed like lesson/[id]: `tournament/[id]` →
+  // `tournament-detail`. Join the waitlist shares Register's id: it is the
+  // same write, and the server decides which the guest gets.
+  { file: 'tournaments.tsx', route: 'tournaments', primary: 'tournaments.list' },
+  {
+    file: 'tournament/[id].tsx',
+    route: 'tournament-detail',
+    primary: 'tournament-detail.register',
+  },
   // ── coach mode ────────────────────────────────────────────────────────────
   // docs/design/coaching/guest.md §4.17, cased by coachMode.smoke.test.tsx in
   // EN and AR with the `coach` render option (a signed-in account that

@@ -1,7 +1,8 @@
 /**
  * send-push, guest kinds of open matches (build contracts §1.9, R3;
  * docs/design/open-matches/guest.md §4.7) and of coaching (coaching build
- * contracts §1.9, R18; docs/design/coaching/guest.md §4.6). Pure: no stack, no
+ * contracts §1.9, R18; docs/design/coaching/guest.md §4.6) and of tournaments
+ * (docs/design/tournaments/build-contracts-2026-10-03.md §1.10, S12). Pure: no stack, no
  * network. The copy and the message shape live in
  * supabase/functions/send-push/guestStrings.ts so they run here unchanged; the
  * one list of kinds, title keys (each with its kind) and routes is
@@ -56,18 +57,22 @@ const MATCH_ID = '11111111-2222-4333-8444-555555555555';
 const ENROLMENT_ID = '22222222-3333-4444-8555-666666666666';
 const LESSON_ID = '33333333-4444-4555-8666-777777777777';
 const STATEMENT_ID = '44444444-5555-4666-8777-888888888888';
+const TOURNAMENT_ID = '55555555-6666-4777-8888-999999999999';
 const LANGS: Lang[] = ['en', 'ar'];
 
 const MATCH_KINDS = ['match_update', 'match_reminder', 'match_message'];
 const LESSON_KINDS = ['lesson_update', 'lesson_reminder', 'coach_update'];
 const MATCH_KEYS = KEYS.filter((k) => MATCH_KINDS.includes(kindOf(k)));
 const LESSON_KEYS = KEYS.filter((k) => LESSON_KINDS.includes(kindOf(k)));
+const TOURNAMENT_KINDS = ['tournament_update'];
+const TOURNAMENT_KEYS = KEYS.filter((k) => TOURNAMENT_KINDS.includes(kindOf(k)));
 /** The keys whose body is the time and branch alone, the same in both languages. */
 const REMINDER_KEYS = ['reminder_3h', 'lesson.reminder'];
 
 /** The route a key is queued with (guest.md §4.6.1 and open-matches §4.7). */
 function routeOf(key: string): string {
   if (key === 'tickets_refunded') return 'tickets';
+  if (key.startsWith('tournament.')) return 'tournament';
   if (key.startsWith('lesson.')) return 'lesson';
   if (key === 'coach.statement_ready' || key === 'coach.statement_paid') return 'coach_statements';
   if (key.startsWith('coach.')) return 'coach_lesson';
@@ -79,6 +84,7 @@ const ID_OF: Record<string, string | null> = {
   lesson: ENROLMENT_ID,
   coach_lesson: LESSON_ID,
   coach_statements: STATEMENT_ID,
+  tournament: TOURNAMENT_ID,
 };
 
 const CATEGORY_KEYS = [
@@ -133,9 +139,9 @@ const FULL: GuestVars = {
 };
 
 describe('guest-push.json', () => {
-  it('lists the six guest kinds, the five routes and the six params', () => {
-    expect(guestPush.kinds).toEqual([...MATCH_KINDS, ...LESSON_KINDS]);
-    expect(guestPush.routes).toEqual(['match', 'tickets', 'lesson', 'coach_lesson', 'coach_statements']);
+  it('lists the seven guest kinds, the six routes and the six params', () => {
+    expect(guestPush.kinds).toEqual([...MATCH_KINDS, ...LESSON_KINDS, ...TOURNAMENT_KINDS]);
+    expect(guestPush.routes).toEqual(['match', 'tickets', 'lesson', 'coach_lesson', 'coach_statements', 'tournament']);
     expect(guestPush.params).toEqual(['seats_taken', 'seats_total', 'minutes', 'lesson_id', 'places_taken', 'places_total']);
   });
 
@@ -164,7 +170,12 @@ describe('guest-push.json', () => {
       const want = key === 'lesson.reminder' ? 'lesson_reminder' : key.startsWith('coach.') ? 'coach_update' : 'lesson_update';
       expect(kindOf(key), key).toBe(want);
     }
-    expect(KEYS).toEqual([...MATCH_KEYS, ...LESSON_KEYS]);
+    expect(KEYS).toEqual([...MATCH_KEYS, ...LESSON_KEYS, ...TOURNAMENT_KEYS]);
+  });
+
+  it('maps the two tournament title keys of §1.10 to tournament_update', () => {
+    expect(TOURNAMENT_KEYS).toEqual(['tournament.cancelled', 'tournament.promoted']);
+    for (const key of TOURNAMENT_KEYS) expect(kindOf(key), key).toBe('tournament_update');
   });
 
   it('maps the 23 match title keys of §1.9 to their kind (R3)', () => {
@@ -236,6 +247,11 @@ describe('GUEST_STRINGS', () => {
           ? 'statement'
           : key.startsWith('coach.') ? 'coach' : 'lesson';
       expect(GUEST_STRINGS.en[key].title, key).toBe(want);
+      expect(GUEST_STRINGS.en[key].form, key).toBe('none');
+    }
+    // Tournaments (§1.10): one title, both keys form 'none'.
+    for (const key of TOURNAMENT_KEYS) {
+      expect(GUEST_STRINGS.en[key].title, key).toBe('tournament');
       expect(GUEST_STRINGS.en[key].form, key).toBe('none');
     }
   });
@@ -357,6 +373,32 @@ describe('guestMessage — coaching (docs/design/coaching/guest.md §4.6)', () =
     expect(guestMessage('en', 'coach_update', payloadOf('player_joined'), ctx(), ROUTES)).toEqual({
       ok: false,
       error: 'KIND_MISMATCH:coach_update/player_joined',
+    });
+  });
+});
+
+describe('guestMessage — tournaments (build contracts §1.10)', () => {
+  it('titles a row with the tournament start and the branch only when given', () => {
+    expect(msg('en', 'tournament.cancelled').title).toBe(`Tournament · ${iso('Tue 29 Sep, 18:00')}`);
+    expect(msg('ar', 'tournament.promoted', {}, { when: 'الثلاثاء 29 أيلول، 18:00', branch: 'الكرادة' }).title).toBe(
+      `بطولة · ${iso('الثلاثاء 29 أيلول، 18:00')} · ${iso('الكرادة')}`,
+    );
+    expect(msg('en', 'tournament.promoted', {}, { when: '' }).title).toBe('Tournament');
+  });
+
+  it('carries {kind, route, title_key, id} and needs the tournament id', () => {
+    expect(msg('en', 'tournament.promoted').data).toEqual({
+      kind: 'tournament_update',
+      route: 'tournament',
+      title_key: 'tournament.promoted',
+      id: TOURNAMENT_ID,
+    });
+    expect(
+      guestMessage('en', 'tournament_update', { title_key: 'tournament.cancelled', route: 'tournament', id: null }, ctx(), ROUTES),
+    ).toEqual({ ok: false, error: 'BAD_ROUTE' });
+    expect(guestMessage('en', 'lesson_update', payloadOf('tournament.cancelled', {}, 'tournament'), ctx(), ROUTES)).toEqual({
+      ok: false,
+      error: 'KIND_MISMATCH:lesson_update/tournament.cancelled',
     });
   });
 });
@@ -581,6 +623,8 @@ describe('send-push/index.ts wiring', () => {
     );
     expect(branch).toMatch(/last_error: 'LESSON_GONE', attempts: RETRY_CAP/);
     expect(branch).toMatch(/last_error: 'STATEMENT_GONE', attempts: RETRY_CAP/);
+    // Tournaments (§1.10): a vanished tournament is terminal too.
+    expect(branch).toMatch(/last_error: 'TOURNAMENT_GONE', attempts: RETRY_CAP/);
     expect(branch).toMatch(/last_error: 'REMINDER_STALE', attempts: RETRY_CAP/);
     // EC-02: the lesson's status, the enrolment and the due time, in lessonReminder.ts.
     expect(branch).toMatch(/title_key === 'lesson\.reminder' &&\s*reminderStale\(\s*row,\s*lesson,/);

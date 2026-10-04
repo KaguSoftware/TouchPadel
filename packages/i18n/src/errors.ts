@@ -437,6 +437,31 @@ export const ERROR_CODE_KEYS = {
   // the status, or negative: R59) and a receipt or transfer reference (R4, R49, R74).
   STATEMENT_NOT_APPROVED: 'op.errors.STATEMENT_NOT_APPROVED',
   STATEMENT_REFERENCE_REQUIRED: 'op.errors.STATEMENT_REFERENCE_REQUIRED',
+  // Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.9): the lines are in
+  // catalogs/opErrors.tournaments.*.ts, worded for staff and guests alike; the detail sentences
+  // are the lanes' (ws.tournaments.*, tournaments.*).
+  // tournaments_lifecycle: the branch switch (publish, register), an unknown or unseen tournament
+  // or entry, publish refused (detail not_done | already_published | capacity_unit |
+  // capacity_count | format | fee_not_approved | no_blocks | settings:<key>), registration shut
+  // (detail status | cutoff), no place left, the wrong category, and an adopted event block
+  // cancelled, moved or marked from the calendar (the guard trigger).
+  TOURNAMENTS_OFF: 'op.errors.TOURNAMENTS_OFF',
+  TOURNAMENT_NOT_FOUND: 'op.errors.TOURNAMENT_NOT_FOUND',
+  TOURNAMENT_PUBLISH_REFUSED: 'op.errors.TOURNAMENT_PUBLISH_REFUSED',
+  TOURNAMENT_NOT_OPEN: 'op.errors.TOURNAMENT_NOT_OPEN',
+  TOURNAMENT_FULL: 'op.errors.TOURNAMENT_FULL',
+  TOURNAMENT_CATEGORY_MISMATCH: 'op.errors.TOURNAMENT_CATEGORY_MISMATCH',
+  TOURNAMENT_ENTRY_NOT_FOUND: 'op.errors.TOURNAMENT_ENTRY_NOT_FOUND',
+  TOURNAMENT_VIA_EVENTS: 'op.errors.TOURNAMENT_VIA_EVENTS',
+  // tournaments_play: the rounds write (detail status | stale | engine | format | numbering |
+  // played | mexicano_one | round_open | seat | court | courts_used) and the score (detail
+  // status | invalid | changed | locked).
+  TOURNAMENT_ROUNDS_INVALID: 'op.errors.TOURNAMENT_ROUNDS_INVALID',
+  TOURNAMENT_SCORE_REFUSED: 'op.errors.TOURNAMENT_SCORE_REFUSED',
+  // tournaments_schema_money: the desk payment of an entry fee (tournament_settle; detail
+  // waitlisted | withdrawn | no_show | cancelled | nothing_owed, then "expected X, now Y").
+  TOURNAMENT_NOT_PAYABLE: 'op.errors.TOURNAMENT_NOT_PAYABLE',
+  TOURNAMENT_OWED_CHANGED: 'op.errors.TOURNAMENT_OWED_CHANGED',
 
   // ── Guest refusals the desk never meets (the phone's lines) ───────────────
   // 0048/C1 + 0058: raised by app.hold_slot from the day it was hardened; the
