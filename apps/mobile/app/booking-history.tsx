@@ -12,7 +12,7 @@ import { useClearHistory, useHistoryClearedAt } from '../src/features/booking/hi
 import { cancelActorLabel, type BookingRow } from '../src/features/booking/logic';
 import { matchLineOf, matchPillStatus } from '../src/features/booking/matchRows';
 import { useMyMatches } from '../src/features/matches/hooks';
-import { mergeReservationLists, type ReservationItem } from '../src/features/matches/logic';
+import { mergeReservationLists, type ReservationItem } from '../src/features/matches/reservations';
 import { DEFAULT_TZ } from '../src/features/availability/assemble';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useAllCourts, useVenueSettings } from '../src/features/availability/hooks';

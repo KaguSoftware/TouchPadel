@@ -218,7 +218,16 @@ export default function ProfileScreen() {
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontFamily: fonts.display800, fontSize: 17, color: brand.white }}>
+              <Text
+                style={{
+                  fontFamily: fonts.display800,
+                  fontSize: 17,
+                  lineHeight: 20,
+                  textAlign: 'center',
+                  includeFontPadding: false,
+                  color: brand.white,
+                }}
+              >
                 {initials}
               </Text>
             </View>

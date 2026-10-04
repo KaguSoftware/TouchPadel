@@ -75,7 +75,16 @@ function Avatar({ initials }: { initials: string }) {
         justifyContent: 'center',
       }}
     >
-      <Text style={{ fontFamily: fonts.display800, fontSize: 30, color: brand.white }}>
+      <Text
+        style={{
+          fontFamily: fonts.display800,
+          fontSize: 30,
+          lineHeight: 34,
+          textAlign: 'center',
+          includeFontPadding: false,
+          color: brand.white,
+        }}
+      >
         {initials}
       </Text>
     </View>
