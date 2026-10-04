@@ -3,7 +3,8 @@ import type { Locale } from '@touch/i18n';
 /**
  * The public legal pages (apps/web/app/[locale]/{privacy,terms,support,delete-account}).
  * App Store Guideline 5.1.1(i) wants the privacy policy reachable inside the app
- * as well as in the listing, so Settings and Sign up link here; the Terms are what
+ * as well as in the listing, so Settings links here (sign-up and the consent gate show
+ * the text in full, app/terms-review.tsx and app/accept-terms.tsx); the Terms are what
  * the sign-up checkbox and the accept-terms screen record (app.accept_terms, 0153). Opened in the
  * system browser, never an in-app web view (no "unrestricted web access").
  *

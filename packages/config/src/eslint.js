@@ -188,6 +188,7 @@ const testIdElements = [
   'Field',
   'LinkText',
   'FooterLink',
+  'TermsReader',
   'SegmentedControl',
   'WheelPicker',
   'WheelSheet',

@@ -21,6 +21,7 @@ import ProfileEditScreen from '../../app/profile-edit';
 import ChangePasswordScreen from '../../app/change-password';
 import DeleteAccountScreen from '../../app/delete-account';
 import AcceptTermsScreen from '../../app/accept-terms';
+import TermsReviewScreen from '../../app/terms-review';
 
 const SIGNED_IN: [readonly unknown[], unknown][] = [
   [profileKeys.own, profileFixture()],
@@ -62,10 +63,17 @@ const CASES: SmokeCase[] = [
   {
     route: 'accept-terms',
     Component: AcceptTermsScreen,
-    // Mounted but disabled until the consent switch is on — the gate must
+    // Mounted but disabled until the consent checkbox is ticked — the gate must
     // offer acceptance and refuse it unticked.
     labelKey: 'consent.accept',
     options: { session: 'in', queryData: SIGNED_IN },
+  },
+  {
+    route: 'terms-review',
+    Component: TermsReviewScreen,
+    // Opened from the sign-up checkbox, before any account exists: the same
+    // reader, with Accept locked until the text is read and ticked.
+    labelKey: 'consent.accept',
   },
 ];
 

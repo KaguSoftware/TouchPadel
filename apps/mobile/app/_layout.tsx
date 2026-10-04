@@ -287,12 +287,15 @@ function RootStack() {
           <Stack.Screen name="profile-edit" />
           <Stack.Screen name="change-password" />
           <Stack.Screen name="delete-account" />
-          {/* Consent gate (0153): a modal with no swipe-to-dismiss — accept,
-          sign out, or delete the account are the only ways out. */}
+          {/* Consent gate (0153): a modal with no swipe-to-dismiss — reading
+          and accepting is the only way on. */}
           <Stack.Screen
             name="accept-terms"
             options={{ presentation: 'modal', gestureEnabled: false, headerShown: false }}
           />
+          {/* The same reader from the sign-up checkbox; swiping it away leaves
+          the box unticked. */}
+          <Stack.Screen name="terms-review" options={{ presentation: 'modal', headerShown: false }} />
           {/* Formerly the (gated) group, flattened onto the root stack so that
           every push leaves real history behind it and UIKit draws its OWN back
           item — the same one, animated, on every screen. Each carries its own

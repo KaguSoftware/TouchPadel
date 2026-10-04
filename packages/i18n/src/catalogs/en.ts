@@ -117,6 +117,10 @@ export const en = {
     // 0153: the sign-up consent switch; the version rides in the sign-up metadata
     // and the consent gate records it once the session lands.
     termsAgree: 'I agree to the Terms of Service and have read the Privacy Policy.',
+    // The same sentence with its two documents as links (sign-up's checkbox).
+    termsAgreeLinked: 'I agree to the {terms} and have read the {privacy}.',
+    termsLink: 'Terms of Service',
+    privacyLink: 'Privacy Policy',
     termsRequired: 'Agree to the Terms of Service to create an account.',
     readTerms: 'Terms of Service',
     // Shown when an emailed link could not be used — expired, already spent, or
@@ -896,13 +900,11 @@ export const en = {
   // accounts, accounts from before 2026-09-23, and every version bump.
   consent: {
     title: 'Our terms',
-    body: 'Before you continue, please read and accept the Touch Padel Terms of Service and Privacy Policy. They cover bookings, cancellations, venue rules and how we handle your information.',
+    body: 'Please read the Terms of Service and Privacy Policy below to the end, then agree to continue.',
     agree: 'I agree to the Terms of Service and have read the Privacy Policy.',
-    readTerms: 'Read the Terms of Service',
-    readPrivacy: 'Read the Privacy Policy',
+    scrollHint: 'Scroll to the end to agree.',
+    part: 'Part {n} of {total}',
     accept: 'Accept and continue',
-    signOut: 'Sign out',
-    deleteInstead: 'Delete my account instead',
     failed: "Couldn't save your answer. Check your connection and try again.",
   },
   cafe: {

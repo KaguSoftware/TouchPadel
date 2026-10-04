@@ -6,7 +6,8 @@ import { getCachedVenue } from '@/lib/menu.server';
 import { getRequestNonce, getSiteMode } from '@/lib/site/mode.server';
 import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
 import { SiteShell } from '@/components/site/SiteShell';
-import { LegalDocument, type LegalSection } from '@/components/legal/LegalDocument';
+import { LegalDocument } from '@/components/legal/LegalDocument';
+import { TERMS_SECTIONS } from '@touch/i18n';
 
 /**
  * Terms of Service — /{locale}/terms.
@@ -63,113 +64,6 @@ export async function generateMetadata({
   };
 }
 
-const SECTIONS: LegalSection[] = [
-  { id: 'who', title: 'legal.terms.who.title', blocks: [{ kind: 'p', key: 'legal.terms.who.body' }] },
-  {
-    id: 'accounts',
-    title: 'legal.terms.accounts.title',
-    blocks: [
-      {
-        kind: 'list',
-        items: [
-          'legal.terms.accounts.age',
-          'legal.terms.accounts.accurate',
-          'legal.terms.accounts.secure',
-          'legal.terms.accounts.desk',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'bookings',
-    title: 'legal.terms.bookings.title',
-    blocks: [
-      {
-        kind: 'list',
-        items: [
-          'legal.terms.bookings.confirm',
-          'legal.terms.bookings.price',
-          'legal.terms.bookings.cancel',
-          'legal.terms.bookings.noShow',
-          'legal.terms.bookings.time',
-          'legal.terms.bookings.venueCancel',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'open-matches',
-    title: 'legal.terms.openMatches.title',
-    blocks: [
-      {
-        kind: 'list',
-        items: [
-          { lead: 'legal.terms.openMatches.startLead', text: 'legal.terms.openMatches.start' },
-          { lead: 'legal.terms.openMatches.ticketsLead', text: 'legal.terms.openMatches.tickets' },
-          { lead: 'legal.terms.openMatches.refundLead', text: 'legal.terms.openMatches.refund' },
-          { lead: 'legal.terms.openMatches.shareLead', text: 'legal.terms.openMatches.share' },
-          { lead: 'legal.terms.openMatches.venueLead', text: 'legal.terms.openMatches.venue' },
-          { lead: 'legal.terms.openMatches.genderLead', text: 'legal.terms.openMatches.gender' },
-          { lead: 'legal.terms.openMatches.conductLead', text: 'legal.terms.openMatches.conduct' },
-          { lead: 'legal.terms.openMatches.deleteLead', text: 'legal.terms.openMatches.delete' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'cafe',
-    title: 'legal.terms.cafe.title',
-    blocks: [{ kind: 'list', items: ['legal.terms.cafe.order', 'legal.terms.cafe.allergens', 'legal.terms.cafe.pay'] }],
-  },
-  {
-    id: 'venue',
-    title: 'legal.terms.venue.title',
-    blocks: [
-      { kind: 'p', key: 'legal.terms.venue.risk' },
-      {
-        kind: 'list',
-        items: [
-          'legal.terms.venue.rules',
-          'legal.terms.venue.minors',
-          'legal.terms.venue.damage',
-          'legal.terms.venue.belongings',
-          'legal.terms.venue.conduct',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'app',
-    title: 'legal.terms.app.title',
-    blocks: [{ kind: 'list', items: ['legal.terms.app.use', 'legal.terms.app.availability', 'legal.terms.app.ip'] }],
-  },
-  { id: 'messages', title: 'legal.terms.messages.title', blocks: [{ kind: 'p', key: 'legal.terms.messages.body' }] },
-  {
-    id: 'liability',
-    title: 'legal.terms.liability.title',
-    blocks: [
-      { kind: 'p', key: 'legal.terms.liability.care' },
-      { kind: 'p', key: 'legal.terms.liability.limit' },
-      { kind: 'p', key: 'legal.terms.liability.notExcluded' },
-    ],
-  },
-  { id: 'ending', title: 'legal.terms.ending.title', blocks: [{ kind: 'p', key: 'legal.terms.ending.body' }] },
-  { id: 'changes', title: 'legal.terms.changes.title', blocks: [{ kind: 'p', key: 'legal.terms.changes.body' }] },
-  {
-    id: 'law',
-    title: 'legal.terms.law.title',
-    blocks: [
-      { kind: 'p', key: 'legal.terms.law.body' },
-      { kind: 'p', key: 'legal.terms.law.language' },
-    ],
-  },
-  {
-    id: 'contact',
-    title: 'legal.terms.contactSection.title',
-    blocks: [{ kind: 'p', key: 'legal.terms.contactSection.body' }, { kind: 'entity' }, { kind: 'phone' }],
-  },
-];
-
 export default async function TermsPage({ params }: { params: Promise<{ locale: string }> }) {
   const locale = requireLocale((await params).locale);
   const [venue, mode, nonce] = await Promise.all([
@@ -184,7 +78,7 @@ export default async function TermsPage({ params }: { params: Promise<{ locale: 
         page="terms"
         title="legal.terms.title"
         intro="legal.terms.intro"
-        sections={SECTIONS}
+        sections={TERMS_SECTIONS}
         venue={venue}
         version={CURRENT_TERMS_VERSION}
       />
