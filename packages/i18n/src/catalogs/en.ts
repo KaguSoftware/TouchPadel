@@ -905,6 +905,8 @@ export const en = {
     scrollHint: 'Scroll to the end to agree.',
     part: 'Part {n} of {total}',
     accept: 'Accept and continue',
+    signOut: 'Sign out',
+    deleteInstead: 'Delete my account instead',
     failed: "Couldn't save your answer. Check your connection and try again.",
   },
   cafe: {

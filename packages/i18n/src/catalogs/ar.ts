@@ -805,6 +805,8 @@ export const ar: Messages = {
     scrollHint: 'مرّر حتى النهاية لتتمكّن من الموافقة.',
     part: 'الجزء {n} من {total}',
     accept: 'موافقة ومتابعة',
+    signOut: 'تسجيل الخروج',
+    deleteInstead: 'حذف حسابي بدلًا من ذلك',
     failed: 'تعذّر حفظ إجابتك. تحقّق من اتصالك وحاول مرة أخرى.',
   },
   cafe: {

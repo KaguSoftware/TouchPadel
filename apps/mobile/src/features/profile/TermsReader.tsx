@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { PRIVACY_SECTIONS, TERMS_SECTIONS, legalParams } from '@touch/i18n';
 import { Text } from '../../i18n/text';
@@ -26,10 +26,14 @@ function PartHeader({ part, title }: { part: number; title: string }) {
         paddingVertical: space.sm,
       }}
     >
-      <Text style={{ fontFamily: fonts.body700, fontSize: 11, lineHeight: 15, color: colors.gstrong }}>
+      <Text
+        style={{ fontFamily: fonts.body700, fontSize: 11, lineHeight: 15, color: colors.gstrong }}
+      >
         {t('consent.part', { n: part, total: 2 })}
       </Text>
-      <Text style={{ fontFamily: fonts.display900, fontSize: 17, lineHeight: 23, color: colors.ink }}>
+      <Text
+        style={{ fontFamily: fonts.display900, fontSize: 17, lineHeight: 23, color: colors.ink }}
+      >
         {title}
       </Text>
     </View>
@@ -54,11 +58,14 @@ export function TermsReader({
   onAccept,
   busy = false,
   error = null,
+  footer = null,
 }: {
   testID: string;
   onAccept: () => void;
   busy?: boolean;
   error?: string | null;
+  /** Under the scroll hint: the consent gate's ways out (sign out, delete instead). */
+  footer?: ReactNode;
 }) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
@@ -80,7 +87,15 @@ export function TermsReader({
     // The bottom safe-area inset comes from `edges`; the button keeps its own air above it.
     <Screen gutter={20} edges={['bottom']} style={{ paddingTop: space.xxl + space.xl }}>
       <Title plain>{t('consent.title')}</Title>
-      <Text style={{ fontFamily: fonts.body400, fontSize: 14, lineHeight: 22, color: colors.mut, marginTop: space.sm }}>
+      <Text
+        style={{
+          fontFamily: fonts.body400,
+          fontSize: 14,
+          lineHeight: 22,
+          color: colors.mut,
+          marginTop: space.sm,
+        }}
+      >
         {t('consent.body')}
       </Text>
 
@@ -153,7 +168,15 @@ export function TermsReader({
         >
           {agreed ? <CheckIcon size={13} color={brand.greenInk} strokeWidth={3} /> : null}
         </View>
-        <Text style={{ flex: 1, fontFamily: fonts.body600, fontSize: 13, lineHeight: 19, color: colors.ink }}>
+        <Text
+          style={{
+            flex: 1,
+            fontFamily: fonts.body600,
+            fontSize: 13,
+            lineHeight: 19,
+            color: colors.ink,
+          }}
+        >
           {t('consent.agree')}
         </Text>
       </Pressable>
@@ -187,6 +210,7 @@ export function TermsReader({
       >
         {t('consent.scrollHint')}
       </Text>
+      {footer}
     </Screen>
   );
 }
