@@ -1,8 +1,12 @@
 import type { ReactNode } from 'react';
 import {
-  isolate,
+  entityParams,
+  isPlaceholder,
   isolateLtr,
   makeT,
+  type LegalBlock,
+  type LegalPageName,
+  type LegalSection as SharedLegalSection,
   type Locale,
   type MessageKey,
   type TParams,
@@ -33,25 +37,12 @@ import { TitleSquiggle } from '@/components/site/brand/TitleSquiggle';
  * receives as {company}, {tradingName}, {registration}, {address}, {email},
  * {city} and {minPlayAge}.
  */
-export type LegalPageName = 'privacy' | 'terms' | 'support' | 'delete-account';
+// The block and section shapes, and the Terms and Privacy section lists, live
+// in packages/i18n/src/legal.ts: the app's accept-terms gate shows the same text.
+export { entityParams, isPlaceholder };
+export type { LegalBlock, LegalListItem, LegalPageName } from '@touch/i18n';
 
-export type LegalListItem = MessageKey | { lead: MessageKey; text: MessageKey };
-
-export type LegalBlock =
-  | { kind: 'p'; key: MessageKey }
-  | { kind: 'list'; items: LegalListItem[] }
-  /** The venue phone as a tel: link, or the front-desk fallback when unset. */
-  | { kind: 'phone' }
-  /** The week's opening hours; omitted when the venue has none published. */
-  | { kind: 'hours' }
-  /** The company's contact email (a mailto: once it is filled in) and address. */
-  | { kind: 'entity' }
-  | { kind: 'link'; to: LegalPageName; hash?: string; label: MessageKey };
-
-export interface LegalSection {
-  id: string;
-  title: MessageKey;
-  blocks: LegalBlock[];
+export interface LegalSection extends SharedLegalSection {
   /** Interactive content rendered after the blocks (the delete-account form). */
   extra?: ReactNode;
 }
@@ -62,29 +53,6 @@ const NAV_PAGES: [LegalPageName, MessageKey][] = [
   ['support', 'legal.nav.support'],
   ['delete-account', 'legal.nav.deleteAccount'],
 ];
-
-/** A `legal.entity.*` value the partner has not filled in yet. */
-export function isPlaceholder(value: string): boolean {
-  return value.startsWith('[FILL');
-}
-
-/**
- * The {company}, {email}, … values every legal string can interpolate, each
- * bidi-isolated: a Latin company name or an email inside an Arabic sentence
- * must not reorder the words around it.
- */
-export function entityParams(locale: Locale): TParams {
-  const tr = makeT(locale);
-  return {
-    company: isolate(tr('legal.entity.company')),
-    tradingName: isolate(tr('legal.entity.tradingName')),
-    registration: isolateLtr(tr('legal.entity.registration')),
-    address: isolate(tr('legal.entity.address')),
-    email: isolateLtr(tr('legal.entity.email')),
-    city: isolate(tr('legal.entity.city')),
-    minPlayAge: isolateLtr(tr('legal.entity.minPlayAge')),
-  };
-}
 
 function pageHref(locale: Locale, page: LegalPageName): string {
   return `/${locale}/${page}`;
@@ -231,7 +199,7 @@ export function LegalDocument({
   page: LegalPageName;
   title: MessageKey;
   intro: MessageKey;
-  sections: LegalSection[];
+  sections: readonly LegalSection[];
   venue: VenueOpeningHours | null;
   /** The Terms/Privacy version a guest accepts in the app (CURRENT_TERMS_VERSION). */
   version?: string;

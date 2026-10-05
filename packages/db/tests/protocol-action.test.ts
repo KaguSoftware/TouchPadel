@@ -213,12 +213,30 @@ describe('protocol-action: the launch', () => {
 
 describe('protocol-action: the tick', () => {
   /** The coach photo phase with nothing queued (EC-01). */
-  const NO_COACH_PURGE: Pick<TickPorts, 'coachPurgeDue' | 'listMenuFolder' | 'pathInUse' | 'removeMenuPhotos' | 'markCoachPurged'> = {
+  const NO_COACH_PURGE: Pick<
+    TickPorts,
+    | 'coachPurgeDue'
+    | 'listMenuFolder'
+    | 'pathInUse'
+    | 'removeMenuPhotos'
+    | 'markCoachPurged'
+    | 'avatarPurgeDue'
+    | 'listAvatarFolder'
+    | 'avatarInUse'
+    | 'removeAvatars'
+    | 'markAvatarPurged'
+  > = {
     coachPurgeDue: async () => [],
     listMenuFolder: async () => [],
     pathInUse: async () => false,
     removeMenuPhotos: async () => undefined,
     markCoachPurged: async () => undefined,
+    // The avatar phase (0302) with nothing queued.
+    avatarPurgeDue: async () => [],
+    listAvatarFolder: async () => [],
+    avatarInUse: async () => false,
+    removeAvatars: async () => undefined,
+    markAvatarPurged: async () => undefined,
   };
 
   it('launches, reverts, skips and purges, and one bad run never stops the others', async () => {
@@ -264,7 +282,7 @@ describe('protocol-action: the tick', () => {
       log: () => undefined,
       ...NO_COACH_PURGE,
     };
-    expect(await tick(ports)).toEqual({ launched: 1, reverted: 1, skipped: 1, failed: 4, purged: 2, incidents_purged: 0, orphans_purged: 0, coach_purged: 0 });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 1, skipped: 1, failed: 4, purged: 2, incidents_purged: 0, orphans_purged: 0, coach_purged: 0, avatars_purged: 0 });
     expect(log).toContain(`copy items/i1/r1.webp`);
     // What did not launch leaves nothing public: the reverted copy and the
     // refused one are removed; the launched one, a copy that never landed
@@ -322,7 +340,7 @@ describe('protocol-action: the tick', () => {
       ],
       log,
     );
-    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 2, orphans_purged: 0, coach_purged: 0 });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 2, orphans_purged: 0, coach_purged: 0, avatars_purged: 0 });
     // Only staff-media paths are removed; a report whose removal failed stays
     // due; one with nothing left to remove is still marked.
     expect(log).toContain(`remove ${INCIDENT}`);
@@ -337,14 +355,14 @@ describe('protocol-action: the tick', () => {
     const ports = incidentPorts(async () => {
       throw new Error('incident_photo_purge_due: Could not find the function (PGRST202)');
     }, log);
-    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0 });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0, avatars_purged: 0 });
     expect(log.some((l) => /^log incident purge: .*PGRST202/.test(l))).toBe(true);
   });
 
   it('removes the photos nobody claimed, last, then lets their slots go', async () => {
     const log: string[] = [];
     const ports = incidentPorts(async () => [{ incident_id: 'n1', paths: [INCIDENT] }], log, async () => [ORPHAN, CAMPAIGN]);
-    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 0, purged: 1, incidents_purged: 1, orphans_purged: 2, coach_purged: 0 });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 0, purged: 1, incidents_purged: 1, orphans_purged: 2, coach_purged: 0, avatars_purged: 0 });
     expect(log.slice(-2)).toEqual([`remove ${ORPHAN},${CAMPAIGN}`, `orphans ${ORPHAN},${CAMPAIGN}`]);
     expect(log.indexOf('incident n1')).toBeLessThan(log.indexOf(`remove ${ORPHAN},${CAMPAIGN}`));
   });
@@ -352,12 +370,12 @@ describe('protocol-action: the tick', () => {
   it('keeps the slots when the objects could not be removed, and every count before', async () => {
     const log: string[] = [];
     const failing = incidentPorts(async () => [], log, async () => [ORPHAN, OTHER]);
-    expect(await tick(failing)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0 });
+    expect(await tick(failing)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0, avatars_purged: 0 });
     expect(log.some((l) => l.startsWith('orphans'))).toBe(false);
     const missing = incidentPorts(async () => [], [], async () => {
       throw new Error('staff_media_orphan_purge_due: Could not find the function (PGRST202)');
     });
-    expect(await tick(missing)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0 });
+    expect(await tick(missing)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0, avatars_purged: 0 });
   });
 
   // EC-01 (R43): the coach photo folders queued by a retirement, an account
@@ -411,7 +429,7 @@ describe('protocol-action: the tick', () => {
       // A coach brought back with the same photo: that object stays.
       inUse: [`${C2}/live.jpg`],
     });
-    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 0, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 3 });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 0, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 3, avatars_purged: 0 });
     expect(log.filter((l) => l.startsWith('remove menu'))).toEqual([`remove menu ${C1}/a.jpg,${C1}/b.webp`, `remove menu ${C2}/old.jpg`]);
     expect(log.filter((l) => l.startsWith('coach '))).toEqual(['coach q1', 'coach q2', 'coach q3']);
     // The coach phase runs after every earlier one.
@@ -431,7 +449,7 @@ describe('protocol-action: the tick', () => {
       failList: C1,
       failRemove: C2,
     });
-    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 3, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 1 });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 3, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 1, avatars_purged: 0 });
     expect(log.filter((l) => l.startsWith('coach '))).toEqual(['coach q3']);
     // A folder outside coaches/ is never listed.
     expect(log).not.toContain('list items/not-a-coach');
@@ -445,8 +463,86 @@ describe('protocol-action: the tick', () => {
         throw new Error('coach_photo_purge_due: Could not find the function (PGRST202)');
       },
     });
-    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0 });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0, avatars_purged: 0 });
     expect(log.some((l) => /^log coach photo purge: .*PGRST202/.test(l))).toBe(true);
+  });
+
+  // ── avatars (0302) ──
+  const P1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const P2 = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const OBJ = (p: string, n: string) => `${p}/${n.repeat(8)}-${n.repeat(4)}-4${n.repeat(3)}-8${n.repeat(3)}-${n.repeat(12)}.jpg`;
+  function avatarPorts(
+    log: string[],
+    opts: {
+      due: () => Promise<Array<{ id: string; path: string }>>;
+      objects?: Record<string, string[]>;
+      inUse?: string[];
+      failRemove?: string;
+    },
+  ): TickPorts {
+    return {
+      ...coachPorts(log, {}),
+      avatarPurgeDue: opts.due,
+      listAvatarFolder: async (folder) => {
+        log.push(`list avatars ${folder}`);
+        return opts.objects?.[folder] ?? [];
+      },
+      avatarInUse: async (path) => (opts.inUse ?? []).includes(path),
+      removeAvatars: async (paths) => {
+        log.push(`remove avatars ${paths.join(',')}`);
+        if (opts.failRemove && paths.some((p) => p.startsWith(opts.failRemove!))) throw new Error('remove failed');
+      },
+      markAvatarPurged: async (id) => {
+        log.push(`avatar ${id}`);
+      },
+    };
+  }
+
+  it('removes a replaced avatar and a deleted account\'s folder, last, and never a photo a profile still shows', async () => {
+    const log: string[] = [];
+    const ports = avatarPorts(log, {
+      due: async () => [
+        { id: 'a1', path: OBJ(P1, 'c') },
+        { id: 'a2', path: P2 },
+        { id: 'a3', path: OBJ(P1, 'd') },
+      ],
+      objects: { [P2]: [OBJ(P2, 'e'), OBJ(P2, 'f'), 'not/in/this/folder.jpg'] },
+      inUse: [OBJ(P1, 'd')],
+    });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 0, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0, avatars_purged: 3 });
+    expect(log.filter((l) => l.startsWith('remove avatars'))).toEqual([
+      `remove avatars ${OBJ(P1, 'c')}`,
+      `remove avatars ${OBJ(P2, 'e')},${OBJ(P2, 'f')}`,
+    ]);
+    expect(log.filter((l) => l.startsWith('avatar '))).toEqual(['avatar a1', 'avatar a2', 'avatar a3']);
+    // A single object is never listed; only a folder is.
+    expect(log.filter((l) => l.startsWith('list avatars'))).toEqual([`list avatars ${P2}`]);
+  });
+
+  it('leaves an avatar queued when storage fails, refuses a foreign path, and keeps going', async () => {
+    const log: string[] = [];
+    const ports = avatarPorts(log, {
+      due: async () => [
+        { id: 'a1', path: OBJ(P1, 'c') },
+        { id: 'a2', path: 'items/not-an-avatar.jpg' },
+        { id: 'a3', path: OBJ(P2, 'd') },
+      ],
+      failRemove: P1,
+    });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 2, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0, avatars_purged: 1 });
+    expect(log.filter((l) => l.startsWith('avatar '))).toEqual(['avatar a3']);
+    expect(log.some((l) => /^log avatars a2: not an avatar path/.test(l))).toBe(true);
+  });
+
+  it('keeps every count before it when the avatar queue cannot be read (PGRST202)', async () => {
+    const log: string[] = [];
+    const ports = avatarPorts(log, {
+      due: async () => {
+        throw new Error('avatar_purge_due: Could not find the function (PGRST202)');
+      },
+    });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0, coach_purged: 0, avatars_purged: 0 });
+    expect(log.some((l) => /^log avatar purge: .*PGRST202/.test(l))).toBe(true);
   });
 });
 
@@ -461,6 +557,19 @@ describe('protocol-action: the coach photo purge wiring (EC-01)', () => {
     expect(INDEX).toMatch(/rpc\('coach_photo_purged', \{ p_id: id \}\)/);
     expect(INDEX).toMatch(/storage\s*\.from\(MENU_BUCKET\)\s*\.list\(folder, \{ limit: LIST_PAGE, offset/);
     expect(INDEX).toMatch(/storage\.from\(MENU_BUCKET\)\.remove\(paths\)/);
+  });
+
+  it('the tick reads the avatar queue, asks avatar_in_use, removes from avatars and marks the row (0302)', () => {
+    expect(INDEX).toMatch(/rpc\('avatar_purge_due', \{ p_limit: 20 \}\)/);
+    expect(INDEX).toMatch(/rpc\('avatar_in_use', \{ p_path: path \}\)/);
+    expect(INDEX).toMatch(/rpc\('avatar_purged', \{ p_id: id \}\)/);
+    expect(INDEX).toMatch(/storage\.from\(AVATAR_BUCKET\)\.remove\(paths\)/);
+    const nudge0302 = readFileSync(
+      resolve(here, '../supabase/migrations/20261004000302_profile_avatar_birth_date.sql'),
+      'utf8',
+    );
+    expect(nudge0302).toMatch(/not exists \(select 1 from avatar_purges a where a\.purged_at is null\)/);
+    expect(nudge0302).toMatch(/not exists \(select 1 from coach_photo_purges q where q\.purged_at is null\)/);
   });
 
   it('the 5-minute nudge counts a queued coach folder as due work, and the service role may ask storage_path_in_use', () => {

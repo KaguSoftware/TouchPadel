@@ -28,10 +28,12 @@ import { matchLineOf, matchPillStatus, matchShareOf } from '../../src/features/b
 import { useMyMatches, useMyTickets } from '../../src/features/matches/hooks';
 import {
   SEATS_TOTAL,
-  mergeReservationLists,
   type MyMatchRow,
-  type ReservationItem,
 } from '../../src/features/matches/logic';
+import {
+  mergeReservationLists,
+  type ReservationItem,
+} from '../../src/features/matches/reservations';
 import type { GuestState } from '../../src/features/matches/state';
 import { MatchRow } from '../../src/components/match';
 import { onlinePaymentOf, openPaymentRef, refundNoteKey } from '../../src/features/deposit/logic';

@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { CURRENT_TERMS_VERSION } from '@touch/core';
 import {
   GATE_PUSH_SETTLE_MS,
+  READ_TO_END_SLACK,
   acceptTerms,
+  readToEnd,
   consentAction,
   fetchOwnConsent,
   shouldPushGate,
@@ -95,5 +97,26 @@ describe('stackHas', () => {
     expect(stackHas(state, 'accept-terms')).toBe(true);
     expect(stackHas(state, 'delete-account')).toBe(false);
     expect(stackHas(undefined, 'accept-terms')).toBe(false);
+  });
+});
+
+describe('readToEnd', () => {
+  it('is false before the text has been measured', () => {
+    expect(readToEnd({ offsetY: 0, viewportHeight: 0, contentHeight: 0 })).toBe(false);
+    expect(readToEnd({ offsetY: 0, viewportHeight: 400, contentHeight: 0 })).toBe(false);
+  });
+
+  it('is false at the top of text taller than the box', () => {
+    expect(readToEnd({ offsetY: 0, viewportHeight: 400, contentHeight: 3000 })).toBe(false);
+  });
+
+  it('is true at the bottom, within the slack', () => {
+    expect(readToEnd({ offsetY: 2600, viewportHeight: 400, contentHeight: 3000 })).toBe(true);
+    expect(readToEnd({ offsetY: 2600 - READ_TO_END_SLACK, viewportHeight: 400, contentHeight: 3000 })).toBe(true);
+    expect(readToEnd({ offsetY: 2600 - READ_TO_END_SLACK - 1, viewportHeight: 400, contentHeight: 3000 })).toBe(false);
+  });
+
+  it('is true when the text fits without scrolling', () => {
+    expect(readToEnd({ offsetY: 0, viewportHeight: 400, contentHeight: 300 })).toBe(true);
   });
 });

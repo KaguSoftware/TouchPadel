@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Children, cloneElement, isValidElement, useState, type ReactElement, type ReactNode } from 'react';
 import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
 import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
@@ -15,8 +15,8 @@ import { useBranches, useVenueSettings } from '../../src/features/availability/h
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { callPhone } from '../../src/lib/phone';
-import { brand, radius, space, useTheme } from '../../src/theme';
-import { Button, Card, ErrorText, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
+import { radius, space, useTheme } from '../../src/theme';
+import { Button, Card, ErrorText, Screen, SectionLabel, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { MenuRow } from '../../src/components/booking';
 import { anyCoaching } from '../../src/features/coaching/logic';
 import { anyTournaments } from '../../src/features/tournaments/logic';
@@ -29,13 +29,40 @@ import {
   PhoneIcon,
   ReceiptIcon,
   SlidersIcon,
-  TrashIcon,
 } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
+import { ProfileAvatar } from '../../src/components/ProfileAvatar';
 import { useToast } from '../../src/components/overlays';
 
 const LOGO_H = 40;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
+
+/**
+ * One labelled card of menu rows. Rows come and go with feature switches, so
+ * the divider-less `last` goes to whichever row actually renders last. Delete
+ * account lives at the foot of Edit profile (app/profile-edit.tsx).
+ */
+function MenuGroup({ label, children }: { label: string; children: ReactNode }) {
+  const { colors } = useTheme();
+  const rows = Children.toArray(children).filter(isValidElement) as ReactElement<{ last?: boolean }>[];
+  if (rows.length === 0) return null;
+  return (
+    <View style={{ marginTop: space.xl }}>
+      <SectionLabel style={{ marginBottom: space.s, paddingStart: space.xs }}>{label}</SectionLabel>
+      <View
+        style={{
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.line,
+          borderRadius: radius.card,
+          overflow: 'hidden',
+        }}
+      >
+        {rows.map((row, i) => (i === rows.length - 1 ? cloneElement(row, { last: true }) : row))}
+      </View>
+    </View>
+  );
+}
 
 /**
  * Profile tab (design 2026-08-31): avatar card + menu rows when signed in;
@@ -209,22 +236,7 @@ export default function ProfileScreen() {
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
           >
           <Card style={{ flexDirection: 'row', direction: 'ltr', gap: 13, alignItems: 'center' }}>
-            <View
-              style={{
-                width: 50,
-                height: 50,
-                borderRadius: radius.pill,
-                backgroundColor: brand.blue,
-                borderWidth: 2.5,
-                borderColor: brand.green,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ fontFamily: fonts.display800, fontSize: 17, color: brand.white }}>
-                {initials}
-              </Text>
-            </View>
+            <ProfileAvatar path={profile.data?.avatar_path} initials={initials} size={50} />
             {/* 'stretch' (not 'flex-start') so each line spans the full column and
                 textAlign decides the edge; shrink-wrapping left the three lines at
                 ragged widths instead of flush against the avatar. `gap` spaces the
@@ -302,16 +314,7 @@ export default function ProfileScreen() {
             </Card>
           ) : null}
 
-          <View
-            style={{
-              marginTop: space.m,
-              backgroundColor: colors.card,
-              borderWidth: 1,
-              borderColor: colors.line,
-              borderRadius: radius.card,
-              overflow: 'hidden',
-            }}
-          >
+          <MenuGroup label={t('profile.groupActivity')}>
             {coachEntry ? (
               <MenuRow
                 testID="profile.coach-mode"
@@ -322,15 +325,6 @@ export default function ProfileScreen() {
                     : 'profile.coachMode',
                 )}
                 onPress={() => router.push(coachEntry)}
-              />
-            ) : null}
-            {/* A social account with no verified number proves one here. */}
-            {phoneOtpEnabled() && !session?.user.phone ? (
-              <MenuRow
-                testID="profile.verify-phone"
-                icon={<PhoneIcon size={15} color={colors.gstrong} />}
-                label={t('auth.verifyPhoneRow')}
-                onPress={() => router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })}
               />
             ) : null}
             {coaching ? (
@@ -352,13 +346,25 @@ export default function ProfileScreen() {
               />
             ) : null}
             {/* Open matches (docs/design/open-matches/guest.md §4.16): the
-              ticket wallet, and the players this guest blocked. */}
+              ticket wallet here, the players this guest blocked under Account. */}
             <MenuRow
               testID="profile.tickets"
               icon={<ReceiptIcon size={15} color={colors.gstrong} />}
               label={t('profile.tickets')}
               onPress={() => router.push('/tickets')}
             />
+          </MenuGroup>
+
+          <MenuGroup label={t('profile.groupAccount')}>
+            {/* A social account with no verified number proves one here. */}
+            {phoneOtpEnabled() && !session?.user.phone ? (
+              <MenuRow
+                testID="profile.verify-phone"
+                icon={<PhoneIcon size={15} color={colors.gstrong} />}
+                label={t('auth.verifyPhoneRow')}
+                onPress={() => router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })}
+              />
+            ) : null}
             <MenuRow
               testID="profile.blocked-players"
               icon={<CloseIcon size={15} color={colors.gstrong} />}
@@ -366,32 +372,22 @@ export default function ProfileScreen() {
               onPress={() => router.push('/blocked-players')}
             />
             <MenuRow
+              testID="profile.settings"
+              icon={<SlidersIcon size={15} color={colors.gstrong} />}
+              label={t('settings.title')}
+              onPress={() => router.push('/settings')}
+            />
+          </MenuGroup>
+
+          <MenuGroup label={t('profile.groupVenue')}>
+            <MenuRow
               testID="profile.call-venue"
               icon={<PhoneIcon size={15} color={colors.gstrong} />}
               label={t('profile.callVenue')}
               onPress={onCallVenue}
               disabled={settings.isLoading}
             />
-            <MenuRow
-              testID="profile.settings"
-              icon={<SlidersIcon size={15} color={colors.gstrong} />}
-              label={t('settings.title')}
-              onPress={() => router.push('/settings')}
-            />
-            {/* SEC-16. Last in the list and rendered in the error colour: both
-              stores require account deletion to be reachable from inside the
-              app, and this row is the path. It pushes a screen with a typed
-              confirmation rather than opening a dialog — the act is not
-              undoable, and an Alert is what a mis-tap dismisses by habit. */}
-            <MenuRow
-              testID="profile.delete-account"
-              icon={<TrashIcon size={15} color={colors.redtext} />}
-              iconBg={colors.redtint}
-              label={t('profile.deleteAccount')}
-              onPress={() => router.push('/delete-account')}
-              last
-            />
-          </View>
+          </MenuGroup>
 
           <ErrorText>{error}</ErrorText>
 

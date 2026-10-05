@@ -72,6 +72,7 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'change-password.tsx', route: 'change-password', primary: 'change-password.submit' },
   { file: 'delete-account.tsx', route: 'delete-account', primary: 'delete-account.confirm' },
   { file: 'accept-terms.tsx', route: 'accept-terms', primary: 'accept-terms.accept' },
+  { file: 'terms-review.tsx', route: 'terms-review', primary: 'terms-review.accept' },
   // ── staff ─────────────────────────────────────────────────────────────────
   // build-contracts-2026-09-23 §6.2. Each page lane adds its rows with its
   // screens. The suites that case them, in EN and AR, as a staff session:

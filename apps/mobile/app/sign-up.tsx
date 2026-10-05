@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Linking, Pressable, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { isPhoneTaken, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
@@ -21,7 +21,6 @@ import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue
 import { classifyUpdateFailure } from '../src/features/profile/changePasswordFlow';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { brand, space, useTheme } from '../src/theme';
-import { legalUrl, type LegalPage } from '../src/lib/legal';
 import { CheckIcon } from '../src/components/icons';
 import {
   Button,
@@ -36,6 +35,8 @@ import {
 } from '../src/components/ui';
 import { PhoneField } from '../src/components/phone';
 import { DEFAULT_ISO } from '../src/features/profile/phone';
+import { onTermsReviewAccepted } from '../src/features/profile/termsReview';
+import { splitSentence } from '../src/features/auth/linkedSentence';
 import { SocialSignInBlock } from '../src/components/social';
 import { useToast } from '../src/components/overlays';
 import { NAME_PART_MAX } from '../src/features/profile/names';
@@ -84,6 +85,14 @@ function SignUpScreen() {
   // 0153: the Terms consent. Required to submit; the version rides in the
   // sign-up metadata and useTermsGate records it once the session lands.
   const [agreed, setAgreed] = useState(false);
+  // Ticking opens the Terms and Privacy reader (app/terms-review.tsx); its
+  // Accept ticks the box. Unticking needs no reading.
+  useEffect(() => onTermsReviewAccepted(() => setAgreed(true)), []);
+  const openTerms = () => router.push('/terms-review');
+  const onTermsRow = () => {
+    if (agreed) setAgreed(false);
+    else openTerms();
+  };
   const { colors, fonts } = useTheme();
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -98,9 +107,6 @@ function SignUpScreen() {
     disabled: busy,
   });
 
-  const openLegal = (page: LegalPage) => {
-    void Linking.openURL(legalUrl(page, locale)).catch(() => toast(t('settings.linkFailed'), 'error'));
-  };
 
   /** Shared field checks; the E.164 or null when something is wrong (already rendered). */
   const validate = (): string | null => {
@@ -290,13 +296,13 @@ function SignUpScreen() {
             pinOrder
           />
         </View>
-        {/* 0153: the whole row toggles, so the sentence is a real target too. */}
+        {/* 0153: the whole row is the target, so the sentence is one too. */}
         <Pressable
           testID="sign-up.terms-row"
           accessibilityRole="checkbox"
           accessibilityState={{ checked: agreed }}
           accessibilityLabel={t('auth.termsAgree')}
-          onPress={() => setAgreed((v) => !v)}
+          onPress={onTermsRow}
           style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.l }}
         >
           <View
@@ -315,8 +321,23 @@ function SignUpScreen() {
           >
             {agreed ? <CheckIcon size={13} color={brand.greenInk} strokeWidth={3} /> : null}
           </View>
+          {/* The two documents are links in the sentence; each opens the reader. */}
           <Text style={{ flex: 1, fontFamily: fonts.body600, fontSize: 13, lineHeight: 19, color: colors.ink }}>
-            {t('auth.termsAgree')}
+            {splitSentence(t('auth.termsAgreeLinked')).map((part, i) =>
+              part.kind === 'text' ? (
+                part.text
+              ) : (
+                <Text
+                  key={i}
+                  testID={`sign-up.terms-link.${part.name}`}
+                  accessibilityRole="link"
+                  onPress={openTerms}
+                  style={{ fontFamily: fonts.body700, color: colors.blue, textDecorationLine: 'underline' }}
+                >
+                  {t(part.name === 'privacy' ? 'auth.privacyLink' : 'auth.termsLink')}
+                </Text>
+              ),
+            )}
           </Text>
         </Pressable>
         <ErrorText>{error ?? social.errorText}</ErrorText>
@@ -338,27 +359,6 @@ function SignUpScreen() {
           onPress={() => router.replace({ pathname: '/sign-in', params: { method } })}
           style={{ marginTop: 18 }}
         />
-        {/* Same pair as Profile → About; flex: 1 pins it to the foot of the screen. */}
-        <View style={{ flex: 1, justifyContent: 'flex-end', marginTop: space.xl }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            <Button
-              testID="sign-up.read-privacy"
-              label={t('settings.privacyPolicy')}
-              variant="secondary"
-              size="compact"
-              onPress={() => openLegal('privacy')}
-              style={{ flexGrow: 1 }}
-            />
-            <Button
-              testID="sign-up.read-terms"
-              label={t('settings.terms')}
-              variant="secondary"
-              size="compact"
-              onPress={() => openLegal('terms')}
-              style={{ flexGrow: 1 }}
-            />
-          </View>
-        </View>
       </FormScreen>
     </Screen>
   );

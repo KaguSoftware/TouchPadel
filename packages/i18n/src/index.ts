@@ -34,3 +34,11 @@ export {
   errorMessageKey,
 } from './errors';
 export type { ErrorCode, ErrorOverrides, ErrorKeyOptions } from './errors';
+export {
+  TERMS_SECTIONS,
+  PRIVACY_SECTIONS,
+  entityParams,
+  isPlaceholder,
+  legalParams,
+} from './legal';
+export type { LegalBlock, LegalListItem, LegalPageName, LegalSection } from './legal';

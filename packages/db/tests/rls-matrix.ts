@@ -5916,4 +5916,84 @@ export const matrix: MatrixRule[] = [
     note: 'tournaments_lifecycle: the cron tick, service_role only',
     drop: 27,
   },
+  // ── 0302: profile photo and date of birth (Edit profile) ──────────────
+  // The guest's own profile only. A nil path is INVALID_ARGUMENT and NULL
+  // clears an unset value, so no principal changes anything; the anonymous
+  // café session has no profile (ACCOUNT_REQUIRED).
+  {
+    kind: 'rpc', schema: 'app', name: 'set_my_avatar',
+    args: { p_path: `${NIL_UUID}/${NIL_UUID}.png` },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0302: the caller\'s own profile only; a path outside their folder is INVALID_ARGUMENT, so nothing is written',
+    drop: 28,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_my_birth_date',
+    args: { p_birth_date: '1899-01-01' },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0302: the caller\'s own profile only; a date before 1900 is INVALID_ARGUMENT, so nothing is written',
+    drop: 28,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_birth_date',
+    args: {},
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0302: the caller\'s own date of birth only; read-only',
+    drop: 28,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'is_avatar_path',
+    args: { p_name: 'items/matrix/probe.webp' }, expect: SELF_ANON_OK,
+    note: '0302: pure text, never raises; granted to anon because the avatars storage policies evaluate it as the reading role',
+    drop: 28,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'avatar_owner',
+    args: { p_name: 'items/matrix/probe.webp' }, expect: SELF_ANON_OK,
+    note: '0302: pure text: NULL for a name that is not an avatar path; policy-evaluated, hence the anon grant',
+    drop: 28,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'avatar_upload_room',
+    args: {}, expect: SELF_ANON_OK,
+    note: '0302: whether the caller may add one more object to their own avatars folder; read-only, policy-evaluated',
+    drop: 28,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'avatar_purge_due',
+    args: { p_limit: 1 },
+    expect: ex<RpcExpectation>('denied'),
+    note: '0302: storage housekeeping, service_role only (protocol-action)',
+    drop: 28,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'avatar_purged',
+    args: { p_id: NIL_UUID },
+    expect: ex<RpcExpectation>('denied'),
+    note: '0302: storage housekeeping, service_role only (protocol-action)',
+    drop: 28,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'avatar_in_use',
+    args: { p_path: `${NIL_UUID}/${NIL_UUID}.png` },
+    expect: ex<RpcExpectation>('denied'),
+    note: '0302: storage housekeeping, service_role only (protocol-action)',
+    drop: 28,
+  },
+  {
+    kind: 'select',
+    name: 'avatar_purges',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0302: no client grant; storage housekeeping only protocol-action reads',
+    drop: 28,
+  },
+  {
+    kind: 'write',
+    name: 'avatar_purges',
+    op: 'insert',
+    payload: { path: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0302: no client write grant; the definers and the tombstone trigger queue rows',
+    drop: 28,
+  },
 ];

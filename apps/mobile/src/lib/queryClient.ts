@@ -301,7 +301,11 @@ export const persistOptions = {
       query.queryKey[0] !== 'match' &&
       query.queryKey[0] !== 'coaching' &&
       query.queryKey[0] !== 'coach' &&
-      query.queryKey[0] !== 'tournament',
+      query.queryKey[0] !== 'tournament' &&
+      // 0302: a signed avatar URL expires, and the date of birth is read only
+      // by its guest; neither is kept on disk.
+      query.queryKey[0] !== 'avatar-url' &&
+      query.queryKey[0] !== 'own-birth-date',
   },
 } as const;
 

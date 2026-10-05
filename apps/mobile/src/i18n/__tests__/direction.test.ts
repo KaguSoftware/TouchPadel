@@ -175,12 +175,18 @@ describe('paragraphs carry a base writing direction', () => {
       // SwiftUI's own Text is a different component in a different tree: it
       // cannot take this module's wrapper, and a native surface reads the
       // SYSTEM locale for its direction regardless. That divergence is the
-      // accepted cost of the native iOS picker (see phone.ios-picker.tsx) —
-      // pinned here so the exception stays deliberate and stays ONE file.
+      // accepted cost of the native iOS pickers (phone.ios-picker.tsx, the
+      // country list; WheelSheet.ios.tsx and DateWheelSheet.ios.tsx, the
+      // wheel sheets) — pinned here so each exception stays deliberate.
       if (/from '@expo\/ui\/swift-ui'/.test(src)) {
-        expect(rel(f), 'only the native picker may use SwiftUI Text').toBe(
-          'src/components/phone.ios-picker.tsx',
-        );
+        expect(
+          [
+            'src/components/phone.ios-picker.tsx',
+            'src/components/WheelSheet.ios.tsx',
+            'src/components/DateWheelSheet.ios.tsx',
+          ],
+          'only the native pickers may use SwiftUI Text',
+        ).toContain(rel(f));
         continue;
       }
       // `Text` among the names, not necessarily alone: the segmented control

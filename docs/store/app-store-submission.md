@@ -78,9 +78,9 @@ row below come from staff accounts only.
 | Contact Info → **Email Address** | Yes | Yes | No | App Functionality. Only when the guest uses Sign in with Apple or Google |
 | Contact Info → **Phone Number** | Yes | Yes | No | App Functionality. Required: sign-in, the one-time WhatsApp code at sign-up, the desk calling about a booking |
 | Identifiers → **User ID** | Yes | Yes | No | App Functionality. The account id, and the push token reminders go to |
-| Other Data → **Other Data Types** | Yes | Yes | No | App Functionality. The bookings and open matches (court, date, time, group size), and the gender a player gives for women-only and men-only matches |
+| Other Data → **Other Data Types** | Yes | Yes | No | App Functionality. The bookings and open matches (court, date, time, group size), the gender a player gives for women-only and men-only matches, and an optional date of birth a guest may add in Edit profile, which only they can see |
 | Purchases → **Purchase History** | Yes | Yes | No | App Functionality. Court deposits and open-match tickets paid by Qi Card on Qi's own page: what was bought, when and the amount. No card data reaches the app or the venue |
-| User Content → **Photos or Videos** | Yes | Yes | No | App Functionality. **Staff accounts only**: a work photo a staff member takes or chooses in the staff area (a proposed dish, a receipt, a finished task, an incident report). Re-encoded on the phone without location or camera metadata. A guest account cannot upload a photo |
+| User Content → **Photos or Videos** | Yes | Yes | No | App Functionality. A guest's optional profile photo, taken or chosen in Edit profile and seen by the guest and the venue's staff; and, on staff accounts, a work photo taken or chosen in the staff area (a proposed dish, a receipt, a finished task, an incident report). Both are re-encoded on the phone without location or camera metadata. A profile photo is deleted with the account |
 | User Content → **Other User Content** | Yes | Yes | No | App Functionality. **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item, a marketing draft or an incident report |
 | Financial Info → **Other Financial Info** | Yes | Yes | No | App Functionality. **Staff accounts only**: a wage advance a staff member asks for, and pay deductions (amount, date and reason) recorded against a staff member, which that person reads in the staff area. **UNVERIFIED** classification, Majed's call (wave5-addendum-2026-09-25 §7.7) |
 
@@ -96,8 +96,8 @@ The iOS privacy manifest (`apps/mobile/app.config.ts` → `ios.privacyManifests`
 linked, not tracking, App Functionality; `apps/mobile/src/lib/__tests__/privacyManifest.test.ts` fails when the
 table above and the manifest differ. The
 camera and photo-library prompts (`NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, EN and AR in
-`apps/mobile/locales/ios.{en,ar}.json`) appear only in the staff area, when a staff member adds a work photo. The
-app never asks for the microphone.
+`apps/mobile/locales/ios.{en,ar}.json`) appear only when a guest adds a profile photo in Edit profile, or a staff
+member adds a work photo in the staff area. The app never asks for the microphone.
 
 The WhatsApp verification-code provider, Supabase, Expo push and Apple/Google sign-in all process data **for the
 app's own functionality**, which is not "tracking" in Apple's definition. No ATT prompt, no
@@ -107,7 +107,7 @@ If Sentry (or any crash reporter) ships later, add Diagnostics → Crash Data (n
 
 ### Account deletion (5.1.1(v))
 
-In the app: **Profile → Delete account**, typed confirmation. The same deletion also runs on the web at
+In the app: **Profile → Edit profile → Delete account**, typed confirmation. The same deletion also runs on the web at
 `https://www.touch-padel.com/en/delete-account`; Google Play requires that page, and Apple only requires the in-app
 path. `app.delete_my_account`
 (migration 0077) removes the login, name and phone immediately. Past bookings stay in the venue's books with no
@@ -129,7 +129,7 @@ nudity, simulated or real gambling, contests, loot boxes.
 | Capability question | Answer | Why |
 |---|---|---|
 | Unrestricted web access | **No** | No in-app browser. The Privacy/Support links open Safari, and "Call" opens the dialer |
-| User-generated content | **Yes** (DF-17) | Players in open matches see each other's first name and surname initial, and fixed preset status messages. There is no free text. Report, block and a venue ban are built in (Guideline 1.2). Staff notes and work photos are seen only by colleagues and managers at the same venue, inside their staff accounts |
+| User-generated content | **Yes** (DF-17) | Players in open matches see each other's first name and surname initial, and fixed preset status messages. There is no free text. Report, block and a venue ban are built in (Guideline 1.2). Staff notes and work photos are seen only by colleagues and managers at the same venue, inside their staff accounts. A guest's profile photo is seen by the guest and the venue's staff |
 | Messaging or chat | **No** | Fixed preset statuses only; no direct messages |
 | Advertising | **No** | |
 | Parental controls / age assurance | **No** / not applicable | |
@@ -212,7 +212,7 @@ OPEN MATCHES
 Players start a match at a free time or join one; four players book the court together and each pays their share at the desk (Book > a free time > Start an open match; Book > Open matches). To try it: Profile > Tickets, buy two tickets with Qi's sandbox card, then join Review Partner's match under Book > Open matches (2/4). At 3/4 no court is booked. In the match, send a preset status (no free text), and report or block a player from their seat's menu. Leave, and the ticket returns to your wallet. The review account is a sandbox profile: it pays on Qi's sandbox (no real money) and sees only sandbox matches, which never book a real court.
 
 ACCOUNT DELETION
-Profile > Delete account, in the app. It deletes the login, the guest's name and phone number immediately and signs them out. For Sign in with Apple accounts the app re-authorises with Apple and the Apple token is revoked. Past bookings remain in the venue's records with no name attached; the deletion screen says so before the user confirms. Open matches are left and unused tickets refunded to the card.
+Profile > Edit profile > Delete account, in the app. It deletes the login, the guest's name and phone number immediately and signs them out. For Sign in with Apple accounts the app re-authorises with Apple and the Apple token is revoked. Past bookings remain in the venue's records with no name attached; the deletion screen says so before the user confirms. Open matches are left and unused tickets refunded to the card.
 
 PRIVACY
 Settings > About > Privacy policy (also linked on the sign-up screen) opens the same policy as the listing. The app contains no analytics, advertising or tracking.
@@ -223,7 +223,7 @@ Venue employees use the same app on their own phones for their work: their tasks
 Email:    <the email create-staff-review-account.mjs printed>
 Password: <the password it printed>
 
-This is a driver account at the real venue, the staff role with the least access. It shows the venue's real shopping list; anything you record there reaches the venue manager like any driver's work, so please type test text. The camera and photo library are used only here, when a staff member attaches a work photo (for example a receipt); guests are never asked. The app never uses the microphone or location.
+This is a driver account at the real venue, the staff role with the least access. It shows the venue's real shopping list; anything you record there reaches the venue manager like any driver's work, so please type test text. The camera and photo library are used here, when a staff member attaches a work photo (for example a receipt), and in a guest's Edit profile, when they add a profile photo. The app never uses the microphone or location.
 
 LANGUAGES
 English and Arabic with full right-to-left layout. Settings > Language switches immediately, no restart.

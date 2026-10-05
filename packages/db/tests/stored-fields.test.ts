@@ -155,6 +155,21 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     // 0241: set by hand on the store review account only (its deposits go to
     // Qi's sandbox). A switch, identifies nobody.
     payment_sandbox: n,
+
+    // 0302 (Edit profile): the guest's photo, seen by the guest and staff, and
+    // an optional date of birth only the guest reads. The 0077 tombstone
+    // UPDATE empties both (profiles_media_tombstone) and queues the photo
+    // folder for removal from the avatars bucket.
+    avatar_path: {
+      category: 'Photos',
+      why: 'the profile photo the guest chose, shown to the guest and the desk',
+      onDelete: 'scrub',
+    },
+    birth_date: {
+      category: 'Other personal info',
+      why: 'an optional date of birth the guest adds; only they read it',
+      onDelete: 'scrub',
+    },
   },
   reservations: {
     id: n, court_id: n, kind: n, status: n, start_at: n, end_at: n, period: n, guest_id: n,

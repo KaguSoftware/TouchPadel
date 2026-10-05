@@ -106,3 +106,60 @@ describe('the shadow map option', () => {
     expect(sunOf(buildCourtScene('lite', { shadowMapSize: 2048 })).castShadow).toBe(false);
   });
 });
+
+describe('the lean option', () => {
+  /** Every object's world matrix and visibility, in traversal order. */
+  const snapshot = (root: THREE.Object3D) => {
+    const out: { matrix: number[]; visible: boolean }[] = [];
+    root.traverse((o) => out.push({ matrix: [...o.matrixWorld.elements], visible: o.visible }));
+    return out;
+  };
+
+  it.each(['full', 'lite'] as const)(
+    'draws %s exactly as the default does: every world matrix and every ghost, to the bit',
+    (quality) => {
+      const plain = buildCourtScene(quality);
+      const lean = buildCourtScene(quality, { lean: true });
+      for (let frame = 1; frame <= 240; frame++) {
+        const t = frame / 60;
+        const k = Math.min(1, frame / 180);
+        const p = k;
+        for (const court of [plain, lean]) {
+          court.update(t, p, k);
+          // What the renderer does before each draw.
+          court.scene.updateMatrixWorld();
+          court.overlay.updateMatrixWorld();
+        }
+        if (frame % 20 === 0) {
+          expect(snapshot(lean.scene)).toStrictEqual(snapshot(plain.scene));
+          expect(snapshot(lean.overlay)).toStrictEqual(snapshot(plain.overlay));
+        }
+      }
+      plain.dispose();
+      lean.dispose();
+    },
+  );
+
+  it('freezes only what never moves', () => {
+    const court = buildCourtScene('full', { lean: true });
+    expect(court.scene.matrixAutoUpdate).toBe(false);
+    expect(court.camera.matrixAutoUpdate).toBe(true);
+    const frozen = court.scene.children.filter((o) => !o.matrixAutoUpdate);
+    expect(frozen.length).toBeGreaterThan(50);
+    for (const o of frozen) {
+      expect(o instanceof THREE.Mesh || o instanceof THREE.LineSegments).toBe(true);
+    }
+    // The ball's shadow caster rides the ball every frame.
+    const caster = court.scene.children.find(
+      (o) => o instanceof THREE.Mesh && o.castShadow,
+    )!;
+    expect(caster.matrixAutoUpdate).toBe(true);
+    court.dispose();
+  });
+
+  it('is off by default', () => {
+    const court = buildCourtScene();
+    expect(court.scene.children.every((o) => o.matrixAutoUpdate)).toBe(true);
+    court.dispose();
+  });
+});

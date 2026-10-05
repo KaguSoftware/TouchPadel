@@ -31,6 +31,7 @@ import {
   PLAYERS,
   playerYaw,
   rallyAt,
+  ballSampler,
   BALL_RADIUS,
   layAngle,
   RACKET_Y,
@@ -88,6 +89,18 @@ export interface CourtSceneOptions {
   spin?: 'frame' | 'time';
   /** The sun's shadow map, px square. Default 1024 (the phone's saving); the prototype drew 2048. */
   shadowMapSize?: number;
+  /**
+   * Cheaper frames, the same picture to the bit (Android only, for now: its
+   * frame loop is bound by the JS thread). Two savings, both in `update` and
+   * the matrix pass three runs before each draw:
+   *   · the court's static meshes (base, turf, lines, net, cage) get their
+   *     matrices once at build and are skipped by every frame's matrix pass,
+   *     instead of being recomposed and re-multiplied each frame;
+   *   · the trail's ghosts read the ball alone (rally.ts, ballSampler) instead
+   *     of a whole rally state each: 36 × six racket poses a frame become two.
+   * Off by default, so iOS and the web run exactly what they always did.
+   */
+  lean?: boolean;
 }
 
 /** The ball's spin in rad/s under `spin: 'time'`: the phone's 0.12 / 0.07 rad a frame, at 60 fps. */
@@ -410,6 +423,24 @@ export function buildCourtScene(
     }
   }
 
+  // Everything built so far that is a mesh or a line never moves: freeze it
+  // (`lean`). Its matrix is composed here, once, and three skips it on every
+  // frame's matrix pass from now on. The scene's own matrix goes with it — it
+  // is identity and never changes, but recomposing it each frame flags every
+  // child for a world-matrix multiply, frozen or not. What does move (the
+  // camera, the rackets, the ball's caster) keeps updating itself: none of it
+  // is in this list, and each flags its own subtree when it changes.
+  if (opts.lean) {
+    for (const o of scene.children) {
+      if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
+        o.updateMatrix();
+        o.matrixAutoUpdate = false;
+      }
+    }
+    scene.updateMatrix();
+    scene.matrixAutoUpdate = false;
+  }
+
   // racket (brand sticker): the design's teardrop frame, blue face plate with
   // white perforations,
   // rim highlights, lofted collar and wrapped lime grip (racket.ts). One shared
@@ -457,6 +488,7 @@ export function buildCourtScene(
 
   // trail: fading ghosts of recent ball positions (both tiers, see TRAIL_N)
   const trail: THREE.Mesh[] = [];
+  const ghostBall = opts.lean ? ballSampler() : null;
   for (let i = 0; i < TRAIL_N; i++) {
     const k = 1 - i / TRAIL_N;
     const m = new THREE.Mesh(
@@ -548,7 +580,7 @@ export function buildCourtScene(
         const at = t - back;
         m.visible = at > legStart;
         if (m.visible) {
-          const p = rallyAt(at, camK).ball;
+          const p = ghostBall ? ghostBall(at, camK) : rallyAt(at, camK).ball;
           m.position.set(p.x, p.y, p.z);
         }
       });

@@ -703,6 +703,11 @@ export type Database = {
         Args: { p_actor_id: string; p_staff_id: string }
         Returns: undefined
       }
+      avatar_in_use: { Args: { p_path: string }; Returns: boolean }
+      avatar_owner: { Args: { p_name: string }; Returns: string }
+      avatar_purge_due: { Args: { p_limit?: number }; Returns: Json }
+      avatar_purged: { Args: { p_id: string }; Returns: undefined }
+      avatar_upload_room: { Args: never; Returns: boolean }
       b64url_decode: { Args: { p: string }; Returns: string }
       b64url_encode: { Args: { p: string }; Returns: string }
       block_courts_for_event: {
@@ -1831,6 +1836,7 @@ export type Database = {
       }
       ingredient_on_hand: { Args: { p_ingredient: string }; Returns: number }
       iqd_split: { Args: { p_n: number; p_total: number }; Returns: number[] }
+      is_avatar_path: { Args: { p_name: string }; Returns: boolean }
       is_degraded:
         | { Args: never; Returns: boolean }
         | { Args: { p_venue: string }; Returns: boolean }
@@ -2755,6 +2761,7 @@ export type Database = {
         }
         Returns: Json
       }
+      my_birth_date: { Args: never; Returns: Json }
       my_campaign_drafts: { Args: { p_venue_id?: string }; Returns: Json }
       my_checklists_today: { Args: { p_venue_id?: string }; Returns: Json }
       my_coach_statements: { Args: { p_month?: string }; Returns: Json }
@@ -3997,6 +4004,8 @@ export type Database = {
         Args: { p_group_ids: string[]; p_modifier_id: string }
         Returns: undefined
       }
+      set_my_avatar: { Args: { p_path: string }; Returns: Json }
+      set_my_birth_date: { Args: { p_birth_date: string }; Returns: Json }
       set_my_coach_hours: {
         Args: { p_venue_id: string; p_windows: Json }
         Returns: Json
@@ -5784,6 +5793,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      avatar_purges: {
+        Row: {
+          id: string
+          path: string
+          purged_at: string | null
+          queued_at: string
+        }
+        Insert: {
+          id?: string
+          path: string
+          purged_at?: string | null
+          queued_at?: string
+        }
+        Update: {
+          id?: string
+          path?: string
+          purged_at?: string | null
+          queued_at?: string
+        }
+        Relationships: []
       }
       booking_payment_events: {
         Row: {
@@ -10886,6 +10916,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_path: string | null
+          birth_date: string | null
           created_at: string
           deleted_at: string | null
           expo_push_token: string | null
@@ -10903,6 +10935,8 @@ export type Database = {
           terms_version: string | null
         }
         Insert: {
+          avatar_path?: string | null
+          birth_date?: string | null
           created_at?: string
           deleted_at?: string | null
           expo_push_token?: string | null
@@ -10920,6 +10954,8 @@ export type Database = {
           terms_version?: string | null
         }
         Update: {
+          avatar_path?: string | null
+          birth_date?: string | null
           created_at?: string
           deleted_at?: string | null
           expo_push_token?: string | null

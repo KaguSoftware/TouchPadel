@@ -1,12 +1,31 @@
 import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { isolate, isolateLtr } from '@touch/i18n';
+import { formatDate, isolate, isolateLtr, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';
 import { RequireSession } from '../src/features/auth/RequireSession';
-import { useOwnProfile, useUpdateProfile } from '../src/features/profile/hooks';
+import {
+  useMyBirthDate,
+  useOwnProfile,
+  useSetAvatar,
+  useSetBirthDate,
+  useUpdateProfile,
+} from '../src/features/profile/hooks';
+import { useSetMyGender } from '../src/features/matches/hooks';
+import { pickAvatarPhoto, PhotoError, type PhotoSource } from '../src/features/staff/photo';
+import {
+  BIRTH_MIN,
+  BIRTH_TZ,
+  birthDateToDate,
+  defaultBirthDate,
+  isValidBirthDate,
+  todayBirthDate,
+} from '../src/features/profile/birthDate';
+import { ProfileAvatar } from '../src/components/ProfileAvatar';
+import { DateWheelSheet } from '../src/components/DateWheelSheet';
+import { WheelSheet } from '../src/components/WheelSheet';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { brand, radius, space, useTheme } from '../src/theme';
 import { Button, ErrorText, Field, FormScreen, Hint, Screen } from '../src/components/ui';
@@ -25,17 +44,40 @@ import { mapOtpError, phoneOtpEnabled } from '../src/features/auth/phoneOtp';
 import { supabase } from '../src/lib/supabase';
 import { useToast } from '../src/components/overlays';
 import { passwordProofOf } from '../src/features/profile/changePasswordFlow';
-import { ChevronIcon, LockIcon, PencilIcon, PhoneIcon } from '../src/components/icons';
+import {
+  CalendarIcon,
+  CameraIcon,
+  ChevronIcon,
+  EnvelopeIcon,
+  LockIcon,
+  PencilIcon,
+  PhoneIcon,
+  TabProfileIcon,
+  TrashIcon,
+} from '../src/components/icons';
 import { SkeletonList } from '../src/components/states';
 import { NAME_PART_MAX, nameFieldsOf, namePatch } from '../src/features/profile/names';
 
 /**
  * Edit profile: a hub, then one small form per thing to change (owner,
- * 2026-10-01). The hub is the avatar plus three rows (Name & surname, Mobile
- * phone, Change password); each row opens this same route with `section` set,
- * so there is one file and one stack entry per form. Email is not editable
- * (re-verification, spec 05.18); language lives in Settings alone. Leaving
- * never prompts: back drops unsaved edits (owner, 2026-09-09).
+ * 2026-10-01). The hub is the avatar plus its rows: Name & surname, Email,
+ * Mobile phone, Gender, Date of birth and Change password. Name and phone open
+ * this same route with `section` set, so there is one file and one stack entry
+ * per form; an unset gender and the date of birth open a wheel in a bottom
+ * sheet, the country picker's (owner, 2026-10-04), and Email and a set gender are read-only and say
+ * why when tapped. Delete account sits last, in a card
+ * of its own (moved here from the Profile tab, 2026-10-04).
+ *
+ * PHOTO, GENDER, DATE OF BIRTH (owner, 2026-10-04; migration 0302). Tapping the
+ * avatar offers camera, library and (with a photo) remove; the photo is
+ * cropped square and re-encoded on the phone (`pickAvatarPhoto`), uploaded to
+ * the private avatars bucket and set by `app.set_my_avatar`. Gender is the
+ * one-time `set_my_gender` answer the match screens also ask (OM-28): once set
+ * only the desk changes it. "Prefer not to say" writes nothing: the gender
+ * stays unset, and a women's or men's match asks again. The date of birth is optional, editable, and read
+ * only by its guest.
+ * Email is not editable (re-verification, spec 05.18); language lives in
+ * Settings alone. Leaving never prompts: back drops unsaved edits (owner, 2026-09-09).
  *
  * NAME (open matches, guest.md §4.9): two fields, because other players see
  * the first name and the surname's initial. The first is required; the
@@ -49,7 +91,7 @@ import { NAME_PART_MAX, nameFieldsOf, namePatch } from '../src/features/profile/
  */
 type Section = 'name' | 'phone';
 
-function useInitials(first: string, last: string, email: string) {
+function initialsOf(first: string, last: string, email: string) {
   return (
     [first, last]
       .map((w) => w.trim()[0] ?? '')
@@ -60,42 +102,28 @@ function useInitials(first: string, last: string, email: string) {
   );
 }
 
-function Avatar({ initials }: { initials: string }) {
-  const { fonts } = useTheme();
-  return (
-    <View
-      style={{
-        width: 84,
-        height: 84,
-        borderRadius: radius.pill,
-        backgroundColor: brand.blue,
-        borderWidth: 3,
-        borderColor: brand.green,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Text style={{ fontFamily: fonts.display800, fontSize: 30, color: brand.white }}>
-        {initials}
-      </Text>
-    </View>
-  );
-}
-
 function HubRow({
   testID,
   icon,
+  iconBg,
   label,
+  labelColor,
   value,
   onPress,
   last,
+  chevron = true,
 }: {
   testID: string;
   icon: React.ReactNode;
+  /** The disc behind the icon; `gtint` unless the row is destructive. */
+  iconBg?: string;
   label: string;
+  labelColor?: string;
   value?: string;
   onPress: () => void;
   last?: boolean;
+  /** False on a read-only row (Email, a set gender): tapping explains, nothing opens. */
+  chevron?: boolean;
 }) {
   const { colors, fonts } = useTheme();
   return (
@@ -121,7 +149,7 @@ function HubRow({
           width: 32,
           height: 32,
           borderRadius: radius.pill,
-          backgroundColor: colors.gtint,
+          backgroundColor: iconBg ?? colors.gtint,
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -130,7 +158,12 @@ function HubRow({
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text
-          style={{ fontFamily: fonts.body600, fontSize: 14, color: colors.ink, textAlign: 'auto' }}
+          style={{
+            fontFamily: fonts.body600,
+            fontSize: 14,
+            color: labelColor ?? colors.ink,
+            textAlign: 'auto',
+          }}
         >
           {label}
         </Text>
@@ -149,33 +182,252 @@ function HubRow({
           </Text>
         ) : null}
       </View>
-      <ChevronIcon size={16} color={colors.fnt2} />
+      {chevron ? (
+        <ChevronIcon size={16} color={colors.fnt2} />
+      ) : (
+        <LockIcon size={14} color={colors.fnt2} />
+      )}
     </Pressable>
   );
 }
 
+/** The photo's action sheet: camera, library and, with a photo, remove. */
+function choosePhotoAction(
+  t: (key: MessageKey) => string,
+  hasPhoto: boolean,
+): Promise<PhotoSource | 'remove' | null> {
+  return new Promise((resolve) => {
+    if (Platform.OS === 'ios') {
+      const options = [t('profile.photoTake'), t('profile.photoChoose')];
+      if (hasPhoto) options.push(t('profile.photoRemove'));
+      options.push(t('common.cancel'));
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: t('profile.photoSourceTitle'),
+          options,
+          cancelButtonIndex: options.length - 1,
+          destructiveButtonIndex: hasPhoto ? 2 : undefined,
+        },
+        (i) =>
+          resolve(i === 0 ? 'camera' : i === 1 ? 'library' : hasPhoto && i === 2 ? 'remove' : null),
+      );
+      return;
+    }
+    Alert.alert(
+      t('profile.photoSourceTitle'),
+      undefined,
+      [
+        { text: t('profile.photoTake'), onPress: () => resolve('camera') },
+        { text: t('profile.photoChoose'), onPress: () => resolve('library') },
+        ...(hasPhoto
+          ? [
+              {
+                text: t('profile.photoRemove'),
+                style: 'destructive' as const,
+                onPress: () => resolve('remove' as const),
+              },
+            ]
+          : []),
+        { text: t('common.cancel'), style: 'cancel', onPress: () => resolve(null) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(null) },
+    );
+  });
+}
+
+type GenderPick = 'female' | 'male' | 'none';
+
+/** How long a native sheet takes to slide away before an alert can present. */
+const SHEET_DISMISS_MS = 450;
+
 function Hub() {
-  const { t } = useLocale();
-  const { colors } = useTheme();
+  const { t, locale } = useLocale();
+  const { colors, fonts } = useTheme();
   const { session } = useAuth();
   const router = useRouter();
+  const toast = useToast();
   const profile = useOwnProfile(!!session);
+  const birth = useMyBirthDate(!!session);
+  const saveBirth = useSetBirthDate();
+  const [birthOpen, setBirthOpen] = useState(false);
+  const setAvatar = useSetAvatar();
+  const setGender = useSetMyGender();
+  // The gender sheet: open while unset and tapped; its wheel's current pick.
+  const [genderOpen, setGenderOpen] = useState(false);
+  const [genderPick, setGenderPick] = useState<GenderPick>('female');
   const { first, last } = nameFieldsOf(profile.data ?? {});
   const email = session?.user.email ?? '';
   const phone = profile.data?.phone ? isolateLtr(displayPhone(profile.data.phone)) : '';
+  const gender = profile.data?.gender ?? null;
+  const birthDate = birthDateToDate(birth.data);
+  const hasPhoto = !!profile.data?.avatar_path;
+  const hasPassword = !!passwordProofOf(session?.user);
   const go = (section: Section) => router.push({ pathname: '/profile-edit', params: { section } });
+
+  const onPhoto = async () => {
+    if (setAvatar.isPending) return;
+    const choice = await choosePhotoAction(t, hasPhoto);
+    if (!choice) return;
+    try {
+      if (choice === 'remove') {
+        await setAvatar.mutateAsync(null);
+        toast(t('profile.photoRemoved'));
+        return;
+      }
+      const photo = await pickAvatarPhoto(choice);
+      if (!photo) return;
+      await setAvatar.mutateAsync(photo.uri);
+      toast(t('profile.photoUpdated'));
+    } catch (err) {
+      if (err instanceof PhotoError) {
+        toast(
+          t(err.code === 'permission' ? 'profile.photoCameraOff' : 'profile.photoUnavailable'),
+          'error',
+        );
+      } else {
+        const key = mapErrorToKey(err);
+        toast(t(key === 'errors.generic' ? 'profile.photoFailed' : key), 'error');
+      }
+    }
+  };
+
+  // Asked once (OM-28), confirmed first because only the desk can change it.
+  // "Prefer not to say" writes nothing and closes the sheet. The sheet closes
+  // first and the alert waits out its slide: UIKit drops an alert presented
+  // while a sheet is still dismissing.
+  const onSetGender = () => {
+    setGenderOpen(false);
+    if (genderPick === 'none') return;
+    const choice = genderPick;
+    const value = t(choice === 'female' ? 'matches.gender.female' : 'matches.gender.male');
+    setTimeout(confirmGender, Platform.OS === 'ios' ? SHEET_DISMISS_MS : 0, choice, value);
+  };
+  const confirmGender = (choice: 'female' | 'male', value: string) =>
+    Alert.alert(t('profile.genderConfirmTitle', { value }), t('profile.genderConfirmBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.genderConfirm'),
+        onPress: () =>
+          setGender.mutate(choice, {
+            onSuccess: () => toast(t('profile.genderSaved')),
+            onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
+          }),
+      },
+    ]);
+
+  // Date of birth (0302): optional, any day from 1900-01-01 to today; the
+  // sheet opens on the stored day, or 25 years back.
+  const onSaveBirth = (next: string | null) => {
+    setBirthOpen(false);
+    if (next !== null && !isValidBirthDate(next)) return toast(t('errors.generic'), 'error');
+    saveBirth.mutate(next, {
+      onSuccess: () => toast(t(next === null ? 'profile.birthRemoved' : 'profile.birthSaved')),
+      onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
+    });
+  };
+
+  // Read-only rows say why when tapped; nothing opens.
+  const explain = (title: string, body: string) =>
+    Alert.alert(title, body, [{ text: t('common.ok') }]);
 
   return (
     <FormScreen contentStyle={{ paddingTop: 4 }}>
-      <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 22, gap: 10 }}>
-        <Avatar initials={useInitials(first, last, email)} />
+      <WheelSheet<GenderPick>
+        testID="profile-edit.gender-sheet"
+        visible={genderOpen && !gender}
+        title={t('profile.genderSection')}
+        options={[
+          { value: 'female', label: t('matches.gender.female') },
+          { value: 'male', label: t('matches.gender.male') },
+          { value: 'none', label: t('profile.genderPreferNot') },
+        ]}
+        value={genderPick}
+        onChange={setGenderPick}
+        confirmLabel={t(genderPick === 'none' ? 'common.done' : 'profile.genderConfirm')}
+        onConfirm={onSetGender}
+        onClose={() => setGenderOpen(false)}
+      />
+      <DateWheelSheet
+        testID="profile-edit.birth-sheet"
+        visible={birthOpen}
+        title={t('profile.birthSection')}
+        value={birth.data ?? defaultBirthDate()}
+        min={BIRTH_MIN}
+        max={todayBirthDate()}
+        confirmLabel={t('profile.birthSave')}
+        onConfirm={onSaveBirth}
+        removeLabel={birth.data ? t('profile.birthRemove') : undefined}
+        onRemove={() => onSaveBirth(null)}
+        onClose={() => setBirthOpen(false)}
+      />
+      <Pressable
+        testID="profile-edit.photo"
+        accessibilityRole="button"
+        accessibilityLabel={t(hasPhoto ? 'profile.photoChange' : 'profile.photoAdd')}
+        accessibilityState={{ busy: setAvatar.isPending }}
+        onPress={() => void onPhoto()}
+        style={({ pressed }) => ({
+          alignItems: 'center',
+          alignSelf: 'center',
+          marginTop: 8,
+          marginBottom: 22,
+          gap: 10,
+          opacity: pressed ? 0.7 : 1,
+        })}
+      >
+        <View>
+          <ProfileAvatar
+            path={profile.data?.avatar_path}
+            initials={initialsOf(first, last, email)}
+            size={84}
+          />
+          {setAvatar.isPending ? (
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                start: 0,
+                end: 0,
+                borderRadius: radius.pill,
+                backgroundColor: brand.scrim,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <ActivityIndicator color={brand.white} />
+            </View>
+          ) : (
+            <View
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                end: 0,
+                width: 28,
+                height: 28,
+                borderRadius: radius.pill,
+                backgroundColor: colors.card,
+                borderWidth: 1,
+                borderColor: colors.line,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <CameraIcon size={14} color={colors.gstrong} />
+            </View>
+          )}
+        </View>
         <Text
-          numberOfLines={1}
-          style={{ fontSize: 13, color: colors.mut, textAlign: 'center', writingDirection: 'ltr' }}
+          style={{
+            fontFamily: fonts.body700,
+            fontSize: 13,
+            color: colors.gstrong,
+            textAlign: 'center',
+          }}
         >
-          {isolate(email)}
+          {t(hasPhoto ? 'profile.photoChange' : 'profile.photoAdd')}
         </Text>
-      </View>
+      </Pressable>
       <View
         style={{
           backgroundColor: colors.card,
@@ -192,17 +444,55 @@ function Hub() {
           value={[first, last].filter(Boolean).join(' ') || t('profile.notSet')}
           onPress={() => go('name')}
         />
+        {/* Not editable here (re-verification, spec 05.18): tapping says so. */}
+        <HubRow
+          testID="profile-edit.email"
+          icon={<EnvelopeIcon size={15} color={colors.gstrong} />}
+          label={t('profile.emailSection')}
+          value={email ? isolate(email) : t('profile.notSet')}
+          onPress={() =>
+            explain(t('profile.emailSection'), t('profile.emailLocked', { email: isolate(email) }))
+          }
+          chevron={false}
+        />
         <HubRow
           testID="profile-edit.phone-row"
           icon={<PhoneIcon size={15} color={colors.gstrong} />}
           label={t('profile.phoneSection')}
           value={phone || t('profile.notSet')}
           onPress={() => go('phone')}
-          last={!passwordProofOf(session?.user)}
+        />
+        {/* Asked once (OM-28): unset opens the wheel sheet; set, only the desk changes it. */}
+        <HubRow
+          testID="profile-edit.gender"
+          icon={<TabProfileIcon size={15} color={colors.gstrong} />}
+          label={t('profile.genderSection')}
+          value={
+            gender
+              ? t(gender === 'female' ? 'matches.gender.female' : 'matches.gender.male')
+              : t('profile.notSet')
+          }
+          onPress={() =>
+            gender
+              ? explain(
+                  t('profile.genderSection'),
+                  t(gender === 'female' ? 'profile.genderFemale' : 'profile.genderMale'),
+                )
+              : setGenderOpen(true)
+          }
+          chevron={!gender}
+        />
+        <HubRow
+          testID="profile-edit.birth-date"
+          icon={<CalendarIcon size={15} color={colors.gstrong} />}
+          label={t('profile.birthSection')}
+          value={birthDate ? formatDate(birthDate, locale, BIRTH_TZ) : t('profile.notSet')}
+          onPress={() => !saveBirth.isPending && setBirthOpen(true)}
+          last={!hasPassword}
         />
         {/* Only for an account that HAS a password (not Google/Apple-only, not a
             desk walk-in): every "current password" is wrong for the others. */}
-        {passwordProofOf(session?.user) ? (
+        {hasPassword ? (
           <HubRow
             testID="profile-edit.change-password"
             icon={<LockIcon size={15} color={colors.gstrong} />}
@@ -211,6 +501,31 @@ function Hub() {
             last
           />
         ) : null}
+      </View>
+      {/* SEC-16. Its own card, last, in the error colour: both stores require
+          account deletion to be reachable from inside the app, and this row is
+          the path (Profile → Edit profile). It pushes a screen with a typed
+          confirmation rather than opening a dialog — the act is not undoable,
+          and an Alert is what a mis-tap dismisses by habit. */}
+      <View
+        style={{
+          marginTop: space.xl,
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.line,
+          borderRadius: radius.card,
+          overflow: 'hidden',
+        }}
+      >
+        <HubRow
+          testID="profile-edit.delete-account"
+          icon={<TrashIcon size={15} color={colors.redtext} />}
+          iconBg={colors.redtint}
+          label={t('profile.deleteAccount')}
+          labelColor={colors.redtext}
+          onPress={() => router.push('/delete-account')}
+          last
+        />
       </View>
     </FormScreen>
   );

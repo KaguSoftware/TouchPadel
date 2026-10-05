@@ -26,9 +26,15 @@ export interface ProfileRow {
   family_name?: string | null;
   /** Asked once, at the first open match (OM-28); only the desk changes it. */
   gender?: 'female' | 'male' | null;
+  /**
+   * The profile photo (0302): `<id>/<uuid>.jpg` in the private `avatars`
+   * bucket, shown through a signed URL. Optional for the same reason as the
+   * name parts: a row cached by an older build has none.
+   */
+  avatar_path?: string | null;
 }
 
-const PROFILE_COLUMNS = 'id, full_name, phone, preferred_lang, given_name, family_name, gender';
+const PROFILE_COLUMNS = 'id, full_name, phone, preferred_lang, given_name, family_name, gender, avatar_path';
 
 export async function fetchOwnProfile(client: Client): Promise<ProfileRow | null> {
   const { data: userData } = await client.auth.getUser();
@@ -183,5 +189,26 @@ export async function revokeAppleAuthorization(client: Client, authorizationCode
 /** Change password for the signed-in guest (design 2026-08-31). */
 export async function changePassword(client: Client, newPassword: string) {
   const { error } = await client.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
+/**
+ * app.my_birth_date (0302): the caller's own date of birth, `YYYY-MM-DD` or
+ * null. The column has no client grant (only its guest reads it), so it is not
+ * in PROFILE_COLUMNS.
+ */
+export async function fetchMyBirthDate(client: Client): Promise<string | null> {
+  const { data, error } = await client.schema('app').rpc('my_birth_date');
+  if (error) throw error;
+  const value = (data as { birth_date?: unknown } | null)?.birth_date;
+  return typeof value === 'string' ? value : null;
+}
+
+/** app.set_my_birth_date (0302): `YYYY-MM-DD`, or null to clear. */
+export async function setMyBirthDate(client: Client, birthDate: string | null): Promise<void> {
+  const { error } = await client.schema('app').rpc('set_my_birth_date', {
+    // NULL clears it; the generated type only knows a value.
+    p_birth_date: birthDate as unknown as string,
+  });
   if (error) throw error;
 }
