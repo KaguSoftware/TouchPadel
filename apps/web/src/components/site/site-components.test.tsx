@@ -74,6 +74,8 @@ describe('SiteShell', () => {
       '/en/coaching',
       '/en/menu',
       '/en/support',
+      // The member's account (loyalty plan §5.2).
+      '/en/account',
     ]);
     expect(links[1]?.textContent).toBe(t('en', 'site.footer.coaching'));
     expect(links[1]?.getAttribute('aria-current')).toBe('page');

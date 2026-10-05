@@ -60,4 +60,45 @@ export function createEphemeralBrowserSupabase(): SupabaseClient<Database> {
   });
 }
 
+/**
+ * The cookie the web account's session lives in (loyalty build contracts §5, plan §5.2). The
+ * café's anonymous table session keeps the default `sb-<ref>-auth-token`; a signed-in member
+ * on /account must never write over it, or a guest who signs in at the table loses the tab.
+ */
+export const ACCOUNT_COOKIE = 'sb-tp-account';
+
+/**
+ * The browser client for the member's own account (/{locale}/account and the café's "earn
+ * points" chip). A cookie session, so it survives a reload and the café page can read it,
+ * under its own name. `isSingleton: false` matters as much as the name: @supabase/ssr caches
+ * ONE browser client per page by default, and whichever of the two were made first would
+ * be handed back for the other.
+ */
+export function createAccountBrowserSupabase(): SupabaseClient<Database> {
+  const { url, anonKey } = supabaseEnv();
+  return createBrowserClient<Database>(url, anonKey, {
+    isSingleton: false,
+    cookieOptions: { name: ACCOUNT_COOKIE, path: '/', sameSite: 'lax' },
+    global: { fetch: timeoutFetch((input, init) => fetch(input, init), browserRequestTimeoutMs) },
+  }) as unknown as SupabaseClient<Database>;
+}
+
+let accountClient: SupabaseClient<Database> | null | undefined;
+
+/**
+ * The one account client of this page, made on first use; null when the deployment has no
+ * Supabase env (the account page then shows its unavailable state, the café chip hides).
+ */
+export function accountBrowserSupabase(): SupabaseClient<Database> | null {
+  if (accountClient === undefined) {
+    try {
+      accountClient = createAccountBrowserSupabase();
+    } catch (e) {
+      if (typeof console !== 'undefined') console.error('[supabase] account client disabled:', e);
+      accountClient = null;
+    }
+  }
+  return accountClient;
+}
+
 export type BrowserSupabase = SupabaseClient<Database>;
