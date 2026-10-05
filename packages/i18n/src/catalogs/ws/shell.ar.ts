@@ -181,6 +181,8 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     coachPay: 'مستحقات المدرّبين',
     // DRAFT-AR (tournaments build contracts §1.11).
     tournaments: 'البطولات',
+    // DRAFT-AR (loyalty build contracts §4).
+    loyalty: 'الولاء',
     badge: 'بانتظارك: {count}',
     groupOperations: 'العمليات',
     groupRun: 'إدارة اليوم',

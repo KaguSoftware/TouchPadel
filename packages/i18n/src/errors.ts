@@ -462,6 +462,20 @@ export const ERROR_CODE_KEYS = {
   // waitlisted | withdrawn | no_show | cancelled | nothing_owed, then "expected X, now Y").
   TOURNAMENT_NOT_PAYABLE: 'op.errors.TOURNAMENT_NOT_PAYABLE',
   TOURNAMENT_OWED_CHANGED: 'op.errors.TOURNAMENT_OWED_CHANGED',
+  // Loyalty and the account merge (docs/design/loyalty/build-contracts-2026-10-05.md §2): the
+  // lines are in catalogs/opErrors.loyalty.*.ts. PHONE_TAKEN: a guest's phone edit that another live
+  // profile holds (0303); MERGE_REFUSED detail staff_both | coach_both | same | missing; the member
+  // codes from loyalty_identify and link_guest_session; the rest from loyalty_redeem.
+  PHONE_TAKEN: 'op.errors.PHONE_TAKEN',
+  MERGE_REFUSED: 'op.errors.MERGE_REFUSED',
+  MEMBER_CODE_INVALID: 'op.errors.MEMBER_CODE_INVALID',
+  MEMBER_CODE_EXPIRED: 'op.errors.MEMBER_CODE_EXPIRED',
+  MEMBER_NOT_FOUND: 'op.errors.MEMBER_NOT_FOUND',
+  NO_CUSTOMER: 'op.errors.NO_CUSTOMER',
+  LOYALTY_OFF: 'op.errors.LOYALTY_OFF',
+  POINTS_INSUFFICIENT: 'op.errors.POINTS_INSUFFICIENT',
+  POINTS_BELOW_MIN: 'op.errors.POINTS_BELOW_MIN',
+  REWARD_NOT_FOUND: 'op.errors.REWARD_NOT_FOUND',
 
   // ── Guest refusals the desk never meets (the phone's lines) ───────────────
   // 0048/C1 + 0058: raised by app.hold_slot from the day it was hardened; the

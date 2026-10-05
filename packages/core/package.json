@@ -11,6 +11,7 @@
     "./protocols": "./src/protocols/index.ts",
     "./coaching": "./src/coaching/index.ts",
     "./tournaments": "./src/tournaments/index.ts",
+    "./loyalty": "./src/loyalty/index.ts",
     "./*": "./src/*.ts"
   },
   "scripts": {
@@ -20,6 +21,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "qrcode": "^1.5.4",
     "ulid": "^2.3.0",
     "zod": "^3.24.1"
   },
@@ -27,6 +29,7 @@
     "typescript": "^5.7.2",
     "vitest": "^2.1.8",
     "@touch/config": "workspace:*",
-    "eslint": "^9.15.0"
+    "eslint": "^9.15.0",
+    "@types/qrcode": "^1.5.5"
   }
 }

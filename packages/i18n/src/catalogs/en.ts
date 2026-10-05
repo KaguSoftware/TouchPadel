@@ -12,6 +12,7 @@ import { opErrorsMatchesEn } from './opErrors.matches.en';
 import { opErrorsCodesEn } from './opErrors.codes.en';
 import { opErrorsCoachingEn } from './opErrors.coaching.en';
 import { opErrorsTournamentsEn } from './opErrors.tournaments.en';
+import { opErrorsLoyaltyEn } from './opErrors.loyalty.en';
 import { legalEn } from './legal.en';
 import { siteEn } from './site.en';
 import { branchesEn } from './branches.en';
@@ -1071,6 +1072,152 @@ export const en = {
   // Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.11): the phone's and
   // the website's words (tournaments.en.ts).
   tournaments: tournamentsEn,
+  // Loyalty (docs/design/loyalty/build-contracts-2026-10-05.md §4).
+  loyalty: {
+    // The phone (plan §5.1): the member card, the loyalty screen and Profile's entries.
+    // Counts read as a label and a figure ("Points needed: 120"), so no line needs the six
+    // Arabic number forms.
+    guest: {
+      card: {
+        title: 'Member card',
+        show: 'Show this code at the till',
+        sayNumber: 'Or say your number at the till',
+        memberCode: 'Member code',
+        refreshesIn: 'New code in {seconds}s',
+        offline: 'Offline: your code still works at the till.',
+        newCode: 'Not working? Get a new code',
+        newCodeTitle: 'Get a new code?',
+        newCodeBody:
+          'Your old code stops working straight away. Do this if the code was shared or the till could not read it.',
+        newCodeConfirm: 'Get a new code',
+        newCodeDone: 'New code ready',
+        error: 'Your member card could not be loaded.',
+        // Profile's card under the identity card.
+        profileTitle: 'Member card',
+        profileBody: 'Show it at the till to earn points',
+      },
+      home: {
+        title: 'Points & rewards',
+        balance: 'Points',
+        worth: 'Worth {amount} at the till',
+        lifetime: 'Earned so far: {points}',
+        minRedeem: 'Use points at the till from {points}.',
+        showCard: 'Show my member card',
+        historyTitle: 'History',
+        historyEmpty: 'No points yet. Show your member card when you pay to start earning.',
+        error: 'Your points could not be loaded.',
+      },
+      history: {
+        kind: {
+          earn: 'Earned',
+          redeem: 'Used at the till',
+          redeem_void: 'Use cancelled',
+          reward: 'Reward',
+          adjust: 'Adjusted by the venue',
+          clawback: 'Refund',
+          expire: 'Expired',
+          merge_in: 'Moved from your other account',
+        },
+      },
+      rewards: {
+        title: 'Rewards',
+        note: 'Show your member card at the till to use a reward.',
+        cost: 'Points: {points}',
+        empty: 'No rewards right now.',
+      },
+      tier: {
+        label: 'Tier',
+        next: 'Next tier: {tier}',
+        needed: 'Points needed: {points}',
+        top: 'You are on the top tier.',
+        window: 'Tiers count the points from the last 12 months.',
+      },
+      off: 'Points and rewards are not running yet. Check back soon.',
+    },
+    // The web: /{locale}/account and the café's "earn points" chip (plan §5.2).
+    web: {
+      account: {
+        navLink: 'Account',
+        metaTitle: 'Your account',
+        metaDescription: 'Your Touch Padel member card, points and rewards.',
+        eyebrow: 'Touch Padel members',
+        title: 'Your account',
+        intro:
+          'Show your member card at the till to collect points on courts, lessons, the café and the shop.',
+        loading: 'Loading…',
+        unavailable: 'Your account can’t be opened on the website right now. Please use the app.',
+        error: 'We couldn’t load your card and points. Check your connection and try again.',
+        retry: 'Try again',
+        signOut: 'Sign out',
+        back: 'Back to your table',
+        hello: 'Hi, {name}',
+        helloNoName: 'You’re signed in',
+        off: 'Points aren’t switched on yet. Your member card is ready for when they are.',
+        balanceTitle: 'Your points',
+        points: '{points} points',
+        tier: '{tier} member',
+        nextTier: '{points} more points in the next 12 months to reach {tier}',
+        topTier: 'You’re at the top tier.',
+        rewardsTitle: 'Rewards',
+        rewardsHint: 'Ask at the till to use your points or a reward.',
+        rewardsEmpty: 'No rewards to show yet.',
+        card: {
+          title: 'Member card',
+          hint: 'Show this code at the till.',
+          qrLabel: 'Your member QR code',
+          refresh: 'New code in {seconds} s',
+          code: 'Member code',
+          sayNumber: 'Or say your number',
+        },
+        history: {
+          title: 'History',
+          empty: 'Nothing here yet. Your points show up after each visit.',
+          kind: {
+            earn: 'Earned',
+            redeem: 'Points used',
+            redeem_void: 'Points returned',
+            reward: 'Reward',
+            adjust: 'Adjustment',
+            clawback: 'Refund',
+            expire: 'Expired',
+            merge_in: 'Moved from another account',
+          },
+        },
+      },
+      signIn: {
+        title: 'Sign in',
+        lead: 'Use the phone number or email and the password of your Touch Padel app account.',
+        method: 'Sign in with',
+        phone: 'Phone',
+        email: 'Email',
+        phoneLabel: 'Phone number',
+        phonePlaceholder: '07XX XXX XXXX',
+        emailLabel: 'Email address',
+        passwordLabel: 'Password',
+        submit: 'Sign in',
+        submitting: 'Signing in…',
+        or: 'or',
+        google: 'Continue with Google',
+        apple: 'Continue with Apple',
+        noAccount: 'No account yet?',
+        getApp: 'Create one in the Touch Padel app',
+        errors: {
+          phone: 'Enter an Iraqi mobile number, like 0770 123 4567.',
+          email: 'Enter a valid email address.',
+          credentials: 'That number or email and password don’t match an account.',
+          unavailable: 'Signing in isn’t available right now. Please try again in a moment.',
+        },
+      },
+      cafeChip: {
+        signIn: 'Sign in to earn points',
+        earning: 'Earning points as {name}',
+        earningNoName: 'Earning points on this table',
+        balance: '{points} points',
+        failed: 'Points not linked.',
+        retry: 'Retry',
+      },
+    },
+  },
   seo: {
     // Site-wide defaults (the landing page at /{locale} is Touch Padel's front door since
     // 2026-09-23; the café menu moved to /{locale}/menu and sets its own title).
@@ -2136,8 +2283,11 @@ export const en = {
       ...opErrorsCoachingEn,
       // Tournaments (build-contracts-2026-10-03 §1.9): opErrors.tournaments.*.ts.
       ...opErrorsTournamentsEn,
+      // Loyalty (build-contracts-2026-10-05 §2): opErrors.loyalty.*.ts.
+      ...opErrorsLoyaltyEn,
     },
   },
+  // Loyalty (docs/design/loyalty/build-contracts-2026-10-05 §4).
   // Protocols and the staff phone (build-contracts-2026-09-23 §4): the words both apps
   // share (work.*.ts) and the staff phone's pages, one file pair per lane (catalogs/staff/*).
   work: workEn,

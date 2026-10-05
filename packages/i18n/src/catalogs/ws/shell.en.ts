@@ -217,6 +217,8 @@ export const shellEn = {
     coachPay: 'Coach pay',
     // Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.11): the desk's list.
     tournaments: 'Tournaments',
+    // Loyalty (docs/design/loyalty/build-contracts-2026-10-05.md §5): Setup's points, tiers and rewards.
+    loyalty: 'Loyalty',
     // A rail row's count, for a screen reader: the pill itself is only a number.
     badge: '{count} waiting on you',
     groupOperations: 'Operations',
