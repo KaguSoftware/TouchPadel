@@ -270,6 +270,10 @@ describe('capability matrix', () => {
     runTournaments: ['court_desk', 'manager', 'owner'],
     publishTournaments: ['manager', 'owner'],
     takeTournamentPayment: ['cashier', 'court_desk', 'manager', 'owner'],
+    // Loyalty (build-contracts-2026-10-05 §1.3): editLoyalty is the owner's alone.
+    attachMember: ['cashier', 'shop_staff', 'court_desk', 'manager', 'owner'],
+    readLoyaltyAdmin: ['manager', 'owner'],
+    adjustLoyalty: ['manager', 'owner'],
   };
   /** A role's own work, which the owner does not do: the RPC refuses the owner too. */
   const OWN_WORK: Partial<Record<Capability, readonly StaffRole[]>> = {
@@ -361,8 +365,24 @@ describe('capability matrix', () => {
         'runTournaments',
         'publishTournaments',
         'takeTournamentPayment',
+        // Loyalty (build-contracts-2026-10-05 §1.3).
+        'attachMember',
+        'readLoyaltyAdmin',
+        'adjustLoyalty',
+        'editLoyalty',
       ].sort(),
     );
+  });
+
+  it('gives the member on a bill to every till and the desk, adjustments to management, Setup › Loyalty to the owner (loyalty §1.3)', () => {
+    expect(can('shop_staff', 'attachMember')).toBe(true);
+    expect(can('cashier', 'attachMember')).toBe(true);
+    expect(can('waiter', 'attachMember')).toBe(false);
+    expect(can('cashier', 'adjustLoyalty')).toBe(false);
+    expect(can('manager', 'adjustLoyalty')).toBe(true);
+    expect(can('manager', 'editLoyalty')).toBe(false);
+    expect(canAccess('owner', '/admin/loyalty')).toBe(true);
+    expect(canAccess('manager', '/admin/loyalty')).toBe(false);
   });
 
   it('gives the open-match controls to the desk, seat money to the cashier too, and never to the shop (operator.md §5.3, R1)', () => {

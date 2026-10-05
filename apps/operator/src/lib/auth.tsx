@@ -245,6 +245,9 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/admin/staff': ['owner'],
   // Multi-venue slice 4: the branches and "Open a new branch" are the owner's.
   '/admin/branches': ['owner'],
+  // Setup › Loyalty (loyalty build contracts §5): points, tiers and rewards
+  // are business-wide and the owner's (set_loyalty_settings is owner-only).
+  '/admin/loyalty': ['owner'],
   '/analytics': ['owner'],
   '/ops': ['manager', 'owner'],
   '/panel': ['owner'],
@@ -321,6 +324,7 @@ export const SUB_ROUTES = {
     '/admin/settings',
     '/admin/staff',
     '/admin/branches',
+    '/admin/loyalty',
     '/admin/audit',
   ],
   // The shop desk's pages (0243–0246), in rail order.
@@ -578,6 +582,21 @@ export const CAPABILITY_ROLES = {
   publishTournaments: ['manager', 'owner'],
   /** Take an entry fee (app.tournament_settle). Never permissions.takeCourtPayment, which also holds the shop assistant. */
   takeTournamentPayment: ['cashier', 'court_desk', 'manager', 'owner'],
+
+  // Loyalty (docs/design/loyalty/build-contracts-2026-10-05.md §1.3). Each is the
+  // guard of the RPC behind it; the server re-checks every one.
+  /**
+   * Member on a bill, Use points, Rewards and Undo (app.loyalty_identify,
+   * set_tab_customer, loyalty_redeem, loyalty_unredeem), and the record's panel
+   * (app.loyalty_customer). The shop assistant too: a shop sale earns.
+   */
+  attachMember: ['cashier', 'shop_staff', 'court_desk', 'manager', 'owner'],
+  /** Settings and rewards as the till reads them (app.loyalty_admin). */
+  readLoyaltyAdmin: ['manager', 'owner'],
+  /** Adjust points on the record (app.loyalty_adjust), behind a manager PIN. */
+  adjustLoyalty: ['manager', 'owner'],
+  /** Setup › Loyalty writes (set_loyalty_settings, the tier and reward upserts, delete_loyalty_tier). */
+  editLoyalty: ['owner'],
 } as const satisfies Record<string, readonly StaffRole[]>;
 
 export type Capability = keyof typeof CAPABILITY_ROLES;

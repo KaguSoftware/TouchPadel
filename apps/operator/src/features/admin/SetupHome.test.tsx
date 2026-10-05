@@ -110,6 +110,8 @@ describe('SetupHomeScreen', () => {
       // Coaching (coaching operator.md §5.3.3): Coaches sits after Courts.
       '/admin/coaches',
       '/admin/qr',
+      // Loyalty (build-contracts-2026-10-05 §5): business-wide, before the branch's settings.
+      '/admin/loyalty',
       '/admin/settings',
       '/admin/hero',
     ]);

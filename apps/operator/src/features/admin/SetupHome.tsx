@@ -173,7 +173,8 @@ export function SetupHomeScreen() {
       sectionKey="setup"
       fullWidth
       title={tr('ws.owner.setupHome.title')}
-      card={(key) => tr(`ws.owner.setupHome.cards.${key as CardKey}`)}
+      // Loyalty's card copy is the loyalty lane's own key (ws.loyalty.setup.card).
+      card={(key) => (key === 'loyalty' ? tr('ws.loyalty.setup.card') : tr(`ws.owner.setupHome.cards.${key as CardKey}`))}
       status={status}
       screensTitle={tr('ws.owner.setupHome.screens')}
     >

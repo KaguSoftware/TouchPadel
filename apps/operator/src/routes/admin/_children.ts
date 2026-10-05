@@ -21,6 +21,7 @@ import { adminSettingsRoute } from './settings';
 import { adminStaffRoute } from './staff';
 import { adminAuditRoute } from './audit';
 import { adminBranchesRoute } from './branches';
+import { adminLoyaltyRoute } from './loyalty';
 
 export const adminChildren = [
   adminIndexRoute,
@@ -42,4 +43,5 @@ export const adminChildren = [
   adminStaffRoute,
   adminAuditRoute,
   adminBranchesRoute,
+  adminLoyaltyRoute,
 ] as const;

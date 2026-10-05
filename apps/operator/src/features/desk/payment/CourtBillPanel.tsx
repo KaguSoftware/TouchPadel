@@ -31,6 +31,10 @@
  * of what the players owe, rows for a write-off, a price change and money
  * not yet assigned, the seats each payment went to, and no "Add cafe bill"
  * (DF-16). Cash and Card stay.
+ *
+ * While the booking has an open bill the member block sits under the sentence (loyalty build
+ * contracts §5): the booking's guest already earns on it (app.tab_customer), and the desk can
+ * attach a different member or use their points before taking the payment.
  */
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -48,6 +52,7 @@ import { Button, ErrorText, Modal } from '../../../components/ui';
 import { MessagePresenter, Money, Panel, StatusBadge, type Tone } from '../../../components/kit';
 import { PaymentPane } from '../../till/PaymentPane';
 import { AddCafeBillDialog } from './AddCafeBillDialog';
+import { MemberAttach } from '../../loyalty/MemberAttach';
 import {
   canAddCafeBill,
   canTakePayment,
@@ -319,6 +324,7 @@ export function CourtBillView({
         {dayBlocked && (canTakePayment(state) || state === 'closeBill') && <MessagePresenter tone="refused" icon="lock" message={tr('ws.courtDesk.payment.dayClosed')} />}
         {notice && <MessagePresenter tone="refused" message={notice} />}
         <ErrorText error={paying || confirmClose ? null : error} />
+        {tab && state === 'billOpen' && !matchBooking && <MemberAttach tabId={tab.id} remainingIqd={Math.min(tab.due_iqd, tab.subtotal_iqd)} />}
 
         {onlinePaid > 0 && (
           <dl style={{ margin: 0 }} data-testid="paid-online">

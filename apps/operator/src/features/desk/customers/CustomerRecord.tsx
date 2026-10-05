@@ -55,6 +55,7 @@ import type { CustomerFlag, CustomerMatchRow, CustomerNote, CustomerRecord, Cust
 import type { CustomerSearchParams } from './CustomerSearch';
 import { GenderDialog } from './GenderDialog';
 import { TicketsPanel } from './TicketsPanel';
+import { CustomerLoyaltyPanel } from '../../loyalty/CustomerLoyaltyPanel';
 import { editableFlags, isHereMatch, isMatchBanned, playsAsLine, playsAsOf, recordMatches, seatKindKey, seatStatusKey } from './ticketsLogic';
 import { CustomerHoldStanding } from '../../holds/HoldStandingPanels';
 import { CoachBadge } from '../../coaching/CoachBadge';
@@ -223,6 +224,8 @@ export function CustomerRecordScreen() {
                 />
               )}
               <TicketsPanel customerId={id} />
+              {/* Loyalty (build-contracts-2026-10-05 §5): balance, tier, history, Adjust points. */}
+              <CustomerLoyaltyPanel customerId={id} tz={tz} />
               <CustomerHoldStanding customerId={id} />
               <BookingsPanel title={tr('ws.courtDesk.record.upcoming')} empty={tr('ws.courtDesk.record.upcomingEmpty')} rows={rec.upcoming} tz={tz} courtName={courtName} />
               {/* Sections with nothing in them are left out rather than drawn
