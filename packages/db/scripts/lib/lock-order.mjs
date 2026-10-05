@@ -88,6 +88,7 @@ export const ORDER = [
   'reservations',
   'match_venue_advisory', // app.lock_match_venue() -- 0260: the branch mutex of open matches
   'match_tickets', // 0260: open-match tickets, FOR UPDATE, always in id order
+  'loyalty_accounts', // 0305: a member's cached balance, FOR UPDATE, last (earn/clawback run deferred, at commit)
 ];
 
 /**
@@ -176,7 +177,17 @@ const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * The walker over one catalog.
  *   fns       [{ name, src }]   every function body of schema app (the longest
  *                               body wins for an overloaded name, as before)
- *   triggers  [{ tbl, fn }]     every non-internal trigger on schema public
+ *   triggers  [{ tbl, fn, deferred? }]  every non-internal trigger on schema public;
+ *                               deferred = a constraint trigger INITIALLY DEFERRED
+ *
+ * Loyalty (0305) taught it deferral: a constraint trigger declared
+ * INITIALLY DEFERRED (tabs_loyalty_earn, refunds_loyalty_clawback) runs at
+ * COMMIT, after every statement of the outermost body, not where its row is
+ * written. Expanding it in place made settle_tab read tabs -> loyalty_accounts
+ * -> stock_batches, an inversion that cannot happen. So a deferred trigger's
+ * body is queued and walked at the END of the top-level sequence (and of the
+ * timeline), once per trigger function, after everything the body itself
+ * takes. A non-deferred trigger is still expanded in place, as before.
  */
 export function createWalker({ fns, triggers }) {
   const byName = new Map();
@@ -187,9 +198,11 @@ export function createWalker({ fns, triggers }) {
   // Triggers matter: trg_refund_restock and trg_ticket_consume take stock_batches
   // locks without ever appearing as a call in the RPC body.
   const trgByTable = new Map();
+  const deferredFns = new Set();
   for (const t of triggers) {
     if (!trgByTable.has(t.tbl)) trgByTable.set(t.tbl, []);
     trgByTable.get(t.tbl).push(t.fn);
+    if (t.deferred) deferredFns.add(t.fn);
   }
   // The alias and write regexes are anchored right after `from|join|update\s+`
   // (and `insert into|update|delete from\s+`), so `match_tickets` never reads
@@ -276,40 +289,70 @@ export function createWalker({ fns, triggers }) {
     return out;
   }
 
-  /** Full lock sequence, expanding helper calls and trigger bodies in place. */
-  function sequence(name, stack = []) {
+  /**
+   * Walk the deferred trigger bodies a top-level walk queued, at its end: each
+   * trigger function once (it fires per row, but its locks are the same), and
+   * a deferred trigger queued while walking another runs after it, as at commit.
+   */
+  function drainDeferred(name, tail, walk) {
+    const out = [];
+    const done = new Set();
+    while (tail.length) {
+      const fn = tail.shift();
+      if (done.has(fn)) continue;
+      done.add(fn);
+      out.push(...walk(fn, [name], tail));
+    }
+    return out;
+  }
+
+  /**
+   * Full lock sequence, expanding helper calls and immediate trigger bodies in
+   * place; deferred trigger bodies go at the end (see createWalker).
+   */
+  function sequence(name, stack = [], tail = null) {
     if (stack.includes(name)) return []; // recursion guard
     const src = byName.get(name);
     if (!src) return [];
+    const top = tail === null;
+    const queue = top ? [] : tail;
     const seq = [];
     for (const ev of events(src)) {
       if (ev.lock) seq.push(ev.lock);
-      else if (ev.call && byName.has(ev.call)) seq.push(...sequence(ev.call, [...stack, name]));
+      else if (ev.call && byName.has(ev.call)) seq.push(...sequence(ev.call, [...stack, name], queue));
       else if (ev.write) {
         for (const fn of trgByTable.get(ev.write) ?? []) {
-          if (byName.has(fn)) seq.push(...sequence(fn, [...stack, name]));
+          if (!byName.has(fn)) continue;
+          if (deferredFns.has(fn)) queue.push(fn);
+          else seq.push(...sequence(fn, [...stack, name], queue));
         }
       }
     }
+    if (top) seq.push(...drainDeferred(name, queue, sequence));
     return seq;
   }
 
   /** Ordered locks AND balance-writes, so rule 2 can see which came first. */
-  function timeline(name, stack = []) {
+  function timeline(name, stack = [], tail = null) {
     if (stack.includes(name)) return [];
     const src = byName.get(name);
     if (!src) return [];
+    const top = tail === null;
+    const queue = top ? [] : tail;
     const out = [];
     for (const ev of events(src)) {
       if (ev.lock) out.push({ lock: ev.lock });
-      else if (ev.call && byName.has(ev.call)) out.push(...timeline(ev.call, [...stack, name]));
+      else if (ev.call && byName.has(ev.call)) out.push(...timeline(ev.call, [...stack, name], queue));
       else if (ev.write) {
         if (BALANCE_TABLES.includes(ev.write)) out.push({ balanceWrite: ev.write });
         for (const fn of trgByTable.get(ev.write) ?? []) {
-          if (byName.has(fn)) out.push(...timeline(fn, [...stack, name]));
+          if (!byName.has(fn)) continue;
+          if (deferredFns.has(fn)) queue.push(fn);
+          else out.push(...timeline(fn, [...stack, name], queue));
         }
       }
     }
+    if (top) out.push(...drainDeferred(name, queue, timeline));
     return out;
   }
 

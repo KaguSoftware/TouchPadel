@@ -1,5 +1,5 @@
 {
-  "generated_from": "269d8724e5037f53f16b80257a795fdd3b7ee1b4",
+  "generated_from": "3916febdcd56fbaa5d076b9a8bba5c17497e1557",
   "chunks": [
     {
       "kind": "page",
@@ -88,6 +88,14 @@
       "title": "/admin/hours",
       "body": "The \"Opening hours\" page setting each day's open and close times and the closed dates; \"Save\" calls app.set_opening_hours, and the same editor is the first tab of /admin/settings.\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/admin/hours"
+    },
+    {
+      "kind": "page",
+      "ref": "page:/admin/loyalty",
+      "lang": "en",
+      "title": "/admin/loyalty — Loyalty",
+      "body": "The owner's \"Loyalty\" setup (app.loyalty_admin): \"Loyalty is on\", what earns a point and what one is worth, expiry and the member QR step (app.set_loyalty_settings); tiers (app.upsert_loyalty_tier, app.delete_loyalty_tier) and rewards (app.upsert_loyalty_reward).\nRoles: owner.\nReached from: Management › Setup: \"Loyalty\".",
+      "route": "/admin/loyalty"
     },
     {
       "kind": "page",
@@ -1694,7 +1702,7 @@
       "ref": "nav:owner:setup",
       "lang": "ar",
       "title": "الإدارة › الإعداد",
-      "body": "الموظفون والملاعب والطاولات وإعدادات المكان\nالصفحة الرئيسية: /setup\nالصفوف: نظرة عامة → /setup; الموظفون → /admin/staff; الفروع → /admin/branches; الملاعب → /admin/courts; المدرّبون → /admin/coaches; الطاولات ورموز QR → /admin/qr; إعدادات المكان → /admin/settings; موقع الضيوف → /admin/hero",
+      "body": "الموظفون والملاعب والطاولات وإعدادات المكان\nالصفحة الرئيسية: /setup\nالصفوف: نظرة عامة → /setup; الموظفون → /admin/staff; الفروع → /admin/branches; الملاعب → /admin/courts; المدرّبون → /admin/coaches; الطاولات ورموز QR → /admin/qr; الولاء → /admin/loyalty; إعدادات المكان → /admin/settings; موقع الضيوف → /admin/hero",
       "route": "/setup"
     },
     {
@@ -1702,7 +1710,7 @@
       "ref": "nav:owner:setup",
       "lang": "en",
       "title": "Management › Setup",
-      "body": "Staff, courts, tables and how the venue is configured\nHome: /setup\nRows: Overview → /setup; Staff → /admin/staff; Branches → /admin/branches; Courts → /admin/courts; Coaches → /admin/coaches; Tables & QR → /admin/qr; Venue settings → /admin/settings; Guest site → /admin/hero",
+      "body": "Staff, courts, tables and how the venue is configured\nHome: /setup\nRows: Overview → /setup; Staff → /admin/staff; Branches → /admin/branches; Courts → /admin/courts; Coaches → /admin/coaches; Tables & QR → /admin/qr; Loyalty → /admin/loyalty; Venue settings → /admin/settings; Guest site → /admin/hero",
       "route": "/setup"
     },
     {
@@ -1768,6 +1776,22 @@
       "title": "Management › Setup: Guest site",
       "body": "Rail row \"Guest site\" in the Management workspace › Setup opens /admin/hero. Arabic label: \"موقع الضيوف\". Roles: manager, owner.",
       "route": "/admin/hero"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:owner:setup:/admin/loyalty",
+      "lang": "ar",
+      "title": "الإدارة › الإعداد: الولاء",
+      "body": "صف \"الولاء\" في مساحة \"الإدارة\" › الإعداد يفتح /admin/loyalty. الاسم بالإنجليزية: \"Loyalty\". الأدوار: owner.",
+      "route": "/admin/loyalty"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:owner:setup:/admin/loyalty",
+      "lang": "en",
+      "title": "Management › Setup: Loyalty",
+      "body": "Rail row \"Loyalty\" in the Management workspace › Setup opens /admin/loyalty. Arabic label: \"الولاء\". Roles: owner.",
+      "route": "/admin/loyalty"
     },
     {
       "kind": "nav",
@@ -2526,7 +2550,7 @@
       "ref": "action:app.apply_best_promotion",
       "lang": "en",
       "title": "app.apply_best_promotion",
-      "body": "Signature: app.apply_best_promotion(p_tab_id uuid, p_code text default null, p_idempotency_key text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: promotion.replace, promotion.apply.\nError codes: FORBIDDEN, VENUE_MISMATCH, TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN, CODE_NOT_ELIGIBLE, NO_ELIGIBLE_PROMOTION, DISCOUNT_REQUIRES_REFUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0217 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0067, 0217, loyalty 0306. Cashier, manager, owner at the tab's branch: applies the best eligible promotion (app.eligible_promotions) to an open tab, replacing the tab's earlier one; the redemption's customer is app.tab_customer.\nSignature: app.apply_best_promotion(p_tab_id uuid, p_code text default null, p_idempotency_key text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: promotion.replace, promotion.apply.\nError codes: FORBIDDEN, VENUE_MISMATCH, TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN, CODE_NOT_ELIGIBLE, NO_ELIGIBLE_PROMOTION, DISCOUNT_REQUIRES_REFUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0306 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3251,10 +3275,18 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.delete_loyalty_tier",
+      "lang": "en",
+      "title": "app.delete_loyalty_tier",
+      "body": "Loyalty (M3, contracts §1.3). Owner: deletes a tier; the base tier (sort 0) or an unknown id is INVALID_ARGUMENT. Its accounts fall to the tier their points now reach. Audited loyalty.tier_delete.\nSignature: app.delete_loyalty_tier(p_tier_id uuid) returns void.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.tier_delete.\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.delete_my_account",
       "lang": "en",
       "title": "app.delete_my_account",
-      "body": "0290 (DB-03), 0289, from 0264 (0077; db.md §4.9 of open matches, §4.10 of coaching; DF-20, CD-12, R25, R29, R43, R44, R63). Store-mandated in-app account deletion. Destroys the auth user (which cascades every session, refresh token and identity — this IS the global sign-out) and leaves profiles as an anonymised tombstone (name parts and gender emptied too) so reservations.guest_id and the venue statistics keep a parent. Open matches: the player's seats and requests lose gender and friend_genders, every block by or of the player is deleted, and every ticket purchase with nothing reserved, in use or restorable is refunded at once (app.ticket_refund_deleted, one Qi refund each). Coaching: a pending typed-phone link to the account is dropped silently, as \"Not me\" (C-21); the account's other enrolments lose typed phones and friend names, a typed name becoming 'Deleted account'; the account's coach profile is retired, its bios emptied, its photo folder queued for removal (coach_photo_purges, R43) and its time-off reasons emptied, the display names kept for the statements (C-29); since 0290 the coach rows are locked (profile, then coach) and the folder queued is the one of the row actually cleared. Takes no match lock, coach mutex or court lock (R25, D9): the sweeps (0263, 0286) leave or cancel the live matches, enrolments and a retired coach's lessons, with refunds (account_deleted, coach_retired) and pushes; meanwhile other players see \"Former player\". Refuses an anonymous session (ACCOUNT_REQUIRED), a staff account (FORBIDDEN — staff are deactivated), an account already deleted (ALREADY_DELETED) and any call without p_confirm => 'DELETE'. Apple's /auth/revoke is NOT called: no .p8 key exists yet, so the audit row records apple_revoke_pending instead.\nSignature: app.delete_my_account(p_confirm text default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: account.delete.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, FORBIDDEN, ALREADY_DELETED, CONFIRMATION_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0290 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty 0306, 0290 (DB-03), 0289, from 0264 (0077; db.md §4.9 of open matches, §4.10 of coaching; DF-20, CD-12, R25, R29, R43, R44, R63). Store-mandated in-app account deletion. Destroys the auth user (which cascades every session, refresh token and identity — this IS the global sign-out) and leaves profiles as an anonymised tombstone (name parts and gender emptied too) so reservations.guest_id and the venue statistics keep a parent. Open matches: the player's seats and requests lose gender and friend_genders, every block by or of the player is deleted, and every ticket purchase with nothing reserved, in use or restorable is refunded at once (app.ticket_refund_deleted, one Qi refund each). Coaching: a pending typed-phone link to the account is dropped silently, as \"Not me\" (C-21); the account's other enrolments lose typed phones and friend names, a typed name becoming 'Deleted account'; the account's coach profile is retired, its bios emptied, its photo folder queued for removal (coach_photo_purges, R43) and its time-off reasons emptied, the display names kept for the statements (C-29); since 0290 the coach rows are locked (profile, then coach) and the folder queued is the one of the row actually cleared. Loyalty (0306): the member card and the points cache are deleted after the ticket refunds (loyalty_accounts ranks last); the ledger rows stay on the tombstone. Takes no match lock, coach mutex or court lock (R25, D9): the sweeps (0263, 0286) leave or cancel the live matches, enrolments and a retired coach's lessons, with refunds (account_deleted, coach_retired) and pushes; meanwhile other players see \"Former player\". Refuses an anonymous session (ACCOUNT_REQUIRED), a staff account (FORBIDDEN — staff are deactivated), an account already deleted (ALREADY_DELETED) and any call without p_confirm => 'DELETE'. Apple's /auth/revoke is NOT called: no .p8 key exists yet, so the audit row records apple_revoke_pending instead.\nSignature: app.delete_my_account(p_confirm text default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: account.delete.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, FORBIDDEN, ALREADY_DELETED, CONFIRMATION_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0306 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3499,6 +3531,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.duplicate_account_groups",
+      "lang": "en",
+      "title": "app.duplicate_account_groups",
+      "body": "0303 (loyalty contracts §1.1). Owner. Read-only: live profiles sharing a phone key or a verified email, as [{key, kind phone|email, profiles:[{id, name, phone, email, created_at, staff, coach, synthetic, activity}]}]. Empty once the 0303 run and the unique phone index hold, except email groups the run kept apart.\nSignature: app.duplicate_account_groups() returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0303 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.edit_customer_note",
       "lang": "en",
       "title": "app.edit_customer_note",
@@ -3518,7 +3558,7 @@
       "ref": "action:app.eligible_promotions",
       "lang": "en",
       "title": "app.eligible_promotions",
-      "body": "Signature: app.eligible_promotions(p_tab_id uuid, p_code text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TAB_NOT_FOUND, CODE_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0212 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0067, 0212 (MV2), loyalty 0306. Cashier, manager, owner: the promotions a tab is eligible for now, best first ({promotionId, name_en, name_ar, type, value, amountIqd}). The customer (perCustomer, tierMin) is app.tab_customer. limits.tierMin (a tier's sort) needs loyalty on, a customer, and the customer's tier sort at least that value (no account = the base tier, 0). CODE_INVALID for an unknown code.\nSignature: app.eligible_promotions(p_tab_id uuid, p_code text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TAB_NOT_FOUND, CODE_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0306 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3795,6 +3835,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.link_guest_session",
+      "lang": "en",
+      "title": "app.link_guest_session",
+      "body": "Loyalty (M3, contracts §1.3). An anonymous café session (auth.users.is_anonymous) with a live guest_sessions row sets its linked_profile_id from a member token (app.loyalty_token_profile): the account signed in in the same browser. Returns {linked: true, display_name}. AUTH_REQUIRED, FORBIDDEN (not anonymous), SESSION_EXPIRED (no live session), MEMBER_CODE_INVALID, MEMBER_CODE_EXPIRED. Audited loyalty.link_session.\nSignature: app.link_guest_session(p_member_token text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: loyalty.link_session.\nError codes: AUTH_REQUIRED, FORBIDDEN, SESSION_EXPIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.link_item_modifier_group",
       "lang": "en",
       "title": "app.link_item_modifier_group",
@@ -3831,6 +3879,70 @@
       "lang": "en",
       "title": "app.log_stock",
       "body": "stock_logs (wave 5 §2.8.5, D4-D5) + shop_store (0245). The head barista, the head chef, the cashier, the shop assistant and MGMT at the venue: adds p_lines [{ingredient_id, qty, unit?, expiry_date?}] (1 to 50, each once; unit the base unit or pack) to store p_location (default the caller's home store) as one staff_log delivery, costed by app.stock_cost_estimate. Kinds: the heads and the cashier purchased; the shop assistant retail (the shop store only); MGMT purchased and retail. Shop stock goes to the shop store only, and only shop stock goes there; prepared stock is never logged. Returns {delivery_id, location, lines: [{ingredient_id, qty, expiry_date}]}: no cost. Idempotent by key. FORBIDDEN (also hint location: the shop assistant outside the shop store); INVALID_ARGUMENT (hints location, lines, unit, kind, expiry_date); INVALID_QTY; INGREDIENT_NOT_FOUND; TEXT_TOO_LONG (note, 200); STORE_BEING_COUNTED. Audit stock.log {location, lines, cost_sources} (counts).\nSignature: app.log_stock(p_location text default null, p_lines jsonb default null, p_note text default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,cashier,shop_staff,manager,owner).\nAudit actions written: stock.log.\nError codes: FORBIDDEN, TEXT_TOO_LONG, INVALID_ARGUMENT, INGREDIENT_NOT_FOUND, INVALID_QTY.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0245 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_adjust",
+      "lang": "en",
+      "title": "app.loyalty_adjust",
+      "body": "Loyalty (M3, contracts §1.3). Manager or owner, behind a manager PIN grant (app.consume_pin_grant, PIN_GRANT_REQUIRED; 0115 pattern): adds p_delta points (non-zero, at most a million either way; INVALID_ARGUMENT) to a live profile (MEMBER_NOT_FOUND) with a reason (REASON_REQUIRED), as (adjust, adjust, fresh id) with the reason as the note. Counts toward lifetime and the 12-month tier points. Returns {balance}. Audited loyalty.adjust with the authorizer.\nSignature: app.loyalty_adjust(p_profile_id uuid, p_delta int, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: loyalty.adjust.\nError codes: FORBIDDEN, REASON_REQUIRED, INVALID_ARGUMENT, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_admin",
+      "lang": "en",
+      "title": "app.loyalty_admin",
+      "body": "Loyalty (M3, contracts §1.3). Manager or owner: {settings (LoyaltySettings + updated_at), tiers (by sort), rewards (active first)} for Setup > Loyalty.\nSignature: app.loyalty_admin() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_customer",
+      "lang": "en",
+      "title": "app.loyalty_customer",
+      "body": "Loyalty (M3, contracts §1.3). Any staff: one guest's points for the customer record {balance, lifetime, points_12m, tier, history (100 newest LedgerRow)}. MEMBER_NOT_FOUND for an unknown profile.\nSignature: app.loyalty_customer(p_profile_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_identify",
+      "lang": "en",
+      "title": "app.loyalty_identify",
+      "body": "Loyalty (M3, contracts §1.3, L-4). Cashier, shop_staff, court_desk, manager, owner; p_venue_id (when sent) one the caller can see (VENUE_MISMATCH). p_code is a member token (TP-…, app.loyalty_token_profile: MEMBER_CODE_INVALID, MEMBER_CODE_EXPIRED) or a phone of 7-15 digits matched exactly on profiles.phone_key (MEMBER_NOT_FOUND; no partial match); anything else MEMBER_CODE_INVALID. Returns {customer_id, display_name (given name + family initial), phone_masked (last four digits), tier_name_en, tier_name_ar, balance, enabled}. Audited loyalty.identify {method qr|phone, venue_id}.\nSignature: app.loyalty_identify(p_code text, p_venue_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.identify.\nError codes: FORBIDDEN, VENUE_MISMATCH, MEMBER_CODE_INVALID, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_public",
+      "lang": "en",
+      "title": "app.loyalty_public",
+      "body": "Loyalty (M3, integration). Public by design: {enabled} only, so the website hides \"sign in to earn points\" while the programme is off. Reveals nothing about any account.\nSignature: app.loyalty_public() returns jsonb.\nGranted to: anon, authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_redeem",
+      "lang": "en",
+      "title": "app.loyalty_redeem",
+      "body": "Loyalty (M3, contracts §1.3, L-5). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly one of p_points and p_reward_id (INVALID_ARGUMENT). LOYALTY_OFF, then claim_replay, then the tab (TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN: open only) and its customer (NO_CUSTOMER), the account locked last. Points: POINTS_BELOW_MIN (min_redeem_points), POINTS_INSUFFICIENT, then rounded down to fit what is left to discount (the goods not yet discounted, and the unpaid bill), amount = points * point_value_iqd. Reward: active, this branch or every branch (REWARD_NOT_FOUND), POINTS_INSUFFICIENT for cost_points, amount = iqd_off or the variant's price, capped. NOTHING_OWED when nothing is left to discount. Writes a tab_adjustments discount_amount (value = points, applied_by = authorized_by = the caller, reason_code loyalty_points | loyalty_reward) and a ledger row (redeem | reward, tab_adjustment, adjustment_id) in one transaction, then the 0037 guard. Returns {adjustment_id, points, amount_iqd, balance}. Audited loyalty.redeem.\nSignature: app.loyalty_redeem(p_tab_id uuid, p_points int, p_reward_id uuid, p_idempotency_key text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.redeem.\nError codes: FORBIDDEN, VENUE_MISMATCH, INVALID_ARGUMENT, LOYALTY_OFF, TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN, NO_CUSTOMER, REWARD_NOT_FOUND, POINTS_INSUFFICIENT, POINTS_BELOW_MIN, NOTHING_OWED, DISCOUNT_REQUIRES_REFUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_till_terms",
+      "lang": "en",
+      "title": "app.loyalty_till_terms",
+      "body": "Loyalty (M3, integration). Desk roles (cashier, shop_staff, court_desk, manager, owner): what the till needs to offer points and rewards: {enabled, point_value_iqd, min_redeem_points, rewards[] active at p_venue_id or every branch}. VENUE_MISMATCH outside the caller's branches. Read-only.\nSignature: app.loyalty_till_terms(p_venue_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, VENUE_MISMATCH.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_unredeem",
+      "lang": "en",
+      "title": "app.loyalty_unredeem",
+      "body": "Loyalty (M3, contracts §1.3). Same roles as loyalty_redeem, at the tab's branch, the tab's kind for the role. Reverses a loyalty redemption on a tab that is still open (TAB_NOT_OPEN): deletes the adjustment and writes (redeem_void, tab_adjustment, adjustment_id) giving the points back. INVALID_ARGUMENT for an adjustment that is not a loyalty redemption. Returns {balance}. Audited loyalty.unredeem.\nSignature: app.loyalty_unredeem(p_adjustment_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.unredeem.\nError codes: FORBIDDEN, VENUE_MISMATCH, INVALID_ARGUMENT, TAB_NOT_OPEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4091,6 +4203,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.merge_accounts",
+      "lang": "en",
+      "title": "app.merge_accounts",
+      "body": "0303 (loyalty contracts §1.1). Owner, behind a manager-PIN grant (0115: app.verify_manager_pin first, PIN_GRANT_REQUIRED without one). Folds p_drop into p_keep through app.merge_profiles_internal (reason 'owner: <p_reason>'). FORBIDDEN, INVALID_ARGUMENT, REASON_REQUIRED, MERGE_REFUSED detail missing | same | staff_drop | staff_both | coach_both. Returns {merge_id, keep_id, drop_id, moved}.\nSignature: app.merge_accounts(p_keep uuid, p_drop uuid, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: account.merge_accounts.\nError codes: FORBIDDEN, INVALID_ARGUMENT, REASON_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0303 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.merge_tabs",
       "lang": "en",
       "title": "app.merge_tabs",
@@ -4171,6 +4291,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.my_loyalty",
+      "lang": "en",
+      "title": "app.my_loyalty",
+      "body": "Loyalty (M3, contracts §1.3). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier} (the base tier without an account), next_tier (+ min_points_12m) | null, point_value_iqd, min_redeem_points, history (50 newest LedgerRow), rewards (every active one, any branch)}. AUTH_REQUIRED without a session, ACCOUNT_REQUIRED for an anonymous session or a deleted account.\nSignature: app.my_loyalty() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.my_marketing_notes",
       "lang": "en",
       "title": "app.my_marketing_notes",
@@ -4199,6 +4327,14 @@
       "lang": "en",
       "title": "app.my_matches",
       "body": "0261 (db.md §4.6.12, guest.md §4.3). Guest: the caller's matches (a seat of any kind or a request, any status), p_scope upcoming (live and not over, plus ended in the last 24 h; by start) or past (the rest; latest first), at most 100: {match_id, venue_id, status, ended_reason, start_at, end_at, duration_min, category, join_policy, visibility, seats_taken, court_id, fill_deadline_at, is_organiser, my_role (organiser|player|requester|removed), my_seats[], request (latest) | null, my_tickets {locked, released, forfeited}}. INVALID_ARGUMENT for another scope.\nSignature: app.my_matches(p_scope text default 'upcoming') returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0261 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_member_card",
+      "lang": "en",
+      "title": "app.my_member_card",
+      "body": "Loyalty (M3, contracts §1.3, L-4). The signed-in guest's member card {member_code, secret_b32 (RFC 4648, no padding), step}, created on first call. The phone or browser computes the rotating TP-<member_code>-<6 digits> token from it offline. AUTH_REQUIRED / ACCOUNT_REQUIRED as my_loyalty.\nSignature: app.my_member_card() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4803,6 +4939,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.rotate_member_card",
+      "lang": "en",
+      "title": "app.rotate_member_card",
+      "body": "Loyalty (M3, contracts §1.3). \"My code was shared\": a new secret for the signed-in guest's card (the member code stays), so every token made from the old one stops working. Returns the my_member_card shape. Audited loyalty.card_rotate.\nSignature: app.rotate_member_card() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: loyalty.card_rotate.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.rotate_table_token",
       "lang": "en",
       "title": "app.rotate_table_token",
@@ -5043,6 +5187,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.set_loyalty_settings",
+      "lang": "en",
+      "title": "app.set_loyalty_settings",
+      "body": "Loyalty (M3, contracts §1.3). Owner: patches the business-wide settings with the keys given (enabled, iqd_per_point, point_value_iqd, min_redeem_points, earn_cafe, earn_shop, earn_court, earn_lesson, earn_tournament, inactivity_expiry_months, totp_step_seconds); an unknown key is INVALID_ARGUMENT (detail = the key), a value the table refuses INVALID_VALUE. Returns the settings. Audited loyalty.settings.\nSignature: app.set_loyalty_settings(p_patch jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.settings.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.set_match_ban",
       "lang": "en",
       "title": "app.set_match_ban",
@@ -5184,6 +5336,14 @@
       "title": "app.set_station_staff",
       "body": "0139 (0130, 0105). Replaces a staffer's station rota (manager, owner). An unknown station is registered at the caller's venue; VENUE_REQUIRED is raised before any write.\nSignature: app.set_station_staff(p_staff_id uuid, p_station_ids text[]) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: station.registered, staff.stations_set.\nError codes: FORBIDDEN, VENUE_MISMATCH, STAFF_NOT_FOUND, INVALID_STATION, STATION_RETIRED, STATION_OTHER_BRANCH.\nCalled from: apps/operator/src/features/admin/staff/StaffAccountEditor.tsx (pages /admin).\nDefined in migration 0229 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.set_tab_customer",
+      "lang": "en",
+      "title": "app.set_tab_customer",
+      "body": "Loyalty (M3, contracts §1.3). Cashier, shop_staff, court_desk, manager, owner at the tab's branch (VENUE_MISMATCH), the tab's kind for the role (app.assert_tab_kind_role, TAB_KIND_FORBIDDEN): attaches a guest to an open tab (TAB_NOT_OPEN), or detaches with null. MEMBER_NOT_FOUND for an unknown or deleted profile; TAB_NOT_FOUND. Online-only (L-6). Returns {tab_id, customer_id}; audited loyalty.attach when it changes.\nSignature: app.set_tab_customer(p_tab_id uuid, p_customer_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.attach.\nError codes: FORBIDDEN, VENUE_MISMATCH, TAB_NOT_FOUND, TAB_NOT_OPEN, MEMBER_NOT_FOUND.\nCalled from: apps/operator/src/features/loyalty/useLoyalty.ts.\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -5771,6 +5931,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.upsert_loyalty_reward",
+      "lang": "en",
+      "title": "app.upsert_loyalty_reward",
+      "body": "Loyalty (M3, contracts §1.3). Owner: creates a reward (no id) or updates one (id; absent keys kept) from {name_en, name_ar, cost_points, kind iqd_off|item, iqd_off, menu_variant_id, active, venue_id (null = every branch)}. INVALID_ARGUMENT (unknown id), INVALID_VALUE (what the table refuses: the kind's shape, a variant of another branch is VENUE_MISMATCH from the branch guard). Returns the reward (LoyaltyAdminReward). Audited loyalty.reward.\nSignature: app.upsert_loyalty_reward(p_reward jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.reward.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.upsert_loyalty_tier",
+      "lang": "en",
+      "title": "app.upsert_loyalty_tier",
+      "body": "Loyalty (M3, contracts §1.3). Owner: creates a tier (no id) or updates one (id; absent keys kept) from {name_en, name_ar, min_points_12m, earn_multiplier (1-5), promotion_id, sort}. The sort-0 tier is the base (from 0 points) and keeps sort 0. INVALID_ARGUMENT (unknown id, the base's sort), INVALID_VALUE (what the table refuses: a duplicate threshold or sort, a missing name). Every account's tier follows at once. Returns the tier (LoyaltyAdminTier). Audited loyalty.tier.\nSignature: app.upsert_loyalty_tier(p_tier jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.tier.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.upsert_menu_category",
       "lang": "en",
       "title": "app.upsert_menu_category",
@@ -6047,6 +6223,14 @@
       "lang": "en",
       "title": "table app.pin_grants",
       "body": "0115. A successful app.verify_manager_pin mints one row; app.consume_pin_grant spends it inside the money RPC. Single-use, app.pin_grant_ttl() old at most, bound to the caller session. No client role may read or write it.\nCreated in migration 0115 (schema app, internal — never readable by the assistant).\nColumns:\n  id bigint generated always as identity primary key\n  caller_id uuid not null — auth.uid() that typed the PIN\n  authorizer_id uuid not null references staff(id) — the manager whose PIN it was\n  device_id text — client-supplied station id (audit only)\n  created_at timestamptz not null default now()\n  consumed_at timestamptz",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:app.profile_merges",
+      "lang": "en",
+      "title": "table app.profile_merges",
+      "body": "0303. One row per account merge (reason walkin_claim, the migration's duplicate_phone / duplicate_email, or merge_accounts' own reason) with the per-table moved counts, and one per refused pair the migration resolved another way (phone_cleared_conflict, phone_cleared_failed, email_conflict_kept, email_merge_failed). Append-only; manager and owner read it.\nCreated in migration 0303 (schema app, internal — never readable by the assistant).\nColumns:\n  id uuid primary key default gen_random_uuid()\n  keep_id uuid not null references profiles(id)\n  drop_id uuid not null — no FK: the record outlives anything done to the drop\n  reason text not null check (char_length(reason) between 1 and 200)\n  moved jsonb not null default '{}'::jsonb\n  actor_id uuid — auth.uid() of merge_accounts; NULL for the migration run and sign-up claims\n  created_at timestamptz not null default now()",
       "route": null
     },
     {
@@ -6483,6 +6667,54 @@
     },
     {
       "kind": "table",
+      "ref": "table:loyalty_accounts",
+      "lang": "en",
+      "title": "table loyalty_accounts",
+      "body": "Loyalty (M3). The cache of the ledger per profile: balance = sum(delta), lifetime_earned and points_12m = earn + clawback + adjust (all time / last 12 months), tier_id = the highest tier whose min_points_12m it reaches, last_activity_at = the newest row that is not an expiry. Maintained by app.loyalty_recompute (after every ledger insert, and nightly). No client grant.\nCreated in migration 0305.\nColumns:\n  profile_id uuid primary key references profiles(id) on delete cascade\n  balance int not null default 0\n  lifetime_earned int not null default 0\n  points_12m int not null default 0\n  tier_id uuid references loyalty_tiers(id) on delete set null\n  last_activity_at timestamptz\n  updated_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:loyalty_cards",
+      "lang": "en",
+      "title": "table loyalty_cards",
+      "body": "Loyalty (M3, L-4). One member card per profile: member_code (8 Crockford base32 characters, printed under the QR) and the 20-byte TOTP secret the phone or browser computes the rotating token from. Created lazily by app.my_member_card; the secret is rotated by app.rotate_member_card. Read only through those two RPCs. No client grant.\nCreated in migration 0305.\nColumns:\n  profile_id uuid primary key references profiles(id) on delete cascade\n  member_code text not null\n  secret bytea not null\n  created_at timestamptz not null default now()\n  rotated_at timestamptz",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:loyalty_ledger",
+      "lang": "en",
+      "title": "table loyalty_ledger",
+      "body": "Loyalty (M3). The points ledger, append-only (app.trg_loyalty_ledger_immutable; the one exception is the account merge re-pointing profile_id under set_config('app.loyalty_merge', 'on', true)). One row per (kind, source_kind, source_id): earn per tab, clawback per refund, redeem/reward/redeem_void per tab adjustment. balance = sum(delta). venue_id is reporting only (points are business-wide). No client grant.\nCreated in migration 0305.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  profile_id uuid not null references profiles(id)\n  venue_id uuid references venues(id)\n  delta int not null\n  kind text not null\n  source_kind text not null\n  source_id uuid not null\n  tab_id uuid references tabs(id)\n  actor_id uuid\n  note text\n  created_at timestamptz not null default clock_timestamp() — insertion order inside one transaction",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:loyalty_rewards",
+      "lang": "en",
+      "title": "table loyalty_rewards",
+      "body": "Loyalty (M3). Rewards redeemed at the till for cost_points: iqd_off (a fixed amount off the bill) or item (the variant's current price off). venue_id null = every branch. Owner-written. No client grant.\nCreated in migration 0305.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  cost_points int not null\n  kind text not null\n  iqd_off int\n  menu_variant_id uuid references menu_item_variants(id)\n  active boolean not null default true\n  venue_id uuid references venues(id) — null: every branch\n  created_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:loyalty_settings",
+      "lang": "en",
+      "title": "table loyalty_settings",
+      "body": "Loyalty (Phase 2 M3, contracts §1.3). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the point value, tiers and rewards (L-1). iqd_per_point: IQD paid per point earned; point_value_iqd: IQD one point takes off a bill; min_redeem_points: the least a guest may redeem at once; earn_*: the per-domain earn switches (court = the court fee carried on any tab); inactivity_expiry_months: null = points never expire; totp_step_seconds: the member token's step. Owner-written through app.set_loyalty_settings. No client grant.\nCreated in migration 0305.\nColumns:\n  id boolean primary key default true check (id)\n  enabled boolean not null default false\n  iqd_per_point int not null default 1000 check (iqd_per_point > 0)\n  point_value_iqd int not null default 50 check (point_value_iqd > 0)\n  min_redeem_points int not null default 100 check (min_redeem_points >= 0)\n  earn_cafe boolean not null default true\n  earn_shop boolean not null default true\n  earn_court boolean not null default true\n  earn_lesson boolean not null default true\n  earn_tournament boolean not null default true\n  inactivity_expiry_months int check (inactivity_expiry_months is null or inactivity_expiry_months between 1 and 120)\n  totp_step_seconds int not null default 30 check (totp_step_seconds between 15 and 120)\n  updated_at timestamptz not null default now()\n  updated_by uuid references staff(id)",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:loyalty_tiers",
+      "lang": "en",
+      "title": "table loyalty_tiers",
+      "body": "Loyalty (M3). Tiers by points earned in the last 12 months (min_points_12m), each with an earn multiplier and an optional promotion (a promotion with limits.tierMin = this tier's sort is eligible from this tier up). The sort-0 tier (from 0 points) is the base every account starts in and cannot be deleted. Owner-written. No client grant.\nCreated in migration 0305.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  min_points_12m int not null\n  earn_multiplier numeric(3,2) not null default 1\n  promotion_id uuid references promotions(id)\n  sort smallint not null\n  created_at timestamptz not null default now() — The base tier (sort 0) is the one every account starts in: from 0 points.",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:manager_alerts",
       "lang": "en",
       "title": "table manager_alerts",
@@ -6774,7 +7006,7 @@
       "ref": "table:profiles",
       "lang": "en",
       "title": "table profiles",
-      "body": "Created in migration 0004.\nColumns:\n  id uuid primary key references auth.users(id) on delete cascade\n  full_name text not null\n  phone text — captured day one per scope (future SMS identity)\n  preferred_lang text not null default 'en' check (preferred_lang in ('en','ar'))\n  expo_push_token text\n  created_at timestamptz not null default now()\n  deleted_at timestamptz — Set by app.delete_my_account. The row is a TOMBSTONE: anonymised, retained only so reservations.guest_id and the venue statistics keep a parent. Never set by hand — the on_auth_user_deleted trigger reads it to tell a self-deletion (row survives) from an admin rollback (row is dropped).\n  terms_version text — The Terms of Service / Privacy Policy version the guest last accepted (CURRENT_TERMS_VERSION in packages/core/src/legal.ts). Written only by app.accept_terms. Null = never accepted; the app shows its consent screen.\n  terms_accepted_at timestamptz — Server time app.accept_terms recorded the acceptance of terms_version. Retained on the 0077 tombstone as proof the terms applied.\n  payment_sandbox boolean not null default false — 0241. Set by hand on the store review account only: its deposits go to Qi's sandbox (test card, no money), are stamped sandbox and never count as paid or as revenue.\n  given_name text — 0256. First name (1..39). Other open-match players see it; the desk and the guest see the whole name. Kept in step with full_name by profiles_sync_names; NULL on a deleted account.\n  family_name text — 0256. Surname (1..39, NULL without a given_name). Other open-match players see only its first letter. NULL on a deleted account.\n  gender text — 0256. female | male, asked once at the first open match (OM-28): women's and men's matches. Written only by app.set_my_gender and app.staff_set_customer_gender, with gender_set_at and gender_set_by. NULL on a deleted account.\n  gender_set_at timestamptz — 0256. When gender was last set; set with gender.\n  gender_set_by text — 0256. guest (app.set_my_gender) or staff (the front desk's correction); set with gender.\n  avatar_path text — 0302. The guest's profile photo: an object in the private avatars bucket, <profile id>/<uuid>.<jpg|png|webp>. Written only by app.set_my_avatar; NULL = initials. Emptied by account deletion.\n  birth_date date — 0302. Optional date of birth, 1900-01-01 .. today. Written only by app.set_my_birth_date, read only by its guest (app.my_birth_date; no column grant). Emptied by account deletion.",
+      "body": "Created in migration 0004.\nColumns:\n  id uuid primary key references auth.users(id) on delete cascade\n  full_name text not null\n  phone text — captured day one per scope (future SMS identity)\n  preferred_lang text not null default 'en' check (preferred_lang in ('en','ar'))\n  expo_push_token text\n  created_at timestamptz not null default now()\n  deleted_at timestamptz — Set by app.delete_my_account. The row is a TOMBSTONE: anonymised, retained only so reservations.guest_id and the venue statistics keep a parent. Never set by hand — the on_auth_user_deleted trigger reads it to tell a self-deletion (row survives) from an admin rollback (row is dropped).\n  terms_version text — The Terms of Service / Privacy Policy version the guest last accepted (CURRENT_TERMS_VERSION in packages/core/src/legal.ts). Written only by app.accept_terms. Null = never accepted; the app shows its consent screen.\n  terms_accepted_at timestamptz — Server time app.accept_terms recorded the acceptance of terms_version. Retained on the 0077 tombstone as proof the terms applied.\n  payment_sandbox boolean not null default false — 0241. Set by hand on the store review account only: its deposits go to Qi's sandbox (test card, no money), are stamped sandbox and never count as paid or as revenue.\n  given_name text — 0256. First name (1..39). Other open-match players see it; the desk and the guest see the whole name. Kept in step with full_name by profiles_sync_names; NULL on a deleted account.\n  family_name text — 0256. Surname (1..39, NULL without a given_name). Other open-match players see only its first letter. NULL on a deleted account.\n  gender text — 0256. female | male, asked once at the first open match (OM-28): women's and men's matches. Written only by app.set_my_gender and app.staff_set_customer_gender, with gender_set_at and gender_set_by. NULL on a deleted account.\n  gender_set_at timestamptz — 0256. When gender was last set; set with gender.\n  gender_set_by text — 0256. guest (app.set_my_gender) or staff (the front desk's correction); set with gender.\n  avatar_path text — 0302. The guest's profile photo: an object in the private avatars bucket, <profile id>/<uuid>.<jpg|png|webp>. Written only by app.set_my_avatar; NULL = initials. Emptied by account deletion.\n  birth_date date — 0302. Optional date of birth, 1900-01-01 .. today. Written only by app.set_my_birth_date, read only by its guest (app.my_birth_date; no column grant). Emptied by account deletion.\n  phone_key text — 0303. app.phone_canon(phone) when the phone has 7-15 digits, else NULL. Kept by the zz_phone_key trigger; unique among live profiles (profiles_phone_key_live, 0304). No client grant.",
       "route": null
     },
     {
@@ -7150,7 +7382,7 @@
       "ref": "table:tabs",
       "lang": "en",
       "title": "table tabs",
-      "body": "Created in migration 0015.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  day_session_id uuid not null references day_sessions(id)\n  status tab_status not null default 'open'\n  table_id uuid references cafe_tables(id)\n  reservation_id uuid references reservations(id) — CHARGE CAFE TO COURT BOOKING\n  label text — \"by name\"\n  opened_by_staff_id uuid references staff(id) — null when guest-web opened it\n  merged_into_tab_id uuid references tabs(id) — merge tables: donor points at survivor\n  subtotal_iqd iqd — stamped at settle\n  tax_iqd iqd\n  discount_iqd iqd\n  total_iqd iqd\n  opened_at timestamptz not null default now()\n  settled_at timestamptz\n  device_id text\n  idempotency_key text unique\n  court_iqd bigint not null default 0 — 0053: court fee for a tab charged to a booking (SOW L131). Excluded from subtotal_iqd so percentage discounts apply to goods only; included in total_iqd.\n  venue_id uuid\n  kind text not null default 'cafe' constraint tabs_kind_chk check (kind in ('cafe','shop'))\n  court_cap_iqd bigint — 0258. On a tab that settles open-match seat shares: the most court money this tab may carry (its court line is least(court_cap_iqd, court_fee_remaining)). Set only by match_seat_settle on the tab it settles and by match_link_payment when it closes a live court-only tab at what was paid (R2). NULL on every other tab.\n  lesson_enrolment_id uuid — 0278. The lesson enrolment a kind 'lesson' tab takes desk money for (one payment, settled in the same call by app.lesson_settle). NULL on every other tab.\n  lesson_iqd bigint not null default 0 — 0278. The lesson line stamped at settlement (app.settle_tab, from compute_tab_totals): what the enrolment still owed. Outside the tax base like the court line (CD-4). 0 on every other tab.\n  tournament_entry_id uuid — Tournaments (M7). The tournament entry a kind 'tournament' tab takes the entry fee for (one payment, inserted and settled in the same call by app.tournament_settle). NULL on every other tab.",
+      "body": "Created in migration 0015.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  day_session_id uuid not null references day_sessions(id)\n  status tab_status not null default 'open'\n  table_id uuid references cafe_tables(id)\n  reservation_id uuid references reservations(id) — CHARGE CAFE TO COURT BOOKING\n  label text — \"by name\"\n  opened_by_staff_id uuid references staff(id) — null when guest-web opened it\n  merged_into_tab_id uuid references tabs(id) — merge tables: donor points at survivor\n  subtotal_iqd iqd — stamped at settle\n  tax_iqd iqd\n  discount_iqd iqd\n  total_iqd iqd\n  opened_at timestamptz not null default now()\n  settled_at timestamptz\n  device_id text\n  idempotency_key text unique\n  court_iqd bigint not null default 0 — 0053: court fee for a tab charged to a booking (SOW L131). Excluded from subtotal_iqd so percentage discounts apply to goods only; included in total_iqd.\n  venue_id uuid\n  kind text not null default 'cafe' constraint tabs_kind_chk check (kind in ('cafe','shop'))\n  court_cap_iqd bigint — 0258. On a tab that settles open-match seat shares: the most court money this tab may carry (its court line is least(court_cap_iqd, court_fee_remaining)). Set only by match_seat_settle on the tab it settles and by match_link_payment when it closes a live court-only tab at what was paid (R2). NULL on every other tab.\n  lesson_enrolment_id uuid — 0278. The lesson enrolment a kind 'lesson' tab takes desk money for (one payment, settled in the same call by app.lesson_settle). NULL on every other tab.\n  lesson_iqd bigint not null default 0 — 0278. The lesson line stamped at settlement (app.settle_tab, from compute_tab_totals): what the enrolment still owed. Outside the tax base like the court line (CD-4). 0 on every other tab.\n  tournament_entry_id uuid — Tournaments (M7). The tournament entry a kind 'tournament' tab takes the entry fee for (one payment, inserted and settled in the same call by app.tournament_settle). NULL on every other tab.\n  customer_id uuid — Loyalty (M3). The guest a desk attached to this tab (app.set_tab_customer, after app.loyalty_identify). The tab's customer is app.tab_customer: this, else the booking's guest, else the latest linked café session's profile.",
       "route": null
     },
     {
@@ -7535,6 +7767,22 @@
       "lang": "en",
       "title": "app.pin_grants.device_id",
       "body": "text\nclient-supplied station id (audit only)",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:app.profile_merges.actor_id",
+      "lang": "en",
+      "title": "app.profile_merges.actor_id",
+      "body": "uuid\nauth.uid() of merge_accounts; NULL for the migration run and sign-up claims",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:app.profile_merges.drop_id",
+      "lang": "en",
+      "title": "app.profile_merges.drop_id",
+      "body": "uuid not null\nno FK: the record outlives anything done to the drop",
       "route": null
     },
     {
@@ -9187,6 +9435,30 @@
     },
     {
       "kind": "column",
+      "ref": "column:loyalty_ledger.created_at",
+      "lang": "en",
+      "title": "loyalty_ledger.created_at",
+      "body": "timestamptz not null default clock_timestamp()\ninsertion order inside one transaction",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:loyalty_rewards.venue_id",
+      "lang": "en",
+      "title": "loyalty_rewards.venue_id",
+      "body": "uuid references venues(id)\nnull: every branch",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:loyalty_tiers.created_at",
+      "lang": "en",
+      "title": "loyalty_tiers.created_at",
+      "body": "timestamptz not null default now()\nThe base tier (sort 0) is the one every account starts in: from 0 points.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:manager_alerts.payload",
       "lang": "en",
       "title": "manager_alerts.payload",
@@ -10463,6 +10735,14 @@
       "lang": "en",
       "title": "profiles.phone",
       "body": "text\ncaptured day one per scope (future SMS identity)",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:profiles.phone_key",
+      "lang": "en",
+      "title": "profiles.phone_key",
+      "body": "text\n0303. app.phone_canon(phone) when the phone has 7-15 digits, else NULL. Kept by the zz_phone_key trigger; unique among live profiles (profiles_phone_key_live, 0304). No client grant.",
       "route": null
     },
     {
@@ -12895,6 +13175,14 @@
       "lang": "en",
       "title": "tabs.court_iqd",
       "body": "bigint not null default 0\n0053: court fee for a tab charged to a booking (SOW L131). Excluded from subtotal_iqd so percentage discounts apply to goods only; included in total_iqd.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:tabs.customer_id",
+      "lang": "en",
+      "title": "tabs.customer_id",
+      "body": "uuid\nLoyalty (M3). The guest a desk attached to this tab (app.set_tab_customer, after app.loyalty_identify). The tab's customer is app.tab_customer: this, else the booking's guest, else the latest linked café session's profile.",
       "route": null
     },
     {
@@ -17763,6 +18051,134 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.loyalty",
+      "lang": "ar",
+      "title": "ws.loyalty (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
+      "body": "nav: الولاء",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty",
+      "lang": "en",
+      "title": "ws.loyalty (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
+      "body": "nav: Loyalty",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.adjust",
+      "lang": "ar",
+      "title": "ws.loyalty.adjust (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
+      "body": "button: تعديل النقاط\ntitle: تعديل النقاط\nlead: أضف نقاطًا برقم، واخصمها بعلامة الطرح (-50). يوافق عليها رقم PIN للمدير.\ndelta: النقاط\ndeltaHint: مثلًا 100، أو -50.\nreason: السبب\nreasonHint: يقرأ الضيف هذا في سجله.\nnext: متابعة\npinAction: تعديل نقاط الولاء\ndeltaRequired: اكتب عدد نقاط غير الصفر.\nreasonRequired: اذكر السبب.\ndone: عُدّلت النقاط. الرصيد الجديد: {points}.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.adjust",
+      "lang": "en",
+      "title": "ws.loyalty.adjust (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
+      "body": "button: Adjust points\ntitle: Adjust points\nlead: Add points with a number, take them away with a minus sign (-50). A manager PIN approves it.\ndelta: Points\ndeltaHint: For example 100, or -50.\nreason: Reason\nreasonHint: The guest reads this in their history.\nnext: Continue\npinAction: adjust loyalty points\ndeltaRequired: Type a number of points other than 0.\nreasonRequired: Say why.\ndone: Points adjusted. New balance: {points}.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.member",
+      "lang": "ar",
+      "title": "ws.loyalty.member (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
+      "body": "button: عضو\ntitle: إضافة عضو إلى هذه الفاتورة\nlead: امسح رمز QR في بطاقة العضو، أو اكتب رقم الهاتف الذي يخبرك به.\nfield: رمز QR للعضو أو رقم الهاتف\nplaceholder: امسح، أو اكتب 07…\nfind: ابحث عن العضو\ninvalid: هذا ليس رمز عضو ولا رقم هاتف. امسح مرة أخرى، أو اكتب الرقم كاملًا.\noffline: يمكن إضافة عضو بعد وصول هذه الفاتورة إلى الخادم.\nnoConnection: إضافة عضو تحتاج إلى اتصال.\nattached: العضو\nremove: إزالة\nremoveTitle: إزالة {name} من هذه الفاتورة؟\nremoveBody: النقاط المستخدمة تبقى على الفاتورة حتى تتراجع عنها.\nbalance: {points} نقطة\ntier: الفئة {tier}\nunknownName: عضو\noff: برنامج الولاء متوقف. العضو على الفاتورة، لكن لا تُكسب النقاط ولا تُستخدم.\nscanned: تم مسح بطاقة العضو.\npendingShop: يُضاف العضو عند استلام الدفع.\nshopStepTitle: العضو في هذه البيعة\ncontinue: استلام الدفع",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.member",
+      "lang": "en",
+      "title": "ws.loyalty.member (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
+      "body": "button: Member\ntitle: Add a member to this bill\nlead: Scan the QR on their member card, or type the phone number they tell you.\nfield: Member QR or phone number\nplaceholder: Scan, or type 07…\nfind: Find member\ninvalid: That isn't a member code or a phone number. Scan again, or type the whole number.\noffline: Members can be added once this tab reaches the server.\nnoConnection: Adding a member needs a connection.\nattached: Member\nremove: Remove\nremoveTitle: Take {name} off this bill?\nremoveBody: Points already used stay on the bill until you undo them.\nbalance: {points} points\ntier: Tier {tier}\nunknownName: Member\noff: Loyalty is switched off. The member is on the bill, but points are not earned or used.\nscanned: Member card scanned.\npendingShop: The member is added when you take payment.\nshopStepTitle: Member on this sale\ncontinue: Take payment",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.panel",
+      "lang": "ar",
+      "title": "ws.loyalty.panel (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
+      "body": "title: الولاء\nbalance: النقاط\ntier: الفئة\npoints12m: النقاط في آخر 12 شهرًا\nlifetime: كل النقاط المكتسبة\nnoTier: بلا فئة\nhistory: السجل\nhistoryEmpty: لم تُكسب نقاط ولم تُستخدم بعد.\ncolumns.when: الوقت\ncolumns.what: العملية\ncolumns.points: النقاط\ncolumns.note: ملاحظة\nkind.earn: مكتسبة\nkind.redeem: مستخدمة على فاتورة\nkind.redeem_void: تراجع عن استخدام\nkind.reward: مكافأة\nkind.adjust: تعديل\nkind.clawback: مسترجعة بعد استرداد\nkind.expire: منتهية\nkind.merge_in: منقولة من حساب آخر",
+      "route": "/panel"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.panel",
+      "lang": "en",
+      "title": "ws.loyalty.panel (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
+      "body": "title: Loyalty\nbalance: Points\ntier: Tier\npoints12m: Points in the last 12 months\nlifetime: Points ever earned\nnoTier: No tier\nhistory: History\nhistoryEmpty: No points earned or used yet.\ncolumns.when: When\ncolumns.what: What\ncolumns.points: Points\ncolumns.note: Note\nkind.earn: Earned\nkind.redeem: Used on a bill\nkind.redeem_void: Use undone\nkind.reward: Reward\nkind.adjust: Adjusted\nkind.clawback: Taken back after a refund\nkind.expire: Expired\nkind.merge_in: Joined from another account",
+      "route": "/panel"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.redeem",
+      "lang": "ar",
+      "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
+      "body": "button: استخدام النقاط\ntitle: استخدام النقاط\nlead: لدى {name} {points} نقطة.\npoints: النقاط المستخدمة\nworth: تخصم {amount} من الفاتورة.\nworthUnknown: يحسب الخادم المبلغ، ولا يخصم أكثر مما بقي للدفع.\nmaxHint: حتى {points} نقطة تناسب ما بقي للدفع.\nconfirm: استخدام {points} نقطة\ndone: خصمت {points} نقطة {amount} من الفاتورة.\nnoBalance: لا توجد نقاط للاستخدام بعد.\nbelowMin: تُستخدم {min} نقطة على الأقل في كل مرة.\noverBalance: أكثر من النقاط التي لدى العضو ({points}).\nnothingDue: لم يبقَ شيء للدفع على هذه الفاتورة.\nusedTitle: النقاط المستخدمة على هذه الفاتورة\nusedRow: {points} نقطة · خصم {amount}\nrewardRow: مكافأة · خصم {amount}\nundo: تراجع\nundone: أُعيدت النقاط إلى العضو.\nbillRow: نقاط الولاء",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.redeem",
+      "lang": "en",
+      "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
+      "body": "button: Use points\ntitle: Use points\nlead: {name} has {points} points.\npoints: Points to use\nworth: Takes {amount} off the bill.\nworthUnknown: The server works out the amount and never takes more than is left to pay.\nmaxHint: Up to {points} points fit what is left to pay.\nconfirm: Use {points} points\ndone: {points} points took {amount} off the bill.\nnoBalance: No points to use yet.\nbelowMin: At least {min} points are used at a time.\noverBalance: More than the {points} points the member has.\nnothingDue: Nothing is left to pay on this bill.\nusedTitle: Points used on this bill\nusedRow: {points} points · {amount} off\nrewardRow: Reward · {amount} off\nundo: Undo\nundone: Points given back to the member.\nbillRow: Loyalty points",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.rewards",
+      "lang": "ar",
+      "title": "ws.loyalty.rewards (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
+      "body": "button: المكافآت\ntitle: المكافآت\nlead: لدى {name} {points} نقطة.\nempty: لا توجد مكافآت معروضة.\nunavailable: قائمة المكافآت متاحة للمديرين. استخدم النقاط بدلًا منها، أو اطلب من المدير.\ncost: {points} نقطة\niqdOff: خصم {amount}\nitem: صنف من القائمة\nuse: استخدام\ntooFew: النقاط غير كافية\ndone: استُخدمت المكافأة: خصم {amount} من الفاتورة.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.rewards",
+      "lang": "en",
+      "title": "ws.loyalty.rewards (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
+      "body": "button: Rewards\ntitle: Rewards\nlead: {name} has {points} points.\nempty: No rewards are on offer.\nunavailable: Rewards are listed for managers. Use points instead, or ask a manager.\ncost: {points} points\niqdOff: {amount} off\nitem: An item from the menu\nuse: Use\ntooFew: Not enough points\ndone: Reward used: {amount} off the bill.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup",
+      "lang": "ar",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
+      "body": "title: الولاء\nlead: نقاط مشتركة بين كل الفروع: ما يكسبه الضيف، وقيمة النقطة، والفئات، والمكافآت.\ncard: النقاط والفئات والمكافآت التي يكسبها الضيوف على كل فاتورة وفي كل فرع.\nownerOnly: المالك وحده يغيّر إعدادات الولاء.\nsaved: تم الحفظ.\nsettings.title: النقاط\nsettings.enabled: برنامج الولاء يعمل\nsettings.enabledHint: عند الإيقاف: لا تُكسب نقاط ولا تُستخدم، ولا يرى الضيوف رصيدًا.\nsettings.iqdPerPoint: المبلغ مقابل نقطة واحدة\nsettings.iqdPerPointHint: يكسب الضيف نقطة واحدة عن كل هذا المبلغ المدفوع.\nsettings.pointValue: قيمة النقطة الواحدة\nsettings.pointValueHint: ما تخصمه نقطة واحدة من الفاتورة.\nsettings.minRedeem: أقل استخدام\nsettings.minRedeemHint: أقل عدد من النقاط يستخدمه الضيف في مرة واحدة.\nsettings.earnTitle: تُكسب النقاط على\nsettings.earnCafe: فواتير المقهى\nsettings.earnShop: مبيعات المتجر\nsettings.earnCourt: أجور الملاعب\nsettings.earnLesson: الدروس\nsettings.earnTournament: رسوم الاشتراك في البطولات\nsettings.inactivity: تنتهي النقاط بعد\nsettings.inactivityHint: أشهر بلا نقاط مكتسبة أو مستخدمة. اتركه فارغًا لتبقى النقاط دائمًا.\nsettings.totpStep: يتغيّر رمز QR للعضو كل\nsettings.totpStepHint: بين 15 و120 ثانية.\nsettings.unitIqd: د.ع\nsettings.unitPoints: نقطة\nsettings.unitMonths: أشهر\nsettings.unitSeconds: ثانية\nsettings.save: حفظ\nsettings.errors.positive: اكتب عددًا صحيحًا أكبر من 0.\nsettings.errors.notNegative: اكتب عددًا صحيحًا، 0 أو أكثر.\nsettings.errors.step: بين 15 و120.\ntiers.title: الفئات\ntiers.lead: يرتقي الضيف بالنقاط التي كسبها في آخر 12 شهرًا. الفئة الأولى للجميع ولا يمكن إزالتها.\ntiers.add: إضافة فئة\ntiers.edit: تعديل الفئة\ntiers.empty: لا توجد فئات.\ntiers.nameEn: الاسم (بالإنجليزية)\ntiers.nameAr: الاسم (بالعربية)\ntiers.minPoints: ابتداءً من النقاط (12 شهرًا)\ntiers.multiplier: مضاعف الكسب\ntiers.multiplierHint: بين 1 و5، مثلًا 1.5.\ntiers.sort: الترتيب\ntiers.remove: إزالة\ntiers.removeTitle: إزالة الفئة {name}؟\ntiers.removeBody: ينتقل ضيوفها إلى الفئة الأدنى.\ntiers.base: الفئة الأساسية\ntiers.columns.name: الفئة\ntiers.columns.minPoints: ابتداءً من",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup",
+      "lang": "en",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
+      "body": "title: Loyalty\nlead: Points across every branch: what a guest earns, what a point is worth, the tiers and the rewards.\ncard: Points, tiers and rewards guests earn on every bill, at every branch.\nownerOnly: Only the owner can change loyalty.\nsaved: Saved.\nsettings.title: Points\nsettings.enabled: Loyalty is on\nsettings.enabledHint: Off: no points are earned or used, and guests do not see a balance.\nsettings.iqdPerPoint: Spend for one point\nsettings.iqdPerPointHint: A guest earns one point for every this much paid.\nsettings.pointValue: Value of one point\nsettings.pointValueHint: What one point takes off a bill.\nsettings.minRedeem: Smallest use\nsettings.minRedeemHint: The fewest points a guest can use at once.\nsettings.earnTitle: Points are earned on\nsettings.earnCafe: Café bills\nsettings.earnShop: Shop sales\nsettings.earnCourt: Court fees\nsettings.earnLesson: Lessons\nsettings.earnTournament: Tournament entry fees\nsettings.inactivity: Points expire after\nsettings.inactivityHint: Months with no points earned or used. Leave empty to keep points for ever.\nsettings.totpStep: Member QR changes every\nsettings.totpStepHint: Between 15 and 120 seconds.\nsettings.unitIqd: IQD\nsettings.unitPoints: points\nsettings.unitMonths: months\nsettings.unitSeconds: seconds\nsettings.save: Save\nsettings.errors.positive: Type a whole number above 0.\nsettings.errors.notNegative: Type a whole number, 0 or more.\nsettings.errors.step: Between 15 and 120.\ntiers.title: Tiers\ntiers.lead: A guest moves up by the points earned in the last 12 months. The first tier is everyone’s and cannot be removed.\ntiers.add: Add a tier\ntiers.edit: Edit tier\ntiers.empty: No tiers.\ntiers.nameEn: Name (English)\ntiers.nameAr: Name (Arabic)\ntiers.minPoints: From points (12 months)\ntiers.multiplier: Earn multiplier\ntiers.multiplierHint: Between 1 and 5, for example 1.5.\ntiers.sort: Order\ntiers.remove: Remove\ntiers.removeTitle: Remove the tier {name}?\ntiers.removeBody: Guests in it move to the tier below.",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#2",
+      "lang": "ar",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
+      "body": "tiers.columns.multiplier: الكسب\ntiers.multiplierValue: ×{value}\ntiers.errors.names: الاسمان مطلوبان.\ntiers.errors.minPoints: اكتب عددًا صحيحًا، 0 أو أكثر.\ntiers.errors.multiplier: بين 1 و5.\nrewards.title: المكافآت\nrewards.lead: ما يأخذه الضيف مقابل النقاط عند الكاشير. أوقف المكافأة لتتوقف عن عرضها.\nrewards.add: إضافة مكافأة\nrewards.edit: تعديل المكافأة\nrewards.empty: لا توجد مكافآت بعد.\nrewards.nameEn: الاسم (بالإنجليزية)\nrewards.nameAr: الاسم (بالعربية)\nrewards.cost: الكلفة\nrewards.kind: تمنح\nrewards.kindIqdOff: خصم مبلغ من الفاتورة\nrewards.kindItem: صنف من القائمة\nrewards.iqdOff: مبلغ الخصم\nrewards.variant: صنف القائمة\nrewards.variantPlaceholder: اختر صنفًا\nrewards.active: معروضة\nrewards.columns.name: المكافأة\nrewards.columns.cost: الكلفة\nrewards.columns.gives: تمنح\nrewards.columns.active: معروضة\nrewards.errors.names: الاسمان مطلوبان.\nrewards.errors.cost: اكتب عددًا صحيحًا أكبر من 0.\nrewards.errors.iqdOff: اكتب مبلغًا أكبر من 0.\nrewards.errors.variant: اختر صنف القائمة.\nsave: حفظ\ncancel: إلغاء",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#2",
+      "lang": "en",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
+      "body": "tiers.base: Base tier\ntiers.columns.name: Tier\ntiers.columns.minPoints: From\ntiers.columns.multiplier: Earns\ntiers.multiplierValue: ×{value}\ntiers.errors.names: Both names are needed.\ntiers.errors.minPoints: Type a whole number, 0 or more.\ntiers.errors.multiplier: Between 1 and 5.\nrewards.title: Rewards\nrewards.lead: What a guest can take for points at the till. Switch a reward off to stop offering it.\nrewards.add: Add a reward\nrewards.edit: Edit reward\nrewards.empty: No rewards yet.\nrewards.nameEn: Name (English)\nrewards.nameAr: Name (Arabic)\nrewards.cost: Cost\nrewards.kind: Gives\nrewards.kindIqdOff: An amount off the bill\nrewards.kindItem: A menu item\nrewards.iqdOff: Amount off\nrewards.variant: Menu item\nrewards.variantPlaceholder: Choose an item\nrewards.active: On offer\nrewards.columns.name: Reward\nrewards.columns.cost: Cost\nrewards.columns.gives: Gives\nrewards.columns.active: On offer\nrewards.errors.names: Both names are needed.\nrewards.errors.cost: Type a whole number above 0.\nrewards.errors.iqdOff: Type an amount above 0.\nrewards.errors.variant: Choose the menu item.\nsave: Save\ncancel: Cancel",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.manager",
       "lang": "ar",
       "title": "ws.manager (packages/i18n/src/catalogs/ws/manager.ar.ts)",
@@ -20326,7 +20742,7 @@
       "ref": "label:ws.shell.nav",
       "lang": "ar",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "today: اليوم\ncalendar: التقويم\ncustomers: الزبائن\nnewSeries: سلسلة جديدة\nblockCourt: إيقاف ملعب\ntill: الصندوق\nopenTabs: الفواتير المفتوحة\ncashDrawer: درج النقد\noverview: نظرة عامة\nbookings: الحجوزات\ntills: الصناديق\ndayClose: إغلاق اليوم\nmenu: المنيو\nrates: الأسعار\npromotions: العروض\nstock: المخزون\nreports: التقارير\naudit: سجل التدقيق\npanel: لوحة الإدارة\nanalytics: التحليلات\nstaff: الموظفون\nbranches: الفروع\ncourts: الملاعب\ntables: الطاولات ورموز QR\nsettings: إعدادات المكان\nguestSite: موقع الضيوف\nmenuPrices: أسعار المنيو\nonHand: المتوفر\ngoodsIn: استلام البضائع\nmoveStock: نقل المخزون\nwasteProduction: الهدر والتحضير\nexpiry: الصلاحية\nalerts: التنبيهات\nstockCount: جرد المخزون\ncountDifferences: فروقات الجرد\nmargins: الهوامش\ningredients: المكوّنات\nrecipes: الوصفات\nstockValue: قيمة المخزون\nshop: المتجر\nshopTill: البيع\nshopStock: مخزون المتجر\nshopReceive: استلام البضائع\nshopCounts: جرد المخزون\nshopWaste: الهدر\nshopProducts: المنتجات\nshopSuppliers: المورّدون\nfloorNow: الصالة الآن\nstaffActivity: نشاط الموظفين\nrequests: طلبات الموظفين\nmarketing: التسويق\ntelegram: تيليغرام\nassistant: المساعد\nmyTasks: مهامي\nprotocols: البروتوكولات\nsuggestions: الاقتراحات\ndeductions: الخصومات من الراتب\nincidents: الحوادث\nwages: الرواتب\nattendance: التأخير والانصراف المبكر\ncoaches: المدرّبون\ncoachPay: مستحقات المدرّبين\ntournaments: البطولات\nbadge: بانتظارك: {count}\ngroupOperations: العمليات\ngroupRun: إدارة اليوم\ngroupRecords: السجلات\ngroupSetup: الإعداد\nbackTo: العودة إلى {workspace}\nmore: خيارات\nmoreMenu: إعدادات المحطة\nswitchWorkspace: تبديل مساحة العمل\nlanguage: English\nlanguageAlt: العربية\nblueMode: الوضع الأزرق\nlightMode: الوضع الفاتح\nsignOut: تسجيل الخروج\nsignOutTitle: تسجيل الخروج؟\nsignOutBody: تنتهي جلستك على هذه المحطة. كل ما أُرسل محفوظ، وعلى الشخص التالي تسجيل الدخول.\nsignOutConfirm: تسجيل الخروج\nstation: المحطة {id}\nexitFullscreen: الخروج من وضع ملء الشاشة الإجباري\nquit: الخروج إلى سطح المكتب\nquitConfirm: ينهي الخروج الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز دون اتصال.",
+      "body": "today: اليوم\ncalendar: التقويم\ncustomers: الزبائن\nnewSeries: سلسلة جديدة\nblockCourt: إيقاف ملعب\ntill: الصندوق\nopenTabs: الفواتير المفتوحة\ncashDrawer: درج النقد\noverview: نظرة عامة\nbookings: الحجوزات\ntills: الصناديق\ndayClose: إغلاق اليوم\nmenu: المنيو\nrates: الأسعار\npromotions: العروض\nstock: المخزون\nreports: التقارير\naudit: سجل التدقيق\npanel: لوحة الإدارة\nanalytics: التحليلات\nstaff: الموظفون\nbranches: الفروع\ncourts: الملاعب\ntables: الطاولات ورموز QR\nsettings: إعدادات المكان\nguestSite: موقع الضيوف\nmenuPrices: أسعار المنيو\nonHand: المتوفر\ngoodsIn: استلام البضائع\nmoveStock: نقل المخزون\nwasteProduction: الهدر والتحضير\nexpiry: الصلاحية\nalerts: التنبيهات\nstockCount: جرد المخزون\ncountDifferences: فروقات الجرد\nmargins: الهوامش\ningredients: المكوّنات\nrecipes: الوصفات\nstockValue: قيمة المخزون\nshop: المتجر\nshopTill: البيع\nshopStock: مخزون المتجر\nshopReceive: استلام البضائع\nshopCounts: جرد المخزون\nshopWaste: الهدر\nshopProducts: المنتجات\nshopSuppliers: المورّدون\nfloorNow: الصالة الآن\nstaffActivity: نشاط الموظفين\nrequests: طلبات الموظفين\nmarketing: التسويق\ntelegram: تيليغرام\nassistant: المساعد\nmyTasks: مهامي\nprotocols: البروتوكولات\nsuggestions: الاقتراحات\ndeductions: الخصومات من الراتب\nincidents: الحوادث\nwages: الرواتب\nattendance: التأخير والانصراف المبكر\ncoaches: المدرّبون\ncoachPay: مستحقات المدرّبين\ntournaments: البطولات\nloyalty: الولاء\nbadge: بانتظارك: {count}\ngroupOperations: العمليات\ngroupRun: إدارة اليوم\ngroupRecords: السجلات\ngroupSetup: الإعداد\nbackTo: العودة إلى {workspace}\nmore: خيارات\nmoreMenu: إعدادات المحطة\nswitchWorkspace: تبديل مساحة العمل\nlanguage: English\nlanguageAlt: العربية\nblueMode: الوضع الأزرق\nlightMode: الوضع الفاتح\nsignOut: تسجيل الخروج\nsignOutTitle: تسجيل الخروج؟\nsignOutBody: تنتهي جلستك على هذه المحطة. كل ما أُرسل محفوظ، وعلى الشخص التالي تسجيل الدخول.\nsignOutConfirm: تسجيل الخروج\nstation: المحطة {id}\nexitFullscreen: الخروج من وضع ملء الشاشة الإجباري\nquit: الخروج إلى سطح المكتب",
       "route": null
     },
     {
@@ -20334,7 +20750,7 @@
       "ref": "label:ws.shell.nav",
       "lang": "en",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts)",
-      "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Till\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Tills\ndayClose: Day close\nmenu: Menu\nrates: Rates\npromotions: Promotions\nstock: Stock\nreports: Reports\naudit: Audit log\npanel: Management panel\nanalytics: Analytics\nstaff: Staff\nbranches: Branches\ncourts: Courts\ntables: Tables & QR\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\nonHand: On hand\ngoodsIn: Goods in\nmoveStock: Move stock\nwasteProduction: Waste & production\nexpiry: Expiry\nalerts: Alerts\nstockCount: Stock count\ncountDifferences: Count differences\nmargins: Margins\ningredients: Ingredients\nrecipes: Recipes\nstockValue: Stock value\nshop: Shop\nshopTill: Sell\nshopStock: Shop stock\nshopReceive: Goods in\nshopCounts: Stock count\nshopWaste: Waste\nshopProducts: Products\nshopSuppliers: Suppliers\nfloorNow: Floor now\nstaffActivity: Staff activity\nrequests: Requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\nmyTasks: My tasks\nprotocols: Protocols\nsuggestions: Suggestions\ndeductions: Pay deductions\nincidents: Incidents\nwages: Wages\nattendance: Late and early\ncoaches: Coaches\ncoachPay: Coach pay\ntournaments: Tournaments\nbadge: {count} waiting on you\ngroupOperations: Operations\ngroupRun: Run the day\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop\nquitConfirm: This ends service on this station. Orders stop and the venue sees it go offline.",
+      "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Till\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Tills\ndayClose: Day close\nmenu: Menu\nrates: Rates\npromotions: Promotions\nstock: Stock\nreports: Reports\naudit: Audit log\npanel: Management panel\nanalytics: Analytics\nstaff: Staff\nbranches: Branches\ncourts: Courts\ntables: Tables & QR\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\nonHand: On hand\ngoodsIn: Goods in\nmoveStock: Move stock\nwasteProduction: Waste & production\nexpiry: Expiry\nalerts: Alerts\nstockCount: Stock count\ncountDifferences: Count differences\nmargins: Margins\ningredients: Ingredients\nrecipes: Recipes\nstockValue: Stock value\nshop: Shop\nshopTill: Sell\nshopStock: Shop stock\nshopReceive: Goods in\nshopCounts: Stock count\nshopWaste: Waste\nshopProducts: Products\nshopSuppliers: Suppliers\nfloorNow: Floor now\nstaffActivity: Staff activity\nrequests: Requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\nmyTasks: My tasks\nprotocols: Protocols\nsuggestions: Suggestions\ndeductions: Pay deductions\nincidents: Incidents\nwages: Wages\nattendance: Late and early\ncoaches: Coaches\ncoachPay: Coach pay\ntournaments: Tournaments\nloyalty: Loyalty\nbadge: {count} waiting on you\ngroupOperations: Operations\ngroupRun: Run the day\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop\nquitConfirm: This ends service on this station. Orders stop and the venue sees it go offline.",
       "route": null
     },
     {
@@ -20342,7 +20758,7 @@
       "ref": "label:ws.shell.nav#2",
       "lang": "ar",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "quitInstallsUpdate: التحديث جاهز. يُثبَّت عند الخروج، ثم يُفتح التطبيق من جديد تلقائيًا.\nleavePin: الرقم السري للمدير\nleavePinHint: على مدير غيرك إدخال رقمه السري.\nleaveOwnerUnconfirmed: تعذّر التحقق من أنك المالك الآن، لذا يلزم الرقم السري لمدير.\nkitchenNoNav: شاشة المطبخ\nversion: الإصدار {version}\nupdateReady: التحديث جاهز\nrestartToUpdate: إعادة التشغيل للتحديث إلى {version}",
+      "body": "quitConfirm: ينهي الخروج الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز دون اتصال.\nquitInstallsUpdate: التحديث جاهز. يُثبَّت عند الخروج، ثم يُفتح التطبيق من جديد تلقائيًا.\nleavePin: الرقم السري للمدير\nleavePinHint: على مدير غيرك إدخال رقمه السري.\nleaveOwnerUnconfirmed: تعذّر التحقق من أنك المالك الآن، لذا يلزم الرقم السري لمدير.\nkitchenNoNav: شاشة المطبخ\nversion: الإصدار {version}\nupdateReady: التحديث جاهز\nrestartToUpdate: إعادة التشغيل للتحديث إلى {version}",
       "route": null
     },
     {
@@ -22215,6 +22631,14 @@
       "lang": "en",
       "title": "cron job tp_lesson_sweep",
       "body": "Runs select app.lesson_sweep();. Schedules seen in migrations, latest last: '* * * * *' (0286). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:cron:tp_loyalty_nightly",
+      "lang": "en",
+      "title": "cron job tp_loyalty_nightly",
+      "body": "Runs select app.loyalty_nightly();. Schedules seen in migrations, latest last: '15 0 * * *' (0306). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -25598,7 +26022,7 @@
       "ref": "doc:docs/design/assistant/pages.md#37",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
-      "body": "-only editor and \"Switch on\" beside a switched-off one, each a price or promo change on /protocols.\n- /admin/telegram — The \"Telegram\" settings with \"Set up\" and \"Sent messages\" tabs: connection health from the telegram-diagnose function, \"Send test message\" (app.telegram_send_test), the group chat id and message language saved as cafe settings, and the people who may press the bot's buttons set with app.set_telegram_staff.\n- /admin/settings — \"Venue settings\" in four tabs: Opening hours (app.set_opening_hours), Day & service (business-day start hour, waiter-call wait via app.set_waiter_call_cooldown, idle lock), Analytics (owner-only exclusions and engagement floor) and Venue details (name, phone, timezone through app.set_venue_details). Venue details also holds the online deposit and open-match panels (app.set_match_settings, owner only; the ticket price and the per-player limit apply to every branch). Venue details also holds the lessons panel (app.set_coaching_settings, owner only: lessons on or off, how lessons are paid (online only once the lessons terms are live), the coach's share, prices on the website and how many private lessons a coach may hold). A \"Tournaments\" panel holds the branch's one switch, \"Tournaments at this branch\" (owner, app.set_tournaments_enabled; off by default).\n- /admin/branches — The owner's \"Branches\" screen (multi-venue slice 4): every Touch location with its status (Preparing, Open, Closed); \"Open a new branch\" copies the setup of a chosen branch into a new one in Preparing (app.create_branch: courts, rates, hours, tables, menu, recipes, checklists and protocol templates, never promotions, stock or staff); the branch panel shows the checklist before opening (app.branch_readiness: a court with a rate, opening hours, a manager, a registered till, and warnings for the menu, Telegram and opening stock), \"Open to guests\" (app.open_branch) and \"Close branch\" (app.close_branch).\n- /admin/staff — The owner's \"Staff\" screen listing accounts",
+      "body": "-only editor and \"Switch on\" beside a switched-off one, each a price or promo change on /protocols.\n- /admin/loyalty — The owner's \"Loyalty\" setup (app.loyalty_admin): \"Loyalty is on\", what earns a point and what one is worth, expiry and the member QR step (app.set_loyalty_settings); tiers (app.upsert_loyalty_tier, app.delete_loyalty_tier) and rewards (app.upsert_loyalty_reward).\n- /admin/telegram — The \"Telegram\" settings with \"Set up\" and \"Sent messages\" tabs: connection health from the telegram-diagnose function, \"Send test message\" (app.telegram_send_test), the group chat id and message language saved as cafe settings, and the people who may press the bot's buttons set with app.set_telegram_staff.\n- /admin/settings — \"Venue settings\" in four tabs: Opening hours (app.set_opening_hours), Day & service (business-day start hour, waiter-call wait via app.set_waiter_call_cooldown, idle lock), Analytics (owner-only exclusions and engagement floor) and Venue details (name, phone, timezone through app.set_venue_details). Venue details also holds the online deposit and open-match panels (app.set_match_settings, owner only; the ticket price and the per-player limit apply to every branch). Venue details also holds the lessons panel (app.set_coaching_settings, owner only: lessons on or off, how lessons are paid (online only once the lessons terms are live), the coach's share, prices on the website and how many private lessons a coach may hold). A \"Tournaments\" panel holds the branch's one switch, \"Tournaments at this branch\" (owner, app.set_tournaments_enabled; off by default).\n- /admin/branches — The owner's \"Branches\" screen (multi-venue slice 4): every Touch location with its status (Preparing, Open, Closed); \"Open a new branch\" copies the setup of a chosen branch into a new one in Preparing (app.create_branch: courts, rates, hours, tables, menu, recipes, checklists and protocol templates, never promotions, stock or staff); the branch panel shows the checklist before open",
       "route": null
     },
     {
@@ -25606,7 +26030,7 @@
       "ref": "doc:docs/design/assistant/pages.md#38",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
-      "body": "with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a hiring run's add_staff step (?hire=) a banner names the picked candidate and the role (app.protocol_step_detail, app.protocol_run_detail, app.hiring_candidates), \"Add the new staff member\" opens the form filled in with the role fixed, and the new account is sent as the step through app.submit_step, which finishes the run; \"Manage\" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover), and the breaks panel's \"Save\" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Assistant barista, Head chef or Chef), and an account still on it shows a \"Retired\" badge and keeps working until it is moved.\n- /assistant — The owner assistant: a full page with the list of chats, the thread, the context checkboxes with their pack sizes, and the usage meter; \"Ask\" sends a question (billed), \"Stop\" ends a streaming answer, \"Run this job\" accepts an estimate, and every answer lists the tools it read with a link to the page that shows the same numbers.\n- /assistant/usage — What the assistant has cost: tokens by kind (input, cache write, cache read, output) and cost per day for the month, month-to-date against the cap, and the price table each model is billed from.",
+      "body": "ing (app.branch_readiness: a court with a rate, opening hours, a manager, a registered till, and warnings for the menu, Telegram and opening stock), \"Open to guests\" (app.open_branch) and \"Close branch\" (app.close_branch).\n- /admin/staff — The owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a hiring run's add_staff step (?hire=) a banner names the picked candidate and the role (app.protocol_step_detail, app.protocol_run_detail, app.hiring_candidates), \"Add the new staff member\" opens the form filled in with the role fixed, and the new account is sent as the step through app.submit_step, which finishes the run; \"Manage\" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover), and the breaks panel's \"Save\" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Assistant barista, Head chef or Chef), and an account still on it shows a \"Retired\" badge and keeps working until it is moved.\n- /assistant — The owner assistant: a full page with the list of chats, the thread, the context checkboxes with their pack sizes, and the usage meter; \"Ask\" sends a question (billed), \"Stop\" ends a streaming answer, \"Run this job\" accepts an estimate, and every answer lists the tools it read with a link to the page that shows the same numbers.\n- /assistant/usage — What the assistant has cost: tokens by kind (input, cache write, cache read, output) and cost per day for the month, month-to-date against the cap, and the price table each model is billed from.",
       "route": null
     },
     {

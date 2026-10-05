@@ -84,6 +84,36 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_merges: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          drop_id: string
+          id: string
+          keep_id: string
+          moved: Json
+          reason: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          drop_id: string
+          id?: string
+          keep_id: string
+          moved?: Json
+          reason: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          drop_id?: string
+          id?: string
+          keep_id?: string
+          moved?: Json
+          reason?: string
+        }
+        Relationships: []
+      }
       rpc_replays: {
         Row: {
           at: string
@@ -710,6 +740,7 @@ export type Database = {
       avatar_upload_room: { Args: never; Returns: boolean }
       b64url_decode: { Args: { p: string }; Returns: string }
       b64url_encode: { Args: { p: string }; Returns: string }
+      base32_encode: { Args: { p_bytes: string }; Returns: string }
       block_courts_for_event: {
         Args: { p_blocks: Json; p_idempotency_key?: string; p_run_id: string }
         Returns: Json
@@ -1427,6 +1458,7 @@ export type Database = {
       default_venue: { Args: never; Returns: string }
       delete_court: { Args: { p_id: string }; Returns: Json }
       delete_hiring_candidate: { Args: { p_id: string }; Returns: undefined }
+      delete_loyalty_tier: { Args: { p_tier_id: string }; Returns: undefined }
       delete_my_account: { Args: { p_confirm?: string }; Returns: Json }
       deposit_amount: {
         Args: { p_price_iqd: number; p_venue_id: string }
@@ -1691,6 +1723,15 @@ export type Database = {
         Returns: Json
       }
       discard_count: { Args: { p_count_id: string }; Returns: Json }
+      duplicate_account_groups: { Args: never; Returns: Json }
+      duplicate_groups_internal: {
+        Args: never
+        Returns: {
+          key: string
+          kind: string
+          profile_id: string
+        }[]
+      }
       edit_customer_note: {
         Args: { p_body: string; p_note_id: string }
         Returns: Json
@@ -2294,6 +2335,7 @@ export type Database = {
       }
       lesson_typed_purge: { Args: { p_limit?: number }; Returns: number }
       like_escape: { Args: { p_text: string }; Returns: string }
+      link_guest_session: { Args: { p_member_token: string }; Returns: Json }
       link_item_modifier_group: {
         Args: {
           p_group_id: string
@@ -2383,6 +2425,72 @@ export type Database = {
         Returns: Json
       }
       looks_like_card: { Args: { p_text: string }; Returns: boolean }
+      loyalty_adjust: {
+        Args: { p_delta: number; p_profile_id: string; p_reason: string }
+        Returns: Json
+      }
+      loyalty_admin: { Args: never; Returns: Json }
+      loyalty_card_ensure: {
+        Args: { p_profile: string }
+        Returns: Database["public"]["Tables"]["loyalty_cards"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "loyalty_cards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      loyalty_customer: { Args: { p_profile_id: string }; Returns: Json }
+      loyalty_display_name: { Args: { p_profile: string }; Returns: string }
+      loyalty_history: {
+        Args: { p_limit: number; p_profile: string }
+        Returns: Json
+      }
+      loyalty_identify: {
+        Args: { p_code: string; p_venue_id: string }
+        Returns: Json
+      }
+      loyalty_me: { Args: never; Returns: string }
+      loyalty_member_code: { Args: never; Returns: string }
+      loyalty_multiplier: { Args: { p_profile: string }; Returns: number }
+      loyalty_nightly: { Args: never; Returns: Json }
+      loyalty_phone_masked: { Args: { p_phone: string }; Returns: string }
+      loyalty_points_for: {
+        Args: {
+          p_cafe: boolean
+          p_court: number
+          p_court_on: boolean
+          p_iqd_per_pt: number
+          p_kind: string
+          p_lesson: boolean
+          p_multiplier: number
+          p_paid: number
+          p_shop: boolean
+          p_tournament: boolean
+        }
+        Returns: number
+      }
+      loyalty_public: { Args: never; Returns: Json }
+      loyalty_recompute: { Args: { p_profile: string }; Returns: undefined }
+      loyalty_redeem: {
+        Args: {
+          p_idempotency_key: string
+          p_points: number
+          p_reward_id: string
+          p_tab_id: string
+        }
+        Returns: Json
+      }
+      loyalty_retier: { Args: never; Returns: undefined }
+      loyalty_settings_json: { Args: never; Returns: Json }
+      loyalty_tier_json: { Args: { p_tier: string }; Returns: Json }
+      loyalty_till_terms: { Args: { p_venue_id: string }; Returns: Json }
+      loyalty_token_profile: { Args: { p_token: string }; Returns: string }
+      loyalty_totp: {
+        Args: { p_counter: number; p_secret: string }
+        Returns: string
+      }
+      loyalty_unredeem: { Args: { p_adjustment_id: string }; Returns: Json }
       mark_checklist_item: {
         Args: {
           p_done: boolean
@@ -2747,6 +2855,15 @@ export type Database = {
           orderable: boolean
         }[]
       }
+      merge_accounts: {
+        Args: { p_drop: string; p_keep: string; p_reason: string }
+        Returns: Json
+      }
+      merge_duplicates_internal: { Args: never; Returns: Json }
+      merge_profiles_internal: {
+        Args: { p_drop: string; p_keep: string; p_reason: string }
+        Returns: Json
+      }
       merge_tabs: {
         Args: { p_donor_tab_id: string; p_survivor_tab_id: string }
         Returns: Json
@@ -2779,6 +2896,7 @@ export type Database = {
       }
       my_lesson: { Args: { p_enrolment_id: string }; Returns: Json }
       my_lessons: { Args: { p_scope?: string }; Returns: Json }
+      my_loyalty: { Args: never; Returns: Json }
       my_marketing_notes: {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
@@ -2789,6 +2907,7 @@ export type Database = {
       }
       my_match_blocks: { Args: never; Returns: Json }
       my_matches: { Args: { p_scope?: string }; Returns: Json }
+      my_member_card: { Args: never; Returns: Json }
       my_order_slips: { Args: { p_venue_id?: string }; Returns: Json }
       my_protocol_work: { Args: { p_venue_id?: string }; Returns: Json }
       my_purchases: {
@@ -3053,6 +3172,17 @@ export type Database = {
       }
       production_log_today: { Args: { p_venue_id?: string }; Returns: Json }
       production_today: { Args: { p_venue_id?: string }; Returns: Json }
+      profile_activity: { Args: { p_profile: string }; Returns: number }
+      profile_merge_columns: {
+        Args: never
+        Returns: {
+          col: string
+          how: string
+          ord: number
+          sch: string
+          tbl: string
+        }[]
+      }
       promotion_amount_iqd: {
         Args: { p_base: number; p_type: string; p_value: number }
         Returns: number
@@ -3745,6 +3875,7 @@ export type Database = {
         Returns: Json
       }
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: number }
+      rotate_member_card: { Args: never; Returns: Json }
       rotate_table_token: { Args: { p_table_id: string }; Returns: number }
       rotate_table_token_secret: { Args: never; Returns: Json }
       row_venue: { Args: { p_id: string; p_table: string }; Returns: string }
@@ -3992,6 +4123,7 @@ export type Database = {
         Args: { p_item_id: string; p_sold_out: boolean }
         Returns: undefined
       }
+      set_loyalty_settings: { Args: { p_patch: Json }; Returns: Json }
       set_match_ban: {
         Args: { p_banned: boolean; p_customer_id: string; p_reason: string }
         Returns: Json
@@ -4085,6 +4217,10 @@ export type Database = {
       }
       set_station_staff: {
         Args: { p_staff_id: string; p_station_ids: string[] }
+        Returns: Json
+      }
+      set_tab_customer: {
+        Args: { p_customer_id: string; p_tab_id: string }
         Returns: Json
       }
       set_table_bell: {
@@ -4414,6 +4550,7 @@ export type Database = {
       }
       sweep_degraded_period: { Args: { p_venue: string }; Returns: undefined }
       sweep_degraded_periods: { Args: never; Returns: undefined }
+      tab_customer: { Args: { p_tab_id: string }; Returns: string }
       tab_is_callers: { Args: { p_tab_id: string }; Returns: boolean }
       tab_net_paid: { Args: { p_tab_id: string }; Returns: number }
       table_branch: { Args: { p_token: string }; Returns: string }
@@ -4774,6 +4911,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      upsert_loyalty_reward: { Args: { p_reward: Json }; Returns: Json }
+      upsert_loyalty_tier: { Args: { p_tier: Json }; Returns: Json }
       upsert_menu_category: {
         Args: {
           p_id?: string
@@ -8464,6 +8603,315 @@ export type Database = {
         }
         Relationships: []
       }
+      loyalty_accounts: {
+        Row: {
+          balance: number
+          last_activity_at: string | null
+          lifetime_earned: number
+          points_12m: number
+          profile_id: string
+          tier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          last_activity_at?: string | null
+          lifetime_earned?: number
+          points_12m?: number
+          profile_id: string
+          tier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          last_activity_at?: string | null
+          lifetime_earned?: number
+          points_12m?: number
+          profile_id?: string
+          tier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_accounts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_accounts_tier_id_fkey"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_cards: {
+        Row: {
+          created_at: string
+          member_code: string
+          profile_id: string
+          rotated_at: string | null
+          secret: string
+        }
+        Insert: {
+          created_at?: string
+          member_code: string
+          profile_id: string
+          rotated_at?: string | null
+          secret: string
+        }
+        Update: {
+          created_at?: string
+          member_code?: string
+          profile_id?: string
+          rotated_at?: string | null
+          secret?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_cards_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_ledger: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          delta: number
+          id: string
+          kind: string
+          note: string | null
+          profile_id: string
+          source_id: string
+          source_kind: string
+          tab_id: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          delta: number
+          id?: string
+          kind: string
+          note?: string | null
+          profile_id: string
+          source_id: string
+          source_kind: string
+          tab_id?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          delta?: number
+          id?: string
+          kind?: string
+          note?: string | null
+          profile_id?: string
+          source_id?: string
+          source_kind?: string
+          tab_id?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_ledger_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_ledger_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_ledger_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_rewards: {
+        Row: {
+          active: boolean
+          cost_points: number
+          created_at: string
+          id: string
+          iqd_off: number | null
+          kind: string
+          menu_variant_id: string | null
+          name_ar: string
+          name_en: string
+          venue_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          cost_points: number
+          created_at?: string
+          id?: string
+          iqd_off?: number | null
+          kind: string
+          menu_variant_id?: string | null
+          name_ar: string
+          name_en: string
+          venue_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          cost_points?: number
+          created_at?: string
+          id?: string
+          iqd_off?: number | null
+          kind?: string
+          menu_variant_id?: string | null
+          name_ar?: string
+          name_en?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_rewards_menu_variant_id_fkey"
+            columns: ["menu_variant_id"]
+            isOneToOne: false
+            referencedRelation: "menu_item_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_rewards_menu_variant_id_fkey"
+            columns: ["menu_variant_id"]
+            isOneToOne: false
+            referencedRelation: "v_item_cogs"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "loyalty_rewards_menu_variant_id_fkey"
+            columns: ["menu_variant_id"]
+            isOneToOne: false
+            referencedRelation: "v_item_margin"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "loyalty_rewards_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_settings: {
+        Row: {
+          earn_cafe: boolean
+          earn_court: boolean
+          earn_lesson: boolean
+          earn_shop: boolean
+          earn_tournament: boolean
+          enabled: boolean
+          id: boolean
+          inactivity_expiry_months: number | null
+          iqd_per_point: number
+          min_redeem_points: number
+          point_value_iqd: number
+          totp_step_seconds: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          earn_cafe?: boolean
+          earn_court?: boolean
+          earn_lesson?: boolean
+          earn_shop?: boolean
+          earn_tournament?: boolean
+          enabled?: boolean
+          id?: boolean
+          inactivity_expiry_months?: number | null
+          iqd_per_point?: number
+          min_redeem_points?: number
+          point_value_iqd?: number
+          totp_step_seconds?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          earn_cafe?: boolean
+          earn_court?: boolean
+          earn_lesson?: boolean
+          earn_shop?: boolean
+          earn_tournament?: boolean
+          enabled?: boolean
+          id?: boolean
+          inactivity_expiry_months?: number | null
+          iqd_per_point?: number
+          min_redeem_points?: number
+          point_value_iqd?: number
+          totp_step_seconds?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_tiers: {
+        Row: {
+          created_at: string
+          earn_multiplier: number
+          id: string
+          min_points_12m: number
+          name_ar: string
+          name_en: string
+          promotion_id: string | null
+          sort: number
+        }
+        Insert: {
+          created_at?: string
+          earn_multiplier?: number
+          id?: string
+          min_points_12m: number
+          name_ar: string
+          name_en: string
+          promotion_id?: string | null
+          sort: number
+        }
+        Update: {
+          created_at?: string
+          earn_multiplier?: number
+          id?: string
+          min_points_12m?: number
+          name_ar?: string
+          name_en?: string
+          promotion_id?: string | null
+          sort?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_tiers_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manager_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -10930,6 +11378,7 @@ export type Database = {
           id: string
           payment_sandbox: boolean
           phone: string | null
+          phone_key: string | null
           preferred_lang: string
           terms_accepted_at: string | null
           terms_version: string | null
@@ -10949,6 +11398,7 @@ export type Database = {
           id: string
           payment_sandbox?: boolean
           phone?: string | null
+          phone_key?: string | null
           preferred_lang?: string
           terms_accepted_at?: string | null
           terms_version?: string | null
@@ -10968,6 +11418,7 @@ export type Database = {
           id?: string
           payment_sandbox?: boolean
           phone?: string | null
+          phone_key?: string | null
           preferred_lang?: string
           terms_accepted_at?: string | null
           terms_version?: string | null
@@ -14144,6 +14595,7 @@ export type Database = {
         Row: {
           court_cap_iqd: number | null
           court_iqd: number
+          customer_id: string | null
           day_session_id: string
           device_id: string | null
           discount_iqd: number | null
@@ -14169,6 +14621,7 @@ export type Database = {
         Insert: {
           court_cap_iqd?: number | null
           court_iqd?: number
+          customer_id?: string | null
           day_session_id: string
           device_id?: string | null
           discount_iqd?: number | null
@@ -14194,6 +14647,7 @@ export type Database = {
         Update: {
           court_cap_iqd?: number | null
           court_iqd?: number
+          customer_id?: string | null
           day_session_id?: string
           device_id?: string | null
           discount_iqd?: number | null
@@ -14217,6 +14671,13 @@ export type Database = {
           venue_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tabs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tabs_day_session_id_fkey"
             columns: ["day_session_id"]

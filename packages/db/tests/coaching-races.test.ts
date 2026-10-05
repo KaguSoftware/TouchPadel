@@ -76,7 +76,7 @@ on conflict do nothing;
 insert into auth.users (id, email, raw_user_meta_data, aud, role)
 values ('${f.prof}', 'c291-race-${f.prof}@test.touch.local', '{"full_name": "Race"}'::jsonb, 'authenticated',
         'authenticated');
-update profiles set phone = '+9647700000000', terms_version = '2026-09-23' where id = '${f.prof}';
+update profiles set phone = '+9647' || lpad((floor(random() * 1e9))::bigint::text, 9, '0'), terms_version = '2026-09-23' where id = '${f.prof}';
 insert into coaches (id, profile_id, display_name_en, display_name_ar, public_accepted_at)
 values ('${f.coach}', '${f.prof}', 'Race', 'سباق', now());
 insert into coach_branches (coach_id, venue_id, active) values ('${f.coach}', '${f.venue}', true);
@@ -382,7 +382,7 @@ on conflict do nothing;
 insert into auth.users (id, email, raw_user_meta_data, aud, role)
 select x, 'ctg03-' || x || '@test.touch.local', '{"full_name": "Race"}'::jsonb, 'authenticated', 'authenticated'
   from unnest(array[${users}]::uuid[]) x;
-update profiles set phone = '+9647700000000', terms_version = '2026-09-23' where id = any (array[${users}]::uuid[]);
+update profiles set phone = '+9647' || lpad((floor(random() * 1e9))::bigint::text, 9, '0'), terms_version = '2026-09-23' where id = any (array[${users}]::uuid[]);
 insert into coaches (id, profile_id, display_name_en, display_name_ar, public_accepted_at)
 values ('${w.coachA}', '${w.profA}', 'TG03 A', 'المدرّب أ', now()), ('${w.coachB}', '${w.profB}', 'TG03 B', 'المدرّب ب', now());
 insert into coach_branches (coach_id, venue_id, active)

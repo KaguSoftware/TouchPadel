@@ -11,6 +11,8 @@ export interface CatalogTrigger {
   tbl: string;
   /** The trigger function's name (schema app). */
   fn: string;
+  /** A constraint trigger INITIALLY DEFERRED (pg_trigger.tginitdeferred): walked at commit. */
+  deferred?: boolean;
 }
 export type LockEvent = { lock: string } | { call: string } | { write: string };
 
@@ -26,8 +28,8 @@ export interface Walker {
   byName: Map<string, string>;
   trgByTable: Map<string, string[]>;
   events(src: string): LockEvent[];
-  sequence(name: string, stack?: string[]): string[];
-  timeline(name: string, stack?: string[]): ({ lock: string } | { balanceWrite: string })[];
+  sequence(name: string, stack?: string[], tail?: string[] | null): string[];
+  timeline(name: string, stack?: string[], tail?: string[] | null): ({ lock: string } | { balanceWrite: string })[];
 }
 
 export function createWalker(catalog: { fns: CatalogFunction[]; triggers: CatalogTrigger[] }): Walker;

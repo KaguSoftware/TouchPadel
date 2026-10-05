@@ -258,7 +258,7 @@ is a line in that file.
   (`WEB_OVERRIDES`, `MOBILE_OVERRIDES`).
 - No WHERE-less write (`scripts/check-safe-update.mjs`). `app.lock_court` (0042) before any
   reservation write. Lock order
-  `day_sessions → match_money_advisory → coach_advisory → tabs → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → venues → reservations → match_venue_advisory → match_tickets`
+  `day_sessions → match_money_advisory → coach_advisory → tabs → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → venues → reservations → match_venue_advisory → match_tickets → loyalty_accounts`
   (`coach_advisory` since coaching, `app.lock_coach`, once per sequence; a `FOR UPDATE … SKIP
   LOCKED` on reservations never waits and is not ranked, like `pg_try_advisory_xact_lock`;
   `venues` since 0291: a lesson body's branch row FOR KEY SHARE, once per sequence, the one share

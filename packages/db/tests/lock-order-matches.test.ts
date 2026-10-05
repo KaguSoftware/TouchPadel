@@ -33,6 +33,8 @@ const DECLARED = [
   'day_sessions', 'match_money_advisory', 'coach_advisory', 'tabs', 'orders', 'order_items', 'tickets', 'payments',
   'till_shifts', 'refunds', 'stock_batches', 'court_advisory', 'venues', 'reservations', 'match_venue_advisory',
   'match_tickets',
+  // Loyalty (0305): a member's cached balance, last; the earn and clawback triggers are deferred.
+  'loyalty_accounts',
 ];
 
 // ── synthetic bodies, shaped like the real ones ─────────────────────────────
@@ -292,7 +294,8 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
     // Money's writers (money.md §8): Take share and Assign reach the till's tabs
     // under the money lock; the write-off reads the match under match_lock.
     for (const fn of ['match_seat_settle', 'match_link_payment']) {
-      expect(rowOf(gate.out, fn), fn).toBe('match_money_advisory -> tabs');
+      // Loyalty (0305): the settled tab's deferred earn trigger ends the sequence, at commit.
+      expect(rowOf(gate.out, fn), fn).toBe('match_money_advisory -> tabs -> loyalty_accounts');
     }
     // Since 0263 the stale-hold expiry under match_lock expands the reservation trigger.
     expect(rowOf(gate.out, 'match_seat_write_off'))

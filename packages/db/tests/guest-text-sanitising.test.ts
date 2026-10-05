@@ -26,6 +26,7 @@ import {
   createTestCourt,
   ensureTestRateRule,
   futureSlot,
+  uniqueTestPhone,
   SEED_STAFF,
 } from './helpers';
 
@@ -117,9 +118,11 @@ describe.skipIf(!up)('0080 guest text sanitising (SEC-27)', () => {
       const guest = await guestClient(svc, 'phone');
       const uid = (await guest.auth.getUser()).data.user!.id;
 
-      await guest.from('profiles').update({ phone: `+964${RLM}770${ZWSP}0000000` }).eq('id', uid);
+      // A number of its own: a live profile phone is unique since 0303.
+      const phone = uniqueTestPhone();
+      await guest.from('profiles').update({ phone: `+964${RLM}${phone.slice(4, 7)}${ZWSP}${phone.slice(7)}` }).eq('id', uid);
       let { data } = await svc.from('profiles').select('phone').eq('id', uid).single();
-      expect((data as { phone: string }).phone).toBe('+9647700000000');
+      expect((data as { phone: string }).phone).toBe(phone);
 
       await guest.from('profiles').update({ phone: null }).eq('id', uid);
       ({ data } = await svc.from('profiles').select('phone').eq('id', uid).single());

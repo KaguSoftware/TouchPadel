@@ -55,6 +55,7 @@ import {
   ensureOpenDay,
   ensureTillFresh,
   futureSlot,
+  uniqueTestPhone,
   VENUE_A_ID,
 } from './helpers';
 
@@ -711,7 +712,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
         email: `courts-ret-${tag}-${n}@test.touch.local`,
         password: DEV_PASSWORD,
         email_confirm: true,
-        user_metadata: { full_name: `Courts Returning ${n}`, phone: '+9647700000000' },
+        user_metadata: { full_name: `Courts Returning ${n}`, phone: uniqueTestPhone() },
       });
       if (error || !data.user) throw new Error(`createUser failed: ${error?.message}`);
       return data.user.id;

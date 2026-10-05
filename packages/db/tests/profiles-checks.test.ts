@@ -11,7 +11,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { guestClient, serviceClient, stackAvailable } from './helpers';
+import { guestClient, serviceClient, stackAvailable, uniqueTestPhone } from './helpers';
 
 const up = await stackAvailable();
 
@@ -39,7 +39,10 @@ describe.skipIf(!up)('0116/0121 profile CHECKs and the service role', () => {
   });
 
   it('the service role sets a well-formed phone and clears the token', async () => {
-    const upd = await svc.from('profiles').update({ phone: '+964 770 000 0042', expo_push_token: null }).eq('id', uid);
+    // Spaced like a typed number; fresh digits, since 0304 a live profile's phone is unique.
+    const p = uniqueTestPhone();
+    const spaced = `${p.slice(0, 4)} ${p.slice(4, 7)} ${p.slice(7, 10)} ${p.slice(10)}`;
+    const upd = await svc.from('profiles').update({ phone: spaced, expo_push_token: null }).eq('id', uid);
     expect(upd.error).toBeNull();
   });
 

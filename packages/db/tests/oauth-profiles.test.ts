@@ -29,6 +29,7 @@ import {
   ensureTestRateRule,
   futureSlot,
   outcome,
+  uniqueTestPhone,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -148,17 +149,19 @@ describe.skipIf(!up)('0058/0059 OAuth-shaped sign-ups -> profiles bootstrap + ph
       user_metadata: { is_private_email: true },
     });
 
-    // Own row: the complete-profile step the app runs after an Apple sign-in.
+    // Own row: the complete-profile step the app runs after an Apple sign-in. A fresh number:
+    // since 0304 a live profile's phone is unique, so a fixed one fails on a re-run.
+    const ownPhone = uniqueTestPhone();
     const own = await me.client
       .from('profiles')
-      .update({ full_name: 'Real Name', phone: '+9647700000001', preferred_lang: 'ar' })
+      .update({ full_name: 'Real Name', phone: ownPhone, preferred_lang: 'ar' })
       .eq('id', me.id)
       .select('id');
     expect(own.error).toBeNull();
     expect(own.data).toHaveLength(1);
     expect(await profileOf(me.id)).toEqual({
       full_name: 'Real Name',
-      phone: '+9647700000001',
+      phone: ownPhone,
       preferred_lang: 'ar',
     });
 
@@ -166,7 +169,7 @@ describe.skipIf(!up)('0058/0059 OAuth-shaped sign-ups -> profiles bootstrap + ph
     const before = await profileOf(other.id);
     const theirs = await me.client
       .from('profiles')
-      .update({ full_name: 'Hijacked', phone: '+9647700000002', preferred_lang: 'ar' })
+      .update({ full_name: 'Hijacked', phone: uniqueTestPhone(), preferred_lang: 'ar' })
       .eq('id', other.id)
       .select('id');
     expect(theirs.error).toBeNull();
@@ -217,7 +220,7 @@ describe.skipIf(!up)('0058/0059 OAuth-shaped sign-ups -> profiles bootstrap + ph
     // The guest completes the profile and confirms.
     const fix = await a.client
       .from('profiles')
-      .update({ full_name: 'Phone Rule Guest', phone: '+9647700000003' })
+      .update({ full_name: 'Phone Rule Guest', phone: uniqueTestPhone() }) // unique per live profile since 0304
       .eq('id', a.id);
     expect(fix.error).toBeNull();
 

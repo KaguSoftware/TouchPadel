@@ -858,7 +858,7 @@ const BODY_291: string[] = [
 
   // ── DB-10: a staff member coaching where they are not staff, over lapsed holds there ──
   X(
-    `update profiles set phone = '+9647700000000', terms_version = '2026-09-23' where id = {{desk}}::uuid`,
+    `update profiles set phone = '+9647' || lpad((floor(random() * 1e9))::bigint::text, 9, '0'), terms_version = '2026-09-23' where id = {{desk}}::uuid`,
   ),
   `select pg_temp.coach('cd', 'desk', 'x');`,
   `select pg_temp.teach('cd', 'lt_px');`,

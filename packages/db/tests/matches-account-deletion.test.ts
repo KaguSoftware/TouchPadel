@@ -60,8 +60,9 @@ describe.skipIf(!docker)('0264 delete_my_account as the stack holds it', () => {
   it('takes no match, court or ticket lock it could wait on (R25), and refunds last', () => {
     // pg_get_functiondef prints its own $function$ tag, so the comment names the file.
     // 0289 (lesson_account_deletion) re-issued it from 0264's body, coaching scrubs added; 0290
-    // (coaching_admin_fixes, DB-03) re-issued it again with the coach rows locked.
-    expect(psql(`select obj_description('app.delete_my_account(text)'::regprocedure, 'pg_proc')`)).toMatch(/^0290 \(DB-03\), 0289, from 0264 /);
+    // (coaching_admin_fixes, DB-03) re-issued it again with the coach rows locked; 0306
+    // (loyalty_promotions) re-issued 0290's body with the member card and points cache deleted.
+    expect(psql(`select obj_description('app.delete_my_account(text)'::regprocedure, 'pg_proc')`)).toMatch(/^Loyalty 0306, 0290 \(DB-03\), 0289, from 0264 /);
     const def = psql(`select pg_get_functiondef('app.delete_my_account(text)'::regprocedure)`);
     for (const lock of ['lock_match_venue', 'lock_match_money', 'match_lock', 'lock_court', 'pg_advisory', 'lock_coach(']) {
       expect(def.toLowerCase(), lock).not.toContain(lock);

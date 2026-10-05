@@ -125,6 +125,14 @@ export async function anonymousSessionClient() {
   return c;
 }
 
+/**
+ * A phone for a throwaway account: +9647 and nine random digits. Since 0303 a
+ * live profile phone is unique, so fixtures must not share one number.
+ */
+export function uniqueTestPhone(): string {
+  return `+9647${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
+}
+
 let guestCounter = 0;
 /** Creates (idempotently) and signs in a throwaway guest account. */
 export async function guestClient(svc: SupabaseClient, tag: string) {
@@ -133,7 +141,7 @@ export async function guestClient(svc: SupabaseClient, tag: string) {
     email,
     password: DEV_PASSWORD,
     email_confirm: true,
-    user_metadata: { full_name: `Test Guest ${tag}`, phone: '+9647700000000' }, // phone: required to confirm since 0059
+    user_metadata: { full_name: `Test Guest ${tag}`, phone: uniqueTestPhone() }, // phone: required to confirm since 0059
   });
   if (error) throw new Error(`createUser failed: ${error.message}`);
   return signedInClient(email);

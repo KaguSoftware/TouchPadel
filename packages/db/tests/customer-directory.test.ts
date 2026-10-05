@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { stackAvailable, serviceClient, signedInClient, guestClient, appRpc, SEED_STAFF, DEV_PASSWORD } from './helpers';
+import { stackAvailable, serviceClient, signedInClient, guestClient, appRpc, SEED_STAFF, DEV_PASSWORD, uniqueTestPhone } from './helpers';
 
 const up = await stackAvailable();
 
@@ -41,7 +41,7 @@ describe.skipIf(!up)('0148 customer_directory', () => {
       email: `${tag}-${users.length}@test.touch.local`,
       password: DEV_PASSWORD,
       email_confirm: true,
-      user_metadata: { full_name: fullName, phone: '+9647701112233' },
+      user_metadata: { full_name: fullName, phone: uniqueTestPhone() },
     });
     if (error || !data.user) throw new Error(`createUser failed: ${error?.message}`);
     users.push(data.user.id);

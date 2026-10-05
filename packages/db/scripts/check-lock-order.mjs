@@ -69,7 +69,7 @@ const fns = JSON.parse(
 );
 
 const triggers = JSON.parse(
-  psql(`select coalesce(json_agg(json_build_object('tbl', c.relname, 'fn', p.proname)), '[]')
+  psql(`select coalesce(json_agg(json_build_object('tbl', c.relname, 'fn', p.proname, 'deferred', t.tginitdeferred)), '[]')
           from pg_trigger t
           join pg_class c on c.oid = t.tgrelid
           join pg_proc p on p.oid = t.tgfoid

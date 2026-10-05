@@ -125,8 +125,9 @@ describe.skipIf(!docker)('check:locks over the local stack (tournaments)', () =>
     expect(rowOf(walked, 'tournament_cancel')).toBe(RELEASE);
     expect(rowOf(walked, 'tournament_score')).toBe(RELEASE);
     expect(rowOf(walked, 'tournament_sweep')).toBe(RELEASE);
-    // settle: the till only (day_sessions share and the tournament/entry rows are unranked).
-    expect(rowOf(walked, 'tournament_settle')).toBe('tabs');
+    // settle: the till only (day_sessions share and the tournament/entry rows are unranked), then,
+    // at commit, the deferred loyalty earn trigger on the settled tab (0305).
+    expect(rowOf(walked, 'tournament_settle')).toBe('tabs -> loyalty_accounts');
     // block_courts_for_event keeps 0174's order.
     expect(rowOf(walked, 'block_courts_for_event')).toBe(
       'court_advisory -> reservations -> match_venue_advisory -> match_tickets',

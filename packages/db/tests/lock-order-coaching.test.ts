@@ -417,7 +417,9 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     const gate = runGate([]);
     expect(gate.code, gate.out).toBe(0);
     const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
-    expect(rowOf(walkedRows, 'lesson_settle')).toBe('coach_advisory -> tabs');
+    // Loyalty (0305): settling the lesson's tab fires the deferred earn trigger, walked at commit
+    // (after every lock the body took), so loyalty_accounts, ranked last, ends the sequence.
+    expect(rowOf(walkedRows, 'lesson_settle')).toBe('coach_advisory -> tabs -> loyalty_accounts');
     expect(rowOf(walkedRows, 'refund')?.startsWith('coach_advisory -> tabs -> payments')).toBe(
       true,
     );
