@@ -12,6 +12,7 @@ import { clearAllCaches } from '../../lib/queryClient';
 import { clearAllLessonIntentKeys, clearAllMatchIntentKeys } from '../../lib/idempotency';
 import { clearPendingJoin } from '../matches/pendingJoin';
 import { clearPendingLesson } from '../coaching/pendingLesson';
+import { forgetMemberCard } from '../loyalty/cardStore';
 import { clearTicketContinuation } from '../matches/continuation';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
 import { clearStaffHint } from '../staff/hint';
@@ -93,6 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Coaching (guest.md §4.9.5): a signed-out lesson intent belongs to the
         // account that left too.
         clearPendingLesson();
+        // Loyalty (plan §5.1): the member card's offline copy holds the account's TOTP
+        // secret; the next account on this phone must not keep it in the keychain.
+        void forgetMemberCard();
       }
     });
     return () => {

@@ -20,6 +20,7 @@ import {
   sanitizeOtpInput,
   type LinkReturnTo,
 } from '../src/features/auth/phoneOtp';
+import { phoneTakenKey } from '../src/features/loyalty/errors';
 import { useAuth } from '../src/features/auth/context';
 import { markRecoverySession } from '../src/features/auth/recovery';
 import { RequireSession } from '../src/features/auth/RequireSession';
@@ -174,7 +175,9 @@ function VerifyOtpForm({
     } catch (err) {
       submitted.current = false;
       setCode('');
-      setError(t(mapOtpError(err)));
+      // Link mode writes profiles.phone after the code: PHONE_TAKEN (loyalty L-3) means another
+      // live account holds the number, and reads the catalogue's line, not a code failure.
+      setError(t(phoneTakenKey(err) ?? mapOtpError(err)));
     } finally {
       setBusy(false);
     }

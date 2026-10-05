@@ -40,7 +40,8 @@ import {
   validatePhone,
 } from '../src/features/profile/phone';
 import { startPhoneLink } from '../src/features/auth/api';
-import { mapOtpError, phoneOtpEnabled } from '../src/features/auth/phoneOtp';
+import { isPhoneTaken, mapOtpError, phoneOtpEnabled } from '../src/features/auth/phoneOtp';
+import { phoneTakenKey } from '../src/features/loyalty/errors';
 import { supabase } from '../src/lib/supabase';
 import { useToast } from '../src/components/overlays';
 import { passwordProofOf } from '../src/features/profile/changePasswordFlow';
@@ -658,7 +659,12 @@ function PhoneForm() {
             toast(t('profile.updated'));
             back();
           },
-          onError: (err) => setError(t(mapErrorToKey(err))),
+          onError: (err) => {
+            // PHONE_TAKEN (loyalty L-3): another live account holds the number; said at the field.
+            const taken = phoneTakenKey(err);
+            if (taken) setPhoneError(t(taken));
+            else setError(t(mapErrorToKey(err)));
+          },
         },
       );
       return;
@@ -672,7 +678,9 @@ function PhoneForm() {
         await startPhoneLink(supabase, phone);
         router.push({ pathname: '/verify-otp', params: { phone, mode: 'link', from: 'edit' } });
       } catch (err) {
-        setError(t(phoneOtpEnabled() ? mapOtpError(err) : mapErrorToKey(err)));
+        // GoTrue's phone_exists: another sign-in already owns the number (as phone-sign-in.tsx).
+        if (isPhoneTaken(err)) setPhoneError(t('auth.phoneLinkTaken'));
+        else setError(t(phoneOtpEnabled() ? mapOtpError(err) : mapErrorToKey(err)));
       } finally {
         setSendingCode(false);
       }

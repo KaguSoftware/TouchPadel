@@ -188,6 +188,10 @@ export const TableIcon = (p: IconProps) => (
 export const SwapIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 8h14l-3.5-3.5M20 16H6l3.5 3.5']} flip {...p} />
 );
+/** The member card (loyalty plan §5.1): three finder squares and a few modules; never mirrored. */
+export const QrIcon = (p: IconProps) => (
+  <StrokeIcon d={['M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2.5v2.5H14zM17.5 17.5H20V20h-2.5z']} {...p} />
+);
 /** Count the store: a clipboard with lines. */
 export const ClipboardIcon = (p: IconProps) => (
   <StrokeIcon d={['M9 3.5h6v3H9v-3zM9 5H6v15.5h12V5h-3M9 11h6M9 15h4']} {...p} />

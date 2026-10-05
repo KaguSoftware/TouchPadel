@@ -345,6 +345,10 @@ function RootStack() {
           detail sends a signed-out Register to the welcome. */}
           <Stack.Screen name="tournaments" />
           <Stack.Screen name="tournament/[id]" />
+          {/* Loyalty (loyalty plan §5.1): flat root-stack pushes from Profile
+          with the native back item, each with its own RequireSession. */}
+          <Stack.Screen name="loyalty" />
+          <Stack.Screen name="member-card" />
           {/* Place an order (0251): an item's size and options, as the platform's sheet over the table's menu. */}
           <Stack.Screen
             name="staff-order-item"

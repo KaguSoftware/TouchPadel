@@ -259,6 +259,17 @@ queryClient.setMutationDefaults(['tournament', 'mutation'], {
 });
 
 /**
+ * Loyalty, the guest's side (loyalty plan §5.1), keyed under `loyaltyKeys`
+ * (features/loyalty/keys.ts). Every loyalty write is online-only (build
+ * contracts L-6): "Get a new code" runs now or fails now, and is never sent
+ * again by itself (a second rotation would retire the code just drawn).
+ */
+queryClient.setMutationDefaults(['loyalty', 'mutation'], {
+  networkMode: 'always',
+  retry: false,
+});
+
+/**
  * Disk cache so a cold start paints real data immediately instead of spinners.
  *
  * `buster` is the app version: a build that changes query shapes must not read
@@ -305,7 +316,11 @@ export const persistOptions = {
       // 0302: a signed avatar URL expires, and the date of birth is read only
       // by its guest; neither is kept on disk.
       query.queryKey[0] !== 'avatar-url' &&
-      query.queryKey[0] !== 'own-birth-date',
+      query.queryKey[0] !== 'own-birth-date' &&
+      // Loyalty: the member card carries its TOTP secret, which lives in
+      // SecureStore (features/loyalty/cardStore.ts), never in this plain file.
+      // The balance read (`['loyalty', 'mine']`) is kept, like the profile.
+      !(query.queryKey[0] === 'loyalty' && query.queryKey[1] === 'card'),
   },
 } as const;
 

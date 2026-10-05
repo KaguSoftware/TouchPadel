@@ -339,11 +339,12 @@ describe('what the purge sweeps', () => {
     expect(authStorageKeyFor(undefined)).toBeNull();
     expect(authStorageKeyFor('')).toBeNull();
     expect(authStorageKeyFor('not a url')).toBeNull();
-    expect(secureKeysToPurge(undefined)).toEqual([]);
+    // The member card's key names no project, so it is swept whatever the URL.
+    expect(secureKeysToPurge(undefined)).toEqual(['tp.memberCard']);
   });
 
-  it('sweeps the session key', () => {
-    expect(secureKeysToPurge(SUPABASE_URL)).toEqual(['sb-abcdefghijklmnop-auth-token']);
+  it('sweeps the session key and the member card (its TOTP secret, loyalty plan §5.1)', () => {
+    expect(secureKeysToPurge(SUPABASE_URL)).toEqual(['sb-abcdefghijklmnop-auth-token', 'tp.memberCard']);
   });
 
   it('sweeps the user-scoped AsyncStorage keys, whose NAMES contain the uuid', () => {
