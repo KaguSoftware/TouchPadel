@@ -49,12 +49,11 @@ test.describe('site account (signed out)', () => {
     await page.getByLabel(w.signIn.phoneLabel).fill('0770 999 0001');
     await page.getByLabel(w.signIn.passwordLabel).fill('not-the-password');
     await page.getByRole('button', { name: w.signIn.submit }).click();
-    // Credentials on a stack that answers; "unavailable" where the auth server is not up.
-    const alert = page.getByRole('alert');
-    await expect(alert).toBeVisible();
-    expect([w.signIn.errors.credentials, w.signIn.errors.unavailable]).toContain(
-      (await alert.textContent())?.trim(),
-    );
+    // The e2e stack's auth server answers, so this is the credentials line. Next's route announcer
+    // is an empty role=alert too, so the page's own alert is picked out by its text.
+    await expect(
+      page.getByRole('alert').filter({ hasText: w.signIn.errors.credentials }),
+    ).toBeVisible();
     await expect(page).toHaveURL(/\/en\/account$/);
   });
 
@@ -63,7 +62,7 @@ test.describe('site account (signed out)', () => {
     await page.goto('/en');
     await page
       .getByRole('contentinfo')
-      .getByRole('link', { name: en.loyalty.web.account.navLink })
+      .getByRole('link', { name: en.loyalty.web.account.navLink, exact: true })
       .click();
     await expect(page).toHaveURL(/\/en\/account$/);
     await expect(page.getByLabel(en.loyalty.web.signIn.phoneLabel)).toBeVisible();
