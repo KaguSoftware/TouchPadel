@@ -39,6 +39,10 @@ import { staffScanAr } from './scan.ar';
 import { staffFloorEn } from './floor.en';
 import { staffFloorAr } from './floor.ar';
 
+// The owner's assistant on the phone (app/staff-assistant*.tsx).
+import { staffAssistantEn } from './assistant.en';
+import { staffAssistantAr } from './assistant.ar';
+
 export const staffEn = {
   shell: staffShellEn,
   protocols: staffProtocolsEn,
@@ -54,6 +58,7 @@ export const staffEn = {
   calls: staffCallsEn,
   scan: staffScanEn,
   floor: staffFloorEn,
+  assistant: staffAssistantEn,
 } as const;
 
 export const staffAr = {
@@ -71,4 +76,5 @@ export const staffAr = {
   calls: staffCallsAr,
   scan: staffScanAr,
   floor: staffFloorAr,
+  assistant: staffAssistantAr,
 } as const;

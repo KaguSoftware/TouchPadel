@@ -213,15 +213,15 @@ test.describe('owner assistant', () => {
     await expect(page.getByText(EN.capLine)).toBeVisible();
 
     await expect(page.getByRole('heading', { name: EN.defaultModelTitle })).toBeVisible();
-    await expect(page.getByTestId('model-claude-opus-5')).toBeVisible();
-    await expect(page.getByTestId('model-claude-sonnet-5')).toBeVisible();
+    await expect(page.getByTestId('model-claude-opus-5-5')).toBeVisible();
+    await expect(page.getByTestId('model-claude-sonnet-5-5')).toBeVisible();
     // Exactly one of the two is the venue default.
     await expect(page.locator('[data-testid^="model-"][aria-pressed="true"]')).toHaveCount(1);
 
     await expect(page.getByRole('heading', { name: EN.pricingTitle })).toBeVisible();
     const pricing = page.getByRole('table', { name: EN.pricingTitle });
-    await expect(pricing.getByText('claude-opus-5', { exact: true })).toBeVisible();
-    await expect(pricing.getByText('claude-sonnet-5', { exact: true })).toBeVisible();
+    await expect(pricing.getByText('claude-opus-5-5', { exact: true })).toBeVisible();
+    await expect(pricing.getByText('claude-sonnet-5-5', { exact: true })).toBeVisible();
   });
 
   test('cashier: no rail button, no shortcut, /assistant is refused', async ({ page }) => {

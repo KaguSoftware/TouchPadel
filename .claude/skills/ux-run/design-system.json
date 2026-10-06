@@ -1,0 +1,339 @@
+{
+  "$comment": "The web's design-system canon, machine-readable. apps/web has TWO families, chosen by the closest [data-theme] ancestor: 'padel' (the club site) and 'cafe' (the menu, the staff download page). docs/DESIGN.md is the OPERATOR app's canon and does not apply here. Values below are the rendered (CSS px) form of the tokens; token NAMES are resolved live on the page at audit time, so a token change in packages/ui moves the canon with it. Majed confirms this file; checks judge against it, never against the majority.",
+  "sources": [
+    "docs/brand/touch-padel-style-reference.md §8 (layout, radius, elevation) and §9 (signature components)",
+    "packages/ui/src/tokens/site.ts (siteScaleVars, siteLightVars, siteNightVars)",
+    "packages/ui/src/tokens/cafeBrand.ts (radiusVars, typeScaleVars, layoutVars, shadowVars)",
+    "docs/design/web-site/contracts-2026-09-23.md §2 (token vocabulary) and §5 (rules: targets >= --tp-site-touch)",
+    "apps/web/src/styles/site/base.css.ts (.tp-site-btn, .tp-site-iconbtn) and src/styles/cafe/base.css.ts (.tp-btn, .tp-card)"
+  ],
+  "families": {
+    "padel": {
+      "label": "site",
+      "minTarget": 48,
+      "minTargetToken": "--tp-site-touch",
+      "tokens": {
+        "radius": [
+          "--tp-site-radius-sm",
+          "--tp-site-radius-md",
+          "--tp-site-radius-btn",
+          "--tp-site-radius-pill"
+        ],
+        "fontSize": [
+          "--tp-site-fs-xs",
+          "--tp-site-fs-sm",
+          "--tp-site-fs-md",
+          "--tp-site-fs-lg",
+          "--tp-site-fs-xl",
+          "--tp-site-fs-2xl"
+        ],
+        "space": [],
+        "colors": {
+          "surface": "--tp-surface",
+          "border": "--tp-border",
+          "bg": "--tp-bg",
+          "band": "--tp-site-band-bg",
+          "hero": "--tp-site-hero-bg",
+          "muted": "--tp-muted-fg"
+        },
+        "font": [
+          "--tp-font-body",
+          "--tp-font-display",
+          "--tp-font-arabic",
+          "--tp-font-numeric"
+        ]
+      },
+      "rawScale": {
+        "$comment": "§8.1: inside a block the site spaces in plain rem on 4/8/12/16/24/32; button type sizes are fixed rem in base.css.ts.",
+        "space": [
+          0,
+          4,
+          8,
+          12,
+          16,
+          20,
+          24,
+          32
+        ],
+        "fontSize": [
+          13,
+          15,
+          16,
+          17,
+          18
+        ]
+      },
+      "forbiddenTokenPrefixes": [
+        "--tp-fs-",
+        "--tp-radius-",
+        "--tp-space-",
+        "--tp-cafe-"
+      ],
+      "buttons": {
+        "componentClasses": [
+          "tp-site-btn",
+          "tp-site-iconbtn"
+        ],
+        "variantClasses": [
+          "tp-site-btn--go",
+          "tp-site-btn--primary",
+          "tp-site-btn--ghost",
+          "tp-site-btn--blue"
+        ],
+        "sizeClasses": [
+          "tp-site-btn--sm",
+          "tp-site-btn--lg",
+          "tp-site-btn--xl"
+        ],
+        "canon": {
+          "tp-site-btn": {
+            "minHeight": 48,
+            "radiusToken": "--tp-site-radius-btn",
+            "fontWeight": 800,
+            "textTransform": "uppercase",
+            "letterSpacingEm": 0.07,
+            "fontSize": 15,
+            "borderWidth": 1.5,
+            "fontFamilyToken": "--tp-font-body",
+            "borderStyle": "solid",
+            "borderTransparent": true
+          },
+          "tp-site-btn--sm": {
+            "minHeight": 48,
+            "fontSize": 13
+          },
+          "tp-site-btn--lg": {
+            "minHeight": 56,
+            "fontSize": 16
+          },
+          "tp-site-btn--xl": {
+            "minHeight": 64,
+            "fontSize": 17,
+            "letterSpacingEm": 0.09
+          },
+          "tp-site-iconbtn": {
+            "minHeight": 48,
+            "minWidth": 48,
+            "radiusToken": "--tp-site-radius-pill",
+            "borderTransparent": true,
+            "borderWidth": 0
+          },
+          "tp-site-btn--ghost": {
+            "borderTransparent": false
+          }
+        },
+        "rtl": {
+          "tp-site-btn": {
+            "textTransform": "none",
+            "letterSpacingEm": 0,
+            "fontSize": 16
+          },
+          "tp-site-btn--sm": {
+            "fontSize": 15
+          },
+          "tp-site-btn--lg": {
+            "fontSize": 18,
+            "letterSpacingEm": 0
+          },
+          "tp-site-btn--xl": {
+            "fontSize": 18,
+            "letterSpacingEm": 0
+          }
+        },
+        "$comment": "canon values are rendered CSS px. borderWidth + borderTransparent: the shared button's border is 'Npx solid transparent' on filled variants, so a button with no border looks the same and is not flagged; only a visible border where the canon's is transparent (or the reverse, or another width/style) is. fontFamilyToken is resolved live and compared by first family. kinds: controls that are their own design-system component, not text buttons; judged against their own canon (warning), never against the text-button canon.",
+        "kinds": [
+          {
+            "id": "pill",
+            "label": "pill (chip / nav pill / language pill)",
+            "classes": [
+              "tp-site-header__lang"
+            ],
+            "signatures": [
+              ".tp-legal__nav a"
+            ],
+            "canon": {
+              "minHeight": 48,
+              "radiusToken": "--tp-site-radius-pill",
+              "borderWidth": 1.5,
+              "borderStyle": "solid"
+            },
+            "why": "style reference §9 'Chips / status pills'; contracts §5 targets >= --tp-site-touch; the 1.5px line border both site pills already share"
+          }
+        ]
+      },
+      "card": {
+        "reference": [
+          "tp-acct__card",
+          "tp-legal__form"
+        ],
+        "borderWidth": 1,
+        "borderColorToken": "--tp-border",
+        "backgroundToken": "--tp-surface",
+        "radiusToken": "--tp-site-radius-md",
+        "paddingMin": 16,
+        "paddingMax": 24,
+        "shadow": "none",
+        "why": "style reference §9 Card = card ground, 1px line border, radius 16, padding 16; §8.3 border first, shadow only on overlays"
+      }
+    },
+    "cafe": {
+      "label": "café",
+      "minTarget": 44,
+      "minTargetToken": null,
+      "tokens": {
+        "radius": [
+          "--tp-radius-xs",
+          "--tp-radius-sm",
+          "--tp-radius-md",
+          "--tp-radius-lg",
+          "--tp-radius-sheet",
+          "--tp-radius-pill"
+        ],
+        "fontSize": [
+          "--tp-fs-xs",
+          "--tp-fs-sm",
+          "--tp-fs-md",
+          "--tp-fs-lg",
+          "--tp-fs-xl",
+          "--tp-fs-display"
+        ],
+        "space": [
+          "--tp-space-1",
+          "--tp-space-2",
+          "--tp-space-3",
+          "--tp-space-4",
+          "--tp-space-5",
+          "--tp-space-6"
+        ],
+        "colors": {
+          "surface": "--tp-surface",
+          "border": "--tp-border",
+          "bg": "--tp-bg",
+          "muted": "--tp-muted-fg"
+        },
+        "font": [
+          "--tp-font-body",
+          "--tp-font-display",
+          "--tp-font-arabic",
+          "--tp-font-numeric"
+        ]
+      },
+      "rawScale": {
+        "space": [
+          0
+        ],
+        "fontSize": []
+      },
+      "forbiddenTokenPrefixes": [
+        "--tp-site-",
+        "--tp-radius-ctl",
+        "--tp-touch"
+      ],
+      "buttons": {
+        "componentClasses": [
+          "tp-btn"
+        ],
+        "variantClasses": [
+          "tp-btn--primary",
+          "tp-btn--secondary",
+          "tp-btn--ghost",
+          "tp-btn--onblue"
+        ],
+        "sizeClasses": [
+          "tp-btn--block"
+        ],
+        "canon": {
+          "tp-btn": {
+            "minHeight": 44,
+            "radiusToken": "--tp-radius-pill",
+            "fontWeight": 700,
+            "borderWidth": 1,
+            "fontFamilyToken": "--tp-font-body",
+            "borderStyle": "solid",
+            "borderTransparent": true
+          },
+          "tp-btn--ghost": {
+            "borderTransparent": false
+          }
+        },
+        "rtl": {},
+        "$comment": "canon values are rendered CSS px. borderWidth + borderTransparent: the shared button's border is 'Npx solid transparent' on filled variants, so a button with no border looks the same and is not flagged; only a visible border where the canon's is transparent (or the reverse, or another width/style) is. fontFamilyToken is resolved live and compared by first family. kinds: controls that are their own design-system component, not text buttons; judged against their own canon (warning), never against the text-button canon.",
+        "kinds": [
+          {
+            "id": "fab",
+            "label": "FAB",
+            "classes": [
+              "tp-fab"
+            ],
+            "canon": {
+              "minHeight": 56,
+              "minWidth": 56,
+              "radiusShape": "round"
+            },
+            "variants": {
+              "tp-fab--top": {
+                "minHeight": 44,
+                "minWidth": 44
+              }
+            },
+            "why": "style reference §8.3 lists the FAB as its own elevated component (fab shadow); waiter.css.ts .tp-fab 3.5rem circle, the scroll-top FAB 2.75rem"
+          },
+          {
+            "id": "icon",
+            "label": "café icon button",
+            "classes": [
+              "tp-sheet__close",
+              "tp-itemsheet__expand",
+              "tp-lightbox__close",
+              "tp-qty__step",
+              "tp-basket-line__remove"
+            ],
+            "canon": {
+              "minHeight": 44,
+              "minWidth": 44,
+              "radiusShape": "round"
+            },
+            "why": "icon-only round controls (close, expand, steppers, remove); the café minimum target is 44 (.tp-btn's 2.75rem), style reference §6.2 icons"
+          },
+          {
+            "id": "chip",
+            "label": "category chip / tab pill",
+            "signatures": [
+              ".tp-cattabs button"
+            ],
+            "canon": {
+              "minHeight": 44,
+              "radiusToken": "--tp-radius-pill"
+            },
+            "why": "style reference §9 'Chips / status pills': tinted soft ground, pill; café minimum target 44"
+          },
+          {
+            "id": "lang",
+            "label": "language pill",
+            "classes": [
+              "tp-locale-switch"
+            ],
+            "canon": {
+              "minHeight": 44,
+              "radiusToken": "--tp-radius-pill"
+            },
+            "why": "the café header's language switch is a pill link (topbar.css.ts); café minimum target 44"
+          }
+        ]
+      },
+      "card": {
+        "reference": [
+          "tp-card"
+        ],
+        "borderWidth": 1,
+        "borderColorToken": "--tp-border",
+        "backgroundToken": "--tp-surface",
+        "radiusToken": "--tp-radius-md",
+        "paddingMin": 12,
+        "paddingMax": 24,
+        "shadow": "none",
+        "why": ".tp-card (src/styles/cafe/base.css.ts): surface, 1px border, --tp-radius-md, --tp-space-4"
+      }
+    }
+  }
+}

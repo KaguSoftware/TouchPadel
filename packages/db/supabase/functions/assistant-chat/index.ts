@@ -835,8 +835,8 @@ Deno.serve(handle('assistant-chat', async (req) => {
   }
 
   // 0114: the request's model, else this chat's, else the venue default, else
-  // ANTHROPIC_MODEL. The vendor follows the model (provider.ts vendorFor); no
-  // key for it → 503 before the quota and before any write.
+  // ANTHROPIC_MODEL; 0307: only Opus 5.5 or Sonnet 5.5 (provider.ts
+  // assistantModel). No ANTHROPIC_API_KEY → 503 before the quota and before any write.
   const chatModel = parsed.model ?? existing?.model ?? venueModel.default_model;
   const provider = providerFromEnv(env, chatModel);
   if (!provider) {

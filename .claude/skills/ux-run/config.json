@@ -1,0 +1,152 @@
+{
+  "$comment": "ux-run thresholds and crawl settings. Every check reads checks.<id> merged over its analyser's defaults; staffExceptions.<id> is merged on top for findings on a staff screen; exempt.<id> lists keys (exact or /regex/) that never become findings. See checks/_TEMPLATE.md.",
+  "server": {
+    "host": "127.0.0.1",
+    "port": 3210,
+    "readyPath": "/en",
+    "readyTimeoutMs": 180000,
+    "localSupabaseUrl": "http://127.0.0.1:54321"
+  },
+  "startPath": "/en",
+  "viewports": [
+    { "id": "desktop", "width": 1280, "height": 800 },
+    { "id": "phone", "width": 390, "height": 844, "isMobile": true, "hasTouch": true, "deviceScaleFactor": 3 }
+  ],
+  "cookies": [{ "name": "tp-site-mode", "value": "night" }],
+  "network": {
+    "allowedHosts": ["127.0.0.1:3210", "127.0.0.1:54321", "localhost:3210", "localhost:54321"],
+    "fatalHosts": ["(^|\\.)supabase\\.(co|in|com)$", "(^|\\.)posthog\\.com$"],
+    "localApiHosts": ["127.0.0.1:54321", "localhost:54321"],
+    "localWriteGuard": {
+      "$comment": "The net under neverClick: requests to the local stack that would write are aborted and printed as WARN (the trigger belongs in neverClick). rpc = write RPC names; any non-GET /rest/v1/<table> call is a write too; paths = auth endpoints that sign in, send codes or change the user.",
+      "rpc": "^(create|open|close|raise|delete|link|redeem|cancel|claim|submit|place|send|request|update|insert|upsert|set|mark|confirm|verify|pay|start|end|join|leave|book|register)_",
+      "paths": "^/(auth/v1/(otp|signup|magiclink|recover|verify|user|logout|token|resend|factors)|functions/v1/)"
+    },
+    "$comment": "Anything not allowed is aborted and listed in the report; a fatalHosts match aborts the whole run (exit 2) wherever in the crawl it happens."
+  },
+  "crawl": {
+    "concurrency": 4,
+    "settleQuietMs": 350,
+    "settleCapMs": 4000,
+    "loadCapMs": 25000,
+    "clickTimeoutMs": 4000,
+    "maxStates": 600,
+    "maxMinutes": 15,
+    "batchSize": 6,
+    "hydrationMarkers": [".tp-site-header[data-js]", ".tp-app", ".tp-download", ".tp-lost", ".tp-payret", ".tp-minv", ".tp-clink", ".tp-tpage", "[data-tp-hydrated]"],
+    "selectors": [
+      "button",
+      "a[href]",
+      "[role=button]",
+      "[role=link]",
+      "[role=menuitem]",
+      "[role=tab]",
+      "[role=switch]",
+      "[role=checkbox]",
+      "[role=radio]",
+      "[role=option]",
+      "[role=combobox]",
+      "summary",
+      "input:not([type=hidden])",
+      "select",
+      "textarea"
+    ],
+    "recordOnly": ["input", "select", "textarea"],
+    "volatile": [".tp-fab"],
+    "srOnly": [".tp-site-sr", ".tp-visually-hidden", ".sr-only"],
+    "screenshots": true
+  },
+  "seedPaths": [
+    { "path": "/en/download", "why": "staff installer page for the operator app; unlinked and noindex by design" },
+    { "path": "/en/pay/return", "why": "payment return; the payment provider sends guests here" },
+    { "path": "/en/ux-run-missing-page", "why": "the site's own 404 shell" },
+    { "path": "/en/menu", "why": "café flows past the click budget (item sheet > add > basket sheet), for the size and consistency checks", "expand": 4, "stayOnPath": true },
+    { "path": "/ar", "why": "RTL landing and the pages it links: labels and button sizes differ in Arabic", "expand": 1 },
+    { "path": "/ar/menu", "why": "RTL café menu and its sheets", "expand": 4, "stayOnPath": true }
+  ],
+  "notAudited": [
+    { "path": "/{locale}/m/:token", "why": "needs a local match-invite fixture token" },
+    { "path": "/{locale}/menu with a bound table", "why": "binding a table writes a session row (open_table_session); WaiterSheet, OrdersSheet, EarnChip, TableChip and BellTutorial need it" },
+    { "path": "/{locale}/account signed in", "why": "needs a seeded guest account; the crawl never signs in" },
+    { "path": "/{locale}/menu QR-required sheet", "why": "its only triggers (the bell FAB, the basket's Send to waiter) are neverClick: they write (raise_waiter_call, create_guest_order) once a table is bound" }
+  ],
+  "dataProbes": {
+    "schema": "app",
+    "control": { "rpc": "venue_mode", "args": {} },
+    "probes": [
+      { "rpc": "coaching_public", "args": {}, "affects": "/coaching coaches, the landing's coach faces, /c/:id" },
+      { "rpc": "tournaments_public", "args": { "p_venue_id": "00000000-0000-0000-0000-000000000000" }, "affects": "the landing's event cards, /events/:id" }
+    ]
+  },
+  "neverClick": {
+    "$comment": "Recorded at their cost, never pressed: anything that writes, sends, signs in or out, deletes, or flips language/theme (which would change every later render).",
+    "selectors": [
+      "a[hreflang]",
+      ".tp-locale-switch",
+      ".tp-theme-toggle",
+      "form [type=submit]",
+      ".tp-acct__btn",
+      ".tp-acct__oauth",
+      ".tp-legal__danger",
+      ".tp-legal__form button",
+      ".tp-reasons button",
+      ".tp-sheet__foot > .tp-btn:first-child",
+      ".tp-fab--bell",
+      ".tp-earn-chip__retry",
+      "a[href*='/t/']"
+    ],
+    "$selectorsWhy": "structural, so they hold in every locale: .tp-sheet__foot > .tp-btn:first-child is the basket's Send-to-waiter (create_guest_order; the item sheet's foot starts with the quantity row, so Add to order stays pressable); .tp-fab--bell raises a waiter call once a table is bound.",
+    "text": [
+      "\\b(sign ?in|sign ?out|log ?in|log ?out|delete|send|submit|place order|confirm|verify|pay now)\\b",
+      "^(retry|try again)$",
+      "(إرسال|ارسال|أرسل|ارسل|حذف|احذف|تسجيل الدخول|تسجيل الخروج|سجّل|سجل الدخول|تأكيد|أكّد|اكد|تحقق|ادفع|الدفع الآن|اطلب الآن|إعادة المحاولة|أعد المحاولة)"
+    ],
+    "$textWhy": "Arabic forms have no \\b (JS word boundaries are ASCII-only), so they are plain alternations."
+  },
+  "keyBySelector": [
+    { "selector": ".tp-theme-toggle", "key": "theme-toggle" },
+    { "selector": "a[hreflang]", "key": "language-link" },
+    { "selector": ".tp-site-menu-toggle", "key": "site-menu-toggle" },
+    { "selector": ".tp-basket-btn", "key": "basket-button" },
+    { "selector": ".tp-hero__featured", "key": "menu-featured-item" }
+  ],
+  "groups": [
+    { "selector": ".tp-cattabs button", "key": "menu-category-pill", "sample": 1 },
+    { "selector": ".tp-menu-item__open", "key": "menu-item", "sample": 1 },
+    { "selector": ".tp-suggest__tile", "key": "menu-suggestion", "sample": 1 },
+    { "selector": ".tp-coach-face", "key": "coach-face", "sample": 1 },
+    { "selector": ".tp-tour-card a", "key": "event-card-link", "sample": 1 }
+  ],
+  "staffScreens": ["^/(en|ar)/download/?$"],
+  "staffExceptions": {
+    "click-depth": { "exempt": true },
+    "button-size": { "minTarget": 40 },
+    "button-consistency": { "severity": "warn" },
+    "card-consistency": { "severity": "warn" }
+  },
+  "exempt": {
+    "click-depth": [],
+    "button-size": [],
+    "card-consistency": [],
+    "button-consistency": []
+  },
+  "cards": {
+    "minWidth": 120,
+    "minHeight": 60,
+    "known": [
+      ".tp-acct__panel", ".tp-acct__card", ".tp-legal__form", ".tp-tour-card", ".tp-coach-card", ".tp-coach-session",
+      ".tp-faq__item", ".tp-cafe-step", ".tp-tpage__notice", ".tp-card", ".tp-order", ".tp-branches__option",
+      ".tp-suggest__tile", ".tp-hero__featured", ".tp-download__note"
+    ],
+    "exclude": [
+      "[role=dialog]", "[aria-modal=true]", ".tp-sheet", ".tp-site-header", ".tp-site-menu", ".tp-faq__ask",
+      ".tp-stage__band", "[class*='tp-events__']", "[class*='tp-ticket']", ".tp-site-skip", ".tp-cafe__topbar", ".tp-menu-item", "img", "svg", "canvas", "picture", "video"
+    ]
+  },
+  "checks": {
+    "click-depth": { "maxClicks": 3, "disabledCountsAsReached": true },
+    "button-size": { "minTarget": null, "sizeTolerancePx": 0.5, "kindSpreadPx": 2 },
+    "card-consistency": { "tolerancePx": 0.5 },
+    "button-consistency": { "tolerancePx": 0.5 }
+  }
+}

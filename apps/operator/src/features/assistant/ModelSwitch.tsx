@@ -18,21 +18,20 @@ import { Button, ErrorText } from '../../components/ui';
 import { QK, fetchModels, setModel } from './api';
 
 /** Model ids with a spoken name; anything else prints as its id. */
-const KNOWN: Record<string, 'opus' | 'sonnet' | 'gptoss'> = {
-  'claude-opus-5': 'opus',
-  'claude-sonnet-5': 'sonnet',
-  'openai/gpt-oss-120b': 'gptoss',
+const KNOWN: Record<string, 'opus' | 'sonnet'> = {
+  'claude-opus-5-5': 'opus',
+  'claude-sonnet-5-5': 'sonnet',
 };
 
 type Tr = ReturnType<typeof useLocale>['tr'];
 
-/** "Opus 5" — the short name, or the id itself. */
+/** "Opus 5.5" — the short name, or the id itself. */
 export function modelName(tr: Tr, id: string): string {
   const k = KNOWN[id];
   return k ? tr(`ws.owner.assistant.model.labels.${k}`) : id;
 }
 
-/** "Opus 5 · best answers" — the short name with its one-phrase hint, or the id itself. */
+/** "Opus 5.5 · best answers" — the short name with its one-phrase hint, or the id itself. */
 export function modelLabel(tr: Tr, id: string): string {
   const k = KNOWN[id];
   return k ? `${tr(`ws.owner.assistant.model.labels.${k}`)} · ${tr(`ws.owner.assistant.model.hints.${k}`)}` : id;

@@ -335,7 +335,8 @@ is a line in that file.
   (an outbox `sent` stamp) logs loudly with the row id. CI type-checks every entry
   (`ci.yml` job `edge-functions`); locally, from this package:
   `DENO_NO_PACKAGE_JSON=1 npx --yes deno@2.5.6 check --no-config --node-modules-dir=none supabase/functions/*/index.ts`.
-- LLM code uses `npm:@anthropic-ai/sdk`, model `claude-opus-5` unless Parsa names another, meters
+- LLM code uses `npm:@anthropic-ai/sdk`, model `claude-opus-5-5` unless Parsa names another (the
+  assistant: `claude-opus-5-5` or `claude-sonnet-5-5` only, 0307 CHECKs + `ASSISTANT_MODELS`), meters
   spend through `app.llm_record_usage` (0079, 0111), puts no guest identity in a prompt (SEC-29) and
   never computes a number the page did not already have.
 - **Scanned paper (0236–0239) is the exception on the model:** `receipt-scan` reads supplier

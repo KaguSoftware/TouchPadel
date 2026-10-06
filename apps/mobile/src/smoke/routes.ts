@@ -144,6 +144,19 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'staff-deductions.tsx', route: 'staff-deductions', primary: 'staff-deductions.propose' },
   { file: 'staff-incidents.tsx', route: 'staff-incidents', primary: 'staff-incidents.submit' },
   { file: 'staff-content.tsx', route: 'staff-content', primary: 'staff-content.submit' },
+  // The owner's assistant on the phone, cased by staffAssistant.smoke.test.tsx.
+  // The thread's primary is the Send button, an icon with no text of its own,
+  // so its case names a `nearbyKey`.
+  {
+    file: 'staff-assistant.tsx',
+    route: 'staff-assistant',
+    primary: 'staff-assistant.composer.send',
+  },
+  {
+    file: 'staff-assistant-chats.tsx',
+    route: 'staff-assistant-chats',
+    primary: 'staff-assistant-chats.new',
+  },
   // ── open matches ──────────────────────────────────────────────────────────
   // docs/design/open-matches/guest.md §4.27, cased by matches.smoke.test.tsx
   // in EN and AR. Two spellings are fixed like booking/[id]: `match/[id]` →
