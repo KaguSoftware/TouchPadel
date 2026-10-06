@@ -47,7 +47,7 @@ import { RoundsBoard } from './RoundsBoard';
 import { shortName } from './roundsLogic';
 import { pickName, refundsDue, tournamentErrorText } from './tournamentLogic';
 import { readCancelAnswer, type TournamentDetail } from './tournamentPayloads';
-import { currentRoundNo, entryMoney, scoredCount } from './layoutLogic';
+import { entryMoney, playProgress, scoredCount } from './layoutLogic';
 import { DateTile, FillBar } from './TournamentParts';
 import {
   invalidateTournamentCourts,
@@ -195,7 +195,7 @@ function TournamentBody({
     }
   }
 
-  const money = entryMoney(d.entries);
+  const money = entryMoney(d.entries, d.status);
   const prize = pickName(locale, d.prize_en, d.prize_ar);
   const courtNames = d.courts
     .map((c) => isolate(pickName(locale, c.name_en, c.name_ar)))
@@ -203,21 +203,20 @@ function TournamentBody({
   const n = (v: number) => formatNumber(v, locale);
 
   // Where the play is: the round being scored, and how far through the plan.
-  const current = currentRoundNo(d.rounds);
-  const total = Math.max(d.rounds_planned ?? 0, d.rounds.length);
-  const currentRound = current !== null ? d.rounds.find((r) => r.round_no === current) : undefined;
-  const doneRounds = d.rounds.filter((r) => current === null || r.round_no < current).length;
-  const progress =
-    total > 0
-      ? Math.round(
-          ((doneRounds +
-            (currentRound && currentRound.matches.length > 0
-              ? scoredCount(currentRound) / currentRound.matches.length
-              : 0)) /
-            total) *
-            100,
-        )
-      : 0;
+  const play = playProgress(d.status, d.rounds, d.rounds_planned);
+  const currentRound =
+    play.current !== null ? d.rounds.find((r) => r.round_no === play.current) : undefined;
+  const playLabel =
+    play.label.kind === 'ended'
+      ? tr(`tournaments.common.status.${play.label.status}`)
+      : play.label.kind === 'round'
+        ? tr('ws.tournaments.rounds.roundOf', { round: n(play.label.round), total: n(play.label.total) })
+        : play.label.kind === 'nextToDraw'
+          ? tr('ws.tournaments.detail.nextToDraw', {
+              round: n(play.label.round),
+              total: n(play.label.total),
+            })
+          : tr('ws.tournaments.detail.allScored', { total: n(play.label.total) });
 
   const stats: { label: string; value: string; sub?: string }[] = [
     {
@@ -242,9 +241,11 @@ function TournamentBody({
       label: tr('ws.tournaments.detail.stats.collected'),
       value: formatIQD(money.collected, locale),
       sub:
-        money.due > 0
-          ? tr('ws.tournaments.detail.stats.due', { amount: formatIQD(money.due, locale) })
-          : tr('ws.tournaments.detail.stats.nothingDue'),
+        money.refundDue > 0
+          ? tr('ws.tournaments.detail.stats.refundDue', { amount: formatIQD(money.refundDue, locale) })
+          : money.due > 0
+            ? tr('ws.tournaments.detail.stats.due', { amount: formatIQD(money.due, locale) })
+            : tr('ws.tournaments.detail.stats.nothingDue'),
     },
     prize
       ? { label: tr('ws.tournaments.detail.stats.prize'), value: prize }
@@ -272,11 +273,8 @@ function TournamentBody({
         progress={
           d.rounds.length > 0
             ? {
-                percent: progress,
-                round:
-                  current !== null
-                    ? tr('ws.tournaments.rounds.roundOf', { round: n(current), total: n(total) })
-                    : tr('tournaments.common.status.finished'),
+                percent: play.percent,
+                round: playLabel,
                 courts: currentRound
                   ? tr('ws.tournaments.detail.progress', {
                       done: n(scoredCount(currentRound)),

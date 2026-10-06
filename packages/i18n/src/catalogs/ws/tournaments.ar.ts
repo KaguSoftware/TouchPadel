@@ -51,6 +51,8 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
     seeOnCalendar: 'عرض في التقويم',
     pointsTag: '{points} نقطة لكل مباراة',
     progress: 'سُجّلت نتائج {done} من {total} ملاعب',
+    nextToDraw: 'سُجّلت نتائج الجولة {round} من {total} · الجولة التالية بانتظار التوزيع',
+    allScored: 'سُجّلت نتائج الجولات كلها ({total})',
     stats: {
       players: 'اللاعبون',
       fee: 'رسم الاشتراك',
@@ -60,6 +62,7 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
       paidOwing: '{paid} دفعوا · {owing} عليهم',
       due: '{amount} مستحقة',
       nothingDue: 'لا مبالغ مستحقة',
+      refundDue: '{amount} للاسترداد',
     },
     tabs: {
       entries: 'الاشتراكات',

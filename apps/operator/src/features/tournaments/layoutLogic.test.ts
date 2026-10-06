@@ -5,6 +5,7 @@ import {
   fillPercent,
   filterTournaments,
   listTotals,
+  playProgress,
   roundState,
   scoredCount,
   statusCounts,
@@ -51,7 +52,46 @@ describe('rounds', () => {
   });
 });
 
-function entry(status: TourEntry['status'], owed: number, paid: number): TourEntry {
+describe('playProgress', () => {
+  it('reads a Mexicano between rounds (round 1 scored, round 2 not drawn) as running, not finished', () => {
+    const p = playProgress('running', [round(1, [[15, 9], [12, 12]])], 4);
+    expect(p.current).toBeNull();
+    expect(p.label).toEqual({ kind: 'nextToDraw', round: 1, total: 4 });
+    expect(p.doneRounds).toBe(1);
+    expect(p.percent).toBe(25);
+  });
+
+  it('names the round being scored and counts its scored matches toward the percent', () => {
+    const p = playProgress('running', [round(1, [[15, 9], [12, 12]]), round(2, [[15, 9], [null, null]])], 4);
+    expect(p.current).toBe(2);
+    expect(p.label).toEqual({ kind: 'round', round: 2, total: 4 });
+    expect(p.percent).toBe(38);
+  });
+
+  it('says every round is scored while the status is still running', () => {
+    const p = playProgress('running', [round(1, [[15, 9]]), round(2, [[15, 9]])], 2);
+    expect(p.label).toEqual({ kind: 'allScored', total: 2 });
+    expect(p.percent).toBe(100);
+  });
+
+  it('says finished only from the status, at 100 even when it ended early', () => {
+    const p = playProgress('finished', [round(1, [[15, 9]]), round(2, [[null, null]])], 4);
+    expect(p.label).toEqual({ kind: 'ended', status: 'finished' });
+    expect(p.current).toBeNull();
+    expect(p.percent).toBe(100);
+  });
+
+  it('uses the drawn rounds when no plan is set', () => {
+    expect(playProgress('running', [round(1, [[null, null]])], null).total).toBe(1);
+  });
+});
+
+function entry(
+  status: TourEntry['status'],
+  owed: number,
+  paid: number,
+  refundDue = 0,
+): TourEntry {
   return {
     entry_id: `${status}-${owed}-${paid}`,
     guest_id: null,
@@ -63,7 +103,7 @@ function entry(status: TourEntry['status'], owed: number, paid: number): TourEnt
     added_by_kind: 'staff',
     owed_iqd: owed,
     net_paid_iqd: paid,
-    refund_due_iqd: 0,
+    refund_due_iqd: refundDue,
     substitute_for: null,
   };
 }
@@ -75,9 +115,19 @@ describe('entryMoney', () => {
         entry('registered', 0, 15000),
         entry('registered', 15000, 0),
         entry('waitlisted', 15000, 0),
-        entry('withdrawn', 0, 5000),
-      ]),
-    ).toEqual({ paid: 1, owing: 1, collected: 20000, due: 15000 });
+        entry('withdrawn', 0, 5000, 5000),
+      ], 'open'),
+    ).toEqual({ paid: 1, owing: 1, collected: 15000, due: 15000, refundDue: 5000 });
+  });
+
+  it('keeps nothing and counts nobody paid on a cancelled tournament', () => {
+    expect(
+      entryMoney([
+        entry('registered', 0, 15000, 15000),
+        entry('registered', 0, 0),
+        entry('withdrawn', 0, 5000, 5000),
+      ], 'cancelled'),
+    ).toEqual({ paid: 0, owing: 0, collected: 0, due: 0, refundDue: 20000 });
   });
 });
 

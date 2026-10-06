@@ -54,6 +54,8 @@ export const tournamentsEn = {
     seeOnCalendar: 'See on calendar',
     pointsTag: 'Games to {points}',
     progress: '{done} of {total} courts scored',
+    nextToDraw: 'Round {round} of {total} scored · next round to draw',
+    allScored: 'All {total} rounds scored',
     stats: {
       players: 'Players',
       fee: 'Entry fee',
@@ -63,6 +65,7 @@ export const tournamentsEn = {
       paidOwing: '{paid} paid · {owing} owe',
       due: '{amount} due',
       nothingDue: 'Nothing owed',
+      refundDue: '{amount} to refund',
     },
     tabs: {
       entries: 'Entries',
