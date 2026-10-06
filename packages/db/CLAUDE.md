@@ -126,12 +126,14 @@ is a line in that file.
   time or kind change of a published tournament's event block (`TOURNAMENT_VIA_EVENTS`) instead
   of re-issuing cancel, move, mark or extend.
   Identity (0307, the review of 0303): holds `trg_profile_phone_key`, `profile_merge_columns`,
-  `merge_profiles_internal`, `duplicate_groups_internal`, `merge_duplicates_internal`,
+  `merge_profiles_internal`, `duplicate_groups_internal`, `duplicate_account_groups`, `merge_duplicates_internal`,
   `handle_new_user`, `handle_user_phone_confirmed` (now trigger `on_auth_user_phone_changed`),
   `find_customer_by_phone` and `desk_register_customer` (0303 and 0065 are no longer the latest),
   plus the internals `phone_verified_owner`, `profile_is_desk_walkin`, `profile_phone_key` and
   `phone_claim_internal`. `profiles.phone_key` is set only for a proven number (the account's
-  confirmed auth phone, or a desk walk-in) and `zz_phone_key` never raises `PHONE_TAKEN`.
+  confirmed auth phone, or a desk walk-in) and `zz_phone_key` never raises `PHONE_TAKEN`; the desk pair
+  (`find_customer_by_phone`, `desk_register_customer`) sees only a keyed holder, and the owner's
+  `duplicate_account_groups` lists the unproven pairs as kind `phone_unproven`.
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
   GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows

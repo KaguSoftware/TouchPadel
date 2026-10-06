@@ -489,6 +489,16 @@ describe.skipIf(!docker)('03XX account identity: refusals', () => {
       // 0307 (c0): a staff keep never receives another account's login, even by the owner's merge.
       `select pg_temp.phone_user('gp', pg_temp.rphone());`,
       `select pg_temp.e('staff_keep_auth', null, $q$select app.merge_profiles_internal({{s2}}, {{gp}}, 'owner: same person')$q$);`,
+      // Nor a Google login: s2 has an email, so only the guest's OAuth identity would move.
+      `select pg_temp.email_user('ge', pg_temp.rphone());`,
+      `select pg_temp.e('staff_keep_oauth', null, $q$select app.merge_profiles_internal({{s2}}, {{ge}}, 'owner: same person')$q$);`,
+      Q(
+        'oauth_after',
+        `select jsonb_build_object(
+          's2_providers', (select coalesce(jsonb_agg(provider), '[]') from auth.identities where user_id = {{s2}}),
+          'ge_live', (select deleted_at is null from profiles where id = {{ge}}),
+          'ge_google', (select count(*) from auth.identities where user_id = {{ge}} and provider = 'google'))`,
+      ),
       Q(
         'after',
         `select jsonb_build_object(
@@ -513,6 +523,8 @@ describe.skipIf(!docker)('03XX account identity: refusals', () => {
     ]);
     ok(r, 'staff_keep');
     expect(refused(r, 'staff_keep_auth')).toBe('MERGE_REFUSED:staff_keep_auth');
+    expect(refused(r, 'staff_keep_oauth')).toBe('MERGE_REFUSED:staff_keep_auth');
+    expect(ok(r, 'oauth_after')).toEqual({ s2_providers: [], ge_live: true, ge_google: 1 });
     expect(ok(r, 'after')).toEqual({
       live: [true, true],
       gp_live: true,
@@ -816,6 +828,66 @@ describe.skipIf(!docker)('03XX account identity: one live profile per proven pho
   });
 });
 
+describe.skipIf(!docker)(
+  '03XX account identity: the owner still sees an unproven pair (c20)',
+  () => {
+    it('after a failed claim the walk-in, its verified owner and a typist of the number are listed as phone_unproven', () => {
+      const r = scenario('merge-claim-failed', [
+        TOUR_SETUP,
+        ACCOUNTS,
+        ...TOUR_BRANCH,
+        KEEP('pw', `select pg_temp.rphone()`),
+        `select pg_temp.walkin('w', pg_temp.var('pw'));`,
+        KEEP('w_res', `select pg_temp.res('c1', ${at(4)}, 60, 'booking', 'confirmed', 'w')`),
+        // A guest who only typed the number.
+        GUEST('sq'),
+        X(`update profiles set phone = {{pw}} where id = {{sq}}`),
+        // The claim's merge fails (any error, not a refusal) when it touches the walk-in's booking.
+        X(`create function app.zz_test_boom_0307c() returns trigger language plpgsql as $b$
+         begin raise exception 'BOOM_0307C'; end $b$`),
+        X(`create trigger zz_test_boom_0307c before update on reservations for each row
+         when (old.guest_id = {{w}}::uuid) execute function app.zz_test_boom_0307c()`),
+        `select pg_temp.phone_user('n', pg_temp.var('pw'));`,
+        Q(
+          'state',
+          `select jsonb_build_object(
+          'w', (select jsonb_build_object('live', deleted_at is null, 'key', phone_key) from profiles where id = {{w}}),
+          'n_key', (select phone_key = app.phone_canon({{pw}}) from profiles where id = {{n}}),
+          'records', (select jsonb_agg(reason order by reason) from app.profile_merges where keep_id = {{n}}),
+          'proven', (select count(*) from app.duplicate_groups_internal() where profile_id in ({{w}}, {{n}}, {{sq}})))`,
+        ),
+        T('groups', 'owner', `select app.duplicate_account_groups()`),
+        Q(
+          'ids',
+          `select jsonb_build_object('w', {{w}}, 'n', {{n}}, 'sq', {{sq}}, 'key', app.phone_canon({{pw}}))`,
+        ),
+      ]);
+      expect(ok(r, 'state')).toEqual({
+        w: { live: true, key: null },
+        n_key: true,
+        records: ['phone_reclaimed', 'walkin_claim_failed'],
+        // no proof joins them, so the automatic merge never touches them
+        proven: 0,
+      });
+      const ids = ok<Record<string, string>>(r, 'ids');
+      const groups = ok<Array<{ kind: string; key: string; profiles: Row[] }>>(r, 'groups');
+      const g = groups.find((x) => x.key === ids.key);
+      expect(g?.kind).toBe('phone_unproven');
+      expect(
+        g!.profiles
+          .map((p) => ({ id: p.id, verified: p.phone_verified }))
+          .sort((a, b) => String(a.id).localeCompare(String(b.id))),
+      ).toEqual(
+        [
+          { id: ids.n, verified: true },
+          { id: ids.w, verified: false },
+          { id: ids.sq, verified: false },
+        ].sort((a, b) => a.id!.localeCompare(b.id!)),
+      );
+    });
+  },
+);
+
 describe.skipIf(!docker)('03XX account identity: proof before any login moves (c0)', () => {
   it("an email account that typed a verified account's number never groups with it, and a merge without proof moves no login", () => {
     const r = scenario('merge-proof', [
@@ -879,6 +951,9 @@ describe.skipIf(!docker)('03XX account identity: tournament entries on both acco
       `select pg_temp.day('day1');`,
       SETTLE('p1_e', 's1'),
       SETTLE('p2_e', 's2'),
+      SETTLE('p4_e', 's4'),
+      // The settles asserted the tournament's branch; the merge must hand the caller back its own.
+      X(`select set_config('app.venue_id', '', true)`),
       // (a) k: an earlier, withdrawn entry on the account that is kept; p1's entry is the paid one.
       GUEST('k'),
       KEEP(
@@ -888,8 +963,19 @@ describe.skipIf(!docker)('03XX account identity: tournament entries on both acco
          returning id`,
       ),
       Q('m_a', `select app.merge_profiles_internal({{k}}, {{p1}}, 'same person')`),
+      Q('venue_after', `select to_jsonb(coalesce(current_setting('app.venue_id', true), ''))`),
       // (b) both registered, the drop (p2) paid: keep (p3) owes nothing after, one place frees.
       Q('m_b', `select app.merge_profiles_internal({{p3}}, {{p2}}, 'same person')`),
+      // (c) both entries paid (p3 now holds p2's paid place, p4 paid its own): folding one into
+      // the other would hide the second fee from every refunds-due figure, so it is refused.
+      E('m_c', null, `select app.merge_profiles_internal({{p3}}, {{p4}}, 'owner: same person')`),
+      Q(
+        'c_after',
+        `select jsonb_build_object(
+          'p4_live', (select deleted_at is null from profiles where id = {{p4}}),
+          'p4_entry', (select jsonb_build_object('mine', guest_id = {{p4}}, 'net', (app.tournament_entry_money(id))->'net_iqd')
+                         from tournament_entries where id = {{p4_e}}))`,
+      ),
       Q('sweep', `select to_jsonb(app.tournament_sweep())`),
       Q(
         'after',
@@ -924,5 +1010,9 @@ describe.skipIf(!docker)('03XX account identity: tournament entries on both acco
       // p3's own unpaid place went with the merge: the waitlist moves up
       w1: 'registered',
     });
+    // c11 follow-up: the tournament's branch was asserted for its own rows only.
+    expect(ok(r, 'venue_after')).toBe('');
+    expect(refused(r, 'm_c')).toBe('MERGE_REFUSED:tournament_entry');
+    expect(ok(r, 'c_after')).toEqual({ p4_live: true, p4_entry: { mine: true, net: FEE } });
   });
 });

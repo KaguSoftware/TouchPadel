@@ -530,29 +530,59 @@ describe.skipIf(!up)('0065 customers', () => {
     );
     expect(reg.errorMessage).toMatch(/permission denied/i);
 
-    // Same digits, different formatting, is the same phone.
-    const found = await appRpc(svc, 'find_customer_by_phone', { p_phone: `+964 (780) ${tag.slice(-3)} 33-44` });
-    expect(found.error).toBeNull();
-    expect(found.data).toBe(latinId);
+    // 0307 (c1): latinId only typed its phone at sign-up (no confirmed auth phone, no desk), so it
+    // holds no key and is never found: a typed number blocks nobody.
+    const latinPhone = `0780${tag.slice(-3)}3344`;
+    const typed = await appRpc(svc, 'find_customer_by_phone', { p_phone: `+964 (780) ${tag.slice(-3)} 33-44` });
+    expect(typed.error).toBeNull();
+    expect(typed.data).toBeNull();
     const none = await appRpc(svc, 'find_customer_by_phone', { p_phone: '0000000' });
     expect(none.error).toBeNull();
     expect(none.data).toBeNull();
 
-    // A fresh auth user registered by the desk, as the edge function does it.
-    const { data: created, error: cErr } = await svc.auth.admin.createUser({
-      email: `${tag}9988@guest.touch.local`,
-      password: DEV_PASSWORD,
-      email_confirm: true,
-      user_metadata: { full_name: 'Walk In', phone: `0781 ${tag.slice(-3)} 9988`, preferred_lang: 'ar' },
+    async function deskUser(digits: string, phone: string): Promise<string> {
+      const { data, error } = await svc.auth.admin.createUser({
+        email: `${tag}${digits}@guest.touch.local`,
+        password: DEV_PASSWORD,
+        email_confirm: true,
+        user_metadata: { full_name: 'Walk In', phone, preferred_lang: 'ar' },
+      });
+      if (error || !data.user) throw new Error(`createUser failed: ${error?.message}`);
+      users.push(data.user.id);
+      return data.user.id;
+    }
+
+    // The desk registers the number's real owner as a walk-in: it succeeds over the typist, and
+    // the walk-in takes the key (the typist keeps its phone text, keyless).
+    const owner = await deskUser('3344', latinPhone);
+    const reg1 = await appRpc(svc, 'desk_register_customer', {
+      p_customer_id: owner,
+      p_full_name: 'Walk In Owner',
+      p_phone: latinPhone,
+      p_preferred_lang: 'ar',
+      p_actor_id: SEED_STAFF_IDS.court_desk,
     });
-    if (cErr || !created.user) throw new Error(`createUser failed: ${cErr?.message}`);
-    users.push(created.user.id);
+    expect(reg1.error).toBeNull();
+    const { data: keys } = await svc.from('profiles').select('id, phone, phone_key').in('id', [owner, latinId]);
+    type KeyRow = { id: string; phone: string | null; phone_key: string | null };
+    const byId = Object.fromEntries((keys as KeyRow[]).map((k) => [k.id, k]));
+    expect(byId[owner]!.phone_key).not.toBeNull();
+    expect(byId[latinId]).toMatchObject({ phone: latinPhone, phone_key: null });
+
+    // Same digits, different formatting, is the same phone: now the keyed walk-in is found.
+    const found = await appRpc(svc, 'find_customer_by_phone', { p_phone: `+964 (780) ${tag.slice(-3)} 33-44` });
+    expect(found.error).toBeNull();
+    expect(found.data).toBe(owner);
+
+    // A fresh auth user registered by the desk, as the edge function does it.
+    const createdId = await deskUser('9988', `0781 ${tag.slice(-3)} 9988`);
+    const created = { user: { id: createdId } };
 
     const dupPhone = outcome(
       await appRpc(svc, 'desk_register_customer', {
         p_customer_id: created.user.id,
         p_full_name: 'Walk In',
-        p_phone: `0780${tag.slice(-3)}3344`, // latinId's phone
+        p_phone: latinPhone, // the keyed walk-in's number
         p_preferred_lang: 'ar',
         p_actor_id: SEED_STAFF_IDS.court_desk,
       }),

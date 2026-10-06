@@ -32,8 +32,8 @@ set statement_timeout = '60s';
 --        when the two accounts are proven one person: an owner merge
 --        ('owner: …', merge_accounts) or a confirmed auth phone, or a confirmed
 --        email, the two hold alike. A staff or coach keep that would receive an
---        email or phone it lacks is MERGE_REFUSED detail staff_keep_auth. The
---        push token never moves (c0);
+--        email, a phone or an OAuth identity it lacks is MERGE_REFUSED detail
+--        staff_keep_auth. The push token never moves (c0);
 --      - a walk-in claim moves bookings, tabs, points and places, never the
 --        walk-in's name, gender, birth date, terms, notes or flags (c21);
 --      - profiles are locked FOR NO KEY UPDATE (a settle's FK key share on the
@@ -42,17 +42,27 @@ set statement_timeout = '60s';
 --      - a tournament both accounts entered keeps the better entry (registered,
 --        waitlisted, no-show, withdrawn; then the money paid; then keep's): the
 --        other's tabs move to it and the other is deleted, or the merge is
---        MERGE_REFUSED detail tournament_entry when that entry is in the draw.
---        A booked lesson place on the drop beats a held one on keep (c11);
+--        MERGE_REFUSED detail tournament_entry when that entry is in the draw
+--        or both entries are paid (a second fee must stay a refund due). The
+--        tournament's branch is asserted for those rows only and the caller's
+--        app.venue_id restored after. A booked lesson place on the drop beats
+--        a held one on keep (c11);
 --      - the drop's auth row is emptied: metadata, email, phone and every
 --        identity left on it go, and it stays banned (c45).
 --   5. app.duplicate_groups_internal groups phones by the confirmed auth phone
---      only; app.merge_duplicates_internal treats only MERGE_REFUSED as a
---      refusal (any other error is raised) and clears the key, not the phone,
---      of the side without a confirmed phone, the newer when both or neither
---      have one (c19).
+--      only (the automatic merge needs proof); app.merge_duplicates_internal
+--      treats only MERGE_REFUSED as a refusal (any other error is raised) and
+--      clears the key, not the phone, of the side without a confirmed phone,
+--      the newer when both or neither have one (c19). The owner's list,
+--      app.duplicate_account_groups (re-issued from 0303), also shows the
+--      unproven pairs (kind phone_unproven: live profiles whose phone text or
+--      confirmed auth phone is one number), so a walk-in that lost its key
+--      (walkin_claim_failed, phone_reclaimed, the recompute) can still be
+--      merged by hand; an owner merge is proof enough.
 --   6. app.desk_register_customer (0065) sets app.desk_walkin around its
---      upsert; app.find_customer_by_phone (0065) prefers the keyed holder.
+--      upsert; both it and app.find_customer_by_phone (0065) see only the
+--      keyed holder of a number, so a number a guest only typed never blocks
+--      the desk registering its real owner (c1).
 
 -- ---------------------------------------------------------------------------
 -- 1. The proof helpers
@@ -258,6 +268,8 @@ declare
   v_proven   boolean;
   v_take_email boolean := false;
   v_take_phone boolean := false;
+  v_take_ids boolean := false;
+  v_venue    text := current_setting('app.venue_id', true);
   v_te       record;
   v_k        tournament_entries%rowtype;
   v_d        tournament_entries%rowtype;
@@ -335,7 +347,14 @@ begin
                     and v_du.email not ilike '%@guest.touch.local';
     v_take_phone := nullif(btrim(coalesce(v_ku.phone, '')), '') is null
                     and nullif(btrim(coalesce(v_du.phone, '')), '') is not null;
-    if (v_take_email or v_take_phone)
+    -- An OAuth login (Google, Apple, ...) keep lacks moves too (section 6),
+    -- so it is a login a staff or coach keep would receive as well.
+    v_take_ids := exists (
+      select 1 from auth.identities d
+       where d.user_id = p_drop and d.provider not in ('email', 'phone')
+         and not exists (select 1 from auth.identities k
+                          where k.user_id = p_keep and k.provider = d.provider));
+    if (v_take_email or v_take_phone or v_take_ids)
        and (exists (select 1 from staff where id = p_keep)
             or exists (select 1 from coaches where profile_id = p_keep)) then
       raise exception 'MERGE_REFUSED' using errcode = 'P0001', detail = 'staff_keep_auth';
@@ -355,7 +374,8 @@ begin
   -- wins (registered, waitlisted, no_show, withdrawn; then the net paid;
   -- then keep's); the loser's tournament tabs move to it, so its money counts
   -- there, and the loser is deleted. A loser already in the draw (a match, a
-  -- bye, a substitution) cannot go: MERGE_REFUSED detail tournament_entry.
+  -- bye, a substitution), or a pair both paid, cannot go: MERGE_REFUSED
+  -- detail tournament_entry.
   -- Before the re-point loop: its tabs update is the first tabs write.
   for v_te in
     select k.id as k_id, d.id as d_id
@@ -373,6 +393,13 @@ begin
               x.side
      limit 1;
     v_lose := case when v_win = v_k.id then v_d else v_k end;
+    -- Both entries paid: folding one into the other would hide the second
+    -- fee from every refunds-due figure (refund_due counts a withdrawn or
+    -- cancelled entry only). One is refunded first, then the merge runs.
+    if coalesce((app.tournament_entry_money(v_k.id)->>'net_iqd')::bigint, 0) > 0
+       and coalesce((app.tournament_entry_money(v_d.id)->>'net_iqd')::bigint, 0) > 0 then
+      raise exception 'MERGE_REFUSED' using errcode = 'P0001', detail = 'tournament_entry';
+    end if;
     if exists (select 1 from tournament_matches m where v_lose.id in (m.a1, m.a2, m.b1, m.b2))
        or exists (select 1 from tournament_entries s where s.substitute_for = v_lose.id)
        or exists (select 1 from tournament_rounds r where v_lose.id = any (r.bye_entry_ids)) then
@@ -400,6 +427,9 @@ begin
     v_moved := v_moved || jsonb_build_object('tournament_entries.merged',
                                              coalesce((v_moved->>'tournament_entries.merged')::bigint, 0) + 1);
   end loop;
+  -- The caller's branch back: the tournament's was asserted for that
+  -- entry's rows only, never for the rest of the merge or the caller.
+  perform set_config('app.venue_id', coalesce(v_venue, ''), true);
 
   -- 2. The plain re-points, in lock order (tabs → reservations → … →
   -- match_tickets). A column that does not exist yet is skipped. A walk-in
@@ -744,7 +774,7 @@ begin
 end $merge_profiles_internal_0307$;
 
 comment on function app.merge_profiles_internal(uuid, uuid, text) is
-  '0303, 0307 (loyalty contracts §1.1). Internal, granted to nobody. Folds p_drop into p_keep. Locks the tournaments both entered (id order), then both profiles FOR NO KEY UPDATE (uuid order). A tournament both entered keeps the better entry (registered > waitlisted > no_show > withdrawn, then net paid, then keep''s): the loser''s tournament tabs move to it and the loser is deleted (a registered loser frees its place: promotion when open, a revision otherwise); a loser in the draw is MERGE_REFUSED detail tournament_entry. Every column of app.profile_merge_columns() is re-pointed (a flag, block, report, exclusion or standing keep already has is deleted on the drop; a seat, request, enrolment or ticket payment in flight stays on the drop, counted <table>_left; a booked lesson place beats a held one on keep that no payment can still book). Keep takes the names (when its full_name is empty), gender, birth_date and terms it lacks, then the phone it lacks; never the push token. A walk-in claim (reason walkin_claim) moves no name, gender, birth date, terms, customer_notes or customer_flags. The drop is tombstoned as delete_my_account does (0302 purges its avatar). Auth moves only between proven accounts (an ''owner:'' merge, or a confirmed phone or email the two share): the email or phone slot keep lacks with its identity (a walk-in''s synthetic address counts as empty), the email with its password when keep has none, other providers keep lacks; a staff or coach keep that would receive an email or phone is MERGE_REFUSED detail staff_keep_auth. The drop''s auth row is then emptied (metadata, email, phone, identities), banned (infinity) and signed out. Loyalty: both accounts locked in uuid order, the drop''s card and account go, keep''s is recomputed. Writes app.profile_merges and audit_log account.merge. MERGE_REFUSED detail missing | same | staff_drop | staff_both | coach_both | staff_keep_auth | tournament_entry. Returns {merge_id, keep_id, drop_id, moved}.';
+  '0303, 0307 (loyalty contracts §1.1). Internal, granted to nobody. Folds p_drop into p_keep. Locks the tournaments both entered (id order), then both profiles FOR NO KEY UPDATE (uuid order). A tournament both entered keeps the better entry (registered > waitlisted > no_show > withdrawn, then net paid, then keep''s): the loser''s tournament tabs move to it and the loser is deleted (a registered loser frees its place: promotion when open, a revision otherwise); a loser in the draw, or a pair of entries both paid, is MERGE_REFUSED detail tournament_entry (the tournament''s branch is asserted for those rows, then the caller''s app.venue_id restored). Every column of app.profile_merge_columns() is re-pointed (a flag, block, report, exclusion or standing keep already has is deleted on the drop; a seat, request, enrolment or ticket payment in flight stays on the drop, counted <table>_left; a booked lesson place beats a held one on keep that no payment can still book). Keep takes the names (when its full_name is empty), gender, birth_date and terms it lacks, then the phone it lacks; never the push token. A walk-in claim (reason walkin_claim) moves no name, gender, birth date, terms, customer_notes or customer_flags. The drop is tombstoned as delete_my_account does (0302 purges its avatar). Auth moves only between proven accounts (an ''owner:'' merge, or a confirmed phone or email the two share): the email or phone slot keep lacks with its identity (a walk-in''s synthetic address counts as empty), the email with its password when keep has none, other providers keep lacks; a staff or coach keep that would receive an email, a phone or an OAuth identity is MERGE_REFUSED detail staff_keep_auth. The drop''s auth row is then emptied (metadata, email, phone, identities), banned (infinity) and signed out. Loyalty: both accounts locked in uuid order, the drop''s card and account go, keep''s is recomputed. Writes app.profile_merges and audit_log account.merge. MERGE_REFUSED detail missing | same | staff_drop | staff_both | coach_both | staff_keep_auth | tournament_entry. Returns {merge_id, keep_id, drop_id, moved}.';
 
 revoke all on function app.merge_profiles_internal(uuid, uuid, text) from public, anon, authenticated;
 
@@ -782,6 +812,69 @@ comment on function app.duplicate_groups_internal() is
   '0303, 0307. Internal. (kind phone | email, key, profile_id) for every live profile that shares a confirmed auth phone (canonical) or a verified email with another live profile. A phone only typed into a profile never groups (0307, c0).';
 
 revoke all on function app.duplicate_groups_internal() from public, anon, authenticated;
+
+-- The owner's list, re-issued from 0303:641. The proven groups above, plus
+-- (kind phone_unproven) every number two or more live profiles share as phone
+-- text or confirmed auth phone without a proven group: a walk-in that lost its
+-- key to a verified owner (the recompute, a failed claim walkin_claim_failed,
+-- phone_reclaimed) or a guest who typed someone's number. Never merged by
+-- itself; the owner's merge (merge_accounts, 'owner: …') is the proof.
+create or replace function app.duplicate_account_groups() returns jsonb
+language plpgsql stable security definer set search_path = public as $duplicate_account_groups_0307$
+begin
+  if not app.is_staff('owner') then
+    raise exception 'FORBIDDEN' using errcode = 'P0001';
+  end if;
+
+  return coalesce((
+    with proven as (
+      select d.kind, d.key, d.profile_id from app.duplicate_groups_internal() d
+    ), nums as (
+      select app.phone_canon(p.phone) as key, p.id
+        from profiles p
+       where p.deleted_at is null
+         and coalesce(app.phone_digits(p.phone), '') ~ '^[0-9]{7,15}$'
+      union
+      select app.phone_canon(u.phone), p.id
+        from profiles p join auth.users u on u.id = p.id
+       where p.deleted_at is null and u.phone_confirmed_at is not null
+         and coalesce(app.phone_digits(u.phone), '') ~ '^[0-9]{7,15}$'
+    ), groups as (
+      select x.kind, x.key, x.profile_id from proven x
+      union all
+      select 'phone_unproven', n.key, n.id
+        from nums n
+       where n.key in (select key from nums group by key having count(distinct id) > 1)
+         and n.key not in (select x.key from proven x where x.kind = 'phone')
+    )
+    select jsonb_agg(jsonb_build_object('key', g.key, 'kind', g.kind, 'profiles', g.profiles)
+                     order by g.kind desc, g.key)
+      from (
+        select d.kind, d.key,
+               jsonb_agg(jsonb_build_object(
+                 'id',         p.id,
+                 'name',       p.full_name,
+                 'phone',      p.phone,
+                 'email',      u.email,
+                 'created_at', p.created_at,
+                 'staff',      exists (select 1 from staff s where s.id = p.id),
+                 'coach',      exists (select 1 from coaches c where c.profile_id = p.id),
+                 'synthetic',  coalesce(u.email ilike '%@guest.touch.local', false),
+                 'phone_verified', app.phone_verified_owner(p.id, d.key),
+                 'activity',   app.profile_activity(p.id))
+                 order by p.created_at, p.id) as profiles
+          from groups d
+          join profiles p on p.id = d.profile_id
+          left join auth.users u on u.id = p.id
+         group by d.kind, d.key
+      ) g), '[]'::jsonb);
+end $duplicate_account_groups_0307$;
+
+comment on function app.duplicate_account_groups() is
+  '0303, 0307 (loyalty contracts §1.1). Owner. Read-only: [{key, kind phone|phone_unproven|email, profiles:[{id, name, phone, email, created_at, staff, coach, synthetic, phone_verified, activity}]}]. phone and email: the proven groups of app.duplicate_groups_internal (a shared confirmed auth phone, a verified email). phone_unproven (0307): a number two or more live profiles share as phone text or confirmed auth phone with no proven group, e.g. a walk-in that lost its key to its verified owner (walkin_claim_failed, phone_reclaimed); merge_accounts is the owner''s proof.';
+
+revoke all on function app.duplicate_account_groups() from public, anon;
+grant execute on function app.duplicate_account_groups() to authenticated;
 
 -- 0303:720, re-issued (c19): only MERGE_REFUSED is a refusal; a refused phone
 -- pair loses the key (not the phone text) of the side without a confirmed
@@ -925,7 +1018,9 @@ begin
             perform app.merge_profiles_internal(p_user, v_holder, 'walkin_claim');
             v_out := 'claimed';
           exception when others then
-            -- c20: recorded, so the owner can merge the pair by hand.
+            -- c20: recorded; the walk-in keeps its phone text, so the owner's
+            -- list (duplicate_account_groups, phone_unproven) shows the pair
+            -- to merge by hand.
             insert into app.profile_merges (keep_id, drop_id, reason, moved)
             values (p_user, v_holder, 'walkin_claim_failed',
                     jsonb_build_object('key', v_key, 'code', sqlerrm, 'sqlstate', sqlstate));
@@ -1080,18 +1175,22 @@ create trigger on_auth_user_phone_changed
 -- ---------------------------------------------------------------------------
 -- 7. The desk's two service-role functions (0065)
 -- ---------------------------------------------------------------------------
--- 0307 (c1): the keyed holder of a number (a verified owner or a desk walk-in)
--- comes first, so a guest who only typed the number is never the one found
--- while its owner exists.
+-- 0307 (c1): only the keyed holder of a number (a verified owner or a desk
+-- walk-in) is found; NULL when nobody holds the key. A guest who only typed
+-- the number is never the one found, so it never blocks the desk registering
+-- the number's real owner (and the 409 never hands back the typist's id).
 create or replace function app.find_customer_by_phone(p_phone text) returns uuid
 language sql stable security definer set search_path = public as $find_customer_by_phone_0307$
   select p.id
     from profiles p
    where app.phone_canon(p_phone) is not null
-     and app.phone_canon(p.phone) = app.phone_canon(p_phone)
-   order by (p.phone_key is not null and p.deleted_at is null) desc, p.created_at
+     and p.phone_key = app.phone_canon(p_phone)
+     and p.deleted_at is null
    limit 1
 $find_customer_by_phone_0307$;
+
+comment on function app.find_customer_by_phone(text) is
+  '0065, 0307. Service role (desk-customer-create). The live profile holding p_phone''s key (app.phone_canon: a confirmed auth phone or a desk walk-in), or NULL. A number only typed into a profile is never found.';
 revoke all on function app.find_customer_by_phone(text) from public, anon, authenticated;
 grant execute on function app.find_customer_by_phone(text) to service_role;
 
@@ -1133,11 +1232,14 @@ begin
   end if;
 
   -- Re-check under the write: the edge function's pre-check and this call are
-  -- two round trips, and two desks can type the same walk-in at once.
+  -- two round trips, and two desks can type the same walk-in at once. 0307
+  -- (c1): only a keyed holder (a verified owner, a desk walk-in) is a
+  -- duplicate; a guest who only typed the number blocks nobody.
   select p.id into v_dup
     from profiles p
    where p.id <> p_customer_id
-     and app.phone_canon(p.phone) = v_canon
+     and p.phone_key = v_canon
+     and p.deleted_at is null
    limit 1;
   if v_dup is not null then
     raise exception 'DUPLICATE_PHONE' using errcode = 'P0001',
@@ -1149,16 +1251,31 @@ begin
   perform set_config('app.desk_walkin', p_customer_id::text, true);
 
   -- The 0058 trigger normally created this row from user_metadata already;
-  -- the upsert makes the outcome the same either way.
-  insert into profiles (id, full_name, phone, preferred_lang)
-  values (p_customer_id, v_name, v_phone, v_lang)
-  on conflict (id) do update
-    set full_name      = excluded.full_name,
-        phone          = excluded.phone,
-        preferred_lang = excluded.preferred_lang
-  returning * into v_row;
+  -- the upsert makes the outcome the same either way. A holder that keyed the
+  -- number since the re-check (zz_phone_key then stores this row keyless, or
+  -- the unique index refuses it) is the same duplicate.
+  begin
+    insert into profiles (id, full_name, phone, preferred_lang)
+    values (p_customer_id, v_name, v_phone, v_lang)
+    on conflict (id) do update
+      set full_name      = excluded.full_name,
+          phone          = excluded.phone,
+          preferred_lang = excluded.preferred_lang
+    returning * into v_row;
+  exception when unique_violation then
+    v_row.phone_key := null;
+  end;
 
   perform set_config('app.desk_walkin', '', true);
+
+  if v_row.phone_key is distinct from v_canon then
+    select p.id into v_dup
+      from profiles p
+     where p.id <> p_customer_id and p.phone_key = v_canon and p.deleted_at is null
+     limit 1;
+    raise exception 'DUPLICATE_PHONE' using errcode = 'P0001',
+      detail = coalesce(v_dup::text, '');
+  end if;
 
   insert into audit_log (actor_id, actor_role, action, entity, entity_id, before, after)
   values (p_actor_id, v_actor.role::text, 'customer.create', 'profiles', p_customer_id::text, null,
