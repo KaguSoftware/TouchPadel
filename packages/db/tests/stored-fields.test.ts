@@ -50,6 +50,7 @@ import {
   SUPABASE_URL,
   SERVICE_ROLE_KEY,
   VENUE_A_ID,
+  uniqueTestPhone,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -449,6 +450,7 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     total_iqd: { category: 'Purchase history', why: 'what a bill came to; the venue’s takings, and what a guest attached to it earned points on', onDelete: 'keep' },
     opened_at: n, settled_at: n, device_id: n, idempotency_key: n, court_iqd: n, venue_id: n, kind: n,
     court_cap_iqd: n, lesson_enrolment_id: n, lesson_iqd: n, tournament_entry_id: n, customer_id: n,
+    customer_method: n,   // 0308: qr | phone | desk, how the desk knew the member
   },
   // The member card: the code printed under the QR and the TOTP secret the phone computes the
   // rotating token from. 0306's delete_my_account deletes the row.
@@ -457,6 +459,7 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     member_code: { category: 'Device or other IDs', why: 'the member number under the QR the till scans to find the guest', onDelete: 'row' },
     secret: { category: 'Device or other IDs', why: 'the key the guest’s phone or browser computes the rotating member QR from', onDelete: 'row' },
     created_at: n, rotated_at: n,
+    last_counter: n,   // 0308: the last spent token step (a counter, names nobody)
   },
   // The points ledger is append-only and stays on the tombstone for the venue's figures
   // (contracts §1.4): a delta names nobody once the profile is the tombstone.
@@ -466,6 +469,15 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     kind: n, source_kind: n, source_id: n, tab_id: n, actor_id: n,
     note: { category: 'User content', why: 'a manager’s reason for a points correction; kept with the ledger it explains', onDelete: 'keep' },
     created_at: n,
+    // 0308 (c22): what an earn was measured on, for the clawback
+    earn_base_iqd: { category: 'Purchase history', why: 'the money a bill or an online payment earned points on; the base a refund takes points back against', onDelete: 'keep' },
+    earn_court_iqd: { category: 'Purchase history', why: 'the court part of that money', onDelete: 'keep' },
+  },
+  // 0308 (c3): every member-code or phone lookup at the till and the café link, success or not, for
+  // the throttle; pruned after a day, so a deletion does not need to reach it.
+  loyalty_token_attempts: {
+    id: n, auth_user_id: n, ok: n, at: n, anonymous: n,
+    member_code: { category: 'Device or other IDs', why: 'the member number a lookup named, kept for one day to lock out repeated wrong codes', onDelete: 'keep' },
   },
   // The ledger's cache per profile. 0306's delete_my_account deletes the row.
   loyalty_accounts: {
@@ -826,7 +838,12 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
 
     // Loyalty (0305, 0306): the guest's member card, and one ledger row whose insert trigger
     // builds the loyalty_accounts cache. The card and the cache are 'row'; the ledger is kept.
-    // phone_key is filled from the sign-up phone, so its 'scrub' is a real change.
+    // phone_key is set once the account's own phone is confirmed (0307: a typed phone is never a
+    // key), so its 'scrub' is a real change.
+    const { data: typed } = await svc.from('profiles').select('phone').eq('id', uid).single();
+    const own = (typed as { phone: string | null }).phone ?? uniqueTestPhone();
+    const phoneConfirmed = await svc.auth.admin.updateUserById(uid, { phone: own, phone_confirm: true });
+    if (phoneConfirmed.error) throw new Error(`confirm phone: ${phoneConfirmed.error.message}`);
     const card = await appRpc(guest, 'my_member_card', {});
     if (card.error) throw new Error(`my_member_card: ${card.error.message}`);
     const ledgerSource = crypto.randomUUID();

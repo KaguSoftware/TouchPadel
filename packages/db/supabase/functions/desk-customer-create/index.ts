@@ -9,8 +9,10 @@
  * Errors (JSON `{ error, message }`):
  *   400 BAD_REQUEST      — body shape, name length, preferredLang
  *   400 INVALID_PHONE    — fewer than 7 or more than 15 digits once normalised
- *   409 DUPLICATE_PHONE  — a profile already carries the same number (canonical
- *                          form, 0065 app.phone_canon: 0770… ≡ +964770… ≡ ٠٧٧٠…)
+ *   409 DUPLICATE_PHONE  — a live profile already holds the number's key (canonical
+ *                          form, 0065 app.phone_canon: 0770… ≡ +964770… ≡ ٠٧٧٠…;
+ *                          0307: a verified owner or a desk walk-in, never a
+ *                          guest who only typed the number)
  *   409 DUPLICATE_EMAIL  — GoTrue already has that address
  *   401 AUTH_REQUIRED / 403 FORBIDDEN — from requireStaffRole
  *

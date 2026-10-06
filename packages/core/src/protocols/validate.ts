@@ -267,7 +267,7 @@ export function validatePromotion(value: unknown, prefix = 'promotion'): FieldIs
   }
   for (const [key, allowed] of [
     ['scope', ['courtIds', 'categoryIds', 'itemIds']],
-    ['limits', ['total', 'perCustomer', 'minSpendIqd']],
+    ['limits', ['total', 'perCustomer', 'minSpendIqd', 'tierMin']],
   ] as const) {
     const o = v[key];
     if (isObject(o) && Object.keys(o).some((k) => !(allowed as readonly string[]).includes(k))) {

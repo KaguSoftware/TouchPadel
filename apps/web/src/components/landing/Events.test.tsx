@@ -20,7 +20,7 @@ import { Events } from './Events';
 /**
  * Events with and without tournaments (T-8; build contracts §1.11): until one is coming up (off,
  * none upcoming, a failed read) the section is exactly the poster and the entry pass; once one
- * is, the next three sit above the poster as cards with the date, the name, the format and
+ * is, the next three sit under the green ticket as cards with the date, the name, the format and
  * category, the fee, the places and the two links, and nothing a server should never have sent.
  * The look and the Arabic mirror are Playwright's (e2e/tests/site-tournaments.spec.ts).
  */
@@ -65,13 +65,13 @@ describe('Events without tournaments', () => {
 describe.each(['en', 'ar'] as const)('Events with tournaments (%s)', (locale) => {
   const read = tournamentsRead(tournamentsAnswer());
 
-  it('lists the next three upcoming above the poster, soonest first, never the finished', () => {
+  it('lists the next three upcoming under the ticket, soonest first, never the finished', () => {
     const { container } = renderEvents(locale, read);
     const cards = container.querySelector('.tp-events__cards')!;
     expect(cards).not.toBeNull();
     expect(
-      cards.compareDocumentPosition(container.querySelector('.tp-events__stage')!) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      cards.compareDocumentPosition(container.querySelector('.tp-ticket')!) &
+        Node.DOCUMENT_POSITION_PRECEDING,
     ).toBeTruthy();
     expect(cards.querySelector('h2')?.textContent).toBe(
       t(locale, 'tournaments.web.eventsCards.title'),
@@ -143,7 +143,7 @@ describe.each(['en', 'ar'] as const)('Events with tournaments (%s)', (locale) =>
     expect(texts).toEqual([t(locale, 'tournaments.web.eventsCards.details')]);
   });
 
-  it('keeps the poster, the ticket and the WhatsApp ask under the cards', () => {
+  it('keeps the poster, the ticket and the WhatsApp ask above the cards', () => {
     const { container } = renderEvents(locale, read);
     expect(container.querySelector('.tp-events__stage')).not.toBeNull();
     expect(container.querySelector('#events-title')?.textContent).toBe(

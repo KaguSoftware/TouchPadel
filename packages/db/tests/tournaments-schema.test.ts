@@ -32,7 +32,7 @@ const TABLES = [
 ];
 
 describe.skipIf(!docker)('tournaments schema (§1.2)', () => {
-  it('five branch tables: RLS on, no policy, no client grant, the guard, venue_id with no default, constraint indexes only', () => {
+  it('five branch tables: RLS on, no policy, no client grant, the guard, venue_id with no default, constraint indexes only (0310: plus tournament_entries_venue_idx)', () => {
     const r = scenario('ts-tables', [
       Q(
         'tables',
@@ -66,7 +66,8 @@ describe.skipIf(!docker)('tournaments schema (§1.2)', () => {
         service: true,
         venue_id: true,
         venue_default: null,
-        loose_indexes: 0,
+        // 0310: tournament_entries_venue_idx, for the branch-wide money reads.
+        loose_indexes: name === 'tournament_entries' ? 1 : 0,
       });
       expect(t.guard, name).toMatch(/trg_branch_guard\('scoped'/);
     }
@@ -80,7 +81,7 @@ describe.skipIf(!docker)('tournaments schema (§1.2)', () => {
     expect(tables.tournament_score_events!.guard).toMatch(/'tournament_matches', 'match_id'\)/);
   });
 
-  it('tabs: the tournament kind and link, every constraint validated, the entry pair before the lesson pair', () => {
+  it('tabs: the tournament kind and link, every constraint validated, the entry pair before the lesson pair, the entry index', () => {
     const r = scenario('ts-tabs', [
       Q(
         'cons',
@@ -106,6 +107,13 @@ describe.skipIf(!docker)('tournaments schema (§1.2)', () => {
                   from information_schema.columns where table_schema = 'public' and table_name = 'tabs'
                    and column_name = 'tournament_entry_id'`,
       ),
+      // c30 (0310): tournament_entry_money reads tabs by entry, once per entry on the desk
+      // detail; without this index each read scans every tab.
+      Q(
+        'entry_index',
+        `select jsonb_build_object('valid', i.indisvalid, 'def', pg_get_indexdef(i.indexrelid))
+                   from pg_index i where i.indexrelid = to_regclass('public.tabs_tournament_entry_idx')`,
+      ),
     ]);
     const cons = answer<Record<string, { valid: boolean; def: string }>>(r, 'cons');
     expect(Object.keys(cons).sort()).toEqual([
@@ -122,6 +130,12 @@ describe.skipIf(!docker)('tournaments schema (§1.2)', () => {
       /'tournament_entries', 'tournament_entry_id', 'lesson_enrolments', 'lesson_enrolment_id'\)$/,
     );
     expect(answer(r, 'col')).toEqual({ type: 'uuid', nullable: 'YES', default: null });
+    expect(answer<{ valid: boolean; def: string }>(r, 'entry_index')).toMatchObject({
+      valid: true,
+    });
+    expect(answer<{ def: string }>(r, 'entry_index').def).toMatch(
+      /ON public\.tabs USING btree \(tournament_entry_id\) WHERE \(tournament_entry_id IS NOT NULL\)$/,
+    );
   });
 
   it('a tournament tab refuses a booking, a table or a missing entry; no other tab names an entry', () => {

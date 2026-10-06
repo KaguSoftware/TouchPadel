@@ -10,7 +10,9 @@
  * without two two-id teams, a non-integer number) is not a rules question: the server answers
  * `INVALID_ARGUMENT` detail `p_payload`, and this returns `['payload']` alone.
  *
- * Fairness (partner and opponent repeats, sit-out spread) is the engine's, never checked here.
+ * Fairness (partner and opponent repeats) is the engine's, never checked here. Who sits out is
+ * (0311, c26, check 12): a sit-out is worth floor(points_target / 2), so each round's sit-outs
+ * must be entries with the fewest sit-outs so far, the rule both engines draw by.
  */
 import {
   TOUR_ENGINE,
@@ -39,6 +41,16 @@ export interface TourRoundsContext {
   active: readonly string[];
   /** The courts of the run's live adopted blocks. */
   courts: readonly string[];
+  /**
+   * The rounds that exist, by their sit-outs (0311, check 12): those before `from_round` count.
+   * Omitted: none.
+   */
+  sit_outs?: readonly { round_no: number; sit_out: readonly string[] }[];
+  /**
+   * The rounds that exist, by the courts their matches play on (0311, check 11): those before
+   * `from_round` count. Omitted: none.
+   */
+  round_courts?: readonly { round_no: number; courts: readonly string[] }[];
 }
 
 export type TourRoundsCheck = TourRoundsDetail | 'payload';
@@ -127,10 +139,33 @@ export function validateRoundsPayload(payload: unknown, ctx: TourRoundsContext):
     return new Set(ids).size === ids.length && ids.every((c) => courts.has(c));
   });
   if (!courtOk) out.push('court');
-  // 11. courts_used: 1..floor(active / 4) matches per round.
-  const most = Math.floor(ctx.active.length / 4);
-  if (!p.rounds.every((r) => r.matches.length >= 1 && r.matches.length <= most))
+  // 11. courts_used (0311): every round plays tourCourtsPerRound(active, |the run's courts|)
+  // matches, at least one. The run's courts: the payload's, and the still adopted courts of the
+  // rounds before from_round (the desk picks them at Start; no round leaves one empty).
+  const used = new Set<string>();
+  for (const r of ctx.round_courts ?? [])
+    if (r.round_no < p.from_round) for (const c of r.courts) if (courts.has(c)) used.add(c);
+  for (const r of p.rounds) for (const m of r.matches) used.add(m.court_id);
+  const per = Math.min(used.size, Math.floor(ctx.active.length / 4));
+  if (!p.rounds.every((r) => r.matches.length >= 1 && r.matches.length === per))
     out.push('courts_used');
+  // 12. sit_out: no sit-out has sat out more than a player of the round (the rounds before
+  // from_round, then the payload's earlier rounds).
+  const sat = new Map<string, number>();
+  for (const r of ctx.sit_outs ?? [])
+    if (r.round_no < p.from_round) for (const id of r.sit_out) sat.set(id, (sat.get(id) ?? 0) + 1);
+  const satOf = (id: string): number => sat.get(id) ?? 0;
+  const sitOk = p.rounds.every((r) => {
+    const sitting = new Set(r.sit_out);
+    const playing = ctx.active.filter((id) => !sitting.has(id));
+    const ok =
+      r.sit_out.length === 0 ||
+      playing.length === 0 ||
+      Math.max(...r.sit_out.map(satOf)) <= Math.min(...playing.map(satOf));
+    for (const id of r.sit_out) sat.set(id, satOf(id) + 1);
+    return ok;
+  });
+  if (!sitOk) out.push('sit_out');
 
   return out;
 }

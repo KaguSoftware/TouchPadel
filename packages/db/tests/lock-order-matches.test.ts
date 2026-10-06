@@ -30,9 +30,17 @@ const docker = up && dockerReachable();
 
 /** The order of db.md §2.1 / contracts §1.4, verbatim; coach_advisory since coaching_tables (coaching db.md §2.1). */
 const DECLARED = [
-  'day_sessions', 'match_money_advisory', 'coach_advisory', 'tabs', 'orders', 'order_items', 'tickets', 'payments',
+  'day_sessions', 'match_money_advisory', 'coach_advisory',
+  // Tournaments (0310, c42): the tournament row, then its entries.
+  'tournaments', 'tournament_entries',
+  'tabs',
+  // Loyalty (0309, 0308): a promotion under the tab; the member-token throttle key after it.
+  'promotions', 'loyalty_attempts_advisory',
+  'orders', 'order_items', 'tickets', 'payments',
   'till_shifts', 'refunds', 'stock_batches', 'court_advisory', 'venues', 'reservations', 'match_venue_advisory',
   'match_tickets',
+  // Loyalty (0308): a manager's gift key, just before the account.
+  'loyalty_gift_advisory',
   // Loyalty (0305): a member's cached balance, last; the earn and clawback triggers are deferred.
   'loyalty_accounts',
 ];
@@ -224,6 +232,9 @@ function rowOf(out: string, fn: string): string | undefined {
 
 describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 0263, 0265)', () => {
   let gate: { code: number; out: string };
+  // Loyalty 0308 (c5): a body that moves a booking payment to succeeded or refunded queues the
+  // deferred earn/clawback trigger on booking_payments, which takes loyalty_accounts at commit.
+  const TAIL = ' -> loyalty_accounts';
 
   it('passes and prints the declared order of db.md §2.1', () => {
     gate = runGate();
@@ -236,9 +247,9 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
     gate ??= runGate();
     // 0284 (R33): a lesson row's coach first, then the courts, the rows, the trigger.
     // 0291 (DB-11): the lesson arm's lesson_lock_branch_courts takes the branch row after the courts.
-    expect(rowOf(gate.out, 'deposit_apply')).toBe('coach_advisory -> court_advisory -> venues -> reservations -> match_venue_advisory -> match_tickets');
+    expect(rowOf(gate.out, 'deposit_apply')).toBe('coach_advisory -> court_advisory -> venues -> reservations -> match_venue_advisory -> match_tickets' + TAIL);
     for (const fn of ['ticket_settle_success', 'ticket_refund_deleted', 'tickets_cash_out']) {
-      expect(rowOf(gate.out, fn), fn).toBe('match_tickets');
+      expect(rowOf(gate.out, fn), fn).toBe('match_tickets' + TAIL);
     }
   });
 
@@ -246,9 +257,9 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
     gate ??= runGate();
     const internal = gate.out.slice(gate.out.indexOf('internal sequences'));
     // 0263: match_expire_holds' update expands the reservation trigger.
-    expect(rowOf(internal, 'match_lock')).toBe('court_advisory -> reservations -> match_venue_advisory -> match_tickets');
+    expect(rowOf(internal, 'match_lock')).toBe('court_advisory -> reservations -> match_venue_advisory -> match_tickets' + TAIL);
     expect(rowOf(internal, 'match_lock_courts')).toBe('court_advisory');
-    expect(rowOf(internal, 'match_expire_holds')).toBe('reservations -> match_venue_advisory -> match_tickets');
+    expect(rowOf(internal, 'match_expire_holds')).toBe('reservations -> match_venue_advisory -> match_tickets' + TAIL);
     expect(rowOf(internal, 'lock_match_venue')).toBe('(no locks)');
     expect(rowOf(internal, 'lock_match_money')).toBe('(no locks)');
     expect(rowOf(internal, 'try_lock_match_venue')).toBe('(no locks)');
@@ -258,12 +269,12 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
     }
     // The booking insert expands the reservation trigger (0263). Internal and never walked: every
     // caller already holds L2 or the sweep's lock, so the trigger's mutex is a re-grant there.
-    expect(rowOf(internal, 'match_try_book')).toBe('match_tickets -> match_venue_advisory -> match_tickets');
+    expect(rowOf(internal, 'match_try_book')).toBe('match_tickets -> match_venue_advisory -> match_tickets' + TAIL);
   });
 
   it('0261: match_join prints courts -> its booking row and the stale holds -> the mutex -> tickets (§2.5, R15)', () => {
     gate ??= runGate();
-    expect(rowOf(gate.out, 'match_join')).toBe('court_advisory -> reservations -> match_venue_advisory -> match_tickets');
+    expect(rowOf(gate.out, 'match_join')).toBe('court_advisory -> reservations -> match_venue_advisory -> match_tickets' + TAIL);
   });
 
   it('0261: every guest write prints its §2.5 level (LS and L2 through the courts, L1 the mutex alone)', () => {
@@ -271,7 +282,7 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
     const L2 = 'court_advisory -> reservations -> match_venue_advisory -> match_tickets';
     const L1 = 'match_venue_advisory -> match_tickets';
     // match_decide: its approve branch (L2) is written before its decline (L1).
-    for (const fn of ['match_start', 'match_decide']) expect(rowOf(gate.out, fn), fn).toBe(L2);
+    for (const fn of ['match_start', 'match_decide']) expect(rowOf(gate.out, fn), fn).toBe(L2 + TAIL);
     for (const fn of ['match_request', 'match_withdraw', 'match_leave', 'match_remove_player', 'match_cancel']) {
       expect(rowOf(gate.out, fn), fn).toBe(L1);
     }
@@ -285,12 +296,12 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
   it('0262: the desk writes print their §2.5 level, the money lock first where seat money can move (R19)', () => {
     gate ??= runGate();
     const L2M = 'match_money_advisory -> court_advisory -> reservations -> match_venue_advisory -> match_tickets';
-    for (const fn of ['desk_add_seat', 'mark_match_seats', 'desk_call_off_short']) expect(rowOf(gate.out, fn), fn).toBe(L2M);
+    for (const fn of ['desk_add_seat', 'mark_match_seats', 'desk_call_off_short']) expect(rowOf(gate.out, fn), fn).toBe(L2M + TAIL);
     expect(rowOf(gate.out, 'desk_remove_seat')).toBe('match_money_advisory -> match_venue_advisory -> match_tickets');
     expect(rowOf(gate.out, 'desk_cancel_match')).toBe('match_venue_advisory -> match_tickets');
     // A desk start seats walk-ins and nameless extras: no ticket of its own; since 0263 its
     // stale-hold expiry expands the reservation trigger (db.md §2.5).
-    expect(rowOf(gate.out, 'desk_start_match')).toBe('court_advisory -> reservations -> match_venue_advisory -> match_tickets');
+    expect(rowOf(gate.out, 'desk_start_match')).toBe('court_advisory -> reservations -> match_venue_advisory -> match_tickets' + TAIL);
     // Money's writers (money.md §8): Take share and Assign reach the till's tabs
     // under the money lock; the write-off reads the match under match_lock.
     for (const fn of ['match_seat_settle', 'match_link_payment']) {
@@ -299,9 +310,9 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
     }
     // Since 0263 the stale-hold expiry under match_lock expands the reservation trigger.
     expect(rowOf(gate.out, 'match_seat_write_off'))
-      .toBe('match_money_advisory -> court_advisory -> reservations -> match_venue_advisory -> match_tickets');
+      .toBe('match_money_advisory -> court_advisory -> reservations -> match_venue_advisory -> match_tickets' + TAIL);
     // A status-only writer (the gate's rule 3): the row, then the trigger's part A (0263).
-    expect(rowOf(gate.out, 'mark_reservation')).toBe('reservations -> match_venue_advisory -> match_tickets');
+    expect(rowOf(gate.out, 'mark_reservation')).toBe('reservations -> match_venue_advisory -> match_tickets' + TAIL);
     for (const fn of ['desk_open_matches', 'desk_match_states', 'desk_match_detail', 'set_match_ban',
                       'staff_set_customer_gender', 'match_reports_open', 'resolve_match_report']) {
       expect(rowOf(gate.out, fn), fn).toBeUndefined();
@@ -311,7 +322,7 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
   it('0263, 0284: deposit_apply prints the coach -> courts -> its rows -> the mutex -> tickets with the reservation trigger (R15, R33)', () => {
     gate ??= runGate();
     expect(rowOf(gate.out, 'deposit_apply')).toBe(
-      'coach_advisory -> court_advisory -> venues -> reservations -> match_venue_advisory -> match_tickets',
+      'coach_advisory -> court_advisory -> venues -> reservations -> match_venue_advisory -> match_tickets' + TAIL,
     );
   });
 
@@ -320,18 +331,18 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
     const LS = 'court_advisory -> reservations -> match_venue_advisory -> match_tickets';
     for (const fn of ['match_sweep', 'hold_slot', 'staff_create_reservation', 'move_reservation', 'extend_reservation',
                       'create_series', 'block_courts_for_event']) {
-      expect(rowOf(gate.out, fn), fn).toBe(LS);
+      expect(rowOf(gate.out, fn), fn).toBe(LS + TAIL);
     }
     // Status-only writers (the gate's rule 3 exemption): the row, then the trigger's part A.
     for (const fn of ['cancel_reservation', 'cancel_series', 'confirm_booking', 'mark_reservation', 'release_hold',
                       'expire_stale_holds']) {
-      expect(rowOf(gate.out, fn), fn).toBe('reservations -> match_venue_advisory -> match_tickets');
+      expect(rowOf(gate.out, fn), fn).toBe('reservations -> match_venue_advisory -> match_tickets' + TAIL);
     }
     // delete_my_account's reservations scrub expands the trigger statically; at run time it
     // touches none of the watched columns, so the trigger never fires there (db.md §2.5).
     // 0264's ticket_refund_deleted adds only match_tickets (skip locked): no match or court
     // lock (R25).
-    expect(rowOf(gate.out, 'delete_my_account')).toBe('match_venue_advisory -> match_tickets');
+    expect(rowOf(gate.out, 'delete_my_account')).toBe('match_venue_advisory -> match_tickets' + TAIL);
     const internal = gate.out.slice(gate.out.indexOf('internal sequences'));
     // Part A waits for the mutex, part B only try-locks it (never emitted).
     expect(rowOf(internal, 'trg_reservation_match')).toBe('match_venue_advisory -> match_tickets');

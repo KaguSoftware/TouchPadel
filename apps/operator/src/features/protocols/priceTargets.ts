@@ -193,6 +193,8 @@ function promotionFields(p: Obj): Obj {
       total: num(limits?.total),
       perCustomer: num(limits?.perCustomer),
       minSpendIqd: num(limits?.minSpendIqd),
+      // 0309: a tier promotion's tier (a loyalty tier id), kept through an edit; absent when none.
+      ...(typeof limits?.tierMin === 'string' ? { tierMin: limits.tierMin } : {}),
     },
     auto: p.auto === true,
     public_code: str(p.public_code) ?? '',

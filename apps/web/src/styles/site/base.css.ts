@@ -145,6 +145,9 @@ export const siteBaseCss = `
 @media (hover: hover) { .tp-site-btn:hover::before { opacity: 1; } }
 .tp-site-btn:active { transform: scale(0.97); }
 .tp-site-btn .tp-icon { inline-size: 1.2em; block-size: 1.2em; }
+/* Flex centres the icon on the line box, which keeps room for descenders below; the
+   all-caps label sits above that, so the icon read low. Lift it to the capitals' middle. */
+.tp-site-btn .tp-icon { translate: 0 -0.1em; }
 [dir='rtl'] .tp-site-btn { text-transform: none; letter-spacing: 0; font-size: 1rem; }
 .tp-site-btn--go { background: var(--tp-site-green); color: var(--tp-site-green-ink); --tp-btn-hover: var(--tp-site-green-hover); }
 .tp-site-btn--primary { background: var(--tp-accent); color: var(--tp-accent-contrast); --tp-btn-hover: var(--tp-site-accent-hover); }

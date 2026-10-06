@@ -8,7 +8,9 @@
  *              BEFORE the action (spec 06.18 note). `can.refund` decides the
  *              refused state; the control stays visible (R9). A refund of desk
  *              lesson money (the refunds-due lists) passes `dueIqd`: capped at
- *              what is due back unless marked goodwill (coaching R36).
+ *              what is due back unless marked goodwill (coaching R36). A
+ *              kind tournament tab (`moneyKind`) offers tournament_refund or
+ *              tournament_goodwill; the server caps the first (0310 c41).
  *   - OVERRIDE (L450-451) `app.override_price` via mutate('adjustment.apply').
  *   - MERGE    (L444) `app.merge_tabs`.
  *
@@ -75,6 +77,7 @@ export function RefundDialog({
   lines,
   canRefund,
   dueIqd,
+  moneyKind,
   onDone,
   onClose,
   onRefused,
@@ -91,6 +94,14 @@ export function RefundDialog({
    */
   dueIqd?: number;
   /**
+   * 'tournament' on a kind tournament tab (0310 c41): the PIN prompt offers
+   * `tournament_refund`, or `tournament_goodwill` with the goodwill switch on.
+   * The server caps the first at what is due back on the entry
+   * (REFUND_EXCEEDS_DUE); the till does not know that amount, so it caps at the
+   * payment's remainder only.
+   */
+  moneyKind?: 'tournament';
+  /**
    * `outcome.queued`: the refund is safe on the durable queue but the server has
    * not answered yet (item 9); `outcome.localId` is what its result will carry.
    */
@@ -101,6 +112,7 @@ export function RefundDialog({
 }) {
   const { tr, locale } = useLocale();
   const lesson = dueIqd !== undefined;
+  const tournament = !lesson && moneyKind === 'tournament';
   const [goodwill, setGoodwill] = useState(false);
   const [paymentId, setPaymentId] = useState(payments[0]?.id ?? '');
   const [amount, setAmount] = useState<number>(payments[0] ? refundCap(payments[0], dueIqd) : 0);
@@ -162,7 +174,11 @@ export function RefundDialog({
   }
 
   // R36: a lesson refund names its own reason, one per mode, so the audit row says which it was.
-  const lessonReasons: readonly ReasonCode[] | undefined = lesson ? [goodwill ? 'lesson_goodwill' : 'lesson_refund'] : undefined;
+  const lessonReasons: readonly ReasonCode[] | undefined = lesson
+    ? [goodwill ? 'lesson_goodwill' : 'lesson_refund']
+    : tournament
+      ? [goodwill ? 'tournament_goodwill' : 'tournament_refund']
+      : undefined;
 
   return (
     <>
@@ -197,6 +213,8 @@ export function RefundDialog({
                 and the dialog opened on an amber box before anything was done. */}
             {lesson ? (
               <MessagePresenter tone="info" message={tr('ws.coaching.refunds.capLead', { amount: formatIQD(dueIqd, locale) })} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
+            ) : tournament ? (
+              <MessagePresenter tone="info" message={tr('ws.tournaments.refund.capLead')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
             ) : (
               <MessagePresenter tone="info" icon="package" message={tr('ws.cashier.refund.consequence')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
             )}
@@ -225,11 +243,11 @@ export function RefundDialog({
                 onChange={(e) => setAmount(Number(e.target.value.replace(/\D/g, '')) || 0)}
               />
             </Field>
-            {lesson && (
+            {(lesson || tournament) && (
               <Switch
                 checked={goodwill}
                 disabled={!canRefund}
-                label={tr('ws.coaching.refunds.goodwill')}
+                label={tr(tournament ? 'ws.tournaments.refund.goodwill' : 'ws.coaching.refunds.goodwill')}
                 onChange={(next) => {
                   setGoodwill(next);
                   // Back under the cap: an amount typed past the due comes down to it.
@@ -239,8 +257,8 @@ export function RefundDialog({
               />
             )}
 
-            {/* A lesson refund names no items: lesson money returns no stock. */}
-            {!(lesson && lines.length === 0) && (
+            {/* A lesson or tournament refund names no items: that money returns no stock. */}
+            {!((lesson || tournament) && lines.length === 0) && (
               <>
                 <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-0)' }}>{tr('op.till.refundItems')}</h3>
                 <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-1-5)' }}>{tr('op.till.refundItemsHint')}</p>

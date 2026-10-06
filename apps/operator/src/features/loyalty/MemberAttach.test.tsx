@@ -10,6 +10,10 @@ import { LocaleProvider } from '../../lib/i18n';
 // the tab is undone with loyalty_unredeem; a tab opened offline is off with its hint.
 
 let role = 'cashier';
+/** 0308 (c2): the identified member works here; set_tab_customer wants a manager PIN grant. */
+let memberIsStaff = false;
+/** 0308 (c3): loyalty_redeem answers a spent token as data. */
+let tokenSpent = false;
 const TAB = 't1';
 let tabRow: { id: string; status: string; customer_id: string | null; tab_adjustments: unknown[] };
 
@@ -50,7 +54,7 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
   appRpc: vi.fn(),
 }));
 
-import { appRpc } from '../../lib/appRpc';
+import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { MemberAttach } from './MemberAttach';
 
 const rpc = vi.mocked(appRpc);
@@ -66,11 +70,16 @@ const MEMBER = {
 };
 
 function mount(tabId = TAB, remainingIqd: number | null = 12_340) {
+  let grants = 0;
   rpc.mockImplementation(async (fn: string, args?: Record<string, unknown>) => {
     switch (fn) {
       case 'loyalty_identify':
         return MEMBER;
       case 'set_tab_customer':
+        if (memberIsStaff && args?.p_customer_id) {
+          if (grants === 0) throw new AppRpcError('PIN_GRANT_REQUIRED', 'PIN_GRANT_REQUIRED');
+          grants -= 1;
+        }
         tabRow = { ...tabRow, customer_id: (args?.p_customer_id as string | null) ?? null };
         return { tab_id: TAB, customer_id: tabRow.customer_id };
       case 'loyalty_customer':
@@ -101,6 +110,9 @@ function mount(tabId = TAB, remainingIqd: number | null = 12_340) {
           ],
         };
       case 'loyalty_redeem':
+        if (tokenSpent && args?.p_member_token) {
+          return { error: 'MEMBER_CODE_INVALID', detail: 'replayed' };
+        }
         return {
           adjustment_id: 'a1',
           points: args?.p_points ?? 20,
@@ -109,6 +121,10 @@ function mount(tabId = TAB, remainingIqd: number | null = 12_340) {
         };
       case 'loyalty_unredeem':
         return { balance: 400 };
+      case 'verify_manager_pin':
+        if (args?.p_pin !== '1234') return null;
+        grants += 1;
+        return 'mgr1';
       default:
         return {};
     }
@@ -131,7 +147,61 @@ describe('MemberAttach', () => {
   beforeEach(() => {
     rpc.mockReset();
     role = 'cashier';
+    memberIsStaff = false;
+    tokenSpent = false;
     tabRow = { id: TAB, status: 'open', customer_id: null, tab_adjustments: [] };
+  });
+
+  it('asks another manager’s PIN to add a member who works here, then attaches them (0308, c2)', async () => {
+    memberIsStaff = true;
+    const user = userEvent.setup();
+    mount();
+    await user.click(await screen.findByRole('button', { name: 'Member' }));
+    const identify = within(await screen.findByRole('dialog'));
+    await user.type(identify.getByTestId('member-code'), '0770 123 4567{Enter}');
+    // the refusal turns into the PIN dialog, not an error under the field
+    const pinDialog = within(await screen.findByRole('dialog', { name: /staff member/i }));
+    const confirm = pinDialog.getByTestId('staff-attach-confirm') as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    await user.type(pinDialog.getByTestId('staff-attach-pin'), '1234');
+    await user.click(confirm);
+    await waitFor(() => expect(calls('set_tab_customer')).toHaveLength(2));
+    expect(calls('verify_manager_pin')).toHaveLength(1);
+    expect(calls('set_tab_customer')[1]).toEqual({ p_tab_id: TAB, p_customer_id: 'p1' });
+    expect(await screen.findByText('Ali H.')).toBeTruthy();
+  });
+
+  it('shows a wrong PIN for a staff member and does not attach them', async () => {
+    memberIsStaff = true;
+    const user = userEvent.setup();
+    mount();
+    await user.click(await screen.findByRole('button', { name: 'Member' }));
+    const identify = within(await screen.findByRole('dialog'));
+    await user.type(identify.getByTestId('member-code'), '0770 123 4567{Enter}');
+    const pinDialog = within(await screen.findByRole('dialog', { name: /staff member/i }));
+    await user.type(pinDialog.getByTestId('staff-attach-pin'), '9999');
+    await user.click(pinDialog.getByTestId('staff-attach-confirm'));
+    await waitFor(() => expect(calls('verify_manager_pin')).toHaveLength(1));
+    expect(calls('set_tab_customer')).toHaveLength(1);
+    expect(tabRow.customer_id).toBeNull();
+  });
+
+  it('treats a spent token the server answered as a refusal, and falls back to the PIN', async () => {
+    tokenSpent = true;
+    const user = userEvent.setup();
+    mount(TAB, 12_340);
+    await user.click(await screen.findByRole('button', { name: 'Member' }));
+    const identify = within(await screen.findByRole('dialog'));
+    await user.type(identify.getByTestId('member-code'), 'TP-ABCDEFGH-654321{Enter}');
+    await waitFor(() => expect(calls('set_tab_customer')).toHaveLength(1));
+    await user.click(await screen.findByTestId('member-use-points'));
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.queryByTestId('redeem-pin')).toBeNull();
+    await user.click(dialog.getByTestId('redeem-confirm'));
+    await waitFor(() => expect(calls('loyalty_redeem')).toHaveLength(1));
+    // the answered miss closes nothing: the dialog now asks for a manager's PIN
+    expect(await dialog.findByTestId('redeem-pin')).toBeTruthy();
+    expect(screen.queryByText(/took .* off the bill/)).toBeNull();
   });
 
   it('identifies by the phone the guest says, on this branch, and attaches them to the tab', async () => {
@@ -158,7 +228,7 @@ describe('MemberAttach', () => {
     expect(calls('loyalty_identify')).toEqual([]);
   });
 
-  it('opens Use points on the most that fits what is left, and redeems with one key', async () => {
+  it('opens Use points on the most that fits what is left, and redeems with one key behind a manager PIN', async () => {
     role = 'manager';
     tabRow = { ...tabRow, customer_id: 'p1' };
     const user = userEvent.setup();
@@ -169,6 +239,9 @@ describe('MemberAttach', () => {
     await waitFor(() =>
       expect((dialog.getByTestId('redeem-points') as HTMLInputElement).value).toBe('246'),
     );
+    // 0308 (c2): no card scanned for this member, so a manager's PIN is the proof
+    expect((dialog.getByTestId('redeem-confirm') as HTMLButtonElement).disabled).toBe(true);
+    await user.type(dialog.getByTestId('redeem-pin'), '1234');
     await user.click(dialog.getByTestId('redeem-confirm'));
     await waitFor(() =>
       expect(calls('loyalty_redeem')).toEqual([
@@ -177,9 +250,38 @@ describe('MemberAttach', () => {
           p_points: 246,
           p_reward_id: null,
           p_idempotency_key: 'TILL-1:loyalty_redeem:01JABCDEFGHJKMNPQRSTVWXYZ0',
+          p_member_token: null,
         },
       ]),
     );
+    expect(calls('verify_manager_pin')).toHaveLength(1);
+  });
+
+  it('sends the member token scanned a moment ago as the proof, once, and asks no PIN', async () => {
+    const user = userEvent.setup();
+    mount(TAB, 12_340);
+    await user.click(await screen.findByRole('button', { name: 'Member' }));
+    const identify = within(await screen.findByRole('dialog'));
+    await user.type(identify.getByTestId('member-code'), 'TP-ABCDEFGH-123456{Enter}');
+    await waitFor(() => expect(calls('set_tab_customer')).toHaveLength(1));
+    await user.click(await screen.findByTestId('member-use-points'));
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.queryByTestId('redeem-pin')).toBeNull();
+    await user.click(dialog.getByTestId('redeem-confirm'));
+    await waitFor(() => expect(calls('loyalty_redeem')).toHaveLength(1));
+    expect(calls('loyalty_redeem')[0]).toMatchObject({ p_member_token: 'TP-ABCDEFGH-123456' });
+    expect(calls('verify_manager_pin')).toEqual([]);
+  });
+
+  it('shows a miss the server answered (0308: counted, not raised) under the field', async () => {
+    const user = userEvent.setup();
+    mount();
+    rpc.mockImplementationOnce(async () => ({ customer_id: null, error: 'MEMBER_NOT_FOUND' }));
+    await user.click(await screen.findByRole('button', { name: 'Member' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.type(dialog.getByTestId('member-code'), '0770 123 4567{Enter}');
+    expect(await dialog.findByText(/No account has that member code/)).toBeTruthy();
+    expect(calls('set_tab_customer')).toEqual([]);
   });
 
   it('undoes a redemption on the open tab', async () => {

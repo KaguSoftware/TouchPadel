@@ -84,7 +84,9 @@ const LEVEL_B_BRANCH =
 describe('the walker over synthetic coaching catalogs (pure)', () => {
   it('ranks coach_advisory right after match_money_advisory and before tabs', () => {
     expect(ORDER.indexOf('coach_advisory')).toBe(ORDER.indexOf('match_money_advisory') + 1);
-    expect(ORDER.indexOf('coach_advisory')).toBe(ORDER.indexOf('tabs') - 1);
+    // 0310 (c42): the two tournament ranks sit between the coach mutex and tabs.
+    expect(ORDER.indexOf('coach_advisory')).toBe(ORDER.indexOf('tournaments') - 1);
+    expect(ORDER.indexOf('coach_advisory')).toBeLessThan(ORDER.indexOf('tabs'));
     expect(SERVICE_WALK).toEqual(
       expect.arrayContaining([
         'lesson_sweep',
@@ -312,7 +314,7 @@ describe('0291 (DB-11): the branch row FOR KEY SHARE is ranked (pure)', () => {
     expect(ORDER.indexOf('venues')).toBe(ORDER.indexOf('court_advisory') + 1);
     expect(ORDER.indexOf('venues')).toBe(ORDER.indexOf('reservations') - 1);
     expect(ONCE_PER_SEQUENCE.has('venues')).toBe(true);
-    expect([...SHARE_RANKED]).toEqual(['venues']);
+    expect([...SHARE_RANKED]).toEqual(['venues', 'tournaments']); // tournaments since 0310 (c42)
   });
 
   it('a share lock prints only on a SHARE_RANKED table; FOR UPDATE on venues prints too', () => {
@@ -396,11 +398,14 @@ function rowOf(out: string, fn: string): string | undefined {
 }
 
 describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', () => {
+  // Loyalty 0308 (c5): a body that moves a booking payment to succeeded or refunded queues the
+  // deferred earn/clawback trigger on booking_payments, which takes loyalty_accounts at commit.
+  const TAIL = ' -> loyalty_accounts';
   it('passes, ranks coach_advisory after match_money_advisory, and prints the two primitives as lock-free', () => {
     const gate = runGate(['lock_coach', 'try_lock_coach']);
     expect(gate.code, gate.out).toBe(0);
     expect(gate.out).toContain(`declared order: ${ORDER.join(' > ')}`);
-    expect(gate.out).toContain('match_money_advisory > coach_advisory > tabs');
+    expect(gate.out).toContain('match_money_advisory > coach_advisory > tournaments');
     expect(gate.out).toContain('no lock-order violations');
     const internal = gate.out.slice(gate.out.indexOf('internal sequences'));
     // The advisory call is the lock; its own body (pg_advisory_xact_lock) and
@@ -420,9 +425,12 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     // Loyalty (0305): settling the lesson's tab fires the deferred earn trigger, walked at commit
     // (after every lock the body took), so loyalty_accounts, ranked last, ends the sequence.
     expect(rowOf(walkedRows, 'lesson_settle')).toBe('coach_advisory -> tabs -> loyalty_accounts');
-    expect(rowOf(walkedRows, 'refund')?.startsWith('coach_advisory -> tabs -> payments')).toBe(
-      true,
-    );
+    // 0310 (c41): the refund reads a tournament tab's tournament and entry before the tab.
+    expect(
+      rowOf(walkedRows, 'refund')?.startsWith(
+        'coach_advisory -> tournaments -> tournament_entries -> tabs -> payments',
+      ),
+    ).toBe(true);
     expect(rowOf(walkedRows, 'lesson_blocked_refund_record')).toBe('coach_advisory');
     expect(rowOf(walkedRows, 'lesson_refunds_due')).toBeUndefined();
   });
@@ -444,7 +452,7 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
       'desk_move_lesson_court',
     ]) {
       // 0291 (DB-11): lesson_lock_branch_courts takes the branch row's key share after the courts.
-      expect(rowOf(walkedRows, fn), fn).toBe(LEVEL_B_BRANCH);
+      expect(rowOf(walkedRows, fn), fn).toBe(LEVEL_B_BRANCH + TAIL);
     }
     for (const fn of [
       'lesson_join',
@@ -467,7 +475,7 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
       'lesson_sweep',
     ]) {
       expect(rowOf(walkedRows, fn), fn).toBe(
-        'coach_advisory -> match_venue_advisory -> match_tickets',
+        'coach_advisory -> match_venue_advisory -> match_tickets' + TAIL,
       );
     }
   });
@@ -477,14 +485,16 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     expect(gate.code, gate.out).toBe(0);
     const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
     // 0291 (DB-11): the lesson arm's lesson_lock_branch_courts takes the branch row too.
-    expect(rowOf(walkedRows, 'deposit_apply')).toBe(LEVEL_B_BRANCH);
+    expect(rowOf(walkedRows, 'deposit_apply')).toBe(LEVEL_B_BRANCH + TAIL);
     expect(rowOf(walkedRows, 'lesson_settle_success')).toBe(
-      'match_venue_advisory -> match_tickets',
+      'match_venue_advisory -> match_tickets' + TAIL,
     );
-    expect(rowOf(walkedRows, 'lesson_payment_prepare')).toBe(LEVEL_B);
+    expect(rowOf(walkedRows, 'lesson_payment_prepare')).toBe(LEVEL_B + TAIL);
     // Internal, not walked: status writes and the skip-locked hold release only.
     const internal = gate.out.slice(gate.out.indexOf('internal sequences'));
-    expect(rowOf(internal, 'lesson_hold_expire')).toBe('match_venue_advisory -> match_tickets');
+    expect(rowOf(internal, 'lesson_hold_expire')).toBe(
+      'match_venue_advisory -> match_tickets' + TAIL,
+    );
   });
 
   it('0287: the statement writes and the monthly draft take the coach mutex only', () => {
@@ -520,9 +530,12 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
       expect(rowOf(walkedRows, fn), fn).toBe('coach_advisory');
     }
     // The deletion locks the coach ROW (unranked), never the coach mutex (db.md §2.4 rule 7).
-    expect(rowOf(walkedRows, 'delete_my_account')).toBe('match_venue_advisory -> match_tickets');
+    expect(rowOf(walkedRows, 'delete_my_account')).toBe(
+      'match_venue_advisory -> match_tickets' + TAIL,
+    );
     const internal = gate.out.slice(gate.out.indexOf('internal sequences'));
-    expect(rowOf(internal, 'price_promo_apply_internal')).toBe('coach_advisory');
+    // 0309 ranks promotions (after tabs): a promotion change's apply locks its row after the mutex.
+    expect(rowOf(internal, 'price_promo_apply_internal')).toBe('coach_advisory -> promotions');
     expect(rowOf(internal, 'coach_hours_write')).toBe('coach_advisory');
     expect(rowOf(internal, 'coach_time_off_add')).toBe('coach_advisory');
   });
@@ -543,11 +556,11 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     expect(rowOf(internal, 'lesson_lock_branch_courts')).toBe('court_advisory -> venues');
     // Alone, the insert's key share comes before its court row and the trigger it fires.
     expect(rowOf(internal, 'lesson_create_internal')).toBe(
-      'venues -> match_venue_advisory -> match_tickets',
+      'venues -> match_venue_advisory -> match_tickets' + TAIL,
     );
     expect(rowOf(internal, 'lesson_assert_coach_bookable')).toBe('(no locks)');
     expect(rowOf(internal, 'match_expire_holds')).toBe(
-      'reservations -> match_venue_advisory -> match_tickets',
+      'reservations -> match_venue_advisory -> match_tickets' + TAIL,
     );
   });
 });

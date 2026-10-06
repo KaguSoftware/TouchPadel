@@ -18,6 +18,8 @@ export interface PromotionLimits {
   total: number | null;
   perCustomer: number | null;
   minSpendIqd: number | null;
+  /** A loyalty tier id (0309): only customers at that tier or above. Sent only when set. */
+  tierMin?: string | null;
 }
 
 export interface PromotionRow {

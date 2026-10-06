@@ -286,6 +286,16 @@ function createWindow(): BrowserWindow {
       // KDS / floor chimes (WebAudio) must play without a click on a station;
       // browser dev keeps the "Start shift" arming gesture (operator-slice.md §4.5).
       autoplayPolicy: 'no-user-gesture-required',
+      // Chromium throttles timers in a hidden or OCCLUDED window to roughly one
+      // fire per minute. The heartbeat runs in the renderer on a 10s interval
+      // against a 45s stale window (venue_settings.heartbeat_stale_seconds), so
+      // a till sitting behind another window stops beating long enough for
+      // app.is_degraded() to flip, and with offline mode on (0248) the WHOLE
+      // VENUE goes desk-only: the same damage the closable rule above guards
+      // against, arriving through a window nobody closed. Measured on the
+      // hosted project 2026-09-04: 10s beats while focused, then a 48s gap
+      // while backgrounded, with is_degraded() true for the tail of it.
+      backgroundThrottling: false,
     },
   });
 
@@ -859,7 +869,7 @@ if (gotTheLock) {
       onActivity: pushStatus,
     });
 
-    // Push queue status (depth / degraded / conflicts) to the renderer — the
+    // Push queue status (depth / uploadBlocked / conflicts) to the renderer — the
     // 2s timer is the floor; the worker pushes eagerly on every state change.
     const statusTimer = setInterval(pushStatus, 2_000);
     win.on('closed', () => {

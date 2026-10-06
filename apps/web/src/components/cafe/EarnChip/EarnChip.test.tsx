@@ -124,6 +124,25 @@ describe.each(['en', 'ar'] as const)('EarnChip (%s)', (locale) => {
     expect(failing.rpc).toHaveBeenCalledTimes(2);
   });
 
+  it('a token the server answers {linked: false} (0308: counted, not raised) is a failed link too', async () => {
+    const { client } = fakeAccountClient({ user: SARA });
+    const refused = fakeCafe({ data: { linked: false, error: 'MEMBER_CODE_INVALID' }, error: null });
+    render(
+      <EarnChip
+        locale={locale}
+        cafe={refused.cafe as never}
+        sessionId="s5"
+        getAccount={() => client as never}
+      />,
+    );
+    expect(
+      await screen.findByRole('button', { name: t(locale, 'loyalty.web.cafeChip.retry') }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(t(locale, 'loyalty.web.cafeChip.earning', { name: '' })),
+    ).toBeNull();
+  });
+
   it('renders nothing while loyalty is switched off, unbound, or without an account client', async () => {
     const off = fakeAccountClient({
       user: SARA,

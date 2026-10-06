@@ -3,6 +3,10 @@
  * build-contracts-2026-10-03.md §1.6 set_rounds and score, §1.9; plan §5.1
  * "Rounds"). Logic in roundsLogic.ts.
  *
+ * - Laid out (2026-10-05 redesign, option C): the rounds two to a row,
+ *   each round's matches two to a row, the round being
+ *   played outlined, and the top of the standings beside them
+ *   (`.tp-tour-split`, components/GlobalStyles.tsx).
  * - Start (status closed, nothing drawn): pick the courts (all adopted ones by
  *   default) and, for Americano, the rounds; the core engine draws them and
  *   `tournament_set_rounds(from_round = 1)` saves them.
@@ -16,7 +20,7 @@
  *
  * Online only: offline the controls are disabled with the reason.
  */
-import { useState } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatNumber, isolate } from '@touch/i18n';
 import { TOUR_LIMITS } from '@touch/core/tournaments';
@@ -25,13 +29,7 @@ import { useLocale } from '../../lib/i18n';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
 import { Button, Field, Modal, inputStyle } from '../../components/ui';
-import {
-  EmptyState,
-  MessagePresenter,
-  Panel,
-  ReasonCodePrompt,
-  StatusBadge,
-} from '../../components/kit';
+import { EmptyState, MessagePresenter, ReasonCodePrompt } from '../../components/kit';
 import {
   activeEntries,
   boardAction,
@@ -43,11 +41,14 @@ import {
   drawBlocker,
   entriesById,
   isCorrection,
+  needsScoreReason,
   readScoreInput,
-  roundComplete,
+  scoreTyping,
   shortName,
 } from './roundsLogic';
-import { pickName, tournamentErrorKey, tournamentErrorText, codeOf } from './tournamentLogic';
+import { pickName, roundsErrorKey, tournamentErrorText, codeOf } from './tournamentLogic';
+import { currentRoundNo, roundState, scoredCount, type RoundState } from './layoutLogic';
+import { RankMedal } from './TournamentParts';
 import {
   readPlayAnswer,
   type TourDetailMatch,
@@ -67,10 +68,13 @@ export function RoundsBoard({
   detail,
   canRun,
   onRefetch,
+  onShowStandings,
 }: {
   detail: TournamentDetail;
   canRun: boolean;
   onRefetch: () => void;
+  /** "All" on the leaderboard: the Standings tab. */
+  onShowStandings?: () => void;
 }) {
   const { tr, locale } = useLocale();
   const qc = useQueryClient();
@@ -94,6 +98,7 @@ export function RoundsBoard({
     return c ? pickName(locale, c.name_en, c.name_ar) : '—';
   };
   const planned = detail.rounds_planned ?? detail.rounds.length;
+  const current = currentRoundNo(detail.rounds);
   const mayDraw = canRun && detail.can.set_rounds && reachable;
 
   async function send(build: () => ReturnType<typeof buildStart>) {
@@ -206,7 +211,7 @@ export function RoundsBoard({
           role="alert"
           style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}
         >
-          {tr(tournamentErrorKey(error))}
+          {tr(roundsErrorKey(error))}
         </p>
       )}
 
@@ -221,26 +226,42 @@ export function RoundsBoard({
           }
         />
       ) : (
-        detail.rounds.map((r) => (
-          <RoundPanel
-            key={r.round_no}
-            round={r}
-            total={planned}
-            detail={detail}
-            nameOf={nameOf}
-            courtName={courtName}
-            scorable={canRun && canScore(detail) && reachable}
-            onScored={(removedFrom) => {
-              if (removedFrom !== null)
-                setNotice(
-                  tr('ws.tournaments.score.roundsRemoved', {
-                    round: formatNumber(removedFrom, locale),
-                  }),
-                );
+        <div className="tp-tour-split">
+          <div
+            style={{
+              display: 'grid',
+              // Two rounds to a row; one once a round would drop under 22rem.
+              gridTemplateColumns:
+                'repeat(auto-fill, minmax(max(22rem, calc((100% - var(--tp-sp-3)) / 2)), 1fr))',
+              gap: 'var(--tp-sp-3)',
+              minInlineSize: 0,
+              alignItems: 'start',
             }}
-            onChanged={onRefetch}
-          />
-        ))
+          >
+            {detail.rounds.map((r) => (
+              <RoundPanel
+                key={r.round_no}
+                round={r}
+                total={planned}
+                state={roundState(r, current)}
+                detail={detail}
+                nameOf={nameOf}
+                courtName={courtName}
+                scorable={canRun && canScore(detail) && reachable}
+                onScored={(removedFrom) => {
+                  if (removedFrom !== null)
+                    setNotice(
+                      tr('ws.tournaments.score.roundsRemoved', {
+                        round: formatNumber(removedFrom, locale),
+                      }),
+                    );
+                }}
+                onChanged={onRefetch}
+              />
+            ))}
+          </div>
+          <Leaderboard detail={detail} nameOf={nameOf} onShowAll={onShowStandings} />
+        </div>
       )}
 
       {starting && (
@@ -262,9 +283,17 @@ export function RoundsBoard({
   );
 }
 
+/** A round's column: done rounds sit back, the one being played is outlined, drawn ones are dashed. */
+const ROUND_LOOK: Record<RoundState, CSSProperties> = {
+  done: { background: 'var(--tp-surface-2)', border: '1px solid var(--tp-border)' },
+  now: { background: 'var(--tp-surface)', border: '2px solid var(--tp-accent)' },
+  drawn: { background: 'transparent', border: '2px dashed var(--tp-border-strong)' },
+};
+
 function RoundPanel({
   round,
   total,
+  state,
   detail,
   nameOf,
   courtName,
@@ -274,6 +303,7 @@ function RoundPanel({
 }: {
   round: TourDetailRound;
   total: number;
+  state: RoundState;
   detail: TournamentDetail;
   nameOf: (id: string) => string;
   courtName: (id: string) => string;
@@ -282,24 +312,67 @@ function RoundPanel({
   onChanged: () => void;
 }) {
   const { tr, locale } = useLocale();
-  const done = roundComplete(round);
+  const title = tr('ws.tournaments.rounds.roundOf', {
+    round: formatNumber(round.round_no, locale),
+    total: formatNumber(Math.max(total, round.round_no), locale),
+  });
+  const tag =
+    state === 'now'
+      ? tr('ws.tournaments.rounds.state.now', {
+          scored: formatNumber(scoredCount(round), locale),
+          total: formatNumber(round.matches.length, locale),
+        })
+      : tr(`ws.tournaments.rounds.state.${state}`);
   return (
-    <Panel
-      title={tr('ws.tournaments.rounds.roundOf', {
-        round: formatNumber(round.round_no, locale),
-        total: formatNumber(Math.max(total, round.round_no), locale),
-      })}
-      actions={
-        done ? (
-          <StatusBadge size="sm" tone="success" label={tr('tournaments.common.status.finished')} />
-        ) : undefined
-      }
+    <section
+      aria-label={title}
+      data-round-state={state}
+      style={{
+        ...ROUND_LOOK[state],
+        minInlineSize: 0,
+        boxSizing: 'border-box',
+        borderRadius: 'var(--tp-radius-dialog)',
+        padding: 'var(--tp-sp-3)',
+        display: 'grid',
+        gap: 'var(--tp-sp-2-5)',
+      }}
     >
+      <header
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          gap: 'var(--tp-sp-2)',
+        }}
+      >
+        <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-lg)', fontWeight: 700 }}>{title}</h3>
+        <span
+          style={{
+            fontSize: 'var(--tp-fs-xs)',
+            fontWeight: 700,
+            color:
+              state === 'now'
+                ? 'var(--tp-accent)'
+                : state === 'done'
+                  ? 'var(--tp-success-fg)'
+                  : 'var(--tp-muted-fg)',
+          }}
+        >
+          {tag}
+        </span>
+      </header>
       <ul
-        style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}
+        style={{
+          listStyle: 'none',
+          margin: 0,
+          padding: 0,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          gap: 'var(--tp-sp-2)',
+        }}
       >
         {round.matches.map((m) => (
-          <li key={m.match_id}>
+          <li key={m.match_id} style={{ minInlineSize: 0, display: 'flex' }}>
             <MatchRow
               match={m}
               target={detail.points_target}
@@ -307,6 +380,7 @@ function RoundPanel({
               a={m.a.map(nameOf).join(' & ')}
               b={m.b.map(nameOf).join(' & ')}
               scorable={scorable}
+              finished={detail.status === 'finished'}
               onScored={onScored}
               onChanged={onChanged}
             />
@@ -314,14 +388,7 @@ function RoundPanel({
         ))}
       </ul>
       {round.sit_out.length > 0 && (
-        <p
-          style={{
-            margin: 0,
-            marginBlockStart: 'var(--tp-sp-2)',
-            fontSize: 'var(--tp-fs-sm)',
-            color: 'var(--tp-muted-fg)',
-          }}
-        >
+        <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
           {tr('ws.tournaments.rounds.sitOut', {
             names: round.sit_out
               .map((id) => isolate(nameOf(id)))
@@ -329,10 +396,11 @@ function RoundPanel({
           })}
         </p>
       )}
-    </Panel>
+    </section>
   );
 }
 
+/** One match as a card: court and score on top, the two sides, then the score entry. */
 function MatchRow({
   match: m,
   target,
@@ -340,6 +408,7 @@ function MatchRow({
   a,
   b,
   scorable,
+  finished = false,
   onScored,
   onChanged,
 }: {
@@ -349,93 +418,210 @@ function MatchRow({
   a: string;
   b: string;
   scorable: boolean;
+  /** The tournament has finished: every score write asks for a reason (0311). */
+  finished?: boolean;
   onScored: (removedFrom: number | null) => void;
   onChanged: () => void;
 }) {
   const { tr, locale } = useLocale();
-  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(false);
   const scored = isCorrection(m);
+  const aWon = scored && (m.points_a ?? 0) > (m.points_b ?? 0);
+  const bWon = scored && (m.points_b ?? 0) > (m.points_a ?? 0);
+  const side = (names: string, won: boolean) => (
+    // Short names ("Yusuf S."), shown whole: a long pair wraps, never "…".
+    <bdi
+      style={{
+        display: 'block',
+        overflowWrap: 'anywhere',
+        lineHeight: 1.35,
+        fontWeight: won ? 700 : 500,
+        color: scored && !won ? 'var(--tp-muted-fg)' : 'var(--tp-fg)',
+      }}
+      title={names}
+    >
+      {names}
+    </bdi>
+  );
   return (
     <div
       style={{
+        flex: 1,
+        minInlineSize: 0,
         display: 'grid',
-        gridTemplateColumns: 'minmax(6rem, 10rem) minmax(0, 1fr) auto',
-        gap: 'var(--tp-sp-2)',
-        alignItems: 'center',
-        padding: 'var(--tp-sp-2)',
+        gap: 'var(--tp-sp-1-5)',
+        alignContent: 'start',
+        padding: 'var(--tp-sp-2-5)',
+        background: 'var(--tp-surface)',
         border: '1px solid var(--tp-border)',
-        borderRadius: 'var(--tp-radius-ctl)',
+        borderRadius: 'var(--tp-radius-panel)',
+        fontSize: 'var(--tp-fs-sm)',
       }}
     >
-      <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-        <bdi>{court}</bdi>
-      </span>
-      <span style={{ minInlineSize: 0 }}>
-        <bdi>{a}</bdi>{' '}
-        <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.tournaments.rounds.vs')}</span>{' '}
-        <bdi>{b}</bdi>
-        {m.corrections > 0 && (
-          <span
-            style={{
-              marginInlineStart: 'var(--tp-sp-2)',
-              fontSize: 'var(--tp-fs-xs)',
-              color: 'var(--tp-muted-fg)',
-            }}
-          >
-            {tr('ws.tournaments.score.corrections', { count: formatNumber(m.corrections, locale) })}
-          </span>
-        )}
-      </span>
-      <span
+      <div
         style={{
           display: 'flex',
-          gap: 'var(--tp-sp-2)',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          justifyContent: 'flex-end',
+          gap: 'var(--tp-sp-2)',
         }}
       >
-        {scored && !editing && (
+        <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 700, color: 'var(--tp-muted-fg)' }}>
+          <bdi>{court}</bdi>
+        </span>
+        {scored && (
           <strong
             dir="ltr"
-            style={{ fontVariantNumeric: 'tabular-nums' }}
+            style={{
+              fontVariantNumeric: 'tabular-nums',
+              padding: '0 var(--tp-sp-2)',
+              borderRadius: 'var(--tp-radius-pill)',
+              background: 'var(--tp-success-soft)',
+              color: 'var(--tp-success-fg)',
+            }}
             data-testid="match-score"
           >
             {m.points_a}–{m.points_b}
           </strong>
         )}
-        {(!scored || editing) && scorable ? (
-          <ScoreCell
-            match={m}
-            target={target}
-            teamA={a}
-            onDone={(removedFrom) => {
-              setEditing(false);
-              onScored(removedFrom);
-            }}
-            onChanged={onChanged}
-            onCancel={scored ? () => setEditing(false) : undefined}
-          />
-        ) : (
-          scored &&
-          scorable && (
-            <Button size="sm" kind="ghost" icon="note" onClick={() => setEditing(true)}>
-              {tr('ws.tournaments.score.correct')}
-            </Button>
-          )
-        )}
+      </div>
+      {side(a, aWon)}
+      <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+        {tr('ws.tournaments.rounds.vs')}
       </span>
+      {side(b, bWon)}
+      {m.corrections > 0 && (
+        <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+          {tr('ws.tournaments.score.corrections', { count: formatNumber(m.corrections, locale) })}
+        </span>
+      )}
+      {scorable && (
+        <span>
+          <Button
+            size="sm"
+            kind={scored ? 'ghost' : 'primary'}
+            icon={scored ? 'note' : 'plus'}
+            onClick={() => setOpen(true)}
+          >
+            {scored ? tr('ws.tournaments.score.correct') : tr('ws.tournaments.score.enter')}
+          </Button>
+        </span>
+      )}
+      {open && (
+        <ScoreDialog
+          match={m}
+          finished={finished}
+          court={court}
+          target={target}
+          teamA={a}
+          teamB={b}
+          onClose={() => setOpen(false)}
+          onDone={(removedFrom) => {
+            setOpen(false);
+            onScored(removedFrom);
+          }}
+          onChanged={onChanged}
+        />
+      )}
     </div>
   );
 }
 
+/** The top of the standings beside the rounds; "All" opens the Standings tab. */
+function Leaderboard({
+  detail,
+  nameOf,
+  onShowAll,
+}: {
+  detail: TournamentDetail;
+  nameOf: (id: string) => string;
+  onShowAll?: () => void;
+}) {
+  const { tr, locale } = useLocale();
+  const top = detail.standings.slice(0, 7);
+  return (
+    <aside
+      aria-label={tr('ws.tournaments.rounds.leaderboard')}
+      style={{
+        minInlineSize: 0,
+        background: 'var(--tp-surface)',
+        border: '1px solid var(--tp-border)',
+        borderRadius: 'var(--tp-radius-dialog)',
+        padding: 'var(--tp-sp-4)',
+        display: 'grid',
+        gap: 'var(--tp-sp-2)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          gap: 'var(--tp-sp-2)',
+        }}
+      >
+        <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-lg)', fontWeight: 700 }}>
+          {tr('ws.tournaments.rounds.leaderboard')}
+        </h3>
+        {onShowAll && detail.standings.length > top.length && (
+          <Button size="sm" kind="ghost" onClick={onShowAll}>
+            {tr('ws.tournaments.rounds.allStandings', {
+              count: formatNumber(detail.standings.length, locale),
+            })}
+          </Button>
+        )}
+      </div>
+      {top.length === 0 ? (
+        <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+          {tr('ws.tournaments.standings.empty')}
+        </p>
+      ) : (
+        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
+          {top.map((row) => (
+            <li
+              key={row.entry_id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--tp-sp-2-5)',
+                padding: 'var(--tp-sp-2) 0',
+                borderBlockEnd: '1px solid var(--tp-border)',
+              }}
+            >
+              <RankMedal rank={row.rank} label={formatNumber(row.rank, locale)} />
+              <bdi
+                style={{
+                  flex: 1,
+                  minInlineSize: 0,
+                  overflowWrap: 'anywhere',
+                  fontWeight: 600,
+                }}
+              >
+                {nameOf(row.entry_id)}
+              </bdi>
+              <span style={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+                {formatNumber(row.points_won, locale)}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </aside>
+  );
+}
+
 /**
- * One match's score entry: side A's points typed, side B shown as `target − a`.
- * A first score saves at once; a correction asks why first.
+ * One match's score entry, drawn as a scoreboard (2026-10-05): each side's
+ * names with big −/+ buttons, side A typed or stepped and side B always
+ * `target − a` (its buttons step A the other way). A first score saves at
+ * once; a correction asks why first. Opened in ScoreDialog.
  */
 export function ScoreCell({
   match: m,
   target,
   teamA,
+  teamB,
+  finished = false,
   onDone,
   onChanged,
   onCancel,
@@ -443,6 +629,9 @@ export function ScoreCell({
   match: TourDetailMatch;
   target: number;
   teamA: string;
+  teamB?: string;
+  /** The tournament has finished: a first score asks for a reason too (0311, c35). */
+  finished?: boolean;
   onDone: (removedFrom: number | null) => void;
   onChanged: () => void;
   onCancel?: () => void;
@@ -455,7 +644,14 @@ export function ScoreCell({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const score = readScoreInput(text, target);
-  const correction = isCorrection(m);
+  const reasoned = needsScoreReason(m, finished ? 'finished' : 'running');
+  const sideB = teamB ?? tr('ws.tournaments.score.otherSide');
+
+  /** Step side A by `d` points, inside 0…target. */
+  function step(d: number) {
+    const a = /^\d+$/.test(text) ? Number(text) : 0;
+    setText(String(Math.min(target, Math.max(0, a + d))));
+  }
 
   async function save(reason: string | null) {
     if (!score) return;
@@ -485,51 +681,144 @@ export function ScoreCell({
     }
   }
 
-  return (
-    <span
+  /** A side's − or + button; `d` is what it does to side A (side B's run the other way). */
+  const stepButton = (team: string, more: boolean, d: number) => (
+    <Button
+      size="lg"
+      icon={more ? 'plus' : 'minus'}
+      disabled={busy}
+      aria-label={tr(more ? 'ws.tournaments.score.more' : 'ws.tournaments.score.less', { team })}
+      title={tr(more ? 'ws.tournaments.score.more' : 'ws.tournaments.score.less', { team })}
+      onClick={() => step(d)}
+    />
+  );
+  const boxStyle: CSSProperties = {
+    ...inputStyle,
+    inlineSize: '5.5rem',
+    blockSize: '3.5rem',
+    textAlign: 'center',
+    fontSize: 'var(--tp-fs-3xl)',
+    fontWeight: 800,
+    fontVariantNumeric: 'tabular-nums',
+  };
+  const row = (team: string, value: ReactNode, minus: number, plus: number, won: boolean) => (
+    <div
       style={{
-        display: 'inline-flex',
-        gap: 'var(--tp-sp-2)',
-        alignItems: 'center',
-        flexWrap: 'wrap',
+        display: 'grid',
+        gap: 'var(--tp-sp-2-5)',
+        padding: 'var(--tp-sp-3) var(--tp-sp-4)',
+        borderRadius: 'var(--tp-radius-panel)',
+        background: won ? 'var(--tp-success-soft)' : 'var(--tp-surface-2)',
       }}
     >
-      <input
-        aria-label={tr('ws.tournaments.score.pointsFor', { team: teamA })}
-        inputMode="numeric"
-        dir="ltr"
-        style={{ ...inputStyle, inlineSize: '4.5rem', textAlign: 'center' }}
-        value={text}
-        disabled={busy}
-        onChange={(e) => setText(e.target.value.replace(/[^\d]/g, '').slice(0, 3))}
-      />
-      <span
-        style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}
-        data-testid="score-other"
+      {/* The short names, whole, wrapping if they must: never cut to "…". */}
+      <bdi
+        style={{
+          display: 'block',
+          textAlign: 'center',
+          fontSize: 'var(--tp-fs-lg)',
+          fontWeight: 700,
+          lineHeight: 1.35,
+          overflowWrap: 'anywhere',
+        }}
       >
-        {score
-          ? tr('ws.tournaments.score.other', { points: formatNumber(score.b, locale) })
-          : tr('ws.tournaments.score.sum', { target: formatNumber(target, locale) })}
-      </span>
-      <Button
-        size="sm"
-        kind="primary"
-        busy={busy && !asking}
-        disabled={!score}
-        onClick={() => (correction ? setAsking(true) : void save(null))}
+        {team}
+      </bdi>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 'var(--tp-sp-3)',
+        }}
       >
-        {tr('ws.tournaments.score.save')}
-      </Button>
-      {onCancel && (
-        <Button size="sm" kind="ghost" disabled={busy} onClick={onCancel}>
-          {tr('common.cancel')}
-        </Button>
+        {stepButton(team, false, minus)}
+        {value}
+        {stepButton(team, true, plus)}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+      {row(
+        teamA,
+        <input
+          aria-label={tr('ws.tournaments.score.pointsFor', { team: teamA })}
+          inputMode="numeric"
+          dir="ltr"
+          style={boxStyle}
+          value={text}
+          disabled={busy}
+          onChange={(e) => setText(scoreTyping(e.target.value, target))}
+        />,
+        -1,
+        1,
+        score !== null && score.a > score.b,
       )}
+      {row(
+        sideB,
+        <output
+          aria-label={tr('ws.tournaments.score.pointsFor', { team: sideB })}
+          data-testid="score-other"
+          dir="ltr"
+          style={{
+            ...boxStyle,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'var(--tp-surface)',
+            boxSizing: 'border-box',
+          }}
+        >
+          {score ? formatNumber(score.b, locale) : '–'}
+        </output>,
+        1,
+        -1,
+        score !== null && score.b > score.a,
+      )}
+      {/* Side B's box already shows its points: the line under the board only
+          says what the two must add up to, and keeps its room once they do. */}
+      <p
+        style={{
+          margin: 0,
+          minBlockSize: '1.5em',
+          fontSize: 'var(--tp-fs-sm)',
+          color: 'var(--tp-muted-fg)',
+        }}
+      >
+        {score ? null : tr('ws.tournaments.score.sum', { target: formatNumber(target, locale) })}
+      </p>
       {error != null && !asking && (
-        <span role="alert" style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+        <p
+          role="alert"
+          style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}
+        >
           {tournamentErrorText(error, tr, { target: formatNumber(target, locale) })}
-        </span>
+        </p>
       )}
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--tp-sp-2)',
+          justifyContent: 'flex-end',
+          flexWrap: 'wrap',
+        }}
+      >
+        {onCancel && (
+          <Button disabled={busy} onClick={onCancel}>
+            {tr('common.cancel')}
+          </Button>
+        )}
+        <Button
+          kind="primary"
+          busy={busy && !asking}
+          disabled={!score}
+          onClick={() => (reasoned ? setAsking(true) : void save(null))}
+        >
+          {tr('ws.tournaments.score.save')}
+        </Button>
+      </div>
       {asking && (
         <ReasonCodePrompt
           action={tr('ws.tournaments.score.correctionTitle')}
@@ -537,13 +826,72 @@ export function ScoreCell({
           noteMode="optional"
           busy={busy}
           error={error}
+          errorMessage={
+            error != null
+              ? tournamentErrorText(error, tr, { target: formatNumber(target, locale) })
+              : null
+          }
           onCancel={() => setAsking(false)}
           onSubmit={(code, note) => void save(note ? `${code}: ${note}` : code)}
         >
-          <p style={{ marginBlockStart: 0 }}>{tr('ws.tournaments.score.correctionReason')}</p>
+          <p style={{ marginBlockStart: 0 }}>
+            {tr(
+              isCorrection(m)
+                ? 'ws.tournaments.score.correctionReason'
+                : 'ws.tournaments.score.lateReason',
+            )}
+          </p>
         </ReasonCodePrompt>
       )}
-    </span>
+    </div>
+  );
+}
+
+/** The pop-up a match's "Enter score" or "Correct" opens. */
+function ScoreDialog({
+  match,
+  finished,
+  court,
+  target,
+  teamA,
+  teamB,
+  onClose,
+  onDone,
+  onChanged,
+}: {
+  match: TourDetailMatch;
+  finished: boolean;
+  court: string;
+  target: number;
+  teamA: string;
+  teamB: string;
+  onClose: () => void;
+  onDone: (removedFrom: number | null) => void;
+  onChanged: () => void;
+}) {
+  const { tr, locale } = useLocale();
+  return (
+    <Modal
+      title={
+        isCorrection(match)
+          ? tr('ws.tournaments.score.correctionTitle')
+          : tr('ws.tournaments.score.enter')
+      }
+      subtitle={`${court} · ${tr('ws.tournaments.detail.pointsTag', { points: formatNumber(target, locale) })}`}
+      onClose={onClose}
+      size="sm"
+    >
+      <ScoreCell
+        match={match}
+        finished={finished}
+        target={target}
+        teamA={teamA}
+        teamB={teamB}
+        onDone={onDone}
+        onChanged={onChanged}
+        onCancel={onClose}
+      />
+    </Modal>
   );
 }
 
@@ -654,7 +1002,7 @@ function StartDialog({
           role="alert"
           style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}
         >
-          {tr(tournamentErrorKey(error))}
+          {tr(roundsErrorKey(error))}
         </p>
       )}
     </Modal>

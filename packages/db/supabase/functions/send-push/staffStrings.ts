@@ -119,6 +119,13 @@ const EN = {
   // Open matches (0261, R5/R43; docs/design/open-matches/guest.md §4.7.5): a player
   // reported another. No params, so nothing personal reaches a lock screen.
   match_report_new: { title: 'Player report', body: () => 'A report about a player is waiting for review.' },
+  // Loyalty (0308, c17): a manager gave a guest points; the owner hears of each gift. `name` is
+  // the manager; the guest and the figure stay off the lock screen (the audit log has them).
+  loyalty_gift: {
+    title: 'Points gifted',
+    body: (v) =>
+      v.name ? `${v.name} gave a guest loyalty points.` : 'A manager gave a guest loyalty points.',
+  },
 } satisfies Record<string, StaffCopy>;
 
 export type StaffTitleKey = keyof typeof EN;
@@ -186,6 +193,10 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
   waiter_call_new: { title: 'نداء ضيف', body: (v) => (v.title ? `طاولة ${v.title}` : '') },
   // DRAFT-AR (guest.md §4.7.5): on the client's review list.
   match_report_new: { title: 'بلاغ عن لاعب', body: () => 'بلاغ عن لاعب بانتظار المراجعة.' },
+  loyalty_gift: {
+    title: 'نقاط مُهداة',
+    body: (v) => (v.name ? `منح ${v.name} ضيفًا نقاط ولاء.` : 'منح أحد المديرين ضيفًا نقاط ولاء.'),
+  },
 };
 
 export const STAFF_STRINGS: Record<Lang, Record<StaffTitleKey, StaffCopy>> = { en: EN, ar: AR };

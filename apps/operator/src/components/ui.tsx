@@ -428,6 +428,7 @@ export function Modal({
   subtitle,
   titleAfter,
   footer,
+  bare,
   dismissible = true,
   canClose,
   requireChoice,
@@ -485,6 +486,13 @@ export function Modal({
    * vanished while the X beside the title sank it.
    */
   footer?: ReactNode | ((close: () => void) => ReactNode);
+  /**
+   * The caller draws the whole panel (its own header, body and footer), given
+   * the same animated close the X uses; the backdrop, Esc, focus trap and the
+   * close guard stay this Modal's. `title` still names the dialog. Used by
+   * "Start: Tournament", whose menu runs the panel's full height.
+   */
+  bare?: (close: () => void) => ReactNode;
 }) {
   const { tr } = useLocale();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -673,8 +681,10 @@ export function Modal({
           display: 'flex',
           flexDirection: 'column',
           outline: 'none',
+          overflow: bare ? 'hidden' : undefined,
         }}
       >
+        {bare ? bare(requestCloseRef.current) : <>
         <div
           style={{
             display: 'flex',
@@ -747,6 +757,7 @@ export function Modal({
             {typeof footer === 'function' ? footer(requestCloseRef.current) : footer}
           </div>
         )}
+        </>}
       </div>
     </div>
   );
@@ -899,11 +910,18 @@ export const MATCH_REASON_CODES = ['conduct', 'court_needed', 'walked_out', 'no_
  */
 export const COACHING_REASON_CODES = ['customer_request', 'coach_unavailable', 'court_needed', 'staff_error', 'duplicate', 'other'] as const;
 export const LESSON_REFUND_REASON_CODES = ['lesson_refund', 'lesson_goodwill'] as const;
+/**
+ * The two reasons a refund of tournament entry money carries (0310 c41): up to
+ * what is due back on the entry, or a goodwill refund beyond it (a no-show's
+ * forfeited fee returned, say). Offered by the till on a kind tournament tab.
+ */
+export const TOURNAMENT_REFUND_REASON_CODES = ['tournament_refund', 'tournament_goodwill'] as const;
 export type ReasonCode =
   | (typeof REASON_CODES)[number]
   | (typeof MATCH_REASON_CODES)[number]
   | (typeof COACHING_REASON_CODES)[number]
-  | (typeof LESSON_REFUND_REASON_CODES)[number];
+  | (typeof LESSON_REFUND_REASON_CODES)[number]
+  | (typeof TOURNAMENT_REFUND_REASON_CODES)[number];
 
 /**
  * PIN + reason modal shared by discount / void / refund flows.

@@ -160,6 +160,10 @@ export interface TourCan {
   set_rounds: boolean;
   score: boolean;
   cancel: boolean;
+  /** 0310: close registration (open; past the cut-off, or a manager early). */
+  close: boolean;
+  /** 0310: end a running tournament at its last complete round (managers). */
+  finish: boolean;
   settle: boolean;
 }
 
@@ -330,6 +334,8 @@ export function readTournamentDetail(payload: unknown): TournamentDetail | null 
       set_rounds: can.set_rounds === true,
       score: can.score === true,
       cancel: can.cancel === true,
+      close: can.close === true,
+      finish: can.finish === true,
       settle: can.settle === true,
     },
   };

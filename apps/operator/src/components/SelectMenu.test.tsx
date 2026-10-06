@@ -122,10 +122,32 @@ describe('SelectMenu', () => {
     fireEvent.scroll(panel);
     expect(screen.queryByRole('listbox')).toBeTruthy();
 
-    // A scroll of the page would leave the panel behind its trigger, because
-    // the panel is measured once and does not chase it.
+    // A scroll of the page that moves the trigger would leave the panel
+    // behind it, because the panel is measured once and does not chase it.
+    const trigger = screen.getByRole('combobox', { name: 'Court' });
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, -40, 120, 36));
     fireEvent.scroll(document.body);
     expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  // Scroll events arrive on the frame after the scroll. A scroll that ended
+  // just before the click (a dialog body scrolled a few pixels to bring the
+  // trigger into view) reached the listener after the panel opened and shut
+  // it at once, so no option could be picked (CI e2e operator-matches, the
+  // desk's Duration menu). The trigger has not moved since the panel was
+  // measured, so the panel is still where it belongs.
+  it('stays open for a scroll that did not move its trigger', () => {
+    render(
+      <LocaleProvider>
+        <div data-testid="dialog-body" style={{ overflowY: 'auto' }}>
+          <SelectMenu value="c1" onChange={vi.fn()} options={COURTS} aria-label="Court" />
+        </div>
+      </LocaleProvider>,
+    );
+    fireEvent.click(screen.getByRole('combobox', { name: 'Court' }));
+    fireEvent.scroll(screen.getByTestId('dialog-body'));
+    expect(screen.queryByRole('listbox')).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Court 2' })).toBeTruthy();
   });
 
   // jsdom reports every rect as 0x0, so placement cannot be asserted from a

@@ -23,6 +23,7 @@ import {
   drawBlocker,
   pickedCourts,
   readScoreInput,
+  scoreTyping,
   renumber,
   roundsContext,
   shortName,
@@ -86,7 +87,15 @@ function detail(over: Partial<TournamentDetail> = {}): TournamentDetail {
     ].sort((a, b) => a.sort_order - b.sort_order),
     rounds: [],
     standings: [],
-    can: { add: true, set_rounds: true, score: true, cancel: true, settle: true },
+    can: {
+      add: true,
+      set_rounds: true,
+      score: true,
+      cancel: true,
+      close: false,
+      finish: false,
+      settle: true,
+    },
     ...over,
   };
 }
@@ -387,5 +396,21 @@ describe('drawBlocker', () => {
     expect(drawBlocker(detail({ status: 'running', rounds: [round(1, true)], courts: [] }))).toBe(
       'needCourts',
     );
+  });
+});
+
+describe('scoreTyping', () => {
+  it('keeps digits only, the last two, and never past the target', () => {
+    expect(scoreTyping('15', 24)).toBe('15');
+    expect(scoreTyping('159', 24)).toBe('9'); // 59 is past 24
+    expect(scoreTyping('122', 24)).toBe('22');
+    expect(scoreTyping('25', 24)).toBe('5');
+    expect(scoreTyping('24', 24)).toBe('24');
+    expect(scoreTyping('0', 24)).toBe('0');
+    expect(scoreTyping('1a', 24)).toBe('1');
+    expect(scoreTyping('', 24)).toBe('');
+    // An Arabic keyboard types Arabic-Indic digits.
+    expect(scoreTyping('١٥', 24)).toBe('15');
+    expect(scoreTyping('۹', 24)).toBe('9');
   });
 });

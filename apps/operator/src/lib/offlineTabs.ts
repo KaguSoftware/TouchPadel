@@ -11,10 +11,21 @@
  * an admin reprices mid-outage.
  *
  * Persisted to localStorage: a till reboot mid-outage (the power-cut drill)
- * must bring the open offline tabs back alongside the queue itself. Entries
- * retire themselves when the tab.open reaches a terminal state — acked means
- * the server tab appears through the normal invalidations; failed/conflict
- * stays visible in the day-close queue panel.
+ * must bring the open offline tabs back alongside the queue itself.
+ *
+ * Entries retire ONLY on 'acked': the server tab then appears through the
+ * normal invalidations. A 'failed' or 'conflict' tab.open (or tab.settle)
+ * keeps its entry, marked, so the cashier still sees the tab and its priced
+ * lines; the abstract queue row in day close is not a substitute for the bill
+ * someone is standing at. This used to retire on ANY result, which deleted a
+ * refused tab out from under the cashier.
+ *
+ * A SETTLED tab also stays until its tab.settle acks. It used to leave the
+ * plan the instant the settle was ENQUEUED, so a taken payment was visible
+ * nowhere but day close while it sat in the outbox (30,000 IQD on card,
+ * 2026-09-04). Callers hand markOfflineSettled the settle's own key only when
+ * mutate() reports it queued; a settle that acked inside mutate()'s wait has
+ * already fired its result, so the caller removes the entry itself.
  */
 import { touch, type Unsub } from '../ipc/bridge';
 
@@ -33,8 +44,23 @@ export interface OfflineTab {
   tableNumber: string | null;
   openedAt: string;
   lines: OfflineTabLine[];
-  /** A settle has been queued; the rail drops it but the record survives. */
+  /** A settle has been queued. The plan KEEPS it until `settleIdemKey` acks. */
   settled: boolean;
+  /**
+   * The tab.settle envelope's idempotency key, once one has been queued.
+   * Absent on entries restored from a build older than this field: those
+   * leave the plan on the old rule, so a mid-upgrade till cannot strand a tab.
+   */
+  settleIdemKey?: string | null;
+  /** Set when this tab's own open or settle came back terminal. Never auto-clears. */
+  failure?: { state: 'failed' | 'conflict'; error?: string };
+}
+
+/** What the floor says about an offline tab. */
+export type OfflineTabState = 'queued' | 'settled' | 'failed';
+
+export function offlineTabState(t: Pick<OfflineTab, 'settled' | 'failure'>): OfflineTabState {
+  return t.failure ? 'failed' : t.settled ? 'settled' : 'queued';
 }
 
 /** Rail selection ids for offline tabs are namespaced to never collide with uuids. */
@@ -44,8 +70,16 @@ const STORAGE_KEY = 'touch-operator-offline-tabs';
 
 let tabs: OfflineTab[] = load();
 /** Stable snapshot for useSyncExternalStore — recomputed only on writes. */
-let openSnapshot: OfflineTab[] = tabs.filter((t) => !t.settled);
+let openSnapshot: OfflineTab[] = tabs.filter(isOnPlan);
 const listeners = new Set<() => void>();
+
+/**
+ * A settled tab leaves the plan only once its settle has landed. Entries
+ * without a `settleIdemKey` (older builds) keep the previous behaviour.
+ */
+function isOnPlan(t: OfflineTab): boolean {
+  return !t.settled || t.settleIdemKey != null;
+}
 
 function load(): OfflineTab[] {
   try {
@@ -65,7 +99,7 @@ function persist(): void {
 }
 
 function emit(): void {
-  openSnapshot = tabs.filter((t) => !t.settled);
+  openSnapshot = tabs.filter(isOnPlan);
   persist();
   for (const fn of listeners) fn();
 }
@@ -93,8 +127,21 @@ export function appendOfflineLines(idemKey: string, lines: OfflineTabLine[]): vo
   emit();
 }
 
-export function markOfflineSettled(idemKey: string): void {
-  tabs = tabs.map((t) => (t.idemKey === idemKey ? { ...t, settled: true } : t));
+/**
+ * A settle for this tab is QUEUED (mutate() answered `queued: true`) under
+ * `settleIdemKey`; the entry stays on the plan until that key acks.
+ */
+export function markOfflineSettled(idemKey: string, settleIdemKey: string): void {
+  tabs = tabs.map((t) => (t.idemKey === idemKey ? { ...t, settled: true, settleIdemKey } : t));
+  emit();
+}
+
+/** Terminal outcome on a tab's own mutation: kept visible, never silently dropped. */
+export function markOfflineTabFailed(
+  idemKey: string,
+  failure: { state: 'failed' | 'conflict'; error?: string },
+): void {
+  tabs = tabs.map((t) => (t.idemKey === idemKey ? { ...t, failure } : t));
   emit();
 }
 
@@ -109,13 +156,24 @@ export function subscribeOfflineTabs(fn: () => void): Unsub {
 }
 
 /**
- * Retire entries as their tab.open lands. Mounted once at app root; separate
- * from queueResults so this store has no React/query dependencies.
+ * Retire entries as their mutations land. Mounted once at app root; separate
+ * from queueResults so this store has no React/query dependencies. Only
+ * 'acked' retires; anything else marks the entry failed.
  */
 export function initOfflineTabRetirement(): Unsub {
   return touch.onMutationResult((r) => {
-    if (r.mutationType !== 'tab.open') return;
-    const entry = tabs.find((t) => t.localId === r.localId || t.idemKey === r.idempotencyKey);
-    if (entry) removeOfflineTab(entry.idemKey);
+    let entry: OfflineTab | undefined;
+    if (r.mutationType === 'tab.open') {
+      entry = tabs.find((t) => t.localId === r.localId || t.idemKey === r.idempotencyKey);
+    } else if (r.mutationType === 'tab.settle') {
+      entry = tabs.find((t) => t.settleIdemKey != null && t.settleIdemKey === r.idempotencyKey);
+    }
+    if (!entry) return;
+    if (r.state === 'acked') removeOfflineTab(entry.idemKey);
+    else
+      markOfflineTabFailed(entry.idemKey, {
+        state: r.state,
+        ...(r.error ? { error: r.error } : {}),
+      });
   });
 }

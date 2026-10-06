@@ -14,9 +14,11 @@ export const tournamentsEn = {
   nav: 'Tournaments',
   list: {
     title: 'Tournaments',
+    add: 'Add tournament',
     lead: 'Tournaments published at this branch, from yesterday to the next two months.',
     empty: 'No tournaments in this range.',
-    emptyHint: 'A tournament is published from its protocol once the run is done.',
+    emptyHint:
+      'Add a tournament to start its plan. It is published from that protocol once the run is done.',
     entries: '{registered} of {max} registered',
     waitlisted: '{count} on the waitlist',
     off: 'Tournaments are switched off at this branch. The owner switches them on in Settings.',
@@ -28,12 +30,44 @@ export const tournamentsEn = {
       entries: 'Players',
     },
     open: 'Open',
+    all: 'All',
+    filters: 'Show tournaments',
+    count: {
+      zero: '(no tournaments)',
+      // No {count} at one and two: the Arabic words those counts out.
+      one: '(1 tournament)',
+      two: '(2 tournaments)',
+      few: '({count} tournaments)',
+      many: '({count} tournaments)',
+      other: '({count} tournaments)',
+    },
+    totals: {
+      upcoming: 'Upcoming',
+      running: 'Running now',
+      players: 'Players registered',
+      waitlisted: 'On the waitlist',
+    },
   },
   detail: {
     eyebrow: 'Tournament',
     notFound: "This tournament isn't at this branch.",
     backToList: 'Back to tournaments',
     seeOnCalendar: 'See on calendar',
+    pointsTag: 'Games to {points}',
+    progress: '{done} of {total} courts scored',
+    nextToDraw: 'Round {round} of {total} scored · next round to draw',
+    allScored: 'All {total} rounds scored',
+    stats: {
+      players: 'Players',
+      fee: 'Entry fee',
+      collected: 'Collected',
+      prize: 'Prize',
+      cutoff: 'Registration closes',
+      paidOwing: '{paid} paid · {owing} owe',
+      due: '{amount} due',
+      nothingDue: 'Nothing owed',
+      refundDue: '{amount} to refund',
+    },
     tabs: {
       entries: 'Entries',
       rounds: 'Rounds',
@@ -168,15 +202,27 @@ export const tournamentsEn = {
     sitOut: 'Sitting out: {names}',
     court: 'Court',
     vs: 'vs',
+    state: {
+      done: 'Done',
+      now: 'Now · {scored} of {total}',
+      drawn: 'Drawn',
+    },
+    leaderboard: 'Leaderboard',
+    allStandings: 'All {count}',
   },
   score: {
     save: 'Save score',
+    enter: 'Enter score',
+    more: '{team}: one point more',
+    less: '{team}: one point less',
+    otherSide: 'The other side',
     saved: 'Score saved.',
     correct: 'Correct',
     correctionReason: 'Why is this score being corrected?',
     correctionTitle: 'Correct this score',
+    // 0311 (c35): a first score on a finished tournament also asks why.
+    lateReason: 'The tournament has finished. Why is this score being entered now?',
     pointsFor: 'Points for {team}',
-    other: '{points} to the other side',
     sum: 'The two sides add up to {target}.',
     corrections: '{count} corrections',
     roundsRemoved: 'Rounds from {round} on were removed. Draw the next round again.',
@@ -201,6 +247,21 @@ export const tournamentsEn = {
     reason: 'Reason',
     lead: 'Its courts are released and every registered and waitlisted player is told.',
     done: 'Tournament cancelled.',
+  },
+  close: {
+    action: 'Close registration',
+    done: 'Registration closed. The players are seeded.',
+  },
+  finish: {
+    action: 'Finish now',
+    lead: 'The rounds after the last fully scored one are removed, the standings become final and the courts are released. Entry fees are not refunded.',
+    done: 'Tournament finished.',
+  },
+  // The till's RefundDialog on a kind tournament tab (0310 c41).
+  refund: {
+    capLead:
+      'Tournament entry money: at most what is due back on the entry, unless it is a goodwill refund.',
+    goodwill: 'Goodwill: refund more than is due',
   },
   refundsDue: {
     title: 'Refunds due',
@@ -253,7 +314,9 @@ export const tournamentsEn = {
       round_open: 'Score every match of the round before drawing the next one.',
       seat: 'The players changed. It has been refreshed: draw again.',
       court: "A court picked isn't one of the tournament's blocked courts.",
-      courts_used: 'There are more matches than the players can fill.',
+      courts_used:
+        'Every round plays one match on each court in play, as many as the players can fill.',
+      sit_out: 'Someone sits out who has sat out more than a player of that round. Draw again.',
       payload: "These rounds couldn't be read.",
     },
     score: {
@@ -261,6 +324,101 @@ export const tournamentsEn = {
       invalid: 'The two sides must add up to {target}.',
       changed: 'Someone else changed this score. It has been refreshed.',
       locked: "A later round is already scored, so this one can't be corrected.",
+      closed: 'The scores became final 48 hours after the tournament finished.',
+      // 0311 (c35): FORBIDDEN detail finished.
+      finished: 'The tournament has finished: only a manager can change its scores now.',
     },
+    // 0311 (c38): TOURNAMENT_UNDER_FILLED on the start, for the court desk.
+    underFilledStart:
+      'Fewer players than the minimum are left. A manager can start it anyway, or cancel it.',
+  },
+  // The section-menu start sheet (TournamentStartSheet, 2026-10-05 "C + D" redesign).
+  start: {
+    title: 'Start: Tournament',
+    lead: 'Fill any section in any order.',
+    menu: 'Plan sections',
+    sectionOf: 'Section {n} of {total}',
+    progress: '{done} of {total} done',
+    optional: 'Optional',
+    slots: {
+      zero: '{count} slots',
+      // No {count} at one and two: the Arabic words those counts out.
+      one: '1 slot',
+      two: '2 slots',
+      few: '{count} slots',
+      many: '{count} slots',
+      other: '{count} slots',
+    },
+    needsLook: 'Needs a look',
+    sections: {
+      type: 'Type',
+      name: 'Name',
+      courts: 'Courts & time',
+      players: 'Players & money',
+      playersShort: 'Players',
+      notes: 'Risks & notes',
+      notesShort: 'Notes',
+      sponsor: 'Sponsor',
+    },
+    // A type card: its name, and beside it the pill saying what kind it is.
+    typeName: {
+      type1: 'Type 1',
+      type2: 'Type 2',
+      type3: 'Type 3',
+    },
+    typeTag: {
+      type1: 'Club',
+      type2: 'Community',
+      type3: 'Sponsor or client',
+    },
+    courts: {
+      day: 'Day',
+      prevDay: 'Previous day',
+      nextDay: 'Next day',
+      picked: 'Picked',
+      booked: 'Already booked',
+      hint: 'Drag across the hours to pick a slot. Change the day to add another one.',
+      cell: '{court}, {time}',
+      slots: 'Picked slots',
+      none: 'No slots picked yet.',
+      remove: 'Remove {slot}',
+      closed: 'The venue is closed that day. Pick another day.',
+      loading: 'Loading the courts…',
+    },
+    // The Name step's class and format cards. Class is the club's label by
+    // player level (owner, 2026-10-06); the app runs Americano and Mexicano.
+    classes: {
+      A: { tag: 'Advanced', body: 'For strong, experienced players. Fast, competitive games.' },
+      B: {
+        tag: 'Intermediate',
+        body: 'For players who play regularly and know the rules and positions.',
+      },
+      C: {
+        tag: 'Beginners',
+        body: 'For new and social players. Friendly games, open to anyone learning.',
+      },
+    },
+    formats: {
+      americano: {
+        tag: 'Runs in the app',
+        body: 'Partners change every round and each game is played to a points total. Every player keeps their own points.',
+      },
+      mexicano: {
+        tag: 'Runs in the app',
+        body: 'Like Americano, but after each round the standings pick the next partners and opponents, so close levels meet.',
+      },
+      knockout: {
+        tag: 'Plan only',
+        body: 'Pairs play set matches and the loser of each is out, until one pair is left. The app cannot run it yet.',
+      },
+      league: {
+        tag: 'Plan only',
+        body: 'Every pair plays every other pair over several sessions, and the table decides the winner. The app cannot run it yet.',
+      },
+    },
+    capacityPlayers: 'Americano and Mexicano: each player enters alone.',
+    capacityPairs: 'Knockout and league: a pair enters together.',
+    submit: 'Start the plan',
+    issues: 'Some sections need a look. They are marked in the menu.',
   },
 };

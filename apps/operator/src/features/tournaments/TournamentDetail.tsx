@@ -1,8 +1,9 @@
 /**
  * One tournament at `/desk/tournaments/$id` (docs/design/tournaments/
  * build-contracts-2026-10-03.md §1.8 desk_tournament_detail; plan §5.1):
- * the header (format, category, status, the facts, See on calendar and, for
- * management, Cancel the tournament), the refunds a cancel left, and three
+ * the banner (TournamentHero: date, status, format, category, the round
+ * progress and the players / fee / collected / prize figures, See on calendar
+ * and, for management, Cancel the tournament), the refunds a cancel left, and three
  * tabs: Entries (EntriesPanel), Rounds (RoundsBoard) and Standings (read-only).
  *
  * `?customer=<id>` (handed back by the customer picker) adds that customer
@@ -13,7 +14,7 @@
  * Reads `useTournamentDetail` (15 s, last data kept) plus the 'courts'
  * broadcast. Every write is a direct appRpc, online only.
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import {
@@ -44,8 +45,10 @@ import type { TourStandingRow } from '@touch/core/tournaments';
 import { EntriesPanel } from './EntriesPanel';
 import { RoundsBoard } from './RoundsBoard';
 import { shortName } from './roundsLogic';
-import { TOUR_STATUS_TONE, pickName, refundsDue, tournamentErrorText } from './tournamentLogic';
+import { pickName, refundsDue, tournamentErrorText } from './tournamentLogic';
 import { readCancelAnswer, type TournamentDetail } from './tournamentPayloads';
+import { entryMoney, playProgress, scoredCount } from './layoutLogic';
+import { DateTile, FillBar } from './TournamentParts';
 import {
   invalidateTournamentCourts,
   useTournamentCaps,
@@ -57,6 +60,8 @@ type TabId = 'entries' | 'rounds' | 'standings';
 
 /** The reasons a desk cancel offers (op.reasons). */
 const CANCEL_REASONS = ['court_needed', 'customer_request', 'staff_error', 'other'] as const;
+/** The reasons an early finish offers (op.reasons, 0310). */
+const FINISH_REASONS = ['court_needed', 'other'] as const;
 
 export function TournamentDetailScreen() {
   const { tr } = useLocale();
@@ -166,6 +171,7 @@ function TournamentBody({
     d.status === 'running' || d.status === 'finished' ? 'rounds' : 'entries',
   );
   const [cancelling, setCancelling] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const name = pickName(locale, d.name_en, d.name_ar);
@@ -192,54 +198,108 @@ function TournamentBody({
     }
   }
 
-  const facts: { label: string; value: string }[] = [
+  // 0310: close registration by hand (c24), finish a running tournament early (c28).
+  async function closeRegistration() {
+    setBusy(true);
+    setError(null);
+    try {
+      await appRpc('tournament_close', { p_tournament_id: d.id });
+      toast.ok(tr('ws.tournaments.close.done'));
+      onRefetch();
+    } catch (e) {
+      toast.err(tournamentErrorText(e, tr));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function finish(code: string, note: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await appRpc('tournament_finish', {
+        p_tournament_id: d.id,
+        p_reason: note ? `${code}: ${note}` : code,
+      });
+      toast.ok(tr('ws.tournaments.finish.done'));
+      setFinishing(false);
+      invalidateTournamentCourts(qc);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const money = entryMoney(d.entries, d.status);
+  const prize = pickName(locale, d.prize_en, d.prize_ar);
+  const courtNames = d.courts
+    .map((c) => isolate(pickName(locale, c.name_en, c.name_ar)))
+    .join(locale === 'ar' ? '، ' : ', ');
+  const n = (v: number) => formatNumber(v, locale);
+
+  // Where the play is: the round being scored, and how far through the plan.
+  const play = playProgress(d.status, d.rounds, d.rounds_planned);
+  const currentRound =
+    play.current !== null ? d.rounds.find((r) => r.round_no === play.current) : undefined;
+  const playLabel =
+    play.label.kind === 'ended'
+      ? tr(`tournaments.common.status.${play.label.status}`)
+      : play.label.kind === 'round'
+        ? tr('ws.tournaments.rounds.roundOf', {
+            round: n(play.label.round),
+            total: n(play.label.total),
+          })
+        : play.label.kind === 'nextToDraw'
+          ? tr('ws.tournaments.detail.nextToDraw', {
+              round: n(play.label.round),
+              total: n(play.label.total),
+            })
+          : tr('ws.tournaments.detail.allScored', { total: n(play.label.total) });
+
+  const stats: { label: string; value: string; sub?: string }[] = [
     {
-      label: tr('ws.tournaments.detail.facts.format'),
-      value: tr(`tournaments.common.format.${d.format}`),
+      label: tr('ws.tournaments.detail.stats.players'),
+      value: `${n(registered)} / ${n(d.max_entries)}`,
+      sub: d.entries.some((e) => e.status === 'waitlisted')
+        ? tr('ws.tournaments.list.waitlisted', {
+            count: n(d.entries.filter((e) => e.status === 'waitlisted').length),
+          })
+        : undefined,
     },
     {
-      label: tr('ws.tournaments.detail.facts.category'),
-      value: tr(`ws.matches.common.category.${d.category}`),
-    },
-    {
-      label: tr('ws.tournaments.detail.facts.points'),
-      value: formatNumber(d.points_target, locale),
-    },
-    {
-      label: tr('ws.tournaments.detail.facts.rounds'),
-      value:
-        d.rounds_planned !== null
-          ? formatNumber(d.rounds_planned, locale)
-          : tr('ws.tournaments.detail.facts.roundsUnset'),
-    },
-    {
-      label: tr('ws.tournaments.detail.facts.fee'),
+      label: tr('ws.tournaments.detail.stats.fee'),
       value:
         d.entry_fee_iqd > 0 ? formatIQD(d.entry_fee_iqd, locale) : tr('tournaments.common.free'),
+      sub:
+        d.entry_fee_iqd > 0
+          ? tr('ws.tournaments.detail.stats.paidOwing', {
+              paid: n(money.paid),
+              owing: n(money.owing),
+            })
+          : undefined,
     },
     {
-      label: tr('ws.tournaments.detail.facts.players'),
-      value: tr('ws.tournaments.list.entries', {
-        registered: formatNumber(registered, locale),
-        max: formatNumber(d.max_entries, locale),
-      }),
+      label: tr('ws.tournaments.detail.stats.collected'),
+      value: formatIQD(money.collected, locale),
+      sub:
+        money.refundDue > 0
+          ? tr('ws.tournaments.detail.stats.refundDue', {
+              amount: formatIQD(money.refundDue, locale),
+            })
+          : money.due > 0
+            ? tr('ws.tournaments.detail.stats.due', { amount: formatIQD(money.due, locale) })
+            : tr('ws.tournaments.detail.stats.nothingDue'),
     },
-    {
-      label: tr('ws.tournaments.detail.facts.cutoff'),
-      value: d.registration_closes_at
-        ? formatDateTime(new Date(d.registration_closes_at), locale, tz)
-        : '—',
-    },
-    {
-      label: tr('ws.tournaments.detail.facts.courts'),
-      value:
-        d.courts
-          .map((c) => isolate(pickName(locale, c.name_en, c.name_ar)))
-          .join(locale === 'ar' ? '، ' : ', ') || '—',
-    },
+    prize
+      ? { label: tr('ws.tournaments.detail.stats.prize'), value: prize }
+      : {
+          label: tr('ws.tournaments.detail.stats.cutoff'),
+          value: d.registration_closes_at
+            ? formatDateTime(new Date(d.registration_closes_at), locale, tz)
+            : '—',
+        },
   ];
-  const prize = pickName(locale, d.prize_en, d.prize_ar);
-  if (prize) facts.push({ label: tr('ws.tournaments.detail.facts.prize'), value: prize });
 
   const when =
     d.starts_at && d.ends_at
@@ -248,23 +308,28 @@ function TournamentBody({
 
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }} data-testid="tournament-detail">
-      <PageHeader
-        eyebrow={tr('ws.tournaments.detail.eyebrow')}
-        title={isolate(name)}
-        subtitle={when}
+      <TournamentHero
+        detail={d}
+        name={name}
+        when={courtNames ? `${when} · ${courtNames}` : when}
+        tz={tz}
+        stats={stats}
+        progress={
+          d.rounds.length > 0
+            ? {
+                percent: play.percent,
+                round: playLabel,
+                courts: currentRound
+                  ? tr('ws.tournaments.detail.progress', {
+                      done: n(scoredCount(currentRound)),
+                      total: n(currentRound.matches.length),
+                    })
+                  : '',
+              }
+            : null
+        }
         actions={
-          <span
-            style={{
-              display: 'flex',
-              gap: 'var(--tp-sp-2)',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-            }}
-          >
-            <StatusBadge
-              tone={TOUR_STATUS_TONE[d.status]}
-              label={tr(`tournaments.common.status.${d.status}`)}
-            />
+          <>
             {d.starts_at && (
               <Button
                 icon="calendar"
@@ -280,6 +345,20 @@ function TournamentBody({
                 {tr('ws.tournaments.detail.seeOnCalendar')}
               </Button>
             )}
+            {caps.runTournaments && d.can.close && (
+              <Button
+                icon="lock"
+                disabled={!reachable || busy}
+                onClick={() => void closeRegistration()}
+              >
+                {tr('ws.tournaments.close.action')}
+              </Button>
+            )}
+            {caps.publishTournaments && d.can.finish && (
+              <Button icon="checkCircle" disabled={!reachable} onClick={() => setFinishing(true)}>
+                {tr('ws.tournaments.finish.action')}
+              </Button>
+            )}
             {caps.publishTournaments && d.can.cancel && (
               <Button
                 kind="danger"
@@ -290,7 +369,7 @@ function TournamentBody({
                 {tr('ws.tournaments.cancel.action')}
               </Button>
             )}
-          </span>
+          </>
         }
       />
 
@@ -310,26 +389,6 @@ function TournamentBody({
           message={tr('ws.tournaments.detail.offline')}
         />
       )}
-
-      <Panel>
-        <dl
-          style={{
-            margin: 0,
-            display: 'grid',
-            gap: 'var(--tp-sp-2) var(--tp-sp-4)',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))',
-          }}
-        >
-          {facts.map((f) => (
-            <div key={f.label} style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-              <dt style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-                {f.label}
-              </dt>
-              <dd style={{ margin: 0, fontWeight: 600 }}>{f.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </Panel>
 
       {refunds.length > 0 && caps.publishTournaments && (
         <Panel title={tr('ws.tournaments.refundsDue.title')} data-testid="tournament-refunds-due">
@@ -389,10 +448,31 @@ function TournamentBody({
         />
       )}
       {tab === 'rounds' && (
-        <RoundsBoard detail={d} canRun={caps.runTournaments} onRefetch={onRefetch} />
+        <RoundsBoard
+          detail={d}
+          canRun={caps.runTournaments}
+          onRefetch={onRefetch}
+          onShowStandings={() => setTab('standings')}
+        />
       )}
       {tab === 'standings' && <StandingsTable detail={d} />}
 
+      {finishing && (
+        <ReasonCodePrompt
+          action={tr('ws.tournaments.finish.action')}
+          reasonCodes={FINISH_REASONS}
+          noteMode="optional"
+          busy={busy}
+          error={error}
+          onCancel={() => {
+            setFinishing(false);
+            setError(null);
+          }}
+          onSubmit={(code, note) => void finish(code, note)}
+        >
+          <p style={{ marginBlockStart: 0 }}>{tr('ws.tournaments.finish.lead')}</p>
+        </ReasonCodePrompt>
+      )}
       {cancelling && (
         <ReasonCodePrompt
           action={tr('ws.tournaments.cancel.action')}
@@ -497,5 +577,167 @@ export function StandingsTable({ detail: d }: { detail: TournamentDetail }) {
         <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.tournaments.standings.empty')}</span>
       }
     />
+  );
+}
+
+/**
+ * The banner a tournament opens on (2026-10-05 redesign, option A): its date
+ * tile, status and format, the name and when, the round progress once play
+ * has started, and four figures. Drawn on the rail's navy so it reads as the
+ * one committed surface on the page, in blue mode too.
+ */
+function TournamentHero({
+  detail: d,
+  name,
+  when,
+  tz,
+  stats,
+  progress,
+  actions,
+}: {
+  detail: TournamentDetail;
+  name: string;
+  when: string;
+  tz: string;
+  stats: { label: string; value: string; sub?: string }[];
+  progress: { percent: number; round: string; courts: string } | null;
+  actions: ReactNode;
+}) {
+  const { tr, locale } = useLocale();
+  const live = d.status === 'running';
+  const pill = (label: string, strong = false) => (
+    <span
+      style={{
+        fontSize: 'var(--tp-fs-xs)',
+        fontWeight: 700,
+        padding: 'var(--tp-sp-1) var(--tp-sp-2-5)',
+        borderRadius: 'var(--tp-radius-pill)',
+        background: strong ? 'var(--tp-accent-2)' : 'var(--tp-rail-2)',
+        color: strong ? 'var(--tp-accent-2-contrast)' : 'var(--tp-rail-fg-active)',
+      }}
+    >
+      {label}
+    </span>
+  );
+  return (
+    <section
+      aria-label={name}
+      style={{
+        background: 'var(--tp-rail)',
+        color: 'var(--tp-rail-fg-active)',
+        borderRadius: 'var(--tp-radius-dialog)',
+        padding: 'var(--tp-sp-5) var(--tp-sp-6)',
+        display: 'grid',
+        gap: 'var(--tp-sp-5)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 'var(--tp-sp-4)',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--tp-sp-4)',
+            alignItems: 'flex-start',
+            minInlineSize: 0,
+          }}
+        >
+          <DateTile at={d.starts_at} tz={tz} status={d.status} size="lg" />
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--tp-sp-2)',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
+              {pill(tr(`tournaments.common.status.${d.status}`), live)}
+              {pill(tr(`tournaments.common.format.${d.format}`))}
+              {pill(tr(`ws.matches.common.category.${d.category}`))}
+              {pill(
+                tr('ws.tournaments.detail.pointsTag', {
+                  points: formatNumber(d.points_target, locale),
+                }),
+              )}
+            </div>
+            <h1
+              style={{ margin: 0, fontSize: 'var(--tp-fs-3xl)', fontWeight: 800, lineHeight: 1.2 }}
+            >
+              {isolate(name)}
+            </h1>
+            {when && (
+              <div style={{ fontSize: 'var(--tp-fs-md)', color: 'var(--tp-rail-fg)' }}>{when}</div>
+            )}
+          </div>
+        </div>
+        <div
+          style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'center' }}
+        >
+          {actions}
+        </div>
+      </div>
+
+      {progress && (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 'var(--tp-sp-2)',
+              fontSize: 'var(--tp-fs-sm)',
+              color: 'var(--tp-rail-fg)',
+            }}
+          >
+            <span>{progress.round}</span>
+            <span>{progress.courts}</span>
+          </div>
+          <FillBar
+            percent={progress.percent}
+            color="var(--tp-accent-2)"
+            track="var(--tp-rail-border)"
+            height="0.625rem"
+            label={progress.round}
+          />
+        </div>
+      )}
+
+      <dl
+        style={{
+          margin: 0,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(11rem, 1fr))',
+          gap: 'var(--tp-sp-3)',
+        }}
+      >
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            style={{
+              background: 'var(--tp-rail-2)',
+              borderRadius: 'var(--tp-radius-panel)',
+              padding: 'var(--tp-sp-3) var(--tp-sp-4)',
+              display: 'grid',
+              gap: 'var(--tp-sp-0)',
+              alignContent: 'start',
+            }}
+          >
+            <dt style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-fg)' }}>{s.label}</dt>
+            <dd style={{ margin: 0, fontSize: 'var(--tp-fs-2xl)', fontWeight: 800 }}>{s.value}</dd>
+            {s.sub && (
+              <dd style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-fg)' }}>
+                {s.sub}
+              </dd>
+            )}
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }

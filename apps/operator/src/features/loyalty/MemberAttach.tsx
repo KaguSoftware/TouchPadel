@@ -11,6 +11,12 @@
  *               that can read neither is told so and uses points.
  *   Undo        app.loyalty_unredeem on one of the tab's loyalty adjustments.
  *
+ * Points and rewards are spent only with proof the member is here (0308, c2): the member token
+ * scanned a moment ago (sent once as p_member_token), else a manager's PIN in the dialog
+ * (verify_manager_pin, then the redemption spends its grant). A refused token asks for the PIN.
+ * A member who works here is added to a bill only behind another manager's PIN: when
+ * set_tab_customer answers PIN_GRANT_REQUIRED the PIN is asked for and the attach sent again.
+ *
  * Every call is online only (L-6: no queued mutation type). A tab opened offline has no server
  * id yet, so the button is off with a hint until its open replays. After each write the tab,
  * the tab lists, a booking's bill and the member are re-read (invalidateTabLoyalty), so the
@@ -40,8 +46,12 @@ import {
   type MemberView,
 } from './loyaltyLogic';
 import {
+  forgetMemberToken,
+  freshMemberToken,
+  grantManagerPin,
   identifyMember,
   invalidateTabLoyalty,
+  needsAttachPin,
   redeemKey,
   redeemPoints,
   redeemReward,
@@ -54,6 +64,58 @@ import {
 } from './useLoyalty';
 
 const K = 'ws.loyalty';
+
+/** A refusal of the member's token: it is spent or stale, so a manager PIN is asked instead. */
+const TOKEN_REFUSALS = new Set([
+  'MEMBER_CODE_EXPIRED',
+  'MEMBER_CODE_INVALID',
+  'MEMBER_CODE_MISMATCH',
+]);
+function isTokenRefusal(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === 'string' && TOKEN_REFUSALS.has(code);
+}
+
+/**
+ * The proof a redemption needs (0308, c2): the member's card scanned a moment ago, else a
+ * manager's PIN. Returns the token to send (null: the PIN path) and the PIN field when asked.
+ */
+function useRedeemProof(customerId: string) {
+  const { tr } = useLocale();
+  const [token, setToken] = useState<string | null>(() => freshMemberToken(customerId));
+  const [pin, setPin] = useState('');
+  const needPin = token === null;
+  return {
+    token,
+    ready: !needPin || pin.length >= 4,
+    /** Before the call: the PIN grant, when that is the proof. */
+    async prove(): Promise<string | null> {
+      if (needPin) await grantManagerPin(pin);
+      return token;
+    },
+    /** After the call: a token proves once; a refused one falls back to the PIN. */
+    settle(error: unknown | null) {
+      if (token && (error === null || isTokenRefusal(error))) {
+        forgetMemberToken(customerId);
+        setToken(null);
+      }
+    },
+    field: needPin ? (
+      <Field label={tr(`${K}.redeem.pinLabel`)} hint={tr(`${K}.redeem.pinHint`)}>
+        <input
+          style={{ ...inputStyle, inlineSize: '10rem' }}
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={6}
+          value={pin}
+          data-testid="redeem-pin"
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+        />
+      </Field>
+    ) : null,
+  };
+}
 
 /** A scanner burst the till's wedge recognised as a member card; detail is the code. */
 export const MEMBER_SCAN_EVENT = 'till-member-scan';
@@ -241,7 +303,11 @@ const box = {
 // ---------------------------------------------------------------------------
 
 type Dialog =
-  { kind: 'none' } | { kind: 'identify'; code: string } | { kind: 'redeem' } | { kind: 'rewards' };
+  | { kind: 'none' }
+  | { kind: 'identify'; code: string }
+  | { kind: 'staffPin'; member: IdentifiedMember }
+  | { kind: 'redeem' }
+  | { kind: 'rewards' };
 
 export function MemberAttach({
   tabId,
@@ -319,7 +385,16 @@ export function MemberAttach({
   }
 
   async function attach(m: IdentifiedMember) {
-    await setTabCustomer(tabId, m.customer_id);
+    try {
+      await setTabCustomer(tabId, m.customer_id);
+    } catch (e) {
+      // 0308 (c2): a member who works here is added only behind another manager's PIN.
+      if (needsAttachPin(e)) {
+        setDialog({ kind: 'staffPin', member: m });
+        return;
+      }
+      throw e;
+    }
     setDialog({ kind: 'none' });
     refresh(m.customer_id);
   }
@@ -490,6 +565,17 @@ export function MemberAttach({
           onIdentified={attach}
         />
       )}
+      {dialog.kind === 'staffPin' && (
+        <StaffPinDialog
+          tabId={tabId}
+          member={dialog.member}
+          onClose={() => setDialog({ kind: 'none' })}
+          onDone={() => {
+            setDialog({ kind: 'none' });
+            refresh(dialog.member.customer_id);
+          }}
+        />
+      )}
       {dialog.kind === 'redeem' && member && (
         <RedeemDialog
           tabId={tabId}
@@ -523,6 +609,94 @@ export function MemberAttach({
 }
 
 // ---------------------------------------------------------------------------
+// A member who works here (0308, c2)
+// ---------------------------------------------------------------------------
+
+/**
+ * set_tab_customer refuses an active staff member without a manager PIN grant (PIN_GRANT_REQUIRED),
+ * and refuses the staff member's own PIN (FORBIDDEN self_dealing): another manager enters theirs
+ * here (verify_manager_pin, the 0115 grant pattern), then the attach is sent again.
+ */
+function StaffPinDialog({
+  tabId,
+  member,
+  onClose,
+  onDone,
+}: {
+  tabId: string;
+  member: IdentifiedMember;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { tr } = useLocale();
+  const [pin, setPin] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const ready = pin.length >= 4;
+
+  async function confirm() {
+    if (!ready || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await grantManagerPin(pin);
+      await setTabCustomer(tabId, member.customer_id);
+      onDone();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      title={tr(`${K}.member.staffTitle`)}
+      subtitle={tr(`${K}.member.staffLead`, {
+        name: member.display_name ?? tr(`${K}.member.unknownName`),
+      })}
+      size="sm"
+      dismissible={!busy}
+      onClose={onClose}
+      footer={(close) => (
+        <>
+          <Button onClick={close} disabled={busy}>
+            {tr('common.cancel')}
+          </Button>
+          <Button
+            kind="primary"
+            icon="userPlus"
+            busy={busy}
+            disabled={!ready}
+            onClick={() => void confirm()}
+            data-testid="staff-attach-confirm"
+          >
+            {tr(`${K}.member.staffConfirm`)}
+          </Button>
+        </>
+      )}
+    >
+      <Field label={tr(`${K}.redeem.pinLabel`)} style={{ marginBlockEnd: 0 }}>
+        <input
+          style={{ ...inputStyle, inlineSize: '10rem' }}
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          autoFocus
+          maxLength={6}
+          value={pin}
+          disabled={busy}
+          data-testid="staff-attach-pin"
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+          onKeyDown={(e) => e.key === 'Enter' && void confirm()}
+        />
+      </Field>
+      <ErrorText error={error} />
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Use points
 // ---------------------------------------------------------------------------
 
@@ -543,6 +717,7 @@ function RedeemDialog({
 }) {
   const { tr, locale } = useLocale();
   const [key] = useState(redeemKey);
+  const proof = useRedeemProof(member.customerId);
   const fit = defaultRedeemPoints(member.balance, remainingIqd, terms);
   const [text, setText] = useState(String(fit));
   const [busy, setBusy] = useState(false);
@@ -563,11 +738,12 @@ function RedeemDialog({
             : undefined;
 
   async function confirm() {
-    if (block || points === null) return;
+    if (block || points === null || !proof.ready) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await redeemPoints(tabId, points, key);
+      const res = await redeemPoints(tabId, points, key, await proof.prove());
+      proof.settle(null);
       onDone(
         tr(`${K}.redeem.done`, {
           points: n(Number(res.points)),
@@ -575,6 +751,7 @@ function RedeemDialog({
         }),
       );
     } catch (e) {
+      proof.settle(e);
       setError(e);
     } finally {
       setBusy(false);
@@ -600,7 +777,7 @@ function RedeemDialog({
             kind="primary"
             icon="star"
             busy={busy}
-            disabled={block !== null}
+            disabled={block !== null || !proof.ready}
             onClick={() => void confirm()}
             data-testid="redeem-confirm"
           >
@@ -631,6 +808,7 @@ function RedeemDialog({
           onKeyDown={(e) => e.key === 'Enter' && !block && !busy && void confirm()}
         />
       </Field>
+      {proof.field}
       <p
         style={{
           margin: 0,
@@ -673,9 +851,11 @@ function RewardsDialog({
   const keys = useRef(new Map<string, string>());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const proof = useRedeemProof(member.customerId);
   const n = (v: number) => formatNumber(v, locale);
 
   async function use(r: LoyaltyAdminReward) {
+    if (!proof.ready) return;
     let key = keys.current.get(r.id);
     if (!key) {
       key = redeemKey();
@@ -684,9 +864,11 @@ function RewardsDialog({
     setBusyId(r.id);
     setError(null);
     try {
-      const res = await redeemReward(tabId, r.id, key);
+      const res = await redeemReward(tabId, r.id, key, await proof.prove());
+      proof.settle(null);
       onDone(tr(`${K}.rewards.done`, { amount: formatIQD(Number(res.amount_iqd), locale) }));
     } catch (e) {
+      proof.settle(e);
       setError(e);
     } finally {
       setBusyId(null);
@@ -712,6 +894,7 @@ function RewardsDialog({
       {rewards === null && !loading && (
         <MessagePresenter tone="info" icon="lock" message={tr(`${K}.rewards.unavailable`)} />
       )}
+      {rewards !== null && rewards.length > 0 && proof.field}
       {rewards !== null && rewards.length === 0 && (
         <p style={{ margin: 0, color: 'var(--tp-muted-fg)' }}>{tr(`${K}.rewards.empty`)}</p>
       )}
@@ -750,7 +933,7 @@ function RewardsDialog({
                   size="sm"
                   kind="primary"
                   busy={busyId === r.id}
-                  disabled={short || busyId !== null}
+                  disabled={short || busyId !== null || !proof.ready}
                   disabledReason={short ? tr(`${K}.rewards.tooFew`) : undefined}
                   onClick={() => void use(r)}
                 >
