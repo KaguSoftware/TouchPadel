@@ -170,6 +170,21 @@ function buildIQD(amount: number, locale: Locale): string {
   }
 }
 
+/**
+ * Typed digits to ASCII, for a number box: Arabic-Indic (U+0660–U+0669) and
+ * Extended Arabic-Indic (U+06F0–U+06F9) fold to 0–9, and the Arabic thousands
+ * separator (U+066C) to ','. An Arabic keyboard types those, and a `\d` filter
+ * (ASCII only) would leave the box empty. Everything else is left for the
+ * caller's own filter.
+ */
+export function asciiDigits(raw: string): string {
+  return raw.replace(/[٠-٩۰-۹٬]/g, (ch) => {
+    const code = ch.charCodeAt(0);
+    if (code === 0x066c) return ',';
+    return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
+  });
+}
+
 /** Plain grouped number with Latin digits (counts, quantities). */
 export function formatNumber(value: number, locale: Locale): string {
   return nf(`num|${locale}`, () => new Intl.NumberFormat(intlLocale(locale))).format(value);

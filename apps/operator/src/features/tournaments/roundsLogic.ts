@@ -24,6 +24,7 @@ import {
   type TourRoundsContext,
   type TourRoundsPayload,
 } from '@touch/core/tournaments';
+import { asciiDigits } from '@touch/i18n';
 import { americanoSchedule, mexicanoRound, seedFrom } from './engine';
 import type {
   TourDetailMatch,
@@ -244,9 +245,10 @@ export function readScoreInput(text: string, target: number): { a: number; b: nu
  * What the score box holds after a keystroke: digits only, the last two typed,
  * and never more than the target. Typing over a full box keeps the newest
  * digits (15, then 9 → 59 → too many → 9), so staff never have to clear it.
+ * An Arabic keyboard's digits (١٥) count as digits.
  */
 export function scoreTyping(raw: string, target: number): string {
-  const digits = raw.replace(/[^\d]/g, '');
+  const digits = asciiDigits(raw).replace(/[^\d]/g, '');
   const two = digits.slice(-2);
   if (two === '' || Number(two) <= target) return two;
   return digits.slice(-1);

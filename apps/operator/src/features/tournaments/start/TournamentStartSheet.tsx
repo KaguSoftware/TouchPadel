@@ -19,7 +19,13 @@ import {
   type FieldIssue,
   type TournamentVariant,
 } from '@touch/core/protocols';
-import { countPhrase, formatDate, formatTimeRange, type MessageKey } from '@touch/i18n';
+import {
+  asciiDigits,
+  countPhrase,
+  formatDate,
+  formatTimeRange,
+  type MessageKey,
+} from '@touch/i18n';
 import { AppRpcError, appRpc } from '../../../lib/appRpc';
 import { useLocale } from '../../../lib/i18n';
 import { pickName } from '../tournamentLogic';
@@ -787,7 +793,14 @@ function NumberField({
         dir="ltr"
         value={value}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.value.replace(/[^\d,]/g, '').slice(0, 12))}
+        // An Arabic keyboard's digits (١٥) fold to ASCII before the filter.
+        onChange={(e) =>
+          onChange(
+            asciiDigits(e.target.value)
+              .replace(/[^\d,]/g, '')
+              .slice(0, 12),
+          )
+        }
       />
     </Field>
   );

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  asciiDigits,
   formatDate,
   formatDateTime,
   formatDayNumber,
@@ -95,5 +96,17 @@ describe('day-strip / badge / range formatters', () => {
     expect(out.startsWith('⁨')).toBe(true);
     expect(out.endsWith('⁩')).toBe(true);
     expect(out).toContain('–');
+  });
+});
+
+describe('asciiDigits', () => {
+  it('folds Arabic-Indic and Extended Arabic-Indic digits to ASCII', () => {
+    expect(asciiDigits('١٥')).toBe('15');
+    expect(asciiDigits('۲۰')).toBe('20');
+    expect(asciiDigits('١٥٬٠٠٠')).toBe('15,000');
+  });
+
+  it('leaves ASCII digits and other characters for the caller', () => {
+    expect(asciiDigits('15 abc')).toBe('15 abc');
   });
 });

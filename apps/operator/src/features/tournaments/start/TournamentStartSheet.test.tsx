@@ -163,4 +163,13 @@ describe('TournamentStartSheet', () => {
     expect(menu().getByRole('button', { name: /^Sponsor/ })).toBeTruthy();
     expect(screen.getByText('1 of 6 done')).toBeTruthy();
   });
+
+  it('takes an Arabic keyboard’s digits in a number box', async () => {
+    const user = userEvent.setup();
+    mount();
+    await user.click(menu().getByRole('button', { name: /^Players & money/ }));
+    const count = screen.getByLabelText(/How many/) as HTMLInputElement;
+    fireEvent.change(count, { target: { value: '١٦' } });
+    expect(count.value).toBe('16');
+  });
 });
