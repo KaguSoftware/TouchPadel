@@ -107,11 +107,12 @@ export const TOUR_ROUNDS_DETAILS = [
   'seat',
   'court',
   'courts_used',
+  'sit_out',
 ] as const;
 export type TourRoundsDetail = (typeof TOUR_ROUNDS_DETAILS)[number];
 
 /** `TOURNAMENT_SCORE_REFUSED` details (§1.9). */
-export const TOUR_SCORE_DETAILS = ['status', 'invalid', 'changed', 'locked'] as const;
+export const TOUR_SCORE_DETAILS = ['status', 'invalid', 'changed', 'locked', 'closed'] as const;
 export type TourScoreDetail = (typeof TOUR_SCORE_DETAILS)[number];
 
 /** `TOURNAMENT_NOT_OPEN` details (§1.9). */

@@ -454,8 +454,8 @@ export const ERROR_CODE_KEYS = {
   TOURNAMENT_ENTRY_NOT_FOUND: 'op.errors.TOURNAMENT_ENTRY_NOT_FOUND',
   TOURNAMENT_VIA_EVENTS: 'op.errors.TOURNAMENT_VIA_EVENTS',
   // tournaments_play: the rounds write (detail status | stale | engine | format | numbering |
-  // played | mexicano_one | round_open | seat | court | courts_used) and the score (detail
-  // status | invalid | changed | locked).
+  // played | mexicano_one | round_open | seat | court | courts_used | sit_out (0311)) and the
+  // score (detail status | invalid | changed | locked | closed (0311)).
   TOURNAMENT_ROUNDS_INVALID: 'op.errors.TOURNAMENT_ROUNDS_INVALID',
   TOURNAMENT_SCORE_REFUSED: 'op.errors.TOURNAMENT_SCORE_REFUSED',
   // 0310 tournaments_money_lifecycle: the desk closes registration below min_entries (detail

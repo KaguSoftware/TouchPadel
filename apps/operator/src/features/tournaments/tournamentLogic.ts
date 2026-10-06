@@ -68,6 +68,7 @@ const ROUNDS_DETAILS = new Set([
   'seat',
   'court',
   'courts_used',
+  'sit_out',
 ]);
 const PUBLISH_DETAILS = new Set([
   'not_done',
@@ -99,7 +100,7 @@ export function tournamentErrorKey(error: unknown): MessageKey {
       if (ROUNDS_DETAILS.has(d)) return `ws.tournaments.errors.rounds.${d as 'status'}`;
       break;
     case 'TOURNAMENT_SCORE_REFUSED':
-      if (d === 'status' || d === 'invalid' || d === 'changed' || d === 'locked')
+      if (d === 'status' || d === 'invalid' || d === 'changed' || d === 'locked' || d === 'closed')
         return `ws.tournaments.errors.score.${d}`;
       break;
     case 'TOURNAMENT_PUBLISH_REFUSED':

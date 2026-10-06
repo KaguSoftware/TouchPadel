@@ -14,8 +14,10 @@
  * - `diff`: match points won − `points_against` (a sit-out adds 0).
  * - `h2h`: counted once per scored match: for each match the entry played in which at least one
  *   opponent shares the entry's (`points_won`, `diff`), own points − other points.
- * - Order: `points_won` desc, `diff` desc, `h2h` desc, `seed_no` asc (then entry id).
- *   `rank` = 1 + the rows strictly better on the first three keys, so a tie shares its rank.
+ * - Order: registered rows first, then `points_won` desc, `diff` desc, `h2h` desc, `seed_no` asc
+ *   (then entry id). `rank` = 1 + the rows of its kind strictly better on the first three keys,
+ *   so a tie shares its rank; a withdrawn row also counts every registered row before it (0311,
+ *   c27: a player who left never pushes down one still playing).
  */
 import type { TourEntryStatus, TourMatch, TourStandingRow } from './types';
 
@@ -123,16 +125,22 @@ export function rankStandings(input: TourStandingsInput): TourStandingRow[] {
   const better = (x: (typeof rows)[number], y: (typeof rows)[number]): number =>
     y.points_won - x.points_won || y.diff - x.diff || y.h2h - x.h2h;
   const seedKey = (s: number | null): number => (s === null ? Number.MAX_SAFE_INTEGER : s);
+  const gone = (x: (typeof rows)[number]): number => (x.entry.status === 'registered' ? 0 : 1);
   rows.sort(
     (x, y) =>
+      gone(x) - gone(y) ||
       better(x, y) ||
       seedKey(x.entry.seed_no) - seedKey(y.entry.seed_no) ||
       (x.entry.entry_id < y.entry.entry_id ? -1 : x.entry.entry_id > y.entry.entry_id ? 1 : 0),
   );
 
+  const registered = rows.filter((o) => gone(o) === 0).length;
   return rows.map((r) => ({
     entry_id: r.entry.entry_id,
-    rank: 1 + rows.filter((o) => better(o, r) < 0).length,
+    rank:
+      1 +
+      (gone(r) === 1 ? registered : 0) +
+      rows.filter((o) => gone(o) === gone(r) && better(o, r) < 0).length,
     points_won: r.points_won,
     points_against: r.points_against,
     diff: r.diff,

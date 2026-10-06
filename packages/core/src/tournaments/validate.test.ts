@@ -166,6 +166,35 @@ describe('validateRoundsPayload: one case per detail (§1.9)', () => {
     expect(validateRoundsPayload(americano({ rounds: [empty] }), ctxA())).toEqual(['courts_used']);
   });
 
+  it('sit_out (0311, c26): a sit-out with more sit-outs so far than a player of the round', () => {
+    // Six active on one court: two sit out each round.
+    const six = E.slice(0, 6);
+    const r6 = (round_no: number, sit: [string, string]): TourRound => {
+      const play = six.filter((x) => !sit.includes(x));
+      return {
+        round_no,
+        matches: [{ court_id: 'c1', a: [play[0]!, play[1]!], b: [play[2]!, play[3]!] }],
+        sit_out: sit,
+      };
+    };
+    const ctx = ctxA({ active: six });
+    const p = (rounds: TourRound[], from_round = 1) => americano({ from_round, rounds });
+    expect(validateRoundsPayload(p([r6(1, ['e5', 'e6']), r6(2, ['e1', 'e2'])]), ctx)).toEqual([]);
+    expect(validateRoundsPayload(p([r6(1, ['e5', 'e6']), r6(2, ['e5', 'e1'])]), ctx)).toEqual([
+      'sit_out',
+    ]);
+    // The rounds before from_round count; later ones do not.
+    const sat = [
+      { round_no: 1, sit_out: ['e5', 'e6'] },
+      { round_no: 2, sit_out: ['e1', 'e2'] },
+    ];
+    const ctx2 = ctxA({ active: six, last_round: 2, sit_outs: sat });
+    expect(validateRoundsPayload(p([r6(2, ['e1', 'e5'])], 2), ctx2)).toEqual(['sit_out']);
+    expect(validateRoundsPayload(p([r6(2, ['e1', 'e2'])], 2), ctx2)).toEqual([]);
+    expect(validateRoundsPayload(p([r6(3, ['e3', 'e4'])], 3), ctx2)).toEqual([]);
+    expect(validateRoundsPayload(p([r6(3, ['e3', 'e5'])], 3), ctx2)).toEqual(['sit_out']);
+  });
+
   it('returns every failing detail in the server order, so its first is what SQL raises', () => {
     const p = {
       ...americano({ based_on_revision: 0, rounds: [round(1, E, ['c1', 'c9'])] }),

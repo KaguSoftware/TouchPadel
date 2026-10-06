@@ -108,6 +108,7 @@ export function roundsContext(d: TournamentDetail): TourRoundsContext {
     complete_rounds: d.rounds.filter(roundComplete).map((r) => r.round_no),
     active: activeEntries(d).map((e) => e.entry_id),
     courts: d.courts.map((c) => c.court_id),
+    sit_outs: d.rounds.map((r) => ({ round_no: r.round_no, sit_out: r.sit_out })),
   };
 }
 

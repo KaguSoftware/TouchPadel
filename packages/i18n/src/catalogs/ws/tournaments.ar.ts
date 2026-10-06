@@ -306,6 +306,7 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
       seat: 'تغيّر اللاعبون. حُدِّثت الشاشة: وزّع من جديد.',
       court: 'أحد الملاعب المختارة ليس من ملاعب البطولة المحجوزة.',
       courts_used: 'عدد المباريات أكبر مما يكفيه اللاعبون.',
+      sit_out: 'يجلس في الاستراحة لاعب استراح أكثر من لاعب في تلك الجولة. وزّع من جديد.',
       payload: 'تعذّرت قراءة هذه الجولات.',
     },
     score: {
@@ -313,6 +314,7 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
       invalid: 'يجب أن يكون مجموع نقاط الفريقين {target}.',
       changed: 'غيّر شخص آخر هذه النتيجة. حُدِّثت الشاشة.',
       locked: 'سُجِّلت نتيجة جولة لاحقة، فلا يمكن تصحيح هذه.',
+      closed: 'أصبحت النتائج نهائية بعد ٤٨ ساعة من انتهاء البطولة.',
     },
   },
   // The section-menu start sheet (TournamentStartSheet, 2026-10-05 "C + D" redesign).

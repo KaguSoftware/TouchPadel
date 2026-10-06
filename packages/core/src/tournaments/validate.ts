@@ -10,7 +10,9 @@
  * without two two-id teams, a non-integer number) is not a rules question: the server answers
  * `INVALID_ARGUMENT` detail `p_payload`, and this returns `['payload']` alone.
  *
- * Fairness (partner and opponent repeats, sit-out spread) is the engine's, never checked here.
+ * Fairness (partner and opponent repeats) is the engine's, never checked here. Who sits out is
+ * (0311, c26, check 12): a sit-out is worth floor(points_target / 2), so each round's sit-outs
+ * must be entries with the fewest sit-outs so far, the rule both engines draw by.
  */
 import {
   TOUR_ENGINE,
@@ -39,6 +41,11 @@ export interface TourRoundsContext {
   active: readonly string[];
   /** The courts of the run's live adopted blocks. */
   courts: readonly string[];
+  /**
+   * The rounds that exist, by their sit-outs (0311, check 12): those before `from_round` count.
+   * Omitted: none.
+   */
+  sit_outs?: readonly { round_no: number; sit_out: readonly string[] }[];
 }
 
 export type TourRoundsCheck = TourRoundsDetail | 'payload';
@@ -131,6 +138,23 @@ export function validateRoundsPayload(payload: unknown, ctx: TourRoundsContext):
   const most = Math.floor(ctx.active.length / 4);
   if (!p.rounds.every((r) => r.matches.length >= 1 && r.matches.length <= most))
     out.push('courts_used');
+  // 12. sit_out: no sit-out has sat out more than a player of the round (the rounds before
+  // from_round, then the payload's earlier rounds).
+  const sat = new Map<string, number>();
+  for (const r of ctx.sit_outs ?? [])
+    if (r.round_no < p.from_round) for (const id of r.sit_out) sat.set(id, (sat.get(id) ?? 0) + 1);
+  const satOf = (id: string): number => sat.get(id) ?? 0;
+  const sitOk = p.rounds.every((r) => {
+    const sitting = new Set(r.sit_out);
+    const playing = ctx.active.filter((id) => !sitting.has(id));
+    const ok =
+      r.sit_out.length === 0 ||
+      playing.length === 0 ||
+      Math.max(...r.sit_out.map(satOf)) <= Math.min(...playing.map(satOf));
+    for (const id of r.sit_out) sat.set(id, satOf(id) + 1);
+    return ok;
+  });
+  if (!sitOk) out.push('sit_out');
 
   return out;
 }

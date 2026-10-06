@@ -311,6 +311,7 @@ export const tournamentsEn = {
       seat: 'The players changed. It has been refreshed: draw again.',
       court: "A court picked isn't one of the tournament's blocked courts.",
       courts_used: 'There are more matches than the players can fill.',
+      sit_out: 'Someone sits out who has sat out more than a player of that round. Draw again.',
       payload: "These rounds couldn't be read.",
     },
     score: {
@@ -318,6 +319,7 @@ export const tournamentsEn = {
       invalid: 'The two sides must add up to {target}.',
       changed: 'Someone else changed this score. It has been refreshed.',
       locked: "A later round is already scored, so this one can't be corrected.",
+      closed: 'The scores became final 48 hours after the tournament finished.',
     },
   },
   // The section-menu start sheet (TournamentStartSheet, 2026-10-05 "C + D" redesign).
