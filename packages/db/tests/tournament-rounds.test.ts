@@ -2,8 +2,9 @@
  * The engine against the database (docs/design/tournaments/build-contracts-2026-10-03.md §1.9,
  * TD-7, TD-8; plan §4 "Parity"): core generates, SQL checks and ranks.
  *
- *   * 20 scenarios (Americano and Mexicano, 4 to 16 entries, 1 to 4 courts, two points targets,
- *     some with the last round half played, some with a no-show who had played): the engine's
+ *   * 22 scenarios (Americano and Mexicano, 4 to 16 entries, 1 to 4 courts, two points targets,
+ *     some with the last round half played, some with a no-show who had played, and two (0311,
+ *     c27) where the leader leaves mid-play and must rank after every registered entry): the engine's
  *     rounds are submitted through tournament_set_rounds, scored with seeded scores through
  *     tournament_score, and app.tournament_standings must equal rankStandings row for row;
  *   * the invalid corpus: every mutation of a valid payload gets from the server the first
@@ -162,10 +163,12 @@ interface Plan {
   rounds: number;
   partial: boolean;
   noShow: boolean;
+  /** 0311 (c27): the leader, not the first entry, leaves with the last round half played. */
+  leader?: boolean;
 }
 
-/** The 20 scenarios: a spread of field sizes, courts, targets and endings. */
-const PLANS: Plan[] = Array.from({ length: 20 }, (_, s) => {
+/** The 22 scenarios: a spread of field sizes, courts, targets and endings. */
+const PLANS: Plan[] = Array.from({ length: 20 }, (_, s): Plan => {
   const format = s % 3 === 2 ? 'mexicano' : 'americano';
   const n = 4 + ((s * 5) % 13);
   return {
@@ -177,7 +180,28 @@ const PLANS: Plan[] = Array.from({ length: 20 }, (_, s) => {
     partial: s % 4 === 1,
     noShow: s % 5 === 3,
   };
-});
+}).concat([
+  {
+    format: 'americano',
+    n: 9,
+    courts: 2,
+    target: 24,
+    rounds: 5,
+    partial: true,
+    noShow: true,
+    leader: true,
+  },
+  {
+    format: 'mexicano',
+    n: 8,
+    courts: 2,
+    target: 16,
+    rounds: 3,
+    partial: true,
+    noShow: true,
+    leader: true,
+  },
+]);
 
 /** Build the SQL of one scenario and the TS model of what it plays. */
 function build(s: number, p: Plan) {
@@ -264,7 +288,13 @@ function build(s: number, p: Plan) {
   // A no-show after the play: the first entry that played leaves the registered set.
   const statuses = new Map(entries.map((e) => [e.entry_id, 'registered']));
   if (p.noShow) {
-    const gone = entries[0]!.entry_id;
+    const gone = p.leader
+      ? engine.rankStandings({
+          points_target: p.target,
+          entries: entries.map((e) => ({ ...e, status: 'registered' })),
+          rounds: played,
+        })[0]!.entry_id
+      : entries[0]!.entry_id;
     statuses.set(gone, 'no_show');
     body.push(
       X(
@@ -313,7 +343,7 @@ describe.skipIf(!docker)('the engine against the database (TD-7, TD-8)', () => {
     engine = await loadEngine();
   });
 
-  it('app.tournament_standings equals rankStandings over 20 played scenarios', () => {
+  it('app.tournament_standings equals rankStandings over 22 played scenarios', () => {
     for (const [s, p] of PLANS.entries()) {
       const { body, expected } = build(s, p);
       const r: Results = scenario(`tr-par-${s}`, [
@@ -331,6 +361,12 @@ describe.skipIf(!docker)('the engine against the database (TD-7, TD-8)', () => {
       }
       expect(answer(r, `s${s}_standings`), label).toEqual(expected);
       expect(expected.length, label).toBeGreaterThan(0);
+      if (p.leader) {
+        // The leader left: last, ranked after every registered row (0311, c27).
+        const last = expected[expected.length - 1]!;
+        expect(last.withdrawn, label).toBe(true);
+        expect(last.rank, label).toBe(expected.length);
+      }
     }
   });
 
@@ -417,6 +453,20 @@ describe.skipIf(!docker)('the engine against the database (TD-7, TD-8)', () => {
           x.rounds[0]!.matches[1]!.court_id = x.rounds[0]!.matches[0]!.court_id;
         return x;
       })(),
+      // 0311 (c26): round 2 sits round 1's sit-out again while others have sat none.
+      sit_twice: (() => {
+        const x = clone(valid);
+        x.rounds[1] = { ...clone(x.rounds[0]!), round_no: 2 };
+        return x;
+      })(),
+      // 0311 (c26): round 1 leaves court 2 empty and sits its four players out.
+      one_court: (() => {
+        const x = clone(valid);
+        const r1 = x.rounds[0]!;
+        const gone = r1.matches.splice(1);
+        r1.sit_out = [...r1.sit_out, ...gone.flatMap((m) => [...m.a, ...m.b])];
+        return x;
+      })(),
       no_matches: (() => {
         const x = clone(valid);
         x.rounds[0] = { round_no: 1, matches: [], sit_out: entries.map((e) => e.entry_id) };
@@ -460,6 +510,8 @@ describe.skipIf(!docker)('the engine against the database (TD-7, TD-8)', () => {
       })[0],
     ).toBe('stale');
     expect(`${r.c_twice!.code}:${r.c_twice!.detail}`).toBe('TOURNAMENT_ROUNDS_INVALID:stale');
+    expect(engine.validateRoundsPayload(corpus.sit_twice, ctx)).toEqual(['sit_out']);
+    expect(engine.validateRoundsPayload(corpus.one_court, ctx)[0]).toBe('courts_used');
   });
 
   it('Mexicano: one round past the first, before its round is scored, and over a played round', () => {

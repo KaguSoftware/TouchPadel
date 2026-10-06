@@ -432,8 +432,8 @@ diff, h2h, played, sat_out, withdrawn}]`, `can{add, set_rounds, score, cancel, s
 | `TOURNAMENT_FULL` | — | register, add |
 | `TOURNAMENT_CATEGORY_MISMATCH` | — | register, add, no-show substitute |
 | `TOURNAMENT_ENTRY_NOT_FOUND` | — | withdraw, remove, no-show, settle |
-| `TOURNAMENT_ROUNDS_INVALID` | `status`, `stale`, `engine`, `format`, `numbering`, `played`, `mexicano_one`, `round_open`, `seat`, `court`, `courts_used` | set_rounds, no-show (`played`) |
-| `TOURNAMENT_SCORE_REFUSED` | `status`, `invalid`, `changed`, `locked` | score |
+| `TOURNAMENT_ROUNDS_INVALID` | `status`, `stale`, `engine`, `format`, `numbering`, `played`, `mexicano_one`, `round_open`, `seat`, `court`, `courts_used`, `sit_out` (0311) | set_rounds, no-show (`played`) |
+| `TOURNAMENT_SCORE_REFUSED` | `status`, `invalid`, `changed`, `locked`, `closed` (0311) | score |
 | `TOURNAMENT_NOT_PAYABLE` | `waitlisted`, `withdrawn`, `no_show` (the entry's status), `cancelled`, `nothing_owed` | settle |
 | `TOURNAMENT_OWED_CHANGED` | `expected X, now Y` | settle |
 | `TOURNAMENT_VIA_EVENTS` | — | the guard trigger (cancel, move, mark, extend of an adopted block) |

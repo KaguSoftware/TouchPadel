@@ -266,11 +266,12 @@ describe.skipIf(!docker)('tournament_score (T-5, TD-9, TD-11)', () => {
                                    where r.protocol_run_id = t.protocol_run_id))
                        from tournaments t where t.id = {{t1}}::uuid`,
       ),
-      // Round 2 has scores: a correction of round 1 is locked; round 2 itself may still be corrected.
+      // Round 2 has scores: a correction of round 1 is locked; round 2 itself may still be corrected
+      // (after the finish by a manager only, 0311 c35).
       KEEP('m1_rev', `select revision::text from tournament_matches where id = {{m1}}::uuid`),
       T(
         'locked',
-        'desk',
+        'manager',
         `select app.tournament_score({{m1}}, 14::smallint, 10::smallint, {{m1_rev}}::int, 'late fix')`,
       ),
       KEEP(
@@ -280,8 +281,13 @@ describe.skipIf(!docker)('tournament_score (T-5, TD-9, TD-11)', () => {
       ),
       KEEP('m2_rev', `select revision::text from tournament_matches where id = {{m2}}::uuid`),
       T(
-        'after_finish',
+        'desk_after_finish',
         'desk',
+        `select app.tournament_score({{m2}}, 20::smallint, 4::smallint, {{m2_rev}}::int, 'scorer')`,
+      ),
+      T(
+        'after_finish',
+        'manager',
         `select app.tournament_score({{m2}}, 20::smallint, 4::smallint, {{m2_rev}}::int, 'scorer')`,
       ),
       Q('standings', `select jsonb_agg(to_jsonb(s)) from app.tournament_standings({{t1}}::uuid) s`),
@@ -316,6 +322,7 @@ describe.skipIf(!docker)('tournament_score (T-5, TD-9, TD-11)', () => {
       blocks: ['cancelled'],
     });
     expect(refusal(r, 'locked')).toBe('TOURNAMENT_SCORE_REFUSED:locked');
+    expect(refusal(r, 'desk_after_finish')).toBe('FORBIDDEN:finished');
     expect(answer(r, 'after_finish')).toMatchObject({ status: 'finished' });
     const st = answer<Array<{ rank: number; points_won: number; played: number }>>(r, 'standings');
     expect(st).toHaveLength(8);
@@ -456,10 +463,21 @@ describe.skipIf(!docker)('the reads (§1.8)', () => {
       set_rounds: false,
       score: false,
       cancel: false,
+      close: false,
+      finish: false,
       settle: true,
     });
     expect(answer(r, 'detail_mgr')).toMatchObject({
-      can: { add: true, set_rounds: true, score: true, cancel: true, settle: true },
+      // 0310 (c25): no desk add while running; a manager may finish it early (c28).
+      can: {
+        add: false,
+        set_rounds: true,
+        score: true,
+        cancel: true,
+        close: false,
+        finish: true,
+        settle: true,
+      },
     });
     const entries = detail.entries as Array<{ owed_iqd: number; seed_no: number; status: string }>;
     expect(entries).toHaveLength(8);

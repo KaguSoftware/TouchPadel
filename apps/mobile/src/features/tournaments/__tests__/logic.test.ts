@@ -190,7 +190,10 @@ describe('parseTournamentPublic', () => {
       pointsWon: 15,
       diff: 6,
       played: 1,
+      withdrawn: false,
     });
+    // 0311 (c27): an entry that left the play says so.
+    expect(d.standings.map((s) => s.withdrawn)).toEqual([false, false, false, true]);
     expect(d.me).toEqual({
       entryId: TOUR_ENTRY_ID,
       status: 'registered',

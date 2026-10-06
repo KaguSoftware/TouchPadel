@@ -460,7 +460,9 @@ export default function TournamentDetailScreen() {
               rows={d.standings.map((s, i) => ({
                 key: `${s.player.no ?? 'x'}:${i}`,
                 rank: s.rank !== null ? isolateLtr(String(s.rank)) : '',
-                player: nameOf(s.player),
+                player: s.withdrawn
+                  ? t('tournaments.guest.detail.withdrawn', { name: nameOf(s.player) })
+                  : nameOf(s.player),
                 points: isolateLtr(String(s.pointsWon)),
                 diff: isolateLtr(s.diff > 0 ? `+${s.diff}` : String(s.diff)),
                 played: isolateLtr(String(s.played)),

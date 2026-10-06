@@ -45,11 +45,12 @@ import {
   drawBlocker,
   entriesById,
   isCorrection,
+  needsScoreReason,
   readScoreInput,
   scoreTyping,
   shortName,
 } from './roundsLogic';
-import { pickName, tournamentErrorKey, tournamentErrorText, codeOf } from './tournamentLogic';
+import { pickName, roundsErrorKey, tournamentErrorText, codeOf } from './tournamentLogic';
 import { currentRoundNo, roundState, scoredCount, type RoundState } from './layoutLogic';
 import { RankMedal } from './TournamentParts';
 import {
@@ -214,7 +215,7 @@ export function RoundsBoard({
           role="alert"
           style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}
         >
-          {tr(tournamentErrorKey(error))}
+          {tr(roundsErrorKey(error))}
         </p>
       )}
 
@@ -383,6 +384,7 @@ function RoundPanel({
               a={m.a.map(nameOf).join(' & ')}
               b={m.b.map(nameOf).join(' & ')}
               scorable={scorable}
+              finished={detail.status === 'finished'}
               onScored={onScored}
               onChanged={onChanged}
             />
@@ -410,6 +412,7 @@ function MatchRow({
   a,
   b,
   scorable,
+  finished = false,
   onScored,
   onChanged,
 }: {
@@ -419,6 +422,8 @@ function MatchRow({
   a: string;
   b: string;
   scorable: boolean;
+  /** The tournament has finished: every score write asks for a reason (0311). */
+  finished?: boolean;
   onScored: (removedFrom: number | null) => void;
   onChanged: () => void;
 }) {
@@ -509,6 +514,7 @@ function MatchRow({
       {open && (
         <ScoreDialog
           match={m}
+          finished={finished}
           court={court}
           target={target}
           teamA={a}
@@ -619,6 +625,7 @@ export function ScoreCell({
   target,
   teamA,
   teamB,
+  finished = false,
   onDone,
   onChanged,
   onCancel,
@@ -627,6 +634,8 @@ export function ScoreCell({
   target: number;
   teamA: string;
   teamB?: string;
+  /** The tournament has finished: a first score asks for a reason too (0311, c35). */
+  finished?: boolean;
   onDone: (removedFrom: number | null) => void;
   onChanged: () => void;
   onCancel?: () => void;
@@ -639,7 +648,7 @@ export function ScoreCell({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const score = readScoreInput(text, target);
-  const correction = isCorrection(m);
+  const reasoned = needsScoreReason(m, finished ? 'finished' : 'running');
   const sideB = teamB ?? tr('ws.tournaments.score.otherSide');
 
   /** Step side A by `d` points, inside 0…target. */
@@ -792,7 +801,7 @@ export function ScoreCell({
           kind="primary"
           busy={busy && !asking}
           disabled={!score}
-          onClick={() => (correction ? setAsking(true) : void save(null))}
+          onClick={() => (reasoned ? setAsking(true) : void save(null))}
         >
           {tr('ws.tournaments.score.save')}
         </Button>
@@ -804,10 +813,21 @@ export function ScoreCell({
           noteMode="optional"
           busy={busy}
           error={error}
+          errorMessage={
+            error != null
+              ? tournamentErrorText(error, tr, { target: formatNumber(target, locale) })
+              : null
+          }
           onCancel={() => setAsking(false)}
           onSubmit={(code, note) => void save(note ? `${code}: ${note}` : code)}
         >
-          <p style={{ marginBlockStart: 0 }}>{tr('ws.tournaments.score.correctionReason')}</p>
+          <p style={{ marginBlockStart: 0 }}>
+            {tr(
+              isCorrection(m)
+                ? 'ws.tournaments.score.correctionReason'
+                : 'ws.tournaments.score.lateReason',
+            )}
+          </p>
         </ReasonCodePrompt>
       )}
     </div>
@@ -817,6 +837,7 @@ export function ScoreCell({
 /** The pop-up a match's "Enter score" or "Correct" opens. */
 function ScoreDialog({
   match,
+  finished,
   court,
   target,
   teamA,
@@ -826,6 +847,7 @@ function ScoreDialog({
   onChanged,
 }: {
   match: TourDetailMatch;
+  finished: boolean;
   court: string;
   target: number;
   teamA: string;
@@ -844,6 +866,7 @@ function ScoreDialog({
     >
       <ScoreCell
         match={match}
+        finished={finished}
         target={target}
         teamA={teamA}
         teamB={teamB}
@@ -962,7 +985,7 @@ function StartDialog({
           role="alert"
           style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}
         >
-          {tr(tournamentErrorKey(error))}
+          {tr(roundsErrorKey(error))}
         </p>
       )}
     </Modal>

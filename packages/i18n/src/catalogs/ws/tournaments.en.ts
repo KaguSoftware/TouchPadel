@@ -219,6 +219,8 @@ export const tournamentsEn = {
     correct: 'Correct',
     correctionReason: 'Why is this score being corrected?',
     correctionTitle: 'Correct this score',
+    // 0311 (c35): a first score on a finished tournament also asks why.
+    lateReason: 'The tournament has finished. Why is this score being entered now?',
     pointsFor: 'Points for {team}',
     sum: 'The two sides add up to {target}.',
     corrections: '{count} corrections',
@@ -244,6 +246,20 @@ export const tournamentsEn = {
     reason: 'Reason',
     lead: 'Its courts are released and every registered and waitlisted player is told.',
     done: 'Tournament cancelled.',
+  },
+  close: {
+    action: 'Close registration',
+    done: 'Registration closed. The players are seeded.',
+  },
+  finish: {
+    action: 'Finish now',
+    lead: 'The rounds after the last fully scored one are removed, the standings become final and the courts are released. Entry fees are not refunded.',
+    done: 'Tournament finished.',
+  },
+  // The till's RefundDialog on a kind tournament tab (0310 c41).
+  refund: {
+    capLead: 'Tournament entry money: at most what is due back on the entry, unless it is a goodwill refund.',
+    goodwill: 'Goodwill: refund more than is due',
   },
   refundsDue: {
     title: 'Refunds due',
@@ -296,7 +312,9 @@ export const tournamentsEn = {
       round_open: 'Score every match of the round before drawing the next one.',
       seat: 'The players changed. It has been refreshed: draw again.',
       court: "A court picked isn't one of the tournament's blocked courts.",
-      courts_used: 'There are more matches than the players can fill.',
+      courts_used:
+        'Every round plays one match on each court in play, as many as the players can fill.',
+      sit_out: 'Someone sits out who has sat out more than a player of that round. Draw again.',
       payload: "These rounds couldn't be read.",
     },
     score: {
@@ -304,7 +322,13 @@ export const tournamentsEn = {
       invalid: 'The two sides must add up to {target}.',
       changed: 'Someone else changed this score. It has been refreshed.',
       locked: "A later round is already scored, so this one can't be corrected.",
+      closed: 'The scores became final 48 hours after the tournament finished.',
+      // 0311 (c35): FORBIDDEN detail finished.
+      finished: 'The tournament has finished: only a manager can change its scores now.',
     },
+    // 0311 (c38): TOURNAMENT_UNDER_FILLED on the start, for the court desk.
+    underFilledStart:
+      'Fewer players than the minimum are left. A manager can start it anyway, or cancel it.',
   },
   // The section-menu start sheet (TournamentStartSheet, 2026-10-05 "C + D" redesign).
   start: {

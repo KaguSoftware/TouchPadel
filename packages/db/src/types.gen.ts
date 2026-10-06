@@ -4745,6 +4745,11 @@ export type Database = {
         Args: { p_reason: string; p_tournament_id: string }
         Returns: Json
       }
+      tournament_close: { Args: { p_tournament_id: string }; Returns: Json }
+      tournament_close_internal: {
+        Args: { p_by: string; p_tournament_id: string }
+        Returns: number
+      }
       tournament_context: { Args: { p_run_step_id: string }; Returns: Json }
       tournament_entry_money: {
         Args: { p_entry_id: string; p_exclude_tab_id?: string }
@@ -4754,6 +4759,10 @@ export type Database = {
       tournament_fee_remaining: {
         Args: { p_entry_id: string; p_exclude_tab_id?: string }
         Returns: number
+      }
+      tournament_finish: {
+        Args: { p_reason: string; p_tournament_id: string }
+        Returns: Json
       }
       tournament_int: {
         Args: {
@@ -4799,6 +4808,15 @@ export type Database = {
         Args: { p_idempotency_key: string; p_run_id: string; p_settings: Json }
         Returns: Json
       }
+      tournament_refund_candidates: {
+        Args: { p_venue_id: string }
+        Returns: {
+          entry_id: string
+          refund_due_iqd: number
+          tournament_id: string
+        }[]
+      }
+      tournament_refunds_due: { Args: { p_venue_id?: string }; Returns: Json }
       tournament_register: { Args: { p_tournament_id: string }; Returns: Json }
       tournament_release_blocks: {
         Args: { p_note: string; p_tournament_id: string }
@@ -15667,6 +15685,8 @@ export type Database = {
           rounds_planned: number | null
           starts_at: string
           status: string
+          sweep_error_at: string | null
+          sweep_errors: number
           updated_at: string
           venue_id: string
           waitlist_max: number
@@ -15697,6 +15717,8 @@ export type Database = {
           rounds_planned?: number | null
           starts_at: string
           status?: string
+          sweep_error_at?: string | null
+          sweep_errors?: number
           updated_at?: string
           venue_id: string
           waitlist_max?: number
@@ -15727,6 +15749,8 @@ export type Database = {
           rounds_planned?: number | null
           starts_at?: string
           status?: string
+          sweep_error_at?: string | null
+          sweep_errors?: number
           updated_at?: string
           venue_id?: string
           waitlist_max?: number

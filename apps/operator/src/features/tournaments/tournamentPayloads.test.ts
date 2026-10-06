@@ -34,6 +34,7 @@ const DESK = {
       registered: 6,
       waitlisted: 1,
       max_entries: 16,
+      refund_due_iqd: 0,
       blocks: [BLOCK, { reservation_id: null }],
     },
     { name_en: 'no id' },
@@ -66,6 +67,7 @@ const DETAIL = {
   closed_at: '2026-10-09T13:00:00Z',
   finished_at: null,
   cancelled_at: null,
+  sweep_errors: 0,
   timezone: 'Asia/Baghdad',
   server_now: '2026-10-09T15:30:00Z',
   entries: [
@@ -82,6 +84,7 @@ const DETAIL = {
       net_paid_iqd: 0,
       refund_due_iqd: 0,
       substitute_for: null,
+      payments: [],
     },
   ],
   courts: [
@@ -147,7 +150,15 @@ const DETAIL = {
       withdrawn: false,
     },
   ],
-  can: { add: true, set_rounds: true, score: true, cancel: true, settle: true },
+  can: {
+    add: true,
+    set_rounds: true,
+    score: true,
+    cancel: true,
+    close: false,
+    finish: false,
+    settle: true,
+  },
 };
 
 describe('the fixtures carry the frozen shapes', () => {

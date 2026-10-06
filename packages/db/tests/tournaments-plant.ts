@@ -165,7 +165,10 @@ begin
   n := cardinality(v_ids);
   v_c := least(cardinality(v_courts), n / 4);
   for v_k in p_from .. p_from + p_n - 1 loop
-    v_ord := array(select v_ids[1 + ((i - 1 + v_k - 1) % n)] from generate_series(1, n) i);
+    -- Rotated by the round's sit-outs (by one when none sit): the sit-outs sweep the seeded list,
+    -- so each round's are entries with the fewest so far (set_rounds check 12, 0311).
+    v_ord := array(select v_ids[1 + ((i - 1 + (v_k - 1) * greatest(n - 4 * v_c, 1)) % n)]
+                     from generate_series(1, n) i);
     v_m := '[]'::jsonb;
     for j in 1 .. v_c loop
       v_m := v_m || jsonb_build_array(jsonb_build_object(

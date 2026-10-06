@@ -1285,6 +1285,8 @@ export const ar: Messages = {
       coach_unavailable: 'المدرّب غير متاح',
       lesson_refund: 'رد مبلغ حصة',
       lesson_goodwill: 'رد بحسن نية',
+      tournament_refund: 'رد رسوم بطولة',
+      tournament_goodwill: 'رد بحسن نية',
     },
     desk: {
       newBooking: 'حجز جديد',

@@ -39,6 +39,17 @@ const BRANCH = ['venue_id', 'name_en', 'name_ar', 'timezone'] as const;
 const BLOCK = ['reservation_id', 'court_id', 'start_at', 'end_at'] as const;
 
 /** One row of app.tournament_standings (§1.5). */
+/** A payment on an entry's settled tournament tab, as a refund is made against it (0310). */
+const ENTRY_PAYMENT = [
+  'payment_id',
+  'tab_id',
+  'method',
+  'amount_iqd',
+  'refunded_iqd',
+  'refundable_iqd',
+  'created_at',
+] as const;
+
 const STANDING = [
   'entry_id',
   'rank',
@@ -65,6 +76,21 @@ export const TOURNAMENT_SHAPES = {
     rpc: 'tournament_cancel',
     keys: ['tournament_id', 'status', 'refunds_due'],
     nested: { 'refunds_due[]': ['entry_id', 'net_paid_iqd'] },
+  },
+  tournament_close: {
+    rpc: 'tournament_close',
+    keys: ['tournament_id', 'status', 'duplicate', 'registered'],
+  },
+  tournament_finish: {
+    rpc: 'tournament_finish',
+    keys: [
+      'tournament_id',
+      'status',
+      'rounds_planned',
+      'removed_from_round',
+      'blocks_released',
+      'revision',
+    ],
   },
   tournament_register: {
     rpc: 'tournament_register',
@@ -151,9 +177,31 @@ export const TOURNAMENT_SHAPES = {
         'registered',
         'waitlisted',
         'max_entries',
+        'refund_due_iqd',
         'blocks',
       ],
       'tournaments[].blocks[]': BLOCK,
+    },
+  },
+  tournament_refunds_due: {
+    rpc: 'tournament_refunds_due',
+    keys: ['venue_id', 'total_iqd', 'items'],
+    nested: {
+      'items[]': [
+        'entry_id',
+        'tournament_id',
+        'name_en',
+        'name_ar',
+        'tournament_status',
+        'starts_at',
+        'cancelled_at',
+        'entry_status',
+        'full_name',
+        'phone',
+        'refund_due_iqd',
+        'payments',
+      ],
+      'items[].payments[]': ENTRY_PAYMENT,
     },
   },
   desk_tournament_detail: {
@@ -184,6 +232,7 @@ export const TOURNAMENT_SHAPES = {
       'closed_at',
       'finished_at',
       'cancelled_at',
+      'sweep_errors',
       'timezone',
       'server_now',
       'entries',
@@ -206,7 +255,9 @@ export const TOURNAMENT_SHAPES = {
         'net_paid_iqd',
         'refund_due_iqd',
         'substitute_for',
+        'payments',
       ],
+      'entries[].payments[]': ENTRY_PAYMENT,
       'courts[]': ['court_id', 'name_en', 'name_ar', 'sort_order'],
       'rounds[]': ['round_no', 'sit_out', 'matches'],
       'rounds[].matches[]': [
@@ -220,7 +271,7 @@ export const TOURNAMENT_SHAPES = {
         'corrections',
       ],
       'standings[]': STANDING,
-      can: ['add', 'set_rounds', 'score', 'cancel', 'settle'],
+      can: ['add', 'set_rounds', 'score', 'cancel', 'close', 'finish', 'settle'],
     },
   },
 
@@ -288,7 +339,7 @@ export const TOURNAMENT_SHAPES = {
       'rounds[].matches[]': ['court_no', 'a', 'b', 'points_a', 'points_b'],
       'rounds[].matches[].a[]': PLAYER,
       'rounds[].matches[].b[]': PLAYER,
-      'standings[]': ['rank', 'player', 'points_won', 'diff', 'played'],
+      'standings[]': ['rank', 'player', 'points_won', 'diff', 'played', 'withdrawn'],
       'standings[].player': PLAYER,
       me: ['entry_id', 'status', 'waitlist_position', 'owed_iqd'],
     },

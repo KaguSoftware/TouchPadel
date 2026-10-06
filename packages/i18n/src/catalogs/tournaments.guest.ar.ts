@@ -53,6 +53,7 @@ export const tournamentsGuestAr: DeepMessages<typeof tournamentsGuestEn> = {
       pointsWon: 'النقاط',
       diff: 'الفارق',
       played: 'لُعبت',
+      withdrawn: '{name} (انسحب)',
       withdrawTitle: 'الانسحاب من هذه البطولة؟',
       withdrawBody: 'الانسحاب مجاني حتى يُغلق التسجيل، ويذهب المكان إلى قائمة الانتظار.',
       withdrawWaitlistBody: 'سيُحذف الاسم من قائمة الانتظار.',
