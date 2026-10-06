@@ -135,3 +135,5 @@ Commits are authored by Parsa with no co-author trailer (root `CLAUDE.md`).
   DRAFT-AR string.
 - **Parsa:** `tournaments_enabled` at one branch for the trial; the operator tag and the phone
   build after the push.
+- **2026-10-06:** a backend hardening pass (review findings c0-c47) is in progress; its tournament
+  migrations land as 0310-0311 with the loyalty fixes, not pushed yet.
