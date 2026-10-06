@@ -76,6 +76,7 @@ export const ORDER = [
   'match_money_advisory', // app.lock_match_money() -- 0260 (R19): a match's seat money
   'coach_advisory', // app.lock_coach() -- coaching_tables (R6): a coach's lessons, enrolments and statements
   'tabs',
+  'promotions', // 0309 (c15): apply_best_promotion locks the chosen promotion FOR UPDATE after the tab, before re-reading its limits
   'orders',
   'order_items',
   'tickets',

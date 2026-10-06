@@ -352,12 +352,19 @@ export function TabDetailPanel({
     setActionError(null);
     setPromoNotice(null);
     try {
-      const res = await appRpc<{ promotionId: string; amountIqd: number }>('apply_best_promotion', {
+      const res = await appRpc<{ promotionId: string | null; amountIqd: number; refused?: string }>('apply_best_promotion', {
         p_tab_id: tabId,
         p_code: promoCode.trim() || null,
         p_idempotency_key: crypto.randomUUID(),
         p_device_id: deviceId(),
       });
+      // 0309 (c7): the tab's promotion no longer qualified and was dropped; nothing
+      // replaced it, so the refusal comes back in the result (raising would undo the drop).
+      if (res?.refused) {
+        setPromoNotice({ tone: 'refused', text: tr(res.refused === 'CODE_NOT_ELIGIBLE' ? 'ws.cashier.detail.promoCodeNotEligible' : 'ws.cashier.detail.promoNone') });
+        refresh();
+        return;
+      }
       setPromoNotice({ tone: 'success', text: tr('ws.cashier.detail.promoApplied', { amount: formatIQD(Number(res?.amountIqd ?? 0), locale) }) });
       setPromoCode('');
       refresh();

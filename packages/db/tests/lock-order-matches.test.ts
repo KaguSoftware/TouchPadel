@@ -30,7 +30,7 @@ const docker = up && dockerReachable();
 
 /** The order of db.md §2.1 / contracts §1.4, verbatim; coach_advisory since coaching_tables (coaching db.md §2.1). */
 const DECLARED = [
-  'day_sessions', 'match_money_advisory', 'coach_advisory', 'tabs', 'orders', 'order_items', 'tickets', 'payments',
+  'day_sessions', 'match_money_advisory', 'coach_advisory', 'tabs', 'promotions', 'orders', 'order_items', 'tickets', 'payments',
   'till_shifts', 'refunds', 'stock_batches', 'court_advisory', 'venues', 'reservations', 'match_venue_advisory',
   'match_tickets',
   // Loyalty (0305): a member's cached balance, last; the earn and clawback triggers are deferred.

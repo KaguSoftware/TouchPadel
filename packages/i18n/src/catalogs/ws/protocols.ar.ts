@@ -341,6 +341,7 @@ export const protocolsAr: DeepMessages<typeof protocolsEn> = {
     promotion_limits_total: 'إجمالي مرات الاستخدام',
     promotion_limits_perCustomer: 'مرات الاستخدام لكل ضيف',
     promotion_limits_minSpendIqd: 'الحد الأدنى للإنفاق',
+    promotion_limits_tierMin: 'أدنى فئة ولاء',
     promotion_auto: 'يُطبَّق تلقائيًا',
     promotion_public_code: 'الرمز',
     promotion_code_single_use: 'يُستخدم كل رمز مرة واحدة',

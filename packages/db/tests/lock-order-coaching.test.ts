@@ -529,7 +529,8 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
       'match_venue_advisory -> match_tickets' + TAIL,
     );
     const internal = gate.out.slice(gate.out.indexOf('internal sequences'));
-    expect(rowOf(internal, 'price_promo_apply_internal')).toBe('coach_advisory');
+    // 0309 ranks promotions (after tabs): a promotion change's apply locks its row after the mutex.
+    expect(rowOf(internal, 'price_promo_apply_internal')).toBe('coach_advisory -> promotions');
     expect(rowOf(internal, 'coach_hours_write')).toBe('coach_advisory');
     expect(rowOf(internal, 'coach_time_off_add')).toBe('coach_advisory');
   });

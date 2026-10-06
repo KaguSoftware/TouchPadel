@@ -1640,3 +1640,27 @@ describe.skipIf(!docker)('price_promo: the manager locks and the price or promot
     for (const who of [...others, 'mkt']) expect(refused(r, `${who}_numbers`), who).toBe('FORBIDDEN');
   });
 });
+
+// ── loyalty 0309 (c6): a tier promotion's edit keeps its tier ──────────────
+describe.skipIf(!docker)('price_promo: a promotion_edit of a tier promotion (loyalty 0309)', () => {
+  it('keeps limits.tierMin through the proposal, the numbers and the apply', () => {
+    const r = scenario([
+      T('tier', 'owner', `select app.upsert_loyalty_tier('{"name_en":"PP Gold","name_ar":"ذهبي","min_points_12m":98765,"sort":40}'::jsonb)`),
+      RES('tier_id', 'tier', 'id'),
+      KEEP('promo_t', `insert into promotions (name_en, name_ar, type, value, enabled, created_by, limits)
+                       values ('PP tier', 'عرض', 'percent', 10, true, {{owner}}, jsonb_build_object('tierMin', {{tier_id}}))
+                       returning id::text`),
+      ...RUN('t', 'manager', `jsonb_build_object('change', 'promotion_edit', ${REASON}, 'promotion_id', {{promo_t}},
+                                'promotion', jsonb_build_object('name_en', 'PP tier 2', 'name_ar', 'عرض', 'type', 'percent',
+                                                                'value', 15, 'weekdays', '[]'::jsonb, 'scope', '{}'::jsonb,
+                                                                'limits', jsonb_build_object('total', 5, 'tierMin', {{tier_id}})))`),
+      ...NUMBERS('t'),
+      APPLY_NOW('t'),
+      Q('t_promo', `select jsonb_build_object('name', name_en, 'value', value, 'limits', limits)
+                      from promotions where id = {{promo_t}}`),
+    ]);
+    ok(r, 't_start');
+    expect(ok(r, 't_apply')).toMatchObject({ run_status: 'done' });
+    expect(ok(r, 't_promo')).toEqual({ name: 'PP tier 2', value: 15, limits: { total: 5, tierMin: v(r, 'tier_id') } });
+  });
+});
