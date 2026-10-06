@@ -1,0 +1,19 @@
+{
+  "targets": {
+    "operator": {
+      "kind": "crawl",
+      "baseUrl": "http://localhost:4173",
+      "maxClicks": 4,
+      "startPath": "/",
+      "startStates": [],
+      "neverClick": [],
+      "exempt": []
+    },
+    "mobile": {
+      "kind": "static",
+      "maxClicks": 3,
+      "roots": [],
+      "exempt": []
+    }
+  }
+}
