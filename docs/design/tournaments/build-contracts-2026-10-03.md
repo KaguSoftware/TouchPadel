@@ -43,6 +43,16 @@ standings, names as "First I.".
 | T-7 | Auto-cancel below the minimum at the cut-off (courts released, push sent). Withdrawal is free before the cut-off. No-show plus substitute; unplayed rounds are regenerated. |
 | T-8 | The landing `Events` section lists upcoming tournaments (cached, like coaching). Each tournament has a noindex public page with schedule and standings. Names show as "First I.". |
 
+Decisions of the second review (Parsa, 2026-10-06; migrations 0310–0311):
+
+| # | Decision |
+| --- | --- |
+| T-9 | **A desk add while the tournament is running is refused** (`TOURNAMENT_NOT_OPEN` detail `running`). |
+| T-10 | **`tournament_finish(p_tournament_id, p_reason)`** (manager, owner) ends a running tournament early: it trims the unscored rounds, finishes, audits and releases the blocks (`tournament_release_blocks` now also shortens a block in progress, under `app.lock_court` in court-id order). |
+| T-11 | **`tournament_close(p_tournament_id)`** (court desk and up) closes registration by hand, on the same internal body as the sweep's cut-off (`app.tournament_close_internal`). |
+| T-12 | Refunds owed after a cancel are shown: `desk_tournaments` keeps a cancelled or finished tournament with refund due, `app.tournament_refunds_due(venue)` lists them, and a refund on a tournament tab is held to refund_due unless the reason is `tournament_goodwill`. `close_branch` refuses while live tournaments or unrefunded tournament money remain. |
+| T-13 | Each round plays `least(the run's courts, floor(active / 4))` matches and leaves none of the run's courts empty while players sit out; standings rank the registered first; a manager may start below `min_entries`, the court desk may not. |
+
 ### 0.3 Defaults (taken; Parsa may reverse any)
 
 | # | Default |
@@ -220,13 +230,18 @@ tournament_score_events   (append-only correction audit)
 
 ### 1.4 Locks
 
-The lock walker ranks only its `ORDER` list (`scripts/lib/lock-order.mjs:73-90`); the new tables are
-unranked, so nothing is added to `ORDER`. Every body states its order in a header comment.
+The lock walker ranks only its `ORDER` list (`scripts/lib/lock-order.mjs`). Since 0310 (c42)
+`tournaments` and `tournament_entries` are in it, between the coach mutex and `tabs`;
+`tournaments` is share-ranked (settle's FOR SHARE), and a `FOR UPDATE SKIP LOCKED` tournament
+(the sweep) is not emitted because it never waits. Rounds and matches stay unranked. Every body
+still states its order in a header comment. (At the scaffold the tables were unranked.)
 
 | RPC | Order |
 | --- | --- |
 | publish | `protocol_runs` FOR UPDATE → `app.lock_court` per court in court-id order → re-select the run's live event blocks FOR UPDATE → insert `tournaments` |
-| cancel / finish release / sweep | `tournaments` FOR UPDATE (the sweep: SKIP LOCKED) → `app.lock_court` in court-id order → `reservations` update → outbox (the 0174:566-595 pair) |
+| refund of a tournament tab (0310) | `tournaments` → the entry → `tabs` → `payments` |
+| close (0310) | `tournaments` FOR UPDATE |
+| cancel / finish (0310) / finish release / sweep | `tournaments` FOR UPDATE (the sweep: SKIP LOCKED) → `app.lock_court` in court-id order → `reservations` update → outbox (the 0174:566-595 pair) |
 | register / withdraw / add / remove / promote / rounds / score / no-show | `tournaments` FOR UPDATE → entries → rounds and matches. No court or advisory lock (score's finish then takes the release order above) |
 | settle | `day_sessions` FOR SHARE (`app.current_open_day_locked(venue)`) → `tournaments` FOR SHARE → the entry FOR NO KEY UPDATE → `tabs` → `payments` (→ `till_shifts` by the stamp trigger) |
 | `block_courts_for_event` | unchanged: `protocol_runs` → `protocol_run_steps` → courts → reservations |
@@ -653,8 +668,8 @@ removed_from_round, revision}`; `tournament_score` adds `tournament_revision` (i
 ## 3. Known limits
 
 - Entry money is not in "revenue" until M7.1 (S6).
-- No refund cap on tournament tabs (S7, N2).
-- `close_branch` does not count open tournaments (0280:706-711).
+- ~~No refund cap on tournament tabs (S7, N2).~~ 0310: held to refund_due unless `tournament_goodwill` (T-12).
+- ~~`close_branch` does not count open tournaments (0280:706-711).~~ 0310 refuses it (T-12).
 - No court move or extend after publish (the guard trigger).
 - Mexicano rounds played under standings that were later corrected stay as history.
 - Event blocks keep their English `notes`; the desk overlay names the tournament in its locale.
