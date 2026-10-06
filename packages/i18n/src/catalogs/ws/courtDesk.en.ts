@@ -95,6 +95,7 @@ export const courtDeskEn = {
     bookedFor: 'Booked for {name}.',
     block: 'Block court',
     series: 'New series',
+    tournament: 'Add tournament',
     moveTo: 'Move to {court} at {time}',
     moveAction: 'move this booking',
     moveConflict: 'The move was refused. The booking stays where it was.',

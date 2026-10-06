@@ -428,6 +428,7 @@ export function Modal({
   subtitle,
   titleAfter,
   footer,
+  bare,
   dismissible = true,
   canClose,
   requireChoice,
@@ -485,6 +486,13 @@ export function Modal({
    * vanished while the X beside the title sank it.
    */
   footer?: ReactNode | ((close: () => void) => ReactNode);
+  /**
+   * The caller draws the whole panel (its own header, body and footer), given
+   * the same animated close the X uses; the backdrop, Esc, focus trap and the
+   * close guard stay this Modal's. `title` still names the dialog. Used by
+   * "Start: Tournament", whose menu runs the panel's full height.
+   */
+  bare?: (close: () => void) => ReactNode;
 }) {
   const { tr } = useLocale();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -673,8 +681,10 @@ export function Modal({
           display: 'flex',
           flexDirection: 'column',
           outline: 'none',
+          overflow: bare ? 'hidden' : undefined,
         }}
       >
+        {bare ? bare(requestCloseRef.current) : <>
         <div
           style={{
             display: 'flex',
@@ -747,6 +757,7 @@ export function Modal({
             {typeof footer === 'function' ? footer(requestCloseRef.current) : footer}
           </div>
         )}
+        </>}
       </div>
     </div>
   );

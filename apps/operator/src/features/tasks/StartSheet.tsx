@@ -33,6 +33,7 @@ import { emptyDraft, fromRecord, toRecord, withoutUnchangedRenames, type Draft }
 import { currentNames, readTargets, renameKeyOf, startDraft } from './priceLogic';
 import { TK } from './keys';
 import type { TaskStart } from './search';
+import { TournamentStartSheet } from '../tournaments/start/TournamentStartSheet';
 
 const TITLE_MAX = 120;
 
@@ -52,7 +53,29 @@ function titleFallback(start: TaskStart, record: Record<string, unknown>, which:
   return typeof v === 'string' ? v : '';
 }
 
-export function StartSheet({ start, idea, onClose, onStarted }: { start: TaskStart; idea?: IdeaRow | null; onClose: () => void; onStarted: (runId: string) => void }) {
+type StartSheetProps = { start: TaskStart; idea?: IdeaRow | null; onClose: () => void; onStarted: (runId: string) => void };
+
+/** A tournament opens the section-menu sheet (tournaments/start); every other start the generic form. */
+export function StartSheet(props: StartSheetProps) {
+  const { tr } = useLocale();
+  const toast = useToast();
+  const qc = useQueryClient();
+  if (props.start === 'tournament') {
+    return (
+      <TournamentStartSheet
+        onClose={props.onClose}
+        onStarted={(run) => {
+          toast.ok(tr('ws.team.tasks.start.started'));
+          void qc.invalidateQueries({ queryKey: ['protocols'] });
+          props.onStarted(run.run_id);
+        }}
+      />
+    );
+  }
+  return <GenericStartSheet {...props} />;
+}
+
+function GenericStartSheet({ start, idea, onClose, onStarted }: StartSheetProps) {
   const { tr } = useLocale();
   const toast = useToast();
   const qc = useQueryClient();
