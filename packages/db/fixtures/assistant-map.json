@@ -1,5 +1,5 @@
 {
-  "generated_from": "3916febdcd56fbaa5d076b9a8bba5c17497e1557",
+  "generated_from": "6f6496b0b22d32fdacf5c9e4f472fd1272c4db4b",
   "chunks": [
     {
       "kind": "page",
@@ -16886,7 +16886,7 @@
       "ref": "label:ws.courtDesk.calendar",
       "lang": "ar",
       "title": "ws.courtDesk.calendar (packages/i18n/src/catalogs/ws/courtDesk.ar.ts)",
-      "body": "lead: انقر على خانة فارغة لحجزها. أمسك الحجز من مقبضه واسحبه، ويبيّن الإطار المكان الذي سيستقر فيه.\nleadMonth: الأيام الأغمق تضم حجوزات أكثر. اختر يومًا لفتحه.\nview: العرض\nprev: اليوم السابق (مفتاح السهم →)\nnext: اليوم التالي (مفتاح السهم ←)\nprevMonth: الشهر السابق (مفتاح السهم →)\nnextMonth: الشهر التالي (مفتاح السهم ←)\nkeys: مفاتيح الأسهم للتنقل بين التواريخ\nkeyDay: عرض اليوم\nkeyMonth: عرض الشهر\nkeyDayHint: يوم واحد لكل الملاعب (مفتاح D)\nkeyMonthHint: الشهر كاملًا (مفتاح M)\ntonight: الليلة\ndayCount: الحجوزات\nclosedBody: لا يمكن الحجز في يوم مغلق. يحدد المديرون أيام الإغلاق في ساعات العمل.\nchangeTitle: تغيير هذا الحجز أو إنهاؤه\nsameTime: الوقت نفسه ({time})\nbookingFor: حجز باسم {name}\nbookingForHint: اختر خانة فارغة، ويُفتح الحجز مرتبطًا بالزبون مسبقًا.\nbookingForMonth: اختر يومًا، ثم خانة فارغة.\nbookingForMissing: تعذّر العثور على هذا الزبون.\nbookingForStop: إيقاف\nbookedFor: أُنشئ الحجز باسم {name}.\nblock: إيقاف ملعب\nseries: سلسلة جديدة\nmoveTo: نقل إلى {court} عند {time}\nmoveAction: نقل هذا الحجز\nmoveConflict: رُفض النقل. يبقى الحجز في مكانه.\nfreeSlot: خانة فارغة\npastSlot: مضى\nopenDetail: فتح الحجز\ndragHint: اسحب للنقل · انقر للفتح\ndropHere: أفلِت هنا\ndropPast: في الماضي\ndropTaken: محجوز أصلًا\ndropPastBody: هذا الوقت مضى بالفعل. الحجز الذي يُنقل إلى الماضي يختفي من تطبيق الضيوف.\ndropTakenBody: هذا الملعب محجوز في جزء من ذلك الوقت.\nstartPast: {time} · مضى",
+      "body": "lead: انقر على خانة فارغة لحجزها. أمسك الحجز من مقبضه واسحبه، ويبيّن الإطار المكان الذي سيستقر فيه.\nleadMonth: الأيام الأغمق تضم حجوزات أكثر. اختر يومًا لفتحه.\nview: العرض\nprev: اليوم السابق (مفتاح السهم →)\nnext: اليوم التالي (مفتاح السهم ←)\nprevMonth: الشهر السابق (مفتاح السهم →)\nnextMonth: الشهر التالي (مفتاح السهم ←)\nkeys: مفاتيح الأسهم للتنقل بين التواريخ\nkeyDay: عرض اليوم\nkeyMonth: عرض الشهر\nkeyDayHint: يوم واحد لكل الملاعب (مفتاح D)\nkeyMonthHint: الشهر كاملًا (مفتاح M)\ntonight: الليلة\ndayCount: الحجوزات\nclosedBody: لا يمكن الحجز في يوم مغلق. يحدد المديرون أيام الإغلاق في ساعات العمل.\nchangeTitle: تغيير هذا الحجز أو إنهاؤه\nsameTime: الوقت نفسه ({time})\nbookingFor: حجز باسم {name}\nbookingForHint: اختر خانة فارغة، ويُفتح الحجز مرتبطًا بالزبون مسبقًا.\nbookingForMonth: اختر يومًا، ثم خانة فارغة.\nbookingForMissing: تعذّر العثور على هذا الزبون.\nbookingForStop: إيقاف\nbookedFor: أُنشئ الحجز باسم {name}.\nblock: إيقاف ملعب\nseries: سلسلة جديدة\ntournament: إضافة بطولة\nmoveTo: نقل إلى {court} عند {time}\nmoveAction: نقل هذا الحجز\nmoveConflict: رُفض النقل. يبقى الحجز في مكانه.\nfreeSlot: خانة فارغة\npastSlot: مضى\nopenDetail: فتح الحجز\ndragHint: اسحب للنقل · انقر للفتح\ndropHere: أفلِت هنا\ndropPast: في الماضي\ndropTaken: محجوز أصلًا\ndropPastBody: هذا الوقت مضى بالفعل. الحجز الذي يُنقل إلى الماضي يختفي من تطبيق الضيوف.\ndropTakenBody: هذا الملعب محجوز في جزء من ذلك الوقت.\nstartPast: {time} · مضى",
       "route": "/desk"
     },
     {
@@ -16894,7 +16894,7 @@
       "ref": "label:ws.courtDesk.calendar",
       "lang": "en",
       "title": "ws.courtDesk.calendar (packages/i18n/src/catalogs/ws/courtDesk.en.ts)",
-      "body": "lead: Click a free slot to book it. Pick a booking up by its grip and drag — the outline shows where it lands.\nleadMonth: Darker days have more bookings. Pick a day to open it.\nview: View\nprev: Previous day (← key)\nnext: Next day (→ key)\nprevMonth: Previous month (← key)\nnextMonth: Next month (→ key)\nkeys: Arrow keys move the date\nkeyDay: day view\nkeyMonth: month view\nkeyDayHint: One day, every court (D key)\nkeyMonthHint: The whole month (M key)\ntonight: Tonight\ndayCount: Bookings\nclosedBody: Nothing can be booked on a closed day. Managers set closed days under opening hours.\nchangeTitle: Change or end this booking\nsameTime: Same time ({time})\nbookingFor: Booking for {name}\nbookingForHint: Pick a free slot — the booking opens already linked to them.\nbookingForMonth: Pick a day, then a free slot.\nbookingForMissing: That customer could not be found.\nbookingForStop: Stop\nbookedFor: Booked for {name}.\nblock: Block court\nseries: New series\nmoveTo: Move to {court} at {time}\nmoveAction: move this booking\nmoveConflict: The move was refused. The booking stays where it was.\nfreeSlot: Free slot\npastSlot: Past\nopenDetail: Open booking\ndragHint: Drag to move · click to open\ndropHere: Drop here\ndropPast: In the past\ndropTaken: Already booked\ndropPastBody: That time has already passed. A booking moved into the past disappears from the guest's app.\ndropTakenBody: That court is already booked for part of that time.\nstartPast: {time} · past",
+      "body": "lead: Click a free slot to book it. Pick a booking up by its grip and drag — the outline shows where it lands.\nleadMonth: Darker days have more bookings. Pick a day to open it.\nview: View\nprev: Previous day (← key)\nnext: Next day (→ key)\nprevMonth: Previous month (← key)\nnextMonth: Next month (→ key)\nkeys: Arrow keys move the date\nkeyDay: day view\nkeyMonth: month view\nkeyDayHint: One day, every court (D key)\nkeyMonthHint: The whole month (M key)\ntonight: Tonight\ndayCount: Bookings\nclosedBody: Nothing can be booked on a closed day. Managers set closed days under opening hours.\nchangeTitle: Change or end this booking\nsameTime: Same time ({time})\nbookingFor: Booking for {name}\nbookingForHint: Pick a free slot — the booking opens already linked to them.\nbookingForMonth: Pick a day, then a free slot.\nbookingForMissing: That customer could not be found.\nbookingForStop: Stop\nbookedFor: Booked for {name}.\nblock: Block court\nseries: New series\ntournament: Add tournament\nmoveTo: Move to {court} at {time}\nmoveAction: move this booking\nmoveConflict: The move was refused. The booking stays where it was.\nfreeSlot: Free slot\npastSlot: Past\nopenDetail: Open booking\ndragHint: Drag to move · click to open\ndropHere: Drop here\ndropPast: In the past\ndropTaken: Already booked\ndropPastBody: That time has already passed. A booking moved into the past disappears from the guest's app.\ndropTakenBody: That court is already booked for part of that time.\nstartPast: {time} · past",
       "route": "/desk"
     },
     {
@@ -21750,7 +21750,7 @@
       "ref": "label:ws.tournaments.detail",
       "lang": "ar",
       "title": "ws.tournaments.detail (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
-      "body": "eyebrow: بطولة\nnotFound: هذه البطولة ليست في هذا الفرع.\nbackToList: العودة إلى البطولات\nseeOnCalendar: عرض في التقويم\ntabs.entries: الاشتراكات\ntabs.rounds: الجولات\ntabs.standings: الترتيب\nfacts.format: النظام\nfacts.category: الفئة\nfacts.points: نقاط كل مباراة\nfacts.rounds: الجولات\nfacts.roundsUnset: تُحدَّد عند بدء اللعب\nfacts.fee: رسم الاشتراك\nfacts.cutoff: إغلاق التسجيل\nfacts.players: اللاعبون\nfacts.prize: الجائزة\nfacts.courts: الملاعب\ncancelled.under_filled: أُلغيت عند إغلاق التسجيل لقلة عدد المسجَّلين.\ncancelled.staff: ألغاها الاستقبال.\nfinished: انتهت. ما زال تصحيح النتائج ممكنًا.\noffline: تعديل البطولة يحتاج إلى اتصال.",
+      "body": "eyebrow: بطولة\nnotFound: هذه البطولة ليست في هذا الفرع.\nbackToList: العودة إلى البطولات\nseeOnCalendar: عرض في التقويم\npointsTag: {points} نقطة لكل مباراة\nprogress: سُجّلت نتائج {done} من {total} ملاعب\nstats.players: اللاعبون\nstats.fee: رسم الاشتراك\nstats.collected: المحصَّل\nstats.prize: الجائزة\nstats.cutoff: إغلاق التسجيل\nstats.paidOwing: {paid} دفعوا · {owing} عليهم\nstats.due: {amount} مستحقة\nstats.nothingDue: لا مبالغ مستحقة\ntabs.entries: الاشتراكات\ntabs.rounds: الجولات\ntabs.standings: الترتيب\nfacts.format: النظام\nfacts.category: الفئة\nfacts.points: نقاط كل مباراة\nfacts.rounds: الجولات\nfacts.roundsUnset: تُحدَّد عند بدء اللعب\nfacts.fee: رسم الاشتراك\nfacts.cutoff: إغلاق التسجيل\nfacts.players: اللاعبون\nfacts.prize: الجائزة\nfacts.courts: الملاعب\ncancelled.under_filled: أُلغيت عند إغلاق التسجيل لقلة عدد المسجَّلين.\ncancelled.staff: ألغاها الاستقبال.\nfinished: انتهت. ما زال تصحيح النتائج ممكنًا.\noffline: تعديل البطولة يحتاج إلى اتصال.",
       "route": null
     },
     {
@@ -21758,7 +21758,7 @@
       "ref": "label:ws.tournaments.detail",
       "lang": "en",
       "title": "ws.tournaments.detail (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
-      "body": "eyebrow: Tournament\nnotFound: This tournament isn't at this branch.\nbackToList: Back to tournaments\nseeOnCalendar: See on calendar\ntabs.entries: Entries\ntabs.rounds: Rounds\ntabs.standings: Standings\nfacts.format: Format\nfacts.category: Category\nfacts.points: Points per game\nfacts.rounds: Rounds\nfacts.roundsUnset: Set when the play starts\nfacts.fee: Entry fee\nfacts.cutoff: Registration closes\nfacts.players: Players\nfacts.prize: Prize\nfacts.courts: Courts\ncancelled.under_filled: Cancelled at the cut-off: too few players registered.\ncancelled.staff: Cancelled by the desk.\nfinished: Finished. Scores can still be corrected.\noffline: Tournament changes need a connection.",
+      "body": "eyebrow: Tournament\nnotFound: This tournament isn't at this branch.\nbackToList: Back to tournaments\nseeOnCalendar: See on calendar\npointsTag: Games to {points}\nprogress: {done} of {total} courts scored\nstats.players: Players\nstats.fee: Entry fee\nstats.collected: Collected\nstats.prize: Prize\nstats.cutoff: Registration closes\nstats.paidOwing: {paid} paid · {owing} owe\nstats.due: {amount} due\nstats.nothingDue: Nothing owed\ntabs.entries: Entries\ntabs.rounds: Rounds\ntabs.standings: Standings\nfacts.format: Format\nfacts.category: Category\nfacts.points: Points per game\nfacts.rounds: Rounds\nfacts.roundsUnset: Set when the play starts\nfacts.fee: Entry fee\nfacts.cutoff: Registration closes\nfacts.players: Players\nfacts.prize: Prize\nfacts.courts: Courts\ncancelled.under_filled: Cancelled at the cut-off: too few players registered.\ncancelled.staff: Cancelled by the desk.\nfinished: Finished. Scores can still be corrected.\noffline: Tournament changes need a connection.",
       "route": null
     },
     {
@@ -21798,7 +21798,7 @@
       "ref": "label:ws.tournaments.list",
       "lang": "ar",
       "title": "ws.tournaments.list (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
-      "body": "title: البطولات\nlead: البطولات المنشورة في هذا الفرع، من أمس إلى الشهرين المقبلين.\nempty: لا توجد بطولات في هذه الفترة.\nemptyHint: تُنشر البطولة من البروتوكول الخاص بها بعد اكتماله.\nentries: {registered} من {max} مسجَّلين\nwaitlisted: {count} في قائمة الانتظار\noff: البطولات متوقفة في هذا الفرع. يشغّلها المالك من الإعدادات.\ncolumns.name: البطولة\ncolumns.when: الموعد\ncolumns.format: النظام\ncolumns.status: الحالة\ncolumns.entries: اللاعبون\nopen: فتح",
+      "body": "title: البطولات\nadd: إضافة بطولة\nlead: البطولات المنشورة في هذا الفرع، من أمس إلى الشهرين المقبلين.\nempty: لا توجد بطولات في هذه الفترة.\nemptyHint: أضف بطولة لبدء خطتها. تُنشر من ذلك البروتوكول بعد اكتماله.\nentries: {registered} من {max} مسجَّلين\nwaitlisted: {count} في قائمة الانتظار\noff: البطولات متوقفة في هذا الفرع. يشغّلها المالك من الإعدادات.\ncolumns.name: البطولة\ncolumns.when: الموعد\ncolumns.format: النظام\ncolumns.status: الحالة\ncolumns.entries: اللاعبون\nopen: فتح\nall: الكل\nfilters: عرض البطولات\ncount.zero: (لا توجد بطولات)\ncount.one: (بطولة واحدة)\ncount.two: (بطولتان)\ncount.few: ({count} بطولات)\ncount.many: ({count} بطولة)\ncount.other: ({count} بطولة)\ntotals.upcoming: القادمة\ntotals.running: جارية الآن\ntotals.players: اللاعبون المسجَّلون\ntotals.waitlisted: في قائمة الانتظار",
       "route": null
     },
     {
@@ -21806,7 +21806,7 @@
       "ref": "label:ws.tournaments.list",
       "lang": "en",
       "title": "ws.tournaments.list (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
-      "body": "title: Tournaments\nlead: Tournaments published at this branch, from yesterday to the next two months.\nempty: No tournaments in this range.\nemptyHint: A tournament is published from its protocol once the run is done.\nentries: {registered} of {max} registered\nwaitlisted: {count} on the waitlist\noff: Tournaments are switched off at this branch. The owner switches them on in Settings.\ncolumns.name: Tournament\ncolumns.when: When\ncolumns.format: Format\ncolumns.status: Status\ncolumns.entries: Players\nopen: Open",
+      "body": "title: Tournaments\nadd: Add tournament\nlead: Tournaments published at this branch, from yesterday to the next two months.\nempty: No tournaments in this range.\nemptyHint: Add a tournament to start its plan. It is published from that protocol once the run is done.\nentries: {registered} of {max} registered\nwaitlisted: {count} on the waitlist\noff: Tournaments are switched off at this branch. The owner switches them on in Settings.\ncolumns.name: Tournament\ncolumns.when: When\ncolumns.format: Format\ncolumns.status: Status\ncolumns.entries: Players\nopen: Open\nall: All\nfilters: Show tournaments\ncount.zero: (no tournaments)\ncount.one: (1 tournament)\ncount.two: (2 tournaments)\ncount.few: ({count} tournaments)\ncount.many: ({count} tournaments)\ncount.other: ({count} tournaments)\ntotals.upcoming: Upcoming\ntotals.running: Running now\ntotals.players: Players registered\ntotals.waitlisted: On the waitlist",
       "route": null
     },
     {
@@ -21862,7 +21862,7 @@
       "ref": "label:ws.tournaments.rounds",
       "lang": "ar",
       "title": "ws.tournaments.rounds (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
-      "body": "title: الجولات\nstart: بدء البطولة\nnext: الجولة التالية\nregenerate: إعادة الإنشاء من الجولة {round}\nnone: لا توجد جولات بعد.\nnotYet: يبدأ اللعب بعد إغلاق التسجيل.\nstartTitle: بدء البطولة\nstartLead: تُوزَّع الجولات على اللاعبين المسجَّلين في الملاعب التي تختارها.\ncourts: الملاعب المستخدمة\ncount: الجولات\ncountHint: بحد أقصى {max}.\nplayers: {count} لاعبًا مسجَّلًا\nneedPlayers: يلزم ٤ لاعبين مسجَّلين على الأقل.\nneedCourts: اختر ملعبًا واحدًا على الأقل.\ngenerate: توزيع الجولات\nsaved: حُفظت الجولات.\nmissing: الجولة {round} وما بعدها تحتاج إلى توزيع من جديد.\nnextHint: تُوزَّع الجولة التالية حسب الترتيب بعد تسجيل نتائج هذه الجولة.\nroundOf: الجولة {round} من {total}\nsitOut: يستريح: {names}\ncourt: الملعب\nvs: ضد",
+      "body": "title: الجولات\nstart: بدء البطولة\nnext: الجولة التالية\nregenerate: إعادة الإنشاء من الجولة {round}\nnone: لا توجد جولات بعد.\nnotYet: يبدأ اللعب بعد إغلاق التسجيل.\nstartTitle: بدء البطولة\nstartLead: تُوزَّع الجولات على اللاعبين المسجَّلين في الملاعب التي تختارها.\ncourts: الملاعب المستخدمة\ncount: الجولات\ncountHint: بحد أقصى {max}.\nplayers: {count} لاعبًا مسجَّلًا\nneedPlayers: يلزم ٤ لاعبين مسجَّلين على الأقل.\nneedCourts: اختر ملعبًا واحدًا على الأقل.\ngenerate: توزيع الجولات\nsaved: حُفظت الجولات.\nmissing: الجولة {round} وما بعدها تحتاج إلى توزيع من جديد.\nnextHint: تُوزَّع الجولة التالية حسب الترتيب بعد تسجيل نتائج هذه الجولة.\nroundOf: الجولة {round} من {total}\nsitOut: يستريح: {names}\ncourt: الملعب\nvs: ضد\nstate.done: انتهت\nstate.now: الآن · {scored} من {total}\nstate.drawn: مسحوبة\nleaderboard: المتصدّرون\nallStandings: الكل ({count})",
       "route": null
     },
     {
@@ -21870,7 +21870,7 @@
       "ref": "label:ws.tournaments.rounds",
       "lang": "en",
       "title": "ws.tournaments.rounds (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
-      "body": "title: Rounds\nstart: Start the tournament\nnext: Next round\nregenerate: Regenerate from round {round}\nnone: No rounds yet.\nnotYet: The play starts once registration has closed.\nstartTitle: Start the tournament\nstartLead: The rounds are drawn for the registered players on the courts you pick.\ncourts: Courts to play on\ncount: Rounds\ncountHint: At most {max}.\nplayers: {count} registered players\nneedPlayers: At least 4 registered players are needed.\nneedCourts: Pick at least one court.\ngenerate: Draw the rounds\nsaved: Rounds saved.\nmissing: Round {round} onwards need drawing again.\nnextHint: The next round is drawn from the standings once this round is scored.\nroundOf: Round {round} of {total}\nsitOut: Sitting out: {names}\ncourt: Court\nvs: vs",
+      "body": "title: Rounds\nstart: Start the tournament\nnext: Next round\nregenerate: Regenerate from round {round}\nnone: No rounds yet.\nnotYet: The play starts once registration has closed.\nstartTitle: Start the tournament\nstartLead: The rounds are drawn for the registered players on the courts you pick.\ncourts: Courts to play on\ncount: Rounds\ncountHint: At most {max}.\nplayers: {count} registered players\nneedPlayers: At least 4 registered players are needed.\nneedCourts: Pick at least one court.\ngenerate: Draw the rounds\nsaved: Rounds saved.\nmissing: Round {round} onwards need drawing again.\nnextHint: The next round is drawn from the standings once this round is scored.\nroundOf: Round {round} of {total}\nsitOut: Sitting out: {names}\ncourt: Court\nvs: vs\nstate.done: Done\nstate.now: Now · {scored} of {total}\nstate.drawn: Drawn\nleaderboard: Leaderboard\nallStandings: All {count}",
       "route": null
     },
     {
@@ -21878,7 +21878,7 @@
       "ref": "label:ws.tournaments.score",
       "lang": "ar",
       "title": "ws.tournaments.score (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
-      "body": "save: حفظ النتيجة\nsaved: حُفظت النتيجة.\ncorrect: تصحيح\ncorrectionReason: ما سبب تصحيح هذه النتيجة؟\ncorrectionTitle: تصحيح هذه النتيجة\npointsFor: نقاط {team}\nother: {points} للفريق الآخر\nsum: مجموع نقاط الفريقين {target}.\ncorrections: عدد التصحيحات: {count}\nroundsRemoved: حُذفت الجولات من {round} فما بعد. وزّع الجولة التالية من جديد.",
+      "body": "save: حفظ النتيجة\nenter: إدخال النتيجة\nmore: {team}: نقطة إضافية\nless: {team}: نقطة أقل\notherSide: الفريق الآخر\nsaved: حُفظت النتيجة.\ncorrect: تصحيح\ncorrectionReason: ما سبب تصحيح هذه النتيجة؟\ncorrectionTitle: تصحيح هذه النتيجة\npointsFor: نقاط {team}\nsum: مجموع نقاط الفريقين {target}.\ncorrections: عدد التصحيحات: {count}\nroundsRemoved: حُذفت الجولات من {round} فما بعد. وزّع الجولة التالية من جديد.",
       "route": null
     },
     {
@@ -21886,7 +21886,7 @@
       "ref": "label:ws.tournaments.score",
       "lang": "en",
       "title": "ws.tournaments.score (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
-      "body": "save: Save score\nsaved: Score saved.\ncorrect: Correct\ncorrectionReason: Why is this score being corrected?\ncorrectionTitle: Correct this score\npointsFor: Points for {team}\nother: {points} to the other side\nsum: The two sides add up to {target}.\ncorrections: {count} corrections\nroundsRemoved: Rounds from {round} on were removed. Draw the next round again.",
+      "body": "save: Save score\nenter: Enter score\nmore: {team}: one point more\nless: {team}: one point less\notherSide: The other side\nsaved: Score saved.\ncorrect: Correct\ncorrectionReason: Why is this score being corrected?\ncorrectionTitle: Correct this score\npointsFor: Points for {team}\nsum: The two sides add up to {target}.\ncorrections: {count} corrections\nroundsRemoved: Rounds from {round} on were removed. Draw the next round again.",
       "route": null
     },
     {
@@ -21919,6 +21919,38 @@
       "lang": "en",
       "title": "ws.tournaments.standings (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
       "body": "title: Standings\nempty: Standings appear once a match is scored.\ncolumns.rank: Rank\ncolumns.player: Player\ncolumns.won: Points won\ncolumns.against: Against\ncolumns.diff: Difference\ncolumns.h2h: Head to head\ncolumns.played: Played\ncolumns.satOut: Sat out\nwithdrawn: Left",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.start",
+      "lang": "ar",
+      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
+      "body": "title: بدء: بطولة\nlead: املأ أي قسم بأي ترتيب.\nmenu: أقسام الخطة\nsectionOf: القسم {n} من {total}\nprogress: اكتمل {done} من {total}\noptional: اختياري\nslots.zero: {count} فترة\nslots.one: فترة واحدة\nslots.two: فترتان\nslots.few: {count} فترات\nslots.many: {count} فترة\nslots.other: {count} فترة\nneedsLook: يحتاج إلى مراجعة\nsections.type: النوع\nsections.name: الاسم\nsections.courts: الملاعب والوقت\nsections.players: اللاعبون والمال\nsections.playersShort: اللاعبون\nsections.notes: المخاطر والملاحظات\nsections.notesShort: الملاحظات\nsections.sponsor: الراعي\ntypeName.type1: النوع 1\ntypeName.type2: النوع 2\ntypeName.type3: النوع 3\ntypeTag.type1: نادٍ\ntypeTag.type2: مجتمعي\ntypeTag.type3: راعٍ أو زبون\ncourts.day: اليوم\ncourts.prevDay: اليوم السابق\ncourts.nextDay: اليوم التالي\ncourts.picked: مختار\ncourts.booked: محجوز مسبقًا\ncourts.hint: اسحب عبر الساعات لاختيار فترة. غيّر اليوم لإضافة فترة أخرى.\ncourts.cell: {court}، {time}\ncourts.slots: الفترات المختارة\ncourts.none: لم تُختر أي فترة بعد.\ncourts.remove: إزالة {slot}\ncourts.closed: المكان مغلق في ذلك اليوم. اختر يومًا آخر.\ncourts.loading: جارٍ تحميل الملاعب…\nclasses.A.tag: متقدّم\nclasses.A.body: للاعبين الأقوياء وأصحاب الخبرة. مباريات سريعة وتنافسية.\nclasses.B.tag: متوسط\nclasses.B.body: للاعبين الذين يلعبون بانتظام ويعرفون القواعد والمراكز.\nclasses.C.tag: مبتدئ\nclasses.C.body: للاعبين الجدد ولمن يلعب للمتعة. مباريات ودّية ومفتوحة لكل من يتعلّم.\nformats.americano.tag: يُدار في التطبيق\nformats.americano.body: يتغيّر الشريك في كل جولة، وتُلعب كل مباراة حتى مجموع نقاط محدد. ويحتفظ كل لاعب بنقاطه.\nformats.mexicano.tag: يُدار في التطبيق\nformats.mexicano.body: مثل الأمريكانو، لكن الترتيب بعد كل جولة يحدد الشركاء والخصوم التاليين، فيتقابل المتقاربون في المستوى.\nformats.knockout.tag: للتخطيط فقط\nformats.knockout.body: تلعب الأزواج مباريات محددة ويخرج الخاسر في كل منها حتى يبقى زوج واحد. لا يديرها التطبيق بعد.\nformats.league.tag: للتخطيط فقط\nformats.league.body: يلعب كل زوج ضد كل زوج آخر على عدة جلسات، ويحدد الجدول الفائز. لا يديرها التطبيق بعد.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.start",
+      "lang": "en",
+      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
+      "body": "title: Start: Tournament\nlead: Fill any section in any order.\nmenu: Plan sections\nsectionOf: Section {n} of {total}\nprogress: {done} of {total} done\noptional: Optional\nslots.zero: {count} slots\nslots.one: 1 slot\nslots.two: 2 slots\nslots.few: {count} slots\nslots.many: {count} slots\nslots.other: {count} slots\nneedsLook: Needs a look\nsections.type: Type\nsections.name: Name\nsections.courts: Courts & time\nsections.players: Players & money\nsections.playersShort: Players\nsections.notes: Risks & notes\nsections.notesShort: Notes\nsections.sponsor: Sponsor\ntypeName.type1: Type 1\ntypeName.type2: Type 2\ntypeName.type3: Type 3\ntypeTag.type1: Club\ntypeTag.type2: Community\ntypeTag.type3: Sponsor or client\ncourts.day: Day\ncourts.prevDay: Previous day\ncourts.nextDay: Next day\ncourts.picked: Picked\ncourts.booked: Already booked\ncourts.hint: Drag across the hours to pick a slot. Change the day to add another one.\ncourts.cell: {court}, {time}\ncourts.slots: Picked slots\ncourts.none: No slots picked yet.\ncourts.remove: Remove {slot}\ncourts.closed: The venue is closed that day. Pick another day.\ncourts.loading: Loading the courts…\nclasses.A.tag: Advanced\nclasses.A.body: For strong, experienced players. Fast, competitive games.\nclasses.B.tag: Intermediate\nclasses.B.body: For players who play regularly and know the rules and positions.\nclasses.C.tag: Beginners\nclasses.C.body: For new and social players. Friendly games, open to anyone learning.\nformats.americano.tag: Runs in the app\nformats.americano.body: Partners change every round and each game is played to a points total. Every player keeps their own points.\nformats.mexicano.tag: Runs in the app\nformats.mexicano.body: Like Americano, but after each round the standings pick the next partners and opponents, so close levels meet.\nformats.knockout.tag: Plan only\nformats.knockout.body: Pairs play set matches and the loser of each is out, until one pair is left. The app cannot run it yet.\nformats.league.tag: Plan only",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.start#2",
+      "lang": "ar",
+      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
+      "body": "capacityPlayers: أمريكانو ومكسيكانو: يشترك كل لاعب وحده.\ncapacityPairs: خروج المغلوب والدوري: يشترك الزوجان معًا.\nsubmit: بدء الخطة\nissues: بعض الأقسام تحتاج إلى مراجعة، وهي معلّمة في القائمة.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.start#2",
+      "lang": "en",
+      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
+      "body": "formats.league.body: Every pair plays every other pair over several sessions, and the table decides the winner. The app cannot run it yet.\ncapacityPlayers: Americano and Mexicano: each player enters alone.\ncapacityPairs: Knockout and league: a pair enters together.\nsubmit: Start the plan\nissues: Some sections need a look. They are marked in the menu.",
       "route": null
     },
     {
