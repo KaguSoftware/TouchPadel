@@ -1075,8 +1075,14 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
       T('card1', 'g1', `select app.my_member_card()`),
       STALE('cashier'),
       TAB('t1', 'cafe', { goods: 50000, customer: 'g1' }),
-      X(`select pg_temp.tok('bad', 'g1', 5)`), // the member's real code, digits out of the window
+      // the member's real code, digits of no step in the ten-minute window: a guess
+      X(`select pg_temp.tok('bad', 'g1', 100)`),
+      // the member's real code, an expired step: a real token shown late, never counted
+      X(`select pg_temp.tok('late', 'g1', 5)`),
       X(`select pg_temp.tok('good', 'g1', 0)`),
+      ...Array.from({ length: 3 }, (_, i) =>
+        T(`late${i}`, 'cashier', REDEEM('t1', 100, null, KEY(`late${i}`), 'late')),
+      ),
       // a miss releases its idempotency claim: the same key then goes through with a PIN
       T('miss_key', 'cashier', REDEEM('t1', 100, null, key, 'bad')),
       GRANT('cashier'),
@@ -1099,9 +1105,11 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
       MK('c2', 'cashier'),
       T('other_cashier', 'c2', REDEEM('t1', 100, null, KEY('o'), 'good')),
     ]);
-    expect(ok(r, 'miss_key')).toEqual({ error: 'MEMBER_CODE_EXPIRED', detail: null });
+    // an expired token is answered, never counted: three of them do not bring the lock nearer
+    expect(ok(r, 'late2')).toEqual({ error: 'MEMBER_CODE_EXPIRED', detail: null });
+    expect(ok(r, 'miss_key')).toEqual({ error: 'MEMBER_CODE_INVALID', detail: null });
     expect(ok(r, 'pin_same_key')).toMatchObject({ points: 100, balance: 900 });
-    expect(ok(r, 'miss8')).toEqual({ error: 'MEMBER_CODE_EXPIRED', detail: null });
+    expect(ok(r, 'miss8')).toEqual({ error: 'MEMBER_CODE_INVALID', detail: null });
     expect(r['locked']).toMatchObject({ ok: false, code: 'MEMBER_CODE_LOCKED', detail: 'caller' });
     expect(ok(r, 'attempts')).toEqual({ fail: 10, ok: 0, code: 10 });
     expect(ok<number>(r, 'spent')).toBe(1);
@@ -1328,11 +1336,15 @@ describe.skipIf(!docker)('loyalty identify throttle and attach (0308: c2, c3, c7
     const r = run('loy-throttle', [
       GUEST('g1'),
       T('card', 'g1', `select app.my_member_card()`),
-      X(`select pg_temp.tok('bad', 'g1', 5)`), // a real code, an expired step: a miss
+      X(`select pg_temp.tok('bad', 'g1', 100)`), // a real code, digits of no nearby step: a miss
+      X(`select pg_temp.tok('late', 'g1', 5)`), // a real code, an expired step: not counted
       X(`select pg_temp.tok('good', 'g1', 0)`),
       MK('c1', 'cashier'),
       MK('c2', 'cashier'),
       MK('c3', 'cashier'),
+      ...Array.from({ length: 3 }, (_, i) =>
+        T(`c1_late${i}`, 'c1', `select app.loyalty_identify({{late}}, null)`),
+      ),
       ...Array.from({ length: 10 }, (_, i) =>
         T(`c1_miss${i}`, 'c1', `select app.loyalty_identify({{bad}}, null)`),
       ),
@@ -1354,7 +1366,8 @@ describe.skipIf(!docker)('loyalty identify throttle and attach (0308: c2, c3, c7
            from loyalty_token_attempts`,
       ),
     ]);
-    expect(missed(r, 'c1_miss9')).toBe('MEMBER_CODE_EXPIRED');
+    expect(missed(r, 'c1_late2')).toBe('MEMBER_CODE_EXPIRED');
+    expect(missed(r, 'c1_miss9')).toBe('MEMBER_CODE_INVALID');
     expect(r['c1_locked']).toMatchObject({
       ok: false,
       code: 'MEMBER_CODE_LOCKED',
@@ -1379,7 +1392,7 @@ describe.skipIf(!docker)('loyalty identify throttle and attach (0308: c2, c3, c7
     const r = run('loy-throttle-anon', [
       GUEST('g1'),
       T('card', 'g1', `select app.my_member_card()`),
-      X(`select pg_temp.tok('bad', 'g1', 5)`),
+      X(`select pg_temp.tok('bad', 'g1', 100)`),
       X(`select pg_temp.tok('good', 'g1', 0)`),
       ...['a1', 'a2', 'a3', 'a4', 'a5'].flatMap(anon),
       ...['a1', 'a2', 'a3', 'a4'].flatMap((a) =>

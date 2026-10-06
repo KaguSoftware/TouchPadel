@@ -50,7 +50,10 @@ const identified = new Map<string, IdentifiedMember>();
 /**
  * The member token last scanned for each customer (0308, c2): loyalty_redeem spends it as the
  * proof the member is at the till. The server takes a token within one step (30 s) either side
- * of now, once; an older one, or none, means a manager PIN instead.
+ * of now, once; an older one, or none, means a manager PIN instead. The 45 s here is a guess at
+ * that window (the till cannot read the token's counter), so a token sent a little late comes
+ * back MEMBER_CODE_EXPIRED: the server never counts an expired token toward the throttle (0308),
+ * so a late scan costs the press a PIN, never a lock.
  */
 const scanned = new Map<string, { token: string; at: number }>();
 const TOKEN_FRESH_MS = 45_000;

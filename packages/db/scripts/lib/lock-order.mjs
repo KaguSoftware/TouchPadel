@@ -68,6 +68,27 @@
  * `for key share`) is emitted only for a table in SHARE_RANKED; every other
  * share lock stays invisible, as before. open_branch and close_branch take
  * the row FOR UPDATE and nothing ranked after it.
+ *
+ * Tournaments (0310, c42) rank two tables, between the coach mutex and tabs:
+ * `tournaments` then `tournament_entries`. Every tournament body takes its
+ * tournament row first (FOR UPDATE, or FOR SHARE in tournament_settle, so
+ * tournaments joins SHARE_RANKED), then its entries in id order, then tabs,
+ * courts and reservations; nothing takes a tournament after a tab or a court.
+ * tournament_sweep visits many tournaments in one transaction, but takes
+ * each row `FOR UPDATE SKIP LOCKED`, which never waits: like a skip-locked
+ * reservations row it is not emitted (SKIP_LOCKED_UNEMITTED), so a later
+ * tournament after an earlier one's entries is no inversion.
+ * tournament_rounds and tournament_matches stay unranked: they are only ever
+ * written under the tournament row.
+ *
+ * Loyalty (0308, 0309) ranks `promotions` after tabs (apply_best_promotion
+ * locks its candidates in id order under the tab) and two advisory keys:
+ * app.lock_loyalty_attempts (loyalty_attempts_advisory, after promotions:
+ * the member-token throttle, taken under the tab in loyalty_redeem) and
+ * app.lock_loyalty_gifts (loyalty_gift_advisory, just before
+ * loyalty_accounts: loyalty_adjust's 24-hour gift sums). Each is once per
+ * sequence: a body takes one helper call, whose keys (caller then code,
+ * manager then profile) are always in that order.
  */
 
 /** The declared total order. Adding a table here is a deliberate act. */
@@ -75,8 +96,11 @@ export const ORDER = [
   'day_sessions',
   'match_money_advisory', // app.lock_match_money() -- 0260 (R19): a match's seat money
   'coach_advisory', // app.lock_coach() -- coaching_tables (R6): a coach's lessons, enrolments and statements
+  'tournaments', // 0310 (c42): a tournament row, FOR UPDATE (FOR SHARE in tournament_settle), before its entries, tabs and courts
+  'tournament_entries', // 0310 (c42): a tournament's entries, in id order, after the tournament row
   'tabs',
   'promotions', // 0309 (c15): apply_best_promotion locks the chosen promotion FOR UPDATE after the tab, before re-reading its limits
+  'loyalty_attempts_advisory', // app.lock_loyalty_attempts() -- 0308 (c3): the member-token throttle, caller then code
   'orders',
   'order_items',
   'tickets',
@@ -89,6 +113,7 @@ export const ORDER = [
   'reservations',
   'match_venue_advisory', // app.lock_match_venue() -- 0260: the branch mutex of open matches
   'match_tickets', // 0260: open-match tickets, FOR UPDATE, always in id order
+  'loyalty_gift_advisory', // app.lock_loyalty_gifts() -- 0308 (c17): a manager's 24-hour gift sums, manager then profile
   'loyalty_accounts', // 0305: a member's cached balance, FOR UPDATE, last (earn/clawback run deferred, at commit)
 ];
 
@@ -97,7 +122,14 @@ export const ORDER = [
  * key share waits behind a FOR UPDATE of the same row, so it can deadlock
  * (0291, DB-11). Every other share lock is left out, as it always was.
  */
-export const SHARE_RANKED = new Set(['venues']);
+export const SHARE_RANKED = new Set(['venues', 'tournaments']);
+
+/**
+ * Tables whose `FOR UPDATE ... SKIP LOCKED` is not emitted: it never waits
+ * (coaching R64 for reservations; 0310 for tournaments, the sweep's rows).
+ * Every other skip locked (match_tickets in 0264, the outboxes) prints as before.
+ */
+export const SKIP_LOCKED_UNEMITTED = new Set(['reservations', 'tournaments']);
 
 /** Advisory locks: a call to `app.<fn>(` is a lock on `lock`, never a call to expand. */
 export const ADVISORY = [
@@ -105,6 +137,8 @@ export const ADVISORY = [
   { fn: 'lock_match_money', lock: 'match_money_advisory' },
   { fn: 'lock_match_venue', lock: 'match_venue_advisory' },
   { fn: 'lock_coach', lock: 'coach_advisory' }, // coaching_tables; try_lock_coach is never emitted (it never waits)
+  { fn: 'lock_loyalty_attempts', lock: 'loyalty_attempts_advisory' }, // 0308 (c3)
+  { fn: 'lock_loyalty_gifts', lock: 'loyalty_gift_advisory' }, // 0308 (c17)
 ];
 
 /**
@@ -118,6 +152,8 @@ export const ONCE_PER_SEQUENCE = new Set([
   'match_money_advisory',
   'coach_advisory',
   'venues',
+  'loyalty_attempts_advisory',
+  'loyalty_gift_advisory',
 ]);
 
 /**
@@ -262,7 +298,7 @@ export function createWalker({ fns, triggers }) {
         // the outboxes) prints as it always did.
         const skipLocked = /^\s+skip\s+locked\b/i.test(stmt.slice(lockM.index + lockM[0].length));
         const emit = (t) => {
-          if (!(skipLocked && t === 'reservations')) out.push({ lock: t });
+          if (!(skipLocked && SKIP_LOCKED_UNEMITTED.has(t))) out.push({ lock: t });
         };
         if (lockM[2]) {
           for (const a of lockM[2].split(',').map((x) => x.trim().toLowerCase()).filter(Boolean)) {

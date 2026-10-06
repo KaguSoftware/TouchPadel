@@ -2,8 +2,11 @@
  * The lock-order gate after the tournaments migrations (docs/design/tournaments/
  * build-contracts-2026-10-03.md §1.4, §1.12 S8; plan §7 DB-B).
  *
- * The walker ranks only its ORDER list (scripts/lib/lock-order.mjs); the five tournament tables
- * are unranked, so nothing joins ORDER and every tournament body says its order in its header.
+ * The walker ranks only its ORDER list (scripts/lib/lock-order.mjs). Since 0310 (c42) two
+ * tournament tables are in it, between the coach mutex and tabs: `tournaments` (FOR UPDATE, and
+ * FOR SHARE in tournament_settle: a share-ranked table) then `tournament_entries`. Rounds and
+ * matches stay unranked: they are only written under the tournament row. The sweep's
+ * `tournaments ... FOR UPDATE SKIP LOCKED` never waits and is not emitted.
  * What is pinned here:
  *
  *   * the walker, pure: releasing blocks is courts then the reservations write (the 0174 pair);
@@ -19,8 +22,11 @@ import { describe, expect, it } from 'vitest';
 import {
   analyse,
   createWalker,
+  ORDER,
   printedSequence,
   SERVICE_WALK,
+  SHARE_RANKED,
+  SKIP_LOCKED_UNEMITTED,
 } from '../scripts/lib/lock-order.mjs';
 import { stackAvailable } from './helpers';
 import { dockerReachable } from './stores-harness';
@@ -76,6 +82,70 @@ describe('the walker over synthetic tournament catalogs (pure)', () => {
     );
   });
 
+  it('ranks tournaments then tournament_entries between the coach mutex and tabs', () => {
+    const at = (t: string) => ORDER.indexOf(t);
+    expect(at('tournaments')).toBeGreaterThan(at('coach_advisory'));
+    expect(at('tournament_entries')).toBe(at('tournaments') + 1);
+    expect(at('tabs')).toBe(at('tournament_entries') + 1);
+    expect(SHARE_RANKED.has('tournaments')).toBe(true);
+    expect(SKIP_LOCKED_UNEMITTED.has('tournaments')).toBe(true);
+  });
+
+  it('a tournament after a tab, or after its entries, is an inversion', () => {
+    const bad = {
+      name: 'bad',
+      src: `begin
+        select * into t from tabs where id = p for update;
+        select * into v from tournaments where id = x for update;
+      end`,
+    };
+    const late = {
+      name: 'late',
+      src: `begin
+        perform 1 from tournament_entries where tournament_id = x order by id for update;
+        select * into v from tournaments where id = x for share;
+      end`,
+    };
+    const out = analyse({
+      fns: [...BASE, bad, late],
+      triggers: TRIGGER,
+      callable: ['bad', 'late'],
+    });
+    const v = out.violations.join('\n');
+    expect(v).toContain('bad: takes tabs before tournaments');
+    expect(v).toContain('late: takes tournament_entries before tournaments');
+  });
+
+  it('settle shape: the tournament FOR SHARE, the entry, then the tab, in order', () => {
+    const settle = {
+      name: 'settle',
+      src: `begin
+        select * into v from tournaments where id = x for share;
+        select * into e from tournament_entries where id = y for no key update;
+        select * into t from tabs where id = p for update;
+      end`,
+    };
+    const w = createWalker({ fns: [...BASE, settle], triggers: TRIGGER });
+    expect(printedSequence(w, 'settle')).toEqual(['tournaments', 'tournament_entries', 'tabs']);
+  });
+
+  it('a sweep visiting many tournaments SKIP LOCKED is no inversion', () => {
+    const sweep = {
+      name: 'sweep',
+      src: `begin
+        select * into v from tournaments where id = a for update skip locked;
+        perform 1 from tournament_entries where tournament_id = a order by id for update;
+        select * into v from tournaments where id = b for update skip locked;
+        perform 1 from tournament_entries where tournament_id = b order by id for update;
+      end`,
+    };
+    const w = createWalker({ fns: [...BASE, sweep], triggers: TRIGGER });
+    expect(printedSequence(w, 'sweep')).toEqual(['tournament_entries']);
+    expect(
+      analyse({ fns: [...BASE, sweep], triggers: TRIGGER, callable: ['sweep'] }).violations,
+    ).toEqual([]);
+  });
+
   it('walks the sweep as a service-role path', () => {
     expect(SERVICE_WALK).toContain('tournament_sweep');
   });
@@ -123,25 +193,42 @@ describe.skipIf(!docker)('check:locks over the local stack (tournaments)', () =>
     const RELEASE = 'court_advisory -> match_venue_advisory -> match_tickets -> loyalty_accounts';
     // publish: the courts, then the adopted blocks FOR UPDATE.
     expect(rowOf(walked, 'tournament_publish')).toBe('court_advisory -> reservations');
-    // cancel, the finishing score and the sweep's cut-off cancel: the release.
-    expect(rowOf(walked, 'tournament_cancel')).toBe(RELEASE);
-    expect(rowOf(walked, 'tournament_score')).toBe(RELEASE);
-    expect(rowOf(walked, 'tournament_sweep')).toBe(RELEASE);
-    // settle: the till only (day_sessions share and the tournament/entry rows are unranked), then,
-    // at commit, the deferred loyalty earn trigger on the settled tab (0305).
-    expect(rowOf(walked, 'tournament_settle')).toBe('tabs -> loyalty_accounts');
+    // cancel, finish (0310) and the finishing score: the tournament row, then the release.
+    expect(rowOf(walked, 'tournament_cancel')).toBe(`tournaments -> ${RELEASE}`);
+    expect(rowOf(walked, 'tournament_finish')).toBe(`tournaments -> ${RELEASE}`);
+    expect(rowOf(walked, 'tournament_score')).toBe(`tournaments -> ${RELEASE}`);
+    // The sweep's tournament rows are SKIP LOCKED (never wait, not emitted): the entries a close
+    // or a promotion takes, then the one cancel's release.
+    expect(rowOf(walked, 'tournament_sweep')).toBe(`tournament_entries -> ${RELEASE}`);
+    // settle: the tournament FOR SHARE, the entry, the till, then, at commit, the deferred loyalty
+    // earn trigger on the settled tab (0305). day_sessions' share is not ranked.
+    expect(rowOf(walked, 'tournament_settle')).toBe(
+      'tournaments -> tournament_entries -> tabs -> loyalty_accounts',
+    );
+    // 0310 (c41): a refund of a tournament tab reads the tournament and the entry before the tab.
+    expect(rowOf(walked, 'refund')).toContain('tournaments -> tournament_entries -> tabs');
+    // The owner's merge (0307, c11): the tournaments in id order, then the entries.
+    expect(rowOf(walked, 'merge_accounts')).toBe(
+      'tournaments -> tournament_entries -> loyalty_accounts',
+    );
     // block_courts_for_event keeps 0174's order.
     expect(rowOf(walked, 'block_courts_for_event')).toBe(
       'court_advisory -> reservations -> match_venue_advisory -> match_tickets -> loyalty_accounts',
     );
-    // Entries, rounds, no-shows and the reads take nothing ranked.
+    // Entries and no-shows: the tournament row, then its entries; rounds and close the row only.
     for (const fn of [
       'tournament_register',
       'tournament_withdraw',
       'tournament_add_entry',
       'tournament_remove_entry',
-      'tournament_set_rounds',
       'tournament_mark_no_show',
+    ]) {
+      expect(rowOf(walked, fn), fn).toBe('tournaments -> tournament_entries');
+    }
+    expect(rowOf(walked, 'tournament_set_rounds')).toBe('tournaments');
+    expect(rowOf(walked, 'tournament_close')).toBe('tournaments');
+    // The reads and the switch take nothing ranked.
+    for (const fn of [
       'set_tournaments_enabled',
       'desk_tournaments',
       'desk_tournament_detail',
@@ -152,7 +239,7 @@ describe.skipIf(!docker)('check:locks over the local stack (tournaments)', () =>
     }
     expect(rowOf(internal, 'tournament_release_blocks')).toBe(RELEASE);
     expect(rowOf(internal, 'tournament_cancel_internal')).toBe(RELEASE);
-    expect(rowOf(internal, 'tournament_promote_internal')).toBe('(no locks)');
+    expect(rowOf(internal, 'tournament_promote_internal')).toBe('tournament_entries');
     expect(rowOf(internal, 'tournament_notify')).toBe('(no locks)');
     expect(rowOf(internal, 'trg_tournament_block_guard')).toBe('(no locks)');
   });

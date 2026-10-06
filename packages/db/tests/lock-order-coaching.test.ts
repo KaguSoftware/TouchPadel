@@ -84,7 +84,9 @@ const LEVEL_B_BRANCH =
 describe('the walker over synthetic coaching catalogs (pure)', () => {
   it('ranks coach_advisory right after match_money_advisory and before tabs', () => {
     expect(ORDER.indexOf('coach_advisory')).toBe(ORDER.indexOf('match_money_advisory') + 1);
-    expect(ORDER.indexOf('coach_advisory')).toBe(ORDER.indexOf('tabs') - 1);
+    // 0310 (c42): the two tournament ranks sit between the coach mutex and tabs.
+    expect(ORDER.indexOf('coach_advisory')).toBe(ORDER.indexOf('tournaments') - 1);
+    expect(ORDER.indexOf('coach_advisory')).toBeLessThan(ORDER.indexOf('tabs'));
     expect(SERVICE_WALK).toEqual(
       expect.arrayContaining([
         'lesson_sweep',
@@ -312,7 +314,7 @@ describe('0291 (DB-11): the branch row FOR KEY SHARE is ranked (pure)', () => {
     expect(ORDER.indexOf('venues')).toBe(ORDER.indexOf('court_advisory') + 1);
     expect(ORDER.indexOf('venues')).toBe(ORDER.indexOf('reservations') - 1);
     expect(ONCE_PER_SEQUENCE.has('venues')).toBe(true);
-    expect([...SHARE_RANKED]).toEqual(['venues']);
+    expect([...SHARE_RANKED]).toEqual(['venues', 'tournaments']); // tournaments since 0310 (c42)
   });
 
   it('a share lock prints only on a SHARE_RANKED table; FOR UPDATE on venues prints too', () => {
@@ -403,7 +405,7 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     const gate = runGate(['lock_coach', 'try_lock_coach']);
     expect(gate.code, gate.out).toBe(0);
     expect(gate.out).toContain(`declared order: ${ORDER.join(' > ')}`);
-    expect(gate.out).toContain('match_money_advisory > coach_advisory > tabs');
+    expect(gate.out).toContain('match_money_advisory > coach_advisory > tournaments');
     expect(gate.out).toContain('no lock-order violations');
     const internal = gate.out.slice(gate.out.indexOf('internal sequences'));
     // The advisory call is the lock; its own body (pg_advisory_xact_lock) and
@@ -423,9 +425,12 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     // Loyalty (0305): settling the lesson's tab fires the deferred earn trigger, walked at commit
     // (after every lock the body took), so loyalty_accounts, ranked last, ends the sequence.
     expect(rowOf(walkedRows, 'lesson_settle')).toBe('coach_advisory -> tabs -> loyalty_accounts');
-    expect(rowOf(walkedRows, 'refund')?.startsWith('coach_advisory -> tabs -> payments')).toBe(
-      true,
-    );
+    // 0310 (c41): the refund reads a tournament tab's tournament and entry before the tab.
+    expect(
+      rowOf(walkedRows, 'refund')?.startsWith(
+        'coach_advisory -> tournaments -> tournament_entries -> tabs -> payments',
+      ),
+    ).toBe(true);
     expect(rowOf(walkedRows, 'lesson_blocked_refund_record')).toBe('coach_advisory');
     expect(rowOf(walkedRows, 'lesson_refunds_due')).toBeUndefined();
   });

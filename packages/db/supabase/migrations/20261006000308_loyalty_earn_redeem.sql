@@ -19,7 +19,11 @@ set statement_timeout = '60s';
 --       sessions cannot lock the desk out of a member). link_guest_session
 --       answers a bad token with {linked: false} so the try is kept, and
 --       never says "expired"; loyalty_redeem's token path is throttled and
---       answers a miss as {error} the same way.
+--       answers a miss as {error} the same way. The count and the attempt
+--       row are one step (app.lock_loyalty_attempts, per caller then per
+--       code). An expired token (a real one shown late, such as a stale
+--       scan at the till) is answered but never counted: only a wrong or
+--       replayed token is a guess.
 --       Every fallback of app.tab_customer skips active staff (c2).
 --   c4  app.tab_customer reads the tournament entry's and the lesson
 --       enrolment's guest, and an open-match seat tab's seat holder.
@@ -40,7 +44,8 @@ set statement_timeout = '60s';
 --       gifts above 1,000 points in a rolling 24 hours (given by the manager
 --       or received by the profile) are the owner's, every manager gift
 --       pushes loyalty_gift to the owners (notify_staff re-issued with the
---       key), and adjust rows no longer count toward lifetime or the
+--       key; the sums are read under app.lock_loyalty_gifts, per manager
+--       then per profile), and adjust rows no longer count toward lifetime or the
 --       12-month tier points.
 --   c44 deferred (recorded in the plan and packages/db/CLAUDE.md): a column
 --       grant on tabs cannot tell staff from a guest session (both are
@@ -61,11 +66,18 @@ set statement_timeout = '60s';
 --       0309 (which makes limits.tierMin a tier id) because 0308 runs first;
 --       it reads a tier id and the legacy sort alike.
 --
--- Lock order: unchanged. The new deferred triggers (redeem cap at settle,
+-- Lock order: the new deferred triggers (redeem cap at settle,
 -- booking-payment earn and claw) write ledger rows whose account recompute
 -- takes loyalty_accounts last, at commit. loyalty_cards, pin_grants and
 -- loyalty_token_attempts are unranked single-row writes, like pin_grants
--- elsewhere.
+-- elsewhere. Two advisory keys are new and ranked
+-- (scripts/lib/lock-order.mjs): app.lock_loyalty_attempts
+-- (loyalty_attempts_advisory, after tabs and promotions: loyalty_redeem takes
+-- it under the tab) serialises a throttle's count with its attempt row, on
+-- the caller and then on the member code; app.lock_loyalty_gifts
+-- (loyalty_gift_advisory, just before loyalty_accounts) serialises a
+-- manager's 24-hour gift sum, on the manager and then on the profile. Each
+-- is taken once per sequence, its keys always in that order.
 
 -- ===========================================================================
 -- 1. Columns and the attempts table
@@ -119,7 +131,7 @@ create table if not exists loyalty_token_attempts (
 );
 
 comment on table loyalty_token_attempts is
-  'Loyalty (0308, c3). Every member-token or phone lookup at app.link_guest_session, app.loyalty_identify and the token path of app.loyalty_redeem, success or not: the throttle counts the failures per caller (10 minutes) and, for anonymous café sessions only, per member code (an hour). member_code is kept only when a card holds that code (a typo of a code nobody has locks no one); anonymous says the caller was an anonymous auth user. Rows older than a day are pruned on write. No client grant.';
+  'Loyalty (0308, c3). Every member-token or phone lookup at app.link_guest_session, app.loyalty_identify and the token path of app.loyalty_redeem, success or not (an expired token, a real one shown late, is not recorded): the throttle counts the failures per caller (10 minutes) and, for anonymous café sessions only, per member code (an hour). member_code is kept only when a card holds that code (a typo of a code nobody has locks no one); anonymous says the caller was an anonymous auth user. Rows older than a day are pruned on write. No client grant.';
 
 alter table loyalty_token_attempts enable row level security;
 revoke all on loyalty_token_attempts from anon, authenticated;
@@ -223,6 +235,45 @@ comment on function app.loyalty_token_consume(text) is
 
 revoke all on function app.loyalty_token_consume(text) from public, anon, authenticated;
 
+-- The throttle's mutex (internal, 0308 c3): the caller's key, then the member
+-- code's, held to commit, so two lookups never both read the count below the
+-- limit before either records its miss. Ranked loyalty_attempts_advisory
+-- (after tabs and promotions), once per sequence.
+create or replace function app.lock_loyalty_attempts(p_uid uuid, p_code text) returns void
+language plpgsql security definer set search_path = public as $lock_loyalty_attempts_0308$
+begin
+  if p_uid is not null then
+    perform pg_advisory_xact_lock(hashtextextended('app.loyalty_attempts.uid:' || p_uid::text, 0));
+  end if;
+  if p_code is not null then
+    perform pg_advisory_xact_lock(hashtextextended('app.loyalty_attempts.code:' || p_code, 0));
+  end if;
+end $lock_loyalty_attempts_0308$;
+
+comment on function app.lock_loyalty_attempts(uuid, text) is
+  'Loyalty (0308, c3). Internal: pg_advisory_xact_lock on ''app.loyalty_attempts.uid:''||caller, then on ''app.loyalty_attempts.code:''||member code (each when not null). app.loyalty_throttle_check takes it first, so the count and the attempt row written after it (app.loyalty_attempt_record) are one step per caller and per code. Ranked loyalty_attempts_advisory in scripts/lib/lock-order.mjs (after tabs and promotions), once per sequence.';
+
+revoke all on function app.lock_loyalty_attempts(uuid, text) from public, anon, authenticated;
+
+-- A manager's gift mutex (internal, 0308 c17): the manager's key, then the
+-- profile's, held to commit, so two gifts never both read the 24-hour sums
+-- below 1,000. Ranked loyalty_gift_advisory (just before loyalty_accounts).
+create or replace function app.lock_loyalty_gifts(p_manager uuid, p_profile uuid) returns void
+language plpgsql security definer set search_path = public as $lock_loyalty_gifts_0308$
+begin
+  if p_manager is not null then
+    perform pg_advisory_xact_lock(hashtextextended('app.loyalty_gifts.by:' || p_manager::text, 0));
+  end if;
+  if p_profile is not null then
+    perform pg_advisory_xact_lock(hashtextextended('app.loyalty_gifts.to:' || p_profile::text, 0));
+  end if;
+end $lock_loyalty_gifts_0308$;
+
+comment on function app.lock_loyalty_gifts(uuid, uuid) is
+  'Loyalty (0308, c17). Internal: pg_advisory_xact_lock on ''app.loyalty_gifts.by:''||manager, then on ''app.loyalty_gifts.to:''||profile (each when not null). app.loyalty_adjust takes it before reading a manager''s gifts given and a profile''s gifts received in the last 24 hours, so two concurrent gifts cannot both pass the 1,000-point line (the account row alone does not exist yet for a new member, and does not cover one manager gifting two profiles). Ranked loyalty_gift_advisory in scripts/lib/lock-order.mjs (just before loyalty_accounts), once per sequence.';
+
+revoke all on function app.lock_loyalty_gifts(uuid, uuid) from public, anon, authenticated;
+
 -- The throttle (internal, 0308 c3): MEMBER_CODE_LOCKED once the caller has
 -- p_user_limit failures in ten minutes, or, for an anonymous caller, once
 -- anonymous callers have failed 20 times in an hour on the member code. Staff
@@ -231,8 +282,11 @@ revoke all on function app.loyalty_token_consume(text) from public, anon, authen
 -- service on the card printed under the QR); the member's own café link is
 -- what such a burst can lock, for an hour.
 create or replace function app.loyalty_throttle_check(p_uid uuid, p_code text, p_user_limit int) returns void
-language plpgsql stable security definer set search_path = public as $loyalty_throttle_check_0308$
+language plpgsql security definer set search_path = public as $loyalty_throttle_check_0308$
 begin
+  -- The count and the attempt row the caller writes next are serialised per
+  -- caller and per member code (held to commit).
+  perform app.lock_loyalty_attempts(p_uid, p_code);
   if p_uid is not null and (select count(*) from loyalty_token_attempts a
                              where a.auth_user_id = p_uid and not a.ok
                                and a.at > now() - interval '10 minutes') >= p_user_limit then
@@ -248,7 +302,7 @@ begin
 end $loyalty_throttle_check_0308$;
 
 comment on function app.loyalty_throttle_check(uuid, text, int) is
-  'Loyalty (0308, c3). Internal: MEMBER_CODE_LOCKED detail caller when the caller has p_user_limit failed lookups in the last ten minutes; detail member_code when the caller is an anonymous café session and anonymous callers failed 20 times on the member code in the last hour (loyalty_token_attempts). The member-code lock never applies to staff: a burst of throwaway sessions on a known code cannot lock the desk out of the member.';
+  'Loyalty (0308, c3). Internal: takes app.lock_loyalty_attempts(caller, code) first (held to commit, so the count and the attempt row that follows are serialised); MEMBER_CODE_LOCKED detail caller when the caller has p_user_limit failed lookups in the last ten minutes; detail member_code when the caller is an anonymous café session and anonymous callers failed 20 times on the member code in the last hour (loyalty_token_attempts). The member-code lock never applies to staff: a burst of throwaway sessions on a known code cannot lock the desk out of the member.';
 
 revoke all on function app.loyalty_throttle_check(uuid, text, int) from public, anon, authenticated;
 
@@ -879,7 +933,11 @@ begin
     if v_msg not in ('MEMBER_CODE_INVALID', 'MEMBER_CODE_EXPIRED') then
       raise;
     end if;
-    perform app.loyalty_attempt_record(v_uid, v_code, false);
+    -- An expired token is a real one shown late (a stale scan at the till, an
+    -- old screenshot), not a guess: it is answered but never counted.
+    if v_msg <> 'MEMBER_CODE_EXPIRED' then
+      perform app.loyalty_attempt_record(v_uid, v_code, false);
+    end if;
     return jsonb_build_object('linked', false, 'error', 'MEMBER_CODE_INVALID');
   end;
   perform app.loyalty_attempt_record(v_uid, v_code, true);
@@ -893,7 +951,7 @@ begin
 end $link_guest_session_0308$;
 
 comment on function app.link_guest_session(text) is
-  'Loyalty (M3, contracts §1.3; 0308). An anonymous café session (auth.users.is_anonymous) with a live guest_sessions row sets its linked_profile_id from a member token, spent once (app.loyalty_token_consume, now ± 1 step). Returns {linked: true, display_name}; a token that does not pass (wrong, expired, replayed) answers {linked: false, error: MEMBER_CODE_INVALID} and is counted. AUTH_REQUIRED, FORBIDDEN (not anonymous), SESSION_EXPIRED (no live session), MEMBER_CODE_LOCKED (5 failures by this user in 10 minutes, or 20 on the member code in an hour). Audited loyalty.link_session.';
+  'Loyalty (M3, contracts §1.3; 0308). An anonymous café session (auth.users.is_anonymous) with a live guest_sessions row sets its linked_profile_id from a member token, spent once (app.loyalty_token_consume, now ± 1 step). Returns {linked: true, display_name}; a token that does not pass (wrong, expired, replayed) answers {linked: false, error: MEMBER_CODE_INVALID} and is counted (an expired one is answered the same way but not counted). AUTH_REQUIRED, FORBIDDEN (not anonymous), SESSION_EXPIRED (no live session), MEMBER_CODE_LOCKED (5 failures by this user in 10 minutes, or 20 on the member code in an hour). Audited loyalty.link_session.';
 
 revoke all on function app.link_guest_session(text) from public, anon;
 grant execute on function app.link_guest_session(text) to authenticated;
@@ -956,7 +1014,11 @@ begin
     if v_msg not in ('MEMBER_CODE_INVALID', 'MEMBER_CODE_EXPIRED', 'MEMBER_NOT_FOUND') then
       raise;
     end if;
-    perform app.loyalty_attempt_record(auth.uid(), v_code, false);
+    -- An expired token is a real one shown late (a stale scan at the till, an
+    -- old screenshot), not a guess: it is answered but never counted.
+    if v_msg <> 'MEMBER_CODE_EXPIRED' then
+      perform app.loyalty_attempt_record(auth.uid(), v_code, false);
+    end if;
     return jsonb_build_object('customer_id', null, 'error', v_msg);
   end;
   perform app.loyalty_attempt_record(auth.uid(), v_code, true);
@@ -980,7 +1042,7 @@ begin
 end $loyalty_identify_0308$;
 
 comment on function app.loyalty_identify(text, uuid) is
-  'Loyalty (M3, contracts §1.3, L-4; 0308). Cashier, shop_staff, court_desk, manager, owner; p_venue_id (when sent) one the caller can see (VENUE_MISMATCH). p_code is a member token (TP-…, app.loyalty_token_profile: now ± 1 step; read, not spent) or a phone of 7-15 digits matched exactly on profiles.phone_key. A miss answers {customer_id: null, error: MEMBER_CODE_INVALID | MEMBER_CODE_EXPIRED | MEMBER_NOT_FOUND} and is counted (loyalty_token_attempts); MEMBER_CODE_LOCKED after 10 misses by the caller in 10 minutes or 20 on the member code in an hour. Returns {customer_id, display_name (given name + family initial), phone_masked (last four digits), tier_name_en, tier_name_ar, balance, enabled}. Audited loyalty.identify {method qr|phone, venue_id}.';
+  'Loyalty (M3, contracts §1.3, L-4; 0308). Cashier, shop_staff, court_desk, manager, owner; p_venue_id (when sent) one the caller can see (VENUE_MISMATCH). p_code is a member token (TP-…, app.loyalty_token_profile: now ± 1 step; read, not spent) or a phone of 7-15 digits matched exactly on profiles.phone_key. A miss answers {customer_id: null, error: MEMBER_CODE_INVALID | MEMBER_CODE_EXPIRED | MEMBER_NOT_FOUND} and is counted (MEMBER_CODE_EXPIRED is not: a real token shown late is no guess) (loyalty_token_attempts); MEMBER_CODE_LOCKED after 10 misses by the caller in 10 minutes or 20 on the member code in an hour. Returns {customer_id, display_name (given name + family initial), phone_masked (last four digits), tier_name_en, tier_name_ar, balance, enabled}. Audited loyalty.identify {method qr|phone, venue_id}.';
 
 revoke all on function app.loyalty_identify(text, uuid) from public, anon;
 grant execute on function app.loyalty_identify(text, uuid) to authenticated;
@@ -1231,7 +1293,11 @@ begin
       if v_msg not in ('MEMBER_CODE_INVALID', 'MEMBER_CODE_EXPIRED') then
         raise;
       end if;
-      perform app.loyalty_attempt_record(auth.uid(), v_code, false);
+      -- An expired token is a real one shown late (a stale scan at the till, an
+      -- old screenshot), not a guess: it is answered but never counted.
+      if v_msg <> 'MEMBER_CODE_EXPIRED' then
+        perform app.loyalty_attempt_record(auth.uid(), v_code, false);
+      end if;
       delete from app.rpc_replays where idempotency_key = p_idempotency_key and fn = 'loyalty_redeem';
       return jsonb_build_object('error', v_msg, 'detail', nullif(v_detail, ''));
     end;
@@ -1478,13 +1544,18 @@ begin
     raise exception 'FORBIDDEN' using errcode = 'P0001', detail = 'self_dealing';
   end if;
 
+  -- 0308 (c17): the gift mutex (the manager, then the profile) before the
+  -- sums below, so two gifts by one manager, or to one profile, see each
+  -- other.
+  if p_delta > 0 and not v_owner then
+    perform app.lock_loyalty_gifts(auth.uid(), p_profile_id);
+  end if;
   perform 1 from loyalty_accounts a where a.profile_id = p_profile_id for update;
 
   -- 0308 (c17): the 1,000-point line is a rolling 24 hours, not one call: a
   -- manager's gifts (every profile) and a profile's gifts received (from
   -- anyone) in the last day, this one included, above 1,000 are the
-  -- owner's. Read after the account lock, so two gifts to one profile see
-  -- each other.
+  -- owner's. Read under the gift mutex.
   if p_delta > 0 and not v_owner then
     select coalesce(sum(l.delta), 0) into v_given
       from loyalty_ledger l

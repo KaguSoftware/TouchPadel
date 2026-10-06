@@ -30,9 +30,17 @@ const docker = up && dockerReachable();
 
 /** The order of db.md §2.1 / contracts §1.4, verbatim; coach_advisory since coaching_tables (coaching db.md §2.1). */
 const DECLARED = [
-  'day_sessions', 'match_money_advisory', 'coach_advisory', 'tabs', 'promotions', 'orders', 'order_items', 'tickets', 'payments',
+  'day_sessions', 'match_money_advisory', 'coach_advisory',
+  // Tournaments (0310, c42): the tournament row, then its entries.
+  'tournaments', 'tournament_entries',
+  'tabs',
+  // Loyalty (0309, 0308): a promotion under the tab; the member-token throttle key after it.
+  'promotions', 'loyalty_attempts_advisory',
+  'orders', 'order_items', 'tickets', 'payments',
   'till_shifts', 'refunds', 'stock_batches', 'court_advisory', 'venues', 'reservations', 'match_venue_advisory',
   'match_tickets',
+  // Loyalty (0308): a manager's gift key, just before the account.
+  'loyalty_gift_advisory',
   // Loyalty (0305): a member's cached balance, last; the earn and clawback triggers are deferred.
   'loyalty_accounts',
 ];
