@@ -655,6 +655,148 @@ button.tp-nav-item { background: transparent; }
 /* A panel that runs under both halves of the split. */
 .tp-split-full { grid-column: 1 / -1; }
 
+/* Tournaments: a list card lifts its edge on hover; the rounds board keeps its
+   own scrolling column beside a fixed leaderboard, which drops under it on a
+   narrow window rather than letting the rounds run beneath it. */
+.tp-tour-card:hover { border-color: var(--tp-accent); }
+/* The list's status filter: blue when chosen, light blue under the pointer. */
+.tp-tour-chip {
+  min-block-size: 2.25rem; padding-inline: var(--tp-sp-3); border-radius: var(--tp-radius-pill);
+  border: 1px solid var(--tp-border-strong); background: var(--tp-surface); color: var(--tp-fg);
+  font: inherit; font-size: var(--tp-fs-sm); font-weight: 600; cursor: pointer;
+}
+.tp-tour-chip:hover { background: var(--tp-accent-soft); border-color: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); }
+.tp-tour-chip[aria-pressed='true'] { background: var(--tp-accent); border-color: var(--tp-accent); color: var(--tp-accent-contrast); }
+
+/* "Start: Tournament" (TournamentStartSheet): the section menu beside the open
+   section, stacked on a narrow window; the menu rows, the big choice cards and
+   the courts-by-hours timeline cells. */
+.tp-tour-start {
+  display: grid; block-size: min(47.5rem, 92vh);
+  grid-template-columns: 17rem minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: 'side main' 'sidefoot foot';
+}
+.tp-tour-start-side {
+  grid-area: side; display: flex; flex-direction: column; gap: var(--tp-sp-1); padding: var(--tp-sp-5) var(--tp-sp-3);
+  background: var(--tp-surface-2); border-inline-end: 1px solid var(--tp-border); overflow-y: auto;
+}
+.tp-tour-start-main { grid-area: main; display: flex; flex-direction: column; min-inline-size: 0; min-block-size: 0; }
+/* One bottom row across both columns: the progress card and the buttons
+   centre on the same line; only the buttons' side has a divider above. */
+.tp-tour-start-sidefoot {
+  grid-area: sidefoot; display: flex; flex-direction: column; justify-content: center;
+  padding: var(--tp-sp-4) var(--tp-sp-3); background: var(--tp-surface-2);
+  border-inline-end: 1px solid var(--tp-border);
+}
+.tp-tour-start-foot {
+  grid-area: foot; display: flex; justify-content: space-between; align-items: center; gap: var(--tp-sp-2); flex-wrap: wrap;
+  padding: var(--tp-sp-4) var(--tp-sp-6); border-block-start: 1px solid var(--tp-border);
+}
+@media (max-width: 56rem) {
+  .tp-tour-start {
+    grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: 'side' 'main' 'sidefoot' 'foot';
+  }
+  .tp-tour-start-sidefoot { border-inline-end: 0; }
+  .tp-tour-start-side { border-inline-end: 0; border-block-end: 1px solid var(--tp-border); }
+}
+.tp-tour-start-nav {
+  display: flex; align-items: center; gap: var(--tp-sp-3); min-block-size: 3.25rem; padding: 0 var(--tp-sp-3); font-size: var(--tp-fs-lg);
+  border: 0; border-radius: var(--tp-radius-panel); background: transparent; color: var(--tp-fg);
+  font: inherit; font-weight: 600; text-align: start; inline-size: 100%; cursor: pointer;
+}
+.tp-tour-start-nav:hover { background: var(--tp-accent-soft); }
+.tp-tour-start-nav[aria-current='step'] { background: var(--tp-accent); color: var(--tp-accent-contrast); font-weight: 700; }
+.tp-tour-start-nav[aria-current='step']:hover { background: var(--tp-accent-hover); }
+.tp-tour-choice {
+  display: grid; row-gap: var(--tp-sp-4); align-content: start; align-items: start; padding: var(--tp-sp-4); text-align: start;
+  border: 1px solid var(--tp-border-strong); border-radius: var(--tp-radius-dialog); background: var(--tp-surface);
+  color: var(--tp-fg); font: inherit; cursor: pointer;
+}
+.tp-tour-choice:hover { border-color: var(--tp-accent); }
+/* A row of choice cards (class, format): as many to a row as fit at 12rem. */
+.tp-tour-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--tp-sp-3); }
+/* The formats: two to a row (one on a narrow window). */
+.tp-tour-choices[data-cols='2'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 40rem) { .tp-tour-choices[data-cols='2'] { grid-template-columns: minmax(0, 1fr); } }
+.tp-tour-choice[aria-pressed='true'], .tp-tour-choice[aria-checked='true'] { border: 2px solid var(--tp-accent); background: var(--tp-accent-soft); padding: calc(var(--tp-sp-4) - 1px); }
+/* The picked slots under the timetable: compact blue cards, like a chosen
+   choice card, three or so to a row. */
+/* The list fills the room left under the timetable and scrolls only when its
+   cards do not fit, so no blank band is left under them. */
+.tp-tour-slots {
+  list-style: none; margin: 0; padding: 0; padding-inline-end: var(--tp-sp-1); display: grid; align-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: var(--tp-sp-2);
+  flex: 1 1 0; min-block-size: 0; overflow-y: auto; scrollbar-gutter: stable;
+}
+.tp-tour-slot {
+  display: flex; align-items: flex-start; gap: var(--tp-sp-1); padding: var(--tp-sp-2-5) var(--tp-sp-3);
+  border: 2px solid var(--tp-accent); border-radius: var(--tp-radius-dialog); background: var(--tp-accent-soft);
+}
+.tp-tour-slot-open {
+  flex: 1; min-inline-size: 0; display: flex; align-items: center; gap: var(--tp-sp-3);
+  border: 0; padding: 0; background: transparent; color: var(--tp-fg); font: inherit; text-align: start; cursor: pointer;
+}
+.tp-tour-slot-court {
+  display: inline-flex; align-items: center; line-height: 1; padding: var(--tp-sp-1) var(--tp-sp-2);
+  border-radius: var(--tp-radius-pill); background: var(--tp-surface); color: var(--tp-accent-soft-fg);
+  font-size: var(--tp-fs-xs); font-weight: 700;
+}
+/* The courts-by-hours timetable: a framed table as wide as the step, its
+   header band holding the hours and its first column the courts, and inside
+   it a contribution graph's squares (2.25rem, rounded, 0.25rem apart: each
+   keeps 0.125rem above and below and sits centred in its hour column). Every
+   hour is in view, never scrolled: the columns share the width, and a square
+   only shrinks below 2.25rem when a long day leaves no room for it. A spacer row above the first squares and below the
+   last gives them even room; the court column's grey runs unbroken through
+   both. A picked hour is green; a booked one hatched. */
+.tp-tour-tt {
+  /* clip, not hidden: a hidden box may shrink to nothing in the step's grid
+     when the slots below overflow it; clip keeps the table its full height. */
+  overflow: clip; min-block-size: max-content; touch-action: none; user-select: none;
+  border: 1px solid var(--tp-border-strong); border-radius: var(--tp-radius-dialog); background: var(--tp-surface);
+}
+.tp-tour-tt-grid { display: grid; align-items: stretch; inline-size: 100%; }
+.tp-tour-tt-corner, .tp-tour-tt-hour, .tp-tour-tt-court, .tp-tour-tt-pad[data-side] { background: var(--tp-surface-2); }
+.tp-tour-tt-corner, .tp-tour-tt-court, .tp-tour-tt-pad[data-side] {
+  position: sticky; inset-inline-start: 0; z-index: 1; border-inline-end: 1px solid var(--tp-border-strong);
+}
+.tp-tour-tt-corner { z-index: 2; border-block-end: 1px solid var(--tp-border-strong); }
+.tp-tour-tt-hour {
+  display: flex; align-items: center; justify-content: center; padding: var(--tp-sp-2-5) 0;
+  line-height: 1; font-size: var(--tp-fs-xs); font-weight: 600; color: var(--tp-muted-fg); font-variant-numeric: tabular-nums;
+  border-block-end: 1px solid var(--tp-border-strong);
+}
+.tp-tour-tt-court {
+  display: flex; align-items: center; justify-content: flex-end; padding: 0 var(--tp-sp-2-5); line-height: 1;
+  font-size: var(--tp-fs-sm); font-weight: 600; color: var(--tp-muted-fg); white-space: nowrap;
+}
+.tp-tour-tt-pad { block-size: var(--tp-sp-2); }
+.tp-tour-tt-pad[data-fill] { grid-column: 2 / -1; }
+.tp-tour-tt-cell {
+  inline-size: min(2.25rem, calc(100% - 0.25rem)); aspect-ratio: 1; justify-self: center; border: 0; padding: 0; margin: 0.125rem 0; cursor: pointer;
+  border-radius: 0.3rem; background: var(--tp-surface-3);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tp-fg) 6%, transparent);
+}
+.tp-tour-tt-cell:hover:not(:disabled):not([data-booked]) { background: color-mix(in oklab, var(--tp-accent-2) 45%, var(--tp-surface-3)); }
+.tp-tour-tt-cell[data-on] { background: var(--tp-accent-2); }
+.tp-tour-tt-cell[data-on]:hover:not(:disabled) { background: color-mix(in oklab, var(--tp-accent-2) 80%, var(--tp-fg)); }
+.tp-tour-tt-cell[data-booked] {
+  cursor: not-allowed;
+  background: repeating-linear-gradient(45deg, var(--tp-border-strong), var(--tp-border-strong) 2px, var(--tp-surface-2) 2px, var(--tp-surface-2) 5px);
+}
+.tp-tour-tt-cell:focus-visible { outline: 2px solid var(--tp-ring, var(--tp-accent)); outline-offset: 1px; }
+.tp-tour-cell { display: inline-block; block-size: 2rem; border: 0; padding: 0; border-radius: var(--tp-radius-ctl); background: var(--tp-surface-2); cursor: pointer; }
+.tp-tour-cell:hover:not(:disabled) { background: var(--tp-accent-soft); }
+.tp-tour-cell[data-on] { background: var(--tp-accent-2); }
+.tp-tour-cell[data-on]:hover:not(:disabled) { background: var(--tp-accent-hover); }
+.tp-tour-cell[data-booked] {
+  cursor: not-allowed;
+  background: repeating-linear-gradient(45deg, var(--tp-surface-3), var(--tp-surface-3) 4px, var(--tp-surface-2) 4px, var(--tp-surface-2) 8px);
+}
+.tp-tour-split { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: var(--tp-sp-4); align-items: start; }
+@media (max-width: 64rem) { .tp-tour-split { grid-template-columns: minmax(0, 1fr); } }
+
 /*
  * A row of fields inside a panel. Driven by the PANEL, not the window: the
  * panel is half the page inside a split and the whole of it once the split

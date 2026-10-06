@@ -454,13 +454,13 @@ describe('home page, Events and tournaments', () => {
     expect(events().querySelector('.tp-ticket-box, .tp-ticket')).not.toBeNull();
   });
 
-  it('lists the next tournaments above the poster, each linking to its page', async () => {
+  it('lists the next tournaments under the green ticket, each linking to its page', async () => {
     resetTournamentsServer(tournamentsRead(tournamentsAnswer()));
     await renderServerPage(HomePage, 'en');
     const cards = events().querySelector('.tp-events__cards')!;
     expect(
       cards.compareDocumentPosition(events().querySelector('.tp-events__stage')!) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+        Node.DOCUMENT_POSITION_PRECEDING,
     ).toBeTruthy();
     const ids = [...cards.querySelectorAll('.tp-tour-card')].map((c) =>
       c.getAttribute('data-tournament'),
@@ -472,7 +472,7 @@ describe('home page, Events and tournaments', () => {
         .getAllByRole('link', { name: tr('tournaments.web.eventsCards.details') })[1]
         ?.getAttribute('href'),
     ).toBe(`/en/events/${TOUR_FRIDAY}`);
-    // The ticket and the WhatsApp ask stay under the poster.
+    // The ticket and the WhatsApp ask stay above the cards.
     expect(events().querySelector('.tp-ticket-box, .tp-ticket')).not.toBeNull();
   });
 

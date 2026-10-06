@@ -344,14 +344,14 @@ export const siteEventsCss = `
   .tp-ticket__name[data-nudge] .tp-ticket__input { animation: none; }
 }
 
-/* The tournaments coming up (T-8): only while one is, above the poster on the band ground.
+/* The tournaments coming up (T-8): only while one is, under the green ticket on the band ground.
    Up to three cards, one column on a phone, as many as fit from tablets up. Nothing moves. */
 .tp-events__cards {
   display: grid;
   gap: clamp(1.25rem, 3vw, 1.75rem);
   max-inline-size: var(--tp-site-max);
   margin-inline: auto;
-  padding-block: var(--tp-site-section-pad) clamp(2rem, 5vw, 3rem);
+  margin-block-start: clamp(3rem, 8vw, 5rem);
   padding-inline: var(--tp-site-gutter);
   color: var(--tp-fg);
 }

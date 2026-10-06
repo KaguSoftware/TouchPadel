@@ -287,19 +287,17 @@ export const siteStoriesCss = `
 .tp-cafe-phone__row > span { min-inline-size: 0; }
 .tp-cafe-phone__row b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--tp-site-fw-label); }
 .tp-cafe-phone__row span span { color: var(--tp-brand-gray); }
+/* The plus is drawn, not typed: a glyph sits on the font's baseline and never centres in the circle. */
 .tp-cafe-phone__row i {
-  display: grid;
-  place-items: center;
   flex: none;
   margin-inline-start: auto;
   inline-size: 1rem;
   block-size: 1rem;
   border-radius: var(--tp-site-radius-pill);
-  background: var(--tp-brand-white);
-  color: var(--tp-brand-blue);
-  font-style: normal;
-  font-weight: var(--tp-site-fw-display);
-  font-size: 0.7rem;
+  background:
+    linear-gradient(var(--tp-brand-blue), var(--tp-brand-blue)) center / 0.42rem 0.1rem no-repeat,
+    linear-gradient(var(--tp-brand-blue), var(--tp-brand-blue)) center / 0.1rem 0.42rem no-repeat,
+    var(--tp-brand-white);
 }
 .tp-cafe-phone__basket {
   position: absolute;

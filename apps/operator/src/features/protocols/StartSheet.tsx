@@ -45,6 +45,7 @@ import { priceProposalPrefill, type TargetLink } from './priceTargets';
 import { decidesStep, firstStepNeedsOk, isObj, startTemplateId, titlesInBoth } from './protocolLogic';
 import { RecordForm, type FormEnv } from './StepForm';
 import { PK } from './keys';
+import { TournamentStartSheet } from '../tournaments/start/TournamentStartSheet';
 
 const TOURNAMENT_TYPES: TournamentVariant[] = ['type1', 'type2', 'type3'];
 
@@ -71,16 +72,7 @@ function readIdeas(raw: unknown): Idea[] {
     }));
 }
 
-export function StartSheet({
-  kind,
-  variant: variantIn,
-  change: changeIn,
-  link = {},
-  ideaId,
-  changeChoices,
-  onClose,
-  onStarted,
-}: {
+type StartSheetProps = {
   kind: ProtocolKind;
   variant?: TournamentVariant | null;
   change?: PriceChangeKind | null;
@@ -90,7 +82,41 @@ export function StartSheet({
   changeChoices: readonly PriceChangeKind[];
   onClose: () => void;
   onStarted: (runId: string) => void;
-}) {
+};
+
+/** A tournament opens the section-menu sheet (tournaments/start); every other kind the generic form. */
+export function StartSheet(props: StartSheetProps) {
+  const { tr } = useLocale();
+  const { staff } = useAuth();
+  const qc = useQueryClient();
+  const toast = useToast();
+  if (props.kind === 'tournament') {
+    return (
+      <TournamentStartSheet
+        initialVariant={props.variant ?? null}
+        byOwner={titlesInBoth(staff?.role)}
+        onClose={props.onClose}
+        onStarted={(run) => {
+          toast.ok(tr(run.auto ? 'ws.protocols.start.startedAuto' : 'ws.protocols.start.started'));
+          void invalidateProtocols(qc);
+          props.onStarted(run.run_id);
+        }}
+      />
+    );
+  }
+  return <GenericStartSheet {...props} />;
+}
+
+function GenericStartSheet({
+  kind,
+  variant: variantIn,
+  change: changeIn,
+  link = {},
+  ideaId,
+  changeChoices,
+  onClose,
+  onStarted,
+}: StartSheetProps) {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
   const qc = useQueryClient();

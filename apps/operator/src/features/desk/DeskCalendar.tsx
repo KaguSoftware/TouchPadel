@@ -117,6 +117,8 @@ import {
   tournamentsByReservation,
 } from '../tournaments/tournamentLogic';
 import { useDeskTournaments } from '../tournaments/useTournaments';
+import { addTournamentTarget } from '../tournaments/addTournament';
+import { useAuth } from '../../lib/auth';
 import { SLOT_MIN, tonightInTz, todayInTz, useTradingNight } from './useTradingNight';
 import { DateField } from '../../components/inputs';
 import { BLOCKING_STATUSES, canMoveReservation, gridPlacement, isVisible, packLanes } from './deskLogic';
@@ -252,6 +254,8 @@ export function DeskCalendar() {
   const { tr, locale, dir } = useLocale();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { staff } = useAuth();
+  const addTournament = addTournamentTarget(staff?.role);
   const toast = useToast();
   const search = useSearch({ strict: false }) as DeskCalendarSearch;
   const [date, setDate] = useState<string>(() => search.date ?? todayInTz(VENUE_TZ));
@@ -767,6 +771,11 @@ export function DeskCalendar() {
             >
               {tr('ws.courtDesk.calendar.block')}
             </Button>
+            {addTournament && (
+              <Button kind="primary" icon="plus" onClick={() => void navigate(addTournament as never)}>
+                {tr('ws.courtDesk.calendar.tournament')}
+              </Button>
+            )}
           </>
         }
       >

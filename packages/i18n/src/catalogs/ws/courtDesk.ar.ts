@@ -94,6 +94,7 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     bookedFor: 'أُنشئ الحجز باسم {name}.',
     block: 'إيقاف ملعب',
     series: 'سلسلة جديدة',
+    tournament: 'إضافة بطولة',
     moveTo: 'نقل إلى {court} عند {time}',
     moveAction: 'نقل هذا الحجز',
     moveConflict: 'رُفض النقل. يبقى الحجز في مكانه.',

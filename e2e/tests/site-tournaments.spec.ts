@@ -2,7 +2,7 @@
  * Tournaments on the website (T-8; docs/design/tournaments/build-contracts-2026-10-03.md §1.8,
  * §1.11), against the local stack once the tournaments migrations are in it:
  *
- *  1. The landing lists the tournament as a card above the Events poster, its Details link on
+ *  1. The landing lists the tournament as a card under the Events ticket, its Details link on
  *     `/en/events/<id>` (the `tournaments_public` read, cached 60 s).
  *  2. The tournament's page: its name, never indexed or followed, no referrer, the schedule with
  *     round 1's scores and round 2 still to play, and the standings in the server's order, every
@@ -230,7 +230,7 @@ test.afterAll(async () => {
 });
 
 test.describe('site tournaments', () => {
-  test('the landing lists the tournament above the Events poster, linking to its page', async ({
+  test('the landing lists the tournament under the Events ticket, linking to its page', async ({
     page,
   }) => {
     const card = page.locator(`.tp-tour-card[data-tournament="${TOUR_ID}"]`);
@@ -242,13 +242,13 @@ test.describe('site tournaments', () => {
     );
     await expect(card.getByRole('heading', { level: 3 })).toHaveText(NAME.en);
     await expect(card).toContainText(en.tournaments.common.status.running);
-    // The cards sit above the poster.
-    const above = await page.evaluate(() => {
+    // The cards sit under the green ticket.
+    const under = await page.evaluate(() => {
       const cards = document.querySelector('.tp-events__cards');
-      const stage = document.querySelector('.tp-events__stage');
-      return !!cards && !!stage && !!(cards.compareDocumentPosition(stage) & 4);
+      const ticket = document.querySelector('.tp-ticket');
+      return !!cards && !!ticket && !!(cards.compareDocumentPosition(ticket) & 2);
     });
-    expect(above).toBe(true);
+    expect(under).toBe(true);
     await card.getByRole('link', { name: en.tournaments.web.eventsCards.details }).click();
     await expect(page).toHaveURL(new RegExp(`/en/events/${TOUR_ID}$`));
     await expect(page.getByRole('heading', { level: 1, name: NAME.en })).toBeVisible();

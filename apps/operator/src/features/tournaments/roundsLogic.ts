@@ -240,6 +240,18 @@ export function readScoreInput(text: string, target: number): { a: number; b: nu
   return b === null ? null : { a, b };
 }
 
+/**
+ * What the score box holds after a keystroke: digits only, the last two typed,
+ * and never more than the target. Typing over a full box keeps the newest
+ * digits (15, then 9 → 59 → too many → 9), so staff never have to clear it.
+ */
+export function scoreTyping(raw: string, target: number): string {
+  const digits = raw.replace(/[^\d]/g, '');
+  const two = digits.slice(-2);
+  if (two === '' || Number(two) <= target) return two;
+  return digits.slice(-1);
+}
+
 /** A correction: the match already has a score (it needs a reason, §1.6 score). */
 export function isCorrection(m: Pick<TourDetailMatch, 'points_a' | 'points_b'>): boolean {
   return isScored(m);

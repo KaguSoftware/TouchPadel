@@ -78,7 +78,7 @@ const KNOCKOUT_RADII = [
  *
  * Once a branch has tournaments on and one is coming up (`tournaments.status === 'ok'`, the
  * `tournaments`-tagged `tournaments_public` read; T-8, build contracts §1.11), the next three
- * sit above the poster as cards: when (in the branch's timezone), the name, the format and
+ * sit under the green ticket as cards: when (in the branch's timezone), the name, the format and
  * category, the fee, the places left, "Register in the app" while registration is open, and
  * "Details" to the tournament's `/{locale}/events/<id>` page. Any other state (off, none coming
  * up, a failed read) leaves the section exactly as it was.
@@ -96,7 +96,6 @@ export function Events({
   const list = tournaments.status === 'ok' ? tournaments.tournaments : null;
   return (
     <section id="events" className="tp-events" aria-labelledby="events-title">
-      {list ? <EventsCards locale={locale} list={list} /> : null}
       <div className="tp-events__stage tp-on-dark">
         <svg className="tp-events__defs" width="0" height="0" aria-hidden="true" focusable="false">
           <defs>
@@ -188,11 +187,12 @@ export function Events({
           {tr('site.events.body')}
         </p>
       </div>
+      {list ? <EventsCards locale={locale} list={list} /> : null}
     </section>
   );
 }
 
-/** The next tournaments, as cards above the poster (no names, no court: §1.8). */
+/** The next tournaments, as cards under the green ticket (no names, no court: §1.8). */
 function EventsCards({ locale, list }: { locale: Locale; list: PublicTournaments }) {
   const tr = makeT(locale);
   const cards = upcomingTournaments(list).slice(0, CARDS);

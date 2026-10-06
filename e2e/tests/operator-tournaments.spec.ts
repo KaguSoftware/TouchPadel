@@ -312,18 +312,25 @@ test.describe('operator tournaments', () => {
     const roundOne = page.getByTestId('rounds-board').locator('section').first();
     await expect(roundOne).toBeVisible({ timeout: 30_000 });
 
-    // 6. Score round 1: both matches 15 to 9 (side B is filled as 24 − 15).
+    // 6. Score round 1: both matches 15 to 9 (side B is filled as 24 − 15), each
+    //    in the pop-up its "Enter score" opens.
     for (let i = 0; i < 2; i++) {
-      await roundOne.getByLabel(phrase(T.score.pointsFor)).first().fill('15');
-      await expect(roundOne.getByTestId('score-other').first()).toContainText('9');
-      await roundOne.getByRole('button', { name: T.score.save }).first().click();
+      await roundOne.getByRole('button', { name: T.score.enter }).first().click();
+      const entry = page.getByRole('dialog', { name: T.score.enter });
+      await entry.getByLabel(phrase(T.score.pointsFor)).first().fill('15');
+      await expect(entry.getByTestId('score-other')).toContainText('9');
+      await entry.getByRole('button', { name: T.score.save }).click();
+      await expect(entry).toBeHidden({ timeout: 30_000 });
       await expect(roundOne.getByTestId('match-score')).toHaveCount(i + 1, { timeout: 30_000 });
     }
 
     // 7. Correct one score, with a reason.
     await roundOne.getByRole('button', { name: T.score.correct }).first().click();
-    await roundOne.getByLabel(phrase(T.score.pointsFor)).first().fill('20');
-    await roundOne.getByRole('button', { name: T.score.save }).first().click();
+    const correction = page
+      .getByRole('dialog', { name: T.score.correctionTitle })
+      .filter({ has: page.getByTestId('score-other') });
+    await correction.getByLabel(phrase(T.score.pointsFor)).first().fill('20');
+    await correction.getByRole('button', { name: T.score.save }).click();
     await giveReason(page, en.op.reasons.staff_error);
     await expect(roundOne.getByTestId('match-score').first()).toContainText('20–4', {
       timeout: 30_000,

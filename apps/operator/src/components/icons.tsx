@@ -64,6 +64,9 @@ const PATHS = {
   wifiOff: 'M1 1l22 22M16.7 11.2a10 10 0 0 1 2.9 2M5 12.6a10 10 0 0 1 5.2-2.5M10.7 5a16 16 0 0 1 11.3 4.5M1.4 8.5A16 16 0 0 1 8 4.7M8.5 16.4a6 6 0 0 1 7 0M12 20h.01',
   bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0',
   arrowUpRight: 'M7 17L17 7M7 7h10v10',
+  // Back and on, drawn for a left-to-right page; RTL mirrors both (MIRRORED below).
+  arrowStart: 'M19 12H5M12 19l-7-7 7-7',
+  arrowEnd: 'M5 12h14M12 5l7 7-7 7',
   more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
   split: 'M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
   merge: 'M8 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM6 21V8M18 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 8a6 6 0 0 1-6 6h-1a6 6 0 0 0-5 3',
@@ -130,7 +133,7 @@ export type IconName = keyof typeof PATHS;
  * Glyphs that point at a side of the layout, so they mirror under RTL wherever
  * they are drawn — including a Button's `icon`, which cannot pass `dataChevron`.
  */
-const MIRRORED: ReadonlySet<IconName> = new Set<IconName>(['panelClose', 'panelOpen']);
+const MIRRORED: ReadonlySet<IconName> = new Set<IconName>(['panelClose', 'panelOpen', 'arrowStart', 'arrowEnd']);
 
 export function Icon({
   name,
