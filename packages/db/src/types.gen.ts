@@ -2400,6 +2400,14 @@ export type Database = {
       llm_usage_summary: { Args: never; Returns: Json }
       lock_coach: { Args: { p_coach_id: string }; Returns: undefined }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
+      lock_loyalty_attempts: {
+        Args: { p_code: string; p_uid: string }
+        Returns: undefined
+      }
+      lock_loyalty_gifts: {
+        Args: { p_manager: string; p_profile: string }
+        Returns: undefined
+      }
       lock_match_money: { Args: { p_match_id: string }; Returns: undefined }
       lock_match_venue: { Args: { p_venue: string }; Returns: undefined }
       lock_principal: {
@@ -2462,6 +2470,10 @@ export type Database = {
       loyalty_member_code: { Args: never; Returns: string }
       loyalty_multiplier: { Args: { p_profile: string }; Returns: number }
       loyalty_nightly: { Args: never; Returns: Json }
+      loyalty_nightly_one: {
+        Args: { p_expire_months: number; p_profile: string; p_since: string }
+        Returns: string
+      }
       loyalty_phone_masked: { Args: { p_phone: string }; Returns: string }
       loyalty_points_for: {
         Args: {
@@ -2501,6 +2513,7 @@ export type Database = {
         Returns: undefined
       }
       loyalty_tier_json: { Args: { p_tier: string }; Returns: Json }
+      loyalty_tiers_renumber: { Args: never; Returns: undefined }
       loyalty_till_terms: { Args: { p_venue_id: string }; Returns: Json }
       loyalty_token_code: { Args: { p_token: string }; Returns: string }
       loyalty_token_consume: { Args: { p_token: string }; Returns: string }
@@ -3226,6 +3239,11 @@ export type Database = {
       promotion_base_iqd: {
         Args: { p_scope: Json; p_tab_id: string }
         Returns: number
+      }
+      promotion_room_iqd: { Args: { p_tab_id: string }; Returns: number }
+      promotion_tier_ok: {
+        Args: { p_customer: string; p_limits: Json }
+        Returns: boolean
       }
       propose_deduction: {
         Args: {
@@ -8883,6 +8901,7 @@ export type Database = {
           earn_shop: boolean
           earn_tournament: boolean
           enabled: boolean
+          enabled_at: string | null
           id: boolean
           inactivity_expiry_months: number | null
           iqd_per_point: number
@@ -8899,6 +8918,7 @@ export type Database = {
           earn_shop?: boolean
           earn_tournament?: boolean
           enabled?: boolean
+          enabled_at?: string | null
           id?: boolean
           inactivity_expiry_months?: number | null
           iqd_per_point?: number
@@ -8915,6 +8935,7 @@ export type Database = {
           earn_shop?: boolean
           earn_tournament?: boolean
           enabled?: boolean
+          enabled_at?: string | null
           id?: boolean
           inactivity_expiry_months?: number | null
           iqd_per_point?: number
