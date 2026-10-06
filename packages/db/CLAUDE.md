@@ -148,8 +148,19 @@ is a line in that file.
   `loyalty_attempt_record`, `loyalty_history_guest`, `loyalty_tab_paid_at_settle` and the deferred
   triggers `tabs_loyalty_redeem_cap` and `booking_payments_loyalty`. A redemption needs the
   member's token (spent once, `loyalty_cards.last_counter`) or a manager PIN grant not the
-  member's own; `loyalty_identify` and `link_guest_session` answer a miss as data (`{error}`,
-  `{linked: false}`) so `loyalty_token_attempts` keeps it for the throttle. Every body that moves
+  member's own; `loyalty_identify`, `link_guest_session` and the token path of `loyalty_redeem`
+  answer a miss as data (`{error}`, `{linked: false}`, `{error, detail}`) so
+  `loyalty_token_attempts` keeps it for the throttle (`loyalty_redeem` also releases its
+  `rpc_replays` claim, so the press can go on with a PIN under the same key). The per-caller lock
+  holds everyone; the per-member-code lock (20 an hour) counts and holds anonymous café sessions
+  only, and an attempt keeps `member_code` only when a card holds it, so throwaway sessions
+  cannot lock the desk out of a member. Every fallback of `tab_customer` skips active staff, and
+  the booking guest's fallback is the booking's first tab only. `loyalty_adjust` holds a manager
+  to 1,000 gifted points in a rolling 24 hours (given, or received by the profile) and queues a
+  `loyalty_gift` staff push to the owners, so 0308 also holds `notify_staff` (0261 is no longer
+  the latest). c44 (a column grant hiding `tabs.customer_id` from guest sessions) is deferred:
+  staff and guest sessions are both `authenticated`, so the till's own `tabs` read must move to an
+  RPC first. Every body that moves
   a booking payment to succeeded or refunded now ends its lock sequence in `loyalty_accounts`
   (the deferred trigger, at commit). 0309 re-issues `set_tab_customer` from 0308, not 0305.
 - Signature change: `drop function` by exact signature, recreate, re-issue
@@ -173,7 +184,8 @@ is a line in that file.
   `_shared/staff-push.json`; the guest kinds of open matches take their copy from
   `send-push/guestStrings.ts` and `_shared/guest-push.json`, not `STRINGS`.
   `tests/outbox-kinds.test.ts` holds the CHECK to the three lists. A new staff title key also
-  joins `app.notify_staff`'s `c_title_keys` (latest `0261`, which appended `match_report_new`) in
+  joins `app.notify_staff`'s `c_title_keys` (latest `0308`, which appended `loyalty_gift` after
+  0261's `match_report_new`) in
   the same commit, and a guest title key `app.match_notify`'s `c_keys` (`0261`) or, for a
   lesson or coach key, `app.lesson_notify`'s `c_keys` (`0283`; every lesson push is queued by the
   `lesson_events_notify` trigger except the two statement keys); the stack tests

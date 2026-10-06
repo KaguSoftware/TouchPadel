@@ -476,7 +476,7 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
   // 0308 (c3): every member-code or phone lookup at the till and the café link, success or not, for
   // the throttle; pruned after a day, so a deletion does not need to reach it.
   loyalty_token_attempts: {
-    id: n, auth_user_id: n, ok: n, at: n,
+    id: n, auth_user_id: n, ok: n, at: n, anonymous: n,
     member_code: { category: 'Device or other IDs', why: 'the member number a lookup named, kept for one day to lock out repeated wrong codes', onDelete: 'keep' },
   },
   // The ledger's cache per profile. 0306's delete_my_account deletes the row.

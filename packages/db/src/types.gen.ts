@@ -8959,6 +8959,7 @@ export type Database = {
       }
       loyalty_token_attempts: {
         Row: {
+          anonymous: boolean
           at: string
           auth_user_id: string | null
           id: number
@@ -8966,6 +8967,7 @@ export type Database = {
           ok: boolean
         }
         Insert: {
+          anonymous?: boolean
           at?: string
           auth_user_id?: string | null
           id?: never
@@ -8973,6 +8975,7 @@ export type Database = {
           ok: boolean
         }
         Update: {
+          anonymous?: boolean
           at?: string
           auth_user_id?: string | null
           id?: never

@@ -14,26 +14,40 @@ set statement_timeout = '60s';
 --       member (the caller included) and records tabs.customer_method.
 --   c3  member tokens are single use (loyalty_cards.last_counter) inside a
 --       ±1 step window; failed tries land in loyalty_token_attempts and lock
---       a caller (5 per 10 minutes anonymous, 10 staff) and a member code
---       (20 per hour). link_guest_session answers a bad token with
---       {linked: false} so the try is kept, and never says "expired".
+--       a caller (5 per 10 minutes anonymous, 10 staff), and anonymous
+--       callers out of a member code (20 per hour; staff never, so throwaway
+--       sessions cannot lock the desk out of a member). link_guest_session
+--       answers a bad token with {linked: false} so the try is kept, and
+--       never says "expired"; loyalty_redeem's token path is throttled and
+--       answers a miss as {error} the same way.
+--       Every fallback of app.tab_customer skips active staff (c2).
 --   c4  app.tab_customer reads the tournament entry's and the lesson
 --       enrolment's guest, and an open-match seat tab's seat holder.
 --   c5  booking_payments earn when they succeed (deposit and ticket under
 --       earn_court, lesson under earn_lesson) and claw back when refunded.
 --   c12 the café fallback ignores voided orders and needs one linked profile.
---   c23 the booking guest's fallback is only for the tab that carries the
---       booking's court line.
+--   c23 the booking guest's fallback is only for the booking's first tab,
+--       and only while no other tab of it has settled.
 --   c13 a reward worth more than the bill is REWARD_EXCEEDS_BILL; at settle
 --       the points of a redemption the discount cap swallowed come back
 --       (redeem_void); a refund of a settled tab gives back its share of the
---       points spent on it.
+--       points spent on it, read through the tab's adjustments (a merged
+--       donor's redemptions included), to each account its own.
 --   c22 the clawback works on a cumulative target over the eligible base the
 --       earn stored (earn_base_iqd, earn_court_iqd), itemised refunds counted
 --       as goods.
---   c17 loyalty_adjust: never on yourself, never a gift to active staff, a
---       gift above 1,000 points is the owner's, and adjust rows no longer
---       count toward lifetime or the 12-month tier points.
+--   c17 loyalty_adjust: never on yourself, never a gift to active staff,
+--       gifts above 1,000 points in a rolling 24 hours (given by the manager
+--       or received by the profile) are the owner's, every manager gift
+--       pushes loyalty_gift to the owners (notify_staff re-issued with the
+--       key), and adjust rows no longer count toward lifetime or the
+--       12-month tier points.
+--   c44 deferred (recorded in the plan and packages/db/CLAUDE.md): a column
+--       grant on tabs cannot tell staff from a guest session (both are
+--       `authenticated`), so revoking customer_id would hide it from the
+--       till's own read (useTabLoyalty) too; it needs that read moved to an
+--       RPC first. What a guest session can read is a profile uuid and how
+--       the desk identified it, never a name or a phone.
 --   c43 loyalty_customer is the desk's (cashier, shop_staff, court_desk,
 --       manager, owner).
 --   s1  my_loyalty shows a note only on reward and expire rows.
@@ -97,11 +111,12 @@ create table if not exists loyalty_token_attempts (
   auth_user_id uuid,
   member_code  text,
   ok           boolean not null,
+  anonymous    boolean not null default false,
   at           timestamptz not null default clock_timestamp()
 );
 
 comment on table loyalty_token_attempts is
-  'Loyalty (0308, c3). Every member-token or phone lookup at app.link_guest_session and app.loyalty_identify, success or not: the throttle counts the failures per caller (10 minutes) and per member code (an hour). Rows older than a day are pruned on write. No client grant.';
+  'Loyalty (0308, c3). Every member-token or phone lookup at app.link_guest_session, app.loyalty_identify and the token path of app.loyalty_redeem, success or not: the throttle counts the failures per caller (10 minutes) and, for anonymous café sessions only, per member code (an hour). member_code is kept only when a card holds that code (a typo of a code nobody has locks no one); anonymous says the caller was an anonymous auth user. Rows older than a day are pruned on write. No client grant.';
 
 alter table loyalty_token_attempts enable row level security;
 revoke all on loyalty_token_attempts from anon, authenticated;
@@ -206,7 +221,12 @@ comment on function app.loyalty_token_consume(text) is
 revoke all on function app.loyalty_token_consume(text) from public, anon, authenticated;
 
 -- The throttle (internal, 0308 c3): MEMBER_CODE_LOCKED once the caller has
--- p_user_limit failures in ten minutes, or the member code 20 in an hour.
+-- p_user_limit failures in ten minutes, or, for an anonymous caller, once
+-- anonymous callers have failed 20 times in an hour on the member code. Staff
+-- are held by their own limit only, so throwaway café sessions that burn a
+-- known member's code never lock the desk out of that member (a denial of
+-- service on the card printed under the QR); the member's own café link is
+-- what such a burst can lock, for an hour.
 create or replace function app.loyalty_throttle_check(p_uid uuid, p_code text, p_user_limit int) returns void
 language plpgsql stable security definer set search_path = public as $loyalty_throttle_check_0308$
 begin
@@ -215,15 +235,17 @@ begin
                                and a.at > now() - interval '10 minutes') >= p_user_limit then
     raise exception 'MEMBER_CODE_LOCKED' using errcode = 'P0001', detail = 'caller';
   end if;
-  if p_code is not null and (select count(*) from loyalty_token_attempts a
-                              where a.member_code = p_code and not a.ok
-                                and a.at > now() - interval '1 hour') >= 20 then
+  if p_code is not null
+     and exists (select 1 from auth.users u where u.id = p_uid and u.is_anonymous)
+     and (select count(*) from loyalty_token_attempts a
+           where a.member_code = p_code and a.anonymous and not a.ok
+             and a.at > now() - interval '1 hour') >= 20 then
     raise exception 'MEMBER_CODE_LOCKED' using errcode = 'P0001', detail = 'member_code';
   end if;
 end $loyalty_throttle_check_0308$;
 
 comment on function app.loyalty_throttle_check(uuid, text, int) is
-  'Loyalty (0308, c3). Internal: MEMBER_CODE_LOCKED (detail caller | member_code) when the caller has p_user_limit failed lookups in the last ten minutes, or the member code 20 in the last hour (loyalty_token_attempts).';
+  'Loyalty (0308, c3). Internal: MEMBER_CODE_LOCKED detail caller when the caller has p_user_limit failed lookups in the last ten minutes; detail member_code when the caller is an anonymous café session and anonymous callers failed 20 times on the member code in the last hour (loyalty_token_attempts). The member-code lock never applies to staff: a burst of throwaway sessions on a known code cannot lock the desk out of the member.';
 
 revoke all on function app.loyalty_throttle_check(uuid, text, int) from public, anon, authenticated;
 
@@ -231,11 +253,15 @@ create or replace function app.loyalty_attempt_record(p_uid uuid, p_code text, p
 language plpgsql security definer set search_path = public as $loyalty_attempt_record_0308$
 begin
   delete from loyalty_token_attempts where at < now() - interval '1 day';
-  insert into loyalty_token_attempts (auth_user_id, member_code, ok) values (p_uid, p_code, p_ok);
+  insert into loyalty_token_attempts (auth_user_id, member_code, ok, anonymous)
+  values (p_uid,
+          case when exists (select 1 from loyalty_cards c where c.member_code = p_code) then p_code end,
+          p_ok,
+          exists (select 1 from auth.users u where u.id = p_uid and u.is_anonymous));
 end $loyalty_attempt_record_0308$;
 
 comment on function app.loyalty_attempt_record(uuid, text, boolean) is
-  'Loyalty (0308, c3). Internal: one loyalty_token_attempts row (rows older than a day pruned first).';
+  'Loyalty (0308, c3). Internal: one loyalty_token_attempts row (rows older than a day pruned first): the member code only when a card holds it, and whether the caller is an anonymous auth user.';
 
 revoke all on function app.loyalty_attempt_record(uuid, text, boolean) from public, anon, authenticated;
 
@@ -261,19 +287,25 @@ begin
       return v;
     end if;
   end if;
+  -- 0308 (c2): every fallback below skips an active staff member. Staff earn
+  -- only through an explicit attach (set_tab_customer, behind another
+  -- manager's PIN), never by linking a café session to their own card,
+  -- booking a court as a guest or taking a seat.
   -- 0308 (c4): a tournament or lesson tab is its entry's or enrolment's guest.
   if v_tab.tournament_entry_id is not null then
     select p.id into v
       from tournament_entries e
       join profiles p on p.id = e.guest_id and p.deleted_at is null
-     where e.id = v_tab.tournament_entry_id;
+     where e.id = v_tab.tournament_entry_id
+       and not exists (select 1 from staff s where s.id = p.id and s.is_active);
     return v;
   end if;
   if v_tab.lesson_enrolment_id is not null then
     select p.id into v
       from lesson_enrolments e
       join profiles p on p.id = e.guest_id and p.deleted_at is null
-     where e.id = v_tab.lesson_enrolment_id;
+     where e.id = v_tab.lesson_enrolment_id
+       and not exists (select 1 from staff s where s.id = p.id and s.is_active);
     return v;
   end if;
   if v_tab.reservation_id is not null then
@@ -287,20 +319,27 @@ begin
         join payment_match_seats pm on pm.payment_id = pay.id
         join match_seats s on s.id = pm.match_seat_id
        where pay.tab_id = p_tab_id and s.guest_id is not null;
-      if v_n = 1 and exists (select 1 from profiles p where p.id = v and p.deleted_at is null) then
+      if v_n = 1 and exists (select 1 from profiles p where p.id = v and p.deleted_at is null)
+         and not exists (select 1 from staff s where s.id = v and s.is_active) then
         return v;
       end if;
       return null;
     end if;
-    -- 0308 (c23): the booking's guest only on the tab that carries the court
-    -- line: not once another tab of the booking settled with court money.
+    -- 0308 (c23): the booking's guest has one tab per booking: the first one
+    -- opened (not void, not merged away), and only while no other tab of the
+    -- booking has settled. A court paid online in full leaves every desk tab
+    -- at court_iqd 0, so the court line cannot pick the tab; the order does.
     if not exists (select 1 from tabs o
                     where o.reservation_id = v_tab.reservation_id and o.id <> v_tab.id
-                      and o.status = 'settled' and coalesce(o.court_iqd, 0) > 0) then
+                      and o.merged_into_tab_id is null and o.status <> 'void'
+                      and (o.status = 'settled'
+                           or o.opened_at < v_tab.opened_at
+                           or (o.opened_at = v_tab.opened_at and o.id < v_tab.id))) then
       select p.id into v
         from reservations r
         join profiles p on p.id = r.guest_id and p.deleted_at is null
-       where r.id = v_tab.reservation_id;
+       where r.id = v_tab.reservation_id
+         and not exists (select 1 from staff s where s.id = p.id and s.is_active);
       if v is not null then
         return v;
       end if;
@@ -316,7 +355,8 @@ begin
    where o.tab_id = p_tab_id
      and o.source = 'guest_web'
      and o.status <> 'voided'
-     and exists (select 1 from order_items oi where oi.order_id = o.id and not oi.voided);
+     and exists (select 1 from order_items oi where oi.order_id = o.id and not oi.voided)
+     and not exists (select 1 from staff s where s.id = p.id and s.is_active);
   if v_n = 1 then
     return v;
   end if;
@@ -324,7 +364,7 @@ begin
 end $tab_customer_0308$;
 
 comment on function app.tab_customer(uuid) is
-  'Loyalty (M3; 0308). Internal: the customer of a tab: tabs.customer_id; else a tournament tab''s entry guest or a lesson tab''s enrolment guest; else, on a booking tab with court_cap_iqd (an open-match seat share), the one account among the seats its payments are linked to; else the booking''s guest, but only while no other tab of the booking has settled with court money (c23); else the one linked profile among the guest_web orders that hold a line not voided (two or more linked accounts: none, the desk attaches). A deleted profile counts as none; NULL when there is no customer.';
+  'Loyalty (M3; 0308). Internal: the customer of a tab: tabs.customer_id; else a tournament tab''s entry guest or a lesson tab''s enrolment guest; else, on a booking tab with court_cap_iqd (an open-match seat share), the one account among the seats its payments are linked to; else the booking''s guest, on the booking''s first tab only (the earliest opened that is not void or merged away) and only while no other tab of the booking has settled (c23); else the one linked profile among the guest_web orders that hold a line not voided (two or more linked accounts: none, the desk attaches). Every fallback skips an active staff member (c2: staff earn only through an attach behind another manager''s PIN). A deleted profile counts as none; NULL when there is no customer.';
 
 revoke all on function app.tab_customer(uuid) from public, anon, authenticated;
 
@@ -476,6 +516,8 @@ declare
   v_back    bigint;              -- 0308
   v_post    bigint;              -- 0308
   v_who     uuid;                -- 0308
+  v_spent   record;              -- 0308
+  v_n       int;                 -- 0308
 begin
   select p.tab_id into v_tab from payments p where p.id = new.payment_id;
   if v_tab is null then
@@ -532,36 +574,50 @@ begin
   end if;
 
   -- 0308 (c13): the points spent on the tab come back in proportion to the
-  -- money refunded since the settle (floor, cumulative), to the account that
-  -- spent them.
-  select coalesce(-sum(l.delta) filter (where l.kind in ('redeem', 'reward')), 0)
-       - coalesce(sum(l.delta) filter (where l.kind = 'redeem_void' and l.source_kind = 'tab_adjustment'), 0),
-         coalesce(sum(l.delta) filter (where l.kind = 'redeem_void' and l.source_kind = 'refund'), 0)
-    into v_used, v_back
-    from loyalty_ledger l
-   where l.tab_id = v_tab;
-  if v_used > 0 then
-    select l.profile_id into v_who
+  -- money refunded since the settle (floor, cumulative), each account its own
+  -- share. What was spent is read through the tab's own loyalty adjustments
+  -- (source_id = adjustment id, as the redeem cap reads it), not the ledger's
+  -- tab_id: merge_tabs moves a donor tab's adjustments to the surviving tab
+  -- and leaves their ledger rows naming the donor. The first account's row
+  -- is keyed by the refund id; a second account's (a merge of two members'
+  -- tabs) by a key derived from the refund and the account.
+  select coalesce(sum(r.amount_iqd), 0) into v_post
+    from refunds r join payments p on p.id = r.payment_id
+   where p.tab_id = v_tab and r.created_at > v_t.settled_at;
+  v_n := 0;
+  for v_spent in
+    select l.profile_id,
+           coalesce(-sum(l.delta) filter (where l.kind in ('redeem', 'reward')), 0)
+         - coalesce(sum(l.delta) filter (where l.kind = 'redeem_void'), 0) as used
+      from tab_adjustments x
+      join loyalty_ledger l on l.source_kind = 'tab_adjustment' and l.source_id = x.id
+                           and l.kind in ('redeem', 'reward', 'redeem_void')
+     where x.tab_id = v_tab and x.reason_code in ('loyalty_points', 'loyalty_reward')
+     group by l.profile_id
+     order by l.profile_id
+  loop
+    v_used := v_spent.used;
+    v_who := v_spent.profile_id;
+    continue when v_used <= 0;
+    select coalesce(sum(l.delta), 0) into v_back
       from loyalty_ledger l
-     where l.tab_id = v_tab and l.kind in ('redeem', 'reward')
-     order by l.created_at desc
-     limit 1;
-    select coalesce(sum(r.amount_iqd), 0) into v_post
-      from refunds r join payments p on p.id = r.payment_id
-     where p.tab_id = v_tab and r.created_at > v_t.settled_at;
+     where l.kind = 'redeem_void' and l.source_kind = 'refund' and l.tab_id = v_tab and l.profile_id = v_who;
     v_target := floor((v_used::numeric * least(v_post, v_paid)) / v_paid)::bigint;
     if v_target - v_back > 0
        and exists (select 1 from profiles p where p.id = v_who and p.deleted_at is null) then
       insert into loyalty_ledger (profile_id, venue_id, delta, kind, source_kind, source_id, tab_id, actor_id)
-      values (v_who, new.venue_id, v_target - v_back, 'redeem_void', 'refund', new.id, v_tab, auth.uid())
+      values (v_who, new.venue_id, v_target - v_back, 'redeem_void', 'refund',
+              case when v_n = 0 then new.id else md5(new.id::text || ':' || v_who::text)::uuid end,
+              v_tab, auth.uid())
       on conflict (kind, source_kind, source_id) do nothing;
+      v_n := v_n + 1;
     end if;
-  end if;
+  end loop;
   return null;
 end $trg_loyalty_clawback_0308$;
 
 comment on function app.trg_loyalty_clawback() is
-  'Loyalty (M3, contracts §1.3; 0308). Deferred AFTER INSERT on refunds, for a refund of a settled tab taken after its settle (paid = the payments less the refunds up to the settle). Clawback (c22): when the tab earned, a cumulative target ceil(earned * eligible refunded / earn_base_iqd), capped at earned, less the earlier clawbacks: an itemised refund (refund_items) is goods, eligible when the goods earned; money refunded without items comes first out of what did not earn (paid less earn_base_iqd), then out of the base; (clawback, refund, refund_id). Points spent (c13): floor(points spent on the tab * refunded since the settle / paid) less what earlier refunds gave back, as (redeem_void, refund, refund_id) to the account that spent them. Runs whether loyalty is on or off; skipped for a deleted profile. The balance may go negative.';
+  'Loyalty (M3, contracts §1.3; 0308). Deferred AFTER INSERT on refunds, for a refund of a settled tab taken after its settle (paid = the payments less the refunds up to the settle). Clawback (c22): when the tab earned, a cumulative target ceil(earned * eligible refunded / earn_base_iqd), capped at earned, less the earlier clawbacks: an itemised refund (refund_items) is goods, eligible when the goods earned; money refunded without items comes first out of what did not earn (paid less earn_base_iqd), then out of the base; (clawback, refund, refund_id). Points spent (c13): per account, floor(points it spent through the tab''s current loyalty adjustments (a merged donor''s included: the ledger is joined by adjustment id, not tab_id) * refunded since the settle / paid) less what earlier refunds gave it back, as (redeem_void, refund, refund_id), a second account''s row keyed md5(refund_id:profile_id). Runs whether loyalty is on or off; skipped for a deleted profile. The balance may go negative.';
 
 revoke all on function app.trg_loyalty_clawback() from public, anon, authenticated;
 
@@ -1074,6 +1130,9 @@ declare
   v_how       text;   -- 0308
   v_member    uuid;   -- 0308
   v_value     bigint; -- 0308 (c13)
+  v_code      text;   -- 0308 (c3)
+  v_msg       text;   -- 0308
+  v_detail    text;   -- 0308
 begin
   if not app.is_staff('cashier', 'shop_staff', 'court_desk', 'manager', 'owner') then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
@@ -1123,7 +1182,24 @@ begin
   -- customer), or a manager vouches with a PIN grant that is not the
   -- customer's own. A member's token never lets staff spend their own points.
   if nullif(btrim(coalesce(p_member_token, '')), '') is not null then
-    v_member := app.loyalty_token_consume(p_member_token);   -- MEMBER_CODE_INVALID | MEMBER_CODE_EXPIRED
+    -- 0308 (c3): the token path is throttled like identify (ten misses in
+    -- ten minutes lock the caller). A miss is answered as {error, detail},
+    -- not raised, so its attempt row commits; the idempotency claim goes
+    -- with it, so the same key may be retried with a manager PIN.
+    v_code := app.loyalty_token_code(p_member_token);
+    perform app.loyalty_throttle_check(auth.uid(), v_code, 10);   -- MEMBER_CODE_LOCKED
+    begin
+      v_member := app.loyalty_token_consume(p_member_token);
+    exception when raise_exception then
+      get stacked diagnostics v_msg = message_text, v_detail = pg_exception_detail;
+      if v_msg not in ('MEMBER_CODE_INVALID', 'MEMBER_CODE_EXPIRED') then
+        raise;
+      end if;
+      perform app.loyalty_attempt_record(auth.uid(), v_code, false);
+      delete from app.rpc_replays where idempotency_key = p_idempotency_key and fn = 'loyalty_redeem';
+      return jsonb_build_object('error', v_msg, 'detail', nullif(v_detail, ''));
+    end;
+    perform app.loyalty_attempt_record(auth.uid(), v_code, true);
     if v_member is distinct from v_customer then
       raise exception 'MEMBER_CODE_MISMATCH' using errcode = 'P0001';
     end if;
@@ -1234,10 +1310,95 @@ begin
 end $loyalty_redeem_0308$;
 
 comment on function app.loyalty_redeem(uuid, int, uuid, text, text) is
-  'Loyalty (M3, contracts §1.3, L-5; 0308). Cashier, shop_staff, court_desk, manager, owner at the tab''s branch, the tab''s kind for the role. Exactly one of p_points and p_reward_id (INVALID_ARGUMENT). LOYALTY_OFF, then claim_replay, then the tab (TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN: open only) and its customer (NO_CUSTOMER). 0308 (c2): the proof: p_member_token, spent once, must name the customer (MEMBER_CODE_INVALID, MEMBER_CODE_EXPIRED, MEMBER_CODE_MISMATCH; FORBIDDEN self_dealing when the customer is the caller), or without it a manager PIN grant (PIN_GRANT_REQUIRED) whose authorizer is not the customer (FORBIDDEN self_dealing). Then the account, locked last. Points: POINTS_BELOW_MIN (min_redeem_points, checked again after the fit: hint the points that fit), POINTS_INSUFFICIENT, rounded down to fit what is left to discount (the goods not yet discounted, and the unpaid bill), amount = points * point_value_iqd. Reward: active, this branch or every branch (REWARD_NOT_FOUND), POINTS_INSUFFICIENT for cost_points, REWARD_EXCEEDS_BILL when its value (iqd_off or the variant''s price) is more than what is left (0308, c13). NOTHING_OWED when nothing is left to discount. Writes a tab_adjustments discount_amount (value = points, applied_by = the caller, authorized_by = the caller for a token or the PIN''s manager, reason_code loyalty_points | loyalty_reward) and a ledger row (redeem | reward, tab_adjustment, adjustment_id) in one transaction, then the 0037 guard. Returns {adjustment_id, points, amount_iqd, balance}. Audited loyalty.redeem {proof qr | pin}.';
+  'Loyalty (M3, contracts §1.3, L-5; 0308). Cashier, shop_staff, court_desk, manager, owner at the tab''s branch, the tab''s kind for the role. Exactly one of p_points and p_reward_id (INVALID_ARGUMENT). LOYALTY_OFF, then claim_replay, then the tab (TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN: open only) and its customer (NO_CUSTOMER). 0308 (c2, c3): the proof: p_member_token, spent once, must name the customer (MEMBER_CODE_MISMATCH; FORBIDDEN self_dealing when the customer is the caller); a token that does not pass (wrong, expired, replayed) is answered {error: MEMBER_CODE_INVALID | MEMBER_CODE_EXPIRED, detail} and counted in loyalty_token_attempts, with the idempotency claim released, and MEMBER_CODE_LOCKED after ten misses by the caller in ten minutes; or without it a manager PIN grant (PIN_GRANT_REQUIRED) whose authorizer is not the customer (FORBIDDEN self_dealing). Then the account, locked last. Points: POINTS_BELOW_MIN (min_redeem_points, checked again after the fit: hint the points that fit), POINTS_INSUFFICIENT, rounded down to fit what is left to discount (the goods not yet discounted, and the unpaid bill), amount = points * point_value_iqd. Reward: active, this branch or every branch (REWARD_NOT_FOUND), POINTS_INSUFFICIENT for cost_points, REWARD_EXCEEDS_BILL when its value (iqd_off or the variant''s price) is more than what is left (0308, c13). NOTHING_OWED when nothing is left to discount. Writes a tab_adjustments discount_amount (value = points, applied_by = the caller, authorized_by = the caller for a token or the PIN''s manager, reason_code loyalty_points | loyalty_reward) and a ledger row (redeem | reward, tab_adjustment, adjustment_id) in one transaction, then the 0037 guard. Returns {adjustment_id, points, amount_iqd, balance}. Audited loyalty.redeem {proof qr | pin}.';
 
 revoke all on function app.loyalty_redeem(uuid, int, uuid, text, text) from public, anon;
 grant execute on function app.loyalty_redeem(uuid, int, uuid, text, text) to authenticated;
+
+-- notify_staff: re-issued from 20260929000261_match_guest_rpcs.sql:376
+-- verbatim, plus loyalty_gift last in c_title_keys (0308, c17: the owner is
+-- told of every manager's gift of points; _shared/staff-push.json and
+-- send-push/staffStrings.ts carry the key and its copy).
+create or replace function app.notify_staff(
+  p_staff_ids uuid[],
+  p_kind      text,
+  p_payload   jsonb,
+  p_dedupe    text default null
+) returns int
+language plpgsql security definer set search_path = public as $notify_staff_0308$
+declare
+  c_kinds      constant text[] := array['staff_task', 'staff_decide', 'staff_decided', 'staff_info'];
+  c_title_keys constant text[] := array[
+    'step_open', 'step_submitted', 'step_approved', 'step_sent_back', 'step_stopped',
+    'run_stopped', 'run_live', 'launch_not_ready', 'apply_not_ready', 'review_ready',
+    'request_submitted', 'request_approved', 'request_rejected', 'shopping_new',
+    'purchase_to_receive', 'idea_submitted', 'idea_started', 'idea_declined',
+    'teaching_new', 'recipe_change_submitted', 'recipe_change_approved',
+    'recipe_change_declined', 'shopping_to_approve', 'shopping_declined',
+    'marketing_request_new', 'marketing_request_answered', 'deduction_proposed',
+    'deduction_approved', 'deduction_declined', 'deduction_recorded',
+    'incident_reported', 'incident_reviewed', 'content_submitted', 'content_approved',
+    'content_changes', 'content_declined', 'waiter_call_new', 'match_report_new',
+    'loyalty_gift'];
+  c_routes     constant text[] := array[
+    'staff', 'staff-step', 'staff-run', 'staff-request', 'staff-shopping',
+    'staff-checklist', 'staff-notes'];
+  v_payload jsonb;
+  v_dedupe  text := nullif(btrim(p_dedupe), '');
+  v_count   int;
+begin
+  if p_kind is null or not (p_kind = any(c_kinds)) then
+    raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', hint = 'kind';
+  end if;
+  if p_payload is null or jsonb_typeof(p_payload) <> 'object' then
+    raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', hint = 'payload';
+  end if;
+  if not coalesce(p_payload->>'title_key' = any(c_title_keys), false) then
+    raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', hint = 'title_key';
+  end if;
+  if not coalesce(p_payload->>'route' = any(c_routes), false) then
+    raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', hint = 'route';
+  end if;
+  -- The shape is closed, so no caller can put money, a phone number or a
+  -- candidate name on a lock screen by adding a key.
+  if exists (select 1 from jsonb_object_keys(p_payload) k
+              where k not in ('route', 'id', 'title_key', 'params', 'dedupe')) then
+    raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', hint = 'payload';
+  end if;
+  if p_payload ? 'params' and p_payload->'params' <> 'null'::jsonb then
+    if jsonb_typeof(p_payload->'params') <> 'object'
+       or exists (select 1 from jsonb_object_keys(p_payload->'params') k
+                   where k not in ('step', 'title', 'name')) then
+      raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', hint = 'params';
+    end if;
+  end if;
+
+  v_payload := (p_payload - 'dedupe')
+            || case when v_dedupe is null then '{}'::jsonb
+                    else jsonb_build_object('dedupe', v_dedupe) end;
+
+  insert into notification_outbox (profile_id, kind, payload)
+  select s.id, p_kind, v_payload
+    from staff s
+    join profiles p on p.id = s.id
+   where s.id = any(coalesce(p_staff_ids, '{}'::uuid[]))
+     and s.is_active
+     and s.id is distinct from auth.uid()
+     and (v_dedupe is null
+          or not exists (select 1 from notification_outbox o
+                          where o.profile_id = s.id
+                            and o.payload->>'dedupe' = v_dedupe
+                            and o.created_at > now() - interval '15 minutes'));
+  get diagnostics v_count = row_count;
+
+  perform app.push_nudge();
+  return v_count;
+end $notify_staff_0308$;
+
+comment on function app.notify_staff(uuid[], text, jsonb, text) is
+  'staff_push (§2.4, §2.21), re-issued by staff_push_keys (§2.24.1) with the role spec''s eleven title keys, by staff_push_keys_wave5 (wave5-addendum §2.3) with wave 5''s eleven, by match_guest_rpcs (0261, open matches R5/R43) with match_report_new, and by loyalty_earn_redeem (0308, c17) with loyalty_gift. Internal: queues one notification_outbox row per recipient (profile_id = staff.id) and nudges send-push. Skips NULLs, inactive staff and the caller; with p_dedupe, a recipient who got the same dedupe value in the last 15 minutes. INVALID_ARGUMENT for a kind, title_key or route outside _shared/staff-push.json, or a payload key outside {route, id, title_key, params, dedupe} / params key outside {step, title, name}. Returns the rows queued.';
+
+revoke all on function app.notify_staff(uuid[], text, jsonb, text) from public, anon, authenticated;
 
 -- loyalty_adjust: re-issued from 20261005000305_loyalty.sql:1232
 create or replace function app.loyalty_adjust(p_profile_id uuid, p_delta int, p_reason text) returns jsonb
@@ -1246,6 +1407,9 @@ declare
   v_auth   uuid;
   v_reason text := nullif(btrim(coalesce(p_reason, '')), '');
   v_id     uuid := gen_random_uuid();
+  v_owner  boolean := app.is_staff('owner');   -- 0308 (c17)
+  v_given  bigint;                             -- 0308
+  v_got    bigint;                             -- 0308
 begin
   if not app.is_staff('manager', 'owner') then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
@@ -1267,7 +1431,7 @@ begin
   if p_delta > 0 and exists (select 1 from staff s where s.id = p_profile_id and s.is_active) then
     raise exception 'FORBIDDEN' using errcode = 'P0001', detail = 'staff_member';
   end if;
-  if p_delta > 1000 and not app.is_staff('owner') then
+  if p_delta > 1000 and not v_owner then
     raise exception 'FORBIDDEN' using errcode = 'P0001', detail = 'owner_required';
   end if;
 
@@ -1279,17 +1443,52 @@ begin
   end if;
 
   perform 1 from loyalty_accounts a where a.profile_id = p_profile_id for update;
+
+  -- 0308 (c17): the 1,000-point line is a rolling 24 hours, not one call: a
+  -- manager's gifts (every profile) and a profile's gifts received (from
+  -- anyone) in the last day, this one included, above 1,000 are the
+  -- owner's. Read after the account lock, so two gifts to one profile see
+  -- each other.
+  if p_delta > 0 and not v_owner then
+    select coalesce(sum(l.delta), 0) into v_given
+      from loyalty_ledger l
+     where l.kind = 'adjust' and l.source_kind = 'adjust' and l.delta > 0
+       and l.actor_id = auth.uid() and l.created_at > now() - interval '24 hours';
+    select coalesce(sum(l.delta), 0) into v_got
+      from loyalty_ledger l
+     where l.kind = 'adjust' and l.source_kind = 'adjust' and l.delta > 0
+       and l.profile_id = p_profile_id and l.created_at > now() - interval '24 hours';
+    if greatest(v_given, v_got) + p_delta > 1000 then
+      raise exception 'FORBIDDEN' using errcode = 'P0001', detail = 'owner_required',
+        hint = format('given %s and received %s in the last 24 hours', v_given, v_got);
+    end if;
+  end if;
+
   insert into loyalty_ledger (profile_id, venue_id, delta, kind, source_kind, source_id, actor_id, note)
   values (p_profile_id, null, p_delta, 'adjust', 'adjust', v_id, auth.uid(), left(app.safe_line(v_reason), 200));
 
   perform app.write_audit('loyalty.adjust', 'profiles', p_profile_id::text, null,
                           jsonb_build_object('delta', p_delta, 'ledger_source_id', v_id), v_reason, v_auth);
+
+  -- 0308 (c17): the owner hears of every gift a manager makes (a staff push,
+  -- the manager's name only: no guest, no figure on a lock screen).
+  if p_delta > 0 and not v_owner then
+    perform app.notify_staff(
+      app.staff_ids_with_roles(null, array['owner']::staff_role[]),
+      'staff_info',
+      jsonb_build_object(
+        'route', 'staff',
+        'id', null,
+        'title_key', 'loyalty_gift',
+        'params', jsonb_build_object('name', (select s.display_name from staff s where s.id = auth.uid()))),
+      null);
+  end if;
   return jsonb_build_object('balance',
     (select a.balance from loyalty_accounts a where a.profile_id = p_profile_id));
 end $loyalty_adjust_0308$;
 
 comment on function app.loyalty_adjust(uuid, int, text) is
-  'Loyalty (M3, contracts §1.3; 0308). Manager or owner, behind a manager PIN grant (app.consume_pin_grant, PIN_GRANT_REQUIRED; 0115 pattern): adds p_delta points (non-zero, at most a million either way; INVALID_ARGUMENT) to a live profile (MEMBER_NOT_FOUND) with a reason (REASON_REQUIRED), as (adjust, adjust, fresh id) with the reason as the note. 0308 (c17): FORBIDDEN detail self_dealing for the caller''s own profile or a PIN of the member themself, staff_member for a positive delta to active staff, owner_required for more than 1,000 points by a manager. Moves the balance only: not lifetime, not the 12-month tier points. Returns {balance}. Audited loyalty.adjust with the authorizer.';
+  'Loyalty (M3, contracts §1.3; 0308). Manager or owner, behind a manager PIN grant (app.consume_pin_grant, PIN_GRANT_REQUIRED; 0115 pattern): adds p_delta points (non-zero, at most a million either way; INVALID_ARGUMENT) to a live profile (MEMBER_NOT_FOUND) with a reason (REASON_REQUIRED), as (adjust, adjust, fresh id) with the reason as the note. 0308 (c17): FORBIDDEN detail self_dealing for the caller''s own profile or a PIN of the member themself, staff_member for a positive delta to active staff, owner_required when a manager''s gift takes the points they gave (any profile) or the profile received (from anyone) in the last 24 hours above 1,000 (hint the two sums); every gift by a manager queues a loyalty_gift staff push to the owners (app.notify_staff, the manager''s name only). Moves the balance only: not lifetime, not the 12-month tier points. Returns {balance}. Audited loyalty.adjust with the authorizer.';
 
 revoke all on function app.loyalty_adjust(uuid, int, text) from public, anon;
 grant execute on function app.loyalty_adjust(uuid, int, text) to authenticated;

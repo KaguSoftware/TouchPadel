@@ -61,8 +61,10 @@ const WAVE5_KEYS = [
   'content_declined',
   'waiter_call_new',
 ];
-/** Open matches' staff key (0261, R5/R43), last in the JSON. */
+/** Open matches' staff key (0261, R5/R43), after wave 5. */
 const MATCH_KEYS = ['match_report_new'];
+/** Loyalty's gift alert to the owners (0308, c17), last in the JSON. */
+const LOYALTY_KEYS = ['loyalty_gift'];
 const FSI = '\u2068';
 const PDI = '\u2069';
 const iso = (s: string) => `${FSI}${s}${PDI}`;
@@ -82,13 +84,14 @@ function msg(lang: Lang, key: string, params: Record<string, unknown> = {}) {
 }
 
 describe('staff-push.json', () => {
-  it('lists the four staff kinds, thirty-eight title keys and seven routes, each once', () => {
+  it('lists the four staff kinds, thirty-nine title keys and seven routes, each once', () => {
     expect(staffPush.kinds).toEqual(['staff_task', 'staff_decide', 'staff_decided', 'staff_info']);
-    expect(staffPush.title_keys).toHaveLength(38);
+    expect(staffPush.title_keys).toHaveLength(39);
     expect(new Set(staffPush.title_keys).size).toBe(staffPush.title_keys.length);
     expect(staffPush.title_keys.slice(15, 26)).toEqual(ROLE_SPEC_KEYS);
     expect(staffPush.title_keys.slice(26, 37)).toEqual(WAVE5_KEYS);
-    expect(staffPush.title_keys.slice(37)).toEqual(MATCH_KEYS);
+    expect(staffPush.title_keys.slice(37, 38)).toEqual(MATCH_KEYS);
+    expect(staffPush.title_keys.slice(38)).toEqual(LOYALTY_KEYS);
     expect(staffPush.routes).toEqual([
       'staff',
       'staff-step',
@@ -229,7 +232,13 @@ describe('staffMessage — the EN copy of §2.21', () => {
     ['waiter_call_new', { title: 'T12' }, 'Guest call', `Table ${iso('T12')}`],
     // Open matches (guest.md §4.7.5): no params; names nobody.
     ['match_report_new', {}, 'Player report', 'A report about a player is waiting for review.'],
+    // Loyalty (0308, c17): the manager by name; no guest, no figure.
+    ['loyalty_gift', { name: 'Rana' }, 'Points gifted', `${iso('Rana')} gave a guest loyalty points.`],
   ];
+
+  it('loyalty_gift without the manager’s name still says what happened', () => {
+    expect(msg('en', 'loyalty_gift', {}).body).toBe('A manager gave a guest loyalty points.');
+  });
 
   it.each(cases)('%s', (key, params, title, body) => {
     const m = msg('en', key, params);

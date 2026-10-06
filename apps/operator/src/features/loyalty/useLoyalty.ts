@@ -106,9 +106,30 @@ export function setTabCustomer(tabId: string, customerId: string | null): Promis
   return appRpc('set_tab_customer', { p_tab_id: tabId, p_customer_id: customerId });
 }
 
+/** set_tab_customer's refusal of an active staff member without another manager's PIN (0308, c2). */
+export function needsAttachPin(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === 'PIN_GRANT_REQUIRED';
+}
+
 /** One key per opened "Use points" or reward choice, so a double press replays (claim_replay). */
 export function redeemKey(): string {
   return onlineKey('loyalty_redeem');
+}
+
+/**
+ * loyalty_redeem answers a token that does not pass as {error, detail} instead of raising it
+ * (0308, c3: the miss must commit to count toward the throttle, and the call's key is released
+ * so the same press can go on with a manager PIN). The till treats it as the refusal it is.
+ */
+async function redeem(args: Record<string, unknown>): Promise<RedeemResult> {
+  const answer = await appRpc<RedeemResult & { error?: string; detail?: string | null }>(
+    'loyalty_redeem',
+    args,
+  );
+  if (answer.error) {
+    throw new AppRpcError(answer.error, answer.error, undefined, answer.detail ?? undefined);
+  }
+  return answer;
 }
 
 /**
@@ -121,7 +142,7 @@ export function redeemPoints(
   key: string,
   memberToken: string | null,
 ): Promise<RedeemResult> {
-  return appRpc<RedeemResult>('loyalty_redeem', {
+  return redeem({
     p_tab_id: tabId,
     p_points: points,
     p_reward_id: null,
@@ -136,7 +157,7 @@ export function redeemReward(
   key: string,
   memberToken: string | null,
 ): Promise<RedeemResult> {
-  return appRpc<RedeemResult>('loyalty_redeem', {
+  return redeem({
     p_tab_id: tabId,
     p_points: null,
     p_reward_id: rewardId,

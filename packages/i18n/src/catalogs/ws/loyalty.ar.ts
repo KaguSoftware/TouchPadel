@@ -31,6 +31,9 @@ export const loyaltyAr: DeepMessages<typeof loyaltyEn> = {
     pendingShop: 'يُضاف العضو عند استلام الدفع.',
     shopStepTitle: 'العضو في هذه البيعة',
     continue: 'استلام الدفع',
+    staffTitle: 'موظف على هذه الفاتورة',
+    staffLead: '{name} من فريق العمل. يُدخل مدير آخر رمزه لإضافته، ولا يُقبل رمز الموظف نفسه.',
+    staffConfirm: 'إضافة إلى الفاتورة',
   },
   redeem: {
     button: 'استخدام النقاط',

@@ -14,6 +14,8 @@
  * Points and rewards are spent only with proof the member is here (0308, c2): the member token
  * scanned a moment ago (sent once as p_member_token), else a manager's PIN in the dialog
  * (verify_manager_pin, then the redemption spends its grant). A refused token asks for the PIN.
+ * A member who works here is added to a bill only behind another manager's PIN: when
+ * set_tab_customer answers PIN_GRANT_REQUIRED the PIN is asked for and the attach sent again.
  *
  * Every call is online only (L-6: no queued mutation type). A tab opened offline has no server
  * id yet, so the button is off with a hint until its open replays. After each write the tab,
@@ -49,6 +51,7 @@ import {
   grantManagerPin,
   identifyMember,
   invalidateTabLoyalty,
+  needsAttachPin,
   redeemKey,
   redeemPoints,
   redeemReward,
@@ -300,7 +303,11 @@ const box = {
 // ---------------------------------------------------------------------------
 
 type Dialog =
-  { kind: 'none' } | { kind: 'identify'; code: string } | { kind: 'redeem' } | { kind: 'rewards' };
+  | { kind: 'none' }
+  | { kind: 'identify'; code: string }
+  | { kind: 'staffPin'; member: IdentifiedMember }
+  | { kind: 'redeem' }
+  | { kind: 'rewards' };
 
 export function MemberAttach({
   tabId,
@@ -378,7 +385,16 @@ export function MemberAttach({
   }
 
   async function attach(m: IdentifiedMember) {
-    await setTabCustomer(tabId, m.customer_id);
+    try {
+      await setTabCustomer(tabId, m.customer_id);
+    } catch (e) {
+      // 0308 (c2): a member who works here is added only behind another manager's PIN.
+      if (needsAttachPin(e)) {
+        setDialog({ kind: 'staffPin', member: m });
+        return;
+      }
+      throw e;
+    }
     setDialog({ kind: 'none' });
     refresh(m.customer_id);
   }
@@ -549,6 +565,17 @@ export function MemberAttach({
           onIdentified={attach}
         />
       )}
+      {dialog.kind === 'staffPin' && (
+        <StaffPinDialog
+          tabId={tabId}
+          member={dialog.member}
+          onClose={() => setDialog({ kind: 'none' })}
+          onDone={() => {
+            setDialog({ kind: 'none' });
+            refresh(dialog.member.customer_id);
+          }}
+        />
+      )}
       {dialog.kind === 'redeem' && member && (
         <RedeemDialog
           tabId={tabId}
@@ -578,6 +605,94 @@ export function MemberAttach({
         />
       )}
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// A member who works here (0308, c2)
+// ---------------------------------------------------------------------------
+
+/**
+ * set_tab_customer refuses an active staff member without a manager PIN grant (PIN_GRANT_REQUIRED),
+ * and refuses the staff member's own PIN (FORBIDDEN self_dealing): another manager enters theirs
+ * here (verify_manager_pin, the 0115 grant pattern), then the attach is sent again.
+ */
+function StaffPinDialog({
+  tabId,
+  member,
+  onClose,
+  onDone,
+}: {
+  tabId: string;
+  member: IdentifiedMember;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { tr } = useLocale();
+  const [pin, setPin] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const ready = pin.length >= 4;
+
+  async function confirm() {
+    if (!ready || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await grantManagerPin(pin);
+      await setTabCustomer(tabId, member.customer_id);
+      onDone();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      title={tr(`${K}.member.staffTitle`)}
+      subtitle={tr(`${K}.member.staffLead`, {
+        name: member.display_name ?? tr(`${K}.member.unknownName`),
+      })}
+      size="sm"
+      dismissible={!busy}
+      onClose={onClose}
+      footer={(close) => (
+        <>
+          <Button onClick={close} disabled={busy}>
+            {tr('common.cancel')}
+          </Button>
+          <Button
+            kind="primary"
+            icon="userPlus"
+            busy={busy}
+            disabled={!ready}
+            onClick={() => void confirm()}
+            data-testid="staff-attach-confirm"
+          >
+            {tr(`${K}.member.staffConfirm`)}
+          </Button>
+        </>
+      )}
+    >
+      <Field label={tr(`${K}.redeem.pinLabel`)} style={{ marginBlockEnd: 0 }}>
+        <input
+          style={{ ...inputStyle, inlineSize: '10rem' }}
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          autoFocus
+          maxLength={6}
+          value={pin}
+          disabled={busy}
+          data-testid="staff-attach-pin"
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+          onKeyDown={(e) => e.key === 'Enter' && void confirm()}
+        />
+      </Field>
+      <ErrorText error={error} />
+    </Modal>
   );
 }
 

@@ -49,6 +49,7 @@ import {
   T,
   waitForSleeper,
   X,
+  XAS,
   type Results,
 } from './stores-harness';
 import { SETUP as MATCH_SETUP, GUEST as MGUEST, at as mAt } from './matches-harness';
@@ -433,11 +434,44 @@ describe.skipIf(!docker)('loyalty earn (contracts §1.3)', () => {
       PAY('p2', 'cafe2', 15000),
       SETTLE('cafe2'),
       EARNED('pts2', 'cafe2'),
+      // 0308 (c23): a court paid online in full leaves every desk tab at court_iqd 0; the booking
+      // guest still has one tab (tabs_one_live_per_reservation makes them one after another):
+      // the first, and none once it has settled
+      KEEP(
+        'res2',
+        `insert into reservations (court_id, kind, status, start_at, end_at, source, venue_id, guest_id)
+         values (gen_random_uuid(), 'booking', 'confirmed', now() + interval '401 days', now() + interval '401 days 1 hour',
+                 'desk', {{venue}}, {{g1}}) returning id::text`,
+      ),
+      TAB('dp1', 'cafe', { goods: 9000, res: 'res2' }),
+      Q('dp1_customer', `select to_jsonb(app.tab_customer({{dp1}}) = {{g1}}::uuid)`),
+      PAY('dp1p', 'dp1', 9000),
+      SETTLE('dp1'),
+      EARNED('dp1_pts', 'dp1'),
+      TAB('dp2', 'cafe', { goods: 7000, res: 'res2' }),
+      Q('dp2_customer', `select to_jsonb(app.tab_customer({{dp2}}))`),
+      PAY('dp2p', 'dp2', 7000),
+      SETTLE('dp2'),
+      EARNED('dp2_pts', 'dp2'),
+      // a staff member who books a court as a guest earns nothing on it (c2)
+      KEEP(
+        'res3',
+        `insert into reservations (court_id, kind, status, start_at, end_at, source, venue_id, guest_id)
+         values (gen_random_uuid(), 'booking', 'confirmed', now() + interval '402 days', now() + interval '402 days 1 hour',
+                 'desk', {{venue}}, {{cashier}}) returning id::text`,
+      ),
+      TAB('staff_bk', 'cafe', { court: 20000, res: 'res3' }),
+      Q('staff_customer', `select to_jsonb(app.tab_customer({{staff_bk}}))`),
     ]);
     expect(ok<string>(r, 'customer')).toBeTruthy();
     expect(ok<number>(r, 'pts')).toBe(20);
     expect(ok<string | null>(r, 'customer2')).toBeNull();
     expect(ok<number>(r, 'pts2')).toBe(0);
+    expect(ok(r, 'dp1_customer')).toBe(true);
+    expect(ok<number>(r, 'dp1_pts')).toBe(9);
+    expect(ok<string | null>(r, 'dp2_customer')).toBeNull();
+    expect(ok<number>(r, 'dp2_pts')).toBe(0);
+    expect(ok<string | null>(r, 'staff_customer')).toBeNull();
   });
 
   it('the café fallback (c12): voided orders do not count, and two linked accounts mean no one', () => {
@@ -493,10 +527,40 @@ describe.skipIf(!docker)('loyalty earn (contracts §1.3)', () => {
       SETTLE('t1'),
       EARNED('pts', 't1'),
       Q('g1_id', `select to_jsonb({{g1}}::uuid)`),
+      // 0308 (c2): a cashier who links a café session to their own card is not the tab's
+      // customer, alone or beside a guest
+      KEEP(
+        'a3',
+        `insert into auth.users (id, aud, role, is_anonymous) values (gen_random_uuid(), 'authenticated', 'authenticated', true) returning id::text`,
+      ),
+      KEEP(
+        's3',
+        `insert into guest_sessions (table_id, auth_user_id, expires_at, venue_id, linked_profile_id)
+         values (gen_random_uuid(), {{a3}}, now() + interval '1 hour', {{venue}}, {{cashier}}) returning id::text`,
+      ),
+      TAB('t2', 'cafe'),
+      KEEP(
+        'o4',
+        `insert into orders (tab_id, source, guest_session_id, venue_id) values ({{t2}}, 'guest_web', {{s3}}, {{venue}}) returning id::text`,
+      ),
+      X(
+        `insert into order_items (order_id, menu_item_id, variant_id, qty, unit_price_iqd, line_total_iqd) values ({{o4}}, gen_random_uuid(), gen_random_uuid(), 1, 90000, 90000)`,
+      ),
+      Q('staff_alone', `select to_jsonb(app.tab_customer({{t2}}))`),
+      KEEP(
+        'o5',
+        `insert into orders (tab_id, source, guest_session_id, venue_id) values ({{t2}}, 'guest_web', {{s1}}, {{venue}}) returning id::text`,
+      ),
+      X(
+        `insert into order_items (order_id, menu_item_id, variant_id, qty, unit_price_iqd, line_total_iqd) values ({{o5}}, gen_random_uuid(), gen_random_uuid(), 1, 1000, 1000)`,
+      ),
+      Q('staff_and_guest', `select to_jsonb(app.tab_customer({{t2}}))`),
     ]);
     expect(ok<string>(r, 'voided_only')).toBe(ok<string>(r, 'g1_id'));
     expect(ok<string | null>(r, 'two')).toBeNull();
     expect(ok<number>(r, 'pts')).toBe(0);
+    expect(ok<string | null>(r, 'staff_alone')).toBeNull();
+    expect(ok<string>(r, 'staff_and_guest')).toBe(ok<string>(r, 'g1_id'));
   });
 
   it('computes the same points as earnPoints (@touch/core/loyalty)', () => {
@@ -895,6 +959,54 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
     expect(ok(r, 'customer_desk')).toBe(4970);
   });
 
+  it('holds a manager to 1,000 gifted points a day, split or not, and tells the owner of each gift (c17)', () => {
+    const r = run('loy-adjust-window', [
+      GUEST('g1'),
+      GUEST('g2'),
+      GUEST('g3'),
+      STALE('manager'),
+      MK('m2', 'manager'),
+      GRANT('manager'),
+      T('first', 'manager', `select app.loyalty_adjust({{g1}}, 600, 'goodwill')`),
+      // the same manager, another guest: their own day's total is over
+      GRANT('manager'),
+      T('split', 'manager', `select app.loyalty_adjust({{g2}}, 600, 'goodwill')`),
+      // another manager, the first guest: the guest's day's total is over
+      GRANT('m2', 'owner'),
+      T('other_mgr', 'm2', `select app.loyalty_adjust({{g1}}, 600, 'goodwill')`),
+      // a take never counts; what is left under the line still goes through
+      GRANT('manager'),
+      T('rest', 'manager', `select app.loyalty_adjust({{g3}}, 400, 'goodwill')`),
+      // the owner is not held to it
+      STALE('owner'),
+      GRANT('owner'),
+      T('owner', 'owner', `select app.loyalty_adjust({{g1}}, 600, 'goodwill')`),
+      Q(
+        'alerts',
+        `select coalesce(jsonb_agg(jsonb_build_array(o.kind, o.payload->>'title_key', o.payload->'params'->>'name')
+                                   order by o.created_at), '[]')
+           from notification_outbox o
+          where o.profile_id = {{owner}}::uuid and o.payload->>'title_key' = 'loyalty_gift'`,
+      ),
+      Q('mgr_name', `select to_jsonb(display_name) from staff where id = {{manager}}::uuid`),
+    ]);
+    expect(ok(r, 'first')).toEqual({ balance: 600 });
+    expect(r['split']).toMatchObject({ ok: false, code: 'FORBIDDEN', detail: 'owner_required' });
+    expect(r['other_mgr']).toMatchObject({
+      ok: false,
+      code: 'FORBIDDEN',
+      detail: 'owner_required',
+    });
+    expect(ok(r, 'rest')).toEqual({ balance: 400 });
+    expect(ok(r, 'owner')).toEqual({ balance: 1200 });
+    const name = ok<string>(r, 'mgr_name');
+    // one per manager gift that went through (first, rest); none for the owner's own
+    expect(ok(r, 'alerts')).toEqual([
+      ['staff_info', 'loyalty_gift', name],
+      ['staff_info', 'loyalty_gift', name],
+    ]);
+  });
+
   it('asks for the member (c2): their token, spent once, or a manager PIN that is not theirs', () => {
     const r = run('loy-redeem-proof', [
       GUEST('g1'),
@@ -941,13 +1053,10 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
     expect(ok(r, 'qr')).toMatchObject({ points: 100, amount_iqd: 5000, balance: 900 });
     expect(ok(r, 'qr_auth')).toBe(true);
     expect(ok(r, 'qr_audit')).toBe('qr');
-    expect(r['replayed']).toMatchObject({
-      ok: false,
-      code: 'MEMBER_CODE_INVALID',
-      detail: 'replayed',
-    });
+    // 0308 (c3): a token that does not pass is answered, not raised, so its miss is counted
+    expect(ok(r, 'replayed')).toEqual({ error: 'MEMBER_CODE_INVALID', detail: 'replayed' });
     expect(ok(r, 'next')).toMatchObject({ points: 100, balance: 800 });
-    expect(refused(r, 'older')).toBe('MEMBER_CODE_INVALID');
+    expect(ok(r, 'older')).toEqual({ error: 'MEMBER_CODE_INVALID', detail: 'replayed' });
     expect(ok(r, 'attach_mgr')).toBeTruthy();
     expect(r['pin_of_member']).toMatchObject({
       ok: false,
@@ -956,6 +1065,47 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
     });
     expect(r['own_token']).toMatchObject({ ok: false, code: 'FORBIDDEN', detail: 'self_dealing' });
     expect(ok(r, 'member_token')).toMatchObject({ points: 100, balance: 400 });
+  });
+
+  it('throttles the token path (c2, c3): ten wrong tokens lock the caller, and every miss is kept', () => {
+    const key = KEY('retry');
+    const r = run('loy-redeem-throttle', [
+      GUEST('g1'),
+      PTS('g1', 1000),
+      T('card1', 'g1', `select app.my_member_card()`),
+      STALE('cashier'),
+      TAB('t1', 'cafe', { goods: 50000, customer: 'g1' }),
+      X(`select pg_temp.tok('bad', 'g1', 5)`), // the member's real code, digits out of the window
+      X(`select pg_temp.tok('good', 'g1', 0)`),
+      // a miss releases its idempotency claim: the same key then goes through with a PIN
+      T('miss_key', 'cashier', REDEEM('t1', 100, null, key, 'bad')),
+      GRANT('cashier'),
+      T('pin_same_key', 'cashier', REDEEM('t1', 100, null, key)),
+      ...Array.from({ length: 9 }, (_, i) =>
+        T(`miss${i}`, 'cashier', REDEEM('t1', 100, null, KEY(`m${i}`), 'bad')),
+      ),
+      T('locked', 'cashier', REDEEM('t1', 100, null, KEY('l'), 'good')),
+      Q(
+        'attempts',
+        `select jsonb_build_object('fail', count(*) filter (where not ok), 'ok', count(*) filter (where ok),
+                                   'code', count(*) filter (where member_code is not null))
+           from loyalty_token_attempts where auth_user_id = {{cashier}}::uuid`,
+      ),
+      Q(
+        'spent',
+        `select to_jsonb(count(*)) from tab_adjustments where tab_id = {{t1}}::uuid and reason_code = 'loyalty_points'`,
+      ),
+      // another cashier is not locked: the member code is not, for staff
+      MK('c2', 'cashier'),
+      T('other_cashier', 'c2', REDEEM('t1', 100, null, KEY('o'), 'good')),
+    ]);
+    expect(ok(r, 'miss_key')).toEqual({ error: 'MEMBER_CODE_EXPIRED', detail: null });
+    expect(ok(r, 'pin_same_key')).toMatchObject({ points: 100, balance: 900 });
+    expect(ok(r, 'miss8')).toEqual({ error: 'MEMBER_CODE_EXPIRED', detail: null });
+    expect(r['locked']).toMatchObject({ ok: false, code: 'MEMBER_CODE_LOCKED', detail: 'caller' });
+    expect(ok(r, 'attempts')).toEqual({ fail: 10, ok: 0, code: 10 });
+    expect(ok<number>(r, 'spent')).toBe(1);
+    expect(ok(r, 'other_cashier')).toMatchObject({ points: 100, balance: 800 });
   });
 
   it('gives back the points the discount cap swallowed at settle, and a refund’s share after it (c13)', () => {
@@ -1007,6 +1157,47 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
     expect(ok<number>(r, 'back_half')).toBe(50);
     expect(ok<number>(r, 'back_all')).toBe(100);
     expect(ok<number>(r, 'earn_after')).toBe(0);
+  });
+
+  it('gives a refund’s share back for points spent on a tab merged into the refunded one (c13)', () => {
+    const r = run('loy-redeem-merge', [
+      GUEST('g1'),
+      PTS('g1', 1000),
+      STALE('cashier'),
+      // 100 points (5,000) on the donor, which merge_tabs folds into the survivor
+      TAB('donor', 'cafe', { goods: 10000, customer: 'g1' }),
+      GRANT('cashier'),
+      T('redeem', 'cashier', REDEEM('donor', 100, null)),
+      TAB('survivor', 'cafe', { goods: 20000, customer: 'g1' }),
+      T('merge', 'cashier', `select app.merge_tabs({{donor}}, {{survivor}})`),
+      Q(
+        'moved',
+        `select jsonb_build_object(
+           'adjustment_on', (select tab_id = {{survivor}}::uuid from tab_adjustments where reason_code = 'loyalty_points'
+                              and tab_id in ({{donor}}::uuid, {{survivor}}::uuid)),
+           'ledger_on_donor', (select tab_id = {{donor}}::uuid from loyalty_ledger where kind = 'redeem'
+                                and profile_id = {{g1}}::uuid))`,
+      ),
+      PAY('p', 'survivor', 25000),
+      SETTLE('survivor'),
+      REFUND('r1', 'p', 12500),
+      Q(
+        'back_half',
+        `select to_jsonb(coalesce(sum(delta), 0)) from loyalty_ledger
+          where profile_id = {{g1}}::uuid and kind = 'redeem_void' and source_kind = 'refund'`,
+      ),
+      REFUND('r2', 'p', 12500),
+      Q(
+        'back_all',
+        `select to_jsonb(coalesce(sum(delta), 0)) from loyalty_ledger
+          where profile_id = {{g1}}::uuid and kind = 'redeem_void' and source_kind = 'refund'`,
+      ),
+    ]);
+    expect(ok(r, 'redeem')).toMatchObject({ points: 100, amount_iqd: 5000 });
+    expect(ok(r, 'merge')).toBeTruthy();
+    expect(ok(r, 'moved')).toEqual({ adjustment_on: true, ledger_on_donor: true });
+    expect(ok<number>(r, 'back_half')).toBe(50);
+    expect(ok<number>(r, 'back_all')).toBe(100);
   });
 });
 
@@ -1133,7 +1324,7 @@ describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
 });
 
 describe.skipIf(!docker)('loyalty identify throttle and attach (0308: c2, c3, c7)', () => {
-  it('locks a caller after ten misses and a member code after twenty, even for the right token', () => {
+  it('locks a staff caller after ten misses, and never locks the desk out of a member code', () => {
     const r = run('loy-throttle', [
       GUEST('g1'),
       T('card', 'g1', `select app.my_member_card()`),
@@ -1150,10 +1341,17 @@ describe.skipIf(!docker)('loyalty identify throttle and attach (0308: c2, c3, c7
       ...Array.from({ length: 10 }, (_, i) =>
         T(`c2_miss${i}`, 'c2', `select app.loyalty_identify({{bad}}, null)`),
       ),
-      T('c3_code_locked', 'c3', `select app.loyalty_identify({{good}}, null)`),
+      // twenty staff misses on the code: a third cashier still finds the member (0308: the
+      // member-code lock is the anonymous café sessions' only)
+      T('c3_good', 'c3', `select app.loyalty_identify({{good}}, null)`),
+      // a code no card holds is kept without it: a typo locks no member
+      T('c3_nobody', 'c3', `select app.loyalty_identify('TP-00000000-123456', null)`),
       Q(
         'rows',
-        `select jsonb_build_object('fail', count(*) filter (where not ok), 'ok', count(*) filter (where ok)) from loyalty_token_attempts`,
+        `select jsonb_build_object('fail', count(*) filter (where not ok), 'ok', count(*) filter (where ok),
+                                   'coded', count(*) filter (where member_code is not null),
+                                   'anonymous', count(*) filter (where anonymous))
+           from loyalty_token_attempts`,
       ),
     ]);
     expect(missed(r, 'c1_miss9')).toBe('MEMBER_CODE_EXPIRED');
@@ -1163,12 +1361,42 @@ describe.skipIf(!docker)('loyalty identify throttle and attach (0308: c2, c3, c7
       detail: 'caller',
     });
     expect(ok<{ customer_id: string }>(r, 'c2_good').customer_id).toBeTruthy();
-    expect(r['c3_code_locked']).toMatchObject({
+    expect(ok<{ customer_id: string }>(r, 'c3_good').customer_id).toBeTruthy();
+    expect(missed(r, 'c3_nobody')).toBe('MEMBER_CODE_INVALID');
+    expect(ok(r, 'rows')).toEqual({ fail: 21, ok: 2, coded: 22, anonymous: 0 });
+  });
+
+  it('locks a member code for anonymous café sessions after twenty of their misses, not for the desk', () => {
+    const anon = (n: string) => [
+      KEEP(
+        n,
+        `insert into auth.users (id, aud, role, is_anonymous) values (gen_random_uuid(), 'authenticated', 'authenticated', true) returning id::text`,
+      ),
+      X(
+        `insert into guest_sessions (table_id, auth_user_id, expires_at, venue_id) values (gen_random_uuid(), {{${n}}}, now() + interval '1 hour', {{venue}})`,
+      ),
+    ];
+    const r = run('loy-throttle-anon', [
+      GUEST('g1'),
+      T('card', 'g1', `select app.my_member_card()`),
+      X(`select pg_temp.tok('bad', 'g1', 5)`),
+      X(`select pg_temp.tok('good', 'g1', 0)`),
+      ...['a1', 'a2', 'a3', 'a4', 'a5'].flatMap(anon),
+      ...['a1', 'a2', 'a3', 'a4'].flatMap((a) =>
+        Array.from({ length: 5 }, (_, i) =>
+          T(`${a}_miss${i}`, a, `select app.link_guest_session({{bad}})`),
+        ),
+      ),
+      T('a5_locked', 'a5', `select app.link_guest_session({{good}})`),
+      T('desk_good', 'cashier', `select app.loyalty_identify({{good}}, null)`),
+    ]);
+    expect(ok(r, 'a4_miss4')).toEqual({ linked: false, error: 'MEMBER_CODE_INVALID' });
+    expect(r['a5_locked']).toMatchObject({
       ok: false,
       code: 'MEMBER_CODE_LOCKED',
       detail: 'member_code',
     });
-    expect(ok(r, 'rows')).toEqual({ fail: 20, ok: 1 });
+    expect(ok<{ customer_id: string }>(r, 'desk_good').customer_id).toBeTruthy();
   });
 
   it('attaches staff only behind another manager’s PIN, records how, and keeps a redeemed tab’s member', () => {
@@ -1569,13 +1797,19 @@ describe.skipIf(!docker)('loyalty and the account (contracts §1.3, §1.4)', () 
 // ── 7. earning on the real paths (0308: c4, c5) ──────────────────────────────
 
 /** Loyalty on with the suite's numbers, the deferred triggers firing per statement. */
-const LOY_ON = String.raw`
-set constraints all immediate;
+const LOY_SETTINGS = String.raw`
 update loyalty_settings set enabled = true, iqd_per_point = 1000, point_value_iqd = 50, min_redeem_points = 100,
        earn_cafe = true, earn_shop = true, earn_court = true, earn_lesson = true, earn_tournament = true,
        inactivity_expiry_months = null, totp_step_seconds = 30
  where id;
 `;
+const LOY_ON = `set constraints all immediate;\n${LOY_SETTINGS}`;
+/**
+ * The commit of a real RPC whose body settles before it writes the rows the earn reads (Take
+ * share links the seats after the settle): the deferred triggers it queued fire here, as they
+ * would at COMMIT, instead of at the settle statement as SET CONSTRAINTS ALL IMMEDIATE would.
+ */
+const AS_AT_COMMIT = 'set constraints all immediate;';
 const EARN_OF = (label: string, guest: string) =>
   Q(
     label,
@@ -1629,68 +1863,66 @@ describe.skipIf(!docker)('loyalty earn on the real paths (0308: c4, c5)', () => 
   });
 
   it("an open-match seat share earns for the seat's player, never the booking's guest", () => {
+    // Take share at the desk (app.match_seat_settle, 0262): the RPC opens the capped tab of the
+    // match's booking, takes the payment, links it to the seats and settles, so the deferred earn
+    // runs on the tab it left.
     const r = scenario('loy-real-seat', [
       MATCH_SETUP,
-      LOY_ON,
+      PLANT_BRANCH,
+      LOY_SETTINGS,
       'select pg_temp.branch();',
+      'select pg_temp.staff();',
+      X(`select pg_temp.day('day')`),
       MGUEST('g1'),
       MGUEST('g2'),
+      MGUEST('g3'),
       KEEP('res', `select pg_temp.res('c1', ${mAt(3)}, 90, 'booking', 'confirmed')::text`),
+      X(`update reservations set price_iqd = 40000, guest_name = 'Open match' where id = {{res}}`),
       KEEP(
         'm',
-        `select pg_temp.m(jsonb_build_object('status', 'booked', 'start_at', ${mAt(3)}, 'reservation_id', {{res}}))::text`,
+        `select pg_temp.m(jsonb_build_object('status', 'booked', 'start_at', ${mAt(3)}, 'reservation_id', {{res}},
+                                             'organiser_id', null, 'organised_by', 'desk',
+                                             'created_by_staff_id', {{desk}}))::text`,
       ),
       KEEP('s1', `select pg_temp.seat({{m}}::uuid, 1, 'account', {{g1}}::uuid)::text`),
       KEEP('s2', `select pg_temp.seat({{m}}::uuid, 2, 'account', {{g2}}::uuid)::text`),
-      KEEP(
-        'day',
-        `insert into day_sessions (venue_id, business_date, status, opened_by, opening_float_iqd)
-         values ({{v}}, app.venue_business_date({{v}}::uuid, now()), 'open', {{manager}}, 0) returning id::text`,
+      KEEP('s3', `select pg_temp.seat({{m}}::uuid, 3, 'account', {{g3}}::uuid)::text`),
+      // seat 2 alone, cash: its capped tab is g2's
+      T(
+        'one',
+        'desk',
+        `select app.match_seat_settle(array[{{s2}}]::uuid[], 'cash', 10000, 10000, null, 'k-loy-seat-one', null)`,
       ),
-      // what match_seat_settle leaves: a capped tab of the match's booking, its payment linked to seat 2
-      KEEP(
-        'tab',
-        `insert into tabs (venue_id, day_session_id, status, reservation_id, kind, court_cap_iqd, label)
-         values ({{v}}, {{day}}, 'open', {{res}}, 'cafe', 10000, 'seat 2') returning id::text`,
+      // seats 1 and 3 in one payment: two players, nobody is picked
+      T(
+        'two',
+        'desk',
+        `select app.match_seat_settle(array[{{s1}}, {{s3}}]::uuid[], 'card', 20000, null, null, 'k-loy-seat-two', null)`,
       ),
-      KEEP(
-        'pay',
-        `insert into payments (tab_id, day_session_id, method, amount_iqd, recorded_by, venue_id)
-         values ({{tab}}, {{day}}, 'cash', 10000, {{desk}}, {{v}}) returning id::text`,
+      AS_AT_COMMIT,
+      // (the planted seats' tickets were bought online and earn on their own, c5: the tabs here)
+      ...['g1', 'g2', 'g3'].map((g) =>
+        Q(
+          `tab_${g}`,
+          `select coalesce(jsonb_agg(jsonb_build_array(kind, source_kind, delta)), '[]')
+             from loyalty_ledger where profile_id = {{${g}}}::uuid and source_kind = 'tab'`,
+        ),
       ),
-      X(
-        `insert into payment_match_seats (payment_id, match_seat_id, venue_id, amount_iqd, linked_by) values ({{pay}}, {{s2}}, {{v}}, 10000, {{desk}})`,
-      ),
-      Q('customer', `select to_jsonb(app.tab_customer({{tab}}::uuid) = {{g2}}::uuid)`),
-      X(
-        `update tabs set status = 'settled', settled_at = clock_timestamp(), court_iqd = 10000 where id = {{tab}}`,
-      ),
-      // (the planted seats' tickets were bought online and earn on their own, c5: only the tab here)
       Q(
-        'g2',
-        `select coalesce(jsonb_agg(jsonb_build_array(kind, source_kind, delta)), '[]')
-           from loyalty_ledger where profile_id = {{g2}}::uuid and source_kind = 'tab'`,
+        'tabs',
+        `select jsonb_agg(jsonb_build_array(t.status, t.court_cap_iqd) order by t.court_cap_iqd)
+           from tabs t where t.reservation_id = {{res}}::uuid`,
       ),
-      // one payment for both seats: two players, nobody is picked
-      KEEP(
-        'tab2',
-        `insert into tabs (venue_id, day_session_id, status, reservation_id, kind, court_cap_iqd, label)
-         values ({{v}}, {{day}}, 'open', {{res}}, 'cafe', 20000, 'seats 1 and 2') returning id::text`,
-      ),
-      KEEP(
-        'pay2',
-        `insert into payments (tab_id, day_session_id, method, amount_iqd, recorded_by, venue_id)
-         values ({{tab2}}, {{day}}, 'cash', 20000, {{desk}}, {{v}}) returning id::text`,
-      ),
-      X(
-        `insert into payment_match_seats (payment_id, match_seat_id, venue_id, amount_iqd, linked_by)
-         values ({{pay2}}, {{s1}}, {{v}}, 10000, {{desk}}), ({{pay2}}, {{s2}}, {{v}}, 10000, {{desk}})`,
-      ),
-      Q('customer2', `select to_jsonb(app.tab_customer({{tab2}}::uuid))`),
     ]);
-    expect(ok(r, 'customer')).toBe(true);
-    expect(ok(r, 'g2')).toEqual([['earn', 'tab', 10]]);
-    expect(ok<string | null>(r, 'customer2')).toBeNull();
+    expect(ok(r, 'one')).toBeTruthy();
+    expect(ok(r, 'two')).toBeTruthy();
+    expect(ok(r, 'tabs')).toEqual([
+      ['settled', 10000],
+      ['settled', 20000],
+    ]);
+    expect(ok(r, 'tab_g2')).toEqual([['earn', 'tab', 10]]);
+    expect(ok(r, 'tab_g1')).toEqual([]);
+    expect(ok(r, 'tab_g3')).toEqual([]);
   });
 
   it('money paid online earns on success and is clawed back on a refund, per switch (c5)', () => {
@@ -1737,6 +1969,85 @@ describe.skipIf(!docker)('loyalty earn on the real paths (0308: c4, c5)', () => 
       ['clawback', 'booking_refund', -10],
     ]);
     expect(ok<number>(r, 'after_switches')).toBe(20);
+  });
+
+  /** The bank's SUCCESS as deposit-webhook sends it: app.deposit_apply, as service_role. */
+  const BANK_SUCCESS = (payment: string, amount: number) =>
+    XAS(
+      'service_role',
+      `select app.deposit_apply((select request_id from booking_payments where id = {{${payment}}}::uuid), null,
+                                'SUCCESS', ${amount}, 'IQD', false, 'webhook', true, '{}'::jsonb)`,
+    );
+  const PAYMENT_STATUS = (label: string, payment: string) =>
+    Q(label, `select to_jsonb(status) from booking_payments where id = {{${payment}}}::uuid`);
+
+  it('a deposit earns through deposit_apply and is clawed back through deposit_refund_apply (service role)', () => {
+    const r = scenario('loy-deposit', [
+      MATCH_SETUP,
+      LOY_ON,
+      'select pg_temp.branch();',
+      MGUEST('g1'),
+      KEEP('hold', `select pg_temp.res('c2', ${mAt(4)}, 90, 'hold', 'pending', 'g1')::text`),
+      KEEP(
+        'pay',
+        `insert into booking_payments (venue_id, reservation_id, hold_id, guest_id, purpose, provider, sandbox,
+                                       request_id, amount_iqd, quoted_price_iqd, status, deadline_at)
+         values ({{v}}, {{hold}}, {{hold}}, {{g1}}, 'deposit', 'fake', false, gen_random_uuid(), 12000, 48000,
+                 'pending', now() + interval '15 minutes') returning id::text`,
+      ),
+      BANK_SUCCESS('pay', 12000),
+      PAYMENT_STATUS('status', 'pay'),
+      EARN_OF('earned', 'g1'),
+      // a manager's partial refund (fixture: the request), then the bank's answer (the edge's call)
+      X(`select app.deposit_begin_refund({{pay}}::uuid, 'staff_refund', 6000, null)`),
+      XAS(
+        'service_role',
+        `select app.deposit_refund_apply({{pay}}::uuid, 'succeeded', 'SUCCESS', 'loy-rf-1', '{}'::jsonb)`,
+      ),
+      PAYMENT_STATUS('refunded', 'pay'),
+      EARN_OF('after', 'g1'),
+    ]);
+    expect(ok(r, 'status')).toBe('succeeded');
+    // the hold's tickets: none; the deposit is court money (earn_court), 12,000 → 12
+    expect(ok(r, 'earned')).toEqual([['earn', 'booking_payment', 12]]);
+    expect(ok(r, 'refunded')).toBe('refunded');
+    expect(ok(r, 'after')).toEqual([
+      ['earn', 'booking_payment', 12],
+      ['clawback', 'booking_refund', -6],
+    ]);
+  });
+
+  it('a lesson paid online earns through lesson_settle_success under earn_lesson only (service role)', () => {
+    const r = scenario('loy-les-online', [
+      MATCH_SETUP,
+      PLANT_BRANCH,
+      'select pg_temp.branch();',
+      'select pg_temp.staff();',
+      'select pg_temp.coaching();',
+      LOY_ON,
+      MGUEST('g1'),
+      // a private lesson the guest holds, paid online: the hold, the held place, the attempt
+      X(`select pg_temp.lesson('l1', 'lt_private', 'c1', ${cAt(3)}, '{"status": "held"}')`),
+      X(`select pg_temp.enrol('e1', 'l1', '{"guest": "g1", "mode": "online", "status": "held"}')`),
+      X(`select pg_temp.online('p1', 'e1', 40000, '{"status": "pending", "hold": "l1_res"}')`),
+      BANK_SUCCESS('p1', 40000),
+      PAYMENT_STATUS('s1', 'p1'),
+      Q('place1', `select to_jsonb(status) from lesson_enrolments where id = {{e1}}::uuid`),
+      EARN_OF('on', 'g1'),
+      // the lesson switch off: the next lesson paid online earns nothing
+      SET('earn_lesson = false'),
+      X(`select pg_temp.lesson('l2', 'lt_private', 'c2', ${cAt(4)}, '{"status": "held"}')`),
+      X(`select pg_temp.enrol('e2', 'l2', '{"guest": "g1", "mode": "online", "status": "held"}')`),
+      X(`select pg_temp.online('p2', 'e2', 40000, '{"status": "pending", "hold": "l2_res"}')`),
+      BANK_SUCCESS('p2', 40000),
+      PAYMENT_STATUS('s2', 'p2'),
+      EARN_OF('off', 'g1'),
+    ]);
+    expect(ok(r, 's1')).toBe('succeeded');
+    expect(ok(r, 'place1')).toBe('booked');
+    expect(ok(r, 'on')).toEqual([['earn', 'booking_payment', 40]]);
+    expect(ok(r, 's2')).toBe('succeeded');
+    expect(ok(r, 'off')).toEqual([['earn', 'booking_payment', 40]]);
   });
 });
 
