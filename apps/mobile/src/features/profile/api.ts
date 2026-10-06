@@ -39,10 +39,12 @@ export interface ProfileRow {
   username?: string | null;
   username_changed_at?: string | null;
   avatar_frame?: string | null;
+  /** 0310: solid | lines (court lines). Optional like the rest. */
+  avatar_frame_style?: string | null;
 }
 
 const PROFILE_COLUMNS =
-  'id, full_name, phone, preferred_lang, given_name, family_name, gender, avatar_path, username, username_changed_at, avatar_frame';
+  'id, full_name, phone, preferred_lang, given_name, family_name, gender, avatar_path, username, username_changed_at, avatar_frame, avatar_frame_style';
 
 export async function fetchOwnProfile(client: Client): Promise<ProfileRow | null> {
   const { data: userData } = await client.auth.getUser();
@@ -224,7 +226,7 @@ export async function setMyBirthDate(client: Client, birthDate: string | null): 
 export interface UsernameCheck {
   username: string | null;
   available: boolean;
-  reason: 'invalid' | 'reserved' | 'taken' | null;
+  reason: 'invalid' | 'not_allowed' | 'reserved' | 'taken' | null;
 }
 
 /** app.username_check (0307): the Edit profile field's live answer. */
@@ -250,6 +252,8 @@ export async function setMyUsername(client: Client, username: string): Promise<v
 
 export interface MyFrames {
   current: string;
+  /** 0310: solid | lines. */
+  style?: string;
   /** 0309: games played and paid in full, and tournaments won. */
   played?: number;
   tournaments_won?: number;
@@ -264,8 +268,11 @@ export async function fetchMyFrames(client: Client): Promise<MyFrames> {
   return data as unknown as MyFrames;
 }
 
-/** app.set_my_frame (0307). FRAME_LOCKED for an earned frame not earned yet. */
-export async function setMyFrame(client: Client, frame: string): Promise<void> {
-  const { error } = await client.schema('app').rpc('set_my_frame', { p_frame: frame });
+/**
+ * app.set_my_frame (0307; the style since 0310). FRAME_LOCKED for an earned
+ * frame not earned yet, FRAME_INVALID for court lines on an earned frame.
+ */
+export async function setMyFrame(client: Client, frame: string, style: string): Promise<void> {
+  const { error } = await client.schema('app').rpc('set_my_frame', { p_frame: frame, p_style: style });
   if (error) throw error;
 }

@@ -516,6 +516,8 @@ export const ERROR_CODE_KEYS = {
   // carries the next allowed time in its detail; the username form words it
   // with the date (profile.usernameTooSoon), this line is the fallback.
   USERNAME_INVALID: 'profile.usernameInvalid',
+  // 0312: a slur or swear word (app.username_offensive).
+  USERNAME_NOT_ALLOWED: 'profile.usernameNotAllowed',
   USERNAME_RESERVED: 'profile.usernameReserved',
   USERNAME_TAKEN: 'profile.usernameTaken',
   USERNAME_TOO_SOON: 'profile.usernameTooSoonGeneric',

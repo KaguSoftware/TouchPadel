@@ -720,6 +720,7 @@ export const ar: Messages = {
     usernameInvalid:
       'استخدم من 3 إلى 20 حرفًا لاتينيًا أو رقمًا أو نقطة أو شرطة سفلية، يبدأ وينتهي بحرف أو رقم.',
     usernameReserved: 'اسم المستخدم هذا محجوز. اختر اسمًا آخر.',
+    usernameNotAllowed: 'اسم المستخدم هذا غير مسموح به. اختر اسمًا آخر.',
     usernameTooSoon: 'يمكنك تغيير اسم المستخدم مرة أخرى في {date}.',
     usernameTooSoonGeneric: 'غيّرت اسم المستخدم مؤخرًا. حاول مرة أخرى بعد بضعة أيام.',
     usernameSuggestion: 'اقتراح: {name}',
@@ -741,7 +742,10 @@ export const ar: Messages = {
     frameCourtWhite: 'الأبيض',
     frameSplitCourt: 'نصف ونصف',
     frameDoubleLine: 'خط مزدوج',
-    frameCourtLines: 'خطوط الملعب',
+    // 0310: court lines is a style of a free frame, picked inside the Free card.
+    frameStyleSolid: 'عادي',
+    frameStyleLines: 'خطوط الملعب',
+    frameStyleFreeOnly: 'خطوط الملعب متاحة مع الإطارات المجانية فقط.',
     frameRegular: 'لاعب منتظم',
     frameSilverRacket: 'المضرب الفضي',
     frameGoldRacket: 'المضرب الذهبي',

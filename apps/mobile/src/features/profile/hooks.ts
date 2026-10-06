@@ -179,7 +179,7 @@ export function useSetFrame() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ['set-frame'],
-    mutationFn: (frame: string) => setMyFrame(supabase, frame),
+    mutationFn: ({ frame, style }: { frame: string; style: string }) => setMyFrame(supabase, frame, style),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: profileKeys.own });
       void queryClient.invalidateQueries({ queryKey: profileKeys.frames });

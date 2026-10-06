@@ -1,5 +1,5 @@
 {
-  "generated_from": "8c050c327cf562b4aed1a019954f749cf1d34200",
+  "generated_from": "bbea49bbd0e04435e523a39b73b0874f37e7c404",
   "chunks": [
     {
       "kind": "page",
@@ -4270,7 +4270,7 @@
       "ref": "action:app.my_frames",
       "lang": "en",
       "title": "app.my_frames",
-      "body": "0307, progress since 0309. The caller's frame picker: {current, played, tournaments_won, frames: [{id, goal, progress, unlocked}]} in the closed list's order; goal and progress are NULL for a free frame (always unlocked).\nSignature: app.my_frames() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0309 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0307, progress since 0309, style since 0310, frame_grants since 0311. The caller's frame picker: {current, style, played, tournaments_won, frames: [{id, goal, progress, unlocked}]} in the closed list's order; goal and progress are NULL for a free frame (always unlocked), and every frame is unlocked for a profile in frame_grants.\nSignature: app.my_frames() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0311 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5254,7 +5254,7 @@
       "ref": "action:app.set_my_frame",
       "lang": "en",
       "title": "app.set_my_frame",
-      "body": "0307. The caller's own photo frame. FRAME_INVALID for an id outside the closed list, FRAME_LOCKED for an earned frame not earned yet. Returns {avatar_frame}.\nSignature: app.set_my_frame(p_frame text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, FRAME_INVALID, FRAME_LOCKED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0307 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0307, style since 0310. The caller's own photo frame and its style (solid | lines; lines on a free frame only). FRAME_INVALID for an id outside the closed list or a style it cannot take, FRAME_LOCKED for an earned frame not earned yet. Returns {avatar_frame, avatar_frame_style}.\nSignature: app.set_my_frame(p_frame text, p_style text default 'solid') returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, FRAME_INVALID, FRAME_LOCKED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0310 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5270,7 +5270,7 @@
       "ref": "action:app.set_my_username",
       "lang": "en",
       "title": "app.set_my_username",
-      "body": "0307. The caller's own username. USERNAME_INVALID, USERNAME_RESERVED, USERNAME_TAKEN, USERNAME_TOO_SOON (detail: when the next change is allowed; the first username is free, then once every 7 days). The name given up is held for the caller for 7 days. Returns {username, changed_at, next_change_at, duplicate}.\nSignature: app.set_my_username(p_username text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, USERNAME_INVALID, USERNAME_RESERVED, USERNAME_TOO_SOON, USERNAME_TAKEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0307 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0312. The caller's own username. USERNAME_INVALID, USERNAME_NOT_ALLOWED (a slur or swear word), USERNAME_RESERVED, USERNAME_TAKEN, USERNAME_TOO_SOON (detail: when the next change is allowed; the first username is free, then once every 7 days). The name given up is held for the caller for 7 days. Returns {username, changed_at, next_change_at, duplicate}.\nSignature: app.set_my_username(p_username text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, USERNAME_INVALID, USERNAME_NOT_ALLOWED, USERNAME_RESERVED, USERNAME_TOO_SOON, USERNAME_TAKEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0312 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -6062,7 +6062,7 @@
       "ref": "action:app.username_check",
       "lang": "en",
       "title": "app.username_check",
-      "body": "0307. The caller's Edit profile field: {username (as it would be stored), available, reason: null | invalid | reserved | taken}. The caller's own current or held name is available to them.\nSignature: app.username_check(p_username text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0307 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0312. The caller's Edit profile field: {username (as it would be stored), available, reason: null | invalid | not_allowed | reserved | taken}. The caller's own current or held name is available to them.\nSignature: app.username_check(p_username text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0312 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -6595,6 +6595,14 @@
     },
     {
       "kind": "table",
+      "ref": "table:frame_grants",
+      "lang": "en",
+      "title": "table frame_grants",
+      "body": "0311. Test accounts that wear every photo frame, earned or not. Empty on hosted; seeded locally for the dev accounts. Read only by app.frame_unlocked and app.my_frames; no client grant.\nCreated in migration 0311.\nColumns:\n  profile_id uuid primary key references profiles(id) on delete cascade\n  granted_at timestamptz not null default now()\n  note text",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:guest_sessions",
       "lang": "en",
       "title": "table guest_sessions",
@@ -7046,7 +7054,7 @@
       "ref": "table:profiles",
       "lang": "en",
       "title": "table profiles",
-      "body": "Created in migration 0004.\nColumns:\n  id uuid primary key references auth.users(id) on delete cascade\n  full_name text not null\n  phone text — captured day one per scope (future SMS identity)\n  preferred_lang text not null default 'en' check (preferred_lang in ('en','ar'))\n  expo_push_token text\n  created_at timestamptz not null default now()\n  deleted_at timestamptz — Set by app.delete_my_account. The row is a TOMBSTONE: anonymised, retained only so reservations.guest_id and the venue statistics keep a parent. Never set by hand — the on_auth_user_deleted trigger reads it to tell a self-deletion (row survives) from an admin rollback (row is dropped).\n  terms_version text — The Terms of Service / Privacy Policy version the guest last accepted (CURRENT_TERMS_VERSION in packages/core/src/legal.ts). Written only by app.accept_terms. Null = never accepted; the app shows its consent screen.\n  terms_accepted_at timestamptz — Server time app.accept_terms recorded the acceptance of terms_version. Retained on the 0077 tombstone as proof the terms applied.\n  payment_sandbox boolean not null default false — 0241. Set by hand on the store review account only: its deposits go to Qi's sandbox (test card, no money), are stamped sandbox and never count as paid or as revenue.\n  given_name text — 0256. First name (1..39). Other open-match players see it; the desk and the guest see the whole name. Kept in step with full_name by profiles_sync_names; NULL on a deleted account.\n  family_name text — 0256. Surname (1..39, NULL without a given_name). Other open-match players see only its first letter. NULL on a deleted account.\n  gender text — 0256. female | male, asked once at the first open match (OM-28): women's and men's matches. Written only by app.set_my_gender and app.staff_set_customer_gender, with gender_set_at and gender_set_by. NULL on a deleted account.\n  gender_set_at timestamptz — 0256. When gender was last set; set with gender.\n  gender_set_by text — 0256. guest (app.set_my_gender) or staff (the front desk's correction); set with gender.\n  avatar_path text — 0302. The guest's profile photo: an object in the private avatars bucket, <profile id>/<uuid>.<jpg|png|webp>. Written only by app.set_my_avatar; NULL = initials. Emptied by account deletion.\n  birth_date date — 0302. Optional date of birth, 1900-01-01 .. today. Written only by app.set_my_birth_date, read only by its guest (app.my_birth_date; no column grant). Emptied by account deletion.\n  phone_key text — 0303. app.phone_canon(phone) when the phone has 7-15 digits, else NULL. Kept by the zz_phone_key trigger; unique among live profiles (profiles_phone_key_live, 0304). No client grant.\n  username text — 0307. The guest's public handle: lower case, 3-20 of a-z 0-9 . _, unique among live profiles (0308). Seen by other guests and staff. Written only by app.set_my_username; emptied (and held 90 days) by account deletion.\n  username_changed_at timestamptz — 0307. When the username last changed; a guest may change it again 7 days after this. NULL until the first username.\n  avatar_frame text not null default 'brand-green' — 0307. The ring drawn around the profile photo: one id of the closed list (app.frame_ids()). Written only by app.set_my_frame; back to brand-green on account deletion.",
+      "body": "Created in migration 0004.\nColumns:\n  id uuid primary key references auth.users(id) on delete cascade\n  full_name text not null\n  phone text — captured day one per scope (future SMS identity)\n  preferred_lang text not null default 'en' check (preferred_lang in ('en','ar'))\n  expo_push_token text\n  created_at timestamptz not null default now()\n  deleted_at timestamptz — Set by app.delete_my_account. The row is a TOMBSTONE: anonymised, retained only so reservations.guest_id and the venue statistics keep a parent. Never set by hand — the on_auth_user_deleted trigger reads it to tell a self-deletion (row survives) from an admin rollback (row is dropped).\n  terms_version text — The Terms of Service / Privacy Policy version the guest last accepted (CURRENT_TERMS_VERSION in packages/core/src/legal.ts). Written only by app.accept_terms. Null = never accepted; the app shows its consent screen.\n  terms_accepted_at timestamptz — Server time app.accept_terms recorded the acceptance of terms_version. Retained on the 0077 tombstone as proof the terms applied.\n  payment_sandbox boolean not null default false — 0241. Set by hand on the store review account only: its deposits go to Qi's sandbox (test card, no money), are stamped sandbox and never count as paid or as revenue.\n  given_name text — 0256. First name (1..39). Other open-match players see it; the desk and the guest see the whole name. Kept in step with full_name by profiles_sync_names; NULL on a deleted account.\n  family_name text — 0256. Surname (1..39, NULL without a given_name). Other open-match players see only its first letter. NULL on a deleted account.\n  gender text — 0256. female | male, asked once at the first open match (OM-28): women's and men's matches. Written only by app.set_my_gender and app.staff_set_customer_gender, with gender_set_at and gender_set_by. NULL on a deleted account.\n  gender_set_at timestamptz — 0256. When gender was last set; set with gender.\n  gender_set_by text — 0256. guest (app.set_my_gender) or staff (the front desk's correction); set with gender.\n  avatar_path text — 0302. The guest's profile photo: an object in the private avatars bucket, <profile id>/<uuid>.<jpg|png|webp>. Written only by app.set_my_avatar; NULL = initials. Emptied by account deletion.\n  birth_date date — 0302. Optional date of birth, 1900-01-01 .. today. Written only by app.set_my_birth_date, read only by its guest (app.my_birth_date; no column grant). Emptied by account deletion.\n  phone_key text — 0303. app.phone_canon(phone) when the phone has 7-15 digits, else NULL. Kept by the zz_phone_key trigger; unique among live profiles (profiles_phone_key_live, 0304). No client grant.\n  username text — 0307. The guest's public handle: lower case, 3-20 of a-z 0-9 . _, unique among live profiles (0308). Seen by other guests and staff. Written only by app.set_my_username; emptied (and held 90 days) by account deletion.\n  username_changed_at timestamptz — 0307. When the username last changed; a guest may change it again 7 days after this. NULL until the first username.\n  avatar_frame text not null default 'brand-green' — 0307. The ring drawn around the profile photo: one id of the closed list (app.frame_ids()). Written only by app.set_my_frame; back to brand-green on account deletion.\n  avatar_frame_style text not null default 'solid' — 0310. How the photo frame is drawn: solid, or lines (court lines: the ring as dashes). Lines only on a free frame. Written only by app.set_my_frame; back to solid on account deletion.",
       "route": null
     },
     {
@@ -10711,6 +10719,14 @@
       "lang": "en",
       "title": "profiles.avatar_frame",
       "body": "text not null default 'brand-green'\n0307. The ring drawn around the profile photo: one id of the closed list (app.frame_ids()). Written only by app.set_my_frame; back to brand-green on account deletion.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:profiles.avatar_frame_style",
+      "lang": "en",
+      "title": "profiles.avatar_frame_style",
+      "body": "text not null default 'solid'\n0310. How the photo frame is drawn: solid, or lines (court lines: the ring as dashes). Lines only on a free frame. Written only by app.set_my_frame; back to solid on account deletion.",
       "route": null
     },
     {

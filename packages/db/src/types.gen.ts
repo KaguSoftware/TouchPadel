@@ -4149,7 +4149,10 @@ export type Database = {
         Args: { p_venue_id: string; p_windows: Json }
         Returns: Json
       }
-      set_my_frame: { Args: { p_frame: string }; Returns: Json }
+      set_my_frame: {
+        Args: { p_frame: string; p_style?: string }
+        Returns: Json
+      }
       set_my_gender: { Args: { p_gender: string }; Returns: Json }
       set_my_username: { Args: { p_username: string }; Returns: Json }
       set_opening_hours: {
@@ -5142,6 +5145,7 @@ export type Database = {
       }
       username_check: { Args: { p_username: string }; Returns: Json }
       username_normal: { Args: { p: string }; Returns: string }
+      username_offensive: { Args: { p: string }; Returns: boolean }
       username_problem: { Args: { p: string }; Returns: string }
       username_taken: { Args: { p: string; p_by: string }; Returns: boolean }
       validate_cafe_setting: {
@@ -7486,6 +7490,32 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      frame_grants: {
+        Row: {
+          granted_at: string
+          note: string | null
+          profile_id: string
+        }
+        Insert: {
+          granted_at?: string
+          note?: string | null
+          profile_id: string
+        }
+        Update: {
+          granted_at?: string
+          note?: string | null
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "frame_grants_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -11380,6 +11410,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_frame: string
+          avatar_frame_style: string
           avatar_path: string | null
           birth_date: string | null
           created_at: string
@@ -11403,6 +11434,7 @@ export type Database = {
         }
         Insert: {
           avatar_frame?: string
+          avatar_frame_style?: string
           avatar_path?: string | null
           birth_date?: string | null
           created_at?: string
@@ -11426,6 +11458,7 @@ export type Database = {
         }
         Update: {
           avatar_frame?: string
+          avatar_frame_style?: string
           avatar_path?: string | null
           birth_date?: string | null
           created_at?: string

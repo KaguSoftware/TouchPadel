@@ -36,7 +36,7 @@ import {
 } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { ProfileAvatar } from '../../src/components/ProfileAvatar';
-import { frameOf } from '../../src/features/profile/frames';
+import { frameOf, frameStyleOf } from '../../src/features/profile/frames';
 import { atUsername } from '../../src/features/profile/username';
 import { useToast } from '../../src/components/overlays';
 
@@ -252,6 +252,7 @@ export default function ProfileScreen() {
               initials={initials}
               size={50}
               frame={frameOf(profile.data?.avatar_frame)}
+              frameStyle={frameStyleOf(frameOf(profile.data?.avatar_frame), profile.data?.avatar_frame_style)}
             />
             {/* 'stretch' (not 'flex-start') so each line spans the full column and
                 textAlign decides the edge; shrink-wrapping left the three lines at

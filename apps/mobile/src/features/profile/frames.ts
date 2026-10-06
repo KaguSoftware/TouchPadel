@@ -5,6 +5,10 @@
  * refuses an earned frame the guest has not earned. Pure data and maths, no
  * react-native, so it runs under vitest.
  *
+ * Court lines (0310) is a STYLE, not a frame: any free frame can be drawn
+ * solid or as court lines (its rings as dashes); earned frames are always
+ * solid. The profile stores it beside the id (`avatar_frame_style`).
+ *
  * Geometry: every frame keeps the avatar's outer size; rings are drawn inward
  * from the edge, outermost first. Widths are fixed at 36, 50 and 84 px and
  * interpolated (to 0.5 px) between them.
@@ -17,7 +21,6 @@ export const FRAME_IDS = [
   'court-white',
   'split-court',
   'double-line',
-  'court-lines',
   'regular',
   'silver-racket',
   'gold-racket',
@@ -26,8 +29,12 @@ export const FRAME_IDS = [
 export type FrameId = (typeof FRAME_IDS)[number];
 
 export const DEFAULT_FRAME: FrameId = 'brand-green';
-export const FREE_FRAMES: readonly FrameId[] = FRAME_IDS.slice(0, 6);
-export const EARNED_FRAMES: readonly FrameId[] = FRAME_IDS.slice(6);
+export const FREE_FRAMES: readonly FrameId[] = FRAME_IDS.slice(0, 5);
+export const EARNED_FRAMES: readonly FrameId[] = FRAME_IDS.slice(5);
+
+/** 0310: how a frame is drawn. `lines` = court lines, free frames only. */
+export const FRAME_STYLES = ['solid', 'lines'] as const;
+export type FrameStyle = (typeof FRAME_STYLES)[number];
 
 /** An id from the server or the cache; anything unknown draws as the default. */
 export function frameOf(id: string | null | undefined): FrameId {
@@ -36,6 +43,14 @@ export function frameOf(id: string | null | undefined): FrameId {
 
 export function isEarnedFrame(id: FrameId): boolean {
   return EARNED_FRAMES.includes(id);
+}
+
+/**
+ * The style `frame` is drawn in: `lines` only when stored as such AND the
+ * frame can take it, so an earned frame never draws dashed.
+ */
+export function frameStyleOf(frame: FrameId, style: string | null | undefined): FrameStyle {
+  return style === 'lines' && !isEarnedFrame(frame) ? 'lines' : 'solid';
 }
 
 const camel = (id: string) => id.replace(/(^|-)([a-z])/g, (_m, _d, c: string) => c.toUpperCase());
@@ -53,7 +68,6 @@ export function frameRuleKey(id: FrameId): MessageKey | null {
 /** Width tables at 36 / 50 / 84 px, from the design spec. */
 type Steps = readonly [number, number, number];
 const SINGLE: Steps = [2.5, 2.5, 3];
-const LINES: Steps = [3, 2.5, 3];
 const EARNED: Steps = [3.5, 4, 5];
 const KEY: Steps = [1, 1, 1.5];
 const HAIR: Steps = [1, 1, 1];
@@ -80,9 +94,9 @@ export type ColorName = 'green' | 'blue' | 'navy' | 'white';
 export interface Ring {
   width: number;
   paint: Paint;
-  /** Court lines: dashes, n of them, 62% on. */
+  /** Court lines: dashes, n of them, 62% on, one centred at the top. */
   dashes?: number;
-  /** Half and half: the bottom half in this colour (top half is `paint`). */
+  /** Half and half: the bottom half in this colour (top half is `paint`); with dashes, each half's dashes. */
   bottom?: ColorName;
 }
 
@@ -96,8 +110,12 @@ export interface FrameDrawing {
 
 const solid = (color: ColorName): Paint => ({ kind: 'solid', color });
 
-/** How `id` is drawn on an avatar of `size` px. */
-export function frameDrawing(id: FrameId, size: number): FrameDrawing {
+/**
+ * How `id` is drawn on an avatar of `size` px. In the `lines` style every ring
+ * of a free frame is dashed with the same count, so stacked rings dash
+ * together as one band.
+ */
+export function frameDrawing(id: FrameId, size: number, style: FrameStyle = 'solid'): FrameDrawing {
   const w = (t: Steps) => step(t, size);
   let rings: Ring[];
   let badge: FrameDrawing['badge'] = null;
@@ -121,9 +139,6 @@ export function frameDrawing(id: FrameId, size: number): FrameDrawing {
     case 'double-line':
       rings = [{ width: w(OUTER), paint: solid('blue') }, { width: w(INNER), paint: solid('green') }];
       break;
-    case 'court-lines':
-      rings = [{ width: w(LINES), paint: solid('green'), dashes: size >= 60 ? 12 : 8 }];
-      break;
     case 'regular':
       rings = [{ width: w(EARNED), paint: solid('green') }];
       badge = b(solid('green'), 'racket', 'navy');
@@ -144,6 +159,10 @@ export function frameDrawing(id: FrameId, size: number): FrameDrawing {
       ];
       badge = b(solid('navy'), 'trophy', 'navy');
       break;
+  }
+  if (frameStyleOf(id, style) === 'lines') {
+    const dashes = size >= 60 ? 12 : 8;
+    rings = rings.map((r) => ({ ...r, dashes }));
   }
   return { rings, inset: rings.reduce((sum, r) => sum + r.width, 0), badge };
 }

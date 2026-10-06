@@ -189,7 +189,12 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     },
     username_changed_at: n,
     avatar_frame: n,
+    // 0310: solid or court lines; reset to solid on deletion.
+    avatar_frame_style: n,
   },
+  // 0311: test accounts that wear every frame. Only a link and a note; the
+  // row goes with the profile.
+  frame_grants: { profile_id: n, granted_at: n, note: n },
   // 0307: a username a guest gave up, kept from everyone else for 7 days (a
   // change) or 90 days (deletion or a merge), then released. The name is the
   // guest's handle; the row goes when the hold ends or the auth user does.

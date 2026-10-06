@@ -16,6 +16,7 @@ import {
   frameNameKey,
   frameOf,
   frameRuleKey,
+  frameStyleOf,
   step,
 } from '../frames';
 
@@ -37,9 +38,11 @@ describe('usernames (0307)', () => {
     expect(stateFromCheck({ available: true, username: 'abc' }, 'abc')).toEqual({ kind: 'yours' });
     expect(stateFromCheck({ available: false, reason: 'taken' }, null)).toEqual({ kind: 'taken' });
     expect(stateFromCheck({ available: false, reason: 'reserved' }, null)).toEqual({ kind: 'reserved' });
+    expect(stateFromCheck({ available: false, reason: 'not_allowed' }, null)).toEqual({ kind: 'not_allowed' });
     expect(stateFromCheck({ available: false, reason: 'invalid' }, null)).toEqual({ kind: 'invalid' });
     expect(usernameStateKey({ kind: 'empty' })).toBeNull();
     expect(usernameStateKey({ kind: 'taken' })).toBe('profile.usernameTaken');
+    expect(usernameStateKey({ kind: 'not_allowed' })).toBe('profile.usernameNotAllowed');
   });
 
   it('allows the first username now, then once every 7 days', () => {
@@ -51,12 +54,12 @@ describe('usernames (0307)', () => {
 });
 
 describe('frames (0307)', () => {
-  it('is the server\'s closed list, six free then four earned', () => {
+  it('is the server\'s closed list, five free then four earned', () => {
     expect(FRAME_IDS).toEqual([
       'brand-green', 'touch-blue', 'court-white', 'split-court', 'double-line',
-      'court-lines', 'regular', 'silver-racket', 'gold-racket', 'champion',
+      'regular', 'silver-racket', 'gold-racket', 'champion',
     ]);
-    expect(FREE_FRAMES).toHaveLength(6);
+    expect(FREE_FRAMES).toHaveLength(5);
     expect(EARNED_FRAMES).toEqual(['regular', 'silver-racket', 'gold-racket', 'champion']);
   });
 
@@ -91,8 +94,21 @@ describe('frames (0307)', () => {
       expect(d.badge?.size).toBe(24);
       expect(d.inset).toBeGreaterThanOrEqual(5);
     }
-    expect(frameDrawing('court-lines', 84).rings[0]!.dashes).toBe(12);
-    expect(frameDrawing('court-lines', 36).rings[0]!.dashes).toBe(8);
+  });
+
+  it('draws court lines as a style of any free frame (0310), never of an earned one', () => {
+    expect(frameDrawing('brand-green', 84, 'lines').rings[0]!.dashes).toBe(12);
+    expect(frameDrawing('brand-green', 36, 'lines').rings[0]!.dashes).toBe(8);
+    // Every ring dashes with the same count, so they line up as one band.
+    expect(frameDrawing('touch-blue', 84, 'lines').rings.map((r) => r.dashes)).toEqual([12, 12]);
+    expect(frameDrawing('touch-blue', 84).rings.every((r) => !r.dashes)).toBe(true);
+    // Same width solid or dashed: switching never moves the photo.
+    expect(frameDrawing('double-line', 50, 'lines').inset).toBe(frameDrawing('double-line', 50).inset);
+    expect(frameDrawing('gold-racket', 84, 'lines').rings.every((r) => !r.dashes)).toBe(true);
+    expect(frameStyleOf('split-court', 'lines')).toBe('lines');
+    expect(frameStyleOf('champion', 'lines')).toBe('solid');
+    expect(frameStyleOf('brand-green', 'dotted')).toBe('solid');
+    expect(frameStyleOf('brand-green', null)).toBe('solid');
   });
 
   it('puts the badge at the bottom end corner, mirrored in Arabic', () => {

@@ -42,7 +42,9 @@ import {
   frameNameKey,
   frameOf,
   frameRuleKey,
+  frameStyleOf,
   type FrameId,
+  type FrameStyle,
 } from '../src/features/profile/frames';
 import { errorCode } from '@touch/i18n';
 import { useSetMyGender } from '../src/features/matches/hooks';
@@ -68,6 +70,7 @@ import {
   Hint,
   Screen,
   SectionLabel,
+  SegmentedControl,
 } from '../src/components/ui';
 import { useBack } from '../src/navigation/back';
 import { PhoneField } from '../src/components/phone';
@@ -350,6 +353,8 @@ function Hub() {
   const birthDate = birthDateToDate(birth.data);
   const hasPhoto = !!profile.data?.avatar_path;
   const username = profile.data?.username ?? null;
+  const frame = frameOf(profile.data?.avatar_frame);
+  const frameStyle = frameStyleOf(frame, profile.data?.avatar_frame_style);
   const hasPassword = !!passwordProofOf(session?.user);
   const go = (section: Section) => router.push({ pathname: '/profile-edit', params: { section } });
 
@@ -469,7 +474,8 @@ function Hub() {
             path={profile.data?.avatar_path}
             initials={initialsOf(first, last, email)}
             size={84}
-            frame={frameOf(profile.data?.avatar_frame)}
+            frame={frame}
+            frameStyle={frameStyle}
           />
           {setAvatar.isPending ? (
             <View
@@ -538,7 +544,11 @@ function Hub() {
           testID="profile-edit.frame"
           icon={<ImageIcon size={15} color={colors.gstrong} />}
           label={t('profile.frameSection')}
-          value={t(frameNameKey(frameOf(profile.data?.avatar_frame)))}
+          value={
+            frameStyle === 'lines'
+              ? `${t(frameNameKey(frame))} · ${t('profile.frameStyleLines')}`
+              : t(frameNameKey(frame))
+          }
           onPress={() => go('frame')}
         />
       </RowGroup>
@@ -914,7 +924,9 @@ function UsernameForm() {
         editable={!next}
       />
       {stateKey ? (
-        <Text style={{ marginTop: -4, fontFamily: fonts.body600, fontSize: 12.5, color: tone }}>
+        <Text
+          style={{ marginTop: space.s, fontFamily: fonts.body600, fontSize: 12.5, color: tone }}
+        >
           {t(stateKey)}
         </Text>
       ) : null}
@@ -924,7 +936,7 @@ function UsernameForm() {
           accessibilityRole="button"
           onPress={() => onChange(suggestion.data!)}
           style={({ pressed }) => ({
-            marginTop: 10,
+            marginTop: space.sm,
             alignSelf: 'flex-start',
             flexDirection: 'row',
             alignItems: 'center',
@@ -945,7 +957,7 @@ function UsernameForm() {
           </Text>
         </Pressable>
       ) : null}
-      <Hint>
+      <Hint style={{ marginTop: space.sm }}>
         {next
           ? t('profile.usernameTooSoon', { date: formatDate(next, locale) })
           : `${t('profile.usernameHint')} ${t('profile.usernameWeekly')}`}
@@ -958,14 +970,15 @@ function UsernameForm() {
         busy={save.isPending}
         disabled={!good || unchanged || !!next}
         onPress={onSave}
-        style={{ marginTop: 6 }}
+        style={{ marginTop: space.l }}
       />
     </FormScreen>
   );
 }
 
 /**
- * Photo frame (0307): the six free frames, then the four earned ones, locked
+ * Photo frame (0307): the five free frames and their style (Normal or Court
+ * lines; 0310), then the four earned ones, locked
  * with their rule and progress (10 / 50; 0309) until the server says the guest
  * earned them: games played AND paid in full, or a tournament win. The avatar at
  * the top previews the pick; Save writes it.
@@ -980,8 +993,18 @@ function FrameForm() {
   const toast = useToast();
   const back = useBack();
   const [picked, setPicked] = useState<FrameId | null>(null);
+  const [pickedStyle, setPickedStyle] = useState<FrameStyle | null>(null);
   const current = frameOf(frames.data?.current ?? profile.data?.avatar_frame);
+  const currentStyle = frameStyleOf(
+    current,
+    frames.data?.style ?? profile.data?.avatar_frame_style,
+  );
   const selected = picked ?? current;
+  // 0310: the switch keeps its value while an earned frame is picked (it just
+  // does not apply there), so going back to a free frame restores it.
+  const styleChoice = pickedStyle ?? currentStyle;
+  const selectedStyle = frameStyleOf(selected, styleChoice);
+  const takesLines = FREE_FRAMES.includes(selected);
   const unlocked = new Set((frames.data?.frames ?? []).filter((f) => f.unlocked).map((f) => f.id));
   // 0309: how far the guest is towards each earned frame.
   const progressOf = (id: FrameId) => frames.data?.frames.find((f) => f.id === id);
@@ -989,13 +1012,16 @@ function FrameForm() {
   const initials = initialsOf(first, last, session?.user.email ?? '');
 
   const onSave = () =>
-    save.mutate(selected, {
-      onSuccess: () => {
-        toast(t('profile.frameSaved'));
-        back();
+    save.mutate(
+      { frame: selected, style: selectedStyle },
+      {
+        onSuccess: () => {
+          toast(t('profile.frameSaved'));
+          back();
+        },
+        onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
       },
-      onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
-    });
+    );
 
   if (profile.isLoading || frames.isLoading) return <SkeletonList rows={2} height={96} />;
 
@@ -1036,6 +1062,7 @@ function FrameForm() {
             initials={initials}
             size={48}
             frame={id}
+            frameStyle={frameStyleOf(id, styleChoice)}
           />
         </View>
         {locked ? (
@@ -1108,7 +1135,7 @@ function FrameForm() {
     );
   };
 
-  const card = (title: string, ids: readonly FrameId[]) => (
+  const card = (title: string, ids: readonly FrameId[], footer?: ReactNode) => (
     <View
       style={{
         backgroundColor: colors.card,
@@ -1130,6 +1157,30 @@ function FrameForm() {
       >
         {ids.map(tile)}
       </View>
+      {footer}
+    </View>
+  );
+
+  // 0310: colour first, then Normal or Court lines, inside the Free card under
+  // its grid. With an earned frame picked the switch dims and says why.
+  const styleSwitch = (
+    <View style={{ gap: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line }}>
+      <View
+        pointerEvents={takesLines ? 'auto' : 'none'}
+        style={{ opacity: takesLines ? 1 : 0.4 }}
+        accessibilityState={{ disabled: !takesLines }}
+      >
+        <SegmentedControl<FrameStyle>
+          testID="profile-edit.frame-style"
+          options={[
+            { value: 'solid', label: t('profile.frameStyleSolid') },
+            { value: 'lines', label: t('profile.frameStyleLines') },
+          ]}
+          value={styleChoice}
+          onChange={setPickedStyle}
+        />
+      </View>
+      {takesLines ? null : <Hint>{t('profile.frameStyleFreeOnly')}</Hint>}
     </View>
   );
 
@@ -1141,16 +1192,17 @@ function FrameForm() {
           initials={initials}
           size={84}
           frame={selected}
+          frameStyle={selectedStyle}
         />
       </View>
-      {card(t('profile.frameFree'), FREE_FRAMES)}
+      {card(t('profile.frameFree'), FREE_FRAMES, styleSwitch)}
       {card(t('profile.frameEarned'), EARNED_FRAMES)}
       <Button
         testID="profile-edit.save-frame"
         label={t('profile.frameSave')}
         variant="cta"
         busy={save.isPending}
-        disabled={selected === current}
+        disabled={selected === current && selectedStyle === currentStyle}
         onPress={onSave}
       />
     </FormScreen>

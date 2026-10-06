@@ -2,7 +2,8 @@
  * Usernames (Phase 2, migration 0307). The phone mirrors the server's grammar
  * so the field can say "invalid" without a round trip; the server
  * (`app.username_problem`, `app.set_my_username`) stays the authority, and only
- * it knows "taken" and "reserved". Pure, so it runs under vitest.
+ * it knows "taken", "reserved" and "not allowed" (a slur or swear word,
+ * 0312). Pure, so it runs under vitest.
  */
 import type { MessageKey } from '@touch/i18n';
 
@@ -30,6 +31,7 @@ export type UsernameState =
   | { kind: 'available' }
   | { kind: 'yours' }
   | { kind: 'taken' }
+  | { kind: 'not_allowed' }
   | { kind: 'reserved' };
 
 /** The server's username_check answer, read for the field. */
@@ -39,6 +41,7 @@ export function stateFromCheck(
 ): UsernameState {
   if (!check) return { kind: 'checking' };
   if (check.available === true) return check.username === current ? { kind: 'yours' } : { kind: 'available' };
+  if (check.reason === 'not_allowed') return { kind: 'not_allowed' };
   if (check.reason === 'reserved') return { kind: 'reserved' };
   if (check.reason === 'taken') return { kind: 'taken' };
   return { kind: 'invalid' };
@@ -57,6 +60,8 @@ export function usernameStateKey(state: UsernameState): MessageKey | null {
       return 'profile.usernameYours';
     case 'taken':
       return 'profile.usernameTaken';
+    case 'not_allowed':
+      return 'profile.usernameNotAllowed';
     case 'reserved':
       return 'profile.usernameReserved';
     default:

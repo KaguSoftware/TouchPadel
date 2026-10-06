@@ -791,6 +791,7 @@ export const en = {
     usernameInvalid:
       'Use 3 to 20 letters, numbers, dots or underscores, starting and ending with a letter or number.',
     usernameReserved: 'That username is reserved. Pick another.',
+    usernameNotAllowed: 'That username isn’t allowed. Pick another.',
     usernameTooSoon: 'You can change your username again on {date}.',
     usernameTooSoonGeneric: 'You changed your username recently. Try again in a few days.',
     usernameSuggestion: 'Suggestion: {name}',
@@ -812,7 +813,10 @@ export const en = {
     frameCourtWhite: 'Court white',
     frameSplitCourt: 'Half and half',
     frameDoubleLine: 'Double line',
-    frameCourtLines: 'Court lines',
+    // 0310: court lines is a style of a free frame, picked inside the Free card.
+    frameStyleSolid: 'Normal',
+    frameStyleLines: 'Court lines',
+    frameStyleFreeOnly: 'Court lines work with the free frames.',
     frameRegular: 'Regular',
     frameSilverRacket: 'Silver racket',
     frameGoldRacket: 'Gold racket',

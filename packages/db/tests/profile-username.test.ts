@@ -42,7 +42,7 @@ describe.skipIf(!up)('0307 usernames and frames', () => {
   const guest = async (name: string) =>
     shapedGuest(svc, `un-${tag()}`, { user_metadata: { full_name: name, phone: '+9647700000000' } });
   const row = async (id: string) =>
-    (await svc.from('profiles').select('username, username_changed_at, avatar_frame').eq('id', id).single())
+    (await svc.from('profiles').select('username, username_changed_at, avatar_frame, avatar_frame_style').eq('id', id).single())
       .data!;
   /** Push a guest's last change back, so the 7-day rule lets them change again. */
   const age = async (id: string, days: number) =>
@@ -81,6 +81,14 @@ describe.skipIf(!up)('0307 usernames and frames', () => {
       expect(await check('.abc')).toMatchObject({ available: false, reason: 'invalid' });
       expect(await check('Touch_Fan')).toMatchObject({ username: 'touch_fan', available: false, reason: 'reserved' });
       expect(await check('ad.min')).toMatchObject({ available: false, reason: 'reserved' });
+      // 0312: slurs and swear words, through dots, digit swaps and doubled letters;
+      // a short word only as a whole part, so ordinary names stay free.
+      for (const bad of ['n1gg3r', 'sh1t.happens', 'fuuuck', 'big_dick', 'coon', 'kosomak', 'ibn.el.kalb']) {
+        expect(await check(bad)).toMatchObject({ available: false, reason: 'not_allowed' });
+      }
+      for (const fine of ['dickens', 'raccoon', 'therapist', 'montenegro', 'nazih', 'khawla', 'assad']) {
+        expect((await check(fine))?.reason).not.toBe('not_allowed');
+      }
       expect(await check(name.toUpperCase())).toMatchObject({ username: name, available: false, reason: 'taken' });
       expect(await check(`  Free${tag()}  `)).toMatchObject({ available: true, reason: null });
       // The owner's own name is available to them.
@@ -94,6 +102,9 @@ describe.skipIf(!up)('0307 usernames and frames', () => {
       expect((await appRpc(g.client, 'set_my_username', { p_username: 'a' })).error?.message).toBe('USERNAME_INVALID');
       expect((await appRpc(g.client, 'set_my_username', { p_username: 'support' })).error?.message).toBe(
         'USERNAME_RESERVED',
+      );
+      expect((await appRpc(g.client, 'set_my_username', { p_username: 'b1tch.99' })).error?.message).toBe(
+        'USERNAME_NOT_ALLOWED',
       );
       const name = `Gam${tag()}`;
       const set = await appRpc(g.client, 'set_my_username', { p_username: name });
@@ -140,7 +151,7 @@ describe.skipIf(!up)('0307 usernames and frames', () => {
 
     it('a guest cannot write the columns directly', async () => {
       const g = await guest('Direct Eta');
-      for (const patch of [{ username: 'direct' }, { avatar_frame: 'touch-blue' }]) {
+      for (const patch of [{ username: 'direct' }, { avatar_frame: 'touch-blue' }, { avatar_frame_style: 'lines' }]) {
         const res = await g.client.from('profiles').update(patch as never).eq('id', g.id);
         expect(res.error?.message ?? '').toMatch(/permission denied/i);
       }
@@ -174,20 +185,51 @@ describe.skipIf(!up)('0307 usernames and frames', () => {
       expect((await row(g.id)).avatar_frame).toBe('double-line');
       expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'gold-racket' })).error?.message).toBe('FRAME_LOCKED');
       expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'night-match' })).error?.message).toBe('FRAME_INVALID');
+      // 0310: court-lines is a style now, not an id.
+      expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'court-lines' })).error?.message).toBe('FRAME_INVALID');
+    });
+
+    it('court lines are a free frame\'s style, refused on an earned frame', async () => {
+      const g = await guest('Frame Style');
+      expect((await row(g.id)).avatar_frame_style).toBe('solid');
+      expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'touch-blue', p_style: 'lines' })).error).toBeNull();
+      expect(await row(g.id)).toMatchObject({ avatar_frame: 'touch-blue', avatar_frame_style: 'lines' });
+      // Leaving the style out means solid.
+      expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'split-court' })).error).toBeNull();
+      expect(await row(g.id)).toMatchObject({ avatar_frame: 'split-court', avatar_frame_style: 'solid' });
+      expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'regular', p_style: 'lines' })).error?.message).toBe('FRAME_INVALID');
+      expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'touch-blue', p_style: 'dotted' })).error?.message).toBe('FRAME_INVALID');
+      // The table holds the same rule for any writer.
+      const direct = await svc.from('profiles').update({ avatar_frame: 'champion', avatar_frame_style: 'lines' } as never).eq('id', g.id);
+      expect(direct.error?.message).toMatch(/profiles_avatar_frame_style_chk/);
+    });
+
+    it('a frame_grants row opens every frame (0311), and only for that profile', async () => {
+      const g = await guest('Frame Grant');
+      const other = await guest('Frame Plain');
+      expect((await svc.from('frame_grants' as never).insert({ profile_id: g.id, note: 'test' } as never)).error).toBeNull();
+      expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'champion' })).error).toBeNull();
+      const mine = (await appRpc(g.client, 'my_frames', {})).data as { frames: { unlocked: boolean }[] };
+      expect(mine.frames.every((f) => f.unlocked)).toBe(true);
+      expect((await appRpc(other.client, 'set_my_frame', { p_frame: 'champion' })).error?.message).toBe('FRAME_LOCKED');
+      // No client reads or writes the list.
+      expect((await g.client.from('frame_grants' as never).insert({ profile_id: other.id } as never)).error).not.toBeNull();
     });
 
     it('app.my_frames lists the closed set with what is unlocked', async () => {
       const g = await guest('Frame Iota');
       const data = (await appRpc(g.client, 'my_frames', {})).data as {
         current: string;
+        style: string;
         frames: { id: string; unlocked: boolean }[];
       };
       expect(data.current).toBe('brand-green');
+      expect(data.style).toBe('solid');
       expect(data.frames.map((f) => f.id)).toEqual([
         'brand-green', 'touch-blue', 'court-white', 'split-court', 'double-line',
-        'court-lines', 'regular', 'silver-racket', 'gold-racket', 'champion',
+        'regular', 'silver-racket', 'gold-racket', 'champion',
       ]);
-      expect(data.frames.filter((f) => f.unlocked)).toHaveLength(6);
+      expect(data.frames.filter((f) => f.unlocked)).toHaveLength(5);
     });
 
     it('the desk reads the username and frame beside the name', async () => {
@@ -204,10 +246,15 @@ describe.skipIf(!up)('0307 usernames and frames', () => {
     const other = await guest('Delete Mu');
     const name = `del${tag()}`;
     expect((await appRpc(g.client, 'set_my_username', { p_username: name })).error).toBeNull();
-    expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'touch-blue' })).error).toBeNull();
+    expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'touch-blue', p_style: 'lines' })).error).toBeNull();
     expect((await appRpc(g.client, 'delete_my_account', { p_confirm: 'DELETE' })).error).toBeNull();
 
-    expect(await row(g.id)).toEqual({ username: null, username_changed_at: null, avatar_frame: 'brand-green' });
+    expect(await row(g.id)).toEqual({
+      username: null,
+      username_changed_at: null,
+      avatar_frame: 'brand-green',
+      avatar_frame_style: 'solid',
+    });
     const hold = await svc.from('username_holds').select('reason, released_at').eq('username', name).single();
     expect(hold.data?.reason).toBe('deleted');
     expect(Date.parse(hold.data!.released_at)).toBeGreaterThan(Date.now() + 89 * 86_400_000);

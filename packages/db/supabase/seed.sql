@@ -177,6 +177,19 @@ insert into staff (id, display_name, role, is_active) values
   ('a0000000-0000-4000-8000-000000000007', 'Dev Cashier B',  'cashier',    true)
 on conflict (id) do nothing;
 
+-- 0311: the dev accounts wear every photo frame, earned or not, so the earned
+-- frames can be tried without faking matches.
+insert into frame_grants (profile_id, note)
+select id, 'dev account' from profiles
+ where id in ('a0000000-0000-4000-8000-000000000001',
+              'a0000000-0000-4000-8000-000000000002',
+              'a0000000-0000-4000-8000-000000000003',
+              'a0000000-0000-4000-8000-000000000004',
+              'a0000000-0000-4000-8000-000000000005',
+              'a0000000-0000-4000-8000-000000000006',
+              'a0000000-0000-4000-8000-000000000007')
+on conflict (profile_id) do nothing;
+
 -- Dev PINs (bcrypt). In real environments the owner sets PINs via app.set_staff_pin.
 update staff set pin_hash = extensions.crypt('719264', extensions.gen_salt('bf'))
  where id = 'a0000000-0000-4000-8000-000000000001';
