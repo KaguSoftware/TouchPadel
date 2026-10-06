@@ -703,6 +703,11 @@ export const ar: Messages = {
     groupActivity: 'نشاطي',
     groupAccount: 'الحساب',
     groupVenue: 'المكان',
+    // Edit profile row groups (app/profile-edit.tsx).
+    editGroupPublic: 'الملف العام',
+    editGroupContact: 'معلومات التواصل',
+    editGroupPersonal: 'البيانات الشخصية',
+    editGroupSecurity: 'الأمان',
     // Phase 2 (0307): username and photo frame on Edit profile.
     usernameSection: 'اسم المستخدم',
     usernameHint:

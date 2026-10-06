@@ -774,6 +774,11 @@ export const en = {
     groupActivity: 'Activity',
     groupAccount: 'Account',
     groupVenue: 'Venue',
+    // Edit profile row groups (app/profile-edit.tsx).
+    editGroupPublic: 'Public profile',
+    editGroupContact: 'Contact',
+    editGroupPersonal: 'Personal details',
+    editGroupSecurity: 'Security',
     // Phase 2 (0307): username and photo frame on Edit profile.
     usernameSection: 'Username',
     usernameHint:

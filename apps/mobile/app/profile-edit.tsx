@@ -1,4 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -51,7 +60,15 @@ import { DateWheelSheet } from '../src/components/DateWheelSheet';
 import { WheelSheet } from '../src/components/WheelSheet';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { brand, radius, space, useTheme } from '../src/theme';
-import { Button, ErrorText, Field, FormScreen, Hint, Screen } from '../src/components/ui';
+import {
+  Button,
+  ErrorText,
+  Field,
+  FormScreen,
+  Hint,
+  Screen,
+  SectionLabel,
+} from '../src/components/ui';
 import { useBack } from '../src/navigation/back';
 import { PhoneField } from '../src/components/phone';
 import {
@@ -222,6 +239,43 @@ function HubRow({
         <LockIcon size={14} color={colors.fnt2} />
       )}
     </Pressable>
+  );
+}
+
+/**
+ * One labelled card of hub rows, as on the Profile tab. A row can be absent
+ * (Change password), so the divider-less `last` goes to whichever row
+ * actually renders last, and a group with no rows renders nothing.
+ */
+function RowGroup({
+  label,
+  first,
+  children,
+}: {
+  label: string;
+  first?: boolean;
+  children: ReactNode;
+}) {
+  const { colors } = useTheme();
+  const rows = Children.toArray(children).filter(isValidElement) as ReactElement<{
+    last?: boolean;
+  }>[];
+  if (rows.length === 0) return null;
+  return (
+    <View style={{ marginTop: first ? 0 : space.xl }}>
+      <SectionLabel style={{ marginBottom: space.s, paddingStart: space.xs }}>{label}</SectionLabel>
+      <View
+        style={{
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.line,
+          borderRadius: radius.card,
+          overflow: 'hidden',
+        }}
+      >
+        {rows.map((row, i) => (i === rows.length - 1 ? cloneElement(row, { last: true }) : row))}
+      </View>
+    </View>
   );
 }
 
@@ -464,15 +518,7 @@ function Hub() {
           {t(hasPhoto ? 'profile.photoChange' : 'profile.photoAdd')}
         </Text>
       </Pressable>
-      <View
-        style={{
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.line,
-          borderRadius: radius.card,
-          overflow: 'hidden',
-        }}
-      >
+      <RowGroup label={t('profile.editGroupPublic')} first>
         <HubRow
           testID="profile-edit.name"
           icon={<PencilIcon size={15} color={colors.gstrong} />}
@@ -495,6 +541,8 @@ function Hub() {
           value={t(frameNameKey(frameOf(profile.data?.avatar_frame)))}
           onPress={() => go('frame')}
         />
+      </RowGroup>
+      <RowGroup label={t('profile.editGroupContact')}>
         {/* Not editable here (re-verification, spec 05.18): tapping says so. */}
         <HubRow
           testID="profile-edit.email"
@@ -513,6 +561,8 @@ function Hub() {
           value={phone || t('profile.notSet')}
           onPress={() => go('phone')}
         />
+      </RowGroup>
+      <RowGroup label={t('profile.editGroupPersonal')}>
         {/* Asked once (OM-28): unset opens the wheel sheet; set, only the desk changes it. */}
         <HubRow
           testID="profile-edit.gender"
@@ -539,8 +589,9 @@ function Hub() {
           label={t('profile.birthSection')}
           value={birthDate ? formatDate(birthDate, locale, BIRTH_TZ) : t('profile.notSet')}
           onPress={() => !saveBirth.isPending && setBirthOpen(true)}
-          last={!hasPassword}
         />
+      </RowGroup>
+      <RowGroup label={t('profile.editGroupSecurity')}>
         {/* Only for an account that HAS a password (not Google/Apple-only, not a
             desk walk-in): every "current password" is wrong for the others. */}
         {hasPassword ? (
@@ -549,10 +600,9 @@ function Hub() {
             icon={<LockIcon size={15} color={colors.gstrong} />}
             label={t('profile.changePassword')}
             onPress={() => router.push('/change-password')}
-            last
           />
         ) : null}
-      </View>
+      </RowGroup>
       {/* SEC-16. Its own card, last, in the error colour: both stores require
           account deletion to be reachable from inside the app, and this row is
           the path (Profile → Edit profile). It pushes a screen with a typed
@@ -812,9 +862,12 @@ function UsernameForm() {
     const n = normalizeUsername(text);
     timer.current = setTimeout(() => setAsked(n), 350);
   };
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   const onSave = () => {
     if (!good || unchanged) return;
@@ -861,7 +914,9 @@ function UsernameForm() {
         editable={!next}
       />
       {stateKey ? (
-        <Text style={{ marginTop: -4, fontFamily: fonts.body600, fontSize: 12.5, color: tone }}>{t(stateKey)}</Text>
+        <Text style={{ marginTop: -4, fontFamily: fonts.body600, fontSize: 12.5, color: tone }}>
+          {t(stateKey)}
+        </Text>
       ) : null}
       {!current && suggestion.data && suggestion.data !== name ? (
         <Pressable
@@ -927,9 +982,7 @@ function FrameForm() {
   const [picked, setPicked] = useState<FrameId | null>(null);
   const current = frameOf(frames.data?.current ?? profile.data?.avatar_frame);
   const selected = picked ?? current;
-  const unlocked = new Set(
-    (frames.data?.frames ?? []).filter((f) => f.unlocked).map((f) => f.id),
-  );
+  const unlocked = new Set((frames.data?.frames ?? []).filter((f) => f.unlocked).map((f) => f.id));
   // 0309: how far the guest is towards each earned frame.
   const progressOf = (id: FrameId) => frames.data?.frames.find((f) => f.id === id);
   const { first, last } = nameFieldsOf(profile.data ?? {});
@@ -965,19 +1018,28 @@ function FrameForm() {
           width: '31%',
           alignItems: 'center',
           gap: 4,
-          paddingTop: 8,
-          paddingBottom: 8,
-          borderRadius: 12,
-          backgroundColor: isSel ? colors.gtint : 'transparent',
-          borderWidth: isSel ? 2 : 0,
-          borderColor: colors.gstrong,
+          paddingTop: 10,
+          paddingBottom: 10,
+          paddingStart: 4,
+          paddingEnd: 4,
+          borderRadius: 14,
+          // Every tile sits on its own well; the pick turns green. One border
+          // width for both, so selecting never shifts the grid.
+          backgroundColor: isSel ? colors.gtint : colors.bg,
+          borderWidth: 1.5,
+          borderColor: isSel ? colors.gstrong : colors.line,
         }}
       >
         <View style={{ opacity: locked ? 0.4 : 1 }}>
-          <ProfileAvatar path={profile.data?.avatar_path} initials={initials} size={48} frame={id} />
+          <ProfileAvatar
+            path={profile.data?.avatar_path}
+            initials={initials}
+            size={48}
+            frame={id}
+          />
         </View>
         {locked ? (
-          <View style={{ position: 'absolute', top: 22, alignSelf: 'center' }}>
+          <View style={{ position: 'absolute', top: 24, alignSelf: 'center' }}>
             <LockIcon size={14} color={colors.ink} />
           </View>
         ) : null}
@@ -988,14 +1050,24 @@ function FrameForm() {
         ) : null}
         <Text
           numberOfLines={2}
-          style={{ fontFamily: fonts.body600, fontSize: 11.5, color: colors.ink, textAlign: 'center' }}
+          style={{
+            fontFamily: fonts.body600,
+            fontSize: 11.5,
+            color: colors.ink,
+            textAlign: 'center',
+          }}
         >
           {t(frameNameKey(id))}
         </Text>
         {locked && rule ? (
           <Text
             numberOfLines={2}
-            style={{ fontFamily: fonts.body400, fontSize: 10.5, color: colors.mut, textAlign: 'center' }}
+            style={{
+              fontFamily: fonts.body400,
+              fontSize: 10.5,
+              color: colors.mut,
+              textAlign: 'center',
+            }}
           >
             {t(rule)}
           </Text>
@@ -1003,7 +1075,13 @@ function FrameForm() {
         {locked && goal ? (
           <View style={{ alignItems: 'center', gap: 3 }}>
             <View
-              style={{ width: 44, height: 3, borderRadius: 2, backgroundColor: colors.sub, overflow: 'hidden' }}
+              style={{
+                width: 44,
+                height: 3,
+                borderRadius: 2,
+                backgroundColor: colors.sub,
+                overflow: 'hidden',
+              }}
             >
               <View
                 style={{
@@ -1015,7 +1093,12 @@ function FrameForm() {
             </View>
             <Text
               testID={`profile-edit.frame.${id}.progress`}
-              style={{ fontFamily: fonts.body400, fontSize: 10, color: colors.mut, writingDirection: 'ltr' }}
+              style={{
+                fontFamily: fonts.body400,
+                fontSize: 10,
+                color: colors.mut,
+                writingDirection: 'ltr',
+              }}
             >
               {isolateLtr(`${Math.min(progress, goal)} / ${goal}`)}
             </Text>
@@ -1037,7 +1120,14 @@ function FrameForm() {
       }}
     >
       <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.ink }}>{title}</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          rowGap: 8,
+        }}
+      >
         {ids.map(tile)}
       </View>
     </View>
@@ -1046,7 +1136,12 @@ function FrameForm() {
   return (
     <FormScreen contentStyle={{ paddingTop: 4, gap: 14 }}>
       <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 4 }}>
-        <ProfileAvatar path={profile.data?.avatar_path} initials={initials} size={84} frame={selected} />
+        <ProfileAvatar
+          path={profile.data?.avatar_path}
+          initials={initials}
+          size={84}
+          frame={selected}
+        />
       </View>
       {card(t('profile.frameFree'), FREE_FRAMES)}
       {card(t('profile.frameEarned'), EARNED_FRAMES)}
