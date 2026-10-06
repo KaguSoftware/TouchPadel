@@ -8,8 +8,9 @@ set statement_timeout = '60s';
 --          loyalty_tiers.id (string). app.price_promo_promotion and
 --          app.upsert_promotion_internal (latest 0177) accept it (an existing
 --          tier, else RECORD_INVALID / INVALID_VALUE detail limits.tierMin).
---          Eligibility is app.promotion_tier_ok: loyalty on, a customer, and
---          the customer's tier min_points_12m at least the named tier's. A
+--          Eligibility is app.promotion_tier_ok (created in 0308): loyalty
+--          on, a customer, and the customer's tier min_points_12m at least
+--          the named tier's. A
 --          legacy integer tierMin (a tier's sort, 0306) is converted to the
 --          id below; one left over reads as that sort's tier, and no tier
 --          means nobody. loyalty_tiers.promotion_id was never read: it is
@@ -25,9 +26,9 @@ set statement_timeout = '60s';
 --          than raising NO_ELIGIBLE_PROMOTION / CODE_NOT_ELIGIBLE, which
 --          would roll it back. The same-promotion path moves the redemption
 --          to the tab's current customer. (set_tab_customer's re-check is
---          0308's, and must test tierMin through app.promotion_tier_ok:
---          after this file tierMin is a tier id, not a sort.
---          0308's inline sort comparison would raise 22P02.)
+--          0308's; it tests tierMin through app.promotion_tier_ok, which
+--          0308 creates because it runs first and which reads both a tier
+--          id and the legacy sort.)
 --   c14    A promotion takes at most what the goods subtotal leaves after the
 --          tab's other discounts (app.promotion_room_iqd: line discounts on
 --          live lines and tab discounts that are not a promotion, loyalty
@@ -80,40 +81,6 @@ update promotions p
 -- ===========================================================================
 -- 2. Helpers
 -- ===========================================================================
-
--- c6/c16: may this customer have a promotion with these limits, by tier?
-create or replace function app.promotion_tier_ok(p_limits jsonb, p_customer uuid)
-returns boolean
-language plpgsql stable security definer set search_path = public as $promotion_tier_ok_0309$
-declare
-  v_need bigint;
-  v_has  bigint;
-begin
-  if p_limits is null or not (p_limits ? 'tierMin') or jsonb_typeof(p_limits->'tierMin') = 'null' then
-    return true;
-  end if;
-  if p_customer is null or not coalesce((select s.enabled from loyalty_settings s where s.id), false) then
-    return false;
-  end if;
-  if jsonb_typeof(p_limits->'tierMin') = 'string'
-     and (p_limits->>'tierMin') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
-    select t.min_points_12m into v_need from loyalty_tiers t where t.id = (p_limits->>'tierMin')::uuid;
-  elsif jsonb_typeof(p_limits->'tierMin') = 'number' then
-    -- Legacy (0306): a tier's sort.
-    select t.min_points_12m into v_need from loyalty_tiers t where t.sort = (p_limits->>'tierMin')::numeric;
-  end if;
-  if v_need is null then
-    return false;   -- an unknown or deleted tier: nobody
-  end if;
-  v_has := coalesce((select t.min_points_12m from loyalty_accounts a join loyalty_tiers t on t.id = a.tier_id
-                      where a.profile_id = p_customer), 0);
-  return v_has >= v_need;
-end $promotion_tier_ok_0309$;
-
-comment on function app.promotion_tier_ok(jsonb, uuid) is
-  'Loyalty (0309, c6/c16). Internal: true when p_limits has no tierMin; else loyalty is on, there is a customer, and the min_points_12m of the customer''s tier (no account: 0) is at least that of the tier tierMin names (a loyalty_tiers id; legacy: a number, the tier with that sort). An unknown tier is false.';
-
-revoke all on function app.promotion_tier_ok(jsonb, uuid) from public, anon, authenticated;
 
 -- c14: what a promotion may still take off this tab: the goods subtotal less
 -- the discounts that are not a promotion (line discounts on live lines, and
@@ -1110,7 +1077,6 @@ declare
   v_sum   bigint;
   v_last  timestamptz;
   v_12m   bigint;
-  v_adj   bigint;
   v_out   text := 'unchanged';
 begin
   begin
@@ -1123,22 +1089,21 @@ begin
     -- reads it (0308: the tier points are earn + clawback of the last 12
     -- months), in one scan: the balance, the last activity, the 12-month
     -- points and the tier they reach. Never from updated_at, which
-    -- app.loyalty_retier also stamps without recounting. An account with an
-    -- adjustment in the window is always rebuilt: whether an adjustment counts
-    -- toward the tier is the recompute's rule (0305 counted it, 0308 does not).
+    -- app.loyalty_retier also stamps without recounting. An adjustment moves
+    -- the balance only (0308, c17), so it needs no branch of its own: an
+    -- account whose points_12m still counts one (written under 0305's rule)
+    -- differs from v_12m and is rebuilt.
     select coalesce(sum(l.delta), 0),
            max(l.created_at) filter (where l.kind <> 'expire'),
            coalesce(sum(l.delta) filter (where l.kind in ('earn', 'clawback')
-                                           and l.created_at > now() - interval '12 months'), 0),
-           count(*) filter (where l.kind = 'adjust' and l.created_at > now() - interval '12 months')
-      into v_sum, v_last, v_12m, v_adj
+                                           and l.created_at > now() - interval '12 months'), 0)
+      into v_sum, v_last, v_12m
       from loyalty_ledger l where l.profile_id = p_profile;
     v_12m := greatest(v_12m, 0);
     if a.profile_id is null
        or a.balance <> v_sum
        or a.last_activity_at is distinct from v_last
        or a.points_12m is distinct from v_12m
-       or v_adj > 0
        or a.tier_id is distinct from (select t.id from loyalty_tiers t where t.min_points_12m <= v_12m
                                        order by t.min_points_12m desc limit 1) then
       perform app.loyalty_recompute(p_profile);
@@ -1163,7 +1128,7 @@ begin
 end $loyalty_nightly_one_0309$;
 
 comment on function app.loyalty_nightly_one(uuid, int, timestamptz) is
-  'Loyalty (0309, c8, c31). Internal: one account of the nightly run, in its own exception block with lock_timeout 2s. The account FOR UPDATE SKIP LOCKED (held by a till: locked, tomorrow); recomputed (app.loyalty_recompute) unless its balance equals sum(ledger), its last_activity_at the newest row that is not an expiry, its points_12m the earn + clawback of the last 12 months and its tier the one those reach, with no adjustment in that window (unchanged; never judged by updated_at, which app.loyalty_retier also stamps); then, when p_expire_months is set (loyalty on), an (expire, expiry) row for the whole balance if greatest(last_activity_at, p_since) is older than that. Returns locked | unchanged | recomputed | expired | error (a warning).';
+  'Loyalty (0309, c8, c31). Internal: one account of the nightly run, in its own exception block with lock_timeout 2s. The account FOR UPDATE SKIP LOCKED (held by a till: locked, tomorrow); recomputed (app.loyalty_recompute) unless its balance equals sum(ledger), its last_activity_at the newest row that is not an expiry, its points_12m the earn + clawback of the last 12 months and its tier the one those reach (unchanged; an adjustment moves the balance only, 0308; never judged by updated_at, which app.loyalty_retier also stamps); then, when p_expire_months is set (loyalty on), an (expire, expiry) row for the whole balance if greatest(last_activity_at, p_since) is older than that. Returns locked | unchanged | recomputed | expired | error (a warning).';
 
 revoke all on function app.loyalty_nightly_one(uuid, int, timestamptz) from public, anon, authenticated;
 

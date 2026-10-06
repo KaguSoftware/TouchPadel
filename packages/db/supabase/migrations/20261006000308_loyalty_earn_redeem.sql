@@ -57,6 +57,9 @@ set statement_timeout = '60s';
 --       perCustomer are tested for the new customer and the promotion is
 --       dropped (audited promotion.drop_on_customer_change) when it no longer
 --       qualifies; otherwise its redemption follows the new customer.
+--       The tier test is app.promotion_tier_ok, created here rather than in
+--       0309 (which makes limits.tierMin a tier id) because 0308 runs first;
+--       it reads a tier id and the legacy sort alike.
 --
 -- Lock order: unchanged. The new deferred triggers (redeem cap at settle,
 -- booking-payment earn and claw) write ledger rows whose account recompute
@@ -982,6 +985,43 @@ comment on function app.loyalty_identify(text, uuid) is
 revoke all on function app.loyalty_identify(text, uuid) from public, anon;
 grant execute on function app.loyalty_identify(text, uuid) to authenticated;
 
+-- c6/c16 (0309's, here because set_tab_customer below re-checks a tier
+-- promotion and 0308 runs first): may this customer have a promotion with
+-- these limits, by tier? It reads a tier id (0309) and the legacy sort (0306),
+-- so it is right on both sides of 0309's conversion.
+create or replace function app.promotion_tier_ok(p_limits jsonb, p_customer uuid)
+returns boolean
+language plpgsql stable security definer set search_path = public as $promotion_tier_ok_0308$
+declare
+  v_need bigint;
+  v_has  bigint;
+begin
+  if p_limits is null or not (p_limits ? 'tierMin') or jsonb_typeof(p_limits->'tierMin') = 'null' then
+    return true;
+  end if;
+  if p_customer is null or not coalesce((select s.enabled from loyalty_settings s where s.id), false) then
+    return false;
+  end if;
+  if jsonb_typeof(p_limits->'tierMin') = 'string'
+     and (p_limits->>'tierMin') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+    select t.min_points_12m into v_need from loyalty_tiers t where t.id = (p_limits->>'tierMin')::uuid;
+  elsif jsonb_typeof(p_limits->'tierMin') = 'number' then
+    -- Legacy (0306): a tier's sort.
+    select t.min_points_12m into v_need from loyalty_tiers t where t.sort = (p_limits->>'tierMin')::numeric;
+  end if;
+  if v_need is null then
+    return false;   -- an unknown or deleted tier: nobody
+  end if;
+  v_has := coalesce((select t.min_points_12m from loyalty_accounts a join loyalty_tiers t on t.id = a.tier_id
+                      where a.profile_id = p_customer), 0);
+  return v_has >= v_need;
+end $promotion_tier_ok_0308$;
+
+comment on function app.promotion_tier_ok(jsonb, uuid) is
+  'Loyalty (0308 for 0309, c6/c16). Internal: true when p_limits has no tierMin; else loyalty is on, there is a customer, and the min_points_12m of the customer''s tier (no account: 0) is at least that of the tier tierMin names (a loyalty_tiers id; legacy: a number, the tier with that sort). An unknown tier is false.';
+
+revoke all on function app.promotion_tier_ok(jsonb, uuid) from public, anon, authenticated;
+
 -- set_tab_customer: re-issued from 20261005000305_loyalty.sql:976
 create or replace function app.set_tab_customer(p_tab_id uuid, p_customer_id uuid) returns jsonb
 language plpgsql security definer set search_path = public as $set_tab_customer_0308$
@@ -1065,12 +1105,8 @@ begin
       select * into v_promo from promotions where id = v_red.promotion_id;
       v_cust := app.tab_customer(p_tab_id);
       v_ok := true;
-      if v_promo.limits ? 'tierMin' then
-        v_ok := coalesce((select s.enabled from loyalty_settings s where s.id), false)
-                and v_cust is not null
-                and coalesce((select t.sort from loyalty_accounts a join loyalty_tiers t on t.id = a.tier_id
-                               where a.profile_id = v_cust), 0) >= (v_promo.limits->>'tierMin')::int;
-      end if;
+      -- tierMin through app.promotion_tier_ok (a tier id since 0309).
+      v_ok := app.promotion_tier_ok(v_promo.limits, v_cust);
       v_limit := (v_promo.limits->>'perCustomer')::bigint;
       if v_ok and v_limit is not null then
         v_ok := v_cust is not null

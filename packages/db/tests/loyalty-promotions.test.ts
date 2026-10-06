@@ -474,7 +474,7 @@ describe.skipIf(!docker)('the nightly run (c8, c31)', () => {
         `select to_jsonb(balance) from loyalty_accounts where profile_id = {{g2}}::uuid`,
       ),
       Q('again', `select app.loyalty_nightly()`),
-      // Per account: the stack's other accounts (an adjustment in the window is always rebuilt) are not this test's.
+      // Per account: the stack's other accounts belong to other tests.
       Q('g1_again', `select to_jsonb(app.loyalty_nightly_one({{g1}}::uuid, null, null))`),
       Q('g2_again', `select to_jsonb(app.loyalty_nightly_one({{g2}}::uuid, null, null))`),
       Q(
