@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
-import { fetchMyBirthDate, fetchOwnProfile, setMyBirthDate, updateOwnProfile } from './api';
+import {
+  checkUsername,
+  fetchMyBirthDate,
+  fetchMyFrames,
+  fetchOwnProfile,
+  setMyBirthDate,
+  setMyFrame,
+  setMyUsername,
+  suggestUsername,
+  updateOwnProfile,
+} from './api';
 import { avatarUrl, AVATAR_URL_TTL_S, removeAvatar, replaceAvatar } from './avatar';
 import { acceptTerms, fetchOwnConsent } from './consent';
 
@@ -12,6 +22,12 @@ export const profileKeys = {
   birthDate: ['own-birth-date'] as const,
   /** 0302: a signed avatar URL, per path. Never persisted: it expires. */
   avatarUrl: (path: string) => ['avatar-url', path] as const,
+  /** 0307: the live availability answer for one typed name. Never persisted. */
+  usernameCheck: (name: string) => ['username-check', name] as const,
+  /** 0307: a suggested username. Never persisted: it goes stale as names are taken. */
+  usernameSuggestion: ['username-check', 'suggest'] as const,
+  /** 0307: the frame picker (closed list + what is unlocked). */
+  frames: ['own-frames'] as const,
 };
 
 export function useOwnProfile(enabled: boolean) {
@@ -112,6 +128,61 @@ export function useSetAvatar() {
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: profileKeys.own });
+    },
+  });
+}
+
+/** app.username_check for a typed name (already normalised and shaped). */
+export function useUsernameCheck(name: string, enabled: boolean) {
+  return useQuery({
+    queryKey: profileKeys.usernameCheck(name),
+    queryFn: () => checkUsername(supabase, name),
+    enabled: enabled && name.length > 0,
+    staleTime: 10_000,
+    gcTime: 60_000,
+  });
+}
+
+/** A free username built from the guest's name (hassan.s). */
+export function useUsernameSuggestion(enabled: boolean) {
+  return useQuery({
+    queryKey: profileKeys.usernameSuggestion,
+    queryFn: () => suggestUsername(supabase),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useSetUsername() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['set-username'],
+    mutationFn: (username: string) => setMyUsername(supabase, username),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: profileKeys.own });
+      void queryClient.invalidateQueries({ queryKey: ['username-check'] });
+    },
+  });
+}
+
+/** The caller's frame picker. */
+export function useMyFrames(enabled: boolean) {
+  return useQuery({
+    queryKey: profileKeys.frames,
+    queryFn: () => fetchMyFrames(supabase),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+export function useSetFrame() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['set-frame'],
+    mutationFn: (frame: string) => setMyFrame(supabase, frame),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: profileKeys.own });
+      void queryClient.invalidateQueries({ queryKey: profileKeys.frames });
     },
   });
 }

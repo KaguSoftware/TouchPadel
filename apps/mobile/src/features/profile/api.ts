@@ -32,9 +32,17 @@ export interface ProfileRow {
    * name parts: a row cached by an older build has none.
    */
   avatar_path?: string | null;
+  /**
+   * Phase 2 (0307): the public handle (lower case), when it last changed, and
+   * the photo frame id. Optional for the same reason as the name parts.
+   */
+  username?: string | null;
+  username_changed_at?: string | null;
+  avatar_frame?: string | null;
 }
 
-const PROFILE_COLUMNS = 'id, full_name, phone, preferred_lang, given_name, family_name, gender, avatar_path';
+const PROFILE_COLUMNS =
+  'id, full_name, phone, preferred_lang, given_name, family_name, gender, avatar_path, username, username_changed_at, avatar_frame';
 
 export async function fetchOwnProfile(client: Client): Promise<ProfileRow | null> {
   const { data: userData } = await client.auth.getUser();
@@ -210,5 +218,54 @@ export async function setMyBirthDate(client: Client, birthDate: string | null): 
     // NULL clears it; the generated type only knows a value.
     p_birth_date: birthDate as unknown as string,
   });
+  if (error) throw error;
+}
+
+export interface UsernameCheck {
+  username: string | null;
+  available: boolean;
+  reason: 'invalid' | 'reserved' | 'taken' | null;
+}
+
+/** app.username_check (0307): the Edit profile field's live answer. */
+export async function checkUsername(client: Client, username: string): Promise<UsernameCheck> {
+  const { data, error } = await client.schema('app').rpc('username_check', { p_username: username });
+  if (error) throw error;
+  return data as unknown as UsernameCheck;
+}
+
+/** app.suggest_username (0307): hassan.s, hassan.s2 …; null if none is free. */
+export async function suggestUsername(client: Client): Promise<string | null> {
+  const { data, error } = await client.schema('app').rpc('suggest_username');
+  if (error) throw error;
+  const name = (data as { username?: unknown } | null)?.username;
+  return typeof name === 'string' ? name : null;
+}
+
+/** app.set_my_username (0307). USERNAME_TOO_SOON carries the next allowed time in `details`. */
+export async function setMyUsername(client: Client, username: string): Promise<void> {
+  const { error } = await client.schema('app').rpc('set_my_username', { p_username: username });
+  if (error) throw error;
+}
+
+export interface MyFrames {
+  current: string;
+  /** 0309: games played and paid in full, and tournaments won. */
+  played?: number;
+  tournaments_won?: number;
+  /** goal and progress are null for a free frame (always unlocked). */
+  frames: { id: string; unlocked: boolean; goal?: number | null; progress?: number | null }[];
+}
+
+/** app.my_frames (0307): the closed list with what the caller has unlocked. */
+export async function fetchMyFrames(client: Client): Promise<MyFrames> {
+  const { data, error } = await client.schema('app').rpc('my_frames');
+  if (error) throw error;
+  return data as unknown as MyFrames;
+}
+
+/** app.set_my_frame (0307). FRAME_LOCKED for an earned frame not earned yet. */
+export async function setMyFrame(client: Client, frame: string): Promise<void> {
+  const { error } = await client.schema('app').rpc('set_my_frame', { p_frame: frame });
   if (error) throw error;
 }

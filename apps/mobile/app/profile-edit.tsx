@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -8,11 +8,34 @@ import { useAuth } from '../src/features/auth/context';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import {
   useMyBirthDate,
+  useMyFrames,
   useOwnProfile,
   useSetAvatar,
   useSetBirthDate,
+  useSetFrame,
+  useSetUsername,
   useUpdateProfile,
+  useUsernameCheck,
+  useUsernameSuggestion,
 } from '../src/features/profile/hooks';
+import {
+  atUsername,
+  isUsernameShape,
+  nextUsernameChange,
+  normalizeUsername,
+  stateFromCheck,
+  usernameStateKey,
+  type UsernameState,
+} from '../src/features/profile/username';
+import {
+  EARNED_FRAMES,
+  FREE_FRAMES,
+  frameNameKey,
+  frameOf,
+  frameRuleKey,
+  type FrameId,
+} from '../src/features/profile/frames';
+import { errorCode } from '@touch/i18n';
 import { useSetMyGender } from '../src/features/matches/hooks';
 import { pickAvatarPhoto, PhotoError, type PhotoSource } from '../src/features/staff/photo';
 import {
@@ -48,9 +71,11 @@ import { passwordProofOf } from '../src/features/profile/changePasswordFlow';
 import {
   CalendarIcon,
   CameraIcon,
+  CheckIcon,
   ChevronIcon,
   EnvelopeIcon,
   LockIcon,
+  ImageIcon,
   PencilIcon,
   PhoneIcon,
   TabProfileIcon,
@@ -80,6 +105,14 @@ import { NAME_PART_MAX, nameFieldsOf, namePatch } from '../src/features/profile/
  * Email is not editable (re-verification, spec 05.18); language lives in
  * Settings alone. Leaving never prompts: back drops unsaved edits (owner, 2026-09-09).
  *
+ * USERNAME AND FRAME (Phase 2, owner 2026-10-06; migration 0307). Username
+ * opens a form with a live availability check (`app.username_check`, after a
+ * short pause in typing), a suggestion built from the name (hassan.s), and
+ * the 7-day rule: the first username is free, then one change a week. Photo
+ * frame opens a picker: the six free frames, and the four earned ones shown
+ * locked with their rule until the guest earns them. Other players and the
+ * desk see the username beside the short name ("Hassan S.").
+ *
  * NAME (open matches, guest.md §4.9): two fields, because other players see
  * the first name and the surname's initial. The first is required; the
  * surname is not (single-name guests exist). The server rebuilds `full_name`.
@@ -90,7 +123,7 @@ import { NAME_PART_MAX, nameFieldsOf, namePatch } from '../src/features/profile/
  * only after the code comes back. Only when `phoneChangeNeedsCode` says so;
  * otherwise Save writes the number directly.
  */
-type Section = 'name' | 'phone';
+type Section = 'name' | 'phone' | 'username' | 'frame';
 
 function initialsOf(first: string, last: string, email: string) {
   return (
@@ -262,6 +295,7 @@ function Hub() {
   const gender = profile.data?.gender ?? null;
   const birthDate = birthDateToDate(birth.data);
   const hasPhoto = !!profile.data?.avatar_path;
+  const username = profile.data?.username ?? null;
   const hasPassword = !!passwordProofOf(session?.user);
   const go = (section: Section) => router.push({ pathname: '/profile-edit', params: { section } });
 
@@ -381,6 +415,7 @@ function Hub() {
             path={profile.data?.avatar_path}
             initials={initialsOf(first, last, email)}
             size={84}
+            frame={frameOf(profile.data?.avatar_frame)}
           />
           {setAvatar.isPending ? (
             <View
@@ -444,6 +479,21 @@ function Hub() {
           label={t('profile.nameSection')}
           value={[first, last].filter(Boolean).join(' ') || t('profile.notSet')}
           onPress={() => go('name')}
+        />
+        {/* Phase 2 (0307): required to join open matches; one change a week. */}
+        <HubRow
+          testID="profile-edit.username"
+          icon={<TabProfileIcon size={15} color={colors.gstrong} />}
+          label={t('profile.usernameSection')}
+          value={username ? isolateLtr(atUsername(username)) : t('profile.notSet')}
+          onPress={() => go('username')}
+        />
+        <HubRow
+          testID="profile-edit.frame"
+          icon={<ImageIcon size={15} color={colors.gstrong} />}
+          label={t('profile.frameSection')}
+          value={t(frameNameKey(frameOf(profile.data?.avatar_frame)))}
+          onPress={() => go('frame')}
         />
         {/* Not editable here (re-verification, spec 05.18): tapping says so. */}
         <HubRow
@@ -713,6 +763,305 @@ function PhoneForm() {
   );
 }
 
+/**
+ * Username (0307). The field checks availability after a short pause in
+ * typing, never on every key; the grammar is checked on the phone first so a
+ * bad name never reaches the server. Save is the only write.
+ */
+function UsernameForm() {
+  const { t, locale } = useLocale();
+  const { colors, fonts } = useTheme();
+  const { session } = useAuth();
+  const profile = useOwnProfile(!!session);
+  const save = useSetUsername();
+  const toast = useToast();
+  const back = useBack();
+  const current = profile.data?.username ?? null;
+  const [typed, setTyped] = useState<string | null>(null);
+  // The name the server is asked about: set after a pause in typing.
+  const [asked, setAsked] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const suggestion = useUsernameSuggestion(!!session && profile.isSuccess && !current);
+
+  const value = typed ?? current ?? '';
+  const name = normalizeUsername(value);
+  const shaped = isUsernameShape(name);
+  const pending = asked ?? (typed === null ? current : null) ?? '';
+  const check = useUsernameCheck(pending, shaped && pending === name);
+  const next = nextUsernameChange(current, profile.data?.username_changed_at);
+  const unchanged = name === current;
+
+  const state: UsernameState =
+    name === ''
+      ? { kind: 'empty' }
+      : !shaped
+        ? name.length < 3
+          ? { kind: 'empty' }
+          : { kind: 'invalid' }
+        : pending !== name
+          ? { kind: 'checking' }
+          : stateFromCheck(check.data, current);
+  const stateKey = usernameStateKey(state);
+  const good = state.kind === 'available' || state.kind === 'yours';
+
+  const onChange = (text: string) => {
+    setTyped(text);
+    setError(null);
+    if (timer.current) clearTimeout(timer.current);
+    const n = normalizeUsername(text);
+    timer.current = setTimeout(() => setAsked(n), 350);
+  };
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  const onSave = () => {
+    if (!good || unchanged) return;
+    setError(null);
+    save.mutate(name, {
+      onSuccess: () => {
+        toast(t('profile.usernameSaved'));
+        back();
+      },
+      onError: (err) => {
+        const details = (err as { details?: unknown }).details;
+        const when = typeof details === 'string' ? new Date(details) : null;
+        setError(
+          errorCode(err) === 'USERNAME_TOO_SOON' && when && !Number.isNaN(when.getTime())
+            ? t('profile.usernameTooSoon', { date: formatDate(when, locale) })
+            : t(mapErrorToKey(err)),
+        );
+      },
+    });
+  };
+
+  if (profile.isLoading) return <SkeletonList rows={1} height={64} />;
+  const tone =
+    state.kind === 'available' || state.kind === 'yours'
+      ? colors.gstrong
+      : state.kind === 'checking'
+        ? colors.mut
+        : colors.redtext;
+  return (
+    <FormScreen contentStyle={{ paddingTop: 4 }}>
+      <Field
+        testID="profile-edit.username-field"
+        label={t('profile.usernameSection')}
+        value={value}
+        onChangeText={onChange}
+        placeholder={t('profile.usernamePlaceholder')}
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="username"
+        textContentType="username"
+        maxLength={21}
+        latin
+        dense
+        editable={!next}
+      />
+      {stateKey ? (
+        <Text style={{ marginTop: -4, fontFamily: fonts.body600, fontSize: 12.5, color: tone }}>{t(stateKey)}</Text>
+      ) : null}
+      {!current && suggestion.data && suggestion.data !== name ? (
+        <Pressable
+          testID="profile-edit.username-suggestion"
+          accessibilityRole="button"
+          onPress={() => onChange(suggestion.data!)}
+          style={({ pressed }) => ({
+            marginTop: 10,
+            alignSelf: 'flex-start',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            paddingStart: 12,
+            paddingEnd: 12,
+            paddingTop: 8,
+            paddingBottom: 8,
+            borderRadius: radius.pill,
+            backgroundColor: pressed ? colors.sub : colors.gtint,
+          })}
+        >
+          <Text style={{ fontFamily: fonts.body600, fontSize: 13, color: colors.ink }}>
+            {t('profile.usernameSuggestion', { name: isolateLtr(atUsername(suggestion.data)) })}
+          </Text>
+          <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.gstrong }}>
+            {t('profile.usernameUseSuggestion')}
+          </Text>
+        </Pressable>
+      ) : null}
+      <Hint>
+        {next
+          ? t('profile.usernameTooSoon', { date: formatDate(next, locale) })
+          : `${t('profile.usernameHint')} ${t('profile.usernameWeekly')}`}
+      </Hint>
+      <ErrorText>{error}</ErrorText>
+      <Button
+        testID="profile-edit.save-username"
+        label={t('profile.usernameSave')}
+        variant="cta"
+        busy={save.isPending}
+        disabled={!good || unchanged || !!next}
+        onPress={onSave}
+        style={{ marginTop: 6 }}
+      />
+    </FormScreen>
+  );
+}
+
+/**
+ * Photo frame (0307): the six free frames, then the four earned ones, locked
+ * with their rule and progress (10 / 50; 0309) until the server says the guest
+ * earned them: games played AND paid in full, or a tournament win. The avatar at
+ * the top previews the pick; Save writes it.
+ */
+function FrameForm() {
+  const { t } = useLocale();
+  const { colors, fonts } = useTheme();
+  const { session } = useAuth();
+  const profile = useOwnProfile(!!session);
+  const frames = useMyFrames(!!session);
+  const save = useSetFrame();
+  const toast = useToast();
+  const back = useBack();
+  const [picked, setPicked] = useState<FrameId | null>(null);
+  const current = frameOf(frames.data?.current ?? profile.data?.avatar_frame);
+  const selected = picked ?? current;
+  const unlocked = new Set(
+    (frames.data?.frames ?? []).filter((f) => f.unlocked).map((f) => f.id),
+  );
+  // 0309: how far the guest is towards each earned frame.
+  const progressOf = (id: FrameId) => frames.data?.frames.find((f) => f.id === id);
+  const { first, last } = nameFieldsOf(profile.data ?? {});
+  const initials = initialsOf(first, last, session?.user.email ?? '');
+
+  const onSave = () =>
+    save.mutate(selected, {
+      onSuccess: () => {
+        toast(t('profile.frameSaved'));
+        back();
+      },
+      onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
+    });
+
+  if (profile.isLoading || frames.isLoading) return <SkeletonList rows={2} height={96} />;
+
+  const tile = (id: FrameId) => {
+    const locked = !FREE_FRAMES.includes(id) && !unlocked.has(id);
+    const isSel = id === selected;
+    const rule = frameRuleKey(id);
+    const goal = progressOf(id)?.goal ?? null;
+    const progress = progressOf(id)?.progress ?? 0;
+    return (
+      <Pressable
+        key={id}
+        testID={`profile-edit.frame.${id}`}
+        accessibilityRole="button"
+        accessibilityState={{ selected: isSel, disabled: locked }}
+        accessibilityLabel={t(frameNameKey(id))}
+        disabled={locked}
+        onPress={() => setPicked(id)}
+        style={{
+          width: '31%',
+          alignItems: 'center',
+          gap: 4,
+          paddingTop: 8,
+          paddingBottom: 8,
+          borderRadius: 12,
+          backgroundColor: isSel ? colors.gtint : 'transparent',
+          borderWidth: isSel ? 2 : 0,
+          borderColor: colors.gstrong,
+        }}
+      >
+        <View style={{ opacity: locked ? 0.4 : 1 }}>
+          <ProfileAvatar path={profile.data?.avatar_path} initials={initials} size={48} frame={id} />
+        </View>
+        {locked ? (
+          <View style={{ position: 'absolute', top: 22, alignSelf: 'center' }}>
+            <LockIcon size={14} color={colors.ink} />
+          </View>
+        ) : null}
+        {isSel ? (
+          <View style={{ position: 'absolute', top: 4, end: 4 }}>
+            <CheckIcon size={12} color={colors.gstrong} />
+          </View>
+        ) : null}
+        <Text
+          numberOfLines={2}
+          style={{ fontFamily: fonts.body600, fontSize: 11.5, color: colors.ink, textAlign: 'center' }}
+        >
+          {t(frameNameKey(id))}
+        </Text>
+        {locked && rule ? (
+          <Text
+            numberOfLines={2}
+            style={{ fontFamily: fonts.body400, fontSize: 10.5, color: colors.mut, textAlign: 'center' }}
+          >
+            {t(rule)}
+          </Text>
+        ) : null}
+        {locked && goal ? (
+          <View style={{ alignItems: 'center', gap: 3 }}>
+            <View
+              style={{ width: 44, height: 3, borderRadius: 2, backgroundColor: colors.sub, overflow: 'hidden' }}
+            >
+              <View
+                style={{
+                  width: `${Math.min(100, Math.round((progress / goal) * 100))}%`,
+                  height: '100%',
+                  backgroundColor: brand.green,
+                }}
+              />
+            </View>
+            <Text
+              testID={`profile-edit.frame.${id}.progress`}
+              style={{ fontFamily: fonts.body400, fontSize: 10, color: colors.mut, writingDirection: 'ltr' }}
+            >
+              {isolateLtr(`${Math.min(progress, goal)} / ${goal}`)}
+            </Text>
+          </View>
+        ) : null}
+      </Pressable>
+    );
+  };
+
+  const card = (title: string, ids: readonly FrameId[]) => (
+    <View
+      style={{
+        backgroundColor: colors.card,
+        borderWidth: 1,
+        borderColor: colors.line,
+        borderRadius: radius.card,
+        padding: 12,
+        gap: 10,
+      }}
+    >
+      <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.ink }}>{title}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8 }}>
+        {ids.map(tile)}
+      </View>
+    </View>
+  );
+
+  return (
+    <FormScreen contentStyle={{ paddingTop: 4, gap: 14 }}>
+      <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 4 }}>
+        <ProfileAvatar path={profile.data?.avatar_path} initials={initials} size={84} frame={selected} />
+      </View>
+      {card(t('profile.frameFree'), FREE_FRAMES)}
+      {card(t('profile.frameEarned'), EARNED_FRAMES)}
+      <Button
+        testID="profile-edit.save-frame"
+        label={t('profile.frameSave')}
+        variant="cta"
+        busy={save.isPending}
+        disabled={selected === current}
+        onPress={onSave}
+      />
+    </FormScreen>
+  );
+}
+
 function EditProfileScreen() {
   const { t } = useLocale();
   const { section } = useLocalSearchParams<{ section?: string }>();
@@ -721,11 +1070,25 @@ function EditProfileScreen() {
       ? t('profile.nameSection')
       : section === 'phone'
         ? t('profile.phoneSection')
-        : t('profile.editProfile');
+        : section === 'username'
+          ? t('profile.usernameSection')
+          : section === 'frame'
+            ? t('profile.frameSection')
+            : t('profile.editProfile');
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title }} />
-      {section === 'name' ? <NameForm /> : section === 'phone' ? <PhoneForm /> : <Hub />}
+      {section === 'name' ? (
+        <NameForm />
+      ) : section === 'phone' ? (
+        <PhoneForm />
+      ) : section === 'username' ? (
+        <UsernameForm />
+      ) : section === 'frame' ? (
+        <FrameForm />
+      ) : (
+        <Hub />
+      )}
     </Screen>
   );
 }

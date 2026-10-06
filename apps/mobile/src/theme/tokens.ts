@@ -255,6 +255,21 @@ export const brand = {
 } as const;
 
 /**
+ * Photo frame metals (Phase 2, 0307; owner approved 2026-10-06). Theme-invariant
+ * like `brand`. No new hue: gold is the amber ramp (dark ambtext, dark
+ * ambstrong, light ambstrong) and silver the brand grays (dark mut2, the brand
+ * gray, dark fnt2), named here so a frame never borrows a warning colour by name.
+ */
+export const frame = {
+  goldHi: '#E9BF72',
+  gold: '#E3AF4F',
+  goldLo: '#8A6116',
+  silverHi: '#E0E0E1',
+  silver: '#BCBDBF',
+  silverLo: '#919396',
+} as const;
+
+/**
  * Third-party sign-in button colours — Google's official light/dark button
  * themes (developers.google.com/identity/branding-guidelines) and Apple's HIG.
  * Theme-invariant like `brand`; the Google mark is never recoloured.

@@ -6262,4 +6262,59 @@ export const matrix: MatrixRule[] = [
     note: 'account_identity (0303): internal; only merge_accounts, the sign-up claim and the 0303 run call it',
     drop: 29,
   },
+  // ── 0307: usernames and photo frames (Edit profile, Phase 2) ─────────────
+  // The caller's own profile only. Each probe is refused past the guard
+  // (an invalid name, an unknown frame) or only reads, so nothing is written;
+  // the anonymous café session has no profile (ACCOUNT_REQUIRED).
+  {
+    kind: 'rpc', schema: 'app', name: 'username_check',
+    args: { p_username: 'matrix-probe' },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0307: answers about one name for the caller; read-only',
+    drop: 29,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'suggest_username',
+    args: {},
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0307: a free name built from the caller\'s own name; read-only',
+    drop: 29,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_my_username',
+    args: { p_username: 'a' },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0307: the caller\'s own username; a one-letter name is USERNAME_INVALID, so nothing is written',
+    drop: 29,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_frames',
+    args: {},
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0307: the caller\'s own frame picker; read-only',
+    drop: 29,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_my_frame',
+    args: { p_frame: 'matrix-never' },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0307: the caller\'s own frame; an unknown id is FRAME_INVALID, so nothing is written',
+    drop: 29,
+  },
+  {
+    kind: 'select',
+    name: 'username_holds',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0307: no client grant; only the username definers read it',
+    drop: 29,
+  },
+  {
+    kind: 'write',
+    name: 'username_holds',
+    op: 'insert',
+    payload: { username: 'matrix', profile_id: NIL_UUID, released_at: '2030-01-01T00:00:00Z', reason: 'changed' },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0307: no client write grant; the username definers and the tombstone trigger write it',
+    drop: 29,
+  },
 ];

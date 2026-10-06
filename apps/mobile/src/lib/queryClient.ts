@@ -317,6 +317,9 @@ export const persistOptions = {
       // by its guest; neither is kept on disk.
       query.queryKey[0] !== 'avatar-url' &&
       query.queryKey[0] !== 'own-birth-date' &&
+      // 0307: a username availability answer or suggestion goes stale as soon
+      // as someone else takes the name.
+      query.queryKey[0] !== 'username-check' &&
       // Loyalty: the member card carries its TOTP secret, which lives in
       // SecureStore (features/loyalty/cardStore.ts), never in this plain file.
       // The balance read (`['loyalty', 'mine']`) is kept, like the profile.

@@ -1,5 +1,5 @@
 {
-  "generated_from": "3916febdcd56fbaa5d076b9a8bba5c17497e1557",
+  "generated_from": "8c050c327cf562b4aed1a019954f749cf1d34200",
   "chunks": [
     {
       "kind": "page",
@@ -4267,6 +4267,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.my_frames",
+      "lang": "en",
+      "title": "app.my_frames",
+      "body": "0307, progress since 0309. The caller's frame picker: {current, played, tournaments_won, frames: [{id, goal, progress, unlocked}]} in the closed list's order; goal and progress are NULL for a free frame (always unlocked).\nSignature: app.my_frames() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0309 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.my_incidents",
       "lang": "en",
       "title": "app.my_incidents",
@@ -5243,10 +5251,26 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.set_my_frame",
+      "lang": "en",
+      "title": "app.set_my_frame",
+      "body": "0307. The caller's own photo frame. FRAME_INVALID for an id outside the closed list, FRAME_LOCKED for an earned frame not earned yet. Returns {avatar_frame}.\nSignature: app.set_my_frame(p_frame text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, FRAME_INVALID, FRAME_LOCKED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0307 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.set_my_gender",
       "lang": "en",
       "title": "app.set_my_gender",
       "body": "0256. The calling account says once whether they are a woman or a man (female | male), for women's and men's open matches (OM-28). Refusals in order: AUTH_REQUIRED, ACCOUNT_REQUIRED (no profile or deleted), INVALID_ARGUMENT (detail p_gender), GENDER_ALREADY_SET (a different value is stored; the front desk corrects it). The same value again returns duplicate true. Stamps gender, gender_set_at and gender_set_by = guest together; audits profile.gender_set without the value.\nSignature: app.set_my_gender(p_gender text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: profile.gender_set.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, INVALID_ARGUMENT, GENDER_ALREADY_SET.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0256 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.set_my_username",
+      "lang": "en",
+      "title": "app.set_my_username",
+      "body": "0307. The caller's own username. USERNAME_INVALID, USERNAME_RESERVED, USERNAME_TAKEN, USERNAME_TOO_SOON (detail: when the next change is allowed; the first username is free, then once every 7 days). The name given up is held for the caller for 7 days. Returns {username, changed_at, next_change_at, duplicate}.\nSignature: app.set_my_username(p_username text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, USERNAME_INVALID, USERNAME_RESERVED, USERNAME_TOO_SOON, USERNAME_TAKEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0307 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5667,6 +5691,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.suggest_username",
+      "lang": "en",
+      "title": "app.suggest_username",
+      "body": "0307. A free username for the caller, built from their name: given name + \".\" + family initial (hassan.s), then hassan.s2, hassan.s3 …; player1, player2 … when the name has no Latin letters. {username} (NULL only if 999 tries are taken).\nSignature: app.suggest_username() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0307 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.suggestions_page",
       "lang": "en",
       "title": "app.suggestions_page",
@@ -6024,6 +6056,14 @@
       "title": "app.upsert_variant",
       "body": "Manager or owner, or the shop assistant for shop sizes only (0246; FORBIDDEN hint category otherwise; PRICE_VIA_PROTOCOL does not reach them): creates or updates one size of a menu item or shop product (0013; a wrapper over app.upsert_variant_internal since product_release). ITEM_IN_RELEASE, for everyone, on a new size or a price change of an item whose product release is not live or done: its prices come from the price step. PRICE_VIA_PROTOCOL (price_promo, #51), for a manager, on a new size or a price change of any item that is not a draft (launched_at set, or switched on), cafe or shop, including through app.upsert_retail_variant: it goes through a price change. PRICE_VIA_PROTOCOL hint name (price_promo_renames, #9), for a manager, on a changed name (either language, compared trimmed) of an existing size of such an item, checked after the price: the rename goes through a price change too. ITEM_NOT_FOUND, VARIANT_NOT_FOUND, INVALID_PRICE.\nSignature: app.upsert_variant(p_item_id uuid, p_name_en text, p_name_ar text, p_price_iqd bigint, p_id uuid default null, p_is_default boolean default false, p_sort_order int default 0) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_IN_RELEASE, PRICE_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/menu/VariantsEditor.tsx (pages /admin).\nDefined in migration 0246 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.username_check",
+      "lang": "en",
+      "title": "app.username_check",
+      "body": "0307. The caller's Edit profile field: {username (as it would be stored), available, reason: null | invalid | reserved | taken}. The caller's own current or held name is available to them.\nSignature: app.username_check(p_username text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0307 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -7006,7 +7046,7 @@
       "ref": "table:profiles",
       "lang": "en",
       "title": "table profiles",
-      "body": "Created in migration 0004.\nColumns:\n  id uuid primary key references auth.users(id) on delete cascade\n  full_name text not null\n  phone text — captured day one per scope (future SMS identity)\n  preferred_lang text not null default 'en' check (preferred_lang in ('en','ar'))\n  expo_push_token text\n  created_at timestamptz not null default now()\n  deleted_at timestamptz — Set by app.delete_my_account. The row is a TOMBSTONE: anonymised, retained only so reservations.guest_id and the venue statistics keep a parent. Never set by hand — the on_auth_user_deleted trigger reads it to tell a self-deletion (row survives) from an admin rollback (row is dropped).\n  terms_version text — The Terms of Service / Privacy Policy version the guest last accepted (CURRENT_TERMS_VERSION in packages/core/src/legal.ts). Written only by app.accept_terms. Null = never accepted; the app shows its consent screen.\n  terms_accepted_at timestamptz — Server time app.accept_terms recorded the acceptance of terms_version. Retained on the 0077 tombstone as proof the terms applied.\n  payment_sandbox boolean not null default false — 0241. Set by hand on the store review account only: its deposits go to Qi's sandbox (test card, no money), are stamped sandbox and never count as paid or as revenue.\n  given_name text — 0256. First name (1..39). Other open-match players see it; the desk and the guest see the whole name. Kept in step with full_name by profiles_sync_names; NULL on a deleted account.\n  family_name text — 0256. Surname (1..39, NULL without a given_name). Other open-match players see only its first letter. NULL on a deleted account.\n  gender text — 0256. female | male, asked once at the first open match (OM-28): women's and men's matches. Written only by app.set_my_gender and app.staff_set_customer_gender, with gender_set_at and gender_set_by. NULL on a deleted account.\n  gender_set_at timestamptz — 0256. When gender was last set; set with gender.\n  gender_set_by text — 0256. guest (app.set_my_gender) or staff (the front desk's correction); set with gender.\n  avatar_path text — 0302. The guest's profile photo: an object in the private avatars bucket, <profile id>/<uuid>.<jpg|png|webp>. Written only by app.set_my_avatar; NULL = initials. Emptied by account deletion.\n  birth_date date — 0302. Optional date of birth, 1900-01-01 .. today. Written only by app.set_my_birth_date, read only by its guest (app.my_birth_date; no column grant). Emptied by account deletion.\n  phone_key text — 0303. app.phone_canon(phone) when the phone has 7-15 digits, else NULL. Kept by the zz_phone_key trigger; unique among live profiles (profiles_phone_key_live, 0304). No client grant.",
+      "body": "Created in migration 0004.\nColumns:\n  id uuid primary key references auth.users(id) on delete cascade\n  full_name text not null\n  phone text — captured day one per scope (future SMS identity)\n  preferred_lang text not null default 'en' check (preferred_lang in ('en','ar'))\n  expo_push_token text\n  created_at timestamptz not null default now()\n  deleted_at timestamptz — Set by app.delete_my_account. The row is a TOMBSTONE: anonymised, retained only so reservations.guest_id and the venue statistics keep a parent. Never set by hand — the on_auth_user_deleted trigger reads it to tell a self-deletion (row survives) from an admin rollback (row is dropped).\n  terms_version text — The Terms of Service / Privacy Policy version the guest last accepted (CURRENT_TERMS_VERSION in packages/core/src/legal.ts). Written only by app.accept_terms. Null = never accepted; the app shows its consent screen.\n  terms_accepted_at timestamptz — Server time app.accept_terms recorded the acceptance of terms_version. Retained on the 0077 tombstone as proof the terms applied.\n  payment_sandbox boolean not null default false — 0241. Set by hand on the store review account only: its deposits go to Qi's sandbox (test card, no money), are stamped sandbox and never count as paid or as revenue.\n  given_name text — 0256. First name (1..39). Other open-match players see it; the desk and the guest see the whole name. Kept in step with full_name by profiles_sync_names; NULL on a deleted account.\n  family_name text — 0256. Surname (1..39, NULL without a given_name). Other open-match players see only its first letter. NULL on a deleted account.\n  gender text — 0256. female | male, asked once at the first open match (OM-28): women's and men's matches. Written only by app.set_my_gender and app.staff_set_customer_gender, with gender_set_at and gender_set_by. NULL on a deleted account.\n  gender_set_at timestamptz — 0256. When gender was last set; set with gender.\n  gender_set_by text — 0256. guest (app.set_my_gender) or staff (the front desk's correction); set with gender.\n  avatar_path text — 0302. The guest's profile photo: an object in the private avatars bucket, <profile id>/<uuid>.<jpg|png|webp>. Written only by app.set_my_avatar; NULL = initials. Emptied by account deletion.\n  birth_date date — 0302. Optional date of birth, 1900-01-01 .. today. Written only by app.set_my_birth_date, read only by its guest (app.my_birth_date; no column grant). Emptied by account deletion.\n  phone_key text — 0303. app.phone_canon(phone) when the phone has 7-15 digits, else NULL. Kept by the zz_phone_key trigger; unique among live profiles (profiles_phone_key_live, 0304). No client grant.\n  username text — 0307. The guest's public handle: lower case, 3-20 of a-z 0-9 . _, unique among live profiles (0308). Seen by other guests and staff. Written only by app.set_my_username; emptied (and held 90 days) by account deletion.\n  username_changed_at timestamptz — 0307. When the username last changed; a guest may change it again 7 days after this. NULL until the first username.\n  avatar_frame text not null default 'brand-green' — 0307. The ring drawn around the profile photo: one id of the closed list (app.frame_ids()). Written only by app.set_my_frame; back to brand-green on account deletion.",
       "route": null
     },
     {
@@ -7487,6 +7527,14 @@
       "lang": "en",
       "title": "table tournaments",
       "body": "Tournaments (M7, build contracts §1.2). One published tournament per protocol run of kind tournament (tournament_publish adopts the run's event blocks). Americano or Mexicano, individual entry. status open -> closed (the cut-off, enough entries) -> running (the first set_rounds) -> finished; cancelled from open, closed or running (cancel_reason under_filled from the sweep, staff from tournament_cancel). revision moves on every play write (rounds, scores, no-shows, entries added or removed once closed): the desk sends it back as based_on_revision. No client grant: every read and write is a definer RPC.\nCreated in migration 0299.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  venue_id uuid not null references venues(id)\n  protocol_run_id uuid not null references protocol_runs(id)\n  name_en text not null\n  name_ar text not null\n  format text not null\n  category text not null default 'open'\n  class text not null\n  points_target smallint not null default 24\n  rounds_planned smallint\n  max_entries smallint not null\n  min_entries smallint not null\n  waitlist_max smallint not null default 8\n  entry_fee_iqd bigint not null default 0\n  prize_en text\n  prize_ar text\n  starts_at timestamptz not null\n  ends_at timestamptz not null\n  registration_closes_at timestamptz not null\n  status text not null default 'open'\n  cancel_reason text\n  revision int not null default 0\n  closed_at timestamptz\n  finished_at timestamptz\n  cancelled_at timestamptz\n  published_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:username_holds",
+      "lang": "en",
+      "title": "table username_holds",
+      "body": "0307. Usernames a guest gave up, kept from everyone else until released_at: 7 days after a change, 90 days after account deletion or a merge. The holder may take their own name back. No client grant; the username definers read and write it.\nCreated in migration 0307.\nColumns:\n  username text primary key — The held name.\n  profile_id uuid not null references profiles(id) on delete cascade — Whose name it was; only they may take it back while it is held.\n  held_at timestamptz not null default now() — When it was given up.\n  released_at timestamptz not null — When anyone may take it again.\n  reason text not null check (reason in ('changed', 'deleted')) — changed (7 days) or deleted (90 days: deletion or a 0303 merge).",
       "route": null
     },
     {
@@ -10659,6 +10707,14 @@
     },
     {
       "kind": "column",
+      "ref": "column:profiles.avatar_frame",
+      "lang": "en",
+      "title": "profiles.avatar_frame",
+      "body": "text not null default 'brand-green'\n0307. The ring drawn around the profile photo: one id of the closed list (app.frame_ids()). Written only by app.set_my_frame; back to brand-green on account deletion.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:profiles.avatar_path",
       "lang": "en",
       "title": "profiles.avatar_path",
@@ -10759,6 +10815,22 @@
       "lang": "en",
       "title": "profiles.terms_version",
       "body": "text\nThe Terms of Service / Privacy Policy version the guest last accepted (CURRENT_TERMS_VERSION in packages/core/src/legal.ts). Written only by app.accept_terms. Null = never accepted; the app shows its consent screen.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:profiles.username",
+      "lang": "en",
+      "title": "profiles.username",
+      "body": "text\n0307. The guest's public handle: lower case, 3-20 of a-z 0-9 . _, unique among live profiles (0308). Seen by other guests and staff. Written only by app.set_my_username; emptied (and held 90 days) by account deletion.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:profiles.username_changed_at",
+      "lang": "en",
+      "title": "profiles.username_changed_at",
+      "body": "timestamptz\n0307. When the username last changed; a guest may change it again 7 days after this. NULL until the first username.",
       "route": null
     },
     {
@@ -13607,6 +13679,46 @@
       "lang": "en",
       "title": "till_shifts.venue_id",
       "body": "uuid not null references venues(id)\nThe venue: the station's.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:username_holds.held_at",
+      "lang": "en",
+      "title": "username_holds.held_at",
+      "body": "timestamptz not null default now()\nWhen it was given up.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:username_holds.profile_id",
+      "lang": "en",
+      "title": "username_holds.profile_id",
+      "body": "uuid not null references profiles(id) on delete cascade\nWhose name it was; only they may take it back while it is held.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:username_holds.reason",
+      "lang": "en",
+      "title": "username_holds.reason",
+      "body": "text not null check (reason in ('changed', 'deleted'))\nchanged (7 days) or deleted (90 days: deletion or a 0303 merge).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:username_holds.released_at",
+      "lang": "en",
+      "title": "username_holds.released_at",
+      "body": "timestamptz not null\nWhen anyone may take it again.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:username_holds.username",
+      "lang": "en",
+      "title": "username_holds.username",
+      "body": "text primary key\nThe held name.",
       "route": null
     },
     {
@@ -16886,7 +16998,7 @@
       "ref": "label:ws.courtDesk.calendar",
       "lang": "ar",
       "title": "ws.courtDesk.calendar (packages/i18n/src/catalogs/ws/courtDesk.ar.ts)",
-      "body": "lead: انقر على خانة فارغة لحجزها. أمسك الحجز من مقبضه واسحبه، ويبيّن الإطار المكان الذي سيستقر فيه.\nleadMonth: الأيام الأغمق تضم حجوزات أكثر. اختر يومًا لفتحه.\nview: العرض\nprev: اليوم السابق (مفتاح السهم →)\nnext: اليوم التالي (مفتاح السهم ←)\nprevMonth: الشهر السابق (مفتاح السهم →)\nnextMonth: الشهر التالي (مفتاح السهم ←)\nkeys: مفاتيح الأسهم للتنقل بين التواريخ\nkeyDay: عرض اليوم\nkeyMonth: عرض الشهر\nkeyDayHint: يوم واحد لكل الملاعب (مفتاح D)\nkeyMonthHint: الشهر كاملًا (مفتاح M)\ntonight: الليلة\ndayCount: الحجوزات\nclosedBody: لا يمكن الحجز في يوم مغلق. يحدد المديرون أيام الإغلاق في ساعات العمل.\nchangeTitle: تغيير هذا الحجز أو إنهاؤه\nsameTime: الوقت نفسه ({time})\nbookingFor: حجز باسم {name}\nbookingForHint: اختر خانة فارغة، ويُفتح الحجز مرتبطًا بالزبون مسبقًا.\nbookingForMonth: اختر يومًا، ثم خانة فارغة.\nbookingForMissing: تعذّر العثور على هذا الزبون.\nbookingForStop: إيقاف\nbookedFor: أُنشئ الحجز باسم {name}.\nblock: إيقاف ملعب\nseries: سلسلة جديدة\nmoveTo: نقل إلى {court} عند {time}\nmoveAction: نقل هذا الحجز\nmoveConflict: رُفض النقل. يبقى الحجز في مكانه.\nfreeSlot: خانة فارغة\npastSlot: مضى\nopenDetail: فتح الحجز\ndragHint: اسحب للنقل · انقر للفتح\ndropHere: أفلِت هنا\ndropPast: في الماضي\ndropTaken: محجوز أصلًا\ndropPastBody: هذا الوقت مضى بالفعل. الحجز الذي يُنقل إلى الماضي يختفي من تطبيق الضيوف.\ndropTakenBody: هذا الملعب محجوز في جزء من ذلك الوقت.\nstartPast: {time} · مضى",
+      "body": "lead: انقر على خانة فارغة لحجزها. أمسك الحجز من مقبضه واسحبه، ويبيّن الإطار المكان الذي سيستقر فيه.\nleadMonth: الأيام الأغمق تضم حجوزات أكثر. اختر يومًا لفتحه.\nview: العرض\nprev: اليوم السابق (مفتاح السهم →)\nnext: اليوم التالي (مفتاح السهم ←)\nprevMonth: الشهر السابق (مفتاح السهم →)\nnextMonth: الشهر التالي (مفتاح السهم ←)\nkeys: مفاتيح الأسهم للتنقل بين التواريخ\nkeyDay: عرض اليوم\nkeyMonth: عرض الشهر\nkeyDayHint: يوم واحد لكل الملاعب (مفتاح D)\nkeyMonthHint: الشهر كاملًا (مفتاح M)\ntonight: الليلة\ndayCount: الحجوزات\nclosedBody: لا يمكن الحجز في يوم مغلق. يحدد المديرون أيام الإغلاق في ساعات العمل.\nchangeTitle: تغيير هذا الحجز أو إنهاؤه\nsameTime: الوقت نفسه ({time})\nbookingFor: حجز باسم {name}\nbookingForHint: اختر خانة فارغة، ويُفتح الحجز مرتبطًا بالزبون مسبقًا.\nbookingForMonth: اختر يومًا، ثم خانة فارغة.\nbookingForMissing: تعذّر العثور على هذا الزبون.\nbookingForStop: إيقاف\nbookedFor: أُنشئ الحجز باسم {name}.\nblock: إيقاف ملعب\nseries: سلسلة جديدة\ntournament: إضافة بطولة\nmoveTo: نقل إلى {court} عند {time}\nmoveAction: نقل هذا الحجز\nmoveConflict: رُفض النقل. يبقى الحجز في مكانه.\nfreeSlot: خانة فارغة\npastSlot: مضى\nopenDetail: فتح الحجز\ndragHint: اسحب للنقل · انقر للفتح\ndropHere: أفلِت هنا\ndropPast: في الماضي\ndropTaken: محجوز أصلًا\ndropPastBody: هذا الوقت مضى بالفعل. الحجز الذي يُنقل إلى الماضي يختفي من تطبيق الضيوف.\ndropTakenBody: هذا الملعب محجوز في جزء من ذلك الوقت.\nstartPast: {time} · مضى",
       "route": "/desk"
     },
     {
@@ -16894,7 +17006,7 @@
       "ref": "label:ws.courtDesk.calendar",
       "lang": "en",
       "title": "ws.courtDesk.calendar (packages/i18n/src/catalogs/ws/courtDesk.en.ts)",
-      "body": "lead: Click a free slot to book it. Pick a booking up by its grip and drag — the outline shows where it lands.\nleadMonth: Darker days have more bookings. Pick a day to open it.\nview: View\nprev: Previous day (← key)\nnext: Next day (→ key)\nprevMonth: Previous month (← key)\nnextMonth: Next month (→ key)\nkeys: Arrow keys move the date\nkeyDay: day view\nkeyMonth: month view\nkeyDayHint: One day, every court (D key)\nkeyMonthHint: The whole month (M key)\ntonight: Tonight\ndayCount: Bookings\nclosedBody: Nothing can be booked on a closed day. Managers set closed days under opening hours.\nchangeTitle: Change or end this booking\nsameTime: Same time ({time})\nbookingFor: Booking for {name}\nbookingForHint: Pick a free slot — the booking opens already linked to them.\nbookingForMonth: Pick a day, then a free slot.\nbookingForMissing: That customer could not be found.\nbookingForStop: Stop\nbookedFor: Booked for {name}.\nblock: Block court\nseries: New series\nmoveTo: Move to {court} at {time}\nmoveAction: move this booking\nmoveConflict: The move was refused. The booking stays where it was.\nfreeSlot: Free slot\npastSlot: Past\nopenDetail: Open booking\ndragHint: Drag to move · click to open\ndropHere: Drop here\ndropPast: In the past\ndropTaken: Already booked\ndropPastBody: That time has already passed. A booking moved into the past disappears from the guest's app.\ndropTakenBody: That court is already booked for part of that time.\nstartPast: {time} · past",
+      "body": "lead: Click a free slot to book it. Pick a booking up by its grip and drag — the outline shows where it lands.\nleadMonth: Darker days have more bookings. Pick a day to open it.\nview: View\nprev: Previous day (← key)\nnext: Next day (→ key)\nprevMonth: Previous month (← key)\nnextMonth: Next month (→ key)\nkeys: Arrow keys move the date\nkeyDay: day view\nkeyMonth: month view\nkeyDayHint: One day, every court (D key)\nkeyMonthHint: The whole month (M key)\ntonight: Tonight\ndayCount: Bookings\nclosedBody: Nothing can be booked on a closed day. Managers set closed days under opening hours.\nchangeTitle: Change or end this booking\nsameTime: Same time ({time})\nbookingFor: Booking for {name}\nbookingForHint: Pick a free slot — the booking opens already linked to them.\nbookingForMonth: Pick a day, then a free slot.\nbookingForMissing: That customer could not be found.\nbookingForStop: Stop\nbookedFor: Booked for {name}.\nblock: Block court\nseries: New series\ntournament: Add tournament\nmoveTo: Move to {court} at {time}\nmoveAction: move this booking\nmoveConflict: The move was refused. The booking stays where it was.\nfreeSlot: Free slot\npastSlot: Past\nopenDetail: Open booking\ndragHint: Drag to move · click to open\ndropHere: Drop here\ndropPast: In the past\ndropTaken: Already booked\ndropPastBody: That time has already passed. A booking moved into the past disappears from the guest's app.\ndropTakenBody: That court is already booked for part of that time.\nstartPast: {time} · past",
       "route": "/desk"
     },
     {
@@ -21750,7 +21862,7 @@
       "ref": "label:ws.tournaments.detail",
       "lang": "ar",
       "title": "ws.tournaments.detail (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
-      "body": "eyebrow: بطولة\nnotFound: هذه البطولة ليست في هذا الفرع.\nbackToList: العودة إلى البطولات\nseeOnCalendar: عرض في التقويم\ntabs.entries: الاشتراكات\ntabs.rounds: الجولات\ntabs.standings: الترتيب\nfacts.format: النظام\nfacts.category: الفئة\nfacts.points: نقاط كل مباراة\nfacts.rounds: الجولات\nfacts.roundsUnset: تُحدَّد عند بدء اللعب\nfacts.fee: رسم الاشتراك\nfacts.cutoff: إغلاق التسجيل\nfacts.players: اللاعبون\nfacts.prize: الجائزة\nfacts.courts: الملاعب\ncancelled.under_filled: أُلغيت عند إغلاق التسجيل لقلة عدد المسجَّلين.\ncancelled.staff: ألغاها الاستقبال.\nfinished: انتهت. ما زال تصحيح النتائج ممكنًا.\noffline: تعديل البطولة يحتاج إلى اتصال.",
+      "body": "eyebrow: بطولة\nnotFound: هذه البطولة ليست في هذا الفرع.\nbackToList: العودة إلى البطولات\nseeOnCalendar: عرض في التقويم\npointsTag: {points} نقطة لكل مباراة\nprogress: سُجّلت نتائج {done} من {total} ملاعب\nstats.players: اللاعبون\nstats.fee: رسم الاشتراك\nstats.collected: المحصَّل\nstats.prize: الجائزة\nstats.cutoff: إغلاق التسجيل\nstats.paidOwing: {paid} دفعوا · {owing} عليهم\nstats.due: {amount} مستحقة\nstats.nothingDue: لا مبالغ مستحقة\ntabs.entries: الاشتراكات\ntabs.rounds: الجولات\ntabs.standings: الترتيب\nfacts.format: النظام\nfacts.category: الفئة\nfacts.points: نقاط كل مباراة\nfacts.rounds: الجولات\nfacts.roundsUnset: تُحدَّد عند بدء اللعب\nfacts.fee: رسم الاشتراك\nfacts.cutoff: إغلاق التسجيل\nfacts.players: اللاعبون\nfacts.prize: الجائزة\nfacts.courts: الملاعب\ncancelled.under_filled: أُلغيت عند إغلاق التسجيل لقلة عدد المسجَّلين.\ncancelled.staff: ألغاها الاستقبال.\nfinished: انتهت. ما زال تصحيح النتائج ممكنًا.\noffline: تعديل البطولة يحتاج إلى اتصال.",
       "route": null
     },
     {
@@ -21758,7 +21870,7 @@
       "ref": "label:ws.tournaments.detail",
       "lang": "en",
       "title": "ws.tournaments.detail (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
-      "body": "eyebrow: Tournament\nnotFound: This tournament isn't at this branch.\nbackToList: Back to tournaments\nseeOnCalendar: See on calendar\ntabs.entries: Entries\ntabs.rounds: Rounds\ntabs.standings: Standings\nfacts.format: Format\nfacts.category: Category\nfacts.points: Points per game\nfacts.rounds: Rounds\nfacts.roundsUnset: Set when the play starts\nfacts.fee: Entry fee\nfacts.cutoff: Registration closes\nfacts.players: Players\nfacts.prize: Prize\nfacts.courts: Courts\ncancelled.under_filled: Cancelled at the cut-off: too few players registered.\ncancelled.staff: Cancelled by the desk.\nfinished: Finished. Scores can still be corrected.\noffline: Tournament changes need a connection.",
+      "body": "eyebrow: Tournament\nnotFound: This tournament isn't at this branch.\nbackToList: Back to tournaments\nseeOnCalendar: See on calendar\npointsTag: Games to {points}\nprogress: {done} of {total} courts scored\nstats.players: Players\nstats.fee: Entry fee\nstats.collected: Collected\nstats.prize: Prize\nstats.cutoff: Registration closes\nstats.paidOwing: {paid} paid · {owing} owe\nstats.due: {amount} due\nstats.nothingDue: Nothing owed\ntabs.entries: Entries\ntabs.rounds: Rounds\ntabs.standings: Standings\nfacts.format: Format\nfacts.category: Category\nfacts.points: Points per game\nfacts.rounds: Rounds\nfacts.roundsUnset: Set when the play starts\nfacts.fee: Entry fee\nfacts.cutoff: Registration closes\nfacts.players: Players\nfacts.prize: Prize\nfacts.courts: Courts\ncancelled.under_filled: Cancelled at the cut-off: too few players registered.\ncancelled.staff: Cancelled by the desk.\nfinished: Finished. Scores can still be corrected.\noffline: Tournament changes need a connection.",
       "route": null
     },
     {
@@ -21798,7 +21910,7 @@
       "ref": "label:ws.tournaments.list",
       "lang": "ar",
       "title": "ws.tournaments.list (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
-      "body": "title: البطولات\nlead: البطولات المنشورة في هذا الفرع، من أمس إلى الشهرين المقبلين.\nempty: لا توجد بطولات في هذه الفترة.\nemptyHint: تُنشر البطولة من البروتوكول الخاص بها بعد اكتماله.\nentries: {registered} من {max} مسجَّلين\nwaitlisted: {count} في قائمة الانتظار\noff: البطولات متوقفة في هذا الفرع. يشغّلها المالك من الإعدادات.\ncolumns.name: البطولة\ncolumns.when: الموعد\ncolumns.format: النظام\ncolumns.status: الحالة\ncolumns.entries: اللاعبون\nopen: فتح",
+      "body": "title: البطولات\nadd: إضافة بطولة\nlead: البطولات المنشورة في هذا الفرع، من أمس إلى الشهرين المقبلين.\nempty: لا توجد بطولات في هذه الفترة.\nemptyHint: أضف بطولة لبدء خطتها. تُنشر من ذلك البروتوكول بعد اكتماله.\nentries: {registered} من {max} مسجَّلين\nwaitlisted: {count} في قائمة الانتظار\noff: البطولات متوقفة في هذا الفرع. يشغّلها المالك من الإعدادات.\ncolumns.name: البطولة\ncolumns.when: الموعد\ncolumns.format: النظام\ncolumns.status: الحالة\ncolumns.entries: اللاعبون\nopen: فتح\nall: الكل\nfilters: عرض البطولات\ncount.zero: (لا توجد بطولات)\ncount.one: (بطولة واحدة)\ncount.two: (بطولتان)\ncount.few: ({count} بطولات)\ncount.many: ({count} بطولة)\ncount.other: ({count} بطولة)\ntotals.upcoming: القادمة\ntotals.running: جارية الآن\ntotals.players: اللاعبون المسجَّلون\ntotals.waitlisted: في قائمة الانتظار",
       "route": null
     },
     {
@@ -21806,7 +21918,7 @@
       "ref": "label:ws.tournaments.list",
       "lang": "en",
       "title": "ws.tournaments.list (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
-      "body": "title: Tournaments\nlead: Tournaments published at this branch, from yesterday to the next two months.\nempty: No tournaments in this range.\nemptyHint: A tournament is published from its protocol once the run is done.\nentries: {registered} of {max} registered\nwaitlisted: {count} on the waitlist\noff: Tournaments are switched off at this branch. The owner switches them on in Settings.\ncolumns.name: Tournament\ncolumns.when: When\ncolumns.format: Format\ncolumns.status: Status\ncolumns.entries: Players\nopen: Open",
+      "body": "title: Tournaments\nadd: Add tournament\nlead: Tournaments published at this branch, from yesterday to the next two months.\nempty: No tournaments in this range.\nemptyHint: Add a tournament to start its plan. It is published from that protocol once the run is done.\nentries: {registered} of {max} registered\nwaitlisted: {count} on the waitlist\noff: Tournaments are switched off at this branch. The owner switches them on in Settings.\ncolumns.name: Tournament\ncolumns.when: When\ncolumns.format: Format\ncolumns.status: Status\ncolumns.entries: Players\nopen: Open\nall: All\nfilters: Show tournaments\ncount.zero: (no tournaments)\ncount.one: (1 tournament)\ncount.two: (2 tournaments)\ncount.few: ({count} tournaments)\ncount.many: ({count} tournaments)\ncount.other: ({count} tournaments)\ntotals.upcoming: Upcoming\ntotals.running: Running now\ntotals.players: Players registered\ntotals.waitlisted: On the waitlist",
       "route": null
     },
     {
@@ -21862,7 +21974,7 @@
       "ref": "label:ws.tournaments.rounds",
       "lang": "ar",
       "title": "ws.tournaments.rounds (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
-      "body": "title: الجولات\nstart: بدء البطولة\nnext: الجولة التالية\nregenerate: إعادة الإنشاء من الجولة {round}\nnone: لا توجد جولات بعد.\nnotYet: يبدأ اللعب بعد إغلاق التسجيل.\nstartTitle: بدء البطولة\nstartLead: تُوزَّع الجولات على اللاعبين المسجَّلين في الملاعب التي تختارها.\ncourts: الملاعب المستخدمة\ncount: الجولات\ncountHint: بحد أقصى {max}.\nplayers: {count} لاعبًا مسجَّلًا\nneedPlayers: يلزم ٤ لاعبين مسجَّلين على الأقل.\nneedCourts: اختر ملعبًا واحدًا على الأقل.\ngenerate: توزيع الجولات\nsaved: حُفظت الجولات.\nmissing: الجولة {round} وما بعدها تحتاج إلى توزيع من جديد.\nnextHint: تُوزَّع الجولة التالية حسب الترتيب بعد تسجيل نتائج هذه الجولة.\nroundOf: الجولة {round} من {total}\nsitOut: يستريح: {names}\ncourt: الملعب\nvs: ضد",
+      "body": "title: الجولات\nstart: بدء البطولة\nnext: الجولة التالية\nregenerate: إعادة الإنشاء من الجولة {round}\nnone: لا توجد جولات بعد.\nnotYet: يبدأ اللعب بعد إغلاق التسجيل.\nstartTitle: بدء البطولة\nstartLead: تُوزَّع الجولات على اللاعبين المسجَّلين في الملاعب التي تختارها.\ncourts: الملاعب المستخدمة\ncount: الجولات\ncountHint: بحد أقصى {max}.\nplayers: {count} لاعبًا مسجَّلًا\nneedPlayers: يلزم ٤ لاعبين مسجَّلين على الأقل.\nneedCourts: اختر ملعبًا واحدًا على الأقل.\ngenerate: توزيع الجولات\nsaved: حُفظت الجولات.\nmissing: الجولة {round} وما بعدها تحتاج إلى توزيع من جديد.\nnextHint: تُوزَّع الجولة التالية حسب الترتيب بعد تسجيل نتائج هذه الجولة.\nroundOf: الجولة {round} من {total}\nsitOut: يستريح: {names}\ncourt: الملعب\nvs: ضد\nstate.done: انتهت\nstate.now: الآن · {scored} من {total}\nstate.drawn: مسحوبة\nleaderboard: المتصدّرون\nallStandings: الكل ({count})",
       "route": null
     },
     {
@@ -21870,7 +21982,7 @@
       "ref": "label:ws.tournaments.rounds",
       "lang": "en",
       "title": "ws.tournaments.rounds (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
-      "body": "title: Rounds\nstart: Start the tournament\nnext: Next round\nregenerate: Regenerate from round {round}\nnone: No rounds yet.\nnotYet: The play starts once registration has closed.\nstartTitle: Start the tournament\nstartLead: The rounds are drawn for the registered players on the courts you pick.\ncourts: Courts to play on\ncount: Rounds\ncountHint: At most {max}.\nplayers: {count} registered players\nneedPlayers: At least 4 registered players are needed.\nneedCourts: Pick at least one court.\ngenerate: Draw the rounds\nsaved: Rounds saved.\nmissing: Round {round} onwards need drawing again.\nnextHint: The next round is drawn from the standings once this round is scored.\nroundOf: Round {round} of {total}\nsitOut: Sitting out: {names}\ncourt: Court\nvs: vs",
+      "body": "title: Rounds\nstart: Start the tournament\nnext: Next round\nregenerate: Regenerate from round {round}\nnone: No rounds yet.\nnotYet: The play starts once registration has closed.\nstartTitle: Start the tournament\nstartLead: The rounds are drawn for the registered players on the courts you pick.\ncourts: Courts to play on\ncount: Rounds\ncountHint: At most {max}.\nplayers: {count} registered players\nneedPlayers: At least 4 registered players are needed.\nneedCourts: Pick at least one court.\ngenerate: Draw the rounds\nsaved: Rounds saved.\nmissing: Round {round} onwards need drawing again.\nnextHint: The next round is drawn from the standings once this round is scored.\nroundOf: Round {round} of {total}\nsitOut: Sitting out: {names}\ncourt: Court\nvs: vs\nstate.done: Done\nstate.now: Now · {scored} of {total}\nstate.drawn: Drawn\nleaderboard: Leaderboard\nallStandings: All {count}",
       "route": null
     },
     {
@@ -21878,7 +21990,7 @@
       "ref": "label:ws.tournaments.score",
       "lang": "ar",
       "title": "ws.tournaments.score (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
-      "body": "save: حفظ النتيجة\nsaved: حُفظت النتيجة.\ncorrect: تصحيح\ncorrectionReason: ما سبب تصحيح هذه النتيجة؟\ncorrectionTitle: تصحيح هذه النتيجة\npointsFor: نقاط {team}\nother: {points} للفريق الآخر\nsum: مجموع نقاط الفريقين {target}.\ncorrections: عدد التصحيحات: {count}\nroundsRemoved: حُذفت الجولات من {round} فما بعد. وزّع الجولة التالية من جديد.",
+      "body": "save: حفظ النتيجة\nenter: إدخال النتيجة\nmore: {team}: نقطة إضافية\nless: {team}: نقطة أقل\notherSide: الفريق الآخر\nsaved: حُفظت النتيجة.\ncorrect: تصحيح\ncorrectionReason: ما سبب تصحيح هذه النتيجة؟\ncorrectionTitle: تصحيح هذه النتيجة\npointsFor: نقاط {team}\nsum: مجموع نقاط الفريقين {target}.\ncorrections: عدد التصحيحات: {count}\nroundsRemoved: حُذفت الجولات من {round} فما بعد. وزّع الجولة التالية من جديد.",
       "route": null
     },
     {
@@ -21886,7 +21998,7 @@
       "ref": "label:ws.tournaments.score",
       "lang": "en",
       "title": "ws.tournaments.score (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
-      "body": "save: Save score\nsaved: Score saved.\ncorrect: Correct\ncorrectionReason: Why is this score being corrected?\ncorrectionTitle: Correct this score\npointsFor: Points for {team}\nother: {points} to the other side\nsum: The two sides add up to {target}.\ncorrections: {count} corrections\nroundsRemoved: Rounds from {round} on were removed. Draw the next round again.",
+      "body": "save: Save score\nenter: Enter score\nmore: {team}: one point more\nless: {team}: one point less\notherSide: The other side\nsaved: Score saved.\ncorrect: Correct\ncorrectionReason: Why is this score being corrected?\ncorrectionTitle: Correct this score\npointsFor: Points for {team}\nsum: The two sides add up to {target}.\ncorrections: {count} corrections\nroundsRemoved: Rounds from {round} on were removed. Draw the next round again.",
       "route": null
     },
     {
@@ -21919,6 +22031,38 @@
       "lang": "en",
       "title": "ws.tournaments.standings (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
       "body": "title: Standings\nempty: Standings appear once a match is scored.\ncolumns.rank: Rank\ncolumns.player: Player\ncolumns.won: Points won\ncolumns.against: Against\ncolumns.diff: Difference\ncolumns.h2h: Head to head\ncolumns.played: Played\ncolumns.satOut: Sat out\nwithdrawn: Left",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.start",
+      "lang": "ar",
+      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
+      "body": "title: بدء: بطولة\nlead: املأ أي قسم بأي ترتيب.\nmenu: أقسام الخطة\nsectionOf: القسم {n} من {total}\nprogress: اكتمل {done} من {total}\noptional: اختياري\nslots.zero: {count} فترة\nslots.one: فترة واحدة\nslots.two: فترتان\nslots.few: {count} فترات\nslots.many: {count} فترة\nslots.other: {count} فترة\nneedsLook: يحتاج إلى مراجعة\nsections.type: النوع\nsections.name: الاسم\nsections.courts: الملاعب والوقت\nsections.players: اللاعبون والمال\nsections.playersShort: اللاعبون\nsections.notes: المخاطر والملاحظات\nsections.notesShort: الملاحظات\nsections.sponsor: الراعي\ntypeName.type1: النوع 1\ntypeName.type2: النوع 2\ntypeName.type3: النوع 3\ntypeTag.type1: نادٍ\ntypeTag.type2: مجتمعي\ntypeTag.type3: راعٍ أو زبون\ncourts.day: اليوم\ncourts.prevDay: اليوم السابق\ncourts.nextDay: اليوم التالي\ncourts.picked: مختار\ncourts.booked: محجوز مسبقًا\ncourts.hint: اسحب عبر الساعات لاختيار فترة. غيّر اليوم لإضافة فترة أخرى.\ncourts.cell: {court}، {time}\ncourts.slots: الفترات المختارة\ncourts.none: لم تُختر أي فترة بعد.\ncourts.remove: إزالة {slot}\ncourts.closed: المكان مغلق في ذلك اليوم. اختر يومًا آخر.\ncourts.loading: جارٍ تحميل الملاعب…\nclasses.A.tag: متقدّم\nclasses.A.body: للاعبين الأقوياء وأصحاب الخبرة. مباريات سريعة وتنافسية.\nclasses.B.tag: متوسط\nclasses.B.body: للاعبين الذين يلعبون بانتظام ويعرفون القواعد والمراكز.\nclasses.C.tag: مبتدئ\nclasses.C.body: للاعبين الجدد ولمن يلعب للمتعة. مباريات ودّية ومفتوحة لكل من يتعلّم.\nformats.americano.tag: يُدار في التطبيق\nformats.americano.body: يتغيّر الشريك في كل جولة، وتُلعب كل مباراة حتى مجموع نقاط محدد. ويحتفظ كل لاعب بنقاطه.\nformats.mexicano.tag: يُدار في التطبيق\nformats.mexicano.body: مثل الأمريكانو، لكن الترتيب بعد كل جولة يحدد الشركاء والخصوم التاليين، فيتقابل المتقاربون في المستوى.\nformats.knockout.tag: للتخطيط فقط\nformats.knockout.body: تلعب الأزواج مباريات محددة ويخرج الخاسر في كل منها حتى يبقى زوج واحد. لا يديرها التطبيق بعد.\nformats.league.tag: للتخطيط فقط\nformats.league.body: يلعب كل زوج ضد كل زوج آخر على عدة جلسات، ويحدد الجدول الفائز. لا يديرها التطبيق بعد.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.start",
+      "lang": "en",
+      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
+      "body": "title: Start: Tournament\nlead: Fill any section in any order.\nmenu: Plan sections\nsectionOf: Section {n} of {total}\nprogress: {done} of {total} done\noptional: Optional\nslots.zero: {count} slots\nslots.one: 1 slot\nslots.two: 2 slots\nslots.few: {count} slots\nslots.many: {count} slots\nslots.other: {count} slots\nneedsLook: Needs a look\nsections.type: Type\nsections.name: Name\nsections.courts: Courts & time\nsections.players: Players & money\nsections.playersShort: Players\nsections.notes: Risks & notes\nsections.notesShort: Notes\nsections.sponsor: Sponsor\ntypeName.type1: Type 1\ntypeName.type2: Type 2\ntypeName.type3: Type 3\ntypeTag.type1: Club\ntypeTag.type2: Community\ntypeTag.type3: Sponsor or client\ncourts.day: Day\ncourts.prevDay: Previous day\ncourts.nextDay: Next day\ncourts.picked: Picked\ncourts.booked: Already booked\ncourts.hint: Drag across the hours to pick a slot. Change the day to add another one.\ncourts.cell: {court}, {time}\ncourts.slots: Picked slots\ncourts.none: No slots picked yet.\ncourts.remove: Remove {slot}\ncourts.closed: The venue is closed that day. Pick another day.\ncourts.loading: Loading the courts…\nclasses.A.tag: Advanced\nclasses.A.body: For strong, experienced players. Fast, competitive games.\nclasses.B.tag: Intermediate\nclasses.B.body: For players who play regularly and know the rules and positions.\nclasses.C.tag: Beginners\nclasses.C.body: For new and social players. Friendly games, open to anyone learning.\nformats.americano.tag: Runs in the app\nformats.americano.body: Partners change every round and each game is played to a points total. Every player keeps their own points.\nformats.mexicano.tag: Runs in the app\nformats.mexicano.body: Like Americano, but after each round the standings pick the next partners and opponents, so close levels meet.\nformats.knockout.tag: Plan only\nformats.knockout.body: Pairs play set matches and the loser of each is out, until one pair is left. The app cannot run it yet.\nformats.league.tag: Plan only",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.start#2",
+      "lang": "ar",
+      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
+      "body": "capacityPlayers: أمريكانو ومكسيكانو: يشترك كل لاعب وحده.\ncapacityPairs: خروج المغلوب والدوري: يشترك الزوجان معًا.\nsubmit: بدء الخطة\nissues: بعض الأقسام تحتاج إلى مراجعة، وهي معلّمة في القائمة.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.start#2",
+      "lang": "en",
+      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
+      "body": "formats.league.body: Every pair plays every other pair over several sessions, and the table decides the winner. The app cannot run it yet.\ncapacityPlayers: Americano and Mexicano: each player enters alone.\ncapacityPairs: Knockout and league: a pair enters together.\nsubmit: Start the plan\nissues: Some sections need a look. They are marked in the menu.",
       "route": null
     },
     {

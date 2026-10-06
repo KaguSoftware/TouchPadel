@@ -36,6 +36,8 @@ import {
 } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { ProfileAvatar } from '../../src/components/ProfileAvatar';
+import { frameOf } from '../../src/features/profile/frames';
+import { atUsername } from '../../src/features/profile/username';
 import { useToast } from '../../src/components/overlays';
 
 const LOGO_H = 40;
@@ -245,7 +247,12 @@ export default function ProfileScreen() {
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
           >
           <Card style={{ flexDirection: 'row', direction: 'ltr', gap: 13, alignItems: 'center' }}>
-            <ProfileAvatar path={profile.data?.avatar_path} initials={initials} size={50} />
+            <ProfileAvatar
+              path={profile.data?.avatar_path}
+              initials={initials}
+              size={50}
+              frame={frameOf(profile.data?.avatar_frame)}
+            />
             {/* 'stretch' (not 'flex-start') so each line spans the full column and
                 textAlign decides the edge; shrink-wrapping left the three lines at
                 ragged widths instead of flush against the avatar. `gap` spaces the
@@ -265,6 +272,22 @@ export default function ProfileScreen() {
               >
                 {isolateLtr(name)}
               </Text>
+              {/* Phase 2 (0307): the handle other players and the desk see. */}
+              {profile.data?.username ? (
+                <Text
+                  testID="profile.username"
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: fonts.body600,
+                    fontSize: 12.5,
+                    lineHeight: 16,
+                    color: colors.gstrong,
+                    ...idStyle,
+                  }}
+                >
+                  {isolateLtr(atUsername(profile.data.username))}
+                </Text>
+              ) : null}
               <Text
                 style={{
                   fontFamily: fonts.body400,
@@ -303,6 +326,24 @@ export default function ProfileScreen() {
             )}
           </Card>
           </Pressable>
+
+          {/* Phase 2 (0307): a username is required to join open matches, so a
+              guest without one is asked here, under the card, until they pick. */}
+          {profile.data && !profile.data.username ? (
+            <Card style={{ marginTop: space.m, backgroundColor: colors.gtint, borderColor: colors.gline }}>
+              <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 19, color: colors.ink }}>
+                {t('profile.usernameNudge')}
+              </Text>
+              <Button
+                testID="profile.pick-username"
+                label={t('profile.usernameNudgeAction')}
+                variant="secondary"
+                size="compact"
+                onPress={() => router.push({ pathname: '/profile-edit', params: { section: 'username' } })}
+                style={{ marginTop: 10, alignSelf: 'flex-start' }}
+              />
+            </Card>
+          ) : null}
 
           {/* The member card, right under the identity card: what the guest opens at the till. */}
           {showLoyalty ? (

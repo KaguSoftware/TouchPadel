@@ -1792,6 +1792,11 @@ export type Database = {
         Returns: Json
       }
       floor_tables: { Args: { p_venue_id?: string }; Returns: Json }
+      frame_ids: { Args: never; Returns: string[] }
+      frame_unlocked: {
+        Args: { p_frame: string; p_profile: string }
+        Returns: boolean
+      }
       generate_promo_code: { Args: { p_id: string }; Returns: string }
       generate_table_token: { Args: { p_table_id: string }; Returns: string }
       guest_games_played: { Args: { p_guest_id: string }; Returns: number }
@@ -2848,6 +2853,7 @@ export type Database = {
         Returns: string
       }
       match_withdraw: { Args: { p_request_id: string }; Returns: Json }
+      matches_played: { Args: { p_profile: string }; Returns: number }
       menu_availability: {
         Args: never
         Returns: {
@@ -2890,6 +2896,7 @@ export type Database = {
         Args: { p_month?: string; p_venue_id?: string }
         Returns: Json
       }
+      my_frames: { Args: never; Returns: Json }
       my_incidents: {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
@@ -4142,7 +4149,9 @@ export type Database = {
         Args: { p_venue_id: string; p_windows: Json }
         Returns: Json
       }
+      set_my_frame: { Args: { p_frame: string }; Returns: Json }
       set_my_gender: { Args: { p_gender: string }; Returns: Json }
+      set_my_username: { Args: { p_username: string }; Returns: Json }
       set_opening_hours: {
         Args: {
           p_closed_dates?: string[]
@@ -4539,6 +4548,7 @@ export type Database = {
         }
         Returns: Json
       }
+      suggest_username: { Args: never; Returns: Json }
       suggestions_page: {
         Args: {
           p_filter?: string
@@ -4827,6 +4837,7 @@ export type Database = {
       }
       tournament_withdraw: { Args: { p_tournament_id: string }; Returns: Json }
       tournaments_public: { Args: { p_venue_id: string }; Returns: Json }
+      tournaments_won: { Args: { p_profile: string }; Returns: number }
       transfer_stock: {
         Args: {
           p_from: string
@@ -5129,6 +5140,10 @@ export type Database = {
         }
         Returns: string
       }
+      username_check: { Args: { p_username: string }; Returns: Json }
+      username_normal: { Args: { p: string }; Returns: string }
+      username_problem: { Args: { p: string }; Returns: string }
+      username_taken: { Args: { p: string; p_by: string }; Returns: boolean }
       validate_cafe_setting: {
         Args: { p_jtype: string; p_key: string; p_value: Json }
         Returns: undefined
@@ -11364,6 +11379,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_frame: string
           avatar_path: string | null
           birth_date: string | null
           created_at: string
@@ -11382,8 +11398,11 @@ export type Database = {
           preferred_lang: string
           terms_accepted_at: string | null
           terms_version: string | null
+          username: string | null
+          username_changed_at: string | null
         }
         Insert: {
+          avatar_frame?: string
           avatar_path?: string | null
           birth_date?: string | null
           created_at?: string
@@ -11402,8 +11421,11 @@ export type Database = {
           preferred_lang?: string
           terms_accepted_at?: string | null
           terms_version?: string | null
+          username?: string | null
+          username_changed_at?: string | null
         }
         Update: {
+          avatar_frame?: string
           avatar_path?: string | null
           birth_date?: string | null
           created_at?: string
@@ -11422,6 +11444,8 @@ export type Database = {
           preferred_lang?: string
           terms_accepted_at?: string | null
           terms_version?: string | null
+          username?: string | null
+          username_changed_at?: string | null
         }
         Relationships: []
       }
@@ -15676,6 +15700,38 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      username_holds: {
+        Row: {
+          held_at: string
+          profile_id: string
+          reason: string
+          released_at: string
+          username: string
+        }
+        Insert: {
+          held_at?: string
+          profile_id: string
+          reason: string
+          released_at: string
+          username: string
+        }
+        Update: {
+          held_at?: string
+          profile_id?: string
+          reason?: string
+          released_at?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "username_holds_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

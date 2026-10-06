@@ -178,6 +178,31 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
       why: 'an optional date of birth the guest adds; only they read it',
       onDelete: 'scrub',
     },
+    // 0307 (Phase 2): the public handle other players and the desk see beside
+    // the short name, when it last changed, and the photo frame. Deletion
+    // empties the username (held 90 days in username_holds) and resets the
+    // frame (profiles_media_tombstone).
+    username: {
+      category: 'Name',
+      why: 'the handle other open-match players and the desk see beside the short name',
+      onDelete: 'scrub',
+    },
+    username_changed_at: n,
+    avatar_frame: n,
+  },
+  // 0307: a username a guest gave up, kept from everyone else for 7 days (a
+  // change) or 90 days (deletion or a merge), then released. The name is the
+  // guest's handle; the row goes when the hold ends or the auth user does.
+  username_holds: {
+    username: {
+      category: 'Name',
+      why: 'a handle the guest gave up, kept from impersonators for 7 or 90 days',
+      onDelete: 'keep',
+    },
+    profile_id: n,
+    held_at: n,
+    released_at: n,
+    reason: n,
   },
   reservations: {
     id: n, court_id: n, kind: n, status: n, start_at: n, end_at: n, period: n, guest_id: n,

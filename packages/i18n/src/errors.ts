@@ -512,6 +512,15 @@ export const ERROR_CODE_KEYS = {
   // Open matches (docs/design/open-matches/guest.md §4.22): each commit adds
   // the codes its SQL raises. 0256: app.set_my_gender.
   GENDER_ALREADY_SET: 'matches.errors.genderAlreadySet',
+  // 0307 (Phase 2, Edit profile): usernames and photo frames. USERNAME_TOO_SOON
+  // carries the next allowed time in its detail; the username form words it
+  // with the date (profile.usernameTooSoon), this line is the fallback.
+  USERNAME_INVALID: 'profile.usernameInvalid',
+  USERNAME_RESERVED: 'profile.usernameReserved',
+  USERNAME_TAKEN: 'profile.usernameTaken',
+  USERNAME_TOO_SOON: 'profile.usernameTooSoonGeneric',
+  FRAME_INVALID: 'profile.frameInvalid',
+  FRAME_LOCKED: 'profile.frameLocked',
   // 0259: buying tickets (edge ticket-begin -> app.ticket_payment_prepare). The
   // detail wallet_limit has its own line (matches.errors.walletLimit), which the
   // tickets screen picks from the detail.

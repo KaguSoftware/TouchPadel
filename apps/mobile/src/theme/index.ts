@@ -1,6 +1,7 @@
 export {
   palettes,
   brand,
+  frame,
   vendor,
   space,
   radius,
