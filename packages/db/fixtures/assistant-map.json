@@ -1,5 +1,5 @@
 {
-  "generated_from": "6f6496b0b22d32fdacf5c9e4f472fd1272c4db4b",
+  "generated_from": "e517801353b6ee5892076bd99702459f460b67e9",
   "chunks": [
     {
       "kind": "page",
@@ -21750,7 +21750,7 @@
       "ref": "label:ws.tournaments.detail",
       "lang": "ar",
       "title": "ws.tournaments.detail (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
-      "body": "eyebrow: بطولة\nnotFound: هذه البطولة ليست في هذا الفرع.\nbackToList: العودة إلى البطولات\nseeOnCalendar: عرض في التقويم\npointsTag: {points} نقطة لكل مباراة\nprogress: سُجّلت نتائج {done} من {total} ملاعب\nstats.players: اللاعبون\nstats.fee: رسم الاشتراك\nstats.collected: المحصَّل\nstats.prize: الجائزة\nstats.cutoff: إغلاق التسجيل\nstats.paidOwing: {paid} دفعوا · {owing} عليهم\nstats.due: {amount} مستحقة\nstats.nothingDue: لا مبالغ مستحقة\ntabs.entries: الاشتراكات\ntabs.rounds: الجولات\ntabs.standings: الترتيب\nfacts.format: النظام\nfacts.category: الفئة\nfacts.points: نقاط كل مباراة\nfacts.rounds: الجولات\nfacts.roundsUnset: تُحدَّد عند بدء اللعب\nfacts.fee: رسم الاشتراك\nfacts.cutoff: إغلاق التسجيل\nfacts.players: اللاعبون\nfacts.prize: الجائزة\nfacts.courts: الملاعب\ncancelled.under_filled: أُلغيت عند إغلاق التسجيل لقلة عدد المسجَّلين.\ncancelled.staff: ألغاها الاستقبال.\nfinished: انتهت. ما زال تصحيح النتائج ممكنًا.\noffline: تعديل البطولة يحتاج إلى اتصال.",
+      "body": "eyebrow: بطولة\nnotFound: هذه البطولة ليست في هذا الفرع.\nbackToList: العودة إلى البطولات\nseeOnCalendar: عرض في التقويم\npointsTag: {points} نقطة لكل مباراة\nprogress: سُجّلت نتائج {done} من {total} ملاعب\nnextToDraw: سُجّلت نتائج الجولة {round} من {total} · الجولة التالية بانتظار التوزيع\nallScored: سُجّلت نتائج الجولات كلها ({total})\nstats.players: اللاعبون\nstats.fee: رسم الاشتراك\nstats.collected: المحصَّل\nstats.prize: الجائزة\nstats.cutoff: إغلاق التسجيل\nstats.paidOwing: {paid} دفعوا · {owing} عليهم\nstats.due: {amount} مستحقة\nstats.nothingDue: لا مبالغ مستحقة\nstats.refundDue: {amount} للاسترداد\ntabs.entries: الاشتراكات\ntabs.rounds: الجولات\ntabs.standings: الترتيب\nfacts.format: النظام\nfacts.category: الفئة\nfacts.points: نقاط كل مباراة\nfacts.rounds: الجولات\nfacts.roundsUnset: تُحدَّد عند بدء اللعب\nfacts.fee: رسم الاشتراك\nfacts.cutoff: إغلاق التسجيل\nfacts.players: اللاعبون\nfacts.prize: الجائزة\nfacts.courts: الملاعب\ncancelled.under_filled: أُلغيت عند إغلاق التسجيل لقلة عدد المسجَّلين.\ncancelled.staff: ألغاها الاستقبال.\nfinished: انتهت. ما زال تصحيح النتائج ممكنًا.\noffline: تعديل البطولة يحتاج إلى اتصال.",
       "route": null
     },
     {
@@ -21758,7 +21758,7 @@
       "ref": "label:ws.tournaments.detail",
       "lang": "en",
       "title": "ws.tournaments.detail (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
-      "body": "eyebrow: Tournament\nnotFound: This tournament isn't at this branch.\nbackToList: Back to tournaments\nseeOnCalendar: See on calendar\npointsTag: Games to {points}\nprogress: {done} of {total} courts scored\nstats.players: Players\nstats.fee: Entry fee\nstats.collected: Collected\nstats.prize: Prize\nstats.cutoff: Registration closes\nstats.paidOwing: {paid} paid · {owing} owe\nstats.due: {amount} due\nstats.nothingDue: Nothing owed\ntabs.entries: Entries\ntabs.rounds: Rounds\ntabs.standings: Standings\nfacts.format: Format\nfacts.category: Category\nfacts.points: Points per game\nfacts.rounds: Rounds\nfacts.roundsUnset: Set when the play starts\nfacts.fee: Entry fee\nfacts.cutoff: Registration closes\nfacts.players: Players\nfacts.prize: Prize\nfacts.courts: Courts\ncancelled.under_filled: Cancelled at the cut-off: too few players registered.\ncancelled.staff: Cancelled by the desk.\nfinished: Finished. Scores can still be corrected.\noffline: Tournament changes need a connection.",
+      "body": "eyebrow: Tournament\nnotFound: This tournament isn't at this branch.\nbackToList: Back to tournaments\nseeOnCalendar: See on calendar\npointsTag: Games to {points}\nprogress: {done} of {total} courts scored\nnextToDraw: Round {round} of {total} scored · next round to draw\nallScored: All {total} rounds scored\nstats.players: Players\nstats.fee: Entry fee\nstats.collected: Collected\nstats.prize: Prize\nstats.cutoff: Registration closes\nstats.paidOwing: {paid} paid · {owing} owe\nstats.due: {amount} due\nstats.nothingDue: Nothing owed\nstats.refundDue: {amount} to refund\ntabs.entries: Entries\ntabs.rounds: Rounds\ntabs.standings: Standings\nfacts.format: Format\nfacts.category: Category\nfacts.points: Points per game\nfacts.rounds: Rounds\nfacts.roundsUnset: Set when the play starts\nfacts.fee: Entry fee\nfacts.cutoff: Registration closes\nfacts.players: Players\nfacts.prize: Prize\nfacts.courts: Courts\ncancelled.under_filled: Cancelled at the cut-off: too few players registered.\ncancelled.staff: Cancelled by the desk.\nfinished: Finished. Scores can still be corrected.\noffline: Tournament changes need a connection.",
       "route": null
     },
     {
