@@ -16,20 +16,24 @@ set statement_timeout = '60s';
 --          cleared, no longer written, and left for a later drop (a DROP
 --          COLUMN needs a person's MIGRATION-RISK-ACCEPTED). The tiers' sort
 --          follows min_points_12m: app.upsert_loyalty_tier renumbers after
---          every write (app.loyalty_tiers_renumber).
+--          every write (app.loyalty_tiers_renumber). app.delete_loyalty_tier
+--          refuses TIER_IN_USE while a promotion names the tier (the write
+--          holds the tier FOR KEY SHARE).
 --   c7     app.apply_best_promotion drops the tab's promotion when it is no
 --          longer eligible (audited promotion.drop_ineligible). A drop is
 --          kept: the call returns {dropped: true, refused: <code>} rather
 --          than raising NO_ELIGIBLE_PROMOTION / CODE_NOT_ELIGIBLE, which
 --          would roll it back. The same-promotion path moves the redemption
 --          to the tab's current customer. (set_tab_customer's re-check is
---          0308's.)
+--          0308's, and must test tierMin through app.promotion_tier_ok:
+--          after this file tierMin is a tier id, not a sort.
+--          0308's inline sort comparison would raise 22P02.)
 --   c14    A promotion takes at most what the goods subtotal leaves after the
 --          tab's other discounts (app.promotion_room_iqd: line discounts on
 --          live lines and tab discounts that are not a promotion, loyalty
 --          redemptions included); eligible_promotions shows that figure and
 --          drops a candidate left below 1.
---   c15    apply_best_promotion locks the chosen promotion (FOR UPDATE, after
+--   c15    apply_best_promotion locks the candidates (FOR UPDATE in id order, after
 --          the tab) and re-reads eligibility before the insert, so a
 --          single-use code or a total/perCustomer limit is not spent twice by
 --          two tills at once. promotions is ranked after tabs.
@@ -50,8 +54,8 @@ set statement_timeout = '60s';
 --
 -- Re-issued from their latest bodies: price_promo_promotion and
 -- upsert_promotion_internal (0177), eligible_promotions, apply_best_promotion
--- and loyalty_nightly (0306), set_loyalty_settings and upsert_loyalty_tier
--- (0305).
+-- and loyalty_nightly (0306), set_loyalty_settings, upsert_loyalty_tier and
+-- delete_loyalty_tier (0305).
 
 -- ===========================================================================
 -- 1. Schema
@@ -426,8 +430,15 @@ begin
     if v_key = 'tierMin' then
       continue when jsonb_typeof(p_limits->v_key) = 'null';
       if jsonb_typeof(p_limits->v_key) <> 'string'
-         or (p_limits->>v_key) !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-         or not exists (select 1 from loyalty_tiers t where t.id = (p_limits->>v_key)::uuid) then
+         or (p_limits->>v_key) !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+        raise exception 'INVALID_VALUE' using errcode = 'P0001', detail = 'limits.tierMin',
+          hint = 'the id of an existing loyalty tier';
+      end if;
+      -- The tier is held (FOR KEY SHARE) until this write commits:
+      -- app.delete_loyalty_tier (FOR UPDATE) then waits and sees the promotion
+      -- that names it (TIER_IN_USE), or it ran first and the tier is gone here.
+      perform 1 from loyalty_tiers t where t.id = (p_limits->>v_key)::uuid for key share;
+      if not found then
         raise exception 'INVALID_VALUE' using errcode = 'P0001', detail = 'limits.tierMin',
           hint = 'the id of an existing loyalty tier';
       end if;
@@ -697,8 +708,9 @@ declare
   v_old_code  text;     -- 0309 (c7)
   v_dropped   uuid;     -- 0309 (c7)
   v_refusal   text;     -- 0309 (c7)
-  v_locked    uuid;     -- 0309 (c15)
-  v_try       int;      -- 0309 (c15)
+  v_locked    uuid[] := '{}';  -- 0309 (c15)
+  v_new       uuid[];          -- 0309 (c15)
+  v_try       int;             -- 0309 (c15)
 begin
   if not app.is_staff('cashier','manager','owner') then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
@@ -747,12 +759,16 @@ begin
     end if;
   end if;
 
-  -- 0309 (c15): pick the best, lock it (promotions after tabs), then read
+  -- 0309 (c15): lock the candidates (promotions after tabs), then read
   -- eligibility again: a concurrent apply of the same single-use code or the
   -- last use of a limit has committed by the time the lock is granted, and
-  -- this fresh read counts it. The pick stands when the locked promotion is
-  -- still the best.
-  for v_try in 1 .. 4 loop
+  -- this fresh read counts it. Every candidate of the first read is locked in
+  -- one statement, in id order, so two applies never take the same rows in
+  -- opposite orders; a later read locks more only when the candidates changed
+  -- under it (a promotion edited or created meanwhile). The pick is the best
+  -- of a read taken after its lock; the fifth read settles for the best of
+  -- those it holds.
+  for v_try in 1 .. 5 loop
     v_elig := app.eligible_promotions(p_tab_id, p_code);   -- raises CODE_INVALID
 
     -- A known code that is not eligible right now (expired, used up, wrong day,
@@ -772,13 +788,23 @@ begin
       exit;
     end if;
 
-    v_best := v_elig->0;
-    exit when (v_best->>'promotionId')::uuid = v_locked;
-    v_locked := (v_best->>'promotionId')::uuid;
-    perform 1 from promotions where id = v_locked for update;
-    if v_try = 4 then
-      v_refusal := 'NO_ELIGIBLE_PROMOTION';
+    v_new := array(select distinct (e->>'promotionId')::uuid
+                     from jsonb_array_elements(v_elig) e
+                    where not ((e->>'promotionId')::uuid = any(v_locked))
+                    order by 1);
+    if cardinality(v_new) = 0 or v_try = 5 then
+      select x.e into v_best
+        from jsonb_array_elements(v_elig) with ordinality x(e, n)
+       where (x.e->>'promotionId')::uuid = any(v_locked)
+       order by x.n
+       limit 1;
+      if v_best is null then
+        v_refusal := 'NO_ELIGIBLE_PROMOTION';
+      end if;
+      exit;
     end if;
+    perform 1 from promotions where id = any(v_new) order by id for update;
+    v_locked := v_locked || v_new;
   end loop;
 
   if v_refusal is not null then
@@ -870,7 +896,7 @@ revoke all on function app.apply_best_promotion(uuid, text, text, text) from pub
 grant execute on function app.apply_best_promotion(uuid, text, text, text) to authenticated;
 
 comment on function app.apply_best_promotion(uuid, text, text, text) is
-  '0067, 0217, loyalty 0306, 0309. Cashier, manager, owner at the tab''s branch: applies the best eligible promotion (app.eligible_promotions) to an open tab, replacing the tab''s earlier one; the redemption''s customer is app.tab_customer. 0309: the tab''s promotion is first re-checked and dropped when no longer eligible (c7, audited promotion.drop_ineligible); when nothing replaces a dropped one the call returns {promotionId: null, amountIqd: 0, replacedPromotionId, dropped: true, refused: NO_ELIGIBLE_PROMOTION | CODE_NOT_ELIGIBLE} instead of raising, so the drop stands. The chosen promotion is locked FOR UPDATE after the tab and eligibility read again before the insert (c15). The same promotion kept moves its redemption to the tab''s customer.';
+  '0067, 0217, loyalty 0306, 0309. Cashier, manager, owner at the tab''s branch: applies the best eligible promotion (app.eligible_promotions) to an open tab, replacing the tab''s earlier one; the redemption''s customer is app.tab_customer. 0309: the tab''s promotion is first re-checked and dropped when no longer eligible (c7, audited promotion.drop_ineligible); when nothing replaces a dropped one the call returns {promotionId: null, amountIqd: 0, replacedPromotionId, dropped: true, refused: NO_ELIGIBLE_PROMOTION | CODE_NOT_ELIGIBLE} instead of raising, so the drop stands. The candidates are locked FOR UPDATE after the tab, in id order, and eligibility read again before the insert (c15). The same promotion kept moves its redemption to the tab''s customer.';
 
 -- ===========================================================================
 -- 5. Settings (c8)
@@ -1030,6 +1056,43 @@ comment on function app.upsert_loyalty_tier(jsonb) is
 revoke all on function app.upsert_loyalty_tier(jsonb) from public, anon;
 grant execute on function app.upsert_loyalty_tier(jsonb) to authenticated;
 
+-- delete_loyalty_tier: re-issued from 20261005000305_loyalty.sql:1466
+create or replace function app.delete_loyalty_tier(p_tier_id uuid) returns void
+language plpgsql security definer set search_path = public as $delete_loyalty_tier_0309$
+declare
+  v_old  loyalty_tiers%rowtype;
+  v_uses int;   -- 0309 (c6)
+begin
+  if not app.is_staff('owner') then
+    raise exception 'FORBIDDEN' using errcode = 'P0001';
+  end if;
+  select * into v_old from loyalty_tiers where id = p_tier_id for update;
+  if not found or v_old.sort = 0 then
+    raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', detail = 'p_tier_id';
+  end if;
+  -- 0309 (c6): a promotion that names this tier (limits.tierMin, enabled or
+  -- not) would be left for nobody, and its next edit refused. The tier row is
+  -- held FOR UPDATE above, so a promotion write naming it (FOR KEY SHARE in
+  -- app.upsert_promotion_internal) has committed or waits.
+  select count(*) into v_uses
+    from promotions p
+   where (jsonb_typeof(p.limits->'tierMin') = 'string' and p.limits->>'tierMin' = v_old.id::text)
+      or (jsonb_typeof(p.limits->'tierMin') = 'number' and (p.limits->>'tierMin')::numeric = v_old.sort);
+  if v_uses > 0 then
+    raise exception 'TIER_IN_USE' using errcode = 'P0001', detail = v_uses::text,
+      hint = 'promotions name this tier in limits.tierMin; change them first';
+  end if;
+  delete from loyalty_tiers where id = p_tier_id;
+  perform app.loyalty_retier();
+  perform app.write_audit('loyalty.tier_delete', 'loyalty_tiers', p_tier_id::text, to_jsonb(v_old), null, null);
+end $delete_loyalty_tier_0309$;
+
+comment on function app.delete_loyalty_tier(uuid) is
+  'Loyalty (M3, contracts §1.3; 0309). Owner: deletes a tier; the base tier (sort 0) or an unknown id is INVALID_ARGUMENT. 0309: TIER_IN_USE (detail: how many) while a promotion, enabled or not, names it in limits.tierMin. Its accounts fall to the tier their points now reach. Audited loyalty.tier_delete.';
+
+revoke all on function app.delete_loyalty_tier(uuid) from public, anon;
+grant execute on function app.delete_loyalty_tier(uuid) to authenticated;
+
 -- ===========================================================================
 -- 7. The nightly run (c8, c31)
 -- ===========================================================================
@@ -1046,6 +1109,8 @@ declare
   a       loyalty_accounts%rowtype;
   v_sum   bigint;
   v_last  timestamptz;
+  v_12m   bigint;
+  v_adj   bigint;
   v_out   text := 'unchanged';
 begin
   begin
@@ -1054,17 +1119,28 @@ begin
       return 'locked';
     end if;
 
-    -- Unchanged: the cache equals the ledger (its balance and its last
-    -- activity), and no row left the 12-month window since the last recompute.
-    select coalesce(sum(l.delta), 0), max(l.created_at) filter (where l.kind <> 'expire') into v_sum, v_last
+    -- Unchanged: the cache equals the ledger, read as app.loyalty_recompute
+    -- reads it (0308: the tier points are earn + clawback of the last 12
+    -- months), in one scan: the balance, the last activity, the 12-month
+    -- points and the tier they reach. Never from updated_at, which
+    -- app.loyalty_retier also stamps without recounting. An account with an
+    -- adjustment in the window is always rebuilt: whether an adjustment counts
+    -- toward the tier is the recompute's rule (0305 counted it, 0308 does not).
+    select coalesce(sum(l.delta), 0),
+           max(l.created_at) filter (where l.kind <> 'expire'),
+           coalesce(sum(l.delta) filter (where l.kind in ('earn', 'clawback')
+                                           and l.created_at > now() - interval '12 months'), 0),
+           count(*) filter (where l.kind = 'adjust' and l.created_at > now() - interval '12 months')
+      into v_sum, v_last, v_12m, v_adj
       from loyalty_ledger l where l.profile_id = p_profile;
+    v_12m := greatest(v_12m, 0);
     if a.profile_id is null
        or a.balance <> v_sum
        or a.last_activity_at is distinct from v_last
-       or exists (select 1 from loyalty_ledger l
-                   where l.profile_id = p_profile
-                     and l.created_at >  a.updated_at - interval '12 months'
-                     and l.created_at <= now() - interval '12 months') then
+       or a.points_12m is distinct from v_12m
+       or v_adj > 0
+       or a.tier_id is distinct from (select t.id from loyalty_tiers t where t.min_points_12m <= v_12m
+                                       order by t.min_points_12m desc limit 1) then
       perform app.loyalty_recompute(p_profile);
       select * into a from loyalty_accounts c where c.profile_id = p_profile;
       v_out := 'recomputed';
@@ -1087,7 +1163,7 @@ begin
 end $loyalty_nightly_one_0309$;
 
 comment on function app.loyalty_nightly_one(uuid, int, timestamptz) is
-  'Loyalty (0309, c8, c31). Internal: one account of the nightly run, in its own exception block with lock_timeout 2s. The account FOR UPDATE SKIP LOCKED (held by a till: locked, tomorrow); recomputed (app.loyalty_recompute) unless its balance equals sum(ledger), its last_activity_at the newest row that is not an expiry, and no row left the 12-month window since its updated_at (unchanged); then, when p_expire_months is set (loyalty on), an (expire, expiry) row for the whole balance if greatest(last_activity_at, p_since) is older than that. Returns locked | unchanged | recomputed | expired | error (a warning).';
+  'Loyalty (0309, c8, c31). Internal: one account of the nightly run, in its own exception block with lock_timeout 2s. The account FOR UPDATE SKIP LOCKED (held by a till: locked, tomorrow); recomputed (app.loyalty_recompute) unless its balance equals sum(ledger), its last_activity_at the newest row that is not an expiry, its points_12m the earn + clawback of the last 12 months and its tier the one those reach, with no adjustment in that window (unchanged; never judged by updated_at, which app.loyalty_retier also stamps); then, when p_expire_months is set (loyalty on), an (expire, expiry) row for the whole balance if greatest(last_activity_at, p_since) is older than that. Returns locked | unchanged | recomputed | expired | error (a warning).';
 
 revoke all on function app.loyalty_nightly_one(uuid, int, timestamptz) from public, anon, authenticated;
 

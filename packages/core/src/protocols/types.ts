@@ -233,7 +233,8 @@ export interface PromotionFields {
   hour_from?: string | null;
   hour_to?: string | null;
   scope: { courtIds?: string[] | null; categoryIds?: string[] | null; itemIds?: string[] | null };
-  limits?: { total?: number | null; perCustomer?: number | null; minSpendIqd?: number | null } | null;
+  /** tierMin (0309): a loyalty tier id; only that tier and the ones above it. */
+  limits?: { total?: number | null; perCustomer?: number | null; minSpendIqd?: number | null; tierMin?: string | null } | null;
   auto?: boolean | null;
   public_code?: string | null;
   code_single_use?: boolean | null;

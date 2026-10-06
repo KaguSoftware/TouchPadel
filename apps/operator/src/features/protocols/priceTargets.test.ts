@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { COACHING_SHAPES, missingKeys, type CoachingShape } from '@touch/core/coaching';
-import { validateStep } from '@touch/core/protocols';
+import { startForm, validateStep } from '@touch/core/protocols';
 import { makeT } from '@touch/i18n';
 import { finalizeRecord } from './contextLogic';
+import { cleanRecord, initialValue } from './formModel';
 import {
   NEW_RULE,
   coachLabel,
@@ -241,6 +242,22 @@ describe('a start linked in from another screen (§5.5)', () => {
     expect(priceProposalPrefill('promotion_edit', promos, { promotion: PROMO })).toMatchObject({ change: 'promotion_edit', promotion_id: PROMO, promotion: { type: 'amount', value: 2000 } });
     expect(priceProposalPrefill('promotion_enable', promos, { promotion: PROMO })).toEqual({ change: 'promotion_enable', promotion_id: PROMO });
     expect(priceProposalPrefill('rate', readTargets({}), {})).toEqual({ change: 'rate', rule: NEW_RULE });
+  });
+
+  it('keeps a tier promotion’s tierMin through an edit proposal, and sends none when it has none (0309)', () => {
+    const TIER = '0f200000-0000-4000-8000-000000000001';
+    const row = { promotion_id: PROMO, name_en: 'Gold', name_ar: 'ذهبي', type: 'percent', value: 10, weekdays: [], scope: {} };
+    const tiered = readTargets({ promotions: [{ ...row, limits: { total: 5, tierMin: TIER } }] });
+    expect(tiered.promotions[0]!.fields).toMatchObject({ limits: { total: 5, tierMin: TIER } });
+    // through the form the manager sends (blanks dropped, the hidden id kept) and the core check
+    const fields = startForm('price_promo', { change: 'promotion_edit' }).fields;
+    const value = initialValue(fields, priceProposalPrefill('promotion_edit', tiered, { promotion: PROMO }));
+    const sent = finalizeRecord('price_promo', 'propose', cleanRecord(fields, { ...value, reason: 'Members', expected_effect: 'Loyal guests' }), new Map());
+    expect(sent).toMatchObject({ promotion_id: PROMO, promotion: { limits: { total: 5, tierMin: TIER } } });
+    expect(validateStep('price_promo', 'propose', sent)).toEqual([]);
+    // a promotion for everyone carries no tierMin at all
+    const plain = readTargets({ promotions: [{ ...row, limits: { total: 5 } }] });
+    expect(plain.promotions[0]!.fields.limits).not.toHaveProperty('tierMin');
   });
 
   it('starts the featured discount on the item and discount stored today', () => {

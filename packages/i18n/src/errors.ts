@@ -468,6 +468,8 @@ export const ERROR_CODE_KEYS = {
   // codes from loyalty_identify and link_guest_session; the rest from loyalty_redeem.
   PHONE_TAKEN: 'op.errors.PHONE_TAKEN',
   MERGE_REFUSED: 'op.errors.MERGE_REFUSED',
+  // 0309: delete_loyalty_tier while a promotion names the tier (limits.tierMin; detail: how many).
+  TIER_IN_USE: 'op.errors.TIER_IN_USE',
   MEMBER_CODE_INVALID: 'op.errors.MEMBER_CODE_INVALID',
   MEMBER_CODE_EXPIRED: 'op.errors.MEMBER_CODE_EXPIRED',
   MEMBER_NOT_FOUND: 'op.errors.MEMBER_NOT_FOUND',

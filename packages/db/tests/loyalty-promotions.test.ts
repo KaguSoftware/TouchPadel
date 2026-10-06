@@ -278,6 +278,39 @@ describe.skipIf(!docker)('a tier promotion names its tier by id (c6, c16)', () =
   });
 });
 
+describe.skipIf(!docker)('a tier a promotion names cannot be deleted (c6)', () => {
+  it('refuses TIER_IN_USE while a promotion, on or off, names the tier, and deletes it once none does', () => {
+    const DEL = (label: string) =>
+      T(
+        label,
+        'owner',
+        `with d as (select app.delete_loyalty_tier({{silver_id}}::uuid)) select to_jsonb(count(*)) from d`,
+      );
+    const r = run('lp-tier-del', [
+      TIER('silver', 'Silver', 100, 1),
+      KEEP('silver_id', `select id::text from loyalty_tiers where name_en = 'Silver'`),
+      PROMO('promo', `jsonb_build_object('tierMin', {{silver_id}})`),
+      KEEP_RES('promo_id', 'promo'),
+      DEL('in_use'),
+      // switched off, it still names the tier (its next edit would be refused)
+      X(`update promotions set enabled = false where id = {{promo_id}}::uuid`),
+      DEL('in_use_off'),
+      // the promotion opened to everyone: the tier goes
+      PROMO('cleared', `'{}'::jsonb`, { id: 'promo_id' }),
+      DEL('deleted'),
+      Q('gone', `select to_jsonb(count(*)) from loyalty_tiers where id = {{silver_id}}::uuid`),
+      // a promotion cannot name it any more
+      PROMO('dead', `jsonb_build_object('tierMin', {{silver_id}})`),
+    ]);
+    expect(refused(r, 'in_use')).toMatch(/^TIER_IN_USE/);
+    expect(refused(r, 'in_use_off')).toMatch(/^TIER_IN_USE/);
+    expect(ok(r, 'cleared')).toBe(ok<string>(r, 'promo'));
+    expect(ok(r, 'deleted')).toBe(1);
+    expect(ok(r, 'gone')).toBe(0);
+    expect(refused(r, 'dead')).toMatch(/^INVALID_VALUE/);
+  });
+});
+
 // ── c7: a promotion that no longer qualifies goes ───────────────────────────
 
 describe.skipIf(!docker)('apply_best_promotion drops what no longer qualifies (c7)', () => {
@@ -332,6 +365,41 @@ describe.skipIf(!docker)('apply_best_promotion drops what no longer qualifies (c
     expect(ok<string>(r, 'b_customer')).toBe(ok<string>(r, 'gold2_id'));
   });
 });
+
+// ── c7 across the tracks: set_tab_customer reads tierMin as a tier id ───────
+
+describe.skipIf(!docker)(
+  'a customer change on a tab with a tier promotion (c7, the 0308 merge)',
+  () => {
+    it('swaps the customer without an error, and drops the promotion when set_tab_customer re-checks it', () => {
+      const r = run('lp-swap', [
+        GUEST('gold1'),
+        GUEST('plain'),
+        TIER('gold', 'Gold', 500, 1),
+        KEEP('gold_id', `select id::text from loyalty_tiers where name_en = 'Gold'`),
+        PROMO('promo', `jsonb_build_object('tierMin', {{gold_id}})`, { value: 20 }),
+        PTS('gold1', 600),
+        TAB('t1', 'gold1', 10000),
+        APPLY('a1', 't1'),
+        // 0308's re-check compared tierMin to a tier's sort as an int; tierMin is now a uuid.
+        T('swap', 'cashier', `select app.set_tab_customer({{t1}}::uuid, {{plain}}::uuid)`),
+        Q(
+          'rechecks',
+          `select to_jsonb(pg_get_functiondef('app.set_tab_customer(uuid, uuid)'::regprocedure)
+                         like '%promotion_redemptions%')`,
+        ),
+        Q(
+          'left',
+          `select to_jsonb((select count(*) from promotion_redemptions where tab_id = {{t1}}::uuid))`,
+        ),
+      ]);
+      expect(ok(r, 'a1')).toMatchObject({ promotionId: ok<string>(r, 'promo') });
+      expect(ok(r, 'swap')).toMatchObject({ customer_id: expect.any(String) });
+      // Before 0308 set_tab_customer does not look at promotions (the next apply drops it, c7 above).
+      expect(ok<number>(r, 'left')).toBe(ok<boolean>(r, 'rechecks') ? 0 : 1);
+    });
+  },
+);
 
 // ── c14: never more than the bill has left ──────────────────────────────────
 
@@ -406,6 +474,9 @@ describe.skipIf(!docker)('the nightly run (c8, c31)', () => {
         `select to_jsonb(balance) from loyalty_accounts where profile_id = {{g2}}::uuid`,
       ),
       Q('again', `select app.loyalty_nightly()`),
+      // Per account: the stack's other accounts (an adjustment in the window is always rebuilt) are not this test's.
+      Q('g1_again', `select to_jsonb(app.loyalty_nightly_one({{g1}}::uuid, null, null))`),
+      Q('g2_again', `select to_jsonb(app.loyalty_nightly_one({{g2}}::uuid, null, null))`),
       Q(
         'cron',
         `select to_jsonb(command) from cron.job where jobname = 'tp_loyalty_nightly' and schedule = '15 0 * * *'`,
@@ -421,10 +492,42 @@ describe.skipIf(!docker)('the nightly run (c8, c31)', () => {
     expect(ok<number>(r, 'later_balance')).toBe(0);
     expect(ok<Night>(r, 'drift').recomputed).toBeGreaterThanOrEqual(1);
     expect(ok<number>(r, 'g2_balance')).toBe(40);
-    const again = ok<Night>(r, 'again');
-    expect(again.recomputed).toBe(0);
-    expect(again.error).toBe(0);
+    expect(ok<Night>(r, 'again').error).toBe(0);
+    expect(ok(r, 'g1_again')).toBe('unchanged');
+    expect(ok(r, 'g2_again')).toBe('unchanged');
     expect(ok<string>(r, 'cron')).toBe('call app.loyalty_nightly_run();');
+  });
+
+  it('rebuilds a cache whose 12-month points went stale even after a retier stamped it', () => {
+    const r = run('lp-night-retier', [
+      GUEST('aged'),
+      PTS('aged', 100, '13 months'),
+      PTS('aged', 5),
+      // The cache as of a recompute before the 100 left the window: 105 points.
+      X(
+        `update loyalty_accounts set points_12m = 105, updated_at = now() - interval '1 day'
+          where profile_id = {{aged}}::uuid`,
+      ),
+      // A new tier at 100: app.loyalty_retier moves the account up and stamps updated_at, no recount.
+      TIER('hundred', 'LP Hundred', 100, 3),
+      Q(
+        'before',
+        `select jsonb_build_object('points', a.points_12m, 'tier', t.name_en, 'stamped', a.updated_at = now())
+           from loyalty_accounts a join loyalty_tiers t on t.id = a.tier_id where a.profile_id = {{aged}}::uuid`,
+      ),
+      Q('one', `select to_jsonb(app.loyalty_nightly_one({{aged}}::uuid, null, null))`),
+      Q(
+        'after',
+        `select jsonb_build_object('points', a.points_12m, 'tier', t.name_en)
+           from loyalty_accounts a join loyalty_tiers t on t.id = a.tier_id where a.profile_id = {{aged}}::uuid`,
+      ),
+      Q('again', `select to_jsonb(app.loyalty_nightly_one({{aged}}::uuid, null, null))`),
+    ]);
+    expect(ok(r, 'before')).toEqual({ points: 105, tier: 'LP Hundred', stamped: true });
+    expect(ok(r, 'one')).toBe('recomputed');
+    expect(ok<{ points: number; tier: string }>(r, 'after').points).toBe(5);
+    expect(ok<{ points: number; tier: string }>(r, 'after').tier).not.toBe('LP Hundred');
+    expect(ok(r, 'again')).toBe('unchanged');
   });
 
   it('skips an account a till holds instead of waiting, and the procedure commits per batch', async () => {

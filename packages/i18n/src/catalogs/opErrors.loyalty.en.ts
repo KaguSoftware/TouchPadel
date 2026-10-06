@@ -8,6 +8,7 @@ export const opErrorsLoyaltyEn = {
   PHONE_TAKEN:
     'That phone number is already on another account. Ask the desk to join the two accounts.',
   MERGE_REFUSED: "These two accounts can't be joined: both belong to staff or both to coaches.",
+  TIER_IN_USE: 'A promotion is still limited to this tier. Change that promotion first.',
   MEMBER_CODE_INVALID:
     "That isn't a member code. Scan the QR again or type the guest's phone number.",
   MEMBER_CODE_EXPIRED: 'That member code has expired. Ask the guest to open their card again.',

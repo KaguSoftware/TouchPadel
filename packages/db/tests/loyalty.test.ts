@@ -857,6 +857,8 @@ describe.skipIf(!docker)('loyalty tiers and the tier promotion (contracts §1.4)
         `select app.upsert_loyalty_tier('{"name_en":"Dup","name_ar":"مكرر","min_points_12m":100,"sort":5}'::jsonb)`,
       ),
       KEEP('silver', `select id::text from loyalty_tiers where name_en = 'Silver'`),
+      // 0309: a tier a promotion names is TIER_IN_USE (loyalty-promotions.test.ts); open it to everyone first.
+      X(`update promotions set limits = '{}'::jsonb where id = {{promo}}::uuid`),
       T(
         'del_silver',
         'owner',
