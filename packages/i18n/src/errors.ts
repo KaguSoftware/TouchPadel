@@ -458,6 +458,11 @@ export const ERROR_CODE_KEYS = {
   // status | invalid | changed | locked).
   TOURNAMENT_ROUNDS_INVALID: 'op.errors.TOURNAMENT_ROUNDS_INVALID',
   TOURNAMENT_SCORE_REFUSED: 'op.errors.TOURNAMENT_SCORE_REFUSED',
+  // 0310 tournaments_money_lifecycle: the desk closes registration below min_entries (detail
+  // <registered>/<min>), and an early finish with no complete round (detail not_played) or a
+  // begun round after it (detail partial_round).
+  TOURNAMENT_UNDER_FILLED: 'op.errors.TOURNAMENT_UNDER_FILLED',
+  TOURNAMENT_FINISH_REFUSED: 'op.errors.TOURNAMENT_FINISH_REFUSED',
   // tournaments_schema_money: the desk payment of an entry fee (tournament_settle; detail
   // waitlisted | withdrawn | no_show | cancelled | nothing_owed, then "expected X, now Y").
   TOURNAMENT_NOT_PAYABLE: 'op.errors.TOURNAMENT_NOT_PAYABLE',

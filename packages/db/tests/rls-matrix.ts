@@ -6261,5 +6261,33 @@ export const matrix: MatrixRule[] = [
     expect: ex<RpcExpectation>('denied'),
     note: 'account_identity (0303): internal; only merge_accounts, the sign-up claim and the 0303 run call it',
     drop: 29,
+  },  // ── 0310 tournaments_money_lifecycle (the role first, then a nil tournament) ──
+  {
+    kind: 'rpc', schema: 'app', name: 'tournament_close',
+    args: { p_tournament_id: NIL_UUID },
+    expect: DESK_UP,
+    note: '0310 (c24): the court desk, managers and the owner; a nil tournament is TOURNAMENT_NOT_FOUND before the row lock',
+    drop: 30,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'tournament_finish',
+    args: { p_tournament_id: NIL_UUID, p_reason: 'matrix' },
+    expect: MANAGER_UP,
+    note: '0310 (c28): managers and the owner; a nil tournament is TOURNAMENT_NOT_FOUND before the row lock',
+    drop: 30,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'tournament_refunds_due',
+    args: {},
+    expect: MANAGER_UP,
+    note: '0310 (c9): managers and the owner read the tournament entry money their branch owes back (the role before the branch, R57)',
+    drop: 30,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'tournament_close_internal',
+    args: { p_tournament_id: NIL_UUID, p_by: 'staff' },
+    expect: ex<RpcExpectation>('denied'),
+    note: '0310 (c24): internal; the sweep and tournament_close call it',
+    drop: 30,
   },
 ];

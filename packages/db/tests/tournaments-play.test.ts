@@ -456,10 +456,21 @@ describe.skipIf(!docker)('the reads (§1.8)', () => {
       set_rounds: false,
       score: false,
       cancel: false,
+      close: false,
+      finish: false,
       settle: true,
     });
     expect(answer(r, 'detail_mgr')).toMatchObject({
-      can: { add: true, set_rounds: true, score: true, cancel: true, settle: true },
+      // 0310 (c25): no desk add while running; a manager may finish it early (c28).
+      can: {
+        add: false,
+        set_rounds: true,
+        score: true,
+        cancel: true,
+        close: false,
+        finish: true,
+        settle: true,
+      },
     });
     const entries = detail.entries as Array<{ owed_iqd: number; seed_no: number; status: string }>;
     expect(entries).toHaveLength(8);
