@@ -21,6 +21,8 @@ const TOURNAMENT_RPCS = [
   'set_tournaments_enabled',
   'tournament_add_entry',
   'tournament_cancel',
+  'tournament_close',
+  'tournament_finish',
   'tournament_mark_no_show',
   'tournament_publish',
   'tournament_remove_entry',

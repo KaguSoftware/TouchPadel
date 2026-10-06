@@ -1,5 +1,5 @@
 {
-  "generated_from": "919048bc54c7788df36c869050e6286d15d2f240",
+  "generated_from": "77321709f248659c79ecf6f614a6478d64647dbb",
   "chunks": [
     {
       "kind": "page",
@@ -2838,7 +2838,7 @@
       "ref": "action:app.close_branch",
       "lang": "en",
       "title": "app.close_branch",
-      "body": "0223 (MV4). Owner-only: close a branch (never deleted). Refuses the last open branch (LAST_OPEN_BRANCH) and a branch whose day is still open (BRANCH_DAY_OPEN). Audited as venue.close. 0280: live lessons count with the bookings (BRANCH_HAS_BOOKINGS, detail the count); R37: a branch with coaching money to settle (a draft or approved coach statement, an undrafted month of statement lessons, a lesson refund still due at the till or blocked on Qi; app.lesson_money_open) is refused BRANCH_HAS_BOOKINGS detail coaching_money.\nSignature: app.close_branch(p_venue uuid) returns venues.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: venue.close.\nError codes: FORBIDDEN, VENUE_NOT_FOUND, LAST_OPEN_BRANCH, BRANCH_DAY_OPEN, BRANCH_HAS_BOOKINGS.\nCalled from: apps/operator/src/features/admin/branches/BranchesAdmin.tsx (pages /admin).\nDefined in migration 0280 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0223 (MV4). Owner-only: close a branch (never deleted). Refuses the last open branch (LAST_OPEN_BRANCH) and a branch whose day is still open (BRANCH_DAY_OPEN). Audited as venue.close. 0280: live lessons count with the bookings (BRANCH_HAS_BOOKINGS, detail the count); R37: a branch with coaching money to settle (a draft or approved coach statement, an undrafted month of statement lessons, a lesson refund still due at the till or blocked on Qi; app.lesson_money_open) is refused BRANCH_HAS_BOOKINGS detail coaching_money. 0310 (c40): an open, closed or running tournament is BRANCH_HAS_BOOKINGS detail tournaments, and tournament entry money still due back at the till detail tournament_money.\nSignature: app.close_branch(p_venue uuid) returns venues.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: venue.close.\nError codes: FORBIDDEN, VENUE_NOT_FOUND, LAST_OPEN_BRANCH, BRANCH_DAY_OPEN, BRANCH_HAS_BOOKINGS.\nCalled from: apps/operator/src/features/admin/branches/BranchesAdmin.tsx (pages /admin).\nDefined in migration 0310 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -3510,7 +3510,7 @@
       "ref": "action:app.desk_tournament_detail",
       "lang": "en",
       "title": "app.desk_tournament_detail",
-      "body": "Tournaments (M7, §1.8). The cashier, the court desk, managers and the owner (the entries carry names and phones): FORBIDDEN; TOURNAMENT_NOT_FOUND (unknown or outside the visible branches); VENUE_MISMATCH (not one of those roles at its branch). The tournament's fields and revision, timezone, server_now; entries [{entry_id, guest_id, full_name, phone, status, seed_no, waitlist_position, added_by_kind, owed_iqd, net_paid_iqd, refund_due_iqd, substitute_for}] (registered by seed, the waitlist in order, then the rest); courts [{court_id, name_en, name_ar, sort_order}] of the live adopted blocks; rounds [{round_no, sit_out [entry], matches [{match_id, court_id, a [entry, entry], b [entry, entry], points_a, points_b, revision, corrections}]}]; standings (app.tournament_standings); can {add, set_rounds, score, cancel, settle} for the caller's role and the status.\nSignature: app.desk_tournament_detail(p_tournament_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TOURNAMENT_NOT_FOUND, VENUE_MISMATCH.\nCalled from: apps/operator/src/features/tournaments/EntriesPanel.tsx, apps/operator/src/features/tournaments/useTournaments.ts.\nDefined in migration 0301 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Tournaments (M7, §1.8; 0310). The cashier, the court desk, managers and the owner (the entries carry names and phones): FORBIDDEN; TOURNAMENT_NOT_FOUND (unknown or outside the visible branches); VENUE_MISMATCH (not one of those roles at its branch). The tournament's fields and revision, sweep_errors (0310: failed sweep cancels), timezone, server_now; entries [{entry_id, guest_id, full_name, phone, status, seed_no, waitlist_position, added_by_kind, owed_iqd, net_paid_iqd, refund_due_iqd, substitute_for, payments [{payment_id, tab_id, method, amount_iqd, refunded_iqd, refundable_iqd, created_at}] (0310)}] (registered by seed, the waitlist in order, then the rest); courts [{court_id, name_en, name_ar, sort_order}] of the live adopted blocks; rounds [{round_no, sit_out [entry], matches [{match_id, court_id, a [entry, entry], b [entry, entry], points_a, points_b, revision, corrections}]}]; standings (app.tournament_standings); can {add (open or closed; 0310: not running), set_rounds, score, cancel, close (0310: open, past the cut-off or a manager), finish (0310: a manager, running), settle} for the caller's role and the status.\nSignature: app.desk_tournament_detail(p_tournament_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TOURNAMENT_NOT_FOUND, VENUE_MISMATCH.\nCalled from: apps/operator/src/features/tournaments/EntriesPanel.tsx, apps/operator/src/features/tournaments/useTournaments.ts.\nDefined in migration 0310 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3518,7 +3518,7 @@
       "ref": "action:app.desk_tournaments",
       "lang": "en",
       "title": "app.desk_tournaments",
-      "body": "Tournaments (M7, §1.6). Any staff at a branch in scope (p_venue_id, else the caller's resolved branch): FORBIDDEN; INVALID_ARGUMENT detail p_from, p_to (after p_from, at most 62 days on); VENUE_MISMATCH. The branch's tournaments not cancelled whose [starts_at, ends_at) overlaps [p_from, p_to), plus a cancelled one still holding a live block there: {tournaments_enabled, server_now, tournaments [{id, name_en, name_ar, status, format, category, starts_at, ends_at, registered, waitlisted, max_entries, blocks [{reservation_id, court_id, start_at, end_at}] (the live event blocks in the window)}]}. Names in both languages; no guest data.\nSignature: app.desk_tournaments(p_venue_id uuid, p_from timestamptz, p_to timestamptz) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, VENUE_MISMATCH.\nCalled from: apps/operator/src/features/tournaments/useTournaments.ts.\nDefined in migration 0300 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Tournaments (M7, §1.6; 0310 c9). Any staff at a branch in scope (p_venue_id, else the caller's resolved branch): FORBIDDEN; INVALID_ARGUMENT detail p_from, p_to (after p_from, at most 62 days on); VENUE_MISMATCH. The branch's tournaments not cancelled whose [starts_at, ends_at) overlaps [p_from, p_to), a cancelled one still holding a live block there or cancelled in the window, and (0310) any cancelled or finished one whose entries are still due money back: {tournaments_enabled, server_now, tournaments [{id, name_en, name_ar, status, format, category, starts_at, ends_at, registered, waitlisted, max_entries, refund_due_iqd (the sum its entries are due back at the till), blocks [{reservation_id, court_id, start_at, end_at}] (the live event blocks in the window)}]}. Names in both languages; no guest data.\nSignature: app.desk_tournaments(p_venue_id uuid, p_from timestamptz, p_to timestamptz) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, VENUE_MISMATCH.\nCalled from: apps/operator/src/features/tournaments/useTournaments.ts.\nDefined in migration 0310 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4726,7 +4726,7 @@
       "ref": "action:app.refund",
       "lang": "en",
       "title": "app.refund",
-      "body": "till_shifts (0139, 0120, 0044, 0115). Refunds part or all of one payment (manager, owner) behind a manager-PIN grant, inside an open day (NO_OPEN_DAY otherwise); naming order lines restocks them. The refunds row records p_device_id, and app.stamp_till_shift gives it the shift open at that station. p_idempotency_key: a replay of the same key by the same caller echoes the first result with duplicate:true (app.claim_replay). REFUND_EXCEEDS_PAYMENT (detail = paid/refunded), PAYMENT_NOT_FOUND, ITEM_NOT_ON_TAB, INVALID_QTY, INVALID_AMOUNT. 0281 (R36): on a kind lesson tab the coach mutex is taken before the tab, and a refund above the enrolment's refund_due_desk_iqd is REFUND_EXCEEDS_DUE (detail due <n>) unless p_reason_code is lesson_goodwill. Reason codes on lesson money: lesson_refund (what is due), lesson_goodwill (beyond it).\nSignature: app.refund(p_payment_id uuid, p_amount_iqd bigint, p_pin text, p_reason_code text, p_items jsonb default null, p_device_id text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: payment.refund.\nError codes: FORBIDDEN, VENUE_MISMATCH, REASON_REQUIRED, INVALID_AMOUNT, NO_OPEN_DAY, PAYMENT_NOT_FOUND, REFUND_EXCEEDS_PAYMENT, REFUND_EXCEEDS_DUE, ITEM_NOT_ON_TAB, INVALID_QTY.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0281 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "till_shifts (0139, 0120, 0044, 0115). Refunds part or all of one payment (manager, owner) behind a manager-PIN grant, inside an open day (NO_OPEN_DAY otherwise); naming order lines restocks them. The refunds row records p_device_id, and app.stamp_till_shift gives it the shift open at that station. p_idempotency_key: a replay of the same key by the same caller echoes the first result with duplicate:true (app.claim_replay). REFUND_EXCEEDS_PAYMENT (detail = paid/refunded), PAYMENT_NOT_FOUND, ITEM_NOT_ON_TAB, INVALID_QTY, INVALID_AMOUNT. 0281 (R36): on a kind lesson tab the coach mutex is taken before the tab, and a refund above the enrolment's refund_due_desk_iqd is REFUND_EXCEEDS_DUE (detail due <n>) unless p_reason_code is lesson_goodwill. Reason codes on lesson money: lesson_refund (what is due), lesson_goodwill (beyond it). 0310 (c41): on a kind tournament tab the tournament (FOR SHARE) and the entry (FOR NO KEY UPDATE) are taken before the tab, and a refund above the entry's refund_due_iqd (tournament_entry_money) is REFUND_EXCEEDS_DUE (detail due <n>) unless p_reason_code is tournament_goodwill.\nSignature: app.refund(p_payment_id uuid, p_amount_iqd bigint, p_pin text, p_reason_code text, p_items jsonb default null, p_device_id text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: payment.refund.\nError codes: FORBIDDEN, VENUE_MISMATCH, REASON_REQUIRED, INVALID_AMOUNT, NO_OPEN_DAY, PAYMENT_NOT_FOUND, REFUND_EXCEEDS_PAYMENT, REFUND_EXCEEDS_DUE, ITEM_NOT_ON_TAB, INVALID_QTY.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0310 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5758,7 +5758,7 @@
       "ref": "action:app.tournament_add_entry",
       "lang": "en",
       "title": "app.tournament_add_entry",
-      "body": "Tournaments (M7, T-4, §1.6, review M1). The court desk, managers and the owner at the tournament's branch add a guest profile (a walk-in made through desk-customer-create) while the tournament is open, closed or running. FORBIDDEN; TOURNAMENT_NOT_FOUND; VENUE_MISMATCH; TOURNAMENT_NOT_OPEN detail status; INVALID_ARGUMENT detail p_guest_id (unknown or deleted profile) or entry_status (a no-show); MATCH_BANNED; GENDER_REQUIRED (a women or men tournament and no gender); TOURNAMENT_CATEGORY_MISMATCH. No phone or terms check (the desk vouches). registered while a place is free, else waitlisted, else TOURNAMENT_FULL; a waitlisted guest is promoted when a place is free; a registered one (or a waitlisted one with no place) answers duplicate true. In closed and running a new registered entry takes the next seed_no and moves the revision. Audit tournament.add_entry. Returns {entry_id, status, waitlist_position, duplicate}.\nSignature: app.tournament_add_entry(p_tournament_id uuid, p_guest_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: tournament.add_entry.\nError codes: FORBIDDEN, TOURNAMENT_NOT_FOUND, VENUE_MISMATCH, TOURNAMENT_NOT_OPEN, INVALID_ARGUMENT, MATCH_BANNED, GENDER_REQUIRED, TOURNAMENT_CATEGORY_MISMATCH, TOURNAMENT_FULL.\nCalled from: apps/operator/src/features/tournaments/EntriesPanel.tsx.\nDefined in migration 0300 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Tournaments (M7, T-4, §1.6, review M1; 0310 c25, s0). The court desk, managers and the owner at the tournament's branch add a guest profile (a walk-in made through desk-customer-create) while the tournament is open or closed. FORBIDDEN; TOURNAMENT_NOT_FOUND; VENUE_MISMATCH (both before the row lock, 0310); TOURNAMENT_NOT_OPEN detail status (finished, cancelled) or running (0310: the drawn rounds would never seat them; mark a no-show with the guest as substitute instead); INVALID_ARGUMENT detail p_guest_id (unknown or deleted profile) or entry_status (a no-show); MATCH_BANNED; GENDER_REQUIRED (a women or men tournament and no gender); TOURNAMENT_CATEGORY_MISMATCH. No phone or terms check (the desk vouches). registered while a place is free, else waitlisted, else TOURNAMENT_FULL; a waitlisted guest is promoted when a place is free; a registered one (or a waitlisted one with no place) answers duplicate true. Once closed a new registered entry takes the next seed_no and moves the revision. Audit tournament.add_entry. Returns {entry_id, status, waitlist_position, duplicate}.\nSignature: app.tournament_add_entry(p_tournament_id uuid, p_guest_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: tournament.add_entry.\nError codes: FORBIDDEN, TOURNAMENT_NOT_FOUND, VENUE_MISMATCH, TOURNAMENT_NOT_OPEN, INVALID_ARGUMENT, MATCH_BANNED, GENDER_REQUIRED, TOURNAMENT_CATEGORY_MISMATCH, TOURNAMENT_FULL.\nCalled from: apps/operator/src/features/tournaments/EntriesPanel.tsx.\nDefined in migration 0310 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5766,7 +5766,15 @@
       "ref": "action:app.tournament_cancel",
       "lang": "en",
       "title": "app.tournament_cancel",
-      "body": "Tournaments (M7, §1.6). Manager or owner at the tournament's branch: an open, closed or running tournament is cancelled (cancel_reason staff): its future event blocks are released, every live entry is told (tournament.cancelled). FORBIDDEN; TOURNAMENT_NOT_FOUND (unknown or outside the visible branches); VENUE_MISMATCH; REASON_REQUIRED (blank p_reason, kept in the audit row); TOURNAMENT_NOT_OPEN detail status. Returns {tournament_id, status, refunds_due [{entry_id, net_paid_iqd}]}: the desk money to refund through the till's refund.\nSignature: app.tournament_cancel(p_tournament_id uuid, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TOURNAMENT_NOT_FOUND, VENUE_MISMATCH, REASON_REQUIRED, TOURNAMENT_NOT_OPEN.\nCalled from: apps/operator/src/features/tournaments/TournamentDetail.tsx.\nDefined in migration 0300 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Tournaments (M7, §1.6). Manager or owner at the tournament's branch: an open, closed or running tournament is cancelled (cancel_reason staff): its future event blocks are released, every live entry is told (tournament.cancelled). FORBIDDEN; TOURNAMENT_NOT_FOUND (unknown or outside the visible branches); VENUE_MISMATCH; REASON_REQUIRED (blank p_reason, kept in the audit row); TOURNAMENT_NOT_OPEN detail status. Returns {tournament_id, status, refunds_due [{entry_id, net_paid_iqd}]}: the desk money to refund through the till's refund.\nSignature: app.tournament_cancel(p_tournament_id uuid, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TOURNAMENT_NOT_FOUND, VENUE_MISMATCH, REASON_REQUIRED, TOURNAMENT_NOT_OPEN.\nCalled from: apps/operator/src/features/tournaments/TournamentDetail.tsx.\nDefined in migration 0310 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.tournament_close",
+      "lang": "en",
+      "title": "app.tournament_close",
+      "body": "Tournaments (0310, c24). The court desk, managers and the owner at the tournament's branch close its registration (the sweep's cut-off, by hand): FORBIDDEN (detail early_close: before registration_closes_at, below manager); TOURNAMENT_NOT_FOUND (unknown or outside the visible branches); VENUE_MISMATCH; TOURNAMENT_NOT_OPEN detail status (not open); TOURNAMENT_UNDER_FILLED (detail <registered>/<min_entries>: cancel instead). A closed tournament answers duplicate true. Seeds stamped 1..N by entered_at (app.tournament_close_internal); audit tournament.close by staff. Returns {tournament_id, status, duplicate, registered}.\nSignature: app.tournament_close(p_tournament_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TOURNAMENT_NOT_FOUND, VENUE_MISMATCH, TOURNAMENT_NOT_OPEN, TOURNAMENT_UNDER_FILLED.\nCalled from: apps/operator/src/features/tournaments/TournamentDetail.tsx.\nDefined in migration 0310 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5783,6 +5791,14 @@
       "lang": "en",
       "title": "app.tournament_feasibility",
       "body": "event_court_blocks (§2.11), 0294 (DB-34, coaching db.md §4.5.1). MGMT at the run's venue: {ranges: [{court_id, court_name_en, court_name_ar, from, to, bookings, guests, lessons, students}]}, one row per court of each plan range, with the live bookings overlapping the window and the distinct guests holding them, and the lessons overlapping it (a live lesson court row, or a held lesson's hold while app.hold_is_live) and the distinct live enrolments of those lessons (booked, or held while live). PROTOCOL_NOT_FOUND.\nSignature: app.tournament_feasibility(p_run_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0294 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.tournament_finish",
+      "lang": "en",
+      "title": "app.tournament_finish",
+      "body": "Tournaments (0310, c28, c29). Managers and the owner at the tournament's branch end a running tournament early: FORBIDDEN; TOURNAMENT_NOT_FOUND (unknown or outside the visible branches); VENUE_MISMATCH; REASON_REQUIRED (kept in the audit row); TOURNAMENT_NOT_OPEN detail status (not running); TOURNAMENT_FINISH_REFUSED detail not_played (no round fully scored: cancel instead) or partial_round (a round after the last complete one has a score: score or forfeit its open matches first). The rounds after the last complete one are deleted (removed_from_round), rounds_planned becomes it, the tournament is finished (finished_at, revision + 1) and its courts released (app.tournament_release_blocks: future blocks cancelled, running ones end now). Paying players keep their places, so only withdrawn (and late-waitlisted) entries are due money back. Audit tournament.finish {by staff}. Returns {tournament_id, status, rounds_planned, removed_from_round, blocks_released, revision}.\nSignature: app.tournament_finish(p_tournament_id uuid, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: tournament.finish.\nError codes: FORBIDDEN, TOURNAMENT_NOT_FOUND, VENUE_MISMATCH, REASON_REQUIRED, TOURNAMENT_NOT_OPEN, TOURNAMENT_FINISH_REFUSED.\nCalled from: apps/operator/src/features/tournaments/TournamentDetail.tsx.\nDefined in migration 0310 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5811,10 +5827,18 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.tournament_refunds_due",
+      "lang": "en",
+      "title": "app.tournament_refunds_due",
+      "body": "Tournaments (0310, c9). Manager or owner at the branch (p_venue_id, default the caller's resolved branch; the role first, R57): the tournament entry money the branch owes back at the till, whatever the tournament's date or status. {venue_id, total_iqd, items [{entry_id, tournament_id, name_en, name_ar, tournament_status, starts_at, cancelled_at, entry_status, full_name, phone, refund_due_iqd (app.tournament_entry_money), payments [{payment_id, tab_id, method, amount_iqd, refunded_iqd, refundable_iqd, created_at}]}]}, earliest tournament first. Refunded with app.refund (up to refund_due_iqd unless the reason is tournament_goodwill). FORBIDDEN, VENUE_MISMATCH.\nSignature: app.tournament_refunds_due(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, VENUE_MISMATCH.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0310 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.tournament_register",
       "lang": "en",
       "title": "app.tournament_register",
-      "body": "Tournaments (M7, T-4, §1.6). Guest: app.match_guest(true) first (AUTH_REQUIRED, ACCOUNT_REQUIRED, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, GENDER_REQUIRED); then TOURNAMENT_NOT_FOUND (unknown, or its branch not open to guests), TOURNAMENTS_OFF, a live entry answers duplicate true, TOURNAMENT_NOT_OPEN detail status (not open, or a no-show row) or cutoff (past registration_closes_at), TOURNAMENT_CATEGORY_MISMATCH (women / men against profiles.gender). registered while fewer than max_entries are, else waitlisted while fewer than waitlist_max are, else TOURNAMENT_FULL; a withdrawn row is re-used with a fresh entered_at. Audit tournament.register. Returns {entry_id, status, waitlist_position, duplicate}.\nSignature: app.tournament_register(p_tournament_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: tournament.register.\nError codes: TOURNAMENT_NOT_FOUND, TOURNAMENTS_OFF, TOURNAMENT_NOT_OPEN, TOURNAMENT_CATEGORY_MISMATCH, TOURNAMENT_FULL.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0300 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Tournaments (M7, T-4, §1.6). Guest: app.match_guest(true) first (AUTH_REQUIRED, ACCOUNT_REQUIRED, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, GENDER_REQUIRED); then TOURNAMENT_NOT_FOUND (unknown, or its branch not open to guests), TOURNAMENTS_OFF, a live entry answers duplicate true, TOURNAMENT_NOT_OPEN detail status (not open, or a no-show row) or cutoff (past registration_closes_at), TOURNAMENT_CATEGORY_MISMATCH (women / men against profiles.gender). registered while fewer than max_entries are, else waitlisted while fewer than waitlist_max are, else TOURNAMENT_FULL; a withdrawn row is re-used with a fresh entered_at. Audit tournament.register. Returns {entry_id, status, waitlist_position, duplicate}.\nSignature: app.tournament_register(p_tournament_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: tournament.register.\nError codes: TOURNAMENT_NOT_FOUND, TOURNAMENTS_OFF, TOURNAMENT_NOT_OPEN, TOURNAMENT_CATEGORY_MISMATCH, TOURNAMENT_FULL.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0310 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5838,7 +5862,7 @@
       "ref": "action:app.tournament_set_rounds",
       "lang": "en",
       "title": "app.tournament_set_rounds",
-      "body": "Tournaments (M7, TD-7, §1.9, §1.10). The court desk, managers and the owner: the one write of the play. p_payload {engine tp-tour-1, format, based_on_revision, from_round, rounds [{round_no, matches [{court_id, a [entry, entry], b [entry, entry]}], sit_out [entry]}]} replaces the rounds from from_round on. FORBIDDEN; TOURNAMENT_NOT_FOUND; VENUE_MISMATCH; INVALID_ARGUMENT detail p_idempotency_key, or p_payload (not the shape); a replay returns the stored answer; then TOURNAMENT_ROUNDS_INVALID with the first failing detail, in order: status (not closed or running), stale (based_on_revision is not the revision), engine, format, numbering (from_round in 1..last+1, at least one round, contiguous, at most 30), played (a score at or after from_round), mexicano_one (Mexicano: one round, within rounds_planned), round_open (Mexicano: the round before not fully scored), seat (each registered entry exactly once per round, nothing else), court (distinct, each a court of a live block of the run), courts_used (1..floor(registered/4) matches). Stamps missing seeds, deletes the rounds from from_round on, writes the new ones; Americano rounds_planned = from_round - 1 + n; revision + 1; closed -> running. Audit tournament.rounds. Returns {duplicate, revision, rounds_planned, status}.\nSignature: app.tournament_set_rounds(p_tournament_id uuid, p_payload jsonb, p_idempotency_key text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: tournament.rounds.\nError codes: FORBIDDEN, TOURNAMENT_NOT_FOUND, VENUE_MISMATCH, INVALID_ARGUMENT, TOURNAMENT_ROUNDS_INVALID.\nCalled from: apps/operator/src/features/tournaments/RoundsBoard.tsx.\nDefined in migration 0301 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Tournaments (M7, TD-7, §1.9, §1.10). The court desk, managers and the owner: the one write of the play. p_payload {engine tp-tour-1, format, based_on_revision, from_round, rounds [{round_no, matches [{court_id, a [entry, entry], b [entry, entry]}], sit_out [entry]}]} replaces the rounds from from_round on. FORBIDDEN; TOURNAMENT_NOT_FOUND; VENUE_MISMATCH; INVALID_ARGUMENT detail p_idempotency_key, or p_payload (not the shape); a replay returns the stored answer; then TOURNAMENT_ROUNDS_INVALID with the first failing detail, in order: status (not closed or running), stale (based_on_revision is not the revision), engine, format, numbering (from_round in 1..last+1, at least one round, contiguous, at most 30), played (a score at or after from_round), mexicano_one (Mexicano: one round, within rounds_planned), round_open (Mexicano: the round before not fully scored), seat (each registered entry exactly once per round, nothing else), court (distinct, each a court of a live block of the run), courts_used (1..floor(registered/4) matches). Stamps missing seeds, deletes the rounds from from_round on, writes the new ones; Americano rounds_planned = from_round - 1 + n; revision + 1; closed -> running. Audit tournament.rounds. Returns {duplicate, revision, rounds_planned, status}.\nSignature: app.tournament_set_rounds(p_tournament_id uuid, p_payload jsonb, p_idempotency_key text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: tournament.rounds.\nError codes: FORBIDDEN, TOURNAMENT_NOT_FOUND, VENUE_MISMATCH, INVALID_ARGUMENT, TOURNAMENT_ROUNDS_INVALID.\nCalled from: apps/operator/src/features/tournaments/RoundsBoard.tsx.\nDefined in migration 0310 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -7486,7 +7510,7 @@
       "ref": "table:tournaments",
       "lang": "en",
       "title": "table tournaments",
-      "body": "Tournaments (M7, build contracts §1.2). One published tournament per protocol run of kind tournament (tournament_publish adopts the run's event blocks). Americano or Mexicano, individual entry. status open -> closed (the cut-off, enough entries) -> running (the first set_rounds) -> finished; cancelled from open, closed or running (cancel_reason under_filled from the sweep, staff from tournament_cancel). revision moves on every play write (rounds, scores, no-shows, entries added or removed once closed): the desk sends it back as based_on_revision. No client grant: every read and write is a definer RPC.\nCreated in migration 0299.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  venue_id uuid not null references venues(id)\n  protocol_run_id uuid not null references protocol_runs(id)\n  name_en text not null\n  name_ar text not null\n  format text not null\n  category text not null default 'open'\n  class text not null\n  points_target smallint not null default 24\n  rounds_planned smallint\n  max_entries smallint not null\n  min_entries smallint not null\n  waitlist_max smallint not null default 8\n  entry_fee_iqd bigint not null default 0\n  prize_en text\n  prize_ar text\n  starts_at timestamptz not null\n  ends_at timestamptz not null\n  registration_closes_at timestamptz not null\n  status text not null default 'open'\n  cancel_reason text\n  revision int not null default 0\n  closed_at timestamptz\n  finished_at timestamptz\n  cancelled_at timestamptz\n  published_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()",
+      "body": "Tournaments (M7, build contracts §1.2). One published tournament per protocol run of kind tournament (tournament_publish adopts the run's event blocks). Americano or Mexicano, individual entry. status open -> closed (the cut-off, enough entries) -> running (the first set_rounds) -> finished; cancelled from open, closed or running (cancel_reason under_filled from the sweep, staff from tournament_cancel). revision moves on every play write (rounds, scores, no-shows, entries added or removed once closed): the desk sends it back as based_on_revision. No client grant: every read and write is a definer RPC.\nCreated in migration 0299.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  venue_id uuid not null references venues(id)\n  protocol_run_id uuid not null references protocol_runs(id)\n  name_en text not null\n  name_ar text not null\n  format text not null\n  category text not null default 'open'\n  class text not null\n  points_target smallint not null default 24\n  rounds_planned smallint\n  max_entries smallint not null\n  min_entries smallint not null\n  waitlist_max smallint not null default 8\n  entry_fee_iqd bigint not null default 0\n  prize_en text\n  prize_ar text\n  starts_at timestamptz not null\n  ends_at timestamptz not null\n  registration_closes_at timestamptz not null\n  status text not null default 'open'\n  cancel_reason text\n  revision int not null default 0\n  closed_at timestamptz\n  finished_at timestamptz\n  cancelled_at timestamptz\n  published_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()\n  sweep_error_at timestamptz — Tournaments (0310, c39). When the sweep's cancel of this tournament last failed (NULL: never). The sweep tries a tournament with no failure first, then the oldest failure.\n  sweep_errors int not null default 0 — Tournaments (0310, c39). How many times the sweep's cancel of this tournament has failed (shown on desk_tournament_detail).",
       "route": null
     },
     {
@@ -13607,6 +13631,22 @@
       "lang": "en",
       "title": "till_shifts.venue_id",
       "body": "uuid not null references venues(id)\nThe venue: the station's.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:tournaments.sweep_error_at",
+      "lang": "en",
+      "title": "tournaments.sweep_error_at",
+      "body": "timestamptz\nTournaments (0310, c39). When the sweep's cancel of this tournament last failed (NULL: never). The sweep tries a tournament with no failure first, then the oldest failure.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:tournaments.sweep_errors",
+      "lang": "en",
+      "title": "tournaments.sweep_errors",
+      "body": "int not null default 0\nTournaments (0310, c39). How many times the sweep's cancel of this tournament has failed (shown on desk_tournament_detail).",
       "route": null
     },
     {
@@ -21731,6 +21771,22 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.tournaments.close",
+      "lang": "ar",
+      "title": "ws.tournaments.close (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
+      "body": "action: إغلاق التسجيل\ndone: أُغلق التسجيل ورُتّب اللاعبون.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.close",
+      "lang": "en",
+      "title": "ws.tournaments.close (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
+      "body": "action: Close registration\ndone: Registration closed. The players are seeded.",
+      "route": null
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.tournaments.detail",
       "lang": "ar",
       "title": "ws.tournaments.detail (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
@@ -21775,6 +21831,22 @@
       "lang": "en",
       "title": "ws.tournaments.errors (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
       "body": "notOpen.status: This tournament is past that stage.\nnotOpen.cutoff: Registration for this tournament has closed.\nrounds.status: Rounds can only be drawn once registration has closed.\nrounds.stale: The tournament changed while you were drawing. It has been refreshed: draw again.\nrounds.engine: This build of the app draws rounds the server does not accept.\nrounds.format: These rounds are for the other format.\nrounds.numbering: The round numbers do not follow on.\nrounds.played: A round from there on is already scored.\nrounds.mexicano_one: Mexicano draws one round at a time, up to the planned rounds.\nrounds.round_open: Score every match of the round before drawing the next one.\nrounds.seat: The players changed. It has been refreshed: draw again.\nrounds.court: A court picked isn't one of the tournament's blocked courts.\nrounds.courts_used: There are more matches than the players can fill.\nrounds.payload: These rounds couldn't be read.\nscore.status: Scores are taken while the tournament is in play.\nscore.invalid: The two sides must add up to {target}.\nscore.changed: Someone else changed this score. It has been refreshed.\nscore.locked: A later round is already scored, so this one can't be corrected.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.finish",
+      "lang": "ar",
+      "title": "ws.tournaments.finish (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
+      "body": "action: إنهاء الآن\nlead: تُحذف الجولات التي تلي آخر جولة اكتملت نتائجها، وتصبح الترتيبات نهائية، وتُحرَّر الملاعب. ولا يُردّ للاعبين ما دفعوه.\ndone: انتهت البطولة.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.finish",
+      "lang": "en",
+      "title": "ws.tournaments.finish (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
+      "body": "action: Finish now\nlead: The rounds after the last fully scored one are removed, the standings become final and the courts are released. Entry fees are not refunded.\ndone: Tournament finished.",
       "route": null
     },
     {

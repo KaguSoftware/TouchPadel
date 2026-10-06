@@ -147,7 +147,15 @@ const DETAIL = {
       withdrawn: false,
     },
   ],
-  can: { add: true, set_rounds: true, score: true, cancel: true, settle: true },
+  can: {
+    add: true,
+    set_rounds: true,
+    score: true,
+    cancel: true,
+    close: false,
+    finish: false,
+    settle: true,
+  },
 };
 
 describe('the fixtures carry the frozen shapes', () => {

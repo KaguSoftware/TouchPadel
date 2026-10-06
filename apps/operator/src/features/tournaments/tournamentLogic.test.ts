@@ -140,7 +140,15 @@ describe('entries', () => {
   });
 
   it('offers remove while open or closed, no-show while closed or running, pay on what is owed', () => {
-    const can = { add: true, set_rounds: true, score: true, cancel: true, settle: true };
+    const can = {
+      add: true,
+      set_rounds: true,
+      score: true,
+      cancel: true,
+      close: false,
+      finish: false,
+      settle: true,
+    };
     const caps = { run: true, pay: true };
     const owing = entry({ owed_iqd: 10 });
     expect(entryActions(owing, { status: 'open', can, entry_fee_iqd: 10 }, caps)).toMatchObject({

@@ -245,6 +245,15 @@ export const tournamentsEn = {
     lead: 'Its courts are released and every registered and waitlisted player is told.',
     done: 'Tournament cancelled.',
   },
+  close: {
+    action: 'Close registration',
+    done: 'Registration closed. The players are seeded.',
+  },
+  finish: {
+    action: 'Finish now',
+    lead: 'The rounds after the last fully scored one are removed, the standings become final and the courts are released. Entry fees are not refunded.',
+    done: 'Tournament finished.',
+  },
   refundsDue: {
     title: 'Refunds due',
     lead: 'Each is taken back through the till, on the payment it was paid with.',
