@@ -99,6 +99,13 @@ describe('parseCoachingPublic', () => {
       null,
       null,
     ]);
+    // 0294 (DB-28): the session rows' prices too.
+    expect(c.sessions.flatMap((s) => [s.price_iqd, s.full_price_iqd])).toEqual([
+      null,
+      null,
+      null,
+      null,
+    ]);
     const text = JSON.stringify(c);
     for (const p of Object.values(PRICES)) expect(text).not.toContain(String(p));
   });
@@ -113,6 +120,12 @@ describe('parseCoachingPublic', () => {
     expect(coachById(c, COACH_ALI)?.offers.map((o) => o.price_iqd)).toEqual([
       PRICES.aliPrivate,
       PRICES.group,
+    ]);
+    // 0294 (DB-28): each session row carries its own price, as the server sent it, not the
+    // type's (the fixture's group session is at Ali's price, the course at its own).
+    expect(c.sessions.map((s) => [s.price_iqd, s.full_price_iqd])).toEqual([
+      [PRICES.groupSession, PRICES.groupSession],
+      [PRICES.courseOwn, PRICES.courseOwn],
     ]);
 
     // Branch A hides, branch B shows: each keeps its own.
@@ -281,17 +294,43 @@ describe('words', () => {
       countPhrase('coaching.common.count.sessions', 8, 'en'),
     );
     expect(sessionWhen(course!, 'Asia/Baghdad', 'en')!.startsWith('Starts')).toBe(true);
-    // A course under way shows its next session and what is left, and no price (C-15).
+    // A course under way shows its next session and what is left (C-15).
     const running = { ...course!, sessions_left: 5 };
     expect(sessionWhen(running, 'Asia/Baghdad', 'en')).toContain(
       countPhrase('coaching.common.count.sessionsLeft', 5, 'en'),
     );
-    expect(sessionPrice(running, type(TYPE_COURSE), 'en')).toBeNull();
-    expect(sessionPrice(course!, type(TYPE_COURSE), 'en')).toContain(
-      formatIQD(PRICES.course, 'en'),
-    );
     // An unknown zone falls back to the venue's, never a thrown render.
     expect(sessionWhen(group!, 'Mars/Olympus', 'en')).toMatch(/7:30\s?PM/);
+  });
+
+  it('prices a session by its own row, never its type’s base price (0294, DB-28)', () => {
+    const [group, course] = c.sessions;
+    for (const locale of ['en', 'ar'] as const) {
+      // A group session at the coach's price, not the type's.
+      expect(sessionPrice(group!, locale)).toBe(
+        t(locale, 'coaching.web.pricePlace', { price: formatIQD(PRICES.groupSession, locale) }),
+      );
+      // A course before it starts: its own whole price.
+      expect(sessionPrice(course!, locale)).toBe(
+        t(locale, 'coaching.web.priceCourse', { price: formatIQD(PRICES.courseOwn, locale) }),
+      );
+      // A course under way: the late-join share the server sent, for the sessions left (C-15).
+      const running = { ...course!, sessions_left: 5, price_iqd: 68750 };
+      expect(sessionPrice(running, locale)).toBe(
+        t(locale, 'coaching.web.priceLateJoin', { price: formatIQD(68750, locale) }),
+      );
+      expect(sessionPrice(running, locale)).not.toContain(formatIQD(PRICES.courseOwn, locale));
+    }
+    for (const p of [PRICES.group, PRICES.course]) {
+      expect(sessionPrice(group!, 'en')).not.toContain(formatIQD(p, 'en'));
+      expect(sessionPrice(course!, 'en')).not.toContain(formatIQD(p, 'en'));
+    }
+    // A row with no price (hidden by the branch, or a server before 0294) shows none: never
+    // the type's base price in its place.
+    const hidden = parsed(coachingAnswer({ pricesPublic: false })).sessions;
+    expect(hidden.map((s) => sessionPrice(s, 'en'))).toEqual([null, null]);
+    expect(sessionPrice({ ...group!, price_iqd: null }, 'en')).toBeNull();
+    expect(sessionPrice({ ...course!, sessions_left: 5, price_iqd: null }, 'en')).toBeNull();
   });
 
   it('titles a session by its own title, else its type', () => {

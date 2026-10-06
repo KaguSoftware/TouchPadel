@@ -32,6 +32,7 @@ import { TopBar } from './TopBar/TopBar';
 import { Hero } from './Hero/Hero';
 import { CategoryPills } from './CategoryPills/CategoryPills';
 import { OrdersStrip } from './OrdersStrip/OrdersStrip';
+import { EarnChip } from './EarnChip/EarnChip';
 import { MenuStage } from './MenuStage/MenuStage';
 import { MenuUnavailable } from './MenuUnavailable/MenuUnavailable';
 import { Footer } from './Footer/Footer';
@@ -259,6 +260,8 @@ export function CafeApp({
 
           {/* No page gutter here: every section carries the design's own 24 px. */}
           <OrdersStrip locale={locale} live={orders.live} onOpen={() => setOrdersOpen(true)} />
+          {/* Loyalty (plan §5.2): a bound table only; renders nothing until it knows the account. */}
+          <EarnChip locale={locale} cafe={supabase} sessionId={table.session?.sessionId ?? null} />
           {menu.status === 'ok' ? (
             <MenuStage
               locale={locale}

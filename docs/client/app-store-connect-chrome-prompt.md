@@ -334,7 +334,7 @@ OPEN MATCHES
 Players start a match at a free time or join one; four players book the court together and each pays their share at the desk (Book > a free time > Start an open match; Book > Open matches). To try it: Profile > Tickets, buy two tickets with Qi's sandbox card, then join Review Partner's match under Book > Open matches (2/4). At 3/4 no court is booked. In the match, send a preset status (no free text), and report or block a player from their seat's menu. Leave, and the ticket returns to your wallet. The review account is a sandbox profile: it pays on Qi's sandbox (no real money) and sees only sandbox matches, which never book a real court.
 
 ACCOUNT DELETION
-Profile > Delete account, in the app. It deletes the login, the guest's name and phone number immediately and signs them out. For Sign in with Apple accounts the app re-authorises with Apple and the Apple token is revoked. Past bookings remain in the venue's records with no name attached; the deletion screen says so before the user confirms. Open matches are left and unused tickets refunded to the card.
+Profile > Edit profile > Delete account, in the app. It deletes the login, the guest's name and phone number immediately and signs them out. For Sign in with Apple accounts the app re-authorises with Apple and the Apple token is revoked. Past bookings remain in the venue's records with no name attached; the deletion screen says so before the user confirms. Open matches are left and unused tickets refunded to the card.
 
 PRIVACY
 Settings > About > Privacy policy (also linked on the sign-up screen) opens the same policy as the listing. The app contains no analytics, advertising or tracking.

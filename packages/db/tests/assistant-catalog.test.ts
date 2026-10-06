@@ -6,6 +6,8 @@
  *   * every rpc name in DISPATCHED_RPCS has a `when '<name>' then` branch in
  *     app.assistant_run_tool, and every branch is in the catalog;
  *   * every COUNTABLE_TOOL_NAMES entry has a branch in app.assistant_count;
+ *   * no tool names a person-money report or a per-coach pay input, and 0297
+ *     deletes the coaching money columns from table_read (C-28, DB-45);
  *   * the edge-function copy of tools.ts is byte-identical to the core one
  *     (Deno cannot import a workspace package, so the copy is pinned here).
  */
@@ -54,6 +56,22 @@ describe('assistant catalog ↔ dispatcher', () => {
       expect(ASSISTANT_TOOLS.map((t) => t.rpc), rpc).not.toContain(rpc);
       expect(DISPATCHED_RPCS as readonly string[], rpc).not.toContain(rpc);
     }
+  });
+
+  it('no tool names a per-coach pay input, and 0297 takes them out of table_read (C-28, D1, DB-45)', () => {
+    // Aggregates (lessonRevenue, owedToCoaches) stay; a column that rebuilds
+    // one coach's pay never reaches the model. The stack half of this gate is
+    // coaching-schema.test.ts (0297, DB-45), which reads the live allowlist.
+    const pattern = /share_bp|coach_?(share|iqd)/i;
+    for (const t of ASSISTANT_TOOLS) expect(JSON.stringify(t), t.name).not.toMatch(pattern);
+    const grants = readFileSync(
+      path.resolve(HERE, '../supabase/migrations/20261002000297_coaching_privacy_grants.sql'),
+      'utf8',
+    );
+    const del = grants.slice(grants.indexOf('delete from app.assistant_readable_columns'));
+    expect(del.slice(0, del.indexOf(';'))).toMatch(
+      /table_name in \('lessons', 'courses'\)\s+and column_name in \('price_iqd', 'court_share_iqd', 'coach_share_bp'\)\)\s+or \(table_name = 'venue_settings' and column_name = 'coach_share_bp'\)/,
+    );
   });
 
   it('rpc names are unique across tools and only rpc-backed tools dispatch', () => {

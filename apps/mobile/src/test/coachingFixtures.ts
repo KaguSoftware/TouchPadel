@@ -71,6 +71,8 @@ export function sessionListingsFixture(now: Date = new Date()) {
       max_places: 8,
       signup_closes_at: iso(venueAt(2, 18 * 60, now)),
       cutoff_at: iso(venueAt(2, 16 * 60, now)),
+      price_iqd: 15000,
+      full_price_iqd: 15000,
     },
     {
       kind: 'course',
@@ -89,6 +91,8 @@ export function sessionListingsFixture(now: Date = new Date()) {
       max_places: 6,
       signup_closes_at: iso(venueAt(17, 17 * 60, now)),
       cutoff_at: iso(venueAt(3, 15 * 60, now)),
+      price_iqd: 60000,
+      full_price_iqd: 60000,
     },
   ];
 }
@@ -311,7 +315,7 @@ export function courseOfferFixture(over: Record<string, unknown> = {}, now: Date
     late_join: { sessions_left: 2, sessions_count: 3 },
     payment_mode: 'online_optional',
     cancellation_window_hours: 24,
-    mine: { enrolment_id: ENROLMENT_ID, status: 'booked' },
+    mine: { enrolment_id: ENROLMENT_ID, status: 'booked', confirm_needed: false },
     server_now: iso(now),
     ...over,
   };

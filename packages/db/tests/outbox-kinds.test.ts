@@ -1,7 +1,8 @@
 /**
- * 0255 outbox_match_kinds and outbox_lesson_kinds outbox_lesson_kinds — notification_outbox.kind
+ * 0255 outbox_match_kinds, outbox_lesson_kinds and tournaments_schema_money — notification_outbox.kind
  * is a closed CHECK, and every kind it admits has copy in the deployed send-push
- * (docs/design/open-matches/guest.md §4.4, docs/design/coaching/guest.md §4.4).
+ * (docs/design/open-matches/guest.md §4.4, docs/design/coaching/guest.md §4.4,
+ * docs/design/tournaments/build-contracts-2026-10-03.md §1.10: tournament_update).
  *
  * send-push treats a kind it does not know as terminal (index.ts), so a kind
  * the CHECK admits without copy is a push that silently never arrives. Here
@@ -112,10 +113,10 @@ describe('notification_outbox kinds (0255, outbox_lesson_kinds)', () => {
 
   it.skipIf(!docker)('admits exactly the kinds send-push has copy for', () => {
     expect(checkKinds()).toEqual([...ALL_KINDS].sort());
-    expect(checkKinds()).toHaveLength(16);
+    expect(checkKinds()).toHaveLength(17);
   });
 
-  it.skipIf(!docker)('accepts each of the 16 kinds and refuses an unknown one', () => {
+  it.skipIf(!docker)('accepts each of the 17 kinds and refuses an unknown one', () => {
     const got = tryKinds([...ALL_KINDS, 'match_bogus']);
     for (const kind of ALL_KINDS) expect(got[kind], kind).toBe(true);
     expect(got.match_bogus).toBe(false);

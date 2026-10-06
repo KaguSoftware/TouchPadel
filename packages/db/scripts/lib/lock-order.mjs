@@ -42,6 +42,32 @@
  *     The service-role walk gains lesson_sweep, lesson_settle_success,
  *     lesson_payment_prepare and coach_statements_draft (skipped until each
  *     exists).
+ *
+ * 0290 (the coaching review, DB-03/DB-04) added no rank. The coaches row (FOR
+ * UPDATE in coach_update and delete_my_account) and the profiles row (FOR
+ * SHARE in coach_promote) stay out of ORDER, like lessons: the coach mutex
+ * serialises the writers, and the one unmutexed writer, delete_my_account,
+ * takes profile then coach, the order coach_promote reads them in.
+ * price_promo_apply_internal takes the coach mutex before its lesson_types
+ * row (unranked) on a coach_price change: a booking holds the mutex and then
+ * a key share on lesson_types through its foreign key, so the type first
+ * would deadlock with it. The walk cannot follow the protocol hook dispatch,
+ * so lock-order-coaching.test.ts pins it with --show.
+ *
+ * 0291 (the coaching review, DB-11) ranks one row: `venues`. Every lesson
+ * insert (app.lesson_create_internal) takes its branch row FOR KEY SHARE and
+ * refuses a branch that is no longer open, so a lesson never lands at a
+ * branch close_branch (venues FOR UPDATE) has just closed: whichever comes
+ * second sees the other's result. app.lesson_lock_branch_courts, which every
+ * creating body calls first, takes the same key share right after the
+ * courts, so `venues` sits between `court_advisory` and `reservations`, once
+ * per sequence: a lesson body only ever touches one branch, and
+ * lesson_create_internal's own key share (after match_expire_holds, whose
+ * update the walk expands into the reservations trigger's mutex and
+ * tickets) is a re-grant of the same row. A share lock (`for share`,
+ * `for key share`) is emitted only for a table in SHARE_RANKED; every other
+ * share lock stays invisible, as before. open_branch and close_branch take
+ * the row FOR UPDATE and nothing ranked after it.
  */
 
 /** The declared total order. Adding a table here is a deliberate act. */
@@ -58,10 +84,19 @@ export const ORDER = [
   'refunds',
   'stock_batches',
   'court_advisory', // app.lock_court() -- 0042
+  'venues', // 0291 (DB-11): a lesson body's branch row FOR KEY SHARE, once per sequence; open/close_branch FOR UPDATE
   'reservations',
   'match_venue_advisory', // app.lock_match_venue() -- 0260: the branch mutex of open matches
   'match_tickets', // 0260: open-match tickets, FOR UPDATE, always in id order
+  'loyalty_accounts', // 0305: a member's cached balance, FOR UPDATE, last (earn/clawback run deferred, at commit)
 ];
+
+/**
+ * Tables whose share locks (`for share`, `for key share`) are ranked too: a
+ * key share waits behind a FOR UPDATE of the same row, so it can deadlock
+ * (0291, DB-11). Every other share lock is left out, as it always was.
+ */
+export const SHARE_RANKED = new Set(['venues']);
 
 /** Advisory locks: a call to `app.<fn>(` is a lock on `lock`, never a call to expand. */
 export const ADVISORY = [
@@ -73,9 +108,16 @@ export const ADVISORY = [
 
 /**
  * Keys a blocking body holds at most once: a later occurrence is dropped
- * (open-matches db.md §2.6 rule 3; coaching db.md §2.5 item 3).
+ * (open-matches db.md §2.6 rule 3; coaching db.md §2.5 item 3). 0291: the
+ * branch's venues row too (a lesson body locks one branch's row, then takes
+ * it again in app.lesson_create_internal).
  */
-export const ONCE_PER_SEQUENCE = new Set(['match_venue_advisory', 'match_money_advisory', 'coach_advisory']);
+export const ONCE_PER_SEQUENCE = new Set([
+  'match_venue_advisory',
+  'match_money_advisory',
+  'coach_advisory',
+  'venues',
+]);
 
 /**
  * Service-role functions walked as if client-callable (contracts §1.4 + R8).
@@ -94,6 +136,8 @@ export const SERVICE_WALK = [
   'lesson_settle_success', // lesson_online_payment, under deposit_apply's lesson arm
   'lesson_payment_prepare', // lesson_online_payment, lesson-begin
   'coach_statements_draft', // the coach_statements migration, the tp_coach_statements cron
+  // Tournaments (M7; walked once tournaments_lifecycle exists):
+  'tournament_sweep', // the tp_tournament_sweep cron: the cut-off cancel releases courts
 ];
 
 /**
@@ -133,7 +177,17 @@ const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * The walker over one catalog.
  *   fns       [{ name, src }]   every function body of schema app (the longest
  *                               body wins for an overloaded name, as before)
- *   triggers  [{ tbl, fn }]     every non-internal trigger on schema public
+ *   triggers  [{ tbl, fn, deferred? }]  every non-internal trigger on schema public;
+ *                               deferred = a constraint trigger INITIALLY DEFERRED
+ *
+ * Loyalty (0305) taught it deferral: a constraint trigger declared
+ * INITIALLY DEFERRED (tabs_loyalty_earn, refunds_loyalty_clawback) runs at
+ * COMMIT, after every statement of the outermost body, not where its row is
+ * written. Expanding it in place made settle_tab read tabs -> loyalty_accounts
+ * -> stock_batches, an inversion that cannot happen. So a deferred trigger's
+ * body is queued and walked at the END of the top-level sequence (and of the
+ * timeline), once per trigger function, after everything the body itself
+ * takes. A non-deferred trigger is still expanded in place, as before.
  */
 export function createWalker({ fns, triggers }) {
   const byName = new Map();
@@ -144,9 +198,11 @@ export function createWalker({ fns, triggers }) {
   // Triggers matter: trg_refund_restock and trg_ticket_consume take stock_batches
   // locks without ever appearing as a call in the RPC body.
   const trgByTable = new Map();
+  const deferredFns = new Set();
   for (const t of triggers) {
     if (!trgByTable.has(t.tbl)) trgByTable.set(t.tbl, []);
     trgByTable.get(t.tbl).push(t.fn);
+    if (t.deferred) deferredFns.add(t.fn);
   }
   // The alias and write regexes are anchored right after `from|join|update\s+`
   // (and `insert into|update|delete from\s+`), so `match_tickets` never reads
@@ -188,6 +244,15 @@ export function createWalker({ fns, triggers }) {
       // ticket_pick, wave 5's consume_fefo_at). Until 0260 the lookahead took
       // whitespace only, and those locks were invisible to the gate.
       const lockM = /\bfor\s+(?:no\s+key\s+)?update(\s+of\s+([a-z_,\s]+?))?(?=[\s)]|$)/i.exec(stmt);
+      // 0291 (DB-11): a share lock on a SHARE_RANKED table (venues) is a lock too.
+      const shareM = lockM ? null : /\bfor\s+(?:key\s+)?share(\s+of\s+([a-z_,\s]+?))?(?=[\s)]|$)/i.exec(stmt);
+      if (shareM) {
+        const al = aliases(stmt);
+        const named = shareM[2]
+          ? shareM[2].split(',').map((x) => al.get(x.trim().toLowerCase())).filter(Boolean)
+          : [...new Set(al.values())];
+        for (const t of named) if (SHARE_RANKED.has(t)) out.push({ lock: t });
+      }
       if (lockM) {
         const al = aliases(stmt);
         // Coaching (coaching_tables, R64, D-25): a reservations row taken SKIP LOCKED is
@@ -224,40 +289,70 @@ export function createWalker({ fns, triggers }) {
     return out;
   }
 
-  /** Full lock sequence, expanding helper calls and trigger bodies in place. */
-  function sequence(name, stack = []) {
+  /**
+   * Walk the deferred trigger bodies a top-level walk queued, at its end: each
+   * trigger function once (it fires per row, but its locks are the same), and
+   * a deferred trigger queued while walking another runs after it, as at commit.
+   */
+  function drainDeferred(name, tail, walk) {
+    const out = [];
+    const done = new Set();
+    while (tail.length) {
+      const fn = tail.shift();
+      if (done.has(fn)) continue;
+      done.add(fn);
+      out.push(...walk(fn, [name], tail));
+    }
+    return out;
+  }
+
+  /**
+   * Full lock sequence, expanding helper calls and immediate trigger bodies in
+   * place; deferred trigger bodies go at the end (see createWalker).
+   */
+  function sequence(name, stack = [], tail = null) {
     if (stack.includes(name)) return []; // recursion guard
     const src = byName.get(name);
     if (!src) return [];
+    const top = tail === null;
+    const queue = top ? [] : tail;
     const seq = [];
     for (const ev of events(src)) {
       if (ev.lock) seq.push(ev.lock);
-      else if (ev.call && byName.has(ev.call)) seq.push(...sequence(ev.call, [...stack, name]));
+      else if (ev.call && byName.has(ev.call)) seq.push(...sequence(ev.call, [...stack, name], queue));
       else if (ev.write) {
         for (const fn of trgByTable.get(ev.write) ?? []) {
-          if (byName.has(fn)) seq.push(...sequence(fn, [...stack, name]));
+          if (!byName.has(fn)) continue;
+          if (deferredFns.has(fn)) queue.push(fn);
+          else seq.push(...sequence(fn, [...stack, name], queue));
         }
       }
     }
+    if (top) seq.push(...drainDeferred(name, queue, sequence));
     return seq;
   }
 
   /** Ordered locks AND balance-writes, so rule 2 can see which came first. */
-  function timeline(name, stack = []) {
+  function timeline(name, stack = [], tail = null) {
     if (stack.includes(name)) return [];
     const src = byName.get(name);
     if (!src) return [];
+    const top = tail === null;
+    const queue = top ? [] : tail;
     const out = [];
     for (const ev of events(src)) {
       if (ev.lock) out.push({ lock: ev.lock });
-      else if (ev.call && byName.has(ev.call)) out.push(...timeline(ev.call, [...stack, name]));
+      else if (ev.call && byName.has(ev.call)) out.push(...timeline(ev.call, [...stack, name], queue));
       else if (ev.write) {
         if (BALANCE_TABLES.includes(ev.write)) out.push({ balanceWrite: ev.write });
         for (const fn of trgByTable.get(ev.write) ?? []) {
-          if (byName.has(fn)) out.push(...timeline(fn, [...stack, name]));
+          if (!byName.has(fn)) continue;
+          if (deferredFns.has(fn)) queue.push(fn);
+          else out.push(...timeline(fn, [...stack, name], queue));
         }
       }
     }
+    if (top) out.push(...drainDeferred(name, queue, timeline));
     return out;
   }
 

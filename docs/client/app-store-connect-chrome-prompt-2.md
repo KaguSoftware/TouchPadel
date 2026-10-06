@@ -155,7 +155,7 @@ NO PAYMENT IN THE APP
 The app takes no money and asks for no card details. A guest reserves a court and pays at the venue's front desk on arrival, for a real-world service used in person (3.1.3(e)). There are no in-app purchases and no digital goods.
 
 ACCOUNT DELETION
-Profile > Delete account, in the app. It deletes the login, the guest's name and phone number immediately and signs them out. For Sign in with Apple accounts the app re-authorises with Apple and the Apple token is revoked. Past bookings remain in the venue's records with no name attached; the deletion screen says so before the user confirms.
+Profile > Edit profile > Delete account, in the app. It deletes the login, the guest's name and phone number immediately and signs them out. For Sign in with Apple accounts the app re-authorises with Apple and the Apple token is revoked. Past bookings remain in the venue's records with no name attached; the deletion screen says so before the user confirms.
 
 PRIVACY
 Settings > About > Privacy policy (also linked on the sign-up screen) opens the same policy as the listing. The app contains no analytics, advertising or tracking.

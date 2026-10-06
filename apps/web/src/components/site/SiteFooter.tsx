@@ -110,6 +110,8 @@ export function SiteFooter({
             {link('/coaching', tr('site.footer.coaching'))}
             {link('/menu', tr('site.footer.menu'))}
             {link('/support', tr('site.footer.support'))}
+            {/* The member's account: sign in, the member card and the points (loyalty, plan §5.2). */}
+            {link('/account', tr('loyalty.web.account.navLink'))}
           </ul>
         </nav>
         <nav className="tp-site-footer__nav" aria-label={tr('site.footer.legalTitle')}>

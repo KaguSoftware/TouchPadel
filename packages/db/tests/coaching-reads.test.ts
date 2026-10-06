@@ -40,11 +40,12 @@ import {
   type CoachingShapeName,
 } from '../../core/src/coaching/shapes';
 import { stackAvailable } from './helpers';
-import { Q, X, dockerReachable, scenario, type Results } from './stores-harness';
+import { KEEP, Q, X, dockerReachable, scenario, type Results } from './stores-harness';
 import { E, GUEST, SETUP, data, failed } from './matches-harness';
 import {
   BRANCH_PHONE,
   COACH_SETUP,
+  KEPT,
   LT,
   leaks,
   personKeys,
@@ -274,6 +275,8 @@ describe.skipIf(!docker)('0283 coaching reads (rolled back)', () => {
       Q('t_12', `select to_jsonb(${LT(2, 12)})`),
       E('offer_g', null, `select app.lesson_offer({{G1}}, null)`),
       E('offer_g_g2', 'g2', `select app.lesson_offer({{G1}}, null)`),
+      // 0294 (DB-33): the coach-added place g3 has not confirmed is g3's too.
+      E('offer_g_g3', 'g3', `select app.lesson_offer({{G1}}, null)`),
       E('offer_c', null, `select app.lesson_offer(null, {{C1}})`),
       E('offer_private', null, `select app.lesson_offer({{L1}}, null)`),
       E('offer_session', null, `select app.lesson_offer({{C1_s1}}, null)`),
@@ -380,6 +383,7 @@ describe.skipIf(!docker)('0283 coaching reads (rolled back)', () => {
       ['slots_cu_desk', 'coach_slots'],
       ['offer_g', 'lesson_offer'],
       ['offer_g_g2', 'lesson_offer'],
+      ['offer_g_g3', 'lesson_offer'],
       ['offer_c', 'lesson_offer'],
       ['my_g1', 'my_lessons'],
       ['my_g1_past', 'my_lessons'],
@@ -550,7 +554,16 @@ describe.skipIf(!docker)('0283 coaching reads (rolled back)', () => {
       payment_mode: 'desk',
       cancellation_window_hours: 12,
     });
-    expect(data<Json>(r, 'offer_g_g2').mine).toEqual({ enrolment_id: ids.eG1a, status: 'booked' });
+    expect(data<Json>(r, 'offer_g_g2').mine).toEqual({
+      enrolment_id: ids.eG1a,
+      status: 'booked',
+      confirm_needed: false,
+    });
+    expect(data<Json>(r, 'offer_g_g3').mine).toEqual({
+      enrolment_id: ids.eG1b,
+      status: 'booked',
+      confirm_needed: true,
+    });
     const c = data<Json>(r, 'offer_c');
     expect(c).toMatchObject({
       kind: 'course',
@@ -805,5 +818,373 @@ describe.skipIf(!docker)('0283 coaching reads (rolled back)', () => {
     expect(data<Json>(r, 'off_desk')).toMatchObject({ coaching_enabled: false });
     expect(((data<Json>(r, 'off_desk').lessons as Json[]) ?? []).length).toBeGreaterThan(0);
     expect(((data<Json>(r, 'off_sched').lessons as Json[]) ?? []).length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * 0294 (plan "Coaching: make it bulletproof", DB-27 to DB-33): the reads fixed by
+ * 20261002000294_coaching_reads.sql, at a branch of their own (one rolled-back scenario).
+ *
+ *   * DB-27: coach_slots offers a local 00:00 p_from (the desk asks a day at a time from 00:00);
+ *   * DB-28: session rows carry price_iqd and full_price_iqd: a coach's own price on a group
+ *     session, the late-join price of a running course (lesson_offer's);
+ *   * DB-29: a lapsed hold whose payment is still open blocks its only court; a lapsed hold with
+ *     no payment does not;
+ *   * DB-30: while the branch trades offline, the coach asking about themselves gets no start
+ *     inside the protected horizon (coach_book_private would refuse it); the desk still does;
+ *   * DB-31: desk_lesson_detail's money splits refund_due into the desk and blocked parts, and a
+ *     started private lesson's place cannot be cancelled;
+ *   * DB-32: desk_lessons counts a cancelled, refunded online place nowhere, a held one as
+ *     awaiting, and paid_places as booked places with money left;
+ *   * DB-33: a pending link to a dead place is ENROLMENT_NOT_FOUND; a held place on a lesson
+ *     under way cannot be paid; lesson_offer.mine shows an unconfirmed place.
+ */
+describe.skipIf(!docker)('0294 coaching reads fixes (rolled back)', () => {
+  let r: Results;
+  let ids: Record<string, string>;
+
+  const PAY = (enrol: string, guest: string, status: string, extra: string) =>
+    X(`insert into booking_payments (venue_id, guest_id, purpose, provider, sandbox, request_id, amount_iqd,
+                                    quoted_price_iqd, status, succeeded_at, deadline_at, lesson_enrolment_id,
+                                    refund_reason, refund_amount_iqd, refund_requested_at, refunded_at)
+       values ({{v}}, {{${guest}}}, 'lesson', 'fake', false, gen_random_uuid(), 15000, 15000, '${status}',
+               now() - interval '1 hour', now() - interval '45 minutes', {{${enrol}}}, ${extra})`);
+  const HOLD = (name: string, guest: string | null, start: string, expires: string) =>
+    KEEP(
+      name,
+      `insert into reservations (venue_id, court_id, kind, status, start_at, end_at, guest_id, guest_name,
+                                 source, hold_expires_at)
+       values ({{v}}, {{c1}}, 'hold', 'pending', ${start}, ${start} + interval '1 hour',
+               ${guest ? `{{${guest}}}` : 'null'}, ${guest ? 'null' : `'C294 orphan'`}, 'desk', ${expires})
+       returning id::text`,
+    );
+  const SLOTS = (label: string, who: string | null, from: string, to: string) =>
+    E(label, who, `select app.coach_slots({{co_ca}}, {{tp}}, ${from}, ${to})`);
+  const DAY4: ReadonlyArray<readonly [string, number]> = [
+    ['t4_830', 8.5],
+    ['t4_9', 9],
+    ['t4_930', 9.5],
+    ['t4_10', 10],
+    ['t4_12', 12],
+    ['t4_18', 18],
+  ];
+
+  it('runs the scenario', () => {
+    r = scenario('c294r', [
+      SETUP,
+      COACH_SETUP,
+      `select pg_temp.cbranch();`,
+      GUEST('g1'),
+      GUEST('g2'),
+      GUEST('g3'),
+      `select pg_temp.coach('ca');`,
+      `select pg_temp.coach('cb');`,
+      `select pg_temp.coach('cc');`,
+
+      // DB-28: ca's own group price, made through the RPC; cc's course already
+      // running (session 1 began 22 hours ago, session 2 starts in two).
+      X(`insert into coach_prices (coach_id, lesson_type_id, venue_id, price_iqd)
+         values ({{co_ca}}, {{tg}}, {{v}}, 18000)`),
+      E('grp', 'ca', `select app.coach_create_group({{tg}}, {{v}}, ${LT(2, 14)}, 'k-c294-grp')`),
+      KEPT('Gx', 'grp', 'lesson_id'),
+      PLANT_AT(
+        'plant_course',
+        'Cr',
+        { coach: 'co_cc', status: 'running' },
+        `now() - interval '22 hours'`,
+      ),
+      E('pub', null, `select app.coaching_public({{v}})`),
+      E('prof', null, `select app.coach_profile({{co_ca}}, {{v}})`),
+      E('offer_cr', null, `select app.lesson_offer(null, {{Cr}})`),
+
+      // DB-27: a day asked from its local midnight.
+      Q('t3_0', `select to_jsonb(${LT(3, 0)})`),
+      SLOTS('mid_desk', 'desk', LT(3, 0), LT(3, 6)),
+      SLOTS('mid_anon', null, LT(3, 0), LT(3, 6)),
+
+      // DB-31: a place whose money can only go back outside the till; a private
+      // lesson under way and one not yet started.
+      PLANT_AT('plant_lesson', 'GB', { coach: 'co_cb', kind: 'group', court: 'c2' }, LT(5, 10)),
+      PLANT('plant_enrolment', 'eB', {
+        lesson: 'GB',
+        guest: 'g1',
+        status: 'cancelled',
+        cancel_kind: 'staff',
+        payment_mode: 'online',
+        price: 15000,
+      }),
+      PAY(
+        'eB',
+        'g1',
+        'refund_pending',
+        `'staff_cancel', 5000, now() - interval '30 minutes', null`,
+      ),
+      PLANT_AT(
+        'plant_lesson',
+        'PS',
+        { coach: 'co_cb', kind: 'private', court: 'c1' },
+        `now() - interval '30 minutes'`,
+      ),
+      PLANT('plant_enrolment', 'ePS', { lesson: 'PS', guest: 'g2' }),
+      PLANT_AT('plant_lesson', 'PF', { coach: 'co_cb', kind: 'private', court: 'c2' }, LT(5, 14)),
+      PLANT('plant_enrolment', 'ePF', { lesson: 'PF', guest: 'g2' }),
+      E('detail_gb', 'desk', `select app.desk_lesson_detail({{GB}})`),
+      E('detail_ps', 'desk', `select app.desk_lesson_detail({{PS}})`),
+      E('detail_pf', 'desk', `select app.desk_lesson_detail({{PF}})`),
+
+      // DB-33: pending links, dead (removed, ended) and live; a held place on a
+      // lesson under way.
+      PLANT_AT('plant_lesson', 'GL', { coach: 'co_cb', kind: 'group', court: 'c2' }, LT(5, 18)),
+      PLANT('plant_enrolment', 'eDead', {
+        lesson: 'GL',
+        guest: 'g3',
+        booked_by: 'coach',
+        name: 'Typed Removed',
+        linked: false,
+        status: 'cancelled',
+        cancel_kind: 'coach',
+        price: 15000,
+      }),
+      PLANT('plant_enrolment', 'eLive', {
+        lesson: 'GL',
+        guest: 'g2',
+        booked_by: 'coach',
+        name: 'Typed Live',
+        linked: false,
+        price: 15000,
+      }),
+      PLANT_AT(
+        'plant_lesson',
+        'GE',
+        { coach: 'co_cb', kind: 'group', court: 'c2', status: 'completed' },
+        LT(-2, 10),
+      ),
+      PLANT('plant_enrolment', 'eEnded', {
+        lesson: 'GE',
+        guest: 'g3',
+        booked_by: 'coach',
+        name: 'Typed Ended',
+        linked: false,
+        price: 15000,
+      }),
+      E('my_dead', 'g3', `select app.my_lesson({{eDead}})`),
+      E('my_ended', 'g3', `select app.my_lesson({{eEnded}})`),
+      E('my_live', 'g2', `select app.my_lesson({{eLive}})`),
+      E('offer_live', 'g2', `select app.lesson_offer({{GL}}, null)`),
+      E('offer_dead', 'g3', `select app.lesson_offer({{GL}}, null)`),
+      PLANT_AT(
+        'plant_lesson',
+        'PH',
+        {
+          coach: 'co_cc',
+          kind: 'private',
+          court: 'c2',
+          status: 'held',
+          booked_by: 'guest',
+          by: 'g1',
+        },
+        `now() - interval '30 minutes'`,
+      ),
+      PLANT('plant_enrolment', 'ePH', {
+        lesson: 'PH',
+        guest: 'g1',
+        status: 'held',
+        payment_mode: 'online',
+      }),
+      E('my_ph', 'g1', `select app.my_lesson({{ePH}})`),
+
+      // The branch trades: a day open (the desk's tabs need one).
+      KEEP(
+        'day',
+        `insert into day_sessions (venue_id, business_date, status, opened_by, opening_float_iqd)
+         values ({{v}}, app.venue_business_date({{v}}, now()), 'open', {{manager}}, 0) returning id::text`,
+      ),
+
+      // DB-32: GP has a desk place paid in full and an online place cancelled
+      // and refunded; GH a held place, a place paid online and an unpaid desk one.
+      PLANT_AT('plant_lesson', 'GP', { coach: 'co_cb', kind: 'group', court: 'c1' }, LT(6, 10)),
+      PLANT('plant_enrolment', 'pd', { lesson: 'GP', guest: 'g1', price: 15000 }),
+      X(`insert into tabs (venue_id, day_session_id, kind, status, lesson_enrolment_id, lesson_iqd, total_iqd,
+                           subtotal_iqd, tax_iqd, discount_iqd, label, opened_at, settled_at)
+         values ({{v}}, {{day}}, 'lesson', 'settled', {{pd}}, 15000, 15000, 0, 0, 0, 'Lesson', now(), now())`),
+      PLANT('plant_enrolment', 'po', {
+        lesson: 'GP',
+        guest: 'g2',
+        status: 'cancelled',
+        cancel_kind: 'staff',
+        payment_mode: 'online',
+        price: 15000,
+      }),
+      PAY(
+        'po',
+        'g2',
+        'refunded',
+        `'staff_cancel', 15000, now() - interval '30 minutes', now() - interval '20 minutes'`,
+      ),
+      PLANT_AT('plant_lesson', 'GH', { coach: 'co_cb', kind: 'group', court: 'c1' }, LT(6, 14)),
+      PLANT('plant_enrolment', 'hh', {
+        lesson: 'GH',
+        guest: 'g1',
+        status: 'held',
+        payment_mode: 'online',
+        price: 15000,
+      }),
+      PLANT('plant_enrolment', 'ho', {
+        lesson: 'GH',
+        guest: 'g2',
+        payment_mode: 'online',
+        price: 15000,
+      }),
+      PAY('ho', 'g2', 'succeeded', `null, null, null, null`),
+      PLANT('plant_enrolment', 'hd', { lesson: 'GH', guest: 'g3', price: 15000 }),
+      E('desk_pay', 'desk', `select app.desk_lessons({{v}}, ${LT(6, 0)}, ${LT(7, 0)})`),
+
+      // DB-30: the branch trades offline (the switch on, its till gone quiet,
+      // the day open).
+      X(`update venue_settings set offline_mode_enabled = true, protected_horizon_hours = 48
+          where venue_id = {{v}}`),
+      X(
+        `insert into stations (id, venue_id, is_till, mode) values ('TILL-C294', {{v}}, true, 'till')`,
+      ),
+      X(`insert into device_heartbeats (device_id, venue_id, is_till, last_seen_at)
+         values ('TILL-C294', {{v}}, true, now() - interval '10 minutes')`),
+      Q('degraded', `select to_jsonb(app.is_degraded({{v}}))`),
+      Q('protect', `select to_jsonb(now() + interval '48 hours')`),
+      SLOTS('deg_coach', 'ca', LT(1, 0), LT(4, 0)),
+      SLOTS('deg_desk', 'desk', LT(1, 0), LT(4, 0)),
+      SLOTS('deg_anon', null, LT(1, 0), LT(4, 0)),
+
+      // DB-29: c1 is the only court; on day 4 a lapsed hold whose payment is
+      // five minutes past its deadline (9:00), a lapsed hold with no payment
+      // (12:00) and a live hold (18:00). (An orphan pending hold cannot be
+      // planted: reservations_live_hold_has_guest, 0278.)
+      X(`update courts set is_active = false where id in ({{c2}}, {{c3}})`),
+      HOLD('h_paying', 'g1', LT(4, 9), `now() - interval '20 minutes'`),
+      X(`insert into booking_payments (venue_id, reservation_id, hold_id, guest_id, purpose, provider, sandbox,
+                                        request_id, amount_iqd, quoted_price_iqd, status, deadline_at)
+         values ({{v}}, {{h_paying}}, {{h_paying}}, {{g1}}, 'deposit', 'fake', false, gen_random_uuid(), 10000,
+                 40000, 'pending', now() - interval '5 minutes')`),
+      HOLD('h_lapsed', 'g2', LT(4, 12), `now() - interval '1 minute'`),
+      HOLD('h_live', 'g3', LT(4, 18), `now() + interval '10 minutes'`),
+      SLOTS('holds', 'desk', LT(4, 0), LT(5, 0)),
+      ...DAY4.map(([label, h]) => Q(label, `select to_jsonb(${LT(4, h)})`)),
+
+      Q('ids', `select jsonb_object_agg(name, val) from pg_temp.vars`),
+    ]);
+    ids = data<Record<string, string>>(r, 'ids');
+  });
+
+  const startsOf = (label: string) =>
+    (data<Json>(r, label).starts as Json[]).map((x) => x.start_at as string);
+
+  it('answers with at least the COACHING_SHAPES keys, the new ones included', () => {
+    const cases: Array<[string, CoachingShapeName]> = [
+      ['pub', 'coaching_public'],
+      ['prof', 'coach_profile'],
+      ['offer_cr', 'lesson_offer'],
+      ['offer_live', 'lesson_offer'],
+      ['mid_desk', 'coach_slots'],
+      ['detail_gb', 'desk_lesson_detail'],
+      ['detail_ps', 'desk_lesson_detail'],
+      ['desk_pay', 'desk_lessons'],
+      ['my_live', 'my_lesson'],
+      ['my_ph', 'my_lesson'],
+    ];
+    for (const [label, shape] of cases)
+      expect(shapeOf(r, label, shape), `${label} as ${shape}`).toEqual([]);
+  });
+
+  it('DB-27: a day asked from its local 00:00 offers 00:00, to the desk and to a guest', () => {
+    expect(startsOf('mid_desk')).toContain(data(r, 't3_0'));
+    expect(startsOf('mid_anon')).toContain(data(r, 't3_0'));
+  });
+
+  it('DB-28: session rows carry the price a guest pays: the coach’s own, a running course’s late-join price', () => {
+    for (const label of ['pub', 'prof']) {
+      const sessions = data<Json>(r, label).sessions as Json[];
+      expect(
+        sessions.find((s) => s.lesson_id === ids.Gx),
+        label,
+      ).toMatchObject({ price_iqd: 18000, full_price_iqd: 18000 });
+    }
+    // Session 1 has begun: three of four sessions left, 15,000 each.
+    expect(
+      (data<Json>(r, 'pub').sessions as Json[]).find((s) => s.course_id === ids.Cr),
+    ).toMatchObject({ sessions_left: 3, price_iqd: 45000, full_price_iqd: 60000 });
+    // The same figures lesson_offer gives for the course.
+    expect(data<Json>(r, 'offer_cr')).toMatchObject({ price_iqd: 45000, full_price_iqd: 60000 });
+  });
+
+  it('DB-29: a lapsed hold with a payment still open blocks its only court; an unpaid lapsed hold does not', () => {
+    const starts = startsOf('holds');
+    for (const blocked of ['t4_830', 't4_9', 't4_930', 't4_18'])
+      expect(starts, blocked).not.toContain(data(r, blocked));
+    for (const free of ['t4_10', 't4_12']) expect(starts, free).toContain(data(r, free));
+  });
+
+  it('DB-30: offline, the coach asking about themselves gets no start inside the protected horizon; the desk does', () => {
+    expect(data(r, 'degraded')).toBe(true);
+    const protect = Date.parse(data<string>(r, 'protect'));
+    const coach = startsOf('deg_coach');
+    expect(coach.length).toBeGreaterThan(0);
+    for (const s of coach) expect(Date.parse(s), s).toBeGreaterThanOrEqual(protect);
+    for (const s of startsOf('deg_anon')) expect(Date.parse(s), s).toBeGreaterThanOrEqual(protect);
+    expect(startsOf('deg_desk').some((s) => Date.parse(s) < protect)).toBe(true);
+  });
+
+  it('DB-31: the desk and blocked parts of a refund; a started private lesson’s place cannot be cancelled', () => {
+    const gb = (data<Json>(r, 'detail_gb').enrolments as Json[]).find(
+      (e) => e.enrolment_id === ids.eB,
+    )!;
+    expect(gb.money).toMatchObject({
+      online_paid_iqd: 15000,
+      refund_due_iqd: 10000,
+      refund_due_desk_iqd: 0,
+      refund_blocked_iqd: 10000,
+    });
+    const ps = data<Json>(r, 'detail_ps');
+    expect((ps.lesson as Json).can).toMatchObject({ cancel: false });
+    const psRow = (ps.enrolments as Json[]).find((e) => e.enrolment_id === ids.ePS)!;
+    expect((psRow.can as Json).cancel).toBe(false);
+    const pf = data<Json>(r, 'detail_pf');
+    const pfRow = (pf.enrolments as Json[]).find((e) => e.enrolment_id === ids.ePF)!;
+    expect((pfRow.can as Json).cancel).toBe(true);
+  });
+
+  it('DB-32: a cancelled, refunded online place is not paid; a held place is awaiting; paid_places counts money left', () => {
+    const lessons = data<Json>(r, 'desk_pay').lessons as Json[];
+    expect(lessons.find((l) => l.lesson_id === ids.GP)).toMatchObject({
+      enrolments: 1,
+      paid_online: 0,
+      paid_places: 1,
+      awaiting: 0,
+      owing: 0,
+    });
+    expect(lessons.find((l) => l.lesson_id === ids.GH)).toMatchObject({
+      enrolments: 3,
+      paid_online: 1,
+      paid_places: 1,
+      awaiting: 1,
+      owing: 1,
+      owing_iqd: 15000,
+    });
+  });
+
+  it('DB-33: a pending link to a dead place is not found; a held place under way cannot be paid; mine shows an unconfirmed place', () => {
+    expect(failed(r, 'my_dead').code).toBe('ENROLMENT_NOT_FOUND');
+    expect(failed(r, 'my_ended').code).toBe('ENROLMENT_NOT_FOUND');
+    expect(data<Json>(r, 'my_live')).toMatchObject({
+      confirm_needed: true,
+      can: { cancel: false, pay: false, confirm: true },
+    });
+    expect(data<Json>(r, 'offer_live').mine).toEqual({
+      enrolment_id: ids.eLive,
+      status: 'booked',
+      confirm_needed: true,
+    });
+    expect(data<Json>(r, 'offer_dead').mine).toBeNull();
+    const ph = data<Json>(r, 'my_ph');
+    expect(ph).toMatchObject({ status: 'held' });
+    expect((ph.can as Json).pay).toBe(false);
   });
 });

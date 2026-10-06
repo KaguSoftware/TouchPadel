@@ -39,6 +39,8 @@ export const coachingWebEn = {
     pricePrivate: '{price} a lesson',
     pricePlace: '{price} a place',
     priceCourse: '{price} for the course',
+    // A course under way (C-15): its late-join share, the session row's price_iqd (0294, DB-28).
+    priceLateJoin: '{price} for the sessions left',
     // {weekday}, {date} and {time} come from the formatters, in the branch's timezone.
     when: '{weekday} {date} · {time}',
     courseStarts: 'Starts {date} · {sessions}',

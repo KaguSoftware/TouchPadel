@@ -204,6 +204,16 @@ never waits. The gate learns that a `reservations` lock taken `skip locked` neve
 statement twice. This reconciles R25's statement with R33's "no `FOR UPDATE` in a cancel": the
 cancels take no lock that can wait.
 
+**Corrected 2026-10-02 (0295, DB-39).** "A hold another transaction has locked is being expired by
+it" holds only when that transaction is an expirer. Other holders exist: `lesson_payment_prepare`
+stretching the hold, `deposit_apply`'s lesson arm about to turn it into the lesson's row, a
+reschedule. Such a holder can commit without expiring it, and the skipped row stays `pending` on a
+lesson that is no longer held, keeping its court (the same wording at 0283:449-457 and 0284:805-813
+is wrong the same way; those files are not edited). The sweep's step 9 (§4.9.3) catches it: every
+minute, under the lesson's coach lock, a `pending` hold naming a lesson that is not `held` goes
+through `lesson_court_release(lesson, 'expired')` again (still skip locked, never waiting; a row
+still locked is tried next minute).
+
 ### 2.4 Why this cannot deadlock
 
 1. **Coach before courts, always.** Only lesson bodies take `coach_advisory`, and each takes it before
@@ -423,10 +433,15 @@ branch (C-24, R56).
 vs.lesson_payment_mode, vs.lesson_prices_public`. Never `coach_share_bp`, never
 `coach_max_open_private`. `grant select … to anon, authenticated` re-issued; comment updated.
 (`docs/security/security-advisor-waiver-2026-09-06.md` enumerates the projection as of 0006 and
-already predates 0257's two columns: re-verify it at freeze.)
+already predates 0257's two columns: re-verify it at freeze.) **Amended 2026-10-02 (0297, DB-46):**
+the base table's own grant (0006:64, SELECT on the whole table to `authenticated`) let every staff
+role read `coach_share_bp` and `coach_max_open_private`; 0297 revokes the table-level SELECT and
+grants every other column by name, so only `app.coaching_settings` reads the two. A new
+`venue_settings` column needs its own column grant (`packages/db/CLAUDE.md`).
 
 **`app.assistant_readable_columns`**: the 0257:130-148 statement with the five `venue_settings`
-columns, the three view columns and `platform_settings.lesson_terms_version`.
+columns, the three view columns and `platform_settings.lesson_terms_version`. **Amended 2026-10-02
+(0297, DB-45, build-contracts §1.15 D1):** `venue_settings.coach_share_bp` leaves the set again.
 
 **`app.coaching_rules(p_venue uuid) returns jsonb`** (internal, `stable`, revoked from public, anon,
 authenticated): `{venue_id, coaching_enabled, lesson_payment_mode, coach_share_bp,
@@ -974,7 +989,12 @@ for a lesson that already has lines on an approved or paid statement; one line p
 statement (`coach_statement_lines_one_per_lesson`, 0276). `coach_iqd`, `adjustments_iqd` and the
 line money are signed (a refund after payment comes back as a negative adjustment, R22).
 `coach_statements_no_card` backs Money's `INVALID_ARGUMENT` on a run of 12 or more digits (R49: a
-card or account number never lands in a free-text field). Guards: `coach_statements` `('scoped')`;
+card or account number never lands in a free-text field). **Amended 2026-10-02 (0293, DB-21; R74):**
+the CHECK is `not app.looks_like_card(paid_reference) and not app.looks_like_card(void_reason)`,
+dropped and re-added NOT VALID, every existing row checked, then validated. `app.looks_like_card`
+(immutable, granted to `service_role` only: no client role writes the table) reads Arabic-Indic and
+Extended Arabic-Indic digits as 0-9 and ignores spaces, dots and dashes before looking for 12
+digits in a row. Guards: `coach_statements` `('scoped')`;
 `coach_statement_lines` `('scoped', 'coach_statements', 'statement_id', 'lessons', 'lesson_id')`.
 The one-live-per-month unique index is in 0276.
 
@@ -995,6 +1015,13 @@ Queued by retirement (`set_coach_status`, §4.7.7) and account deletion (0286) f
 `photo_path` before it is cleared; read and closed by the service RPCs `coach_photo_purge_due` and
 `coach_photo_purged` (0279, §4.6.3), which the `protocol-action` edge path calls, removing
 `coaches/<folder>/*` within a day (the incident-photo precedent).
+
+Since 0298 (coaching review EC-01) the tick does it: `protocol-action` takes `coach_photo_purge_due(20)`,
+lists each folder in `menu-media` page by page until an empty page, keeps every object
+`app.storage_path_in_use` still counts (it answers the service role since 0298), removes the rest and
+calls `coach_photo_purged`; an empty folder is marked too, and a storage error leaves the row queued
+for the next tick. `protocol_tick_nudge` counts an unpurged row as due work, so `tp_protocol_tick`
+posts within 5 minutes.
 
 #### 4.3.12 Changed tables
 
@@ -1073,7 +1100,7 @@ may write any object in the bucket (0234:448-459); that chain-wide rule is accep
 | --- | --- |
 | Matrix | for each of the 16 tables: `{kind: 'select', name, expect: ex('denied'), drop: 25}` and `{kind: 'write', name, op: 'insert', payload, expect: ex('denied'), drop: 25}`; payload `{id: NIL_UUID}` for the tables with an `id`, `{coach_id: NIL_UUID}` for `coach_branches`, `coach_lesson_types`, `coach_prices`, `{lesson_id: NIL_UUID}` for `lesson_attendance`, `{enrolment_id: NIL_UUID}` for `lesson_strikes` |
 | Allowlist | none (no granted RPC) |
-| Coverage | `coaches`, `coach_branches`, `coach_hours`, `lesson_types`, `coach_lesson_types`, `coach_prices`, `courses`, `lessons` `table_read`, with readable-column rows for every column but `profile_id`, `created_by_profile_id`, `bio_*`, `photo_path`, `public_accepted_at`; `lesson_enrolments`, `lesson_attendance`, `lesson_strikes`, `lesson_events`, `coach_time_off` `excluded: student identity, attendance, strikes or a coach's time-off reasons; the owner reads lessons through desk_lessons, customer_lessons and report_lessons`; **`coach_statements` and `coach_statement_lines` `excluded: a coach's pay, money about a named person; never readable by the owner assistant or any LLM`** (C-28, R42, the `salary_deductions` precedent); `coach_photo_purges` `excluded: storage housekeeping`; the six trigger functions, `lock_coach` and `try_lock_coach` `excluded: service_role only — …` |
+| Coverage | `coaches`, `coach_branches`, `coach_hours`, `lesson_types`, `coach_lesson_types`, `coach_prices`, `courses`, `lessons` `table_read`, with readable-column rows for every column but `profile_id`, `created_by_profile_id`, `bio_*`, `photo_path`, `public_accepted_at`; `lesson_enrolments`, `lesson_attendance`, `lesson_strikes`, `lesson_events`, `coach_time_off` `excluded: student identity, attendance, strikes or a coach's time-off reasons; the owner reads lessons through desk_lessons, customer_lessons and report_lessons`; **`coach_statements` and `coach_statement_lines` `excluded: a coach's pay, money about a named person; never readable by the owner assistant or any LLM`** (C-28, R42, the `salary_deductions` precedent); **amended 2026-10-02 (build-contracts §1.15 D1):** the money and share columns of the other coaching tables leave the readable set, `coach_id` stays; `coach_photo_purges` `excluded: storage housekeeping`; the six trigger functions, `lock_coach` and `try_lock_coach` `excluded: service_role only — …` |
 | SEC-20 | §4.3.16 |
 | Codes | `STATEMENT_NOT_DRAFT` (first raised here, by the frozen trigger): DB adds the catalogue line, EN and AR, in this commit (G5); Money words it |
 | Lock gate | §2.5 lands here (R6, R33): `ORDER`, `ADVISORY`, `ONCE_PER_SEQUENCE`, `SERVICE_WALK` (four names), the `skip locked` rule; `lock-order-matches.test.ts` `DECLARED` and `:75`; the new `lock-order-coaching.test.ts` pure half |
@@ -1184,7 +1211,13 @@ with the one change listed, and carries a comment naming 0277. Each is `create o
 | `desk_match_detail` | 0262:1707 (:1763) | the same list |
 | trigger `reservations_match` | 0263:167-170 | `drop trigger if exists … ; create trigger reservations_match after insert or update of kind, status, court_id, start_at, end_at on reservations for each row when (new.kind in ('booking', 'maintenance', 'lesson')) execute function app.trg_reservation_match();` The body (0263:58) is not re-issued: part A finds no match for a lesson row (`matches_reservation_key`), part B bumps a filling or waiting match a newly live lesson row leaves with no firm-free court, and a held lesson's success (Money turns the hold row into `kind 'lesson'`) is caught by `old.kind is distinct from new.kind`. Its comment is re-issued to say "booking, maintenance or lesson row". |
 | view `court_availability` | 0008:670-674 | `create or replace view court_availability with (security_invoker = off) as select court_id, start_at, end_at, case when kind = 'lesson' then 'booking'::reservation_kind else kind end as kind from reservations where status in ('pending', 'confirmed', 'arrived') and (kind <> 'hold' or hold_expires_at > now());` Same columns, names and types, so `create or replace` is legal and the owner-rights waiver's projection is unchanged; `grant select … to anon, authenticated` re-issued. A held private lesson shows as a hold until paid. |
-| `close_branch` | 0233:69 (:104-109) | `r.kind in ('booking', 'hold', 'lesson')`; hint "cancel or move the branch's bookings, lessons, holds and series first". Every live lesson and every live course session has exactly one live court row (§3.4), so this counts them all. Then **R37**: `BRANCH_HAS_BOOKINGS` detail `coaching_money` while the branch has a `coach_statements` row in `draft` or `approved`, a `completed` lesson in a month that has no non-void statement for its coach and branch (Money's statement-lesson rule, `money.md` §7), or an enrolment whose `lesson_enrolment_money(e)->>'refund_due_desk_iqd'` is above 0: once closed, no one could approve, pay or refund them (`is_staff_at` is false there). |
+| `close_branch` | 0233:69 (:104-109) | `r.kind in ('booking', 'hold', 'lesson')`; hint "cancel or move the branch's bookings, lessons, holds and series first". Every live lesson and every live course session has exactly one live court row (§3.4), so this counts them all. Then **R37**: `BRANCH_HAS_BOOKINGS` detail `coaching_money` while the branch has a `coach_statements` row in `draft` or `approved`, a `completed` lesson in a month that has no non-void statement for its coach and branch (Money's statement-lesson rule, `money.md` §7), or an enrolment whose `lesson_enrolment_money(e)->>'refund_due_desk_iqd'` (or `refund_blocked_iqd`) is above 0; **amended 2026-10-02 (0292, DB-19; build-contracts §1.15 D6)**: also a lesson refund still `refund_pending`, and coach-pay adjustments not yet drafted (an `is_adjustment` line in `coach_statement_plan` for the branch-local month now, for any coach of the branch): once closed, no one could approve, pay or refund them (`is_staff_at` is false there). |
+
+**Added 2026-10-02 (0294, DB-34):** `tournament_feasibility` (0174:842) keeps `bookings` and
+`guests` (live `kind 'booking'` rows) and adds, per court and range, `lessons` (distinct lessons
+with a live court row: `kind 'lesson'`, or a held lesson's hold while `app.hold_is_live`) and
+`students` (distinct live enrolments of those lessons: booked, or held while the hold runs or an
+online payment is open), so a lesson in a tournament's window is no longer "no conflict".
 
 Not changed: `match_pick_court` (0260:533) and `match_court_claimed` (0263:186) already read every
 live row whatever its kind; `unpaid_played_bookings` (0265:674) and the court reports filter
@@ -1629,6 +1662,16 @@ hold_expires_at, payment_mode, price_iqd, places_left}`.
 
 #### 4.7.4 Coach and desk: book and create
 
+0291 (DB-08): every body below reads the coach, the type and the price before `[lock_coach]` to refuse
+early, and reads them again after `[lock_coach]` and its replay through
+`app.lesson_assert_coach_bookable(coach, type, by)`: a retired coach is `COACH_NOT_FOUND` (staff) or
+`NOT_A_COACH` (the coach), paused `COACH_INACTIVE`, an unlinked type `LESSON_TYPE_NOT_OFFERED`, an
+inactive or priceless type `LESSON_TYPE_INACTIVE`; the price it returns is the one inserted.
+(`set_coach_status`, `set_coach_lesson_types` and `set_coach_price` change them under the same
+lock.) 0291 (DB-11): `[v_locked := courts]` ends with the branch's `venues` row FOR KEY SHARE, and
+`lesson_create_internal` refuses a branch that is not `open` (`COACH_NOT_AT_BRANCH`), so a lesson
+never lands at a branch `close_branch` has just closed.
+
 **`coach_book_private(p_lesson_type_id, p_venue_id, p_start_at, p_student_name, p_student_phone,
 p_party_size, p_idempotency_key)`**: 1 `coach_self()`; 2 `INVALID_ARGUMENT` (name 1..80 after
 cleaning; phone NULL or read by `app.phone_canon`; party; key); 3 `[lock_principal('coach_students',
@@ -1637,7 +1680,7 @@ created in the last 24 hours, whatever their status, number 30 (CD-9, `lesson_en
 replay; 4 the type at `p_venue_id` (`LESSON_TYPE_NOT_FOUND`, private only), `COACH_NOT_AT_BRANCH`,
 `COACHING_OFF`, `COACH_INACTIVE`, `LESSON_TYPE_INACTIVE`, `LESSON_TYPE_NOT_OFFERED`,
 `PARTY_TOO_LARGE`; 5 grid, hours, past, `DEGRADED_LOCKOUT` (no horizon); 6 `COACH_UNAVAILABLE`; 7
-`[lock_coach]`, replay, **`COACH_ADD_LIMIT` detail `live`** when the coach's `held`/`scheduled`
+`[lock_coach]`, replay, the re-read (0291), **`COACH_ADD_LIMIT` detail `live`** when the coach's `held`/`scheduled`
 private lessons with `booked_by_kind 'coach'` and `start_at > now()` at the branch number
 `coach_max_open_private` (C-24, R56), `COACH_BUSY`; 8 `[v_locked := courts]`, hold expiry; 9
 `lesson_create_internal(…, false, 'coach', <coach's profile>, …, v_locked)`; 10 the enrolment:
@@ -1655,7 +1698,7 @@ p_party_size, p_idempotency_key)`** (court_desk, manager, owner): `FORBIDDEN` (r
 deleted profile); replay; `COACH_NOT_FOUND`, `COACH_NOT_AT_BRANCH`, `COACH_INACTIVE`,
 `LESSON_TYPE_INACTIVE`, `LESSON_TYPE_NOT_OFFERED`, `PARTY_TOO_LARGE`, `ALREADY_ENROLLED` detail
 `coach` (the customer is the coach, R56); grid, hours, past; `COACH_UNAVAILABLE`; `[lock_coach]`,
-`COACH_BUSY`; `[courts]`; create (`'staff'`, caller). The enrolment: with `p_customer_id`, `guest_id`
+replay, the re-read (0291), `COACH_BUSY`; `[courts]`; create (`'staff'`, caller). The enrolment: with `p_customer_id`, `guest_id`
 = it, `link_confirmed_at = now()`, the profile's name and phone copied into the typed columns (R44);
 with `p_name`, the typed name and phone, and a typed phone matched like the coach's, pending (C-21).
 Events `booked`, `added`; audit. No `COACHING_OFF`, no degraded, no horizon. Returns (X29)
@@ -1685,7 +1728,8 @@ p_idempotency_key)`** and **`desk_create_course(p_coach_id, …)`**, all or noth
    `OUTSIDE_HOURS`, `COACH_UNAVAILABLE`, each with detail `i`; `LESSON_CLOSED` detail `cutoff` when
    start 1 − `cutoff_hours` ≤ now() (R47); (coach) `DEGRADED_LOCKOUT` when any start is inside the
    protected horizon.
-5. `[lock_coach]`; replay; per start `COACH_BUSY` detail `i`.
+5. `[lock_coach]`; replay; the re-read (0291: the price the course row takes); per start
+   `COACH_BUSY` detail `i`.
 6. `[v_locked := courts]`; `match_expire_holds(v, tstzrange(first start, last end))` (one statement).
 7. The course row (price = `lesson_price_for`, the snapshots, `cutoff_at` = start 1 − `cutoff_hours`,
    `signup_closes_at` = the last start, `created_by_kind`), then `lesson_create_internal` per session
@@ -1741,7 +1785,10 @@ enrolment_id, price_iqd, places_left}`.
 **`lesson_link_confirm(p_enrolment_id uuid, p_yes boolean) returns jsonb`** (guest; C-21, R44; §10):
 1 `lesson_guest(false)`; 2 `INVALID_ARGUMENT` (NULLs); 3 `ENROLMENT_NOT_FOUND` unless `guest_id` =
 caller and `booked_by_kind <> 'guest'`; already confirmed: `p_yes` → `{duplicate: true}`, not
-`p_yes` → `INVALID_TRANSITION` detail `confirmed` (cancel it instead); 4 `[lock_coach]`, re-read; 5
+`p_yes` → `INVALID_TRANSITION` detail `confirmed` (cancel it instead); 4 `[lock_coach]`, re-read;
+(0291, DB-13) yes on a place that is no longer live (not `held` or `booked`, or its lesson, or a
+course place's last covered session, has ended) → `INVALID_TRANSITION` detail `status`, while no is
+always allowed; 5
 yes → `link_confirmed_at = now()`; no → `guest_id = NULL` (a walk-in again). No `lesson_events` row
 and no push either way (the coach is never told, C-21); audit `coaching.link.confirm` or
 `coaching.link.decline` with ids only. Guest's enrolment reminder trigger resyncs on the change
@@ -1767,11 +1814,12 @@ p_start_at)`**, for **every kind** (private, group, course session):
    keep their order (the C-15 price reads them).
 5. `LESSON_CLOSED` detail `cutoff` (R47) when the session's cut-off is still unjudged
    (`cutoff_checked_at` NULL; a course: session 1) and the new start − `cutoff_hours` ≤ now(). A
-   judged session keeps its stamp and may move anywhere (R32).
+   judged session keeps its stamp and its cut-off time and may move anywhere (R66).
 6. `COACH_UNAVAILABLE` (`coach_in_hours`).
-7. `[lock_coach]`; re-read 2; `COACH_BUSY` (another live lesson of the coach overlaps; this one
+7. `[lock_coach]`; re-read 2, 4 and 5 (0291, DB-09: two moves of neighbouring sessions each checked
+   the other's old time); `COACH_BUSY` (another live lesson of the coach overlaps; this one
    excluded).
-8. `[v_locked := lesson_lock_branch_courts(v)]`; the lesson's live court row `FOR UPDATE`;
+8. `[v_locked := lesson_lock_branch_courts(v)]` (0291: with the branch row FOR KEY SHARE); the lesson's live court row `FOR UPDATE`;
    `match_expire_holds(v, new period)` (R33: courts, row, expiry, writes).
 9. The court: its own court when no other live row overlaps the new period there and it is not
    `match_court_claimed`, else `lesson_pick_court(v, period, v_locked)` (`NO_COURT_FREE`).
@@ -1818,8 +1866,8 @@ after the write (`refund_iqd` = the online money going back, `kept_iqd` = what t
 | --- | --- | --- | --- |
 | `coach_remove_student(p_enrolment_id, p_reason)` | `coach_self()` | `INVALID_ARGUMENT` (reason); `ENROLMENT_NOT_FOUND` (not in the caller's lesson or course); `LESSON_NOT_CANCELLABLE` `private` (cancel the lesson), `status`, `started` (group: started; course: last session started) | `[lock_coach]`, re-check, `enrolment_cancel_internal(e, 'coach', …)`; audit `coaching.student.remove`; `{ok: true}` or `{duplicate: true}` |
 | `coach_cancel_lesson(p_lesson_id, p_reason)` | `coach_self()` | `INVALID_ARGUMENT`; `LESSON_NOT_FOUND`; `LESSON_NOT_CANCELLABLE` `course_session` (C-19: move it or cancel the course), `status` (not `held` or `scheduled`), `started` | `[lock_coach]`, `lesson_cancel_internal(l, 'coach_cancel', 'coach', …)`; audit `coaching.lesson.cancel`; `{ok: true}` |
-| `coach_cancel_course(p_course_id, p_reason)` | `coach_self()` | `INVALID_ARGUMENT`; `LESSON_NOT_FOUND`; `LESSON_NOT_CANCELLABLE` `status` (not `open` or `running`), `ended` (no session left to start) | `[lock_coach]`, `course_cancel_internal(c, 'coach_cancel', …)`; audit `coaching.course.cancel`; `{ok: true}` |
-| `desk_cancel_enrolment(p_enrolment_id, p_reason)` | court_desk, manager, owner | `INVALID_ARGUMENT`; `ENROLMENT_NOT_FOUND`, `VENUE_MISMATCH`; `LESSON_NOT_CANCELLABLE` `status`, `ended` (the lesson, or the course's last session, has ended) | `[lock_coach]`, `enrolment_cancel_internal(e, 'staff', …)` (a private lesson goes with it: `staff_cancel`); audit; (X29) `{enrolment_id, status, refund_due_iqd, online_refund}` |
+| `coach_cancel_course(p_course_id, p_reason)` | `coach_self()` | `INVALID_ARGUMENT`; `LESSON_NOT_FOUND`; `LESSON_NOT_CANCELLABLE` `status` (not `open` or `running`), `ended` (no session left to start) | `[lock_coach]`, `course_cancel_internal(c, 'coach_cancel', …)`; audit `coaching.course.cancel`; `{ok: true}`, or `{duplicate: true, sessions_cancelled: 0}` (0291, DB-14) |
+| `desk_cancel_enrolment(p_enrolment_id, p_reason)` | court_desk, manager, owner | `INVALID_ARGUMENT`; `ENROLMENT_NOT_FOUND`, `VENUE_MISMATCH`; `LESSON_NOT_CANCELLABLE` `status`, `ended` (the lesson, or the course's last session, has ended), `started` (a private lesson once it has started: its booker's cancel would cancel the lesson in progress; 0291, DB-07) | `[lock_coach]`, `enrolment_cancel_internal(e, 'staff', …)` (a private lesson goes with it: `staff_cancel`); audit; (X29) `{enrolment_id, status, refund_due_iqd, online_refund}` |
 | `desk_cancel_lesson(p_lesson_id, p_reason)` | court_desk, manager, owner | as `coach_cancel_lesson`, plus `VENUE_MISMATCH` | `lesson_cancel_internal(l, 'staff_cancel', 'staff', …)`; `{lesson_id, status}` |
 | `desk_cancel_course(p_course_id, p_reason)` | court_desk, manager, owner | as `coach_cancel_course`, plus `VENUE_MISMATCH` | `course_cancel_internal(c, 'staff_cancel', 'staff', …)`; (X29) `{course_id, status, sessions_cancelled}` |
 
@@ -1847,7 +1895,9 @@ cancel (`coach_retired` → `lesson.cancelled_by_coach`).
 **`desk_mark_attendance(…)`** (court_desk, manager, owner): `INVALID_ARGUMENT` (`p_status` not
 `attended|no_show|clear`); `LESSON_NOT_FOUND` / `VENUE_MISMATCH`; `ENROLMENT_NOT_FOUND` (not of this
 lesson, nor of its course covering this session); `INVALID_TRANSITION` detail `not_started` (`now() <
-start_at`), `marks_closed` (`now() >= start_at + 24 h`), `not_booked`, `cancelled` (the lesson);
+start_at`), `marks_closed` (`now() >= start_at + 24 h`), `not_booked` (0291, DB-12: except a course place
+cancelled `course_cancelled` on a session that started before that cancel, C-19: the session in
+progress runs to its end, so its marks stay open), `cancelled` (the lesson);
 `[lock_coach]`, re-check; then the `lesson_attendance` row upserted (`clear` deletes it);
 `no_show` → `lesson_strike_record(e, l, 'no_show')`; `attended` or `clear` after a `no_show` → the
 unsettled strike row deleted **without waiting** (R31): `delete from lesson_strikes where ctid in
@@ -1870,7 +1920,10 @@ R43, R58):
   left before their start (within 30 days), courses `open|running` with sign-up open and a place left
   (within 60 days), soonest first, at most 50. Branch fields `timezone`, `payment_mode`,
   `prices_public`, `cancellation_window_hours`. Prices are always sent (C-11: the website drops them
-  when `prices_public` is false).
+  when `prices_public` is false). **Amended 2026-10-02 (0294, DB-28):** each session row carries
+  `price_iqd` (a group session's `lessons.price_iqd`; a course's price before it starts, else
+  `course_late_join_price` from its first session not yet started, as `lesson_offer`) and
+  `full_price_iqd` (the session's or the course's price).
 - **`coach_profile(p_coach_id, p_venue_id default null)`** (R17, X2, the `guest.md` §4.3 shape):
   `COACH_NOT_FOUND` (unknown, retired, or not accepted); a named branch: `{off: true}` when it is off or
   closed, `COACH_NOT_AT_BRANCH` when the coach is not active there, else the card, `venue`, `offers`
@@ -1884,11 +1937,16 @@ R43, R58):
   `{off: true}` while coaching is off, **except for a staff caller `is_staff_at` the type's branch**
   (R51); else `{off: false, venue_id, lesson_type_id, duration_min, bookable, starts: [{start_at,
   end_at}]}`. A paused coach: `bookable: false, starts: []` (R51). Every start `s` on the branch's
-  grid with `greatest(p_from, now()) < s`, `s + duration <= p_to`, within the horizon, outside the
-  protected horizon while `is_degraded(v)`, `lesson_bookable` NULL, `coach_available`, and one active
-  court with no live row over the period (a hold counts while `hold_expires_at > now()`, as
-  `court_availability`) that is not `match_court_claimed`. At most 14 × 48 candidates, set-based over
-  `generate_series`.
+  grid with `p_from <= s` and `now() < s` (**amended 2026-10-02, 0294 DB-27**: was
+  `greatest(p_from, now()) < s`, which never offered the desk a local 00:00, since it asks one day at
+  a time from midnight), `s + duration <= p_to`, within the horizon, outside the protected horizon
+  while `is_degraded(v)` (**amended 0294, DB-30**: for guests and for the coach asking about
+  themselves, as `coach_book_private` refuses those starts with `DEGRADED_LOCKOUT`; only staff of the
+  branch are exempt), `lesson_bookable` NULL, `coach_available`, and one active court with no live
+  row over the period (**amended 0294, DB-29**: a row counts while `app.hold_is_live`, the twin of the
+  `expire_stale_holds` / `match_expire_holds` WHERE: a hold while its TTL runs or while an online
+  payment on it is open within ten minutes of its deadline, never an orphan) that is not
+  `match_court_claimed`. At most 14 × 48 candidates, set-based over `generate_series`.
 - **`lesson_offer(p_lesson_id default null, p_course_id default null)`** (X4, the `guest.md` §4.3
   shape): `INVALID_ARGUMENT` unless exactly one; `LESSON_NOT_FOUND` (a private lesson, a course
   session's id, a closed branch, a coach retired or not accepted); `{off: true}`; else the offer with
@@ -1896,7 +1954,8 @@ R43, R58):
   `signup_closes_at`), `places_taken` (a count), `price_iqd` (the caller's price now: the place, the
   whole course, or the remaining sessions), `full_price_iqd`, `late_join`, the branch's `phone`,
   `timezone`, `payment_mode`, `cancellation_window_hours`, and `mine` (authenticated only: the
-  caller's own live enrolment, else NULL).
+  caller's own live enrolment, else NULL; **amended 2026-10-02, 0294 DB-33**: `{enrolment_id, status,
+  confirm_needed}`, an unconfirmed coach- or desk-added place included, a confirmed one first).
 
 **Guest** (`lesson_guest(false)`):
 
@@ -1910,7 +1969,10 @@ R43, R58):
   `rescheduled` = `rescheduled_at is not null`, `attendance`), `cancel: {policy: free|late|none,
   free_until, refund_iqd, kept_iqd, counts_late}` computed by the rule `lesson_cancel_mine` applies,
   `can: {cancel, pay, confirm_link}`, `branch_phone`, `timezone`, `server_now`. A pending link answers
-  the card only (no friend names), `can: {cancel: false, pay: false, confirm_link: true}`. Never
+  the card only (no friend names), `can: {cancel: false, pay: false, confirm_link: true}`;
+  **amended 2026-10-02 (0294, DB-33)**: a pending link whose place is no longer live (not held or
+  booked, or its lesson, or a course place's last covered session, has ended) is
+  `ENROLMENT_NOT_FOUND`, and `can.pay` needs the first covered session not to have started. Never
   another student.
 
 **Coach** (`coach_self()`; a retired coach is `NOT_A_COACH`, R45):
@@ -1936,12 +1998,17 @@ R43, R58):
   `booked_by_kind` (the C-24 tile flag "booked by the coach · unpaid" reads it with `owing`) and a
   private lesson's `label` = the typed name for a coach- or staff-booked enrolment, the profile's for
   a guest-booked one (R44). The desk reads the catalogue here, never `coaching_settings` or
-  `coaches_admin` (R20).
+  `coaches_admin` (R20). **Amended 2026-10-02 (0294, DB-32):** `paid_online` counts booked places
+  with online money left after refunds; `awaiting` the held places; `paid_places` the booked places
+  with desk or online money left after refunds.
 - **`desk_lesson_detail(p_lesson_id)`** (X17, the `operator.md` §5.6.2 shape): `LESSON_NOT_FOUND` /
   `VENUE_MISMATCH`; the lesson, its course, the enrolments with `full_name` and `phone` = the typed
   values for a coach- or staff-booked enrolment (R44), the profile's for a guest-booked one;
   `customer_id` only for a confirmed link; `typed`; money from `lesson_enrolment_money` plus
-  `take_iqd` = `lesson_fee_remaining`; the last 50 events; the `can` flags.
+  `take_iqd` = `lesson_fee_remaining`; the last 50 events; the `can` flags. **Amended 2026-10-02
+  (0294, DB-31):** the money also carries `refund_due_desk_iqd` and `refund_blocked_iqd` (the
+  engine's parts of `refund_due_iqd`), and an enrolment's `can.cancel` on a private lesson ends at
+  its start, as `desk_cancel_enrolment` refuses a started private lesson (0291, DB-07).
 - **`customer_lessons(p_customer_id)`** (X18, the `operator.md` §5.6.3 keys plus
   `lesson_strikes_30d`, counted strikes in 30 days; the ladder itself is `guest_hold_standing`,
   0252:394): `FORBIDDEN`; `CUSTOMER_NOT_FOUND`; the customer's guest-booked and **confirmed-link**
@@ -2125,6 +2192,12 @@ so the one-day memory reads them right. The callers are unchanged and none holds
 `tp_hold_strikes` (every minute, its own transaction, 0268:111), `hold_slot` after `lock_principal`
 (0269:122), and 0280's `lesson_book_private`, `lesson_join`, `course_join` after theirs.
 
+**Amended 2026-10-02 (0295, DB-37; build-contracts §1.15 D5, R65):** a `lapsed_hold` struck less than
+two days ago whose enrolment still has a lesson payment `created` or `pending` is skipped (`continue`,
+a plain read, before the row lock), so the late SUCCESS of that payment can still withdraw it
+(Money's `lesson_settle_success` deletes only an unsettled strike). One older than two days is
+settled uncounted as before, payment or not.
+
 #### 4.9.3 `lesson_sweep() returns jsonb` (service role)
 
 **Phase 1, find work (no locks).** Due items, at most 200 a run, each `(work, id, coach_id, venue_id)`:
@@ -2140,7 +2213,9 @@ so the one-day memory reads them right. The callers are unchanged and none holds
 5. courses `open` with `cutoff_checked_at` NULL and `cutoff_at <= now()` → judge;
 6. courses `open` whose session 1 has started → `running`;
 7. lessons `scheduled` with `end_at + 15 min <= now()` → `completed`; courses `running` with no
-   session `held|scheduled` left → `completed`.
+   session `held|scheduled` left → `completed`;
+8. (**added 2026-10-02, 0295 DB-39; step 9 in the body**) lessons not `held` that still have a `pending` court `hold` row
+   (one item per lesson) → release it (§2.3, corrected).
 
 Sorted by coach, then by the order above.
 
@@ -2161,6 +2236,14 @@ payment (R30); it returns false and changes nothing while a payment is still ope
 3 → `lesson_cancel_internal(l, 'coach_retired', …)` or `course_cancel_internal(c, 'coach_retired', …)`.
 4, 5 → **the cut-off** (R26, R38). With `start` the session's start (a course: session 1's) and
 `booked` the `sum(party_size)` of `booked` enrolments (a course's: `booked` course enrolments):
+   - (**added 2026-10-02, 0295 DB-41; build-contracts §1.15 D4, R26 amended**) `now() >= start` and
+     no enrolment `booked` or `held`: nobody to disrupt and no money to move, so
+     `lesson_cancel_internal(l, 'under_filled', …)`, or for a course `course_cancel_internal(c,
+     'under_filled', …)` and then `lesson_cancel_internal(s, 'under_filled', …)` on every session
+     still `held|scheduled` (the one under way: the whole course goes, never one session alone,
+     C-19), and the stamp; its courts are freed. A zero cut-off (`cutoff_hours 0`, allowed for
+     `min_places 1`) is always judged at or after the start, so before 0295 an empty one was never
+     cancelled;
    - `now() >= start` (judged late: a skipped coach, a stalled cron): stamp `cutoff_checked_at`; when
      `booked < min_places`, event `under_filled` with `data {late: true, places_taken, min_places}`;
      cancel nothing;
@@ -2170,7 +2253,13 @@ payment (R30); it returns false and changes nothing while a payment is still ope
    - else `lesson_cancel_internal(l, 'under_filled', …)` or `course_cancel_internal(c, 'under_filled',
      …)` (C-14), and the stamp, on the course and its sessions for a course.
 6 → `running`. 7 → `lesson_court_release(l, 'completed')`, the lesson `completed` (`completed_at`),
-event `completed`; a course `completed` with event `completed`.
+event `completed`; a course `completed` with event `completed`. 9 (0295) → re-read: the lesson not
+`held` and a `pending` hold still naming it → `lesson_court_release(l, 'expired')`; counted
+`holds_released` once no pending hold is left.
+
+**Phase 3, every run (0295, DB-40)**, its own exception block: Money's `app.lesson_refund_net()`, the
+R28 net that `deposits_due_for_reconcile` also runs (`money.md` §6.6), so a refund a cancel never
+started goes out within a minute even when no other payment is open; counted `refunds_started`.
 
 **Phase 3, once an hour** (`extract(minute from now()) = 0`), its own exception block: the CD-8 purge,
 at most 500 rows: enrolments whose lesson (course: last covered session) ended more than 365 days ago
@@ -2182,7 +2271,8 @@ no event, no lock: nothing reads these columns for state.
 Every step selects only rows that still need it; every change is one-way or a stamp, so a second run
 in the same minute does nothing. Returns `{held_expired, deleted_cancelled, retired_cancelled,
 under_filled, courses_under_filled, judged_late, deferred, courses_running, completed,
-courses_completed, purged, skipped, errors}`. `revoke all … from public, anon, authenticated; grant
+courses_completed, holds_released, refunds_started, purged, skipped, errors}` (`holds_released` and
+`refunds_started` since 0295). `revoke all … from public, anon, authenticated; grant
 execute … to service_role`. The walker prints `coach_advisory -> match_venue_advisory ->
 match_tickets` (the reservation trigger expanded under its status writes; at run time part B returns
 at once for a row leaving the live set).
@@ -2416,14 +2506,20 @@ results and `can` flags: §4.7.9 and `operator.md` §5.6–§5.7 (R41). Codes th
 | `coaching-admin.test.ts` | promote (twice → `ALREADY_COACH`; retired → re-activated, unaccepted; a photo folder that is a profile id refused), branch scope for managers, `set_coach_branches` `BRANCH_HAS_BOOKINGS`, types (unlink deletes the coach price); the price lock (manager `price`, `shape` incl. a private type's `max_places`, `LAUNCH_VIA_PROTOCOL`; drafts free; owner direct; `set_coach_price` refused to a manager on a draft); the patch allowlist; the 2-hour cut-off default and `lesson_types_cutoff`; hours (`HOURS_INVALID`, `HOURS_OVERLAP` `<i>:<weekday>` across branches, `24:00`); time off (`TIME_OFF_HAS_LESSONS`, overlap); `storage_path_in_use` counts a coach photo; `coach_me` for a retired coach, a staff member who coaches, a branch with coaching off |
 | `coaching-guards.test.ts` | every §4.5 re-issue: firm counts, the trigger fires on a lesson insert and on hold → lesson, `court_availability` masks, `close_branch` (live lessons; `coaching_money`), each `LESSON_VIA_COACHING` detail incl. `confirm` and `move` (queued or not), a lesson hold not expired as an orphan but expired by TTL, the twin test |
 | `coaching-booking.test.ts` | private desk and online (held); the enrolment's status in the result (X5); grid for every kind, horizon, hours, closed date, time off, `COACH_BUSY` across branches, party, payment modes, `TERMS_REQUIRED` `lessons` online only, `HOLD_QUOTA_EXCEEDED` across court holds and held lessons, `PRICE_CHANGED`, idempotency (double tap, foreign key), R22 court skipped, `NO_COURT_FREE`, a pick limited to the locked courts, the lesson row passes every `reservations` CHECK; self-enrolment refused; paused and unaccepted coaches; join and course join (places, `LESSON_CLOSED`, `DEGRADED_LOCKOUT`, pro-rata against `@touch/core` `splitEvenly` through `iqd_split`); creation inside the cut-off refused |
-| `coaching-races.test.ts` (two connections) | same coach same slot (one wins); last court (one wins); private + group across branches; `hold_slot` against a lesson booking; a held-lesson cancel against `hold_slot`'s expiry (no 40P01); the sweep against a booking; a no-show correction against `lesson_join` settling that strike (R31) |
+| `coaching-races.test.ts` (two connections) | same coach same slot (one wins); last court (one wins); the last group place (`LESSON_FULL`); private + group across branches; `hold_slot` against a lesson booking, each way; a held-lesson cancel against the sweep's hold expiry, each way (DB-39); SUCCESS against the sweep and against the guest's cancel, each way; a no-show correction against `lesson_join` settling that strike, without waiting (R31); the sweep skipping a busy coach; DB-08, DB-09, DB-11; source pins on the two `FOR UPDATE SKIP LOCKED` (no 40P01, no 23P01 anywhere) |
 | `coaching-courses.test.ts` | all-or-nothing creation with the failing index in `detail`; reschedule of every kind (order for courses, court kept or re-picked, coach busy, held refused, the group and course cut-off follow and `cutoff_checked_at` clears, sign-up follows, `rescheduled_at`); cancel before and after session 1 (Money's refund called once per enrolment, live or not, with the right reason) |
 | `coaching-cancel.test.ts` | free versus late at the window; held cancel releases the hold row at once; free after a reschedule; a course leave judged against the guest's own next session (C-23); course session refused; coach and staff cancels never strike; a `guest_late` enrolment refunded when the coach later cancels; `account_deleted` reason; retirement cancels everything, never refused; reason form; `link_pending` refused |
 | `coaching-attendance.test.ts` | the 24-hour window; no-show strike only for guest-booked; `clear` removes an unsettled strike, a settled or locked one stays |
 | `coaching-sweep.test.ts` | each step; a second run does nothing; a busy coach skipped; the cut-off judged once, only before the start (late: event, no cancel), deferred while held places could reach the minimum; completion and the court row; deleted student and retired coach cancels; held expiry through `lesson_hold_expire` with a `lapsed_hold` strike; the hourly purge writes the marker, never NULL |
-| `coaching-strikes.test.ts` | settle merges holds and the three lesson strike kinds in time order; `BOOKING_SUSPENDED` / `HOLD_COOLDOWN` on lesson bookings; no `hold_standing` write inside a cancel's transaction; settle skips locked rows |
+| `coaching-strikes.test.ts` | two unsettled lesson strikes → `HOLD_COOLDOWN` from `lesson_book_private`, `lesson_join` and `course_join` with nothing written; `BOOKING_SUSPENDED`; the ladder off books; coach and desk cancels inside the late window strike nobody; a source pin that `lesson_guest_ladder` runs between `lock_principal` and `lock_coach` (the settle hold_strikes_settle / R31 is in `coaching-sweep.test.ts` and `coaching-races.test.ts`) |
 | `coaching-privacy.test.ts` | the public reads and `my_lessons` carry no student, phone, profile id or court id, by **value** scan as well as key scan (R43, R58); unaccepted coaches absent; roster: typed names and phones for coach- and staff-booked rows (never the profile's), phone gone after `end_at` + 7 days and while held; the CD-8 marker on the roster after the purge; `coach_add_student` matched and unmatched answers identical but for ids, the same outbox work; an already-enrolled match not linked; a pending link absent from `customer_lessons` and from the desk's `customer_id`; "Not me" unlinks with no event; `COACH_ADD_LIMIT` at the 31st; another coach's lesson is `LESSON_NOT_FOUND`; a retired coach's `coach_lesson` is `NOT_A_COACH` |
-| `coaching-shapes.test.ts` | every 0279/0280 read and write result ⊇ its key list in `packages/core/src/coaching/shapes.ts` (R41) |
+| `coaching-shapes.test.ts` | every coaching write on its fresh and duplicate path ⊇ its key list in `packages/core/src/coaching/shapes.ts` (R41, DB-14); a pin that every `COACHING_SHAPES` name is checked by some suite |
+| `coaching-availability.test.ts` | `coach_in_hours` with real windows and time off in the branch zone; `COACH_UNAVAILABLE` from every creation path and reschedule; `coach_slots` inside the windows; `OUTSIDE_HOURS`, `CLOSED_DATE`, `SLOT_IN_PAST` |
+| `coaching-rules.test.ts` | sign-up and join closing (C-15, R39); reschedule collisions, the court kept or re-picked, a judged cut-off keeps its stamp (R66); the attendance window and corrections |
+| `coaching-scope.test.ts` | desk writes and reads on another branch are not found; another coach's cancel and remove refused |
+| `coaching-degraded.test.ts` | `DEGRADED_LOCKOUT` on every guest and coach path inside the horizon, desk paths and cancels unaffected, the other branch unaffected; R15 source pins |
+| `coaching-refunds.test.ts` | online refunds through the real cancels and the sweep (under-filled, coach cancel incl. a late leaver, a course after session 2 against `allocateCourseMoney`); a SUCCESS after a cancel is `slot_lost` |
+| `coaching-months.test.ts` | statement months at branch-local midnight (CM-16, D3) and `report_lessons`' business-day split |
 | `price-promo-lessons.test.ts` | the three kinds through propose, numbers and apply; marketing `NOT_STEP_ACTOR`; `PRICE_TARGET_CHANGED` on figures and on shape; coach price removal |
 | `coaching-deletion.test.ts` | student and coach deletion end to end with the sweep; the photo purge queue and its two RPCs |
 | `lock-order-coaching.test.ts` | §2.5 |
@@ -2448,7 +2544,7 @@ on, an accepted coach, the three kinds and a launched type.
 | D-8 | `set_coach_price` refuses a manager even on a draft type | A coach price on a draft would go live with the type's launch without the owner seeing it. |
 | D-9 | A type's `kind` never changes; a manager's change of `duration_min` or `sessions_count` on a launched type is a price change | Amended by R46: a private type's `max_places` too, and the proposal carries the shape. |
 | D-10 | ~~Only course sessions move in time~~ | **Struck** (R8, R32): every kind is rescheduled. |
-| D-11 | The cut-off is judged once (`cutoff_checked_at`) | Amended by R26 and R38: judged only before the start, on `booked` places, deferred while held places could decide it; a reschedule may clear the stamp (R32). |
+| D-11 | The cut-off is judged once (`cutoff_checked_at`) | Amended by R26 and R38: judged only before the start, on `booked` places, deferred while held places could decide it; a reschedule never clears the stamp: a judged session keeps it and may move anywhere (R66, which replaces R32's clearing). |
 | D-12 | The desk may create, book and add while coaching is off | Staging before launch; extended by R51 (`coach_slots` answers staff while off). |
 | D-13 | ~~Coaches and the desk may add to a course until the end~~ | **Superseded** by R39 and R48: course adds close at `signup_closes_at`; group sessions keep "until the end" for walk-ins. |
 | D-14 | `coach_add_student` never reveals a match | Amended by C-21 and R44: the link is pending until the person confirms; staff and coach surfaces show typed values only; the push is due a few seconds later on both paths. |
@@ -2473,7 +2569,8 @@ on, an accepted coach, the three kinds and a launched type.
 - Any manager may write any object in `menu-media` (0234:448-459), so a manager at branch A can
   replace the photo of a coach who teaches only at B (P14; accepted, as for menu items).
 - `coach_slots` counts an unswept stale hold as free (as `court_availability` does); a booking then
-  expires it, unless its payment is still open (`NO_COURT_FREE`).
+  expires it. Since 0294 (DB-29) a lapsed hold whose online payment is still open counts as taken
+  (`app.hold_is_live`), so it is no longer offered and then refused `NO_COURT_FREE`.
 - `coach_slots` shows anyone a coach's free starts for 14 days, so the gaps reveal when they teach,
   though not whom (P12; accepted).
 - `hold_slot` counts only court holds against `max_live_holds_per_guest` (0269:183-193); the lesson

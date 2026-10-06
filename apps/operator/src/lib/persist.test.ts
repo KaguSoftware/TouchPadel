@@ -40,6 +40,17 @@ describe('shouldPersistQuery', () => {
       expect(shouldPersistQuery(fakeQuery([...key])), key.join()).toBe(false);
     }
   });
+
+  it('never persists a tournament read: the detail carries players’ names and phones (tournaments §1.11)', () => {
+    for (const key of [
+      QK.tournaments.all,
+      QK.tournaments.desk('2026-10-01T00:00:00Z', '2026-12-01T00:00:00Z'),
+      QK.tournaments.one('t-1'),
+      QK.tournaments.settings('venue-1'),
+    ]) {
+      expect(shouldPersistQuery(fakeQuery([...key])), key.join()).toBe(false);
+    }
+  });
 });
 
 describe('makePersister', () => {

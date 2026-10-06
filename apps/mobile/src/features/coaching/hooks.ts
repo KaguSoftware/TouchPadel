@@ -37,7 +37,13 @@ import {
 } from './api';
 import { keepsLessonKey } from './errors';
 import { coachingKeys, type ClassKind, type LessonScope } from './keys';
-import { coachingEnabled, courseJoinIntent, joinIntent, privateIntent } from './logic';
+import {
+  coachingEnabled,
+  courseJoinIntent,
+  joinIntent,
+  privateIntent,
+  writeOnceMore,
+} from './logic';
 
 export { coachingKeys };
 
@@ -146,7 +152,10 @@ export type BookPrivateVars = Omit<BookPrivateArgs, 'idempotencyKey'>;
  * Book a private lesson (§4.9.1). The key is `lessonIntentKey` of the
  * intent, reused by every retry of it; it survives PHONE_REQUIRED,
  * TERMS_REQUIRED, PRICE_CHANGED and a dropped connection, and is cleared on
- * success (booked or held) and on any other refusal.
+ * success (booked or held) and on any other refusal. A replay that answers
+ * a cancelled or expired enrolment (the key was spent on a place since gone)
+ * runs once more with a fresh key, so it is never shown as "Booked"
+ * (writeOnceMore, MB-10); the joins below do the same.
  */
 export function useBookPrivate() {
   const invalidate = useInvalidateLessons();
@@ -161,10 +170,14 @@ export function useBookPrivate() {
   return useMutation({
     mutationKey: coachingKeys.mutation('book'),
     mutationFn: (vars: BookPrivateVars) =>
-      bookPrivate(supabase, {
-        ...vars,
-        idempotencyKey: lessonIntentKey(intentOf(vars), 'book_private'),
-      }),
+      writeOnceMore(
+        () =>
+          bookPrivate(supabase, {
+            ...vars,
+            idempotencyKey: lessonIntentKey(intentOf(vars), 'book_private'),
+          }),
+        () => clearLessonIntentKey(intentOf(vars)),
+      ),
     onSuccess: (_data, vars) => clearLessonIntentKey(intentOf(vars)),
     onError: (error, vars) => {
       if (!keepsLessonKey(error)) clearLessonIntentKey(intentOf(vars));
@@ -181,10 +194,14 @@ export function useJoinLesson() {
   return useMutation({
     mutationKey: coachingKeys.mutation('join'),
     mutationFn: (vars: JoinVars) =>
-      joinLesson(supabase, {
-        ...vars,
-        idempotencyKey: lessonIntentKey(joinIntent(vars.id, vars.mode), 'join'),
-      }),
+      writeOnceMore(
+        () =>
+          joinLesson(supabase, {
+            ...vars,
+            idempotencyKey: lessonIntentKey(joinIntent(vars.id, vars.mode), 'join'),
+          }),
+        () => clearLessonIntentKey(joinIntent(vars.id, vars.mode)),
+      ),
     onSuccess: (_data, vars) => clearLessonIntentKey(joinIntent(vars.id, vars.mode)),
     onError: (error, vars) => {
       if (!keepsLessonKey(error)) clearLessonIntentKey(joinIntent(vars.id, vars.mode));
@@ -199,10 +216,14 @@ export function useJoinCourse() {
   return useMutation({
     mutationKey: coachingKeys.mutation('course'),
     mutationFn: (vars: JoinVars) =>
-      joinCourse(supabase, {
-        ...vars,
-        idempotencyKey: lessonIntentKey(courseJoinIntent(vars.id, vars.mode), 'course_join'),
-      }),
+      writeOnceMore(
+        () =>
+          joinCourse(supabase, {
+            ...vars,
+            idempotencyKey: lessonIntentKey(courseJoinIntent(vars.id, vars.mode), 'course_join'),
+          }),
+        () => clearLessonIntentKey(courseJoinIntent(vars.id, vars.mode)),
+      ),
     onSuccess: (_data, vars) => clearLessonIntentKey(courseJoinIntent(vars.id, vars.mode)),
     onError: (error, vars) => {
       if (!keepsLessonKey(error)) clearLessonIntentKey(courseJoinIntent(vars.id, vars.mode));

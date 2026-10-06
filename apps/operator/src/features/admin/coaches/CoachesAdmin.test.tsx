@@ -307,6 +307,33 @@ describe('CoachesAdmin ▸ Coaches', () => {
     expect(calls('coach_promote')).toHaveLength(0);
   });
 
+  it('the rail branch unticked with types ticked: the types clear and no types call is made (OP-09)', async () => {
+    const user = userEvent.setup();
+    nav.search = { promote: 'p9' };
+    answers.customer_record = () => ({
+      customer: { id: 'p9', full_name: 'Ali Hasan', phone: null },
+    });
+    answers.coach_promote = () => ({ coach_id: 'c9' });
+    mount();
+    const dialog = within(await screen.findByRole('dialog', { name: 'Make a coach' }));
+    await dialog.findByText(/Ali Hasan/);
+    await user.type(dialog.getByRole('textbox', { name: 'Display name (English)' }), 'Coach Ali');
+    await user.type(dialog.getByRole('textbox', { name: 'Display name (Arabic)' }), 'علي');
+    const privateType = dialog.getByRole('checkbox', { name: /Private 60/ }) as HTMLInputElement;
+    await user.click(privateType);
+    expect(privateType.checked).toBe(true);
+    await user.click(dialog.getByRole('checkbox', { name: 'Mansour' }));
+    await user.click(dialog.getByRole('checkbox', { name: 'Karrada' }));
+    // This branch's types apply only while it is ticked: cleared and disabled.
+    expect(privateType.checked).toBe(false);
+    expect(privateType.disabled).toBe(true);
+    await user.click(dialog.getByRole('button', { name: 'Make coach' }));
+    await waitFor(() => expect(calls('coach_promote')).toHaveLength(1));
+    expect(calls('coach_promote')[0]![1]).toMatchObject({ p_venue_ids: ['v2'] });
+    await waitFor(() => expect(toast.ok).toHaveBeenCalled());
+    expect(calls('set_coach_lesson_types')).toHaveLength(0);
+  });
+
   it('ALREADY_COACH offers to open that coach', async () => {
     const user = userEvent.setup();
     nav.search = { promote: 'p1' };
@@ -517,12 +544,8 @@ describe('CoachesAdmin ▸ Coaches', () => {
     });
     nav.search = { coach: 'c1' };
     answers.set_coach_branches = () => {
-      throw new AppRpcError(
-        'BRANCH_HAS_BOOKINGS',
-        'BRANCH_HAS_BOOKINGS',
-        undefined,
-        'coach_lessons',
-      );
+      // The branch id is in the hint, the detail is coach_lessons (0290).
+      throw new AppRpcError('BRANCH_HAS_BOOKINGS', 'BRANCH_HAS_BOOKINGS', 'v2', 'coach_lessons');
     };
     mount();
     const editor = within(await screen.findByTestId('coach-editor'));

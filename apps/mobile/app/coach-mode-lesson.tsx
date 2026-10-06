@@ -47,6 +47,7 @@ import {
   judgesCutoff,
   markMode,
   pickName,
+  privateCapAt,
   reasonValue,
   snapToGrid,
   startProblem,
@@ -157,7 +158,7 @@ function LessonDetail({
   const start = new Date(l.startAt);
   const end = new Date(l.endAt);
   const errText = (err: unknown) =>
-    coachErrorText(err, t, { locale, privateCap: coach.privateCap });
+    coachErrorText(err, t, { locale, privateCap: privateCapAt(coach, l.venueId)?.cap ?? null });
 
   // ── Reasons, then the confirm (U4) ────────────────────────────────────────
   const [reasonFor, setReasonFor] = useState<ReasonFor | null>(null);

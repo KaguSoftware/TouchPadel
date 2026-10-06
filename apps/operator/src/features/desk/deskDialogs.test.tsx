@@ -482,6 +482,8 @@ function deskLesson(over: Partial<DeskLesson> = {}): DeskLesson {
     owing: 2,
     owing_iqd: 30000,
     paid_online: 0,
+    awaiting: 0,
+    paid_places: 2,
     ...over,
   };
 }
@@ -540,5 +542,12 @@ describe('ReservationActionsDialog — a lesson (§5.8)', () => {
     wrap(<ReservationActionsDialog reservation={hold} courts={courts} date={DATE} tz={TZ} rows={rows} onClose={vi.fn()} onChanged={vi.fn()} />);
     expect(screen.queryByRole('button', { name: 'Open lesson' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Cancel booking' })).toBeTruthy();
+  });
+
+  it('offline, a held lesson’s hold with no desk_lessons row is known by its literal and offers only Open lesson (OP-19)', () => {
+    const hold = booking({ id: 'h2', kind: 'hold', status: 'pending', guest_id: null, guest_name: 'Lesson', price_iqd: null });
+    wrap(<ReservationActionsDialog reservation={hold} courts={courts} date={DATE} tz={TZ} rows={rows} onClose={vi.fn()} onChanged={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Open lesson' })).toBeTruthy();
+    for (const name of BOOKING_ACTIONS) expect(screen.queryByRole('button', { name })).toBeNull();
   });
 });

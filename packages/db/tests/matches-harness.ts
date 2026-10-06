@@ -74,7 +74,7 @@ end $f$;
 -- terms, a gender. p overrides: given, family, phone, terms, gender (null
 -- unsets), sandbox, push (an Expo token, so pushes are queued).
 create function pg_temp.guest(p_name text, p jsonb default '{}') returns uuid language plpgsql as $f$
-declare v uuid := gen_random_uuid(); q jsonb := jsonb_build_object('phone', '+9647700000000', 'terms', '2026-09-23',
+declare v uuid := gen_random_uuid(); q jsonb := jsonb_build_object('phone', '+9647' || lpad((floor(random() * 1e9))::bigint::text, 9, '0'), 'terms', '2026-09-23',
                                                                    'gender', 'female') || p;
 begin
   insert into auth.users (id, email, raw_user_meta_data, aud, role)

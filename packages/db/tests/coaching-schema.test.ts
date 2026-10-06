@@ -25,7 +25,10 @@
  *   * the coach mutex (R6): app.lock_coach blocks, app.try_lock_coach never waits;
  *   * the settings: shipped off everywhere, the view's three columns and never the
  *     share, the manager reads, the owner writes, an online mode refused until
- *     the lessons terms are live (ONLINE_PAYMENT_OFF detail terms, R50, R67).
+ *     the lessons terms are live (ONLINE_PAYMENT_OFF detail terms, R50, R67);
+ *   * 0297 (DB-45, DB-46): the owner assistant reads no coach money or share
+ *     column (C-28, D1), and no client reads venue_settings.coach_share_bp or
+ *     coach_max_open_private (the table is granted column by column).
  *
  * Nothing writes a coaching row before the coaching RPCs, so every case is one
  * rolled-back psql transaction (the stores-harness scenario): rows are planted
@@ -36,6 +39,7 @@ import { stackAvailable } from './helpers';
 import {
   dockerReachable,
   KEEP,
+  MK,
   psql,
   psqlSession,
   Q,
@@ -1198,6 +1202,105 @@ describe.skipIf(!docker)('coaching schema (2a)', () => {
     expect(ok(r, 'terms')).toEqual([false, false, true, true]);
     expect(tripped(r, 'bad_terms_version')).toBe('platform_settings_lesson_terms');
     expect(tripped(r, 'bad_mode_row')).toBe('venue_settings_coaching_rules');
+  });
+
+  it('0297 (DB-45, D1): no readable column looks like a coach share, and no readable table pairs a coach with money, coach_prices.price_iqd aside', () => {
+    // The gate behind C-28: 0278's readable-columns insert is ON CONFLICT DO
+    // NOTHING, so a later catch-up insert could bring the money columns back.
+    // A coach identifier is a column like coach_id (R42's underscore-optional
+    // pattern) or the coaches table itself; money is a column ending _iqd or
+    // _bp. coach_prices.price_iqd is the catalogue price a guest is quoted,
+    // kept readable by D1.
+    const r = scenario('c297-a', [
+      Q(
+        'share',
+        `select to_jsonb(coalesce(array_agg(table_name || '.' || column_name order by table_name, column_name), '{}'))
+                    from app.assistant_readable_columns
+                   where column_name ~* 'share_bp' or column_name ~* 'coach_?(share|iqd)'`,
+      ),
+      Q(
+        'paired',
+        `select to_jsonb(coalesce(array_agg(m.table_name || '.' || m.column_name order by m.table_name, m.column_name), '{}'))
+                    from app.assistant_readable_columns m
+                   where (m.column_name ~* '_iqd$' or m.column_name ~* '_bp$')
+                     and (m.table_name = 'coaches'
+                          or exists (select 1 from app.assistant_readable_columns c
+                                      where c.table_name = m.table_name and c.column_name ~* 'coach_?id'))
+                     and (m.table_name, m.column_name) <> ('coach_prices', 'price_iqd')`,
+      ),
+      Q(
+        'kept',
+        `select jsonb_object_agg(table_name, cols) from (
+                     select table_name, jsonb_agg(column_name order by column_name) as cols
+                       from app.assistant_readable_columns
+                      where (table_name in ('lessons', 'courses') and column_name in ('coach_id', 'price_iqd',
+                               'court_share_iqd', 'coach_share_bp'))
+                         or (table_name = 'coach_prices' and column_name in ('coach_id', 'price_iqd'))
+                         or (table_name = 'venue_settings' and column_name in ('coach_share_bp', 'coaching_enabled'))
+                      group by table_name) x`,
+      ),
+    ]);
+    expect(ok(r, 'share')).toEqual([]);
+    expect(ok(r, 'paired')).toEqual([]);
+    expect(ok(r, 'kept')).toEqual({
+      coach_prices: ['coach_id', 'price_iqd'],
+      courses: ['coach_id'],
+      lessons: ['coach_id'],
+      venue_settings: ['coaching_enabled'],
+    });
+  });
+
+  it('0297 (DB-46): venue_settings is granted column by column; no client reads coach_share_bp or coach_max_open_private', () => {
+    const r = scenario('c297-b', [
+      SETUP,
+      MK('barista', 'barista'),
+      Q(
+        'privileges',
+        `select jsonb_build_object(
+                    'table', has_table_privilege('authenticated', 'public.venue_settings', 'SELECT'),
+                    'share', has_column_privilege('authenticated', 'public.venue_settings', 'coach_share_bp', 'SELECT'),
+                    'cap', has_column_privilege('authenticated', 'public.venue_settings', 'coach_max_open_private', 'SELECT'),
+                    'anon', has_any_column_privilege('anon', 'public.venue_settings', 'SELECT'))`,
+      ),
+      Q(
+        'ungranted',
+        `select to_jsonb(coalesce(array_agg(column_name::text order by ordinal_position), '{}'))
+                       from information_schema.columns
+                      where table_schema = 'public' and table_name = 'venue_settings'
+                        and not has_column_privilege('authenticated', 'public.venue_settings', column_name::text, 'SELECT')`,
+      ),
+      T(
+        'barista_share',
+        'barista',
+        `select to_jsonb(coach_share_bp) from venue_settings where venue_id = {{venue}}`,
+      ),
+      T(
+        'barista_cap',
+        'barista',
+        `select to_jsonb(coach_max_open_private) from venue_settings where venue_id = {{venue}}`,
+      ),
+      T(
+        'manager_share',
+        'manager',
+        `select to_jsonb(coach_share_bp) from venue_settings where venue_id = {{venue}}`,
+      ),
+      T('owner_star', 'owner', `select to_jsonb(count(*)) from (select * from venue_settings) x`),
+      T(
+        'barista_named',
+        'barista',
+        `select to_jsonb(timezone) from venue_settings where venue_id = {{venue}}`,
+      ),
+      T('owner_rules', 'owner', `select app.coaching_settings({{venue}})`),
+    ]);
+    expect(ok(r, 'privileges')).toEqual({ table: false, share: false, cap: false, anon: false });
+    expect(ok(r, 'ungranted')).toEqual(['coach_share_bp', 'coach_max_open_private']);
+    for (const label of ['barista_share', 'barista_cap', 'manager_share', 'owner_star'])
+      expect(refused(r, label), label).toMatch(/permission denied for table venue_settings/);
+    expect(typeof ok<string>(r, 'barista_named')).toBe('string');
+    expect(ok<Record<string, unknown>>(r, 'owner_rules')).toMatchObject({
+      coach_share_bp: 6000,
+      coach_max_open_private: 10,
+    });
   });
 });
 

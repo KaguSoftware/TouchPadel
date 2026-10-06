@@ -17,9 +17,17 @@
  *     second run in the same minute does nothing;
  *   * lesson_typed_purge (the hourly CD-8 purge): typed phone and friend names gone, the typed name
  *     the fixed marker 'Walk-in', never NULL; a 'Deleted account' marker kept.
+ *   * 0295 (lesson_payment_strikes_sweep; D4, D5): a SUCCESS while the branch trades offline is
+ *     venue_offline and ends the place with no strike and nothing left to pay (DB-35); a place
+ *     whose lesson row succeeded, or that lapsed after the branch moved lessons to the desk or
+ *     switched coaching off, strikes nobody (DB-35, DB-36); a lapsed_hold stays unsettled while its
+ *     payment is open and its late SUCCESS withdraws it (DB-37); a late SUCCESS at a branch closed
+ *     meanwhile is slot_lost (DB-38); the sweep expires a stale hold of a lesson no longer held
+ *     (DB-39), starts a refund a cancel never started (DB-40), and cancels an empty group or course
+ *     judged late at a zero cut-off (DB-41).
  *
- * Not here (two connections; coaching-races.test.ts and coaching-strikes.test.ts): a busy coach
- * skipped by try_lock_coach; a settle that skips a strike row another transaction holds.
+ * Not here (two connections; coaching-races.test.ts): a busy coach skipped by try_lock_coach; an
+ * attended correction that skips a strike row the ladder's settle holds.
  *
  * The sweep runs over the whole database, so every assertion reads the planted rows' own state,
  * never the run's global counts.
@@ -129,6 +137,94 @@ function COURSE_WITH_SESSIONS(
 }
 
 const NOW_H = `date_trunc('hour', now())`;
+
+/** Venue A takes lessons online (inside the rolled-back scenario only). */
+const ONLINE_A = X(
+  `update venue_settings set coaching_enabled = true, lesson_payment_mode = 'online_optional'
+    where venue_id = {{venue}}`,
+);
+
+/**
+ * A guest's private lesson held for an online payment, as 0283's lesson_book_private and
+ * lesson-begin leave it: the lesson and its enrolment `held`, a pending court `hold` row naming the
+ * lesson, and one attempt (`<name>_rq` its request id, `<name>_pay` its row).
+ */
+function HELD_PRIVATE(
+  name: string,
+  coach: string,
+  guest: string,
+  start: string,
+  o: {
+    venue?: string;
+    court?: string;
+    lt?: string;
+    hold?: string;
+    deadline?: string;
+    pay?: string;
+  } = {},
+) {
+  const venue = o.venue ?? 'venue';
+  const court = o.court ?? 'court1';
+  const lt = o.lt ?? 'lt';
+  const hold = o.hold ?? `now() + interval '15 minutes'`;
+  return [
+    KEEP(
+      name,
+      `select pg_temp.lesson(jsonb_build_object('venue_id', {{${venue}}}, 'coach_id', {{${coach}}},
+      'lesson_type_id', {{${lt}}}, 'status', 'held', 'hold_expires_at', ${hold},
+      'booked_by_kind', 'guest', 'created_by_profile_id', {{${guest}}}, 'created_by_staff_id', null,
+      'start_at', ${start}, 'end_at', ${start} + interval '1 hour'))`,
+    ),
+    KEEP(
+      `${name}_hold`,
+      `select pg_temp.ins('reservations', jsonb_build_object('venue_id', {{${venue}}},
+      'court_id', {{${court}}}, 'kind', 'hold', 'status', 'pending', 'hold_expires_at', ${hold},
+      'start_at', ${start}, 'end_at', ${start} + interval '1 hour', 'source', 'mobile',
+      'guest_name', 'Lesson', 'lesson_id', {{${name}}}))`,
+    ),
+    KEEP(
+      `${name}_e`,
+      `select pg_temp.genrol({{${guest}}}, jsonb_build_object('venue_id', {{${venue}}},
+      'lesson_id', {{${name}}}, 'status', 'held', 'hold_expires_at', ${hold}))`,
+    ),
+    KEEP(`${name}_rq`, `select gen_random_uuid()::text`),
+    KEEP(
+      `${name}_pay`,
+      `select pg_temp.ins('booking_payments', jsonb_build_object('purpose', 'lesson', 'provider', 'fake',
+      'sandbox', false, 'request_id', {{${name}_rq}}, 'amount_iqd', 40000, 'quoted_price_iqd', 40000,
+      'locale', 'en', 'deadline_at', ${o.deadline ?? `now() + interval '15 minutes'`},
+      'guest_id', {{${guest}}}, 'venue_id', {{${venue}}}, 'lesson_enrolment_id', {{${name}_e}},
+      'hold_id', {{${name}_hold}}) || ${o.pay ?? `'{"status":"pending"}'::jsonb`})`,
+    ),
+  ];
+}
+
+/** What the webhook does with the bank's answer (as postgres, the service role's body). */
+const BANK = (label: string, name: string, status = 'SUCCESS', amount = 40000) =>
+  E(
+    label,
+    `select app.deposit_apply({{${name}_rq}}::uuid, null, '${status}', ${amount}, 'IQD', false, 'webhook',
+            true, '{}'::jsonb)`,
+  );
+
+const PAYMENT = (label: string, name: string) =>
+  Q(
+    label,
+    `select jsonb_build_object('status', status, 'reason', refund_reason, 'amount', refund_amount_iqd)
+       from booking_payments where id = {{${name}_pay}}`,
+  );
+const STRIKES = (label: string, enrolment: string) =>
+  Q(
+    label,
+    `select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'settled', settled_at is not null,
+              'counted', counted)), '[]'::jsonb) from lesson_strikes where enrolment_id = {{${enrolment}}}`,
+  );
+const ENROL_EVENTS = (label: string, enrolment: string) =>
+  Q(
+    label,
+    `select coalesce(jsonb_agg(jsonb_build_object('type', type, 'code', code, 'data', data) order by id),
+              '[]'::jsonb) from lesson_events where enrolment_id = {{${enrolment}}}`,
+  );
 
 describe.skipIf(!docker)('coaching 0286: lesson_strike_record', () => {
   it('records only a guest-booked enrolment of a live account, once; refuses a foreign session', () => {
@@ -623,6 +719,8 @@ describe.skipIf(!docker)('coaching 0286: lesson_sweep', () => {
       PRIVATE_TYPE,
       COURT('court1'),
       X(`update platform_settings set hold_strikes_since = now() - interval '30 days' where id`),
+      // 0295 (DB-36): a lapse strikes only while the branch takes lessons online.
+      ONLINE_A,
       ...COACH('ca'),
       ...COACH('cb'),
       GUEST('g1'),
@@ -720,8 +818,438 @@ describe.skipIf(!docker)('coaching 0286: lesson_typed_purge (CD-8, R44)', () => 
     expect(rows[ids.guest]).toEqual({ name: null, phone: null, friends: [] });
     expect(rows[ids.deleted]).toEqual({ name: 'Deleted account', phone: null, friends: [] });
     expect(rows[ids.recent]).toEqual({ name: 'Typed Student', phone: '07700000001', friends: [] });
-    // Nothing of these rows is left to purge.
-    const again = ok<number>(r, 'again');
-    expect(again).toBeGreaterThanOrEqual(0);
+    // The purge is table-wide, so the second run may still find rows of other suites; what it
+    // must not do is touch these four again: the rows above are read after it ran.
+    ok<number>(r, 'again');
   });
 });
+
+// ── 0295 (lesson_payment_strikes_sweep): DB-35..DB-41, decisions D4 and D5 ────────────────────
+
+/** Venue A trades offline (inside the scenario only): offline mode on, every till stale, a day open. */
+const DEGRADE_A = [
+  X(`update venue_settings set offline_mode_enabled = true where venue_id = {{venue}}`),
+  X(`insert into stations (id, venue_id, is_till) values ('TILL-CF295', {{venue}}, true)
+       on conflict (id) do update set venue_id = excluded.venue_id, is_till = true, retired_at = null`),
+  X(`insert into device_heartbeats (device_id, venue_id, last_seen_at, queue_depth, is_till)
+       values ('TILL-CF295', {{venue}}, now() - interval '1 day', 0, true)
+       on conflict (device_id) do update set last_seen_at = excluded.last_seen_at`),
+  X(`update device_heartbeats set last_seen_at = now() - interval '1 day'
+      where venue_id = {{venue}} and (is_till or device_id like 'TILL%')`),
+  X(`insert into day_sessions (venue_id, business_date, status, opened_by, opening_float_iqd)
+     select {{venue}}, date '4999-12-31', 'open', {{manager}}, 0
+      where not exists (select 1 from day_sessions where venue_id = {{venue}} and status in ('open', 'closing'))`),
+];
+
+/** A failed first attempt, twenty minutes past its deadline. */
+const FAILED_PAY = `'{"status":"failed","failure_code":"declined"}'::jsonb
+  || jsonb_build_object('failed_at', now() - interval '20 minutes')`;
+
+describe.skipIf(!docker)(
+  'coaching 0295: the online lesson payment and its strike (DB-35, DB-36, DB-38)',
+  () => {
+    it('DB-35: a SUCCESS while the branch trades offline refunds venue_offline and ends the place, with no strike and no second payment', () => {
+      const r = scenario('cf295-a', [
+        PLANT,
+        PRIVATE_TYPE,
+        COURT('court1'),
+        ONLINE_A,
+        X(`update platform_settings set hold_strikes_since = now() - interval '30 days' where id`),
+        ...DEGRADE_A,
+        ...COACH('ca'),
+        ...COACH('cb'),
+        GUEST('g'),
+        GUEST('g2'),
+        // Inside the 48-hour protected horizon: the bank's SUCCESS cannot book it offline.
+        ...HELD_PRIVATE('lo', 'ca', 'g', `${NOW_H} + interval '5 hours'`),
+        // Further out, a payment of the wrong amount (amount_mismatch: the place stays held).
+        ...HELD_PRIVATE('lm', 'cb', 'g2', `${NOW_H} + interval '30 days'`),
+        Q('degraded', `select to_jsonb(app.is_degraded({{venue}}))`),
+        BANK('ok', 'lo'),
+        PAYMENT('pay', 'lo'),
+        ENROL('e', 'lo_e'),
+        LESSON('l', 'lo'),
+        Q('hold', `select to_jsonb(status) from reservations where id = {{lo_hold}}`),
+        STRIKES('strikes', 'lo_e'),
+        ENROL_EVENTS('events', 'lo_e'),
+        // Nothing left to pay: the place is over.
+        E('again', `select app.lesson_payment_prepare({{g}}::uuid, {{lo_e}}::uuid, 'en', 'fake')`),
+        // The sweep later finds nothing to expire, and strikes nobody.
+        E('run', `select app.lesson_sweep()`),
+        STRIKES('strikes2', 'lo_e'),
+        // The wrong amount: refunded, the place still held; once it lapses it expires with no
+        // strike, because a lesson row of it succeeded (the guest paid).
+        BANK('mismatch', 'lm', 'SUCCESS', 39000),
+        PAYMENT('pay_m', 'lm'),
+        ENROL('e_m', 'lm_e'),
+        X(
+          `update lesson_enrolments set hold_expires_at = now() - interval '1 minute' where id = {{lm_e}}`,
+        ),
+        E('expire_m', `select to_jsonb(app.lesson_hold_expire({{lm_e}}::uuid))`),
+        ENROL('e_m2', 'lm_e'),
+        STRIKES('strikes_m', 'lm_e'),
+      ]);
+      expect(ok(r, 'degraded')).toBe(true);
+      expect(ok(r, 'ok')).toMatchObject({
+        matched: true,
+        status: 'refund_pending',
+        purpose: 'lesson',
+      });
+      expect(ok(r, 'pay')).toEqual({
+        status: 'refund_pending',
+        reason: 'venue_offline',
+        amount: 40000,
+      });
+      expect(ok(r, 'e')).toMatchObject({ status: 'expired', cancel_kind: 'expired' });
+      expect(ok(r, 'l')).toMatchObject({ status: 'expired', cancel_reason: 'payment_expired' });
+      expect(ok(r, 'hold')).toBe('expired');
+      expect(ok(r, 'strikes')).toEqual([]);
+      expect(
+        ok<Array<{ type: string; code: string | null; data: Record<string, unknown> }>>(
+          r,
+          'events',
+        ),
+      ).toEqual([
+        expect.objectContaining({
+          type: 'expired',
+          code: 'payment_expired',
+          data: expect.objectContaining({ reason: 'venue_offline' }),
+        }),
+      ]);
+      const again = failed(r, 'again');
+      expect([again.code, again.detail]).toEqual(['LESSON_NOT_PAYABLE', 'expired']);
+      expect(ok<Record<string, number>>(r, 'run').errors).toBe(0);
+      expect(ok(r, 'strikes2')).toEqual([]);
+
+      expect(ok(r, 'mismatch')).toMatchObject({ status: 'refund_pending' });
+      expect(ok(r, 'pay_m')).toMatchObject({ status: 'refund_pending', reason: 'amount_mismatch' });
+      expect(ok(r, 'e_m')).toMatchObject({ status: 'held' });
+      expect(ok(r, 'expire_m')).toBe(true);
+      expect(ok(r, 'e_m2')).toMatchObject({ status: 'expired', cancel_kind: 'expired' });
+      expect(ok(r, 'strikes_m')).toEqual([]);
+    });
+
+    it('DB-36: a lapse after the branch moved lessons to the desk, or switched coaching off, strikes nobody', () => {
+      const r = scenario('cf295-b', [
+        PLANT,
+        PRIVATE_TYPE,
+        COURT('court1'),
+        ONLINE_A,
+        X(`update platform_settings set hold_strikes_since = now() - interval '30 days' where id`),
+        ...COACH('ca'),
+        ...COACH('cb'),
+        GUEST('g1'),
+        GUEST('g2'),
+        // g1's place lapsed a minute ago after one failed attempt; g2's (also one failed
+        // attempt) is still inside its window while the sweep runs.
+        ...HELD_PRIVATE('ld', 'ca', 'g1', `${NOW_H} + interval '30 hours'`, {
+          hold: `now() - interval '1 minute'`,
+          deadline: `now() - interval '20 minutes'`,
+          pay: FAILED_PAY,
+        }),
+        ...HELD_PRIVATE('lc', 'cb', 'g2', `${NOW_H} + interval '34 hours'`, {
+          deadline: `now() - interval '20 minutes'`,
+          pay: FAILED_PAY,
+        }),
+        // The owner moves lessons to desk payment: the sweep expires g1's place, no strike.
+        X(`update venue_settings set lesson_payment_mode = 'desk' where venue_id = {{venue}}`),
+        E('run', `select app.lesson_sweep()`),
+        ENROL('e1', 'ld_e'),
+        STRIKES('s1', 'ld_e'),
+        // Coaching switched off with online payment on: g2's place expires, no strike.
+        X(`update venue_settings set coaching_enabled = false, lesson_payment_mode = 'online_optional'
+          where venue_id = {{venue}}`),
+        E('expire2', `select to_jsonb(app.lesson_hold_expire({{lc_e}}::uuid))`),
+        ENROL('e2', 'lc_e'),
+        STRIKES('s2', 'lc_e'),
+      ]);
+      expect(ok<Record<string, number>>(r, 'run').errors).toBe(0);
+      expect(ok(r, 'e1')).toMatchObject({ status: 'expired', cancel_kind: 'expired' });
+      expect(ok(r, 's1')).toEqual([]);
+      expect(ok(r, 'expire2')).toBe(true);
+      expect(ok(r, 'e2')).toMatchObject({ status: 'expired', cancel_kind: 'expired' });
+      expect(ok(r, 's2')).toEqual([]);
+    });
+
+    it('DB-38: a late SUCCESS for a place at a branch closed meanwhile is slot_lost and books nothing there', () => {
+      const r = scenario('cf295-c', [
+        PLANT,
+        ...COACH('cc'),
+        GUEST('g'),
+        X(`update venues set status = 'open' where id = {{other_venue}}`),
+        X(`insert into coach_branches (coach_id, venue_id) values ({{cc}}, {{other_venue}})`),
+        KEEP('lt_b', `select pg_temp.ltype(jsonb_build_object('venue_id', {{other_venue}}))`),
+        KEEP(
+          'court_b',
+          `insert into courts (name_en, name_ar, venue_id)
+                  values ('CF295 b', 'ملعب ب', {{other_venue}}) returning id`,
+        ),
+        ...HELD_PRIVATE('lb', 'cc', 'g', `${NOW_H} + interval '30 days'`, {
+          venue: 'other_venue',
+          court: 'court_b',
+          lt: 'lt_b',
+          deadline: `now() - interval '20 minutes'`,
+        }),
+        // The window is over with the bank silent: the place expires (the sweep's step 1)...
+        X(
+          `update lesson_enrolments set hold_expires_at = now() - interval '1 minute' where id = {{lb_e}}`,
+        ),
+        E('expire', `select to_jsonb(app.lesson_hold_expire({{lb_e}}::uuid))`),
+        // ...the branch closes, and then the bank says SUCCESS.
+        X(`update venues set status = 'closed' where id = {{other_venue}}`),
+        BANK('late', 'lb'),
+        PAYMENT('pay', 'lb'),
+        LESSON('l', 'lb'),
+        ENROL('e', 'lb_e'),
+        Q(
+          'live',
+          `select to_jsonb(count(*)) from reservations
+          where venue_id = {{other_venue}} and status in ('pending', 'confirmed', 'arrived')`,
+        ),
+      ]);
+      expect(ok(r, 'expire')).toBe(true);
+      expect(ok(r, 'late')).toMatchObject({ matched: true, status: 'refund_pending' });
+      expect(ok(r, 'pay')).toEqual({
+        status: 'refund_pending',
+        reason: 'slot_lost',
+        amount: 40000,
+      });
+      expect(ok(r, 'l')).toMatchObject({ status: 'expired' });
+      expect(ok(r, 'e')).toMatchObject({ status: 'expired' });
+      expect(ok(r, 'live')).toBe(0);
+    });
+  },
+);
+
+describe.skipIf(!docker)(
+  'coaching 0295: hold_strikes_settle waits for a payment in flight (DB-37, D5)',
+  () => {
+    it('a lapsed_hold whose payment is still open stays unsettled; its late SUCCESS withdraws it and the standing never moves', () => {
+      const r = scenario('cf295-d', [
+        PLANT,
+        PRIVATE_TYPE,
+        COURT('court1'),
+        ONLINE_A,
+        X(`update platform_settings set hold_strikes_since = now() - interval '30 days' where id`),
+        ...COACH('ca'),
+        ...COACH('cb'),
+        GUEST('g'),
+        GUEST('g2'),
+        // The window and the attempt's ten-minute grace are both over; the bank has not answered.
+        ...HELD_PRIVATE('lp', 'ca', 'g', `${NOW_H} + interval '30 hours'`, {
+          hold: `now() - interval '1 minute'`,
+          deadline: `now() - interval '20 minutes'`,
+        }),
+        Q(
+          'before',
+          `select coalesce((select to_jsonb(s.strikes) from hold_standing s
+                           where s.key = app.hold_standing_key({{g}})), '0'::jsonb)`,
+        ),
+        E('run', `select app.lesson_sweep()`),
+        ENROL('e', 'lp_e'),
+        STRIKES('recorded', 'lp_e'),
+        E('settle', `select to_jsonb(app.hold_strikes_settle(array[{{g}}]::uuid[]))`),
+        STRIKES('unsettled', 'lp_e'),
+        BANK('late', 'lp'),
+        STRIKES('after', 'lp_e'),
+        E('settle2', `select to_jsonb(app.hold_strikes_settle(array[{{g}}]::uuid[]))`),
+        Q(
+          'standing',
+          `select coalesce((select to_jsonb(s.strikes) from hold_standing s
+                           where s.key = app.hold_standing_key({{g}})), '0'::jsonb)`,
+        ),
+        // Two days on, an open payment no longer holds the strike back: settled uncounted.
+        ...HELD_PRIVATE('lq', 'cb', 'g2', `${NOW_H} + interval '34 hours'`),
+        X(`update lesson_enrolments set status = 'expired', cancel_kind = 'expired', cancelled_at = now(),
+                hold_expires_at = null where id = {{lq_e}}`),
+        X(`insert into lesson_strikes (enrolment_id, lesson_id, venue_id, guest_id, kind, struck_at)
+         values ({{lq_e}}, {{lq}}, {{venue}}, {{g2}}, 'lapsed_hold', now() - interval '3 days')`),
+        E('settle3', `select to_jsonb(app.hold_strikes_settle(array[{{g2}}]::uuid[]))`),
+        STRIKES('stale', 'lq_e'),
+      ]);
+      expect(ok<Record<string, number>>(r, 'run').errors).toBe(0);
+      expect(ok(r, 'e')).toMatchObject({ status: 'expired', cancel_kind: 'expired' });
+      expect(ok(r, 'recorded')).toEqual([{ kind: 'lapsed_hold', settled: false, counted: null }]);
+      expect(ok(r, 'settle')).toBe(0);
+      expect(ok(r, 'unsettled')).toEqual([{ kind: 'lapsed_hold', settled: false, counted: null }]);
+      // The bank paid after all: revived, or refunded slot_lost; either way the strike goes (R65).
+      expect(['succeeded', 'refund_pending']).toContain(
+        (ok(r, 'late') as { status: string }).status,
+      );
+      expect(ok(r, 'after')).toEqual([]);
+      expect(ok(r, 'settle2')).toBe(0);
+      expect(ok(r, 'standing')).toEqual(ok(r, 'before'));
+      expect(ok(r, 'settle3')).toBe(0);
+      expect(ok(r, 'stale')).toEqual([{ kind: 'lapsed_hold', settled: true, counted: false }]);
+    });
+  },
+);
+
+describe.skipIf(!docker)(
+  'coaching 0295: the sweep releases stale holds, starts missed refunds, ends empty items (DB-39..DB-41)',
+  () => {
+    it('DB-39: a pending hold of a lesson no longer held (a release SKIP LOCKED missed) is expired; a held one is left', () => {
+      const r = scenario('cf295-e', [
+        PLANT,
+        PRIVATE_TYPE,
+        COURT('court1'),
+        ...COACH('ca'),
+        ...COACH('cb'),
+        GUEST('g'),
+        GUEST('g2'),
+        // Cancelled while another transaction held its hold row: the row stayed pending.
+        ...HELD_PRIVATE('lx', 'ca', 'g', `${NOW_H} + interval '30 hours'`),
+        X(`update lessons set status = 'cancelled', cancel_reason = 'guest_cancel', cancelled_at = now(),
+                hold_expires_at = null where id = {{lx}}`),
+        X(`update lesson_enrolments set status = 'cancelled', cancel_kind = 'guest_free', cancelled_at = now(),
+                hold_expires_at = null where id = {{lx_e}}`),
+        // Still held inside its window: its hold is live.
+        ...HELD_PRIVATE('lh', 'cb', 'g2', `${NOW_H} + interval '34 hours'`),
+        E('run', `select app.lesson_sweep()`),
+        Q('x_hold', `select to_jsonb(status) from reservations where id = {{lx_hold}}`),
+        Q('h_hold', `select to_jsonb(status) from reservations where id = {{lh_hold}}`),
+        E('run2', `select app.lesson_sweep()`),
+      ]);
+      const run = ok<Record<string, number>>(r, 'run');
+      expect(run.errors).toBe(0);
+      expect(run.holds_released).toBeGreaterThanOrEqual(1);
+      expect(ok(r, 'x_hold')).toBe('expired');
+      expect(ok(r, 'h_hold')).toBe('pending');
+      expect(ok<Record<string, number>>(r, 'run2').errors).toBe(0);
+    });
+
+    it('DB-40: a refund a cancel never started goes out on the next sweep, with no other payment open', () => {
+      const r = scenario('cf295-f', [
+        PLANT,
+        GROUP_TYPE,
+        ...COACH('ca'),
+        GUEST('g'),
+        GROUP('lg', 'ca', `${NOW_H} + interval '3 days'`, `${NOW_H} + interval '2 days'`),
+        KEEP(
+          'eg',
+          `select pg_temp.genrol({{g}}, jsonb_build_object('lesson_id', {{lg}}, 'price_iqd', 15000))`,
+        ),
+        KEEP('pay', `select pg_temp.paid({{eg}})`),
+        // A cancel that wrote its statuses but never reached the refund.
+        X(`update lesson_enrolments set status = 'cancelled', cancel_kind = 'staff', cancelled_at = now()
+          where id = {{eg}}`),
+        E('run', `select app.lesson_sweep()`),
+        Q(
+          'p',
+          `select jsonb_build_object('status', status, 'reason', refund_reason, 'amount', refund_amount_iqd)
+           from booking_payments where id = {{pay}}`,
+        ),
+        E('run2', `select app.lesson_sweep()`),
+        Q(
+          'refunded_events',
+          `select to_jsonb(count(*)) from lesson_events where enrolment_id = {{eg}} and type = 'refunded'`,
+        ),
+      ]);
+      const run = ok<Record<string, number>>(r, 'run');
+      expect(run.errors).toBe(0);
+      expect(run.refunds_started).toBeGreaterThanOrEqual(1);
+      expect(ok(r, 'p')).toEqual({
+        status: 'refund_pending',
+        reason: 'staff_cancel',
+        amount: 15000,
+      });
+      // Started once.
+      expect(ok<Record<string, number>>(r, 'run2').errors).toBe(0);
+      expect(ok(r, 'refunded_events')).toBe(1);
+    });
+
+    it('DB-41 (D4): an empty group or course at a zero cut-off is cancelled when judged late, its courts freed; one with a place runs', () => {
+      const r = scenario('cf295-g', [
+        PLANT,
+        COURT('court1'),
+        COURT('court2'),
+        KEEP(
+          'lt_g0',
+          `select pg_temp.ltype('{"kind":"group","name_en":"Group 0","max_places":4,
+        "min_places":1,"cutoff_hours":0,"price_iqd":15000}'::jsonb)`,
+        ),
+        KEEP(
+          'lt_c0',
+          `select pg_temp.ltype('{"kind":"course","name_en":"Course 0","max_places":8,
+        "min_places":1,"cutoff_hours":0,"price_iqd":100001,"sessions_count":4,"court_share_iqd":8000}'::jsonb)`,
+        ),
+        ...COACH('ca'),
+        ...COACH('cb'),
+        ...COACH('cc'),
+        GUEST('s1'),
+        // Empty, started five minutes ago, its cut-off at its start (cutoff_hours 0).
+        KEEP(
+          'le',
+          `select pg_temp.lesson(jsonb_build_object('kind', 'group', 'coach_id', {{ca}},
+        'lesson_type_id', {{lt_g0}}, 'price_iqd', 15000, 'max_places', 4, 'min_places', 1,
+        'start_at', now() - interval '5 minutes', 'end_at', now() + interval '55 minutes',
+        'cutoff_at', now() - interval '5 minutes'))`,
+        ),
+        KEEP('re', `select pg_temp.courtrow({{le}}, {{court1}})`),
+        // The same with one booked place: it runs.
+        KEEP(
+          'lf',
+          `select pg_temp.lesson(jsonb_build_object('kind', 'group', 'coach_id', {{cb}},
+        'lesson_type_id', {{lt_g0}}, 'price_iqd', 15000, 'max_places', 4, 'min_places', 1,
+        'start_at', now() - interval '5 minutes', 'end_at', now() + interval '55 minutes',
+        'cutoff_at', now() - interval '5 minutes'))`,
+        ),
+        KEEP(
+          'ef',
+          `select pg_temp.genrol({{s1}}, jsonb_build_object('lesson_id', {{lf}}, 'price_iqd', 15000))`,
+        ),
+        // An empty course whose session 1 began five minutes ago, its cut-off at that start.
+        KEEP(
+          'k',
+          `select pg_temp.ins('courses', jsonb_build_object('venue_id', {{venue}}, 'coach_id', {{cc}},
+        'lesson_type_id', {{lt_c0}}, 'price_iqd', 100001, 'court_share_iqd', 8000, 'coach_share_bp', 6000,
+        'sessions_count', 4, 'max_places', 8, 'min_places', 1, 'cutoff_at', now() - interval '5 minutes',
+        'signup_closes_at', now() + interval '21 days', 'created_by_kind', 'staff',
+        'created_by_staff_id', {{desk}}))`,
+        ),
+        ...[1, 2, 3, 4].map((n) =>
+          KEEP(
+            `k_s${n}`,
+            `select pg_temp.lesson(jsonb_build_object('kind', 'course', 'coach_id', {{cc}},
+          'lesson_type_id', {{lt_c0}}, 'course_id', {{k}}, 'session_no', ${n}, 'price_iqd', null,
+          'court_share_iqd', 8000, 'max_places', 8, 'min_places', 1, 'cutoff_at', now() - interval '5 minutes',
+          'start_at', now() - interval '5 minutes' + interval '${(n - 1) * 7} days',
+          'end_at', now() + interval '55 minutes' + interval '${(n - 1) * 7} days'))`,
+          ),
+        ),
+        KEEP('rk1', `select pg_temp.courtrow({{k_s1}}, {{court2}})`),
+        KEEP('rk2', `select pg_temp.courtrow({{k_s2}}, {{court2}})`),
+        E('run', `select app.lesson_sweep()`),
+        LESSON('e', 'le'),
+        LESSON('f', 'lf'),
+        COURSE('k', 'k'),
+        LESSON('k1', 'k_s1'),
+        LESSON('k4', 'k_s4'),
+        Q(
+          'rows',
+          `select jsonb_object_agg(id::text, status) from reservations
+          where id in ({{re}}, {{rk1}}, {{rk2}})`,
+        ),
+      ]);
+      expect(ok<Record<string, number>>(r, 'run').errors).toBe(0);
+      expect(ok(r, 'e')).toMatchObject({
+        status: 'cancelled',
+        cancel_reason: 'under_filled',
+        checked: true,
+      });
+      expect(ok(r, 'f')).toMatchObject({ status: 'scheduled', checked: true });
+      expect(ok(r, 'k')).toMatchObject({
+        status: 'cancelled',
+        cancel_reason: 'under_filled',
+        checked: true,
+      });
+      expect(ok(r, 'k1')).toMatchObject({ status: 'cancelled', cancel_reason: 'under_filled' });
+      expect(ok(r, 'k4')).toMatchObject({ status: 'cancelled', cancel_reason: 'under_filled' });
+      expect(Object.values(ok<Record<string, string>>(r, 'rows'))).toEqual([
+        'cancelled',
+        'cancelled',
+        'cancelled',
+      ]);
+    });
+  },
+);

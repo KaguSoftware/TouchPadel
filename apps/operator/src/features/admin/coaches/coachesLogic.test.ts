@@ -8,6 +8,7 @@ import {
   hoursCoaches,
   newPromoteDraft,
   orderAfterMove,
+  orderWrites,
   ownPriceOf,
   profileDraftOf,
   profileProblems,
@@ -19,6 +20,7 @@ import {
   retireNoteOk,
   sameSet,
   splitRetired,
+  teachingHere,
   toggleId,
   typeChange,
 } from './coachesLogic';
@@ -45,6 +47,7 @@ function coach(over: Partial<AdminCoach> = {}): AdminCoach {
     public_accepted_at: '2026-09-30T10:00:00Z',
     sort_order: 0,
     venue_ids: ['v1'],
+    active_here: true,
     lesson_type_ids: ['t1', 't2'],
     prices: [{ lesson_type_id: 't2', price_iqd: 40000 }],
     hours: [],
@@ -84,7 +87,7 @@ describe('Make a coach', () => {
       photo: PHOTO,
       venueIds: ['v1', 'v2'],
     };
-    expect(promoteArgs(d)).toEqual({
+    expect(promoteArgs(d, ['v1', 'v2'])).toEqual({
       p_profile_id: 'p9',
       p_display_name_en: 'Coach Ali',
       p_display_name_ar: 'المدرّب علي',
@@ -102,9 +105,21 @@ describe('Make a coach', () => {
       bio_en: 'Back',
       venue_ids: ['v2'],
     });
-    const d = newPromoteDraft('v1', { id: 'p1', name: 'Sara Karim', phone: null }, retired);
+    const d = newPromoteDraft('v1', { id: 'p1', name: 'Sara Karim', phone: null }, retired, [
+      'v1',
+      'v2',
+    ]);
     expect(d).toMatchObject({ nameEn: 'Coach Sara', bioEn: 'Back', photo: null });
     expect(d.venueIds.sort()).toEqual(['v1', 'v2']);
+  });
+
+  it("Make a coach again keeps only the branches the screen shows: another manager's is never sent (OP-03)", () => {
+    const retired = coach({ status: 'retired', venue_ids: ['A', 'B'] });
+    const d = newPromoteDraft('A', { id: 'p1', name: 'Sara Karim', phone: null }, retired, ['A']);
+    expect(d.venueIds).toEqual(['A']);
+    expect(promoteArgs(d, ['A']).p_venue_ids).toEqual(['A']);
+    // A draft that somehow holds B still sends only what is shown.
+    expect(promoteArgs({ ...d, venueIds: ['A', 'B'] }, ['A']).p_venue_ids).toEqual(['A']);
   });
 
   it('toggles ids like a checkbox', () => {
@@ -117,11 +132,10 @@ describe('Make a coach', () => {
 describe('the profile patch', () => {
   it('sends only the changed keys', () => {
     const c = coach();
-    const d = { ...profileDraftOf(c), nameEn: 'Coach Sara K', photo: PHOTO, sortOrder: 3 };
+    const d = { ...profileDraftOf(c), nameEn: 'Coach Sara K', photo: PHOTO };
     expect(coachPatch(c, d)).toEqual({
       display_name_en: 'Coach Sara K',
       photo_path: PHOTO,
-      sort_order: 3,
     });
     expect(coachPatch(c, profileDraftOf(c))).toEqual({});
   });
@@ -160,11 +174,19 @@ describe('branches and lesson types', () => {
     expect(ownPriceOf(c, 't1')).toBeNull();
   });
 
-  it('names the refused branch: an id in the detail, or the removed ones for coach_lessons', () => {
+  it('names the refused branch: an id in the hint, or the removed ones for coach_lessons', () => {
     expect(refusedBranchIds('6F9619FF-8B86-D011-B42D-00C04FC964FF', ['v2'])).toEqual([
       '6f9619ff-8b86-d011-b42d-00c04fc964ff',
     ]);
     expect(refusedBranchIds('coach_lessons', ['v2'])).toEqual(['v2']);
+  });
+
+  it('two branches removed and the hint naming v2: only v2 is named (OP-07)', () => {
+    const v1 = '11111111-1111-4111-8111-111111111111';
+    const v2 = '22222222-2222-4222-8222-222222222222';
+    // The editor passes error.hint before error.details (the detail is coach_lessons).
+    const err = { hint: v2, details: 'coach_lessons' };
+    expect(refusedBranchIds(err.hint || err.details, [v1, v2])).toEqual([v2]);
   });
 });
 
@@ -189,16 +211,64 @@ describe('the list', () => {
     expect(hoursCoaches(list).map((c) => c.coach_id)).toEqual(['p', 'b']);
   });
 
-  it('the order arrows move one coach past its neighbour', () => {
+  it('a coach not active at this branch is not offered in the Hours tab nor counted (OP-06)', () => {
+    const list = [
+      coach({ coach_id: 'a', display_name_en: 'A' }),
+      coach({ coach_id: 'off', display_name_en: 'B', active_here: false }),
+    ];
+    expect(hoursCoaches(list).map((c) => c.coach_id)).toEqual(['a']);
+    expect(teachingHere(list).map((c) => c.coach_id)).toEqual(['a']);
+  });
+
+  it('the order arrows swap one coach with its neighbour and renumber in tens (OP-01)', () => {
     const list = [
       coach({ coach_id: 'a', display_name_en: 'A', sort_order: 0 }),
       coach({ coach_id: 'b', display_name_en: 'B', sort_order: 5 }),
       coach({ coach_id: 'c', display_name_en: 'C', sort_order: 9 }),
     ];
-    expect(orderAfterMove(list, 'b', -1)).toBe(-1);
-    expect(orderAfterMove(list, 'b', 1)).toBe(10);
+    expect(orderAfterMove(list, 'b', -1)).toEqual([
+      { id: 'b', sort_order: 0 },
+      { id: 'a', sort_order: 10 },
+      { id: 'c', sort_order: 20 },
+    ]);
+    expect(orderAfterMove(list, 'b', 1)).toEqual([
+      { id: 'c', sort_order: 10 },
+      { id: 'b', sort_order: 20 },
+    ]);
     expect(orderAfterMove(list, 'a', -1)).toBeNull();
     expect(orderAfterMove(list, 'c', 1)).toBeNull();
+  });
+
+  it('three coaches tied at 0: up and down each move exactly one place, never below 0 (OP-01)', () => {
+    const list = [
+      coach({ coach_id: 'a', display_name_en: 'A', sort_order: 0 }),
+      coach({ coach_id: 'b', display_name_en: 'B', sort_order: 0 }),
+      coach({ coach_id: 'c', display_name_en: 'C', sort_order: 0 }),
+    ];
+    const after = (writes: { id: string; sort_order: number }[] | null) =>
+      list
+        .map((c) => ({
+          ...c,
+          sort_order: writes?.find((w) => w.id === c.coach_id)?.sort_order ?? c.sort_order,
+        }))
+        .sort(
+          (x, y) =>
+            (x.sort_order ?? 0) - (y.sort_order ?? 0) ||
+            x.display_name_en.localeCompare(y.display_name_en),
+        )
+        .map((c) => c.coach_id);
+    const up = orderAfterMove(list, 'b', -1);
+    expect(after(up)).toEqual(['b', 'a', 'c']);
+    expect(up!.every((w) => w.sort_order >= 0)).toBe(true);
+    const down = orderAfterMove(list, 'b', 1);
+    expect(after(down)).toEqual(['a', 'c', 'b']);
+    expect(down!.every((w) => w.sort_order >= 0)).toBe(true);
+    // Only the rows that changed are written: a, already at 0, is not.
+    expect(down!.map((w) => w.id)).toEqual(['c', 'b']);
+  });
+
+  it('orderWrites: null for an id not in the list', () => {
+    expect(orderWrites([{ id: 'x', sort_order: 0 }], 'z', 1)).toBeNull();
   });
 
   it('the retire confirm names the lessons to come and the course clause (C-25, R45)', () => {

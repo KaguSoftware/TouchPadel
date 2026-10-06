@@ -26,18 +26,22 @@
 import { authStorageKeyFor } from '../../lib/authStorageKey';
 import { historyClearedKey } from '../booking/historyKeys';
 import { pendingPaymentKey } from '../deposit/pendingPayment';
+import { MEMBER_CARD_STORE_KEY } from '../loyalty/logic';
 
 /**
  * The SecureStore keys a purge must sweep.
  *
- * Only one today: supabase-js's session, under the key it derives from the
- * project URL (see authStorageKey.ts for why it is derived rather than pinned).
+ * supabase-js's session, under the key it derives from the project URL (see
+ * authStorageKey.ts for why it is derived rather than pinned), and the member
+ * card's offline copy (loyalty plan §5.1: its TOTP secret, features/loyalty/
+ * cardStore.ts). Sign-out removes the card too; it is listed here so a purge
+ * that runs without a sign-out event still names it.
  * `purgeSecureKey` expands each of these to its chunk slices, which is where
  * the refresh token actually lives.
  */
 export function secureKeysToPurge(supabaseUrl: string | undefined): string[] {
   const authKey = authStorageKeyFor(supabaseUrl);
-  return authKey ? [authKey] : [];
+  return authKey ? [authKey, MEMBER_CARD_STORE_KEY] : [MEMBER_CARD_STORE_KEY];
 }
 
 /**

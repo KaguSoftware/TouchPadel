@@ -23,7 +23,7 @@ import {
   type SubmissionRow,
   type TournamentVariant,
 } from '@touch/core';
-import type { Locale } from '@touch/i18n';
+import type { Locale, MessageKey } from '@touch/i18n';
 import { draftFromRecord, emptyDraft, type Draft } from './assemble';
 import type {
   NumbersLesson,
@@ -279,6 +279,41 @@ export function numbersLesson(numbers: PriceNumbers | null | undefined): Numbers
   const raw = numbers?.lesson;
   if (!isRow(raw)) return null;
   return shapeRow(raw, shapeKeys('price_promo_numbers_lesson', 'lesson')) as unknown as NumbersLesson;
+}
+
+/**
+ * What the step page shows of a lesson change's figures (MB-20): the type,
+ * the price and (not for a coach price) the court share as they are and as
+ * they will be, a coach price the proposal removes, and the last 30 days'
+ * places. Never coach pay (C-28): the block carries none. Null when the
+ * numbers have no lesson block (every other change, an older server).
+ */
+export interface LessonNumbersView {
+  lesson: NumbersLesson;
+  price: { current: number | null; next: number | null } | null;
+  courtShare: { current: number | null; next: number | null } | null;
+  /** `coach_price` whose proposal leaves the price empty: the coach's own goes, the type's applies. */
+  coachPriceRemoved: boolean;
+  sold: { places: number; amount: number | null } | null;
+}
+
+export function lessonNumbersView(
+  numbers: PriceNumbers | null | undefined,
+  change: PriceChangeKind | null,
+  proposal: Record<string, unknown> | null | undefined,
+): LessonNumbersView | null {
+  const lesson = numbersLesson(numbers);
+  if (!lesson) return null;
+  const pair = (current: number | null, next: number | null) =>
+    current === null && next === null ? null : { current, next };
+  const coach = change === 'coach_price';
+  return {
+    lesson,
+    price: pair(lesson.current_price_iqd, lesson.new_price_iqd),
+    courtShare: coach ? null : pair(lesson.current_court_share_iqd, lesson.new_court_share_iqd),
+    coachPriceRemoved: coach && !!proposal && typeof proposal.price_iqd !== 'number',
+    sold: lesson.places_30d === null ? null : { places: lesson.places_30d, amount: lesson.owed_30d_iqd },
+  };
 }
 
 /** The fields of a propose record the start page picks itself, never typed. */
@@ -787,14 +822,21 @@ export function blocksToSend(windows: readonly PlannedWindow[]): { court_id: str
 }
 
 export interface BlockConflict {
-  reservationId: string;
+  /** The reservation in the way; null for a `match_waiting` conflict, which names none. */
+  reservationId: string | null;
   courtId: string;
   startAt: string;
   endAt: string;
   kind: string;
 }
 
-/** `app.block_courts_for_event`: what was blocked, or what is in the way. */
+/**
+ * `app.block_courts_for_event`: what was blocked, or what is in the way. A conflict
+ * names the reservation in the way, except `match_waiting` (tournaments S11): an
+ * open match waiting for a court that this block would take, answered per requested
+ * block with `reservation_id: null`. Any other conflict without a reservation is
+ * dropped, as before.
+ */
 export function readBlockAnswer(payload: unknown): { blocked: EventBlock[]; conflicts: BlockConflict[] } {
   const p = obj(payload);
   return {
@@ -803,14 +845,33 @@ export function readBlockAnswer(payload: unknown): { blocked: EventBlock[]; conf
       .filter((b): b is EventBlock => b !== null),
     conflicts: list(p.conflicts)
       .map((c) => ({
-        reservationId: str(c.reservation_id) ?? '',
+        reservationId: str(c.reservation_id),
         courtId: str(c.court_id) ?? '',
         startAt: str(c.start_at) ?? '',
         endAt: str(c.end_at) ?? '',
         kind: str(c.kind) ?? '',
       }))
-      .filter((c) => c.reservationId !== ''),
+      .filter((c) => c.reservationId !== null || c.kind === 'match_waiting'),
   };
+}
+
+/**
+ * The word a conflict's kind reads: the courts step's own for a booking, a hold or a
+ * block; the desk's (`ws.events.block.conflictKind.*`) for a lesson's court row and a
+ * waiting open match. Null for a kind this build does not know, which prints as sent.
+ */
+export function conflictKindKey(kind: string): MessageKey | null {
+  switch (kind) {
+    case 'booking':
+    case 'hold':
+    case 'maintenance':
+      return `staff.protocols.courts.conflict.${kind}`;
+    case 'lesson':
+    case 'match_waiting':
+      return `ws.events.block.conflictKind.${kind}`;
+    default:
+      return null;
+  }
 }
 
 /**

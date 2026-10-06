@@ -12,7 +12,6 @@ import {
   friendsFor,
   guestWindow,
   matchStartIntent,
-  mergeReservationLists,
   minuteWindow,
   missingTickets,
   needsFriendsDeclaration,
@@ -31,6 +30,7 @@ import {
   type MatchSeat,
   type MyMatchRow,
 } from '../logic';
+import { mergeReservationLists } from '../reservations';
 import type { BookingRow } from '../../booking/logic';
 import { myMatchRowFixture } from '../../../test/fixtures';
 

@@ -9,19 +9,25 @@
  *   Void (no PIN);
  * - approved: Mark paid (reference, then a manager PIN), Void (a manager PIN,
  *   R59); Mark paid is off below zero;
- * - void: Redraft (coach_statement_refresh, which answers the new draft);
+ * - void: Redraft (coach_statement_refresh, which answers the new draft; an
+ *   answer with `created` false drafted nothing, the month's lessons being
+ *   settled on a later statement, and says so, OP-22);
  * - paid: nothing.
+ *
+ * Dates are the branch's (`venue_settings.timezone`, the rail's branch, whose
+ * statement this is; OP-18), not Baghdad's.
  *
  * Every `can` false on a live statement is the caller's own (CM-11): it says
  * so instead of offering anything. Every statement write is online-only (CD-6)
  * and a refusal is shown in place with its §5.19 line.
  */
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { formatDate, formatPercent, isolate } from '@touch/i18n';
+import { VENUE_TZ, formatDate, formatPercent, isolate } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale } from '../../../lib/i18n';
+import { QK, fetchVenueSettings } from '../../../lib/queries';
 import { useVenue } from '../../../lib/venue';
 import { useStationReach } from '../../../lib/stationReach';
 import { useToast } from '../../../components/toast';
@@ -78,6 +84,9 @@ export function StatementDialog({
   const caps = useCoachingCaps();
   const { branchId: railBranch } = useVenue();
   const { reachable } = useStationReach();
+  // The branch's own zone for every date (OP-18).
+  const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings });
+  const tz = settingsQ.data?.timezone ?? VENUE_TZ;
   // A redraft answers a new statement: the dialog follows it.
   const [id, setId] = useState(statementId);
   const q = useStatementDetail(id);
@@ -110,7 +119,11 @@ export function StatementDialog({
       const r = readStatementRefreshed(
         await appRpc('coach_statement_refresh', { p_statement_id: id }),
       );
-      done(key, r.statement_id);
+      if (key === 'redraft' && !r.created) {
+        // Nothing drafted: this month's lessons are on a later statement (DB-25, OP-22).
+        invalidateStatement(qc, id);
+        toast.info(tr('ws.coaching.coachPay.actions.redraftSettled'));
+      } else done(key, r.statement_id);
     } catch (e) {
       setError(e);
     } finally {
@@ -227,7 +240,7 @@ export function StatementDialog({
               message={tr('ws.coaching.errors.negativeStatement', { amount })}
             />
           )}
-          <StatementHistory statement={s} />
+          <StatementHistory statement={s} tz={tz} />
 
           <ErrorText error={error} message={errorText} style={{ marginBlock: 0 }} />
 
@@ -248,7 +261,7 @@ export function StatementDialog({
               <>
                 <DataTable<StatementLine>
                   aria-label={tr('ws.coaching.coachPay.dialog.lines')}
-                  columns={lineColumns(tr, locale)}
+                  columns={lineColumns(tr, locale, tz)}
                   rows={detail.lines}
                   rowKey={(l) => l.line_id}
                   onRowClick={(l) => {
@@ -301,7 +314,7 @@ export function StatementDialog({
                       }
                     >
                       {tr('ws.coaching.coachPay.dialog.noShowRow', {
-                        date: n.start_at ? formatDate(new Date(n.start_at), locale) : '—',
+                        date: n.start_at ? formatDate(new Date(n.start_at), locale, tz) : '—',
                         name: isolate(n.student_label?.trim() || tr('ws.coaching.common.walkIn')),
                       })}
                     </Button>
@@ -399,9 +412,9 @@ function Figures({ statement: s }: { statement: StatementRow }) {
 }
 
 /** Who approved, paid or voided it, and when. */
-function StatementHistory({ statement: s }: { statement: StatementRow }) {
+function StatementHistory({ statement: s, tz }: { statement: StatementRow; tz: string }) {
   const { tr, locale } = useLocale();
-  const day = (iso: string | null) => (iso ? formatDate(new Date(iso), locale) : '—');
+  const day = (iso: string | null) => (iso ? formatDate(new Date(iso), locale, tz) : '—');
   const name = (n: string | null) => isolate(n?.trim() || '—');
   const lines: string[] = [];
   if (s.approved_at)
@@ -446,6 +459,7 @@ function StatementHistory({ statement: s }: { statement: StatementRow }) {
 function lineColumns(
   tr: ReturnType<typeof useLocale>['tr'],
   locale: ReturnType<typeof useLocale>['locale'],
+  tz: string,
 ): Column<StatementLine>[] {
   const c = (k: Parameters<typeof tr>[0]) => tr(k);
   const n = (
@@ -462,7 +476,7 @@ function lineColumns(
     {
       key: 'date',
       header: c('ws.coaching.coachPay.dialog.columns.date'),
-      render: (l) => <bdi>{l.start_at ? formatDate(new Date(l.start_at), locale) : '—'}</bdi>,
+      render: (l) => <bdi>{l.start_at ? formatDate(new Date(l.start_at), locale, tz) : '—'}</bdi>,
     },
     {
       key: 'lesson',

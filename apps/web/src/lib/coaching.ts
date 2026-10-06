@@ -12,9 +12,10 @@ import { parseCoachId } from './site/coachLink';
  *   `@touch/core/coaching`, R41): each row is copied field by field, so a key the server ever
  *   adds cannot reach the markup by accident. `coaching.test.ts` holds every row's keys equal to
  *   the shapes list.
- * - **Prices behind the switch** (C-11): `offers[].price_iqd` and `lesson_types[].price_iqd` are
- *   sent whatever `prices_public` says (presentation, not secrecy). This parser sets every price
- *   of a branch whose `prices_public` is false to null, so no component can print one.
+ * - **Prices behind the switch** (C-11): `offers[].price_iqd`, `lesson_types[].price_iqd` and
+ *   `sessions[].price_iqd` / `full_price_iqd` (0294, DB-28) are sent whatever `prices_public`
+ *   says (presentation, not secrecy). This parser sets every price of a branch whose
+ *   `prices_public` is false to null, so no component can print one.
  * - **Only public coaches**: the server sends only active coaches who accepted the public profile
  *   (C-22, R61); paused (R76), retired (R63) and not-yet-accepted coaches, and their sessions,
  *   never reach it. The parser also drops a session whose coach is not in the list.
@@ -95,6 +96,10 @@ export interface PublicSession {
   max_places: number;
   signup_closes_at: string | null;
   cutoff_at: string | null;
+  /** What a guest pays now (a running course: its sessions not yet started); null while the branch's prices are not public (C-11). */
+  price_iqd: number | null;
+  /** The session's or the whole course's price; null while the branch's prices are not public. */
+  full_price_iqd: number | null;
 }
 
 export interface PublicCoaching {
@@ -231,7 +236,10 @@ function parseCoach(
   };
 }
 
-function parseSession(row: Record<string, unknown>): PublicSession | null {
+function parseSession(
+  row: Record<string, unknown>,
+  showsPrices: (venueId: string) => boolean,
+): PublicSession | null {
   const kind = text(row.kind);
   const lessonId = id(row.lesson_id);
   const courseId = id(row.course_id);
@@ -268,6 +276,8 @@ function parseSession(row: Record<string, unknown>): PublicSession | null {
     max_places: whole(row.max_places) ?? placesLeft,
     signup_closes_at: instant(row.signup_closes_at),
     cutoff_at: instant(row.cutoff_at),
+    price_iqd: showsPrices(venueId) ? price(row.price_iqd) : null,
+    full_price_iqd: showsPrices(venueId) ? price(row.full_price_iqd) : null,
   };
 }
 
@@ -308,7 +318,7 @@ export function parseCoachingPublic(raw: unknown): PublicCoaching | null {
     .sort(bySortThen((t) => t.name_en));
 
   const sessions = rows(raw.sessions)
-    .map(parseSession)
+    .map((row) => parseSession(row, showsPrices))
     .filter((s): s is PublicSession => s !== null && coachIds.has(s.coach_id))
     .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at));
 
@@ -490,22 +500,22 @@ export function sessionWhen(
 }
 
 /**
- * The price shown on a listed session: a group session's place, or a course's whole price
- * before it starts. A course under way is priced by the app (the late-join share, C-15), so it
- * shows none. Null when hidden.
+ * The price shown on a listed session: the session row's own `price_iqd` (0294, DB-28), never
+ * its type's base price. A group session's place, a course's whole price before it starts, and
+ * for a course under way its late-join share, "for the sessions left" (C-15). Null when the
+ * branch hides its prices, or when the row carries none.
  */
-export function sessionPrice(
-  session: PublicSession,
-  type: PublicLessonType | null,
-  locale: Locale,
-): string | null {
-  if (!type) return null;
+export function sessionPrice(session: PublicSession, locale: Locale): string | null {
+  if (session.price_iqd === null) return null;
   const started =
     session.kind === 'course' &&
     session.sessions_count !== null &&
     session.sessions_left !== null &&
     session.sessions_left < session.sessions_count;
-  return started ? null : lessonPrice(session.kind, type.price_iqd, locale);
+  if (!started) return lessonPrice(session.kind, session.price_iqd, locale);
+  return makeT(locale)('coaching.web.priceLateJoin', {
+    price: formatIQD(session.price_iqd, locale),
+  });
 }
 
 /** A session's name: its own title when it has one, else its lesson type's name. */

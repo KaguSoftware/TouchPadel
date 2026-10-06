@@ -289,6 +289,8 @@ describe('per-branch reads (multi-venue slice 4)', () => {
     coaching_enabled: false as boolean | null,
     lesson_payment_mode: 'desk' as string | null,
     lesson_prices_public: false as boolean | null,
+    // Tournaments (build-contracts-2026-10-03 §1.2): the view's appended switch.
+    tournaments_enabled: false as boolean | null,
   });
 
   it('orders the open branches oldest first, whatever order the view returns', async () => {

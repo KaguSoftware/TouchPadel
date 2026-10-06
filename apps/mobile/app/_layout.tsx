@@ -42,6 +42,7 @@ import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { usePendingPaymentResume } from '../src/features/deposit/hooks';
 import { matchKeys } from '../src/features/matches/keys';
 import { coachingKeys } from '../src/features/coaching/keys';
+import { tournamentKeys } from '../src/features/tournaments/keys';
 import { coachKeys } from '../src/features/coach/keys';
 import { lessonPushHref } from '../src/features/coaching/pushRoutes';
 import {
@@ -286,12 +287,15 @@ function RootStack() {
           <Stack.Screen name="profile-edit" />
           <Stack.Screen name="change-password" />
           <Stack.Screen name="delete-account" />
-          {/* Consent gate (0153): a modal with no swipe-to-dismiss — accept,
-          sign out, or delete the account are the only ways out. */}
+          {/* Consent gate (0153): a modal with no swipe-to-dismiss — reading
+          and accepting is the only way on. */}
           <Stack.Screen
             name="accept-terms"
             options={{ presentation: 'modal', gestureEnabled: false, headerShown: false }}
           />
+          {/* The same reader from the sign-up checkbox; swiping it away leaves
+          the box unticked. */}
+          <Stack.Screen name="terms-review" options={{ presentation: 'modal', headerShown: false }} />
           {/* Formerly the (gated) group, flattened onto the root stack so that
           every push leaves real history behind it and UIKit draws its OWN back
           item — the same one, animated, on every screen. Each carries its own
@@ -336,6 +340,15 @@ function RootStack() {
           <Stack.Screen name="lesson-review" />
           <Stack.Screen name="lesson/[id]" />
           <Stack.Screen name="my-lessons" />
+          {/* Tournaments, the guest's side (tournaments plan §5.2): flat
+          root-stack pushes with the native back item. Both are public; the
+          detail sends a signed-out Register to the welcome. */}
+          <Stack.Screen name="tournaments" />
+          <Stack.Screen name="tournament/[id]" />
+          {/* Loyalty (loyalty plan §5.1): flat root-stack pushes from Profile
+          with the native back item, each with its own RequireSession. */}
+          <Stack.Screen name="loyalty" />
+          <Stack.Screen name="member-card" />
           {/* Place an order (0251): an item's size and options, as the platform's sheet over the table's menu. */}
           <Stack.Screen
             name="staff-order-item"
@@ -436,7 +449,9 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
   // once (docs/design/open-matches/guest.md §4.21). A coaching tap opens the
   // lesson (its confirm card first, for an unconfirmed link) or coach mode's
   // roster or statements, whatever the staff status, and a coaching push in
-  // the foreground refreshes every lesson read (coaching guest.md §4.11).
+  // the foreground refreshes every lesson read (coaching guest.md §4.11). A
+  // tournament tap opens the tournament, and a tournament push in the
+  // foreground refreshes every tournament read (tournaments plan §5.2).
   useEffect(
     () =>
       installNotificationHandler({
@@ -455,6 +470,9 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
           // roster, the schedule and the statements too.
           void queryClient.invalidateQueries({ queryKey: coachKeys.all });
         },
+        onOpenTournament: (id) => router.push({ pathname: '/tournament/[id]', params: { id } }),
+        onTournamentNotice: () =>
+          void queryClient.invalidateQueries({ queryKey: tournamentKeys.all }),
       }),
     [],
   );

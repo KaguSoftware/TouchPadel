@@ -14,6 +14,11 @@
  * A sale rung up but not paid (the payment pane closed, a card declined) stays
  * open and is listed under Unfinished sales, where Take payment finishes it:
  * open tabs hold the day close (0216).
+ *
+ * A member (loyalty build contracts §5) is identified before the sale exists: the Member button,
+ * or a scanner burst that is a member card (TP-…) rather than a barcode. The sale is rung up
+ * with them attached (set_tab_customer), and a step before the payment offers Use points and
+ * Rewards on it. Offline there is no server tab to attach to, so the sale goes without.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -34,6 +39,11 @@ import { computeTabTotals } from '../till/tabTotals';
 import { useTaxContext } from '../till/useTaxContext';
 import { BarcodeWedge } from '../till/barcodeWedge';
 import { isModalOpen } from '../../lib/overlay';
+import type { IdentifiedMember } from '@touch/core/loyalty';
+import { can, useAuth } from '../../lib/auth';
+import { MemberAttach, MemberChip, MemberIdentifyDialog } from '../loyalty/MemberAttach';
+import { isMemberScan, memberView } from '../loyalty/loyaltyLogic';
+import { setTabCustomer } from '../loyalty/useLoyalty';
 import {
   addToBasket,
   basketCount,
@@ -101,6 +111,13 @@ export function ShopTill() {
   const [error, setError] = useState<unknown>(null);
   const [paying, setPaying] = useState<Paying | null>(null);
   const [paid, setPaid] = useState<Paid | null>(null);
+  const { staff } = useAuth();
+  const canMember = can(staff?.role, 'attachMember');
+  /** The member the next sale is rung up for, and the field open on a scan or the button. */
+  const [member, setMember] = useState<IdentifiedMember | null>(null);
+  const [identify, setIdentify] = useState<{ code: string } | null>(null);
+  /** A sale rung up for a member, before its payment: Use points and Rewards. */
+  const [memberStep, setMemberStep] = useState<Paying | null>(null);
 
   const byId = useMemo(() => new Map(catalogue.sizes.map((s) => [s.variantId, s])), [catalogue.sizes]);
   const shown = catalogue.sizes.filter((s) => (section === 'all' || s.categoryId === section) && matchesSearch(s, query));
@@ -122,7 +139,9 @@ export function ShopTill() {
   const sizesRef = useRef(catalogue.sizes);
   sizesRef.current = catalogue.sizes;
   const lockedRef = useRef(false);
-  lockedRef.current = paying !== null || paid !== null || busy;
+  lockedRef.current = paying !== null || paid !== null || busy || memberStep !== null || identify !== null;
+  const canMemberRef = useRef(canMember);
+  canMemberRef.current = canMember;
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       // A dialog on top (the guide, a PIN prompt) owns the keyboard: a scan
@@ -131,6 +150,12 @@ export function ShopTill() {
       const action = wedge.current.feed(e.key, e.timeStamp, 'filter');
       if (action.kind !== 'scan') return;
       e.preventDefault();
+      // A member card, not a product: the member field, pre-filled and looked up.
+      if (isMemberScan(action.code)) {
+        setQuery('');
+        if (canMemberRef.current) setIdentify({ code: action.code.trim().toUpperCase() });
+        return;
+      }
       const hit = findSizeByCode(sizesRef.current, action.code);
       if (hit) {
         setNotice(null);
@@ -172,8 +197,38 @@ export function ShopTill() {
         if (detail?.total_iqd != null) due = detail.total_iqd;
       }
       setBasket([]);
+      if (member && !tabId.startsWith(LOCAL_TAB_PREFIX)) {
+        // Online only (L-6). A refusal leaves the sale as it is, without the member.
+        try {
+          await setTabCustomer(tabId, member.customer_id);
+          setMember(null);
+          setMemberStep({ tabId, label, due, method });
+          void queryClient.invalidateQueries({ queryKey: ['tabs'] });
+          return;
+        } catch (e) {
+          setError(e);
+        }
+      }
+      setMember(null);
       setPaying({ tabId, label, due, method });
       void queryClient.invalidateQueries({ queryKey: ['tabs'] });
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** After the member step: what is owed now (points may have come off), then the payment. */
+  async function payAfterMember(step: Paying) {
+    setBusy(true);
+    setError(null);
+    try {
+      const detail = await fetchTabDetail(step.tabId);
+      const paidSoFar = detail.payments.reduce((s, p) => s + p.amount_iqd, 0);
+      const due = Math.max((detail.total_iqd ?? detail.subtotal_iqd ?? 0) - paidSoFar, 0);
+      setMemberStep(null);
+      setPaying({ ...step, due });
     } catch (e) {
       setError(e);
     } finally {
@@ -337,6 +392,25 @@ export function ShopTill() {
                 {tr('ws.shop.till.lineCount', { count })} · {tr('ws.shop.till.estimateNote')}
               </p>
             )}
+            {canMember && (
+              <div style={{ marginBlockStart: 'var(--tp-sp-3)' }} data-testid="shop-till-member">
+                {member ? (
+                  <MemberChip
+                    member={memberView(member.customer_id, member, null)}
+                    note={<span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.loyalty.member.pendingShop')}</span>}
+                    actions={
+                      <Button size="sm" kind="ghost" icon="x" disabled={busy} onClick={() => setMember(null)}>
+                        {tr('ws.loyalty.member.remove')}
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <Button icon="userPlus" disabled={busy} onClick={() => setIdentify({ code: '' })} data-testid="member-button">
+                    {tr('ws.loyalty.member.button')}
+                  </Button>
+                )}
+              </div>
+            )}
             {error != null && paying === null && <ErrorText error={error} />}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-3)' }}>
               <Button kind="primary" size="lg" busy={busy} disabled={basket.length === 0} onClick={() => void charge('cash')} data-testid="shop-till-cash">
@@ -390,6 +464,51 @@ export function ShopTill() {
       )}
 
       {paid && <PaidReceipt paid={paid} onNext={() => setPaid(null)} />}
+
+      {identify && (
+        <MemberIdentifyDialog
+          initialCode={identify.code}
+          onClose={() => setIdentify(null)}
+          onIdentified={(m) => {
+            setMember(m);
+            setIdentify(null);
+          }}
+        />
+      )}
+
+      {memberStep && (
+        <Modal
+          title={tr('ws.loyalty.member.shopStepTitle')}
+          subtitle={memberStep.label}
+          dismissible={!busy}
+          onClose={() => void payAfterMember(memberStep)}
+          footer={
+            <Button kind="primary" size="lg" busy={busy} onClick={() => void payAfterMember(memberStep)} data-testid="shop-member-continue">
+              {tr('ws.loyalty.member.continue')}
+            </Button>
+          }
+        >
+          <ShopMemberStep tabId={memberStep.tabId} fallbackDue={memberStep.due} />
+          <ErrorText error={error} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/** The member block on a sale before its payment, with what is still owed read live (points move it). */
+function ShopMemberStep({ tabId, fallbackDue }: { tabId: string; fallbackDue: number }) {
+  const { tr } = useLocale();
+  const detailQ = useQuery({ queryKey: ['tab', tabId] as const, queryFn: () => fetchTabDetail(tabId) });
+  const d = detailQ.data;
+  const due = d ? Math.max((d.total_iqd ?? d.subtotal_iqd ?? 0) - d.payments.reduce((s, p) => s + p.amount_iqd, 0), 0) : fallbackDue;
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 'var(--tp-fs-lg)', fontWeight: 700 }}>
+        <span>{tr('ws.shop.till.total')}</span>
+        <Money amount={due} strong />
+      </div>
+      <MemberAttach tabId={tabId} remainingIqd={due} />
     </div>
   );
 }

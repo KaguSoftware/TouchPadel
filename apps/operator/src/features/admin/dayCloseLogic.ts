@@ -418,7 +418,8 @@ export interface DayCloseOnline {
     number | null
   >;
   matches: Record<'bookings' | 'price_iqd' | 'desk_paid_iqd' | 'written_off_iqd' | 'owed_iqd' | 'called_off' | 'no_show_seats', number | null>;
-  sandbox_excluded: Record<'deposits' | 'tickets', number | null>;
+  /** Test payments left out: deposits, ticket purchases, and lesson payments (0288, OP-17). */
+  sandbox_excluded: Record<'deposits' | 'tickets' | 'lessons', number | null>;
   /**
    * Coaching (0288; coaching operator.md §5.18.1, X27: Money's keys plus
    * `kept_*`): the day's lesson money. Null from a server before 0288, which
@@ -487,7 +488,7 @@ export function readDayCloseOnline(raw: unknown): DayCloseOnline | null {
       'liability_tickets',
     ]),
     matches: pickNums(r.matches, ['bookings', 'price_iqd', 'desk_paid_iqd', 'written_off_iqd', 'owed_iqd', 'called_off', 'no_show_seats']),
-    sandbox_excluded: pickNums(r.sandbox_excluded, ['deposits', 'tickets']),
+    sandbox_excluded: pickNums(r.sandbox_excluded, ['deposits', 'tickets', 'lessons']),
     lessons: r.lessons && typeof r.lessons === 'object' && !Array.isArray(r.lessons) ? pickNums(r.lessons, LESSON_DAY_KEYS) : null,
     refunds_dated_by_shift: typeof r.refunds_dated_by_shift === 'boolean' ? r.refunds_dated_by_shift : null,
   };
@@ -558,7 +559,14 @@ export function onlineMoneyOf(d: DayCloseOnline): OnlineGroup[] {
     },
     // Coaching (0288; coaching operator.md §5.18.1): information only, never in the cash count.
     ...(d.lessons ? [{ id: 'lessons' as const, rows: lessonRows(d.lessons) }] : []),
-    { id: 'sandbox', rows: [countOnly('deposits', d.sandbox_excluded.deposits), countOnly('tickets', d.sandbox_excluded.tickets)] },
+    {
+      id: 'sandbox',
+      rows: [
+        countOnly('deposits', d.sandbox_excluded.deposits),
+        countOnly('tickets', d.sandbox_excluded.tickets),
+        countOnly('lessons', d.sandbox_excluded.lessons),
+      ],
+    },
   ];
   return groups.filter((g) => g.rows.some((r) => Boolean(r.count) || Boolean(r.amount)));
 }

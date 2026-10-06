@@ -55,6 +55,7 @@ import { useLocale } from '../i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../features/availability/useAvailabilityBooking';
 import { useGuestVenue } from '../features/availability/hooks';
 import { useLessonEntry } from '../features/coaching/hooks';
+import { useTournamentEntry } from '../features/tournaments/hooks';
 import { mapErrorToKey } from '../features/booking/errors';
 import {
   pillSlice,
@@ -142,8 +143,12 @@ export function BookingSheet({
   // "Lessons with a coach" (coaching guest.md §4.8.1): a static label and no
   // query of its own (the branch's settings read is already cached), so the
   // rally's thread gets no new work. `useAvailabilityBooking` is not touched.
-  const lessonEntry = useLessonEntry(useGuestVenue().venueId);
-  const entries = (a.matchEntry ? 1 : 0) + (lessonEntry ? 1 : 0);
+  const guestVenueId = useGuestVenue().venueId;
+  const lessonEntry = useLessonEntry(guestVenueId);
+  // "Tournaments" (tournaments plan §5.2), beside the lessons row and built the
+  // same way: a static label, no query of its own.
+  const tournamentEntry = useTournamentEntry(guestVenueId);
+  const entries = (a.matchEntry ? 1 : 0) + (lessonEntry ? 1 : 0) + (tournamentEntry ? 1 : 0);
   // Seeded from the window rather than starting at zero. This box spans the
   // stage's full width, so `width` is already exact; `height` is an
   // over-estimate that only ever relaxes the card's cap, and onLayout corrects
@@ -414,6 +419,25 @@ export function BookingSheet({
               testID={`${testID}.lessons`}
               label={lessonEntry.label}
               onPress={lessonEntry.onPress}
+            />
+          </Animated.View>
+        ) : null}
+        {/* After the lessons row, in the same wash. */}
+        {tournamentEntry ? (
+          <Animated.View
+            style={{
+              marginTop: 6,
+              opacity: rows[SPEC.grid.sharedFromRow]!.opacity,
+              transform: [
+                { translateY: rows[SPEC.grid.sharedFromRow]!.translateY },
+                { scale: rows[SPEC.grid.sharedFromRow]!.scale },
+              ],
+            }}
+          >
+            <MatchEntryRow
+              testID={`${testID}.tournaments`}
+              label={tournamentEntry.label}
+              onPress={tournamentEntry.onPress}
             />
           </Animated.View>
         ) : null}

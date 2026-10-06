@@ -161,7 +161,8 @@ export default function ClassesScreen() {
           const title =
             pick(r.session.titleEn, r.session.titleAr, locale) ||
             (r.type ? pick(r.type.nameEn, r.type.nameAr, locale) : '');
-          const price = r.type?.priceIqd ?? null;
+          // What a guest pays now (0294, DB-28): never the type's base price (MB-05).
+          const price = r.session.priceIqd;
           return (
             <ClassRow
               testID={`classes.row.${target.id}`}

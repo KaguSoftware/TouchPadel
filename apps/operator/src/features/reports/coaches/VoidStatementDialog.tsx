@@ -6,10 +6,16 @@
  * `approved`, where cash may already have been handed over and the grant is
  * consumed; a draft is voided with the reason alone. The next drafting counts
  * the statement's lessons again.
+ *
+ * A draft approved meanwhile (another manager) refuses the PIN-less void with
+ * PIN_GRANT_REQUIRED: the statement is re-read and the PIN prompt opens with
+ * the typed reason kept, so the second call carries the PIN (OP-10). Any other
+ * refusal also re-reads the statement.
  */
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { isolate } from '@touch/i18n';
-import { appRpc } from '../../../lib/appRpc';
+import { AppRpcError, appRpc } from '../../../lib/appRpc';
 import { deviceId } from '../../../lib/idem';
 import { useLocale } from '../../../lib/i18n';
 import { useStationReach } from '../../../lib/stationReach';
@@ -17,6 +23,7 @@ import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components
 import { MessagePresenter, PinPromptOverlay } from '../../../components/kit';
 import type { StatementRow } from '../../coaching/lessonPayloads';
 import { coachingErrorText } from '../../coaching/lessonLogic';
+import { invalidateStatement } from '../../coaching/useCoaching';
 import {
   VOID_REASON_MAX,
   isPinRefusal,
@@ -38,14 +45,17 @@ export function VoidStatementDialog({
 }) {
   const { tr, locale } = useLocale();
   const { reachable } = useStationReach();
+  const qc = useQueryClient();
   const [reason, setReason] = useState('');
+  // OP-10: approved since the dialog opened, so the void now needs the PIN.
+  const [needsPin, setNeedsPin] = useState(false);
   const [touched, setTouched] = useState(false);
   const [pinOpen, setPinOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pinError, setPinError] = useState<unknown>(null);
   const [error, setError] = useState<unknown>(null);
 
-  const approved = statement.status === 'approved';
+  const approved = statement.status === 'approved' || needsPin;
   const fieldError = voidReasonErrors(reason);
   const amount = maybeNegativeMoneyText(statement.total_iqd, locale);
 
@@ -80,11 +90,17 @@ export function VoidStatementDialog({
       setPinOpen(false);
       onDone();
     } catch (e) {
-      if (pin !== null && isPinRefusal(e)) {
+      if (pin === null && e instanceof AppRpcError && e.code === 'PIN_GRANT_REQUIRED') {
+        // Approved meanwhile: re-read it and ask the PIN, the reason kept (OP-10).
+        invalidateStatement(qc, statement.statement_id);
+        setNeedsPin(true);
+        setPinOpen(true);
+      } else if (pin !== null && isPinRefusal(e)) {
         setPinError(e);
       } else {
         setPinOpen(false);
         setError(e);
+        invalidateStatement(qc, statement.statement_id);
       }
     } finally {
       setBusy(false);

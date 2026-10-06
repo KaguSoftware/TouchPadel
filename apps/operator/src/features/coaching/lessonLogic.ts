@@ -86,12 +86,25 @@ export function lessonOfRow(
   return byReservation?.get(r.id) ?? null;
 }
 
-/** True when a calendar row is a lesson's (its own kind, or a held lesson's hold). */
+/**
+ * True when a calendar row is a lesson's: its own kind, or a held lesson's
+ * hold, known by its desk_lessons row or, without one (offline, an older
+ * server), by the literal a lesson's court row carries (no guest, the name
+ * 'Lesson'; OP-19). `lesson_id` is not added to RESERVATION_COLUMNS.
+ */
 export function isLessonRow(
-  r: Pick<ReservationRow, 'id' | 'kind'>,
+  r: Pick<ReservationRow, 'id' | 'kind'> & {
+    guest_id?: string | null;
+    guest_name?: string | null;
+  },
   byReservation?: ReadonlyMap<string, DeskLesson> | null,
 ): boolean {
-  return r.kind === 'lesson' || (r.kind === 'hold' && !!byReservation?.has(r.id));
+  if (r.kind === 'lesson') return true;
+  if (r.kind !== 'hold') return false;
+  return (
+    !!byReservation?.has(r.id) ||
+    isLessonLiteral({ kind: r.kind, guest_id: r.guest_id, guest_name: r.guest_name ?? null })
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -230,8 +243,13 @@ export function nowOf(
 }
 
 export interface LessonPayState {
-  /** What the pay cell says. */
-  pay: 'owing' | 'allPaid' | 'online' | 'none';
+  /**
+   * What the pay cell says (OP-13, in this order): `awaiting` (held, or held
+   * places waiting on Qi), `owing`, `online` (every place paid online and
+   * not refunded), `allPaid` (every place paid, desk or online), else `none`
+   * (an unpaid no-show, a refunded online place).
+   */
+  pay: 'awaiting' | 'owing' | 'allPaid' | 'online' | 'none';
   /** Booked desk sign-ups with something left to take. */
   owing: number;
   owingIqd: number | null;
@@ -244,23 +262,35 @@ export interface LessonPayState {
 export function lessonPayState(
   lesson: Pick<
     DeskLesson,
-    'kind' | 'start_at' | 'owing' | 'owing_iqd' | 'paid_online' | 'enrolments' | 'booked_by_kind'
+    | 'kind'
+    | 'status'
+    | 'start_at'
+    | 'owing'
+    | 'owing_iqd'
+    | 'paid_online'
+    | 'enrolments'
+    | 'booked_by_kind'
+    | 'awaiting'
+    | 'paid_places'
   >,
   nowMs: number,
 ): LessonPayState {
   const owing = lesson.owing ?? 0;
   const started = (ms(lesson.start_at) ?? Infinity) <= nowMs;
   const coachUnpaid = lesson.kind === 'private' && lesson.booked_by_kind === 'coach' && owing > 0;
-  if (owing > 0)
-    return { pay: 'owing', owing, owingIqd: lesson.owing_iqd, warn: started, coachUnpaid };
+  const base = { owingIqd: lesson.owing_iqd, coachUnpaid };
+  // OP-13 (DB-32): held places wait on Qi; nothing is paid yet.
+  if (lesson.status === 'held' || (lesson.awaiting ?? 0) > 0)
+    return { ...base, pay: 'awaiting', owing, warn: false };
+  if (owing > 0) return { ...base, pay: 'owing', owing, warn: started };
   const online = lesson.paid_online ?? 0;
   const enrolments = lesson.enrolments ?? 0;
-  if (online > 0 && enrolments > 0 && online >= enrolments) {
-    return { pay: 'online', owing: 0, owingIqd: lesson.owing_iqd, warn: false, coachUnpaid };
-  }
-  if (enrolments > 0)
-    return { pay: 'allPaid', owing: 0, owingIqd: lesson.owing_iqd, warn: false, coachUnpaid };
-  return { pay: 'none', owing: 0, owingIqd: lesson.owing_iqd, warn: false, coachUnpaid };
+  if (online > 0 && enrolments > 0 && online >= enrolments)
+    return { ...base, pay: 'online', owing: 0, warn: false };
+  // Every booked place paid (desk or online, net of refunds); an unpaid no-show is not.
+  if (enrolments > 0 && lesson.paid_places !== null && lesson.paid_places >= enrolments)
+    return { ...base, pay: 'allPaid', owing: 0, warn: false };
+  return { ...base, pay: 'none', owing: 0, warn: false };
 }
 
 export interface CutoffState {
@@ -455,9 +485,18 @@ export function lessonBannerText(
   }
 }
 
-/** Desk money waiting to go back across the roster (the banner's added line, §5.10.2). */
+/**
+ * Desk money waiting to go back across the roster (the banner's added line,
+ * §5.10.2): `refund_due_desk_iqd`, the part of `refund_due` owed at the till
+ * (0294, DB-31). Online money blocked on Qi is not desk money (OP-14).
+ */
 export function deskRefundDue(enrolments: readonly Enrolment[]): number {
-  return enrolments.reduce((sum, e) => sum + Math.max(0, e.money.refund_due_iqd ?? 0), 0);
+  return enrolments.reduce((sum, e) => sum + Math.max(0, e.money.refund_due_desk_iqd ?? 0), 0);
+}
+
+/** Online money whose refund is blocked on Qi across the roster (its own banner line, OP-14). */
+export function blockedRefundDue(enrolments: readonly Enrolment[]): number {
+  return enrolments.reduce((sum, e) => sum + Math.max(0, e.money.refund_blocked_iqd ?? 0), 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -908,6 +947,8 @@ export function coachingErrorKey(error: unknown, ctx: CoachingErrorContext = {})
       break;
     case 'FORBIDDEN':
       if (d === 'own_statement') return out('ws.coaching.errors.ownStatement');
+      // 0293 (DB-22, CM-11): the PIN was the statement coach's own.
+      if (d === 'own_statement_pin') return out('ws.coaching.errors.ownStatementPin');
       break;
     case 'STATEMENT_NOT_DRAFT':
       if (d === 'live_draft') return out('ws.coaching.errors.liveDraft');

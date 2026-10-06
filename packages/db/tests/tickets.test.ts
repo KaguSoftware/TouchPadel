@@ -873,7 +873,7 @@ describe.skipIf(!docker)('0259 the cash-out rule (R13) and the wallet with match
       // false (a version compared as (date, revision), .10 above .9).
       X(`update venue_settings set matches_enabled = true where venue_id = {{venue}}`),
       X(`update platform_settings set match_terms_version = '2026-10-01.9' where id`),
-      X(`update profiles set phone = '+9647700000000' where id = {{g2}}`),
+      X(`update profiles set phone = '+9647' || lpad((floor(random() * 1e9))::bigint::text, 9, '0') where id = {{g2}}`),
       Q('terms', `select jsonb_agg(jsonb_build_object(
                     'v', v, 'ok', app.match_terms_ok(v),
                     'prepare', (select case when x is null then 'refused' else 'ok' end

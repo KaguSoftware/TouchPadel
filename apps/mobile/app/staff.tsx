@@ -33,6 +33,7 @@ import {
   ChevronIcon,
   EyeIcon,
   SlidersIcon,
+  TitleSquiggle,
   type IconProps,
 } from '../src/components/icons';
 import {
@@ -429,7 +430,7 @@ function GroupModal({
         >
           <ScrollView
             contentContainerStyle={{
-              paddingTop: space.s,
+              paddingTop: space.m,
               paddingStart: space.l,
               paddingEnd: space.l,
               paddingBottom: space.xl + insets.bottom,
@@ -486,7 +487,11 @@ function TodayScreen() {
 
   const venueName = (id: string | null) => {
     const venue = venues.find((v) => v.id === id);
-    return venue ? (locale === 'ar' ? venue.name_ar : venue.name_en) : null;
+    if (!venue) return null;
+    if (locale !== 'ar') return venue.name_en;
+    // The venue row can carry the Latin brand in name_ar; the house spelling
+    // in Arabic is تتش بادل.
+    return venue.name_ar.replace(/touch\s*padel/i, 'تتش بادل');
   };
   const role = t(`op.roles.${staff.role}`);
   const here = venueName(venueId);
@@ -543,6 +548,10 @@ function TodayScreen() {
           <Text style={{ fontFamily: fonts.body600, fontSize: 13, color: colors.mut }}>
             {here ? t('staff.shell.today.roleAtVenue', { role, venue: here }) : role}
           </Text>
+          {/* The green stroke under the whole header, as under a tab's title. */}
+          <View style={{ alignItems: 'flex-start' }}>
+            <TitleSquiggle />
+          </View>
         </View>
 
         {showsVenuePicker(status.venues) ? (

@@ -5,14 +5,14 @@
  * `MergedCell`) and nothing of the court grid's own state.
  *
  * The strip is today and 13 more nights (inside `coach_slots`' 14-day cap; the
- * overnight tail adds yesterday first, as on the Book tab), and one query
+ * overnight tail adds yesterday first, as on the Book tab; a last night whose
+ * post-midnight starts would fall outside the window is dropped, MB-16), and one query
  * covers it: from the start of the strip's first night, venue-local, to
  * exactly 14 days on, so the key is stable for a day. The server already
  * crossed the coach's hours with the courts, so every start it sends is a free
  * cell; a night with none is a `closed` chip.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { wallTimeToUtc } from '@touch/core';
 import {
   listBookableDates,
   type MergedCell,
@@ -24,11 +24,13 @@ import {
   SLOT_WINDOW_DAYS,
   lessonCells,
   lessonWindow,
+  nightsInWindow,
   slotsByNight,
   type ProfileOffer,
 } from './logic';
 
-export type LessonGridStatus = 'none' | 'loading' | 'error' | 'paused' | 'empty' | 'ready';
+/** `off`: `coach_slots` answered `{off: true}` (coaching switched off at the branch, MB-12). */
+export type LessonGridStatus = 'none' | 'loading' | 'error' | 'off' | 'paused' | 'empty' | 'ready';
 
 export interface LessonBooking {
   /** The coach's private offers at this branch, in the server's order. */
@@ -89,11 +91,13 @@ export function useLessonBooking({
     [now, tz, settings],
   );
   const window = useMemo(() => lessonWindow(now, tz, strip[0] ?? null), [now, tz, strip]);
-  // The overnight tail's extra first night pushes the last one past the window.
-  const dates = useMemo(() => {
-    const end = Date.parse(window.to);
-    return strip.filter((d) => wallTimeToUtc(d, 0, tz).getTime() < end);
-  }, [strip, window.to, tz]);
+  // Only nights that fit the window whole: the overnight tail's extra first
+  // night pushes the last one past it, and a last night whose post-midnight
+  // starts fall outside the window is dropped, never shown cut short (MB-16).
+  const dates = useMemo(
+    () => nightsInWindow(strip, window.to, tz, settings?.opening_hours),
+    [strip, window.to, tz, settings?.opening_hours],
+  );
 
   const slots = useCoachSlots(
     coachId && typeId ? { coachId, lessonTypeId: typeId, from: window.from, to: window.to } : null,
@@ -125,6 +129,8 @@ export function useLessonBooking({
   const status: LessonGridStatus = (() => {
     if (!typeId) return 'none';
     if (!slots.data) return slots.isError ? 'error' : 'loading';
+    // Before bookable: an off answer carries no bookable, and is not a pause (MB-12).
+    if (slots.data.off) return 'off';
     if (!slots.data.bookable) return 'paused';
     return slots.data.starts.length === 0 ? 'empty' : 'ready';
   })();

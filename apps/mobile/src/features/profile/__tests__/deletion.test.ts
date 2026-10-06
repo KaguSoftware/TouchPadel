@@ -339,11 +339,12 @@ describe('what the purge sweeps', () => {
     expect(authStorageKeyFor(undefined)).toBeNull();
     expect(authStorageKeyFor('')).toBeNull();
     expect(authStorageKeyFor('not a url')).toBeNull();
-    expect(secureKeysToPurge(undefined)).toEqual([]);
+    // The member card's key names no project, so it is swept whatever the URL.
+    expect(secureKeysToPurge(undefined)).toEqual(['tp.memberCard']);
   });
 
-  it('sweeps the session key', () => {
-    expect(secureKeysToPurge(SUPABASE_URL)).toEqual(['sb-abcdefghijklmnop-auth-token']);
+  it('sweeps the session key and the member card (its TOTP secret, loyalty plan §5.1)', () => {
+    expect(secureKeysToPurge(SUPABASE_URL)).toEqual(['sb-abcdefghijklmnop-auth-token', 'tp.memberCard']);
   });
 
   it('sweeps the user-scoped AsyncStorage keys, whose NAMES contain the uuid', () => {
@@ -390,14 +391,16 @@ describe('the deletion screen is actually reachable', () => {
   // SEC-16's failure mode for eight days was not a broken screen — it was a
   // correct RPC that nothing called. These read the tree so "shipped" cannot
   // again mean "written".
-  it('routes the profile menu at the delete screen', async () => {
+  it('routes Profile → Edit profile → the delete screen', async () => {
     const { readFileSync } = await import('node:fs');
     const { join } = await import('node:path');
-    const profile = readFileSync(
-      join(__dirname, '..', '..', '..', '..', 'app', '(tabs)', 'profile.tsx'),
-      'utf8',
-    );
-    expect(profile).toContain("router.push('/delete-account')");
+    const app = join(__dirname, '..', '..', '..', '..', 'app');
+    // The row moved to the foot of Edit profile (2026-10-04); the Profile tab's
+    // identity card is the way in. Both links of the chain must hold.
+    const profile = readFileSync(join(app, '(tabs)', 'profile.tsx'), 'utf8');
+    expect(profile).toContain("router.push('/profile-edit')");
+    const edit = readFileSync(join(app, 'profile-edit.tsx'), 'utf8');
+    expect(edit).toContain("router.push('/delete-account')");
   });
 
   it('has the screen call deleteAccount, not merely import it', async () => {

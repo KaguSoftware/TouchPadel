@@ -393,13 +393,38 @@ describe('LessonDetailScreen: the banner (§5.10.2)', () => {
     raw = rawDetail({ status: 'cancelled', cancel_reason: 'staff_cancel' }, [
       rawEnrolment({
         status: 'cancelled',
-        money: { ...MONEY, desk_paid_iqd: 15000, take_iqd: 0, refund_due_iqd: 15000 },
+        money: {
+          ...MONEY,
+          desk_paid_iqd: 15000,
+          take_iqd: 0,
+          refund_due_iqd: 15000,
+          refund_due_desk_iqd: 15000,
+        },
       }),
     ]);
     mount();
     expect(
       await screen.findByText('Money paid at the desk is waiting for a refund: 15,000 IQD.'),
     ).toBeTruthy();
+  });
+
+  it('online money blocked on Qi is its own line, never "paid at the desk" (OP-14, DB-31)', async () => {
+    raw = rawDetail({ status: 'cancelled', cancel_reason: 'staff_cancel' }, [
+      rawEnrolment({
+        status: 'cancelled',
+        money: {
+          ...MONEY,
+          online_paid_iqd: 10000,
+          take_iqd: 0,
+          refund_due_iqd: 10000,
+          refund_due_desk_iqd: 0,
+          refund_blocked_iqd: 10000,
+        },
+      }),
+    ]);
+    mount();
+    expect(await screen.findByText('Online refund needs attention: 10,000 IQD.')).toBeTruthy();
+    expect(screen.queryByText(/Money paid at the desk is waiting/)).toBeNull();
   });
 });
 

@@ -83,7 +83,7 @@ an internal figure of the statement (C-6), not a payment.
 | CM-8 | **One live draft per coach and branch.** A draft is built only for a complete month and only when no older draft of that coach and branch is live; approving a draft builds the next complete month's. Adjustments are computed against approved and paid lines, looking back 12 months; every line carries its lesson (R24). The monthly run commits after each (coach, branch) pair (R59). | Two live drafts would each carry the same adjustment. |
 | CM-9 | Approval freezes the draft as drafted or last refreshed. Money that moves later is an adjustment line on the next draft. | Deterministic; the manager approves what they saw. |
 | CM-10 | Void from `draft` or `approved` only (never `paid`); a void from `approved` spends a manager PIN grant (R59: cash may already have been handed over). A voided statement's lessons roll into the next draft as adjustments; refreshing a void statement redrafts that month. A negative statement cannot be marked paid (R59); voiding it carries it forward. | Undo without losing a lesson; paid money handed over must never be forgotten. |
-| CM-11 | Nobody approves, voids or marks paid a statement of their **own** coach profile (`FORBIDDEN` detail `own_statement`). Writes and the detail act on the rail's branch only (R21). | A manager who also coaches. |
+| CM-11 | Nobody approves, voids or marks paid a statement of their **own** coach profile (`FORBIDDEN` detail `own_statement`). Writes and the detail act on the rail's branch only (R21). **Amended 2026-10-02:** also the PIN authoriser (build-contracts §1.15 D6). | A manager who also coaches. |
 | CM-12 | A coach (a retired one too, C-25) sees approved and paid statements only (drafts can still change), plus a month-to-date estimate flagged as such (X12). | Avoids showing figures that move. |
 | CM-13 | `lessonRevenue` is **cash basis, net**: desk payments by `payments.created_at`, desk refunds by `refunds.created_at`, online by `succeeded_at` and `refunded_at`. `owedToCoaches` is **accrual**: the coach share of statement lessons starting in the range. | The same dating as `cash`/`card` and `onlineDeposits` (0265:322-348); statements are per lesson. |
 | CM-14 | Lesson minutes are **occupied court time** in `report_courts` and `analytics_courts_summary` (occupancy counts them); court revenue stays bookings only. | A lesson holds a court; `analytics_open_minutes` already counts it as open time (0214:165-180 subtracts maintenance only). |
@@ -330,11 +330,17 @@ A covered session **counts** for `e` (the venue may keep its share) when:
 | `held`, `expired` | — | never |
 | `booked` | — | `L.status <> 'cancelled'` |
 | `cancelled` | `guest_late`, private or group | `L.status <> 'cancelled'`, or `L.cancel_reason = 'guest_cancel'` (the guest's own cancel ended it: a private lesson, or a group whose last guest left) |
-| `cancelled` | `guest_late`, course (C-23, R62) | `L.status <> 'cancelled'` and (`L.start_at < e.cancelled_at + W` or `L = N_e`): the sessions already begun or starting inside the window are kept, every later one is refunded |
+| `cancelled` | `guest_late`, course (C-23, R62) | `L.status <> 'cancelled'` and (`L.start_at < e.kept_until` or `L = N_e`): the sessions already begun or starting inside the window are kept, every later one is refunded |
 | `cancelled` | `course_cancelled` | `L.status <> 'cancelled'` (the sessions held before the rest was cancelled) |
 | `cancelled` | `guest_free`, `coach`, `staff`, `under_filled`, `account_deleted`, `expired` | `L.status <> 'cancelled' and L.start_at < e.cancelled_at` (a session that had begun before this enrolment was cancelled; none for a cancel before the start) |
 
-`W` = `make_interval(hours => venue_settings.cancellation_window_hours)` of the enrolment's branch;
+`W` = `make_interval(hours => venue_settings.cancellation_window_hours)` of the enrolment's branch.
+**Amended 2026-10-02 (0292, DB-18, R75):** `e.kept_until` = `e.cancelled_at + W` with `W` as it was at
+the cancel: `enrolment_cancel_internal` stamps it on every `guest_late` cancel (from `coaching_rules`, in
+the same transaction), and 0292 backfilled the earlier ones from the window as it was then. A later
+change of the window no longer moves what a leave keeps; the `if_cancelled` previews (a cancel now)
+still use the live `W`, and a row with no stamp falls back to `e.cancelled_at + W` live.
+
 `N_e` = the guest's own next covered session at the cancel (the first `L` in `S_e` by `start_at`
 with `L.start_at >= e.cancelled_at` that was not cancelled then: `L.cancelled_at is null or
 L.cancelled_at > e.cancelled_at`; a later venue cancel of `N_e` takes it out of the count through
@@ -448,6 +454,12 @@ app.lesson_money_open(p_venue_id uuid) returns boolean                          
                       or exists (select 1 from booking_payments bp where bp.lesson_enrolment_id = e.id
                                    and bp.status in ('refund_pending','refund_failed','refunded')))
                  and ((m->>'refund_due_desk_iqd')::bigint > 0 or (m->>'refund_blocked_iqd')::bigint > 0))
+  -- Amended 2026-10-02 (0292; R37 amended, build-contracts §1.15 D6): also true while a lesson
+  -- booking_payments row of the branch is refund_pending (DB-19), or while a (coach, branch) pair
+  -- (coach_branches, plus coaches with a lesson there in 13 months) has an is_adjustment line in
+  -- coach_statement_plan(coach, branch, the branch-local month now): money that moved on a lesson of
+  -- a month already paid, not yet drafted (DB-19). The third test runs the engine only on the places
+  -- app.lesson_enrolment_may_owe lets through (DB-15, §5.11).
     -- m = app.lesson_enrolment_money(e.id); the two cheap tests first, so the engine runs only on
     -- enrolments that took desk money or had an online refund
 ```
@@ -649,7 +661,12 @@ coalesce(p_venue_id, app.current_venue())`; `VENUE_MISMATCH` unless `is_staff_at
 'owner')`. Money the venue owes back at the till: enrolments of the branch with
 `refund_due_desk_iqd > 0` or `refund_blocked_iqd > 0` (the engine runs only on enrolments with a
 settled lesson tab or an online row in `refund_pending|refund_failed|refunded`), oldest lesson
-first. Shape X21: Money's envelope plus `phone` (and the operator's `type_name_*`, `cancelled_at`):
+first. **Amended 2026-10-02 (0292, DB-15):** the engine runs only on the enrolments
+`app.lesson_enrolment_may_owe` lets through: that paid-money condition AND (the place is no longer
+`booked`, or a covered session is cancelled or expired, or desk plus applied online money is above
+`price_iqd`). It is exact: a booked place with every session on is due its whole price (§5.2), so
+nothing goes back unless it was overpaid. `lesson_money_open` (test 3) and the day close's
+`refunds_due_desk_*` use the same gate. Shape X21: Money's envelope plus `phone` (and the operator's `type_name_*`, `cancelled_at`):
 
 ```json
 { "venue_id": "uuid", "total_iqd": 40000,
@@ -800,6 +817,10 @@ Refusals and steps, in order:
     0257:157, against `lesson_terms_version`; NULL refuses here, unlike `match_terms_ok`). The same
     test `lesson_guest(true)` makes on DB's online booking paths; online lesson money is never taken
     before the lessons terms are live and accepted.
+8b. **Added 2026-10-02 (0295, DB-35):** `LESSON_NOT_PAYABLE` detail `started` when the first
+    covered session has started (`start_at <= now()`) or the place covers none: a SUCCESS could only
+    be `slot_lost`, so no attempt is opened. Clients read the detail as the generic "can't be paid"
+    line.
 9. `app.assert_not_degraded_for(<first covered session's start_at>, e.venue_id)` →
    `DEGRADED_LOCKOUT`.
 10. `TOO_MANY_ATTEMPTS`: three or more lesson rows already on the enrolment (the per-hold rule,
@@ -814,6 +835,9 @@ Refusals and steps, in order:
 12. The window owns the hold: `hold_expires_at := greatest(hold_expires_at, deadline_at)` on the
     enrolment, a private lesson and its hold row (0242:411-414). `reservations.hold_expires_at` is
     not a column `reservations_match` fires on (0263:169), and the row stays `pending`.
+    **Amended 2026-10-02 (0295, DB-35):** never past the first covered session's start:
+    `greatest(hold_expires_at, least(deadline_at, <start>))`. The attempt's own `deadline_at` is
+    unchanged.
 13. Event `begin` (`deposit_event`); audit `lesson.payment_begin` `{payment_id, enrolment_id,
     amount_iqd, sandbox}`.
 
@@ -930,6 +954,18 @@ reconciler loops (the `ticket_settle_success` rule).
    Steps 3 and 4 write inside one sub-block where `check_violation`, `unique_violation`,
    `exclusion_violation` → `slot_lost` and `DEGRADED_LOCKOUT` → `venue_offline` (R29).
 5. **Any other enrolment state** (cancelled while the bank was thinking) → `slot_lost`.
+5a. **Added 2026-10-02 (0295, DB-38):** before steps 3 and 4, a place whose branch is `closed`
+    (`venues.status`; a paused branch is not caught) → `slot_lost`, so a late SUCCESS never revives
+    a lesson at a closed branch.
+5b. **Added 2026-10-02 (0295, DB-35; build-contracts §1.15 D5):** a place that was `held` and is
+    refunded `slot_lost` or `venue_offline` ends now: the enrolment `expired` (`cancel_kind
+    'expired'`), a held private lesson `expired` (`payment_expired`) with its hold row expired
+    through `app.lesson_court_release(lesson, 'expired')` (skip locked; the row is the one
+    `deposit_apply` holds), and one `expired` event, code `payment_expired`, data `{lesson_id,
+    reason}` (the push trigger tells a refund from a lapse by `reason`). No strike. Before 0295 the
+    place stayed `held`: payable again, and expired later by the sweep with a `lapsed_hold` strike on
+    a guest who had paid. `amount_mismatch` never reaches this function (§6.3): that place stays
+    `held` and expires on its own, with no strike (§6.5).
 6. `status 'succeeded'`, `succeeded_at = coalesce(succeeded_at, now())`, `failure_code = null`.
 7. A reason → `deposit_begin_refund(v.id, reason)` (whole row), `deposit_nudge()`, return
    `refund_pending`. Else: one `lesson_events` row `paid_online` through DB's `app.lesson_event`
@@ -938,7 +974,11 @@ reconciler loops (the `ticket_settle_success` rule).
    revival); audit `lesson.paid_online`. Return `succeeded`. **No `lesson_notify` and no
    `lesson_sync_reminders` call** (R40, R18): the `paid_online` event makes the trigger queue
    `coach.new_student` (the coach learns of a student once paid; no guest push, the payment screen
-   is open, X15), and the reminder triggers follow the status writes.
+   is open, X15), and the reminder triggers follow the status writes. **Amended 2026-10-02 (0296,
+   DB-43):** X15 holds for a payment that lands while the screen is open. A revival (step 4,
+   `revived: true`) also sends `lesson.booked` to the guest: by then the screen is long closed and
+   the guest's last push was `lesson.payment_expired`. The `expired` event of step 5b (data
+   `reason`) sends the guest no `lesson.payment_expired`: they paid, and the money goes back whole.
 
 ### 6.5 `app.lesson_hold_expire(p_enrolment_id uuid) returns boolean`
 
@@ -959,7 +999,14 @@ Otherwise:
 - a guest-booked enrolment (`booked_by_kind = 'guest'`, `guest_id` set; CD-2): DB's
   `app.lesson_strike_record(e.id, <the lesson, or a course's first covered session>,
   'lapsed_hold')` (R30; its existence check is `skip locked`, R31; `hold_strikes_settle` applies it
-  later under the principal lock, never here);
+  later under the principal lock, never here). **Amended 2026-10-02 (0295, DB-35, DB-36;
+  build-contracts §1.15 D5):** no strike when a lesson row of the enrolment ever succeeded
+  (`succeeded_at` set: the guest paid, whatever happened to the money after: `slot_lost`,
+  `venue_offline`, `amount_mismatch`), or when the branch now has `coaching_enabled` false or
+  `lesson_payment_mode 'desk'` (the switch made paying impossible: §6.2 refuses both). A
+  `lapsed_hold` whose enrolment still has a payment `created|pending` is left unsettled by
+  `hold_strikes_settle` (DB-37), so the late SUCCESS of that payment can still withdraw it (§6.4,
+  R65); one older than two days is settled uncounted as before;
 - one `lesson_events` row `expired` (`enrolment_id`, `lesson_id` as in §6.4 step 7, `course_id`,
   actor `system`, code `payment_expired`). **No `lesson_notify` call** (R40): the trigger queues
   `lesson.payment_expired` to the guest.
@@ -990,6 +1037,12 @@ whose refund was lost must still be caught. The cheap tests run first (a cancell
 enrolment, or a cancelled covered lesson or course), so the engine runs only on those; the
 refund-due predicate keeps a late cancel's kept row (`succeeded` forever, nothing due) out of the
 limit, so it never starves it. The cost grows with the kept rows of cancelled enrolments (§15).
+
+**Amended 2026-10-02 (0295, DB-40):** the loop is the internal `app.lesson_refund_net()` (verbatim,
+20 a run, `for update of bp skip locked`, returns the refunds started). `deposits_due_for_reconcile`
+calls it in place of the loop, and `lesson_sweep` calls it every minute in its own exception block
+(`db.md` §4.9.3): the reconciler only runs when `deposit_nudge` finds some payment open, so before
+0295 a lost refund waited for another guest's payment.
 
 Each output row (0258:886-902) gains `lesson_enrolment_id`. The comment says lesson rows join the
 `check` and `refund` actions like any other.
@@ -1231,6 +1284,12 @@ end $coach_statements_cron_0284$;
 `'0 0 1 * *'` UTC is 03:00 on the 1st in Baghdad: the previous local month is over everywhere the
 chain trades east of UTC. After a hosted push, `cron.job` must have the row (packages/db/CLAUDE.md).
 
+**Amended 2026-10-02 (0293, DB-26):** the schedule is `'0 12 1 * *'` UTC (`cron.unschedule`, then
+`cron.schedule`). At midnight UTC a branch west of UTC is still on the last day of the old month,
+and the run drafted the month before it; at noon UTC on the 1st every zone from UTC-12 to UTC+14 is
+on local day 1 or 2, so the previous local month is over everywhere. After the hosted deploy,
+confirm `cron.job` holds `0 12 1 * *` for `tp_coach_statements`.
+
 ### 7.4 The staff writes (manager, owner at the statement's branch)
 
 Common prologue for each (guard first, R57): `FORBIDDEN` unless `is_staff('manager','owner')`;
@@ -1239,12 +1298,20 @@ Common prologue for each (guard first, R57): `FORBIDDEN` unless `is_staff('manag
 app.current_venue()` (the rail's branch, R21: under "All branches" another branch's statement is
 read-only) and `is_staff_at(s.venue_id, 'manager', 'owner')`, then `set_config('app.venue_id', …)`;
 `FORBIDDEN` detail `own_statement` when `coaches.profile_id = auth.uid()` (CM-11);
-`app.lock_coach(s.coach_id)`; re-read the row.
+`app.lock_coach(s.coach_id)`; re-read the row. **Amended 2026-10-02 (0293, DB-22; CM-11):** after
+every `consume_pin_grant` (mark paid; a void from `approved`), a grant whose authoriser is the
+statement coach's own profile is `FORBIDDEN` detail `own_statement_pin`; the raise rolls the call
+back, so the grant is not spent and another manager's PIN can follow.
 
 Free text (R49): `paid_reference` and `void_reason` are trimmed, sanitised with `app.safe_line`, and
 refused with `INVALID_ARGUMENT` (detail `p_reference` / `p_reason`, hint `digits`) when they hold a
 run of 12 or more digits, single spaces or dashes between digits ignored (`~
 '([0-9][ -]?){11}[0-9]'`): a card, IBAN or wallet number never lands in a note.
+**Amended 2026-10-02 (0293, DB-21; R74):** the test is `app.looks_like_card(text)` (immutable),
+run on the text `app.safe_line` returns: Arabic-Indic (U+0660..0669) and Extended Arabic-Indic
+(U+06F0..06F9) digits read as 0-9, spaces, dots and dashes (hyphen-minus, U+2010..2015, U+2212)
+are removed, and a run of 12 or more digits is refused. The same function backs the CHECK
+`coach_statements_no_card` and `lesson_blocked_refund_record`'s reference.
 
 - **`coach_statement_refresh(p_statement_id uuid) returns jsonb`**: `draft` → `coach_statement_build`
   in place; `void` → a fresh draft for the same coach, branch and month when none is live for that
@@ -1307,7 +1374,9 @@ previous month). Shape X22, the union of both lanes:
                     "total_iqd", "payable_iqd", "drafted_at", "refreshed_at",
                     "approved_at", "approved_by_name", "paid_at", "paid_by_name", "paid_reference",
                     "voided_at", "void_reason" } ],
-  "missing": [ { "coach_id", "coach_name_en", "coach_name_ar", "venue_id", "reason": "older_draft|not_drafted" } ],
+  "missing": [ { "coach_id", "coach_name_en", "coach_name_ar", "venue_id",
+                 "reason": "older_draft|newer_draft|not_drafted",
+                 "blocking_month", "blocking_statement_id" } ],
   "totals": { "statements", "collected_iqd", "court_share_iqd", "coach_iqd", "adjustments_iqd",
               "total_iqd", "payable_iqd", "approved_unpaid_iqd", "unpaid_iqd", "paid_iqd" } }
 ```
@@ -1316,7 +1385,12 @@ previous month). Shape X22, the union of both lanes:
 `current_month` is the month now in the rail's branch time zone (the stepper's limit); the `*_by_name`
 are staff display names. Void statements are listed (status `void`) and left out of the totals.
 `missing` names pairs with statement lessons in the month and no non-void statement (blocked by an
-older draft, or the month not drafted yet). Coach display names only (public, §1.2; a deleted
+older draft, or the month not drafted yet). **Amended 2026-10-02 (0293, DB-24, DB-25):** a pair is
+kept only while one of those lessons has no line on a statement that is not void (a voided month
+whose lessons a later statement settled as adjustments waits for nothing); the reason is
+`older_draft` when the pair's live draft is of an earlier month, `newer_draft` when of a later one
+(an approved month voided after its approval drafted the next), with `blocking_month` and
+`blocking_statement_id` naming it (both NULL for `not_drafted`). Coach display names only (public, §1.2; a deleted
 coach's stay, C-29). It is a **person-money report** (R42, C-28): scanned by SEC-29 for guest
 identity, exempt from the coach patterns, never an assistant tool.
 
@@ -1336,7 +1410,9 @@ branch must be the rail's, R21, as the writes' prologue). Shape X23, the union:
 
 Lines ordered by `is_adjustment, start_at`. `stale` (a draft only): a rebuild now would change a
 line. `can.*` follow the statuses of §7.4 (`mark_paid` also needs `payable_iqd ≥ 0`) and are all
-false on the caller's own statement (CM-11). **C-24, R56:** `coach_booked_no_shows` counts, per line
+false on the caller's own statement (CM-11). **Amended 2026-10-02 (0293, DB-25):** `can.refresh` on
+a `void` statement also needs a draft of its month to hold a line (`coach_statement_plan` not
+empty), so Redraft is not offered once a later statement settled its lessons. **C-24, R56:** `coach_booked_no_shows` counts, per line
 and in total, the `no_show` marks on enrolments with `booked_by_kind = 'coach'` (a no-show of a
 coach-booked student is a line with nothing collected, since every completed lesson is a statement
 line), so the manager sees hoarding on the pay screen. No student name, phone or guest id.
@@ -1408,6 +1484,11 @@ counted only in `sandboxExcluded` (CM-15).
 
 ### 8.1 `app.lesson_money_figures(p_ts_from timestamptz, p_ts_to timestamptz, p_venues uuid[]) returns jsonb`
 
+> **Amended 2026-10-02 (build-contracts §1.15 D2):** money handed back outside the till
+> (`refunded_outside_iqd`) also reduces `netIqd` (`lessonRevenue`). Built by 0292 (DB-20) as
+> `outsideRefundsIqd`/`outsideRefundsCount`; 0292 (DB-15) also moved `refundsDueDesk*` to
+> `day_close_online`, their only reader.
+
 Internal (§1.5), the twin of `ticket_money_figures` (0265:47-140): one helper behind
 `reports_figures`, `report_revenue`, `report_courts`, `report_lessons` and `day_close_online`, so no
 two screens disagree. Branch-scoped (`venue_id = any(p_venues)`), non-sandbox:
@@ -1418,13 +1499,14 @@ two screens disagree. Branch-scoped (`venue_id = any(p_venues)`), non-sandbox:
 | `deskRefundsIqd` | Σ `refunds.amount_iqd` on those payments, `refunds.created_at` in range |
 | `onlineIqd`, `onlineCount` | lesson rows with `succeeded_at` in range |
 | `onlineRefundsIqd` | Σ `refund_amount_iqd` of lesson rows `refunded` with `refunded_at` in range |
+| `outsideRefundsIqd`, `outsideRefundsCount` | Σ `data.amount_iqd` of `lesson_events` `refunded` code `outside` (R75 handbacks), `at` in range; a place paid through the Qi sandbox left out (0292) |
 | `onlineRefundsWaitingIqd`, `onlineRefundsWaitingCount` | lesson rows in `refund_pending` or `refund_failed` now |
-| `netIqd` | `deskIqd − deskRefundsIqd + onlineIqd − onlineRefundsIqd` (**lessonRevenue**, CM-13) |
+| `netIqd` | `deskIqd − deskRefundsIqd + onlineIqd − onlineRefundsIqd − outsideRefundsIqd` (**lessonRevenue**, CM-13; the handbacks since 0292, D2) |
 | `lessons`, `lessonMinutes` | statement lessons (§7.1) starting in range; Σ their minutes |
 | `collectedIqd` | Σ `collected_L` of those lessons |
 | `courtShareIqd` | Σ `least(court_share_iqd, collected_L)` |
 | `owedToCoachesIqd` | Σ `coach_L` (**owedToCoaches**; named so no coach pattern of SEC-29 matches it, R42) |
-| `refundsDueDeskIqd`, `refundsDueDeskCount` | Σ `refund_due_desk_iqd` of the branches' enrolments now |
+| ~~`refundsDueDeskIqd`, `refundsDueDeskCount`~~ | removed by 0292 (DB-15): `day_close_online` sums `refund_due_desk_iqd` itself, over the places `lesson_enrolment_may_owe` lets through |
 | `sandboxExcluded` | sandbox lesson rows succeeded in range |
 
 A wrong-amount, duplicate or slot-lost row is received and refunded in full, so it nets to 0 over
@@ -1739,7 +1821,8 @@ place with court share 10,000; course 100,001 for 4 sessions with court share 8,
   2: `guest_late` → refund 50,000.
 - *R11 `lesson_money_open` (R37).* True with a `draft` or `approved` statement, with last month's
   statement lessons undrafted, with a desk refund due or a blocked one; false once all are paid,
-  drafted and refunded.
+  drafted and refunded. 0292 (DB-19): also true with a lesson refund still `refund_pending`, and
+  with an adjustment not yet drafted (a paid month, then a late desk payment on one of its lessons).
 - *Parity*: `iqd_split`, `lesson_coach_share`, `course_late_join_price` and the course-leave refund
   against core (`splitEvenly`, `lessonCoachShare`, `courseLateJoinPrice`, `courseLeaveRefund`) over
   awkward amounts (0, 1, n − 1, n, n + 1, 99,999, 100,001; n in 1..52) (the
@@ -2034,6 +2117,7 @@ receipt shows the lesson line.
    `coach_statement_mark_paid` (R4) and **new** `coach_statement_void` (open 2), three copies;
    `PERSON_MONEY_REPORTS` (R42); R49's `COACH_DATA` rows.
 9. **Cron schedule:** `tp_coach_statements` `'0 0 1 * *'` UTC, `call app.coach_statements_draft(null)`.
+   **Amended 2026-10-02 (0293, DB-26):** `'0 12 1 * *'` UTC.
 10. **Reason codes** for `app.refund` on a lesson payment: `lesson_refund`, **new** `lesson_goodwill`
     (R36). Tab label of a lesson tab: `'Lesson'`.
 11. **Read shapes owned here** (key lists in `shapes.ts`, R41; X picks applied):
@@ -2054,7 +2138,10 @@ receipt shows the lesson line.
 - Statement months are local calendar months; reports use business days (start hour 4 by default),
   so a lesson between local midnight and the start hour on the 1st falls in different months on the
   two screens.
-- `report_drill` knows neither new `panel_headline` key (a drill is `INVALID_ARGUMENT`).
+- `report_drill` drills `lessonRevenue` (owner only) since 0292 (DB-16); `owedToCoaches` is still
+  `INVALID_ARGUMENT`. The revenue, cash and card drills add up to their headline: lesson money by
+  §8.1's definitions, every tab of the branch (a tab with no table included), each refund a negative
+  twin under its method and, on a lesson tab, under revenue.
 - A desk refund due needs a manager at the till with a PIN and an open day; the guest is not told
   automatically when it is paid.
 - A late cancel's money is credited to the coach even though no session was given (CM-7, §16 Q1).
@@ -2063,9 +2150,10 @@ receipt shows the lesson line.
 - **Blocked online refunds** (C-23 × CM-5, §14 open 9): a venue cancel of the session a late course
   leaver kept, after the leave's refund, is owed back with no Qi refund left on the row; it is
   listed in `lesson_refunds_due` as `online_blocked_iqd` and handed back outside the till.
-- **The window of a course leave is read live** (§5.2): the next covered session is always kept,
-  but a later change of `cancellation_window_hours` moves the sessions after it; a shrink after a
-  leave's refund can add a blocked amount.
+- **The window of a course leave is fixed at the cancel** (§5.2, 0292 DB-18: `kept_until`). What is
+  still re-judged is a later **reschedule** of a kept session: a session moved past `kept_until` stops
+  counting (and one moved before it starts), so a move after a leave's refund can add a blocked
+  amount. Smaller than the window change it replaced; left as a known limit.
 - **The reconciler's lesson loop has no time window** (R28): every run re-checks the `succeeded`
   rows of cancelled enrolments that keep money (late cancels, no-shows of cancelled enrolments),
   one engine run each. If the loop slows, the first fix is a "nothing can change any more" bound

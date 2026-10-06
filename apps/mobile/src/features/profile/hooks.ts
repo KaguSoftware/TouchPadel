@@ -1,12 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
-import { fetchOwnProfile, updateOwnProfile } from './api';
+import { fetchMyBirthDate, fetchOwnProfile, setMyBirthDate, updateOwnProfile } from './api';
+import { avatarUrl, AVATAR_URL_TTL_S, removeAvatar, replaceAvatar } from './avatar';
 import { acceptTerms, fetchOwnConsent } from './consent';
 
 export const profileKeys = {
   own: ['own-profile'] as const,
   /** 0153: the caller's accepted Terms/Privacy version, per account. */
   consent: (uid: string) => ['own-consent', uid] as const,
+  /** 0302: the caller's date of birth. Never persisted (src/lib/queryClient.ts). */
+  birthDate: ['own-birth-date'] as const,
+  /** 0302: a signed avatar URL, per path. Never persisted: it expires. */
+  avatarUrl: (path: string) => ['avatar-url', path] as const,
 };
 
 export function useOwnProfile(enabled: boolean) {
@@ -56,6 +61,57 @@ export function useAcceptTerms() {
       // closing the screen made the gate present it again.
       queryClient.setQueriesData({ queryKey: ['own-consent'] }, row);
       void queryClient.invalidateQueries({ queryKey: ['own-consent'] });
+    },
+  });
+}
+
+/** The caller's date of birth (0302), `YYYY-MM-DD` or null. */
+export function useMyBirthDate(enabled: boolean) {
+  return useQuery({
+    queryKey: profileKeys.birthDate,
+    queryFn: () => fetchMyBirthDate(supabase),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Sets (`YYYY-MM-DD`) or clears (null) the date of birth. */
+export function useSetBirthDate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['set-birth-date'],
+    mutationFn: (birthDate: string | null) => setMyBirthDate(supabase, birthDate),
+    onSuccess: (_void, birthDate) => {
+      queryClient.setQueryData(profileKeys.birthDate, birthDate);
+    },
+  });
+}
+
+/** A signed URL for an avatar path; refetched well before the URL expires. */
+export function useAvatarUrl(path: string | null | undefined) {
+  return useQuery({
+    queryKey: profileKeys.avatarUrl(path ?? ''),
+    queryFn: () => avatarUrl(path!),
+    enabled: !!path,
+    staleTime: (AVATAR_URL_TTL_S / 2) * 1000,
+    gcTime: (AVATAR_URL_TTL_S / 2) * 1000,
+  });
+}
+
+/** Upload a picked photo and make it the profile's (`uri`), or go back to initials (null). */
+export function useSetAvatar() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['set-avatar'],
+    mutationFn: async (photoUri: string | null) => {
+      if (photoUri === null) return removeAvatar();
+      const { data } = await supabase.auth.getUser();
+      const uid = data.user?.id;
+      if (!uid) throw new Error('NO_SESSION');
+      await replaceAvatar(uid, photoUri);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: profileKeys.own });
     },
   });
 }

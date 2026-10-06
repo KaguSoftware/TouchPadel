@@ -90,7 +90,20 @@ export function readReadiness(raw: unknown): Readiness {
 }
 
 export interface Feasibility {
-  ranges: { court_name_en: string; court_name_ar: string; from: string; to: string; bookings: number; guests: number }[];
+  /**
+   * One row per court of each plan range: the live bookings and their guests,
+   * and (0294, DB-34; OP-21) the lessons in the window and their students.
+   */
+  ranges: {
+    court_name_en: string;
+    court_name_ar: string;
+    from: string;
+    to: string;
+    bookings: number;
+    guests: number;
+    lessons: number;
+    students: number;
+  }[];
 }
 
 export function readFeasibility(raw: unknown): Feasibility {
@@ -102,6 +115,8 @@ export function readFeasibility(raw: unknown): Feasibility {
       to: str(r.to) ?? '',
       bookings: num(r.bookings) ?? 0,
       guests: num(r.guests) ?? 0,
+      lessons: num(r.lessons) ?? 0,
+      students: num(r.students) ?? 0,
     })),
   };
 }
@@ -373,6 +388,30 @@ export const NUMBERS_FIGURES = [
   'court_share_iqd',
 ] as const;
 
+/** A lesson change's two figures (0285). */
+const LESSON_FIGURES = ['price_iqd', 'court_share_iqd'] as const;
+
+/** True when the proposal carries this lesson figure (a number; a coach price removal carries none). */
+function carries(proposal: Obj | null, name: string): boolean {
+  return !!proposal && typeof proposal[name] === 'number';
+}
+
+/**
+ * The numbers step's fields for a lesson change (OP-20): `price_iqd` and
+ * `court_share_iqd` only when the proposal carries a number for them, so the
+ * form never offers a figure the proposal did not touch (the server refuses
+ * it). Any other change keeps every field.
+ */
+export function numbersFields<T extends { name: string }>(
+  fields: readonly T[],
+  proposal: Obj | null,
+): T[] {
+  if (!isLessonChange(proposal?.change)) return [...fields];
+  return fields.filter(
+    (f) => !(LESSON_FIGURES as readonly string[]).includes(f.name) || carries(proposal, f.name),
+  );
+}
+
 /**
  * The last touches before a record is sent:
  *  - a price change sends only the sizes whose price changed;
@@ -382,13 +421,15 @@ export const NUMBERS_FIGURES = [
  *    it opened with (`before`, the server refuses the stored figure as a
  *    change), and no lesson proposal sends `before`: the server writes it;
  *  - the numbers step sends its figures only with the recommendation to
- *    change them (otherwise the proposal's stand).
+ *    change them (otherwise the proposal's stand), and for a lesson change
+ *    only the figures the proposal carries (`proposal`, OP-20).
  */
 export function finalizeRecord(
   kind: string,
   stepKey: string | null,
   record: Obj,
   current: ReadonlyMap<string, number | null>,
+  proposal: Obj | null = null,
 ): Obj {
   if (kind === 'price_promo' && stepKey === 'propose' && isLessonChange(record.change)) {
     const { before, ...out } = record;
@@ -411,6 +452,11 @@ export function finalizeRecord(
   if (kind === 'price_promo' && stepKey === 'numbers' && record.recommendation !== 'change') {
     const out = { ...record };
     for (const k of NUMBERS_FIGURES) delete out[k];
+    return out;
+  }
+  if (kind === 'price_promo' && stepKey === 'numbers' && isLessonChange(proposal?.change)) {
+    const out = { ...record };
+    for (const k of LESSON_FIGURES) if (!carries(proposal, k)) delete out[k];
     return out;
   }
   return record;

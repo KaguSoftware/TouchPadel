@@ -366,6 +366,21 @@ export function keepsLessonKey(err: unknown): boolean {
  */
 export type LessonBeginRefusal = 'phone' | 'notPayable' | 'off' | 'degraded' | 'inline';
 
+/**
+ * The line a refused `lesson-begin` shows (MB-11): on a HELD place an
+ * `off` refusal (ONLINE_PAYMENT_OFF, COACHING_OFF) offers the free cancel
+ * instead of "pay at the desk" (nothing has been paid, and the place may not
+ * be kept for the desk); anything else is `lessonErrorText`'s line.
+ */
+export function lessonBeginErrorText(
+  err: unknown,
+  t: T,
+  ctx: LessonErrorContext & { held: boolean },
+): string {
+  if (ctx.held && lessonBeginRefusalOf(err) === 'off') return t('coaching.common.errors.heldOff');
+  return lessonErrorText(err, t, ctx);
+}
+
 export function lessonBeginRefusalOf(err: unknown): LessonBeginRefusal {
   switch (lessonErrorCode(err)) {
     case 'PHONE_REQUIRED':

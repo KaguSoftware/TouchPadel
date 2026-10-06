@@ -124,23 +124,44 @@ describe('lessonTypeDraftErrors (§1.2 CHECKs, R26)', () => {
 });
 
 describe('priceLock (R46)', () => {
-  it('a draft: everything editable for both; the owner launches directly, a manager through the protocol', () => {
+  it('a saved draft: everything but the kind editable for both; the owner launches directly, a manager through the protocol', () => {
     const draft = type({ launched_at: null, is_active: false, price_iqd: null });
     expect(priceLock(draft, OWNER)).toEqual({
-      kind: false,
+      kind: true,
       price: false,
       shape: false,
       launch: 'direct',
       activeSwitch: false,
     });
     expect(priceLock(draft, MANAGER)).toEqual({
-      kind: false,
+      kind: true,
       price: false,
       shape: false,
       launch: 'protocol',
       activeSwitch: false,
     });
     expect(priceLock(null, MANAGER).launch).toBe('protocol');
+    // Only a new type picks its kind.
+    expect(priceLock(null, MANAGER).kind).toBe(false);
+  });
+
+  it("a saved draft's patch never carries the kind, even when the draft's kind was changed (OP-05)", () => {
+    const draft = type({
+      launched_at: null,
+      is_active: false,
+      kind: 'group',
+      min_places: 2,
+      cutoff_hours: 2,
+      max_places: 8,
+    });
+    const lock = priceLock(draft, OWNER);
+    expect(lock.kind).toBe(true);
+    const d = { ...withKind(draftFromType(draft), 'course'), nameEn: 'Clinic' };
+    const patch = lessonTypePatch(draft, d, lock);
+    expect(patch).not.toHaveProperty('kind');
+    expect(patch.name_en).toBe('Clinic');
+    // A kind refusal lands on the kind field.
+    expect(lessonTypeFieldOf('kind')).toBe('kind');
   });
 
   it('launched, owner: every field but the kind, and the Active switch', () => {
@@ -241,19 +262,47 @@ describe('lessonTypePatch', () => {
     expect(lessonTypePatch(t, d, priceLock(t, MANAGER))).toEqual({ max_places: 10, min_places: 3 });
   });
 
-  it('the order arrows move a type past its neighbour of the same kind, a direct edit (R46)', () => {
+  it('the order arrows swap a type with its neighbour of the same kind, renumbered in tens (OP-01, R46)', () => {
     const types = [
       type({ lesson_type_id: 'a', name_en: 'A', sort_order: 0 }),
       type({ lesson_type_id: 'b', name_en: 'B', sort_order: 5 }),
       type({ lesson_type_id: 'g', name_en: 'G', kind: 'group', sort_order: 1 }),
     ];
-    expect(typeOrderAfterMove(types, 'b', 'private', 5, -1)).toBe(-1);
-    expect(typeOrderAfterMove(types, 'a', 'private', 0, 1)).toBe(6);
-    expect(typeOrderAfterMove(types, 'a', 'private', 0, -1)).toBeNull();
-    expect(typeOrderAfterMove(types, 'g', 'group', 1, 1)).toBeNull();
+    expect(typeOrderAfterMove(types, 'b', 'private', -1)).toEqual([
+      { id: 'b', sort_order: 0 },
+      { id: 'a', sort_order: 10 },
+    ]);
+    expect(typeOrderAfterMove(types, 'a', 'private', 1)).toEqual([
+      { id: 'b', sort_order: 0 },
+      { id: 'a', sort_order: 10 },
+    ]);
+    expect(typeOrderAfterMove(types, 'a', 'private', -1)).toBeNull();
+    expect(typeOrderAfterMove(types, 'g', 'group', 1)).toBeNull();
+    // The order saves on its own: the form's patch never carries it for a saved type.
     const t = types[1]!;
-    const d = { ...draftFromType(t), sortOrder: -1 };
-    expect(lessonTypePatch(t, d, priceLock(t, MANAGER))).toEqual({ sort_order: -1 });
+    const d = { ...draftFromType(t), sortOrder: 30 };
+    expect(lessonTypePatch(t, d, priceLock(t, MANAGER))).toEqual({});
+    expect(lessonTypeFieldOf('sort_order')).toBe('order');
+  });
+
+  it('three types tied at 0: up and down each move exactly one place, never below 0 (OP-01)', () => {
+    const types = [
+      type({ lesson_type_id: 'a', name_en: 'A', sort_order: 0 }),
+      type({ lesson_type_id: 'b', name_en: 'B', sort_order: 0 }),
+      type({ lesson_type_id: 'c', name_en: 'C', sort_order: 0 }),
+    ];
+    const after = (writes: { id: string; sort_order: number }[] | null) =>
+      groupTypes(
+        types.map((t) => ({
+          ...t,
+          sort_order: writes?.find((w) => w.id === t.lesson_type_id)?.sort_order ?? t.sort_order,
+        })),
+      ).private.map((t) => t.lesson_type_id);
+    const up = typeOrderAfterMove(types, 'b', 'private', -1);
+    expect(after(up)).toEqual(['b', 'a', 'c']);
+    const down = typeOrderAfterMove(types, 'b', 'private', 1);
+    expect(after(down)).toEqual(['a', 'c', 'b']);
+    expect([...up!, ...down!].every((w) => w.sort_order >= 0)).toBe(true);
   });
 });
 

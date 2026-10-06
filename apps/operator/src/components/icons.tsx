@@ -119,6 +119,9 @@ const PATHS = {
   bookOpen: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z',
   /** A coach's whistle: coaches, the lesson badge and the Coaches / Coach pay rows (coaching operator.md §5.3.3). */
   whistle: 'M3 14a5 5 0 1 0 10 0a5 5 0 1 0-10 0M8 9h12a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-7.4M8 14h.01M4.5 10.5 2.5 8.5',
+  /** A cup: the Tournaments row and a tournament's calendar block (tournaments build contracts §1.11). */
+  trophy:
+    'M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.7V17c0 .6-.5 1-1 1.2C7.9 18.8 7 20.2 7 22M14 14.7V17c0 .6.5 1 1 1.2 1.1.6 2 2 2 3.8M18 2H6v7a6 6 0 0 0 12 0z',
 } as const;
 
 export type IconName = keyof typeof PATHS;

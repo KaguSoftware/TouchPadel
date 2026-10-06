@@ -34,7 +34,7 @@ import { CoachBanners } from '../src/components/coachMode';
 import { RequireCoach } from '../src/features/coach/RequireCoach';
 import { useCoachStatus } from '../src/features/coach/CoachStatusProvider';
 import { useCoachBook, useCoachSlots } from '../src/features/coach/hooks';
-import { coachErrorText } from '../src/features/coach/errors';
+import { coachErrorText, isSlotRefusal } from '../src/features/coach/errors';
 import {
   DEFAULT_TZ,
   STUDENT_NAME_MAX,
@@ -46,6 +46,7 @@ import {
   defaultStart,
   nightOf,
   pickName,
+  privateCapAt,
   slotsByNight,
   slotsWindow,
   snapToGrid,
@@ -62,7 +63,8 @@ import { useBack } from '../src/navigation/back';
  * free time from `coach_slots` (as the guest grid), the student's name and,
  * when they have one, their phone. Always paid at the desk. The answer is the
  * same whether the phone matched an account (C-21). The coach holds at most
- * `private_cap` upcoming lessons booked this way (R56).
+ * its branch's `open_private_cap` upcoming lessons booked this way at that
+ * branch (R56; the server counts per branch, MB-01).
  *
  * When the free times cannot be read (a coach not public yet is not listed by
  * `coach_slots`, R61), the start is picked on the platform's date-and-time
@@ -85,9 +87,11 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
 
   const branches = bookableBranches(coach);
   const allowed = canBookOrCreate(coach);
-  const atCap = atPrivateCap(coach);
   const [pickedVenue, setPickedVenue] = useState<string | null>(null);
   const venueId = pickedVenue ?? branches[0]?.venueId ?? null;
+  // R56 is per branch: the count and cap of the branch picked (MB-01).
+  const capAt = privateCapAt(coach, venueId);
+  const atCap = atPrivateCap(coach, venueId);
   const tz = branches.find((b) => b.venueId === venueId)?.timezone ?? DEFAULT_TZ;
   const types = venueId ? typesFor(coach, venueId, ['private']) : [];
   const [pickedType, setPickedType] = useState<string | null>(null);
@@ -170,6 +174,7 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
           startAt,
           party: partySize,
           name: clean,
+          phone,
         }),
       },
       {
@@ -179,8 +184,12 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
             router.replace({ pathname: '/coach-mode-lesson', params: { id: r.lessonId } });
           else back();
         },
-        onError: (err) =>
-          setError(coachErrorText(err, t, { locale, privateCap: coach.privateCap })),
+        onError: (err) => {
+          // The start was taken first: the free times are re-read (useAfterWrite)
+          // and the pick goes, so the next tap cannot send it again (MB-08).
+          if (isSlotRefusal(err)) setPickedStart(null);
+          setError(coachErrorText(err, t, { locale, privateCap: capAt?.cap ?? null }));
+        },
       },
     );
   };
@@ -384,15 +393,17 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
           <Hint>{t('coaching.coach.book.payNote')}</Hint>
         </Card>
 
-        <Hint>
-          {t('coaching.coach.book.cap', {
-            open: isolateLtr(String(coach.privateOpen)),
-            cap: isolateLtr(String(coach.privateCap)),
-          })}
-        </Hint>
-        {atCap ? (
+        {capAt ? (
+          <Hint>
+            {t('coaching.coach.book.cap', {
+              open: isolateLtr(String(capAt.open)),
+              cap: isolateLtr(String(capAt.cap)),
+            })}
+          </Hint>
+        ) : null}
+        {atCap && capAt ? (
           <ErrorText>
-            {t('coaching.coach.errors.addLimitLive', { cap: isolateLtr(String(coach.privateCap)) })}
+            {t('coaching.coach.errors.addLimitLive', { cap: isolateLtr(String(capAt.cap)) })}
           </ErrorText>
         ) : null}
         {error ? <ErrorText>{error}</ErrorText> : null}

@@ -11,6 +11,7 @@
  * mirrors only keep the desk from pressing what the server will refuse; the
  * server refuses it anyway.
  */
+import { looksLikeCardNumber } from '@touch/core';
 import { AppRpcError } from '../../lib/appRpc';
 import type { ReservationRow } from '../desk/deskTypes';
 import { slotTaken } from '../desk/deskLogic';
@@ -190,24 +191,30 @@ export type EnrolmentCancelLine =
   | { id: 'online' }
   | { id: 'courseSignUp' }
   | { id: 'nothingPaid' }
+  | { id: 'begunKept' }
   | { id: 'privateBooker' };
 
 /**
  * What cancelling one sign-up does to its money, from the server's figures
  * (§5.10.8): nothing paid; a course sign-up (the sessions not held go back);
+ * a non-course sign-up once the session has begun (`begun`: `server_now` at
+ * or past `start_at`), whose money is kept, so no refund is promised (OP-15);
  * online money (back to the card); desk money (a refund due a manager makes
  * at the till). Cancelling a private lesson's booker cancels the lesson too
- * (`staff_cancel`). No strike is mentioned: a staff cancel never strikes (CD-2).
+ * (`staff_cancel`; after DB-07 a started private lesson is not cancellable).
+ * No strike is mentioned: a staff cancel never strikes (CD-2).
  */
 export function enrolmentCancelLines(
   e: Pick<Enrolment, 'scope' | 'money'>,
   kind: LessonKind,
+  begun = false,
 ): EnrolmentCancelLine[] {
   const desk = e.money.desk_paid_iqd ?? 0;
   const online = e.money.online_paid_iqd ?? 0;
   const lines: EnrolmentCancelLine[] = [];
   if (desk <= 0 && online <= 0) lines.push({ id: 'nothingPaid' });
   else if (e.scope === 'course') lines.push({ id: 'courseSignUp' });
+  else if (begun) lines.push({ id: 'begunKept' });
   else {
     if (online > 0) lines.push({ id: 'online' });
     if (desk > 0) lines.push({ id: 'deskPaid', amount: desk });
@@ -463,13 +470,12 @@ export function deskDueTotal(items: readonly Pick<RefundDueItem, 'refund_due_des
 }
 
 export const BLOCKED_REFERENCE_MAX = 80;
-/** R49 / R74: a run of 12 or more digits, once spaces, dots and hyphens are gone, reads as a card. */
-export const CARD_RUN = /\d{12,}/;
-
-/** True when a reference holds a card-length run of digits (spaces, dots and hyphens removed). */
-export function looksLikeCardNumber(text: string): boolean {
-  return CARD_RUN.test(text.replace(/[\s.\-]/g, ''));
-}
+/**
+ * R49 / R74: the one card guard (@touch/core, the server's app.looks_like_card
+ * twin): Arabic-Indic and Extended Arabic-Indic digits count, and spaces, dots
+ * and dashes are taken out (OP-04).
+ */
+export { looksLikeCardNumber };
 
 export type BlockedAmountError = 'required' | 'tooHigh';
 export type BlockedReferenceError = 'required' | 'tooLong' | 'cardNumber';

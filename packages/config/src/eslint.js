@@ -188,7 +188,11 @@ const testIdElements = [
   'Field',
   'LinkText',
   'FooterLink',
+  'TermsReader',
   'SegmentedControl',
+  'WheelPicker',
+  'WheelSheet',
+  'DateWheelSheet',
   'CodeInput',
   'PhoneField',
   'GoogleButton',
@@ -251,6 +255,10 @@ const testIdElements = [
   'ReasonCard',
   'HoursDayEditor',
   'TimeOffRow',
+  // Tournaments, the guest's side (tournaments plan §5.2): takes a required
+  // testID and forwards it explicitly (apps/mobile src/components/tournament.tsx).
+  // TournamentRound and StandingsTable render no Pressable.
+  'TournamentRow',
 ].join('|');
 
 const TEST_ID_MESSAGE =

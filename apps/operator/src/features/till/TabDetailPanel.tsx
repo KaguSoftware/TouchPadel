@@ -63,6 +63,8 @@ import { canReadBookings, tabDetailQuery, tabAnchorLabel, tabHasWebOrder, type T
 import { actionButton, kvRow, muted, numeric, sectionTitle } from './tillStyles';
 import { DRAWER_REASONS } from './drawerReasons';
 import { useTillShiftOptional } from '../tillShift/shiftContext';
+import { MemberAttach } from '../loyalty/MemberAttach';
+import { loyaltyDiscountIqd } from '../loyalty/loyaltyLogic';
 
 /** The part of app.booking_bill (0106) the till reads. Every figure is the server's. */
 interface TillBookingBill {
@@ -193,6 +195,8 @@ export function TabDetailPanel({
 
   const totals = useMemo(() => computeTabTotals(tab ?? null, taxCtx, court), [tab, taxCtx, court]);
   const discounts = useMemo(() => discountBreakdown(tab?.tab_adjustments ?? []), [tab]);
+  // Points used on the bill (loyalty_redeem writes a discount row) get their own row, out of the manager figure.
+  const loyaltyOff = useMemo(() => loyaltyDiscountIqd(tab?.tab_adjustments ?? []), [tab]);
   const due = totals.due;
 
   // F4/F5 from anywhere on the till OPEN the pane (TillScreen dispatches);
@@ -546,7 +550,8 @@ export function TabDetailPanel({
         {/* ---- totals ---- */}
         <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-2)' }}>
           <Row label={tr('common.subtotal')} amount={totals.subtotal} />
-          {discounts.manager > 0 && <Row label={tr('ws.cashier.detail.managerDiscount')} amount={-discounts.manager} />}
+          {discounts.manager - loyaltyOff > 0 && <Row label={tr('ws.cashier.detail.managerDiscount')} amount={-(discounts.manager - loyaltyOff)} />}
+          {loyaltyOff > 0 && <Row label={tr('ws.loyalty.redeem.billRow')} amount={-loyaltyOff} />}
           {discounts.promotion > 0 && (
             <Row
               label={
@@ -573,6 +578,10 @@ export function TabDetailPanel({
           {totals.paid > 0 && <Row label={tr('ws.cashier.detail.paid')} amount={-totals.paid} />}
           {lastChange != null && lastChange > 0 && <Row label={tr('op.till.change')} amount={lastChange} strong tone="success" />}
         </div>
+
+        {/* The member on this bill (loyalty build contracts §5): scan or phone, Use points,
+            Rewards. A scan at the till (TillScreen's wedge) opens it pre-filled. */}
+        {!settled && <MemberAttach tabId={tabId} remainingIqd={courtPending ? null : due} listenScans />}
 
         {courtPending && billQ.isError && (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', justifyItems: 'start' }}>

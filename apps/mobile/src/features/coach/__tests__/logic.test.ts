@@ -4,6 +4,7 @@ import {
   addIntent,
   addsLeftToShow,
   atPrivateCap,
+  privateCapAt,
   bookableBranches,
   branchesOff,
   canBookOrCreate,
@@ -46,6 +47,7 @@ import {
 } from '../logic';
 import {
   COACH_TZ,
+  COACH_VENUE_2_ID,
   COACH_VENUE_ID,
   GROUP_TYPE_ID,
   coachHoursRaw,
@@ -101,6 +103,8 @@ describe('parseCoachMe (X9, R45, R56, R61)', () => {
         nameAr: 'تتش بادل',
         timezone: TZ,
         coachingEnabled: true,
+        openPrivate: 4,
+        openPrivateCap: 10,
       },
     ]);
     expect(me.lessonTypes.map((t) => t.kind)).toEqual(['private', 'group', 'course']);
@@ -137,7 +141,15 @@ describe('parseCoachMe (X9, R45, R56, R61)', () => {
     expect(me.lessonTypes.map((t) => t.id)).toEqual(['u']);
     expect(me.lessonTypes[0]!.isActive).toBe(false);
     expect(me.branches).toEqual([
-      { venueId: 'v', nameEn: '', nameAr: '', timezone: 'Asia/Baghdad', coachingEnabled: false },
+      {
+        venueId: 'v',
+        nameEn: '',
+        nameAr: '',
+        timezone: 'Asia/Baghdad',
+        coachingEnabled: false,
+        openPrivate: 0,
+        openPrivateCap: 10,
+      },
     ]);
     expect(me.publicAccepted).toBe(false);
     expect(me.privateCap).toBe(10);
@@ -167,8 +179,64 @@ describe('the coach helpers (R16, R45, R56, CD-9)', () => {
     expect(addsLeftToShow(me)).toBeNull();
     expect(addsLeftToShow({ ...me, addsToday: 26 })).toBe(4);
     expect(addsLeftToShow({ ...me, addsToday: 31 })).toBe(0);
-    expect(atPrivateCap(me)).toBe(false);
-    expect(atPrivateCap({ ...me, privateOpen: 10 })).toBe(true);
+  });
+
+  it('checks the private cap per branch, never against the sum across branches (R56, MB-01)', () => {
+    const two = parseCoachMe(
+      coachMeRaw({
+        branches: [
+          {
+            venue_id: COACH_VENUE_ID,
+            timezone: TZ,
+            coaching_enabled: true,
+            open_private: 6,
+            open_private_cap: 10,
+          },
+          {
+            venue_id: COACH_VENUE_2_ID,
+            timezone: TZ,
+            coaching_enabled: true,
+            open_private: 6,
+            open_private_cap: 10,
+          },
+        ],
+        private_open: 12,
+        private_cap: 10,
+      }),
+    ).coach as CoachMe;
+    // 6 of 10 and 6 of 10: the summed 12 of 10 is display only.
+    expect(atPrivateCap(two, COACH_VENUE_ID)).toBe(false);
+    expect(atPrivateCap(two, COACH_VENUE_2_ID)).toBe(false);
+    expect(privateCapAt(two, COACH_VENUE_2_ID)).toEqual({ open: 6, cap: 10 });
+
+    const capped = parseCoachMe(
+      coachMeRaw({
+        branches: [
+          {
+            venue_id: COACH_VENUE_ID,
+            timezone: TZ,
+            coaching_enabled: true,
+            open_private: 3,
+            open_private_cap: 3,
+          },
+          {
+            venue_id: COACH_VENUE_2_ID,
+            timezone: TZ,
+            coaching_enabled: true,
+            open_private: 3,
+            open_private_cap: 10,
+          },
+        ],
+      }),
+    ).coach as CoachMe;
+    // A cap-3 branch at 3 blocks only that branch.
+    expect(atPrivateCap(capped, COACH_VENUE_ID)).toBe(true);
+    expect(atPrivateCap(capped, COACH_VENUE_2_ID)).toBe(false);
+    // A branch the coach is not at, or none picked, blocks nothing.
+    expect(atPrivateCap(capped, 'elsewhere')).toBe(false);
+    expect(atPrivateCap(capped, null)).toBe(false);
+    expect(privateCapAt(capped, null)).toBeNull();
+    expect(atPrivateCap(me, COACH_VENUE_ID)).toBe(false);
   });
 });
 
@@ -262,6 +330,46 @@ describe('the schedule (X10, guest.md §4.13.2)', () => {
     expect(all[3]!.data[0]!.type).toBe('timeOff');
     const here = scheduleSections(schedule, { now, tz: TZ, venueId: COACH_VENUE_ID });
     expect(here.flatMap((s) => s.data.map((i) => i.key))).not.toContain('lesson.other');
+  });
+
+  it('keeps a past lesson still to mark only while its marking window is open (MB-09, CD-11)', () => {
+    const start = at('2026-09-30', '20:00');
+    const schedule: CoachSchedule = {
+      lessons: [
+        {
+          lessonId: 'mark',
+          venueId: COACH_VENUE_ID,
+          kind: 'group',
+          courseId: null,
+          sessionNo: null,
+          sessionsCount: null,
+          typeNameEn: '',
+          typeNameAr: '',
+          titleEn: '',
+          titleAr: '',
+          startAt: start.toISOString(),
+          endAt: new Date(start.getTime() + 3_600_000).toISOString(),
+          status: 'scheduled',
+          placesTaken: 1,
+          maxPlaces: 8,
+          minPlaces: 4,
+          cutoffAt: null,
+          courtNameEn: '',
+          courtNameAr: '',
+          unmarked: 2,
+        },
+      ],
+      timeOff: [],
+      serverNow: null,
+    };
+    const keys = (hours: number) =>
+      scheduleSections(schedule, {
+        now: new Date(start.getTime() + hours * 3_600_000),
+        tz: TZ,
+        venueId: null,
+      }).flatMap((s) => s.data.map((i) => i.key));
+    expect(keys(23)).toEqual(['lesson.mark']);
+    expect(keys(24)).toEqual([]);
   });
 });
 
@@ -494,6 +602,48 @@ describe('statements (X12; C-12, CM-12, R45)', () => {
   it('has no lines on the summaries read', () => {
     expect(parseCoachStatements(coachStatementsRaw(false)).statements[0]!.lines).toBeNull();
   });
+
+  it('reads a missing rate as null, never a made-up 60% (MB-02)', () => {
+    const raw = coachStatementsRaw(true);
+    const st = raw.statements[0]!;
+    const line = st.lines![0]!;
+    const one = parseCoachStatements(raw).statements[0]!;
+    expect(one.shareBp).toBe(6000);
+    expect(one.lines![0]!.shareBp).toBe(6000);
+    // No rate at all.
+    const none = parseCoachStatements({
+      ...raw,
+      statements: [{ ...st, share_bp: null, lines: [{ ...line, share_bp: undefined }] }],
+    }).statements[0]!;
+    expect(none.shareBp).toBeNull();
+    expect(none.lines![0]!.shareBp).toBeNull();
+    // Mixed rates: the month has none, each line keeps its own.
+    const mixed = parseCoachStatements({
+      ...raw,
+      statements: [
+        {
+          ...st,
+          share_bp: null,
+          lines: [line, { ...line, lesson_id: 'l2', share_bp: 5000 }],
+        },
+      ],
+    }).statements[0]!;
+    expect(mixed.shareBp).toBeNull();
+    expect(mixed.lines!.map((l) => l.shareBp)).toEqual([6000, 5000]);
+    // Adjustments only: no rate on the month or the line.
+    const adj = parseCoachStatements({
+      ...raw,
+      statements: [
+        {
+          ...st,
+          share_bp: null,
+          lines: [{ ...line, share_bp: null, is_adjustment: true }],
+        },
+      ],
+    }).statements[0]!;
+    expect(adj.shareBp).toBeNull();
+    expect(adj.lines![0]!.shareBp).toBeNull();
+  });
 });
 
 describe('free times, photos, write results and intents', () => {
@@ -536,11 +686,27 @@ describe('free times, photos, write results and intents', () => {
   });
 
   it('puts every mutable argument in the intent, so a changed form sends a new key', () => {
-    const base = { typeId: 't', venueId: 'v', startAt: 's', party: 1, name: 'Ali' };
+    const base = {
+      typeId: 't',
+      venueId: 'v',
+      startAt: 's',
+      party: 1,
+      name: 'Ali',
+      phone: null as string | null,
+    };
     expect(coachBookIntent(base)).not.toBe(coachBookIntent({ ...base, party: 2 }));
     expect(coachBookIntent(base)).toBe(coachBookIntent({ ...base, name: ' Ali ' }));
-    expect(courseIntent({ typeId: 't', venueId: 'v', starts: ['a', 'b'] })).toBe(
-      'course-new:t|v|a,b',
+    // MB-07: a changed phone is a new request, so a new key.
+    expect(coachBookIntent(base)).not.toBe(coachBookIntent({ ...base, phone: '+9647700000000' }));
+    expect(coachBookIntent({ ...base, phone: '+9647700000000' })).not.toBe(
+      coachBookIntent({ ...base, phone: '+9647711111111' }),
+    );
+    const course = { typeId: 't', venueId: 'v', starts: ['a', 'b'], titleEn: '', titleAr: '' };
+    expect(courseIntent(course)).toBe('course-new:t|v|a,b||');
+    // MB-07: a changed title is a new key; whitespace the server never sees is not.
+    expect(courseIntent(course)).not.toBe(courseIntent({ ...course, titleEn: 'Beginners' }));
+    expect(courseIntent({ ...course, titleAr: 'مبتدئين' })).toBe(
+      courseIntent({ ...course, titleAr: ' مبتدئين ' }),
     );
     expect(addIntent({ targetId: 'l', name: 'A', phone: null })).not.toBe(
       addIntent({ targetId: 'l', name: 'A', phone: '+964' }),

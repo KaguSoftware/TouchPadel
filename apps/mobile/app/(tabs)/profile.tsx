@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { Children, cloneElement, isValidElement, useState, type ReactElement, type ReactNode } from 'react';
 import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
 import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
-import { isolate, isolateLtr } from '@touch/i18n';
+import { formatNumber, isolate, isolateLtr } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
@@ -15,10 +15,13 @@ import { useBranches, useVenueSettings } from '../../src/features/availability/h
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { callPhone } from '../../src/lib/phone';
-import { brand, radius, space, useTheme } from '../../src/theme';
-import { Button, Card, ErrorText, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
+import { radius, space, useTheme } from '../../src/theme';
+import { Button, Card, ErrorText, Screen, SectionLabel, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { MenuRow } from '../../src/components/booking';
 import { anyCoaching } from '../../src/features/coaching/logic';
+import { anyTournaments } from '../../src/features/tournaments/logic';
+import { useMyLoyalty } from '../../src/features/loyalty/hooks';
+import { loyaltyOn } from '../../src/features/loyalty/logic';
 import { coachModeEntry, useCoachStatus } from '../../src/features/coach/useCoachStatus';
 import {
   BackChevronIcon,
@@ -26,22 +29,51 @@ import {
   ChevronIcon,
   CloseIcon,
   PhoneIcon,
+  QrIcon,
   ReceiptIcon,
   SlidersIcon,
-  TrashIcon,
+  TagIcon,
 } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
+import { ProfileAvatar } from '../../src/components/ProfileAvatar';
 import { useToast } from '../../src/components/overlays';
 
 const LOGO_H = 40;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
 
 /**
+ * One labelled card of menu rows. Rows come and go with feature switches, so
+ * the divider-less `last` goes to whichever row actually renders last. Delete
+ * account lives at the foot of Edit profile (app/profile-edit.tsx).
+ */
+function MenuGroup({ label, children }: { label: string; children: ReactNode }) {
+  const { colors } = useTheme();
+  const rows = Children.toArray(children).filter(isValidElement) as ReactElement<{ last?: boolean }>[];
+  if (rows.length === 0) return null;
+  return (
+    <View style={{ marginTop: space.xl }}>
+      <SectionLabel style={{ marginBottom: space.s, paddingStart: space.xs }}>{label}</SectionLabel>
+      <View
+        style={{
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.line,
+          borderRadius: radius.card,
+          overflow: 'hidden',
+        }}
+      >
+        {rows.map((row, i) => (i === rows.length - 1 ? cloneElement(row, { last: true }) : row))}
+      </View>
+    </View>
+  );
+}
+
+/**
  * Profile tab (design 2026-08-31): avatar card + menu rows when signed in;
  * the sign-in / create-account pitch when signed out (browsing is public).
  */
 export default function ProfileScreen() {
-  const { t, dir } = useLocale();
+  const { t, dir, locale } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const router = useRouter();
   const tabBarHeight = useTabBarHeight();
@@ -53,7 +85,14 @@ export default function ProfileScreen() {
   // say (`coach_me` is read on this screen's mount, R45).
   const branches = useBranches();
   const coaching = anyCoaching(branches.data);
+  // Tournaments (tournaments plan §5.2): "My tournaments" while some branch has them on.
+  const tournaments = anyTournaments(branches.data);
   const coachEntry = coachModeEntry(useCoachStatus({ read: true }).status);
+  // Loyalty (loyalty plan §5.1): the member card and Points & rewards, only while the owner has
+  // loyalty on (build contracts L-1). The read is persisted, so the card is offered on a cold
+  // start with no signal at the till; the card itself has its own offline copy.
+  const loyalty = useMyLoyalty(!!session && !session.user.is_anonymous);
+  const showLoyalty = loyaltyOn(loyalty.data);
   const toast = useToast();
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -206,22 +245,7 @@ export default function ProfileScreen() {
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
           >
           <Card style={{ flexDirection: 'row', direction: 'ltr', gap: 13, alignItems: 'center' }}>
-            <View
-              style={{
-                width: 50,
-                height: 50,
-                borderRadius: radius.pill,
-                backgroundColor: brand.blue,
-                borderWidth: 2.5,
-                borderColor: brand.green,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ fontFamily: fonts.display800, fontSize: 17, color: brand.white }}>
-                {initials}
-              </Text>
-            </View>
+            <ProfileAvatar path={profile.data?.avatar_path} initials={initials} size={50} />
             {/* 'stretch' (not 'flex-start') so each line spans the full column and
                 textAlign decides the edge; shrink-wrapping left the three lines at
                 ragged widths instead of flush against the avatar. `gap` spaces the
@@ -280,6 +304,57 @@ export default function ProfileScreen() {
           </Card>
           </Pressable>
 
+          {/* The member card, right under the identity card: what the guest opens at the till. */}
+          {showLoyalty ? (
+            <Pressable
+              testID="profile.member-card"
+              accessibilityRole="button"
+              accessibilityLabel={t('loyalty.guest.card.profileTitle')}
+              onPress={() => router.push('/member-card')}
+              style={({ pressed }) => ({ marginTop: space.m, opacity: pressed ? 0.7 : 1 })}
+            >
+              <Card style={{ flexDirection: 'row', gap: 13, alignItems: 'center' }}>
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: radius.cell,
+                    backgroundColor: colors.gtint,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <QrIcon size={20} color={colors.gstrong} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontFamily: fonts.display800, fontSize: 15, color: colors.ink }}>
+                    {t('loyalty.guest.card.profileTitle')}
+                  </Text>
+                  <Text
+                    numberOfLines={2}
+                    style={{ fontFamily: fonts.body400, fontSize: 12, lineHeight: 16, color: colors.mut }}
+                  >
+                    {t('loyalty.guest.card.profileBody')}
+                  </Text>
+                </View>
+                {loyalty.data ? (
+                  <Text
+                    testID="profile.member-card.balance"
+                    style={{
+                      fontFamily: fonts.display800,
+                      fontSize: 15,
+                      color: colors.gstrong,
+                      fontVariant: ['tabular-nums'],
+                    }}
+                  >
+                    {isolateLtr(formatNumber(loyalty.data.balance, locale))}
+                  </Text>
+                ) : null}
+                <ChevronIcon size={16} color={colors.fnt2} />
+              </Card>
+            </Pressable>
+          ) : null}
+
           {profileGateState(profile) === 'incomplete' ? (
             // D3: a social sign-in that left before completing its profile.
             <Card style={{ marginTop: space.m, backgroundColor: colors.amb, borderColor: colors.ambline }}>
@@ -299,16 +374,7 @@ export default function ProfileScreen() {
             </Card>
           ) : null}
 
-          <View
-            style={{
-              marginTop: space.m,
-              backgroundColor: colors.card,
-              borderWidth: 1,
-              borderColor: colors.line,
-              borderRadius: radius.card,
-              overflow: 'hidden',
-            }}
-          >
+          <MenuGroup label={t('profile.groupActivity')}>
             {coachEntry ? (
               <MenuRow
                 testID="profile.coach-mode"
@@ -321,6 +387,43 @@ export default function ProfileScreen() {
                 onPress={() => router.push(coachEntry)}
               />
             ) : null}
+            {coaching ? (
+              <MenuRow
+                testID="profile.my-lessons"
+                icon={<CalendarIcon size={15} color={colors.gstrong} />}
+                label={t('profile.myLessons')}
+                onPress={() => router.push('/my-lessons')}
+              />
+            ) : null}
+            {tournaments ? (
+              <MenuRow
+                testID="profile.my-tournaments"
+                icon={<CalendarIcon size={15} color={colors.gstrong} />}
+                label={t('tournaments.guest.entry.mine')}
+                onPress={() =>
+                  router.push({ pathname: '/tournaments', params: { filter: 'mine' } })
+                }
+              />
+            ) : null}
+            {showLoyalty ? (
+              <MenuRow
+                testID="profile.loyalty"
+                icon={<TagIcon size={15} color={colors.gstrong} />}
+                label={t('loyalty.guest.home.title')}
+                onPress={() => router.push('/loyalty')}
+              />
+            ) : null}
+            {/* Open matches (docs/design/open-matches/guest.md §4.16): the
+              ticket wallet here, the players this guest blocked under Account. */}
+            <MenuRow
+              testID="profile.tickets"
+              icon={<ReceiptIcon size={15} color={colors.gstrong} />}
+              label={t('profile.tickets')}
+              onPress={() => router.push('/tickets')}
+            />
+          </MenuGroup>
+
+          <MenuGroup label={t('profile.groupAccount')}>
             {/* A social account with no verified number proves one here. */}
             {phoneOtpEnabled() && !session?.user.phone ? (
               <MenuRow
@@ -330,22 +433,6 @@ export default function ProfileScreen() {
                 onPress={() => router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })}
               />
             ) : null}
-            {coaching ? (
-              <MenuRow
-                testID="profile.my-lessons"
-                icon={<CalendarIcon size={15} color={colors.gstrong} />}
-                label={t('profile.myLessons')}
-                onPress={() => router.push('/my-lessons')}
-              />
-            ) : null}
-            {/* Open matches (docs/design/open-matches/guest.md §4.16): the
-              ticket wallet, and the players this guest blocked. */}
-            <MenuRow
-              testID="profile.tickets"
-              icon={<ReceiptIcon size={15} color={colors.gstrong} />}
-              label={t('profile.tickets')}
-              onPress={() => router.push('/tickets')}
-            />
             <MenuRow
               testID="profile.blocked-players"
               icon={<CloseIcon size={15} color={colors.gstrong} />}
@@ -353,32 +440,22 @@ export default function ProfileScreen() {
               onPress={() => router.push('/blocked-players')}
             />
             <MenuRow
+              testID="profile.settings"
+              icon={<SlidersIcon size={15} color={colors.gstrong} />}
+              label={t('settings.title')}
+              onPress={() => router.push('/settings')}
+            />
+          </MenuGroup>
+
+          <MenuGroup label={t('profile.groupVenue')}>
+            <MenuRow
               testID="profile.call-venue"
               icon={<PhoneIcon size={15} color={colors.gstrong} />}
               label={t('profile.callVenue')}
               onPress={onCallVenue}
               disabled={settings.isLoading}
             />
-            <MenuRow
-              testID="profile.settings"
-              icon={<SlidersIcon size={15} color={colors.gstrong} />}
-              label={t('settings.title')}
-              onPress={() => router.push('/settings')}
-            />
-            {/* SEC-16. Last in the list and rendered in the error colour: both
-              stores require account deletion to be reachable from inside the
-              app, and this row is the path. It pushes a screen with a typed
-              confirmation rather than opening a dialog — the act is not
-              undoable, and an Alert is what a mis-tap dismisses by habit. */}
-            <MenuRow
-              testID="profile.delete-account"
-              icon={<TrashIcon size={15} color={colors.redtext} />}
-              iconBg={colors.redtint}
-              label={t('profile.deleteAccount')}
-              onPress={() => router.push('/delete-account')}
-              last
-            />
-          </View>
+          </MenuGroup>
 
           <ErrorText>{error}</ErrorText>
 

@@ -84,6 +84,36 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_merges: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          drop_id: string
+          id: string
+          keep_id: string
+          moved: Json
+          reason: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          drop_id: string
+          id?: string
+          keep_id: string
+          moved?: Json
+          reason: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          drop_id?: string
+          id?: string
+          keep_id?: string
+          moved?: Json
+          reason?: string
+        }
+        Relationships: []
+      }
       rpc_replays: {
         Row: {
           at: string
@@ -703,8 +733,14 @@ export type Database = {
         Args: { p_actor_id: string; p_staff_id: string }
         Returns: undefined
       }
+      avatar_in_use: { Args: { p_path: string }; Returns: boolean }
+      avatar_owner: { Args: { p_name: string }; Returns: string }
+      avatar_purge_due: { Args: { p_limit?: number }; Returns: Json }
+      avatar_purged: { Args: { p_id: string }; Returns: undefined }
+      avatar_upload_room: { Args: never; Returns: boolean }
       b64url_decode: { Args: { p: string }; Returns: string }
       b64url_encode: { Args: { p: string }; Returns: string }
+      base32_encode: { Args: { p_bytes: string }; Returns: string }
       block_courts_for_event: {
         Args: { p_blocks: Json; p_idempotency_key?: string; p_run_id: string }
         Returns: Json
@@ -1422,6 +1458,7 @@ export type Database = {
       default_venue: { Args: never; Returns: string }
       delete_court: { Args: { p_id: string }; Returns: Json }
       delete_hiring_candidate: { Args: { p_id: string }; Returns: undefined }
+      delete_loyalty_tier: { Args: { p_tier_id: string }; Returns: undefined }
       delete_my_account: { Args: { p_confirm?: string }; Returns: Json }
       deposit_amount: {
         Args: { p_price_iqd: number; p_venue_id: string }
@@ -1677,7 +1714,24 @@ export type Database = {
         }
         Returns: Json
       }
+      desk_tournament_detail: {
+        Args: { p_tournament_id: string }
+        Returns: Json
+      }
+      desk_tournaments: {
+        Args: { p_from: string; p_to: string; p_venue_id: string }
+        Returns: Json
+      }
       discard_count: { Args: { p_count_id: string }; Returns: Json }
+      duplicate_account_groups: { Args: never; Returns: Json }
+      duplicate_groups_internal: {
+        Args: never
+        Returns: {
+          key: string
+          kind: string
+          profile_id: string
+        }[]
+      }
       edit_customer_note: {
         Args: { p_body: string; p_note_id: string }
         Returns: Json
@@ -1772,6 +1826,10 @@ export type Database = {
         }
         Returns: string
       }
+      hold_is_live: {
+        Args: { p_r: Database["public"]["Tables"]["reservations"]["Row"] }
+        Returns: boolean
+      }
       hold_key_guests: { Args: { p_key: string }; Returns: string[] }
       hold_reviews: { Args: { p_venue_id?: string }; Returns: Json }
       hold_slot: {
@@ -1819,6 +1877,7 @@ export type Database = {
       }
       ingredient_on_hand: { Args: { p_ingredient: string }; Returns: number }
       iqd_split: { Args: { p_n: number; p_total: number }; Returns: number[] }
+      is_avatar_path: { Args: { p_name: string }; Returns: boolean }
       is_degraded:
         | { Args: never; Returns: boolean }
         | { Args: { p_venue: string }; Returns: boolean }
@@ -1849,11 +1908,16 @@ export type Database = {
       }
       jsonb_top_keys_text: { Args: { p: Json }; Returns: string }
       kitchen_board: { Args: { p_venue_id?: string }; Returns: Json }
+      lesson_assert_coach_bookable: {
+        Args: { p_by: string; p_coach_id: string; p_lesson_type_id: string }
+        Returns: number
+      }
       lesson_blocked_refund_record: {
         Args: {
           p_amount_iqd: number
           p_device_id?: string
           p_enrolment_id: string
+          p_idempotency_key: string
           p_pin: string
           p_reference: string
         }
@@ -1977,6 +2041,10 @@ export type Database = {
         Returns: Json
       }
       lesson_customer_label: { Args: { p_profile_id: string }; Returns: Json }
+      lesson_enrolment_may_owe: {
+        Args: { p_enrolment_id: string }
+        Returns: boolean
+      }
       lesson_enrolment_money: {
         Args: { p_enrolment_id: string }
         Returns: Json
@@ -2161,13 +2229,20 @@ export type Database = {
       }
       lesson_read_my_row: { Args: { p_enrolment_id: string }; Returns: Json }
       lesson_read_push_coach: {
-        Args: { p_lesson_id: string; p_places?: Json; p_title_key: string }
+        Args: {
+          p_enrolment_id?: string
+          p_lesson_id: string
+          p_places?: Json
+          p_suffix?: string
+          p_title_key: string
+        }
         Returns: number
       }
       lesson_read_push_guest: {
         Args: {
           p_enrolment_id: string
           p_lesson_id: string
+          p_suffix?: string
           p_title_key: string
         }
         Returns: number
@@ -2181,6 +2256,7 @@ export type Database = {
         Returns: undefined
       }
       lesson_reason_code: { Args: { p_reason: string }; Returns: string }
+      lesson_refund_net: { Args: never; Returns: number }
       lesson_refund_start: {
         Args: { p_enrolment_id: string; p_reason: string }
         Returns: number
@@ -2259,6 +2335,7 @@ export type Database = {
       }
       lesson_typed_purge: { Args: { p_limit?: number }; Returns: number }
       like_escape: { Args: { p_text: string }; Returns: string }
+      link_guest_session: { Args: { p_member_token: string }; Returns: Json }
       link_item_modifier_group: {
         Args: {
           p_group_id: string
@@ -2347,6 +2424,73 @@ export type Database = {
         }
         Returns: Json
       }
+      looks_like_card: { Args: { p_text: string }; Returns: boolean }
+      loyalty_adjust: {
+        Args: { p_delta: number; p_profile_id: string; p_reason: string }
+        Returns: Json
+      }
+      loyalty_admin: { Args: never; Returns: Json }
+      loyalty_card_ensure: {
+        Args: { p_profile: string }
+        Returns: Database["public"]["Tables"]["loyalty_cards"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "loyalty_cards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      loyalty_customer: { Args: { p_profile_id: string }; Returns: Json }
+      loyalty_display_name: { Args: { p_profile: string }; Returns: string }
+      loyalty_history: {
+        Args: { p_limit: number; p_profile: string }
+        Returns: Json
+      }
+      loyalty_identify: {
+        Args: { p_code: string; p_venue_id: string }
+        Returns: Json
+      }
+      loyalty_me: { Args: never; Returns: string }
+      loyalty_member_code: { Args: never; Returns: string }
+      loyalty_multiplier: { Args: { p_profile: string }; Returns: number }
+      loyalty_nightly: { Args: never; Returns: Json }
+      loyalty_phone_masked: { Args: { p_phone: string }; Returns: string }
+      loyalty_points_for: {
+        Args: {
+          p_cafe: boolean
+          p_court: number
+          p_court_on: boolean
+          p_iqd_per_pt: number
+          p_kind: string
+          p_lesson: boolean
+          p_multiplier: number
+          p_paid: number
+          p_shop: boolean
+          p_tournament: boolean
+        }
+        Returns: number
+      }
+      loyalty_public: { Args: never; Returns: Json }
+      loyalty_recompute: { Args: { p_profile: string }; Returns: undefined }
+      loyalty_redeem: {
+        Args: {
+          p_idempotency_key: string
+          p_points: number
+          p_reward_id: string
+          p_tab_id: string
+        }
+        Returns: Json
+      }
+      loyalty_retier: { Args: never; Returns: undefined }
+      loyalty_settings_json: { Args: never; Returns: Json }
+      loyalty_tier_json: { Args: { p_tier: string }; Returns: Json }
+      loyalty_till_terms: { Args: { p_venue_id: string }; Returns: Json }
+      loyalty_token_profile: { Args: { p_token: string }; Returns: string }
+      loyalty_totp: {
+        Args: { p_counter: number; p_secret: string }
+        Returns: string
+      }
+      loyalty_unredeem: { Args: { p_adjustment_id: string }; Returns: Json }
       mark_checklist_item: {
         Args: {
           p_done: boolean
@@ -2711,6 +2855,15 @@ export type Database = {
           orderable: boolean
         }[]
       }
+      merge_accounts: {
+        Args: { p_drop: string; p_keep: string; p_reason: string }
+        Returns: Json
+      }
+      merge_duplicates_internal: { Args: never; Returns: Json }
+      merge_profiles_internal: {
+        Args: { p_drop: string; p_keep: string; p_reason: string }
+        Returns: Json
+      }
       merge_tabs: {
         Args: { p_donor_tab_id: string; p_survivor_tab_id: string }
         Returns: Json
@@ -2725,6 +2878,7 @@ export type Database = {
         }
         Returns: Json
       }
+      my_birth_date: { Args: never; Returns: Json }
       my_campaign_drafts: { Args: { p_venue_id?: string }; Returns: Json }
       my_checklists_today: { Args: { p_venue_id?: string }; Returns: Json }
       my_coach_statements: { Args: { p_month?: string }; Returns: Json }
@@ -2742,6 +2896,7 @@ export type Database = {
       }
       my_lesson: { Args: { p_enrolment_id: string }; Returns: Json }
       my_lessons: { Args: { p_scope?: string }; Returns: Json }
+      my_loyalty: { Args: never; Returns: Json }
       my_marketing_notes: {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
@@ -2752,6 +2907,7 @@ export type Database = {
       }
       my_match_blocks: { Args: never; Returns: Json }
       my_matches: { Args: { p_scope?: string }; Returns: Json }
+      my_member_card: { Args: never; Returns: Json }
       my_order_slips: { Args: { p_venue_id?: string }; Returns: Json }
       my_protocol_work: { Args: { p_venue_id?: string }; Returns: Json }
       my_purchases: {
@@ -3016,6 +3172,17 @@ export type Database = {
       }
       production_log_today: { Args: { p_venue_id?: string }; Returns: Json }
       production_today: { Args: { p_venue_id?: string }; Returns: Json }
+      profile_activity: { Args: { p_profile: string }; Returns: number }
+      profile_merge_columns: {
+        Args: never
+        Returns: {
+          col: string
+          how: string
+          ord: number
+          sch: string
+          tbl: string
+        }[]
+      }
       promotion_amount_iqd: {
         Args: { p_base: number; p_type: string; p_value: number }
         Returns: number
@@ -3708,6 +3875,7 @@ export type Database = {
         Returns: Json
       }
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: number }
+      rotate_member_card: { Args: never; Returns: Json }
       rotate_table_token: { Args: { p_table_id: string }; Returns: number }
       rotate_table_token_secret: { Args: never; Returns: Json }
       row_venue: { Args: { p_id: string; p_table: string }; Returns: string }
@@ -3955,6 +4123,7 @@ export type Database = {
         Args: { p_item_id: string; p_sold_out: boolean }
         Returns: undefined
       }
+      set_loyalty_settings: { Args: { p_patch: Json }; Returns: Json }
       set_match_ban: {
         Args: { p_banned: boolean; p_customer_id: string; p_reason: string }
         Returns: Json
@@ -3967,6 +4136,8 @@ export type Database = {
         Args: { p_group_ids: string[]; p_modifier_id: string }
         Returns: undefined
       }
+      set_my_avatar: { Args: { p_path: string }; Returns: Json }
+      set_my_birth_date: { Args: { p_birth_date: string }; Returns: Json }
       set_my_coach_hours: {
         Args: { p_venue_id: string; p_windows: Json }
         Returns: Json
@@ -4048,6 +4219,10 @@ export type Database = {
         Args: { p_staff_id: string; p_station_ids: string[] }
         Returns: Json
       }
+      set_tab_customer: {
+        Args: { p_customer_id: string; p_tab_id: string }
+        Returns: Json
+      }
       set_table_bell: {
         Args: { p_enabled: boolean; p_table_id: string }
         Returns: undefined
@@ -4069,6 +4244,10 @@ export type Database = {
           p_status: Database["public"]["Enums"]["ticket_status"]
           p_ticket_id: string
         }
+        Returns: Json
+      }
+      set_tournaments_enabled: {
+        Args: { p_enabled: boolean; p_venue_id: string }
         Returns: Json
       }
       set_venue_details: {
@@ -4371,6 +4550,7 @@ export type Database = {
       }
       sweep_degraded_period: { Args: { p_venue: string }; Returns: undefined }
       sweep_degraded_periods: { Args: never; Returns: undefined }
+      tab_customer: { Args: { p_tab_id: string }; Returns: string }
       tab_is_callers: { Args: { p_tab_id: string }; Returns: boolean }
       tab_net_paid: { Args: { p_tab_id: string }; Returns: number }
       table_branch: { Args: { p_token: string }; Returns: string }
@@ -4517,8 +4697,28 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      tournament_add_entry: {
+        Args: { p_guest_id: string; p_tournament_id: string }
+        Returns: Json
+      }
+      tournament_cancel: {
+        Args: { p_reason: string; p_tournament_id: string }
+        Returns: Json
+      }
+      tournament_cancel_internal: {
+        Args: { p_reason: string; p_tournament_id: string }
+        Returns: Json
+      }
       tournament_context: { Args: { p_run_step_id: string }; Returns: Json }
+      tournament_entry_money: {
+        Args: { p_entry_id: string; p_exclude_tab_id?: string }
+        Returns: Json
+      }
       tournament_feasibility: { Args: { p_run_id: string }; Returns: Json }
+      tournament_fee_remaining: {
+        Args: { p_entry_id: string; p_exclude_tab_id?: string }
+        Returns: number
+      }
       tournament_int: {
         Args: {
           p_hint: string
@@ -4533,6 +4733,19 @@ export type Database = {
         Args: { p_cap: number; p_hint: string; p_value: Json }
         Returns: Json
       }
+      tournament_mark_no_show: {
+        Args: {
+          p_entry_id: string
+          p_substitute_entry_id: string
+          p_substitute_guest_id: string
+        }
+        Returns: Json
+      }
+      tournament_notify: {
+        Args: { p_dedupe: string; p_entry_id: string; p_title_key: string }
+        Returns: undefined
+      }
+      tournament_on: { Args: { p_venue: string }; Returns: boolean }
       tournament_only_keys: {
         Args: { p_allowed: string[]; p_hint: string; p_record: Json }
         Returns: undefined
@@ -4541,6 +4754,68 @@ export type Database = {
         Args: { p_court_id: string; p_from: string; p_plan: Json; p_to: string }
         Returns: boolean
       }
+      tournament_promote_internal: {
+        Args: { p_tournament_id: string }
+        Returns: string
+      }
+      tournament_public: { Args: { p_id: string }; Returns: Json }
+      tournament_publish: {
+        Args: { p_idempotency_key: string; p_run_id: string; p_settings: Json }
+        Returns: Json
+      }
+      tournament_register: { Args: { p_tournament_id: string }; Returns: Json }
+      tournament_release_blocks: {
+        Args: { p_note: string; p_tournament_id: string }
+        Returns: number
+      }
+      tournament_remove_entry: {
+        Args: { p_entry_id: string; p_reason: string }
+        Returns: Json
+      }
+      tournament_score: {
+        Args: {
+          p_expected_revision: number
+          p_match_id: string
+          p_points_a: number
+          p_points_b: number
+          p_reason: string
+        }
+        Returns: Json
+      }
+      tournament_set_rounds: {
+        Args: {
+          p_idempotency_key: string
+          p_payload: Json
+          p_tournament_id: string
+        }
+        Returns: Json
+      }
+      tournament_settle: {
+        Args: {
+          p_device_id: string
+          p_entry_id: string
+          p_expected_owed_iqd: number
+          p_idempotency_key: string
+          p_method: Database["public"]["Enums"]["payment_method"]
+          p_tendered_iqd: number
+        }
+        Returns: Json
+      }
+      tournament_standings: {
+        Args: { p_tournament_id: string }
+        Returns: {
+          diff: number
+          entry_id: string
+          h2h: number
+          played: number
+          points_against: number
+          points_won: number
+          rank: number
+          sat_out: number
+          withdrawn: boolean
+        }[]
+      }
+      tournament_sweep: { Args: never; Returns: Json }
       tournament_text: {
         Args: {
           p_cap: number
@@ -4550,6 +4825,8 @@ export type Database = {
         }
         Returns: string
       }
+      tournament_withdraw: { Args: { p_tournament_id: string }; Returns: Json }
+      tournaments_public: { Args: { p_venue_id: string }; Returns: Json }
       transfer_stock: {
         Args: {
           p_from: string
@@ -4634,6 +4911,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      upsert_loyalty_reward: { Args: { p_reward: Json }; Returns: Json }
+      upsert_loyalty_tier: { Args: { p_tier: Json }; Returns: Json }
       upsert_menu_category: {
         Args: {
           p_id?: string
@@ -5653,6 +5932,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      avatar_purges: {
+        Row: {
+          id: string
+          path: string
+          purged_at: string | null
+          queued_at: string
+        }
+        Insert: {
+          id?: string
+          path: string
+          purged_at?: string | null
+          queued_at?: string
+        }
+        Update: {
+          id?: string
+          path?: string
+          purged_at?: string | null
+          queued_at?: string
+        }
+        Relationships: []
       }
       booking_payment_events: {
         Row: {
@@ -7781,6 +8081,7 @@ export type Database = {
           hold_expires_at: string | null
           id: string
           idempotency_key: string | null
+          kept_until: string | null
           lesson_id: string | null
           link_confirmed_at: string | null
           party_size: number
@@ -7808,6 +8109,7 @@ export type Database = {
           hold_expires_at?: string | null
           id?: string
           idempotency_key?: string | null
+          kept_until?: string | null
           lesson_id?: string | null
           link_confirmed_at?: string | null
           party_size?: number
@@ -7835,6 +8137,7 @@ export type Database = {
           hold_expires_at?: string | null
           id?: string
           idempotency_key?: string | null
+          kept_until?: string | null
           lesson_id?: string | null
           link_confirmed_at?: string | null
           party_size?: number
@@ -8299,6 +8602,315 @@ export type Database = {
           usage_date?: string
         }
         Relationships: []
+      }
+      loyalty_accounts: {
+        Row: {
+          balance: number
+          last_activity_at: string | null
+          lifetime_earned: number
+          points_12m: number
+          profile_id: string
+          tier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          last_activity_at?: string | null
+          lifetime_earned?: number
+          points_12m?: number
+          profile_id: string
+          tier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          last_activity_at?: string | null
+          lifetime_earned?: number
+          points_12m?: number
+          profile_id?: string
+          tier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_accounts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_accounts_tier_id_fkey"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_cards: {
+        Row: {
+          created_at: string
+          member_code: string
+          profile_id: string
+          rotated_at: string | null
+          secret: string
+        }
+        Insert: {
+          created_at?: string
+          member_code: string
+          profile_id: string
+          rotated_at?: string | null
+          secret: string
+        }
+        Update: {
+          created_at?: string
+          member_code?: string
+          profile_id?: string
+          rotated_at?: string | null
+          secret?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_cards_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_ledger: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          delta: number
+          id: string
+          kind: string
+          note: string | null
+          profile_id: string
+          source_id: string
+          source_kind: string
+          tab_id: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          delta: number
+          id?: string
+          kind: string
+          note?: string | null
+          profile_id: string
+          source_id: string
+          source_kind: string
+          tab_id?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          delta?: number
+          id?: string
+          kind?: string
+          note?: string | null
+          profile_id?: string
+          source_id?: string
+          source_kind?: string
+          tab_id?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_ledger_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_ledger_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_ledger_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_rewards: {
+        Row: {
+          active: boolean
+          cost_points: number
+          created_at: string
+          id: string
+          iqd_off: number | null
+          kind: string
+          menu_variant_id: string | null
+          name_ar: string
+          name_en: string
+          venue_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          cost_points: number
+          created_at?: string
+          id?: string
+          iqd_off?: number | null
+          kind: string
+          menu_variant_id?: string | null
+          name_ar: string
+          name_en: string
+          venue_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          cost_points?: number
+          created_at?: string
+          id?: string
+          iqd_off?: number | null
+          kind?: string
+          menu_variant_id?: string | null
+          name_ar?: string
+          name_en?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_rewards_menu_variant_id_fkey"
+            columns: ["menu_variant_id"]
+            isOneToOne: false
+            referencedRelation: "menu_item_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_rewards_menu_variant_id_fkey"
+            columns: ["menu_variant_id"]
+            isOneToOne: false
+            referencedRelation: "v_item_cogs"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "loyalty_rewards_menu_variant_id_fkey"
+            columns: ["menu_variant_id"]
+            isOneToOne: false
+            referencedRelation: "v_item_margin"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "loyalty_rewards_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_settings: {
+        Row: {
+          earn_cafe: boolean
+          earn_court: boolean
+          earn_lesson: boolean
+          earn_shop: boolean
+          earn_tournament: boolean
+          enabled: boolean
+          id: boolean
+          inactivity_expiry_months: number | null
+          iqd_per_point: number
+          min_redeem_points: number
+          point_value_iqd: number
+          totp_step_seconds: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          earn_cafe?: boolean
+          earn_court?: boolean
+          earn_lesson?: boolean
+          earn_shop?: boolean
+          earn_tournament?: boolean
+          enabled?: boolean
+          id?: boolean
+          inactivity_expiry_months?: number | null
+          iqd_per_point?: number
+          min_redeem_points?: number
+          point_value_iqd?: number
+          totp_step_seconds?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          earn_cafe?: boolean
+          earn_court?: boolean
+          earn_lesson?: boolean
+          earn_shop?: boolean
+          earn_tournament?: boolean
+          enabled?: boolean
+          id?: boolean
+          inactivity_expiry_months?: number | null
+          iqd_per_point?: number
+          min_redeem_points?: number
+          point_value_iqd?: number
+          totp_step_seconds?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_tiers: {
+        Row: {
+          created_at: string
+          earn_multiplier: number
+          id: string
+          min_points_12m: number
+          name_ar: string
+          name_en: string
+          promotion_id: string | null
+          sort: number
+        }
+        Insert: {
+          created_at?: string
+          earn_multiplier?: number
+          id?: string
+          min_points_12m: number
+          name_ar: string
+          name_en: string
+          promotion_id?: string | null
+          sort: number
+        }
+        Update: {
+          created_at?: string
+          earn_multiplier?: number
+          id?: string
+          min_points_12m?: number
+          name_ar?: string
+          name_en?: string
+          promotion_id?: string | null
+          sort?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_tiers_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       manager_alerts: {
         Row: {
@@ -10752,6 +11364,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_path: string | null
+          birth_date: string | null
           created_at: string
           deleted_at: string | null
           expo_push_token: string | null
@@ -10764,11 +11378,14 @@ export type Database = {
           id: string
           payment_sandbox: boolean
           phone: string | null
+          phone_key: string | null
           preferred_lang: string
           terms_accepted_at: string | null
           terms_version: string | null
         }
         Insert: {
+          avatar_path?: string | null
+          birth_date?: string | null
           created_at?: string
           deleted_at?: string | null
           expo_push_token?: string | null
@@ -10781,11 +11398,14 @@ export type Database = {
           id: string
           payment_sandbox?: boolean
           phone?: string | null
+          phone_key?: string | null
           preferred_lang?: string
           terms_accepted_at?: string | null
           terms_version?: string | null
         }
         Update: {
+          avatar_path?: string | null
+          birth_date?: string | null
           created_at?: string
           deleted_at?: string | null
           expo_push_token?: string | null
@@ -10798,6 +11418,7 @@ export type Database = {
           id?: string
           payment_sandbox?: boolean
           phone?: string | null
+          phone_key?: string | null
           preferred_lang?: string
           terms_accepted_at?: string | null
           terms_version?: string | null
@@ -13974,6 +14595,7 @@ export type Database = {
         Row: {
           court_cap_iqd: number | null
           court_iqd: number
+          customer_id: string | null
           day_session_id: string
           device_id: string | null
           discount_iqd: number | null
@@ -13993,11 +14615,13 @@ export type Database = {
           table_id: string | null
           tax_iqd: number | null
           total_iqd: number | null
+          tournament_entry_id: string | null
           venue_id: string
         }
         Insert: {
           court_cap_iqd?: number | null
           court_iqd?: number
+          customer_id?: string | null
           day_session_id: string
           device_id?: string | null
           discount_iqd?: number | null
@@ -14017,11 +14641,13 @@ export type Database = {
           table_id?: string | null
           tax_iqd?: number | null
           total_iqd?: number | null
+          tournament_entry_id?: string | null
           venue_id?: string
         }
         Update: {
           court_cap_iqd?: number | null
           court_iqd?: number
+          customer_id?: string | null
           day_session_id?: string
           device_id?: string | null
           discount_iqd?: number | null
@@ -14041,9 +14667,17 @@ export type Database = {
           table_id?: string | null
           tax_iqd?: number | null
           total_iqd?: number | null
+          tournament_entry_id?: string | null
           venue_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tabs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tabs_day_session_id_fkey"
             columns: ["day_session_id"]
@@ -14098,6 +14732,13 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "cafe_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tabs_tournament_entry_fkey"
+            columns: ["tournament_entry_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_entries"
             referencedColumns: ["id"]
           },
           {
@@ -14590,6 +15231,455 @@ export type Database = {
           },
         ]
       }
+      tournament_entries: {
+        Row: {
+          added_by_kind: string
+          added_by_staff_id: string | null
+          created_at: string
+          entered_at: string
+          guest_id: string
+          id: string
+          no_show_at: string | null
+          promoted_at: string | null
+          seed_no: number | null
+          status: string
+          substitute_for: string | null
+          tournament_id: string
+          updated_at: string
+          venue_id: string
+          withdrawn_at: string | null
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          added_by_kind: string
+          added_by_staff_id?: string | null
+          created_at?: string
+          entered_at?: string
+          guest_id: string
+          id?: string
+          no_show_at?: string | null
+          promoted_at?: string | null
+          seed_no?: number | null
+          status: string
+          substitute_for?: string | null
+          tournament_id: string
+          updated_at?: string
+          venue_id: string
+          withdrawn_at?: string | null
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          added_by_kind?: string
+          added_by_staff_id?: string | null
+          created_at?: string
+          entered_at?: string
+          guest_id?: string
+          id?: string
+          no_show_at?: string | null
+          promoted_at?: string | null
+          seed_no?: number | null
+          status?: string
+          substitute_for?: string | null
+          tournament_id?: string
+          updated_at?: string
+          venue_id?: string
+          withdrawn_at?: string | null
+          withdrawn_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_entries_added_by_staff_id_fkey"
+            columns: ["added_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_entries_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_entries_substitute_for_fkey"
+            columns: ["substitute_for"]
+            isOneToOne: false
+            referencedRelation: "tournament_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_entries_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_entries_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_matches: {
+        Row: {
+          a1: string
+          a2: string
+          b1: string
+          b2: string
+          court_id: string
+          id: string
+          points_a: number | null
+          points_b: number | null
+          revision: number
+          round_id: string
+          round_no: number
+          scored_at: string | null
+          scored_by: string | null
+          tournament_id: string
+          venue_id: string
+        }
+        Insert: {
+          a1: string
+          a2: string
+          b1: string
+          b2: string
+          court_id: string
+          id?: string
+          points_a?: number | null
+          points_b?: number | null
+          revision?: number
+          round_id: string
+          round_no: number
+          scored_at?: string | null
+          scored_by?: string | null
+          tournament_id: string
+          venue_id: string
+        }
+        Update: {
+          a1?: string
+          a2?: string
+          b1?: string
+          b2?: string
+          court_id?: string
+          id?: string
+          points_a?: number | null
+          points_b?: number | null
+          revision?: number
+          round_id?: string
+          round_no?: number
+          scored_at?: string | null
+          scored_by?: string | null
+          tournament_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_matches_a1_fkey"
+            columns: ["a1"]
+            isOneToOne: false
+            referencedRelation: "tournament_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_matches_a2_fkey"
+            columns: ["a2"]
+            isOneToOne: false
+            referencedRelation: "tournament_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_matches_b1_fkey"
+            columns: ["b1"]
+            isOneToOne: false
+            referencedRelation: "tournament_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_matches_b2_fkey"
+            columns: ["b2"]
+            isOneToOne: false
+            referencedRelation: "tournament_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_matches_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_matches_round_id_round_no_fkey"
+            columns: ["round_id", "round_no"]
+            isOneToOne: false
+            referencedRelation: "tournament_rounds"
+            referencedColumns: ["id", "round_no"]
+          },
+          {
+            foreignKeyName: "tournament_matches_scored_by_fkey"
+            columns: ["scored_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_matches_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_matches_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_rounds: {
+        Row: {
+          bye_entry_ids: string[]
+          created_at: string
+          generated_by: string
+          id: string
+          round_no: number
+          tournament_id: string
+          venue_id: string
+        }
+        Insert: {
+          bye_entry_ids?: string[]
+          created_at?: string
+          generated_by: string
+          id?: string
+          round_no: number
+          tournament_id: string
+          venue_id: string
+        }
+        Update: {
+          bye_entry_ids?: string[]
+          created_at?: string
+          generated_by?: string
+          id?: string
+          round_no?: number
+          tournament_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_rounds_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_rounds_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_rounds_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_score_events: {
+        Row: {
+          actor_staff_id: string
+          at: string
+          id: string
+          match_id: string
+          points_a: number
+          points_a_before: number | null
+          points_b: number
+          points_b_before: number | null
+          reason: string | null
+          tournament_id: string
+          venue_id: string
+        }
+        Insert: {
+          actor_staff_id: string
+          at?: string
+          id?: string
+          match_id: string
+          points_a: number
+          points_a_before?: number | null
+          points_b: number
+          points_b_before?: number | null
+          reason?: string | null
+          tournament_id: string
+          venue_id: string
+        }
+        Update: {
+          actor_staff_id?: string
+          at?: string
+          id?: string
+          match_id?: string
+          points_a?: number
+          points_a_before?: number | null
+          points_b?: number
+          points_b_before?: number | null
+          reason?: string | null
+          tournament_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_score_events_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_score_events_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_score_events_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_score_events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournaments: {
+        Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          category: string
+          class: string
+          closed_at: string | null
+          created_at: string
+          ends_at: string
+          entry_fee_iqd: number
+          finished_at: string | null
+          format: string
+          id: string
+          max_entries: number
+          min_entries: number
+          name_ar: string
+          name_en: string
+          points_target: number
+          prize_ar: string | null
+          prize_en: string | null
+          protocol_run_id: string
+          published_by: string
+          registration_closes_at: string
+          revision: number
+          rounds_planned: number | null
+          starts_at: string
+          status: string
+          updated_at: string
+          venue_id: string
+          waitlist_max: number
+        }
+        Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          category?: string
+          class: string
+          closed_at?: string | null
+          created_at?: string
+          ends_at: string
+          entry_fee_iqd?: number
+          finished_at?: string | null
+          format: string
+          id?: string
+          max_entries: number
+          min_entries: number
+          name_ar: string
+          name_en: string
+          points_target?: number
+          prize_ar?: string | null
+          prize_en?: string | null
+          protocol_run_id: string
+          published_by: string
+          registration_closes_at: string
+          revision?: number
+          rounds_planned?: number | null
+          starts_at: string
+          status?: string
+          updated_at?: string
+          venue_id: string
+          waitlist_max?: number
+        }
+        Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          category?: string
+          class?: string
+          closed_at?: string | null
+          created_at?: string
+          ends_at?: string
+          entry_fee_iqd?: number
+          finished_at?: string | null
+          format?: string
+          id?: string
+          max_entries?: number
+          min_entries?: number
+          name_ar?: string
+          name_en?: string
+          points_target?: number
+          prize_ar?: string | null
+          prize_en?: string | null
+          protocol_run_id?: string
+          published_by?: string
+          registration_closes_at?: string
+          revision?: number
+          rounds_planned?: number | null
+          starts_at?: string
+          status?: string
+          updated_at?: string
+          venue_id?: string
+          waitlist_max?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournaments_protocol_run_id_fkey"
+            columns: ["protocol_run_id"]
+            isOneToOne: true
+            referencedRelation: "protocol_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournaments_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournaments_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_settings: {
         Row: {
           cancellation_window_hours: number
@@ -14630,6 +15720,7 @@ export type Database = {
           table_token_ttl_minutes: number
           tax_inclusive: boolean
           timezone: string
+          tournaments_enabled: boolean
           venue_id: string
           venue_name: string
           waiter_call_cooldown_seconds: number
@@ -14673,6 +15764,7 @@ export type Database = {
           table_token_ttl_minutes?: number
           tax_inclusive?: boolean
           timezone?: string
+          tournaments_enabled?: boolean
           venue_id?: string
           venue_name: string
           waiter_call_cooldown_seconds?: number
@@ -14716,6 +15808,7 @@ export type Database = {
           table_token_ttl_minutes?: number
           tax_inclusive?: boolean
           timezone?: string
+          tournaments_enabled?: boolean
           venue_id?: string
           venue_name?: string
           waiter_call_cooldown_seconds?: number
@@ -15305,6 +16398,7 @@ export type Database = {
           protected_horizon_hours: number | null
           table_token_ttl_minutes: number | null
           timezone: string | null
+          tournaments_enabled: boolean | null
           venue_id: string | null
           venue_name: string | null
           venue_name_ar: string | null

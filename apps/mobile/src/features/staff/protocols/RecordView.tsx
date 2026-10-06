@@ -29,6 +29,7 @@ export function RecordView({
   record,
   names,
   skip,
+  emptyLines,
 }: {
   fields: readonly FieldDef[];
   record: Obj;
@@ -36,11 +37,24 @@ export function RecordView({
   names?: Readonly<Record<string, string>>;
   /** Template paths not shown (the launch's photo path: the photos are shown apart). */
   skip?: ReadonlySet<string>;
+  /**
+   * Top-level paths whose EMPTY value means something, with the line to show
+   * for it (MB-20: a coach price left empty removes the coach's own price).
+   */
+  emptyLines?: Readonly<Record<string, string>>;
 }) {
   return (
     <View style={{ gap: 6 }}>
       {fields.map((def) => (
-        <Entry key={def.name} def={def} value={record[def.name]} path={def.name} names={names} skip={skip} />
+        <Entry
+          key={def.name}
+          def={def}
+          value={record[def.name]}
+          path={def.name}
+          names={names}
+          skip={skip}
+          emptyLine={emptyLines?.[def.name]}
+        />
       ))}
     </View>
   );
@@ -52,18 +66,30 @@ function Entry({
   path,
   names,
   skip,
+  emptyLine,
 }: {
   def: FieldDef;
   value: unknown;
   path: string;
   names?: Readonly<Record<string, string>>;
   skip?: ReadonlySet<string>;
+  /** The line an empty value reads as, when it means something (MB-20). */
+  emptyLine?: string;
 }) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
-  if (skip?.has(path) || value === undefined || value === null || value === '') return null;
+  if (skip?.has(path)) return null;
   const key = fieldLabelKey(path);
   const label = key ? t(key) : def.name;
+  if (value === undefined || value === null || value === '') {
+    if (!emptyLine) return null;
+    return (
+      <View style={{ gap: 1 }}>
+        <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.mut }}>{label}</Text>
+        <Text style={{ fontFamily: fonts.body400, fontSize: 13.5, lineHeight: 20, color: colors.ink }}>{emptyLine}</Text>
+      </View>
+    );
+  }
 
   const text = (() => {
     switch (def.type) {

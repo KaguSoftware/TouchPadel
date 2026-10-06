@@ -53,7 +53,10 @@ import {
 } from '../../src/features/matches/continuation';
 import { matchErrorText } from '../../src/features/matches/errors';
 import { useStartLessonPayment } from '../../src/features/coaching/payment';
-import { lessonBeginRefusalOf, lessonErrorText } from '../../src/features/coaching/errors';
+import {
+  lessonBeginErrorText,
+  lessonBeginRefusalOf,
+} from '../../src/features/coaching/errors';
 import { pick } from '../../src/features/coaching/logic';
 import { openPaymentPage } from '../../src/features/deposit/browser';
 import { PayStateLayout, type PayTone } from '../../src/features/deposit/PayStateLayout';
@@ -386,7 +389,8 @@ function PayStatusScreen() {
           return;
         }
         void status.refetch();
-        setError(lessonErrorText(err, t, { locale, phone }));
+        // MB-11: the place being paid for is held, so an `off` refusal offers the free cancel.
+        setError(lessonBeginErrorText(err, t, { locale, phone, held: true }));
       },
     });
   };

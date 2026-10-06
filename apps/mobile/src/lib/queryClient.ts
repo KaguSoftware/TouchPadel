@@ -213,8 +213,12 @@ queryClient.setQueryDefaults(['match', 'slots'], {
 /**
  * Coach mode (docs/design/coaching/guest.md §4.7.3), keyed under `coachKeys`
  * (features/coach/keys.ts). Every coaching write runs now or fails now (CD-6):
- * nothing is queued. One retry is safe because the booking and creation
- * writes are keyed and every other coach write is state-idempotent. The book
+ * nothing is queued. One retry is safe because the booking, creation and add
+ * writes are keyed; add_my_time_off is NOT state-idempotent, but since 0290
+ * (DB-06) it answers a retry (the same live period, set by the same person)
+ * with duplicate instead of HOURS_OVERLAP (MB-06); and every other coach
+ * write sets state (hours, marks, cancels, removals), so a second run changes
+ * nothing. The book
  * screen's free times fail fast, like the match chips: the screen falls back
  * to a start picker.
  */
@@ -243,6 +247,29 @@ queryClient.setQueryDefaults(['coaching', 'slots'], {
 });
 
 /**
+ * Tournaments, the guest's side (plan §5.2), keyed under `tournamentKeys`
+ * (features/tournaments/keys.ts). As for lessons: register and withdraw run
+ * now or fail now (nothing is queued, so a registration never lands after the
+ * cut-off it was refused for); one retry is safe because both are
+ * state-idempotent (a repeat answers `duplicate`).
+ */
+queryClient.setMutationDefaults(['tournament', 'mutation'], {
+  networkMode: 'always',
+  retry: retryKeyedWriteOnce,
+});
+
+/**
+ * Loyalty, the guest's side (loyalty plan §5.1), keyed under `loyaltyKeys`
+ * (features/loyalty/keys.ts). Every loyalty write is online-only (build
+ * contracts L-6): "Get a new code" runs now or fails now, and is never sent
+ * again by itself (a second rotation would retire the code just drawn).
+ */
+queryClient.setMutationDefaults(['loyalty', 'mutation'], {
+  networkMode: 'always',
+  retry: false,
+});
+
+/**
  * Disk cache so a cold start paints real data immediately instead of spinners.
  *
  * `buster` is the app version: a build that changes query shapes must not read
@@ -267,7 +294,10 @@ export const persister = createAsyncStoragePersister({
  * lesson read carries money, and a held enrolment read back from disk would
  * be shown before it is re-checked (coaching guest.md §4.7.3). And the
  * `coach` family (coach mode): a roster carries students' phones and a
- * statement the coach's pay (coaching guest.md §4.7.3).
+ * statement the coach's pay (coaching guest.md §4.7.3). And the
+ * `tournament` family: a detail carries other players' names and the guest's
+ * own entry and money, and a "registered" read back from disk would be shown
+ * before it is re-checked (tournaments plan §5.2).
  */
 export const persistOptions = {
   persister,
@@ -281,7 +311,16 @@ export const persistOptions = {
       query.queryKey[0] !== 'deposit' &&
       query.queryKey[0] !== 'match' &&
       query.queryKey[0] !== 'coaching' &&
-      query.queryKey[0] !== 'coach',
+      query.queryKey[0] !== 'coach' &&
+      query.queryKey[0] !== 'tournament' &&
+      // 0302: a signed avatar URL expires, and the date of birth is read only
+      // by its guest; neither is kept on disk.
+      query.queryKey[0] !== 'avatar-url' &&
+      query.queryKey[0] !== 'own-birth-date' &&
+      // Loyalty: the member card carries its TOTP secret, which lives in
+      // SecureStore (features/loyalty/cardStore.ts), never in this plain file.
+      // The balance read (`['loyalty', 'mine']`) is kept, like the profile.
+      !(query.queryKey[0] === 'loyalty' && query.queryKey[1] === 'card'),
   },
 } as const;
 

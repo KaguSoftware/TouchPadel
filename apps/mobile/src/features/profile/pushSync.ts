@@ -118,6 +118,8 @@ export type TapDestination =
   | { kind: 'lesson'; id: string }
   | { kind: 'coachLesson'; id: string }
   | { kind: 'coachStatements' }
+  /** A tournament (tournaments build contracts §1.10): cancelled, or a place opened up. */
+  | { kind: 'tournament'; id: string }
   | null;
 
 /**
@@ -158,7 +160,9 @@ export function isStaffTap(data: PushTapData | undefined): boolean {
  * enrolment, `coach_lesson` with an id the coach's roster, `coach_statements`
  * the statements, whatever the staff status: a guest who coaches and a staff
  * member who coaches (C-27) both open them. A coaching route that needs an id
- * and came without one opens nothing, and never a match screen.
+ * and came without one opens nothing, and never a match screen. A tournament
+ * kind (`tournament` with the tournament's id) opens that tournament likewise,
+ * and nothing when it names none.
  */
 export function tapDestination(data: PushTapData | undefined): string | null;
 export function tapDestination(data: PushTapData | undefined, status: StaffStatusKind): TapDestination;
@@ -184,6 +188,8 @@ export function tapDestination(
         return target ? { kind: 'coachLesson', id: target } : null;
       case 'coach_statements':
         return { kind: 'coachStatements' };
+      case 'tournament':
+        return target ? { kind: 'tournament', id: target } : null;
       default:
         return null;
     }

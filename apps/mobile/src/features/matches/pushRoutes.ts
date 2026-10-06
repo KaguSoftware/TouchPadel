@@ -1,7 +1,8 @@
 /**
  * The guest push routes and kinds the phone knows (docs/design/open-matches/guest.md
  * §4.21; build contracts §1.9, R3), and since coaching's outbox_lesson_kinds the lesson family
- * (docs/design/coaching/guest.md §4.11; coaching build contracts §1.9, R18).
+ * (docs/design/coaching/guest.md §4.11; coaching build contracts §1.9, R18), and since the
+ * tournaments milestone the tournament family (tournaments build contracts §1.10, S12).
  *
  * `send-push` puts `{kind, route, title_key, id?}` in a guest notification's
  * data. The one catalogue is
@@ -12,27 +13,38 @@
  *
  * The coaching routes and kinds are owned by `features/coaching/pushRoutes.ts`
  * (where a lesson tap opens: `lessonPushHref`); the guest lists here append
- * them after the open-match ones, in the JSON's order, so there is one copy.
+ * them after the open-match ones, in the JSON's order, so there is one copy. The
+ * tournament route and kind are owned by `features/tournaments/pushRoutes.ts`
+ * (`tournamentPushHref`) and appended after coaching's, as the JSON appends them.
  *
  * A guest tap opens whatever the staff status (a guest route is never a staff
  * one); `features/profile/pushSync.ts` asks `isGuestPushRoute` before its
  * staff check. PURE (vitest).
  */
 import { LESSON_PUSH_KINDS, LESSON_PUSH_ROUTES } from '../coaching/pushRoutes';
+import { TOURNAMENT_PUSH_KINDS, TOURNAMENT_PUSH_ROUTES } from '../tournaments/pushRoutes';
 
 /** The open-match routes: what `guestPushHref` opens. */
 export const MATCH_PUSH_ROUTES = ['match', 'tickets'] as const;
 export type MatchPushRoute = (typeof MATCH_PUSH_ROUTES)[number];
 
-/** Every guest route, open matches then coaching (the JSON's order). */
-export const GUEST_PUSH_ROUTES = [...MATCH_PUSH_ROUTES, ...LESSON_PUSH_ROUTES] as const;
+/** Every guest route, open matches, coaching, then tournaments (the JSON's order). */
+export const GUEST_PUSH_ROUTES = [
+  ...MATCH_PUSH_ROUTES,
+  ...LESSON_PUSH_ROUTES,
+  ...TOURNAMENT_PUSH_ROUTES,
+] as const;
 export type GuestPushRoute = (typeof GUEST_PUSH_ROUTES)[number];
 
 /** The open-match kinds: a foreground push of one of these refreshes `['match']`. */
 export const MATCH_PUSH_KINDS = ['match_update', 'match_reminder', 'match_message'] as const;
 
-/** The outbox kinds of the guest family, open matches then coaching (the JSON's order). */
-export const GUEST_PUSH_KINDS = [...MATCH_PUSH_KINDS, ...LESSON_PUSH_KINDS] as const;
+/** The outbox kinds of the guest family, open matches, coaching, then tournaments (the JSON's order). */
+export const GUEST_PUSH_KINDS = [
+  ...MATCH_PUSH_KINDS,
+  ...LESSON_PUSH_KINDS,
+  ...TOURNAMENT_PUSH_KINDS,
+] as const;
 export type GuestPushKind = (typeof GUEST_PUSH_KINDS)[number];
 
 const ROUTES: readonly string[] = GUEST_PUSH_ROUTES;

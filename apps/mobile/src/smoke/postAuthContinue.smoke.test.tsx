@@ -28,6 +28,17 @@ import {
   setPendingJoin,
   type PendingJoin,
 } from '../features/matches/pendingJoin';
+import {
+  clearPendingLesson,
+  getPendingLesson,
+  pendingLessonHref,
+  type PendingLesson,
+} from '../features/coaching/pendingLesson';
+import {
+  setOnlyPendingJoin,
+  setOnlyPendingLesson,
+  setOnlyPendingSlot,
+} from '../features/booking/pendingIntent';
 
 function Probe() {
   const { continueAfterAuth } = usePostAuthContinue();
@@ -90,6 +101,7 @@ afterEach(() => {
   delete (supabase as { schema?: unknown }).schema;
   clearPendingJoin();
   clearPendingSlot();
+  clearPendingLesson();
 });
 
 describe('the continuation after sign-in or a verified code', () => {
@@ -205,6 +217,39 @@ describe('the continuation after sign-in or a verified code', () => {
       );
       expect(getUser).not.toHaveBeenCalled();
       expect(getPendingJoin()).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  const LESSON: PendingLesson = {
+    kind: 'private',
+    coachId: 'c0000000-0000-4000-8000-0000000000c1',
+    lessonTypeId: 't-1',
+    venueId: TEST_VENUE_ID,
+    startAt: START_AT,
+    priceIqd: 30000,
+  };
+
+  it.each([
+    ['slot', () => setOnlyPendingSlot(SLOT)],
+    ['join', () => setOnlyPendingJoin(START)],
+  ])('opens a newer lesson tap after an old %s intent, holding nothing (MB-04)', async (_name, older) => {
+    const getUser = account(VERIFIED);
+    const rpc = jest.fn(() => Promise.resolve({ data: null, error: null }));
+    Object.assign(supabase, { schema: () => ({ rpc }) });
+    older();
+    setOnlyPendingLesson(LESSON);
+    const screen = run();
+    try {
+      await waitFor(() =>
+        expect(replaces()).toEqual([{ method: 'replace', arg: pendingLessonHref(LESSON) }]),
+      );
+      expect(rpc).not.toHaveBeenCalled();
+      expect(getUser).not.toHaveBeenCalled();
+      expect(getPendingSlot()).toBeNull();
+      expect(getPendingJoin()).toBeNull();
+      expect(getPendingLesson()).toBeNull();
     } finally {
       screen.unmount();
     }

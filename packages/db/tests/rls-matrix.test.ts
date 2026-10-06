@@ -66,6 +66,9 @@ const WRITE_FILTERS: Record<string, [string, unknown]> = {
   customer_flags: ['customer_id', '00000000-0000-4000-8000-000000000000'],
   // drop 13 (0123) — staff_venues has a composite pk, no `id`
   staff_venues: ['staff_id', '00000000-0000-4000-8000-000000000000'],
+  // drop 29 (0305) — loyalty_settings is a boolean singleton, loyalty_accounts is keyed by profile
+  loyalty_settings: ['id', true],
+  loyalty_accounts: ['profile_id', '00000000-0000-4000-8000-000000000000'],
 };
 
 describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface bar three)', () => {
@@ -318,5 +321,32 @@ describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface 
       p_reason: 'guest called the desk',
     });
     expect(staffCancel.error).toBeNull();
+  });
+
+  it('app.profile_merges (0303): manager and owner read the merge log, every other principal sees nothing', async () => {
+    // Schema app, so the declarative runner (public tables) cannot address it. A probe row
+    // keeps the guest account's own profile, so a policy that let a guest read their own
+    // merges would show up as rows here.
+    const { data: who } = await clients.guest_account.auth.getUser();
+    const keep = who.user?.id;
+    expect(keep).toBeTruthy();
+    const { error: seedErr } = await svc.schema('app').from('profile_merges').insert({
+      keep_id: keep, drop_id: '00000000-0000-4000-8000-000000000000', reason: 'rls-matrix probe',
+    });
+    expect(seedErr).toBeNull();
+    const want: Record<Principal, 'rows' | 'silence' | 'denied'> = {
+      anon: 'denied', guest_account: 'silence', guest_anon_session: 'silence', cashier: 'silence',
+      prep: 'silence', court_desk: 'silence', manager: 'rows', owner: 'rows',
+    };
+    const failures: string[] = [];
+    for (const p of PRINCIPALS) {
+      const { data, error } = await clients[p].schema('app').from('profile_merges').select('id').limit(5);
+      const got = error ? 'denied' : (data?.length ?? 0) > 0 ? 'rows' : 'silence';
+      if (got !== want[p]) {
+        failures.push(`select app.profile_merges as ${p}: want ${want[p]}, got ${got}` +
+          (error ? ` (${error.message})` : ''));
+      }
+    }
+    expect(failures, failures.join('\n')).toHaveLength(0);
   });
 });

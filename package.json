@@ -52,7 +52,8 @@
       "brace-expansion@<2": "1.1.21",
       "brace-expansion@>=2 <3": "2.1.7",
       "brace-expansion@>=4": "5.0.12",
-      "undici@6": "6.29.0"
+      "undici@6": "6.29.0",
+      "http-cache-semantics@4": "4.3.0"
     }
   },
   "workspaces": ["apps/*", "packages/*"]

@@ -179,6 +179,10 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     // DRAFT-AR (coaching operator.md §5.3.3).
     coaches: 'المدرّبون',
     coachPay: 'مستحقات المدرّبين',
+    // DRAFT-AR (tournaments build contracts §1.11).
+    tournaments: 'البطولات',
+    // DRAFT-AR (loyalty build contracts §4).
+    loyalty: 'الولاء',
     badge: 'بانتظارك: {count}',
     groupOperations: 'العمليات',
     groupRun: 'إدارة اليوم',

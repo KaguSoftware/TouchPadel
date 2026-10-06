@@ -29,9 +29,11 @@ import { describe, expect, it } from 'vitest';
 import {
   analyse,
   createWalker,
+  ONCE_PER_SEQUENCE,
   ORDER,
   printedSequence,
   SERVICE_WALK,
+  SHARE_RANKED,
 } from '../scripts/lib/lock-order.mjs';
 import { dockerReachable } from './stores-harness';
 import { stackAvailable } from './helpers';
@@ -75,6 +77,9 @@ const TRIGGER = [{ tbl: 'reservations', fn: 'trg_reservation_match' }];
 
 const LEVEL_B =
   'coach_advisory -> court_advisory -> reservations -> match_venue_advisory -> match_tickets';
+/** 0291 (DB-11): level B with the branch row's key share after the courts (lesson_lock_branch_courts). */
+const LEVEL_B_BRANCH =
+  'coach_advisory -> court_advisory -> venues -> reservations -> match_venue_advisory -> match_tickets';
 
 describe('the walker over synthetic coaching catalogs (pure)', () => {
   it('ranks coach_advisory right after match_money_advisory and before tabs', () => {
@@ -302,6 +307,70 @@ describe('the walker over synthetic coaching catalogs (pure)', () => {
   });
 });
 
+describe('0291 (DB-11): the branch row FOR KEY SHARE is ranked (pure)', () => {
+  it('ranks venues after court_advisory and before reservations, once per sequence', () => {
+    expect(ORDER.indexOf('venues')).toBe(ORDER.indexOf('court_advisory') + 1);
+    expect(ORDER.indexOf('venues')).toBe(ORDER.indexOf('reservations') - 1);
+    expect(ONCE_PER_SEQUENCE.has('venues')).toBe(true);
+    expect([...SHARE_RANKED]).toEqual(['venues']);
+  });
+
+  it('a share lock prints only on a SHARE_RANKED table; FOR UPDATE on venues prints too', () => {
+    const fns = [
+      {
+        name: 'ks',
+        src: `begin perform 1 from venues where id = v and status = 'open' for key share; end`,
+      },
+      { name: 'sh', src: 'begin perform 1 from venues v where v.id = x for share of v; end' },
+      { name: 'upd', src: 'begin select * into r from venues where id = v for update; end' },
+      // Any other share lock stays invisible, as before 0291.
+      { name: 'tabs_share', src: 'begin perform 1 from tabs where id = t for share; end' },
+      {
+        name: 'shifts_ks',
+        src: 'begin perform 1 from till_shifts s where s.id = t for key share; end',
+      },
+    ];
+    const w = createWalker({ fns, triggers: [] });
+    expect(printedSequence(w, 'ks')).toEqual(['venues']);
+    expect(printedSequence(w, 'sh')).toEqual(['venues']);
+    expect(printedSequence(w, 'upd')).toEqual(['venues']);
+    expect(printedSequence(w, 'tabs_share')).toEqual([]);
+    expect(printedSequence(w, 'shifts_ks')).toEqual([]);
+  });
+
+  it('level B with the key share in the court helper and again in the insert is in order; only in the insert it inverts', () => {
+    const courts = `begin for v in select c.id from courts c where c.venue_id = p and c.is_active order by c.id
+      loop perform app.lock_court(v.id); end loop;
+      perform 1 from venues where id = p for key share; end`;
+    const create = `begin
+      perform 1 from venues where id = b and status = 'open' for key share;
+      insert into reservations (id, kind, lesson_id) values (r, 'lesson', l);
+    end`;
+    const book = `begin
+      perform app.lock_coach(c);
+      v := app.lesson_lock_branch_courts(b);
+      perform app.match_expire_holds(b, x);
+      perform app.lesson_create_internal(b);
+    end`;
+    const catalog = (helper: string) => [
+      ...BASE.filter((f) => f.name !== 'lesson_lock_branch_courts'),
+      { name: 'lesson_lock_branch_courts', src: helper },
+      { name: 'lesson_create_internal', src: create },
+      { name: 'lesson_book_private', src: book },
+    ];
+    // The stale-hold update expands into the trigger's mutex and tickets before the insert.
+    const exp = { fns: catalog(courts), triggers: TRIGGER, callable: ['lesson_book_private'] };
+    const ok = analyse(exp);
+    expect(ok.violations).toEqual([]);
+    expect(ok.rows).toEqual([{ fn: 'lesson_book_private', seq: LEVEL_B_BRANCH.split(' -> ') }]);
+
+    const bad = analyse({ ...exp, fns: catalog(lesson_lock_branch_courts) });
+    expect(bad.violations.join('\n')).toMatch(
+      /lesson_book_private: takes match_tickets before venues/,
+    );
+  });
+});
+
 // ── the gate over the local stack ────────────────────────────────────────────
 const SCRIPT = path.resolve(import.meta.dirname, '../scripts/check-lock-order.mjs');
 
@@ -348,7 +417,9 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     const gate = runGate([]);
     expect(gate.code, gate.out).toBe(0);
     const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
-    expect(rowOf(walkedRows, 'lesson_settle')).toBe('coach_advisory -> tabs');
+    // Loyalty (0305): settling the lesson's tab fires the deferred earn trigger, walked at commit
+    // (after every lock the body took), so loyalty_accounts, ranked last, ends the sequence.
+    expect(rowOf(walkedRows, 'lesson_settle')).toBe('coach_advisory -> tabs -> loyalty_accounts');
     expect(rowOf(walkedRows, 'refund')?.startsWith('coach_advisory -> tabs -> payments')).toBe(
       true,
     );
@@ -372,7 +443,8 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
       'desk_reschedule_session',
       'desk_move_lesson_court',
     ]) {
-      expect(rowOf(walkedRows, fn), fn).toBe(LEVEL_B);
+      // 0291 (DB-11): lesson_lock_branch_courts takes the branch row's key share after the courts.
+      expect(rowOf(walkedRows, fn), fn).toBe(LEVEL_B_BRANCH);
     }
     for (const fn of [
       'lesson_join',
@@ -404,7 +476,8 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     const gate = runGate(['lesson_hold_expire']);
     expect(gate.code, gate.out).toBe(0);
     const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
-    expect(rowOf(walkedRows, 'deposit_apply')).toBe(LEVEL_B);
+    // 0291 (DB-11): the lesson arm's lesson_lock_branch_courts takes the branch row too.
+    expect(rowOf(walkedRows, 'deposit_apply')).toBe(LEVEL_B_BRANCH);
     expect(rowOf(walkedRows, 'lesson_settle_success')).toBe(
       'match_venue_advisory -> match_tickets',
     );
@@ -427,5 +500,54 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     ]) {
       expect(rowOf(walkedRows, fn), fn).toBe('coach_advisory');
     }
+  });
+
+  it('0290: the coach admin writers take the coach mutex only; a coach_price apply takes it before the type row', () => {
+    const gate = runGate(['price_promo_apply_internal', 'coach_hours_write', 'coach_time_off_add']);
+    expect(gate.code, gate.out).toBe(0);
+    const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
+    for (const fn of [
+      'coach_promote',
+      'coach_update',
+      'set_coach_branches',
+      'set_coach_lesson_types',
+      'set_coach_price',
+      'set_coach_hours',
+      'set_my_coach_hours',
+      'add_coach_time_off',
+      'add_my_time_off',
+    ]) {
+      expect(rowOf(walkedRows, fn), fn).toBe('coach_advisory');
+    }
+    // The deletion locks the coach ROW (unranked), never the coach mutex (db.md §2.4 rule 7).
+    expect(rowOf(walkedRows, 'delete_my_account')).toBe('match_venue_advisory -> match_tickets');
+    const internal = gate.out.slice(gate.out.indexOf('internal sequences'));
+    expect(rowOf(internal, 'price_promo_apply_internal')).toBe('coach_advisory');
+    expect(rowOf(internal, 'coach_hours_write')).toBe('coach_advisory');
+    expect(rowOf(internal, 'coach_time_off_add')).toBe('coach_advisory');
+  });
+
+  it('0291: the branch row after the courts in every lesson booking; the branch lifecycle takes only it', () => {
+    const gate = runGate([
+      'lesson_lock_branch_courts',
+      'lesson_create_internal',
+      'lesson_assert_coach_bookable',
+      'match_expire_holds',
+    ]);
+    expect(gate.code, gate.out).toBe(0);
+    expect(gate.out).toContain('stock_batches > court_advisory > venues > reservations');
+    const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
+    expect(rowOf(walkedRows, 'close_branch')).toBe('venues');
+    expect(rowOf(walkedRows, 'open_branch')).toBe('venues');
+    const internal = gate.out.slice(gate.out.indexOf('internal sequences'));
+    expect(rowOf(internal, 'lesson_lock_branch_courts')).toBe('court_advisory -> venues');
+    // Alone, the insert's key share comes before its court row and the trigger it fires.
+    expect(rowOf(internal, 'lesson_create_internal')).toBe(
+      'venues -> match_venue_advisory -> match_tickets',
+    );
+    expect(rowOf(internal, 'lesson_assert_coach_bookable')).toBe('(no locks)');
+    expect(rowOf(internal, 'match_expire_holds')).toBe(
+      'reservations -> match_venue_advisory -> match_tickets',
+    );
   });
 });

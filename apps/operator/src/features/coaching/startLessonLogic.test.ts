@@ -18,6 +18,10 @@ import {
   typesOfKind,
   weeklyStarts,
   type StartDraft,
+  draftFingerprint,
+  duplicateElsewhere,
+  keyForDraft,
+  mayHaveLanded,
 } from './startLessonLogic';
 
 const TZ = 'Asia/Baghdad';
@@ -73,6 +77,54 @@ const TYPES = [
     sessions_count: 4,
   }),
 ];
+
+describe('per-draft keys (OP-11)', () => {
+  const draft = {
+    kind: 'private' as const,
+    typeId: 'p60',
+    coachId: 'sara',
+    startAt: '2026-10-10T15:00:00.000Z',
+    rows: [],
+    titleEn: '',
+    titleAr: '',
+    customerId: null,
+    guestName: 'Ali',
+    guestPhone: '07701234567',
+    partySize: 1,
+  };
+
+  it('editing the coach gives a new key; editing it back reuses the old one', () => {
+    const keys = new Map<string, string>();
+    let n = 0;
+    const mint = () => `k${++n}`;
+    const first = keyForDraft(keys, draftFingerprint('private', draft, 'UTC'), mint);
+    expect(keyForDraft(keys, draftFingerprint('private', draft, 'UTC'), mint)).toBe(first);
+    const omar = keyForDraft(
+      keys,
+      draftFingerprint('private', { ...draft, coachId: 'omar' }, 'UTC'),
+      mint,
+    );
+    expect(omar).not.toBe(first);
+    expect(keyForDraft(keys, draftFingerprint('private', draft, 'UTC'), mint)).toBe(first);
+  });
+
+  it('a duplicate at another start is "already booked"; the same start is not', () => {
+    expect(
+      duplicateElsewhere({ duplicate: true, start_at: '2026-10-10T14:00:00Z' }, draft.startAt),
+    ).toBe(true);
+    expect(
+      duplicateElsewhere({ duplicate: true, start_at: '2026-10-10T15:00:00Z' }, draft.startAt),
+    ).toBe(false);
+    expect(
+      duplicateElsewhere({ duplicate: false, start_at: '2026-10-10T14:00:00Z' }, draft.startAt),
+    ).toBe(false);
+  });
+
+  it('only a failure with no answer may have landed', () => {
+    expect(mayHaveLanded(new TypeError('Failed to fetch'))).toBe(true);
+    expect(mayHaveLanded(new Error('x'))).toBe(false);
+  });
+});
 
 describe('what New lesson offers (§5.9)', () => {
   it('kindsOnSale: only the kinds with a type on sale, in C-1 order', () => {

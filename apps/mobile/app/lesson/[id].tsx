@@ -23,6 +23,7 @@ import {
 } from '../../src/features/coaching/hooks';
 import { useStartLessonPayment } from '../../src/features/coaching/payment';
 import {
+  lessonBeginErrorText,
   lessonBeginRefusalOf,
   lessonErrorCode,
   lessonErrorText,
@@ -209,7 +210,8 @@ function LessonDetailScreen() {
     data.startAt,
     data.cancel.freeUntil,
   );
-  const copy = cancelCopy(data.cancel, data.kind, { t, locale, tz, windowHours });
+  const held = data.status === 'held';
+  const copy = cancelCopy(data.cancel, data.kind, { t, locale, tz, windowHours, held });
 
   const callBranch = () => {
     if (!phone) return;
@@ -227,7 +229,10 @@ function LessonDetailScreen() {
           return;
         }
         void lesson.refetch();
-        setError(lessonErrorText(err, t, errorCtx));
+        setError(lessonBeginErrorText(err, t, { ...errorCtx, held }));
+        // MB-11: a held place that can no longer be paid online is offered
+        // its free cancel, not "pay at the desk".
+        if (held && data.can.cancel && lessonBeginRefusalOf(err) === 'off') setCancelOpen(true);
       },
     });
   };
@@ -311,7 +316,10 @@ function LessonDetailScreen() {
             {data.friendNames.length > 0 ? (
               <Hint style={{ marginTop: 4 }}>
                 {t('coaching.guest.lesson.friends', {
-                  names: data.friendNames.map((n) => isolate(n)).join('، '),
+                  // MB-17: the list separator of the reader's language (no Intl.ListFormat on Hermes).
+                  names: data.friendNames
+                    .map((n) => isolate(n))
+                    .join(locale === 'ar' ? '، ' : ', '),
                 })}
               </Hint>
             ) : null}

@@ -155,6 +155,29 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     // 0241: set by hand on the store review account only (its deposits go to
     // Qi's sandbox). A switch, identifies nobody.
     payment_sandbox: n,
+    // 0303 (loyalty contracts §1.1): app.phone_canon(phone), kept by the zz_phone_key trigger;
+    // unique among live profiles (0304). The tombstone UPDATE nulls phone, so the trigger
+    // nulls it too.
+    phone_key: {
+      category: 'Phone number',
+      why: 'the phone’s canonical digits, so one number is one live account and the till finds a guest by the exact number',
+      onDelete: 'scrub',
+    },
+
+    // 0302 (Edit profile): the guest's photo, seen by the guest and staff, and
+    // an optional date of birth only the guest reads. The 0077 tombstone
+    // UPDATE empties both (profiles_media_tombstone) and queues the photo
+    // folder for removal from the avatars bucket.
+    avatar_path: {
+      category: 'Photos',
+      why: 'the profile photo the guest chose, shown to the guest and the desk',
+      onDelete: 'scrub',
+    },
+    birth_date: {
+      category: 'Other personal info',
+      why: 'an optional date of birth the guest adds; only they read it',
+      onDelete: 'scrub',
+    },
   },
   reservations: {
     id: n, court_id: n, kind: n, status: n, start_at: n, end_at: n, period: n, guest_id: n,
@@ -383,6 +406,8 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
       onDelete: 'keep',
     },
     idempotency_key: n, created_at: n, updated_at: n,
+    // 0292 (DB-18): a time (cancelled_at plus the window), no guest data.
+    kept_until: n,
   },
   // ids, codes, counts and times only.
   lesson_attendance: {
@@ -395,6 +420,60 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
   lesson_events: {
     id: n, venue_id: n, lesson_id: n, course_id: n, enrolment_id: n, type: n, actor: n, actor_profile_id: n,
     actor_staff_id: n, code: n, data: n, at: n,
+  },
+  // Tournaments (build-contracts-2026-10-03 §1.2): ids, codes, a seed and times only. The guest
+  // link survives deletion (the 0290 tombstone keeps guest_id; the sweep withdraws a deleted
+  // account's live entries, account_deleted) and public reads show "Former player". The matches
+  // and the score audit name entries, not guests, so they carry no link column and are not
+  // declared here (a declared table without one fails "declares every table", review M7).
+  tournament_entries: {
+    id: n, venue_id: n, tournament_id: n, guest_id: n, status: n, seed_no: n, entered_at: n,
+    added_by_kind: n, added_by_staff_id: n, withdrawn_reason: n, withdrawn_at: n, promoted_at: n,
+    no_show_at: n, substitute_for: n, created_at: n, updated_at: n,
+  },
+  // Loyalty (Phase 2 M3, build-contracts-2026-10-05 §1.3, §1.4). 0305 adds tabs.customer_id, the
+  // guest a desk attached to a tab by their member QR or phone, which puts tabs on this surface.
+  // The tab is the venue's trading record and outlives the account: customer_id keeps pointing
+  // at the 0077 tombstone, as reservations.guest_id does.
+  tabs: {
+    id: n, day_session_id: n, status: n, table_id: n, reservation_id: n,
+    label: {
+      category: 'Name',
+      why: 'the name the desk shows on a tab (a table, a court or a first name); part of the venue’s trading record',
+      onDelete: 'keep',
+    },
+    opened_by_staff_id: n, merged_into_tab_id: n,
+    subtotal_iqd: { category: 'Purchase history', why: 'what a bill came to before discounts; the venue’s takings', onDelete: 'keep' },
+    tax_iqd: n,
+    discount_iqd: { category: 'Purchase history', why: 'the discounts on a bill, points redeemed included; the venue’s takings', onDelete: 'keep' },
+    total_iqd: { category: 'Purchase history', why: 'what a bill came to; the venue’s takings, and what a guest attached to it earned points on', onDelete: 'keep' },
+    opened_at: n, settled_at: n, device_id: n, idempotency_key: n, court_iqd: n, venue_id: n, kind: n,
+    court_cap_iqd: n, lesson_enrolment_id: n, lesson_iqd: n, tournament_entry_id: n, customer_id: n,
+  },
+  // The member card: the code printed under the QR and the TOTP secret the phone computes the
+  // rotating token from. 0306's delete_my_account deletes the row.
+  loyalty_cards: {
+    profile_id: n,
+    member_code: { category: 'Device or other IDs', why: 'the member number under the QR the till scans to find the guest', onDelete: 'row' },
+    secret: { category: 'Device or other IDs', why: 'the key the guest’s phone or browser computes the rotating member QR from', onDelete: 'row' },
+    created_at: n, rotated_at: n,
+  },
+  // The points ledger is append-only and stays on the tombstone for the venue's figures
+  // (contracts §1.4): a delta names nobody once the profile is the tombstone.
+  loyalty_ledger: {
+    id: n, profile_id: n, venue_id: n,
+    delta: { category: 'Purchase history', why: 'points earned on a bill or spent as a discount; the venue’s record of discounts given', onDelete: 'keep' },
+    kind: n, source_kind: n, source_id: n, tab_id: n, actor_id: n,
+    note: { category: 'User content', why: 'a manager’s reason for a points correction; kept with the ledger it explains', onDelete: 'keep' },
+    created_at: n,
+  },
+  // The ledger's cache per profile. 0306's delete_my_account deletes the row.
+  loyalty_accounts: {
+    profile_id: n,
+    balance: { category: 'Purchase history', why: 'the guest’s points balance, shown to them and to the till', onDelete: 'row' },
+    lifetime_earned: { category: 'Purchase history', why: 'the points a guest has earned in all', onDelete: 'row' },
+    points_12m: { category: 'Purchase history', why: 'the points earned in the last 12 months, which set the tier', onDelete: 'row' },
+    tier_id: n, last_activity_at: n, updated_at: n,
   },
 };
 
@@ -745,6 +824,21 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       price_iqd: 40_000, payment_mode: 'desk', ...ended,
     });
 
+    // Loyalty (0305, 0306): the guest's member card, and one ledger row whose insert trigger
+    // builds the loyalty_accounts cache. The card and the cache are 'row'; the ledger is kept.
+    // phone_key is filled from the sign-up phone, so its 'scrub' is a real change.
+    const card = await appRpc(guest, 'my_member_card', {});
+    if (card.error) throw new Error(`my_member_card: ${card.error.message}`);
+    const ledgerSource = crypto.randomUUID();
+    const ledger = await svc.from('loyalty_ledger').insert({
+      profile_id: uid, delta: 25, kind: 'adjust', source_kind: 'adjust', source_id: ledgerSource, note: 'sec20',
+    });
+    if (ledger.error) throw new Error(`loyalty_ledger: ${ledger.error.message}`);
+    const { data: acct } = await svc.from('loyalty_accounts').select('balance').eq('profile_id', uid).single();
+    expect(acct).toEqual({ balance: 25 });
+    const { data: keyed } = await svc.from('profiles').select('phone_key').eq('id', uid).single();
+    expect((keyed as { phone_key: string | null }).phone_key).toBeTruthy();
+
     const del = await appRpc(guest, 'delete_my_account', { p_confirm: 'DELETE' });
     expect(del.error).toBeNull();
 
@@ -789,6 +883,8 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       ['notification_outbox', 'profile_id'],
       ['match_blocks', 'blocker_id'],
       ['match_blocks', 'blocked_id'],
+      ['loyalty_cards', 'profile_id'],
+      ['loyalty_accounts', 'profile_id'],
     ] as const) {
       const { data } = await svc.from(table).select('*').eq(col, uid);
       if ((data ?? []).length > 0) leaks.push(`${table} still has ${(data ?? []).length} row(s)`);
@@ -854,6 +950,13 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       .eq('id', reservationId)
       .single();
     expect((kept as { price_iqd: number }).price_iqd).toBeGreaterThan(0);
+    // …and the loyalty ledger row stays on the tombstone (contracts §1.4).
+    const { data: keptLedger } = await svc
+      .from('loyalty_ledger')
+      .select('delta, note')
+      .eq('source_id', ledgerSource)
+      .single();
+    expect(keptLedger).toEqual({ delta: 25, note: 'sec20' });
 
     await svc.from('courts').delete().eq('id', courtId);
   });

@@ -16,7 +16,7 @@
  */
 import { describe, expect, it } from '@jest/globals';
 import { fireEvent, within } from '@testing-library/react-native';
-import { isolate, makeT, type Locale } from '@touch/i18n';
+import { formatIQD, isolate, isolateLtr, makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
 import { renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
@@ -24,6 +24,7 @@ import { TEST_VENUE_ID, branchFixture, profileFixture } from '../test/fixtures';
 import { availabilityKeys } from '../features/availability/hooks';
 import { profileKeys } from '../features/profile/hooks';
 import { coachKeys } from '../features/coach/keys';
+import { parseCoachStatements } from '../features/coach/logic';
 import {
   COACH_VENUE_ID,
   LESSON_ID,
@@ -38,6 +39,7 @@ import {
   coachSlotsFixture,
   coachSlotsKey,
   coachStatementsFixture,
+  coachStatementsRaw,
   ENROLMENT_ID,
   ENROLMENT_2_ID,
 } from '../test/coachFixtures';
@@ -238,6 +240,67 @@ describe.each(LOCALES)('coach mode’s states in %s', (locale) => {
       expect(screen.getByText(t('coaching.coach.statements.thisMonth'))).toBeTruthy();
       expect(
         screen.getByTestId(`coach-mode-statements.month.${STATEMENT_MONTH.slice(0, 7)}`),
+      ).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('shows a statement with no rate without a percentage, and each line with its own (MB-02)', () => {
+    const raw = coachStatementsRaw(true);
+    const st = raw.statements[0]!;
+    const line = st.lines![0]!;
+    const noRate = parseCoachStatements({
+      ...raw,
+      statements: [
+        {
+          ...st,
+          share_bp: null,
+          lines: [line, { ...line, lesson_id: 'l2', share_bp: null, is_adjustment: true }],
+        },
+      ],
+    });
+    const screen = renderRoute(CoachModeStatements, {
+      locale,
+      coach: coachMeFixture(),
+      queryData: [
+        [coachKeys.statements('summary'), coachStatementsFixture(false)],
+        [coachKeys.statements(STATEMENT_MONTH), noRate],
+      ],
+    });
+    const money = (n: number) => isolateLtr(formatIQD(n, locale));
+    try {
+      // The month: no rate sent, so the share without a percentage, never a made-up 60%.
+      expect(
+        screen.getByText(t('coaching.coach.statements.estimateShare', { amount: money(180000) })),
+      ).toBeTruthy();
+      expect(
+        screen.queryByText(
+          t('coaching.coach.statements.coachShare', {
+            pct: isolateLtr('60%'),
+            amount: money(180000),
+          }),
+        ),
+      ).toBeNull();
+      // The line that carries a rate shows its own; the adjustment shows none.
+      expect(
+        within(screen.getByTestId(`coach-mode-statements.line.${LESSON_ID}`)).getByText(
+          t('coaching.coach.statements.lineMoneyPct', {
+            collected: money(30000),
+            court: money(5000),
+            pct: isolateLtr('60%'),
+            coach: money(15000),
+          }),
+        ),
+      ).toBeTruthy();
+      expect(
+        within(screen.getByTestId('coach-mode-statements.line.l2')).getByText(
+          t('coaching.coach.statements.lineMoney', {
+            collected: money(30000),
+            court: money(5000),
+            coach: money(15000),
+          }),
+        ),
       ).toBeTruthy();
     } finally {
       screen.unmount();

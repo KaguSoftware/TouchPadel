@@ -634,7 +634,12 @@ function RosterView({
           onSubmit={(code, note) => void cancel(code, note)}
         >
           <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', marginBlockEnd: 'var(--tp-sp-3)' }}>
-            {enrolmentCancelLines(cancelling, l.kind).map((c) => (
+            {enrolmentCancelLines(
+              cancelling,
+              l.kind,
+              // OP-15: once the session has begun the money is kept.
+              nowOf(l.server_now, elapsedMs) >= new Date(l.start_at).getTime(),
+            ).map((c) => (
               <p key={c.id}>
                 {c.id === 'deskPaid'
                   ? tr('ws.coaching.cancel.deskPaid', { amount: money(c.amount) })

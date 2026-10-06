@@ -22,6 +22,13 @@ import {
   coachingRead,
   resetCoachingServer,
 } from '@/test/coachingFixtures';
+import {
+  TOUR_FRIDAY,
+  TOUR_RUNNING,
+  resetTournamentsServer,
+  tournamentsAnswer,
+  tournamentsRead,
+} from '@/test/tournamentsFixtures';
 import HomePage, { generateMetadata } from './page';
 
 /**
@@ -47,6 +54,13 @@ vi.mock('@/lib/menu.server', async () => {
 vi.mock('@/lib/coaching.server', async () => {
   const { coachingServer } = await import('@/test/coachingFixtures');
   return { getCachedCoaching: () => Promise.resolve(coachingServer.read) };
+});
+
+// The tournaments read (T-8): `off` by default, so every case below sees Events exactly as
+// before tournaments; the cards case sets its own answer.
+vi.mock('@/lib/tournaments.server', async () => {
+  const { tournamentsServer } = await import('@/test/tournamentsFixtures');
+  return { getCachedTournaments: () => Promise.resolve(tournamentsServer.list) };
 });
 
 vi.mock('@/lib/site/mode.server', async () => {
@@ -106,6 +120,7 @@ beforeEach(() => {
   resetServerData();
   resetSiteRequest();
   resetCoachingServer();
+  resetTournamentsServer();
 });
 
 describe('home page', () => {
@@ -427,6 +442,47 @@ describe('home page, #lessons and coaching', () => {
         .getByRole('link', { name: t('ar', 'coaching.web.landing.cta') })
         .getAttribute('href'),
     ).toBe('/ar/coaching');
+  });
+});
+
+describe('home page, Events and tournaments', () => {
+  const events = () => section('.tp-events');
+
+  it('stays exactly as it was until a tournament is coming up: the poster and the ticket, no cards', async () => {
+    await renderServerPage(HomePage, 'en');
+    expect(events().querySelector('.tp-events__cards')).toBeNull();
+    expect(events().querySelector('.tp-ticket-box, .tp-ticket')).not.toBeNull();
+  });
+
+  it('lists the next tournaments above the poster, each linking to its page', async () => {
+    resetTournamentsServer(tournamentsRead(tournamentsAnswer()));
+    await renderServerPage(HomePage, 'en');
+    const cards = events().querySelector('.tp-events__cards')!;
+    expect(
+      cards.compareDocumentPosition(events().querySelector('.tp-events__stage')!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const ids = [...cards.querySelectorAll('.tp-tour-card')].map((c) =>
+      c.getAttribute('data-tournament'),
+    );
+    expect(ids[0]).toBe(TOUR_RUNNING);
+    expect(ids[1]).toBe(TOUR_FRIDAY);
+    expect(
+      within(cards as HTMLElement)
+        .getAllByRole('link', { name: tr('tournaments.web.eventsCards.details') })[1]
+        ?.getAttribute('href'),
+    ).toBe(`/en/events/${TOUR_FRIDAY}`);
+    // The ticket and the WhatsApp ask stay under the poster.
+    expect(events().querySelector('.tp-ticket-box, .tp-ticket')).not.toBeNull();
+  });
+
+  it('says it in Arabic at /ar', async () => {
+    resetTournamentsServer(tournamentsRead(tournamentsAnswer()));
+    await renderServerPage(HomePage, 'ar');
+    expect(events().querySelector('.tp-events__cards-title')?.textContent).toBe(
+      t('ar', 'tournaments.web.eventsCards.title'),
+    );
+    expect(events().querySelector('.tp-tour-card__name')?.textContent).toBe('ليلة النادي');
   });
 });
 

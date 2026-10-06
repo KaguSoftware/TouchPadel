@@ -16,7 +16,11 @@
  * `/desk/lessons/$id?customer=<id>`.
  *
  * Works with coaching switched off at the branch (the desk stages, R51).
- * Online only (CD-6); the key is minted per dialog and renewed after a success.
+ * Online only (CD-6); one key per draft (the customer, or the typed name and
+ * phone), sent again on a retry of that same draft, a new one once it is
+ * edited, all cleared after a success (OP-11). A failure with no answer
+ * re-reads the lessons and says the last attempt may have gone through; a
+ * `duplicate` answer says the student was already added.
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -46,7 +50,8 @@ import {
   studentFieldOf,
   studentPhoneInvalid,
 } from './lessonScreenLogic';
-import { invalidateLessonBooking, useDeskLessons, useLessonIdemKey } from './useCoaching';
+import { invalidateLessonBooking, useDeskLessons, useDraftIdemKeys } from './useCoaching';
+import { mayHaveLanded } from './startLessonLogic';
 
 export interface AddStudentDialogProps {
   lesson: LessonInfo;
@@ -63,7 +68,9 @@ export function AddStudentDialog({ lesson, customerId, onClose, onAdded }: AddSt
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { reachable } = useStationReach();
-  const idem = useLessonIdemKey('add');
+  const idem = useDraftIdemKeys('add');
+  // OP-11: the last attempt got no answer, so it may have gone through.
+  const [maybeLanded, setMaybeLanded] = useState(false);
 
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);
   const [name, setName] = useState('');
@@ -137,31 +144,41 @@ export function AddStudentDialog({ lesson, customerId, onClose, onAdded }: AddSt
     if (blocked !== undefined) return;
     setBusy(true);
     setError(null);
+    setMaybeLanded(false);
+    const student = {
+      p_customer_id: customer?.id ?? null,
+      p_name: customer ? null : name.trim(),
+      p_phone: customer ? null : phone.trim() || null,
+    };
     try {
       // No type argument on the call: the assistant map finds callers by `appRpc('<name>'` (§5.1).
       const out = readAddedStudent(
         await appRpc('desk_add_student', {
           ...addStudentTarget(lesson),
-          p_customer_id: customer?.id ?? null,
-          p_name: customer ? null : name.trim(),
-          p_phone: customer ? null : phone.trim() || null,
-          p_idempotency_key: idem.key(),
+          ...student,
+          p_idempotency_key: idem.keyFor(JSON.stringify(student)),
         }),
       );
-      idem.renew();
+      idem.reset();
       invalidateLessonBooking(qc);
       const who = isolate(customer?.name ?? name.trim());
-      toast.ok(
-        out.places_left === 0
-          ? tr(course ? 'ws.coaching.add.addedFullCourse' : 'ws.coaching.add.addedFull', {
-              name: who,
-            })
-          : tr('ws.coaching.add.added', { name: who }),
-      );
+      if (out.duplicate) toast.info(tr('ws.coaching.add.alreadyAdded', { name: who }));
+      else
+        toast.ok(
+          out.places_left === 0
+            ? tr(course ? 'ws.coaching.add.addedFullCourse' : 'ws.coaching.add.addedFull', {
+                name: who,
+              })
+            : tr('ws.coaching.add.added', { name: who }),
+        );
       onAdded?.();
       onClose();
     } catch (e) {
       setError(e);
+      if (mayHaveLanded(e)) {
+        setMaybeLanded(true);
+        invalidateLessonBooking(qc);
+      }
     } finally {
       setBusy(false);
     }
@@ -291,6 +308,7 @@ export function AddStudentDialog({ lesson, customerId, onClose, onAdded }: AddSt
           error && !serverField ? coachingErrorText(error, tr, {}, { scope: 'lesson' }) : null
         }
       />
+      {maybeLanded && <MessagePresenter tone="info" message={tr('ws.coaching.add.maybeLanded')} />}
     </Modal>
   );
 }

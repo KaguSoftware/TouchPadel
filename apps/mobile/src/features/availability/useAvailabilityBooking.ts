@@ -60,7 +60,8 @@ import {
   slotChoiceOptions,
 } from './matchChips';
 import { useHoldSlot } from '../booking/hooks';
-import { clearPendingSlot, setPendingSlot, type SlotOrigin } from '../booking/pendingSlot';
+import { type SlotOrigin } from '../booking/pendingSlot';
+import { setOnlyPendingJoin, setOnlyPendingSlot } from '../booking/pendingIntent';
 import { isDegradedRefusal, mapErrorToKey } from '../booking/errors';
 import { useAuth } from '../auth/context';
 import { bookingGateHref, bookingGateState } from '../auth/social';
@@ -75,12 +76,7 @@ import {
   type SlotMatch,
 } from '../matches/logic';
 import { matchErrorText } from '../matches/errors';
-import {
-  clearPendingJoin,
-  pendingJoinHref,
-  setPendingJoin,
-  type PendingJoin,
-} from '../matches/pendingJoin';
+import { pendingJoinHref, type PendingJoin } from '../matches/pendingJoin';
 import { callPhone } from '../../lib/phone';
 import { formatPrice } from '../../lib/price';
 import { useToast } from '../../components/overlays';
@@ -391,9 +387,8 @@ export function useAvailabilityBooking(
     if (!session) {
       // Guest browsing: keep the intent, ask for an account, finish the hold
       // right after auth (pendingSlot flow). The latest intent is the one the
-      // auth flow continues, so an older open-match one goes.
-      clearPendingJoin();
-      setPendingSlot({
+      // auth flow continues, so an older open-match or lesson one goes (MB-04).
+      setOnlyPendingSlot({
         courtId: cell.courtId,
         startAt: cell.startAt.toISOString(),
         durationMin,
@@ -407,8 +402,7 @@ export function useAvailabilityBooking(
     }
     const stop = bookingGateHref(profileGate, profilePhone);
     if (stop) {
-      clearPendingJoin();
-      setPendingSlot({
+      setOnlyPendingSlot({
         courtId: cell.courtId,
         startAt: cell.startAt.toISOString(),
         durationMin,
@@ -505,8 +499,7 @@ export function useAvailabilityBooking(
           ? null
           : bookingGateHref(profileGate, profilePhone);
       if (stop) {
-        clearPendingSlot();
-        setPendingJoin(intent);
+        setOnlyPendingJoin(intent);
         router.push(stop);
         return;
       }
@@ -613,8 +606,7 @@ export function useAvailabilityBooking(
     if (!venueId) return;
     const intent: PendingJoin = { kind: 'list', venueId, date };
     if (!signedIn) {
-      clearPendingSlot();
-      setPendingJoin(intent);
+      setOnlyPendingJoin(intent);
       router.push('/welcome');
       return;
     }

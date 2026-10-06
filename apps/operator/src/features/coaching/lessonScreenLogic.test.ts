@@ -151,6 +151,8 @@ function enrolment(over: Partial<Enrolment> = {}): Enrolment {
       refunded_iqd: 0,
       kept_iqd: 0,
       refund_due_iqd: 0,
+      refund_due_desk_iqd: 0,
+      refund_blocked_iqd: 0,
       take_iqd: 15000,
     },
     can: {
@@ -384,6 +386,20 @@ describe('cancel consequence lines (§5.10.8)', () => {
     expect(
       enrolmentCancelLines(enrolment({ scope: 'course', money: money(60000, 0) }), 'course'),
     ).toEqual([{ id: 'courseSignUp' }]);
+  });
+
+  it('a group sign-up after its start: the money is kept, no refund promised (OP-15)', () => {
+    expect(enrolmentCancelLines(enrolment({ money: money(15000, 0) }), 'group', true)).toEqual([
+      { id: 'begunKept' },
+    ]);
+    expect(enrolmentCancelLines(enrolment({ money: money(0, 15000) }), 'group', true)).toEqual([
+      { id: 'begunKept' },
+    ]);
+    // A course sign-up still gets back the sessions not held.
+    expect(
+      enrolmentCancelLines(enrolment({ scope: 'course', money: money(60000, 0) }), 'course', true),
+    ).toEqual([{ id: 'courseSignUp' }]);
+    expect(enrolmentCancelLines(enrolment(), 'group', true)).toEqual([{ id: 'nothingPaid' }]);
   });
 
   it('a private lesson’s booker cancels the lesson with it', () => {
@@ -670,5 +686,14 @@ describe('Refunds due (§5.10.10, §5.17, R36, R62, R75)', () => {
     expect(looksLikeCardNumber('1234 5678 9012')).toBe(true);
     expect(looksLikeCardNumber('12345678901')).toBe(false);
     expect(looksLikeCardNumber('REF 2026/10/01 #44')).toBe(false);
+  });
+
+  it('the card guard reads Arabic-Indic and Extended Arabic-Indic digits too (OP-04, DB-21)', () => {
+    expect(looksLikeCardNumber('٤١١١ ٢٢٢٢ ٣٣٣٣')).toBe(true);
+    expect(looksLikeCardNumber('۴۱۱۱.۲۲۲۲.۳۳۳۳')).toBe(true);
+    expect(
+      blockedRefundErrors({ amount: 1, max: 7000, reference: '٤١١١-٢٢٢٢-٣٣٣٣' }).reference,
+    ).toBe('cardNumber');
+    expect(looksLikeCardNumber('١٢٣٤٥٦٧٨٩٠١')).toBe(false);
   });
 });

@@ -111,6 +111,12 @@ import { LessonPlacesChip } from '../coaching/LessonPlacesChip';
 import { StartLessonDialog } from '../coaching/StartLessonDialog';
 import { isLessonRow, lessonLabel, lessonOfRow, lessonPayState, lessonsByReservation, nowOf } from '../coaching/lessonLogic';
 import { useCoachingCaps, useDeskLessons, useLessonRead } from '../coaching/useCoaching';
+import {
+  isLiveAdoptedBlock,
+  pickName as pickTournamentName,
+  tournamentsByReservation,
+} from '../tournaments/tournamentLogic';
+import { useDeskTournaments } from '../tournaments/useTournaments';
 import { SLOT_MIN, tonightInTz, todayInTz, useTradingNight } from './useTradingNight';
 import { DateField } from '../../components/inputs';
 import { BLOCKING_STATUSES, canMoveReservation, gridPlacement, isVisible, packLanes } from './deskLogic';
@@ -297,6 +303,11 @@ export function DeskCalendar() {
   const lessonsStatus = useLessonRead(lessonsQ);
   const deskLessons = lessonsStatus.kind === 'ready' ? lessonsStatus.data : null;
   const lessonsBy = useMemo(() => lessonsByReservation(deskLessons), [deskLessons]);
+  // Tournaments over the same night (tournaments §1.11): an adopted event block
+  // names its tournament in the desk's language, paints in the tournament tone
+  // and opens the tournament. A server without tournaments answers null.
+  const tournamentsQ = useDeskTournaments(night.dayStart, night.dayEnd, settingsQ.isSuccess);
+  const tournamentsBy = useMemo(() => tournamentsByReservation(tournamentsQ.data), [tournamentsQ.data]);
   // The record's "Book a lesson": a free slot opens New lesson for them.
   const lessonMode =
     search.kind === 'lesson' && Boolean(search.customer) && coachingCaps.runLessons && lessonsStatus.kind !== 'absent';
@@ -435,7 +446,7 @@ export function DeskCalendar() {
   dragRef.current = drag;
 
   function onBlockPointerDown(e: ReactPointerEvent<HTMLButtonElement>, r: ReservationRow) {
-    if (e.button !== 0 || !canMoveReservation(r, now)) return;
+    if (e.button !== 0 || !canMoveReservation(r, now) || isLiveAdoptedBlock(tournamentsBy.get(r.id))) return;
     // Which row of the block the hand closed on, so the block travels WITH the
     // hand instead of snapping its start under the pointer. Measured off the
     // drawn element: it is the only thing that knows the row pitch after the
@@ -1214,13 +1225,21 @@ export function DeskCalendar() {
                           // draws as that lesson (coaching operator.md §5.8).
                           const isLesson = isLessonRow(r, lessonsBy);
                           const lesson = lessonOfRow(r, lessonsBy);
-                          const tone = reservationBlockTone(r, isLesson);
+                          const tournament = r.kind === 'maintenance' ? (tournamentsBy.get(r.id) ?? null) : null;
+                          const tone = reservationBlockTone(r, isLesson, tournament !== null);
+                          // The tournament still holds the block (open, closed, running): the
+                          // guard trigger's set. A finished or cancelled one's leftover block is
+                          // the desk's again: it drags and opens its own detail.
+                          const heldBy = isLiveAdoptedBlock(tournament) ? tournament : null;
                           const dragging = drag?.id === r.id;
                           // Never true for a lesson: its court moves only from its own screen (R7).
-                          const draggable = canMoveReservation(r, now);
+                          // Nor for a tournament's block: the guard trigger refuses it (TOURNAMENT_VIA_EVENTS).
+                          const draggable = !heldBy && canMoveReservation(r, now);
                           const name = isLesson
                             ? lessonLabel(lesson, locale, tr)
-                            : r.kind === 'maintenance'
+                            : tournament
+                              ? tr('ws.tournaments.calendar.blockLabel', { name: pickTournamentName(locale, tournament.name_en, tournament.name_ar) })
+                              : r.kind === 'maintenance'
                               ? (r.notes ?? tr('op.desk.maintenance'))
                               : r.kind === 'hold'
                                 ? tr('op.desk.hold')
@@ -1237,11 +1256,17 @@ export function DeskCalendar() {
                                   ? tr('ws.courtDesk.calendar.dragHint')
                                   : isLesson
                                     ? tr('ws.coaching.common.openLesson')
-                                    : tr('ws.courtDesk.calendar.openDetail')
+                                    : heldBy
+                                      ? tr('ws.tournaments.calendar.open')
+                                      : tr('ws.courtDesk.calendar.openDetail')
                               }
                               onPointerDown={(e) => onBlockPointerDown(e, r)}
                               onClick={() => {
                                 if (suppressClick.current) return;
+                                if (heldBy) {
+                                  void navigate({ to: '/desk/tournaments/$id', params: { id: heldBy.id } });
+                                  return;
+                                }
                                 setSelected(r);
                               }}
                               style={{
@@ -1344,6 +1369,10 @@ export function DeskCalendar() {
                                   <>
                                     <LessonBadge kind={lesson?.kind ?? null} held={r.kind === 'hold' || lesson?.status === 'held'} />
                                     {/* After the start, what is still owed; from the booking, the C-24 flag. */}
+                                    {/* OP-13: places still waiting on Qi (a held lesson already shows the held badge). */}
+                                    {pay && pay.pay === 'awaiting' && r.kind !== 'hold' && lesson?.status !== 'held' && (
+                                      <StatusBadge size="sm" tone="info" label={tr('ws.coaching.common.pay.awaiting')} />
+                                    )}
                                     {pay && pay.pay === 'owing' && pay.warn && (
                                       <StatusBadge size="sm" tone="warn" label={tr('ws.coaching.common.pay.toPay', { count: formatNumber(pay.owing, locale) })} />
                                     )}

@@ -946,10 +946,16 @@ export function StatementCard({
       />
       <MoneyLine
         strong
-        label={t('coaching.coach.statements.coachShare', {
-          pct: isolateLtr(`${sharePercent(s.shareBp)}%`),
-          amount: money(s.coachIqd),
-        })}
+        label={
+          // No rate sent (mixed rates, adjustments only): the share without a
+          // percentage, never a made-up one (MB-02).
+          s.shareBp !== null
+            ? t('coaching.coach.statements.coachShare', {
+                pct: isolateLtr(`${sharePercent(s.shareBp)}%`),
+                amount: money(s.coachIqd),
+              })
+            : t('coaching.coach.statements.estimateShare', { amount: money(s.coachIqd) })
+        }
       />
       {s.adjustmentsIqd !== 0 ? (
         <MoneyLine
@@ -989,11 +995,18 @@ export function StatementCard({
                 {l.isAdjustment ? ` · ${t('coaching.coach.statements.adjustment')}` : ''}
               </Text>
               <Text style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}>
-                {t('coaching.coach.statements.lineMoney', {
-                  collected: money(l.collectedIqd),
-                  court: money(l.courtShareIqd),
-                  coach: money(l.coachIqd),
-                })}
+                {l.shareBp !== null
+                  ? t('coaching.coach.statements.lineMoneyPct', {
+                      collected: money(l.collectedIqd),
+                      court: money(l.courtShareIqd),
+                      pct: isolateLtr(`${sharePercent(l.shareBp)}%`),
+                      coach: money(l.coachIqd),
+                    })
+                  : t('coaching.coach.statements.lineMoney', {
+                      collected: money(l.collectedIqd),
+                      court: money(l.courtShareIqd),
+                      coach: money(l.coachIqd),
+                    })}
               </Text>
             </View>
           ))}

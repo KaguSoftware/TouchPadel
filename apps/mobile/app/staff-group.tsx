@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space, useTheme } from '../src/theme';
@@ -20,6 +21,7 @@ function GroupSheet() {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   // Opened from Today; a sheet reached with nothing under it lands there.
   const back = useBack('/staff');
   const { group: key } = useLocalSearchParams<{ group?: string }>();
@@ -30,10 +32,11 @@ function GroupSheet() {
     <View
       style={{
         backgroundColor: colors.bg,
-        paddingTop: space.l,
+        // clear the native grabber; keep the last row off the home indicator
+        paddingTop: space.xxl,
         paddingStart: space.l,
         paddingEnd: space.l,
-        paddingBottom: space.xl,
+        paddingBottom: space.xl + insets.bottom,
         gap: space.m,
       }}
     >

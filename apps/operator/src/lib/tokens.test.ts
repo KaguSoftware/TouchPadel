@@ -28,3 +28,20 @@ describe('lesson tokens (coaching operator.md §5.8)', () => {
     expect(paper['--tp-lesson-soft']).toMatch(/ 318\)$/);
   });
 });
+
+describe('tournament tokens (tournaments build contracts §1.11)', () => {
+  const names = Object.keys(paper).filter((name) => name.startsWith('--tp-tournament'));
+
+  it('declares the two tournament tokens on paper, each with a blue-mode value', () => {
+    expect(names.sort()).toEqual(['--tp-tournament', '--tp-tournament-soft']);
+    for (const name of names) {
+      expect(blue[name], name).toBeTruthy();
+      expect(blue[name], name).not.toBe(paper[name]);
+    }
+  });
+
+  it('keeps the tournament hue (195) on paper, clear of the lesson violet', () => {
+    expect(paper['--tp-tournament']).toMatch(/ 195\)$/);
+    expect(paper['--tp-tournament-soft']).toMatch(/ 195\)$/);
+  });
+});

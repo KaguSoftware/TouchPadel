@@ -298,8 +298,8 @@ describe('the native config (§6.10)', () => {
     const plugin = config.plugins?.find((p) => Array.isArray(p) && p[0] === 'expo-image-picker') as
       [string, Record<string, unknown>] | undefined;
     expect(plugin?.[1]).toEqual({
-      photosPermission: 'Touch Padel uses your photos only when you attach a work photo.',
-      cameraPermission: 'Touch Padel uses the camera only when you take a work photo.',
+      photosPermission: 'Touch Padel uses your photos only when you choose a profile photo or attach a work photo.',
+      cameraPermission: 'Touch Padel uses the camera only when you take a profile photo or a work photo.',
       microphonePermission: false,
     });
 

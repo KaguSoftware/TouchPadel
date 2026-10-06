@@ -34,6 +34,7 @@ import {
   defaultStart,
   groupIntent,
   pickName,
+  privateCapAt,
   snapToGrid,
   startIndexOf,
   startProblem,
@@ -132,7 +133,10 @@ function CoachNewBody({ coach }: { coach: CoachMe }) {
     const code = coachErrorCode(err);
     const detail = rpcErrorDetail(err);
     const n = startIndexOf(detail);
-    const text = coachErrorText(err, t, { locale, privateCap: coach.privateCap });
+    const text = coachErrorText(err, t, {
+      locale,
+      privateCap: privateCapAt(coach, venueId)?.cap ?? null,
+    });
     if (code === 'LESSON_CLOSED' && detail === 'cutoff') setRowErrors({ 1: text });
     else if (n !== null && code !== 'COURSE_STARTS_INVALID') setRowErrors({ [n]: text });
     else setTopError(text);
@@ -172,7 +176,7 @@ function CoachNewBody({ coach }: { coach: CoachMe }) {
         starts: iso,
         titleEn,
         titleAr,
-        intent: courseIntent({ typeId: type.id, venueId, starts: iso }),
+        intent: courseIntent({ typeId: type.id, venueId, starts: iso, titleEn, titleAr }),
       },
       { onSuccess: (r) => done(r.lessonIds[0]), onError },
     );

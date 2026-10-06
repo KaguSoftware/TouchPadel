@@ -189,14 +189,33 @@ describe.each(LOCALES)('coaching page (%s)', (locale: Locale) => {
       tr('coaching.web.pricePlace', { price: formatIQD(PRICES.group, locale) }),
       tr('coaching.web.priceCourse', { price: formatIQD(PRICES.course, locale) }),
     ]);
-    // A group session costs a place; a course not yet started, the whole course.
+    // A group session costs a place; a course not yet started, the whole course. Each at its
+    // own row's price (0294, DB-28): the coach's or the course's, never the type's base price.
     const sessionPrices = [...document.querySelectorAll('.tp-coach-session__price')].map((p) =>
       plain(p.textContent),
     );
     expect(sessionPrices).toEqual([
-      tr('coaching.web.pricePlace', { price: formatIQD(PRICES.group, locale) }),
-      tr('coaching.web.priceCourse', { price: formatIQD(PRICES.course, locale) }),
+      tr('coaching.web.pricePlace', { price: formatIQD(PRICES.groupSession, locale) }),
+      tr('coaching.web.priceCourse', { price: formatIQD(PRICES.courseOwn, locale) }),
     ]);
+  });
+
+  it('prices a course under way at its late-join share, for the sessions left (C-15, DB-28)', async () => {
+    const raw = coachingAnswer({ pricesPublic: true });
+    const rows = raw.sessions as Record<string, unknown>[];
+    rows[1] = { ...rows[1], sessions_left: 5, price_iqd: 68750 };
+    resetCoachingServer(coachingRead(raw));
+    await renderServerPage(CoachingPage, locale);
+    const course = document.querySelector<HTMLElement>(
+      `a[href$="/c/${COACH_SARA}"].tp-coach-session`,
+    )!;
+    expect(plain(course.querySelector('.tp-coach-session__when')?.textContent)).toContain(
+      plain(countPhrase('coaching.common.count.sessionsLeft', 5, locale)),
+    );
+    expect(plain(course.querySelector('.tp-coach-session__price')?.textContent)).toBe(
+      tr('coaching.web.priceLateJoin', { price: formatIQD(68750, locale) }),
+    );
+    expect(plain(main().textContent)).not.toContain(formatIQD(PRICES.courseOwn, locale));
   });
 
   it('never prints a profile id, a phone or a student, even when the answer carries them', async () => {

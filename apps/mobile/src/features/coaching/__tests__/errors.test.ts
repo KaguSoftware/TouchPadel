@@ -7,6 +7,7 @@ import {
   isCoachingCode,
   joinRefusalOf,
   keepsLessonKey,
+  lessonBeginErrorText,
   lessonBeginRefusalOf,
   lessonErrorCode,
   lessonErrorText,
@@ -72,7 +73,7 @@ describe('the phone’s lines (§4.10)', () => {
     ['LESSON_NOT_PAYABLE', 'free', 'coaching.common.errors.notPayableFree'],
     ['LESSON_NOT_PAYABLE', 'cancelled', 'coaching.common.errors.notPayable'],
     ['LESSON_NOT_PAYABLE', 'expired', 'coaching.common.errors.notPayable'],
-    ['COACH_ADD_LIMIT', 'today', 'coaching.common.errors.addLimit'],
+    ['COACH_ADD_LIMIT', 'day', 'coaching.common.errors.addLimit'],
   ];
 
   it.each(details)('%s · %s', (code, detail, key) => {
@@ -224,5 +225,30 @@ describe('a refused lesson-begin (§4.9.3)', () => {
     ['PROVIDER_UNAVAILABLE', 'inline'],
   ] as const)('%s → %s', (code, expected) => {
     expect(lessonBeginRefusalOf(new DepositEdgeError(code, 409))).toBe(expected);
+  });
+});
+
+describe('lessonBeginErrorText (MB-11)', () => {
+  it.each(['ONLINE_PAYMENT_OFF', 'COACHING_OFF'])(
+    'offers a held place its free cancel on %s, never "pay at the desk"',
+    (code) => {
+      for (const t of [en, ar]) {
+        const err = new DepositEdgeError(code, 409);
+        const locale = t === en ? ('en' as const) : ('ar' as const);
+        expect(lessonBeginErrorText(err, t, { locale, held: true })).toBe(
+          t('coaching.common.errors.heldOff'),
+        );
+        expect(lessonBeginErrorText(err, t, { locale, held: false })).toBe(
+          lessonErrorText(err, t, { locale }),
+        );
+      }
+    },
+  );
+
+  it('leaves every other refusal to lessonErrorText', () => {
+    const err = new DepositEdgeError('PROVIDER_UNAVAILABLE', 503);
+    expect(lessonBeginErrorText(err, en, { locale: 'en', held: true })).toBe(
+      lessonErrorText(err, en, { locale: 'en' }),
+    );
   });
 });

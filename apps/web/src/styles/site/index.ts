@@ -1,6 +1,6 @@
 /**
- * The Touch Padel site stylesheet: the home page, the coaching page, the legal pages and the
- * 404. Inlined by
+ * The Touch Padel site stylesheet: the home page, the coaching page, the legal pages, the
+ * account page and the 404. Inlined by
  * `SiteStyles` into those pages only (never into the root layout, so the café menu and a
  * table guest on venue wifi never download it), after the layout's theme tokens.
  *
@@ -26,6 +26,7 @@ import { siteVisitCss } from './visit.css';
 import { siteFooterCss } from './footer.css';
 import { siteLegalCss } from './legal.css';
 import { siteLostCss } from './lost.css';
+import { siteAccountCss } from './account.css';
 import { siteMotionCss } from './motion.css';
 
 /** Module map (name → css): the guard test iterates this so nothing slips past it. */
@@ -45,6 +46,7 @@ export const siteCssModules = {
   footer: siteFooterCss,
   legal: siteLegalCss,
   lost: siteLostCss,
+  account: siteAccountCss,
   motion: siteMotionCss,
 } as const;
 

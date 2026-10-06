@@ -6,6 +6,7 @@ import { siteLostCss, siteLostFrameCss } from './lost.css';
 import { sitePayReturnCss } from './payReturn.css';
 import { siteMatchInviteCss } from './matchInvite.css';
 import { siteCoachLinkCss } from './coachLink.css';
+import { siteTournamentPageCss } from './tournamentPage.css';
 
 /**
  * Style guard for the site family, run over every site module AND over the court's
@@ -28,6 +29,8 @@ const ALL: [string, string][] = [
   ['match-invite', siteMatchInviteCss],
   // The coach link page's whole sheet, which also ships without it (c/[id]/page.tsx).
   ['coach-link', siteCoachLinkCss],
+  // The tournament page's whole sheet, which also ships without it (events/[id]/page.tsx).
+  ['tournament-page', siteTournamentPageCss],
 ];
 
 describe('site css guard', () => {
@@ -56,6 +59,13 @@ describe('site css guard', () => {
     expect(siteCssModules.coaching).toContain('.tp-lessons__coaches');
     expect(siteCoachLinkCss).toContain('.tp-clink__open');
     expect(siteCoachLinkCss).not.toMatch(/\.tp-front|\.tp-site-header/);
+  });
+
+  it('the landing’s tournament cards ride the site sheet; the tournament page its own', () => {
+    // T-8, build contracts §1.11.
+    expect(siteCssModules.events).toContain('.tp-tour-card');
+    expect(siteTournamentPageCss).toContain('.tp-tpage__open');
+    expect(siteTournamentPageCss).not.toMatch(/\.tp-front|\.tp-site-header/);
   });
 
   it('the poster words leave room for WCAG text spacing (1.4.12)', () => {

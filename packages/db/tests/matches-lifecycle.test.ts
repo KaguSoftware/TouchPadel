@@ -38,6 +38,7 @@ import {
   signedInClient,
   stackAvailable,
   testIdemKey,
+  uniqueTestPhone,
 } from './helpers';
 import { Q, X, dockerReachable, psql, psqlSession, scenario, waitForSleeper, type Results } from './stores-harness';
 import { E, GUEST, K, SETUP, START, at, data, failed } from './matches-harness';
@@ -871,6 +872,8 @@ describe.skipIf(!docker)('R41 across branches: two joins over the same time by o
     const start = new Date(Math.ceil(Date.now() / 3_600_000) * 3_600_000 + 5 * 86_400_000);
     const atMin = (min: number) => `'${new Date(start.getTime() + min * 60_000).toISOString()}'::timestamptz`;
     const claims = JSON.stringify({ sub: guest, role: 'authenticated' });
+    // Committed: a fixed number would be PHONE_TAKEN on a re-run (0304, one live profile per phone).
+    const r41Phone = uniqueTestPhone();
 
     psql(`begin;
 select set_config('request.jwt.claims', '', true);
@@ -892,7 +895,7 @@ insert into match_seats (venue_id, match_id, seat_no, kind, guest_name, share_iq
 values ('${venues[i]}', '${matches[i]}', 1, 'desk', 'M261 walk-in', 10000, '${desk}');`).join('\n')}
 insert into auth.users (id, email, raw_user_meta_data, aud, role)
 values ('${guest}', 'm261-r41-${tag}@test.touch.local', '{"full_name":"Test R41"}', 'authenticated', 'authenticated');
-update profiles set phone = '+9647700000041', terms_version = '2026-09-23', gender = 'female',
+update profiles set phone = '${r41Phone}', terms_version = '2026-09-23', gender = 'female',
                     gender_set_at = now(), gender_set_by = 'guest'
  where id = '${guest}';
 with p as (

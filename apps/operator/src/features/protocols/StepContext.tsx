@@ -178,11 +178,14 @@ export function StepContextPanel({ ctx }: { ctx: StepContexts }) {
           <ul style={{ margin: 0, paddingInlineStart: '1.1rem' }}>
             {ctx.feasibility.ranges.map((r, i) => (
               <li key={i}>
-                {tr('ws.protocols.context.feasibility.row', {
+                {tr(r.lessons > 0 ? 'ws.protocols.context.feasibility.rowLessons' : 'ws.protocols.context.feasibility.row', {
                   court: pickText(locale, r.court_name_en, r.court_name_ar),
                   when: r.from && r.to ? formatTimeRange(new Date(r.from), new Date(r.to), locale) : '—',
                   bookings: formatNumber(r.bookings, locale),
                   guests: formatNumber(r.guests, locale),
+                  // Lessons in the window are in the way too (0294, DB-34; OP-21).
+                  lessons: formatNumber(r.lessons, locale),
+                  students: formatNumber(r.students, locale),
                 })}
               </li>
             ))}

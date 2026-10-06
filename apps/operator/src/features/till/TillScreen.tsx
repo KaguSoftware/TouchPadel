@@ -50,6 +50,9 @@ import { OfflineTabPanel } from './OfflineTabPanel';
 import { KeymapHelp } from './KeymapHelp';
 import { mergeQuickLine, quickVariant } from './quickAdd';
 import { resolveTillKey, type TillAction } from './keymap';
+import { BarcodeWedge } from './barcodeWedge';
+import { MemberAttach, dispatchMemberScan } from '../loyalty/MemberAttach';
+import { isMemberScan } from '../loyalty/loyaltyLogic';
 import { deriveTileState, tileInteractive } from './tileState';
 import { useTillClock } from './useTillClock';
 import { useCafeSettings } from '../../lib/settings';
@@ -326,11 +329,29 @@ export function TillScreen() {
   }
 
   // ---- keyboard (spec R11) ----------------------------------------------------
-  const latest = useRef({ visibleItems, categories, sendBasket, addOrOpen });
-  latest.current = { visibleItems, categories, sendBasket, addOrOpen };
+  const latest = useRef({ visibleItems, categories, sendBasket, addOrOpen, selectedTabId });
+  latest.current = { visibleItems, categories, sendBasket, addOrOpen, selectedTabId };
 
   useEffect(() => {
     let flushTimer: number | undefined;
+    // A member card scanned at the till (loyalty build contracts §5): the USB scanner types
+    // TP-<code>-<otp> and Enter (barcodeWedge.ts). In 'idle' a leading digit is held while it
+    // may start a burst and replayed when it does not; a burst that starts with T goes through
+    // the filter as typing does, and its Enter opens the member field on the selected tab
+    // (TabDetailPanel's MemberAttach, MEMBER_SCAN_EVENT) instead of the quick add.
+    const wedge = new BarcodeWedge();
+
+    /** Hand back a held key that turned out not to be a scan: one digit is its category, more is filter text. */
+    function replayHeld(held: string | null) {
+      if (held === null) return;
+      if (held.length === 1) {
+        const action = resolveTillKey({ key: held, inField: false, inFilter: false, overlayOpen: isModalOpen(), modifier: false });
+        if (action !== null) run(action, null);
+        return;
+      }
+      setFilter((f) => f + held);
+      filterRef.current?.focus();
+    }
 
     /** One action, from a key press (`e`) or replayed from a held key (`e` null). */
     function run(action: TillAction, e: KeyboardEvent | null) {
@@ -389,6 +410,33 @@ export function TillScreen() {
       const overlayOpen = isModalOpen();
       const modifier = e.ctrlKey || e.metaKey || e.altKey;
 
+      if (overlayOpen || modifier || (inField && !inFilter)) {
+        wedge.reset();
+      } else {
+        // A held key whose burst went quiet before this one is replayed first, in order.
+        const quiet = wedge.flush(e.timeStamp);
+        if (quiet !== null) {
+          window.clearTimeout(flushTimer);
+          replayHeld(quiet);
+        }
+        const w = wedge.feed(e.key, e.timeStamp, inFilter ? 'filter' : 'idle');
+        if (w.kind === 'swallow') {
+          e.preventDefault();
+          window.clearTimeout(flushTimer);
+          flushTimer = window.setTimeout(() => replayHeld(wedge.flush(performance.now())), wedge.maxGapMs + 5);
+          return;
+        }
+        window.clearTimeout(flushTimer);
+        if (w.kind === 'scan' && isMemberScan(w.code)) {
+          // The burst typed itself into the filter on its way: clear it, never quick-add it.
+          e.preventDefault();
+          setFilter('');
+          filterRef.current?.blur();
+          const tab = latest.current.selectedTabId;
+          if (tab && !tab.startsWith(LOCAL_TAB_PREFIX)) dispatchMemberScan(w.code.trim().toUpperCase());
+          return;
+        }
+      }
 
       const action = resolveTillKey({ key: e.key, inField, inFilter, overlayOpen, modifier });
       if (action === null) return;
@@ -742,6 +790,8 @@ export function TillScreen() {
           {selectedIsOffline && (
             <div style={{ minBlockSize: 0, overflowY: 'auto' }}>
               <OfflineTabPanel idemKey={selectedTabId.slice(LOCAL_TAB_PREFIX.length)} onSettled={() => setSelectedTabId(null)} />
+              {/* Off with its hint until the open replays: loyalty calls are online only. */}
+              <MemberAttach tabId={selectedTabId} remainingIqd={null} />
             </div>
           )}
         </aside>

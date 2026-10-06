@@ -19,6 +19,8 @@ import {
   lessonCells,
   lessonTitle,
   lessonWindow,
+  nightEndsAt,
+  nightsInWindow,
   lowestOfferPrice,
   parseCancelResult,
   parseCoachProfile,
@@ -27,6 +29,8 @@ import {
   parseLessonBegin,
   parseLessonOffer,
   parseLessonWrite,
+  isSpentReplay,
+  writeOnceMore,
   parseLinkConfirm,
   parseMyLesson,
   parseMyLessons,
@@ -35,6 +39,7 @@ import {
   slotsByNight,
 } from '../logic';
 import { parseDepositStatus } from '../../deposit/logic';
+import { listBookableDates } from '../../availability/assemble';
 import {
   COACH_ID,
   COACH_TZ,
@@ -332,6 +337,48 @@ describe('lessonWindow', () => {
   });
 });
 
+describe('nightsInWindow (MB-16)', () => {
+  // Every day 16:00–02:00: each calendar day carries the evening and the night before's tail.
+  const late: [string, string][] = [
+    ['00:00', '02:00'],
+    ['16:00', '24:00'],
+  ];
+  const overnight = { sun: late, mon: late, tue: late, wed: late, thu: late, fri: late, sat: late };
+  const days = { sun: [['09:00', '23:00']] } as const;
+
+  it('keeps the last night only when its whole trading night fits the window', () => {
+    // At 01:00 in the tail of Wednesday night: the strip starts with yesterday.
+    const now = new Date('2026-09-30T22:00:00Z'); // Thursday 01:00 in Baghdad
+    const strip = listBookableDates(now, COACH_TZ, 13, {
+      opening_hours: overnight,
+      closed_dates: [],
+    });
+    expect(strip[0]).toBe('2026-09-30');
+    const w = lessonWindow(now, COACH_TZ, strip[0]);
+    const nights = nightsInWindow(strip, w.to, COACH_TZ, overnight);
+    const last = nights[nights.length - 1]!;
+    // Complete: the last night's 02:00 close is inside the window.
+    expect(nightEndsAt(last, COACH_TZ, overnight).getTime()).toBeLessThanOrEqual(Date.parse(w.to));
+    // Absent: the next night would end after the window, so it is not shown cut short.
+    const after = strip[strip.indexOf(last) + 1]!;
+    expect(nightEndsAt(after, COACH_TZ, overnight).getTime()).toBeGreaterThan(Date.parse(w.to));
+    expect(nights).not.toContain(after);
+  });
+
+  it('keeps every night that ends at midnight, as before', () => {
+    const now = new Date('2026-10-01T15:20:00Z');
+    const strip = listBookableDates(now, COACH_TZ, 13);
+    const w = lessonWindow(now, COACH_TZ, strip[0]);
+    expect(nightsInWindow(strip, w.to, COACH_TZ, days)).toEqual(strip);
+    expect(nightEndsAt('2026-10-01', COACH_TZ, days).toISOString()).toBe(
+      '2026-10-01T21:00:00.000Z',
+    );
+    expect(nightEndsAt('2026-10-01', COACH_TZ, overnight).toISOString()).toBe(
+      '2026-10-01T23:00:00.000Z',
+    );
+  });
+});
+
 describe('lessonCells and slotsByNight', () => {
   // Thursday 16:00 to 02:00: Friday's list carries the 00:00–02:00 tail.
   const settings = {
@@ -512,5 +559,66 @@ describe('fixtures sanity', () => {
       parseCoachProfile(coachProfileFixture()).offers.find((o) => o.kind === 'private')
         ?.lessonTypeId,
     ).toBe(TYPE_PRIVATE_ID);
+  });
+});
+
+describe('a replay of a spent key (MB-10)', () => {
+  const write = (status: string, duplicate: boolean) =>
+    parseLessonWrite(
+      { duplicate, enrolment_id: ENROLMENT_ID, lesson_id: LESSON_ID, status, places_left: 2 },
+      'lesson_join',
+    );
+
+  it('keeps the enrolment status the server sent', () => {
+    expect(write('cancelled', true).status).toBe('cancelled');
+    expect(write('expired', true).status).toBe('expired');
+    expect(write('held', false).status).toBe('held');
+    expect(write('weird', false).status).toBe('booked');
+    expect(isSpentReplay(write('cancelled', true))).toBe(true);
+    expect(isSpentReplay(write('expired', true))).toBe(true);
+    expect(isSpentReplay(write('booked', true))).toBe(false);
+    expect(isSpentReplay(write('cancelled', false))).toBe(false);
+  });
+
+  it('runs once more with a fresh key after a cancelled replay, and never answers it as booked', async () => {
+    const answers = [write('cancelled', true), write('booked', false)];
+    const keys: string[] = [];
+    let key = 'k1';
+    const result = await writeOnceMore(
+      async () => {
+        keys.push(key);
+        return answers.shift()!;
+      },
+      () => {
+        key = 'k2';
+      },
+    );
+    expect(keys).toEqual(['k1', 'k2']);
+    expect(result.status).toBe('booked');
+    expect(result.duplicate).toBe(false);
+  });
+
+  it('answers a live replay as it is, without a second call', async () => {
+    let calls = 0;
+    const result = await writeOnceMore(
+      async () => {
+        calls += 1;
+        return write('booked', true);
+      },
+      () => {
+        throw new Error('not forgotten');
+      },
+    );
+    expect(calls).toBe(1);
+    expect(result.status).toBe('booked');
+  });
+
+  it('refuses a second spent answer instead of showing it', async () => {
+    await expect(
+      writeOnceMore(
+        async () => write('expired', true),
+        () => {},
+      ),
+    ).rejects.toThrow('IDEMPOTENCY_CONFLICT');
   });
 });

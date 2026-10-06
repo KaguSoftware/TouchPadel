@@ -136,7 +136,8 @@ integer IQD; every enum is parsed with a fallback. No public read carries a `pro
                  "venue_id", "coach_id", "lesson_type_id", "title_en", "title_ar",
                  "start_at", "end_at",               /* group: the session; course: the next session */
                  "sessions_count": null | 8, "sessions_left": null | 5,
-                 "places_left": 3, "max_places": 8, "signup_closes_at", "cutoff_at" }],
+                 "places_left": 3, "max_places": 8, "signup_closes_at", "cutoff_at",
+                 "price_iqd": 15000, "full_price_iqd": 15000 }],   /* 0294 (DB-28) */
   "server_now": "…" }
 ```
 - `{"off": true}` (and nothing else) when the named branch has coaching off, is closed or is
@@ -151,6 +152,12 @@ integer IQD; every enum is parsed with a fallback. No public read carries a `pro
   parser drops them when that branch's `prices_public` is false (§4.14.1); the phone shows them.
 - `sessions` lists group sessions and courses with `places_left > 0` whose sign-up is still open
   (group: before its start; course: before `signup_closes_at`, C-15), soonest first, at most 50.
+- **Amended 2026-10-02 (0294, DB-28):** each session row carries `price_iqd`, what a guest pays now
+  (`lesson_offer`'s price: a group session's own price, which is the coach's price when it was
+  created; a course's price before it starts, else `course_late_join_price` from its first session
+  not yet started, C-15), and `full_price_iqd` (the session's, or the whole course's). A row shows
+  these, never the type's base price. They follow `prices_public` like the other prices: the web
+  drops them when it is false.
 - No student, phone, court id or count of people by name.
 
 **`coach_profile(p_coach_id, p_venue_id default null)`** (X2 and R17; anon and authenticated,
@@ -206,11 +213,14 @@ exactly one id; `LESSON_NOT_FOUND` for a session of a coach who is paused, retir
   "full_price_iqd": 60000,     /* course: the whole course; group: = price_iqd */
   "late_join": null | { "sessions_left": 6, "sessions_count": 8 },
   "payment_mode": "desk|online_optional|online_required", "cancellation_window_hours": 24,
-  "mine": null | { "enrolment_id", "status": "held|booked" },   /* signed in only */
+  "mine": null | { "enrolment_id", "status": "held|booked", "confirm_needed": false },   /* signed in only */
   "server_now": "…" }
 ```
 `places_taken` is a count, never names. `status` is the server's: `closed` after the group's start or
-the course's last start, `full` with no place left.
+the course's last start, `full` with no place left. **Amended 2026-10-02 (0294, DB-33):** `mine` is
+the caller's own place, held or booked, a confirmed one first; a place a coach or the desk added from
+the caller's verified phone and not yet confirmed (C-21) is `mine` too, with `confirm_needed: true`,
+so the class screen sends the guest to "Is this you?" instead of offering a second booking.
 
 **Guest write results** (the phone reads these and refetches the rest)
 - `lesson_book_private`, `lesson_join`, `course_join` (X5) → `{ enrolment_id, lesson_id | course_id,
@@ -269,6 +279,10 @@ covered session) was moved after the enrolment was made and has not started (R8)
 how many covered sessions are refunded, `kept_sessions` how many are kept. `counts_late` is false for
 a coach- or desk-booked enrolment (CD-2). `can.pay` is true while the enrolment is `held` and its hold
 is live; `can.confirm` while `confirm_needed` (then `can.cancel` and `can.pay` are false).
+**Amended 2026-10-02 (0294, DB-33):** `can.pay` also needs the first covered session not to have
+started; and a pending link whose place is no longer live (not `held` or `booked`, or its lesson, or
+a course place's last covered session, has ended: `lesson_link_confirm`'s rule) answers
+`ENROLMENT_NOT_FOUND`, so a place the coach removed never asks "Is this you?".
 
 **`coach_me()`** (X9, Guest's plus DB's bios; `publicByDesign`, never raises; read whatever the
 coaching switches and the staff status say, R45)
@@ -277,12 +291,13 @@ coaching switches and the staff status say, R45)
 { "coach": { "id", "status": "active|paused", "display_name_en", "display_name_ar",
              "bio_en", "bio_ar", "photo_path",
              "public_accepted": false,                              /* R61 */
-             "branches": [{ "venue_id", "name_en", "name_ar", "timezone", "coaching_enabled" }],
+             "branches": [{ "venue_id", "name_en", "name_ar", "timezone", "coaching_enabled",
+                            "open_private": 4, "open_private_cap": 10 }],  /* R56, per branch */
              "lesson_types": [{ "id", "venue_id", "kind", "name_en", "name_ar", "duration_min",
                                 "max_places", "min_places", "sessions_count", "cutoff_hours",
                                 "price_iqd", "is_active" }],
              "adds_today": 3, "add_cap": 30,                        /* CD-9 */
-             "private_open": 4, "private_cap": 10 },                /* R56: coach_max_open_private */
+             "private_open": 4, "private_cap": 10 },                /* display only: the sum and the lowest cap */
   "server_now": "…" } |
 { "coach": { "id", "status": "retired", "display_name_en", "display_name_ar" },
   "server_now": "…" }
@@ -348,7 +363,7 @@ R45)
                    "court_share_iqd", "coach_iqd", "adjustments_iqd", "share_bp",
                    "approved_at", "paid_at", "paid_reference",
                    "lines": [{ "lesson_id", "start_at", "kind", "type_name_en", "type_name_ar",
-                               "collected_iqd", "court_share_iqd", "coach_iqd",
+                               "collected_iqd", "court_share_iqd", "share_bp", "coach_iqd",
                                "is_adjustment" }] }],   /* lines only with p_month */
   "current_month": [{ "venue_id", "estimate": true, "lessons", "collected_iqd", "coach_iqd" }] }
 ```
@@ -518,6 +533,20 @@ Body, in order:
 (`l:<lesson>:<key>:<places_taken>`, so each change pushes and a retry does not), and
 `lesson.reminder`, which has none (§4.5.2 deletes before it queues).
 
+**Amended 2026-10-02 (0296, DB-42, DB-44).** The two helpers the trigger calls build the key:
+- `coach.new_student` and `coach.student_cancelled` add the **enrolment**, not the count:
+  `l:<lesson>:<key>:<enrolment>`, falling back to the count when no enrolment is named. With the count,
+  A joins, A cancels, B joins inside 15 minutes lost B's push.
+- A move adds its session and where it went, on both sides: `lesson.rescheduled` and
+  `coach.rescheduled_by_staff` add `:<lesson>:<to_start_at>`; `lesson.court_moved` and
+  `coach.court_moved` add `:<lesson>:<to_court_id>` (the event's id when the data has no court). Before,
+  the guest's key was one per course enrolment, so a second session moved inside 15 minutes, or the same
+  session moved again, pushed nothing. An identical replay of the same move still pushes once.
+- Signatures: `app.lesson_read_push_guest(p_enrolment_id uuid, p_title_key text, p_lesson_id uuid,
+  p_suffix text default null)` and `app.lesson_read_push_coach(p_lesson_id uuid, p_title_key text,
+  p_places jsonb default '{}', p_enrolment_id uuid default null, p_suffix text default null)`; both
+  internal, granted to nobody, called only by the trigger.
+
 #### 4.5.2 `app.lesson_sync_reminders(p_lesson_id uuid) returns void`
 
 Inside its own exception block (warning, never raise):
@@ -533,6 +562,12 @@ Inside its own exception block (warning, never raise):
    jsonb_build_object('lesson_id', p_lesson_id))`.
 
 A lesson booked inside its last 3 hours gets no reminder (as bookings, 0090:178-181).
+
+Step 1 deletes only future rows: a reminder already due (not yet claimed, or waiting out a failed
+send's lease) survives a cancel or a move. `send-push` checks it at send time instead (coaching
+review EC-02, `send-push/lessonReminder.ts`): the reminder goes only while its enrolment (`payload.id`)
+is `booked`, is the row's profile's, and is a student's, and its lesson still starts 3 h after the row's
+`scheduled_for`, give or take 2 minutes. Anything else is `REMINDER_STALE` (§4.6.3).
 
 #### 4.5.3 The reminder triggers (Guest, in 0280)
 
@@ -599,7 +634,9 @@ Terms in the table:
 | `added` | the enrolment is a student (the desk picked the customer) | `lesson.booked` | as above |
 | `added` | no `guest_id` (a walk-in, or no match) | — | as above |
 | `paid_online` | — | — (the payment screen is open) | `coach.new_student` + places |
-| `expired` | — | `lesson.payment_expired` | — |
+| `paid_online` | `data.revived` true (a late success revived an expired place; 0296, DB-43) | `lesson.booked` (the screen is long closed; the guest was last told `payment_expired`) | `coach.new_student` + places |
+| `expired` | no `data.reason` (a lapse) | `lesson.payment_expired` | — |
+| `expired` | `data.reason` set (0295, DB-35: the guest paid, the place could not be given, the money goes back whole; 0296) | — | — |
 | `enrolment_cancelled` | code `guest_free`, `guest_late`, `account_deleted` | — | `coach.student_cancelled` + places, when `from = 'booked'` |
 | `enrolment_cancelled` | code `coach` (a removal, a coach cancel, a retirement) | `lesson.cancelled_by_coach` | — |
 | `enrolment_cancelled` | code `staff` | `lesson.cancelled_by_staff` | `coach.student_cancelled` + places, only while the group session or the course is still live (one removal); otherwise the lesson's own event tells the coach |
@@ -721,7 +758,9 @@ entry fails `typecheck`.
   'numeric', timeZone: 'UTC'})` (the column is a date).
 - Terminal errors (`attempts: RETRY_CAP`, as `:298-301`): `LESSON_GONE` (a lesson id that names no
   lesson), `STATEMENT_GONE`, and `REMINDER_STALE` (a `lesson.reminder` whose lesson is no longer
-  `scheduled`: the sync should have deleted it; this is the backstop), plus `guestMessage`'s three.
+  `scheduled`, whose enrolment is no longer the profile's booked student place, or whose lesson moved
+  since it was queued: §4.5.2, EC-02; the sync should have deleted it; this is the backstop), plus
+  `guestMessage`'s three.
 - `priority: 'high'` and `channelId: ANDROID_CHANNEL_ID`, as every kind.
 
 #### 4.6.4 The copy (EN, then AR **DRAFT-AR**)
@@ -867,14 +906,16 @@ export function clearAllLessonIntentKeys(): void;                        // sign
 | `lesson_book_private` | `private:<coachId>\|<typeId>\|<startAt>\|<party>\|<mode>` | `PHONE_REQUIRED`, `TERMS_REQUIRED`, `PRICE_CHANGED` (a refused call created nothing, so the key is unspent), a transport failure | success (booked or held), any other refusal (`IDEMPOTENCY_CONFLICT` included) |
 | `lesson_join` | `join:<lessonId>\|<mode>` | as above | as above |
 | `course_join` | `course:<courseId>\|<mode>` | as above | as above |
-| `coach_book_private` | `coach-book:<typeId>\|<venueId>\|<startAt>\|<party>\|<name>` | transport failure | success, any refusal |
+| `coach_book_private` | `coach-book:<typeId>\|<venueId>\|<startAt>\|<party>\|<name>\|<phone>` | transport failure | success, any refusal |
 | `coach_create_group` | `group:<typeId>\|<venueId>\|<startAt>` | transport failure | success, any refusal |
-| `coach_create_course` | `course-new:<typeId>\|<venueId>\|<starts joined by ,>` | transport failure | success, any refusal |
+| `coach_create_course` | `course-new:<typeId>\|<venueId>\|<starts joined by ,>\|<title_en>\|<title_ar>` | transport failure | success, any refusal |
 | `coach_add_student` | `add:<lessonId or courseId>\|<name>\|<phone>` | transport failure | success, any refusal |
 
 - The mutable arguments are in the intent, so a guest who changes the party size or the payment mode
   after a refusal sends a new key: the server's replay of an old key never answers a different
-  request.
+  request. **Amended 2026-10-02 (MB-07):** that holds for coach mode too: the composed phone is in
+  `coach-book` and the trimmed titles in `course-new`, so a phone or title edited after a dropped
+  connection sends a new key instead of replaying the old request.
 - The Qi path spends the booking key on the `held` answer; `lesson-begin` keys itself on the enrolment
   (Money: a live attempt answers with its own ref), so "Try again" needs no client key.
 - `features/auth/context.tsx:85` calls `clearAllLessonIntentKeys()` beside `clearAllMatchIntentKeys()`.
@@ -989,7 +1030,10 @@ stands in front of them, and `RequireStaff` is not on them; `StaffStatusProvider
        branch;
      - the day strip of `DayChip`s (`coach-detail.day.<yyyy-mm-dd>`) from `listBookableDates(now, tz,
        13, settings)` (today and 13 more: inside the 14-day cap; the overnight tail adds yesterday as
-       on the Book tab, `assemble.ts:115-129`), a chip `closed` when that night has no slot;
+       on the Book tab, `assemble.ts:115-129`), a chip `closed` when that night has no slot. **Amended
+       2026-10-02 (MB-16):** only nights whose whole trading night fits the 14-day window are shown
+       (`nightsInWindow`): with an overnight tail (a 16:00–02:00 branch) the last night would end past
+       the window and lose its post-midnight starts, so it is dropped rather than shown cut short;
      - one `CourtLaneRow` (`testID="coach-detail.slot"`, so cells are
        `slotTestID('coach-detail.slot', cell)`) whose cells are `lessonCells(slots, night, settings,
        now)`: one `MergedCell` per start in that trading night (`tradingNightOf`,
@@ -1011,12 +1055,17 @@ stands in front of them, and `RequireStaff` is not on them; `StaffStatusProvider
   for a day. `staleTime` 30 s; refetched on focus and after any `COACH_BUSY` / `NO_COURT_FREE`
   refusal. It is a sibling of `useAvailabilityBooking`, which is not parameterised.
 - **States:** skeleton; `COACH_NOT_FOUND` (unknown, retired, or not yet public, R61) →
-  `coach-detail.not-found` "This coach isn't available." and "See all coaches"; off → the off notice;
+  `coach-detail.not-found` "This coach isn't available." and "See all coaches"; off → the off notice
+  (the profile's `off`, or `coach_slots` answering `{off: true}`: `useLessonBooking`'s `off` status,
+  checked before `bookable`, so an off branch never reads as a pause; amended 2026-10-02, MB-12);
   paused (`coach.status`, or `coach_slots` `bookable: false`) → "Not taking new bookings right now." /
   «الحجز غير متاح مع هذا المدرّب حاليًا.» and no grid; the viewer is this coach
   (`useCoachStatus()`'s coach id equals `id`) → "This is your coach profile. Guests book you here." /
   «هذه صفحتك كمدرّب، ومنها يحجز الضيوف.» and no grid (R56: no self-booking); `ErrorState`
-  `coach-detail.error`.
+  `coach-detail.error`. **Amended 2026-10-02 (MB-18):** a signed-in viewer is a `coach_me` reader
+  (`useCoachStatus({read: !!session})`), and while it is `pending` the grid is a skeleton, so a coach
+  never sees their own grid before `coach_me` says whose page it is; signed out there is nothing to
+  wait for.
 - **Header:** the coach's name; a share icon (`coach-detail.share`) → React Native `Share` with
   `coachShareUrl(id)` = `${siteUrl()}/c/<id>` and the message "Lessons with {name} at Touch Padel:
   {url}" / «حصص مع {name} في تتش بادل: {url}» (no price). `DegradedBanner` when degraded.
@@ -1054,7 +1103,12 @@ stands in front of them, and `RequireStaff` is not on them; `StaffStatusProvider
      والدفع عبر Qi Card». Hidden when `status` is not `open`, with that status's line ("Full", "Sign-up
      has closed", "Cancelled").
   6. `mine` set: "You're booked on this" and "See your booking" (`class-detail.mine` →
-     `/lesson/[id]`) in place of the primary.
+     `/lesson/[id]`) in place of the primary. **Amended 2026-10-02 (MB-14):** with
+     `mine.confirm_needed` (a coach- or desk-added place from the guest's phone, C-21) it reads "A place
+     on this was added with your phone number. Confirm it's you to keep it." / «أُضيف مكان في هذه
+     الحصة برقم هاتفك. أكّد أن الحجز لك للاحتفاظ به.» and the button "Confirm it's you"
+     (`coaching.guest.bookings.confirm`) opens `/lesson/[id]`, where "Is this you?" waits; never a
+     second Join that loops on "already booked".
   7. **Cancel rule line:** a group session: "Free to cancel until {hours} before. After that, online
      payment is kept." / «الإلغاء مجاني حتى {hours} قبل البدء، وبعدها لا يُعاد المبلغ المدفوع
      إلكترونيًا.»; a course (C-23): "Free to leave until {hours} before your next session. Leaving
@@ -1062,7 +1116,10 @@ stands in front of them, and `RequireStaff` is not on them; `StaffStatusProvider
      {hours} قبل حصتك التالية، وبعدها لا يُعاد ثمن تلك الحصة ويُعاد ثمن الحصص التي تليها.»
      (`count.hours`).
 - **States:** skeleton; `LESSON_NOT_FOUND` → `class-detail.not-found`; `ErrorState`
-  `class-detail.error`.
+  `class-detail.error`; `{off: true}` (coaching off at the offer's branch) → `class-detail.off`, the
+  off notice and no Join (amended 2026-10-02, MB-12: `LessonOffer.off`). A join refused
+  `LESSON_NOT_FOUND` shows `class-detail.not-found` too, even while the old offer is still cached
+  (MB-13).
 
 #### 4.8.6 `app/lesson-review.tsx` (route `lesson-review`, `RequireSession`)
 
@@ -1292,6 +1349,8 @@ A private lesson or a group session:
 | --- | --- | --- |
 | `free` | Cancel this lesson? It's free to cancel until {time}. {refund} | إلغاء هذه الحصة؟ الإلغاء مجاني حتى {time}. {refund} |
 | `free`, `free_because: rescheduled` (R8) | Cancel this lesson? It was moved after you booked, so it's free to cancel until it starts. {refund} | إلغاء هذه الحصة؟ نُقلت بعد حجزك، فالإلغاء مجاني حتى موعد بدئها. {refund} |
+| `free`, the place `held` (MB-11) | Cancel this lesson? Nothing has been paid yet, so it's free to cancel. | إلغاء هذه الحصة؟ لم يُدفع شيء بعد، فالإلغاء مجاني. |
+| `free`, no `free_until` (MB-11) | Cancel this lesson? It's free to cancel. {refund} | إلغاء هذه الحصة؟ الإلغاء مجاني. {refund} |
 | `late`, `counts_late` | It's less than {hours} before the lesson. If you cancel now, {kept} paid online is kept, and it counts as a late cancellation. | بقي أقل من {hours} على الحصة. عند الإلغاء الآن لا يُعاد {kept} المدفوع إلكترونيًا، ويُحسب إلغاءً متأخرًا. |
 | `late`, not `counts_late` | It's less than {hours} before the lesson. If you cancel now, {kept} paid online is kept. | بقي أقل من {hours} على الحصة. عند الإلغاء الآن لا يُعاد {kept} المدفوع إلكترونيًا. |
 
@@ -1300,7 +1359,13 @@ A course (C-23, R62; every figure is the server's preview, `my_lesson.cancel`):
 | `cancel` | Body EN | Body AR **DRAFT-AR** |
 | --- | --- | --- |
 | `free` | Leave the course? Your place on every session you haven't had is cancelled. {refund} | الانسحاب من الدورة؟ يُلغى مكانك في كل حصة لم تحضرها بعد. {refund} |
-| `late`, with `kept_sessions` | Leave the course? Your next session, {when}, is less than {hours} away, so its share ({kept}) is kept{late}. The {refundSessions} after it are cancelled: {refund} | الانسحاب من الدورة؟ بقي أقل من {hours} على حصتك التالية ({when})، فلا يُعاد نصيبها ({kept}){late}. وتُلغى {refundSessions} بعدها: {refund} |
+| `late`, with `kept_sessions` | Leave the course? Your next session, {when}, is less than {hours} away. Its share ({kept}) is kept{late}. The {refundSessions} after it are cancelled. {refund} | الانسحاب من الدورة؟ بقي أقل من {hours} على حصتك التالية ({when}). لا يُعاد نصيبها ({kept}){late}. وتُلغى {refundSessions} بعدها. {refund} |
+
+**Amended 2026-10-02 (MB-15):** the course's late body is built sentence by sentence, each only when
+it has something to say: the share sentence only when `kept_iqd > 0` (with nothing kept and
+`counts_late`, "Leaving now counts as a late cancellation." / «الانسحاب الآن يُحسب إلغاءً متأخرًا.»
+instead), the "after it are cancelled" sentence only when `refund_sessions > 0`, and `{refund}` as its
+own sentence. It never reads "its share (IQD 0) is kept" and never ends on a colon.
 
 - `{refund}` = "{amount} paid online goes back to your card." / «يُعاد {amount} المدفوع إلكترونيًا إلى
   بطاقتك.» when `refund_iqd > 0`, else ''. A late cancel with nothing paid online drops the money clause
@@ -1314,6 +1379,13 @@ A course (C-23, R62; every figure is the server's preview, `my_lesson.cancel`):
   `ENROLMENT_NOT_FOUND` → refetch.
 - The server decides free or late at the moment of the call; if the window passed while the dialog was
   open, the answer's `cancel_kind` and amounts say so and the toast follows them.
+- **Amended 2026-10-02 (MB-11):** a `held` place never reads "free to cancel until {time}": nothing
+  has been paid, so it reads the `held` row above. When `lesson-begin` refuses a held place with
+  `ONLINE_PAYMENT_OFF` or `COACHING_OFF` (Finish payment on the lesson, Try again on the payment
+  screen), the line is `coaching.common.errors.heldOff` ("This place can't be paid online right now.
+  Nothing has been paid yet, so you can cancel it for free." / «تعذّر الدفع الإلكتروني لهذا المكان
+  الآن. لم يُدفع شيء بعد، فيمكن إلغاؤه مجانًا.»), never "pay at the desk", and the lesson screen opens
+  the cancel dialog when `can.cancel`.
 
 #### 4.9.6 The terms gate (C-26, R50)
 
@@ -1344,6 +1416,11 @@ then pushes `/welcome`. `features/booking/pendingIntent.ts` reads three stores (
 `/lesson-review?…`, `class` → `/class/[id]?kind=`. Signing in never books by itself (the open-matches
 GD-2 rule): the guest sees the review and taps once. The welcome banner reads "Sign in to book the
 lesson" / «تسجيل الدخول لحجز الحصة».
+**Amended 2026-10-02 (MB-04):** one intent at a time. Every set site (the coach grid, Join, the
+court grid's slot, the open-match link, chip and list) goes through `setOnlyPendingSlot`,
+`setOnlyPendingJoin` or `setOnlyPendingLesson` (`pendingIntent.ts`), each clearing the other two, so an
+old slot or match intent never outranks a newer lesson tap; `pendingSlot` now lives 30 minutes like
+the other two.
 
 ### 4.10 Errors
 
@@ -1532,6 +1609,7 @@ export type CoachStatus =
   | { kind: 'error' };                     // the read failed and there is no earlier answer
 export function nextCoachStatus(input: {
   uid: string | null;
+  restoring: boolean;                      // useAuth().initializing (MB-03)
   read: { state: 'idle' } | { state: 'pending' } | { state: 'error' }
       | { state: 'success'; data: CoachMeRead };
   previous: CoachStatus; previousUid: string | null;
@@ -1541,6 +1619,9 @@ export function nextCoachStatus(input: {
   like anyone else. `idle` (no reader mounted yet) → `none` for no session, else the previous answer
   for the same uid, else `pending`.
 - `previous` is evidence only for the same uid (the `nextStaffStatus` rule).
+- **Amended 2026-10-02 (MB-03):** no uid while the stored session is still being restored
+  (`restoring`, the auth context's `initializing`) is `pending`, not `none`, so a coach push tapped
+  on a cold start shows Loading instead of bouncing to Profile. The provider's input key carries it.
 - An error after a `coach` or `retired` answer keeps it (a dropped connection does not throw the coach
   out).
 
@@ -1724,8 +1805,12 @@ screen, under the banners below.
   (`PhoneField`, `coach-mode-book.phone`, optional), party (`PartyStepper` `coach-mode-book.party`),
   the note "Paid at the desk." (CD-1: a coach's booking is always desk).
 - **Hoarding cap** (R56, C-24): "{open} of {cap} upcoming lessons booked for students" /
-  «{open} من {cap} حصص قادمة محجوزة للمتدرّبين» from `coach_me.private_open` / `private_cap`; at the cap
-  the primary is disabled with `addLimitLive`'s line.
+  «{open} من {cap} حصص قادمة محجوزة للمتدرّبين» from the picked branch's
+  `coach_me.branches[].open_private` / `open_private_cap`; at that branch's cap the primary is
+  disabled with `addLimitLive`'s line. **Amended 2026-10-02 (MB-01):** the server counts per branch
+  (0283), so the top-level `private_open` / `private_cap` (a sum across branches and the lowest
+  cap) are display only and never gate a branch; `addLimitLive`'s `{cap}` in coach-mode-book, -new
+  and -lesson is the cap of the branch the call named.
 - **Primary** `coach-mode-book.book` "Book" / «حجز» → `coach_book_private(type, venue, start, name,
   phone, party, key)`; success → `router.replace('/coach-mode-lesson', {id})`, toast "{name} is booked."
   The same answer whether the phone matched (C-8, C-21). `COACH_ADD_LIMIT` detail `live` or the daily
@@ -1743,6 +1828,10 @@ The one coach-mode screen a retired coach opens (C-25, R45).
   "Court share {court}" / «أجرة الملعب {court}», "Coach's share ({pct}) {coach}" / «نصيب المدرّب
   ({pct}) {coach}», "Adjustments {adj}" / «التسويات {adj}» when non-zero; then the lines
   (`coach-mode-statements.line.<lessonId>`): date, type, collected, court share, coach's share.
+  **Amended 2026-10-02 (MB-02):** `share_bp` may be null (mixed rates in the month, adjustments
+  only); the share then reads "Coach's share {coach}" / «نصيب المدرّب {coach}» with no percentage,
+  never an assumed one. Each line shows its own `share_bp` as "yours ({pct}) {coach}" / «نصيبك
+  ({pct}) {coach}», and none when the line carries no rate (an adjustment).
 - **This month so far** (not for a retired coach): one card per `current_month` entry, "This month
   so far · an estimate, not a statement" / «هذا الشهر حتى الآن · تقدير وليس كشف حساب», lessons,
   collected and coach's share.

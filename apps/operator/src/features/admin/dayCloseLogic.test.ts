@@ -404,6 +404,23 @@ describe('readDayCloseOnline / onlineMoneyOf / onlineIsEmpty', () => {
     ]);
   });
 
+  it('test lesson payments alone still show the test-payments group (OP-17)', () => {
+    const groups = onlineMoneyOf(
+      readDayCloseOnline({
+        ...payload,
+        sandbox_excluded: { deposits: 0, tickets: 0, lessons: 3 },
+      })!,
+    );
+    const sandbox = groups.find((g) => g.id === 'sandbox');
+    expect(sandbox?.rows.find((r) => r.id === 'lessons')).toEqual({
+      id: 'lessons',
+      count: 3,
+      amount: null,
+      shows: 'count',
+    });
+    expect(onlineLabelKey('sandbox', { id: 'lessons' })).toBe('ws.matches.dayClose.sandbox.lessons');
+  });
+
   it('shows test payments only when some were left out', () => {
     const groups = onlineMoneyOf(readDayCloseOnline({ ...payload, sandbox_excluded: { deposits: 2, tickets: 0 } })!);
     expect(groups.at(-1)).toEqual({
@@ -411,6 +428,7 @@ describe('readDayCloseOnline / onlineMoneyOf / onlineIsEmpty', () => {
       rows: [
         { id: 'deposits', count: 2, amount: null, shows: 'count' },
         { id: 'tickets', count: 0, amount: null, shows: 'count' },
+        { id: 'lessons', count: null, amount: null, shows: 'count' },
       ],
     });
   });

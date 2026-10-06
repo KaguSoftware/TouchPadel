@@ -30,9 +30,24 @@ const next = (
   previous: CoachStatus = NO_SESSION,
   previousUid: string | null = null,
   uid: string | null = UID,
-) => nextCoachStatus({ uid, read, previous, previousUid });
+) => nextCoachStatus({ uid, restoring: false, read, previous, previousUid });
 
 describe('nextCoachStatus', () => {
+  it('is pending with no uid while the session is restored, and none once it is not (MB-03)', () => {
+    const base = {
+      uid: null,
+      read: { state: 'idle' } as const,
+      previous: NO_SESSION,
+      previousUid: null,
+    };
+    expect(nextCoachStatus({ ...base, restoring: true })).toEqual(PENDING);
+    expect(nextCoachStatus({ ...base, restoring: false })).toEqual(NO_SESSION);
+    // Restoring never hides an answer once the uid is known.
+    expect(nextCoachStatus({ ...base, uid: UID, restoring: true, read: success(coach) }).kind).toBe(
+      'coach',
+    );
+  });
+
   it('is none with no session, whatever the read says', () => {
     expect(next(success(coach), NO_SESSION, null, null)).toEqual(NO_SESSION);
     expect(next({ state: 'error' }, NO_SESSION, null, null)).toEqual(NO_SESSION);

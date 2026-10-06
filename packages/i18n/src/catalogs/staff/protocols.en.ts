@@ -239,6 +239,12 @@ export const staffProtocolsEn = {
     featuredLine: 'Discount: {current}% → {next}%',
     featuredOff: 'The hero is not on Featured today, so no discount is live. Applying one above 0 switches it to Featured.',
     featuredCost: 'Last 30 days of the item: {units} sold; this discount would have cost {cost}.',
+    // Coaching (0285, MB-20): a lesson change's figures. No coach pay (C-28).
+    lessonPrice: 'Price: {current} → {next}',
+    lessonCourtShare: 'Court share per session: {current} → {next}',
+    lessonSold: 'Last 30 days: {places} places sold, {amount}',
+    coachPriceRemoved: 'The coach’s own price is removed; the lesson type’s price, {next}, applies.',
+    coachPriceRemovedRecord: 'Removed: the lesson type’s price applies',
     tournament: 'The tournament',
     tournamentClass: 'Class {class}',
     capacityPlayers: '{count} players',

@@ -1,6 +1,8 @@
 /**
  * Work photos (build-contracts-2026-09-23 §6.9): the only door from the app to
  * expo-image-picker and expo-image-manipulator, and to the staff-media bucket.
+ * A guest's profile photo (0302) is picked here too (pickAvatarPhoto), and
+ * uploaded by src/features/profile/avatar.ts.
  *
  * NEITHER NATIVE MODULE IS IMPORTED AT MODULE SCOPE. Both resolve their native
  * side at import time, so a value import would crash every route that reaches
@@ -183,6 +185,38 @@ export async function pickPhoto(source: PhotoSource): Promise<PickedPhoto | null
   const asset: ImagePickerAsset | undefined = result.canceled ? undefined : result.assets[0];
   if (!asset) return null;
   const out = await n.reencode(asset.uri, fitWithin(asset.width, asset.height), JPEG_QUALITY);
+  return { uri: out.uri, width: out.width, height: out.height, mime: 'image/jpeg' };
+}
+
+/**
+ * A guest's profile photo (Edit profile, 0302). The same door as pickPhoto,
+ * with the system's square crop, re-encoded to a JPEG no larger than
+ * AVATAR_EDGE on a side: no EXIF leaves the phone, and the avatars bucket's
+ * 2 MiB cap is never near. Resolves null on cancel; throws PhotoError as
+ * pickPhoto does.
+ */
+export const AVATAR_EDGE = 512;
+
+export const AVATAR_PICK_OPTIONS: ImagePickerOptions = {
+  ...PICK_OPTIONS,
+  allowsEditing: true,
+  aspect: [1, 1],
+};
+
+export async function pickAvatarPhoto(source: PhotoSource): Promise<PickedPhoto | null> {
+  const n = getNative();
+  if (!n) throw new PhotoError('unavailable');
+  if (source === 'camera') {
+    const permission = await n.picker.requestCameraPermissionsAsync();
+    if (!permission.granted) throw new PhotoError('permission');
+  }
+  const result =
+    source === 'camera'
+      ? await n.picker.launchCameraAsync(AVATAR_PICK_OPTIONS)
+      : await n.picker.launchImageLibraryAsync(AVATAR_PICK_OPTIONS);
+  const asset: ImagePickerAsset | undefined = result.canceled ? undefined : result.assets[0];
+  if (!asset) return null;
+  const out = await n.reencode(asset.uri, fitWithin(asset.width, asset.height, AVATAR_EDGE), JPEG_QUALITY);
   return { uri: out.uri, width: out.width, height: out.height, mime: 'image/jpeg' };
 }
 

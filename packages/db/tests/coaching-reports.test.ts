@@ -14,7 +14,11 @@
  *     day, its till shift's (C-31, R27, R71);
  *   * report_lessons (X24): totals, byCoach summing to the totals, the fill rate;
  *   * sandbox lesson money adds 0 everywhere and is counted in sandboxExcluded (CM-15);
- *   * check:analytics passes with PERSON_MONEY_REPORTS (R42).
+ *   * check:analytics passes with PERSON_MONEY_REPORTS (R42);
+ *   * 0292 (DB-16, DB-20): the revenue, cash, card and lessonRevenue drills add up to
+ *     panel_headline (a café bill on no table, a refund of every kind), lesson rows carry no
+ *     guest identity, and a handback outside the till comes off lessonRevenue, netIqd,
+ *     report_revenue.lessonIqd and report_lessons.lessonRevenueIqd (refundsIqd counts it).
  *
  * Every figure is planted 30 months back, a month no other suite touches, so the expected numbers
  * are this suite's own. Coach shares through the @touch/core twin.
@@ -311,12 +315,11 @@ describe.skipIf(!docker)('coaching 0288: the lesson figures in every report', ()
     )[0]!;
     // p1, gr and p5 hold court1 for an hour each.
     expect(row).toMatchObject({ lessons: 3, lessonMinutes: 180 });
-    if (row.availableMinutes > 0) {
-      expect(row.occupancyPct).toBeCloseTo(
-        Math.round(((row.bookedMinutes + 180) * 1000) / row.availableMinutes) / 10,
-        1,
-      );
-    }
+    expect(row.availableMinutes).toBeGreaterThan(0);
+    expect(row.occupancyPct).toBeCloseTo(
+      Math.round(((row.bookedMinutes + 180) * 1000) / row.availableMinutes) / 10,
+      1,
+    );
     const block = courts.lessons as Record<string, number>;
     expect(block).toMatchObject({
       lessons: 4,
@@ -343,6 +346,14 @@ describe.skipIf(!docker)('coaching 0288: the lesson figures in every report', ()
       ...BASE,
       T('day1', 'manager', `select app.day_close_online({{day1}})`),
       T('day2', 'manager', `select app.day_close_online({{day2}})`),
+      // The business day of p4's sandbox payment (day 9).
+      KEEP(
+        'day9',
+        `select pg_temp.ins('day_sessions', jsonb_build_object('venue_id', {{venue}},
+        'business_date', pg_temp.mon(${M}) + 8, 'opened_by', {{manager}}, 'opening_float_iqd', 0,
+        'opened_at', ${at(9, 8)}))`,
+      ),
+      T('day9', 'manager', `select app.day_close_online({{day9}})`),
     ]);
     const day1 = ok<Record<string, unknown>>(r, 'day1');
     expect(missingKeys(day1, COACHING_SHAPES.day_close_online)).toEqual([]);
@@ -352,7 +363,10 @@ describe.skipIf(!docker)('coaching 0288: the lesson figures in every report', ()
     const l2 = ok<Record<string, unknown>>(r, 'day2').lessons as Record<string, number>;
     // The refund made in day 2's till shift counts on day 2.
     expect(l2).toMatchObject({ desk_paid_iqd: 0, desk_refunded_iqd: 3_000 });
-    expect((day1.sandbox_excluded as Record<string, number>).lessons).toBeGreaterThanOrEqual(0);
+    // CM-15: p4's sandbox lesson money is counted out on its own business day only.
+    expect((day1.sandbox_excluded as Record<string, number>).lessons).toBe(0);
+    const day9 = ok<Record<string, unknown>>(r, 'day9');
+    expect((day9.sandbox_excluded as Record<string, number>).lessons).toBe(1);
   });
 
   it('report_lessons: totals, byCoach summing to them, the fill rate (X24, R42)', () => {
@@ -396,6 +410,111 @@ describe.skipIf(!docker)('coaching 0288: the lesson figures in every report', ()
     // No student, phone or guest id anywhere in it (R42).
     expect(JSON.stringify(rep)).not.toMatch(/guest|phone|student|profile/i);
     expect(r.cashier?.ok).toBe(false);
+  });
+});
+
+// 0292 (DB-16, DB-20): one movement of every kind more, each with a refund: a booking, a café
+// bill on no table paid by card with a refund, an online lesson refund on p1, a handback outside
+// the till on gr's first place.
+const ONLINE_REFUND = 10_000;
+const OUTSIDE = 5_000;
+const EXTRA = [
+  X(`select pg_temp.ins('reservations', jsonb_build_object('venue_id', {{venue}}, 'court_id', {{court1}},
+    'kind', 'booking', 'status', 'confirmed', 'price_iqd', 30000, 'start_at', ${at(15, 18)},
+    'end_at', ${at(15, 19)}, 'source', 'desk', 'guest_name', 'CF292 Guest'))`),
+  KEEP(
+    'ctab',
+    `select pg_temp.ins('tabs', jsonb_build_object('venue_id', {{venue}}, 'day_session_id', {{day1}},
+    'kind', 'cafe', 'status', 'settled', 'total_iqd', 20000, 'subtotal_iqd', 20000, 'tax_iqd', 0,
+    'discount_iqd', 0, 'label', 'Counter', 'opened_at', ${at(16, 12)}, 'settled_at', ${at(16, 13)}))`,
+  ),
+  KEEP(
+    'cpay',
+    `select pg_temp.ins('payments', jsonb_build_object('venue_id', {{venue}}, 'tab_id', {{ctab}},
+    'day_session_id', {{day1}}, 'method', 'card', 'amount_iqd', 20000, 'recorded_by', {{cashier}},
+    'created_at', ${at(16, 13)}))`,
+  ),
+  X(`select pg_temp.ins('refunds', jsonb_build_object('venue_id', {{venue}}, 'payment_id', {{cpay}},
+    'amount_iqd', 2000, 'reason_code', 'quality', 'refunded_by', {{manager}}, 'created_at', ${at(16, 14)}))`),
+  KEEP('p1pay', `select id::text from booking_payments where lesson_enrolment_id = {{p1e}}::uuid`),
+  X(`select pg_temp.refunded({{p1pay}}, ${ONLINE_REFUND}, ${at(17, 9)})`),
+  X(`select pg_temp.ins('lesson_events', jsonb_build_object('venue_id', {{venue}}, 'lesson_id', {{gr}},
+    'enrolment_id', {{gre1}}, 'type', 'refunded', 'actor', 'staff', 'actor_staff_id', {{manager}},
+    'code', 'outside', 'data', jsonb_build_object('amount_iqd', ${OUTSIDE}, 'outside', true),
+    'at', ${at(18, 10)}))`),
+];
+
+type DrillTx = { id: string; amountIqd: number; label: string; detail: Record<string, unknown> };
+
+describe.skipIf(!docker)('coaching 0292: the drills add up to the headline (DB-16, DB-20)', () => {
+  it('revenue, cash, card and lessonRevenue drills sum to panel_headline; handbacks come off lesson revenue', () => {
+    const drill = (label: string, figure: string, who = 'owner') =>
+      T(label, who, `select app.report_drill('${figure}', null, {{mf}}::date, {{mt}}::date)`);
+    const r = scenario('cf292-a', [
+      ...BASE,
+      ...EXTRA,
+      T('panel', 'owner', `select app.panel_headline({{mf}}::date, {{mt}}::date, 'none')`),
+      drill('d_revenue', 'revenue'),
+      drill('d_cash', 'cash'),
+      drill('d_card', 'card'),
+      drill('d_lessons', 'lessonRevenue'),
+      drill('d_lessons_mgr', 'lessonRevenue', 'manager'),
+      drill('d_refunds', 'refunds', 'manager'),
+      E(
+        'figures',
+        `select app.lesson_money_figures(${at(1, 0)} - interval '1 day', ${at(28, 0)} + interval '10 days',
+                      array[{{venue}}]::uuid[])`,
+      ),
+      T('lessons', 'manager', `select app.report_lessons({{mf}}::date, {{mt}}::date)`),
+      T(
+        'revenue',
+        'owner',
+        `select app.report_revenue({{mf}}::date, {{mt}}::date, 'month', '{}'::jsonb)`,
+      ),
+    ]);
+    const panel = new Map(
+      ok<{ figures: Array<{ key: string; value: number }> }>(r, 'panel').figures.map((f) => [
+        f.key,
+        Number(f.value),
+      ]),
+    );
+    const sum = (label: string) =>
+      ok<{ transactions: DrillTx[] }>(r, label).transactions.reduce(
+        (a, t) => a + Number(t.amountIqd),
+        0,
+      );
+    expect(sum('d_revenue')).toBe(panel.get('revenue'));
+    expect(sum('d_cash')).toBe(panel.get('cash'));
+    expect(sum('d_card')).toBe(panel.get('card'));
+    expect(sum('d_lessons')).toBe(panel.get('lessonRevenue'));
+    // The café bill on no table is in the card drill, its refund a negative twin.
+    const card = ok<{ transactions: DrillTx[] }>(r, 'd_card').transactions;
+    expect(card.map((t) => Number(t.amountIqd)).sort((a, b) => a - b)).toEqual([-2000, 20000]);
+    // The refunds drill still lists every refund as a positive amount.
+    const refunds = ok<{ transactions: DrillTx[] }>(r, 'd_refunds').transactions;
+    expect(refunds.every((t) => Number(t.amountIqd) > 0)).toBe(true);
+    // Lesson rows carry no guest identity (R42); the figure is the owner's alone.
+    const lessonRows = ok<{ transactions: DrillTx[] }>(r, 'd_lessons').transactions;
+    expect(JSON.stringify(lessonRows)).not.toMatch(/guest|phone|student|profile/i);
+    expect(r.d_lessons_mgr?.ok).toBe(false);
+    expect(r.d_lessons_mgr?.code).toContain('FORBIDDEN');
+
+    // DB-20 (D2): the handback and the online refund come off lesson revenue everywhere.
+    const LESSON_NET = NET - ONLINE_REFUND - OUTSIDE;
+    expect(panel.get('lessonRevenue')).toBe(LESSON_NET);
+    expect(ok<Record<string, number>>(r, 'figures')).toMatchObject({
+      netIqd: LESSON_NET,
+      onlineRefundsIqd: ONLINE_REFUND,
+      outsideRefundsIqd: OUTSIDE,
+      outsideRefundsCount: 1,
+    });
+    const t = ok<{
+      totals: { refundsIqd: number; lessonRevenueIqd: number; deskIqd: number; onlineIqd: number };
+    }>(r, 'lessons').totals;
+    expect(t.refundsIqd).toBe(DESK_REFUNDS + ONLINE_REFUND + OUTSIDE);
+    expect(t.lessonRevenueIqd).toBe(LESSON_NET);
+    expect(t.lessonRevenueIqd).toBe(t.deskIqd + t.onlineIqd - t.refundsIqd);
+    expect(ok<{ totals: Record<string, number> }>(r, 'revenue').totals.lessonIqd).toBe(LESSON_NET);
   });
 });
 

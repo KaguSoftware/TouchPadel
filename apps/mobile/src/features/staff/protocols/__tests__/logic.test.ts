@@ -16,11 +16,13 @@ import {
   bilingual,
   blocksToSend,
   completeRenames,
+  conflictKindKey,
   courtsRecord,
   interviewsRecord,
   isProtocolQueryKey,
   launchPhotoChoices,
   lessonTargetCoaches,
+  lessonNumbersView,
   lessonTargetTypes,
   numbersLesson,
   numbersRenames,
@@ -482,6 +484,30 @@ describe('a lesson price change', () => {
     expect(priced.draft.price_iqd).toBe('25000');
     expect(priced.draft).not.toHaveProperty('court_share_iqd');
   });
+
+  it('shows a lesson change’s figures, no coach pay, and a coach price the proposal removes (MB-20)', () => {
+    const view = lessonNumbersView(numbersOf(LESSON), 'lesson_price', { change: 'lesson_price', lesson_type_id: A, price_iqd: 30000 });
+    expect(view).toEqual({
+      lesson: LESSON,
+      price: { current: 25000, next: 30000 },
+      courtShare: { current: 5000, next: 5000 },
+      coachPriceRemoved: false,
+      sold: { places: 40, amount: 1000000 },
+    });
+    // A coach price has no court share line; an empty proposal price is a removal.
+    const coachLesson = { ...LESSON, coach_id: B, current_price_iqd: 35000, new_price_iqd: 25000 };
+    const removal = lessonNumbersView({ ...numbersOf(coachLesson), change: 'coach_price' }, 'coach_price', { change: 'coach_price', coach_id: B, lesson_type_id: A, price_iqd: null });
+    expect(removal?.courtShare).toBeNull();
+    expect(removal?.coachPriceRemoved).toBe(true);
+    expect(removal?.price).toEqual({ current: 35000, next: 25000 });
+    const priced = lessonNumbersView({ ...numbersOf(coachLesson), change: 'coach_price' }, 'coach_price', { change: 'coach_price', coach_id: B, lesson_type_id: A, price_iqd: 25000 });
+    expect(priced?.coachPriceRemoved).toBe(false);
+    // Nothing sold reads as no line, every other change as no block.
+    expect(lessonNumbersView(numbersOf({ ...LESSON, places_30d: null }), 'lesson_price', null)?.sold).toBeNull();
+    expect(lessonNumbersView(numbersOf(null), 'price', null)).toBeNull();
+    // No figure here is a coach's pay (C-28).
+    expect(JSON.stringify(view)).not.toMatch(/share_bp|coach_iqd|coach_pay/);
+  });
 });
 
 describe('the court desk’s windows (§2.11)', () => {
@@ -519,6 +545,25 @@ describe('the court desk’s windows (§2.11)', () => {
       conflicts: [{ court_id: B, start_at: 'x', end_at: 'y', reservation_id: A, kind: 'booking', status: 'confirmed' }],
     });
     expect(answer.conflicts).toEqual([{ reservationId: A, courtId: B, startAt: 'x', endAt: 'y', kind: 'booking' }]);
+  });
+
+  it('keeps a waiting open match, which names no reservation, and drops any other conflict without one (tournaments S11)', () => {
+    const answer = readBlockAnswer({
+      blocked: [],
+      conflicts: [
+        { court_id: B, start_at: 'x', end_at: 'y', reservation_id: null, kind: 'match_waiting', status: 'awaiting_court' },
+        { court_id: C, start_at: 'x', end_at: 'y', reservation_id: null, kind: 'booking', status: 'confirmed' },
+      ],
+    });
+    expect(answer.conflicts).toEqual([{ reservationId: null, courtId: B, startAt: 'x', endAt: 'y', kind: 'match_waiting' }]);
+  });
+
+  it('words every conflict kind the server sends, and leaves an unknown one to print as sent', () => {
+    expect(conflictKindKey('booking')).toBe('staff.protocols.courts.conflict.booking');
+    expect(conflictKindKey('maintenance')).toBe('staff.protocols.courts.conflict.maintenance');
+    expect(conflictKindKey('match_waiting')).toBe('ws.events.block.conflictKind.match_waiting');
+    expect(conflictKindKey('lesson')).toBe('ws.events.block.conflictKind.lesson');
+    expect(conflictKindKey('something_new')).toBeNull();
   });
 });
 

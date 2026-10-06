@@ -25,7 +25,7 @@ import { useCoachProfile } from '../../src/features/coaching/hooks';
 import { useLessonBooking } from '../../src/features/coaching/useLessonBooking';
 import { lessonErrorCode, lessonErrorText } from '../../src/features/coaching/errors';
 import { coachShareUrl, isCoachId } from '../../src/features/coaching/links';
-import { setPendingLesson } from '../../src/features/coaching/pendingLesson';
+import { setOnlyPendingLesson } from '../../src/features/booking/pendingIntent';
 import {
   classTarget,
   coachBranch,
@@ -78,7 +78,11 @@ export default function CoachDetailScreen() {
   const id = typeof params.id === 'string' && isCoachId(params.id) ? params.id : null;
   const venueParam = typeof params.venueId === 'string' && params.venueId ? params.venueId : null;
   const guest = useGuestVenue();
-  const me = useCoachStatus();
+  // A reader while signed in, so coach_me is read here too: until it answers,
+  // whether the viewer is this coach (R56: no grid on their own page) is not
+  // known, and the grid waits behind a skeleton (MB-18).
+  const me = useCoachStatus({ read: !!session });
+  const meReading = !!session && me.status.kind === 'pending';
 
   // The first read: with the param's branch, or the link's read with none (R17).
   const first = useCoachProfile(id, venueParam);
@@ -118,6 +122,8 @@ export default function CoachDetailScreen() {
   const name = displayCoachName(coach, locale);
   const self = !!coach && me.coach?.id === coach.id;
   const paused = coach?.status === 'paused' || booking.status === 'paused';
+  // coach_slots answering {off: true} is the profile's off, read later (MB-12).
+  const off = !!data?.off || booking.status === 'off';
   const otherBranch = !!branchId && !!guest.venueId && branchId !== guest.venueId;
   const money = (n: number | null) => (n === null ? null : isolate(formatIQD(n, locale)));
 
@@ -143,7 +149,7 @@ export default function CoachDetailScreen() {
     const startAt = cell.startAt.toISOString();
     const priceIqd = booking.offer?.priceIqd ?? null;
     if (!session) {
-      setPendingLesson({
+      setOnlyPendingLesson({
         kind: 'private',
         coachId: id,
         lessonTypeId: booking.typeId,
@@ -274,10 +280,11 @@ export default function CoachDetailScreen() {
 
   const bio = coach ? pick(coach.bioEn, coach.bioAr, locale) : '';
   const cellWidth = Math.floor((width - space.l * 2 - space.s * (GRID_COLUMNS - 1)) / GRID_COLUMNS);
-  const showGrid = !data.off && !paused && !self && booking.types.length > 0;
+  const showGrid = !off && !paused && !self && booking.types.length > 0;
 
   const grid = (() => {
     if (!showGrid) return null;
+    if (meReading) return <SkeletonList rows={2} height={60} />;
     const offer = booking.offer;
     return (
       <View style={{ gap: space.sm }}>
@@ -432,7 +439,7 @@ export default function CoachDetailScreen() {
           ) : null}
         </Card>
 
-        {data.off ? <MatchNotice text={t('coaching.common.errors.off')} /> : null}
+        {off ? <MatchNotice text={t('coaching.common.errors.off')} /> : null}
         {paused ? <MatchNotice text={t('coaching.guest.coach.paused')} /> : null}
         {self ? <MatchNotice text={t('coaching.guest.coach.self')} /> : null}
 
@@ -484,7 +491,7 @@ export default function CoachDetailScreen() {
                   coach={name}
                   when={`${formatWeekdayShort(start, locale, tz)} ${formatDate(start, locale, tz)} · ${formatTime(start, locale, tz)}`}
                   places={countPhrase('coaching.common.count.placesLeft', s.placesLeft, locale)}
-                  price={type ? money(type.priceIqd) : null}
+                  price={money(s.priceIqd)}
                   onPress={() => router.push({ pathname: '/class/[id]', params: target })}
                 />
               );

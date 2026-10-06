@@ -3,14 +3,17 @@
  * C-22, C-25, C-29, R43, R45, R46, R61, R63). Pure; no React.
  *
  * - Make a coach: the draft, what blocks it, and `coach_promote`'s arguments
- *   (the rail's branch ticked by default). The photo path comes from
+ *   (the rail's branch ticked by default; "Make a coach again" brings back
+ *   only the retired coach's branches this screen shows, OP-03). The photo path comes from
  *   `mediaPath('coaches', …)`: a fresh random folder, never an identity (R43).
  * - The editor: the profile patch (changed keys only, through `coach_update`),
  *   the replaced photo to remove after a save, the branch set (branches the
  *   screen cannot show are kept), and the lesson-type change with the coach's
  *   own prices it would delete (R46: unlinking a type deletes the price).
  * - The list: acceptance (C-22, R61), account deleted (R63), retired coaches
- *   folded away, the order, and what the retire confirm says (C-25, R45).
+ *   folded away, active here (OP-06), the order (OP-01: the arrows swap two
+ *   neighbours and renumber in steps of 10, a save of its own) and what the
+ *   retire confirm says (C-25, R45).
  */
 import type { Locale } from '@touch/i18n';
 import type { AdminCoach } from '../../coaching/lessonPayloads';
@@ -57,8 +60,10 @@ export interface PromoteDraft {
 
 /**
  * A fresh Make a coach form: the rail's branch ticked. "Make a coach again"
- * passes the retired coach (`from`): their names, bios and branches come back,
- * the photo starts empty (§5.13.1).
+ * passes the retired coach (`from`): their names and bios come back, and of
+ * their branches only those this screen shows (`shownIds`, the caller's own),
+ * since `coach_promote` refuses a branch the caller does not work at and the
+ * form could not untick it (OP-03). The photo starts empty (§5.13.1).
  */
 export function newPromoteDraft(
   branchId: string | null,
@@ -67,8 +72,10 @@ export function newPromoteDraft(
     AdminCoach,
     'display_name_en' | 'display_name_ar' | 'bio_en' | 'bio_ar' | 'venue_ids'
   > | null = null,
+  shownIds: readonly string[] = [],
 ): PromoteDraft {
-  const venues = new Set<string>(from?.venue_ids ?? []);
+  const shown = new Set(shownIds);
+  const venues = new Set<string>((from?.venue_ids ?? []).filter((id) => shown.has(id)));
   if (branchId) venues.add(branchId);
   return {
     customer,
@@ -98,8 +105,15 @@ function namesBad(en: string, ar: string): boolean {
   return !e || !a || e.length > COACH_LIMITS.name || a.length > COACH_LIMITS.name;
 }
 
-/** coach_promote's arguments (§1.7). Call it on a draft with no problems. */
-export function promoteArgs(d: PromoteDraft): {
+/**
+ * coach_promote's arguments (§1.7). Call it on a draft with no problems. Only
+ * the branches this screen shows are sent (OP-03); the coach's other branches
+ * are left to their managers.
+ */
+export function promoteArgs(
+  d: PromoteDraft,
+  shownIds: readonly string[],
+): {
   p_profile_id: string;
   p_display_name_en: string;
   p_display_name_ar: string;
@@ -115,7 +129,7 @@ export function promoteArgs(d: PromoteDraft): {
     p_bio_en: d.bioEn.trim().slice(0, COACH_LIMITS.bio),
     p_bio_ar: d.bioAr.trim().slice(0, COACH_LIMITS.bio),
     p_photo_path: d.photo,
-    p_venue_ids: [...d.venueIds],
+    p_venue_ids: d.venueIds.filter((id) => shownIds.includes(id)),
   };
 }
 
@@ -137,7 +151,6 @@ export interface CoachProfileDraft {
   bioEn: string;
   bioAr: string;
   photo: string | null;
-  sortOrder: number;
 }
 
 export function profileDraftOf(c: AdminCoach): CoachProfileDraft {
@@ -147,7 +160,6 @@ export function profileDraftOf(c: AdminCoach): CoachProfileDraft {
     bioEn: c.bio_en,
     bioAr: c.bio_ar,
     photo: c.photo_path,
-    sortOrder: c.sort_order ?? 0,
   };
 }
 
@@ -158,7 +170,7 @@ export function profileProblems(d: CoachProfileDraft): ('names' | 'bio')[] {
   return out;
 }
 
-/** coach_update's patch: only the keys that changed (§5.7). */
+/** coach_update's patch: only the keys that changed (§5.7). The order saves on its own (OP-01). */
 export function coachPatch(
   c: AdminCoach,
   d: CoachProfileDraft,
@@ -170,7 +182,6 @@ export function coachPatch(
   if (d.bioEn.trim() !== was.bioEn) patch.bio_en = d.bioEn.trim();
   if (d.bioAr.trim() !== was.bioAr) patch.bio_ar = d.bioAr.trim();
   if (d.photo !== was.photo) patch.photo_path = d.photo;
-  if (d.sortOrder !== was.sortOrder) patch.sort_order = d.sortOrder;
   return patch;
 }
 
@@ -234,9 +245,11 @@ export function ownPriceOf(c: Pick<AdminCoach, 'prices'>, typeId: string): numbe
 }
 
 /**
- * The branch a BRANCH_HAS_BOOKINGS refusal names (R52, R73): a branch id in
- * the detail, or `coach_lessons` meaning the removed branch(es) this save
- * sent. Empty when there is nothing to name.
+ * The branches a BRANCH_HAS_BOOKINGS refusal names (R52, R73). The server
+ * sends `detail` `coach_lessons` and the branch id in the hint (0282, 0290),
+ * so the caller passes `error.hint ?? error.details` (OP-07). A branch id
+ * names that branch alone; with no id, every removed branch this save sent is
+ * named. Empty when there is nothing to name.
  */
 export function refusedBranchIds(
   detail: string | null | undefined,
@@ -286,27 +299,63 @@ export function splitRetired(coaches: readonly AdminCoach[]): {
   return { current: sorted.filter((c) => !isRetired(c)), retired: sorted.filter(isRetired) };
 }
 
-/** Coaches whose hours the Hours tab sets: active and paused (§5.13.3). */
+/**
+ * Coaches still teaching at this branch: active or paused, and active here
+ * (`active_here`; a coach whose branch was switched off stays listed, OP-06).
+ */
+export function teachingHere(coaches: readonly AdminCoach[]): AdminCoach[] {
+  return coaches.filter((c) => !isRetired(c) && c.active_here);
+}
+
+/** Coaches whose hours the Hours tab sets: active and paused, active at this branch (§5.13.3, OP-06). */
 export function hoursCoaches(coaches: readonly AdminCoach[]): AdminCoach[] {
-  return sortCoaches(coaches.filter((c) => !isRetired(c)));
+  return sortCoaches(teachingHere(coaches));
+}
+
+/** One row the order arrows write: its id and its new `sort_order`. */
+export interface OrderWrite {
+  id: string;
+  sort_order: number;
 }
 
 /**
- * The order arrows: the `sort_order` that moves this coach one place up (-1)
- * or down (+1) among `list`, written to this coach alone through coach_update.
- * Null at either end.
+ * The order arrows (OP-01), for a list already in screen order: swap the
+ * item with its neighbour, renumber the list 0, 10, 20 …, and return only the
+ * rows whose `sort_order` changed, each written on its own. Values never go
+ * below 0, and items tied on `sort_order` move exactly one place. Null at
+ * either end.
+ */
+export function orderWrites(
+  ordered: readonly { id: string; sort_order: number | null }[],
+  id: string,
+  delta: -1 | 1,
+): OrderWrite[] | null {
+  const i = ordered.findIndex((x) => x.id === id);
+  const j = i + delta;
+  if (i < 0 || j < 0 || j >= ordered.length) return null;
+  const next = [...ordered];
+  [next[i], next[j]] = [next[j]!, next[i]!];
+  return next.flatMap((x, k) =>
+    (x.sort_order ?? 0) === k * 10 ? [] : [{ id: x.id, sort_order: k * 10 }],
+  );
+}
+
+/**
+ * The coach order arrows: the `coach_update` writes that move this coach one
+ * place up (-1) or down (+1) among `list` (the coaches still teaching here).
+ * Null at either end. `sort_order` belongs to the coach, not the branch, so
+ * the order a move sets holds at every branch the coach teaches at.
  */
 export function orderAfterMove(
   list: readonly Pick<AdminCoach, 'coach_id' | 'sort_order' | 'display_name_en'>[],
   coachId: string,
   delta: -1 | 1,
-): number | null {
-  const sorted = sortCoaches(list);
-  const i = sorted.findIndex((c) => c.coach_id === coachId);
-  const j = i + delta;
-  if (i < 0 || j < 0 || j >= sorted.length) return null;
-  const neighbour = sorted[j]!.sort_order ?? 0;
-  return delta < 0 ? neighbour - 1 : neighbour + 1;
+): OrderWrite[] | null {
+  return orderWrites(
+    sortCoaches(list).map((c) => ({ id: c.coach_id, sort_order: c.sort_order })),
+    coachId,
+    delta,
+  );
 }
 
 /** What the retire confirm names (C-25, R45): the lessons to come, and whether the course clause shows. */

@@ -266,6 +266,14 @@ describe('capability matrix', () => {
     takeLessonPayment: ['cashier', 'court_desk', 'manager', 'owner'],
     manageCoaches: ['manager', 'owner'],
     settleCoaches: ['manager', 'owner'],
+    // Tournaments (build-contracts-2026-10-03 §1.11): each the guard of the RPC behind it.
+    runTournaments: ['court_desk', 'manager', 'owner'],
+    publishTournaments: ['manager', 'owner'],
+    takeTournamentPayment: ['cashier', 'court_desk', 'manager', 'owner'],
+    // Loyalty (build-contracts-2026-10-05 §1.3): editLoyalty is the owner's alone.
+    attachMember: ['cashier', 'shop_staff', 'court_desk', 'manager', 'owner'],
+    readLoyaltyAdmin: ['manager', 'owner'],
+    adjustLoyalty: ['manager', 'owner'],
   };
   /** A role's own work, which the owner does not do: the RPC refuses the owner too. */
   const OWN_WORK: Partial<Record<Capability, readonly StaffRole[]>> = {
@@ -353,8 +361,28 @@ describe('capability matrix', () => {
         'takeLessonPayment',
         'manageCoaches',
         'settleCoaches',
+        // Tournaments (build-contracts-2026-10-03 §1.11).
+        'runTournaments',
+        'publishTournaments',
+        'takeTournamentPayment',
+        // Loyalty (build-contracts-2026-10-05 §1.3).
+        'attachMember',
+        'readLoyaltyAdmin',
+        'adjustLoyalty',
+        'editLoyalty',
       ].sort(),
     );
+  });
+
+  it('gives the member on a bill to every till and the desk, adjustments to management, Setup › Loyalty to the owner (loyalty §1.3)', () => {
+    expect(can('shop_staff', 'attachMember')).toBe(true);
+    expect(can('cashier', 'attachMember')).toBe(true);
+    expect(can('waiter', 'attachMember')).toBe(false);
+    expect(can('cashier', 'adjustLoyalty')).toBe(false);
+    expect(can('manager', 'adjustLoyalty')).toBe(true);
+    expect(can('manager', 'editLoyalty')).toBe(false);
+    expect(canAccess('owner', '/admin/loyalty')).toBe(true);
+    expect(canAccess('manager', '/admin/loyalty')).toBe(false);
   });
 
   it('gives the open-match controls to the desk, seat money to the cashier too, and never to the shop (operator.md §5.3, R1)', () => {
@@ -399,6 +427,22 @@ describe('capability matrix', () => {
     expect(canAccess('cashier', '/desk/lessons/x')).toBe(false);
     expect(canAccess('manager', '/reports/coaches')).toBe(true);
     expect(allowedSubRoutes('manager', '/admin')).toContain('/admin/coaches');
+  });
+
+  it('gives tournaments to the desk, publishing to management, entry fees to the cashier too, never to the shop (tournaments §1.11)', () => {
+    expect(can('court_desk', 'runTournaments')).toBe(true);
+    expect(can('court_desk', 'publishTournaments')).toBe(false);
+    expect(can('manager', 'publishTournaments')).toBe(true);
+    expect(can('cashier', 'takeTournamentPayment')).toBe(true);
+    expect(can('cashier', 'runTournaments')).toBe(false);
+    for (const capability of ['runTournaments', 'publishTournaments', 'takeTournamentPayment'] as const) {
+      expect(can('shop_staff', capability), capability).toBe(false);
+    }
+    // The list is its own key with the desk's roles; one tournament inherits it.
+    expect(canAccess('court_desk', '/desk/tournaments')).toBe(true);
+    expect(canAccess('court_desk', '/desk/tournaments/x')).toBe(true);
+    expect(canAccess('cashier', '/desk/tournaments')).toBe(false);
+    expect(canAccess('shop_staff', '/desk/tournaments/x')).toBe(false);
   });
 
   it('keeps deciding and cancelling a deduction, wages, redacting a report and deciding content with the owner (wave5-addendum §2.5-§2.7, §8 Q14; 0272)', () => {

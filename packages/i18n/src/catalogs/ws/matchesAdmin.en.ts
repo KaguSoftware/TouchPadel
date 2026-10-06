@@ -207,6 +207,8 @@ export const matchesAdminEn = {
       title: 'Test payments left out',
       deposits: 'Deposits',
       tickets: 'Ticket purchases',
+      // OP-17: day_close_online sandbox_excluded.lessons (0288).
+      lessons: 'Lesson payments',
     },
     // Played, not paid: a match booking and its owing seats.
     unpaidMatch: 'Open match · {label}',

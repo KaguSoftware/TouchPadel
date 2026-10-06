@@ -31,7 +31,10 @@ const docker = up && dockerReachable();
 /** The order of db.md §2.1 / contracts §1.4, verbatim; coach_advisory since coaching_tables (coaching db.md §2.1). */
 const DECLARED = [
   'day_sessions', 'match_money_advisory', 'coach_advisory', 'tabs', 'orders', 'order_items', 'tickets', 'payments',
-  'till_shifts', 'refunds', 'stock_batches', 'court_advisory', 'reservations', 'match_venue_advisory', 'match_tickets',
+  'till_shifts', 'refunds', 'stock_batches', 'court_advisory', 'venues', 'reservations', 'match_venue_advisory',
+  'match_tickets',
+  // Loyalty (0305): a member's cached balance, last; the earn and clawback triggers are deferred.
+  'loyalty_accounts',
 ];
 
 // ── synthetic bodies, shaped like the real ones ─────────────────────────────
@@ -76,6 +79,8 @@ describe('the walker over synthetic catalogs (pure)', () => {
       'match_sweep', 'deposit_apply', 'ticket_settle_success', 'ticket_refund_deleted', 'tickets_cash_out', 'expire_stale_holds',
       // Coaching (coaching_tables, R33): walked once each exists.
       'lesson_sweep', 'lesson_settle_success', 'lesson_payment_prepare', 'coach_statements_draft',
+      // Tournaments (M7): the tp_tournament_sweep cron.
+      'tournament_sweep',
     ]);
   });
 
@@ -230,7 +235,8 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
   it("walks Money's service-role paths (R8): tickets only, after the deposit locks", () => {
     gate ??= runGate();
     // 0284 (R33): a lesson row's coach first, then the courts, the rows, the trigger.
-    expect(rowOf(gate.out, 'deposit_apply')).toBe('coach_advisory -> court_advisory -> reservations -> match_venue_advisory -> match_tickets');
+    // 0291 (DB-11): the lesson arm's lesson_lock_branch_courts takes the branch row after the courts.
+    expect(rowOf(gate.out, 'deposit_apply')).toBe('coach_advisory -> court_advisory -> venues -> reservations -> match_venue_advisory -> match_tickets');
     for (const fn of ['ticket_settle_success', 'ticket_refund_deleted', 'tickets_cash_out']) {
       expect(rowOf(gate.out, fn), fn).toBe('match_tickets');
     }
@@ -288,7 +294,8 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
     // Money's writers (money.md §8): Take share and Assign reach the till's tabs
     // under the money lock; the write-off reads the match under match_lock.
     for (const fn of ['match_seat_settle', 'match_link_payment']) {
-      expect(rowOf(gate.out, fn), fn).toBe('match_money_advisory -> tabs');
+      // Loyalty (0305): the settled tab's deferred earn trigger ends the sequence, at commit.
+      expect(rowOf(gate.out, fn), fn).toBe('match_money_advisory -> tabs -> loyalty_accounts');
     }
     // Since 0263 the stale-hold expiry under match_lock expands the reservation trigger.
     expect(rowOf(gate.out, 'match_seat_write_off'))
@@ -304,7 +311,7 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
   it('0263, 0284: deposit_apply prints the coach -> courts -> its rows -> the mutex -> tickets with the reservation trigger (R15, R33)', () => {
     gate ??= runGate();
     expect(rowOf(gate.out, 'deposit_apply')).toBe(
-      'coach_advisory -> court_advisory -> reservations -> match_venue_advisory -> match_tickets',
+      'coach_advisory -> court_advisory -> venues -> reservations -> match_venue_advisory -> match_tickets',
     );
   });
 

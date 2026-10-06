@@ -107,6 +107,8 @@ export const coachingEn = {
     pay: {
       toPay: 'To pay {count}',
       toPayAmount: 'To pay {count} · {amount}',
+      // OP-13: a held lesson, or held places waiting on Qi.
+      awaiting: 'Awaiting online payment',
       allPaid: 'All paid',
       paidOnline: 'Paid online',
       // C-24: a private lesson the coach booked that is still unpaid.
@@ -190,6 +192,8 @@ export const coachingEn = {
     expired: 'Never confirmed.',
     // Added when any sign-up has desk money waiting to go back (§5.10.2).
     refundDueDesk: 'Money paid at the desk is waiting for a refund: {amount}.',
+    // OP-14 (DB-31): online money whose refund Qi refused; never "paid at the desk".
+    refundBlocked: 'Online refund needs attention: {amount}.',
   },
   // One history sentence per lesson_events.type (lessonLogic.eventKey, §5.10.11);
   // "· {actor}" is appended, system events read `common` "automatic".
@@ -316,8 +320,9 @@ export const coachingEn = {
       terms: 'Online lesson payment can be switched on once the terms and privacy text with a lessons section are live.',
     },
     branchHasLessons: 'This coach has lessons at {branch}. Cancel them first.',
-    coachingMoney: 'This branch still has coach statements to approve or pay, a month not drafted yet, or lesson money to refund at the desk. Settle them in Coach pay and Ops first.',
+    coachingMoney: 'This branch still has coach statements to approve or pay, a month or a pay adjustment not drafted yet, or lesson money still to refund or being refunded. Settle them in Coach pay and Ops first.',
     ownStatement: 'This is your own statement. Another manager or the owner approves and pays it.',
+    ownStatementPin: "That PIN belongs to this statement's coach. Another manager or the owner enters theirs.",
     liveDraft: 'This coach already has a draft for that month. Open it instead.',
     negativeStatement: 'This statement is below zero ({amount}). Void it; the next statement carries it.',
     cardNumber: "A card or account number can't go here. Use a receipt or transfer number.",

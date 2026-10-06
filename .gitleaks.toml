@@ -94,4 +94,13 @@ regexes = [
   # commit 1dac393f). A hand-typed 22-char string walking the base64url alphabet;
   # the tests need only the SHAPE of an invite token and never resolve one.
   '''Ab3_-x9ZqT0kLm2NpQr7sU''',
+  # The loyalty member-card tests (operator loyaltyLogic, mobile loyalty api/logic/smoke, web
+  # accountFakes, core loyalty; 2026-10-05). The secret is the RFC 6238 Appendix B test seed
+  # "12345678901234567890" in base32, published in the RFC and used by every TOTP test suite; the
+  # two tokens are TP-<code>-<HOTP of that seed>, derived from it (287082 is the RFC's own T=59
+  # vector). Real card secrets are 20 random bytes made by the database and never committed; a
+  # different secret or token in the same files still fails, which is why these are pinned.
+  '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''',
+  '''TP-8F3K2QXM-482913''',
+  '''TP-8F3K2QXM-287082''',
 ]

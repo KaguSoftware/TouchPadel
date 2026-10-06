@@ -64,7 +64,9 @@ export function LessonSummary({
           alignItems: 'center',
         }}
       >
-        {pay.pay === 'owing' ? (
+        {pay.pay === 'awaiting' ? (
+          <StatusBadge size="sm" tone="info" label={tr('ws.coaching.common.pay.awaiting')} />
+        ) : pay.pay === 'owing' ? (
           <StatusBadge
             size="sm"
             tone={pay.warn ? 'warn' : 'neutral'}

@@ -98,7 +98,7 @@ function readOf(query: {
 }
 
 export function CoachStatusProvider({ children }: { children: ReactNode }) {
-  const { session } = useAuth();
+  const { session, initializing } = useAuth();
   const user = session?.user ?? null;
   // An anonymous session (a cafe table) is nobody's coach account.
   const uid = user && !user.is_anonymous ? user.id : null;
@@ -120,15 +120,29 @@ export function CoachStatusProvider({ children }: { children: ReactNode }) {
   // so it is state updated DURING render when its inputs change, never one
   // render late in an effect: the StaffStatusProvider pattern.
   const read = readOf(query);
-  const inputKey = [uid, read.state, query.dataUpdatedAt, query.errorUpdatedAt].join('|');
+  const inputKey = [uid, initializing, read.state, query.dataUpdatedAt, query.errorUpdatedAt].join(
+    '|',
+  );
   const [memo, setMemo] = useState(() => ({
     key: inputKey,
     uid,
-    status: nextCoachStatus({ uid, read, previous: NO_SESSION, previousUid: null }),
+    status: nextCoachStatus({
+      uid,
+      restoring: initializing,
+      read,
+      previous: NO_SESSION,
+      previousUid: null,
+    }),
   }));
   let status = memo.status;
   if (memo.key !== inputKey) {
-    status = nextCoachStatus({ uid, read, previous: memo.status, previousUid: memo.uid });
+    status = nextCoachStatus({
+      uid,
+      restoring: initializing,
+      read,
+      previous: memo.status,
+      previousUid: memo.uid,
+    });
     setMemo({ key: inputKey, uid, status });
   }
 

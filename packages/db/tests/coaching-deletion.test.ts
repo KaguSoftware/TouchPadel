@@ -13,13 +13,27 @@
  *     time-off reasons emptied, the display names kept for the statements (C-29, R63); then the
  *     sweep cancels the coach's lessons coach_retired;
  *   * the audit row counts what was touched; the deletion takes no coach lock (it never waits on a
- *     coach-lock holder: the sweep does the cancels).
+ *     coach-lock holder: the sweep does the cancels);
+ *   * 0290 (DB-03), committed, two connections: the deletion locks the coach ROW (never the mutex),
+ *     so a coach_update after it is INVALID_ARGUMENT retired, a coach_update before it is waited
+ *     for and its photo queued, and a coach_promote of a profile being deleted is CUSTOMER_NOT_FOUND.
  *
  * The refund amount is Money's engine (0281 lesson_enrolment_money, lesson_refund_start).
  */
 import { describe, expect, it } from 'vitest';
-import { stackAvailable } from './helpers';
-import { dockerReachable, KEEP, ok, Q, scenario, T, X } from './stores-harness';
+import { SEED_STAFF_IDS, stackAvailable } from './helpers';
+import {
+  dockerReachable,
+  KEEP,
+  ok,
+  psql,
+  psqlSession,
+  Q,
+  scenario,
+  T,
+  waitForSleeper,
+  X,
+} from './stores-harness';
 import { E, GUEST, PLANT } from './coaching-plant';
 import { allocateCourseMoney } from '../../core/src/coaching/statement';
 
@@ -297,3 +311,133 @@ describe.skipIf(!docker)('coaching 0289: delete_my_account', () => {
     expect(src).toMatch(/coach_photo_purges/);
   });
 });
+
+// ── 0290 DB-03: two connections, committed ───────────────────────────────────
+
+describe.skipIf(!docker)(
+  'coaching 0290: delete_my_account against coach_update and coach_promote (committed)',
+  () => {
+    const OWNER = SEED_STAFF_IDS.owner;
+
+    /** A branch, a coach (a guest profile with a bio and a photo), and a second guest who is not a coach. */
+    function fixture() {
+      const id = () => crypto.randomUUID();
+      const f = {
+        tag: id().slice(0, 8),
+        venue: id(),
+        coach: id(),
+        prof: id(),
+        other: id(),
+        folder: `coaches/${id()}`,
+        folder2: `coaches/${id()}`,
+      };
+      psql(`begin;
+select set_config('request.jwt.claims', '', true);
+insert into venues (id, slug, name_en, name_ar, timezone, is_active)
+values ('${f.venue}', 'c290-del-${f.tag}', 'C290 deletion', 'حذف', 'Asia/Baghdad', true);
+insert into venue_settings (venue_id, venue_name, opening_hours, coaching_enabled)
+select '${f.venue}', 'C290 deletion', jsonb_object_agg(d, '[["00:00","24:00"]]'::jsonb), true
+  from unnest(array['mon','tue','wed','thu','fri','sat','sun']) d;
+insert into auth.users (id, email, raw_user_meta_data, aud, role)
+select x, 'c290-del-' || x || '@test.touch.local', '{"full_name": "Deletion"}'::jsonb, 'authenticated', 'authenticated'
+  from unnest(array['${f.prof}', '${f.other}']::uuid[]) x;
+insert into coaches (id, profile_id, display_name_en, display_name_ar, bio_en, bio_ar, photo_path, public_accepted_at)
+values ('${f.coach}', '${f.prof}', 'Deletion', 'حذف', 'Ten years', 'عشر سنوات', '${f.folder}/p.jpg', now());
+insert into coach_branches (coach_id, venue_id, active) values ('${f.coach}', '${f.venue}', true);
+commit;`);
+      return f;
+    }
+
+    function cleanup(f: ReturnType<typeof fixture>) {
+      psql(`begin;
+select set_config('request.jwt.claims', '', true);
+update coaches set status = 'retired', retired_at = coalesce(retired_at, now())
+ where profile_id in ('${f.prof}', '${f.other}');
+update venue_settings set coaching_enabled = false where venue_id = '${f.venue}';
+update venues set is_active = false where id = '${f.venue}';
+commit;`);
+    }
+
+    /** One call as `who` in a committed session of its own, optionally held two seconds before the commit. */
+    const as = (who: string, sql: string, app?: string) =>
+      psqlSession(`${app ? `set application_name = '${app}';\n` : ''}begin;
+select set_config('request.jwt.claims', '{"sub": "${who}", "role": "authenticated"}', true);
+${sql};
+${app ? 'select pg_sleep(2);\n' : ''}commit;`);
+
+    const coachRow = (f: ReturnType<typeof fixture>) =>
+      psql(
+        `select status || '|' || bio_en || '|' || coalesce(photo_path, '-') from coaches where id = '${f.coach}'`,
+      );
+    const purged = (f: ReturnType<typeof fixture>) =>
+      psql(`select coalesce(string_agg(folder, ',' order by folder), '') from coach_photo_purges
+           where coach_id = '${f.coach}'`)
+        .split(',')
+        .filter(Boolean);
+
+    it('a deletion holding the coach row: a concurrent coach_update is INVALID_ARGUMENT retired; bio and photo stay erased', async () => {
+      const f = fixture();
+      try {
+        const app = `c290-del-first-${f.tag}`;
+        const deletion = as(f.prof, `select app.delete_my_account('DELETE')`, app);
+        await waitForSleeper(app);
+        const update = as(
+          OWNER,
+          `select app.coach_update('${f.coach}', '{"bio_en": "Back again", "photo_path": "${f.folder2}/q.jpg"}'::jsonb)`,
+        );
+        const [d, u] = await Promise.allSettled([deletion, update]);
+        expect(d.status).toBe('fulfilled');
+        expect(u.status).toBe('rejected');
+        expect(String((u as PromiseRejectedResult).reason)).toMatch(
+          /INVALID_ARGUMENT[\s\S]*retired/,
+        );
+        expect(coachRow(f)).toBe('retired||-');
+        expect(purged(f)).toEqual([f.folder]);
+      } finally {
+        cleanup(f);
+      }
+    }, 60_000);
+
+    it('a coach_update holding the coach: the deletion waits, then erases and queues the photo just saved', async () => {
+      const f = fixture();
+      try {
+        const app = `c290-upd-first-${f.tag}`;
+        const update = as(
+          OWNER,
+          `select app.coach_update('${f.coach}', '{"photo_path": "${f.folder2}/q.jpg"}'::jsonb)`,
+          app,
+        );
+        await waitForSleeper(app);
+        const deletion = as(f.prof, `select app.delete_my_account('DELETE')`);
+        const [u, d] = await Promise.allSettled([update, deletion]);
+        expect(u.status).toBe('fulfilled');
+        expect(d.status).toBe('fulfilled');
+        expect(coachRow(f)).toBe('retired||-');
+        // The replaced photo (coach_update) and the photo just saved (the deletion) are both queued.
+        expect(purged(f)).toEqual([f.folder, f.folder2].sort());
+      } finally {
+        cleanup(f);
+      }
+    }, 60_000);
+
+    it('a deletion in flight: a concurrent coach_promote of that profile is CUSTOMER_NOT_FOUND', async () => {
+      const f = fixture();
+      try {
+        const app = `c290-del-promote-${f.tag}`;
+        const deletion = as(f.other, `select app.delete_my_account('DELETE')`, app);
+        await waitForSleeper(app);
+        const promote = as(
+          OWNER,
+          `select app.coach_promote('${f.other}', 'Late', 'متأخر', '', '', null, array['${f.venue}']::uuid[])`,
+        );
+        const [d, p] = await Promise.allSettled([deletion, promote]);
+        expect(d.status).toBe('fulfilled');
+        expect(p.status).toBe('rejected');
+        expect(String((p as PromiseRejectedResult).reason)).toMatch(/CUSTOMER_NOT_FOUND/);
+        expect(psql(`select count(*) from coaches where profile_id = '${f.other}'`)).toBe('0');
+      } finally {
+        cleanup(f);
+      }
+    }, 60_000);
+  },
+);

@@ -82,14 +82,24 @@ export function reservationTone(r: ReservationLike): Tone {
  * `lesson`; so is a held lesson's hold row once the desk knows it is one
  * (`heldLesson`, from desk_lessons). Everything else is reservationTone.
  */
-export type BlockTone = Tone | 'lesson';
+export type BlockTone = Tone | 'lesson' | 'tournament';
 
-export const BLOCK_SOFT: Record<BlockTone, string> = { ...TONE_SOFT, lesson: 'var(--tp-lesson-soft)' };
-export const BLOCK_FG: Record<BlockTone, string> = { ...TONE_FG, lesson: 'var(--tp-lesson)' };
-export const BLOCK_EDGE: Record<BlockTone, string> = { ...TONE_EDGE, lesson: 'var(--tp-lesson)' };
+export const BLOCK_SOFT: Record<BlockTone, string> = {
+  ...TONE_SOFT,
+  lesson: 'var(--tp-lesson-soft)',
+  tournament: 'var(--tp-tournament-soft)',
+};
+export const BLOCK_FG: Record<BlockTone, string> = { ...TONE_FG, lesson: 'var(--tp-lesson)', tournament: 'var(--tp-tournament)' };
+export const BLOCK_EDGE: Record<BlockTone, string> = { ...TONE_EDGE, lesson: 'var(--tp-lesson)', tournament: 'var(--tp-tournament)' };
 
-export function reservationBlockTone(r: ReservationLike, heldLesson = false): BlockTone {
+/**
+ * `tournamentBlock`: the row is a tournament's adopted event block (an event
+ * `maintenance` row the desk_tournaments read names, tournaments §1.11). It
+ * paints in the tournament family instead of the neutral block tone.
+ */
+export function reservationBlockTone(r: ReservationLike, heldLesson = false, tournamentBlock = false): BlockTone {
   if (r.kind === 'lesson' || (heldLesson && r.kind === 'hold')) return 'lesson';
+  if (tournamentBlock && r.kind === 'maintenance') return 'tournament';
   return reservationTone(r);
 }
 

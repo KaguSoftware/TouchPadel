@@ -1,6 +1,6 @@
 {
   "ios": {
-    "NSCameraUsageDescription": "يستخدم تتش بادل الكاميرا فقط عند التقاط صورة العمل.",
-    "NSPhotoLibraryUsageDescription": "يستخدم تتش بادل صورك فقط عند إرفاق صورة العمل."
+    "NSCameraUsageDescription": "يستخدم تتش بادل الكاميرا فقط عند التقاط صورة للملف الشخصي أو صورة العمل.",
+    "NSPhotoLibraryUsageDescription": "يستخدم تتش بادل صورك فقط عند اختيار صورة للملف الشخصي أو إرفاق صورة العمل."
   }
 }

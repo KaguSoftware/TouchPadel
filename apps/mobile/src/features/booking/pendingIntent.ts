@@ -10,14 +10,33 @@
  * the auth screen while its continuation routes), the sign-in and social
  * sign-in steps, the verify and welcome screens, and the complete-profile
  * save, which clears them all. Every store stays in memory only.
+ *
+ * ONE INTENT AT A TIME (MB-04): the latest tap is the one the auth flow
+ * continues, so every set site goes through `setOnlyPending*`, which clears
+ * the other two stores. An old court slot or open-match intent can then never
+ * outrank a newer lesson tap in `continueAfterAuth`.
  */
 import { useSyncExternalStore } from 'react';
-import { clearPendingSlot, getPendingSlot, subscribePendingSlot } from './pendingSlot';
-import { clearPendingJoin, getPendingJoin, subscribePendingJoin } from '../matches/pendingJoin';
+import {
+  clearPendingSlot,
+  getPendingSlot,
+  setPendingSlot,
+  subscribePendingSlot,
+  type PendingSlot,
+} from './pendingSlot';
+import {
+  clearPendingJoin,
+  getPendingJoin,
+  setPendingJoin,
+  subscribePendingJoin,
+  type PendingJoin,
+} from '../matches/pendingJoin';
 import {
   clearPendingLesson,
   getPendingLesson,
+  setPendingLesson,
   subscribePendingLesson,
+  type PendingLesson,
 } from '../coaching/pendingLesson';
 
 export function hasPendingIntent(): boolean {
@@ -45,4 +64,25 @@ export function clearPendingIntents(): void {
   clearPendingSlot();
   clearPendingJoin();
   clearPendingLesson();
+}
+
+/** Keep this slot as the one intent (MB-04): the open-match and lesson intents go. */
+export function setOnlyPendingSlot(slot: PendingSlot): void {
+  clearPendingJoin();
+  clearPendingLesson();
+  setPendingSlot(slot);
+}
+
+/** Keep this open-match intent as the one intent (MB-04): the slot and lesson intents go. */
+export function setOnlyPendingJoin(intent: PendingJoin): void {
+  clearPendingSlot();
+  clearPendingLesson();
+  setPendingJoin(intent);
+}
+
+/** Keep this lesson intent as the one intent (MB-04): the slot and open-match intents go. */
+export function setOnlyPendingLesson(intent: PendingLesson): void {
+  clearPendingSlot();
+  clearPendingJoin();
+  setPendingLesson(intent);
 }

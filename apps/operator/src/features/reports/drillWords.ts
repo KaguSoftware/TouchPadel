@@ -23,6 +23,8 @@ const KNOWN_REASONS = ['customer_request', 'weather', 'expired', 'staff_error', 
 const BOOKING_STATUSES = ['pending', 'confirmed', 'arrived', 'completed', 'cancelled', 'no_show', 'expired'] as const;
 const MOVEMENTS = ['waste_spill', 'waste_spoilage', 'void_after_send', 'expired_writeoff'] as const;
 const UNITS = ['g', 'ml', 'pc'] as const;
+// cash and card at the till; online and outside (the till) for lesson money since 0292 (DB-16).
+const METHODS = ['cash', 'card', 'online', 'outside'] as const;
 
 const has = <T extends string>(list: readonly T[], v: unknown): v is T => typeof v === 'string' && (list as readonly string[]).includes(v);
 const text_ = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null);
@@ -33,6 +35,10 @@ function reasonWords(v: unknown, tr: Tr): string | null {
   // Free text a person typed; the underscores of an unknown code read better as spaces.
   const t = text_(v);
   return t ? t.replace(/_/g, ' ') : null;
+}
+
+function methodWords(v: unknown, tr: Tr): string | null {
+  return has(METHODS, v) ? tr(`ws.reports.drill.methods.${v}`) : text_(v);
 }
 
 function inLocale(en: unknown, ar: unknown, locale: Locale): string | null {
@@ -63,10 +69,10 @@ export function drillWords(t: DrillTransaction, tr: Tr, locale: Locale): { kind:
       parts.push(d.source === 'till' || d.source === 'guest_web' ? tr(`ws.reports.drill.sources.${d.source}`) : text_(d.source), where(d, tr));
       break;
     case 'payment':
-      parts.push(d.method === 'cash' || d.method === 'card' ? tr(`ws.reports.drill.methods.${d.method}`) : text_(d.method), where(d, tr));
+      parts.push(methodWords(d.method, tr), where(d, tr));
       break;
     case 'refund':
-      parts.push(reasonWords(d.reason, tr), d.method === 'cash' || d.method === 'card' ? tr(`ws.reports.drill.methods.${d.method}`) : text_(d.method));
+      parts.push(reasonWords(d.reason, tr), methodWords(d.method, tr));
       break;
     case 'discount':
       parts.push(
@@ -146,7 +152,7 @@ export function drillFacts(t: DrillTransaction, tr: Tr, locale: Locale): DrillFa
     where: where(d, tr),
     guest: text_(d.guest),
     reason: reasonWords(d.reason, tr) ?? (has(MOVEMENTS, d.movement) ? tr(`op.stock.movement.${d.movement}`) : null),
-    method: d.method === 'cash' || d.method === 'card' ? tr(`ws.reports.drill.methods.${d.method}`) : text_(d.method),
+    method: methodWords(d.method, tr),
     status: has(BOOKING_STATUSES, d.status) ? tr(`ws.kit.bookingStatus.${d.status}`) : text_(d.status),
     source: d.source === 'till' || d.source === 'guest_web' ? tr(`ws.reports.drill.sources.${d.source}`) : text_(d.source),
     qty: Number.isFinite(qty) ? qty : null,

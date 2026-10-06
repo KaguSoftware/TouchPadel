@@ -32,3 +32,14 @@ export function clientRef(): string {
 export function deviceId(): string {
   return station();
 }
+
+/**
+ * Key for an online-only RPC that takes `p_idempotency_key` but is not a queued mutation type
+ * (loyalty_redeem, L-6): "{station}:{rpc}:{ulid}", idemKey's shape with the RPC's name where the
+ * mutation type would be. It never enters the queue, so the queue validator never sees it; the
+ * server only needs it unique per press (claim_replay).
+ */
+export function onlineKey(rpc: string): string {
+  const s = station();
+  return `${s}:${rpc}:${makeClientRef(s).slice(s.length + 1)}`;
+}

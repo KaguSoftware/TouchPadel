@@ -17,8 +17,9 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0289`
-  (`20261001000289_lesson_account_deletion.sql`; 0273–0289 coaching, Phase 2 milestone 5: lesson
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0301`
+  (`20261003000301_tournaments_play.sql`; 0299–0301 tournaments, Phase 2 milestone 7: schema and
+  money, lifecycle, play; 0290–0298 the coaching review fixes; 0273–0289 coaching, Phase 2 milestone 5: lesson
   kind, lesson push kinds, settings, tables, reservation guards, lesson money, coach admin,
   booking, Qi lessons, price-protocol lesson kinds, sweep, statements, reports, account deletion —
   written as 0270–0286 and renumbered +3 at the merge because the wages migrations took 0270–0272,
@@ -30,7 +31,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0290`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0302`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -77,7 +78,53 @@ is a line in that file.
   `deposit_refund_request`, `deposit_status`, `deposits_due_for_reconcile`; 0285 the six
   price/promo protocol hooks; 0286 `hold_strikes_settle`; 0288 `analytics_courts_summary`,
   `day_close_online`, `panel_headline`, `report_courts`, `report_revenue`, `reports_figures`;
-  0289 `delete_my_account`.
+  0289 `delete_my_account` (superseded by 0290). The coaching review fixes (0290 onward):
+  0290 `coach_in_hours`, `coaches_admin`, `coach_promote`, `coach_update`, `set_coach_branches`,
+  `set_coach_lesson_types`, `set_coach_price`, `set_coach_price_internal`, `coach_hours_write`,
+  `coach_time_off_add`, `price_promo_apply_internal` (0285 is no longer the latest) and
+  `delete_my_account` (it now locks the account's coach rows, never the coach mutex).
+  0291 `coach_book_private`, `coach_cancel_course`, `desk_book_lesson`, `desk_cancel_enrolment`,
+  `expire_stale_holds`, `lesson_course_create_internal`, `lesson_create_internal`,
+  `lesson_group_create_internal`, `lesson_link_confirm`, `lesson_lock_branch_courts`,
+  `lesson_mark_internal`, `lesson_reschedule_internal` and `match_expire_holds` (0280 and 0283 are
+  no longer the latest; `match_expire_holds` asserts and restores `app.venue_id`, and every lesson
+  body takes its branch's `venues` row FOR KEY SHARE after the courts), plus the new internal
+  `lesson_assert_coach_bookable`. 0292 `lesson_enrolment_money`, `enrolment_cancel_internal`,
+  `lesson_refunds_due`, `lesson_money_open`, `lesson_money_figures`, `day_close_online`,
+  `report_revenue`, `report_lessons`, `ops_overview` and `report_drill` (0281, 0283, 0288 and 0219
+  are no longer the latest; `lesson_money_figures` no longer carries `refundsDueDesk*`), plus the
+  new internal `lesson_enrolment_may_owe` and the column `lesson_enrolments.kept_until`.
+  0293 `coach_statement_void`, `coach_statement_mark_paid`, `report_coach_statements`,
+  `coach_statement_detail` (0287 is no longer the latest) and `lesson_blocked_refund_record`, now
+  `(uuid, bigint, text, text, text, text)` with a required `p_idempotency_key` (0281's 5-argument
+  version is dropped), plus the new internal `looks_like_card` behind the re-added
+  `coach_statements_no_card` CHECK; `tp_coach_statements` runs `'0 12 1 * *'` UTC.
+  0294 `coach_slots`, `lesson_read_sessions`, `lesson_offer`, `my_lesson`, `desk_lessons`,
+  `desk_lesson_detail` (0283 is no longer the latest) and `tournament_feasibility` (0174 is no
+  longer the latest), plus the new internal `hold_is_live(reservations)`, the twin of the
+  `expire_stale_holds` / `match_expire_holds` WHERE: whoever changes that pair changes it too.
+  0295 `lesson_payment_prepare`, `lesson_settle_success`, `lesson_hold_expire`,
+  `deposits_due_for_reconcile` (0284 is no longer the latest), `hold_strikes_settle` and
+  `lesson_sweep` (0286 is no longer the latest), plus the new internal `lesson_refund_net()`, the R28
+  net the reconciler and the sweep both run; `deposit_settle_success` stays 0258's.
+  0296 `trg_lesson_events_notify` (0283 is no longer the latest), and the two push helpers with new
+  signatures: `lesson_read_push_guest(uuid, text, uuid, text)` (a `p_suffix` on the dedupe) and
+  `lesson_read_push_coach(uuid, text, jsonb, uuid, text)` (`p_enrolment_id`, then `p_suffix`);
+  0283's three-argument versions are dropped. `lesson_notify` stays 0283's.
+  0297 re-creates no function: it deletes the coaching money columns (`price_iqd`,
+  `court_share_iqd`, `coach_share_bp` on `lessons` and `courses`, `venue_settings.coach_share_bp`)
+  from `app.assistant_readable_columns` (DB-45, C-28 as amended by D1; `coaching-schema.test.ts`
+  fails if one comes back) and grants `venue_settings` by column (DB-46).
+  0298 `storage_path_in_use` (0282 is no longer the latest; it answers the service role too, for
+  `protocol-action`'s coach photo purge, EC-01) and `protocol_tick_nudge` (0240 is no longer the
+  latest; a queued `coach_photo_purges` row is due work).
+  Tournaments (0299–0301): 0299 `compute_tab_totals` and `cafe_settled_tabs` (0281 is no longer
+  the latest; a kind `tournament` tab adds `tournament_fee_remaining` to `total_iqd` only, and is
+  never café money); 0300 `block_courts_for_event` (0174 is no longer the latest: branches in
+  scope, active courts, `DEGRADED_LOCKOUT`, the combined R22 check with `match_waiting`
+  conflicts), plus the `reservations_tournament_guard` trigger, which refuses a status, court,
+  time or kind change of a published tournament's event block (`TOURNAMENT_VIA_EVENTS`) instead
+  of re-issuing cancel, move, mark or extend.
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
   GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows
@@ -92,7 +139,8 @@ is a line in that file.
   file that uses the value. Precedents: 0143 (`ingredient_kind` `retail`, first used by 0144) and
   0155 (six `staff_role` values, first used by 0156).
 - New push kind: `notification_outbox.kind` is a closed CHECK (`0024:22`, re-issued by
-  `0075:36-58`, latest `0274`, which added `lesson_update`, `lesson_reminder`, `coach_update`);
+  `0075:36-58`, `0274` added `lesson_update`, `lesson_reminder`, `coach_update`; latest `0299`, which added
+  `tournament_update`, whose two keys are `app.tournament_notify`'s `c_keys`);
   widen it by migration and add EN/AR copy: a booking kind to
   `STRINGS` in `supabase/functions/send-push/index.ts:48`; a staff kind to `staffStrings.ts` and
   `_shared/staff-push.json`; the guest kinds of open matches take their copy from
@@ -182,6 +230,12 @@ is a line in that file.
     `registerTestStation` (`tests/helpers.ts`) before it beats. `DEV1` is seeded.
   - A policy calls `app.is_staff(...)` / `app.staff_role()` inside `(select …)` (0234), like
     `visible_venue_ids`: one evaluation per statement.
+- **`venue_settings` is granted to `authenticated` column by column since 0297** (DB-46): the
+  table-level SELECT is revoked so `coach_share_bp` and `coach_max_open_private` stay unread
+  (managers and the owner read them through `app.coaching_settings`). A new `venue_settings` column
+  needs its own `grant select (<column>) on public.venue_settings to authenticated` in the same
+  migration, or no client can read it; a column only RPCs should read gets no grant. A client read
+  names its columns: `select('*')` on `venue_settings` is refused.
 - Guest-readable knobs go on `venue_settings` through the `app.set_venue_details` allowlist (0104,
   per branch with `p_venue_id` since 0208) and `venue_settings_public` (one row per active branch);
   everything else in the `cafe_settings` registry (`app.cafe_setting_specs`, latest 0105). Design
@@ -204,9 +258,11 @@ is a line in that file.
   (`WEB_OVERRIDES`, `MOBILE_OVERRIDES`).
 - No WHERE-less write (`scripts/check-safe-update.mjs`). `app.lock_court` (0042) before any
   reservation write. Lock order
-  `day_sessions → match_money_advisory → coach_advisory → tabs → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → reservations → match_venue_advisory → match_tickets`
+  `day_sessions → match_money_advisory → coach_advisory → tabs → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → venues → reservations → match_venue_advisory → match_tickets → loyalty_accounts`
   (`coach_advisory` since coaching, `app.lock_coach`, once per sequence; a `FOR UPDATE … SKIP
-  LOCKED` on reservations never waits and is not ranked, like `pg_try_advisory_xact_lock`)
+  LOCKED` on reservations never waits and is not ranked, like `pg_try_advisory_xact_lock`;
+  `venues` since 0291: a lesson body's branch row FOR KEY SHARE, once per sequence, the one share
+  lock the walker ranks, against `open_branch`/`close_branch`'s FOR UPDATE)
   (`scripts/check-lock-order.mjs`, walker in `scripts/lib/lock-order.mjs`; `till_shifts` since
   wave 5, whose stamp trigger takes the open shift FOR SHARE on every payment and refund insert;
   the three open-match ranks since 0260: `app.lock_match_money`, the branch mutex

@@ -14,7 +14,7 @@ export const coachingMoneyAr: DeepMessages<typeof coachingMoneyEn> = {
     title: 'مستحقات المدرّبين',
     lead: 'كشف حساب شهري لكل مدرّب: ما حُصّل عن حصصه بعد خصم أجرة الملعب، ونصيبه من الباقي. يُسلَّم المبلغ خارج الصندوق.',
     month: {
-      thisMonth: 'هذا الشهر',
+      thisMonth: 'أحدث شهر',
     },
     totals: {
       label: 'أرقام الشهر',
@@ -44,6 +44,7 @@ export const coachingMoneyAr: DeepMessages<typeof coachingMoneyEn> = {
       title: 'لم يُعدّ بعد',
       not_drafted: '{coach}: لم يُعدّ بعد',
       older_draft: '{coach}: بانتظار مسودة شهر سابق',
+      newer_draft: '{coach}: بانتظار مسودة {month}',
     },
     emptyCurrent: 'تُعدّ كشوف الحساب في اليوم الأول من كل شهر عن الشهر السابق.',
     emptyMonth: 'لا كشوف حساب لشهر {month}.',
@@ -89,6 +90,7 @@ export const coachingMoneyAr: DeepMessages<typeof coachingMoneyEn> = {
         void: 'أُلغي كشف الحساب.',
         redraft: 'أُعيد الإعداد.',
       },
+      redraftSettled: 'لا شيء لإعداده: سُوّيت حصص هذا الشهر في كشف لاحق.',
     },
     markPaid: {
       title: 'تسجيل الدفع',

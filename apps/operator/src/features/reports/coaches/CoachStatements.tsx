@@ -3,8 +3,11 @@
  * each coach's monthly statement at each branch, from
  * app.report_coach_statements. Modelled on the deductions Month tab
  * (features/deductions/DeductionsMonth.tsx): a month stepper that never passes
- * the server's current month (`?month=` keeps it across reloads), the month's
- * figures, then one row per statement, each opening its statement dialog.
+ * the default month, the server's `month` when none is asked for (the month
+ * before `current_month`: statements are drafted on the 1st for the month
+ * before; OP-02), `?month=` keeping it across reloads; the month's figures,
+ * then one row per statement, each opening its statement dialog (named for
+ * the statement's own month).
  *
  * Every figure is the server's (§5.1). No ReportTabs strip: this is not one of
  * the five reports; the `/reports` layout's ReportBranchScope still applies,
@@ -41,6 +44,7 @@ import {
   canStepForward,
   coachOf,
   countText,
+  isDefaultView,
   isOtherBranch,
   maybeNegativeMoneyText,
   missingRows,
@@ -65,15 +69,16 @@ export function CoachStatementsScreen() {
   const asked = monthParam(search.month);
   const { branchId: railBranch } = useVenue();
 
-  // The current month is always read: it is the stepper's bound, and "this
-  // month" is asked for with no month at all (the server answers which it is).
+  // The default view is always read: its month (the server's `month` with
+  // none asked, the month before `current_month`) is the stepper's bound, and
+  // it is asked for with no month at all (OP-02).
   const currentQ = useCoachStatements(null);
-  const current = currentQ.data?.current_month ?? null;
-  const onCurrent = asked === null || (current !== null && asked >= current);
+  const top = currentQ.data?.month ?? null;
+  const onCurrent = isDefaultView(asked, top);
   const pickedQ = useCoachStatements(asked, !onCurrent);
   const q = onCurrent ? currentQ : pickedQ;
   const read = useLessonRead(q);
-  const shown = shownMonth(asked, current) ?? q.data?.month ?? null;
+  const shown = shownMonth(asked, top) ?? q.data?.month ?? null;
 
   const [openRow, setOpenRow] = useState<StatementRow | null>(null);
 
@@ -99,7 +104,7 @@ export function CoachStatementsScreen() {
         <Button
           aria-label={tr('ws.kit.calendar.prevMonth')}
           disabled={shown === null}
-          onClick={() => shown && go(stepMonth(shown, -1, current))}
+          onClick={() => shown && go(stepMonth(shown, -1, top))}
           data-testid="coachPay.month.prev"
         >
           <ChevronBack size={16} />
@@ -117,13 +122,13 @@ export function CoachStatementsScreen() {
         </h2>
         <Button
           aria-label={tr('ws.kit.calendar.nextMonth')}
-          disabled={!canStepForward(shown, current)}
-          onClick={() => shown && go(stepMonth(shown, 1, current))}
+          disabled={!canStepForward(shown, top)}
+          onClick={() => shown && go(stepMonth(shown, 1, top))}
           data-testid="coachPay.month.next"
         >
           <ChevronForward size={16} />
         </Button>
-        {!onCurrent && current && (
+        {!onCurrent && top && (
           <Button kind="ghost" size="sm" onClick={() => go(null)}>
             {tr('ws.coaching.coachPay.month.thisMonth')}
           </Button>
@@ -152,9 +157,9 @@ export function CoachStatementsScreen() {
                 kind="nothingToDo"
                 icon="whistle"
                 title={
-                  shown && current && shown < current
-                    ? tr('ws.coaching.coachPay.emptyMonth', { month: monthLabel(shown, locale) })
-                    : tr('ws.coaching.coachPay.emptyCurrent')
+                  onCurrent || !shown
+                    ? tr('ws.coaching.coachPay.emptyCurrent')
+                    : tr('ws.coaching.coachPay.emptyMonth', { month: monthLabel(shown, locale) })
                 }
               />
             }
@@ -167,7 +172,13 @@ export function CoachStatementsScreen() {
         <StatementDialog
           statementId={openRow.statement_id}
           fallback={openRow}
-          monthText={shown ? monthLabel(shown, locale) : ''}
+          monthText={
+            openRow.month
+              ? monthLabel(openRow.month, locale)
+              : shown
+                ? monthLabel(shown, locale)
+                : ''
+          }
           onClose={() => setOpenRow(null)}
         />
       )}
@@ -350,7 +361,7 @@ function StatementTables({
 
 /** Coaches with lessons and no statement for the month, as muted lines (§5.16 "Not drafted"). */
 function MissingList({ rows }: { rows: ReturnType<typeof missingRows> }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   if (rows.length === 0) return null;
   return (
     <section aria-label={tr('ws.coaching.coachPay.missing.title')} data-testid="coachPay.missing">
@@ -359,7 +370,10 @@ function MissingList({ rows }: { rows: ReturnType<typeof missingRows> }) {
       >
         {rows.map((m) => (
           <li key={m.key} style={muted}>
-            {tr(m.textKey, { coach: isolate(m.coach) })}
+            {tr(m.textKey, {
+              coach: isolate(m.coach),
+              month: m.month ? monthLabel(m.month, locale) : '',
+            })}
           </li>
         ))}
       </ul>

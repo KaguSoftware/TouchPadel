@@ -19,6 +19,13 @@
  *      recorded outside the till (lesson_blocked_refund_record), the coach
  *      cancel of a group refunding a late canceller too, the rest of a course,
  *      an expired place (slot_lost), the reason derived, if_cancelled, sandbox.
+ *  3b. 0292 lesson_money_reports: lesson_enrolment_may_owe (DB-15: a booked
+ *      place with every session on owes nothing back; a cancelled session or
+ *      an overpayment lets it through to lesson_refunds_due and the day
+ *      close); ops_overview's blocking tabs of every kind (DB-17); a late
+ *      leave judged by kept_until when the window shrinks, the reconciler
+ *      refunding nothing (DB-18); a handback outside the till off netIqd and
+ *      report_lessons' refunds, not off what was collected (DB-20, D2).
  *   4. C-31 (R27, R71): a café, a shop and a lesson refund made on day 2 in a
  *      till shift count on day 2 in close_day, v_day_close_summary and
  *      day_close_shop; day 1's stored figures never move; a refund made with
@@ -44,7 +51,8 @@ import {
 import { stackAvailable } from './helpers';
 import { KEEP, MK, Q, RES, T, X, dockerReachable, scenario, type Results } from './stores-harness';
 import { E, GUEST, K, SETUP, data, failed } from './matches-harness';
-import { MANAGER_PIN, PLANT_BRANCH as PLANT, ago, at } from './coaching-plant';
+import { CARD_LIKE, MANAGER_PIN, PLANT_BRANCH as PLANT, ago, at } from './coaching-plant';
+import { COACHING_SHAPES, missingKeys } from '../../core/src/coaching/shapes';
 
 const up = await stackAvailable();
 const docker = up && dockerReachable();
@@ -139,6 +147,7 @@ function assertEngine(m: Money, label = '') {
 }
 const money = (r: Results, label: string) => {
   const m = data<Money>(r, label);
+  expect(missingKeys(m, COACHING_SHAPES.lesson_enrolment_money), label).toEqual([]);
   assertEngine(m, label);
   return m;
 };
@@ -354,6 +363,8 @@ describe.skipIf(!docker)('0281 lesson_settle and the lesson tab (rolled back)', 
 
   it("the replay answers duplicate; another caller's key is IDEMPOTENCY_CONFLICT; a new key finds nothing owed", () => {
     const first = data<Json>(r, 'settle');
+    expect(missingKeys(first, COACHING_SHAPES.lesson_settle)).toEqual([]);
+    expect(missingKeys(data(r, 'settle_replay'), COACHING_SHAPES.lesson_settle)).toEqual([]);
     expect(data<Json>(r, 'settle_replay')).toMatchObject({
       duplicate: true,
       payment_id: first.payment_id,
@@ -626,7 +637,21 @@ describe.skipIf(!docker)(
         T(
           'blk_digits',
           'manager',
-          `select app.lesson_blocked_refund_record({{o1}}, 25000, '4111 1111-1111 1111', '${MANAGER_PIN}', null)`,
+          `select app.lesson_blocked_refund_record({{o1}}, 25000, '4111 1111-1111 1111', '${MANAGER_PIN}', 'k-c278o-d0', null)`,
+        ),
+        // 0293 (DB-21, R74 amended): Arabic-Indic and Extended Arabic-Indic digits, and dots.
+        ...Object.entries(CARD_LIKE).map(([k, ref]) =>
+          T(
+            `blk_digits_${k}`,
+            'manager',
+            `select app.lesson_blocked_refund_record({{o1}}, 25000, '${ref}', '${MANAGER_PIN}', 'k-c278o-${k}', null)`,
+          ),
+        ),
+        // 0293 (DB-23): the key is required.
+        T(
+          'blk_nokey',
+          'manager',
+          `select app.lesson_blocked_refund_record({{o1}}, 25000, 'ZC-1001', '${MANAGER_PIN}', null, null)`,
         ),
         // Grants other suites left for the shared seed manager (committed, within the TTL) age out
         // inside this rolled-back transaction, so the call below has none to consume.
@@ -636,23 +661,40 @@ describe.skipIf(!docker)(
         T(
           'blk_nogrant',
           'manager',
-          `select app.lesson_blocked_refund_record({{o1}}, 25000, 'ZC-1001', '${MANAGER_PIN}', null)`,
+          `select app.lesson_blocked_refund_record({{o1}}, 25000, 'ZC-1001', '${MANAGER_PIN}', 'k-c278o-ng', null)`,
         ),
         T(
           'blk_cashier',
           'cashier',
-          `select app.lesson_blocked_refund_record({{o1}}, 25000, 'ZC-1001', '${MANAGER_PIN}', null)`,
+          `select app.lesson_blocked_refund_record({{o1}}, 25000, 'ZC-1001', '${MANAGER_PIN}', 'k-c278o-ca', null)`,
         ),
         GRANT('manager'),
         T(
           'blk_over',
           'manager',
-          `select app.lesson_blocked_refund_record({{o1}}, 30000, 'ZC-1001', '${MANAGER_PIN}', null)`,
+          `select app.lesson_blocked_refund_record({{o1}}, 30000, 'ZC-1001', '${MANAGER_PIN}', 'k-c278o-ov', null)`,
         ),
+        // 0293 (DB-23): a partial amount, then its lost answer retried with the same key and no
+        // fresh grant: the stored answer, nothing added twice. The rest goes under its own key.
         T(
           'blk',
           'manager',
-          `select app.lesson_blocked_refund_record({{o1}}, 25000, 'ZC-1001', '${MANAGER_PIN}', null)`,
+          `select app.lesson_blocked_refund_record({{o1}}, 10000, 'ZC-1001', '${MANAGER_PIN}', 'k-c278o-blk', null)`,
+        ),
+        T(
+          'blk_replay',
+          'manager',
+          `select app.lesson_blocked_refund_record({{o1}}, 10000, 'ZC-1001', '${MANAGER_PIN}', 'k-c278o-blk', null)`,
+        ),
+        Q(
+          'o1_outside_once',
+          `select to_jsonb(refunded_outside_iqd) from lesson_enrolments where id = {{o1}}`,
+        ),
+        GRANT('manager'),
+        T(
+          'blk_rest',
+          'manager',
+          `select app.lesson_blocked_refund_record({{o1}}, 15000, 'ZC-1002', '${MANAGER_PIN}', 'k-c278o-rest', null)`,
         ),
         Q('o1_outside', `select pg_temp.money('o1')`),
         T('due_after', 'manager', `select app.lesson_refunds_due({{v}})`),
@@ -833,14 +875,37 @@ describe.skipIf(!docker)(
         detail: 'p_reference',
         hint: 'digits',
       });
+      for (const k of Object.keys(CARD_LIKE)) {
+        expect(failed(r, `blk_digits_${k}`), k).toMatchObject({
+          code: 'INVALID_ARGUMENT',
+          detail: 'p_reference',
+          hint: 'digits',
+        });
+      }
+      expect(failed(r, 'blk_nokey')).toMatchObject({
+        code: 'INVALID_ARGUMENT',
+        detail: 'p_idempotency_key',
+      });
       expect(failed(r, 'blk_nogrant').code).toBe('PIN_GRANT_REQUIRED');
       expect(failed(r, 'blk_cashier').code).toBe('FORBIDDEN');
       expect(failed(r, 'blk_over')).toMatchObject({
         code: 'REFUND_EXCEEDS_DUE',
         detail: 'due 25000',
       });
-      expect(data<Json>(r, 'blk')).toMatchObject({
-        amount_iqd: 25000,
+      const blk = data<Json>(r, 'blk');
+      expect(blk).toMatchObject({
+        duplicate: false,
+        amount_iqd: 10000,
+        refunded_outside_iqd: 10000,
+        online_blocked_iqd: 15000,
+      });
+      expect(missingKeys(blk, COACHING_SHAPES.lesson_blocked_refund_record)).toEqual([]);
+      // DB-23: the replay is the first answer, and it needed no grant.
+      expect(data<Json>(r, 'blk_replay')).toEqual({ ...blk, duplicate: true });
+      expect(data(r, 'o1_outside_once')).toBe(10000);
+      expect(data<Json>(r, 'blk_rest')).toMatchObject({
+        duplicate: false,
+        amount_iqd: 15000,
         refunded_outside_iqd: 25000,
         online_blocked_iqd: 0,
       });
@@ -855,8 +920,9 @@ describe.skipIf(!docker)(
       expect(data(r, 'o1_trail')).toEqual([
         'refunded:guest_cancel:guest',
         'refunded:outside:staff',
+        'refunded:outside:staff',
       ]);
-      expect(data(r, 'o1_audit')).toEqual(['ZC-1001']);
+      expect([...data<string[]>(r, 'o1_audit')].sort()).toEqual(['ZC-1001', 'ZC-1002']);
     });
 
     it('R3, R28: a coach cancel refunds every online place, the earlier late canceller too, coach_cancel; desk money is due', () => {
@@ -918,6 +984,260 @@ describe.skipIf(!docker)(
         sandbox: true,
       });
       expect(data(r, 'ls_collected')).toBe(0);
+    });
+  },
+);
+
+// ── 3b. 0292: the may-owe gate, the kept window, blocking tabs, handbacks ───
+
+describe.skipIf(!docker)(
+  '0292 lesson money reports: may-owe (DB-15), kept_until (DB-18), blocking tabs (DB-17), handbacks (DB-20) (rolled back)',
+  () => {
+    let r: Results;
+    const B = (d: number, h: number) =>
+      `(date_trunc('hour', now()) + interval '${d} days ${h} hours')`;
+    const FIG = `select app.lesson_money_figures(now() - interval '30 days', now() + interval '1 day', array[{{v}}]::uuid[])`;
+
+    beforeAll(() => {
+      r = scenario('c292m', [
+        ...BASE,
+        ...['g1', 'g2'].map((g) => GUEST(g)),
+        X(`select pg_temp.day('day')`),
+
+        // DB-15: a booked private place paid at the desk, its lesson still on.
+        X(`select pg_temp.lesson('l1', 'lt_private', 'c1', ${at(3)})`),
+        X(
+          `select pg_temp.enrol('e1', 'l1', '{"name": "Huda Walk-in", "phone": "+9647705550001"}')`,
+        ),
+        T('settle_e1', 'cashier', SETTLE('e1', 'cash', 40000, 40000, 'k-c292-e1')),
+        Q('e1_may', `select to_jsonb(app.lesson_enrolment_may_owe({{e1}}))`),
+        Q('e1_money', `select pg_temp.money('e1')`),
+
+        // A booked course place paid at the desk; the venue cancels its second session.
+        X(
+          `select pg_temp.course('k', 'lt_course', array[${B(2, 1)}, ${B(9, 1)}, ${B(16, 1)}, ${B(23, 1)}])`,
+        ),
+        X(
+          `select pg_temp.enrol('c1e', 'k', '{"name": "Omar Walk-in", "phone": "+9647705550002"}')`,
+        ),
+        T('settle_c1e', 'cashier', SETTLE('c1e', 'cash', 100001, 100001, 'k-c292-c1e')),
+        Q('c1e_may_before', `select to_jsonb(app.lesson_enrolment_may_owe({{c1e}}))`),
+        X(`select pg_temp.cancel_lesson('k_s2', 'staff_cancel')`),
+        Q('c1e_may', `select to_jsonb(app.lesson_enrolment_may_owe({{c1e}}))`),
+        Q('c1e_money', `select pg_temp.money('c1e')`),
+
+        // An overpaid booked place: paid at the desk, then an online row lands for it too.
+        X(`select pg_temp.lesson('l2', 'lt_private', 'c2', ${at(4)})`),
+        X(`select pg_temp.enrol('e2', 'l2', '{"guest": "g2"}')`),
+        T('settle_e2', 'cashier', SETTLE('e2', 'cash', 40000, 40000, 'k-c292-e2')),
+        Q('e2_may_paid', `select to_jsonb(app.lesson_enrolment_may_owe({{e2}}))`),
+        X(`select pg_temp.online('e2_pay', 'e2', 40000)`),
+        Q('e2_may', `select to_jsonb(app.lesson_enrolment_may_owe({{e2}}))`),
+        Q('e2_money', `select pg_temp.money('e2')`),
+
+        T('due', 'manager', `select app.lesson_refunds_due({{v}})`),
+        T('close_card', 'manager', `select app.day_close_online({{day}})`),
+
+        // DB-17: open tabs of every kind block the day and are listed.
+        X(`select pg_temp.lesson('l3', 'lt_private', 'c2', ${at(5)})`),
+        X(
+          `select pg_temp.enrol('e3', 'l3', '{"name": "Layla Walk-in", "phone": "+9647705550003"}')`,
+        ),
+        K(
+          'tab_lesson',
+          `insert into tabs (venue_id, day_session_id, kind, status, label, lesson_enrolment_id)
+               values ({{v}}, {{day}}, 'lesson', 'open', 'Lesson', {{e3}}) returning id`,
+        ),
+        K(
+          'tab_counter',
+          `insert into tabs (venue_id, day_session_id, kind, status, label)
+               values ({{v}}, {{day}}, 'cafe', 'open', 'Counter') returning id`,
+        ),
+        K(
+          'tab_shop',
+          `insert into tabs (venue_id, day_session_id, kind, status, label)
+               values ({{v}}, {{day}}, 'shop', 'open', 'Shop') returning id`,
+        ),
+        Q(
+          'tab_ids',
+          `select jsonb_build_object('lesson', {{tab_lesson}}, 'counter', {{tab_counter}}, 'shop', {{tab_shop}})`,
+        ),
+        T('ops', 'manager', `select app.ops_overview()`),
+        T('close_day', 'manager', `select app.close_day(0, null, null, null, {{v}})`),
+
+        // DB-18: a late course leave judged with a 48-hour window, then the window becomes 24.
+        X(`update venue_settings set cancellation_window_hours = 48 where venue_id = {{v}}`),
+        X(`select pg_temp.course('w', 'lt_course', array[${B(0, 10)}, ${B(1, 6)}])`),
+        X(`select pg_temp.enrol('w1', 'w', '{"guest": "g1", "mode": "online"}')`),
+        X(`select pg_temp.online('w1_pay', 'w1', 100001)`),
+        E(
+          'w1_cancel',
+          null,
+          `select app.enrolment_cancel_internal({{w1}}, 'guest_late', 'guest', {{g1}}, null)`,
+        ),
+        Q(
+          'w1_window',
+          `select to_jsonb(extract(epoch from kept_until - cancelled_at) / 3600) from lesson_enrolments where id = {{w1}}`,
+        ),
+        Q('w1_at_48', `select pg_temp.money('w1')`),
+        X(`update venue_settings set cancellation_window_hours = 24 where venue_id = {{v}}`),
+        Q('w1_at_24', `select pg_temp.money('w1')`),
+        E('reconcile', null, `select app.deposits_due_for_reconcile(100)`),
+        Q(
+          'w1_row',
+          `select jsonb_build_object('status', status, 'refund', refund_amount_iqd) from booking_payments where id = {{w1_pay}}`,
+        ),
+        // Without the stamp (a row from before 0292 left unstamped) the live window would apply.
+        X(`update lesson_enrolments set kept_until = null where id = {{w1}}`),
+        Q('w1_unstamped', `select pg_temp.money('w1')`),
+        X(`update venue_settings set cancellation_window_hours = 12 where venue_id = {{v}}`),
+
+        // DB-20: a handback outside the till comes off lesson revenue, not off what was collected.
+        X(`select pg_temp.course('o', 'lt_course', array[${B(-7, 6)}, ${B(0, 7)}, ${B(7, 6)}, ${B(14, 6)}],
+                               '{"status": "running"}')`),
+        X(`select pg_temp.enrol('o1', 'o', '{"guest": "g1", "mode": "online"}')`),
+        X(`select pg_temp.online('o1_pay', 'o1', 100001)`),
+        E(
+          'o1_leave',
+          null,
+          `select app.enrolment_cancel_internal({{o1}}, 'guest_late', 'guest', {{g1}}, null)`,
+        ),
+        // The leave a minute before the venue's cancel (one transaction shares one now()).
+        X(
+          `update lesson_enrolments set cancelled_at = cancelled_at - interval '1 minute',
+                                        kept_until = kept_until - interval '1 minute' where id = {{o1}}`,
+        ),
+        X(`select pg_temp.cancel_lesson('o_s2', 'staff_cancel')`),
+        Q('o1_blocked', `select pg_temp.money('o1')`),
+        E('lm_before', null, FIG),
+        T('rl_before', 'manager', `select app.report_lessons(current_date - 30, current_date + 1)`),
+        GRANT('manager'),
+        T(
+          'blk',
+          'manager',
+          `select app.lesson_blocked_refund_record({{o1}}, 25000, 'ZC-0292', '${MANAGER_PIN}', 'k-c292-blk', null)`,
+        ),
+        E('lm_after', null, FIG),
+        T('rl_after', 'manager', `select app.report_lessons(current_date - 30, current_date + 1)`),
+      ]);
+    });
+
+    it('DB-15: a booked place with every session on may owe nothing and is due its price', () => {
+      expect(data(r, 'e1_may')).toBe(false);
+      expect(money(r, 'e1_money')).toMatchObject({ due_iqd: 40000, refund_due_iqd: 0 });
+      expect(data(r, 'c1e_may_before')).toBe(false);
+    });
+
+    it('DB-15: a booked course place with a venue-cancelled session, and an overpaid place, may owe', () => {
+      expect(data(r, 'c1e_may')).toBe(true);
+      expect(money(r, 'c1e_money')).toMatchObject({ refund_due_desk_iqd: 25000 });
+      // Paid at the desk in full: not overpaid yet, so nothing to look at.
+      expect(data(r, 'settle_e2')).toMatchObject({ amount_iqd: 40000 });
+      expect(data(r, 'e2_may_paid')).toBe(false);
+      expect(data(r, 'e2_may')).toBe(true);
+      expect(money(r, 'e2_money')).toMatchObject({
+        refund_due_iqd: 40000,
+        refund_due_online_iqd: 40000,
+      });
+    });
+
+    it('DB-15: lesson_refunds_due lists the course place only; the day close sums its desk refund', () => {
+      const due = data<{ items: Json[]; total_iqd: number }>(r, 'due');
+      const ids = due.items.map((i) => i.enrolment_id);
+      const e1 = data<Json>(r, 'e1_money').enrolment_id;
+      const c1e = data<Json>(r, 'c1e_money').enrolment_id;
+      expect(ids).toContain(c1e);
+      expect(ids).not.toContain(e1);
+      expect(due.items.find((i) => i.enrolment_id === c1e)).toMatchObject({
+        refund_due_desk_iqd: 25000,
+        label: 'Omar Walk-in',
+      });
+      const lessons = data<{ lessons: Record<string, number> }>(r, 'close_card').lessons;
+      expect(lessons).toMatchObject({ refunds_due_desk_iqd: 25000, refunds_due_desk_count: 1 });
+    });
+
+    it('DB-17: counter, shop and lesson tabs are blocking tabs, each with its kind; close_day refuses', () => {
+      const tabs = data<{ dayClose: { blockingTabs: Json[] } }>(r, 'ops').dayClose.blockingTabs;
+      const byId = new Map(tabs.map((t) => [t.id, t]));
+      const ids = data<Record<'lesson' | 'counter' | 'shop', string>>(r, 'tab_ids');
+      expect(byId.get(ids.lesson)).toMatchObject({
+        kind: 'lesson',
+        label: 'Lesson',
+        guestName: 'Layla Walk-in',
+      });
+      expect(byId.get(ids.counter)).toMatchObject({ kind: 'cafe', label: 'Counter' });
+      expect(byId.get(ids.shop)).toMatchObject({ kind: 'shop', label: 'Shop' });
+      expect(failed(r, 'close_day').code).toBe('DAY_OPEN_TABS');
+    });
+
+    it('DB-18: a late leave keeps what its window kept when the window later shrinks; the reconciler refunds nothing', () => {
+      expect(data(r, 'w1_cancel')).toMatchObject({
+        changed: true,
+        cancel_kind: 'guest_late',
+        refunds_started: 0,
+      });
+      expect(Number(data(r, 'w1_window'))).toBe(48);
+      const at48 = money(r, 'w1_at_48');
+      expect(at48).toMatchObject({ due_iqd: 100001, kept_iqd: 100001, refund_due_iqd: 0 });
+      expect(money(r, 'w1_at_24')).toMatchObject({
+        due_iqd: 100001,
+        kept_iqd: 100001,
+        refund_due_online_iqd: 0,
+        refund_due_iqd: 0,
+      });
+      expect(data(r, 'w1_row')).toEqual({ status: 'succeeded', refund: null });
+      // The counterfactual: judged by today's window the second session would go back.
+      expect(money(r, 'w1_unstamped')).toMatchObject({
+        due_iqd: 50001,
+        refund_due_online_iqd: 50000,
+      });
+    });
+
+    it('DB-20 (D2): a handback outside the till lowers netIqd and refundsIqd, not collectedIqd or the coach share', () => {
+      expect(money(r, 'o1_blocked').refund_blocked_iqd).toBe(25000);
+      expect(data<Json>(r, 'blk')).toMatchObject({ amount_iqd: 25000, online_blocked_iqd: 0 });
+      const before = data<{
+        outsideRefundsIqd: number;
+        outsideRefundsCount: number;
+        netIqd: number;
+        collectedIqd: number;
+        owedToCoachesIqd: number;
+      }>(r, 'lm_before');
+      const after = data<{
+        outsideRefundsIqd: number;
+        outsideRefundsCount: number;
+        netIqd: number;
+        collectedIqd: number;
+        owedToCoachesIqd: number;
+      }>(r, 'lm_after');
+      expect(after.outsideRefundsIqd - before.outsideRefundsIqd).toBe(25000);
+      expect(after.outsideRefundsCount - before.outsideRefundsCount).toBe(1);
+      expect(before.netIqd - after.netIqd).toBe(25000);
+      expect(after.collectedIqd).toBe(before.collectedIqd);
+      expect(after.owedToCoachesIqd).toBe(before.owedToCoachesIqd);
+      expect(after).not.toHaveProperty('refundsDueDeskIqd');
+      const rb = data<{
+        totals: {
+          refundsIqd: number;
+          lessonRevenueIqd: number;
+          deskIqd: number;
+          onlineIqd: number;
+          collectedIqd: number;
+        };
+      }>(r, 'rl_before').totals;
+      const ra = data<{
+        totals: {
+          refundsIqd: number;
+          lessonRevenueIqd: number;
+          deskIqd: number;
+          onlineIqd: number;
+          collectedIqd: number;
+        };
+      }>(r, 'rl_after').totals;
+      expect(ra.refundsIqd - rb.refundsIqd).toBe(25000);
+      expect(rb.lessonRevenueIqd - ra.lessonRevenueIqd).toBe(25000);
+      expect(ra.lessonRevenueIqd).toBe(ra.deskIqd + ra.onlineIqd - ra.refundsIqd);
+      expect(ra.collectedIqd).toBe(rb.collectedIqd);
     });
   },
 );

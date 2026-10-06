@@ -481,6 +481,16 @@ $f$;
 /** The seeded manager PIN (supabase/seed.sql, DEV_PINS.manager). */
 export const MANAGER_PIN = '380517';
 
+/**
+ * 0293 (DB-21, R74 amended): card numbers the old ASCII-only guard let through, by script and
+ * separator. Each is refused by app.looks_like_card and every guard built on it.
+ */
+export const CARD_LIKE = {
+  arabic: '٤١١١ ١١١١ ١١١١ ١١١١',
+  extended: '۴۱۱۱-۱۱۱۱-۱۱۱۱-۱۱۱۱',
+  dots: '4111.1111.1111.1111',
+} as const;
+
 /** A start `days` days and `hours` hours past the current hour (SQL). */
 export const at = (days: number, hours = 0) =>
   `(date_trunc('hour', now()) + interval '${days} days ${hours} hours')`;

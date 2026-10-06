@@ -14,9 +14,10 @@ const MENU_ID = 'tp-site-menu';
 
 /**
  * Pages whose bar stays solid from the top instead of fading its ground in on scroll:
- * the legal documents, where the fade over plain text read as the bar flickering.
+ * the legal documents, where the fade over plain text read as the bar flickering, and the
+ * account page.
  */
-const SOLID_HEADER_PATHS = ['/privacy', '/terms', '/support', '/delete-account'];
+const SOLID_HEADER_PATHS = ['/privacy', '/terms', '/support', '/delete-account', '/account'];
 
 /**
  * The site header: the vector lockup (home), then The club · Lessons · Café menu · Visit,

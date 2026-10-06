@@ -45,6 +45,12 @@ export type CoachRead =
 export interface CoachStatusInput {
   /** The session's user id; null with no session or an anonymous one. */
   uid: string | null;
+  /**
+   * The stored session is still being restored (useAuth().initializing): no
+   * uid yet is "not known", not "signed out" (MB-03: a coach push tapped on a
+   * cold start waits instead of bouncing to Profile).
+   */
+  restoring: boolean;
   read: CoachRead;
   previous: CoachStatus;
   /** The uid `previous` was answered for: it is evidence only for the same uid. */
@@ -59,6 +65,7 @@ export function isAnswer(status: CoachStatus): boolean {
 /**
  * The next status (guest.md §4.13.1):
  *
+ *   no session while restoring                → pending (MB-03)
  *   no session                                → none
  *   idle or in flight, an answer for this uid → that answer
  *   idle or in flight, no answer              → pending
@@ -71,8 +78,8 @@ export function isAnswer(status: CoachStatus): boolean {
  *   otherwise                                 → coach
  */
 export function nextCoachStatus(input: CoachStatusInput): CoachStatus {
-  const { uid, read, previous, previousUid } = input;
-  if (!uid) return NO_SESSION;
+  const { uid, restoring, read, previous, previousUid } = input;
+  if (!uid) return restoring ? PENDING : NO_SESSION;
   const known = previousUid === uid && isAnswer(previous) ? previous : null;
   switch (read.state) {
     case 'idle':

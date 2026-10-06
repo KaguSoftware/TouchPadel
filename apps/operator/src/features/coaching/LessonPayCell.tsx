@@ -1,7 +1,8 @@
 /**
  * What a lesson still has to take, where a booking shows its ChargeCell
- * (docs/design/coaching/operator.md §5.11): "To pay 2" (warn once the lesson
- * has started), "All paid" (success), "Paid online" (neutral), and the C-24
+ * (docs/design/coaching/operator.md §5.11): "Awaiting online payment" (info:
+ * held, OP-13), "To pay 2" (warn once the lesson has started), "All paid"
+ * (success, every booked place paid), "Paid online" (neutral), and the C-24
  * flag "Booked by the coach · unpaid" for a coach-booked private lesson that
  * still owes. Every figure is desk_lessons'.
  */
@@ -32,7 +33,9 @@ export function LessonPayCell({
         alignItems: 'center',
       }}
     >
-      {state.pay === 'owing' ? (
+      {state.pay === 'awaiting' ? (
+        <StatusBadge size="sm" tone="info" label={tr('ws.coaching.common.pay.awaiting')} />
+      ) : state.pay === 'owing' ? (
         <StatusBadge
           size="sm"
           tone={state.warn ? 'warn' : 'neutral'}

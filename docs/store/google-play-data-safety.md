@@ -27,7 +27,7 @@ no password, are sent to the app or to the emailed request on the same page.
 |---|---|
 | Does your app collect or share any of the required user data types? | **Yes** |
 | Is all of the user data collected by your app encrypted in transit? | **Yes** (HTTPS/TLS only; Supabase, Expo push) |
-| Do you provide a way for users to request that their data is deleted? | **Yes**: in the app (Profile → Delete account) and at the URL above |
+| Do you provide a way for users to request that their data is deleted? | **Yes**: in the app (Profile → Edit profile → Delete account) and at the URL above |
 | Independent security review (MASA) | No |
 
 ## Data types
@@ -48,18 +48,18 @@ against Play's current wording (open matches, `docs/design/open-matches/guest.md
 | Personal info → **Email address** | Yes | **Optional** | App functionality, Account management | Only for email sign-up or Sign in with Google/Apple |
 | Personal info → **Phone number** | Yes | Required | App functionality, Account management | Sign-in, the one-time verification code, the desk calling about a booking |
 | Personal info → **User IDs** | Yes | Required | App functionality, Account management | The account id |
-| Personal info → **Other info** | Yes | **Optional** | App functionality | Gender (woman or man), asked once, only when a player first plays open matches; it decides whether women-only or men-only matches are offered |
+| Personal info → **Other info** | Yes | **Optional** | App functionality | Gender (woman or man), asked once, only when a player first plays open matches; it decides whether women-only or men-only matches are offered. And an optional date of birth a guest may add in Edit profile, which only they can see |
 | Financial info → **Purchase history** | Yes | Required | App functionality | Court bookings and their prices; court deposits and open-match tickets paid online by Qi Card on Qi's own page (no card data is ever collected) |
 | Financial info → **Other financial info** | Yes | Optional | App functionality | **Staff accounts only**: a wage advance a staff member asks for, and pay deductions (amount, date and reason) a head or manager records against a staff member, which that person reads in the staff area. **UNVERIFIED** classification, Majed's call (wave5-addendum-2026-09-25 §7.7) |
 | App activity → **Other actions** | Yes | Required | App functionality | Bookings made and cancelled; open matches started, joined and left, requests to join, preset messages, reports and blocks |
 | Device or other IDs → **Device or other IDs** | Yes | Optional | App functionality | The push-notification token, only if notifications are allowed |
-| Photos and videos → **Photos** | Yes | Optional | App functionality | **Staff accounts only**: a work photo a staff member takes or chooses in the staff area (a proposed dish, a receipt, a finished task, an incident report), re-encoded on the phone without location metadata. A guest account cannot upload a photo |
+| Photos and videos → **Photos** | Yes | Optional | App functionality | A guest's optional profile photo, taken or chosen in Edit profile and seen by the guest and the venue's staff; and, on staff accounts, a work photo taken or chosen in the staff area (a proposed dish, a receipt, a finished task, an incident report). Both re-encoded on the phone without location metadata |
 | App activity → **Other user-generated content** | Yes | Optional | App functionality | **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item, a marketing draft or an incident report |
 
 **Not collected:** location (approximate or precise), web browsing, contacts, calendar, videos, audio, files,
 health and fitness, messages, app info and performance (crash logs, diagnostics), financial info other than purchase
 history and the staff-only advances and deductions above (no card or bank details), race/religion/political or other
-sensitive info. Photos only as above: from staff accounts, never from a guest.
+sensitive info. Photos only as above: a guest's own profile photo, and work photos from staff accounts.
 
 > Only what the **Android app** collects belongs on this form. The website's café table sessions, the order notes
 > guests type there, PostHog page-view analytics, and the notes and labels the front desk writes in the operator app
@@ -72,8 +72,8 @@ sensitive info. Photos only as above: from staff accounts, never from a guest.
 > The photo picker is the system one, which needs no media permission: `app.config.ts` blocks
 > `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_EXTERNAL_STORAGE` and `RECORD_AUDIO`, so Play's Photo and video
 > permissions declaration should not apply. Confirm it on the first Android build's merged manifest (UNVERIFIED
-> against SDK 57, build-contracts-2026-09-23 §8.4). The camera permission is asked only when a staff member takes a
-> work photo.
+> against SDK 57, build-contracts-2026-09-23 §8.4). The camera permission is asked only when a guest takes a profile
+> photo or a staff member takes a work photo.
 
 ## Data deletion section
 
@@ -81,7 +81,7 @@ sensitive info. Photos only as above: from staff accounts, never from a guest.
 |---|---|
 | Account deletion URL | `https://www.touch-padel.com/en/delete-account` |
 | Can users request that some or all of their data is deleted without deleting their account? | Yes: by emailing the privacy contact or asking at the front desk (Privacy Policy → Your rights) |
-| What is deleted | Login, first name, surname, gender, phone, email, linked Google/Apple sign-in, push token, the players the guest blocked, staff notes and labels about the guest, queued notifications. Immediately. The guest leaves their open matches, and unused open-match tickets are refunded to the card they were paid with (DF-20) |
+| What is deleted | Login, first name, surname, gender, date of birth, profile photo, phone, email, linked Google/Apple sign-in, push token, the players the guest blocked, staff notes and labels about the guest, queued notifications. Immediately. The guest leaves their open matches, and unused open-match tickets are refunded to the card they were paid with (DF-20) |
 | What is kept, and why | Bookings, café orders and open matches played stay **anonymised** (no name, phone or notes) because the venue must keep its accounts, and the record of which Terms version was accepted stays on the anonymised row. Ticket purchases and refunds stay in the accounts without a name; reports between players are kept 12 months, then deleted. Stated on the deletion page and in the Privacy Policy |
 | Staff accounts | Not deleted through this page. The owner switches a leaver's account off (sessions ended, push token cleared); the account and its work records stay, as the staff privacy notice (`docs/legal/staff-privacy-notice.md`) tells every employee |
 

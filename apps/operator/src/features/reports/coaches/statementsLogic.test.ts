@@ -44,6 +44,7 @@ function row(over: Partial<StatementRow> = {}): StatementRow {
     venue_id: RAIL,
     venue_name_en: 'Mansour',
     venue_name_ar: 'المنصور',
+    month: '2026-09-01',
     status: 'draft',
     lessons_count: 4,
     collected_iqd: 200000,
@@ -102,9 +103,12 @@ describe('statementActions (R4, R21, R59, R70, CM-11)', () => {
     expect(paid).toEqual({ readOnly: null, actions: [] });
   });
 
-  it('below zero, Mark paid is offered but off; Void is not', () => {
+  it('below zero, Mark paid is offered but off; Void is not (OP-08: the server sends mark_paid false)', () => {
     const plan = statementActions(
-      { statement: row({ status: 'approved', total_iqd: -12000 }), can: ALL },
+      {
+        statement: row({ status: 'approved', total_iqd: -12000 }),
+        can: { refresh: false, approve: false, void: true, mark_paid: false },
+      },
       SETTLE,
       RAIL,
     );
@@ -259,6 +263,8 @@ describe('rows, branches and the missing lines', () => {
           coach_name_ar: 'عمر',
           venue_id: RAIL,
           reason: 'not_drafted',
+          blocking_month: null,
+          blocking_statement_id: null,
         },
         {
           coach_id: 'c3',
@@ -266,14 +272,27 @@ describe('rows, branches and the missing lines', () => {
           coach_name_ar: '',
           venue_id: RAIL,
           reason: 'older_draft',
+          blocking_month: '2026-07-01',
+          blocking_statement_id: 'st-7',
+        },
+        {
+          coach_id: 'c4',
+          coach_name_en: 'Ali',
+          coach_name_ar: 'علي',
+          venue_id: RAIL,
+          reason: 'newer_draft',
+          blocking_month: '2026-09-01',
+          blocking_statement_id: 'st-9',
         },
       ],
       'ar',
     );
-    expect(rows.map((r) => [r.coach, r.textKey])).toEqual([
-      ['عمر', 'ws.coaching.coachPay.missing.not_drafted'],
+    expect(rows.map((r) => [r.coach, r.textKey, r.month])).toEqual([
+      ['عمر', 'ws.coaching.coachPay.missing.not_drafted', null],
       // An Arabic name left blank falls back to the English one.
-      ['Lina', 'ws.coaching.coachPay.missing.older_draft'],
+      ['Lina', 'ws.coaching.coachPay.missing.older_draft', '2026-07-01'],
+      // OP-22 (DB-24): a newer month's draft in the way, named.
+      ['علي', 'ws.coaching.coachPay.missing.newer_draft', '2026-09-01'],
     ]);
   });
 

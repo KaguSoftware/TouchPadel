@@ -13,6 +13,10 @@
  * BEFORE the hold RPC settled — so the layout saw `session && !pending`, its
  * <Redirect href="/(tabs)"> won the race, and the guest landed on the tabs
  * instead of Review. The intent now lives until the hold settles.
+ *
+ * It lives at most PENDING_SLOT_TTL_MS (MB-04, the pendingJoin and
+ * pendingLesson rule): a guest who backed out of sign-in is never steered by
+ * an old tap later.
  */
 import { useSyncExternalStore } from 'react';
 
@@ -35,7 +39,11 @@ export interface PendingSlot {
   origin?: SlotOrigin;
 }
 
+/** How long an intent outlives the tap that made it. */
+export const PENDING_SLOT_TTL_MS = 30 * 60_000;
+
 let pending: PendingSlot | null = null;
+let pendingAt = 0;
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -44,10 +52,15 @@ function emit(): void {
 
 export function setPendingSlot(slot: PendingSlot): void {
   pending = slot;
+  pendingAt = Date.now();
   emit();
 }
 
 export function getPendingSlot(): PendingSlot | null {
+  if (pending !== null && Date.now() - pendingAt > PENDING_SLOT_TTL_MS) {
+    // Stale: forget it without emitting (this runs during render).
+    pending = null;
+  }
   return pending;
 }
 

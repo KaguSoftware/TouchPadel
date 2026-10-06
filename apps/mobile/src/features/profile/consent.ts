@@ -100,3 +100,17 @@ interface NavState {
 export function stackHas(state: NavState | null | undefined, name: string): boolean {
   return (state?.routes ?? []).some((route) => route.name === name || stackHas(route.state, name));
 }
+
+/** How close to the bottom counts as "read to the end" (a fling rarely lands on 0). */
+export const READ_TO_END_SLACK = 24;
+
+/**
+ * Whether the guest has scrolled the Terms and Privacy text on the consent
+ * screen to its end, which unlocks the agree checkbox. Text that fits without
+ * scrolling (a tall screen, large type turned down) counts as read once it has
+ * been measured; nothing counts before it has.
+ */
+export function readToEnd(m: { offsetY: number; viewportHeight: number; contentHeight: number }): boolean {
+  if (m.viewportHeight <= 0 || m.contentHeight <= 0) return false;
+  return m.offsetY + m.viewportHeight >= m.contentHeight - READ_TO_END_SLACK;
+}

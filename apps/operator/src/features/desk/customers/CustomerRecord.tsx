@@ -55,6 +55,7 @@ import type { CustomerFlag, CustomerMatchRow, CustomerNote, CustomerRecord, Cust
 import type { CustomerSearchParams } from './CustomerSearch';
 import { GenderDialog } from './GenderDialog';
 import { TicketsPanel } from './TicketsPanel';
+import { CustomerLoyaltyPanel } from '../../loyalty/CustomerLoyaltyPanel';
 import { editableFlags, isHereMatch, isMatchBanned, playsAsLine, playsAsOf, recordMatches, seatKindKey, seatStatusKey } from './ticketsLogic';
 import { CustomerHoldStanding } from '../../holds/HoldStandingPanels';
 import { CoachBadge } from '../../coaching/CoachBadge';
@@ -98,6 +99,9 @@ export function CustomerRecordScreen() {
     } else if (params.attach === 'match' && params.match) {
       // Open matches §5.3: the match screen opens Add player with this customer picked.
       void navigate({ to: '/desk/matches/$id', params: { id: params.match }, search: { customer: id } as never });
+    } else if (params.attach === 'tournament' && params.tournament) {
+      // Tournaments §1.11: the tournament screen adds this customer as a walk-in.
+      void navigate({ to: '/desk/tournaments/$id', params: { id: params.tournament }, search: { customer: id } as never });
     }
   }
 
@@ -117,7 +121,9 @@ export function CustomerRecordScreen() {
       ? tr('ws.courtDesk.customers.attachBooking')
       : params.attach === 'match'
         ? tr('ws.matches.customers.attachMatch')
-        : tr('ws.courtDesk.customers.attachTab');
+        : params.attach === 'tournament'
+          ? tr('ws.tournaments.entries.attach')
+          : tr('ws.courtDesk.customers.attachTab');
 
   return (
     <div>
@@ -218,6 +224,8 @@ export function CustomerRecordScreen() {
                 />
               )}
               <TicketsPanel customerId={id} />
+              {/* Loyalty (build-contracts-2026-10-05 §5): balance, tier, history, Adjust points. */}
+              <CustomerLoyaltyPanel customerId={id} tz={tz} />
               <CustomerHoldStanding customerId={id} />
               <BookingsPanel title={tr('ws.courtDesk.record.upcoming')} empty={tr('ws.courtDesk.record.upcomingEmpty')} rows={rec.upcoming} tz={tz} courtName={courtName} />
               {/* Sections with nothing in them are left out rather than drawn

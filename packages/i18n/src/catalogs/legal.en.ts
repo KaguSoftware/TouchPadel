@@ -30,7 +30,7 @@
  * and coaches, the terms' lessons section) lands with its terms bump (G7, C-26).
  */
 export const legalEn = {
-  lastUpdated: 'Last updated: 29 September 2026',
+  lastUpdated: 'Last updated: 4 October 2026',
   version: 'Version {version}',
   entity: {
     company: '[FILL: company legal name]',
@@ -97,7 +97,7 @@ export const legalEn = {
       technical:
         'Our systems record sign-ins, errors and every change staff make to bookings, orders and payments, with the time and the account or device that made it.',
       notCollected:
-        'The app does not collect your location or contacts, and a guest account cannot upload photos: only venue staff accounts can attach work photos, in the app’s staff area. The app has no advertising, no tracking and no third-party analytics or crash reporting. Online payments (court deposits and open-match tickets) are made on Qi Card’s own payment page; we never see or store your card details.',
+        'The app does not collect your location or contacts. In Edit profile you may add a profile photo and a date of birth; both are optional. Your profile photo is seen by you and the venue’s staff, your date of birth only by you, and both are deleted with your account. Venue staff accounts can also attach work photos, in the app’s staff area. The app has no advertising, no tracking and no third-party analytics or crash reporting. Online payments (court deposits and open-match tickets) are made on Qi Card’s own payment page; we never see or store your card details.',
       website:
         'This website: the café menu pages can use privacy-friendly analytics (PostHog, hosted in the EU) to count page views. It sets no cookies, keeps only an anonymous identifier in your browser’s storage, never identifies you and does not record your screen. The legal pages do not load it, and the app does not use it.',
     },
@@ -123,7 +123,7 @@ export const legalEn = {
     share: {
       title: 'Who can see it',
       staff:
-        'Venue staff. Front-desk staff and managers can see your bookings, your name, your phone number and your email address if we have one, and the notes kept about you. Café staff see table orders. Staff access is limited by role and every change is recorded.',
+        'Venue staff. Front-desk staff and managers can see your bookings, your name, your profile photo if you added one, your phone number and your email address if we have one, and the notes kept about you. Café staff see table orders. Staff access is limited by role and every change is recorded.',
       players:
         'Other players. When you are in an open match or ask to join one, the players who can see that match see your first name, the first letter of your surname and your preset messages. When you ask to join, the organiser also sees how many games you have played at Touch and how many you missed. Players never see your phone number, email address or full surname. A public match’s time, branch, category and free seats are shown to other guests; a match link shows the same, with no names, to anyone who has it.',
       processorsLead: 'Service providers that run parts of the service for us, only on our instructions and only with what they need:',
@@ -152,7 +152,7 @@ export const legalEn = {
       title: 'How long we keep it',
       active: 'We keep your account information for as long as you have an account.',
       deleted:
-        'When you delete your account, your login, your first name, surname and gender, your phone number, email address and linked Apple or Google sign-in are removed immediately, and you are signed out on every device. Your notification token, staff notes about you, the list of players you blocked and any notifications waiting to be sent are deleted too. Your booked lessons are cancelled, and anything you paid online for them is refunded to the card you paid with. If you coach at Touch, your coach profile leaves the app and the website, your photo and bio are deleted, and your upcoming lessons are cancelled and refunded; your monthly statements are kept with your coach name, as the venue’s pay records.',
+        'When you delete your account, your login, your first name, surname, gender, date of birth and profile photo, your phone number, email address and linked Apple or Google sign-in are removed immediately, and you are signed out on every device. Your notification token, staff notes about you, the list of players you blocked and any notifications waiting to be sent are deleted too. Your booked lessons are cancelled, and anything you paid online for them is refunded to the card you paid with. If you coach at Touch, your coach profile leaves the app and the website, your photo and bio are deleted, and your upcoming lessons are cancelled and refunded; your monthly statements are kept with your coach name, as the venue’s pay records.',
       bookings:
         'Bookings and café orders you have already made stay in the venue’s records with no name, phone number or notes attached, because the venue has to keep its own accounts. They can no longer be linked to you. The record that you accepted our terms stays with them, without your name.',
       matches:
@@ -167,7 +167,7 @@ export const legalEn = {
       lead: 'You can:',
       access: 'ask what information we hold about you and get a copy of it;',
       edit: 'see and change your name and phone number in the app under Profile → Edit profile (a new number is confirmed with a code), or ask us to correct anything else;',
-      delete: 'delete your account in the app (Profile → Delete account) or on our website, or ask us to delete it;',
+      delete: 'delete your account in the app (Profile → Edit profile → Delete account) or on our website, or ask us to delete it;',
       object:
         'object to a use based on our legitimate interests, or ask us to restrict it while a question is settled;',
       notifications: 'turn notifications on or off at any time in your device settings;',
@@ -349,7 +349,7 @@ export const legalEn = {
     },
     delete: {
       title: 'Deleting your account',
-      how: 'In the app, go to Profile → Delete account and type the confirmation word.',
+      how: 'In the app, go to Profile → Edit profile → Delete account and type the confirmation word.',
       what: 'Your account, name and phone number are deleted immediately and you are signed out everywhere. Bookings you have already made stay in the venue’s records with no name attached.',
       desk: 'If you cannot open the app, delete your account on our website, or ask the front desk.',
       web: 'Delete your account on the website',
@@ -368,12 +368,12 @@ export const legalEn = {
       'You can delete your Touch Padel account in the app or here on the website. Deletion is permanent and takes effect immediately.',
     inApp: {
       title: 'In the app',
-      body: 'Open the Touch Padel app, go to Profile → Delete account, and type the confirmation word.',
+      body: 'Open the Touch Padel app, go to Profile → Edit profile → Delete account, and type the confirmation word.',
     },
     what: {
       title: 'What is deleted and what is kept',
       deleted:
-        'Deleted immediately: your login, your first name, surname and gender, phone number, email address, linked Apple or Google sign-in, notification token, the players you blocked, the staff notes about you and any notifications waiting to be sent. You are signed out on every device.',
+        'Deleted immediately: your login, your first name, surname, gender, date of birth and profile photo, phone number, email address, linked Apple or Google sign-in, notification token, the players you blocked, the staff notes about you and any notifications waiting to be sent. You are signed out on every device.',
       kept: 'Kept, without your name: bookings and café orders you have already made, open matches you played in, and reports between players (for 12 months), because the venue has to keep its own accounts. They can no longer be linked to you.',
       tickets: 'Open-match tickets you have not used are refunded to the card you paid with.',
       // Coaching (docs/design/coaching/guest.md §4.16, R50, R63; app.delete_my_account, 0289).
