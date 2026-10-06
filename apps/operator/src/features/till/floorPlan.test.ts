@@ -93,12 +93,19 @@ describe('placeCafe', () => {
     expect(spots.find((s) => s.table.table_number === 'T4')!.tabs.map((t) => t.id)).toEqual(['early', 'late']);
   });
 
-  it('an offline tab turns its table green under its local id; a settled one does not', () => {
-    const spots = placeCafe(tables, [], [offline('k1', 'T5'), offline('k2', 'T6', { settled: true })]);
-    const t5 = spots.find((s) => s.table.table_number === 'T5')!;
-    expect(t5.status).toBe('open');
-    expect(t5.tabs[0]).toMatchObject({ id: `${LOCAL_TAB_PREFIX}k1`, offline: true, items: 0 });
-    expect(spots.find((s) => s.table.table_number === 'T6')!.status).toBe('free');
+  it('an offline tab turns its table green under its local id, and says which state it is in', () => {
+    // The store's snapshot decides what is on the plan (lib/offlineTabs): a
+    // settled tab stays until its settle acks, and a refused one stays, marked.
+    const spots = placeCafe(tables, [], [
+      offline('k1', 'T5'),
+      offline('k2', 'T6', { settled: true, settleIdemKey: 's2' }),
+      offline('k3', 'T7', { failure: { state: 'failed', error: '400: TAB_NOT_FOUND' } }),
+    ]);
+    const at = (n: string) => spots.find((s) => s.table.table_number === n)!;
+    expect(at('T5').status).toBe('open');
+    expect(at('T5').tabs[0]).toMatchObject({ id: `${LOCAL_TAB_PREFIX}k1`, offline: true, offlineState: 'queued', items: 0 });
+    expect(at('T6').tabs[0]).toMatchObject({ offline: true, offlineState: 'settled' });
+    expect(at('T7').tabs[0]).toMatchObject({ offline: true, offlineState: 'failed' });
   });
 
   it('marks a table calling only while a call on it is raised', () => {

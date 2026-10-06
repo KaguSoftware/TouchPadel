@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { formatIQD } from '@touch/i18n';
 import { mutate } from '../../lib/mutate';
-import { getOfflineTab, markOfflineSettled } from '../../lib/offlineTabs';
+import { getOfflineTab, markOfflineSettled, removeOfflineTab } from '../../lib/offlineTabs';
 import { useLocale } from '../../lib/i18n';
 import { AmountPad, Button, ErrorText, Field, inputStyle } from '../../components/ui';
 import { ChangeDueDisplay, MessagePresenter } from '../../components/kit';
@@ -29,7 +29,7 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
     setBusy(true);
     setError(null);
     try {
-      await mutate('tab.settle', {
+      const outcome = await mutate('tab.settle', {
         tabIdemKey: idemKey,
         method,
         // No amount: the server charges its own full due at replay. `total` is
@@ -38,7 +38,11 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
         // it vanished here as settled. A short cash tender is refused instead.
         ...(tenderedIqd != null ? { tenderedIqd } : {}),
       });
-      markOfflineSettled(idemKey);
+      // Queued: the tab stays on the plan, marked settled, until this settle
+      // acks (lib/offlineTabs). Acked inside mutate()'s wait: its result has
+      // already fired before we could record the key, so retire it here.
+      if (outcome.queued) markOfflineSettled(idemKey, outcome.idempotencyKey);
+      else removeOfflineTab(idemKey);
       onSettled();
     } catch (e) {
       setError(e);
@@ -52,7 +56,13 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
       <h2 style={{ fontSize: 'var(--tp-fs-lg)', fontWeight: 700 }}>
         <bdi>{tab.tableNumber ? `${tr('op.till.table')} ${tab.tableNumber}` : (tab.label ?? '—')}</bdi>
       </h2>
-      <MessagePresenter tone="info" icon="wifiOff" message={tr('op.till.offlineTab')} />
+      {tab.failure ? (
+        <MessagePresenter tone="error" icon="alert" message={tr('ws.cashier.till.rail.failed')} />
+      ) : tab.settled ? (
+        <MessagePresenter tone="info" icon="clock" message={tr('ws.cashier.till.rail.settledAwaitingSync')} />
+      ) : (
+        <MessagePresenter tone="info" icon="wifiOff" message={tr('op.till.offlineTab')} />
+      )}
       {tab.lines.map((l, i) => (
         <div key={i} style={kvRow}>
           <span>
@@ -70,7 +80,18 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
         </span>
       </div>
       <ErrorText error={error} />
-      {tab.lines.length > 0 && !cashOpen && (
+      {/* A settled tab is never offered Card or Cash again: the payment is
+          already queued, and a second one would charge the guest twice. A
+          failed one cannot be paid here either; day close holds its row, and
+          the cashier may take it off this till once that is seen to. */}
+      {tab.failure && (
+        <div>
+          <Button icon="trash" onClick={() => removeOfflineTab(idemKey)}>
+            {tr('ws.cashier.till.rail.dismissFailed')}
+          </Button>
+        </div>
+      )}
+      {tab.lines.length > 0 && !cashOpen && !tab.settled && !tab.failure && (
         <div style={{ display: 'flex', gap: 'var(--tp-sp-2)' }}>
           <Button kind="primary" size="lg" icon="banknote" disabled={busy} onClick={() => setCashOpen(true)}>
             {tr('op.till.payCash')}
@@ -80,7 +101,7 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
           </Button>
         </div>
       )}
-      {cashOpen && (
+      {cashOpen && !tab.settled && !tab.failure && (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2-5)' }}>
           <Field label={tr('op.till.tendered')}>
             <input

@@ -1522,7 +1522,7 @@ export const en = {
       recordPayment: 'Record payment',
       remaining: 'Remaining {amount}',
       paidInFull: 'Tab settled.',
-      offlineTab: 'Offline — syncs when the connection returns.',
+      offlineTab: 'Not yet on the server — syncs automatically.',
       estimatedTotal: 'Estimated total',
       discardBasketTitle: 'Discard unsent items?',
       discardBasketBody: 'The basket has {count} unsent line(s). Switching tabs discards them.',

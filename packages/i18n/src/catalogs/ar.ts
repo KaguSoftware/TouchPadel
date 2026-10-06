@@ -1383,7 +1383,7 @@ export const ar: Messages = {
       recordPayment: 'تسجيل الدفعة',
       remaining: 'المتبقي: {amount}',
       paidInFull: 'الفاتورة مسدّدة.',
-      offlineTab: 'دون اتصال. ستُزامَن الفاتورة عند عودة الاتصال.',
+      offlineTab: 'لم تصل الفاتورة إلى الخادم بعد. تُزامَن تلقائيًا.',
       estimatedTotal: 'المجموع التقديري',
       discardBasketTitle: 'حذف الأصناف غير المرسلة؟',
       discardBasketBody: 'في السلة أسطر غير مرسلة: {count}. ستُحذف عند تبديل الفاتورة.',

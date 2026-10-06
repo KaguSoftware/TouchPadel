@@ -28,7 +28,7 @@ import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
 import { AppRpcError } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
-import { LOCAL_TAB_PREFIX, appendOfflineLines, markOfflineSettled } from '../../lib/offlineTabs';
+import { LOCAL_TAB_PREFIX, appendOfflineLines, markOfflineSettled, removeOfflineTab } from '../../lib/offlineTabs';
 import { Button, ErrorText, Modal } from '../../components/ui';
 import { EmptyState, MessagePresenter, Money, PageHeader, Panel, SearchField } from '../../components/kit';
 import { TILL_MENU_QUERY, fetchTabDetail } from '../till/tillData';
@@ -260,8 +260,11 @@ export function ShopTill() {
       if (paying.tabId.startsWith(LOCAL_TAB_PREFIX)) {
         const idemKey = paying.tabId.slice(LOCAL_TAB_PREFIX.length);
         // Offline the server charges its own full due at replay (OfflineTabPanel).
-        await mutate('tab.settle', { tabIdemKey: idemKey, method, ...(tenderedIqd != null ? { tenderedIqd } : {}) });
-        markOfflineSettled(idemKey);
+        const settled = await mutate('tab.settle', { tabIdemKey: idemKey, method, ...(tenderedIqd != null ? { tenderedIqd } : {}) });
+        // Queued: the tab stays, marked settled, until this settle acks. Acked
+        // inside mutate()'s wait: its result has already fired, so retire it here.
+        if (settled.queued) markOfflineSettled(idemKey, settled.idempotencyKey);
+        else removeOfflineTab(idemKey);
         setPaid({ tabId: paying.tabId, label: paying.label, change: null, queued: true });
         setPaying(null);
         return;
