@@ -246,7 +246,10 @@ function TournamentBody({
     play.label.kind === 'ended'
       ? tr(`tournaments.common.status.${play.label.status}`)
       : play.label.kind === 'round'
-        ? tr('ws.tournaments.rounds.roundOf', { round: n(play.label.round), total: n(play.label.total) })
+        ? tr('ws.tournaments.rounds.roundOf', {
+            round: n(play.label.round),
+            total: n(play.label.total),
+          })
         : play.label.kind === 'nextToDraw'
           ? tr('ws.tournaments.detail.nextToDraw', {
               round: n(play.label.round),
@@ -258,19 +261,22 @@ function TournamentBody({
     {
       label: tr('ws.tournaments.detail.stats.players'),
       value: `${n(registered)} / ${n(d.max_entries)}`,
-      sub:
-        d.entries.some((e) => e.status === 'waitlisted')
-          ? tr('ws.tournaments.list.waitlisted', {
-              count: n(d.entries.filter((e) => e.status === 'waitlisted').length),
-            })
-          : undefined,
+      sub: d.entries.some((e) => e.status === 'waitlisted')
+        ? tr('ws.tournaments.list.waitlisted', {
+            count: n(d.entries.filter((e) => e.status === 'waitlisted').length),
+          })
+        : undefined,
     },
     {
       label: tr('ws.tournaments.detail.stats.fee'),
-      value: d.entry_fee_iqd > 0 ? formatIQD(d.entry_fee_iqd, locale) : tr('tournaments.common.free'),
+      value:
+        d.entry_fee_iqd > 0 ? formatIQD(d.entry_fee_iqd, locale) : tr('tournaments.common.free'),
       sub:
         d.entry_fee_iqd > 0
-          ? tr('ws.tournaments.detail.stats.paidOwing', { paid: n(money.paid), owing: n(money.owing) })
+          ? tr('ws.tournaments.detail.stats.paidOwing', {
+              paid: n(money.paid),
+              owing: n(money.owing),
+            })
           : undefined,
     },
     {
@@ -278,7 +284,9 @@ function TournamentBody({
       value: formatIQD(money.collected, locale),
       sub:
         money.refundDue > 0
-          ? tr('ws.tournaments.detail.stats.refundDue', { amount: formatIQD(money.refundDue, locale) })
+          ? tr('ws.tournaments.detail.stats.refundDue', {
+              amount: formatIQD(money.refundDue, locale),
+            })
           : money.due > 0
             ? tr('ws.tournaments.detail.stats.due', { amount: formatIQD(money.due, locale) })
             : tr('ws.tournaments.detail.stats.nothingDue'),
@@ -347,11 +355,7 @@ function TournamentBody({
               </Button>
             )}
             {caps.publishTournaments && d.can.finish && (
-              <Button
-                icon="checkCircle"
-                disabled={!reachable}
-                onClick={() => setFinishing(true)}
-              >
+              <Button icon="checkCircle" disabled={!reachable} onClick={() => setFinishing(true)}>
                 {tr('ws.tournaments.finish.action')}
               </Button>
             )}
@@ -636,10 +640,24 @@ function TournamentHero({
           alignItems: 'flex-start',
         }}
       >
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'flex-start', minInlineSize: 0 }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--tp-sp-4)',
+            alignItems: 'flex-start',
+            minInlineSize: 0,
+          }}
+        >
           <DateTile at={d.starts_at} tz={tz} status={d.status} size="lg" />
           <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
-            <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--tp-sp-2)',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
               {pill(tr(`tournaments.common.status.${d.status}`), live)}
               {pill(tr(`tournaments.common.format.${d.format}`))}
               {pill(tr(`ws.matches.common.category.${d.category}`))}
@@ -649,7 +667,9 @@ function TournamentHero({
                 }),
               )}
             </div>
-            <h1 style={{ margin: 0, fontSize: 'var(--tp-fs-3xl)', fontWeight: 800, lineHeight: 1.2 }}>
+            <h1
+              style={{ margin: 0, fontSize: 'var(--tp-fs-3xl)', fontWeight: 800, lineHeight: 1.2 }}
+            >
               {isolate(name)}
             </h1>
             {when && (
@@ -657,7 +677,9 @@ function TournamentHero({
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div
+          style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'center' }}
+        >
           {actions}
         </div>
       </div>

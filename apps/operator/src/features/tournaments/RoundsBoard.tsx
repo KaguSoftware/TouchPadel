@@ -29,11 +29,7 @@ import { useLocale } from '../../lib/i18n';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
 import { Button, Field, Modal, inputStyle } from '../../components/ui';
-import {
-  EmptyState,
-  MessagePresenter,
-  ReasonCodePrompt,
-} from '../../components/kit';
+import { EmptyState, MessagePresenter, ReasonCodePrompt } from '../../components/kit';
 import {
   activeEntries,
   boardAction,
@@ -728,7 +724,14 @@ export function ScoreCell({
       >
         {team}
       </bdi>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--tp-sp-3)' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 'var(--tp-sp-3)',
+        }}
+      >
         {stepButton(team, false, minus)}
         {value}
         {stepButton(team, true, plus)}
@@ -787,11 +790,21 @@ export function ScoreCell({
         {score ? null : tr('ws.tournaments.score.sum', { target: formatNumber(target, locale) })}
       </p>
       {error != null && !asking && (
-        <p role="alert" style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+        <p
+          role="alert"
+          style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}
+        >
           {tournamentErrorText(error, tr, { target: formatNumber(target, locale) })}
         </p>
       )}
-      <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--tp-sp-2)',
+          justifyContent: 'flex-end',
+          flexWrap: 'wrap',
+        }}
+      >
         {onCancel && (
           <Button disabled={busy} onClick={onCancel}>
             {tr('common.cancel')}
@@ -859,7 +872,11 @@ function ScoreDialog({
   const { tr, locale } = useLocale();
   return (
     <Modal
-      title={isCorrection(match) ? tr('ws.tournaments.score.correctionTitle') : tr('ws.tournaments.score.enter')}
+      title={
+        isCorrection(match)
+          ? tr('ws.tournaments.score.correctionTitle')
+          : tr('ws.tournaments.score.enter')
+      }
       subtitle={`${court} · ${tr('ws.tournaments.detail.pointsTag', { points: formatNumber(target, locale) })}`}
       onClose={onClose}
       size="sm"

@@ -17,7 +17,8 @@ export const tournamentsEn = {
     add: 'Add tournament',
     lead: 'Tournaments published at this branch, from yesterday to the next two months.',
     empty: 'No tournaments in this range.',
-    emptyHint: 'Add a tournament to start its plan. It is published from that protocol once the run is done.',
+    emptyHint:
+      'Add a tournament to start its plan. It is published from that protocol once the run is done.',
     entries: '{registered} of {max} registered',
     waitlisted: '{count} on the waitlist',
     off: 'Tournaments are switched off at this branch. The owner switches them on in Settings.',
@@ -258,7 +259,8 @@ export const tournamentsEn = {
   },
   // The till's RefundDialog on a kind tournament tab (0310 c41).
   refund: {
-    capLead: 'Tournament entry money: at most what is due back on the entry, unless it is a goodwill refund.',
+    capLead:
+      'Tournament entry money: at most what is due back on the entry, unless it is a goodwill refund.',
     goodwill: 'Goodwill: refund more than is due',
   },
   refundsDue: {
@@ -387,8 +389,14 @@ export const tournamentsEn = {
     // player level (owner, 2026-10-06); the app runs Americano and Mexicano.
     classes: {
       A: { tag: 'Advanced', body: 'For strong, experienced players. Fast, competitive games.' },
-      B: { tag: 'Intermediate', body: 'For players who play regularly and know the rules and positions.' },
-      C: { tag: 'Beginners', body: 'For new and social players. Friendly games, open to anyone learning.' },
+      B: {
+        tag: 'Intermediate',
+        body: 'For players who play regularly and know the rules and positions.',
+      },
+      C: {
+        tag: 'Beginners',
+        body: 'For new and social players. Friendly games, open to anyone learning.',
+      },
     },
     formats: {
       americano: {
