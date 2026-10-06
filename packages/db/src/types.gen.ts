@@ -4772,6 +4772,14 @@ export type Database = {
         Args: { p_idempotency_key: string; p_run_id: string; p_settings: Json }
         Returns: Json
       }
+      tournament_refund_candidates: {
+        Args: { p_venue_id: string }
+        Returns: {
+          entry_id: string
+          refund_due_iqd: number
+          tournament_id: string
+        }[]
+      }
       tournament_refunds_due: { Args: { p_venue_id?: string }; Returns: Json }
       tournament_register: { Args: { p_tournament_id: string }; Returns: Json }
       tournament_release_blocks: {

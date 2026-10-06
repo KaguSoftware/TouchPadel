@@ -1,5 +1,5 @@
 {
-  "generated_from": "77321709f248659c79ecf6f614a6478d64647dbb",
+  "generated_from": "c92fdaa5446c8ff06c718b72fc0db3bb39dc4848",
   "chunks": [
     {
       "kind": "page",
@@ -15222,7 +15222,7 @@
       "ref": "label:op.reasons",
       "lang": "ar",
       "title": "op.reasons (packages/i18n/src/catalogs/ar.ts)",
-      "body": "customer_request: طلب الزبون\nweather: الطقس\nexpired: منتهي الصلاحية\nstaff_error: خطأ من الموظف\nduplicate: إدخال مكرر\nwrong_item: صنف خاطئ\nchanged_mind: الزبون غيّر رأيه\nquality: مشكلة في الجودة\nspill: انسكاب / هدر\ncomp: مجاني (ضيافة)\nother: أخرى\nconduct: سوء السلوك\ncourt_needed: الملعب مطلوب\nwalked_out: مغادرة دون دفع\nno_shows: تكرار الغياب\nreported: بلاغات من لاعبين\ncoach_unavailable: المدرّب غير متاح\nlesson_refund: رد مبلغ حصة\nlesson_goodwill: رد بحسن نية",
+      "body": "customer_request: طلب الزبون\nweather: الطقس\nexpired: منتهي الصلاحية\nstaff_error: خطأ من الموظف\nduplicate: إدخال مكرر\nwrong_item: صنف خاطئ\nchanged_mind: الزبون غيّر رأيه\nquality: مشكلة في الجودة\nspill: انسكاب / هدر\ncomp: مجاني (ضيافة)\nother: أخرى\nconduct: سوء السلوك\ncourt_needed: الملعب مطلوب\nwalked_out: مغادرة دون دفع\nno_shows: تكرار الغياب\nreported: بلاغات من لاعبين\ncoach_unavailable: المدرّب غير متاح\nlesson_refund: رد مبلغ حصة\nlesson_goodwill: رد بحسن نية\ntournament_refund: رد رسوم بطولة\ntournament_goodwill: رد بحسن نية",
       "route": null
     },
     {
@@ -15230,7 +15230,7 @@
       "ref": "label:op.reasons",
       "lang": "en",
       "title": "op.reasons (packages/i18n/src/catalogs/en.ts)",
-      "body": "customer_request: Customer request\nweather: Weather\nexpired: Expired\nstaff_error: Staff error\nduplicate: Duplicate entry\nwrong_item: Wrong item\nchanged_mind: Customer changed mind\nquality: Quality issue\nspill: Spill / waste\ncomp: Complimentary\nother: Other\nconduct: Conduct\ncourt_needed: Court needed\nwalked_out: Left without paying\nno_shows: Repeated no-shows\nreported: Reported by players\ncoach_unavailable: Coach unavailable\nlesson_refund: Lesson refund\nlesson_goodwill: Goodwill refund",
+      "body": "customer_request: Customer request\nweather: Weather\nexpired: Expired\nstaff_error: Staff error\nduplicate: Duplicate entry\nwrong_item: Wrong item\nchanged_mind: Customer changed mind\nquality: Quality issue\nspill: Spill / waste\ncomp: Complimentary\nother: Other\nconduct: Conduct\ncourt_needed: Court needed\nwalked_out: Left without paying\nno_shows: Repeated no-shows\nreported: Reported by players\ncoach_unavailable: Coach unavailable\nlesson_refund: Lesson refund\nlesson_goodwill: Goodwill refund\ntournament_refund: Tournament refund\ntournament_goodwill: Goodwill refund",
       "route": null
     },
     {
@@ -21895,6 +21895,22 @@
       "lang": "en",
       "title": "ws.tournaments.publish (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
       "body": "action: Publish as tournament\ntitle: Publish the tournament\nlead: Guests can register in the app once it is published. The name, fee and courts come from the plan.\nsubmit: Publish\npublished: Tournament published.\nopenTournament: Open tournament\nname: Name\nfee: Entry fee\nfeeHint: Set in the plan. It can't change once published.\ncapacity: Up to {count} players\ncourts: Courts\nformat: Format\nformatPick: Pick a format\ncategory: Who may enter\npointsTarget: Points per game\npointsTargetHint: Both sides together score exactly this many points.\nrounds: Rounds\nroundsHint: Mexicano plays this many rounds, one at a time.\ncutoff: Registration closes\ncutoffDay: Registration closes: date\ncutoffTime: Registration closes: time\ncutoffHint: Before the first court block. Below the minimum then, it is cancelled.\nminEntries: Minimum players\nwaitlist: Waitlist places\nprizeEn: Prize (English)\nprizeAr: Prize (Arabic)\nunblocked: {count} planned windows have no court block. Players only play on blocked courts.\nerrors.required: Fill this in.\nerrors.range: Between {min} and {max}.\nerrors.cutoffPast: Pick a time that has not passed.\nerrors.cutoffLate: Pick a time before the first court block ({time}).\nerrors.tooLong: At most {max} characters.\nrefused.not_done: This protocol run is not done yet.\nrefused.already_published: This run is already published as a tournament.\nrefused.capacity_unit: The plan counts pairs. A tournament counts players: change the plan.\nrefused.capacity_count: The plan has room for fewer than 4 players.\nrefused.format: Americano and Mexicano are the formats a tournament plays.\nrefused.no_blocks: None of the planned courts is blocked any more.\nrefused.settings: One of the settings was not accepted. Check them and publish again.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.refund",
+      "lang": "ar",
+      "title": "ws.tournaments.refund (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
+      "body": "capLead: رسوم اشتراك في بطولة: لا يتجاوز الرد المستحق عن الاشتراك إلا إذا كان ردًا بحسن نية.\ngoodwill: رد بحسن نية: أكثر من المستحق",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.tournaments.refund",
+      "lang": "en",
+      "title": "ws.tournaments.refund (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
+      "body": "capLead: Tournament entry money: at most what is due back on the entry, unless it is a goodwill refund.\ngoodwill: Goodwill: refund more than is due",
       "route": null
     },
     {

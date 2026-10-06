@@ -20,6 +20,7 @@
  * Every case is one rolled-back psql transaction (stores-harness); without docker the suite skips.
  */
 import { describe, expect, it } from 'vitest';
+import { TOURNAMENT_SHAPES, tourMissingKeys } from '../../core/src/tournaments';
 import { DEV_PINS, stackAvailable } from './helpers';
 import { GUEST } from './matches-harness';
 import { dockerReachable, KEEP, Q, scenario, T, X } from './stores-harness';
@@ -78,6 +79,11 @@ describe.skipIf(!docker)('0310 money (c9, c10, c41)', () => {
       T('detail', 'manager', `select app.desk_tournament_detail({{t1}})`),
     ]);
     expect(answer(r, 'sweep')).toMatchObject({ cancelled: 1, errors: 0 });
+    expect(tourMissingKeys(answer(r, 'list'), TOURNAMENT_SHAPES.desk_tournaments)).toEqual([]);
+    expect(tourMissingKeys(answer(r, 'due'), TOURNAMENT_SHAPES.tournament_refunds_due)).toEqual([]);
+    expect(tourMissingKeys(answer(r, 'detail'), TOURNAMENT_SHAPES.desk_tournament_detail)).toEqual(
+      [],
+    );
     const list = answer<{
       tournaments: Array<{ id: string; status: string; refund_due_iqd: number }>;
     }>(r, 'list');
@@ -222,6 +228,8 @@ describe.skipIf(!docker)('0310 lifecycle (c40, c24, c25, c28, c29, c39, s0)', ()
     expect(refusal(r, 'under')).toBe('TOURNAMENT_UNDER_FILLED:3/4');
     expect(refusal(r, 'cashier')).toBe('FORBIDDEN');
     expect(answer(r, 'close')).toMatchObject({ status: 'closed', duplicate: false, registered: 4 });
+    expect(tourMissingKeys(answer(r, 'close'), TOURNAMENT_SHAPES.tournament_close)).toEqual([]);
+    expect(tourMissingKeys(answer(r, 'again'), TOURNAMENT_SHAPES.tournament_close)).toEqual([]);
     expect(answer(r, 'again')).toMatchObject({ status: 'closed', duplicate: true });
     expect(answer(r, 'seeds')).toEqual([1, 2, 3, 4]);
     expect(answer(r, 'rounds')).toMatchObject({ status: 'running' });
@@ -286,6 +294,15 @@ describe.skipIf(!docker)('0310 lifecycle (c40, c24, c25, c28, c29, c39, s0)', ()
         `select jsonb_agg(jsonb_build_object('status', status, 'ended', end_at <= now()))
            from reservations where protocol_run_id = {{r1}}::uuid and block_purpose = 'event'`,
       ),
+      // The shortened blocks' audit keeps the end_at before the cut.
+      Q(
+        'shorten_audit',
+        `select jsonb_agg(jsonb_build_object(
+                  'before_later', (a.before->>'end_at')::timestamptz > (a.after->>'end_at')::timestamptz))
+           from audit_log a
+           join reservations r on r.id::text = a.entity_id
+          where a.action = 'reservation.shorten' and r.protocol_run_id = {{r1}}::uuid`,
+      ),
       Q(
         'rounds_left',
         `select jsonb_agg(round_no order by round_no) from tournament_rounds where tournament_id = {{t1}}::uuid`,
@@ -302,7 +319,9 @@ describe.skipIf(!docker)('0310 lifecycle (c40, c24, c25, c28, c29, c39, s0)', ()
       removed_from_round: 3,
       blocks_released: 4,
     });
+    expect(tourMissingKeys(answer(r, 'finish'), TOURNAMENT_SHAPES.tournament_finish)).toEqual([]);
     expect(refusal(r, 'again')).toBe('TOURNAMENT_NOT_OPEN:status');
+    expect(answer(r, 'shorten_audit')).toEqual(Array(4).fill({ before_later: true }));
     expect(answer(r, 'blocks')).toEqual(Array(4).fill({ status: 'confirmed', ended: true }));
     expect(answer(r, 'rounds_left')).toEqual([1, 2]);
   });

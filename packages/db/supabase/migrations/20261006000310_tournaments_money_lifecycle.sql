@@ -26,7 +26,9 @@ set statement_timeout = '60s';
 --       tournament still owing entry money (and a cancel in the window),
 --       with refund_due_iqd; new app.tournament_refunds_due (manager, owner);
 --       app.desk_tournament_detail (0301) gives each entry its payments and
---       can.close / can.finish.
+--       can.close / can.finish. The branch-wide money reads (desk_tournaments,
+--       tournament_refunds_due, close_branch) share the new internal
+--       app.tournament_refund_candidates, on two new indexes.
 --   c41 app.refund (0281): a tournament tab takes the tournament (share) and
 --       the entry before the tab, and refunds at most refund_due_iqd unless
 --       the reason is tournament_goodwill (REFUND_EXCEEDS_DUE).
@@ -39,9 +41,29 @@ set statement_timeout = '60s';
 -- (court-id order) -> reservations, as 0300/0301; app.refund takes the
 -- tournament (share) and the entry where the lesson branch takes the coach
 -- mutex, before tabs, as tournament_settle does.
+--
+-- Two indexes (review of c9/c40): tabs_tournament_entry_idx (partial: the
+-- tournament tabs only) and tournament_entries_venue_idx, so the branch-wide
+-- reads (desk_tournaments, tournament_refunds_due, close_branch) and
+-- tournament_entry_money stop scanning tabs once per entry. Plain CREATE
+-- INDEX, not CONCURRENTLY (Supabase wraps each migration in a transaction):
+-- each takes SHARE on its table for one scan under lock_timeout 3s; tabs has
+-- held tournament rows only since 0299, and tournament_entries is small. The
+-- waiver, as 0306:
+--   MIGRATION-RISK-ACCEPTED: a partial index on tabs whose predicate matches
+--   only the tournament tabs written since 0299, and an index on the small
+--   tournament_entries table
+-- and `MIGRATION_RISK_ACCEPTED=... node scripts/check-migrations.mjs` is run
+-- before the push (0279, 0306 precedent).
 
 -- ===========================================================================
--- 0. The sweep's failure stamp (c39)
+-- 0. Indexes (review of c9/c40)
+-- ===========================================================================
+create index if not exists tabs_tournament_entry_idx on tabs (tournament_entry_id) where tournament_entry_id is not null;
+create index if not exists tournament_entries_venue_idx on tournament_entries (venue_id);
+
+-- ===========================================================================
+-- 0b. The sweep's failure stamp (c39)
 -- ===========================================================================
 alter table tournaments add column if not exists sweep_error_at timestamptz;
 alter table tournaments add column if not exists sweep_errors int not null default 0;
@@ -122,6 +144,44 @@ end $tournament_entry_money_0310$;
 comment on function app.tournament_entry_money(uuid, uuid) is
   'Tournaments (M7, build contracts §1.7, S2, S3; 0310 c10). Internal: the money of one entry, tab p_exclude_tab_id left out: {entry_id, tournament_id, entry_status, tournament_status, fee_iqd, desk_paid_iqd (payments on its settled, unmerged tournament tabs), desk_refunded_iqd (refunds on those payments), online_paid_iqd (0, the Qi seam), net_iqd, payable (registered, tournament not cancelled), owed_iqd (payable ? max(0, fee - net) : 0), refund_due_iqd (net when withdrawn, the tournament cancelled, or (0310) waitlisted once the tournament is closed, running or finished; else 0)}. NULL for an unknown entry. Stable, no locks, no name, phone or guest id. Key list: TOURNAMENT_SHAPES.tournament_entry_money (packages/core/src/tournaments/shapes.ts).';
 
+-- The branch's entries still due money back (c9/c40 review): the one read
+-- behind desk_tournaments, tournament_refunds_due and close_branch. The WHERE
+-- is only a cheap necessary condition, so tournament_entry_money runs for few
+-- entries rather than every paid entry the branch ever had: refund_due_iqd is
+-- non-zero only under the v_due test above (withdrawn, cancelled, or
+-- waitlisted once closed) and only while some payment on a settled, unmerged
+-- tournament tab of the entry is not fully refunded. A change to v_due changes
+-- this WHERE too. The amount itself always comes from tournament_entry_money.
+create or replace function app.tournament_refund_candidates(p_venue_id uuid)
+returns table (entry_id uuid, tournament_id uuid, refund_due_iqd bigint)
+language sql stable security definer set search_path = public as $tournament_refund_candidates_0310$
+  select c.id, c.tournament_id, c.rd
+    from (select e.id, e.tournament_id,
+                 (app.tournament_entry_money(e.id)->>'refund_due_iqd')::bigint as rd
+            from tournament_entries e
+            join tournaments t on t.id = e.tournament_id
+           where e.venue_id = p_venue_id
+             and (t.status = 'cancelled'
+                  or e.status = 'withdrawn'
+                  or (e.status = 'waitlisted' and t.status in ('closed', 'running', 'finished')))
+             and exists (select 1
+                           from tabs tb
+                           join payments py on py.tab_id = tb.id
+                          where tb.tournament_entry_id = e.id
+                            and tb.kind = 'tournament'
+                            and tb.status = 'settled'
+                            and tb.merged_into_tab_id is null
+                            and py.amount_iqd > coalesce((select sum(x.amount_iqd) from refunds x
+                                                           where x.payment_id = py.id), 0))) c
+   where c.rd > 0
+$tournament_refund_candidates_0310$;
+
+comment on function app.tournament_refund_candidates(uuid) is
+  'Tournaments (0310, c9/c40 review). Internal: every entry of branch p_venue_id still due money back at the till, with its refund_due_iqd (app.tournament_entry_money, > 0). A cheap necessary-condition WHERE (the v_due test and an unrefunded payment on a settled, unmerged tournament tab) keeps tournament_entry_money off the branch''s settled history. Stable, no locks. Read by desk_tournaments, tournament_refunds_due and close_branch.';
+
+revoke all on function app.tournament_refund_candidates(uuid) from public, anon, authenticated;
+grant execute on function app.tournament_refund_candidates(uuid) to service_role;
+
 -- ===========================================================================
 -- 2. app.tournament_release_blocks (c29), re-issued from 0300:331
 -- ===========================================================================
@@ -132,6 +192,9 @@ declare
   v_run_id uuid;
   v_court  uuid;
   v_res    reservations%rowtype;
+  v_res_id  uuid;
+  v_new_end timestamptz;
+  v_old_end timestamptz;
   v_n      int := 0;
 begin
   select t.protocol_run_id into v_run_id from tournaments t where t.id = p_tournament_id;
@@ -166,23 +229,29 @@ begin
 
   -- 0310 (c29): a block already running ends now (at least a minute after it
   -- began), so the courts the tournament no longer needs are bookable at once.
-  for v_res in
+  -- The audit's before value is the block's end_at before the cut (o, the
+  -- statement's snapshot of the same row), so the trail shows the court time
+  -- released.
+  for v_res_id, v_new_end, v_old_end in
     update reservations r
        set end_at = greatest(now(), r.start_at + interval '1 minute')
-     where r.protocol_run_id = v_run_id and r.block_purpose = 'event'
+      from reservations o
+     where o.id = r.id
+       and r.protocol_run_id = v_run_id and r.block_purpose = 'event'
        and r.status in ('pending', 'confirmed', 'arrived')
        and r.start_at <= now() and r.end_at > greatest(now(), r.start_at + interval '1 minute')
-    returning r.*
+    returning r.id, r.end_at, o.end_at
   loop
     v_n := v_n + 1;
-    perform app.write_audit('reservation.shorten', 'reservations', v_res.id::text, null,
-      jsonb_build_object('end_at', v_res.end_at, 'protocol_run_id', v_run_id, 'tournament_id', p_tournament_id));
+    perform app.write_audit('reservation.shorten', 'reservations', v_res_id::text,
+      jsonb_build_object('end_at', v_old_end),
+      jsonb_build_object('end_at', v_new_end, 'protocol_run_id', v_run_id, 'tournament_id', p_tournament_id));
   end loop;
   return v_n;
 end $tournament_release_blocks_0310$;
 
 comment on function app.tournament_release_blocks(uuid, text) is
-  'Tournaments (M7, §1.5; 0310 c29). Internal: cancels the tournament run''s live event blocks that have not started and ends the ones already running now (end_at = greatest(now(), start_at + 1 minute)); courts locked in court-id order first; cancellation_reason p_note; audit reservation.cancel or reservation.shorten per block. Called by cancel and finish only after the status change. Returns the blocks cancelled or shortened.';
+  'Tournaments (M7, §1.5; 0310 c29). Internal: cancels the tournament run''s live event blocks that have not started and ends the ones already running now (end_at = greatest(now(), start_at + 1 minute)); courts locked in court-id order first; cancellation_reason p_note; audit reservation.cancel or reservation.shorten (before value the old end_at) per block. Called by cancel and finish only after the status change. Returns the blocks cancelled or shortened.';
 
 -- ===========================================================================
 -- 3. Close (c24) and finish (c28): new
@@ -264,7 +333,7 @@ begin
   if v_reg < v_t.min_entries then
     raise exception 'TOURNAMENT_UNDER_FILLED' using errcode = 'P0001',
       detail = format('%s/%s', v_reg, v_t.min_entries),
-      hint = 'fewer players than the minimum; add players or cancel the tournament';
+      hint = 'fewer entries than the minimum; add entries or cancel the tournament';
   end if;
 
   v_reg := app.tournament_close_internal(v_t.id, 'staff');
@@ -1050,6 +1119,14 @@ begin
   -- still holds a live block in the window. 0310 (c9): also a cancelled one
   -- cancelled in the window, and a cancelled or finished one (at any date)
   -- whose entries are still due money back at the till, until it is refunded.
+  -- The money due back comes from app.tournament_refund_candidates, once per
+  -- call (not once per tournament the branch ever had); a tournament with no
+  -- entry due anything is 0.
+  with rd as (
+    select c.tournament_id, sum(c.refund_due_iqd)::bigint as due
+      from app.tournament_refund_candidates(v_venue) c
+     group by c.tournament_id
+  )
   select coalesce(jsonb_agg(x.j order by x.starts_at, x.id), '[]'::jsonb)
     into v_rows
     from (select t.id, t.starts_at,
@@ -1067,7 +1144,7 @@ begin
                    'waitlisted', (select count(*) from tournament_entries e
                                    where e.tournament_id = t.id and e.status = 'waitlisted'),
                    'max_entries', t.max_entries,
-                   'refund_due_iqd', rd.due,
+                   'refund_due_iqd', coalesce(rd.due, 0),
                    'blocks', coalesce((select jsonb_agg(jsonb_build_object(
                                                 'reservation_id', r.id, 'court_id', r.court_id,
                                                 'start_at', r.start_at, 'end_at', r.end_at)
@@ -1078,11 +1155,7 @@ begin
                                           and r.status in ('pending', 'confirmed', 'arrived')
                                           and r.period && tstzrange(p_from, p_to, '[)')), '[]'::jsonb)) as j
             from tournaments t
-            cross join lateral (
-              select coalesce(sum((app.tournament_entry_money(e.id)->>'refund_due_iqd')::bigint), 0)::bigint as due
-                from tournament_entries e
-               where e.tournament_id = t.id
-                 and exists (select 1 from tabs tb where tb.tournament_entry_id = e.id)) rd
+            left join rd on rd.tournament_id = t.id
            where t.venue_id = v_venue
              and ((t.status <> 'cancelled' and tstzrange(t.starts_at, t.ends_at, '[)') && tstzrange(p_from, p_to, '[)'))
                   or (t.status = 'cancelled'
@@ -1126,11 +1199,9 @@ begin
   end if;
 
   with cand as (
-    select e.id, e.tournament_id, e.guest_id, e.status,
-           (app.tournament_entry_money(e.id)->>'refund_due_iqd')::bigint as rd
-      from tournament_entries e
-     where e.venue_id = v_venue
-       and exists (select 1 from tabs tb where tb.tournament_entry_id = e.id)
+    select e.id, e.tournament_id, e.guest_id, e.status, d.refund_due_iqd as rd
+      from app.tournament_refund_candidates(v_venue) d
+      join tournament_entries e on e.id = d.entry_id
   )
   select coalesce(jsonb_agg(jsonb_build_object(
            'entry_id',          c.id,
@@ -1607,10 +1678,7 @@ begin
     raise exception 'BRANCH_HAS_BOOKINGS' using errcode = 'P0001', detail = 'tournaments',
       hint = 'finish or cancel the branch''s tournaments first';
   end if;
-  if exists (select 1 from tournament_entries e
-              where e.venue_id = p_venue
-                and exists (select 1 from tabs tb where tb.tournament_entry_id = e.id)
-                and (app.tournament_entry_money(e.id)->>'refund_due_iqd')::bigint > 0) then
+  if exists (select 1 from app.tournament_refund_candidates(p_venue)) then
     raise exception 'BRANCH_HAS_BOOKINGS' using errcode = 'P0001', detail = 'tournament_money',
       hint = 'make the branch''s tournament refunds first';
   end if;

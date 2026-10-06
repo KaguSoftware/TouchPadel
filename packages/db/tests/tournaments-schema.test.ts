@@ -32,7 +32,7 @@ const TABLES = [
 ];
 
 describe.skipIf(!docker)('tournaments schema (§1.2)', () => {
-  it('five branch tables: RLS on, no policy, no client grant, the guard, venue_id with no default, constraint indexes only', () => {
+  it('five branch tables: RLS on, no policy, no client grant, the guard, venue_id with no default, constraint indexes only (0310: plus tournament_entries_venue_idx)', () => {
     const r = scenario('ts-tables', [
       Q(
         'tables',
@@ -66,7 +66,8 @@ describe.skipIf(!docker)('tournaments schema (§1.2)', () => {
         service: true,
         venue_id: true,
         venue_default: null,
-        loose_indexes: 0,
+        // 0310: tournament_entries_venue_idx, for the branch-wide money reads.
+        loose_indexes: name === 'tournament_entries' ? 1 : 0,
       });
       expect(t.guard, name).toMatch(/trg_branch_guard\('scoped'/);
     }

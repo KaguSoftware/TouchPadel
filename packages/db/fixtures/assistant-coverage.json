@@ -1160,6 +1160,7 @@
     "tournament_promote_internal": "excluded: service_role only — the waitlist promotion (tournaments_lifecycle migration), run when a registered place frees up, never called by a client",
     "tournament_public": "map:action",
     "tournament_publish": "map:action",
+    "tournament_refund_candidates": "excluded: service_role only — the branch’s entries still due money back (tournaments_money_lifecycle migration), read by desk_tournaments, tournament_refunds_due and close_branch, never called by a client",
     "tournament_refunds_due": "map:action",
     "tournament_register": "map:action",
     "tournament_release_blocks": "excluded: service_role only — the release of a cancelled or finished tournament’s event blocks (tournaments_lifecycle migration), never called by a client",
