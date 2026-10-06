@@ -56,7 +56,20 @@ describe('fromRow / toRpcArgs', () => {
     expect(d.hourFrom).toBe('16:00');
     expect(d.hourTo).toBe('19:00');
     expect(d.scope).toEqual({ courtIds: [], categoryIds: ['c1'], itemIds: [] });
-    expect(d.limits).toEqual({ total: 100, perCustomer: null, minSpendIqd: null });
+    expect(d.limits).toEqual({ total: 100, perCustomer: null, minSpendIqd: null, tierMin: null });
+  });
+
+  it('keeps the tierMin of a tier promotion through an edit, and sends it only when set (0309)', () => {
+    const tier = 'd1b2c3d4-0000-4000-8000-000000000001';
+    const d = fromRow({ ...row, limits: { total: 100, tierMin: tier } });
+    expect(d.limits.tierMin).toBe(tier);
+    expect(toRpcArgs({ ...d, name: { en: 'Renamed', ar: 'x' } }, 'p1').p_limits).toEqual({
+      total: 100,
+      perCustomer: null,
+      minSpendIqd: null,
+      tierMin: tier,
+    });
+    expect(toRpcArgs(fromRow(row), 'p1').p_limits).not.toHaveProperty('tierMin');
   });
 
   it('sends p_ + the 0067 column names', () => {
