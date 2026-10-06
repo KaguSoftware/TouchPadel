@@ -130,7 +130,9 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
               ? {
                   ...cur,
                   done: true,
-                  error: cur.error ?? { code, message: err instanceof Error ? err.message : '' },
+                  // Only the code reaches the screen (staff.assistant.errors.<code>); the
+                  // server's own words went to the tracker above, not into the state.
+                  error: cur.error ?? { code, message: '' },
                   tools: cur.tools.map((t) => ({ ...t, pending: false })),
                 }
               : cur,
