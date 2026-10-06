@@ -398,11 +398,12 @@ export function listBlockingRows(): QueueRow[] {
 }
 
 /**
- * Degraded inputs — two independent witnesses, either one flips the flag:
+ * uploadBlocked inputs — two independent witnesses, either one flips the flag:
  * the renderer's heartbeat verdict (pushed over touch:conn-state after every
- * beat) and the sync worker's own transport failures. The renderer's BANNER
- * still prefers the server's res.degraded when a beat succeeds; this local
- * flag is what remains truthful when the server cannot be reached at all.
+ * beat) and the sync worker's own state (transport failures, or a 401 that
+ * paused replay). VenueStatusBanner reads it: the beat is a READ over
+ * PostgREST and the queue drains over the replay edge function, so the beat
+ * can keep succeeding while every sale sits in the outbox.
  */
 let rendererOnline = true;
 let workerUnreachable = false;
@@ -433,7 +434,7 @@ export function queueStatus(): QueueStatus {
     conflicts,
     failed,
     blocking: depth + conflicts + failed,
-    degraded: !rendererOnline || workerUnreachable,
+    uploadBlocked: !rendererOnline || workerUnreachable,
   };
 }
 

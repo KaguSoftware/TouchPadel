@@ -1265,8 +1265,6 @@ export const en = {
       'Online ordering is temporarily paused. Please see a member of staff to order.',
     waiterCallRefused: 'The call button is temporarily unavailable. Please see a member of staff.',
     readOnlyNotice: 'You can still browse — new requests are paused for a moment.',
-    tillBanner: 'Offline — orders are being queued ({count} waiting to sync).',
-    tillBannerSynced: 'Back online — all queued items have synced.',
     dayCloseBlocked: 'The day cannot be closed while {count} items are still unsynced.',
     // Design 2026-08-31: proactive banners (refusal copy above remains the backstop).
     // The bold lead sentence renders separately (DegradedBanner `lead`).
@@ -1306,6 +1304,10 @@ export const en = {
     // components/VenueStatusBanner).
     status: {
       degraded: 'Venue offline mode: guests cannot book the coming days or order online. Take bookings and orders at the desk.',
+      // This station reads the server but its queued writes are not getting
+      // out (replay failing, or its staff token refused).
+      uploadBlocked:
+        'This station can reach the server but cannot send its changes. Keep serving: nothing is lost, and everything syncs when sending works again.',
     },
     // SOW L237-238: the shared-till idle lock (0064).
     lock: {

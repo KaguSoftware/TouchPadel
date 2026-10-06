@@ -1,5 +1,5 @@
 {
-  "generated_from": "e517801353b6ee5892076bd99702459f460b67e9",
+  "generated_from": "aadec22bd2780f010e5411cd4c96b24fd79aa7b8",
   "chunks": [
     {
       "kind": "page",
@@ -17759,22 +17759,6 @@
       "lang": "en",
       "title": "ws.kit.dateRange (packages/i18n/src/catalogs/ws/kit.en.ts)",
       "body": "today: Today\nyesterday: Yesterday\nthisWeek: This week\nlastWeek: Last week\nthisMonth: This month\nlastMonth: Last month\nlast30: Last 30 days\ncustom: Custom\nfrom: From\nto: To\napply: Apply",
-      "route": null
-    },
-    {
-      "kind": "label",
-      "ref": "label:ws.kit.degraded",
-      "lang": "ar",
-      "title": "ws.kit.degraded (packages/i18n/src/catalogs/ws/kit.ar.ts)",
-      "body": "title: دون اتصال\nbody: تعذّر الوصول إلى الخادم. يواصل الصندوق العمل، وستُزامن التغييرات تلقائيًا. بانتظار المزامنة: {count}.\nqueued: بانتظار المزامنة: {count}",
-      "route": null
-    },
-    {
-      "kind": "label",
-      "ref": "label:ws.kit.degraded",
-      "lang": "en",
-      "title": "ws.kit.degraded (packages/i18n/src/catalogs/ws/kit.en.ts)",
-      "body": "title: Offline mode\nbody: The server cannot be reached. The till keeps trading; {count} changes are queued and will sync automatically.\nqueued: {count} queued",
       "route": null
     },
     {
