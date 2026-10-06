@@ -103,4 +103,9 @@ regexes = [
   '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''',
   '''TP-8F3K2QXM-482913''',
   '''TP-8F3K2QXM-287082''',
+  # The member token the operator MemberAttach test types and expects back in loyalty_redeem's
+  # p_member_token (apps/operator/src/features/loyalty/MemberAttach.test.tsx; commit ad87042a,
+  # 0308). Hand-typed: the letters A..H and the digits 1..6 in order. The RPC is mocked there, no
+  # card secret produces it, and the test checks only that the scanned string is passed through.
+  '''TP-ABCDEFGH-123456''',
 ]
