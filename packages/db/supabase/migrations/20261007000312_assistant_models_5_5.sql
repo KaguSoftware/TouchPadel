@@ -1,4 +1,4 @@
--- 0307_assistant_models_5_5 — owner call 2026-10-07: the assistant answers with
+-- 0312_assistant_models_5_5 — owner call 2026-10-07: the assistant answers with
 -- Claude Opus 5.5 or Claude Sonnet 5.5 and nothing else.
 --
 -- WHAT CHANGES.
@@ -47,7 +47,7 @@ update assistant_conversations
  where model is not null
    and model not in ('claude-opus-5-5', 'claude-sonnet-5-5');
 
-do $assistant_models_5_5_0307$
+do $assistant_models_5_5_0312$
 begin
   if not exists (select 1 from pg_constraint
                   where conname = 'platform_settings_llm_default_model_chk'
@@ -61,9 +61,9 @@ begin
     alter table assistant_conversations add constraint assistant_conversations_model_chk
       check (model is null or model in ('claude-opus-5-5', 'claude-sonnet-5-5')) not valid;
   end if;
-end $assistant_models_5_5_0307$;
+end $assistant_models_5_5_0312$;
 
-do $assistant_models_5_5_validate_0307$
+do $assistant_models_5_5_validate_0312$
 begin
   if exists (select 1 from pg_constraint
               where conname = 'platform_settings_llm_default_model_chk'
@@ -77,11 +77,11 @@ begin
                 and not convalidated) then
     alter table assistant_conversations validate constraint assistant_conversations_model_chk;
   end if;
-end $assistant_models_5_5_validate_0307$;
+end $assistant_models_5_5_validate_0312$;
 
 comment on column platform_settings.llm_pricing is
-  '0207 (from venue_settings, 0111), 0307. Model -> four rates in USD micros per 1,000,000 tokens. Since 0307 exactly claude-opus-5-5 and claude-sonnet-5-5.';
+  '0207 (from venue_settings, 0111), 0312. Model -> four rates in USD micros per 1,000,000 tokens. Since 0312 exactly claude-opus-5-5 and claude-sonnet-5-5.';
 comment on column platform_settings.llm_default_model is
-  '0207 (from venue_settings, 0140), 0307. The model a new assistant chat uses: claude-opus-5-5 or claude-sonnet-5-5 (CHECK), and a key of llm_pricing.';
+  '0207 (from venue_settings, 0140), 0312. The model a new assistant chat uses: claude-opus-5-5 or claude-sonnet-5-5 (CHECK), and a key of llm_pricing.';
 comment on column assistant_conversations.model is
-  '0140, 0307. This chat''s model (claude-opus-5-5 or claude-sonnet-5-5, CHECK), or NULL to follow platform_settings.llm_default_model. Set by app.assistant_set_model; the edge function resolves the effective model per answer and stamps it on every assistant_calls row.';
+  '0140, 0312. This chat''s model (claude-opus-5-5 or claude-sonnet-5-5, CHECK), or NULL to follow platform_settings.llm_default_model. Set by app.assistant_set_model; the edge function resolves the effective model per answer and stamps it on every assistant_calls row.';

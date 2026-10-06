@@ -17,8 +17,9 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0311`
-  (`20261006000311_tournaments_play_fixes.sql`; 0307–0311 the second review of loyalty and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0312`
+  (`20261007000312_assistant_models_5_5.sql`, the assistant on Claude Opus 5.5 and Sonnet 5.5 only,
+  first committed as a second 0307 and renumbered before it reached hosted; 0307–0311 the second review of loyalty and
   tournaments: 0307 identity hardening, 0308 loyalty earn and redeem, 0309 loyalty promotions and
   the nightly, 0310 tournament money and lifecycle (with the `tabs_tournament_entry_idx` index
   first planned as 0312), 0311 tournament play fixes; 0303–0306 loyalty, Phase 2 milestone 3:
@@ -36,7 +37,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0312`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0313`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
