@@ -52,6 +52,8 @@ export const loyaltyAr: DeepMessages<typeof loyaltyEn> = {
     undo: 'تراجع',
     undone: 'أُعيدت النقاط إلى العضو.',
     billRow: 'نقاط الولاء',
+    pinLabel: 'رمز المدير',
+    pinHint: 'لم تُمسح بطاقة العضو للتو. امسحها مرة أخرى، أو يُدخل المدير رمزه.',
   },
   rewards: {
     button: 'المكافآت',

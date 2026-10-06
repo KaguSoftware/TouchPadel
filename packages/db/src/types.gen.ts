@@ -2430,6 +2430,10 @@ export type Database = {
         Returns: Json
       }
       loyalty_admin: { Args: never; Returns: Json }
+      loyalty_attempt_record: {
+        Args: { p_code: string; p_ok: boolean; p_uid: string }
+        Returns: undefined
+      }
       loyalty_card_ensure: {
         Args: { p_profile: string }
         Returns: Database["public"]["Tables"]["loyalty_cards"]["Row"]
@@ -2443,6 +2447,10 @@ export type Database = {
       loyalty_customer: { Args: { p_profile_id: string }; Returns: Json }
       loyalty_display_name: { Args: { p_profile: string }; Returns: string }
       loyalty_history: {
+        Args: { p_limit: number; p_profile: string }
+        Returns: Json
+      }
+      loyalty_history_guest: {
         Args: { p_limit: number; p_profile: string }
         Returns: Json
       }
@@ -2475,6 +2483,7 @@ export type Database = {
       loyalty_redeem: {
         Args: {
           p_idempotency_key: string
+          p_member_token?: string
           p_points: number
           p_reward_id: string
           p_tab_id: string
@@ -2483,8 +2492,22 @@ export type Database = {
       }
       loyalty_retier: { Args: never; Returns: undefined }
       loyalty_settings_json: { Args: never; Returns: Json }
+      loyalty_tab_paid_at_settle: {
+        Args: { p_tab_id: string }
+        Returns: number
+      }
+      loyalty_throttle_check: {
+        Args: { p_code: string; p_uid: string; p_user_limit: number }
+        Returns: undefined
+      }
       loyalty_tier_json: { Args: { p_tier: string }; Returns: Json }
       loyalty_till_terms: { Args: { p_venue_id: string }; Returns: Json }
+      loyalty_token_code: { Args: { p_token: string }; Returns: string }
+      loyalty_token_consume: { Args: { p_token: string }; Returns: string }
+      loyalty_token_match: {
+        Args: { p_token: string }
+        Returns: Record<string, unknown>
+      }
       loyalty_token_profile: { Args: { p_token: string }; Returns: string }
       loyalty_totp: {
         Args: { p_counter: number; p_secret: string }
@@ -8664,6 +8687,7 @@ export type Database = {
       loyalty_cards: {
         Row: {
           created_at: string
+          last_counter: number | null
           member_code: string
           profile_id: string
           rotated_at: string | null
@@ -8671,6 +8695,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          last_counter?: number | null
           member_code: string
           profile_id: string
           rotated_at?: string | null
@@ -8678,6 +8703,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          last_counter?: number | null
           member_code?: string
           profile_id?: string
           rotated_at?: string | null
@@ -8698,6 +8724,8 @@ export type Database = {
           actor_id: string | null
           created_at: string
           delta: number
+          earn_base_iqd: number | null
+          earn_court_iqd: number | null
           id: string
           kind: string
           note: string | null
@@ -8711,6 +8739,8 @@ export type Database = {
           actor_id?: string | null
           created_at?: string
           delta: number
+          earn_base_iqd?: number | null
+          earn_court_iqd?: number | null
           id?: string
           kind: string
           note?: string | null
@@ -8724,6 +8754,8 @@ export type Database = {
           actor_id?: string | null
           created_at?: string
           delta?: number
+          earn_base_iqd?: number | null
+          earn_court_iqd?: number | null
           id?: string
           kind?: string
           note?: string | null
@@ -8924,6 +8956,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      loyalty_token_attempts: {
+        Row: {
+          at: string
+          auth_user_id: string | null
+          id: number
+          member_code: string | null
+          ok: boolean
+        }
+        Insert: {
+          at?: string
+          auth_user_id?: string | null
+          id?: never
+          member_code?: string | null
+          ok: boolean
+        }
+        Update: {
+          at?: string
+          auth_user_id?: string | null
+          id?: never
+          member_code?: string | null
+          ok?: boolean
+        }
+        Relationships: []
       }
       manager_alerts: {
         Row: {
@@ -14609,6 +14665,7 @@ export type Database = {
           court_cap_iqd: number | null
           court_iqd: number
           customer_id: string | null
+          customer_method: string | null
           day_session_id: string
           device_id: string | null
           discount_iqd: number | null
@@ -14635,6 +14692,7 @@ export type Database = {
           court_cap_iqd?: number | null
           court_iqd?: number
           customer_id?: string | null
+          customer_method?: string | null
           day_session_id: string
           device_id?: string | null
           discount_iqd?: number | null
@@ -14661,6 +14719,7 @@ export type Database = {
           court_cap_iqd?: number | null
           court_iqd?: number
           customer_id?: string | null
+          customer_method?: string | null
           day_session_id?: string
           device_id?: string | null
           discount_iqd?: number | null

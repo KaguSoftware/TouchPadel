@@ -52,6 +52,9 @@ export const loyaltyEn = {
     undo: 'Undo',
     undone: 'Points given back to the member.',
     billRow: 'Loyalty points',
+    pinLabel: 'Manager PIN',
+    pinHint:
+      'The member’s card was not scanned just now. Scan it again, or a manager enters their PIN.',
   },
   rewards: {
     button: 'Rewards',

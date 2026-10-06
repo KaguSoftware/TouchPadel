@@ -16,6 +16,13 @@
  *   * a tier promotion (limits.tierMin) only from that tier up; settings and tiers for the owner;
  *   * delete_my_account takes the card and the cache; link_guest_session hands a guest_web
  *     tab's earn to the linked account; the ledger is append-only; the nightly run.
+ *   * 0308 (the review): a redemption needs the member's token (spent once) or a manager PIN
+ *     that is not the member's; identify and the café link count misses and lock after too many;
+ *     staff are attached behind another manager's PIN; a customer change re-checks the tier
+ *     promotion; tournament, lesson and seat tabs and online payments earn on their real paths;
+ *     the clawback works on a cumulative target over what earned; the points a cap swallowed or
+ *     a refund returned come back; adjustments never raise a tier; the guest never reads a
+ *     manager's note.
  *
  * Every case but the last is one rolled-back psql transaction (stores-harness `scenario`); the
  * last races two committed sessions on one account (its guest and rows stay, like the coaching
@@ -44,6 +51,9 @@ import {
   X,
   type Results,
 } from './stores-harness';
+import { SETUP as MATCH_SETUP, GUEST as MGUEST, at as mAt } from './matches-harness';
+import { KEY as TKEY, PUBLISH, RUN, TOUR_BRANCH, TOUR_SETUP } from './tournaments-plant';
+import { PLANT_BRANCH, at as cAt } from './coaching-plant';
 
 const up = await stackAvailable();
 const docker = up && dockerReachable();
@@ -171,8 +181,10 @@ create function pg_temp.refund(p_name text, p_payment text, p_amount bigint) ret
 declare v uuid;
 begin
   perform set_config('request.jwt.claims', '', true);
-  insert into refunds (payment_id, amount_iqd, reason_code, refunded_by, venue_id)
-  select p.id, p_amount, 'customer_request', pg_temp.var('manager')::uuid, p.venue_id
+  -- clock_timestamp(): a refund after the settle is created after it (app.refund runs in a later
+  -- transaction), which is how the clawback (0308) tells it from one taken while the tab was open.
+  insert into refunds (payment_id, amount_iqd, reason_code, refunded_by, venue_id, created_at)
+  select p.id, p_amount, 'customer_request', pg_temp.var('manager')::uuid, p.venue_id, clock_timestamp()
     from payments p where p.id = pg_temp.var(p_payment)::uuid
   returning id into v;
   insert into pg_temp.vars values (p_name, v::text) on conflict (name) do update set val = excluded.val;
@@ -182,7 +194,7 @@ end $f$;
 create function pg_temp.settle(p_tab text) returns void language plpgsql as $f$
 begin
   perform set_config('request.jwt.claims', '', true);
-  update tabs set status = 'settled', settled_at = now() where id = pg_temp.var(p_tab)::uuid;
+  update tabs set status = 'settled', settled_at = clock_timestamp() where id = pg_temp.var(p_tab)::uuid;
 end $f$;
 
 -- Points planted as a fixture adjustment (no PIN round trip).
@@ -192,6 +204,14 @@ begin
   perform set_config('request.jwt.claims', '', true);
   insert into loyalty_ledger (profile_id, delta, kind, source_kind, source_id, note, created_at)
   values (pg_temp.var(p_guest)::uuid, p_delta, 'adjust', 'adjust', gen_random_uuid(), 'fixture', now() - p_ago);
+end $f$;
+
+-- Points planted as an earn (0308: an adjustment moves the balance only, never the tier).
+create function pg_temp.earnpts(p_guest text, p_delta int) returns void language plpgsql as $f$
+begin
+  perform set_config('request.jwt.claims', '', true);
+  insert into loyalty_ledger (profile_id, delta, kind, source_kind, source_id, note)
+  values (pg_temp.var(p_guest)::uuid, p_delta, 'earn', 'fixture', gen_random_uuid(), 'fixture');
 end $f$;
 
 -- The member token of a guest's card k steps from now (the card must exist).
@@ -221,6 +241,14 @@ begin
   end;
 end $f$;
 
+-- 0308: no throttle state from other runs (rolled back with the rest).
+do $clear_attempts$
+begin
+  if to_regclass('public.loyalty_token_attempts') is not null then
+    execute 'delete from loyalty_token_attempts';
+  end if;
+end $clear_attempts$;
+
 update loyalty_settings set enabled = true, iqd_per_point = 1000, point_value_iqd = 50, min_redeem_points = 100,
        earn_cafe = true, earn_shop = true, earn_court = true, earn_lesson = true, earn_tournament = true,
        inactivity_expiry_months = null, totp_step_seconds = 30
@@ -247,8 +275,15 @@ const SETTLE = (tab: string) => X(`select pg_temp.settle('${tab}')`);
 const PTS = (guest: string, delta: number, ago = '0') =>
   X(`select pg_temp.pts('${guest}', ${delta}, '${ago}'::interval)`);
 const SET = (patch: string) => X(`update loyalty_settings set ${patch} where id`);
-const GRANT = (who: string) =>
-  X(`insert into app.pin_grants (caller_id, authorizer_id) values ({{${who}}}, {{manager}})`);
+const GRANT = (who: string, by = 'manager') =>
+  X(`insert into app.pin_grants (caller_id, authorizer_id) values ({{${who}}}, {{${by}}})`);
+/** Grants other suites left for a seed caller (committed, within the TTL) age out in this transaction. */
+const STALE = (who: string) =>
+  X(
+    `update app.pin_grants set created_at = now() - interval '1 day' where caller_id = {{${who}}} and consumed_at is null`,
+  );
+/** Points planted as an earn: they count toward the tier (an adjustment no longer does, 0308). */
+const EARNPTS = (guest: string, delta: number) => X(`select pg_temp.earnpts('${guest}', ${delta})`);
 const TRY = (label: string, sql: string) => `select pg_temp.try('${label}', $q$${sql}$q$);`;
 
 /** The ledger of a guest as [{kind, delta, source_kind}], oldest first. */
@@ -289,19 +324,12 @@ describe.skipIf(!docker)('loyalty earn (contracts §1.3)', () => {
       PAY('p1', 'cafe1', 55000),
       SETTLE('cafe1'),
       EARNED('cafe1_pts', 'cafe1'),
-      // shop, lesson, tournament
+      // shop (lesson and tournament tabs earn through their real settle paths: 'loyalty earn on
+      // the real paths' below; 0308 c4: a desk never attaches anyone to those tabs)
       TAB('shop1', 'shop', { customer: 'g1' }),
       PAY('p2', 'shop1', 23500),
       SETTLE('shop1'),
       EARNED('shop1_pts', 'shop1'),
-      TAB('les1', 'lesson', { customer: 'g1' }),
-      PAY('p3', 'les1', 30000),
-      SETTLE('les1'),
-      EARNED('les1_pts', 'les1'),
-      TAB('tour1', 'tournament', { customer: 'g1' }),
-      PAY('p4', 'tour1', 25000),
-      SETTLE('tour1'),
-      EARNED('tour1_pts', 'tour1'),
       // a court fee larger than what was paid: the court portion is capped at paid
       TAB('cafe_cap', 'cafe', { court: 40000, customer: 'g1' }),
       PAY('p5', 'cafe_cap', 30000),
@@ -325,7 +353,7 @@ describe.skipIf(!docker)('loyalty earn (contracts §1.3)', () => {
         'owner',
         `select app.upsert_loyalty_tier('{"name_en":"Gold","name_ar":"ذهبي","min_points_12m":100,"earn_multiplier":1.5,"sort":1}'::jsonb)`,
       ),
-      PTS('g2', 100),
+      EARNPTS('g2', 100),
       Q(
         'g2_tier',
         `select to_jsonb(t.name_en) from loyalty_accounts a join loyalty_tiers t on t.id = a.tier_id where a.profile_id = {{g2}}::uuid`,
@@ -368,8 +396,6 @@ describe.skipIf(!docker)('loyalty earn (contracts §1.3)', () => {
     expect(ok<{ tab_id: string; customer_id: string }>(r, 'attach').customer_id).toBeTruthy();
     expect(ok<number>(r, 'cafe1_pts')).toBe(55); // 40,000 court + 15,000 café
     expect(ok<number>(r, 'shop1_pts')).toBe(23);
-    expect(ok<number>(r, 'les1_pts')).toBe(30);
-    expect(ok<number>(r, 'tour1_pts')).toBe(25);
     expect(ok<number>(r, 'cafe_cap_pts')).toBe(30); // court capped at paid, nothing left for café
     expect(ok<number>(r, 'cafe2_pts')).toBe(10); // court off: 50,000 - 40,000
     expect(ok<number>(r, 'shop2_pts')).toBe(0);
@@ -378,11 +404,11 @@ describe.skipIf(!docker)('loyalty earn (contracts §1.3)', () => {
     expect(ok<number>(r, 'cafe3_rows')).toBe(1);
     expect(ok<number>(r, 'anon1_rows')).toBe(0);
     expect(ok<number>(r, 'off1_rows')).toBe(0);
-    expect(ok<number>(r, 'g1_balance')).toBe(55 + 23 + 30 + 25 + 30 + 10);
+    expect(ok<number>(r, 'g1_balance')).toBe(55 + 23 + 30 + 10);
     expect(ok<Record<string, number>>(r, 'g1_acct')).toMatchObject({
-      balance: 173,
-      lifetime_earned: 173,
-      points_12m: 173,
+      balance: 118,
+      lifetime_earned: 118,
+      points_12m: 118,
     });
   });
 
@@ -400,9 +426,77 @@ describe.skipIf(!docker)('loyalty earn (contracts §1.3)', () => {
       PAY('p1', 'cafe1', 20000),
       SETTLE('cafe1'),
       EARNED('pts', 'cafe1'),
+      // 0308 (c23): a second tab on the booking (another player's café items) is not the booking
+      // guest's once the court line has been settled on the first.
+      TAB('cafe2', 'cafe', { goods: 15000, res: 'res1' }),
+      Q('customer2', `select to_jsonb(app.tab_customer({{cafe2}}))`),
+      PAY('p2', 'cafe2', 15000),
+      SETTLE('cafe2'),
+      EARNED('pts2', 'cafe2'),
     ]);
     expect(ok<string>(r, 'customer')).toBeTruthy();
     expect(ok<number>(r, 'pts')).toBe(20);
+    expect(ok<string | null>(r, 'customer2')).toBeNull();
+    expect(ok<number>(r, 'pts2')).toBe(0);
+  });
+
+  it('the café fallback (c12): voided orders do not count, and two linked accounts mean no one', () => {
+    const r = run('loy-earn-cafe', [
+      GUEST('g1'),
+      GUEST('g2'),
+      ...['a1', 'a2'].map((a) =>
+        KEEP(
+          a,
+          `insert into auth.users (id, aud, role, is_anonymous) values (gen_random_uuid(), 'authenticated', 'authenticated', true) returning id::text`,
+        ),
+      ),
+      KEEP(
+        's1',
+        `insert into guest_sessions (table_id, auth_user_id, expires_at, venue_id, linked_profile_id)
+         values (gen_random_uuid(), {{a1}}, now() + interval '1 hour', {{venue}}, {{g1}}) returning id::text`,
+      ),
+      KEEP(
+        's2',
+        `insert into guest_sessions (table_id, auth_user_id, expires_at, venue_id, linked_profile_id)
+         values (gen_random_uuid(), {{a2}}, now() + interval '1 hour', {{venue}}, {{g2}}) returning id::text`,
+      ),
+      TAB('t1', 'cafe'),
+      // g1 orders a line; g2's later order is voided, then g2's line on a live order is voided
+      KEEP(
+        'o1',
+        `insert into orders (tab_id, source, guest_session_id, venue_id, placed_at) values ({{t1}}, 'guest_web', {{s1}}, {{venue}}, now() - interval '5 minutes') returning id::text`,
+      ),
+      X(
+        `insert into order_items (order_id, menu_item_id, variant_id, qty, unit_price_iqd, line_total_iqd) values ({{o1}}, gen_random_uuid(), gen_random_uuid(), 1, 8000, 8000)`,
+      ),
+      KEEP(
+        'o2',
+        `insert into orders (tab_id, source, guest_session_id, venue_id, status) values ({{t1}}, 'guest_web', {{s2}}, {{venue}}, 'voided') returning id::text`,
+      ),
+      X(
+        `insert into order_items (order_id, menu_item_id, variant_id, qty, unit_price_iqd, line_total_iqd) values ({{o2}}, gen_random_uuid(), gen_random_uuid(), 1, 500, 500)`,
+      ),
+      KEEP(
+        'o3',
+        `insert into orders (tab_id, source, guest_session_id, venue_id) values ({{t1}}, 'guest_web', {{s2}}, {{venue}}) returning id::text`,
+      ),
+      X(
+        `insert into order_items (order_id, menu_item_id, variant_id, qty, unit_price_iqd, line_total_iqd, voided) values ({{o3}}, gen_random_uuid(), gen_random_uuid(), 1, 500, 500, true)`,
+      ),
+      Q('voided_only', `select to_jsonb(app.tab_customer({{t1}}))`),
+      // g2 now orders a live line: two linked accounts, the desk must attach someone
+      X(
+        `insert into order_items (order_id, menu_item_id, variant_id, qty, unit_price_iqd, line_total_iqd) values ({{o3}}, gen_random_uuid(), gen_random_uuid(), 1, 700, 700)`,
+      ),
+      Q('two', `select to_jsonb(app.tab_customer({{t1}}))`),
+      PAY('p1', 't1', 8700),
+      SETTLE('t1'),
+      EARNED('pts', 't1'),
+      Q('g1_id', `select to_jsonb({{g1}}::uuid)`),
+    ]);
+    expect(ok<string>(r, 'voided_only')).toBe(ok<string>(r, 'g1_id'));
+    expect(ok<string | null>(r, 'two')).toBeNull();
+    expect(ok<number>(r, 'pts')).toBe(0);
   });
 
   it('computes the same points as earnPoints (@touch/core/loyalty)', () => {
@@ -527,17 +621,92 @@ describe.skipIf(!docker)('loyalty clawback (contracts §1.3)', () => {
     expect(ok<number>(r, 'after_r1')).toBe(20);
     expect(ok<number>(r, 'after_all')).toBe(0);
   });
+
+  it('claws on a cumulative target (c22): ten refunds of 1% each take one point, not ten', () => {
+    const r = run('loy-claw-small', [
+      GUEST('g1'),
+      TAB('t1', 'cafe', { customer: 'g1' }),
+      PAY('p1', 't1', 10000),
+      SETTLE('t1'),
+      EARNED('earned', 't1'),
+      ...Array.from({ length: 10 }, (_, i) => REFUND(`r${i}`, 'p1', 100)),
+      LEDGER('ledger', 'g1'),
+      Q(
+        'base',
+        `select to_jsonb(earn_base_iqd) from loyalty_ledger where kind = 'earn' and source_id = {{t1}}::uuid`,
+      ),
+    ]);
+    expect(ok<number>(r, 'earned')).toBe(10);
+    expect(ok<number>(r, 'base')).toBe(10000);
+    expect(
+      ok<Array<{ kind: string; delta: number }>>(r, 'ledger').map((x) => [x.kind, x.delta]),
+    ).toEqual([
+      ['earn', 10],
+      ['clawback', -1],
+    ]);
+  });
+
+  it('claws from what earned (c22): with earn_court off a court refund takes nothing, the café items all', () => {
+    const ITEMISED = (name: string, payment: string, amount: number, item: string) => [
+      // app.refund writes the refund, then its lines; the clawback runs at commit (deferred), so
+      // here it is held until the lines are in.
+      'set constraints refunds_loyalty_clawback deferred;',
+      REFUND(name, payment, amount),
+      X(
+        `insert into refund_items (refund_id, order_item_id, qty) values ({{${name}}}, {{${item}}}, 1)`,
+      ),
+      'set constraints refunds_loyalty_clawback immediate;',
+    ];
+    const r = run('loy-claw-court', [
+      GUEST('g1'),
+      SET('earn_court = false'),
+      TAB('t1', 'cafe', { court: 40000, goods: 10000, customer: 'g1' }),
+      KEEP(
+        'i1',
+        `select oi.id::text from order_items oi join orders o on o.id = oi.order_id where o.tab_id = {{t1}}::uuid`,
+      ),
+      PAY('p1', 't1', 50000),
+      SETTLE('t1'),
+      EARNED('earned', 't1'),
+      Q(
+        'basis',
+        `select jsonb_build_object('base', earn_base_iqd, 'court', earn_court_iqd) from loyalty_ledger where kind = 'earn' and source_id = {{t1}}::uuid`,
+      ),
+      REFUND('r1', 'p1', 40000), // the court fee, no items: it never earned
+      BALANCE('after_court', 'g1'),
+      ...ITEMISED('r2', 'p1', 10000, 'i1'), // the café line
+      BALANCE('after_items', 'g1'),
+      // the other order: the café line refunded first takes every point
+      GUEST('g2'),
+      TAB('t2', 'cafe', { court: 40000, goods: 10000, customer: 'g2' }),
+      KEEP(
+        'i2',
+        `select oi.id::text from order_items oi join orders o on o.id = oi.order_id where o.tab_id = {{t2}}::uuid`,
+      ),
+      PAY('q1', 't2', 50000),
+      SETTLE('t2'),
+      ...ITEMISED('s1', 'q1', 10000, 'i2'),
+      BALANCE('t2_after_items', 'g2'),
+    ]);
+    expect(ok<number>(r, 'earned')).toBe(10);
+    expect(ok(r, 'basis')).toEqual({ base: 10000, court: 0 });
+    expect(ok<number>(r, 'after_court')).toBe(10);
+    expect(ok<number>(r, 'after_items')).toBe(0);
+    expect(ok<number>(r, 't2_after_items')).toBe(0);
+  });
 });
 
 // ── 3. redeem, unredeem, adjust ──────────────────────────────────────────────
 
+/** loyalty_redeem as SQL; `token` names a kept member token (0308: the proof), else a PIN grant is spent. */
 const REDEEM = (
   tab: string,
   points: number | null,
   reward: string | null,
   key: string | null = KEY('r'),
+  token: string | null = null,
 ) =>
-  `select app.loyalty_redeem({{${tab}}}, ${points ?? 'null'}, ${reward ? `{{${reward}}}` : 'null'}, ${key ?? 'null'})`;
+  `select app.loyalty_redeem({{${tab}}}, ${points ?? 'null'}, ${reward ? `{{${reward}}}` : 'null'}, ${key ?? 'null'}, ${token ? `{{${token}}}` : 'null'})`;
 
 describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
   it('spends points and rewards, capped at what is left, and gives them back on unredeem', () => {
@@ -546,8 +715,13 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
       MK('shop', 'shop_staff'),
       GUEST('g1'),
       PTS('g1', 300),
+      STALE('cashier'),
       TAB('t1', 'cafe', { goods: 10000 }),
       T('attach', 'cashier', `select app.set_tab_customer({{t1}}, {{g1}})`),
+      // 0308 (c2): no member token and no manager PIN grant
+      T('no_proof', 'cashier', REDEEM('t1', 250, null)),
+      // a refusal rolls back its grant with it, so one grant serves until a redemption succeeds
+      GRANT('cashier'),
       T('below_min', 'cashier', REDEEM('t1', 50, null)),
       T('insufficient', 'cashier', REDEEM('t1', 400, null)),
       T('both', 'cashier', `select app.loyalty_redeem({{t1}}, 100, '${NIL}', ${KEY('b')})`),
@@ -559,6 +733,11 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
                   from tab_adjustments a where a.tab_id = {{t1}}::uuid`,
       ),
       Q('totals', `select to_jsonb(t) from app.compute_tab_totals({{t1}}) t`),
+      Q(
+        'authorizer',
+        `select to_jsonb(authorized_by = {{manager}}::uuid) from tab_adjustments where tab_id = {{t1}}::uuid`,
+      ),
+      GRANT('cashier'),
       T('nothing_left', 'cashier', REDEEM('t1', 100, null)),
       KEEP('adj1', `select id::text from tab_adjustments where tab_id = {{t1}}::uuid`),
       T('shop_unredeem', 'shop', `select app.loyalty_unredeem({{adj1}})`),
@@ -586,8 +765,17 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
         `select id::text from loyalty_rewards where name_en = 'Big' order by created_at desc limit 1`,
       ),
       TAB('t2', 'cafe', { goods: 2000, customer: 'g1' }),
-      T('reward_capped', 'cashier', REDEEM('t2', null, 'rw2')),
-      T('no_reward', 'cashier', `select app.loyalty_redeem({{t2}}, null, '${NIL}', ${KEY('n')})`),
+      GRANT('cashier'),
+      // 0308 (c13): a reward worth more than what is left is refused, not charged in full
+      T('reward_over', 'cashier', REDEEM('t2', null, 'rw2')),
+      T(
+        'no_reward',
+        'cashier',
+        `select app.loyalty_redeem({{t2}}, null, '${NIL}', ${KEY('n')}, null)`,
+      ),
+      // 0308 (s2): 100 points asked, 1,500 IQD left: 30 fit, below the minimum of 100
+      TAB('t6', 'cafe', { goods: 1500, customer: 'g1' }),
+      T('fit_below_min', 'cashier', REDEEM('t6', 100, null)),
       // the refusals around the tab
       TAB('t3', 'cafe', { goods: 5000 }),
       T('no_customer', 'cashier', REDEEM('t3', 100, null)),
@@ -601,6 +789,7 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
       T('off', 'cashier', REDEEM('t5', 100, null)),
     ]);
 
+    expect(refused(r, 'no_proof')).toBe('PIN_GRANT_REQUIRED');
     expect(refused(r, 'below_min')).toBe('POINTS_BELOW_MIN');
     expect(refused(r, 'insufficient')).toBe('POINTS_INSUFFICIENT');
     expect(refused(r, 'both')).toBe('INVALID_ARGUMENT');
@@ -616,6 +805,7 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
       promotion_id: null,
     });
     expect(ok(r, 'totals')).toMatchObject({ subtotal_iqd: 10000, discount_iqd: 10000 });
+    expect(ok(r, 'authorizer')).toBe(true);
     expect(refused(r, 'nothing_left')).toBe(
       'NOTHING_OWED:nothing on this bill is left to discount',
     );
@@ -630,8 +820,11 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
       ['redeem_void', 200],
     ]);
     expect(ok(r, 'reward')).toMatchObject({ points: 120, amount_iqd: 3000, balance: 180 });
-    expect(ok(r, 'reward_capped')).toMatchObject({ points: 100, amount_iqd: 2000, balance: 80 });
+    expect(refused(r, 'reward_over')).toBe('REWARD_EXCEEDS_BILL');
     expect(refused(r, 'no_reward')).toBe('REWARD_NOT_FOUND');
+    expect(refused(r, 'fit_below_min')).toBe(
+      'POINTS_BELOW_MIN:only 30 points fit what is left to discount',
+    );
     expect(refused(r, 'no_customer')).toBe('NO_CUSTOMER');
     expect(refused(r, 'settled')).toBe('TAB_NOT_OPEN');
     expect(refused(r, 'shop_on_cafe')).toBe('TAB_KIND_FORBIDDEN');
@@ -658,8 +851,20 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
       GRANT('manager'),
       T('minus', 'manager', `select app.loyalty_adjust({{g1}}, -80, 'correction')`),
       T('reused', 'manager', `select app.loyalty_adjust({{g1}}, 10, 'again')`),
+      // 0308 (c17): never yourself, never a gift to active staff, more than 1,000 is the owner's
+      GRANT('manager'),
+      T('self', 'manager', `select app.loyalty_adjust({{manager}}, 10, 'mine')`),
+      T('staff_gift', 'manager', `select app.loyalty_adjust({{cashier}}, 10, 'friend')`),
+      T('big', 'manager', `select app.loyalty_adjust({{g1}}, 5000, 'big')`),
+      T('staff_take', 'manager', `select app.loyalty_adjust({{cashier}}, -10, 'correction')`),
+      STALE('owner'),
+      GRANT('owner'),
+      T('owner_big', 'owner', `select app.loyalty_adjust({{g1}}, 5000, 'owner goodwill')`),
       T('customer', 'cashier', `select app.loyalty_customer({{g1}})`),
       T('customer_guest', 'g1', `select app.loyalty_customer({{g1}})`),
+      // 0308 (c43): the desk roles only
+      T('customer_prep', 'prep', `select app.loyalty_customer({{g1}})`),
+      T('customer_desk', 'desk', `select to_jsonb((app.loyalty_customer({{g1}}))->'balance')`),
     ]);
     expect(refused(r, 'cashier')).toBe('FORBIDDEN');
     expect(refused(r, 'no_grant')).toBe('PIN_GRANT_REQUIRED');
@@ -669,36 +874,169 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
     expect(ok(r, 'adjust')).toEqual({ balance: 50 });
     expect(ok(r, 'minus')).toEqual({ balance: -30 });
     expect(refused(r, 'reused')).toBe('PIN_GRANT_REQUIRED');
+    expect(r['self']).toMatchObject({ ok: false, code: 'FORBIDDEN', detail: 'self_dealing' });
+    expect(r['staff_gift']).toMatchObject({ ok: false, code: 'FORBIDDEN', detail: 'staff_member' });
+    expect(r['big']).toMatchObject({ ok: false, code: 'FORBIDDEN', detail: 'owner_required' });
+    expect(ok(r, 'staff_take')).toMatchObject({ balance: -10 });
+    expect(ok(r, 'owner_big')).toEqual({ balance: 4970 });
     const c = ok<{
       balance: number;
       lifetime: number;
+      points_12m: number;
       history: Array<{ kind: string; note: string }>;
     }>(r, 'customer');
-    expect(c.balance).toBe(-30);
+    expect(c.balance).toBe(4970);
+    // an adjustment moves the balance only, never lifetime or the tier points
     expect(c.lifetime).toBe(0);
-    expect(c.history.map((h) => h.note)).toEqual(['correction', 'goodwill']);
+    expect(c.points_12m).toBe(0);
+    expect(c.history.map((h) => h.note)).toEqual(['owner goodwill', 'correction', 'goodwill']);
     expect(refused(r, 'customer_guest')).toBe('FORBIDDEN');
+    expect(refused(r, 'customer_prep')).toBe('FORBIDDEN');
+    expect(ok(r, 'customer_desk')).toBe(4970);
+  });
+
+  it('asks for the member (c2): their token, spent once, or a manager PIN that is not theirs', () => {
+    const r = run('loy-redeem-proof', [
+      GUEST('g1'),
+      GUEST('g2'),
+      PTS('g1', 1000),
+      T('card1', 'g1', `select app.my_member_card()`),
+      T('card2', 'g2', `select app.my_member_card()`),
+      STALE('cashier'),
+      TAB('t1', 'cafe', { goods: 30000, customer: 'g1' }),
+      X(`select pg_temp.tok('k1', 'g1', 0)`),
+      X(`select pg_temp.tok('k1next', 'g1', 1)`),
+      X(`select pg_temp.tok('k1prev', 'g1', -1)`),
+      X(`select pg_temp.tok('k2', 'g2', 0)`),
+      T('mismatch', 'cashier', REDEEM('t1', 100, null, KEY('m'), 'k2')),
+      T('qr', 'cashier', REDEEM('t1', 100, null, KEY('q'), 'k1')),
+      Q(
+        'qr_auth',
+        `select to_jsonb(authorized_by = {{cashier}}::uuid) from tab_adjustments where tab_id = {{t1}}::uuid`,
+      ),
+      Q(
+        'qr_audit',
+        `select after->'proof' from audit_log where action = 'loyalty.redeem' and after->>'tab_id' = {{t1}} order by id desc limit 1`,
+      ),
+      T('replayed', 'cashier', REDEEM('t1', 100, null, KEY('rp'), 'k1')),
+      T('next', 'cashier', REDEEM('t1', 100, null, KEY('n'), 'k1next')),
+      T('older', 'cashier', REDEEM('t1', 100, null, KEY('o'), 'k1prev')),
+      // a manager on the bill: attached behind another manager's PIN; their own PIN or their own
+      // token never spends their points
+      TAB('t2', 'cafe', { goods: 10000 }),
+      GRANT('cashier', 'owner'),
+      T('attach_mgr', 'cashier', `select app.set_tab_customer({{t2}}, {{manager}})`),
+      X(
+        `insert into loyalty_ledger (profile_id, delta, kind, source_kind, source_id, note) values ({{manager}}, 500, 'adjust', 'adjust', gen_random_uuid(), 'fixture')`,
+      ),
+      GRANT('cashier', 'manager'),
+      T('pin_of_member', 'cashier', REDEEM('t2', 100, null)),
+      T('mgr_card', 'manager', `select app.my_member_card()`),
+      X(`select pg_temp.tok('km', 'manager', 0)`),
+      STALE('manager'),
+      T('own_token', 'manager', REDEEM('t2', 100, null, KEY('ot'), 'km')),
+      T('member_token', 'cashier', REDEEM('t2', 100, null, KEY('mt'), 'km')),
+    ]);
+    expect(refused(r, 'mismatch')).toBe('MEMBER_CODE_MISMATCH');
+    expect(ok(r, 'qr')).toMatchObject({ points: 100, amount_iqd: 5000, balance: 900 });
+    expect(ok(r, 'qr_auth')).toBe(true);
+    expect(ok(r, 'qr_audit')).toBe('qr');
+    expect(r['replayed']).toMatchObject({
+      ok: false,
+      code: 'MEMBER_CODE_INVALID',
+      detail: 'replayed',
+    });
+    expect(ok(r, 'next')).toMatchObject({ points: 100, balance: 800 });
+    expect(refused(r, 'older')).toBe('MEMBER_CODE_INVALID');
+    expect(ok(r, 'attach_mgr')).toBeTruthy();
+    expect(r['pin_of_member']).toMatchObject({
+      ok: false,
+      code: 'FORBIDDEN',
+      detail: 'self_dealing',
+    });
+    expect(r['own_token']).toMatchObject({ ok: false, code: 'FORBIDDEN', detail: 'self_dealing' });
+    expect(ok(r, 'member_token')).toMatchObject({ points: 100, balance: 400 });
+  });
+
+  it('gives back the points the discount cap swallowed at settle, and a refund’s share after it (c13)', () => {
+    const r = run('loy-redeem-cap', [
+      GUEST('g1'),
+      PTS('g1', 1000),
+      STALE('cashier'),
+      // 200 points (10,000) on 10,000 of goods, then a 6,000 manager discount: 4,000 of the
+      // points' discount is left, so 120 of the 200 points come back at the settle
+      TAB('t1', 'cafe', { goods: 10000, customer: 'g1' }),
+      GRANT('cashier'),
+      T('redeem1', 'cashier', REDEEM('t1', 200, null)),
+      X(
+        `insert into tab_adjustments (tab_id, order_item_id, kind, value, amount_iqd, applied_by, authorized_by, reason_code)
+         values ({{t1}}, null, 'discount_amount', 6000, 6000, {{cashier}}, {{manager}}, 'comp')`,
+      ),
+      SETTLE('t1'),
+      Q(
+        't1_rows',
+        `select coalesce(jsonb_agg(jsonb_build_array(kind, source_kind, delta) order by created_at), '[]') from loyalty_ledger where tab_id = {{t1}}::uuid`,
+      ),
+      // 100 points (5,000) on 20,000 of goods, 15,000 paid, then refunded in two halves
+      TAB('t2', 'cafe', { goods: 20000, customer: 'g1' }),
+      GRANT('cashier'),
+      T('redeem2', 'cashier', REDEEM('t2', 100, null)),
+      PAY('p2', 't2', 15000),
+      SETTLE('t2'),
+      REFUND('r1', 'p2', 7500),
+      Q(
+        'back_half',
+        `select to_jsonb(coalesce(sum(delta), 0)) from loyalty_ledger where tab_id = {{t2}}::uuid and kind = 'redeem_void'`,
+      ),
+      REFUND('r2', 'p2', 7500),
+      Q(
+        'back_all',
+        `select to_jsonb(coalesce(sum(delta), 0)) from loyalty_ledger where tab_id = {{t2}}::uuid and kind = 'redeem_void'`,
+      ),
+      Q(
+        'earn_after',
+        `select to_jsonb(coalesce(sum(delta), 0)) from loyalty_ledger where tab_id = {{t2}}::uuid and kind in ('earn', 'clawback')`,
+      ),
+    ]);
+    expect(ok(r, 'redeem1')).toMatchObject({ points: 200, amount_iqd: 10000 });
+    expect(ok(r, 't1_rows')).toEqual([
+      ['redeem', 'tab_adjustment', -200],
+      ['redeem_void', 'tab_adjustment', 120],
+    ]);
+    expect(ok(r, 'redeem2')).toMatchObject({ points: 100, amount_iqd: 5000 });
+    expect(ok<number>(r, 'back_half')).toBe(50);
+    expect(ok<number>(r, 'back_all')).toBe(100);
+    expect(ok<number>(r, 'earn_after')).toBe(0);
   });
 });
 
 // ── 4. identify ──────────────────────────────────────────────────────────────
 
+/** 0308 (c3): a miss is answered, not raised, so its attempt row commits; this reads its code. */
+function missed(r: Results, label: string): string {
+  const d = ok<{ customer_id: string | null; error?: string }>(r, label);
+  expect(d.customer_id, `${label} found someone`).toBeNull();
+  return d.error ?? '';
+}
+
 describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
-  it('takes a token within ±2 steps or the exact phone, and tells expired from invalid', () => {
+  it('takes a token within ±1 step or the exact phone, and tells expired from invalid', () => {
     const p = phone();
     const q = phone();
     const r = run('loy-identify', [
       `select pg_temp.guest('g1', '${p.e164}', 'Sara', 'Haddad');`,
       T('card', 'g1', `select app.my_member_card()`),
       T('card_again', 'g1', `select app.my_member_card()`),
-      ...[0, 2, -2, 3, -3].map((k) =>
+      ...[0, 1, -1, 2, -2].map((k) =>
         X(`select pg_temp.tok('k${k < 0 ? 'm' : ''}${Math.abs(k)}', 'g1', ${k})`),
       ),
       T('now', 'cashier', `select app.loyalty_identify({{k0}}, {{venue}})`),
-      T('plus2', 'cashier', `select app.loyalty_identify(lower({{k2}}), null)`),
-      T('minus2', 'cashier', `select app.loyalty_identify('  ' || {{km2}} || ' ', {{venue}})`),
-      T('plus3', 'cashier', `select app.loyalty_identify({{k3}}, {{venue}})`),
-      T('minus3', 'cashier', `select app.loyalty_identify({{km3}}, {{venue}})`),
+      T('plus2', 'cashier', `select app.loyalty_identify(lower({{k1}}), null)`),
+      T('minus2', 'cashier', `select app.loyalty_identify('  ' || {{km1}} || ' ', {{venue}})`),
+      // identify reads a token, never spends it: the same one again still names the member
+      T('again', 'cashier', `select app.loyalty_identify({{k0}}, {{venue}})`),
+      T('plus3', 'cashier', `select app.loyalty_identify({{k2}}, {{venue}})`),
+      T('minus3', 'cashier', `select app.loyalty_identify({{km2}}, {{venue}})`),
       T('garbage', 'cashier', `select app.loyalty_identify('TP-ZZZZ-12', {{venue}})`),
       T('word', 'cashier', `select app.loyalty_identify('hello there', {{venue}})`),
       T('unknown', 'cashier', `select app.loyalty_identify('TP-00000000-123456', {{venue}})`),
@@ -747,20 +1085,20 @@ describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
       balance: 0,
       enabled: true,
     });
-    for (const l of ['plus2', 'minus2', 'phone', 'phone_intl', 'shop_identify']) {
+    for (const l of ['plus2', 'minus2', 'again', 'phone', 'phone_intl', 'shop_identify']) {
       expect(ok<{ customer_id: string }>(r, l).customer_id, l).toBe(who.customer_id);
     }
-    expect(refused(r, 'plus3')).toBe('MEMBER_CODE_EXPIRED');
-    expect(refused(r, 'minus3')).toBe('MEMBER_CODE_EXPIRED');
-    expect(refused(r, 'garbage')).toBe('MEMBER_CODE_INVALID');
-    expect(refused(r, 'word')).toBe('MEMBER_CODE_INVALID');
-    expect(refused(r, 'unknown')).toBe('MEMBER_CODE_INVALID');
-    expect(refused(r, 'partial')).toBe('MEMBER_NOT_FOUND');
-    expect(refused(r, 'typed')).toBe('MEMBER_NOT_FOUND');
+    expect(missed(r, 'plus3')).toBe('MEMBER_CODE_EXPIRED');
+    expect(missed(r, 'minus3')).toBe('MEMBER_CODE_EXPIRED');
+    expect(missed(r, 'garbage')).toBe('MEMBER_CODE_INVALID');
+    expect(missed(r, 'word')).toBe('MEMBER_CODE_INVALID');
+    expect(missed(r, 'unknown')).toBe('MEMBER_CODE_INVALID');
+    expect(missed(r, 'partial')).toBe('MEMBER_NOT_FOUND');
+    expect(missed(r, 'typed')).toBe('MEMBER_NOT_FOUND');
     expect(refused(r, 'other_venue')).toBe('VENUE_MISMATCH');
     expect(refused(r, 'guest')).toBe('FORBIDDEN');
     expect(refused(r, 'prep')).toBe('FORBIDDEN');
-    expect(ok<number>(r, 'audits')).toBe(5); // now, plus2, minus2, phone, phone_intl: a refusal rolls its row back
+    expect(ok<number>(r, 'audits')).toBe(6); // now, plus2, minus2, again, phone, phone_intl: a miss writes none
     expect(ok(r, 'shop_attach')).toMatchObject({ customer_id: who.customer_id });
     expect(refused(r, 'shop_cafe')).toBe('TAB_KIND_FORBIDDEN');
     expect(ok(r, 'detach')).toMatchObject({ customer_id: null });
@@ -769,7 +1107,7 @@ describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
     const rotated = ok<{ member_code: string; secret_b32: string }>(r, 'rotate');
     expect(rotated.member_code).toBe(card.member_code);
     expect(rotated.secret_b32).not.toBe(card.secret_b32);
-    expect(refused(r, 'old_token')).toBe('MEMBER_CODE_INVALID');
+    expect(missed(r, 'old_token')).toBe('MEMBER_CODE_INVALID');
     const mine = ok<Record<string, unknown>>(r, 'mine');
     expect(Object.keys(mine).sort()).toEqual(
       [
@@ -794,6 +1132,146 @@ describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
   });
 });
 
+describe.skipIf(!docker)('loyalty identify throttle and attach (0308: c2, c3, c7)', () => {
+  it('locks a caller after ten misses and a member code after twenty, even for the right token', () => {
+    const r = run('loy-throttle', [
+      GUEST('g1'),
+      T('card', 'g1', `select app.my_member_card()`),
+      X(`select pg_temp.tok('bad', 'g1', 5)`), // a real code, an expired step: a miss
+      X(`select pg_temp.tok('good', 'g1', 0)`),
+      MK('c1', 'cashier'),
+      MK('c2', 'cashier'),
+      MK('c3', 'cashier'),
+      ...Array.from({ length: 10 }, (_, i) =>
+        T(`c1_miss${i}`, 'c1', `select app.loyalty_identify({{bad}}, null)`),
+      ),
+      T('c1_locked', 'c1', `select app.loyalty_identify({{good}}, null)`),
+      T('c2_good', 'c2', `select app.loyalty_identify({{good}}, null)`),
+      ...Array.from({ length: 10 }, (_, i) =>
+        T(`c2_miss${i}`, 'c2', `select app.loyalty_identify({{bad}}, null)`),
+      ),
+      T('c3_code_locked', 'c3', `select app.loyalty_identify({{good}}, null)`),
+      Q(
+        'rows',
+        `select jsonb_build_object('fail', count(*) filter (where not ok), 'ok', count(*) filter (where ok)) from loyalty_token_attempts`,
+      ),
+    ]);
+    expect(missed(r, 'c1_miss9')).toBe('MEMBER_CODE_EXPIRED');
+    expect(r['c1_locked']).toMatchObject({
+      ok: false,
+      code: 'MEMBER_CODE_LOCKED',
+      detail: 'caller',
+    });
+    expect(ok<{ customer_id: string }>(r, 'c2_good').customer_id).toBeTruthy();
+    expect(r['c3_code_locked']).toMatchObject({
+      ok: false,
+      code: 'MEMBER_CODE_LOCKED',
+      detail: 'member_code',
+    });
+    expect(ok(r, 'rows')).toEqual({ fail: 20, ok: 1 });
+  });
+
+  it('attaches staff only behind another manager’s PIN, records how, and keeps a redeemed tab’s member', () => {
+    const p = phone();
+    const r = run('loy-attach', [
+      `select pg_temp.guest('g1', '${p.e164}');`,
+      GUEST('g2'),
+      STALE('cashier'),
+      STALE('manager'),
+      TAB('t1', 'cafe'),
+      T('self_nogrant', 'cashier', `select app.set_tab_customer({{t1}}, {{cashier}})`),
+      GRANT('cashier'),
+      T('self_grant', 'cashier', `select app.set_tab_customer({{t1}}, {{cashier}})`),
+      TAB('t2', 'cafe'),
+      GRANT('manager'),
+      T('mgr_self', 'manager', `select app.set_tab_customer({{t2}}, {{manager}})`),
+      // how the desk knew them
+      TAB('t3', 'cafe'),
+      T('identify', 'cashier', `select app.loyalty_identify('${p.local}', {{venue}})`),
+      T('by_phone', 'cashier', `select app.set_tab_customer({{t3}}, {{g1}})`),
+      TAB('t4', 'cafe'),
+      T('by_id', 'desk', `select app.set_tab_customer({{t4}}, {{g1}})`),
+      Q(
+        'methods',
+        `select jsonb_build_object('t3', (select customer_method from tabs where id = {{t3}}::uuid),
+                                   't4', (select customer_method from tabs where id = {{t4}}::uuid))`,
+      ),
+      // points used on the bill keep its member until they are undone
+      PTS('g1', 300),
+      TAB('t5', 'cafe', { goods: 10000 }),
+      T('attach5', 'cashier', `select app.set_tab_customer({{t5}}, {{g1}})`),
+      GRANT('cashier'),
+      T('redeem5', 'cashier', REDEEM('t5', 100, null)),
+      T('swap5', 'cashier', `select app.set_tab_customer({{t5}}, {{g2}})`),
+      T('detach5', 'cashier', `select app.set_tab_customer({{t5}}, null)`),
+    ]);
+    expect(refused(r, 'self_nogrant')).toBe('PIN_GRANT_REQUIRED');
+    expect(ok(r, 'self_grant')).toBeTruthy();
+    expect(r['mgr_self']).toMatchObject({ ok: false, code: 'FORBIDDEN', detail: 'self_dealing' });
+    expect(ok(r, 'methods')).toEqual({ t3: 'phone', t4: 'desk' });
+    expect(ok(r, 'redeem5')).toMatchObject({ points: 100 });
+    expect(refused(r, 'swap5')).toBe('LOYALTY_REDEEMED');
+    expect(refused(r, 'detach5')).toBe('LOYALTY_REDEEMED');
+  });
+
+  it('re-checks the tab’s tier promotion when its customer changes (c7)', () => {
+    const r = run('loy-promo-swap', [
+      GUEST('g1'),
+      GUEST('g2'),
+      GUEST('g3'),
+      T(
+        'silver',
+        'owner',
+        `select app.upsert_loyalty_tier('{"name_en":"Silver","name_ar":"فضي","min_points_12m":100,"earn_multiplier":1,"sort":1}'::jsonb)`,
+      ),
+      KEEP(
+        'promo',
+        `insert into promotions (name_en, name_ar, type, value, auto, enabled, limits, created_by, venue_id)
+         values ('Silver 10%', 'فضي ١٠٪', 'percent', 10, true, true, '{"tierMin":1}'::jsonb, {{manager}}, null)
+         returning id::text`,
+      ),
+      EARNPTS('g1', 150),
+      EARNPTS('g3', 150),
+      // a base-tier guest takes the Silver member's place: the promotion goes
+      TAB('t1', 'cafe', { goods: 10000, customer: 'g1' }),
+      T('apply1', 'cashier', `select app.apply_best_promotion({{t1}}, null, ${KEY('a1')}, null)`),
+      T('swap1', 'cashier', `select app.set_tab_customer({{t1}}, {{g2}})`),
+      Q(
+        't1_after',
+        `select jsonb_build_object(
+           'redemptions', (select count(*) from promotion_redemptions where tab_id = {{t1}}::uuid),
+           'adjustments', (select count(*) from tab_adjustments where tab_id = {{t1}}::uuid and promotion_id is not null),
+           'audit', (select count(*) from audit_log where action = 'promotion.drop_on_customer_change'
+                                                    and after->>'customer_id' = {{g2}}))`,
+      ),
+      // another Silver member: the promotion stays and follows them
+      TAB('t2', 'cafe', { goods: 10000, customer: 'g1' }),
+      T('apply2', 'cashier', `select app.apply_best_promotion({{t2}}, null, ${KEY('a2')}, null)`),
+      T('swap2', 'cashier', `select app.set_tab_customer({{t2}}, {{g3}})`),
+      Q(
+        't2_after',
+        `select to_jsonb(customer_id = {{g3}}::uuid) from promotion_redemptions where tab_id = {{t2}}::uuid`,
+      ),
+      // nobody: the promotion goes
+      TAB('t3', 'cafe', { goods: 10000, customer: 'g1' }),
+      T('apply3', 'cashier', `select app.apply_best_promotion({{t3}}, null, ${KEY('a3')}, null)`),
+      T('detach3', 'cashier', `select app.set_tab_customer({{t3}}, null)`),
+      Q(
+        't3_after',
+        `select to_jsonb(count(*)) from promotion_redemptions where tab_id = {{t3}}::uuid`,
+      ),
+      Q('t3_totals', `select to_jsonb(t.discount_iqd) from app.compute_tab_totals({{t3}}) t`),
+    ]);
+    expect(ok(r, 'apply1')).toMatchObject({ amountIqd: 1000 });
+    expect(ok(r, 't1_after')).toEqual({ redemptions: 0, adjustments: 0, audit: 1 });
+    expect(ok(r, 'apply2')).toMatchObject({ amountIqd: 1000 });
+    expect(ok(r, 't2_after')).toBe(true);
+    expect(ok(r, 'apply3')).toMatchObject({ amountIqd: 1000 });
+    expect(ok<number>(r, 't3_after')).toBe(0);
+    expect(ok<number>(r, 't3_totals')).toBe(0);
+  });
+});
+
 // ── 5. tiers, promotions, settings ───────────────────────────────────────────
 
 describe.skipIf(!docker)('loyalty tiers and the tier promotion (contracts §1.4)', () => {
@@ -814,7 +1292,7 @@ describe.skipIf(!docker)('loyalty tiers and the tier promotion (contracts §1.4)
       Q('promo_id', `select to_jsonb({{promo}}::uuid)`),
       TAB('t1', 'cafe', { goods: 10000, customer: 'g1' }),
       T('base', 'cashier', `select app.eligible_promotions({{t1}}, null)`),
-      PTS('g1', 150),
+      EARNPTS('g1', 150),
       T('silver_tier', 'cashier', `select app.eligible_promotions({{t1}}, null)`),
       T('apply', 'cashier', `select app.apply_best_promotion({{t1}}, null, ${KEY('p')}, null)`),
       Q(
@@ -963,24 +1441,75 @@ describe.skipIf(!docker)('loyalty and the account (contracts §1.3, §1.4)', () 
       ),
       // the guest's web order on a café tab, then the settle
       TAB('t1', 'cafe'),
+      KEEP(
+        'o1',
+        `insert into orders (tab_id, source, guest_session_id, venue_id) values ({{t1}}, 'guest_web', {{sess}}, {{venue}}) returning id::text`,
+      ),
       X(
-        `insert into orders (tab_id, source, guest_session_id, venue_id) values ({{t1}}, 'guest_web', {{sess}}, {{venue}})`,
+        `insert into order_items (order_id, menu_item_id, variant_id, qty, unit_price_iqd, line_total_iqd) values ({{o1}}, gen_random_uuid(), gen_random_uuid(), 1, 12000, 12000)`,
       ),
       Q('customer', `select to_jsonb(app.tab_customer({{t1}}))`),
       PAY('p1', 't1', 12000),
       SETTLE('t1'),
       EARNED('pts', 't1'),
       Q('earner', `select to_jsonb(profile_id) from loyalty_ledger where source_id = {{t1}}::uuid`),
+      // 0308 (c3): the token was spent: another café session cannot replay it
+      KEEP(
+        'anon3',
+        `insert into auth.users (id, aud, role, is_anonymous) values (gen_random_uuid(), 'authenticated', 'authenticated', true) returning id::text`,
+      ),
+      X(
+        `insert into guest_sessions (table_id, auth_user_id, expires_at, venue_id) values (gen_random_uuid(), {{anon3}}, now() + interval '1 hour', {{venue}})`,
+      ),
+      T('replay', 'anon3', `select app.link_guest_session({{tk}})`),
+      // five misses lock the session's user, even for a good token after
+      ...Array.from({ length: 4 }, (_, i) =>
+        T(`miss${i}`, 'anon3', `select app.link_guest_session('TP-00000000-00000${i}')`),
+      ),
+      X(`select pg_temp.tok('tk_next', 'g1', 1)`),
+      T('locked', 'anon3', `select app.link_guest_session({{tk_next}})`),
+      Q(
+        'misses',
+        `select to_jsonb(count(*)) from loyalty_token_attempts where auth_user_id = {{anon3}}::uuid and not ok`,
+      ),
     ]);
     expect(refused(r, 'no_session')).toBe('SESSION_EXPIRED');
     expect(refused(r, 'not_anon')).toBe('FORBIDDEN');
-    expect(refused(r, 'expired')).toBe('MEMBER_CODE_EXPIRED');
+    // never "expired" to a café session: one answer for every bad token
+    expect(ok(r, 'expired')).toEqual({ linked: false, error: 'MEMBER_CODE_INVALID' });
+    expect(ok(r, 'replay')).toEqual({ linked: false, error: 'MEMBER_CODE_INVALID' });
+    expect(refused(r, 'locked')).toBe('MEMBER_CODE_LOCKED');
+    expect(ok<number>(r, 'misses')).toBe(5);
     expect(ok(r, 'link')).toEqual({ linked: true, display_name: 'Omar S.' });
     const g1 = ok<string>(r, 'linked');
     expect(g1).toBeTruthy();
     expect(ok<string>(r, 'customer')).toBe(g1);
     expect(ok<number>(r, 'pts')).toBe(12);
     expect(ok<string>(r, 'earner')).toBe(g1);
+  });
+
+  it("shows the guest a note only on reward and expiry rows, never a manager's reason (s1)", () => {
+    const r = run('loy-notes', [
+      GUEST('g1'),
+      X(
+        `insert into loyalty_ledger (profile_id, delta, kind, source_kind, source_id, note) values
+           ({{g1}}, 50, 'adjust', 'adjust', gen_random_uuid(), 'suspected abuse, cashier X'),
+           ({{g1}}, -10, 'reward', 'tab_adjustment', gen_random_uuid(), 'Free tea'),
+           ({{g1}}, -5, 'expire', 'expiry', gen_random_uuid(), 'inactive 12 months')`,
+      ),
+      T('mine', 'g1', `select (app.my_loyalty())->'history'`),
+      T('desk', 'cashier', `select (app.loyalty_customer({{g1}}))->'history'`),
+    ]);
+    const notes = (l: string) =>
+      Object.fromEntries(
+        ok<Array<{ kind: string; note: string | null }>>(r, l).map((h) => [h.kind, h.note]),
+      );
+    expect(notes('mine')).toEqual({
+      adjust: null,
+      reward: 'Free tea',
+      expire: 'inactive 12 months',
+    });
+    expect(notes('desk').adjust).toBe('suspected abuse, cashier X');
   });
 
   it('keeps the ledger append-only except for the merge re-point, and the nightly run expires idle points', () => {
@@ -1037,7 +1566,181 @@ describe.skipIf(!docker)('loyalty and the account (contracts §1.3, §1.4)', () 
   });
 });
 
-// ── 7. the cache under two committed writers ─────────────────────────────────
+// ── 7. earning on the real paths (0308: c4, c5) ──────────────────────────────
+
+/** Loyalty on with the suite's numbers, the deferred triggers firing per statement. */
+const LOY_ON = String.raw`
+set constraints all immediate;
+update loyalty_settings set enabled = true, iqd_per_point = 1000, point_value_iqd = 50, min_redeem_points = 100,
+       earn_cafe = true, earn_shop = true, earn_court = true, earn_lesson = true, earn_tournament = true,
+       inactivity_expiry_months = null, totp_step_seconds = 30
+ where id;
+`;
+const EARN_OF = (label: string, guest: string) =>
+  Q(
+    label,
+    `select coalesce(jsonb_agg(jsonb_build_array(kind, source_kind, delta) order by created_at), '[]')
+       from loyalty_ledger where profile_id = {{${guest}}}::uuid`,
+  );
+
+describe.skipIf(!docker)('loyalty earn on the real paths (0308: c4, c5)', () => {
+  it("a tournament fee paid at the desk earns for the entry's guest (tournament_settle)", () => {
+    const FEE = 25000;
+    const r = scenario('loy-real-tour', [
+      TOUR_SETUP,
+      LOY_ON,
+      ...TOUR_BRANCH,
+      RUN('r1', { fee: FEE, count: 4 }),
+      ...PUBLISH('pub', 'r1', 't1'),
+      `select pg_temp.field('t1', 4, 'p');`,
+      `select pg_temp.day('day1');`,
+      T(
+        'settle',
+        'cashier',
+        `select app.tournament_settle({{p1_e}}, 'cash', ${FEE}, ${FEE}, ${TKEY('s1')}, null)`,
+      ),
+      EARN_OF('p1', 'p1'),
+    ]);
+    expect(ok(r, 'settle')).toBeTruthy();
+    expect(ok(r, 'p1')).toEqual([['earn', 'tab', 25]]);
+  });
+
+  it("a lesson paid at the desk earns for the enrolment's guest (lesson_settle)", () => {
+    const r = scenario('loy-real-lesson', [
+      MATCH_SETUP,
+      PLANT_BRANCH,
+      'select pg_temp.branch();',
+      'select pg_temp.staff();',
+      'select pg_temp.coaching();',
+      LOY_ON,
+      MGUEST('g1'),
+      X(`select pg_temp.day('day')`),
+      X(`select pg_temp.lesson('l1', 'lt_private', 'c1', ${cAt(3)})`),
+      X(`select pg_temp.enrol('e1', 'l1', '{"guest": "g1"}')`),
+      T(
+        'settle',
+        'cashier',
+        `select app.lesson_settle({{e1}}, 'cash', 40000, 40000, 'k-loy-les', null)`,
+      ),
+      EARN_OF('g1', 'g1'),
+    ]);
+    expect(ok(r, 'settle')).toMatchObject({ status: 'settled' });
+    expect(ok(r, 'g1')).toEqual([['earn', 'tab', 40]]);
+  });
+
+  it("an open-match seat share earns for the seat's player, never the booking's guest", () => {
+    const r = scenario('loy-real-seat', [
+      MATCH_SETUP,
+      LOY_ON,
+      'select pg_temp.branch();',
+      MGUEST('g1'),
+      MGUEST('g2'),
+      KEEP('res', `select pg_temp.res('c1', ${mAt(3)}, 90, 'booking', 'confirmed')::text`),
+      KEEP(
+        'm',
+        `select pg_temp.m(jsonb_build_object('status', 'booked', 'start_at', ${mAt(3)}, 'reservation_id', {{res}}))::text`,
+      ),
+      KEEP('s1', `select pg_temp.seat({{m}}::uuid, 1, 'account', {{g1}}::uuid)::text`),
+      KEEP('s2', `select pg_temp.seat({{m}}::uuid, 2, 'account', {{g2}}::uuid)::text`),
+      KEEP(
+        'day',
+        `insert into day_sessions (venue_id, business_date, status, opened_by, opening_float_iqd)
+         values ({{v}}, app.venue_business_date({{v}}::uuid, now()), 'open', {{manager}}, 0) returning id::text`,
+      ),
+      // what match_seat_settle leaves: a capped tab of the match's booking, its payment linked to seat 2
+      KEEP(
+        'tab',
+        `insert into tabs (venue_id, day_session_id, status, reservation_id, kind, court_cap_iqd, label)
+         values ({{v}}, {{day}}, 'open', {{res}}, 'cafe', 10000, 'seat 2') returning id::text`,
+      ),
+      KEEP(
+        'pay',
+        `insert into payments (tab_id, day_session_id, method, amount_iqd, recorded_by, venue_id)
+         values ({{tab}}, {{day}}, 'cash', 10000, {{desk}}, {{v}}) returning id::text`,
+      ),
+      X(
+        `insert into payment_match_seats (payment_id, match_seat_id, venue_id, amount_iqd, linked_by) values ({{pay}}, {{s2}}, {{v}}, 10000, {{desk}})`,
+      ),
+      Q('customer', `select to_jsonb(app.tab_customer({{tab}}::uuid) = {{g2}}::uuid)`),
+      X(
+        `update tabs set status = 'settled', settled_at = clock_timestamp(), court_iqd = 10000 where id = {{tab}}`,
+      ),
+      // (the planted seats' tickets were bought online and earn on their own, c5: only the tab here)
+      Q(
+        'g2',
+        `select coalesce(jsonb_agg(jsonb_build_array(kind, source_kind, delta)), '[]')
+           from loyalty_ledger where profile_id = {{g2}}::uuid and source_kind = 'tab'`,
+      ),
+      // one payment for both seats: two players, nobody is picked
+      KEEP(
+        'tab2',
+        `insert into tabs (venue_id, day_session_id, status, reservation_id, kind, court_cap_iqd, label)
+         values ({{v}}, {{day}}, 'open', {{res}}, 'cafe', 20000, 'seats 1 and 2') returning id::text`,
+      ),
+      KEEP(
+        'pay2',
+        `insert into payments (tab_id, day_session_id, method, amount_iqd, recorded_by, venue_id)
+         values ({{tab2}}, {{day}}, 'cash', 20000, {{desk}}, {{v}}) returning id::text`,
+      ),
+      X(
+        `insert into payment_match_seats (payment_id, match_seat_id, venue_id, amount_iqd, linked_by)
+         values ({{pay2}}, {{s1}}, {{v}}, 10000, {{desk}}), ({{pay2}}, {{s2}}, {{v}}, 10000, {{desk}})`,
+      ),
+      Q('customer2', `select to_jsonb(app.tab_customer({{tab2}}::uuid))`),
+    ]);
+    expect(ok(r, 'customer')).toBe(true);
+    expect(ok(r, 'g2')).toEqual([['earn', 'tab', 10]]);
+    expect(ok<string | null>(r, 'customer2')).toBeNull();
+  });
+
+  it('money paid online earns on success and is clawed back on a refund, per switch (c5)', () => {
+    const BP = (name: string, guest: string, amount: number, sandbox = false) =>
+      KEEP(
+        name,
+        `insert into booking_payments (venue_id, guest_id, purpose, provider, request_id, amount_iqd, quoted_price_iqd,
+                                       deadline_at, status, succeeded_at, ticket_count, sandbox)
+         values (null, {{${guest}}}, 'ticket', 'fake', gen_random_uuid(), ${amount}, ${amount / 3},
+                 now() + interval '1 hour', 'succeeded', now(), 3, ${sandbox}) returning id::text`,
+      );
+    const r = run('loy-online', [
+      GUEST('g1'),
+      BP('bp1', 'g1', 30000),
+      BALANCE('earned', 'g1'),
+      X(
+        `update booking_payments set status = 'refund_pending', refund_reason = 'ticket_cashout',
+                refund_amount_iqd = 10000, refund_requested_at = now() where id = {{bp1}}`,
+      ),
+      BALANCE('pending', 'g1'),
+      X(`update booking_payments set status = 'refunded', refunded_at = now() where id = {{bp1}}`),
+      BALANCE('refunded', 'g1'),
+      LEDGER('ledger', 'g1'),
+      // the court switch off: ticket money earns nothing; a sandbox payment never earns
+      SET('earn_court = false'),
+      BP('bp2', 'g1', 30000),
+      SET('earn_court = true'),
+      BP('bp3', 'g1', 30000, true),
+      SET('enabled = false'),
+      BP('bp4', 'g1', 30000),
+      BALANCE('after_switches', 'g1'),
+    ]);
+    expect(ok<number>(r, 'earned')).toBe(30);
+    expect(ok<number>(r, 'pending')).toBe(30);
+    expect(ok<number>(r, 'refunded')).toBe(20);
+    expect(
+      ok<Array<{ kind: string; delta: number; source_kind: string }>>(r, 'ledger').map((x) => [
+        x.kind,
+        x.source_kind,
+        x.delta,
+      ]),
+    ).toEqual([
+      ['earn', 'booking_payment', 30],
+      ['clawback', 'booking_refund', -10],
+    ]);
+    expect(ok<number>(r, 'after_switches')).toBe(20);
+  });
+});
+
+// ── 8. the cache under two committed writers ─────────────────────────────────
 
 describe.skipIf(!docker)('loyalty account cache (committed, two connections)', () => {
   it('keeps balance = sum(ledger) when two writers for one profile overlap', async () => {

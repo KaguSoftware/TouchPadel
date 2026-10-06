@@ -1,5 +1,5 @@
 {
-  "generated_from": "75075c7b52ccce26c07e8bbdf7e308d3bbf8ec64",
+  "generated_from": "89f746100113c61d96f684c875db5650de51854d",
   "chunks": [
     {
       "kind": "page",
@@ -3838,7 +3838,7 @@
       "ref": "action:app.link_guest_session",
       "lang": "en",
       "title": "app.link_guest_session",
-      "body": "Loyalty (M3, contracts §1.3). An anonymous café session (auth.users.is_anonymous) with a live guest_sessions row sets its linked_profile_id from a member token (app.loyalty_token_profile): the account signed in in the same browser. Returns {linked: true, display_name}. AUTH_REQUIRED, FORBIDDEN (not anonymous), SESSION_EXPIRED (no live session), MEMBER_CODE_INVALID, MEMBER_CODE_EXPIRED. Audited loyalty.link_session.\nSignature: app.link_guest_session(p_member_token text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: loyalty.link_session.\nError codes: AUTH_REQUIRED, FORBIDDEN, SESSION_EXPIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0308). An anonymous café session (auth.users.is_anonymous) with a live guest_sessions row sets its linked_profile_id from a member token, spent once (app.loyalty_token_consume, now ± 1 step). Returns {linked: true, display_name}; a token that does not pass (wrong, expired, replayed) answers {linked: false, error: MEMBER_CODE_INVALID} and is counted. AUTH_REQUIRED, FORBIDDEN (not anonymous), SESSION_EXPIRED (no live session), MEMBER_CODE_LOCKED (5 failures by this user in 10 minutes, or 20 on the member code in an hour). Audited loyalty.link_session.\nSignature: app.link_guest_session(p_member_token text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: loyalty.link_session.\nError codes: AUTH_REQUIRED, FORBIDDEN, SESSION_EXPIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3886,7 +3886,7 @@
       "ref": "action:app.loyalty_adjust",
       "lang": "en",
       "title": "app.loyalty_adjust",
-      "body": "Loyalty (M3, contracts §1.3). Manager or owner, behind a manager PIN grant (app.consume_pin_grant, PIN_GRANT_REQUIRED; 0115 pattern): adds p_delta points (non-zero, at most a million either way; INVALID_ARGUMENT) to a live profile (MEMBER_NOT_FOUND) with a reason (REASON_REQUIRED), as (adjust, adjust, fresh id) with the reason as the note. Counts toward lifetime and the 12-month tier points. Returns {balance}. Audited loyalty.adjust with the authorizer.\nSignature: app.loyalty_adjust(p_profile_id uuid, p_delta int, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: loyalty.adjust.\nError codes: FORBIDDEN, REASON_REQUIRED, INVALID_ARGUMENT, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0308). Manager or owner, behind a manager PIN grant (app.consume_pin_grant, PIN_GRANT_REQUIRED; 0115 pattern): adds p_delta points (non-zero, at most a million either way; INVALID_ARGUMENT) to a live profile (MEMBER_NOT_FOUND) with a reason (REASON_REQUIRED), as (adjust, adjust, fresh id) with the reason as the note. 0308 (c17): FORBIDDEN detail self_dealing for the caller's own profile or a PIN of the member themself, staff_member for a positive delta to active staff, owner_required for more than 1,000 points by a manager. Moves the balance only: not lifetime, not the 12-month tier points. Returns {balance}. Audited loyalty.adjust with the authorizer.\nSignature: app.loyalty_adjust(p_profile_id uuid, p_delta int, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: loyalty.adjust.\nError codes: FORBIDDEN, REASON_REQUIRED, INVALID_ARGUMENT, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3902,7 +3902,7 @@
       "ref": "action:app.loyalty_customer",
       "lang": "en",
       "title": "app.loyalty_customer",
-      "body": "Loyalty (M3, contracts §1.3). Any staff: one guest's points for the customer record {balance, lifetime, points_12m, tier, history (100 newest LedgerRow)}. MEMBER_NOT_FOUND for an unknown profile.\nSignature: app.loyalty_customer(p_profile_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0308). Cashier, shop_staff, court_desk, manager, owner (0308, c43: no longer any staff): one guest's points for the customer record {balance, lifetime, points_12m, tier, history (100 newest LedgerRow)}. MEMBER_NOT_FOUND for an unknown profile.\nSignature: app.loyalty_customer(p_profile_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3910,7 +3910,7 @@
       "ref": "action:app.loyalty_identify",
       "lang": "en",
       "title": "app.loyalty_identify",
-      "body": "Loyalty (M3, contracts §1.3, L-4). Cashier, shop_staff, court_desk, manager, owner; p_venue_id (when sent) one the caller can see (VENUE_MISMATCH). p_code is a member token (TP-…, app.loyalty_token_profile: MEMBER_CODE_INVALID, MEMBER_CODE_EXPIRED) or a phone of 7-15 digits matched exactly on profiles.phone_key (MEMBER_NOT_FOUND; no partial match); anything else MEMBER_CODE_INVALID. Returns {customer_id, display_name (given name + family initial), phone_masked (last four digits), tier_name_en, tier_name_ar, balance, enabled}. Audited loyalty.identify {method qr|phone, venue_id}.\nSignature: app.loyalty_identify(p_code text, p_venue_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.identify.\nError codes: FORBIDDEN, VENUE_MISMATCH, MEMBER_CODE_INVALID, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3, L-4; 0308). Cashier, shop_staff, court_desk, manager, owner; p_venue_id (when sent) one the caller can see (VENUE_MISMATCH). p_code is a member token (TP-…, app.loyalty_token_profile: now ± 1 step; read, not spent) or a phone of 7-15 digits matched exactly on profiles.phone_key. A miss answers {customer_id: null, error: MEMBER_CODE_INVALID | MEMBER_CODE_EXPIRED | MEMBER_NOT_FOUND} and is counted (loyalty_token_attempts); MEMBER_CODE_LOCKED after 10 misses by the caller in 10 minutes or 20 on the member code in an hour. Returns {customer_id, display_name (given name + family initial), phone_masked (last four digits), tier_name_en, tier_name_ar, balance, enabled}. Audited loyalty.identify {method qr|phone, venue_id}.\nSignature: app.loyalty_identify(p_code text, p_venue_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.identify.\nError codes: FORBIDDEN, VENUE_MISMATCH, MEMBER_CODE_INVALID, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3926,7 +3926,7 @@
       "ref": "action:app.loyalty_redeem",
       "lang": "en",
       "title": "app.loyalty_redeem",
-      "body": "Loyalty (M3, contracts §1.3, L-5). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly one of p_points and p_reward_id (INVALID_ARGUMENT). LOYALTY_OFF, then claim_replay, then the tab (TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN: open only) and its customer (NO_CUSTOMER), the account locked last. Points: POINTS_BELOW_MIN (min_redeem_points), POINTS_INSUFFICIENT, then rounded down to fit what is left to discount (the goods not yet discounted, and the unpaid bill), amount = points * point_value_iqd. Reward: active, this branch or every branch (REWARD_NOT_FOUND), POINTS_INSUFFICIENT for cost_points, amount = iqd_off or the variant's price, capped. NOTHING_OWED when nothing is left to discount. Writes a tab_adjustments discount_amount (value = points, applied_by = authorized_by = the caller, reason_code loyalty_points | loyalty_reward) and a ledger row (redeem | reward, tab_adjustment, adjustment_id) in one transaction, then the 0037 guard. Returns {adjustment_id, points, amount_iqd, balance}. Audited loyalty.redeem.\nSignature: app.loyalty_redeem(p_tab_id uuid, p_points int, p_reward_id uuid, p_idempotency_key text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.redeem.\nError codes: FORBIDDEN, VENUE_MISMATCH, INVALID_ARGUMENT, LOYALTY_OFF, TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN, NO_CUSTOMER, REWARD_NOT_FOUND, POINTS_INSUFFICIENT, POINTS_BELOW_MIN, NOTHING_OWED, DISCOUNT_REQUIRES_REFUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3, L-5; 0308). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly one of p_points and p_reward_id (INVALID_ARGUMENT). LOYALTY_OFF, then claim_replay, then the tab (TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN: open only) and its customer (NO_CUSTOMER). 0308 (c2): the proof: p_member_token, spent once, must name the customer (MEMBER_CODE_INVALID, MEMBER_CODE_EXPIRED, MEMBER_CODE_MISMATCH; FORBIDDEN self_dealing when the customer is the caller), or without it a manager PIN grant (PIN_GRANT_REQUIRED) whose authorizer is not the customer (FORBIDDEN self_dealing). Then the account, locked last. Points: POINTS_BELOW_MIN (min_redeem_points, checked again after the fit: hint the points that fit), POINTS_INSUFFICIENT, rounded down to fit what is left to discount (the goods not yet discounted, and the unpaid bill), amount = points * point_value_iqd. Reward: active, this branch or every branch (REWARD_NOT_FOUND), POINTS_INSUFFICIENT for cost_points, REWARD_EXCEEDS_BILL when its value (iqd_off or the variant's price) is more than what is left (0308, c13). NOTHING_OWED when nothing is left to discount. Writes a tab_adjustments discount_amount (value = points, applied_by = the caller, authorized_by = the caller for a token or the PIN's manager, reason_code loyalty_points | loyalty_reward) and a ledger row (redeem | reward, tab_adjustment, adjustment_id) in one transaction, then the 0037 guard. Returns {adjustment_id, points, amount_iqd, balance}. Audited loyalty.redeem {proof qr | pin}.\nSignature: app.loyalty_redeem(p_tab_id uuid, p_points int, p_reward_id uuid, p_idempotency_key text, p_member_token text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.redeem.\nError codes: FORBIDDEN, VENUE_MISMATCH, INVALID_ARGUMENT, LOYALTY_OFF, TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN, NO_CUSTOMER, MEMBER_CODE_MISMATCH, REWARD_NOT_FOUND, POINTS_INSUFFICIENT, REWARD_EXCEEDS_BILL, POINTS_BELOW_MIN, NOTHING_OWED, DISCOUNT_REQUIRES_REFUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4294,7 +4294,7 @@
       "ref": "action:app.my_loyalty",
       "lang": "en",
       "title": "app.my_loyalty",
-      "body": "Loyalty (M3, contracts §1.3). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier} (the base tier without an account), next_tier (+ min_points_12m) | null, point_value_iqd, min_redeem_points, history (50 newest LedgerRow), rewards (every active one, any branch)}. AUTH_REQUIRED without a session, ACCOUNT_REQUIRED for an anonymous session or a deleted account.\nSignature: app.my_loyalty() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0308). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier} (the base tier without an account), next_tier (+ min_points_12m) | null, point_value_iqd, min_redeem_points, history (50 newest LedgerRow; since 0308 the note only on reward and expire rows), rewards (every active one, any branch)}. AUTH_REQUIRED without a session, ACCOUNT_REQUIRED for an anonymous session or a deleted account.\nSignature: app.my_loyalty() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5342,7 +5342,7 @@
       "ref": "action:app.set_tab_customer",
       "lang": "en",
       "title": "app.set_tab_customer",
-      "body": "Loyalty (M3, contracts §1.3). Cashier, shop_staff, court_desk, manager, owner at the tab's branch (VENUE_MISMATCH), the tab's kind for the role (app.assert_tab_kind_role, TAB_KIND_FORBIDDEN): attaches a guest to an open tab (TAB_NOT_OPEN), or detaches with null. MEMBER_NOT_FOUND for an unknown or deleted profile; TAB_NOT_FOUND. Online-only (L-6). Returns {tab_id, customer_id}; audited loyalty.attach when it changes.\nSignature: app.set_tab_customer(p_tab_id uuid, p_customer_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.attach.\nError codes: FORBIDDEN, VENUE_MISMATCH, TAB_NOT_FOUND, TAB_NOT_OPEN, MEMBER_NOT_FOUND.\nCalled from: apps/operator/src/features/loyalty/useLoyalty.ts.\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0308). Cashier, shop_staff, court_desk, manager, owner at the tab's branch (VENUE_MISMATCH), the tab's kind for the role (app.assert_tab_kind_role, TAB_KIND_FORBIDDEN): attaches a guest to an open tab (TAB_NOT_OPEN), or detaches with null. MEMBER_NOT_FOUND for an unknown or deleted profile; TAB_NOT_FOUND. On a change (0308): LOYALTY_REDEEMED while points are used on the tab; an active staff member is attached only behind a manager PIN grant (PIN_GRANT_REQUIRED) not their own (FORBIDDEN detail self_dealing); tabs.customer_method = qr | phone (the caller's loyalty.identify of that profile in the last 15 minutes) | desk; the tab's promotion is re-checked for the new customer (tierMin, perCustomer) and dropped when it no longer qualifies (audited promotion.drop_on_customer_change), else its redemption follows the customer. Online-only (L-6). Returns {tab_id, customer_id}; audited loyalty.attach when it changes.\nSignature: app.set_tab_customer(p_tab_id uuid, p_customer_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.attach, promotion.drop_on_customer_change.\nError codes: FORBIDDEN, VENUE_MISMATCH, TAB_NOT_FOUND, TAB_NOT_OPEN, MEMBER_NOT_FOUND, LOYALTY_REDEEMED.\nCalled from: apps/operator/src/features/loyalty/useLoyalty.ts.\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -6678,7 +6678,7 @@
       "ref": "table:loyalty_cards",
       "lang": "en",
       "title": "table loyalty_cards",
-      "body": "Loyalty (M3, L-4). One member card per profile: member_code (8 Crockford base32 characters, printed under the QR) and the 20-byte TOTP secret the phone or browser computes the rotating token from. Created lazily by app.my_member_card; the secret is rotated by app.rotate_member_card. Read only through those two RPCs. No client grant.\nCreated in migration 0305.\nColumns:\n  profile_id uuid primary key references profiles(id) on delete cascade\n  member_code text not null\n  secret bytea not null\n  created_at timestamptz not null default now()\n  rotated_at timestamptz",
+      "body": "Loyalty (M3, L-4). One member card per profile: member_code (8 Crockford base32 characters, printed under the QR) and the 20-byte TOTP secret the phone or browser computes the rotating token from. Created lazily by app.my_member_card; the secret is rotated by app.rotate_member_card. Read only through those two RPCs. No client grant.\nCreated in migration 0305.\nColumns:\n  profile_id uuid primary key references profiles(id) on delete cascade\n  member_code text not null\n  secret bytea not null\n  created_at timestamptz not null default now()\n  rotated_at timestamptz\n  last_counter bigint — Loyalty (0308, c3). The TOTP counter of the last member token spent (a redemption or a café link): a token is single use, only a later counter is accepted.",
       "route": null
     },
     {
@@ -6686,7 +6686,7 @@
       "ref": "table:loyalty_ledger",
       "lang": "en",
       "title": "table loyalty_ledger",
-      "body": "Loyalty (M3). The points ledger, append-only (app.trg_loyalty_ledger_immutable; the one exception is the account merge re-pointing profile_id under set_config('app.loyalty_merge', 'on', true)). One row per (kind, source_kind, source_id): earn per tab, clawback per refund, redeem/reward/redeem_void per tab adjustment. balance = sum(delta). venue_id is reporting only (points are business-wide). No client grant.\nCreated in migration 0305.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  profile_id uuid not null references profiles(id)\n  venue_id uuid references venues(id)\n  delta int not null\n  kind text not null\n  source_kind text not null\n  source_id uuid not null\n  tab_id uuid references tabs(id)\n  actor_id uuid\n  note text\n  created_at timestamptz not null default clock_timestamp() — insertion order inside one transaction",
+      "body": "Loyalty (M3). The points ledger, append-only (app.trg_loyalty_ledger_immutable; the one exception is the account merge re-pointing profile_id under set_config('app.loyalty_merge', 'on', true)). One row per (kind, source_kind, source_id): earn per tab, clawback per refund, redeem/reward/redeem_void per tab adjustment. balance = sum(delta). venue_id is reporting only (points are business-wide). No client grant.\nCreated in migration 0305.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  profile_id uuid not null references profiles(id)\n  venue_id uuid references venues(id)\n  delta int not null\n  kind text not null\n  source_kind text not null\n  source_id uuid not null\n  tab_id uuid references tabs(id)\n  actor_id uuid\n  note text\n  created_at timestamptz not null default clock_timestamp() — insertion order inside one transaction\n  earn_base_iqd bigint — Loyalty (0308, c22). On an earn row: the IQD that earned (the eligible court part plus the eligible goods part), the base a later clawback is measured against.\n  earn_court_iqd bigint — Loyalty (0308, c22). On an earn row: the eligible court part of earn_base_iqd (0 when earn_court was off).",
       "route": null
     },
     {
@@ -6711,6 +6711,14 @@
       "lang": "en",
       "title": "table loyalty_tiers",
       "body": "Loyalty (M3). Tiers by points earned in the last 12 months (min_points_12m), each with an earn multiplier and an optional promotion (a promotion with limits.tierMin = this tier's sort is eligible from this tier up). The sort-0 tier (from 0 points) is the base every account starts in and cannot be deleted. Owner-written. No client grant.\nCreated in migration 0305.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  min_points_12m int not null\n  earn_multiplier numeric(3,2) not null default 1\n  promotion_id uuid references promotions(id)\n  sort smallint not null\n  created_at timestamptz not null default now() — The base tier (sort 0) is the one every account starts in: from 0 points.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:loyalty_token_attempts",
+      "lang": "en",
+      "title": "table loyalty_token_attempts",
+      "body": "Loyalty (0308, c3). Every member-token or phone lookup at app.link_guest_session and app.loyalty_identify, success or not: the throttle counts the failures per caller (10 minutes) and per member code (an hour). Rows older than a day are pruned on write. No client grant.\nCreated in migration 0308.\nColumns:\n  id bigint generated always as identity primary key\n  auth_user_id uuid\n  member_code text\n  ok boolean not null\n  at timestamptz not null default clock_timestamp()",
       "route": null
     },
     {
@@ -7382,7 +7390,7 @@
       "ref": "table:tabs",
       "lang": "en",
       "title": "table tabs",
-      "body": "Created in migration 0015.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  day_session_id uuid not null references day_sessions(id)\n  status tab_status not null default 'open'\n  table_id uuid references cafe_tables(id)\n  reservation_id uuid references reservations(id) — CHARGE CAFE TO COURT BOOKING\n  label text — \"by name\"\n  opened_by_staff_id uuid references staff(id) — null when guest-web opened it\n  merged_into_tab_id uuid references tabs(id) — merge tables: donor points at survivor\n  subtotal_iqd iqd — stamped at settle\n  tax_iqd iqd\n  discount_iqd iqd\n  total_iqd iqd\n  opened_at timestamptz not null default now()\n  settled_at timestamptz\n  device_id text\n  idempotency_key text unique\n  court_iqd bigint not null default 0 — 0053: court fee for a tab charged to a booking (SOW L131). Excluded from subtotal_iqd so percentage discounts apply to goods only; included in total_iqd.\n  venue_id uuid\n  kind text not null default 'cafe' constraint tabs_kind_chk check (kind in ('cafe','shop'))\n  court_cap_iqd bigint — 0258. On a tab that settles open-match seat shares: the most court money this tab may carry (its court line is least(court_cap_iqd, court_fee_remaining)). Set only by match_seat_settle on the tab it settles and by match_link_payment when it closes a live court-only tab at what was paid (R2). NULL on every other tab.\n  lesson_enrolment_id uuid — 0278. The lesson enrolment a kind 'lesson' tab takes desk money for (one payment, settled in the same call by app.lesson_settle). NULL on every other tab.\n  lesson_iqd bigint not null default 0 — 0278. The lesson line stamped at settlement (app.settle_tab, from compute_tab_totals): what the enrolment still owed. Outside the tax base like the court line (CD-4). 0 on every other tab.\n  tournament_entry_id uuid — Tournaments (M7). The tournament entry a kind 'tournament' tab takes the entry fee for (one payment, inserted and settled in the same call by app.tournament_settle). NULL on every other tab.\n  customer_id uuid — Loyalty (M3). The guest a desk attached to this tab (app.set_tab_customer, after app.loyalty_identify). The tab's customer is app.tab_customer: this, else the booking's guest, else the latest linked café session's profile.",
+      "body": "Created in migration 0015.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  day_session_id uuid not null references day_sessions(id)\n  status tab_status not null default 'open'\n  table_id uuid references cafe_tables(id)\n  reservation_id uuid references reservations(id) — CHARGE CAFE TO COURT BOOKING\n  label text — \"by name\"\n  opened_by_staff_id uuid references staff(id) — null when guest-web opened it\n  merged_into_tab_id uuid references tabs(id) — merge tables: donor points at survivor\n  subtotal_iqd iqd — stamped at settle\n  tax_iqd iqd\n  discount_iqd iqd\n  total_iqd iqd\n  opened_at timestamptz not null default now()\n  settled_at timestamptz\n  device_id text\n  idempotency_key text unique\n  court_iqd bigint not null default 0 — 0053: court fee for a tab charged to a booking (SOW L131). Excluded from subtotal_iqd so percentage discounts apply to goods only; included in total_iqd.\n  venue_id uuid\n  kind text not null default 'cafe' constraint tabs_kind_chk check (kind in ('cafe','shop'))\n  court_cap_iqd bigint — 0258. On a tab that settles open-match seat shares: the most court money this tab may carry (its court line is least(court_cap_iqd, court_fee_remaining)). Set only by match_seat_settle on the tab it settles and by match_link_payment when it closes a live court-only tab at what was paid (R2). NULL on every other tab.\n  lesson_enrolment_id uuid — 0278. The lesson enrolment a kind 'lesson' tab takes desk money for (one payment, settled in the same call by app.lesson_settle). NULL on every other tab.\n  lesson_iqd bigint not null default 0 — 0278. The lesson line stamped at settlement (app.settle_tab, from compute_tab_totals): what the enrolment still owed. Outside the tax base like the court line (CD-4). 0 on every other tab.\n  tournament_entry_id uuid — Tournaments (M7). The tournament entry a kind 'tournament' tab takes the entry fee for (one payment, inserted and settled in the same call by app.tournament_settle). NULL on every other tab.\n  customer_id uuid — Loyalty (M3). The guest a desk attached to this tab (app.set_tab_customer, after app.loyalty_identify). The tab's customer is app.tab_customer: this, else the booking's guest, else the latest linked café session's profile.\n  customer_method text — Loyalty (0308, c2). How the desk identified tabs.customer_id: qr (a member token this caller identified in the last 15 minutes), phone, or desk (anything else, such as a record picked by id). Null with no attached customer. Informational: a redemption always needs the member's token or a manager PIN.",
       "route": null
     },
     {
@@ -9435,10 +9443,34 @@
     },
     {
       "kind": "column",
+      "ref": "column:loyalty_cards.last_counter",
+      "lang": "en",
+      "title": "loyalty_cards.last_counter",
+      "body": "bigint\nLoyalty (0308, c3). The TOTP counter of the last member token spent (a redemption or a café link): a token is single use, only a later counter is accepted.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:loyalty_ledger.created_at",
       "lang": "en",
       "title": "loyalty_ledger.created_at",
       "body": "timestamptz not null default clock_timestamp()\ninsertion order inside one transaction",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:loyalty_ledger.earn_base_iqd",
+      "lang": "en",
+      "title": "loyalty_ledger.earn_base_iqd",
+      "body": "bigint\nLoyalty (0308, c22). On an earn row: the IQD that earned (the eligible court part plus the eligible goods part), the base a later clawback is measured against.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:loyalty_ledger.earn_court_iqd",
+      "lang": "en",
+      "title": "loyalty_ledger.earn_court_iqd",
+      "body": "bigint\nLoyalty (0308, c22). On an earn row: the eligible court part of earn_base_iqd (0 when earn_court was off).",
       "route": null
     },
     {
@@ -13183,6 +13215,14 @@
       "lang": "en",
       "title": "tabs.customer_id",
       "body": "uuid\nLoyalty (M3). The guest a desk attached to this tab (app.set_tab_customer, after app.loyalty_identify). The tab's customer is app.tab_customer: this, else the booking's guest, else the latest linked café session's profile.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:tabs.customer_method",
+      "lang": "en",
+      "title": "tabs.customer_method",
+      "body": "text\nLoyalty (0308, c2). How the desk identified tabs.customer_id: qr (a member token this caller identified in the last 15 minutes), phone, or desk (anything else, such as a record picked by id). Null with no attached customer. Informational: a redemption always needs the member's token or a manager PIN.",
       "route": null
     },
     {
@@ -18102,7 +18142,7 @@
       "ref": "label:ws.loyalty.redeem",
       "lang": "ar",
       "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
-      "body": "button: استخدام النقاط\ntitle: استخدام النقاط\nlead: لدى {name} {points} نقطة.\npoints: النقاط المستخدمة\nworth: تخصم {amount} من الفاتورة.\nworthUnknown: يحسب الخادم المبلغ، ولا يخصم أكثر مما بقي للدفع.\nmaxHint: حتى {points} نقطة تناسب ما بقي للدفع.\nconfirm: استخدام {points} نقطة\ndone: خصمت {points} نقطة {amount} من الفاتورة.\nnoBalance: لا توجد نقاط للاستخدام بعد.\nbelowMin: تُستخدم {min} نقطة على الأقل في كل مرة.\noverBalance: أكثر من النقاط التي لدى العضو ({points}).\nnothingDue: لم يبقَ شيء للدفع على هذه الفاتورة.\nusedTitle: النقاط المستخدمة على هذه الفاتورة\nusedRow: {points} نقطة · خصم {amount}\nrewardRow: مكافأة · خصم {amount}\nundo: تراجع\nundone: أُعيدت النقاط إلى العضو.\nbillRow: نقاط الولاء",
+      "body": "button: استخدام النقاط\ntitle: استخدام النقاط\nlead: لدى {name} {points} نقطة.\npoints: النقاط المستخدمة\nworth: تخصم {amount} من الفاتورة.\nworthUnknown: يحسب الخادم المبلغ، ولا يخصم أكثر مما بقي للدفع.\nmaxHint: حتى {points} نقطة تناسب ما بقي للدفع.\nconfirm: استخدام {points} نقطة\ndone: خصمت {points} نقطة {amount} من الفاتورة.\nnoBalance: لا توجد نقاط للاستخدام بعد.\nbelowMin: تُستخدم {min} نقطة على الأقل في كل مرة.\noverBalance: أكثر من النقاط التي لدى العضو ({points}).\nnothingDue: لم يبقَ شيء للدفع على هذه الفاتورة.\nusedTitle: النقاط المستخدمة على هذه الفاتورة\nusedRow: {points} نقطة · خصم {amount}\nrewardRow: مكافأة · خصم {amount}\nundo: تراجع\nundone: أُعيدت النقاط إلى العضو.\nbillRow: نقاط الولاء\npinLabel: رمز المدير\npinHint: لم تُمسح بطاقة العضو للتو. امسحها مرة أخرى، أو يُدخل المدير رمزه.",
       "route": null
     },
     {
@@ -18110,7 +18150,7 @@
       "ref": "label:ws.loyalty.redeem",
       "lang": "en",
       "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
-      "body": "button: Use points\ntitle: Use points\nlead: {name} has {points} points.\npoints: Points to use\nworth: Takes {amount} off the bill.\nworthUnknown: The server works out the amount and never takes more than is left to pay.\nmaxHint: Up to {points} points fit what is left to pay.\nconfirm: Use {points} points\ndone: {points} points took {amount} off the bill.\nnoBalance: No points to use yet.\nbelowMin: At least {min} points are used at a time.\noverBalance: More than the {points} points the member has.\nnothingDue: Nothing is left to pay on this bill.\nusedTitle: Points used on this bill\nusedRow: {points} points · {amount} off\nrewardRow: Reward · {amount} off\nundo: Undo\nundone: Points given back to the member.\nbillRow: Loyalty points",
+      "body": "button: Use points\ntitle: Use points\nlead: {name} has {points} points.\npoints: Points to use\nworth: Takes {amount} off the bill.\nworthUnknown: The server works out the amount and never takes more than is left to pay.\nmaxHint: Up to {points} points fit what is left to pay.\nconfirm: Use {points} points\ndone: {points} points took {amount} off the bill.\nnoBalance: No points to use yet.\nbelowMin: At least {min} points are used at a time.\noverBalance: More than the {points} points the member has.\nnothingDue: Nothing is left to pay on this bill.\nusedTitle: Points used on this bill\nusedRow: {points} points · {amount} off\nrewardRow: Reward · {amount} off\nundo: Undo\nundone: Points given back to the member.\nbillRow: Loyalty points\npinLabel: Manager PIN",
       "route": null
     },
     {

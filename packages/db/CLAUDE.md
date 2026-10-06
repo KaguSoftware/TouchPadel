@@ -139,6 +139,19 @@ is a line in that file.
   `merge_accounts` on an unproven pair moves data only (`MERGE_REFUSED` detail `keep_no_login`
   when the drop is the only one of the two anybody can sign in to). A failed walk-in claim keeps
   the walk-in findable by its registered number, so the next confirmation retries it.
+  Loyalty earn and redeem (0308, the review of 0305/0306): holds `tab_customer`,
+  `loyalty_recompute`, `trg_loyalty_earn`, `trg_loyalty_clawback`, `loyalty_token_profile`,
+  `my_loyalty`, `link_guest_session`, `loyalty_identify`, `set_tab_customer`, `loyalty_adjust`,
+  `loyalty_customer` and `loyalty_redeem`, now `(uuid, int, uuid, text, text)` with
+  `p_member_token` last (0305's four-argument version is dropped), plus the internals
+  `loyalty_token_match`, `loyalty_token_consume`, `loyalty_token_code`, `loyalty_throttle_check`,
+  `loyalty_attempt_record`, `loyalty_history_guest`, `loyalty_tab_paid_at_settle` and the deferred
+  triggers `tabs_loyalty_redeem_cap` and `booking_payments_loyalty`. A redemption needs the
+  member's token (spent once, `loyalty_cards.last_counter`) or a manager PIN grant not the
+  member's own; `loyalty_identify` and `link_guest_session` answer a miss as data (`{error}`,
+  `{linked: false}`) so `loyalty_token_attempts` keeps it for the throttle. Every body that moves
+  a booking payment to succeeded or refunded now ends its lock sequence in `loyalty_accounts`
+  (the deferred trigger, at commit). 0309 re-issues `set_tab_customer` from 0308, not 0305.
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
   GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows

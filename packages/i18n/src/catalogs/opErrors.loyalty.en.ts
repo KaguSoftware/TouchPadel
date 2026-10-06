@@ -18,4 +18,9 @@ export const opErrorsLoyaltyEn = {
   POINTS_INSUFFICIENT: "The guest doesn't have enough points for that.",
   POINTS_BELOW_MIN: 'That is below the smallest number of points that can be used at once.',
   REWARD_NOT_FOUND: "That reward isn't available any more.",
+  MEMBER_CODE_LOCKED:
+    'Too many wrong member codes. Wait a few minutes, or type the guest’s phone number.',
+  MEMBER_CODE_MISMATCH: "That member code belongs to someone else, not this bill's member.",
+  REWARD_EXCEEDS_BILL: 'That reward is worth more than what is left on the bill.',
+  LOYALTY_REDEEMED: 'Points are used on this bill. Undo them before changing the member.',
 };

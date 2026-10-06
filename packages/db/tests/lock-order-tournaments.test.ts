@@ -118,7 +118,9 @@ describe.skipIf(!docker)('check:locks over the local stack (tournaments)', () =>
     expect(gate.out).toContain('no lock-order violations');
     const walked = gate.out.slice(0, gate.out.indexOf('internal sequences'));
     const internal = gate.out.slice(gate.out.indexOf('internal sequences'));
-    const RELEASE = 'court_advisory -> match_venue_advisory -> match_tickets';
+    // Loyalty 0308 (c5): a cancel refunds online money, so the deferred earn/clawback trigger on
+    // booking_payments takes loyalty_accounts at commit.
+    const RELEASE = 'court_advisory -> match_venue_advisory -> match_tickets -> loyalty_accounts';
     // publish: the courts, then the adopted blocks FOR UPDATE.
     expect(rowOf(walked, 'tournament_publish')).toBe('court_advisory -> reservations');
     // cancel, the finishing score and the sweep's cut-off cancel: the release.
@@ -130,7 +132,7 @@ describe.skipIf(!docker)('check:locks over the local stack (tournaments)', () =>
     expect(rowOf(walked, 'tournament_settle')).toBe('tabs -> loyalty_accounts');
     // block_courts_for_event keeps 0174's order.
     expect(rowOf(walked, 'block_courts_for_event')).toBe(
-      'court_advisory -> reservations -> match_venue_advisory -> match_tickets',
+      'court_advisory -> reservations -> match_venue_advisory -> match_tickets -> loyalty_accounts',
     );
     // Entries, rounds, no-shows and the reads take nothing ranked.
     for (const fn of [

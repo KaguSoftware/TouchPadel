@@ -476,6 +476,13 @@ export const ERROR_CODE_KEYS = {
   POINTS_INSUFFICIENT: 'op.errors.POINTS_INSUFFICIENT',
   POINTS_BELOW_MIN: 'op.errors.POINTS_BELOW_MIN',
   REWARD_NOT_FOUND: 'op.errors.REWARD_NOT_FOUND',
+  // 0308 (the loyalty review): too many wrong member codes (identify, the café link); a member
+  // token that names someone other than the bill's member (loyalty_redeem); a reward worth more
+  // than what is left to discount; a member change on a bill that already used points.
+  MEMBER_CODE_LOCKED: 'op.errors.MEMBER_CODE_LOCKED',
+  MEMBER_CODE_MISMATCH: 'op.errors.MEMBER_CODE_MISMATCH',
+  REWARD_EXCEEDS_BILL: 'op.errors.REWARD_EXCEEDS_BILL',
+  LOYALTY_REDEEMED: 'op.errors.LOYALTY_REDEEMED',
 
   // ── Guest refusals the desk never meets (the phone's lines) ───────────────
   // 0048/C1 + 0058: raised by app.hold_slot from the day it was hardened; the

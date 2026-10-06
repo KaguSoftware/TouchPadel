@@ -47,13 +47,55 @@ export const LOYALTY_KEYS = {
  */
 const identified = new Map<string, IdentifiedMember>();
 
+/**
+ * The member token last scanned for each customer (0308, c2): loyalty_redeem spends it as the
+ * proof the member is at the till. The server takes a token within one step (30 s) either side
+ * of now, once; an older one, or none, means a manager PIN instead.
+ */
+const scanned = new Map<string, { token: string; at: number }>();
+const TOKEN_FRESH_MS = 45_000;
+
 export async function identifyMember(code: string): Promise<IdentifiedMember> {
-  const member = await appRpc<IdentifiedMember>('loyalty_identify', {
+  const answer = await appRpc<IdentifiedMember & { error?: string }>('loyalty_identify', {
     p_code: code,
     p_venue_id: currentBranchId(),
   });
-  identified.set(member.customer_id, member);
-  return member;
+  // 0308: a miss is answered, not raised, so the server can count it (the throttle).
+  if (answer.error || !answer.customer_id) {
+    const c = answer.error ?? 'MEMBER_NOT_FOUND';
+    throw new AppRpcError(c, c);
+  }
+  identified.set(answer.customer_id, answer);
+  if (code.toUpperCase().startsWith('TP-')) {
+    scanned.set(answer.customer_id, { token: code, at: Date.now() });
+  } else {
+    scanned.delete(answer.customer_id);
+  }
+  return answer;
+}
+
+/** The member's scanned token while it can still prove they are here, else null. */
+export function freshMemberToken(customerId: string, now = Date.now()): string | null {
+  const s = scanned.get(customerId);
+  return s && now - s.at < TOKEN_FRESH_MS ? s.token : null;
+}
+
+/** A token is spent once: after a redemption (or a refusal of it) it proves nothing more. */
+export function forgetMemberToken(customerId: string): void {
+  scanned.delete(customerId);
+}
+
+/**
+ * A manager PIN grant for the next PIN-gated call (the 0115 pattern): verify_manager_pin in its
+ * own round trip, so the attempt row commits whatever happens next; null answers PIN_INVALID.
+ */
+export async function grantManagerPin(pin: string): Promise<void> {
+  const authorizer = await appRpc<string | null>('verify_manager_pin', {
+    p_pin: pin,
+    p_device_id: deviceId(),
+  });
+  if (authorizer === null) throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
+  touch.pinObserved(pin, authorizer);
 }
 
 export function knownMember(customerId: string): IdentifiedMember | null {
@@ -69,21 +111,37 @@ export function redeemKey(): string {
   return onlineKey('loyalty_redeem');
 }
 
-export function redeemPoints(tabId: string, points: number, key: string): Promise<RedeemResult> {
+/**
+ * The proof loyalty_redeem needs (0308, c2): the member's scanned token, or (token null) a
+ * manager PIN grant minted just before with grantManagerPin.
+ */
+export function redeemPoints(
+  tabId: string,
+  points: number,
+  key: string,
+  memberToken: string | null,
+): Promise<RedeemResult> {
   return appRpc<RedeemResult>('loyalty_redeem', {
     p_tab_id: tabId,
     p_points: points,
     p_reward_id: null,
     p_idempotency_key: key,
+    p_member_token: memberToken,
   });
 }
 
-export function redeemReward(tabId: string, rewardId: string, key: string): Promise<RedeemResult> {
+export function redeemReward(
+  tabId: string,
+  rewardId: string,
+  key: string,
+  memberToken: string | null,
+): Promise<RedeemResult> {
   return appRpc<RedeemResult>('loyalty_redeem', {
     p_tab_id: tabId,
     p_points: null,
     p_reward_id: rewardId,
     p_idempotency_key: key,
+    p_member_token: memberToken,
   });
 }
 
@@ -103,13 +161,7 @@ export async function adjustPoints(
   reason: string,
   pin: string,
 ): Promise<{ balance: number }> {
-  const device = deviceId();
-  const authorizer = await appRpc<string | null>('verify_manager_pin', {
-    p_pin: pin,
-    p_device_id: device,
-  });
-  if (authorizer === null) throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
-  touch.pinObserved(pin, authorizer);
+  await grantManagerPin(pin);
   return appRpc<{ balance: number }>('loyalty_adjust', {
     p_profile_id: profileId,
     p_delta: delta,

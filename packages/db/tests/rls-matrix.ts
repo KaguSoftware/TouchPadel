@@ -6096,6 +6096,21 @@ export const matrix: MatrixRule[] = [
     note: 'loyalty (0305): CRITICAL, no client can set a balance; app.loyalty_recompute alone maintains it',
     drop: 29,
   },
+  {
+    kind: 'select',
+    name: 'loyalty_token_attempts',
+    expect: ex<SelectExpectation>('denied'),
+    note: 'loyalty (0308, c3): the member-code throttle; no client grant, written by loyalty_identify and link_guest_session only',
+    drop: 29,
+  },
+  {
+    kind: 'write',
+    name: 'loyalty_token_attempts',
+    op: 'delete',
+    expect: ex<WriteExpectation>('denied'),
+    note: 'loyalty (0308, c3): CRITICAL, nobody clears their own failed tries to lift the throttle',
+    drop: 29,
+  },
   // ── account identity (0303): the owner's duplicate review and merge ──
   {
     kind: 'rpc', schema: 'app', name: 'duplicate_account_groups',
@@ -6152,7 +6167,7 @@ export const matrix: MatrixRule[] = [
     kind: 'rpc', schema: 'app', name: 'loyalty_identify',
     args: { p_code: 'TP-00000000-000000', p_venue_id: null },
     expect: CASHIER_DESK_UP,
-    note: 'loyalty (0305): an unknown member code is MEMBER_CODE_INVALID past the guard; the audit row is written only on a match',
+    note: 'loyalty (0305; 0308): an unknown member code is answered {error: MEMBER_CODE_INVALID} past the guard (the miss is counted); the audit row is written only on a match',
     drop: 29,
   },
   {
@@ -6164,9 +6179,15 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'loyalty_redeem',
-    args: { p_tab_id: NIL_UUID, p_points: null, p_reward_id: null, p_idempotency_key: 'matrix-loyalty-redeem' },
+    args: {
+      p_tab_id: NIL_UUID,
+      p_points: null,
+      p_reward_id: null,
+      p_idempotency_key: 'matrix-loyalty-redeem',
+      p_member_token: null,
+    },
     expect: CASHIER_DESK_UP,
-    note: 'loyalty (0305): neither points nor a reward is INVALID_ARGUMENT before the key is claimed',
+    note: 'loyalty (0305; 0308 p_member_token): neither points nor a reward is INVALID_ARGUMENT before the key is claimed and before any token or PIN grant is spent',
     drop: 29,
   },
   {
@@ -6186,8 +6207,8 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'loyalty_customer',
     args: { p_profile_id: NIL_UUID },
-    expect: STAFF_ANY,
-    note: 'loyalty (0305): any staff; a nil profile is MEMBER_NOT_FOUND past the guard',
+    expect: CASHIER_DESK_UP,
+    note: 'loyalty (0305; 0308 c43): the desk roles, as every other loyalty desk read; a nil profile is MEMBER_NOT_FOUND past the guard',
     drop: 29,
   },
   // ── loyalty: management ──

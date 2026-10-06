@@ -109,6 +109,8 @@ function mount(tabId = TAB, remainingIqd: number | null = 12_340) {
         };
       case 'loyalty_unredeem':
         return { balance: 400 };
+      case 'verify_manager_pin':
+        return args?.p_pin === '1234' ? 'mgr1' : null;
       default:
         return {};
     }
@@ -158,7 +160,7 @@ describe('MemberAttach', () => {
     expect(calls('loyalty_identify')).toEqual([]);
   });
 
-  it('opens Use points on the most that fits what is left, and redeems with one key', async () => {
+  it('opens Use points on the most that fits what is left, and redeems with one key behind a manager PIN', async () => {
     role = 'manager';
     tabRow = { ...tabRow, customer_id: 'p1' };
     const user = userEvent.setup();
@@ -169,6 +171,9 @@ describe('MemberAttach', () => {
     await waitFor(() =>
       expect((dialog.getByTestId('redeem-points') as HTMLInputElement).value).toBe('246'),
     );
+    // 0308 (c2): no card scanned for this member, so a manager's PIN is the proof
+    expect((dialog.getByTestId('redeem-confirm') as HTMLButtonElement).disabled).toBe(true);
+    await user.type(dialog.getByTestId('redeem-pin'), '1234');
     await user.click(dialog.getByTestId('redeem-confirm'));
     await waitFor(() =>
       expect(calls('loyalty_redeem')).toEqual([
@@ -177,9 +182,38 @@ describe('MemberAttach', () => {
           p_points: 246,
           p_reward_id: null,
           p_idempotency_key: 'TILL-1:loyalty_redeem:01JABCDEFGHJKMNPQRSTVWXYZ0',
+          p_member_token: null,
         },
       ]),
     );
+    expect(calls('verify_manager_pin')).toHaveLength(1);
+  });
+
+  it('sends the member token scanned a moment ago as the proof, once, and asks no PIN', async () => {
+    const user = userEvent.setup();
+    mount(TAB, 12_340);
+    await user.click(await screen.findByRole('button', { name: 'Member' }));
+    const identify = within(await screen.findByRole('dialog'));
+    await user.type(identify.getByTestId('member-code'), 'TP-ABCDEFGH-123456{Enter}');
+    await waitFor(() => expect(calls('set_tab_customer')).toHaveLength(1));
+    await user.click(await screen.findByTestId('member-use-points'));
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.queryByTestId('redeem-pin')).toBeNull();
+    await user.click(dialog.getByTestId('redeem-confirm'));
+    await waitFor(() => expect(calls('loyalty_redeem')).toHaveLength(1));
+    expect(calls('loyalty_redeem')[0]).toMatchObject({ p_member_token: 'TP-ABCDEFGH-123456' });
+    expect(calls('verify_manager_pin')).toEqual([]);
+  });
+
+  it('shows a miss the server answered (0308: counted, not raised) under the field', async () => {
+    const user = userEvent.setup();
+    mount();
+    rpc.mockImplementationOnce(async () => ({ customer_id: null, error: 'MEMBER_NOT_FOUND' }));
+    await user.click(await screen.findByRole('button', { name: 'Member' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.type(dialog.getByTestId('member-code'), '0770 123 4567{Enter}');
+    expect(await dialog.findByText(/No account has that member code/)).toBeTruthy();
+    expect(calls('set_tab_customer')).toEqual([]);
   });
 
   it('undoes a redemption on the open tab', async () => {

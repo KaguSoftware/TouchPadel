@@ -70,6 +70,7 @@
     "loyalty_rewards": "excluded: loyalty rewards (0305) with no client grant; the owner reads and edits them in Setup › Loyalty through loyalty_admin",
     "loyalty_settings": "excluded: loyalty programme settings (0305) with no client grant; the owner reads and edits them in Setup › Loyalty through loyalty_admin and set_loyalty_settings",
     "loyalty_tiers": "excluded: loyalty tiers (0305) with no client grant; the owner reads and edits them in Setup › Loyalty through loyalty_admin",
+    "loyalty_token_attempts": "excluded: member-token and phone lookup attempts per caller and member code (0308), the identify and café-link throttle; no client grant, never read by a model",
     "manager_alerts": "table_read",
     "marketing_audiences": "table_read",
     "marketing_campaigns": "table_read",
@@ -1273,7 +1274,16 @@
     "withdraw_step": "map:action",
     "write_audit": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "write_audit_external": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
-    "write_off_expired": "map:action"
+    "write_off_expired": "map:action",
+    "loyalty_attempt_record": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "loyalty_history_guest": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "loyalty_tab_paid_at_settle": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "loyalty_throttle_check": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "loyalty_token_code": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "loyalty_token_consume": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "loyalty_token_match": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "trg_loyalty_booking_payment": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "trg_loyalty_redeem_cap": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client"
   },
   "routes": {
     "/admin": "map:page",

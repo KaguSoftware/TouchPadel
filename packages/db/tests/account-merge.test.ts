@@ -877,7 +877,8 @@ describe.skipIf(!docker)('03XX account identity: one live profile per proven pho
     expect(ok(r, 'squat')).toBe(true);
     expect(ok(r, 'squat_key')).toBeNull();
     expect(ok(r, 'squat_find')).toBeNull();
-    expect(refused(r, 'squat_identify')).toBe('MEMBER_NOT_FOUND');
+    // 0308 (c3): a miss is answered, not raised, so the throttle can count it.
+    expect(ok(r, 'squat_identify')).toEqual({ customer_id: null, error: 'MEMBER_NOT_FOUND' });
     expect(ok(r, 'squat_back')).toBe(true);
     expect(ok(r, 'squat_back_key')).toBeNull();
   });
