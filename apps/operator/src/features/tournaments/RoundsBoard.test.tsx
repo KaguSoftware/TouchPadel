@@ -35,7 +35,7 @@ const MATCH: TourDetailMatch = {
   corrections: 0,
 };
 
-function mount(match: TourDetailMatch, onDone = vi.fn(), onChanged = vi.fn()) {
+function mount(match: TourDetailMatch, onDone = vi.fn(), onChanged = vi.fn(), finished = false) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
@@ -44,6 +44,7 @@ function mount(match: TourDetailMatch, onDone = vi.fn(), onChanged = vi.fn()) {
           match={match}
           target={24}
           teamA="Ali H. & Sara K."
+          finished={finished}
           onDone={onDone}
           onChanged={onChanged}
         />
@@ -130,6 +131,49 @@ describe('ScoreCell', () => {
       p_expected_revision: 2,
       p_reason: 'staff_error',
     });
+  });
+
+  it('asks why before a first score on a finished tournament (0311, c35)', async () => {
+    const user = userEvent.setup();
+    rpc.mockResolvedValue({
+      match_id: 'm1',
+      revision: 1,
+      tournament_revision: 12,
+      removed_from_round: null,
+      status: 'finished',
+    });
+    const { onDone } = mount(MATCH, vi.fn(), vi.fn(), true);
+    await user.type(screen.getByLabelText('Points for Ali H. & Sara K.'), '15');
+    await user.click(screen.getByRole('button', { name: 'Save score' }));
+    expect(rpc).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText('The tournament has finished. Why is this score being entered now?'),
+    ).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith(null));
+    expect(rpc).toHaveBeenCalledWith('tournament_score', {
+      p_match_id: 'm1',
+      p_points_a: 15,
+      p_points_b: 9,
+      p_expected_revision: 0,
+      p_reason: 'staff_error',
+    });
+  });
+
+  it('says a manager changes the scores of a finished tournament (FORBIDDEN finished)', async () => {
+    const user = userEvent.setup();
+    rpc.mockRejectedValue(new AppRpcError('FORBIDDEN', 'x', undefined, 'finished'));
+    mount({ ...MATCH, points_a: 14, points_b: 10, revision: 2 }, vi.fn(), vi.fn(), true);
+    const input = screen.getByLabelText('Points for Ali H. & Sara K.');
+    await user.clear(input);
+    await user.type(input, '12');
+    await user.click(screen.getByRole('button', { name: 'Save score' }));
+    await user.click(await screen.findByRole('button', { name: 'Continue' }));
+    expect(
+      await screen.findByText(
+        'The tournament has finished: only a manager can change its scores now.',
+      ),
+    ).toBeTruthy();
   });
 
   it('refetches and says so when someone else changed the score', async () => {

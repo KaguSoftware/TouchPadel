@@ -1682,6 +1682,7 @@ export function ReasonCodePrompt({
   noteMode = 'other',
   busy,
   error,
+  errorMessage,
   onSubmit,
   onCancel,
   children,
@@ -1697,6 +1698,8 @@ export function ReasonCodePrompt({
   noteMode?: 'other' | 'optional';
   busy?: boolean;
   error?: unknown;
+  /** The words for `error` when the caller knows more than the code's generic line. */
+  errorMessage?: string | null;
   onSubmit: (code: ReasonCode, note: string) => void;
   onCancel: () => void;
   /** Consequence copy rendered above the reason picker (e.g. "recorded as waste"). */
@@ -1764,7 +1767,7 @@ export function ReasonCodePrompt({
           />
         </Field>
       )}
-      <ErrorText error={error} />
+      <ErrorText error={error} message={errorMessage} />
     </Modal>
   );
 }

@@ -9,8 +9,19 @@ set statement_timeout = '60s';
 --       sit-outs are entries with the fewest sit-outs so far (the rounds
 --       before from_round, then the payload's earlier rounds), the rule both
 --       engines draw by; core validateRoundsPayload is its twin.
---   c38 app.tournament_set_rounds: starting a closed tournament below
---       min_entries is TOURNAMENT_UNDER_FILLED (detail <registered>/<min>);
+--       Check 11 courts_used: every round plays least(|the run's courts|,
+--       floor(active / 4)) matches (tourCourtsPerRound). The run's courts are
+--       the payload's and the still adopted ones of the rounds before
+--       from_round, not every adopted court: the desk picks the courts at
+--       Start and may leave one out (decision, recorded in the plan), but no
+--       round leaves one of them empty while its players sit out.
+--   c38 app.tournament_set_rounds: the court desk starting a closed
+--       tournament below min_entries is TOURNAMENT_UNDER_FILLED (detail
+--       <registered>/<min>); a manager or the owner may start it (decision:
+--       min_entries is fixed after publish and a no-show on the day must not
+--       force a cancel). The plan's start-time check is not implemented
+--       (decision: starting early is the desk's call, and play is already
+--       held to the run's live blocks by check 10);
 --       app.tournament_mark_no_show (0301): a waitlisted substitute entry
 --       runs the guest path's deleted-account and match-ban checks.
 --   c32 mark_no_show: the substitute takes the sit-out of every round with
@@ -22,7 +33,9 @@ set statement_timeout = '60s';
 --   c35 app.tournament_score (0301): on a finished tournament only a manager
 --       or the owner writes (FORBIDDEN detail finished), within 48 hours of
 --       finished_at (TOURNAMENT_SCORE_REFUSED detail closed), always with a
---       reason (REASON_REQUIRED).
+--       reason (REASON_REQUIRED); app.desk_tournament_detail (0310) can.score
+--       says the same (the court desk while running; a manager on a finished
+--       tournament within the 48 hours).
 --   c36 tournament_score: a Mexicano correction on a finished tournament
 --       deletes no later round (set_rounds could never draw it again).
 --   c37 tournament_score: a null p_expected_revision is INVALID_ARGUMENT, a
@@ -56,6 +69,7 @@ declare
   v_last    int;
   v_active  text[];
   v_courts  text[];
+  v_used    text[];
   v_round   uuid;
   v_planned int;
   v_result  jsonb;
@@ -215,10 +229,25 @@ begin
         where c.d <> c.n or not coalesce(c.known, true)) then
     raise exception 'TOURNAMENT_ROUNDS_INVALID' using errcode = 'P0001', detail = 'court';
   end if;
-  -- 11. courts_used: 1..floor(active / 4) matches per round.
+  -- 11. courts_used (0311, c26): every round plays
+  -- least(|the run's courts|, floor(active / 4)) matches, at least one: the
+  -- engines' tourCourtsPerRound. The run's courts: the payload's, and the
+  -- still adopted courts of the rounds before from_round.
+  -- The desk picks them at Start (it may leave an adopted court out), but no
+  -- round may then leave one of them empty while its entries sit out.
+  select coalesce(array_agg(distinct u.c), '{}'::text[]) into v_used
+    from (select m.court_id::text as c
+            from tournament_matches m
+           where m.tournament_id = v_t.id and m.round_no < v_from
+             and m.court_id::text = any (v_courts)
+          union
+          select m.e->>'court_id'
+            from jsonb_array_elements(v_rounds) x(r)
+           cross join lateral jsonb_array_elements(x.r->'matches') m(e)) u;
   if exists (select 1 from jsonb_array_elements(v_rounds) x(r)
               where jsonb_array_length(x.r->'matches') < 1
-                 or jsonb_array_length(x.r->'matches') > cardinality(v_active) / 4) then
+                 or jsonb_array_length(x.r->'matches')
+                    <> least(cardinality(v_used), cardinality(v_active) / 4)) then
     raise exception 'TOURNAMENT_ROUNDS_INVALID' using errcode = 'P0001', detail = 'courts_used';
   end if;
   -- 12. sit_out (0311, c26): a round's sit-outs are entries with the fewest
@@ -241,9 +270,13 @@ begin
     v_sat := v_sat || coalesce((select jsonb_object_agg(s.id, coalesce((v_sat->>s.id)::int, 0) + 1)
                                   from jsonb_array_elements_text(v_r->'sit_out') s(id)), '{}'::jsonb);
   end loop;
-  -- Starting play (0311, c38): a closed tournament the desk thinned below its
-  -- minimum is cancelled (and refunded), not started.
-  if v_t.status = 'closed' and cardinality(v_active) < v_t.min_entries then
+  -- Starting play (0311, c38): a closed tournament thinned below its minimum
+  -- (a no-show with no substitute) is a manager's call: the court desk is
+  -- refused and asks one, who starts it (seven can play an Americano) or
+  -- cancels and refunds. min_entries cannot be edited after publish, so a
+  -- refusal with no way past it would force a cancel.
+  if v_t.status = 'closed' and cardinality(v_active) < v_t.min_entries
+     and not app.is_staff_at(v_t.venue_id, 'manager', 'owner') then
     raise exception 'TOURNAMENT_UNDER_FILLED' using errcode = 'P0001',
       detail = format('%s/%s', cardinality(v_active), v_t.min_entries);
   end if;
@@ -291,7 +324,7 @@ begin
 end $tournament_set_rounds_0311$;
 
 comment on function app.tournament_set_rounds(uuid, jsonb, text) is
-  'Tournaments (M7, TD-7, §1.9, §1.10; 0310 s0; 0311 c26, c38). The court desk, managers and the owner: the one write of the play. p_payload {engine tp-tour-1, format, based_on_revision, from_round, rounds [{round_no, matches [{court_id, a [entry, entry], b [entry, entry]}], sit_out [entry]}]} replaces the rounds from from_round on. FORBIDDEN; TOURNAMENT_NOT_FOUND; VENUE_MISMATCH (both before the row lock); INVALID_ARGUMENT detail p_idempotency_key, or p_payload (not the shape); a replay returns the stored answer; then TOURNAMENT_ROUNDS_INVALID with the first failing detail, in order: status (not closed or running), stale (based_on_revision is not the revision), engine, format, numbering (from_round in 1..last+1, at least one round, contiguous, at most 30), played (a score at or after from_round), mexicano_one (Mexicano: one round, within rounds_planned), round_open (Mexicano: the round before not fully scored), seat (each registered entry exactly once per round, nothing else), court (distinct, each a court of a live block of the run), courts_used (1..floor(registered/4) matches), sit_out (0311: a sit-out with more sit-outs so far than a player of the round; counted over the rounds before from_round, then the payload''s); then TOURNAMENT_UNDER_FILLED detail <registered>/<min_entries> (0311: a closed tournament below min_entries). Stamps missing seeds, deletes the rounds from from_round on, writes the new ones; Americano rounds_planned = from_round - 1 + n; revision + 1; closed -> running. Audit tournament.rounds. Returns {duplicate, revision, rounds_planned, status}.';
+  'Tournaments (M7, TD-7, §1.9, §1.10; 0310 s0; 0311 c26, c38). The court desk, managers and the owner: the one write of the play. p_payload {engine tp-tour-1, format, based_on_revision, from_round, rounds [{round_no, matches [{court_id, a [entry, entry], b [entry, entry]}], sit_out [entry]}]} replaces the rounds from from_round on. FORBIDDEN; TOURNAMENT_NOT_FOUND; VENUE_MISMATCH (both before the row lock); INVALID_ARGUMENT detail p_idempotency_key, or p_payload (not the shape); a replay returns the stored answer; then TOURNAMENT_ROUNDS_INVALID with the first failing detail, in order: status (not closed or running), stale (based_on_revision is not the revision), engine, format, numbering (from_round in 1..last+1, at least one round, contiguous, at most 30), played (a score at or after from_round), mexicano_one (Mexicano: one round, within rounds_planned), round_open (Mexicano: the round before not fully scored), seat (each registered entry exactly once per round, nothing else), court (distinct, each a court of a live block of the run), courts_used (0311: least(|the run''s courts: the payload''s and the adopted ones of earlier rounds|, floor(registered/4)) matches, at least one), sit_out (0311: a sit-out with more sit-outs so far than a player of the round; counted over the rounds before from_round, then the payload''s); then TOURNAMENT_UNDER_FILLED detail <registered>/<min_entries> (0311: the court desk starting a closed tournament below min_entries; a manager or the owner may). Stamps missing seeds, deletes the rounds from from_round on, writes the new ones; Americano rounds_planned = from_round - 1 + n; revision + 1; closed -> running. Audit tournament.rounds. Returns {duplicate, revision, rounds_planned, status}.';
 
 revoke all on function app.tournament_set_rounds(uuid, jsonb, text) from public, anon;
 grant execute on function app.tournament_set_rounds(uuid, jsonb, text) to authenticated;
@@ -692,9 +725,6 @@ grant execute on function app.tournament_standings(uuid) to service_role;
 -- ===========================================================================
 -- 5. tournament_public (c27), re-issued from 0301:764
 -- ===========================================================================
-revoke all on function app.desk_tournament_detail(uuid) from public, anon;
-grant execute on function app.desk_tournament_detail(uuid) to authenticated;
-
 -- tournament_public (T-8, review M8): the website's noindex page and the
 -- phone's detail. Anon and authenticated; never raises; publicByDesign. A
 -- player is {name ("First I."), former, no}; names only once a schedule
@@ -831,3 +861,174 @@ end $tournament_public_0311$;
 
 comment on function app.tournament_public(uuid) is
   'Tournaments (M7, T-8, §1.8, review M8; 0311 c27). Public by design (anon and authenticated; never raises): {missing: true} for an unknown id, a branch closed or switched off, or a tournament cancelled more than 7 days ago; otherwise {missing: false, id, venue_id, branch {venue_id, name_en, name_ar, timezone}, name_en, name_ar, format, category, points_target, rounds_planned, starts_at, ends_at, registration_closes_at, entry_fee_iqd, prize_en, prize_ar, status, max_entries, entries_count (registered), places_left, waitlist_open, server_now, rounds [{round_no, sit_out [player], matches [{court_no, a [player, player], b [player, player], points_a, points_b}]}], standings [{rank, player, points_won, diff, played, withdrawn (0311: left the play; ranked after every registered entry)}], me {entry_id, status, waitlist_position, owed_iqd} (the caller''s own entry, with a session) | null}. A player is {name ("First I." via app.match_display_name, null for a desk-added profile with no accepted terms), former (a deleted account), no (seed_no)}; rounds and standings are empty until a schedule exists, and the waitlist is never named. court_no is an ordinal; no court id, guest id, phone or full name.';
+
+-- ===========================================================================
+-- 6. desk_tournament_detail (c35), re-issued from 0310:1253
+-- ===========================================================================
+create or replace function app.desk_tournament_detail(p_tournament_id uuid)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $desk_tournament_detail_0311$
+declare
+  v_t         tournaments%rowtype;
+  v_tz        text;
+  v_entries   jsonb;
+  v_courts    jsonb;
+  v_rounds    jsonb;
+  v_standings jsonb;
+  v_desk      boolean;
+  v_mgmt      boolean;
+  v_till      boolean;
+begin
+  -- The role first (R57): the entries carry every guest's name and phone.
+  if not app.is_staff('cashier', 'court_desk', 'manager', 'owner') then
+    raise exception 'FORBIDDEN' using errcode = 'P0001';
+  end if;
+  select * into v_t from tournaments where id = p_tournament_id;
+  if not found or not (v_t.venue_id = any ((select app.visible_venue_ids())::uuid[])) then
+    raise exception 'TOURNAMENT_NOT_FOUND' using errcode = 'P0001';
+  end if;
+  if not app.is_staff_at(v_t.venue_id, 'cashier', 'court_desk', 'manager', 'owner') then
+    raise exception 'VENUE_MISMATCH' using errcode = 'P0001';
+  end if;
+  select coalesce(vs.timezone, v.timezone) into v_tz
+    from venues v left join venue_settings vs on vs.venue_id = v.id
+   where v.id = v_t.venue_id;
+  v_desk := app.is_staff_at(v_t.venue_id, 'court_desk', 'manager', 'owner');
+  v_mgmt := app.is_staff_at(v_t.venue_id, 'manager', 'owner');
+  v_till := app.is_staff_at(v_t.venue_id, 'cashier', 'court_desk', 'manager', 'owner');
+
+  -- Registered by seed (then entered_at), the waitlist in its order, then the rest.
+  select coalesce(jsonb_agg(x.j order by x.k1, x.k2, x.k3, x.id), '[]'::jsonb)
+    into v_entries
+    from (select e.id,
+                 case e.status when 'registered' then 0 when 'waitlisted' then 1 when 'no_show' then 2 else 3 end as k1,
+                 coalesce(e.seed_no, 32767) as k2,
+                 e.entered_at as k3,
+                 jsonb_build_object(
+                   'entry_id', e.id,
+                   'guest_id', e.guest_id,
+                   'full_name', p.full_name,
+                   'phone', p.phone,
+                   'status', e.status,
+                   'seed_no', e.seed_no,
+                   'waitlist_position',
+                     case when e.status = 'waitlisted' then
+                       (select count(*)::int + 1 from tournament_entries w
+                         where w.tournament_id = e.tournament_id and w.status = 'waitlisted'
+                           and (w.entered_at, w.id) < (e.entered_at, e.id)) end,
+                   'added_by_kind', e.added_by_kind,
+                   'owed_iqd', (m.money->>'owed_iqd')::bigint,
+                   'net_paid_iqd', (m.money->>'net_iqd')::bigint,
+                   'refund_due_iqd', (m.money->>'refund_due_iqd')::bigint,
+                   'substitute_for', e.substitute_for,
+                   -- 0310 (c9): the payments a refund is made against.
+                   'payments', coalesce((
+                     select jsonb_agg(jsonb_build_object(
+                              'payment_id',     py.id,
+                              'tab_id',         tb.id,
+                              'method',         py.method,
+                              'amount_iqd',     py.amount_iqd,
+                              'refunded_iqd',   coalesce(rf.refunded, 0),
+                              'refundable_iqd', py.amount_iqd - coalesce(rf.refunded, 0),
+                              'created_at',     py.created_at) order by py.created_at, py.id)
+                       from tabs tb
+                       join payments py on py.tab_id = tb.id
+                       left join lateral (select sum(x.amount_iqd)::bigint as refunded
+                                            from refunds x where x.payment_id = py.id) rf on true
+                      where tb.tournament_entry_id = e.id and tb.kind = 'tournament'
+                        and tb.status = 'settled' and tb.merged_into_tab_id is null), '[]'::jsonb)) as j
+            from tournament_entries e
+            left join profiles p on p.id = e.guest_id
+            cross join lateral (select app.tournament_entry_money(e.id) as money) m
+           where e.tournament_id = v_t.id) x;
+
+  -- The courts of the run's live adopted blocks.
+  select coalesce(jsonb_agg(jsonb_build_object('court_id', c.id, 'name_en', c.name_en, 'name_ar', c.name_ar,
+                                               'sort_order', c.sort_order)
+                            order by c.sort_order, c.id), '[]'::jsonb)
+    into v_courts
+    from courts c
+   where c.id in (select r.court_id from reservations r
+                   where r.protocol_run_id = v_t.protocol_run_id and r.block_purpose = 'event'
+                     and r.status in ('pending', 'confirmed', 'arrived'));
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'round_no', r.round_no,
+           'sit_out', to_jsonb(r.bye_entry_ids),
+           'matches', coalesce((select jsonb_agg(jsonb_build_object(
+                                         'match_id', m.id,
+                                         'court_id', m.court_id,
+                                         'a', jsonb_build_array(m.a1, m.a2),
+                                         'b', jsonb_build_array(m.b1, m.b2),
+                                         'points_a', m.points_a,
+                                         'points_b', m.points_b,
+                                         'revision', m.revision,
+                                         'corrections', greatest((select count(*) from tournament_score_events s
+                                                                   where s.match_id = m.id) - 1, 0))
+                                         order by c.sort_order, c.id)
+                                  from tournament_matches m
+                                  join courts c on c.id = m.court_id
+                                 where m.round_id = r.id), '[]'::jsonb))
+           order by r.round_no), '[]'::jsonb)
+    into v_rounds
+    from tournament_rounds r
+   where r.tournament_id = v_t.id;
+
+  -- In the function's own order: a tie on rank goes by seed, then entry id.
+  select coalesce(jsonb_agg(to_jsonb(s) order by s.rank, se.seed_no nulls last, s.entry_id), '[]'::jsonb)
+    into v_standings
+    from app.tournament_standings(v_t.id) s
+    left join tournament_entries se on se.id = s.entry_id;
+
+  return jsonb_build_object(
+    'id', v_t.id,
+    'venue_id', v_t.venue_id,
+    'protocol_run_id', v_t.protocol_run_id,
+    'name_en', v_t.name_en,
+    'name_ar', v_t.name_ar,
+    'format', v_t.format,
+    'category', v_t.category,
+    'class', v_t.class,
+    'points_target', v_t.points_target,
+    'rounds_planned', v_t.rounds_planned,
+    'max_entries', v_t.max_entries,
+    'min_entries', v_t.min_entries,
+    'waitlist_max', v_t.waitlist_max,
+    'entry_fee_iqd', v_t.entry_fee_iqd,
+    'prize_en', v_t.prize_en,
+    'prize_ar', v_t.prize_ar,
+    'starts_at', v_t.starts_at,
+    'ends_at', v_t.ends_at,
+    'registration_closes_at', v_t.registration_closes_at,
+    'status', v_t.status,
+    'cancel_reason', v_t.cancel_reason,
+    'revision', v_t.revision,
+    'closed_at', v_t.closed_at,
+    'finished_at', v_t.finished_at,
+    'cancelled_at', v_t.cancelled_at,
+    'sweep_errors', v_t.sweep_errors,
+    'timezone', v_tz,
+    'server_now', now(),
+    'entries', v_entries,
+    'courts', v_courts,
+    'rounds', v_rounds,
+    'standings', v_standings,
+    'can', jsonb_build_object(
+      'add', v_desk and v_t.status in ('open', 'closed'),
+      'set_rounds', v_desk and v_t.status in ('closed', 'running'),
+      -- 0311 (c35): the server's rule. After the finish a score is a
+      -- manager's, within 48 hours of finished_at.
+      'score', (v_desk and v_t.status = 'running')
+               or (v_mgmt and v_t.status = 'finished'
+                   and now() <= coalesce(v_t.finished_at, v_t.ends_at) + interval '48 hours'),
+      'cancel', v_mgmt and v_t.status in ('open', 'closed', 'running'),
+      'close', v_desk and v_t.status = 'open' and (v_mgmt or now() >= v_t.registration_closes_at),
+      'finish', v_mgmt and v_t.status = 'running',
+      'settle', v_till and v_t.status <> 'cancelled'));
+end $desk_tournament_detail_0311$;
+
+comment on function app.desk_tournament_detail(uuid) is
+  'Tournaments (M7, §1.8; 0310; 0311 c35). The cashier, the court desk, managers and the owner (the entries carry names and phones): FORBIDDEN; TOURNAMENT_NOT_FOUND (unknown or outside the visible branches); VENUE_MISMATCH (not one of those roles at its branch). The tournament''s fields and revision, sweep_errors (0310: failed sweep cancels), timezone, server_now; entries [{entry_id, guest_id, full_name, phone, status, seed_no, waitlist_position, added_by_kind, owed_iqd, net_paid_iqd, refund_due_iqd, substitute_for, payments [{payment_id, tab_id, method, amount_iqd, refunded_iqd, refundable_iqd, created_at}] (0310)}] (registered by seed, the waitlist in order, then the rest); courts [{court_id, name_en, name_ar, sort_order}] of the live adopted blocks; rounds [{round_no, sit_out [entry], matches [{match_id, court_id, a [entry, entry], b [entry, entry], points_a, points_b, revision, corrections}]}]; standings (app.tournament_standings); can {add (open or closed; 0310: not running), set_rounds, score (0311: the court desk while running; a manager on a finished tournament within 48 hours of finished_at), cancel, close (0310: open, past the cut-off or a manager), finish (0310: a manager, running), settle} for the caller''s role and the status.';
+
+revoke all on function app.desk_tournament_detail(uuid) from public, anon;
+grant execute on function app.desk_tournament_detail(uuid) to authenticated;

@@ -459,6 +459,14 @@ describe.skipIf(!docker)('the engine against the database (TD-7, TD-8)', () => {
         x.rounds[1] = { ...clone(x.rounds[0]!), round_no: 2 };
         return x;
       })(),
+      // 0311 (c26): round 1 leaves court 2 empty and sits its four players out.
+      one_court: (() => {
+        const x = clone(valid);
+        const r1 = x.rounds[0]!;
+        const gone = r1.matches.splice(1);
+        r1.sit_out = [...r1.sit_out, ...gone.flatMap((m) => [...m.a, ...m.b])];
+        return x;
+      })(),
       no_matches: (() => {
         const x = clone(valid);
         x.rounds[0] = { round_no: 1, matches: [], sit_out: entries.map((e) => e.entry_id) };
@@ -503,6 +511,7 @@ describe.skipIf(!docker)('the engine against the database (TD-7, TD-8)', () => {
     ).toBe('stale');
     expect(`${r.c_twice!.code}:${r.c_twice!.detail}`).toBe('TOURNAMENT_ROUNDS_INVALID:stale');
     expect(engine.validateRoundsPayload(corpus.sit_twice, ctx)).toEqual(['sit_out']);
+    expect(engine.validateRoundsPayload(corpus.one_court, ctx)[0]).toBe('courts_used');
   });
 
   it('Mexicano: one round past the first, before its round is scored, and over a played round', () => {

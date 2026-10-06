@@ -46,6 +46,11 @@ export interface TourRoundsContext {
    * Omitted: none.
    */
   sit_outs?: readonly { round_no: number; sit_out: readonly string[] }[];
+  /**
+   * The rounds that exist, by the courts their matches play on (0311, check 11): those before
+   * `from_round` count. Omitted: none.
+   */
+  round_courts?: readonly { round_no: number; courts: readonly string[] }[];
 }
 
 export type TourRoundsCheck = TourRoundsDetail | 'payload';
@@ -134,9 +139,15 @@ export function validateRoundsPayload(payload: unknown, ctx: TourRoundsContext):
     return new Set(ids).size === ids.length && ids.every((c) => courts.has(c));
   });
   if (!courtOk) out.push('court');
-  // 11. courts_used: 1..floor(active / 4) matches per round.
-  const most = Math.floor(ctx.active.length / 4);
-  if (!p.rounds.every((r) => r.matches.length >= 1 && r.matches.length <= most))
+  // 11. courts_used (0311): every round plays tourCourtsPerRound(active, |the run's courts|)
+  // matches, at least one. The run's courts: the payload's, and the still adopted courts of the
+  // rounds before from_round (the desk picks them at Start; no round leaves one empty).
+  const used = new Set<string>();
+  for (const r of ctx.round_courts ?? [])
+    if (r.round_no < p.from_round) for (const c of r.courts) if (courts.has(c)) used.add(c);
+  for (const r of p.rounds) for (const m of r.matches) used.add(m.court_id);
+  const per = Math.min(used.size, Math.floor(ctx.active.length / 4));
+  if (!p.rounds.every((r) => r.matches.length >= 1 && r.matches.length === per))
     out.push('courts_used');
   // 12. sit_out: no sit-out has sat out more than a player of the round (the rounds before
   // from_round, then the payload's earlier rounds).

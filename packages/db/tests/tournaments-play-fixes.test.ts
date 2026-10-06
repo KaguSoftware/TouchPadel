@@ -5,11 +5,14 @@
  *   * c32 a substitute takes the sit-out of a round already in play, and its credit;
  *   * c34 the swap moves the swapped match's revision: a score from the old screen is 'changed';
  *   * c33 a no-show without a substitute whose own match is scored while another court plays;
- *   * c35 a finished tournament's scores: a manager, a reason, within 48 hours;
+ *   * c35 a finished tournament's scores: a manager, a reason (a first score too), within 48
+ *     hours; desk_tournament_detail can.score says the same;
  *   * c36 a Mexicano correction after the sweep's finish deletes no later round;
  *   * c37 a null expected revision, and points past smallint;
- *   * c38 a waitlisted substitute banned or deleted; starting below min_entries;
- *   * c26 set_rounds check 12 sit_out, inside a payload and against the rounds before it;
+ *   * c38 a waitlisted substitute banned or deleted; starting below min_entries (the desk is
+ *     refused, a manager may);
+ *   * c26 set_rounds check 12 sit_out, inside a payload and against the rounds before it (check
+ *     11 courts_used is in tournament-rounds.test.ts's invalid corpus);
  *   * c27 a no-show leader ranks after every registered entry; the public row says withdrawn.
  *
  * Every case is one rolled-back psql transaction (stores-harness); without docker it skips.
@@ -195,8 +198,11 @@ describe.skipIf(!docker)('tournament_score (0311: c35, c36, c37)', () => {
         'desk',
         `select app.tournament_score({{m2}}, 32767::smallint, 1::smallint, 0, null)`,
       ),
+      T('can_running', 'desk', `select app.desk_tournament_detail({{t1}})->'can'->'score'`),
       // The sweep's finish: round 2 drawn, unscored.
       X(`update tournaments set status = 'finished', finished_at = now() where id = {{t1}}::uuid`),
+      T('can_desk', 'desk', `select app.desk_tournament_detail({{t1}})->'can'->'score'`),
+      T('can_mgr', 'manager', `select app.desk_tournament_detail({{t1}})->'can'->'score'`),
       T(
         'desk',
         'desk',
@@ -212,11 +218,23 @@ describe.skipIf(!docker)('tournament_score (0311: c35, c36, c37)', () => {
         'manager',
         `select app.tournament_score({{m1}}, 15::smallint, 9::smallint, 1, 'typo')`,
       ),
+      // A first score after the finish (m2 is unscored; after the round-1 fix, which it would lock) needs a reason too.
+      T(
+        'first_no_reason',
+        'manager',
+        `select app.tournament_score({{m2}}, 12::smallint, 12::smallint, 0, null)`,
+      ),
+      T(
+        'first',
+        'manager',
+        `select app.tournament_score({{m2}}, 12::smallint, 12::smallint, 0, 'scored late')`,
+      ),
       Q(
         'rounds',
         `select jsonb_agg(round_no order by round_no) from tournament_rounds where tournament_id = {{t1}}::uuid`,
       ),
       X(`update tournaments set finished_at = now() - interval '49 hours' where id = {{t1}}::uuid`),
+      T('can_late', 'manager', `select app.desk_tournament_detail({{t1}})->'can'->'score'`),
       T(
         'late',
         'manager',
@@ -228,6 +246,12 @@ describe.skipIf(!docker)('tournament_score (0311: c35, c36, c37)', () => {
     expect(refusal(r, 'overflow')).toBe('TOURNAMENT_SCORE_REFUSED:invalid');
     expect(refusal(r, 'desk')).toBe('FORBIDDEN:finished');
     expect(refusal(r, 'no_reason')).toBe('REASON_REQUIRED');
+    expect(refusal(r, 'first_no_reason')).toBe('REASON_REQUIRED');
+    expect(answer(r, 'first')).toMatchObject({ status: 'finished' });
+    expect(answer(r, 'can_running')).toBe(true);
+    expect(answer(r, 'can_desk')).toBe(false);
+    expect(answer(r, 'can_mgr')).toBe(true);
+    expect(answer(r, 'can_late')).toBe(false);
     expect(answer(r, 'fix')).toMatchObject({ status: 'finished', removed_from_round: null });
     expect(answer(r, 'rounds')).toEqual([1, 2]);
     expect(refusal(r, 'late')).toBe('TOURNAMENT_SCORE_REFUSED:closed');
@@ -277,7 +301,7 @@ describe.skipIf(!docker)('tournament_set_rounds (0311: c26, c38)', () => {
     expect(answer(r, 'mx2')).toMatchObject({ rounds_planned: 2 });
   });
 
-  it('c38: a closed tournament thinned below min_entries does not start', () => {
+  it('c38: a closed tournament thinned below min_entries: the desk is refused, a manager starts it', () => {
     const r = scenario('tpf-under', [
       TOUR_SETUP,
       ...TOUR_BRANCH,
@@ -287,9 +311,11 @@ describe.skipIf(!docker)('tournament_set_rounds (0311: c26, c38)', () => {
       `select pg_temp.close('t1');`,
       T('remove', 'desk', `select app.tournament_remove_entry({{p8_e}}, 'left')`),
       ...ROUNDS('start', 't1', 1, 2),
+      ...ROUNDS('mgr_start', 't1', 1, 2, 'manager'),
     ]);
     expect(answer(r, 'remove')).toBeTruthy();
     expect(refusal(r, 'start')).toBe('TOURNAMENT_UNDER_FILLED:7/8');
+    expect(answer(r, 'mgr_start')).toMatchObject({ status: 'running', rounds_planned: 2 });
   });
 });
 

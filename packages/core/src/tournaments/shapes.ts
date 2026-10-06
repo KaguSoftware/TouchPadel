@@ -339,7 +339,7 @@ export const TOURNAMENT_SHAPES = {
       'rounds[].matches[]': ['court_no', 'a', 'b', 'points_a', 'points_b'],
       'rounds[].matches[].a[]': PLAYER,
       'rounds[].matches[].b[]': PLAYER,
-      'standings[]': ['rank', 'player', 'points_won', 'diff', 'played'],
+      'standings[]': ['rank', 'player', 'points_won', 'diff', 'played', 'withdrawn'],
       'standings[].player': PLAYER,
       me: ['entry_id', 'status', 'waitlist_position', 'owed_iqd'],
     },

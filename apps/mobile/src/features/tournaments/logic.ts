@@ -197,6 +197,8 @@ export interface TourPublicStanding {
   pointsWon: number;
   diff: number;
   played: number;
+  /** 0311 (c27): the entry left the play (withdrawn or a no-show); ranked after the rest. */
+  withdrawn: boolean;
 }
 
 /** The guest's own entry on the detail, with what the desk takes on the day. */
@@ -290,6 +292,7 @@ function parseStanding(json: unknown): TourPublicStanding {
     pointsWon: int(o.points_won) ?? 0,
     diff: int(o.diff) ?? 0,
     played: int(o.played) ?? 0,
+    withdrawn: bool(o.withdrawn),
   };
 }
 

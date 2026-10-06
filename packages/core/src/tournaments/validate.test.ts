@@ -149,9 +149,10 @@ describe('validateRoundsPayload: one case per detail (§1.9)', () => {
   });
 
   it('court: a repeat, or a court of no adopted block', () => {
+    // A repeat plays one distinct court with two matches, so courts_used (0311) fails too.
     expect(
       validateRoundsPayload(americano({ rounds: [round(1, E, ['c1', 'c1'])] }), ctxA()),
-    ).toEqual(['court']);
+    ).toEqual(['court', 'courts_used']);
     expect(
       validateRoundsPayload(americano({ rounds: [round(1, E, ['c1', 'c9'])] }), ctxA()),
     ).toEqual(['court']);
@@ -164,6 +165,27 @@ describe('validateRoundsPayload: one case per detail (§1.9)', () => {
     ).toEqual(['seat', 'courts_used']);
     const empty: TourRound = { round_no: 1, matches: [], sit_out: E };
     expect(validateRoundsPayload(americano({ rounds: [empty] }), ctxA())).toEqual(['courts_used']);
+  });
+
+  it("courts_used (0311, c26): a round leaves one of the run's courts empty", () => {
+    const oneCourt = (round_no: number, play = E.slice(0, 4)): TourRound => ({
+      round_no,
+      matches: [{ court_id: 'c1', a: [play[0]!, play[1]!], b: [play[2]!, play[3]!] }],
+      sit_out: E.filter((x) => !play.includes(x)),
+    });
+    // Round 1 plays both courts, so round 2 must too.
+    expect(
+      validateRoundsPayload(americano({ rounds: [round(1), oneCourt(2), round(3)] }), ctxA()),
+    ).toEqual(['courts_used']);
+    // The courts of the rounds before from_round count.
+    const ctx2 = ctxA({ last_round: 1, round_courts: [{ round_no: 1, courts: ['c1', 'c2'] }] });
+    expect(
+      validateRoundsPayload(americano({ from_round: 2, rounds: [oneCourt(2)] }), ctx2),
+    ).toEqual(['courts_used']);
+    // A run the desk started on one court plays one court a round.
+    expect(
+      validateRoundsPayload(americano({ rounds: [oneCourt(1), oneCourt(2, E.slice(4))] }), ctxA()),
+    ).toEqual([]);
   });
 
   it('sit_out (0311, c26): a sit-out with more sit-outs so far than a player of the round', () => {

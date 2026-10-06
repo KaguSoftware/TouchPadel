@@ -109,6 +109,10 @@ export function roundsContext(d: TournamentDetail): TourRoundsContext {
     active: activeEntries(d).map((e) => e.entry_id),
     courts: d.courts.map((c) => c.court_id),
     sit_outs: d.rounds.map((r) => ({ round_no: r.round_no, sit_out: r.sit_out })),
+    round_courts: d.rounds.map((r) => ({
+      round_no: r.round_no,
+      courts: r.matches.map((m) => m.court_id),
+    })),
   };
 }
 
@@ -258,6 +262,17 @@ export function scoreTyping(raw: string, target: number): string {
 /** A correction: the match already has a score (it needs a reason, §1.6 score). */
 export function isCorrection(m: Pick<TourDetailMatch, 'points_a' | 'points_b'>): boolean {
   return isScored(m);
+}
+
+/**
+ * Whether a score write needs a reason (0311, c35): a correction, or any score on a finished
+ * tournament (a manager's late entry, made within 48 hours of the finish, always says why).
+ */
+export function needsScoreReason(
+  m: Pick<TourDetailMatch, 'points_a' | 'points_b'>,
+  status: TournamentDetail['status'],
+): boolean {
+  return isCorrection(m) || status === 'finished';
 }
 
 /** Whether a match can take a score now: a running or finished tournament the role may score. */

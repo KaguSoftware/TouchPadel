@@ -215,6 +215,7 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
     correct: 'تصحيح',
     correctionReason: 'ما سبب تصحيح هذه النتيجة؟',
     correctionTitle: 'تصحيح هذه النتيجة',
+    lateReason: 'انتهت البطولة. ما سبب إدخال هذه النتيجة الآن؟',
     pointsFor: 'نقاط {team}',
     sum: 'مجموع نقاط الفريقين {target}.',
     corrections: 'عدد التصحيحات: {count}',
@@ -305,7 +306,7 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
       round_open: 'سجّل نتائج كل مباريات الجولة قبل توزيع الجولة التالية.',
       seat: 'تغيّر اللاعبون. حُدِّثت الشاشة: وزّع من جديد.',
       court: 'أحد الملاعب المختارة ليس من ملاعب البطولة المحجوزة.',
-      courts_used: 'عدد المباريات أكبر مما يكفيه اللاعبون.',
+      courts_used: 'تُلعب في كل جولة مباراة على كل ملعب مستخدَم، بقدر ما يكفيه اللاعبون.',
       sit_out: 'يجلس في الاستراحة لاعب استراح أكثر من لاعب في تلك الجولة. وزّع من جديد.',
       payload: 'تعذّرت قراءة هذه الجولات.',
     },
@@ -315,7 +316,10 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
       changed: 'غيّر شخص آخر هذه النتيجة. حُدِّثت الشاشة.',
       locked: 'سُجِّلت نتيجة جولة لاحقة، فلا يمكن تصحيح هذه.',
       closed: 'أصبحت النتائج نهائية بعد ٤٨ ساعة من انتهاء البطولة.',
+      finished: 'انتهت البطولة: لا يغيّر نتائجها الآن إلا المدير.',
     },
+    underFilledStart:
+      'بقي عدد اللاعبين أقل من الحد الأدنى. يمكن للمدير بدء البطولة رغم ذلك أو إلغاؤها.',
   },
   // The section-menu start sheet (TournamentStartSheet, 2026-10-05 "C + D" redesign).
   start: {

@@ -215,6 +215,8 @@ describe('parseTournamentPublic', () => {
     expect(p.rounds[1]!.matches.map((m) => m.court_no)).toEqual([1, 2]);
     expect(p.standings.map((s) => s.rank)).toEqual([1, 1, 3, 3, 3, 3, 7, 7]);
     expect(p.standings[6]!.diff).toBe(-6);
+    // 0311 (c27): withdrawn is read as a strict boolean.
+    expect(p.standings.map((s) => s.withdrawn)).toEqual([...Array(7).fill(false), true]);
     expect(p.rounds[1]!.matches[0]!.points_a).toBeNull();
   });
 
