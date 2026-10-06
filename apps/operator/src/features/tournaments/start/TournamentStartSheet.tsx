@@ -10,6 +10,11 @@
  * `start_protocol` call and `tournament.plan` record the generic form did
  * (planModel.ts builds it, `validateStart` checks it first); the run's
  * titles are the names, which the generic form fell back to as well.
+ *
+ * Unlike the generic form it never reads the venue's template for
+ * `submitterDecides`: the tournament plan has no decider-only field, so the
+ * flag changes nothing (planModel.test.ts fails the day one is added, and the
+ * template read comes back with it).
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { wallTimeToUtc } from '@touch/core';
@@ -85,15 +90,12 @@ export interface StartedRun {
 export function TournamentStartSheet({
   initialVariant,
   byOwner = false,
-  holdStart = false,
   onClose,
   onStarted,
 }: {
   initialVariant?: TournamentVariant | null;
   /** The owner titles a run in both languages (`titlesInBoth`); the names do that here. */
   byOwner?: boolean;
-  /** Start waits (the /protocols sheet reading the venue's template). */
-  holdStart?: boolean;
   onClose: () => void;
   onStarted: (run: StartedRun) => void;
 }) {
@@ -740,7 +742,6 @@ export function TournamentStartSheet({
                 size="lg"
                 kind="primary"
                 busy={busy}
-                disabled={holdStart}
                 onClick={() => void start()}
                 data-testid="tournament-start-send"
               >

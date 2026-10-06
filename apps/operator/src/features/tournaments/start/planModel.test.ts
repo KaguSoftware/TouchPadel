@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { validateStart } from '@touch/core/protocols';
+import {
+  TOURNAMENT_VARIANTS,
+  startForm,
+  validateStart,
+  type FieldDef,
+} from '@touch/core/protocols';
 import {
   cellKey,
   emptyPlan,
@@ -196,5 +201,22 @@ describe('sections', () => {
     expect(planProgress({ ...p, notes: 'Lights' })).toEqual({ done: 5, total: 5 });
     expect(planProgress({ ...p, variant: 'type3' })).toEqual({ done: 4, total: 6 });
     expect(planProgress(emptyPlan())).toEqual({ done: 1, total: 5 });
+  });
+});
+
+// The sheet never reads the venue's template for submitterDecides (the
+// generic form did): that is sound only while the plan has no decider-only
+// field. Adding one fails here; wire the template read back in with it.
+describe('the plan form', () => {
+  const deciderOnly = (fields: readonly FieldDef[]): string[] =>
+    fields.flatMap((f) => [
+      ...(f.deciderOnly ? [f.name] : []),
+      ...(f.fields ? deciderOnly(f.fields) : []),
+    ]);
+
+  it('has no decider-only field in any variant', () => {
+    for (const variant of TOURNAMENT_VARIANTS) {
+      expect(deciderOnly(startForm('tournament', { variant }).fields)).toEqual([]);
+    }
   });
 });
