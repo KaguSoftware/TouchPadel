@@ -1,5 +1,5 @@
 {
-  "generated_from": "75721269d8f83eb752e0eb0f63f28689aeb7ee6c",
+  "generated_from": "30a958e078dc78482f47ce74aca70c96f7ed3062",
   "chunks": [
     {
       "kind": "page",
@@ -2550,7 +2550,7 @@
       "ref": "action:app.apply_best_promotion",
       "lang": "en",
       "title": "app.apply_best_promotion",
-      "body": "0067, 0217, loyalty 0306. Cashier, manager, owner at the tab's branch: applies the best eligible promotion (app.eligible_promotions) to an open tab, replacing the tab's earlier one; the redemption's customer is app.tab_customer.\nSignature: app.apply_best_promotion(p_tab_id uuid, p_code text default null, p_idempotency_key text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: promotion.replace, promotion.apply.\nError codes: FORBIDDEN, VENUE_MISMATCH, TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN, CODE_NOT_ELIGIBLE, NO_ELIGIBLE_PROMOTION, DISCOUNT_REQUIRES_REFUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0306 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0067, 0217, loyalty 0306, 0309. Cashier, manager, owner at the tab's branch: applies the best eligible promotion (app.eligible_promotions) to an open tab, replacing the tab's earlier one; the redemption's customer is app.tab_customer. 0309: the tab's promotion is first re-checked and dropped when no longer eligible (c7, audited promotion.drop_ineligible); when nothing replaces a dropped one the call returns {promotionId: null, amountIqd: 0, replacedPromotionId, dropped: true, refused: NO_ELIGIBLE_PROMOTION | CODE_NOT_ELIGIBLE} instead of raising, so the drop stands. The candidates are locked FOR UPDATE after the tab, in id order, and eligibility read again before the insert (c15). The same promotion kept moves its redemption to the tab's customer.\nSignature: app.apply_best_promotion(p_tab_id uuid, p_code text default null, p_idempotency_key text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: promotion.drop_ineligible, promotion.replace, promotion.apply.\nError codes: FORBIDDEN, VENUE_MISMATCH, TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN, CODE_NOT_ELIGIBLE, NO_ELIGIBLE_PROMOTION, DISCOUNT_REQUIRES_REFUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0309 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3278,7 +3278,7 @@
       "ref": "action:app.delete_loyalty_tier",
       "lang": "en",
       "title": "app.delete_loyalty_tier",
-      "body": "Loyalty (M3, contracts §1.3). Owner: deletes a tier; the base tier (sort 0) or an unknown id is INVALID_ARGUMENT. Its accounts fall to the tier their points now reach. Audited loyalty.tier_delete.\nSignature: app.delete_loyalty_tier(p_tier_id uuid) returns void.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.tier_delete.\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0309). Owner: deletes a tier; the base tier (sort 0) or an unknown id is INVALID_ARGUMENT. 0309: TIER_IN_USE (detail: how many) while a promotion, enabled or not, names it in limits.tierMin. Its accounts fall to the tier their points now reach. Audited loyalty.tier_delete.\nSignature: app.delete_loyalty_tier(p_tier_id uuid) returns void.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.tier_delete.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TIER_IN_USE.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0309 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3558,7 +3558,7 @@
       "ref": "action:app.eligible_promotions",
       "lang": "en",
       "title": "app.eligible_promotions",
-      "body": "0067, 0212 (MV2), loyalty 0306. Cashier, manager, owner: the promotions a tab is eligible for now, best first ({promotionId, name_en, name_ar, type, value, amountIqd}). The customer (perCustomer, tierMin) is app.tab_customer. limits.tierMin (a tier's sort) needs loyalty on, a customer, and the customer's tier sort at least that value (no account = the base tier, 0). CODE_INVALID for an unknown code.\nSignature: app.eligible_promotions(p_tab_id uuid, p_code text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TAB_NOT_FOUND, CODE_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0306 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0067, 0212 (MV2), loyalty 0306, 0309. Cashier, manager, owner: the promotions a tab is eligible for now, best first ({promotionId, name_en, name_ar, type, value, amountIqd}). The customer (perCustomer, tierMin) is app.tab_customer. limits.tierMin (a loyalty tier id, 0309) needs loyalty on, a customer, and the customer's tier at least that tier by min_points_12m (app.promotion_tier_ok). amountIqd is capped at app.promotion_room_iqd (0309, c14: the goods less the other discounts), and a candidate below 1 is left out. CODE_INVALID for an unknown code.\nSignature: app.eligible_promotions(p_tab_id uuid, p_code text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TAB_NOT_FOUND, CODE_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0309 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3838,7 +3838,7 @@
       "ref": "action:app.link_guest_session",
       "lang": "en",
       "title": "app.link_guest_session",
-      "body": "Loyalty (M3, contracts §1.3; 0308). An anonymous café session (auth.users.is_anonymous) with a live guest_sessions row sets its linked_profile_id from a member token, spent once (app.loyalty_token_consume, now ± 1 step). Returns {linked: true, display_name}; a token that does not pass (wrong, expired, replayed) answers {linked: false, error: MEMBER_CODE_INVALID} and is counted. AUTH_REQUIRED, FORBIDDEN (not anonymous), SESSION_EXPIRED (no live session), MEMBER_CODE_LOCKED (5 failures by this user in 10 minutes, or 20 on the member code in an hour). Audited loyalty.link_session.\nSignature: app.link_guest_session(p_member_token text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: loyalty.link_session.\nError codes: AUTH_REQUIRED, FORBIDDEN, SESSION_EXPIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0308). An anonymous café session (auth.users.is_anonymous) with a live guest_sessions row sets its linked_profile_id from a member token, spent once (app.loyalty_token_consume, now ± 1 step). Returns {linked: true, display_name}; a token that does not pass (wrong, expired, replayed) answers {linked: false, error: MEMBER_CODE_INVALID} and is counted (an expired one is answered the same way but not counted). AUTH_REQUIRED, FORBIDDEN (not anonymous), SESSION_EXPIRED (no live session), MEMBER_CODE_LOCKED (5 failures by this user in 10 minutes, or 20 on the member code in an hour). Audited loyalty.link_session.\nSignature: app.link_guest_session(p_member_token text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: loyalty.link_session.\nError codes: AUTH_REQUIRED, FORBIDDEN, SESSION_EXPIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3910,7 +3910,7 @@
       "ref": "action:app.loyalty_identify",
       "lang": "en",
       "title": "app.loyalty_identify",
-      "body": "Loyalty (M3, contracts §1.3, L-4; 0308). Cashier, shop_staff, court_desk, manager, owner; p_venue_id (when sent) one the caller can see (VENUE_MISMATCH). p_code is a member token (TP-…, app.loyalty_token_profile: now ± 1 step; read, not spent) or a phone of 7-15 digits matched exactly on profiles.phone_key. A miss answers {customer_id: null, error: MEMBER_CODE_INVALID | MEMBER_CODE_EXPIRED | MEMBER_NOT_FOUND} and is counted (loyalty_token_attempts); MEMBER_CODE_LOCKED after 10 misses by the caller in 10 minutes or 20 on the member code in an hour. Returns {customer_id, display_name (given name + family initial), phone_masked (last four digits), tier_name_en, tier_name_ar, balance, enabled}. Audited loyalty.identify {method qr|phone, venue_id}.\nSignature: app.loyalty_identify(p_code text, p_venue_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.identify.\nError codes: FORBIDDEN, VENUE_MISMATCH, MEMBER_CODE_INVALID, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3, L-4; 0308). Cashier, shop_staff, court_desk, manager, owner; p_venue_id (when sent) one the caller can see (VENUE_MISMATCH). p_code is a member token (TP-…, app.loyalty_token_profile: now ± 1 step; read, not spent) or a phone of 7-15 digits matched exactly on profiles.phone_key. A miss answers {customer_id: null, error: MEMBER_CODE_INVALID | MEMBER_CODE_EXPIRED | MEMBER_NOT_FOUND} and is counted (MEMBER_CODE_EXPIRED is not: a real token shown late is no guess) (loyalty_token_attempts); MEMBER_CODE_LOCKED after 10 misses by the caller in 10 minutes or 20 on the member code in an hour. Returns {customer_id, display_name (given name + family initial), phone_masked (last four digits), tier_name_en, tier_name_ar, balance, enabled}. Audited loyalty.identify {method qr|phone, venue_id}.\nSignature: app.loyalty_identify(p_code text, p_venue_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.identify.\nError codes: FORBIDDEN, VENUE_MISMATCH, MEMBER_CODE_INVALID, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5190,7 +5190,7 @@
       "ref": "action:app.set_loyalty_settings",
       "lang": "en",
       "title": "app.set_loyalty_settings",
-      "body": "Loyalty (M3, contracts §1.3). Owner: patches the business-wide settings with the keys given (enabled, iqd_per_point, point_value_iqd, min_redeem_points, earn_cafe, earn_shop, earn_court, earn_lesson, earn_tournament, inactivity_expiry_months, totp_step_seconds); an unknown key is INVALID_ARGUMENT (detail = the key), a value the table refuses INVALID_VALUE. Returns the settings. Audited loyalty.settings.\nSignature: app.set_loyalty_settings(p_patch jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.settings.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0309). Owner: patches the business-wide settings with the keys given (enabled, iqd_per_point, point_value_iqd, min_redeem_points, earn_cafe, earn_shop, earn_court, earn_lesson, earn_tournament, inactivity_expiry_months, totp_step_seconds); an unknown key is INVALID_ARGUMENT (detail = the key), a value the table refuses INVALID_VALUE. Returns the settings. Audited loyalty.settings. 0309 (c8): enabled_at = now() when enabled turns on (the nightly inactivity expiry counts from it).\nSignature: app.set_loyalty_settings(p_patch jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.settings.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0309 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5966,7 +5966,7 @@
       "ref": "action:app.upsert_loyalty_tier",
       "lang": "en",
       "title": "app.upsert_loyalty_tier",
-      "body": "Loyalty (M3, contracts §1.3). Owner: creates a tier (no id) or updates one (id; absent keys kept) from {name_en, name_ar, min_points_12m, earn_multiplier (1-5), promotion_id, sort}. The sort-0 tier is the base (from 0 points) and keeps sort 0. INVALID_ARGUMENT (unknown id, the base's sort), INVALID_VALUE (what the table refuses: a duplicate threshold or sort, a missing name). Every account's tier follows at once. Returns the tier (LoyaltyAdminTier). Audited loyalty.tier.\nSignature: app.upsert_loyalty_tier(p_tier jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.tier.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0309). Owner: creates a tier (no id) or updates one (id; absent keys kept) from {name_en, name_ar, min_points_12m, earn_multiplier (1-5), sort}. The sort-0 tier is the base (from 0 points) and keeps sort 0. 0309: promotion_id is ignored (always null; a tier promotion names the tier in limits.tierMin), and the sorts are renumbered to follow min_points_12m (c16), so the sort returned may differ from the one sent. INVALID_ARGUMENT (unknown id, the base's sort), INVALID_VALUE (what the table refuses: a duplicate threshold or sort, a missing name). Every account's tier follows at once. Returns the tier (LoyaltyAdminTier). Audited loyalty.tier.\nSignature: app.upsert_loyalty_tier(p_tier jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.tier.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0309 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -6726,7 +6726,7 @@
       "ref": "table:loyalty_settings",
       "lang": "en",
       "title": "table loyalty_settings",
-      "body": "Loyalty (Phase 2 M3, contracts §1.3). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the point value, tiers and rewards (L-1). iqd_per_point: IQD paid per point earned; point_value_iqd: IQD one point takes off a bill; min_redeem_points: the least a guest may redeem at once; earn_*: the per-domain earn switches (court = the court fee carried on any tab); inactivity_expiry_months: null = points never expire; totp_step_seconds: the member token's step. Owner-written through app.set_loyalty_settings. No client grant.\nCreated in migration 0305.\nColumns:\n  id boolean primary key default true check (id)\n  enabled boolean not null default false\n  iqd_per_point int not null default 1000 check (iqd_per_point > 0)\n  point_value_iqd int not null default 50 check (point_value_iqd > 0)\n  min_redeem_points int not null default 100 check (min_redeem_points >= 0)\n  earn_cafe boolean not null default true\n  earn_shop boolean not null default true\n  earn_court boolean not null default true\n  earn_lesson boolean not null default true\n  earn_tournament boolean not null default true\n  inactivity_expiry_months int check (inactivity_expiry_months is null or inactivity_expiry_months between 1 and 120)\n  totp_step_seconds int not null default 30 check (totp_step_seconds between 15 and 120)\n  updated_at timestamptz not null default now()\n  updated_by uuid references staff(id)",
+      "body": "Loyalty (Phase 2 M3, contracts §1.3). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the point value, tiers and rewards (L-1). iqd_per_point: IQD paid per point earned; point_value_iqd: IQD one point takes off a bill; min_redeem_points: the least a guest may redeem at once; earn_*: the per-domain earn switches (court = the court fee carried on any tab); inactivity_expiry_months: null = points never expire; totp_step_seconds: the member token's step. Owner-written through app.set_loyalty_settings. No client grant.\nCreated in migration 0305.\nColumns:\n  id boolean primary key default true check (id)\n  enabled boolean not null default false\n  iqd_per_point int not null default 1000 check (iqd_per_point > 0)\n  point_value_iqd int not null default 50 check (point_value_iqd > 0)\n  min_redeem_points int not null default 100 check (min_redeem_points >= 0)\n  earn_cafe boolean not null default true\n  earn_shop boolean not null default true\n  earn_court boolean not null default true\n  earn_lesson boolean not null default true\n  earn_tournament boolean not null default true\n  inactivity_expiry_months int check (inactivity_expiry_months is null or inactivity_expiry_months between 1 and 120)\n  totp_step_seconds int not null default 30 check (totp_step_seconds between 15 and 120)\n  updated_at timestamptz not null default now()\n  updated_by uuid references staff(id)\n  enabled_at timestamptz — Loyalty (0309, c8). When enabled last turned on (app.set_loyalty_settings). The nightly inactivity expiry measures from greatest(last_activity_at, enabled_at): a pause never counts as inactivity.",
       "route": null
     },
     {
@@ -6734,7 +6734,7 @@
       "ref": "table:loyalty_tiers",
       "lang": "en",
       "title": "table loyalty_tiers",
-      "body": "Loyalty (M3). Tiers by points earned in the last 12 months (min_points_12m), each with an earn multiplier and an optional promotion (a promotion with limits.tierMin = this tier's sort is eligible from this tier up). The sort-0 tier (from 0 points) is the base every account starts in and cannot be deleted. Owner-written. No client grant.\nCreated in migration 0305.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  min_points_12m int not null\n  earn_multiplier numeric(3,2) not null default 1\n  promotion_id uuid references promotions(id)\n  sort smallint not null\n  created_at timestamptz not null default now() — The base tier (sort 0) is the one every account starts in: from 0 points.",
+      "body": "Loyalty (M3). Tiers by points earned in the last 12 months (min_points_12m), each with an earn multiplier and an optional promotion (a promotion with limits.tierMin = this tier's sort is eligible from this tier up). The sort-0 tier (from 0 points) is the base every account starts in and cannot be deleted. Owner-written. No client grant.\nCreated in migration 0305.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  min_points_12m int not null\n  earn_multiplier numeric(3,2) not null default 1\n  promotion_id uuid references promotions(id) — Deprecated (0309, c6): never read; a tier promotion names its tier in promotions.limits.tierMin. Always null; to be dropped.\n  sort smallint not null\n  created_at timestamptz not null default now() — The base tier (sort 0) is the one every account starts in: from 0 points.",
       "route": null
     },
     {
@@ -6742,7 +6742,7 @@
       "ref": "table:loyalty_token_attempts",
       "lang": "en",
       "title": "table loyalty_token_attempts",
-      "body": "Loyalty (0308, c3). Every member-token or phone lookup at app.link_guest_session, app.loyalty_identify and the token path of app.loyalty_redeem, success or not: the throttle counts the failures per caller (10 minutes) and, for anonymous café sessions only, per member code (an hour). member_code is kept only when a card holds that code (a typo of a code nobody has locks no one); anonymous says the caller was an anonymous auth user. Rows older than a day are pruned on write. No client grant.\nCreated in migration 0308.\nColumns:\n  id bigint generated always as identity primary key\n  auth_user_id uuid\n  member_code text\n  ok boolean not null\n  anonymous boolean not null default false\n  at timestamptz not null default clock_timestamp()",
+      "body": "Loyalty (0308, c3). Every member-token or phone lookup at app.link_guest_session, app.loyalty_identify and the token path of app.loyalty_redeem, success or not (an expired token, a real one shown late, is not recorded): the throttle counts the failures per caller (10 minutes) and, for anonymous café sessions only, per member code (an hour). member_code is kept only when a card holds that code (a typo of a code nobody has locks no one); anonymous says the caller was an anonymous auth user. Rows older than a day are pruned on write. No client grant.\nCreated in migration 0308.\nColumns:\n  id bigint generated always as identity primary key\n  auth_user_id uuid\n  member_code text\n  ok boolean not null\n  anonymous boolean not null default false\n  at timestamptz not null default clock_timestamp()",
       "route": null
     },
     {
@@ -9507,10 +9507,26 @@
     },
     {
       "kind": "column",
+      "ref": "column:loyalty_settings.enabled_at",
+      "lang": "en",
+      "title": "loyalty_settings.enabled_at",
+      "body": "timestamptz\nLoyalty (0309, c8). When enabled last turned on (app.set_loyalty_settings). The nightly inactivity expiry measures from greatest(last_activity_at, enabled_at): a pause never counts as inactivity.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:loyalty_tiers.created_at",
       "lang": "en",
       "title": "loyalty_tiers.created_at",
       "body": "timestamptz not null default now()\nThe base tier (sort 0) is the one every account starts in: from 0 points.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:loyalty_tiers.promotion_id",
+      "lang": "en",
+      "title": "loyalty_tiers.promotion_id",
+      "body": "uuid references promotions(id)\nDeprecated (0309, c6): never read; a tier promotion names its tier in promotions.limits.tierMin. Always null; to be dropped.",
       "route": null
     },
     {
@@ -20102,7 +20118,7 @@
       "ref": "label:ws.protocols.fields#2",
       "lang": "ar",
       "title": "ws.protocols.fields (packages/i18n/src/catalogs/ws/protocols.ar.ts)",
-      "body": "promotion_id: العرض\npromotion: العرض\npromotion_name_en: اسم العرض (بالإنجليزية)\npromotion_name_ar: اسم العرض (بالعربية)\npromotion_type: الخصم\npromotion_value: قيمة الخصم\npromotion_starts_at: يبدأ\npromotion_ends_at: ينتهي\npromotion_weekdays: الأيام\npromotion_hour_from: من\npromotion_hour_to: إلى\npromotion_scope: يشمل\npromotion_scope_courtIds: الملاعب\npromotion_scope_categoryIds: فئات المنيو\npromotion_scope_itemIds: الأصناف\npromotion_limits: الحدود\npromotion_limits_total: إجمالي مرات الاستخدام\npromotion_limits_perCustomer: مرات الاستخدام لكل ضيف\npromotion_limits_minSpendIqd: الحد الأدنى للإنفاق\npromotion_auto: يُطبَّق تلقائيًا\npromotion_public_code: الرمز\npromotion_code_single_use: يُستخدم كل رمز مرة واحدة\nrule_id: سعر الملعب\nrule: سعر الملعب\nrule_name: الاسم\nrule_court_id: الملعب\nrule_days_of_week: الأيام\nrule_start_time: من\nrule_end_time: إلى\nrule_prices: الأسعار حسب مدة الحجز\nrule_priority: الأولوية\nrule_valid_from: ساري من\nrule_valid_to: ساري حتى\nrule_is_active: مفعّل\ndiscount_pct: الخصم (%)\nrecommendation: التوصية\nlesson_type_id: نوع الحصة\ncoach_id: المدرّب\ncourt_share_iqd: أجرة الملعب لكل حصة",
+      "body": "promotion_id: العرض\npromotion: العرض\npromotion_name_en: اسم العرض (بالإنجليزية)\npromotion_name_ar: اسم العرض (بالعربية)\npromotion_type: الخصم\npromotion_value: قيمة الخصم\npromotion_starts_at: يبدأ\npromotion_ends_at: ينتهي\npromotion_weekdays: الأيام\npromotion_hour_from: من\npromotion_hour_to: إلى\npromotion_scope: يشمل\npromotion_scope_courtIds: الملاعب\npromotion_scope_categoryIds: فئات المنيو\npromotion_scope_itemIds: الأصناف\npromotion_limits: الحدود\npromotion_limits_total: إجمالي مرات الاستخدام\npromotion_limits_perCustomer: مرات الاستخدام لكل ضيف\npromotion_limits_minSpendIqd: الحد الأدنى للإنفاق\npromotion_limits_tierMin: أدنى فئة ولاء\npromotion_auto: يُطبَّق تلقائيًا\npromotion_public_code: الرمز\npromotion_code_single_use: يُستخدم كل رمز مرة واحدة\nrule_id: سعر الملعب\nrule: سعر الملعب\nrule_name: الاسم\nrule_court_id: الملعب\nrule_days_of_week: الأيام\nrule_start_time: من\nrule_end_time: إلى\nrule_prices: الأسعار حسب مدة الحجز\nrule_priority: الأولوية\nrule_valid_from: ساري من\nrule_valid_to: ساري حتى\nrule_is_active: مفعّل\ndiscount_pct: الخصم (%)\nrecommendation: التوصية\nlesson_type_id: نوع الحصة\ncoach_id: المدرّب\ncourt_share_iqd: أجرة الملعب لكل حصة",
       "route": null
     },
     {
@@ -20110,7 +20126,7 @@
       "ref": "label:ws.protocols.fields#2",
       "lang": "en",
       "title": "ws.protocols.fields (packages/i18n/src/catalogs/ws/protocols.en.ts)",
-      "body": "promotion_name_en: Promotion name (English)\npromotion_name_ar: Promotion name (Arabic)\npromotion_type: Discount\npromotion_value: Discount value\npromotion_starts_at: Starts\npromotion_ends_at: Ends\npromotion_weekdays: Days\npromotion_hour_from: From\npromotion_hour_to: To\npromotion_scope: Applies to\npromotion_scope_courtIds: Courts\npromotion_scope_categoryIds: Menu categories\npromotion_scope_itemIds: Items\npromotion_limits: Limits\npromotion_limits_total: Uses in total\npromotion_limits_perCustomer: Uses per guest\npromotion_limits_minSpendIqd: Minimum spend\npromotion_auto: Applies by itself\npromotion_public_code: Code\npromotion_code_single_use: Each code works once\nrule_id: Court rate\nrule: Court rate\nrule_name: Name\nrule_court_id: Court\nrule_days_of_week: Days\nrule_start_time: From\nrule_end_time: To\nrule_prices: Prices by booking length\nrule_priority: Priority\nrule_valid_from: Valid from\nrule_valid_to: Valid until\nrule_is_active: Switched on\ndiscount_pct: Discount (%)\nrecommendation: Recommendation\nlesson_type_id: Lesson type\ncoach_id: Coach\ncourt_share_iqd: Court share per session",
+      "body": "promotion_name_en: Promotion name (English)\npromotion_name_ar: Promotion name (Arabic)\npromotion_type: Discount\npromotion_value: Discount value\npromotion_starts_at: Starts\npromotion_ends_at: Ends\npromotion_weekdays: Days\npromotion_hour_from: From\npromotion_hour_to: To\npromotion_scope: Applies to\npromotion_scope_courtIds: Courts\npromotion_scope_categoryIds: Menu categories\npromotion_scope_itemIds: Items\npromotion_limits: Limits\npromotion_limits_total: Uses in total\npromotion_limits_perCustomer: Uses per guest\npromotion_limits_minSpendIqd: Minimum spend\npromotion_limits_tierMin: Lowest loyalty tier\npromotion_auto: Applies by itself\npromotion_public_code: Code\npromotion_code_single_use: Each code works once\nrule_id: Court rate\nrule: Court rate\nrule_name: Name\nrule_court_id: Court\nrule_days_of_week: Days\nrule_start_time: From\nrule_end_time: To\nrule_prices: Prices by booking length\nrule_priority: Priority\nrule_valid_from: Valid from\nrule_valid_to: Valid until\nrule_is_active: Switched on\ndiscount_pct: Discount (%)\nrecommendation: Recommendation\nlesson_type_id: Lesson type\ncoach_id: Coach\ncourt_share_iqd: Court share per session",
       "route": null
     },
     {
@@ -22782,7 +22798,7 @@
       "ref": "system:cron:tp_loyalty_nightly",
       "lang": "en",
       "title": "cron job tp_loyalty_nightly",
-      "body": "Runs select app.loyalty_nightly();. Schedules seen in migrations, latest last: '15 0 * * *' (0306). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs call app.loyalty_nightly_run();. Schedules seen in migrations, latest last: '15 0 * * *' (0306), '15 0 * * *' (0309). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
