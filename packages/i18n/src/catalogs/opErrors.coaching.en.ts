@@ -26,7 +26,7 @@ export const opErrorsCoachingEn = {
   LESSON_OWED_CHANGED: "What's owed for this lesson just changed. Check the new amount.",
   LESSON_TAB_NO_GOODS: "Café items don't go on a lesson's bill. Open a separate café bill.",
   REFUND_EXCEEDS_DUE:
-    "That's more than is due back for this lesson. Refresh the list, or choose a goodwill refund to give more.",
+    "That's more than is due back. Refresh the list, or mark it as a goodwill refund to give more.",
   NOT_A_COACH: "This account isn't a coach.",
   ALREADY_COACH: 'This customer is already a coach.',
   COACH_NOT_FOUND: "That coach can't be found.",

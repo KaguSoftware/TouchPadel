@@ -824,6 +824,7 @@ export function TabDetailPanel({
           payments={tab.payments}
           lines={allLines}
           canRefund={can.refund}
+          moneyKind={tab.kind === 'tournament' ? 'tournament' : undefined}
           onDone={(outcome, paymentId) => {
             close();
             refresh();

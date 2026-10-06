@@ -1422,6 +1422,9 @@ export const en = {
       coach_unavailable: 'Coach unavailable',
       lesson_refund: 'Lesson refund',
       lesson_goodwill: 'Goodwill refund',
+      // TOURNAMENT_REFUND_REASON_CODES (0310 c41).
+      tournament_refund: 'Tournament refund',
+      tournament_goodwill: 'Goodwill refund',
     },
     desk: {
       newBooking: 'New booking',

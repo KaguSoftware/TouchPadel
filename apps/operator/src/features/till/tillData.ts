@@ -279,6 +279,8 @@ export interface TabAdjustmentRow {
 export interface TabDetail {
   id: string;
   status: string;
+  /** tabs.kind ('cafe', 'court', 'lesson', 'tournament', ...); absent on a detail cached before the column joined the select. */
+  kind?: string;
   label: string | null;
   /** Absent on a detail cached before the column joined the select. */
   opened_at?: string | null;
@@ -297,7 +299,7 @@ export async function fetchTabDetail(tabId: string): Promise<TabDetail> {
   const { data, error } = await supabase
     .from('tabs')
     .select(
-      `id, status, label, opened_at, subtotal_iqd, total_iqd, court_iqd, reservation_id,
+      `id, status, kind, label, opened_at, subtotal_iqd, total_iqd, court_iqd, reservation_id,
        table:cafe_tables(table_number),
        reservation:reservations!tabs_reservation_id_fkey(guest_id, guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar)),
        orders!orders_tab_id_fkey (

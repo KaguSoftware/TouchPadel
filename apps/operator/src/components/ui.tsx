@@ -910,11 +910,18 @@ export const MATCH_REASON_CODES = ['conduct', 'court_needed', 'walked_out', 'no_
  */
 export const COACHING_REASON_CODES = ['customer_request', 'coach_unavailable', 'court_needed', 'staff_error', 'duplicate', 'other'] as const;
 export const LESSON_REFUND_REASON_CODES = ['lesson_refund', 'lesson_goodwill'] as const;
+/**
+ * The two reasons a refund of tournament entry money carries (0310 c41): up to
+ * what is due back on the entry, or a goodwill refund beyond it (a no-show's
+ * forfeited fee returned, say). Offered by the till on a kind tournament tab.
+ */
+export const TOURNAMENT_REFUND_REASON_CODES = ['tournament_refund', 'tournament_goodwill'] as const;
 export type ReasonCode =
   | (typeof REASON_CODES)[number]
   | (typeof MATCH_REASON_CODES)[number]
   | (typeof COACHING_REASON_CODES)[number]
-  | (typeof LESSON_REFUND_REASON_CODES)[number];
+  | (typeof LESSON_REFUND_REASON_CODES)[number]
+  | (typeof TOURNAMENT_REFUND_REASON_CODES)[number];
 
 /**
  * PIN + reason modal shared by discount / void / refund flows.

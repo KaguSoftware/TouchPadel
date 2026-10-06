@@ -254,6 +254,11 @@ export const tournamentsEn = {
     lead: 'The rounds after the last fully scored one are removed, the standings become final and the courts are released. Entry fees are not refunded.',
     done: 'Tournament finished.',
   },
+  // The till's RefundDialog on a kind tournament tab (0310 c41).
+  refund: {
+    capLead: 'Tournament entry money: at most what is due back on the entry, unless it is a goodwill refund.',
+    goodwill: 'Goodwill: refund more than is due',
+  },
   refundsDue: {
     title: 'Refunds due',
     lead: 'Each is taken back through the till, on the payment it was paid with.',
