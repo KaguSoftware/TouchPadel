@@ -61,7 +61,7 @@ export function CafeHandoff({ locale, phone }: { locale: Locale; phone: CafePhon
                 <b>{row.name}</b>
                 <span className="tp-num">{formatIQD(row.priceIqd, locale)}</span>
               </span>
-              <i>+</i>
+              <i aria-hidden="true" />
             </span>
           ))}
           <span className="tp-cafe-phone__basket">
