@@ -14,6 +14,9 @@ vi.mock('../../../lib/appRpc', async (importOriginal) => ({
   appRpc: vi.fn(),
 }));
 
+// The station clock: 17:30 in Baghdad on the day shown, so 17:00 has begun.
+vi.mock('../../../lib/clock', () => ({ useClock: () => Date.parse('2026-11-06T14:30:00Z') }));
+
 const C1 = '11111111-1111-4111-8111-111111111111';
 const C2 = '22222222-2222-4222-8222-222222222222';
 const DAY = '2026-11-06';
@@ -162,6 +165,55 @@ describe('TournamentStartSheet', () => {
     await user.click(screen.getByRole('button', { name: /^Type 3 Sponsor or client/ }));
     expect(menu().getByRole('button', { name: /^Sponsor/ })).toBeTruthy();
     expect(screen.getByText('1 of 6 done')).toBeTruthy();
+  });
+
+  it('refuses an hour that has begun and a day before tonight', async () => {
+    const user = userEvent.setup();
+    mount();
+    await user.click(menu().getByRole('button', { name: /^Courts & time/ }));
+    const past = screen.getByRole('gridcell', { name: /^Court 1, .?5:00 PM.*Past/ });
+    expect(past.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.pointerDown(past);
+    fireEvent.pointerUp(window);
+    expect(past.getAttribute('aria-selected')).toBe('false');
+    expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
+    expect(
+      (screen.getByRole('button', { name: 'Previous day' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it('moves through the timeline with the arrows, one Tab stop in all', async () => {
+    const user = userEvent.setup();
+    mount();
+    await user.click(menu().getByRole('button', { name: /^Courts & time/ }));
+    const grid = screen.getByRole('grid');
+    const cells = within(grid).getAllByRole('gridcell');
+    expect(cells.filter((c) => c.tabIndex === 0)).toHaveLength(1);
+    // The hour headers sit in a row of their own, then one row per court.
+    expect(within(grid).getAllByRole('row')).toHaveLength(3);
+    cells[0]!.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(document.activeElement?.getAttribute('aria-label')).toMatch(/^Court 1, .?6:00 PM/);
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement?.getAttribute('aria-label')).toMatch(/^Court 2, .?6:00 PM/);
+    await user.keyboard('{End}');
+    expect(document.activeElement?.getAttribute('aria-label')).toMatch(/^Court 2, .?8:00 PM/);
+    await user.keyboard('{ArrowUp} ');
+    expect(document.activeElement?.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('picks a class card with the arrows', async () => {
+    const user = userEvent.setup();
+    mount();
+    await user.click(menu().getByRole('button', { name: /^Name/ }));
+    const group = screen.getByRole('radiogroup', { name: /Class/ });
+    const radios = within(group).getAllByRole('radio');
+    expect(radios.map((r) => r.tabIndex)).toEqual([0, -1, -1]);
+    radios[0]!.focus();
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(radios[1]);
+    expect(radios[1]!.getAttribute('aria-checked')).toBe('true');
+    expect(radios.map((r) => r.tabIndex)).toEqual([-1, 0, -1]);
   });
 
   it('takes an Arabic keyboard’s digits in a number box', async () => {
