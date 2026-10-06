@@ -9,8 +9,9 @@
  * - the merge: an email account and a desk walk-in folded into a phone
  *   account through app.merge_accounts (owner, manager-PIN grant), with their
  *   bookings, match seats and tickets, tournament entry, notes and flags moved,
- *   the unique scopes resolved, the drops tombstoned and banned, and the auth
- *   email and Google identity carried over;
+ *   the unique scopes resolved, the drops tombstoned and banned, and no login
+ *   carried over (the owner's word is not proof); a walk-in kept over the
+ *   person's only login is refused;
  * - the refusals: staff with staff, a staff drop, coach with coach;
  * - the one-time run (app.merge_duplicates_internal, what the migration's DO
  *   block calls) over a planted email + phone + walk-in group and a staff pair
@@ -82,14 +83,16 @@ end $f$;
 
 -- A desk walk-in (desk-customer-create): <digits>@guest.touch.local (or the real address the
 -- desk typed, p_email), the phone typed by staff, and desk_register_customer's customer.create
--- audit row: the server-side proof (0307 app.profile_is_desk_walkin) that keys its phone.
+-- audit row naming that phone: the server-side proof (0307 app.profile_is_desk_walkin) that keys
+-- it, for that number only and while nobody has signed in to the account.
 create function pg_temp.walkin(p_name text, p_phone text, p_email text default null) returns uuid language plpgsql as $f$
 declare v uuid := gen_random_uuid();
         v_email text := coalesce(p_email, app.phone_digits(p_phone) || '-' || substr(v::text, 1, 4) || '@guest.touch.local');
 begin
   perform set_config('request.jwt.claims', '', true);
   insert into audit_log (actor_id, actor_role, action, entity, entity_id, after)
-  values (pg_temp.var('desk')::uuid, 'court_desk', 'customer.create', 'profiles', v::text, '{"source":"desk"}');
+  values (pg_temp.var('desk')::uuid, 'court_desk', 'customer.create', 'profiles', v::text,
+          jsonb_build_object('source', 'desk', 'phone', p_phone));
   insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data, aud, role, created_at)
   values (v, v_email, now(),
           jsonb_build_object('full_name', 'Walk In ' || p_name, 'phone', p_phone),
@@ -267,17 +270,23 @@ describe.skipIf(!docker)('03XX account identity: merging three accounts of one p
         X(`select pg_temp.pin_grant()`),
         T('again', 'owner', `select app.merge_accounts({{ph}}, {{em}}, 'again')`),
         T('groups', 'owner', `select app.duplicate_account_groups()`),
-        // The owner's decision (merge_accounts' 'owner: …' reason) is what lets the auth slots move.
-        Q('m_synth', `select app.merge_profiles_internal({{wk}}, {{em2}}, 'owner: desk keep')`),
+        // 0307 (c0): the owner's word is not proof, so no login moves; a walk-in (synthetic
+        // address, no phone) kept over the person's only login would lock them out: refused.
+        E(
+          'm_synth',
+          null,
+          `select app.merge_profiles_internal({{wk}}, {{em2}}, 'owner: desk keep')`,
+        ),
         Q(
           'synth',
           `select jsonb_build_object(
-            'email', (select email = {{em2_email}} from auth.users where id = {{wk}}),
-            'password', (select encrypted_password from auth.users where id = {{wk}}),
-            'identity', (select jsonb_agg(i.identity_data->>'email' = {{em2_email}} order by i.provider)
-                           from auth.identities i where i.user_id = {{wk}} and i.provider = 'email'),
-            'drop_email', (select email from auth.users where id = {{em2}}))`,
+            'em2_live', (select deleted_at is null from profiles where id = {{em2}}),
+            'em2_email', (select email = {{em2_email}} from auth.users where id = {{em2}}),
+            'em2_password', (select encrypted_password from auth.users where id = {{em2}}),
+            'wk_synthetic', (select email ilike '%@guest.touch.local' from auth.users where id = {{wk}}))`,
         ),
+        // The other way round is the owner's way: the walk-in's history joins the app account.
+        Q('m_synth_rev', `select app.merge_profiles_internal({{em2}}, {{wk}}, 'owner: desk keep')`),
 
         Q(
           'keep',
@@ -355,9 +364,11 @@ describe.skipIf(!docker)('03XX account identity: merging three accounts of one p
       'customer_flags.customer_id': 1,
       'hold_standing.account': 1,
       'match_blocks.blocker_id': 1,
-      'auth.email': 1,
-      'auth.identities': 1,
     });
+    // 0307 (c0): no shared confirmed phone or verified email proves the pair, so no login moves.
+    expect(em.moved['auth.email']).toBeUndefined();
+    expect(em.moved['auth.phone']).toBeUndefined();
+    expect(em.moved['auth.identities']).toBeUndefined();
     ok(r, 'm_wi');
     const k = ok<Row>(r, 'keep');
     expect(k).toMatchObject({
@@ -390,19 +401,22 @@ describe.skipIf(!docker)('03XX account identity: merging three accounts of one p
     });
     // A phone sign-up has an empty name; the first drop's name fills it.
     expect((k.profile as Row).name).toBe('Email em');
-    // The email slot was empty: em's confirmed email and both its identities come across.
-    expect(k.auth).toEqual({ email: true, confirmed: true, password: 'pw-em' });
-    expect(k.providers).toEqual(['email', 'google']);
+    // 0307 (c0): the owner's merge is no proof; keep's email slot stays empty, its password
+    // unset, and em's identities do not come across (they go with em's emptied auth row).
+    expect(k.auth).toEqual({ email: null, confirmed: false, password: '' });
+    expect(k.providers).toBeNull();
   });
 
-  it('a walk-in keep gives up its synthetic address: the real email, password and identity come across', () => {
-    ok(r, 'm_synth');
+  it('an unproven merge that would leave the person no login is refused; the other way round joins them', () => {
+    expect(refused(r, 'm_synth')).toBe('MERGE_REFUSED:keep_no_login');
     expect(ok<Row>(r, 'synth')).toEqual({
-      email: true,
-      password: 'pw-em2',
-      identity: [true],
-      drop_email: null,
+      em2_live: true,
+      em2_email: true,
+      em2_password: 'pw-em2',
+      wk_synthetic: true,
     });
+    const rev = ok<{ moved: Row }>(r, 'm_synth_rev').moved;
+    expect(rev['auth.email']).toBeUndefined();
   });
 
   it('the drops are tombstoned, banned and emptied; the merges are recorded', () => {
@@ -486,11 +500,21 @@ describe.skipIf(!docker)('03XX account identity: refusals', () => {
            from lesson_enrolments where guest_id = {{b}}`,
       ),
       `select pg_temp.e('staff_keep', null, $q$select app.merge_profiles_internal({{s1}}, {{b}}, 't')$q$);`,
-      // 0307 (c0): a staff keep never receives another account's login, even by the owner's merge.
+      // 0307 (c0): a staff keep never receives another account's login, even when the pair is
+      // proven one person (here: an Apple login on each guest carrying s2's verified email).
+      X(`update auth.users set email_confirmed_at = now() where id = {{s2}}`),
       `select pg_temp.phone_user('gp', pg_temp.rphone());`,
+      X(`insert into auth.identities (id, provider_id, user_id, identity_data, provider, created_at, updated_at)
+         select gen_random_uuid(), 'a-' || g.id, g.id, jsonb_build_object('sub', 'a-' || g.id, 'email', u.email),
+                'apple', now(), now()
+           from (values ({{gp}}::uuid)) g (id), auth.users u where u.id = {{s2}}`),
       `select pg_temp.e('staff_keep_auth', null, $q$select app.merge_profiles_internal({{s2}}, {{gp}}, 'owner: same person')$q$);`,
-      // Nor a Google login: s2 has an email, so only the guest's OAuth identity would move.
+      // Nor a Google login: s2 has an email, so only the guest's OAuth identities would move.
       `select pg_temp.email_user('ge', pg_temp.rphone());`,
+      X(`insert into auth.identities (id, provider_id, user_id, identity_data, provider, created_at, updated_at)
+         select gen_random_uuid(), 'a-' || g.id, g.id, jsonb_build_object('sub', 'a-' || g.id, 'email', u.email),
+                'apple', now(), now()
+           from (values ({{ge}}::uuid)) g (id), auth.users u where u.id = {{s2}}`),
       `select pg_temp.e('staff_keep_oauth', null, $q$select app.merge_profiles_internal({{s2}}, {{ge}}, 'owner: same person')$q$);`,
       Q(
         'oauth_after',
@@ -733,6 +757,33 @@ describe.skipIf(!docker)('03XX account identity: one live profile per proven pho
         `select pg_temp.phone_user('n6', pg_temp.var('p6'));`,
         X(`update auth.users set phone = app.phone_digits(pg_temp.rphone()) where id = {{n6}}`),
         `select pg_temp.phone_user('n7', pg_temp.var('p6'));`,
+        // c1 through the desk: a walk-in registered with a real email resets the password, signs
+        // in and types a number nobody has verified yet into its own profile (the client grant on
+        // profiles.phone). The desk vouched for its own number, not this one: no key, so the till
+        // and the desk never resolve the number to it.
+        KEEP('pq', `select pg_temp.rphone()`),
+        KEEP('pf', `select pg_temp.rphone()`),
+        `select pg_temp.walkin('wq', pg_temp.var('pq'), 'walkin-squat-' || gen_random_uuid() || '@test.touch.local');`,
+        Q(
+          'wq_desk_key',
+          `select to_jsonb(phone_key = app.phone_canon({{pq}})) from profiles where id = {{wq}}`,
+        ),
+        X(`update auth.users set last_sign_in_at = now() where id = {{wq}}`),
+        T(
+          'squat',
+          'wq',
+          `update profiles set phone = {{pf}} where id = auth.uid() returning to_jsonb(phone = {{pf}})`,
+        ),
+        Q('squat_key', `select to_jsonb(phone_key) from profiles where id = {{wq}}`),
+        Q('squat_find', `select to_jsonb(app.find_customer_by_phone({{pf}}))`),
+        T('squat_identify', 'cashier', `select app.loyalty_identify({{pf}}, null)`),
+        // Typing its own desk number back after signing in is no proof either.
+        T(
+          'squat_back',
+          'wq',
+          `update profiles set phone = {{pq}} where id = auth.uid() returning to_jsonb(phone = {{pq}})`,
+        ),
+        Q('squat_back_key', `select to_jsonb(phone_key) from profiles where id = {{wq}}`),
         Q(
           'after',
           `select jsonb_build_object(
@@ -821,6 +872,16 @@ describe.skipIf(!docker)('03XX account identity: one live profile per proven pho
     expect(a.ws_record).toEqual(['phone_reclaimed']);
   });
 
+  it('a signed-in desk walk-in typing a fresh number into its own profile takes no key (c1)', () => {
+    expect(ok(r, 'wq_desk_key')).toBe(true);
+    expect(ok(r, 'squat')).toBe(true);
+    expect(ok(r, 'squat_key')).toBeNull();
+    expect(ok(r, 'squat_find')).toBeNull();
+    expect(refused(r, 'squat_identify')).toBe('MEMBER_NOT_FOUND');
+    expect(ok(r, 'squat_back')).toBe(true);
+    expect(ok(r, 'squat_back_key')).toBeNull();
+  });
+
   it('a changed auth phone drops the old key and frees the number', () => {
     const a = ok<Row>(r, 'after');
     expect(a.n6).toEqual({ phone: true, key: null });
@@ -861,6 +922,49 @@ describe.skipIf(!docker)(
           'ids',
           `select jsonb_build_object('w', {{w}}, 'n', {{n}}, 'sq', {{sq}}, 'key', app.phone_canon({{pw}}))`,
         ),
+        // The failure passes (the lock that timed out is free again); n confirms its number once
+        // more, and the claim finds the walk-in by the number the desk registered it with.
+        X(`drop trigger zz_test_boom_0307c on reservations`),
+        // clock_timestamp(): now() is the first confirmation's own instant inside this transaction.
+        X(`update auth.users set phone_confirmed_at = clock_timestamp() where id = {{n}}`),
+        Q(
+          'retry',
+          `select jsonb_build_object(
+          'w_deleted', (select deleted_at is not null from profiles where id = {{w}}),
+          'n_key', (select phone_key = app.phone_canon({{pw}}) from profiles where id = {{n}}),
+          'n_bookings', (select count(*) from reservations where guest_id = {{n}}),
+          'claims', (select jsonb_agg(reason order by reason) from app.profile_merges
+                      where keep_id = {{n}} and drop_id = {{w}}))`,
+        ),
+        // c0: the owner merges the typist listed beside the verified owner. No proof joins them,
+        // so the data moves and no login does: the typist's email and password never reach n.
+        X(`update auth.users set encrypted_password = 'pw-sq' where id = {{sq}}`),
+        KEEP('sq_email', `select email from auth.users where id = {{sq}}`),
+        X(`select pg_temp.pin_grant()`),
+        T('m_typist', 'owner', `select app.merge_accounts({{n}}, {{sq}}, 'listed pair')`),
+        Q(
+          'typist_after',
+          `select jsonb_build_object(
+          'n_email', (select email from auth.users where id = {{n}}),
+          'n_password', (select coalesce(encrypted_password, '') from auth.users where id = {{n}}),
+          'n_providers', (select coalesce(jsonb_agg(provider order by provider), '[]') from auth.identities where user_id = {{n}}),
+          'sq_email_anywhere', (select count(*) from auth.users where email = {{sq_email}}),
+          'sq_banned', (select banned_until = 'infinity' from auth.users where id = {{sq}}))`,
+        ),
+        // And the other way round: a typist kept over the verified owner gets no phone login.
+        GUEST('sq2'),
+        X(`update profiles set phone = {{pw}} where id = {{sq2}}`),
+        X(`select pg_temp.pin_grant()`),
+        T('m_owner_drop', 'owner', `select app.merge_accounts({{sq2}}, {{n}}, 'listed pair')`),
+        Q(
+          'owner_drop_after',
+          `select jsonb_build_object(
+          'sq2_auth_phone', (select phone from auth.users where id = {{sq2}}),
+          'sq2_providers', (select coalesce(jsonb_agg(provider order by provider), '[]') from auth.identities where user_id = {{sq2}}),
+          'sq2_key', (select phone_key from profiles where id = {{sq2}}),
+          'n_banned', (select banned_until = 'infinity' from auth.users where id = {{n}}),
+          'n_auth_phone', (select phone from auth.users where id = {{n}}))`,
+        ),
       ]);
       expect(ok(r, 'state')).toEqual({
         w: { live: true, key: null },
@@ -884,6 +988,36 @@ describe.skipIf(!docker)(
           { id: ids.sq, verified: false },
         ].sort((a, b) => a.id!.localeCompare(b.id!)),
       );
+      // c20: the failed claim is retried by the next confirmation, not lost for good.
+      expect(ok(r, 'retry')).toEqual({
+        w_deleted: true,
+        n_key: true,
+        n_bookings: 1,
+        claims: ['phone_reclaimed', 'walkin_claim', 'walkin_claim_failed'],
+      });
+      // c0: an owner merge of an unproven pair moves no email, phone or identity, either way.
+      const typist = ok<{ moved: Row }>(r, 'm_typist').moved;
+      expect(typist['auth.email']).toBeUndefined();
+      expect(typist['auth.phone']).toBeUndefined();
+      expect(typist['auth.identities']).toBeUndefined();
+      expect(ok(r, 'typist_after')).toEqual({
+        n_email: null,
+        n_password: '',
+        n_providers: [],
+        sq_email_anywhere: 0,
+        sq_banned: true,
+      });
+      const ownerDrop = ok<{ moved: Row }>(r, 'm_owner_drop').moved;
+      expect(ownerDrop['auth.email']).toBeUndefined();
+      expect(ownerDrop['auth.phone']).toBeUndefined();
+      expect(ownerDrop['auth.identities']).toBeUndefined();
+      expect(ok(r, 'owner_drop_after')).toEqual({
+        sq2_auth_phone: null,
+        sq2_providers: [],
+        sq2_key: null,
+        n_banned: true,
+        n_auth_phone: null,
+      });
     });
   },
 );

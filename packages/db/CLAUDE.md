@@ -131,9 +131,14 @@ is a line in that file.
   `find_customer_by_phone` and `desk_register_customer` (0303 and 0065 are no longer the latest),
   plus the internals `phone_verified_owner`, `profile_is_desk_walkin`, `profile_phone_key` and
   `phone_claim_internal`. `profiles.phone_key` is set only for a proven number (the account's
-  confirmed auth phone, or a desk walk-in) and `zz_phone_key` never raises `PHONE_TAKEN`; the desk pair
+  confirmed auth phone, or the number the desk registered a walk-in with while nobody has signed
+  in to it: `profile_is_desk_walkin(profile, key)`) and `zz_phone_key` never raises `PHONE_TAKEN`; the desk pair
   (`find_customer_by_phone`, `desk_register_customer`) sees only a keyed holder, and the owner's
-  `duplicate_account_groups` lists the unproven pairs as kind `phone_unproven`.
+  `duplicate_account_groups` lists the unproven pairs as kind `phone_unproven`. Logins move in a
+  merge only on proof (a shared confirmed phone or verified email), never on the owner's word:
+  `merge_accounts` on an unproven pair moves data only (`MERGE_REFUSED` detail `keep_no_login`
+  when the drop is the only one of the two anybody can sign in to). A failed walk-in claim keeps
+  the walk-in findable by its registered number, so the next confirmation retries it.
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
   GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows

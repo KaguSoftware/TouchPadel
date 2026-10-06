@@ -1,5 +1,5 @@
 {
-  "generated_from": "38f3d819e9289f546891e24aeaa32b5d694ce7d1",
+  "generated_from": "75075c7b52ccce26c07e8bbdf7e308d3bbf8ec64",
   "chunks": [
     {
       "kind": "page",
@@ -3534,7 +3534,7 @@
       "ref": "action:app.duplicate_account_groups",
       "lang": "en",
       "title": "app.duplicate_account_groups",
-      "body": "0303, 0307 (loyalty contracts §1.1). Owner. Read-only: [{key, kind phone|phone_unproven|email, profiles:[{id, name, phone, email, created_at, staff, coach, synthetic, phone_verified, activity}]}]. phone and email: the proven groups of app.duplicate_groups_internal (a shared confirmed auth phone, a verified email). phone_unproven (0307): a number two or more live profiles share as phone text or confirmed auth phone with no proven group, e.g. a walk-in that lost its key to its verified owner (walkin_claim_failed, phone_reclaimed); merge_accounts is the owner's proof.\nSignature: app.duplicate_account_groups() returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0307 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0303, 0307 (loyalty contracts §1.1). Owner. Read-only: [{key, kind phone|phone_unproven|email, profiles:[{id, name, phone, email, created_at, staff, coach, synthetic, phone_verified, activity}]}]. phone and email: the proven groups of app.duplicate_groups_internal (a shared confirmed auth phone, a verified email). phone_unproven (0307): a number two or more live profiles share as phone text or confirmed auth phone with no proven group, e.g. a walk-in that lost its key to its verified owner (walkin_claim_failed, phone_reclaimed), or a guest who only typed the number. merge_accounts on such a pair joins the data and moves no login.\nSignature: app.duplicate_account_groups() returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0307 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {

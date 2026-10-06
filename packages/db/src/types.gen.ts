@@ -3178,7 +3178,10 @@ export type Database = {
       production_log_today: { Args: { p_venue_id?: string }; Returns: Json }
       production_today: { Args: { p_venue_id?: string }; Returns: Json }
       profile_activity: { Args: { p_profile: string }; Returns: number }
-      profile_is_desk_walkin: { Args: { p_profile: string }; Returns: boolean }
+      profile_is_desk_walkin: {
+        Args: { p_key: string; p_profile: string }
+        Returns: boolean
+      }
       profile_merge_columns: {
         Args: never
         Returns: {
