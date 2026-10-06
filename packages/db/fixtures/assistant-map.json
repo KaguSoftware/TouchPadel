@@ -1,5 +1,5 @@
 {
-  "generated_from": "30a958e078dc78482f47ce74aca70c96f7ed3062",
+  "generated_from": "f290bb6d020489f007eed58eaacf7445c2515e53",
   "chunks": [
     {
       "kind": "page",
@@ -21918,7 +21918,7 @@
       "ref": "label:ws.tournaments.list",
       "lang": "en",
       "title": "ws.tournaments.list (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
-      "body": "title: Tournaments\nadd: Add tournament\nlead: Tournaments published at this branch, from yesterday to the next two months.\nempty: No tournaments in this range.\nemptyHint: Add a tournament to start its plan. It is published from that protocol once the run is done.\nentries: {registered} of {max} registered\nwaitlisted: {count} on the waitlist\noff: Tournaments are switched off at this branch. The owner switches them on in Settings.\ncolumns.name: Tournament\ncolumns.when: When\ncolumns.format: Format\ncolumns.status: Status\ncolumns.entries: Players\nopen: Open\nall: All\nfilters: Show tournaments\ncount.zero: (no tournaments)\ncount.one: (1 tournament)\ncount.two: (2 tournaments)\ncount.few: ({count} tournaments)\ncount.many: ({count} tournaments)\ncount.other: ({count} tournaments)\ntotals.upcoming: Upcoming\ntotals.running: Running now\ntotals.players: Players registered\ntotals.waitlisted: On the waitlist",
+      "body": "title: Tournaments\nadd: Add tournament\nlead: Tournaments published at this branch, from yesterday to the next two months.\nempty: No tournaments in this range.\nentries: {registered} of {max} registered\nwaitlisted: {count} on the waitlist\noff: Tournaments are switched off at this branch. The owner switches them on in Settings.\ncolumns.name: Tournament\ncolumns.when: When\ncolumns.format: Format\ncolumns.status: Status\ncolumns.entries: Players\nopen: Open\nall: All\nfilters: Show tournaments\ncount.zero: (no tournaments)\ncount.one: (1 tournament)\ncount.two: (2 tournaments)\ncount.few: ({count} tournaments)\ncount.many: ({count} tournaments)\ncount.other: ({count} tournaments)\ntotals.upcoming: Upcoming\ntotals.running: Running now\ntotals.players: Players registered\ntotals.waitlisted: On the waitlist",
       "route": null
     },
     {
@@ -21966,7 +21966,7 @@
       "ref": "label:ws.tournaments.refund",
       "lang": "en",
       "title": "ws.tournaments.refund (packages/i18n/src/catalogs/ws/tournaments.en.ts)",
-      "body": "capLead: Tournament entry money: at most what is due back on the entry, unless it is a goodwill refund.\ngoodwill: Goodwill: refund more than is due",
+      "body": "goodwill: Goodwill: refund more than is due",
       "route": null
     },
     {
