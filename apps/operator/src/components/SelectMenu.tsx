@@ -120,6 +120,9 @@ export function SelectMenu<T extends string>({
   const [active, setActive] = useState(0);
 
   const open = box !== null;
+  // Where the trigger was when the panel was measured: a scroll dismisses only
+  // when it actually moved the trigger off that spot (see the listener below).
+  const anchor = useRef<{ y: number; x: number } | null>(null);
   const selectedIndex = options.findIndex((o) => o.value === value);
 
   const close = useCallback((focusTrigger: boolean) => {
@@ -132,6 +135,7 @@ export function SelectMenu<T extends string>({
   const openPanel = useCallback(() => {
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
+    anchor.current = { y: rect.top, x: rect.left };
     // Fit the panel to the room the trigger actually has. A fixed 18rem list
     // hung off the bottom of the window whenever its trigger sat low — the
     // business-day picker inside the analytics Settings panel is the case
@@ -175,9 +179,21 @@ export function SelectMenu<T extends string>({
     // any ancestor scroller, which do not bubble), so it also hears the
     // panel's own — which closed the menu the instant a long list was
     // scrolled, and is why they could not be scrolled at all.
+    //
+    // Nor may a scroll that left the trigger where it was. Scroll events are
+    // dispatched on the frame AFTER the scroll, so a scroll that finished just
+    // before the click (a scroll-into-view straight before it, a scroller
+    // behind a dialog settling) arrived after the panel had opened and shut it
+    // at once: the desk's Duration menu, in a New booking dialog scrolled 5px
+    // to reach it, closed before an option could be picked (CI e2e
+    // operator-matches, run 37505984516). The panel only goes stale when its
+    // trigger moves, so that is what is checked.
     const dismiss = (e: Event) => {
       const t = e.target;
       if (t instanceof Node && panelRef.current?.contains(t)) return;
+      const was = anchor.current;
+      const now = triggerRef.current?.getBoundingClientRect();
+      if (was && now && Math.abs(now.top - was.y) < 1 && Math.abs(now.left - was.x) < 1) return;
       setBox(null);
     };
     const onResize = () => setBox(null);
