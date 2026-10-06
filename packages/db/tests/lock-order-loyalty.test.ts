@@ -83,5 +83,10 @@ describe.skipIf(!docker)('lock-order gate over the local stack (loyalty)', () =>
     const line = (fn: string) => out.split('\n').find((l) => new RegExp(`^\\s+${fn}\\s`).test(l)) ?? '';
     expect(line('settle_tab').trim().endsWith('loyalty_accounts')).toBe(true);
     expect(line('refund').trim().endsWith('loyalty_accounts')).toBe(true);
+    // 0307 (c20): the owner's merge is walked too (through merge_profiles_internal) and takes
+    // loyalty_accounts last, after every ranked row it re-points. Its profiles lock is FOR NO
+    // KEY UPDATE (account-merge.test.ts pins the text), so a settle's deferred FK key share on
+    // the profile never waits on it.
+    expect(line('merge_accounts').trim().endsWith('loyalty_accounts')).toBe(true);
   });
 });

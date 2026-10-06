@@ -3036,7 +3036,12 @@ export type Database = {
         Returns: Database["public"]["Enums"]["stock_location"]
       }
       phone_canon: { Args: { p_phone: string }; Returns: string }
+      phone_claim_internal: { Args: { p_user: string }; Returns: string }
       phone_digits: { Args: { p_phone: string }; Returns: string }
+      phone_verified_owner: {
+        Args: { p_key: string; p_profile: string }
+        Returns: boolean
+      }
       pin_delay_floor: { Args: never; Returns: string }
       pin_grant_ttl: { Args: never; Returns: string }
       pin_is_weak: { Args: { p_pin: string }; Returns: boolean }
@@ -3173,6 +3178,7 @@ export type Database = {
       production_log_today: { Args: { p_venue_id?: string }; Returns: Json }
       production_today: { Args: { p_venue_id?: string }; Returns: Json }
       profile_activity: { Args: { p_profile: string }; Returns: number }
+      profile_is_desk_walkin: { Args: { p_profile: string }; Returns: boolean }
       profile_merge_columns: {
         Args: never
         Returns: {
@@ -3182,6 +3188,10 @@ export type Database = {
           sch: string
           tbl: string
         }[]
+      }
+      profile_phone_key: {
+        Args: { p_phone: string; p_profile: string }
+        Returns: string
       }
       promotion_amount_iqd: {
         Args: { p_base: number; p_type: string; p_value: number }

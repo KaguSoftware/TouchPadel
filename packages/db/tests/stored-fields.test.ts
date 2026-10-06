@@ -50,6 +50,7 @@ import {
   SUPABASE_URL,
   SERVICE_ROLE_KEY,
   VENUE_A_ID,
+  uniqueTestPhone,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -826,7 +827,12 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
 
     // Loyalty (0305, 0306): the guest's member card, and one ledger row whose insert trigger
     // builds the loyalty_accounts cache. The card and the cache are 'row'; the ledger is kept.
-    // phone_key is filled from the sign-up phone, so its 'scrub' is a real change.
+    // phone_key is set once the account's own phone is confirmed (0307: a typed phone is never a
+    // key), so its 'scrub' is a real change.
+    const { data: typed } = await svc.from('profiles').select('phone').eq('id', uid).single();
+    const own = (typed as { phone: string | null }).phone ?? uniqueTestPhone();
+    const phoneConfirmed = await svc.auth.admin.updateUserById(uid, { phone: own, phone_confirm: true });
+    if (phoneConfirmed.error) throw new Error(`confirm phone: ${phoneConfirmed.error.message}`);
     const card = await appRpc(guest, 'my_member_card', {});
     if (card.error) throw new Error(`my_member_card: ${card.error.message}`);
     const ledgerSource = crypto.randomUUID();

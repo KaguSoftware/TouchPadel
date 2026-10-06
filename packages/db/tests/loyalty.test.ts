@@ -88,15 +88,19 @@ create function pg_temp.var(p_name text) returns text language sql as $f$
   select val from pg_temp.vars where name = p_name
 $f$;
 
--- A guest (the 0004 trigger makes the profile) with a phone and name parts.
-create function pg_temp.guest(p_name text, p_phone text, p_given text default null, p_family text default null)
+-- A guest (the 0004 trigger makes the profile) with a phone and name parts. The phone is the
+-- account's confirmed auth phone (0307: only a proven number is the till's phone_key); p_typed
+-- plants one the guest only typed into the profile.
+create function pg_temp.guest(p_name text, p_phone text, p_given text default null, p_family text default null,
+                              p_typed boolean default false)
 returns uuid language plpgsql as $f$
 declare v uuid := gen_random_uuid();
 begin
   perform set_config('request.jwt.claims', '', true);
-  insert into auth.users (id, email, raw_user_meta_data, aud, role)
+  insert into auth.users (id, email, raw_user_meta_data, aud, role, phone, phone_confirmed_at)
   values (v, 'loy-' || p_name || '-' || v || '@test.touch.local', jsonb_build_object('full_name', 'Loyal ' || p_name),
-          'authenticated', 'authenticated');
+          'authenticated', 'authenticated',
+          case when not p_typed then app.phone_digits(p_phone) end, case when not p_typed then now() end);
   update profiles set phone = p_phone where id = v;
   if p_given is not null then
     update profiles set given_name = p_given, family_name = p_family where id = v;
@@ -682,6 +686,7 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
 describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
   it('takes a token within ±2 steps or the exact phone, and tells expired from invalid', () => {
     const p = phone();
+    const q = phone();
     const r = run('loy-identify', [
       `select pg_temp.guest('g1', '${p.e164}', 'Sara', 'Haddad');`,
       T('card', 'g1', `select app.my_member_card()`),
@@ -703,6 +708,9 @@ describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
       T('other_venue', 'cashier', `select app.loyalty_identify({{k0}}, {{other_venue}})`),
       T('guest', 'g1', `select app.loyalty_identify({{k0}}, null)`),
       T('prep', 'prep', `select app.loyalty_identify({{k0}}, null)`),
+      // 0307 (c1): a number another guest only typed into its profile is nobody's at the till.
+      `select pg_temp.guest('sq', '${q.e164}', 'Squat', 'Ter', true);`,
+      T('typed', 'cashier', `select app.loyalty_identify('${q.local}', {{venue}})`),
       Q(
         'audits',
         `select to_jsonb(count(*)) from audit_log where action = 'loyalty.identify' and entity_id = {{g1}}`,
@@ -748,6 +756,7 @@ describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
     expect(refused(r, 'word')).toBe('MEMBER_CODE_INVALID');
     expect(refused(r, 'unknown')).toBe('MEMBER_CODE_INVALID');
     expect(refused(r, 'partial')).toBe('MEMBER_NOT_FOUND');
+    expect(refused(r, 'typed')).toBe('MEMBER_NOT_FOUND');
     expect(refused(r, 'other_venue')).toBe('VENUE_MISMATCH');
     expect(refused(r, 'guest')).toBe('FORBIDDEN');
     expect(refused(r, 'prep')).toBe('FORBIDDEN');
