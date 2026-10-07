@@ -54,10 +54,13 @@ describe('TOURNAMENT_SHAPES: every list is well formed', () => {
         'set_tournaments_enabled',
         'tournament_add_entry',
         'tournament_cancel',
+        'tournament_close',
         'tournament_entry_money',
+        'tournament_finish',
         'tournament_mark_no_show',
         'tournament_public',
         'tournament_publish',
+        'tournament_refunds_due',
         'tournament_register',
         'tournament_remove_entry',
         'tournament_score',
@@ -152,6 +155,8 @@ describe('pinned names (§1.6, S13)', () => {
       'set_rounds',
       'score',
       'cancel',
+      'close',
+      'finish',
       'settle',
     ]);
   });

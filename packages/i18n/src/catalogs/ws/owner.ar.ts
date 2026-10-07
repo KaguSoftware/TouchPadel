@@ -1101,14 +1101,12 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       venueDefault: 'الافتراضي للمكان ({model})',
       hint: 'يسري على الإجابة التالية. يُظهر عدّاد كل إجابة النموذج الذي سُعِّرت به.',
       labels: {
-        opus: 'Opus 5',
-        sonnet: 'Sonnet 5',
-        gptoss: 'GPT-OSS 120B عبر Groq',
+        opus: 'Opus 5.5',
+        sonnet: 'Sonnet 5.5',
       },
       hints: {
         opus: 'أفضل الإجابات',
-        sonnet: 'أرخص بنحو 2.5 مرة',
-        gptoss: 'خطة مجانية حاليًا، والبحث في خريطة الصفحات بمطابقة الكلمات فقط',
+        sonnet: 'أرخص بنحو مرتين',
       },
       chatSaved: 'حُدّث نموذج هذه المحادثة.',
       defaultTitle: 'النموذج الافتراضي للمحادثات الجديدة',

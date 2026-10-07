@@ -1,14 +1,15 @@
 /**
- * provider.ts — the Provider interface, the Claude adapter, and the vendor
- * switch (plan §4.1 "Model", contracts "provider.ts"; Groq lives in
- * providerGroq.ts behind the same interface). Deno-only: it imports the SDK through `npm:`, so vitest never
+ * provider.ts — the Provider interface and the Claude adapter (plan §4.1
+ * "Model", contracts "provider.ts"). Since 0307 the assistant answers with
+ * Claude Opus 5.5 or Claude Sonnet 5.5 only (ASSISTANT_MODELS); providerGroq.ts
+ * still implements the interface but nothing builds it. Deno-only: it imports the SDK through `npm:`, so vitest never
  * loads it; the door test asserts it is the only file that does.
  *
  * Request shape, fixed here and nowhere else:
- *   model            ANTHROPIC_MODEL (default claude-opus-5)
+ *   model            one of ASSISTANT_MODELS (default claude-opus-5-5)
  *   betas            ['server-side-fallback-2026-07-01'], fallbacks: 'default'
  *                    — a safety refusal is re-run server-side instead of blanking the chat
- *   thinking         { type: 'adaptive' } (the default on Opus 5; written out so a model change keeps it)
+ *   thinking         { type: 'adaptive' } (the default on both 5.5 models; written out so a model change keeps it)
  *   output_config    { effort }  — 'medium' for chat, 'high' for the job reduce step
  *   system           [{ type:'text', text, cache_control:{ type:'ephemeral', ttl:'1h' } }]  — the frozen prefix
  *   tools            [tool_search_tool_bm25, ...wireTools()]  — core tools loaded, the rest defer_loading
@@ -29,7 +30,6 @@
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import type { Cleaned, CleanedToolResult } from './clean.ts';
 import type { WireTool } from './tools.ts';
-import { groqProvider } from './providerGroq.ts';
 
 export type ProviderErrorCode = 'NOT_CONFIGURED' | 'RATE_LIMITED' | 'UPSTREAM' | 'TIMEOUT';
 
@@ -44,7 +44,9 @@ export class ProviderError extends Error {
   }
 }
 
-export const DEFAULT_MODEL = 'claude-opus-5';
+/** The only models the assistant answers with (owner call 2026-10-07, 0307); the DB CHECKs hold the same pair. */
+export const ASSISTANT_MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5'] as const;
+export const DEFAULT_MODEL = 'claude-opus-5-5';
 export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 export const TOOL_SEARCH = { type: 'tool_search_tool_bm25_20251119', name: 'tool_search_tool_bm25' } as const;
 
@@ -135,20 +137,6 @@ export interface ProviderCapabilities {
   resultRows: number;
 }
 
-/**
- * Which vendor serves a model: Claude ids start with `claude-`; everything else
- * (Groq's `openai/gpt-oss-120b`, `llama-3.3-70b-versatile`, …) is Groq. The
- * venue default model (0114) therefore IS the vendor switch: set it to a Claude
- * id with ANTHROPIC_API_KEY present, or a Groq id with GROQ_API_KEY present.
- */
-export function vendorFor(model: string): ProviderVendor {
-  return model.startsWith('claude-') ? 'anthropic' : 'groq';
-}
-
-export function keyNameFor(model: string): 'ANTHROPIC_API_KEY' | 'GROQ_API_KEY' {
-  return vendorFor(model) === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'GROQ_API_KEY';
-}
-
 export interface Provider {
   readonly model: string;
   readonly vendor: ProviderVendor;
@@ -218,19 +206,25 @@ function systemBlocks(system: string): Anthropic.Beta.BetaTextBlockParam[] {
  * caller answers 503 NOT_CONFIGURED before touching the database.
  */
 export function providerFromEnv(get: (name: string) => string | undefined, modelOverride?: string | null): Provider | null {
-  // 0114: the chat's own model (or the venue default) wins over ANTHROPIC_MODEL,
-  // which is now only the fallback for a venue that has set nothing.
-  const model = (modelOverride ?? '').trim() || (get('ANTHROPIC_MODEL') ?? '').trim() || DEFAULT_MODEL;
-  const apiKey = (get(keyNameFor(model)) ?? '').trim();
+  const model = assistantModel(get, modelOverride);
+  const apiKey = (get('ANTHROPIC_API_KEY') ?? '').trim();
   if (!apiKey) return null;
-  if (vendorFor(model) === 'groq') return groqProvider(apiKey, model);
   return anthropicProvider(apiKey, model);
 }
 
 /** The sentence a 503 carries when the model's vendor has no key. */
 export function notConfiguredMessage(get: (name: string) => string | undefined, model: string | null | undefined): string {
-  const m = (model ?? '').trim() || (get('ANTHROPIC_MODEL') ?? '').trim() || DEFAULT_MODEL;
-  return `${keyNameFor(m)} is not set (the model ${m} is served by ${vendorFor(m)})`;
+  return `ANTHROPIC_API_KEY is not set (the model ${assistantModel(get, model)} is served by anthropic)`;
+}
+
+/**
+ * The model an answer runs on: the chat's own (or the chain default), else
+ * ANTHROPIC_MODEL, else DEFAULT_MODEL — and DEFAULT_MODEL for anything outside
+ * ASSISTANT_MODELS, so a stale secret or row can never reach another model.
+ */
+export function assistantModel(get: (name: string) => string | undefined, modelOverride?: string | null): string {
+  const wanted = (modelOverride ?? '').trim() || (get('ANTHROPIC_MODEL') ?? '').trim();
+  return (ASSISTANT_MODELS as readonly string[]).includes(wanted) ? wanted : DEFAULT_MODEL;
 }
 
 function anthropicProvider(apiKey: string, model: string): Provider {

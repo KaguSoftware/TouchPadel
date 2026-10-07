@@ -17,6 +17,7 @@ export {
   formatIQD,
   formatNumber,
   formatPercent,
+  asciiDigits,
   VENUE_TZ,
 } from './formatting';
 export { isolate, isolateLtr, dirAttr, FSI, PDI, LRI } from './bidi';

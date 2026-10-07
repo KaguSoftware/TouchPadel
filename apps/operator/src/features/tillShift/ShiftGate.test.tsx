@@ -46,6 +46,7 @@ vi.mock('../../ipc/bridge', async (importOriginal) => {
 vi.mock('../../lib/offlineTabs', () => ({
   getOfflineTab: () => ({ idemKey: 'k1', localId: 'l1', label: null, tableNumber: '3', openedAt: '', lines: [{ name: 'Latte', qty: 1, priceIqd: 5000 }], settled: false }),
   markOfflineSettled: vi.fn(),
+  removeOfflineTab: vi.fn(),
 }));
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),

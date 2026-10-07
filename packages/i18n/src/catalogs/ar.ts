@@ -1199,8 +1199,6 @@ export const ar: Messages = {
     orderingRefused: 'الطلب عبر الإنترنت متوقف مؤقتًا. يُرجى مراجعة أحد الموظفين لتقديم طلبك.',
     waiterCallRefused: 'زر الاستدعاء غير متاح مؤقتًا. يُرجى مراجعة أحد الموظفين.',
     readOnlyNotice: 'لا يزال بإمكانك التصفح، لكن الطلبات الجديدة متوقفة مؤقتًا.',
-    tillBanner: 'دون اتصال. الطلبات محفوظة وتنتظر المزامنة: {count}.',
-    tillBannerSynced: 'عاد الاتصال. تمت مزامنة كل شيء.',
     dayCloseBlocked: 'لا يمكن إغلاق اليوم قبل مزامنة كل العناصر. العناصر غير المتزامنة: {count}.',
     // Design 2026-08-31: proactive banners (refusal copy above remains the backstop).
     leadConnectionLost: 'انقطع اتصال المكان.',
@@ -1233,6 +1231,8 @@ export const ar: Messages = {
     },
     status: {
       degraded: 'المكان في وضع عدم الاتصال: لا يستطيع الضيوف حجز الأيام القادمة أو الطلب عبر الإنترنت. اقبل الحجوزات والطلبات عند مكتب الملاعب.',
+      uploadBlocked:
+        'تصل هذه المحطة إلى الخادم لكنها لا تستطيع إرسال تغييراتها. تابع الخدمة: لا شيء يضيع، وستتم المزامنة عندما يعود الإرسال.',
     },
     lock: {
       title: 'المحطة مقفلة',
@@ -1336,6 +1336,8 @@ export const ar: Messages = {
       coach_unavailable: 'المدرّب غير متاح',
       lesson_refund: 'رد مبلغ حصة',
       lesson_goodwill: 'رد بحسن نية',
+      tournament_refund: 'رد رسوم بطولة',
+      tournament_goodwill: 'رد بحسن نية',
     },
     desk: {
       newBooking: 'حجز جديد',
@@ -1434,7 +1436,7 @@ export const ar: Messages = {
       recordPayment: 'تسجيل الدفعة',
       remaining: 'المتبقي: {amount}',
       paidInFull: 'الفاتورة مسدّدة.',
-      offlineTab: 'دون اتصال. ستُزامَن الفاتورة عند عودة الاتصال.',
+      offlineTab: 'لم تصل الفاتورة إلى الخادم بعد. تُزامَن تلقائيًا.',
       estimatedTotal: 'المجموع التقديري',
       discardBasketTitle: 'حذف الأصناف غير المرسلة؟',
       discardBasketBody: 'في السلة أسطر غير مرسلة: {count}. ستُحذف عند تبديل الفاتورة.',

@@ -360,6 +360,7 @@ export const protocolsEn = {
     promotion_limits_total: 'Uses in total',
     promotion_limits_perCustomer: 'Uses per guest',
     promotion_limits_minSpendIqd: 'Minimum spend',
+    promotion_limits_tierMin: 'Lowest loyalty tier',
     promotion_auto: 'Applies by itself',
     promotion_public_code: 'Code',
     promotion_code_single_use: 'Each code works once',

@@ -51,6 +51,8 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
     seeOnCalendar: 'عرض في التقويم',
     pointsTag: '{points} نقطة لكل مباراة',
     progress: 'سُجّلت نتائج {done} من {total} ملاعب',
+    nextToDraw: 'سُجّلت نتائج الجولة {round} من {total} · الجولة التالية بانتظار التوزيع',
+    allScored: 'سُجّلت نتائج الجولات كلها ({total})',
     stats: {
       players: 'اللاعبون',
       fee: 'رسم الاشتراك',
@@ -60,6 +62,7 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
       paidOwing: '{paid} دفعوا · {owing} عليهم',
       due: '{amount} مستحقة',
       nothingDue: 'لا مبالغ مستحقة',
+      refundDue: '{amount} للاسترداد',
     },
     tabs: {
       entries: 'الاشتراكات',
@@ -212,6 +215,7 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
     correct: 'تصحيح',
     correctionReason: 'ما سبب تصحيح هذه النتيجة؟',
     correctionTitle: 'تصحيح هذه النتيجة',
+    lateReason: 'انتهت البطولة. ما سبب إدخال هذه النتيجة الآن؟',
     pointsFor: 'نقاط {team}',
     sum: 'مجموع نقاط الفريقين {target}.',
     corrections: 'عدد التصحيحات: {count}',
@@ -237,6 +241,19 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
     reason: 'السبب',
     lead: 'تُحرَّر ملاعبها ويُبلَّغ كل لاعب مسجَّل أو في قائمة الانتظار.',
     done: 'أُلغيت البطولة.',
+  },
+  close: {
+    action: 'إغلاق التسجيل',
+    done: 'أُغلق التسجيل ورُتّب اللاعبون.',
+  },
+  finish: {
+    action: 'إنهاء الآن',
+    lead: 'تُحذف الجولات التي تلي آخر جولة اكتملت نتائجها، وتصبح الترتيبات نهائية، وتُحرَّر الملاعب. ولا يُردّ للاعبين ما دفعوه.',
+    done: 'انتهت البطولة.',
+  },
+  refund: {
+    capLead: 'رسوم اشتراك في بطولة: لا يتجاوز الرد المستحق عن الاشتراك إلا إذا كان ردًا بحسن نية.',
+    goodwill: 'رد بحسن نية: أكثر من المستحق',
   },
   refundsDue: {
     title: 'المبالغ المستحق ردّها',
@@ -289,7 +306,8 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
       round_open: 'سجّل نتائج كل مباريات الجولة قبل توزيع الجولة التالية.',
       seat: 'تغيّر اللاعبون. حُدِّثت الشاشة: وزّع من جديد.',
       court: 'أحد الملاعب المختارة ليس من ملاعب البطولة المحجوزة.',
-      courts_used: 'عدد المباريات أكبر مما يكفيه اللاعبون.',
+      courts_used: 'تُلعب في كل جولة مباراة على كل ملعب مستخدَم، بقدر ما يكفيه اللاعبون.',
+      sit_out: 'يجلس في الاستراحة لاعب استراح أكثر من لاعب في تلك الجولة. وزّع من جديد.',
       payload: 'تعذّرت قراءة هذه الجولات.',
     },
     score: {
@@ -297,7 +315,11 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
       invalid: 'يجب أن يكون مجموع نقاط الفريقين {target}.',
       changed: 'غيّر شخص آخر هذه النتيجة. حُدِّثت الشاشة.',
       locked: 'سُجِّلت نتيجة جولة لاحقة، فلا يمكن تصحيح هذه.',
+      closed: 'أصبحت النتائج نهائية بعد ٤٨ ساعة من انتهاء البطولة.',
+      finished: 'انتهت البطولة: لا يغيّر نتائجها الآن إلا المدير.',
     },
+    underFilledStart:
+      'بقي عدد اللاعبين أقل من الحد الأدنى. يمكن للمدير بدء البطولة رغم ذلك أو إلغاؤها.',
   },
   // The section-menu start sheet (TournamentStartSheet, 2026-10-05 "C + D" redesign).
   start: {
@@ -353,7 +375,10 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
     classes: {
       A: { tag: 'متقدّم', body: 'للاعبين الأقوياء وأصحاب الخبرة. مباريات سريعة وتنافسية.' },
       B: { tag: 'متوسط', body: 'للاعبين الذين يلعبون بانتظام ويعرفون القواعد والمراكز.' },
-      C: { tag: 'مبتدئ', body: 'للاعبين الجدد ولمن يلعب للمتعة. مباريات ودّية ومفتوحة لكل من يتعلّم.' },
+      C: {
+        tag: 'مبتدئ',
+        body: 'للاعبين الجدد ولمن يلعب للمتعة. مباريات ودّية ومفتوحة لكل من يتعلّم.',
+      },
     },
     formats: {
       americano: {

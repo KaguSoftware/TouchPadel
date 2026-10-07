@@ -440,6 +440,7 @@ export const staffProtocolsAr: DeepMessages<typeof staffProtocolsEn> = {
     limitTotal: 'عدد الاستخدامات الكلي',
     limitPerCustomer: 'عدد الاستخدامات لكل ضيف',
     limitMinSpend: 'الحد الأدنى للإنفاق (د.ع)',
+    limitTierMin: 'أدنى فئة ولاء',
     auto: 'يُطبَّق تلقائيًا',
     publicCode: 'الرمز',
     codeSingleUse: 'كل رمز يُستخدم مرة واحدة',

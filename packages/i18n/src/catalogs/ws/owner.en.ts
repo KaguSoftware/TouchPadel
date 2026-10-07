@@ -1147,14 +1147,12 @@ export const ownerEn = {
       venueDefault: 'Venue default ({model})',
       hint: 'Applies to the next answer. Each answer’s meter shows the model that priced it.',
       labels: {
-        opus: 'Opus 5',
-        sonnet: 'Sonnet 5',
-        gptoss: 'GPT-OSS 120B on Groq',
+        opus: 'Opus 5.5',
+        sonnet: 'Sonnet 5.5',
       },
       hints: {
         opus: 'best answers',
-        sonnet: 'about 2.5× cheaper',
-        gptoss: 'free tier for now; word-matching search only for the map',
+        sonnet: 'about 2× cheaper',
       },
       chatSaved: 'Model updated for this chat',
       defaultTitle: 'Default model for new chats',

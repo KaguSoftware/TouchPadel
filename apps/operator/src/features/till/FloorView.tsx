@@ -34,6 +34,8 @@ import {
   type SpotStatus,
 } from './floorPlan';
 import { muted, touchTarget } from './tillStyles';
+import { OFFLINE_MARK, OfflineMarkIcon } from './offlineMark';
+import type { OfflineTabState } from '../../lib/offlineTabs';
 import { reservationNameOf } from '../matches/matchLogic';
 
 export type FloorMode = 'cafe' | 'courts';
@@ -44,6 +46,8 @@ export interface OtherTab {
   label: string;
   status: string;
   offline: boolean;
+  /** Null for a server tab (see offlineMark). */
+  offlineState: OfflineTabState | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -368,7 +372,7 @@ function TableButton({ spot, onPress, style }: { spot: CafeSpot; onPress: () => 
       type="button"
       className="tp-tile"
       data-status={spot.status}
-      aria-label={[name, state, spot.calling ? tr('ws.cashier.floor.legend.calling') : null].filter(Boolean).join(', ')}
+      aria-label={[name, state, first?.offlineState ? tr(OFFLINE_MARK[first.offlineState].key) : null, spot.calling ? tr('ws.cashier.floor.legend.calling') : null].filter(Boolean).join(', ')}
       onClick={onPress}
       style={{
         display: 'grid',
@@ -392,7 +396,7 @@ function TableButton({ spot, onPress, style }: { spot: CafeSpot; onPress: () => 
       </strong>
       {detail && (
         <span style={{ fontSize: '0.82em', fontWeight: 600, lineHeight: 1.1, maxInlineSize: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25em' }}>
-          {first?.offline && <Icon name="wifiOff" size={11} />}
+          {first?.offlineState && <OfflineMarkIcon state={first.offlineState} size={11} />}
           <bdi>{detail}</bdi>
         </span>
       )}
@@ -594,7 +598,7 @@ export function OtherTabsList({ tabs, onPick }: { tabs: readonly OtherTab[]; onP
               <bdi>{t.label}</bdi>
             </strong>
             <span style={{ ...muted, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', whiteSpace: 'nowrap' }}>
-              {t.offline && <Icon name="wifiOff" size={12} label={tr('ws.cashier.till.rail.offline')} />}
+              {t.offlineState && <OfflineMarkIcon state={t.offlineState} size={12} label={tr(OFFLINE_MARK[t.offlineState].key)} />}
               {t.status === 'awaiting_payment' && tr('ws.cashier.floor.paying')}
             </span>
           </button>

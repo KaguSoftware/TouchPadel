@@ -68,6 +68,7 @@ const ROUNDS_DETAILS = new Set([
   'seat',
   'court',
   'courts_used',
+  'sit_out',
 ]);
 const PUBLISH_DETAILS = new Set([
   'not_done',
@@ -99,8 +100,12 @@ export function tournamentErrorKey(error: unknown): MessageKey {
       if (ROUNDS_DETAILS.has(d)) return `ws.tournaments.errors.rounds.${d as 'status'}`;
       break;
     case 'TOURNAMENT_SCORE_REFUSED':
-      if (d === 'status' || d === 'invalid' || d === 'changed' || d === 'locked')
+      if (d === 'status' || d === 'invalid' || d === 'changed' || d === 'locked' || d === 'closed')
         return `ws.tournaments.errors.score.${d}`;
+      break;
+    case 'FORBIDDEN':
+      // 0311 (c35): a score on a finished tournament, below manager.
+      if (d === 'finished') return 'ws.tournaments.errors.score.finished';
       break;
     case 'TOURNAMENT_PUBLISH_REFUSED':
       if (PUBLISH_DETAILS.has(d)) return `ws.tournaments.publish.refused.${d as 'not_done'}`;
@@ -114,6 +119,17 @@ export function tournamentErrorKey(error: unknown): MessageKey {
       break;
   }
   return base;
+}
+
+/**
+ * A refusal of the rounds board (set_rounds): as tournamentErrorKey, except that
+ * TOURNAMENT_UNDER_FILLED there is the court desk starting below the minimum, which a manager
+ * may do (0311, c38).
+ */
+export function roundsErrorKey(error: unknown): MessageKey {
+  if (error instanceof AppRpcError && error.code === 'TOURNAMENT_UNDER_FILLED')
+    return 'ws.tournaments.errors.underFilledStart';
+  return tournamentErrorKey(error);
 }
 
 /** The refusal as a sentence; `params` fills the score's `{target}`. */

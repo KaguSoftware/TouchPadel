@@ -7,7 +7,15 @@
  *      the app and website are locked out of near-term writes and the desk is
  *      the only channel selling;
  *   2. this station cannot reach the server at all — which is what causes (1),
- *      seen from the other side.
+ *      seen from the other side;
+ *   3. this station can READ the server but cannot get its writes out. The
+ *      beat is a read over PostgREST and the queue drains over the replay edge
+ *      function, so the beat can keep succeeding while every sale sits in the
+ *      outbox. That state had no witness at all until 2026-09-04, when a till
+ *      sat on a green strip through 144 consecutive failed uploads because the
+ *      only flag that knew (QueueStatus.uploadBlocked, then named `degraded`)
+ *      was read by nobody. It is a flag, not a count: the strip still shows no
+ *      queue numbers (below).
  *
  * Nothing showed any of this. The word "degraded" appeared in the operator only
  * in analytics copy about a missing AI key.
@@ -34,11 +42,23 @@
  * animating it would advertise a layout shift rather than remove one, and the
  * removal is what the permanent, fixed-height strip below actually does.
  */
+import { useEffect, useState } from 'react';
 import { useLocale } from '../lib/i18n';
 import type { HeartbeatState } from '../lib/heartbeat';
+import { touch, type QueueStatus } from '../ipc/bridge';
 import { Icon, type IconName } from './icons';
 
-type ConnectivityState = 'ok' | 'degraded' | 'offline';
+type ConnectivityState = 'ok' | 'degraded' | 'uploadBlocked' | 'offline';
+
+/**
+ * The shell's queue status, pushed on every change. Only `uploadBlocked` is
+ * read here; the counts stay on the Day close screen.
+ */
+function useQueueStatus(): QueueStatus | null {
+  const [status, setStatus] = useState<QueueStatus | null>(null);
+  useEffect(() => touch.onQueueUpdate(setStatus), []);
+  return status;
+}
 
 /**
  * The four treatments, in one place. Every pair is a status family's own soft
@@ -50,6 +70,7 @@ type ConnectivityState = 'ok' | 'degraded' | 'offline';
 const TREATMENT: Record<ConnectivityState, { bg: string; fg: string; icon: IconName }> = {
   ok: { bg: 'var(--tp-success-soft)', fg: 'var(--tp-success-fg)', icon: 'check' },
   degraded: { bg: 'var(--tp-warn-soft)', fg: 'var(--tp-warn-fg)', icon: 'alert' },
+  uploadBlocked: { bg: 'var(--tp-danger-soft)', fg: 'var(--tp-danger-fg)', icon: 'hourglass' },
   offline: { bg: 'var(--tp-danger-soft)', fg: 'var(--tp-danger-fg)', icon: 'wifiOff' },
 };
 
@@ -80,6 +101,7 @@ const stripBase = {
 
 export function VenueStatusBanner({ state }: { state: HeartbeatState | null }) {
   const { tr } = useLocale();
+  const queue = useQueueStatus();
 
   // Before the first heartbeat the station genuinely does not know its state.
   // Reserve the height anyway — the alternative is claiming "connected" a
@@ -105,18 +127,25 @@ export function VenueStatusBanner({ state }: { state: HeartbeatState | null }) {
   // its writes queue by design and will replay on reconnect, which the offline
   // line already promises; counting them told the clerk a number they could do
   // nothing with and could not distinguish from a refusal.
+  //
+  // A blocked upload path outranks the venue verdict: it is this station's
+  // own problem, and the beat succeeding says nothing about it.
+  const uploadBlocked = !unreachable && queue?.uploadBlocked === true;
   const connectivity: ConnectivityState = unreachable
     ? 'offline'
-    : state.degraded
-      ? 'degraded'
-      : 'ok';
+    : uploadBlocked
+      ? 'uploadBlocked'
+      : state.degraded
+        ? 'degraded'
+        : 'ok';
 
   const t = TREATMENT[connectivity];
-  const message = unreachable
-    ? tr('ws.shell.status.offline')
-    : state.degraded
-      ? tr('op.status.degraded')
-      : tr('ws.shell.status.ok');
+  const message = {
+    offline: () => tr('ws.shell.status.offline'),
+    uploadBlocked: () => tr('op.status.uploadBlocked'),
+    degraded: () => tr('op.status.degraded'),
+    ok: () => tr('ws.shell.status.ok'),
+  }[connectivity]();
 
   return (
     <div

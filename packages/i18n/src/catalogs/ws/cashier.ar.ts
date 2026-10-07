@@ -40,7 +40,10 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
       title: 'الفواتير المفتوحة',
       newTab: 'فاتورة جديدة',
       awaiting: 'بانتظار الدفع',
-      offline: 'دون اتصال. تُزامَن عند عودة الاتصال.',
+      offline: 'لم تصل إلى الخادم بعد. تُزامَن تلقائيًا.',
+      settledAwaitingSync: 'سُدِّدت. بانتظار الوصول إلى الخادم.',
+      failed: 'لم تُزامَن. راجع شاشة إغلاق اليوم.',
+      dismissFailed: 'إزالة من هذا الصندوق',
       hint: 'الأسهم للتنقّل، Enter للاختيار',
     },
     basket: {

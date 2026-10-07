@@ -171,16 +171,17 @@ describe('rankStandings: who is in the table', () => {
       ],
       rounds: SCENARIO_A,
     });
+    // 0311 (c27): the rows who left rank after every registered row, among themselves by points.
     expect(rows.map((x) => [x.entry_id, x.rank, x.withdrawn])).toEqual([
       [id(7), 1, false],
       [id(2), 2, false],
       [id(8), 3, false],
       [id(5), 4, false],
       [id(1), 5, false],
-      [id(6), 6, true],
-      [id(4), 7, false],
-      [id(3), 8, true],
-      [id(11), 9, false],
+      [id(4), 6, false],
+      [id(11), 7, false],
+      [id(6), 8, true],
+      [id(3), 9, true],
     ]);
   });
 

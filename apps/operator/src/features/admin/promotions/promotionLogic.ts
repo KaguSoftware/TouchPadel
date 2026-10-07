@@ -40,7 +40,7 @@ export const EMPTY_DRAFT: PromotionDraft = {
   hourFrom: '',
   hourTo: '',
   scope: { courtIds: [], categoryIds: [], itemIds: [] },
-  limits: { total: null, perCustomer: null, minSpendIqd: null },
+  limits: { total: null, perCustomer: null, minSpendIqd: null, tierMin: null },
   auto: true,
   publicCode: null,
   codeSingleUse: false,
@@ -114,6 +114,8 @@ export function fromRow(row: PromotionRow): PromotionDraft {
       total: row.limits?.total ?? null,
       perCustomer: row.limits?.perCustomer ?? null,
       minSpendIqd: row.limits?.minSpendIqd ?? null,
+      // 0309: a tier promotion keeps its tier through an edit (it used to be dropped).
+      tierMin: typeof row.limits?.tierMin === 'string' ? row.limits.tierMin : null,
     },
     auto: row.auto,
     publicCode: row.public_code,
@@ -149,6 +151,8 @@ export function toRpcArgs(draft: PromotionDraft, id: string | null): Record<stri
       total: draft.limits.total,
       perCustomer: draft.limits.perCustomer,
       minSpendIqd: draft.limits.minSpendIqd,
+      // Only when set: a server before 0309 refuses the key.
+      ...(draft.limits.tierMin ? { tierMin: draft.limits.tierMin } : {}),
     },
     p_auto: draft.auto,
     p_public_code: draft.publicCode,

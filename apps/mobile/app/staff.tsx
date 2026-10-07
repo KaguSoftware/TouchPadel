@@ -33,6 +33,7 @@ import {
   ChevronIcon,
   EyeIcon,
   SlidersIcon,
+  SparkIcon,
   TitleSquiggle,
   type IconProps,
 } from '../src/components/icons';
@@ -79,11 +80,14 @@ function GroupTile({
   group,
   waiting,
   preview,
+  compact,
   onPress,
 }: {
   group: TodayGroup;
   waiting: boolean;
   preview: string;
+  /** The owner's Today: a little tighter than the others, so the page fits without scrolling. */
+  compact?: boolean;
   onPress: () => void;
 }) {
   const { t } = useLocale();
@@ -96,8 +100,8 @@ function GroupTile({
       onPress={onPress}
       style={({ pressed }) => ({
         flex: 1,
-        padding: space.m,
-        gap: space.m,
+        padding: compact ? space.sm : space.m,
+        gap: compact ? 10 : space.m,
         justifyContent: 'space-between',
         backgroundColor: pressed ? colors.sub : colors.card,
         borderWidth: 1,
@@ -110,15 +114,15 @@ function GroupTile({
       >
         <View
           style={{
-            width: 32,
-            height: 32,
-            borderRadius: 10,
+            width: compact ? 30 : 32,
+            height: compact ? 30 : 32,
+            borderRadius: compact ? 9 : 10,
             backgroundColor: colors.gtint,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon size={16} color={colors.gstrong} />
+          <Icon size={compact ? 15 : 16} color={colors.gstrong} />
         </View>
         {/* No page count (owner, 2026-10-01); an amber dot says something in
             the group is waiting on the person. */}
@@ -134,11 +138,11 @@ function GroupTile({
           numberOfLines={2}
           style={{
             fontFamily: fonts.display800,
-            fontSize: 14.5,
-            lineHeight: 19,
+            fontSize: compact ? 14 : 14.5,
+            lineHeight: compact ? 18 : 19,
             // Always two lines tall, so a one-line title ("Daily work") makes
             // the same tile as a two-line one: every tile is one size.
-            minHeight: 38,
+            minHeight: compact ? 36 : 38,
             color: colors.ink,
           }}
         >
@@ -155,6 +159,72 @@ function GroupTile({
   );
 }
 
+/**
+ * The owner's assistant, the one highlighted control on Today: a brand-blue
+ * bar (the only committed colour on the page) with the green mark, so the
+ * owner finds it at a glance and nothing else competes with it. It is a door,
+ * not a status: no count, no badge.
+ */
+function AssistantEntry({ onPress }: { onPress: () => void }) {
+  const { t } = useLocale();
+  const { fonts } = useTheme();
+  return (
+    <Pressable
+      testID="staff.assistant"
+      accessibilityRole="button"
+      accessibilityLabel={t('staff.assistant.entry.title')}
+      accessibilityHint={t('staff.assistant.entry.hint')}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: space.m,
+        minHeight: 62,
+        paddingVertical: space.s,
+        paddingStart: space.m,
+        paddingEnd: space.l,
+        backgroundColor: brand.blue,
+        borderRadius: radius.card,
+        opacity: pressed ? 0.88 : 1,
+      })}
+    >
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          backgroundColor: brand.green,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <SparkIcon size={21} color={brand.greenInk} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text
+          numberOfLines={1}
+          style={{ fontFamily: fonts.display800, fontSize: 16, lineHeight: 21, color: brand.white }}
+        >
+          {t('staff.assistant.entry.title')}
+        </Text>
+        <Text
+          numberOfLines={1}
+          style={{
+            fontFamily: fonts.body400,
+            fontSize: 13,
+            lineHeight: 17,
+            color: brand.white,
+            opacity: 0.85,
+          }}
+        >
+          {t('staff.assistant.entry.hint')}
+        </Text>
+      </View>
+      <ChevronIcon size={18} color={brand.white} />
+    </Pressable>
+  );
+}
+
 /** One of the account's buttons: an icon tile over a short name. */
 function AccountButton({
   testID,
@@ -162,6 +232,7 @@ function AccountButton({
   label,
   warn,
   busy,
+  compact,
   onPress,
 }: {
   testID: string;
@@ -169,6 +240,7 @@ function AccountButton({
   label: string;
   warn?: boolean;
   busy?: boolean;
+  compact?: boolean;
   onPress: () => void;
 }) {
   const { colors, fonts } = useTheme();
@@ -183,8 +255,8 @@ function AccountButton({
       style={({ pressed }) => ({
         flex: 1,
         alignItems: 'center',
-        gap: 7,
-        paddingVertical: space.m,
+        gap: compact ? 6 : 7,
+        paddingVertical: compact ? 11 : space.m,
         paddingHorizontal: 6,
         backgroundColor: pressed ? colors.sub : colors.card,
         borderWidth: 1,
@@ -195,15 +267,15 @@ function AccountButton({
     >
       <View
         style={{
-          width: 34,
-          height: 34,
-          borderRadius: 11,
+          width: compact ? 32 : 34,
+          height: compact ? 32 : 34,
+          borderRadius: compact ? 10 : 11,
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: warn ? colors.amb : colors.gtint,
         }}
       >
-        <Icon size={16} color={warn ? colors.ambtext : colors.gstrong} />
+        <Icon size={compact ? 15 : 16} color={warn ? colors.ambtext : colors.gstrong} />
       </View>
       <Text
         numberOfLines={1}
@@ -484,6 +556,10 @@ function TodayScreen() {
   // RequireStaff renders this only for a staff status.
   if (status.kind !== 'staff') return null;
   const { staff } = status;
+  // The owner's page carries one more control (the assistant) and the most
+  // pages; it is drawn a little tighter so it fits a phone without scrolling
+  // (first cut too small, owner 2026-10-07: "bigger a bit").
+  const compact = staff.role === 'owner';
 
   const venueName = (id: string | null) => {
     const venue = venues.find((v) => v.id === id);
@@ -519,9 +595,9 @@ function TodayScreen() {
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
-          paddingTop: space.l,
-          paddingBottom: 40 + insets.bottom,
-          gap: space.sm,
+          paddingTop: compact ? space.sm : space.l,
+          paddingBottom: (compact ? 20 : 40) + insets.bottom,
+          gap: compact ? 10 : space.sm,
         }}
         showsVerticalScrollIndicator={false}
         // The page does not scroll or bounce (owner, 2026-10-01): it fits the
@@ -534,12 +610,12 @@ function TodayScreen() {
       >
         {/* The room under the greeting is the room the old "Nothing is
             waiting on you" line took, kept now that the line is gone. */}
-        <View style={{ gap: 2, marginBottom: space.xxl + space.sm }}>
+        <View style={{ gap: 2, marginBottom: compact ? space.sm : space.xxl + space.sm }}>
           <Text
             style={{
               fontFamily: fonts.display800,
-              fontSize: 24,
-              lineHeight: 30,
+              fontSize: compact ? 23 : 24,
+              lineHeight: compact ? 28 : 30,
               color: colors.ink,
             }}
           >
@@ -553,6 +629,12 @@ function TodayScreen() {
             <TitleSquiggle />
           </View>
         </View>
+
+        {/* The assistant is the owner's: the edge function and RLS refuse anyone
+            else, and Today does not offer what would send the person back. */}
+        {staff.role === 'owner' ? (
+          <AssistantEntry onPress={() => router.push('/staff-assistant')} />
+        ) : null}
 
         {showsVenuePicker(status.venues) ? (
           <Card style={{ padding: space.m }}>
@@ -591,6 +673,7 @@ function TodayScreen() {
                 group={group}
                 waiting={waiting(group)}
                 preview={group.rows.map(label).join(', ')}
+                compact={compact}
                 onPress={() =>
                   Platform.OS === 'ios'
                     ? router.push({ pathname: '/staff-group', params: { group: group.key } })
@@ -604,7 +687,7 @@ function TodayScreen() {
         {/* The account and sign-out sit at the foot of the page: pushed to the
             bottom of the screen when the page is short, after the tiles when it
             scrolls. */}
-        <View style={{ marginTop: 'auto', paddingTop: space.m, gap: space.sm }}>
+        <View style={{ marginTop: 'auto', paddingTop: compact ? space.s : space.m, gap: compact ? 10 : space.sm }}>
           <View style={{ gap: space.xs }}>
             <MicroLabel style={{ paddingStart: 4 }}>{t('staff.shell.account.title')}</MicroLabel>
             {/* Staff who coach reach coach mode here (coaching C-27, R45): the
@@ -615,6 +698,7 @@ function TodayScreen() {
                 <AccountButton
                   testID="staff.coach-mode"
                   icon={CalendarIcon}
+                  compact={compact}
                   label={t(
                     coachEntry === '/coach-mode' ? 'staff.shell.coachMode' : 'staff.shell.coachStatements',
                   )}
@@ -635,6 +719,7 @@ function TodayScreen() {
                 label={t('staff.shell.account.alerts')}
                 warn={alertsOff}
                 busy={alerts.busy}
+                compact={compact}
                 onPress={onAlerts}
               />
               {/* The guest app as a guest sees it (guestPreview.ts); a pill over
@@ -643,6 +728,7 @@ function TodayScreen() {
                 testID="staff.guest-view"
                 icon={EyeIcon}
                 label={t('staff.shell.guestView.tile')}
+                compact={compact}
                 onPress={() => {
                   setGuestPreview(true);
                   toast(t('staff.shell.guestView.note'), 'info');
@@ -653,6 +739,7 @@ function TodayScreen() {
                 testID="staff.settings"
                 icon={SlidersIcon}
                 label={t('settings.title')}
+                compact={compact}
                 onPress={() => router.push('/settings')}
               />
             </View>
@@ -663,7 +750,7 @@ function TodayScreen() {
             testID="staff.sign-out"
             label={t('auth.signOut')}
             variant="secondary"
-            size="medium"
+            size={compact ? 'compact' : 'medium'}
             busy={out.busy}
             onPress={confirmSignOut}
             style={{ backgroundColor: 'transparent' }}

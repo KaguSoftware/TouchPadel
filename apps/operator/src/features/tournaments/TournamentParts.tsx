@@ -74,27 +74,38 @@ export function DateTile({
   );
 }
 
-/** A thin progress bar; `track` lets the banner draw it on the navy ground. */
+/**
+ * A thin progress bar; `track` lets the banner draw it on the navy ground.
+ * `decorative` drops the progressbar role where the figure is already text
+ * beside it (inside a card's button, whose children are presentational).
+ */
 export function FillBar({
   percent,
   color = 'var(--tp-accent)',
   track = 'var(--tp-surface-3)',
   height = '0.5rem',
   label,
+  decorative = false,
 }: {
   percent: number;
   color?: string;
   track?: string;
   height?: string;
   label?: string;
+  decorative?: boolean;
 }) {
+  const a11y = decorative
+    ? { 'aria-hidden': true as const }
+    : {
+        role: 'progressbar',
+        'aria-label': label,
+        'aria-valuemin': 0,
+        'aria-valuemax': 100,
+        'aria-valuenow': percent,
+      };
   return (
     <div
-      role="progressbar"
-      aria-label={label}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={percent}
+      {...a11y}
       style={{
         blockSize: height,
         borderRadius: 'var(--tp-radius-pill)',

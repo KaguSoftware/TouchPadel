@@ -778,13 +778,14 @@ button.tp-nav-item { background: transparent; }
   border-radius: 0.3rem; background: var(--tp-surface-3);
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tp-fg) 6%, transparent);
 }
-.tp-tour-tt-cell:hover:not(:disabled):not([data-booked]) { background: color-mix(in oklab, var(--tp-accent-2) 45%, var(--tp-surface-3)); }
+.tp-tour-tt-cell:hover:not(:disabled):not([data-booked]):not([data-past]) { background: color-mix(in oklab, var(--tp-accent-2) 45%, var(--tp-surface-3)); }
 .tp-tour-tt-cell[data-on] { background: var(--tp-accent-2); }
 .tp-tour-tt-cell[data-on]:hover:not(:disabled) { background: color-mix(in oklab, var(--tp-accent-2) 80%, var(--tp-fg)); }
 .tp-tour-tt-cell[data-booked] {
   cursor: not-allowed;
   background: repeating-linear-gradient(45deg, var(--tp-border-strong), var(--tp-border-strong) 2px, var(--tp-surface-2) 2px, var(--tp-surface-2) 5px);
 }
+.tp-tour-tt-cell[data-past]:not([data-on]) { cursor: not-allowed; opacity: 0.4; }
 .tp-tour-tt-cell:focus-visible { outline: 2px solid var(--tp-ring, var(--tp-accent)); outline-offset: 1px; }
 .tp-tour-cell { display: inline-block; block-size: 2rem; border: 0; padding: 0; border-radius: var(--tp-radius-ctl); background: var(--tp-surface-2); cursor: pointer; }
 .tp-tour-cell:hover:not(:disabled) { background: var(--tp-accent-soft); }

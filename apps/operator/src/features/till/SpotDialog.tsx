@@ -21,6 +21,7 @@ import { formatElapsed } from './elapsed';
 import { openTabOn } from './NewTabDialog';
 import type { CafeSpot, SpotTab } from './floorPlan';
 import { muted, touchTarget } from './tillStyles';
+import { OFFLINE_MARK, OfflineMarkIcon } from './offlineMark';
 
 export type SpotTarget =
   | { kind: 'table'; spot: CafeSpot }
@@ -166,10 +167,10 @@ function TabChooser({ tabs, onPick, onAnother }: { tabs: readonly SpotTab[]; onP
                     <Icon name="globe" size={12} /> {tr('ws.cashier.tabs.sourceWeb')}
                   </>
                 )}
-                {t.offline && (
+                {t.offlineState && (
                   <>
                     {' · '}
-                    <Icon name="wifiOff" size={12} /> {tr('ws.cashier.till.rail.offline')}
+                    <OfflineMarkIcon state={t.offlineState} size={12} /> {tr(OFFLINE_MARK[t.offlineState].key)}
                   </>
                 )}
               </span>

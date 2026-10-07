@@ -2405,6 +2405,14 @@ export type Database = {
       llm_usage_summary: { Args: never; Returns: Json }
       lock_coach: { Args: { p_coach_id: string }; Returns: undefined }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
+      lock_loyalty_attempts: {
+        Args: { p_code: string; p_uid: string }
+        Returns: undefined
+      }
+      lock_loyalty_gifts: {
+        Args: { p_manager: string; p_profile: string }
+        Returns: undefined
+      }
       lock_match_money: { Args: { p_match_id: string }; Returns: undefined }
       lock_match_venue: { Args: { p_venue: string }; Returns: undefined }
       lock_principal: {
@@ -2435,6 +2443,10 @@ export type Database = {
         Returns: Json
       }
       loyalty_admin: { Args: never; Returns: Json }
+      loyalty_attempt_record: {
+        Args: { p_code: string; p_ok: boolean; p_uid: string }
+        Returns: undefined
+      }
       loyalty_card_ensure: {
         Args: { p_profile: string }
         Returns: Database["public"]["Tables"]["loyalty_cards"]["Row"]
@@ -2451,6 +2463,10 @@ export type Database = {
         Args: { p_limit: number; p_profile: string }
         Returns: Json
       }
+      loyalty_history_guest: {
+        Args: { p_limit: number; p_profile: string }
+        Returns: Json
+      }
       loyalty_identify: {
         Args: { p_code: string; p_venue_id: string }
         Returns: Json
@@ -2459,6 +2475,10 @@ export type Database = {
       loyalty_member_code: { Args: never; Returns: string }
       loyalty_multiplier: { Args: { p_profile: string }; Returns: number }
       loyalty_nightly: { Args: never; Returns: Json }
+      loyalty_nightly_one: {
+        Args: { p_expire_months: number; p_profile: string; p_since: string }
+        Returns: string
+      }
       loyalty_phone_masked: { Args: { p_phone: string }; Returns: string }
       loyalty_points_for: {
         Args: {
@@ -2480,6 +2500,7 @@ export type Database = {
       loyalty_redeem: {
         Args: {
           p_idempotency_key: string
+          p_member_token?: string
           p_points: number
           p_reward_id: string
           p_tab_id: string
@@ -2488,8 +2509,23 @@ export type Database = {
       }
       loyalty_retier: { Args: never; Returns: undefined }
       loyalty_settings_json: { Args: never; Returns: Json }
+      loyalty_tab_paid_at_settle: {
+        Args: { p_tab_id: string }
+        Returns: number
+      }
+      loyalty_throttle_check: {
+        Args: { p_code: string; p_uid: string; p_user_limit: number }
+        Returns: undefined
+      }
       loyalty_tier_json: { Args: { p_tier: string }; Returns: Json }
+      loyalty_tiers_renumber: { Args: never; Returns: undefined }
       loyalty_till_terms: { Args: { p_venue_id: string }; Returns: Json }
+      loyalty_token_code: { Args: { p_token: string }; Returns: string }
+      loyalty_token_consume: { Args: { p_token: string }; Returns: string }
+      loyalty_token_match: {
+        Args: { p_token: string }
+        Returns: Record<string, unknown>
+      }
       loyalty_token_profile: { Args: { p_token: string }; Returns: string }
       loyalty_totp: {
         Args: { p_counter: number; p_secret: string }
@@ -3043,7 +3079,12 @@ export type Database = {
         Returns: Database["public"]["Enums"]["stock_location"]
       }
       phone_canon: { Args: { p_phone: string }; Returns: string }
+      phone_claim_internal: { Args: { p_user: string }; Returns: string }
       phone_digits: { Args: { p_phone: string }; Returns: string }
+      phone_verified_owner: {
+        Args: { p_key: string; p_profile: string }
+        Returns: boolean
+      }
       pin_delay_floor: { Args: never; Returns: string }
       pin_grant_ttl: { Args: never; Returns: string }
       pin_is_weak: { Args: { p_pin: string }; Returns: boolean }
@@ -3180,6 +3221,10 @@ export type Database = {
       production_log_today: { Args: { p_venue_id?: string }; Returns: Json }
       production_today: { Args: { p_venue_id?: string }; Returns: Json }
       profile_activity: { Args: { p_profile: string }; Returns: number }
+      profile_is_desk_walkin: {
+        Args: { p_key: string; p_profile: string }
+        Returns: boolean
+      }
       profile_merge_columns: {
         Args: never
         Returns: {
@@ -3190,6 +3235,10 @@ export type Database = {
           tbl: string
         }[]
       }
+      profile_phone_key: {
+        Args: { p_phone: string; p_profile: string }
+        Returns: string
+      }
       promotion_amount_iqd: {
         Args: { p_base: number; p_type: string; p_value: number }
         Returns: number
@@ -3197,6 +3246,11 @@ export type Database = {
       promotion_base_iqd: {
         Args: { p_scope: Json; p_tab_id: string }
         Returns: number
+      }
+      promotion_room_iqd: { Args: { p_tab_id: string }; Returns: number }
+      promotion_tier_ok: {
+        Args: { p_customer: string; p_limits: Json }
+        Returns: boolean
       }
       propose_deduction: {
         Args: {
@@ -4722,6 +4776,11 @@ export type Database = {
         Args: { p_reason: string; p_tournament_id: string }
         Returns: Json
       }
+      tournament_close: { Args: { p_tournament_id: string }; Returns: Json }
+      tournament_close_internal: {
+        Args: { p_by: string; p_tournament_id: string }
+        Returns: number
+      }
       tournament_context: { Args: { p_run_step_id: string }; Returns: Json }
       tournament_entry_money: {
         Args: { p_entry_id: string; p_exclude_tab_id?: string }
@@ -4731,6 +4790,10 @@ export type Database = {
       tournament_fee_remaining: {
         Args: { p_entry_id: string; p_exclude_tab_id?: string }
         Returns: number
+      }
+      tournament_finish: {
+        Args: { p_reason: string; p_tournament_id: string }
+        Returns: Json
       }
       tournament_int: {
         Args: {
@@ -4776,6 +4839,15 @@ export type Database = {
         Args: { p_idempotency_key: string; p_run_id: string; p_settings: Json }
         Returns: Json
       }
+      tournament_refund_candidates: {
+        Args: { p_venue_id: string }
+        Returns: {
+          entry_id: string
+          refund_due_iqd: number
+          tournament_id: string
+        }[]
+      }
+      tournament_refunds_due: { Args: { p_venue_id?: string }; Returns: Json }
       tournament_register: { Args: { p_tournament_id: string }; Returns: Json }
       tournament_release_blocks: {
         Args: { p_note: string; p_tournament_id: string }
@@ -8696,6 +8768,7 @@ export type Database = {
       loyalty_cards: {
         Row: {
           created_at: string
+          last_counter: number | null
           member_code: string
           profile_id: string
           rotated_at: string | null
@@ -8703,6 +8776,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          last_counter?: number | null
           member_code: string
           profile_id: string
           rotated_at?: string | null
@@ -8710,6 +8784,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          last_counter?: number | null
           member_code?: string
           profile_id?: string
           rotated_at?: string | null
@@ -8730,6 +8805,8 @@ export type Database = {
           actor_id: string | null
           created_at: string
           delta: number
+          earn_base_iqd: number | null
+          earn_court_iqd: number | null
           id: string
           kind: string
           note: string | null
@@ -8743,6 +8820,8 @@ export type Database = {
           actor_id?: string | null
           created_at?: string
           delta: number
+          earn_base_iqd?: number | null
+          earn_court_iqd?: number | null
           id?: string
           kind: string
           note?: string | null
@@ -8756,6 +8835,8 @@ export type Database = {
           actor_id?: string | null
           created_at?: string
           delta?: number
+          earn_base_iqd?: number | null
+          earn_court_iqd?: number | null
           id?: string
           kind?: string
           note?: string | null
@@ -8865,6 +8946,7 @@ export type Database = {
           earn_shop: boolean
           earn_tournament: boolean
           enabled: boolean
+          enabled_at: string | null
           id: boolean
           inactivity_expiry_months: number | null
           iqd_per_point: number
@@ -8881,6 +8963,7 @@ export type Database = {
           earn_shop?: boolean
           earn_tournament?: boolean
           enabled?: boolean
+          enabled_at?: string | null
           id?: boolean
           inactivity_expiry_months?: number | null
           iqd_per_point?: number
@@ -8897,6 +8980,7 @@ export type Database = {
           earn_shop?: boolean
           earn_tournament?: boolean
           enabled?: boolean
+          enabled_at?: string | null
           id?: boolean
           inactivity_expiry_months?: number | null
           iqd_per_point?: number
@@ -8956,6 +9040,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      loyalty_token_attempts: {
+        Row: {
+          anonymous: boolean
+          at: string
+          auth_user_id: string | null
+          id: number
+          member_code: string | null
+          ok: boolean
+        }
+        Insert: {
+          anonymous?: boolean
+          at?: string
+          auth_user_id?: string | null
+          id?: never
+          member_code?: string | null
+          ok: boolean
+        }
+        Update: {
+          anonymous?: boolean
+          at?: string
+          auth_user_id?: string | null
+          id?: never
+          member_code?: string | null
+          ok?: boolean
+        }
+        Relationships: []
       }
       manager_alerts: {
         Row: {
@@ -14653,6 +14764,7 @@ export type Database = {
           court_cap_iqd: number | null
           court_iqd: number
           customer_id: string | null
+          customer_method: string | null
           day_session_id: string
           device_id: string | null
           discount_iqd: number | null
@@ -14679,6 +14791,7 @@ export type Database = {
           court_cap_iqd?: number | null
           court_iqd?: number
           customer_id?: string | null
+          customer_method?: string | null
           day_session_id: string
           device_id?: string | null
           discount_iqd?: number | null
@@ -14705,6 +14818,7 @@ export type Database = {
           court_cap_iqd?: number | null
           court_iqd?: number
           customer_id?: string | null
+          customer_method?: string | null
           day_session_id?: string
           device_id?: string | null
           discount_iqd?: number | null
@@ -15649,6 +15763,8 @@ export type Database = {
           rounds_planned: number | null
           starts_at: string
           status: string
+          sweep_error_at: string | null
+          sweep_errors: number
           updated_at: string
           venue_id: string
           waitlist_max: number
@@ -15679,6 +15795,8 @@ export type Database = {
           rounds_planned?: number | null
           starts_at: string
           status?: string
+          sweep_error_at?: string | null
+          sweep_errors?: number
           updated_at?: string
           venue_id: string
           waitlist_max?: number
@@ -15709,6 +15827,8 @@ export type Database = {
           rounds_planned?: number | null
           starts_at?: string
           status?: string
+          sweep_error_at?: string | null
+          sweep_errors?: number
           updated_at?: string
           venue_id?: string
           waitlist_max?: number

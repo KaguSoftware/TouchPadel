@@ -109,6 +109,22 @@ export const CloseIcon = (p: IconProps) => <StrokeIcon d={['M6 6l12 12M18 6L6 18
 export const SearchIcon = (p: IconProps) => (
   <StrokeIcon d={['M11 4a7 7 0 100 14 7 7 0 000-14zM16.2 16.2L21 21']} {...p} />
 );
+/**
+ * The assistant's mark: a four-point sparkle with a small one beside it. An
+ * object, not a direction, so it never mirrors.
+ */
+export const SparkIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={['M10.5 4l1.9 5.1L17.5 11l-5.1 1.9L10.5 18l-1.9-5.1L3.5 11l5.1-1.9z', 'M18.5 3.5v4M16.5 5.5h4']}
+    {...p}
+  />
+);
+/** Send: an arrow pointing up, the same in both directions. */
+export const ArrowUpIcon = (p: IconProps) => (
+  <StrokeIcon d={['M12 19V5M5.5 11.5L12 5l6.5 6.5']} {...p} />
+);
+/** Stop: the outlined square of a media control. */
+export const StopIcon = (p: IconProps) => <StrokeIcon d={['M7.5 7.5h9v9h-9z']} {...p} />;
 export const ChevronIcon = (p: IconProps) => <StrokeIcon d={['M9 6l6 6-6 6']} flip {...p} />;
 export const BackChevronIcon = (p: IconProps) => <StrokeIcon d={['M15 6l-6 6 6 6']} flip {...p} />;
 /**

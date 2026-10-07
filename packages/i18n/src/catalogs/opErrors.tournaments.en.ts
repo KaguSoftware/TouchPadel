@@ -18,6 +18,10 @@ export const opErrorsTournamentsEn = {
   TOURNAMENT_ENTRY_NOT_FOUND: 'That entry changed. The list has been refreshed.',
   TOURNAMENT_ROUNDS_INVALID: "These rounds can't be saved. Refresh and generate them again.",
   TOURNAMENT_SCORE_REFUSED: "This score can't be saved. Check it and try again.",
+  TOURNAMENT_UNDER_FILLED:
+    'Fewer players than the minimum have registered. Add players or cancel the tournament.',
+  TOURNAMENT_FINISH_REFUSED:
+    "This tournament can't be finished yet. Score the round in play first, or cancel it if no round was played.",
   TOURNAMENT_NOT_PAYABLE: 'Nothing can be taken for this entry now.',
   TOURNAMENT_OWED_CHANGED: "What's owed for this entry just changed. Check the new amount.",
   TOURNAMENT_VIA_EVENTS:

@@ -219,6 +219,11 @@ describe.skipIf(!docker)(
         ),
 
         // Within its TTL: neither form touches it (guest_id is NULL, lesson_id set).
+        // The chain form is scoped to this branch's court c1 (the lesson's): with
+        // p_court_id null it sweeps every branch, so a lapsed hold another test
+        // file committed in the same hour four days out (till-completeness's
+        // "charges nothing for a hold": now + 4 days, a 10-minute TTL) was
+        // counted too (CI run 37542720417: 1, not 0).
         E(
           'twin_live_match',
           null,
@@ -227,7 +232,7 @@ describe.skipIf(!docker)(
         E(
           'twin_live_chain',
           null,
-          `select to_jsonb(app.expire_stale_holds(null, {{ph}}::tstzrange))`,
+          `select to_jsonb(app.expire_stale_holds({{c1}}, {{ph}}::tstzrange))`,
         ),
         Q('live_status', `select to_jsonb(status) from reservations where id = {{lh_res}}`),
 
@@ -246,7 +251,7 @@ describe.skipIf(!docker)(
         E(
           'twin_paying_chain',
           null,
-          `select to_jsonb(app.expire_stale_holds(null, {{ph}}::tstzrange))`,
+          `select to_jsonb(app.expire_stale_holds({{c1}}, {{ph}}::tstzrange))`,
         ),
         Q('paying_status', `select to_jsonb(status) from reservations where id = {{lh_res}}`),
 
@@ -264,7 +269,7 @@ describe.skipIf(!docker)(
         E(
           'twin_stale_chain',
           null,
-          `select to_jsonb(app.expire_stale_holds(null, {{ph}}::tstzrange))`,
+          `select to_jsonb(app.expire_stale_holds({{c1}}, {{ph}}::tstzrange))`,
         ),
         Q('stale_chain_status', `select to_jsonb(status) from reservations where id = {{lh_res}}`),
 
@@ -293,7 +298,7 @@ describe.skipIf(!docker)(
     it('past the grace both twins expire it by TTL', () => {
       expect(data(r, 'twin_stale_match')).toBe(1);
       expect(data(r, 'stale_match_status')).toBe('expired');
-      expect(Number(data(r, 'twin_stale_chain'))).toBeGreaterThanOrEqual(1);
+      expect(data(r, 'twin_stale_chain')).toBe(1);
       expect(data(r, 'stale_chain_status')).toBe('expired');
       expect(data(r, 'guest_hold')).toBe(1);
       expect(data(r, 'guest_hold_status')).toBe('expired');

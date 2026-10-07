@@ -46,6 +46,8 @@ export const tournamentsWebEn = {
       openInApp: 'Open in the app',
       noApp: "Don't have the app?",
       allEvents: 'All tournaments',
+      // 0311 (c27): a standing whose entry left the play (withdrew or did not show).
+      withdrawn: '{player} (left)',
       col: {
         rank: 'Rank',
         player: 'Player',

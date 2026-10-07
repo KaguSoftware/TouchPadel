@@ -42,7 +42,12 @@ export const cashierEn = {
       title: 'Open tabs',
       newTab: 'New tab',
       awaiting: 'Awaiting payment',
-      offline: 'Offline — syncs when the connection returns',
+      // Not a connectivity verdict: an offline tab is one whose open has not
+      // reached the server yet, whatever the connection is doing now.
+      offline: 'Not yet on the server — syncs automatically',
+      settledAwaitingSync: 'Settled — waiting to reach the server',
+      failed: 'Did not sync — see Day close',
+      dismissFailed: 'Remove from this till',
       hint: 'Arrow keys move, Enter selects',
     },
     basket: {

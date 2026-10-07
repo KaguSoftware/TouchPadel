@@ -17,8 +17,14 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0301`
-  (`20261003000301_tournaments_play.sql`; 0299–0301 tournaments, Phase 2 milestone 7: schema and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0312`
+  (`20261007000312_assistant_models_5_5.sql`, the assistant on Claude Opus 5.5 and Sonnet 5.5 only,
+  first committed as a second 0307 and renumbered before it reached hosted; 0307–0311 the second review of loyalty and
+  tournaments: 0307 identity hardening, 0308 loyalty earn and redeem, 0309 loyalty promotions and
+  the nightly, 0310 tournament money and lifecycle (with the `tabs_tournament_entry_idx` index
+  first planned as 0312), 0311 tournament play fixes; 0303–0306 loyalty, Phase 2 milestone 3:
+  account identity, unique phone, loyalty, loyalty promotions; 0302 avatar and birth date;
+  0299–0301 tournaments, Phase 2 milestone 7: schema and
   money, lifecycle, play; 0290–0298 the coaching review fixes; 0273–0289 coaching, Phase 2 milestone 5: lesson
   kind, lesson push kinds, settings, tables, reservation guards, lesson money, coach admin,
   booking, Qi lessons, price-protocol lesson kinds, sweep, statements, reports, account deletion —
@@ -31,7 +37,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0302`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0313`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -125,6 +131,76 @@ is a line in that file.
   conflicts), plus the `reservations_tournament_guard` trigger, which refuses a status, court,
   time or kind change of a published tournament's event block (`TOURNAMENT_VIA_EVENTS`) instead
   of re-issuing cancel, move, mark or extend.
+  0302 holds `protocol_tick_nudge` (0298 is no longer the latest; a due avatar purge is due work).
+  Loyalty (0303–0306, milestone 3): 0303 `merge_accounts`, `profile_activity` and the
+  `trg_append_only_but_merge` trigger (its other bodies are 0307's); 0305 every loyalty body
+  0308/0309 did not re-issue (`loyalty_admin`, `loyalty_card_ensure`, `loyalty_history`,
+  `loyalty_me`, `loyalty_public`, `loyalty_retier`, `loyalty_till_terms`, `loyalty_totp`,
+  `loyalty_unredeem`, `my_member_card`, `rotate_member_card`, `upsert_loyalty_reward`,
+  `trg_loyalty_account_apply`, `trg_loyalty_ledger_immutable` and the small helpers); 0306
+  `delete_my_account` (0290 is no longer the latest: it also deletes the account's
+  `loyalty_cards` row, the TOTP secret, and `tests/delete-my-account-latest.test.ts` fails
+  when the newest body stops doing so).
+  Identity (0307, the review of 0303): holds `trg_profile_phone_key`, `profile_merge_columns`,
+  `merge_profiles_internal`, `duplicate_groups_internal`, `duplicate_account_groups`, `merge_duplicates_internal`,
+  `handle_new_user`, `handle_user_phone_confirmed` (now trigger `on_auth_user_phone_changed`),
+  `find_customer_by_phone` and `desk_register_customer` (0303 and 0065 are no longer the latest),
+  plus the internals `phone_verified_owner`, `profile_is_desk_walkin`, `profile_phone_key` and
+  `phone_claim_internal`. `profiles.phone_key` is set only for a proven number (the account's
+  confirmed auth phone, or the number the desk registered a walk-in with while nobody has signed
+  in to it: `profile_is_desk_walkin(profile, key)`) and `zz_phone_key` never raises `PHONE_TAKEN`; the desk pair
+  (`find_customer_by_phone`, `desk_register_customer`) sees only a keyed holder, and the owner's
+  `duplicate_account_groups` lists the unproven pairs as kind `phone_unproven`. Logins move in a
+  merge only on proof (a shared confirmed phone or verified email), never on the owner's word:
+  `merge_accounts` on an unproven pair moves data only (`MERGE_REFUSED` detail `keep_no_login`
+  when the drop is the only one of the two anybody can sign in to). A failed walk-in claim keeps
+  the walk-in findable by its registered number, so the next confirmation retries it.
+  Loyalty earn and redeem (0308, the review of 0305/0306): holds `tab_customer`,
+  `loyalty_recompute`, `trg_loyalty_earn`, `trg_loyalty_clawback`, `loyalty_token_profile`,
+  `my_loyalty`, `link_guest_session`, `loyalty_identify`, `set_tab_customer`, `loyalty_adjust`,
+  `loyalty_customer` and `loyalty_redeem`, now `(uuid, int, uuid, text, text)` with
+  `p_member_token` last (0305's four-argument version is dropped), plus the internals
+  `promotion_tier_ok` (0309's tier test, created here because
+  `set_tab_customer` calls it and 0308 runs first; it reads a tier id and the legacy sort),
+  `lock_loyalty_attempts`, `lock_loyalty_gifts`, `loyalty_token_match`, `loyalty_token_consume`, `loyalty_token_code`, `loyalty_throttle_check`,
+  `loyalty_attempt_record`, `loyalty_history_guest`, `loyalty_tab_paid_at_settle` and the deferred
+  triggers `tabs_loyalty_redeem_cap` and `booking_payments_loyalty`. A redemption needs the
+  member's token (spent once, `loyalty_cards.last_counter`) or a manager PIN grant not the
+  member's own; `loyalty_identify`, `link_guest_session` and the token path of `loyalty_redeem`
+  answer a miss as data (`{error}`, `{linked: false}`, `{error, detail}`) so
+  `loyalty_token_attempts` keeps it for the throttle (`loyalty_redeem` also releases its
+  `rpc_replays` claim, so the press can go on with a PIN under the same key). The per-caller lock
+  holds everyone; the per-member-code lock (20 an hour) counts and holds anonymous café sessions
+  only, and an attempt keeps `member_code` only when a card holds it, so throwaway sessions
+  cannot lock the desk out of a member. Every fallback of `tab_customer` skips active staff, and
+  the booking guest's fallback is the booking's first tab only. `loyalty_adjust` holds a manager
+  to 1,000 gifted points in a rolling 24 hours (given, or received by the profile) and queues a
+  `loyalty_gift` staff push to the owners, so 0308 also holds `notify_staff` (0261 is no longer
+  the latest). c44 (a column grant hiding `tabs.customer_id` from guest sessions) is deferred:
+  staff and guest sessions are both `authenticated`, so the till's own `tabs` read must move to an
+  RPC first. Every body that moves
+  a booking payment to succeeded or refunded now ends its lock sequence in `loyalty_accounts`
+  (the deferred trigger, at commit). A throttled lookup takes `app.lock_loyalty_attempts`
+  (caller, then member code) before its count, and `loyalty_adjust` takes
+  `app.lock_loyalty_gifts` (manager, then profile) before its 24-hour sums; an expired member
+  token is answered but never counted toward the throttle.
+  Loyalty promotions and the nightly (0309, the review of 0306): holds `apply_best_promotion`,
+  `eligible_promotions`, `loyalty_nightly` (0306 is no longer the latest),
+  `price_promo_promotion`, `upsert_promotion_internal` (0177 is no longer the latest),
+  `set_loyalty_settings`, `upsert_loyalty_tier` and `delete_loyalty_tier` (0305 is no longer
+  the latest), plus `loyalty_nightly_one`, the procedure `loyalty_nightly_run` (cron
+  `tp_loyalty_nightly` CALLs it), `loyalty_tiers_renumber` and `promotion_room_iqd`.
+  `promotions.limits.tierMin` is a `loyalty_tiers` id (a string), never a sort.
+  Tournament money and lifecycle (0310, the review of 0299–0300): holds `close_branch` (0280 is
+  no longer the latest), `refund` (0281 is no longer the latest; a tournament tab's refund is
+  held to refund_due unless the reason is `tournament_goodwill`), `desk_tournaments`,
+  `tournament_add_entry`, `tournament_cancel`, `tournament_register`,
+  `tournament_release_blocks`, `tournament_sweep` (0300 is no longer the latest) and
+  `tournament_entry_money` (0299), plus the new `tournament_close`, `tournament_finish`,
+  `tournament_close_internal`, `tournament_refund_candidates` and `tournament_refunds_due`.
+  Tournament play (0311): holds `desk_tournament_detail` and `tournament_set_rounds` (0310 is
+  no longer the latest), `tournament_mark_no_show`, `tournament_public`, `tournament_score`
+  and `tournament_standings` (0301 is no longer the latest).
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
   GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows
@@ -146,7 +222,8 @@ is a line in that file.
   `_shared/staff-push.json`; the guest kinds of open matches take their copy from
   `send-push/guestStrings.ts` and `_shared/guest-push.json`, not `STRINGS`.
   `tests/outbox-kinds.test.ts` holds the CHECK to the three lists. A new staff title key also
-  joins `app.notify_staff`'s `c_title_keys` (latest `0261`, which appended `match_report_new`) in
+  joins `app.notify_staff`'s `c_title_keys` (latest `0308`, which appended `loyalty_gift` after
+  0261's `match_report_new`) in
   the same commit, and a guest title key `app.match_notify`'s `c_keys` (`0261`) or, for a
   lesson or coach key, `app.lesson_notify`'s `c_keys` (`0283`; every lesson push is queued by the
   `lesson_events_notify` trigger except the two statement keys); the stack tests
@@ -258,11 +335,16 @@ is a line in that file.
   (`WEB_OVERRIDES`, `MOBILE_OVERRIDES`).
 - No WHERE-less write (`scripts/check-safe-update.mjs`). `app.lock_court` (0042) before any
   reservation write. Lock order
-  `day_sessions → match_money_advisory → coach_advisory → tabs → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → venues → reservations → match_venue_advisory → match_tickets → loyalty_accounts`
+  `day_sessions → match_money_advisory → coach_advisory → tournaments → tournament_entries → tabs → promotions → loyalty_attempts_advisory → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → venues → reservations → match_venue_advisory → match_tickets → loyalty_gift_advisory → loyalty_accounts`
   (`coach_advisory` since coaching, `app.lock_coach`, once per sequence; a `FOR UPDATE … SKIP
   LOCKED` on reservations never waits and is not ranked, like `pg_try_advisory_xact_lock`;
   `venues` since 0291: a lesson body's branch row FOR KEY SHARE, once per sequence, the one share
-  lock the walker ranks, against `open_branch`/`close_branch`'s FOR UPDATE)
+  lock the walker ranks (with tournaments since 0310), against `open_branch`/`close_branch`'s FOR UPDATE; `tournaments`
+  then `tournament_entries` since 0310, the tournament row FOR UPDATE or FOR SHARE (share-ranked)
+  before its entries in id order, and a `FOR UPDATE SKIP LOCKED` tournament (the sweep) not
+  emitted, like a skip-locked reservation; `promotions` since 0309, the candidates in id order
+  under the tab; the loyalty advisory keys since 0308, `app.lock_loyalty_attempts` and
+  `app.lock_loyalty_gifts`, each once per sequence)
   (`scripts/check-lock-order.mjs`, walker in `scripts/lib/lock-order.mjs`; `till_shifts` since
   wave 5, whose stamp trigger takes the open shift FOR SHARE on every payment and refund insert;
   the three open-match ranks since 0260: `app.lock_match_money`, the branch mutex
@@ -335,7 +417,8 @@ is a line in that file.
   (an outbox `sent` stamp) logs loudly with the row id. CI type-checks every entry
   (`ci.yml` job `edge-functions`); locally, from this package:
   `DENO_NO_PACKAGE_JSON=1 npx --yes deno@2.5.6 check --no-config --node-modules-dir=none supabase/functions/*/index.ts`.
-- LLM code uses `npm:@anthropic-ai/sdk`, model `claude-opus-5` unless Parsa names another, meters
+- LLM code uses `npm:@anthropic-ai/sdk`, model `claude-opus-5-5` unless Parsa names another (the
+  assistant: `claude-opus-5-5` or `claude-sonnet-5-5` only, 0307 CHECKs + `ASSISTANT_MODELS`), meters
   spend through `app.llm_record_usage` (0079, 0111), puts no guest identity in a prompt (SEC-29) and
   never computes a number the page did not already have.
 - **Scanned paper (0236–0239) is the exception on the model:** `receipt-scan` reads supplier

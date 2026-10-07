@@ -26,24 +26,88 @@ export function scoredCount(round: TourDetailRound): number {
   return round.matches.filter(isCorrection).length;
 }
 
+/**
+ * What the detail banner says about play. Finished (or cancelled) comes from
+ * the tournament's status, never from the scores: every drawn round scored is
+ * also how a running Mexicano looks between rounds (the next round is drawn
+ * only once the last is scored), and after a correction trims later rounds.
+ */
+export type PlayLabel =
+  | { kind: 'round'; round: number; total: number }
+  | { kind: 'nextToDraw'; round: number; total: number }
+  | { kind: 'allScored'; total: number }
+  | { kind: 'ended'; status: 'finished' | 'cancelled' };
+
+export interface PlayProgress {
+  /** The round being scored; null between rounds or once play has ended. */
+  current: number | null;
+  /** Rounds in the plan (the drawn ones when the plan names fewer or none). */
+  total: number;
+  /** Rounds fully scored. */
+  doneRounds: number;
+  /** 0–100 through the plan; 100 once finished. */
+  percent: number;
+  label: PlayLabel;
+}
+
+export function playProgress(
+  status: TourStatus,
+  rounds: readonly TourDetailRound[],
+  roundsPlanned: number | null,
+): PlayProgress {
+  const open = currentRoundNo(rounds);
+  const total = Math.max(roundsPlanned ?? 0, rounds.length);
+  const openRound = open !== null ? rounds.find((r) => r.round_no === open) : undefined;
+  const doneRounds = rounds.filter((r) => open === null || r.round_no < open).length;
+  const partial =
+    openRound && openRound.matches.length > 0
+      ? scoredCount(openRound) / openRound.matches.length
+      : 0;
+  const ended = status === 'finished' || status === 'cancelled';
+  const percent =
+    status === 'finished'
+      ? 100
+      : total > 0
+        ? Math.min(100, Math.round(((doneRounds + partial) / total) * 100))
+        : 0;
+  let label: PlayLabel;
+  if (ended) label = { kind: 'ended', status };
+  else if (open !== null) label = { kind: 'round', round: open, total };
+  else if (doneRounds < total) label = { kind: 'nextToDraw', round: doneRounds, total };
+  else label = { kind: 'allScored', total };
+  return { current: ended ? null : open, total, doneRounds, percent, label };
+}
+
 export interface EntryMoney {
-  /** Registered players who owe nothing. */
+  /** Registered players who owe nothing (none on a cancelled tournament: nobody pays it). */
   paid: number;
   /** Registered players who still owe their fee. */
   owing: number;
-  /** Net taken across every entry. */
+  /** Net taken and kept: every entry's net less what is due back to it. */
   collected: number;
   /** Still owed by the registered players. */
   due: number;
+  /** Due back: a withdrawn entry's net, or every net on a cancelled tournament. */
+  refundDue: number;
 }
 
-export function entryMoney(entries: readonly TourEntry[]): EntryMoney {
+/**
+ * The money on a tournament's entries. The server sets `owed_iqd` to 0 for
+ * everyone on a cancelled tournament and carries the money to hand back in
+ * `refund_due_iqd` (0299 `tournament_entry_money`), so a cancelled tournament
+ * counts nobody as paid and keeps none of it as collected.
+ */
+export function entryMoney(entries: readonly TourEntry[], status: TourStatus): EntryMoney {
   const registered = entries.filter((e) => e.status === 'registered');
+  const cancelled = status === 'cancelled';
+  const net = entries.reduce((sum, e) => sum + e.net_paid_iqd, 0);
+  const refundDue = entries.reduce((sum, e) => sum + e.refund_due_iqd, 0);
   return {
-    paid: registered.filter((e) => e.owed_iqd === 0).length,
-    owing: registered.filter((e) => e.owed_iqd > 0).length,
-    collected: entries.reduce((sum, e) => sum + e.net_paid_iqd, 0),
-    due: registered.reduce((sum, e) => sum + e.owed_iqd, 0),
+    paid: cancelled ? 0 : registered.filter((e) => e.owed_iqd === 0).length,
+    owing: cancelled ? 0 : registered.filter((e) => e.owed_iqd > 0).length,
+    collected: Math.max(0, net - refundDue),
+    due: cancelled ? 0 : registered.reduce((sum, e) => sum + e.owed_iqd, 0),
+    refundDue,
   };
 }
 

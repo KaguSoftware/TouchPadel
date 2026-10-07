@@ -251,7 +251,7 @@ describe('startSyncWorker', () => {
     w.kick();
     await w.idle();
     expect(w.isUnreachable()).toBe(true);
-    expect(queueStatus().degraded).toBe(true); // the worker is a degraded input
+    expect(queueStatus().uploadBlocked).toBe(true); // the worker is a degraded input
     expect(peekNext()?.attempts).toBe(2);
   });
 
@@ -327,6 +327,45 @@ describe('startSyncWorker', () => {
     await w.idle();
     expect(calls.length).toBeGreaterThanOrEqual(2);
     expect((calls[1]!.init.headers as Record<string, string>).authorization).toBe('Bearer jwt-fresh');
+  });
+
+  it('a 401 reads as uploadBlocked until a fresh token is pushed', async () => {
+    // The 401 branch used to call noteTransportOk(), which cleared the
+    // unreachable flag, so a station stuck on a dead token read as healthy.
+    const m = envelope();
+    enqueue(m);
+    const { fetchImpl } = makeFetch([{ status: 401, body: { error: 'staff session required' } }]);
+    const w = start(fetchImpl);
+    w.kick();
+    await w.idle();
+    expect(queueStatus().uploadBlocked).toBe(true);
+
+    // The SAME token pushed again does not lift it.
+    setAuthState({ ...AUTH });
+    await w.idle();
+    expect(queueStatus().uploadBlocked).toBe(true);
+
+    // A fresh token does, and the row drains.
+    setAuthState({ ...AUTH, accessToken: 'jwt-fresh' });
+    await w.idle();
+    expect(queueStatus().uploadBlocked).toBe(false);
+    expect(ackCount()).toBe(1);
+  });
+
+  it('a 401 after transport failures does not launder the station back to healthy', async () => {
+    const m = envelope();
+    enqueue(m);
+    const { fetchImpl } = makeFetch([{ status: 503 }, { status: 503 }, { status: 401 }]);
+    const w = start(fetchImpl);
+    w.kick();
+    await w.idle();
+    w.kick();
+    await w.idle();
+    expect(queueStatus().uploadBlocked).toBe(true);
+
+    w.kick();
+    await w.idle();
+    expect(queueStatus().uploadBlocked).toBe(true);
   });
 
   it('501 RPC_NOT_DEPLOYED and 503 DEGRADED_LOCKOUT wait with backoff — never a conflict or a failure', async () => {
@@ -441,7 +480,7 @@ describe('startSyncWorker', () => {
     expect(peekNext()?.state).toBe('pending');
   });
 
-  it('acked rows clear degraded-by-worker on the next success', async () => {
+  it('acked rows clear uploadBlocked-by-worker on the next success', async () => {
     const m = envelope();
     enqueue(m);
     const { fetchImpl } = makeFetch([{ status: 503 }, { status: 503 }, { status: 200 }]);
@@ -450,10 +489,10 @@ describe('startSyncWorker', () => {
     await w.idle();
     w.kick();
     await w.idle();
-    expect(queueStatus().degraded).toBe(true);
+    expect(queueStatus().uploadBlocked).toBe(true);
     w.kick();
     await w.idle();
-    expect(queueStatus().degraded).toBe(false);
+    expect(queueStatus().uploadBlocked).toBe(false);
     expect(ackCount()).toBe(1);
   });
 });

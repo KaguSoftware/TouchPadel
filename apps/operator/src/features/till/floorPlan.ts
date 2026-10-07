@@ -23,7 +23,7 @@
  *    booking, an offline tab without a table) is an "other open tab".
  */
 import { compareTableNumbers, type ActiveTableRow } from '../../lib/queries';
-import { LOCAL_TAB_PREFIX, type OfflineTab } from '../../lib/offlineTabs';
+import { LOCAL_TAB_PREFIX, offlineTabState, type OfflineTab, type OfflineTabState } from '../../lib/offlineTabs';
 import { tabHasWebOrder, type TabListRow } from './tillData';
 
 // ---------------------------------------------------------------------------
@@ -85,6 +85,12 @@ export interface SpotTab {
   label: string | null;
   openedAt: string;
   offline: boolean;
+  /**
+   * An offline tab's state: its open not yet on the server, settled with the
+   * settle still in the outbox, or refused (day close holds the row). Null for
+   * a server tab.
+   */
+  offlineState: OfflineTabState | null;
   /** Items on it so far (voids excluded): what tells two tabs on one table apart. */
   items: number;
   /** A guest ordered on it from the table QR. */
@@ -128,18 +134,22 @@ export function placeCafe(
       label: t.label,
       openedAt: t.opened_at,
       offline: false,
+      offlineState: null,
       items: (t.orders ?? []).reduce((n, o) => n + (o.order_items ?? []).filter((i) => !i.voided).length, 0),
       web: tabHasWebOrder(t),
     });
   }
   for (const ot of offlineTabs) {
-    if (!ot.tableNumber || ot.settled) continue;
+    // The store's snapshot already holds what belongs on the plan: a settled
+    // tab stays until its settle acks, and a refused one stays, marked.
+    if (!ot.tableNumber) continue;
     push(ot.tableNumber, {
       id: `${LOCAL_TAB_PREFIX}${ot.idemKey}`,
       status: 'open',
       label: ot.label,
       openedAt: ot.openedAt,
       offline: true,
+      offlineState: offlineTabState(ot),
       items: ot.lines.reduce((n, l) => n + l.qty, 0),
       web: false,
     });
@@ -242,7 +252,7 @@ export function otherOpenTabs(
   for (const b of boards) for (const bb of b.bookings) if (bb.liveTab) drawn.add(bb.liveTab.id);
   return [
     ...tabs.map((t) => t.id),
-    ...offlineTabs.filter((ot) => !ot.settled).map((ot) => `${LOCAL_TAB_PREFIX}${ot.idemKey}`),
+    ...offlineTabs.map((ot) => `${LOCAL_TAB_PREFIX}${ot.idemKey}`),
   ].filter((id) => !drawn.has(id));
 }
 

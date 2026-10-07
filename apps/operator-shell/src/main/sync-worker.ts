@@ -40,7 +40,11 @@ import {
  *   401                  → the token is marked rejected (auth-state.ts) and replay
  *                          PAUSES: no request goes out — not from the timer, not
  *                          from a kick — until the renderer pushes a DIFFERENT
- *                          token (TOKEN_REFRESHED, a new sign-in).
+ *                          token (TOKEN_REFRESHED, a new sign-in). While paused the
+ *                          upload path reads BLOCKED (queueStatus().uploadBlocked):
+ *                          this branch used to call noteTransportOk(), which
+ *                          cleared the unreachable flag, so a dead token looked
+ *                          healthy on the station's status strip.
  *   no token             → paused-auth the same way; the auth push resumes.
  *
  * Every POST has a deadline (requestTimeoutMs, 20 s), the body read included.
@@ -67,7 +71,7 @@ export interface SyncWorker {
   /** Drain now (new enqueue, fresh token) — clears any pending backoff. */
   kick(): void;
   stop(): void;
-  /** ≥2 consecutive transport failures — a degraded input (queue.ts). */
+  /** ≥2 consecutive transport failures — an uploadBlocked input (queue.ts). */
   isUnreachable(): boolean;
   /** Await the in-progress drain — tests only. */
   idle(): Promise<void>;
@@ -127,19 +131,37 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
   let backoffMs = 0;
   let nextAllowedAt = 0;
   let transportFailures = 0;
+  /** Replay answered 401: paused until a fresh token, and the upload path is blocked. */
+  let pausedOnAuth = false;
+  /** Mirrors what we last told queue.ts, so only TRANSITIONS are logged. */
+  let reportedUnreachable = false;
+
+  /**
+   * The write path had no logging at all: 144 consecutive failed uploads
+   * produced two lines of stdout, neither about sync (2026-09-04).
+   * Transitions only, never one line per attempt.
+   */
+  function reportUnreachable(): void {
+    const unreachable = transportFailures >= 2 || pausedOnAuth;
+    if (unreachable === reportedUnreachable) return;
+    reportedUnreachable = unreachable;
+    setWorkerUnreachable(unreachable);
+    if (unreachable) console.warn('[sync] replay blocked: writes are queueing, not sending');
+    else console.warn('[sync] replay reachable again: draining');
+  }
 
   function noteTransportFailure(): void {
     transportFailures += 1;
     backoffMs = Math.min(backoffMs === 0 ? 1_000 : backoffMs * 2, backoffCapMs);
     nextAllowedAt = Date.now() + backoffMs;
-    if (transportFailures >= 2) setWorkerUnreachable(true);
+    reportUnreachable();
   }
 
   function noteTransportOk(): void {
     transportFailures = 0;
     backoffMs = 0;
     nextAllowedAt = 0;
-    setWorkerUnreachable(false);
+    reportUnreachable();
   }
 
   function emit(row: QueueRow, state: MutationResult['state'], extra: Partial<MutationResult>): void {
@@ -212,6 +234,7 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
     } catch (error) {
       const reason = timedOut ? new ReplayTimeout(requestTimeoutMs) : error;
       releaseToPending(row.idempotencyKey, `transport: ${String(reason)}`);
+      if (transportFailures === 0) console.warn('[sync] replay unreachable:', String(reason));
       noteTransportFailure();
       opts.onActivity();
       return false;
@@ -247,7 +270,9 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
       // recorded nothing, so the row is neither a conflict nor a failure: back
       // to pending with backoff, and the code is kept for whoever looks.
       const code = bodyCode(body);
-      releaseToPending(row.idempotencyKey, code ? `server ${res.status}: ${code}` : `server ${res.status}`);
+      const why = code ? `server ${res.status}: ${code}` : `server ${res.status}`;
+      releaseToPending(row.idempotencyKey, why);
+      if (transportFailures === 0) console.warn('[sync] replay failed:', why, row.mutationType);
       noteTransportFailure();
       opts.onActivity();
       return false;
@@ -257,9 +282,16 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
       // The token the renderer pushed no longer verifies. Not the row's fault:
       // back to pending, and this token is never sent again — the timer and
       // every kick find no replay auth until a different token is pushed.
-      noteTransportOk();
+      // Deliberately NOT noteTransportOk(): the server answered, but the upload
+      // path is not healthy, and saying so used to clear the unreachable flag.
+      transportFailures = 0;
+      backoffMs = 0;
+      nextAllowedAt = 0;
+      pausedOnAuth = true;
+      reportUnreachable();
       markTokenRejected(auth.accessToken);
       releaseToPending(row.idempotencyKey, 'staff session rejected (401)');
+      console.warn('[sync] staff session rejected (401): paused until a fresh token');
       opts.onActivity();
       return false;
     }
@@ -269,6 +301,8 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
     const b = (body ?? {}) as Record<string, unknown>;
     const detail =
       typeof b.code === 'string' ? b.code : typeof b.error === 'string' ? b.error : `HTTP ${res.status}`;
+    // Terminal: this row will never replay, and a person has to deal with it.
+    console.error('[sync] row will never replay:', row.mutationType, `${res.status}: ${detail}`);
     markFailed(row.idempotencyKey, `${res.status}: ${detail}`);
     // serverResult rides along so the renderer can surface the machine code
     // (PIN_INVALID, FORBIDDEN, ...) through its normal error mapping.
@@ -298,7 +332,13 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
 
   const timer = setInterval(() => scheduleDrain(false), tickMs);
   const unsubscribeAuth = onAuthStateChange(() => {
-    if (getReplayAuth()) kick();
+    if (!getReplayAuth()) return;
+    // A fresh token lifts the 401 pause; the drain it starts proves the rest.
+    if (pausedOnAuth) {
+      pausedOnAuth = false;
+      reportUnreachable();
+    }
+    kick();
   });
 
   function kick(): void {

@@ -454,10 +454,15 @@ export const ERROR_CODE_KEYS = {
   TOURNAMENT_ENTRY_NOT_FOUND: 'op.errors.TOURNAMENT_ENTRY_NOT_FOUND',
   TOURNAMENT_VIA_EVENTS: 'op.errors.TOURNAMENT_VIA_EVENTS',
   // tournaments_play: the rounds write (detail status | stale | engine | format | numbering |
-  // played | mexicano_one | round_open | seat | court | courts_used) and the score (detail
-  // status | invalid | changed | locked).
+  // played | mexicano_one | round_open | seat | court | courts_used | sit_out (0311)) and the
+  // score (detail status | invalid | changed | locked | closed (0311)).
   TOURNAMENT_ROUNDS_INVALID: 'op.errors.TOURNAMENT_ROUNDS_INVALID',
   TOURNAMENT_SCORE_REFUSED: 'op.errors.TOURNAMENT_SCORE_REFUSED',
+  // 0310 tournaments_money_lifecycle: the desk closes registration below min_entries (detail
+  // <registered>/<min>), and an early finish with no complete round (detail not_played) or a
+  // begun round after it (detail partial_round).
+  TOURNAMENT_UNDER_FILLED: 'op.errors.TOURNAMENT_UNDER_FILLED',
+  TOURNAMENT_FINISH_REFUSED: 'op.errors.TOURNAMENT_FINISH_REFUSED',
   // tournaments_schema_money: the desk payment of an entry fee (tournament_settle; detail
   // waitlisted | withdrawn | no_show | cancelled | nothing_owed, then "expected X, now Y").
   TOURNAMENT_NOT_PAYABLE: 'op.errors.TOURNAMENT_NOT_PAYABLE',
@@ -468,6 +473,8 @@ export const ERROR_CODE_KEYS = {
   // codes from loyalty_identify and link_guest_session; the rest from loyalty_redeem.
   PHONE_TAKEN: 'op.errors.PHONE_TAKEN',
   MERGE_REFUSED: 'op.errors.MERGE_REFUSED',
+  // 0309: delete_loyalty_tier while a promotion names the tier (limits.tierMin; detail: how many).
+  TIER_IN_USE: 'op.errors.TIER_IN_USE',
   MEMBER_CODE_INVALID: 'op.errors.MEMBER_CODE_INVALID',
   MEMBER_CODE_EXPIRED: 'op.errors.MEMBER_CODE_EXPIRED',
   MEMBER_NOT_FOUND: 'op.errors.MEMBER_NOT_FOUND',
@@ -476,6 +483,13 @@ export const ERROR_CODE_KEYS = {
   POINTS_INSUFFICIENT: 'op.errors.POINTS_INSUFFICIENT',
   POINTS_BELOW_MIN: 'op.errors.POINTS_BELOW_MIN',
   REWARD_NOT_FOUND: 'op.errors.REWARD_NOT_FOUND',
+  // 0308 (the loyalty review): too many wrong member codes (identify, the café link); a member
+  // token that names someone other than the bill's member (loyalty_redeem); a reward worth more
+  // than what is left to discount; a member change on a bill that already used points.
+  MEMBER_CODE_LOCKED: 'op.errors.MEMBER_CODE_LOCKED',
+  MEMBER_CODE_MISMATCH: 'op.errors.MEMBER_CODE_MISMATCH',
+  REWARD_EXCEEDS_BILL: 'op.errors.REWARD_EXCEEDS_BILL',
+  LOYALTY_REDEEMED: 'op.errors.LOYALTY_REDEEMED',
 
   // ── Guest refusals the desk never meets (the phone's lines) ───────────────
   // 0048/C1 + 0058: raised by app.hold_slot from the day it was hardened; the

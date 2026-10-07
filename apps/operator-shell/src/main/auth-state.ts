@@ -23,9 +23,18 @@ let current: AuthState | null = null;
  */
 let rejectedToken: string | null = null;
 const listeners = new Set<() => void>();
+/** Log the backend once per distinct URL, not on every token refresh. */
+let loggedUrl: string | null = null;
 
 export function setAuthState(next: AuthState | null): void {
   current = next;
+  // Which project this station replays into is the first thing anyone asks
+  // when sync misbehaves, and nothing printed it: main has no VITE_* of its
+  // own, so it is not even greppable from the config.
+  if (next && next.supabaseUrl !== loggedUrl) {
+    loggedUrl = next.supabaseUrl;
+    console.log('[sync] replaying into', next.supabaseUrl);
+  }
   if (!next || next.accessToken !== rejectedToken) rejectedToken = null;
   for (const fn of listeners) fn();
 }

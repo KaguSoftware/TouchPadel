@@ -26,7 +26,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { mutate } from '../../lib/mutate';
-import { LOCAL_TAB_PREFIX, appendOfflineLines, listOfflineTabs, subscribeOfflineTabs } from '../../lib/offlineTabs';
+import { LOCAL_TAB_PREFIX, appendOfflineLines, listOfflineTabs, offlineTabState, subscribeOfflineTabs } from '../../lib/offlineTabs';
 import { QK, fetchActiveCafeTables, fetchOpenDay } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
@@ -234,10 +234,10 @@ export function TillScreen() {
     return ids.flatMap((id): OtherTab[] => {
       if (id.startsWith(LOCAL_TAB_PREFIX)) {
         const ot = offlineTabs.find((t) => `${LOCAL_TAB_PREFIX}${t.idemKey}` === id);
-        return ot ? [{ id, label: ot.label ?? '—', status: 'open', offline: true }] : [];
+        return ot ? [{ id, label: ot.label ?? '—', status: 'open', offline: true, offlineState: offlineTabState(ot) }] : [];
       }
       const t = (tabsQ.data ?? []).find((x) => x.id === id);
-      return t ? [{ id, label: tabAnchorLabel(t, tr('op.till.table'), tr('op.till.forReservation')), status: t.status, offline: false }] : [];
+      return t ? [{ id, label: tabAnchorLabel(t, tr('op.till.table'), tr('op.till.forReservation')), status: t.status, offline: false, offlineState: null }] : [];
     });
   }, [tabsQ.data, offlineTabs, spots, boards, tr]);
 

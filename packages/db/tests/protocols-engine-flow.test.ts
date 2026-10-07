@@ -421,7 +421,7 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
       T('launch', 'owner', `select app.submit_step({{s5}}, '{}')`),
       Q('run_final', `select jsonb_build_object('status', status, 'live_at', live_at, 'finished_at', finished_at)
                         from protocol_runs where id = {{run}}`),
-      Q('s2_history', `select jsonb_agg(jsonb_build_object('round', round, 'decision', decision) order by submitted_at)
+      Q('s2_history', `select jsonb_agg(jsonb_build_object('round', round, 'decision', decision) order by submitted_at, round)
                          from protocol_submissions where run_step_id = {{s2}}`),
       Q('audit', `select jsonb_agg(action order by id) from audit_log where entity_id = {{run}}::text`),
       T('withdraw_after', 'hc', `select app.withdraw_protocol({{run}})`),

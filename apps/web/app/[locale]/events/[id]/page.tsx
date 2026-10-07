@@ -199,7 +199,13 @@ function Standings({ locale, standings }: { locale: Locale; standings: TourPubli
             {standings.map((row, i) => (
               <tr key={`${row.rank}-${i}`} className="tp-tpage__standing">
                 <td className="tp-tpage__rank tp-num">{isolateLtr(String(row.rank))}</td>
-                <td>{playerLabel(row.player, locale)}</td>
+                <td>
+                  {row.withdrawn
+                    ? tr('tournaments.web.page.withdrawn', {
+                        player: playerLabel(row.player, locale),
+                      })
+                    : playerLabel(row.player, locale)}
+                </td>
                 <td className="tp-tpage__num tp-num">{isolateLtr(String(row.points_won))}</td>
                 <td className="tp-tpage__num tp-num">{signedDiff(row.diff)}</td>
                 <td className="tp-tpage__num tp-num">{isolateLtr(String(row.played))}</td>

@@ -385,7 +385,8 @@ export const PROMOTION_FIELDS: readonly FieldDef[] = [
     name: 'limits',
     type: 'object',
     required: false,
-    fields: [f.int('total', false, 1), f.int('perCustomer', false, 1), f.iqd('minSpendIqd', false)],
+    // tierMin (0309): a loyalty tier id, carried from the promotion and never typed (no picker).
+    fields: [f.int('total', false, 1), f.int('perCustomer', false, 1), f.iqd('minSpendIqd', false), f.uuid('tierMin', false)],
   },
   { name: 'auto', type: 'bool', required: false },
   { name: 'public_code', type: 'text', required: false, max: 16 },

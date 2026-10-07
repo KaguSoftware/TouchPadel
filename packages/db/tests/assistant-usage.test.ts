@@ -50,10 +50,11 @@ describe.skipIf(!up)('0111 LLM usage by kind', () => {
       })
       .then(outcome);
 
-  it('the default row carries Opus 5 and Sonnet 5 prices', () => {
+  it('the default row carries exactly the Opus 5.5 and Sonnet 5.5 prices (0307)', () => {
     const p = savedPricing as Record<string, Record<string, number>>;
-    expect(p['claude-opus-5']).toEqual({ input: 5000000, cache_write: 6250000, cache_read: 500000, output: 25000000 });
-    expect(p['claude-sonnet-5']).toEqual({ input: 2000000, cache_write: 2500000, cache_read: 200000, output: 10000000 });
+    expect(Object.keys(p).sort()).toEqual(['claude-opus-5-5', 'claude-sonnet-5-5']);
+    expect(p['claude-opus-5-5']).toEqual({ input: 4000000, cache_write: 5000000, cache_read: 200000, output: 20000000 });
+    expect(p['claude-sonnet-5-5']).toEqual({ input: 2000000, cache_write: 2500000, cache_read: 200000, output: 10000000 });
   });
 
   it('prices each kind from the map and rolls up onto today', async () => {
@@ -93,10 +94,10 @@ describe.skipIf(!up)('0111 LLM usage by kind', () => {
     expect(res.data).toBe(7_100_000);
 
     const opus = await appRpc(owner, 'llm_price_micros', {
-      p_model: 'claude-opus-5', p_input: 10_000, p_cache_write: 0, p_cache_read: 90_000, p_output: 2_000,
+      p_model: 'claude-opus-5-5', p_input: 10_000, p_cache_write: 0, p_cache_read: 90_000, p_output: 2_000,
     }).then(outcome);
-    // 10k × 5 + 90k × 0.5 + 2k × 25 = 50,000 + 45,000 + 50,000 micros
-    expect(opus.data).toBe(145_000);
+    // 10k × 4 + 90k × 0.2 + 2k × 20 = 40,000 + 18,000 + 40,000 micros
+    expect(opus.data).toBe(98_000);
 
     const manager = await signedInClient(SEED_STAFF.manager);
     const denied = await appRpc(manager, 'llm_price_micros', {
@@ -126,7 +127,7 @@ describe.skipIf(!up)('0111 LLM usage by kind', () => {
     expect(d.month.cost_micros).toBe(1_000_000);
     expect(d.cap.monthly_cap_micros).toBe(20000000);
     expect(d.cap.month_cost_micros).toBe(1_000_000);
-    expect(d.pricing).toHaveProperty('claude-opus-5');
+    expect(d.pricing).toHaveProperty('claude-opus-5-5');
     expect(d.pricing).toHaveProperty('test-model');
     expect(d.fallback_micros_per_mtok).toBe(500000);
 

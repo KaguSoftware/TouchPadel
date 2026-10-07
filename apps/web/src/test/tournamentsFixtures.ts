@@ -232,14 +232,23 @@ export function tournamentAnswer({
       : [],
     standings: rounds
       ? [
-          { rank: 1, player: P[0], points_won: 15, diff: 6, played: 1, entry_id: 'x' },
-          { rank: 1, player: P[1], points_won: 15, diff: 6, played: 1 },
-          { rank: 3, player: P[4], points_won: 12, diff: 0, played: 1 },
-          { rank: 3, player: P[5], points_won: 12, diff: 0, played: 1 },
-          { rank: 3, player: P[6], points_won: 12, diff: 0, played: 1 },
-          { rank: 3, player: P[7], points_won: 12, diff: 0, played: 1 },
-          { rank: 7, player: P[2], points_won: 9, diff: -6, played: 1 },
-          { rank: 7, player: P[3], points_won: 9, diff: -6, played: 1 },
+          {
+            rank: 1,
+            player: P[0],
+            points_won: 15,
+            diff: 6,
+            played: 1,
+            withdrawn: false,
+            entry_id: 'x',
+          },
+          { rank: 1, player: P[1], points_won: 15, diff: 6, played: 1, withdrawn: false },
+          { rank: 3, player: P[4], points_won: 12, diff: 0, played: 1, withdrawn: false },
+          { rank: 3, player: P[5], points_won: 12, diff: 0, played: 1, withdrawn: false },
+          { rank: 3, player: P[6], points_won: 12, diff: 0, played: 1, withdrawn: false },
+          { rank: 3, player: P[7], points_won: 12, diff: 0, played: 1, withdrawn: false },
+          { rank: 7, player: P[2], points_won: 9, diff: -6, played: 1, withdrawn: false },
+          // 0311 (c27): a no-show, ranked after every registered entry.
+          { rank: 7, player: P[3], points_won: 9, diff: -6, played: 1, withdrawn: true },
         ]
       : [],
     me: null,

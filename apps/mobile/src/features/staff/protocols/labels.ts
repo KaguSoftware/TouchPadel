@@ -98,6 +98,7 @@ const BY_NAME = {
   total: 'staff.protocols.field.limitTotal',
   perCustomer: 'staff.protocols.field.limitPerCustomer',
   minSpendIqd: 'staff.protocols.field.limitMinSpend',
+  tierMin: 'staff.protocols.field.limitTierMin',
   auto: 'staff.protocols.field.auto',
   public_code: 'staff.protocols.field.publicCode',
   code_single_use: 'staff.protocols.field.codeSingleUse',

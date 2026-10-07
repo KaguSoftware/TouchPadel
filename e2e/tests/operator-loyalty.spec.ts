@@ -20,6 +20,7 @@ import { ar } from '../../packages/i18n/src/catalogs/ar';
 import { en } from '../../packages/i18n/src/catalogs/en';
 import {
   DEV_PASSWORD,
+  MANAGER_PIN,
   SEED_STAFF,
   appRpc,
   ensureOpenDay,
@@ -128,6 +129,10 @@ test.describe('operator loyalty', () => {
     [guest] = await seedMatchPlayers(svc, ['l']);
     const { data } = await svc.from('profiles').select('phone').eq('id', guest.id).single();
     phone = (data as { phone: string }).phone;
+    // Since 0307 a phone is a member's identity only once verified: confirm it on the auth user,
+    // as a phone sign-up would, so the till's phone lookup finds them.
+    const confirmed = await svc.auth.admin.updateUserById(guest.id, { phone, phone_confirm: true });
+    if (confirmed.error) throw new Error(`confirm phone: ${confirmed.error.message}`);
     await seedPoints(svc, guest.id);
   });
 
@@ -177,6 +182,8 @@ test.describe('operator loyalty', () => {
     await page.getByTestId('member-use-points').click();
     const redeem = page.getByRole('dialog', { name: L.redeem.title });
     await redeem.getByTestId('redeem-points').fill(String(MIN_REDEEM));
+    // Found by phone, not by a scanned card: spending points takes a manager's PIN (0308).
+    await redeem.getByTestId('redeem-pin').fill(MANAGER_PIN);
     await redeem.getByTestId('redeem-confirm').click();
     await expect(redeem).toBeHidden({ timeout: 30_000 });
     await expect(page.getByText(L.redeem.billRow)).toBeVisible();

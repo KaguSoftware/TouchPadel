@@ -10,8 +10,13 @@
  * `start_protocol` call and `tournament.plan` record the generic form did
  * (planModel.ts builds it, `validateStart` checks it first); the run's
  * titles are the names, which the generic form fell back to as well.
+ *
+ * Unlike the generic form it never reads the venue's template for
+ * `submitterDecides`: the tournament plan has no decider-only field, so the
+ * flag changes nothing (planModel.test.ts fails the day one is added, and the
+ * template read comes back with it).
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { wallTimeToUtc } from '@touch/core';
 import {
   TOURNAMENT_VARIANTS,
@@ -19,7 +24,13 @@ import {
   type FieldIssue,
   type TournamentVariant,
 } from '@touch/core/protocols';
-import { countPhrase, formatDate, formatTimeRange, type MessageKey } from '@touch/i18n';
+import {
+  asciiDigits,
+  countPhrase,
+  formatDate,
+  formatTimeRange,
+  type MessageKey,
+} from '@touch/i18n';
 import { AppRpcError, appRpc } from '../../../lib/appRpc';
 import { useLocale } from '../../../lib/i18n';
 import { pickName } from '../tournamentLogic';
@@ -29,6 +40,7 @@ import { Icon } from '../../../components/icons';
 import { InfoTip } from '../../../components/InfoTip';
 import { DateTile } from '../TournamentParts';
 import { useTradingNight, tonightInTz } from '../../desk/useTradingNight';
+import { useClock } from '../../../lib/clock';
 import { shiftIsoDate } from '../../desk/weekLogic';
 import { BLOCKING_STATUSES, guestNameOf } from '../../desk/deskLogic';
 import {
@@ -79,15 +91,12 @@ export interface StartedRun {
 export function TournamentStartSheet({
   initialVariant,
   byOwner = false,
-  holdStart = false,
   onClose,
   onStarted,
 }: {
   initialVariant?: TournamentVariant | null;
   /** The owner titles a run in both languages (`titlesInBoth`); the names do that here. */
   byOwner?: boolean;
-  /** Start waits (the /protocols sheet reading the venue's template). */
-  holdStart?: boolean;
   onClose: () => void;
   onStarted: (run: StartedRun) => void;
 }) {
@@ -443,11 +452,12 @@ export function TournamentStartSheet({
                     </Field>
                   </div>
                   <Field label={tr(`${F}.class`)} group required error={issueFor('class')}>
-                    <div role="radiogroup" className="tp-tour-choices">
-                      {CLASSES.map((c) => (
+                    <div role="radiogroup" className="tp-tour-choices" onKeyDown={radioKeys}>
+                      {CLASSES.map((c, i) => (
                         <ChoiceCard
                           key={c}
                           radio
+                          tabStop={plan.cls === c || (plan.cls === null && i === 0)}
                           on={plan.cls === c}
                           title={tr(`ws.team.tasks.form.option.class${c}`)}
                           tag={tr(`ws.tournaments.start.classes.${c}.tag`)}
@@ -460,11 +470,17 @@ export function TournamentStartSheet({
                   </Field>
                   {full && (
                     <Field label={tr(`${F}.format`)} group required error={issueFor('format')}>
-                      <div role="radiogroup" className="tp-tour-choices" data-cols="2">
-                        {FORMATS.map((f) => (
+                      <div
+                        role="radiogroup"
+                        className="tp-tour-choices"
+                        data-cols="2"
+                        onKeyDown={radioKeys}
+                      >
+                        {FORMATS.map((f, i) => (
                           <ChoiceCard
                             key={f}
                             radio
+                            tabStop={plan.format === f || (plan.format === null && i === 0)}
                             on={plan.format === f}
                             title={tr(`ws.team.tasks.form.option.${f}`)}
                             tag={tr(`ws.tournaments.start.formats.${f}.tag`)}
@@ -498,6 +514,7 @@ export function TournamentStartSheet({
                   <Field label={tr(`${F}.capacityUnit`)} group required>
                     <div
                       role="radiogroup"
+                      onKeyDown={radioKeys}
                       style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))',
@@ -508,6 +525,7 @@ export function TournamentStartSheet({
                         <ChoiceCard
                           key={u}
                           radio
+                          tabStop={plan.unit === u}
                           on={plan.unit === u}
                           title={tr(`ws.team.tasks.form.option.${u}`)}
                           body={tr(
@@ -734,7 +752,6 @@ export function TournamentStartSheet({
                 size="lg"
                 kind="primary"
                 busy={busy}
-                disabled={holdStart}
                 onClick={() => void start()}
                 data-testid="tournament-start-send"
               >
@@ -787,7 +804,14 @@ function NumberField({
         dir="ltr"
         value={value}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.value.replace(/[^\d,]/g, '').slice(0, 12))}
+        // An Arabic keyboard's digits (١٥) fold to ASCII before the filter.
+        onChange={(e) =>
+          onChange(
+            asciiDigits(e.target.value)
+              .replace(/[^\d,]/g, '')
+              .slice(0, 12),
+          )
+        }
       />
     </Field>
   );
@@ -805,6 +829,45 @@ const PILL: Record<PillTone, { bg: string; fg: string }> = {
   neutral: { bg: 'var(--tp-neutral-soft)', fg: 'var(--tp-neutral-fg)' },
 };
 
+/**
+ * A radiogroup of cards (WAI-ARIA radio pattern): one Tab stop, the arrows
+ * move to the next or previous card and pick it, Home and End to the ends.
+ * Left and right follow the reading direction, so in Arabic right goes back.
+ */
+function radioKeys(e: KeyboardEvent<HTMLElement>) {
+  const radios = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
+  const i = radios.indexOf(e.target as HTMLElement);
+  if (i < 0) return;
+  const rtl = getComputedStyle(e.currentTarget).direction === 'rtl';
+  let j: number;
+  switch (e.key) {
+    case 'ArrowDown':
+      j = i + 1;
+      break;
+    case 'ArrowUp':
+      j = i - 1;
+      break;
+    case 'ArrowRight':
+      j = rtl ? i - 1 : i + 1;
+      break;
+    case 'ArrowLeft':
+      j = rtl ? i + 1 : i - 1;
+      break;
+    case 'Home':
+      j = 0;
+      break;
+    case 'End':
+      j = radios.length - 1;
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+  const next = radios[(j + radios.length) % radios.length]!;
+  next.focus();
+  next.click();
+}
+
 function ChoiceCard({
   on,
   title,
@@ -812,6 +875,7 @@ function ChoiceCard({
   tagTone,
   body,
   radio,
+  tabStop = false,
   onPick,
 }: {
   on: boolean;
@@ -821,6 +885,8 @@ function ChoiceCard({
   tagTone?: PillTone;
   body: string;
   radio?: boolean;
+  /** A radio's one Tab stop in its group (the picked card, else the first): arrows move inside. */
+  tabStop?: boolean;
   onPick: () => void;
 }) {
   // A selected card is tinted light blue itself: a blue pill on it goes solid to stay seen.
@@ -834,6 +900,7 @@ function ChoiceCard({
       type="button"
       role={radio ? 'radio' : undefined}
       aria-checked={radio ? on : undefined}
+      tabIndex={radio ? (tabStop ? 0 : -1) : undefined}
       aria-pressed={radio ? undefined : on}
       className="tp-tour-choice"
       // Its rows (title with its pill, description) sit on the row tracks of
@@ -911,6 +978,47 @@ function CourtsSection({
   const picked = useMemo(() => new Set(picks), [picks]);
   const columns = day ? hourColumns(night.openMin, night.closeMin) : [];
   const tz = night.tz;
+  // An hour already started cannot be planned (the courts step could not hold
+  // it), and the day picker stops at tonight's trading date.
+  const now = useClock(60_000);
+  const today = night.settingsQ.data ? tonightInTz(tz, night.settingsQ.data.opening_hours) : null;
+  const atToday = day !== null && today !== null && day <= today;
+  // The timeline's one Tab stop (roving tabindex): the arrows move it.
+  const [focusAt, setFocusAt] = useState({ row: 0, col: 0 });
+  const focusRow = Math.min(focusAt.row, Math.max(0, night.courts.length - 1));
+  const focusCol = Math.min(focusAt.col, Math.max(0, columns.length - 1));
+
+  function gridKeys(e: KeyboardEvent<HTMLDivElement>) {
+    const rtl = getComputedStyle(e.currentTarget).direction === 'rtl';
+    const lastRow = night.courts.length - 1;
+    const lastCol = columns.length - 1;
+    let { row, col } = { row: focusRow, col: focusCol };
+    switch (e.key) {
+      case 'ArrowDown':
+        row = Math.min(lastRow, row + 1);
+        break;
+      case 'ArrowUp':
+        row = Math.max(0, row - 1);
+        break;
+      case 'ArrowRight':
+        col = rtl ? Math.max(0, col - 1) : Math.min(lastCol, col + 1);
+        break;
+      case 'ArrowLeft':
+        col = rtl ? Math.min(lastCol, col + 1) : Math.max(0, col - 1);
+        break;
+      case 'Home':
+        col = 0;
+        break;
+      case 'End':
+        col = lastCol;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    setFocusAt({ row, col });
+    e.currentTarget.querySelector<HTMLElement>(`[data-cell="${row}:${col}"]`)?.focus();
+  }
 
   // A booked court-hour, and why: each booking that blocks the court over the
   // hour, as its kind, who it is for (a court block: its reason) and when.
@@ -973,7 +1081,7 @@ function CourtsSection({
           icon="chevronStart"
           aria-label={tr('ws.tournaments.start.courts.prevDay')}
           title={tr('ws.tournaments.start.courts.prevDay')}
-          disabled={!day || disabled}
+          disabled={!day || atToday || disabled}
           onClick={() => day && setDay(shiftIsoDate(day, -1))}
         />
         <input
@@ -981,8 +1089,11 @@ function CourtsSection({
           aria-label={tr('ws.tournaments.start.courts.day')}
           style={{ ...inputStyle, inlineSize: 'auto' }}
           value={day ?? ''}
+          min={today ?? undefined}
           disabled={disabled}
-          onChange={(e) => e.target.value && setDay(e.target.value)}
+          onChange={(e) =>
+            e.target.value && (today === null || e.target.value >= today) && setDay(e.target.value)
+          }
         />
         <Button
           icon="chevronEnd"
@@ -1045,28 +1156,33 @@ function CourtsSection({
             role="grid"
             aria-label={tr('ws.tournaments.start.sections.courts')}
             className="tp-tour-tt-grid"
+            onKeyDown={gridKeys}
             style={{
               gridTemplateColumns: `auto repeat(${columns.length}, minmax(0, 1fr))`,
             }}
           >
-            <span role="presentation" className="tp-tour-tt-corner" />
-            {columns.map((m) => (
-              <span key={m} role="columnheader" className="tp-tour-tt-hour" dir="ltr">
-                {hourLabel(m)}
-              </span>
-            ))}
+            <div role="row" style={{ display: 'contents' }}>
+              <span role="presentation" className="tp-tour-tt-corner" />
+              {columns.map((m) => (
+                <span key={m} role="columnheader" className="tp-tour-tt-hour" dir="ltr">
+                  {hourLabel(m)}
+                </span>
+              ))}
+            </div>
             <span role="presentation" className="tp-tour-tt-pad" data-side="" />
             <span role="presentation" className="tp-tour-tt-pad" data-fill="" />
-            {night.courts.map((c) => (
+            {night.courts.map((c, row) => (
               <div key={c.id} role="row" style={{ display: 'contents' }}>
                 <span role="rowheader" className="tp-tour-tt-court">
                   {pickName(locale, c.name_en, c.name_ar)}
                 </span>
-                {columns.map((m) => {
+                {columns.map((m, col) => {
                   const k = cellKey(day, c.id, m);
                   const on = picked.has(k);
                   const reasons = booked.get(`${c.id}|${m}`);
-                  const busy = reasons !== undefined;
+                  const past = wallTimeToUtc(day, m, tz).getTime() < now;
+                  // Booked or past: not pickable (unpicking a past pick still works).
+                  const busy = reasons !== undefined || (past && !on);
                   const why = reasons
                     ?.map((r) => [r.what, r.when].filter(Boolean).join(' · '))
                     .join('; ');
@@ -1086,15 +1202,21 @@ function CourtsSection({
                       role="gridcell"
                       className="tp-tour-tt-cell"
                       data-on={on || undefined}
-                      data-booked={busy || undefined}
+                      data-booked={reasons !== undefined || undefined}
+                      data-past={past || undefined}
+                      data-cell={`${row}:${col}`}
+                      tabIndex={row === focusRow && col === focusCol ? 0 : -1}
+                      onFocus={() => setFocusAt({ row, col })}
                       aria-selected={on}
                       // A booked hour says why in the kit's hover card (InfoTip),
                       // so it stays hoverable and focusable: aria-disabled and
                       // no-op handlers rather than `disabled`.
                       aria-label={
-                        busy
+                        reasons !== undefined
                           ? `${label} · ${tr('ws.tournaments.start.courts.booked')} · ${why}`
-                          : label
+                          : past
+                            ? `${label} · ${tr('ws.courtDesk.calendar.pastSlot')}`
+                            : label
                       }
                       title={busy ? undefined : label}
                       aria-disabled={busy || undefined}

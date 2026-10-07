@@ -53,6 +53,8 @@ export const tournamentsGuestEn = {
       pointsWon: 'Pts',
       diff: '+/−',
       played: 'Played',
+      // 0311 (c27): a standing whose entry left the play (withdrew or did not show).
+      withdrawn: '{name} (left)',
       withdrawTitle: 'Withdraw from this tournament?',
       withdrawBody:
         'Withdrawing is free until registration closes. Your place goes to the waitlist.',

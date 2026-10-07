@@ -31,6 +31,10 @@ export const loyaltyEn = {
     pendingShop: 'The member is added when you take payment.',
     shopStepTitle: 'Member on this sale',
     continue: 'Take payment',
+    staffTitle: 'A staff member on this bill',
+    staffLead:
+      '{name} works here. Another manager enters their PIN to add them; their own PIN is not accepted.',
+    staffConfirm: 'Add to bill',
   },
   redeem: {
     button: 'Use points',
@@ -52,6 +56,9 @@ export const loyaltyEn = {
     undo: 'Undo',
     undone: 'Points given back to the member.',
     billRow: 'Loyalty points',
+    pinLabel: 'Manager PIN',
+    pinHint:
+      'The member’s card was not scanned just now. Scan it again, or a manager enters their PIN.',
   },
   rewards: {
     button: 'Rewards',

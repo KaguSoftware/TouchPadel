@@ -455,6 +455,7 @@ export const staffProtocolsEn = {
     limitTotal: 'Uses in total',
     limitPerCustomer: 'Uses per guest',
     limitMinSpend: 'Minimum spend (IQD)',
+    limitTierMin: 'Lowest loyalty tier',
     auto: 'Applies by itself',
     publicCode: 'Code',
     codeSingleUse: 'Each code works once',

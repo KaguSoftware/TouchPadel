@@ -84,7 +84,11 @@ export function linkGuestSessionOnce(
       const { data: linked, error } = await appRpc(cafe, 'link_guest_session', {
         p_member_token: token,
       });
-      if (error || !linked) return { status: 'failed' };
+      // 0308 (c3): a token the server refuses is answered {linked: false} (so the try is counted),
+      // never raised.
+      if (error || !linked || (linked as { linked?: unknown }).linked !== true) {
+        return { status: 'failed' };
+      }
       const name = (linked as { display_name?: unknown }).display_name;
       const display = typeof name === 'string' ? name : '';
       remember(key, display);

@@ -117,6 +117,8 @@ export interface TourPublicStanding {
   points_won: number;
   diff: number;
   played: number;
+  /** 0311 (c27): the entry left the play (withdrawn or a no-show); ranked after the rest. */
+  withdrawn: boolean;
 }
 
 /** `tournament_public` as the page's model. */
@@ -330,6 +332,7 @@ function parseStanding(row: Record<string, unknown>): TourPublicStanding | null 
     points_won: whole(row.points_won) ?? 0,
     diff: integer(row.diff) ?? 0,
     played: whole(row.played) ?? 0,
+    withdrawn: row.withdrawn === true,
   };
 }
 

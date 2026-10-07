@@ -47,7 +47,7 @@ import { RoundsBoard } from './RoundsBoard';
 import { shortName } from './roundsLogic';
 import { pickName, refundsDue, tournamentErrorText } from './tournamentLogic';
 import { readCancelAnswer, type TournamentDetail } from './tournamentPayloads';
-import { currentRoundNo, entryMoney, scoredCount } from './layoutLogic';
+import { entryMoney, playProgress, scoredCount } from './layoutLogic';
 import { DateTile, FillBar } from './TournamentParts';
 import {
   invalidateTournamentCourts,
@@ -60,6 +60,8 @@ type TabId = 'entries' | 'rounds' | 'standings';
 
 /** The reasons a desk cancel offers (op.reasons). */
 const CANCEL_REASONS = ['court_needed', 'customer_request', 'staff_error', 'other'] as const;
+/** The reasons an early finish offers (op.reasons, 0310). */
+const FINISH_REASONS = ['court_needed', 'other'] as const;
 
 export function TournamentDetailScreen() {
   const { tr } = useLocale();
@@ -169,6 +171,7 @@ function TournamentBody({
     d.status === 'running' || d.status === 'finished' ? 'rounds' : 'entries',
   );
   const [cancelling, setCancelling] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const name = pickName(locale, d.name_en, d.name_ar);
@@ -195,7 +198,40 @@ function TournamentBody({
     }
   }
 
-  const money = entryMoney(d.entries);
+  // 0310: close registration by hand (c24), finish a running tournament early (c28).
+  async function closeRegistration() {
+    setBusy(true);
+    setError(null);
+    try {
+      await appRpc('tournament_close', { p_tournament_id: d.id });
+      toast.ok(tr('ws.tournaments.close.done'));
+      onRefetch();
+    } catch (e) {
+      toast.err(tournamentErrorText(e, tr));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function finish(code: string, note: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await appRpc('tournament_finish', {
+        p_tournament_id: d.id,
+        p_reason: note ? `${code}: ${note}` : code,
+      });
+      toast.ok(tr('ws.tournaments.finish.done'));
+      setFinishing(false);
+      invalidateTournamentCourts(qc);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const money = entryMoney(d.entries, d.status);
   const prize = pickName(locale, d.prize_en, d.prize_ar);
   const courtNames = d.courts
     .map((c) => isolate(pickName(locale, c.name_en, c.name_ar)))
@@ -203,48 +239,57 @@ function TournamentBody({
   const n = (v: number) => formatNumber(v, locale);
 
   // Where the play is: the round being scored, and how far through the plan.
-  const current = currentRoundNo(d.rounds);
-  const total = Math.max(d.rounds_planned ?? 0, d.rounds.length);
-  const currentRound = current !== null ? d.rounds.find((r) => r.round_no === current) : undefined;
-  const doneRounds = d.rounds.filter((r) => current === null || r.round_no < current).length;
-  const progress =
-    total > 0
-      ? Math.round(
-          ((doneRounds +
-            (currentRound && currentRound.matches.length > 0
-              ? scoredCount(currentRound) / currentRound.matches.length
-              : 0)) /
-            total) *
-            100,
-        )
-      : 0;
+  const play = playProgress(d.status, d.rounds, d.rounds_planned);
+  const currentRound =
+    play.current !== null ? d.rounds.find((r) => r.round_no === play.current) : undefined;
+  const playLabel =
+    play.label.kind === 'ended'
+      ? tr(`tournaments.common.status.${play.label.status}`)
+      : play.label.kind === 'round'
+        ? tr('ws.tournaments.rounds.roundOf', {
+            round: n(play.label.round),
+            total: n(play.label.total),
+          })
+        : play.label.kind === 'nextToDraw'
+          ? tr('ws.tournaments.detail.nextToDraw', {
+              round: n(play.label.round),
+              total: n(play.label.total),
+            })
+          : tr('ws.tournaments.detail.allScored', { total: n(play.label.total) });
 
   const stats: { label: string; value: string; sub?: string }[] = [
     {
       label: tr('ws.tournaments.detail.stats.players'),
       value: `${n(registered)} / ${n(d.max_entries)}`,
-      sub:
-        d.entries.some((e) => e.status === 'waitlisted')
-          ? tr('ws.tournaments.list.waitlisted', {
-              count: n(d.entries.filter((e) => e.status === 'waitlisted').length),
-            })
-          : undefined,
+      sub: d.entries.some((e) => e.status === 'waitlisted')
+        ? tr('ws.tournaments.list.waitlisted', {
+            count: n(d.entries.filter((e) => e.status === 'waitlisted').length),
+          })
+        : undefined,
     },
     {
       label: tr('ws.tournaments.detail.stats.fee'),
-      value: d.entry_fee_iqd > 0 ? formatIQD(d.entry_fee_iqd, locale) : tr('tournaments.common.free'),
+      value:
+        d.entry_fee_iqd > 0 ? formatIQD(d.entry_fee_iqd, locale) : tr('tournaments.common.free'),
       sub:
         d.entry_fee_iqd > 0
-          ? tr('ws.tournaments.detail.stats.paidOwing', { paid: n(money.paid), owing: n(money.owing) })
+          ? tr('ws.tournaments.detail.stats.paidOwing', {
+              paid: n(money.paid),
+              owing: n(money.owing),
+            })
           : undefined,
     },
     {
       label: tr('ws.tournaments.detail.stats.collected'),
       value: formatIQD(money.collected, locale),
       sub:
-        money.due > 0
-          ? tr('ws.tournaments.detail.stats.due', { amount: formatIQD(money.due, locale) })
-          : tr('ws.tournaments.detail.stats.nothingDue'),
+        money.refundDue > 0
+          ? tr('ws.tournaments.detail.stats.refundDue', {
+              amount: formatIQD(money.refundDue, locale),
+            })
+          : money.due > 0
+            ? tr('ws.tournaments.detail.stats.due', { amount: formatIQD(money.due, locale) })
+            : tr('ws.tournaments.detail.stats.nothingDue'),
     },
     prize
       ? { label: tr('ws.tournaments.detail.stats.prize'), value: prize }
@@ -272,11 +317,8 @@ function TournamentBody({
         progress={
           d.rounds.length > 0
             ? {
-                percent: progress,
-                round:
-                  current !== null
-                    ? tr('ws.tournaments.rounds.roundOf', { round: n(current), total: n(total) })
-                    : tr('tournaments.common.status.finished'),
+                percent: play.percent,
+                round: playLabel,
                 courts: currentRound
                   ? tr('ws.tournaments.detail.progress', {
                       done: n(scoredCount(currentRound)),
@@ -301,6 +343,20 @@ function TournamentBody({
                 }
               >
                 {tr('ws.tournaments.detail.seeOnCalendar')}
+              </Button>
+            )}
+            {caps.runTournaments && d.can.close && (
+              <Button
+                icon="lock"
+                disabled={!reachable || busy}
+                onClick={() => void closeRegistration()}
+              >
+                {tr('ws.tournaments.close.action')}
+              </Button>
+            )}
+            {caps.publishTournaments && d.can.finish && (
+              <Button icon="checkCircle" disabled={!reachable} onClick={() => setFinishing(true)}>
+                {tr('ws.tournaments.finish.action')}
               </Button>
             )}
             {caps.publishTournaments && d.can.cancel && (
@@ -401,6 +457,22 @@ function TournamentBody({
       )}
       {tab === 'standings' && <StandingsTable detail={d} />}
 
+      {finishing && (
+        <ReasonCodePrompt
+          action={tr('ws.tournaments.finish.action')}
+          reasonCodes={FINISH_REASONS}
+          noteMode="optional"
+          busy={busy}
+          error={error}
+          onCancel={() => {
+            setFinishing(false);
+            setError(null);
+          }}
+          onSubmit={(code, note) => void finish(code, note)}
+        >
+          <p style={{ marginBlockStart: 0 }}>{tr('ws.tournaments.finish.lead')}</p>
+        </ReasonCodePrompt>
+      )}
       {cancelling && (
         <ReasonCodePrompt
           action={tr('ws.tournaments.cancel.action')}
@@ -568,10 +640,24 @@ function TournamentHero({
           alignItems: 'flex-start',
         }}
       >
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'flex-start', minInlineSize: 0 }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--tp-sp-4)',
+            alignItems: 'flex-start',
+            minInlineSize: 0,
+          }}
+        >
           <DateTile at={d.starts_at} tz={tz} status={d.status} size="lg" />
           <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
-            <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--tp-sp-2)',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
               {pill(tr(`tournaments.common.status.${d.status}`), live)}
               {pill(tr(`tournaments.common.format.${d.format}`))}
               {pill(tr(`ws.matches.common.category.${d.category}`))}
@@ -581,7 +667,9 @@ function TournamentHero({
                 }),
               )}
             </div>
-            <h1 style={{ margin: 0, fontSize: 'var(--tp-fs-3xl)', fontWeight: 800, lineHeight: 1.2 }}>
+            <h1
+              style={{ margin: 0, fontSize: 'var(--tp-fs-3xl)', fontWeight: 800, lineHeight: 1.2 }}
+            >
               {isolate(name)}
             </h1>
             {when && (
@@ -589,7 +677,9 @@ function TournamentHero({
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div
+          style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'center' }}
+        >
           {actions}
         </div>
       </div>

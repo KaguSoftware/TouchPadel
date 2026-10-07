@@ -12,7 +12,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { VENUE_TZ, countPhrase, formatNumber, formatTimeRange } from '@touch/i18n';
+import { VENUE_TZ, countPhrase, formatDate, formatNumber, formatTimeRange } from '@touch/i18n';
 import { TOUR_STATUSES } from '@touch/core/tournaments';
 import { useLocale } from '../../lib/i18n';
 import { useQuery } from '@tanstack/react-query';
@@ -280,7 +280,8 @@ function TournamentCard({ t, tz, onOpen }: { t: DeskTournament; tz: string; onOp
           </bdi>
           {t.starts_at && t.ends_at && (
             <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-              {formatTimeRange(new Date(t.starts_at), new Date(t.ends_at), locale, tz)}
+              {/* The day too: the date tile is aria-hidden, so this line carries it for a screen reader. */}
+              {`${formatDate(new Date(t.starts_at), locale, tz)} · ${formatTimeRange(new Date(t.starts_at), new Date(t.ends_at), locale, tz)}`}
             </span>
           )}
           <span
@@ -328,6 +329,7 @@ function TournamentCard({ t, tz, onOpen }: { t: DeskTournament; tz: string; onOp
           )}
         </span>
         <FillBar
+          decorative
           percent={fillPercent(t.registered, t.max_entries)}
           color={
             t.status === 'running'
