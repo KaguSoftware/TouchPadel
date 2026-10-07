@@ -245,12 +245,12 @@ describe.skipIf(!docker)('staff_push_keys (rolled-back transactions)', () => {
     const m = def.match(/c_title_keys\s+constant text\[\] := array\[([^\]]*)\]/);
     expect(m).not.toBeNull();
     const keys = [...m![1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]);
-    expect(keys).toHaveLength(39);
+    expect(keys).toHaveLength(40);
     expect(keys.slice(15, 26)).toEqual(KEYS.map(([k]) => k));
     expect(keys.slice(26, 37)).toEqual(WAVE5_KEYS.map(([k]) => k));
     // Open matches' match_report_new follows wave 5 (0261, R43); loyalty's gift alert is last
-    // (0308, c17).
-    expect(keys.slice(37)).toEqual(['match_report_new', 'loyalty_gift']);
+    // (0308, c17); a staff screenshot alert follows it (0313).
+    expect(keys.slice(37)).toEqual(['match_report_new', 'loyalty_gift', 'screenshot_taken']);
   });
 
   it('is no client role’s to call: the driver, marketing and the rest are refused', () => {

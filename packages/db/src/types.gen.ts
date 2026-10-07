@@ -2422,6 +2422,10 @@ export type Database = {
         Args: { p_staff: string; p_venue: string }
         Returns: undefined
       }
+      log_staff_screenshot: {
+        Args: { p_route: string; p_venue_id: string }
+        Returns: undefined
+      }
       log_stock: {
         Args: {
           p_idempotency_key?: string

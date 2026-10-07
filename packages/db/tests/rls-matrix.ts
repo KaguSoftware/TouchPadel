@@ -6311,4 +6311,12 @@ export const matrix: MatrixRule[] = [
     note: '0310 (c24): internal; the sweep and tournament_close call it',
     drop: 30,
   },
+  // ── 0313 staff_screenshot_report ──
+  {
+    kind: 'rpc', schema: 'app', name: 'log_staff_screenshot',
+    args: { p_venue_id: NIL_UUID, p_route: '/staff' },
+    expect: STAFF_ANY,
+    note: '0313: any active staff member reports a screenshot; a nil branch is VENUE_MISMATCH past the guard, nothing is written',
+    drop: 30,
+  },
 ];

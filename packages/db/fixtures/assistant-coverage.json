@@ -631,6 +631,7 @@
     "lock_stock_ingredients": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "lock_wage": "excluded: service_role only — the wage lock (0271), taken by the pay, attendance and deduction writers, never by a client",
     "log_replay": "map:action",
+    "log_staff_screenshot": "excluded: written by the staff phone app when the OS reports a screenshot (0313); the owner reads the rows through the audit log, and the assistant takes no action on it",
     "log_stock": "map:action",
     "looks_like_card": "excluded: service_role only — the card-number text test (coach_statements_fixes migration, R74) behind the coach_statements_no_card CHECK and the coach-pay and handback reference guards, never by a client",
     "loyalty_adjust": "map:action",

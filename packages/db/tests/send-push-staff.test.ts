@@ -65,6 +65,8 @@ const WAVE5_KEYS = [
 const MATCH_KEYS = ['match_report_new'];
 /** Loyalty's gift alert to the owners (0308, c17), last in the JSON. */
 const LOYALTY_KEYS = ['loyalty_gift'];
+/** A staff screenshot alert to the owners (0313), last in the JSON. */
+const SCREENSHOT_KEYS = ['screenshot_taken'];
 const FSI = '\u2068';
 const PDI = '\u2069';
 const iso = (s: string) => `${FSI}${s}${PDI}`;
@@ -86,12 +88,12 @@ function msg(lang: Lang, key: string, params: Record<string, unknown> = {}) {
 describe('staff-push.json', () => {
   it('lists the four staff kinds, thirty-nine title keys and seven routes, each once', () => {
     expect(staffPush.kinds).toEqual(['staff_task', 'staff_decide', 'staff_decided', 'staff_info']);
-    expect(staffPush.title_keys).toHaveLength(39);
+    expect(staffPush.title_keys).toHaveLength(40);
     expect(new Set(staffPush.title_keys).size).toBe(staffPush.title_keys.length);
     expect(staffPush.title_keys.slice(15, 26)).toEqual(ROLE_SPEC_KEYS);
     expect(staffPush.title_keys.slice(26, 37)).toEqual(WAVE5_KEYS);
     expect(staffPush.title_keys.slice(37, 38)).toEqual(MATCH_KEYS);
-    expect(staffPush.title_keys.slice(38)).toEqual(LOYALTY_KEYS);
+    expect(staffPush.title_keys.slice(38)).toEqual([...LOYALTY_KEYS, ...SCREENSHOT_KEYS]);
     expect(staffPush.routes).toEqual([
       'staff',
       'staff-step',
@@ -234,6 +236,8 @@ describe('staffMessage — the EN copy of §2.21', () => {
     ['match_report_new', {}, 'Player report', 'A report about a player is waiting for review.'],
     // Loyalty (0308, c17): the manager by name; no guest, no figure.
     ['loyalty_gift', { name: 'Rana' }, 'Points gifted', `${iso('Rana')} gave a guest loyalty points.`],
+    // Screenshots (0313): the person by name; the page stays off the lock screen.
+    ['screenshot_taken', { name: 'Rana' }, 'Screenshot taken', `${iso('Rana')} took a screenshot in the staff app.`],
   ];
 
   it('loyalty_gift without the manager’s name still says what happened', () => {

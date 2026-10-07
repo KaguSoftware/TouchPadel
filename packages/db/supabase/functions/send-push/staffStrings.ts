@@ -126,6 +126,12 @@ const EN = {
     body: (v) =>
       v.name ? `${v.name} gave a guest loyalty points.` : 'A manager gave a guest loyalty points.',
   },
+  // Screenshots (0313): a staff member took a screenshot in the phone app. `name` is the person;
+  // the page stays off the lock screen (the audit log and the owner's list have it).
+  screenshot_taken: {
+    title: 'Screenshot taken',
+    body: (v) => (v.name ? `${v.name} took a screenshot in the staff app.` : 'A staff member took a screenshot in the staff app.'),
+  },
 } satisfies Record<string, StaffCopy>;
 
 export type StaffTitleKey = keyof typeof EN;
@@ -196,6 +202,11 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
   loyalty_gift: {
     title: 'نقاط مُهداة',
     body: (v) => (v.name ? `منح ${v.name} ضيفًا نقاط ولاء.` : 'منح أحد المديرين ضيفًا نقاط ولاء.'),
+  },
+  // DRAFT-AR (0313): on the client's review list.
+  screenshot_taken: {
+    title: 'لقطة شاشة',
+    body: (v) => (v.name ? `التقط ${v.name} لقطة شاشة في تطبيق الموظفين.` : 'التقط أحد الموظفين لقطة شاشة في تطبيق الموظفين.'),
   },
 };
 

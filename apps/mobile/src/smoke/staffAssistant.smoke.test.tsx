@@ -16,7 +16,10 @@ import type { ConversationRow } from '../features/assistant/chat';
 import { SettingsBody } from '../features/assistant/SettingsSheet';
 import StaffAssistant from '../../app/staff-assistant';
 import StaffAssistantChats from '../../app/staff-assistant-chats';
+import StaffScreenshots from '../../app/staff-screenshots';
 import StaffToday from '../../app/staff';
+import { AssistantFab, fabHidden } from '../features/assistant/AssistantFab';
+import { screenshotKeys, type ScreenshotEvent } from '../features/staff/screenGuard/api';
 
 const CHAT = 'a5510000-0000-4000-8000-000000000001';
 
@@ -33,6 +36,10 @@ const CHATS: ConversationRow[] = [
   },
 ];
 
+const SHOTS: ScreenshotEvent[] = [
+  { id: 7, at: '2026-10-07T09:15:00Z', page: '/staff-order', staffName: 'Rana' },
+];
+
 runSmokeCases('the owner assistant', [
   {
     route: 'staff-assistant',
@@ -45,6 +52,12 @@ runSmokeCases('the owner assistant', [
     Component: StaffAssistantChats,
     labelKey: 'staff.assistant.chats.new',
     options: { staff: { role: 'owner' }, queryData: [[assistantKeys.conversations, CHATS]] },
+  },
+  {
+    route: 'staff-screenshots',
+    Component: StaffScreenshots,
+    nearbyKey: 'staff.screenshots.intro',
+    options: { staff: { role: 'owner' }, queryData: [[screenshotKeys.list, SHOTS]] },
   },
 ]);
 
@@ -149,21 +162,59 @@ describe.each(LOCALES)('the owner assistant in %s', (locale) => {
     }
   });
 
-  it('puts the assistant on the owner’s Today and on no one else’s', () => {
+  it('lists the staff screenshots, who and which page', () => {
+    const screen = renderRoute(StaffScreenshots, {
+      locale,
+      staff: { role: 'owner' },
+      queryData: [[screenshotKeys.list, SHOTS]],
+    });
+    try {
+      const row = screen.getByTestId('staff-screenshots.row.7');
+      expect(within(row).getByText(t('staff.screenshots.row', { name: 'Rana', page: '/staff-order' }))).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('keeps the assistant off Today as a banner, and gives the owner a screenshots tile', () => {
     const owner = renderRoute(StaffToday, { locale, staff: { role: 'owner' } });
     try {
-      const entry = owner.getByTestId('staff.assistant');
-      expect(within(entry).getByText(t('staff.assistant.entry.title'))).toBeTruthy();
-      fireEvent.press(entry);
-      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-assistant' });
+      expect(owner.queryByTestId('staff.assistant')).toBeNull();
+      fireEvent.press(owner.getByTestId('staff.screenshots'));
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-screenshots' });
     } finally {
       owner.unmount();
     }
     const manager = renderRoute(StaffToday, { locale, staff: { role: 'manager' } });
     try {
-      expect(manager.queryByTestId('staff.assistant')).toBeNull();
+      expect(manager.queryByTestId('staff.screenshots')).toBeNull();
     } finally {
       manager.unmount();
     }
+  });
+
+  it('floats the assistant button for the owner only, off its own screens', () => {
+    const owner = renderRoute(AssistantFab, { locale, staff: { role: 'owner' }, pathname: '/staff' });
+    try {
+      fireEvent.press(owner.getByTestId('staff.assistant.fab'));
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-assistant' });
+    } finally {
+      owner.unmount();
+    }
+    const manager = renderRoute(AssistantFab, { locale, staff: { role: 'manager' }, pathname: '/staff' });
+    try {
+      expect(manager.queryByTestId('staff.assistant.fab')).toBeNull();
+    } finally {
+      manager.unmount();
+    }
+    const onAssistant = renderRoute(AssistantFab, { locale, staff: { role: 'owner' }, pathname: '/staff-assistant' });
+    try {
+      expect(onAssistant.queryByTestId('staff.assistant.fab')).toBeNull();
+    } finally {
+      onAssistant.unmount();
+    }
+    expect(fabHidden('/staff-assistant-chats')).toBe(true);
+    expect(fabHidden('/(tabs)')).toBe(true);
+    expect(fabHidden('/staff-order')).toBe(false);
   });
 });

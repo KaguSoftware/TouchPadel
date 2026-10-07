@@ -25,6 +25,9 @@ import type { StaffStatusRead } from './status';
 export const STAFF_RPCS = [
   // status and venue
   'staff_venue_ids',
+  // screenshots (0313): a staff screenshot is reported; the owner reads the list from the audit log
+  'log_staff_screenshot',
+  'audit_log_page',
   // Today
   'my_protocol_work',
   'protocols_waiting_count',

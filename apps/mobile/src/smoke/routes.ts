@@ -157,6 +157,8 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
     route: 'staff-assistant-chats',
     primary: 'staff-assistant-chats.new',
   },
+  // The owner's list of staff screenshots, cased by staffAssistant.smoke.test.tsx.
+  { file: 'staff-screenshots.tsx', route: 'staff-screenshots', primary: 'staff-screenshots.intro' },
   // ── open matches ──────────────────────────────────────────────────────────
   // docs/design/open-matches/guest.md §4.27, cased by matches.smoke.test.tsx
   // in EN and AR. Two spellings are fixed like booking/[id]: `match/[id]` →
