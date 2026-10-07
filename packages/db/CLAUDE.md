@@ -17,8 +17,9 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0312`
-  (`20261007000312_assistant_models_5_5.sql`, the assistant on Claude Opus 5.5 and Sonnet 5.5 only,
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0313`
+  (`20261007000313_staff_screenshot_report.sql`, a staff member's screenshot is audited and pushed
+  to the owners; 0312 is `20261007000312_assistant_models_5_5.sql`, the assistant on Claude Opus 5.5 and Sonnet 5.5 only,
   first committed as a second 0307 and renumbered before it reached hosted; 0307–0311 the second review of loyalty and
   tournaments: 0307 identity hardening, 0308 loyalty earn and redeem, 0309 loyalty promotions and
   the nightly, 0310 tournament money and lifecycle (with the `tabs_tournament_entry_idx` index
@@ -37,7 +38,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0313`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0314`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -198,6 +199,13 @@ is a line in that file.
   `tournament_release_blocks`, `tournament_sweep` (0300 is no longer the latest) and
   `tournament_entry_money` (0299), plus the new `tournament_close`, `tournament_finish`,
   `tournament_close_internal`, `tournament_refund_candidates` and `tournament_refunds_due`.
+  Staff screenshot report (0313): holds `notify_staff` (0308 is no longer the latest; it gains the
+  title key `screenshot_taken`, 40 keys now) plus the new `log_staff_screenshot(p_venue_id, p_route)`,
+  any active staff at the branch: one `staff.screenshot` / `screen` / page row through `write_audit`
+  (so the desktop Audit log shows it, and `audit_log_page` with the prefix `staff.screenshot` is the
+  owner's list on the phone) and a `screenshot_taken` `staff_info` push to the owners naming the
+  person only (the page stays off the lock screen), deduped per person and page for 15 minutes. No
+  new table.
   Tournament play (0311): holds `desk_tournament_detail` and `tournament_set_rounds` (0310 is
   no longer the latest), `tournament_mark_no_show`, `tournament_public`, `tournament_score`
   and `tournament_standings` (0301 is no longer the latest).
@@ -222,8 +230,8 @@ is a line in that file.
   `_shared/staff-push.json`; the guest kinds of open matches take their copy from
   `send-push/guestStrings.ts` and `_shared/guest-push.json`, not `STRINGS`.
   `tests/outbox-kinds.test.ts` holds the CHECK to the three lists. A new staff title key also
-  joins `app.notify_staff`'s `c_title_keys` (latest `0308`, which appended `loyalty_gift` after
-  0261's `match_report_new`) in
+  joins `app.notify_staff`'s `c_title_keys` (latest `0313`, which appended `screenshot_taken` after
+  0308's `loyalty_gift`, itself after 0261's `match_report_new`) in
   the same commit, and a guest title key `app.match_notify`'s `c_keys` (`0261`) or, for a
   lesson or coach key, `app.lesson_notify`'s `c_keys` (`0283`; every lesson push is queued by the
   `lesson_events_notify` trigger except the two statement keys); the stack tests

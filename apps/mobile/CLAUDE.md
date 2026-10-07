@@ -17,6 +17,16 @@ reader is mounted and never changes what the staff status answers; `RequireCoach
 coach-mode screen (a retired coach reaches the statements only). Guests open it from Profile, staff
 who coach from the "Coach mode" row of the staff hub (C-27).
 
+Screenshot guard (owner call 2026-10-07): `StaffScreenGuard`
+(`src/features/staff/screenGuard/`, mounted once in `app/_layout.tsx`) blocks screenshots and
+recordings for every staff role except the owner (`expo-screen-capture`: Android FLAG_SECURE; iOS
+cannot block a screenshot, it blanks recordings and the app switcher) and reports each screenshot it
+hears of to `log_staff_screenshot` (0313) with the page from `usePathname()`, retried a few times
+without signal. The owner reads the list at `app/staff-screenshots.tsx` (Today's "Screenshots" tile),
+the audit log's `staff.screenshot` rows through `audit_log_page`. The owner's assistant is a
+floating button (`src/features/assistant/AssistantFab.tsx`, also mounted in the layout) on staff
+pages other than the assistant's own; Today no longer carries the assistant banner.
+
 ## Commits
 
 - No AI co-author trailer of any kind (`Co-Authored-By: Claude …`, Copilot, …). If a harness appends
@@ -116,7 +126,10 @@ who coach from the "Coach mode" row of the staff hub (C-27).
   command and hand it over.
 - Native modules reach phones only in a new dev client and store build. The date-time picker
   (`@react-native-community/datetimepicker`, wrapped once in `src/components/DateTimeField.tsx`)
-  is one: coach mode's pickers need the coaching build (coaching R19).
+  is one: coach mode's pickers need the coaching build (coaching R19). So is `expo-screen-capture`
+  (the screenshot guard): until the build after 2026-10-07 is installed, staff phones neither block
+  nor report screenshots. On Android 13 and older the report needs a media permission the guard asks
+  for; check on a real phone whether Android 14 reports an attempt FLAG_SECURE blocks.
 
 ## Tests
 
