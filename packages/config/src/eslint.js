@@ -241,6 +241,7 @@ const testIdElements = [
   'CoachCard',
   'OfferRow',
   'ClassRow',
+  'LessonTimePill',
   'LessonRow',
   'PaymentModeChoice',
   'PartyStepper',

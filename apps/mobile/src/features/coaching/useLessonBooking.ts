@@ -45,6 +45,12 @@ export interface LessonBooking {
   night: string | null;
   setNight: (date: string) => void;
   cells: MergedCell[];
+  /**
+   * Every open night with its free starts, first to last (the coach page's
+   * stacked day cards, Figma "D · Profile"). A night whose starts have all
+   * begun drops out.
+   */
+  nights: { date: string; cells: MergedCell[] }[];
   /** The grid's identity: a change brings the row back to its first time. */
   gridKey: string;
   tz: string;
@@ -126,6 +132,17 @@ export function useLessonBooking({
     [night, slots.data, nightSettings, now, offer?.priceIqd],
   );
 
+  const nights = useMemo(() => {
+    if (!slots.data) return [];
+    return dates
+      .filter((d) => openNights.has(d))
+      .map((d) => ({
+        date: d,
+        cells: lessonCells(slots.data.starts, d, nightSettings, now, offer?.priceIqd ?? null),
+      }))
+      .filter((n) => n.cells.length > 0);
+  }, [dates, openNights, slots.data, nightSettings, now, offer?.priceIqd]);
+
   const status: LessonGridStatus = (() => {
     if (!typeId) return 'none';
     if (!slots.data) return slots.isError ? 'error' : 'loading';
@@ -145,6 +162,7 @@ export function useLessonBooking({
     night,
     setNight,
     cells,
+    nights,
     gridKey: `${typeId ?? ''}|${night ?? ''}`,
     tz,
     status,

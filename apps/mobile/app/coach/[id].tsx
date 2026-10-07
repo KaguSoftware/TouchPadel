@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Pressable, ScrollView, Share, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, ScrollView, Share, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { wallTimeToUtc } from '@touch/core';
@@ -8,6 +8,7 @@ import {
   formatDate,
   formatDayNumber,
   formatIQD,
+  formatMonthShort,
   formatTime,
   formatWeekdayShort,
   isolate,
@@ -35,15 +36,22 @@ import {
 } from '../../src/features/coaching/logic';
 import { useCoachStatus } from '../../src/features/coach/useCoachStatus';
 import { callPhone } from '../../src/lib/phone';
-import { space, useTheme } from '../../src/theme';
-import { Button, Card, Hint, Screen, SegmentedControl } from '../../src/components/ui';
-import { DayChip, DegradedBanner, SlotCell, slotTestID } from '../../src/components/booking';
+import { brand, radius, shadows, space, useTheme } from '../../src/theme';
+import { Button, Hint, Screen } from '../../src/components/ui';
+import { DegradedBanner, slotTestID } from '../../src/components/booking';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { MatchNotice, MatchSectionTitle, ShareGlyph } from '../../src/components/match';
-import { ClassRow, CoachAvatar, OfferRow } from '../../src/components/coaching';
+import { ClassRow, CoachHero, LessonTimePill, OfferRow } from '../../src/components/coaching';
 import { useToast } from '../../src/components/overlays';
 
-const GRID_COLUMNS = 3;
+/** How far the name card rides up over the hero (Figma "D · Profile": the card overlaps the band). */
+const CARD_OVERLAP = 56;
+/** The hero's height below the status bar (Figma "D · Profile": 340 with the bar). */
+const HERO_HEIGHT = 290;
+/** Day cards shown at first, and how many more each "See more days" adds. */
+const NIGHTS_STEP = 3;
+/** The book bar's height above the home indicator (Figma "Book bar"). */
+const BOOK_BAR_HEIGHT = 66;
 
 /**
  * A coach's page (docs/design/coaching/guest.md §4.8.3): the card, the
@@ -55,8 +63,13 @@ const GRID_COLUMNS = 3;
  * first read is the card with its branches, and the second the branch). The
  * choice is this screen's only: it never writes the stored branch.
  *
- * Browsing is public: a signed-out tap on a time keeps the intent
- * (`pendingLesson`) and opens the welcome. The grid is `useLessonBooking`'s;
+ * Layout is the Figma "D · Profile" frame: the photo full width under a
+ * transparent native header, the name card over it, the lessons, then the free
+ * times as one card per open night (three, then three more per "See more
+ * days"). Tapping a time picks it; the book bar at the foot books it.
+ *
+ * Browsing is public: a signed-out Book keeps the intent (`pendingLesson`)
+ * and opens the welcome. The grid is `useLessonBooking`'s;
  * only the server's free starts are cells, so nothing is greyed out. A paused
  * coach, the switch off, and the coach looking at their own page (R56) show a
  * line instead of the grid.
@@ -67,7 +80,6 @@ export default function CoachDetailScreen() {
   const router = useRouter();
   const toast = useToast();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const { session } = useAuth();
   const params = useLocalSearchParams<{
     id?: string;
@@ -115,6 +127,8 @@ export default function CoachDetailScreen() {
   });
 
   const [bioOpen, setBioOpen] = useState(false);
+  const [pickedAt, setPickedAt] = useState<number | null>(null);
+  const [nightsShown, setNightsShown] = useState(NIGHTS_STEP);
   const scrollRef = useRef<ScrollView>(null);
   const sessionsY = useRef(0);
 
@@ -188,10 +202,15 @@ export default function CoachDetailScreen() {
     return parts.join(' · ');
   };
 
-  const header = (
+  // Over the photo the Android toolbar has no glass item, so its back arrow and
+  // the share glyph go white; iOS 26 wraps both in Liquid Glass circles.
+  const overPhoto = Platform.OS === 'android' ? brand.white : colors.blue;
+  const headerFor = (transparent: boolean) => (
     <Stack.Screen
       options={{
-        title: name || t('coaching.guest.coach.title'),
+        title: transparent ? '' : name || t('coaching.guest.coach.title'),
+        headerTransparent: transparent,
+        ...(transparent ? { headerTintColor: overPhoto } : {}),
         headerRight: coach
           ? () => (
               <Pressable
@@ -206,13 +225,14 @@ export default function CoachDetailScreen() {
                   paddingEnd: 6,
                 })}
               >
-                <ShareGlyph color={colors.blue} />
+                <ShareGlyph color={transparent ? overPhoto : colors.blue} />
               </Pressable>
             )
           : undefined,
       }}
     />
   );
+  const header = headerFor(false);
 
   const notFound = (
     <EmptyState
@@ -279,51 +299,39 @@ export default function CoachDetailScreen() {
   }
 
   const bio = coach ? pick(coach.bioEn, coach.bioAr, locale) : '';
-  const cellWidth = Math.floor((width - space.l * 2 - space.s * (GRID_COLUMNS - 1)) / GRID_COLUMNS);
   const showGrid = !off && !paused && !self && booking.types.length > 0;
+  const todayLabel = formatDate(new Date(), locale, booking.tz);
+  const nightLabel = (date: string) => {
+    const noon = wallTimeToUtc(date, 12 * 60, booking.tz);
+    const day = `${formatWeekdayShort(noon, locale, booking.tz)} ${formatDayNumber(noon, locale, booking.tz)} ${formatMonthShort(noon, locale, booking.tz)}`;
+    return formatDate(noon, locale, booking.tz) === todayLabel
+      ? `${t('common.today')} · ${day}`
+      : day;
+  };
+  // A preselected date (a deep link) is always among the cards shown.
+  const preIndex =
+    typeof params.date === 'string'
+      ? booking.nights.findIndex((n) => n.date === params.date)
+      : -1;
+  const nightsVisible = booking.nights.slice(0, Math.max(nightsShown, preIndex + 1));
+  const pickedNight =
+    pickedAt === null || !showGrid
+      ? null
+      : (booking.nights.find((n) => n.cells.some((c) => c.startAt.getTime() === pickedAt)) ??
+        null);
+  const picked = pickedNight?.cells.find((c) => c.startAt.getTime() === pickedAt) ?? null;
+  const onPill = (cell: MergedCell) => {
+    const at = cell.startAt.getTime();
+    setPickedAt((cur) => (cur === at ? null : at));
+  };
 
   const grid = (() => {
     if (!showGrid) return null;
     if (meReading) return <SkeletonList rows={2} height={60} />;
-    const offer = booking.offer;
     return (
-      <View style={{ gap: space.sm }}>
+      <View style={{ gap: 10 }}>
         <MatchSectionTitle>{t('coaching.guest.coach.grid')}</MatchSectionTitle>
-        {booking.types.length > 1 ? (
-          <SegmentedControl<string>
-            testID="coach-detail.type"
-            options={booking.types.map((o) => ({
-              value: o.lessonTypeId,
-              label: pick(o.nameEn, o.nameAr, locale),
-            }))}
-            value={booking.typeId ?? ''}
-            onChange={booking.setTypeId}
-            activeColor={colors.gstrong}
-          />
-        ) : null}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 6 }}
-        >
-          {booking.dates.map((d) => {
-            const noon = wallTimeToUtc(d, 12 * 60, booking.tz);
-            return (
-              <DayChip
-                key={d}
-                testID={`coach-detail.day.${d}`}
-                compact
-                dow={formatWeekdayShort(noon, locale, booking.tz)}
-                dayNum={formatDayNumber(noon, locale, booking.tz)}
-                selected={d === booking.night}
-                closed={booking.status === 'ready' && !booking.openNights.has(d)}
-                closedLabel={t('coaching.guest.coach.dayFull')}
-                onPress={() => booking.setNight(d)}
-              />
-            );
-          })}
-        </ScrollView>
-        {booking.status === 'loading' ? <SkeletonList rows={1} height={60} /> : null}
+        {booking.status === 'loading' ? <SkeletonList rows={2} height={94} /> : null}
         {booking.status === 'error' ? (
           <ErrorState
             testID="coach-detail.slots-error"
@@ -333,182 +341,288 @@ export default function CoachDetailScreen() {
             onRetry={booking.refetch}
           />
         ) : null}
-        {booking.status === 'empty' ? (
+        {booking.status === 'empty' ||
+        (booking.status === 'ready' && booking.nights.length === 0) ? (
           <Hint>
             {phone
               ? t('coaching.guest.coach.noTimes', { branch: isolate(branchLabel) })
               : t('coaching.guest.coach.noTimesNoPhone')}
           </Hint>
         ) : null}
-        {booking.status === 'ready' && booking.cells.length === 0 ? (
-          <Hint>{t('coaching.guest.coach.noTimesNight')}</Hint>
-        ) : null}
-        {booking.cells.length > 0 ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.s }}>
-            {booking.cells.map((cell) => (
-              <SlotCell
-                key={cell.startAt.getTime()}
-                testID={slotTestID('coach-detail.slot', cell)}
-                compact
-                width={cellWidth}
-                cell={cell}
-                time={formatTime(cell.startAt, locale, booking.tz)}
-                sub={money(cell.priceIqd) ?? ''}
-                capacityLine=""
-                onPress={onTime}
-              />
-            ))}
+        {/* Figma "D · Profile": one white card per open night, headed by the
+          day, its free starts as round pills. */}
+        {nightsVisible.map((n) => (
+          <View
+            key={n.date}
+            testID={`coach-detail.night.${n.date}`}
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: radius.card,
+              paddingTop: space.sm,
+              paddingBottom: space.sm,
+              paddingStart: space.m,
+              paddingEnd: space.m,
+              gap: 10,
+            }}
+          >
+            <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.mut }}>
+              {nightLabel(n.date)}
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.s }}>
+              {n.cells.map((cell) => (
+                <LessonTimePill
+                  key={cell.startAt.getTime()}
+                  testID={slotTestID('coach-detail.slot', cell)}
+                  cell={cell}
+                  time={formatTime(cell.startAt, locale, booking.tz)}
+                  selected={cell.startAt.getTime() === pickedAt}
+                  onPress={onPill}
+                />
+              ))}
+            </View>
           </View>
-        ) : null}
-        {offer ? (
-          <Hint>
-            {[
-              offer.priceIqd !== null
-                ? t('coaching.common.forTheLesson', { price: money(offer.priceIqd) ?? '' })
-                : null,
-              t('coaching.common.upTo', {
-                people: countPhrase('coaching.common.count.people', offer.maxPlaces, locale),
-              }),
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </Hint>
+        ))}
+        {booking.nights.length > nightsVisible.length ? (
+          <Pressable
+            testID="coach-detail.more-days"
+            accessibilityRole="button"
+            onPress={() => setNightsShown(nightsVisible.length + NIGHTS_STEP)}
+            style={({ pressed }) => ({
+              alignSelf: 'center',
+              minHeight: 44,
+              justifyContent: 'center',
+              paddingStart: space.l,
+              paddingEnd: space.l,
+              borderRadius: radius.pill,
+              borderWidth: 1,
+              borderColor: colors.line,
+              backgroundColor: pressed ? colors.sub : colors.card,
+            })}
+          >
+            <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.blue }}>
+              {t('coaching.guest.coach.moreDays')}
+            </Text>
+          </Pressable>
         ) : null}
       </View>
     );
   })();
 
   return (
-    <Screen edges={[]}>
-      {header}
+    <Screen edges={[]} padded={false}>
+      {headerFor(true)}
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="never"
         contentContainerStyle={{
-          paddingTop: space.m,
-          paddingBottom: 40 + insets.bottom,
-          gap: space.sm,
+          paddingBottom: 40 + insets.bottom + (picked ? BOOK_BAR_HEIGHT : 0),
         }}
       >
-        {degraded && phone ? (
-          <DegradedBanner
-            testID="coach-detail.degraded"
-            tight
-            message={t('degraded.bannerAvailability', { phone: isolate(phone) })}
-            phone={phone}
-          />
-        ) : null}
-        <Card>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-            <CoachAvatar photoPath={coach?.photoPath ?? null} name={name} size={64} />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={{ fontFamily: fonts.display900, fontSize: 20, color: colors.ink }}>
-                {name}
-              </Text>
-              {otherBranch && branchLabel ? (
-                <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: colors.mut }}>
-                  {t('coaching.common.atBranch', { branch: isolate(branchLabel) })}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-          {bio ? (
-            <View style={{ marginTop: space.sm, gap: 4 }}>
-              <Text
-                numberOfLines={bioOpen ? undefined : 3}
-                style={{
-                  fontFamily: fonts.body400,
-                  fontSize: 13,
-                  lineHeight: 19,
-                  color: colors.mut2,
-                }}
-              >
-                {bio}
-              </Text>
-              <Pressable
-                testID="coach-detail.bio-more"
-                accessibilityRole="button"
-                hitSlop={8}
-                onPress={() => setBioOpen((v) => !v)}
-              >
-                <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.blue }}>
-                  {t(bioOpen ? 'coaching.guest.coach.less' : 'coaching.guest.coach.more')}
-                </Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </Card>
-
-        {off ? <MatchNotice text={t('coaching.common.errors.off')} /> : null}
-        {paused ? <MatchNotice text={t('coaching.guest.coach.paused')} /> : null}
-        {self ? <MatchNotice text={t('coaching.guest.coach.self')} /> : null}
-
-        <View testID="coach-detail.offers" style={{ gap: space.s }}>
-          <MatchSectionTitle>{t('coaching.guest.coach.offers')}</MatchSectionTitle>
-          {data.offers
-            .filter((o) => o.kind !== null)
-            .map((o) => (
-              <OfferRow
-                key={o.lessonTypeId}
-                testID={`coach-detail.offer.${o.lessonTypeId}`}
-                name={pick(o.nameEn, o.nameAr, locale)}
-                kind={t(`coaching.common.kinds.${o.kind!}`)}
-                meta={offerMeta(o)}
-                price={money(o.priceIqd)}
-                selected={o.kind === 'private' && o.lessonTypeId === booking.typeId && showGrid}
-                onPress={() => {
-                  if (o.kind === 'private') booking.setTypeId(o.lessonTypeId);
-                  else scrollRef.current?.scrollTo({ y: sessionsY.current, animated: true });
-                }}
-              />
-            ))}
-        </View>
-
-        {grid}
-
-        {data.sessions.length > 0 ? (
+        <CoachHero
+          testID="coach-detail.hero"
+          photoPath={coach?.photoPath ?? null}
+          name={name}
+          height={insets.top + HERO_HEIGHT}
+        />
+        <View style={{ paddingStart: space.l, paddingEnd: space.l, gap: space.sm }}>
+          {/* The name card rides up over the hero (Figma "D · Profile"): name,
+            branch, the "Taking bookings" badge while the grid is open, and the
+            bio with More / Less. Not pressable (§4.8.3 item 1). */}
           <View
-            style={{ gap: space.s }}
-            onLayout={(e) => {
-              sessionsY.current = e.nativeEvent.layout.y;
+            style={{
+              marginTop: -CARD_OVERLAP,
+              backgroundColor: colors.card,
+              borderRadius: radius.sheet,
+              paddingTop: space.l,
+              paddingBottom: space.l,
+              paddingStart: space.l,
+              paddingEnd: space.l,
+              gap: space.sm,
+              boxShadow: shadows.card,
             }}
           >
-            <MatchSectionTitle>{t('coaching.guest.coach.sessions')}</MatchSectionTitle>
-            {data.sessions.map((s) => {
-              const target = classTarget(s);
-              if (!target) return null;
-              const type = data.offers.find((o) => o.lessonTypeId === s.lessonTypeId);
-              const start = new Date(s.startAt);
-              return (
-                <ClassRow
-                  key={target.id}
-                  testID={`coach-detail.session.${target.id}`}
-                  kind={t(`coaching.common.kinds.${s.kind}`)}
-                  title={
-                    pick(s.titleEn, s.titleAr, locale) ||
-                    (type ? pick(type.nameEn, type.nameAr, locale) : '')
-                  }
-                  coach={name}
-                  when={`${formatWeekdayShort(start, locale, tz)} ${formatDate(start, locale, tz)} · ${formatTime(start, locale, tz)}`}
-                  places={countPhrase('coaching.common.count.placesLeft', s.placesLeft, locale)}
-                  price={money(s.priceIqd)}
-                  onPress={() => router.push({ pathname: '/class/[id]', params: target })}
-                />
-              );
-            })}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ fontFamily: fonts.display800, fontSize: 22, color: colors.ink }}>
+                  {name}
+                </Text>
+                {branchLabel ? (
+                  <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: colors.mut }}>
+                    {otherBranch
+                      ? t('coaching.common.atBranch', { branch: isolate(branchLabel) })
+                      : branchLabel}
+                  </Text>
+                ) : null}
+              </View>
+              {showGrid && !meReading ? (
+                <View
+                  style={{
+                    backgroundColor: colors.gtint,
+                    borderRadius: 10,
+                    paddingTop: 6,
+                    paddingBottom: 6,
+                    paddingStart: 10,
+                    paddingEnd: 10,
+                  }}
+                >
+                  <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.gtext }}>
+                    {t('coaching.guest.coach.taking')}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            {bio ? (
+              <View style={{ gap: 4 }}>
+                <Text
+                  numberOfLines={bioOpen ? undefined : 3}
+                  style={{
+                    fontFamily: fonts.body400,
+                    fontSize: 14,
+                    lineHeight: 21,
+                    color: colors.mut2,
+                  }}
+                >
+                  {bio}
+                </Text>
+                <Pressable
+                  testID="coach-detail.bio-more"
+                  accessibilityRole="button"
+                  hitSlop={14}
+                  onPress={() => setBioOpen((v) => !v)}
+                  style={{ alignSelf: 'flex-start', minHeight: 24, justifyContent: 'center' }}
+                >
+                  <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.blue }}>
+                    {t(bioOpen ? 'coaching.guest.coach.less' : 'coaching.guest.coach.more')}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
-        ) : null}
 
-        {phone && branchLabel ? (
-          <Button
-            testID="coach-detail.call-venue"
-            label={t('coaching.guest.coach.questions', { branch: isolate(branchLabel) })}
-            variant="ghost"
-            onPress={callBranch}
-            style={{ marginTop: space.m }}
-          />
-        ) : null}
+          {degraded && phone ? (
+            <DegradedBanner
+              testID="coach-detail.degraded"
+              tight
+              message={t('degraded.bannerAvailability', { phone: isolate(phone) })}
+              phone={phone}
+            />
+          ) : null}
+
+          {off ? <MatchNotice text={t('coaching.common.errors.off')} /> : null}
+          {paused ? <MatchNotice text={t('coaching.guest.coach.paused')} /> : null}
+          {self ? <MatchNotice text={t('coaching.guest.coach.self')} /> : null}
+
+          <View testID="coach-detail.offers" style={{ gap: space.s }}>
+            <MatchSectionTitle>{t('coaching.guest.coach.offers')}</MatchSectionTitle>
+            {data.offers
+              .filter((o) => o.kind !== null)
+              .map((o) => (
+                <OfferRow
+                  key={o.lessonTypeId}
+                  testID={`coach-detail.offer.${o.lessonTypeId}`}
+                  name={pick(o.nameEn, o.nameAr, locale)}
+                  kind={t(`coaching.common.kinds.${o.kind!}`)}
+                  meta={offerMeta(o)}
+                  price={money(o.priceIqd)}
+                  selected={o.kind === 'private' && o.lessonTypeId === booking.typeId && showGrid}
+                  onPress={() => {
+                    if (o.kind === 'private') {
+                      // Another lesson type has its own starts and price.
+                      if (o.lessonTypeId !== booking.typeId) setPickedAt(null);
+                      booking.setTypeId(o.lessonTypeId);
+                    }
+                    else scrollRef.current?.scrollTo({ y: sessionsY.current, animated: true });
+                  }}
+                />
+              ))}
+          </View>
+
+          {grid}
+
+          {data.sessions.length > 0 ? (
+            <View
+              style={{ gap: space.s }}
+              onLayout={(e) => {
+                sessionsY.current = e.nativeEvent.layout.y;
+              }}
+            >
+              <MatchSectionTitle>{t('coaching.guest.coach.sessions')}</MatchSectionTitle>
+              {data.sessions.map((s) => {
+                const target = classTarget(s);
+                if (!target) return null;
+                const type = data.offers.find((o) => o.lessonTypeId === s.lessonTypeId);
+                const start = new Date(s.startAt);
+                return (
+                  <ClassRow
+                    key={target.id}
+                    testID={`coach-detail.session.${target.id}`}
+                    kind={t(`coaching.common.kinds.${s.kind}`)}
+                    title={
+                      pick(s.titleEn, s.titleAr, locale) ||
+                      (type ? pick(type.nameEn, type.nameAr, locale) : '')
+                    }
+                    coach={name}
+                    when={`${formatWeekdayShort(start, locale, tz)} ${formatDate(start, locale, tz)} · ${formatTime(start, locale, tz)}`}
+                    places={countPhrase('coaching.common.count.placesLeft', s.placesLeft, locale)}
+                    price={money(s.priceIqd)}
+                    onPress={() => router.push({ pathname: '/class/[id]', params: target })}
+                  />
+                );
+              })}
+            </View>
+          ) : null}
+
+          {phone && branchLabel ? (
+            <Button
+              testID="coach-detail.call-venue"
+              label={t('coaching.guest.coach.questions', { branch: isolate(branchLabel) })}
+              variant="ghost"
+              onPress={callBranch}
+              style={{ marginTop: space.m }}
+            />
+          ) : null}
+        </View>
       </ScrollView>
+      {picked && pickedNight ? (
+        // Figma "Book bar": the picked time and the lesson's price, and Book.
+        <View
+          style={{
+            position: 'absolute',
+            start: 0,
+            end: 0,
+            bottom: 0,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: space.sm,
+            backgroundColor: colors.card,
+            borderTopWidth: 1,
+            borderTopColor: colors.line,
+            paddingTop: space.m,
+            paddingBottom: space.m + insets.bottom,
+            paddingStart: space.l,
+            paddingEnd: space.l,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}>
+              {`${nightLabel(pickedNight.date)} · ${formatTime(picked.startAt, locale, booking.tz)}`}
+            </Text>
+            {booking.offer?.priceIqd != null ? (
+              <Text style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.gtext }}>
+                {money(booking.offer.priceIqd)}
+              </Text>
+            ) : null}
+          </View>
+          <Button
+            testID="coach-detail.book"
+            label={t('coaching.guest.coach.bookLesson')}
+            size="compact"
+            onPress={() => onTime(picked)}
+            style={{ borderRadius: radius.pill, paddingStart: space.xxl, paddingEnd: space.xxl }}
+          />
+        </View>
+      ) : null}
     </Screen>
   );
 }

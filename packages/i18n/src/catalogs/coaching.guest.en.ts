@@ -27,14 +27,18 @@ export const coachingGuestEn = {
       more: 'More',
       less: 'Less',
       offers: 'Lessons',
-      grid: 'Book a private lesson',
+      // The free-times section's title (Figma "D · Profile").
+      grid: 'Free times',
       lessonType: 'Lesson',
       noTimes: 'No free times in the next two weeks. Call {branch} to ask.',
       noTimesNoPhone: 'No free times in the next two weeks.',
-      noTimesNight: 'No free times on this day. Pick another day.',
-      // A day chip with no free start.
-      dayFull: 'No times',
       paused: 'Not taking new bookings right now.',
+      // The name card's badge while the grid is open (Figma "D · Profile").
+      taking: 'Taking bookings',
+      // Under the day cards: three more nights.
+      moreDays: 'See more days',
+      // The book bar's button once a time is picked.
+      bookLesson: 'Book lesson',
       self: 'This is your coach profile. Guests book you here.',
       notFound: "This coach isn't available.",
       seeAll: 'See all coaches',

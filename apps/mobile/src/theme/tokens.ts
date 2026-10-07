@@ -325,6 +325,8 @@ export const shadows = {
   /** The booking sheet over the court (transition prototype): `0 20px 50px rgba(27,42,71,.2)`; a deeper black in dark mode. */
   sheet: '0 20px 50px rgba(27,42,71,0.2)',
   sheetDark: '0 20px 50px rgba(0,0,0,0.45)',
+  /** The coach page's name card lifted off the hero (Figma "D · Profile"): `0 8px 24px rgba(27,42,71,.12)`. */
+  card: '0 8px 24px rgba(27,42,71,0.12)',
 } as const;
 
 /**
@@ -396,11 +398,29 @@ export function slotStateStyles(p: Palette): Record<SlotVisualState, SlotStateSt
   const cached = slotStyleCache.get(p);
   if (cached) return cached;
   const styles: Record<SlotVisualState, SlotStateStyle> = {
-    available: { bg: p.card, border: p.line2, borderStyle: 'solid', text: p.ink, subText: p.gstrong },
-    past: { bg: 'transparent', border: 'transparent', borderStyle: 'solid', text: p.fnt3, subText: p.fnt3 },
+    available: {
+      bg: p.card,
+      border: p.line2,
+      borderStyle: 'solid',
+      text: p.ink,
+      subText: p.gstrong,
+    },
+    past: {
+      bg: 'transparent',
+      border: 'transparent',
+      borderStyle: 'solid',
+      text: p.fnt3,
+      subText: p.fnt3,
+    },
     booked: { bg: p.sub, border: p.sub, borderStyle: 'solid', text: p.fnt2, subText: p.fnt2 },
     held: { bg: p.sub, border: p.line2, borderStyle: 'dashed', text: p.fnt2, subText: p.fnt2 },
-    blocked: { bg: p.amb, border: p.ambline, borderStyle: 'solid', text: p.ambstrong, subText: p.ambstrong },
+    blocked: {
+      bg: p.amb,
+      border: p.ambline,
+      borderStyle: 'solid',
+      text: p.ambstrong,
+      subText: p.ambstrong,
+    },
     horizon: { bg: p.tint, border: p.line, borderStyle: 'solid', text: p.fnt, subText: p.fnt },
   };
   slotStyleCache.set(p, styles);

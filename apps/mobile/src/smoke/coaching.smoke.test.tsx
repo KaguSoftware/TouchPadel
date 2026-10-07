@@ -587,7 +587,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
   });
 
-  it('a time on a coach’s grid: signed out keeps the intent and opens the welcome', async () => {
+  it('a time on a coach’s grid, then Book: signed out keeps the intent and opens the welcome', async () => {
     const screen = renderRoute(CoachDetailScreen, {
       locale,
       session: 'out',
@@ -598,6 +598,12 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
       const startMin = Math.floor(Date.parse(START_AT) / 60_000);
       await act(async () => {
         fireEvent.press(screen.getByTestId(`coach-detail.slot.none-${startMin}`));
+      });
+      // Picking a time opens the book bar; Book books it.
+      const book = screen.getByTestId('coach-detail.book');
+      expect(within(book).getByText(t('coaching.guest.coach.bookLesson'))).toBeTruthy();
+      await act(async () => {
+        fireEvent.press(book);
       });
       expect(getPendingLesson()).toMatchObject({
         kind: 'private',
@@ -610,7 +616,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
   });
 
-  it('a time on a coach’s grid: signed in opens the review with the offer’s price', async () => {
+  it('a time on a coach’s grid, then Book: signed in opens the review with the offer’s price', async () => {
     const screen = renderRoute(CoachDetailScreen, {
       locale,
       session: 'in',
@@ -621,6 +627,12 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
       const startMin = Math.floor(Date.parse(START_AT) / 60_000);
       await act(async () => {
         fireEvent.press(screen.getByTestId(`coach-detail.slot.none-${startMin}`));
+      });
+      // Picking a time opens the book bar; Book books it.
+      const book = screen.getByTestId('coach-detail.book');
+      expect(within(book).getByText(t('coaching.guest.coach.bookLesson'))).toBeTruthy();
+      await act(async () => {
+        fireEvent.press(book);
       });
       expect(routerState.calls).toContainEqual({
         method: 'push',

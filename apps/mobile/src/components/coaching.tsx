@@ -8,17 +8,18 @@
  * the screens pass those answers in. Nothing here prices, permits or refuses.
  *
  * TEST IDS. Each wrapper that renders a Pressable (`CoachCard`, `OfferRow`,
- * `ClassRow`, `LessonRow`, `PaymentModeChoice`, `PartyStepper`,
- * `LinkConfirmCard`) takes a REQUIRED `testID` from its call site and forwards
- * it, or `${testID}.<child>`, explicitly; all seven are in `testIdElements`
- * (packages/config/src/eslint.js). `LessonPoster`, `KindPill` and
- * `CoachAvatar` render no Pressable.
+ * `ClassRow`, `LessonTimePill`, `LessonRow`, `PaymentModeChoice`,
+ * `PartyStepper`, `LinkConfirmCard`) takes a REQUIRED `testID` from its call
+ * site and forwards it, or `${testID}.<child>`, explicitly; all eight are in
+ * `testIdElements` (packages/config/src/eslint.js). `LessonPoster`, `KindPill`,
+ * `CoachAvatar` and `CoachHero` render no Pressable.
  */
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { Image, Pressable, View } from 'react-native';
 import { Text } from '../i18n/text';
-import { radius, space, useTheme } from '../theme';
+import { brand, radius, space, useTheme } from '../theme';
 import { coachInitial, coachPhotoUrl, type PaymentChoice } from '../features/coaching/logic';
+import type { MergedCell } from '../features/availability/assemble';
 import { Button, Card, SegmentedControl } from './ui';
 import { ChevronIcon } from './icons';
 
@@ -182,30 +183,145 @@ export function OfferRow({
       accessibilityState={{ selected: !!selected }}
       accessibilityLabel={[name, kind, meta, price].filter(Boolean).join(', ')}
       onPress={onPress}
+      // Figma "D · Profile": a borderless white row at the card radius; the
+      // selected private offer takes a 2 pt accent ring. The border is always
+      // 2 pt (card-coloured when not selected) so selecting never shifts the row.
       style={({ pressed }) => ({
-        ...rowStyle(colors, pressed),
-        borderWidth: selected ? 1.5 : 1,
-        borderColor: selected ? colors.blue : colors.line,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: space.sm,
+        minHeight: 44,
+        backgroundColor: pressed ? colors.sub : colors.card,
+        borderWidth: 2,
+        borderColor: selected ? colors.blue : colors.card,
+        borderRadius: radius.card,
+        paddingStart: space.l,
+        paddingEnd: space.l,
+        paddingTop: space.m,
+        paddingBottom: space.m,
       })}
     >
-      <View style={{ flex: 1, gap: 5 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <View style={{ flex: 1, gap: 3 }}>
+        <View
+          style={{ flexDirection: 'row', alignItems: 'center', gap: space.s, flexWrap: 'wrap' }}
+        >
           <Text style={{ fontFamily: fonts.display800, fontSize: 15, color: colors.ink }}>
             {name}
           </Text>
-          <KindPill label={kind} />
         </View>
-        <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: colors.mut }}>{meta}</Text>
+        <Text style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}>{meta}</Text>
       </View>
       {price ? (
-        <Text style={{ fontFamily: fonts.display800, fontSize: 13.5, color: colors.gtext }}>
+        <Text style={{ fontFamily: fonts.display800, fontSize: 14, color: colors.gstrong }}>
           {price}
         </Text>
       ) : null}
-      <ChevronIcon size={16} color={colors.fnt2} />
     </Pressable>
   );
 }
+
+// ── Coach page hero and time pill (§4.8.3, Figma "D · Profile") ─────────────
+
+/**
+ * The band at the top of a coach's page: their photo full width, or, without
+ * one, their initial on the brand blue. The brand blue is theme-invariant on
+ * purpose: in blue mode it is the ramp's own step (`line2`), so the band still
+ * reads as the brand against the darker ground. The coach page makes its
+ * native header transparent, so the system back and share items float over
+ * the band; the band itself draws no buttons.
+ */
+export function CoachHero({
+  photoPath,
+  name,
+  height = 200,
+  testID,
+}: {
+  photoPath: string | null;
+  name: string;
+  height?: number;
+  testID?: string;
+}) {
+  const uri = coachPhotoUrl(photoPath);
+  return (
+    <View
+      testID={testID}
+      style={{
+        height,
+        backgroundColor: brand.blue,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+      }}
+    >
+      {uri ? (
+        <Image
+          source={{ uri }}
+          accessibilityIgnoresInvertColors
+          resizeMode="cover"
+          style={{ position: 'absolute', top: 0, bottom: 0, start: 0, end: 0 }}
+        />
+      ) : (
+        <View style={{ marginBottom: space.xxl }}>
+          <CoachAvatar photoPath={null} name={name} size={88} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+/**
+ * One free start on the coach's page, as the Figma frame's round pill: 44 tall,
+ * time only (the lesson's price is in the book bar once a time is picked, C-1).
+ * Only the server's free starts are ever passed in, so there is no disabled or
+ * greyed state to draw; the picked one fills with the ink. Memoised with a
+ * `(cell) => void` handler, as `SlotCell` is.
+ */
+export const LessonTimePill = memo(function LessonTimePill({
+  cell,
+  time,
+  selected,
+  onPress,
+  testID,
+}: {
+  cell: MergedCell;
+  time: string;
+  selected?: boolean;
+  onPress: (cell: MergedCell) => void;
+  /** `coach-detail.slot.<courtId>-<startMin>` (`slotTestID`). */
+  testID: string;
+}) {
+  const { colors, fonts } = useTheme();
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={time}
+      accessibilityState={{ selected: !!selected }}
+      onPress={() => onPress(cell)}
+      style={({ pressed }) => ({
+        minHeight: 44,
+        minWidth: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingStart: space.l,
+        paddingEnd: space.l,
+        borderRadius: radius.pill,
+        backgroundColor: selected ? colors.ink : pressed ? colors.seg : colors.tint,
+        transform: [{ scale: pressed ? 0.96 : 1 }],
+      })}
+    >
+      <Text
+        style={{
+          fontFamily: fonts.display800,
+          fontSize: 14.5,
+          color: selected ? colors.card : colors.ink,
+        }}
+      >
+        {time}
+      </Text>
+    </Pressable>
+  );
+});
 
 // ── ClassRow (§4.8.4) ───────────────────────────────────────────────────────
 
