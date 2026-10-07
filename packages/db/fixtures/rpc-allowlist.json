@@ -250,6 +250,7 @@
     "list_staff",
     "llm_price_micros",
     "llm_usage_summary",
+    "log_staff_screenshot",
     "log_stock",
     "loyalty_adjust",
     "loyalty_admin",

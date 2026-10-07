@@ -179,7 +179,7 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
       why: 'an optional date of birth the guest adds; only they read it',
       onDelete: 'scrub',
     },
-    // 0307 (Phase 2): the public handle other players and the desk see beside
+    // 0314 (Phase 2): the public handle other players and the desk see beside
     // the short name, when it last changed, and the photo frame. Deletion
     // empties the username (held 90 days in username_holds) and resets the
     // frame (profiles_media_tombstone).
@@ -190,13 +190,13 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     },
     username_changed_at: n,
     avatar_frame: n,
-    // 0310: solid or court lines; reset to solid on deletion.
+    // 0317: solid or court lines; reset to solid on deletion.
     avatar_frame_style: n,
   },
-  // 0311: test accounts that wear every frame. Only a link and a note; the
+  // 0318: test accounts that wear every frame. Only a link and a note; the
   // row goes with the profile.
   frame_grants: { profile_id: n, granted_at: n, note: n },
-  // 0307: a username a guest gave up, kept from everyone else for 7 days (a
+  // 0314: a username a guest gave up, kept from everyone else for 7 days (a
   // change) or 90 days (deletion or a merge), then released. The name is the
   // guest's handle; the row goes when the hold ends or the auth user does.
   username_holds: {

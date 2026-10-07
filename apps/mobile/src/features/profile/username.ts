@@ -1,9 +1,9 @@
 /**
- * Usernames (Phase 2, migration 0307). The phone mirrors the server's grammar
+ * Usernames (Phase 2, migration 0314). The phone mirrors the server's grammar
  * so the field can say "invalid" without a round trip; the server
  * (`app.username_problem`, `app.set_my_username`) stays the authority, and only
  * it knows "taken", "reserved" and "not allowed" (a slur or swear word,
- * 0312). Pure, so it runs under vitest.
+ * 0319). Pure, so it runs under vitest.
  */
 import type { MessageKey } from '@touch/i18n';
 

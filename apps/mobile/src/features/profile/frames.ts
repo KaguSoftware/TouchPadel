@@ -1,11 +1,11 @@
 /**
- * Photo frames (Phase 2, migration 0307; design "Touch Profile Frames", the
+ * Photo frames (Phase 2, migration 0314; design "Touch Profile Frames", the
  * first set to ship). The profile stores one id of this closed list; the server
  * (`app.frame_ids`, `profiles_avatar_frame_chk`) holds the same list and
  * refuses an earned frame the guest has not earned. Pure data and maths, no
  * react-native, so it runs under vitest.
  *
- * Court lines (0310) is a STYLE, not a frame: any free frame can be drawn
+ * Court lines (0317) is a STYLE, not a frame: any free frame can be drawn
  * solid or as court lines (its rings as dashes); earned frames are always
  * solid. The profile stores it beside the id (`avatar_frame_style`).
  *
@@ -32,7 +32,7 @@ export const DEFAULT_FRAME: FrameId = 'brand-green';
 export const FREE_FRAMES: readonly FrameId[] = FRAME_IDS.slice(0, 5);
 export const EARNED_FRAMES: readonly FrameId[] = FRAME_IDS.slice(5);
 
-/** 0310: how a frame is drawn. `lines` = court lines, free frames only. */
+/** 0317: how a frame is drawn. `lines` = court lines, free frames only. */
 export const FRAME_STYLES = ['solid', 'lines'] as const;
 export type FrameStyle = (typeof FRAME_STYLES)[number];
 

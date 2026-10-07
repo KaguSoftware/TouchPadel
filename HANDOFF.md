@@ -2197,6 +2197,25 @@ synced in during the run, so every open-matches ordinal moved up by one.
   expected the removed header links); fixed on its own first (`b9f35c4e`), with a node-forge audit
   waiver until 2026-10-16 (no fix published; reached only through `@expo/cli`).
 
+## Day 41 (2026-10-07) — staff screenshot guard, assistant button
+
+Owner call: staff must not capture the staff app, and the owner must hear when they try.
+
+- **Migration 0313** (`staff_screenshot_report`): `app.log_staff_screenshot(p_venue_id, p_route)`
+  writes a `staff.screenshot` audit row and queues a `screenshot_taken` `staff_info` push to the
+  owners (the person's name only; the page is in the audit row). `notify_staff` re-issued from 0308
+  with the new title key (40 keys). The key is in `_shared/staff-push.json` and `staffStrings.ts`
+  (Arabic is DRAFT-AR, on the client's review list). **Next ordinal: 0314.**
+- **Phone** (`apps/mobile`): `StaffScreenGuard` blocks capture for non-owner staff and reports each
+  screenshot; `app/staff-screenshots.tsx` is the owner's list (Today tile, rows read through
+  `audit_log_page`); `AssistantFab` floats the owner's assistant over every staff page and Today's
+  banner is gone. The desktop Audit log shows the same rows.
+- **Open:** `expo-screen-capture` is a native module, so none of the block or the reports work on
+  phones until a new dev client and store build (Parsa's `eas build`). Untested on a real phone:
+  whether Android 14 reports an attempt that FLAG_SECURE blocks (if not, Android blocks silently and
+  only iPhone screenshots are reported). iOS cannot block a screenshot at all.
+- Loyalty QR needed nothing: the guest card is on the phone and the till scans and redeems.
+
 ## Roadmap / next steps
 1. ✔ DONE Day 1: platform foundation (see above).
 2. ✔ DONE Day 2 waves 0–6, 9–12: design pack, DB 0027–0035 + tests, edge functions, core analytics,

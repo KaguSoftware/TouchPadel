@@ -17,14 +17,14 @@ import {
 
 /**
  * The guest's round avatar (0302): their photo when they set one, otherwise
- * their initials on Touch Blue. Since 0307 the ring around it is the guest's
+ * their initials on Touch Blue. Since 0314 the ring around it is the guest's
  * photo frame (`features/profile/frames.ts`), drawn in an svg layer on top so a
  * badge can sit across the ring; the outer size never changes, so no layout
  * around an avatar moves. The photo arrives through a signed URL; while it
  * loads, or if it fails, the initials show, so the circle is never empty.
  *
  * The ring art never mirrors in Arabic; only an earned frame's badge follows
- * the reading direction (bottom end corner). `frameStyle` (0310) draws a free
+ * the reading direction (bottom end corner). `frameStyle` (0317) draws a free
  * frame as court lines.
  */
 export function ProfileAvatar({

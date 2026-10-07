@@ -779,7 +779,7 @@ export const en = {
     editGroupContact: 'Contact',
     editGroupPersonal: 'Personal details',
     editGroupSecurity: 'Security',
-    // Phase 2 (0307): username and photo frame on Edit profile.
+    // Phase 2 (0314): username and photo frame on Edit profile.
     usernameSection: 'Username',
     usernameHint:
       '3 to 20 letters, numbers, dots or underscores. Other players and the front desk see it next to your name.',
@@ -813,7 +813,7 @@ export const en = {
     frameCourtWhite: 'Court white',
     frameSplitCourt: 'Half and half',
     frameDoubleLine: 'Double line',
-    // 0310: court lines is a style of a free frame, picked inside the Free card.
+    // 0317: court lines is a style of a free frame, picked inside the Free card.
     frameStyleSolid: 'Normal',
     frameStyleLines: 'Court lines',
     frameStyleFreeOnly: 'Court lines work with the free frames.',

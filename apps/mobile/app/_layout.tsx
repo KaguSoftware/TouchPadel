@@ -36,6 +36,8 @@ import {
   settleWelcomeDecision,
 } from '../src/features/auth/welcomeSeen';
 import { CoachStatusProvider } from '../src/features/coach/CoachStatusProvider';
+import { StaffScreenGuard } from '../src/features/staff/screenGuard/StaffScreenGuard';
+import { AssistantFab } from '../src/features/assistant/AssistantFab';
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
@@ -515,6 +517,10 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
                         <ThemedChrome />
                         <RootStack />
                         <ConnectivityBanner />
+                        {/* Staff other than the owner: no screenshots, and the owner is told of each. */}
+                        <StaffScreenGuard />
+                        {/* The owner's assistant, one tap from every staff screen. */}
+                        <AssistantFab />
                       </CoachStatusProvider>
                     </StaffStatusProvider>
                   </ToastProvider>

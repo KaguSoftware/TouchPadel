@@ -6311,7 +6311,7 @@ export const matrix: MatrixRule[] = [
     note: '0310 (c24): internal; the sweep and tournament_close call it',
     drop: 30,
   },
-  // ── 0307: usernames and photo frames (Edit profile, Phase 2) ─────────────
+  // ── 0314: usernames and photo frames (Edit profile, Phase 2) ─────────────
   // The caller's own profile only. Each probe is refused past the guard
   // (an invalid name, an unknown frame) or only reads, so nothing is written;
   // the anonymous café session has no profile (ACCOUNT_REQUIRED).
@@ -6319,42 +6319,42 @@ export const matrix: MatrixRule[] = [
     kind: 'rpc', schema: 'app', name: 'username_check',
     args: { p_username: 'matrix-probe' },
     expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
-    note: '0307: answers about one name for the caller; read-only',
+    note: '0314: answers about one name for the caller; read-only',
     drop: 29,
   },
   {
     kind: 'rpc', schema: 'app', name: 'suggest_username',
     args: {},
     expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
-    note: '0307: a free name built from the caller\'s own name; read-only',
+    note: '0314: a free name built from the caller\'s own name; read-only',
     drop: 29,
   },
   {
     kind: 'rpc', schema: 'app', name: 'set_my_username',
     args: { p_username: 'a' },
     expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
-    note: '0307: the caller\'s own username; a one-letter name is USERNAME_INVALID, so nothing is written',
+    note: '0314: the caller\'s own username; a one-letter name is USERNAME_INVALID, so nothing is written',
     drop: 29,
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_frames',
     args: {},
     expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
-    note: '0307: the caller\'s own frame picker; read-only',
+    note: '0314: the caller\'s own frame picker; read-only',
     drop: 29,
   },
   {
     kind: 'rpc', schema: 'app', name: 'set_my_frame',
     args: { p_frame: 'matrix-never' },
     expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
-    note: '0307: the caller\'s own frame; an unknown id is FRAME_INVALID, so nothing is written',
+    note: '0314: the caller\'s own frame; an unknown id is FRAME_INVALID, so nothing is written',
     drop: 29,
   },
   {
     kind: 'select',
     name: 'username_holds',
     expect: ex<SelectExpectation>('denied'),
-    note: '0307: no client grant; only the username definers read it',
+    note: '0314: no client grant; only the username definers read it',
     drop: 29,
   },
   {
@@ -6363,7 +6363,15 @@ export const matrix: MatrixRule[] = [
     op: 'insert',
     payload: { username: 'matrix', profile_id: NIL_UUID, released_at: '2030-01-01T00:00:00Z', reason: 'changed' },
     expect: ex<WriteExpectation>('denied'),
-    note: '0307: no client write grant; the username definers and the tombstone trigger write it',
+    note: '0314: no client write grant; the username definers and the tombstone trigger write it',
     drop: 29,
+  },
+  // ── 0313 staff_screenshot_report ──
+  {
+    kind: 'rpc', schema: 'app', name: 'log_staff_screenshot',
+    args: { p_venue_id: NIL_UUID, p_route: '/staff' },
+    expect: STAFF_ANY,
+    note: '0313: any active staff member reports a screenshot; a nil branch is VENUE_MISMATCH past the guard, nothing is written',
+    drop: 30,
   },
 ];

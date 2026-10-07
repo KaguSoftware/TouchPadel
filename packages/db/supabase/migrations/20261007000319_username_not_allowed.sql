@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0312 username_not_allowed — no slurs or swear words as usernames (owner,
+-- 0319 username_not_allowed — no slurs or swear words as usernames (owner,
 -- 2026-10-06).
 --
 --   1. app.username_offensive(p): true when a stored-form username carries a
@@ -26,7 +26,7 @@ set statement_timeout = '60s';
 -- 1. app.username_offensive
 -- ---------------------------------------------------------------------------
 create or replace function app.username_offensive(p text) returns boolean
-language sql immutable set search_path = public as $username_offensive_0312$
+language sql immutable set search_path = public as $username_offensive_0319$
   with n as (
     -- Separators out, digit swaps read as letters.
     select translate(replace(replace(coalesce(p, ''), '.', ''), '_', ''), '0134578', 'oieastb') as plain
@@ -75,20 +75,20 @@ language sql immutable set search_path = public as $username_offensive_0312$
                or (length(regexp_replace(anywhere.w, '(.)\1+', '\1', 'g')) >= 4
                    and f.squeezed like '%' || regexp_replace(anywhere.w, '(.)\1+', '\1', 'g') || '%'))
       or exists (select 1 from parts join whole on parts.t = whole.w)
-$username_offensive_0312$;
+$username_offensive_0319$;
 
 comment on function app.username_offensive(text) is
-  '0312. True when a stored-form username carries a slur, a swear word or a sexual word (English, or Arabic in Latin letters); dots, underscores and digit swaps ignored. Pure text.';
+  '0319. True when a stored-form username carries a slur, a swear word or a sexual word (English, or Arabic in Latin letters); dots, underscores and digit swaps ignored. Pure text.';
 
 revoke all on function app.username_offensive(text) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 2. app.username_problem: re-created from 20261006000307_usernames_frames.sql,
+-- 2. app.username_problem: re-created from 20261007000314_usernames_frames.sql,
 --    not_allowed added.
 -- ---------------------------------------------------------------------------
 -- NULL when the name is fine, else invalid | not_allowed | reserved.
 create or replace function app.username_problem(p text) returns text
-language sql immutable set search_path = public as $username_problem_0312$
+language sql immutable set search_path = public as $username_problem_0319$
   select case
     when p is null or p !~ '^[a-z0-9][a-z0-9._]{1,18}[a-z0-9]$' or p ~ '[._]{2}' then 'invalid'
     when app.username_offensive(p) then 'not_allowed'
@@ -100,20 +100,20 @@ language sql immutable set search_path = public as $username_problem_0312$
            'privacy', 'legal', 'everyone', 'all', 'anonymous', 'deleted', 'deletedaccount')
       then 'reserved'
   end
-$username_problem_0312$;
+$username_problem_0319$;
 
 comment on function app.username_problem(text) is
-  '0312. Why a stored-form username cannot be used: invalid (grammar), not_allowed (a slur or swear word, app.username_offensive) or reserved (starts with touch, or a staff-like word); NULL when fine. Pure text.';
+  '0319. Why a stored-form username cannot be used: invalid (grammar), not_allowed (a slur or swear word, app.username_offensive) or reserved (starts with touch, or a staff-like word); NULL when fine. Pure text.';
 
 revoke all on function app.username_problem(text) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 3. app.username_check: re-created from 20261006000307_usernames_frames.sql;
+-- 3. app.username_check: re-created from 20261007000314_usernames_frames.sql;
 --    the body is unchanged, the comment names the new reason.
 -- ---------------------------------------------------------------------------
 create or replace function app.username_check(p_username text)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $username_check_0312$
+language plpgsql stable security definer set search_path = public as $username_check_0319$
 declare
   v_uid  uuid := auth.uid();
   v_name text := app.username_normal(p_username);
@@ -131,21 +131,21 @@ begin
     v_why := 'taken';
   end if;
   return jsonb_build_object('username', v_name, 'available', v_why is null, 'reason', v_why);
-end $username_check_0312$;
+end $username_check_0319$;
 
 comment on function app.username_check(text) is
-  '0312. The caller''s Edit profile field: {username (as it would be stored), available, reason: null | invalid | not_allowed | reserved | taken}. The caller''s own current or held name is available to them.';
+  '0319. The caller''s Edit profile field: {username (as it would be stored), available, reason: null | invalid | not_allowed | reserved | taken}. The caller''s own current or held name is available to them.';
 
 revoke all on function app.username_check(text) from public, anon;
 grant execute on function app.username_check(text) to authenticated;
 
 -- ---------------------------------------------------------------------------
--- 4. app.set_my_username: re-created from 20261006000307_usernames_frames.sql,
+-- 4. app.set_my_username: re-created from 20261007000314_usernames_frames.sql,
 --    USERNAME_NOT_ALLOWED added.
 -- ---------------------------------------------------------------------------
 create or replace function app.set_my_username(p_username text)
 returns jsonb
-language plpgsql security definer set search_path = public as $set_my_username_0312$
+language plpgsql security definer set search_path = public as $set_my_username_0319$
 declare
   v_uid  uuid := auth.uid();
   v_p    profiles%rowtype;
@@ -182,7 +182,7 @@ begin
     raise exception 'USERNAME_TOO_SOON' using errcode = 'P0001', detail = v_next::text;
   end if;
 
-  -- Two guests racing for one name: serialise on it; the 0308 index backs it.
+  -- Two guests racing for one name: serialise on it; the 0315 index backs it.
   perform pg_advisory_xact_lock(hashtext('username:' || v_name));
   if app.username_taken(v_name, v_uid) then
     raise exception 'USERNAME_TAKEN' using errcode = 'P0001';
@@ -206,10 +206,10 @@ begin
 
   return jsonb_build_object('username', v_name, 'changed_at', now(),
                             'next_change_at', now() + interval '7 days', 'duplicate', false);
-end $set_my_username_0312$;
+end $set_my_username_0319$;
 
 comment on function app.set_my_username(text) is
-  '0312. The caller''s own username. USERNAME_INVALID, USERNAME_NOT_ALLOWED (a slur or swear word), USERNAME_RESERVED, USERNAME_TAKEN, USERNAME_TOO_SOON (detail: when the next change is allowed; the first username is free, then once every 7 days). The name given up is held for the caller for 7 days. Returns {username, changed_at, next_change_at, duplicate}.';
+  '0319. The caller''s own username. USERNAME_INVALID, USERNAME_NOT_ALLOWED (a slur or swear word), USERNAME_RESERVED, USERNAME_TAKEN, USERNAME_TOO_SOON (detail: when the next change is allowed; the first username is free, then once every 7 days). The name given up is held for the caller for 7 days. Returns {username, changed_at, next_change_at, duplicate}.';
 
 revoke all on function app.set_my_username(text) from public, anon;
 grant execute on function app.set_my_username(text) to authenticated;

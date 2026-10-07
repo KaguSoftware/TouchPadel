@@ -62,7 +62,7 @@ const FORBIDDEN = [
   // Coaching (docs/design/coaching/db.md §4.7.10, R42): the friends a guest
   // brings, a student, and a coach's share of the money.
   /friend_names/i, /student/i, /share_bp/i,
-  // 0307 (Phase 2): a guest's public handle and their date of birth (0302).
+  // 0314 (Phase 2): a guest's public handle and their date of birth (0302).
   /username/i, /birth_date/i,
 ];
 

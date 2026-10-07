@@ -33,7 +33,6 @@ import {
   ChevronIcon,
   EyeIcon,
   SlidersIcon,
-  SparkIcon,
   TitleSquiggle,
   type IconProps,
 } from '../src/components/icons';
@@ -155,72 +154,6 @@ function GroupTile({
           {preview}
         </Text>
       </View>
-    </Pressable>
-  );
-}
-
-/**
- * The owner's assistant, the one highlighted control on Today: a brand-blue
- * bar (the only committed colour on the page) with the green mark, so the
- * owner finds it at a glance and nothing else competes with it. It is a door,
- * not a status: no count, no badge.
- */
-function AssistantEntry({ onPress }: { onPress: () => void }) {
-  const { t } = useLocale();
-  const { fonts } = useTheme();
-  return (
-    <Pressable
-      testID="staff.assistant"
-      accessibilityRole="button"
-      accessibilityLabel={t('staff.assistant.entry.title')}
-      accessibilityHint={t('staff.assistant.entry.hint')}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: space.m,
-        minHeight: 62,
-        paddingVertical: space.s,
-        paddingStart: space.m,
-        paddingEnd: space.l,
-        backgroundColor: brand.blue,
-        borderRadius: radius.card,
-        opacity: pressed ? 0.88 : 1,
-      })}
-    >
-      <View
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 12,
-          backgroundColor: brand.green,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <SparkIcon size={21} color={brand.greenInk} />
-      </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text
-          numberOfLines={1}
-          style={{ fontFamily: fonts.display800, fontSize: 16, lineHeight: 21, color: brand.white }}
-        >
-          {t('staff.assistant.entry.title')}
-        </Text>
-        <Text
-          numberOfLines={1}
-          style={{
-            fontFamily: fonts.body400,
-            fontSize: 13,
-            lineHeight: 17,
-            color: brand.white,
-            opacity: 0.85,
-          }}
-        >
-          {t('staff.assistant.entry.hint')}
-        </Text>
-      </View>
-      <ChevronIcon size={18} color={brand.white} />
     </Pressable>
   );
 }
@@ -630,12 +563,6 @@ function TodayScreen() {
           </View>
         </View>
 
-        {/* The assistant is the owner's: the edge function and RLS refuse anyone
-            else, and Today does not offer what would send the person back. */}
-        {staff.role === 'owner' ? (
-          <AssistantEntry onPress={() => router.push('/staff-assistant')} />
-        ) : null}
-
         {showsVenuePicker(status.venues) ? (
           <Card style={{ padding: space.m }}>
             <MicroLabel>{t('staff.shell.venue.label')}</MicroLabel>
@@ -735,6 +662,16 @@ function TodayScreen() {
                   router.replace('/(tabs)');
                 }}
               />
+              {/* The owner's list of staff screenshots (StaffScreenGuard reports them). */}
+              {staff.role === 'owner' ? (
+                <AccountButton
+                  testID="staff.screenshots"
+                  icon={EyeIcon}
+                  label={t('staff.screenshots.entry')}
+                  compact={compact}
+                  onPress={() => router.push('/staff-screenshots')}
+                />
+              ) : null}
               <AccountButton
                 testID="staff.settings"
                 icon={SlidersIcon}

@@ -43,6 +43,10 @@ import { staffFloorAr } from './floor.ar';
 import { staffAssistantEn } from './assistant.en';
 import { staffAssistantAr } from './assistant.ar';
 
+// Staff screenshots reported to the owner (app/staff-screenshots.tsx).
+import { staffScreenshotsEn } from './screenshots.en';
+import { staffScreenshotsAr } from './screenshots.ar';
+
 export const staffEn = {
   shell: staffShellEn,
   protocols: staffProtocolsEn,
@@ -59,6 +63,7 @@ export const staffEn = {
   scan: staffScanEn,
   floor: staffFloorEn,
   assistant: staffAssistantEn,
+  screenshots: staffScreenshotsEn,
 } as const;
 
 export const staffAr = {
@@ -77,4 +82,5 @@ export const staffAr = {
   scan: staffScanAr,
   floor: staffFloorAr,
   assistant: staffAssistantAr,
+  screenshots: staffScreenshotsAr,
 } as const;

@@ -255,7 +255,7 @@ export const brand = {
 } as const;
 
 /**
- * Photo frame metals (Phase 2, 0307; owner approved 2026-10-06). Theme-invariant
+ * Photo frame metals (Phase 2, 0314; owner approved 2026-10-06). Theme-invariant
  * like `brand`. No new hue: gold is the amber ramp (dark ambtext, dark
  * ambstrong, light ambstrong) and silver the brand grays (dark mut2, the brand
  * gray, dark fnt2), named here so a frame never borrows a warning colour by name.

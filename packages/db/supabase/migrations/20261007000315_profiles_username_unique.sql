@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0308 profiles_username_unique — one live profile per username (0307). An
+-- 0315 profiles_username_unique — one live profile per username (0314). An
 -- index in its own file (db CLAUDE.md, Migrations). The column is new and
 -- empty, so the build meets no duplicate; app.set_my_username answers
 -- USERNAME_TAKEN before this index does, and two racing writers get it from

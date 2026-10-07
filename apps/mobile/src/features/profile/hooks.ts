@@ -22,11 +22,11 @@ export const profileKeys = {
   birthDate: ['own-birth-date'] as const,
   /** 0302: a signed avatar URL, per path. Never persisted: it expires. */
   avatarUrl: (path: string) => ['avatar-url', path] as const,
-  /** 0307: the live availability answer for one typed name. Never persisted. */
+  /** 0314: the live availability answer for one typed name. Never persisted. */
   usernameCheck: (name: string) => ['username-check', name] as const,
-  /** 0307: a suggested username. Never persisted: it goes stale as names are taken. */
+  /** 0314: a suggested username. Never persisted: it goes stale as names are taken. */
   usernameSuggestion: ['username-check', 'suggest'] as const,
-  /** 0307: the frame picker (closed list + what is unlocked). */
+  /** 0314: the frame picker (closed list + what is unlocked). */
   frames: ['own-frames'] as const,
 };
 

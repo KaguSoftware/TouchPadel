@@ -708,7 +708,7 @@ export const ar: Messages = {
     editGroupContact: 'معلومات التواصل',
     editGroupPersonal: 'البيانات الشخصية',
     editGroupSecurity: 'الأمان',
-    // Phase 2 (0307): username and photo frame on Edit profile.
+    // Phase 2 (0314): username and photo frame on Edit profile.
     usernameSection: 'اسم المستخدم',
     usernameHint:
       'من 3 إلى 20 حرفًا لاتينيًا أو رقمًا أو نقطة أو شرطة سفلية. يراه اللاعبون الآخرون ومكتب الاستقبال بجانب اسمك.',
@@ -742,7 +742,7 @@ export const ar: Messages = {
     frameCourtWhite: 'الأبيض',
     frameSplitCourt: 'نصف ونصف',
     frameDoubleLine: 'خط مزدوج',
-    // 0310: court lines is a style of a free frame, picked inside the Free card.
+    // 0317: court lines is a style of a free frame, picked inside the Free card.
     frameStyleSolid: 'عادي',
     frameStyleLines: 'خطوط الملعب',
     frameStyleFreeOnly: 'خطوط الملعب متاحة مع الإطارات المجانية فقط.',

@@ -526,11 +526,11 @@ export const ERROR_CODE_KEYS = {
   // Open matches (docs/design/open-matches/guest.md §4.22): each commit adds
   // the codes its SQL raises. 0256: app.set_my_gender.
   GENDER_ALREADY_SET: 'matches.errors.genderAlreadySet',
-  // 0307 (Phase 2, Edit profile): usernames and photo frames. USERNAME_TOO_SOON
+  // 0314 (Phase 2, Edit profile): usernames and photo frames. USERNAME_TOO_SOON
   // carries the next allowed time in its detail; the username form words it
   // with the date (profile.usernameTooSoon), this line is the fallback.
   USERNAME_INVALID: 'profile.usernameInvalid',
-  // 0312: a slur or swear word (app.username_offensive).
+  // 0319: a slur or swear word (app.username_offensive).
   USERNAME_NOT_ALLOWED: 'profile.usernameNotAllowed',
   USERNAME_RESERVED: 'profile.usernameReserved',
   USERNAME_TAKEN: 'profile.usernameTaken',

@@ -40,7 +40,8 @@
     "content_declined",
     "waiter_call_new",
     "match_report_new",
-    "loyalty_gift"
+    "loyalty_gift",
+    "screenshot_taken"
   ],
   "routes": [
     "staff",

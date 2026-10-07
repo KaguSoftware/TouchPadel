@@ -273,7 +273,7 @@ export default function ProfileScreen() {
               >
                 {isolateLtr(name)}
               </Text>
-              {/* Phase 2 (0307): the handle other players and the desk see. */}
+              {/* Phase 2 (0314): the handle other players and the desk see. */}
               {profile.data?.username ? (
                 <Text
                   testID="profile.username"
@@ -328,7 +328,7 @@ export default function ProfileScreen() {
           </Card>
           </Pressable>
 
-          {/* Phase 2 (0307): a username is required to join open matches, so a
+          {/* Phase 2 (0314): a username is required to join open matches, so a
               guest without one is asked here, under the card, until they pick. */}
           {profile.data && !profile.data.username ? (
             <Card style={{ marginTop: space.m, backgroundColor: colors.gtint, borderColor: colors.gline }}>

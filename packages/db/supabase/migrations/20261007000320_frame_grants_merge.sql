@@ -1,20 +1,21 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0313 frame_grants on account merge.
+-- 0320 frame_grants on account merge.
 --
--- 0311 added frame_grants.profile_id -> profiles(id), so the account merge has
+-- 0318 added frame_grants.profile_id -> profiles(id), so the account merge has
 -- to say what it does with it (account-merge.test.ts holds every such column
 -- to app.profile_merge_columns()). A grant follows the person: the drop's
 -- grant moves to keep unless keep already has one, then the drop's row goes.
 
 -- ---------------------------------------------------------------------------
 -- 1. app.profile_merge_columns: re-created from
---    20261006000307_usernames_frames.sql:419, verbatim plus frame_grants.
+--    20261007000314_usernames_frames.sql:419, verbatim plus frame_grants
+--    (0314 itself is 0307 identity_hardening's list plus username_holds).
 -- ---------------------------------------------------------------------------
 create or replace function app.profile_merge_columns()
 returns table (ord int, sch text, tbl text, col text, how text)
-language sql immutable set search_path = public as $profile_merge_columns_0313$
+language sql immutable set search_path = public as $profile_merge_columns_0320$
   select * from (values
     ( 10, 'public', 'tabs',                  'customer_id',           'repoint'),
     ( 20, 'public', 'reservations',          'guest_id',              'repoint'),
@@ -27,7 +28,6 @@ language sql immutable set search_path = public as $profile_merge_columns_0313$
     ( 90, 'public', 'coaches',               'profile_id',            'repoint'),
     (100, 'public', 'courses',               'created_by_profile_id', 'repoint'),
     (110, 'public', 'lessons',               'created_by_profile_id', 'repoint'),
-    (120, 'public', 'lesson_enrolments',     'booked_by_profile_id',  'repoint'),
     (130, 'public', 'lesson_attendance',     'marked_by_profile_id',  'repoint'),
     (140, 'public', 'lesson_strikes',        'guest_id',              'repoint'),
     (150, 'public', 'lesson_events',         'actor_profile_id',      'repoint'),
@@ -46,6 +46,7 @@ language sql immutable set search_path = public as $profile_merge_columns_0313$
     (370, 'public', 'match_reports',         'reporter_id',           'rule'),
     (371, 'public', 'match_reports',         'reported_id',           'rule'),
     (380, 'public', 'lesson_enrolments',     'guest_id',              'rule'),
+    (381, 'public', 'lesson_enrolments',     'booked_by_profile_id',  'rule'),
     (390, 'public', 'tournament_entries',    'guest_id',              'rule'),
     (400, 'public', 'loyalty_cards',         'profile_id',            'rule'),
     (410, 'public', 'loyalty_accounts',      'profile_id',            'rule'),
@@ -63,22 +64,22 @@ language sql immutable set search_path = public as $profile_merge_columns_0313$
     (700, 'app',    'profile_merges',        'keep_id',               'record')
   ) as t (ord, sch, tbl, col, how)
   order by 1;
-$profile_merge_columns_0313$;
+$profile_merge_columns_0320$;
 
 
 comment on function app.profile_merge_columns() is
-  '0303, username_holds since 0307, frame_grants since 0313. Every column referencing profiles(id) or auth.users(id) and what app.merge_profiles_internal does with it (repoint | rule | auth | signout | drop_only | refuse | record). The repoint rows ARE the merge''s generic loop; account-merge.test.ts holds the list to pg_constraint.';
+  '0303, 0307, username_holds since 0314, frame_grants since 0320. Every column referencing profiles(id) or auth.users(id) and what app.merge_profiles_internal does with it (repoint | rule | auth | signout | drop_only | refuse | record). The repoint rows ARE the merge''s generic loop; account-merge.test.ts holds the list to pg_constraint.';
 
 revoke all on function app.profile_merge_columns() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 2. app.merge_profiles_internal: re-created from
---    20261005000303_account_identity.sql:227, verbatim plus the frame_grants
+--    20261006000307_identity_hardening.sql:267, verbatim plus the frame_grants
 --    move after loyalty.
 -- ---------------------------------------------------------------------------
 create or replace function app.merge_profiles_internal(p_keep uuid, p_drop uuid, p_reason text)
 returns jsonb
-language plpgsql security definer set search_path = public as $merge_profiles_internal_0313$
+language plpgsql security definer set search_path = public as $merge_profiles_internal_0320$
 declare
   v_keep     profiles%rowtype;
   v_drop     profiles%rowtype;
@@ -90,9 +91,21 @@ declare
   v_sub      text := current_setting('request.jwt.claim.sub', true);
   v_ku       auth.users%rowtype;
   v_du       auth.users%rowtype;
-  v_has_c    boolean;
   v_keep_synth boolean;
   v_merge_id uuid;
+  v_claim    boolean := p_reason = 'walkin_claim';
+  v_proven   boolean;
+  v_take_email boolean := false;
+  v_take_phone boolean := false;
+  v_take_ids boolean := false;
+  v_venue    text := current_setting('app.venue_id', true);
+  v_te       record;
+  v_k        tournament_entries%rowtype;
+  v_d        tournament_entries%rowtype;
+  v_win      uuid;
+  v_lose     tournament_entries%rowtype;
+  v_ts       text;
+  v_le       record;
 begin
   if p_keep is null or p_drop is null then
     raise exception 'MERGE_REFUSED' using errcode = 'P0001', detail = 'missing';
@@ -101,9 +114,15 @@ begin
     raise exception 'MERGE_REFUSED' using errcode = 'P0001', detail = 'same';
   end if;
 
-  -- 1. Both profiles, in uuid order (two merges of the same pair, or of a
-  -- shared keep, queue instead of deadlocking).
-  perform 1 from profiles where id in (p_keep, p_drop) order by id for update;
+  -- 1. Locks. The tournaments both accounts entered, in id order (every
+  -- tournament body takes its tournaments row before its entries), then both
+  -- profiles in uuid order FOR NO KEY UPDATE: the merge never changes a key,
+  -- so a settle's deferred ledger insert (an FK key share on the profile,
+  -- taken while it holds the tab) never waits on it (0307, c20).
+  perform 1 from tournaments
+   where id in (select tournament_id from tournament_entries where guest_id in (p_keep, p_drop))
+   order by id for update;
+  perform 1 from profiles where id in (p_keep, p_drop) order by id for no key update;
   select * into v_keep from profiles where id = p_keep;
   select * into v_drop from profiles where id = p_drop;
   if v_keep.id is null or v_drop.id is null
@@ -122,6 +141,73 @@ begin
     raise exception 'MERGE_REFUSED' using errcode = 'P0001', detail = 'coach_both';
   end if;
 
+  -- 0307 (c0): the auth slots move only between accounts proven to be one
+  -- person: a confirmed phone or a verified email the two hold alike. Never
+  -- on a walk-in claim (its email, if any, was typed by the desk), and not on
+  -- the owner's word alone: the owner's list shows unproven pairs (kind
+  -- phone_unproven), among them a guest who only typed someone's number, and
+  -- an owner merge of such a pair must not hand one person's login to the
+  -- other. It moves the data and leaves every login where it was.
+  select * into v_ku from auth.users where id = p_keep;
+  select * into v_du from auth.users where id = p_drop;
+  v_proven := not v_claim and v_ku.id is not null and v_du.id is not null
+              and ((v_ku.phone_confirmed_at is not null and v_du.phone_confirmed_at is not null
+                       and coalesce(app.phone_digits(v_ku.phone), '') ~ '^[0-9]{7,15}$'
+                       and app.phone_canon(v_ku.phone) = app.phone_canon(v_du.phone))
+                   or exists (
+                        -- a verified email both hold: the account's confirmed
+                        -- email or a Google or Apple identity's (the email
+                        -- groups of duplicate_groups_internal)
+                        select 1
+                          from (select lower(btrim(u.email)) as e from auth.users u
+                                 where u.id = p_keep and u.email_confirmed_at is not null
+                                union
+                                select lower(btrim(i.email)) from auth.identities i
+                                 where i.user_id = p_keep and i.provider in ('google', 'apple')) a
+                          join (select lower(btrim(u.email)) as e from auth.users u
+                                 where u.id = p_drop and u.email_confirmed_at is not null
+                                union
+                                select lower(btrim(i.email)) from auth.identities i
+                                 where i.user_id = p_drop and i.provider in ('google', 'apple')) b
+                            on a.e = b.e
+                         where nullif(a.e, '') is not null and a.e not like '%@guest.touch.local'));
+  if v_proven then
+    v_keep_synth := coalesce(v_ku.email ilike '%@guest.touch.local', false);
+    v_take_email := (nullif(btrim(coalesce(v_ku.email, '')), '') is null or v_keep_synth)
+                    and nullif(btrim(coalesce(v_du.email, '')), '') is not null
+                    and v_du.email not ilike '%@guest.touch.local';
+    v_take_phone := nullif(btrim(coalesce(v_ku.phone, '')), '') is null
+                    and nullif(btrim(coalesce(v_du.phone, '')), '') is not null;
+    -- An OAuth login (Google, Apple, ...) keep lacks moves too (section 6),
+    -- so it is a login a staff or coach keep would receive as well.
+    v_take_ids := exists (
+      select 1 from auth.identities d
+       where d.user_id = p_drop and d.provider not in ('email', 'phone')
+         and not exists (select 1 from auth.identities k
+                          where k.user_id = p_keep and k.provider = d.provider));
+    if (v_take_email or v_take_phone or v_take_ids)
+       and (exists (select 1 from staff where id = p_keep)
+            or exists (select 1 from coaches where profile_id = p_keep)) then
+      raise exception 'MERGE_REFUSED' using errcode = 'P0001', detail = 'staff_keep_auth';
+    end if;
+  elsif not v_claim and v_ku.id is not null and v_du.id is not null
+        -- An unproven merge moves no login and empties the drop's. When the
+        -- drop is the only one of the two anybody can sign in to (a desk
+        -- walk-in kept over the person's app account), the person would be
+        -- locked out of their own history: the other way round, or not at all.
+        and not (   (nullif(btrim(coalesce(v_ku.email, '')), '') is not null
+                     and v_ku.email not ilike '%@guest.touch.local')
+                 or v_ku.phone_confirmed_at is not null
+                 or exists (select 1 from auth.identities i
+                             where i.user_id = p_keep and i.provider not in ('email', 'phone')))
+        and (   (nullif(btrim(coalesce(v_du.email, '')), '') is not null
+                 and v_du.email not ilike '%@guest.touch.local')
+             or v_du.phone_confirmed_at is not null
+             or exists (select 1 from auth.identities i
+                         where i.user_id = p_drop and i.provider not in ('email', 'phone'))) then
+    raise exception 'MERGE_REFUSED' using errcode = 'P0001', detail = 'keep_no_login';
+  end if;
+
   -- The writes below are the merge's own, made for whichever caller: the
   -- branch guard's "staff write only where they work" (0230) must not refuse
   -- the owner a row of a closed branch, so the caller's claims are set aside
@@ -131,12 +217,75 @@ begin
   perform set_config('app.profile_merge', 'on', true);
   perform set_config('app.loyalty_merge', 'on', true);   -- contracts §1.3: the ledger re-point
 
+  -- 1b. 0307 (c11): a tournament both accounts entered. The better entry
+  -- wins (registered, waitlisted, no_show, withdrawn; then the net paid;
+  -- then keep's); the loser's tournament tabs move to it, so its money counts
+  -- there, and the loser is deleted. A loser already in the draw (a match, a
+  -- bye, a substitution), or a pair both paid, cannot go: MERGE_REFUSED
+  -- detail tournament_entry.
+  -- Before the re-point loop: its tabs update is the first tabs write.
+  for v_te in
+    select k.id as k_id, d.id as d_id
+      from tournament_entries d
+      join tournament_entries k on k.tournament_id = d.tournament_id and k.guest_id = p_keep
+     where d.guest_id = p_drop
+     order by d.tournament_id
+  loop
+    select * into v_k from tournament_entries where id = v_te.k_id;
+    select * into v_d from tournament_entries where id = v_te.d_id;
+    select x.id into v_win
+      from (values (v_k.id, v_k.status, 1), (v_d.id, v_d.status, 2)) as x (id, status, side)
+     order by case x.status when 'registered' then 0 when 'waitlisted' then 1 when 'no_show' then 2 else 3 end,
+              coalesce((app.tournament_entry_money(x.id)->>'net_iqd')::bigint, 0) desc,
+              x.side
+     limit 1;
+    v_lose := case when v_win = v_k.id then v_d else v_k end;
+    -- Both entries paid: folding one into the other would hide the second
+    -- fee from every refunds-due figure (refund_due counts a withdrawn or
+    -- cancelled entry only). One is refunded first, then the merge runs.
+    if coalesce((app.tournament_entry_money(v_k.id)->>'net_iqd')::bigint, 0) > 0
+       and coalesce((app.tournament_entry_money(v_d.id)->>'net_iqd')::bigint, 0) > 0 then
+      raise exception 'MERGE_REFUSED' using errcode = 'P0001', detail = 'tournament_entry';
+    end if;
+    if exists (select 1 from tournament_matches m where v_lose.id in (m.a1, m.a2, m.b1, m.b2))
+       or exists (select 1 from tournament_entries s where s.substitute_for = v_lose.id)
+       or exists (select 1 from tournament_rounds r where v_lose.id = any (r.bye_entry_ids)) then
+      raise exception 'MERGE_REFUSED' using errcode = 'P0001', detail = 'tournament_entry';
+    end if;
+    update tabs set tournament_entry_id = v_win where tournament_entry_id = v_lose.id;
+    get diagnostics v_n = row_count;
+    if v_n > 0 then
+      v_moved := v_moved || jsonb_build_object('tabs.tournament_entry_id',
+                                               coalesce((v_moved->>'tabs.tournament_entry_id')::bigint, 0) + v_n);
+    end if;
+    select status::text into v_ts from tournaments where id = v_lose.tournament_id;
+    perform set_config('app.venue_id', v_lose.venue_id::text, true);
+    delete from tournament_entries where id = v_lose.id;
+    perform app.write_audit('tournament.merge_entry', 'tournament_entries', v_lose.id::text,
+                            jsonb_build_object('status', v_lose.status, 'tournament_id', v_lose.tournament_id),
+                            jsonb_build_object('kept_entry_id', v_win, 'keep_id', p_keep, 'drop_id', p_drop));
+    if v_lose.status = 'registered' then
+      if v_ts = 'open' then
+        perform app.tournament_promote_internal(v_lose.tournament_id);
+      elsif v_ts in ('closed', 'running') then
+        update tournaments set revision = revision + 1, updated_at = now() where id = v_lose.tournament_id;
+      end if;
+    end if;
+    v_moved := v_moved || jsonb_build_object('tournament_entries.merged',
+                                             coalesce((v_moved->>'tournament_entries.merged')::bigint, 0) + 1);
+  end loop;
+  -- The caller's branch back: the tournament's was asserted for that
+  -- entry's rows only, never for the rest of the merge or the caller.
+  perform set_config('app.venue_id', coalesce(v_venue, ''), true);
+
   -- 2. The plain re-points, in lock order (tabs → reservations → … →
-  -- match_tickets). A column that does not exist yet is skipped.
+  -- match_tickets). A column that does not exist yet is skipped. A walk-in
+  -- claim leaves the staff's notes about the walk-in on the tombstone (c21).
   for v_c in
     select m.sch, m.tbl, m.col from app.profile_merge_columns() m
      where m.how = 'repoint' order by m.ord
   loop
+    continue when v_claim and v_c.tbl = 'customer_notes';
     continue when not exists (
       select 1 from pg_attribute a
        where a.attrelid = to_regclass(format('%I.%I', v_c.sch, v_c.tbl))
@@ -156,13 +305,16 @@ begin
   -- an entry, a ticket payment in flight) stays on the drop tombstone as
   -- history and is counted under <table>_left.
 
-  -- customer_flags (customer_id, type): keep's flag wins.
-  delete from customer_flags d
-   where d.customer_id = p_drop
-     and exists (select 1 from customer_flags k where k.customer_id = p_keep and k.type = d.type);
-  update customer_flags set customer_id = p_keep where customer_id = p_drop;
-  get diagnostics v_n = row_count;
-  if v_n > 0 then v_moved := v_moved || jsonb_build_object('customer_flags.customer_id', v_n); end if;
+  -- customer_flags (customer_id, type): keep's flag wins. A walk-in claim
+  -- leaves them on the tombstone (c21).
+  if not v_claim then
+    delete from customer_flags d
+     where d.customer_id = p_drop
+       and exists (select 1 from customer_flags k where k.customer_id = p_keep and k.type = d.type);
+    update customer_flags set customer_id = p_keep where customer_id = p_drop;
+    get diagnostics v_n = row_count;
+    if v_n > 0 then v_moved := v_moved || jsonb_build_object('customer_flags.customer_id', v_n); end if;
+  end if;
 
   -- booking_payments_one_active_ticket: one ticket purchase in flight each.
   update booking_payments d set guest_id = p_keep
@@ -263,8 +415,39 @@ begin
   get diagnostics v_n = row_count;
   if v_n > 0 then v_moved := v_moved || jsonb_build_object('match_reports.reported_id', v_n); end if;
 
-  -- lesson_enrolments_one_live_lesson / _course: one live place each.
-  update lesson_enrolments d set guest_id = p_keep, updated_at = now()
+  -- lesson_enrolments_one_live_lesson / _course: one live place each. 0307
+  -- (c11): a booked place on the drop beats a held one on keep that no
+  -- payment can still book (a private lesson's held row is never one: it has
+  -- one enrolment). Keep's hold ends as expired, then the booked place moves.
+  for v_le in
+    select k.id as k_id
+      from lesson_enrolments d
+      join lesson_enrolments k
+        on k.guest_id = p_keep and k.status = 'held'
+       and ((d.lesson_id is not null and k.lesson_id = d.lesson_id)
+            or (d.course_id is not null and k.course_id = d.course_id))
+     where d.guest_id = p_drop and d.status = 'booked'
+       and not exists (select 1 from lessons l where l.id = k.lesson_id and l.status = 'held')
+       and not exists (select 1 from booking_payments bp
+                        where bp.lesson_enrolment_id = k.id
+                          and bp.status in ('created', 'pending', 'succeeded'))
+     order by k.id
+  loop
+    update lesson_enrolments
+       set status = 'expired', cancel_kind = 'expired', cancelled_at = now(),
+           hold_expires_at = null, updated_at = now()
+     where id = v_le.k_id and status = 'held';
+    v_moved := v_moved || jsonb_build_object('lesson_enrolments.held_expired',
+                                             coalesce((v_moved->>'lesson_enrolments.held_expired')::bigint, 0) + 1);
+  end loop;
+  -- A place the guest booked names the guest twice (lesson_enrolments_booked_by:
+  -- booked_by_profile_id = guest_id), so both move in one statement; 0303's
+  -- generic re-point of booked_by_profile_id first broke the check for every
+  -- guest-booked place (0307: the column is a rule now).
+  update lesson_enrolments d
+     set guest_id = p_keep,
+         booked_by_profile_id = case when d.booked_by_profile_id = p_drop then p_keep else d.booked_by_profile_id end,
+         updated_at = now()
    where d.guest_id = p_drop
      and not (d.status in ('held', 'booked')
               and exists (select 1 from lesson_enrolments k
@@ -273,8 +456,14 @@ begin
                                   or (d.course_id is not null and k.course_id = d.course_id))));
   get diagnostics v_n = row_count;
   if v_n > 0 then v_moved := v_moved || jsonb_build_object('lesson_enrolments.guest_id', v_n); end if;
+  -- A place the drop booked for someone else, as a coach.
+  update lesson_enrolments set booked_by_profile_id = p_keep, updated_at = now()
+   where booked_by_profile_id = p_drop and booked_by_kind <> 'guest';
+  get diagnostics v_n = row_count;
+  if v_n > 0 then v_moved := v_moved || jsonb_build_object('lesson_enrolments.booked_by_profile_id', v_n); end if;
 
-  -- tournament_entries_guest_key (tournament_id, guest_id): keep's entry wins.
+  -- tournament_entries_guest_key (tournament_id, guest_id): every collision
+  -- was resolved in 1b, so the drop's entries all move.
   update tournament_entries d set guest_id = p_keep, updated_at = now()
    where d.guest_id = p_drop
      and not exists (select 1 from tournament_entries k
@@ -293,20 +482,14 @@ begin
       ('tournament_entries', (select count(*) from tournament_entries where guest_id = p_drop))
     ) as l (t, n);
 
-  -- Loyalty (0303 loyalty, created after this file): the drop's card goes
-  -- (keep's is made lazily), the drop's cached account goes and keep's is
-  -- recomputed from the ledger rows the loop above moved.
-  if to_regclass('public.loyalty_cards') is not null then
-    execute 'delete from loyalty_cards where profile_id = $1' using p_drop;
-  end if;
-  if to_regclass('public.loyalty_accounts') is not null then
-    execute 'delete from loyalty_accounts where profile_id = $1' using p_drop;
-  end if;
-  if to_regprocedure('app.loyalty_recompute(uuid)') is not null then
-    execute 'select app.loyalty_recompute($1)' using p_keep;
-  end if;
+  -- Loyalty: both cached accounts in uuid order (the last rank), then the
+  -- drop's card and account go and keep's is recomputed from the moved ledger.
+  perform 1 from loyalty_accounts where profile_id in (p_keep, p_drop) order by profile_id for update;
+  delete from loyalty_cards where profile_id = p_drop;
+  delete from loyalty_accounts where profile_id = p_drop;
+  perform app.loyalty_recompute(p_keep);
 
-  -- Frame grants (0311): one row per profile. The drop's grant moves to keep
+  -- Frame grants (0318): one row per profile. The drop's grant moves to keep
   -- when keep has none; otherwise the drop's row goes.
   update frame_grants d set profile_id = p_keep
    where d.profile_id = p_drop
@@ -316,22 +499,26 @@ begin
   delete from frame_grants where profile_id = p_drop;
 
   -- 4. The profile fields keep lacks. Not avatar_path: the path is the drop's
-  -- own folder (0302 app.avatar_owner), purged by the tombstone below.
-  update profiles k
-     set full_name       = case when nullif(btrim(k.full_name), '') is null then d.full_name   else k.full_name   end,
-         given_name      = case when nullif(btrim(k.full_name), '') is null then d.given_name  else k.given_name  end,
-         family_name     = case when nullif(btrim(k.full_name), '') is null then d.family_name else k.family_name end,
-         gender          = case when k.gender is null then d.gender        else k.gender        end,
-         gender_set_at   = case when k.gender is null then d.gender_set_at else k.gender_set_at end,
-         gender_set_by   = case when k.gender is null then d.gender_set_by else k.gender_set_by end,
-         birth_date      = coalesce(k.birth_date, d.birth_date),
-         terms_version   = case when k.terms_version is null then d.terms_version     else k.terms_version     end,
-         terms_accepted_at = case when k.terms_version is null then d.terms_accepted_at else k.terms_accepted_at end,
-         expo_push_token = coalesce(k.expo_push_token, d.expo_push_token)
-    from profiles d
-   where k.id = p_keep and d.id = p_drop;
+  -- own folder (0302 app.avatar_owner), purged by the tombstone below. Never
+  -- the push token (0307, c0: one person's device must not get the other's
+  -- pushes), and nothing personal on a walk-in claim (c21: the number may
+  -- have been mistyped at the desk).
+  if not v_claim then
+    update profiles k
+       set full_name       = case when nullif(btrim(k.full_name), '') is null then d.full_name   else k.full_name   end,
+           given_name      = case when nullif(btrim(k.full_name), '') is null then d.given_name  else k.given_name  end,
+           family_name     = case when nullif(btrim(k.full_name), '') is null then d.family_name else k.family_name end,
+           gender          = case when k.gender is null then d.gender        else k.gender        end,
+           gender_set_at   = case when k.gender is null then d.gender_set_at else k.gender_set_at end,
+           gender_set_by   = case when k.gender is null then d.gender_set_by else k.gender_set_by end,
+           birth_date      = coalesce(k.birth_date, d.birth_date),
+           terms_version   = case when k.terms_version is null then d.terms_version     else k.terms_version     end,
+           terms_accepted_at = case when k.terms_version is null then d.terms_accepted_at else k.terms_accepted_at end
+      from profiles d
+     where k.id = p_keep and d.id = p_drop;
+  end if;
 
-  -- 5. The drop, tombstoned as app.delete_my_account (latest 0290) does it;
+  -- 5. The drop, tombstoned as app.delete_my_account does it;
   -- profiles_media_tombstone (0302) empties avatar_path and birth_date and
   -- queues the drop's avatar folder.
   update profiles
@@ -346,7 +533,8 @@ begin
          deleted_at      = now()
    where id = p_drop;
 
-  -- Keep takes the drop's phone when it has none and nobody else holds it.
+  -- Keep takes the drop's phone when it has none and nobody else holds it
+  -- (the key follows app.profile_phone_key: keep's own proof, not the drop's).
   if v_keep.phone is null and v_drop.phone is not null and v_drop.phone_key is not null
      and not exists (select 1 from profiles p
                       where p.phone_key = v_drop.phone_key and p.deleted_at is null and p.id <> p_keep) then
@@ -354,22 +542,14 @@ begin
     v_moved := v_moved || jsonb_build_object('profile.phone', 1);
   end if;
 
-  -- 6. Auth. The email or phone slot keep lacks comes across (cleared on the
-  -- drop first: both are unique in GoTrue), with its identity; any other
-  -- provider keep lacks (google, apple) moves; the drop is banned for good and
-  -- signed out everywhere.
-  select * into v_ku from auth.users where id = p_keep;
-  select * into v_du from auth.users where id = p_drop;
+  -- 6. Auth. Only between proven accounts (above): the email or phone slot
+  -- keep lacks comes across (cleared on the drop first: both are unique in
+  -- GoTrue), with its identity, and any other provider keep lacks moves.
+  -- Then whatever is left on the drop's auth row goes (0307, c45): its
+  -- metadata, email, phone and identities; it is banned for good and signed
+  -- out everywhere.
   if v_ku.id is not null and v_du.id is not null then
-    -- A desk walk-in's synthetic address (and the random password the desk
-    -- gave it) counts as an empty slot: an owner keeping the walk-in must not
-    -- strand the person's real email on the banned drop. The password moves
-    -- with the email when keep has none of its own (a phone sign-up), or the
-    -- person could no longer sign in with it.
-    v_keep_synth := coalesce(v_ku.email ilike '%@guest.touch.local', false);
-    if (nullif(btrim(coalesce(v_ku.email, '')), '') is null or v_keep_synth)
-       and nullif(btrim(coalesce(v_du.email, '')), '') is not null
-       and v_du.email not ilike '%@guest.touch.local' then
+    if v_take_email then
       update auth.users set email = null, updated_at = now() where id = p_drop;
       if v_keep_synth then
         -- (provider_id, provider) is unique: keep's synthetic email identity
@@ -390,8 +570,7 @@ begin
          and not exists (select 1 from auth.identities i where i.user_id = p_keep and i.provider = 'email');
       v_moved := v_moved || jsonb_build_object('auth.email', 1);
     end if;
-    if nullif(btrim(coalesce(v_ku.phone, '')), '') is null
-       and nullif(btrim(coalesce(v_du.phone, '')), '') is not null then
+    if v_take_phone then
       update auth.users set phone = null, updated_at = now() where id = p_drop;
       update auth.users
          set phone = v_du.phone, phone_confirmed_at = v_du.phone_confirmed_at, updated_at = now()
@@ -403,15 +582,24 @@ begin
          and not exists (select 1 from auth.identities i where i.user_id = p_keep and i.provider = 'phone');
       v_moved := v_moved || jsonb_build_object('auth.phone', 1);
     end if;
-    update auth.identities d
-       set user_id = p_keep, updated_at = now()
-     where d.user_id = p_drop
-       and d.provider not in ('email', 'phone')
-       and not exists (select 1 from auth.identities k where k.user_id = p_keep and k.provider = d.provider);
-    get diagnostics v_n = row_count;
-    if v_n > 0 then v_moved := v_moved || jsonb_build_object('auth.identities', v_n); end if;
+    if v_proven then
+      update auth.identities d
+         set user_id = p_keep, updated_at = now()
+       where d.user_id = p_drop
+         and d.provider not in ('email', 'phone')
+         and not exists (select 1 from auth.identities k where k.user_id = p_keep and k.provider = d.provider);
+      get diagnostics v_n = row_count;
+      if v_n > 0 then v_moved := v_moved || jsonb_build_object('auth.identities', v_n); end if;
+    end if;
 
-    update auth.users set banned_until = 'infinity', updated_at = now() where id = p_drop;
+    delete from auth.identities where user_id = p_drop;
+    update auth.users
+       set raw_user_meta_data = '{}'::jsonb,
+           email              = null,
+           phone              = null,
+           banned_until       = 'infinity',
+           updated_at         = now()
+     where id = p_drop;
     delete from auth.sessions where user_id = p_drop;          -- refresh tokens cascade
     delete from auth.one_time_tokens where user_id = p_drop;
   end if;
@@ -420,6 +608,10 @@ begin
   perform set_config('app.profile_merge', '', true);
   perform set_config('request.jwt.claims', coalesce(v_claims, ''), true);
   perform set_config('request.jwt.claim.sub', coalesce(v_sub, ''), true);
+
+  -- Keep's key under its own proof now (a phone that came across, an auth
+  -- phone that moved).
+  update profiles set phone = phone where id = p_keep;
 
   -- 7. The record. No before-image of the drop: its name and phone are what
   -- the tombstone erased (the 0077 rule).
@@ -435,9 +627,9 @@ begin
     left(coalesce(nullif(btrim(p_reason), ''), 'merge'), 200));
 
   return jsonb_build_object('merge_id', v_merge_id, 'keep_id', p_keep, 'drop_id', p_drop, 'moved', v_moved);
-end $merge_profiles_internal_0313$;
+end $merge_profiles_internal_0320$;
 
 comment on function app.merge_profiles_internal(uuid, uuid, text) is
-  '0303 (loyalty contracts §1.1), frame_grants since 0313. Internal, granted to nobody. Folds p_drop into p_keep: every column of app.profile_merge_columns() is re-pointed (a unique scope the move would break: a flag, block, report, exclusion or standing keep already has is deleted on the drop; a seat, request, enrolment, entry or ticket payment in flight stays on the drop, counted <table>_left); keep takes the names (when its full_name is empty), gender, birth_date, terms and push token it lacks, then the phone it lacks; the drop is tombstoned as delete_my_account does (0302 purges its avatar). Auth: the email or phone slot keep lacks (a desk walk-in''s synthetic address counts as empty) moves with its identity, the email with its password when keep has none, other providers keep lacks move, the drop is banned (infinity) and signed out. Loyalty, when 0303 loyalty exists: the drop''s card and cached account go and keep''s is recomputed. Frame grants: the drop''s moves to keep when keep has none, else it goes. Writes app.profile_merges and audit_log account.merge. MERGE_REFUSED detail missing | same | staff_drop | staff_both | coach_both. Returns {merge_id, keep_id, drop_id, moved}.';
+  '0303, 0307, frame_grants since 0320 (loyalty contracts §1.1). Internal, granted to nobody. Folds p_drop into p_keep. Locks the tournaments both entered (id order), then both profiles FOR NO KEY UPDATE (uuid order). A tournament both entered keeps the better entry (registered > waitlisted > no_show > withdrawn, then net paid, then keep''s): the loser''s tournament tabs move to it and the loser is deleted (a registered loser frees its place: promotion when open, a revision otherwise); a loser in the draw, or a pair of entries both paid, is MERGE_REFUSED detail tournament_entry (the tournament''s branch is asserted for those rows, then the caller''s app.venue_id restored). Every column of app.profile_merge_columns() is re-pointed (a flag, block, report, exclusion or standing keep already has is deleted on the drop; a seat, request, enrolment or ticket payment in flight stays on the drop, counted <table>_left; a booked lesson place beats a held one on keep that no payment can still book). Keep takes the names (when its full_name is empty), gender, birth_date and terms it lacks, then the phone it lacks; never the push token. A walk-in claim (reason walkin_claim) moves no name, gender, birth date, terms, customer_notes or customer_flags. The drop is tombstoned as delete_my_account does (0302 purges its avatar). Auth moves only between proven accounts (a confirmed phone or a verified email the two share; the owner''s word is not proof, so an owner merge of an unproven pair moves data only): the email or phone slot keep lacks with its identity (a walk-in''s synthetic address counts as empty), the email with its password when keep has none, other providers keep lacks; a staff or coach keep that would receive an email, a phone or an OAuth identity is MERGE_REFUSED detail staff_keep_auth, and an unproven merge whose drop is the only one of the two anybody can sign in to is MERGE_REFUSED detail keep_no_login. The drop''s auth row is then emptied (metadata, email, phone, identities), banned (infinity) and signed out. Loyalty: both accounts locked in uuid order, the drop''s card and account go, keep''s is recomputed. Frame grants: the drop''s moves to keep when keep has none, else it goes. Writes app.profile_merges and audit_log account.merge. MERGE_REFUSED detail missing | same | staff_drop | staff_both | coach_both | staff_keep_auth | keep_no_login | tournament_entry. Returns {merge_id, keep_id, drop_id, moved}.';
 
 revoke all on function app.merge_profiles_internal(uuid, uuid, text) from public, anon, authenticated;

@@ -20,7 +20,7 @@ import {
   step,
 } from '../frames';
 
-describe('usernames (0307)', () => {
+describe('usernames (0314)', () => {
   it('normalises like the server: trim, lower case, no leading @', () => {
     expect(normalizeUsername('  @Hassan.S ')).toBe('hassan.s');
     expect(normalizeUsername('   ')).toBe('');
@@ -53,7 +53,7 @@ describe('usernames (0307)', () => {
   });
 });
 
-describe('frames (0307)', () => {
+describe('frames (0314)', () => {
   it('is the server\'s closed list, five free then four earned', () => {
     expect(FRAME_IDS).toEqual([
       'brand-green', 'touch-blue', 'court-white', 'split-court', 'double-line',
@@ -96,7 +96,7 @@ describe('frames (0307)', () => {
     }
   });
 
-  it('draws court lines as a style of any free frame (0310), never of an earned one', () => {
+  it('draws court lines as a style of any free frame (0317), never of an earned one', () => {
     expect(frameDrawing('brand-green', 84, 'lines').rings[0]!.dashes).toBe(12);
     expect(frameDrawing('brand-green', 36, 'lines').rings[0]!.dashes).toBe(8);
     // Every ring dashes with the same count, so they line up as one band.

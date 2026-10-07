@@ -1,5 +1,5 @@
 /**
- * 0307 usernames_frames and 0308 profiles_username_unique (Edit profile, Phase 2).
+ * 0314 usernames_frames and 0315 profiles_username_unique (Edit profile, Phase 2).
  *
  *   - app.username_check: invalid, reserved, taken, the caller's own name;
  *   - app.set_my_username: stored lower case, the refusals in order, a repeat
@@ -12,7 +12,7 @@
  *   - account deletion empties the username (held 90 days) and resets the frame;
  *   - the grants: the guest and the desk read the columns, nobody writes them.
  *
- *   - 0309 earned frames: a completed court booking with nothing owed counts
+ *   - 0316 earned frames: a completed court booking with nothing owed counts
  *     as a match played; an unpaid, cancelled or no-show one does not; 10
  *     unlock Regular, which the guest may then wear; Silver stays locked; no
  *     tournament win leaves Champion locked; my_frames reports the progress.
@@ -35,7 +35,7 @@ import {
 const up = await stackAvailable();
 const tag = () => Math.random().toString(36).slice(2, 8);
 
-describe.skipIf(!up)('0307 usernames and frames', () => {
+describe.skipIf(!up)('0314 usernames and frames', () => {
   let svc: SupabaseClient;
   let desk: { id: string; client: SupabaseClient };
 
@@ -81,7 +81,7 @@ describe.skipIf(!up)('0307 usernames and frames', () => {
       expect(await check('.abc')).toMatchObject({ available: false, reason: 'invalid' });
       expect(await check('Touch_Fan')).toMatchObject({ username: 'touch_fan', available: false, reason: 'reserved' });
       expect(await check('ad.min')).toMatchObject({ available: false, reason: 'reserved' });
-      // 0312: slurs and swear words, through dots, digit swaps and doubled letters;
+      // 0319: slurs and swear words, through dots, digit swaps and doubled letters;
       // a short word only as a whole part, so ordinary names stay free.
       for (const bad of ['n1gg3r', 'sh1t.happens', 'fuuuck', 'big_dick', 'coon', 'kosomak', 'ibn.el.kalb']) {
         expect(await check(bad)).toMatchObject({ available: false, reason: 'not_allowed' });
@@ -185,7 +185,7 @@ describe.skipIf(!up)('0307 usernames and frames', () => {
       expect((await row(g.id)).avatar_frame).toBe('double-line');
       expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'gold-racket' })).error?.message).toBe('FRAME_LOCKED');
       expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'night-match' })).error?.message).toBe('FRAME_INVALID');
-      // 0310: court-lines is a style now, not an id.
+      // 0317: court-lines is a style now, not an id.
       expect((await appRpc(g.client, 'set_my_frame', { p_frame: 'court-lines' })).error?.message).toBe('FRAME_INVALID');
     });
 
@@ -204,7 +204,7 @@ describe.skipIf(!up)('0307 usernames and frames', () => {
       expect(direct.error?.message).toMatch(/profiles_avatar_frame_style_chk/);
     });
 
-    it('a frame_grants row opens every frame (0311), and only for that profile', async () => {
+    it('a frame_grants row opens every frame (0318), and only for that profile', async () => {
       const g = await guest('Frame Grant');
       const other = await guest('Frame Plain');
       expect((await svc.from('frame_grants' as never).insert({ profile_id: g.id, note: 'test' } as never)).error).toBeNull();
@@ -262,7 +262,7 @@ describe.skipIf(!up)('0307 usernames and frames', () => {
   });
 });
 
-describe.skipIf(!up)('0309 earned frames', () => {
+describe.skipIf(!up)('0316 earned frames', () => {
   let svc: SupabaseClient;
   let court: string;
   let g: { id: string; client: SupabaseClient };

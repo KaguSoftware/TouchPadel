@@ -177,7 +177,7 @@ insert into staff (id, display_name, role, is_active) values
   ('a0000000-0000-4000-8000-000000000007', 'Dev Cashier B',  'cashier',    true)
 on conflict (id) do nothing;
 
--- 0311: the dev accounts wear every photo frame, earned or not, so the earned
+-- 0318: the dev accounts wear every photo frame, earned or not, so the earned
 -- frames can be tried without faking matches.
 insert into frame_grants (profile_id, note)
 select id, 'dev account' from profiles

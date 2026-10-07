@@ -125,7 +125,7 @@ import { NAME_PART_MAX, nameFieldsOf, namePatch } from '../src/features/profile/
  * Email is not editable (re-verification, spec 05.18); language lives in
  * Settings alone. Leaving never prompts: back drops unsaved edits (owner, 2026-09-09).
  *
- * USERNAME AND FRAME (Phase 2, owner 2026-10-06; migration 0307). Username
+ * USERNAME AND FRAME (Phase 2, owner 2026-10-06; migration 0314). Username
  * opens a form with a live availability check (`app.username_check`, after a
  * short pause in typing), a suggestion built from the name (hassan.s), and
  * the 7-day rule: the first username is free, then one change a week. Photo
@@ -532,7 +532,7 @@ function Hub() {
           value={[first, last].filter(Boolean).join(' ') || t('profile.notSet')}
           onPress={() => go('name')}
         />
-        {/* Phase 2 (0307): required to join open matches; one change a week. */}
+        {/* Phase 2 (0314): required to join open matches; one change a week. */}
         <HubRow
           testID="profile-edit.username"
           icon={<TabProfileIcon size={15} color={colors.gstrong} />}
@@ -824,7 +824,7 @@ function PhoneForm() {
 }
 
 /**
- * Username (0307). The field checks availability after a short pause in
+ * Username (0314). The field checks availability after a short pause in
  * typing, never on every key; the grammar is checked on the phone first so a
  * bad name never reaches the server. Save is the only write.
  */
@@ -977,9 +977,9 @@ function UsernameForm() {
 }
 
 /**
- * Photo frame (0307): the five free frames and their style (Normal or Court
- * lines; 0310), then the four earned ones, locked
- * with their rule and progress (10 / 50; 0309) until the server says the guest
+ * Photo frame (0314): the five free frames and their style (Normal or Court
+ * lines; 0317), then the four earned ones, locked
+ * with their rule and progress (10 / 50; 0316) until the server says the guest
  * earned them: games played AND paid in full, or a tournament win. The avatar at
  * the top previews the pick; Save writes it.
  */
@@ -1000,13 +1000,13 @@ function FrameForm() {
     frames.data?.style ?? profile.data?.avatar_frame_style,
   );
   const selected = picked ?? current;
-  // 0310: the switch keeps its value while an earned frame is picked (it just
+  // 0317: the switch keeps its value while an earned frame is picked (it just
   // does not apply there), so going back to a free frame restores it.
   const styleChoice = pickedStyle ?? currentStyle;
   const selectedStyle = frameStyleOf(selected, styleChoice);
   const takesLines = FREE_FRAMES.includes(selected);
   const unlocked = new Set((frames.data?.frames ?? []).filter((f) => f.unlocked).map((f) => f.id));
-  // 0309: how far the guest is towards each earned frame.
+  // 0316: how far the guest is towards each earned frame.
   const progressOf = (id: FrameId) => frames.data?.frames.find((f) => f.id === id);
   const { first, last } = nameFieldsOf(profile.data ?? {});
   const initials = initialsOf(first, last, session?.user.email ?? '');
@@ -1161,7 +1161,7 @@ function FrameForm() {
     </View>
   );
 
-  // 0310: colour first, then Normal or Court lines, inside the Free card under
+  // 0317: colour first, then Normal or Court lines, inside the Free card under
   // its grid. With an earned frame picked the switch dims and says why.
   const styleSwitch = (
     <View style={{ gap: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line }}>
