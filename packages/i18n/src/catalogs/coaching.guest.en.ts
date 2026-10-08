@@ -17,16 +17,15 @@ export const coachingGuestEn = {
     },
     coaches: {
       title: 'Coaches',
-      classes: 'Group sessions and courses',
       emptyTitle: 'No coaches yet',
       empty: 'No coaches are taking bookings at this branch yet.',
       error: "The coaches couldn't be loaded.",
     },
     coach: {
       title: 'Coach',
-      more: 'More',
-      less: 'Less',
-      offers: 'Lessons',
+      // The coach page's two rows of lesson cards.
+      privateLessons: 'Private lessons',
+      groupLessons: 'Group lessons',
       // The free-times section's title (Figma "D · Profile").
       grid: 'Free times',
       lessonType: 'Lesson',
@@ -35,14 +34,23 @@ export const coachingGuestEn = {
       paused: 'Not taking new bookings right now.',
       // The name card's badge while the grid is open (Figma "D · Profile").
       taking: 'Taking bookings',
-      // Under the day cards: three more nights.
-      moreDays: 'See more days',
+      // A lesson page's day row: "7 free times · from 3:30 PM".
+      fromTime: 'from {time}',
+      // A private lesson's page: the week picker, then the next four days.
+      pickTime: 'Pick a time',
+      pickDate: 'Pick a date',
+      prevWeek: 'Previous week',
+      nextWeek: 'Next week',
+      nextThreeDays: 'Next 3 days',
+      tapDay: 'Tap a day to see its times',
       // The book bar's button once a time is picked.
       bookLesson: 'Book lesson',
       self: 'This is your coach profile. Guests book you here.',
       notFound: "This coach isn't available.",
       seeAll: 'See all coaches',
-      sessions: 'Group sessions and courses',
+      // A group or course lesson's page: its upcoming sessions with places.
+      dates: 'Upcoming dates',
+      noDates: 'No upcoming dates with places right now.',
       questions: 'Questions? Call {branch}',
       share: 'Share',
       shareMessage: 'Lessons with {name} at Touch Padel: {url}',

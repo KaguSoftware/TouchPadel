@@ -29,6 +29,7 @@ import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
 import { supabase } from '../lib/supabase';
 import { renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
+import { dayOfWeekOfDate, localParts } from '@touch/core';
 import {
   TEST_VENUE_ID,
   bookingFixture,
@@ -46,6 +47,7 @@ import {
   COURSE_ID,
   ENROLMENT_ID,
   LESSON_ID,
+  TYPE_GROUP_ID,
   TYPE_PRIVATE_ID,
   coachProfileFixture,
   coachSlotsFixture,
@@ -79,6 +81,7 @@ import { BookingSheet } from '../components/BookingSheet';
 import { CoachStatusProvider } from '../features/coach/CoachStatusProvider';
 import CoachesScreen from '../../app/coaches';
 import CoachDetailScreen from '../../app/coach/[id]';
+import LessonTimesScreen from '../../app/lesson-times';
 import ClassesScreen from '../../app/classes';
 import ClassDetailScreen from '../../app/class/[id]';
 import LessonReviewScreen from '../../app/lesson-review';
@@ -129,17 +132,27 @@ const CASES: SmokeCase[] = [
   {
     route: 'coaches',
     Component: CoachesScreen,
-    // A list primary carries no text of its own (U5): the classes row is beside it.
-    nearbyKey: 'coaching.guest.coaches.classes',
+    // A list primary carries no text of its own (U5): the coach card's kind pill is in it.
+    nearbyKey: 'coaching.common.kindsTaught.private',
     options: { session: 'out', queryData: publicSeeds() },
   },
   {
     route: 'coach-detail',
     Component: CoachDetailScreen,
-    nearbyKey: 'coaching.guest.coach.offers',
+    nearbyKey: 'coaching.guest.coach.privateLessons',
     options: {
       session: 'out',
       params: { id: COACH_ID, venueId: TEST_VENUE_ID },
+      queryData: coachSeeds(),
+    },
+  },
+  {
+    route: 'lesson-times',
+    Component: LessonTimesScreen,
+    nearbyKey: 'coaching.guest.coach.pickTime',
+    options: {
+      session: 'out',
+      params: { coachId: COACH_ID, venueId: TEST_VENUE_ID, typeId: TYPE_PRIVATE_ID },
       queryData: coachSeeds(),
     },
   },
@@ -246,32 +259,125 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     // The provider mounted with nothing seeded: coach_me is in flight on the first render.
     const WithStatus = () => (
       <CoachStatusProvider>
-        <CoachDetailScreen />
+        <LessonTimesScreen />
       </CoachStatusProvider>
     );
     const screen = renderRoute(WithStatus, {
       locale,
       session: 'in',
-      params: { id: COACH_ID, venueId: TEST_VENUE_ID },
+      params: { coachId: COACH_ID, venueId: TEST_VENUE_ID, typeId: TYPE_PRIVATE_ID },
       queryData: coachSeeds(),
     });
     try {
-      expect(screen.getByTestId('coach-detail.offers')).toBeTruthy();
-      expect(screen.queryByText(t('coaching.guest.coach.grid'))).toBeNull();
+      expect(screen.queryByText(t('coaching.guest.coach.pickTime'))).toBeNull();
     } finally {
       screen.unmount();
     }
     // Signed out, nothing to wait for: the grid shows at once.
-    const out = renderRoute(CoachDetailScreen, {
+    const out = renderRoute(LessonTimesScreen, {
+      locale,
+      session: 'out',
+      params: { coachId: COACH_ID, venueId: TEST_VENUE_ID, typeId: TYPE_PRIVATE_ID },
+      queryData: coachSeeds(),
+    });
+    try {
+      expect(out.getByText(t('coaching.guest.coach.pickTime'))).toBeTruthy();
+    } finally {
+      out.unmount();
+    }
+  });
+
+  it('splits lessons into private and group rows, leaving out a group lesson with no dates', () => {
+    const screen = renderRoute(CoachDetailScreen, {
+      locale,
+      session: 'out',
+      params: { id: COACH_ID, venueId: TEST_VENUE_ID },
+      queryData: coachSeeds({ sessions: [] }),
+    });
+    try {
+      const priv = within(screen.getByTestId('coach-detail.offers.private'));
+      expect(priv.getByText(t('coaching.guest.coach.privateLessons'))).toBeTruthy();
+      expect(priv.getByTestId(`coach-detail.offer.${TYPE_PRIVATE_ID}`)).toBeTruthy();
+      // No upcoming group date: no group card, and no group row at all.
+      expect(screen.queryByTestId(`coach-detail.offer.${TYPE_GROUP_ID}`)).toBeNull();
+      expect(screen.queryByTestId('coach-detail.offers.group')).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+    const dated = renderRoute(CoachDetailScreen, {
       locale,
       session: 'out',
       params: { id: COACH_ID, venueId: TEST_VENUE_ID },
       queryData: coachSeeds(),
     });
     try {
-      expect(out.getByText(t('coaching.guest.coach.grid'))).toBeTruthy();
+      const group = within(dated.getByTestId('coach-detail.offers.group'));
+      expect(group.getByText(t('coaching.guest.coach.groupLessons'))).toBeTruthy();
+      expect(group.getByTestId(`coach-detail.offer.${TYPE_GROUP_ID}`)).toBeTruthy();
     } finally {
-      out.unmount();
+      dated.unmount();
+    }
+  });
+
+  it('a group lesson’s card opens its own page, listing its upcoming dates', async () => {
+    const screen = renderRoute(CoachDetailScreen, {
+      locale,
+      session: 'out',
+      params: { id: COACH_ID, venueId: TEST_VENUE_ID },
+      queryData: coachSeeds(),
+    });
+    try {
+      await act(async () => {
+        fireEvent.press(screen.getByTestId(`coach-detail.offer.${TYPE_GROUP_ID}`));
+      });
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: {
+          pathname: '/lesson-times',
+          params: { coachId: COACH_ID, venueId: TEST_VENUE_ID, typeId: TYPE_GROUP_ID },
+        },
+      });
+    } finally {
+      screen.unmount();
+    }
+    const dates = renderRoute(LessonTimesScreen, {
+      locale,
+      session: 'out',
+      params: { coachId: COACH_ID, venueId: TEST_VENUE_ID, typeId: TYPE_GROUP_ID },
+      queryData: coachSeeds(),
+    });
+    try {
+      expect(dates.getByText(t('coaching.guest.coach.dates'))).toBeTruthy();
+      // Its own session only, never the course's.
+      expect(dates.getByTestId(`lesson-times.session.${LESSON_ID}`)).toBeTruthy();
+      expect(dates.queryByTestId(`lesson-times.session.${COURSE_ID}`)).toBeNull();
+      expect(dates.queryByText(t('coaching.guest.coach.pickTime'))).toBeNull();
+    } finally {
+      dates.unmount();
+    }
+  });
+
+  it('a private lesson’s card on the coach’s page opens its free times', async () => {
+    const screen = renderRoute(CoachDetailScreen, {
+      locale,
+      session: 'out',
+      params: { id: COACH_ID, venueId: TEST_VENUE_ID },
+      queryData: coachSeeds(),
+    });
+    try {
+      expect(screen.queryByText(t('coaching.guest.coach.pickTime'))).toBeNull();
+      await act(async () => {
+        fireEvent.press(screen.getByTestId(`coach-detail.offer.${TYPE_PRIVATE_ID}`));
+      });
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: {
+          pathname: '/lesson-times',
+          params: { coachId: COACH_ID, venueId: TEST_VENUE_ID, typeId: TYPE_PRIVATE_ID },
+        },
+      });
+    } finally {
+      screen.unmount();
     }
   });
 
@@ -382,11 +488,11 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
   });
 
-  it('reads coach_slots {off: true} as off on a coach page, not as a pause, and hides the grid (MB-12)', () => {
-    const screen = renderRoute(CoachDetailScreen, {
+  it('reads coach_slots {off: true} as off on a lesson’s free times, not as a pause, and hides the grid (MB-12)', () => {
+    const screen = renderRoute(LessonTimesScreen, {
       locale,
       session: 'out',
-      params: { id: COACH_ID, venueId: TEST_VENUE_ID },
+      params: { coachId: COACH_ID, venueId: TEST_VENUE_ID, typeId: TYPE_PRIVATE_ID },
       queryData: [
         ...venue(),
         [coachingKeys.profile(COACH_ID, TEST_VENUE_ID), parseCoachProfile(coachProfileFixture())],
@@ -396,7 +502,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     try {
       expect(screen.getByText(t('coaching.common.errors.off'))).toBeTruthy();
       expect(screen.queryByText(t('coaching.guest.coach.paused'))).toBeNull();
-      expect(screen.queryByText(t('coaching.guest.coach.grid'))).toBeNull();
+      expect(screen.queryByText(t('coaching.guest.coach.pickTime'))).toBeNull();
     } finally {
       screen.unmount();
     }
@@ -428,24 +534,6 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
         }),
       'classes.row',
     ],
-    [
-      'coach-detail',
-      () =>
-        renderRoute(CoachDetailScreen, {
-          locale,
-          session: 'out',
-          params: { id: COACH_ID, venueId: TEST_VENUE_ID },
-          queryData: [
-            ...venue(),
-            [
-              coachingKeys.profile(COACH_ID, TEST_VENUE_ID),
-              parseCoachProfile(coachProfileFixture({ sessions: pricedSessions() })),
-            ],
-            [slotsKey(), parseCoachSlots(coachSlotsFixture())],
-          ],
-        }),
-      'coach-detail.session',
-    ],
   ])(
     'shows a session row’s own price on %s, never its type’s, and none when none is sent (MB-05)',
     (_route, render, rowId) => {
@@ -461,6 +549,29 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
       }
     },
   );
+
+  it('shows a group session’s own price on its lesson’s dates, never its type’s (MB-05)', () => {
+    const seeds: Seeds = [
+      ...venue(),
+      [
+        coachingKeys.profile(COACH_ID, TEST_VENUE_ID),
+        parseCoachProfile(coachProfileFixture({ sessions: pricedSessions() })),
+      ],
+    ];
+    const group = renderRoute(LessonTimesScreen, {
+      locale,
+      session: 'out',
+      params: { coachId: COACH_ID, venueId: TEST_VENUE_ID, typeId: TYPE_GROUP_ID },
+      queryData: seeds,
+    });
+    try {
+      const row = within(group.getByTestId(`lesson-times.session.${LESSON_ID}`));
+      expect(row.getByText(isolate(formatIQD(12000, locale)))).toBeTruthy();
+      expect(row.queryByText(isolate(formatIQD(15000, locale)))).toBeNull();
+    } finally {
+      group.unmount();
+    }
+  });
 
   it('asks "Is this you?" on the lesson, and offers nothing else until "Yes" (C-21)', () => {
     const screen = renderRoute(LessonDetailScreen, {
@@ -587,20 +698,59 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
   });
 
-  it('a time on a coach’s grid, then Book: signed out keeps the intent and opens the welcome', async () => {
-    const screen = renderRoute(CoachDetailScreen, {
+  it('a private lesson’s page: the header, a week to pick from, and the next days opening one at a time', async () => {
+    const screen = renderRoute(LessonTimesScreen, {
       locale,
       session: 'out',
-      params: { id: COACH_ID, venueId: TEST_VENUE_ID },
+      params: { coachId: COACH_ID, venueId: TEST_VENUE_ID, typeId: TYPE_PRIVATE_ID },
+      queryData: coachSeeds(),
+    });
+    try {
+      expect(screen.getByTestId('lesson-times.hero')).toBeTruthy();
+      expect(screen.getByText(t('coaching.guest.coach.pickTime'))).toBeTruthy();
+      expect(screen.getByText(t('coaching.guest.coach.nextThreeDays'))).toBeTruthy();
+      expect(screen.getByTestId('lesson-times.pick-date')).toBeTruthy();
+      // The week runs Monday to Sunday; a day before the window is greyed and takes no tap.
+      const days = screen.getAllByTestId(/^lesson-times\.day\./);
+      expect(days).toHaveLength(7);
+      const firstDay = days[0]!.props.testID.replace('lesson-times.day.', '') as string;
+      expect(dayOfWeekOfDate(firstDay)).toBe(1);
+      const today = localParts(new Date(), COACH_TZ).date;
+      if (firstDay < today) expect(days[0]!.props.accessibilityState?.disabled).toBe(true);
+      // The week strip shows the first night's times from the start.
+      const startMin = Math.floor(Date.parse(START_AT) / 60_000);
+      expect(screen.getByTestId(`lesson-times.slot.none-${startMin}`)).toBeTruthy();
+      // A next-days row starts closed, opens to its times, and closes again.
+      const rowSlot = `lesson-times.row-slot.none-${startMin}`;
+      expect(screen.queryByTestId(rowSlot)).toBeNull();
+      const night = screen.getAllByTestId(/^lesson-times\.night\./)[0]!;
+      await act(async () => {
+        fireEvent.press(night);
+      });
+      expect(screen.getByTestId(rowSlot)).toBeTruthy();
+      await act(async () => {
+        fireEvent.press(night);
+      });
+      expect(screen.queryByTestId(rowSlot)).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('a time on a lesson’s free times, then Book: signed out keeps the intent and opens the welcome', async () => {
+    const screen = renderRoute(LessonTimesScreen, {
+      locale,
+      session: 'out',
+      params: { coachId: COACH_ID, venueId: TEST_VENUE_ID, typeId: TYPE_PRIVATE_ID },
       queryData: coachSeeds(),
     });
     try {
       const startMin = Math.floor(Date.parse(START_AT) / 60_000);
       await act(async () => {
-        fireEvent.press(screen.getByTestId(`coach-detail.slot.none-${startMin}`));
+        fireEvent.press(screen.getByTestId(`lesson-times.slot.none-${startMin}`));
       });
       // Picking a time opens the book bar; Book books it.
-      const book = screen.getByTestId('coach-detail.book');
+      const book = screen.getByTestId('lesson-times.book');
       expect(within(book).getByText(t('coaching.guest.coach.bookLesson'))).toBeTruthy();
       await act(async () => {
         fireEvent.press(book);
@@ -616,20 +766,20 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
   });
 
-  it('a time on a coach’s grid, then Book: signed in opens the review with the offer’s price', async () => {
-    const screen = renderRoute(CoachDetailScreen, {
+  it('a time on a lesson’s free times, then Book: signed in opens the review with the offer’s price', async () => {
+    const screen = renderRoute(LessonTimesScreen, {
       locale,
       session: 'in',
-      params: { id: COACH_ID, venueId: TEST_VENUE_ID },
+      params: { coachId: COACH_ID, venueId: TEST_VENUE_ID, typeId: TYPE_PRIVATE_ID },
       queryData: coachSeeds(),
     });
     try {
       const startMin = Math.floor(Date.parse(START_AT) / 60_000);
       await act(async () => {
-        fireEvent.press(screen.getByTestId(`coach-detail.slot.none-${startMin}`));
+        fireEvent.press(screen.getByTestId(`lesson-times.slot.none-${startMin}`));
       });
       // Picking a time opens the book bar; Book books it.
-      const book = screen.getByTestId('coach-detail.book');
+      const book = screen.getByTestId('lesson-times.book');
       expect(within(book).getByText(t('coaching.guest.coach.bookLesson'))).toBeTruthy();
       await act(async () => {
         fireEvent.press(book);
@@ -652,18 +802,35 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
   });
 
-  it('a paused coach reads "not taking bookings" and has no grid (R16, R76)', () => {
+  it('a paused coach reads "not taking bookings" and has no grid (R16, R76)', async () => {
+    const paused = coachSeeds({ coach: { ...coachProfileFixture().coach, status: 'paused' } });
     const screen = renderRoute(CoachDetailScreen, {
       locale,
       session: 'out',
       params: { id: COACH_ID, venueId: TEST_VENUE_ID },
-      queryData: coachSeeds({ coach: { ...coachProfileFixture().coach, status: 'paused' } }),
+      queryData: paused,
     });
     try {
       expect(screen.getByText(t('coaching.guest.coach.paused'))).toBeTruthy();
-      expect(screen.queryByText(t('coaching.guest.coach.grid'))).toBeNull();
+      // Its private card opens nothing.
+      await act(async () => {
+        fireEvent.press(screen.getByTestId(`coach-detail.offer.${TYPE_PRIVATE_ID}`));
+      });
+      expect(routerState.calls.some((c) => c.method === 'push')).toBe(false);
     } finally {
       screen.unmount();
+    }
+    const times = renderRoute(LessonTimesScreen, {
+      locale,
+      session: 'out',
+      params: { coachId: COACH_ID, venueId: TEST_VENUE_ID, typeId: TYPE_PRIVATE_ID },
+      queryData: paused,
+    });
+    try {
+      expect(times.getByText(t('coaching.guest.coach.paused'))).toBeTruthy();
+      expect(times.queryByText(t('coaching.guest.coach.pickTime'))).toBeNull();
+    } finally {
+      times.unmount();
     }
   });
 

@@ -181,6 +181,7 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'coach/[id].tsx', route: 'coach-detail', primary: 'coach-detail.offers' },
   { file: 'classes.tsx', route: 'classes', primary: 'classes.list' },
   { file: 'class/[id].tsx', route: 'class-detail', primary: 'class-detail.join' },
+  { file: 'lesson-times.tsx', route: 'lesson-times', primary: 'lesson-times.grid' },
   { file: 'lesson-review.tsx', route: 'lesson-review', primary: 'lesson-review.book' },
   { file: 'lesson/[id].tsx', route: 'lesson-detail', primary: 'lesson-detail.cancel' },
   { file: 'my-lessons.tsx', route: 'my-lessons', primary: 'my-lessons.filter.upcoming' },
@@ -208,7 +209,11 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // a `nearbyKey`.
   { file: 'coach-mode.tsx', route: 'coach-mode', primary: 'coach-mode.schedule' },
   { file: 'coach-mode-hours.tsx', route: 'coach-mode-hours', primary: 'coach-mode-hours.save' },
-  { file: 'coach-mode-lesson.tsx', route: 'coach-mode-lesson', primary: 'coach-mode-lesson.roster' },
+  {
+    file: 'coach-mode-lesson.tsx',
+    route: 'coach-mode-lesson',
+    primary: 'coach-mode-lesson.roster',
+  },
   { file: 'coach-mode-new.tsx', route: 'coach-mode-new', primary: 'coach-mode-new.create' },
   { file: 'coach-mode-book.tsx', route: 'coach-mode-book', primary: 'coach-mode-book.book' },
   {

@@ -1020,12 +1020,30 @@ stands in front of them, and `RequireStaff` is not on them; `StaffStatusProvider
   is followed by the second read with the chosen branch. The choice is for this screen only (never
   written to `tp.venue`); a branch other than the guest's reads "At {branch}".
 - **Order:**
-  1. **Header card** (not pressable): photo, display name, bio (three lines, "More" expands it inline).
-  2. **Offers** `coach-detail.offers`, one `OfferRow` each (`coach-detail.offer.<lessonTypeId>`):
+  1. **Header card** (not pressable): photo, display name, bio. **Amended 2026-10-08:** the bio shows
+     in full; the "More" / "Less" toggle is gone.
+  2. **Offers** `coach-detail.offers`, one `OfferCard` each in a sideways-scrolling row (`coach-detail.offer.<lessonTypeId>`):
      name, kind pill, duration, "Up to {people}" (private), "{places} places" (group), "{sessions}"
      (course), price. A private offer selects the grid below; a group or course offer scrolls to the
-     sessions.
-  3. **Booking grid** (private offers only), from `useLessonBooking`:
+     sessions. **Amended 2026-10-08:** a private offer's card opens its free times on their own page,
+     `app/lesson-times.tsx` (`lesson-times`; params `coachId`, `venueId`, `typeId`, `date?`): the grid
+     below and the book bar moved there, ids `lesson-times.*`. It opens only while the coach can be
+     booked (not off, paused or the viewer's own page). A group or course offer's card opens the same
+     page, which lists that type's upcoming sessions with places (`lesson-times.session.<id>` →
+     `/class/[id]`), or "No upcoming dates with places right now." A `typeId` param on the coach page
+     opens it once the profile is in. The offers are two rows, "Private lessons"
+     (`coach-detail.offers.private`) and "Group lessons" (`coach-detail.offers.group`, group and
+     course); a group or course offer shows only while it has an upcoming session with places, and a
+     row with no cards is left out.
+     **Amended 2026-10-08 (design E):** a private lesson's page is a brand-blue header under a
+     transparent bar (avatar, coach, lesson, chips for length, group size and price), then "Pick a
+     time": a week of the window with arrows between weeks, its label (`lesson-times.pick-date`)
+     opening Edit profile's date wheel (`DateWheelSheet`: Apple's wheel in the native sheet on
+     iOS, the system date dialog on Android) for any night in the window, and the night's starts in a sideways row three in view
+     (`lesson-times.slot.*`); then "Next 3 days", rows opening to their starts
+     (`lesson-times.row-slot.*`). One time is picked across both; the floating navy book bar books
+     it.
+  3. **Booking grid** (private offers only; on `lesson-times` since 2026-10-08), from `useLessonBooking`:
      - a `SegmentedControl` `coach-detail.type` when the coach has more than one private offer at the
        branch;
      - the day strip of `DayChip`s (`coach-detail.day.<yyyy-mm-dd>`) from `listBookableDates(now, tz,
@@ -2178,7 +2196,7 @@ No new `_layout.tsx`; `routes.test.ts`'s navigation-target check covers every li
   built from the `shapes.ts` key lists, so a fixture missing a key fails its own test.
 
 **testID lint.** `packages/config/src/eslint.js` `testIdElements` (`:178`) gains `CoachCard`,
-`OfferRow`, `ClassRow`, `LessonRow`, `RosterRow`, `HoursDayEditor`, `TimeOffRow`, `StatementCard`,
+`OfferCard`, `ClassRow`, `LessonRow`, `RosterRow`, `HoursDayEditor`, `TimeOffRow`, `StatementCard`,
 `PaymentModeChoice`, `PartyStepper`, `LinkConfirmCard`, `DateTimeField`. Each takes a required
 `testID` and forwards `${testID}.<child>` explicitly. `LessonPoster` renders no Pressable.
 
@@ -2379,7 +2397,7 @@ each notes the ruling that changed it. Items 9–12 are this pass's, for the nex
    `pendingLesson`; `useLessonBooking`, `useStartLessonPayment`, `useLessonEntry`, `lessonErrorText`;
    `normaliseCoachLink`, `coachShareUrl`, `COACH_LINK_PREFIXES` (app.config.ts); push
    `LESSON_PUSH_KINDS`, `isLessonPushKind`, the three new `TapDestination` kinds, `onOpenLesson`,
-   `onOpenCoachLesson`, `onOpenCoachStatements`, `onLessonNotice`; components `CoachCard`, `OfferRow`,
+   `onOpenCoachLesson`, `onOpenCoachStatements`, `onLessonNotice`; components `CoachCard`, `OfferCard`,
    `ClassRow`, `LessonRow`, `LessonPoster`, `RosterRow`, `HoursDayEditor`, `TimeOffRow`,
    `StatementCard`, `PaymentModeChoice`, `PartyStepper`, `LinkConfirmCard` (`src/components/coaching.tsx`)
    and `DateTimeField`; the dependency `@react-native-community/datetimepicker` (production `eas

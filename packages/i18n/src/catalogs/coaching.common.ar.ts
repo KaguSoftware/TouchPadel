@@ -79,6 +79,14 @@ export const coachingCommonAr: DeepMessages<typeof coachingCommonEn> = {
       kept: 'لا يُعاد {kept}',
     },
     count: {
+      freeTimes: {
+        zero: 'لا أوقات متاحة',
+        one: 'وقت متاح واحد',
+        two: 'وقتان متاحان',
+        few: '{count} أوقات متاحة',
+        many: '{count} وقتًا متاحًا',
+        other: '{count} وقت متاح',
+      },
       placesLeft: {
         zero: 'لا أماكن متاحة',
         one: 'مكان واحد متاح',
@@ -142,14 +150,6 @@ export const coachingCommonAr: DeepMessages<typeof coachingCommonEn> = {
         few: '{count} حصص',
         many: '{count} حصة',
         other: '{count} حصة',
-      },
-      withPlaces: {
-        zero: 'لا شيء فيه أماكن',
-        one: 'واحدة فيها أماكن',
-        two: 'اثنتان فيهما أماكن',
-        few: '{count} فيها أماكن',
-        many: '{count} فيها أماكن',
-        other: '{count} فيها أماكن',
       },
       addsLeft: {
         zero: 'لا مزيد اليوم',

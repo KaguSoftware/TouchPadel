@@ -17,8 +17,9 @@
  * use the shared native sheet, `components/nativeChoice.ts`.
  */
 import { useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { SymbolView } from 'expo-symbols';
 import { wallTimeToUtc } from '@touch/core';
 import {
   formatDayNumber,
@@ -146,9 +147,13 @@ export function SeatDots({ taken, total = SEATS_TOTAL }: { taken: number; total?
   );
 }
 
-/** The header's share glyph (§4.14 Header); the screen owns the button and its id. */
+/**
+ * The header's share glyph (§4.14 Header); the screen owns the button and its
+ * id. Each platform's own: iOS draws the system's `square.and.arrow.up` (the
+ * SVG below is its fallback), Android Material's "share" node graph.
+ */
 export function ShareGlyph({ color, size = 20 }: { color: string; size?: number }) {
-  return (
+  const outline = (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
       <Path
         d="M12 15V4M8 8l4-4 4 4M6 11.5v7.5h12v-7.5"
@@ -156,6 +161,25 @@ export function ShareGlyph({ color, size = 20 }: { color: string; size?: number 
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </Svg>
+  );
+  if (Platform.OS === 'ios') {
+    return (
+      <SymbolView
+        name="square.and.arrow.up"
+        size={size}
+        weight="medium"
+        tintColor={color}
+        fallback={outline}
+      />
+    );
+  }
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" accessible={false}>
+      <Path
+        d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"
+        fill={color}
       />
     </Svg>
   );

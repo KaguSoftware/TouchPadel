@@ -239,7 +239,7 @@ const testIdElements = [
   // a required testID and forwards it, or `${testID}.<child>`, explicitly.
   // LessonPoster renders no Pressable.
   'CoachCard',
-  'OfferRow',
+  'OfferCard',
   'ClassRow',
   'LessonTimePill',
   'LessonRow',

@@ -1,18 +1,17 @@
-import { useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, Share, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { wallTimeToUtc } from '@touch/core';
+import { useContext, useEffect, useRef, useState } from 'react';
 import {
-  countPhrase,
-  formatDate,
-  formatDayNumber,
-  formatIQD,
-  formatMonthShort,
-  formatTime,
-  formatWeekdayShort,
-  isolate,
-} from '@touch/i18n';
+  Animated,
+  Platform,
+  Pressable,
+  ScrollView,
+  Share,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { countPhrase, formatIQD, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
@@ -21,14 +20,11 @@ import {
   useIsDegraded,
   useVenueSettings,
 } from '../../src/features/availability/hooks';
-import { venuePhoneOf, type MergedCell } from '../../src/features/availability/assemble';
+import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { useCoachProfile } from '../../src/features/coaching/hooks';
-import { useLessonBooking } from '../../src/features/coaching/useLessonBooking';
 import { lessonErrorCode, lessonErrorText } from '../../src/features/coaching/errors';
 import { coachShareUrl, isCoachId } from '../../src/features/coaching/links';
-import { setOnlyPendingLesson } from '../../src/features/booking/pendingIntent';
 import {
-  classTarget,
   coachBranch,
   displayCoachName,
   pick,
@@ -37,26 +33,27 @@ import {
 import { useCoachStatus } from '../../src/features/coach/useCoachStatus';
 import { callPhone } from '../../src/lib/phone';
 import { brand, radius, shadows, space, useTheme } from '../../src/theme';
-import { Button, Hint, Screen } from '../../src/components/ui';
-import { DegradedBanner, slotTestID } from '../../src/components/booking';
+import { Button, Screen } from '../../src/components/ui';
+import { DegradedBanner } from '../../src/components/booking';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { MatchNotice, MatchSectionTitle, ShareGlyph } from '../../src/components/match';
-import { ClassRow, CoachHero, LessonTimePill, OfferRow } from '../../src/components/coaching';
+import {
+  COACH_DOCK,
+  CoachDockBar,
+  coachDockAt,
+  CoachHero,
+  OfferCard,
+} from '../../src/components/coaching';
+import { useReduceMotion } from '../../src/lib/useReduceMotion';
 import { useToast } from '../../src/components/overlays';
 
 /** How far the name card rides up over the hero (Figma "D · Profile": the card overlaps the band). */
 const CARD_OVERLAP = 56;
 /** The hero's height below the status bar (Figma "D · Profile": 340 with the bar). */
 const HERO_HEIGHT = 290;
-/** Day cards shown at first, and how many more each "See more days" adds. */
-const NIGHTS_STEP = 3;
-/** The book bar's height above the home indicator (Figma "Book bar"). */
-const BOOK_BAR_HEIGHT = 66;
-
 /**
  * A coach's page (docs/design/coaching/guest.md §4.8.3): the card, the
- * lessons they offer at a branch, the private-lesson grid, their group
- * sessions and courses with places, and the branch's phone.
+ * lessons they offer at a branch, and the branch's phone.
  *
  * The branch is the `venueId` param, else the guest's when the coach teaches
  * there, else the coach's first (R17: the `/c/<id>` link names none, so the
@@ -64,19 +61,20 @@ const BOOK_BAR_HEIGHT = 66;
  * choice is this screen's only: it never writes the stored branch.
  *
  * Layout is the Figma "D · Profile" frame: the photo full width under a
- * transparent native header, the name card over it, the lessons, then the free
- * times as one card per open night (three, then three more per "See more
- * days"). Tapping a time picks it; the book bar at the foot books it.
+ * transparent native header, the name card over it, the lessons as a sideways
+ * rows of cards (private, then group). Every lesson's card opens its own
+ * page (`app/lesson-times.tsx`): a private lesson's free times, which books
+ * it, or a group or course lesson's upcoming dates. A `typeId` param (and
+ * `date`) opens that page for the lesson once the profile is in.
  *
- * Browsing is public: a signed-out Book keeps the intent (`pendingLesson`)
- * and opens the welcome. The grid is `useLessonBooking`'s;
- * only the server's free starts are cells, so nothing is greyed out. A paused
- * coach, the switch off, and the coach looking at their own page (R56) show a
- * line instead of the grid.
+ * Browsing is public. A paused coach, the switch off, and the coach looking
+ * at their own page (R56) show a line, and the private cards open nothing.
  */
 export default function CoachDetailScreen() {
-  const { t, locale } = useLocale();
+  const { t, locale, dir } = useLocale();
   const { colors, fonts } = useTheme();
+  const { width } = useWindowDimensions();
+  const reduceMotion = useReduceMotion();
   const router = useRouter();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -91,8 +89,8 @@ export default function CoachDetailScreen() {
   const venueParam = typeof params.venueId === 'string' && params.venueId ? params.venueId : null;
   const guest = useGuestVenue();
   // A reader while signed in, so coach_me is read here too: until it answers,
-  // whether the viewer is this coach (R56: no grid on their own page) is not
-  // known, and the grid waits behind a skeleton (MB-18).
+  // whether the viewer is this coach (R56: they cannot book their own
+  // lessons) is not known, and the private cards wait for it (MB-18).
   const me = useCoachStatus({ read: !!session });
   const meReading = !!session && me.status.kind === 'pending';
 
@@ -115,29 +113,33 @@ export default function CoachDetailScreen() {
   const venue = data?.venue ?? null;
   const phone = venue?.phone ?? venuePhoneOf(settings.data);
   const branchLabel = venue ? pick(venue.nameEn, venue.nameAr, locale) : '';
-  const tz = venue?.timezone ?? settings.data?.timezone ?? 'Asia/Baghdad';
 
-  const booking = useLessonBooking({
-    coachId: id,
-    settings: settings.data,
-    timezone: venue?.timezone,
-    offers: data?.offers ?? [],
-    preselectTypeId: typeof params.typeId === 'string' ? params.typeId : null,
-    preselectDate: typeof params.date === 'string' ? params.date : null,
-  });
-
-  const [bioOpen, setBioOpen] = useState(false);
-  const [pickedAt, setPickedAt] = useState<number | null>(null);
-  const [nightsShown, setNightsShown] = useState(NIGHTS_STEP);
-  const scrollRef = useRef<ScrollView>(null);
-  const sessionsY = useRef(0);
+  // The page's scroll, on the native driver, for the dock bar (CoachDockBar).
+  const [scrollY] = useState(() => new Animated.Value(0));
+  const [onScroll] = useState(() =>
+    Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+      useNativeDriver: true,
+    }),
+  );
+  // The native bar as the navigator measured it (iOS 26's is taller than 44,
+  // and its glass items hung out of a fill drawn at 44).
+  const headerHeight = useContext(HeaderHeightContext);
+  const barHeight = headerHeight ? headerHeight - insets.top : COACH_DOCK.bar;
+  const cardTop = insets.top + HERO_HEIGHT - CARD_OVERLAP;
+  const dockAt = coachDockAt(cardTop, insets.top, barHeight);
+  // Whether the bar has filled in: the Android items go from white to blue.
+  const [docked, setDocked] = useState(false);
+  useEffect(() => {
+    const sub = scrollY.addListener(({ value }) => setDocked(value >= dockAt - 20));
+    return () => scrollY.removeListener(sub);
+  }, [scrollY, dockAt]);
 
   const coach = data?.coach ?? first.data?.coach ?? null;
   const name = displayCoachName(coach, locale);
   const self = !!coach && me.coach?.id === coach.id;
-  const paused = coach?.status === 'paused' || booking.status === 'paused';
+  const paused = coach?.status === 'paused';
   // coach_slots answering {off: true} is the profile's off, read later (MB-12).
-  const off = !!data?.off || booking.status === 'off';
+  const off = !!data?.off;
   const otherBranch = !!branchId && !!guest.venueId && branchId !== guest.venueId;
   const money = (n: number | null) => (n === null ? null : isolate(formatIQD(n, locale)));
 
@@ -148,6 +150,35 @@ export default function CoachDetailScreen() {
     });
   };
 
+  const openTimes = (typeId: string, date?: string) => {
+    if (!id || !branchId) return;
+    router.push({
+      pathname: '/lesson-times',
+      params: { coachId: id, venueId: branchId, typeId, ...(date ? { date } : {}) },
+    });
+  };
+
+  // A link that names a private lesson (and maybe a night) opens its times,
+  // once, as soon as the profile says the coach can be booked.
+  const linkTypeId = typeof params.typeId === 'string' ? params.typeId : null;
+  const linkDate = typeof params.date === 'string' ? params.date : undefined;
+  const linkOpened = useRef(false);
+  const linkReady =
+    !!linkTypeId &&
+    !!data &&
+    !data.off &&
+    coach?.status !== 'paused' &&
+    !meReading &&
+    !self &&
+    data.offers.some((o) => o.kind === 'private' && o.lessonTypeId === linkTypeId);
+  useEffect(() => {
+    if (!linkReady || linkOpened.current || !linkTypeId) return;
+    linkOpened.current = true;
+    openTimes(linkTypeId, linkDate);
+    // openTimes reads only the id and branch, both settled once data is in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkReady]);
+
   const onShare = () => {
     if (!coach) return;
     void Share.share({
@@ -156,34 +187,6 @@ export default function CoachDetailScreen() {
         url: coachShareUrl(coach.id),
       }),
     }).catch(() => {});
-  };
-
-  const onTime = (cell: MergedCell) => {
-    if (!id || !branchId || !booking.typeId) return;
-    const startAt = cell.startAt.toISOString();
-    const priceIqd = booking.offer?.priceIqd ?? null;
-    if (!session) {
-      setOnlyPendingLesson({
-        kind: 'private',
-        coachId: id,
-        lessonTypeId: booking.typeId,
-        venueId: branchId,
-        startAt,
-        priceIqd,
-      });
-      router.push('/welcome');
-      return;
-    }
-    router.push({
-      pathname: '/lesson-review',
-      params: {
-        coachId: id,
-        lessonTypeId: booking.typeId,
-        venueId: branchId,
-        startAt,
-        ...(priceIqd !== null ? { priceIqd: String(priceIqd) } : {}),
-      },
-    });
   };
 
   const offerMeta = (o: ProfileOffer): string => {
@@ -203,36 +206,62 @@ export default function CoachDetailScreen() {
   };
 
   // Over the photo the Android toolbar has no glass item, so its back arrow and
-  // the share glyph go white; iOS 26 wraps both in Liquid Glass circles.
-  const overPhoto = Platform.OS === 'android' ? brand.white : colors.blue;
-  const headerFor = (transparent: boolean) => (
+  // the share glyph go white, and back to blue once the dock bar fills in;
+  // iOS 26 wraps both in Liquid Glass circles.
+  const overPhoto = Platform.OS === 'android' && !docked ? brand.white : colors.blue;
+  // The bar is transparent and untitled in every state, from the first frame
+  // (the root layout sets the same for this route), so the page never shows a
+  // titled bar that then gives way to the photo. `onPhoto` is whether the
+  // items sit over the hero band (white on Android) or over the page ground.
+  const headerFor = (onPhoto: boolean) => (
     <Stack.Screen
       options={{
-        title: transparent ? '' : name || t('coaching.guest.coach.title'),
-        headerTransparent: transparent,
-        ...(transparent ? { headerTintColor: overPhoto } : {}),
-        headerRight: coach
-          ? () => (
-              <Pressable
-                testID="coach-detail.share"
-                accessibilityRole="button"
-                accessibilityLabel={t('coaching.guest.coach.share')}
-                hitSlop={10}
-                onPress={onShare}
-                style={({ pressed }) => ({
-                  opacity: pressed ? 0.6 : 1,
-                  paddingStart: 6,
-                  paddingEnd: 6,
-                })}
-              >
-                <ShareGlyph color={transparent ? overPhoto : colors.blue} />
-              </Pressable>
-            )
-          : undefined,
+        title: '',
+        headerTransparent: true,
+        // The shared options paint the bar `colors.bg`; a transparent header
+        // keeps that fill unless it is cleared, and the photo sits under white.
+        headerStyle: { backgroundColor: 'transparent' },
+        headerTintColor: onPhoto ? overPhoto : colors.blue,
+        // iOS: a real UIBarButtonItem with the system share symbol, so UIKit
+        // draws the button (and its Liquid Glass) itself. Android: a Pressable
+        // with Material's share glyph.
+        unstable_headerRightItems:
+          coach && Platform.OS === 'ios'
+            ? () => [
+                {
+                  type: 'button',
+                  label: t('coaching.guest.coach.share'),
+                  icon: { type: 'sfSymbol', name: 'square.and.arrow.up' },
+                  accessibilityLabel: t('coaching.guest.coach.share'),
+                  onPress: onShare,
+                },
+              ]
+            : undefined,
+        headerRight:
+          coach && Platform.OS !== 'ios'
+            ? () => (
+                <Pressable
+                  testID="coach-detail.share"
+                  accessibilityRole="button"
+                  accessibilityLabel={t('coaching.guest.coach.share')}
+                  hitSlop={10}
+                  onPress={onShare}
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.6 : 1,
+                    paddingStart: 6,
+                    paddingEnd: 6,
+                  })}
+                >
+                  <ShareGlyph color={onPhoto ? overPhoto : colors.blue} />
+                </Pressable>
+              )
+            : undefined,
       }}
     />
   );
   const header = headerFor(false);
+  // Under the transparent bar, a page without the hero starts below it.
+  const belowBar = { paddingTop: insets.top + barHeight };
 
   const notFound = (
     <EmptyState
@@ -247,7 +276,7 @@ export default function CoachDetailScreen() {
 
   if (!id) {
     return (
-      <Screen edges={[]}>
+      <Screen edges={[]} style={belowBar}>
         {header}
         {notFound}
       </Screen>
@@ -259,7 +288,7 @@ export default function CoachDetailScreen() {
     if (failed) {
       const code = lessonErrorCode(failed);
       return (
-        <Screen edges={[]}>
+        <Screen edges={[]} style={belowBar}>
           {header}
           {code === 'COACH_NOT_FOUND' ||
           code === 'COACH_NOT_AT_BRANCH' ||
@@ -282,7 +311,7 @@ export default function CoachDetailScreen() {
     }
     if (first.data?.off) {
       return (
-        <Screen edges={[]}>
+        <Screen edges={[]} style={belowBar}>
           {header}
           <View testID="coach-detail.off" style={{ paddingTop: space.m }}>
             <MatchNotice text={t('coaching.common.errors.off')} />
@@ -290,133 +319,52 @@ export default function CoachDetailScreen() {
         </Screen>
       );
     }
+    // Loading: the hero's blue band in place already, so the photo arrives
+    // into the same frame instead of after a bar.
     return (
-      <Screen edges={[]}>
-        {header}
-        <SkeletonList rows={3} height={96} />
+      <Screen edges={[]} padded={false}>
+        {headerFor(true)}
+        <CoachHero photoPath={null} name="" height={insets.top + HERO_HEIGHT} initial={false} />
+        <View style={{ paddingStart: space.l, paddingEnd: space.l, paddingTop: space.m }}>
+          <SkeletonList rows={3} height={96} />
+        </View>
       </Screen>
     );
   }
 
   const bio = coach ? pick(coach.bioEn, coach.bioAr, locale) : '';
-  const showGrid = !off && !paused && !self && booking.types.length > 0;
-  const todayLabel = formatDate(new Date(), locale, booking.tz);
-  const nightLabel = (date: string) => {
-    const noon = wallTimeToUtc(date, 12 * 60, booking.tz);
-    const day = `${formatWeekdayShort(noon, locale, booking.tz)} ${formatDayNumber(noon, locale, booking.tz)} ${formatMonthShort(noon, locale, booking.tz)}`;
-    return formatDate(noon, locale, booking.tz) === todayLabel
-      ? `${t('common.today')} · ${day}`
-      : day;
-  };
-  // A preselected date (a deep link) is always among the cards shown.
-  const preIndex =
-    typeof params.date === 'string'
-      ? booking.nights.findIndex((n) => n.date === params.date)
-      : -1;
-  const nightsVisible = booking.nights.slice(0, Math.max(nightsShown, preIndex + 1));
-  const pickedNight =
-    pickedAt === null || !showGrid
-      ? null
-      : (booking.nights.find((n) => n.cells.some((c) => c.startAt.getTime() === pickedAt)) ??
-        null);
-  const picked = pickedNight?.cells.find((c) => c.startAt.getTime() === pickedAt) ?? null;
-  const onPill = (cell: MergedCell) => {
-    const at = cell.startAt.getTime();
-    setPickedAt((cur) => (cur === at ? null : at));
-  };
-
-  const grid = (() => {
-    if (!showGrid) return null;
-    if (meReading) return <SkeletonList rows={2} height={60} />;
-    return (
-      <View style={{ gap: 10 }}>
-        <MatchSectionTitle>{t('coaching.guest.coach.grid')}</MatchSectionTitle>
-        {booking.status === 'loading' ? <SkeletonList rows={2} height={94} /> : null}
-        {booking.status === 'error' ? (
-          <ErrorState
-            testID="coach-detail.slots-error"
-            title={t('errors.loadFailedTitle')}
-            message={t('coaching.guest.coach.error')}
-            retryLabel={t('common.retry')}
-            onRetry={booking.refetch}
-          />
-        ) : null}
-        {booking.status === 'empty' ||
-        (booking.status === 'ready' && booking.nights.length === 0) ? (
-          <Hint>
-            {phone
-              ? t('coaching.guest.coach.noTimes', { branch: isolate(branchLabel) })
-              : t('coaching.guest.coach.noTimesNoPhone')}
-          </Hint>
-        ) : null}
-        {/* Figma "D · Profile": one white card per open night, headed by the
-          day, its free starts as round pills. */}
-        {nightsVisible.map((n) => (
-          <View
-            key={n.date}
-            testID={`coach-detail.night.${n.date}`}
-            style={{
-              backgroundColor: colors.card,
-              borderRadius: radius.card,
-              paddingTop: space.sm,
-              paddingBottom: space.sm,
-              paddingStart: space.m,
-              paddingEnd: space.m,
-              gap: 10,
-            }}
-          >
-            <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.mut }}>
-              {nightLabel(n.date)}
-            </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.s }}>
-              {n.cells.map((cell) => (
-                <LessonTimePill
-                  key={cell.startAt.getTime()}
-                  testID={slotTestID('coach-detail.slot', cell)}
-                  cell={cell}
-                  time={formatTime(cell.startAt, locale, booking.tz)}
-                  selected={cell.startAt.getTime() === pickedAt}
-                  onPress={onPill}
-                />
-              ))}
-            </View>
-          </View>
-        ))}
-        {booking.nights.length > nightsVisible.length ? (
-          <Pressable
-            testID="coach-detail.more-days"
-            accessibilityRole="button"
-            onPress={() => setNightsShown(nightsVisible.length + NIGHTS_STEP)}
-            style={({ pressed }) => ({
-              alignSelf: 'center',
-              minHeight: 44,
-              justifyContent: 'center',
-              paddingStart: space.l,
-              paddingEnd: space.l,
-              borderRadius: radius.pill,
-              borderWidth: 1,
-              borderColor: colors.line,
-              backgroundColor: pressed ? colors.sub : colors.card,
-            })}
-          >
-            <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.blue }}>
-              {t('coaching.guest.coach.moreDays')}
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
-    );
-  })();
+  // Private lessons open their free times on their own page (lesson-times);
+  // while the viewer could book one, the name card says so.
+  const bookable =
+    !off && !paused && !self && !meReading && data.offers.some((o) => o.kind === 'private');
+  const datedTypes = new Set(data.sessions.map((x) => x.lessonTypeId));
+  const offerRows = (
+    [
+      {
+        key: 'private',
+        title: 'coaching.guest.coach.privateLessons',
+        offers: data.offers.filter((o) => o.kind === 'private'),
+      },
+      {
+        key: 'group',
+        title: 'coaching.guest.coach.groupLessons',
+        offers: data.offers.filter(
+          (o) => (o.kind === 'group' || o.kind === 'course') && datedTypes.has(o.lessonTypeId),
+        ),
+      },
+    ] as const
+  ).filter((row) => row.offers.length > 0);
 
   return (
     <Screen edges={[]} padded={false}>
       {headerFor(true)}
-      <ScrollView
-        ref={scrollRef}
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         contentContainerStyle={{
-          paddingBottom: 40 + insets.bottom + (picked ? BOOK_BAR_HEIGHT : 0),
+          paddingBottom: 40 + insets.bottom,
         }}
       >
         <CoachHero
@@ -424,17 +372,20 @@ export default function CoachDetailScreen() {
           photoPath={coach?.photoPath ?? null}
           name={name}
           height={insets.top + HERO_HEIGHT}
+          initial={false}
         />
         <View style={{ paddingStart: space.l, paddingEnd: space.l, gap: space.sm }}>
           {/* The name card rides up over the hero (Figma "D · Profile"): name,
-            branch, the "Taking bookings" badge while the grid is open, and the
-            bio with More / Less. Not pressable (§4.8.3 item 1). */}
+            branch, the "Taking bookings" badge while a private lesson is bookable, and the
+            bio in full. Not pressable (§4.8.3 item 1). Its top leaves
+            room for the avatar CoachDockBar draws on its edge, so the name,
+            branch and badge are centred under it. */}
           <View
             style={{
               marginTop: -CARD_OVERLAP,
               backgroundColor: colors.card,
               borderRadius: radius.sheet,
-              paddingTop: space.l,
+              paddingTop: COACH_DOCK.big / 2 + space.sm,
               paddingBottom: space.l,
               paddingStart: space.l,
               paddingEnd: space.l,
@@ -442,20 +393,34 @@ export default function CoachDetailScreen() {
               boxShadow: shadows.card,
             }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={{ fontFamily: fonts.display800, fontSize: 22, color: colors.ink }}>
+            <View style={{ alignItems: 'center', gap: space.sm }}>
+              <View style={{ alignItems: 'center', gap: 2 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.display800,
+                    fontSize: 22,
+                    color: colors.ink,
+                    textAlign: 'center',
+                  }}
+                >
                   {name}
                 </Text>
                 {branchLabel ? (
-                  <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: colors.mut }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.body600,
+                      fontSize: 12.5,
+                      color: colors.mut,
+                      textAlign: 'center',
+                    }}
+                  >
                     {otherBranch
                       ? t('coaching.common.atBranch', { branch: isolate(branchLabel) })
                       : branchLabel}
                   </Text>
                 ) : null}
               </View>
-              {showGrid && !meReading ? (
+              {bookable ? (
                 <View
                   style={{
                     backgroundColor: colors.gtint,
@@ -473,30 +438,16 @@ export default function CoachDetailScreen() {
               ) : null}
             </View>
             {bio ? (
-              <View style={{ gap: 4 }}>
-                <Text
-                  numberOfLines={bioOpen ? undefined : 3}
-                  style={{
-                    fontFamily: fonts.body400,
-                    fontSize: 14,
-                    lineHeight: 21,
-                    color: colors.mut2,
-                  }}
-                >
-                  {bio}
-                </Text>
-                <Pressable
-                  testID="coach-detail.bio-more"
-                  accessibilityRole="button"
-                  hitSlop={14}
-                  onPress={() => setBioOpen((v) => !v)}
-                  style={{ alignSelf: 'flex-start', minHeight: 24, justifyContent: 'center' }}
-                >
-                  <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.blue }}>
-                    {t(bioOpen ? 'coaching.guest.coach.less' : 'coaching.guest.coach.more')}
-                  </Text>
-                </Pressable>
-              </View>
+              <Text
+                style={{
+                  fontFamily: fonts.body400,
+                  fontSize: 14,
+                  lineHeight: 21,
+                  color: colors.mut2,
+                }}
+              >
+                {bio}
+              </Text>
             ) : null}
           </View>
 
@@ -513,65 +464,48 @@ export default function CoachDetailScreen() {
           {paused ? <MatchNotice text={t('coaching.guest.coach.paused')} /> : null}
           {self ? <MatchNotice text={t('coaching.guest.coach.self')} /> : null}
 
-          <View testID="coach-detail.offers" style={{ gap: space.s }}>
-            <MatchSectionTitle>{t('coaching.guest.coach.offers')}</MatchSectionTitle>
-            {data.offers
-              .filter((o) => o.kind !== null)
-              .map((o) => (
-                <OfferRow
-                  key={o.lessonTypeId}
-                  testID={`coach-detail.offer.${o.lessonTypeId}`}
-                  name={pick(o.nameEn, o.nameAr, locale)}
-                  kind={t(`coaching.common.kinds.${o.kind!}`)}
-                  meta={offerMeta(o)}
-                  price={money(o.priceIqd)}
-                  selected={o.kind === 'private' && o.lessonTypeId === booking.typeId && showGrid}
-                  onPress={() => {
-                    if (o.kind === 'private') {
-                      // Another lesson type has its own starts and price.
-                      if (o.lessonTypeId !== booking.typeId) setPickedAt(null);
-                      booking.setTypeId(o.lessonTypeId);
-                    }
-                    else scrollRef.current?.scrollTo({ y: sessionsY.current, animated: true });
+          {/* Two sideways rows of lesson cards: private lessons, then group
+            sessions and courses. A group or course lesson shows only while it
+            has an upcoming date with places; a row with no cards is left out. */}
+          <View testID="coach-detail.offers" style={{ gap: space.l }}>
+            {offerRows.map((row) => (
+              <View
+                key={row.key}
+                testID={`coach-detail.offers.${row.key}`}
+                style={{ gap: space.s }}
+              >
+                <MatchSectionTitle>{t(row.title)}</MatchSectionTitle>
+                {/* Bled to the screen's edges so cards slide off them; the
+                  first lines up with the title. */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginStart: -space.l, marginEnd: -space.l }}
+                  contentContainerStyle={{
+                    gap: space.s,
+                    paddingStart: space.l,
+                    paddingEnd: space.l,
                   }}
-                />
-              ))}
+                >
+                  {row.offers.map((o) => (
+                    <OfferCard
+                      key={o.lessonTypeId}
+                      testID={`coach-detail.offer.${o.lessonTypeId}`}
+                      name={pick(o.nameEn, o.nameAr, locale)}
+                      kind={t(`coaching.common.kinds.${o.kind!}`)}
+                      meta={offerMeta(o)}
+                      price={money(o.priceIqd)}
+                      // A private lesson opens its free times only while it
+                      // can be booked; a group or course one always opens its dates.
+                      onPress={() => {
+                        if (o.kind !== 'private' || bookable) openTimes(o.lessonTypeId);
+                      }}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+            ))}
           </View>
-
-          {grid}
-
-          {data.sessions.length > 0 ? (
-            <View
-              style={{ gap: space.s }}
-              onLayout={(e) => {
-                sessionsY.current = e.nativeEvent.layout.y;
-              }}
-            >
-              <MatchSectionTitle>{t('coaching.guest.coach.sessions')}</MatchSectionTitle>
-              {data.sessions.map((s) => {
-                const target = classTarget(s);
-                if (!target) return null;
-                const type = data.offers.find((o) => o.lessonTypeId === s.lessonTypeId);
-                const start = new Date(s.startAt);
-                return (
-                  <ClassRow
-                    key={target.id}
-                    testID={`coach-detail.session.${target.id}`}
-                    kind={t(`coaching.common.kinds.${s.kind}`)}
-                    title={
-                      pick(s.titleEn, s.titleAr, locale) ||
-                      (type ? pick(type.nameEn, type.nameAr, locale) : '')
-                    }
-                    coach={name}
-                    when={`${formatWeekdayShort(start, locale, tz)} ${formatDate(start, locale, tz)} · ${formatTime(start, locale, tz)}`}
-                    places={countPhrase('coaching.common.count.placesLeft', s.placesLeft, locale)}
-                    price={money(s.priceIqd)}
-                    onPress={() => router.push({ pathname: '/class/[id]', params: target })}
-                  />
-                );
-              })}
-            </View>
-          ) : null}
 
           {phone && branchLabel ? (
             <Button
@@ -583,46 +517,18 @@ export default function CoachDetailScreen() {
             />
           ) : null}
         </View>
-      </ScrollView>
-      {picked && pickedNight ? (
-        // Figma "Book bar": the picked time and the lesson's price, and Book.
-        <View
-          style={{
-            position: 'absolute',
-            start: 0,
-            end: 0,
-            bottom: 0,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: space.sm,
-            backgroundColor: colors.card,
-            borderTopWidth: 1,
-            borderTopColor: colors.line,
-            paddingTop: space.m,
-            paddingBottom: space.m + insets.bottom,
-            paddingStart: space.l,
-            paddingEnd: space.l,
-          }}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}>
-              {`${nightLabel(pickedNight.date)} · ${formatTime(picked.startAt, locale, booking.tz)}`}
-            </Text>
-            {booking.offer?.priceIqd != null ? (
-              <Text style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.gtext }}>
-                {money(booking.offer.priceIqd)}
-              </Text>
-            ) : null}
-          </View>
-          <Button
-            testID="coach-detail.book"
-            label={t('coaching.guest.coach.bookLesson')}
-            size="compact"
-            onPress={() => onTime(picked)}
-            style={{ borderRadius: radius.pill, paddingStart: space.xxl, paddingEnd: space.xxl }}
-          />
-        </View>
-      ) : null}
+      </Animated.ScrollView>
+      <CoachDockBar
+        scrollY={scrollY}
+        photoPath={coach?.photoPath ?? null}
+        name={name}
+        cardTop={cardTop}
+        topInset={insets.top}
+        bar={barHeight}
+        width={width}
+        rtl={dir === 'rtl'}
+        reduceMotion={reduceMotion}
+      />
     </Screen>
   );
 }
