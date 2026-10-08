@@ -152,8 +152,9 @@ test.describe('operator Touch Shop desk', () => {
     await form.getByLabel('Product name (Arabic)').fill(`مضرب ${stamp}`);
     await form.getByLabel('Price (IQD)').fill('250000');
     await form.getByLabel('Barcode').fill(BARCODE);
-    // exact: the price watch (0322) put a "Supplier link" field in the same form.
-    await choose(form.getByLabel('Supplier', { exact: true }), { label: SUPPLIER });
+    // By role: the price watch (0322) put a "Supplier link" textbox in the same form,
+    // and the picker's accessible name is not exactly "Supplier" (exact: true matched nothing).
+    await choose(form.getByRole('combobox', { name: 'Supplier' }), { label: SUPPLIER });
     await form.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(form).toBeHidden();
     await expect(page.getByText(BARCODE)).toBeVisible();
