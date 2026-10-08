@@ -152,7 +152,8 @@ test.describe('operator Touch Shop desk', () => {
     await form.getByLabel('Product name (Arabic)').fill(`مضرب ${stamp}`);
     await form.getByLabel('Price (IQD)').fill('250000');
     await form.getByLabel('Barcode').fill(BARCODE);
-    await choose(form.getByLabel('Supplier'), { label: SUPPLIER });
+    // exact: the price watch (0322) put a "Supplier link" field in the same form.
+    await choose(form.getByLabel('Supplier', { exact: true }), { label: SUPPLIER });
     await form.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(form).toBeHidden();
     await expect(page.getByText(BARCODE)).toBeVisible();
