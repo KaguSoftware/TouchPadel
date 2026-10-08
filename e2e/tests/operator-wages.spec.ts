@@ -18,7 +18,7 @@
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { OPERATOR_URL as CONFIG_OPERATOR_URL } from '../playwright.config';
-import { DEV_PASSWORD, FIXTURE_VENUE_ID, SEED_STAFF, choose, serviceClient } from './helpers';
+import { DEV_PASSWORD, FIXTURE_VENUE_ID, SEED_STAFF, choose, serviceClient, showEveryRow } from './helpers';
 
 // A run against a second operator server on the local stack (the visual-check
 // recipe) points here; the default is the config's own server.
@@ -133,6 +133,9 @@ test.describe('operator wages and attendance', () => {
     const owner = await signIn(browser, SEED_STAFF.owner, locale);
     await owner.goto(`${OPERATOR_URL}/wages`);
     await expect(owner.getByRole('heading', { level: 1, name: copy.wages })).toBeVisible({ timeout: 30_000 });
+    // The month table shows three people until "View more".
+    await expect(owner.getByRole('table').first()).toBeVisible({ timeout: 30_000 });
+    await showEveryRow(owner);
     await owner.getByTestId(`wages.row.set.${barista.id}`).click();
     const setDialog = owner.getByRole('dialog');
     await setDialog.getByRole('textbox', { name: copy.salary }).fill('600000');
@@ -162,6 +165,7 @@ test.describe('operator wages and attendance', () => {
     await expect(form.getByTestId('attendance.record.verdict')).toHaveText(copy.over);
     await form.getByTestId('attendance.record.submit').click();
     await expect(form).toHaveCount(0);
+    await showEveryRow(manager);
     const days = manager.getByTestId(`attendance.person.${barista.id}`);
     await expect(days).toBeVisible();
     await expect(days).toContainText(copy.penaltyAmount);
@@ -169,6 +173,8 @@ test.describe('operator wages and attendance', () => {
 
     // (c) The owner sees the penalty and the net, and marks the month paid.
     await owner.reload();
+    await expect(owner.getByRole('table').first()).toBeVisible({ timeout: 30_000 });
+    await showEveryRow(owner);
     const row = owner.getByRole('row').filter({ has: owner.getByTestId(`wages.row.set.${barista.id}`) });
     await expect(row).toBeVisible({ timeout: 30_000 });
     await expect.poll(async () => bare(await row.innerText())).toMatch(copy.net);

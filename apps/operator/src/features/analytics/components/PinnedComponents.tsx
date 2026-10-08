@@ -9,6 +9,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import type { CompareBasis, DateRange } from '@touch/core';
 import { useConfirm } from '../../../components/ConfirmDialog';
+import { ViewMore, useListCap } from '../../../components/kit';
 import { useToast } from '../../../components/toast';
 import { useLocale } from '../../../lib/i18n';
 import type { Formatters } from '../format';
@@ -41,6 +42,8 @@ export function PinnedComponents({
     const s = r.default_params?.scope;
     return s === undefined || s === null || s === scope;
   });
+  // A capped card is not mounted, so it does not regenerate until it is opened.
+  const cap = useListCap(rows);
   if (!rows.length) return null;
 
   async function archive(key: string, question: string) {
@@ -57,7 +60,7 @@ export function PinnedComponents({
 
   return (
     <>
-      {rows.map((row) => (
+      {cap.shown.map((row) => (
         <AssistantComponentCard
           key={row.key}
           componentKey={row.key}
@@ -67,6 +70,8 @@ export function PinnedComponents({
           pinned={{ question: row.question, onArchive: () => void archive(row.key, row.question) }}
         />
       ))}
+      {/* Its own grid row, under the cards, whatever the zone's column count. */}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} style={{ gridColumn: '1 / -1', marginBlockStart: 0 }} />
     </>
   );
 }

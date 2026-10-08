@@ -30,8 +30,6 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     busyUntil: 'مشغول حتى {time}',
     busyBlocked: 'موقوف حتى {time}',
     bookCourt: 'حجز هذا الملعب',
-    showAllCourts: 'عرض كل الملاعب ({count})',
-    showFewerCourts: 'عرض ملاعب أقل',
     markArrived: 'تسجيل الوصول',
     emptyTitle: 'لا حجوزات اليوم',
     emptyBody: 'احجز لضيف من «حجز جديد» أو من ملعب فارغ أدناه. تظهر حجوزات التطبيق هنا فور تأكيدها.',

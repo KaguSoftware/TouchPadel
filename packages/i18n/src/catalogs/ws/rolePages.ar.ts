@@ -32,7 +32,6 @@ export const rolePagesAr: DeepMessages<typeof rolePagesEn> = {
     title: 'تغييرات الوصفات',
     waitingBadge: 'قيد الانتظار: {count}',
     none: 'لا تغييرات في الوصفات قيد الانتظار.',
-    more: 'طلبات أخرى قيد الانتظار: {count}',
     seeAll: 'عرض كل الطلبات',
     filterLabel: 'عرض الطلبات',
     filter: {

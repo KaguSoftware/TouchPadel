@@ -277,11 +277,13 @@ describe('sections', () => {
   it('hides the screens that are opened from inside another screen', () => {
     const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
     const hidden = observation.items.filter((i) => i.hidden).map((i) => i.to);
-    // Promotions and Telegram are reached from the marketing panel; the desk and
-    // the tab board only by drilling through from Floor now.
-    expect(hidden).toEqual(['/admin/promotions', '/admin/telegram', '/desk', '/till/tabs']);
+    // Promotions and Telegram are reached from the marketing panel; Floor now
+    // is the overview's own body (2026-10-08); the desk and the tab board are
+    // reached only by drilling through from the overview's area cards.
+    expect(hidden).toEqual(['/admin/promotions', '/admin/telegram', '/ops', '/desk', '/till/tabs']);
     // Hidden rows never print...
     expect(sectionRailItems(observation).map((i) => i.to)).not.toContain('/admin/promotions');
+    expect(sectionRailItems(observation).map((i) => i.to)).not.toContain('/ops');
     // ...but the section still owns them, so the rail survives the trip.
     expect(sectionForPath(owner, '/admin/promotions')?.key).toBe('observation');
     expect(workspaceOwnsPath('owner', '/admin/promotions')).toBe(true);
@@ -409,7 +411,7 @@ describe('Touch Shop desk (0243–0246)', () => {
   it('is its own rail: sell, the drawer, the shop store and the products', () => {
     expect(WORKSPACES.shop.home).toBe('/shop');
     expect(WORKSPACES.shop.groups.flatMap((g) => g.items.map((i) => i.to))).toEqual([
-      '/shop', '/shop/drawer', '/shop/stock', '/shop/receive', '/shop/counts', '/shop/waste',
+      '/shop', '/shop/drawer', '/shop/stock', '/shop/receive', '/shop/counts',
       '/shop/products', '/shop/suppliers',
     ]);
     // Nothing of the café's till or stock.

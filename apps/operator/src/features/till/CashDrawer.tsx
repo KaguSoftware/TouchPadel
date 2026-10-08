@@ -21,8 +21,9 @@
  *
  * Till shifts (wave5-addendum §5.1, §5.2): the cashier's page carries "Your
  * shift" (since when, the float, the counts, End my shift, and no expected
- * figure: the blind count); the manager's aside lists the shifts on this till
- * today with their counts and differences (tillShift/DrawerShift).
+ * figure: the blind count); the manager's and owner's page leads with the
+ * day's shifts on every till and the desk, with each shift-end count and
+ * difference, and a day stepper (tillShift/DrawerDay).
  *
  * The subtitle is the day this drawer belongs to ("Day opened 5:09 PM"), not
  * a description of the screen. A cash payment names the tab it was for, so
@@ -45,7 +46,6 @@ import {
   AsyncStateWrapper,
   DataTable,
   EmptyState,
-  HeadlineFigure,
   MessagePresenter,
   Money,
   PageHeader,
@@ -57,7 +57,8 @@ import {
 import { Icon } from '../../components/icons';
 import { muted } from './tillStyles';
 import { DRAWER_REASONS } from './drawerReasons';
-import { TillShifts, YourShift } from '../tillShift/DrawerShift';
+import { YourShift } from '../tillShift/DrawerShift';
+import { DrawerDay } from '../tillShift/DrawerDay';
 import { useTillShiftOptional } from '../tillShift/shiftContext';
 import { gateBlocks } from '../tillShift/tillShiftLogic';
 
@@ -288,99 +289,71 @@ export function CashDrawerScreen() {
 
   return (
     /*
-     * This screen used to be a --tp-measure-wide column: a summary strip of two
-     * cards over an events table, all of it stopping a third of the way across
-     * a till monitor with the lower two thirds bare. Three holes, one cause — a
-     * reading measure on a screen whose job is a log.
-     *
-     * The log takes the page. The float and the route to day close are standing
-     * context, so they sit in a rail beside it rather than a strip above it, and
-     * the panel holding the log takes the height rather than hugging three rows
-     * of it.
+     * The owner's and manager's page is the day's shifts first: who held the
+     * drawer, what each started with, took and refunded, what it was expected
+     * to hold, what was counted when the shift ended and the difference, for
+     * every till and the desk (tillShift/DrawerDay). It used to be the log of
+     * every cash payment with this station's shifts in a narrow aside, which
+     * an owner away from the tills never saw. The log of what the drawer did
+     * is below, for the open day it belongs to.
      */
-    <div style={{ inlineSize: '100%', blockSize: '100%', minBlockSize: 0, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start' }}>
       <PageHeader
-        style={{ flexShrink: 0 }}
         title={tr('ws.cashier.drawer.title')}
         subtitle={day ? tr('ws.cashier.drawer.dayOpenedAt', { time: formatTime(new Date(day.opened_at), locale) }) : undefined}
-        actions={
-          <Button
-            kind="primary"
-            icon="drawer"
-            busy={busy}
-            disabled={!day}
-            disabledReason={dayQ.isSuccess && !day ? tr('ws.cashier.drawer.noDay') : undefined}
-            onClick={() => {
-              setRecorded(false);
-              setReasonOpen(true);
-            }}
-          >
-            {tr('ws.cashier.drawer.openDrawer')}
-          </Button>
-        }
       />
 
-      {recorded && <MessagePresenter tone="success" icon="drawer" message={tr('ws.cashier.drawer.recorded')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />}
+      {recorded && <MessagePresenter tone="success" icon="drawer" message={tr('ws.cashier.drawer.recorded')} />}
       <ErrorText error={error} />
 
-      <div style={{ flex: 1, minBlockSize: 0, display: 'flex', flexDirection: 'column' }}>
-        <AsyncStateWrapper
-          status={dayQ.isError && dayQ.data === undefined ? 'error' : dayQ.data === undefined ? 'loading' : 'ready'}
-          onRetry={() => void dayQ.refetch()}
-          error={dayQ.error}
-          compact
-        >
-          {!day ? (
-            <EmptyState
-              icon="sun"
-              title={tr('ws.cashier.drawer.noDay')}
-              body={tr('ws.cashier.drawer.noDayBody')}
-              action={can.closeDay ? <DayCloseLink label={tr('ws.cashier.drawer.dayClose')} /> : undefined}
-            />
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) clamp(15rem, 24vw, 22rem)', gap: 'var(--tp-sp-4)', blockSize: '100%', minBlockSize: 0 }}>
-              <Panel
-                title={tr('ws.cashier.drawer.events')}
-                actions={
-                  eventsQ.data && eventsQ.data.length > 0 ? (
-                    <span style={muted}>
-                      {tr('ws.cashier.drawer.countCash', { count: formatNumber(eventsQ.data.filter((e) => e.kind === 'cash').length, locale) })}
-                      {' · '}
-                      {tr('ws.cashier.drawer.countOpen', { count: formatNumber(eventsQ.data.filter((e) => e.kind === 'open').length, locale) })}
-                    </span>
-                  ) : undefined
-                }
-                fill
-              >
-                <AsyncStateWrapper
-                  status={asyncStatus(eventsQ, (d) => d.length === 0)}
-                  onRetry={() => void eventsQ.refetch()}
-                  error={eventsQ.error}
-                  compact
-                  emptyContent={
-                    /* Centred in the panel it now fills, and without the dashed
-                       box: the panel already draws that edge. */
-                    <EmptyState compact icon="drawer" title={tr('ws.cashier.drawer.empty')} body={tr('ws.cashier.drawer.emptyBody')} style={{ flex: 1, justifyContent: 'center', border: 'none' }} />
-                  }
-                >
-                  <DataTable columns={columns} rows={eventsQ.data ?? []} rowKey={(r) => r.id} dense fill aria-label={tr('ws.cashier.drawer.events')} />
-                </AsyncStateWrapper>
-              </Panel>
+      {dayQ.isSuccess && !day && <MessagePresenter tone="info" icon="sun" message={`${tr('ws.cashier.drawer.noDay')} ${tr('ws.cashier.drawer.noDayBody')}`} />}
 
-              <aside style={{ display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', minBlockSize: 0, overflowY: 'auto' }}>
-                <HeadlineFigure label={tr('ws.cashier.drawer.float')} value={<Money amount={day.opening_float_iqd} />} hint={tr('ws.cashier.drawer.floatHint')} />
-                <TillShifts />
-                <Panel muted>
-                  <p style={{ ...muted, marginBlockEnd: can.closeDay ? 'var(--tp-sp-2)' : 0 }}>
-                    {can.closeDay ? tr('ws.cashier.drawer.dayCloseHint') : tr('ws.cashier.drawer.dayCloseByManager')}
-                  </p>
-                  {can.closeDay && <DayCloseLink label={tr('ws.cashier.drawer.goDayClose')} />}
-                </Panel>
-              </aside>
-            </div>
-          )}
-        </AsyncStateWrapper>
-      </div>
+      <DrawerDay
+        openDayDate={day?.business_date ?? null}
+        openDayFloat={day ? day.opening_float_iqd : null}
+        actions={
+          <>
+            {can.closeDay && <DayCloseLink label={tr('ws.cashier.drawer.dayClose')} />}
+            <Button
+              kind="primary"
+              icon="drawer"
+              busy={busy}
+              disabled={!day}
+              disabledReason={dayQ.isSuccess && !day ? tr('ws.cashier.drawer.noDay') : undefined}
+              onClick={() => {
+                setRecorded(false);
+                setReasonOpen(true);
+              }}
+            >
+              {tr('ws.cashier.drawer.openDrawer')}
+            </Button>
+          </>
+        }
+        whenOpenDay={
+          <Panel
+            title={tr('ws.cashier.drawer.events')}
+            actions={
+              eventsQ.data && eventsQ.data.length > 0 ? (
+                <span style={muted}>
+                  {tr('ws.cashier.drawer.countCash', { count: formatNumber(eventsQ.data.filter((e) => e.kind === 'cash').length, locale) })}
+                  {' · '}
+                  {tr('ws.cashier.drawer.countOpen', { count: formatNumber(eventsQ.data.filter((e) => e.kind === 'open').length, locale) })}
+                </span>
+              ) : undefined
+            }
+          >
+            <AsyncStateWrapper
+              status={asyncStatus(eventsQ, (d) => d.length === 0)}
+              onRetry={() => void eventsQ.refetch()}
+              error={eventsQ.error}
+              compact
+              emptyContent={<EmptyState compact icon="drawer" title={tr('ws.cashier.drawer.empty')} body={tr('ws.cashier.drawer.emptyBody')} style={{ border: 'none' }} />}
+            >
+              <DataTable columns={columns} rows={eventsQ.data ?? []} rowKey={(r) => r.id} dense aria-label={tr('ws.cashier.drawer.events')} />
+            </AsyncStateWrapper>
+          </Panel>
+        }
+      />
 
       {reasonPrompt}
     </div>

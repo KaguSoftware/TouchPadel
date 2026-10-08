@@ -27,7 +27,7 @@ import {
   type MessageKey,
 } from '@touch/i18n';
 import { Button } from '../../components/ui';
-import { Panel, StatusBadge, type Tone } from '../../components/kit';
+import { Panel, StatusBadge, ViewMore, useListCap, type Tone } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { useLocale } from '../../lib/i18n';
 import { LessonBadge } from './LessonBadge';
@@ -109,6 +109,12 @@ export function LessonsTodayPanel(p: LessonsTodayPanelProps) {
     </span>
   );
   const offline = p.reachable ? undefined : tr('ws.coaching.offline.needsConnection');
+  // Sorted before the early returns so the cap hook runs on every render.
+  const rows =
+    p.status.kind === 'ready'
+      ? [...p.status.data.lessons].sort((a, b) => a.start_at.localeCompare(b.start_at))
+      : [];
+  const cap = useListCap(rows);
 
   if (p.status.kind === 'failed') {
     return (
@@ -119,9 +125,7 @@ export function LessonsTodayPanel(p: LessonsTodayPanelProps) {
   }
   if (p.status.kind !== 'ready') return null;
 
-  const envelope = p.status.data;
-  const rows = [...envelope.lessons].sort((a, b) => a.start_at.localeCompare(b.start_at));
-  const enabled = envelope.coaching_enabled;
+  const enabled = p.status.data.coaching_enabled;
   if (!enabled && rows.length === 0) return null;
 
   const newLesson = p.runLessons ? (
@@ -159,7 +163,7 @@ export function LessonsTodayPanel(p: LessonsTodayPanelProps) {
               gap: 'var(--tp-sp-2)',
             }}
           >
-            {rows.map((lesson) => {
+            {cap.shown.map((lesson) => {
               const when = tr('ws.coaching.today.when', {
                 time: formatTimeRange(
                   new Date(lesson.start_at),
@@ -276,6 +280,12 @@ export function LessonsTodayPanel(p: LessonsTodayPanelProps) {
             })}
           </ul>
         )}
+        <ViewMore
+          hidden={cap.hidden}
+          open={cap.open}
+          onToggle={cap.toggle}
+          style={{ marginBlockStart: 0 }}
+        />
       </div>
     </Panel>
   );

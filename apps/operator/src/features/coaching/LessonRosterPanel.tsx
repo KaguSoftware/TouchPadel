@@ -37,6 +37,8 @@ import {
   Panel,
   ReasonCodePrompt,
   StatusBadge,
+  ViewMore,
+  useListCap,
   type Tone,
 } from '../../components/kit';
 import type { PaymentMethod } from '../till/PaymentPane';
@@ -522,6 +524,8 @@ function RosterView({
   // -------------------------------------------------------------------------
 
   const { live, earlier } = rosterGroups(detail.enrolments);
+  // Only the earlier / cancelled sign-ups fold; the live roster is the class.
+  const earlierCap = useListCap(earlier);
   const places = placesOf(l);
   const owing = rosterOwing(detail.enrolments);
   const canAdd = caps.runLessons && l.can.add_student;
@@ -591,8 +595,13 @@ function RosterView({
               {tr('ws.coaching.roster.earlier')}
             </h3>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {earlier.map((e) => row(e, true))}
+              {earlierCap.shown.map((e) => row(e, true))}
             </ul>
+            <ViewMore
+              hidden={earlierCap.hidden}
+              open={earlierCap.open}
+              onToggle={earlierCap.toggle}
+            />
           </section>
         )}
         {footer.length > 0 && (

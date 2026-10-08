@@ -1,13 +1,17 @@
 /**
- * Daily checklists: the fifth card on /protocols (build-contracts-2026-09-23
- * §5.4; plan §7.1). D2's page mounts it as `<ChecklistsCard />`; it takes no
- * props and reads everything itself.
+ * Checklists: the fifth card on /protocols (build-contracts-2026-09-23 §5.4;
+ * plan §7.1; scheduled-checklists-2026-10-08 §4). D2's page mounts it as
+ * `<ChecklistsCard />`; it takes no props and reads everything itself.
  *
- * The card answers "did today's lists get done?" from
- * app.checklist_day_state: the lists due today (lines, and a role someone
- * holds), least done first. "See today" opens every list with who ticked what
- * (ChecklistsSheet); the owner also gets "Edit the lists" (editChecklists).
- * Staff tick their lists on the phone, never here.
+ * The card answers "are the current lists getting done?" from
+ * app.checklist_day_state: one row per current copy (a shared list, or one
+ * person's copy) with its name, who it is for, how it repeats and when it is
+ * due. Overdue copies come first, tagged; then the least done; then the
+ * finished. The repeat summary and a people list's names come from the same
+ * app.checklist_board read the sheet opens with, and a row simply goes
+ * without them until it answers. "See today" opens every list with who
+ * ticked what (ChecklistsSheet); the owner also gets "Edit the lists"
+ * (editChecklists). Staff tick their lists on the phone, never here.
  *
  * The card holds every list's unsaved draft, so closing the sheet to look at
  * something else on the page loses nothing typed; the card says when a draft
@@ -18,15 +22,15 @@ import { useQuery } from '@tanstack/react-query';
 import { formatNumber } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { QK } from '../../lib/queries';
-import { can, useAuth, type StaffRole } from '../../lib/auth';
-import { useLocale } from '../../lib/i18n';
+import { can, useAuth } from '../../lib/auth';
+import { pickName, useLocale } from '../../lib/i18n';
 import { useBusinessToday } from '../../lib/settings';
 import { Button, ErrorText, Skeleton } from '../../components/ui';
 import { EmptyState, Panel, StatusBadge } from '../../components/kit';
 import { CardTitle, MARK, MARK_FG } from '../ops/OpsVisuals';
 import type { EditorState } from './ChecklistEditor';
 import { ChecklistsSheet, type SheetTab } from './ChecklistsSheet';
-import { CHECKLIST_ROLES, cardRows, daySummary, draftChanged, isUnfinished, readDayState, type ChecklistSlot } from './checklistLogic';
+import { CK, cardRows, dayListKey, daySummary, draftChanged, dueLabel, isOverdue, isUnfinished, readBoard, readDayState, repeatSummary, whoSummary } from './checklistLogic';
 
 /** Rows on the card before "+N more": the sheet has the rest. */
 const ROWS_SHOWN = 5;
@@ -47,7 +51,16 @@ export function ChecklistsCard() {
   const rows = cardRows(state);
 
   const [sheet, setSheet] = useState<SheetTab | null>(null);
-  const [selected, setSelected] = useState<{ role: StaffRole; slot: ChecklistSlot }>({ role: CHECKLIST_ROLES[0]!, slot: 'open' });
+  // The board, for each list's repeat summary and a people list's names; the sheet opens on the same read.
+  const boardQ = useQuery({
+    queryKey: CK.board(today),
+    queryFn: () => appRpc<unknown>('checklist_board', { p_business_date: today }),
+    refetchInterval: 60_000,
+  });
+  const templates = useMemo(() => new Map(readBoard(boardQ.data).templates.map((t) => [t.template_id, t])), [boardQ.data]);
+  const now = new Date();
+
+  const [selected, setSelected] = useState<string | null>(null);
   const [editors, setEditors] = useState<Record<string, EditorState>>({});
   const unsaved = Object.values(editors).some((e) => draftChanged(e.draft, e.base));
 
@@ -110,24 +123,47 @@ export function ChecklistsCard() {
               : tr('ws.supplies.checklists.summary', { done: formatNumber(summary.finished, locale), total: formatNumber(summary.total, locale) })}
           </p>
           {/* An unfinished list is not yet a problem: a closing list is 0 of 5 all
-              afternoon. So progress is neutral and only Finished takes a colour;
-              the warning tone is day close's, where an open list is one. */}
+              afternoon. So progress is neutral and only Finished takes a colour,
+              until the list is past its due time: then it is Overdue, in danger,
+              and the server put it first. Nothing is blocked by it. */}
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
             {rows.slice(0, ROWS_SHOWN).map((l) => {
               const open = isUnfinished(l);
+              const late = isOverdue(l);
               const pct = l.total === 0 ? 100 : Math.round((l.done / l.total) * 100);
+              const t = l.template_id ? templates.get(l.template_id) : undefined;
+              // Who: the person this copy is for, else the role, else (a people list nobody has a copy of yet) its people.
+              const who =
+                l.assignee_name ?? (l.role ? tr(`op.roles.${l.role}`) : t ? whoSummary(t, t.assignees.map((p) => p.display_name), tr, locale) : '');
+              const due = dueLabel(l.due_at, now, tr, locale);
+              const meta = [who, t ? repeatSummary(t, tr, locale) : '', due ?? ''].filter((x) => x !== '');
               return (
-                <li key={`${l.role}:${l.slot}`} data-list={`${l.role}:${l.slot}`} style={{ display: 'grid', gap: 'var(--tp-sp-0)', fontSize: 'var(--tp-fs-sm)' }}>
-                  <span style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-2)' }}>
-                    <span>{tr('ws.supplies.checklists.row', { role: tr(`op.roles.${l.role}`), slot: tr(`work.checklist.slot.${l.slot}`) })}</span>
-                    <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: open ? MARK_FG.neutral : MARK_FG.success }}>
-                      {open
-                        ? tr('ws.supplies.checklists.progress', { done: formatNumber(l.done, locale), total: formatNumber(l.total, locale) })
-                        : tr('ws.supplies.checklists.finished')}
+                <li key={dayListKey(l)} data-list={dayListKey(l)} data-overdue={late ? 'true' : undefined} style={{ display: 'grid', gap: 'var(--tp-sp-0)', fontSize: 'var(--tp-fs-sm)' }}>
+                  <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-2)' }}>
+                    <span style={{ fontWeight: 600, minInlineSize: 0, overflowWrap: 'anywhere' }}>
+                      <bdi>{pickName(locale, l) || tr(`work.checklist.slot.${l.slot}`)}</bdi>
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', flex: '0 0 auto' }}>
+                      {late && <StatusBadge size="sm" tone="danger" label={tr('ws.supplies.checklists.overdue')} />}
+                      <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: open ? MARK_FG.neutral : MARK_FG.success }}>
+                        {open
+                          ? tr('ws.supplies.checklists.progress', { done: formatNumber(l.done, locale), total: formatNumber(l.total, locale) })
+                          : tr('ws.supplies.checklists.finished')}
+                      </span>
                     </span>
                   </span>
+                  {meta.length > 0 && (
+                    <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)', overflowWrap: 'anywhere' }}>
+                      {meta.map((m, i) => (
+                        <span key={i}>
+                          {i > 0 && <span aria-hidden="true"> · </span>}
+                          <bdi>{m}</bdi>
+                        </span>
+                      ))}
+                    </span>
+                  )}
                   <span aria-hidden="true" style={{ blockSize: 'var(--tp-sp-1)', borderRadius: 'var(--tp-radius-pill)', background: 'var(--tp-surface-2)', overflow: 'hidden' }}>
-                    <span style={{ display: 'block', blockSize: '100%', inlineSize: `${pct}%`, background: open ? MARK.neutral : MARK.success }} />
+                    <span style={{ display: 'block', blockSize: '100%', inlineSize: `${pct}%`, background: open ? (late ? MARK.danger : MARK.neutral) : MARK.success }} />
                   </span>
                 </li>
               );
@@ -149,7 +185,7 @@ export function ChecklistsCard() {
           onTab={setSheet}
           canEdit={canEdit}
           selected={selected}
-          onSelect={(role, slot) => setSelected({ role, slot })}
+          onSelect={setSelected}
           editors={editors}
           onEditor={setEditor}
           onClose={() => setSheet(null)}

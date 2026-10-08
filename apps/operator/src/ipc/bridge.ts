@@ -219,6 +219,26 @@ export type ResolveQueueRowResult =
   | { ok: true }
   | { ok: false; error: 'pin not recognised' | 'not-resolvable' };
 
+/**
+ * Why the shop desk PC could not fetch a supplier's product page (0322,
+ * docs/design/shop/supplier-price-watch-2026-10-08.md). The first six are
+ * reported to the server as the watch's read error; `not_shop_station` and
+ * `unavailable` (browser mode) are not: the crawler simply does not run.
+ */
+export type SupplierFetchError =
+  | 'blocked_url'
+  | 'http_error'
+  | 'timeout'
+  | 'too_large'
+  | 'not_html'
+  | 'fetch_failed'
+  | 'not_shop_station'
+  | 'unavailable';
+
+export type SupplierPageResult =
+  | { ok: true; html: string; finalUrl: string }
+  | { ok: false; error: SupplierFetchError; status?: number };
+
 export interface TouchBridge {
   enqueue(m: MutationEnvelope): Promise<{ localId: string; state: 'queued' }>;
   onQueueUpdate(cb: (s: QueueStatus) => void): Unsub;
@@ -289,6 +309,12 @@ export interface TouchBridge {
   onUpdateReady(cb: (info: UpdateReadyInfo | null) => void): Unsub;
   /** Restart into the downloaded update. */
   installUpdate(): Promise<{ ok: boolean }>;
+  /**
+   * Shop desk only: fetch one supplier product page from main (no CORS, a
+   * size and time cap, public https hosts only) for the hourly price watch.
+   * Main refuses with `not_shop_station` anywhere else.
+   */
+  fetchSupplierPage(url: string): Promise<SupplierPageResult>;
 }
 
 declare global {
@@ -384,6 +410,10 @@ const mock: TouchBridge = {
   },
   async installUpdate() {
     return { ok: false };
+  },
+  async fetchSupplierPage() {
+    // A browser tab cannot read another site's page (CORS); only the shop desk PC watches prices.
+    return { ok: false, error: 'unavailable' };
   },
 };
 

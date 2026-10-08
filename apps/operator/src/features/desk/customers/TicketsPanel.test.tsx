@@ -137,9 +137,21 @@ describe('TicketsPanel', () => {
     }
   });
 
+  it('shows three purchases, then View more reveals the rest and Show less folds them', async () => {
+    const user = userEvent.setup();
+    mount();
+    expect(await screen.findAllByTestId('ticket-purchase')).toHaveLength(3);
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
+    expect(screen.getAllByTestId('ticket-purchase')).toHaveLength(5);
+    await user.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(screen.getAllByTestId('ticket-purchase')).toHaveLength(3);
+  });
+
   it('the three waiting reasons: the button disabled and the sentence that says until when', async () => {
+    const user = userEvent.setup();
     mount();
     await screen.findAllByTestId('ticket-purchase');
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
     const inUse = within(rowOf('p-inuse'));
     expect((inUse.getByRole('button', { name: /^Cash out one ticket/ }) as HTMLButtonElement).disabled).toBe(true);
     expect(inUse.getByText(/^A ticket from this purchase is in a match until .+\. Cash out after that\.$/)).toBeTruthy();
@@ -150,8 +162,10 @@ describe('TicketsPanel', () => {
   });
 
   it('a purchase already refunded offers no button and says when', async () => {
+    const user = userEvent.setup();
     mount();
     await screen.findAllByTestId('ticket-purchase');
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
     const done = within(rowOf('p-done'));
     expect(done.queryByRole('button')).toBeNull();
     expect(done.getByText(/^Refunded /)).toBeTruthy();

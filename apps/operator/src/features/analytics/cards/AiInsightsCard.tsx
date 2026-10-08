@@ -41,7 +41,7 @@ import {
 import type { Formatters } from '../format';
 import type { StoredSets } from '../useAnalyticsData';
 import { CardShell, muted, type CardState } from './CardShell';
-import { StatusBadge } from '../../../components/kit';
+import { StatusBadge, ViewMore, useListCap } from '../../../components/kit';
 
 type Busy = null | 'generate' | 'recheck' | 'replace';
 
@@ -99,6 +99,7 @@ export function AiInsightsCard({
 
   const latest = stored.insights[0] ?? null;
   const shown = fresh ?? latest?.insights ?? [];
+  const insightCap = useListCap(shown);
   const rejectedTexts = stored.rejections.map((r) => r.text);
   const ready = state === 'ready';
 
@@ -207,7 +208,7 @@ export function AiInsightsCard({
         {busy === 'replace' && <p style={muted}>{tr('analytics.insights.replacing')}</p>}
         <ErrorText error={error} />
         <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '0.45rem' }}>
-          {shown.map((insight, i) => (
+          {insightCap.shown.map((insight, i) => (
             <li key={`${i}-${insight.text}`} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
               <StatusBadge
                 size="sm"
@@ -228,6 +229,7 @@ export function AiInsightsCard({
             </li>
           ))}
         </ul>
+        <ViewMore hidden={insightCap.hidden} open={insightCap.open} onToggle={insightCap.toggle} style={{ marginBlockStart: 0 }} />
         {stored.insights.length > 1 && (
           <details>
             <summary style={{ ...muted, cursor: 'pointer' }}>{tr('analytics.insights.history')}</summary>

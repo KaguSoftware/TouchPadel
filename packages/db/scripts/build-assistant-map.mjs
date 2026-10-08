@@ -953,7 +953,9 @@ export function renderCompact(map) {
     const roles = /^Roles: (.*)\.$/m.exec(p.body)?.[1] ?? '';
     const where = /^Reached from: (.*)\.$/m.exec(p.body)?.[1] ?? '';
     const sentence = clipSentence(p.body.split('\n')[0]);
-    lines.push(`- ${p.route} [${roles}]${where ? ` (${where})` : ''} — ${sentence}`);
+    // ': ' not ' — ': the em dash is 3 bytes in UTF-8, and this line repeats for every page
+    // (2026-10-08: the prefix had reached the byte target).
+    lines.push(`- ${p.route} [${roles}]${where ? ` (${where})` : ''}: ${sentence}`);
   }
   lines.push('', '## Rules', '');
   for (const r of rules) lines.push(`### ${r.title}`, r.body, '');

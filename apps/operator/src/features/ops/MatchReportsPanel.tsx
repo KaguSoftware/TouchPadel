@@ -28,7 +28,7 @@ import { currentBranchId } from '../../lib/venueScope';
 import { useToast } from '../../components/toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Button, ErrorText, Skeleton } from '../../components/ui';
-import { CustomerFlagBadge, EmptyState, Panel, StatusBadge } from '../../components/kit';
+import { CustomerFlagBadge, EmptyState, Panel, StatusBadge, ViewMore, useListCap } from '../../components/kit';
 import { MatchReadNotice } from '../matches/MatchReadNotice';
 import { matchStatusKey } from '../matches/matchLogic';
 import type { MatchReport } from '../matches/matchPayloads';
@@ -46,9 +46,10 @@ export function MatchReportsPanel({ hideWhenEmpty = false }: { hideWhenEmpty?: b
   const status = useMatchRead(q);
   const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings, staleTime: 5 * 60_000 });
   const tz = settingsQ.data?.timezone ?? VENUE_TZ;
+  const rows = status.kind === 'ready' ? sortReports(status.data) : null;
+  const cap = useListCap(rows ?? []);
 
   if (!caps.reviewMatchReports || status.kind === 'absent') return null;
-  const rows = status.kind === 'ready' ? sortReports(status.data) : null;
   // Nothing disappears silently: a failed first read shows even on Today.
   const show = status.kind === 'failed' || (status.kind === 'loading' ? !hideWhenEmpty : showReportsPanel({ rows: rows?.length, hideWhenEmpty }));
   if (!show) return null;
@@ -60,11 +61,14 @@ export function MatchReportsPanel({ hideWhenEmpty = false }: { hideWhenEmpty?: b
       <MatchReadNotice status={status} onRetry={() => void q.refetch()} tz={tz} />
       {rows && rows.length === 0 && <EmptyState compact icon="checkCircle" kind="nothingToDo" title={tr(`${K}.empty`)} titleAs="h3" />}
       {rows && rows.length > 0 && (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
-          {rows.map((r) => (
-            <ReportRow key={r.report_id} report={r} branch={branch} tz={tz} />
-          ))}
-        </ul>
+        <>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
+            {cap.shown.map((r) => (
+              <ReportRow key={r.report_id} report={r} branch={branch} tz={tz} />
+            ))}
+          </ul>
+          <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+        </>
       )}
     </Panel>
   );

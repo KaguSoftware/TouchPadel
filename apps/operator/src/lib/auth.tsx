@@ -333,7 +333,6 @@ export const SUB_ROUTES = {
     '/shop/stock',
     '/shop/receive',
     '/shop/counts',
-    '/shop/waste',
     '/shop/products',
     '/shop/suppliers',
   ],

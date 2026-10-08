@@ -59,6 +59,7 @@ import {
   totalsFigures,
 } from './statementsLogic';
 import { StatementDialog } from './StatementDialog';
+import { CoachesThisMonth } from './CoachesThisMonth';
 
 const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
 
@@ -91,6 +92,16 @@ export function CoachStatementsScreen() {
         title={tr('ws.coaching.coachPay.title')}
         subtitle={tr('ws.coaching.coachPay.lead')}
       />
+
+      {/* Who is getting what in the month in progress: no statement exists for it until the 1st. */}
+      {read.kind !== 'absent' && (
+        <div style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
+          <CoachesThisMonth
+            month={currentQ.data?.current_month ?? null}
+            lastMonthPaidOut={currentQ.data ? currentQ.data.totals.coach_iqd : null}
+          />
+        </div>
+      )}
 
       <div
         style={{

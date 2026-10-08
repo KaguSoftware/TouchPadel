@@ -104,7 +104,10 @@ describe.skipIf(!up)('0110 assistant search and index queue', () => {
     const rightKind = await search('count the drawer', ['page', 'nav']);
     expect((rightKind.data as Hit[]).some((h) => h.ref === REF)).toBe(true);
 
-    const nothing = await search('zqxjv-nonexistent-token-77');
+    // One nonsense token: since 0325 every word of the query is an OR'd prefix
+    // match, so a hyphenated probe ('…-token-77') would match any chunk with
+    // "token" or "77" in it once the map is indexed.
+    const nothing = await search('zqxjvnonexistenttoken');
     expect(nothing.ok).toBe(true);
     expect(nothing.data).toEqual([]);
 

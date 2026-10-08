@@ -16,7 +16,7 @@ import type { Formatters } from '../format';
 import { mineCafeCandidates, toPatternWire } from '../patterns';
 import type { StoredSets } from '../useAnalyticsData';
 import { CardShell, muted, type CardState } from './CardShell';
-import { StatusBadge } from '../../../components/kit';
+import { StatusBadge, ViewMore, useListCap } from '../../../components/kit';
 
 const KIND_KEY: Record<string, MessageKey> = {
   'co-move': 'analytics.patterns.kinds.coMove',
@@ -55,6 +55,7 @@ export function PatternsCard({
   const storedRows = stored.patterns?.patterns ?? [];
   const byId = new Map((judged ?? storedRows).map((p) => [p.id, p]));
   const rows = candidates.map((c) => ({ candidate: c, text: byId.get(c.id)?.text ?? c.fallbackText }));
+  const cap = useListCap(rows);
 
   async function judge() {
     if (!raw || candidates.length === 0) return;
@@ -112,7 +113,7 @@ export function PatternsCard({
     >
       <div style={{ display: 'grid', gap: '0.5rem' }}>
         <ErrorText error={error} />
-        {rows.map(({ candidate, text }) => (
+        {cap.shown.map(({ candidate, text }) => (
           <div key={candidate.id} style={{ borderInlineStart: '1px solid var(--tp-border)', paddingInlineStart: '0.55rem' }}>
             <div style={{ display: 'flex', gap: '0.3rem', marginBlockEnd: '0.15rem', flexWrap: 'wrap' }}>
               <StatusBadge size="sm" tone="accent" dot={false} label={KIND_KEY[candidate.kind] ? tr(KIND_KEY[candidate.kind]!) : candidate.kind} />
@@ -126,6 +127,7 @@ export function PatternsCard({
             <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)' }}>{text}</p>
           </div>
         ))}
+        <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} style={{ marginBlockStart: 0 }} />
       </div>
     </CardShell>
   );

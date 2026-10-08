@@ -67,6 +67,10 @@ const MATCH_KEYS = ['match_report_new'];
 const LOYALTY_KEYS = ['loyalty_gift'];
 /** A staff screenshot alert to the owners (0313), last in the JSON. */
 const SCREENSHOT_KEYS = ['screenshot_taken'];
+/** The shop desk's supplier price watch to the owners and shop assistants (0322), last in the JSON. */
+const SHOP_KEYS = ['shop_price_changed'];
+/** The scheduled checklists' due-soon and overdue pushes (0323), last in the JSON. */
+const CHECKLIST_KEYS = ['checklist_due', 'checklist_overdue'];
 const FSI = '\u2068';
 const PDI = '\u2069';
 const iso = (s: string) => `${FSI}${s}${PDI}`;
@@ -86,14 +90,19 @@ function msg(lang: Lang, key: string, params: Record<string, unknown> = {}) {
 }
 
 describe('staff-push.json', () => {
-  it('lists the four staff kinds, thirty-nine title keys and seven routes, each once', () => {
+  it('lists the four staff kinds, forty-three title keys and seven routes, each once', () => {
     expect(staffPush.kinds).toEqual(['staff_task', 'staff_decide', 'staff_decided', 'staff_info']);
-    expect(staffPush.title_keys).toHaveLength(40);
+    expect(staffPush.title_keys).toHaveLength(43);
     expect(new Set(staffPush.title_keys).size).toBe(staffPush.title_keys.length);
     expect(staffPush.title_keys.slice(15, 26)).toEqual(ROLE_SPEC_KEYS);
     expect(staffPush.title_keys.slice(26, 37)).toEqual(WAVE5_KEYS);
     expect(staffPush.title_keys.slice(37, 38)).toEqual(MATCH_KEYS);
-    expect(staffPush.title_keys.slice(38)).toEqual([...LOYALTY_KEYS, ...SCREENSHOT_KEYS]);
+    expect(staffPush.title_keys.slice(38)).toEqual([
+      ...LOYALTY_KEYS,
+      ...SCREENSHOT_KEYS,
+      ...SHOP_KEYS,
+      ...CHECKLIST_KEYS,
+    ]);
     expect(staffPush.routes).toEqual([
       'staff',
       'staff-step',
@@ -238,6 +247,26 @@ describe('staffMessage — the EN copy of §2.21', () => {
     ['loyalty_gift', { name: 'Rana' }, 'Points gifted', `${iso('Rana')} gave a guest loyalty points.`],
     // Screenshots (0313): the person by name; the page stays off the lock screen.
     ['screenshot_taken', { name: 'Rana' }, 'Screenshot taken', `${iso('Rana')} took a screenshot in the staff app.`],
+    // Supplier price watch (0322): the product by name; no price on the lock screen.
+    [
+      'shop_price_changed',
+      { step: { en: 'Racket (Large)', ar: 'مضرب (كبير)' } },
+      'Supplier price changed',
+      `${iso('Racket (Large)')}: the supplier changed the price. Open Products on the shop desk to apply it.`,
+    ],
+    // Scheduled checklists (0323): the list by name; who ticked what stays in the app.
+    [
+      'checklist_due',
+      { step: { en: 'Bar opening', ar: 'افتتاح البار' } },
+      'Checklist due soon',
+      `${iso('Bar opening')} is due soon.`,
+    ],
+    [
+      'checklist_overdue',
+      { step: { en: 'Bar opening', ar: 'افتتاح البار' } },
+      'Checklist overdue',
+      `${iso('Bar opening')} is past its due time. Open it to finish it.`,
+    ],
   ];
 
   it('loyalty_gift without the manager’s name still says what happened', () => {
@@ -305,6 +334,34 @@ describe('staffMessage — params', () => {
     expect(msg('ar', 'incident_reported', { name: 'Hussein', step: { en: 'Injury', ar: 'إصابة' } }).body).toBe(
       `${iso('Hussein')}: ${iso('إصابة')}`,
     );
+  });
+
+  it('names the product in its own language on a supplier price change, and still says it without one', () => {
+    expect(msg('ar', 'shop_price_changed', { step: { en: 'Racket (Large)', ar: 'مضرب (كبير)' } }).body).toBe(
+      `${iso('مضرب (كبير)')}: غيّر المورّد السعر. افتح المنتجات في مكتب المتجر لتطبيقه.`,
+    );
+    expect(msg('en', 'shop_price_changed').body).toBe(
+      'A supplier changed a price. Open Products on the shop desk to apply it.',
+    );
+    expect(msg('ar', 'shop_price_changed').body).toBe('غيّر أحد الموردين سعرًا. افتح المنتجات في مكتب المتجر لتطبيقه.');
+  });
+
+  it('names a due or overdue checklist in its own language, and still says it without one', () => {
+    const step = { en: 'Bar opening', ar: 'افتتاح البار' };
+    expect(msg('ar', 'checklist_due', { step })).toMatchObject({
+      title: 'اقترب موعد قائمة التحقق',
+      body: `${iso('افتتاح البار')}: اقترب موعد إنجازها.`,
+    });
+    expect(msg('ar', 'checklist_overdue', { step })).toMatchObject({
+      title: 'قائمة تحقق متأخرة',
+      body: `${iso('افتتاح البار')}: فات موعدها. افتحها وأكملها.`,
+    });
+    expect(msg('en', 'checklist_due').body).toBe('One of your checklists is due soon.');
+    expect(msg('en', 'checklist_overdue').body).toBe(
+      'One of your checklists is past its due time. Open it to finish it.',
+    );
+    expect(msg('ar', 'checklist_due').body).toBe('اقترب موعد إحدى قوائم التحقق الخاصة بك.');
+    expect(msg('ar', 'checklist_overdue').body).toBe('فات موعد إحدى قوائم التحقق الخاصة بك. افتحها وأكملها.');
   });
 });
 

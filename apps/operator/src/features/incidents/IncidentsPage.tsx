@@ -35,6 +35,8 @@ import {
   SegmentedControl,
   StatusBadge,
   TableSkeleton,
+  ViewMore,
+  useListCap,
   type Column,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
@@ -82,6 +84,7 @@ function MyReports() {
   const { tr, locale } = useLocale();
   const q = useQuery({ queryKey: IK.mine, queryFn: fetchMyIncidents, refetchInterval: 60_000 });
   const rows = readMyIncidents(q.data);
+  const cap = useListCap(rows);
   const [photos, setPhotos] = useState<readonly string[] | null>(null);
 
   return (
@@ -98,51 +101,54 @@ function MyReports() {
       ) : rows.length === 0 ? (
         <p style={muted}>{tr('ws.incidents.mine.empty')}</p>
       ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
-          {rows.map((r, i) => (
-            <li
-              key={r.id}
-              data-testid={`incidents.mine.${r.id}`}
-              // A hairline between reports, none under the last.
-              style={{ display: 'grid', gap: 'var(--tp-sp-1)', paddingBlockEnd: i < rows.length - 1 ? 'var(--tp-sp-3)' : undefined, borderBlockEnd: i < rows.length - 1 ? '1px solid var(--tp-border)' : undefined }}
-            >
-              <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-                <strong>{tr(`work.incident.kind.${r.kind}`)}</strong>
-                <bdi style={muted}>{placeText(r, locale, (p) => tr(`work.incident.place.${p}`))}</bdi>
-                <span style={{ marginInlineStart: 'auto' }}>
-                  <StatusBadge size="sm" tone={incidentTone(r.status)} label={tr(`work.incident.status.${r.status}`)} />
-                </span>
-              </span>
-              {r.occurredAt && <span style={muted}>{tr('ws.incidents.happenedAt', { time: formatDateTime(new Date(r.occurredAt), locale) })}</span>}
-              {r.redacted ? (
-                <p style={{ ...muted, fontStyle: 'italic' }}>{tr('ws.incidents.redactedText')}</p>
-              ) : (
-                <p dir="auto" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {r.description}
-                </p>
-              )}
-              {r.photos.length > 0 && !r.redacted && (
-                <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-                  {r.photos.map((p, i) => (
-                    <StaffPhotoThumb key={p} path={p} label={tr('ws.incidents.sheet.photoAlt', { n: formatNumber(i + 1, locale) })} onClick={() => setPhotos(r.photos)} />
-                  ))}
-                </span>
-              )}
-              {r.status === 'reviewed' && (
-                <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', borderRadius: 'var(--tp-radius-ctl)', background: 'var(--tp-surface-2)' }}>
-                  <span style={{ ...muted, fontWeight: 600 }}>
-                    {tr('ws.incidents.reviewedBy', { name: isolate(r.reviewedByName ?? '—'), time: r.reviewedAt ? formatDateTime(new Date(r.reviewedAt), locale) : '' })}
+        <>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
+            {cap.shown.map((r, i) => (
+              <li
+                key={r.id}
+                data-testid={`incidents.mine.${r.id}`}
+                // A hairline between reports, none under the last.
+                style={{ display: 'grid', gap: 'var(--tp-sp-1)', paddingBlockEnd: i < cap.shown.length - 1 ? 'var(--tp-sp-3)' : undefined, borderBlockEnd: i < cap.shown.length - 1 ? '1px solid var(--tp-border)' : undefined }}
+              >
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+                  <strong>{tr(`work.incident.kind.${r.kind}`)}</strong>
+                  <bdi style={muted}>{placeText(r, locale, (p) => tr(`work.incident.place.${p}`))}</bdi>
+                  <span style={{ marginInlineStart: 'auto' }}>
+                    <StatusBadge size="sm" tone={incidentTone(r.status)} label={tr(`work.incident.status.${r.status}`)} />
                   </span>
-                  {r.reviewNote && (
-                    <p dir="auto" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                      {r.reviewNote}
-                    </p>
-                  )}
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
+                </span>
+                {r.occurredAt && <span style={muted}>{tr('ws.incidents.happenedAt', { time: formatDateTime(new Date(r.occurredAt), locale) })}</span>}
+                {r.redacted ? (
+                  <p style={{ ...muted, fontStyle: 'italic' }}>{tr('ws.incidents.redactedText')}</p>
+                ) : (
+                  <p dir="auto" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {r.description}
+                  </p>
+                )}
+                {r.photos.length > 0 && !r.redacted && (
+                  <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
+                    {r.photos.map((p, i) => (
+                      <StaffPhotoThumb key={p} path={p} label={tr('ws.incidents.sheet.photoAlt', { n: formatNumber(i + 1, locale) })} onClick={() => setPhotos(r.photos)} />
+                    ))}
+                  </span>
+                )}
+                {r.status === 'reviewed' && (
+                  <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', borderRadius: 'var(--tp-radius-ctl)', background: 'var(--tp-surface-2)' }}>
+                    <span style={{ ...muted, fontWeight: 600 }}>
+                      {tr('ws.incidents.reviewedBy', { name: isolate(r.reviewedByName ?? '—'), time: r.reviewedAt ? formatDateTime(new Date(r.reviewedAt), locale) : '' })}
+                    </span>
+                    {r.reviewNote && (
+                      <p dir="auto" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                        {r.reviewNote}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+          <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+        </>
       )}
       {photos && <PhotoViewer title={tr('ws.incidents.sheet.photos', { count: formatNumber(photos.length, locale) })} paths={photos} onClose={() => setPhotos(null)} />}
     </Panel>

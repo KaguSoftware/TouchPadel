@@ -24,7 +24,7 @@ import { useStationReach } from '../../../lib/stationReach';
 import { useToast } from '../../../components/toast';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { Button, ErrorText, Skeleton } from '../../../components/ui';
-import { DescriptionList, Panel, StatusBadge } from '../../../components/kit';
+import { DescriptionList, Panel, StatusBadge, ViewMore, useListCap } from '../../../components/kit';
 import { MatchReadNotice } from '../../matches/MatchReadNotice';
 import { invalidateTicketCashOut, useGuestTickets, useMatchCaps, useMatchRead } from '../../matches/useMatches';
 import type { GuestTickets, TicketPurchase } from '../../matches/matchPayloads';
@@ -60,6 +60,7 @@ export function TicketsPanel({ customerId }: TicketsPanelProps) {
 function Wallet({ customerId, data, tz, canCashOut, onStale }: { customerId: string; data: GuestTickets; tz: string; canCashOut: boolean; onStale: () => void }) {
   const { tr, locale } = useLocale();
   const count = (n: number | null) => (n == null ? '—' : formatNumber(n, locale));
+  const cap = useListCap(data.purchases);
   return (
     <>
       <DescriptionList columns={3} items={walletRows(data).map((r) => ({ label: tr(r.key), value: count(r.count), numeric: true }))} />
@@ -71,11 +72,12 @@ function Wallet({ customerId, data, tz, canCashOut, onStale }: { customerId: str
           <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr(`${K}.tickets.noPurchases`)}</p>
         ) : (
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-            {data.purchases.map((p) => (
+            {cap.shown.map((p) => (
               <PurchaseRow key={p.payment_id} customerId={customerId} purchase={p} tz={tz} canCashOut={canCashOut} onStale={onStale} />
             ))}
           </ul>
         )}
+        <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} style={{ marginBlockStart: 0 }} />
       </section>
     </>
   );

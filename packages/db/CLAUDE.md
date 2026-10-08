@@ -17,8 +17,13 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0320`
-  (0314–0320 usernames and photo frames, Phase 2 Edit profile: usernames_frames,
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0329`
+  (0324–0329 the owner assistant, 2026-10-08: 0324 web search, 0325 search recall and the frozen
+  first turn, 0326 the tsv GIN index, 0327 card views, 0328 tournaments, open matches and loyalty
+  tools, 0329 messages and calls written by the service role only; what each holds is below;
+  0323 is `20261008000323_checklist_schedules.sql`, scheduled and assigned checklists;
+  0322 is `20261008000322_shop_price_watch.sql`, the shop desk's hourly supplier price watch;
+  0321 is `20261008000321_coach_statements_live.sql`; 0314–0320 usernames and photo frames, Phase 2 Edit profile: usernames_frames,
   profiles_username_unique, earned_frames, frame_style, frame_grants, username_not_allowed,
   frame_grants_merge — written as 0307–0313 on the saeed branch and renumbered +7 at the merge
   because main took 0307–0313; 0320 re-issues `profile_merge_columns` and
@@ -43,7 +48,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0321`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0330`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -211,6 +216,46 @@ is a line in that file.
   owner's list on the phone) and a `screenshot_taken` `staff_info` push to the owners naming the
   person only (the page stays off the lock screen), deduped per person and page for 15 minutes. No
   new table.
+  Supplier price watch (0322): holds `notify_staff` (0313 is no longer the latest; it gains the
+  title key `shop_price_changed`, 41 keys now) plus the table `shop_price_watches` (one row per
+  shop size with a supplier page link; read by manager, owner and `shop_staff` of the branch,
+  written only by the RPCs; `zz_branch_guard` linked through `menu_item_variants`) and the new
+  `set_shop_price_watch(p_variant_id, p_url)` (`SUPPLIER_URL_INVALID` for a link that is not https
+  to a public host name) and `record_shop_supplier_price(p_variant_id, p_url, p_price_iqd,
+  p_error)`, the shop desk PC's report of one read (stale, error, first, same, changed). A change
+  the shop does not already sell at queues a `shop_price_changed` `staff_info` push to the owners
+  and the branch's shop assistants naming the product only, never a price. The reading itself runs
+  in the operator shell on the shop station, not on the server
+  (`docs/design/shop/supplier-price-watch-2026-10-08.md`).
+  Scheduled checklists (0323, `docs/design/checklists/scheduled-checklists-2026-10-08.md`): holds
+  `my_checklists_today`, `mark_checklist_item`, `checklist_board`, `save_checklist_template`
+  (0184 is no longer the latest), `checklist_day_state` (0188), `notify_staff` (0322 is no longer
+  the latest; it gains `checklist_due` and `checklist_overdue`, 43 keys now), `create_branch`
+  (0233) and `staff_media_visible` (0238), plus the table `checklist_assignees`, the new
+  `save_checklist`, `archive_checklist`, `checklist_staff_options`, the service-role
+  `checklist_sweep` (cron `tp_checklist_sweep`, every five minutes) and the internals
+  `checklist_materialize`, `checklist_occurrence`, `checklist_is_scheduled`, `checklist_due_at`,
+  `checklist_current`, `checklist_on_leave` and `checklist_member_at`. `(venue, role, slot)` is no
+  longer unique: a run is one occurrence (`business_date` = its first day, `period_end`) per list
+  and person (`assignee_id`, NULL for a shared list), and the legacy `save_checklist_template`
+  writes the oldest live role list under an advisory lock.
+  Owner assistant (0324–0329, 2026-10-08): 0324 (web search) holds `assistant_usage` (0207 is
+  no longer the latest) plus the service-role `llm_record_web_search`. 0325 (search recall) holds
+  `assistant_search` (0110 is no longer the latest) plus the new `search_fold` (Arabic and digit
+  folding, granted to anon, authenticated and service_role because the generated column runs it)
+  and `assistant_tsquery` (an OR of prefix lexemes, stopwords dropped); it rebuilds
+  `assistant_chunks.tsv` over the folded text with the title at weight A, and adds
+  `assistant_conversations.context` (the chat's frozen first turn, written by the service role
+  only: its INSERT grant is by column without it). `hnsw.ef_search` is raised in the body with
+  `set_config(..., true)`, never a function SET clause: `postgres` is not a superuser, and SET on
+  pgvector's placeholder GUC fails on deploy. 0326 is the `assistant_chunks_tsv_idx` GIN index
+  0325's column rebuild dropped. 0327 holds `analytics_component` (0141 is no longer the latest),
+  now VOLATILE, stamping `assistant_components.last_viewed_at` at most once an hour (the nightly
+  pre-warm skips cards not viewed in 7 days). 0328 (another session) adds the read tools
+  `assistant_tournaments_summary`, `assistant_loyalty_summary` and dispatches `report_matches`,
+  so it holds `assistant_run_tool` (0266 is no longer the latest). 0329 re-creates no function:
+  it revokes the client INSERT on `assistant_messages` and `assistant_calls` (0108 granted it to
+  any owner session) and drops their insert policies; only the edge functions write them.
   Tournament play (0311): holds `desk_tournament_detail` and `tournament_set_rounds` (0310 is
   no longer the latest), `tournament_mark_no_show`, `tournament_public`, `tournament_score`
   and `tournament_standings` (0301 is no longer the latest).
@@ -235,8 +280,8 @@ is a line in that file.
   `_shared/staff-push.json`; the guest kinds of open matches take their copy from
   `send-push/guestStrings.ts` and `_shared/guest-push.json`, not `STRINGS`.
   `tests/outbox-kinds.test.ts` holds the CHECK to the three lists. A new staff title key also
-  joins `app.notify_staff`'s `c_title_keys` (latest `0313`, which appended `screenshot_taken` after
-  0308's `loyalty_gift`, itself after 0261's `match_report_new`) in
+  joins `app.notify_staff`'s `c_title_keys` (latest `0323`, which appended `checklist_due` and
+  `checklist_overdue` after 0322's `shop_price_changed`, itself after 0313's `screenshot_taken`, itself after 0308's `loyalty_gift` and 0261's `match_report_new`) in
   the same commit, and a guest title key `app.match_notify`'s `c_keys` (`0261`) or, for a
   lesson or coach key, `app.lesson_notify`'s `c_keys` (`0283`; every lesson push is queued by the
   `lesson_events_notify` trigger except the two statement keys); the stack tests

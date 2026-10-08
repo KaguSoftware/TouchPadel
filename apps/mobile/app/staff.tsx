@@ -50,7 +50,8 @@ import { staffKeys } from '../src/features/staff/keys';
 import { showsVenuePicker } from '../src/features/staff/venue';
 import { mapStaffError } from '../src/features/staff/edge';
 import { fetchChecklistsToday } from '../src/features/staff/checklists/api';
-import { checklistTodos, localName } from '../src/features/staff/checklists/logic';
+import { checklistTodos, dueText, localName } from '../src/features/staff/checklists/logic';
+import { Tag } from '../src/features/staff/checklists/parts';
 import { WorkList } from '../src/features/staff/protocols/WorkList';
 import { ListCard } from '../src/features/staff/protocols/parts';
 import { GroupRows, useTodayGroups, type TodayGroup } from '../src/features/staff/todayGroups';
@@ -226,6 +227,10 @@ function AccountButton({
  * finished list leaves Today; the checklist page writes the same cache entry,
  * so a tick there moves the count here. Nothing shows while the read is in
  * flight: the work list below carries the loading state.
+ *
+ * Scheduled lists (0323): overdue lists first, then by due time. Each row's
+ * second line is the count and when it is due; an overdue row carries the
+ * danger tag "Overdue since …" instead of the due time.
  */
 function TodayChecklists({ venueId }: { venueId: string }) {
   const { t, locale } = useLocale();
@@ -237,7 +242,8 @@ function TodayChecklists({ venueId }: { venueId: string }) {
   });
 
   if (lists.isPending) return null;
-  const todos = lists.isError ? [] : checklistTodos(lists.data);
+  const now = new Date();
+  const todos = lists.isError ? [] : checklistTodos(lists.data, now);
   if (!lists.isError && todos.length === 0) return null;
 
   return (
@@ -259,41 +265,46 @@ function TodayChecklists({ venueId }: { venueId: string }) {
         </View>
       ) : (
         <ListCard>
-          {todos.map((list, i) => (
-            <Pressable
-              key={list.runId}
-              testID={`staff.checklist.${list.runId}`}
-              accessibilityRole="button"
-              onPress={() =>
-                router.push({ pathname: '/staff-checklist', params: { id: list.runId } })
-              }
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: space.s,
-                paddingStart: space.l,
-                paddingEnd: space.l,
-                paddingTop: 12,
-                paddingBottom: 12,
-                borderBottomWidth: i === todos.length - 1 ? 0 : 1,
-                borderBottomColor: colors.sub,
-                backgroundColor: pressed ? colors.sub : 'transparent',
-              })}
-            >
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text
-                  numberOfLines={2}
-                  style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}
-                >
-                  {localName(list, locale)}
-                </Text>
-                <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut }}>
-                  {t('staff.checklists.progress', { done: list.done, total: list.total })}
-                </Text>
-              </View>
-              <ChevronIcon size={16} color={colors.fnt2} />
-            </Pressable>
-          ))}
+          {todos.map((list, i) => {
+            const due = dueText(list, now, locale, lists.data?.business_date);
+            const progress = t('staff.checklists.progress', { done: list.done, total: list.total });
+            return (
+              <Pressable
+                key={list.runId}
+                testID={`staff.checklist.${list.runId}`}
+                accessibilityRole="button"
+                onPress={() =>
+                  router.push({ pathname: '/staff-checklist', params: { id: list.runId } })
+                }
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: space.s,
+                  paddingStart: space.l,
+                  paddingEnd: space.l,
+                  paddingTop: 12,
+                  paddingBottom: 12,
+                  borderBottomWidth: i === todos.length - 1 ? 0 : 1,
+                  borderBottomColor: colors.sub,
+                  backgroundColor: pressed ? colors.sub : 'transparent',
+                })}
+              >
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text
+                    numberOfLines={2}
+                    style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}
+                  >
+                    {localName(list, locale)}
+                  </Text>
+                  <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut }}>
+                    {due && !list.overdue ? `${progress} · ${due}` : progress}
+                  </Text>
+                  {due && list.overdue ? <Tag tone="bad" label={due} /> : null}
+                </View>
+                <ChevronIcon size={16} color={colors.fnt2} />
+              </Pressable>
+            );
+          })}
         </ListCard>
       )}
     </View>

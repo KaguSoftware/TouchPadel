@@ -130,9 +130,20 @@ export const tillShiftEn = {
     noneHint: 'Start your shift before you take payment.',
     others: '{name}’s shift is open on this till',
     othersHint: 'Since {time}. Close it with a manager’s PIN to start yours.',
-    shiftsTitle: 'Shifts on this till today',
-    shiftsEmpty: 'No shifts on this till today.',
+    shiftsTitle: 'Shifts',
+    shiftsEmpty: 'No shifts on this day.',
     expectedNow: 'Expected now',
+  },
+  // /till/drawer for whoever counts the drawer: one business day, every till and the desk.
+  dayView: {
+    prevDay: 'Previous day',
+    nextDay: 'Next day',
+    latest: 'Latest day',
+    countedAtEnds: 'Counted at shift ends',
+    countedAtEnd: 'Counted at the end',
+    countedOf: '{counted} of {total} shifts counted',
+    stillOpen: 'Still open: {count}',
+    outside: 'Taken with no shift open: {taken} in cash, {refunded} refunded.',
   },
   // One shift as a row, wherever shifts are listed.
   row: {

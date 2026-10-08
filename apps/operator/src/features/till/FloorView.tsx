@@ -18,7 +18,7 @@ import { supabase } from '../../lib/supabase';
 import { QK, fetchVenueSettings } from '../../lib/queries';
 import { tonightScope } from '../desk/useTradingNight';
 import { useLocale, pickName } from '../../lib/i18n';
-import { AsyncStateWrapper, EmptyState, SegmentedControl } from '../../components/kit';
+import { AsyncStateWrapper, EmptyState, SegmentedControl, ViewMore, useListCap } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { formatElapsed } from './elapsed';
 import {
@@ -121,6 +121,8 @@ export function FloorView({
   const { tr, locale } = useLocale();
   const placed = spots.filter((s) => s.slot !== null);
   const offPlan = spots.filter((s) => s.slot === null);
+  // Owner's rule (2026-10-08): three off-plan tables, then "View more"; their order is kept.
+  const offPlanCap = useListCap(offPlan);
 
   return (
     // Two rows of the till's own grid (subgrid): the heading, switch and legend
@@ -165,10 +167,11 @@ export function FloorView({
             <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
               <p style={muted}>{tr('ws.cashier.floor.offPlan')}</p>
               <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
-                {offPlan.map((s) => (
+                {offPlanCap.shown.map((s) => (
                   <TableButton key={s.table.id} spot={s} onPress={() => onTable(s)} style={{ ...touchTarget, minInlineSize: '5.5rem', borderRadius: 'var(--tp-radius-ctl)' }} />
                 ))}
               </div>
+              <ViewMore hidden={offPlanCap.hidden} open={offPlanCap.open} onToggle={offPlanCap.toggle} style={{ marginBlockStart: 0 }} />
             </div>
           )}
         </AsyncStateWrapper>

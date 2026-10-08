@@ -157,6 +157,25 @@ describe('OpenTabsBoard — four states', () => {
     renderBoard({ query: 'zzz' });
     expect(screen.getByText('No open tabs match this search.')).toBeTruthy();
   });
+
+  it('shows three tabs, then View more reveals the rest and Show less folds them', async () => {
+    const user = userEvent.setup();
+    const five: BoardRow[] = ['T1', 'T2', 'T3', 'T4', 'T5'].map((t) => ({ ...rows[0]!, id: t, label: `Table ${t}`, table: t }));
+    renderBoard({ rows: five });
+    expect(screen.getByText('Table T3')).toBeTruthy();
+    expect(screen.queryByText('Table T4')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
+    expect(screen.getByText('Table T5')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(screen.queryByText('Table T4')).toBeNull();
+  });
+
+  it('caps the searched result, so a search still reaches a tab past the first three', () => {
+    const five: BoardRow[] = ['T1', 'T2', 'T3', 'T4', 'T5'].map((t) => ({ ...rows[0]!, id: t, label: `Table ${t}`, table: t }));
+    renderBoard({ rows: five, query: 't5' });
+    expect(screen.getByText('Table T5')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /View more/ })).toBeNull();
+  });
 });
 
 describe('removing an empty tab', () => {

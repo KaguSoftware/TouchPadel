@@ -134,4 +134,14 @@ describe('StaffRequestsScreen', () => {
     expect(screen.getByText('Wage advance')).toBeTruthy();
     expect(screen.getByText('Leave')).toBeTruthy();
   });
+
+  it('shows three requests, then View more reveals the rest', async () => {
+    const user = userEvent.setup();
+    rpc.mockResolvedValue(page(['Ali', 'Bareq', 'Hasan', 'Maha', 'Rusul'].map((name, i) => row({ id: `r${i}`, staff_name: name }))));
+    renderScreen();
+    expect(await screen.findByText('Hasan')).toBeTruthy();
+    expect(screen.queryByText('Maha')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
+    expect(screen.getByText('Rusul')).toBeTruthy();
+  });
 });

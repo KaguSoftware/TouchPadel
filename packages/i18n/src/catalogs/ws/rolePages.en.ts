@@ -37,7 +37,6 @@ export const rolePagesEn = {
     title: 'Recipe changes',
     waitingBadge: '{count} waiting',
     none: 'No recipe change is waiting.',
-    more: '{count} more waiting',
     seeAll: 'See every request',
     filterLabel: 'Show requests',
     filter: {

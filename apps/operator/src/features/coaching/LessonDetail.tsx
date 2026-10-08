@@ -49,6 +49,8 @@ import {
   Panel,
   ReasonCodePrompt,
   StatusBadge,
+  ViewMore,
+  useListCap,
   type MessageTone,
   type Tone,
 } from '../../components/kit';
@@ -540,39 +542,7 @@ function LessonScreen({
 
         {refunds.length > 0 && <LessonRefundsDue items={refunds} />}
 
-        <Panel title={tr('ws.coaching.lesson.history.title')}>
-          {detail.events.length === 0 ? (
-            <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.coaching.lesson.history.empty')}</p>
-          ) : (
-            <ol
-              style={{
-                listStyle: 'none',
-                margin: 0,
-                padding: 0,
-                display: 'grid',
-                gap: 'var(--tp-sp-1-5)',
-              }}
-            >
-              {detail.events.map((e, i) => (
-                <li
-                  key={`${e.at}-${e.type}-${i}`}
-                  style={{ display: 'flex', gap: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)' }}
-                >
-                  <bdi
-                    style={{
-                      color: 'var(--tp-muted-fg)',
-                      fontVariantNumeric: 'tabular-nums',
-                      flex: '0 0 auto',
-                    }}
-                  >
-                    {formatDateTime(new Date(e.at), locale, tz)}
-                  </bdi>
-                  <span>{eventSentence(e, tr)}</span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </Panel>
+        <HistoryPanel events={detail.events} tz={tz} />
       </div>
 
       {(dialog === 'cancelLesson' || dialog === 'cancelCourse') && (
@@ -610,5 +580,47 @@ function LessonScreen({
         <AddStudentDialog lesson={l} customerId={handedCustomer} onClose={onSearchDone} />
       )}
     </div>
+  );
+}
+
+/** The lesson's history, in the server's order. Owner's rule (2026-10-08): three events, then "View more". */
+function HistoryPanel({ events, tz }: { events: LessonDetail['events']; tz: string }) {
+  const { tr, locale } = useLocale();
+  const cap = useListCap(events);
+  return (
+    <Panel title={tr('ws.coaching.lesson.history.title')}>
+      {events.length === 0 ? (
+        <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.coaching.lesson.history.empty')}</p>
+      ) : (
+        <ol
+          style={{
+            listStyle: 'none',
+            margin: 0,
+            padding: 0,
+            display: 'grid',
+            gap: 'var(--tp-sp-1-5)',
+          }}
+        >
+          {cap.shown.map((e, i) => (
+            <li
+              key={`${e.at}-${e.type}-${i}`}
+              style={{ display: 'flex', gap: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)' }}
+            >
+              <bdi
+                style={{
+                  color: 'var(--tp-muted-fg)',
+                  fontVariantNumeric: 'tabular-nums',
+                  flex: '0 0 auto',
+                }}
+              >
+                {formatDateTime(new Date(e.at), locale, tz)}
+              </bdi>
+              <span>{eventSentence(e, tr)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+    </Panel>
   );
 }

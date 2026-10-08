@@ -23,7 +23,7 @@ import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { Switch } from '../../../components/Switch';
 import { Button, Field, Select, inputStyle } from '../../../components/ui';
-import { EmptyState, Panel, StatusBadge } from '../../../components/kit';
+import { EmptyState, Panel, StatusBadge, ViewMore, useListCap } from '../../../components/kit';
 import { CardTitle } from '../../ops/OpsVisuals';
 import { refusedTappers, type TapRow } from './buttonPeopleLogic';
 
@@ -86,6 +86,7 @@ export function ButtonPeople() {
   const staffName = (id: string) => data?.staff.find((s) => s.id === id)?.display_name ?? '—';
   const allowed = (data?.allow ?? []).filter((a) => a.is_active);
   const refused = data ? refusedTappers(data.taps, allowed.map((a) => a.tg_user_id)) : [];
+  const refusedCap = useListCap(refused);
   const at = (iso: string) => {
     const d = new Date(iso);
     return `${formatDate(d, locale)} ${formatTime(d, locale)}`;
@@ -108,7 +109,7 @@ export function ButtonPeople() {
                 <h3 style={{ fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{tr('ws.manager.settings.telegram.people.refusedTitle')}</h3>
                 <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', margin: 0 }}>{tr('ws.manager.settings.telegram.people.refusedLead')}</p>
                 <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-                  {refused.map((p) => (
+                  {refusedCap.shown.map((p) => (
                     <AllowForm
                       key={p.tgUserId}
                       name={telegramName(p.firstName, p.username)}
@@ -119,6 +120,7 @@ export function ButtonPeople() {
                     />
                   ))}
                 </ul>
+                <ViewMore hidden={refusedCap.hidden} open={refusedCap.open} onToggle={refusedCap.toggle} style={{ marginBlockStart: 0 }} />
               </section>
             )}
 

@@ -30,6 +30,8 @@ import {
   MessagePresenter,
   ReasonCodePrompt,
   StatusBadge,
+  ViewMore,
+  useListCap,
   type Column,
 } from '../../components/kit';
 import { GenderDialog } from '../desk/customers/GenderDialog';
@@ -81,6 +83,8 @@ export function EntriesPanel({
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const rows = sortEntries(detail.entries);
+  // Owner's rule (2026-10-08): three entries, then "View more"; the sort is kept.
+  const cap = useListCap(rows);
   const money = (n: number) => formatIQD(n, locale);
   const nameOf = (e: TourEntry) =>
     e.full_name || tr('tournaments.common.player', { no: String(e.seed_no ?? '?') });
@@ -377,16 +381,19 @@ export function EntriesPanel({
           {tournamentErrorText(error, tr)}
         </p>
       )}
-      <DataTable
-        columns={columns}
-        rows={rows}
-        rowKey={(e) => e.entry_id}
-        dense
-        aria-label={tr('ws.tournaments.entries.title')}
-        emptyContent={
-          <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.tournaments.entries.empty')}</span>
-        }
-      />
+      <div>
+        <DataTable
+          columns={columns}
+          rows={cap.shown}
+          rowKey={(e) => e.entry_id}
+          dense
+          aria-label={tr('ws.tournaments.entries.title')}
+          emptyContent={
+            <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.tournaments.entries.empty')}</span>
+          }
+        />
+        <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+      </div>
 
       {pay && (
         <TakeTournamentPayment

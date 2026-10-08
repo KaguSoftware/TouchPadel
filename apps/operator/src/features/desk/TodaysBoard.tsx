@@ -58,7 +58,7 @@ import type { CourtRow } from '../../lib/queries';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Skeleton } from '../../components/ui';
-import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, PageHeader, Panel, StatusBadge, type AsyncStatus } from '../../components/kit';
+import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, PageHeader, Panel, LIST_CAP, StatusBadge, ViewMore, useListCap, type AsyncStatus } from '../../components/kit';
 import { ChevronForward, Icon, type IconName } from '../../components/icons';
 import { ChargeCell, ReservationBadge } from './deskStatus';
 import { arrivalsDue, courtAvailability, isVisible, nightSummary, slotTaken, sortByStart, sortByStartDesc, type CourtAvailability } from './deskLogic';
@@ -86,13 +86,6 @@ import { useBookingBillStates } from './payment/useBookingBill';
 import { TillShiftPanel } from '../tillShift/TillShiftPanel';
 
 const ARRIVAL_HORIZON_MS = 60 * 60_000;
-/**
- * Tiles shown before "Show all courts". A venue with a few courts sees them
- * all; a long list (the dev stack has well over a hundred) would otherwise
- * push the day's bookings a screen and a half down. Courts in use are always
- * shown — they are the ones the desk may need to open.
- */
-const COURT_TILES_SHOWN = 12;
 const CLOCK_TICK_MS = 30_000;
 
 export interface TodaysBoardViewProps {
@@ -157,6 +150,9 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
   // The night's lessons by the court row they hold, and the lessons payload's clock (§5.1).
   const lessonData = p.lessons?.kind === 'ready' ? p.lessons.data : null;
   const lessonsBy = useMemo(() => lessonsByReservation(lessonData), [lessonData]);
+  // Owner's rule (2026-10-08): three bookings, then "View more"; newest first, as before.
+  const bookings = useMemo(() => sortByStartDesc(p.reservations), [p.reservations]);
+  const bookingsCap = useListCap(bookings);
   const nowMs = Date.parse(p.nowIso);
   const lessonNow = p.lessons?.kind === 'ready' ? nowOf(lessonData?.server_now, Math.max(0, nowMs - p.lessons.updatedAt), nowMs) : nowMs;
 
@@ -295,7 +291,7 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortByStartDesc(p.reservations).map((r) => (
+                  {bookingsCap.shown.map((r) => (
                     <BoardRow
                       key={r.id}
                       r={r}
@@ -315,12 +311,16 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
                 </tbody>
               </table>
             </div>
+            <ViewMore hidden={bookingsCap.hidden} open={bookingsCap.open} onToggle={bookingsCap.toggle} style={UNPADDED_MORE} />
           </Panel>
         </div>
       </AsyncStateWrapper>
     </div>
   );
 }
+
+/** ViewMore inside an unpadded (table) panel: the panel body's own padding. */
+const UNPADDED_MORE = { marginBlockStart: 0, paddingBlock: '0.6rem', paddingInline: '0.85rem' } as const;
 
 function SubtitleFigure({ label, value }: { label: string; value: number }) {
   const { locale } = useLocale();
@@ -397,6 +397,10 @@ function ArrivalsPanel({
 }) {
   const { tr, locale } = useLocale();
   const nothing = due.late.length === 0 && due.soon.length === 0 && unpaid.length === 0;
+  // Each group folds on its own, so a long "to settle" never hides who is late.
+  const unpaidCap = useListCap(unpaid);
+  const lateCap = useListCap(due.late);
+  const soonCap = useListCap(due.soon);
   const previousUnpaid = (r: ReservationRow) => {
     const prev = unsettledBefore(r, reservations, billStates, nowIso);
     return prev ? tr('ws.courtDesk.board.previousUnpaid', { name: guestLabel(prev, tr, states) }) : undefined;
@@ -423,8 +427,12 @@ function ArrivalsPanel({
       ) : (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
           {unpaid.length > 0 && (
-            <ArrivalGroup title={tr('ws.courtDesk.board.toSettleTitle')} hint={tr('ws.courtDesk.board.toSettleHint')}>
-              {unpaid.map((r) => (
+            <ArrivalGroup
+              title={tr('ws.courtDesk.board.toSettleTitle')}
+              hint={tr('ws.courtDesk.board.toSettleHint')}
+              after={<ViewMore hidden={unpaidCap.hidden} open={unpaidCap.open} onToggle={unpaidCap.toggle} />}
+            >
+              {unpaidCap.shown.map((r) => (
                 <ArrivalRow
                   key={r.id}
                   r={r}
@@ -443,8 +451,12 @@ function ArrivalsPanel({
             </ArrivalGroup>
           )}
           {due.late.length > 0 && (
-            <ArrivalGroup title={tr('ws.courtDesk.board.lateTitle')} hint={tr('ws.courtDesk.board.lateHint')}>
-              {due.late.map((r) => (
+            <ArrivalGroup
+              title={tr('ws.courtDesk.board.lateTitle')}
+              hint={tr('ws.courtDesk.board.lateHint')}
+              after={<ViewMore hidden={lateCap.hidden} open={lateCap.open} onToggle={lateCap.toggle} />}
+            >
+              {lateCap.shown.map((r) => (
                 <ArrivalRow
                   key={r.id}
                   r={r}
@@ -464,8 +476,11 @@ function ArrivalsPanel({
             </ArrivalGroup>
           )}
           {due.soon.length > 0 && (
-            <ArrivalGroup title={tr('ws.courtDesk.board.soonTitle')}>
-              {due.soon.map((r) => (
+            <ArrivalGroup
+              title={tr('ws.courtDesk.board.soonTitle')}
+              after={<ViewMore hidden={soonCap.hidden} open={soonCap.open} onToggle={soonCap.toggle} />}
+            >
+              {soonCap.shown.map((r) => (
                 <ArrivalRow
                   key={r.id}
                   r={r}
@@ -490,12 +505,13 @@ function ArrivalsPanel({
   );
 }
 
-function ArrivalGroup({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+function ArrivalGroup({ title, hint, after, children }: { title: string; hint?: string; after?: ReactNode; children: ReactNode }) {
   return (
     <section>
       <h3 style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, color: 'var(--tp-muted-fg)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{title}</h3>
       {hint && <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-0)' }}>{hint}</p>}
       <ul style={{ listStyle: 'none', margin: 0, marginBlockStart: 'var(--tp-sp-2)', padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>{children}</ul>
+      {after}
     </section>
   );
 }
@@ -644,15 +660,16 @@ function CourtsNow({
 }) {
   const { tr, locale } = useLocale();
   const free = availability.filter((a) => a.state === 'free').length;
-  const [showAll, setShowAll] = useState(false);
-  const long = availability.length > COURT_TILES_SHOWN;
-  const shown = useMemo(() => {
-    if (!long || showAll) return availability;
-    const room = Math.max(0, COURT_TILES_SHOWN - (availability.length - free));
-    let freeLeft = room;
-    // Court order is kept: the desk learns where a court sits in the grid.
-    return availability.filter((a) => a.state === 'busy' || freeLeft-- > 0);
-  }, [availability, long, showAll, free]);
+  // Owner's rule (2026-10-08): three court tiles, then "View more". A court
+  // in play is never folded away, since it is what the desk is watching; free
+  // courts fill the rest of the three. Court order is kept: the desk learns
+  // where a court sits in the grid.
+  const [open, setOpen] = useState(false);
+  const folded = useMemo(() => {
+    let room = Math.max(0, LIST_CAP - (availability.length - free));
+    return availability.filter((a) => a.state === 'busy' || room-- > 0);
+  }, [availability, free]);
+  const cap = { shown: open ? availability : folded, hidden: availability.length - folded.length, open, toggle: () => setOpen((o) => !o) };
   return (
     <Panel
       title={<PanelTitle icon="court">{tr('ws.courtDesk.board.availability')}</PanelTitle>}
@@ -673,7 +690,7 @@ function CourtsNow({
       }
     >
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fill, minmax(12rem, 1fr))' }}>
-        {shown.map((a) => {
+        {cap.shown.map((a) => {
           const busy = a.state === 'busy' ? reservations.find((r) => r.id === a.reservationId) : undefined;
           // A court a lesson holds says so (coaching §5.8): "Lesson until 19:00", the lesson's mark, its name.
           const inLesson = busy !== undefined && isLessonRow(busy, lessonsBy);
@@ -742,11 +759,7 @@ function CourtsNow({
           );
         })}
       </ul>
-      {long && (
-        <Button size="sm" kind="ghost" icon={showAll ? 'chevronDown' : 'plus'} onClick={() => setShowAll((v) => !v)} style={{ marginBlockStart: 'var(--tp-sp-2)' }}>
-          {showAll ? tr('ws.courtDesk.board.showFewerCourts') : tr('ws.courtDesk.board.showAllCourts', { count: formatNumber(availability.length, locale) })}
-        </Button>
-      )}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
     </Panel>
   );
 }

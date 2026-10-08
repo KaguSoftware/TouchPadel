@@ -1,7 +1,8 @@
 /**
  * `ws.shop.*`: the Touch Shop desk on the operator (0243–0246,
  * docs/design/shop/shop-desk-2026-09-27.md): the shop till, the day close's
- * Shop block and the shop's own sections. Mirror every key in shop.ar.ts.
+ * Shop block, the shop's own sections and the supplier price watch (0322).
+ * Mirror every key in shop.ar.ts.
  */
 export const shopEn = {
   till: {
@@ -71,5 +72,52 @@ export const shopEn = {
   station: {
     mode: 'Touch Shop desk',
     modeHint: 'The shop’s own PC: it opens the shop till and keeps its own drawer.',
+  },
+  /** Shop stock with nothing in it yet: each shop size keeps its own stock, made under Products. */
+  stock: {
+    empty: 'No shop stock yet',
+    emptyBody: 'Add the shop’s products under Products. Each size keeps its own stock here.',
+  },
+  priceWatch: {
+    panelTitle: 'Supplier price changes',
+    panelLead: 'The shop desk PC read a different price on these suppliers’ pages. Apply it to sell at the supplier’s price.',
+    shopPrice: 'Shop',
+    supplierPrice: 'Supplier',
+    changedAt: 'Changed {time}',
+    readAt: 'Read {time}',
+    apply: 'Apply new price',
+    applyFor: 'Apply new price: {name}',
+    lockedNote: 'The owner or the shop staff apply a supplier’s price.',
+    filledNote: 'Supplier’s new price filled in (was {old}). Save to apply.',
+    marker: 'Supplier price: {price}',
+    notRead: 'Supplier link not read',
+    /** After an hourly pass: the person signed in at the shop desk gets no push of their own. */
+    changedToastOne: 'A supplier changed a price. Open Products to apply it.',
+    changedToastMany: '{count} supplier prices changed. Open Products to apply them.',
+    link: 'Supplier link',
+    linkHint: 'Paste the link to this size’s page on the supplier’s website. The shop desk PC checks it every hour and lets the owner and the shop staff know when the price changes.',
+    problem: {
+      https: 'The link must start with https://',
+      tooLong: 'This link is too long (2,000 characters at most).',
+      invalid: 'This is not a product page link. Copy it from the browser’s address bar.',
+      privateHost: 'Use the supplier’s public web page, not a local address.',
+    },
+    status: {
+      notYet: 'Not checked yet. The shop desk PC reads it within the hour.',
+      read: 'Checked {time}. Price read: {price}.',
+      failed: 'Checked {time}: {error}',
+      lastGood: 'Last price read: {price} ({time}).',
+    },
+    readError: {
+      no_price: 'No price found on this page.',
+      ambiguous: 'The page shows more than one price (sizes or colours priced apart). Link this size’s own page, or its link with the size chosen (Shopify adds ?variant=).',
+      not_iqd: 'The page is not priced in Iraqi dinars.',
+      blocked_url: 'This link cannot be read. It must be a public https page.',
+      http_error: 'The supplier’s site refused the page, or it no longer exists.',
+      timeout: 'The supplier’s site took too long to answer.',
+      too_large: 'The page is too large to read.',
+      not_html: 'The link is not a web page.',
+      fetch_failed: 'The page could not be reached.',
+    },
   },
 } as const;

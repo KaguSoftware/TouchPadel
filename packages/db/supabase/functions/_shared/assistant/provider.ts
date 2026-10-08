@@ -11,8 +11,9 @@
  *                    — a safety refusal is re-run server-side instead of blanking the chat
  *   thinking         { type: 'adaptive' } (the default on both 5.5 models; written out so a model change keeps it)
  *   output_config    { effort }  — 'medium' for chat, 'high' for the job reduce step
- *   system           [{ type:'text', text, cache_control:{ type:'ephemeral', ttl:'1h' } }]  — the frozen prefix
- *   tools            [tool_search_tool_bm25, ...wireTools()]  — core tools loaded, the rest defer_loading
+ *   system           [{ type:'text', text, cache_control: PREFIX_CACHE_CONTROL }]  — the frozen prefix, 5-minute cache
+ *   tools            [tool_search_tool_bm25, web_search?, ...wireTools()]  — core tools loaded, the rest defer_loading;
+ *                    web_search (server-side, max WEB_SEARCH_MAX_USES a request) only when the call asks for it
  *   messages         the conversation; a `{ role: 'system' }` entry is the operator channel (gate retry)
  *   cache_control    { type: 'ephemeral' } top-level — the growing tail
  *
@@ -49,9 +50,20 @@ export const ASSISTANT_MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5'] as cons
 export const DEFAULT_MODEL = 'claude-opus-5-5';
 export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 export const TOOL_SEARCH = { type: 'tool_search_tool_bm25_20251119', name: 'tool_search_tool_bm25' } as const;
+/** Searches one request may run (owner call 2026-10-08: outside context for ideas, billed per search). */
+export const WEB_SEARCH_MAX_USES = 5;
+/** Anthropic's server-side web search; results come back in the same response, billed per search on top of tokens. */
+export const WEB_SEARCH = { type: 'web_search_20260209', name: 'web_search', max_uses: WEB_SEARCH_MAX_USES } as const;
 
 export type ContentBlock = Anthropic.Beta.BetaContentBlock;
-export type TextBlockParam = { type: 'text'; text: string };
+/**
+ * Our own text. `cache_control` is set by the chat on one block only: the
+ * owner's words when a pre-retrieved search block follows them, so the next
+ * turn (whose history holds those words without the search) still has a cache
+ * entry to read (review 2026-10-08). With the system marker and the top-level
+ * automatic one that is three of the four breakpoints.
+ */
+export type TextBlockParam = { type: 'text'; text: string; cache_control?: typeof PREFIX_CACHE_CONTROL };
 /** What a user turn may carry: our own text, or a cleaned tool result. Nothing else compiles. */
 export type UserContent = string | readonly (TextBlockParam | CleanedToolResult)[];
 export type ProviderMessage =
@@ -69,6 +81,8 @@ export interface ProviderCall {
   onText(delta: string): void;
   onToolStart(name: string): void;
   signal: AbortSignal;
+  /** Offer the server-side web search (the chat only). Always the same per surface, so the cached prefix holds. */
+  webSearch?: boolean;
 }
 
 export interface ProviderUsage {
@@ -83,6 +97,8 @@ export interface ProviderTurn {
   stop_reason: string;
   usage: ProviderUsage;
   ms: number;
+  /** Web searches the server ran for this call (`usage.server_tool_use.web_search_requests`); 0 or absent without the tool. */
+  webSearches?: number;
 }
 
 /** One structured, non-streaming call (analytics components, plan §4.4). */
@@ -143,7 +159,7 @@ export interface Provider {
   readonly capabilities: ProviderCapabilities;
   stream(call: ProviderCall): Promise<ProviderTurn>;
   generate(call: GenerateCall): Promise<ProviderTurn>;
-  countTokens(system: string, tools: WireTool[], messages: ProviderMessage[]): Promise<number>;
+  countTokens(system: string, tools: WireTool[], messages: ProviderMessage[], opts?: { webSearch?: boolean }): Promise<number>;
   batchCreate(requests: BatchRequest[]): Promise<string>;
   batchStatus(id: string): Promise<BatchStatus>;
   batchResults(id: string): Promise<Map<string, BatchOutcome>>;
@@ -173,6 +189,19 @@ export function cleanedText(c: Cleaned): TextBlockParam {
   return { type: 'text', text: c.text };
 }
 
+/** The request's tool list: tool search first, then web search when asked, then the catalog. Fixed order for the cache. */
+function requestTools(tools: WireTool[], webSearch: boolean | undefined): unknown[] | undefined {
+  // Job prompts carry no client tools; a lone tool-search tool would be a list with nothing to search.
+  if (!tools.length) return undefined;
+  return webSearch ? [TOOL_SEARCH, WEB_SEARCH, ...tools] : [TOOL_SEARCH, ...tools];
+}
+
+/** Searches the server ran, from the usage block; the SDK typings may lag the field. */
+function webSearchesOf(u: unknown): number {
+  const n = (u as { server_tool_use?: { web_search_requests?: unknown } } | null | undefined)?.server_tool_use?.web_search_requests;
+  return typeof n === 'number' && n > 0 ? n : 0;
+}
+
 function usageOf(u: Anthropic.Beta.BetaUsage | Anthropic.Usage | null | undefined): ProviderUsage {
   return {
     input: u?.input_tokens ?? 0,
@@ -197,8 +226,18 @@ function wireMessages(messages: readonly ProviderMessage[]): Anthropic.Beta.Beta
   return messages as unknown as Anthropic.Beta.BetaMessageParam[];
 }
 
+/**
+ * The frozen prefix's cache breakpoint: the default 5-minute TTL (written at
+ * 1.25× the input price), not the 1-hour one (2×). The rounds of one message
+ * are seconds apart, so 5 minutes covers them; one owner sending a few
+ * messages a day rarely comes back between 5 minutes and an hour, so the
+ * 1-hour write was paid at double price and almost never read (F1, 2026-10-08).
+ * The 0312 price list's cache_write rates are the 5-minute ones too.
+ */
+export const PREFIX_CACHE_CONTROL = { type: 'ephemeral' } as const;
+
 function systemBlocks(system: string): Anthropic.Beta.BetaTextBlockParam[] {
-  return [{ type: 'text', text: system, cache_control: { type: 'ephemeral', ttl: '1h' } }];
+  return [{ type: 'text', text: system, cache_control: PREFIX_CACHE_CONTROL }];
 }
 
 /**
@@ -247,8 +286,7 @@ function anthropicProvider(apiKey: string, model: string): Provider {
         thinking: { type: 'adaptive' },
         output_config: { effort: call.effort },
         system: systemBlocks(call.system),
-        // Job prompts carry no client tools; a lone tool-search tool would be a list with nothing to search.
-        tools: call.tools.length ? [TOOL_SEARCH, ...call.tools] : undefined,
+        tools: requestTools(call.tools, call.webSearch),
         messages: wireMessages(call.messages),
         cache_control: { type: 'ephemeral' },
       } as unknown as Parameters<typeof client.beta.messages.stream>[0];
@@ -259,7 +297,7 @@ function anthropicProvider(apiKey: string, model: string): Provider {
           if (ev.type === 'content_block_start' && ev.content_block.type === 'tool_use') call.onToolStart(ev.content_block.name);
         });
         const msg = await stream.finalMessage();
-        return { content: msg.content, stop_reason: msg.stop_reason ?? 'end_turn', usage: usageOf(msg.usage), ms: Date.now() - started };
+        return { content: msg.content, stop_reason: msg.stop_reason ?? 'end_turn', usage: usageOf(msg.usage), ms: Date.now() - started, webSearches: webSearchesOf(msg.usage) };
       } catch (e) {
         throw mapError(e);
       }
@@ -289,12 +327,12 @@ function anthropicProvider(apiKey: string, model: string): Provider {
       }
     },
 
-    async countTokens(system, tools, messages) {
+    async countTokens(system, tools, messages, opts) {
       try {
         const params = {
           model,
           system: systemBlocks(system),
-          tools: tools.length ? [TOOL_SEARCH, ...tools] : undefined,
+          tools: requestTools(tools, opts?.webSearch),
           messages: wireMessages(messages),
           thinking: { type: 'adaptive' },
         } as unknown as Anthropic.Beta.MessageCountTokensParams;

@@ -1197,6 +1197,31 @@ export interface StatementTotals {
   paid_iqd: number | null;
 }
 
+/**
+ * One coach at one branch for the asked month, at the figures now (0321): the
+ * accrual from the lessons already taught, whether or not a statement has been
+ * drafted. `statement_*` name the pair's live statement, null before the 1st.
+ */
+export interface LiveCoachRow {
+  coach_id: string | null;
+  coach_name_en: string | null;
+  coach_name_ar: string | null;
+  venue_id: string | null;
+  venue_name_en: string | null;
+  venue_name_ar: string | null;
+  lessons_count: number | null;
+  private_count: number | null;
+  group_count: number | null;
+  course_count: number | null;
+  minutes: number | null;
+  collected_iqd: number | null;
+  court_share_iqd: number | null;
+  coach_iqd: number | null;
+  statement_id: string | null;
+  statement_status: string | null;
+  statement_total_iqd: number | null;
+}
+
 export interface CoachStatements {
   /** 'YYYY-MM-01'. */
   month: string | null;
@@ -1205,6 +1230,8 @@ export interface CoachStatements {
   statements: StatementRow[];
   missing: MissingStatement[];
   totals: StatementTotals;
+  /** 0321: who is getting what in `month` right now; empty on a server without it. */
+  live: LiveCoachRow[];
 }
 
 export function readStatementRow(r: Raw): StatementRow | null {
@@ -1258,6 +1285,31 @@ export function readStatements(raw: unknown): CoachStatements {
       blocking_month: str(m.blocking_month),
       blocking_statement_id: str(m.blocking_statement_id),
     })),
+    live: list(d.live).flatMap((l) => {
+      const coach = str(l.coach_id);
+      if (!coach) return [];
+      return [
+        {
+          coach_id: coach,
+          coach_name_en: str(l.coach_name_en),
+          coach_name_ar: str(l.coach_name_ar),
+          venue_id: str(l.venue_id),
+          venue_name_en: str(l.venue_name_en),
+          venue_name_ar: str(l.venue_name_ar),
+          lessons_count: num(l.lessons_count),
+          private_count: num(l.private_count),
+          group_count: num(l.group_count),
+          course_count: num(l.course_count),
+          minutes: num(l.minutes),
+          collected_iqd: num(l.collected_iqd),
+          court_share_iqd: num(l.court_share_iqd),
+          coach_iqd: num(l.coach_iqd),
+          statement_id: str(l.statement_id),
+          statement_status: str(l.statement_status),
+          statement_total_iqd: num(l.statement_total_iqd),
+        },
+      ];
+    }),
     totals: {
       statements: num(t.statements),
       collected_iqd: num(t.collected_iqd),

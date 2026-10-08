@@ -447,7 +447,7 @@ export const ownerEn = {
       // joined with Move stock (lane S, V8): the moves are made on the phone.
       assistant_barista: 'The kitchen screen, and My tasks from its header: their checklists, the bar team’s teachings, recipe ingredients and their phone pages.',
       waiter: 'A task list (My tasks): their checklists, cleaning photos included, and their phone pages, where they move stock between the cafe and the bakery. No till, desk or kitchen.',
-      shop_staff: 'The Touch Shop desk on its own PC: the shop till, its own drawer, the shop store (goods in, counts, waste), shop products, prices and suppliers. Nothing of the café, the courts or the reports.',
+      shop_staff: 'The Touch Shop desk on its own PC: the shop till, its own drawer, the shop store (goods in, counts), shop products, prices and suppliers. Nothing of the café, the courts or the reports.',
     },
     // Beside a role that still works but is no longer given (prep, 0155).
     retired: 'Retired',
@@ -669,7 +669,6 @@ export const ownerEn = {
     title: 'Observe',
     screens: 'Everything in Observe',
     cards: {
-      floorNow: 'Right now: courts in play, tabs open, arrivals due and anything overdue.',
       bookings: 'Which courts are in play and which are free, the night in two-hour rows, and a month shaded by how busy each day was.',
       tills: 'Which tables are occupied, what the open tabs are carrying, and what was settled — day by day.',
       staffActivity: 'Who worked, what they authorised and where the discretion was used.',
@@ -681,8 +680,6 @@ export const ownerEn = {
       audit: 'The full trail. Where you go when one of the screens above raises a question.',
     },
     status: {
-      alerts: 'Needs attention now',
-      clear: 'All clear right now',
       bookedToday: 'Booked today',
       openTabs: 'Open tabs',
       liveCampaigns: 'Live campaigns',
@@ -690,8 +687,6 @@ export const ownerEn = {
       newSuggestions: 'New',
     },
     waiting: {
-      title: 'Waiting on you',
-      none: 'Nothing is waiting on you.',
       requests: 'Staff requests waiting for your answer',
       requestsHint: 'Leave, swaps, advances and corrections stay on hold until you approve or decline them.',
       requestsAction: 'Answer requests',
@@ -1215,6 +1210,7 @@ export const ownerEn = {
         cacheWrite: 'Cache write',
         cacheRead: 'Cache read',
         output: 'Output',
+        searches: 'Web searches',
         cost: 'Cost',
       },
       totals: 'Month total',
@@ -1245,6 +1241,7 @@ export const ownerEn = {
       },
       fallbackNote: 'A model missing from this table is priced at the blended fallback of {price} per million tokens.',
       blendedNote: 'Priced by the blended fallback: {models}.',
+      searchNote: 'Each web search costs {price}, on top of tokens; it is inside the cost column.',
     },
   },
 } as const;

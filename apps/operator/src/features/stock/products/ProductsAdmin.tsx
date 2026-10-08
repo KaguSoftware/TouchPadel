@@ -25,10 +25,19 @@
  * Wave 5 (wave5-addendum-2026-09-25 §2.2, #9): a launched size's names lock
  * with its price. They go back as stored, and the one lock note above the
  * price says both change through "Change the price".
+ *
+ * Supplier price watch (0322, docs/design/shop/supplier-price-watch-2026-10-08.md):
+ * a size may carry its supplier's product page link; the shop desk PC reads
+ * it hourly. A size whose supplier price is not its own is listed at the top
+ * under "Supplier price changes" and marked on its row; "Apply new price"
+ * opens its form with the supplier's price filled in (Save applies it, through
+ * the same upsert_retail_variant). The link is saved with
+ * app.set_shop_price_watch after the size, and only when it changed.
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { appRpc } from '../../../lib/appRpc';
+import { formatIQD } from '@touch/i18n';
+import { AppRpcError, appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { can, useAuth } from '../../../lib/auth';
 import { useToast } from '../../../components/toast';
@@ -54,6 +63,9 @@ import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from '../../adm
 import { isRenameRefusal } from '../../admin/addons/addonsLogic';
 import { useStockFormat } from '../stockUi';
 import { ShopSectionDialog } from '../../shop/ShopSectionDialog';
+import { PRICE_WATCHES_KEY, fetchPriceWatches } from '../../shop/priceWatch/priceWatchData';
+import { alertsFor, checkSupplierUrl, type PriceWatchRow } from '../../shop/priceWatch/priceWatchLogic';
+import { SupplierLinkField, SupplierLinkNotRead, SupplierPriceAlerts, SupplierPriceMarker } from '../../shop/priceWatch/PriceWatchUi';
 import {
   SK,
   fetchIngredients,
@@ -69,6 +81,7 @@ import {
   productLock,
   sizeArgs,
   sizeProblem,
+  supplierLinkToSave,
   type ProductLine,
   type SizeDraft,
 } from './productsLogic';
@@ -78,7 +91,8 @@ type Caps = { editLaunchedPrices: boolean; launchDirectly: boolean };
 type Editing =
   | { mode: 'newProduct' }
   | { mode: 'addSize'; line: ProductLine }
-  | { mode: 'editSize'; line: ProductLine };
+  /** `suggestedPrice`: "Apply new price", the supplier's price filled in. */
+  | { mode: 'editSize'; line: ProductLine; suggestedPrice?: number };
 
 export function ProductsAdmin() {
   const { tr, locale } = useLocale();
@@ -95,6 +109,8 @@ export function ProductsAdmin() {
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
   const onHandQ = useQuery({ queryKey: SK.onHand, queryFn: fetchOnHand });
   const suppliersQ = useQuery({ queryKey: SK.suppliers, queryFn: fetchSuppliers });
+  // No watches (or a server without 0322) is no panel and no link status, never an error.
+  const watchesQ = useQuery({ queryKey: PRICE_WATCHES_KEY, queryFn: fetchPriceWatches });
 
   const sections = catalogueQ.data?.sections ?? [];
   const lines = useMemo(
@@ -105,21 +121,33 @@ export function ProductsAdmin() {
     [catalogueQ.data, ingredientsQ.data, onHandQ.data, suppliersQ.data],
   );
   const rows = lines.filter((l) => matchesProductLine(l, search));
+  const watchOf = useMemo(() => new Map((watchesQ.data ?? []).map((w) => [w.variant_id, w])), [watchesQ.data]);
+  const alerts = useMemo(() => alertsFor(lines, watchesQ.data ?? []), [lines, watchesQ.data]);
+  const supplierPriceOf = new Map(alerts.map((a) => [a.line.variant.id, a.supplierPriceIqd]));
   const status = asyncStatus(catalogueQ, (d) => d.sections.length === 0 || d.products.length === 0);
 
   const columns: Column<ProductLine>[] = [
     {
       key: 'product',
       header: tr('ws.manager.stock.products.product'),
-      render: (l) => (
-        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
-          <strong>
-            <bdi>{pickName(locale, l.product)}</bdi>
-          </strong>
-          <bdi style={{ color: 'var(--tp-muted-fg)' }}>{pickName(locale, l.variant)}</bdi>
-          {!l.product.is_active && <StatusBadge size="sm" tone="neutral" label={tr('ws.manager.stock.products.hidden')} />}
-        </span>
-      ),
+      render: (l) => {
+        const failed = watchOf.get(l.variant.id)?.last_error;
+        return (
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <strong>
+              <bdi>{pickName(locale, l.product)}</bdi>
+            </strong>
+            <bdi style={{ color: 'var(--tp-muted-fg)' }}>{pickName(locale, l.variant)}</bdi>
+            {!l.product.is_active && <StatusBadge size="sm" tone="neutral" label={tr('ws.manager.stock.products.hidden')} />}
+            {supplierPriceOf.has(l.variant.id) ? (
+              <SupplierPriceMarker priceIqd={supplierPriceOf.get(l.variant.id)!} />
+            ) : (
+              // A link whose last read failed: seen on the list, explained in the form.
+              failed && <SupplierLinkNotRead error={failed} />
+            )}
+          </span>
+        );
+      },
     },
     { key: 'sku', header: tr('ws.manager.stock.products.sku'), render: (l) => (l.variant.sku ? <bdi dir="ltr">{l.variant.sku}</bdi> : '—') },
     { key: 'barcode', header: tr('ws.manager.stock.products.barcode'), render: (l) => (l.variant.barcode ? <bdi dir="ltr">{l.variant.barcode}</bdi> : '—') },
@@ -199,6 +227,11 @@ export function ProductsAdmin() {
       >
         {!caps.launchDirectly && <PriceLockNote message={tr('ws.pricing.products.note')} />}
       </PageHeader>
+      <SupplierPriceAlerts
+        alerts={alerts}
+        priceLocked={(l) => productLock(l, caps).priceLocked}
+        onApply={(a) => setEditing({ mode: 'editSize', line: a.line, suggestedPrice: a.supplierPriceIqd })}
+      />
       <AsyncStateWrapper
         status={status}
         error={catalogueQ.error}
@@ -255,6 +288,7 @@ export function ProductsAdmin() {
           editing={editing}
           sections={sections}
           suppliers={(suppliersQ.data ?? []).filter((s) => s.is_active)}
+          watch={editing.mode === 'editSize' ? (watchOf.get(editing.line.variant.id) ?? null) : null}
           caps={caps}
           onDone={() => {
             setEditing(null);
@@ -274,6 +308,7 @@ function SizeForm({
   editing,
   sections,
   suppliers,
+  watch,
   caps,
   onDone,
   onCancel,
@@ -281,6 +316,8 @@ function SizeForm({
   editing: Editing;
   sections: readonly ShopSectionRow[];
   suppliers: readonly SupplierRow[];
+  /** The size's supplier price watch, if it has one (0322). */
+  watch: PriceWatchRow | null;
   caps: Caps;
   onDone: () => void;
   onCancel: () => void;
@@ -296,13 +333,16 @@ function SizeForm({
   const priceLocked = line !== null && productLock(line, caps).priceLocked;
   // Only an existing size has stored names to keep; a new one is named freely.
   const nameLocked = editSize !== null && productLock(editSize, caps).nameLocked;
+  // "Apply new price": only offered where the price is editable, so a locked
+  // form never shows a figure it would not send.
+  const suggestedPrice = editing.mode === 'editSize' && !priceLocked ? editing.suggestedPrice : undefined;
 
   const [sectionId, setSectionId] = useState(sections[0]?.id ?? '');
   const [productName, setProductName] = useState({ en: '', ar: '' });
   const [draft, setDraft] = useState<SizeDraft>({
     nameEn: editSize?.variant.name_en ?? (editing.mode === 'newProduct' ? tr('ws.manager.stock.products.oneSizeEn') : ''),
     nameAr: editSize?.variant.name_ar ?? (editing.mode === 'newProduct' ? tr('ws.manager.stock.products.oneSizeAr') : ''),
-    price: editSize ? String(editSize.variant.price_iqd) : '',
+    price: suggestedPrice !== undefined ? String(suggestedPrice) : editSize ? String(editSize.variant.price_iqd) : '',
     sku: editSize?.variant.sku ?? '',
     barcode: editSize?.variant.barcode ?? '',
     cost: editSize?.packCostIqd != null ? String(editSize.packCostIqd) : '',
@@ -311,11 +351,21 @@ function SizeForm({
   const [supplierId, setSupplierId] = useState(editSize?.supplier?.id ?? line?.supplier?.id ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  // Untouched until edited: a watch that loads after the form opened fills the
+  // field then, instead of reading as "link removed" and deleting it on Save.
+  const [linkDraft, setLinkDraft] = useState<string | null>(null);
+  const link = linkDraft ?? watch?.url ?? '';
+  const linkCheck = checkSupplierUrl(link);
+  const linkChange = supplierLinkToSave(link, watch?.url ?? null);
+  // The server's own check said no: said under the link, not again below.
+  const linkRefused = error instanceof AppRpcError && error.code === 'SUPPLIER_URL_INVALID';
 
   const problem = sizeProblem(draft);
   const productMissing = editing.mode === 'newProduct' && (!productName.en.trim() || !productName.ar.trim() || !sectionId);
   const set = (part: Partial<SizeDraft>) => setDraft((d) => ({ ...d, ...part }));
-  const dirty = editing.mode !== 'editSize' || JSON.stringify(draft) !== JSON.stringify({
+  // The size itself changed (a new size always has); the link is apart, so a
+  // link-only edit does not resend the size.
+  const sizeDirty = editing.mode !== 'editSize' || JSON.stringify(draft) !== JSON.stringify({
     nameEn: editSize!.variant.name_en,
     nameAr: editSize!.variant.name_ar,
     price: String(editSize!.variant.price_iqd),
@@ -324,13 +374,19 @@ function SizeForm({
     cost: editSize!.packCostIqd != null ? String(editSize!.packCostIqd) : '',
     low: editSize!.lowStockThreshold != null ? String(editSize!.lowStockThreshold) : '',
   }) || supplierId !== (editSize!.supplier?.id ?? '') || editSize!.ingredientId === null;
+  const dirty = sizeDirty || linkChange !== null;
+  // Leaving asks only about what the person changed here: "Apply new price"
+  // opens with the price filled in (dirty, so Save applies it), and a size
+  // made in the menu editor is always resent; neither is an edit to lose.
+  const [opened] = useState(() => ({ draft, supplierId }));
+  const leaveDirty = JSON.stringify(draft) !== JSON.stringify(opened.draft) || supplierId !== opened.supplierId || (linkDraft !== null && linkChange !== null);
 
   /**
    * True when there is nothing unsaved to lose, or the manager chose to lose
    * it. Also the Modal's `canClose`: asked before the exit plays (see IngredientForm).
    */
   async function mayLeave() {
-    return !(dirty && editing.mode === 'editSize') || confirm({
+    return !(leaveDirty && editing.mode === 'editSize') || confirm({
       title: tr('ws.kit.actions.dirtyLeave'),
       body: tr('ws.kit.actions.dirtyLeaveBody'),
       confirmLabel: tr('ws.kit.actions.dirtyLeaveConfirm'),
@@ -363,13 +419,27 @@ function SizeForm({
           ...(newHidden ? { p_is_active: false } : {}),
         });
       }
-      await appRpc('upsert_retail_variant', {
-        p_item_id: itemId,
-        ...sizeArgs(draft, supplierId),
-        ...(editSize ? { p_id: editSize.variant.id, p_is_default: editSize.variant.is_default, p_sort_order: editSize.variant.sort_order } : {}),
-        ...(editing.mode === 'newProduct' ? { p_is_default: true } : {}),
-        ...(editing.mode === 'addSize' ? { p_sort_order: editing.line.variant.sort_order + 1 } : {}),
-      });
+      const saved = !sizeDirty
+        ? null
+        : await appRpc<{ variant_id: string } | null>('upsert_retail_variant', {
+            p_item_id: itemId,
+            ...sizeArgs(draft, supplierId),
+            ...(editSize ? { p_id: editSize.variant.id, p_is_default: editSize.variant.is_default, p_sort_order: editSize.variant.sort_order } : {}),
+            ...(editing.mode === 'newProduct' ? { p_is_default: true } : {}),
+            ...(editing.mode === 'addSize' ? { p_sort_order: editing.line.variant.sort_order + 1 } : {}),
+          });
+      const variantId = editSize?.variant.id ?? saved?.variant_id;
+      if (linkChange && variantId) {
+        try {
+          await appRpc('set_shop_price_watch', { p_variant_id: variantId, p_url: linkChange.url });
+        } catch (e) {
+          // The size is saved. An edit stays open (Save again only resends
+          // it); a new product or size must not be saved twice, so it closes
+          // and says the link did not take.
+          if (editing.mode === 'editSize') throw e;
+          toast.err(e);
+        }
+      }
       toast.ok(tr(newHidden ? 'ws.pricing.savedHidden' : 'op.toast.saved'));
       onDone();
     } catch (e) {
@@ -410,8 +480,12 @@ function SizeForm({
             kind="primary"
             icon="check"
             busy={busy}
-            disabled={productMissing || problem !== null || !dirty}
-            disabledReason={productMissing ? tr('ws.manager.disabled.namesRequired') : (problemText(problem) ?? tr('ws.manager.stock.ingredients.form.nothingChanged'))}
+            disabled={productMissing || problem !== null || !linkCheck.ok || !dirty}
+            disabledReason={
+              productMissing
+                ? tr('ws.manager.disabled.namesRequired')
+                : (problemText(problem) ?? (!linkCheck.ok ? tr(`ws.shop.priceWatch.problem.${linkCheck.error}` as const) : tr('ws.manager.stock.ingredients.form.nothingChanged')))
+            }
             onClick={() => void save()}
           >
             {tr('ws.kit.actions.save')}
@@ -477,7 +551,15 @@ function SizeForm({
             <Money amount={Number.parseInt(draft.price, 10)} strong />
           </LockedValue>
         ) : (
-          <Field label={tr('ws.manager.stock.products.price')} error={problem === 'price' && draft.price.trim() ? problemText('price') : undefined}>
+          <Field
+            label={tr('ws.manager.stock.products.price')}
+            hint={
+              suggestedPrice !== undefined && editSize && draft.price === String(suggestedPrice)
+                ? tr('ws.shop.priceWatch.filledNote', { old: formatIQD(editSize.variant.price_iqd, locale) })
+                : undefined
+            }
+            error={problem === 'price' && draft.price.trim() ? problemText('price') : undefined}
+          >
             <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.price} onChange={(e) => set({ price: e.target.value })} />
           </Field>
         )}
@@ -490,6 +572,11 @@ function SizeForm({
         <Field label={tr('ws.manager.stock.products.barcode')} optional hint={tr('ws.manager.stock.products.barcodeHint')} error={problem === 'barcode' ? problemText('barcode') : undefined}>
           <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.barcode} onChange={(e) => set({ barcode: e.target.value })} />
         </Field>
+        <Field label={tr('ws.manager.stock.products.low')} optional hint={tr('ws.manager.stock.products.lowHint')} error={problem === 'low' ? problemText('low') : undefined}>
+          <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.low} onChange={(e) => set({ low: e.target.value })} />
+        </Field>
+        {/* Last in the grid, right above the supplier link: the two supplier
+            fields read as one group. */}
         <Field label={tr('ws.manager.stock.ingredients.supplier')} optional>
           <Select
             value={supplierId}
@@ -500,16 +587,23 @@ function SizeForm({
             ]}
           />
         </Field>
-        <Field label={tr('ws.manager.stock.products.low')} optional hint={tr('ws.manager.stock.products.lowHint')} error={problem === 'low' ? problemText('low') : undefined}>
-          <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.low} onChange={(e) => set({ low: e.target.value })} />
-        </Field>
       </div>
+      <SupplierLinkField
+        value={link}
+        onChange={(v) => {
+          setLinkDraft(v);
+          if (linkRefused) setError(null);
+        }}
+        problem={linkCheck.ok ? null : linkCheck.error}
+        serverRefused={linkRefused}
+        watch={watch}
+      />
       {/* A rename refused by the server's lock (the size went on sale since
           this form opened) says where a rename goes now. */}
       {isRenameRefusal(error) ? (
         <PriceLockNote message={tr('ws.pricing.renameViaProtocol')} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />
       ) : (
-        <ErrorText error={error} />
+        <ErrorText error={linkRefused ? null : error} />
       )}
     </Modal>
   );

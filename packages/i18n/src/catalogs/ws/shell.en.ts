@@ -187,7 +187,6 @@ export const shellEn = {
     shopStock: 'Shop stock',
     shopReceive: 'Goods in',
     shopCounts: 'Stock count',
-    shopWaste: 'Waste',
     shopProducts: 'Products',
     shopSuppliers: 'Suppliers',
     // Observation section rows.
@@ -223,6 +222,10 @@ export const shellEn = {
     badge: '{count} waiting on you',
     groupOperations: 'Operations',
     groupRun: 'Run the day',
+    fromTeam: 'From the team',
+    stockMovement: 'Stock in and out',
+    stockCounting: 'Counting',
+    stockCosts: 'Recipes and costs',
     groupRecords: 'Records',
     groupSetup: 'Setup',
     // The way out of a section rail, back to the workspace's own.

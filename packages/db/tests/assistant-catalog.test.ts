@@ -12,13 +12,14 @@
  *     (Deno cannot import a workspace package, so the copy is pinned here).
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { ASSISTANT_TOOLS, DISPATCHED_RPCS, COUNTABLE_TOOL_NAMES } from '../../core/src/assistant/tools';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const MIGRATION = path.resolve(HERE, '../supabase/migrations/20260920000109_assistant_dispatcher.sql');
+const MIGRATIONS = path.resolve(HERE, '../supabase/migrations');
+const MIGRATION = path.join(MIGRATIONS, '20260920000109_assistant_dispatcher.sql');
 const CORE_TOOLS = path.resolve(HERE, '../../core/src/assistant/tools.ts');
 const EDGE_TOOLS = path.resolve(HERE, '../supabase/functions/_shared/assistant/tools.ts');
 
@@ -32,11 +33,26 @@ function caseLabels(sql: string, tag: string): string[] {
   return [...body.matchAll(/^\s*when '([a-z_]+)' then/gm)].map((m) => m[1] as string);
 }
 
+/**
+ * The latest body of app.assistant_run_tool (0109, re-issued by 0266 and 0328):
+ * the last migration that defines it, with the dollar tag that file uses.
+ */
+function latestDispatcher(): { sql: string; tag: string } {
+  const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort();
+  for (const f of files.reverse()) {
+    const sql = readFileSync(path.join(MIGRATIONS, f), 'utf8');
+    const m = /function app\.assistant_run_tool\(p_tool[^$]*\$(assistant_run_tool_\d{4})\$/.exec(sql);
+    if (m) return { sql, tag: m[1] as string };
+  }
+  throw new Error('no migration defines app.assistant_run_tool');
+}
+
 describe('assistant catalog ↔ dispatcher', () => {
   const sql = readFileSync(MIGRATION, 'utf8');
 
   it('DISPATCHED_RPCS equals the case list of app.assistant_run_tool', () => {
-    const branches = caseLabels(sql, 'assistant_run_tool_0109');
+    const latest = latestDispatcher();
+    const branches = caseLabels(latest.sql, latest.tag);
     expect(new Set(branches).size).toBe(branches.length); // no duplicate branch
     expect([...branches].sort()).toEqual([...DISPATCHED_RPCS].sort());
   });

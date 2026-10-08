@@ -9,11 +9,11 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { Platform } from 'react-native';
 import { fireEvent, within } from '@testing-library/react-native';
 import type { MyProtocolWork } from '@touch/core';
-import { formatNumber, makeT, type Locale } from '@touch/i18n';
+import { formatNumber, formatTime, makeT, type Locale } from '@touch/i18n';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
-import type { ChecklistsToday } from '../features/staff/checklists/logic';
+import { dueText, type ChecklistsToday } from '../features/staff/checklists/logic';
 import StaffToday from '../../app/staff';
 import StaffGroup from '../../app/staff-group';
 import { ROW_GROUPS } from '../features/staff/todayGroups';
@@ -23,6 +23,10 @@ const V = TEST_VENUE_ID;
 const OPEN_RUN = 'c1a00000-0000-4000-8000-000000000001';
 const CLOSE_RUN = 'c1a00000-0000-4000-8000-000000000002';
 const STEP = 'c1a00000-0000-4000-8000-000000000003';
+// 0323: a person's own list, overdue since this morning.
+const PERSON_RUN = 'c1a00000-0000-4000-8000-000000000005';
+const PAST_DUE = '2026-09-25T06:00:00Z';
+const LATER_DUE = new Date(Date.now() + 3_600_000).toISOString();
 
 const CHECKLISTS: ChecklistsToday = {
   business_date: '2026-09-25',
@@ -36,6 +40,17 @@ const CHECKLISTS: ChecklistsToday = {
       done: 1,
       total: 3,
       items: [],
+      // 0323: due later today, shared by the role.
+      template_id: 'c1a00000-0000-4000-8000-0000000000a1',
+      audience: 'role',
+      copy_mode: 'shared',
+      repeat_kind: 'weekdays',
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+      period_start: '2026-09-25',
+      period_end: '2026-09-25',
+      due_at: LATER_DUE,
+      overdue: false,
+      assignee_id: null,
     },
     // Finished: it leaves Today.
     {
@@ -47,6 +62,27 @@ const CHECKLISTS: ChecklistsToday = {
       done: 2,
       total: 2,
       items: [],
+    },
+    // 0323: one person's own copy, past its due time; Today puts it first.
+    {
+      run_id: PERSON_RUN,
+      role: null,
+      slot: 'open',
+      name_en: 'Fridge temperatures',
+      name_ar: 'حرارة الثلاجات',
+      done: 0,
+      total: 2,
+      items: [],
+      template_id: 'c1a00000-0000-4000-8000-0000000000a2',
+      audience: 'people',
+      copy_mode: 'each',
+      repeat_kind: 'weekdays',
+      weekdays: [0, 4],
+      period_start: '2026-09-25',
+      period_end: '2026-09-27',
+      due_at: PAST_DUE,
+      overdue: true,
+      assignee_id: 'c1a00000-0000-4000-8000-0000000000b1',
     },
   ],
 };
@@ -113,14 +149,25 @@ describe.each(LOCALES)('Today in %s', (locale) => {
       ],
     });
     try {
-      expect(screen.getByText(`${t('staff.checklists.title')} · 1`)).toBeTruthy();
+      expect(screen.getByText(`${t('staff.checklists.title')} · 2`)).toBeTruthy();
       const row = screen.getByTestId(`staff.checklist.${OPEN_RUN}`);
       expect(
         within(row).getByText(locale === 'ar' ? 'افتتاح المطبخ' : 'Opening the kitchen'),
       ).toBeTruthy();
+      const now = new Date();
       expect(
-        within(row).getByText(t('staff.checklists.progress', { done: 1, total: 3 })),
+        within(row).getByText(
+          `${t('staff.checklists.progress', { done: 1, total: 3 })} · ${dueText(CHECKLISTS.lists[0]!, now, locale, CHECKLISTS.business_date)}`,
+        ),
       ).toBeTruthy();
+      // The overdue person list: its count, and the danger tag in place of the due time.
+      const mine = screen.getByTestId(`staff.checklist.${PERSON_RUN}`);
+      const overdueLine = dueText(CHECKLISTS.lists[2]!, now, locale, CHECKLISTS.business_date);
+      expect(overdueLine).toBe(
+        t('staff.checklists.overdueSince', { time: formatTime(new Date(PAST_DUE), locale) }),
+      );
+      expect(within(mine).getByText(overdueLine!)).toBeTruthy();
+      expect(within(mine).getByText(t('staff.checklists.progress', { done: 0, total: 2 }))).toBeTruthy();
       expect(screen.queryByTestId(`staff.checklist.${CLOSE_RUN}`)).toBeNull();
       expect(screen.getByTestId(`staff.todo.${STEP}`)).toBeTruthy();
       // Tree order is screen order: the checklist comes before the step.
@@ -128,6 +175,11 @@ describe.each(LOCALES)('Today in %s', (locale) => {
         (n) => n.props.testID as string,
       );
       expect(ids.indexOf(`staff.checklist.${OPEN_RUN}`)).toBeGreaterThanOrEqual(0);
+      // Overdue first.
+      expect(ids.indexOf(`staff.checklist.${PERSON_RUN}`)).toBeGreaterThanOrEqual(0);
+      expect(ids.indexOf(`staff.checklist.${PERSON_RUN}`)).toBeLessThan(
+        ids.indexOf(`staff.checklist.${OPEN_RUN}`),
+      );
       expect(ids.indexOf(`staff.checklist.${OPEN_RUN}`)).toBeLessThan(
         ids.indexOf(`staff.todo.${STEP}`),
       );
@@ -148,7 +200,10 @@ describe.each(LOCALES)('Today in %s', (locale) => {
       locale,
       staff: { role: 'head_chef' },
       queryData: [
-        [staffKeys.checklists(V), { ...CHECKLISTS, lists: CHECKLISTS.lists.slice(1) }],
+        [
+          staffKeys.checklists(V),
+          { ...CHECKLISTS, lists: CHECKLISTS.lists.filter((l) => l.run_id === CLOSE_RUN) },
+        ],
         [staffKeys.work(V), WORK],
       ],
     });

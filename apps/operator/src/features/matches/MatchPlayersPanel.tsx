@@ -35,7 +35,7 @@ import { QK, fetchVenueSettings } from '../../lib/queries';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, MATCH_REASON_CODES, PinReasonModal, REASON_CODES, Skeleton, type ReasonCode } from '../../components/ui';
-import { CustomerFlagBadge, MessagePresenter, Panel, ReasonCodePrompt, StatusBadge, type Tone } from '../../components/kit';
+import { CustomerFlagBadge, MessagePresenter, Panel, ReasonCodePrompt, StatusBadge, ViewMore, useListCap, type Tone } from '../../components/kit';
 import { PaymentPane, type PaymentMethod } from '../till/PaymentPane';
 import { AddSeatDialog, deskOpenNumbers } from './AddSeatDialog';
 import { AssignPaymentDialog } from './AssignPaymentDialog';
@@ -212,6 +212,7 @@ function PlayersView({
   const joinNames = (names: readonly string[]) => names.join(locale === 'ar' ? '، ' : ', ');
 
   const { numbered, earlier } = seatRows(detail.seats);
+  const earlierCap = useListCap(earlier);
   const started = isStarted(m, elapsedMs);
   const matchActions = matchActionsOf(m, reachable, caps);
   const actionsOf = (s: MatchSeat) => seatActionsOf(s, m, reachable, caps, elapsedMs);
@@ -630,7 +631,8 @@ function PlayersView({
         {earlier.length > 0 && (
           <section>
             <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.matches.players.earlier')}</h3>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>{earlier.map((s) => seatRow(s, true))}</ul>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>{earlierCap.shown.map((s) => seatRow(s, true))}</ul>
+            <ViewMore hidden={earlierCap.hidden} open={earlierCap.open} onToggle={earlierCap.toggle} />
           </section>
         )}
         {unmarkedNote && <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.matches.players.unmarkedNote')}</p>}

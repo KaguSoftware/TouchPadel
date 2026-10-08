@@ -184,6 +184,10 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     dirtyLeaveCancel: 'متابعة التعديل',
     chooseOne: 'اختر أحد الخيارات للمتابعة',
   },
+  list: {
+    viewMore: 'عرض المزيد ({count})',
+    showLess: 'عرض أقل',
+  },
   infoTip: {
     label: 'المزيد عن هذا',
   },

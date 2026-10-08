@@ -27,6 +27,7 @@ import {
   signedInClient,
   voidOpenTabsForTable,
   passShiftGate,
+  showEveryRow,
 } from './helpers';
 
 const TILL_TABLE = fixtureTableId(8);
@@ -222,6 +223,9 @@ test.describe('operator stock (module 5)', () => {
       .click();
 
     await expect(page).toHaveURL(/\/stock\/variance/, { timeout: 20_000 });
+    // The differences table shows three rows until "View more".
+    await expect(page.locator('tr').nth(1)).toBeVisible({ timeout: 20_000 });
+    await showEveryRow(page);
     const row = page.locator('tr').filter({ hasText: ING });
     await expect(row).toBeVisible({ timeout: 20_000 });
     await expect(row.getByText('320 g', { exact: true })).toBeVisible(); // theoretical

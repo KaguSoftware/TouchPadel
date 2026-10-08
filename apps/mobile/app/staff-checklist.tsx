@@ -18,11 +18,16 @@ import { mapStaffError } from '../src/features/staff/edge';
 import { fetchChecklistsToday, markChecklistItem } from '../src/features/staff/checklists/api';
 import {
   applyMark,
+  dueText,
+  isClosedError,
+  isOverdue,
   isTicked,
   localName,
   localText,
   markArgs,
   orderLists,
+  repeatText,
+  showsSlotLabel,
   type ChecklistItem,
   type ChecklistsToday,
   type MarkArgs,
@@ -30,6 +35,7 @@ import {
 import { Lead, StaffPhotoThumb, Tag } from '../src/features/staff/checklists/parts';
 import { useBack } from '../src/navigation/back';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
+import { useToast } from '../src/components/overlays';
 
 /**
  * Today's checklists (build-contracts-2026-09-23 §2.14, §2.24.8, §6.1): the
@@ -43,6 +49,11 @@ import { usePullRefresh } from '../src/lib/usePullRefresh';
  * stays on the line, so pressing the line again retries with the same photo.
  *
  * `?id=` is a list a push or Today named; it is shown first.
+ *
+ * Scheduled lists (0323, scheduled-checklists-2026-10-08.md §5): under each
+ * list's name, how it repeats and when it is due; an overdue list says so in
+ * a danger tag. A tick on a list whose time is up (`CHECKLIST_CLOSED`: the
+ * next one has started) says the list has ended and reads the lists again.
  */
 
 type ByItem<T> = Record<string, T>;
@@ -62,6 +73,7 @@ function ChecklistScreen() {
   const { venueId } = useStaffStatus();
   const params = useLocalSearchParams<{ id?: string }>();
   const back = useBack('/staff');
+  const toast = useToast();
   const venue = venueId ?? '';
   const key = staffKeys.checklists(venue);
 
@@ -87,7 +99,17 @@ function ChecklistScreen() {
       setErrors((e) => omit(e, item.id));
       void queryClient.invalidateQueries({ queryKey: key });
     },
-    onError: (err, args) => setErrors((e) => ({ ...e, [args.p_item_id]: t(mapStaffError(err)) })),
+    onError: (err, args) => {
+      if (isClosedError(err)) {
+        // The list ended under the tick: say so, drop the line's pending photo, and re-read.
+        toast(t('staff.checklists.closed'), 'info');
+        setPending((p) => omit(p, args.p_item_id));
+        setErrors((e) => omit(e, args.p_item_id));
+        void queryClient.invalidateQueries({ queryKey: key });
+        return;
+      }
+      setErrors((e) => ({ ...e, [args.p_item_id]: t(mapStaffError(err)) }));
+    },
   });
 
   const send = (item: ChecklistItem, done: boolean, photoPath?: string | null) => {
@@ -154,8 +176,14 @@ function ChecklistScreen() {
         />
       );
     }
+    const now = new Date();
     return lists.map((list) => {
       const complete = list.total > 0 && list.done >= list.total;
+      const overdue = isOverdue(list, now);
+      const due = dueText(list, now, locale, data?.business_date);
+      const repeat = repeatText(list, locale);
+      // One quiet line: how it repeats, and the due time while it is not late.
+      const meta = [repeat, overdue ? null : due].filter(Boolean).join(' · ');
       return (
         <Card
           key={list.run_id}
@@ -167,7 +195,7 @@ function ChecklistScreen() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s }}>
             <View style={{ flex: 1, gap: 2 }}>
-              <MicroLabel>{t(`work.checklist.slot.${list.slot}`)}</MicroLabel>
+              {showsSlotLabel(list) ? <MicroLabel>{t(`work.checklist.slot.${list.slot}`)}</MicroLabel> : null}
               <Text style={{ fontFamily: fonts.body800, fontSize: 15, lineHeight: 21, color: colors.ink }}>
                 {localName(list, locale)}
               </Text>
@@ -181,6 +209,24 @@ function ChecklistScreen() {
               }
             />
           </View>
+          {meta || (overdue && due) ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: space.xs,
+                marginTop: space.xs,
+              }}
+            >
+              {overdue && due ? <Tag tone="bad" label={due} /> : null}
+              {meta ? (
+                <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 18, color: colors.mut2 }}>
+                  {meta}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
           <View style={{ marginTop: space.xs }}>
             {list.items.map((item, i) => {
               const ticked = isTicked(item);

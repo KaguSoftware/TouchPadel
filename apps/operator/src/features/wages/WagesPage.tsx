@@ -28,7 +28,7 @@ import { useCafeSettings, useSetCafeSettings } from '../../lib/settings';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field } from '../../components/ui';
 import { CountInput } from '../../components/inputs';
-import { AsyncStateWrapper, DataTable, EmptyState, Money, PageHeader, Panel, StatusBadge, TableSkeleton, type Column } from '../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, Money, PageHeader, Panel, StatusBadge, TableSkeleton, ViewMore, useListCap, type Column } from '../../components/kit';
 import { ChevronBack, ChevronForward } from '../../components/icons';
 import { CardTitle } from '../ops/OpsVisuals';
 import { fetchDeductionsWaiting } from '../deductions/api';
@@ -132,21 +132,7 @@ export function WagesPageScreen() {
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', marginBlockEnd: 'var(--tp-sp-4)' }}>
         {due.count > 0 && <DueNow rows={due.people} remindDays={due.remindDays} onPay={(r) => startPaying({ ...r, waitingCount: waitingOf(r.staffId) })} />}
         {toDecide.length > 0 && <ToDecide rows={toDecide} onDecide={(row, approve) => setDeciding({ row, approve })} />}
-        {unset.length > 0 && (
-          <Panel muted title={<CardTitle icon="info">{tr('ws.wages.unset.title')}</CardTitle>} data-testid="wages.unset">
-            <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.wages.unset.lead')}</p>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2)' }}>
-              {unset.map((p) => (
-                <li key={p.staffId} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-                  <bdi style={{ fontWeight: 600 }}>{p.displayName}</bdi>
-                  <Button size="sm" icon="banknote" onClick={() => startSetting(p)} data-testid={`wages.unset.set.${p.staffId}`}>
-                    {tr('ws.wages.actions.setSalary')}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </Panel>
-        )}
+        {unset.length > 0 && <UnsetPanel people={unset} onSet={startSetting} />}
         <RemindControl />
       </div>
 
@@ -248,14 +234,37 @@ export function WagesPageScreen() {
   );
 }
 
+/** Staff with no salary set yet, each with Set salary. */
+function UnsetPanel({ people, onSet }: { people: WagePerson[]; onSet: (p: WagePerson) => void }) {
+  const { tr } = useLocale();
+  const cap = useListCap(people);
+  return (
+    <Panel muted title={<CardTitle icon="info">{tr('ws.wages.unset.title')}</CardTitle>} data-testid="wages.unset">
+      <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.wages.unset.lead')}</p>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2)' }}>
+        {cap.shown.map((p) => (
+          <li key={p.staffId} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+            <bdi style={{ fontWeight: 600 }}>{p.displayName}</bdi>
+            <Button size="sm" icon="banknote" onClick={() => onSet(p)} data-testid={`wages.unset.set.${p.staffId}`}>
+              {tr('ws.wages.actions.setSalary')}
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+    </Panel>
+  );
+}
+
 /** Every unpaid month due now or overdue, earliest pay day first, each with Mark paid. */
 function DueNow({ rows, remindDays, onPay }: { rows: WageDueRow[]; remindDays: number | null; onPay: (row: WageDueRow) => void }) {
   const { tr, locale } = useLocale();
+  const cap = useListCap(rows);
   return (
     <Panel title={<CardTitle icon="bell">{tr('ws.wages.due.title')}</CardTitle>} data-testid="wages.due">
       {remindDays !== null && <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.wages.due.lead', { days: formatNumber(remindDays, locale) })}</p>}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
-        {rows.map((r) => (
+        {cap.shown.map((r) => (
           <li
             key={`${r.staffId}:${r.month}`}
             data-testid={`wages.due.row.${r.staffId}.${r.month}`}
@@ -272,6 +281,7 @@ function DueNow({ rows, remindDays, onPay }: { rows: WageDueRow[]; remindDays: n
           </li>
         ))}
       </ul>
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
     </Panel>
   );
 }
@@ -279,11 +289,12 @@ function DueNow({ rows, remindDays, onPay }: { rows: WageDueRow[]; remindDays: n
 /** The proposals waiting on the owner: approve or decline each, as /deductions does. */
 function ToDecide({ rows, onDecide }: { rows: DeductionRow[]; onDecide: (row: DeductionRow, approve: boolean) => void }) {
   const { tr } = useLocale();
+  const cap = useListCap(rows);
   return (
     <Panel title={<CardTitle icon="banknote">{tr('ws.wages.approve.title')}</CardTitle>} data-testid="wages.approve">
       <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.wages.approve.lead')}</p>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
-        {rows.map((r) => (
+        {cap.shown.map((r) => (
           <li key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', paddingBlock: 'var(--tp-sp-2)', borderBlockEnd: '1px solid var(--tp-border)' }}>
             <Money amount={r.amountIqd} strong style={{ whiteSpace: 'nowrap', minInlineSize: '7rem' }} />
             <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', minInlineSize: '9rem' }}>
@@ -305,6 +316,7 @@ function ToDecide({ rows, onDecide }: { rows: DeductionRow[]; onDecide: (row: De
           </li>
         ))}
       </ul>
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
     </Panel>
   );
 }
@@ -391,6 +403,8 @@ function MonthTable({
 }) {
   const { tr, locale } = useLocale();
   const when = (iso: string | null) => (iso ? formatDateTime(new Date(iso), locale) : '');
+  // Owner's rule (2026-10-08): three people, then "View more". Totals above read the whole month.
+  const peopleCap = useListCap(data.people);
 
   const columns: Column<WagePerson>[] = [
     {
@@ -540,7 +554,8 @@ function MonthTable({
       skeleton={<TableSkeleton columns={columns} rows={4} />}
       emptyContent={<EmptyState kind="initial" icon="users" title={tr('ws.wages.empty.title')} body={tr('ws.wages.empty.body')} />}
     >
-      <DataTable columns={columns} rows={data.people} rowKey={(p) => p.staffId} selectedKey={expanded} aria-label={shown ? monthLabel(shown, locale) : tr('ws.wages.title')} />
+      <DataTable columns={columns} rows={peopleCap.shown} rowKey={(p) => p.staffId} selectedKey={expanded} aria-label={shown ? monthLabel(shown, locale) : tr('ws.wages.title')} />
+      <ViewMore hidden={peopleCap.hidden} open={peopleCap.open} onToggle={peopleCap.toggle} />
     </AsyncStateWrapper>
   );
 }

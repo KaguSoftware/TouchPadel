@@ -30,7 +30,7 @@ import { formatDateTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Select } from '../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, PageHeader, ResultCount, SegmentedControl, TableSkeleton, Toolbar, asyncStatus, type Column } from '../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, PageHeader, ResultCount, SegmentedControl, TableSkeleton, Toolbar, ViewMore, asyncStatus, useListCap, type Column } from '../../components/kit';
 import { downloadTable } from '../analytics/exportTables';
 import { LedgerDrawer } from './LedgerDrawer';
 import { KindFilter, matchesKind, useStockFormat, useStoreName, type StockKindFilter } from './stockUi';
@@ -113,6 +113,8 @@ export function VarianceReport() {
   const all = counted.filter((r) => matchesKind(kindOf.get(r.ingredient_id), kind));
   const differed = all.filter((r) => Number(r.variance_qty) !== 0);
   const rows = show === 'differed' ? differed : all;
+  // Owner's rule (2026-10-08): three rows, then "View more". The export takes them all.
+  const listed = useListCap(rows);
   const first = all[0];
   const productTest = (r: VarianceRow) => Number(r.product_test_qty ?? 0);
   const moved = (r: VarianceRow) => Number(r.transfer_qty ?? 0);
@@ -284,7 +286,10 @@ export function VarianceReport() {
         {rows.length === 0 ? (
           <EmptyState kind="nothingToDo" icon="checkCircle" title={tr('ws.manager.stock.variance.allMatched')} action={<Button size="sm" onClick={() => setShow('all')}>{tr('ws.manager.stock.variance.allIngredients')}</Button>} />
         ) : (
-          <DataTable columns={columns} rows={rows} rowKey={(r) => r.ingredient_id} aria-label={tr('op.stockNav.variance')} />
+          <>
+            <DataTable columns={columns} rows={listed.shown} rowKey={(r) => r.ingredient_id} aria-label={tr('op.stockNav.variance')} />
+            <ViewMore hidden={listed.hidden} open={listed.open} onToggle={listed.toggle} />
+          </>
         )}
       </AsyncStateWrapper>
 

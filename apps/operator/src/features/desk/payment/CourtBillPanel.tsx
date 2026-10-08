@@ -49,7 +49,7 @@ import { canAccess, permissionsFor, useAuth } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { Button, ErrorText, Modal } from '../../../components/ui';
-import { MessagePresenter, Money, Panel, StatusBadge, type Tone } from '../../../components/kit';
+import { MessagePresenter, Money, Panel, StatusBadge, ViewMore, useListCap, type Tone } from '../../../components/kit';
 import { PaymentPane } from '../../till/PaymentPane';
 import { AddCafeBillDialog } from './AddCafeBillDialog';
 import { MemberAttach } from '../../loyalty/MemberAttach';
@@ -293,6 +293,7 @@ export function CourtBillView({
     ...online.map((p) => ({ kind: 'online' as const, at: p.succeeded_at ?? '', p })),
     ...payments.map((p) => ({ kind: 'desk' as const, at: p.created_at, p })),
   ].sort((a, b) => a.at.localeCompare(b.at));
+  const historyCap = useListCap(history);
 
   return (
     <Panel title={tr('ws.courtDesk.payment.title')}>
@@ -396,7 +397,7 @@ export function CourtBillView({
           <section>
             <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('ws.courtDesk.payment.history')}</h3>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-              {history.map((h) =>
+              {historyCap.shown.map((h) =>
                 h.kind === 'desk' ? (
                   <li key={h.p.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)' }}>
                     <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', minInlineSize: 0 }}>
@@ -424,6 +425,7 @@ export function CourtBillView({
                 ),
               )}
             </ul>
+            <ViewMore hidden={historyCap.hidden} open={historyCap.open} onToggle={historyCap.toggle} />
           </section>
         )}
       </div>

@@ -23,7 +23,7 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { QK, fetchVenueSettings } from '../../lib/queries';
 import { currentBranchId } from '../../lib/venueScope';
 import { Button, Skeleton } from '../../components/ui';
-import { EmptyState, Money, Panel } from '../../components/kit';
+import { EmptyState, Money, Panel, ViewMore, useListCap } from '../../components/kit';
 import { LessonBadge } from '../coaching/LessonBadge';
 import { LessonReadNotice } from '../coaching/LessonReadNotice';
 import { OnlineBlockedLine, RefundDueButton } from '../coaching/LessonRefundsDue';
@@ -57,10 +57,11 @@ export function LessonRefundsDuePanel({ hideWhenEmpty = false }: { hideWhenEmpty
     staleTime: 5 * 60_000,
   });
   const tz = settingsQ.data?.timezone ?? VENUE_TZ;
-
-  if (!caps.refund || status.kind === 'absent') return null;
   const data = status.kind === 'ready' ? status.data : null;
   const rows = data?.items ?? null;
+  const cap = useListCap(rows ?? []);
+
+  if (!caps.refund || status.kind === 'absent') return null;
   if (
     !showLessonRefunds({
       rows: rows ? rows.length : null,
@@ -104,11 +105,14 @@ export function LessonRefundsDuePanel({ hideWhenEmpty = false }: { hideWhenEmpty
         />
       )}
       {rows && rows.length > 0 && (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
-          {rows.map((item) => (
-            <RefundRow key={item.enrolment_id} item={item} tz={tz} />
-          ))}
-        </ul>
+        <>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
+            {cap.shown.map((item) => (
+              <RefundRow key={item.enrolment_id} item={item} tz={tz} />
+            ))}
+          </ul>
+          <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+        </>
       )}
     </Panel>
   );

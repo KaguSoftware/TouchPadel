@@ -56,12 +56,15 @@ const context = () => ({
 });
 let stepStatus = 'open';
 let blockCalls = 0;
+/** How many bookings the first block meets. */
+let conflictCount = 1;
 
 beforeEach(() => {
   navigateSpy.mockReset();
   blocked.length = 0;
   stepStatus = 'open';
   blockCalls = 0;
+  conflictCount = 1;
   search.run = RUN;
   search.step = STEP;
   rpc.mockImplementation(async (fn: string, args?: Record<string, unknown>) => {
@@ -72,7 +75,17 @@ beforeEach(() => {
     if (fn === 'block_courts_for_event') {
       blockCalls += 1;
       if (blockCalls === 1) {
-        return { blocked: [], conflicts: [{ reservation_id: BOOKING, court_id: C1, start_at: RANGE.from, end_at: '2099-10-09T16:00:00+00:00', kind: 'booking', status: 'confirmed' }] };
+        return {
+          blocked: [],
+          conflicts: Array.from({ length: conflictCount }, (_, i) => ({
+            reservation_id: i === 0 ? BOOKING : `0b000000-0000-4000-8000-00000000000${i + 1}`,
+            court_id: C1,
+            start_at: i === 0 ? RANGE.from : `2099-10-09T1${5 + i}:00:00+00:00`,
+            end_at: `2099-10-09T1${6 + i}:00:00+00:00`,
+            kind: 'booking',
+            status: 'confirmed',
+          })),
+        };
       }
       const made = (args?.p_blocks as Array<{ court_id: string; start_at: string; end_at: string }>).map((b, i) => ({
         reservation_id: `0d000000-0000-4000-8000-00000000000${i + 1}`,
@@ -146,6 +159,38 @@ describe('/desk/block event mode', () => {
     // (D2 widens /tasks), the calendar until then.
     await user.click(screen.getAllByRole('button', { name: 'Back to the tournament' })[0]!);
     expect(navigateSpy).toHaveBeenLastCalledWith(canAccess('court_desk', '/tasks') ? { to: '/tasks' } : { to: '/desk', search: {} });
+  });
+
+  it('lists three of the bookings in the way, then View more reveals the rest', async () => {
+    const user = userEvent.setup();
+    conflictCount = 4;
+    renderScreen();
+    await screen.findByRole('table', { name: 'Courts and times' });
+    await user.click(screen.getByRole('button', { name: 'Block all (2)' }));
+    const conflict = await screen.findByRole('alert');
+    expect(within(conflict).getAllByRole('button', { name: 'Open booking' })).toHaveLength(3);
+    await user.click(within(conflict).getByRole('button', { name: 'View more (1)' }));
+    expect(within(conflict).getAllByRole('button', { name: 'Open booking' })).toHaveLength(4);
+    await user.click(within(conflict).getByRole('button', { name: 'Show less' }));
+    expect(within(conflict).getAllByRole('button', { name: 'Open booking' })).toHaveLength(3);
+  });
+
+  it('lists three of the plan’s windows, then View more reveals the rest', async () => {
+    const user = userEvent.setup();
+    const ids = [1, 2, 3, 4, 5].map((n) => `0c000000-0000-4000-8000-00000000001${n}`);
+    const base = rpc.getMockImplementation()!;
+    rpc.mockImplementation(async (fn, args) =>
+      fn === 'tournament_context'
+        ? { ...context(), ranges: [{ court_ids: ids, court_names: ids.map((_, i) => ({ en: `Court ${i + 1}`, ar: `ملعب ${i + 1}` })), ...RANGE }] }
+        : base(fn, args),
+    );
+    renderScreen();
+    const table = await screen.findByRole('table', { name: 'Courts and times' });
+    expect(within(table).getAllByText(/^Court \d$/)).toHaveLength(3);
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
+    expect(within(table).getAllByText(/^Court \d$/)).toHaveLength(5);
+    // Blocking still sends every window, not just the ones on screen.
+    expect(screen.getByRole('button', { name: 'Block all (5)' })).toBeTruthy();
   });
 
   it('with part of the plan already held, it offers only the rest and says what is still open', async () => {

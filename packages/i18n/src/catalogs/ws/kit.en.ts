@@ -199,6 +199,11 @@ export const kitEn = {
     /** Shown when a click outside a must-answer dialog is refused (Modal requireChoice). */
     chooseOne: 'Choose one of the options to continue',
   },
+  /** A capped stacking list's control (components/kit.tsx ViewMore). */
+  list: {
+    viewMore: 'View more ({count})',
+    showLess: 'Show less',
+  },
   /** Accessible name of the InfoTip's default trigger (components/InfoTip.tsx). */
   infoTip: {
     label: 'More about this',

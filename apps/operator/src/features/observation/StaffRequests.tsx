@@ -37,7 +37,9 @@ import {
   StatusBadge,
   TableSkeleton,
   Toolbar,
+  ViewMore,
   asyncStatus,
+  useListCap,
   type Column,
 } from '../../components/kit';
 import {
@@ -84,6 +86,8 @@ export function StaffRequestsScreen() {
     const all = q.data?.requests ?? [];
     return filter === 'decided' ? all.filter((r) => r.status !== 'pending') : all;
   }, [q.data, filter]);
+  // Owner's rule (2026-10-08): three requests, then "View more"; capped after the filter.
+  const cap = useListCap(rows);
 
   const decide = useMutation({
     mutationFn: ({ id, approve, note }: { id: string; approve: boolean; note: string }) =>
@@ -230,7 +234,8 @@ export function StaffRequestsScreen() {
           />
         }
       >
-        <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} />
+        <DataTable columns={columns} rows={cap.shown} rowKey={(r) => r.id} />
+        <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
       </AsyncStateWrapper>
 
       {deciding && (

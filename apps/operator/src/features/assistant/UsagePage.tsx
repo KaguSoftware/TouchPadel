@@ -13,7 +13,7 @@ import { VENUE_TZ, formatDate, formatMonthYear, formatNumber } from '@touch/i18n
 import { useLocale } from '../../lib/i18n';
 import { QK as SHARED_QK, fetchVenueSettings } from '../../lib/queries';
 import { useToast } from '../../components/toast';
-import { AsyncStateWrapper, DataTable, PageHeader, Panel, asyncStatus, type Column } from '../../components/kit';
+import { AsyncStateWrapper, DataTable, PageHeader, Panel, ViewMore, asyncStatus, useListCap, type Column } from '../../components/kit';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { TOKEN_KINDS, formatTokens, formatUsd, isBlendedFallback, type PricingRates } from '../../lib/assistantPricing';
 import { QK, fetchConversations, fetchModels, fetchUsage, setDefaultModel, setMonthlyCap, type UsageDay } from './api';
@@ -41,8 +41,10 @@ export function UsagePageScreen() {
   const convs = useQuery({ queryKey: QK.conversations, queryFn: fetchConversations, staleTime: 60_000 });
 
   const days = useMemo(() => (q.data?.days ?? []).slice().sort((a, b) => (a.usage_date < b.usage_date ? 1 : -1)), [q.data]);
+  // Owner's rule (2026-10-08): the newest three days, then "View more". The totals row reads every day.
+  const daysCap = useListCap(days);
   const totals = useMemo(() => {
-    const sum = { requests: 0, model_calls: 0, input_tokens: 0, cache_write_tokens: 0, cache_read_tokens: 0, output_tokens: 0, cost_micros: 0 };
+    const sum = { requests: 0, model_calls: 0, input_tokens: 0, cache_write_tokens: 0, cache_read_tokens: 0, output_tokens: 0, web_searches: 0, cost_micros: 0 };
     for (const d of days) {
       sum.requests += d.requests;
       sum.model_calls += d.model_calls;
@@ -50,6 +52,7 @@ export function UsagePageScreen() {
       sum.cache_write_tokens += d.cache_write_tokens;
       sum.cache_read_tokens += d.cache_read_tokens;
       sum.output_tokens += d.output_tokens;
+      sum.web_searches += d.web_searches ?? 0;
       sum.cost_micros += d.cost_micros;
     }
     return sum;
@@ -88,6 +91,7 @@ export function UsagePageScreen() {
     { key: 'cacheWrite', header: tr('ws.owner.assistant.usage.cols.cacheWrite'), numeric: true, render: (r) => iso(formatTokens(r.cache_write_tokens)), truncateTitle: (r) => String(r.cache_write_tokens) },
     { key: 'cacheRead', header: tr('ws.owner.assistant.usage.cols.cacheRead'), numeric: true, render: (r) => iso(formatTokens(r.cache_read_tokens)), truncateTitle: (r) => String(r.cache_read_tokens) },
     { key: 'output', header: tr('ws.owner.assistant.usage.cols.output'), numeric: true, render: (r) => iso(formatTokens(r.output_tokens)), truncateTitle: (r) => String(r.output_tokens) },
+    { key: 'searches', header: tr('ws.owner.assistant.usage.cols.searches'), numeric: true, render: (r) => num(r.web_searches ?? 0) },
     { key: 'cost', header: tr('ws.owner.assistant.usage.cols.cost'), numeric: true, render: (r) => iso(formatUsd(r.cost_micros)) },
   ];
 
@@ -126,7 +130,7 @@ export function UsagePageScreen() {
       <AsyncStateWrapper status={asyncStatus(q, (d) => d.days.length === 0)} error={q.error} onRetry={() => void q.refetch()} kind="initial" emptyContent={<p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.usage.empty')}</p>}>
         <DataTable
           columns={columns}
-          rows={days}
+          rows={daysCap.shown}
           rowKey={(r) => r.usage_date}
           dense
           aria-label={tr('ws.owner.assistant.usage.title')}
@@ -142,6 +146,7 @@ export function UsagePageScreen() {
                 iso(formatTokens(totals.cache_write_tokens)),
                 iso(formatTokens(totals.cache_read_tokens)),
                 iso(formatTokens(totals.output_tokens)),
+                num(totals.web_searches),
                 iso(formatUsd(totals.cost_micros)),
               ].map((v, i) => (
                 <td key={i} data-align="end" style={{ ...totalCell, fontFamily: 'var(--tp-font-numeric)' }}>
@@ -151,6 +156,7 @@ export function UsagePageScreen() {
             </tr>
           }
         />
+        <ViewMore hidden={daysCap.hidden} open={daysCap.open} onToggle={daysCap.toggle} />
       </AsyncStateWrapper>
 
       {q.data && (
@@ -210,6 +216,9 @@ export function UsagePageScreen() {
             <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.usage.fallbackNote', { price: iso(formatUsd(fallback)) })}</p>
             {blended.length > 0 && (
               <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-warn-fg)' }}>{tr('ws.owner.assistant.usage.blendedNote', { models: blended.map((m) => iso(m)).join(', ') })}</p>
+            )}
+            {typeof q.data.web_search_micros === 'number' && (
+              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.usage.searchNote', { price: iso(formatUsd(q.data.web_search_micros)) })}</p>
             )}
           </div>
         </Panel>

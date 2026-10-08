@@ -26,7 +26,7 @@ import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button } from '../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, StatusBadge, TableSkeleton, ViewMore, asyncStatus, useListCap, type Column } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
 import { useStockFormat } from './stockUi';
 import { ALERT_ORDER, alertKind, type AlertKind } from './stockLogic';
@@ -159,6 +159,8 @@ function AlertGroup({
   const fmt = useStockFormat();
   const navigate = useNavigate();
   const href = KIND_HREF[kind];
+  // Owner's rule (2026-10-08): three alerts per group, then "View more". "Dismiss all" still takes every one.
+  const listed = useListCap(rows);
 
   const detail = (a: AlertRow): string => {
     const ing = a.payload.ingredient_id ? ingredientOf.get(a.payload.ingredient_id) : undefined;
@@ -239,7 +241,8 @@ function AlertGroup({
           </Button>
         )}
       </div>
-      <DataTable columns={columns} rows={rows} rowKey={(a) => a.id} dense aria-label={tr(`ws.manager.stock.alerts.kind.${kind}`)} />
+      <DataTable columns={columns} rows={listed.shown} rowKey={(a) => a.id} dense aria-label={tr(`ws.manager.stock.alerts.kind.${kind}`)} />
+      <ViewMore hidden={listed.hidden} open={listed.open} onToggle={listed.toggle} />
     </Panel>
   );
 }

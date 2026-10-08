@@ -118,6 +118,20 @@ describe('Requests to marketing', () => {
     expect(within(panel).queryByText('A post about the pistachio cake')).toBeNull();
   });
 
+  it('shows three requests, then View more opens the rest, and says "shown of total" only once they are all on screen', async () => {
+    const user = userEvent.setup();
+    const many = ['r1', 'r2', 'r3', 'r4', 'r5'].map((id) => request({ id, title: `Request ${id}` }));
+    pages.open = { requests: many, open_count: 9, total: 9 };
+    renderPanel();
+    const panel = await screen.findByTestId('marketing-requests');
+    await within(panel).findByText('Request r3');
+    expect(panel.querySelectorAll('[data-request]')).toHaveLength(3);
+    expect(within(panel).queryByText(/^Showing /)).toBeNull();
+    await user.click(within(panel).getByRole('button', { name: 'View more (2)' }));
+    expect(panel.querySelectorAll('[data-request]')).toHaveLength(5);
+    expect(within(panel).getByText('Showing 5 of 9.')).toBeTruthy();
+  });
+
   it('says so when nothing is waiting, with no count', async () => {
     pages.open = { requests: [], open_count: 0, total: 0 };
     renderPanel();

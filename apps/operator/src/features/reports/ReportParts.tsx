@@ -43,8 +43,10 @@ import {
   SegmentedControl,
   TableSkeleton,
   Toolbar,
+  ViewMore,
   asyncStatus,
   presetPeriod,
+  useListCap,
   type Column,
   type ComparisonMode,
   type Period,
@@ -333,6 +335,7 @@ export function ReportTable<T>({
   onRowClick,
   label,
   sortable = true,
+  cap = true,
 }: {
   columns: readonly ReportColumn<T>[];
   rows: readonly T[];
@@ -340,10 +343,19 @@ export function ReportTable<T>({
   onRowClick?: (row: T) => void;
   label: string;
   sortable?: boolean;
+  /**
+   * Owner's rule (2026-10-08): a list that stacks down the page shows three
+   * rows, then "View more (n)". Off for a table whose rows are a fixed axis
+   * (every court, every category, every reason), which reads as one picture.
+   * Only the drawn rows are capped; exports take `rows` whole.
+   */
+  cap?: boolean;
 }) {
   const [sort, setSort] = useState<SortState | null>(null);
   const active = sort ? columns.find((c) => c.key === sort.key) : undefined;
   const sorted = useMemo(() => sortBy(rows, active?.sort ?? null, sort?.dir ?? 'asc'), [rows, active, sort]);
+  // Capped after sorting, so the three shown are the top of the order the reader chose.
+  const listed = useListCap(sorted, cap ? undefined : Infinity);
   const dataColumns: Column<T>[] = columns.map((c) => ({
     key: c.key,
     header: c.header,
@@ -354,17 +366,20 @@ export function ReportTable<T>({
     truncateTitle: c.truncateTitle,
   }));
   return (
-    <DataTable
-      aria-label={label}
-      columns={dataColumns}
-      rows={sorted}
-      rowKey={rowKey}
-      sort={sortable ? sort : null}
-      // A number is read biggest-first; a name or a date in its natural order.
-      onSort={sortable ? (next) => setSort(sort?.key === next.key ? next : { key: next.key, dir: columns.find((c) => c.key === next.key)?.numeric ? 'desc' : 'asc' }) : undefined}
-      onRowClick={onRowClick}
-      dense
-    />
+    <div>
+      <DataTable
+        aria-label={label}
+        columns={dataColumns}
+        rows={listed.shown}
+        rowKey={rowKey}
+        sort={sortable ? sort : null}
+        // A number is read biggest-first; a name or a date in its natural order.
+        onSort={sortable ? (next) => setSort(sort?.key === next.key ? next : { key: next.key, dir: columns.find((c) => c.key === next.key)?.numeric ? 'desc' : 'asc' }) : undefined}
+        onRowClick={onRowClick}
+        dense
+      />
+      <ViewMore hidden={listed.hidden} open={listed.open} onToggle={listed.toggle} />
+    </div>
   );
 }
 

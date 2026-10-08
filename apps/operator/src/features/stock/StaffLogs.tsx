@@ -25,7 +25,7 @@ import { appRpc } from '../../lib/appRpc';
 import { pickName, useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, inputStyle } from '../../components/ui';
-import { Panel, SegmentedControl, StatusBadge } from '../../components/kit';
+import { Panel, SegmentedControl, StatusBadge, ViewMore, useListCap } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { decimalKeystroke } from './decimalInput';
@@ -48,6 +48,11 @@ export function StaffLogs() {
   const logs = useMemo(() => readStaffLogs(q.data ?? []), [q.data]);
   const [showCosted, setShowCosted] = useState(false);
   const [editing, setEditing] = useState<Editing | null>(null);
+  const needing = logs.filter(logNeedsCost);
+  const costed = logs.filter((l) => !logNeedsCost(l));
+  const toCost = linesNeedingCost(logs);
+  const shown = showCosted ? logs : needing;
+  const cap = useListCap(shown);
 
   if (q.isError && logs.length === 0) {
     return (
@@ -62,11 +67,6 @@ export function StaffLogs() {
     );
   }
   if (logs.length === 0) return null;
-
-  const needing = logs.filter(logNeedsCost);
-  const costed = logs.filter((l) => !logNeedsCost(l));
-  const toCost = linesNeedingCost(logs);
-  const shown = showCosted ? logs : needing;
 
   // Nothing waits for a cost: one quiet line above Goods in's own form, not a
   // card that pushes it down. It opens into the card when asked.
@@ -105,11 +105,12 @@ export function StaffLogs() {
       )}
       {shown.length > 0 && (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
-          {shown.map((log) => (
+          {cap.shown.map((log) => (
             <LogRow key={log.id} log={log} ingredientOf={ingredientOf} editing={editing} onEdit={setEditing} locale={locale} />
           ))}
         </ul>
       )}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
       {costed.length > 0 && (
         <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
           <Button size="sm" kind="ghost" icon={showCosted ? 'chevronUp' : 'chevronDown'} aria-expanded={showCosted} onClick={() => setShowCosted((v) => !v)} data-testid="staff-logs-toggle">

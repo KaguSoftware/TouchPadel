@@ -24,7 +24,7 @@ import { QK } from '../../lib/queryKeys';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
-import { DescriptionList, StatusBadge } from '../../components/kit';
+import { DescriptionList, LIST_CAP, StatusBadge, ViewMore, useListCap } from '../../components/kit';
 import { ChevronForward } from '../../components/icons';
 import { PhotoViewer, StaffPhotoThumb } from '../checklists/StaffPhoto';
 import { useStockFormat } from '../stock/stockUi';
@@ -71,6 +71,8 @@ export function IdeasToReviewList({ onStart, onOpen, compact }: { onStart: (idea
   const { tr, locale } = useLocale();
   const q = useIdeasToReview();
   const { ideas } = readIdeasToReview(q.data);
+  // On a page the list stops at three; inside the /protocols dialog (onOpen) it is already boxed in.
+  const cap = useListCap(ideas, onOpen ? Infinity : LIST_CAP);
   const [ownOpen, setOpen] = useState<IdeaRow | null>(null);
   const open = onOpen ? null : ownOpen;
 
@@ -81,7 +83,7 @@ export function IdeasToReviewList({ onStart, onOpen, compact }: { onStart: (idea
   return (
     <>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-        {ideas.map((idea) => (
+        {cap.shown.map((idea) => (
           <li key={idea.id}>
             <button
               type="button"
@@ -126,6 +128,7 @@ export function IdeasToReviewList({ onStart, onOpen, compact }: { onStart: (idea
           </li>
         ))}
       </ul>
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
       {open && (
         <IdeaSheet
           idea={open}

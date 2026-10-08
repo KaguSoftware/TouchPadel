@@ -13,6 +13,7 @@ import {
   marginFlag,
   matchesName,
   matchesOnHandFilter,
+  sortMargins,
   needsCount,
   onHandStatus,
   parseOnHandFilter,
@@ -220,5 +221,16 @@ describe('margins', () => {
     expect(marginFlag({ margin_iqd: 500, margin_percent: 20 })).toBe('thin');
     expect(marginFlag({ margin_iqd: 500, margin_percent: 30 })).toBeNull();
     expect(marginFlag({ margin_iqd: 500, margin_percent: null })).toBeNull();
+  });
+
+  it('sorts both ways and keeps an item with no percent last', () => {
+    const row = (n: string, margin_iqd: number, margin_percent: number | null, price_iqd = 1000, cogs_iqd = 400) => ({ n, margin_iqd, margin_percent, price_iqd, cogs_iqd });
+    const rows = [row('b', 300, 30), row('free', 0, null), row('a', 700, 70), row('c', -50, -5)];
+    const names = (sort: Parameters<typeof sortMargins>[1]) => sortMargins(rows, sort, (r) => r.n).map((r) => r.n);
+    expect(names('pctAsc')).toEqual(['c', 'b', 'a', 'free']);
+    expect(names('pctDesc')).toEqual(['a', 'b', 'c', 'free']);
+    expect(names('marginDesc')).toEqual(['a', 'b', 'free', 'c']);
+    expect(names('name')).toEqual(['a', 'b', 'c', 'free']);
+    expect(rows.map((r) => r.n)).toEqual(['b', 'free', 'a', 'c']); // the input is untouched
   });
 });

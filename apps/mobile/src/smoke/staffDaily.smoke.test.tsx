@@ -13,12 +13,13 @@
  * needs one, the head's write and ask buttons that the team members lack, the
  * manager's view of everyone's suggestions, and the owner's decision.
  */
-import { describe, expect, it } from '@jest/globals';
-import { fireEvent } from '@testing-library/react-native';
+import { describe, expect, it, jest } from '@jest/globals';
+import { fireEvent, waitFor, within } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { staffKeys } from '../features/staff/keys';
+import { supabase } from '../lib/supabase';
 import type { ChecklistsToday } from '../features/staff/checklists/logic';
 import type { ProductionItem, ProductionLogRow } from '../features/staff/supplies/production';
 import type { StockView } from '../features/staff/stock/logic';
@@ -70,6 +71,42 @@ const CHECKLISTS: ChecklistsToday = {
           photo_path: null,
         },
       ],
+    },
+    // 0323: the barista's own Sunday list, still open on Friday and overdue since Sunday.
+    {
+      run_id: 'run-mine',
+      role: null,
+      slot: 'open',
+      name_en: 'Descale the grinder',
+      name_ar: 'إزالة الترسبات من المطحنة',
+      done: 0,
+      total: 1,
+      items: [
+        {
+          id: 'line-3',
+          position: 1,
+          text_en: 'Run the cleaning tablets',
+          text_ar: 'شغّل أقراص التنظيف',
+          done_by_name: null,
+          done_at: null,
+          note: null,
+          photo_required: false,
+          photo_path: null,
+        },
+      ],
+      template_id: 'tpl-mine',
+      audience: 'people',
+      copy_mode: 'each',
+      repeat_kind: 'weekdays',
+      weekdays: [0],
+      month_days: null,
+      period_start: '2026-09-20',
+      period_end: '2026-09-26',
+      due_at: '2026-09-20T06:00:00Z',
+      overdue: true,
+      assignee_id: 'staff-me',
+      // Due by a typed time: its slot ('open') is only derived from it.
+      due_time: '09:00',
     },
   ],
 };
@@ -268,6 +305,54 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
       expect(screen.getByTestId('staff-checklist.item.line-1').props.accessibilityState.checked).toBe(true);
     } finally {
       screen.unmount();
+    }
+  });
+
+  // 0323: a scheduled list shows how it repeats and since when it is late.
+  it('shows an overdue person list with its repeat and an Overdue since tag', () => {
+    const screen = renderRoute(StaffChecklist, {
+      locale,
+      staff: { role: 'barista' },
+      queryData: [[staffKeys.checklists(V), CHECKLISTS]],
+    });
+    try {
+      expect(screen.getByText(t('staff.checklists.repeat.weekly', { day: t('staff.checklists.days.sun') }))).toBeTruthy();
+      expect(screen.getByText(t('staff.checklists.overdueSinceDay', { day: t('staff.checklists.days.sun') }))).toBeTruthy();
+      expect(screen.getByTestId('staff-checklist.item.line-3').props.accessibilityState.checked).toBe(false);
+      // The shared list from before 0323 carries neither line.
+      expect(screen.queryByText(t('staff.checklists.repeat.daily'))).toBeNull();
+      // Only the real opening list says "Opening"; the set-time list is told by its due line.
+      expect(screen.getAllByText(t('work.checklist.slot.open'))).toHaveLength(1);
+      expect(screen.direction()).toBe(locale === 'ar' ? 'rtl' : 'ltr');
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('says the list has ended and reads the lists again when a tick is refused CHECKLIST_CLOSED', async () => {
+    const rpc = jest.fn((name: string) =>
+      Promise.resolve(
+        name === 'my_checklists_today'
+          ? { data: CHECKLISTS, error: null }
+          : { data: null, error: { message: 'CHECKLIST_CLOSED', code: 'P0001', details: null } },
+      ),
+    );
+    Object.assign(supabase, { schema: () => ({ rpc }) });
+    const screen = renderRoute(StaffChecklist, {
+      locale,
+      staff: { role: 'barista' },
+      queryData: [[staffKeys.checklists(V), CHECKLISTS]],
+    });
+    try {
+      fireEvent.press(screen.getByTestId('staff-checklist.item.line-3'));
+      await waitFor(() => expect(screen.getByText(t('staff.checklists.closed'))).toBeTruthy());
+      expect(rpc).toHaveBeenCalledWith('mark_checklist_item', { p_item_id: 'line-3', p_done: true });
+      await waitFor(() => expect(rpc).toHaveBeenCalledWith('my_checklists_today', { p_venue_id: V }));
+      // No error line under the item: the toast said it.
+      expect(within(screen.getByTestId('staff-checklist.item.line-3')).queryByText(t('staff.checklists.closed'))).toBeNull();
+    } finally {
+      screen.unmount();
+      delete (supabase as { schema?: unknown }).schema;
     }
   });
 

@@ -247,6 +247,22 @@ const summary = (s: DayState): Record<string, [number, number, string[]]> =>
     s.lists.map((l) => [`${l.role}:${l.slot}`, [l.total, l.done, l.open_items.map((i) => i.text_en)]] as const),
   );
 
+/**
+ * checklist_schedules (0323) adds per-run fields (template_id, assignee_name,
+ * due_at, overdue, period_start, period_end, assignee_id, run_id) to every entry; the 0165 keys
+ * keep their values. This projects a payload onto them, for the comparisons
+ * with the 0165 body.
+ */
+const LEGACY_KEYS = ['done', 'name_ar', 'name_en', 'open_items', 'role', 'slot', 'total'] as const;
+const legacy = (s: unknown) => {
+  const d = s as DayState;
+  return {
+    ...d,
+    lists: d.lists.map((l) =>
+      Object.fromEntries(LEGACY_KEYS.map((k) => [k, (l as unknown as Record<string, unknown>)[k]])),
+    ),
+  };
+};
 const BAR_OPEN = ['Turn on the grinder', 'Check the milk', 'Wipe the bar'];
 const CASH_OPEN = ['Count the float', 'Print the Z report', 'Wipe the counter'];
 
@@ -311,7 +327,7 @@ describe.skipIf(!docker)('checklist_day_state as of the end of a past business d
       T('cash_today', 'cash1', `select app.my_checklists_today({{venue}})`),
       RES('ci1', 'cash_today', 'lists,0,items,0,id'),
       T('cash_tick', 'cash1', `select app.mark_checklist_item({{ci1}}, true)`),
-      Q('cash_shift', `with x as (update checklist_runs set business_date = business_date - 1
+      Q('cash_shift', `with x as (update checklist_runs set business_date = business_date - 1, period_end = period_end - 1
                                    where venue_id = {{venue}} and role = 'cashier' returning 1)
                        select count(*)::text::jsonb from x`),
       T('cash_cut', 'owner', save('cashier', 'open', 1, 'Till opening', ['Count the float'])),
@@ -391,10 +407,11 @@ describe.skipIf(!docker)('checklist_day_state as of the end of a past business d
     expect(old['head_chef:close']![0]).toBe(4);
     expect(old['head_barista:open']![0]).toBe(2);
 
-    // Today, the default day and a later day: exactly 0165's payload.
-    expect(ok(r, 'd0_state')).toEqual(ok(r, 'd0_state_0165'));
-    expect(ok(r, 'default_state')).toEqual(ok(r, 'default_state_0165'));
-    expect(ok(r, 'later_state')).toEqual(ok(r, 'later_state_0165'));
+    // Today, the default day and a later day: exactly 0165's payload (on its
+    // keys: 0323 adds the schedule fields to each entry).
+    expect(legacy(ok(r, 'd0_state'))).toEqual(ok(r, 'd0_state_0165'));
+    expect(legacy(ok(r, 'default_state'))).toEqual(ok(r, 'default_state_0165'));
+    expect(legacy(ok(r, 'later_state'))).toEqual(ok(r, 'later_state_0165'));
     expect(ok(r, 'default_state')).toEqual(ok(r, 'd0_state'));
     expect(summary(ok<DayState>(r, 'd0_state'))).toEqual({
       'cashier:open': [1, 0, ['Count the float']],
@@ -473,7 +490,12 @@ describe.skipIf(!docker)('checklist_day_state as of the end of a past business d
     // The payload's keys, on each kind of list: from the run (today's
     // barista open), from the template (barista close), from the audit count
     // (yesterday's barista open).
-    const LIST_KEYS = ['done', 'name_ar', 'name_en', 'open_items', 'role', 'slot', 'total'];
+    // 0323 (checklist_schedules) adds the run's template, person (name and
+    // id), the run's id, due time and occurrence to the 0165 keys.
+    const LIST_KEYS = [
+      'assignee_id', 'assignee_name', 'done', 'due_at', 'name_ar', 'name_en', 'open_items', 'overdue', 'period_end',
+      'period_start', 'role', 'run_id', 'slot', 'template_id', 'total',
+    ];
     for (const label of ['today_state', 'y_state']) {
       const s = ok<DayState>(r, label);
       expect(Object.keys(s).sort(), label).toEqual(['business_date', 'lists']);

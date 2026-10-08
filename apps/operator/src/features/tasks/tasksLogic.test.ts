@@ -87,6 +87,27 @@ describe('phone copies', () => {
     expect(rows).toEqual([{ id: 'c1', title: 'Closing', detail: '2 of 2 done', lines: [], status: { label: 'Finished', tone: 'success' } }]);
   });
 
+  it('says when a checklist is due, and tags an overdue one (0323)', () => {
+    const now = new Date('2026-10-11T05:00:00Z');
+    const rows = phoneRows(
+      'checklists',
+      {
+        lists: [
+          { run_id: 'c1', slot: 'open', name_en: 'Opening', name_ar: 'الافتتاح', done: 0, total: 2, due_at: '2026-10-11T04:00:00Z', overdue: true, items: [] },
+          { run_id: 'c2', slot: 'close', name_en: 'Closing', name_ar: 'الإغلاق', done: 0, total: 1, due_at: '2026-10-11T19:00:00Z', overdue: false, items: [] },
+          { run_id: 'c3', slot: 'close', name_en: 'Done', name_ar: 'منجزة', done: 1, total: 1, due_at: '2026-10-11T04:00:00Z', overdue: true, items: [] },
+        ],
+      },
+      { ...ctx, now },
+    );
+    expect(rows[0]!.detail).toMatch(/^0 of 2 done · Due 7:00\sAM$/);
+    expect(rows[0]!.status).toEqual({ label: 'Overdue', tone: 'danger' });
+    expect(rows[1]!.detail).toMatch(/^0 of 1 done · Due 10:00\sPM$/);
+    expect(rows[1]!.status).toBeUndefined();
+    // A finished list is never overdue and needs no due time.
+    expect(rows[2]).toMatchObject({ detail: '1 of 1 done', status: { label: 'Finished', tone: 'success' } });
+  });
+
   it('shows stock as quantities only, low first as the server orders it', () => {
     const rows = phoneRows(
       'stock',

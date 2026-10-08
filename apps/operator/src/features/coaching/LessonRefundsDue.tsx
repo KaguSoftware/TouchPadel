@@ -26,7 +26,7 @@ import { useLocale } from '../../lib/i18n';
 import { QK } from '../../lib/queryKeys';
 import { useToast } from '../../components/toast';
 import { Button } from '../../components/ui';
-import { Panel } from '../../components/kit';
+import { Panel, ViewMore, useListCap } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { RefundDialog } from '../till/ManagerActions';
 import { BlockedRefundDialog } from './BlockedRefundDialog';
@@ -169,6 +169,7 @@ export function OnlineBlockedLine({ item }: { item: RefundDueItem }) {
 /** The lesson screen's warn panel (§5.10.10): one row per item and payment. */
 export function LessonRefundsDue({ items }: { items: readonly RefundDueItem[] }) {
   const { tr, locale } = useLocale();
+  const cap = useListCap(items);
   if (items.length === 0) return null;
   return (
     <Panel
@@ -184,7 +185,7 @@ export function LessonRefundsDue({ items }: { items: readonly RefundDueItem[] })
       <ul
         style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}
       >
-        {items.map((item) => {
+        {cap.shown.map((item) => {
           const payments = refundablePayments(item);
           const due = deskDueOf(item);
           return (
@@ -221,6 +222,7 @@ export function LessonRefundsDue({ items }: { items: readonly RefundDueItem[] })
           );
         })}
       </ul>
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
     </Panel>
   );
 }

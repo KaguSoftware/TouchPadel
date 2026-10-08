@@ -37,6 +37,7 @@ import {
   passShiftGate,
   seedMatchPlayers,
   serviceClient,
+  showEveryRow,
   signedInClient,
   venueBusinessDate,
   venueTime,
@@ -277,7 +278,10 @@ test.describe('operator tournaments', () => {
     await appRpc(svc, 'tournament_sweep', {});
     await page.reload();
     const entries = page.getByTestId('entries-panel');
-    await expect(entries.getByRole('row')).toHaveCount(10, { timeout: 30_000 }); // header + 9
+    // The entries table shows three until "View more" (header + 3).
+    await expect(entries.getByRole('row')).toHaveCount(4, { timeout: 30_000 });
+    await showEveryRow(page);
+    await expect(entries.getByRole('row')).toHaveCount(10); // header + 9
 
     // 3. One did not show: the waitlisted player takes the place.
     const absent = entries.getByRole('row').filter({ hasText: players[1]!.name });

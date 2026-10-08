@@ -45,7 +45,7 @@ import { usePermissions } from '../../lib/auth';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, inputStyle, Tabs, Skeleton } from '../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, ResultCount, SearchField, SegmentedControl, StatusBadge, Toolbar, asyncStatus, type Column } from '../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, ResultCount, SearchField, SegmentedControl, StatusBadge, Toolbar, ViewMore, asyncStatus, useListCap, type Column } from '../../components/kit';
 import { CardTitle, Step } from '../ops/OpsVisuals';
 import { Footnote, useStockFormat, useStoreName } from './stockUi';
 import { countEntryState, matchesName } from './stockLogic';
@@ -422,6 +422,7 @@ function PhoneCounts({ counts }: { counts: UnfinishedCount[] }) {
   const fmt = useStockFormat();
   const storeName = useStoreName();
   const [openId, setOpenId] = useState<string | null>(counts.length === 1 ? counts[0]!.id : null);
+  const cap = useListCap(counts);
 
   return (
     <Panel
@@ -431,7 +432,7 @@ function PhoneCounts({ counts }: { counts: UnfinishedCount[] }) {
     >
       <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.stores.counts.phone.lead')}</p>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-        {counts.map((c) => {
+        {cap.shown.map((c) => {
           const expanded = openId === c.id;
           return (
             <li key={c.id} data-count={c.id} style={{ borderRadius: 'var(--tp-radius-ctl)', background: 'var(--tp-surface-2)' }}>
@@ -451,6 +452,7 @@ function PhoneCounts({ counts }: { counts: UnfinishedCount[] }) {
           );
         })}
       </ul>
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
     </Panel>
   );
 }

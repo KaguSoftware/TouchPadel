@@ -29,8 +29,6 @@ export const courtDeskEn = {
     busyUntil: 'In use until {time}',
     busyBlocked: 'Blocked until {time}',
     bookCourt: 'Book this court',
-    showAllCourts: 'Show all courts ({count})',
-    showFewerCourts: 'Show fewer courts',
     markArrived: 'Mark arrived',
     emptyTitle: 'No bookings today',
     emptyBody: 'Book a guest with New booking or a free court below. Bookings made in the app appear here as soon as they are confirmed.',

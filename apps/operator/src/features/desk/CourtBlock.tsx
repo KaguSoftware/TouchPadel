@@ -33,7 +33,9 @@ import {
   PageHeader,
   Panel,
   StatusBadge,
+  ViewMore,
   asyncStatus,
+  useListCap,
   type Column,
 } from '../../components/kit';
 import { blockRangeInvalid } from './deskLogic';
@@ -290,6 +292,7 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
   });
 
   const [conflicts, setConflicts] = useState<BlockConflict[]>([]);
+  const conflictCap = useListCap(conflicts);
   const [justBlocked, setJustBlocked] = useState(false);
   const [note, setNote] = useState('');
   const [sent, setSent] = useState(false);
@@ -300,6 +303,8 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
 
   const ctx = ctxQ.data;
   const windows = ctx ? plannedWindows(ctx) : [];
+  // Owner's rule (2026-10-08): three windows, then "View more"; their order is kept.
+  const windowCap = useListCap(windows);
   const remaining = blocksToSend(windows).length;
   const blockedCount = plannedBlockIds(windows).length;
   const step = stepQ.data;
@@ -444,7 +449,7 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
                     style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
                   >
                     <ul style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', margin: 0, paddingInlineStart: 'var(--tp-sp-4)' }}>
-                      {conflicts.map((c) => (
+                      {conflictCap.shown.map((c) => (
                         <li key={conflictKey(c)}>
                           <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
                             <span>
@@ -471,12 +476,14 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
                         </li>
                       ))}
                     </ul>
+                    <ViewMore hidden={conflictCap.hidden} open={conflictCap.open} onToggle={conflictCap.toggle} />
                   </ConflictNotice>
                 )}
                 {justBlocked && conflicts.length === 0 && (
                   <MessagePresenter tone="success" message={tr('ws.events.block.blockedDone')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
                 )}
-                <DataTable columns={columns} rows={windows} rowKey={(w) => w.key} aria-label={tr('ws.events.block.windows')} dense />
+                <DataTable columns={columns} rows={windowCap.shown} rowKey={(w) => w.key} aria-label={tr('ws.events.block.windows')} dense />
+                <ViewMore hidden={windowCap.hidden} open={windowCap.open} onToggle={windowCap.toggle} />
                 <ErrorText error={block.error} />
                 {canWork && !sent && (
                   <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end', alignItems: 'center', marginBlockStart: 'var(--tp-sp-3)' }}>

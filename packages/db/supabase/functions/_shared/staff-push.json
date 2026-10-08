@@ -41,7 +41,10 @@
     "waiter_call_new",
     "match_report_new",
     "loyalty_gift",
-    "screenshot_taken"
+    "screenshot_taken",
+    "shop_price_changed",
+    "checklist_due",
+    "checklist_overdue"
   ],
   "routes": [
     "staff",

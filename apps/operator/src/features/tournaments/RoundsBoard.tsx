@@ -29,7 +29,7 @@ import { useLocale } from '../../lib/i18n';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
 import { Button, Field, Modal, inputStyle } from '../../components/ui';
-import { EmptyState, MessagePresenter, ReasonCodePrompt } from '../../components/kit';
+import { EmptyState, MessagePresenter, ReasonCodePrompt, ViewMore, useListCap } from '../../components/kit';
 import {
   activeEntries,
   boardAction,
@@ -99,6 +99,11 @@ export function RoundsBoard({
   };
   const planned = detail.rounds_planned ?? detail.rounds.length;
   const current = currentRoundNo(detail.rounds);
+  // Owner's rule (2026-10-08): three rounds, then "View more", round order kept.
+  // The round being played is the one the desk scores, so when it would sit
+  // past the first three the cap opens rather than fold it away.
+  const currentIndex = current === null ? -1 : detail.rounds.findIndex((r) => r.round_no === current);
+  const roundsCap = useListCap(detail.rounds, currentIndex >= 3 ? Infinity : undefined);
   const mayDraw = canRun && detail.can.set_rounds && reachable;
 
   async function send(build: () => ReturnType<typeof buildStart>) {
@@ -238,7 +243,7 @@ export function RoundsBoard({
               alignItems: 'start',
             }}
           >
-            {detail.rounds.map((r) => (
+            {roundsCap.shown.map((r) => (
               <RoundPanel
                 key={r.round_no}
                 round={r}
@@ -259,6 +264,12 @@ export function RoundsBoard({
                 onChanged={onRefetch}
               />
             ))}
+            <ViewMore
+              hidden={roundsCap.hidden}
+              open={roundsCap.open}
+              onToggle={roundsCap.toggle}
+              style={{ gridColumn: '1 / -1', marginBlockStart: 0 }}
+            />
           </div>
           <Leaderboard detail={detail} nameOf={nameOf} onShowAll={onShowStandings} />
         </div>

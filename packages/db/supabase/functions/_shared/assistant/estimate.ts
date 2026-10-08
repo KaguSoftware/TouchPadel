@@ -5,6 +5,14 @@
  * shows the multiplication and the same +15 %; `first_chunk_exact` is filled
  * in by the edge function from `count_tokens` when a key is present.
  *
+ * Since the cheaper-jobs pass (2026-10-08): chunk extraction (live and batch)
+ * runs on JOB_EXTRACT_MODEL, Sonnet 5.5, because pulling counts and sums out of
+ * one chunk is mechanical; the reduce step stays on the job's own model (the
+ * chat's, it writes the owner's answer). `by_step` splits the same token
+ * figures by step so the card prices each step at its own model's rates;
+ * `tokens` / `tokens_high` stay the sums, so older readers and the
+ * over-estimate pause (token totals, model-blind) are unchanged.
+ *
  * Pure: imports only the catalog.
  */
 import { TOKENS_PER_ROW_FALLBACK, type ToolSpec } from './tools.ts';
@@ -21,6 +29,14 @@ export const REDUCE_OUTPUT_TOKENS = 1500;
 export const AGGREGATE_CALL_TOKENS = 2000;
 /** Live jobs must finish inside the edge function's wall clock (§4.3): at most this many chunks. */
 export const LIVE_MAX_CHUNKS = 40;
+/**
+ * The model every chunk extraction runs on, live and batch (owner rule
+ * 0307/0312: only claude-opus-5-5 and claude-sonnet-5-5). The reduce step is
+ * not here: it runs on the job's model, which this pure estimator never sees.
+ */
+export const JOB_EXTRACT_MODEL = 'claude-sonnet-5-5';
+/** Live chunks in flight at once (assistant-job runLive, _shared/assistant/pool.ts). */
+export const JOB_LIVE_CONCURRENCY = 4;
 /** The range shown on the card: the multiplication, and the same +15 %. */
 export const HIGH_BAND = 1.15;
 /** Rows per chunk when a list tool has no `chunk_rows` in the catalog. */
@@ -46,6 +62,13 @@ export interface TokenBreakdown {
   total: number;
 }
 
+/** One step of a job priced at one model. `model: null` is the job's own model (the chat's). */
+export interface EstimateStep {
+  model: string | null;
+  tokens: TokenBreakdown;
+  tokens_high: TokenBreakdown;
+}
+
 export interface JobEstimate {
   job_id: string;
   rows: number;
@@ -53,6 +76,12 @@ export interface JobEstimate {
   per_tool: { tool: string; rows: number; chunk_rows: number; tokens_per_row: number; measured: boolean }[];
   tokens: TokenBreakdown;
   tokens_high: TokenBreakdown;
+  /**
+   * The same tokens by step: `extract` on JOB_EXTRACT_MODEL, `reduce` on the
+   * job's model (null). `tokens` is their sum. Absent on estimates stored
+   * before 2026-10-08; a reader then prices `tokens` at the chat's model.
+   */
+  by_step?: { extract: EstimateStep & { model: string }; reduce: EstimateStep & { model: null } };
   modes: {
     aggregate: { calls: JobCall[]; tokens_est: number } | null;
     live: { allowed: boolean; reason?: string };
@@ -63,6 +92,13 @@ export interface JobEstimate {
 }
 
 export type EstimateBody = Omit<JobEstimate, 'job_id' | 'first_chunk_exact'>;
+
+const sumOf = (a: TokenBreakdown, b: TokenBreakdown): TokenBreakdown => {
+  const input = a.input + b.input;
+  const cache_read = a.cache_read + b.cache_read;
+  const output = a.output + b.output;
+  return { input, cache_read, output, total: input + cache_read + output };
+};
 
 function band(t: TokenBreakdown): TokenBreakdown {
   const up = (n: number) => Math.ceil(n * HIGH_BAND);
@@ -98,17 +134,20 @@ export function estimateJob(plan: JobPlan, counts: Readonly<Record<string, numbe
     rowTokens += n * tokens_per_row;
   }
 
-  // §6.2
-  const chunkInput = chunks * CHUNK_PROMPT_TOKENS + rowTokens;
-  const reduceInput = chunks > 0 ? chunks * CHUNK_OUTPUT_TOKENS + REDUCE_PROMPT_TOKENS : 0;
-  const input = chunkInput + reduceInput;
-  const cache_read = Math.max(0, chunks - 1) * CHUNK_PROMPT_TOKENS;
-  const output = chunks > 0 ? chunks * CHUNK_OUTPUT_TOKENS + REDUCE_OUTPUT_TOKENS : 0;
-  const tokens: TokenBreakdown = { input, cache_read, output, total: input + cache_read + output };
+  // §6.2, split by step: every chunk is an extraction call, the reduce one call.
+  const exInput = chunks * CHUNK_PROMPT_TOKENS + rowTokens;
+  const exCacheRead = Math.max(0, chunks - 1) * CHUNK_PROMPT_TOKENS;
+  const exOutput = chunks * CHUNK_OUTPUT_TOKENS;
+  const extract: TokenBreakdown = { input: exInput, cache_read: exCacheRead, output: exOutput, total: exInput + exCacheRead + exOutput };
+  const rdInput = chunks > 0 ? chunks * CHUNK_OUTPUT_TOKENS + REDUCE_PROMPT_TOKENS : 0;
+  const rdOutput = chunks > 0 ? REDUCE_OUTPUT_TOKENS : 0;
+  const reduce: TokenBreakdown = { input: rdInput, cache_read: 0, output: rdOutput, total: rdInput + rdOutput };
+  const tokens = sumOf(extract, reduce);
 
   assumptions.push(
     `chunk prompt ${CHUNK_PROMPT_TOKENS} tokens, chunk output ${CHUNK_OUTPUT_TOKENS}, reduce prompt ${REDUCE_PROMPT_TOKENS}, reduce output ${REDUCE_OUTPUT_TOKENS}`,
     `the prompt prefix is cached after the first chunk`,
+    `each chunk is read by ${JOB_EXTRACT_MODEL}; the final answer is written by the chat's model`,
     `high band is +${Math.round((HIGH_BAND - 1) * 100)} %`,
   );
 
@@ -128,9 +167,31 @@ export function estimateJob(plan: JobPlan, counts: Readonly<Record<string, numbe
     per_tool,
     tokens,
     tokens_high: band(tokens),
+    by_step: {
+      extract: { model: JOB_EXTRACT_MODEL, tokens: extract, tokens_high: band(extract) },
+      reduce: { model: null, tokens: reduce, tokens_high: band(reduce) },
+    },
     modes: { aggregate, live, batch: { allowed: true } },
     assumptions,
   };
+}
+
+/**
+ * One extraction call's tokens at the high band: the extract step's
+ * `tokens_high` over the chunks (an estimate without `by_step`, accepted before
+ * 2026-10-08, divides the whole job's, which only errs high). assistant-job
+ * prices it at JOB_EXTRACT_MODEL so the live pool can keep the calls it has in
+ * flight inside the monthly cap (pool.ts budgetAllows). Zero chunks → zeros.
+ */
+export function extractCallTokens(estimate: Pick<JobEstimate, 'chunks' | 'tokens_high' | 'by_step'>): TokenBreakdown {
+  const n = Math.max(0, Math.floor(estimate.chunks));
+  const from = estimate.by_step?.extract.tokens_high ?? estimate.tokens_high;
+  if (!n || !from) return { input: 0, cache_read: 0, output: 0, total: 0 };
+  const per = (v: number) => Math.ceil(Math.max(0, v) / n);
+  const input = per(from.input);
+  const cache_read = per(from.cache_read);
+  const output = per(from.output);
+  return { input, cache_read, output, total: input + cache_read + output };
 }
 
 /** Actual spend may exceed the accepted estimate by this factor before the job pauses (§6.4). */

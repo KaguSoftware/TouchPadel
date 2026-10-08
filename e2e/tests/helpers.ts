@@ -1366,3 +1366,16 @@ export async function cleanE2eLessons(svc: SupabaseClient): Promise<void> {
     await owner.auth.signOut();
   }
 }
+
+/**
+ * Open every capped list on the page. A stacking list shows three rows, then
+ * "View more (n)" (operator kit `ViewMore`, owner call 2026-10-08), so a
+ * journey that reaches for one particular row opens them all first. Each
+ * click turns its button into "Show less", so the loop ends.
+ */
+export async function showEveryRow(page: Page): Promise<void> {
+  const more = page.getByRole('button', { name: /^(View more|عرض المزيد) \(/ });
+  for (let i = 0; i < 20 && (await more.count()) > 0; i++) {
+    await more.first().click();
+  }
+}

@@ -57,14 +57,6 @@ export const wagesEn = {
       many: '{count} waiting',
       other: '{count} waiting',
     },
-    more: {
-      zero: 'no more',
-      one: '1 more',
-      two: '2 more',
-      few: '{count} more',
-      many: '{count} more',
-      other: '{count} more',
-    },
   },
   due: {
     title: 'Due now',

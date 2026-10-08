@@ -335,6 +335,24 @@ describe('LessonRosterPanel: rows and money lines (§5.10.4)', () => {
   });
 });
 
+describe('LessonRosterPanel: earlier sign-ups fold after three', () => {
+  it('shows three earlier rows under the live roster, then View more reveals the rest', async () => {
+    const user = userEvent.setup();
+    raw = rawDetail({}, [
+      rawEnrolment('e1'),
+      ...['c1', 'c2', 'c3', 'c4', 'c5'].map((id) => rawEnrolment(id, { status: 'cancelled', cancel_kind: 'guest_late' })),
+    ]);
+    await mount();
+    const earlier = () => document.querySelectorAll('[data-testid$="-earlier"]');
+    expect(row('e1')).toBeTruthy();
+    expect(earlier()).toHaveLength(3);
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
+    expect(earlier()).toHaveLength(5);
+    await user.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(earlier()).toHaveLength(3);
+  });
+});
+
 describe('LessonRosterPanel: attendance (§5.10.6)', () => {
   it('Arrived is optimistic: the chip shows before the server answers, and the buttons go', async () => {
     const user = userEvent.setup();

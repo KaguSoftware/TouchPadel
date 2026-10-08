@@ -46,6 +46,8 @@ import {
   ReasonCodePrompt,
   StatusBadge,
   TabStatusIndicator,
+  ViewMore,
+  useListCap,
   type CustomerFlagType,
 } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
@@ -116,6 +118,8 @@ export function CustomerRecordScreen() {
   // A server before 0262 sends no gender key and no matches: no open-match block on the record.
   const matchesKnown = rec ? playsAsOf(rec.customer).known || rec.matches !== undefined : false;
   const flagCount = rec ? editableFlags(rec.flags).length : 0;
+  const cafeCap = useListCap(rec?.cafeOrders ?? []);
+  const seriesCap = useListCap(rec?.series ?? []);
   const attachLabel =
     params.attach === 'booking'
       ? tr('ws.courtDesk.customers.attachBooking')
@@ -246,7 +250,7 @@ export function CustomerRecordScreen() {
                       </tr>
                     </thead>
                     <tbody>
-                      {rec.cafeOrders.map((o) => (
+                      {cafeCap.shown.map((o) => (
                         <tr key={o.id}>
                           <td>
                             <bdi>{formatDateTime(new Date(o.opened_at), locale, tz)}</bdi>
@@ -262,13 +266,14 @@ export function CustomerRecordScreen() {
                     </tbody>
                   </table>
                 )}
+                <ViewMore hidden={cafeCap.hidden} open={cafeCap.open} onToggle={cafeCap.toggle} style={UNPADDED_MORE} />
               </Panel>
               )}
               {rec.series.length > 0 && (
               <Panel title={tr('ws.courtDesk.record.series')}>
                 {(
                   <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.35rem' }}>
-                    {rec.series.map((s) => (
+                    {seriesCap.shown.map((s) => (
                       <li key={s.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <Icon name="repeat" size={14} style={{ color: 'var(--tp-muted-fg)' }} />
                         <bdi>{courtName(s.court_id)}</bdi>
@@ -285,6 +290,7 @@ export function CustomerRecordScreen() {
                     ))}
                   </ul>
                 )}
+                <ViewMore hidden={seriesCap.hidden} open={seriesCap.open} onToggle={seriesCap.toggle} />
               </Panel>
               )}
             </div>
@@ -308,6 +314,9 @@ export function CustomerRecordScreen() {
     </div>
   );
 }
+
+/** ViewMore inside an unpadded (table) panel: the panel body's own padding. */
+const UNPADDED_MORE = { marginBlockStart: 0, paddingBlock: '0.6rem', paddingInline: '0.85rem' } as const;
 
 // ---------------------------------------------------------------------------
 // Open matches (operator.md §5.15): plays as, the ban, their matches.
@@ -467,12 +476,13 @@ function MatchRows({
   const { tr, locale } = useLocale();
   const category = (c: string) => (c === 'open' || c === 'women' || c === 'men' ? tr(`ws.matches.common.category.${c}`) : c);
   const words = (key: MessageKey | null, raw: string | null) => (key ? tr(key) : (raw ?? '—'));
+  const cap = useListCap(rows);
   return (
     <section aria-label={title} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
       <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>{title}</h3>
       <table className="tp-table" data-dense="true">
         <tbody>
-          {rows.map((r) => {
+          {cap.shown.map((r) => {
             const kind = seatKindKey(r.kind);
             return (
               <tr key={r.match_id}>
@@ -506,6 +516,7 @@ function MatchRows({
           })}
         </tbody>
       </table>
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} style={{ marginBlockStart: 0 }} />
     </section>
   );
 }
@@ -515,6 +526,7 @@ function BookingsPanel({ title, empty, rows, tz, courtName }: { title: string; e
   // The RPC carries the court's names with each row; the courts query is only the fallback.
   const nameOf = (r: CustomerReservationRow) => (r.court_name_en && r.court_name_ar ? pickName(locale, { name_en: r.court_name_en, name_ar: r.court_name_ar }) : courtName(r.court_id));
   const navigate = useNavigate();
+  const cap = useListCap(rows);
   return (
     <Panel title={title} padded={rows.length === 0}>
       {rows.length === 0 ? (
@@ -522,7 +534,7 @@ function BookingsPanel({ title, empty, rows, tz, courtName }: { title: string; e
       ) : (
         <table className="tp-table" data-dense="true" aria-label={title}>
           <tbody>
-            {rows.map((r) => (
+            {cap.shown.map((r) => (
               <tr
                 key={r.id}
                 data-clickable="true"
@@ -552,6 +564,7 @@ function BookingsPanel({ title, empty, rows, tz, courtName }: { title: string; e
           </tbody>
         </table>
       )}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} style={UNPADDED_MORE} />
     </Panel>
   );
 }
@@ -564,6 +577,7 @@ export function NoteList({ customerId, notes, tz, onChanged }: { customerId: str
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const cap = useListCap(notes);
 
   async function add() {
     if (!draft.trim()) return;
@@ -586,11 +600,14 @@ export function NoteList({ customerId, notes, tz, onChanged }: { customerId: str
       {notes.length === 0 ? (
         <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: '0.75rem' }}>{tr('ws.courtDesk.record.noNotes')}</p>
       ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.5rem', marginBlockEnd: '0.75rem' }}>
-          {notes.map((n) => (
-            <NoteEntry key={n.id} note={n} tz={tz} onChanged={onChanged} />
-          ))}
-        </ul>
+        <div style={{ marginBlockEnd: '0.75rem' }}>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.5rem' }}>
+            {cap.shown.map((n) => (
+              <NoteEntry key={n.id} note={n} tz={tz} onChanged={onChanged} />
+            ))}
+          </ul>
+          <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+        </div>
       )}
       <Field label={tr('ws.courtDesk.record.addNote')}>
         <textarea style={{ ...inputStyle, minBlockSize: '4.5rem', resize: 'vertical' }} value={draft} disabled={busy} maxLength={2000} placeholder={tr('ws.courtDesk.record.notePlaceholder')} onChange={(e) => setDraft(e.target.value)} />

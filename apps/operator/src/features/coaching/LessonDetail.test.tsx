@@ -631,6 +631,27 @@ describe('LessonDetailScreen: not found, cancel, history, hand-backs', () => {
     );
   });
 
+  it('the history shows three events, then View more opens the rest in place', async () => {
+    const user = userEvent.setup();
+    const added = (h: number) => ({
+      at: `2026-10-01T${String(h).padStart(2, '0')}:00:00.000Z`,
+      type: 'added',
+      actor: 'u1',
+      actor_name: `Desk ${h}`,
+      enrolment_id: 'e1',
+      code: null,
+      late: false,
+    });
+    raw = rawDetail({}, [rawEnrolment()], [added(11), added(10), added(9), added(8), added(7)]);
+    mount();
+    await loaded();
+    const history = screen.getByRole('heading', { name: 'History' }).closest('section')!;
+    expect(within(history).getAllByText(/^Student added/)).toHaveLength(3);
+    await user.click(within(history).getByRole('button', { name: 'View more (2)' }));
+    expect(within(history).getAllByText(/^Student added/)).toHaveLength(5);
+    expect(plain(within(history).getByText(/Desk 7/).textContent)).toBe('Student added · Desk 7');
+  });
+
   it('?pay= opens Take payment on that sign-up at take_iqd, no part payment', async () => {
     search = { pay: 'e1' };
     raw = rawDetail();
@@ -801,6 +822,24 @@ describe('LessonDetailScreen: refunds due for a manager (§5.10.10)', () => {
     );
     expect(within(panel).queryByText(/Someone Else/)).toBeNull();
     expect(within(panel).getByRole('button', { name: 'Refund' })).toBeTruthy();
+  });
+
+  it('shows three people owed, then View more reveals the rest', async () => {
+    role = 'manager';
+    const names = ['Ali One', 'Ali Two', 'Ali Three', 'Ali Four'];
+    refunds = {
+      venue_id: 'v1',
+      total_iqd: 60000,
+      items: names.map((label, i) => item({ enrolment_id: `e${i}`, label })),
+    };
+    raw = rawDetail();
+    mount();
+    const panel = within(await screen.findByTestId('lesson-refunds-due'));
+    expect(panel.getAllByRole('button', { name: 'Refund' })).toHaveLength(3);
+    expect(panel.queryByText(/Ali Four/)).toBeNull();
+    await userEvent.click(panel.getByRole('button', { name: 'View more (1)' }));
+    expect(panel.getAllByRole('button', { name: 'Refund' })).toHaveLength(4);
+    expect(panel.getByText(/Ali Four/)).toBeTruthy();
   });
 
   it('the desk never sees it (court_desk has no refund)', async () => {

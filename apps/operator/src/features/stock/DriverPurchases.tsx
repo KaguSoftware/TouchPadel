@@ -54,7 +54,7 @@ import { pickName, useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { Button, ErrorText, Field, inputStyle, Skeleton } from '../../components/ui';
-import { DescriptionList, EmptyState, MessagePresenter, Money, Panel, StatusBadge } from '../../components/kit';
+import { DescriptionList, EmptyState, MessagePresenter, Money, Panel, StatusBadge, ViewMore, useListCap } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { todayIso } from '../admin/menu/availability';
@@ -136,6 +136,7 @@ export function DriverPurchasesPanel() {
   const navigate = useNavigate();
   const q = useQuery({ queryKey: QK.purchasesToReceive, queryFn: fetchPurchasesToReceive, refetchInterval: 60_000 });
   const purchases = useMemo(() => readPurchases(q.data), [q.data]);
+  const cap = useListCap(purchases);
 
   if (purchases.length === 0 && !q.isError) return null;
   return (
@@ -155,7 +156,7 @@ export function DriverPurchasesPanel() {
         <>
           <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.supplies.driver.lead')}</p>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-            {purchases.map((p) => (
+            {cap.shown.map((p) => (
               <li
                 key={p.id}
                 style={{
@@ -189,6 +190,7 @@ export function DriverPurchasesPanel() {
               </li>
             ))}
           </ul>
+          <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
         </>
       )}
     </Panel>

@@ -2263,6 +2263,7 @@ export const en = {
       SKU_TAKEN: 'That SKU is already on another product.',
       SUPPLIER_EXISTS: 'A supplier with that name already exists.',
       SUPPLIER_NOT_FOUND: 'Supplier not found.',
+      SUPPLIER_URL_INVALID: 'Paste the full https:// link of the product page on the supplier’s website.',
       LABEL_REQUIRED: 'A counter sale needs a name or a number.',
       MIXED_BASKET: 'Café items and shop items go out as two orders. Send again.',
       SHOP_ITEM_NOT_ORDERABLE: 'Shop items are sold at the counter, not from the table.',

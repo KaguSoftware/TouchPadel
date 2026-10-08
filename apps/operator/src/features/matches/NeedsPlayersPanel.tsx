@@ -18,7 +18,7 @@
 import type { ReactNode } from 'react';
 import { formatNumber, formatTime, formatTimeRange, type MessageKey } from '@touch/i18n';
 import { Button } from '../../components/ui';
-import { Panel, StatusBadge, type Tone } from '../../components/kit';
+import { Panel, StatusBadge, ViewMore, useListCap, type Tone } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { useLocale } from '../../lib/i18n';
 import { MATCH_SEATS, needsPlayersRows, type MatchReadStatus, type NeedsPlayersTag } from './matchLogic';
@@ -56,6 +56,8 @@ export function NeedsPlayersPanel(p: NeedsPlayersPanelProps) {
     </span>
   );
   const offline = p.reachable ? undefined : tr('ws.matches.offline.needsConnection');
+  const rows = p.status.kind === 'ready' ? needsPlayersRows(p.status.data) : [];
+  const cap = useListCap(rows);
 
   if (p.status.kind === 'failed') {
     return (
@@ -67,7 +69,6 @@ export function NeedsPlayersPanel(p: NeedsPlayersPanelProps) {
   if (p.status.kind !== 'ready') return null;
 
   const open = p.status.data;
-  const rows = needsPlayersRows(open);
   const enabled = open.matches_enabled;
   if (!enabled && rows.length === 0) return null;
 
@@ -87,7 +88,7 @@ export function NeedsPlayersPanel(p: NeedsPlayersPanelProps) {
           <p style={{ margin: 0, color: 'var(--tp-muted-fg)' }}>{tr('ws.matches.today.none')}</p>
         ) : (
           <ul aria-label={tr('ws.matches.today.title')} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-            {rows.map((row) => {
+            {cap.shown.map((row) => {
               const m = row.match;
               const when = formatTimeRange(new Date(m.start_at), new Date(m.end_at), locale, p.tz);
               // In its own <bdi>: the element isolates the name.
@@ -160,6 +161,7 @@ export function NeedsPlayersPanel(p: NeedsPlayersPanelProps) {
             })}
           </ul>
         )}
+        <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} style={{ marginBlockStart: 0 }} />
       </div>
     </Panel>
   );

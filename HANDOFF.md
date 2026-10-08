@@ -2216,6 +2216,32 @@ Owner call: staff must not capture the staff app, and the owner must hear when t
   only iPhone screenshots are reported). iOS cannot block a screenshot at all.
 - Loyalty QR needed nothing: the guest card is on the phone and the till scans and redeems.
 
+## Day 42 (2026-10-08) — supplier price watch on the shop desk, shop Waste removed
+
+Owner call (Majed): the shop desk PC reads each shop product's supplier page every hour. A
+supplier price change pushes to the owner and the shop assistants, and "Apply new price" in the
+operator fills it in (supplier price = shop price, no calculation). The reading is generic: one
+pasted product-page link per shop size, read from the page's structured price data. Design:
+`docs/design/shop/supplier-price-watch-2026-10-08.md`.
+
+- **Migration 0322** (`shop_price_watch`): table `shop_price_watches`, plus
+  `app.set_shop_price_watch` (`SUPPLIER_URL_INVALID`, new in the error catalogue) and
+  `app.record_shop_supplier_price` (stale / error / first / same / changed). A change the shop
+  does not already sell at queues a `shop_price_changed` `staff_info` push, with the product name
+  only and no price. `notify_staff` is re-issued from 0313 with the new title key (41 keys), which
+  is also in `_shared/staff-push.json` and `staffStrings.ts` (Arabic is DRAFT-AR, on the client's
+  review list). **Next ordinal: 0323.**
+- **Shell** (`apps/operator-shell`): `touch:fetch-supplier-page`, on a shop station only. It
+  reaches public addresses only, with checked and pinned DNS, checked redirects, 15 s and 3 MB.
+- **Operator:** `features/shop/priceWatch` reads the price and runs the hourly pass while the shop
+  desk is open. `/shop/products` gets the supplier link field, the read status and "Apply new
+  price" (the existing `upsert_retail_variant`).
+- **Shop Waste removed:** `/shop/waste` is gone from the shop rail, routes, guide, assistant pages
+  and coverage. The café's `/stock/waste` stays, and `app.record_waste` is unchanged.
+- **Open:** nothing is read while the shop PC is off. The reads reach stations only with the next
+  operator tag. 0322 still has to be applied locally and the types regenerated before the stack
+  tests (`shop-price-watch`, `staff-push-keys`, `rls-matrix`) can pass.
+
 ## Roadmap / next steps
 1. ✔ DONE Day 1: platform foundation (see above).
 2. ✔ DONE Day 2 waves 0–6, 9–12: design pack, DB 0027–0035 + tests, edge functions, core analytics,

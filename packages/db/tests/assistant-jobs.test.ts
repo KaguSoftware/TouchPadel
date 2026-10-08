@@ -313,3 +313,66 @@ describe('assistant-job: transition patches stay inside the 0112 allowlist (stac
     expect(() => transitionCalls(`x.transition(id, 'done', patch)`)).toThrow(/non-literal/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Stackless: the cheaper-jobs pass (2026-10-08). Chunk extraction runs on
+// JOB_EXTRACT_MODEL (live and batch) and the reduce on the job's model, so
+// every price, usage record and assistant_calls row must name the model of
+// THAT call; `this.provider.model` in the bookkeeping would bill Sonnet calls
+// at Opus rates (or the other way round). Reads the source, like the block above.
+// ---------------------------------------------------------------------------
+
+describe('assistant-job: every call is priced and recorded at its own model (stackless)', () => {
+  const src = readFileSync(JOB_INDEX, 'utf8');
+  const body = (name: string) => {
+    const at = src.search(new RegExp(`\\n  async ${name}\\(`));
+    expect(at, `Book.${name} not found`).toBeGreaterThan(0);
+    // the body opens at the end of the signature line (a return type may hold braces of its own)
+    return src.slice(at, closeOf(src, src.indexOf(' {\n', at) + 1) + 1);
+  };
+
+  it('price, record and account take the model as an argument and never read this.provider.model', () => {
+    for (const fn of ['price', 'record', 'account']) {
+      const b = body(fn);
+      expect(b, fn).toMatch(/model: string\)/);
+      expect(b, fn).not.toMatch(/this\.provider\.model/);
+    }
+    expect(body('price')).toMatch(/p_model: model/);
+    expect(body('record')).toMatch(/p_model: model/);
+  });
+
+  it('chunk calls go through the extraction provider and are accounted at its model; the reduce at the job model', () => {
+    expect(src).toMatch(/book\.extract\.stream\(/);
+    expect(src).toMatch(/book\.extract\.batchCreate\(/);
+    expect(src).not.toMatch(/provider\.stream\([\s\S]{0,400}buildChunkExtractPrompt/);
+    expect(src).toMatch(/turn\.stop_reason, book\.extract\.model\)/);
+    expect(src).toMatch(/r\.stop_reason, jb\.extract\.model\)/);
+    expect(body('reduce')).toMatch(/turn\.stop_reason, this\.provider\.model\)/);
+    expect(src).toMatch(/providerFromEnv\(\(n\) => Deno\.env\.get\(n\), JOB_EXTRACT_MODEL\)/);
+  });
+
+  it('live extraction runs through the bounded pool, and the tick reduces on the job model', () => {
+    expect(src).toMatch(/runPool\(\{[\s\S]*concurrency: JOB_LIVE_CONCURRENCY/);
+    expect(src).toMatch(/await jb\.reduce\(/);
+    expect(src).not.toMatch(/await book\.reduce\(job, objects, spend, calls, null/);
+  });
+
+  // Review 2026-10-08: the launch cutoff equalled the request's abort, so a
+  // wall-clock stop aborted every chunk in flight (generic TIMEOUT error, the
+  // objects lost, no time for the reduce); and four begin()s could pass on one
+  // month-to-date figure. The clock and the cap now live in pool.ts.
+  it('live launches stop at liveClock().launchBy, chunks stream on a signal cut at extractBy, and the cap counts calls in flight', () => {
+    const live = src.slice(src.indexOf('async function runLive('), src.indexOf('async function submitBatch('));
+    expect(live).toMatch(/const clock = liveClock\(started, WALL_MS\)/);
+    expect(live).toMatch(/Date\.now\(\) >= clock\.launchBy \? 'wall'/);
+    expect(live).not.toMatch(/Date\.now\(\) - started > WALL_MS/);
+    expect(live).toMatch(/setTimeout\(\(\) => cut\.abort\(\), [^)]*clock\.extractBy/);
+    expect(live).toMatch(/book\.extract\.stream\(\{[\s\S]*?signal: extractSignal,/);
+    expect(live).toMatch(/if \(extractSignal\.aborted\) return null;/);
+    expect(live).toMatch(/budgetAllows\(reading, /);
+    expect(live).toMatch(/const reading = await book\.begin\(\);/);
+    expect(live).toMatch(/if \(overBudget\) throw new Error\('LLM_MONTHLY_CAP'\)/);
+    // the reduce keeps the request's own signal (it has the reduce budget left)
+    expect(live).toMatch(/book\.reduce\(job, objects, spend, calls, handles, signal\)/);
+  });
+});

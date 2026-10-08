@@ -145,6 +145,17 @@ describe('MarketingPanelScreen', () => {
     );
   });
 
+  it('shows three campaigns, then View more reveals the rest', async () => {
+    const user = userEvent.setup();
+    const names = ['Alpha night', 'Bravo night', 'Charlie night', 'Delta night', 'Echo night'];
+    rpc.mockResolvedValue(overview(names.map((n, i) => campaign({ id: `c${i}`, name_en: n }))));
+    renderPanel();
+    expect(await screen.findByText('Charlie night')).toBeTruthy();
+    expect(screen.queryByText('Delta night')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
+    expect(screen.getByText('Echo night')).toBeTruthy();
+  });
+
   it('shows the empty state rather than an empty table', async () => {
     rpc.mockResolvedValue(overview([]));
     renderPanel();

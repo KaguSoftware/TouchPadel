@@ -49,7 +49,8 @@ export function PinControl({
     try {
       await pinAnswer({
         question,
-        tools: tools.filter((t) => !t.error).map((t) => ({ name: t.name, args: t.args })),
+        // Catalog tools only: a web search cannot be re-run by a pinned card.
+        tools: tools.filter((t) => !t.error && toolByName(t.name)).map((t) => ({ name: t.name, args: t.args })),
         figures: [],
         scope: scopeForPin(scopes),
       });

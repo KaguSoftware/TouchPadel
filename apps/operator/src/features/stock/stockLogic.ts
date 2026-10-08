@@ -218,3 +218,40 @@ export function marginFlag(r: { margin_iqd: number; margin_percent: number | nul
   if (r.margin_percent !== null && r.margin_percent < THIN_MARGIN_PERCENT) return 'thin';
   return null;
 }
+
+/** The orders the Margins page can sort by; the first is the page's own. */
+export const MARGIN_SORTS = ['pctAsc', 'pctDesc', 'marginAsc', 'marginDesc', 'priceDesc', 'priceAsc', 'costDesc', 'costAsc', 'name'] as const;
+export type MarginSort = (typeof MARGIN_SORTS)[number];
+
+interface MarginSortRow {
+  margin_iqd: number;
+  margin_percent: number | null;
+  price_iqd: number;
+  cogs_iqd: number;
+}
+
+/**
+ * Sorted copy of the margin rows. An item with no margin percent (a free item)
+ * goes last in either direction rather than ranking as the worst or the best.
+ * `name` is the caller's display name, since the language picks it.
+ */
+export function sortMargins<T extends MarginSortRow>(rows: readonly T[], sort: MarginSort, name: (r: T) => string): T[] {
+  const out = [...rows];
+  const by = (get: (r: T) => number | null, dir: 1 | -1) => (a: T, b: T) => {
+    const x = get(a);
+    const y = get(b);
+    if (x === null || y === null) return x === y ? 0 : x === null ? 1 : -1;
+    return (x - y) * dir;
+  };
+  switch (sort) {
+    case 'pctAsc': return out.sort(by((r) => r.margin_percent, 1));
+    case 'pctDesc': return out.sort(by((r) => r.margin_percent, -1));
+    case 'marginAsc': return out.sort(by((r) => r.margin_iqd, 1));
+    case 'marginDesc': return out.sort(by((r) => r.margin_iqd, -1));
+    case 'priceAsc': return out.sort(by((r) => r.price_iqd, 1));
+    case 'priceDesc': return out.sort(by((r) => r.price_iqd, -1));
+    case 'costAsc': return out.sort(by((r) => r.cogs_iqd, 1));
+    case 'costDesc': return out.sort(by((r) => r.cogs_iqd, -1));
+    case 'name': return out.sort((a, b) => name(a).localeCompare(name(b)));
+  }
+}
