@@ -1065,13 +1065,14 @@ export interface WireTool {
   name: string;
   description: string;
   input_schema: JsonSchemaObject;
-  strict: true;
   defer_loading?: true;
 }
 
 export function wireTools(specs: readonly ToolSpec[] = ASSISTANT_TOOLS): WireTool[] {
   return specs.map((spec) => {
-    const t: WireTool = { name: spec.name, description: spec.description, input_schema: toolInputSchema(spec), strict: true };
+    // Never `strict: true`: the API allows 20 strict tools (the catalog has more), and a strict schema may not hold
+    // the open `filters` object or integer bounds. validateToolInput checks every call's input on our side instead.
+    const t: WireTool = { name: spec.name, description: spec.description, input_schema: toolInputSchema(spec) };
     if (!spec.core) t.defer_loading = true;
     return t;
   });
