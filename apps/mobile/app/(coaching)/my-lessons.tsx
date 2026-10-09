@@ -3,27 +3,27 @@ import { FlatList, RefreshControl, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDateTime } from '@touch/i18n';
-import { useLocale } from '../src/i18n/LocaleProvider';
-import { RequireSession } from '../src/features/auth/RequireSession';
-import { useBranches } from '../src/features/availability/hooks';
-import { branchName } from '../src/features/availability/branch';
-import { useConfirmLessonLink, useMyLessons } from '../src/features/coaching/hooks';
-import { lessonErrorCode, lessonErrorText } from '../src/features/coaching/errors';
-import { lessonStateOf, moneyLineOf, stateLine } from '../src/features/coaching/state';
+import { useLocale } from '../../src/i18n/LocaleProvider';
+import { RequireSession } from '../../src/features/auth/RequireSession';
+import { useBranches } from '../../src/features/availability/hooks';
+import { branchName } from '../../src/features/availability/branch';
+import { useConfirmLessonLink, useMyLessons } from '../../src/features/coaching/hooks';
+import { lessonErrorCode, lessonErrorText } from '../../src/features/coaching/errors';
+import { lessonStateOf, moneyLineOf, stateLine } from '../../src/features/coaching/state';
 import {
   DEFAULT_TZ,
   displayCoachName,
   holdLive,
   lessonTitle,
   type MyLessonRow,
-} from '../src/features/coaching/logic';
-import type { LessonScope } from '../src/features/coaching/keys';
-import { usePullRefresh } from '../src/lib/usePullRefresh';
-import { space, useTheme } from '../src/theme';
-import { Screen, SegmentedControl } from '../src/components/ui';
-import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
-import { LessonRow, LinkConfirmCard } from '../src/components/coaching';
-import { ConfirmAlert, useToast } from '../src/components/overlays';
+} from '../../src/features/coaching/logic';
+import type { LessonScope } from '../../src/features/coaching/keys';
+import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { space, useTheme } from '../../src/theme';
+import { Screen, SegmentedControl } from '../../src/components/ui';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
+import { LessonRow, LinkConfirmCard } from '../../src/components/coaching';
+import { ConfirmAlert, useToast } from '../../src/components/overlays';
 
 /**
  * My lessons (docs/design/coaching/guest.md §4.8.8): Upcoming, Past and

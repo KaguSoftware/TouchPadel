@@ -277,7 +277,12 @@ function AndroidTabs() {
         name="bookings"
         options={{
           tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
-            <Pressable {...props} testID="tabs.bookings" android_ripple={RIPPLE(colors.line)} style={[props.style, TAB_BUTTON]} />
+            <Pressable
+              {...props}
+              testID="tabs.bookings"
+              android_ripple={RIPPLE(colors.line)}
+              style={[props.style, TAB_BUTTON]}
+            />
           ),
           tabBarIcon: ({ focused, color }) => (
             <TabBookingsIcon color={focused ? brand.green : color} />
@@ -289,11 +294,14 @@ function AndroidTabs() {
         name="index"
         options={{
           tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
-            <Pressable {...props} testID="tabs.book" android_ripple={RIPPLE(colors.line)} style={[props.style, TAB_BUTTON]} />
+            <Pressable
+              {...props}
+              testID="tabs.book"
+              android_ripple={RIPPLE(colors.line)}
+              style={[props.style, TAB_BUTTON]}
+            />
           ),
-          tabBarIcon: ({ focused, color }) => (
-            <TabBookIcon color={focused ? brand.green : color} />
-          ),
+          tabBarIcon: ({ focused, color }) => <TabBookIcon color={focused ? brand.green : color} />,
           tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.book')} focused={focused} />,
         }}
       />
@@ -301,7 +309,12 @@ function AndroidTabs() {
         name="profile"
         options={{
           tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
-            <Pressable {...props} testID="tabs.profile" android_ripple={RIPPLE(colors.line)} style={[props.style, TAB_BUTTON]} />
+            <Pressable
+              {...props}
+              testID="tabs.profile"
+              android_ripple={RIPPLE(colors.line)}
+              style={[props.style, TAB_BUTTON]}
+            />
           ),
           tabBarIcon: ({ focused, color }) => (
             <TabProfileIcon color={focused ? brand.green : color} />

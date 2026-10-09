@@ -3,9 +3,10 @@ import {
   cubicBezier,
   EASE_IO,
   EASE_OUT,
-  pillSlice,
+  groupSlice,
   pitchEase,
-  rowSlice,
+  openP,
+  sampleOpenLinear,
   sampleCurve,
   sampleEased,
   SHEET_GONE,
@@ -79,21 +80,26 @@ describe('PITCH ease (direction-aware)', () => {
   });
 });
 
-describe('staggers (handoff table)', () => {
-  it('day pills: pill 0 0.450–0.670, pill 9 0.765–0.985', () => {
-    expect(pillSlice(0).map((n) => +n.toFixed(3))).toEqual([0.45, 0.67]);
-    expect(pillSlice(9).map((n) => +n.toFixed(3))).toEqual([0.765, 0.985]);
+describe('entrance groups (timed in seconds of the open spring)', () => {
+  it('openP follows the spring: 0 at rest, ≈ 0.45 at 0.22 s, → 1', () => {
+    expect(openP(0)).toBe(0);
+    expect(close(openP(0.22), 0.445, 0.01)).toBe(true);
+    expect(close(openP(5), 1, 1e-6)).toBe(true);
   });
 
-  it('grid rows: row 0 0.58–0.86, row 3 0.76–1.00, rows beyond share row 3', () => {
-    expect(rowSlice(0).map((n) => +n.toFixed(3))).toEqual([0.58, 0.86]);
-    expect(rowSlice(3).map((n) => +n.toFixed(3))).toEqual([0.76, 1]);
-    expect(rowSlice(7)).toEqual(rowSlice(3));
+  it('the groups enter in order, each a fixed length, all in by 0.6 s', () => {
+    const [g0, g1, g2] = ([0, 1, 2] as const).map(groupSlice);
+    expect(g0![0]).toBeLessThan(g1![0]);
+    expect(g1![0]).toBeLessThan(g2![0]);
+    expect(g2![1]).toBeLessThanOrEqual(openP(0.6) + 1e-9);
   });
 
-  it('the last row still finishes with the spring (never past p = 1)', () => {
-    expect(rowSlice(3)[1]).toBeLessThanOrEqual(1 + 1e-9);
-    expect(pillSlice(9)[1]).toBeLessThanOrEqual(1);
+  it('a sampled group table runs from out[0] to out[1] over its slice', () => {
+    const range = groupSlice(2);
+    const k = sampleOpenLinear(range, [0, 1]);
+    expect(close(readTable(k, range[0]), 0)).toBe(true);
+    expect(close(readTable(k, range[1]), 1)).toBe(true);
+    expect(readTable(k, 1)).toBe(1);
   });
 });
 
@@ -156,9 +162,8 @@ describe('SHEET_GONE (where a close hands the court view back)', () => {
         expect(close(readTable(opacity, p), 0)).toBe(true);
       }
     }
-    // The staggers live inside the card, so none of them may start earlier.
-    expect(pillSlice(0)[0]).toBeGreaterThanOrEqual(SHEET_GONE);
-    expect(rowSlice(0)[0]).toBeGreaterThanOrEqual(SHEET_GONE);
+    // The groups live inside the card, so none of them may start earlier.
+    expect(groupSlice(0)[0]).toBeGreaterThanOrEqual(SHEET_GONE);
   });
 
   it('leaves the court the whole of the tail it still needs (~19 px at p = 0.06)', () => {

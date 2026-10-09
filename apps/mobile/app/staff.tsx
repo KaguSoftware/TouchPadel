@@ -11,6 +11,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   View,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
@@ -62,6 +63,8 @@ import type { StaffRowDef } from '../src/features/staff/rows';
 import { useReduceMotion } from '../src/lib/useReduceMotion';
 import { addBreadcrumb } from '../src/lib/telemetry';
 import { useToast } from '../src/components/overlays';
+import { BrandPattern } from '../src/components/BrandPattern';
+import { AssistantButton } from '../src/features/assistant/AssistantFab';
 
 /**
  * Today: the staff phone's home (build-contracts-2026-09-23 §6.1; layout:
@@ -623,6 +626,13 @@ function TodayScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
+      {/* The brand line pattern the Book tab stands on, full bleed behind the
+          page. First child so every sibling paints over it; absolute children
+          resolve against the padding box, so it runs under the safe-area inset
+          and the side gutters too. */}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <BrandPattern />
+      </View>
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
@@ -631,35 +641,49 @@ function TodayScreen() {
           gap: compact ? 10 : space.sm,
         }}
         showsVerticalScrollIndicator={false}
-        // The page does not scroll or bounce (owner, 2026-10-01): it fits the
-        // screen, and only a long work list on a small phone makes it move.
-        // No pull to refresh, then; the queries refetch when the app comes
-        // back to the foreground (src/lib/queryClient.ts).
+        // The page does not scroll or bounce (owner, 2026-10-01; scrolling
+        // turned off entirely, 2026-10-09): it fits the screen. No pull to
+        // refresh, then; the queries refetch when the app comes back to the
+        // foreground (src/lib/queryClient.ts).
+        scrollEnabled={false}
         bounces={false}
         alwaysBounceVertical={false}
         overScrollMode="never"
       >
         {/* The room under the greeting is the room the old "Nothing is
-            waiting on you" line took, kept now that the line is gone. */}
-        <View style={{ gap: 2, marginBottom: compact ? space.sm : space.xxl + space.sm }}>
-          <Text
-            style={{
-              fontFamily: fonts.display800,
-              fontSize: compact ? 23 : 24,
-              lineHeight: compact ? 28 : 30,
-              color: colors.ink,
-            }}
-          >
-            {t('staff.shell.today.greeting', { name: staff.displayName })}
-          </Text>
-          <Text style={{ fontFamily: fonts.body600, fontSize: 13, color: colors.mut }}>
-            {here ? t('staff.shell.today.roleAtVenue', { role, venue: here }) : role}
-          </Text>
-          {/* The green stroke under the whole header, as under a tab's title. */}
-          <View style={{ alignItems: 'flex-start' }}>
-            <TitleSquiggle />
+            waiting on you" line took, kept now that the line is gone. On a
+            card so the brand pattern does not run under the words. */}
+        <Card
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: space.m,
+            padding: compact ? space.m : space.l,
+            marginBottom: compact ? space.sm : space.xxl + space.sm,
+          }}
+        >
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text
+              style={{
+                fontFamily: fonts.display800,
+                fontSize: compact ? 23 : 24,
+                lineHeight: compact ? 28 : 30,
+                color: colors.ink,
+              }}
+            >
+              {t('staff.shell.today.greeting', { name: staff.displayName })}
+            </Text>
+            <Text style={{ fontFamily: fonts.body600, fontSize: 13, color: colors.mut }}>
+              {here ? t('staff.shell.today.roleAtVenue', { role, venue: here }) : role}
+            </Text>
+            {/* The green stroke under the whole header, as under a tab's title. */}
+            <View style={{ alignItems: 'flex-start' }}>
+              <TitleSquiggle />
+            </View>
           </View>
-        </View>
+          {/* The owner's assistant, here rather than floating over Sign out. */}
+          <AssistantButton testID="staff.assistant.header" size={40} labelled />
+        </Card>
 
         {showsVenuePicker(status.venues) ? (
           <Card style={{ padding: space.m }}>
@@ -747,7 +771,13 @@ function TodayScreen() {
         {/* The account and sign-out sit at the foot of the page: pushed to the
             bottom of the screen when the page is short, after the tiles when it
             scrolls. */}
-        <View style={{ marginTop: 'auto', paddingTop: compact ? space.s : space.m, gap: compact ? 10 : space.sm }}>
+        <Card
+          style={{
+            marginTop: 'auto',
+            padding: compact ? space.m : space.l,
+            gap: compact ? 10 : space.sm,
+          }}
+        >
           <View style={{ gap: space.xs }}>
             <MicroLabel style={{ paddingStart: 4 }}>{t('staff.shell.account.title')}</MicroLabel>
             <View style={{ flexDirection: 'row', gap: space.s }}>
@@ -799,7 +829,7 @@ function TodayScreen() {
             onPress={confirmSignOut}
             style={{ backgroundColor: 'transparent' }}
           />
-        </View>
+        </Card>
       </ScrollView>
       {Platform.OS === 'ios' ? null : (
         <GroupModal

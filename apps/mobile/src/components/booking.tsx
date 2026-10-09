@@ -1777,6 +1777,71 @@ export function MatchEntryRow({
   );
 }
 
+/**
+ * The booking sheet's button cards for lessons and tournaments (owner,
+ * 2026-10-09): two side by side under the court cards, in the same glass wash
+ * as `MatchEntryRow`, each an icon on a green disc over its label. One card
+ * alone takes the full width. `book.sheet.lessons`, `book.sheet.tournaments`.
+ */
+export function EntryCard({
+  label,
+  icon: Icon,
+  onPress,
+  testID,
+}: {
+  label: string;
+  icon: ComponentType<IconProps>;
+  onPress: () => void;
+  testID: string;
+}) {
+  const { colors, fonts, appearance } = useTheme();
+  const dark = appearance === 'dark';
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flex: 1,
+        minHeight: ENTRY_CARD_H,
+        padding: 10,
+        gap: 8,
+        borderRadius: 14,
+        backgroundColor: withAlpha(colors.card, dark ? 0.35 : 0.6),
+        borderWidth: 1,
+        borderColor: withAlpha(colors.line, dark ? 0.5 : 0.9),
+        transform: [{ scale: pressed ? 0.97 : 1 }],
+      })}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.gtint,
+          }}
+        >
+          <Icon size={16} color={colors.gtext} strokeWidth={2} />
+        </View>
+        <ChevronIcon size={13} color={colors.fnt2} strokeWidth={2.4} />
+      </View>
+      <Text
+        numberOfLines={2}
+        style={{ fontFamily: fonts.body800, fontSize: 12, lineHeight: 15, color: colors.blue }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** An `EntryCard`'s height: the disc, the gap and two lines of label. */
+export const ENTRY_CARD_H = 84;
+
 // ── List row (profile menu rows) ────────────────────────────────────────────
 
 export function MenuRow({

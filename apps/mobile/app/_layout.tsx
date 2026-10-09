@@ -37,7 +37,7 @@ import {
 } from '../src/features/auth/welcomeSeen';
 import { CoachStatusProvider } from '../src/features/coach/CoachStatusProvider';
 import { StaffScreenGuard } from '../src/features/staff/screenGuard/StaffScreenGuard';
-import { AssistantFab } from '../src/features/assistant/AssistantFab';
+import { withAssistantFab } from '../src/features/assistant/AssistantFab';
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
@@ -273,7 +273,11 @@ function RootStack() {
        * the app's own appearance, like the direction above it.
        */}
       <NavigationThemeProvider value={navTheme}>
-        <Stack screenOptions={header}>
+        {/* `screenLayout` draws the owner's assistant button INSIDE each
+            staff screen, so it slides in and out with its page; an overlay
+            over the whole stack followed the pathname, which only changes
+            once the navigation has happened, and so lagged every push and pop. */}
+        <Stack screenOptions={header} screenLayout={withAssistantFab}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           {/* Formerly the (auth) group. Flattened for the same reason as (gated):
           a screen pushed from the tabs was the first entry of a nested stack,
@@ -334,34 +338,16 @@ function RootStack() {
           <Stack.Screen name="coach-mode-new" />
           <Stack.Screen name="coach-mode-book" />
           <Stack.Screen name="coach-mode-statements" />
-          {/* Coaching, the guest's side (docs/design/coaching/guest.md §4.8).
-          Flat root-stack pushes with the native back item; the browsing
-          screens are public, the review, the lesson and My lessons carry
-          their own session guard. */}
-          <Stack.Screen name="coaches" />
-          {/* Transparent from the push's first frame: the coach page's photo
-          runs under the bar, and a bar drawn opaque until the screen's own
-          options land flashed a white strip (coach/[id].tsx). */}
-          <Stack.Screen
-            name="coach/[id]"
-            options={{ headerTransparent: true, headerStyle: { backgroundColor: 'transparent' } }}
-          />
-          <Stack.Screen name="classes" />
-          <Stack.Screen name="class/[id]" />
-          {/* The private lesson page runs its blue header under a transparent
-          bar from the first frame; its other states set a plain one. */}
-          <Stack.Screen
-            name="lesson-times"
-            options={{ headerTransparent: true, headerStyle: { backgroundColor: 'transparent' } }}
-          />
-          <Stack.Screen name="lesson-review" />
-          <Stack.Screen name="lesson/[id]" />
-          <Stack.Screen name="my-lessons" />
-          {/* Tournaments, the guest's side (tournaments plan §5.2): flat
-          root-stack pushes with the native back item. Both are public; the
-          detail sends a signed-out Register to the welcome. */}
-          <Stack.Screen name="tournaments" />
-          <Stack.Screen name="tournament/[id]" />
+          {/* Coaching, the guest's side (docs/design/coaching/guest.md §4.8): a
+          stack of its own with its own native bar, so the bar and its back
+          button leave with the page at the swipe's speed
+          (app/(coaching)/_layout.tsx, src/navigation/groupStack.tsx). */}
+          <Stack.Screen name="(coaching)" options={{ headerShown: false }} />
+          {/* Tournaments, the guest's side (tournaments plan §5.2): a stack of
+          its own with its own native bar, so the bar and its back button leave
+          with the page at the swipe's speed (app/(tournaments)/_layout.tsx,
+          src/navigation/groupStack.tsx). The root stack draws no bar for it. */}
+          <Stack.Screen name="(tournaments)" options={{ headerShown: false }} />
           {/* Loyalty (loyalty plan §5.1): flat root-stack pushes from Profile
           with the native back item, each with its own RequireSession. */}
           <Stack.Screen name="loyalty" />
@@ -534,8 +520,6 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
                         <ConnectivityBanner />
                         {/* Staff other than the owner: no screenshots, and the owner is told of each. */}
                         <StaffScreenGuard />
-                        {/* The owner's assistant, one tap from every staff screen. */}
-                        <AssistantFab />
                       </CoachStatusProvider>
                     </StaffStatusProvider>
                   </ToastProvider>

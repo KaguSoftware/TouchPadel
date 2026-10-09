@@ -177,7 +177,7 @@ describe('the stage', () => {
   });
 
   it('cuts back in on a return and fades only on a first build', () => {
-    expect(court3d).toContain('warmArm.current = court.current !== null;');
+    expect(court3d).toContain('warmArm.current = painted.current;');
     const show = court3d.indexOf('const showStage = useCallback(');
     const cut = court3d.indexOf('if (warmArm.current) {', show);
     const fade = court3d.indexOf('duration: REVEAL_MS,', show);

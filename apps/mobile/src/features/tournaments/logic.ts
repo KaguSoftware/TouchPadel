@@ -510,6 +510,29 @@ export function tourPlacesOf(
   return t.waitlistOpen ? { kind: 'waitlist' } : { kind: 'full' };
 }
 
+/**
+ * How full a list card's bar reads, 0–100: the entries taken of the maximum, from the server's
+ * places_left (counted whatever the status). Null when the tournament names no maximum, so the
+ * card draws no bar. The operator's `fillPercent` (2026-10-05 cards).
+ */
+export function tourFillPercent(t: Pick<TourListItem, 'maxEntries' | 'placesLeft'>): number | null {
+  if (t.maxEntries === null || t.maxEntries <= 0) return null;
+  const taken = t.maxEntries - t.placesLeft;
+  return Math.min(100, Math.max(0, Math.round((taken / t.maxEntries) * 100)));
+}
+
+/**
+ * The tone a list card's date tile, status pill and bar wear, as the operator cards do: green
+ * while it plays, muted once it is over, the brand blue before it starts (and for an unknown state).
+ */
+export type TourTone = 'upcoming' | 'running' | 'over';
+
+export function tourToneOf(status: TourStatus | null): TourTone {
+  if (status === 'running') return 'running';
+  if (status === 'finished' || status === 'cancelled') return 'over';
+  return 'upcoming';
+}
+
 /** Worth polling every 30 s while the screen is focused: play is under way (plan §5.2). */
 export function isLive(
   t: Pick<TournamentPublic, 'missing' | 'status'> | null | undefined,

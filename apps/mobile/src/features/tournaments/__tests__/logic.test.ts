@@ -14,7 +14,9 @@ import {
   showsPlay,
   timezoneOf,
   tourActionOf,
+  tourFillPercent,
   tourPlacesOf,
+  tourToneOf,
   tournamentName,
   tournamentRows,
   tournamentsEnabled,
@@ -395,5 +397,32 @@ describe('where the registration stands (tourPlacesOf)', () => {
       kind: 'status',
       status: 'running',
     });
+  });
+});
+
+describe('the list card (tourFillPercent, tourToneOf)', () => {
+  const row = (over: Parameters<typeof tournamentListItemFixture>[0]) =>
+    parseTournamentsPublic(
+      tournamentsPublicFixture({ tournaments: [tournamentListItemFixture(over)] }),
+    ).tournaments[0]!;
+
+  it('fills the bar with the entries taken of the maximum, whatever the status', () => {
+    expect(tourFillPercent(row({ max_entries: 16, places_left: 4 }))).toBe(75);
+    expect(tourFillPercent(row({ max_entries: 16, places_left: 16 }))).toBe(0);
+    expect(tourFillPercent(row({ status: 'running', max_entries: 16, places_left: 0 }))).toBe(100);
+  });
+
+  it('draws no bar without a maximum', () => {
+    expect(tourFillPercent(row({ max_entries: null }))).toBeNull();
+    expect(tourFillPercent(row({ max_entries: 0 }))).toBeNull();
+  });
+
+  it('wears blue before play, green in play, muted once over', () => {
+    expect(tourToneOf('open')).toBe('upcoming');
+    expect(tourToneOf('closed')).toBe('upcoming');
+    expect(tourToneOf(null)).toBe('upcoming');
+    expect(tourToneOf('running')).toBe('running');
+    expect(tourToneOf('finished')).toBe('over');
+    expect(tourToneOf('cancelled')).toBe('over');
   });
 });

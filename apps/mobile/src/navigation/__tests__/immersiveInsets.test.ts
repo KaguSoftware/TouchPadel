@@ -5,8 +5,7 @@ import { describe, expect, it } from 'vitest';
 const read = (p: string) => readFileSync(join(__dirname, '..', '..', '..', p), 'utf8');
 
 /** Comments explain the discarded approach by name, so assert against code only. */
-const stripComments = (s: string) =>
-  s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
 const SRC = stripComments(read('src/navigation/immersiveInsets.tsx'));
 const LAYOUT = stripComments(read('app/_layout.tsx'));

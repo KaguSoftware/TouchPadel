@@ -12,19 +12,23 @@ import {
   isolate,
   isolateLtr,
 } from '@touch/i18n';
-import { Text } from '../src/i18n/text';
-import { useLocale } from '../src/i18n/LocaleProvider';
-import { RequireSession } from '../src/features/auth/RequireSession';
-import { useAuth } from '../src/features/auth/context';
-import { bookingGateState } from '../src/features/auth/social';
-import { useOwnConsent, useOwnProfile } from '../src/features/profile/hooks';
-import { useIsDegraded, useVenueSettings } from '../src/features/availability/hooks';
-import { venuePhoneOf } from '../src/features/availability/assemble';
-import { rpcErrorDetail } from '../src/features/booking/errors';
-import { coachingKeys, useBookPrivate, useCoachProfile } from '../src/features/coaching/hooks';
-import { useStartLessonPayment } from '../src/features/coaching/payment';
-import { bookRefusalOf, lessonErrorCode, lessonErrorText } from '../src/features/coaching/errors';
-import { parsePriceChanged } from '../src/features/matches/errors';
+import { Text } from '../../src/i18n/text';
+import { useLocale } from '../../src/i18n/LocaleProvider';
+import { RequireSession } from '../../src/features/auth/RequireSession';
+import { useAuth } from '../../src/features/auth/context';
+import { bookingGateState } from '../../src/features/auth/social';
+import { useOwnConsent, useOwnProfile } from '../../src/features/profile/hooks';
+import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
+import { venuePhoneOf } from '../../src/features/availability/assemble';
+import { rpcErrorDetail } from '../../src/features/booking/errors';
+import { coachingKeys, useBookPrivate, useCoachProfile } from '../../src/features/coaching/hooks';
+import { useStartLessonPayment } from '../../src/features/coaching/payment';
+import {
+  bookRefusalOf,
+  lessonErrorCode,
+  lessonErrorText,
+} from '../../src/features/coaching/errors';
+import { parsePriceChanged } from '../../src/features/matches/errors';
 import {
   displayCoachName,
   effectiveChoice,
@@ -33,16 +37,16 @@ import {
   pick,
   type LessonWrite,
   type PaymentChoice,
-} from '../src/features/coaching/logic';
-import { useBack } from '../src/navigation/back';
-import { space, useTheme } from '../src/theme';
-import { Button, Card, ErrorText, Field, FormScreen, Hint, Screen } from '../src/components/ui';
-import { DegradedBanner, SummaryGrid, type SummaryRow } from '../src/components/booking';
-import { ErrorState, SkeletonList } from '../src/components/states';
-import { MatchNotice, MatchSectionTitle } from '../src/components/match';
-import { PartyStepper, PaymentModeChoice } from '../src/components/coaching';
-import { CalendarIcon, ClockIcon, TagIcon } from '../src/components/icons';
-import { useToast } from '../src/components/overlays';
+} from '../../src/features/coaching/logic';
+import { useBack } from '../../src/navigation/back';
+import { space, useTheme } from '../../src/theme';
+import { Button, Card, ErrorText, Field, FormScreen, Hint, Screen } from '../../src/components/ui';
+import { DegradedBanner, SummaryGrid, type SummaryRow } from '../../src/components/booking';
+import { ErrorState, SkeletonList } from '../../src/components/states';
+import { MatchNotice, MatchSectionTitle } from '../../src/components/match';
+import { PartyStepper, PaymentModeChoice } from '../../src/components/coaching';
+import { CalendarIcon, ClockIcon, TagIcon } from '../../src/components/icons';
+import { useToast } from '../../src/components/overlays';
 
 /**
  * The private lesson's review (docs/design/coaching/guest.md §4.8.6, §4.9.1):

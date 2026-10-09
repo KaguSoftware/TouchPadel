@@ -2,25 +2,38 @@ import { useMemo, useState } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatDateTime, formatIQD, isolate, isolateLtr } from '@touch/i18n';
-import { useLocale } from '../src/i18n/LocaleProvider';
-import { useTournamentsPublic } from '../src/features/tournaments/hooks';
-import { tournamentErrorText } from '../src/features/tournaments/errors';
+import {
+  formatDate,
+  formatDayNumber,
+  formatIQD,
+  formatMonthShort,
+  formatTime,
+  formatTimeRange,
+  formatWeekdayShort,
+  isolate,
+  isolateLtr,
+} from '@touch/i18n';
+import { useLocale } from '../../src/i18n/LocaleProvider';
+import { useTournamentsPublic } from '../../src/features/tournaments/hooks';
+import { tournamentErrorText } from '../../src/features/tournaments/errors';
 import {
   filterFromParam,
   timezoneOf,
   tournamentName,
   tournamentRows,
+  tourFillPercent,
   tourPlacesOf,
+  tourToneOf,
   type TourFilter,
   type TourListItem,
-} from '../src/features/tournaments/logic';
-import { usePullRefresh } from '../src/lib/usePullRefresh';
-import { space, useTheme } from '../src/theme';
-import { Screen, SegmentedControl } from '../src/components/ui';
-import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
-import { MatchNotice } from '../src/components/match';
-import { TournamentRow } from '../src/components/tournament';
+} from '../../src/features/tournaments/logic';
+import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { clearBarOptions, useClearBarPad } from '../../src/navigation/clearBar';
+import { space, useTheme } from '../../src/theme';
+import { Screen, SegmentedControl } from '../../src/components/ui';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
+import { MatchNotice } from '../../src/components/match';
+import { TournamentRow } from '../../src/components/tournament';
 
 /**
  * Tournaments (tournaments plan §5.2): Upcoming and Mine over one `tournaments_public(null)` read,
@@ -37,6 +50,8 @@ export default function TournamentsScreen() {
   const [filter, setFilter] = useState<TourFilter>(() => filterFromParam(params.filter));
   const pub = useTournamentsPublic();
   const pull = usePullRefresh(pub.refetch);
+  // A clear bar, so a swipe back to the Book tab slides no solid bar out behind the page (clearBar.ts).
+  const barPad = useClearBarPad();
 
   const rows = useMemo(
     () => (pub.data && !pub.data.off ? tournamentRows(pub.data, filter) : []),
@@ -44,16 +59,35 @@ export default function TournamentsScreen() {
   );
   const multiBranch = (pub.data?.branches.length ?? 0) > 1;
 
+  const tzOf = (r: TourListItem): string | undefined =>
+    pub.data ? timezoneOf(pub.data, r.venueId) : undefined;
+
+  const dateOf = (r: TourListItem) => {
+    const at = new Date(r.startsAt);
+    const tz = tzOf(r);
+    return {
+      month: formatMonthShort(at, locale, tz),
+      day: formatDayNumber(at, locale, tz),
+      weekday: formatWeekdayShort(at, locale, tz),
+    };
+  };
+
+  /** The day and the times (the tile is hidden from a screen reader, so this carries the day). */
   const whenOf = (r: TourListItem): string => {
-    const tz = pub.data ? timezoneOf(pub.data, r.venueId) : undefined;
-    const when = formatDateTime(new Date(r.startsAt), locale, tz);
+    const tz = tzOf(r);
+    const start = new Date(r.startsAt);
+    const times = r.endsAt
+      ? formatTimeRange(start, new Date(r.endsAt), locale, tz)
+      : formatTime(start, locale, tz);
+    const when = `${formatDate(start, locale, tz)} · ${times}`;
     if (!multiBranch || !pub.data) return when;
     const b = pub.data.branches.find((x) => x.venueId === r.venueId);
     const name = b ? (locale === 'ar' ? (b.nameAr ?? b.nameEn) : (b.nameEn ?? b.nameAr)) : null;
     return name ? `${when} · ${name}` : when;
   };
 
-  const placesOf = (r: TourListItem): string => {
+  /** The places while registration is open; once it closes the status pill says it. */
+  const placesOf = (r: TourListItem): string | null => {
     const p = tourPlacesOf(r);
     switch (p.kind) {
       case 'left':
@@ -63,7 +97,7 @@ export default function TournamentsScreen() {
       case 'full':
         return t('tournaments.guest.list.full');
       case 'status':
-        return t(`tournaments.common.status.${p.status}`);
+        return null;
     }
   };
 
@@ -113,7 +147,7 @@ export default function TournamentsScreen() {
           />
         );
       }
-      return <SkeletonList rows={3} height={96} />;
+      return <SkeletonList rows={3} height={168} />;
     }
     if (pub.data.off) {
       return (
@@ -139,7 +173,7 @@ export default function TournamentsScreen() {
             }
           />
         }
-        ItemSeparatorComponent={() => <View style={{ height: space.s }} />}
+        ItemSeparatorComponent={() => <View style={{ height: space.sm }} />}
         contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -152,10 +186,15 @@ export default function TournamentsScreen() {
         renderItem={({ item: r }) => (
           <TournamentRow
             testID={`tournaments.row.${r.id}`}
+            tone={tourToneOf(r.status)}
+            date={dateOf(r)}
+            status={r.status ? t(`tournaments.common.status.${r.status}`) : null}
             category={r.category}
+            format={r.format ? t(`tournaments.common.format.${r.format}`) : null}
             title={tournamentName(r, locale)}
             when={whenOf(r)}
             places={placesOf(r)}
+            fill={tourFillPercent(r)}
             fee={
               r.entryFeeIqd > 0
                 ? isolate(formatIQD(r.entryFeeIqd, locale))
@@ -170,8 +209,8 @@ export default function TournamentsScreen() {
   })();
 
   return (
-    <Screen edges={[]}>
-      <Stack.Screen options={{ title: t('tournaments.guest.list.title') }} />
+    <Screen edges={[]} style={barPad}>
+      <Stack.Screen options={{ title: t('tournaments.guest.list.title'), ...clearBarOptions }} />
       {body}
     </Screen>
   );

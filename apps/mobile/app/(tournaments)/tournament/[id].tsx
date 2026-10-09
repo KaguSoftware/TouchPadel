@@ -3,32 +3,35 @@ import { RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  formatDate,
   formatDateTime,
   formatIQD,
   formatTime,
+  formatTimeRange,
+  formatWeekdayShort,
   isolate,
   isolateLtr,
   type MessageKey,
 } from '@touch/i18n';
 import { needsTermsAcceptance } from '@touch/core';
-import { Text } from '../../src/i18n/text';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { useAuth } from '../../src/features/auth/context';
-import { useOwnConsent } from '../../src/features/profile/hooks';
-import { serverNowMs } from '../../src/features/deposit/logic';
-import { useSetMyGender } from '../../src/features/matches/hooks';
-import { errorCodeOf, matchErrorText } from '../../src/features/matches/errors';
-import type { Gender } from '../../src/features/matches/logic';
+import { Text } from '../../../src/i18n/text';
+import { useLocale } from '../../../src/i18n/LocaleProvider';
+import { useAuth } from '../../../src/features/auth/context';
+import { useOwnConsent } from '../../../src/features/profile/hooks';
+import { serverNowMs } from '../../../src/features/deposit/logic';
+import { useSetMyGender } from '../../../src/features/matches/hooks';
+import { errorCodeOf, matchErrorText } from '../../../src/features/matches/errors';
+import type { Gender } from '../../../src/features/matches/logic';
 import {
   useRegisterTournament,
   useTournamentPublic,
   useWithdrawTournament,
-} from '../../src/features/tournaments/hooks';
+} from '../../../src/features/tournaments/hooks';
 import {
   tournamentErrorText,
   tournamentRefusalOf,
   type TournamentAction,
-} from '../../src/features/tournaments/errors';
+} from '../../../src/features/tournaments/errors';
 import {
   DEFAULT_TZ,
   playerLabel,
@@ -36,19 +39,26 @@ import {
   showsPlay,
   tourActionOf,
   tourPlacesOf,
+  tourToneOf,
   tournamentName,
   type TournamentPublic,
   type TourPlayer,
-} from '../../src/features/tournaments/logic';
-import { callPhone } from '../../src/lib/phone';
-import { useBranches } from '../../src/features/availability/hooks';
-import { usePullRefresh } from '../../src/lib/usePullRefresh';
-import { space, useTheme } from '../../src/theme';
-import { Button, Card, MicroLabel, Screen } from '../../src/components/ui';
-import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
-import { ConfirmAlert, useToast } from '../../src/components/overlays';
-import { CategoryPill, GenderAsk, MatchNotice } from '../../src/components/match';
-import { StandingsTable, TournamentRound } from '../../src/components/tournament';
+} from '../../../src/features/tournaments/logic';
+import { callPhone } from '../../../src/lib/phone';
+import { useBranches } from '../../../src/features/availability/hooks';
+import { usePullRefresh } from '../../../src/lib/usePullRefresh';
+import { clearBarOptions, useClearBarPad } from '../../../src/navigation/clearBar';
+import { space, useTheme } from '../../../src/theme';
+import { Button, MicroLabel, Screen } from '../../../src/components/ui';
+import { EmptyState, ErrorState, SkeletonList } from '../../../src/components/states';
+import { ConfirmAlert, useToast } from '../../../src/components/overlays';
+import { GenderAsk, MatchNotice } from '../../../src/components/match';
+import {
+  StandingsTable,
+  TournamentPrize,
+  TournamentRound,
+  TournamentTicket,
+} from '../../../src/components/tournament';
 
 /** A refusal the server raised, shown under the action: amber, or red for a match ban. */
 interface Notice {
@@ -89,6 +99,8 @@ export default function TournamentDetailScreen() {
   );
   const tour = useTournamentPublic(id, { poll: focused });
   const pull = usePullRefresh(tour.refetch);
+  // A clear native bar, like the list's (clearBar.ts).
+  const barPad = useClearBarPad();
   const uid = session && !session.user.is_anonymous ? session.user.id : null;
   const consent = useOwnConsent(uid);
   const needsTerms = consent.data === undefined || needsTermsAcceptance(consent.data);
@@ -109,9 +121,11 @@ export default function TournamentDetailScreen() {
     return () => clearInterval(tick);
   }, []);
 
-  const header = <Stack.Screen options={{ title: t('tournaments.guest.detail.title') }} />;
+  const header = (
+    <Stack.Screen options={{ title: t('tournaments.guest.detail.title'), ...clearBarOptions }} />
+  );
   const notFound = (
-    <Screen edges={[]}>
+    <Screen edges={[]} style={barPad}>
       {header}
       <EmptyState
         testID="tournament-detail.not-found"
@@ -124,7 +138,7 @@ export default function TournamentDetailScreen() {
   if (!id) return notFound;
   if (!tour.data) {
     return (
-      <Screen edges={[]}>
+      <Screen edges={[]} style={barPad}>
         {header}
         {tour.isError ? (
           <ErrorState
@@ -145,6 +159,7 @@ export default function TournamentDetailScreen() {
   if (d.missing) return notFound;
 
   const tz = d.branch?.timezone ?? DEFAULT_TZ;
+  const start = new Date(d.startsAt);
   const nowMs = serverNowMs(d.serverNow, tour.dataUpdatedAt, deviceNow);
   const action = tourActionOf(d, nowMs);
   const money = (n: number) => isolate(formatIQD(n, locale));
@@ -317,14 +332,15 @@ export default function TournamentDetailScreen() {
   })();
 
   const rounds = showsPlay(d) ? d.rounds : [];
+  const hasFooter = askGender || notice !== null || actionBlock !== null;
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} style={barPad}>
       {header}
       <ScrollView
         contentContainerStyle={{
           paddingTop: space.sm,
-          paddingBottom: 40 + insets.bottom,
+          paddingBottom: hasFooter ? space.l : 40 + insets.bottom,
           gap: space.m,
         }}
         showsVerticalScrollIndicator={false}
@@ -336,13 +352,13 @@ export default function TournamentDetailScreen() {
           />
         }
       >
-        <Card style={{ gap: space.s }}>
-          <CategoryPill category={d.category} />
-          <Text style={{ fontFamily: fonts.display900, fontSize: 20, color: colors.ink }}>
-            {tournamentName(d, locale)}
-          </Text>
-          <Text style={sub}>
-            {[
+        <TournamentTicket
+          tone={tourToneOf(d.status)}
+          status={d.status ? t(`tournaments.common.status.${d.status}`) : null}
+          category={d.category}
+          title={tournamentName(d, locale)}
+          subtitle={
+            [
               d.format ? t(`tournaments.common.format.${d.format}`) : null,
               d.pointsTarget !== null
                 ? t('tournaments.common.pointsTarget', {
@@ -351,59 +367,44 @@ export default function TournamentDetailScreen() {
                 : null,
             ]
               .filter(Boolean)
-              .join(' · ')}
-          </Text>
-          <View style={{ gap: 2 }}>
-            <MicroLabel>{t('tournaments.guest.detail.when')}</MicroLabel>
-            <Text style={lead}>
-              {d.endsAt
-                ? `${formatDateTime(new Date(d.startsAt), locale, tz)} – ${formatTime(new Date(d.endsAt), locale, tz)}`
-                : formatDateTime(new Date(d.startsAt), locale, tz)}
-            </Text>
-          </View>
-          {branchLabel ? (
-            <View style={{ gap: 2 }}>
-              <MicroLabel>{t('tournaments.guest.detail.branch')}</MicroLabel>
-              <Text style={lead}>{branchLabel}</Text>
-            </View>
-          ) : null}
-          <View style={{ gap: 2 }}>
-            <MicroLabel>{t('tournaments.common.entryFee')}</MicroLabel>
-            <Text style={lead}>
-              {d.entryFeeIqd > 0 ? money(d.entryFeeIqd) : t('tournaments.common.free')}
-            </Text>
-          </View>
-          {prizeText(d, locale) ? (
-            <View style={{ gap: 2 }}>
-              <MicroLabel>{t('tournaments.common.prize')}</MicroLabel>
-              <Text style={lead}>{prizeText(d, locale)}</Text>
-            </View>
-          ) : null}
-          <View style={{ flexDirection: 'row', gap: space.l }}>
-            {/* Places count only while registration is open: the server counts them whatever the status. */}
-            {tourPlacesOf(d).kind !== 'status' ? (
-              <View style={{ gap: 2 }}>
-                <MicroLabel>{t('tournaments.guest.detail.placesLeft')}</MicroLabel>
-                <Text style={lead}>{isolateLtr(String(d.placesLeft))}</Text>
-              </View>
-            ) : null}
-            <View style={{ gap: 2 }}>
-              <MicroLabel>{t('tournaments.guest.detail.entries')}</MicroLabel>
-              <Text style={lead}>
-                {d.maxEntries !== null
-                  ? isolateLtr(`${d.entriesCount} / ${d.maxEntries}`)
-                  : isolateLtr(String(d.entriesCount))}
-              </Text>
-            </View>
-          </View>
-          {d.status === 'open' && d.registrationClosesAt ? (
-            <Text style={sub}>
-              {t('tournaments.guest.detail.closes', {
-                time: formatDateTime(new Date(d.registrationClosesAt), locale, tz),
-              })}
-            </Text>
-          ) : null}
-        </Card>
+              .join(' · ') || null
+          }
+          cells={[
+            {
+              label: t('booking.date'),
+              value: `${formatWeekdayShort(start, locale, tz)} ${formatDate(start, locale, tz)}`,
+            },
+            {
+              label: t('booking.time'),
+              value: d.endsAt
+                ? formatTimeRange(start, new Date(d.endsAt), locale, tz)
+                : formatTime(start, locale, tz),
+            },
+            ...(branchLabel
+              ? [{ label: t('tournaments.guest.detail.branch'), value: branchLabel }]
+              : []),
+          ]}
+          feeLabel={t('tournaments.common.entryFee')}
+          fee={d.entryFeeIqd > 0 ? money(d.entryFeeIqd) : t('tournaments.common.free')}
+          placesLabel={t('tournaments.guest.detail.placesLeft')}
+          // Places count only while registration is open: the server counts them whatever the status.
+          places={tourPlacesOf(d).kind !== 'status' ? isolateLtr(String(d.placesLeft)) : null}
+          entriesLabel={t('tournaments.guest.detail.entries')}
+          entries={
+            d.maxEntries !== null
+              ? isolateLtr(`${d.entriesCount} / ${d.maxEntries}`)
+              : isolateLtr(String(d.entriesCount))
+          }
+          taken={d.entriesCount}
+          max={d.maxEntries}
+          closes={
+            d.status === 'open' && d.registrationClosesAt
+              ? t('tournaments.guest.detail.closes', {
+                  time: formatDateTime(new Date(d.registrationClosesAt), locale, tz),
+                })
+              : null
+          }
+        />
 
         {statusNote ? <MatchNotice text={statusNote} /> : null}
 
@@ -418,33 +419,9 @@ export default function TournamentDetailScreen() {
           </View>
         ) : null}
 
-        {askGender ? (
-          <GenderAsk
-            testID="tournament-detail.gender"
-            busy={genderBusy}
-            error={genderError}
-            onPick={onGender}
-          />
+        {prizeText(d, locale) ? (
+          <TournamentPrize label={t('tournaments.common.prize')} prize={prizeText(d, locale)!} />
         ) : null}
-
-        {notice ? (
-          <View style={{ gap: space.sm }}>
-            <MatchNotice text={notice.text} tone={notice.tone} />
-            {notice.call && phone ? (
-              <Button
-                testID="tournament-detail.call-branch"
-                label={t('matches.detail.callBranch', {
-                  branch: branchLabel ?? t('common.appName'),
-                })}
-                variant="secondary"
-                size="compact"
-                onPress={callVenue}
-              />
-            ) : null}
-          </View>
-        ) : null}
-
-        {actionBlock}
 
         {rounds.length > 0 ? (
           <View style={{ gap: space.s }}>
@@ -500,6 +477,47 @@ export default function TournamentDetailScreen() {
           <Text style={sub}>{t('tournaments.guest.detail.scheduleLater')}</Text>
         ) : null}
       </ScrollView>
+      {/* The action is pinned to the bottom of the screen, its notices just above it (owner, 2026-10-09). */}
+      {hasFooter ? (
+        <View
+          style={{
+            gap: space.sm,
+            paddingTop: space.sm,
+            paddingBottom: space.sm + insets.bottom,
+            borderTopWidth: 1,
+            borderTopColor: colors.line,
+            backgroundColor: colors.bg,
+          }}
+        >
+          {askGender ? (
+            <GenderAsk
+              testID="tournament-detail.gender"
+              busy={genderBusy}
+              error={genderError}
+              onPick={onGender}
+            />
+          ) : null}
+
+          {notice ? (
+            <View style={{ gap: space.sm }}>
+              <MatchNotice text={notice.text} tone={notice.tone} />
+              {notice.call && phone ? (
+                <Button
+                  testID="tournament-detail.call-branch"
+                  label={t('matches.detail.callBranch', {
+                    branch: branchLabel ?? t('common.appName'),
+                  })}
+                  variant="secondary"
+                  size="compact"
+                  onPress={callVenue}
+                />
+              ) : null}
+            </View>
+          ) : null}
+
+          {actionBlock}
+        </View>
+      ) : null}
       <ConfirmAlert
         visible={confirmWithdraw}
         title={t('tournaments.guest.detail.withdrawTitle')}

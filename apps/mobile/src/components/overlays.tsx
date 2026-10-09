@@ -45,11 +45,13 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Alert, View, type AlertButton } from 'react-native';
+import { Alert, Animated, Easing, View, type AlertButton } from 'react-native';
 import { Text } from '../i18n/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, shadows, space, useTheme } from '../theme';
+import { settleAnimation } from '../theme/settleAnimation';
+import { useReduceMotion } from '../lib/useReduceMotion';
 
 // ── Notice alert ────────────────────────────────────────────────────────────
 
@@ -275,16 +277,51 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function ToastHost({ toast }: { toast: ToastState | null }) {
-  const { colors, fonts } = useTheme();
+const TOAST_OUT_MS = 180;
+
+function ToastHost({ toast: next }: { toast: ToastState | null }) {
+  const { appearance, colors, fonts } = useTheme();
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReduceMotion();
+  // The toast on screen, which outlives `next` by the length of the exit so
+  // it has something to animate away.
+  const [toast, setToast] = useState<ToastState | null>(next);
+  const [progress] = useState(() => new Animated.Value(0));
+  if (next && next !== toast) setToast(next);
+
+  useEffect(() => {
+    if (next) {
+      const anim = reduceMotion
+        ? Animated.timing(progress, { toValue: 1, duration: 150, useNativeDriver: true })
+        : Animated.spring(progress, { toValue: 1, damping: 16, stiffness: 240, mass: 0.9, useNativeDriver: true });
+      anim.start();
+      return () => anim.stop();
+    }
+    let cancelled = false;
+    const anim = Animated.timing(progress, {
+      toValue: 0,
+      duration: TOAST_OUT_MS,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    });
+    // Settled, not just started: a toast that times out while the app is
+    // backgrounded must still be gone when it comes back.
+    void settleAnimation(anim, progress, 0, TOAST_OUT_MS).then(() => {
+      if (!cancelled) setToast(null);
+    });
+    return () => {
+      cancelled = true;
+      anim.stop();
+    };
+  }, [next, reduceMotion, progress]);
+
   if (!toast) return null;
-  const bg =
-    toast.tone === 'error'
-      ? colors.danger
-      : toast.tone === 'info'
-        ? brand.navy
-        : brand.successToast;
+  // Success and info share one colour per theme (owner, 2026-10-09): navy in
+  // light; in dark, the green and ink of the Courts "Check availability" CTA.
+  // Only an error stands apart.
+  const greenToast = toast.tone !== 'error' && appearance === 'dark';
+  const bg = toast.tone === 'error' ? colors.danger : greenToast ? brand.green : brand.navy;
+  const ink = greenToast ? brand.greenInk : brand.white;
   return (
     <View
       pointerEvents="none"
@@ -296,9 +333,13 @@ function ToastHost({ toast }: { toast: ToastState | null }) {
         alignItems: 'center',
       }}
     >
-      <View
+      <Animated.View
         accessibilityLiveRegion="polite"
         style={{
+          opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' }),
+          transform: reduceMotion
+            ? []
+            : [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }],
           backgroundColor: bg,
           borderRadius: radius.cell,
           paddingStart: space.l,
@@ -309,8 +350,8 @@ function ToastHost({ toast }: { toast: ToastState | null }) {
           boxShadow: shadows.toast,
         }}
       >
-        <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: brand.white }}>{toast.message}</Text>
-      </View>
+        <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: ink }}>{toast.message}</Text>
+      </Animated.View>
     </View>
   );
 }

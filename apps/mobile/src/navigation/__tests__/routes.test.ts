@@ -17,8 +17,17 @@ import { describe, expect, it } from 'vitest';
 const APP = join(__dirname, '..', '..', '..', 'app');
 const SRC = join(__dirname, '..', '..');
 
-/** Route groups that legitimately remain: only the tabs, which draw their own bar. */
-const ALLOWED_GROUPS = new Set(['(tabs)']);
+/**
+ * Route groups that legitimately remain: the tabs, which draw their own bar, and
+ * the flows pushed from the tabs that run in a stack of their own (owner,
+ * 2026-10-09): (tournaments) and (coaching). A root-stack screen's back item is
+ * UIKit's shared bar's, which trails the page on a fast swipe back to the tabs;
+ * the owner wants these flows' bar to leave WITH the page at any speed, which
+ * only a bar owned by the page (a nested stack) can do. Each group's first screen
+ * gets a native UIBarButtonItem with the system chevron instead of the back item
+ * (src/navigation/groupStack.tsx). Nothing else may follow without the owner.
+ */
+const ALLOWED_GROUPS = new Set(['(tabs)', '(tournaments)', '(coaching)']);
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -32,10 +41,14 @@ function walk(dir: string, out: string[] = []): string[] {
 const routeFiles = walk(APP);
 
 /** APP-relative, '/'-separated regardless of platform (join() emits '\' on Windows). */
-const rel = (f: string): string => f.slice(APP.length + 1).split(sep).join('/');
+const rel = (f: string): string =>
+  f
+    .slice(APP.length + 1)
+    .split(sep)
+    .join('/');
 
 describe('route layout', () => {
-  it('keeps no route group except (tabs)', () => {
+  it('keeps no route group except (tabs) and the nested-flow exceptions', () => {
     const groups = new Set<string>();
     for (const f of routeFiles) {
       for (const seg of rel(f).split('/')) {
@@ -61,7 +74,13 @@ describe('route layout', () => {
     // A `_layout` outside (tabs) would reintroduce a nested navigator, and with
     // it the screens whose back item UIKit refuses to draw.
     const layouts = routeFiles.map(rel).filter((f) => f.endsWith('_layout.tsx'));
-    expect(layouts.sort()).toEqual(['(tabs)/_layout.tsx', '_layout.tsx']);
+    // (coaching) and (tournaments) are the documented exceptions (ALLOWED_GROUPS above).
+    expect(layouts.sort()).toEqual([
+      '(coaching)/_layout.tsx',
+      '(tabs)/_layout.tsx',
+      '(tournaments)/_layout.tsx',
+      '_layout.tsx',
+    ]);
   });
 });
 
@@ -72,7 +91,9 @@ describe('navigation targets', () => {
   const targets = new Set<string>();
   for (const f of sources) {
     const text = readFileSync(f, 'utf8');
-    for (const m of text.matchAll(/router\.(?:push|replace|navigate|dismissTo)\(\s*\{?\s*(?:pathname:\s*)?'([^']+)'/g)) {
+    for (const m of text.matchAll(
+      /router\.(?:push|replace|navigate|dismissTo)\(\s*\{?\s*(?:pathname:\s*)?'([^']+)'/g,
+    )) {
       const path = m[1];
       if (path && path.startsWith('/')) targets.add(path);
     }
@@ -96,6 +117,11 @@ describe('navigation targets', () => {
         .filter((r) => !r.endsWith('_layout'))
         .map((r) => '/' + r.replace(/\/index$/, '')),
     );
+    // A non-tab group adds nothing to the URL: (coaching)/coaches is `/coaches`.
+    for (const r of [...routes]) {
+      const bare = r.replace(/\/\((?!tabs\))[^)]+\)/g, '');
+      if (bare !== r) routes.add(bare);
+    }
     // `/` and `/(tabs)` resolve to the tab group's own index.
     routes.add('/');
     routes.add('/(tabs)');

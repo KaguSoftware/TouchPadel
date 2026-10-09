@@ -12,40 +12,40 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { countPhrase, formatIQD, isolate } from '@touch/i18n';
-import { Text } from '../../src/i18n/text';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { useAuth } from '../../src/features/auth/context';
+import { Text } from '../../../src/i18n/text';
+import { useLocale } from '../../../src/i18n/LocaleProvider';
+import { useAuth } from '../../../src/features/auth/context';
 import {
   useGuestVenue,
   useIsDegraded,
   useVenueSettings,
-} from '../../src/features/availability/hooks';
-import { venuePhoneOf } from '../../src/features/availability/assemble';
-import { useCoachProfile } from '../../src/features/coaching/hooks';
-import { lessonErrorCode, lessonErrorText } from '../../src/features/coaching/errors';
-import { coachShareUrl, isCoachId } from '../../src/features/coaching/links';
+} from '../../../src/features/availability/hooks';
+import { venuePhoneOf } from '../../../src/features/availability/assemble';
+import { useCoachProfile } from '../../../src/features/coaching/hooks';
+import { lessonErrorCode, lessonErrorText } from '../../../src/features/coaching/errors';
+import { coachShareUrl, isCoachId } from '../../../src/features/coaching/links';
 import {
   coachBranch,
   displayCoachName,
   pick,
   type ProfileOffer,
-} from '../../src/features/coaching/logic';
-import { useCoachStatus } from '../../src/features/coach/useCoachStatus';
-import { callPhone } from '../../src/lib/phone';
-import { brand, radius, shadows, space, useTheme } from '../../src/theme';
-import { Button, Screen } from '../../src/components/ui';
-import { DegradedBanner } from '../../src/components/booking';
-import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
-import { MatchNotice, MatchSectionTitle, ShareGlyph } from '../../src/components/match';
+} from '../../../src/features/coaching/logic';
+import { useCoachStatus } from '../../../src/features/coach/useCoachStatus';
+import { callPhone } from '../../../src/lib/phone';
+import { brand, radius, shadows, space, useTheme } from '../../../src/theme';
+import { Button, Screen } from '../../../src/components/ui';
+import { DegradedBanner } from '../../../src/components/booking';
+import { EmptyState, ErrorState, SkeletonList } from '../../../src/components/states';
+import { MatchNotice, MatchSectionTitle, ShareGlyph } from '../../../src/components/match';
 import {
   COACH_DOCK,
   CoachDockBar,
   coachDockAt,
   CoachHero,
   OfferCard,
-} from '../../src/components/coaching';
-import { useReduceMotion } from '../../src/lib/useReduceMotion';
-import { useToast } from '../../src/components/overlays';
+} from '../../../src/components/coaching';
+import { useReduceMotion } from '../../../src/lib/useReduceMotion';
+import { useToast } from '../../../src/components/overlays';
 
 /** How far the name card rides up over the hero (Figma "D · Profile": the card overlaps the band). */
 const CARD_OVERLAP = 56;
