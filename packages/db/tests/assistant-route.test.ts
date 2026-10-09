@@ -353,17 +353,36 @@ describe('the route shape', () => {
     expect(LOOKUP_MODEL).toBe('claude-sonnet-5-5');
   });
 
-  it('an analysis defers to the chat default at effort medium with no pre-retrieval', () => {
+  it('a plain figure question runs on the cheap model at effort low with no pre-retrieval', () => {
     const r = routeTurn({ text: 'How much revenue did we make last week?', scopes: FULL, explicitModel: null });
-    expect(r).toMatchObject({ kind: 'analysis', model: null, effort: 'medium', preRetrieve: false });
+    expect(r).toMatchObject({ kind: 'analysis', model: LOOKUP_MODEL, effort: 'low', preRetrieve: false, sticky: true });
     expect(r.reason.length).toBeGreaterThan(0);
   });
 
-  it('an explicit model beats the lookup model but changes nothing else', () => {
+  it('advice, a plan and why stay on the chat default (model null) at effort medium', () => {
+    for (const q of ['What should we do about the empty evenings?', 'Why did revenue drop last week?', 'Give me ideas to fill the courts']) {
+      const r = routeTurn({ text: q, scopes: FULL, explicitModel: null });
+      expect(r, q).toMatchObject({ kind: 'analysis', model: null, effort: 'medium', preRetrieve: false });
+      expect(r.sticky, q).toBeUndefined();
+    }
+  });
+
+  it('a comparison or a trend runs on the cheap model at effort medium', () => {
+    for (const q of ['Compare this week with last week', 'Is the cafe trending down?']) {
+      expect(routeTurn({ text: q, scopes: FULL, explicitModel: null }), q).toMatchObject({ kind: 'analysis', model: LOOKUP_MODEL, effort: 'medium', sticky: true });
+    }
+  });
+
+  it('one hard part makes the whole message deep', () => {
+    const r = routeTurn({ text: 'How much did we make today? And what should we do about it?', scopes: FULL, explicitModel: null });
+    expect(r).toMatchObject({ model: null, effort: 'medium' });
+  });
+
+  it('an explicit model beats the cheap model but changes nothing else', () => {
     const lookup = routeTurn({ text: 'Where is day close?', scopes: FULL, explicitModel: 'claude-opus-5-5' });
     expect(lookup).toMatchObject({ kind: 'lookup', model: 'claude-opus-5-5', effort: 'low', preRetrieve: true });
-    const analysis = routeTurn({ text: 'How much revenue today?', scopes: FULL, explicitModel: 'claude-opus-5-5' });
-    expect(analysis).toMatchObject({ kind: 'analysis', model: null, effort: 'medium', preRetrieve: false });
+    const figure = routeTurn({ text: 'How much revenue today?', scopes: FULL, explicitModel: 'claude-opus-5-5' });
+    expect(figure).toMatchObject({ kind: 'analysis', model: 'claude-opus-5-5', effort: 'low', preRetrieve: false });
   });
 
   it('an empty explicit model counts as none', () => {

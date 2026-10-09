@@ -66,7 +66,7 @@ const LOCALES: Locale[] = ['en', 'ar'];
 describe.each(LOCALES)('the owner assistant in %s', (locale) => {
   const t = makeT(locale);
 
-  it('offers starters and scope chips on a new chat, the default scope on', () => {
+  it('offers starters and scope chips on a new chat, every scope on', () => {
     const screen = renderRoute(StaffAssistant, { locale, staff: { role: 'owner' } });
     try {
       expect(screen.getByTestId('staff-assistant.suggestion.yesterday')).toBeTruthy();
@@ -78,9 +78,10 @@ describe.each(LOCALES)('the owner assistant in %s', (locale) => {
       expect(
         screen.getByTestId('staff-assistant.scope.howto').props.accessibilityState.checked,
       ).toBe(true);
+      // Every scope on by default (2026-10-09): nothing is pre-loaded, the assistant decides what to read.
       expect(
         screen.getByTestId('staff-assistant.scope.money').props.accessibilityState.checked,
-      ).toBe(false);
+      ).toBe(true);
       // Nothing to send until something is typed.
       expect(screen.getByTestId('staff-assistant.composer.send').props.accessibilityState.disabled).toBe(
         true,

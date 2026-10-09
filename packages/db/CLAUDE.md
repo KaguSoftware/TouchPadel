@@ -17,8 +17,8 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0329`
-  (0324–0329 the owner assistant, 2026-10-08: 0324 web search, 0325 search recall and the frozen
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0330`
+  (0330 the assistant's stored-days cache, 2026-10-09; 0324–0329 the owner assistant, 2026-10-08: 0324 web search, 0325 search recall and the frozen
   first turn, 0326 the tsv GIN index, 0327 card views, 0328 tournaments, open matches and loyalty
   tools, 0329 messages and calls written by the service role only; what each holds is below;
   0323 is `20261008000323_checklist_schedules.sql`, scheduled and assigned checklists;
@@ -48,7 +48,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0330`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0331`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -256,6 +256,19 @@ is a line in that file.
   so it holds `assistant_run_tool` (0266 is no longer the latest). 0329 re-creates no function:
   it revokes the client INSERT on `assistant_messages` and `assistant_calls` (0108 granted it to
   any owner session) and drops their insert policies; only the edge functions write them.
+  Assistant stored-days cache (0330, 2026-10-09): holds `assistant_run_tool` (0328 is no longer the
+  latest; one branch, `assistant_history_figures`, the tool `history_figures`) plus the tables
+  `assistant_cache_config` (one row: `enabled` OFF, `freeze_days` 3) and `assistant_day_facts` (one
+  row per report scope and closed business day: the `app.reports_figures` keys for that day), both
+  empty and unreadable by any client, and the functions `assistant_history_figures` (the read path:
+  day/week/month buckets of at most 31, kept days from the table, the rest live through
+  `reports_figures`, so the numbers are the panel's; never writes), `assistant_cache_fill` (the only
+  writer, newest first, `p_max_days` a call, nothing while off; cron `tp_assistant_cache_fill`,
+  01:20 UTC), `assistant_cache_init` (switch on + fill), `assistant_cache_clear` (empty + off),
+  `assistant_cache_invalidate(from, to)` and `assistant_cache_status`, all service role. A scope is a
+  branch id or `all:<md5 of the branch ids>`, so a changed branch set is a miss. The cache ships
+  empty and OFF; `node scripts/assistant-cache.mjs init` is the "cache init", run only when the
+  owner says so. A correction to a day older than `freeze_days` needs `invalidate` for that range.
   Tournament play (0311): holds `desk_tournament_detail` and `tournament_set_rounds` (0310 is
   no longer the latest), `tournament_mark_no_show`, `tournament_public`, `tournament_score`
   and `tournament_standings` (0301 is no longer the latest).

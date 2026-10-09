@@ -64,14 +64,14 @@
  *    the chat's model at 'medium'. An owner's explicit model (this request's
  *    or the chat's) always wins, and the routed model is never written back
  *    to the chat. The route lands in the answer's `tokens` (route, route_reason).
- *  - Frozen first turn (0325 `assistant_conversations.context`): the packs are
- *    built once (their RPCs in parallel) and the first user turn is stored;
- *    later turns replay that exact text while scopes, range, day, timezone and
- *    branch (review fixes below) are unchanged and it is younger than
- *    CONTEXT_MAX_AGE_MS (30 min), so the
- *    prompt prefix through the history stays cacheable. A lookup never builds
- *    packs: it replays a stored context, or sends a pack-less first turn that
- *    is not stored. The dry run measures fresh packs and stores nothing.
+ *  - Frozen first turn (0325 `assistant_conversations.context`): date,
+ *    timezone and scopes, no context packs since 2026-10-09 (the model reads
+ *    only what the question needs; every scope is open by default and costs
+ *    nothing until one of its tools is called). It is stored and replayed
+ *    while scopes, range, day, timezone and branch are unchanged and it is
+ *    younger than CONTEXT_MAX_AGE_MS (30 min), so the prompt prefix through
+ *    the history stays cacheable. A stored context from before, which carries
+ *    packs, is rebuilt pack-less. The dry run measures the pack-less start.
  *  - History: 30–39 earlier messages, the window's start aligned to a seq of
  *    10k+1 (TAIL_STEP), so the history bytes hold for ten messages at a time.
  *  - Pre-retrieval: a lookup's `search` for the owner's words runs beside the
@@ -167,7 +167,6 @@ import {
   frozenContext,
   gateSignatureInput,
   keepWarmRoute,
-  lookupReplays,
   parseRates,
   PRE_SEARCH_CALL_ID,
   preSearchText,
@@ -178,6 +177,8 @@ import {
   TAIL_MESSAGES,
   TAIL_STEP,
   tailStartSeq,
+  TURN_COST_CAP_CHEAP_MICROS,
+  TURN_COST_CAP_MICROS,
   turnEstimateMicros,
   type FrozenContext,
   type ModelRates,
@@ -185,6 +186,7 @@ import {
 import { errorText, hasCitations, newTurnState, resolveArgs, runTurnLoop, type Dispatched, type SourceItem } from '../_shared/assistant/turn.ts';
 import { newHandleTable, toJson, type HandleTable } from '../_shared/assistant/handles.ts';
 import { diffNumbers } from '../_shared/assistant/recheck.ts';
+import { normalizeQuestion, planReuse, reusableQuestion, reuseNote, type ReusePlan } from '../_shared/assistant/reuse.ts';
 import { localRunner } from '../_shared/assistant/localRunner.ts';
 import { compactText, describe as mapDescribe, pageLookup } from '../_shared/assistant/map.ts';
 import { buildChunkExtractPrompt, buildFirstUserTurn, buildJobSystem, buildSystem, titleFrom, type PackForPrompt } from '../_shared/assistant/prompt.ts';
@@ -202,7 +204,7 @@ import {
   type ProviderMessage,
   type ProviderUsage,
 } from '../_shared/assistant/provider.ts';
-import { checkScope, defaultRange, isRange, localDate, normaliseScopes, packPlan, searchKindsFor, type DateRange } from '../_shared/assistant/scopes.ts';
+import { checkScope, defaultRange, isRange, localDate, normaliseScopes, searchKindsFor, type DateRange } from '../_shared/assistant/scopes.ts';
 import { SSE_HEADERS, sseFrame, sseHeartbeat, type AssistantEvent } from '../_shared/assistant/sse.ts';
 import {
   ASSISTANT_TOOLS,
@@ -220,7 +222,9 @@ import {
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-const MAX_TOKENS_CHAT = 8000;
+/** Output ceiling per call (thinking included): answers are short by instruction, so the cheap tier gets a tight one (2026-10-09). */
+const MAX_TOKENS_CHAT = 6000;
+const MAX_TOKENS_CHAT_CHEAP = 3000;
 const WALL_MS = 50_000;
 /** The re-check's own time box: tools only, no model, so shorter. */
 const RECHECK_WALL_MS = 30_000;
@@ -768,33 +772,6 @@ function fitPacks(packs: PackForPrompt[], budget: number): PackForPrompt[] {
 }
 
 /**
- * Every pack RPC of the chat's scopes at once (F1: they used to run one after
- * another), in plan order. A failed pack is left out; the model can still call
- * its tool. `failed` counts them (an aborted RPC included), so a partial build
- * is never stored as the chat's context (turnPolicy contextStorable).
- */
-async function runPacks(ctx: DispatchCtx, range: DateRange): Promise<{ packs: PackForPrompt[]; failed: number }> {
-  const planned = ctx.scopes.flatMap((scope) => packPlan(scope, range).map((call) => ({ scope, call, spec: toolByName(call.tool) })));
-  let failed = 0;
-  const results = await Promise.all(
-    planned.map(async ({ scope, call, spec }): Promise<PackForPrompt | null> => {
-      // A plan entry with no RPC is the catalog's shape, not a failure: it never has a pack.
-      if (!spec || !spec.rpc) return null;
-      try {
-        const r = await runRpcTool(ctx, spec, call.args);
-        if (r.isError) failed++;
-        return r.isError ? null : { scope, cleaned: r.cleaned };
-      } catch (e) {
-        failed++;
-        console.error('[assistant-chat] pack failed', scope, call.tool, errorText(e));
-        return null;
-      }
-    }),
-  );
-  return { packs: results.filter((p): p is PackForPrompt => p !== null), failed };
-}
-
-/**
  * The system prompt and tool list every turn opens with. Claude: the compact
  * map in the cached prefix and every tool deferred behind tool search. Groq:
  * no map in the prompt (the free tier's per-request token budget) and only the
@@ -901,6 +878,55 @@ function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+/**
+ * The stored tool calls again as the owner, no model (the re-check and the
+ * answer reuse share it): each call is validated, scope-checked, handle-
+ * resolved and run through the same dispatch as a live turn, inside `wallMs`
+ * counted from `started`. `live` is every figure the runs returned.
+ */
+async function rerunStored(ctx: DispatchCtx, items: readonly { name: string; args: Record<string, unknown> }[], started: number, wallMs: number): Promise<{ tools: RecheckTool[]; live: number[] }> {
+  const tools: RecheckTool[] = [];
+  const live: number[] = [];
+  for (const item of items) {
+    const spec = toolByName(item.name);
+    if (!spec) continue;
+    const args = item.args;
+    const out: RecheckTool = { name: spec.name, args, row_count: null, ms: 0 };
+    const remaining = wallMs - (Date.now() - started);
+    if (remaining <= 0) {
+      out.error = `not re-run: the ${wallMs / 1000} s time box is used up`;
+      tools.push(out);
+      continue;
+    }
+    const t0 = Date.now();
+    try {
+      const problems = validateToolInput(spec, args);
+      const scope = checkScope(spec.name, ctx.scopes);
+      let r: Dispatched;
+      if (problems.length) r = { cleaned: cleanedNotice(problems.join('; ')), isError: true, row_count: null };
+      else if (!scope.ok) r = { cleaned: cleanedNotice(scope.message), isError: true, row_count: null };
+      else {
+        const resolved = resolveArgs(spec, args, ctx.handles);
+        if (typeof resolved === 'string') r = { cleaned: cleanedNotice(resolved), isError: true, row_count: null };
+        else r = await withDeadline(spec.name === 'posthog' ? runPosthog(ctx, spec, resolved) : runRpcTool(ctx, spec, resolved), remaining);
+      }
+      out.row_count = r.row_count;
+      if (r.isError) out.error = r.cleaned.text.slice(0, 300);
+      else live.push(...r.cleaned.numbers);
+    } catch (e) {
+      // Ours (a clean refusal, the time box) is shown; anything else is logged.
+      if (e instanceof CleanError || e instanceof RecheckDeadline) out.error = errorText(e).slice(0, 300);
+      else {
+        logError('assistant-chat', e, `recheck ${spec.name} failed`);
+        out.error = 'the tool failed';
+      }
+    }
+    out.ms = Date.now() - t0;
+    tools.push(out);
+  }
+  return { tools, live };
+}
+
 async function handleRecheck(req: Request, ownerId: string, recheck: unknown, venueScope: string | null = null): Promise<Response> {
   const started = Date.now();
   const messageId = recheck && typeof recheck === 'object' ? String((recheck as { message_id?: unknown }).message_id ?? '') : '';
@@ -936,51 +962,97 @@ async function handleRecheck(req: Request, ownerId: string, recheck: unknown, ve
   // The time box's signal rides on every RPC, so a re-run past it is cancelled, not only abandoned.
   const ctx: DispatchCtx = { asOwner, scopes, handles, tz, lang: 'en', authorization: req.headers.get('Authorization') ?? '', venueScope, signal: AbortSignal.timeout(RECHECK_WALL_MS) };
 
-  const tools: RecheckTool[] = [];
-  const live: number[] = [];
-  for (const item of storedSourceItems(row.sources)) {
-    const spec = toolByName(item.name);
+  const items = storedSourceItems(row.sources)
     // Knowledge and meta tools carry no business figures; a call that failed then gave none either.
-    if (!spec || spec.kind === 'knowledge' || spec.kind === 'meta' || item.error) continue;
-    const args = item.args && typeof item.args === 'object' ? item.args : {};
-    const out: RecheckTool = { name: spec.name, args, row_count: null, ms: 0 };
-    const remaining = RECHECK_WALL_MS - (Date.now() - started);
-    if (remaining <= 0) {
-      out.error = `not re-run: the ${RECHECK_WALL_MS / 1000} s time box is used up`;
-      tools.push(out);
-      continue;
-    }
-    const t0 = Date.now();
-    try {
-      const problems = validateToolInput(spec, args);
-      const scope = checkScope(spec.name, scopes);
-      let r: Dispatched;
-      if (problems.length) r = { cleaned: cleanedNotice(problems.join('; ')), isError: true, row_count: null };
-      else if (!scope.ok) r = { cleaned: cleanedNotice(scope.message), isError: true, row_count: null };
-      else {
-        const resolved = resolveArgs(spec, args, handles);
-        if (typeof resolved === 'string') r = { cleaned: cleanedNotice(resolved), isError: true, row_count: null };
-        else r = await withDeadline(spec.name === 'posthog' ? runPosthog(ctx, spec, resolved) : runRpcTool(ctx, spec, resolved), remaining);
-      }
-      out.row_count = r.row_count;
-      if (r.isError) out.error = r.cleaned.text.slice(0, 300);
-      else live.push(...r.cleaned.numbers);
-    } catch (e) {
-      // Ours (a clean refusal, the time box) is shown; anything else is logged.
-      if (e instanceof CleanError || e instanceof RecheckDeadline) out.error = errorText(e).slice(0, 300);
-      else {
-        logError('assistant-chat', e, `recheck ${spec.name} failed`);
-        out.error = 'the tool failed';
-      }
-    }
-    out.ms = Date.now() - t0;
-    tools.push(out);
-  }
+    .filter((item) => {
+      const spec = toolByName(item.name);
+      return !!spec && spec.kind !== 'knowledge' && spec.kind !== 'meta' && !item.error;
+    })
+    .map((item) => ({ name: item.name, args: item.args && typeof item.args === 'object' ? item.args : {} }));
+  const { tools, live } = await rerunStored(ctx, items, started, RECHECK_WALL_MS);
 
   const baseline = Array.isArray(row.gate?.numbers);
   const then = baseline ? (row.gate!.numbers as unknown[]).filter((n): n is number => typeof n === 'number') : [];
   const diff = diffNumbers(then, live, numbersIn(storedText(row.content)));
   return json({ message_id: row.id, checked_at: new Date().toISOString(), tools, changed: diff.changed, unchanged: diff.unchanged, baseline });
+}
+
+// ---------------------------------------------------------------------------
+// Answer reuse (owner call 2026-10-09, cost): the same standalone question
+// again today, nothing it rested on moved -> the stored answer, no model.
+// The decisions are in _shared/assistant/reuse.ts; this is the reads and the re-run.
+// ---------------------------------------------------------------------------
+const REUSE_LOOKBACK_MS = 26 * 3_600_000;
+const REUSE_WALL_MS = 8_000;
+
+async function findReusableAnswer(
+  service: SupabaseClient,
+  ownerId: string,
+  o: { text: string; scopes: readonly AssistantScope[]; venueScope: string | null; today: string; tz: string; ctx: DispatchCtx; newConversationId: string },
+): Promise<{ plan: ReusePlan; writtenAt: Date; messageId: string } | null> {
+  const started = Date.now();
+  const want = normalizeQuestion(o.text);
+  const since = new Date(Date.now() - REUSE_LOOKBACK_MS).toISOString();
+  const wantScopes = [...o.scopes].sort().join(',');
+
+  // Chats of the last day with the same scopes and branch in scope.
+  const { data: convs, error: convErr } = await service
+    .from('assistant_conversations')
+    .select('id, scopes, handles, context')
+    .eq('owner_id', ownerId)
+    .is('archived_at', null)
+    .gte('updated_at', since)
+    .neq('id', o.newConversationId)
+    .order('updated_at', { ascending: false })
+    .limit(60);
+  if (convErr || !convs?.length) return null;
+  const sameChat = (convs as { id: string; scopes: unknown; handles: unknown; context: unknown }[]).filter((c) => {
+    const ctxScope = c.context && typeof c.context === 'object' ? (c.context as { venue_scope?: unknown }).venue_scope : undefined;
+    return [...normaliseScopes(c.scopes)].sort().join(',') === wantScopes && (typeof ctxScope === 'string' ? ctxScope : null) === o.venueScope;
+  });
+  if (!sameChat.length) return null;
+
+  // Their FIRST messages (a follow-up only means something beside its history) with the same words.
+  const { data: firsts, error: firstErr } = await service
+    .from('assistant_messages')
+    .select('conversation_id, content, created_at')
+    .in('conversation_id', sameChat.map((c) => c.id))
+    .eq('seq', 1)
+    .eq('role', 'user')
+    .order('created_at', { ascending: false })
+    .limit(60);
+  if (firstErr || !firsts?.length) return null;
+  const matches = (firsts as { conversation_id: string; content: unknown }[]).filter((m) => normalizeQuestion(storedText(m.content)) === want).slice(0, 3);
+
+  for (const m of matches) {
+    const chat = sameChat.find((c) => c.id === m.conversation_id)!;
+    const { data: reply } = await service
+      .from('assistant_messages')
+      .select('id, role, content, sources, gate, tokens, created_at')
+      .eq('conversation_id', m.conversation_id)
+      .eq('seq', 2)
+      .maybeSingle();
+    const row = reply as { id: string; role: string; content: unknown; sources: unknown; gate: unknown; tokens: unknown; created_at: unknown } | null;
+    if (!row || row.role !== 'assistant') continue;
+    const plan = planReuse(row, {
+      today: o.today,
+      tz: o.tz,
+      classify: (name) => {
+        const spec = toolByName(name);
+        if (!spec || name === 'propose_job') return null;
+        return spec.kind === 'knowledge' ? 'knowledge' : spec.kind === 'meta' ? null : 'data';
+      },
+    });
+    if (!plan) continue;
+    // Still true? The stored tools again, against that chat's handles, inside a short time box.
+    const rerunCtx: DispatchCtx = { ...o.ctx, handles: newHandleTable(chat.handles), signal: AbortSignal.timeout(REUSE_WALL_MS) };
+    const { tools, live } = await rerunStored(rerunCtx, plan.rerun, started, REUSE_WALL_MS);
+    if (tools.length !== plan.rerun.length || tools.some((t) => t.error)) continue;
+    const diff = diffNumbers(plan.numbers, live, numbersIn(plan.text));
+    if (diff.changed.length) continue;
+    return { plan, writtenAt: new Date(String(row.created_at)), messageId: row.id };
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1009,15 +1081,14 @@ Deno.serve(handle('assistant-chat', async (req) => {
   const asOwner = ownerClient(req, parsed.venue_scope);
   const env = (n: string) => Deno.env.get(n);
 
-  // Dry run: pack sizes for the checkboxes. No model, no quota, no writes, no
-  // stored context (the packs are measured fresh, in parallel like a turn's).
+  // Dry run: what any question costs to start with these boxes (system prompt,
+  // tool list, the pack-less first turn). No model, no quota, no writes.
   if (parsed.dry_run) {
     const [tz, models] = await Promise.all([venueTimezone(asOwner), parsed.model ? Promise.resolve(null) : venueModels(service)]);
     const today = localDate(new Date(), tz);
     const scopes = parsed.scopes ?? normaliseScopes(null);
-    const ctx: DispatchCtx = { asOwner, scopes, handles: newHandleTable(null), tz, lang: parsed.lang, authorization: req.headers.get('Authorization') ?? '', venueScope: parsed.venue_scope };
     const range = parsed.range ?? defaultRange(today);
-    const { packs } = await runPacks(ctx, range);
+    const packs: PackForPrompt[] = [];
     const provider = providerFromEnv(env, parsed.model ?? models?.default_model ?? null);
     const start = provider ? await startSize(provider, scopes, packs, parsed.lang, today, tz) : null;
     return json({ packs: packSizes(packs), start, scopes, range });
@@ -1194,7 +1265,6 @@ Deno.serve(handle('assistant-chat', async (req) => {
   /** A first turn built (not replayed) this turn, stored on the conversation at persist when contextStorable; null when replayed or pack-less. */
   let freshContext: FrozenContext | null = null;
   /** Pack RPCs of that build that failed or were aborted: any one keeps it out of the store (review 2026-10-08). */
-  let packsFailed = 0;
   /** Signs this answer's gate.numbers and checks the previous answer's (null without the key). */
   const gateSign = gateSigner();
   let searchMicros: number | null = null;
@@ -1246,30 +1316,23 @@ Deno.serve(handle('assistant-chat', async (req) => {
   };
 
   /**
-   * The first user turn (F1 item 2): the stored one when it still holds, a
-   * pack-less one for a lookup, else fresh packs (in parallel) — the fresh one
-   * is stored on the conversation at persist.
+   * The first user turn (F1 item 2): the stored one when it still holds, else
+   * a fresh one — date, timezone and the scopes, no context packs (owner call
+   * 2026-10-09: the model fetches only what the question needs through its
+   * tools; the packs pre-loaded every checked scope whether the question
+   * needed it or not). The fresh one is stored on the conversation at persist.
    */
-  const prepareContext = async (): Promise<{ text: string; numbers: readonly number[]; packs: PackForPrompt[] }> => {
+  const prepareContext = (): { text: string; numbers: readonly number[]; packs: PackForPrompt[] } => {
     // Keyed on the branch in scope too (review 2026-10-08): the packs were read
     // through x-venue-scope, so another branch's first turn is never replayed.
     const want = { scopes, range, today, tz, venue_scope: parsed.venue_scope };
     const stored = reusableContext(conv.context, want, Date.now());
-    // A lookup replays the packs only on the model that built them; on another
-    // model they would be a cold cache write it does not need.
-    if (stored && (route.kind !== 'lookup' || lookupReplays(stored, provider.model))) return { text: stored.text, numbers: stored.numbers, packs: [] };
-    // A lookup is answered from the map: no packs, and nothing stored, so the
-    // next analysis question still builds the real first turn.
-    if (route.kind === 'lookup') return { text: buildFirstUserTurn({ today, tz, scopes, packs: [] }), numbers: [], packs: [] };
-    // Packs within the vendor's budget, smallest first; the rest are left for the
-    // model to fetch with the tool (Groq's free tier meters 8k tokens a request).
-    const built = await runPacks(ctx, range);
-    packsFailed = built.failed;
-    const packs = fitPacks(built.packs, provider.capabilities.packBudget);
-    const text = buildFirstUserTurn({ today, tz, scopes, packs });
-    // Built either way (its figures feed the gate); stored only when whole (persist).
-    freshContext = frozenContext({ ...want, text, numbers: packs.flatMap((p) => p.cleaned.numbers), model: provider.model, now: new Date() });
-    return { text, numbers: freshContext.numbers, packs };
+    // A context stored before 2026-10-09 carries packs (figures); it is rebuilt
+    // pack-less rather than replayed.
+    if (stored && stored.numbers.length === 0) return { text: stored.text, numbers: stored.numbers, packs: [] };
+    const text = buildFirstUserTurn({ today, tz, scopes, packs: [] });
+    freshContext = frozenContext({ ...want, text, numbers: [], model: provider.model, now: new Date() });
+    return { text, numbers: [], packs: [] };
   };
 
   /**
@@ -1307,7 +1370,34 @@ Deno.serve(handle('assistant-chat', async (req) => {
     }
   };
 
+  /** The message a reused answer came from (answer reuse); null for a normal turn. */
+  let reusedFrom: string | null = null;
+
   const run = async () => {
+    // Answer reuse: the same standalone question as this chat's first message,
+    // answered earlier today, with the stored tools returning the same figures
+    // now -> that answer again, no model call and no tokens.
+    if (userSeq === 1 && reusableQuestion(parsed.text)) {
+      let hit: Awaited<ReturnType<typeof findReusableAnswer>> = null;
+      try {
+        hit = await findReusableAnswer(service, auth.userId, { text: parsed.text, scopes, venueScope: parsed.venue_scope, today, tz, ctx, newConversationId: conv.id });
+      } catch (e) {
+        console.error('[assistant-chat] answer reuse skipped', errorText(e));
+      }
+      if (hit) {
+        reusedFrom = hit.messageId;
+        const text = `${hit.plan.text}${reuseNote(parsed.lang, hit.writtenAt, tz)}`;
+        emit('message_start', { conversation_id: conv.id, user_message_id: userMessageId, assistant_message_id: assistantMessageId, scopes, model: provider.model, packs: [], reused: true });
+        emit('delta', { text });
+        turn.finalText = text;
+        turn.finalContent = [{ type: 'text', text } as ContentBlock];
+        turn.gate = hit.plan.gate;
+        turn.stopReason = 'end_turn';
+        allowed.push(...hit.plan.numbers);
+        sources.push(...(hit.plan.sources as unknown as SourceItem[]));
+        return;
+      }
+    }
     // The first turn, the history and a lookup's search, together.
     const [context, tailRows, pre] = await Promise.all([prepareContext(), readTail(), preSearch()]);
     const tail = tailToMessages(tailRows);
@@ -1357,13 +1447,14 @@ Deno.serve(handle('assistant-chat', async (req) => {
     // the vendor, the database or the clock's wall comes in through here.
     await runTurnLoop(turn, { messages, scopes, handles, userNumbers, previousNumbers }, {
       model: provider.model,
+      capMicros: route.sticky ? TURN_COST_CAP_CHEAP_MICROS : TURN_COST_CAP_MICROS,
       webSearchMaxUses: WEB_SEARCH_MAX_USES,
       stream: (msgs, onText) =>
         provider.stream({
           system,
           tools,
           messages: msgs,
-          maxTokens: MAX_TOKENS_CHAT,
+          maxTokens: route.sticky ? MAX_TOKENS_CHAT_CHEAP : MAX_TOKENS_CHAT,
           effort: route.effort,
           webSearch: true,
           onText,
@@ -1408,6 +1499,7 @@ Deno.serve(handle('assistant-chat', async (req) => {
       // The next turn's warm-cache route reads model + effort back (turnPolicy previousTurnOf).
       effort: route.effort,
       ...(costCapped ? { cost_capped: true } : {}),
+      ...(reusedFrom ? { reused_from: reusedFrom } : {}),
     };
     // A web answer's text blocks carry citations that only make sense beside
     // that turn's search results; the stored turn keeps the text as one block.
@@ -1486,7 +1578,7 @@ Deno.serve(handle('assistant-chat', async (req) => {
         ...(conv.title ? {} : { title: titleFrom(parsed.text) }),
         // 0325: the first turn built this turn, replayed by the next ones
         // (header) — only a whole one from a turn that finished (review 2026-10-08).
-        ...(freshContext && contextStorable({ packsFailed, aborted: abort.signal.aborted, turnFailed: errorOut !== null }) ? { context: freshContext } : {}),
+        ...(freshContext && contextStorable({ packsFailed: 0, aborted: abort.signal.aborted, turnFailed: errorOut !== null }) ? { context: freshContext } : {}),
       })
       .eq('id', conv.id);
     if (upd.error) console.error('[assistant-chat] conversation not updated', upd.error.message);
