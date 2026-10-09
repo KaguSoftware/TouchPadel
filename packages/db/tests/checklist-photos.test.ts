@@ -274,7 +274,7 @@ describe.skipIf(!docker)('checklist_photos (rolled-back transactions)', () => {
       T('edit', 'owner', save('barista', 1, [{ ...LINES[1]!, photo_required: true }])),
       T('today_after', 'bar1', `select app.my_checklists_today({{venue}})`),
       T('tick', 'bar1', tick('item')),
-      Q('shift', `with x as (update checklist_runs set business_date = business_date - 1
+      Q('shift', `with x as (update checklist_runs set business_date = business_date - 1, period_end = period_end - 1
                    where venue_id = {{venue}} and role = 'barista' returning 1) select to_jsonb(count(*)) from x`),
       T('tomorrow', 'bar1', `select app.my_checklists_today({{venue}})`),
       RES('item2', 'tomorrow', 'lists,0,items,0,id'),

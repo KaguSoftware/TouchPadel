@@ -21,7 +21,7 @@
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { OPERATOR_URL as CONFIG_OPERATOR_URL } from '../playwright.config';
-import { DEV_PASSWORD, SEED_STAFF, appRpc, serviceClient, signedInClient } from './helpers';
+import { DEV_PASSWORD, SEED_STAFF, appRpc, serviceClient, showEveryRow, signedInClient } from './helpers';
 
 // A run against a second operator server on the local stack (the visual-check
 // recipe) points here; the default is the config's own server.
@@ -227,6 +227,8 @@ test.describe('operator role pages', () => {
     const page = await signIn(browser, staff.marketing!.email);
     await page.goto(`${OPERATOR_URL}/tasks`);
     await expect(page.getByRole('heading', { level: 1, name: 'My tasks' })).toBeVisible();
+    // Each work list shows three until "View more"; this step may sit further down.
+    await showEveryRow(page);
     const todo = page.getByTestId(`tasks.todo.${stepId}`);
     await expect(todo).toBeVisible();
     await expect(todo).toContainText(`E2E community night ${stamp}`);
@@ -241,6 +243,7 @@ test.describe('operator role pages', () => {
     await sheet.getByTestId('field.highlights_ar').fill('ستة عشر لاعبًا في ليلة واحدة، والدعوة للجميع.');
     await sheet.getByTestId('step.submit').click();
     await expect(page.getByText('Sent. It waits for a decision now.')).toBeVisible();
+    await showEveryRow(page);
     await expect(page.getByTestId(`tasks.waiting.${stepId}`)).toBeVisible();
     await expect(page.getByTestId(`tasks.todo.${stepId}`)).toHaveCount(0);
     await page.context().close();

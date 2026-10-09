@@ -27,7 +27,7 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { usePermissions } from '../../lib/auth';
 import { useToast } from '../../components/toast';
 import { Button, PinReasonModal } from '../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, Money, PageHeader, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, Money, PageHeader, Panel, StatusBadge, TableSkeleton, ViewMore, asyncStatus, useListCap, type Column } from '../../components/kit';
 import { downloadTable } from '../analytics/exportTables';
 import { dateOnlyCell, dayCell } from '../analytics/cellFormat';
 import { CardTitle } from '../ops/OpsVisuals';
@@ -49,6 +49,9 @@ export function Expiry() {
   const windowQ = useQuery({ queryKey: SK.expiryWindow, queryFn: fetchExpiryWindow, staleTime: 5 * 60_000 });
   const expired = summaryQ.data?.expired ?? [];
   const expiring = summaryQ.data?.expiringSoon ?? [];
+  // Owner's rule (2026-10-08): three batches per list, then "View more". The export takes them all.
+  const expiredCap = useListCap(expired);
+  const expiringCap = useListCap(expiring);
   const nameOf = (b: SummaryBatch) => pickName(locale, { name_en: b.nameEn, name_ar: b.nameAr });
   const dateOf = (b: SummaryBatch) => formatDate(new Date(`${b.expiryDate}T00:00:00`), locale);
 
@@ -173,7 +176,8 @@ export function Expiry() {
                 <p style={{ marginBlockEnd: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
                   {can.adjustStock ? tr('ws.manager.stock.expiry.expiredHint') : tr('ws.manager.stock.expiry.writeOffNotAllowed')}
                 </p>
-                <DataTable columns={expiredColumns} rows={expired} rowKey={(b) => b.batchId} aria-label={tr('ws.manager.stock.expiry.expiredTitle')} />
+                <DataTable columns={expiredColumns} rows={expiredCap.shown} rowKey={(b) => b.batchId} aria-label={tr('ws.manager.stock.expiry.expiredTitle')} />
+                <ViewMore hidden={expiredCap.hidden} open={expiredCap.open} onToggle={expiredCap.toggle} />
               </>
             )}
           </Panel>
@@ -186,7 +190,8 @@ export function Expiry() {
                 <p style={{ marginBlockEnd: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
                   {tr('ws.manager.stock.expiry.expiringHint')}
                 </p>
-                <DataTable columns={expiringColumns} rows={expiring} rowKey={(b) => b.batchId} aria-label={tr('ws.manager.stock.expiry.expiringTitle')} />
+                <DataTable columns={expiringColumns} rows={expiringCap.shown} rowKey={(b) => b.batchId} aria-label={tr('ws.manager.stock.expiry.expiringTitle')} />
+                <ViewMore hidden={expiringCap.hidden} open={expiringCap.open} onToggle={expiringCap.toggle} />
               </>
             )}
           </Panel>

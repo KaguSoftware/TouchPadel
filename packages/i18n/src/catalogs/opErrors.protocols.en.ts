@@ -39,6 +39,9 @@ export const opErrorsProtocolsEn = {
   CANDIDATE_NOT_FOUND: 'That candidate could not be found. Their details may have been deleted.',
   HIRE_ROLE_MISMATCH: 'The new account’s role does not match the position.',
   CHECKLIST_NOT_FOUND: 'That checklist could not be found.',
+  // 0323: scheduled checklists.
+  CHECKLIST_CLOSED: 'This checklist has ended, so it can no longer be ticked. Refresh to see the current one.',
+  ASSIGNEE_NOT_AT_BRANCH: 'Someone you picked no longer works at this branch. Check the people and save again.',
   SHOPPING_ITEM_NOT_OPEN: 'That item is no longer on the list.',
   PURCHASE_NOT_FOUND: 'That purchase could not be found.',
   PURCHASE_ALREADY_RECEIVED: 'This purchase was already received.',

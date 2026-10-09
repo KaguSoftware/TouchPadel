@@ -27,7 +27,7 @@ import { QK, fetchVenueSettings } from '../../lib/queries';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Skeleton, type ReasonCode } from '../../components/ui';
-import { CustomerFlagBadge, EmptyState, MessagePresenter, PageHeader, Panel, ReasonCodePrompt, StatusBadge, type MessageTone, type Tone } from '../../components/kit';
+import { CustomerFlagBadge, EmptyState, MessagePresenter, PageHeader, Panel, ReasonCodePrompt, StatusBadge, ViewMore, useListCap, type MessageTone, type Tone } from '../../components/kit';
 import { AddSeatDialog } from './AddSeatDialog';
 import {
   byCategory,
@@ -293,22 +293,7 @@ function MatchScreen({
           </Panel>
         )}
 
-        <Panel title={tr('ws.matches.detail.history.title')}>
-          {detail.events.length === 0 ? (
-            <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.matches.detail.history.empty')}</p>
-          ) : (
-            <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-              {detail.events.map((e, i) => (
-                <li key={`${e.at ?? ''}-${e.type}-${i}`} style={{ display: 'flex', gap: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)' }}>
-                  <bdi style={{ color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>
-                    {e.at ? formatDateTime(new Date(e.at), locale, tz) : '—'}
-                  </bdi>
-                  <span>{eventSentence(e, tr)}</span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </Panel>
+        <HistoryPanel events={detail.events} tz={tz} />
       </div>
 
       {cancelling && (
@@ -335,9 +320,35 @@ function MatchScreen({
 }
 
 /** The requests of an ask-to-join match (§5.12), read only: the organiser answers them in the app. */
+/** The match's history, in the server's order. Owner's rule (2026-10-08): three events, then "View more". */
+function HistoryPanel({ events, tz }: { events: readonly MatchEvent[]; tz: string }) {
+  const { tr, locale } = useLocale();
+  const cap = useListCap(events);
+  return (
+    <Panel title={tr('ws.matches.detail.history.title')}>
+      {events.length === 0 ? (
+        <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.matches.detail.history.empty')}</p>
+      ) : (
+        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+          {cap.shown.map((e, i) => (
+            <li key={`${e.at ?? ''}-${e.type}-${i}`} style={{ display: 'flex', gap: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)' }}>
+              <bdi style={{ color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>
+                {e.at ? formatDateTime(new Date(e.at), locale, tz) : '—'}
+              </bdi>
+              <span>{eventSentence(e, tr)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+    </Panel>
+  );
+}
+
 function RequestsPanel({ detail, tz }: { detail: MatchDetail; tz: string }) {
   const { tr, locale } = useLocale();
   const requests = detail.requests;
+  const cap = useListCap(requests);
   const figure = (key: MessageKey, n: number | null) => tr(key, { count: n === null ? '—' : formatNumber(n, locale) });
   return (
     <Panel title={tr('ws.matches.detail.requests.title', { count: formatNumber(requests.length, locale) })}>
@@ -348,7 +359,7 @@ function RequestsPanel({ detail, tz }: { detail: MatchDetail; tz: string }) {
         <p>{tr('ws.matches.detail.requests.empty')}</p>
       ) : (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-          {requests.map((r) => (
+          {cap.shown.map((r) => (
             <li key={r.request_id} style={{ display: 'grid', gap: 'var(--tp-sp-1)', paddingBlockStart: 'var(--tp-sp-2)', borderBlockStart: '1px solid var(--tp-border)' }}>
               <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
                 <strong>
@@ -373,6 +384,7 @@ function RequestsPanel({ detail, tz }: { detail: MatchDetail; tz: string }) {
           ))}
         </ul>
       )}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
     </Panel>
   );
 }

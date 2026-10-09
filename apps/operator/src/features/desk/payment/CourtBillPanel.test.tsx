@@ -185,6 +185,21 @@ describe('CourtBillView', () => {
     expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
   });
 
+  it('paid in parts: shows three payments, then View more reveals the rest', async () => {
+    const user = userEvent.setup();
+    const part = (n: number) => ({ id: `p${n}`, method: 'cash' as const, amount_iqd: 6000, tendered_iqd: 6000, change_iqd: 0, created_at: `2099-09-03T18:0${n}:00.000Z`, recorded_by_name: `Desk ${n}` });
+    view(
+      bill({
+        court_paid_iqd: 30000,
+        court_remaining_iqd: 0,
+        settled_tabs: [{ tab_id: 't0', settled_at: '2099-09-03T18:06:00.000Z', court_iqd: 30000, total_iqd: 30000, refunds_iqd: 0, payments: [1, 2, 3, 4, 5].map(part) }],
+      }),
+    );
+    expect(screen.getAllByText(/· Cash · by Desk \d$/)).toHaveLength(3);
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
+    expect(screen.getAllByText(/· Cash · by Desk \d$/)).toHaveLength(5);
+  });
+
   it('a deposit paid online: says the rest is owed, shows "Paid online", and takes the rest at Cash', async () => {
     const user = userEvent.setup();
     view(

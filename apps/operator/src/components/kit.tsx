@@ -1204,6 +1204,42 @@ export function ResultCount({ shown, total, style }: { shown: number; total: num
 }
 
 /**
+ * A list that stacks down the page shows its first three rows, then "View
+ * more" (owner call, 2026-10-08): an attention list that grows with the day
+ * must not push everything under it off the screen. A screen whose point is
+ * the whole list (a working table, a log) does not use this; it paginates.
+ *
+ * The hook keeps the rows' order and decides only how many show; the button
+ * reveals the rest in place and folds them back. No motion: the operator
+ * caused it (DESIGN.md, Motion).
+ */
+export const LIST_CAP = 3;
+
+export function useListCap<T>(items: readonly T[], cap: number = LIST_CAP) {
+  const [open, setOpen] = useState(false);
+  const hidden = Math.max(0, items.length - cap);
+  return {
+    shown: open || hidden === 0 ? items : items.slice(0, cap),
+    hidden,
+    open,
+    toggle: () => setOpen((o) => !o),
+  };
+}
+
+/** The "View more (n)" / "Show less" control under a capped list; nothing when nothing is hidden. */
+export function ViewMore({ hidden, open, onToggle, style }: { hidden: number; open: boolean; onToggle: () => void; style?: CSSProperties }) {
+  const { tr, locale } = useLocale();
+  if (hidden === 0) return null;
+  return (
+    <div style={{ marginBlockStart: 'var(--tp-sp-2)', ...style }}>
+      <Button size="sm" kind="ghost" iconEnd={open ? 'chevronUp' : 'chevronDown'} aria-expanded={open} onClick={onToggle}>
+        {open ? tr('ws.kit.list.showLess') : tr('ws.kit.list.viewMore', { count: formatNumber(hidden, locale) })}
+      </Button>
+    </div>
+  );
+}
+
+/**
  * Rulebook 9.1: a skeleton matches the layout it replaces, so nothing moves
  * when the rows arrive. Built from the same `Column[]` the caller already hands
  * DataTable, which is what keeps the two in step. Announcement is the caller's
@@ -1974,7 +2010,8 @@ export function SegmentedControl<T extends string>({
 }: {
   value: T;
   onChange: (v: T) => void;
-  options: readonly { value: T; label: ReactNode; icon?: IconName; disabled?: boolean }[];
+  /** `testId` lands on the segment's button as data-testid. */
+  options: readonly { value: T; label: ReactNode; icon?: IconName; disabled?: boolean; testId?: string }[];
   size?: 'sm' | 'md';
   'aria-label'?: string;
   /** Field(group) names the group from its own label text rather than wrapping it. */
@@ -2003,6 +2040,7 @@ export function SegmentedControl<T extends string>({
             key={o.value}
             type="button"
             aria-pressed={active}
+            data-testid={o.testId}
             disabled={o.disabled}
             onClick={() => onChange(o.value)}
             style={{
@@ -2171,5 +2209,108 @@ export function BidirectionalTextRenderer({ parts, separator = ' · ', style }: 
         </span>
       ))}
     </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Choosing several from a list (people for a checklist, scheduled-checklists-2026-10-08 §4)
+// ---------------------------------------------------------------------------
+
+export interface MultiPickOption {
+  id: string;
+  /** What the row shows, a name; isolated, so a Latin name keeps its order in Arabic. */
+  label: string;
+  /** A muted second part, such as the person's role. Searched too. */
+  hint?: string;
+}
+
+/**
+ * A searchable list of checkboxes: the caller owns the chosen ids and the
+ * words (the search box, the "nobody matches" line, the count). The search
+ * box shows once the list is long enough to need it. Chosen ids missing from
+ * `options` are kept as they are: the caller decides whether to list them.
+ */
+export function MultiPickList({
+  options,
+  value,
+  onChange,
+  label,
+  searchPlaceholder,
+  emptyText,
+  footer,
+  disabled,
+  invalid,
+  optionTestId,
+  searchFrom = 7,
+  style,
+}: {
+  options: readonly MultiPickOption[];
+  value: readonly string[];
+  onChange: (next: string[]) => void;
+  /** The group's accessible name. */
+  label: string;
+  searchPlaceholder?: string;
+  emptyText: string;
+  /** Under the list, e.g. "Chosen: 2". */
+  footer?: ReactNode;
+  disabled?: boolean;
+  invalid?: boolean;
+  optionTestId?: (id: string) => string;
+  /** The search box shows from this many options. */
+  searchFrom?: number;
+  style?: CSSProperties;
+}) {
+  const [query, setQuery] = useState('');
+  const chosen = new Set(value);
+  const q = query.trim().toLocaleLowerCase();
+  const shown = q === '' ? options : options.filter((o) => `${o.label} ${o.hint ?? ''}`.toLocaleLowerCase().includes(q));
+  const toggle = (id: string) => onChange(chosen.has(id) ? value.filter((v) => v !== id) : [...value, id]);
+  return (
+    <div role="group" aria-label={label} aria-invalid={invalid ? true : undefined} style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', minInlineSize: 0, ...style }}>
+      {options.length >= searchFrom && <SearchField value={query} onChange={setQuery} placeholder={searchPlaceholder} />}
+      {shown.length === 0 ? (
+        <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{emptyText}</p>
+      ) : (
+        <ul
+          style={{
+            listStyle: 'none',
+            margin: 0,
+            padding: 'var(--tp-sp-0)',
+            maxBlockSize: '15rem',
+            overflowY: 'auto',
+            border: `1px solid ${invalid ? 'var(--tp-danger)' : 'var(--tp-border-input)'}`,
+            borderRadius: 'var(--tp-radius-ctl)',
+            background: 'var(--tp-surface)',
+          }}
+        >
+          {shown.map((o) => {
+            const on = chosen.has(o.id);
+            return (
+              <li key={o.id}>
+                <label
+                  className="tp-row"
+                  data-clickable={disabled ? undefined : 'true'}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--tp-sp-2)',
+                    minBlockSize: 'var(--tp-row-h-dense)',
+                    paddingInline: 'var(--tp-sp-2)',
+                    borderRadius: 'var(--tp-radius-sm)',
+                    background: on ? 'var(--tp-accent-soft)' : undefined,
+                    fontSize: 'var(--tp-fs-sm)',
+                  }}
+                >
+                  <input type="checkbox" checked={on} disabled={disabled} onChange={() => toggle(o.id)} data-testid={optionTestId?.(o.id)} />
+                  <bdi style={{ fontWeight: on ? 600 : undefined, overflowWrap: 'anywhere' }}>{o.label}</bdi>
+                  {o.hint && <span style={{ color: 'var(--tp-muted-fg)', marginInlineStart: 'auto', whiteSpace: 'nowrap' }}>{o.hint}</span>}
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {footer && <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{footer}</span>}
+    </div>
   );
 }

@@ -43,6 +43,8 @@ import {
   PageHeader,
   Panel,
   TabStatusIndicator,
+  ViewMore,
+  useListCap,
   type Column,
 } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
@@ -264,6 +266,8 @@ function TablesNow({ tables, now, onOpen }: { tables: ReturnType<typeof tablesNo
   const { tr, locale } = useLocale();
   const occupied = tables.filter((t) => t.tabs.length > 0);
   const free = tables.filter((t) => t.tabs.length === 0);
+  // Owner's rule (2026-10-08): three table cards, then "View more".
+  const cap = useListCap(occupied);
   return (
     <Panel
       title={tr('ws.owner.observe.tills.tables.title')}
@@ -277,7 +281,7 @@ function TablesNow({ tables, now, onOpen }: { tables: ReturnType<typeof tablesNo
         <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.observe.tills.tables.noneOccupied')}</p>
       ) : (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))' }}>
-          {occupied.map((t) => {
+          {cap.shown.map((t) => {
             const first = t.tabs[0]!;
             return (
               <button
@@ -316,6 +320,7 @@ function TablesNow({ tables, now, onOpen }: { tables: ReturnType<typeof tablesNo
           })}
         </div>
       )}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
       {free.length > 0 && <FreeTables numbers={free.map((t) => t.tableNumber)} spaced />}
     </Panel>
   );
@@ -369,6 +374,8 @@ function TabsPanel({
   closed: boolean;
 }) {
   const { tr, locale } = useLocale();
+  // Owner's rule (2026-10-08): three tabs, then "View more"; each list folds on its own.
+  const cap = useListCap(rows);
   const columns: Column<TabBoardRow>[] = [
     {
       key: 'tab',
@@ -441,7 +448,10 @@ function TabsPanel({
       {rows.length === 0 ? (
         <EmptyState compact kind="nothingToDo" icon="receipt" title={empty} />
       ) : (
-        <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} onRowClick={(r) => onOpen(r.id)} dense aria-label={title} />
+        <>
+          <DataTable columns={columns} rows={cap.shown} rowKey={(r) => r.id} onRowClick={(r) => onOpen(r.id)} dense aria-label={title} />
+          <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+        </>
       )}
     </Panel>
   );

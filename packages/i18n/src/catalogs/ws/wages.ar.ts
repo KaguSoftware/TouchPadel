@@ -49,14 +49,6 @@ export const wagesAr: DeepMessages<typeof wagesEn> = {
       many: '{count} خصمًا بانتظار القرار',
       other: '{count} خصم بانتظار القرار',
     },
-    more: {
-      zero: 'لا مزيد',
-      one: 'راتب آخر',
-      two: 'راتبان آخران',
-      few: '{count} رواتب أخرى',
-      many: '{count} راتبًا آخر',
-      other: '{count} راتب آخر',
-    },
   },
   due: {
     title: 'مستحقة الآن',

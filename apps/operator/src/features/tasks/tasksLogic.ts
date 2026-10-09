@@ -14,6 +14,7 @@ import { campaignTone } from '../marketing/marketingTypes';
 import { bilingual, isObject, list, num, str } from '../roleExtras/roleExtrasLogic';
 import type { TaskStart } from './search';
 import { dayLabel } from '../deductions/venueDate';
+import { dueLabel } from '../checklists/checklistLogic';
 
 type Tr = (key: MessageKey, params?: TParams) => string;
 type Locale = 'en' | 'ar';
@@ -235,6 +236,8 @@ interface RowCtx {
   locale: Locale;
   /** "2,000 g" in the stock screens' words. */
   qty: (n: number, unit: string) => string;
+  /** The clock a checklist's due time is told against (tests pin it); default now. */
+  now?: Date;
 }
 
 const when = (iso: string | null, locale: Locale) => (iso ? formatDateTime(new Date(iso), locale) : '');
@@ -267,18 +270,27 @@ export function phoneRows(section: PhoneSection, payload: unknown, ctx: RowCtx):
   const ingredients = (lines: unknown) => list(lines).map((l) => name(l, locale)).join(', ') || tr('ws.rolePages.phone.recipes.noLines');
   switch (section) {
     case 'checklists':
+      // 0323: a list may carry when it is due and whether it is overdue (the
+      // server orders overdue first); an older payload has neither.
       return list(p.lists).map((l) => {
         const done = num(l.done) ?? 0;
         const total = num(l.total) ?? 0;
         const slot = l.slot === 'close' ? 'close' : 'open';
+        const finished = total > 0 && done === total;
+        const due = finished ? null : dueLabel(str(l.due_at), ctx.now ?? new Date(), tr, locale);
+        const progress = tr('ws.rolePages.phone.checklists.progress', { done: n(done), total: n(total) });
         return {
           id: str(l.run_id) ?? `${str(l.role)}:${slot}`,
           title: name(l, locale) || tr(`work.checklist.slot.${slot}`),
-          detail: tr('ws.rolePages.phone.checklists.progress', { done: n(done), total: n(total) }),
+          detail: due ? `${progress} · ${due}` : progress,
           lines: list(l.items)
             .filter((i) => !i.done_at)
             .map((i) => bilingual(locale, str(i.text_en), str(i.text_ar)) + (i.photo_required === true ? ` · ${tr('ws.rolePages.phone.checklists.needsPhoto')}` : '')),
-          status: total > 0 && done === total ? { label: tr('ws.rolePages.phone.checklists.finished'), tone: 'success' } : undefined,
+          status: finished
+            ? { label: tr('ws.rolePages.phone.checklists.finished'), tone: 'success' }
+            : l.overdue === true
+              ? { label: tr('ws.supplies.checklists.overdue'), tone: 'danger' }
+              : undefined,
         };
       });
     case 'production':

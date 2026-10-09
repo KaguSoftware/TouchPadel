@@ -14,6 +14,7 @@
 import { Link } from '@tanstack/react-router';
 import { formatTime, formatTimeRange, isolateLtr, type MessageKey } from '@touch/i18n';
 import { Icon } from '../../components/icons';
+import { ViewMore, useListCap } from '../../components/kit';
 import { useLocale } from '../../lib/i18n';
 import { MATCH_SEATS, type MatchReadStatus } from './matchLogic';
 import { MatchReadNotice } from './MatchReadNotice';
@@ -38,9 +39,10 @@ export function fillText(taken: number | null | undefined): string {
 
 export function OpenMatchesStrip({ status, onRetry, tz }: { status: MatchReadStatus<OpenMatches>; onRetry: () => void; tz: string }) {
   const { tr, locale } = useLocale();
+  const matches = status.kind === 'ready' ? stripMatches(status.data) : [];
+  const cap = useListCap(matches);
   if (status.kind === 'failed') return <MatchReadNotice status={status} onRetry={onRetry} tz={tz} compact />;
   if (status.kind !== 'ready') return null;
-  const matches = stripMatches(status.data);
   if (matches.length === 0) return null;
   return (
     <nav
@@ -48,7 +50,7 @@ export function OpenMatchesStrip({ status, onRetry, tz }: { status: MatchReadSta
       style={{ display: 'grid', gap: 'var(--tp-sp-1)', flexShrink: 0, marginBlockEnd: 'var(--tp-sp-3)' }}
     >
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2)' }}>
-        {matches.map((m) => {
+        {cap.shown.map((m) => {
           const awaiting = m.status === 'awaiting_court';
           const params = {
             time: formatTimeRange(new Date(m.start_at), new Date(m.end_at), locale, tz),
@@ -89,6 +91,7 @@ export function OpenMatchesStrip({ status, onRetry, tz }: { status: MatchReadSta
           );
         })}
       </ul>
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} style={{ marginBlockStart: 0 }} />
       <MatchReadNotice status={status} onRetry={onRetry} tz={tz} compact />
     </nav>
   );

@@ -6,6 +6,7 @@ import type {
   ResolveQueueRowRequest,
   StationMode,
   StationSetupRequest,
+  SupplierPageRequest,
 } from '../ipc-channels';
 import { ipv4Regex, isPrivateIpv4 } from './lan-net';
 
@@ -362,4 +363,17 @@ export function validateDiscoverRequest(value: unknown): DiscoverRequest {
   const code = validatePairingCode(raw.code);
   if (raw.host === undefined || raw.host === null || raw.host === '') return { code };
   return { code, host: validatePrivateHost(raw.host, 'host') };
+}
+
+/**
+ * The shop desk's supplier page request. Only the shape is checked here: the
+ * URL rule itself (https, public host, every redirect hop) lives in
+ * supplier-fetch.ts, which applies it whatever the renderer sent.
+ */
+export function validateSupplierPageRequest(value: unknown): SupplierPageRequest {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('supplier page request must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  return { url: requireString(raw.url, 'url', 2000) };
 }

@@ -683,3 +683,94 @@ describe('Coach pay: the statement dialog', () => {
     ).toBeTruthy();
   });
 });
+
+function liveRow(over: Record<string, unknown> = {}) {
+  return {
+    coach_id: 'c1',
+    coach_name_en: 'Sara',
+    coach_name_ar: 'سارة',
+    venue_id: 'venue-a',
+    venue_name_en: 'Mansour',
+    venue_name_ar: 'المنصور',
+    lessons_count: 4,
+    private_count: 1,
+    group_count: 3,
+    course_count: 0,
+    minutes: 240,
+    collected_iqd: 200000,
+    court_share_iqd: 40000,
+    coach_iqd: 96000,
+    statement_id: null,
+    statement_status: null,
+    statement_total_iqd: null,
+    ...over,
+  };
+}
+
+/** The default read answers September; the read for the current month answers its live rows (0321). */
+function withLive(live: unknown[]) {
+  listPayload = (a?: Record<string, unknown>) =>
+    a?.p_month === '2026-10-01'
+      ? list([], { month: '2026-10-01', live })
+      : list([statement()]);
+}
+
+describe('Coach pay: who is getting what this month (0321)', () => {
+  it('asks for the current month and lists each coach with what they have earned so far', async () => {
+    withLive([
+      liveRow(),
+      liveRow({
+        coach_id: 'c2',
+        coach_name_en: 'Omar',
+        coach_name_ar: 'عمر',
+        lessons_count: 2,
+        private_count: 2,
+        group_count: 0,
+        collected_iqd: 60000,
+        court_share_iqd: 20000,
+        coach_iqd: 24000,
+        statement_id: 'st-9',
+        statement_status: 'draft',
+        statement_total_iqd: 24000,
+      }),
+    ]);
+    mount();
+    const table = await screen.findByRole('table', { name: 'Coaches this month' });
+    expect(
+      callsOf('report_coach_statements').some(
+        ([, a]) => (a as Record<string, unknown>).p_month === '2026-10-01',
+      ),
+    ).toBe(true);
+    expect(screen.getByText('Coaches · October 2026 so far')).toBeTruthy();
+    const rows = within(table).getAllByRole('row').slice(1);
+    // The larger share first; Sara 96,000 of 120,000 is 80%, Omar 20%.
+    expect(rows[0]!.textContent).toContain('Sara');
+    expect(plain(rows[0]!.textContent)).toContain('96,000 IQD');
+    expect(rows[0]!.textContent).toContain('80%');
+    expect(rows[0]!.textContent).toContain('Not drafted yet');
+    expect(rows[1]!.textContent).toContain('Omar');
+    expect(rows[1]!.textContent).toContain('20%');
+    expect(within(rows[1]!).getByText('Draft')).toBeTruthy();
+  });
+
+  it('sums the band: coaches earn, court keeps, lessons and the average, with last month for scale', async () => {
+    withLive([liveRow(), liveRow({ coach_id: 'c2', coach_name_en: 'Omar', lessons_count: 2, private_count: 2, group_count: 0, court_share_iqd: 20000, coach_iqd: 24000 })]);
+    mount();
+    const band = await screen.findByTestId('coachPay.live.band');
+    expect(within(band).getByText('Coaches earn')).toBeTruthy();
+    expect(plain(band.textContent)).toContain('120,000 IQD');
+    expect(plain(band.textContent)).toContain('60,000 IQD');
+    expect(plain(band.textContent)).toContain('Last month: 156,000 IQD');
+    // 120,000 over 6 lessons.
+    expect(plain(band.textContent)).toContain('20,000 IQD');
+    expect(screen.getByTestId('coachPay.live.top').textContent).toContain('Sara');
+    expect(screen.getByTestId('coachPay.live.top').textContent).toContain('80%');
+  });
+
+  it('says so when no lesson has been taught yet this month', async () => {
+    withLive([]);
+    mount();
+    expect(await screen.findByText('No lessons taught yet this month.')).toBeTruthy();
+    expect(screen.queryByRole('table', { name: 'Coaches this month' })).toBeNull();
+  });
+});

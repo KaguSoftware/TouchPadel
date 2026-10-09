@@ -47,6 +47,28 @@ export const coachingMoneyEn = {
       // 0293 (DB-24, OP-22): a later month's draft stands in the way.
       newer_draft: '{coach}: waits for the {month} draft',
     },
+    // 0321: who is getting what in the month so far, before any statement is drafted.
+    live: {
+      title: 'Coaches · {month} so far',
+      lead: 'What each coach has earned from lessons already taught this month. The statement is drafted on the 1st and can differ once adjustments are added.',
+      empty: 'No lessons taught yet this month.',
+      figures: {
+        coachShare: 'Coaches earn',
+        courtShare: 'Court keeps',
+        lessons: 'Lessons taught',
+        average: 'Average per lesson',
+      },
+      lastMonth: 'Last month: {amount}',
+      coachCount: 'Coaches: {count}',
+      top: 'Most: {coach}, {percent}% of coach pay',
+      table: 'Coaches this month',
+      columns: {
+        earned: 'Earns so far',
+        share: 'Share',
+        statement: 'Statement',
+      },
+      notDrafted: 'Not drafted yet',
+    },
     emptyCurrent: 'Statements are drafted on the 1st for the month before.',
     emptyMonth: 'No statements for {month}.',
     // The statement dialog.

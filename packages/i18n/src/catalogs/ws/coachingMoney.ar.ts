@@ -46,6 +46,27 @@ export const coachingMoneyAr: DeepMessages<typeof coachingMoneyEn> = {
       older_draft: '{coach}: بانتظار مسودة شهر سابق',
       newer_draft: '{coach}: بانتظار مسودة {month}',
     },
+    live: {
+      title: 'المدرّبون · {month} حتى الآن',
+      lead: 'ما كسبه كل مدرّب من الحصص التي أُعطيت فعلًا هذا الشهر. يُعدّ كشف الحساب في أول الشهر وقد يختلف بعد إضافة التسويات.',
+      empty: 'لم تُعطَ أي حصة هذا الشهر بعد.',
+      figures: {
+        coachShare: 'ما يكسبه المدرّبون',
+        courtShare: 'ما يبقى للملعب',
+        lessons: 'الحصص المُعطاة',
+        average: 'المتوسط للحصة',
+      },
+      lastMonth: 'الشهر الماضي: {amount}',
+      coachCount: 'عدد المدرّبين: {count}',
+      top: 'الأعلى: {coach}، {percent}% من مستحقات المدرّبين',
+      table: 'المدرّبون هذا الشهر',
+      columns: {
+        earned: 'يكسب حتى الآن',
+        share: 'النسبة',
+        statement: 'كشف الحساب',
+      },
+      notDrafted: 'لم يُعدّ بعد',
+    },
     emptyCurrent: 'تُعدّ كشوف الحساب في اليوم الأول من كل شهر عن الشهر السابق.',
     emptyMonth: 'لا كشوف حساب لشهر {month}.',
     dialog: {

@@ -185,11 +185,11 @@ export function CafeReportScreen() {
                 </>
               )
             ) : view === 'categories' ? (
-              <ReportTable<CafeCategoryRow> label={tr('ws.reports.cafe.views.categories')} columns={columns.categories} rows={data.categories} rowKey={(r) => r.categoryId} />
+              <ReportTable<CafeCategoryRow> label={tr('ws.reports.cafe.views.categories')} columns={columns.categories} rows={data.categories} rowKey={(r) => r.categoryId} cap={false} />
             ) : data.waste.length === 0 ? (
               <EmptyState compact kind="nothingToDo" title={tr('ws.reports.cafe.noWaste')} />
             ) : (
-              <ReportTable<WasteReasonRow> label={tr('ws.reports.cafe.views.waste')} columns={columns.waste} rows={data.waste} rowKey={(r) => r.reason} />
+              <ReportTable<WasteReasonRow> label={tr('ws.reports.cafe.views.waste')} columns={columns.waste} rows={data.waste} rowKey={(r) => r.reason} cap={false} />
             )}
             <ColumnNotes notes={notes[view].map((k) => tr(k))} />
           </>

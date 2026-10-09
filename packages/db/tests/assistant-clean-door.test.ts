@@ -29,7 +29,7 @@ const files = [
     .flatMap((n) => walk(join(FUNCTIONS, n))),
 ].map((p) => ({ path: relative(FUNCTIONS, p).split(sep).join('/'), text: readFileSync(p, 'utf8') })); // POSIX separators on Windows too
 
-const PURE = ['tools', 'clean', 'handles', 'gate', 'estimate', 'sse', 'scopes', 'prompt', 'embed', 'recheck'].map((m) => `_shared/assistant/${m}.ts`);
+const PURE = ['tools', 'clean', 'handles', 'gate', 'estimate', 'sse', 'scopes', 'prompt', 'embed', 'recheck', 'pool', 'turnPolicy', 'turn'].map((m) => `_shared/assistant/${m}.ts`);
 const DENO = ['_shared/assistant/provider.ts', '_shared/assistant/map.ts', 'assistant-chat/index.ts', 'assistant-index/index.ts', 'assistant-job/index.ts'];
 
 describe('the clean door', () => {

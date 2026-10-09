@@ -195,6 +195,62 @@ describe.skipIf(!up)('0141 analytics components', () => {
     expect(m.last?.inputs_fingerprint).toBe(FP_B);
   });
 
+  // ── 0327: the owner's read stamps last_viewed_at (the pre-warm's cut) ──────
+
+  it('analytics_component stamps last_viewed_at on the owner\'s read, at most once an hour; a refusal stamps nothing', async () => {
+    const stampOf = async () => {
+      const { data, error } = await svc.from('assistant_components').select('last_viewed_at').eq('key', 'week_paragraph').single();
+      expect(error).toBeNull();
+      return (data as { last_viewed_at: string | null }).last_viewed_at;
+    };
+    const setStamp = async (v: string | null) => {
+      const { error } = await svc.from('assistant_components').update({ last_viewed_at: v }).eq('key', 'week_paragraph');
+      expect(error).toBeNull();
+    };
+    const before = await stampOf();
+    try {
+      // Never viewed: the read stamps it.
+      await setStamp(null);
+      const res = outcome(await appRpc(owner, 'analytics_component', { p_key: 'week_paragraph', p_params: PARAMS }));
+      expect(res.ok, res.errorMessage ?? '').toBe(true);
+      const first = await stampOf();
+      expect(first).not.toBeNull();
+      expect(Math.abs(Date.parse(first!) - Date.now())).toBeLessThan(5 * 60_000);
+
+      // Read again within the hour: no write.
+      const recent = new Date(Date.now() - 30 * 60_000).toISOString();
+      await setStamp(recent);
+      expect(outcome(await appRpc(owner, 'analytics_component', { p_key: 'week_paragraph', p_params: PARAMS })).ok).toBe(true);
+      expect(Date.parse((await stampOf())!)).toBe(Date.parse(recent));
+
+      // Older than an hour: stamped again.
+      const old = new Date(Date.now() - 3 * 86_400_000).toISOString();
+      await setStamp(old);
+      expect(outcome(await appRpc(owner, 'analytics_component', { p_key: 'week_paragraph', p_params: PARAMS })).ok).toBe(true);
+      expect(Date.parse((await stampOf())!)).toBeGreaterThan(Date.parse(old) + 86_400_000);
+
+      // A manager's refused read writes nothing.
+      await setStamp(null);
+      const refused = outcome(await appRpc(manager, 'analytics_component', { p_key: 'week_paragraph', p_params: PARAMS }));
+      expect(refused.ok).toBe(false);
+      expect(await stampOf()).toBeNull();
+
+      // The pre-warm's service lookup is not a view.
+      const { error } = await svc.schema('app').rpc('assistant_component_lookup', { p_key: 'week_paragraph', p_params: PARAMS });
+      expect(error).toBeNull();
+      expect(await stampOf()).toBeNull();
+    } finally {
+      await setStamp(before);
+    }
+  });
+
+  it('analytics_component is VOLATILE (PostgREST runs a STABLE one read-only, and the stamp would fail)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const sql = readFileSync(new URL('../supabase/migrations/20261008000327_assistant_component_views.sql', import.meta.url), 'utf8');
+    expect(sql).toMatch(/function app\.analytics_component\(p_key text, p_params jsonb default '\{\}'::jsonb\)\s+returns jsonb\s+language plpgsql volatile security definer/);
+    expect(sql).toMatch(/last_viewed_at < now\(\) - interval '1 hour'/);
+  });
+
   it('analytics_component refuses an unknown or archived key', async () => {
     const res = outcome(await appRpc(owner, 'analytics_component', { p_key: 'no_such_component_probe', p_params: PARAMS }));
     expect(res.ok).toBe(false);

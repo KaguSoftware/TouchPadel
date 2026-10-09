@@ -11,12 +11,12 @@
  */
 export const staffChecklistsEn = {
   title: 'Checklists',
-  lead: 'Today’s opening and closing lists for your role. Everyone on your role ticks the same list.',
+  lead: 'Your lists for today. A list for your whole role is shared: a line anyone on it ticks is ticked for all.',
   businessDay: 'Business day: {date}',
   progress: '{done} of {total} done',
   allDone: 'All done',
   emptyTitle: 'No list yet',
-  emptyBody: 'The owner has not written a checklist for your role yet.',
+  emptyBody: 'The owner has not given you a checklist yet.',
   doneBy: 'Ticked by {name} at {time}',
   needsPhoto: 'Needs a photo',
   photoFirst: 'Take a photo to tick this line.',
@@ -27,6 +27,36 @@ export const staffChecklistsEn = {
   untick: 'Untick',
   note: 'Note: {note}',
   done: 'Done',
+
+  // A scheduled list (0323): when it is due, and how it repeats. {time} is the
+  // venue's clock; {day} is the day the list started, when that was not today.
+  due: 'Due {time}',
+  dueOn: 'Due {day}',
+  overdueSince: 'Overdue since {time}',
+  overdueSinceDay: 'Overdue since {day}',
+  // A tick refused because the list's time is up and the next one has started.
+  closed: 'This list has ended. Pull down to see the current one.',
+  repeat: {
+    daily: 'Every day',
+    weekly: 'Every {day}',
+    days: 'Every {days}',
+    monthly: 'On {dates} of each month',
+    // {n} is an ordinal: "the 1st".
+    date: 'the {n}',
+    lastDay: 'the last day',
+    // How the days and dates join: "Sunday, Tuesday and Thursday".
+    and: ' and ',
+    comma: ', ',
+  },
+  days: {
+    sun: 'Sunday',
+    mon: 'Monday',
+    tue: 'Tuesday',
+    wed: 'Wednesday',
+    thu: 'Thursday',
+    fri: 'Friday',
+    sat: 'Saturday',
+  },
 
   // The unit in a label, "How much (pieces)"; a quantity itself reads through staff.supplies.units.
   units: { g: 'g', ml: 'ml', pc: 'pieces' },

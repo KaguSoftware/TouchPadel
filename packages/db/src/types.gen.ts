@@ -478,6 +478,10 @@ export type Database = {
         Args: { p_list: number; p_pct: number }
         Returns: number
       }
+      archive_checklist: {
+        Args: { p_expected_version: number; p_template_id: string }
+        Returns: Json
+      }
       archive_teaching: { Args: { p_id: string }; Returns: undefined }
       assert_bookable: {
         Args: { p_court_id: string; p_end_at: string; p_start_at: string }
@@ -600,6 +604,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      assistant_loyalty_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       assistant_model_allowed: { Args: { p_model: string }; Returns: boolean }
       assistant_models: { Args: never; Returns: Json }
       assistant_page: {
@@ -709,6 +717,11 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_tournaments_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      assistant_tsquery: { Args: { p_query: string }; Returns: unknown }
       assistant_upsert_chunk: { Args: { p: Json }; Returns: number }
       assistant_usage: {
         Args: { p_from?: string; p_to?: string }
@@ -869,10 +882,63 @@ export type Database = {
         Args: { p_business_date?: string; p_venue_id?: string }
         Returns: Json
       }
+      checklist_current: {
+        Args: {
+          p_day: string
+          p_end: string
+          p_start: string
+          p_template: string
+        }
+        Returns: boolean
+      }
       checklist_day_state: {
         Args: { p_business_date?: string; p_venue_id?: string }
         Returns: Json
       }
+      checklist_due_at: {
+        Args: {
+          p_due_time: string
+          p_slot: string
+          p_start: string
+          p_venue: string
+        }
+        Returns: string
+      }
+      checklist_is_scheduled: {
+        Args: {
+          p_day: string
+          p_kind: string
+          p_month_days: number[]
+          p_weekdays: number[]
+        }
+        Returns: boolean
+      }
+      checklist_materialize: {
+        Args: { p_date: string; p_venue: string }
+        Returns: number
+      }
+      checklist_member_at: {
+        Args: { p_staff: string; p_venue: string }
+        Returns: boolean
+      }
+      checklist_occurrence: {
+        Args: {
+          p_day: string
+          p_kind: string
+          p_month_days: number[]
+          p_weekdays: number[]
+        }
+        Returns: {
+          period_end: string
+          period_start: string
+        }[]
+      }
+      checklist_on_leave: {
+        Args: { p_day: string; p_staff: string }
+        Returns: boolean
+      }
+      checklist_staff_options: { Args: { p_venue_id?: string }; Returns: Json }
+      checklist_sweep: { Args: never; Returns: number }
       claim_due_index: {
         Args: { p_limit?: number }
         Returns: Database["public"]["Tables"]["assistant_index_queue"]["Row"][]
@@ -2402,6 +2468,7 @@ export type Database = {
             }
             Returns: undefined
           }
+      llm_record_web_search: { Args: { p_searches: number }; Returns: number }
       llm_usage_summary: { Args: never; Returns: Json }
       lock_coach: { Args: { p_coach_id: string }; Returns: undefined }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
@@ -3695,6 +3762,15 @@ export type Database = {
         }
         Returns: Json
       }
+      record_shop_supplier_price: {
+        Args: {
+          p_error?: string
+          p_price_iqd?: number
+          p_url: string
+          p_variant_id: string
+        }
+        Returns: Json
+      }
       record_waste: {
         Args: {
           p_device_id?: string
@@ -3969,6 +4045,15 @@ export type Database = {
         }
         Returns: string
       }
+      save_checklist: {
+        Args: {
+          p_expected_version: number
+          p_spec: Json
+          p_template_id: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
       save_checklist_template: {
         Args: {
           p_expected_version: number
@@ -4049,6 +4134,7 @@ export type Database = {
         }
         Returns: string
       }
+      search_fold: { Args: { p_text: string }; Returns: string }
       search_norm: { Args: { p_text: string }; Returns: string }
       secret: { Args: { p_name: string }; Returns: string }
       send_order_slip: {
@@ -4254,6 +4340,10 @@ export type Database = {
       set_secret_value: {
         Args: { p_name: string; p_value: string }
         Returns: undefined
+      }
+      set_shop_price_watch: {
+        Args: { p_url: string; p_variant_id: string }
+        Returns: Json
       }
       set_staff_active: {
         Args: { p_active: boolean; p_reason_code?: string; p_staff_id: string }
@@ -5595,6 +5685,7 @@ export type Database = {
           ms: number | null
           output_tokens: number
           stop_reason: string | null
+          web_searches: number
         }
         Insert: {
           cache_read_tokens?: number
@@ -5609,6 +5700,7 @@ export type Database = {
           ms?: number | null
           output_tokens?: number
           stop_reason?: string | null
+          web_searches?: number
         }
         Update: {
           cache_read_tokens?: number
@@ -5623,6 +5715,7 @@ export type Database = {
           ms?: number | null
           output_tokens?: number
           stop_reason?: string | null
+          web_searches?: number
         }
         Relationships: [
           {
@@ -5734,6 +5827,7 @@ export type Database = {
           default_params: Json
           key: string
           kind: string
+          last_viewed_at: string | null
           output_schema: Json
           question: string
           tools: string[]
@@ -5745,6 +5839,7 @@ export type Database = {
           default_params?: Json
           key: string
           kind: string
+          last_viewed_at?: string | null
           output_schema: Json
           question: string
           tools: string[]
@@ -5756,6 +5851,7 @@ export type Database = {
           default_params?: Json
           key?: string
           kind?: string
+          last_viewed_at?: string | null
           output_schema?: Json
           question?: string
           tools?: string[]
@@ -5773,6 +5869,7 @@ export type Database = {
       assistant_conversations: {
         Row: {
           archived_at: string | null
+          context: Json | null
           created_at: string
           handles: Json
           id: string
@@ -5786,6 +5883,7 @@ export type Database = {
         }
         Insert: {
           archived_at?: string | null
+          context?: Json | null
           created_at?: string
           handles?: Json
           id?: string
@@ -5799,6 +5897,7 @@ export type Database = {
         }
         Update: {
           archived_at?: string | null
+          context?: Json | null
           created_at?: string
           handles?: Json
           id?: string
@@ -6329,6 +6428,49 @@ export type Database = {
           },
         ]
       }
+      checklist_assignees: {
+        Row: {
+          created_at: string
+          staff_id: string
+          template_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          staff_id: string
+          template_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          staff_id?: string
+          template_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_assignees_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_assignees_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_assignees_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_run_items: {
         Row: {
           done_at: string | null
@@ -6385,33 +6527,55 @@ export type Database = {
       }
       checklist_runs: {
         Row: {
+          assignee_id: string | null
           business_date: string
           created_at: string
+          due_at: string | null
+          due_pushed_at: string | null
           id: string
-          role: Database["public"]["Enums"]["staff_role"]
+          overdue_pushed_at: string | null
+          period_end: string | null
+          role: Database["public"]["Enums"]["staff_role"] | null
           slot: string
           template_id: string
           venue_id: string
         }
         Insert: {
+          assignee_id?: string | null
           business_date: string
           created_at?: string
+          due_at?: string | null
+          due_pushed_at?: string | null
           id?: string
-          role: Database["public"]["Enums"]["staff_role"]
+          overdue_pushed_at?: string | null
+          period_end?: string | null
+          role?: Database["public"]["Enums"]["staff_role"] | null
           slot: string
           template_id: string
           venue_id: string
         }
         Update: {
+          assignee_id?: string | null
           business_date?: string
           created_at?: string
+          due_at?: string | null
+          due_pushed_at?: string | null
           id?: string
-          role?: Database["public"]["Enums"]["staff_role"]
+          overdue_pushed_at?: string | null
+          period_end?: string | null
+          role?: Database["public"]["Enums"]["staff_role"] | null
           slot?: string
           template_id?: string
           venue_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "checklist_runs_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "checklist_runs_template_id_fkey"
             columns: ["template_id"]
@@ -6465,37 +6629,61 @@ export type Database = {
       }
       checklist_templates: {
         Row: {
+          archived_at: string | null
+          audience: string
+          copy_mode: string
+          created_at: string
+          due_time: string | null
           id: string
+          month_days: number[] | null
           name_ar: string
           name_en: string
-          role: Database["public"]["Enums"]["staff_role"]
+          repeat_kind: string
+          role: Database["public"]["Enums"]["staff_role"] | null
           slot: string
           updated_at: string
           updated_by: string | null
           venue_id: string
           version: number
+          weekdays: number[]
         }
         Insert: {
+          archived_at?: string | null
+          audience?: string
+          copy_mode?: string
+          created_at?: string
+          due_time?: string | null
           id?: string
+          month_days?: number[] | null
           name_ar: string
           name_en: string
-          role: Database["public"]["Enums"]["staff_role"]
+          repeat_kind?: string
+          role?: Database["public"]["Enums"]["staff_role"] | null
           slot: string
           updated_at?: string
           updated_by?: string | null
           venue_id: string
           version?: number
+          weekdays?: number[]
         }
         Update: {
+          archived_at?: string | null
+          audience?: string
+          copy_mode?: string
+          created_at?: string
+          due_time?: string | null
           id?: string
+          month_days?: number[] | null
           name_ar?: string
           name_en?: string
-          role?: Database["public"]["Enums"]["staff_role"]
+          repeat_kind?: string
+          role?: Database["public"]["Enums"]["staff_role"] | null
           slot?: string
           updated_at?: string
           updated_by?: string | null
           venue_id?: string
           version?: number
+          weekdays?: number[]
         }
         Relationships: [
           {
@@ -8699,6 +8887,7 @@ export type Database = {
           requests: number
           updated_at: string
           usage_date: string
+          web_searches: number
         }
         Insert: {
           cache_read_tokens?: number
@@ -8710,6 +8899,7 @@ export type Database = {
           requests?: number
           updated_at?: string
           usage_date: string
+          web_searches?: number
         }
         Update: {
           cache_read_tokens?: number
@@ -8721,6 +8911,7 @@ export type Database = {
           requests?: number
           updated_at?: string
           usage_date?: string
+          web_searches?: number
         }
         Relationships: []
       }
@@ -11479,6 +11670,7 @@ export type Database = {
           llm_default_model: string
           llm_monthly_cost_cap_micros: number
           llm_pricing: Json
+          llm_web_search_micros: number
           match_terms_version: string | null
           match_ticket_price_iqd: number
           max_filling_matches_per_guest: number
@@ -11496,6 +11688,7 @@ export type Database = {
           llm_default_model?: string
           llm_monthly_cost_cap_micros?: number
           llm_pricing?: Json
+          llm_web_search_micros?: number
           match_terms_version?: string | null
           match_ticket_price_iqd?: number
           max_filling_matches_per_guest?: number
@@ -11513,6 +11706,7 @@ export type Database = {
           llm_default_model?: string
           llm_monthly_cost_cap_micros?: number
           llm_pricing?: Json
+          llm_web_search_micros?: number
           match_terms_version?: string | null
           match_ticket_price_iqd?: number
           max_filling_matches_per_guest?: number
@@ -13337,6 +13531,87 @@ export type Database = {
           },
           {
             foreignKeyName: "scan_reads_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_price_watches: {
+        Row: {
+          checked_at: string | null
+          created_at: string
+          created_by: string | null
+          last_error: string | null
+          previous_price_iqd: number | null
+          price_changed_at: string | null
+          read_ok_at: string | null
+          supplier_price_iqd: number | null
+          updated_at: string
+          url: string
+          variant_id: string
+          venue_id: string
+        }
+        Insert: {
+          checked_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          last_error?: string | null
+          previous_price_iqd?: number | null
+          price_changed_at?: string | null
+          read_ok_at?: string | null
+          supplier_price_iqd?: number | null
+          updated_at?: string
+          url: string
+          variant_id: string
+          venue_id?: string
+        }
+        Update: {
+          checked_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          last_error?: string | null
+          previous_price_iqd?: number | null
+          price_changed_at?: string | null
+          read_ok_at?: string | null
+          supplier_price_iqd?: number | null
+          updated_at?: string
+          url?: string
+          variant_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_price_watches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_price_watches_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: true
+            referencedRelation: "menu_item_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_price_watches_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: true
+            referencedRelation: "v_item_cogs"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "shop_price_watches_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: true
+            referencedRelation: "v_item_margin"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "shop_price_watches_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"

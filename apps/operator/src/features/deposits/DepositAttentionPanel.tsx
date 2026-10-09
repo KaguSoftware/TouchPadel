@@ -34,7 +34,7 @@ import { currentBranchId } from '../../lib/venueScope';
 import { useToast } from '../../components/toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Button, ErrorText, Field, Modal, Skeleton, inputStyle } from '../../components/ui';
-import { AsyncStateWrapper, EmptyState, Money, Panel, StatusBadge, type Tone } from '../../components/kit';
+import { AsyncStateWrapper, EmptyState, Money, Panel, StatusBadge, ViewMore, useListCap, type Tone } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
 import { coachingErrorText } from '../coaching/lessonLogic';
 import {
@@ -84,6 +84,8 @@ export function DepositAttentionPanel({ hideWhenEmpty = false }: { hideWhenEmpty
 
   const rows = attentionQ.data ? sortAttention(attentionQ.data) : null;
   const mode = settingsQ.data?.deposit_mode ?? null;
+  // Worst first (sortAttention), so the three that show are the three to act on.
+  const cap = useListCap(rows ?? []);
   if (!showAttentionPanel({ rows: rows ? rows.length : null, mode, hideWhenEmpty })) return null;
 
   return (
@@ -98,10 +100,11 @@ export function DepositAttentionPanel({ hideWhenEmpty = false }: { hideWhenEmpty
         emptyContent={<EmptyState compact icon="checkCircle" kind="nothingToDo" title={tr(`${K}.empty`)} titleAs="h3" />}
       >
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
-          {(rows ?? []).map((r) => (
+          {cap.shown.map((r) => (
             <AttentionRow key={r.id} row={r} />
           ))}
         </ul>
+        <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
       </AsyncStateWrapper>
     </Panel>
   );

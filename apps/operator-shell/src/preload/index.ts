@@ -19,6 +19,7 @@ import {
   type StationInfo,
   type StationSetupRequest,
   type StationSetupResult,
+  type SupplierPageResult,
   type UpdateReadyInfo,
 } from '../ipc-channels';
 
@@ -122,6 +123,11 @@ const touch = {
     return () => ipcRenderer.removeListener(IPC.updateReady, listener);
   },
   installUpdate: (): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.installUpdate),
+
+  // Shop desk price watch (main/supplier-fetch.ts): one supplier page's HTML,
+  // or why not. Main refuses on any station that is not a shop desk.
+  fetchSupplierPage: (url: string): Promise<SupplierPageResult> =>
+    ipcRenderer.invoke(IPC.fetchSupplierPage, { url }),
 };
 
 contextBridge.exposeInMainWorld('touch', touch);

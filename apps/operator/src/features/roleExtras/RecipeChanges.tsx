@@ -29,7 +29,7 @@ import { can, useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
-import { AsyncStateWrapper, EmptyState, MessagePresenter, Panel, SegmentedControl, StatusBadge, asyncStatus } from '../../components/kit';
+import { AsyncStateWrapper, EmptyState, MessagePresenter, Panel, SegmentedControl, StatusBadge, ViewMore, asyncStatus, useListCap } from '../../components/kit';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { useStockFormat } from '../stock/stockUi';
 import { RK } from './keys';
@@ -43,8 +43,6 @@ import {
   type RecipeChangeStatus,
 } from './roleExtrasLogic';
 
-/** Rows on the card before "+N more": the list sheet has the rest. */
-const ROWS_SHOWN = 4;
 const REASON_MAX = 1000;
 
 const STATUS_TONE: Record<RecipeChangeStatus, 'warn' | 'success' | 'danger' | 'neutral'> = {
@@ -80,6 +78,7 @@ export function RecipeChangesCard({
   const targetName = useTargetName();
   const q = useQuery({ queryKey: QK.recipeChangesWaiting, queryFn: fetchRecipeChangesWaiting, refetchInterval: 60_000 });
   const data = readRecipeChangesPage(q.data);
+  const cap = useListCap(data.rows);
   const [ownOpen, setOwnOpen] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const opened = openId !== undefined ? openId : ownOpen;
@@ -107,7 +106,7 @@ export function RecipeChangesCard({
         <p style={{ margin: 0, color: MARK_FG.success, fontWeight: 600 }}>{tr('ws.rolePages.recipeChanges.none')}</p>
       ) : (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-          {data.rows.slice(0, ROWS_SHOWN).map((r) => (
+          {cap.shown.map((r) => (
             <li key={r.id}>
               <button
                 type="button"
@@ -130,11 +129,7 @@ export function RecipeChangesCard({
           ))}
         </ul>
       )}
-      {data.rows.length > ROWS_SHOWN && (
-        <p style={{ marginBlock: 'var(--tp-sp-2) 0', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-          {tr('ws.rolePages.recipeChanges.more', { count: formatNumber(data.rows.length - ROWS_SHOWN, locale) })}
-        </p>
-      )}
+      {!q.isError && <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />}
       <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
         <Button size="sm" iconEnd="arrowUpRight" onClick={() => setListOpen(true)}>
           {tr('ws.rolePages.recipeChanges.seeAll')}

@@ -3,12 +3,12 @@ import type { staffChecklistsEn } from './checklists.en';
 
 export const staffChecklistsAr: DeepMessages<typeof staffChecklistsEn> = {
   title: 'قوائم التحقق',
-  lead: 'قائمتا الافتتاح والإغلاق اليوم لدورك. يؤشّر كل من يشاركك الدور على القائمة نفسها.',
+  lead: 'قوائمك لهذا اليوم. قائمة الدور مشتركة بين كل من يشغله: أي بند يؤشّر عليه أحدكم يُحسب للجميع.',
   businessDay: 'يوم العمل: {date}',
   progress: 'أُنجز {done} من {total}',
   allDone: 'كل شيء منجز',
   emptyTitle: 'لا قائمة بعد',
-  emptyBody: 'لم يكتب المالك قائمة تحقق لدورك بعد.',
+  emptyBody: 'لم يحدّد لك المالك قائمة تحقق بعد.',
   doneBy: 'أشّر عليه {name} الساعة {time}',
   needsPhoto: 'يحتاج إلى صورة',
   photoFirst: 'التقط صورة للتأشير على هذا البند.',
@@ -18,6 +18,32 @@ export const staffChecklistsAr: DeepMessages<typeof staffChecklistsEn> = {
   untick: 'إلغاء التأشير',
   note: 'ملاحظة: {note}',
   done: 'تم',
+
+  due: 'موعدها {time}',
+  dueOn: 'موعدها {day}',
+  overdueSince: 'متأخرة منذ {time}',
+  overdueSinceDay: 'متأخرة منذ {day}',
+  closed: 'انتهت مدة هذه القائمة. اسحب للأسفل لترى القائمة الحالية.',
+  repeat: {
+    daily: 'كل يوم',
+    weekly: 'كل يوم {day}',
+    days: 'أيام {days}',
+    monthly: '{dates} من كل شهر',
+    date: 'يوم {n}',
+    lastDay: 'آخر يوم',
+    // Arabic repeats و between every item: «الأحد والثلاثاء والخميس».
+    and: ' و',
+    comma: ' و',
+  },
+  days: {
+    sun: 'الأحد',
+    mon: 'الاثنين',
+    tue: 'الثلاثاء',
+    wed: 'الأربعاء',
+    thu: 'الخميس',
+    fri: 'الجمعة',
+    sat: 'السبت',
+  },
 
   units: { g: 'غ', ml: 'مل', pc: 'قطعة' },
   noGuestData: 'لا تكتب أسماء الضيوف أو أرقام هواتفهم.',

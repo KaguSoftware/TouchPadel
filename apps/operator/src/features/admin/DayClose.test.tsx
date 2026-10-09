@@ -163,6 +163,26 @@ describe('Day close ▸ Checklists not finished', () => {
     await waitFor(() => expect(within(screen.getByTestId('day-close-checklists')).getAllByRole('listitem')).toHaveLength(2));
   });
 
+  it('names each copy and its person, and flags an overdue one without holding the close (0323)', async () => {
+    checklists = {
+      business_date: '2026-09-24',
+      lists: [
+        { role: null, slot: 'open', name_en: 'Deep clean', name_ar: 'تنظيف عميق', total: 1, done: 0, open_items: [{ text_en: 'Fridge', text_ar: 'الثلاجة' }], template_id: 't4', assignee_name: 'Bareq', due_at: '2026-09-24T06:00:00Z', overdue: true },
+        { role: 'driver', slot: 'open', name_en: 'Driver opening', name_ar: 'افتتاح السائق', total: 3, done: 0, open_items: [{ text_en: 'Check the van', text_ar: 'افحص السيارة' }], template_id: 't2', assignee_name: null, due_at: null, overdue: false },
+      ],
+    };
+    mount();
+    const panel = await screen.findByTestId('day-close-checklists');
+    const rows = within(panel).getAllByRole('listitem');
+    expect(rows[0]!.textContent).toContain('Deep clean');
+    expect(rows[0]!.textContent).toContain('Bareq');
+    expect(within(rows[0]!).getByText('Overdue')).toBeTruthy();
+    expect(rows[1]!.textContent).toContain('Driver opening');
+    expect(rows[1]!.textContent).toContain('Driver');
+    expect(within(rows[1]!).queryByText('Overdue')).toBeNull();
+    await countTheCash();
+  });
+
   it('shows nothing when every list is finished', async () => {
     checklists = { business_date: '2026-09-24', lists: [dayState.lists[0]] };
     mount();

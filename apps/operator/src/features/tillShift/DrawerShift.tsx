@@ -8,20 +8,16 @@
  *                   room, so the start and the close happen here, inline,
  *                   not in a dialog: with no shift open the start panel
  *                   (TillShiftPanel) takes the card's place.
- *   TillShifts      the manager's and owner's panel: every shift on this till
- *                   today with its count and difference, the open one with its
- *                   running expected cash.
+ *
+ * The manager's and owner's list of the day's shifts is DrawerDay.
  */
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { formatTime, isolate } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
-import { Button, ErrorText } from '../../components/ui';
-import { EmptyState, Money, Panel } from '../../components/kit';
+import { Button } from '../../components/ui';
+import { Money, Panel } from '../../components/kit';
 import { CardTitle, FigureRow, RowList } from '../ops/OpsVisuals';
-import { fetchShiftList, tillShiftListKey } from './api';
 import { useTillShiftOptional } from './shiftContext';
-import { ShiftRows } from './ShiftRows';
 import { ShiftDialog } from './ShiftDialog';
 import { TillShiftPanel } from './TillShiftPanel';
 
@@ -101,37 +97,5 @@ export function YourShift() {
         </Panel>
       }
     />
-  );
-}
-
-export function TillShifts() {
-  const { tr } = useLocale();
-  const shift = useTillShiftOptional();
-  const station = shift?.device ?? null;
-  const q = useQuery({
-    queryKey: tillShiftListKey({ station }),
-    queryFn: () => fetchShiftList({ station }),
-    enabled: station !== null,
-    refetchInterval: 30_000,
-  });
-  if (!shift) return null;
-  const shifts = q.data?.shifts ?? [];
-  return (
-    <Panel title={<CardTitle icon="drawer">{tr('ws.tillShift.drawer.shiftsTitle')}</CardTitle>}>
-      {q.isError && !q.data ? (
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
-          <ErrorText error={q.error} style={{ marginBlock: 0 }} />
-          <Button size="sm" icon="refresh" onClick={() => void q.refetch()}>
-            {tr('ws.tillShift.dayClose.retry')}
-          </Button>
-        </div>
-      ) : !q.data ? (
-        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('common.loading')}</p>
-      ) : shifts.length === 0 ? (
-        <EmptyState compact kind="nothingToDo" icon="drawer" title={tr('ws.tillShift.drawer.shiftsEmpty')} />
-      ) : (
-        <ShiftRows shifts={shifts} showStation={false} onCloseOpen={() => shift.openClose()} />
-      )}
-    </Panel>
   );
 }

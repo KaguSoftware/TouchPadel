@@ -89,6 +89,7 @@ import { UpdateReadyControl } from '../components/UpdateReady';
 import { StationSetupContainer } from '../features/setup/StationSetupContainer';
 import { QueueFailureToasts } from '../components/QueueFailureToasts';
 import { BreakProvider, useBreak } from '../features/breaks/BreakProvider';
+import { PriceWatchCrawler } from '../features/shop/priceWatch/PriceWatchCrawler';
 import { BreakOverlay } from '../features/breaks/BreakOverlay';
 import { BreakRailControl } from '../features/breaks/BreakRailControl';
 import { AssistantDrawer, AssistantDrawerProvider } from '../features/assistant/AssistantDrawer';
@@ -427,6 +428,10 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
 
   return (
     <WorkspaceContext.Provider value={value}>
+      {/* The supplier price watch's crawler (0322): on the shop desk PC it
+          reads the supplier links every hour, whichever page is open and
+          whoever of the shop's roles is signed in. Elsewhere it does nothing. */}
+      <PriceWatchCrawler />
       {/* Break state (0105) sits above the rail, the routed screen and both
           locks: the rail row starts a break, the overlay owns the station
           while somebody is away, and the idle lock defers to it. */}
@@ -706,7 +711,7 @@ function RailGroup({
   open,
   onToggle,
 }: {
-  labelKey: NonNullable<NavGroup['labelKey']>;
+  labelKey: NonNullable<NavGroup['labelKey']> | NonNullable<NavItem['folder']>;
   items: readonly NavItem[];
   path: string;
   open: boolean;
@@ -750,6 +755,21 @@ function RailGroup({
       </div>
     </div>
   );
+}
+
+/**
+ * A section's dropdown ("From the team"): the rows tagged with `folder`,
+ * printed as one title row that opens the list. Same look as a RailGroup, but
+ * it opens on its own state, not the workspace's one-open-at-a-time memory,
+ * and it opens itself while one of its screens is current.
+ */
+function SectionFolder({ folder, items, path }: { folder: NonNullable<NavItem['folder']>; items: readonly NavItem[]; path: string }) {
+  const current = activeNavItem(items, path);
+  const [open, setOpen] = useState(current !== null);
+  useEffect(() => {
+    if (current) setOpen(true);
+  }, [current]);
+  return <RailGroup labelKey={folder} items={items} path={path} open={open} onToggle={() => setOpen((o) => !o)} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -928,9 +948,19 @@ function WorkspaceNav({
       >
         {section ? (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-            {sectionRows.map((item) => (
-              <RailLink key={item.to} item={item} active={item === sectionCurrent} />
-            ))}
+            {sectionRows.map((item, i) => {
+              if (!item.folder) return <RailLink key={item.to} item={item} active={item === sectionCurrent} />;
+              // The dropdown sits where its first row is; the rest are inside it.
+              if (sectionRows.findIndex((r) => r.folder === item.folder) !== i) return null;
+              return (
+                <SectionFolder
+                  key={item.folder}
+                  folder={item.folder}
+                  items={sectionRows.filter((r) => r.folder === item.folder)}
+                  path={path}
+                />
+              );
+            })}
           </div>
         ) : (
           <>

@@ -17,7 +17,7 @@ import { QK, fetchActiveCourts, fetchVenueSettings } from '../../../lib/queries'
 import { useToast } from '../../../components/toast';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { Button, ErrorText, Modal, type ReasonCode } from '../../../components/ui';
-import { AsyncStateWrapper, BookingStatusIndicator, DescriptionList, EmptyState, MessagePresenter, PageHeader, Panel, ReasonCodePrompt, StatusBadge } from '../../../components/kit';
+import { AsyncStateWrapper, BookingStatusIndicator, DescriptionList, EmptyState, MessagePresenter, PageHeader, Panel, ReasonCodePrompt, StatusBadge, ViewMore, useListCap } from '../../../components/kit';
 import type { CustomerRecord, SeriesDetail, SeriesOccurrence } from '../deskTypes';
 import { cancelScopeCount, occurrenceEditable, summarizeOccurrences } from './seriesLogic';
 
@@ -56,6 +56,8 @@ export function SeriesDetailScreen() {
     queryFn: () => appRpc<CustomerRecord | null>('customer_record', { p_customer_id: guestId }),
   });
   const occurrences = detail?.occurrences ?? [];
+  // Owner's rule (2026-10-08): three dates, then "View more"; their order is kept.
+  const occurrenceCap = useListCap(occurrences);
   const summary = summarizeOccurrences(occurrences);
   const nowIso = new Date().toISOString();
 
@@ -193,7 +195,7 @@ export function SeriesDetailScreen() {
                   </tr>
                 </thead>
                 <tbody>
-                  {occurrences.map((o) => {
+                  {occurrenceCap.shown.map((o) => {
                     const editable = occurrenceEditable(o);
                     return (
                       <tr key={o.id} aria-disabled={o.played || undefined} style={{ opacity: o.played ? 'var(--tp-opacity-disabled)' : 1 }}>
@@ -235,6 +237,7 @@ export function SeriesDetailScreen() {
                   })}
                 </tbody>
               </table>
+              <ViewMore hidden={occurrenceCap.hidden} open={occurrenceCap.open} onToggle={occurrenceCap.toggle} style={UNPADDED_MORE} />
             </Panel>
           </div>
         )}
@@ -301,3 +304,6 @@ export function SeriesDetailScreen() {
     </div>
   );
 }
+
+/** ViewMore inside an unpadded (table) panel: the panel body's own padding. */
+const UNPADDED_MORE = { marginBlockStart: 0, paddingBlock: '0.6rem', paddingInline: '0.85rem' } as const;

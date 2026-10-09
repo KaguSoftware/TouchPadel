@@ -15,11 +15,11 @@ import { useNavigate } from '@tanstack/react-router';
 import { formatNumber } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
-import { Button } from '../../components/ui';
+import { Button, Select } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, Money, PageHeader, Panel, ResultCount, SearchField, SegmentedControl, StatusBadge, TableSkeleton, Toolbar, asyncStatus, type Column } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
 import { AttentionList } from './stockUi';
-import { THIN_MARGIN_PERCENT, marginFlag, type MarginFlag } from './stockLogic';
+import { MARGIN_SORTS, THIN_MARGIN_PERCENT, marginFlag, sortMargins, type MarginFlag, type MarginSort } from './stockLogic';
 import { SK } from './stockKeys';
 
 interface MarginRow {
@@ -41,6 +41,7 @@ export function Margins() {
   const navigate = useNavigate();
   const [show, setShow] = useState<Show>('all');
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<MarginSort>('pctAsc');
 
   const marginsQ = useQuery({
     queryKey: SK.margins,
@@ -55,9 +56,10 @@ export function Margins() {
   const itemName = (r: MarginRow) => pickName(locale, { name_en: r.item_name_en, name_ar: r.item_name_ar });
   const sizeName = (r: MarginRow) => pickName(locale, { name_en: r.variant_name_en, name_ar: r.variant_name_ar });
   const q = query.trim().toLowerCase();
-  const rows = all
+  const matching = all
     .filter((r) => show === 'all' || marginFlag(r) === show)
     .filter((r) => q === '' || `${r.item_name_en} ${r.item_name_ar} ${r.variant_name_en} ${r.variant_name_ar}`.toLowerCase().includes(q));
+  const rows = sortMargins(matching, sort, itemName);
   const count = (flag: MarginFlag) => all.filter((r) => marginFlag(r) === flag).length;
 
   const columns: Column<MarginRow>[] = [
@@ -156,6 +158,15 @@ export function Margins() {
               <span style={{ inlineSize: '16rem', maxInlineSize: '100%' }}>
                 <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.margins.search')} />
               </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
+                <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', whiteSpace: 'nowrap' }}>{tr('ws.manager.stock.margins.sort.label')}</span>
+                <Select<MarginSort>
+                  value={sort}
+                  onChange={setSort}
+                  aria-label={tr('ws.manager.stock.margins.sort.label')}
+                  options={MARGIN_SORTS.map((value) => ({ value, label: tr(`ws.manager.stock.margins.sort.${value}` as const) }))}
+                />
+              </span>
             </Toolbar>
             {rows.length === 0 ? (
               <EmptyState
@@ -163,6 +174,7 @@ export function Margins() {
                 onClearFilters={() => {
                   setShow('all');
                   setQuery('');
+                  setSort('pctAsc');
                 }}
               />
             ) : (

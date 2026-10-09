@@ -48,8 +48,10 @@ import {
   StatusBadge,
   TableSkeleton,
   Toolbar,
+  ViewMore,
   asyncStatus,
   presetPeriod,
+  useListCap,
   type Column,
   type FilterChip,
   type Period,
@@ -304,6 +306,9 @@ export function AuditLog() {
 
   const status = asyncStatus(logQ, (d) => d.rows.length === 0 && !filter.family && !filter.actorId && !isActionCode(filter.query));
   const capped = rows.length >= PAGE_SIZE || (total !== null && total > rows.length);
+  // Owner's rule (2026-10-08): three entries, then "View more". Capped after the
+  // filters; the export and the "latest 200" note still count every loaded row.
+  const listed = useListCap(visible);
 
   return (
     <div>
@@ -409,7 +414,7 @@ export function AuditLog() {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((r) => {
+                {listed.shown.map((r) => {
                   const open = expanded === r.id;
                   return (
                     <RowPair
@@ -426,6 +431,7 @@ export function AuditLog() {
             </table>
           </div>
         )}
+        <ViewMore hidden={listed.hidden} open={listed.open} onToggle={listed.toggle} />
       </AsyncStateWrapper>
     </div>
   );

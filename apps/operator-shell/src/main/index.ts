@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BrowserWindow, app, dialog, ipcMain, screen, shell } from 'electron';
-import { IPC, type LeaveRefusal, type PrintResult } from '../ipc-channels';
+import { IPC, type LeaveRefusal, type PrintResult, type SupplierPageResult } from '../ipc-channels';
 import {
   enqueue,
   getCachedRef,
@@ -25,6 +25,7 @@ import { getAuthState, setAuthState } from './auth-state';
 import { mayLeave, observePin, unlockPinOffline } from './pin-cache';
 import { learnSession, ownerMayLeave } from './owner-exit';
 import { printReceiptHtml } from './print/print-receipt';
+import { fetchSupplierPage } from './supplier-fetch';
 import { startSyncWorker, type SyncWorker } from './sync-worker';
 import {
   clampWindowMinimum,
@@ -52,6 +53,7 @@ import {
   validateRefKey,
   validateResolveQueueRow,
   validateStationSetup,
+  validateSupplierPageRequest,
 } from './ipc-validate';
 
 const devServerUrl = process.env.VITE_DEV_SERVER_URL; // e.g. http://localhost:5174 (apps/operator `pnpm dev`)
@@ -847,6 +849,27 @@ if (gotTheLock) {
 
     ipcMain.handle(IPC.updateState, () => updater?.ready() ?? null);
     ipcMain.handle(IPC.installUpdate, () => ({ ok: updater?.installNow() ?? false }));
+
+    // The shop desk's supplier price watch: one public product page, fetched
+    // here because the renderer cannot (CORS) and must not (the LAN) do it
+    // itself. A shop desk only — every other station, configured or not,
+    // never fetches anything for anyone.
+    ipcMain.handle(IPC.fetchSupplierPage, async (_e, v: unknown): Promise<SupplierPageResult> => {
+      if (!canTrade(station) || station.mode !== 'shop') {
+        return { ok: false, error: 'not_shop_station' };
+      }
+      let req;
+      try {
+        req = validateSupplierPageRequest(v);
+      } catch (error) {
+        if (error instanceof IpcValidationError) {
+          console.error('[ipc:fetchSupplierPage]', error.message);
+          return { ok: false, error: 'blocked_url' };
+        }
+        throw error;
+      }
+      return fetchSupplierPage(req.url, { appVersion: app.getVersion() });
+    });
 
     const win = createWindow();
 

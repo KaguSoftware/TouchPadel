@@ -78,7 +78,7 @@ import {
 import { MoneyInput } from '../../components/inputs';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { downloadWorkbook } from '../analytics/exportTables';
-import type { DayStateList } from '../checklists/checklistLogic';
+import { dayListKey, isOverdue, type DayStateList } from '../checklists/checklistLogic';
 import { auditDrillHref, tillTabHref, type ExceptionKey } from '../ops/opsLogic';
 import { CardTitle, FigureRow, MARK_FG, RowList, Step } from '../ops/OpsVisuals';
 import { fetchShiftList, tillShiftListKey } from '../tillShift/api';
@@ -1064,7 +1064,7 @@ function ChecklistsOpen({ lists, error, onRetry }: { lists: readonly DayStateLis
               const more = l.open_items.length - shown.length;
               return (
                 <li
-                  key={`${l.role}:${l.slot}`}
+                  key={dayListKey(l)}
                   style={{
                     display: 'grid',
                     gap: 'var(--tp-sp-0)',
@@ -1076,9 +1076,19 @@ function ChecklistsOpen({ lists, error, onRetry }: { lists: readonly DayStateLis
                   }}
                 >
                   <span style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-                    <strong>{tr('ws.supplies.dayClose.list', { role: tr(`op.roles.${l.role}`), slot: tr(`work.checklist.slot.${l.slot}`) })}</strong>
-                    <span style={{ color: MARK_FG.warn, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                      {tr('ws.supplies.dayClose.progress', { done: formatNumber(l.done, locale), total: formatNumber(l.total, locale) })}
+                    {/* The list's name, then whose copy it is (a person, else the role). */}
+                    <strong style={{ overflowWrap: 'anywhere' }}>
+                      {tr('ws.supplies.dayClose.list', {
+                        name: isolate(pickName(locale, l) || tr(`work.checklist.slot.${l.slot}`)),
+                        who: isolate(l.assignee_name ?? (l.role ? tr(`op.roles.${l.role}`) : '—')),
+                      })}
+                    </strong>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
+                      {/* Overdue is a flag, still a warning: it never holds the close. */}
+                      {isOverdue(l) && <StatusBadge size="sm" tone="danger" label={tr('ws.supplies.checklists.overdue')} />}
+                      <span style={{ color: MARK_FG.warn, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                        {tr('ws.supplies.dayClose.progress', { done: formatNumber(l.done, locale), total: formatNumber(l.total, locale) })}
+                      </span>
                     </span>
                   </span>
                   <span style={{ color: 'var(--tp-muted-fg)', overflowWrap: 'anywhere' }}>

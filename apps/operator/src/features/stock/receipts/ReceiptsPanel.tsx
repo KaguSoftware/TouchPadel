@@ -24,7 +24,7 @@ import { requestReading } from '../../../lib/scanReading';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { Button, ErrorText } from '../../../components/ui';
-import { Money, Panel, StatusBadge, type Tone } from '../../../components/kit';
+import { Money, Panel, StatusBadge, type Tone, ViewMore, useListCap } from '../../../components/kit';
 import { CardTitle } from '../../ops/OpsVisuals';
 import { PhotoRejected, uploadStaffPhoto } from '../../tasks/PhotoField';
 import { SK } from '../stockKeys';
@@ -134,6 +134,7 @@ export function ReceiptsPanel({ scan = true }: { scan?: boolean } = {}) {
     refetchInterval: (query) => (readReceipts(query.state.data).some((r) => r.status === 'reading') ? 4_000 : 60_000),
   });
   const receipts = useMemo(() => readReceipts(q.data), [q.data]);
+  const cap = useListCap(receipts);
 
   const toCheck = receipts.filter((r) => r.status !== 'reading').length;
 
@@ -154,7 +155,7 @@ export function ReceiptsPanel({ scan = true }: { scan?: boolean } = {}) {
       <ErrorText error={q.error} />
       {receipts.length > 0 && (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-          {receipts.map((r) => (
+          {cap.shown.map((r) => (
             <li
               key={r.id}
               data-testid="receipts.row"
@@ -200,6 +201,7 @@ export function ReceiptsPanel({ scan = true }: { scan?: boolean } = {}) {
           ))}
         </ul>
       )}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
     </Panel>
   );
 }

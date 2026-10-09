@@ -42,7 +42,7 @@ import { formatTime } from '@touch/i18n';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, inputStyle, Select, Skeleton } from '../../components/ui';
-import { DataTable, EmptyState, PageHeader, Panel, type Column } from '../../components/kit';
+import { DataTable, EmptyState, PageHeader, Panel, ViewMore, useListCap, type Column } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
 import { Footnote, IngredientName, StorePicker, useStockFormat } from './stockUi';
 import { SK, fetchByStore, fetchIngredients } from './stockKeys';
@@ -319,6 +319,8 @@ function MadeToday() {
   const fmt = useStockFormat();
   const q = useQuery({ queryKey: MADE_TODAY_KEY, queryFn: () => appRpc<unknown>('production_log_today'), refetchInterval: 60_000 });
   const rows = useMemo(() => readMade(q.data), [q.data]);
+  // Owner's rule (2026-10-08): three entries, then "View more".
+  const listed = useListCap(rows);
   const columns: Column<MadeRow>[] = [
     { key: 'time', header: tr('ws.supplies.madeToday.time'), render: (r) => <bdi>{r.at ? formatTime(new Date(r.at), locale) : '—'}</bdi> },
     { key: 'item', header: tr('ws.supplies.madeToday.item'), render: (r) => <IngredientName name={pickName(locale, r)} strong /> },
@@ -334,7 +336,10 @@ function MadeToday() {
       ) : q.isSuccess && rows.length === 0 ? (
         <EmptyState compact kind="nothingToDo" icon="cake" title={tr('ws.supplies.madeToday.empty')} />
       ) : rows.length > 0 ? (
-        <DataTable<MadeRow> dense rows={rows} rowKey={(r) => String(r.movement_id)} columns={columns} aria-label={tr('ws.supplies.madeToday.title')} />
+        <>
+          <DataTable<MadeRow> dense rows={listed.shown} rowKey={(r) => String(r.movement_id)} columns={columns} aria-label={tr('ws.supplies.madeToday.title')} />
+          <ViewMore hidden={listed.hidden} open={listed.open} onToggle={listed.toggle} />
+        </>
       ) : null}
     </Panel>
   );

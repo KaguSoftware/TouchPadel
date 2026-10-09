@@ -101,6 +101,12 @@ export function OnHand() {
   const twoStores = scope === 'venue' && anyInBakery(splits);
 
   const go = (href: string) => void navigate({ href });
+  // Goods in and counts open the scope's own page: shop staff cannot open /stock.
+  const receiveTo = venue ? '/stock/receive' : '/shop/receive';
+  const countsTo = venue ? '/stock/counts' : '/shop/counts';
+  // Nothing in stock yet: the café adds ingredients, the shop desk products
+  // (each shop size keeps its own stock row).
+  const emptyTo = venue ? '/stock/ingredients' : '/shop/products';
   const active = (onHandQ.data ?? []).filter((r) => r.is_active && inScope(r.kind, scope));
   const inStore = (r: OnHandRow) => store === 'all' || !twoStores || heldAt(splits.get(r.ingredient_id), store) > 0;
   const rows = active.filter((r) => matchesOnHandFilter(r, filter) && matchesName(r, query) && inStore(r));
@@ -174,7 +180,7 @@ export function OnHand() {
       tone: 'warn',
       title: tr('ws.stores.onHand.now.phoneCounts'),
       hint: tr('ws.stores.onHand.now.phoneCountsHint'),
-      action: { label: tr('ws.stores.onHand.now.openCounts'), onClick: () => go('/stock/counts') },
+      action: { label: tr('ws.stores.onHand.now.openCounts'), onClick: () => go(countsTo) },
     },
     {
       key: 'needsCost',
@@ -182,7 +188,7 @@ export function OnHand() {
       tone: 'warn',
       title: tr('ws.stores.onHand.now.needsCost'),
       hint: tr('ws.stores.onHand.now.needsCostHint'),
-      action: { label: tr('ws.stores.onHand.now.openGoodsIn'), onClick: () => go('/stock/receive') },
+      action: { label: tr('ws.stores.onHand.now.openGoodsIn'), onClick: () => go(receiveTo) },
     },
     {
       key: 'alerts',
@@ -275,13 +281,16 @@ export function OnHand() {
         }
         actions={
           <>
-            <Button kind="primary" icon="box" onClick={() => go('/stock/receive')}>
+            <Button kind="primary" icon="box" onClick={() => go(receiveTo)}>
               {tr('ws.manager.stock.onHand.receive')}
             </Button>
-            <Button icon="ban" onClick={() => go('/stock/waste')}>
-              {tr('ws.manager.stock.onHand.waste')}
-            </Button>
-            <Button icon="scale" onClick={() => go('/stock/counts')}>
+            {/* The shop desk has no Waste page (2026-10-08): the café's only. */}
+            {venue && (
+              <Button icon="ban" onClick={() => go('/stock/waste')}>
+                {tr('ws.manager.stock.onHand.waste')}
+              </Button>
+            )}
+            <Button icon="scale" onClick={() => go(countsTo)}>
               {counting ? tr('ws.manager.stock.onHand.continueCount') : tr('ws.manager.stock.onHand.count')}
             </Button>
           </>
@@ -296,11 +305,11 @@ export function OnHand() {
         emptyContent={
           <EmptyState
             icon="box"
-            title={tr('ws.manager.stock.onHand.empty')}
-            body={tr('ws.manager.stock.onHand.emptyBody')}
+            title={tr(venue ? 'ws.manager.stock.onHand.empty' : 'ws.shop.stock.empty')}
+            body={tr(venue ? 'ws.manager.stock.onHand.emptyBody' : 'ws.shop.stock.emptyBody')}
             action={
-              <Button kind="primary" icon="plus" onClick={() => go('/stock/ingredients')}>
-                {tr('ws.manager.stock.onHand.emptyAction')}
+              <Button kind="primary" icon={venue ? 'plus' : 'tag'} onClick={() => go(emptyTo)}>
+                {tr(venue ? 'ws.manager.stock.onHand.emptyAction' : 'ws.shop.till.openProducts')}
               </Button>
             }
           />
@@ -372,7 +381,7 @@ export function OnHand() {
             )}
             <Footnote style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
               {tr('ws.manager.stock.onHand.howStockMoves')}{' '}
-              <Button kind="ghost" size="sm" onClick={() => go('/stock/counts')} style={{ verticalAlign: 'baseline' }}>
+              <Button kind="ghost" size="sm" onClick={() => go(countsTo)} style={{ verticalAlign: 'baseline' }}>
                 {counting ? tr('ws.manager.stock.onHand.continueCount') : tr('ws.manager.stock.onHand.count')}
               </Button>
             </Footnote>

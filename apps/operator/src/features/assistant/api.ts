@@ -105,13 +105,28 @@ export interface JobEstimateModes {
   batch: { allowed: true };
 }
 
+export type EstimateTokens = { input: number; cache_read: number; output: number; total: number };
+
+/** One step of a job at one model (estimate.ts EstimateStep); `model: null` is the chat's own model. */
+export interface JobEstimateStep {
+  model: string | null;
+  tokens: EstimateTokens;
+  tokens_high: EstimateTokens;
+}
+
 export interface JobEstimate {
   job_id: string;
   rows: number;
   chunks: number;
   per_tool: { tool: string; rows: number; chunk_rows: number; tokens_per_row: number; measured: boolean }[];
-  tokens: { input: number; cache_read: number; output: number; total: number };
-  tokens_high: { input: number; cache_read: number; output: number; total: number };
+  tokens: EstimateTokens;
+  tokens_high: EstimateTokens;
+  /**
+   * The same tokens by step since 2026-10-08: the chunks are read by a cheaper
+   * model (`extract.model`), the answer is written by the chat's (`reduce`).
+   * Absent on older estimates; then `tokens` is priced at the chat's model.
+   */
+  by_step?: { extract: JobEstimateStep; reduce: JobEstimateStep };
   modes: JobEstimateModes;
   assumptions: string[];
   first_chunk_exact: number | null;
@@ -176,6 +191,8 @@ export interface UsageDay {
   cache_write_tokens: number;
   cache_read_tokens: number;
   output_tokens: number;
+  /** 0324: web searches that day; their price is already inside cost_micros. Absent before 0324. */
+  web_searches?: number;
   cost_micros: number;
 }
 
@@ -185,6 +202,8 @@ export interface UsageReport {
   cap: { daily_limit: number | null; monthly_cap_micros: number | null; month_cost_micros: number };
   pricing: PricingMap;
   fallback_micros_per_mtok: number;
+  /** 0324: USD micros one web search costs. */
+  web_search_micros?: number;
 }
 
 // ---------------------------------------------------------------------------

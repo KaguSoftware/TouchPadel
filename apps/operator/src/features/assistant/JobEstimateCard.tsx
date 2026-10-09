@@ -13,12 +13,31 @@ import type { JobEstimate, JobMode } from './api';
 
 const iso = (s: string) => `⁨${s}⁩`;
 
+type Tok = { input: number; cache_read: number; output: number };
+const at = (model: string, t: Tok, pricing: PricingMap | null | undefined, fallback: number) =>
+  priceFor({ model, input: t.input, cache_read: t.cache_read, output: t.output }, pricing, fallback);
+
+/**
+ * The card's prices, in USD micros. `model` is the chat's. Since 2026-10-08
+ * an estimate carries `by_step`: the chunk extraction is priced at its own
+ * model's rates (Sonnet 5.5) and the reduce step at the chat's; an older
+ * estimate prices every token at the chat's model, as before.
+ */
 export function estimatePrices(estimate: JobEstimate, model: string, pricing: PricingMap | null | undefined, fallback: number) {
-  const live = priceFor({ model, input: estimate.tokens.input, cache_read: estimate.tokens.cache_read, output: estimate.tokens.output }, pricing, fallback);
-  const high = priceFor({ model, input: estimate.tokens_high.input, cache_read: estimate.tokens_high.cache_read, output: estimate.tokens_high.output }, pricing, fallback);
   const aggregate = estimate.modes.aggregate ? priceFor({ model, input: estimate.modes.aggregate.tokens_est }, pricing, fallback) : null;
-  // Decision 8: the Batch API halves the per-token price.
-  return { live, high, batch: Math.round(live / 2), aggregate };
+  const steps = estimate.by_step;
+  if (!steps) {
+    const live = at(model, estimate.tokens, pricing, fallback);
+    // Decision 8: the Batch API halves the per-token price.
+    return { live, high: at(model, estimate.tokens_high, pricing, fallback), batch: Math.round(live / 2), aggregate };
+  }
+  const exModel = steps.extract.model ?? model;
+  const rdModel = steps.reduce.model ?? model;
+  const extract = at(exModel, steps.extract.tokens, pricing, fallback);
+  const reduce = at(rdModel, steps.reduce.tokens, pricing, fallback);
+  const high = at(exModel, steps.extract.tokens_high, pricing, fallback) + at(rdModel, steps.reduce.tokens_high, pricing, fallback);
+  // Decision 8: the Batch API halves the per-token price of the chunks; the reduce step runs live either way.
+  return { live: extract + reduce, high, batch: Math.round(extract / 2) + reduce, aggregate };
 }
 
 export function JobEstimateCard({

@@ -1,7 +1,7 @@
 /**
  * "Wages due" on the management panel (0271): the owner's pay-day reminder.
  * The wages whose pay day is within the reminder window or past, earliest
- * first, up to five, and the way to the Wages page. It reads the rail badge's
+ * first, three and then View more, and the way to the Wages page. It reads the rail badge's
  * own key (QK.wagesDue), so the two always agree.
  *
  * Quiet by design: nothing at zero, nothing on an error (the badge and the
@@ -10,29 +10,24 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { countPhrase } from '@touch/i18n';
 import { QK } from '../../lib/queryKeys';
 import { useLocale } from '../../lib/i18n';
 import { Button } from '../../components/ui';
-import { Money, Panel, StatusBadge } from '../../components/kit';
+import { Money, Panel, StatusBadge, ViewMore, useListCap } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
 import { monthLabel } from '../deductions/venueDate';
 import { fetchWagesDue } from './api';
 import { readWagesDue, wageTone } from './wagesLogic';
 import { DueWhenText } from './DueWhenText';
 
-/** How many rows the card lists before "N more". */
-export const WAGES_DUE_CARD_ROWS = 5;
-
 export function WagesDueCard() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
   const q = useQuery({ queryKey: QK.wagesDue, queryFn: fetchWagesDue, refetchInterval: 60_000 });
-  if (!q.isSuccess) return null;
   const due = readWagesDue(q.data);
+  const cap = useListCap(due.people);
+  if (!q.isSuccess) return null;
   if (due.count === 0 || due.people.length === 0) return null;
-  const rows = due.people.slice(0, WAGES_DUE_CARD_ROWS);
-  const more = due.count - rows.length;
 
   return (
     <Panel
@@ -46,7 +41,7 @@ export function WagesDueCard() {
       style={{ marginBlockEnd: 'var(--tp-sp-4)' }}
     >
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
-        {rows.map((r) => (
+        {cap.shown.map((r) => (
           <li
             key={`${r.staffId}:${r.month}`}
             style={{
@@ -67,7 +62,7 @@ export function WagesDueCard() {
           </li>
         ))}
       </ul>
-      {more > 0 && <p style={{ marginBlockStart: 'var(--tp-sp-2)', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{countPhrase('ws.wages.count.more', more, locale)}</p>}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
     </Panel>
   );
 }

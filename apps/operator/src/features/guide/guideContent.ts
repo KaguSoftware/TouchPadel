@@ -315,12 +315,21 @@ const SHOP: readonly GuideSection[] = [
     ['onHand', { icon: 'box', link: '/shop/stock', params: { shopStock: k('ws.shell.nav.shopStock') } }],
     ['receive', { icon: 'package', link: '/shop/receive' }],
     ['counts', { icon: 'layers', link: '/shop/counts' }],
-    ['waste', { icon: 'trash', link: '/shop/waste' }],
   ]),
   section('shop', 'products', 'tag', [
     ['products', { icon: 'tag', link: '/shop/products' }],
     ['prices', { icon: 'banknote', link: '/shop/products', when: { capability: 'editLaunchedPrices' } }],
     ['suppliers', { icon: 'users', link: '/shop/suppliers' }],
+    // The supplier price watch (0322): every shop role sees the changes; Apply
+    // itself follows the price lock, as the panel says.
+    [
+      'priceWatch',
+      {
+        icon: 'bell',
+        link: '/shop/products',
+        params: { link: k('ws.shop.priceWatch.link'), panel: k('ws.shop.priceWatch.panelTitle'), apply: k('ws.shop.priceWatch.apply') },
+      },
+    ],
   ]),
   section('shop', 'end', 'logOut', [
     [

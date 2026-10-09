@@ -120,6 +120,18 @@ describe('RecipeChangesCard', () => {
     expect((within(dialog).getByRole('button', { name: 'Approve' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('shows three waiting requests on the card, then View more opens the rest in place', async () => {
+    rows = ['rc1', 'rc2', 'rc3', 'rc4', 'rc5'].map((id) => request({ id }));
+    renderCard('owner');
+    const card = await screen.findByTestId('recipe-changes-card');
+    await within(card).findByTestId('recipe-change-rc3');
+    expect(within(card).queryByTestId('recipe-change-rc4')).toBeNull();
+    await userEvent.click(within(card).getByRole('button', { name: 'View more (2)' }));
+    expect(within(card).getByTestId('recipe-change-rc5')).toBeTruthy();
+    await userEvent.click(within(card).getByRole('button', { name: 'Show less' }));
+    expect(within(card).queryByTestId('recipe-change-rc4')).toBeNull();
+  });
+
   it('says so when nothing waits', async () => {
     rows = [];
     renderCard('owner');

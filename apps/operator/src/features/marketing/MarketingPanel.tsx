@@ -82,7 +82,9 @@ import {
   StatusBadge,
   TableSkeleton,
   Toolbar,
+  ViewMore,
   asyncStatus,
+  useListCap,
   type Column,
   type RowAction,
 } from '../../components/kit';
@@ -203,6 +205,8 @@ export function MarketingPanelScreen() {
   const campaigns = useMemo(() => q.data?.campaigns ?? [], [q.data]);
   const matches = (c: CampaignRow, f: PanelFilter) => (f === 'fromMarketing' ? suggestions.has(c.id) : matchesFilter(c.status, f));
   const shown = campaigns.filter((c) => matches(c, filter));
+  // Owner's rule (2026-10-08): three campaigns, then "View more"; capped after the filter chips.
+  const campaignCap = useListCap(shown);
   const fromMarketingWaiting = campaigns.filter((c) => c.status === 'draft' && suggestions.has(c.id)).length;
   const filters: readonly PanelFilter[] = suggestions.size > 0 ? [...FILTERS.slice(0, 4), 'fromMarketing', ...FILTERS.slice(4)] : FILTERS;
   const overdue = useMemo(() => {
@@ -463,7 +467,10 @@ export function MarketingPanelScreen() {
         {shown.length === 0 ? (
           <EmptyState kind="filtered" icon="spark" title={tr('ws.owner.marketing.emptyFiltered')} onClearFilters={() => setFilter('all')} />
         ) : (
-          <DataTable columns={columns} rows={shown} rowKey={(c) => c.id} aria-label={tr('ws.owner.marketing.title')} />
+          <>
+            <DataTable columns={columns} rows={campaignCap.shown} rowKey={(c) => c.id} aria-label={tr('ws.owner.marketing.title')} />
+            <ViewMore hidden={campaignCap.hidden} open={campaignCap.open} onToggle={campaignCap.toggle} />
+          </>
         )}
       </AsyncStateWrapper>
 
@@ -541,6 +548,7 @@ function MarketingRequestsPanel({ onPhotos }: { onPhotos: (paths: readonly strin
     refetchInterval: 60_000,
   });
   const data = useMemo(() => readRequests(q.data), [q.data]);
+  const cap = useListCap(data.requests);
   const today = todayIso();
   const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
   const pad = { paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)' } as const;
@@ -584,7 +592,7 @@ function MarketingRequestsPanel({ onPhotos }: { onPhotos: (paths: readonly strin
       ) : (
         <>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-            {data.requests.map((r) => {
+            {cap.shown.map((r) => {
               const late = isPastWanted(r, today);
               const item = locale === 'ar' ? (r.item_name_ar ?? r.item_name_en) : (r.item_name_en ?? r.item_name_ar);
               return (
@@ -662,7 +670,9 @@ function MarketingRequestsPanel({ onPhotos }: { onPhotos: (paths: readonly strin
               );
             })}
           </ul>
-          {data.total > data.requests.length && (
+          <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} style={{ ...pad, marginBlockStart: 0, borderBlockStart: '1px solid var(--tp-border)' }} />
+          {/* "Showing 50 of 120" counts the rows the server sent, so it only reads true once they are all on screen. */}
+          {(cap.open || cap.hidden === 0) && data.total > data.requests.length && (
             <p style={{ ...pad, ...muted, margin: 0, borderBlockStart: '1px solid var(--tp-border)' }}>
               {tr('ws.supplies.requests.more', { shown: formatNumber(data.requests.length, locale), total: formatNumber(data.total, locale) })}
             </p>

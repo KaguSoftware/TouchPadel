@@ -29,7 +29,7 @@ import { formatDate, formatNumber, formatTime, formatTimeRange, VENUE_TZ } from 
 import { supabase } from '../../../lib/supabase';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { Button } from '../../../components/ui';
-import { AsyncStateWrapper, DescriptionList, EmptyState, HeadlineFigure, Money, PageHeader, Panel, StatusBadge, TabStatusIndicator, asyncStatus, type Tone } from '../../../components/kit';
+import { AsyncStateWrapper, DescriptionList, EmptyState, HeadlineFigure, Money, PageHeader, Panel, StatusBadge, TabStatusIndicator, ViewMore, asyncStatus, useListCap, type Tone } from '../../../components/kit';
 import { ChevronForward, Icon } from '../../../components/icons';
 import { useTradingNight, todayInTz, tonightInTz } from '../../desk/useTradingNight';
 import { BLOCK_EDGE, BLOCK_FG, BLOCK_SOFT, ReservationBadge, TONE_EDGE, TONE_SOFT, reservationBlockTone } from '../../desk/deskStatus';
@@ -198,6 +198,7 @@ function DayView({
   const ownNight = useMemo(() => reservations.filter((r) => tradingDateOf(r.start_at, tz, hours) === date), [reservations, tz, hours, date]);
   const summary = useMemo(() => courtDaySummary(ownNight, now), [ownNight, now]);
   const missed = useMemo(() => didNotHappen(ownNight), [ownNight]);
+  const missedCap = useListCap(missed);
 
   const status =
     settingsQ.isError && !settingsQ.data
@@ -265,7 +266,7 @@ function DayView({
               <Panel title={tr('ws.owner.observe.courts.notActive.title')}>
                 <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.owner.observe.courts.notActive.lead')}</p>
                 <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-                  {missed.map((r) => (
+                  {missedCap.shown.map((r) => (
                     <li key={r.id}>
                       <button type="button" className="tp-row" onClick={() => onOpen(r.id)} style={rowButton}>
                         <strong style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -282,6 +283,7 @@ function DayView({
                     </li>
                   ))}
                 </ul>
+                <ViewMore hidden={missedCap.hidden} open={missedCap.open} onToggle={missedCap.toggle} />
               </Panel>
             )}
           </>
@@ -341,7 +343,10 @@ function CourtsNow({
   // schedule off the screen. Those courts are named on one line instead, and
   // the cards are the courts with something happening, busy ones first.
   const idle = states.filter((s) => s.state !== 'busy' && !s.nextStartAt);
-  const shown = [...states.filter((s) => s.state === 'busy'), ...states.filter((s) => s.state !== 'busy' && s.nextStartAt)];
+  const active = [...states.filter((s) => s.state === 'busy'), ...states.filter((s) => s.state !== 'busy' && s.nextStartAt)];
+  // Owner's rule (2026-10-08): three cards, then "View more"; busy ones stay first.
+  const cap = useListCap(active);
+  const shown = cap.shown;
 
   return (
     <Panel
@@ -439,6 +444,7 @@ function CourtsNow({
           })}
         </div>
       )}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
       {idle.length > 0 && <IdleCourts names={idle.map((s) => pickName(locale, courts.find((c) => c.id === s.courtId)))} spaced={shown.length > 0} />}
     </Panel>
   );

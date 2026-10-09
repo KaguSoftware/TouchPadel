@@ -140,6 +140,17 @@ describe('DepositAttentionPanel', () => {
     expect(await screen.findByText('Nothing waiting. Every online refund has gone through.')).toBeTruthy();
   });
 
+  // Owner call 2026-10-08: three rows, then "View more".
+  it('shows three refunds and folds the rest behind "View more"', async () => {
+    const user = userEvent.setup();
+    attention = ['Ali', 'Bana', 'Dalia', 'Huda', 'Zaid'].map((name, i) => row({ id: `pay-${i}`, guest_name: name }));
+    mount(<DepositAttentionPanel hideWhenEmpty />);
+    const panel = within(await screen.findByTestId('deposit-attention'));
+    await waitFor(() => expect(panel.getAllByText('Refund failed')).toHaveLength(3));
+    await user.click(panel.getByRole('button', { name: 'View more (2)' }));
+    expect(panel.getAllByText('Refund failed')).toHaveLength(5);
+  });
+
   it('a failed refund: Retry sends it again', async () => {
     const user = userEvent.setup();
     attention = [row()];

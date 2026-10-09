@@ -62,7 +62,9 @@ import {
   StatusBadge,
   TabStatusIndicator,
   Toolbar,
+  ViewMore,
   asyncStatus,
+  useListCap,
   type AsyncStatus,
   type Column,
 } from '../../components/kit';
@@ -303,9 +305,12 @@ export function OpenTabsBoard({
 }) {
   const { tr, locale } = useLocale();
   const visible = useMemo(() => filterBoardRows(rows, filter, query), [rows, filter, query]);
+  // Owner's rule (2026-10-08): three tabs, then "View more". The cap runs on
+  // the SEARCHED and sorted result, so a search still finds a tab.
+  const cap = useListCap(visible);
   // Computed over what is ON SCREEN: a court total that counted rows the
-  // search has hidden would not add up to the rows under it.
-  const grouped = useMemo(() => courtTotals(visible), [visible]);
+  // search (or the cap) has hidden would not add up to the rows under it.
+  const grouped = useMemo(() => courtTotals(cap.shown), [cap.shown]);
   /*
    * Which row is asking "remove?". One id, not a set: two tabs mid-confirm at
    * once is not a state a cashier ever wants, and arming a second row is the
@@ -469,7 +474,7 @@ export function OpenTabsBoard({
       >
         <DataTable
           columns={columns}
-          rows={visible}
+          rows={cap.shown}
           rowKey={(r) => r.id}
           onRowClick={(r) => onSelect(r.id)}
           emptyContent={tr('ws.cashier.tabs.noMatches')}
@@ -490,6 +495,7 @@ export function OpenTabsBoard({
             );
           }}
         />
+        <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
         {hasBookingTabs && <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.cashier.tabs.courtFeeNote')}</p>}
       </AsyncStateWrapper>
 

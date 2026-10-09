@@ -116,6 +116,40 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
     expect(screen.getByText('Still to come').textContent).toContain('Still to come');
   });
 
+  it('arrivals: each group shows three, then View more reveals the rest of that group only', async () => {
+    const user = userEvent.setup();
+    renderView({
+      nowIso: '2026-09-03T15:10:00.000Z',
+      horizonIso: '2026-09-03T16:10:00.000Z',
+      reservations: [
+        ...[1, 2, 3, 4, 5].map((n) => row({ id: `late${n}`, court_id: n % 2 ? 'c1' : 'c2', guest_name: `Late Guest ${n}` })),
+        row({ id: 'soon', court_id: 'c2', guest_name: 'Soon Guest', start_at: '2026-09-03T15:40:00.000Z', end_at: '2026-09-03T16:40:00.000Z' }),
+      ],
+    });
+    const panel = within(screen.getByRole('heading', { name: 'Arrivals' }).closest('section')!);
+    expect(panel.getAllByText(/^Late Guest \d$/)).toHaveLength(3);
+    // The group below is not folded under the long one.
+    expect(panel.getByText('Soon Guest')).toBeTruthy();
+    await user.click(panel.getByRole('button', { name: 'View more (2)' }));
+    expect(panel.getAllByText(/^Late Guest \d$/)).toHaveLength(5);
+    await user.click(panel.getByRole('button', { name: 'Show less' }));
+    expect(panel.getAllByText(/^Late Guest \d$/)).toHaveLength(3);
+  });
+
+  it('courts now: a court in play always shows, free courts fill the three, View more reveals the rest', async () => {
+    const user = userEvent.setup();
+    const five = [1, 2, 3, 4, 5].map((n) => ({ id: `c${n}`, name_en: `Court ${n}`, name_ar: `ملعب ${n}`, duration_options: [60, 90], sort_order: n }));
+    renderView({ courts: five, reservations: [row({ id: 'r5', court_id: 'c5', start_at: '2026-09-03T14:00:00.000Z', end_at: '2026-09-03T15:00:00.000Z' })] });
+    const tiles = () => screen.queryAllByRole('button', { name: /^Court \d · / }).map((b) => b.textContent?.match(/Court \d/)?.[0]);
+    // Court 5 is in play, so it is never folded; courts 1 and 2 fill the three, in court order.
+    expect(tiles()).toEqual(['Court 1', 'Court 2', 'Court 5']);
+    expect(screen.getByRole('button', { name: /^Court 5 · In use until .* · Open$/ })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
+    expect(tiles()).toEqual(['Court 1', 'Court 2', 'Court 3', 'Court 4', 'Court 5']);
+    await user.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(tiles()).toHaveLength(3);
+  });
+
   it('arrivals: with nobody due, says who is next', () => {
     renderView({
       reservations: [row({ id: 'r1', start_at: '2026-09-03T18:00:00.000Z', end_at: '2026-09-03T19:00:00.000Z' })],
@@ -141,6 +175,9 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
       flagsByGuest: new Map([['g1', [{ type: 'vip', label: null }]]]),
     });
     const table = screen.getByRole('table', { name: 'All bookings today' });
+    // Three bookings, then View more (owner's rule 2026-10-08).
+    expect(table.querySelectorAll('tbody tr')).toHaveLength(3);
+    await user.click(screen.getByRole('button', { name: 'View more (1)' }));
     expect(table.querySelectorAll('tbody tr')).toHaveLength(4);
     // Newest to oldest: Nadia (19:00) heads the list.
     expect(within(table.querySelectorAll('tbody tr')[0] as HTMLElement).getByText('Nadia')).toBeTruthy();
@@ -491,6 +528,20 @@ describe('TodaysBoardView — Lessons today (§5.11)', () => {
     expect(cb.onOpenLesson).toHaveBeenCalledWith('l-group');
     await user.click(screen.getByRole('button', { name: 'New lesson' }));
     expect(cb.onNewLesson).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows three lessons, then View more reveals the rest', async () => {
+    const user = userEvent.setup();
+    renderView({
+      status: 'empty',
+      runLessons: true,
+      ...lessonCallbacks(),
+      lessons: lessonsRead(['a', 'b', 'c', 'd'].map((id) => lesson({ lesson_id: `l-${id}`, reservation_id: `lr-${id}` }))),
+    });
+    const list = () => within(screen.getByRole('list', { name: 'Lessons today' })).getAllByRole('listitem');
+    expect(list()).toHaveLength(3);
+    await user.click(screen.getByRole('button', { name: 'View more (1)' }));
+    expect(list()).toHaveLength(4);
   });
 
   it('a role without takeLessonPayment sees no Take payment', () => {

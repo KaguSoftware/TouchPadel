@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
 import { ToastProvider } from '../../components/toast';
@@ -25,9 +25,10 @@ vi.mock('../../lib/realtime', () => ({ useBroadcast: () => ({ status: 'live' }) 
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => nav.navigate }));
 // Wave 5 (wave5-addendum-2026-09-25 §5.2): "Needs you now" reads the people
 // records only for a role that acts on them, so the screen asks who is signed in.
+const who = vi.hoisted(() => ({ role: 'manager' }));
 vi.mock('../../lib/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  useAuth: () => ({ staff: { id: 'm1', displayName: 'Manager', role: 'manager' } }),
+  useAuth: () => ({ staff: { id: 'm1', displayName: 'Manager', role: who.role } }),
 }));
 
 import { OperationsOverviewScreen } from './OperationsOverview';
@@ -81,6 +82,7 @@ const payload = {
 beforeEach(() => {
   rpc.appRpc.mockReset();
   nav.navigate.mockReset();
+  who.role = 'manager';
 });
 
 describe('OperationsOverviewScreen', () => {
@@ -180,6 +182,49 @@ describe('OperationsOverviewScreen', () => {
     expect(now.getAllByRole('button').map((b) => b.textContent)).toEqual(['See which']);
     now.getByRole('button', { name: 'See which' }).click();
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith({ href: '/stock?filter=low' }));
+  });
+
+  // Owner call 2026-10-08: a list that stacks shows three rows, then "View more".
+  it('shows three standing alarms and folds the rest behind "View more"', async () => {
+    rpc.appRpc.mockResolvedValue({
+      ...payload,
+      dayClose: { open: false, businessDate: null, openedAt: null, blockingTabs: [] },
+      cafe: { ...payload.cafe, waiterCallsOpen: 2, ticketsLate: 1 },
+      stock: { ...payload.stock, low: 2, expired: 1 },
+    });
+    renderScreen();
+    await screen.findByText('Staff activity today');
+    const now = within(card('Needs you now'));
+    // Five stand: the day not open, waiter calls, late tickets, low, expired.
+    expect(now.getAllByRole('listitem')).toHaveLength(3);
+    expect(now.queryByText('Ingredients running low')).toBeNull();
+    const more = now.getByRole('button', { name: 'View more (2)' });
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(more);
+    expect(now.getAllByRole('listitem')).toHaveLength(5);
+    expect(now.getByText('Ingredients running low')).toBeTruthy();
+    fireEvent.click(now.getByRole('button', { name: 'Show less' }));
+    expect(now.getAllByRole('listitem')).toHaveLength(3);
+  });
+
+  it('shows three people in staff activity, and the rest on "View more"', async () => {
+    const person = (n: number) => ({ staffId: `s${n}`, name: `Person ${n}`, role: 'cashier', ordersTaken: n, bookingsCreated: 0 });
+    rpc.appRpc.mockResolvedValue({ ...payload, staffActivity: [1, 2, 3, 4, 5].map(person) });
+    renderScreen();
+    await screen.findByText('Staff activity today');
+    const staff = within(card('Staff activity today'));
+    expect(staff.getByText('Person 3')).toBeTruthy();
+    expect(staff.queryByText('Person 4')).toBeNull();
+    fireEvent.click(staff.getByRole('button', { name: 'View more (2)' }));
+    expect(staff.getByText('Person 5')).toBeTruthy();
+  });
+
+  it('sends the owner to the Observe overview, which carries the floor now', async () => {
+    who.role = 'owner';
+    rpc.appRpc.mockResolvedValue(payload);
+    renderScreen();
+    await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith({ to: '/observation', replace: true }));
+    expect(screen.queryByRole('heading', { name: 'Today' })).toBeNull();
   });
 
   it('puts "the day is not open" first, and routes it to day close', async () => {

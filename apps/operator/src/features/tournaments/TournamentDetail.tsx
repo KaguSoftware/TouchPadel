@@ -39,6 +39,8 @@ import {
   Panel,
   ReasonCodePrompt,
   StatusBadge,
+  ViewMore,
+  useListCap,
   type Column,
 } from '../../components/kit';
 import type { TourStandingRow } from '@touch/core/tournaments';
@@ -177,6 +179,7 @@ function TournamentBody({
   const name = pickName(locale, d.name_en, d.name_ar);
   const registered = d.entries.filter((e) => e.status === 'registered').length;
   const refunds = refundsDue(d);
+  const refundsCap = useListCap(refunds);
 
   async function cancel(code: string, note: string) {
     setBusy(true);
@@ -409,7 +412,7 @@ function TournamentBody({
               gap: 'var(--tp-sp-1)',
             }}
           >
-            {refunds.map((e) => (
+            {refundsCap.shown.map((e) => (
               <li key={e.entry_id}>
                 {tr('ws.tournaments.refundsDue.row', {
                   name: isolate(e.full_name),
@@ -418,6 +421,7 @@ function TournamentBody({
               </li>
             ))}
           </ul>
+          <ViewMore hidden={refundsCap.hidden} open={refundsCap.open} onToggle={refundsCap.toggle} />
           <Button
             size="sm"
             icon="receipt"
@@ -496,6 +500,8 @@ function TournamentBody({
 /** The standings, as the server ranked them (app.tournament_standings, TD-8). Read-only. */
 export function StandingsTable({ detail: d }: { detail: TournamentDetail }) {
   const { tr, locale } = useLocale();
+  // Owner's rule (2026-10-08): the top three, then "View more"; the rank order is the server's.
+  const cap = useListCap(d.standings);
   const byId = new Map(d.entries.map((e) => [e.entry_id, e]));
   const n = (v: number) => formatNumber(v, locale);
   const nameOf = (id: string) => {
@@ -567,16 +573,19 @@ export function StandingsTable({ detail: d }: { detail: TournamentDetail }) {
     },
   ];
   return (
-    <DataTable
-      columns={columns}
-      rows={d.standings}
-      rowKey={(s) => s.entry_id}
-      dense
-      aria-label={tr('ws.tournaments.standings.title')}
-      emptyContent={
-        <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.tournaments.standings.empty')}</span>
-      }
-    />
+    <>
+      <DataTable
+        columns={columns}
+        rows={cap.shown}
+        rowKey={(s) => s.entry_id}
+        dense
+        aria-label={tr('ws.tournaments.standings.title')}
+        emptyContent={
+          <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.tournaments.standings.empty')}</span>
+        }
+      />
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+    </>
   );
 }
 

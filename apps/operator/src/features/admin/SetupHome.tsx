@@ -55,7 +55,7 @@ import { useLocale } from '../../lib/i18n';
 import { useCafeSettings } from '../../lib/settings';
 import { SectionHome } from '../../components/SectionHome';
 import { Button, Skeleton } from '../../components/ui';
-import { Panel } from '../../components/kit';
+import { Panel, ViewMore, useListCap } from '../../components/kit';
 import { Icon, type IconName } from '../../components/icons';
 import { CardTitle, MARK, MARK_FG, MARK_SOFT, type MarkTone } from '../ops/OpsVisuals';
 import { STAFF_QUERY_KEY, approvesWithPin, onRetiredRole, type StaffRow } from './staff/staffModel';
@@ -323,6 +323,7 @@ function WorthChecking({
   }
 
   const clear = !loading && failed.length === 0 && rows.length === 0;
+  const cap = useListCap(rows);
 
   return (
     <Panel title={<CardTitle icon={clear ? 'checkCircle' : 'alert'}>{tr('ws.owner.setupHome.checks.title')}</CardTitle>}>
@@ -334,34 +335,37 @@ function WorthChecking({
           {tr('ws.owner.setupHome.checks.none')}
         </p>
       ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-          {rows.map((r) => (
-            <li key={r.key} data-check={r.key} style={rowStyle}>
-              <span style={{ ...countBlock, background: MARK_SOFT[r.tone], color: MARK_FG[r.tone] }}>
-                {r.count === null ? <Icon name={r.icon} size={18} style={{ color: MARK[r.tone] }} /> : formatNumber(r.count, locale)}
-              </span>
-              <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', flex: '1 1 16rem', minInlineSize: 0 }}>
-                <strong>{r.title}</strong>
-                <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{r.hint}</span>
-              </span>
-              <Button size="sm" iconEnd="arrowUpRight" onClick={() => void navigate({ to: r.href })}>
-                {r.action}
-              </Button>
-            </li>
-          ))}
-          {/* A check that failed is not a check that passed: say so beside the rest. */}
-          {failed.length > 0 && (
-            <li style={rowStyle}>
-              <span style={{ ...countBlock, background: MARK_SOFT.neutral, color: MARK_FG.neutral }}>
-                <Icon name="alert" size={18} style={{ color: MARK.danger }} />
-              </span>
-              <span style={{ flex: '1 1 16rem', minInlineSize: 0, fontWeight: 600 }}>{tr('ws.owner.setupHome.checks.error')}</span>
-              <Button size="sm" icon="refresh" onClick={() => failed.forEach((q) => void q.refetch())}>
-                {tr('common.retry')}
-              </Button>
-            </li>
-          )}
-        </ul>
+        <>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+            {cap.shown.map((r) => (
+              <li key={r.key} data-check={r.key} style={rowStyle}>
+                <span style={{ ...countBlock, background: MARK_SOFT[r.tone], color: MARK_FG[r.tone] }}>
+                  {r.count === null ? <Icon name={r.icon} size={18} style={{ color: MARK[r.tone] }} /> : formatNumber(r.count, locale)}
+                </span>
+                <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', flex: '1 1 16rem', minInlineSize: 0 }}>
+                  <strong>{r.title}</strong>
+                  <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{r.hint}</span>
+                </span>
+                <Button size="sm" iconEnd="arrowUpRight" onClick={() => void navigate({ to: r.href })}>
+                  {r.action}
+                </Button>
+              </li>
+            ))}
+            {/* A check that failed is not a check that passed: say so beside the rest. */}
+            {failed.length > 0 && (
+              <li style={rowStyle}>
+                <span style={{ ...countBlock, background: MARK_SOFT.neutral, color: MARK_FG.neutral }}>
+                  <Icon name="alert" size={18} style={{ color: MARK.danger }} />
+                </span>
+                <span style={{ flex: '1 1 16rem', minInlineSize: 0, fontWeight: 600 }}>{tr('ws.owner.setupHome.checks.error')}</span>
+                <Button size="sm" icon="refresh" onClick={() => failed.forEach((q) => void q.refetch())}>
+                  {tr('common.retry')}
+                </Button>
+              </li>
+            )}
+          </ul>
+          <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+        </>
       )}
     </Panel>
   );

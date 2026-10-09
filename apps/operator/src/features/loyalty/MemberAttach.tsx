@@ -35,7 +35,7 @@ import { can, useAuth } from '../../lib/auth';
 import { useStationReach } from '../../lib/stationReach';
 import { LOCAL_TAB_PREFIX } from '../../lib/offlineTabs';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
-import { MessagePresenter } from '../../components/kit';
+import { MessagePresenter, ViewMore, useListCap } from '../../components/kit';
 import {
   defaultRedeemPoints,
   identifyCode,
@@ -356,11 +356,13 @@ export function MemberAttach({
     return () => window.removeEventListener(MEMBER_SCAN_EVENT, onScan);
   }, [listenScans]);
 
+  const used = loyaltyAdjustments(tabQ.data?.tab_adjustments ?? []);
+  const usedCap = useListCap(used);
+
   if (!allowed) return null;
 
   const refresh = (id: string | null = customerId) => invalidateTabLoyalty(qc, tabId, id);
   const open = tabQ.data?.status === 'open';
-  const used = loyaltyAdjustments(tabQ.data?.tab_adjustments ?? []);
   const member = customerId ? (memberQ.data ?? null) : null;
   const terms: StaffLoyaltyTerms = termsQ.data ?? {
     enabled: null,
@@ -511,7 +513,7 @@ export function MemberAttach({
               gap: 'var(--tp-sp-1)',
             }}
           >
-            {used.map((a) => (
+            {usedCap.shown.map((a) => (
               <li
                 key={a.id}
                 style={{
@@ -552,6 +554,7 @@ export function MemberAttach({
               </li>
             ))}
           </ul>
+          <ViewMore hidden={usedCap.hidden} open={usedCap.open} onToggle={usedCap.toggle} style={{ marginBlockStart: 0 }} />
         </div>
       )}
 

@@ -54,7 +54,7 @@ export interface NavItem {
     | 'stockCount' | 'countDifferences' | 'margins' | 'ingredients' | 'recipes'
     | 'stockValue' | 'shop'
     // The Touch Shop desk's own rail (0243–0246).
-    | 'shopTill' | 'shopStock' | 'shopReceive' | 'shopCounts' | 'shopWaste' | 'shopProducts' | 'shopSuppliers'
+    | 'shopTill' | 'shopStock' | 'shopReceive' | 'shopCounts' | 'shopProducts' | 'shopSuppliers'
     // The owner assistant (docs/design/assistant §5.1).
     | 'assistant'
     // The team workspace (driver, marketing), and the till's and the desk's row.
@@ -104,6 +104,13 @@ export interface NavItem {
    * without adding two rows an owner never navigates to directly.
    */
   hidden?: boolean;
+  /**
+   * Printed inside one of the section's dropdowns instead of as a row of its own
+   * (Observe's "From the team": requests, pay deductions, protocols, suggestions,
+   * incidents — the things staff send up; Stock's three: stock in and out,
+   * counting, recipes and costs). The dropdown sits where the first such row is.
+   */
+  folder?: 'fromTeam' | 'stockMovement' | 'stockCounting' | 'stockCosts';
 }
 
 export interface NavGroup {
@@ -298,9 +305,9 @@ const OWNER_FINANCIAL: readonly NavItem[] = [
 /**
  * OBSERVATION — watching the venue rather than counting it.
  *
- * Order is by how far back you are looking: right now (the floor), then the
- * live records you inspect (bookings, tills, staff activity), then the two
- * things that WAIT ON THE OWNER — staff requests to confirm and marketing to
+ * Order is by how far back you are looking: right now (the overview, which
+ * carries the floor), then the live records you inspect (bookings, tills,
+ * staff activity), then the two things that WAIT ON THE OWNER — staff requests to confirm and marketing to
  * run — and finally the audit log, which is where you go when one of the
  * others raised a question. The shape over time (Analytics) is no longer a
  * row here: it is on Management's own rail, see OWNER_PRIMARY.
@@ -311,31 +318,34 @@ const OWNER_FINANCIAL: readonly NavItem[] = [
  * up to, and every write on them is a "go to workspace" button away.
  *
  * The working screens stay listed as hidden rows only so that a drill-through
- * which still lands on them (Floor now's cluster buttons) keeps this rail
+ * which still lands on them (the overview's area-card buttons) keeps this rail
  * instead of dropping the owner onto Management's bare top level.
  */
 const OWNER_OBSERVATION: readonly NavItem[] = [
   { to: '/observation', labelKey: 'overview', icon: 'grid', exact: true },
-  { to: '/ops', labelKey: 'floorNow', icon: 'dashboard' },
   { to: '/observation/courts', labelKey: 'bookings', icon: 'calendar' },
   { to: '/observation/tills', labelKey: 'tills', icon: 'receipt' },
   { to: '/reports/staff', labelKey: 'staffActivity', icon: 'users' },
-  { to: '/observation/requests', labelKey: 'requests', icon: 'bell' },
-  // Pay deductions wait on a decision like the requests above them (wave 5).
-  DEDUCTIONS,
-  // What waits on the owner in protocols (a step to decide or to do) and the
-  // staff suggestion box, right after the requests they sit beside.
-  PROTOCOLS,
-  SUGGESTIONS,
-  // Incident reports to review (wave 5).
-  INCIDENTS,
+  // "From the team": one dropdown for everything staff send up to the owner.
+  // Pay deductions wait on a decision like the requests (wave 5); protocols
+  // hold a step to decide or to do; suggestions are the staff box; incident
+  // reports wait for review (wave 5).
+  { to: '/observation/requests', labelKey: 'requests', icon: 'bell', folder: 'fromTeam' },
+  { ...DEDUCTIONS, folder: 'fromTeam' },
+  { ...PROTOCOLS, folder: 'fromTeam' },
+  { ...SUGGESTIONS, folder: 'fromTeam' },
+  { ...INCIDENTS, folder: 'fromTeam' },
   // Its count is marketing's posts waiting on the owner (wave 5).
   { to: '/marketing', labelKey: 'marketing', icon: 'spark', activePrefix: '/marketing', badge: 'contentWaiting' },
   { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
   // Opened from the marketing panel, not from the rail. See NavItem.hidden.
   { to: '/admin/promotions', labelKey: 'promotions', icon: 'tag', hidden: true },
   { to: '/admin/telegram', labelKey: 'telegram', icon: 'phone', hidden: true },
-  // Reached only by drilling through from Floor now; see the note above.
+  // Floor now is the overview's own body since 2026-10-08 (owner call: "it's
+  // technically an overview"); /ops sends the owner there, and this row only
+  // keeps the rail on Observe for the moment before it does.
+  { to: '/ops', labelKey: 'floorNow', icon: 'dashboard', hidden: true },
+  // Reached only by drilling through from the overview; see the note above.
   // `/till/tabs` carries no activePrefix: '/till' would also light this row on
   // /till/drawer over in Financial.
   { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk', hidden: true },
@@ -343,9 +353,9 @@ const OWNER_OBSERVATION: readonly NavItem[] = [
 ];
 
 /**
- * STOCK — the shelves. Every /stock screen is a row of its own, like
- * Financial's (owner call, 2026-09-27), in the order the in-page sub-nav used
- * to group them: the daily work, then counting and checking, then setup. The
+ * STOCK — the shelves. Every /stock screen is on this rail (owner call,
+ * 2026-09-27); on-hand, alerts and expiry are rows, the rest sit in three
+ * dropdowns (stock in and out, counting, recipes and costs). The
  * screen drops that sub-nav under this rail (routes/stock.tsx), so the list is
  * printed once. Then the stock value report, which lives under /reports but
  * answers a stock question, and the Touch Shop desk's own workspace
@@ -357,23 +367,25 @@ const STOCK: readonly NavItem[] = [
   // row of its own still keeps this rail; every other row is a more specific
   // match and wins the highlight on its own screen (activeNavItem).
   { to: '/stock', labelKey: 'onHand', icon: 'package', activePrefix: '/stock' },
-  { to: '/stock/receive', labelKey: 'goodsIn', icon: 'box' },
-  { to: '/stock/moves', labelKey: 'moveStock', icon: 'repeat' },
-  { to: '/stock/waste', labelKey: 'wasteProduction', icon: 'ban' },
-  { to: '/stock/expiry', labelKey: 'expiry', icon: 'hourglass' },
   { to: '/stock/alerts', labelKey: 'alerts', icon: 'bell' },
-  // Counts taken on the phone and waiting for a manager (wave5-addendum §2.8.5).
-  { to: '/stock/counts', labelKey: 'stockCount', icon: 'scale', badge: 'stockCountsWaiting' },
-  { to: '/stock/variance', labelKey: 'countDifferences', icon: 'chart' },
-  { to: '/stock/margins', labelKey: 'margins', icon: 'trendUp' },
-  { to: '/stock/ingredients', labelKey: 'ingredients', icon: 'layers' },
-  { to: '/stock/recipes', labelKey: 'recipes', icon: 'fileText' },
+  { to: '/stock/expiry', labelKey: 'expiry', icon: 'hourglass' },
+  // Thirteen rows in a row were a wall. What is looked at all day stays a row;
+  // the rest is three dropdowns, each opening itself on its own screen.
+  { to: '/stock/receive', labelKey: 'goodsIn', icon: 'box', folder: 'stockMovement' },
+  { to: '/stock/moves', labelKey: 'moveStock', icon: 'repeat', folder: 'stockMovement' },
+  { to: '/stock/waste', labelKey: 'wasteProduction', icon: 'ban', folder: 'stockMovement' },
+  // Counts taken on the phone and waiting for a manager (wave5-addendum §2.8.5);
+  // the dropdown shows the badge while closed.
+  { to: '/stock/counts', labelKey: 'stockCount', icon: 'scale', badge: 'stockCountsWaiting', folder: 'stockCounting' },
+  { to: '/stock/variance', labelKey: 'countDifferences', icon: 'chart', folder: 'stockCounting' },
+  { to: '/stock/ingredients', labelKey: 'ingredients', icon: 'layers', folder: 'stockCosts' },
+  { to: '/stock/recipes', labelKey: 'recipes', icon: 'fileText', folder: 'stockCosts' },
+  { to: '/stock/margins', labelKey: 'margins', icon: 'trendUp', folder: 'stockCosts' },
   { to: '/reports/stock', labelKey: 'stockValue', icon: 'chart' },
   { to: '/shop', labelKey: 'shop', icon: 'tag' },
 ];
 
 const OWNER_SETUP: readonly NavItem[] = [
-  { to: '/setup', labelKey: 'overview', icon: 'grid', exact: true },
   { to: '/admin/staff', labelKey: 'staff', icon: 'shield' },
   { to: '/admin/branches', labelKey: 'branches', icon: 'home' },
   { to: '/admin/courts', labelKey: 'courts', icon: 'court' },
@@ -383,6 +395,9 @@ const OWNER_SETUP: readonly NavItem[] = [
   { to: '/admin/loyalty', labelKey: 'loyalty', icon: 'star' },
   { to: '/admin/settings', labelKey: 'settings', icon: 'settings', activePrefix: '/admin/settings' },
   { to: '/admin/hero', labelKey: 'guestSite', icon: 'globe', activePrefix: '/admin/hero' },
+
+  // No Overview row on the rail; the page (health checks, kitchen pairing) stays reachable by URL.
+  { to: '/setup', labelKey: 'overview', icon: 'grid', exact: true, hidden: true },
 ];
 
 /**
@@ -397,7 +412,6 @@ const SHOP: readonly NavItem[] = [
   { to: '/shop/stock', labelKey: 'shopStock', icon: 'package' },
   { to: '/shop/receive', labelKey: 'shopReceive', icon: 'box' },
   { to: '/shop/counts', labelKey: 'shopCounts', icon: 'scale' },
-  { to: '/shop/waste', labelKey: 'shopWaste', icon: 'ban' },
   { to: '/shop/products', labelKey: 'shopProducts', icon: 'tag' },
   { to: '/shop/suppliers', labelKey: 'shopSuppliers', icon: 'users' },
 ];
@@ -423,7 +437,7 @@ const OWNER_SECTIONS: readonly NavSection[] = [
   // gear, the row you wanted was the one that looked like the section holding
   // it. It is also the mobile app's settings glyph, so staff who use both
   // meet one icon for the idea.
-  { key: 'setup', home: '/setup', icon: 'sliders', items: OWNER_SETUP },
+  { key: 'setup', home: '/admin/staff', icon: 'sliders', items: OWNER_SETUP },
 ];
 
 export const WORKSPACES: Record<WorkspaceKey, Workspace> = {

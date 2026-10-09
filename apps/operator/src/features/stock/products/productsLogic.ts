@@ -6,6 +6,7 @@
  * three sizes shows three rows with three on-hand figures and three barcodes.
  */
 import type { IngredientRow, OnHandRow, ShopCatalogue, ShopVariantRow, SupplierRow } from '../stockKeys';
+import { checkSupplierUrl } from '../../shop/priceWatch/priceWatchLogic';
 
 export interface ProductLine {
   productId: string;
@@ -149,4 +150,15 @@ export function sizeArgs(d: SizeDraft, supplierId: string) {
     p_pack_cost_iqd: d.cost.trim() ? Number(d.cost.trim()) : null,
     p_low_stock_threshold: d.low.trim() ? Number(d.low.trim()) : null,
   };
+}
+
+/**
+ * The supplier link the size form sends app.set_shop_price_watch (0322), or
+ * null when there is nothing to send: the link is as stored, or not a link
+ * the server would take yet (the field says why). `url: null` removes the watch.
+ */
+export function supplierLinkToSave(draft: string, stored: string | null): { url: string | null } | null {
+  const check = checkSupplierUrl(draft);
+  if (!check.ok || check.url === stored) return null;
+  return { url: check.url };
 }

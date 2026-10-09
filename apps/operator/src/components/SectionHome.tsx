@@ -45,6 +45,7 @@ export function SectionHome({
   sectionKey,
   title,
   lead,
+  actions,
   card,
   status,
   screensTitle,
@@ -56,6 +57,8 @@ export function SectionHome({
   title: string;
   /** Omitted when the rail's own section line already says it. */
   lead?: string;
+  /** Beside the title: Observe's last-updated time and refresh. */
+  actions?: ReactNode;
   /** Card copy for a destination, keyed by its nav labelKey. */
   card: (labelKey: string) => string;
   /** A live line at the foot of a card, keyed by nav labelKey; null for none. */
@@ -75,7 +78,7 @@ export function SectionHome({
 
   return (
     <div style={fullWidth ? undefined : { maxInlineSize: '64rem' }}>
-      <PageHeader title={title} subtitle={lead} />
+      <PageHeader title={title} subtitle={lead} actions={actions} />
       {children}
       {screensTitle && (
         <h2 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{screensTitle}</h2>

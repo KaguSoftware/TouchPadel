@@ -70,6 +70,11 @@ const ali = () => ({
 });
 
 let people: Record<string, unknown>[] = [];
+const twoDue = () => [
+  { ...line({ month: '2026-09-01', status: 'overdue', due_date: '2026-09-05', days_left: -28, net_iqd: 700000 }), staff_id: 's-yusuf', display_name: 'Yusuf', role: 'barista' },
+  { ...line(), staff_id: 's-yusuf', display_name: 'Yusuf', role: 'barista' },
+];
+let duePeople: () => Record<string, unknown>[] = twoDue;
 let markPaid: (args: Record<string, unknown>) => unknown = () => ({ id: 'p1', status: 'paid', pay_month: '2026-10-01', net_iqd: 720000, paid_iqd: 720000 });
 const calls: { fn: string; args: Record<string, unknown> }[] = [];
 const waitingRow = {
@@ -108,12 +113,9 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
         return {
           today: '2026-10-03',
           remind_days: 3,
-          count: 2,
+          count: duePeople().length,
           overdue_count: 1,
-          people: [
-            { ...line({ month: '2026-09-01', status: 'overdue', due_date: '2026-09-05', days_left: -28, net_iqd: 700000 }), staff_id: 's-yusuf', display_name: 'Yusuf', role: 'barista' },
-            { ...line(), staff_id: 's-yusuf', display_name: 'Yusuf', role: 'barista' },
-          ],
+          people: duePeople(),
         };
       case 'deductions_page':
         return { deductions: [waitingRow], waiting_count: 1, total: 1 };
@@ -152,6 +154,7 @@ function renderPage(locale: 'en' | 'ar' = 'en') {
 
 beforeEach(() => {
   people = [yusuf(), hasan(), ali()];
+  duePeople = twoDue;
   markPaid = () => ({ id: 'p1', status: 'paid', pay_month: '2026-10-01', net_iqd: 720000, paid_iqd: 720000 });
   calls.length = 0;
   try {
@@ -184,6 +187,17 @@ describe('WagesPageScreen', () => {
     expect(screen.getByText(/1 waiting/)).toBeTruthy();
     // Nothing is paid past next month.
     expect((screen.getByTestId('wages.month.next') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('lists three wages due, then View more opens the rest in place', async () => {
+    const user = userEvent.setup();
+    duePeople = () =>
+      ['s-a', 's-b', 's-c', 's-d'].map((id) => ({ ...line(), staff_id: id, display_name: id, role: 'barista' }));
+    renderPage();
+    const due = await screen.findByTestId('wages.due');
+    expect(within(due).getAllByRole('button', { name: 'Mark paid' })).toHaveLength(3);
+    await user.click(within(due).getByRole('button', { name: 'View more (1)' }));
+    expect(within(due).getAllByRole('button', { name: 'Mark paid' })).toHaveLength(4);
   });
 
   it('marks a month paid with the net it showed and one key per dialog, and warns about waiting deductions', async () => {

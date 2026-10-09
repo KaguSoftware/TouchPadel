@@ -348,6 +348,23 @@ describe.skipIf(!docker)(
       // The report (X22) and the pushes (R40): one coach.statement_ready per approval.
       const report = ok<Record<string, unknown>>(r, 'report');
       expect(missingKeys(report, COACHING_SHAPES.report_coach_statements)).toEqual([]);
+      // 0321: `live` is the accrual at the figures now. It names the pair's live statement and
+      // counts the same lessons and court share; an approved statement is frozen, so money that
+      // moved after the approval (the goodwill refund) shows in live and not in the statement.
+      const live = report.live as Array<Record<string, unknown>>;
+      expect(live.length).toBeGreaterThan(0);
+      for (const st of report.statements as Array<Record<string, unknown>>) {
+        if (st.status === 'void') continue;
+        const l = live.find((x) => x.coach_id === st.coach_id && x.venue_id === st.venue_id);
+        expect(l, `live row for statement ${String(st.statement_id)}`).toBeTruthy();
+        expect(l!.statement_id).toBe(st.statement_id);
+        expect(l!.statement_status).toBe(st.status);
+        expect(l!.statement_total_iqd).toBe(st.total_iqd);
+        expect(l!.lessons_count).toBe(st.lessons_count);
+        expect(l!.court_share_iqd).toBe(st.court_share_iqd);
+        expect(l!.collected_iqd as number).toBeLessThanOrEqual(st.collected_iqd as number);
+        expect(l!.coach_iqd as number).toBeLessThanOrEqual(st.coach_iqd as number);
+      }
       expect([...ok<string[]>(r, 'outbox')].sort()).toEqual([
         'coach.statement_ready',
         'coach.statement_ready',

@@ -9,6 +9,14 @@
  * when it appears verbatim in the payload). Pure: no imports, no Deno. The
  * tokenizer here is also what `clean.ts` uses to compute the allowed set from
  * the laid-out text, so both sides see the same numbers.
+ *
+ * Scale: the sum / difference / percentage rules (3 and 4) build on the given
+ * figures the answer itself quotes (its operands: "up 550,000 (15.1%) on last week
+ * (3,650,000)" quotes both periods), not on the whole payload, so a tool result of
+ * hundreds of figures does not make every invented number a pair sum or ratio. A
+ * derived figure whose operands the answer does not quote falls back to the whole
+ * given set, but only while that set is small (`PAIR_RULE_MAX_GIVEN`,
+ * `PCT_RULE_MAX_GIVEN`). The pair values are built once per answer, never per token.
  */
 
 export interface GateResult {
@@ -30,6 +38,26 @@ export function latinDigits(s: string): string {
 export const SMALL_COUNT_MAX = 12;
 /** A percentage must be within this of a ratio × 100 of two given figures (contracts). */
 export const PCT_TOLERANCE = 0.1;
+/**
+ * Rule 4 (sum or difference of two given figures) runs on a pool of at most this
+ * many distinct figures: the figures the answer quotes (the nearest ones past the
+ * cap), or, when it quotes no operand, the whole given set while it is this small.
+ * Measured (seeded, tests/assistant-gate.test.ts "pair-rule false accepts"; invented
+ * round 250-IQD figures, the worst case): the share that happens to be a pair sum or
+ * difference is about 0.3 % at 10 figures, 4 % at 50, 13 % at 100, 29 % at 200 and
+ * 57 % at 500 (±1 or exact alike).
+ */
+export const PAIR_RULE_MAX_GIVEN = 50;
+/**
+ * Rule 3 (percentage = ratio × 100 of two given figures, within 0.1) runs on a pool
+ * of at most this many distinct figures (quoted operands, nearest past the cap, else
+ * the whole given set while it is this small). The n² ratios and changes cover the
+ * 0–200 % line so densely that a random percent is some ratio; measured: 4 % of
+ * invented percents pass at 5 given figures, 12 % at 8, 42 % at 20, 92 % at 50.
+ */
+export const PCT_RULE_MAX_GIVEN = 8;
+/** `shouldRetry` regenerates the answer only for a percent or a figure at least this large. */
+export const RETRY_MIN_ABS = 1000;
 
 /** Currency words the tokenizer strips so `IQD 1,250,000` and `1,250,000 د.ع` read the same. */
 const CURRENCY_RE = /\b(?:IQD|USD|iqd|usd)\b|د\.ع\.?|دينار(?:اً|ا|ًا)?\s*(?:عراقي(?:اً|ا)?)?/g;
@@ -96,7 +124,8 @@ function toleranceFor(token: NumberToken): number {
   return token.decimals === 0 ? 1 : Math.pow(10, -token.decimals);
 }
 
-function nearIn(sorted: readonly number[], value: number, tol: number): boolean {
+/** The member of `sorted` within `tol` of `value` (the nearest), or undefined. */
+function nearestIn(sorted: ArrayLike<number>, value: number, tol: number): number | undefined {
   // Binary search for the insertion point, then check the neighbours.
   let lo = 0;
   let hi = sorted.length;
@@ -106,11 +135,23 @@ function nearIn(sorted: readonly number[], value: number, tol: number): boolean 
     else hi = mid;
   }
   const eps = tol + 1e-9;
+  let best: number | undefined;
   for (const i of [lo - 1, lo]) {
     const v = sorted[i];
-    if (v !== undefined && Math.abs(v - value) <= eps) return true;
+    if (v !== undefined && Math.abs(v - value) <= eps && (best === undefined || Math.abs(v - value) < Math.abs(best - value))) best = v;
   }
-  return false;
+  return best;
+}
+
+function nearIn(sorted: ArrayLike<number>, value: number, tol: number): boolean {
+  return nearestIn(sorted, value, tol) !== undefined;
+}
+
+/** A figure the answer quotes that was given verbatim: the operand pool of rules 3 and 4. */
+interface Operand {
+  value: number;
+  /** Index of the token in the answer, for the nearest-operands window. */
+  pos: number;
 }
 
 /**
@@ -123,46 +164,145 @@ export function gateAnswer(text: string, allowed: readonly number[], userNumbers
   const unverified: { raw: string; value: number }[] = [];
   const seen = new Set<string>();
 
-  for (const tok of tokens) {
-    if (passes(tok, given)) continue;
+  // Pass 1 (rules 1 and 2): what is given verbatim or a small count. The given figures
+  // the answer itself quotes become the operands of rules 3 and 4, so a payload of
+  // hundreds of figures (packs, 500-row tool results) does not widen what a derived
+  // figure may be built from.
+  const settled: boolean[] = [];
+  const operands: Operand[] = [];
+  tokens.forEach((tok, pos) => {
+    const hit = verbatim(tok, given);
+    settled[pos] = hit !== undefined || (tok.bare && Math.abs(tok.value) <= SMALL_COUNT_MAX);
+    if (hit !== undefined && !(tok.bare && Math.abs(tok.value) <= SMALL_COUNT_MAX)) operands.push({ value: hit, pos });
+  });
+
+  // Pass 2 (rules 3 and 4): the rest.
+  const derived = new DerivedFigures(given, operands);
+  tokens.forEach((tok, pos) => {
+    if (settled[pos] || derivedPasses(tok, pos, derived)) return;
     const key = `${tok.raw}`;
-    if (seen.has(key)) continue;
+    if (seen.has(key)) return;
     seen.add(key);
     unverified.push({ raw: tok.raw, value: tok.value });
-  }
+  });
   return { status: unverified.length ? 'unverified' : 'ok', unverified, checked: tokens.length };
 }
 
-function passes(tok: NumberToken, given: readonly number[]): boolean {
-  const tol = toleranceFor(tok);
-  const v = Math.abs(tok.value);
-  // 1. given verbatim (within one unit of the last shown digit)
-  if (nearIn(given, v, tol) || nearIn(given, tok.value, tol)) return true;
-  // 2. a bare small count
-  if (tok.bare && v <= SMALL_COUNT_MAX) return true;
-  // 3. a percentage: ratio × 100 of two given numbers within 0.1
-  if (tok.percent) {
-    for (const a of given) {
-      if (a === 0) continue;
-      for (const b of given) {
-        if (b === 0) continue;
-        const pct = (a / b) * 100;
-        if (Math.abs(pct - v) <= PCT_TOLERANCE + 1e-9) return true;
-        // a change: (a - b) / b × 100
-        const change = ((a - b) / b) * 100;
-        if (Math.abs(Math.abs(change) - v) <= PCT_TOLERANCE + 1e-9) return true;
-      }
+/** |a + b| and |a - b| over every pair of `vals` (a may equal b), sorted. */
+function pairValuesOf(vals: readonly number[]): Float64Array {
+  const out: number[] = [];
+  for (let i = 0; i < vals.length; i++) {
+    for (let j = i; j < vals.length; j++) {
+      const a = vals[i] as number;
+      const b = vals[j] as number;
+      out.push(Math.abs(a + b), Math.abs(a - b));
     }
   }
-  // 4. a sum or difference of two given numbers
-  for (const a of given) {
-    if (nearIn(given, v - a, tol) || nearIn(given, a - v, tol) || nearIn(given, a + v, tol)) return true;
+  return Float64Array.from(out).sort();
+}
+
+/** a/b x 100 and |a/b x 100 - 100| (the change) over every ordered pair of `vals`, sorted. */
+function pctValuesOf(vals: readonly number[]): Float64Array {
+  const out: number[] = [];
+  for (const a of vals) {
+    if (a === 0) continue;
+    for (const b of vals) {
+      if (b === 0) continue;
+      const pct = (a / b) * 100;
+      out.push(pct, Math.abs(pct - 100));
+    }
   }
-  return false;
+  return Float64Array.from(out).sort();
+}
+
+/**
+ * The sums / differences and the percentages that rules 3 and 4 check against, from
+ * two pools, each built on first use (most answers never reach them) and never per
+ * token:
+ *  - the figures the answer quotes that were given verbatim (the operands). Within
+ *    the caps all of them; past a cap the nearest ones to the token being checked
+ *    (the figures a derived number sits beside), so a long table answer still
+ *    verifies its own "up 550,000 (15.1%)";
+ *  - the whole given set, only while it is small (the older behaviour, for a
+ *    derived figure whose operands the answer does not quote).
+ */
+class DerivedFigures {
+  private givenPairs: Float64Array | null | undefined;
+  private givenPcts: Float64Array | null | undefined;
+  private quotedPairs: Float64Array | undefined;
+  private quotedPcts: Float64Array | undefined;
+  private readonly quoted: number[];
+  constructor(
+    private readonly given: readonly number[],
+    private readonly operands: readonly Operand[],
+  ) {
+    this.quoted = [...new Set(operands.map((o) => o.value))];
+  }
+
+  /** Whether `v` is a sum or difference (tolerance `tol`) of two figures from either pool. */
+  pairHit(v: number, tol: number, pos: number): boolean {
+    if (this.quoted.length > 0) {
+      let arr: Float64Array;
+      if (this.quoted.length <= PAIR_RULE_MAX_GIVEN) arr = this.quotedPairs ??= pairValuesOf(this.quoted);
+      else arr = pairValuesOf(this.nearest(pos, PAIR_RULE_MAX_GIVEN));
+      if (nearIn(arr, v, tol)) return true;
+    }
+    if (this.givenPairs === undefined) this.givenPairs = this.given.length > PAIR_RULE_MAX_GIVEN ? null : pairValuesOf(this.given);
+    return this.givenPairs !== null && nearIn(this.givenPairs, v, tol);
+  }
+
+  /** Whether the percent `v` is a ratio x 100 (or a change) of two figures from either pool. */
+  pctHit(v: number, pos: number): boolean {
+    if (this.quoted.length > 0) {
+      let arr: Float64Array;
+      if (this.quoted.length <= PCT_RULE_MAX_GIVEN) arr = this.quotedPcts ??= pctValuesOf(this.quoted);
+      else arr = pctValuesOf(this.nearest(pos, PCT_RULE_MAX_GIVEN));
+      if (nearIn(arr, v, PCT_TOLERANCE)) return true;
+    }
+    if (this.givenPcts === undefined) this.givenPcts = this.given.length > PCT_RULE_MAX_GIVEN ? null : pctValuesOf(this.given);
+    return this.givenPcts !== null && nearIn(this.givenPcts, v, PCT_TOLERANCE);
+  }
+
+  /** The `cap` distinct quoted figures nearest (by position in the answer) to `pos`. */
+  private nearest(pos: number, cap: number): number[] {
+    const byDistance = [...this.operands].sort((a, b) => Math.abs(a.pos - pos) - Math.abs(b.pos - pos));
+    const out = new Set<number>();
+    for (const o of byDistance) {
+      out.add(o.value);
+      if (out.size >= cap) break;
+    }
+    return [...out];
+  }
+}
+
+/** Rule 1: given verbatim (within one unit of the last shown digit). Returns the given figure. */
+function verbatim(tok: NumberToken, given: readonly number[]): number | undefined {
+  const tol = toleranceFor(tok);
+  return nearestIn(given, Math.abs(tok.value), tol) ?? nearestIn(given, tok.value, tol);
+}
+
+/** Rules 3 and 4: a percentage or a sum / difference of two given figures. */
+function derivedPasses(tok: NumberToken, pos: number, derived: DerivedFigures): boolean {
+  const v = Math.abs(tok.value);
+  // 3. a percentage: ratio x 100 of two given numbers within 0.1
+  if (tok.percent && derived.pctHit(v, pos)) return true;
+  // 4. a sum or difference of two given numbers. A figure shown without decimals must
+  //    match exactly; +-1 on every pair swallowed invented integers.
+  return derived.pairHit(v, tok.decimals === 0 ? 0 : toleranceFor(tok), pos);
+}
+
+/**
+ * Whether an unverified answer is worth a full regenerated answer: only when a
+ * flagged figure is a percentage or money-sized (|value| >= RETRY_MIN_ABS). The
+ * rest (a stray 40 or 17.5) is only marked in the UI.
+ */
+export function shouldRetry(gate: GateResult): boolean {
+  if (gate.status !== 'unverified') return false;
+  return gate.unverified.some((u) => /[%٪]/.test(u.raw) || Math.abs(u.value) >= RETRY_MIN_ABS);
 }
 
 /** The operator instruction appended when the first answer failed (contracts, chat flow). */
 export function retryMessage(unverified: readonly { raw: string }[]): string {
   const list = unverified.map((u) => u.raw).join(', ');
-  return `These figures are not in this turn's tool results: ${list}. Restate the answer using only figures you were given, or say you do not have them.`;
+  return `These figures are not in this turn's tool results or in a web passage you cited: ${list}. Restate the answer using only figures you were given, or say you do not have them.`;
 }

@@ -95,6 +95,18 @@ describe('Added by staff', () => {
     expect(within(card).getByText('Bakery store')).toBeTruthy();
   });
 
+  it('shows three additions, then View more opens the rest in place', async () => {
+    const user = userEvent.setup();
+    data.logs = ['d1', 'd2', 'd3', 'd4'].map((id) => log(id, [dl(`l-${id}`, 'milk', 'none', 0)]));
+    mount();
+    const card = await screen.findByTestId('staff-logs');
+    expect(card.querySelectorAll('[data-log]')).toHaveLength(3);
+    await user.click(within(card).getByRole('button', { name: 'View more (1)' }));
+    expect(card.querySelectorAll('[data-log]')).toHaveLength(4);
+    await user.click(within(card).getByRole('button', { name: 'Show less' }));
+    expect(card.querySelectorAll('[data-log]')).toHaveLength(3);
+  });
+
   it('shrinks to one line when every addition has a cost, and opens into the list', async () => {
     const user = userEvent.setup();
     data.logs = [log('d-new', [dl('l1', 'sugar', 'last_batch', 2.5)], { received_at: '2026-09-26T08:00:00Z' })];

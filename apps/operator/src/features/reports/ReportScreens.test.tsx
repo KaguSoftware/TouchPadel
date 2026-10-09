@@ -201,6 +201,29 @@ describe('CafeReportScreen', () => {
     expect(screen.queryByLabelText('Paid by')).toBeNull();
   });
 
+  it('a report table shows three rows, then View more opens the rest in place; a fixed axis shows all', async () => {
+    const user = userEvent.setup();
+    const names = ['Latte', 'Cake', 'Tea', 'Juice', 'Water'];
+    const items = names.map((n, i) => ({ ...CAFE.rows[0], itemId: `i${i}`, nameEn: n, nameAr: n, revenueIqd: 100000 - i * 10000 }));
+    const categories = ['Drinks', 'Food', 'Sweets', 'Shop'].map((n, i) => ({ ...CAFE.byCategory[0], categoryId: `k${i}`, categoryNameEn: n, categoryNameAr: n }));
+    rpc.mockResolvedValue({ ...CAFE, rows: items, byCategory: categories });
+    renderIt(<CafeReportScreen />);
+    const table = await screen.findByRole('table', { name: 'Best sellers' });
+    expect(within(table).getAllByRole('row').slice(1)).toHaveLength(3);
+    expect(within(table).queryByText('Juice')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
+    const open = screen.getByRole('table', { name: 'Best sellers' });
+    expect(within(open).getAllByRole('row').slice(1)).toHaveLength(5);
+    expect(within(open).getByText('Water')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(within(screen.getByRole('table', { name: 'Best sellers' })).getAllByRole('row').slice(1)).toHaveLength(3);
+
+    // Every category is one picture of the menu: no cap.
+    await user.click(screen.getByRole('button', { name: 'By category' }));
+    expect(within(screen.getByRole('table', { name: 'By category' })).getAllByRole('row').slice(1)).toHaveLength(4);
+    expect(screen.queryByRole('button', { name: /View more/ })).toBeNull();
+  });
+
   it('an item opens its sold lines; waste reads in words and opens every write-off', async () => {
     const user = userEvent.setup();
     rpc.mockImplementation(async (fn) => (fn === 'report_cafe' ? CAFE : DRILL));

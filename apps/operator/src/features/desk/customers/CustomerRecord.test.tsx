@@ -172,6 +172,24 @@ describe('CustomerRecord ▸ open matches', () => {
     expect(screen.getByRole('button', { name: 'Start an open match' })).toBeTruthy();
   });
 
+  it('long lists show three, then View more reveals the rest in place (bookings, notes)', async () => {
+    const user = userEvent.setup();
+    const booking = (n: number) => ({ id: `b${n}`, court_id: 'k1', court_name_en: `Court ${n}`, court_name_ar: `ملعب ${n}`, start_at: `2026-10-1${n}T15:00:00Z`, end_at: `2026-10-1${n}T16:00:00Z`, status: 'confirmed', kind: 'booking', price_iqd: 30000 });
+    const note = (n: number) => ({ id: `n${n}`, body: `Note number ${n}`, author_id: null, created_at: `2026-09-1${n}T10:00:00Z` });
+    current = record({ upcoming: [1, 2, 3, 4, 5].map(booking), notes: [1, 2, 3, 4].map(note) });
+    mount();
+    const upcoming = within(await screen.findByRole('table', { name: 'Upcoming bookings' }));
+    expect(upcoming.getAllByRole('row')).toHaveLength(3);
+    const notes = within(screen.getByTestId('customer-notes'));
+    expect(notes.getAllByText(/^Note number \d$/)).toHaveLength(3);
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
+    expect(upcoming.getAllByRole('row')).toHaveLength(5);
+    await user.click(notes.getByRole('button', { name: 'View more (1)' }));
+    expect(notes.getAllByText(/^Note number \d$/)).toHaveLength(4);
+    await user.click(notes.getByRole('button', { name: 'Show less' }));
+    expect(notes.getAllByText(/^Note number \d$/)).toHaveLength(3);
+  });
+
   it('a server before 0262 shows no open-match block', async () => {
     const { matches: _gone, ...old } = record();
     current = { ...old, customer: { id: 'c1', full_name: 'Sara Karim', phone: null, email: null, preferred_lang: 'ar' } };
@@ -275,6 +293,18 @@ describe('CustomerRecord ▸ lessons', () => {
     expect(recent.getByText('Arrived')).toBeTruthy();
     expect(recent.queryByRole('button', { name: 'Open lesson' })).toBeNull();
     expect(recent.queryByRole('button', { name: 'Take payment' })).toBeNull();
+  });
+
+  it('the Lessons panel folds each group after three: View more reveals the rest of that group', async () => {
+    const user = userEvent.setup();
+    lessonsRead = () =>
+      lessons({ lessons: [1, 2, 3, 4].map((n) => lessonRow({ enrolment_id: `e${n}`, lesson_id: `L${n}`, start_at: `2026-10-0${n + 4}T15:00:00Z`, end_at: `2026-10-0${n + 4}T16:00:00Z` })) });
+    mount();
+    const panel = within(await screen.findByTestId('customer-lessons'));
+    const upcoming = within(panel.getByRole('region', { name: 'Coming up' }));
+    expect(upcoming.getAllByRole('listitem')).toHaveLength(3);
+    await user.click(upcoming.getByRole('button', { name: 'View more (1)' }));
+    expect(upcoming.getAllByRole('listitem')).toHaveLength(4);
   });
 
   it('a cashier takes the lesson payment from the record (R20), and sees no coach or booking action', async () => {

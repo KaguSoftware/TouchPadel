@@ -30,7 +30,7 @@ import { AppRpcError } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { LOCAL_TAB_PREFIX, appendOfflineLines, markOfflineSettled, removeOfflineTab } from '../../lib/offlineTabs';
 import { Button, ErrorText, Modal } from '../../components/ui';
-import { EmptyState, MessagePresenter, Money, PageHeader, Panel, SearchField } from '../../components/kit';
+import { EmptyState, MessagePresenter, Money, PageHeader, Panel, SearchField, ViewMore, useListCap } from '../../components/kit';
 import { TILL_MENU_QUERY, fetchTabDetail } from '../till/tillData';
 import { openTabOn } from '../till/NewTabDialog';
 import { PaymentPane, type PaymentMethod } from '../till/PaymentPane';
@@ -299,6 +299,7 @@ export function ShopTill() {
   }
 
   const openSales = (openQ.data ?? []).filter((s) => s.id !== paying?.tabId);
+  const openCap = useListCap(openSales);
 
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
@@ -436,7 +437,7 @@ export function ShopTill() {
                 {tr('ws.shop.till.unfinishedLead')}
               </p>
               <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-                {openSales.map((s) => (
+                {openCap.shown.map((s) => (
                   <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
                     <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>{s.label}</span>
                     <Button size="sm" busy={busy} onClick={() => void resume(s)}>
@@ -445,6 +446,7 @@ export function ShopTill() {
                   </li>
                 ))}
               </ul>
+              <ViewMore hidden={openCap.hidden} open={openCap.open} onToggle={openCap.toggle} />
             </Panel>
           )}
         </div>

@@ -132,6 +132,29 @@ const EN = {
     title: 'Screenshot taken',
     body: (v) => (v.name ? `${v.name} took a screenshot in the staff app.` : 'A staff member took a screenshot in the staff app.'),
   },
+  // Supplier price watch (0322): the shop desk PC read a new price on a supplier's page. `step` is
+  // the product (and its size when it has more than one); the prices stay in the operator.
+  shop_price_changed: {
+    title: 'Supplier price changed',
+    body: (v) =>
+      v.step
+        ? `${v.step}: the supplier changed the price. Open Products on the shop desk to apply it.`
+        : 'A supplier changed a price. Open Products on the shop desk to apply it.',
+  },
+  // Scheduled checklists (0323): app.checklist_sweep, once in the half hour before a list is due
+  // and once when it is past due. `step` is the list's name in both languages; who ticked what
+  // stays in the app.
+  checklist_due: {
+    title: 'Checklist due soon',
+    body: (v) => (v.step ? `${v.step} is due soon.` : 'One of your checklists is due soon.'),
+  },
+  checklist_overdue: {
+    title: 'Checklist overdue',
+    body: (v) =>
+      v.step
+        ? `${v.step} is past its due time. Open it to finish it.`
+        : 'One of your checklists is past its due time. Open it to finish it.',
+  },
 } satisfies Record<string, StaffCopy>;
 
 export type StaffTitleKey = keyof typeof EN;
@@ -207,6 +230,26 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
   screenshot_taken: {
     title: 'لقطة شاشة',
     body: (v) => (v.name ? `التقط ${v.name} لقطة شاشة في تطبيق الموظفين.` : 'التقط أحد الموظفين لقطة شاشة في تطبيق الموظفين.'),
+  },
+  // DRAFT-AR (0322): on the client's review list.
+  shop_price_changed: {
+    title: 'تغيّر سعر المورّد',
+    body: (v) =>
+      v.step
+        ? `${v.step}: غيّر المورّد السعر. افتح المنتجات في مكتب المتجر لتطبيقه.`
+        : 'غيّر أحد الموردين سعرًا. افتح المنتجات في مكتب المتجر لتطبيقه.',
+  },
+  // DRAFT-AR (0323): on the client's review list.
+  checklist_due: {
+    title: 'اقترب موعد قائمة التحقق',
+    body: (v) => (v.step ? `${v.step}: اقترب موعد إنجازها.` : 'اقترب موعد إحدى قوائم التحقق الخاصة بك.'),
+  },
+  checklist_overdue: {
+    title: 'قائمة تحقق متأخرة',
+    body: (v) =>
+      v.step
+        ? `${v.step}: فات موعدها. افتحها وأكملها.`
+        : 'فات موعد إحدى قوائم التحقق الخاصة بك. افتحها وأكملها.',
   },
 };
 

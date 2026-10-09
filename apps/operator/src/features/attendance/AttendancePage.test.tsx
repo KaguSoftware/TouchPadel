@@ -192,6 +192,20 @@ describe('AttendancePageScreen', () => {
     expect(within(person).getByText(/Comes off January 2099’s wage/)).toBeTruthy();
   });
 
+  it("shows three of a person's days, then View more opens the rest in place", async () => {
+    const user = userEvent.setup();
+    days = ['a1', 'a2', 'a3', 'a4', 'a5'].map((id) => day({ id }));
+    renderPage();
+    const person = await screen.findByTestId('attendance.person.s-yusuf');
+    expect(within(person).getAllByRole('row').slice(1)).toHaveLength(3);
+    expect(within(person).queryByTestId('attendance.edit.a4')).toBeNull();
+    await user.click(within(person).getByRole('button', { name: 'View more (2)' }));
+    expect(within(person).getAllByRole('row').slice(1)).toHaveLength(5);
+    expect(within(person).getByTestId('attendance.edit.a5')).toBeTruthy();
+    await user.click(within(person).getByRole('button', { name: 'Show less' }));
+    expect(within(person).getAllByRole('row').slice(1)).toHaveLength(3);
+  });
+
   it('reads in Arabic', async () => {
     renderPage('ar');
     expect(await screen.findByRole('heading', { level: 1, name: 'التأخير والانصراف المبكر' })).toBeTruthy();

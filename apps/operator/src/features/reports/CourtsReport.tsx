@@ -718,7 +718,7 @@ function LessonsView({
               {report.byCoach.length > 0 &&
                 table('byCoach', <ReportTable<LessonCoachRow> label={tr(`${K}.byCoach.title`)} columns={tables.byCoach} rows={report.byCoach} rowKey={(r, i) => r.coachId ?? String(i)} />)}
               {report.byType.length > 0 &&
-                table('byType', <ReportTable<LessonTypeRow> label={tr(`${K}.byType.title`)} columns={tables.byType} rows={report.byType} rowKey={(r, i) => r.lessonTypeId ?? String(i)} />)}
+                table('byType', <ReportTable<LessonTypeRow> label={tr(`${K}.byType.title`)} columns={tables.byType} rows={report.byType} rowKey={(r, i) => r.lessonTypeId ?? String(i)} cap={false} />)}
               {report.byDay.length > 0 &&
                 table('byDay', <ReportTable<LessonDayRow> label={tr(`${K}.byDay.title`)} columns={tables.byDay} rows={report.byDay} rowKey={(r, i) => r.date ?? String(i)} />)}
               {Boolean(report.totals.sandboxExcluded) && <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr(`${K}.sandboxExcluded`)}</p>}
@@ -809,7 +809,7 @@ function CourtsView({
   return (
     <>
       <TableHint icon="arrowUpRight">{tr('ws.reports.frame.drillHint')}</TableHint>
-      <ReportTable<CourtRow> label={tr(`ws.reports.courts.views.${view}`)} columns={columns[view]} rows={data.rows} rowKey={(r) => r.courtId} onRowClick={onCourt} />
+      <ReportTable<CourtRow> label={tr(`ws.reports.courts.views.${view}`)} columns={columns[view]} rows={data.rows} rowKey={(r) => r.courtId} onRowClick={onCourt} cap={false} />
     </>
   );
 }

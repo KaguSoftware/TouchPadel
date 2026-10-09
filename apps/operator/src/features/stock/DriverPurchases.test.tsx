@@ -135,6 +135,16 @@ describe('DriverPurchasesPanel', () => {
     expect(within(first!).getByRole('button', { name: 'Receive' })).toBeTruthy();
   });
 
+  it('lists three purchases, then View more opens the rest in place', async () => {
+    payload = { count: 4, purchases: ['p1', 'p2', 'p3', 'p4'].map((id) => purchase([line({ id: `l-${id}` })], { id })) };
+    mount(<DriverPurchasesPanel />);
+    const panel = await screen.findByTestId('driver-purchases');
+    // The Receive buttons count the purchase rows (each row also holds a nested status line).
+    expect(within(panel).getAllByRole('button', { name: 'Receive' })).toHaveLength(3);
+    await userEvent.click(within(panel).getByRole('button', { name: 'View more (1)' }));
+    expect(within(panel).getAllByRole('button', { name: 'Receive' })).toHaveLength(4);
+  });
+
   it('shows nothing when there is nothing to receive', async () => {
     payload = { count: 0, purchases: [] };
     mount(<DriverPurchasesPanel />);

@@ -76,6 +76,12 @@ export const IPC = {
   updateState: 'touch:update-state',
   /** Invoke: autoUpdater.quitAndInstall — the rail's "Restart to update" control. */
   installUpdate: 'touch:install-update',
+  /**
+   * Invoke (shop stations only): GET one supplier product page for the price
+   * watch (main/supplier-fetch.ts). Public https only, pinned to a vetted
+   * address; any other station mode answers `not_shop_station`.
+   */
+  fetchSupplierPage: 'touch:fetch-supplier-page',
 } as const;
 
 /**
@@ -291,6 +297,26 @@ export type LeaveRefusal = 'pin not recognised' | 'own pin' | 'pin required';
 
 /** What quitApp / exitFullscreen answer. */
 export type LeaveResult = { ok: true } | { ok: false; error: LeaveRefusal | 'no-window' };
+
+/** What the shop desk's price watch sends: one supplier product page link. */
+export interface SupplierPageRequest {
+  url: string;
+}
+
+/**
+ * Why a supplier page could not be fetched. The first six are READ ERRORS the
+ * crawler reports to app.record_shop_supplier_price; `not_shop_station` (this
+ * station is not a shop desk) and `unavailable` (the renderer's browser-mode
+ * mock, apps/operator/src/ipc/bridge.ts) are never reported — the crawler just
+ * does not run.
+ */
+export type SupplierFetchError =
+  | 'blocked_url' | 'http_error' | 'timeout' | 'too_large' | 'not_html' | 'fetch_failed'
+  | 'not_shop_station' | 'unavailable';
+
+export type SupplierPageResult =
+  | { ok: true; html: string; finalUrl: string }
+  | { ok: false; error: SupplierFetchError; status?: number };
 
 export interface UpdateReadyInfo {
   version: string;

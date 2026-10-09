@@ -1,6 +1,8 @@
 /**
- * Today (spec 06.21) — the manager's landing screen, and the owner's "Floor
- * now" under Observe.
+ * Today (spec 06.21) — the manager's landing screen. The owner reads the same
+ * body on Observe's overview (`FloorNow`, owner call 2026-10-08: "it's
+ * technically an overview"), with the things only the owner answers added to
+ * "Needs you now"; an owner who opens /ops is sent there.
  *
  * One read: `app.ops_overview()` (0068), polled every 30 s and invalidated on
  * the 'floor' / 'courts' / 'kds' broadcasts. Every figure is a server figure,
@@ -32,6 +34,7 @@
  * questions and the manager should not have to scroll to the card to act.
  */
 import { useEffect, useState, type ReactNode } from 'react';
+import { canAccess, useAuth } from '../../lib/auth';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatDate, formatDateTime, formatNumber, formatTime, type MessageKey } from '@touch/i18n';
@@ -40,7 +43,7 @@ import { useLocale } from '../../lib/i18n';
 import { useBroadcast } from '../../lib/realtime';
 import { STAFF_ROLES, type StaffRole } from '../../lib/roleResolution';
 import { touch } from '../../ipc/bridge';
-import { Button } from '../../components/ui';
+import { Button, Skeleton } from '../../components/ui';
 import {
   AsyncStateWrapper,
   DataTable,
@@ -48,8 +51,11 @@ import {
   Money,
   PageHeader,
   Panel,
+  LIST_CAP,
   StatusBadge,
+  ViewMore,
   asyncStatus,
+  useListCap,
   type Column,
 } from '../../components/kit';
 import { Icon, type IconName } from '../../components/icons';
@@ -112,30 +118,26 @@ function useQueuedCount(): number {
   return count;
 }
 
-export function OperationsOverviewScreen() {
-  const { tr, locale } = useLocale();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const queued = useQueuedCount();
-
-  const overviewQ = useQuery({
+function useOpsOverview() {
+  return useQuery({
     queryKey: OPS_OVERVIEW_KEY,
     queryFn: async () => normalizeOverview(await appRpc<unknown>('ops_overview')),
     refetchInterval: OPS_REFETCH_MS,
   });
+}
 
-  // Cache-bust hints; the poll above is the safety net while disconnected.
-  useBroadcast({ topic: 'floor', isPrivate: true, invalidateKeys: [OPS_OVERVIEW_KEY] });
-  useBroadcast({ topic: 'courts', isPrivate: true, invalidateKeys: [OPS_OVERVIEW_KEY] });
-  useBroadcast({ topic: 'kds', isPrivate: true, invalidateKeys: [OPS_OVERVIEW_KEY] });
-
-  const go: Go = (href) => void navigate({ href });
-  const status = asyncStatus(overviewQ, () => false);
+/**
+ * The heading's two live parts: the business day as the subtitle (which day
+ * this is and since when, rather than a description of the screen), and the
+ * last-updated time beside a refresh button.
+ */
+export function useFloorNowHeading(): { subtitle: string | undefined; actions: ReactNode } {
+  const { tr, locale } = useLocale();
+  const queryClient = useQueryClient();
+  const overviewQ = useOpsOverview();
   const updatedAt = overviewQ.dataUpdatedAt ? new Date(overviewQ.dataUpdatedAt) : null;
   const day = overviewQ.data?.dayClose;
 
-  // The page's subtitle is the business day itself — which day this is and
-  // since when — rather than a description of the screen.
   const subtitle = !day
     ? undefined
     : day.open && day.businessDate && day.openedAt
@@ -147,47 +149,116 @@ export function OperationsOverviewScreen() {
         ? undefined
         : tr('ws.manager.ops.leadClosed');
 
+  const actions = (
+    <>
+      {updatedAt && (
+        <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+          {tr('ws.manager.ops.updated', { time: formatTime(updatedAt, locale) })}
+        </span>
+      )}
+      <Button
+        icon="refresh"
+        size="sm"
+        busy={overviewQ.isFetching && overviewQ.data !== undefined}
+        onClick={() => void queryClient.invalidateQueries({ queryKey: OPS_OVERVIEW_KEY })}
+      >
+        {tr('ws.kit.actions.refresh')}
+      </Button>
+    </>
+  );
+  return { subtitle, actions };
+}
+
+export function OperationsOverviewScreen() {
+  const { staff } = useAuth();
+  const navigate = useNavigate();
+  // Whoever holds Observe reads the floor on its overview, so /ops is not a
+  // second copy of it (the "Online refunds" link still lands here).
+  const toObserve = canAccess(staff?.role, '/observation');
+  useEffect(() => {
+    if (toObserve) void navigate({ to: '/observation', replace: true });
+  }, [toObserve, navigate]);
+  return toObserve ? null : <TodayScreen />;
+}
+
+function TodayScreen() {
+  const { tr } = useLocale();
+  const heading = useFloorNowHeading();
   return (
     <div>
-      <PageHeader
-        title={tr('ws.manager.ops.title')}
-        subtitle={subtitle}
-        actions={
-          <>
-            {updatedAt && (
-              <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-                {tr('ws.manager.ops.updated', { time: formatTime(updatedAt, locale) })}
-              </span>
-            )}
-            <Button
-              icon="refresh"
-              size="sm"
-              busy={overviewQ.isFetching && overviewQ.data !== undefined}
-              onClick={() => void queryClient.invalidateQueries({ queryKey: OPS_OVERVIEW_KEY })}
-            >
-              {tr('ws.kit.actions.refresh')}
-            </Button>
-          </>
-        }
-      />
-      <AsyncStateWrapper status={status} error={overviewQ.error} onRetry={() => void overviewQ.refetch()}>
-        {overviewQ.data && <Dashboard data={overviewQ.data} queued={queued} go={go} />}
-      </AsyncStateWrapper>
+      <PageHeader title={tr('ws.manager.ops.title')} subtitle={heading.subtitle} actions={heading.actions} />
+      <FloorNow />
     </div>
   );
 }
 
-function Dashboard({ data, queued, go }: { data: OpsOverview; queued: number; go: Go }) {
+/** A row another screen adds to "Needs you now": something only its reader answers. */
+export interface ExtraNeed {
+  key: string;
+  count: number;
+  title: MessageKey;
+  hint: MessageKey;
+  action: MessageKey;
+  href: string;
+  icon: IconName;
+}
+
+/** What the embedding screen adds: its rows, whether its reads are still out, and the ones that failed. */
+export interface FloorNowExtras {
+  needs: readonly ExtraNeed[];
+  loading: boolean;
+  failed: readonly { refetch: () => unknown }[];
+}
+
+/**
+ * The floor right now, under whatever heading the screen gives it. `extras`
+ * join "Needs you now"; `afterAttention` renders between the attention panels
+ * and the area cards (Observe puts the live floor plan there).
+ */
+export function FloorNow({ extras, afterAttention }: { extras?: FloorNowExtras; afterAttention?: ReactNode }) {
+  const navigate = useNavigate();
+  const queued = useQueuedCount();
+  const overviewQ = useOpsOverview();
+
+  // Cache-bust hints; the poll above is the safety net while disconnected.
+  useBroadcast({ topic: 'floor', isPrivate: true, invalidateKeys: [OPS_OVERVIEW_KEY] });
+  useBroadcast({ topic: 'courts', isPrivate: true, invalidateKeys: [OPS_OVERVIEW_KEY] });
+  useBroadcast({ topic: 'kds', isPrivate: true, invalidateKeys: [OPS_OVERVIEW_KEY] });
+
+  const go: Go = (href) => void navigate({ href });
+  const status = asyncStatus(overviewQ, () => false);
+
+  return (
+    <AsyncStateWrapper status={status} error={overviewQ.error} onRetry={() => void overviewQ.refetch()}>
+      {overviewQ.data && <Dashboard data={overviewQ.data} queued={queued} go={go} extras={extras} afterAttention={afterAttention} />}
+    </AsyncStateWrapper>
+  );
+}
+
+function Dashboard({
+  data,
+  queued,
+  go,
+  extras,
+  afterAttention,
+}: {
+  data: OpsOverview;
+  queued: number;
+  go: Go;
+  extras?: FloorNowExtras;
+  afterAttention?: ReactNode;
+}) {
   const { tr } = useLocale();
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
-      <NeedsYouNow data={data} go={go} />
+      <NeedsYouNow data={data} go={go} extras={extras} />
       {/* Online deposit refunds a person must see to; only when one waits. */}
       <DepositAttentionPanel hideWhenEmpty />
       {/* Open matches' player reports (manager, owner); only when one waits. */}
       <MatchReportsPanel hideWhenEmpty />
       {/* Desk lesson money to refund (manager, owner); only when some is due. */}
       <LessonRefundsDuePanel hideWhenEmpty />
+      {afterAttention}
 
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(15rem, 1fr))', alignItems: 'stretch' }}>
         <CourtsCard data={data} go={go} />
@@ -231,7 +302,20 @@ const ALERT_COPY: Record<OpsAlertKey, { title: MessageKey; hint: MessageKey; act
   tillShifts: { title: 'ws.tillShift.ops.title', hint: 'ws.tillShift.ops.hint', action: 'ws.tillShift.ops.action', icon: 'drawer' },
 };
 
-function NeedsYouNow({ data, go }: { data: OpsOverview; go: Go }) {
+/** One row of "Needs you now", whichever list it came from. */
+interface NeedRow {
+  key: string;
+  /** Null for a state rather than a count ("the day is not open"): the icon shows instead. */
+  count: number | null;
+  severity: OpsAlert['severity'];
+  title: MessageKey;
+  hint: MessageKey;
+  action: MessageKey | null;
+  href: string | null;
+  icon: IconName;
+}
+
+function NeedsYouNow({ data, go, extras }: { data: OpsOverview; go: Go; extras?: FloorNowExtras }) {
   const { tr } = useLocale();
   // Their own reads, shared with the rail badge and Goods in (§5.4).
   const protocolsQ = useQuery({ queryKey: QK.protocolsWaiting, queryFn: fetchProtocolsWaiting, refetchInterval: 60_000 });
@@ -245,70 +329,93 @@ function NeedsYouNow({ data, go }: { data: OpsOverview; go: Go }) {
     ...workAlertsFor({ protocols: protocolsWaitingTotal(protocolsQ.data), purchases: readPurchases(purchasesQ.data).length, deductions: people.deductions, incidents: people.incidents, content: people.content }),
     ...workAlertsFor({ tillShifts: shiftDiffs.count }),
   ];
+  // The floor's alarms first, in table order, then what the embedding screen
+  // adds; nothing is sorted by value.
+  const rows: NeedRow[] = [
+    ...alerts.map((a) => ({ ...ALERT_COPY[a.key], key: a.key, count: a.key === 'dayNotOpen' ? null : a.count, severity: a.severity, href: a.href })),
+    ...(extras?.needs ?? []).map((n) => ({ ...n, severity: 'warn' as const })),
+  ];
+  const cap = useListCap(rows);
+  const failed = extras?.failed ?? [];
+  const loading = (extras?.loading ?? false) && rows.length === 0;
+  const clear = !loading && rows.length === 0 && failed.length === 0;
 
   return (
-    <Panel title={<CardTitle icon={alerts.length === 0 ? 'checkCircle' : 'alert'}>{tr('ws.manager.ops.now.title')}</CardTitle>}>
-      {alerts.length === 0 ? (
+    <Panel title={<CardTitle icon={clear ? 'checkCircle' : 'alert'}>{tr('ws.manager.ops.now.title')}</CardTitle>}>
+      {loading ? (
+        <Skeleton lines={1} blockSize="1.6rem" />
+      ) : clear ? (
         <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', fontWeight: 600, color: MARK_FG.success }}>
           <Icon name="checkCircle" size={18} style={{ color: MARK.success, flex: '0 0 auto' }} />
           {tr('ws.manager.ops.now.clear')}
         </p>
       ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-          {alerts.map((a) => (
-            <AlertRow key={a.key} alert={a} go={go} />
-          ))}
-        </ul>
+        <>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+            {cap.shown.map((r) => (
+              <NeedRowItem key={r.key} row={r} go={go} />
+            ))}
+            {/* A check that failed is not a check that passed: it says so
+                beside the rest, and is never folded away under "View more". */}
+            {failed.length > 0 && (
+              <li style={NEED_ROW}>
+                <span style={{ ...COUNT_BLOCK, background: MARK_SOFT.neutral, color: MARK_FG.neutral }}>
+                  <Icon name="alert" size={18} style={{ color: MARK.danger }} />
+                </span>
+                <span style={{ flex: '1 1 16rem', minInlineSize: 0, fontWeight: 600 }}>{tr('ws.owner.observationHome.waiting.error')}</span>
+                <Button size="sm" icon="refresh" onClick={() => failed.forEach((q) => void q.refetch())}>
+                  {tr('common.retry')}
+                </Button>
+              </li>
+            )}
+          </ul>
+          <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+        </>
       )}
     </Panel>
   );
 }
 
-function AlertRow({ alert, go }: { alert: OpsAlert; go: Go }) {
+const NEED_ROW = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--tp-sp-3)',
+  flexWrap: 'wrap',
+  paddingBlock: 'var(--tp-sp-2)',
+  paddingInline: 'var(--tp-sp-2)',
+  borderRadius: 'var(--tp-radius-ctl)',
+  background: 'var(--tp-surface-2)',
+} as const;
+
+const COUNT_BLOCK = {
+  display: 'grid',
+  placeItems: 'center',
+  minInlineSize: '3rem',
+  blockSize: '2.5rem',
+  paddingInline: 'var(--tp-sp-2)',
+  borderRadius: 'var(--tp-radius-ctl)',
+  fontSize: 'var(--tp-fs-lg)',
+  fontWeight: 700,
+  fontVariantNumeric: 'tabular-nums',
+} as const;
+
+function NeedRowItem({ row, go }: { row: NeedRow; go: Go }) {
   const { tr, locale } = useLocale();
-  const copy = ALERT_COPY[alert.key];
-  // "The day is not open" is a state, not a count of one.
-  const showCount = alert.key !== 'dayNotOpen';
   return (
-    <li
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--tp-sp-3)',
-        flexWrap: 'wrap',
-        paddingBlock: 'var(--tp-sp-2)',
-        paddingInline: 'var(--tp-sp-2)',
-        borderRadius: 'var(--tp-radius-ctl)',
-        background: 'var(--tp-surface-2)',
-      }}
-    >
-      <span
-        style={{
-          display: 'grid',
-          placeItems: 'center',
-          minInlineSize: '3rem',
-          blockSize: '2.5rem',
-          paddingInline: 'var(--tp-sp-2)',
-          borderRadius: 'var(--tp-radius-ctl)',
-          background: MARK_SOFT[alert.severity],
-          color: MARK_FG[alert.severity],
-          fontSize: 'var(--tp-fs-lg)',
-          fontWeight: 700,
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {showCount ? formatNumber(alert.count, locale) : <Icon name={copy.icon} size={18} style={{ color: MARK[alert.severity] }} />}
+    <li style={NEED_ROW}>
+      <span style={{ ...COUNT_BLOCK, background: MARK_SOFT[row.severity], color: MARK_FG[row.severity] }}>
+        {row.count !== null ? formatNumber(row.count, locale) : <Icon name={row.icon} size={18} style={{ color: MARK[row.severity] }} />}
       </span>
       <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', flex: '1 1 16rem', minInlineSize: 0 }}>
-        <strong style={{ color: 'var(--tp-fg)' }}>{tr(copy.title)}</strong>
-        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr(copy.hint)}</span>
+        <strong style={{ color: 'var(--tp-fg)' }}>{tr(row.title)}</strong>
+        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr(row.hint)}</span>
       </span>
-      {copy.action && alert.href && (
+      {row.action && row.href && (
         // One button style for every row: the count block already carries the
         // severity, and a blue button on some rows and not others read as a
         // ranking the table order does not make.
-        <Button size="sm" iconEnd="arrowUpRight" onClick={() => go(alert.href!)}>
-          {tr(copy.action)}
+        <Button size="sm" iconEnd="arrowUpRight" onClick={() => go(row.href!)}>
+          {tr(row.action)}
         </Button>
       )}
     </li>
@@ -421,10 +528,12 @@ function StockCard({ data, go }: { data: OpsOverview; go: Go }) {
 // ---------------------------------------------------------------------------
 
 /**
- * How many open tabs get their own button before the rest fold into one. The
- * exact count is already in the step's status; the buttons are a shortcut.
+ * How many open tabs get their own button before the rest fold into one, the
+ * three every stacking list shows (LIST_CAP). The exact count is already in
+ * the step's status; the buttons are a shortcut, and the rest are on the tab
+ * board, which is where "N more" goes.
  */
-const BLOCKING_TABS_SHOWN = 4;
+const BLOCKING_TABS_SHOWN = LIST_CAP;
 
 function tabName(t: OpsBlockingTab, tr: ReturnType<typeof useLocale>['tr']): string {
   if (t.tableNumber) return tr('ws.manager.ops.close.tab', { label: t.tableNumber });
@@ -546,6 +655,7 @@ function ExceptionsCard({ data, go }: { data: OpsOverview; go: Go }) {
  */
 function StaffTable({ rows }: { rows: OpsStaffRow[] }) {
   const { tr, locale } = useLocale();
+  const cap = useListCap(rows);
   // Nobody has recorded anything yet is not a fault and not a filter.
   if (rows.length === 0) {
     return <EmptyState compact kind="nothingToDo" icon="users" title={tr('ws.manager.ops.staff.empty')} />;
@@ -566,7 +676,12 @@ function StaffTable({ rows }: { rows: OpsStaffRow[] }) {
       render: (r) => (r.paymentsTaken === null ? '—' : formatNumber(r.paymentsTaken, locale)),
     },
   ];
-  return <DataTable columns={columns} rows={rows} rowKey={(r, i) => r.staffId || String(i)} dense aria-label={tr('ws.manager.ops.staff.title')} />;
+  return (
+    <>
+      <DataTable columns={columns} rows={cap.shown} rowKey={(r, i) => r.staffId || String(i)} dense aria-label={tr('ws.manager.ops.staff.title')} />
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+    </>
+  );
 }
 
 function RoleLabel({ role }: { role: string }) {

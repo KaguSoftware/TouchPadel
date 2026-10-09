@@ -29,7 +29,7 @@ import { useToast } from '../../components/toast';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { Button, ErrorText, Field, Select, Skeleton, inputStyle } from '../../components/ui';
 import { CountInput, DateField, MoneyInput } from '../../components/inputs';
-import { DataTable, EmptyState, MessagePresenter, Money, PageHeader, Panel, StatusBadge, type Column } from '../../components/kit';
+import { DataTable, EmptyState, MessagePresenter, Money, PageHeader, Panel, StatusBadge, ViewMore, useListCap, type Column } from '../../components/kit';
 import { ChevronBack, ChevronForward } from '../../components/icons';
 import { CardTitle } from '../ops/OpsVisuals';
 import { refusalCode, refusalHint } from '../protocols/errors';
@@ -77,6 +77,8 @@ export function AttendancePageScreen() {
   const current = currentData.currentMonth;
   const data = readAttendanceMonth(q.data);
   const shown = month ?? data.month ?? current;
+  // Owner's rule (2026-10-08): three people, then "View more". The month's totals read everyone.
+  const peopleCap = useListCap(data.people);
   const isCurrent = shown !== null && shown === current;
 
   /** The open form: a fresh day, or a recorded one to change. `n` remounts it on each open. */
@@ -188,7 +190,7 @@ export function AttendancePageScreen() {
               />
             ) : (
               <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
-                {data.people.map((p) => (
+                {peopleCap.shown.map((p) => (
                   <PersonDays
                     key={p.staffId}
                     person={p}
@@ -197,6 +199,7 @@ export function AttendancePageScreen() {
                     onClear={(d) => void askClear(p, d)}
                   />
                 ))}
+                <ViewMore hidden={peopleCap.hidden} open={peopleCap.open} onToggle={peopleCap.toggle} style={{ marginBlockStart: 0 }} />
               </div>
             )}
           </>
@@ -493,6 +496,8 @@ function PersonDays({
   onClear: (d: AttendanceDay) => void;
 }) {
   const { tr, locale } = useLocale();
+  // Three days per person, then "View more"; the penalty total in the title is the server's, for every day.
+  const daysCap = useListCap(p.days);
   const minutes = (n: number) => (n > 0 ? tr('ws.wages.attendance.day.minutes', { minutes: formatNumber(n, locale) }) : '—');
   const columns: Column<AttendanceDay>[] = [
     {
@@ -559,7 +564,11 @@ function PersonDays({
       }
       actions={<Money amount={p.penaltiesIqd} strong />}
     >
-      <DataTable columns={columns} rows={p.days} rowKey={(d) => d.id} dense aria-label={p.displayName} />
+      <DataTable columns={columns} rows={daysCap.shown} rowKey={(d) => d.id} dense aria-label={p.displayName} />
+      <ViewMore hidden={daysCap.hidden} open={daysCap.open} onToggle={daysCap.toggle} style={UNPADDED_MORE} />
     </Panel>
   );
 }
+
+/** ViewMore inside an unpadded (table) panel: the panel body's own padding. */
+const UNPADDED_MORE = { marginBlockStart: 0, paddingBlock: '0.6rem', paddingInline: '0.85rem' } as const;

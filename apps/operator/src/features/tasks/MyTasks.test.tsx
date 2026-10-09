@@ -118,6 +118,21 @@ describe('MyTasksScreen', () => {
     expect(navigate).toHaveBeenCalledWith({ to: '/tasks', search: { step: 'aaaaaaaa-0000-4000-8000-000000000001' }, replace: true });
   });
 
+  it('shows three steps to do, then View more reveals the rest', async () => {
+    const original = work.todo;
+    const id = (n: number) => `aaaaaaaa-0000-4000-8000-00000000010${n}`;
+    work.todo = [1, 2, 3, 4, 5].map((n) => ({ ...original[0]!, run_step_id: id(n), run_id: `r${n}` }));
+    try {
+      renderIn('marketing');
+      expect(await screen.findByTestId(`tasks.todo.${id(3)}`)).toBeTruthy();
+      expect(screen.queryByTestId(`tasks.todo.${id(4)}`)).toBeNull();
+      await userEvent.click(screen.getByRole('button', { name: 'View more (2)' }));
+      expect(screen.getByTestId(`tasks.todo.${id(5)}`)).toBeTruthy();
+    } finally {
+      work.todo = original;
+    }
+  });
+
   it('offers each role exactly its starts', async () => {
     const starts = (r: StaffRole) => {
       const { unmount } = renderIn(r);

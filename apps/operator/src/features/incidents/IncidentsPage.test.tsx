@@ -149,6 +149,18 @@ describe('IncidentsPageScreen at the desk', () => {
     expect(screen.queryByText('[deleted after 365 days]')).toBeNull();
   });
 
+  it('shows three of the reporter’s reports, then View more reveals the rest', async () => {
+    const user = userEvent.setup();
+    mine = ['m1', 'm2', 'm3', 'm4', 'm5'].map((id) => row({ id }));
+    renderPage('court_desk');
+    await screen.findByTestId('incidents.mine.m3');
+    expect(screen.queryByTestId('incidents.mine.m4')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
+    expect(screen.getByTestId('incidents.mine.m5')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(screen.queryByTestId('incidents.mine.m4')).toBeNull();
+  });
+
   it('says what the list is for while it is empty', async () => {
     renderPage('court_desk');
     expect(await screen.findByText(/You have not reported anything/)).toBeTruthy();

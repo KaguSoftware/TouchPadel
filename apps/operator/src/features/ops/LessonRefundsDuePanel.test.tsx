@@ -143,6 +143,17 @@ describe('LessonRefundsDuePanel', () => {
     expect(await screen.findByText('No lesson money is waiting to go back.')).toBeTruthy();
   });
 
+  it('shows three rows, then View more opens the rest in place', async () => {
+    const user = userEvent.setup();
+    refunds = { venue_id: 'v1', total_iqd: 60000, items: ['e1', 'e2', 'e3', 'e4'].map((id) => rawItem({ enrolment_id: id })) };
+    mount({ hideWhenEmpty: true });
+    await waitFor(() => expect(screen.getAllByTestId('lesson-refund')).toHaveLength(3));
+    await user.click(screen.getByRole('button', { name: 'View more (1)' }));
+    expect(screen.getAllByTestId('lesson-refund')).toHaveLength(4);
+    await user.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(screen.getAllByTestId('lesson-refund')).toHaveLength(3);
+  });
+
   it('a row: the student as recorded, the lesson, each payment, what is due and the header total', async () => {
     const user = userEvent.setup();
     mount({ hideWhenEmpty: true });

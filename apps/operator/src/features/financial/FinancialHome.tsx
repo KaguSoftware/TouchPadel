@@ -38,7 +38,7 @@ import { useLocale } from '../../lib/i18n';
 import { QK, fetchOpenDay } from '../../lib/queries';
 import { SectionHome } from '../../components/SectionHome';
 import { Button, Skeleton, card } from '../../components/ui';
-import { AsyncStateWrapper, Panel } from '../../components/kit';
+import { AsyncStateWrapper, Panel, ViewMore, useListCap } from '../../components/kit';
 import { useReportPeriod } from '../reports/ReportParts';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { varianceMagnitude, varianceSign } from '../admin/dayCloseLogic';
@@ -227,6 +227,7 @@ function RecentCloses() {
     },
   });
   const openDay = dayQ.data;
+  const cap = useListCap(closesQ.data ?? []);
 
   return (
     <Panel
@@ -252,10 +253,11 @@ function RecentCloses() {
         emptyContent={<p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.financialHome.closes.empty')}</p>}
       >
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
-          {(closesQ.data ?? []).map((d) => (
+          {cap.shown.map((d) => (
             <CloseRow key={d.id} day={d} locale={locale} />
           ))}
         </ul>
+        <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
       </AsyncStateWrapper>
     </Panel>
   );

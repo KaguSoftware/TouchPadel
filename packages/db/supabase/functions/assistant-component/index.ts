@@ -8,6 +8,9 @@
  * Response JSON
  *   { hit: true,  fresh, key, params_hash, content, sources, gate, generated_at, tokens, degraded? }
  *   { hit: false, degraded: true, key, params_hash, last: {…}|null }    no ANTHROPIC_API_KEY and the numbers moved
+ *   { ok, prewarm: true, today, stopped, viewed_days, skipped: [{key, last_viewed_at}], report }   the pre-warm;
+ *     since 0327 it fills only built-ins the owner's card read within PREWARM_VIEWED_DAYS
+ *     (assistant_components.last_viewed_at, stamped by app.analytics_component) and lists the rest in `skipped`
  *   refusals as plain JSON exactly like analytics-insights:
  *   400 INVALID_REQUEST · 401 AUTH_REQUIRED · 403 FORBIDDEN · 404 COMPONENT_NOT_FOUND ·
  *   429 LLM_DAILY_QUOTA / LLM_MONTHLY_CAP · 502 UPSTREAM · 503 NOT_CONFIGURED (never: a
@@ -19,8 +22,9 @@
  * inputs fingerprint, known before any token is spent. A live cache row with
  * the same fingerprint is returned with zero model calls. Otherwise one model
  * call with the cleaned results in the user turn and output_config.format set
- * to the component's output_schema, the number gate, one retry when a figure
- * is unverified, the upsert (which supersedes the previous row) and one
+ * to the component's output_schema, the number gate, one retry when a
+ * money-sized figure or a percentage is unverified (gate.ts shouldRetry),
+ * the upsert (which supersedes the previous row) and one
  * llm_record_usage with surface 'component:<key>'.
  *
  * The two clients (plan §7.1): business reads go through `asOwner` (the
@@ -38,9 +42,10 @@ import { callerClient, createServiceClient, isServiceRoleRequest } from '../_sha
 import { requireStaffRole } from '../_shared/auth.ts';
 import { handle, isUuid, json, KB, logError, mapPgError, pgErrorBody, readJsonBody } from '../_shared/http.ts';
 import { clean, CleanError, cleanedNotice, sourceForTool, type Cleaned, type CleanStats } from '../_shared/assistant/clean.ts';
-import { gateAnswer, retryMessage, type GateResult } from '../_shared/assistant/gate.ts';
+import { gateAnswer, retryMessage, shouldRetry, type GateResult } from '../_shared/assistant/gate.ts';
 import { newHandleTable } from '../_shared/assistant/handles.ts';
 import { cleanedText, providerFromEnv, ProviderError, textOf, type Provider, type ProviderMessage, type ProviderUsage } from '../_shared/assistant/provider.ts';
+import { PREWARM_VIEWED_DAYS, selectPrewarm } from '../_shared/assistant/prewarm.ts';
 import { localDate } from '../_shared/assistant/scopes.ts';
 import { rpcArgs, toolByName, validateToolInput, type ToolSpec } from '../_shared/assistant/tools.ts';
 
@@ -86,6 +91,8 @@ interface ComponentRow {
   output_schema: Record<string, unknown>;
   tools: string[];
   default_params: Record<string, unknown> | null;
+  /** 0327: when the owner's card last read it (the pre-warm's cut); read by the pre-warm only. */
+  last_viewed_at?: string | null;
 }
 
 interface SourceItem {
@@ -193,6 +200,9 @@ function asLookup(data: unknown): Lookup {
 function ownerReader(asOwner: SupabaseClient): Reader {
   return {
     runTool: async (rpc, p_args) => await asOwner.schema('app').rpc('assistant_run_tool', { p_tool: rpc, p_args }),
+    // app.analytics_component stamps assistant_components.last_viewed_at (0327,
+    // at most once an hour), so every owner-initiated fill counts as a view and
+    // keeps the card on the pre-warm list; prewarmReader's lookup never does.
     async lookup(key, params) {
       const { data, error } = await asOwner.schema('app').rpc('analytics_component', { p_key: key, p_params: params });
       if (error) throw error;
@@ -461,8 +471,12 @@ async function generate(provider: Provider, component: ComponentRow, params: Par
   let { raw, content } = await once();
   let gate = gateAnswer(leavesText(content), allowed, []);
   let retried = false;
-  if (gate.status === 'unverified') {
-    // One retry, as the chat does: the first answer and the list of unverified figures, then answer again.
+  // One retry, as the chat does, and like the chat (F1) only for money: a
+  // flagged percentage or a figure of RETRY_MIN_ABS or more (gate.ts
+  // shouldRetry). A stray small figure stays marked; a second generation is
+  // not worth its price for it.
+  if (shouldRetry(gate)) {
+    // The first answer and the list of unverified figures, then answer again.
     messages.push({ role: 'assistant', content: raw });
     messages.push({ role: 'user', content: retryMessage(gate.unverified) });
     retried = true;
@@ -584,7 +598,9 @@ async function fill(ctx: Ctx, component: ComponentRow, params: Params, force: bo
 }
 
 // ---------------------------------------------------------------------------
-// Pre-warm: the six built-ins × the three default ranges (DECIDE 12)
+// Pre-warm: the six built-ins × the three default ranges (DECIDE 12), only
+// those the owner's card read within PREWARM_VIEWED_DAYS (0327). The skipped
+// keys go in the report (and the log) so the cut is visible.
 // ---------------------------------------------------------------------------
 function shiftDays(ymd: string, days: number): string {
   const d = new Date(`${ymd}T00:00:00Z`);
@@ -608,13 +624,15 @@ function prewarmLangs(): Lang[] {
 }
 
 async function prewarm(ctx: Ctx, startedAt: number): Promise<Response> {
-  const { data, error } = await ctx.service.from('assistant_components').select('key, kind, question, output_schema, tools, default_params').eq('kind', 'builtin').is('archived_at', null).order('key');
+  const { data, error } = await ctx.service.from('assistant_components').select('key, kind, question, output_schema, tools, default_params, last_viewed_at').eq('kind', 'builtin').is('archived_at', null).order('key');
   if (error) {
     logError('assistant-component', error, 'prewarm: components read failed');
     return json({ error: 'UPSTREAM' }, 502);
   }
-  const components = (data ?? []) as ComponentRow[];
-  const today = localDate(new Date(), ctx.tz);
+  const now = new Date();
+  const { warm: components, skipped } = selectPrewarm((data ?? []) as ComponentRow[], now, PREWARM_VIEWED_DAYS);
+  if (skipped.length) console.log(`[assistant-component/prewarm] skipped ${skipped.length} card(s) not viewed in ${PREWARM_VIEWED_DAYS} days: ${skipped.map((s) => s.key).join(', ')}`);
+  const today = localDate(now, ctx.tz);
   const report: { key: string; range: string; lang: Lang; result: string }[] = [];
   let stopped = false;
 
@@ -645,7 +663,7 @@ async function prewarm(ctx: Ctx, startedAt: number): Promise<Response> {
       }
     }
   }
-  return json({ ok: true, prewarm: true, today, stopped, report });
+  return json({ ok: true, prewarm: true, today, stopped, viewed_days: PREWARM_VIEWED_DAYS, skipped, report });
 }
 
 // ---------------------------------------------------------------------------

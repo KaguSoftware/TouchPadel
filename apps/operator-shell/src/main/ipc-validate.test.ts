@@ -325,6 +325,7 @@ import {
   validatePairingCode,
   validateResolveQueueRow,
   validateStationSetup,
+  validateSupplierPageRequest,
 } from './ipc-validate';
 import { pairingCodeRegex } from '@touch/core/pairing/pairingCode';
 
@@ -391,5 +392,27 @@ describe('validateDiscoverRequest', () => {
     });
     expect(() => validateDiscoverRequest({ code: 'ABCDEFGHJK', host: '1.1.1.1' })).toThrow(/private/);
     expect(() => validateDiscoverRequest({ code: 'bad' })).toThrow(IpcValidationError);
+  });
+});
+
+describe('validateSupplierPageRequest', () => {
+  it('keeps only the url', () => {
+    expect(validateSupplierPageRequest({ url: 'https://shop.example.com/p', extra: 1 })).toEqual({
+      url: 'https://shop.example.com/p',
+    });
+  });
+
+  it('refuses a missing, empty, non-string or over-long url, and a non-object', () => {
+    for (const bad of [
+      {},
+      { url: '' },
+      { url: 42 },
+      { url: `https://shop.example.com/${'a'.repeat(2000)}` },
+      'https://shop.example.com/p',
+      null,
+      [],
+    ]) {
+      expect(() => validateSupplierPageRequest(bad)).toThrow(IpcValidationError);
+    }
   });
 });

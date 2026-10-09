@@ -25,6 +25,8 @@ import {
   MessagePresenter,
   PageHeader,
   StatusBadge,
+  ViewMore,
+  useListCap,
 } from '../../components/kit';
 import { TOUR_STATUS_TONE, pickName, tournamentErrorText } from './tournamentLogic';
 import type { DeskTournament } from './tournamentPayloads';
@@ -62,6 +64,8 @@ export function TournamentsListScreen() {
   const all = data?.tournaments ?? [];
   const totals = listTotals(all);
   const shown = filterTournaments(all, filter);
+  // Owner's rule (2026-10-08): three cards, then "View more"; capped after the status chip.
+  const cap = useListCap(shown);
 
   return (
     <div data-testid="tournaments-list" style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
@@ -172,25 +176,28 @@ export function TournamentsListScreen() {
               body={filter === 'all' ? tr('ws.tournaments.list.emptyHint') : undefined}
             />
           ) : (
-            <ul
-              aria-label={tr('ws.tournaments.list.title')}
-              style={{
-                listStyle: 'none',
-                margin: 0,
-                padding: 0,
-                display: 'grid',
-                // At most three to a row; fewer once a card would drop under 20rem.
-                gridTemplateColumns:
-                  'repeat(auto-fill, minmax(max(20rem, calc((100% - 2 * var(--tp-sp-4)) / 3)), 1fr))',
-                gap: 'var(--tp-sp-4)',
-              }}
-            >
-              {shown.map((t) => (
-                <li key={t.id} style={{ display: 'flex' }}>
-                  <TournamentCard t={t} tz={tz} onOpen={() => open(t)} />
-                </li>
-              ))}
-            </ul>
+            <div>
+              <ul
+                aria-label={tr('ws.tournaments.list.title')}
+                style={{
+                  listStyle: 'none',
+                  margin: 0,
+                  padding: 0,
+                  display: 'grid',
+                  // At most three to a row; fewer once a card would drop under 20rem.
+                  gridTemplateColumns:
+                    'repeat(auto-fill, minmax(max(20rem, calc((100% - 2 * var(--tp-sp-4)) / 3)), 1fr))',
+                  gap: 'var(--tp-sp-4)',
+                }}
+              >
+                {cap.shown.map((t) => (
+                  <li key={t.id} style={{ display: 'flex' }}>
+                    <TournamentCard t={t} tz={tz} onOpen={() => open(t)} />
+                  </li>
+                ))}
+              </ul>
+              <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+            </div>
           )}
         </>
       )}

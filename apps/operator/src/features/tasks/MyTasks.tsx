@@ -31,7 +31,7 @@ import { can, useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
 import { useWorkspaceOrNull } from '../../routes/__root';
 import { Button, ErrorText } from '../../components/ui';
-import { PageHeader, Panel, StatusBadge } from '../../components/kit';
+import { PageHeader, Panel, StatusBadge, ViewMore, useListCap } from '../../components/kit';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { IdeasToReviewList, useIdeasToReview } from '../roleExtras/Ideas';
 import { decisionTone } from '../protocols/protocolLogic';
@@ -176,6 +176,8 @@ function WorkList({
   onOpen: (item: WorkItem) => void;
 }) {
   const { tr, locale } = useLocale();
+  // Owner's rule (2026-10-08): three items, then "View more"; each list folds on its own.
+  const cap = useListCap(items);
   return (
     <section style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
       <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, color: 'var(--tp-muted-fg)' }}>
@@ -186,7 +188,7 @@ function WorkList({
         <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{empty}</p>
       ) : (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-          {items.map((item) => (
+          {cap.shown.map((item) => (
             <li
               key={`${item.runStepId}:${item.submissionId ?? ''}`}
               data-testid={`tasks.${kind}.${item.runStepId}`}
@@ -227,6 +229,7 @@ function WorkList({
           ))}
         </ul>
       )}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} style={{ marginBlockStart: 0 }} />
     </section>
   );
 }

@@ -106,6 +106,17 @@ describe('MatchReportsPanel', () => {
     expect(toast.ok).toHaveBeenCalledWith('Report closed.');
   });
 
+  it('shows three, then View more opens the rest in place and Show less folds them', async () => {
+    const user = userEvent.setup();
+    reports = ['r1', 'r2', 'r3', 'r4', 'r5'].map((id) => report(id));
+    mount();
+    await waitFor(() => expect(screen.getAllByTestId('match-report')).toHaveLength(3));
+    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
+    expect(screen.getAllByTestId('match-report')).toHaveLength(5);
+    await user.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(screen.getAllByTestId('match-report')).toHaveLength(3);
+  });
+
   it('Ban asks first, then sends banned', async () => {
     const user = userEvent.setup();
     reports = [report('r1')];

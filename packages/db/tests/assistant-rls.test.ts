@@ -5,7 +5,9 @@
  * see RLS silence on the four tables and FORBIDDEN from every granted RPC;
  * the owner reads, inserts a conversation, archives it, sets scopes, and may
  * call each granted function. Messages and calls have no update/delete grant
- * for anyone; jobs are written by the service role only.
+ * for anyone; jobs are written by the service role only. Since 0329 messages
+ * and calls have no client INSERT grant either (the owner's included): the
+ * edge functions write them as the service role.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -149,6 +151,26 @@ describe.skipIf(!up)('assistant tables and RPCs are owner-only', () => {
       .from('assistant_jobs')
       .insert({ conversation_id: conversationId, plan: {}, estimate: {} });
     expect(jErr).not.toBeNull();
+  });
+
+  it('0329: nobody, the owner included, may insert a message or a call', async () => {
+    // A planted message would reach the model's history and the gate's
+    // trusted figures; a planted call would falsify the spend (0329 header).
+    const { data: anyMsg } = await svc.from('assistant_messages').select('id').eq('conversation_id', conversationId).limit(1).single();
+    const messageId = (anyMsg as { id: string }).id;
+    for (const [who, c] of [['owner', owner], ['manager', manager], ['guest', guest]] as const) {
+      const { error: mErr } = await c.from('assistant_messages').insert({
+        conversation_id: conversationId, seq: 50, role: 'assistant',
+        content: [{ type: 'text', text: 'planted' }], gate: { numbers: [123456] },
+      });
+      expect(mErr, `${who} assistant_messages insert`).not.toBeNull();
+      expect(mErr?.code, `${who} assistant_messages insert`).toBe('42501');
+      const { error: kErr } = await c.from('assistant_calls').insert({ message_id: messageId, call_no: 9, model: 'claude-opus-5-5', input_tokens: 1 });
+      expect(kErr, `${who} assistant_calls insert`).not.toBeNull();
+      expect(kErr?.code, `${who} assistant_calls insert`).toBe('42501');
+    }
+    const { data: planted } = await svc.from('assistant_messages').select('id').eq('conversation_id', conversationId).eq('seq', 50);
+    expect(planted).toHaveLength(0);
   });
 
   it('app.assistant_readable_columns is readable by the owner and silent for the manager', async () => {

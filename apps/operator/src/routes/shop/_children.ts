@@ -11,7 +11,6 @@ const CashDrawer = lazyRouteComponent(() => import('../../features/till/CashDraw
 const ShopStock = lazyRouteComponent(() => import('../../features/shop/ShopStockPages'), 'ShopStock');
 const ShopReceive = lazyRouteComponent(() => import('../../features/shop/ShopStockPages'), 'ShopReceive');
 const ShopCounts = lazyRouteComponent(() => import('../../features/shop/ShopStockPages'), 'ShopCounts');
-const ShopWaste = lazyRouteComponent(() => import('../../features/shop/ShopStockPages'), 'ShopWaste');
 const ProductsAdmin = lazyRouteComponent(
   () => import('../../features/stock/products/ProductsAdmin'),
   'ProductsAdmin',
@@ -44,7 +43,6 @@ export const shopChildren = [
   child('stock', ShopStock),
   child('receive', ShopReceive),
   child('counts', ShopCounts),
-  child('waste', ShopWaste),
   child('products', ProductsAdmin),
   child('suppliers', SuppliersAdmin),
 ] as const;

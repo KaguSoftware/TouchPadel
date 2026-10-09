@@ -26,7 +26,7 @@ import { pickName, useLocale } from '../../lib/i18n';
 import { useStationReach } from '../../lib/stationReach';
 import { useVenue } from '../../lib/venue';
 import { Button } from '../../components/ui';
-import { MessagePresenter, Panel, StatusBadge } from '../../components/kit';
+import { MessagePresenter, Panel, StatusBadge, ViewMore, useListCap } from '../../components/kit';
 import type { PaymentMethod } from '../till/PaymentPane';
 import { LessonBadge } from './LessonBadge';
 import { enrolmentLine, enrolmentStatusKey, moneyLineText, type MoneyLine } from './lessonLogic';
@@ -198,6 +198,7 @@ function LessonRows({
   const { reachable } = useStationReach();
   const { branchId, venues } = useVenue();
   const offline = tr('ws.coaching.offline.needsConnection');
+  const cap = useListCap(rows);
   const pick = (en: string | null, ar: string | null) =>
     (locale === 'ar' ? ar || en : en || ar) ?? '';
   const branchName = (venueId: string | null) => {
@@ -220,7 +221,7 @@ function LessonRows({
       <ul
         style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}
       >
-        {rows.map((l) => {
+        {cap.shown.map((l) => {
           const start = new Date(l.start_at);
           const when = l.end_at
             ? formatTimeRange(start, new Date(l.end_at), locale, tz)
@@ -361,6 +362,12 @@ function LessonRows({
           );
         })}
       </ul>
+      <ViewMore
+        hidden={cap.hidden}
+        open={cap.open}
+        onToggle={cap.toggle}
+        style={{ marginBlockStart: 0 }}
+      />
     </section>
   );
 }

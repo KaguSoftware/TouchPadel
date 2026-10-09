@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flattenCatalogue, matchesProductLine, productLaunched, productLock, sizeArgs, sizeProblem, type SizeDraft } from './productsLogic';
+import { flattenCatalogue, matchesProductLine, productLaunched, productLock, sizeArgs, sizeProblem, supplierLinkToSave, type SizeDraft } from './productsLogic';
 import type { IngredientRow, OnHandRow, ShopCatalogue, SupplierRow } from '../stockKeys';
 
 const catalogue: ShopCatalogue = {
@@ -123,5 +123,22 @@ describe('sizeProblem / sizeArgs', () => {
       p_low_stock_threshold: 2,
     });
     expect(sizeArgs(ok, '').p_supplier_id).toBeNull();
+  });
+});
+
+describe('supplierLinkToSave (0322)', () => {
+  const stored = 'https://supplier.example.iq/p/vertex';
+
+  it('sends nothing while the link is as stored, blank with none stored, or not a link yet', () => {
+    expect(supplierLinkToSave(stored, stored)).toBeNull();
+    expect(supplierLinkToSave(`  ${stored} `, stored)).toBeNull();
+    expect(supplierLinkToSave('', null)).toBeNull();
+    expect(supplierLinkToSave('http://supplier.example.iq/p/vertex', null)).toBeNull();
+  });
+
+  it('sends a new or changed link, and null to remove one', () => {
+    expect(supplierLinkToSave(stored, null)).toEqual({ url: stored });
+    expect(supplierLinkToSave('https://supplier.example.iq/p/vertex-2', stored)).toEqual({ url: 'https://supplier.example.iq/p/vertex-2' });
+    expect(supplierLinkToSave('  ', stored)).toEqual({ url: null });
   });
 });

@@ -228,6 +228,23 @@ describe('SetupHomeScreen', () => {
     expect(within(check('telegram')!).getByText(/no staff group is chosen/)).toBeTruthy();
   });
 
+  it('shows three checks, then View more reveals the rest in place', async () => {
+    data.telegram = { telegram_enabled: true, telegram_chat_id: '-1001234567890' };
+    data.staff = [person({ id: 'o1', role: 'owner', has_pin: true }), person({ id: 'm1', role: 'manager', has_pin: false })];
+    data.noPar = 3;
+    data.needsCost = 2;
+    renderSetup('owner');
+    await waitFor(() => expect(document.querySelectorAll('li[data-check]')).toHaveLength(3));
+    // telegram, pins, owner, noPar, needsCost: the first three, in order, then two folded.
+    expect(check('telegram')).toBeTruthy();
+    expect(check('needsCost')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'View more (2)' }));
+    expect(document.querySelectorAll('li[data-check]')).toHaveLength(5);
+    expect(check('needsCost')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(document.querySelectorAll('li[data-check]')).toHaveLength(3);
+  });
+
   it('puts one honest live line on the cards it can count', async () => {
     data.staff = [person({ id: 'o1', role: 'owner', has_pin: true }), person({ id: 'o2', role: 'owner', has_pin: true }), person({ id: 'x', is_active: false })];
     renderSetup('owner');

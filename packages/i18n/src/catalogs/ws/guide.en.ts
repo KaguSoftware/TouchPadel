@@ -454,7 +454,7 @@ export const guideEn = {
       title: 'Stock',
       onHand: {
         title: 'On hand and history',
-        body: '{shopStock} lists what the shop holds; a row’s history shows every movement. Use the rail for goods in, counts and waste.',
+        body: '{shopStock} lists what the shop holds; a row’s history shows every movement. Use the rail for goods in and counts.',
       },
       receive: {
         title: 'Goods in',
@@ -463,10 +463,6 @@ export const guideEn = {
       counts: {
         title: 'Stock counts',
         body: 'Start a count and enter what you see: the recorded amount stays hidden. Then finish the count, or discard it.',
-      },
-      waste: {
-        title: 'Waste',
-        body: 'Record the item, the quantity, what happened and a note. All four are needed.',
       },
     },
     products: {
@@ -482,6 +478,10 @@ export const guideEn = {
       suppliers: {
         title: 'Suppliers',
         body: 'Keep the shop’s suppliers here, so each product can name the one it comes from.',
+      },
+      priceWatch: {
+        title: 'Supplier price changes',
+        body: 'Paste the supplier’s product page in a size’s {link}, one page per size. The shop desk PC reads it every hour and tells the owner and the shop staff on their phones when the price changes. The size then appears under {panel}: {apply} fills the new price in, and Save applies it.',
       },
     },
     end: {

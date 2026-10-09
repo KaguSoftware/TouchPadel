@@ -1315,9 +1315,29 @@ const shapes = {
   report_coach_statements: {
     rpc: 'report_coach_statements',
     x: 'X22',
-    keys: ['month', 'current_month', 'server_now', 'statements', 'missing', 'totals'],
+    keys: ['month', 'current_month', 'server_now', 'statements', 'missing', 'totals', 'live'],
     nested: {
       'statements[]': STATEMENT_ROW,
+      // 0321: who is getting what, at the figures now.
+      'live[]': [
+        'coach_id',
+        'coach_name_en',
+        'coach_name_ar',
+        'venue_id',
+        'venue_name_en',
+        'venue_name_ar',
+        'lessons_count',
+        'private_count',
+        'group_count',
+        'course_count',
+        'minutes',
+        'collected_iqd',
+        'court_share_iqd',
+        'coach_iqd',
+        'statement_id',
+        'statement_status',
+        'statement_total_iqd',
+      ],
       // 0293 (DB-24): reason older_draft | newer_draft | not_drafted, and the blocking draft.
       'missing[]': [
         'coach_id',
