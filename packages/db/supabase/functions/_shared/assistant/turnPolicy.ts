@@ -4,12 +4,12 @@
  * function (assistant-chat/index.ts) calls these; the loop itself still lives
  * there until F2 extracts it.
  *
- *   frozen context  the first user turn (date, timezone, scopes, the context
- *                   packs) is built once per chat and stored on
- *                   `assistant_conversations.context` (0325), then replayed
+ *   frozen context  the first user turn (date, timezone, scopes; no context
+ *                   packs since 2026-10-09) is built once per chat and stored
+ *                   on `assistant_conversations.context` (0325), then replayed
  *                   byte for byte while it is still true, so messages[0] and
  *                   everything after it stay a cacheable prefix instead of
- *                   re-billing packs + tail at full input price every turn;
+ *                   re-billing the tail at full input price every turn;
  *   tail window     the stored history the model sees starts on a seq aligned
  *                   to TAIL_STEP, so the prefix after messages[0] stays the
  *                   same bytes for TAIL_STEP messages instead of sliding by one
@@ -182,6 +182,24 @@ export function contextStorable(o: { packsFailed: number; aborted: boolean; turn
  */
 export const CACHE_WARM_MS = 5 * 60_000;
 
+/**
+ * The prefix cache's lifetime (secret ASSISTANT_CACHE_TTL, provider.ts): '5m'
+ * (default; a write costs 1.25x input) or '1h' (2x). The price list holds one
+ * cache_write rate, the 5-minute one, so a 1-hour write is counted as the
+ * 5-minute tokens that cost the same: tokens x 2 / 1.25.
+ */
+export type CacheTtl = '5m' | '1h';
+
+export function parseCacheTtl(raw: string | undefined | null): CacheTtl {
+  return typeof raw === 'string' && raw.trim().toLowerCase() === '1h' ? '1h' : '5m';
+}
+
+/** Cache-write tokens as the price list bills them: the 5-minute writes, plus the 1-hour ones scaled by 2 / 1.25. */
+export function billedCacheWrite(total: number, oneHour: number): number {
+  const h = Math.min(Math.max(oneHour, 0), Math.max(total, 0));
+  return total - h + Math.round(h * 1.6);
+}
+
 export type Effort = 'low' | 'medium';
 
 export interface PreviousTurn {
@@ -200,7 +218,9 @@ export interface PreviousTurn {
  */
 export function previousTurnOf(row: { tokens?: unknown; created_at?: unknown } | null | undefined): PreviousTurn | null {
   if (!row || !row.tokens || typeof row.tokens !== 'object') return null;
-  const t = row.tokens as { model?: unknown; effort?: unknown; route?: unknown };
+  const t = row.tokens as { model?: unknown; effort?: unknown; route?: unknown; reused_from?: unknown };
+  // A reused answer (reuse.ts) made no model call, so it warmed no cache.
+  if (t.reused_from) return null;
   if (typeof t.model !== 'string' || !t.model) return null;
   const effort: Effort | null = t.effort === 'low' || t.effort === 'medium' ? t.effort : t.effort === undefined ? (t.route === 'lookup' ? 'low' : 'medium') : null;
   if (!effort) return null;
@@ -219,12 +239,13 @@ export function previousTurnOf(row: { tokens?: unknown; created_at?: unknown } |
  * The kind stays `lookup` (pre-search, no pack build); the reason says why
  * the model did not move.
  */
-export function keepWarmRoute<R extends { kind: string; model: string | null; effort: Effort; reason: string }>(
+export function keepWarmRoute<R extends { kind: string; model: string | null; effort: Effort; reason: string; sticky?: boolean }>(
   route: R,
   prev: PreviousTurn | null,
   o: { nowMs: number; ownerModel: string | null; allowed: readonly string[] },
 ): R {
-  if (route.kind !== 'lookup' || !prev) return route;
+  // A lookup, or a cheap-tier figure question (route.sticky, 2026-10-09). Deep analysis is never moved.
+  if ((route.kind !== 'lookup' && !route.sticky) || !prev) return route;
   if (o.ownerModel && o.ownerModel !== prev.model) return route;
   const age = o.nowMs - prev.atMs;
   if (age < 0 || age >= CACHE_WARM_MS) return route;
@@ -238,14 +259,14 @@ export function keepWarmRoute<R extends { kind: string; model: string | null; ef
 // ---------------------------------------------------------------------------
 
 /** At least this many earlier stored messages ride along (text only, assistant-chat tailToMessages). */
-export const TAIL_MESSAGES = 30;
+export const TAIL_MESSAGES = 12;
 /**
  * The window's start moves in steps of this many messages (seq numbers), so
- * between moves the history is the same bytes plus the newest turns: 30 to 39
- * earlier messages, a new start every 10 messages (five owner turns, a
- * question and an answer each).
+ * between moves the history is the same bytes plus the newest turns: 12 to 15
+ * earlier messages, a new start every 4 messages (two owner turns, a question
+ * and an answer each). Shrunk from 30 / 10 on 2026-10-09: the owner's cost.
  */
-export const TAIL_STEP = 10;
+export const TAIL_STEP = 4;
 
 /**
  * The first seq the tail includes for a user message stored at `userSeq`
@@ -381,12 +402,17 @@ export function refusedForScope(problems: readonly string[], check: { ok: boolea
 
 /**
  * The most one owner message may spend before the model is told to answer
- * with what it has: USD 1.50. A typical analysis message costs USD 0.20–0.45
- * on Opus 5.5 (five-ish calls, 2026-09-19 profile); 1.50 lets a deep one with
- * many rounds finish, and stops a runaway loop of 500-row results or repeated
- * searches long before the daily quota notices it.
+ * with what it has. 2026-10-09 (owner call: the assistant was far too
+ * expensive): USD 0.60 for a deep analysis (was 1.50; a typical one costs
+ * 0.20–0.45 on Opus 5.5, 2026-09-19 profile), and USD 0.25 for the cheap tier
+ * (a lookup or a plain figure question on Sonnet, route.sticky), which should
+ * cost cents. The ceiling is what stops a runaway loop of 500-row results or
+ * repeated searches long before the daily quota notices it.
  */
-export const TURN_COST_CAP_MICROS = 1_500_000;
+export const TURN_COST_CAP_MICROS = 600_000;
+
+/** The ceiling of the cheap tier (route.sticky): a lookup or a plain figure question. */
+export const TURN_COST_CAP_CHEAP_MICROS = 250_000;
 
 /** USD micros per million tokens, by kind (platform_settings.llm_pricing -> model, 0207/0312). */
 export interface ModelRates {
@@ -452,8 +478,8 @@ export function turnEstimateMicros(model: string, usage: TokenCounts, rates: Rec
 }
 
 /** Past the ceiling: the next tool round is answered with a notice instead of running. */
-export function costCapReached(runningMicros: number): boolean {
-  return runningMicros > TURN_COST_CAP_MICROS;
+export function costCapReached(runningMicros: number, capMicros: number = TURN_COST_CAP_MICROS): boolean {
+  return runningMicros > capMicros;
 }
 
 // ---------------------------------------------------------------------------

@@ -121,6 +121,6 @@ describe('compact prefix', () => {
       if (c.kind === 'page') expect(compact).toContain(`- ${c.route} [`);
       if (c.kind === 'rule') expect(compact).toContain(`### ${c.title}`);
     }
-    for (const t of catalog.ASSISTANT_TOOLS) expect(compact).toMatch(new RegExp(`^${t.name} — `, 'm'));
+    for (const t of catalog.ASSISTANT_TOOLS) expect(compact).toMatch(new RegExp(`^${t.name}: `, 'm'));
   });
 });

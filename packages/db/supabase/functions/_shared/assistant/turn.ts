@@ -2,7 +2,7 @@
  * turn.ts — the chat turn's round loop (plan §4.1 "chat flow", §4.5 gate,
  * §6.1 propose_job, §11.0 the door), moved out of assistant-chat/index.ts so
  * vitest can drive it with a scripted provider (F2, 2026-10-08). The chat
- * function still owns HTTP, the database, the context packs, the pre-search
+ * function still owns HTTP, the database, the first turn (no packs since 2026-10-09), the pre-search
  * and persistence; this file decides, round by round:
  *
  *   tool round      every tool_use of a round dispatched at once (Promise.all),
@@ -244,7 +244,7 @@ export const TURN_NOTICES = {
 export interface TurnState<B extends TurnBlock> {
   calls: CallRow[];
   sources: SourceItem[];
-  /** Every figure the tools, packs and pre-search gave this turn: the gate's set AND the re-check baseline. */
+  /** Every figure the tools and pre-search gave this turn : the gate's set AND the re-check baseline. */
   allowed: number[];
   /** Numbers in cited web passages: the gate accepts them, the re-check baseline does not (a re-check cannot re-run a search). */
   webNumbers: number[];
@@ -291,6 +291,8 @@ export function newTurnState<B extends TurnBlock>(): TurnState<B> {
 export interface TurnDeps<B extends TurnBlock> {
   /** The model every call of this turn runs on (CallRow.model). */
   model: string;
+  /** This message's cost ceiling, USD micros; default turnPolicy TURN_COST_CAP_MICROS (the cheap tier passes TURN_COST_CAP_CHEAP_MICROS). */
+  capMicros?: number;
   /** provider.ts WEB_SEARCH_MAX_USES: searches one message may run before the cap line. */
   webSearchMaxUses: number;
   /** One model call over `messages` (the same array the loop keeps appending to); text deltas through onText. */
@@ -434,7 +436,7 @@ export async function runTurnLoop<B extends TurnBlock>(state: TurnState<B>, inpu
     state.finalText = textOf(turn.content) || streamed;
 
     const uses = toolUsesOf(turn.content);
-    const overCap = costCapReached(state.spentMicros);
+    const overCap = costCapReached(state.spentMicros, deps.capMicros);
     // The last call the loop allows (MAX_TOOL_ROUNDS + 2): nothing sent from
     // here would ever be answered, so no notice, continuation or retry.
     const lastCall = rounds > MAX_TOOL_ROUNDS + 1;

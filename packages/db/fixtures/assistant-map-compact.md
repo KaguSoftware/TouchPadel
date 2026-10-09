@@ -174,55 +174,59 @@ Reports and the panel (migration 0068) bucket each source by one timestamp: rese
 
 ## Tools
 
-name — kind, scope, page with the same numbers
+name: kind, scope, page with the same numbers
 
-panel_headline — aggregate, money, /panel
-report_revenue — aggregate, money, /reports/revenue
-report_compare — aggregate, money, /reports/revenue
-report_drill — list, money, /panel
-payments_list — list, money, /reports/revenue
-report_cafe — aggregate, cafe, /reports/cafe
-analytics_daily_sales — aggregate, cafe, /analytics/cafe
-analytics_sold_items — aggregate, cafe, /analytics/cafe
-analytics_best_sellers — aggregate, cafe, /analytics/cafe
-analytics_item_margins — aggregate, cafe, /analytics/cafe
-analytics_price_bands — aggregate, cafe, /analytics/cafe
-analytics_hourly — aggregate, cafe, /analytics/cafe
-analytics_bought_together — aggregate, cafe, /analytics/cafe
-analytics_menu_snapshot — aggregate, cafe, /admin/menu
-tabs_list — list, cafe, /observation/tills
-report_courts — aggregate, courts, /reports/courts
-analytics_courts_summary — aggregate, courts, /analytics/courts
-analytics_courts_demand — aggregate, courts, /analytics/courts
-analytics_courts_endings — aggregate, courts, /analytics/courts
-analytics_courts_guests — aggregate, courts, /analytics/courts
-analytics_courts_cafe — aggregate, courts, /analytics/courts
-bookings_list — list, courts, /observation/courts
-booking_bill — lookup, courts, /desk
-series_detail — lookup, courts, /desk/series/new
-courts_and_rates — aggregate, courts, /admin/rates
-report_stock — aggregate, stock, /reports/stock
-stock_view — list, stock, /stock
-ops_overview — aggregate, system, /ops
-list_staff — list, staff, /admin/staff
-staff_requests_page — list, staff, /observation/requests
-report_staff_activity — aggregate, staff, /reports/staff
-break_history — list, staff, /admin/staff
-audit_page — list, audit, /admin/audit
-customer_search — list, customers, /desk/customers
-customer_record — lookup, customers, /desk/customers
-analytics_promo — aggregate, marketing, /admin/promotions
-marketing_overview — aggregate, marketing, /marketing
-marketing_campaign_performance — lookup, marketing, /marketing
-posthog — aggregate, engagement, /analytics/cafe
-settings_read — aggregate, settings, /admin/settings
-system_status — aggregate, system, /ops
-table_read — list, tables
-search — knowledge, howto
-describe — knowledge, howto
-page_lookup — knowledge, howto
-usage — meta, howto, /assistant/usage
-propose_job — meta, howto
-tournaments_summary — aggregate, courts, /desk/tournaments
-report_matches — aggregate, courts, /reports/courts
-loyalty_summary — aggregate, customers, /admin/loyalty
+panel_headline: aggregate, money, /panel
+report_revenue: aggregate, money, /reports/revenue
+report_compare: aggregate, money, /reports/revenue
+report_drill: list, money, /panel
+payments_list: list, money, /reports/revenue
+report_cafe: aggregate, cafe, /reports/cafe
+analytics_daily_sales: aggregate, cafe, /analytics/cafe
+analytics_sold_items: aggregate, cafe, /analytics/cafe
+analytics_best_sellers: aggregate, cafe, /analytics/cafe
+analytics_item_margins: aggregate, cafe, /analytics/cafe
+analytics_price_bands: aggregate, cafe, /analytics/cafe
+analytics_hourly: aggregate, cafe, /analytics/cafe
+analytics_bought_together: aggregate, cafe, /analytics/cafe
+analytics_menu_snapshot: aggregate, cafe, /admin/menu
+tabs_list: list, cafe, /observation/tills
+report_courts: aggregate, courts, /reports/courts
+analytics_courts_summary: aggregate, courts, /analytics/courts
+analytics_courts_demand: aggregate, courts, /analytics/courts
+analytics_courts_endings: aggregate, courts, /analytics/courts
+analytics_courts_guests: aggregate, courts, /analytics/courts
+analytics_courts_cafe: aggregate, courts, /analytics/courts
+bookings_list: list, courts, /observation/courts
+booking_bill: lookup, courts, /desk
+series_detail: lookup, courts, /desk/series/new
+courts_and_rates: aggregate, courts, /admin/rates
+report_stock: aggregate, stock, /reports/stock
+stock_view: list, stock, /stock
+ops_overview: aggregate, system, /ops
+list_staff: list, staff, /admin/staff
+staff_requests_page: list, staff, /observation/requests
+report_staff_activity: aggregate, staff, /reports/staff
+break_history: list, staff, /admin/staff
+audit_page: list, audit, /admin/audit
+customer_search: list, customers, /desk/customers
+customer_record: lookup, customers, /desk/customers
+analytics_promo: aggregate, marketing, /admin/promotions
+marketing_overview: aggregate, marketing, /marketing
+marketing_campaign_performance: lookup, marketing, /marketing
+posthog: aggregate, engagement, /analytics/cafe
+settings_read: aggregate, settings, /admin/settings
+system_status: aggregate, system, /ops
+table_read: list, tables
+search: knowledge, howto
+describe: knowledge, howto
+page_lookup: knowledge, howto
+usage: meta, howto, /assistant/usage
+propose_job: meta, howto
+tournaments_summary: aggregate, courts, /desk/tournaments
+report_matches: aggregate, courts, /reports/courts
+loyalty_summary: aggregate, customers, /admin/loyalty
+history_figures: aggregate, money, /panel
+history_items: aggregate, cafe, /analytics/cafe
+history_courts: aggregate, courts, /reports/courts
+history_staff: aggregate, staff, /reports/staff

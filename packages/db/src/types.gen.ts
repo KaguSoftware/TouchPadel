@@ -547,6 +547,15 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_cache_clear: { Args: never; Returns: number }
+      assistant_cache_fill: { Args: { p_max_days?: number }; Returns: Json }
+      assistant_cache_init: { Args: { p_max_days?: number }; Returns: Json }
+      assistant_cache_invalidate: {
+        Args: { p_from: string; p_to: string }
+        Returns: number
+      }
+      assistant_cache_scope: { Args: { p_venues: string[] }; Returns: string }
+      assistant_cache_status: { Args: never; Returns: Json }
       assistant_chunk_source: {
         Args: { p_kind: string; p_ref: string }
         Returns: Json
@@ -568,6 +577,54 @@ export type Database = {
       assistant_delete_chunk: {
         Args: { p_kind: string; p_ref: string }
         Returns: number
+      }
+      assistant_detail_collect: {
+        Args: {
+          p_family: string
+          p_from: string
+          p_group: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_detail_compute: {
+        Args: { p_family: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      assistant_detail_merge: {
+        Args: { p_family: string; p_parts: Json }
+        Returns: Json
+      }
+      assistant_history_courts: {
+        Args: {
+          p_from: string
+          p_group?: string
+          p_hours?: boolean
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_history_figures: {
+        Args: {
+          p_extra?: boolean
+          p_from: string
+          p_group?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_history_items: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_order?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_history_staff: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
       }
       assistant_in_list: {
         Args: { p_col: string; p_values: Json }
@@ -5671,6 +5728,30 @@ export type Database = {
           },
         ]
       }
+      assistant_cache_config: {
+        Row: {
+          enabled: boolean
+          freeze_days: number
+          id: boolean
+          initialised_at: string | null
+          last_fill_at: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          freeze_days?: number
+          id?: boolean
+          initialised_at?: string | null
+          last_fill_at?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          freeze_days?: number
+          id?: boolean
+          initialised_at?: string | null
+          last_fill_at?: string | null
+        }
+        Relationships: []
+      }
       assistant_calls: {
         Row: {
           cache_read_tokens: number
@@ -5918,6 +5999,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      assistant_day_detail: {
+        Row: {
+          business_date: string
+          computed_at: string
+          data: Json
+          family: string
+          scope: string
+        }
+        Insert: {
+          business_date: string
+          computed_at?: string
+          data: Json
+          family: string
+          scope: string
+        }
+        Update: {
+          business_date?: string
+          computed_at?: string
+          data?: Json
+          family?: string
+          scope?: string
+        }
+        Relationships: []
+      }
+      assistant_day_facts: {
+        Row: {
+          business_date: string
+          computed_at: string
+          facts: Json
+          scope: string
+        }
+        Insert: {
+          business_date: string
+          computed_at?: string
+          facts: Json
+          scope: string
+        }
+        Update: {
+          business_date?: string
+          computed_at?: string
+          facts?: Json
+          scope?: string
+        }
+        Relationships: []
       }
       assistant_index_queue: {
         Row: {

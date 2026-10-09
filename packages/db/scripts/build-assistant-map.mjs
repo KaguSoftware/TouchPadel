@@ -959,8 +959,9 @@ export function renderCompact(map) {
   }
   lines.push('', '## Rules', '');
   for (const r of rules) lines.push(`### ${r.title}`, r.body, '');
-  lines.push('## Tools', '', 'name — kind, scope, page with the same numbers', '');
-  for (const t of map._tools ?? []) lines.push(`${t.name} — ${t.kind}, ${t.scope}${t.route ? `, ${t.route}` : ''}`);
+  // ': ' not ' — ' (3 bytes), as for the pages: 2026-10-09 the prefix passed the byte target again.
+  lines.push('## Tools', '', 'name: kind, scope, page with the same numbers', '');
+  for (const t of map._tools ?? []) lines.push(`${t.name}: ${t.kind}, ${t.scope}${t.route ? `, ${t.route}` : ''}`);
   lines.push('');
   return lines.join('\n');
 }

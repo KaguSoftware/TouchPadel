@@ -110,18 +110,19 @@ async function openDrawerWithScopes(page: Page, s: { railButton: RegExp; drawerT
 }
 
 test.describe('owner assistant', () => {
-  test('rail button opens the drawer with Cafe + how-to pre-checked and the start size', async ({ page }) => {
+  test('rail button opens the drawer with every scope pre-checked and the start size', async ({ page }) => {
     await signIn(page, SEED_STAFF.owner);
     await page.goto(`${OPERATOR_URL}/analytics/cafe`);
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
 
     const dialog = await openDrawerWithScopes(page, EN);
 
-    // The page's own scope plus Pages and how-to — and nothing else.
+    // Every scope (2026-10-09): nothing is pre-loaded, the assistant decides what to read.
     await expect(dialog.getByRole('checkbox', { name: EN.scopeCafe })).toBeChecked();
     await expect(dialog.getByRole('checkbox', { name: EN.scopeHowto })).toBeChecked();
-    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
-    expect(await dialog.getByRole('checkbox').count()).toBeGreaterThan(2);
+    const boxes = await dialog.getByRole('checkbox').count();
+    expect(boxes).toBeGreaterThan(2);
+    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(boxes);
 
     // The dry run answers one start line; the boxes carry no size of their own.
     await expect(dialog.getByText(EN.startLine)).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
@@ -148,7 +149,7 @@ test.describe('owner assistant', () => {
     await page.goto(`${OPERATOR_URL}/analytics/cafe`);
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
     const dialog = await openDrawerWithScopes(page, EN);
-    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
+    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(await dialog.getByRole('checkbox').count());
 
     await dialog.getByRole('button', { name: EN.presetJustHelp, exact: true }).click();
     await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(1);
