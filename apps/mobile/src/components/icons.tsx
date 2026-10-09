@@ -56,7 +56,10 @@ export const ClockIcon = (p: IconProps) => (
   <StrokeIcon d={['M12 7v5l3 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z']} {...p} />
 );
 export const StopwatchIcon = (p: IconProps) => (
-  <StrokeIcon d={['M12 9v4l2.5 2M12 5.5a7.5 7.5 0 107.5 7.5A7.5 7.5 0 0012 5.5zM10 2.5h4']} {...p} />
+  <StrokeIcon
+    d={['M12 9v4l2.5 2M12 5.5a7.5 7.5 0 107.5 7.5A7.5 7.5 0 0012 5.5zM10 2.5h4']}
+    {...p}
+  />
 );
 export const TagIcon = (p: IconProps) => (
   <StrokeIcon
@@ -68,7 +71,10 @@ export const WifiOffIcon = (p: IconProps) => (
   <StrokeIcon d={['M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0M12 19.3h.01M4 4l16 16']} {...p} />
 );
 export const BellIcon = (p: IconProps) => (
-  <StrokeIcon d={['M12 4a6 6 0 00-6 6c0 5-1.5 6-2 7h16c-.5-1-2-2-2-7a6 6 0 00-6-6zM10 20a2 2 0 004 0']} {...p} />
+  <StrokeIcon
+    d={['M12 4a6 6 0 00-6 6c0 5-1.5 6-2 7h16c-.5-1-2-2-2-7a6 6 0 00-6-6zM10 20a2 2 0 004 0']}
+    {...p}
+  />
 );
 export const GlobeIcon = (p: IconProps) => (
   <StrokeIcon
@@ -89,7 +95,9 @@ export const SunIcon = (p: IconProps) => (
 );
 export const PhoneIcon = (p: IconProps) => (
   <StrokeIcon
-    d={['M8 3h8a1.5 1.5 0 011.5 1.5v15A1.5 1.5 0 0116 21H8a1.5 1.5 0 01-1.5-1.5v-15A1.5 1.5 0 018 3zM10.5 17.8h3']}
+    d={[
+      'M8 3h8a1.5 1.5 0 011.5 1.5v15A1.5 1.5 0 0116 21H8a1.5 1.5 0 01-1.5-1.5v-15A1.5 1.5 0 018 3zM10.5 17.8h3',
+    ]}
     {...p}
   />
 );
@@ -115,7 +123,10 @@ export const SearchIcon = (p: IconProps) => (
  */
 export const SparkIcon = (p: IconProps) => (
   <StrokeIcon
-    d={['M10.5 4l1.9 5.1L17.5 11l-5.1 1.9L10.5 18l-1.9-5.1L3.5 11l5.1-1.9z', 'M18.5 3.5v4M16.5 5.5h4']}
+    d={[
+      'M10.5 4l1.9 5.1L17.5 11l-5.1 1.9L10.5 18l-1.9-5.1L3.5 11l5.1-1.9z',
+      'M18.5 3.5v4M16.5 5.5h4',
+    ]}
     {...p}
   />
 );
@@ -127,6 +138,9 @@ export const ArrowUpIcon = (p: IconProps) => (
 export const StopIcon = (p: IconProps) => <StrokeIcon d={['M7.5 7.5h9v9h-9z']} {...p} />;
 export const ChevronIcon = (p: IconProps) => <StrokeIcon d={['M9 6l6 6-6 6']} flip {...p} />;
 export const BackChevronIcon = (p: IconProps) => <StrokeIcon d={['M15 6l-6 6 6 6']} flip {...p} />;
+/** Open / close a row that expands downward; vertical, so never mirrored. */
+export const ChevronDownIcon = (p: IconProps) => <StrokeIcon d={['M6 9l6 6 6-6']} {...p} />;
+export const ChevronUpIcon = (p: IconProps) => <StrokeIcon d={['M6 15l6-6 6 6']} {...p} />;
 /**
  * Android's back affordance. Material navigates back with an ARROW (shaft plus
  * head), not iOS's bare chevron — the two platforms draw the same gesture with
@@ -179,11 +193,17 @@ export const ImageIcon = (p: IconProps) => (
 // Phase 2 Milestone 4b: the camera pages' Today rows.
 /** Scan an order: a camera. */
 export const CameraIcon = (p: IconProps) => (
-  <StrokeIcon d={['M4 7.5h3.5L9 5h6l1.5 2.5H20V19H4V7.5zM12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6z']} {...p} />
+  <StrokeIcon
+    d={['M4 7.5h3.5L9 5h6l1.5 2.5H20V19H4V7.5zM12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6z']}
+    {...p}
+  />
 );
 /** Scan a receipt: a paper slip with a torn foot and two lines. */
 export const ReceiptIcon = (p: IconProps) => (
-  <StrokeIcon d={['M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21V3zM9 8h6M9 12h6M9 16h3']} {...p} />
+  <StrokeIcon
+    d={['M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21V3zM9 8h6M9 12h6M9 16h3']}
+    {...p}
+  />
 );
 /** Add to stock: a square with a plus. */
 export const PlusSquareIcon = (p: IconProps) => (
@@ -191,7 +211,13 @@ export const PlusSquareIcon = (p: IconProps) => (
 );
 /** Show guest view: an eye. Not directional. */
 export const EyeIcon = (p: IconProps) => (
-  <StrokeIcon d={['M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z', 'M12 9.2a2.8 2.8 0 100 5.6 2.8 2.8 0 000-5.6z']} {...p} />
+  <StrokeIcon
+    d={[
+      'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z',
+      'M12 9.2a2.8 2.8 0 100 5.6 2.8 2.8 0 000-5.6z',
+    ]}
+    {...p}
+  />
 );
 /** Place an order (0251): one more, one less, on an order line. */
 export const PlusIcon = (p: IconProps) => <StrokeIcon d={['M12 5v14M5 12h14']} {...p} />;
@@ -206,7 +232,10 @@ export const SwapIcon = (p: IconProps) => (
 );
 /** The member card (loyalty plan §5.1): three finder squares and a few modules; never mirrored. */
 export const QrIcon = (p: IconProps) => (
-  <StrokeIcon d={['M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2.5v2.5H14zM17.5 17.5H20V20h-2.5z']} {...p} />
+  <StrokeIcon
+    d={['M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2.5v2.5H14zM17.5 17.5H20V20h-2.5z']}
+    {...p}
+  />
 );
 /** Count the store: a clipboard with lines. */
 export const ClipboardIcon = (p: IconProps) => (
@@ -228,9 +257,20 @@ export function PadelBallIcon({
   opacity?: number;
 }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none" opacity={opacity} accessible={false}>
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      fill="none"
+      opacity={opacity}
+      accessible={false}
+    >
       <Circle cx={24} cy={24} r={21} fill={fill} />
-      <Path d="M10 7.5c7.5 9 7.5 24 0 33M38 7.5c-7.5 9-7.5 24 0 33" stroke={stroke} strokeWidth={strokeWidth} />
+      <Path
+        d="M10 7.5c7.5 9 7.5 24 0 33M38 7.5c-7.5 9-7.5 24 0 33"
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+      />
     </Svg>
   );
 }
@@ -241,7 +281,16 @@ type TabIconProps = { size?: number; color: ColorValue };
 
 export const TabBookIcon = ({ size = 21, color }: TabIconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
-    <Ellipse cx={9} cy={9} rx={4.6} ry={6} stroke={color} strokeWidth={2} rotation={-45} origin="9, 9" />
+    <Ellipse
+      cx={9}
+      cy={9}
+      rx={4.6}
+      ry={6}
+      stroke={color}
+      strokeWidth={2}
+      rotation={-45}
+      origin="9, 9"
+    />
     <Path d="M13.3 13.3L19.5 19.5" stroke={color} strokeWidth={2.4} strokeLinecap="round" />
     <Circle cx={18.5} cy={6} r={2.2} fill={color} />
   </Svg>
@@ -255,7 +304,12 @@ export const TabBookingsIcon = ({ size = 21, color }: TabIconProps) => (
 export const TabProfileIcon = ({ size = 21, color }: TabIconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
     <Circle cx={12} cy={8.5} r={3.5} stroke={color} strokeWidth={2} />
-    <Path d="M5 19.5c1.5-3.2 4-4.5 7-4.5s5.5 1.3 7 4.5" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    <Path
+      d="M5 19.5c1.5-3.2 4-4.5 7-4.5s5.5 1.3 7 4.5"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+    />
   </Svg>
 );
 
@@ -272,7 +326,12 @@ export function TitleSquiggle({ width = 76 }: { width?: number }) {
       accessible={false}
       style={[{ marginTop: 4 }, mirror(dir)]}
     >
-      <Path d="M2 6C22 1 50 1 74 4.5" stroke={brand.green} strokeWidth={3.5} strokeLinecap="round" />
+      <Path
+        d="M2 6C22 1 50 1 74 4.5"
+        stroke={brand.green}
+        strokeWidth={3.5}
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }

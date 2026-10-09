@@ -213,6 +213,8 @@ jest.mock('expo-router', () => {
 
 jest.mock('expo-router/react-navigation', () => ({
   LocaleDirContext: mockCreateContext('ltr'),
+  // No navigator, so no measured bar: screens fall back to their own height.
+  HeaderHeightContext: mockCreateContext(undefined),
   useNavigation: () => ({ addListener: () => () => {}, setOptions: () => {} }),
 }));
 

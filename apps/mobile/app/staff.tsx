@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useState, type ComponentType, type ReactElement } from 'react';
 import {
   Alert,
   Animated,
@@ -6,6 +6,8 @@ import {
   Easing,
   Linking,
   Modal,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -29,10 +31,11 @@ import {
 } from '../src/components/ui';
 import {
   BellIcon,
-  CalendarIcon,
+  CameraIcon,
   ChevronIcon,
   EyeIcon,
   SlidersIcon,
+  StopwatchIcon,
   TitleSquiggle,
   type IconProps,
 } from '../src/components/icons';
@@ -66,36 +69,39 @@ import { useToast } from '../src/components/overlays';
  *
  * Top to bottom: who and where, the venue picker (only with more than one
  * venue), the work list, the pages this role has as a grid of group tiles
- * (todayGroups.ts; a tile opens its rows in a sheet, app/staff-group.tsx), and
+ * (todayGroups.ts; a tile opens its rows in a sheet, app/staff-group.tsx) with
+ * coach mode and the owner's screenshots as tiles that open their page, and
  * the account as three buttons: work alerts, guest view, Settings. Reached by
  * replacing, after a staff sign-in or from the tabs' gate, so there is nothing
  * to go back to: no header at all, since the page has no date to change.
  */
 
 /**
- * One group as a tile: its icon (with an amber dot when a row in it is
+ * One group as a tile (or one page, as coach mode): its icon (with an amber dot when a row in it is
  * waiting on the person), the title and a one-line preview of its pages.
  */
 function GroupTile({
-  group,
+  testID,
+  icon: Icon,
+  title,
   waiting,
   preview,
   compact,
   onPress,
 }: {
-  group: TodayGroup;
+  testID: string;
+  icon: ComponentType<IconProps>;
+  title: string;
   waiting: boolean;
   preview: string;
   /** The owner's Today: a little tighter than the others, so the page fits without scrolling. */
   compact?: boolean;
   onPress: () => void;
 }) {
-  const { t } = useLocale();
   const { colors, fonts } = useTheme();
-  const Icon = group.icon;
   return (
     <Pressable
-      testID={`staff.group.${group.key}`}
+      testID={testID}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => ({
@@ -128,7 +134,7 @@ function GroupTile({
             the group is waiting on the person. */}
         {waiting ? (
           <View
-            testID={`staff.group.${group.key}.waiting`}
+            testID={`${testID}.waiting`}
             style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.ambtext }}
           />
         ) : null}
@@ -146,7 +152,7 @@ function GroupTile({
             color: colors.ink,
           }}
         >
-          {t(group.titleKey)}
+          {title}
         </Text>
         <Text
           numberOfLines={1}
@@ -156,6 +162,87 @@ function GroupTile({
         </Text>
       </View>
     </Pressable>
+  );
+}
+
+/** Tiles on one page of the grid: two a row, four rows (owner, 2026-10-08). */
+const TILES_PER_PAGE = 8;
+
+/**
+ * Today's tiles, two a row, each a fixed share of the width: a lone last tile
+ * keeps the same size as the rest instead of stretching. Up to eight fit one
+ * page; more and the grid becomes pages swiped sideways, with a dot per page
+ * under it (owner, 2026-10-08).
+ */
+function TilePages({ tiles }: { tiles: ReactElement[] }) {
+  const { colors } = useTheme();
+  const [width, setWidth] = useState(0);
+  const [page, setPage] = useState(0);
+
+  const pages: ReactElement[][] = [];
+  for (let i = 0; i < tiles.length; i += TILES_PER_PAGE) {
+    pages.push(tiles.slice(i, i + TILES_PER_PAGE));
+  }
+
+  const grid = (pageTiles: ReactElement[]) => (
+    <View
+      style={{
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        rowGap: space.s,
+      }}
+    >
+      {pageTiles.map((tile) => (
+        <View key={tile.key} style={{ width: '48.5%', flexDirection: 'row' }}>
+          {tile}
+        </View>
+      ))}
+    </View>
+  );
+
+  if (pages.length <= 1) return grid(tiles);
+
+  const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (width > 0) setPage(Math.round(e.nativeEvent.contentOffset.x / width));
+  };
+
+  return (
+    <View testID="staff.tiles" onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ gap: space.s }}>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onScrollEnd}
+        // Pages are drawn once the width is known, so each is exactly one screen wide.
+        style={{ opacity: width > 0 ? 1 : 0 }}
+      >
+        {pages.map((pageTiles, i) => (
+          <View key={i} testID={`staff.tiles.page.${i}`} style={{ width: width || undefined }}>
+            {grid(pageTiles)}
+          </View>
+        ))}
+      </ScrollView>
+      <View
+        testID="staff.tiles.dots"
+        // Decoration: the pages themselves are what a screen reader walks.
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+        style={{ flexDirection: 'row', justifyContent: 'center', gap: 6 }}
+      >
+        {pages.map((_, i) => (
+          <View
+            key={i}
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: 3.5,
+              backgroundColor: i === Math.min(page, pages.length - 1) ? colors.gstrong : colors.line,
+            }}
+          />
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -595,20 +682,14 @@ function TodayScreen() {
         {venueId ? <TodayChecklists venueId={venueId} /> : null}
         {venueId ? <WorkList venueId={venueId} /> : null}
 
-        {/* Two tiles a row, each a fixed share of the width: a lone last tile
-            keeps the same size as the rest instead of stretching. */}
-        <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            justifyContent: 'space-between',
-            rowGap: space.s,
-          }}
-        >
-          {groups.map((group) => (
-            <View key={group.key} style={{ width: '48.5%', flexDirection: 'row' }}>
+        <TilePages
+          tiles={[
+            ...groups.map((group) => (
               <GroupTile
-                group={group}
+                key={group.key}
+                testID={`staff.group.${group.key}`}
+                icon={group.icon}
+                title={t(group.titleKey)}
                 waiting={waiting(group)}
                 preview={group.rows.map(label).join(', ')}
                 compact={compact}
@@ -618,9 +699,50 @@ function TodayScreen() {
                     : setSheetKey(group.key)
                 }
               />
-            </View>
-          ))}
-        </View>
+            )),
+            // Staff who coach reach coach mode here (coaching C-27, R45): the
+            // tabs, and Profile with them, are out of reach for a staff
+            // session. A retired coach keeps the statements (C-25). A tile in
+            // the grid, opening its page straight away (owner, 2026-10-08).
+            ...(coachEntry
+              ? [
+                  <GroupTile
+                    key="coach-mode"
+                    testID="staff.coach-mode"
+                    icon={StopwatchIcon}
+                    title={t(
+                      coachEntry === '/coach-mode'
+                        ? 'staff.shell.coachMode'
+                        : 'staff.shell.coachStatements',
+                    )}
+                    waiting={false}
+                    preview={t(
+                      coachEntry === '/coach-mode'
+                        ? 'staff.shell.coachModePreview'
+                        : 'staff.shell.coachStatementsPreview',
+                    )}
+                    compact={compact}
+                    onPress={() => router.push(coachEntry)}
+                  />,
+                ]
+              : []),
+            // The owner's list of staff screenshots (StaffScreenGuard reports them).
+            ...(staff.role === 'owner'
+              ? [
+                  <GroupTile
+                    key="screenshots"
+                    testID="staff.screenshots"
+                    icon={CameraIcon}
+                    title={t('staff.screenshots.entry')}
+                    waiting={false}
+                    preview={t('staff.screenshots.entryPreview')}
+                    compact={compact}
+                    onPress={() => router.push('/staff-screenshots')}
+                  />,
+                ]
+              : []),
+          ]}
+        />
 
         {/* The account and sign-out sit at the foot of the page: pushed to the
             bottom of the screen when the page is short, after the tiles when it
@@ -628,22 +750,6 @@ function TodayScreen() {
         <View style={{ marginTop: 'auto', paddingTop: compact ? space.s : space.m, gap: compact ? 10 : space.sm }}>
           <View style={{ gap: space.xs }}>
             <MicroLabel style={{ paddingStart: 4 }}>{t('staff.shell.account.title')}</MicroLabel>
-            {/* Staff who coach reach coach mode here (coaching C-27, R45): the
-                tabs, and Profile with them, are out of reach for a staff
-                session. A retired coach keeps the statements (C-25). */}
-            {coachEntry ? (
-              <View style={{ flexDirection: 'row' }}>
-                <AccountButton
-                  testID="staff.coach-mode"
-                  icon={CalendarIcon}
-                  compact={compact}
-                  label={t(
-                    coachEntry === '/coach-mode' ? 'staff.shell.coachMode' : 'staff.shell.coachStatements',
-                  )}
-                  onPress={() => router.push(coachEntry)}
-                />
-              </View>
-            ) : null}
             <View style={{ flexDirection: 'row', gap: space.s }}>
               <AccountButton
                 testID={
@@ -673,16 +779,6 @@ function TodayScreen() {
                   router.replace('/(tabs)');
                 }}
               />
-              {/* The owner's list of staff screenshots (StaffScreenGuard reports them). */}
-              {staff.role === 'owner' ? (
-                <AccountButton
-                  testID="staff.screenshots"
-                  icon={EyeIcon}
-                  label={t('staff.screenshots.entry')}
-                  compact={compact}
-                  onPress={() => router.push('/staff-screenshots')}
-                />
-              ) : null}
               <AccountButton
                 testID="staff.settings"
                 icon={SlidersIcon}

@@ -51,6 +51,9 @@ export const staffShellEn = {
   // Coaching (docs/design/coaching/guest.md §4.8.1, C-27): the hub row for staff who coach.
   coachMode: 'Coach mode',
   coachStatements: 'Coach statements',
+  // The coach tile's one-line preview on Today, under its title.
+  coachModePreview: 'Lessons, hours, statements',
+  coachStatementsPreview: 'Past lessons and pay',
   pending: {
     slow: 'Checking your account is taking longer than usual. Check your connection and try again.',
   },

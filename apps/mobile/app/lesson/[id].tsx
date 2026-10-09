@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { clearBarOptions, useClearBarPad } from '../../src/navigation/clearBar';
 import {
   countPhrase,
   formatDateTime,
@@ -67,6 +68,8 @@ function LessonDetailScreen() {
   // After "Not me" the lesson is gone: back, or My lessons when opened from a push.
   const back = useBack('/my-lessons');
   const insets = useSafeAreaInsets();
+  // A clear bar, so a swipe back from a coach page fades no solid bar in (clearBar.ts).
+  const barPad = useClearBarPad();
   const params = useLocalSearchParams<{ id?: string }>();
   const id = typeof params.id === 'string' && params.id ? params.id : null;
   const lesson = useMyLesson(id);
@@ -88,7 +91,7 @@ function LessonDetailScreen() {
     }, [refetch, isStale]),
   );
 
-  const header = <Stack.Screen options={{ title: t('coaching.guest.lesson.title') }} />;
+  const header = <Stack.Screen options={{ title: t('coaching.guest.lesson.title'), ...clearBarOptions }} />;
   const data: MyLesson | null = lesson.data ?? null;
   const tz = data?.timezone ?? 'Asia/Baghdad';
   const phone = data?.branchPhone ?? null;
@@ -100,7 +103,7 @@ function LessonDetailScreen() {
 
   if (!id) {
     return (
-      <Screen edges={[]}>
+      <Screen edges={[]} style={barPad}>
         {header}
         {notFound}
       </Screen>
@@ -110,7 +113,7 @@ function LessonDetailScreen() {
   if (!data) {
     const code = lessonErrorCode(lesson.error);
     return (
-      <Screen edges={[]}>
+      <Screen edges={[]} style={barPad}>
         {header}
         {lesson.isError && (code === 'ENROLMENT_NOT_FOUND' || code === 'INVALID_ARGUMENT') ? (
           notFound
@@ -170,7 +173,7 @@ function LessonDetailScreen() {
   // ── C-21: the confirm card is the whole screen until "Yes" ─────────────────
   if (data.confirmNeeded) {
     return (
-      <Screen edges={[]}>
+      <Screen edges={[]} style={barPad}>
         {header}
         <View style={{ paddingTop: space.m }}>
           <LinkConfirmCard
@@ -251,7 +254,7 @@ function LessonDetailScreen() {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} style={barPad}>
       {header}
       <ScrollView
         showsVerticalScrollIndicator={false}

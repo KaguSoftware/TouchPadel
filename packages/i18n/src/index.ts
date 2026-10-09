@@ -11,6 +11,7 @@ export {
   formatDateTime,
   formatTimeRange,
   formatWeekdayShort,
+  formatWeekdayLong,
   formatMonthShort,
   formatMonthYear,
   formatDayNumber,

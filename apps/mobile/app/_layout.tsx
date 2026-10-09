@@ -297,7 +297,10 @@ function RootStack() {
           />
           {/* The same reader from the sign-up checkbox; swiping it away leaves
           the box unticked. */}
-          <Stack.Screen name="terms-review" options={{ presentation: 'modal', headerShown: false }} />
+          <Stack.Screen
+            name="terms-review"
+            options={{ presentation: 'modal', headerShown: false }}
+          />
           {/* Formerly the (gated) group, flattened onto the root stack so that
           every push leaves real history behind it and UIKit draws its OWN back
           item — the same one, animated, on every screen. Each carries its own
@@ -336,9 +339,21 @@ function RootStack() {
           screens are public, the review, the lesson and My lessons carry
           their own session guard. */}
           <Stack.Screen name="coaches" />
-          <Stack.Screen name="coach/[id]" />
+          {/* Transparent from the push's first frame: the coach page's photo
+          runs under the bar, and a bar drawn opaque until the screen's own
+          options land flashed a white strip (coach/[id].tsx). */}
+          <Stack.Screen
+            name="coach/[id]"
+            options={{ headerTransparent: true, headerStyle: { backgroundColor: 'transparent' } }}
+          />
           <Stack.Screen name="classes" />
           <Stack.Screen name="class/[id]" />
+          {/* The private lesson page runs its blue header under a transparent
+          bar from the first frame; its other states set a plain one. */}
+          <Stack.Screen
+            name="lesson-times"
+            options={{ headerTransparent: true, headerStyle: { backgroundColor: 'transparent' } }}
+          />
           <Stack.Screen name="lesson-review" />
           <Stack.Screen name="lesson/[id]" />
           <Stack.Screen name="my-lessons" />

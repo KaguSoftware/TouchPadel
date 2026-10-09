@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { clearBarOptions, useClearBarPad } from '../../src/navigation/clearBar';
 import { needsTermsAcceptance } from '@touch/core';
 import {
   countPhrase,
@@ -64,6 +65,8 @@ export default function ClassDetailScreen() {
   const router = useRouter();
   const toast = useToast();
   const insets = useSafeAreaInsets();
+  // A clear bar, so a swipe back from a coach page fades no solid bar in (clearBar.ts).
+  const barPad = useClearBarPad();
   const { session } = useAuth();
   const params = useLocalSearchParams<{ id?: string; kind?: string }>();
   const kind: ClassKind | null =
@@ -96,11 +99,11 @@ export default function ClassDetailScreen() {
   const busy = joinLesson.isPending || joinCourse.isPending || payment.busy;
   const errorCtx = { locale, phone, termsCurrent: !needsTerms };
 
-  const header = <Stack.Screen options={{ title: t('coaching.guest.class.title') }} />;
+  const header = <Stack.Screen options={{ title: t('coaching.guest.class.title'), ...clearBarOptions }} />;
 
   if (!kind || !id) {
     return (
-      <Screen edges={[]}>
+      <Screen edges={[]} style={barPad}>
         {header}
         <EmptyState
           testID="class-detail.not-found"
@@ -113,7 +116,7 @@ export default function ClassDetailScreen() {
 
   if (!o || gone) {
     return (
-      <Screen edges={[]}>
+      <Screen edges={[]} style={barPad}>
         {header}
         {gone ? (
           <EmptyState
@@ -140,7 +143,7 @@ export default function ClassDetailScreen() {
   // MB-12: coaching is off at the offer's branch; nothing else came back.
   if (o.off) {
     return (
-      <Screen edges={[]}>
+      <Screen edges={[]} style={barPad}>
         {header}
         <EmptyState testID="class-detail.off" fill title={t('coaching.common.errors.off')} />
       </Screen>
@@ -249,7 +252,7 @@ export default function ClassDetailScreen() {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} style={barPad}>
       {header}
       <ScrollView
         showsVerticalScrollIndicator={false}
