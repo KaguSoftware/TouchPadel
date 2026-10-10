@@ -9,7 +9,6 @@ export const staffFloorEn = {
   row: 'Place an order',
   tables: {
     title: 'Place an order',
-    lead: 'Pick the table.',
     dayClosed: 'The day isn’t open yet. Orders can go in once the till opens the day.',
     empty: 'No tables are set up for this branch yet.',
     table: 'Table {number}',

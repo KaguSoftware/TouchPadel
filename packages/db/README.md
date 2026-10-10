@@ -34,6 +34,7 @@ pnpm --filter @touch/db db:start      # supabase start
 pnpm --filter @touch/db db:reset      # migrations + seed.sql
 pnpm --filter @touch/db db:types      # regenerate src/types.gen.ts (COMMIT the result)
 pnpm --filter @touch/db db:fixtures   # apply fixtures/ via psql (dev/staging only)
+pnpm --filter @touch/db db:fixtures:matches  # opt-in: open matches on, guests, tickets, 6 matches
 pnpm --filter @touch/db test          # vitest (skips itself if the stack is down)
 pnpm --filter @touch/db test:concurrency
 ```

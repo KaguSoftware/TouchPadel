@@ -82,6 +82,7 @@ export const ar: Messages = {
     passwordRequired: 'كلمة المرور مطلوبة.',
     emailRequired: 'البريد الإلكتروني مطلوب.',
     emailInvalid: 'البريد الإلكتروني غير صالح.',
+    accountExistsTitle: 'لديك حساب بالفعل',
     phoneTaken: 'يوجد حساب بهذا الرقم بالفعل. سجّل الدخول بدلًا من ذلك.',
     emailTaken: 'يوجد حساب بهذا البريد بالفعل. سجّل الدخول بدلًا من ذلك.',
     phoneRequired: 'رقم الهاتف مطلوب.',
@@ -857,8 +858,7 @@ export const ar: Messages = {
     scrollHint: 'مرّر حتى النهاية لتتمكّن من الموافقة.',
     part: 'الجزء {n} من {total}',
     accept: 'موافقة ومتابعة',
-    signOut: 'تسجيل الخروج',
-    deleteInstead: 'حذف حسابي بدلًا من ذلك',
+    notNow: 'ليس الآن',
     failed: 'تعذّر حفظ إجابتك. تحقّق من اتصالك وحاول مرة أخرى.',
   },
   cafe: {

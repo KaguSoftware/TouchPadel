@@ -1,13 +1,14 @@
 /**
  * Today with the page lanes mounted (build-contracts-2026-09-23 §6.1): the
- * checklists still to finish at the top of To do, the work list under them,
- * and the rows each role gets. The route's own table case is in
+ * rows each role gets, and the Work alerts button whose badge counts the
+ * checklists still to finish and the work list on the page it opens
+ * (app/staff-work.tsx, owner 2026-10-10). The route's own table case is in
  * staff.smoke.test.tsx; these are extra states, in EN and AR, so this file
  * names no route (smokeCoverage counts each route in exactly one suite).
  */
-import { describe, expect, it, jest } from '@jest/globals';
 import { Platform } from 'react-native';
-import { fireEvent, within } from '@testing-library/react-native';
+import { describe, expect, it, jest } from '@jest/globals';
+import { act, fireEvent, within } from '@testing-library/react-native';
 import type { MyProtocolWork } from '@touch/core';
 import { formatNumber, formatTime, makeT, type Locale } from '@touch/i18n';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
@@ -15,6 +16,7 @@ import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
 import { dueText, type ChecklistsToday } from '../features/staff/checklists/logic';
 import StaffToday from '../../app/staff';
+import StaffWork from '../../app/staff-work';
 import StaffGroup from '../../app/staff-group';
 import { ROW_GROUPS } from '../features/staff/todayGroups';
 import { isGuestPreview, setGuestPreview } from '../features/staff/guestPreview';
@@ -140,7 +142,7 @@ describe.each(LOCALES)('Today in %s', (locale) => {
   const t = makeT(locale);
 
   it('puts the unfinished checklists above the work list, each opening its list', () => {
-    const screen = renderRoute(StaffToday, {
+    const screen = renderRoute(StaffWork, {
       locale,
       staff: { role: 'head_chef' },
       queryData: [
@@ -196,7 +198,7 @@ describe.each(LOCALES)('Today in %s', (locale) => {
   });
 
   it('shows no checklist block when every list is done', () => {
-    const screen = renderRoute(StaffToday, {
+    const screen = renderRoute(StaffWork, {
       locale,
       staff: { role: 'head_chef' },
       queryData: [
@@ -208,8 +210,64 @@ describe.each(LOCALES)('Today in %s', (locale) => {
       ],
     });
     try {
-      expect(screen.queryByText(t('staff.checklists.title'), { exact: false })).toBeNull();
+      expect(screen.queryByText(`${t('staff.checklists.title')} · `, { exact: false })).toBeNull();
+      expect(screen.queryByTestId(`staff.checklist.${CLOSE_RUN}`)).toBeNull();
       expect(screen.getByTestId(`staff.todo.${STEP}`)).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('keeps the work off Today and badges the Work alerts button with what waits', () => {
+    const screen = renderRoute(StaffToday, {
+      locale,
+      staff: { role: 'head_chef' },
+      queryData: [
+        [staffKeys.checklists(V), CHECKLISTS],
+        [staffKeys.work(V), WORK],
+      ],
+    });
+    try {
+      expect(screen.queryByTestId(`staff.checklist.${OPEN_RUN}`)).toBeNull();
+      expect(screen.queryByTestId(`staff.todo.${STEP}`)).toBeNull();
+      // Two unfinished checklists and one open step.
+      const button = screen.getByTestId('staff.alerts');
+      expect(within(button).getByTestId('staff.alerts.badge')).toBeTruthy();
+      expect(within(button).getByText(formatNumber(3, locale))).toBeTruthy();
+      fireEvent.press(button);
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-work' });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('shows no badge when nothing waits', () => {
+    const screen = renderRoute(StaffToday, {
+      locale,
+      staff: { role: 'head_chef' },
+      queryData: [
+        [staffKeys.checklists(V), { ...CHECKLISTS, lists: [] }],
+        [staffKeys.work(V), { ...WORK, todo: [], counts: { todo: 0, waiting: 0, to_decide: 0 } }],
+      ],
+    });
+    try {
+      expect(screen.queryByTestId('staff.alerts.badge')).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('says nothing is waiting on the work alerts page when it is empty', () => {
+    const screen = renderRoute(StaffWork, {
+      locale,
+      staff: { role: 'head_chef' },
+      queryData: [
+        [staffKeys.checklists(V), { ...CHECKLISTS, lists: [] }],
+        [staffKeys.work(V), { ...WORK, todo: [], counts: { todo: 0, waiting: 0, to_decide: 0 } }],
+      ],
+    });
+    try {
+      expect(screen.getByText(t('staff.shell.work.empty'))).toBeTruthy();
     } finally {
       screen.unmount();
     }
@@ -233,18 +291,29 @@ describe.each(LOCALES)('Today in %s', (locale) => {
     expect(withRow(chef, 'staff.row.marketing-inbox')).toBe(false);
   });
 
-  it('shows a tile per group, which opens the group in a sheet', () => {
+  it('shows a tile per group, which opens the native sheet on iOS, its rows opening their page', () => {
     const screen = renderRoute(StaffToday, { locale, staff: { role: 'manager' } });
     try {
       const tile = screen.getByTestId('staff.group.team');
       expect(within(tile).getByText(t('staff.shell.today.groups.team'))).toBeTruthy();
       // The rows are in the sheet, not on Today.
       expect(screen.queryByTestId('staff.row.deductions')).toBeNull();
+      const sheet = () => screen.UNSAFE_getByProps({ fitToContents: true });
+      expect(sheet().props.isPresented).toBe(false);
       fireEvent.press(tile);
-      expect(routerState.calls).toContainEqual({
-        method: 'push',
-        arg: { pathname: '/staff-group', params: { group: 'team' } },
-      });
+      expect(routerState.calls).toEqual([]);
+      expect(sheet().props.isPresented).toBe(true);
+      const list = screen.getByTestId('staff.sheet.list');
+      // The Host is pointerEvents="none" (the sheet's content is presented
+      // in its own controller on a phone), which fireEvent honours; the row's
+      // handler is called directly.
+      const row = within(list).getByTestId('staff.row.deductions');
+      act(() => row.props.onClick());
+      // The row closes the sheet, and its page opens once the sheet has gone.
+      expect(sheet().props.isPresented).toBe(false);
+      expect(routerState.calls).toEqual([]);
+      act(() => sheet().props.onDismiss({ nativeEvent: {} }));
+      expect(routerState.calls).toEqual([{ method: 'push', arg: '/staff-deductions' }]);
     } finally {
       screen.unmount();
     }
@@ -256,7 +325,6 @@ describe.each(LOCALES)('Today in %s', (locale) => {
     try {
       expect(screen.queryByTestId('staff.sheet.list')).toBeNull();
       fireEvent.press(screen.getByTestId('staff.group.team'));
-      // No route on Android: the native sheet never opened there.
       expect(routerState.calls).toEqual([]);
       const list = screen.getByTestId('staff.sheet.list');
       fireEvent.press(within(list).getByTestId('staff.row.deductions'));

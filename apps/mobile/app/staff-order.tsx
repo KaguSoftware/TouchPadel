@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +11,6 @@ import { ErrorState, SkeletonList } from '../src/components/states';
 import { RequireStaff } from '../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
 import { mapStaffError } from '../src/features/staff/edge';
-import { Lead } from '../src/features/staff/checklists/parts';
 import { SLIP_ROLES } from '../src/features/staff/scan/logic';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
 import { FLOOR_ROLES, type FloorTable } from '../src/features/staff/floor/logic';
@@ -45,6 +45,10 @@ function TablesScreen() {
   const drafts = useDraftTables();
   const pull = usePullRefresh(() => floor.refetch());
   const role = status.kind === 'staff' ? status.staff.role : null;
+  // Every tile gets the same measured width: flex alone let a short last
+  // row's tiles grow past the empty slots beside them.
+  const [gridWidth, setGridWidth] = useState(0);
+  const tileWidth = gridWidth > 0 ? (gridWidth - space.s * (PER_ROW - 1)) / PER_ROW : undefined;
 
   const tile = (table: FloorTable, closed: boolean) => {
     const tabs = table.tabs.length;
@@ -60,7 +64,7 @@ function TablesScreen() {
         disabled={closed}
         onPress={() => router.push({ pathname: '/staff-order-menu', params: { table: table.id } })}
         style={({ pressed }) => ({
-          flex: 1,
+          ...(tileWidth ? { width: tileWidth } : { flex: 1 }),
           minHeight: 88,
           padding: space.sm,
           borderRadius: radius.card,
@@ -86,11 +90,16 @@ function TablesScreen() {
               ? t('staff.floor.tables.tabsOpen', { count: formatNumber(tabs, locale) })
               : t('staff.floor.tables.free')}
           </Text>
-          {waiting ? (
-            <Text numberOfLines={1} style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.ambtext }}>
-              {t('staff.floor.tables.notSent')}
-            </Text>
-          ) : null}
+          {/* Every tile keeps this line's room, so a waiting order never makes
+              its row taller than the others. */}
+          <Text
+            numberOfLines={1}
+            accessibilityElementsHidden={!waiting}
+            importantForAccessibility={waiting ? 'auto' : 'no-hide-descendants'}
+            style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.ambtext, opacity: waiting ? 1 : 0 }}
+          >
+            {t('staff.floor.tables.notSent')}
+          </Text>
         </View>
       </Pressable>
     );
@@ -116,7 +125,7 @@ function TablesScreen() {
     // when the branch names none.
     const zones = [...new Set(tables.map((tb) => tb.zone ?? ''))];
     return (
-      <View style={{ gap: space.m }}>
+      <View style={{ gap: space.m }} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
         {!day_open ? (
           <Card style={{ padding: space.m, backgroundColor: colors.amb, borderColor: colors.ambline }}>
             <Text style={{ fontFamily: fonts.body600, fontSize: 13, lineHeight: 19, color: colors.ambtext }}>
@@ -132,10 +141,10 @@ function TablesScreen() {
             {rowsOf(tables.filter((tb) => (tb.zone ?? '') === zone), PER_ROW).map((row) => (
               <View key={row[0]!.id} style={{ flexDirection: 'row', gap: space.s }}>
                 {row.map((tb) => tile(tb, !day_open))}
-                {/* A short last row keeps its tiles the width of the others. */}
-                {Array.from({ length: PER_ROW - row.length }, (_, i) => (
-                  <View key={`gap-${i}`} style={{ flex: 1 }} />
-                ))}
+                {/* Before the first measure, a short last row keeps its tiles the width of the others. */}
+                {tileWidth
+                  ? null
+                  : Array.from({ length: PER_ROW - row.length }, (_, i) => <View key={`gap-${i}`} style={{ flex: 1 }} />)}
               </View>
             ))}
           </View>
@@ -152,7 +161,6 @@ function TablesScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Lead>{t('staff.floor.tables.lead')}</Lead>
         <View testID="staff-order.tables">{body()}</View>
         {/* The paper slip stays for when the phone is not enough (a big table
             written on a pad): it goes to the till as before. */}

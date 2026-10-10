@@ -89,6 +89,7 @@ export const en = {
     emailRequired: 'Enter your email address.',
     emailInvalid: 'Enter a valid email address.',
     // Sign-up: a confirmed account already owns this number / address.
+    accountExistsTitle: 'You already have an account',
     phoneTaken: 'This number already has an account. Sign in instead.',
     emailTaken: 'This email already has an account. Sign in instead.',
     phoneRequired: 'Enter your phone number.',
@@ -957,8 +958,7 @@ export const en = {
     scrollHint: 'Scroll to the end to agree.',
     part: 'Part {n} of {total}',
     accept: 'Accept and continue',
-    signOut: 'Sign out',
-    deleteInstead: 'Delete my account instead',
+    notNow: 'Not now',
     failed: "Couldn't save your answer. Check your connection and try again.",
   },
   cafe: {

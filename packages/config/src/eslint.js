@@ -232,6 +232,7 @@ const testIdElements = [
   'QuickMessageBar',
   'GenderAsk',
   'MatchRow',
+  'MatchCourtCard',
   'MatchEntryRow',
   'EntryCard',
   'MatchRulesCard',

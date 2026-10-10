@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { isPhoneTaken, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
@@ -7,7 +7,7 @@ import {
   isEmailTaken,
   mapEmailAuthError,
   parseAuthMethod,
-  signUpHidExistingEmail,
+  signUpHidExistingAccount,
   type AuthMethod,
 } from '../src/features/auth/emailAuth';
 import type { Locale } from '@touch/i18n';
@@ -108,6 +108,28 @@ function SignUpScreen() {
   });
 
 
+  /**
+   * The phone or email already has an account. Said on the field AND in a
+   * dialog whose Sign in opens sign-in on the same segment, the number or
+   * address already filled in: signing up again must never lead into the
+   * existing account through a fresh code.
+   */
+  const accountExists = (e164: string) => {
+    const message = t(method === 'email' ? 'auth.emailTaken' : 'auth.phoneTaken');
+    setFieldErrors(method === 'email' ? { email: message } : { phone: message });
+    Alert.alert(t('auth.accountExistsTitle'), message, [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('auth.signIn'),
+        onPress: () =>
+          router.replace({
+            pathname: '/sign-in',
+            params: method === 'email' ? { method, email: email.trim() } : { method, phone: e164 },
+          }),
+      },
+    ]);
+  };
+
   /** Shared field checks; the E.164 or null when something is wrong (already rendered). */
   const validate = (): string | null => {
     const invalid = validateSignUp({
@@ -161,9 +183,9 @@ function SignUpScreen() {
           { firstName, lastName, email, phone: e164, password, preferredLang, termsVersion: CURRENT_TERMS_VERSION },
           verifyRedirect(),
         );
-        if (signUpHidExistingEmail(data)) return setFieldErrors({ email: t('auth.emailTaken') });
+        if (signUpHidExistingAccount(data)) return accountExists(e164);
       } else {
-        await signUpWithPhone(supabase, {
+        const data = await signUpWithPhone(supabase, {
           firstName,
           lastName,
           phone: e164,
@@ -171,6 +193,7 @@ function SignUpScreen() {
           preferredLang,
           termsVersion: CURRENT_TERMS_VERSION,
         });
+        if (signUpHidExistingAccount(data)) return accountExists(e164);
       }
       // The chosen language becomes the app language — strings, faces and
       // layout direction switch in one commit, under a short crossfade, before
@@ -185,8 +208,7 @@ function SignUpScreen() {
         router.push({ pathname: '/verify-otp', params: { phone: e164, mode: 'signup' } });
       }
     } catch (err) {
-      if (method === 'email' && isEmailTaken(err)) return setFieldErrors({ email: t('auth.emailTaken') });
-      if (method === 'phone' && isPhoneTaken(err)) return setFieldErrors({ phone: t('auth.phoneTaken') });
+      if (method === 'email' ? isEmailTaken(err) : isPhoneTaken(err)) return accountExists(e164);
       if (classifyUpdateFailure(err) === 'weak-password') {
         return setFieldErrors({ password: t('auth.passwordTooShort') });
       }

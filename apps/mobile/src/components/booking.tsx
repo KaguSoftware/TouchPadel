@@ -16,6 +16,7 @@ import {
 } from 'react';
 import {
   Animated,
+  Easing,
   Platform,
   Pressable,
   type ScrollView,
@@ -57,6 +58,7 @@ import {
   WifiOffIcon,
   type IconProps,
 } from './icons';
+import { useReduceMotion } from '../lib/useReduceMotion';
 import { BrandPattern } from './BrandPattern';
 import { Button, SectionLabel } from './ui';
 
@@ -87,7 +89,13 @@ function statusColors(status: string, c: Palette): { fg: string; bg: string } {
   }
 }
 
-export function StatusPill({ status, size = 'list' }: { status: string; size?: 'list' | 'detail' }) {
+export function StatusPill({
+  status,
+  size = 'list',
+}: {
+  status: string;
+  size?: 'list' | 'detail';
+}) {
   const { colors, fonts, tracking } = useTheme();
   const { t } = useLocale();
   const { fg, bg } = statusColors(status, colors);
@@ -271,7 +279,9 @@ export function PayAtDeskCard({
           </Text>
         </View>
       ) : null}
-      <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.gtext2 }}>
+      <Text
+        style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.gtext2 }}
+      >
         {lead ? <Text style={{ fontFamily: fonts.body800 }}>{lead} </Text> : null}
         {body}
       </Text>
@@ -352,7 +362,12 @@ export function HeldSlotCard({
             numberOfLines={1}
             // pickLocale falls back to the English name; a Latin-only name in a
             // stretched Text would sit on the trailing edge under RTL on iOS.
-            style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}
+            style={{
+              alignSelf: 'flex-start',
+              fontFamily: fonts.display800,
+              fontSize: 14,
+              color: colors.ink,
+            }}
           >
             {courtName}
           </Text>
@@ -366,9 +381,7 @@ export function HeldSlotCard({
           {paymentInProgress ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 }}>
               <CardIcon size={13} color={colors.ambstrong} />
-              <Text
-                style={{ fontFamily: fonts.body700, fontSize: 11.5, color: colors.ambtext }}
-              >
+              <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: colors.ambtext }}>
                 {t('deposit.paymentInProgress')}
               </Text>
             </View>
@@ -619,7 +632,9 @@ export function NextUpCard({
   // anyway; the two that DO ('pending', 'arrived') are named in the eyebrow,
   // which costs no room and cannot be missed above the court name.
   const eyebrow =
-    status === 'confirmed' ? label : `${label} · ${t(STATUS_KEY[status] ?? 'booking.statusPending')}`;
+    status === 'confirmed'
+      ? label
+      : `${label} · ${t(STATUS_KEY[status] ?? 'booking.statusPending')}`;
   return (
     <Pressable
       testID={testID}
@@ -700,12 +715,30 @@ export function NextUpCard({
             marginTop: 5,
           }}
         >
-          <MetaItem icon={CalendarIcon} text={when} color={ink.meta} iconColor={ink.glyph} size={12.5} />
-          <MetaItem icon={ClockIcon} text={timeRange} color={ink.meta} iconColor={ink.glyph} size={12.5} />
+          <MetaItem
+            icon={CalendarIcon}
+            text={when}
+            color={ink.meta}
+            iconColor={ink.glyph}
+            size={12.5}
+          />
+          <MetaItem
+            icon={ClockIcon}
+            text={timeRange}
+            color={ink.meta}
+            iconColor={ink.glyph}
+            size={12.5}
+          />
         </View>
         {note ? (
           <View style={{ marginTop: 6 }}>
-            <MetaItem icon={CardIcon} text={note} color={ink.meta} iconColor={ink.glyph} size={12} />
+            <MetaItem
+              icon={CardIcon}
+              text={note}
+              color={ink.meta}
+              iconColor={ink.glyph}
+              size={12}
+            />
           </View>
         ) : null}
         <View
@@ -798,7 +831,8 @@ export function FilterChip({
   onPress,
   testID,
 }: {
-  icon: ComponentType<IconProps>;
+  /** Optional: the open-matches category chips are words only. */
+  icon?: ComponentType<IconProps>;
   label: string;
   /** The tab whose list is on screen: solid brand fill, and announced as selected. */
   selected: boolean;
@@ -832,7 +866,7 @@ export function FilterChip({
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      <Icon size={13} color={selected ? brand.white : colors.fnt} strokeWidth={2.2} />
+      {Icon ? <Icon size={13} color={selected ? brand.white : colors.fnt} strokeWidth={2.2} /> : null}
       <Text
         style={{
           fontFamily: fonts.body700,
@@ -901,7 +935,12 @@ export function UpcomingBookingRow({
         <Text
           numberOfLines={1}
           // Shrink-wrapped to the leading edge, like the hero's court name.
-          style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}
+          style={{
+            alignSelf: 'flex-start',
+            fontFamily: fonts.display800,
+            fontSize: 14,
+            color: colors.ink,
+          }}
         >
           {courtName}
         </Text>
@@ -1016,12 +1055,23 @@ export function PastBookingRow({
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
             numberOfLines={1}
-            style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 13, color: colors.mut2 }}
+            style={{
+              alignSelf: 'flex-start',
+              fontFamily: fonts.display800,
+              fontSize: 13,
+              color: colors.mut2,
+            }}
           >
             {courtName}
           </Text>
           <View
-            style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, rowGap: 2, marginTop: 2 }}
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              columnGap: 10,
+              rowGap: 2,
+              marginTop: 2,
+            }}
           >
             <MetaItem icon={ClockIcon} text={when} color={colors.fnt} size={11} />
             {price ? <MetaItem icon={TagIcon} text={price} color={colors.fnt} size={11} /> : null}
@@ -1100,7 +1150,13 @@ export function DegradedBanner({
     const wrapped = isolate(phone);
     const marker = message.includes(wrapped) ? wrapped : phone;
     const [before, ...rest] = message.split(marker);
-    parts.push(before, <Text key="phone" style={bold}>{wrapped}</Text>, rest.join(marker));
+    parts.push(
+      before,
+      <Text key="phone" style={bold}>
+        {wrapped}
+      </Text>,
+      rest.join(marker),
+    );
   } else {
     parts.push(message);
   }
@@ -1126,9 +1182,20 @@ export function DegradedBanner({
         <WifiOffIcon size={tight ? 16 : 17} color={colors.ambstrong} />
       </View>
       <Text
-        style={{ flex: 1, fontFamily: fonts.body600, fontSize: 12, lineHeight: 17, color: colors.ambtext }}
+        style={{
+          flex: 1,
+          fontFamily: fonts.body600,
+          fontSize: 12,
+          lineHeight: 17,
+          color: colors.ambtext,
+        }}
       >
-        {lead ? <Text style={bold}>{lead}{blockLead ? '\n' : ' '}</Text> : null}
+        {lead ? (
+          <Text style={bold}>
+            {lead}
+            {blockLead ? '\n' : ' '}
+          </Text>
+        ) : null}
         {parts}
       </Text>
       {onDismiss ? (
@@ -1460,6 +1527,62 @@ export function CourtBadge({ index, size }: { index: number; size: number }) {
   );
 }
 
+const LIVE_DOT = 6;
+const LIVE_PULSE_MS = 1600;
+
+/**
+ * The "live" beacon in a free pill: a steady dot with a ring of the same
+ * colour that swells out and fades, over and over. Holds still under Reduce
+ * Motion.
+ */
+function LiveDot({ color }: { color: string }) {
+  const reduceMotion = useReduceMotion();
+  const [pulse] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    if (reduceMotion) {
+      pulse.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.timing(pulse, {
+        toValue: 1,
+        duration: LIVE_PULSE_MS,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse, reduceMotion]);
+
+  return (
+    <View style={{ width: LIVE_DOT, height: LIVE_DOT }}>
+      {reduceMotion ? null : (
+        <Animated.View
+          style={{
+            ...StyleSheet.absoluteFill,
+            borderRadius: LIVE_DOT / 2,
+            backgroundColor: color,
+            opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] }),
+            transform: [
+              { scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 2.6] }) },
+            ],
+          }}
+        />
+      )}
+      <View
+        style={{
+          width: LIVE_DOT,
+          height: LIVE_DOT,
+          borderRadius: LIVE_DOT / 2,
+          backgroundColor: color,
+        }}
+      />
+    </View>
+  );
+}
+
 /** "5 free" in green, or "Fully booked" in amber, for one court's night. */
 export function CourtFreePill({ free, fontSize }: { free: number; fontSize: number }) {
   const { colors, fonts } = useTheme();
@@ -1481,14 +1604,11 @@ export function CourtFreePill({ free, fontSize }: { free: number; fontSize: numb
         borderColor: open ? colors.gline : colors.ambline,
       }}
     >
-      <View
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: open ? colors.gstrong : colors.ambstrong,
-        }}
-      />
+      {open ? (
+        <LiveDot color={colors.gstrong} />
+      ) : (
+        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.ambstrong }} />
+      )}
       <Text
         numberOfLines={1}
         style={{
@@ -1599,7 +1719,10 @@ export function CourtLaneRow({
         useNativeDriver: true,
         listener: (e: { nativeEvent: { contentOffset: { x: number } } }) => {
           if (n === 0) return;
-          const slot = Math.max(0, Math.min(n - 1, Math.round(e.nativeEvent.contentOffset.x / step)));
+          const slot = Math.max(
+            0,
+            Math.min(n - 1, Math.round(e.nativeEvent.contentOffset.x / step)),
+          );
           const i = flip ? n - 1 - slot : slot;
           if (i === activeRef.current) return;
           activeRef.current = i;
@@ -1726,62 +1849,21 @@ export function CourtLaneRow({
 }
 
 /**
- * The booking sheet's way into the open matches list (docs/design/open-matches/
- * guest.md §4.11): one row under the court cards, in the same glass wash, with
- * the words the caller built ("3 open matches coming up · Join", "Open
- * matches", "Open matches · Sign in"). `book.sheet.open-matches` on the Book
- * tab. The caller mounts it only while the branch has open matches on.
+ * The padel ball as an `EntryCard` icon, for the open matches card: filled in
+ * the card's icon colour, its arcs cut in the disc's tint so it reads like the
+ * stroke icons beside it.
  */
-export function MatchEntryRow({
-  label,
-  onPress,
-  testID,
-}: {
-  label: string;
-  onPress: () => void;
-  testID: string;
-}) {
-  const { colors, fonts, appearance } = useTheme();
-  const dark = appearance === 'dark';
-  return (
-    <Pressable
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        minHeight: 40,
-        paddingStart: 10,
-        paddingEnd: 10,
-        borderRadius: 14,
-        backgroundColor: withAlpha(colors.card, dark ? 0.35 : 0.6),
-        borderWidth: 1,
-        borderColor: withAlpha(colors.line, dark ? 0.5 : 0.9),
-        transform: [{ scale: pressed ? 0.98 : 1 }],
-      })}
-    >
-      <PadelBallIcon size={16} />
-      <Text
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.85}
-        style={{ flex: 1, fontFamily: fonts.body800, fontSize: 12, color: colors.blue }}
-      >
-        {label}
-      </Text>
-      <ChevronIcon size={13} color={colors.fnt2} strokeWidth={2.4} />
-    </Pressable>
-  );
+export function MatchBallIcon({ size = 16, color }: IconProps) {
+  const { colors } = useTheme();
+  return <PadelBallIcon size={size} fill={color} stroke={colors.gtint} strokeWidth={3.5} />;
 }
 
 /**
- * The booking sheet's button cards for lessons and tournaments (owner,
- * 2026-10-09): two side by side under the court cards, in the same glass wash
- * as `MatchEntryRow`, each an icon on a green disc over its label. One card
- * alone takes the full width. `book.sheet.lessons`, `book.sheet.tournaments`.
+ * The booking sheet's button cards for open matches, lessons and tournaments
+ * (owner, 2026-10-09/10): two to a row under the court cards, in the sheet's
+ * glass wash, each an icon on a green disc over its label. A card alone on its
+ * row takes the full width. `book.sheet.open-matches`, `book.sheet.lessons`,
+ * `book.sheet.tournaments`.
  */
 export function EntryCard({
   label,

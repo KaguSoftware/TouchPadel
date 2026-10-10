@@ -1,12 +1,15 @@
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useContext, useState } from 'react';
+import { Pressable, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { needsTermsAcceptance } from '@touch/core';
 import {
   countPhrase,
-  formatDate,
+  formatDayNumber,
   formatIQD,
+  formatMonthShort,
   formatTime,
   formatWeekdayShort,
   isolate,
@@ -39,19 +42,31 @@ import {
   type PaymentChoice,
 } from '../../src/features/coaching/logic';
 import { useBack } from '../../src/navigation/back';
-import { space, useTheme } from '../../src/theme';
-import { Button, Card, ErrorText, Field, FormScreen, Hint, Screen } from '../../src/components/ui';
-import { DegradedBanner, SummaryGrid, type SummaryRow } from '../../src/components/booking';
+import { brand, radius, shadows, space, useTheme } from '../../src/theme';
+import { Button, ErrorText, Field, FormScreen, Hint, Screen } from '../../src/components/ui';
+import { DegradedBanner } from '../../src/components/booking';
 import { ErrorState, SkeletonList } from '../../src/components/states';
-import { MatchNotice, MatchSectionTitle } from '../../src/components/match';
-import { PartyStepper, PaymentModeChoice } from '../../src/components/coaching';
-import { CalendarIcon, ClockIcon, TagIcon } from '../../src/components/icons';
+import { MatchNotice } from '../../src/components/match';
+import { CoachAvatar } from '../../src/components/coaching';
 import { useToast } from '../../src/components/overlays';
+
+/** How far the light sheet rides up over the blue header. */
+const SHEET_OVERLAP = 28;
+/** The header's air under its chips, above the sheet's overlap. */
+const HERO_FOOT = 24;
+/** Room the floating book bar takes over the sheet's foot. */
+const BOOK_BAR_SPACE = 92;
 
 /**
  * The private lesson's review (docs/design/coaching/guest.md §4.8.6, §4.9.1):
  * the coach, the lesson, the time, the party (1..the type's largest), the
  * friends' names, the payment choice and Book.
+ *
+ * Layout is the "Pick a time" page's (lesson-times): the brand-blue header
+ * (the coach's avatar and name, the lesson, its chips) under a transparent
+ * native bar, a light sheet over it with the picked time, the people (count
+ * and friends' names in one card) and the payment switch, and the floating
+ * navy book bar.
  *
  * The profile read decides the price (the `priceIqd` param is a hint); the
  * phone sends it as `p_expected_price_iqd` and the server answers
@@ -62,9 +77,12 @@ import { useToast } from '../../src/components/overlays';
  * fixes. Desk: booked, the lesson opens. Qi: held, the payment opens.
  */
 function LessonReviewScreen() {
-  const { t, locale } = useLocale();
+  const { t, locale, dir } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  // The native bar as the navigator measured it, for the header's top.
+  const headerHeight = useContext(HeaderHeightContext);
   const toast = useToast();
   const queryClient = useQueryClient();
   // Back to the coach's grid; a review opened with no history lands on the coaches.
@@ -117,7 +135,17 @@ function LessonReviewScreen() {
   const errorCtx = { locale, phone, termsCurrent: !needsTerms };
   const busy = book.isPending || payment.busy;
 
-  const header = <Stack.Screen options={{ title: t('coaching.guest.review.title') }} />;
+  // The root layout makes this route's bar transparent from the first frame
+  // (the blue header runs under it); the states without it take a plain bar.
+  const header = (
+    <Stack.Screen
+      options={{
+        title: t('coaching.guest.review.title'),
+        headerTransparent: false,
+        headerStyle: { backgroundColor: colors.bg },
+      }}
+    />
+  );
 
   if (!coachId || !venueId || !startAt || !lessonTypeId) {
     return (
@@ -149,29 +177,6 @@ function LessonReviewScreen() {
       </Screen>
     );
   }
-
-  const start = new Date(startAt);
-  const rows: SummaryRow[] = [
-    {
-      icon: CalendarIcon,
-      label: t('booking.date'),
-      value: `${formatWeekdayShort(start, locale, tz)} ${formatDate(start, locale, tz)}`,
-    },
-    { icon: ClockIcon, label: t('booking.time'), value: formatTime(start, locale, tz) },
-  ];
-  if (offer) {
-    rows.push({
-      icon: ClockIcon,
-      label: t('coaching.common.duration'),
-      value: t('coaching.common.durationMin', { minutes: offer.durationMin }),
-    });
-  }
-  if (venue)
-    rows.push({
-      icon: TagIcon,
-      label: t('coaching.common.branch'),
-      value: pick(venue.nameEn, venue.nameAr, locale),
-    });
 
   const opened = (result: LessonWrite) => {
     if (result.status === 'held') {
@@ -268,117 +273,374 @@ function LessonReviewScreen() {
       ? t('coaching.guest.review.justMe')
       : t('coaching.guest.review.mePlus', { count: isolateLtr(String(partySize - 1)) });
   const hours = venue?.cancellationWindowHours ?? settings.data?.cancellation_window_hours ?? 0;
+  const name = displayCoachName(data.coach, locale);
+  const start = new Date(startAt);
+  const end = offer ? new Date(start.getTime() + offer.durationMin * 60_000) : null;
+  const startLabel = formatTime(start, locale, tz);
+  const dayLabel = `${formatWeekdayShort(start, locale, tz)} ${formatDayNumber(start, locale, tz)} ${formatMonthShort(start, locale, tz)}`;
+  const branchLabel = venue ? pick(venue.nameEn, venue.nameAr, locale) : '';
+  const friendCount = partySize - 1;
+  // Two names to a row; an odd last one keeps its half.
+  const friendRows = Array.from({ length: Math.ceil(friendCount / 2) }, (_, r) =>
+    [r * 2, r * 2 + 1].filter((i) => i < friendCount),
+  );
 
-  return (
-    <Screen edges={[]}>
-      {header}
-      <FormScreen contentStyle={{ gap: space.sm, paddingTop: space.m }}>
-        {degraded && phone ? (
-          <DegradedBanner
-            testID="lesson-review.degraded"
-            tight
-            message={t('degraded.bannerAvailability', { phone: isolate(phone) })}
-            phone={phone}
-          />
+  // The "Pick a time" page's header: the coach, the lesson, and chips for its facts.
+  const chip = (label: string, strong = false) => (
+    <View
+      style={{
+        backgroundColor: strong ? brand.green : 'rgba(255,255,255,0.16)',
+        borderRadius: radius.pill,
+        paddingTop: 4,
+        paddingBottom: 4,
+        paddingStart: 9,
+        paddingEnd: 9,
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: strong ? fonts.display800 : fonts.body700,
+          fontSize: 12,
+          color: strong ? brand.greenInk : brand.white,
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+  const hero = (
+    <View
+      testID="lesson-review.hero"
+      style={{
+        backgroundColor: brand.blue,
+        paddingTop: (headerHeight ?? insets.top + 52) + space.s,
+        paddingBottom: HERO_FOOT + SHEET_OVERLAP,
+        paddingStart: space.xl,
+        paddingEnd: space.xl,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: space.l,
+      }}
+    >
+      <View style={{ borderRadius: 40, borderWidth: 3, borderColor: 'rgba(255,255,255,0.5)' }}>
+        <CoachAvatar photoPath={data.coach?.photoPath ?? null} name={name} size={64} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+        <Text
+          numberOfLines={1}
+          style={{ fontFamily: fonts.body700, fontSize: 13, color: brand.navyText }}
+        >
+          {name}
+        </Text>
+        <Text style={{ fontFamily: fonts.display800, fontSize: 24, color: brand.white }}>
+          {offer ? pick(offer.nameEn, offer.nameAr, locale) : t('coaching.common.lesson')}
+        </Text>
+        {offer ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
+            {chip(t('coaching.common.durationMin', { minutes: offer.durationMin }))}
+            {chip(
+              t('coaching.common.upTo', {
+                people: countPhrase('coaching.common.count.people', offer.maxPlaces, locale),
+              }),
+            )}
+            {offer.priceIqd != null ? chip(money(offer.priceIqd), true) : null}
+          </View>
         ) : null}
-        <Card>
-          <Text style={{ fontFamily: fonts.display900, fontSize: 18, color: colors.ink }}>
-            {offer ? pick(offer.nameEn, offer.nameAr, locale) : t('coaching.common.lesson')}
-          </Text>
+      </View>
+    </View>
+  );
+
+  // The picked time: a date tile, the start and end, the branch, and Change
+  // (back to the times).
+  const tileText = {
+    fontFamily: fonts.body600,
+    fontSize: 10.5,
+    lineHeight: 13,
+    color: brand.navyText,
+    textTransform: 'uppercase',
+  } as const;
+  const timeCard = (
+    <View
+      testID="lesson-review.time"
+      style={{
+        backgroundColor: colors.card,
+        borderRadius: radius.sheet,
+        padding: space.sm,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: space.sm,
+      }}
+    >
+      <View
+        style={{
+          width: 56,
+          height: 64,
+          borderRadius: radius.cell,
+          backgroundColor: brand.blue,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text numberOfLines={1} style={tileText}>
+          {formatWeekdayShort(start, locale, tz)}
+        </Text>
+        <Text
+          style={{ fontFamily: fonts.display800, fontSize: 20, lineHeight: 24, color: brand.white }}
+        >
+          {formatDayNumber(start, locale, tz)}
+        </Text>
+        <Text numberOfLines={1} style={tileText}>
+          {formatMonthShort(start, locale, tz)}
+        </Text>
+      </View>
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <Text style={{ fontFamily: fonts.display800, fontSize: 17, color: colors.ink }}>
+          {end ? `${startLabel} – ${formatTime(end, locale, tz)}` : startLabel}
+        </Text>
+        {branchLabel ? (
           <Text
+            numberOfLines={1}
+            style={{ fontFamily: fonts.body400, fontSize: 13, color: colors.mut }}
+          >
+            {branchLabel}
+          </Text>
+        ) : null}
+      </View>
+      <Pressable
+        testID="lesson-review.change"
+        accessibilityRole="button"
+        onPress={back}
+        hitSlop={8}
+        style={({ pressed }) => ({
+          minHeight: 44,
+          justifyContent: 'center',
+          paddingStart: space.xs,
+          paddingEnd: space.xs,
+          opacity: pressed ? 0.6 : 1,
+        })}
+      >
+        <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.blue }}>
+          {t('coaching.guest.review.change')}
+        </Text>
+      </Pressable>
+    </View>
+  );
+
+  // People: the count and its stepper on one row, the friends' names under it,
+  // in one card.
+  const stepButton = (id: string, glyph: string, disabled: boolean, delta: number) => (
+    <Pressable
+      testID={id}
+      accessibilityRole="button"
+      accessibilityLabel={delta > 0 ? '+1' : '-1'}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={() => {
+        setParty(Math.max(1, Math.min(maxParty, partySize + delta)));
+        setPartyError(null);
+      }}
+      style={({ pressed }) => ({
+        width: 44,
+        height: 40,
+        borderRadius: radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: pressed ? colors.seg : 'transparent',
+        opacity: disabled ? 0.35 : 1,
+      })}
+    >
+      <Text style={{ fontFamily: fonts.body700, fontSize: 22, color: colors.blue }}>{glyph}</Text>
+    </Pressable>
+  );
+  const peopleCard =
+    offer && offer.maxPlaces > 1 ? (
+      <View>
+        <View
+          testID="lesson-review.party"
+          style={{ backgroundColor: colors.card, borderRadius: radius.sheet }}
+        >
+          <View
             style={{
-              marginTop: 2,
-              marginBottom: space.sm,
-              fontFamily: fonts.body600,
-              fontSize: 13,
-              color: colors.mut,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingTop: 10,
+              paddingBottom: 10,
+              paddingStart: space.l,
+              paddingEnd: 10,
+              borderBottomWidth: friendCount > 0 ? 1 : 0,
+              borderBottomColor: colors.line,
             }}
           >
-            {displayCoachName(data.coach, locale)}
-          </Text>
-          <SummaryGrid rows={rows} />
-        </Card>
-
-        {offer && offer.maxPlaces > 1 ? (
-          <View style={{ gap: space.s }}>
-            <MatchSectionTitle>{t('coaching.guest.review.party')}</MatchSectionTitle>
-            <PartyStepper
-              testID="lesson-review.party"
-              value={partySize}
-              max={maxParty}
-              label={partyLabel}
-              onChange={(n) => {
-                setParty(n);
-                setPartyError(null);
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontFamily: fonts.body700, fontSize: 15, color: colors.ink }}>
+                {t('coaching.guest.review.party')}
+              </Text>
+              <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut }}>
+                {`${partyLabel} · ${t('coaching.guest.review.upToCount', {
+                  count: isolateLtr(String(maxParty)),
+                })}`}
+              </Text>
+            </View>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                backgroundColor: colors.tint,
+                borderRadius: radius.pill,
+                padding: 2,
               }}
-            />
-            <ErrorText>{partyError}</ErrorText>
-            {partySize > 1 ? (
-              <View style={{ gap: space.s }}>
-                <Hint>{t('coaching.guest.review.friends')}</Hint>
-                {Array.from({ length: partySize - 1 }, (_, i) => (
-                  <Field
-                    key={i}
-                    testID={`lesson-review.friend.${i + 1}`}
-                    placeholder={t('coaching.guest.review.friend', {
-                      n: isolateLtr(String(i + 1)),
-                    })}
-                    value={friends[i] ?? ''}
-                    maxLength={40}
-                    onChangeText={(v) =>
-                      setFriends((prev) => prev.map((f, j) => (j === i ? v : f)))
-                    }
-                  />
-                ))}
+            >
+              {stepButton('lesson-review.party.minus', '−', partySize <= 1, -1)}
+              <Text
+                style={{
+                  width: 16,
+                  textAlign: 'center',
+                  fontFamily: fonts.display800,
+                  fontSize: 16,
+                  color: colors.ink,
+                }}
+              >
+                {isolateLtr(String(partySize))}
+              </Text>
+              {stepButton('lesson-review.party.plus', '+', partySize >= maxParty, 1)}
+            </View>
+          </View>
+          {friendCount > 0 ? (
+            <View
+              style={{
+                paddingTop: space.sm,
+                paddingBottom: space.sm,
+                paddingStart: space.l,
+                paddingEnd: space.l,
+                gap: space.s,
+              }}
+            >
+              <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut }}>
+                {t('coaching.guest.review.friendsOptional')}
+              </Text>
+              {friendRows.map((row) => (
+                <View key={row[0]} style={{ flexDirection: 'row', gap: space.s }}>
+                  {[0, 1].map((col) => {
+                    const i = row[col];
+                    if (i === undefined) return <View key={col} style={{ flex: 1 }} />;
+                    return (
+                      <View key={col} style={{ flex: 1, minWidth: 0 }}>
+                        <Field
+                          testID={`lesson-review.friend.${i + 1}`}
+                          placeholder={t('coaching.guest.review.friend', {
+                            n: isolateLtr(String(i + 1)),
+                          })}
+                          value={friends[i] ?? ''}
+                          maxLength={40}
+                          onChangeText={(v) =>
+                            setFriends((prev) => prev.map((f, j) => (j === i ? v : f)))
+                          }
+                          // Field sits 12 below its label slot; with no label
+                          // the box pulls back up to the row's top.
+                          style={{ marginTop: -space.sm, fontSize: 14 }}
+                          boxStyle={{ height: 44, backgroundColor: colors.bg }}
+                        />
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </View>
+        <ErrorText>{partyError}</ErrorText>
+      </View>
+    ) : null;
+
+  const paymentSection = (
+    <View style={{ gap: space.s }}>
+      <Text
+        style={{ fontFamily: fonts.display800, fontSize: 15, color: colors.ink, paddingStart: 4 }}
+      >
+        {t('coaching.guest.review.payment')}
+      </Text>
+      <PaySwitch
+        testID="lesson-review.mode"
+        choices={paymentChoices(venue?.paymentMode ?? 'desk')}
+        value={mode}
+        onChange={setPicked}
+        labels={{
+          desk: t('coaching.guest.review.payDesk'),
+          online: t('coaching.guest.review.payOnline'),
+        }}
+      />
+      <Text
+        style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut, paddingStart: 4 }}
+      >
+        {`${t(
+          mode === 'online' ? 'coaching.guest.review.onlineLine' : 'coaching.guest.review.deskLine',
+        )} ${t('coaching.guest.class.cancelGroup', {
+          hours: countPhrase('coaching.common.count.hours', hours, locale),
+        })}`}
+      </Text>
+      {priceNote ? <Hint>{priceNote}</Hint> : null}
+    </View>
+  );
+
+  return (
+    <Screen edges={[]} padded={false}>
+      <Stack.Screen
+        options={{
+          title: t('coaching.guest.review.title'),
+          headerTransparent: true,
+          headerStyle: { backgroundColor: 'transparent' },
+          headerTintColor: brand.white,
+          headerTitleStyle: {
+            fontFamily: fonts.display800,
+            fontSize: dir === 'rtl' ? 16 : 17,
+            color: brand.white,
+          },
+        }}
+      />
+      <View style={{ flex: 1 }}>
+        {hero}
+        {/* The light sheet rides up over the blue header; only it scrolls. */}
+        <View
+          style={{
+            flex: 1,
+            minHeight: 0,
+            marginTop: -SHEET_OVERLAP,
+            backgroundColor: colors.bg,
+            borderTopStartRadius: radius.sheet,
+            borderTopEndRadius: radius.sheet,
+            overflow: 'hidden',
+          }}
+        >
+          <FormScreen
+            bottomInset={BOOK_BAR_SPACE + space.l}
+            contentStyle={{
+              paddingTop: space.l,
+              paddingStart: space.l,
+              paddingEnd: space.l,
+              gap: space.sm,
+            }}
+          >
+            {degraded && phone ? (
+              <DegradedBanner
+                testID="lesson-review.degraded"
+                tight
+                message={t('degraded.bannerAvailability', { phone: isolate(phone) })}
+                phone={phone}
+              />
+            ) : null}
+            {timeCard}
+            {peopleCard}
+            {paymentSection}
+            {banner ? (
+              <View testID="lesson-review.refusal">
+                <MatchNotice text={banner} />
               </View>
             ) : null}
-          </View>
-        ) : null}
-
-        <View style={{ gap: space.s }}>
-          <MatchSectionTitle>{t('coaching.guest.review.payment')}</MatchSectionTitle>
-          <PaymentModeChoice
-            testID="lesson-review.mode"
-            choices={paymentChoices(venue?.paymentMode ?? 'desk')}
-            value={mode}
-            onChange={setPicked}
-            labels={{
-              desk: t('coaching.guest.review.payDesk'),
-              online: t('coaching.guest.review.payOnline'),
-            }}
-          />
-        </View>
-
-        <Card>
-          <Text style={{ fontFamily: fonts.display900, fontSize: 17, color: colors.ink }}>
-            {offer?.priceIqd != null
-              ? t('coaching.common.forTheLesson', { price: money(offer.priceIqd) })
-              : ''}
-          </Text>
-          <Hint style={{ marginTop: 4 }}>
-            {t(
-              mode === 'online'
-                ? 'coaching.guest.review.onlineLine'
-                : 'coaching.guest.review.deskLine',
-            )}
-          </Hint>
-          {priceNote ? <Hint style={{ marginTop: 4 }}>{priceNote}</Hint> : null}
-        </Card>
-
-        <Hint>
-          {t('coaching.guest.class.cancelGroup', {
-            hours: countPhrase('coaching.common.count.hours', hours, locale),
-          })}
-        </Hint>
-
-        {banner ? (
-          <View testID="lesson-review.refusal">
-            <MatchNotice text={banner} />
-          </View>
-        ) : (
-          <View style={{ gap: space.s }}>
             <ErrorText>{error}</ErrorText>
             {error &&
+            !banner &&
             !needsTerms &&
             venue?.paymentMode === 'online_optional' &&
             mode === 'online' ? (
@@ -392,22 +654,138 @@ function LessonReviewScreen() {
                 }}
               />
             ) : null}
-            <Button
-              testID="lesson-review.book"
-              label={t(
-                mode === 'online'
-                  ? 'coaching.guest.review.bookAndPay'
-                  : 'coaching.guest.review.book',
-              )}
-              variant="cta"
-              busy={busy}
-              disabled={!offer || offer.priceIqd === null}
-              onPress={onBook}
-            />
+          </FormScreen>
+        </View>
+      </View>
+      {/* The "Pick a time" page's book bar: the time, the price and Book. A
+        refusal the guest cannot fix here takes it away. */}
+      {banner ? null : (
+        <View
+          style={{
+            position: 'absolute',
+            start: space.sm,
+            end: space.sm,
+            bottom: insets.bottom + space.s,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: space.sm,
+            backgroundColor: brand.navy,
+            borderRadius: 22,
+            borderWidth: 1,
+            borderColor: brand.navyLine,
+            paddingTop: space.sm,
+            paddingBottom: space.sm,
+            paddingStart: space.xl,
+            paddingEnd: space.sm,
+            boxShadow: shadows.dialog,
+          }}
+        >
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text
+              numberOfLines={1}
+              style={{ fontFamily: fonts.body400, fontSize: 12.5, color: brand.navyText }}
+            >
+              {`${dayLabel} · ${startLabel}`}
+            </Text>
+            {offer?.priceIqd != null ? (
+              <Text style={{ fontFamily: fonts.display800, fontSize: 16, color: brand.white }}>
+                {money(offer.priceIqd)}
+              </Text>
+            ) : null}
           </View>
-        )}
-      </FormScreen>
+          <Button
+            testID="lesson-review.book"
+            label={t(
+              mode === 'online' ? 'coaching.guest.review.bookAndPay' : 'coaching.guest.review.book',
+            )}
+            variant="cta"
+            size="compact"
+            busy={busy}
+            disabled={!offer || offer.priceIqd === null}
+            onPress={onBook}
+            style={{ borderRadius: radius.pill, paddingStart: space.xl, paddingEnd: space.xl }}
+          />
+        </View>
+      )}
     </Screen>
+  );
+}
+
+/**
+ * Desk or Qi Card: a pill track with the picked one lifted white when the
+ * branch offers both (`online_optional`), else the one mode as a line. The
+ * track is `testID`; each segment `${testID}.desk` / `${testID}.online`.
+ */
+function PaySwitch({
+  testID,
+  choices,
+  value,
+  onChange,
+  labels,
+}: {
+  testID: string;
+  choices: readonly PaymentChoice[];
+  value: PaymentChoice;
+  onChange: (next: PaymentChoice) => void;
+  labels: Record<PaymentChoice, string>;
+}) {
+  const { colors, fonts } = useTheme();
+  if (choices.length < 2) {
+    return (
+      <View testID={testID} style={{ paddingStart: 4 }}>
+        <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
+          {labels[value]}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <View
+      testID={testID}
+      accessibilityRole="radiogroup"
+      style={{
+        flexDirection: 'row',
+        gap: 4,
+        padding: 4,
+        borderRadius: radius.pill,
+        backgroundColor: colors.seg,
+      }}
+    >
+      {choices.map((c) => {
+        const on = c === value;
+        return (
+          <Pressable
+            key={c}
+            testID={`${testID}.${c}`}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on }}
+            onPress={() => onChange(c)}
+            style={{
+              flex: 1,
+              height: 40,
+              borderRadius: radius.pill,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingStart: space.xs,
+              paddingEnd: space.xs,
+              backgroundColor: on ? colors.card : 'transparent',
+              boxShadow: on ? shadows.thumb : undefined,
+            }}
+          >
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: on ? fonts.body700 : fonts.body600,
+                fontSize: 13.5,
+                color: on ? colors.ink : colors.mut,
+              }}
+            >
+              {labels[c]}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 

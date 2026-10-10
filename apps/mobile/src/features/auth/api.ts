@@ -67,7 +67,9 @@ function signUpMetadata(args: SignUpArgs) {
  * row from this metadata (full_name / phone / preferred_lang) at insert time.
  *
  * Signing up again with a number that never confirmed re-sends the code and
- * replaces the password; a CONFIRMED number is refused (isPhoneTaken).
+ * replaces the password. A CONFIRMED number is refused (isPhoneTaken) only
+ * with confirmations off; with them on GoTrue answers with an identity-less
+ * user and sends no code (emailAuth.signUpHidExistingAccount).
  */
 export async function signUpWithPhone(client: Client, args: SignUpArgs) {
   const { data, error } = await client.auth.signUp({
@@ -93,7 +95,7 @@ export interface EmailSignUpArgs extends SignUpArgs {
  *
  * With confirmations on, an address that already has a CONFIRMED account is
  * NOT an error: GoTrue answers with an identity-less user instead (see
- * emailAuth.signUpHidExistingEmail).
+ * emailAuth.signUpHidExistingAccount).
  */
 export async function signUpWithEmail(
   client: Client,

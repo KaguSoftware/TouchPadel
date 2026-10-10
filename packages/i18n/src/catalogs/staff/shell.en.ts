@@ -41,6 +41,12 @@ export const staffShellEn = {
     passwordNote: 'Forgot your password? The owner resets it on the Staff page.',
     signOutConfirm: 'You will need your email and password to sign back in.',
   },
+  // The work alerts page (app/staff-work.tsx), opened from Today's Work alerts button.
+  work: {
+    empty: 'Nothing is waiting on you.',
+    // Read after the button's name by a screen reader: "Work alerts, 3 waiting".
+    badge: '{count} waiting',
+  },
   guestView: {
     // Its button on Today; `row` is the longer name.
     tile: 'Guest view',

@@ -184,7 +184,7 @@ export default function CoachDetailScreen() {
     void Share.share({
       message: t('coaching.guest.coach.shareMessage', {
         name: isolate(name),
-        url: coachShareUrl(coach.id),
+        url: coachShareUrl(coach.id, locale),
       }),
     }).catch(() => {});
   };

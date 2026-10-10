@@ -69,15 +69,20 @@ export function validatePhoneInput(iso: string, national: string): { e164: strin
   return e164 ? { e164, error: null } : { e164: null, error: 'PHONE_INVALID' };
 }
 
-/** Digits only, Arabic-Indic folded, capped at the code length — the code field's onChangeText. */
+/**
+ * Digits only, Arabic-Indic folded, capped at the code length — the code
+ * field's onChangeText. A paste of the whole WhatsApp message ("123456 is your
+ * code. Valid for 10 minutes.") carries other digits too, so a standalone run
+ * of exactly OTP_LENGTH digits wins over the first six digits found.
+ */
 export function sanitizeOtpInput(raw: string): string {
-  return raw
-    .replace(/[٠-٩۰-۹]/g, (ch) => {
-      const code = ch.charCodeAt(0);
-      return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
-    })
-    .replace(/[^0-9]/g, '')
-    .slice(0, OTP_LENGTH);
+  const folded = raw.replace(/[٠-٩۰-۹]/g, (ch) => {
+    const code = ch.charCodeAt(0);
+    return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
+  });
+  const standalone = folded.match(new RegExp(`(?<![0-9])[0-9]{${OTP_LENGTH}}(?![0-9])`));
+  if (standalone) return standalone[0];
+  return folded.replace(/[^0-9]/g, '').slice(0, OTP_LENGTH);
 }
 
 /**

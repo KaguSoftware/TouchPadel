@@ -64,7 +64,10 @@ export function TermsReader({
   onAccept: () => void;
   busy?: boolean;
   error?: string | null;
-  /** Under the scroll hint: the consent gate's ways out (sign out, delete instead). */
+  /**
+   * Under the scroll hint: the consent gate's ways out (sign out, delete
+   * instead), or the sign-up review's Not now.
+   */
   footer?: ReactNode;
 }) {
   const { t, locale } = useLocale();

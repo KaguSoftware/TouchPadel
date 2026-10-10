@@ -1,40 +1,38 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useBack } from '../src/navigation/back';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { RequireSession } from '../src/features/auth/RequireSession';
-import { signOut } from '../src/features/auth/api';
 import { useAcceptTerms } from '../src/features/profile/hooks';
 import { TermsReader } from '../src/features/profile/TermsReader';
-import { supabase } from '../src/lib/supabase';
 import { captureException } from '../src/lib/telemetry';
-import { space, useTheme } from '../src/theme';
-import { Button, LinkText } from '../src/components/ui';
+import { space } from '../src/theme';
+import { Button } from '../src/components/ui';
 
 /**
- * The Terms consent gate (migration 0153), pushed by useTermsGate for any
- * account that has not accepted CURRENT_TERMS_VERSION: Apple / Google
- * sign-ups (they never see the sign-up form), desk-created accounts, accounts
- * from before 2026-09-23, and everyone after a version bump.
+ * The Terms consent screen (migration 0153) for an account that has not
+ * accepted CURRENT_TERMS_VERSION: Apple / Google sign-ups (they never see the
+ * sign-up form), desk-created accounts, accounts from before 2026-09-23, and
+ * everyone after a version bump.
  *
- * A native modal the guest cannot swipe away (its presentation is declared on
- * the root stack, app/_layout.tsx): the only ways out are to read and accept,
- * sign out, or delete the account instead. A guest who does not agree must
- * still be able to leave and to delete the account in the app (App Store
- * 5.1.1(v), SEC-16). Accept records the current version through app.accept_terms.
+ * Never pushed at launch (owner, 2026-10-10). It opens where an action needs
+ * the terms: Review before a court booking, and the open-match, lesson,
+ * tournament and ticket screens on the server's TERMS_REQUIRED. Accept records
+ * the current version through app.accept_terms and pops back to that action.
+ *
+ * The same sheet as the sign-up review (app/terms-review.tsx): swipe it away or
+ * press Not now and nothing is recorded, so the action that opened it is still
+ * refused. The account stays usable for everything else, deleting it included
+ * (Edit profile; App Store 5.1.1(v), SEC-16).
  */
 function AcceptTermsScreen() {
   const { t } = useLocale();
-  const { colors } = useTheme();
-  const router = useRouter();
   const back = useBack();
   const accept = useAcceptTerms();
-  const [signingOut, setSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const onAccept = async () => {
-    if (accept.isPending || signingOut) return;
+    if (accept.isPending) return;
     setError(null);
     try {
       await accept.mutateAsync();
@@ -45,22 +43,6 @@ function AcceptTermsScreen() {
     }
   };
 
-  const onSignOut = async () => {
-    setError(null);
-    setSigningOut(true);
-    try {
-      await signOut(supabase);
-      router.replace('/(tabs)');
-    } catch (err) {
-      captureException(err, { scope: 'consent.sign-out' });
-      setError(t('consent.failed'));
-    } finally {
-      setSigningOut(false);
-    }
-  };
-
-  const busy = accept.isPending || signingOut;
-
   return (
     <TermsReader
       testID="accept-terms"
@@ -68,23 +50,14 @@ function AcceptTermsScreen() {
       error={error}
       onAccept={() => void onAccept()}
       footer={
-        <View style={{ gap: space.sm, marginBottom: space.l }}>
+        <View style={{ marginBottom: space.l }}>
           <Button
-            testID="accept-terms.sign-out"
-            label={t('consent.signOut')}
+            testID="accept-terms.not-now"
+            label={t('consent.notNow')}
             variant="secondary"
-            busy={signingOut}
-            disabled={busy}
-            onPress={() => void onSignOut()}
+            disabled={accept.isPending}
+            onPress={back}
           />
-          <View style={{ alignItems: 'center' }}>
-            <LinkText
-              testID="accept-terms.delete-instead"
-              label={t('consent.deleteInstead')}
-              color={colors.redtext}
-              onPress={() => router.push('/delete-account')}
-            />
-          </View>
         </View>
       }
     />

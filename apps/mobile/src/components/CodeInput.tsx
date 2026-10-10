@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Platform, Pressable, TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 import { Text } from '../i18n/text';
 import { MicroLabel } from './ui';
 import { brand, radius, space, useTheme } from '../theme';
@@ -15,10 +15,17 @@ import { brand, radius, space, useTheme } from '../theme';
  * autofill, paste and backspace are then just ordinary text editing, and the
  * boxes are pure presentation.
  *
- * The input is invisible (opacity 0) rather than unmounted: it must stay
- * focusable and keep the system's autofill target. On Android an `opacity: 0`
- * input still shows a caret and a selection handle over the boxes, so the
- * caret is coloured transparent there.
+ * The input is invisible rather than unmounted: it must stay focusable, keep
+ * the system's autofill target, and take the long-press that opens the Paste
+ * menu (a guest copying the code out of WhatsApp). It is NOT `opacity: 0` —
+ * UIKit skips any view under 0.01 alpha when hit-testing, so a long-press
+ * would fall through to the boxes and no Paste menu would ever appear. It sits
+ * at 0.02 with transparent text and caret, which reads as nothing.
+ *
+ * PASTE. No `maxLength`: a native cap truncates the pasted string BEFORE
+ * onChangeText sees it, so "123 456" or a whole WhatsApp message
+ * ("*123456* is your code") would keep its first six characters, not its six
+ * digits. The caller's sanitiser strips and caps instead.
  *
  * DIRECTION. A code is digits and always reads left-to-right, in Arabic too —
  * the boxes are laid out `row` and never mirrored (the RTL guard permits an
@@ -132,7 +139,6 @@ export function CodeInput({
         keyboardType="number-pad"
         autoComplete="one-time-code"
         textContentType="oneTimeCode"
-        maxLength={length}
         autoFocus={autoFocus}
         caretHidden
         selectionColor="transparent"
@@ -142,10 +148,11 @@ export function CodeInput({
           start: 0,
           end: 0,
           height: 56,
-          opacity: 0,
-          // Android keeps a caret over an opacity-0 input unless the colour
-          // itself is transparent.
-          ...(Platform.OS === 'android' ? { color: 'transparent' } : null),
+          // Not 0: see the header — the field must stay hit-testable for the
+          // long-press Paste menu. The transparent colour hides the text and,
+          // on Android, the caret.
+          opacity: 0.02,
+          color: 'transparent',
         }}
       />
     </View>

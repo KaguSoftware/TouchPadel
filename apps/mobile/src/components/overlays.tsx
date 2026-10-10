@@ -278,6 +278,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 const TOAST_OUT_MS = 180;
+const TOAST_FROM_SCALE = 0.5;
 
 function ToastHost({ toast: next }: { toast: ToastState | null }) {
   const { appearance, colors, fonts } = useTheme();
@@ -286,19 +287,23 @@ function ToastHost({ toast: next }: { toast: ToastState | null }) {
   // The toast on screen, which outlives `next` by the length of the exit so
   // it has something to animate away.
   const [toast, setToast] = useState<ToastState | null>(next);
-  const [progress] = useState(() => new Animated.Value(0));
+  // Grows in, fades out (owner, 2026-10-10): scale and opacity move apart, so
+  // the exit leaves the size alone.
+  const [scale] = useState(() => new Animated.Value(TOAST_FROM_SCALE));
+  const [opacity] = useState(() => new Animated.Value(0));
   if (next && next !== toast) setToast(next);
 
   useEffect(() => {
     if (next) {
-      const anim = reduceMotion
-        ? Animated.timing(progress, { toValue: 1, duration: 150, useNativeDriver: true })
-        : Animated.spring(progress, { toValue: 1, damping: 16, stiffness: 240, mass: 0.9, useNativeDriver: true });
+      const anim = Animated.parallel([
+        Animated.timing(opacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, damping: 16, stiffness: 240, mass: 0.9, useNativeDriver: true }),
+      ]);
       anim.start();
       return () => anim.stop();
     }
     let cancelled = false;
-    const anim = Animated.timing(progress, {
+    const anim = Animated.timing(opacity, {
       toValue: 0,
       duration: TOAST_OUT_MS,
       easing: Easing.in(Easing.cubic),
@@ -306,14 +311,16 @@ function ToastHost({ toast: next }: { toast: ToastState | null }) {
     });
     // Settled, not just started: a toast that times out while the app is
     // backgrounded must still be gone when it comes back.
-    void settleAnimation(anim, progress, 0, TOAST_OUT_MS).then(() => {
-      if (!cancelled) setToast(null);
+    void settleAnimation(anim, opacity, 0, TOAST_OUT_MS).then(() => {
+      if (cancelled) return;
+      scale.setValue(TOAST_FROM_SCALE);
+      setToast(null);
     });
     return () => {
       cancelled = true;
       anim.stop();
     };
-  }, [next, reduceMotion, progress]);
+  }, [next, opacity, scale]);
 
   if (!toast) return null;
   // Success and info share one colour per theme (owner, 2026-10-09): navy in
@@ -336,10 +343,8 @@ function ToastHost({ toast: next }: { toast: ToastState | null }) {
       <Animated.View
         accessibilityLiveRegion="polite"
         style={{
-          opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' }),
-          transform: reduceMotion
-            ? []
-            : [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }],
+          opacity,
+          transform: reduceMotion ? [] : [{ scale }],
           backgroundColor: bg,
           borderRadius: radius.cell,
           paddingStart: space.l,

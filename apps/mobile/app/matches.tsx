@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshControl, SectionList, View, type SectionListData } from 'react-native';
+import { Pressable, RefreshControl, SectionList, View, type SectionListData } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { countPhrase, formatIQD, formatTime, isolate } from '@touch/i18n';
@@ -14,6 +14,7 @@ import {
   byCategory,
   matchesEnabled,
   tradingNightOf,
+  type MatchCategory,
   type OpenMatch,
 } from '../src/features/matches/logic';
 import { matchErrorText } from '../src/features/matches/errors';
@@ -21,7 +22,17 @@ import { usePullRefresh } from '../src/lib/usePullRefresh';
 import { space, useTheme } from '../src/theme';
 import { Button, Screen } from '../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
-import { MatchNotice, MatchRow, MatchSectionTitle, nightLabel } from '../src/components/match';
+import { MatchCourtCard, MatchNotice, MatchSectionTitle, nightLabel } from '../src/components/match';
+import { FilterChip } from '../src/components/booking';
+import { PlusIcon } from '../src/components/icons';
+
+type CategoryFilter = 'all' | MatchCategory;
+const FILTERS: { value: CategoryFilter; key: 'matches.list.filterAll' | 'matches.list.filterOpen' | 'matches.list.filterWomen' | 'matches.list.filterMen' }[] = [
+  { value: 'all', key: 'matches.list.filterAll' },
+  { value: 'open', key: 'matches.list.filterOpen' },
+  { value: 'women', key: 'matches.list.filterWomen' },
+  { value: 'men', key: 'matches.list.filterMen' },
+];
 
 /**
  * Open matches (docs/design/open-matches/guest.md §4.12): the branch's
@@ -29,8 +40,11 @@ import { MatchNotice, MatchRow, MatchSectionTitle, nightLabel } from '../src/com
  * days), in sections by trading night ("Tonight", "Tomorrow", "Thu 3 Oct"),
  * so a 00:30 match sits under the night before.
  *
- * No names anywhere on this screen (GD-5): a row is its time, category, seat
- * dots, the share at the desk and the tags the server sent. `at` (from a Book
+ * No names anywhere on this screen (GD-5): a card is its time, category, a
+ * court with a marker per seat, the share at the desk and the tags the server
+ * sent. Chips above the list narrow it to one category (on the device: the
+ * server already left out what the guest may not see). Starting a match is
+ * the header's "+". `at` (from a Book
  * tab chip or a pending intent) scrolls to that time and outlines its rows;
  * `date` scrolls to that night. Switched off at the branch, or a banned
  * account: the notice, no rows and no footer.
@@ -52,6 +66,7 @@ function MatchesScreen() {
   const listRef = useRef<SectionList<OpenMatch, { key: string; title: string }>>(null);
 
   // "Tonight" moves at the trading night's turn, not at midnight.
+  const [filter, setFilter] = useState<CategoryFilter>('all');
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
     const tick = setInterval(() => setNowMs(Date.now()), 60_000);
@@ -61,7 +76,8 @@ function MatchesScreen() {
   const atMs = typeof params.at === 'string' ? Date.parse(params.at) : NaN;
   const sections = useMemo(() => {
     const byNight = new Map<string, OpenMatch[]>();
-    for (const m of [...(open.data?.matches ?? [])].sort(
+    const shown = (open.data?.matches ?? []).filter((m) => filter === 'all' || m.category === filter);
+    for (const m of [...shown].sort(
       (a, b) => Date.parse(a.startAt) - Date.parse(b.startAt),
     )) {
       const night = tradingNightOf(m.startAt, knobs ?? {});
@@ -74,7 +90,7 @@ function MatchesScreen() {
       title: nightLabel(data[0]!.startAt, knobs, nowMs, t, locale),
       data,
     }));
-  }, [open.data, knobs, nowMs, t, locale]);
+  }, [open.data, filter, knobs, nowMs, t, locale]);
 
   // The time or night the guest came for, once, after the rows exist.
   const scrolled = useRef(false);
@@ -114,18 +130,37 @@ function MatchesScreen() {
     [router],
   );
 
-  const footer = (
+  const startInEmpty = (
     <Button
-      testID="matches.start-one"
+      testID="matches.empty.start"
       label={t('matches.list.startOne')}
       variant="cta"
       onPress={startOne}
       style={{ marginTop: space.l }}
     />
   );
+  const anyMatches = (open.data?.matches.length ?? 0) > 0;
   const bottomPad = { paddingBottom: 40 + insets.bottom };
   const picker = (
-    <BranchPicker testID="matches.branch" style={{ marginTop: space.s, marginBottom: space.sm }} />
+    <View>
+      <BranchPicker testID="matches.branch" fit={false} style={{ marginTop: space.s, marginBottom: space.sm }} />
+      {anyMatches ? (
+        <View
+          accessibilityRole="tablist"
+          style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: space.s }}
+        >
+          {FILTERS.map((f) => (
+            <FilterChip
+              key={f.value}
+              testID={`matches.filter.${f.value}`}
+              label={t(f.key)}
+              selected={filter === f.value}
+              onPress={() => setFilter(f.value)}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 
   const body = (() => {
@@ -187,7 +222,7 @@ function MatchesScreen() {
             title={t('matches.list.emptyTitle')}
             message={t('matches.list.emptyBody')}
           />
-          {footer}
+          {startInEmpty}
         </View>
       );
     }
@@ -200,7 +235,6 @@ function MatchesScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[{ paddingTop: space.sm }, bottomPad]}
         ListHeaderComponent={picker}
-        ListFooterComponent={footer}
         onScrollToIndexFailed={() => {}}
         refreshControl={
           <RefreshControl
@@ -214,14 +248,14 @@ function MatchesScreen() {
         }: {
           section: SectionListData<OpenMatch, { key: string; title: string }>;
         }) => <MatchSectionTitle>{section.title}</MatchSectionTitle>}
-        ItemSeparatorComponent={() => <View style={{ height: space.s }} />}
+        ItemSeparatorComponent={() => <View style={{ height: space.sm }} />}
         renderItem={({ item: m }) => {
           const start = new Date(m.startAt);
           return (
-            <MatchRow
+            <MatchCourtCard
               testID={`matches.row.${m.matchId}`}
               time={formatTime(start, locale, tz)}
-              day={t('booking.durationMinutes', { minutes: m.durationMin })}
+              duration={t('booking.durationMinutes', { minutes: m.durationMin })}
               category={m.category}
               seatsTaken={m.seatsTaken}
               seatsLeft={countPhrase('matches.count.seatsLeft', m.seatsLeft, locale)}
@@ -232,7 +266,10 @@ function MatchesScreen() {
               }
               approve={
                 m.joinPolicy === 'approve'
-                  ? t(byCategory(m.category, 'matches.common.approves'))
+                  ? {
+                      label: t('matches.list.approval'),
+                      a11y: t(byCategory(m.category, 'matches.common.approves')),
+                    }
                   : null
               }
               refill={m.refill ? t('matches.list.refill') : null}
@@ -242,6 +279,13 @@ function MatchesScreen() {
                   : m.mine === 'requested'
                     ? t('matches.list.asked')
                     : null
+              }
+              action={
+                m.mine
+                  ? t('matches.list.view')
+                  : m.joinPolicy === 'approve'
+                    ? t('matches.detail.ask')
+                    : t('matches.detail.join')
               }
               highlight={Number.isFinite(atMs) && start.getTime() === atMs}
               onPress={() => openMatch(m.matchId)}
@@ -254,7 +298,23 @@ function MatchesScreen() {
 
   return (
     <Screen edges={[]}>
-      <Stack.Screen options={{ title: t('matches.list.title') }} />
+      <Stack.Screen
+        options={{
+          title: t('matches.list.title'),
+          headerRight: () => (
+            <Pressable
+              testID="matches.start-one"
+              accessibilityRole="button"
+              accessibilityLabel={t('matches.list.startOne')}
+              hitSlop={10}
+              onPress={startOne}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingStart: 6, paddingEnd: 6 })}
+            >
+              <PlusIcon size={22} color={colors.blue} strokeWidth={2.4} />
+            </Pressable>
+          ),
+        }}
+      />
       {body}
     </Screen>
   );

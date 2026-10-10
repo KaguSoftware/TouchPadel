@@ -28,7 +28,11 @@ export default function CoachingLayout() {
         name="lesson-times"
         options={{ headerTransparent: true, headerStyle: { backgroundColor: 'transparent' } }}
       />
-      <Stack.Screen name="lesson-review" />
+      {/* The review runs the same blue header under a transparent bar. */}
+      <Stack.Screen
+        name="lesson-review"
+        options={{ headerTransparent: true, headerStyle: { backgroundColor: 'transparent' } }}
+      />
       <Stack.Screen name="lesson/[id]" />
       <Stack.Screen name="my-lessons" />
     </Stack>

@@ -83,6 +83,7 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // marketing, requests to marketing).
   { file: 'staff.tsx', route: 'staff', primary: 'staff.settings' },
   { file: 'staff-group.tsx', route: 'staff-group', primary: 'staff-group.list' },
+  { file: 'staff-work.tsx', route: 'staff-work', primary: 'staff-work.empty' },
   { file: 'staff-request.tsx', route: 'staff-request', primary: 'staff-request.submit' },
   { file: 'staff-checklist.tsx', route: 'staff-checklist', primary: 'staff-checklist.done' },
   { file: 'staff-start.tsx', route: 'staff-start', primary: 'staff-start.submit' },
@@ -163,7 +164,9 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // docs/design/open-matches/guest.md §4.27, cased by matches.smoke.test.tsx
   // in EN and AR. Two spellings are fixed like booking/[id]: `match/[id]` →
   // `match-detail` and `m/[token]` → `match-link`.
-  { file: 'matches.tsx', route: 'matches', primary: 'matches.start-one' },
+  // The header's "+" (matches.start-one) is a native bar item, which the smoke
+  // mocks never draw, so the list's primary is its first category chip.
+  { file: 'matches.tsx', route: 'matches', primary: 'matches.filter.all' },
   { file: 'match/[id].tsx', route: 'match-detail', primary: 'match-detail.join' },
   { file: 'match-new.tsx', route: 'match-new', primary: 'match-new.start' },
   { file: 'm/[token].tsx', route: 'match-link', primary: 'match-link.sign-in' },

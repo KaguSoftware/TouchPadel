@@ -62,6 +62,12 @@ describe('sanitizeOtpInput', () => {
     expect(sanitizeOtpInput('1234567890')).toHaveLength(OTP_LENGTH);
     expect(sanitizeOtpInput('')).toBe('');
   });
+
+  it('pulls the code out of a pasted WhatsApp message', () => {
+    expect(sanitizeOtpInput('*123456* is your verification code.')).toBe('123456');
+    expect(sanitizeOtpInput('Valid for 10 minutes. Your code: 654321')).toBe('654321');
+    expect(sanitizeOtpInput('رمز التحقق: ٤٥٦٧٨٩')).toBe('456789');
+  });
 });
 
 describe('hasRealEmail', () => {

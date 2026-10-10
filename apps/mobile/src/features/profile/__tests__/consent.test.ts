@@ -1,14 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CURRENT_TERMS_VERSION } from '@touch/core';
 import {
-  GATE_PUSH_SETTLE_MS,
   READ_TO_END_SLACK,
   acceptTerms,
   readToEnd,
   consentAction,
   fetchOwnConsent,
-  shouldPushGate,
-  stackHas,
+  termsCheck,
 } from '../consent';
 
 const V = CURRENT_TERMS_VERSION;
@@ -68,38 +66,6 @@ describe('consent api', () => {
   });
 });
 
-describe('shouldPushGate', () => {
-  const ask = { action: 'ask' as const, onExemptScreen: false, inStack: false, pushedAt: null, now: 10_000 };
-
-  it('pushes the consent screen for an account that has to be asked', () => {
-    expect(shouldPushGate(ask)).toBe(true);
-  });
-
-  it('never pushes when there is nothing to ask', () => {
-    expect(shouldPushGate({ ...ask, action: 'none' })).toBe(false);
-    expect(shouldPushGate({ ...ask, action: 'record' })).toBe(false);
-  });
-
-  it('pushes once: not again while the screen is on the stack or on its way there', () => {
-    expect(shouldPushGate({ ...ask, inStack: true })).toBe(false);
-    expect(shouldPushGate({ ...ask, onExemptScreen: true })).toBe(false);
-    expect(shouldPushGate({ ...ask, pushedAt: ask.now - 100 })).toBe(false);
-  });
-
-  it('pushes again when a push never reached the stack', () => {
-    expect(shouldPushGate({ ...ask, pushedAt: ask.now - GATE_PUSH_SETTLE_MS - 1 })).toBe(true);
-  });
-});
-
-describe('stackHas', () => {
-  it('finds a route at any depth of the navigation state', () => {
-    const state = { routes: [{ name: '__root', state: { routes: [{ name: '(tabs)' }, { name: 'accept-terms' }] } }] };
-    expect(stackHas(state, 'accept-terms')).toBe(true);
-    expect(stackHas(state, 'delete-account')).toBe(false);
-    expect(stackHas(undefined, 'accept-terms')).toBe(false);
-  });
-});
-
 describe('readToEnd', () => {
   it('is false before the text has been measured', () => {
     expect(readToEnd({ offsetY: 0, viewportHeight: 0, contentHeight: 0 })).toBe(false);
@@ -118,5 +84,21 @@ describe('readToEnd', () => {
 
   it('is true when the text fits without scrolling', () => {
     expect(readToEnd({ offsetY: 0, viewportHeight: 400, contentHeight: 300 })).toBe(true);
+  });
+});
+
+describe('termsCheck', () => {
+  it('waits for the row before letting a booking through', () => {
+    expect(termsCheck(undefined, { terms_version: V })).toBe('unknown');
+  });
+
+  it('lets an accepted account through, and one that ticked this version at sign-up', () => {
+    expect(termsCheck({ terms_version: V, terms_accepted_at: 'x' }, {})).toBe('ok');
+    expect(termsCheck({ terms_version: null, terms_accepted_at: null }, { terms_version: V })).toBe('ok');
+  });
+
+  it('asks an account that has not accepted this version', () => {
+    expect(termsCheck({ terms_version: null, terms_accepted_at: null }, {})).toBe('ask');
+    expect(termsCheck({ terms_version: '2020-01-01', terms_accepted_at: 'x' }, {})).toBe('ask');
   });
 });

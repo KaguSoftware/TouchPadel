@@ -182,9 +182,9 @@ function RootStack() {
   // An online deposit still in flight when the app was killed (on the bank's
   // 3-D Secure page, say) reopens its payment screen on the next launch.
   usePendingPaymentResume();
-  // The Terms consent gate (0153): records the sign-up switch once the session
-  // lands, or presents accept-terms to an account that has not accepted the
-  // current version. Here because it needs the session and the router.
+  // The Terms consent (0153): records the sign-up switch once the session
+  // lands. It never presents accept-terms at launch; the action that needs the
+  // terms does. Here because it needs the session.
   useTermsGate();
   // Push registration lives HERE, under AuthProvider, because it needs the live
   // session: the server drops a notification on the floor when the profile
@@ -293,11 +293,11 @@ function RootStack() {
           <Stack.Screen name="profile-edit" />
           <Stack.Screen name="change-password" />
           <Stack.Screen name="delete-account" />
-          {/* Consent gate (0153): a modal with no swipe-to-dismiss — reading
-          and accepting is the only way on. */}
+          {/* Consent (0153), opened by the action that needs it (Review, a
+          TERMS_REQUIRED refusal); swiping it away leaves that action refused. */}
           <Stack.Screen
             name="accept-terms"
-            options={{ presentation: 'modal', gestureEnabled: false, headerShown: false }}
+            options={{ presentation: 'modal', headerShown: false }}
           />
           {/* The same reader from the sign-up checkbox; swiping it away leaves
           the box unticked. */}
@@ -362,9 +362,11 @@ function RootStack() {
             }}
           />
           {/* A Today group's pages on iOS (owner, 2026-10-01): the platform's
-          sheet, sized to its rows. Android shows them in a modal on Today. */}
+          sheet, sized to its rows. Android shows them in a modal on Today.
+          Singular: a double tap on a tile pushed the sheet twice. */}
           <Stack.Screen
             name="staff-group"
+            dangerouslySingular
             options={{
               presentation: 'formSheet',
               sheetAllowedDetents: 'fitToContents',

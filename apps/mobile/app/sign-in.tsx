@@ -19,7 +19,7 @@ import { fetchOwnProfile } from '../src/features/profile/api';
 import { profileKeys } from '../src/features/profile/hooks';
 import { SocialSignInBlock } from '../src/components/social';
 import { PhoneField } from '../src/components/phone';
-import { DEFAULT_ISO } from '../src/features/profile/phone';
+import { parsePhone } from '../src/features/profile/phone';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space } from '../src/theme';
@@ -60,13 +60,17 @@ function SignInScreen() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
-  const params = useLocalSearchParams<{ authError?: string; method?: string }>();
+  const params = useLocalSearchParams<{ authError?: string; method?: string; phone?: string; email?: string }>();
   // A screen that sent the guest here (sign-up's footer, a dead email link)
   // says which segment to open on, so the method never flips under them.
   const [method, setMethod] = useState<AuthMethod>(() => parseAuthMethod(params.method));
-  const [iso, setIso] = useState(DEFAULT_ISO);
-  const [national, setNational] = useState('');
-  const [email, setEmail] = useState('');
+  // Sign-up finding the number or address already taken passes it on, so the
+  // guest only types the password.
+  const [iso, setIso] = useState(() => parsePhone(typeof params.phone === 'string' ? params.phone : '').iso);
+  const [national, setNational] = useState(
+    () => parsePhone(typeof params.phone === 'string' ? params.phone : '').national,
+  );
+  const [email, setEmail] = useState(() => (typeof params.email === 'string' ? params.email : ''));
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);

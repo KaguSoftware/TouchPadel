@@ -35,6 +35,10 @@ export const staffShellAr: DeepMessages<typeof staffShellEn> = {
     passwordNote: 'نسيت كلمة المرور؟ يعيد المالك تعيينها من صفحة الموظفين.',
     signOutConfirm: 'ستحتاج إلى بريدك الإلكتروني وكلمة المرور لتسجيل الدخول مرة أخرى.',
   },
+  work: {
+    empty: 'لا شيء ينتظرك.',
+    badge: '{count} بانتظارك',
+  },
   guestView: {
     tile: 'واجهة الضيوف',
     row: 'عرض واجهة الضيوف',

@@ -71,7 +71,7 @@ import {
 } from '@touch/court3d/spec';
 import { brand, shadows, space, useTheme, withAlpha } from '../theme';
 import { Button, SegmentedControl } from './ui';
-import { CourtLaneRow, DayChip, ENTRY_CARD_H, EntryCard, MatchEntryRow } from './booking';
+import { CourtLaneRow, DayChip, ENTRY_CARD_H, EntryCard, MatchBallIcon } from './booking';
 import { TrophyIcon, WhistleIcon, WifiOffIcon } from './icons';
 import { SkeletonList } from './states';
 import { ErrorAlert, NoticeSheet } from './overlays';
@@ -85,14 +85,6 @@ const CARD_RADIUS = 22;
  * phone the card caps itself and this block shrinks (min 96 pt) and scrolls.
  */
 const GRID_H = 240;
-/**
- * The open matches entry row under the court cards (guest.md §4.11): its 40 pt
- * and the gap above it. Added to the block only while the branch has open
- * matches on, so with the switch off the card is exactly as before. The
- * lessons and tournaments cards (coaching guest.md §4.8.1, tournaments plan
- * §5.2) share one row under it, ENTRY_CARD_H + its gap tall.
- */
-const ENTRY_H = 46;
 const PAD = 10;
 interface Entrance {
   opacity: Animated.AnimatedInterpolation<number>;
@@ -151,10 +143,40 @@ export function BookingSheet({
   // "Tournaments" (tournaments plan §5.2), beside the lessons row and built the
   // same way: a static label, no query of its own.
   const tournamentEntry = useTournamentEntry(guestVenueId);
-  // The extra height the entries add under the court cards: the match row is
-  // one ENTRY_H, the lessons / tournaments cards share one taller row.
-  const entriesH =
-    (a.matchEntry ? ENTRY_H : 0) + (lessonEntry || tournamentEntry ? ENTRY_CARD_H + 6 : 0);
+  // The button cards under the court cards (owner, 2026-10-10): lessons
+  // (coaching guest.md §4.8.1), tournaments (tournaments plan §5.2), then open
+  // matches (guest.md §4.11, only while the branch has them on), two to a row; an
+  // odd one out takes its row's full width. Each row adds ENTRY_CARD_H and the
+  // gap above it, so with none of them on the card is exactly as before.
+  const entries = [
+    lessonEntry
+      ? {
+          key: 'lessons',
+          label: lessonEntry.label,
+          icon: WhistleIcon,
+          onPress: lessonEntry.onPress,
+        }
+      : null,
+    tournamentEntry
+      ? {
+          key: 'tournaments',
+          label: tournamentEntry.label,
+          icon: TrophyIcon,
+          onPress: tournamentEntry.onPress,
+        }
+      : null,
+    a.matchEntry
+      ? {
+          key: 'open-matches',
+          label: a.matchEntry.label,
+          icon: MatchBallIcon,
+          onPress: a.matchEntry.onPress,
+        }
+      : null,
+  ].filter((e) => e !== null);
+  const entryRows: (typeof entries)[] = [];
+  for (let i = 0; i < entries.length; i += 2) entryRows.push(entries.slice(i, i + 2));
+  const entriesH = entryRows.length * (ENTRY_CARD_H + 6);
   // Seeded from the window rather than starting at zero. This box spans the
   // stage's full width, so `width` is already exact; `height` is an
   // over-estimate that only ever relaxes the card's cap, and onLayout corrects
@@ -339,10 +361,10 @@ export function BookingSheet({
       // a ScrollView with scrolling OFF, not swapped for a View: the date
       // chips' glass stopped rendering when this block's structure changed, so
       // the committed layout is left exactly as it was. The spacing below is
-      // trimmed so two courts fit GRID_H. With open matches on, the entry row
-      // is the last child and the block grows by ENTRY_H to hold it; scrolling
-      // comes on then only so that a short phone, where the block gives way,
-      // can still reach the row.
+      // trimmed so two courts fit GRID_H. With entry cards on, their rows are
+      // the last children and the block grows by entriesH to hold them;
+      // scrolling comes on then only so that a short phone, where the block
+      // gives way, can still reach them.
       <ScrollView
         ref={gridRef}
         scrollEnabled={entriesH > 0}
@@ -384,29 +406,11 @@ export function BookingSheet({
             </Animated.View>
           );
         })}
-        {/* The entries group, with the lessons and tournaments cards. */}
-        {a.matchEntry ? (
+        {/* The entries group: open matches, lessons and tournaments as
+            button cards, two to a row. */}
+        {entryRows.map((row) => (
           <Animated.View
-            style={{
-              marginTop: 6,
-              opacity: groups.entries.opacity,
-              transform: [
-                { translateY: groups.entries.translateY },
-                { scale: groups.entries.scale },
-              ],
-            }}
-          >
-            <MatchEntryRow
-              testID={`${testID}.open-matches`}
-              label={a.matchEntry.label}
-              onPress={a.matchEntry.onPress}
-            />
-          </Animated.View>
-        ) : null}
-        {/* Lessons and tournaments as button cards side by side (owner,
-            2026-10-09), after the match row, in the entries group. */}
-        {lessonEntry || tournamentEntry ? (
-          <Animated.View
+            key={row.map((e) => e.key).join('+')}
             style={{
               marginTop: 6,
               flexDirection: 'row',
@@ -418,24 +422,17 @@ export function BookingSheet({
               ],
             }}
           >
-            {lessonEntry ? (
+            {row.map((e) => (
               <EntryCard
-                testID={`${testID}.lessons`}
-                label={lessonEntry.label}
-                icon={WhistleIcon}
-                onPress={lessonEntry.onPress}
+                key={e.key}
+                testID={`${testID}.${e.key}`}
+                label={e.label}
+                icon={e.icon}
+                onPress={e.onPress}
               />
-            ) : null}
-            {tournamentEntry ? (
-              <EntryCard
-                testID={`${testID}.tournaments`}
-                label={tournamentEntry.label}
-                icon={TrophyIcon}
-                onPress={tournamentEntry.onPress}
-              />
-            ) : null}
+            ))}
           </Animated.View>
-        ) : null}
+        ))}
       </ScrollView>
     );
   }

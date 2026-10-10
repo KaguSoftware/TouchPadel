@@ -52,13 +52,14 @@ export function isEmailTaken(err: unknown): boolean {
 }
 
 /**
- * With email confirmations on, GoTrue does NOT error for an existing
- * confirmed address (that would let anyone probe who has an account). It
- * answers as if the sign-up succeeded, with a user that has NO identities.
- * The screen has to read that shape or the guest waits for a mail that never
- * comes.
+ * With confirmations on (email AND sms), GoTrue does NOT error for an existing
+ * confirmed address or number (that would let anyone probe who has an
+ * account). It answers as if the sign-up succeeded, with a user that has NO
+ * identities. The screen has to read that shape: on email the guest would
+ * wait for a mail that never comes, and on phone the code screen would sign
+ * them straight into the account that already holds the number.
  */
-export function signUpHidExistingEmail(
+export function signUpHidExistingAccount(
   data: { user: { identities?: unknown[] | null } | null } | null | undefined,
 ): boolean {
   const identities = data?.user?.identities;

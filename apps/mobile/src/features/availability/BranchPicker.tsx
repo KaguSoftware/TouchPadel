@@ -20,9 +20,12 @@ import { useGuestVenue } from './hooks';
 export function BranchPicker({
   testID,
   style,
+  fit = true,
 }: {
   testID: string;
   style?: StyleProp<ViewStyle>;
+  /** False: the track spans the screen and the segments share it (the open-matches list). */
+  fit?: boolean;
 }) {
   const { t, locale } = useLocale();
   const { colors } = useTheme();
@@ -33,7 +36,7 @@ export function BranchPicker({
       <MicroLabel style={{ marginBottom: 6 }}>{t('branches.common.branch')}</MicroLabel>
       <SegmentedControl<string>
         testID={testID}
-        fit
+        fit={fit}
         options={guest.branches.map((b) => ({ value: b.venue_id, label: branchName(b, locale) }))}
         value={guest.venueId}
         onChange={guest.setVenueId}
