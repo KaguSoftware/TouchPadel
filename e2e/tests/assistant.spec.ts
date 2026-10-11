@@ -255,7 +255,7 @@ test.describe('owner assistant @ar', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   }
 
-  test('rail button opens the drawer with الكافيه + how-to pre-checked and the pack size', async ({ page }) => {
+  test('rail button opens the drawer with every scope pre-checked and the start size', async ({ page }) => {
     await signInArabic(page);
     await page.goto(`${OPERATOR_URL}/analytics/cafe`);
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
@@ -263,7 +263,7 @@ test.describe('owner assistant @ar', () => {
     const dialog = await openDrawerWithScopes(page, AR);
     await expect(dialog.getByRole('checkbox', { name: AR.scopeCafe })).toBeChecked();
     await expect(dialog.getByRole('checkbox', { name: AR.scopeHowto })).toBeChecked();
-    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
+    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(await dialog.getByRole('checkbox').count());
     await expect(dialog.getByText(AR.startLine)).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
   });
 
