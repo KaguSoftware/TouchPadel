@@ -177,8 +177,7 @@ describe('paragraphs carry a base writing direction', () => {
       // SYSTEM locale for its direction regardless. That divergence is the
       // accepted cost of the native iOS pickers (phone.ios-picker.tsx, the
       // country list; WheelSheet.ios.tsx and DateWheelSheet.ios.tsx, the
-      // wheel sheets) — pinned here so each exception stays deliberate. A
-      // native sheet hosting RN content (GroupSheetIOS.tsx) takes the wrapper.
+      // wheel sheets) — pinned here so each exception stays deliberate.
       if (/import \{[^}]*\bText\b[^}]*\} from '@expo\/ui\/swift-ui'/.test(src)) {
         expect(
           [

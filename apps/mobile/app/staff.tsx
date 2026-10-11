@@ -43,7 +43,6 @@ import { coachModeEntry, useCoachStatus } from '../src/features/coach/useCoachSt
 import { showsVenuePicker } from '../src/features/staff/venue';
 import { useWaitingCount, useWorkAlerts } from '../src/features/staff/workAlerts';
 import { GroupRows, useTodayGroups, type TodayGroup } from '../src/features/staff/todayGroups';
-import { GroupSheetIOS } from '../src/features/staff/GroupSheetIOS';
 import type { StaffRowDef } from '../src/features/staff/rows';
 import { useReduceMotion } from '../src/lib/useReduceMotion';
 import { useToast } from '../src/components/overlays';
@@ -330,9 +329,8 @@ function AccountButton({
 }
 
 /**
- * A group's pages in a bottom sheet of our own, on Android: the native
- * formSheet never opened there. iOS shows the same header and rows in a
- * native sheet (GroupSheetIOS) that closes with a swipe down. The pattern is the
+ * A group's pages in a bottom sheet of our own, on Android only: the native
+ * formSheet (app/staff-group.tsx, iOS) never opened there. The pattern is the
  * country picker's (src/components/phone.tsx): a scrim that fades in place
  * behind a sheet that slides up, both closed by the scrim, the back button or
  * a row. The modal sits outside the app's direction root, so it takes `dir`.
@@ -476,7 +474,7 @@ function TodayScreen() {
   const toast = useToast();
   const out = useStaffSignOut();
   const { groups, label, waiting } = useTodayGroups();
-  // The group sheet: GroupSheetIOS on iOS, GroupModal on Android.
+  // Android's group sheet (GroupModal); iOS routes to the native one.
   const [sheetKey, setSheetKey] = useState<string | null>(null);
   const sheetGroup = groups.find((g) => g.key === sheetKey) ?? null;
 
@@ -598,7 +596,11 @@ function TodayScreen() {
                 waiting={waiting(group)}
                 preview={group.rows.map(label).join(', ')}
                 compact={compact}
-                onPress={() => setSheetKey(group.key)}
+                onPress={() =>
+                  Platform.OS === 'ios'
+                    ? router.push({ pathname: '/staff-group', params: { group: group.key } })
+                    : setSheetKey(group.key)
+                }
               />
             )),
             // Staff who coach reach coach mode here (coaching C-27, R45): the
@@ -702,17 +704,7 @@ function TodayScreen() {
           />
         </Card>
       </ScrollView>
-      {/* iOS takes the native sheet, which closes with a swipe down; Android
-          the sheet below. Same header and rows on both. */}
-      {Platform.OS === 'ios' ? (
-        <GroupSheetIOS
-          groups={groups}
-          openKey={sheetKey}
-          label={label}
-          onClosed={() => setSheetKey(null)}
-          onOpen={(row) => router.push(row.href)}
-        />
-      ) : (
+      {Platform.OS === 'ios' ? null : (
         <GroupModal
           group={sheetGroup}
           label={label}
