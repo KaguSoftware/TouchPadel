@@ -505,7 +505,7 @@ export function RosterRow({
               ? ` ${t('coaching.coach.roster.friends', { count: isolateLtr(String(friends)) })}`
               : ''}
           </Text>
-          {entry.friendNames.length > 0 ? (
+          {entry.friendNames.length > 0 && !entry.friends.some((f) => f.phone) ? (
             <Text
               numberOfLines={2}
               style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}
@@ -570,6 +570,55 @@ export function RosterRow({
           </Pressable>
         </View>
       ) : null}
+      {/* The other students a coach booked with their phones (0334, 0335):
+          each on its own line, callable like the student. */}
+      {entry.friends.some((f) => f.phone)
+        ? entry.friends.map((f, i) => (
+            <View
+              key={`${i}.${f.name}`}
+              testID={`${testID}.friend.${i + 1}`}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: space.s }}
+            >
+              <View style={{ flex: 1, gap: 1 }}>
+                <Text
+                  numberOfLines={1}
+                  style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.ink }}
+                >
+                  {isolate(f.name)}
+                </Text>
+                {f.phone ? (
+                  <Text style={{ fontFamily: fonts.body600, fontSize: 12, color: colors.mut2 }}>
+                    {isolateLtr(f.phone)}
+                  </Text>
+                ) : null}
+              </View>
+              {f.phone ? (
+                <Pressable
+                  testID={`${testID}.friend.${i + 1}.call`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t('coaching.coach.roster.call')} ${f.name}`}
+                  onPress={() => onCall(f.phone!)}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    paddingStart: 12,
+                    paddingEnd: 12,
+                    paddingTop: 7,
+                    paddingBottom: 7,
+                    borderRadius: radius.pill,
+                    backgroundColor: pressed ? colors.gline : colors.gtint,
+                  })}
+                >
+                  <PhoneIcon size={13} color={colors.gstrong} />
+                  <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.gtext }}>
+                    {t('coaching.coach.roster.call')}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ))
+        : null}
       {markMode === 'edit' && entry.status === 'booked' ? (
         <View style={{ opacity: marking ? 0.6 : 1 }}>
           <SegmentedControl<MarkValue>

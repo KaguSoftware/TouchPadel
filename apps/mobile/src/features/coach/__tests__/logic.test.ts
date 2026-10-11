@@ -549,11 +549,23 @@ describe('a lesson’s roster (X11; C-16, CD-11, R44, R54, P13)', () => {
           phone: '+9647700000000',
           status: 'held',
           attendance: 'late',
+          friend_names: ['Y'],
+          friend_phones: ['+9647700000001'],
         },
       ],
     })!;
     expect(held.roster[0]!.phone).toBeNull();
     expect(held.roster[0]!.attendance).toBeNull();
+    expect(held.roster[0]!.friends).toEqual([{ name: 'Y', phone: null }]);
+  });
+
+  it('pairs the other students with their phones by position (0334, 0335)', () => {
+    const d = parseCoachLesson(coachLessonRaw())!;
+    expect(d.roster[0]!.friends).toEqual([
+      { name: 'Omar Friend', phone: '+9647700000013' },
+      { name: 'Zaid Friend', phone: null },
+    ]);
+    expect(d.roster[1]!.friends).toEqual([]);
   });
 
   it('answers null without a lesson, and no permission without `can`', () => {

@@ -72,6 +72,13 @@ export async function fetchCoachProfile(
   return parseCoachProfile(data);
 }
 
+/** app.coach_id_for_slug (0336): a share link's slug → the coach's id, or null. */
+export async function fetchCoachIdForSlug(client: Client, slug: string): Promise<string | null> {
+  const { data, error } = await client.schema('app').rpc('coach_id_for_slug', { p_slug: slug });
+  if (error) throw error;
+  return typeof data === 'string' ? data : null;
+}
+
 /** app.coach_slots: a private type's bookable starts over at most 14 days. */
 export async function fetchCoachSlots(
   client: Client,

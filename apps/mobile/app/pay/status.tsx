@@ -61,7 +61,7 @@ import { pick } from '../../src/features/coaching/logic';
 import { openPaymentPage } from '../../src/features/deposit/browser';
 import { PayStateLayout, type PayTone } from '../../src/features/deposit/PayStateLayout';
 import { callPhone } from '../../src/lib/phone';
-import { useBackGuard } from '../../src/navigation/back';
+import { useBackGuard, useReturnTo } from '../../src/navigation/back';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, Card, DashedDivider, ErrorText, Screen } from '../../src/components/ui';
 import { SummaryGrid, type SummaryRow } from '../../src/components/booking';
@@ -110,6 +110,7 @@ function PayStatusScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts, tracking } = useTheme();
   const router = useRouter();
+  const returnTo = useReturnTo();
   const toast = useToast();
   const { session } = useAuth();
   const userId = session?.user.id ?? '';
@@ -211,18 +212,18 @@ function PayStatusScreen() {
   });
   const go = (to: () => void) => leave(to);
 
-  const toBookings = () => go(() => router.replace('/(tabs)/bookings'));
+  const toBookings = () => go(() => returnTo('/(tabs)/bookings', '(tabs)'));
   const toTickets = () => go(() => router.replace('/tickets'));
   const toLesson = () =>
     go(() =>
       lessonEnrolmentId
-        ? router.replace({ pathname: '/lesson/[id]', params: { id: lessonEnrolmentId } })
-        : router.replace('/my-lessons'),
+        ? returnTo({ pathname: '/lesson/[id]', params: { id: lessonEnrolmentId } }, '(coaching)', 'push')
+        : returnTo('/my-lessons', '(coaching)', 'push'),
     );
   const toGrid = () =>
     go(() => {
       requestBookingSheet();
-      router.navigate('/(tabs)');
+      router.dismissTo('/(tabs)');
     });
 
   // ── The answer is final: forget the pointer, refresh what shows bookings ──
@@ -250,17 +251,20 @@ function PayStatusScreen() {
           'success',
         );
         go(() =>
-          router.replace({
-            pathname: '/match/[id]',
-            params: c.kind !== 'start' && c.token ? { id: result.matchId, t: c.token } : { id: result.matchId },
-          }),
+          returnTo(
+            {
+              pathname: '/match/[id]',
+              params: c.kind !== 'start' && c.token ? { id: result.matchId, t: c.token } : { id: result.matchId },
+            },
+            '(matches)',
+          ),
         );
       },
       (err: unknown) => {
         // Nothing is retried by itself: the refusal, where the tickets are,
         // and back to the match (a start re-quotes on its form).
         toast(`${matchErrorText(err, t, { locale, phone })} ${t('matches.pay.ticketsKept')}`, 'error');
-        go(() => router.replace(continuationBackHref(c)));
+        go(() => returnTo(continuationBackHref(c), '(matches)'));
       },
     );
   };
@@ -399,7 +403,7 @@ function PayStatusScreen() {
   const backFromTickets = () => {
     const c = continuation;
     clearTicketContinuation();
-    if (c) go(() => router.replace(continuationBackHref(c)));
+    if (c) go(() => returnTo(continuationBackHref(c), '(matches)'));
     else toTickets();
   };
 
@@ -1148,11 +1152,8 @@ function PayStatusScreen() {
     <Screen edges={[]} style={{ paddingTop: space.xs }}>
       <Stack.Screen
         options={{
+          // While the bank is working the guard below turns the swipe off.
           title: t('deposit.title'),
-          // UIKit commits an edge-swipe before `beforeRemove` can ask, so
-          // while the bank is working the swipe is off and the back item (or
-          // "Leave") asks first. Every other state swipes as usual.
-          gestureEnabled: screen.kind !== 'checking',
         }}
       />
       {view}

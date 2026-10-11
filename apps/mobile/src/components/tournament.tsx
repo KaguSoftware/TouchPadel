@@ -13,7 +13,7 @@
  */
 import { Pressable, View } from 'react-native';
 import { Text } from '../i18n/text';
-import { palettes, radius, space, useTheme } from '../theme';
+import { brand, palettes, radius, space, useTheme, withAlpha } from '../theme';
 import { useLocale } from '../i18n/LocaleProvider';
 import { categoryKey, type MatchCategory } from '../features/matches/logic';
 import type { TourTone } from '../features/tournaments/logic';
@@ -70,9 +70,19 @@ export function TournamentRow({
   fill: number | null;
   onPress: () => void;
 }) {
-  const { colors, fonts } = useTheme();
-  const accent = tone === 'running' ? colors.gstrong : tone === 'over' ? colors.sub : colors.blue;
-  const onAccent = tone === 'over' ? colors.mut : colors.card;
+  const { colors, fonts, appearance } = useTheme();
+  // An upcoming tile is the brand blue in light; in dark `colors.blue` is white, so it turns the
+  // brand green with its own ink, as the iOS tab bar does (owner, 2026-10-11).
+  const darkUpcoming = tone === 'upcoming' && appearance === 'dark';
+  const accent =
+    tone === 'running'
+      ? colors.gstrong
+      : tone === 'over'
+        ? colors.sub
+        : darkUpcoming
+          ? brand.green
+          : colors.blue;
+  const onAccent = tone === 'over' ? colors.mut : darkUpcoming ? brand.greenInk : colors.card;
   const pill =
     tone === 'running'
       ? { bg: colors.gtint, fg: colors.gtext }
@@ -121,15 +131,29 @@ export function TournamentRow({
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
           style={{
-            width: 60,
-            height: 68,
+            // A long month ("تشرين الثاني") wraps to two centred lines; the tile grows to fit
+            // and the padding keeps it off the edges.
+            width: 64,
+            minHeight: 68,
+            paddingStart: 6,
+            paddingEnd: 6,
+            paddingTop: 8,
+            paddingBottom: 8,
             borderRadius: radius.cell,
             backgroundColor: accent,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: onAccent }}>
+          <Text
+            style={{
+              fontFamily: fonts.body700,
+              fontSize: 11.5,
+              lineHeight: 14,
+              textAlign: 'center',
+              color: onAccent,
+            }}
+          >
             {date.month}
           </Text>
           <Text
@@ -218,7 +242,9 @@ export function TournamentRow({
                 width: `${fill}%`,
                 height: '100%',
                 borderRadius: radius.pill,
-                backgroundColor: tone === 'over' ? colors.fnt3 : accent,
+                // An upcoming bar is the brand green in both themes, though the light tile stays blue.
+                backgroundColor:
+                  tone === 'over' ? colors.fnt3 : tone === 'upcoming' ? brand.green : accent,
               }}
             />
           </View>
@@ -239,7 +265,6 @@ const MAX_PLACE_BLOCKS = 24;
  * places left, one block per place and the cut-off. Every string arrives formatted.
  */
 export function TournamentTicket({
-  tone,
   status,
   category,
   title,
@@ -255,7 +280,6 @@ export function TournamentTicket({
   max,
   closes,
 }: {
-  tone: TourTone;
   /** "Registration open", …, or null for a state the phone does not know. */
   status: string | null;
   category: MatchCategory;
@@ -279,16 +303,24 @@ export function TournamentTicket({
   closes: string | null;
 }) {
   const { t } = useLocale();
-  const { colors: theme, fonts, tracking } = useTheme();
-  // The ticket keeps the light palette in both themes (the Figma design): a paper ticket on the
-  // page. Only the notches take the page's own colour, so they read as cut out of it.
-  const colors = palettes.light;
-  const pill =
-    tone === 'running'
-      ? { bg: colors.tint, fg: colors.blue }
-      : tone === 'over'
-        ? { bg: colors.sub, fg: colors.mut }
-        : { bg: colors.gtint, fg: colors.gtext };
+  const { colors: theme, fonts, tracking, appearance } = useTheme();
+  // The ticket is green paper on the page (owner, 2026-10-11): the light green (`gline`) in light,
+  // the brand green in dark. Only the notches take the page's own colour, so they read as cut out of it. No
+  // border on the ticket or the notches: iOS draws a border above the children, so it ran across
+  // the punches. The muted and green texts darken to the deep green so they keep their contrast
+  // on it, and the rules are ink at low alpha.
+  const light = palettes.light;
+  const colors = {
+    ...light,
+    card: appearance === 'dark' ? brand.green : light.gline,
+    line: withAlpha(light.ink, 0.16),
+    line2: withAlpha(light.ink, 0.22),
+    mut: light.gtext2,
+    gtext: light.ink,
+  };
+  // Both pills are solid brand blue with white text.
+  const pill = { bg: brand.blue, fg: light.card };
+  const categoryPill = pill;
   const micro = {
     fontFamily: fonts.body700,
     fontSize: 11,
@@ -305,8 +337,6 @@ export function TournamentTicket({
         height: 22,
         borderRadius: 11,
         backgroundColor: theme.bg,
-        borderWidth: 1,
-        borderColor: colors.line,
       }}
     />
   );
@@ -315,8 +345,6 @@ export function TournamentTicket({
     <View
       style={{
         backgroundColor: colors.card,
-        borderWidth: 1,
-        borderColor: colors.line,
         borderRadius: radius.sheet,
         overflow: 'hidden',
       }}
@@ -350,7 +378,7 @@ export function TournamentTicket({
           )}
           <View
             style={{
-              backgroundColor: colors.tint,
+              backgroundColor: categoryPill.bg,
               borderRadius: radius.pill,
               paddingStart: 10,
               paddingEnd: 10,
@@ -358,7 +386,7 @@ export function TournamentTicket({
               paddingBottom: 4,
             }}
           >
-            <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: colors.blue }}>
+            <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: categoryPill.fg }}>
               {t(categoryKey(category))}
             </Text>
           </View>
@@ -423,7 +451,13 @@ export function TournamentTicket({
         >
           <View style={{ gap: 2, flexShrink: 1 }}>
             <Text style={micro}>{feeLabel}</Text>
-            <Text style={{ fontFamily: fonts.display800, fontSize: 22, color: colors.blue }}>
+            <Text
+              style={{
+                fontFamily: fonts.display800,
+                fontSize: 22,
+                color: brand.greenInk,
+              }}
+            >
               {fee}
             </Text>
           </View>

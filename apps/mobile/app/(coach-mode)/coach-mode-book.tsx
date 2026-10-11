@@ -301,7 +301,12 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
     n === 1 ? { name, iso, national } : (extras[n] ?? { name: '', iso: DEFAULT_ISO, national: '' });
   const setStudent = (n: number, patch: Partial<Extra>) => {
     if (n === 1) {
-      if (patch.name !== undefined) setName(patch.name);
+      // A new name is a new student: drop the saved one, or the lesson would
+      // go to their phone under someone else's name. Re-picking restores it.
+      if (patch.name !== undefined) {
+        setName(patch.name);
+        setSavedKey(null);
+      }
       if (patch.iso !== undefined) setIso(patch.iso);
       if (patch.national !== undefined) setNational(patch.national);
       return;
@@ -609,7 +614,7 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
                         minHeight: 104,
                         borderRadius: radius.button,
                         borderWidth: 2,
-                        borderColor: selected ? colors.blue : 'transparent',
+                        borderColor: selected ? brand.green : 'transparent',
                         padding: 12,
                         gap: 6,
                         justifyContent: 'space-between',
@@ -642,12 +647,12 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
                               width: 24,
                               height: 24,
                               borderRadius: 12,
-                              backgroundColor: colors.blue,
+                              backgroundColor: brand.green,
                               alignItems: 'center',
                               justifyContent: 'center',
                             }}
                           >
-                            <CheckIcon size={14} color={colors.card} strokeWidth={3} />
+                            <CheckIcon size={14} color={brand.greenInk} strokeWidth={3} />
                           </View>
                         ) : (
                           <View
@@ -818,7 +823,7 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
                     }}
                     style={{
                       borderWidth: expanded ? 2 : 1,
-                      borderColor: expanded ? colors.blue : colors.line,
+                      borderColor: expanded ? brand.green : colors.line,
                       borderRadius: radius.button,
                       overflow: 'hidden',
                     }}

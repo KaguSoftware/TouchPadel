@@ -10,6 +10,8 @@
  *     phone; another coach's students are not listed;
  *   * booking a saved student again with no phone takes the stored phone; a
  *     key that is not the caller's own coach booking is refused;
+ *   * the coach's roster and the desk's lesson show the other students' phones
+ *     (0335);
  *   * emptying friend_names (every scrub does) empties friend_phones.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -85,6 +87,10 @@ const BODY: string[] = [
     phones: `array['${P3}', '']`,
   }),
   ...ROW('party_row', 'party'),
+  // 0335: the coach's roster and the desk's lesson show them.
+  FROM('party_l', 'party', 'lesson_id'),
+  E('party_roster', 'g1', `select app.coach_lesson({{party_l}}::uuid)`),
+  E('party_desk', 'desk', `select app.desk_lesson_detail({{party_l}}::uuid)`),
   CB('too_many_phones', 'g1', at(3), {
     party: 2,
     friends: `array['Ali']`,
@@ -121,6 +127,22 @@ describe.skipIf(!docker)('0334 coach books students, one transaction', () => {
     r = scenario('c334', BODY);
   });
 
+  it('shows the other students’ phones in the coach’s roster and at the desk (0335)', () => {
+    const roster = data<{ roster: Json[] }>(r, 'party_roster').roster;
+    expect(missingKeys(data(r, 'party_roster'), COACHING_SHAPES.coach_lesson)).toEqual([]);
+    expect(roster[0]).toMatchObject({
+      phone: P1,
+      friend_names: ['Ali', 'Omar'],
+      friend_phones: [P3, ''],
+    });
+    const desk = data<{ enrolments: Json[] }>(r, 'party_desk');
+    expect(missingKeys(desk, COACHING_SHAPES.desk_lesson_detail)).toEqual([]);
+    expect(desk.enrolments[0]).toMatchObject({
+      friend_names: ['Ali', 'Omar'],
+      friend_phones: [P3, ''],
+    });
+  });
+
   it('requires the student’s phone', () => {
     expect(code(r, 'no_phone')).toBe('INVALID_ARGUMENT:p_student_phone');
     expect(code(r, 'bad_phone')).toBe('INVALID_ARGUMENT:p_student_phone');
@@ -150,7 +172,8 @@ describe.skipIf(!docker)('0334 coach books students, one transaction', () => {
     expect(students.map((s) => s.name)).toEqual(['Sara M', 'Huda']);
     expect(students[0]).toMatchObject({ lessons: 2 });
     expect(students[1]).toMatchObject({ lessons: 1 });
-    for (const s of students) expect(Object.keys(s).sort()).toEqual(['key', 'last_at', 'lessons', 'name']);
+    for (const s of students)
+      expect(Object.keys(s).sort()).toEqual(['key', 'last_at', 'lessons', 'name']);
     expect(JSON.stringify(students)).not.toContain(P1);
     expect(code(r, 'saved_stranger')).toBe('NOT_A_COACH');
   });

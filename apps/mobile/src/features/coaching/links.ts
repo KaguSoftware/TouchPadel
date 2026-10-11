@@ -13,6 +13,8 @@
  *
  * OUT. `coachShareUrl` is built on `siteUrl()` (src/lib/legal.ts), the host
  * every build claims, as the match invite is; the links test pins the two.
+ * Since 0336 the link names the coach (`/c/omar-karim`, the coach's slug);
+ * the coach screen takes a slug or an id, so a link shared before still opens.
  */
 import type { Locale } from '@touch/i18n';
 import { siteUrl } from '../../lib/legal';
@@ -22,6 +24,13 @@ export const COACH_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 
 export function isCoachId(value: unknown): value is string {
   return typeof value === 'string' && COACH_ID_RE.test(value);
+}
+
+/** A coach's share link name (`coaches.slug`, 0336's app.coach_slug_ok), any case. */
+export const COACH_SLUG_RE = /^[a-z0-9][a-z0-9-]{1,47}$/i;
+
+export function isCoachSlug(value: unknown): value is string {
+  return typeof value === 'string' && COACH_SLUG_RE.test(value) && !isCoachId(value);
 }
 
 /**
@@ -41,10 +50,10 @@ export function normaliseCoachLink(path: string): string | null {
 }
 
 /**
- * The share link for a coach (`${siteUrl()}/<locale>/c/<id>`): names the coach, never a price
- * (GL-4). The locale is the sharer's: a link preview (WhatsApp) is fetched with no cookie and
+ * The share link for a coach (`${siteUrl()}/<locale>/c/<slug>`, or the id from a server before
+ * 0336): names the coach, never a price (GL-4). The locale is the sharer's: a link preview (WhatsApp) is fetched with no cookie and
  * no useful Accept-Language, so a bare `/c/<id>` would always unfurl in the site's default.
  */
-export function coachShareUrl(coachId: string, locale: Locale): string {
-  return `${siteUrl()}/${locale}/c/${coachId}`;
+export function coachShareUrl(coach: { id: string; slug: string | null }, locale: Locale): string {
+  return `${siteUrl()}/${locale}/c/${coach.slug ?? coach.id}`;
 }

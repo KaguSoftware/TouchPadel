@@ -48,6 +48,8 @@ export interface CourtTransition {
   sheetMounted: boolean;
   openBooking: () => void;
   closeBooking: () => void;
+  /** Straight to the court at rest, no animation: the sheet was never there. */
+  snapClosed: () => void;
 }
 
 export function useCourtTransition(): CourtTransition {
@@ -186,6 +188,26 @@ export function useCourtTransition(): CourtTransition {
 
   const openBooking = useCallback(() => goTo(1), [goTo]);
   const closeBooking = useCallback(() => goTo(0), [goTo]);
+  const snapClosed = useCallback(() => {
+    running.current?.stop();
+    running.current = null;
+    unwatch();
+    disarm();
+    progress.setValue(0);
+    veil.setValue(0);
+    setDirection(-1);
+    setOpen(false);
+    setMounted(false);
+  }, [progress, veil, unwatch, disarm]);
 
-  return { progress, veil, direction, isOpen, sheetMounted, openBooking, closeBooking };
+  return {
+    progress,
+    veil,
+    direction,
+    isOpen,
+    sheetMounted,
+    openBooking,
+    closeBooking,
+    snapClosed,
+  };
 }

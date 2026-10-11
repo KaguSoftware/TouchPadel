@@ -220,6 +220,8 @@ export function BookingSheet({
    * takes whichever is taller, so iOS keeps its 240 exactly.
    */
   const [gridContentH, setGridContentH] = useState(0);
+  /** The grid's visible height, to know when its content overflows it. */
+  const [gridViewH, setGridViewH] = useState(0);
   useEffect(() => {
     gridRef.current?.scrollTo({ y: 0, animated: false });
   }, [a.gridKey]);
@@ -364,12 +366,17 @@ export function BookingSheet({
       // trimmed so two courts fit GRID_H. With entry cards on, their rows are
       // the last children and the block grows by entriesH to hold them;
       // scrolling comes on then only so that a short phone, where the block
-      // gives way, can still reach them.
+      // gives way, can still reach them. The same holds for any content that
+      // does not fit: more than two courts, or a short phone, scrolls too.
       <ScrollView
         ref={gridRef}
-        scrollEnabled={entriesH > 0}
+        scrollEnabled={entriesH > 0 || gridContentH > gridViewH + 1}
         bounces={false}
         showsVerticalScrollIndicator={false}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          setGridViewH((prev) => (prev === h ? prev : h));
+        }}
         onContentSizeChange={(_w, h) => setGridContentH((prev) => (prev === h ? prev : h))}
         // The foot's air is part of the measured content, so the block grows by
         // it and the last card never sits on the sheet's edge.

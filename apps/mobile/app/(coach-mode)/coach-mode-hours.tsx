@@ -479,7 +479,7 @@ function TimeOffSection({
             <LinkText
               testID="coach-mode-hours.time-off.see-schedule"
               label={t('coaching.coach.timeOff.seeSchedule')}
-              onPress={() => router.navigate('/coach-mode')}
+              onPress={() => router.dismissTo('/coach-mode')}
             />
           ) : null}
           <Button

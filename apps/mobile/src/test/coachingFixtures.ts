@@ -48,6 +48,7 @@ const coachCard = () => ({
   id: COACH_ID,
   display_name_en: 'Sara Coach',
   display_name_ar: 'سارة المدرّبة',
+  slug: 'sara-coach',
   photo_path: PHOTO_PATH,
 });
 

@@ -67,6 +67,7 @@ function PhoneLinkForm({ returnTo, initialPhone }: { returnTo: LinkReturnTo; ini
       clearPendingIntents();
       go();
     },
+    onDismissed: clearPendingIntents,
   });
 
   const onSubmit = async () => {

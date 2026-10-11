@@ -109,7 +109,7 @@ function CoachLessonBody({ coach }: { coach: CoachMe }) {
           message={t('coaching.coach.lesson.notFound')}
           actionLabel={t('coaching.coach.lesson.back')}
           actionTestID="coach-mode-lesson.back"
-          onAction={() => router.navigate('/coach-mode')}
+          onAction={() => router.dismissTo('/coach-mode')}
         />
       ) : lesson.data ? (
         <LessonDetail coach={coach} detail={lesson.data} pull={pull} />

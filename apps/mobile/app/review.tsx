@@ -311,7 +311,7 @@ function ReviewScreen() {
     if (params.origin === 'sheet') backToGrid();
     else {
       requestBookingSheet();
-      router.navigate('/(tabs)');
+      router.dismissTo('/(tabs)');
     }
   };
 

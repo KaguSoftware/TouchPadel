@@ -39,6 +39,8 @@ import { ProfileAvatar } from '../../src/components/ProfileAvatar';
 import { frameOf, frameStyleOf } from '../../src/features/profile/frames';
 import { atUsername } from '../../src/features/profile/username';
 import { useToast } from '../../src/components/overlays';
+import { useResetTo } from '../../src/navigation/back';
+import { closeBookingSheetNow } from '../../src/features/courtTransition/openIntent';
 
 const LOGO_H = 40;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
@@ -78,6 +80,7 @@ export default function ProfileScreen() {
   const { t, dir, locale } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const router = useRouter();
+  const resetTo = useResetTo();
   const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
@@ -116,7 +119,8 @@ export default function ProfileScreen() {
     setSigningOut(true);
     try {
       await signOut(supabase);
-      router.replace('/(tabs)');
+      closeBookingSheetNow();
+      resetTo('/(tabs)');
     } catch (err) {
       setError(t(mapErrorToKey(err)));
     } finally {

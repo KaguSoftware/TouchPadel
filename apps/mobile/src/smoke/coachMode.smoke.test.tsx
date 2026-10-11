@@ -324,6 +324,14 @@ describe.each(LOCALES)('coach mode’s states in %s', (locale) => {
     try {
       expect(screen.getByTestId(`coach-mode-lesson.student.${ENROLMENT_ID}`)).toBeTruthy();
       expect(screen.getByTestId(`coach-mode-lesson.student.${ENROLMENT_ID}.call`)).toBeTruthy();
+      // The other students the coach booked, each callable (0334, 0335).
+      expect(
+        screen.getByTestId(`coach-mode-lesson.student.${ENROLMENT_ID}.friend.1.call`),
+      ).toBeTruthy();
+      expect(screen.getByTestId(`coach-mode-lesson.student.${ENROLMENT_ID}.friend.2`)).toBeTruthy();
+      expect(
+        screen.queryByTestId(`coach-mode-lesson.student.${ENROLMENT_ID}.friend.2.call`),
+      ).toBeNull();
       expect(screen.getByTestId(`coach-mode-lesson.student.${ENROLMENT_ID}.mark`)).toBeTruthy();
       expect(screen.getByTestId(`coach-mode-lesson.student.${ENROLMENT_2_ID}.mark`)).toBeTruthy();
       expect(screen.getByText(t('coaching.coach.roster.phoneNote'))).toBeTruthy();

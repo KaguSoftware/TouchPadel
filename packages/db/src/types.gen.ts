@@ -1160,6 +1160,7 @@ export type Database = {
         }
         Returns: Json
       }
+      coach_id_for_slug: { Args: { p_slug: string }; Returns: string }
       coach_in_hours: {
         Args: { p_coach_id: string; p_period: unknown; p_venue: string }
         Returns: boolean
@@ -1228,6 +1229,11 @@ export type Database = {
         }
         Returns: Json
       }
+      coach_slug_free: {
+        Args: { p_name: string; p_self: string }
+        Returns: string
+      }
+      coach_slug_ok: { Args: { p_slug: string }; Returns: boolean }
       coach_staff_scope: { Args: { p_coach_id: string }; Returns: boolean }
       coach_statement_approve: {
         Args: { p_statement_id: string }
@@ -7298,6 +7304,7 @@ export type Database = {
           profile_id: string
           public_accepted_at: string | null
           retired_at: string | null
+          slug: string | null
           sort_order: number
           status: string
           updated_at: string
@@ -7314,6 +7321,7 @@ export type Database = {
           profile_id: string
           public_accepted_at?: string | null
           retired_at?: string | null
+          slug?: string | null
           sort_order?: number
           status?: string
           updated_at?: string
@@ -7330,6 +7338,7 @@ export type Database = {
           profile_id?: string
           public_accepted_at?: string | null
           retired_at?: string | null
+          slug?: string | null
           sort_order?: number
           status?: string
           updated_at?: string

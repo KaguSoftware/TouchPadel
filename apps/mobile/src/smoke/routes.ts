@@ -15,7 +15,7 @@
  * where importing react-native throws, so this file holds strings and nothing
  * else. The suites import the components themselves.
  *
- * The route name is the file path minus `app/`, `(tabs)`, `(coaching)`, `(coach-mode)`, `(tournaments)`, `(staff)` and `.tsx`, with
+ * The route name is the file path minus `app/`, `(tabs)`, `(coaching)`, `(coach-mode)`, `(tournaments)`, `(staff)`, `(matches)` and `.tsx`, with
  * nine spellings fixed: `(tabs)/index` → `book`, `booking/[id]` →
  * `booking-detail`, `(tabs)/_layout` → `tabs`, `match/[id]` → `match-detail`,
  * `m/[token]` → `match-link`, `coach/[id]` → `coach-detail`, `class/[id]` →
@@ -253,11 +253,17 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // `match-detail` and `m/[token]` → `match-link`.
   // The header's "+" (matches.start-one) is a native bar item, which the smoke
   // mocks never draw, so the list's primary is its first category chip.
-  { file: 'matches.tsx', route: 'matches', primary: 'matches.filter.all' },
-  { file: 'match/[id].tsx', route: 'match-detail', primary: 'match-detail.join' },
-  { file: 'match-new.tsx', route: 'match-new', primary: 'match-new.start' },
+  {
+    file: '(matches)/_layout.tsx',
+    route: 'matches-stack',
+    primary: 'matches-stack.bar',
+    todo: 'an expo-router Stack layout renders only inside a live router, which Node has not got',
+  },
+  { file: '(matches)/matches.tsx', route: 'matches', primary: 'matches.filter.all' },
+  { file: '(matches)/match/[id].tsx', route: 'match-detail', primary: 'match-detail.join' },
+  { file: '(matches)/match-new.tsx', route: 'match-new', primary: 'match-new.start' },
   { file: 'm/[token].tsx', route: 'match-link', primary: 'match-link.sign-in' },
-  { file: 'match-report.tsx', route: 'match-report', primary: 'match-report.submit' },
+  { file: '(matches)/match-report.tsx', route: 'match-report', primary: 'match-report.submit' },
   { file: 'blocked-players.tsx', route: 'blocked-players', primary: 'blocked-players.list' },
   // The wallet starts a ticket purchase: cased with the payment screens in
   // deposit.smoke.test.tsx.

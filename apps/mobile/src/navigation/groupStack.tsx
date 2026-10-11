@@ -1,7 +1,8 @@
 /**
  * The screen options of a flow that runs in a stack of its own: tournaments
  * (`app/(tournaments)`), lessons with a coach (`app/(coaching)`), coach mode
- * (`app/(coach-mode)`) and the staff pages Today opens (`app/(staff)`).
+ * (`app/(coach-mode)`), the staff pages Today opens (`app/(staff)`) and open
+ * matches (`app/(matches)`).
  *
  * WHY THESE FLOWS NEST. On the root stack every screen shares ONE native bar,
  * and popping back to the tabs (which draw none) made UIKit animate that bar's

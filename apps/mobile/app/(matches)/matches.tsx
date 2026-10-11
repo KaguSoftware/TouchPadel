@@ -3,31 +3,43 @@ import { Pressable, RefreshControl, SectionList, View, type SectionListData } fr
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { countPhrase, formatIQD, formatTime, isolate } from '@touch/i18n';
-import { RequireSession } from '../src/features/auth/RequireSession';
-import { useLocale } from '../src/i18n/LocaleProvider';
-import { useGuestVenue, useVenueSettings } from '../src/features/availability/hooks';
-import { BranchPicker } from '../src/features/availability/BranchPicker';
-import { DEFAULT_TZ } from '../src/features/availability/assemble';
-import { requestBookingSheet } from '../src/features/courtTransition/openIntent';
-import { useOpenMatches } from '../src/features/matches/hooks';
+import { RequireSession } from '../../src/features/auth/RequireSession';
+import { useLocale } from '../../src/i18n/LocaleProvider';
+import { useGuestVenue, useVenueSettings } from '../../src/features/availability/hooks';
+import { BranchPicker } from '../../src/features/availability/BranchPicker';
+import { DEFAULT_TZ } from '../../src/features/availability/assemble';
+import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
+import { useOpenMatches } from '../../src/features/matches/hooks';
 import {
   byCategory,
   matchesEnabled,
   tradingNightOf,
   type MatchCategory,
   type OpenMatch,
-} from '../src/features/matches/logic';
-import { matchErrorText } from '../src/features/matches/errors';
-import { usePullRefresh } from '../src/lib/usePullRefresh';
-import { space, useTheme } from '../src/theme';
-import { Button, Screen } from '../src/components/ui';
-import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
-import { MatchCourtCard, MatchNotice, MatchSectionTitle, nightLabel } from '../src/components/match';
-import { FilterChip } from '../src/components/booking';
-import { PlusIcon } from '../src/components/icons';
+} from '../../src/features/matches/logic';
+import { matchErrorText } from '../../src/features/matches/errors';
+import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { space, useTheme } from '../../src/theme';
+import { Button, Screen } from '../../src/components/ui';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
+import {
+  MatchCourtCard,
+  MatchNotice,
+  MatchSectionTitle,
+  nightLabel,
+} from '../../src/components/match';
+import { FilterChip } from '../../src/components/booking';
+import { PlusIcon } from '../../src/components/icons';
 
 type CategoryFilter = 'all' | MatchCategory;
-const FILTERS: { value: CategoryFilter; key: 'matches.list.filterAll' | 'matches.list.filterOpen' | 'matches.list.filterWomen' | 'matches.list.filterMen' }[] = [
+const FILTERS: {
+  value: CategoryFilter;
+  key:
+    | 'matches.list.filterAll'
+    | 'matches.list.filterOpen'
+    | 'matches.list.filterWomen'
+    | 'matches.list.filterMen';
+}[] = [
   { value: 'all', key: 'matches.list.filterAll' },
   { value: 'open', key: 'matches.list.filterOpen' },
   { value: 'women', key: 'matches.list.filterWomen' },
@@ -44,7 +56,8 @@ const FILTERS: { value: CategoryFilter; key: 'matches.list.filterAll' | 'matches
  * court with a marker per seat, the share at the desk and the tags the server
  * sent. Chips above the list narrow it to one category (on the device: the
  * server already left out what the guest may not see). Starting a match is
- * the header's "+". `at` (from a Book
+ * the header's "+" while there are rows to scroll past, and the green button
+ * under the empty state when there are none (never both). `at` (from a Book
  * tab chip or a pending intent) scrolls to that time and outlines its rows;
  * `date` scrolls to that night. Switched off at the branch, or a banned
  * account: the notice, no rows and no footer.
@@ -76,10 +89,10 @@ function MatchesScreen() {
   const atMs = typeof params.at === 'string' ? Date.parse(params.at) : NaN;
   const sections = useMemo(() => {
     const byNight = new Map<string, OpenMatch[]>();
-    const shown = (open.data?.matches ?? []).filter((m) => filter === 'all' || m.category === filter);
-    for (const m of [...shown].sort(
-      (a, b) => Date.parse(a.startAt) - Date.parse(b.startAt),
-    )) {
+    const shown = (open.data?.matches ?? []).filter(
+      (m) => filter === 'all' || m.category === filter,
+    );
+    for (const m of [...shown].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))) {
       const night = tradingNightOf(m.startAt, knobs ?? {});
       const list = byNight.get(night);
       if (list) list.push(m);
@@ -120,9 +133,12 @@ function MatchesScreen() {
     return () => clearTimeout(id);
   }, [sections, atMs, params.date]);
 
+  // `dismissTo`, not `navigate`: from this nested stack, navigate pushed a second
+  // Book tab with a fresh sheet; dismissTo pops back to the one underneath, whose
+  // sheet is usually still open (the Book tab skips the request then).
   const startOne = useCallback(() => {
     requestBookingSheet();
-    router.navigate('/(tabs)');
+    router.dismissTo('/(tabs)');
   }, [router]);
 
   const openMatch = useCallback(
@@ -140,10 +156,16 @@ function MatchesScreen() {
     />
   );
   const anyMatches = (open.data?.matches.length ?? 0) > 0;
+  // The "+" stands in for the empty state's button, so it shows only over a list.
+  const listing = !open.data?.banned && sections.length > 0;
   const bottomPad = { paddingBottom: 40 + insets.bottom };
   const picker = (
     <View>
-      <BranchPicker testID="matches.branch" fit={false} style={{ marginTop: space.s, marginBottom: space.sm }} />
+      <BranchPicker
+        testID="matches.branch"
+        fit={false}
+        style={{ marginTop: space.s, marginBottom: space.sm }}
+      />
       {anyMatches ? (
         <View
           accessibilityRole="tablist"
@@ -301,18 +323,24 @@ function MatchesScreen() {
       <Stack.Screen
         options={{
           title: t('matches.list.title'),
-          headerRight: () => (
-            <Pressable
-              testID="matches.start-one"
-              accessibilityRole="button"
-              accessibilityLabel={t('matches.list.startOne')}
-              hitSlop={10}
-              onPress={startOne}
-              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingStart: 6, paddingEnd: 6 })}
-            >
-              <PlusIcon size={22} color={colors.blue} strokeWidth={2.4} />
-            </Pressable>
-          ),
+          headerRight: listing
+            ? () => (
+                <Pressable
+                  testID="matches.start-one"
+                  accessibilityRole="button"
+                  accessibilityLabel={t('matches.list.startOne')}
+                  hitSlop={10}
+                  onPress={startOne}
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.6 : 1,
+                    paddingStart: 6,
+                    paddingEnd: 6,
+                  })}
+                >
+                  <PlusIcon size={22} color={colors.blue} strokeWidth={2.4} />
+                </Pressable>
+              )
+            : undefined,
         }}
       />
       {body}

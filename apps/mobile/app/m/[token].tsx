@@ -63,7 +63,7 @@ function useFindMatch(): () => void {
   const router = useRouter();
   return () => {
     requestBookingSheet();
-    router.replace('/(tabs)');
+    router.dismissTo('/(tabs)');
   };
 }
 

@@ -19,7 +19,10 @@ import { useBranches, useVenueSettings } from '../../src/features/availability/h
 import { BranchPicker } from '../../src/features/availability/BranchPicker';
 import { openNowInfo, type VenueSettingsPublic } from '../../src/features/availability/assemble';
 import { useCourtTransition } from '../../src/features/courtTransition/useCourtTransition';
-import { takeBookingSheetRequest } from '../../src/features/courtTransition/openIntent';
+import {
+  onCloseBookingSheetNow,
+  takeBookingSheetRequest,
+} from '../../src/features/courtTransition/openIntent';
 import { lerp, pitchEase, sampleCurve, sampleEased, SPEC, type Range } from '@touch/court3d/spec';
 import { courtTopFraction, makeCamera, projectNet } from '@touch/court3d/camera';
 import { useReduceMotion } from '../../src/lib/useReduceMotion';
@@ -623,8 +626,16 @@ export default function BookHomeScreen() {
   const settings = useVenueSettings();
 
   const reduceMotion = useReduceMotion();
-  const { progress, veil, direction, isOpen, sheetMounted, openBooking, closeBooking } =
-    useCourtTransition();
+  const {
+    progress,
+    veil,
+    direction,
+    isOpen,
+    sheetMounted,
+    openBooking,
+    closeBooking,
+    snapClosed,
+  } = useCourtTransition();
 
   const [courtSize, setCourtSize] = useState<{ width: number; height: number } | null>(null);
   // See COURT_LAYOUT_WAIT_MS: the stage's height is final once the branch list is in.
@@ -778,6 +789,9 @@ export default function BookHomeScreen() {
       if (takeBookingSheetRequest() && !isOpen) open();
     }, [isOpen, open]),
   );
+
+  // Sign-out: the old guest's sheet is gone before the tab is seen again.
+  useEffect(() => onCloseBookingSheetNow(snapClosed), [snapClosed]);
 
   // The court layer: lifted 60 px at full opacity (PITCH ease, direction-aware).
   // Both GL surfaces (court, ball) carry it; the button between them does not.

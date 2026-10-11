@@ -83,6 +83,9 @@ export const coachingAdminEn = {
       profile: 'Public profile',
       order: 'Place in the list',
       orderHint: 'Guests see coaches in this order, at every branch they teach at.',
+      slug: 'Link name',
+      slugHint: 'Their share link: {link}. Changing it stops the old link working.',
+      slugBad: 'Use 2 to 48 lowercase letters, numbers and dashes, starting with a letter or number.',
       // OP-06: active_here false.
       notHere: "Not teaching at this branch. Their lesson types and prices here can't change until this branch is ticked again under Branches.",
       save: 'Save profile',

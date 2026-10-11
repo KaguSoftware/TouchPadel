@@ -21,9 +21,9 @@ import {
   useVenueSettings,
 } from '../../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../../src/features/availability/assemble';
-import { useCoachProfile } from '../../../src/features/coaching/hooks';
+import { useCoachIdForSlug, useCoachProfile } from '../../../src/features/coaching/hooks';
 import { lessonErrorCode, lessonErrorText } from '../../../src/features/coaching/errors';
-import { coachShareUrl, isCoachId } from '../../../src/features/coaching/links';
+import { coachShareUrl, isCoachId, isCoachSlug } from '../../../src/features/coaching/links';
 import {
   coachBranch,
   displayCoachName,
@@ -68,7 +68,8 @@ const HERO_HEIGHT = 290;
  * `date`) opens that page for the lesson once the profile is in.
  *
  * Browsing is public. A paused coach, the switch off, and the coach looking
- * at their own page (R56) show a line, and the private cards open nothing.
+ * at their own page (R56) show a line, and the private cards open nothing; on
+ * their own page no card opens at all, the coach only sees their lessons.
  */
 export default function CoachDetailScreen() {
   const { t, locale, dir } = useLocale();
@@ -85,7 +86,16 @@ export default function CoachDetailScreen() {
     typeId?: string;
     date?: string;
   }>();
-  const id = typeof params.id === 'string' && isCoachId(params.id) ? params.id : null;
+  // The link's last segment: the coach's id, or since 0336 their slug, read
+  // into the id first (a shared /c/omar-karim).
+  const directId = typeof params.id === 'string' && isCoachId(params.id) ? params.id : null;
+  const slug =
+    !directId && typeof params.id === 'string' && isCoachSlug(params.id)
+      ? params.id.toLowerCase()
+      : null;
+  const bySlug = useCoachIdForSlug(slug);
+  const id = directId ?? bySlug.data ?? null;
+  const resolving = !!slug && bySlug.isPending;
   const venueParam = typeof params.venueId === 'string' && params.venueId ? params.venueId : null;
   const guest = useGuestVenue();
   // A reader while signed in, so coach_me is read here too: until it answers,
@@ -184,7 +194,7 @@ export default function CoachDetailScreen() {
     void Share.share({
       message: t('coaching.guest.coach.shareMessage', {
         name: isolate(name),
-        url: coachShareUrl(coach.id, locale),
+        url: coachShareUrl(coach, locale),
       }),
     }).catch(() => {});
   };
@@ -274,7 +284,7 @@ export default function CoachDetailScreen() {
     />
   );
 
-  if (!id) {
+  if (!id && !resolving && !bySlug.error) {
     return (
       <Screen edges={[]} style={belowBar}>
         {header}
@@ -283,7 +293,7 @@ export default function CoachDetailScreen() {
     );
   }
 
-  const failed = profile.error ?? first.error;
+  const failed = profile.error ?? first.error ?? bySlug.error;
   if (!data) {
     if (failed) {
       const code = lessonErrorCode(failed);
@@ -301,8 +311,11 @@ export default function CoachDetailScreen() {
               message={lessonErrorText(failed, t, { locale, phone })}
               retryLabel={t('common.retry')}
               onRetry={() => {
-                void first.refetch();
-                void second.refetch();
+                // Only the reads that failed: refetch() runs a disabled read
+                // too, and a profile read with no id yet would ask for nobody.
+                if (bySlug.error) void bySlug.refetch();
+                if (first.error) void first.refetch();
+                if (second.error) void second.refetch();
               }}
             />
           )}
@@ -495,8 +508,10 @@ export default function CoachDetailScreen() {
                       kind={t(`coaching.common.kinds.${o.kind!}`)}
                       meta={offerMeta(o)}
                       price={money(o.priceIqd)}
-                      // A private lesson opens its free times only while it
-                      // can be booked; a group or course one always opens its dates.
+                      // The coach sees their own lessons but opens none (R56).
+                      // Otherwise a private lesson opens its free times only while
+                      // it can be booked; a group or course one always opens its dates.
+                      disabled={self || (o.kind === 'private' && !bookable)}
                       onPress={() => {
                         if (o.kind !== 'private' || bookable) openTimes(o.lessonTypeId);
                       }}

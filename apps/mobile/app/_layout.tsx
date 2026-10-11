@@ -54,6 +54,7 @@ import {
 import { ErrorState, OfflineBanner } from '../src/components/states';
 import { ToastProvider } from '../src/components/overlays';
 import { palettes, ThemeProvider, useTheme } from '../src/theme';
+import { useIsOnScreen } from '../src/navigation/back';
 
 /**
  * `/` is owned by (tabs)/index.tsx. A separate app/index.tsx used to redirect
@@ -315,15 +316,14 @@ function RootStack() {
           screen carries its own RequireSession, like the screens above. */}
           <Stack.Screen name="pay/return" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="pay/status" />
-          {/* Open matches (docs/design/open-matches/guest.md §4.12–§4.18). The
-          invite link's landing draws no bar and hands on in a frame, like the
-          payment return; the report is a modal, like the terms gate. Each
-          screen carries its own session guard. */}
-          <Stack.Screen name="matches" />
-          <Stack.Screen name="match/[id]" />
-          <Stack.Screen name="match-new" />
+          {/* Open matches (docs/design/open-matches/guest.md §4.12–§4.18): a
+          stack of its own with its own native bar, so the bar and its back
+          button leave with the page at the swipe's speed
+          (app/(matches)/_layout.tsx, src/navigation/groupStack.tsx). The
+          invite link's landing stays here: it draws no bar and hands on to the
+          match in a frame, like the payment return. */}
+          <Stack.Screen name="(matches)" options={{ headerShown: false }} />
           <Stack.Screen name="m/[token]" options={{ headerShown: false, animation: 'none' }} />
-          <Stack.Screen name="match-report" options={{ presentation: 'modal' }} />
           <Stack.Screen name="blocked-players" />
           <Stack.Screen name="tickets" />
           {/* Coach mode (docs/design/coaching/guest.md §4.13), from Profile or,
@@ -417,6 +417,7 @@ export default function RootLayout() {
 }
 
 function AppRoot({ prefs }: { prefs: BootPrefs }) {
+  const isOnScreen = useIsOnScreen();
   // One family covers both scripts, so this is every face the app renders in:
   // there is nothing left to load in the background and a language switch can
   // never wait on a face.
@@ -449,13 +450,20 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
   useEffect(
     () =>
       installNotificationHandler({
-        onOpenReservation: (id) => router.push({ pathname: '/booking/[id]', params: { id } }),
+        onOpenReservation: (id) => {
+          if (!isOnScreen('booking/[id]', id)) router.push({ pathname: '/booking/[id]', params: { id } });
+        },
         onOpenStaff: (href) => router.push(href),
         staffStatus: settledStaffStatus,
-        onOpenMatch: (id) => router.push({ pathname: '/match/[id]', params: { id } }),
+        // Already reading it: the notice below refreshes it in place, no second copy.
+        onOpenMatch: (id) => {
+          if (!isOnScreen('match/[id]', id)) router.push({ pathname: '/match/[id]', params: { id } });
+        },
         onOpenTickets: () => router.push('/tickets'),
         onMatchNotice: () => void queryClient.invalidateQueries({ queryKey: matchKeys.all }),
-        onOpenLesson: (id) => router.push({ pathname: '/lesson/[id]', params: { id } }),
+        onOpenLesson: (id) => {
+          if (!isOnScreen('lesson/[id]', id)) router.push({ pathname: '/lesson/[id]', params: { id } });
+        },
         onOpenCoachLesson: (id) => router.push(lessonPushHref('coach_lesson', id)),
         onOpenCoachStatements: () => router.push(lessonPushHref('coach_statements', null)),
         onLessonNotice: () => {
@@ -464,11 +472,15 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
           // roster, the schedule and the statements too.
           void queryClient.invalidateQueries({ queryKey: coachKeys.all });
         },
-        onOpenTournament: (id) => router.push({ pathname: '/tournament/[id]', params: { id } }),
+        onOpenTournament: (id) => {
+          if (!isOnScreen('tournament/[id]', id))
+            router.push({ pathname: '/tournament/[id]', params: { id } });
+        },
         onTournamentNotice: () =>
           void queryClient.invalidateQueries({ queryKey: tournamentKeys.all }),
       }),
-    [],
+    // Stable: `useIsOnScreen` reads the container ref, so this still runs once.
+    [isOnScreen],
   );
 
   // A face that fails to register must not hold the splash forever — the theme

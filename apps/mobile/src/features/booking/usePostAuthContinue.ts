@@ -111,7 +111,7 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
           // is gone, owner 2026-09-26).
           toast(t('booking.slotTakenBody'), 'error');
           requestBookingSheet();
-          router.replace('/(tabs)');
+          router.dismissTo('/(tabs)');
         },
         // After navigation, so the (auth) layout's exemption holds until we are gone.
         onSettled: () => clearPendingSlot(),
@@ -145,7 +145,7 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
       return;
     }
     if (!pending && !join) {
-      router.replace('/(tabs)');
+      router.dismissTo('/(tabs)');
       return;
     }
     // The list is browsing: nothing to gate.

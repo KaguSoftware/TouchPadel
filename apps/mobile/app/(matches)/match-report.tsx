@@ -2,22 +2,22 @@ import { useState } from 'react';
 import { Pressable, Switch, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import type { MessageKey } from '@touch/i18n';
-import { Text } from '../src/i18n/text';
-import { useLocale } from '../src/i18n/LocaleProvider';
-import { RequireSession } from '../src/features/auth/RequireSession';
-import { useReportPlayer } from '../src/features/matches/hooks';
+import { Text } from '../../src/i18n/text';
+import { useLocale } from '../../src/i18n/LocaleProvider';
+import { RequireSession } from '../../src/features/auth/RequireSession';
+import { useReportPlayer } from '../../src/features/matches/hooks';
 import {
   byCategory,
   MATCH_CATEGORIES,
   REPORT_REASONS,
   type MatchCategory,
   type ReportReason,
-} from '../src/features/matches/logic';
-import { errorCodeOf, matchErrorText } from '../src/features/matches/errors';
-import { useBack } from '../src/navigation/back';
-import { radius, space, useTheme } from '../src/theme';
-import { Button, ErrorText, FormScreen, MicroLabel, Screen } from '../src/components/ui';
-import { useToast } from '../src/components/overlays';
+} from '../../src/features/matches/logic';
+import { errorCodeOf, matchErrorText } from '../../src/features/matches/errors';
+import { useBack } from '../../src/navigation/back';
+import { radius, space, useTheme } from '../../src/theme';
+import { Button, ErrorText, FormScreen, MicroLabel, Screen } from '../../src/components/ui';
+import { useToast } from '../../src/components/overlays';
 
 const REASON_KEY: Record<ReportReason, MessageKey> = {
   offensive_name: 'matches.report.offensiveName',

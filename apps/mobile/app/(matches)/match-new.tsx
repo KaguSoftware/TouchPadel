@@ -3,22 +3,22 @@ import { Pressable, Switch, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { countPhrase, formatDate, formatIQD, formatTime, isolate, isolateLtr } from '@touch/i18n';
 import { needsTermsAcceptance } from '@touch/core';
-import { Text } from '../src/i18n/text';
-import { useLocale } from '../src/i18n/LocaleProvider';
-import { RequireSession } from '../src/features/auth/RequireSession';
-import { useAuth } from '../src/features/auth/context';
-import { bookingGateState } from '../src/features/auth/social';
-import { useBranches, useVenueSettings } from '../src/features/availability/hooks';
-import { branchName } from '../src/features/availability/branch';
-import { DEFAULT_TZ } from '../src/features/availability/assemble';
-import { requestBookingSheet } from '../src/features/courtTransition/openIntent';
-import { useOwnConsent, useOwnProfile } from '../src/features/profile/hooks';
+import { Text } from '../../src/i18n/text';
+import { useLocale } from '../../src/i18n/LocaleProvider';
+import { RequireSession } from '../../src/features/auth/RequireSession';
+import { useAuth } from '../../src/features/auth/context';
+import { bookingGateState } from '../../src/features/auth/social';
+import { useBranches, useVenueSettings } from '../../src/features/availability/hooks';
+import { branchName } from '../../src/features/availability/branch';
+import { DEFAULT_TZ } from '../../src/features/availability/assemble';
+import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
+import { useOwnConsent, useOwnProfile } from '../../src/features/profile/hooks';
 import {
   useMatchQuote,
   useMyTickets,
   useSetMyGender,
   useStartMatch,
-} from '../src/features/matches/hooks';
+} from '../../src/features/matches/hooks';
 import {
   friendsFor,
   matchStartIntent,
@@ -28,8 +28,8 @@ import {
   type JoinPolicy,
   type MatchCategory,
   type Visibility,
-} from '../src/features/matches/logic';
-import { rpcErrorDetail } from '../src/features/booking/errors';
+} from '../../src/features/matches/logic';
+import { rpcErrorDetail } from '../../src/features/booking/errors';
 import {
   errorCodeOf,
   matchErrorText,
@@ -37,11 +37,11 @@ import {
   refusalKey,
   startRefusalOf,
   ticketsToBuy,
-} from '../src/features/matches/errors';
-import { setTicketContinuation, ticketsHref } from '../src/features/matches/continuation';
-import { matchIntentKey } from '../src/lib/idempotency';
-import { useBack } from '../src/navigation/back';
-import { space, useTheme } from '../src/theme';
+} from '../../src/features/matches/errors';
+import { setTicketContinuation, ticketsHref } from '../../src/features/matches/continuation';
+import { matchIntentKey } from '../../src/lib/idempotency';
+import { useBack } from '../../src/navigation/back';
+import { space, useTheme } from '../../src/theme';
 import {
   Button,
   Card,
@@ -50,10 +50,10 @@ import {
   MicroLabel,
   Screen,
   SegmentedControl,
-} from '../src/components/ui';
-import { ErrorState, SkeletonList } from '../src/components/states';
-import { useToast } from '../src/components/overlays';
-import { GenderAsk, MatchNotice, MatchRulesCard } from '../src/components/match';
+} from '../../src/components/ui';
+import { ErrorState, SkeletonList } from '../../src/components/states';
+import { useToast } from '../../src/components/overlays';
+import { GenderAsk, MatchNotice, MatchRulesCard } from '../../src/components/match';
 
 /**
  * Start an open match (docs/design/open-matches/guest.md §4.13), from a free
@@ -213,7 +213,7 @@ function MatchNewScreen() {
       case 'backToSheet':
         toast(matchErrorText(err, t, errorCtx), 'error');
         requestBookingSheet();
-        router.navigate('/(tabs)');
+        router.dismissTo('/(tabs)');
         return;
       default:
         setError(matchErrorText(err, t, errorCtx));

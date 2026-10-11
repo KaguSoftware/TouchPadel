@@ -2,7 +2,7 @@ import { makeT, type Locale } from '@touch/i18n';
 import { WhatsAppButton } from '@/components/site/ContactButton';
 import { CoachPhoto } from '@/components/coaching/CoachPhoto';
 import { coachName, type CoachingRead } from '@/lib/coaching';
-import { coachLinkPath } from '@/lib/site/coachLink';
+import { coachLinkPath, coachSegment } from '@/lib/site/coachLink';
 import { Photo } from './Photo';
 
 /** How many coaches the strip shows (guest.md §4.14.4): a glance, not the list. */
@@ -73,7 +73,10 @@ export function Lessons({
                 <ul className="tp-coach-face-list" aria-labelledby="lessons-coaches">
                   {coaches.map((coach) => (
                     <li key={coach.id}>
-                      <a className="tp-coach-face" href={coachLinkPath(locale, coach.id)}>
+                      <a
+                        className="tp-coach-face"
+                        href={coachLinkPath(locale, coachSegment(coach))}
+                      >
                         <CoachPhoto
                           coach={coach}
                           locale={locale}

@@ -34,6 +34,7 @@ const ALLOWED_GROUPS = new Set([
   '(coaching)',
   '(coach-mode)',
   '(staff)',
+  '(matches)',
 ]);
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -81,10 +82,11 @@ describe('route layout', () => {
     // A `_layout` outside (tabs) would reintroduce a nested navigator, and with
     // it the screens whose back item UIKit refuses to draw.
     const layouts = routeFiles.map(rel).filter((f) => f.endsWith('_layout.tsx'));
-    // (coaching), (coach-mode), (tournaments) and (staff) are the documented exceptions (ALLOWED_GROUPS above).
+    // (coaching), (coach-mode), (tournaments), (staff) and (matches) are the documented exceptions (ALLOWED_GROUPS above).
     expect(layouts.sort()).toEqual([
       '(coach-mode)/_layout.tsx',
       '(coaching)/_layout.tsx',
+      '(matches)/_layout.tsx',
       '(staff)/_layout.tsx',
       '(tabs)/_layout.tsx',
       '(tournaments)/_layout.tsx',

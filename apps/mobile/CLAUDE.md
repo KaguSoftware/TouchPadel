@@ -91,7 +91,10 @@ staff). The track rolls from the count last seen on this phone (`rewards/seen.ts
   state and is never persisted (`src/lib/queryClient.ts` leaves it out of the dehydrate filter).
   `match_start` is the only match write with a key: `matchIntentKey(matchStartIntent(…))` from
   `src/lib/idempotency.ts`, kept across the refusals the guest fixes and the ticket continuation
-  that replays the start. Every other match write is state-idempotent and takes none.
+  that replays the start. Every other match write is state-idempotent and takes none. The list,
+  the match, the start and the report sit in `app/(matches)/`, a nested stack like
+  `(tournaments)` (2026-10-11); the invite link's landing `app/m/[token].tsx` stays on the root
+  stack and replaces itself with the match.
 - Tournaments (tournaments plan §5.2; `docs/design/tournaments/build-contracts-2026-10-03.md`):
   `tournamentKeys` (`src/features/tournaments/keys.ts`), everything under `['tournament']` stays
   off disk and register / withdraw run now or fail now. Both are state-idempotent and take no key;

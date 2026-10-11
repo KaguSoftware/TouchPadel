@@ -5555,6 +5555,20 @@ export const matrix: MatrixRule[] = [
     drop: 25,
   },
   {
+    kind: 'rpc', schema: 'app', name: 'coach_id_for_slug',
+    args: { p_slug: 'matrix-probe-no-coach' },
+    expect: SELF_ANON_OK,
+    note: "0336 coach_slugs: a share link's slug to the id of a coach who accepted going public; NULL for anything else, never raises",
+    drop: 25,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'coach_slug_ok',
+    args: { p_slug: 'omar-karim' },
+    expect: ex<RpcExpectation>('execute'),
+    note: '0336 coach_slugs: pure text, granted to anon+authenticated because the coaches_slug_chk CHECK evaluates it as the writing role',
+    drop: 25,
+  },
+  {
     kind: 'rpc', schema: 'app', name: 'coach_slots',
     args: {
       p_coach_id: NIL_UUID, p_lesson_type_id: NIL_UUID,

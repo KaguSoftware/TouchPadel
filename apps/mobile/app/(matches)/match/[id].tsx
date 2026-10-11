@@ -12,22 +12,22 @@ import {
   type MessageKey,
 } from '@touch/i18n';
 import { needsTermsAcceptance, pickLocale } from '@touch/core';
-import { Text } from '../../src/i18n/text';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { RequireSession } from '../../src/features/auth/RequireSession';
-import { useAuth } from '../../src/features/auth/context';
-import { bookingGateState } from '../../src/features/auth/social';
+import { Text } from '../../../src/i18n/text';
+import { useLocale } from '../../../src/i18n/LocaleProvider';
+import { RequireSession } from '../../../src/features/auth/RequireSession';
+import { useAuth } from '../../../src/features/auth/context';
+import { bookingGateState } from '../../../src/features/auth/social';
 import {
   useAllCourts,
   useBranches,
   useCourtsBroadcast,
   useVenueSettings,
-} from '../../src/features/availability/hooks';
-import { branchName } from '../../src/features/availability/branch';
-import { DEFAULT_TZ } from '../../src/features/availability/assemble';
-import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
-import { useOwnConsent, useOwnProfile } from '../../src/features/profile/hooks';
-import { serverNowMs } from '../../src/features/deposit/logic';
+} from '../../../src/features/availability/hooks';
+import { branchName } from '../../../src/features/availability/branch';
+import { DEFAULT_TZ } from '../../../src/features/availability/assemble';
+import { requestBookingSheet } from '../../../src/features/courtTransition/openIntent';
+import { useOwnConsent, useOwnProfile } from '../../../src/features/profile/hooks';
+import { serverNowMs } from '../../../src/features/deposit/logic';
 import {
   useBlockPlayer,
   useCancelMatch,
@@ -41,7 +41,7 @@ import {
   useRequestMatch,
   useSetMyGender,
   useWithdrawRequest,
-} from '../../src/features/matches/hooks';
+} from '../../../src/features/matches/hooks';
 import {
   byCategory,
   displayName,
@@ -57,7 +57,7 @@ import {
   type MatchSeat,
   type MessageCode,
   type OrganiserCancelReason,
-} from '../../src/features/matches/logic';
+} from '../../../src/features/matches/logic';
 import {
   actionCardOf,
   guestStateOf,
@@ -66,19 +66,19 @@ import {
   partyShareIqd,
   stateInputOfDetail,
   stateLine,
-} from '../../src/features/matches/state';
+} from '../../../src/features/matches/state';
 import {
   errorCodeOf,
   joinRefusalOf,
   matchErrorText,
   refusalKey,
   ticketsToBuy,
-} from '../../src/features/matches/errors';
-import { setTicketContinuation, ticketsHref } from '../../src/features/matches/continuation';
-import { isMatchToken, matchShareUrl } from '../../src/features/matches/links';
-import { callPhone } from '../../src/lib/phone';
-import { useBack } from '../../src/navigation/back';
-import { space, useTheme } from '../../src/theme';
+} from '../../../src/features/matches/errors';
+import { setTicketContinuation, ticketsHref } from '../../../src/features/matches/continuation';
+import { isMatchToken, matchShareUrl } from '../../../src/features/matches/links';
+import { callPhone } from '../../../src/lib/phone';
+import { useBack } from '../../../src/navigation/back';
+import { space, useTheme } from '../../../src/theme';
 import {
   Button,
   Card,
@@ -87,9 +87,9 @@ import {
   MicroLabel,
   Screen,
   SegmentedControl,
-} from '../../src/components/ui';
-import { ErrorState, SkeletonList } from '../../src/components/states';
-import { ConfirmAlert, useToast } from '../../src/components/overlays';
+} from '../../../src/components/ui';
+import { ErrorState, SkeletonList } from '../../../src/components/states';
+import { ConfirmAlert, useToast } from '../../../src/components/overlays';
 import {
   GenderAsk,
   MatchMessages,
@@ -106,8 +106,8 @@ import {
   RequestRow,
   SeatGrid,
   ShareGlyph,
-} from '../../src/components/match';
-import { nativeChoice } from '../../src/components/nativeChoice';
+} from '../../../src/components/match';
+import { nativeChoice } from '../../../src/components/nativeChoice';
 
 /** A preset message rests this long after a send (GD-7): a local courtesy, the server decides. */
 const MESSAGE_REST_MS = 2 * 60_000;
@@ -228,7 +228,7 @@ function MatchDetailScreen() {
 
   const findAnother = () => {
     requestBookingSheet();
-    router.navigate('/(tabs)');
+    router.dismissTo('/(tabs)');
   };
 
   const onShare = () => {

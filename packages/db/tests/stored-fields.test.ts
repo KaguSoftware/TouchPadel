@@ -382,6 +382,11 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
       why: 'the coach’s public name, chosen by the venue; kept on a deleted coach for the statements the venue paid (C-29, R63)',
       onDelete: 'keep',
     },
+    slug: {
+      category: 'Name',
+      why: 'the coach’s share link name (0336), made from the English display name or set by a manager; kept with the display name it came from (C-29, R63)',
+      onDelete: 'keep',
+    },
     bio_en: { category: 'User content', why: 'the coach’s public bio, written by a manager', onDelete: 'empty' },
     bio_ar: { category: 'User content', why: 'the coach’s public bio, written by a manager', onDelete: 'empty' },
     photo_path: {

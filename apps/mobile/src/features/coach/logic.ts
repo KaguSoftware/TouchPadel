@@ -831,6 +831,12 @@ export interface RosterEntry {
   phone: string | null;
   partySize: number;
   friendNames: string[];
+  /**
+   * The other students (0334, 0335): each name with the phone the coach typed
+   * for it, by position; null for none, after `end_at + 7 days` (R54) or while
+   * held (P13).
+   */
+  friends: { name: string; phone: string | null }[];
   bookedBy: BookedBy;
   paymentMode: 'desk' | 'online';
   status: RosterStatus;
@@ -906,6 +912,11 @@ function parseRosterEntry(raw: unknown): RosterEntry | null {
     partySize: Math.max(1, int(raw.party_size, 1)),
     friendNames: arr(raw.friend_names).filter(
       (n): n is string => typeof n === 'string' && n.length > 0,
+    ),
+    friends: arr(raw.friend_names).flatMap((n, i) =>
+      typeof n === 'string' && n.length > 0
+        ? [{ name: n, phone: status === 'held' ? null : strOrNull(arr(raw.friend_phones)[i]) }]
+        : [],
     ),
     bookedBy: oneOf(raw.booked_by, BOOKED_BY, 'guest'),
     paymentMode: oneOf(raw.payment_mode, ['desk', 'online'] as const, 'desk'),

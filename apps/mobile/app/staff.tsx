@@ -53,6 +53,7 @@ import { useReduceMotion } from '../src/lib/useReduceMotion';
 import { useToast } from '../src/components/overlays';
 import { BrandPattern } from '../src/components/BrandPattern';
 import { AssistantButton } from '../src/features/assistant/AssistantFab';
+import { useResetTo } from '../src/navigation/back';
 
 /**
  * Today: the staff phone's home (build-contracts-2026-09-23 §6.1; layout:
@@ -516,6 +517,7 @@ function TodayScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
+  const resetTo = useResetTo();
   const insets = useSafeAreaInsets();
   const { status, venueId, venues, setVenueId } = useStaffStatus();
   // C-27, R45: the hub reads coach_me on mount, like Profile, whatever the
@@ -773,7 +775,7 @@ function TodayScreen() {
               onPress={() => {
                 setGuestPreview(true);
                 toast(t('staff.shell.guestView.note'), 'info');
-                router.replace('/(tabs)');
+                resetTo('/(tabs)');
               }}
             />
             <AccountButton

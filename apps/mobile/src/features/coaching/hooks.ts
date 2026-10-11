@@ -25,6 +25,7 @@ import {
   cancelMyLesson,
   confirmLessonLink,
   fetchCoachingPublic,
+  fetchCoachIdForSlug,
   fetchCoachProfile,
   fetchCoachSlots,
   fetchLessonOffer,
@@ -71,6 +72,16 @@ export function useCoachingPublic(venueId: string | null) {
     queryKey: coachingKeys.public(venueId ?? ''),
     queryFn: () => fetchCoachingPublic(supabase, venueId!),
     enabled: !!venueId,
+    staleTime: 30_000,
+  });
+}
+
+/** The coach id a share link's slug names (0336); null data when no public coach has it. */
+export function useCoachIdForSlug(slug: string | null) {
+  return useQuery({
+    queryKey: coachingKeys.slug(slug ?? ''),
+    queryFn: () => fetchCoachIdForSlug(supabase, slug!),
+    enabled: !!slug,
     staleTime: 30_000,
   });
 }
