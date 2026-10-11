@@ -10,6 +10,11 @@
  * effort 'low' with the map retrieved up front. Everything else is ANALYSIS:
  * the chat's own default model (model: null) at effort 'medium'.
  *
+ * 2026-10-09: ANALYSIS is split by how hard it is (see DEEP_REASONS): advice,
+ * a plan, why and long asks stay on the chat's default at medium; comparisons,
+ * trends and "what happened" run on LOOKUP_MODEL at medium; plain figure
+ * questions run on LOOKUP_MODEL at low. The owner's own model pick still wins.
+ *
  * Conservative by construction: a question is a lookup only when a positive
  * lookup pattern matches AND no figure signal (how much / how many, a time
  * period, a comparison, a ranking, a trend, who / why / what happened, advice,
@@ -61,6 +66,13 @@ export interface TurnRoute {
   /** The model for this turn; null = the chat's own default. */
   model: string | null;
   effort: 'low' | 'medium';
+  /**
+   * A cheap-tier route (lookup, or a plain figure question on Sonnet): inside
+   * the 5-minute cache window it keeps the previous turn's model and effort
+   * instead of re-writing the cached prefix (turnPolicy keepWarmRoute). A deep
+   * analysis is never sticky: its model is a quality call.
+   */
+  sticky?: boolean;
   /** Retrieve the system map before the first model call. */
   preRetrieve: boolean;
   /** Short machine-readable cause, e.g. 'where-pattern', 'money-signal', 'scopes-howto-only'. */
@@ -273,7 +285,10 @@ function classifyPart(padded: string): Part {
 
   for (const re of NAV_STRONG) if (re.test(padded)) return { kind: 'lookup', reason: 'where-pattern' };
 
-  for (const [reason, re] of HARD) if (re.test(padded)) return { kind: 'analysis', reason };
+  // Every hard signal that matches, so the tier follows the hardest one: "why did revenue drop last week" is a why (deep), not just a period.
+  let hard: string | null = null;
+  for (const [reason, re] of HARD) if (re.test(padded) && (hard === null || analysisRank(reason) > analysisRank(hard))) hard = reason;
+  if (hard !== null) return { kind: 'analysis', reason: hard };
 
   const soft = SOFT.some((re) => re.test(padded));
   // "how do I increase revenue": a growth verb next to a money noun is advice, not a how-to.
@@ -314,13 +329,32 @@ function splitParts(normalized: string): string[] {
   return out;
 }
 
-function analysis(reason: string): TurnRoute {
-  return { kind: 'analysis', model: null, effort: 'medium', preRetrieve: false, reason };
+/**
+ * How hard an analysis is (owner call 2026-10-09: the bill was dominated by
+ * Opus on every message). DEEP is judgement: advice, a plan, why something
+ * happened, a long multi-part ask. These run on the chat's default model at
+ * effort medium. MEDIUM is reading several numbers against each other
+ * (compare, trend). Everything else is a plain figure question
+ * (how much, a period, a number, who, a money noun): one or two aggregate
+ * tools and a sentence, which Sonnet at effort low answers as well as Opus.
+ * When unsure, MEDIUM on Sonnet, never DEEP by default.
+ */
+const DEEP_REASONS: ReadonlySet<string> = new Set(['advice-signal', 'why-signal', 'long-question', 'empty']);
+const MEDIUM_REASONS: ReadonlySet<string> = new Set(['compare-signal', 'trend-signal', 'no-lookup-pattern']);
+
+function analysisRank(reason: string): number {
+  return DEEP_REASONS.has(reason) ? 2 : MEDIUM_REASONS.has(reason) ? 1 : 0;
+}
+
+function analysis(reason: string, explicitModel: string | null = null): TurnRoute {
+  if (analysisRank(reason) === 2) return { kind: 'analysis', model: null, effort: 'medium', preRetrieve: false, reason };
+  const model = explicitModel !== null && explicitModel.length > 0 ? explicitModel : LOOKUP_MODEL;
+  return { kind: 'analysis', model, effort: analysisRank(reason) === 1 ? 'medium' : 'low', sticky: true, preRetrieve: false, reason };
 }
 
 function lookup(explicitModel: string | null, reason: string): TurnRoute {
   const model = explicitModel !== null && explicitModel.length > 0 ? explicitModel : LOOKUP_MODEL;
-  return { kind: 'lookup', model, effort: 'low', preRetrieve: true, reason };
+  return { kind: 'lookup', model, effort: 'low', sticky: true, preRetrieve: true, reason };
 }
 
 /**
@@ -333,12 +367,13 @@ export function routeTurn(input: { text: string; scopes: readonly string[]; expl
     return lookup(input.explicitModel, 'scopes-howto-only');
   }
   const text = typeof input.text === 'string' ? input.text : '';
-  if (text.trim().length === 0) return analysis('empty');
+  if (text.trim().length === 0) return analysis('empty', input.explicitModel);
 
   const parts = splitParts(normalizeText(text)).map((p) => classifyPart(maskDayClose(p)));
-  const bad = parts.find((p) => p.kind === 'analysis');
-  if (bad) return analysis(bad.reason);
+  // One analysis part makes the whole message analysis, and the hardest part sets the tier.
+  const bad = parts.filter((p) => p.kind === 'analysis').sort((a, b) => analysisRank(b.reason) - analysisRank(a.reason))[0];
+  if (bad) return analysis(bad.reason, input.explicitModel);
   const good = parts.find((p) => p.kind === 'lookup');
   if (good) return lookup(input.explicitModel, good.reason);
-  return analysis('no-lookup-pattern');
+  return analysis('no-lookup-pattern', input.explicitModel);
 }

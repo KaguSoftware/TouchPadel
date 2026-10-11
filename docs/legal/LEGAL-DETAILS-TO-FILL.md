@@ -1,5 +1,10 @@
 # Legal details to fill in
 
+> **Status 2026-10-11.** Answered: there is **no registered company**, so the pages name Touch Padel itself as
+> "we", with no registration number or address, and disputes go to "the competent courts of Iraq" (#1, #2, #3, #5).
+> The contact email is **info@touch-padel.com** (#4). The front-desk phone is set in the
+> operator app (Settings > Venue details). **Still open: #6, the supervision age.**
+
 Touch Padel's legal pages are written and live, but a few facts can only come from the business. Until they are
 filled in, the pages show `[FILL: …]` where each fact belongs. The app stores will not accept the app while those
 markers are visible.

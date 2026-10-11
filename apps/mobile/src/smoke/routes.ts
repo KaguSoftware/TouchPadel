@@ -15,7 +15,7 @@
  * where importing react-native throws, so this file holds strings and nothing
  * else. The suites import the components themselves.
  *
- * The route name is the file path minus `app/`, `(tabs)`, and `.tsx`, with
+ * The route name is the file path minus `app/`, `(tabs)`, `(coaching)`, `(tournaments)` and `.tsx`, with
  * nine spellings fixed: `(tabs)/index` → `book`, `booking/[id]` →
  * `booking-detail`, `(tabs)/_layout` → `tabs`, `match/[id]` → `match-detail`,
  * `m/[token]` → `match-link`, `coach/[id]` → `coach-detail`, `class/[id]` →
@@ -83,6 +83,7 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // marketing, requests to marketing).
   { file: 'staff.tsx', route: 'staff', primary: 'staff.settings' },
   { file: 'staff-group.tsx', route: 'staff-group', primary: 'staff-group.list' },
+  { file: 'staff-work.tsx', route: 'staff-work', primary: 'staff-work.empty' },
   { file: 'staff-request.tsx', route: 'staff-request', primary: 'staff-request.submit' },
   { file: 'staff-checklist.tsx', route: 'staff-checklist', primary: 'staff-checklist.done' },
   { file: 'staff-start.tsx', route: 'staff-start', primary: 'staff-start.submit' },
@@ -159,11 +160,17 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   },
   // The owner's list of staff screenshots, cased by staffAssistant.smoke.test.tsx.
   { file: 'staff-screenshots.tsx', route: 'staff-screenshots', primary: 'staff-screenshots.intro' },
+  // Rewards for orders placed (0332), cased by staffRewards.smoke.test.tsx: the person's own
+  // page (its how-it-counts note is always there) and the owner's page.
+  { file: 'staff-rewards.tsx', route: 'staff-rewards', primary: 'staff-rewards.how' },
+  { file: 'staff-rewards-admin.tsx', route: 'staff-rewards-admin', primary: 'staff-rewards-admin.intro' },
   // ── open matches ──────────────────────────────────────────────────────────
   // docs/design/open-matches/guest.md §4.27, cased by matches.smoke.test.tsx
   // in EN and AR. Two spellings are fixed like booking/[id]: `match/[id]` →
   // `match-detail` and `m/[token]` → `match-link`.
-  { file: 'matches.tsx', route: 'matches', primary: 'matches.start-one' },
+  // The header's "+" (matches.start-one) is a native bar item, which the smoke
+  // mocks never draw, so the list's primary is its first category chip.
+  { file: 'matches.tsx', route: 'matches', primary: 'matches.filter.all' },
   { file: 'match/[id].tsx', route: 'match-detail', primary: 'match-detail.join' },
   { file: 'match-new.tsx', route: 'match-new', primary: 'match-new.start' },
   { file: 'm/[token].tsx', route: 'match-link', primary: 'match-link.sign-in' },
@@ -177,21 +184,34 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // EN and AR. Three spellings are fixed like match/[id]: `coach/[id]` →
   // `coach-detail`, `class/[id]` → `class-detail`, `lesson/[id]` →
   // `lesson-detail`. Coach mode's rows follow (coachMode.smoke.test.tsx).
-  { file: 'coaches.tsx', route: 'coaches', primary: 'coaches.list' },
-  { file: 'coach/[id].tsx', route: 'coach-detail', primary: 'coach-detail.offers' },
-  { file: 'classes.tsx', route: 'classes', primary: 'classes.list' },
-  { file: 'class/[id].tsx', route: 'class-detail', primary: 'class-detail.join' },
-  { file: 'lesson-review.tsx', route: 'lesson-review', primary: 'lesson-review.book' },
-  { file: 'lesson/[id].tsx', route: 'lesson-detail', primary: 'lesson-detail.cancel' },
-  { file: 'my-lessons.tsx', route: 'my-lessons', primary: 'my-lessons.filter.upcoming' },
+  {
+    file: '(coaching)/_layout.tsx',
+    route: 'coaching-stack',
+    primary: 'coaching-stack.bar',
+    todo: 'an expo-router Stack layout renders only inside a live router, which Node has not got',
+  },
+  { file: '(coaching)/coaches.tsx', route: 'coaches', primary: 'coaches.list' },
+  { file: '(coaching)/coach/[id].tsx', route: 'coach-detail', primary: 'coach-detail.offers' },
+  { file: '(coaching)/classes.tsx', route: 'classes', primary: 'classes.list' },
+  { file: '(coaching)/class/[id].tsx', route: 'class-detail', primary: 'class-detail.join' },
+  { file: '(coaching)/lesson-times.tsx', route: 'lesson-times', primary: 'lesson-times.grid' },
+  { file: '(coaching)/lesson-review.tsx', route: 'lesson-review', primary: 'lesson-review.book' },
+  { file: '(coaching)/lesson/[id].tsx', route: 'lesson-detail', primary: 'lesson-detail.cancel' },
+  { file: '(coaching)/my-lessons.tsx', route: 'my-lessons', primary: 'my-lessons.filter.upcoming' },
   // ── tournaments, the guest's side ─────────────────────────────────────────
   // Tournaments plan §5.2, cased by tournaments.smoke.test.tsx in EN and AR.
   // One spelling is fixed like lesson/[id]: `tournament/[id]` →
   // `tournament-detail`. Join the waitlist shares Register's id: it is the
   // same write, and the server decides which the guest gets.
-  { file: 'tournaments.tsx', route: 'tournaments', primary: 'tournaments.list' },
   {
-    file: 'tournament/[id].tsx',
+    file: '(tournaments)/_layout.tsx',
+    route: 'tournaments-stack',
+    primary: 'tournaments-stack.bar',
+    todo: 'an expo-router Stack layout renders only inside a live router, which Node has not got',
+  },
+  { file: '(tournaments)/tournaments.tsx', route: 'tournaments', primary: 'tournaments.list' },
+  {
+    file: '(tournaments)/tournament/[id].tsx',
     route: 'tournament-detail',
     primary: 'tournament-detail.register',
   },
@@ -208,7 +228,11 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // a `nearbyKey`.
   { file: 'coach-mode.tsx', route: 'coach-mode', primary: 'coach-mode.schedule' },
   { file: 'coach-mode-hours.tsx', route: 'coach-mode-hours', primary: 'coach-mode-hours.save' },
-  { file: 'coach-mode-lesson.tsx', route: 'coach-mode-lesson', primary: 'coach-mode-lesson.roster' },
+  {
+    file: 'coach-mode-lesson.tsx',
+    route: 'coach-mode-lesson',
+    primary: 'coach-mode-lesson.roster',
+  },
   { file: 'coach-mode-new.tsx', route: 'coach-mode-new', primary: 'coach-mode-new.create' },
   { file: 'coach-mode-book.tsx', route: 'coach-mode-book', primary: 'coach-mode-book.book' },
   {

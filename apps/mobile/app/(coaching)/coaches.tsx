@@ -2,29 +2,29 @@ import { useMemo } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { countPhrase, formatIQD, isolate } from '@touch/i18n';
-import { useLocale } from '../src/i18n/LocaleProvider';
-import { BranchPicker } from '../src/features/availability/BranchPicker';
-import { branchName } from '../src/features/availability/branch';
-import { venuePhoneOf } from '../src/features/availability/assemble';
-import { useCoachingBranch, useCoachingPublic } from '../src/features/coaching/hooks';
+import { clearBarOptions, useClearBarPad } from '../../src/navigation/clearBar';
+import { formatIQD, isolate } from '@touch/i18n';
+import { useLocale } from '../../src/i18n/LocaleProvider';
+import { BranchPicker } from '../../src/features/availability/BranchPicker';
+import { branchName } from '../../src/features/availability/branch';
+import { venuePhoneOf } from '../../src/features/availability/assemble';
+import { useCoachingBranch, useCoachingPublic } from '../../src/features/coaching/hooks';
 import {
   coachesAt,
   displayCoachName,
   kindsTaught,
   lowestOfferPrice,
-} from '../src/features/coaching/logic';
-import { lessonErrorText } from '../src/features/coaching/errors';
-import { callPhone } from '../src/lib/phone';
-import { usePullRefresh } from '../src/lib/usePullRefresh';
-import { space, useTheme } from '../src/theme';
-import { Button, Hint, Screen } from '../src/components/ui';
-import { MenuRow } from '../src/components/booking';
-import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
-import { MatchNotice } from '../src/components/match';
-import { CoachCard } from '../src/components/coaching';
-import { CalendarIcon } from '../src/components/icons';
-import { useToast } from '../src/components/overlays';
+  type PublicCoach,
+} from '../../src/features/coaching/logic';
+import { lessonErrorText } from '../../src/features/coaching/errors';
+import { callPhone } from '../../src/lib/phone';
+import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { space, useTheme } from '../../src/theme';
+import { Button, Screen } from '../../src/components/ui';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
+import { MatchNotice } from '../../src/components/match';
+import { CoachCard } from '../../src/components/coaching';
+import { useToast } from '../../src/components/overlays';
 
 /**
  * Coaches (docs/design/coaching/guest.md §4.8.2): the guest's branch's coaches
@@ -41,6 +41,8 @@ export default function CoachesScreen() {
   const router = useRouter();
   const toast = useToast();
   const insets = useSafeAreaInsets();
+  // A clear bar, so a swipe back from a coach page fades no solid bar in (clearBar.ts).
+  const barPad = useClearBarPad();
   const { guest, settings, on } = useCoachingBranch();
   const venueId = guest.venueId;
   // Switch off means no work: the read waits for the branch to say on.
@@ -53,9 +55,12 @@ export default function CoachesScreen() {
     () => (pub.data && venueId && !pub.data.off ? coachesAt(pub.data, venueId) : []),
     [pub.data, venueId],
   );
-  const withPlaces = (pub.data?.sessions ?? []).filter(
-    (s) => s.venueId === venueId && s.placesLeft > 0,
-  ).length;
+  // An odd count gets an empty cell beside the last card, so it takes the same
+  // share of the row (less half the gap) as every other card, not the full 50%.
+  const cells = useMemo<(PublicCoach | null)[]>(
+    () => (coaches.length % 2 ? [...coaches, null] : coaches),
+    [coaches],
+  );
 
   const callBranch = () => {
     if (!phone) return;
@@ -100,7 +105,7 @@ export default function CoachesScreen() {
           />
         );
       }
-      return <SkeletonList rows={3} height={84} />;
+      return <SkeletonList rows={2} height={200} />;
     }
     if (!on || pub.data?.off) return offNotice;
     if (!pub.data) {
@@ -116,40 +121,18 @@ export default function CoachesScreen() {
           />
         );
       }
-      return <SkeletonList rows={3} height={84} />;
+      return <SkeletonList rows={2} height={200} />;
     }
     const header = (
-      <View style={{ paddingTop: space.sm, gap: space.sm, marginBottom: space.sm }}>
-        {picker}
-        {withPlaces > 0 ? (
-          <View
-            style={{
-              backgroundColor: colors.card,
-              borderWidth: 1,
-              borderColor: colors.line,
-              borderRadius: 14,
-              overflow: 'hidden',
-            }}
-          >
-            <MenuRow
-              testID="coaches.classes"
-              icon={<CalendarIcon size={15} color={colors.gstrong} />}
-              label={t('coaching.guest.coaches.classes')}
-              onPress={() => router.push('/classes')}
-              last
-            />
-          </View>
-        ) : null}
-        {withPlaces > 0 ? (
-          <Hint>{countPhrase('coaching.common.count.withPlaces', withPlaces, locale)}</Hint>
-        ) : null}
-      </View>
+      <View style={{ paddingTop: space.sm, gap: space.sm, marginBottom: space.sm }}>{picker}</View>
     );
     return (
       <FlatList
         testID="coaches.list"
-        data={coaches}
-        keyExtractor={(c) => c.id}
+        data={cells}
+        keyExtractor={(c) => c?.id ?? 'filler'}
+        numColumns={2}
+        columnWrapperStyle={{ gap: space.sm }}
         ListHeaderComponent={header}
         ListEmptyComponent={
           <EmptyState
@@ -158,7 +141,7 @@ export default function CoachesScreen() {
             message={t('coaching.guest.coaches.empty')}
           />
         }
-        ItemSeparatorComponent={() => <View style={{ height: space.s }} />}
+        ItemSeparatorComponent={() => <View style={{ height: space.sm }} />}
         contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -169,13 +152,15 @@ export default function CoachesScreen() {
           />
         }
         renderItem={({ item: c }) => {
+          if (!c) return <View style={{ flex: 1 }} />;
           const name = displayCoachName(c, locale);
-          const kinds = kindsTaught(c, pub.data?.lessonTypes ?? [], venueId)
-            .map((k) => t(`coaching.common.kindsTaught.${k}`))
-            .join(' · ');
+          const kinds = kindsTaught(c, pub.data?.lessonTypes ?? [], venueId).map((k) =>
+            t(`coaching.common.kindsTaught.${k}`),
+          );
           const low = lowestOfferPrice(c, venueId);
           return (
             <CoachCard
+              style={{ flex: 1 }}
               testID={`coaches.row.${c.id}`}
               name={name}
               photoPath={c.photoPath}
@@ -196,8 +181,8 @@ export default function CoachesScreen() {
   })();
 
   return (
-    <Screen edges={[]}>
-      <Stack.Screen options={{ title: t('coaching.guest.coaches.title') }} />
+    <Screen edges={[]} style={barPad}>
+      <Stack.Screen options={{ title: t('coaching.guest.coaches.title'), ...clearBarOptions }} />
       {body}
     </Screen>
   );

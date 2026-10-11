@@ -24,8 +24,18 @@ cannot block a screenshot, it blanks recordings and the app switcher) and report
 hears of to `log_staff_screenshot` (0313) with the page from `usePathname()`, retried a few times
 without signal. The owner reads the list at `app/staff-screenshots.tsx` (Today's "Screenshots" tile),
 the audit log's `staff.screenshot` rows through `audit_log_page`. The owner's assistant is a
-floating button (`src/features/assistant/AssistantFab.tsx`, also mounted in the layout) on staff
-pages other than the assistant's own; Today no longer carries the assistant banner.
+floating button (`src/features/assistant/AssistantFab.tsx`, drawn inside each screen by the root
+Stack's `screenLayout` so it moves with the page's transition) on staff
+pages other than the assistant's own and Today, which carries the same button (`AssistantButton`)
+at the end of its greeting card, where the floating one covered Sign out (owner, 2026-10-09).
+
+Rewards (Majed, 2026-10-10; migration 0332): the owner sets each waiter's, cashier's or manager's
+rewards (a number of orders placed in a business month, for an IQD bonus, a prize or both) at
+`app/staff-rewards-admin.tsx` (Today's "Rewards" tile). Each person sees only their own progress:
+the navy reward track under Today's greeting (`src/features/staff/rewards/RewardTrack.tsx`, shown
+only when they have a reward) and `app/staff-rewards.tsx`. The count is `app.my_rewards`'s, never
+the phone's; the phone never adds rewards up and never compares people (PRODUCT.md: nothing grades
+staff). The track rolls from the count last seen on this phone (`rewards/seen.ts`) to now.
 
 ## Commits
 
@@ -84,7 +94,11 @@ pages other than the assistant's own; Today no longer carries the assistant bann
   `tournamentKeys` (`src/features/tournaments/keys.ts`), everything under `['tournament']` stays
   off disk and register / withdraw run now or fail now. Both are state-idempotent and take no key;
   every argument is sent, nulls included. The push route and kind live in
-  `src/features/tournaments/pushRoutes.ts`.
+  `src/features/tournaments/pushRoutes.ts`. The screens sit in `app/(tournaments)/`, a nested
+  stack with its own native bar: the ONE exception to the root-stack rule (owner, 2026-10-09),
+  so the bar and its back button leave with the page at any swipe speed. Its first screen's back
+  is a native UIBarButtonItem with the system chevron; `routes.test.ts` and `back.test.ts` allow
+  this group alone.
 - Retry, online-pause, focus refetch and persistence are set once in `src/lib/queryClient.ts`; a
   screen does not override them.
 

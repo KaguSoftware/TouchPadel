@@ -927,9 +927,10 @@ export async function buildMap({ catalog, sha } = {}) {
  * A page sentence longer than this is clipped in the compact prefix at its last clause
  * boundary (`; ` or `. `) and ends in ` …`. The page chunk keeps the whole sentence, so the
  * assistant still finds it by search; the prefix only has to say what each page is for. Set
- * when wages (0270–0272) and coaching (0273–0289) together took the prefix past the target.
+ * when wages (0270–0272) and coaching (0273–0289) together took the prefix past the target;
+ * 900 → 850 when the Rewards page (0332–0333) did it again.
  */
-export const COMPACT_SENTENCE_CAP = 900;
+export const COMPACT_SENTENCE_CAP = 850;
 
 function clipSentence(sentence) {
   if (sentence.length <= COMPACT_SENTENCE_CAP) return sentence;
@@ -959,8 +960,9 @@ export function renderCompact(map) {
   }
   lines.push('', '## Rules', '');
   for (const r of rules) lines.push(`### ${r.title}`, r.body, '');
-  lines.push('## Tools', '', 'name — kind, scope, page with the same numbers', '');
-  for (const t of map._tools ?? []) lines.push(`${t.name} — ${t.kind}, ${t.scope}${t.route ? `, ${t.route}` : ''}`);
+  // ': ' not ' — ' (3 bytes), as for the pages: 2026-10-09 the prefix passed the byte target again.
+  lines.push('## Tools', '', 'name: kind, scope, page with the same numbers', '');
+  for (const t of map._tools ?? []) lines.push(`${t.name}: ${t.kind}, ${t.scope}${t.route ? `, ${t.route}` : ''}`);
   lines.push('');
   return lines.join('\n');
 }

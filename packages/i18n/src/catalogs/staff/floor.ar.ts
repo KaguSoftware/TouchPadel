@@ -6,7 +6,6 @@ export const staffFloorAr: DeepMessages<typeof staffFloorEn> = {
   row: 'تسجيل طلب',
   tables: {
     title: 'تسجيل طلب',
-    lead: 'اختر الطاولة.',
     dayClosed: 'لم يُفتح اليوم بعد. يمكن تسجيل الطلبات بعد فتح اليوم من الصندوق.',
     empty: 'لا توجد طاولات مُعدّة لهذا الفرع بعد.',
     table: 'طاولة {number}',

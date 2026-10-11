@@ -547,6 +547,15 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_cache_clear: { Args: never; Returns: number }
+      assistant_cache_fill: { Args: { p_max_days?: number }; Returns: Json }
+      assistant_cache_init: { Args: { p_max_days?: number }; Returns: Json }
+      assistant_cache_invalidate: {
+        Args: { p_from: string; p_to: string }
+        Returns: number
+      }
+      assistant_cache_scope: { Args: { p_venues: string[] }; Returns: string }
+      assistant_cache_status: { Args: never; Returns: Json }
       assistant_chunk_source: {
         Args: { p_kind: string; p_ref: string }
         Returns: Json
@@ -568,6 +577,54 @@ export type Database = {
       assistant_delete_chunk: {
         Args: { p_kind: string; p_ref: string }
         Returns: number
+      }
+      assistant_detail_collect: {
+        Args: {
+          p_family: string
+          p_from: string
+          p_group: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_detail_compute: {
+        Args: { p_family: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      assistant_detail_merge: {
+        Args: { p_family: string; p_parts: Json }
+        Returns: Json
+      }
+      assistant_history_courts: {
+        Args: {
+          p_from: string
+          p_group?: string
+          p_hours?: boolean
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_history_figures: {
+        Args: {
+          p_extra?: boolean
+          p_from: string
+          p_group?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_history_items: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_order?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_history_staff: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
       }
       assistant_in_list: {
         Args: { p_col: string; p_values: Json }
@@ -1811,6 +1868,7 @@ export type Database = {
         Returns: Json
       }
       end_break: { Args: { p_device_id: string; p_pin: string }; Returns: Json }
+      end_staff_reward: { Args: { p_id: string }; Returns: undefined }
       enqueue_telegram: {
         Args: {
           p_kind: string
@@ -3055,6 +3113,7 @@ export type Database = {
           venue_id: string
         }[]
       }
+      my_rewards: { Args: { p_venue_id?: string }; Returns: Json }
       my_suggestions: {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
@@ -4016,6 +4075,7 @@ export type Database = {
         Returns: Json
       }
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: number }
+      reward_sweep: { Args: never; Returns: Json }
       rotate_member_card: { Args: never; Returns: Json }
       rotate_table_token: { Args: { p_table_id: string }; Returns: number }
       rotate_table_token_secret: { Args: never; Returns: Json }
@@ -4353,6 +4413,16 @@ export type Database = {
         Args: { p_pin: string; p_staff_id: string }
         Returns: undefined
       }
+      set_staff_reward: {
+        Args: {
+          p_prize?: string
+          p_reward_iqd: number
+          p_staff_id: string
+          p_target: number
+          p_venue_id: string
+        }
+        Returns: string
+      }
       set_staff_role: {
         Args: {
           p_reason_code?: string
@@ -4550,6 +4620,7 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: Json
       }
+      staff_rewards_board: { Args: { p_venue_id?: string }; Returns: Json }
       staff_role: {
         Args: never
         Returns: Database["public"]["Enums"]["staff_role"]
@@ -5671,6 +5742,30 @@ export type Database = {
           },
         ]
       }
+      assistant_cache_config: {
+        Row: {
+          enabled: boolean
+          freeze_days: number
+          id: boolean
+          initialised_at: string | null
+          last_fill_at: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          freeze_days?: number
+          id?: boolean
+          initialised_at?: string | null
+          last_fill_at?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          freeze_days?: number
+          id?: boolean
+          initialised_at?: string | null
+          last_fill_at?: string | null
+        }
+        Relationships: []
+      }
       assistant_calls: {
         Row: {
           cache_read_tokens: number
@@ -5918,6 +6013,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      assistant_day_detail: {
+        Row: {
+          business_date: string
+          computed_at: string
+          data: Json
+          family: string
+          scope: string
+        }
+        Insert: {
+          business_date: string
+          computed_at?: string
+          data: Json
+          family: string
+          scope: string
+        }
+        Update: {
+          business_date?: string
+          computed_at?: string
+          data?: Json
+          family?: string
+          scope?: string
+        }
+        Relationships: []
+      }
+      assistant_day_facts: {
+        Row: {
+          business_date: string
+          computed_at: string
+          facts: Json
+          scope: string
+        }
+        Insert: {
+          business_date: string
+          computed_at?: string
+          facts: Json
+          scope: string
+        }
+        Update: {
+          business_date?: string
+          computed_at?: string
+          facts?: Json
+          scope?: string
+        }
+        Relationships: []
       }
       assistant_index_queue: {
         Row: {
@@ -8297,6 +8437,161 @@ export type Database = {
           },
           {
             foreignKeyName: "ingredients_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_report_figures: {
+        Row: {
+          category: string
+          count: number | null
+          count_stated: string | null
+          label_stated: string
+          note_stated: string | null
+          percent_stated: string | null
+          position: number
+          report_id: string
+          source: string
+          venue_id: string
+        }
+        Insert: {
+          category: string
+          count?: number | null
+          count_stated?: string | null
+          label_stated: string
+          note_stated?: string | null
+          percent_stated?: string | null
+          position: number
+          report_id: string
+          source: string
+          venue_id: string
+        }
+        Update: {
+          category?: string
+          count?: number | null
+          count_stated?: string | null
+          label_stated?: string
+          note_stated?: string | null
+          percent_stated?: string | null
+          position?: number
+          report_id?: string
+          source?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_report_figures_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "legacy_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legacy_report_figures_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_reports: {
+        Row: {
+          chart_caption: string | null
+          chart_language: string | null
+          chart_subtitle: string | null
+          chart_title: string | null
+          chart_total_line: string | null
+          department: string
+          employee_name: string
+          id: string
+          imported_at: string
+          period_from: string
+          period_stated: string
+          period_to: string
+          report_no: number | null
+          report_no_stated: string
+          revenue_amount: number | null
+          revenue_approximate: boolean
+          revenue_currency_stated: string | null
+          revenue_stated: string | null
+          revenue_words_stated: string | null
+          review_notes_ar: string
+          review_notes_en: string
+          section_heading_stated: string
+          source_created_at: string | null
+          source_file: string
+          source_sha256: string
+          summary_stated: string
+          title_stated: string
+          venue_id: string
+        }
+        Insert: {
+          chart_caption?: string | null
+          chart_language?: string | null
+          chart_subtitle?: string | null
+          chart_title?: string | null
+          chart_total_line?: string | null
+          department: string
+          employee_name: string
+          id: string
+          imported_at?: string
+          period_from: string
+          period_stated: string
+          period_to: string
+          report_no?: number | null
+          report_no_stated: string
+          revenue_amount?: number | null
+          revenue_approximate?: boolean
+          revenue_currency_stated?: string | null
+          revenue_stated?: string | null
+          revenue_words_stated?: string | null
+          review_notes_ar?: string
+          review_notes_en?: string
+          section_heading_stated: string
+          source_created_at?: string | null
+          source_file: string
+          source_sha256: string
+          summary_stated: string
+          title_stated: string
+          venue_id: string
+        }
+        Update: {
+          chart_caption?: string | null
+          chart_language?: string | null
+          chart_subtitle?: string | null
+          chart_title?: string | null
+          chart_total_line?: string | null
+          department?: string
+          employee_name?: string
+          id?: string
+          imported_at?: string
+          period_from?: string
+          period_stated?: string
+          period_to?: string
+          report_no?: number | null
+          report_no_stated?: string
+          revenue_amount?: number | null
+          revenue_approximate?: boolean
+          revenue_currency_stated?: string | null
+          revenue_stated?: string | null
+          revenue_words_stated?: string | null
+          review_notes_ar?: string
+          review_notes_en?: string
+          section_heading_stated?: string
+          source_created_at?: string | null
+          source_file?: string
+          source_sha256?: string
+          summary_stated?: string
+          title_stated?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_reports_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -14004,6 +14299,184 @@ export type Database = {
           },
         ]
       }
+      staff_reward_earnings: {
+        Row: {
+          created_at: string
+          earned_month: string
+          id: string
+          pay_month: string
+          prize: string | null
+          reward_id: string
+          reward_iqd: number
+          staff_id: string
+          target: number
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          earned_month: string
+          id?: string
+          pay_month: string
+          prize?: string | null
+          reward_id: string
+          reward_iqd: number
+          staff_id: string
+          target: number
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          earned_month?: string
+          id?: string
+          pay_month?: string
+          prize?: string | null
+          reward_id?: string
+          reward_iqd?: number
+          staff_id?: string
+          target?: number
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_reward_earnings_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "staff_rewards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reward_earnings_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reward_earnings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_reward_unlocks: {
+        Row: {
+          business_month: string
+          reward_id: string
+          staff_id: string
+          unlocked_at: string
+          venue_id: string
+        }
+        Insert: {
+          business_month: string
+          reward_id: string
+          staff_id: string
+          unlocked_at?: string
+          venue_id: string
+        }
+        Update: {
+          business_month?: string
+          reward_id?: string
+          staff_id?: string
+          unlocked_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_reward_unlocks_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "staff_rewards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reward_unlocks_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reward_unlocks_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_rewards: {
+        Row: {
+          ended_at: string | null
+          ended_by: string | null
+          id: string
+          metric: string
+          prize: string | null
+          reward_iqd: number
+          set_at: string
+          set_by: string
+          staff_id: string
+          target: number
+          venue_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string
+          metric?: string
+          prize?: string | null
+          reward_iqd?: number
+          set_at?: string
+          set_by: string
+          staff_id: string
+          target: number
+          venue_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string
+          metric?: string
+          prize?: string | null
+          reward_iqd?: number
+          set_at?: string
+          set_by?: string
+          staff_id?: string
+          target?: number
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_rewards_ended_by_fkey"
+            columns: ["ended_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_rewards_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_rewards_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_rewards_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_suggestions: {
         Row: {
           author_id: string
@@ -16350,6 +16823,8 @@ export type Database = {
       }
       wage_payments: {
         Row: {
+          bonus_count: number
+          bonuses_iqd: number
           deduction_count: number
           deductions_iqd: number
           due_date: string
@@ -16370,6 +16845,8 @@ export type Database = {
           venue_id: string
         }
         Insert: {
+          bonus_count?: number
+          bonuses_iqd?: number
           deduction_count: number
           deductions_iqd: number
           due_date: string
@@ -16390,6 +16867,8 @@ export type Database = {
           venue_id: string
         }
         Update: {
+          bonus_count?: number
+          bonuses_iqd?: number
           deduction_count?: number
           deductions_iqd?: number
           due_date?: string

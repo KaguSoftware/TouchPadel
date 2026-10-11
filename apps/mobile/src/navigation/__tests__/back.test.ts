@@ -68,6 +68,11 @@ describe('the native back item is never replaced', () => {
     // the interactive edge-swipe. Every screen is on the root stack precisely
     // so UIKit draws its own (routes.test.ts pins that structure).
     for (const f of SOURCES) {
+      // A nested flow's FIRST screen has no history in its own stack, so UIKit
+      // draws no back item there; the shared group options give Android's
+      // toolbar the back arrow (iOS gets a native bar button). The one
+      // exception, see routes.test.ts ALLOWED_GROUPS.
+      if (rel(f) === 'src/navigation/groupStack.tsx') continue;
       expect(code(f), rel(f)).not.toMatch(/headerLeft\s*[:=]/);
     }
   });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bonusKind,
   canMarkPaid,
   canStepWageForward,
   canUndoPaid,
@@ -8,6 +9,7 @@ import {
   isWageStale,
   payDayClamps,
   payableIqd,
+  prizeCount,
   readWagesDue,
   readWagesMonth,
   undoReasonIssue,
@@ -78,6 +80,52 @@ describe('readWagesMonth', () => {
     expect(unsetPeople(m).map((p) => p.staffId)).toEqual(['s2']);
   });
 
+  it('reads the bonuses a month carries (0333): the sum, the count and every reward, prize-only ones too', () => {
+    const m = readWagesMonth({
+      totals: { salary_iqd: 750000, deductions_iqd: 0, penalties_iqd: 0, bonuses_iqd: 50000, net_iqd: 800000, paid_iqd: 0 },
+      people: [
+        {
+          ...line({ deductions_iqd: 0, penalties_iqd: 0, bonuses_iqd: 50000, bonus_count: 1, net_iqd: 800000 }),
+          staff_id: 's1',
+          bonuses: [
+            { id: 'e1', earned_month: '2026-09-01', target: 200, reward_iqd: 50000, prize: null },
+            { id: 'e2', earned_month: '2026-09-01', target: 300, reward_iqd: 0, prize: 'Dinner for two' },
+            { earned_month: '2026-09-01' },
+          ],
+        },
+      ],
+    });
+    const p = m.people[0]!;
+    expect(m.totals.bonusesIqd).toBe(50000);
+    expect(p.bonusesIqd).toBe(50000);
+    expect(p.bonusCount).toBe(1);
+    expect(p.netIqd).toBe(800000);
+    expect(p.bonuses).toEqual([
+      { id: 'e1', earnedMonth: '2026-09-01', target: 200, rewardIqd: 50000, prize: null },
+      { id: 'e2', earnedMonth: '2026-09-01', target: 300, rewardIqd: 0, prize: 'Dinner for two' },
+    ]);
+    expect(prizeCount(p)).toBe(1);
+    expect(p.bonuses.map(bonusKind)).toEqual(['amount', 'prize']);
+    expect(bonusKind({ rewardIqd: 1000, prize: 'Cinema tickets' })).toBe('both');
+  });
+
+  it('reads a line from before 0333 as no bonuses, and no bonuses total as absent rather than 0', () => {
+    const m = readWagesMonth({ totals: { salary_iqd: 1 }, people: [{ ...line(), staff_id: 's1' }] });
+    expect(m.totals.bonusesIqd).toBeNull();
+    expect(m.people[0]!.bonusesIqd).toBe(0);
+    expect(m.people[0]!.bonusCount).toBe(0);
+    expect(m.people[0]!.bonuses).toEqual([]);
+    expect(m.people[0]!.bonusOnly).toBe(false);
+  });
+
+  it('reads a bonus-only month for someone who left (0333)', () => {
+    const m = readWagesMonth({
+      people: [{ ...line({ salary_iqd: 0, bonuses_iqd: 30000, bonus_count: 1, bonus_only: true, net_iqd: 30000 }), staff_id: 's1', member: false }],
+    });
+    expect(m.people[0]!.bonusOnly).toBe(true);
+    expect(m.people[0]!.salaryIqd).toBe(0);
+  });
+
   it('keeps a net below zero as the server sent it', () => {
     const m = readWagesMonth({ people: [{ ...line({ net_iqd: -40000 }), staff_id: 's1' }] });
     expect(m.people[0]!.netIqd).toBe(-40000);
@@ -141,8 +189,11 @@ describe('what a line shows and offers', () => {
   });
 
   it('offers Mark paid on a set, unpaid month and Undo on a standing payment', () => {
-    for (const s of ['due', 'overdue', 'upcoming'] as const) expect(canMarkPaid({ status: s })).toBe(true);
-    for (const s of ['paid', 'unset', 'none'] as const) expect(canMarkPaid({ status: s })).toBe(false);
+    for (const s of ['due', 'overdue', 'upcoming'] as const) expect(canMarkPaid({ status: s, bonusesIqd: 0 })).toBe(true);
+    for (const s of ['paid', 'unset', 'none'] as const) expect(canMarkPaid({ status: s, bonusesIqd: 0 })).toBe(false);
+    // No salary but a reward bonus: the bonus is paid alone (0333).
+    for (const s of ['unset', 'none'] as const) expect(canMarkPaid({ status: s, bonusesIqd: 25000 })).toBe(true);
+    expect(canMarkPaid({ status: 'paid', bonusesIqd: 25000 })).toBe(false);
     const pay = { id: 'p', paidIqd: 1, paidAt: null, paidByName: null, undoneAt: null, undoneByName: null, undoReason: null };
     expect(canUndoPaid({ payment: { ...pay, status: 'paid' } })).toBe(true);
     expect(canUndoPaid({ payment: { ...pay, status: 'undone' } })).toBe(false);

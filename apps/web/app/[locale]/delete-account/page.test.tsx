@@ -83,8 +83,12 @@ describe.each(LOCALES)('delete-account page (%s)', (locale: Locale) => {
 
     const request = document.querySelector('section#request');
     expect(request?.querySelector('a[href^="tel:"]')).not.toBeNull();
-    // The privacy email is still a placeholder, so no mailto: button yet.
-    expect(request?.querySelector('a[href^="mailto:"]')).toBeNull();
+    // The email button carries the subject, so the request is recognisable in the inbox.
+    expect(request?.querySelector('a[href^="mailto:"]')?.getAttribute('href')).toBe(
+      `mailto:${t(locale, 'legal.entity.email')}?subject=${encodeURIComponent(
+        t(locale, 'legal.deleteAccount.request.emailSubject'),
+      )}`,
+    );
   });
 
   it('is marked as the current page in the legal nav', async () => {

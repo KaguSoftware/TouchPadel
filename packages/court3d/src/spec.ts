@@ -83,8 +83,18 @@ export const SPEC = {
     fade: [0.25, 0.45] as Range,
   },
   back: { fade: [0.2, 0.5] as Range },
-  pills: { start: 0.45, stagger: 0.035, length: 0.22, y: 14 },
-  grid: { start: 0.58, stagger: 0.06, length: 0.28, y: 18, scale: 0.96, sharedFromRow: 3 },
+  /**
+   * The card's content enters in three GROUPS, each moving as one (owner,
+   * 2026-10-09): 0 the day chips, 1 the duration picker with the court lanes,
+   * 2 the entry rows (open matches, lessons, tournaments). Timed in SECONDS of
+   * the opening spring, not in p (see `openP`): the spring covers p's last
+   * stretch slowly, so the old per-item p slices gave the first pill a 0.13 s
+   * fade and the last row a 1.1 s one, the lower items arriving late and
+   * crawling in. Group g: in over [0.22 + g·0.08, + 0.22] s, all in by 0.6 s.
+   */
+  groups: { startS: 0.22, staggerS: 0.08, lengthS: 0.22 },
+  pills: { y: 14 },
+  grid: { y: 18, scale: 0.96 },
 } as const;
 
 /**
@@ -170,21 +180,57 @@ export function pitchEase(dir: Dir, a: number): (t: number) => number {
 
 // ── Staggers ────────────────────────────────────────────────────────────────
 
-/** Day pill i: start 0.45 + i·0.035, length 0.22 (pill 0: 0.450–0.670 … pill 9: 0.765–0.985). */
-export function pillSlice(i: number): Range {
-  const a = SPEC.pills.start + i * SPEC.pills.stagger;
-  return [a, a + SPEC.pills.length];
+/**
+ * p at t seconds into an OPEN (p 0 → 1 from rest): SPRING is overdamped with
+ * roots r₁, r₂ (−5 and −10 s⁻¹), so p(t) = 1 − (r₂e^{r₁t} − r₁e^{r₂t}) / (r₂ − r₁).
+ */
+const ROOTS = (() => {
+  const { mass: m, damping: c, stiffness: k } = SPRING;
+  const d = Math.sqrt(c * c - 4 * m * k);
+  return [(-c + d) / (2 * m), (-c - d) / (2 * m)] as const;
+})();
+export function openP(t: number): number {
+  const [r1, r2] = ROOTS;
+  return 1 - (r2 * Math.exp(r1 * t) - r1 * Math.exp(r2 * t)) / (r2 - r1);
+}
+
+/** The card's entrance groups, in order (see SPEC.groups). */
+export type EntranceGroup = 0 | 1 | 2;
+
+/** Group g's slice of the open, as a p range. */
+export function groupSlice(g: EntranceGroup): Range {
+  const a = SPEC.groups.startS + g * SPEC.groups.staggerS;
+  return [openP(a), openP(a + SPEC.groups.lengthS)];
 }
 
 /**
- * Time-grid row r: start 0.58 + r·0.06, length 0.28; rows ≥ 3 share row 3's
- * slice. The handoff table ends row 3 at 1.00 (0.76 + 0.28 would overrun p's
- * range and leave the last rows 14 % short when the spring settles), so the
- * end is clamped to 1 — every row is fully in when the transition is.
+ * `sampleEased` for a slice from `groupSlice`: the table is
+ * sampled at even TIMES of the open, so the element moves linearly in wall
+ * clock rather than in p.
  */
-export function rowSlice(r: number): Range {
-  const a = SPEC.grid.start + Math.min(r, SPEC.grid.sharedFromRow) * SPEC.grid.stagger;
-  return [a, Math.min(1, a + SPEC.grid.length)];
+export function sampleOpenLinear(range: Range, out: Range, samples = 12): Keyframes {
+  const [ta, tb] = range.map(openT) as [number, number];
+  const inputRange: number[] = [0];
+  const outputRange: number[] = [out[0]];
+  for (let i = 0; i <= samples; i++) {
+    inputRange.push(openP(lerp(ta, tb, i / samples)));
+    outputRange.push(lerp(out[0], out[1], i / samples));
+  }
+  inputRange.push(1);
+  outputRange.push(out[1]);
+  return { inputRange, outputRange };
+}
+
+/** Inverse of `openP` (bisection; p is monotonic). */
+function openT(p: number): number {
+  let lo = 0;
+  let hi = 10;
+  for (let i = 0; i < 50; i++) {
+    const mid = (lo + hi) / 2;
+    if (openP(mid) < p) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
 }
 
 // ── Eased keyframe tables ───────────────────────────────────────────────────

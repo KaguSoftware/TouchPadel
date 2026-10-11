@@ -105,4 +105,9 @@ export const opErrorsCodesEn = {
   WAGE_ALREADY_PAID:
     'That month’s wage is already marked paid, so it can no longer change. Undo the payment first if it was a mistake.',
   WAGE_CHANGED: 'This wage changed while you were looking at it. Check the new figures and confirm again.',
+  // Staff rewards (0332).
+  REWARD_STAFF_INVALID: 'Rewards are for waiters, cashiers and managers at this branch.',
+  REWARD_INVALID: 'Set a target from 1 to 100,000 orders and a bonus or a prize.',
+  REWARD_TARGET_TAKEN: 'This person already has a reward at that target.',
+  REWARD_LIMIT: 'A person can have up to 5 rewards.',
 };

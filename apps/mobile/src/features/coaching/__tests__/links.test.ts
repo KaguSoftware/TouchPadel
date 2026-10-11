@@ -54,9 +54,14 @@ describe('the coach id', () => {
 });
 
 describe('coachShareUrl', () => {
-  it('is the website’s /c/<id> on the host every build claims', () => {
-    const url = coachShareUrl(ID);
-    expect(url.endsWith(`/c/${ID}`)).toBe(true);
+  it('is the website’s /<locale>/c/<id> on the host every build claims', () => {
+    const url = coachShareUrl(ID, 'en');
+    expect(new URL(url).pathname).toBe(`/en/c/${ID}`);
     expect(new URL(url).host).toBe(shareHost());
+    expect(new URL(coachShareUrl(ID, 'ar')).pathname).toBe(`/ar/c/${ID}`);
+  });
+
+  it('opens back in the app on the coach route', () => {
+    expect(normaliseCoachLink(coachShareUrl(ID, 'ar'))).toBe(`/coach/${ID}`);
   });
 });

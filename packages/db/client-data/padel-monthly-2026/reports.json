@@ -1,0 +1,805 @@
+{
+  "_readme": "Hussein al-Sarraf's monthly padel-desk reports (قسم البدل), June to September 2026, received from Majed 2026-10-10 as \"Archive 8.zip\". originals/ holds the four .docx files byte for byte (sha256 below); this file is their structured form. Every *_stated string is copied from the Word XML, never retyped; numbers are those strings read as digits. The repo copies differ from the received files in one field only: docProps/core.xml lastModifiedBy, an email address, is blanked (personal data stays out of git); sha256 is the received file, repo_sha256 the copy, and document_xml_sha256 proves the content part is the same. Chart text is typed from the chart images. Nothing is inferred: a blank cell is a null count, a conflict between two parts of one report keeps both, each under the label its own part gives it, and is listed under discrepancies. tests/legacy-reports-source.test.ts checks this file against the originals; scripts/db-legacy-reports.mjs loads it into legacy_reports + legacy_report_figures.",
+  "received": "2026-10-10",
+  "archive": "Archive 8.zip",
+  "categories": {
+    "total": "the row the report calls its total (الحجوزات مجموع / إجمالي / المجموع / Total)",
+    "completed": "منجز / المنجزة / Completed",
+    "not_completed": "غير منجز / غير المنجزة / Not Completed",
+    "cancelled": "الملغات / الملغاة / Cancelled",
+    "training": "التدريب / Training",
+    "not_booked": "لم يحجز / لم يتم حجزها",
+    "free": "حجز مجاني / المجانية / مجاني",
+    "no_show": "لم تحضر / لم يحضر"
+  },
+  "reports": [
+    {
+      "id": "70c40000-0000-4000-8000-0000aa202606",
+      "month": "2026-06",
+      "department": "padel",
+      "source_file": "التقرير_الشهري_لقسم_البدل_ تاريخ ١_٦.docx",
+      "repo_file": "originals/2026-06.docx",
+      "sha256": "3a112f1bdb51f322ab16e40be26f2efc9342cb256489019a5a95be2054f0f957",
+      "repo_sha256": "4834d9f20a96a49ecb6f152898491422d3bc6d5e0ea6779ba9978a69c2bf714d",
+      "document_xml_sha256": "21db01966ca13fe1a049d97e12e6da2e767db259c29876b79dc5a4cf2a0b4a04",
+      "docx": {
+        "creator": "python-docx",
+        "lastModifiedBy": null,
+        "created": "2026-10-09T15:08:00Z",
+        "modified": "2026-10-09T15:08:00Z",
+        "pages": 1,
+        "words": 92,
+        "application": "Microsoft Office Word"
+      },
+      "title_stated": "للتقرير الشهري   – قسم البدل",
+      "report_no_stated": "رقم التقرير  ٤",
+      "report_no": 4,
+      "employee_label_stated": "اسم الموضف ",
+      "employee_name": "حسين الصراف",
+      "period_label_stated": "الفترة من – إلى",
+      "period_stated": "١/٦/2026_٣٠/٦/2026",
+      "period_from": "2026-06-01",
+      "period_to": "2026-06-30",
+      "section_heading_stated": ". تقرير الشهري  للحجوزات",
+      "separator_stated": "_ ",
+      "summary_stated": [
+        "بلغ إجمالي الحجوزات 600 حجز، توزعت بين 285 حجزاً منجزاً بنسبة 47.50%، و251 حجزاً غير منجز بنسبة 41.83%، إضافةً إلى 64 حجزاً للتدريب بنسبة 10.67%"
+      ],
+      "summary_figures": [
+        {
+          "position": 1,
+          "phrase_stated": "إجمالي الحجوزات 600 حجز",
+          "category": "total",
+          "count": 600,
+          "percent_stated": null
+        },
+        {
+          "position": 2,
+          "phrase_stated": "285 حجزاً منجزاً بنسبة 47.50%",
+          "category": "completed",
+          "count": 285,
+          "percent_stated": "47.50%"
+        },
+        {
+          "position": 3,
+          "phrase_stated": "251 حجزاً غير منجز بنسبة 41.83%",
+          "category": "not_completed",
+          "count": 251,
+          "percent_stated": "41.83%"
+        },
+        {
+          "position": 4,
+          "phrase_stated": "64 حجزاً للتدريب بنسبة 10.67%",
+          "category": "training",
+          "count": 64,
+          "percent_stated": "10.67%"
+        }
+      ],
+      "table": {
+        "header_stated": [
+          "البيان",
+          "العدد",
+          "الملاحظات"
+        ],
+        "rows": [
+          {
+            "position": 1,
+            "label_stated": "الحجوزات   مجموع ",
+            "category": "total",
+            "count_stated": "٦٠٠ حجز ",
+            "count": 600,
+            "note_stated": null
+          },
+          {
+            "position": 2,
+            "label_stated": "الحجوزات المنجزة",
+            "category": "completed",
+            "count_stated": "٢٨٥ حجز",
+            "count": 285,
+            "note_stated": null
+          },
+          {
+            "position": 3,
+            "label_stated": "الحجوزات الملغات",
+            "category": "cancelled",
+            "count_stated": "حجز  ",
+            "count": null,
+            "note_stated": "     "
+          },
+          {
+            "position": 4,
+            "label_stated": "التدريب ",
+            "category": "training",
+            "count_stated": "٦٤حجز ",
+            "count": 64,
+            "note_stated": null
+          },
+          {
+            "position": 5,
+            "label_stated": "لم يحجز ",
+            "category": "not_booked",
+            "count_stated": "٢٥١حجز ",
+            "count": 251,
+            "note_stated": "مع الحجوزات الملغات "
+          },
+          {
+            "position": 6,
+            "label_stated": "حجز مجاني ",
+            "category": "free",
+            "count_stated": " حجز ",
+            "count": null,
+            "note_stated": null
+          }
+        ]
+      },
+      "revenue": null,
+      "chart": {
+        "media": "word/media/image2.jpeg",
+        "sha256": "37d4cd3e48956f46c48c4863383cf9d0f95f63c49f2547831a408f2304a4ae66",
+        "read_from": "image, typed by hand; pie, table and cards all show the same figures",
+        "language": "en",
+        "title": "Reservation Statistics",
+        "subtitle": "Distribution of Reservations",
+        "total_line": "Total Reservations: 600",
+        "caption": "The total number of reservations is 600, distributed as shown in the chart above.",
+        "rows": [
+          {
+            "position": 1,
+            "label": "Completed",
+            "category": "completed",
+            "count": 285,
+            "percent": "47.50%"
+          },
+          {
+            "position": 2,
+            "label": "Not Completed",
+            "category": "not_completed",
+            "count": 251,
+            "percent": "41.83%"
+          },
+          {
+            "position": 3,
+            "label": "Training",
+            "category": "training",
+            "count": 64,
+            "percent": "10.67%"
+          },
+          {
+            "position": 4,
+            "label": "Total",
+            "category": "total",
+            "count": 600,
+            "percent": "100%"
+          }
+        ]
+      },
+      "logo": {
+        "media": "word/media/image1.jpeg",
+        "sha256": "05cca382a0e55d1b9dde81e4d89d22db0dbc09301116eaa97409352bc5bcff7c",
+        "what": "the Touch Padel logo, white on blue; the same file in all four reports"
+      },
+      "discrepancies": [
+        {
+          "code": "count_blank",
+          "en": "The table's \"cancelled\" and \"free\" rows carry the word \"حجز\" with no number, so both are stored with no count (not zero).",
+          "ar": "خانتا \"الحجوزات الملغات\" و\"حجز مجاني\" في الجدول فيهما كلمة \"حجز\" بلا رقم، فخُزّنتا بلا عدد (وليس صفراً)."
+        },
+        {
+          "code": "label_differs",
+          "en": "The table calls 251 \"لم يحجز\" (not booked); the summary and the chart call the same 251 \"غير منجز\" / \"Not Completed\". Both labels are kept as written.",
+          "ar": "الجدول يسمّي الـ 251 \"لم يحجز\"، والفقرة والمخطط يسمّيانها \"غير منجز\". حُفظت التسميتان كما وردتا."
+        },
+        {
+          "code": "note_includes_cancelled",
+          "en": "The table note beside \"لم يحجز\" says \"مع الحجوزات الملغات\" (including cancellations): cancellations are inside the 251, not counted on their own.",
+          "ar": "ملاحظة الجدول بجانب \"لم يحجز\" تقول \"مع الحجوزات الملغات\": الملغاة داخل الـ 251 وليست معدودة وحدها."
+        },
+        {
+          "code": "no_revenue",
+          "en": "No amount of money is given in this report.",
+          "ar": "لا يذكر هذا التقرير أي مبلغ."
+        }
+      ]
+    },
+    {
+      "id": "70c40000-0000-4000-8000-0000aa202607",
+      "month": "2026-07",
+      "department": "padel",
+      "source_file": "التقرير_الشهري_لقسم_البدل_١_٧.docx",
+      "repo_file": "originals/2026-07.docx",
+      "sha256": "253cb04ca90829bdd713d0e9299a04bea2f032c083c9fe8c03515af91ee8c8e0",
+      "repo_sha256": "320e57737f521f17eb395b342d220f2c662b15129c2e29c89dac2ae884dd6bed",
+      "document_xml_sha256": "18e7722ebf66bc0f1339a5eb2f94f399645af98a107bd6d9a1571df144313a11",
+      "docx": {
+        "creator": "python-docx",
+        "lastModifiedBy": null,
+        "created": "2026-10-09T15:16:00Z",
+        "modified": "2026-10-09T15:16:00Z",
+        "pages": 1,
+        "words": 111,
+        "application": "Microsoft Office Word"
+      },
+      "title_stated": "للتقرير الشهري   – قسم البدل",
+      "report_no_stated": "رقم التقرير  ٥",
+      "report_no": 5,
+      "employee_label_stated": "اسم الموضف ",
+      "employee_name": "حسين الصراف",
+      "period_label_stated": "الفترة من – إلى",
+      "period_stated": "١/٧/2026_٣٠/٧/2026",
+      "period_from": "2026-07-01",
+      "period_to": "2026-07-30",
+      "section_heading_stated": ". تقرير الشهري  للحجوزات",
+      "separator_stated": "_ ",
+      "summary_stated": [
+        "بلغ عدد الحجوزات المنجزة 263 حجزًا بنسبة 43.83%، فيما بلغ عدد الحجوزات غير المنجزة 210 حجوزات بنسبة 35%، والحجوزات الملغاة 45 حجزًا بنسبة 7.50%، أما حجوزات التدريب فبلغت 82 حجزًا بنسبة 13.67%."
+      ],
+      "summary_figures": [
+        {
+          "position": 1,
+          "phrase_stated": "الحجوزات المنجزة 263 حجزًا بنسبة 43.83%",
+          "category": "completed",
+          "count": 263,
+          "percent_stated": "43.83%"
+        },
+        {
+          "position": 2,
+          "phrase_stated": "الحجوزات غير المنجزة 210 حجوزات بنسبة 35%",
+          "category": "not_completed",
+          "count": 210,
+          "percent_stated": "35%"
+        },
+        {
+          "position": 3,
+          "phrase_stated": "الحجوزات الملغاة 45 حجزًا بنسبة 7.50%",
+          "category": "cancelled",
+          "count": 45,
+          "percent_stated": "7.50%"
+        },
+        {
+          "position": 4,
+          "phrase_stated": "حجوزات التدريب فبلغت 82 حجزًا بنسبة 13.67%",
+          "category": "training",
+          "count": 82,
+          "percent_stated": "13.67%"
+        }
+      ],
+      "table": {
+        "header_stated": [
+          "البيان",
+          "العدد",
+          "الملاحظات"
+        ],
+        "rows": [
+          {
+            "position": 1,
+            "label_stated": "الحجوزات   مجموع ",
+            "category": "total",
+            "count_stated": "٦٠٠ حجز ",
+            "count": 600,
+            "note_stated": null
+          },
+          {
+            "position": 2,
+            "label_stated": "الحجوزات المنجزة",
+            "category": "completed",
+            "count_stated": "٢٦٣ حجز",
+            "count": 263,
+            "note_stated": null
+          },
+          {
+            "position": 3,
+            "label_stated": "الحجوزات الملغات",
+            "category": "cancelled",
+            "count_stated": "٤٥حجز  ",
+            "count": 45,
+            "note_stated": "     "
+          },
+          {
+            "position": 4,
+            "label_stated": "التدريب ",
+            "category": "training",
+            "count_stated": "٨٢حجز ",
+            "count": 82,
+            "note_stated": null
+          },
+          {
+            "position": 5,
+            "label_stated": "لم يحجز ",
+            "category": "not_booked",
+            "count_stated": "٢١٠حجز ",
+            "count": 210,
+            "note_stated": "مع الحجوزات الملغات "
+          }
+        ]
+      },
+      "revenue": {
+        "stated": "بلغ مقدار الدهل في هاذه الشهر : ٩.١٨٠.٥٠٠ ",
+        "amount": 9180500,
+        "words_stated": "تسعه مليون و مائة وثمانين الف و خمسمائة دينار عراقي ",
+        "currency_stated": "دينار عراقي",
+        "approximate": false
+      },
+      "chart": {
+        "media": "word/media/image2.tmp",
+        "sha256": "cf3286002ff3f5f1352e762ddca722ae009eea0551ec71fd37d42309ccf03f5c",
+        "read_from": "image, typed by hand; pie, table and cards all show the same figures",
+        "language": "en",
+        "title": "Reservation Statistics",
+        "subtitle": "Distribution of Reservations",
+        "total_line": "Total Reservations: 600",
+        "caption": "The total number of reservations is 600, distributed as shown in the chart above.",
+        "rows": [
+          {
+            "position": 1,
+            "label": "Completed",
+            "category": "completed",
+            "count": 263,
+            "percent": "43.83%"
+          },
+          {
+            "position": 2,
+            "label": "Not Completed",
+            "category": "not_completed",
+            "count": 210,
+            "percent": "35.00%"
+          },
+          {
+            "position": 3,
+            "label": "Cancelled",
+            "category": "cancelled",
+            "count": 45,
+            "percent": "7.50%"
+          },
+          {
+            "position": 4,
+            "label": "Training",
+            "category": "training",
+            "count": 82,
+            "percent": "13.67%"
+          },
+          {
+            "position": 5,
+            "label": "Total",
+            "category": "total",
+            "count": 600,
+            "percent": "100%"
+          }
+        ]
+      },
+      "logo": {
+        "media": "word/media/image1.jpeg",
+        "sha256": "05cca382a0e55d1b9dde81e4d89d22db0dbc09301116eaa97409352bc5bcff7c",
+        "what": "the Touch Padel logo, white on blue; the same file in all four reports"
+      },
+      "discrepancies": [
+        {
+          "code": "period_short",
+          "en": "The period is written 1/7 to 30/7; July has 31 days. Stored as written: 2026-07-01 to 2026-07-30.",
+          "ar": "الفترة مكتوبة من ١/٧ إلى ٣٠/٧ مع أن تموز ٣١ يوماً. خُزّنت كما كُتبت."
+        },
+        {
+          "code": "report_no_repeated",
+          "en": "Report number 5 is also the August report's number.",
+          "ar": "رقم التقرير 5 هو نفسه رقم تقرير آب."
+        },
+        {
+          "code": "label_differs",
+          "en": "The table calls 210 \"لم يحجز\" (not booked); the summary and the chart call the same 210 \"غير المنجزة\" / \"Not Completed\".",
+          "ar": "الجدول يسمّي الـ 210 \"لم يحجز\"، والفقرة والمخطط يسمّيانها \"غير المنجزة\"."
+        },
+        {
+          "code": "note_includes_cancelled",
+          "en": "The note \"مع الحجوزات الملغات\" (including cancellations) sits beside \"لم يحجز\", yet the rows only reach 600 when the 45 cancellations are counted on their own row.",
+          "ar": "ملاحظة \"مع الحجوزات الملغات\" بجانب \"لم يحجز\"، لكن البنود لا تبلغ 600 إلا إذا عُدّت الملغاة (45) في سطرها."
+        }
+      ]
+    },
+    {
+      "id": "70c40000-0000-4000-8000-0000aa202608",
+      "month": "2026-08",
+      "department": "padel",
+      "source_file": "تقرير شهري  8_1.docx",
+      "repo_file": "originals/2026-08.docx",
+      "sha256": "2fc8bed27942fcbd9996cd3f5455b9b0058e888e4d5811f72ccfbc348e015e20",
+      "repo_sha256": "60d570a523d57bcb780f61151fc9bf4cd87142d1b324cff6c1565f763ffbbfcf",
+      "document_xml_sha256": "038f910b58c7541a50369cfc58e067b5b7e419e0c3c5dabc416c4c97c87e6133",
+      "docx": {
+        "creator": "python-docx",
+        "lastModifiedBy": null,
+        "created": "2026-10-09T18:09:00Z",
+        "modified": "2026-10-09T18:09:00Z",
+        "pages": 2,
+        "words": 113,
+        "application": "Microsoft Office Word"
+      },
+      "title_stated": "للتقرير الشهري   – قسم البدل",
+      "report_no_stated": "رقم التقرير  5",
+      "report_no": 5,
+      "employee_label_stated": "اسم الموضف ",
+      "employee_name": "حسين الصراف",
+      "period_label_stated": "الفترة من – إلى",
+      "period_stated": "١/8/2026_31/8/2026",
+      "period_from": "2026-08-01",
+      "period_to": "2026-08-31",
+      "section_heading_stated": ". تقرير الشهري  للحجوزات",
+      "separator_stated": "_ ",
+      "summary_stated": [
+        "الحجوزات المنجزة: بلغ عددها 203 حجوزات، بنسبة 33.83% من إجمالي الحجوزات.",
+        "الحجوزات غير المنجزة: بلغ عددها 207 حجوزات، بنسبة 34.50% من إجمالي الحجوزات.",
+        "الحجوزات الملغاة: بلغ عددها 105 حجوزات، بنسبة 17.50% من إجمالي الحجوزات.",
+        "حجوزات التدريب: بلغ عددها 85 حجزًا، بنسبة 14.17% من إجمالي الحجوزات"
+      ],
+      "summary_figures": [
+        {
+          "position": 1,
+          "phrase_stated": "الحجوزات المنجزة: بلغ عددها 203 حجوزات، بنسبة 33.83%",
+          "category": "completed",
+          "count": 203,
+          "percent_stated": "33.83%"
+        },
+        {
+          "position": 2,
+          "phrase_stated": "الحجوزات غير المنجزة: بلغ عددها 207 حجوزات، بنسبة 34.50%",
+          "category": "not_completed",
+          "count": 207,
+          "percent_stated": "34.50%"
+        },
+        {
+          "position": 3,
+          "phrase_stated": "الحجوزات الملغاة: بلغ عددها 105 حجوزات، بنسبة 17.50%",
+          "category": "cancelled",
+          "count": 105,
+          "percent_stated": "17.50%"
+        },
+        {
+          "position": 4,
+          "phrase_stated": "حجوزات التدريب: بلغ عددها 85 حجزًا، بنسبة 14.17%",
+          "category": "training",
+          "count": 85,
+          "percent_stated": "14.17%"
+        }
+      ],
+      "table": {
+        "header_stated": [
+          "البيان",
+          "العدد",
+          "الملاحظات"
+        ],
+        "rows": [
+          {
+            "position": 1,
+            "label_stated": "الحجوزات   مجموع ",
+            "category": "total",
+            "count_stated": "٦٠٠ حجز ",
+            "count": 600,
+            "note_stated": null
+          },
+          {
+            "position": 2,
+            "label_stated": "الحجوزات المنجزة",
+            "category": "completed",
+            "count_stated": "٢٠٣ حجز",
+            "count": 203,
+            "note_stated": null
+          },
+          {
+            "position": 3,
+            "label_stated": "الحجوزات الملغات",
+            "category": "cancelled",
+            "count_stated": "٢٠٧حجز  ",
+            "count": 207,
+            "note_stated": "     "
+          },
+          {
+            "position": 4,
+            "label_stated": "التدريب ",
+            "category": "training",
+            "count_stated": "٨٥حجز ",
+            "count": 85,
+            "note_stated": null
+          },
+          {
+            "position": 5,
+            "label_stated": "لم يحجز ",
+            "category": "not_booked",
+            "count_stated": "١٠٥حجز ",
+            "count": 105,
+            "note_stated": null
+          }
+        ]
+      },
+      "revenue": {
+        "stated": " المبلغ الكلي تقريبا :5.087.250",
+        "amount": 5087250,
+        "words_stated": null,
+        "currency_stated": null,
+        "approximate": true
+      },
+      "chart": {
+        "media": "word/media/image2.tmp",
+        "sha256": "d4a51c463e7c90fc920449d94b67072b3c75385c22b1e7e5eaf65f586469b5cc",
+        "read_from": "image, typed by hand; pie, table and cards all show the same figures",
+        "language": "ar",
+        "title": "تقرير إحصائي للحجوزات",
+        "subtitle": "النسب المئوية وتوزيع الحجوزات",
+        "total_line": "إجمالي الحجوزات الكلي: 600 حجز",
+        "caption": "بذلك يكون مجموع الحجوزات 600 حجز، وبنسبة إجمالية تبلغ 100%.",
+        "rows": [
+          {
+            "position": 1,
+            "label": "الحجوزات المنجزة",
+            "category": "completed",
+            "count": 203,
+            "percent": "33.83%"
+          },
+          {
+            "position": 2,
+            "label": "الحجوزات غير المنجزة",
+            "category": "not_completed",
+            "count": 207,
+            "percent": "34.50%"
+          },
+          {
+            "position": 3,
+            "label": "الحجوزات الملغاة",
+            "category": "cancelled",
+            "count": 105,
+            "percent": "17.50%"
+          },
+          {
+            "position": 4,
+            "label": "حجوزات التدريب",
+            "category": "training",
+            "count": 85,
+            "percent": "14.17%"
+          },
+          {
+            "position": 5,
+            "label": "المجموع",
+            "category": "total",
+            "count": 600,
+            "percent": "100%"
+          }
+        ]
+      },
+      "logo": {
+        "media": "word/media/image1.jpeg",
+        "sha256": "05cca382a0e55d1b9dde81e4d89d22db0dbc09301116eaa97409352bc5bcff7c",
+        "what": "the Touch Padel logo, white on blue; the same file in all four reports"
+      },
+      "discrepancies": [
+        {
+          "code": "labels_swapped",
+          "en": "The table says cancelled 207 and \"لم يحجز\" 105; the summary and the chart say not completed 207 and cancelled 105. Every figure is kept under the label its own source gives it; ask Hussein which is right.",
+          "ar": "الجدول يذكر الملغاة 207 و\"لم يحجز\" 105، بينما الفقرة والمخطط يذكران غير المنجزة 207 والملغاة 105. حُفظ كل رقم بالتسمية التي وردت في مصدره؛ يُسأل حسين أيهما الصحيح."
+        },
+        {
+          "code": "report_no_repeated",
+          "en": "Report number 5 is also the July report's number.",
+          "ar": "رقم التقرير 5 هو نفسه رقم تقرير تموز."
+        },
+        {
+          "code": "revenue_approximate",
+          "en": "The amount is written \"المبلغ الكلي تقريبا\" (approximately) and names no currency.",
+          "ar": "المبلغ مكتوب \"تقريبا\" ولم تُذكر العملة."
+        }
+      ]
+    },
+    {
+      "id": "70c40000-0000-4000-8000-0000aa202609",
+      "month": "2026-09",
+      "department": "padel",
+      "source_file": "تقرير شهري ٢.docx",
+      "repo_file": "originals/2026-09.docx",
+      "sha256": "159cd4153829d0047dcb19a87af5bf91047933053f9b3ee3f38c331e42fd8568",
+      "repo_sha256": "23dfb86afc14992048327e3614f0c64eed9f663ac4b885d90f087afde026407e",
+      "document_xml_sha256": "105d247ca2caa8950c34ae1dd46723ac92b70e09495be44022a70938df59c541",
+      "docx": {
+        "creator": "python-docx",
+        "lastModifiedBy": null,
+        "created": "2026-10-07T17:38:00Z",
+        "modified": "2026-10-07T17:38:00Z",
+        "pages": 2,
+        "words": 111,
+        "application": "Microsoft Office Word"
+      },
+      "title_stated": "للتقرير الشهري   – قسم البدل",
+      "report_no_stated": "رقم التقرير  ٣",
+      "report_no": 3,
+      "employee_label_stated": "اسم الموضف ",
+      "employee_name": "حسين الصراف",
+      "period_label_stated": "الفترة من – إلى",
+      "period_stated": "١/٩/2026_٣٠/9/2026",
+      "period_from": "2026-09-01",
+      "period_to": "2026-09-30",
+      "section_heading_stated": ". تقرير الشهري  للحجوزات",
+      "separator_stated": "_ ",
+      "summary_stated": [
+        "بلغ إجمالي الحجوزات 560 حالة، حيث سجلت الحجزات المنجزة 242 حالة بنسبة 43.21%، بينما بلغت الحجوزات المجانية 20 حالة بنسبة 3.57%. كما بلغت الحجوزات التي لم يتم حجزها 156 حالة بنسبة 27.86%، في حين بلغ عدد الحجوزات التي لم تحضر 61 حالة بنسبة 10.89%.إضافةً إلى 81 حجوزات تدريب بنسبة 14.46%."
+      ],
+      "summary_figures": [
+        {
+          "position": 1,
+          "phrase_stated": "إجمالي الحجوزات 560 حالة",
+          "category": "total",
+          "count": 560,
+          "percent_stated": null
+        },
+        {
+          "position": 2,
+          "phrase_stated": "الحجزات المنجزة 242 حالة بنسبة 43.21%",
+          "category": "completed",
+          "count": 242,
+          "percent_stated": "43.21%"
+        },
+        {
+          "position": 3,
+          "phrase_stated": "الحجوزات المجانية 20 حالة بنسبة 3.57%",
+          "category": "free",
+          "count": 20,
+          "percent_stated": "3.57%"
+        },
+        {
+          "position": 4,
+          "phrase_stated": "الحجوزات التي لم يتم حجزها 156 حالة بنسبة 27.86%",
+          "category": "not_booked",
+          "count": 156,
+          "percent_stated": "27.86%"
+        },
+        {
+          "position": 5,
+          "phrase_stated": "الحجوزات التي لم تحضر 61 حالة بنسبة 10.89%",
+          "category": "no_show",
+          "count": 61,
+          "percent_stated": "10.89%"
+        },
+        {
+          "position": 6,
+          "phrase_stated": "81 حجوزات تدريب بنسبة 14.46%",
+          "category": "training",
+          "count": 81,
+          "percent_stated": "14.46%"
+        }
+      ],
+      "table": {
+        "header_stated": [
+          "البيان",
+          "العدد",
+          "الملاحظات"
+        ],
+        "rows": [
+          {
+            "position": 1,
+            "label_stated": "الحجوزات   مجموع ",
+            "category": "total",
+            "count_stated": "٥٦٠ حجز ",
+            "count": 560,
+            "note_stated": null
+          },
+          {
+            "position": 2,
+            "label_stated": "الحجوزات المنجزة",
+            "category": "completed",
+            "count_stated": "٢٤٢ حجز",
+            "count": 242,
+            "note_stated": null
+          },
+          {
+            "position": 3,
+            "label_stated": "الحجوزات الملغات",
+            "category": "cancelled",
+            "count_stated": "٦١حجز  ",
+            "count": 61,
+            "note_stated": "     "
+          },
+          {
+            "position": 4,
+            "label_stated": "التدريب ",
+            "category": "training",
+            "count_stated": "٨١حجز ",
+            "count": 81,
+            "note_stated": null
+          },
+          {
+            "position": 5,
+            "label_stated": "لم يحجز ",
+            "category": "not_booked",
+            "count_stated": "١٥٦حجز ",
+            "count": 156,
+            "note_stated": null
+          },
+          {
+            "position": 6,
+            "label_stated": "حجز مجاني ",
+            "category": "free",
+            "count_stated": "٢٠ حجز ",
+            "count": 20,
+            "note_stated": null
+          }
+        ]
+      },
+      "revenue": null,
+      "chart": {
+        "media": "word/media/image2.jpeg",
+        "sha256": "a95d6d229029940738ce4bfe02f1baa20271b11a59637b5655b34ce244103d60",
+        "read_from": "image, typed by hand; pie, table and cards all show the same figures",
+        "language": "ar",
+        "title": "المخطط الإحصائي",
+        "subtitle": "توزيع الحالات من إجمالي 560 حالة",
+        "total_line": "الإجمالي 560 حالة",
+        "caption": "بلغ إجمالي الحالات 560 حالة، موزعة كما هو موضح في المخطط أعلاه.",
+        "rows": [
+          {
+            "position": 1,
+            "label": "منجز",
+            "category": "completed",
+            "count": 242,
+            "percent": "43.21%"
+          },
+          {
+            "position": 2,
+            "label": "مجاني",
+            "category": "free",
+            "count": 20,
+            "percent": "3.57%"
+          },
+          {
+            "position": 3,
+            "label": "لم يحجز",
+            "category": "not_booked",
+            "count": 156,
+            "percent": "27.86%"
+          },
+          {
+            "position": 4,
+            "label": "لم يحضر",
+            "category": "no_show",
+            "count": 61,
+            "percent": "10.89%"
+          },
+          {
+            "position": 5,
+            "label": "تدريب",
+            "category": "training",
+            "count": 81,
+            "percent": "14.46%"
+          },
+          {
+            "position": 6,
+            "label": "الإجمالي",
+            "category": "total",
+            "count": 560,
+            "percent": "100%"
+          }
+        ]
+      },
+      "logo": {
+        "media": "word/media/image1.jpeg",
+        "sha256": "05cca382a0e55d1b9dde81e4d89d22db0dbc09301116eaa97409352bc5bcff7c",
+        "what": "the Touch Padel logo, white on blue; the same file in all four reports"
+      },
+      "discrepancies": [
+        {
+          "code": "label_differs",
+          "en": "The table calls 61 \"الحجوزات الملغات\" (cancelled); the summary and the chart call it \"لم تحضر\" / \"لم يحضر\" (did not show up).",
+          "ar": "الجدول يسمّي الـ 61 \"الحجوزات الملغات\"، والفقرة والمخطط يسمّيانها \"لم تحضر\"."
+        },
+        {
+          "code": "total_differs",
+          "en": "The total is 560 this month, where June to August give 600.",
+          "ar": "المجموع هذا الشهر 560، وفي حزيران إلى آب 600."
+        },
+        {
+          "code": "report_no_order",
+          "en": "Report number 3, while June is 4 and July and August are both 5.",
+          "ar": "رقم التقرير 3، بينما حزيران 4 وتموز وآب كلاهما 5."
+        },
+        {
+          "code": "no_revenue",
+          "en": "No amount of money is given in this report.",
+          "ar": "لا يذكر هذا التقرير أي مبلغ."
+        }
+      ]
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import {
   isValidEmail,
   mapEmailAuthError,
   parseAuthMethod,
-  signUpHidExistingEmail,
+  signUpHidExistingAccount,
 } from '../emailAuth';
 
 /**
@@ -48,15 +48,15 @@ describe('isEmailTaken', () => {
   });
 });
 
-describe('signUpHidExistingEmail', () => {
-  it('spots the identity-less "success" confirmations-on GoTrue returns for a taken address', () => {
-    expect(signUpHidExistingEmail({ user: { identities: [] } })).toBe(true);
+describe('signUpHidExistingAccount', () => {
+  it('spots the identity-less "success" confirmations-on GoTrue returns for a taken address or number', () => {
+    expect(signUpHidExistingAccount({ user: { identities: [] } })).toBe(true);
   });
 
   it('lets a real sign-up through', () => {
-    expect(signUpHidExistingEmail({ user: { identities: [{ id: 'x' }] } })).toBe(false);
-    expect(signUpHidExistingEmail({ user: null })).toBe(false);
-    expect(signUpHidExistingEmail(undefined)).toBe(false);
+    expect(signUpHidExistingAccount({ user: { identities: [{ id: 'x' }] } })).toBe(false);
+    expect(signUpHidExistingAccount({ user: null })).toBe(false);
+    expect(signUpHidExistingAccount(undefined)).toBe(false);
   });
 });
 

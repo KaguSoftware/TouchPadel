@@ -489,9 +489,12 @@ export function Court3D({
   const reveal = useRef(new Animated.Value(0)).current;
   const revealed = useRef(false);
   /**
-   * Was the scene ALREADY BUILT when the stage last went down? Then what is
+   * Had the court ALREADY DRAWN when the stage last went down? Then what is
    * coming is a return, not a first build, and it arrives as a cut rather than a
-   * cross-fade — see the note on REVEAL_MS.
+   * cross-fade — see the note on REVEAL_MS. It reads `painted`, not whether
+   * the scene exists: either surface builds the scene, and when the BALL surface
+   * attached first the court's attach found a scene that had never drawn and cut
+   * a first entrance in with no fade (owner, 2026-10-09, "Show guest view").
    */
   const warmArm = useRef(false);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -573,8 +576,9 @@ export function Court3D({
   const armReveal = useCallback(() => {
     if (revealed.current && focusedRef.current) return;
     revealed.current = false;
-    // Built scene = this is a return, and returns cut rather than fade (showStage).
-    warmArm.current = court.current !== null;
+    // Drawn before = a return, which cuts (showStage). Not "scene built": the
+    // ball surface can build it first (see warmArm).
+    warmArm.current = painted.current;
     reveal.stopAnimation(); // a re-arm mid-fade must not be overwritten by it
     reveal.setValue(0);
     armFallback();

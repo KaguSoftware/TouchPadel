@@ -45,8 +45,14 @@ export const ASSISTANT_PRESETS: Readonly<Record<'everything' | 'moneyAndFloor' |
   justHelp: ['howto'],
 };
 
-/** DECIDE 14 (recommended): the cheapest chat, Everything one tap away. */
-export const DEFAULT_SCOPES: readonly AssistantScope[] = ['howto'];
+/**
+ * Every scope (owner call 2026-10-09: the assistant decides what it reads). A
+ * scope no longer pre-loads anything (the chat sends no context packs), so an
+ * open scope costs nothing until the model calls one of its tools; the owner's
+ * checkboxes only take tools away. Was DECIDE 14's ['howto'] while every
+ * checked scope added its packs to the first turn.
+ */
+export const DEFAULT_SCOPES: readonly AssistantScope[] = ASSISTANT_SCOPES;
 
 /** The chunk kinds `search` may return per scope (§5.5 table). */
 export const SCOPE_CHUNK_KINDS: Readonly<Record<AssistantScope, readonly string[]>> = {
@@ -188,7 +194,7 @@ export interface ToolSpec {
 
 export const TOKENS_PER_ROW_FALLBACK = 25;
 export const LIST_ROW_CAP = 500;
-export const MAX_TOOL_ROUNDS = 8;
+export const MAX_TOOL_ROUNDS = 5;
 
 const RANGE: Readonly<Record<string, ToolArg>> = {
   from: { type: 'date', description: 'First business day of the range, YYYY-MM-DD.', required: true },
@@ -966,6 +972,71 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     core: false,
     tokens_per_row: null,
   },
+  // ── Stored daily figures (0330) ─────────────────────────────────────────
+  {
+    name: 'history_figures',
+    scope: 'money',
+    kind: 'aggregate',
+    description:
+      'The headline figures bucketed by day, week or month over a range (at most 31 buckets, up to 400 days), with totals: revenue, padel, cafe gross and net, cash, card, bookings, orders, average order value, discounts, refunds, waste, no-shows. extra=true adds online deposits, ticket sales, lessons and the coaches\' share. Closed days come from a stored copy and only the recent days are read live, with the same numbers as panel_headline, so this is the cheapest way to see a trend or a long range: use it instead of report_revenue, report_cafe or several panel_headline calls. The cache field says how many days came from the stored copy.',
+    route: '/panel',
+    rpc: 'assistant_history_figures',
+    args: {
+      ...RANGE,
+      group: { type: 'enum', description: 'Bucket size (default day).', values: ['day', 'week', 'month'] },
+      extra: { type: 'boolean', description: 'Also deposits, tickets, match write-offs and lesson figures.' },
+    },
+    result: { rows_path: 'rows' },
+    core: true,
+    tokens_per_row: null,
+  },
+  {
+    name: 'history_items',
+    scope: 'cafe',
+    kind: 'aggregate',
+    description:
+      'The top café items over a range (up to 400 days) by revenue or quantity, each with its share of the café total, plus the total items, quantity and revenue. Closed days come from a stored copy, so this is the cheap tool for best sellers, what is dying, or a month of the menu; use it instead of analytics_best_sellers or analytics_sold_items for any range longer than a few days. The cache field says how many days came from the stored copy.',
+    route: '/analytics/cafe',
+    rpc: 'assistant_history_items',
+    args: {
+      ...RANGE,
+      limit: { type: 'integer', description: 'How many items (default 10).', min: 1, max: 50 },
+      order: { type: 'enum', description: 'Rank by revenue (default) or quantity.', values: ['revenue', 'qty'] },
+    },
+    result: { rows_path: 'rows', id_keys: ['item_id'] },
+    core: true,
+    tokens_per_row: null,
+  },
+  {
+    name: 'history_courts',
+    scope: 'courts',
+    kind: 'aggregate',
+    description:
+      'Court use over a range (up to 400 days), all courts of the branches in scope: bookings, no-shows, cancellations, booked and open hours, occupancy and revenue, per day, week or month (at most 31 buckets) or as one range, with totals; hours=true adds the same by hour of the day (peak against off-peak). Closed days come from a stored copy, so use it instead of report_courts or analytics_courts_summary for trends and long ranges. The cache field says how many days came from the stored copy.',
+    route: '/reports/courts',
+    rpc: 'assistant_history_courts',
+    args: {
+      ...RANGE,
+      group: { type: 'enum', description: 'Bucket size (default range = one total).', values: ['range', 'day', 'week', 'month'] },
+      hours: { type: 'boolean', description: 'Also the hour-of-day breakdown for the range.' },
+    },
+    result: { rows_path: 'rows' },
+    core: true,
+    tokens_per_row: null,
+  },
+  {
+    name: 'history_staff',
+    scope: 'staff',
+    kind: 'aggregate',
+    description:
+      'Per person over a range (up to 400 days): discounts, voids and refunds (count and IQD), orders taken, payments taken and bookings made, the biggest discount, void and refund totals first (at most 30 people). The tool for who is giving money away; closed days come from a stored copy, so prefer it to report_staff_activity for a range longer than a few days.',
+    route: '/reports/staff',
+    rpc: 'assistant_history_staff',
+    args: RANGE,
+    result: { rows_path: 'rows', id_keys: ['id'] },
+    core: false,
+    tokens_per_row: null,
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -1072,7 +1143,10 @@ export function wireTools(specs: readonly ToolSpec[] = ASSISTANT_TOOLS): WireToo
   return specs.map((spec) => {
     // Never `strict: true`: the API allows 20 strict tools (the catalog has more), and a strict schema may not hold
     // the open `filters` object or integer bounds. validateToolInput checks every call's input on our side instead.
-    const t: WireTool = { name: spec.name, description: spec.description, input_schema: toolInputSchema(spec) };
+    // The page beside the description: the prompt carries no venue map (2026-10-09), so a
+    // figure's "Go to" route comes from the tool the model already loaded, not a page_lookup round.
+    const description = spec.route ? `${spec.description} Page: ${spec.route}` : spec.description;
+    const t: WireTool = { name: spec.name, description, input_schema: toolInputSchema(spec) };
     if (!spec.core) t.defer_loading = true;
     return t;
   });

@@ -186,6 +186,7 @@ describe('workspaceForRoute', () => {
     expect(workspaceForRoute('/analytics/courts')).toBe('owner');
     expect(workspaceForRoute('/ops')).toBe('manager');
     expect(workspaceForRoute('/wages')).toBe('owner');
+    expect(workspaceForRoute('/rewards')).toBe('owner');
     // A manager records attendance; the owner opens it from Wages.
     expect(workspaceForRoute('/attendance')).toBeNull();
     // Eight roles open My tasks in their own workspace (§5.1), so it pins none.
@@ -221,6 +222,7 @@ describe('sections', () => {
     expect(sectionForPath(owner, '/admin/day-close')?.key).toBe('financial');
     expect(sectionForPath(owner, '/till/drawer')?.key).toBe('financial');
     expect(sectionForPath(owner, '/wages')?.key).toBe('financial');
+    expect(sectionForPath(owner, '/rewards')?.key).toBe('financial');
     expect(sectionForPath(owner, '/attendance')?.key).toBe('financial');
 
     expect(sectionForPath(owner, '/observation')?.key).toBe('observation');

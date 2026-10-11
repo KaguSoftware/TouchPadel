@@ -41,6 +41,12 @@ export const staffShellEn = {
     passwordNote: 'Forgot your password? The owner resets it on the Staff page.',
     signOutConfirm: 'You will need your email and password to sign back in.',
   },
+  // The work alerts page (app/staff-work.tsx), opened from Today's Work alerts button.
+  work: {
+    empty: 'Nothing is waiting on you.',
+    // Read after the button's name by a screen reader: "Work alerts, 3 waiting".
+    badge: '{count} waiting',
+  },
   guestView: {
     // Its button on Today; `row` is the longer name.
     tile: 'Guest view',
@@ -51,6 +57,9 @@ export const staffShellEn = {
   // Coaching (docs/design/coaching/guest.md §4.8.1, C-27): the hub row for staff who coach.
   coachMode: 'Coach mode',
   coachStatements: 'Coach statements',
+  // The coach tile's one-line preview on Today, under its title.
+  coachModePreview: 'Lessons, hours, statements',
+  coachStatementsPreview: 'Past lessons and pay',
   pending: {
     slow: 'Checking your account is taking longer than usual. Check your connection and try again.',
   },

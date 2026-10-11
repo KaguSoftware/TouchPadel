@@ -28,6 +28,11 @@ export const STAFF_RPCS = [
   // screenshots (0313): a staff screenshot is reported; the owner reads the list from the audit log
   'log_staff_screenshot',
   'audit_log_page',
+  // rewards (0332): the caller's own progress; the owner sets and ends a person's rewards
+  'my_rewards',
+  'staff_rewards_board',
+  'set_staff_reward',
+  'end_staff_reward',
   // Today
   'my_protocol_work',
   'protocols_waiting_count',

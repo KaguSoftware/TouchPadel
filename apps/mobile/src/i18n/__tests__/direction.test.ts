@@ -178,7 +178,7 @@ describe('paragraphs carry a base writing direction', () => {
       // accepted cost of the native iOS pickers (phone.ios-picker.tsx, the
       // country list; WheelSheet.ios.tsx and DateWheelSheet.ios.tsx, the
       // wheel sheets) — pinned here so each exception stays deliberate.
-      if (/from '@expo\/ui\/swift-ui'/.test(src)) {
+      if (/import \{[^}]*\bText\b[^}]*\} from '@expo\/ui\/swift-ui'/.test(src)) {
         expect(
           [
             'src/components/phone.ios-picker.tsx',

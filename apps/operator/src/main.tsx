@@ -39,6 +39,8 @@ import { incidentsRoute } from './routes/incidents';
 // Wages and attendance (0270–0272).
 import { wagesRoute } from './routes/wages';
 import { attendanceRoute } from './routes/attendance';
+// Staff rewards (0332–0333).
+import { rewardsRoute } from './routes/rewards';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
 import { analyticsChildren } from './routes/analytics/_children';
@@ -79,6 +81,7 @@ const routeTree = rootRoute.addChildren([
   incidentsRoute,
   wagesRoute,
   attendanceRoute,
+  rewardsRoute,
 ]);
 
 /** Send the operator back to the screen their role starts on; fall back to `/`. */

@@ -6469,4 +6469,109 @@ export const matrix: MatrixRule[] = [
     note: '0329: no client INSERT grant, owner included (0108 granted it): a planted call falsifies the spend the usage page and the cost ceiling read. Not discriminating for the owner: the NIL_UUID message fails the FK (23503) even with the grant, and runWrite reads any error as denied; the real guard is tests/assistant-rls.test.ts ("0329: nobody, the owner included…"), which inserts into a real message and asserts 42501',
     drop: 30,
   },
+  // ── 0331 legacy_reports ──
+  {
+    kind: 'select',
+    name: 'legacy_reports',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', owner: 'rows' }),
+    note: '0331: only the owner reads the pre-system monthly reports; the runner plants the real ones (scripts/lib/legacy-reports.mjs)',
+    drop: 30,
+  },
+  {
+    kind: 'select',
+    name: 'legacy_report_figures',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', owner: 'rows' }),
+    note: '0331: as legacy_reports',
+    drop: 30,
+  },
+  {
+    kind: 'write',
+    name: 'legacy_reports',
+    op: 'insert',
+    payload: { id: NIL_UUID, venue_id: NIL_UUID, department: 'padel' },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0331: no client write grant, owner included; the service role loads them (scripts/db-legacy-reports.mjs)',
+    drop: 30,
+  },
+  {
+    kind: 'write',
+    name: 'legacy_report_figures',
+    op: 'insert',
+    payload: { report_id: NIL_UUID, venue_id: NIL_UUID, source: 'table', position: 1, category: 'total', label_stated: 'x' },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0331: no client write grant, owner included',
+    drop: 30,
+  },
+  // ── 0332 staff_rewards (staff-rewards.test.ts) ──
+  // Money about a named person: the owner reads the table; each person reads
+  // only their own count and rewards through app.my_rewards. No client write.
+  {
+    kind: 'write',
+    name: 'staff_rewards',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0332: no client write grant: app.set_staff_reward and app.end_staff_reward only',
+    drop: 31,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_rewards',
+    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    note: '0332: any active staff member at the branch: their own order count and rewards this business month, never anyone else\'s',
+    drop: 31,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_rewards_board',
+    args: { p_venue_id: VENUE_A }, expect: OWNER_ONLY,
+    note: '0332: the owner at the branch: every waiter, cashier and manager by name with their count and rewards',
+    drop: 31,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_staff_reward',
+    args: { p_venue_id: VENUE_A, p_staff_id: NIL_UUID, p_target: 1, p_reward_iqd: 1000 }, expect: OWNER_ONLY,
+    note: '0332: the owner; an unknown person stops at REWARD_STAFF_INVALID, so nothing is written',
+    drop: 31,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'end_staff_reward',
+    args: { p_id: NIL_UUID }, expect: OWNER_ONLY,
+    note: '0332: the owner; an unknown reward is REF_NOT_FOUND',
+    drop: 31,
+  },
+  // ── 0333 reward_wages (reward-wages.test.ts) ──
+  // The bonuses a closed month earned: the owner reads them (no probe row is
+  // planted, so the owner reads silence too); the unlock bookkeeping is read
+  // by no client. Only app.reward_sweep (service role) writes either.
+  {
+    kind: 'select',
+    name: 'staff_reward_earnings',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied' }),
+    note: '0333: the owner at the branch reads the earned bonuses; no probe row is planted, so everyone reads silence (tests/reward-wages.test.ts reads real rows)',
+    drop: 32,
+  },
+  {
+    kind: 'write',
+    name: 'staff_reward_earnings',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0333: no client write grant: app.reward_sweep (service role) only',
+    drop: 32,
+  },
+  {
+    kind: 'select',
+    name: 'staff_reward_unlocks',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0333: push bookkeeping, no client grant at all',
+    drop: 32,
+  },
+  {
+    kind: 'write',
+    name: 'staff_reward_unlocks',
+    op: 'insert',
+    payload: { reward_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0333: no client write grant: app.reward_sweep (service role) only',
+    drop: 32,
+  },
 ];

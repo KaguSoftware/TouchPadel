@@ -37,7 +37,7 @@ import {
 } from '../src/features/auth/welcomeSeen';
 import { CoachStatusProvider } from '../src/features/coach/CoachStatusProvider';
 import { StaffScreenGuard } from '../src/features/staff/screenGuard/StaffScreenGuard';
-import { AssistantFab } from '../src/features/assistant/AssistantFab';
+import { withAssistantFab } from '../src/features/assistant/AssistantFab';
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
@@ -182,9 +182,9 @@ function RootStack() {
   // An online deposit still in flight when the app was killed (on the bank's
   // 3-D Secure page, say) reopens its payment screen on the next launch.
   usePendingPaymentResume();
-  // The Terms consent gate (0153): records the sign-up switch once the session
-  // lands, or presents accept-terms to an account that has not accepted the
-  // current version. Here because it needs the session and the router.
+  // The Terms consent (0153): records the sign-up switch once the session
+  // lands. It never presents accept-terms at launch; the action that needs the
+  // terms does. Here because it needs the session.
   useTermsGate();
   // Push registration lives HERE, under AuthProvider, because it needs the live
   // session: the server drops a notification on the floor when the profile
@@ -273,7 +273,11 @@ function RootStack() {
        * the app's own appearance, like the direction above it.
        */}
       <NavigationThemeProvider value={navTheme}>
-        <Stack screenOptions={header}>
+        {/* `screenLayout` draws the owner's assistant button INSIDE each
+            staff screen, so it slides in and out with its page; an overlay
+            over the whole stack followed the pathname, which only changes
+            once the navigation has happened, and so lagged every push and pop. */}
+        <Stack screenOptions={header} screenLayout={withAssistantFab}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           {/* Formerly the (auth) group. Flattened for the same reason as (gated):
           a screen pushed from the tabs was the first entry of a nested stack,
@@ -289,15 +293,18 @@ function RootStack() {
           <Stack.Screen name="profile-edit" />
           <Stack.Screen name="change-password" />
           <Stack.Screen name="delete-account" />
-          {/* Consent gate (0153): a modal with no swipe-to-dismiss — reading
-          and accepting is the only way on. */}
+          {/* Consent (0153), opened by the action that needs it (Review, a
+          TERMS_REQUIRED refusal); swiping it away leaves that action refused. */}
           <Stack.Screen
             name="accept-terms"
-            options={{ presentation: 'modal', gestureEnabled: false, headerShown: false }}
+            options={{ presentation: 'modal', headerShown: false }}
           />
           {/* The same reader from the sign-up checkbox; swiping it away leaves
           the box unticked. */}
-          <Stack.Screen name="terms-review" options={{ presentation: 'modal', headerShown: false }} />
+          <Stack.Screen
+            name="terms-review"
+            options={{ presentation: 'modal', headerShown: false }}
+          />
           {/* Formerly the (gated) group, flattened onto the root stack so that
           every push leaves real history behind it and UIKit draws its OWN back
           item — the same one, animated, on every screen. Each carries its own
@@ -331,22 +338,16 @@ function RootStack() {
           <Stack.Screen name="coach-mode-new" />
           <Stack.Screen name="coach-mode-book" />
           <Stack.Screen name="coach-mode-statements" />
-          {/* Coaching, the guest's side (docs/design/coaching/guest.md §4.8).
-          Flat root-stack pushes with the native back item; the browsing
-          screens are public, the review, the lesson and My lessons carry
-          their own session guard. */}
-          <Stack.Screen name="coaches" />
-          <Stack.Screen name="coach/[id]" />
-          <Stack.Screen name="classes" />
-          <Stack.Screen name="class/[id]" />
-          <Stack.Screen name="lesson-review" />
-          <Stack.Screen name="lesson/[id]" />
-          <Stack.Screen name="my-lessons" />
-          {/* Tournaments, the guest's side (tournaments plan §5.2): flat
-          root-stack pushes with the native back item. Both are public; the
-          detail sends a signed-out Register to the welcome. */}
-          <Stack.Screen name="tournaments" />
-          <Stack.Screen name="tournament/[id]" />
+          {/* Coaching, the guest's side (docs/design/coaching/guest.md §4.8): a
+          stack of its own with its own native bar, so the bar and its back
+          button leave with the page at the swipe's speed
+          (app/(coaching)/_layout.tsx, src/navigation/groupStack.tsx). */}
+          <Stack.Screen name="(coaching)" options={{ headerShown: false }} />
+          {/* Tournaments, the guest's side (tournaments plan §5.2): a stack of
+          its own with its own native bar, so the bar and its back button leave
+          with the page at the swipe's speed (app/(tournaments)/_layout.tsx,
+          src/navigation/groupStack.tsx). The root stack draws no bar for it. */}
+          <Stack.Screen name="(tournaments)" options={{ headerShown: false }} />
           {/* Loyalty (loyalty plan §5.1): flat root-stack pushes from Profile
           with the native back item, each with its own RequireSession. */}
           <Stack.Screen name="loyalty" />
@@ -361,9 +362,11 @@ function RootStack() {
             }}
           />
           {/* A Today group's pages on iOS (owner, 2026-10-01): the platform's
-          sheet, sized to its rows. Android shows them in a modal on Today. */}
+          sheet, sized to its rows. Android shows them in a modal on Today.
+          Singular: a double tap on a tile pushed the sheet twice. */}
           <Stack.Screen
             name="staff-group"
+            dangerouslySingular
             options={{
               presentation: 'formSheet',
               sheetAllowedDetents: 'fitToContents',
@@ -519,8 +522,6 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
                         <ConnectivityBanner />
                         {/* Staff other than the owner: no screenshots, and the owner is told of each. */}
                         <StaffScreenGuard />
-                        {/* The owner's assistant, one tap from every staff screen. */}
-                        <AssistantFab />
                       </CoachStatusProvider>
                     </StaffStatusProvider>
                   </ToastProvider>

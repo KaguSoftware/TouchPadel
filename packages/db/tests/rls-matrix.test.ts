@@ -36,6 +36,7 @@ import {
   type WriteRule,
   type RpcRule,
 } from './rls-matrix';
+import { allRows as allLegacyRows } from '../scripts/lib/legacy-reports.mjs';
 
 const up = await stackAvailable();
 
@@ -131,6 +132,14 @@ describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface 
       entity_id: 'probe',
     });
     if (auditErr) throw new Error(`probe audit row failed: ${auditErr.message}`);
+    // drop 30 (0331): the real pre-system reports (idempotent), so the owner's 'rows' is real.
+    const legacy = allLegacyRows(VENUE_A_ID);
+    const { error: lrErr } = await svc.from('legacy_reports').upsert(legacy.reports, { onConflict: 'id' });
+    if (lrErr) throw new Error(`legacy reports failed: ${lrErr.message}`);
+    const { error: lfErr } = await svc
+      .from('legacy_report_figures')
+      .upsert(legacy.figures, { onConflict: 'report_id,source,position' });
+    if (lfErr) throw new Error(`legacy report figures failed: ${lfErr.message}`);
 
     clients.anon = anonClient();
     clients.guest_account = await guestClient(svc, 'rls');

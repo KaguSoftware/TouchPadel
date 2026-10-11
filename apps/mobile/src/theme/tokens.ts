@@ -233,8 +233,6 @@ export const brand = {
   dangerSoft: '#ED8078',
   /** Summary-grid icons on Review / Booking detail. The brand green itself. */
   leaf: '#A5D06F',
-  /** Success toast background — dark enough to carry the white toast label (6.76:1). */
-  successToast: '#466421',
   /** Ink on the white "Sign in" button of the Welcome screen. */
   welcomeInk: '#3360AB',
   /** Welcome screen gradient stops, 168deg — three steps of the brand-blue ramp. */

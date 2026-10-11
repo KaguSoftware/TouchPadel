@@ -81,6 +81,14 @@ export const coachingCommonEn = {
       kept: '{kept} kept',
     },
     count: {
+      freeTimes: {
+        zero: 'No free times',
+        one: '1 free time',
+        two: '2 free times',
+        few: '{count} free times',
+        many: '{count} free times',
+        other: '{count} free times',
+      },
       placesLeft: {
         zero: 'No places left',
         one: '1 place left',
@@ -144,14 +152,6 @@ export const coachingCommonEn = {
         few: '{count} lessons',
         many: '{count} lessons',
         other: '{count} lessons',
-      },
-      withPlaces: {
-        zero: 'None with places',
-        one: '1 with places',
-        two: '2 with places',
-        few: '{count} with places',
-        many: '{count} with places',
-        other: '{count} with places',
       },
       addsLeft: {
         zero: 'None more today',

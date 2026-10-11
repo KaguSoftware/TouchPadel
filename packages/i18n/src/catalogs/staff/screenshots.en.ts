@@ -4,8 +4,9 @@
  */
 export const staffScreenshotsEn = {
   title: 'Screenshots',
-  /** Today's account button. */
+  /** Today's tile, and its one-line preview. */
   entry: 'Screenshots',
+  entryPreview: 'Who captured which page',
   intro: 'Staff cannot capture the staff app on Android; every screenshot an iPhone allows, and every attempt we hear of, is listed here.',
   empty: 'No screenshots reported.',
   loadFailed: 'The list could not be loaded.',

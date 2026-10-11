@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   GUEST_EMAIL_DOMAIN,
   OTP_LENGTH,
-  classifyPhoneSignIn,
   hasRealEmail,
   isNoAccountForPhone,
   isPhoneTaken,
@@ -61,6 +60,12 @@ describe('sanitizeOtpInput', () => {
     expect(sanitizeOtpInput('١٢٣٤٥٦')).toBe('123456');
     expect(sanitizeOtpInput('1234567890')).toHaveLength(OTP_LENGTH);
     expect(sanitizeOtpInput('')).toBe('');
+  });
+
+  it('pulls the code out of a pasted WhatsApp message', () => {
+    expect(sanitizeOtpInput('*123456* is your verification code.')).toBe('123456');
+    expect(sanitizeOtpInput('Valid for 10 minutes. Your code: 654321')).toBe('654321');
+    expect(sanitizeOtpInput('رمز التحقق: ٤٥٦٧٨٩')).toBe('456789');
   });
 });
 
@@ -125,14 +130,6 @@ describe('phone + password failures', () => {
     expect(isPhoneTaken(new Error('User already registered'))).toBe(true);
     expect(isPhoneTaken({ code: 'weak_password', message: 'x' })).toBe(false);
     expect(isPhoneTaken(undefined)).toBe(false);
-  });
-
-  it('classifyPhoneSignIn: wrong credentials vs a sign-up whose code was never entered', () => {
-    expect(classifyPhoneSignIn({ code: 'invalid_credentials', message: 'x' })).toBe('wrong-credentials');
-    expect(classifyPhoneSignIn(new Error('Invalid login credentials'))).toBe('wrong-credentials');
-    expect(classifyPhoneSignIn({ code: 'phone_not_confirmed', message: 'x' })).toBe('phone-not-confirmed');
-    expect(classifyPhoneSignIn(new Error('Phone not confirmed'))).toBe('phone-not-confirmed');
-    expect(classifyPhoneSignIn(new Error('Network request failed'))).toBe('other');
   });
 
   it('isNoAccountForPhone: recovery to an unknown number, not a switched-off provider', () => {

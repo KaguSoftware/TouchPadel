@@ -53,7 +53,7 @@ import { hasCoachPayWork, statementCounts } from '../reports/coaches/statementsL
 
 type CardKey =
   | 'reports' | 'cashDrawer'
-  | 'dayClose' | 'wages' | 'coachPay' | 'rates' | 'menuPrices';
+  | 'dayClose' | 'wages' | 'rewards' | 'coachPay' | 'rates' | 'menuPrices';
 
 /** How many closed days the cash card lists. A week is what an owner scans. */
 export const RECENT_CLOSES = 7;

@@ -62,6 +62,47 @@ ones, plus every recipe the JSON marks `ready`. It only acts where the real menu
 `incomplete` or `needs-decision` wait on the JSON's `questions`, and land in a later migration once
 they are answered.
 
+## Monthly padel reports from before the system (2026-10-10)
+
+Hussein al-Sarraf's monthly reports for the padel desk (قسم البدل), June to September 2026, sent by
+Majed as four Word files. They are counts for a whole month (completed, cancelled, training, not
+booked, free, no-show) plus, for July and August, an amount of money. They name no court, hour,
+guest or price, so they are **not** turned into reservations: that would mean inventing all of it.
+They land as what they are, in `legacy_reports` + `legacy_report_figures` (migration 0331), which
+the owner and the owner assistant read and no live report adds into its figures.
+
+| File | What it is |
+|---|---|
+| `padel-monthly-2026/originals/2026-0N.docx` | The four Word files. Byte-identical to what arrived except one field: `docProps/core.xml` `lastModifiedBy`, an email address, is blanked (personal data stays out of git). |
+| `padel-monthly-2026/reports.json` | Their structured form. Every `*_stated` string is copied from the Word XML; every number is the digits of the string it came from; chart text is typed from the chart images. Its `_readme` and `discrepancies` explain the rest. |
+
+Rules the data keeps: a blank table cell is a null count, never zero; where one part of a report
+disagrees with another (August's table swaps "cancelled" and "not booked" against its summary and
+chart; September's table calls the 61 no-shows "cancelled"), both are stored, each under the label
+its own part gives it, and the report's `review_notes_en` / `review_notes_ar` say so. Nothing is
+computed: no percentage, total or rate that the report does not write itself.
+
+- `tests/legacy-reports-source.test.ts` proves the JSON against the Word files (no stack needed).
+- `scripts/db-legacy-reports.mjs` loads it (`pnpm db:legacy-reports`), then reads every row back
+  and fails on any difference. Local by default; production only with `--hosted` and
+  `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`, when Majed says so.
+- `tests/legacy-reports.test.ts` checks the rows, the owner-only read and the branch guard.
+
+### Go-live order (when Majed says)
+
+1. Push migration 0331 (a push to `main` migrates hosted; the push hold rules apply).
+2. Erase the data collected from users and keep the setup: `scripts/wipe-user-data.mjs`
+   (`fixtures/wipe-user-data.json` says what is kept and what goes, table by table). Run it on
+   hosted as a **dry run** first (`DATABASE_URL=… pnpm db:wipe-user-data --hosted`): it performs
+   the whole wipe, checks it, prints every count and every login it keeps, and rolls back. Read
+   the kept logins (test staff accounts stay unless removed by hand). Then commit it with
+   `--execute`, `WIPE_CONFIRM=<db host>`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (the last
+   two empty the avatars and staff-media buckets). Do it while the club is closed: it locks every
+   wiped table for its length.
+3. Load these reports: `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm db:legacy-reports load --hosted`.
+4. After: stock on hand starts at zero (count it); the store-review guest account is gone
+   (`scripts/create-review-account.mjs` makes a new one, or keep it with `--keep-email=` in step 2).
+
 ## Swap procedure
 
 Same as `../README.md` §"Fixture swap procedure": on staging first, delete fixture rows children

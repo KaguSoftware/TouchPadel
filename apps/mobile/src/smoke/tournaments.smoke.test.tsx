@@ -40,8 +40,9 @@ import { profileKeys } from '../features/profile/hooks';
 import { tournamentKeys } from '../features/tournaments/keys';
 import { parseTournamentPublic, parseTournamentsPublic } from '../features/tournaments/logic';
 import { BookingSheet } from '../components/BookingSheet';
-import TournamentsScreen from '../../app/tournaments';
-import TournamentDetailScreen from '../../app/tournament/[id]';
+import TournamentsLayout from '../../app/(tournaments)/_layout';
+import TournamentsScreen from '../../app/(tournaments)/tournaments';
+import TournamentDetailScreen from '../../app/(tournaments)/tournament/[id]';
 import ProfileScreen from '../../app/(tabs)/profile';
 
 type Seeds = [readonly unknown[], unknown][];
@@ -66,6 +67,12 @@ const detailSeeds = (raw: Record<string, unknown>, id = TOUR_ID): Seeds => [
 ];
 
 const CASES: SmokeCase[] = [
+  // The group's own stack: a todo in the table (it needs a live router).
+  {
+    route: 'tournaments-stack',
+    Component: TournamentsLayout,
+    labelKey: 'tournaments.guest.list.title',
+  },
   {
     route: 'tournaments',
     Component: TournamentsScreen,

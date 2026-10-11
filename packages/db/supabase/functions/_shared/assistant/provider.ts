@@ -31,6 +31,7 @@
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import type { Cleaned, CleanedToolResult } from './clean.ts';
 import type { WireTool } from './tools.ts';
+import { billedCacheWrite, parseCacheTtl, type CacheTtl } from './turnPolicy.ts';
 
 export type ProviderErrorCode = 'NOT_CONFIGURED' | 'RATE_LIMITED' | 'UPSTREAM' | 'TIMEOUT';
 
@@ -203,9 +204,12 @@ function webSearchesOf(u: unknown): number {
 }
 
 function usageOf(u: Anthropic.Beta.BetaUsage | Anthropic.Usage | null | undefined): ProviderUsage {
+  // A 1-hour write is billed at 2x input, the price list's cache_write is the 1.25x one:
+  // count the 1-hour tokens as the 5-minute tokens that cost the same (turnPolicy billedCacheWrite).
+  const oneHour = (u as { cache_creation?: { ephemeral_1h_input_tokens?: number } | null } | null | undefined)?.cache_creation?.ephemeral_1h_input_tokens ?? 0;
   return {
     input: u?.input_tokens ?? 0,
-    cache_write: u?.cache_creation_input_tokens ?? 0,
+    cache_write: billedCacheWrite(u?.cache_creation_input_tokens ?? 0, oneHour),
     cache_read: u?.cache_read_input_tokens ?? 0,
     output: u?.output_tokens ?? 0,
   };
@@ -236,8 +240,13 @@ function wireMessages(messages: readonly ProviderMessage[]): Anthropic.Beta.Beta
  */
 export const PREFIX_CACHE_CONTROL = { type: 'ephemeral' } as const;
 
-function systemBlocks(system: string): Anthropic.Beta.BetaTextBlockParam[] {
-  return [{ type: 'text', text: system, cache_control: PREFIX_CACHE_CONTROL }];
+/** The prefix breakpoint for a TTL: secret ASSISTANT_CACHE_TTL=1h switches to the 1-hour cache (2026-10-09; decide on the real gaps between an owner's messages). */
+function prefixCacheControl(ttl: CacheTtl): { type: 'ephemeral'; ttl?: '1h' } {
+  return ttl === '1h' ? { type: 'ephemeral', ttl: '1h' } : PREFIX_CACHE_CONTROL;
+}
+
+function systemBlocks(system: string, ttl: CacheTtl = '5m'): Anthropic.Beta.BetaTextBlockParam[] {
+  return [{ type: 'text', text: system, cache_control: prefixCacheControl(ttl) }];
 }
 
 /**
@@ -248,7 +257,7 @@ export function providerFromEnv(get: (name: string) => string | undefined, model
   const model = assistantModel(get, modelOverride);
   const apiKey = (get('ANTHROPIC_API_KEY') ?? '').trim();
   if (!apiKey) return null;
-  return anthropicProvider(apiKey, model);
+  return anthropicProvider(apiKey, model, parseCacheTtl(get('ASSISTANT_CACHE_TTL')));
 }
 
 /** The sentence a 503 carries when the model's vendor has no key. */
@@ -266,14 +275,16 @@ export function assistantModel(get: (name: string) => string | undefined, modelO
   return (ASSISTANT_MODELS as readonly string[]).includes(wanted) ? wanted : DEFAULT_MODEL;
 }
 
-function anthropicProvider(apiKey: string, model: string): Provider {
+function anthropicProvider(apiKey: string, model: string, cacheTtl: CacheTtl = '5m'): Provider {
   // maxRetries 1: the chat has its own 50 s wall clock; the SDK's default of 2 could blow through it.
   const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 55_000 });
 
   return {
     model,
     vendor: 'anthropic',
-    capabilities: { batch: true, exactTokens: true, compactMap: true, deferTools: true, packBudget: Number.POSITIVE_INFINITY, resultRows: 500 },
+    // compactMap false (owner call 2026-10-09): the ~17k-token venue map no longer rides in every
+    // prefix; how-to turns are pre-searched (route.ts) and every tool carries its page (wireTools).
+    capabilities: { batch: true, exactTokens: true, compactMap: false, deferTools: true, packBudget: Number.POSITIVE_INFINITY, resultRows: 500 },
 
     async stream(call) {
       const started = Date.now();
@@ -285,7 +296,7 @@ function anthropicProvider(apiKey: string, model: string): Provider {
         fallbacks: 'default',
         thinking: { type: 'adaptive' },
         output_config: { effort: call.effort },
-        system: systemBlocks(call.system),
+        system: systemBlocks(call.system, cacheTtl),
         tools: requestTools(call.tools, call.webSearch),
         messages: wireMessages(call.messages),
         cache_control: { type: 'ephemeral' },
@@ -315,7 +326,7 @@ function anthropicProvider(apiKey: string, model: string): Provider {
         fallbacks: 'default',
         thinking: { type: 'adaptive' },
         output_config: { effort: call.effort, format: { type: 'json_schema', schema: call.schema } },
-        system: systemBlocks(call.system),
+        system: systemBlocks(call.system, cacheTtl),
         messages: wireMessages(call.messages),
         cache_control: { type: 'ephemeral' },
       } as unknown as Parameters<typeof client.beta.messages.create>[0];

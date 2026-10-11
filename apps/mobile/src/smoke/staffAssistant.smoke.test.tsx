@@ -18,7 +18,7 @@ import StaffAssistant from '../../app/staff-assistant';
 import StaffAssistantChats from '../../app/staff-assistant-chats';
 import StaffScreenshots from '../../app/staff-screenshots';
 import StaffToday from '../../app/staff';
-import { AssistantFab, fabHidden } from '../features/assistant/AssistantFab';
+import { AssistantFab, fabHidden, withAssistantFab } from '../features/assistant/AssistantFab';
 import { screenshotKeys, type ScreenshotEvent } from '../features/staff/screenGuard/api';
 
 const CHAT = 'a5510000-0000-4000-8000-000000000001';
@@ -66,7 +66,7 @@ const LOCALES: Locale[] = ['en', 'ar'];
 describe.each(LOCALES)('the owner assistant in %s', (locale) => {
   const t = makeT(locale);
 
-  it('offers starters and scope chips on a new chat, the default scope on', () => {
+  it('offers starters and scope chips on a new chat, every scope on', () => {
     const screen = renderRoute(StaffAssistant, { locale, staff: { role: 'owner' } });
     try {
       expect(screen.getByTestId('staff-assistant.suggestion.yesterday')).toBeTruthy();
@@ -78,9 +78,10 @@ describe.each(LOCALES)('the owner assistant in %s', (locale) => {
       expect(
         screen.getByTestId('staff-assistant.scope.howto').props.accessibilityState.checked,
       ).toBe(true);
+      // Every scope on by default (2026-10-09): nothing is pre-loaded, the assistant decides what to read.
       expect(
         screen.getByTestId('staff-assistant.scope.money').props.accessibilityState.checked,
-      ).toBe(false);
+      ).toBe(true);
       // Nothing to send until something is typed.
       expect(screen.getByTestId('staff-assistant.composer.send').props.accessibilityState.disabled).toBe(
         true,
@@ -176,10 +177,12 @@ describe.each(LOCALES)('the owner assistant in %s', (locale) => {
     }
   });
 
-  it('keeps the assistant off Today as a banner, and gives the owner a screenshots tile', () => {
+  it('gives the owner the assistant pill and a screenshots tile on Today, and other staff neither', () => {
     const owner = renderRoute(StaffToday, { locale, staff: { role: 'owner' } });
     try {
       expect(owner.queryByTestId('staff.assistant')).toBeNull();
+      fireEvent.press(owner.getByTestId('staff.assistant.header'));
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-assistant' });
       fireEvent.press(owner.getByTestId('staff.screenshots'));
       expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-screenshots' });
     } finally {
@@ -188,20 +191,21 @@ describe.each(LOCALES)('the owner assistant in %s', (locale) => {
     const manager = renderRoute(StaffToday, { locale, staff: { role: 'manager' } });
     try {
       expect(manager.queryByTestId('staff.screenshots')).toBeNull();
+      expect(manager.queryByTestId('staff.assistant.header')).toBeNull();
     } finally {
       manager.unmount();
     }
   });
 
   it('floats the assistant button for the owner only, off its own screens', () => {
-    const owner = renderRoute(AssistantFab, { locale, staff: { role: 'owner' }, pathname: '/staff' });
+    const owner = renderRoute(AssistantFab, { locale, staff: { role: 'owner' }, pathname: '/staff-order' });
     try {
       fireEvent.press(owner.getByTestId('staff.assistant.fab'));
       expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-assistant' });
     } finally {
       owner.unmount();
     }
-    const manager = renderRoute(AssistantFab, { locale, staff: { role: 'manager' }, pathname: '/staff' });
+    const manager = renderRoute(AssistantFab, { locale, staff: { role: 'manager' }, pathname: '/staff-order' });
     try {
       expect(manager.queryByTestId('staff.assistant.fab')).toBeNull();
     } finally {
@@ -216,5 +220,16 @@ describe.each(LOCALES)('the owner assistant in %s', (locale) => {
     expect(fabHidden('/staff-assistant-chats')).toBe(true);
     expect(fabHidden('/(tabs)')).toBe(true);
     expect(fabHidden('/staff-order')).toBe(false);
+    // The main panel carries it in its header instead.
+    expect(fabHidden('/staff')).toBe(true);
+    // Drawn per screen by the Stack's screenLayout: a staff page is wrapped,
+    // the main panel, a guest screen and a staff sheet come back untouched.
+    const page = <></>;
+    const layout = (name: string, presentation?: string) =>
+      withAssistantFab({ route: { name }, options: { presentation }, children: page });
+    expect(layout('staff-order')).not.toBe(page);
+    expect(layout('staff')).toBe(page);
+    expect(layout('settings')).toBe(page);
+    expect(layout('staff-group', 'formSheet')).toBe(page);
   });
 });

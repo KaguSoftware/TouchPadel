@@ -640,6 +640,8 @@ export const ownerEn = {
       rates: 'What an hour on a court costs, by day and time. Changes apply to future bookings only.',
       menuPrices: 'Cafe prices. A change here moves tomorrow’s cafe revenue, not today’s.',
       wages: 'Each person’s salary and pay day, what comes off it, and marking it paid. Approve deductions here.',
+      // Staff rewards (0332–0333).
+      rewards: 'Bonuses and prizes for orders placed in a month, set per person. A bonus reached is added to the next month’s wage.',
       // Coaching (coaching operator.md §5.3.3).
       coachPay: 'Monthly coach statements: approve and mark paid',
     },

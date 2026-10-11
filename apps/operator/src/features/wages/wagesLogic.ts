@@ -3,8 +3,8 @@
  * app.wages_month and app.wages_due, the status tones, the month stepper's
  * bounds, the salary form's rules and the refusals that name a field.
  *
- * Nothing here adds money up: every salary, deduction, penalty, net and total
- * is the server's (app.wage_line is the one place a month is computed). The
+ * Nothing here adds money up: every salary, deduction, penalty, bonus, net
+ * and total is the server's (app.wage_line is the one place a month is computed). The
  * readers take the payload as returned (the shared QK key holds it that way)
  * and read it defensively.
  */
@@ -47,6 +47,22 @@ export interface WagePayment {
   undoReason: string | null;
 }
 
+/**
+ * A reward reached (0333 staff_reward_earnings) that this wage month carries:
+ * written when the business month it was reached in ended, into the first
+ * wage month not yet paid. A prize-only one adds nothing to the wage
+ * (rewardIqd 0); it is listed so the owner remembers to hand the prize over.
+ */
+export interface WageBonus {
+  id: string;
+  /** 'YYYY-MM-01', the business month it was reached in. */
+  earnedMonth: string;
+  /** The orders it was for. */
+  target: number;
+  rewardIqd: number;
+  prize: string | null;
+}
+
 export interface NextRate {
   salaryIqd: number;
   payDay: number | null;
@@ -71,9 +87,20 @@ export interface WageLine {
   deductionCount: number;
   penaltiesIqd: number;
   penaltyDays: number;
-  /** salary − deductions − penalties, as the server added it up. May be below zero. */
+  /** The rewards' bonuses this month carries (a paid month: its snapshot). */
+  bonusesIqd: number;
+  /** How many of them add money (prize-only ones are not counted). */
+  bonusCount: number;
+  /**
+   * The month only carries a bonus for someone who left and did no work in it
+   * (0333): the server charges no salary for it (salaryIqd 0).
+   */
+  bonusOnly: boolean;
+  /** salary − deductions − penalties + bonuses, as the server added it up. May be below zero. */
   netIqd: number;
   payment: WagePayment | null;
+  /** Every reward this month carries, prize-only ones too, by earned month then target. */
+  bonuses: WageBonus[];
 }
 
 function readPayment(v: unknown): WagePayment | null {
@@ -95,6 +122,18 @@ function readNextRate(v: unknown): NextRate | null {
   return { salaryIqd: num(v.salary_iqd) ?? 0, payDay: int(v.pay_day), from: v.from };
 }
 
+function readBonuses(v: unknown): WageBonus[] {
+  return list(v)
+    .filter((b) => typeof b.id === 'string')
+    .map((b) => ({
+      id: str(b.id) ?? '',
+      earnedMonth: str(b.earned_month) ?? '',
+      target: count(b.target),
+      rewardIqd: num(b.reward_iqd) ?? 0,
+      prize: str(b.prize),
+    }));
+}
+
 export function readWageLine(r: Record<string, unknown>): WageLine {
   return {
     month: str(r.month) ?? '',
@@ -109,8 +148,12 @@ export function readWageLine(r: Record<string, unknown>): WageLine {
     deductionCount: count(r.deduction_count),
     penaltiesIqd: num(r.penalties_iqd) ?? 0,
     penaltyDays: count(r.penalty_days),
+    bonusesIqd: num(r.bonuses_iqd) ?? 0,
+    bonusCount: count(r.bonus_count),
+    bonusOnly: r.bonus_only === true,
     netIqd: num(r.net_iqd) ?? 0,
     payment: readPayment(r.payment),
+    bonuses: readBonuses(r.bonuses),
   };
 }
 
@@ -153,6 +196,8 @@ export interface WagesTotals {
   salaryIqd: number;
   deductionsIqd: number;
   penaltiesIqd: number;
+  /** null when the server sent no bonuses total: the row is then not shown, never shown as 0. */
+  bonusesIqd: number | null;
   netIqd: number;
   paidIqd: number;
   people: number;
@@ -184,6 +229,7 @@ export function readWagesMonth(payload: unknown): WagesMonth {
       salaryIqd: num(t.salary_iqd) ?? 0,
       deductionsIqd: num(t.deductions_iqd) ?? 0,
       penaltiesIqd: num(t.penalties_iqd) ?? 0,
+      bonusesIqd: num(t.bonuses_iqd),
       netIqd: num(t.net_iqd) ?? 0,
       paidIqd: num(t.paid_iqd) ?? 0,
       people: count(t.people),
@@ -307,9 +353,14 @@ export function dueWhen(daysLeft: number | null): DueWhen {
   return { kind: 'in', days: daysLeft };
 }
 
-/** Mark paid is offered on a month with a salary that is not paid yet (WAGE_NOT_SET otherwise). */
-export function canMarkPaid(line: Pick<WageLine, 'status'>): boolean {
-  return line.status === 'due' || line.status === 'overdue' || line.status === 'upcoming';
+/**
+ * Mark paid is offered on a month with a salary that is not paid yet, and on a
+ * month with no salary (none set, or 0) that carries a reward bonus: the
+ * server pays the bonus alone (0333; WAGE_NOT_SET otherwise).
+ */
+export function canMarkPaid(line: Pick<WageLine, 'status' | 'bonusesIqd'>): boolean {
+  if (line.status === 'due' || line.status === 'overdue' || line.status === 'upcoming') return true;
+  return (line.status === 'unset' || line.status === 'none') && line.bonusesIqd > 0;
 }
 
 /** Undo is offered on a payment that stands. */
@@ -317,10 +368,21 @@ export function canUndoPaid(line: Pick<WageLine, 'payment'>): boolean {
   return line.payment?.status === 'paid';
 }
 
+/** The rewards a month carries with a prize the owner hands over (a bonus may carry one too). */
+export function prizeCount(line: Pick<WageLine, 'bonuses'>): number {
+  return line.bonuses.filter((b) => b.prize !== null).length;
+}
+
+/** How a reward's line reads: a bonus, a prize to hand over, or both. */
+export function bonusKind(b: Pick<WageBonus, 'rewardIqd' | 'prize'>): 'amount' | 'prize' | 'both' {
+  if (b.prize === null) return 'amount';
+  return b.rewardIqd > 0 ? 'both' : 'prize';
+}
+
 /**
  * The amount "Mark paid" records, as app.mark_wage_paid records it: the net,
- * or nothing when deductions and penalties exceed the salary (nothing carries
- * over). A comparison on the server's net, not a sum.
+ * or nothing when deductions and penalties exceed the salary and bonuses
+ * (nothing carries over). A comparison on the server's net, not a sum.
  */
 export function payableIqd(netIqd: number): number {
   return netIqd < 0 ? 0 : netIqd;

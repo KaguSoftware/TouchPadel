@@ -35,6 +35,10 @@ export const staffShellAr: DeepMessages<typeof staffShellEn> = {
     passwordNote: 'نسيت كلمة المرور؟ يعيد المالك تعيينها من صفحة الموظفين.',
     signOutConfirm: 'ستحتاج إلى بريدك الإلكتروني وكلمة المرور لتسجيل الدخول مرة أخرى.',
   },
+  work: {
+    empty: 'لا شيء ينتظرك.',
+    badge: '{count} بانتظارك',
+  },
   guestView: {
     tile: 'واجهة الضيوف',
     row: 'عرض واجهة الضيوف',
@@ -44,6 +48,8 @@ export const staffShellAr: DeepMessages<typeof staffShellEn> = {
   // DRAFT-AR (docs/design/coaching/guest.md §4.15).
   coachMode: 'وضع المدرّب',
   coachStatements: 'كشوف حساب المدرّب',
+  coachModePreview: 'الدروس والساعات والكشوف',
+  coachStatementsPreview: 'الدروس السابقة والمستحقات',
   pending: {
     slow: 'يستغرق التحقق من حسابك وقتًا أطول من المعتاد. تأكد من الاتصال وحاول مرة أخرى.',
   },

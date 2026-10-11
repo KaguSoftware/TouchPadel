@@ -6,8 +6,10 @@
  * Written from what the system actually does — change the copy when the system changes, and bump
  * CURRENT_TERMS_VERSION (packages/core/src/legal/terms.ts) when a guest must agree again.
  *
- * `entity.*` holds the operating company's details. Every legal string can use them as
- * {company}, {tradingName}, {registration}, {address}, {email}, {city} and {minPlayAge}
+ * `entity.*` holds the venue's details. Touch Padel has no registered company (Mustafa,
+ * 2026-10-11), so the pages name the venue itself as "we", with no registration number,
+ * address or court city. Every legal string can use them as {tradingName}, {email} and
+ * {minPlayAge}
  * (LegalDocument passes them to every lookup), plus {cancelHours} — the free-cancellation
  * window read live from venue_settings_public, so the terms never contradict the app. It
  * arrives as a whole counted phrase ("4 hours", «12 ساعة»: apps/web/src/lib/site/plural.ts),
@@ -33,12 +35,8 @@ export const legalEn = {
   lastUpdated: 'Last updated: 4 October 2026',
   version: 'Version {version}',
   entity: {
-    company: '[FILL: company legal name]',
     tradingName: 'Touch Padel',
-    registration: '[FILL: commercial registration number]',
-    address: '[FILL: registered address]',
-    email: '[FILL: privacy contact email]',
-    city: '[FILL: city whose courts hear disputes]',
+    email: 'info@touch-padel.com',
     minPlayAge: '[FILL: age]',
   },
   nav: {
@@ -54,7 +52,6 @@ export const legalEn = {
     noPhone: 'Contact the front desk at the venue.',
     hours: 'Opening hours',
     emailLead: 'Email:',
-    addressLead: 'Address:',
   },
   privacy: {
     title: 'Privacy Policy',
@@ -64,7 +61,7 @@ export const legalEn = {
       'This policy explains what information the Touch Padel app, this website and the venue’s systems collect about you, why, who can see it, how long we keep it, and the rights you have over it.',
     who: {
       title: 'Who we are',
-      body: '{tradingName} is a padel and café venue in Iraq operated by {company} (“we”, “us”), commercial registration number {registration}, of {address}. We decide why and how your information is used, so we are responsible for it. The Touch Padel app, this website and the venue’s staff systems were built and are maintained for us by Kagu Software, which handles information only on our instructions.',
+      body: '{tradingName} (“we”, “us”) is a padel and café venue in Iraq. We decide why and how your information is used, so we are responsible for it. The Touch Padel app, this website and the venue’s staff systems were built and are maintained for us by Kagu Software, which handles information only on our instructions.',
     },
     collect: {
       title: 'What we collect',
@@ -193,7 +190,7 @@ export const legalEn = {
     },
     contactSection: {
       title: 'Contact',
-      body: 'Questions about this policy or your information? Contact {company}:',
+      body: 'Questions about this policy or your information? Contact us:',
     },
   },
   terms: {
@@ -201,10 +198,10 @@ export const legalEn = {
     metaDescription:
       'The agreement for using the Touch Padel app and website, booking courts, playing open matches and ordering at the venue: bookings, open matches and tickets, cancellations, venue rules, safety and liability.',
     intro:
-      'These terms are the agreement between you and {company} for using the Touch Padel app and this website, booking courts, playing open matches, and ordering at the {tradingName} venue. By creating an account, or by booking, joining a match or ordering, you agree to them. Please read them.',
+      'These terms are the agreement between you and {tradingName} for using the Touch Padel app and this website, booking courts, playing open matches, and ordering at the venue. By creating an account, or by booking, joining a match or ordering, you agree to them. Please read them.',
     who: {
       title: 'Who we are',
-      body: '{tradingName} is operated by {company}, commercial registration number {registration}, of {address}. You can reach us at {email} or at the front desk.',
+      body: '{tradingName} is a padel and café venue in Iraq. You can reach us at {email} or at the front desk.',
     },
     accounts: {
       title: 'Your account',
@@ -303,12 +300,12 @@ export const legalEn = {
     },
     law: {
       title: 'Law and disputes',
-      body: 'These terms are governed by the laws of the Republic of Iraq, including the laws of the Kurdistan Region where they apply. If something goes wrong, please talk to us first — most problems are solved at the front desk. If we cannot resolve it together, the courts of {city} have jurisdiction.',
+      body: 'These terms are governed by the laws of the Republic of Iraq, including the laws of the Kurdistan Region where they apply. If something goes wrong, please talk to us first — most problems are solved at the front desk. If we cannot resolve it together, the competent courts of Iraq have jurisdiction.',
       language: 'These terms are published in Arabic and English. If the two versions differ, the Arabic version applies.',
     },
     contactSection: {
       title: 'Contact',
-      body: 'Questions about these terms? Contact {company}:',
+      body: 'Questions about these terms? Contact us:',
     },
   },
   support: {

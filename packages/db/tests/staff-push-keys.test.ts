@@ -194,7 +194,8 @@ describe('staff-push.json and app.notify_staff (the role spec keys)', () => {
     expect(keys.indexOf('purchase_to_receive')).toBe(14);
     expect(keys.slice(15, 26)).toEqual(KEYS.map(([k]) => k));
     expect(staffPush.kinds).toEqual(['staff_task', 'staff_decide', 'staff_decided', 'staff_info']);
-    expect(staffPush.routes).toHaveLength(7);
+    // 0333 added staff-rewards; these waves added none.
+    expect(staffPush.routes).toHaveLength(8);
   });
 });
 
@@ -245,15 +246,16 @@ describe.skipIf(!docker)('staff_push_keys (rolled-back transactions)', () => {
     const m = def.match(/c_title_keys\s+constant text\[\] := array\[([^\]]*)\]/);
     expect(m).not.toBeNull();
     const keys = [...m![1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]);
-    expect(keys).toHaveLength(43);
+    expect(keys).toHaveLength(44);
     expect(keys.slice(15, 26)).toEqual(KEYS.map(([k]) => k));
     expect(keys.slice(26, 37)).toEqual(WAVE5_KEYS.map(([k]) => k));
     // Open matches' match_report_new follows wave 5 (0261, R43); loyalty's gift alert is last
     // (0308, c17); a staff screenshot alert follows it (0313), then the shop desk's supplier
-    // price change (0322), then the scheduled checklists' due and overdue pushes (0323).
+    // price change (0322), then the scheduled checklists' due and overdue pushes (0323), then
+    // a staff reward unlocked (0333).
     expect(keys.slice(37)).toEqual([
       'match_report_new', 'loyalty_gift', 'screenshot_taken', 'shop_price_changed',
-      'checklist_due', 'checklist_overdue',
+      'checklist_due', 'checklist_overdue', 'reward_unlocked',
     ]);
   });
 
@@ -276,7 +278,8 @@ describe('staff-push.json and app.notify_staff (wave 5 keys)', () => {
   it('lists the eleven after the role spec keys, adding no kind and no route', () => {
     expect(staffPush.title_keys.indexOf('marketing_request_answered')).toBe(25);
     expect(staffPush.title_keys.slice(26, 37)).toEqual(WAVE5_KEYS.map(([k]) => k));
-    expect(staffPush.routes).toHaveLength(7);
+    // 0333 added staff-rewards; these waves added none.
+    expect(staffPush.routes).toHaveLength(8);
   });
 });
 

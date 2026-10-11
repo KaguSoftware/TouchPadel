@@ -14,6 +14,7 @@
  * OUT. `coachShareUrl` is built on `siteUrl()` (src/lib/legal.ts), the host
  * every build claims, as the match invite is; the links test pins the two.
  */
+import type { Locale } from '@touch/i18n';
 import { siteUrl } from '../../lib/legal';
 
 /** A coach id is `coaches.id`, a uuid (never a profile id, R43). */
@@ -39,7 +40,11 @@ export function normaliseCoachLink(path: string): string | null {
   return null;
 }
 
-/** The share link for a coach (`${siteUrl()}/c/<id>`): names the coach, never a price (GL-4). */
-export function coachShareUrl(coachId: string): string {
-  return `${siteUrl()}/c/${coachId}`;
+/**
+ * The share link for a coach (`${siteUrl()}/<locale>/c/<id>`): names the coach, never a price
+ * (GL-4). The locale is the sharer's: a link preview (WhatsApp) is fetched with no cookie and
+ * no useful Accept-Language, so a bare `/c/<id>` would always unfurl in the site's default.
+ */
+export function coachShareUrl(coachId: string, locale: Locale): string {
+  return `${siteUrl()}/${locale}/c/${coachId}`;
 }

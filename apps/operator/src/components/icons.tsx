@@ -125,6 +125,8 @@ const PATHS = {
   /** A cup: the Tournaments row and a tournament's calendar block (tournaments build contracts §1.11). */
   trophy:
     'M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.7V17c0 .6-.5 1-1 1.2C7.9 18.8 7 20.2 7 22M14 14.7V17c0 .6.5 1 1 1.2 1.1.6 2 2 2 3.8M18 2H6v7a6 6 0 0 0 12 0z',
+  /** A wrapped present: the owner's Rewards row and its form (staff rewards, 0332). */
+  gift: 'M4 8h16a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C9.5 3 11.2 5 12 8c.8-3 2.5-5 4.5-5a2.5 2.5 0 0 1 0 5',
 } as const;
 
 export type IconName = keyof typeof PATHS;

@@ -12,6 +12,7 @@
  * language uses: English repeats `one` / `other`, Arabic fills all six.
  */
 import { isolateLtr } from './bidi';
+import { formatNumber } from './formatting';
 import { t, type Locale, type MessageKey } from './t';
 
 /** The CLDR plural categories, in the order the catalogs list them. */
@@ -46,7 +47,9 @@ export type CountKey = {
 
 /**
  * "4 seats left" / «4 مقاعد متاحة»: the form `pluralForm` picks, with
- * `{count}` as LTR-isolated Latin digits (the web's `hoursPhrase` pattern,
+ * `{count}` as LTR-isolated Latin digits, grouped as every other number on
+ * the page is (`formatNumber`: "10,000 orders" beside "10,000 IQD"); the form
+ * is picked on the raw count (the web's `hoursPhrase` pattern,
  * `apps/web/src/lib/site/plural.ts`).
  *
  * At exactly 0 the `zero` form is read in both languages. English has no CLDR
@@ -55,5 +58,5 @@ export type CountKey = {
  */
 export function countPhrase(key: CountKey, n: number, locale: Locale): string {
   const form: PluralForm = n === 0 ? 'zero' : pluralForm(n, locale);
-  return t(locale, `${key}.${form}` as MessageKey, { count: isolateLtr(String(n)) });
+  return t(locale, `${key}.${form}` as MessageKey, { count: isolateLtr(formatNumber(n, locale)) });
 }

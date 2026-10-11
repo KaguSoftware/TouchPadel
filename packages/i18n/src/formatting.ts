@@ -75,9 +75,19 @@ export function formatWeekdayShort(date: Date, locale: Locale, timeZone: string 
   return dtf(locale, timeZone, { weekday: 'short' }).format(date);
 }
 
+/** Full weekday for a day's heading: "Thursday" / "الخميس". */
+export function formatWeekdayLong(date: Date, locale: Locale, timeZone: string = VENUE_TZ): string {
+  return dtf(locale, timeZone, { weekday: 'long' }).format(date);
+}
+
 /** Short month for the date badge: "Sep" / "أيلول". */
 export function formatMonthShort(date: Date, locale: Locale, timeZone: string = VENUE_TZ): string {
   return dtf(locale, timeZone, { month: 'short' }).format(date);
+}
+
+/** The month alone, in full: "September" / "أيلول". */
+export function formatMonthLong(date: Date, locale: Locale, timeZone: string = VENUE_TZ): string {
+  return dtf(locale, timeZone, { month: 'long' }).format(date);
 }
 
 /** Month and year for a calendar heading: "September 2026" / "أيلول 2026". */

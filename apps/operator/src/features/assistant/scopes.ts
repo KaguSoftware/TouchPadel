@@ -5,7 +5,11 @@
  */
 import { ASSISTANT_SCOPES, DEFAULT_SCOPES, scopeForRoute, type AssistantScope } from '@touch/core/assistant/tools';
 
-export const SCOPES_STORAGE_KEY = 'touch-assistant-scopes';
+/**
+ * v2 since 2026-10-09: chats start with every scope open (DEFAULT_SCOPES), so a
+ * set remembered while each scope still pre-loaded packs (often how-to only) is dropped.
+ */
+export const SCOPES_STORAGE_KEY = 'touch-assistant-scopes-v2';
 export const CONVERSATION_SESSION_KEY = 'touch-assistant-conversation';
 
 export function isScope(value: unknown): value is AssistantScope {
@@ -52,8 +56,9 @@ export function saveRememberedScopes(ownerId: string, scopes: readonly Assistant
 }
 
 /**
- * What a new chat opened from `path` starts with: the page's own scope plus
- * Pages and how-to, on top of whatever this owner last used.
+ * What a new chat opened from `path` starts with: whatever this owner last
+ * used (every scope by default: the assistant decides what to read), plus the
+ * page's own scope and Pages and how-to.
  */
 export function initialScopes(path: string, ownerId: string): AssistantScope[] {
   const remembered = loadRememberedScopes(ownerId) ?? DEFAULT_SCOPES;

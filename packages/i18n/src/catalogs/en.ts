@@ -89,6 +89,7 @@ export const en = {
     emailRequired: 'Enter your email address.',
     emailInvalid: 'Enter a valid email address.',
     // Sign-up: a confirmed account already owns this number / address.
+    accountExistsTitle: 'You already have an account',
     phoneTaken: 'This number already has an account. Sign in instead.',
     emailTaken: 'This email already has an account. Sign in instead.',
     phoneRequired: 'Enter your phone number.',
@@ -171,6 +172,9 @@ export const en = {
     orContinueWithPhone: 'or continue with your phone number',
     // Divider above the phone | email segments (2026-09-20).
     orContinueWithPassword: 'or continue with a password',
+    // Sign-in's divider since phone sign-in went code-only (2026-10-11): the phone segment has no password.
+    orContinueWithPhoneOrEmail: 'or continue with your phone or email',
+    signInCodeHint: "We'll send a sign-in code to this number by WhatsApp or SMS.",
     phoneSignInTitle: 'Your phone number',
     phoneLinkBody: "We'll send a 6-digit code to this number — on WhatsApp, or by SMS — to confirm it's yours.",
     phoneOtpInvalid: 'Enter a valid phone number, and check the country code.',
@@ -864,6 +868,9 @@ export const en = {
     completeProfileNudge: 'Add your phone number so the desk can reach you about your bookings.',
     // A phone sign-up (dormant OTP scaffold) has a verified phone but no name yet.
     completeNameNudge: 'Add your name so the desk knows who booked.',
+    // Profile tab's one nudge card when the username is missing too.
+    completeProfileUsernameNudge: 'Add your phone number and pick a username to book courts and join open matches.',
+    completeNameUsernameNudge: 'Add your name and pick a username to book courts and join open matches.',
     currentPassword: 'Current password',
     newPasswordMin: 'New password (min 8 characters)',
     confirmNewPassword: 'Confirm new password',
@@ -961,8 +968,7 @@ export const en = {
     scrollHint: 'Scroll to the end to agree.',
     part: 'Part {n} of {total}',
     accept: 'Accept and continue',
-    signOut: 'Sign out',
-    deleteInstead: 'Delete my account instead',
+    notNow: 'Not now',
     failed: "Couldn't save your answer. Check your connection and try again.",
   },
   cafe: {

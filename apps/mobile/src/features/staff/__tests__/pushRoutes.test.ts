@@ -34,6 +34,8 @@ describe('staffPushHref (§6.8 mapping)', () => {
     expect(staffPushHref('staff-shopping', null)).toEqual({ pathname: '/staff-shopping' });
     expect(staffPushHref('staff-checklist', 'c-1')).toEqual({ pathname: '/staff-checklist', params: { id: 'c-1' } });
     expect(staffPushHref('staff-notes', 'i-1')).toEqual({ pathname: '/staff-notes', params: { itemId: 'i-1' } });
+    expect(staffPushHref('staff-rewards', null)).toEqual({ pathname: '/staff-rewards' });
+    expect(staffPushHref('staff-rewards', 'ignored')).toEqual({ pathname: '/staff-rewards' });
   });
 
   it('opens Today instead of an empty page when a route that needs an id came without one', () => {

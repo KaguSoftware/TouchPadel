@@ -16,7 +16,7 @@ import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { logicalSign, mirror } from '../../src/i18n/direction';
-import { useVenueSettings } from '../../src/features/availability/hooks';
+import { useBranches, useVenueSettings } from '../../src/features/availability/hooks';
 import { BranchPicker } from '../../src/features/availability/BranchPicker';
 import { openNowInfo, type VenueSettingsPublic } from '../../src/features/availability/assemble';
 import { useCourtTransition } from '../../src/features/courtTransition/useCourtTransition';
@@ -199,6 +199,15 @@ const COURT_GAP = 8;
  * raised to 1.55. Lower shrinks the court, higher grows it.
  */
 const ANDROID_COURT_BOX_RATIO = 1.55;
+/**
+ * The court waits for the branch list before it is built. The branch picker sits
+ * above the stage and only appears once the list says there is more than one
+ * branch, so a court built before that was drawn at one size and then visibly
+ * shrank into place a moment later (owner, 2026-10-09). Built after it, the
+ * court arrives at its final size. Capped, so a slow or failing branch read
+ * never holds the court back for longer than this.
+ */
+const COURT_LAYOUT_WAIT_MS = 1500;
 
 /**
  * The "Open now · 09:00–02:00" pill. Owns the minute clock so the rest of the
@@ -619,6 +628,14 @@ export default function BookHomeScreen() {
     useCourtTransition();
 
   const [courtSize, setCourtSize] = useState<{ width: number; height: number } | null>(null);
+  // See COURT_LAYOUT_WAIT_MS: the stage's height is final once the branch list is in.
+  const branchesPending = useBranches().isPending;
+  const [layoutWaitOver, setLayoutWaitOver] = useState(false);
+  useEffect(() => {
+    if (!branchesPending) return;
+    const timer = setTimeout(() => setLayoutWaitOver(true), COURT_LAYOUT_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [branchesPending]);
   const [layerHeight, setLayerHeight] = useState(0);
   const [stageHeight, setStageHeight] = useState(0);
   /**
@@ -867,6 +884,8 @@ export default function BookHomeScreen() {
   const clear = withAlpha(colors.page, 0);
 
   const cta = <NetCta progress={progress} hidden={sheetMounted} onPress={open} />;
+  // The court is built once, at the stage's final size (COURT_LAYOUT_WAIT_MS).
+  const stageSettled = !branchesPending || layoutWaitOver;
   // Box height S, blank band f·H at its top: start it m above the stage so
   // f·(S + m) − m = COURT_GAP, i.e. m = (f·S − gap) / (1 − f).
   const stageBox = stageHeight - tabBarHeight;
@@ -1118,7 +1137,7 @@ export default function BookHomeScreen() {
               <View style={{ alignSelf: 'stretch' }}>{cta}</View>
             </View>
           </Animated.View>
-        ) : (
+        ) : stageSettled ? (
           <Court3D
             patternBox={courtPatternBox}
             style={[
@@ -1157,7 +1176,7 @@ export default function BookHomeScreen() {
               </Animated.View>
             ) : null}
           </Court3D>
-        )}
+        ) : null}
 
         <Animated.View
           pointerEvents="none"
