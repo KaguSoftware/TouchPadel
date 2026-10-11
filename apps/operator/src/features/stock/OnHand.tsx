@@ -30,7 +30,9 @@
  * and a bakery store. On hand stays the venue total, because what can be sold
  * and what is running low are venue-wide (D3); under it, once the bakery store
  * holds any of it, a quiet line says where it is ("Cafe store 1.5 kg · Bakery
- * store 500 g"), and a Store filter narrows the table to what one store holds.
+ * store 500 g"), and a Store choice turns the table to one store: every item
+ * stays listed (the whole stock, not only what that store holds), the On hand
+ * figure becomes that store's, and what it holds comes first.
  * Needs attention gains counts from the phone waiting to be applied and staff
  * additions with no cost.
  */
@@ -59,7 +61,7 @@ import {
 import { CardTitle } from '../ops/OpsVisuals';
 import { LedgerDrawer } from './LedgerDrawer';
 import { AttentionList, Footnote, IngredientName, useStockFormat, type AttentionItem } from './stockUi';
-import { anyInBakery, heldAt, inScope, phoneCountsWaiting, splitByStore, splitWorthShowing, type StockLocation, type StoreSplit } from './storeLogic';
+import { anyInBakery, heldAt, inScope, orderForStore, phoneCountsWaiting, splitByStore, splitWorthShowing, type StockLocation, type StoreSplit } from './storeLogic';
 import { useStockScope } from './stockScope';
 import {
   matchesName,
@@ -108,8 +110,10 @@ export function OnHand() {
   // (each shop size keeps its own stock row).
   const emptyTo = venue ? '/stock/ingredients' : '/shop/products';
   const active = (onHandQ.data ?? []).filter((r) => r.is_active && inScope(r.kind, scope));
-  const inStore = (r: OnHandRow) => store === 'all' || !twoStores || heldAt(splits.get(r.ingredient_id), store) > 0;
-  const rows = active.filter((r) => matchesOnHandFilter(r, filter) && matchesName(r, query) && inStore(r));
+  // A chosen store reorders the table and shows its own figures; it never hides stock.
+  const atStore = twoStores && store !== 'all' ? store : null;
+  const matching = active.filter((r) => matchesOnHandFilter(r, filter) && matchesName(r, query));
+  const rows = atStore ? orderForStore(matching, splits, atStore) : matching;
   const status = asyncStatus(onHandQ, (d) => d.filter((r) => r.is_active && inScope(r.kind, scope)).length === 0);
 
   /** Narrow the table and bring it into view — the button's promise is "show which". */
@@ -224,10 +228,23 @@ export function OnHand() {
     },
     {
       key: 'onHand',
-      header: tr('ws.manager.stock.onHand.table.onHand'),
+      header: atStore ? tr(`ws.stores.onHand.atStore.${atStore}`) : tr('ws.manager.stock.onHand.table.onHand'),
       numeric: true,
       render: (r) => {
         const split = splits.get(r.ingredient_id);
+        if (atStore) {
+          const here = heldAt(split, atStore);
+          return (
+            <span style={{ display: 'grid', justifyItems: 'end' }}>
+              <span dir="ltr" style={{ fontWeight: 700, color: here > 0 ? undefined : 'var(--tp-muted-fg)' }}>
+                <bdi>{fmt.qty(here, r.unit)}</bdi>
+              </span>
+              <bdi style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontWeight: 400, whiteSpace: 'nowrap' }}>
+                {tr('ws.stores.onHand.total', { qty: fmt.qty(r.on_hand, r.unit) })}
+              </bdi>
+            </span>
+          );
+        }
         return (
           <span style={{ display: 'grid', justifyItems: 'end' }}>
             <span dir="ltr" style={{ fontWeight: 700 }}>
@@ -360,10 +377,11 @@ export function OnHand() {
             {rows.length === 0 ? (
               // The shelves are not empty — the search or the filter narrowed
               // them to nothing, so the way out is clearing both (rulebook 9.2).
+              // The store choice never narrows, so it plays no part here.
               <EmptyState
-                kind={filter !== 'all' && query.trim() === '' && store === 'all' ? 'nothingToDo' : 'filtered'}
-                icon={filter !== 'all' && query.trim() === '' && store === 'all' ? 'checkCircle' : undefined}
-                title={filter !== 'all' && query.trim() === '' && store === 'all' ? tr(`ws.manager.stock.onHand.table.none.${filter}`) : undefined}
+                kind={filter !== 'all' && query.trim() === '' ? 'nothingToDo' : 'filtered'}
+                icon={filter !== 'all' && query.trim() === '' ? 'checkCircle' : undefined}
+                title={filter !== 'all' && query.trim() === '' ? tr(`ws.manager.stock.onHand.table.none.${filter}`) : undefined}
                 onClearFilters={() => {
                   setFilter('all');
                   setQuery('');

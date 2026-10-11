@@ -102,6 +102,22 @@ export function heldAt(split: StoreSplit | undefined, store: StockLocation): num
   return split ? split[store] : 0;
 }
 
+/**
+ * The On hand table with one store chosen. Choosing a store never hides
+ * stock: every item stays listed, so a manager sees what the store is
+ * missing as well as what it holds. What the store holds comes first, the
+ * rest after it, each group in the order it arrived (by name).
+ */
+export function orderForStore<T extends { ingredient_id: string }>(
+  rows: readonly T[],
+  splits: ReadonlyMap<string, StoreSplit>,
+  store: StockLocation,
+): T[] {
+  const held = rows.filter((r) => heldAt(splits.get(r.ingredient_id), store) > 0);
+  const rest = rows.filter((r) => !(heldAt(splits.get(r.ingredient_id), store) > 0));
+  return [...held, ...rest];
+}
+
 // ---------------------------------------------------------------------------
 // Move stock (app.transfer_stock)
 // ---------------------------------------------------------------------------

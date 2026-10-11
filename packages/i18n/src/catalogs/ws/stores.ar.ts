@@ -134,6 +134,12 @@ export const storesAr: DeepMessages<typeof storesEn> = {
     },
     storeFilter: 'المخزن',
     bothStores: 'المخزنان',
+    atStore: {
+      cafe: 'في مخزن الكافيه',
+      bakery: 'في مخزن المخبز',
+      shop: 'في مخزن المتجر',
+    },
+    total: 'المخزنان {qty}',
     now: {
       phoneCounts: 'جرد من الهاتف ينتظر التطبيق',
       phoneCountsHint: 'يجري الموظف الجرد من الهاتف دون رؤية الكميات المسجّلة. طبّق كل جرد أو ألغِه. لا يتغير المخزون إلا عند التطبيق.',
