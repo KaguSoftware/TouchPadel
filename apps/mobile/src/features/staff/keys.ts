@@ -58,7 +58,10 @@ export type StaffMutationName =
   // Wave 5 (R, wave5-addendum-2026-09-25 §2.1.8): the waiter's "On my way" and
   // "Done" on a guest's call; state-idempotent, no key.
   | 'waiter_call.ack'
-  | 'waiter_call.resolve';
+  | 'waiter_call.resolve'
+  // Rewards (0332): the owner sets and ends a person's reward; state-idempotent, no key.
+  | 'reward.set'
+  | 'reward.end';
 
 export const staffKeys = {
   all: ['staff'] as const,
@@ -146,6 +149,11 @@ export const staffKeys = {
   // Place an order (0251): the tables with their open tabs, and the café menu.
   floor: (venue: string) => ['staff', 'floor', venue] as const,
   floorMenu: (venue: string) => ['staff', 'floorMenu', venue] as const,
+  // Rewards (0332): the caller's own month, and the owner's page of the branch.
+  myRewards: (venue: string) => ['staff', 'myRewards', venue] as const,
+  /** Every branch's myRewards: what an order placed from this phone invalidates. */
+  myRewardsAll: ['staff', 'myRewards'] as const,
+  rewardsBoard: (venue: string) => ['staff', 'rewardsBoard', venue] as const,
   /** The prefix src/lib/queryClient.ts sets the staff write defaults on. */
   mutationRoot: ['staff', 'mutation'] as const,
   mutation: (name: StaffMutationName) => ['staff', 'mutation', name] as const,

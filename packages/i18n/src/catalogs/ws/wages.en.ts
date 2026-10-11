@@ -7,11 +7,12 @@
  * Money about a named person: no string here carries a figure it was not
  * given; every amount is the server's. A counted phrase sits under `count.*`
  * with all six plural forms (countPhrase, @touch/i18n plural.ts).
- * Single-line literals only (the assistant map indexes them).
+ * Single-line literals only (the assistant map indexes them). Bonuses
+ * (0333) are the rewards a person reached, added to the wage month after.
  */
 export const wagesEn = {
   title: 'Wages',
-  lead: 'Each person’s salary and pay day, what comes off it this month, and whether it is paid.',
+  lead: 'Each person’s salary and pay day, what comes off it and what is added to it this month, and whether it is paid.',
   links: {
     attendance: 'Late and early',
     deductions: 'All deductions',
@@ -48,6 +49,22 @@ export const wagesEn = {
       few: '{count} days over the limit',
       many: '{count} days over the limit',
       other: '{count} days over the limit',
+    },
+    bonuses: {
+      zero: 'no bonuses',
+      one: '1 bonus',
+      two: '2 bonuses',
+      few: '{count} bonuses',
+      many: '{count} bonuses',
+      other: '{count} bonuses',
+    },
+    prizes: {
+      zero: 'no prizes to hand over',
+      one: '1 prize to hand over',
+      two: '2 prizes to hand over',
+      few: '{count} prizes to hand over',
+      many: '{count} prizes to hand over',
+      other: '{count} prizes to hand over',
     },
     waiting: {
       zero: 'none waiting',
@@ -87,6 +104,7 @@ export const wagesEn = {
     salary: 'Salaries',
     deductions: 'Deductions',
     penalties: 'Lateness',
+    bonuses: 'Bonuses',
     net: 'Net',
     paid: 'Paid',
   },
@@ -96,6 +114,7 @@ export const wagesEn = {
     payDay: 'Pay day',
     deductions: 'Deductions',
     lateness: 'Lateness',
+    bonuses: 'Bonuses',
     net: 'Net',
     status: 'Status',
   },
@@ -103,9 +122,19 @@ export const wagesEn = {
     from: 'From {month}',
     next: '{amount} from {month}',
     notSet: 'Not set',
+    /** 0333: the month only carries a reward bonus for someone who left and did no work in it. */
+    bonusOnly: 'Not due: no work here this month',
   },
   payDay: {
     day: 'Day {day}',
+  },
+  bonus: {
+    /** One reward reached, as the wage carries it: "October 2026: 200 orders, 50,000 IQD". */
+    amount: '{month}: {orders}, {amount}',
+    /** A prize-only reward: nothing is added to the wage, the owner hands it over. */
+    prize: '{month}: {orders}, {prize} (hand over)',
+    /** A bonus with a prize as well. */
+    both: '{month}: {orders}, {amount} and {prize} (hand over)',
   },
   net: {
     negative: 'Below zero: nothing is paid and nothing carries over.',
@@ -134,8 +163,10 @@ export const wagesEn = {
     title: '{name}, {month}',
     deductions: 'Approved deductions',
     lateness: 'Late and early days',
+    bonuses: 'Rewards reached',
     noDeductions: 'No approved deductions this month.',
     noLateness: 'No late or early days this month.',
+    noBonuses: 'No rewards are added to this month.',
     minutes: '{late} min late, {early} min early',
     allowed: '{minutes} min allowed',
   },
@@ -171,11 +202,13 @@ export const wagesEn = {
     salary: 'Salary',
     deductions: 'Deductions',
     penalties: 'Lateness',
+    bonuses: 'Bonuses',
+    bonusesTitle: 'Rewards in this wage',
     net: 'Net',
     toPay: 'Amount to pay',
-    belowZero: 'Deductions and lateness come to more than the salary. Nothing is paid, and nothing carries over to next month.',
+    belowZero: 'Deductions and lateness come to more than the salary and bonuses. Nothing is paid, and nothing carries over to next month.',
     waiting: '{deductions} still waiting: approve or decline them first, or they will count next month.',
-    frozen: 'Once paid, the month is closed: a deduction or a late day recorded later comes off the next month’s wage.',
+    frozen: 'Once paid, the month is closed: a deduction or a late day recorded later comes off the next month’s wage, and a reward reached later is added to it.',
     confirm: 'Mark paid',
     done: 'Wage marked paid.',
   },

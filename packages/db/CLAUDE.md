@@ -17,8 +17,10 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0331`
-  (0331 legacy_reports, the pre-system monthly padel reports kept as written, 2026-10-10;
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0333`
+  (0333 reward_wages, a reward reached in a closed business month becomes a bonus on the wage and
+  the person gets a push when they unlock one, 2026-10-11; 0332 staff_rewards, the owner's per-person order targets and each person's own progress on
+  the staff phone, 2026-10-10; 0331 legacy_reports, the pre-system monthly padel reports kept as written, 2026-10-10;
   0330 the assistant's stored-days cache, 2026-10-09; 0324–0329 the owner assistant, 2026-10-08: 0324 web search, 0325 search recall and the frozen
   first turn, 0326 the tsv GIN index, 0327 card views, 0328 tournaments, open matches and loyalty
   tools, 0329 messages and calls written by the service role only; what each holds is below;
@@ -49,7 +51,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0332`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0334`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -240,6 +242,24 @@ is a line in that file.
   longer unique: a run is one occurrence (`business_date` = its first day, `period_end`) per list
   and person (`assignee_id`, NULL for a shared list), and the legacy `save_checklist_template`
   writes the oldest live role list under an advisory lock.
+  Reward wages (0333, 2026-10-11): holds `wage_line`, `wages_month` and `mark_wage_paid` (0271 is
+  no longer the latest: a line adds `bonuses_iqd`, `bonus_count` and `bonuses[]`, the
+  `staff_reward_earnings` rows whose pay month it is, prize-only ones included; the net is salary -
+  deductions - penalties + bonuses, and `wage_payments_net_chk` says so), `my_rewards` (0332 is no
+  longer the latest: `last_month.reached[]` gains `pay_month`, built from the frozen earnings once
+  the month is closed) and `notify_staff` (0323 is no longer the latest; it gains the title key
+  `reward_unlocked`, 44 keys now, and the route `staff-rewards`, 8 routes), plus the tables
+  `staff_reward_earnings` (owner read only) and `staff_reward_unlocks` (push bookkeeping, no client
+  grant) and the service-role `reward_sweep` (cron `tp_reward_sweep`, every five minutes): the
+  unlock push to the person only, no amount, prize, name or id, once per person, target and business
+  month; and the earnings of every ended business month not closed yet (oldest first, at most twelve
+  back, once the new month's first business day has passed), one per person and target (the reward
+  set last, so a removed and re-set target pays once; `staff_reward_earnings_target_month_key`),
+  under `app.lock_wage`, paid in `app.wage_open_month` from the month after. `mark_wage_paid` pays a
+  month with no salary (status unset or none) for its reward bonus alone; `wage_line` charges no
+  salary (`bonus_only`) in a month that only carries a bonus for someone no longer active at the
+  branch who placed no order and had no recorded day there in it. `wages_due` and `undo_wage_paid`
+  stay 0271's.
   Owner assistant (0324–0329, 2026-10-08): 0324 (web search) holds `assistant_usage` (0207 is
   no longer the latest) plus the service-role `llm_record_web_search`. 0325 (search recall) holds
   `assistant_search` (0110 is no longer the latest) plus the new `search_fold` (Arabic and digit
@@ -294,8 +314,9 @@ is a line in that file.
   `_shared/staff-push.json`; the guest kinds of open matches take their copy from
   `send-push/guestStrings.ts` and `_shared/guest-push.json`, not `STRINGS`.
   `tests/outbox-kinds.test.ts` holds the CHECK to the three lists. A new staff title key also
-  joins `app.notify_staff`'s `c_title_keys` (latest `0323`, which appended `checklist_due` and
-  `checklist_overdue` after 0322's `shop_price_changed`, itself after 0313's `screenshot_taken`, itself after 0308's `loyalty_gift` and 0261's `match_report_new`) in
+  joins `app.notify_staff`'s `c_title_keys` (latest `0333`, which appended `reward_unlocked` and the
+  route `staff-rewards` after 0323's `checklist_due` and
+  `checklist_overdue`, themselves after 0322's `shop_price_changed`, itself after 0313's `screenshot_taken`, itself after 0308's `loyalty_gift` and 0261's `match_report_new`) in
   the same commit, and a guest title key `app.match_notify`'s `c_keys` (`0261`) or, for a
   lesson or coach key, `app.lesson_notify`'s `c_keys` (`0283`; every lesson push is queued by the
   `lesson_events_notify` trigger except the two statement keys); the stack tests

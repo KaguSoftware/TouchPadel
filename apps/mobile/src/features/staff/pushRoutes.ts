@@ -19,6 +19,7 @@ export const STAFF_PUSH_ROUTES = [
   'staff-shopping',
   'staff-checklist',
   'staff-notes',
+  'staff-rewards',
 ] as const;
 
 export type StaffPushRoute = (typeof STAFF_PUSH_ROUTES)[number];
@@ -48,6 +49,9 @@ export function staffPushHref(route: StaffPushRoute, id: string | null | undefin
       return { pathname: '/staff' };
     case 'staff-shopping':
       return { pathname: '/staff-shopping' };
+    case 'staff-rewards':
+      // A reward unlocked (0333): the person's own page, which needs no id.
+      return { pathname: '/staff-rewards' };
     case 'staff-step':
       return withId('/staff-step');
     case 'staff-run':

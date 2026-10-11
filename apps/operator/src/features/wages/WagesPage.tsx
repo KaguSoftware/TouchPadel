@@ -11,8 +11,9 @@
  *    owner decides (0272), through the dialogs /deductions uses too.
  *  - **No salary yet.** Who has no rate on record at the branch.
  *  - **The month.** Per person: salary, pay day, approved deductions,
- *    lateness, the net and where it stands, with Set salary, Mark paid, Undo
- *    and Deduct; a row opens to the deductions and late days behind it.
+ *    lateness, the bonuses of rewards reached (0333), the net and where it
+ *    stands, with Set salary, Mark paid, Undo and Deduct; a row opens to the
+ *    deductions, late days and rewards behind it.
  *
  * Every figure is the server's (app.wage_line adds a month up); nothing here
  * sums money. A paid month answers from its snapshot. Money about a named
@@ -41,6 +42,7 @@ import {
   canMarkPaid,
   canStepWageForward,
   canUndoPaid,
+  prizeCount,
   readWagesDue,
   readWagesMonth,
   unsetPeople,
@@ -50,6 +52,7 @@ import {
   type WagesMonth,
 } from './wagesLogic';
 import { DueWhenText } from './DueWhenText';
+import { BonusList } from './BonusList';
 import { SetWageDialog, type WageTarget } from './SetWageDialog';
 import { MarkPaidDialog, type PayTarget } from './MarkPaidDialog';
 import { UndoPaidDialog, type UndoTarget } from './UndoPaidDialog';
@@ -355,7 +358,7 @@ function RemindControl() {
   );
 }
 
-/** The month in five labelled figures, each the server's sum. */
+/** The month in labelled figures, each the server's sum; Bonuses only when the server sent its total. */
 function Totals({ data }: { data: WagesMonth }) {
   const { tr } = useLocale();
   const t = data.totals;
@@ -363,6 +366,7 @@ function Totals({ data }: { data: WagesMonth }) {
     [tr('ws.wages.totals.salary'), t.salaryIqd, false],
     [tr('ws.wages.totals.deductions'), t.deductionsIqd, false],
     [tr('ws.wages.totals.penalties'), t.penaltiesIqd, false],
+    ...(t.bonusesIqd === null ? [] : ([[tr('ws.wages.totals.bonuses'), t.bonusesIqd, false]] as [string, number, boolean][])),
     [tr('ws.wages.totals.net'), t.netIqd, true],
     [tr('ws.wages.totals.paid'), t.paidIqd, false],
   ];
@@ -425,7 +429,15 @@ function MonthTable({
       numeric: true,
       render: (p) => (
         <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', justifyItems: 'end' }}>
-          {p.status === 'unset' ? <span style={muted}>{tr('ws.wages.salary.notSet')}</span> : <Money amount={p.salaryIqd} strong style={{ whiteSpace: 'nowrap' }} />}
+          {p.status === 'unset' ? (
+            <span style={muted}>{tr('ws.wages.salary.notSet')}</span>
+          ) : p.bonusOnly ? (
+            <span style={muted} data-testid={`wages.row.bonusOnly.${p.staffId}`}>
+              {tr('ws.wages.salary.bonusOnly')}
+            </span>
+          ) : (
+            <Money amount={p.salaryIqd} strong style={{ whiteSpace: 'nowrap' }} />
+          )}
           {p.rateFrom && p.status !== 'paid' && <span style={muted}>{tr('ws.wages.salary.from', { month: monthLabel(p.rateFrom, locale) })}</span>}
           {p.nextRate && (
             <span style={{ ...muted, color: 'var(--tp-info-fg)' }}>
@@ -475,6 +487,20 @@ function MonthTable({
         </span>
       ),
       truncateTitle: (p) => String(p.penaltiesIqd),
+    },
+    {
+      // Rewards reached (0333): what they add, and the prizes to hand over.
+      key: 'bonuses',
+      header: tr('ws.wages.cols.bonuses'),
+      numeric: true,
+      render: (p) => (
+        <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', justifyItems: 'end' }}>
+          <Money amount={p.bonusesIqd} style={{ whiteSpace: 'nowrap' }} />
+          {p.bonusCount > 0 && <span style={muted}>{countPhrase('ws.wages.count.bonuses', p.bonusCount, locale)}</span>}
+          {prizeCount(p) > 0 && <span style={{ ...muted, color: 'var(--tp-info-fg)' }}>{countPhrase('ws.wages.count.prizes', prizeCount(p), locale)}</span>}
+        </span>
+      ),
+      truncateTitle: (p) => String(p.bonusesIqd),
     },
     {
       key: 'net',
@@ -560,7 +586,7 @@ function MonthTable({
   );
 }
 
-/** A row opened: the month's approved deductions and late or early days behind its figures. */
+/** A row opened: the month's approved deductions, late or early days and rewards behind its figures. */
 function PersonDetails({ person: p }: { person: WagePerson }) {
   const { tr, locale } = useLocale();
   const item = { display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', paddingBlock: 'var(--tp-sp-1-5)', borderBlockEnd: '1px solid var(--tp-border)' } as const;
@@ -612,6 +638,10 @@ function PersonDetails({ person: p }: { person: WagePerson }) {
               ))}
             </ul>
           )}
+        </div>
+        <div>
+          <h3 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.wages.details.bonuses')}</h3>
+          {p.bonuses.length === 0 ? <p style={muted}>{tr('ws.wages.details.noBonuses')}</p> : <BonusList bonuses={p.bonuses} testId={`wages.details.bonuses.${p.staffId}`} />}
         </div>
       </div>
     </Panel>

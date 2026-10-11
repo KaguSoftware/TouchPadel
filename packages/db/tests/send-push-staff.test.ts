@@ -69,8 +69,10 @@ const LOYALTY_KEYS = ['loyalty_gift'];
 const SCREENSHOT_KEYS = ['screenshot_taken'];
 /** The shop desk's supplier price watch to the owners and shop assistants (0322), last in the JSON. */
 const SHOP_KEYS = ['shop_price_changed'];
-/** The scheduled checklists' due-soon and overdue pushes (0323), last in the JSON. */
+/** The scheduled checklists' due-soon and overdue pushes (0323). */
 const CHECKLIST_KEYS = ['checklist_due', 'checklist_overdue'];
+/** A staff reward unlocked (0333), last in the JSON. */
+const REWARD_KEYS = ['reward_unlocked'];
 const FSI = '\u2068';
 const PDI = '\u2069';
 const iso = (s: string) => `${FSI}${s}${PDI}`;
@@ -90,9 +92,9 @@ function msg(lang: Lang, key: string, params: Record<string, unknown> = {}) {
 }
 
 describe('staff-push.json', () => {
-  it('lists the four staff kinds, forty-three title keys and seven routes, each once', () => {
+  it('lists the four staff kinds, forty-four title keys and eight routes, each once', () => {
     expect(staffPush.kinds).toEqual(['staff_task', 'staff_decide', 'staff_decided', 'staff_info']);
-    expect(staffPush.title_keys).toHaveLength(43);
+    expect(staffPush.title_keys).toHaveLength(44);
     expect(new Set(staffPush.title_keys).size).toBe(staffPush.title_keys.length);
     expect(staffPush.title_keys.slice(15, 26)).toEqual(ROLE_SPEC_KEYS);
     expect(staffPush.title_keys.slice(26, 37)).toEqual(WAVE5_KEYS);
@@ -102,6 +104,7 @@ describe('staff-push.json', () => {
       ...SCREENSHOT_KEYS,
       ...SHOP_KEYS,
       ...CHECKLIST_KEYS,
+      ...REWARD_KEYS,
     ]);
     expect(staffPush.routes).toEqual([
       'staff',
@@ -111,6 +114,7 @@ describe('staff-push.json', () => {
       'staff-shopping',
       'staff-checklist',
       'staff-notes',
+      'staff-rewards',
     ]);
   });
 
@@ -267,6 +271,8 @@ describe('staffMessage — the EN copy of §2.21', () => {
       'Checklist overdue',
       `${iso('Bar opening')} is past its due time. Open it to finish it.`,
     ],
+    // No params: the amount, the prize and the target stay in the app.
+    ['reward_unlocked', {}, 'Reward unlocked', 'You reached one of your rewards. Open the app to see it.'],
   ];
 
   it('loyalty_gift without the manager’s name still says what happened', () => {

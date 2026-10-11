@@ -159,6 +159,10 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   },
   // The owner's list of staff screenshots, cased by staffAssistant.smoke.test.tsx.
   { file: 'staff-screenshots.tsx', route: 'staff-screenshots', primary: 'staff-screenshots.intro' },
+  // Rewards for orders placed (0332), cased by staffRewards.smoke.test.tsx: the person's own
+  // page (its how-it-counts note is always there) and the owner's page.
+  { file: 'staff-rewards.tsx', route: 'staff-rewards', primary: 'staff-rewards.how' },
+  { file: 'staff-rewards-admin.tsx', route: 'staff-rewards-admin', primary: 'staff-rewards-admin.intro' },
   // ── open matches ──────────────────────────────────────────────────────────
   // docs/design/open-matches/guest.md §4.27, cased by matches.smoke.test.tsx
   // in EN and AR. Two spellings are fixed like booking/[id]: `match/[id]` →

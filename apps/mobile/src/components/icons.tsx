@@ -130,6 +130,21 @@ export const SparkIcon = (p: IconProps) => (
     {...p}
   />
 );
+/**
+ * A reward: a cup on a stand (the staff rewards, 0332). An object, so it never
+ * mirrors.
+ */
+export const TrophyIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M7.5 4h9v5.5a4.5 4.5 0 0 1-9 0z',
+      'M16.5 6h2.25a.75.75 0 0 1 .75.75v.75a3.5 3.5 0 0 1-3.2 3.49',
+      'M7.5 6H5.25a.75.75 0 0 0-.75.75v.75a3.5 3.5 0 0 0 3.2 3.49',
+      'M12 14v3.5M8.5 20h7M9.5 17.5h5',
+    ]}
+    {...p}
+  />
+);
 /** Send: an arrow pointing up, the same in both directions. */
 export const ArrowUpIcon = (p: IconProps) => (
   <StrokeIcon d={['M12 19V5M5.5 11.5L12 5l6.5 6.5']} {...p} />

@@ -690,6 +690,11 @@ export const ERROR_CODE_KEYS = {
   WAGE_NOT_SET: 'op.errors.WAGE_NOT_SET',
   WAGE_ALREADY_PAID: 'op.errors.WAGE_ALREADY_PAID',
   WAGE_CHANGED: 'op.errors.WAGE_CHANGED',
+  // Staff rewards (0332): the owner's per-person order targets.
+  REWARD_STAFF_INVALID: 'op.errors.REWARD_STAFF_INVALID',
+  REWARD_INVALID: 'op.errors.REWARD_INVALID',
+  REWARD_TARGET_TAKEN: 'op.errors.REWARD_TARGET_TAKEN',
+  REWARD_LIMIT: 'op.errors.REWARD_LIMIT',
 
   // ── Edge functions' own body codes (never raised by SQL) ──────────────────
   // _shared/http.ts mapPgError: a unique violation, a retryable database error

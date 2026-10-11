@@ -2,8 +2,10 @@
  * Mark a person's month paid (app.mark_wage_paid, the owner only).
  *
  * The dialog shows the month as the server added it up: salary − deductions −
- * lateness = net, and the amount to pay, which is the net or nothing when the
- * net is below zero (nothing carries over). It sends the net it showed as
+ * lateness + bonuses = net, and the amount to pay, which is the net or nothing
+ * when the net is below zero (nothing carries over). Under it, every reward
+ * the month carries (0333), prize-only ones too, so a prize is handed over
+ * with the wage. It sends the net it showed as
  * p_expected_net_iqd: a deduction or a late day that landed while it was open
  * comes back WAGE_CHANGED, the page refetches, and the message stays above
  * the new figures until the owner confirms again. One idempotency key per
@@ -21,6 +23,7 @@ import { refusalCode } from '../protocols/errors';
 import { dayLabel, monthLabel } from '../deductions/venueDate';
 import { WK } from './api';
 import { isWageStale, payableIqd, type WageLine } from './wagesLogic';
+import { BonusList } from './BonusList';
 
 export interface PayTarget extends WageLine {
   staffId: string;
@@ -73,7 +76,7 @@ export function MarkPaidDialog({ line, onClose, onDone }: { line: PayTarget; onC
       )}
     >
       <dl data-testid="wages.pay.breakdown" style={{ display: 'grid', gridTemplateColumns: 'auto auto', gap: 'var(--tp-sp-1) var(--tp-sp-4)', margin: 0, marginBlockEnd: 'var(--tp-sp-3)', justifyContent: 'start' }}>
-        <Line label={tr('ws.wages.pay.salary')}>
+        <Line label={tr('ws.wages.pay.salary')} note={line.bonusOnly ? tr('ws.wages.salary.bonusOnly') : undefined}>
           <Money amount={line.salaryIqd} />
         </Line>
         <Line label={tr('ws.wages.pay.deductions')} note={line.deductionCount > 0 ? countPhrase('ws.wages.count.deductions', line.deductionCount, locale) : undefined}>
@@ -82,6 +85,9 @@ export function MarkPaidDialog({ line, onClose, onDone }: { line: PayTarget; onC
         <Line label={tr('ws.wages.pay.penalties')} note={line.penaltyDays > 0 ? countPhrase('ws.wages.count.lateDays', line.penaltyDays, locale) : undefined}>
           <Money amount={line.penaltiesIqd} />
         </Line>
+        <Line label={tr('ws.wages.pay.bonuses')} note={line.bonusCount > 0 ? countPhrase('ws.wages.count.bonuses', line.bonusCount, locale) : undefined}>
+          <Money amount={line.bonusesIqd} />
+        </Line>
         <Line label={tr('ws.wages.pay.net')} rule>
           <Money amount={line.netIqd} strong style={negative ? { color: 'var(--tp-danger-fg)' } : undefined} />
         </Line>
@@ -89,6 +95,12 @@ export function MarkPaidDialog({ line, onClose, onDone }: { line: PayTarget; onC
           <Money amount={payableIqd(line.netIqd)} strong style={{ fontSize: 'var(--tp-fs-lg)' }} />
         </Line>
       </dl>
+      {line.bonuses.length > 0 && (
+        <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
+          <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('ws.wages.pay.bonusesTitle')}</h3>
+          <BonusList bonuses={line.bonuses} testId="wages.pay.bonuses" />
+        </div>
+      )}
       <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
         {negative && <MessagePresenter tone="refused" message={tr('ws.wages.pay.belowZero')} />}
         {waiting > 0 && <MessagePresenter tone="info" message={tr('ws.wages.pay.waiting', { deductions: countPhrase('ws.wages.count.deductions', waiting, locale) })} />}

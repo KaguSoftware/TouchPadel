@@ -79,6 +79,9 @@ function ReviewScreen() {
       toast(t(res.order_id ? 'staff.floor.review.sent' : 'staff.floor.review.opened'), 'success');
       clearDraft(tableId);
       void queryClient.invalidateQueries({ queryKey: staffKeys.floor(venue) });
+      // The order counts toward the person's rewards: Today's track (mounted
+      // underneath) refetches now, not on the next return to the foreground.
+      void queryClient.invalidateQueries({ queryKey: staffKeys.myRewardsAll });
       router.dismissTo('/staff-order');
     },
     onError: (err) => setError(t(mapStaffError(err))),

@@ -155,6 +155,13 @@ const EN = {
         ? `${v.step} is past its due time. Open it to finish it.`
         : 'One of your checklists is past its due time. Open it to finish it.',
   },
+  // Staff rewards (0333): app.reward_sweep, the first time in a business month the person's
+  // orders reach one of their rewards. To that person only; the amount, the prize and the
+  // target stay in the app.
+  reward_unlocked: {
+    title: 'Reward unlocked',
+    body: () => 'You reached one of your rewards. Open the app to see it.',
+  },
 } satisfies Record<string, StaffCopy>;
 
 export type StaffTitleKey = keyof typeof EN;
@@ -250,6 +257,11 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
       v.step
         ? `${v.step}: فات موعدها. افتحها وأكملها.`
         : 'فات موعد إحدى قوائم التحقق الخاصة بك. افتحها وأكملها.',
+  },
+  // DRAFT-AR (0333): on the client's review list.
+  reward_unlocked: {
+    title: 'تحقّقت مكافأة',
+    body: () => 'وصلت إلى هدف إحدى مكافآتك. افتح التطبيق لتراها.',
   },
 };
 

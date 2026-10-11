@@ -47,6 +47,10 @@ import { staffAssistantAr } from './assistant.ar';
 import { staffScreenshotsEn } from './screenshots.en';
 import { staffScreenshotsAr } from './screenshots.ar';
 
+// The owner's per-person rewards for orders placed (0332; app/staff-rewards*.tsx, Today's track).
+import { staffRewardsEn } from './rewards.en';
+import { staffRewardsAr } from './rewards.ar';
+
 export const staffEn = {
   shell: staffShellEn,
   protocols: staffProtocolsEn,
@@ -64,6 +68,7 @@ export const staffEn = {
   floor: staffFloorEn,
   assistant: staffAssistantEn,
   screenshots: staffScreenshotsEn,
+  rewards: staffRewardsEn,
 } as const;
 
 export const staffAr = {
@@ -83,4 +88,5 @@ export const staffAr = {
   floor: staffFloorAr,
   assistant: staffAssistantAr,
   screenshots: staffScreenshotsAr,
+  rewards: staffRewardsAr,
 } as const;

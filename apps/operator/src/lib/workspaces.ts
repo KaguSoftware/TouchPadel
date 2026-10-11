@@ -65,6 +65,8 @@ export interface NavItem {
     | 'deductions' | 'incidents'
     // Wages (0270–0272): the owner's pay list and the manager's attendance.
     | 'wages' | 'attendance'
+    // Staff rewards (0332–0333): beside Wages, where a reached bonus lands.
+    | 'rewards'
     // Coaching (docs/design/coaching/operator.md §5.3.3): Setup's coaches, Financial's coach pay.
     | 'coaches' | 'coachPay'
     // Tournaments (build-contracts-2026-10-03 §1.11): the desk's list.
@@ -295,6 +297,9 @@ const OWNER_FINANCIAL: readonly NavItem[] = [
   // Wages (0270–0272): what each person is paid, when, and what comes off it.
   // The count is the wages due now or overdue: the owner's pay-day reminder.
   { to: '/wages', labelKey: 'wages', icon: 'banknote', badge: 'wagesDue' },
+  // Staff rewards (0332–0333): bonuses for orders placed, added to the wage the
+  // month after they are reached, so the row sits beside Wages.
+  { to: '/rewards', labelKey: 'rewards', icon: 'gift' },
   COACH_PAY,
   { to: '/admin/rates', labelKey: 'rates', icon: 'scale' },
   { to: '/admin/menu', labelKey: 'menuPrices', icon: 'layers', activePrefix: '/admin/menu', alsoActive: MENU_FAMILY },
@@ -549,6 +554,7 @@ export function workspaceForRoute(path: string): WorkspaceKey | null {
   if (path === '/financial' || path === '/observation' || path.startsWith('/observation/')) return 'owner';
   if (path === '/marketing' || path.startsWith('/marketing/')) return 'owner';
   if (path === '/wages') return 'owner';
+  if (path === '/rewards') return 'owner';
   if (path === '/ops') return 'manager';
   if (path === '/shop' || path.startsWith('/shop/')) return 'shop';
   // /tasks is not pinned: eight roles open it in their own workspace (the

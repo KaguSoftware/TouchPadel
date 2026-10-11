@@ -927,9 +927,10 @@ export async function buildMap({ catalog, sha } = {}) {
  * A page sentence longer than this is clipped in the compact prefix at its last clause
  * boundary (`; ` or `. `) and ends in ` …`. The page chunk keeps the whole sentence, so the
  * assistant still finds it by search; the prefix only has to say what each page is for. Set
- * when wages (0270–0272) and coaching (0273–0289) together took the prefix past the target.
+ * when wages (0270–0272) and coaching (0273–0289) together took the prefix past the target;
+ * 900 → 850 when the Rewards page (0332–0333) did it again.
  */
-export const COMPACT_SENTENCE_CAP = 900;
+export const COMPACT_SENTENCE_CAP = 850;
 
 function clipSentence(sentence) {
   if (sentence.length <= COMPACT_SENTENCE_CAP) return sentence;

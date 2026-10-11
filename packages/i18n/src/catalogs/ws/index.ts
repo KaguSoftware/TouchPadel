@@ -84,6 +84,9 @@ import { tournamentsAr } from './tournaments.ar';
 // Loyalty (docs/design/loyalty/build-contracts-2026-10-05.md §4): the operator lane's one file pair.
 import { loyaltyEn } from './loyalty.en';
 import { loyaltyAr } from './loyalty.ar';
+// Staff rewards (0332–0333): the owner's Rewards page; bonuses reach the wage through wages.*.
+import { rewardsEn } from './rewards.en';
+import { rewardsAr } from './rewards.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -117,6 +120,7 @@ export const wsEn = {
   coaching: coachingEn,
   tournaments: tournamentsEn,
   loyalty: loyaltyEn,
+  rewards: rewardsEn,
 } as const;
 
 export const wsAr = {
@@ -151,4 +155,5 @@ export const wsAr = {
   coaching: coachingAr,
   tournaments: tournamentsAr,
   loyalty: loyaltyAr,
+  rewards: rewardsAr,
 } as const;

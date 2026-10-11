@@ -1,5 +1,5 @@
 {
-  "generated_from": "75843f71594049ba97e4d369ff18af9f9e98ec7c",
+  "generated_from": "4e16eb9b846fd3767562ca1ee0db03952c7b6e2e",
   "chunks": [
     {
       "kind": "page",
@@ -443,6 +443,14 @@
     },
     {
       "kind": "page",
+      "ref": "page:/rewards",
+      "lang": "en",
+      "title": "/rewards — Rewards",
+      "body": "The owner's \"Rewards\" page (app.staff_rewards_board): each waiter, cashier and manager by name with their orders this and last month and their rewards, \"Reached\" or orders to go; \"Add reward\" (app.set_staff_reward) and \"Remove\" (app.end_staff_reward). A reached bonus joins the next unpaid wage once the month ends; never read by the owner assistant.\nRoles: owner.\nReached from: Management › Financial: \"Rewards\".",
+      "route": "/rewards"
+    },
+    {
+      "kind": "page",
       "ref": "page:/setup",
       "lang": "en",
       "title": "/setup — Overview",
@@ -638,7 +646,7 @@
       "ref": "page:/wages",
       "lang": "en",
       "title": "/wages — Wages",
-      "body": "The owner's pay list for one branch and month (app.wages_month): each person's salary and pay day, the approved deductions and lateness penalties that come off it, the net, and whether it is upcoming, due, overdue or paid, with due and overdue wages also reminded on the rail and the panel (app.wages_due); the owner sets a salary and pay day (app.set_staff_wage), marks a wage paid or undoes that with a reason (app.mark_wage_paid, app.undo_wage_paid), approves or declines waiting deductions (app.decide_deduction) and deducts from a wage directly (app.propose_deduction). Wages are never read by the owner assistant.\nRoles: owner.\nReached from: Management › Financial: \"Wages\".",
+      "body": "The owner's pay list for one branch and month (app.wages_month): each person's salary and pay day, the approved deductions and lateness penalties that come off it, the reward bonuses added to it, the net, and whether it is upcoming, due, overdue or paid, with due and overdue wages also reminded on the rail and the panel (app.wages_due); the owner sets a salary and pay day (app.set_staff_wage), marks a wage paid or undoes that with a reason (app.mark_wage_paid, app.undo_wage_paid), approves or declines waiting deductions (app.decide_deduction) and deducts from a wage directly (app.propose_deduction). Wages are never read by the owner assistant.\nRoles: owner.\nReached from: Management › Financial: \"Wages\".",
       "route": "/wages"
     },
     {
@@ -1262,7 +1270,7 @@
       "ref": "nav:owner:financial",
       "lang": "ar",
       "title": "الإدارة › المالية",
-      "body": "ما يدخل وما يخرج من المال، وهل يتطابق النقد\nالصفحة الرئيسية: /financial\nالصفوف: نظرة عامة → /financial; التقارير → /reports/revenue; درج النقد → /till/drawer; إغلاق اليوم → /admin/day-close; الرواتب → /wages; مستحقات المدرّبين → /reports/coaches; الأسعار → /admin/rates; أسعار المنيو → /admin/menu",
+      "body": "ما يدخل وما يخرج من المال، وهل يتطابق النقد\nالصفحة الرئيسية: /financial\nالصفوف: نظرة عامة → /financial; التقارير → /reports/revenue; درج النقد → /till/drawer; إغلاق اليوم → /admin/day-close; الرواتب → /wages; المكافآت → /rewards; مستحقات المدرّبين → /reports/coaches; الأسعار → /admin/rates; أسعار المنيو → /admin/menu",
       "route": "/financial"
     },
     {
@@ -1270,7 +1278,7 @@
       "ref": "nav:owner:financial",
       "lang": "en",
       "title": "Management › Financial",
-      "body": "Money in, money out, and whether the cash agrees\nHome: /financial\nRows: Overview → /financial; Reports → /reports/revenue; Cash drawer → /till/drawer; Day close → /admin/day-close; Wages → /wages; Coach pay → /reports/coaches; Rates → /admin/rates; Menu prices → /admin/menu",
+      "body": "Money in, money out, and whether the cash agrees\nHome: /financial\nRows: Overview → /financial; Reports → /reports/revenue; Cash drawer → /till/drawer; Day close → /admin/day-close; Wages → /wages; Rewards → /rewards; Coach pay → /reports/coaches; Rates → /admin/rates; Menu prices → /admin/menu",
       "route": "/financial"
     },
     {
@@ -1384,6 +1392,22 @@
       "title": "Management › Financial: Reports",
       "body": "Rail row \"Reports\" in the Management workspace › Financial opens /reports/revenue. Arabic label: \"التقارير\". Roles: owner.",
       "route": "/reports/revenue"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:owner:financial:/rewards",
+      "lang": "ar",
+      "title": "الإدارة › المالية: المكافآت",
+      "body": "صف \"المكافآت\" في مساحة \"الإدارة\" › المالية يفتح /rewards. الاسم بالإنجليزية: \"Rewards\". الأدوار: owner.",
+      "route": "/rewards"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:owner:financial:/rewards",
+      "lang": "en",
+      "title": "Management › Financial: Rewards",
+      "body": "Rail row \"Rewards\" in the Management workspace › Financial opens /rewards. Arabic label: \"المكافآت\". Roles: owner.",
+      "route": "/rewards"
     },
     {
       "kind": "nav",
@@ -4030,7 +4054,7 @@
       "ref": "action:app.mark_wage_paid",
       "lang": "en",
       "title": "app.mark_wage_paid",
-      "body": "wages (0271). The owner at the branch: marks a person's pay month (at most next month) paid, recording app.wage_line's figures as they stand: salary, approved deductions, lateness penalties, net, and the amount paid (the net, or 0 below zero; nothing carries over). The month is frozen from then on. p_expected_net_iqd, the net the owner confirmed, must still be the net. Returns {id, status: paid, pay_month, net_iqd, paid_iqd}. Idempotent by key. FORBIDDEN (hint staff_id), INVALID_ARGUMENT (hint month), WAGE_ALREADY_PAID, WAGE_NOT_SET (no salary for that month, or 0), WAGE_CHANGED. Audit staff.wage.paid {status}.\nSignature: app.mark_wage_paid(p_staff_id uuid, p_month date, p_expected_net_iqd bigint default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.wage.paid.\nError codes: FORBIDDEN, INVALID_ARGUMENT, WAGE_ALREADY_PAID, WAGE_NOT_SET, WAGE_CHANGED.\nCalled from: apps/operator/src/features/wages/MarkPaidDialog.tsx.\nDefined in migration 0271 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "wages (0271), reward bonuses (0333). The owner at the branch: marks a person's pay month (at most next month) paid, recording app.wage_line's figures as they stand: salary, approved deductions, lateness penalties, reward bonuses (bonuses_iqd, bonus_count), net, and the amount paid (the net, or 0 below zero; nothing carries over). The month is frozen from then on. p_expected_net_iqd, the net the owner confirmed (bonuses included), must still be the net. Returns {id, status: paid, pay_month, net_iqd, paid_iqd}. Idempotent by key. FORBIDDEN (hint staff_id), INVALID_ARGUMENT (hint month), WAGE_ALREADY_PAID, WAGE_NOT_SET (no salary for that month, or 0, and no reward bonus in it; a month with no salary but a bonus is paid for the bonus alone, due by the month's last day when there is no pay day), WAGE_CHANGED. Audit staff.wage.paid {status}.\nSignature: app.mark_wage_paid(p_staff_id uuid, p_month date, p_expected_net_iqd bigint default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.wage.paid.\nError codes: FORBIDDEN, INVALID_ARGUMENT, WAGE_ALREADY_PAID, WAGE_NOT_SET, WAGE_CHANGED.\nCalled from: apps/operator/src/features/wages/MarkPaidDialog.tsx.\nDefined in migration 0333 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -6206,7 +6230,7 @@
       "ref": "action:app.wages_month",
       "lang": "en",
       "title": "app.wages_month",
-      "body": "wages (0271). The owner at the branch: {month, current_month, today, remind_days, totals: {salary_iqd, deductions_iqd, penalties_iqd, net_iqd, paid_iqd, people, paid, due, overdue, upcoming, unset}, people: [app.wage_line + {staff_id, display_name, role, is_active, member, waiting_count, deductions: [{id, amount_iqd, deduction_date, reason, decided_at}], lateness: [{id, work_date, late_minutes, early_leave_minutes, grace_minutes, penalty_iqd, note}]}]} for p_month (NULL: the branch's current business month): everyone active at the branch but an owner, and anyone the month has a payment, approved deduction or recorded day for. FORBIDDEN for anyone else.\nSignature: app.wages_month(p_venue_id uuid default null, p_month date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0271 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "wages (0271), reward bonuses (0333). The owner at the branch: {month, current_month, today, remind_days, totals: {salary_iqd, deductions_iqd, penalties_iqd, bonuses_iqd, net_iqd, paid_iqd, people, paid, due, overdue, upcoming, unset}, people: [app.wage_line (with bonuses_iqd, bonus_count, bonuses, bonus_only) + {staff_id, display_name, role, is_active, member, waiting_count, deductions: [{id, amount_iqd, deduction_date, reason, decided_at}], lateness: [{id, work_date, late_minutes, early_leave_minutes, grace_minutes, penalty_iqd, note}]}]} for p_month (NULL: the branch's current business month): everyone active at the branch but an owner, and anyone the month has a payment, approved deduction, recorded day or reward bonus for. FORBIDDEN for anyone else.\nSignature: app.wages_month(p_venue_id uuid default null, p_month date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0333 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -7443,6 +7467,30 @@
     },
     {
       "kind": "table",
+      "ref": "table:staff_reward_earnings",
+      "lang": "en",
+      "title": "table staff_reward_earnings",
+      "body": "staff_reward_earnings (0333): a reward the person reached in a business month (earned_month, as 0332 names months), written by app.reward_sweep once that month ended and the next month's first business day passed, one per person, target and month, with the bonus and prize copied and the wage month it is paid in (pay_month, the first unpaid one from the month after). Frozen once written: a later void or a changed reward never touches it. app.wage_line adds reward_iqd to the net of its pay month. Read by the owner only. Never readable by the owner assistant or any LLM.\nCreated in migration 0333.\nColumns:\n  id uuid primary key default gen_random_uuid() — Row id.\n  venue_id uuid not null references venues(id) — The branch whose orders counted.\n  staff_id uuid not null references staff(id) — The person who reached it.\n  reward_id uuid not null references staff_rewards(id) — The standing reward (staff_rewards) it was reached for.\n  earned_month date not null — The business month it was reached in (its first day).\n  target int not null — Copied: the number of orders it asked for.\n  reward_iqd iqd not null — Copied: the bonus in IQD; 0 for a prize-only reward.\n  prize text — Copied: the prize in the owner's words, or NULL.\n  pay_month date not null — The wage month the bonus is added to (its first day).\n  created_at timestamptz not null default now() — When the month was closed for it.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_reward_unlocks",
+      "lang": "en",
+      "title": "table staff_reward_unlocks",
+      "body": "staff_reward_unlocks (0333): push bookkeeping. app.reward_sweep writes one row the first time in a business month a person's count reaches an active reward's target, and queues the reward_unlocked push to that person then; the row stops a second push for the same reward and month. Read by no client. Never readable by the owner assistant or any LLM.\nCreated in migration 0333.\nColumns:\n  reward_id uuid not null references staff_rewards(id) — The reward reached.\n  business_month date not null — The business month it was reached in (its first day).\n  venue_id uuid not null references venues(id) — The branch.\n  staff_id uuid not null references staff(id) — The person told.\n  unlocked_at timestamptz not null default now() — When the sweep saw it.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_rewards",
+      "lang": "en",
+      "title": "table staff_rewards",
+      "body": "staff_rewards (0332): the owner's standing reward for a person at one branch: reach target orders placed (not voided) in a business month and earn reward_iqd and/or prize. Counted fresh every business month; one active row per person and target, at most 5 active per person. Written by the owner through app.set_staff_reward and app.end_staff_reward; read by the owner only (each person reads their own through app.my_rewards). Never readable by the owner assistant or any LLM.\nCreated in migration 0332.\nColumns:\n  id uuid primary key default gen_random_uuid() — Row id.\n  venue_id uuid not null references venues(id) — The branch whose orders count.\n  staff_id uuid not null references staff(id) — The person (a waiter, cashier or manager at the branch).\n  metric text not null default 'orders_placed' — What is counted: orders_placed (the only one).\n  target int not null — The number of orders in a business month, 1 to 100,000.\n  reward_iqd iqd not null default 0 — The bonus, 0 to 10,000,000 IQD; 0 when there is only a prize.\n  prize text — An optional prize in the owner's words (1 to 80 characters).\n  set_by uuid not null references staff(id) — The owner who set it.\n  set_at timestamptz not null default now() — When it was set.\n  ended_by uuid references staff(id) — The owner who ended it.\n  ended_at timestamptz — When it was ended; NULL while active.",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:staff_suggestions",
       "lang": "en",
       "title": "table staff_suggestions",
@@ -7710,7 +7758,7 @@
       "ref": "table:wage_payments",
       "lang": "en",
       "title": "table wage_payments",
-      "body": "wage_payments (0270): the owner marked a person's pay month paid at a branch, with a snapshot of the figures (salary, approved deductions, lateness penalties, net, the amount paid). One row per person and month; undone, the row stays with the reason until the month is paid again. A paid month is frozen. Read by the owner only. Never readable by the owner assistant or any LLM.\nCreated in migration 0270.\nColumns:\n  id uuid primary key default gen_random_uuid() — Payment id.\n  venue_id uuid not null references venues(id) — The branch that paid it.\n  staff_id uuid not null references staff(id) — The person paid.\n  pay_month date not null — The pay month (the first day of that month).\n  due_date date not null — The pay day in that month, as it was when paid.\n  salary_iqd iqd not null — Snapshot: the salary for the month.\n  deductions_iqd iqd not null — Snapshot: the approved deductions whose pay month it is.\n  deduction_count int not null — Snapshot: how many approved deductions.\n  penalties_iqd iqd not null — Snapshot: the lateness penalties whose pay month it is.\n  penalty_days int not null — Snapshot: how many days cost a penalty.\n  net_iqd iqd_signed not null — Snapshot: salary minus deductions minus penalties; may be below zero.\n  paid_iqd iqd not null — The amount paid: the net, or 0 when the net is below zero (nothing carries over).\n  status text not null default 'paid' — paid, or undone (the owner took it back; paying the month again makes it paid).\n  paid_by uuid not null references staff(id) — The owner who marked it paid.\n  paid_at timestamptz not null default now() — When it was marked paid.\n  undone_by uuid references staff(id) — The owner who undid it.\n  undone_at timestamptz — When it was undone.\n  undo_reason text — Why it was undone (1 to 1000 characters).",
+      "body": "wage_payments (0270): the owner marked a person's pay month paid at a branch, with a snapshot of the figures (salary, approved deductions, lateness penalties, net, the amount paid). One row per person and month; undone, the row stays with the reason until the month is paid again. A paid month is frozen. Read by the owner only. Never readable by the owner assistant or any LLM.\nCreated in migration 0270.\nColumns:\n  id uuid primary key default gen_random_uuid() — Payment id.\n  venue_id uuid not null references venues(id) — The branch that paid it.\n  staff_id uuid not null references staff(id) — The person paid.\n  pay_month date not null — The pay month (the first day of that month).\n  due_date date not null — The pay day in that month, as it was when paid.\n  salary_iqd iqd not null — Snapshot: the salary for the month.\n  deductions_iqd iqd not null — Snapshot: the approved deductions whose pay month it is.\n  deduction_count int not null — Snapshot: how many approved deductions.\n  penalties_iqd iqd not null — Snapshot: the lateness penalties whose pay month it is.\n  penalty_days int not null — Snapshot: how many days cost a penalty.\n  net_iqd iqd_signed not null — Snapshot: salary minus deductions minus penalties plus bonuses (0333); may be below zero.\n  paid_iqd iqd not null — The amount paid: the net, or 0 when the net is below zero (nothing carries over).\n  status text not null default 'paid' — paid, or undone (the owner took it back; paying the month again makes it paid).\n  paid_by uuid not null references staff(id) — The owner who marked it paid.\n  paid_at timestamptz not null default now() — When it was marked paid.\n  undone_by uuid references staff(id) — The owner who undid it.\n  undone_at timestamptz — When it was undone.\n  undo_reason text — Why it was undone (1 to 1000 characters).\n  bonuses_iqd iqd not null default 0 — Snapshot: the reward bonuses whose pay month it is (0333).\n  bonus_count int not null default 0 — Snapshot: how many reward bonuses above 0 IQD (0333).",
       "route": null
     },
     {
@@ -13555,6 +13603,190 @@
     },
     {
       "kind": "column",
+      "ref": "column:staff_reward_earnings.created_at",
+      "lang": "en",
+      "title": "staff_reward_earnings.created_at",
+      "body": "timestamptz not null default now()\nWhen the month was closed for it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_reward_earnings.earned_month",
+      "lang": "en",
+      "title": "staff_reward_earnings.earned_month",
+      "body": "date not null\nThe business month it was reached in (its first day).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_reward_earnings.pay_month",
+      "lang": "en",
+      "title": "staff_reward_earnings.pay_month",
+      "body": "date not null\nThe wage month the bonus is added to (its first day).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_reward_earnings.prize",
+      "lang": "en",
+      "title": "staff_reward_earnings.prize",
+      "body": "text\nCopied: the prize in the owner's words, or NULL.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_reward_earnings.reward_id",
+      "lang": "en",
+      "title": "staff_reward_earnings.reward_id",
+      "body": "uuid not null references staff_rewards(id)\nThe standing reward (staff_rewards) it was reached for.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_reward_earnings.reward_iqd",
+      "lang": "en",
+      "title": "staff_reward_earnings.reward_iqd",
+      "body": "iqd not null\nCopied: the bonus in IQD; 0 for a prize-only reward.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_reward_earnings.staff_id",
+      "lang": "en",
+      "title": "staff_reward_earnings.staff_id",
+      "body": "uuid not null references staff(id)\nThe person who reached it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_reward_earnings.target",
+      "lang": "en",
+      "title": "staff_reward_earnings.target",
+      "body": "int not null\nCopied: the number of orders it asked for.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_reward_earnings.venue_id",
+      "lang": "en",
+      "title": "staff_reward_earnings.venue_id",
+      "body": "uuid not null references venues(id)\nThe branch whose orders counted.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_reward_unlocks.business_month",
+      "lang": "en",
+      "title": "staff_reward_unlocks.business_month",
+      "body": "date not null\nThe business month it was reached in (its first day).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_reward_unlocks.reward_id",
+      "lang": "en",
+      "title": "staff_reward_unlocks.reward_id",
+      "body": "uuid not null references staff_rewards(id)\nThe reward reached.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_reward_unlocks.staff_id",
+      "lang": "en",
+      "title": "staff_reward_unlocks.staff_id",
+      "body": "uuid not null references staff(id)\nThe person told.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_reward_unlocks.unlocked_at",
+      "lang": "en",
+      "title": "staff_reward_unlocks.unlocked_at",
+      "body": "timestamptz not null default now()\nWhen the sweep saw it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_rewards.ended_at",
+      "lang": "en",
+      "title": "staff_rewards.ended_at",
+      "body": "timestamptz\nWhen it was ended; NULL while active.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_rewards.ended_by",
+      "lang": "en",
+      "title": "staff_rewards.ended_by",
+      "body": "uuid references staff(id)\nThe owner who ended it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_rewards.metric",
+      "lang": "en",
+      "title": "staff_rewards.metric",
+      "body": "text not null default 'orders_placed'\nWhat is counted: orders_placed (the only one).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_rewards.prize",
+      "lang": "en",
+      "title": "staff_rewards.prize",
+      "body": "text\nAn optional prize in the owner's words (1 to 80 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_rewards.reward_iqd",
+      "lang": "en",
+      "title": "staff_rewards.reward_iqd",
+      "body": "iqd not null default 0\nThe bonus, 0 to 10,000,000 IQD; 0 when there is only a prize.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_rewards.set_at",
+      "lang": "en",
+      "title": "staff_rewards.set_at",
+      "body": "timestamptz not null default now()\nWhen it was set.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_rewards.set_by",
+      "lang": "en",
+      "title": "staff_rewards.set_by",
+      "body": "uuid not null references staff(id)\nThe owner who set it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_rewards.staff_id",
+      "lang": "en",
+      "title": "staff_rewards.staff_id",
+      "body": "uuid not null references staff(id)\nThe person (a waiter, cashier or manager at the branch).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_rewards.target",
+      "lang": "en",
+      "title": "staff_rewards.target",
+      "body": "int not null\nThe number of orders in a business month, 1 to 100,000.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_rewards.venue_id",
+      "lang": "en",
+      "title": "staff_rewards.venue_id",
+      "body": "uuid not null references venues(id)\nThe branch whose orders count.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:staff_suggestions.author_id",
       "lang": "en",
       "title": "staff_suggestions.author_id",
@@ -14915,6 +15147,22 @@
     },
     {
       "kind": "column",
+      "ref": "column:wage_payments.bonus_count",
+      "lang": "en",
+      "title": "wage_payments.bonus_count",
+      "body": "int not null default 0\nSnapshot: how many reward bonuses above 0 IQD (0333).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:wage_payments.bonuses_iqd",
+      "lang": "en",
+      "title": "wage_payments.bonuses_iqd",
+      "body": "iqd not null default 0\nSnapshot: the reward bonuses whose pay month it is (0333).",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:wage_payments.deduction_count",
       "lang": "en",
       "title": "wage_payments.deduction_count",
@@ -14942,7 +15190,7 @@
       "ref": "column:wage_payments.net_iqd",
       "lang": "en",
       "title": "wage_payments.net_iqd",
-      "body": "iqd_signed not null\nSnapshot: salary minus deductions minus penalties; may be below zero.",
+      "body": "iqd_signed not null\nSnapshot: salary minus deductions minus penalties plus bonuses (0333); may be below zero.",
       "route": null
     },
     {
@@ -20374,7 +20622,7 @@
       "ref": "label:ws.owner.financialHome",
       "lang": "ar",
       "title": "ws.owner.financialHome (packages/i18n/src/catalogs/ws/owner.ar.ts)",
-      "body": "title: المالية\nscreens: كل ما في المالية\ncards.reports: الإيرادات ودخل الملاعب ومبيعات الكافيه لأي فترة، لكل منها تبويب، مع التفاصيل والتصدير بصيغة CSV.\ncards.cashDrawer: كل مرة فُتح فيها درج النقد وسببها. الأثر الملموس وراء رقم النقد.\ncards.dayClose: المتوقع مقابل المعدود، والفرق في كل يوم مُغلق.\ncards.rates: كم تكلّف ساعة الملعب، حسب اليوم والوقت. التغيير يسري على الحجوزات القادمة فقط.\ncards.menuPrices: أسعار الكافيه. التغيير هنا يؤثر في إيراد الغد، لا إيراد اليوم.\ncards.wages: راتب كل شخص ويوم صرفه، وما يُخصم منه، وتسجيل صرفه. وافق على الخصومات من هنا.\ncards.coachPay: كشوف حساب المدرّبين الشهرية: الاعتماد وتسجيل الدفع\nstatus.toApprove: للاعتماد\nstatus.toPay: للدفع\nheadline.title: هذا الشهر حتى الآن\nheadline.openPanel: فتح لوحة الإدارة\ncloses.title: النقد في إغلاقات اليوم الأخيرة\ncloses.lead: ما كان ينبغي أن يكون في الدرج، مقابل ما عُدّ فعلًا.\ncloses.dayOpen: اليوم مفتوح منذ {time}. يُعدّ نقده عند إغلاقه.\ncloses.dayNotOpen: لا يوجد يوم مفتوح الآن.\ncloses.open: الذهاب إلى إغلاق اليوم\ncloses.empty: لم يُغلق أي يوم بعد.\ncloses.error: تعذّر تحميل إغلاقات اليوم الأخيرة.\ncloses.expected: المتوقع\ncloses.counted: المعدود\ncloses.notCounted: لم يُعدّ",
+      "body": "title: المالية\nscreens: كل ما في المالية\ncards.reports: الإيرادات ودخل الملاعب ومبيعات الكافيه لأي فترة، لكل منها تبويب، مع التفاصيل والتصدير بصيغة CSV.\ncards.cashDrawer: كل مرة فُتح فيها درج النقد وسببها. الأثر الملموس وراء رقم النقد.\ncards.dayClose: المتوقع مقابل المعدود، والفرق في كل يوم مُغلق.\ncards.rates: كم تكلّف ساعة الملعب، حسب اليوم والوقت. التغيير يسري على الحجوزات القادمة فقط.\ncards.menuPrices: أسعار الكافيه. التغيير هنا يؤثر في إيراد الغد، لا إيراد اليوم.\ncards.wages: راتب كل شخص ويوم صرفه، وما يُخصم منه، وتسجيل صرفه. وافق على الخصومات من هنا.\ncards.rewards: مكافآت مالية وجوائز لعدد من الطلبات في الشهر، تحدّدها لكل شخص. وتُضاف المكافأة المالية التي يبلغها إلى راتب الشهر التالي.\ncards.coachPay: كشوف حساب المدرّبين الشهرية: الاعتماد وتسجيل الدفع\nstatus.toApprove: للاعتماد\nstatus.toPay: للدفع\nheadline.title: هذا الشهر حتى الآن\nheadline.openPanel: فتح لوحة الإدارة\ncloses.title: النقد في إغلاقات اليوم الأخيرة\ncloses.lead: ما كان ينبغي أن يكون في الدرج، مقابل ما عُدّ فعلًا.\ncloses.dayOpen: اليوم مفتوح منذ {time}. يُعدّ نقده عند إغلاقه.\ncloses.dayNotOpen: لا يوجد يوم مفتوح الآن.\ncloses.open: الذهاب إلى إغلاق اليوم\ncloses.empty: لم يُغلق أي يوم بعد.\ncloses.error: تعذّر تحميل إغلاقات اليوم الأخيرة.\ncloses.expected: المتوقع\ncloses.counted: المعدود\ncloses.notCounted: لم يُعدّ",
       "route": "/panel"
     },
     {
@@ -20382,7 +20630,7 @@
       "ref": "label:ws.owner.financialHome",
       "lang": "en",
       "title": "ws.owner.financialHome (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "title: Financial\nscreens: Everything in Financial\ncards.reports: Revenue, court income and cafe sales over any period — one tab each, with drill-through and CSV export.\ncards.cashDrawer: Every time the drawer opened and why. The physical trail behind the cash figure.\ncards.dayClose: Expected against counted, and the variance on each closed day.\ncards.rates: What an hour on a court costs, by day and time. Changes apply to future bookings only.\ncards.menuPrices: Cafe prices. A change here moves tomorrow’s cafe revenue, not today’s.\ncards.wages: Each person’s salary and pay day, what comes off it, and marking it paid. Approve deductions here.\ncards.coachPay: Monthly coach statements: approve and mark paid\nstatus.toApprove: To approve\nstatus.toPay: To pay\nheadline.title: This month so far\nheadline.openPanel: Open the management panel\ncloses.title: Cash at recent day closes\ncloses.lead: What the drawer should have held, against what was counted.\ncloses.dayOpen: The day is open since {time}. Its cash is counted when it closes.\ncloses.dayNotOpen: No day is open right now.\ncloses.open: Go to day close\ncloses.empty: No day has been closed yet.\ncloses.error: Recent day closes could not be loaded.\ncloses.expected: Expected\ncloses.counted: Counted\ncloses.notCounted: Not counted",
+      "body": "title: Financial\nscreens: Everything in Financial\ncards.reports: Revenue, court income and cafe sales over any period — one tab each, with drill-through and CSV export.\ncards.cashDrawer: Every time the drawer opened and why. The physical trail behind the cash figure.\ncards.dayClose: Expected against counted, and the variance on each closed day.\ncards.rates: What an hour on a court costs, by day and time. Changes apply to future bookings only.\ncards.menuPrices: Cafe prices. A change here moves tomorrow’s cafe revenue, not today’s.\ncards.wages: Each person’s salary and pay day, what comes off it, and marking it paid. Approve deductions here.\ncards.rewards: Bonuses and prizes for orders placed in a month, set per person. A bonus reached is added to the next month’s wage.\ncards.coachPay: Monthly coach statements: approve and mark paid\nstatus.toApprove: To approve\nstatus.toPay: To pay\nheadline.title: This month so far\nheadline.openPanel: Open the management panel\ncloses.title: Cash at recent day closes\ncloses.lead: What the drawer should have held, against what was counted.\ncloses.dayOpen: The day is open since {time}. Its cash is counted when it closes.\ncloses.dayNotOpen: No day is open right now.\ncloses.open: Go to day close\ncloses.empty: No day has been closed yet.\ncloses.error: Recent day closes could not be loaded.\ncloses.expected: Expected\ncloses.counted: Counted\ncloses.notCounted: Not counted",
       "route": "/panel"
     },
     {
@@ -21635,6 +21883,150 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.rewards",
+      "lang": "ar",
+      "title": "ws.rewards (packages/i18n/src/catalogs/ws/rewards.ar.ts)",
+      "body": "title: المكافآت\nlead: حدّد مكافأة مالية أو جائزة لعدد من الطلبات المسجّلة في الشهر. لا يرى كل شخص على هاتفه إلا تقدّمه هو. وتُضاف المكافأة المالية إلى راتبه في الشهر الذي يلي بلوغها.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards",
+      "lang": "en",
+      "title": "ws.rewards (packages/i18n/src/catalogs/ws/rewards.en.ts)",
+      "body": "title: Rewards\nlead: Set a bonus or a prize for a number of orders placed in a month. Each person sees only their own progress on their phone. Bonuses are added to their wage the month after they are reached.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.actions",
+      "lang": "ar",
+      "title": "ws.rewards.actions (packages/i18n/src/catalogs/ws/rewards.ar.ts)",
+      "body": "add: إضافة مكافأة\nremove: إزالة\nremoveFor: إزالة مكافأة {name} عند {orders}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.actions",
+      "lang": "en",
+      "title": "ws.rewards.actions (packages/i18n/src/catalogs/ws/rewards.en.ts)",
+      "body": "add: Add reward\nremove: Remove\nremoveFor: Remove the reward at {orders} for {name}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.cols",
+      "lang": "ar",
+      "title": "ws.rewards.cols (packages/i18n/src/catalogs/ws/rewards.ar.ts)",
+      "body": "person: الشخص\nthisMonth: هذا الشهر\nlastMonth: الشهر الماضي\nrewards: المكافآت",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.cols",
+      "lang": "en",
+      "title": "ws.rewards.cols (packages/i18n/src/catalogs/ws/rewards.en.ts)",
+      "body": "person: Person\nthisMonth: This month\nlastMonth: Last month\nrewards: Rewards",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.count",
+      "lang": "ar",
+      "title": "ws.rewards.count (packages/i18n/src/catalogs/ws/rewards.ar.ts)",
+      "body": "orders.zero: لا طلبات\norders.one: طلب واحد\norders.two: طلبان\norders.few: {count} طلبات\norders.many: {count} طلبًا\norders.other: {count} طلب\ndaysLeft.zero: آخر يوم\ndaysLeft.one: آخر يوم\ndaysLeft.two: بقي يومان\ndaysLeft.few: بقيت {count} أيام\ndaysLeft.many: بقي {count} يومًا\ndaysLeft.other: بقي {count} يوم",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.count",
+      "lang": "en",
+      "title": "ws.rewards.count (packages/i18n/src/catalogs/ws/rewards.en.ts)",
+      "body": "orders.zero: 0 orders\norders.one: 1 order\norders.two: 2 orders\norders.few: {count} orders\norders.many: {count} orders\norders.other: {count} orders\ndaysLeft.zero: last day\ndaysLeft.one: last day\ndaysLeft.two: 2 days left\ndaysLeft.few: {count} days left\ndaysLeft.many: {count} days left\ndaysLeft.other: {count} days left",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.empty",
+      "lang": "ar",
+      "title": "ws.rewards.empty (packages/i18n/src/catalogs/ws/rewards.ar.ts)",
+      "body": "title: لا أحد في هذا الفرع يمكن مكافأته\nbody: يظهر هنا النُّدُل والكاشيرية والمديرون العاملون حاليًا في هذا الفرع.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.empty",
+      "lang": "en",
+      "title": "ws.rewards.empty (packages/i18n/src/catalogs/ws/rewards.en.ts)",
+      "body": "title: Nobody to reward at this branch\nbody: Waiters, cashiers and managers active at this branch show here.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.form",
+      "lang": "ar",
+      "title": "ws.rewards.form (packages/i18n/src/catalogs/ws/rewards.ar.ts)",
+      "body": "title: إضافة مكافأة لـ {name}\ntarget: عدد الطلبات في الشهر\ntargetHint: من 1 إلى 100,000.\nbonus: المكافأة المالية\nbonusHint: حتى 10,000,000. اتركها فارغة إن كانت المكافأة جائزة فقط.\nprize: الجائزة\nprizeHint: حتى {max} حرفًا، مثل عشاء لشخصين.\nneedOne: أدخل مكافأة مالية أو جائزة أو كليهما.\nsave: حفظ المكافأة\nsaved: حُفظت المكافأة.\nissue.target: أدخل عدد طلبات من 1 إلى 100,000.\nissue.bonus: أدخل مبلغًا لا يتجاوز 10,000,000.\nissue.prize: لا تتجاوز {max} حرفًا.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.form",
+      "lang": "en",
+      "title": "ws.rewards.form (packages/i18n/src/catalogs/ws/rewards.en.ts)",
+      "body": "title: Add a reward for {name}\ntarget: Orders in a month\ntargetHint: From 1 to 100,000.\nbonus: Bonus\nbonusHint: Up to 10,000,000. Leave it empty for a prize only.\nprize: Prize\nprizeHint: Up to {max} characters, for example dinner for two.\nneedOne: Enter a bonus, a prize, or both.\nsave: Save reward\nsaved: Reward saved.\nissue.target: Enter a number of orders from 1 to 100,000.\nissue.bonus: Enter a bonus up to 10,000,000.\nissue.prize: Keep it to {max} characters.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.links",
+      "lang": "ar",
+      "title": "ws.rewards.links (packages/i18n/src/catalogs/ws/rewards.ar.ts)",
+      "body": "wages: الرواتب",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.links",
+      "lang": "en",
+      "title": "ws.rewards.links (packages/i18n/src/catalogs/ws/rewards.en.ts)",
+      "body": "wages: Wages",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.remove",
+      "lang": "ar",
+      "title": "ws.rewards.remove (packages/i18n/src/catalogs/ws/rewards.ar.ts)",
+      "body": "title: إزالة هذه المكافأة؟\nbody: لن يرى {name} المكافأة عند {orders} بعد الآن. لكن هذا الشهر ما زال يُحتسب: إن بلغها قبل نهاية الشهر فهي من حقه.\nconfirm: إزالة المكافأة\nkeep: إبقاؤها\ndone: أُزيلت المكافأة.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.remove",
+      "lang": "en",
+      "title": "ws.rewards.remove (packages/i18n/src/catalogs/ws/rewards.en.ts)",
+      "body": "title: Remove this reward?\nbody: {name} will no longer see the reward at {orders}. This month still counts: if they reach it by the end of the month, it is still earned.\nconfirm: Remove reward\nkeep: Keep it\ndone: Reward removed.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.reward",
+      "lang": "ar",
+      "title": "ws.rewards.reward (packages/i18n/src/catalogs/ws/rewards.ar.ts)",
+      "body": "at: عند {orders}\nreached: تحققت\ntoGo: بقي {orders}\nnone: لا مكافآت محدّدة.\nlimit: لكل شخص {max} مكافآت على الأكثر: أزل واحدة لتضيف أخرى.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.rewards.reward",
+      "lang": "en",
+      "title": "ws.rewards.reward (packages/i18n/src/catalogs/ws/rewards.en.ts)",
+      "body": "at: At {orders}\nreached: Reached\ntoGo: {orders} to go\nnone: No rewards set.\nlimit: Up to {max} rewards each: remove one to add another.",
+      "route": null
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.rolePages.ideas",
       "lang": "ar",
       "title": "ws.rolePages.ideas (packages/i18n/src/catalogs/ws/rolePages.ar.ts)",
@@ -21782,7 +22174,7 @@
       "ref": "label:ws.shell.nav",
       "lang": "ar",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "today: اليوم\ncalendar: التقويم\ncustomers: الزبائن\nnewSeries: سلسلة جديدة\nblockCourt: إيقاف ملعب\ntill: الصندوق\nopenTabs: الفواتير المفتوحة\ncashDrawer: درج النقد\noverview: نظرة عامة\nbookings: الحجوزات\ntills: الصناديق\ndayClose: إغلاق اليوم\nmenu: المنيو\nrates: الأسعار\npromotions: العروض\nstock: المخزون\nreports: التقارير\naudit: سجل التدقيق\npanel: لوحة الإدارة\nanalytics: التحليلات\nstaff: الموظفون\nbranches: الفروع\ncourts: الملاعب\ntables: الطاولات ورموز QR\nsettings: إعدادات المكان\nguestSite: موقع الضيوف\nmenuPrices: أسعار المنيو\nonHand: المتوفر\ngoodsIn: استلام البضائع\nmoveStock: نقل المخزون\nwasteProduction: الهدر والتحضير\nexpiry: الصلاحية\nalerts: التنبيهات\nstockCount: جرد المخزون\ncountDifferences: فروقات الجرد\nmargins: الهوامش\ningredients: المكوّنات\nrecipes: الوصفات\nstockValue: قيمة المخزون\nshop: المتجر\nshopTill: البيع\nshopStock: مخزون المتجر\nshopReceive: استلام البضائع\nshopCounts: جرد المخزون\nshopProducts: المنتجات\nshopSuppliers: المورّدون\nfloorNow: الصالة الآن\nstaffActivity: نشاط الموظفين\nrequests: طلبات الموظفين\nmarketing: التسويق\ntelegram: تيليغرام\nassistant: المساعد\nmyTasks: مهامي\nprotocols: البروتوكولات\nsuggestions: الاقتراحات\ndeductions: الخصومات من الراتب\nincidents: الحوادث\nwages: الرواتب\nattendance: التأخير والانصراف المبكر\ncoaches: المدرّبون\ncoachPay: مستحقات المدرّبين\ntournaments: البطولات\nloyalty: الولاء\nbadge: بانتظارك: {count}\ngroupOperations: العمليات\ngroupRun: إدارة اليوم\nfromTeam: من الفريق\nstockMovement: دخول وخروج المخزون\nstockCounting: الجرد\nstockCosts: الوصفات والتكلفة\ngroupRecords: السجلات\ngroupSetup: الإعداد\nbackTo: العودة إلى {workspace}\nmore: خيارات\nmoreMenu: إعدادات المحطة\nswitchWorkspace: تبديل مساحة العمل\nlanguage: English\nlanguageAlt: العربية\nblueMode: الوضع الأزرق\nlightMode: الوضع الفاتح\nsignOut: تسجيل الخروج\nsignOutTitle: تسجيل الخروج؟\nsignOutBody: تنتهي جلستك على هذه المحطة. كل ما أُرسل محفوظ، وعلى الشخص التالي تسجيل الدخول.\nsignOutConfirm: تسجيل الخروج\nstation: المحطة {id}\nexitFullscreen: الخروج من وضع ملء الشاشة الإجباري",
+      "body": "today: اليوم\ncalendar: التقويم\ncustomers: الزبائن\nnewSeries: سلسلة جديدة\nblockCourt: إيقاف ملعب\ntill: الصندوق\nopenTabs: الفواتير المفتوحة\ncashDrawer: درج النقد\noverview: نظرة عامة\nbookings: الحجوزات\ntills: الصناديق\ndayClose: إغلاق اليوم\nmenu: المنيو\nrates: الأسعار\npromotions: العروض\nstock: المخزون\nreports: التقارير\naudit: سجل التدقيق\npanel: لوحة الإدارة\nanalytics: التحليلات\nstaff: الموظفون\nbranches: الفروع\ncourts: الملاعب\ntables: الطاولات ورموز QR\nsettings: إعدادات المكان\nguestSite: موقع الضيوف\nmenuPrices: أسعار المنيو\nonHand: المتوفر\ngoodsIn: استلام البضائع\nmoveStock: نقل المخزون\nwasteProduction: الهدر والتحضير\nexpiry: الصلاحية\nalerts: التنبيهات\nstockCount: جرد المخزون\ncountDifferences: فروقات الجرد\nmargins: الهوامش\ningredients: المكوّنات\nrecipes: الوصفات\nstockValue: قيمة المخزون\nshop: المتجر\nshopTill: البيع\nshopStock: مخزون المتجر\nshopReceive: استلام البضائع\nshopCounts: جرد المخزون\nshopProducts: المنتجات\nshopSuppliers: المورّدون\nfloorNow: الصالة الآن\nstaffActivity: نشاط الموظفين\nrequests: طلبات الموظفين\nmarketing: التسويق\ntelegram: تيليغرام\nassistant: المساعد\nmyTasks: مهامي\nprotocols: البروتوكولات\nsuggestions: الاقتراحات\ndeductions: الخصومات من الراتب\nincidents: الحوادث\nwages: الرواتب\nattendance: التأخير والانصراف المبكر\nrewards: المكافآت\ncoaches: المدرّبون\ncoachPay: مستحقات المدرّبين\ntournaments: البطولات\nloyalty: الولاء\nbadge: بانتظارك: {count}\ngroupOperations: العمليات\ngroupRun: إدارة اليوم\nfromTeam: من الفريق\nstockMovement: دخول وخروج المخزون\nstockCounting: الجرد\nstockCosts: الوصفات والتكلفة\ngroupRecords: السجلات\ngroupSetup: الإعداد\nbackTo: العودة إلى {workspace}\nmore: خيارات\nmoreMenu: إعدادات المحطة\nswitchWorkspace: تبديل مساحة العمل\nlanguage: English\nlanguageAlt: العربية\nblueMode: الوضع الأزرق\nlightMode: الوضع الفاتح\nsignOut: تسجيل الخروج\nsignOutTitle: تسجيل الخروج؟\nsignOutBody: تنتهي جلستك على هذه المحطة. كل ما أُرسل محفوظ، وعلى الشخص التالي تسجيل الدخول.\nsignOutConfirm: تسجيل الخروج\nstation: المحطة {id}\nexitFullscreen: الخروج من وضع ملء الشاشة الإجباري",
       "route": null
     },
     {
@@ -21790,7 +22182,7 @@
       "ref": "label:ws.shell.nav",
       "lang": "en",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts)",
-      "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Till\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Tills\ndayClose: Day close\nmenu: Menu\nrates: Rates\npromotions: Promotions\nstock: Stock\nreports: Reports\naudit: Audit log\npanel: Management panel\nanalytics: Analytics\nstaff: Staff\nbranches: Branches\ncourts: Courts\ntables: Tables & QR\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\nonHand: On hand\ngoodsIn: Goods in\nmoveStock: Move stock\nwasteProduction: Waste & production\nexpiry: Expiry\nalerts: Alerts\nstockCount: Stock count\ncountDifferences: Count differences\nmargins: Margins\ningredients: Ingredients\nrecipes: Recipes\nstockValue: Stock value\nshop: Shop\nshopTill: Sell\nshopStock: Shop stock\nshopReceive: Goods in\nshopCounts: Stock count\nshopProducts: Products\nshopSuppliers: Suppliers\nfloorNow: Floor now\nstaffActivity: Staff activity\nrequests: Requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\nmyTasks: My tasks\nprotocols: Protocols\nsuggestions: Suggestions\ndeductions: Pay deductions\nincidents: Incidents\nwages: Wages\nattendance: Late and early\ncoaches: Coaches\ncoachPay: Coach pay\ntournaments: Tournaments\nloyalty: Loyalty\nbadge: {count} waiting on you\ngroupOperations: Operations\ngroupRun: Run the day\nfromTeam: From the team\nstockMovement: Stock in and out\nstockCounting: Counting\nstockCosts: Recipes and costs\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop",
+      "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Till\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Tills\ndayClose: Day close\nmenu: Menu\nrates: Rates\npromotions: Promotions\nstock: Stock\nreports: Reports\naudit: Audit log\npanel: Management panel\nanalytics: Analytics\nstaff: Staff\nbranches: Branches\ncourts: Courts\ntables: Tables & QR\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\nonHand: On hand\ngoodsIn: Goods in\nmoveStock: Move stock\nwasteProduction: Waste & production\nexpiry: Expiry\nalerts: Alerts\nstockCount: Stock count\ncountDifferences: Count differences\nmargins: Margins\ningredients: Ingredients\nrecipes: Recipes\nstockValue: Stock value\nshop: Shop\nshopTill: Sell\nshopStock: Shop stock\nshopReceive: Goods in\nshopCounts: Stock count\nshopProducts: Products\nshopSuppliers: Suppliers\nfloorNow: Floor now\nstaffActivity: Staff activity\nrequests: Requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\nmyTasks: My tasks\nprotocols: Protocols\nsuggestions: Suggestions\ndeductions: Pay deductions\nincidents: Incidents\nwages: Wages\nattendance: Late and early\nrewards: Rewards\ncoaches: Coaches\ncoachPay: Coach pay\ntournaments: Tournaments\nloyalty: Loyalty\nbadge: {count} waiting on you\ngroupOperations: Operations\ngroupRun: Run the day\nfromTeam: From the team\nstockMovement: Stock in and out\nstockCounting: Counting\nstockCosts: Recipes and costs\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop",
       "route": null
     },
     {
@@ -23126,7 +23518,7 @@
       "ref": "label:ws.wages",
       "lang": "ar",
       "title": "ws.wages (packages/i18n/src/catalogs/ws/wages.ar.ts)",
-      "body": "title: الرواتب\nlead: راتب كل شخص ويوم صرفه، وما يُخصم منه هذا الشهر، وهل صُرف أم لا.\npaidBy: صرفه {name}، {time}\nundoneBy: تراجع {name} عن الصرف، {time}\nleftBranch: لم يعد في هذا الفرع",
+      "body": "title: الرواتب\nlead: راتب كل شخص ويوم صرفه، وما يُخصم منه وما يُضاف إليه هذا الشهر، وهل صُرف أم لا.\npaidBy: صرفه {name}، {time}\nundoneBy: تراجع {name} عن الصرف، {time}\nleftBranch: لم يعد في هذا الفرع",
       "route": null
     },
     {
@@ -23134,7 +23526,7 @@
       "ref": "label:ws.wages",
       "lang": "en",
       "title": "ws.wages (packages/i18n/src/catalogs/ws/wages.en.ts)",
-      "body": "title: Wages\nlead: Each person’s salary and pay day, what comes off it this month, and whether it is paid.\npaidBy: Paid by {name}, {time}\nundoneBy: Payment undone by {name}, {time}\nleftBranch: No longer at this branch",
+      "body": "title: Wages\nlead: Each person’s salary and pay day, what comes off it and what is added to it this month, and whether it is paid.\npaidBy: Paid by {name}, {time}\nundoneBy: Payment undone by {name}, {time}\nleftBranch: No longer at this branch",
       "route": null
     },
     {
@@ -23203,6 +23595,22 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.wages.bonus",
+      "lang": "ar",
+      "title": "ws.wages.bonus (packages/i18n/src/catalogs/ws/wages.ar.ts)",
+      "body": "amount: {month}: {orders}، {amount}\nprize: {month}: {orders}، {prize} (تُسلَّم يدويًا)\nboth: {month}: {orders}، {amount} مع {prize} (تُسلَّم يدويًا)",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.wages.bonus",
+      "lang": "en",
+      "title": "ws.wages.bonus (packages/i18n/src/catalogs/ws/wages.en.ts)",
+      "body": "amount: {month}: {orders}, {amount}\nprize: {month}: {orders}, {prize} (hand over)\nboth: {month}: {orders}, {amount} and {prize} (hand over)",
+      "route": null
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.wages.card",
       "lang": "ar",
       "title": "ws.wages.card (packages/i18n/src/catalogs/ws/wages.ar.ts)",
@@ -23222,7 +23630,7 @@
       "ref": "label:ws.wages.cols",
       "lang": "ar",
       "title": "ws.wages.cols (packages/i18n/src/catalogs/ws/wages.ar.ts)",
-      "body": "person: الشخص\nsalary: الراتب\npayDay: يوم الصرف\ndeductions: الخصومات\nlateness: التأخير\nnet: الصافي\nstatus: الحالة",
+      "body": "person: الشخص\nsalary: الراتب\npayDay: يوم الصرف\ndeductions: الخصومات\nlateness: التأخير\nbonuses: المكافآت\nnet: الصافي\nstatus: الحالة",
       "route": null
     },
     {
@@ -23230,7 +23638,7 @@
       "ref": "label:ws.wages.cols",
       "lang": "en",
       "title": "ws.wages.cols (packages/i18n/src/catalogs/ws/wages.en.ts)",
-      "body": "person: Person\nsalary: Salary\npayDay: Pay day\ndeductions: Deductions\nlateness: Lateness\nnet: Net\nstatus: Status",
+      "body": "person: Person\nsalary: Salary\npayDay: Pay day\ndeductions: Deductions\nlateness: Lateness\nbonuses: Bonuses\nnet: Net\nstatus: Status",
       "route": null
     },
     {
@@ -23238,7 +23646,7 @@
       "ref": "label:ws.wages.count",
       "lang": "ar",
       "title": "ws.wages.count (packages/i18n/src/catalogs/ws/wages.ar.ts)",
-      "body": "overdueDays.zero: مستحق اليوم\noverdueDays.one: متأخر يومًا واحدًا\noverdueDays.two: متأخر يومين\noverdueDays.few: متأخر {count} أيام\noverdueDays.many: متأخر {count} يومًا\noverdueDays.other: متأخر {count} يوم\ninDays.zero: مستحق اليوم\ninDays.one: مستحق بعد يوم واحد\ninDays.two: مستحق بعد يومين\ninDays.few: مستحق بعد {count} أيام\ninDays.many: مستحق بعد {count} يومًا\ninDays.other: مستحق بعد {count} يوم\ndeductions.zero: لا خصومات\ndeductions.one: خصم واحد\ndeductions.two: خصمان\ndeductions.few: {count} خصومات\ndeductions.many: {count} خصمًا\ndeductions.other: {count} خصم\nlateDays.zero: لا أيام فوق الحد\nlateDays.one: يوم واحد فوق الحد\nlateDays.two: يومان فوق الحد\nlateDays.few: {count} أيام فوق الحد\nlateDays.many: {count} يومًا فوق الحد\nlateDays.other: {count} يوم فوق الحد\nwaiting.zero: لا خصومات بانتظار القرار\nwaiting.one: خصم واحد بانتظار القرار\nwaiting.two: خصمان بانتظار القرار\nwaiting.few: {count} خصومات بانتظار القرار\nwaiting.many: {count} خصمًا بانتظار القرار\nwaiting.other: {count} خصم بانتظار القرار",
+      "body": "overdueDays.zero: مستحق اليوم\noverdueDays.one: متأخر يومًا واحدًا\noverdueDays.two: متأخر يومين\noverdueDays.few: متأخر {count} أيام\noverdueDays.many: متأخر {count} يومًا\noverdueDays.other: متأخر {count} يوم\ninDays.zero: مستحق اليوم\ninDays.one: مستحق بعد يوم واحد\ninDays.two: مستحق بعد يومين\ninDays.few: مستحق بعد {count} أيام\ninDays.many: مستحق بعد {count} يومًا\ninDays.other: مستحق بعد {count} يوم\ndeductions.zero: لا خصومات\ndeductions.one: خصم واحد\ndeductions.two: خصمان\ndeductions.few: {count} خصومات\ndeductions.many: {count} خصمًا\ndeductions.other: {count} خصم\nlateDays.zero: لا أيام فوق الحد\nlateDays.one: يوم واحد فوق الحد\nlateDays.two: يومان فوق الحد\nlateDays.few: {count} أيام فوق الحد\nlateDays.many: {count} يومًا فوق الحد\nlateDays.other: {count} يوم فوق الحد\nbonuses.zero: لا مكافآت\nbonuses.one: مكافأة واحدة\nbonuses.two: مكافأتان\nbonuses.few: {count} مكافآت\nbonuses.many: {count} مكافأةً\nbonuses.other: {count} مكافأة\nprizes.zero: لا جوائز للتسليم\nprizes.one: جائزة واحدة للتسليم\nprizes.two: جائزتان للتسليم\nprizes.few: {count} جوائز للتسليم\nprizes.many: {count} جائزةً للتسليم\nprizes.other: {count} جائزة للتسليم\nwaiting.zero: لا خصومات بانتظار القرار\nwaiting.one: خصم واحد بانتظار القرار\nwaiting.two: خصمان بانتظار القرار\nwaiting.few: {count} خصومات بانتظار القرار\nwaiting.many: {count} خصمًا بانتظار القرار\nwaiting.other: {count} خصم بانتظار القرار",
       "route": null
     },
     {
@@ -23246,7 +23654,7 @@
       "ref": "label:ws.wages.count",
       "lang": "en",
       "title": "ws.wages.count (packages/i18n/src/catalogs/ws/wages.en.ts)",
-      "body": "overdueDays.zero: due today\noverdueDays.one: 1 day overdue\noverdueDays.two: 2 days overdue\noverdueDays.few: {count} days overdue\noverdueDays.many: {count} days overdue\noverdueDays.other: {count} days overdue\ninDays.zero: due today\ninDays.one: due in 1 day\ninDays.two: due in 2 days\ninDays.few: due in {count} days\ninDays.many: due in {count} days\ninDays.other: due in {count} days\ndeductions.zero: no deductions\ndeductions.one: 1 deduction\ndeductions.two: 2 deductions\ndeductions.few: {count} deductions\ndeductions.many: {count} deductions\ndeductions.other: {count} deductions\nlateDays.zero: no days over the limit\nlateDays.one: 1 day over the limit\nlateDays.two: 2 days over the limit\nlateDays.few: {count} days over the limit\nlateDays.many: {count} days over the limit\nlateDays.other: {count} days over the limit\nwaiting.zero: none waiting\nwaiting.one: 1 waiting\nwaiting.two: 2 waiting\nwaiting.few: {count} waiting\nwaiting.many: {count} waiting\nwaiting.other: {count} waiting",
+      "body": "overdueDays.zero: due today\noverdueDays.one: 1 day overdue\noverdueDays.two: 2 days overdue\noverdueDays.few: {count} days overdue\noverdueDays.many: {count} days overdue\noverdueDays.other: {count} days overdue\ninDays.zero: due today\ninDays.one: due in 1 day\ninDays.two: due in 2 days\ninDays.few: due in {count} days\ninDays.many: due in {count} days\ninDays.other: due in {count} days\ndeductions.zero: no deductions\ndeductions.one: 1 deduction\ndeductions.two: 2 deductions\ndeductions.few: {count} deductions\ndeductions.many: {count} deductions\ndeductions.other: {count} deductions\nlateDays.zero: no days over the limit\nlateDays.one: 1 day over the limit\nlateDays.two: 2 days over the limit\nlateDays.few: {count} days over the limit\nlateDays.many: {count} days over the limit\nlateDays.other: {count} days over the limit\nbonuses.zero: no bonuses\nbonuses.one: 1 bonus\nbonuses.two: 2 bonuses\nbonuses.few: {count} bonuses\nbonuses.many: {count} bonuses\nbonuses.other: {count} bonuses\nprizes.zero: no prizes to hand over\nprizes.one: 1 prize to hand over\nprizes.two: 2 prizes to hand over\nprizes.few: {count} prizes to hand over\nprizes.many: {count} prizes to hand over\nprizes.other: {count} prizes to hand over\nwaiting.zero: none waiting\nwaiting.one: 1 waiting\nwaiting.two: 2 waiting\nwaiting.few: {count} waiting\nwaiting.many: {count} waiting\nwaiting.other: {count} waiting",
       "route": null
     },
     {
@@ -23254,7 +23662,7 @@
       "ref": "label:ws.wages.details",
       "lang": "ar",
       "title": "ws.wages.details (packages/i18n/src/catalogs/ws/wages.ar.ts)",
-      "body": "title: {name}، {month}\ndeductions: الخصومات الموافق عليها\nlateness: أيام التأخير والانصراف المبكر\nnoDeductions: لا خصومات موافق عليها هذا الشهر.\nnoLateness: لا أيام تأخير أو انصراف مبكر هذا الشهر.\nminutes: تأخير {late} دقيقة، وانصراف مبكر {early} دقيقة\nallowed: المسموح {minutes} دقيقة",
+      "body": "title: {name}، {month}\ndeductions: الخصومات الموافق عليها\nlateness: أيام التأخير والانصراف المبكر\nbonuses: المكافآت المستحقة\nnoDeductions: لا خصومات موافق عليها هذا الشهر.\nnoLateness: لا أيام تأخير أو انصراف مبكر هذا الشهر.\nnoBonuses: لا مكافآت تُضاف إلى هذا الشهر.\nminutes: تأخير {late} دقيقة، وانصراف مبكر {early} دقيقة\nallowed: المسموح {minutes} دقيقة",
       "route": null
     },
     {
@@ -23262,7 +23670,7 @@
       "ref": "label:ws.wages.details",
       "lang": "en",
       "title": "ws.wages.details (packages/i18n/src/catalogs/ws/wages.en.ts)",
-      "body": "title: {name}, {month}\ndeductions: Approved deductions\nlateness: Late and early days\nnoDeductions: No approved deductions this month.\nnoLateness: No late or early days this month.\nminutes: {late} min late, {early} min early\nallowed: {minutes} min allowed",
+      "body": "title: {name}, {month}\ndeductions: Approved deductions\nlateness: Late and early days\nbonuses: Rewards reached\nnoDeductions: No approved deductions this month.\nnoLateness: No late or early days this month.\nnoBonuses: No rewards are added to this month.\nminutes: {late} min late, {early} min early\nallowed: {minutes} min allowed",
       "route": null
     },
     {
@@ -23366,7 +23774,7 @@
       "ref": "label:ws.wages.pay",
       "lang": "ar",
       "title": "ws.wages.pay (packages/i18n/src/catalogs/ws/wages.ar.ts)",
-      "body": "title: تسجيل صرف راتب {name}؟\nperiod: {month}، يوم الصرف {date}\nsalary: الراتب\ndeductions: الخصومات\npenalties: التأخير\nnet: الصافي\ntoPay: المبلغ المطلوب صرفه\nbelowZero: مجموع الخصومات والتأخير أكبر من الراتب. لن يُصرف شيء، ولن يُرحَّل الفرق إلى الشهر التالي.\nwaiting: بانتظار القرار: {deductions}. وافق على الخصومات المنتظرة أو ارفضها أولًا، وإلا فستُحتسب في راتب الشهر التالي.\nfrozen: بعد الصرف يُغلق الشهر: أي خصم أو يوم تأخير يُسجَّل لاحقًا يُخصم من راتب الشهر التالي.\nconfirm: تسجيل الصرف\ndone: سُجّل صرف الراتب.",
+      "body": "title: تسجيل صرف راتب {name}؟\nperiod: {month}، يوم الصرف {date}\nsalary: الراتب\ndeductions: الخصومات\npenalties: التأخير\nbonuses: المكافآت\nbonusesTitle: المكافآت في هذا الراتب\nnet: الصافي\ntoPay: المبلغ المطلوب صرفه\nbelowZero: مجموع الخصومات والتأخير أكبر من الراتب والمكافآت. لن يُصرف شيء، ولن يُرحَّل الفرق إلى الشهر التالي.\nwaiting: بانتظار القرار: {deductions}. وافق على الخصومات المنتظرة أو ارفضها أولًا، وإلا فستُحتسب في راتب الشهر التالي.\nfrozen: بعد الصرف يُغلق الشهر: أي خصم أو يوم تأخير يُسجَّل لاحقًا يُخصم من راتب الشهر التالي، وأي مكافأة تُبلغ لاحقًا تُضاف إليه.\nconfirm: تسجيل الصرف\ndone: سُجّل صرف الراتب.",
       "route": null
     },
     {
@@ -23374,7 +23782,7 @@
       "ref": "label:ws.wages.pay",
       "lang": "en",
       "title": "ws.wages.pay (packages/i18n/src/catalogs/ws/wages.en.ts)",
-      "body": "title: Mark {name}’s wage paid?\nperiod: {month}, pay day {date}\nsalary: Salary\ndeductions: Deductions\npenalties: Lateness\nnet: Net\ntoPay: Amount to pay\nbelowZero: Deductions and lateness come to more than the salary. Nothing is paid, and nothing carries over to next month.\nwaiting: {deductions} still waiting: approve or decline them first, or they will count next month.\nfrozen: Once paid, the month is closed: a deduction or a late day recorded later comes off the next month’s wage.\nconfirm: Mark paid\ndone: Wage marked paid.",
+      "body": "title: Mark {name}’s wage paid?\nperiod: {month}, pay day {date}\nsalary: Salary\ndeductions: Deductions\npenalties: Lateness\nbonuses: Bonuses\nbonusesTitle: Rewards in this wage\nnet: Net\ntoPay: Amount to pay\nbelowZero: Deductions and lateness come to more than the salary and bonuses. Nothing is paid, and nothing carries over to next month.\nwaiting: {deductions} still waiting: approve or decline them first, or they will count next month.\nfrozen: Once paid, the month is closed: a deduction or a late day recorded later comes off the next month’s wage, and a reward reached later is added to it.\nconfirm: Mark paid\ndone: Wage marked paid.",
       "route": null
     },
     {
@@ -23414,7 +23822,7 @@
       "ref": "label:ws.wages.salary",
       "lang": "ar",
       "title": "ws.wages.salary (packages/i18n/src/catalogs/ws/wages.ar.ts)",
-      "body": "from: منذ {month}\nnext: {amount} ابتداءً من {month}\nnotSet: غير محدّد",
+      "body": "from: منذ {month}\nnext: {amount} ابتداءً من {month}\nnotSet: غير محدّد\nbonusOnly: غير مستحق: لم يعمل هنا هذا الشهر",
       "route": null
     },
     {
@@ -23422,7 +23830,7 @@
       "ref": "label:ws.wages.salary",
       "lang": "en",
       "title": "ws.wages.salary (packages/i18n/src/catalogs/ws/wages.en.ts)",
-      "body": "from: From {month}\nnext: {amount} from {month}\nnotSet: Not set",
+      "body": "from: From {month}\nnext: {amount} from {month}\nnotSet: Not set\nbonusOnly: Not due: no work here this month",
       "route": null
     },
     {
@@ -23462,7 +23870,7 @@
       "ref": "label:ws.wages.totals",
       "lang": "ar",
       "title": "ws.wages.totals (packages/i18n/src/catalogs/ws/wages.ar.ts)",
-      "body": "salary: الرواتب\ndeductions: الخصومات\npenalties: التأخير\nnet: الصافي\npaid: المصروف",
+      "body": "salary: الرواتب\ndeductions: الخصومات\npenalties: التأخير\nbonuses: المكافآت\nnet: الصافي\npaid: المصروف",
       "route": null
     },
     {
@@ -23470,7 +23878,7 @@
       "ref": "label:ws.wages.totals",
       "lang": "en",
       "title": "ws.wages.totals (packages/i18n/src/catalogs/ws/wages.en.ts)",
-      "body": "salary: Salaries\ndeductions: Deductions\npenalties: Lateness\nnet: Net\npaid: Paid",
+      "body": "salary: Salaries\ndeductions: Deductions\npenalties: Lateness\nbonuses: Bonuses\nnet: Net\npaid: Paid",
       "route": null
     },
     {
@@ -23895,6 +24303,14 @@
       "lang": "en",
       "title": "cron job tp_release_review",
       "body": "Runs select app.release_review_nudge();. Schedules seen in migrations, latest last: '20 4 * * *' (0173). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:cron:tp_reward_sweep",
+      "lang": "en",
+      "title": "cron job tp_reward_sweep",
+      "body": "Runs select app.reward_sweep();. Schedules seen in migrations, latest last: '*/5 * * * *' (0333). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -27198,7 +27614,7 @@
       "ref": "doc:docs/design/assistant/pages.md#20",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Financial section",
-      "body": "ayments, from app.till_shift_list) and \"Close day\" calls app.close_day, which ends any shift still open without a count, with \"Export CSV\" for the day's figures and shifts; an open shift, unpaid played bookings and \"Checklists not finished\" (the daily lists with a line nobody ticked, from app.checklist_day_state) warn but do not block. A \"Money outside the drawer\" card (app.day_close_online) shows deposits and match tickets; unpaid open-match bookings list their owing seats. The card adds the day's lesson money: online, kept, at the desk, refunds made today, refunds due and owed to coaches; a refund counts on the day it is made.\n- /wages — The owner's pay list for one branch and month (app.wages_month): each person's salary and pay day, the approved deductions and lateness penalties that come off it, the net, and whether it is upcoming, due, overdue or paid, with due and overdue wages also reminded on the rail and the panel (app.wages_due); the owner sets a salary and pay day (app.set_staff_wage), marks a wage paid or undoes that with a reason (app.mark_wage_paid, app.undo_wage_paid), approves or declines waiting deductions (app.decide_deduction) and deducts from a wage directly (app.propose_deduction). Wages are never read by the owner assistant.",
+      "body": "ayments, from app.till_shift_list) and \"Close day\" calls app.close_day, which ends any shift still open without a count, with \"Export CSV\" for the day's figures and shifts; an open shift, unpaid played bookings and \"Checklists not finished\" (the daily lists with a line nobody ticked, from app.checklist_day_state) warn but do not block. A \"Money outside the drawer\" card (app.day_close_online) shows deposits and match tickets; unpaid open-match bookings list their owing seats. The card adds the day's lesson money: online, kept, at the desk, refunds made today, refunds due and owed to coaches; a refund counts on the day it is made.\n- /wages — The owner's pay list for one branch and month (app.wages_month): each person's salary and pay day, the approved deductions and lateness penalties that come off it, the reward bonuses added to it, the net, and whether it is upcoming, due, overdue or paid, with due and overdue wages also reminded on the rail and the panel (app.wages_due); the owner sets a salary and pay day (app.set_staff_wage), marks a wage paid or undoes that with a reason (app.mark_wage_paid, app.undo_wage_paid), approves or declines waiting deductions (app.decide_deduction) and deducts from a wage directly (app.propose_deduction). Wages are never read by the owner assistant.\n- /rewards — The owner's \"Rewards\" page (app.staff_rewards_board): each waiter, cashier and manager by name with their orders this and last month and their rewards, \"Reached\" or orders to go; \"Add reward\" (app.set_staff_reward) and \"Remove\" (app.end_staff_reward). A reached bonus joins the next unpaid wage once the month ends; never read by the owner assistant.",
       "route": null
     },
     {

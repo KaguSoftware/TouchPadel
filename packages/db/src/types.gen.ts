@@ -1868,6 +1868,7 @@ export type Database = {
         Returns: Json
       }
       end_break: { Args: { p_device_id: string; p_pin: string }; Returns: Json }
+      end_staff_reward: { Args: { p_id: string }; Returns: undefined }
       enqueue_telegram: {
         Args: {
           p_kind: string
@@ -3112,6 +3113,7 @@ export type Database = {
           venue_id: string
         }[]
       }
+      my_rewards: { Args: { p_venue_id?: string }; Returns: Json }
       my_suggestions: {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
@@ -4073,6 +4075,7 @@ export type Database = {
         Returns: Json
       }
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: number }
+      reward_sweep: { Args: never; Returns: Json }
       rotate_member_card: { Args: never; Returns: Json }
       rotate_table_token: { Args: { p_table_id: string }; Returns: number }
       rotate_table_token_secret: { Args: never; Returns: Json }
@@ -4410,6 +4413,16 @@ export type Database = {
         Args: { p_pin: string; p_staff_id: string }
         Returns: undefined
       }
+      set_staff_reward: {
+        Args: {
+          p_prize?: string
+          p_reward_iqd: number
+          p_staff_id: string
+          p_target: number
+          p_venue_id: string
+        }
+        Returns: string
+      }
       set_staff_role: {
         Args: {
           p_reason_code?: string
@@ -4607,6 +4620,7 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: Json
       }
+      staff_rewards_board: { Args: { p_venue_id?: string }; Returns: Json }
       staff_role: {
         Args: never
         Returns: Database["public"]["Enums"]["staff_role"]
@@ -14285,6 +14299,184 @@ export type Database = {
           },
         ]
       }
+      staff_reward_earnings: {
+        Row: {
+          created_at: string
+          earned_month: string
+          id: string
+          pay_month: string
+          prize: string | null
+          reward_id: string
+          reward_iqd: number
+          staff_id: string
+          target: number
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          earned_month: string
+          id?: string
+          pay_month: string
+          prize?: string | null
+          reward_id: string
+          reward_iqd: number
+          staff_id: string
+          target: number
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          earned_month?: string
+          id?: string
+          pay_month?: string
+          prize?: string | null
+          reward_id?: string
+          reward_iqd?: number
+          staff_id?: string
+          target?: number
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_reward_earnings_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "staff_rewards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reward_earnings_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reward_earnings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_reward_unlocks: {
+        Row: {
+          business_month: string
+          reward_id: string
+          staff_id: string
+          unlocked_at: string
+          venue_id: string
+        }
+        Insert: {
+          business_month: string
+          reward_id: string
+          staff_id: string
+          unlocked_at?: string
+          venue_id: string
+        }
+        Update: {
+          business_month?: string
+          reward_id?: string
+          staff_id?: string
+          unlocked_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_reward_unlocks_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "staff_rewards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reward_unlocks_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reward_unlocks_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_rewards: {
+        Row: {
+          ended_at: string | null
+          ended_by: string | null
+          id: string
+          metric: string
+          prize: string | null
+          reward_iqd: number
+          set_at: string
+          set_by: string
+          staff_id: string
+          target: number
+          venue_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string
+          metric?: string
+          prize?: string | null
+          reward_iqd?: number
+          set_at?: string
+          set_by: string
+          staff_id: string
+          target: number
+          venue_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string
+          metric?: string
+          prize?: string | null
+          reward_iqd?: number
+          set_at?: string
+          set_by?: string
+          staff_id?: string
+          target?: number
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_rewards_ended_by_fkey"
+            columns: ["ended_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_rewards_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_rewards_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_rewards_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_suggestions: {
         Row: {
           author_id: string
@@ -16631,6 +16823,8 @@ export type Database = {
       }
       wage_payments: {
         Row: {
+          bonus_count: number
+          bonuses_iqd: number
           deduction_count: number
           deductions_iqd: number
           due_date: string
@@ -16651,6 +16845,8 @@ export type Database = {
           venue_id: string
         }
         Insert: {
+          bonus_count?: number
+          bonuses_iqd?: number
           deduction_count: number
           deductions_iqd: number
           due_date: string
@@ -16671,6 +16867,8 @@ export type Database = {
           venue_id: string
         }
         Update: {
+          bonus_count?: number
+          bonuses_iqd?: number
           deduction_count?: number
           deductions_iqd?: number
           due_date?: string

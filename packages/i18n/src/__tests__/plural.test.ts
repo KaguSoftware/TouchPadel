@@ -50,6 +50,11 @@ describe('countPhrase', () => {
     expect(countPhrase('site.hoursCount', 24, 'en')).toBe(`${LRI}24${PDI} hours`);
   });
 
+  it('groups the digits of a large count as every other number is', () => {
+    expect(countPhrase('site.hoursCount', 10000, 'en')).toBe(`${LRI}10,000${PDI} hours`);
+    expect(countPhrase('site.hoursCount', 100000, 'ar')).toBe(`${LRI}100,000${PDI} ساعة`);
+  });
+
   it('picks each Arabic form', () => {
     expect(countPhrase('site.hoursCount', 1, 'ar')).toBe('ساعة واحدة');
     expect(countPhrase('site.hoursCount', 2, 'ar')).toBe('ساعتين');

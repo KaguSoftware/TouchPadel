@@ -211,6 +211,8 @@ export const shellEn = {
     // Wages (0270–0272).
     wages: 'Wages',
     attendance: 'Late and early',
+    // Staff rewards (0332–0333): beside Wages, where a reached bonus lands.
+    rewards: 'Rewards',
     // Coaching (docs/design/coaching/operator.md §5.3.3).
     coaches: 'Coaches',
     coachPay: 'Coach pay',

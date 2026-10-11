@@ -302,6 +302,9 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // turns them into a penalty.
   '/wages': ['owner'],
   '/attendance': ['manager', 'owner'],
+  // Staff rewards (0332–0333): setting and ending rewards, and reading every
+  // person's count, are the owner's alone (app.staff_rewards_board).
+  '/rewards': ['owner'],
 };
 
 /** Every known sub-route per layout prefix — drives the admin sub-nav. */

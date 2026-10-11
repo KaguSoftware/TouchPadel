@@ -13,6 +13,7 @@ export {
   formatWeekdayShort,
   formatWeekdayLong,
   formatMonthShort,
+  formatMonthLong,
   formatMonthYear,
   formatDayNumber,
   formatIQD,

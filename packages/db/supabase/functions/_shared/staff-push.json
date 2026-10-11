@@ -44,7 +44,8 @@
     "screenshot_taken",
     "shop_price_changed",
     "checklist_due",
-    "checklist_overdue"
+    "checklist_overdue",
+    "reward_unlocked"
   ],
   "routes": [
     "staff",
@@ -53,6 +54,7 @@
     "staff-request",
     "staff-shopping",
     "staff-checklist",
-    "staff-notes"
+    "staff-notes",
+    "staff-rewards"
   ]
 }

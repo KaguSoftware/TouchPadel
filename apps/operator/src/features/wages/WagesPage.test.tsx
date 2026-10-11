@@ -6,7 +6,8 @@ import { LocaleProvider } from '../../lib/i18n';
 import { AppRpcError } from '../../lib/appRpc';
 
 // /wages (0270–0272): the owner sees what is due, approves deductions, sets
-// salaries and marks months paid. Every figure on screen is the server's.
+// salaries and marks months paid; rewards reached add bonuses (0333). Every
+// figure on screen is the server's.
 
 const navigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
@@ -30,9 +31,24 @@ const line = (over: Record<string, unknown> = {}) => ({
   deduction_count: 1,
   penalties_iqd: 5000,
   penalty_days: 1,
+  bonuses_iqd: 0,
+  bonus_count: 0,
   net_iqd: 720000,
   payment: null,
+  bonuses: [],
   ...over,
+});
+
+/** Yusuf's month with two rewards reached in September: a bonus and a prize to hand over. */
+const yusufWithBonuses = () => ({
+  ...yusuf(),
+  bonuses_iqd: 50000,
+  bonus_count: 1,
+  net_iqd: 770000,
+  bonuses: [
+    { id: 'e1', earned_month: '2026-09-01', target: 200, reward_iqd: 50000, prize: null },
+    { id: 'e2', earned_month: '2026-09-01', target: 300, reward_iqd: 0, prize: 'Dinner for two' },
+  ],
 });
 
 const yusuf = () => ({
@@ -233,6 +249,42 @@ describe('WagesPageScreen', () => {
     expect(sends[1]?.args.p_idempotency_key).toBe(sends[0]?.args.p_idempotency_key);
   });
 
+  it('shows the bonuses a month carries beside deductions and lateness, and the server’s net', async () => {
+    const user = userEvent.setup();
+    people = [yusufWithBonuses(), hasan(), ali()];
+    renderPage();
+    const cell = await screen.findByText('1 bonus');
+    expect(cell).toBeTruthy();
+    expect(screen.getByText('1 prize to hand over')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Bonuses' })).toBeTruthy();
+    await user.click(screen.getByTestId('wages.row.details.s-yusuf'));
+    const details = screen.getByTestId('wages.details.bonuses.s-yusuf');
+    expect(details.textContent).toMatch(/September 2026: .*200.* orders, .*50,000/);
+    expect(details.textContent).toMatch(/September 2026: .*300.* orders, .*Dinner for two.* \(hand over\)/);
+  });
+
+  it('lists the rewards in the Mark paid dialog and pays the net with the bonus in it', async () => {
+    const user = userEvent.setup();
+    people = [yusufWithBonuses(), hasan(), ali()];
+    renderPage();
+    await user.click(await screen.findByTestId('wages.row.pay.s-yusuf'));
+    const dialog = screen.getByRole('dialog', { name: /Mark .*Yusuf.* wage paid\?/ });
+    expect(within(dialog).getByTestId('wages.pay.breakdown').textContent).toMatch(/Bonuses · 1 bonus.*50,000/);
+    const rows = within(dialog).getByTestId('wages.pay.bonuses');
+    expect(within(rows).getAllByRole('listitem')).toHaveLength(2);
+    expect(rows.textContent).toMatch(/Dinner for two.*\(hand over\)/);
+    await user.click(within(dialog).getByTestId('wages.pay.confirm'));
+    expect(calls.find((c) => c.fn === 'mark_wage_paid')?.args).toMatchObject({ p_staff_id: 's-yusuf', p_expected_net_iqd: 770000 });
+  });
+
+  it('lists no rewards in the dialog when the month carries none', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByTestId('wages.row.pay.s-yusuf'));
+    const dialog = screen.getByRole('dialog', { name: /Mark .*Yusuf.* wage paid\?/ });
+    expect(within(dialog).queryByTestId('wages.pay.bonuses')).toBeNull();
+  });
+
   it('pays nothing below zero and says nothing carries over', async () => {
     const user = userEvent.setup();
     people = [{ ...yusuf(), net_iqd: -5000, waiting_count: 0 }];
@@ -303,5 +355,6 @@ describe('WagesPageScreen', () => {
     renderPage('ar');
     expect(await screen.findByRole('heading', { level: 1, name: 'الرواتب' })).toBeTruthy();
     expect(await screen.findByText('مستحقة الآن')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'المكافآت' })).toBeTruthy();
   });
 });

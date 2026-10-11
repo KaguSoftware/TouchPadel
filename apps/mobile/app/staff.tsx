@@ -37,6 +37,7 @@ import {
   SlidersIcon,
   StopwatchIcon,
   TitleSquiggle,
+  TrophyIcon,
   type IconProps,
 } from '../src/components/icons';
 import {
@@ -59,6 +60,8 @@ import { WorkList } from '../src/features/staff/protocols/WorkList';
 import { ListCard } from '../src/features/staff/protocols/parts';
 import { GroupRows, useTodayGroups, type TodayGroup } from '../src/features/staff/todayGroups';
 import type { StaffRowDef } from '../src/features/staff/rows';
+import { fetchMyRewards } from '../src/features/staff/rewards/api';
+import { RewardTrack } from '../src/features/staff/rewards/RewardTrack';
 import { useReduceMotion } from '../src/lib/useReduceMotion';
 import { addBreadcrumb } from '../src/lib/telemetry';
 import { useToast } from '../src/components/overlays';
@@ -567,6 +570,30 @@ function GroupModal({
   );
 }
 
+/**
+ * The person's reward track (0332), under the greeting: only when the owner
+ * has set them a reward, so a page without one is unchanged. A read that fails
+ * shows nothing; the rewards page says why.
+ */
+function TodayRewards({ venueId, staffId }: { venueId: string; staffId: string }) {
+  const router = useRouter();
+  const rewards = useQuery({
+    queryKey: staffKeys.myRewards(venueId),
+    queryFn: () => fetchMyRewards(venueId),
+  });
+  const data = rewards.data;
+  if (!data || data.rewards.length === 0) return null;
+  return (
+    <RewardTrack
+      testID="staff.rewards"
+      data={data}
+      staffId={staffId}
+      venueId={venueId}
+      onPress={() => router.push('/staff-rewards')}
+    />
+  );
+}
+
 function TodayScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
@@ -661,6 +688,11 @@ function TodayScreen() {
           </View>
         </View>
 
+        {/* Rewards for orders placed: the owner sets them, so the owner has none. */}
+        {venueId && staff.role !== 'owner' ? (
+          <TodayRewards venueId={venueId} staffId={staff.id} />
+        ) : null}
+
         {showsVenuePicker(status.venues) ? (
           <Card style={{ padding: space.m }}>
             <MicroLabel>{t('staff.shell.venue.label')}</MicroLabel>
@@ -723,6 +755,21 @@ function TodayScreen() {
                     )}
                     compact={compact}
                     onPress={() => router.push(coachEntry)}
+                  />,
+                ]
+              : []),
+            // The owner sets each person's rewards for orders placed (0332).
+            ...(staff.role === 'owner'
+              ? [
+                  <GroupTile
+                    key="rewards"
+                    testID="staff.rewards-admin"
+                    icon={TrophyIcon}
+                    title={t('staff.rewards.admin.entry')}
+                    waiting={false}
+                    preview={t('staff.rewards.admin.entryPreview')}
+                    compact={compact}
+                    onPress={() => router.push('/staff-rewards-admin')}
                   />,
                 ]
               : []),
