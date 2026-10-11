@@ -118,7 +118,7 @@ export async function fetchCoachLesson(
   return parseCoachLesson(await coachRpc(client, 'coach_lesson', { p_lesson_id: lessonId }));
 }
 
-/** app.coach_saved_students (0334): the coach's past students, names only (R54). */
+/** app.coach_saved_students (0335): the coach's past students, names only (R54). */
 export async function fetchSavedStudents(client: Client): Promise<SavedStudent[]> {
   return parseSavedStudents(await coachRpc(client, 'coach_saved_students'));
 }
@@ -193,7 +193,7 @@ export async function coachBookPrivate(
     name: string;
     phone: string | null;
     partySize: number;
-    /** The other students (0334): names, and by position their phones ('' for none). */
+    /** The other students (0335): names, and by position their phones ('' for none). */
     friends?: readonly { name: string; phone: string }[];
     /** A saved student booked again: their phone is the server's, never sent or shown (R54). */
     savedStudent?: string | null;

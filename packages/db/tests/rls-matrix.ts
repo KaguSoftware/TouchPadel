@@ -5558,14 +5558,14 @@ export const matrix: MatrixRule[] = [
     kind: 'rpc', schema: 'app', name: 'coach_id_for_slug',
     args: { p_slug: 'matrix-probe-no-coach' },
     expect: SELF_ANON_OK,
-    note: "0336 coach_slugs: a share link's slug to the id of a coach who accepted going public; NULL for anything else, never raises",
+    note: "0337 coach_slugs: a share link's slug to the id of a coach who accepted going public; NULL for anything else, never raises",
     drop: 25,
   },
   {
     kind: 'rpc', schema: 'app', name: 'coach_slug_ok',
     args: { p_slug: 'omar-karim' },
     expect: ex<RpcExpectation>('execute'),
-    note: '0336 coach_slugs: pure text, granted to anon+authenticated because the coaches_slug_chk CHECK evaluates it as the writing role',
+    note: '0337 coach_slugs: pure text, granted to anon+authenticated because the coaches_slug_chk CHECK evaluates it as the writing role',
     drop: 25,
   },
   {
@@ -5610,7 +5610,7 @@ export const matrix: MatrixRule[] = [
     kind: 'rpc', schema: 'app', name: 'coach_saved_students',
     args: {},
     expect: GUEST_OR_COACH,
-    note: "coach_book_students (0334): the coach's own past students, names only (R54); NOT_A_COACH for anyone else",
+    note: "coach_book_students (0335): the coach's own past students, names only (R54); NOT_A_COACH for anyone else",
     drop: 25,
   },
   {
@@ -6594,5 +6594,16 @@ export const matrix: MatrixRule[] = [
     expect: ex<WriteExpectation>('denied'),
     note: '0333: no client write grant: app.reward_sweep (service role) only',
     drop: 32,
+  },
+  // ── 0334 play_profile_coach_levels (play-profile-coach-levels.test.ts) ──
+  // The play survey's writer: the caller's own profile only. An anonymous café
+  // session has no profile (ACCOUNT_REQUIRED); everyone else is refused the bad
+  // level (INVALID_PLAY_PROFILE), so nothing is written.
+  {
+    kind: 'rpc', schema: 'app', name: 'set_my_play_profile',
+    args: { p_level: 'pro', p_years: null, p_wants: null },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0334: the caller\'s own profile only; an unknown level is INVALID_PLAY_PROFILE, so nothing is written',
+    drop: 33,
   },
 ];

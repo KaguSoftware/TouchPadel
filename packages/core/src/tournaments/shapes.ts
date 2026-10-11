@@ -328,12 +328,17 @@ export const TOURNAMENT_SHAPES = {
       'places_left',
       'waitlist_open',
       'server_now',
+      'entries',
       'rounds',
       'standings',
       'me',
     ],
     nested: {
       branch: BRANCH,
+      // The registered entries in registration order, before and after the draw (play-coaches
+      // contracts §4.3): the seating board's chairs. `mine` is false for anon.
+      'entries[]': ['player', 'mine'],
+      'entries[].player': PLAYER,
       'rounds[]': ['round_no', 'sit_out', 'matches'],
       'rounds[].sit_out[]': PLAYER,
       'rounds[].matches[]': ['court_no', 'a', 'b', 'points_a', 'points_b'],

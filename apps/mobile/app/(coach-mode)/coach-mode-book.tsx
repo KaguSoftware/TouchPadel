@@ -105,7 +105,7 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const book = useCoachBook();
-  // A past student picked from the saved list (0334): the name is filled in and
+  // A past student picked from the saved list (0335): the name is filled in and
   // the phone stays with the server (R54); typing a phone replaces it.
   const saved = useSavedStudents(canBookOrCreate(coach));
   const savedList = saved.data ?? [];
@@ -166,7 +166,7 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
     }
     // The phone is required (owner, 2026-10-11): it is how the lesson reaches
     // the student's own account (a verified account with that phone is linked,
-    // C-21). A saved student's is on file with the server (0334), never here.
+    // C-21). A saved student's is on file with the server (0335), never here.
     let phone: string | null = null;
     if (!savedKey && !national.trim()) {
       setError(t('coaching.coach.book.phoneRequired'), 'students');
@@ -179,7 +179,7 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
       }
       phone = composePhone(iso, national);
     }
-    // The other students (0334): a row left empty is only a place; a phone
+    // The other students (0335): a row left empty is only a place; a phone
     // needs a name.
     const friends: { name: string; phone: string }[] = [];
     for (let n = 2; n <= Math.min(party, maxParty); n++) {

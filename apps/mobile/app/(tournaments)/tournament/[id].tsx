@@ -43,6 +43,13 @@ import {
   type TournamentPublic,
   type TourPlayer,
 } from '../../../src/features/tournaments/logic';
+import {
+  BOARD_COURTS_FOLDED,
+  boardCaptionKey,
+  seatingBoardOf,
+  visibleCourtsCount,
+  type BoardChair,
+} from '../../../src/features/tournaments/seating';
 import { callPhone } from '../../../src/lib/phone';
 import { useBranches } from '../../../src/features/availability/hooks';
 import { usePullRefresh } from '../../../src/lib/usePullRefresh';
@@ -53,6 +60,7 @@ import { EmptyState, ErrorState, SkeletonList } from '../../../src/components/st
 import { ConfirmAlert, useToast } from '../../../src/components/overlays';
 import { GenderAsk, MatchNotice } from '../../../src/components/match';
 import {
+  SeatingBoard,
   StandingsTable,
   TournamentPrize,
   TournamentRound,
@@ -77,6 +85,11 @@ interface Notice {
  * (`app.match_guest`), so its refusals are handled as a match join's: TERMS to /accept-terms,
  * PHONE to the profile, GENDER to the inline ask (then Register again), BANNED to the red notice.
  * The booking gate does not apply: registering books no court.
+ *
+ * The seating board (play-coaches contracts §5) sits under the ticket: a court per four places,
+ * two chairs a side, filled in registration order before the draw and round 1's courts after it.
+ * Tapping an open chair runs the same Register as the footer button (its busy state, the welcome
+ * for a signed-out guest, the terms / phone / gender refusals); the place it gets is the next one.
  */
 export default function TournamentDetailScreen() {
   const { t, locale } = useLocale();
@@ -113,6 +126,8 @@ export default function TournamentDetailScreen() {
   const [genderBusy, setGenderBusy] = useState<Gender | null>(null);
   const [genderError, setGenderError] = useState<string | null>(null);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  // The board folds past four courts (a 64-player tournament is sixteen of them).
+  const [allCourts, setAllCourts] = useState(false);
 
   const [deviceNow, setDeviceNow] = useState(() => Date.now());
   useEffect(() => {
@@ -331,6 +346,81 @@ export default function TournamentDetailScreen() {
   })();
 
   const rounds = showsPlay(d) ? d.rounds : [];
+
+  // ── The seating board (§5) ───────────────────────────────────────────────
+  const board = seatingBoardOf(d);
+  const courtTitle = (no: number) =>
+    t('tournaments.guest.detail.court', { no: isolateLtr(String(no)) });
+  const chairLabel = (ch: BoardChair) =>
+    ch.state === 'mine'
+      ? t('seating.chair.mine')
+      : ch.state === 'open'
+        ? t('seating.chair.open')
+        : ch.player
+          ? nameOf(ch.player)
+          : t('seating.chair.taken');
+  const canTake = action === 'register' || action === 'waitlist';
+  const boardView = board
+    ? (() => {
+        const shown = visibleCourtsCount(board, allCourts);
+        const own = board.ownCourt !== null ? board.courts[board.ownCourt] : undefined;
+        const ownSitsOut = board.sitOut.some((p) => p.mine);
+        return {
+          title: t(board.phase === 'draw' ? 'seating.drawTitle' : 'seating.title'),
+          caption: boardCaptionKey(d.format) ? t(boardCaptionKey(d.format)!) : null,
+          note:
+            board.phase === 'draw'
+              ? null
+              : action === 'register' && board.hasOpen
+                ? t('seating.tapHint')
+                : action === 'waitlist'
+                  ? t('seating.fullHint')
+                  : t('seating.order'),
+          ownLine: own
+            ? t('seating.ownCourt', { court: courtTitle(own.no) })
+            : ownSitsOut
+              ? t('seating.ownSitOut')
+              : null,
+          courts: board.courts.slice(0, shown).map((court) => ({
+            no: court.no,
+            title: courtTitle(court.no),
+            chairs: court.chairs.map((ch) => {
+              if (ch.state === 'none') return null;
+              const label = chairLabel(ch);
+              return {
+                state: ch.state,
+                label,
+                a11y: t('seating.chairA11y', {
+                  court: courtTitle(court.no),
+                  chair: isolateLtr(String(ch.no)),
+                  who: label,
+                }),
+              };
+            }),
+          })),
+          sitOut:
+            board.phase === 'draw'
+              ? {
+                  title: t('seating.sitOut'),
+                  players: board.sitOut.map((p, i) => ({
+                    key: `${p.player.no ?? 'x'}:${i}`,
+                    label: p.mine ? t('seating.chair.mine') : nameOf(p.player),
+                    mine: p.mine,
+                  })),
+                }
+              : null,
+          more:
+            board.courts.length > BOARD_COURTS_FOLDED && (allCourts || shown < board.courts.length)
+              ? {
+                  label: allCourts
+                    ? t('seating.showFewer')
+                    : t('seating.showAll', { count: isolateLtr(String(board.courts.length)) }),
+                  onPress: () => setAllCourts((v) => !v),
+                }
+              : null,
+        };
+      })()
+    : null;
   const hasFooter = askGender || notice !== null || actionBlock !== null;
 
   return (
@@ -419,6 +509,31 @@ export default function TournamentDetailScreen() {
 
         {prizeText(d, locale) ? (
           <TournamentPrize label={t('tournaments.common.prize')} prize={prizeText(d, locale)!} />
+        ) : null}
+
+        {boardView ? (
+          <SeatingBoard
+            testID="tournament-detail.seating"
+            title={boardView.title}
+            caption={boardView.caption}
+            note={boardView.note}
+            legend={{
+              taken: t('seating.legend.taken'),
+              mine: t('seating.legend.mine'),
+              open: t('seating.legend.open'),
+            }}
+            courts={boardView.courts}
+            ownLine={boardView.ownLine}
+            sitOut={boardView.sitOut}
+            onOpenChair={canTake ? onRegister : undefined}
+            openHint={
+              canTake
+                ? t(action === 'register' ? 'seating.registerHint' : 'seating.waitlistHint')
+                : undefined
+            }
+            busy={busy}
+            more={boardView.more}
+          />
         ) : null}
 
         {rounds.length > 0 ? (

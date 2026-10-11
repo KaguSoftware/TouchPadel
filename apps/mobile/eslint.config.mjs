@@ -137,14 +137,14 @@ export default [
     // 'off' would now also disable the client-secret guard, which shares the
     // rule name.
     //
-    // It drops the TESTID selectors with them, and that is correct: these two
-    // files are drawings. `CourtIllustration` is a picture of a court and
-    // `features/courtTransition/**` is three.js geometry — neither holds a
-    // control, so there is nothing for a test to press and nothing an id would
-    // name. The client-secret guard is the one thing that must survive here,
+    // It drops the TESTID selectors with them, and that is correct: these
+    // files are drawings. `features/courtTransition/**` is three.js geometry
+    // and holds no control, so there is nothing for a test to press and nothing
+    // an id would name. (The flat `CourtIllustration` that once shared this
+    // override was deleted on 2026-10-11: every court is the 3D one now.) The client-secret guard is the one thing that must survive here,
     // and `clientSecretRules` is exactly it.
     name: '@touch/mobile/physical-art',
-    files: ['src/components/CourtIllustration.tsx', 'src/features/courtTransition/**/*.ts'],
+    files: ['src/features/courtTransition/**/*.ts'],
     rules: clientSecretRules,
   },
   {

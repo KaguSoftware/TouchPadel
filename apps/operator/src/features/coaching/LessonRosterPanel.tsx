@@ -402,7 +402,7 @@ function RosterView({
         {e.friend_names.length > 0 && (
           <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
             {tr('ws.coaching.roster.friends', {
-              // A coach-typed phone sits beside its name (0334, 0335).
+              // A coach-typed phone sits beside its name (0335, 0336).
               names: e.friend_names
                 .map((n, i) => {
                   const phone = e.friend_phones[i];

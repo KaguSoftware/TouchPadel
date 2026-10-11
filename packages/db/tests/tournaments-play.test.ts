@@ -529,8 +529,8 @@ describe.skipIf(!docker)('the reads (§1.8)', () => {
       { name: null, former: false, no: expect.any(Number) },
     ]);
     expect(answer(r, 'p1')).toMatchObject({ me: { status: 'registered', owed_iqd: 10000 } });
-    expect(answer(r, 'nil')).toEqual({ missing: true });
-    expect(answer(r, 'null')).toEqual({ missing: true });
+    expect(answer(r, 'nil')).toEqual({ missing: true, entries: [] });
+    expect(answer(r, 'null')).toEqual({ missing: true, entries: [] });
     expect(answer(r, 'walk')).toMatchObject({ status: 'registered' });
   });
 });

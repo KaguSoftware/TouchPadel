@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0337 coaches_slug_key — one coach per share link name (0336). An index in
+-- 0338 coaches_slug_key — one coach per share link name (0337). An index in
 -- its own file (db CLAUDE.md, Migrations). app.coach_update and the coaches_slug
 -- trigger answer COACH_SLUG_TAKEN before this index does; two racing writers
 -- get it from the index itself.

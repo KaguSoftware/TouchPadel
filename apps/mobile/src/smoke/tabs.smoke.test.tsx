@@ -1,5 +1,7 @@
 /**
- * The tab navigator and its three screens.
+ * The tab navigator and three of its five screens: Play is cased in
+ * play.smoke.test.tsx and Coaches in coaching.smoke.test.tsx (each route is
+ * named by exactly one suite); both bars are checked here for all five ids.
  *
  * The hardest three renders in the app live here: `(tabs)/index` builds the
  * court's GL stage and a glass sheet, `(tabs)/_layout` is UIKit's own tab bar,
@@ -13,13 +15,13 @@
  *    `(tabs)/_layout` to). `TabsLayout.ios.tsx` carries NO testID — UIKit
  *    draws the bar — and `tabs.book` exists only because jest.setup.ts's
  *    `expo-router/unstable-native-tabs` mock names each Trigger's View after
- *    its route. The case proves the layout declares three triggers with the
+ *    its route. The case proves the layout declares five triggers with the
  *    locale's labels; it does not prove a `tabs.book` node exists on a device.
  *    The Android case below is where that id is asserted on the app's own
  *    Pressable.
  *  • `book`. jest.setup.ts's `Court3D` mock reports itself unavailable on
- *    mount, so the Book tab always takes its GL-less branch here (the flat
- *    `CourtIllustration` with the CTA under it). That branch ships, but the
+ *    mount, so the Book tab always takes its GL-less branch here (the CTA on
+ *    the brand pattern, no court). That branch ships, but the
  *    GL branch — where the CTA is anchored to the measured net — is never
  *    rendered by this suite.
  */
@@ -172,6 +174,43 @@ describe.each(LOCALES)('book branch picker in %s', (locale) => {
     try {
       expect(screen.queryByTestId('book.branch')).toBeNull();
       expect(screen.getByTestId('book.view-availability')).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+});
+
+/**
+ * Five tabs on both bars, in this order (play-coaches contracts §1), each with
+ * its own id and the locale's label: Book stays the exact middle.
+ */
+const TAB_ORDER = [
+  ['tabs.bookings', 'tabs.bookings'],
+  ['tabs.play', 'tabs.play'],
+  ['tabs.book', 'tabs.book'],
+  ['tabs.coaches', 'tabs.coaches'],
+  ['tabs.profile', 'tabs.profile'],
+] as const;
+
+describe.each(LOCALES)('the five tabs in %s', (locale) => {
+  const t = makeT(locale);
+
+  it.each<[string, typeof TabsLayout]>([
+    ['iOS', TabsLayout],
+    ['Android', TabsLayoutAndroid],
+  ])('the %s bar declares all five, Book in the middle', (_name, Layout) => {
+    const screen = renderRoute(Layout, { locale });
+    try {
+      const ids = TAB_ORDER.map(([id, key]) => {
+        const tab = screen.getByTestId(id);
+        expect(within(tab).getByText(t(key))).toBeTruthy();
+        return id;
+      });
+      const all = screen.UNSAFE_root.findAll(
+        (n) => typeof n.props.testID === 'string' && n.props.testID.startsWith('tabs.') && n.props.testID !== 'tabs.back-to-staff',
+      );
+      const seen = [...new Set(all.map((n) => n.props.testID as string))];
+      expect(seen).toEqual(ids);
     } finally {
       screen.unmount();
     }

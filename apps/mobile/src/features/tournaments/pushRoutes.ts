@@ -32,9 +32,15 @@ export function isTournamentPushKind(value: unknown): value is TournamentPushKin
 }
 
 export type TournamentHref =
-  { pathname: '/tournament/[id]'; params: { id: string } } | { pathname: '/tournaments' };
+  | { pathname: '/tournament/[id]'; params: { id: string } }
+  | { pathname: '/play'; params: { show: 'tournaments' } };
 
-/** `tournament` with an id opens that tournament; without one, the list. */
+/**
+ * `tournament` with an id opens that tournament; without one, the Play tab on its
+ * tournaments (the list's home since 2026-10-11, play-coaches contracts §1).
+ */
 export function tournamentPushHref(id: string | null | undefined): TournamentHref {
-  return id ? { pathname: '/tournament/[id]', params: { id } } : { pathname: '/tournaments' };
+  return id
+    ? { pathname: '/tournament/[id]', params: { id } }
+    : { pathname: '/play', params: { show: 'tournaments' } };
 }

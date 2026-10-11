@@ -17,8 +17,9 @@
  *
  * Open matches (docs/design/open-matches/guest.md §4.11) sit BESIDE the grid,
  * never in it: while the branch has them on and the sheet is open, one light
- * `match_slots` query feeds the chips (`matchLineFor`), the entry row and the
- * Book / Start / Join choice a tap on a free time may raise. With the switch
+ * `match_slots` query feeds the chips (`matchLineFor`) and the Book / Start /
+ * Join choice a tap on a free time may raise. The list itself is the Play tab
+ * (2026-10-11), where a chip with several matches at one time lands. With the switch
  * off none of it runs, and a tap holds exactly as before.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -52,13 +53,7 @@ import {
   venuePhoneOf,
   type MergedCell,
 } from './assemble';
-import {
-  chipLines,
-  entryLabelOf,
-  joinableAhead,
-  matchTargetOf,
-  slotChoiceOptions,
-} from './matchChips';
+import { chipLines, matchTargetOf, slotChoiceOptions } from './matchChips';
 import { useHoldSlot } from '../booking/hooks';
 import { type SlotOrigin } from '../booking/pendingSlot';
 import { setOnlyPendingJoin, setOnlyPendingSlot } from '../booking/pendingIntent';
@@ -136,8 +131,6 @@ export interface AvailabilityBooking {
    * the lanes, never the tap handler's.
    */
   matchLineFor: ((cell: MergedCell) => string) | undefined;
-  /** The entry row under the courts, or null while the branch has open matches off. */
-  matchEntry: { label: string; onPress: () => void } | null;
 }
 
 export interface CourtLane {
@@ -596,30 +589,6 @@ export function useAvailabilityBooking(
     [holdPending, matchesOn, bookCell, matchCell, t, locale, tz],
   );
 
-  // The entry row (§4.11): the list on the selected night, or sign-in first.
-  const joinable = useMemo(
-    () => (byStart ? joinableAhead(byStart, now.getTime()) : 0),
-    [byStart, now],
-  );
-  const signedIn = !!session;
-  const onOpenMatches = useCallback(() => {
-    if (!venueId) return;
-    const intent: PendingJoin = { kind: 'list', venueId, date };
-    if (!signedIn) {
-      setOnlyPendingJoin(intent);
-      router.push('/welcome');
-      return;
-    }
-    router.push(pendingJoinHref(intent));
-  }, [venueId, date, signedIn, router]);
-  const matchEntry = useMemo(
-    () =>
-      matchesOn
-        ? { label: entryLabelOf({ signedIn, joinable }, t, locale), onPress: onOpenMatches }
-        : null,
-    [matchesOn, signedIn, joinable, t, locale, onOpenMatches],
-  );
-
   const subFor = useCallback((cell: MergedCell): string => {
     switch (cell.state) {
       case 'free':
@@ -689,6 +658,5 @@ export function useAvailabilityBooking(
     capacityLineFor,
     onCall,
     matchLineFor,
-    matchEntry,
   };
 }

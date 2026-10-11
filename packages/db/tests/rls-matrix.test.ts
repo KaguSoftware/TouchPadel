@@ -149,6 +149,18 @@ describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface 
     clients.court_desk = await signedInClient(SEED_STAFF.court_desk);
     clients.manager = await signedInClient(SEED_STAFF.manager);
     clients.owner = await signedInClient(SEED_STAFF.owner);
+
+    // The PIN-gated rows prove the manager PIN as each staff principal first
+    // (appRpc), and the limiter counts failures per CALLER for 5 minutes.
+    // hardening.test.ts drives `prep` to lockout and idle-lock.test.ts `owner`;
+    // when either ran under 5 minutes before this file, every PIN-gated row
+    // read PIN_LOCKED instead of the guard (CI 38132159251, prep, 9 rows).
+    // pin_attempts is throwaway telemetry: start this file with a clean window.
+    for (const p of ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const) {
+      const uid = (await clients[p].auth.getUser()).data.user!.id;
+      const { error: pinErr } = await svc.schema('app').from('pin_attempts').delete().like('device_id', `${uid}:%`);
+      if (pinErr) throw new Error(`clearing ${p} pin_attempts failed: ${pinErr.message}`);
+    }
   });
 
   async function runSelect(rule: SelectRule, p: Principal): Promise<string | null> {

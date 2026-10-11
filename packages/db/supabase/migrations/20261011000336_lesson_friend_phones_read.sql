@@ -1,8 +1,8 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0335 lesson_friend_phones_read — the other students' phones a coach typed
--- (0334, lesson_enrolments.friend_phones) reach the two screens that show a
+-- 0336 lesson_friend_phones_read — the other students' phones a coach typed
+-- (0335, lesson_enrolments.friend_phones) reach the two screens that show a
 -- lesson's students. Both functions are re-issued from their latest bodies,
 -- verbatim except for the one key named; dollar tags _0335.
 --
@@ -19,7 +19,7 @@ set statement_timeout = '60s';
 -- ===========================================================================
 
 create or replace function app.coach_lesson(p_lesson_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = public as $coach_lesson_0335$
+language plpgsql stable security definer set search_path = public as $coach_lesson_0336$
 declare
   v_co            coaches%rowtype := app.coach_self(true);
   v_l             lessons%rowtype;
@@ -82,7 +82,7 @@ begin
                     end,
            'party_size', e.party_size,
            'friend_names', to_jsonb(e.friend_names),
-           -- 0335: the other students' phones (0334), by position, under the
+           -- 0336: the other students' phones (0335), by position, under the
            -- student's own rule (R54, P13).
            'friend_phones', case
                               when now() >= v_phone_until or e.status = 'held' then '[]'::jsonb
@@ -176,10 +176,10 @@ begin
       'mark', coalesce(v_mark, false)),
     'mark_until', v_l.start_at + interval '24 hours',
     'server_now', now());
-end $coach_lesson_0335$;
+end $coach_lesson_0336$;
 
 comment on function app.coach_lesson(uuid) is
-  '0283, 0335 (db.md §4.7.9, guest.md §4.3; X11, C-16, CD-3, R44, R45, R54). Coach (coach_self first; NOT_A_COACH for a retired coach): INVALID_ARGUMENT (NULL); LESSON_NOT_FOUND unless the lesson is the caller''s. {lesson {id, venue_id, kind, course_id, session_no, sessions_count, type_name_*, title_*, start_at, end_at, status, cancel_reason, court_name_*, max_places, min_places, places_taken, cutoff_at}, course {id, status, sessions[{lesson_id, session_no, start_at, end_at, status}]} | null, roster[{enrolment_id, name, phone, party_size, friend_names, friend_phones (0335: the other students'' phones by position, '''' for none; empty under the phone''s rule), booked_by, payment_mode, status, attendance}] (held and booked places covering the session), can {add, remove, cancel, cancel_course, reschedule, mark}, mark_until (start + 24 h), server_now}. A coach- or staff-booked student shows the name and phone as typed, never the linked profile''s (R44); a guest''s own booking shows the account''s. The phone is NULL from end_at + 7 days (R54) and while the place is held. Never money, a profile id, or whether a typed phone matched.';
+  '0283, 0336 (db.md §4.7.9, guest.md §4.3; X11, C-16, CD-3, R44, R45, R54). Coach (coach_self first; NOT_A_COACH for a retired coach): INVALID_ARGUMENT (NULL); LESSON_NOT_FOUND unless the lesson is the caller''s. {lesson {id, venue_id, kind, course_id, session_no, sessions_count, type_name_*, title_*, start_at, end_at, status, cancel_reason, court_name_*, max_places, min_places, places_taken, cutoff_at}, course {id, status, sessions[{lesson_id, session_no, start_at, end_at, status}]} | null, roster[{enrolment_id, name, phone, party_size, friend_names, friend_phones (0336: the other students'' phones by position, '''' for none; empty under the phone''s rule), booked_by, payment_mode, status, attendance}] (held and booked places covering the session), can {add, remove, cancel, cancel_course, reschedule, mark}, mark_until (start + 24 h), server_now}. A coach- or staff-booked student shows the name and phone as typed, never the linked profile''s (R44); a guest''s own booking shows the account''s. The phone is NULL from end_at + 7 days (R54) and while the place is held. Never money, a profile id, or whether a typed phone matched.';
 
 revoke all on function app.coach_lesson(uuid) from public, anon;
 grant execute on function app.coach_lesson(uuid) to authenticated;
@@ -189,7 +189,7 @@ grant execute on function app.coach_lesson(uuid) to authenticated;
 -- ===========================================================================
 
 create or replace function app.desk_lesson_detail(p_lesson_id uuid) returns jsonb
-language plpgsql stable security definer set search_path = public as $desk_lesson_detail_0335$
+language plpgsql stable security definer set search_path = public as $desk_lesson_detail_0336$
 declare
   v_l          lessons%rowtype;
   v_c          courses%rowtype;
@@ -309,7 +309,7 @@ begin
                                  then app.customer_flags_json(e.guest_id) else '[]'::jsonb end,
                    'party_size', e.party_size,
                    'friend_names', to_jsonb(e.friend_names),
-                   'friend_phones', to_jsonb(e.friend_phones),  -- 0335: by position, as typed (0334)
+                   'friend_phones', to_jsonb(e.friend_phones),  -- 0336: by position, as typed (0335)
                    'first_session_no', e.first_session_no,
                    'sessions_covered', e.sessions_covered,
                    'booked_by_kind', e.booked_by_kind,
@@ -443,13 +443,13 @@ begin
         'move_court', coalesce(v_desk and v_l.status = 'scheduled' and now() < v_l.end_at, false))),
     'enrolments', v_enrolments,
     'events', v_events);
-end $desk_lesson_detail_0335$;
+end $desk_lesson_detail_0336$;
 
 comment on function app.desk_lesson_detail(uuid) is
-  '0283, 0294, 0335 (db.md §4.7.9, operator.md §5.6.2; X17, C-21, R44, R57, R75; DB-31). Cashier, court desk, manager, owner (the role first): FORBIDDEN; INVALID_ARGUMENT (NULL); LESSON_NOT_FOUND (unknown, or outside app.visible_venue_ids()); VENUE_MISMATCH (visible but not staff there). {lesson {id, venue_id, kind, status, cancel_reason, start_at, end_at, duration_min, rescheduled_at, booked_by_kind, coach {coach_id, display_name_*, status}, lesson_type {lesson_type_id, name_*}, course {course_id, title_*, status, cancel_reason, session_no, sessions_count, signup_closes_at, places_taken, max_places, sessions[{lesson_id, session_no, start_at, end_at, status, court_name_*}]} | null, reservation_id, reservation_status, court_id, court_name_*, price_iqd, court_share_iqd, max_places, min_places, places_taken, cutoff_at, hold_expires_at, created_by_name, server_now, day_open, can {add_student, cancel, cancel_course, reschedule, move_court}}, enrolments[{enrolment_id, scope, status, cancel_kind, cancelled_at, customer_id, full_name, phone, typed, flags, party_size, friend_names, friend_phones (0335: by position, '''' for none), first_session_no, sessions_covered, booked_by_kind, booked_by_name, payment_mode, created_at, attendance {status, marked_at, marked_by_name} | null, money {price_iqd, owed_iqd, desk_paid_iqd, online_paid_iqd, refunded_iqd, kept_iqd, refund_due_iqd, refund_due_desk_iqd, refund_blocked_iqd (0294: the engine''s parts of refund_due owed at the desk and blocked), take_iqd (lesson_fee_remaining)}, can {take_payment, cancel (0294: a private lesson''s place until its start, a group place until the end, a course place until the course''s last end), mark_attended, mark_no_show, unmark}}], events[{at, type, actor, actor_name, enrolment_id, code, late}] (the last 50, newest first)}. A coach- or desk-booked student shows the name and phone recorded on the enrolment (typed true), never a linked profile''s; customer_id only for a guest''s own booking, a picked customer or a confirmed link (R44, C-21).';
+  '0283, 0294, 0336 (db.md §4.7.9, operator.md §5.6.2; X17, C-21, R44, R57, R75; DB-31). Cashier, court desk, manager, owner (the role first): FORBIDDEN; INVALID_ARGUMENT (NULL); LESSON_NOT_FOUND (unknown, or outside app.visible_venue_ids()); VENUE_MISMATCH (visible but not staff there). {lesson {id, venue_id, kind, status, cancel_reason, start_at, end_at, duration_min, rescheduled_at, booked_by_kind, coach {coach_id, display_name_*, status}, lesson_type {lesson_type_id, name_*}, course {course_id, title_*, status, cancel_reason, session_no, sessions_count, signup_closes_at, places_taken, max_places, sessions[{lesson_id, session_no, start_at, end_at, status, court_name_*}]} | null, reservation_id, reservation_status, court_id, court_name_*, price_iqd, court_share_iqd, max_places, min_places, places_taken, cutoff_at, hold_expires_at, created_by_name, server_now, day_open, can {add_student, cancel, cancel_course, reschedule, move_court}}, enrolments[{enrolment_id, scope, status, cancel_kind, cancelled_at, customer_id, full_name, phone, typed, flags, party_size, friend_names, friend_phones (0336: by position, '''' for none), first_session_no, sessions_covered, booked_by_kind, booked_by_name, payment_mode, created_at, attendance {status, marked_at, marked_by_name} | null, money {price_iqd, owed_iqd, desk_paid_iqd, online_paid_iqd, refunded_iqd, kept_iqd, refund_due_iqd, refund_due_desk_iqd, refund_blocked_iqd (0294: the engine''s parts of refund_due owed at the desk and blocked), take_iqd (lesson_fee_remaining)}, can {take_payment, cancel (0294: a private lesson''s place until its start, a group place until the end, a course place until the course''s last end), mark_attended, mark_no_show, unmark}}], events[{at, type, actor, actor_name, enrolment_id, code, late}] (the last 50, newest first)}. A coach- or desk-booked student shows the name and phone recorded on the enrolment (typed true), never a linked profile''s; customer_id only for a guest''s own booking, a picked customer or a confirmed link (R44, C-21).';
 
 revoke all on function app.desk_lesson_detail(uuid) from public, anon;
 grant execute on function app.desk_lesson_detail(uuid) to authenticated;
 
 comment on column lesson_enrolments.friend_phones is
-  '0334, 0335. The phones a coach typed for a private lesson''s other students, by position against friend_names ('''' for none; at most one per name). Shown to the coach in coach_lesson under the student''s phone rule (until end_at + 7 days, R54) and to the desk in desk_lesson_detail. Emptied with friend_names by every scrub (trigger lesson_enrolments_friend_phones_scrub): the 365-day typed purge (CD-8) and account deletion.';
+  '0335, 0336. The phones a coach typed for a private lesson''s other students, by position against friend_names ('''' for none; at most one per name). Shown to the coach in coach_lesson under the student''s phone rule (until end_at + 7 days, R54) and to the desk in desk_lesson_detail. Emptied with friend_names by every scrub (trigger lesson_enrolments_friend_phones_scrub): the 365-day typed purge (CD-8) and account deletion.';

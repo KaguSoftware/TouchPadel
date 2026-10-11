@@ -570,7 +570,7 @@ export function RosterRow({
           </Pressable>
         </View>
       ) : null}
-      {/* The other students a coach booked with their phones (0334, 0335):
+      {/* The other students a coach booked with their phones (0335, 0336):
           each on its own line, callable like the student. */}
       {entry.friends.some((f) => f.phone)
         ? entry.friends.map((f, i) => (

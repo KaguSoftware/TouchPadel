@@ -117,7 +117,7 @@ describe.each(LOCALES)('coaching page (%s)', (locale: Locale) => {
     // An empty bio prints nothing.
     expect(sara.querySelector('.tp-coach-card__bio')).toBeNull();
 
-    // Every card books through its coach's link, which names the coach (0336); the app claims
+    // Every card books through its coach's link, which names the coach (0337); the app claims
     // it where installed.
     for (const [card, slug] of [
       [ali, 'ali-fixture'],

@@ -230,7 +230,7 @@ describe('coach link page, the id', () => {
     expect(heading()).toBe('Ali Fixture');
   });
 
-  it('reads a slug as its coach (0336), any case; the app opens on the id', async () => {
+  it('reads a slug as its coach (0337), any case; the app opens on the id', async () => {
     await renderLink('en', 'Ali-Fixture');
     expect(heading()).toBe('Ali Fixture');
     expect(

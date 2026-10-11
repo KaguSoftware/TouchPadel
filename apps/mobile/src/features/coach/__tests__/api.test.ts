@@ -75,7 +75,7 @@ describe('coach mode’s calls', () => {
     expect(calls[0]!.args).toEqual({ p_starts_at: 'a', p_ends_at: 'b', p_reason: '' });
   });
 
-  it('books a private lesson for a saved student: no phone sent, the saved key instead (0334)', async () => {
+  it('books a private lesson for a saved student: no phone sent, the saved key instead (0335)', async () => {
     const { client, calls } = stub({
       data: { lesson_id: 'l', enrolment_id: 'e', duplicate: false },
     });
@@ -104,7 +104,7 @@ describe('coach mode’s calls', () => {
     expect(r).toEqual({ lessonId: 'l', enrolmentId: 'e', duplicate: false });
   });
 
-  it('sends the other students by position, phones only when one was typed (0334)', async () => {
+  it('sends the other students by position, phones only when one was typed (0335)', async () => {
     const { client, calls } = stub({ data: { lesson_id: 'l', enrolment_id: 'e', duplicate: false } });
     const book = (friends: { name: string; phone: string }[]) =>
       coachBookPrivate(client, {

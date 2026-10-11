@@ -285,7 +285,7 @@ describe('LessonRosterPanel: rows and money lines (§5.10.4)', () => {
     expect(plain(within(row('e1')).getByText(/^With /).textContent)).toBe('With Huda, Zaid');
   });
 
-  it('the other students a coach booked, each with the phone typed for them (0334, 0335)', async () => {
+  it('the other students a coach booked, each with the phone typed for them (0335, 0336)', async () => {
     raw = rawDetail({ kind: 'private', places_taken: null, max_places: null }, [
       rawEnrolment('e1', {
         party_size: 3,

@@ -24,7 +24,7 @@ import { BrandLockup } from '@/components/site/brand/BrandLockup';
 import { CoachPhoto } from '@/components/coaching/CoachPhoto';
 
 /**
- * `/{locale}/c/<slug>` (0336: `/c/omar-karim`) or `/{locale}/c/<coachId>`: the coach link (docs/design/coaching/guest.md §4.12, §4.14.3). The
+ * `/{locale}/c/<slug>` (0337: `/c/omar-karim`) or `/{locale}/c/<coachId>`: the coach link (docs/design/coaching/guest.md §4.12, §4.14.3). The
  * website's "Book in the app" and the app's share sheet hand it out. Where the app is installed
  * and the domain verified, the phone opens the app on the coach (`LINK_PATHS`) and this page is
  * never seen; everywhere else (a WhatsApp preview, a browser, Safari tapping a same-domain link)

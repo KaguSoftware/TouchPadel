@@ -192,6 +192,25 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     avatar_frame: n,
     // 0317: solid or court lines; reset to solid on deletion.
     avatar_frame_style: n,
+    // 0334: the optional play survey (level, years played, what they are
+    // after), answered by the guest and used only to order suggestions. The
+    // tombstone UPDATE empties all four (profiles_media_tombstone).
+    play_level: {
+      category: 'Other personal info',
+      why: 'the padel level the guest gave in the optional play survey, to order coach and match suggestions',
+      onDelete: 'scrub',
+    },
+    play_years: {
+      category: 'Other personal info',
+      why: 'how long the guest has played, from the optional play survey, to order suggestions',
+      onDelete: 'scrub',
+    },
+    play_wants: {
+      category: 'Other personal info',
+      why: 'what the guest is after (matches, tournaments, lessons), from the optional play survey, to order suggestions',
+      onDelete: 'scrub',
+    },
+    play_survey_at: { category: null, onDelete: 'scrub' },
   },
   // 0318: test accounts that wear every frame. Only a link and a note; the
   // row goes with the profile.
@@ -384,7 +403,7 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     },
     slug: {
       category: 'Name',
-      why: 'the coach’s share link name (0336), made from the English display name or set by a manager; kept with the display name it came from (C-29, R63)',
+      why: 'the coach’s share link name (0337), made from the English display name or set by a manager; kept with the display name it came from (C-29, R63)',
       onDelete: 'keep',
     },
     bio_en: { category: 'User content', why: 'the coach’s public bio, written by a manager', onDelete: 'empty' },
@@ -396,6 +415,8 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     },
     status: n, sort_order: n, public_accepted_at: n, created_by_staff_id: n, created_at: n, updated_at: n,
     retired_at: n,
+    // 0334: the levels the coach teaches (beginner, intermediate, advanced). Not personal.
+    levels: n,
   },
   courses: {
     id: n, venue_id: n, coach_id: n, lesson_type_id: n,
@@ -433,13 +454,13 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     party_size: n,
     friend_names: {
       category: 'Name',
-      why: 'the friends a guest brings to a private lesson, or the other students a coach books with one (0334)',
+      why: 'the friends a guest brings to a private lesson, or the other students a coach books with one (0335)',
       onDelete: 'empty',
     },
-    // 0334: emptied with friend_names by the scrub trigger.
+    // 0335: emptied with friend_names by the scrub trigger.
     friend_phones: {
       category: 'Phone number',
-      why: 'the other students’ numbers a coach typed for a private lesson (0334); shown to nobody yet, purged after 365 days (CD-8)',
+      why: 'the other students’ numbers a coach typed for a private lesson (0335); shown to nobody yet, purged after 365 days (CD-8)',
       onDelete: 'empty',
     },
     booked_by_kind: n, booked_by_profile_id: n, booked_by_staff_id: n,

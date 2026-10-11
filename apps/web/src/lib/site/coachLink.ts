@@ -8,7 +8,7 @@ import type { Locale } from '@touch/i18n';
  * `https://www.touch-padel.com/c/<coachId>`. The app claims that link where it can (universal
  * links, `LINK_PATHS`), and the web page answers everywhere else with an "Open in the app"
  * button on `touchpadel://c/<id>`. The id is a `coaches.id` (never a profile id, R43), a uuid.
- * Since 0336 the link names the coach instead (`/c/omar-karim`, `coaches.slug`); a link with the
+ * Since 0337 the link names the coach instead (`/c/omar-karim`, `coaches.slug`); a link with the
  * id still opens. Anything that is neither is dropped before a read, and the page shows its
  * not-found layout.
  */
@@ -29,7 +29,7 @@ export function parseCoachId(raw: string | string[] | undefined): string | null 
   return COACH_ID.test(id) ? id : null;
 }
 
-/** A coach's share link name (`coaches.slug`, 0336's app.coach_slug_ok). */
+/** A coach's share link name (`coaches.slug`, 0337's app.coach_slug_ok). */
 const COACH_SLUG = /^[a-z0-9][a-z0-9-]{1,47}$/;
 
 /**
@@ -51,7 +51,7 @@ export function parseCoachSlug(raw: string): string | null {
   return ref && !parseCoachId(ref) ? ref : null;
 }
 
-/** The segment a coach's link carries: their slug, or the id from a server before 0336. */
+/** The segment a coach's link carries: their slug, or the id from a server before 0337. */
 export function coachSegment(coach: { id: string; slug: string | null }): string {
   return coach.slug ?? coach.id;
 }

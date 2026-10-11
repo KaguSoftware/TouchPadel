@@ -103,6 +103,15 @@ export function tournamentPublicFixture(over: Record<string, unknown> = {}) {
     places_left: 11,
     waitlist_open: true,
     server_now: new Date().toISOString(),
+    // The registered entries in registration order (play-coaches §4.3): the guest's own is the
+    // third, Ali K. and Sara M. before them.
+    entries: [
+      { player: player('Ali K.', 1), mine: false },
+      { player: player('Sara M.', 2), mine: false },
+      { player: player('Omar H.', 3), mine: true },
+      { player: player('Huda R.', 4), mine: false },
+      { player: player(null, 5), mine: false },
+    ],
     rounds: [
       {
         round_no: 1,
@@ -151,6 +160,15 @@ export function tournamentPublicFixture(over: Record<string, unknown> = {}) {
   };
 }
 
+/** `n` registered entries in order, "First I." names; `mineAt` (0-based) marks the guest's own. */
+export function entriesFixture(n: number, mineAt: number | null = null) {
+  const names = ['Ali K.', 'Sara M.', 'Omar H.', 'Huda R.', 'Zaid T.', 'Noor A.', 'Yusuf B.'];
+  return Array.from({ length: n }, (_, i) => ({
+    player: player(i === 4 ? null : (names[i % names.length] ?? null), i + 1, i === 5),
+    mine: i === mineAt,
+  }));
+}
+
 /** An open tournament, before the cut-off, places left, the guest not entered. */
 export function openTournamentFixture(over: Record<string, unknown> = {}) {
   return tournamentPublicFixture({
@@ -160,6 +178,7 @@ export function openTournamentFixture(over: Record<string, unknown> = {}) {
     registration_closes_at: at(24),
     entries_count: 10,
     places_left: 6,
+    entries: entriesFixture(10),
     rounds: [],
     standings: [],
     me: null,

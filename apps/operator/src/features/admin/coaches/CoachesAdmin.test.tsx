@@ -110,6 +110,7 @@ function coach(over: Record<string, unknown> = {}) {
     status: 'active',
     public_accepted_at: '2026-09-30T10:00:00Z',
     sort_order: 0,
+    levels: [],
     venue_ids: ['v1'],
     lesson_type_ids: ['t1', 't2'],
     prices: [{ lesson_type_id: 't2', price_iqd: 40000 }],
@@ -478,6 +479,62 @@ describe('CoachesAdmin ▸ Coaches', () => {
     ).toBeTruthy();
   });
 
+  it('the levels they coach save with the profile, in order; none ticked reads as every level (0334)', async () => {
+    const user = userEvent.setup();
+    nav.search = { coach: 'c1' };
+    admin = () => ({
+      coaching_enabled: true,
+      server_now: null,
+      coaches: [coach({ levels: ['advanced'] })],
+      lesson_types: [],
+    });
+    answers.coach_update = (args) => ({ coach_id: 'c1', ...(args.p_patch as object) });
+    mount();
+    const editor = within(await screen.findByTestId('coach-editor'));
+    const levels = within(editor.getByRole('group', { name: 'Levels they coach' }));
+    expect(
+      levels
+        .getAllByRole('checkbox')
+        .map((b) => [b.closest('label')?.textContent, (b as HTMLInputElement).checked]),
+    ).toEqual([
+      ['Beginner', false],
+      ['Intermediate', false],
+      ['Advanced', true],
+    ]);
+    expect(
+      editor.getByRole('group', { name: 'Levels they coach' }).getAttribute('aria-describedby'),
+    ).toBeTruthy();
+    expect(plain(editor.getByText(/Leave all three unticked/).textContent)).toBe(
+      "Guests pick a level on the app's Coaches page. Leave all three unticked and this coach shows under every level.",
+    );
+    await user.click(levels.getByRole('checkbox', { name: 'Beginner' }));
+    await user.click(editor.getByRole('button', { name: 'Save profile' }));
+    await waitFor(() => expect(calls('coach_update')).toHaveLength(1));
+    expect(calls('coach_update')[0]![1]).toEqual({
+      p_coach_id: 'c1',
+      p_patch: { levels: ['beginner', 'advanced'] },
+    });
+  });
+
+  it('unticking every level sends an empty list: the coach shows under every level (0334)', async () => {
+    const user = userEvent.setup();
+    nav.search = { coach: 'c1' };
+    admin = () => ({
+      coaching_enabled: true,
+      server_now: null,
+      coaches: [coach({ levels: ['intermediate'] })],
+      lesson_types: [],
+    });
+    answers.coach_update = () => ({ coach_id: 'c1' });
+    mount();
+    const editor = within(await screen.findByTestId('coach-editor'));
+    const levels = within(editor.getByRole('group', { name: 'Levels they coach' }));
+    await user.click(levels.getByRole('checkbox', { name: 'Intermediate' }));
+    await user.click(editor.getByRole('button', { name: 'Save profile' }));
+    await waitFor(() => expect(calls('coach_update')).toHaveLength(1));
+    expect(calls('coach_update')[0]![1]).toEqual({ p_coach_id: 'c1', p_patch: { levels: [] } });
+  });
+
   it('unticking a type the coach has an own price for asks first (R46)', async () => {
     const user = userEvent.setup();
     nav.search = { coach: 'c1' };
@@ -535,7 +592,7 @@ describe('CoachesAdmin ▸ Coaches', () => {
     });
   });
 
-  it('the link name shows the share link, refuses a bad one, and saves lower-cased (0336)', async () => {
+  it('the link name shows the share link, refuses a bad one, and saves lower-cased (0337)', async () => {
     const user = userEvent.setup();
     nav.search = { coach: 'c1' };
     answers.coach_update = () => ({});

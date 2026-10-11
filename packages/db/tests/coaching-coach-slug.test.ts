@@ -1,5 +1,5 @@
 /**
- * Coaching, 0336 coach_slugs + 0337: a coach's share link names the coach
+ * Coaching, 0337 coach_slugs + 0338: a coach's share link names the coach
  * (/c/omar-karim, owner 2026-10-11).
  *
  * In one rolled-back transaction (coaching-core-harness.ts):
@@ -87,7 +87,7 @@ const BODY: string[] = [
   E('admin', 'manager', `select app.coaches_admin({{v}}::uuid)`),
 ];
 
-describe.skipIf(!docker)('0336 coach slugs, one transaction', () => {
+describe.skipIf(!docker)('0337 coach slugs, one transaction', () => {
   let r: Results;
   beforeAll(() => {
     r = scenario('c336', BODY);

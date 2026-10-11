@@ -41,26 +41,53 @@ export interface ProfileRow {
   avatar_frame?: string | null;
   /** 0317: solid | lines (court lines). Optional like the rest. */
   avatar_frame_style?: string | null;
+  /**
+   * The sign-up play survey (0334; play-coaches contracts §4.1), read through
+   * `playProfileOf` (features/playProfile/logic.ts), never directly. Optional
+   * like the rest: a row cached before 0334 has none of them, and reads as
+   * "not known yet" until the refetch.
+   */
+  play_level?: string | null;
+  play_years?: string | null;
+  play_wants?: string[] | null;
+  play_survey_at?: string | null;
 }
 
-const PROFILE_COLUMNS =
+const BASE_COLUMNS =
   'id, full_name, phone, preferred_lang, given_name, family_name, gender, avatar_path, username, username_changed_at, avatar_frame, avatar_frame_style';
+/** 0334: the play survey's four columns (column-granted like avatar_frame_style). */
+const PLAY_COLUMNS = 'play_level, play_years, play_wants, play_survey_at';
+const PROFILE_COLUMNS = `${BASE_COLUMNS}, ${PLAY_COLUMNS}`;
+
+/**
+ * 42703 undefined_column / 42501 a column without a grant: a database that
+ * does not have 0334 yet. The profile must still load (sign-in, the booking
+ * gate and every screen read it), so it is read again without the play
+ * columns, and the play profile reads as "not known".
+ */
+function isMissingPlayColumns(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === '42703' || code === '42501';
+}
 
 export async function fetchOwnProfile(client: Client): Promise<ProfileRow | null> {
   const { data: userData } = await client.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) return null;
-  const { data, error } = await client
-    .from('profiles')
-    .select(PROFILE_COLUMNS)
-    .eq('id', uid)
-    .maybeSingle();
+  const select = (columns: string) =>
+    client.from('profiles').select(columns).eq('id', uid).maybeSingle();
+  let { data, error } = await select(PROFILE_COLUMNS);
+  if (error && isMissingPlayColumns(error)) ({ data, error } = await select(BASE_COLUMNS));
   if (error) throw error;
   if (!data) return null;
+  // Read as ProfileRow rather than the generated row: the column list is built
+  // at runtime, and the play columns are parsed by playProfileOf
+  // (features/playProfile/logic.ts), never read directly.
+  const row = data as unknown as ProfileRow;
   return {
-    ...data,
+    ...row,
     // The column is a CHECKed text; anything else reads as not set.
-    gender: data.gender === 'female' || data.gender === 'male' ? data.gender : null,
+    gender: row.gender === 'female' || row.gender === 'male' ? row.gender : null,
   };
 }
 

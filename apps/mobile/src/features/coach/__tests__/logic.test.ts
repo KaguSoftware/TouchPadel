@@ -559,7 +559,7 @@ describe('a lesson’s roster (X11; C-16, CD-11, R44, R54, P13)', () => {
     expect(held.roster[0]!.friends).toEqual([{ name: 'Y', phone: null }]);
   });
 
-  it('pairs the other students with their phones by position (0334, 0335)', () => {
+  it('pairs the other students with their phones by position (0335, 0336)', () => {
     const d = parseCoachLesson(coachLessonRaw())!;
     expect(d.roster[0]!.friends).toEqual([
       { name: 'Omar Friend', phone: '+9647700000013' },

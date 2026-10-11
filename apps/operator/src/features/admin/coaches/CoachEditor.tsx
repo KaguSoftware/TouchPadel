@@ -7,6 +7,7 @@
  *   public), Open customer; a deleted account says what was cleared (R63).
  * - While the coach has not accepted a public profile: who sees what (C-22, R61).
  * - Public profile: display names, bios, photo (a fresh random folder, R43)
+ *   and the levels they coach (three ticks, none = every level, 0334)
  *   → `coach_update` with the changed keys; a replaced photo's old object is
  *   removed after the save. The order arrows save on their own (OP-01): the
  *   coach swaps with a neighbour, the list is renumbered in steps of 10 and
@@ -26,9 +27,10 @@
  *
  * Every write is online only (CD-6).
  */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { COACH_LEVELS } from '@touch/core';
 import { formatIQD, formatNumber, isolate, isolateLtr } from '@touch/i18n';
 import { AppRpcError, appRpc } from '../../../lib/appRpc';
 import { pickName, useLocale } from '../../../lib/i18n';
@@ -69,6 +71,7 @@ import {
   sameSet,
   sortCoaches,
   toggleId,
+  toggleLevel,
   typeChange,
   type CoachProfileDraft,
   type OrderWrite,
@@ -343,6 +346,7 @@ function ProfileSection({
   const saved = profileDraftOf(c);
   const savedKey = JSON.stringify(saved);
   const [draft, setDraft] = useState<CoachProfileDraft>(saved);
+  const levelsHintId = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -416,7 +420,7 @@ function ProfileSection({
         maxLength={COACH_LIMITS.name}
         disabled={busy}
       />
-      {/* 0336: the name in the coach's share link. A server before it sends none: no field. */}
+      {/* 0337: the name in the coach's share link. A server before it sends none: no field. */}
       {c.slug !== null && (
         <Field
           label={tr(`${E}.slug`)}
@@ -456,6 +460,51 @@ function ProfileSection({
         aspect="1:1"
         disabled={busy}
       />
+      {/* 0334: the levels the phone's Coaches page lists them under; none = every level. */}
+      <fieldset
+        aria-describedby={levelsHintId}
+        style={{
+          border: 0,
+          margin: 0,
+          padding: 0,
+          minInlineSize: 0,
+          display: 'grid',
+          gap: 'var(--tp-sp-1)',
+        }}
+      >
+        <legend style={{ padding: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>
+          {tr(`${E}.levels`)}
+        </legend>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
+          {COACH_LEVELS.map((level) => (
+            <label
+              key={level}
+              style={{
+                display: 'inline-flex',
+                gap: 'var(--tp-sp-1)',
+                alignItems: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={draft.levels.includes(level)}
+                disabled={busy}
+                onChange={(e) =>
+                  set({ levels: toggleLevel(draft.levels, level, e.target.checked) })
+                }
+              />
+              {tr(`${E}.level.${level}`)}
+            </label>
+          ))}
+        </div>
+        <span
+          id={levelsHintId}
+          style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}
+        >
+          {tr(`${E}.levelsHint`)}
+        </span>
+      </fieldset>
       <div
         style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}
       >

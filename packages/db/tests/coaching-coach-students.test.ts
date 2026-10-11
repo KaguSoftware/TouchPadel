@@ -1,5 +1,5 @@
 /**
- * Coaching, 0334 coach_book_students: coach mode's "Book for a student", K4
+ * Coaching, 0335 coach_book_students: coach mode's "Book for a student", K4
  * (owner, 2026-10-11).
  *
  * In one rolled-back transaction (coaching-core-harness.ts):
@@ -11,7 +11,7 @@
  *   * booking a saved student again with no phone takes the stored phone; a
  *     key that is not the caller's own coach booking is refused;
  *   * the coach's roster and the desk's lesson show the other students' phones
- *     (0335);
+ *     (0336);
  *   * emptying friend_names (every scrub does) empties friend_phones.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -87,7 +87,7 @@ const BODY: string[] = [
     phones: `array['${P3}', '']`,
   }),
   ...ROW('party_row', 'party'),
-  // 0335: the coach's roster and the desk's lesson show them.
+  // 0336: the coach's roster and the desk's lesson show them.
   FROM('party_l', 'party', 'lesson_id'),
   E('party_roster', 'g1', `select app.coach_lesson({{party_l}}::uuid)`),
   E('party_desk', 'desk', `select app.desk_lesson_detail({{party_l}}::uuid)`),
@@ -121,13 +121,13 @@ const BODY: string[] = [
   ),
 ];
 
-describe.skipIf(!docker)('0334 coach books students, one transaction', () => {
+describe.skipIf(!docker)('0335 coach books students, one transaction', () => {
   let r: Results;
   beforeAll(() => {
     r = scenario('c334', BODY);
   });
 
-  it('shows the other students’ phones in the coach’s roster and at the desk (0335)', () => {
+  it('shows the other students’ phones in the coach’s roster and at the desk (0336)', () => {
     const roster = data<{ roster: Json[] }>(r, 'party_roster').roster;
     expect(missingKeys(data(r, 'party_roster'), COACHING_SHAPES.coach_lesson)).toEqual([]);
     expect(roster[0]).toMatchObject({

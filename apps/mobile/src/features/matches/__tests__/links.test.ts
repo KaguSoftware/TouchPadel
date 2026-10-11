@@ -32,7 +32,7 @@ describe('normaliseIncomingPath', () => {
     'touchpadel://auth/callback?code=xyz',
     'https://www.touch-padel.com/auth/callback?code=xyz',
     '/en/auth/callback?code=xyz&next=/m/abc',
-    '/matches',
+    '/play?at=2026-10-11T17:00:00.000Z',
     '/match/123',
     '/match-new?venueId=v',
     '/',

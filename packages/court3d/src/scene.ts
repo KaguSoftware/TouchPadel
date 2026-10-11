@@ -19,6 +19,22 @@
  * Colours are the prototype's own (its brand stickers); the page colour behind
  * the court is the renderer's clear colour, set by the component per theme.
  *
+ * TWO THINGS CAN PLAY ON IT (`scene`, fixed at build). `rally`, the default and
+ * the Book tab's: the four rackets' rally above. `drill`, the Coaches tab's: the
+ * same court, rackets, ball, trail, disc and caster, with a ball machine and a
+ * coach on the right half (drillProps.ts) feeding the four rackets down the left
+ * one at a time (drill.ts), each swinging the same clip on its turn. The ball
+ * takes a scale there (it grows out of the barrel and shrinks away on the turf,
+ * and is hidden at 0), and the props cast shadows on `full` only, like the rest.
+ * Nothing on the rally path reads any of it: a rally scene is built and drawn
+ * exactly as it was before the drill existed.
+ *
+ * AND TWO WAYS TO SEE IT (`view`, fixed at build). `book`, the default: the
+ * orbit above. `top`, the Play and Coaches tabs': straight down and horizontal
+ * (camera.ts, topCameraPose), never pitched, without the walls' glass and mesh
+ * (seen edge-on from there), the ball scaled with its height. Either scene in
+ * either view; the Book tab and the web are `rally` + `book`, as before.
+ *
  * ONE court, two hosts. apps/mobile (components/Court3D.tsx, expo-gl) and
  * apps/web (features/court3d/courtCanvas.ts, a browser canvas) both build it
  * here. Where they differ it is an option (CourtSceneOptions). Every default is the
@@ -40,7 +56,9 @@ import {
 import { buildRacketKit } from './racket';
 import { mergeStatic } from './merge';
 import { buildGhostTrail } from './trail';
-import { makeCamera, poseCamera } from './camera';
+import { makeCamera, poseCamera, poseTopCamera, topBallScale } from './camera';
+import { DRILL_PLAYERS, drillAt, drillBallSampler, MACHINE } from './drill';
+import { buildDrillProps } from './drillProps';
 import { lerp, slice, SPEC } from './spec';
 import type { CourtQuality } from './quality';
 
@@ -75,7 +93,30 @@ export interface CourtBackdrop {
   dispose(): void;
 }
 
+/**
+ * What plays on the court. `rally` (default): the Book tab's four-racket rally
+ * (rally.ts). `drill`: the Coaches tab's coaching drill (drill.ts), a ball
+ * machine and a coach on the right half feeding the four rackets down the
+ * left, with the machine's and coach's meshes (drillProps.ts). Fixed at build.
+ */
+export type CourtSceneKind = 'rally' | 'drill';
+
+/**
+ * How the court is seen. `book` (default): the Book tab's orbit, top-down
+ * portrait at rest pitching back to the upright court as p runs to 1
+ * (rally.cameraPose). `top`: straight down and horizontal, fixed, for the Play
+ * and Coaches tabs (camera.ts, topCameraPose): no pitch, p and camK ignored,
+ * the walls' edge-on glass and mesh not built, and the ball drawn bigger the
+ * higher it flies (topBallScale), the one cue to height a view from directly
+ * above has besides the disc. Fixed at build.
+ */
+export type CourtView = 'book' | 'top';
+
 export interface CourtSceneOptions {
+  /** What plays on the court (see CourtSceneKind). Default `rally`. */
+  scene?: CourtSceneKind;
+  /** How the court is seen (see CourtView). Default `book`. */
+  view?: CourtView;
   /**
    * A backdrop to hang behind the court, built for the camera's vertical fov.
    * The phone passes its brand pattern; without one (the web) nothing is drawn
@@ -175,6 +216,7 @@ export function buildCourtScene(
 ): CourtScene {
   const shadows = quality === 'full';
   const spinByTime = opts.spin === 'time';
+  const top = opts.view === 'top';
   const disposables: { dispose(): void }[] = [];
   const scene = new THREE.Scene();
   const overlay = new THREE.Scene();
@@ -389,6 +431,11 @@ export function buildCourtScene(
       panel(1.4, h - 0.8, x + dx * o, y, z + dz * o, ry, mat).renderOrder = 1;
     }
   };
+  // The top view (camera.ts, topCameraPose) looks straight down, where every
+  // wall is seen edge-on: its glass, window panes and mesh would be drawn as
+  // slivers a few pixels wide, the mesh as hundreds of lines piled onto one.
+  // It skips them and keeps the cage's outline from above (posts, caps, rails).
+  const walls = !top;
   for (const s of [-1, 1] as const) {
     const near = s > 0;
     const glass = near ? glassNear : glassFar;
@@ -403,9 +450,11 @@ export function buildCourtScene(
       const m = add(new THREE.BoxGeometry(len, 0.08, 0.08), mat, x, y, z);
       m.rotation.y = ry;
     };
-    panel(10, 3, 0, 1.5, s * 10, 0, glass);
-    windows(10, 3, 0, 1.5, s * 10 - s * 0.01, 0, pane);
-    fencePanel(10, 1, 0, 3.5, s * 10, 0, fence);
+    if (walls) {
+      panel(10, 3, 0, 1.5, s * 10, 0, glass);
+      windows(10, 3, 0, 1.5, s * 10 - s * 0.01, 0, pane);
+      fencePanel(10, 1, 0, 3.5, s * 10, 0, fence);
+    }
     rail(10.1, 0, 4, s * 10, 0);
     rail(10.1, 0, 3, s * 10, 0);
     for (const x of [-2.5, 0, 2.5]) post(x, s * 10, 4);
@@ -416,10 +465,12 @@ export function buildCourtScene(
     // (owner, 2026-09-29).
     for (const sx of [-1, 1] as const) {
       const x = sx * 5;
-      panel(4, 3, x, 1.5, s * 8, Math.PI / 2, glass);
-      windows(4, 3, x - sx * 0.01, 1.5, s * 8, Math.PI / 2, pane);
-      fencePanel(4, 1, x, 3.5, s * 8, Math.PI / 2, fence);
-      fencePanel(6, 3, x, 1.5, s * 3, Math.PI / 2, fenceFar);
+      if (walls) {
+        panel(4, 3, x, 1.5, s * 8, Math.PI / 2, glass);
+        windows(4, 3, x - sx * 0.01, 1.5, s * 8, Math.PI / 2, pane);
+        fencePanel(4, 1, x, 3.5, s * 8, Math.PI / 2, fence);
+        fencePanel(6, 3, x, 1.5, s * 3, Math.PI / 2, fenceFar);
+      }
       rail(4.1, x, 4, s * 8, Math.PI / 2);
       rail(4.1, x, 3, s * 8, Math.PI / 2);
       rail(6.1, x, 3, s * 3, Math.PI / 2, frameFar);
@@ -457,14 +508,31 @@ export function buildCourtScene(
   // top-view cheat) → the racket — and the rally drives all three per frame.
   const kit = buildRacketKit(quality, { merge: opts.lean });
   disposables.push(...kit.disposables);
-  const rackets = PLAYERS.map((pl) => {
-    const rig = kit.create(pl.hand);
-    rig.mount.position.set(pl.x, RACKET_Y.flat, pl.z);
-    rig.mount.rotation.y = playerYaw(pl);
-    rig.lay.rotation.x = layAngle(0);
-    scene.add(rig.mount);
-    return rig;
-  });
+  // The drill (Coaches tab) stands its rackets in its own column, facing their
+  // returns (drill.ts), and adds the machine and the coach. The rally builds
+  // neither: its court is the one it always was.
+  const drill = opts.scene === 'drill' ? buildDrillProps(quality) : null;
+  const rackets = drill
+    ? DRILL_PLAYERS.map((pl) => {
+        const rig = kit.create(pl.hand);
+        rig.mount.position.set(pl.x, RACKET_Y.flat, pl.z);
+        rig.mount.rotation.y = pl.yaw;
+        rig.lay.rotation.x = layAngle(0);
+        scene.add(rig.mount);
+        return rig;
+      })
+    : PLAYERS.map((pl) => {
+        const rig = kit.create(pl.hand);
+        rig.mount.position.set(pl.x, RACKET_Y.flat, pl.z);
+        rig.mount.rotation.y = playerYaw(pl);
+        rig.lay.rotation.x = layAngle(0);
+        scene.add(rig.mount);
+        return rig;
+      });
+  if (drill) {
+    disposables.push(...drill.disposables);
+    scene.add(drill.group);
+  }
 
   // ball (brand sticker): lime with a white + blue wavy seam — in the overlay, over the button
   const ball = new THREE.Group();
@@ -503,10 +571,14 @@ export function buildCourtScene(
   const ghostAlpha = (i: number) => 0.1 * (1 - i / TRAIL_N);
   const ghosts = opts.lean ? buildGhostTrail(TRAIL_N, BALL_RADIUS, ghostSize, ghostAlpha) : null;
   const ghostAt: { x: number; y: number; z: number }[] = [];
+  const ghostScale: number[] = [];
   if (ghosts) {
     disposables.push(ghosts);
     overlay.add(ghosts.mesh);
   }
+  // The drill's ghosts always read the ball alone: there is no older path for
+  // it to keep bit-for-bit, and the sampler is the same picture, cheaper.
+  const ghostDrill = drill ? drillBallSampler() : null;
   for (let i = 0; i < (ghosts ? 0 : TRAIL_N); i++) {
     const m = new THREE.Mesh(
       geo(new THREE.SphereGeometry(BALL_RADIUS * ghostSize(i), 12, 10)),
@@ -531,6 +603,92 @@ export function buildCourtScene(
   shade.rotation.x = -Math.PI / 2;
   overlay.add(shade);
 
+  /**
+   * The drill's frame (drill.ts): the same rig, ball, trail, disc and caster as
+   * the rally's, plus the ball's scale (it grows out of the barrel and shrinks
+   * away on the turf, and is not drawn at 0), the barrel's turn and recoil, and
+   * the coach's head, sway, weight shift and arms.
+   */
+  const applyDrill = (
+    t: number,
+    camK: number,
+    props: NonNullable<typeof drill>,
+    sample: ReturnType<typeof drillBallSampler>,
+  ) => {
+    const state = drillAt(t, camK);
+    const lay = layAngle(camK);
+    state.rackets.forEach((r, i) => {
+      const rig = rackets[i]!;
+      rig.mount.position.set(r.position.x, r.position.y, r.position.z);
+      rig.mount.rotation.set(r.rotation.x, r.rotation.y, r.rotation.z);
+      rig.pivot.position.set(r.swing.position.x, r.swing.position.y, r.swing.position.z);
+      rig.pivot.rotation.set(r.swing.rotation.x, r.swing.rotation.y, r.swing.rotation.z);
+      rig.lay.rotation.x = lay;
+    });
+    const s = state.ballScale;
+    const shown = s > 1e-3;
+    ball.visible = shown;
+    ball.scale.setScalar(shown ? s * (top ? topBallScale(state.ball.y) : 1) : 1);
+    ball.position.set(state.ball.x, state.ball.y, state.ball.z);
+    if (caster) {
+      caster.visible = shown;
+      caster.scale.setScalar(shown ? s : 1);
+      caster.position.copy(ball.position);
+    }
+    if (spinByTime) {
+      ball.rotation.x = t * BALL_SPIN.x;
+      ball.rotation.z = t * BALL_SPIN.z;
+    } else {
+      ball.rotation.x += 0.12;
+      ball.rotation.z += 0.07;
+    }
+    // As the rally's: each ghost is the ball at a fixed time behind t, drawn
+    // only inside the current flight (trailFrom), so it never reaches back into
+    // the barrel or across the racket — and none at all while the ball sits in
+    // the machine. Each ghost also takes the ball's scale at its own time, so
+    // the trail shrinks away with the ball.
+    if (ghosts) {
+      ghostAt.length = 0;
+      ghostScale.length = 0;
+      for (let i = 0; i < TRAIL_N; i++) {
+        const at = t - ((i + 1) * TRAIL_LAG) / TRAIL_N;
+        if (!(at > state.trailFrom)) break;
+        const g = sample(at, camK);
+        ghostAt.push(g.ball);
+        ghostScale.push(g.scale > 1e-3 ? g.scale * (top ? topBallScale(g.ball.y) : 1) : 0);
+      }
+      ghosts.place(ball.position, ghostAt, ghostScale);
+    }
+    trail.forEach((m, i) => {
+      const at = t - ((i + 1) * TRAIL_LAG) / TRAIL_N;
+      if (!(at > state.trailFrom)) {
+        m.visible = false;
+        return;
+      }
+      const g = sample(at, camK);
+      m.visible = g.scale > 1e-3;
+      if (m.visible) {
+        m.position.set(g.ball.x, g.ball.y, g.ball.z);
+        m.scale.setScalar(g.scale * (top ? topBallScale(g.ball.y) : 1));
+      }
+    });
+    shade.visible = state.shade.opacity > 1e-3;
+    shade.position.set(state.shade.x, 0.012, state.shade.z);
+    shade.scale.setScalar(Math.max(state.shade.scale, 1e-3));
+    shadeMat.opacity = state.shade.opacity;
+    props.barrel.rotation.set(-MACHINE.pitch, state.machine.yaw, 0);
+    props.recoil.position.z = -MACHINE.recoil * state.machine.kick;
+    props.coachBody.rotation.set(state.coach.sway.x, 0, state.coach.sway.z);
+    props.coachBody.position.x = state.coach.shift;
+    const { right, left } = state.coach.arms;
+    [right, left].forEach((a, i) => {
+      const rig = props.coachArms[i]!;
+      rig.shoulder.rotation.set(-a.lift, a.yaw, 0);
+      rig.elbow.rotation.x = -a.bend;
+    });
+    props.coachHead.rotation.y = state.coach.head;
+  };
+
   return {
     scene,
     overlay,
@@ -542,7 +700,13 @@ export function buildCourtScene(
       backdrop?.setInk(color);
     },
     update(t, p, camK) {
-      poseCamera(camera, camK);
+      // The top view never pitches: whatever progress the host hands in, it is
+      // drawn at rest (camK 0: the rackets lie flat, as in the Book's top view).
+      if (top) {
+        p = 0;
+        camK = 0;
+        poseTopCamera(camera);
+      } else poseCamera(camera, camK);
       if (backdrop && viewport) {
         // The court layer's own lift, so the backdrop can cancel it and stay
         // with the window. The Book tab (apps/mobile app/(tabs)/index.tsx)
@@ -568,6 +732,11 @@ export function buildCourtScene(
       paneNear.opacity = cage.pane;
       paneNear.visible = cage.pane > 0.01;
 
+      if (drill && ghostDrill) {
+        applyDrill(t, camK, drill, ghostDrill);
+        return;
+      }
+
       const state = rallyAt(t, camK);
       const lay = layAngle(camK);
       state.rackets.forEach((r, i) => {
@@ -580,6 +749,7 @@ export function buildCourtScene(
       });
       ball.position.set(state.ball.x, state.ball.y, state.ball.z);
       caster?.position.copy(ball.position);
+      if (top) ball.scale.setScalar(topBallScale(state.ball.y));
       if (spinByTime) {
         ball.rotation.x = t * BALL_SPIN.x;
         ball.rotation.z = t * BALL_SPIN.z;
@@ -594,12 +764,15 @@ export function buildCourtScene(
       const legStart = Math.floor(t / LEG_SECONDS) * LEG_SECONDS;
       if (ghosts && ghostBall) {
         ghostAt.length = 0;
+        ghostScale.length = 0;
         for (let i = 0; i < TRAIL_N; i++) {
           const at = t - ((i + 1) * TRAIL_LAG) / TRAIL_N;
           if (at <= legStart) break;
-          ghostAt.push(ghostBall(at, camK));
+          const g = ghostBall(at, camK);
+          ghostAt.push(g);
+          if (top) ghostScale.push(topBallScale(g.y));
         }
-        ghosts.place(ball.position, ghostAt);
+        ghosts.place(ball.position, ghostAt, top ? ghostScale : undefined);
       }
       trail.forEach((m, i) => {
         const back = ((i + 1) * TRAIL_LAG) / TRAIL_N;
@@ -608,6 +781,7 @@ export function buildCourtScene(
         if (m.visible) {
           const p = ghostBall ? ghostBall(at, camK) : rallyAt(at, camK).ball;
           m.position.set(p.x, p.y, p.z);
+          if (top) m.scale.setScalar(topBallScale(p.y));
         }
       });
       shade.position.set(state.shade.x, 0.012, state.shade.z);

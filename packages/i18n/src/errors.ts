@@ -543,6 +543,9 @@ export const ERROR_CODE_KEYS = {
   USERNAME_TOO_SOON: 'profile.usernameTooSoonGeneric',
   FRAME_INVALID: 'profile.frameInvalid',
   FRAME_LOCKED: 'profile.frameLocked',
+  // 0334: app.set_my_play_profile, a play-survey answer outside its list. The
+  // survey's tiles only send known values, so this is the generic wording.
+  INVALID_PLAY_PROFILE: 'errors.invalidValue',
   // 0259: buying tickets (edge ticket-begin -> app.ticket_payment_prepare). The
   // detail wallet_limit has its own line (matches.errors.walletLimit), which the
   // tickets screen picks from the detail.

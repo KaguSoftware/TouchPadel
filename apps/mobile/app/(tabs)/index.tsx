@@ -37,7 +37,6 @@ import { GlassView } from 'expo-glass-effect';
 import { liquidGlass } from '../../src/lib/liquidGlass';
 import { SymbolView } from 'expo-symbols';
 import { Court3D } from '../../src/components/Court3D';
-import { CourtIllustration } from '../../src/components/CourtIllustration';
 import { BookingSheet } from '../../src/components/BookingSheet';
 
 const android = Platform.OS === 'android';
@@ -141,7 +140,7 @@ const PICK_PILL_TINT = { iosDark: 0.45, iosLight: 0.35, other: 0.94 } as const;
 const PREWARM_BACKSTOP_MS = 2000;
 /** The on-net button (prototype: 16 px padding round a 16 px line, top = tape − 24). */
 const CTA_H = 48;
-/** Room under the flat fallback court for the "reserve in the app" footer line. */
+/** Room under the GL-less branch's button for the "reserve in the app" footer line. */
 const FOOTER_SPACE = 34;
 /**
  * The reading shade (owner, 2026-09-05: "a really subtle bg so the text is more
@@ -646,7 +645,6 @@ export default function BookHomeScreen() {
     const timer = setTimeout(() => setLayoutWaitOver(true), COURT_LAYOUT_WAIT_MS);
     return () => clearTimeout(timer);
   }, [branchesPending]);
-  const [layerHeight, setLayerHeight] = useState(0);
   const [stageHeight, setStageHeight] = useState(0);
   /**
    * The two boxes the brand pattern has to be the same picture in: the box the
@@ -914,7 +912,6 @@ export default function BookHomeScreen() {
       ? Math.max(0, Math.round((COURT_TOP_BAND * courtBox - COURT_GAP) / (1 - COURT_TOP_BAND)))
       : 0;
   const courtTop = Math.round((stageBox - courtBox) / 2) - courtBand;
-  const fallbackCourtHeight = Math.max(0, layerHeight - CTA_H - space.xxl - FOOTER_SPACE);
   // Where the court's surface sits inside the pattern, for the copy it draws
   // behind the scene. Not memoised on purpose: Court3D reads the four numbers,
   // not this object, so rebuilding it every render costs nothing.
@@ -1128,9 +1125,10 @@ export default function BookHomeScreen() {
           duration picker, with the venue's number to tap (BookingSheet).
         */}
         {glUnavailable ? (
-          // No GL context on this device: the flat court, button underneath as before.
+          // No GL context on this device: no court at all (the flat stand-in was
+          // deleted on 2026-10-11, Majed: every court is the 3D one), just the
+          // button on the brand pattern.
           <Animated.View
-            onLayout={(e) => setLayerHeight(e.nativeEvent.layout.height)}
             style={[stageBounds, { top: 0, bottom: tabBarHeight }, courtLayer]}
           >
             <View
@@ -1144,9 +1142,6 @@ export default function BookHomeScreen() {
                 gap: space.xxl,
               }}
             >
-              {fallbackCourtHeight > 0 ? (
-                <CourtIllustration maxHeight={fallbackCourtHeight} />
-              ) : null}
               <View style={{ alignSelf: 'stretch' }}>{cta}</View>
             </View>
           </Animated.View>

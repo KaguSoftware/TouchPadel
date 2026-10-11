@@ -300,12 +300,13 @@ describe.each(LOCALES)('Today in %s', (locale) => {
       expect(within(tile).getByText(t('staff.shell.today.groups.team'))).toBeTruthy();
       // The rows are in the sheet, not on Today.
       expect(screen.queryByTestId('staff.row.deductions')).toBeNull();
+      // iOS pushes the formSheet route (app/staff-group.tsx) since d005ab35
+      // dropped the in-screen GroupSheetIOS; its rows are covered below.
       fireEvent.press(tile);
-      // The sheet is the root stack's formSheet route; its rows are covered by
-      // the staff-group cases (staff.smoke.test.tsx, and below on Android).
       expect(routerState.calls).toEqual([
         { method: 'push', arg: { pathname: '/staff-group', params: { group: 'team' } } },
       ]);
+      expect(screen.queryByTestId('staff.sheet.list')).toBeNull();
     } finally {
       screen.unmount();
       os.restore();

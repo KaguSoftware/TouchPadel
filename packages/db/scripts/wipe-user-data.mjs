@@ -23,7 +23,8 @@
  * triggers) and re-enabled before it ends. Rows are deleted children first.
  * Links from kept rows to wiped rows are cleared first (links_cleared). Kept:
  * the profiles and logins of staff and coaches (a coach row needs its profile)
- * and of any --keep-email / --keep-id. The assistant's index drops the chunks
+ * and of any --keep-email / --keep-id; a kept profile's play survey answers
+ * (0334) are emptied. The assistant's index drops the chunks
  * built from wiped tables. Storage: menu-media stays; avatars keeps only the
  * kept profiles' photos; staff-media is emptied.
  */
@@ -229,6 +230,19 @@ ${order.map((t) => `alter table ${q(t)} disable trigger user;`).join('\n')}
 ${Object.keys(plan.links_cleared).map((k) => { const [t, c] = k.split('.'); return `update ${q(t)} set "${c}" = null where "${c}" is not null;`; }).join('\n')}
 
 ${steps.map(deleteStep).join('\n')}
+
+-- The kept profiles (staff, coaches, --keep-*) lose the answers they gave as
+-- players: the play survey (0334) asks again after the wipe. Skipped on a
+-- database 0334 has not reached yet.
+do $wipe_play_profile$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'profiles' and column_name = 'play_survey_at') then
+    execute 'update profiles set play_level = null, play_years = null, play_wants = null, play_survey_at = null
+              where play_level is not null or play_years is not null or play_wants is not null
+                 or play_survey_at is not null';
+  end if;
+end $wipe_play_profile$;
 
 delete from assistant_chunks where kind in (${kinds});
 delete from assistant_index_queue where kind in (${kinds});

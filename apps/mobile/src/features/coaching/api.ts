@@ -72,7 +72,7 @@ export async function fetchCoachProfile(
   return parseCoachProfile(data);
 }
 
-/** app.coach_id_for_slug (0336): a share link's slug → the coach's id, or null. */
+/** app.coach_id_for_slug (0337): a share link's slug → the coach's id, or null. */
 export async function fetchCoachIdForSlug(client: Client, slug: string): Promise<string | null> {
   const { data, error } = await client.schema('app').rpc('coach_id_for_slug', { p_slug: slug });
   if (error) throw error;

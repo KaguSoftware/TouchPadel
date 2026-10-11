@@ -18,7 +18,6 @@ const LAYOUT = read('app', '_layout.tsx');
 const DIRECTION = read('src', 'i18n', 'direction.tsx');
 const ICONS = read('src', 'components', 'icons.tsx');
 const WELCOME = read('app', 'welcome.tsx');
-const COURT = read('src', 'components', 'CourtIllustration.tsx');
 
 function walk(d: string, out: string[] = []): string[] {
   for (const name of readdirSync(d)) {
@@ -34,7 +33,7 @@ const rel = (f: string) => relative(ROOT, f).split(sep).join('/');
 const stripComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 /** Files that draw in physical coordinates on purpose (eslint override, same list). */
-const PHYSICAL_ART = new Set(['src/components/CourtIllustration.tsx']);
+const PHYSICAL_ART = new Set<string>();
 const isGeometry = (f: string) => f.startsWith('src/features/courtTransition/');
 
 describe('DirectionRoot', () => {
@@ -112,12 +111,6 @@ describe('drawings mirror themselves — Yoga never flips path data', () => {
 });
 
 describe('physical art lives on an LTR island', () => {
-  it('CourtIllustration roots in LtrIsland', () => {
-    expect(COURT).toContain("import { LtrIsland } from '../i18n/direction';");
-    expect(COURT).toMatch(/<LtrIsland\s/);
-    expect(COURT).toContain('</LtrIsland>');
-  });
-
   it('keeps physical left/right styles inside the island files', () => {
     for (const f of SOURCES) {
       const r = rel(f);

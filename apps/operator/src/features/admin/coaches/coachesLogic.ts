@@ -7,8 +7,9 @@
  *   only the retired coach's branches this screen shows, OP-03). The photo path comes from
  *   `mediaPath('coaches', …)`: a fresh random folder, never an identity (R43).
  * - The editor: the profile patch (changed keys only, through `coach_update`;
- *   the share link name, 0336, is one of them),
- *   the replaced photo to remove after a save, the branch set (branches the
+ *   the levels they coach ride it, kept in COACH_LEVELS order, none = every
+ *   level, 0334, and so does the share link name, 0337), the replaced photo to
+ *   remove after a save, the branch set (branches the
  *   screen cannot show are kept), and the lesson-type change with the coach's
  *   own prices it would delete (R46: unlinking a type deletes the price).
  * - The list: acceptance (C-22, R61), account deleted (R63), retired coaches
@@ -16,13 +17,14 @@
  *   neighbours and renumber in steps of 10, a save of its own) and what the
  *   retire confirm says (C-25, R45).
  */
+import { COACH_LEVELS, type CoachLevel } from '@touch/core';
 import type { Locale } from '@touch/i18n';
 import type { AdminCoach } from '../../coaching/lessonPayloads';
 
 /** §1.2 bounds on `coaches`. */
 export const COACH_LIMITS = { name: 60, bio: 1000, slug: 48 } as const;
 
-/** A share link name (0336's app.coach_slug_ok): never shaped like a coach id. */
+/** A share link name (0337's app.coach_slug_ok): never shaped like a coach id. */
 const COACH_SLUG_RE = /^[a-z0-9][a-z0-9-]{1,47}$/;
 const COACH_ID_START_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-/;
 
@@ -162,11 +164,27 @@ export function toggleId(ids: readonly string[], id: string, on: boolean): strin
 export interface CoachProfileDraft {
   nameEn: string;
   nameAr: string;
-  /** The share link name; '' while the server sends none (before 0336), never sent then. */
+  /** The share link name; '' while the server sends none (before 0337), never sent then. */
   slug: string;
   bioEn: string;
   bioAr: string;
   photo: string | null;
+  /** The levels they coach, in COACH_LEVELS order; empty = every level (0334). */
+  levels: CoachLevel[];
+}
+
+/** Known levels only, each once, in COACH_LEVELS order (the order the server keeps). */
+export function levelSet(levels: readonly string[]): CoachLevel[] {
+  return COACH_LEVELS.filter((l) => levels.includes(l));
+}
+
+/** A level ticked or unticked, the set kept in order. */
+export function toggleLevel(
+  levels: readonly CoachLevel[],
+  level: CoachLevel,
+  on: boolean,
+): CoachLevel[] {
+  return levelSet(on ? [...levels, level] : levels.filter((l) => l !== level));
 }
 
 export function profileDraftOf(c: AdminCoach): CoachProfileDraft {
@@ -177,6 +195,7 @@ export function profileDraftOf(c: AdminCoach): CoachProfileDraft {
     bioEn: c.bio_en,
     bioAr: c.bio_ar,
     photo: c.photo_path,
+    levels: levelSet(c.levels),
   };
 }
 
@@ -192,9 +211,9 @@ export function profileProblems(d: CoachProfileDraft): ('names' | 'slug' | 'bio'
 export function coachPatch(
   c: AdminCoach,
   d: CoachProfileDraft,
-): Record<string, string | number | null> {
+): Record<string, string | number | null | string[]> {
   const was = profileDraftOf(c);
-  const patch: Record<string, string | number | null> = {};
+  const patch: Record<string, string | number | null | string[]> = {};
   if (d.nameEn.trim() !== was.nameEn) patch.display_name_en = d.nameEn.trim();
   if (d.nameAr.trim() !== was.nameAr) patch.display_name_ar = d.nameAr.trim();
   // An emptied link name is no change: every coach keeps one.
@@ -202,6 +221,8 @@ export function coachPatch(
   if (d.bioEn.trim() !== was.bioEn) patch.bio_en = d.bioEn.trim();
   if (d.bioAr.trim() !== was.bioAr) patch.bio_ar = d.bioAr.trim();
   if (d.photo !== was.photo) patch.photo_path = d.photo;
+  const levels = levelSet(d.levels);
+  if (levels.join(',') !== was.levels.join(',')) patch.levels = levels;
   return patch;
 }
 

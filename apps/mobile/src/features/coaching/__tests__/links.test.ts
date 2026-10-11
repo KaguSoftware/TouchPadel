@@ -55,7 +55,7 @@ describe('the coach id', () => {
   });
 });
 
-describe('the coach slug (0336)', () => {
+describe('the coach slug (0337)', () => {
   it('is a share link name, never an id', () => {
     expect(isCoachSlug('omar-karim')).toBe(true);
     expect(isCoachSlug('Omar-Karim-2')).toBe(true);

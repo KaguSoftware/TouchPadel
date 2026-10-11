@@ -9,12 +9,9 @@
  * After a write the phone refetches what shows tournaments (the list with Mine, the detail): one
  * invalidation of the `['tournament']` root does both.
  */
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
-import { useVenueSettings } from '../availability/hooks';
-import { useLocale } from '../../i18n/LocaleProvider';
 import {
   fetchTournamentPublic,
   fetchTournamentsPublic,
@@ -22,7 +19,7 @@ import {
   withdrawTournament,
 } from './api';
 import { tournamentKeys } from './keys';
-import { isLive, tournamentsEnabled } from './logic';
+import { isLive } from './logic';
 
 export { tournamentKeys };
 
@@ -35,11 +32,13 @@ export function useInvalidateTournaments(): () => void {
 }
 
 /** Every live branch's tournaments (`tournaments_public(null)`), with the guest's own entries. */
-export function useTournamentsPublic() {
+export function useTournamentsPublic(opts: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: tournamentKeys.list,
     queryFn: () => fetchTournamentsPublic(supabase),
     staleTime: 30_000,
+    // My reservations reads it only while some branch has tournaments on (the lessons' rule).
+    enabled: opts.enabled ?? true,
   });
 }
 
@@ -78,21 +77,3 @@ export function useWithdrawTournament() {
   });
 }
 
-/**
- * The Book sheet's "Tournaments" row: shown only while the sheet's branch has tournaments on,
- * with a static label and no query of its own (the settings read is the sheet's own, already
- * cached), as coaching's `useLessonEntry`.
- */
-export function useTournamentEntry(
-  venueId: string | null,
-): { label: string; onPress: () => void } | null {
-  const { t } = useLocale();
-  const router = useRouter();
-  const settings = useVenueSettings(venueId);
-  const on = tournamentsEnabled(settings.data);
-  const onPress = useCallback(() => router.push('/tournaments'), [router]);
-  return useMemo(
-    () => (on ? { label: t('tournaments.guest.entry.book'), onPress } : null),
-    [on, t, onPress],
-  );
-}

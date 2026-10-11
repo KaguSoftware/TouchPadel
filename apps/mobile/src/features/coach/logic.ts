@@ -832,7 +832,7 @@ export interface RosterEntry {
   partySize: number;
   friendNames: string[];
   /**
-   * The other students (0334, 0335): each name with the phone the coach typed
+   * The other students (0335, 0336): each name with the phone the coach typed
    * for it, by position; null for none, after `end_at + 7 days` (R54) or while
    * held (P13).
    */
@@ -1317,7 +1317,7 @@ export function coachBookIntent(a: {
   return `coach-book:${a.typeId}|${a.venueId}|${a.startAt}|${a.party}|${a.name.trim()}|${a.phone ?? ''}|${friends}|${a.savedStudent ?? ''}`;
 }
 
-/** A past student of the coach's (app.coach_saved_students, 0334): never a phone (R54). */
+/** A past student of the coach's (app.coach_saved_students, 0335): never a phone (R54). */
 export interface SavedStudent {
   /** The enrolment to book again from: coach_book_private's p_saved_student. */
   key: string;

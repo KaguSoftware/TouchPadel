@@ -25,7 +25,6 @@ import {
 } from '../../../src/features/availability/hooks';
 import { branchName } from '../../../src/features/availability/branch';
 import { DEFAULT_TZ } from '../../../src/features/availability/assemble';
-import { requestBookingSheet } from '../../../src/features/courtTransition/openIntent';
 import { useOwnConsent, useOwnProfile } from '../../../src/features/profile/hooks';
 import { serverNowMs } from '../../../src/features/deposit/logic';
 import {
@@ -77,7 +76,7 @@ import {
 import { setTicketContinuation, ticketsHref } from '../../../src/features/matches/continuation';
 import { isMatchToken, matchShareUrl } from '../../../src/features/matches/links';
 import { callPhone } from '../../../src/lib/phone';
-import { useBack } from '../../../src/navigation/back';
+import { useBack, useReturnTo } from '../../../src/navigation/back';
 import { space, useTheme } from '../../../src/theme';
 import {
   Button,
@@ -226,10 +225,11 @@ function MatchDetailScreen() {
     });
   };
 
-  const findAnother = () => {
-    requestBookingSheet();
-    router.dismissTo('/(tabs)');
-  };
+  // The Play tab is where open matches are listed (2026-10-11); it used to open
+  // the Book sheet. useReturnTo, not navigate: from this nested stack, navigate
+  // pushed a second (tabs) over the one underneath.
+  const returnTo = useReturnTo();
+  const findAnother = () => returnTo({ pathname: '/play', params: { show: 'matches' } }, '(tabs)');
 
   const onShare = () => {
     if (!detail?.shareToken) return;

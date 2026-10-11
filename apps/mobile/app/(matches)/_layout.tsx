@@ -13,7 +13,6 @@ export default function MatchesLayout() {
   const screenOptions = useGroupStackOptions();
   return (
     <Stack screenOptions={screenOptions}>
-      <Stack.Screen name="matches" />
       <Stack.Screen name="match/[id]" />
       <Stack.Screen name="match-new" />
       {/* The report is a modal over the match, like the terms gate. */}

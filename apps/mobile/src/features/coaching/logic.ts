@@ -84,6 +84,14 @@ export type CancelPolicy = (typeof CANCEL_POLICIES)[number];
 export const COACH_STATUSES = ['active', 'paused'] as const;
 export type CoachStatusValue = (typeof COACH_STATUSES)[number];
 
+/**
+ * The player levels a coach teaches (`coaches.levels`, migration 0334;
+ * play-coaches contracts §4.2). They describe the PLAYER a lesson suits,
+ * never a coach's rank. An empty list means "all levels".
+ */
+export const COACH_LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
+export type CoachLevel = (typeof COACH_LEVELS)[number];
+
 /** Desk and coach cancel reasons (§1.3); sent as `<code>` or `<code>: <note>`. */
 export const CANCEL_REASONS = [
   'customer_request',
@@ -125,6 +133,18 @@ const oneOf = <T extends string>(list: readonly T[], v: unknown): T | null =>
 const strings = (v: unknown): string[] =>
   arr(v).filter((x): x is string => typeof x === 'string' && !!x);
 
+/**
+ * `levels` as the server sent it, read defensively: a level this build does
+ * not know is dropped, a repeat counts once, and the order is the fixed
+ * beginner, intermediate, advanced whatever order arrived. Anything that is
+ * not a list reads as `[]`, which is "all levels" (§4.2): a coach is never
+ * hidden by a malformed answer.
+ */
+export function parseCoachLevels(v: unknown): CoachLevel[] {
+  const got = new Set(arr(v));
+  return COACH_LEVELS.filter((l) => got.has(l));
+}
+
 /** A branch mode this build does not know reads as the desk: the one mode that never asks for money online. */
 const modeOf = (v: unknown): LessonPaymentMode => oneOf(LESSON_PAYMENT_MODES, v) ?? 'desk';
 
@@ -151,7 +171,7 @@ export interface CoachOffer {
 export interface PublicCoach {
   /** `coaches.id`, never a profile id (R43). */
   id: string;
-  /** The name in the coach's share link (0336); null from a server before it. */
+  /** The name in the coach's share link (0337); null from a server before it. */
   slug: string | null;
   displayNameEn: string;
   displayNameAr: string;
@@ -161,6 +181,8 @@ export interface PublicCoach {
   sortOrder: number;
   venueIds: string[];
   offers: CoachOffer[];
+  /** The player levels taught, in the fixed order; empty = every level (§4.2). */
+  levels: CoachLevel[];
 }
 
 export interface PublicLessonType {
@@ -300,6 +322,7 @@ export function parseCoachingPublic(json: unknown): CoachingPublic {
       offers: arr(c.offers)
         .map(parseOffer)
         .filter((x): x is CoachOffer => x !== null),
+      levels: parseCoachLevels(c.levels),
     });
   }
   const lessonTypes: PublicLessonType[] = [];
@@ -338,7 +361,7 @@ export function parseCoachingPublic(json: unknown): CoachingPublic {
 
 export interface ProfileCoach {
   id: string;
-  /** The name in the coach's share link (/c/<slug>, 0336); null from a server before it. */
+  /** The name in the coach's share link (/c/<slug>, 0337); null from a server before it. */
   slug: string | null;
   displayNameEn: string;
   displayNameAr: string;
@@ -348,6 +371,8 @@ export interface ProfileCoach {
   /** `paused`: answered by a direct link, with no offers (R76). */
   status: CoachStatusValue;
   venueIds: string[];
+  /** The player levels taught; empty = every level (§4.2). */
+  levels: CoachLevel[];
 }
 
 export interface ProfileVenue {
@@ -427,6 +452,7 @@ export function parseCoachProfile(json: unknown): CoachProfile {
             // An unknown status reads as paused: never a grid by accident.
             status: oneOf(COACH_STATUSES, c.status) ?? 'paused',
             venueIds: strings(c.venue_ids),
+            levels: parseCoachLevels(c.levels),
           }
         : null,
     venue:
@@ -1299,4 +1325,74 @@ export function holdLive(
   if (row.status !== 'held') return false;
   const at = row.holdExpiresAt ? Date.parse(row.holdExpiresAt) : NaN;
   return Number.isFinite(at) && at > nowMs;
+}
+
+// ── The Coaches tab showcase (play-coaches contracts §6) ────────────────────
+
+/** The level switch's value: one player level, or every coach. */
+export type ShowcaseLevel = 'all' | CoachLevel;
+export const SHOWCASE_LEVELS: readonly ShowcaseLevel[] = ['all', ...COACH_LEVELS];
+
+/**
+ * The switch's starting value from the guest's play level (the survey's
+ * `play_level`, §4.1): `new` reads as `beginner` (§4.2), a level this build
+ * does not know, or none, as `all`.
+ */
+export function showcaseLevelFor(playLevel: unknown): ShowcaseLevel {
+  if (playLevel === 'new') return 'beginner';
+  return (COACH_LEVELS as readonly unknown[]).includes(playLevel)
+    ? (playLevel as CoachLevel)
+    : 'all';
+}
+
+/** Does a coach teach players at this level? No levels listed = every level (§4.2). */
+export function teachesLevel(coach: Pick<PublicCoach, 'levels'>, level: ShowcaseLevel): boolean {
+  return level === 'all' || coach.levels.length === 0 || coach.levels.includes(level);
+}
+
+/** The coaches for a level, in the order given (the showcase order). */
+export function coachesForLevel<C extends Pick<PublicCoach, 'levels'>>(
+  coaches: readonly C[],
+  level: ShowcaseLevel,
+): C[] {
+  return coaches.filter((c) => teachesLevel(c, level));
+}
+
+/** FNV-1a, 32-bit: a small, stable string hash (no crypto needed, nothing secret). */
+function hash32(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  // One avalanche round, so ids that differ only in their last characters
+  // still land far apart.
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b) >>> 0;
+  h ^= h >>> 13;
+  return h >>> 0;
+}
+
+/**
+ * The no-hierarchy order (§6; Majed, 2026-10-11: "no coaches are offended"):
+ * every coach draws a key from `seed` and their own id, and the list sorts
+ * by it. The seed is the venue-local date (`YYYY-MM-DD`), so the order holds
+ * all day on every phone and changes at midnight: nobody is always first.
+ * NOT `sortOrder`, which is the venue's ranking. The server's order of the
+ * input never matters (ties fall back to the id), and adding a coach moves
+ * nobody else relative to anyone.
+ */
+export function showcaseOrder<C extends Pick<PublicCoach, 'id'>>(
+  coaches: readonly C[],
+  seed: string,
+): C[] {
+  return coaches
+    .map((c) => ({ c, k: hash32(`${seed}:${c.id}`) }))
+    .sort((a, b) => a.k - b.k || (a.c.id < b.c.id ? -1 : a.c.id > b.c.id ? 1 : 0))
+    .map((x) => x.c);
+}
+
+/** The venue-local date the showcase order is seeded by. */
+export function showcaseSeed(now: Date, tz: string | null | undefined): string {
+  return localParts(now, tz || DEFAULT_TZ).date;
 }

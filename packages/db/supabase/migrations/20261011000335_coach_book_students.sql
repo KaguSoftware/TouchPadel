@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0334 coach_book_students — coach mode's "Book for a student", K4 (owner,
+-- 0335 coach_book_students — coach mode's "Book for a student", K4 (owner,
 -- 2026-10-11). A coach books a private lesson for up to four people: the
 -- student, whose phone is now required (it is how the lesson reaches the
 -- student's own account, C-21), and up to three more, each with a name and
@@ -49,7 +49,7 @@ set statement_timeout = '60s';
 alter table lesson_enrolments add column if not exists friend_phones text[] not null default '{}';
 
 comment on column lesson_enrolments.friend_phones is
-  '0334. The phones a coach typed for a private lesson''s other students, by position against friend_names ('''' for none; at most one per name). Emptied with friend_names by every scrub (trigger lesson_enrolments_friend_phones_scrub): the 365-day typed purge (CD-8) and account deletion. Shown to nobody yet.';
+  '0335. The phones a coach typed for a private lesson''s other students, by position against friend_names ('''' for none; at most one per name). Emptied with friend_names by every scrub (trigger lesson_enrolments_friend_phones_scrub): the 365-day typed purge (CD-8) and account deletion. Shown to nobody yet.';
 
 alter table lesson_enrolments drop constraint if exists lesson_enrolments_friend_phones;
 alter table lesson_enrolments
@@ -58,7 +58,7 @@ alter table lesson_enrolments
          and char_length(array_to_string(friend_phones, '')) <= 96)
   not valid;
 
-do $validate_friend_phones_0334$
+do $validate_friend_phones_0335$
 begin
   if exists (select 1 from pg_constraint
               where conname = 'lesson_enrolments_friend_phones'
@@ -66,19 +66,19 @@ begin
                 and not convalidated) then
     alter table lesson_enrolments validate constraint lesson_enrolments_friend_phones;
   end if;
-end $validate_friend_phones_0334$;
+end $validate_friend_phones_0335$;
 
 create or replace function app.trg_lesson_enrolments_friend_phones_scrub() returns trigger
-language plpgsql set search_path = public as $trg_lesson_enrolments_friend_phones_scrub_0334$
+language plpgsql set search_path = public as $trg_lesson_enrolments_friend_phones_scrub_0335$
 begin
   if cardinality(new.friend_names) = 0 then
     new.friend_phones := '{}'::text[];
   end if;
   return new;
-end $trg_lesson_enrolments_friend_phones_scrub_0334$;
+end $trg_lesson_enrolments_friend_phones_scrub_0335$;
 
 comment on function app.trg_lesson_enrolments_friend_phones_scrub() is
-  '0334. BEFORE UPDATE OF friend_names on lesson_enrolments: an emptied friend_names empties friend_phones, so the typed purge and account deletion clear the friends'' phones with their names.';
+  '0335. BEFORE UPDATE OF friend_names on lesson_enrolments: an emptied friend_names empties friend_phones, so the typed purge and account deletion clear the friends'' phones with their names.';
 
 revoke all on function app.trg_lesson_enrolments_friend_phones_scrub() from public, anon, authenticated;
 
@@ -105,7 +105,7 @@ create or replace function app.coach_book_private(
   p_friend_phones   text[] default '{}',
   p_saved_student   uuid   default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $coach_book_private_0334$
+language plpgsql security definer set search_path = public as $coach_book_private_0335$
 declare
   v_c       coaches%rowtype;
   v_name    text := app.safe_line(p_student_name);
@@ -140,7 +140,7 @@ begin
   if v_name is null or char_length(v_name) not between 1 and 80 then
     raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', detail = 'p_student_name';
   end if;
-  -- 0334: a past student booked again brings their phone with them; the
+  -- 0335: a past student booked again brings their phone with them; the
   -- coach never sees it (R54).
   if p_saved_student is not null then
     select e.guest_phone into v_f
@@ -154,7 +154,7 @@ begin
     v_phone := coalesce(v_phone, v_f);
     v_f := null;
   end if;
-  -- 0334: the phone is required.
+  -- 0335: the phone is required.
   if v_phone is null then
     raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', detail = 'p_student_phone';
   end if;
@@ -167,7 +167,7 @@ begin
   if p_idempotency_key is null or char_length(p_idempotency_key) not between 1 and 200 then
     raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', detail = 'p_idempotency_key';
   end if;
-  -- 0334: the other students, as lesson_book_private takes friends.
+  -- 0335: the other students, as lesson_book_private takes friends.
   foreach v_f in array coalesce(p_friend_names, '{}'::text[]) loop
     v_f := app.safe_line(v_f);
     if v_f is null or char_length(v_f) not between 1 and 40 then
@@ -314,10 +314,10 @@ begin
                           jsonb_build_object('lesson_id', v_l.id, 'enrolment_id', v_e.id, 'kind', 'private',
                                              'by', 'coach', 'linked', v_gid is not null));
   return app.lesson_private_answer(v_e.id, false);
-end $coach_book_private_0334$;
+end $coach_book_private_0335$;
 
 comment on function app.coach_book_private(uuid, uuid, timestamptz, text, text, int, text, text[], text[], uuid) is
-  '0283, 0291, 0334 (db.md §4.7.4; C-8, C-21, C-24, CD-1, CD-9, R10, R15, R44, R54, R56). Coach: book a private lesson for a student (name 1..80, phone required since 0334, party 1..4) and up to three more (p_friend_names, each 1..40, at most party_size - 1; p_friend_phones by position, '''' or a valid number, at most one per name), desk-paid. p_saved_student (0334): one of the caller''s own past coach bookings with a phone (app.coach_saved_students'' key), whose phone is used when p_student_phone is empty; never returned. coach_self; INVALID_ARGUMENT (detail p_student_phone when missing or invalid, p_saved_student, p_friend_names, p_friend_phones, ...); lock_principal(coach_students), replay, COACH_ADD_LIMIT detail day (30 coach adds in 24 h); LESSON_TYPE_NOT_FOUND (a private type at p_venue_id), COACH_NOT_AT_BRANCH, COACHING_OFF, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED, PARTY_TOO_LARGE; SLOT_NOT_ON_GRID, SLOT_IN_PAST, CLOSED_DATE, OUTSIDE_HOURS, DEGRADED_LOCKOUT; COACH_UNAVAILABLE; under the coach lock the replay, app.lesson_assert_coach_bookable (0291, DB-08: COACH_INACTIVE, NOT_A_COACH, LESSON_TYPE_NOT_OFFERED, LESSON_TYPE_INACTIVE; the price read again), COACH_ADD_LIMIT detail live (coach_max_open_private upcoming coach-booked private lessons at the branch), COACH_BUSY; every court; NO_COURT_FREE. A typed phone matching a verified account links it pending (C-21); the answer, the work and the refusals are the same either way (R10). Events booked and added; audit coaching.lesson.book. Returns {duplicate, lesson_id, enrolment_id, start_at, end_at, court_id, court_name_en, court_name_ar, price_iqd, ...}.';
+  '0283, 0291, 0335 (db.md §4.7.4; C-8, C-21, C-24, CD-1, CD-9, R10, R15, R44, R54, R56). Coach: book a private lesson for a student (name 1..80, phone required since 0335, party 1..4) and up to three more (p_friend_names, each 1..40, at most party_size - 1; p_friend_phones by position, '''' or a valid number, at most one per name), desk-paid. p_saved_student (0335): one of the caller''s own past coach bookings with a phone (app.coach_saved_students'' key), whose phone is used when p_student_phone is empty; never returned. coach_self; INVALID_ARGUMENT (detail p_student_phone when missing or invalid, p_saved_student, p_friend_names, p_friend_phones, ...); lock_principal(coach_students), replay, COACH_ADD_LIMIT detail day (30 coach adds in 24 h); LESSON_TYPE_NOT_FOUND (a private type at p_venue_id), COACH_NOT_AT_BRANCH, COACHING_OFF, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED, PARTY_TOO_LARGE; SLOT_NOT_ON_GRID, SLOT_IN_PAST, CLOSED_DATE, OUTSIDE_HOURS, DEGRADED_LOCKOUT; COACH_UNAVAILABLE; under the coach lock the replay, app.lesson_assert_coach_bookable (0291, DB-08: COACH_INACTIVE, NOT_A_COACH, LESSON_TYPE_NOT_OFFERED, LESSON_TYPE_INACTIVE; the price read again), COACH_ADD_LIMIT detail live (coach_max_open_private upcoming coach-booked private lessons at the branch), COACH_BUSY; every court; NO_COURT_FREE. A typed phone matching a verified account links it pending (C-21); the answer, the work and the refusals are the same either way (R10). Events booked and added; audit coaching.lesson.book. Returns {duplicate, lesson_id, enrolment_id, start_at, end_at, court_id, court_name_en, court_name_ar, price_iqd, ...}.';
 
 revoke all on function app.coach_book_private(uuid, uuid, timestamptz, text, text, int, text, text[], text[], uuid) from public, anon;
 grant execute on function app.coach_book_private(uuid, uuid, timestamptz, text, text, int, text, text[], text[], uuid) to authenticated;
@@ -327,7 +327,7 @@ grant execute on function app.coach_book_private(uuid, uuid, timestamptz, text, 
 -- ===========================================================================
 
 create or replace function app.coach_saved_students() returns jsonb
-language plpgsql security definer set search_path = public as $coach_saved_students_0334$
+language plpgsql security definer set search_path = public as $coach_saved_students_0335$
 declare
   v_c coaches%rowtype;
 begin
@@ -356,10 +356,10 @@ begin
          limit 50
       ) s
   ), '[]'::jsonb));
-end $coach_saved_students_0334$;
+end $coach_saved_students_0335$;
 
 comment on function app.coach_saved_students() is
-  '0334 (C-8, R10, R44, R54). Coach (coach_self first; NOT_A_COACH for a retired coach): the caller''s past students for "Book again" in coach mode, one per phone (app.phone_digits) from their own coach bookings that still hold a phone (the 365-day purge clears it, CD-8), newest first, at most 50. {students [{key (the newest such enrolment''s id: coach_book_private''s p_saved_student), name (as typed on it), lessons (how many of the coach''s bookings carry that phone), last_at}]}. Never a phone, a profile id or whether a phone matched an account.';
+  '0335 (C-8, R10, R44, R54). Coach (coach_self first; NOT_A_COACH for a retired coach): the caller''s past students for "Book again" in coach mode, one per phone (app.phone_digits) from their own coach bookings that still hold a phone (the 365-day purge clears it, CD-8), newest first, at most 50. {students [{key (the newest such enrolment''s id: coach_book_private''s p_saved_student), name (as typed on it), lessons (how many of the coach''s bookings carry that phone), last_at}]}. Never a phone, a profile id or whether a phone matched an account.';
 
 revoke all on function app.coach_saved_students() from public, anon;
 grant execute on function app.coach_saved_students() to authenticated;

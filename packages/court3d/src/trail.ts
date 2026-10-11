@@ -20,8 +20,14 @@ export interface GhostTrail {
    * Draw the first `positions.length` ghosts (the visible ones are always a
    * prefix: the newest come first), centred on `origin` so three sorts the
    * trail against the overlay's other transparent things where the ball is.
+   * `scales`, when given, multiplies each ghost's own size (the top view's
+   * height growth, the drill's ball scale); a 0 hides that ghost.
    */
-  place(origin: THREE.Vector3, positions: readonly { x: number; y: number; z: number }[]): void;
+  place(
+    origin: THREE.Vector3,
+    positions: readonly { x: number; y: number; z: number }[],
+    scales?: readonly number[],
+  ): void;
   dispose(): void;
 }
 
@@ -73,12 +79,12 @@ export function buildGhostTrail(
   const m = new THREE.Matrix4();
   return {
     mesh,
-    place(origin, positions) {
+    place(origin, positions, mul) {
       const n = Math.min(positions.length, count);
       mesh.position.copy(origin);
       for (let i = 0; i < n; i++) {
         const p = positions[i]!;
-        const s = scales[i]!;
+        const s = scales[i]! * (mul ? mul[i]! : 1);
         m.makeScale(s, s, s).setPosition(p.x - origin.x, p.y - origin.y, p.z - origin.z);
         mesh.setMatrixAt(i, m);
       }

@@ -38,6 +38,7 @@ import {
 import { CoachStatusProvider } from '../src/features/coach/CoachStatusProvider';
 import { StaffScreenGuard } from '../src/features/staff/screenGuard/StaffScreenGuard';
 import { useTermsGate } from '../src/features/profile/useTermsGate';
+import { usePlaySurveyPrompt } from '../src/features/playProfile/usePlaySurveyPrompt';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { usePendingPaymentResume } from '../src/features/deposit/hooks';
@@ -186,6 +187,11 @@ function RootStack() {
   // lands. It never presents accept-terms at launch; the action that needs the
   // terms does. Here because it needs the session.
   useTermsGate();
+  // The sign-up play survey (play-coaches contracts §8): once, on the first
+  // calm landing on the tabs after a new account signs up, never over a
+  // pending slot, match or lesson intent, never for staff. Here, beside the
+  // terms gate, so no sign-up path or continuation has to know about it.
+  usePlaySurveyPrompt();
   // Push registration lives HERE, under AuthProvider, because it needs the live
   // session: the server drops a notification on the floor when the profile
   // holds no token (migration 0075's trigger returns early and nothing
@@ -316,12 +322,13 @@ function RootStack() {
           screen carries its own RequireSession, like the screens above. */}
           <Stack.Screen name="pay/return" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="pay/status" />
-          {/* Open matches (docs/design/open-matches/guest.md §4.12–§4.18): a
-          stack of its own with its own native bar, so the bar and its back
-          button leave with the page at the swipe's speed
-          (app/(matches)/_layout.tsx, src/navigation/groupStack.tsx). The
-          invite link's landing stays here: it draws no bar and hands on to the
-          match in a frame, like the payment return. */}
+          {/* Open matches (docs/design/open-matches/guest.md §4.12–§4.18; the
+          list is the Play tab since 2026-10-11): a stack of its own with its
+          own native bar, so the bar and its back button leave with the page at
+          the swipe's speed (app/(matches)/_layout.tsx,
+          src/navigation/groupStack.tsx). The invite link's landing stays here:
+          it draws no bar and hands on to the match in a frame, like the payment
+          return. */}
           <Stack.Screen name="(matches)" options={{ headerShown: false }} />
           <Stack.Screen name="m/[token]" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="blocked-players" />
@@ -360,6 +367,20 @@ function RootStack() {
               presentation: 'formSheet',
               sheetAllowedDetents: 'fitToContents',
               sheetGrabberVisible: true,
+              headerShown: false,
+            }}
+          />
+          {/* The play survey (play-coaches contracts §8): the platform's sheet,
+          three questions and a Skip. Singular: the sign-up prompt and Edit
+          profile's "Your game" row must never stack two. */}
+          <Stack.Screen
+            name="play-survey"
+            dangerouslySingular
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.86],
+              sheetGrabberVisible: true,
+              sheetExpandsWhenScrolledToEdge: false,
               headerShown: false,
             }}
           />

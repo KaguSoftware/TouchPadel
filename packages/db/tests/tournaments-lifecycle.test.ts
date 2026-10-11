@@ -863,7 +863,7 @@ describe.skipIf(!docker)('push keys, the switch, the desk list', () => {
       [],
     );
     expect(answer(r, 'pub_off')).toEqual({ off: true });
-    expect(answer(r, 'one_off')).toEqual({ missing: true });
+    expect(answer(r, 'one_off')).toEqual({ missing: true, entries: [] });
     expect(answer(r, 'view')).toBe(false);
     expect(answer(r, 'pub_on')).toMatchObject({ off: false });
   });

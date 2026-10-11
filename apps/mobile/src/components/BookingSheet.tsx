@@ -11,11 +11,14 @@
  * Every entrance derives from the shared progress value p:
  *   sheet    0.25 → 1.00  translateY 360 → 0, scale 0.92 → 1     PITCH ease (direction-aware)
  *            0.25 → 0.45  opacity 0 → 1                          linear
- *   then three groups, each moving as one, linear in TIME (SPEC.groups:
- *   timed in seconds of the open spring and converted to p, all in by 0.6 s):
+ *   then two groups, each moving as one, linear in TIME (SPEC.groups:
+ *   timed in seconds of the open spring and converted to p):
  *   days     0.22 → 0.44 s   opacity + rise 14 px
  *   lanes    0.30 → 0.52 s   picker: opacity + rise 14 px; lanes: + rise 18 px, scale 0.96 → 1
- *   entries  0.38 → 0.60 s   open matches, lessons, tournaments: as the lanes
+ *   (SPEC's third slice carried the entry cards for open matches, lessons and
+ *   tournaments under the lanes; those moved to tabs of their own on 2026-10-11,
+ *   Play and Coaches, and an open match still shows at its hour on its lane
+ *   time, `matchLineFor`.)
  *   scroll edges: 10 / 14 px fades on the pills, 12 / 24 px on the grid, their
  *   ink squared towards the edge so the band never bleeds inward over the
  *   content; the leading fade only once scrolled.
@@ -56,9 +59,6 @@ import { wallTimeToUtc } from '@touch/core';
 import { formatDayNumber, formatTime, formatWeekdayShort, isolate } from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../features/availability/useAvailabilityBooking';
-import { useGuestVenue } from '../features/availability/hooks';
-import { useLessonEntry } from '../features/coaching/hooks';
-import { useTournamentEntry } from '../features/tournaments/hooks';
 import { mapErrorToKey } from '../features/booking/errors';
 import {
   groupSlice,
@@ -71,8 +71,8 @@ import {
 } from '@touch/court3d/spec';
 import { brand, shadows, space, useTheme, withAlpha } from '../theme';
 import { Button, SegmentedControl } from './ui';
-import { CourtLaneRow, DayChip, ENTRY_CARD_H, EntryCard, MatchBallIcon } from './booking';
-import { TrophyIcon, WhistleIcon, WifiOffIcon } from './icons';
+import { CourtLaneRow, DayChip } from './booking';
+import { WifiOffIcon } from './icons';
 import { SkeletonList } from './states';
 import { ErrorAlert, NoticeSheet } from './overlays';
 
@@ -116,7 +116,7 @@ export interface BookingSheetProps {
   /**
    * `book.sheet`. Everything inside hangs off it — `book.sheet.retry`,
    * `book.sheet.duration`, `book.sheet.day.<date>`, `book.sheet.slot.<id>`,
-   * `book.sheet.call-venue`, `book.sheet.open-matches` (open matches on) — so the Book tab's own ids and the sheet's never
+   * `book.sheet.call-venue` — so the Book tab's own ids and the sheet's never
    * collide even though they live on the same route. REQUIRED for that reason.
    */
   testID: string;
@@ -135,48 +135,6 @@ export function BookingSheet({
   const dark = appearance === 'dark';
   // `open` gates the open-match chips' query: a prewarmed, closed card reads none.
   const a = useAvailabilityBooking({ origin: 'sheet', open: isOpen });
-  // "Lessons with a coach" (coaching guest.md §4.8.1): a static label and no
-  // query of its own (the branch's settings read is already cached), so the
-  // rally's thread gets no new work. `useAvailabilityBooking` is not touched.
-  const guestVenueId = useGuestVenue().venueId;
-  const lessonEntry = useLessonEntry(guestVenueId);
-  // "Tournaments" (tournaments plan §5.2), beside the lessons row and built the
-  // same way: a static label, no query of its own.
-  const tournamentEntry = useTournamentEntry(guestVenueId);
-  // The button cards under the court cards (owner, 2026-10-10): lessons
-  // (coaching guest.md §4.8.1), tournaments (tournaments plan §5.2), then open
-  // matches (guest.md §4.11, only while the branch has them on), two to a row; an
-  // odd one out takes its row's full width. Each row adds ENTRY_CARD_H and the
-  // gap above it, so with none of them on the card is exactly as before.
-  const entries = [
-    lessonEntry
-      ? {
-          key: 'lessons',
-          label: lessonEntry.label,
-          icon: WhistleIcon,
-          onPress: lessonEntry.onPress,
-        }
-      : null,
-    tournamentEntry
-      ? {
-          key: 'tournaments',
-          label: tournamentEntry.label,
-          icon: TrophyIcon,
-          onPress: tournamentEntry.onPress,
-        }
-      : null,
-    a.matchEntry
-      ? {
-          key: 'open-matches',
-          label: a.matchEntry.label,
-          icon: MatchBallIcon,
-          onPress: a.matchEntry.onPress,
-        }
-      : null,
-  ].filter((e) => e !== null);
-  const entryRows: (typeof entries)[] = [];
-  for (let i = 0; i < entries.length; i += 2) entryRows.push(entries.slice(i, i + 2));
-  const entriesH = entryRows.length * (ENTRY_CARD_H + 6);
   // Seeded from the window rather than starting at zero. This box spans the
   // stage's full width, so `width` is already exact; `height` is an
   // over-estimate that only ever relaxes the card's cap, and onLayout corrects
@@ -220,8 +178,13 @@ export function BookingSheet({
    * takes whichever is taller, so iOS keeps its 240 exactly.
    */
   const [gridContentH, setGridContentH] = useState(0);
-  /** The grid's visible height, to know when its content overflows it. */
-  const [gridViewH, setGridViewH] = useState(0);
+  /**
+   * The block's own laid-out height. It is GRID_H (or the content's height)
+   * until a short phone squeezes it (min 96 pt); only then does it scroll, so a
+   * squeezed block can still reach its second court, and an unsqueezed one
+   * stays still (owner, 2026-09-26).
+   */
+  const [gridBoxH, setGridBoxH] = useState(0);
   useEffect(() => {
     gridRef.current?.scrollTo({ y: 0, animated: false });
   }, [a.gridKey]);
@@ -244,14 +207,13 @@ export function BookingSheet({
     };
   }, [progress, direction, cardMaxH]);
 
-  // The three entrance groups (SPEC.groups), each moving as one: the day
-  // chips; the duration picker with the court lanes; the entry rows.
+  // The entrance groups (SPEC.groups), each moving as one: the day chips; the
+  // duration picker with the court lanes.
   const groups = useMemo(
     () => ({
       days: entrance(progress, groupSlice(0), SPEC.pills.y, 1),
       picker: entrance(progress, groupSlice(1), SPEC.pills.y, 1),
       lanes: entrance(progress, groupSlice(1), SPEC.grid.y, SPEC.grid.scale),
-      entries: entrance(progress, groupSlice(2), SPEC.grid.y, SPEC.grid.scale),
     }),
     [progress],
   );
@@ -363,20 +325,14 @@ export function BookingSheet({
       // a ScrollView with scrolling OFF, not swapped for a View: the date
       // chips' glass stopped rendering when this block's structure changed, so
       // the committed layout is left exactly as it was. The spacing below is
-      // trimmed so two courts fit GRID_H. With entry cards on, their rows are
-      // the last children and the block grows by entriesH to hold them;
-      // scrolling comes on then only so that a short phone, where the block
-      // gives way, can still reach them. The same holds for any content that
-      // does not fit: more than two courts, or a short phone, scrolls too.
+      // trimmed so two courts fit GRID_H. Scrolling comes on only where a short
+      // phone squeezes the block below its content (`gridBoxH`), so the second
+      // court is still reachable there.
       <ScrollView
         ref={gridRef}
-        scrollEnabled={entriesH > 0 || gridContentH > gridViewH + 1}
+        scrollEnabled={gridBoxH > 0 && gridContentH > gridBoxH + 1}
         bounces={false}
         showsVerticalScrollIndicator={false}
-        onLayout={(e) => {
-          const h = e.nativeEvent.layout.height;
-          setGridViewH((prev) => (prev === h ? prev : h));
-        }}
         onContentSizeChange={(_w, h) => setGridContentH((prev) => (prev === h ? prev : h))}
         // The foot's air is part of the measured content, so the block grows by
         // it and the last card never sits on the sheet's edge.
@@ -413,33 +369,6 @@ export function BookingSheet({
             </Animated.View>
           );
         })}
-        {/* The entries group: open matches, lessons and tournaments as
-            button cards, two to a row. */}
-        {entryRows.map((row) => (
-          <Animated.View
-            key={row.map((e) => e.key).join('+')}
-            style={{
-              marginTop: 6,
-              flexDirection: 'row',
-              gap: 6,
-              opacity: groups.entries.opacity,
-              transform: [
-                { translateY: groups.entries.translateY },
-                { scale: groups.entries.scale },
-              ],
-            }}
-          >
-            {row.map((e) => (
-              <EntryCard
-                key={e.key}
-                testID={`${testID}.${e.key}`}
-                label={e.label}
-                icon={e.icon}
-                onPress={e.onPress}
-              />
-            ))}
-          </Animated.View>
-        ))}
       </ScrollView>
     );
   }
@@ -703,8 +632,12 @@ export function BookingSheet({
               {/* Time grid: two court cards, not scrolled. The one block that
                   gives way on a short stage */}
               <View
+                onLayout={(e) => {
+                  const h = e.nativeEvent.layout.height;
+                  setGridBoxH((prev) => (prev === h ? prev : h));
+                }}
                 style={{
-                  height: Math.max(GRID_H + entriesH, gridContentH),
+                  height: Math.max(GRID_H, gridContentH),
                   minHeight: 96,
                   flexShrink: 1,
                   marginTop: 6,

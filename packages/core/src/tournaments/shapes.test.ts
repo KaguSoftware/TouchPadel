@@ -161,9 +161,22 @@ describe('pinned names (§1.6, S13)', () => {
     ]);
   });
 
+  it('the public detail lists its entries as {player, mine} (play-coaches §4.3)', () => {
+    const shape = TOURNAMENT_SHAPES.tournament_public;
+    expect(shape.keys).toContain('entries');
+    expect(shape.nested['entries[]']).toEqual(['player', 'mine']);
+    const sample = sampleOf(shape) as { entries: Array<{ player: Record<string, unknown> }> };
+    delete sample.entries[0]!.player.no;
+    expect(tourMissingKeys(sample, shape)).toEqual(['$.entries[0].player.no']);
+    const empty = sampleOf(shape);
+    empty.entries = [];
+    expect(tourHasKeys(empty, shape)).toBe(true);
+  });
+
   it('the public player is {name, former, no}', () => {
     const nested = TOURNAMENT_SHAPES.tournament_public.nested;
     for (const path of [
+      'entries[].player',
       'rounds[].sit_out[]',
       'rounds[].matches[].a[]',
       'rounds[].matches[].b[]',

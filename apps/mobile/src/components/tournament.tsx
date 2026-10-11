@@ -8,18 +8,29 @@
  * here ranks, pairs or refuses.
  *
  * TEST IDS. `TournamentRow` renders a Pressable, takes a REQUIRED `testID` from its call site and
- * forwards it explicitly; it is in `testIdElements` (packages/config/src/eslint.js).
- * `TournamentRound` and `StandingsTable` render no Pressable.
+ * forwards it explicitly; `SeatingBoard` takes a REQUIRED `testID` and forwards
+ * `${testID}.court.<no>.chair.<n>` and `${testID}.more` unconditionally. Both are in
+ * `testIdElements` (packages/config/src/eslint.js). `TournamentRound` and `StandingsTable` render
+ * no Pressable.
+ *
+ * The seating board (play-coaches contracts §5) is the one piece here that moves: the courts rise
+ * in on mount (motion.tsx's `Rise`), an open chair leans into the finger (`TiltPress`), and the
+ * guest's own chair, arriving after a registration, rises and fills green once. Nothing loops,
+ * and all of it holds still under Reduce Motion.
  */
-import { Pressable, View } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { ActivityIndicator, Animated, Pressable, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { Text } from '../i18n/text';
 import { brand, palettes, radius, space, useTheme, withAlpha } from '../theme';
 import { useLocale } from '../i18n/LocaleProvider';
+import { useReduceMotion } from '../lib/useReduceMotion';
 import { categoryKey, type MatchCategory } from '../features/matches/logic';
 import type { TourTone } from '../features/tournaments/logic';
 import { CategoryPill } from './match';
 import { ChevronIcon, TrophyIcon } from './icons';
-import { DashedDivider } from './ui';
+import { Button, DashedDivider } from './ui';
+import { EASE_OUT_EXPO, Rise, TiltPress } from './motion';
 
 // ── TournamentRow (the list) ────────────────────────────────────────────────
 
@@ -709,6 +720,505 @@ export function StandingsTable({
           {cell(r.played)}
         </View>
       ))}
+    </View>
+  );
+}
+
+// ── SeatingBoard (the detail, play-coaches contracts §5) ────────────────────
+
+/** A chair as the screen hands it over: its state, the words on it and what a reader says. */
+export interface SeatingChairView {
+  state: 'taken' | 'mine' | 'open';
+  /** "Ali K.", "Player 5", "You", "Open". */
+  label: string;
+  /** "Court 1, chair 2: Ali K." */
+  a11y: string;
+}
+
+export interface SeatingCourtView {
+  /** The court's number, for the chairs' test ids. */
+  no: number;
+  /** "Court 1". */
+  title: string;
+  /** Side A seat 1, seat 2, side B seat 1, seat 2; null for a chair past the maximum (not drawn). */
+  chairs: readonly (SeatingChairView | null)[];
+}
+
+/** Where chair n (0-based) stands: side A on the start half, side B on the end half, on the service lines. */
+const CHAIR_PLACES = [
+  { start: '25%', top: '24%' },
+  { start: '25%', top: '73%' },
+  { start: '75%', top: '24%' },
+  { start: '75%', top: '73%' },
+] as const;
+const CHAIR_SIZE = 40;
+const CHAIR_LABEL_WIDTH = 116;
+/** The court lies back a little, like the Book tab's court: a static pitch, not a motion. */
+const COURT_PITCH = '9deg';
+
+/** An empty chair, drawn as one: a backrest, the seat, two legs. */
+function ChairGlyph({ size, color }: { size: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M7.5 3.5h9a1 1 0 0 1 1 1V12h-11V4.5a1 1 0 0 1 1-1Z"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+      <Path d="M5 12h14v3H5z" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+      <Path d="M7 15v5.5M17 15v5.5" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** A taken chair: a figure on it, never a face. */
+function SeatedGlyph({ size, color }: { size: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={7.5} r={4} fill={color} />
+      <Path d="M4.5 21c.9-4.6 4.1-7.2 7.5-7.2s6.6 2.6 7.5 7.2" fill={color} />
+    </Svg>
+  );
+}
+
+/** The court drawn to its 2:1, the net across the middle; the chairs stand on it as `children`. */
+function SeatingCourt({ children }: { children: ReactNode }) {
+  const { colors } = useTheme();
+  const line = colors.crtLine;
+  const net = colors.crtShadow;
+  const abs = { position: 'absolute' as const };
+  return (
+    <View
+      style={{
+        backgroundColor: colors.crtTurf,
+        borderRadius: radius.cell,
+        padding: 10,
+        transform: [{ perspective: 900 }, { rotateX: COURT_PITCH }],
+      }}
+    >
+      <View style={{ aspectRatio: 2 }}>
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={{ ...abs, top: 0, bottom: 0, start: 0, end: 0 }}
+        >
+          <View
+            style={{
+              ...abs,
+              top: 0,
+              bottom: 0,
+              start: 0,
+              end: 0,
+              borderWidth: 2,
+              borderColor: line,
+            }}
+          />
+          <View
+            style={{
+              ...abs,
+              top: 0,
+              bottom: 0,
+              start: '25%',
+              width: 2,
+              marginStart: -1,
+              backgroundColor: line,
+            }}
+          />
+          <View
+            style={{
+              ...abs,
+              top: 0,
+              bottom: 0,
+              end: '25%',
+              width: 2,
+              marginEnd: -1,
+              backgroundColor: line,
+            }}
+          />
+          <View
+            style={{
+              ...abs,
+              top: '50%',
+              start: '25%',
+              end: '25%',
+              height: 2,
+              marginTop: -1,
+              backgroundColor: line,
+            }}
+          />
+          <View
+            style={{
+              ...abs,
+              top: -6,
+              bottom: -6,
+              start: '50%',
+              width: 3,
+              marginStart: -1.5,
+              backgroundColor: net,
+            }}
+          />
+          <View
+            style={{
+              ...abs,
+              top: -7,
+              start: '50%',
+              width: 7,
+              height: 7,
+              marginStart: -3.5,
+              borderRadius: 2,
+              backgroundColor: net,
+            }}
+          />
+          <View
+            style={{
+              ...abs,
+              bottom: -7,
+              start: '50%',
+              width: 7,
+              height: 7,
+              marginStart: -3.5,
+              borderRadius: 2,
+              backgroundColor: net,
+            }}
+          />
+        </View>
+        {children}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * One chair: the marker and its label under it. Taken is navy with a figure, the guest's own is
+ * green and says "You", open is a white tile with a dashed blue edge and an empty chair. When the
+ * chair turns into the guest's own while the board is on screen (a registration landing), it
+ * rises into place and fills green once.
+ */
+function SeatingChair({
+  testID,
+  place,
+  chair,
+  onPress,
+  hint,
+  disabled,
+  pending,
+}: {
+  testID: string;
+  place: (typeof CHAIR_PLACES)[number];
+  chair: SeatingChairView;
+  onPress?: () => void;
+  hint?: string;
+  disabled: boolean;
+  pending: boolean;
+}) {
+  const { colors, fonts } = useTheme();
+  const reduce = useReduceMotion();
+  const mine = chair.state === 'mine';
+  const taken = chair.state === 'taken';
+  const [arrive] = useState(() => new Animated.Value(1));
+  const wasMine = useRef(mine);
+  useEffect(() => {
+    const became = mine && !wasMine.current;
+    wasMine.current = mine;
+    if (!became || reduce) return;
+    arrive.setValue(0);
+    const anim = Animated.timing(arrive, {
+      toValue: 1,
+      duration: 560,
+      easing: EASE_OUT_EXPO,
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [mine, reduce, arrive]);
+
+  const markerBg = taken ? colors.crtShadow : colors.card;
+  const marker = (
+    <View
+      style={{
+        width: CHAIR_SIZE,
+        height: CHAIR_SIZE,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: markerBg,
+        borderWidth: 2,
+        borderStyle: chair.state === 'open' ? 'dashed' : 'solid',
+        borderColor: mine ? colors.card : taken ? colors.crtLine : colors.blue,
+        overflow: 'hidden',
+      }}
+    >
+      {mine ? (
+        // The green fill fades in over the white tile as the chair arrives.
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            start: 0,
+            end: 0,
+            backgroundColor: colors.gstrong,
+            opacity: arrive,
+          }}
+        />
+      ) : null}
+      {pending ? (
+        <ActivityIndicator size="small" color={colors.blue} />
+      ) : chair.state === 'open' ? (
+        <ChairGlyph size={20} color={colors.blue} />
+      ) : (
+        <SeatedGlyph size={20} color={mine ? colors.card : colors.crtLine} />
+      )}
+    </View>
+  );
+  const label = (
+    <View
+      style={{
+        maxWidth: CHAIR_LABEL_WIDTH,
+        backgroundColor: mine ? colors.gstrong : taken ? colors.crtShadow : colors.card,
+        borderRadius: radius.pill,
+        paddingStart: 8,
+        paddingEnd: 8,
+        paddingTop: 2,
+        paddingBottom: 2,
+      }}
+    >
+      <Text
+        numberOfLines={1}
+        style={{
+          fontFamily: fonts.body800,
+          fontSize: 11,
+          color: mine ? colors.card : taken ? colors.crtLine : colors.blue,
+        }}
+      >
+        {chair.label}
+      </Text>
+    </View>
+  );
+  const body = (
+    <Animated.View
+      style={{
+        alignItems: 'center',
+        gap: 4,
+        transform: [
+          { translateY: arrive.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
+          { scale: arrive.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) },
+        ],
+      }}
+    >
+      {marker}
+      {label}
+    </Animated.View>
+  );
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        start: place.start,
+        top: place.top,
+        width: CHAIR_LABEL_WIDTH,
+        marginStart: -CHAIR_LABEL_WIDTH / 2,
+        marginTop: -CHAIR_SIZE / 2,
+        alignItems: 'center',
+      }}
+    >
+      {onPress ? (
+        <TiltPress
+          testID={testID}
+          onPress={onPress}
+          disabled={disabled}
+          accessibilityLabel={hint ? `${chair.a11y}. ${hint}` : chair.a11y}
+          style={{ alignItems: 'center' }}
+        >
+          {body}
+        </TiltPress>
+      ) : (
+        <View testID={testID} accessible accessibilityLabel={chair.a11y}>
+          {body}
+        </View>
+      )}
+    </View>
+  );
+}
+
+/** One legend entry: a small marker in a chair state, and its word. */
+function LegendItem({ state, label }: { state: SeatingChairView['state']; label: string }) {
+  const { colors, fonts } = useTheme();
+  const bg = state === 'mine' ? colors.gstrong : state === 'taken' ? colors.crtShadow : colors.card;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <View
+        style={{
+          width: 14,
+          height: 14,
+          borderRadius: 4,
+          backgroundColor: bg,
+          borderWidth: 1.5,
+          borderStyle: state === 'open' ? 'dashed' : 'solid',
+          borderColor: state === 'open' ? colors.blue : bg,
+        }}
+      />
+      <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.mut }}>{label}</Text>
+    </View>
+  );
+}
+
+/**
+ * The tournament's seating board (play-coaches contracts §5): a top-down court per four places,
+ * the net across the middle, two chairs on each side. Before the draw the chairs list the entries
+ * in registration order; after it they are round 1's real courts. Every string arrives formatted;
+ * the screen decides which chairs a tap may act on (`onOpenChair`, the screen's own Register) and
+ * whether it is busy. The tapped chair shows the spinner; the seat a registration gets is simply
+ * the next one, which the server's answer then shows.
+ */
+export function SeatingBoard({
+  testID,
+  title,
+  caption,
+  note,
+  legend,
+  courts,
+  ownLine,
+  sitOut,
+  onOpenChair,
+  openHint,
+  busy,
+  more,
+}: {
+  testID: string;
+  /** "Seating" / "Round 1 courts". */
+  title: string;
+  /** The format's line ("Americano: partners rotate every round."), or null. */
+  caption: string | null;
+  /** "Tap an open chair…", "Every chair is taken…", or null. */
+  note: string | null;
+  legend: { taken: string; mine: string; open: string };
+  courts: readonly SeatingCourtView[];
+  /** "Your chair is on Court 2.", or null. */
+  ownLine: string | null;
+  /** Round 1's sit-outs, the draw only. */
+  sitOut: {
+    title: string;
+    players: readonly { key: string; label: string; mine: boolean }[];
+  } | null;
+  /** Set while an open chair may register (the screen's Register); unset, open chairs only read "Open". */
+  onOpenChair?: () => void;
+  /** What a reader hears after an open chair's label ("Registers you for this tournament"). */
+  openHint?: string;
+  busy: boolean;
+  /** "Show all courts (16)" / "Show fewer courts", or null when every court shows. */
+  more: { label: string; onPress: () => void } | null;
+}) {
+  const { colors, fonts } = useTheme();
+  // The chair whose tap started the work under way; forgotten once the screen is idle again.
+  const [tapped, setTapped] = useState<string | null>(null);
+  if (!busy && tapped !== null) setTapped(null);
+  return (
+    <View testID={testID} style={{ gap: space.sm }}>
+      <View style={{ gap: 4 }}>
+        <Text style={{ fontFamily: fonts.display800, fontSize: 17, color: colors.ink }}>
+          {title}
+        </Text>
+        {caption ? (
+          <Text
+            style={{ fontFamily: fonts.body600, fontSize: 13, lineHeight: 19, color: colors.mut }}
+          >
+            {caption}
+          </Text>
+        ) : null}
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: space.m, rowGap: 6 }}>
+        <LegendItem state="taken" label={legend.taken} />
+        <LegendItem state="mine" label={legend.mine} />
+        <LegendItem state="open" label={legend.open} />
+      </View>
+      {ownLine ? (
+        <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.gtext }}>
+          {ownLine}
+        </Text>
+      ) : null}
+      {courts.map((court, i) => (
+        <Rise key={court.no} index={i} style={{ gap: 6 }}>
+          <Text style={{ fontFamily: fonts.body800, fontSize: 12.5, color: colors.mut2 }}>
+            {court.title}
+          </Text>
+          <SeatingCourt>
+            {court.chairs.map((chair, k) => {
+              if (!chair) return null;
+              const id = `${testID}.court.${court.no}.chair.${k + 1}`;
+              const open = chair.state === 'open' && onOpenChair !== undefined;
+              return (
+                <SeatingChair
+                  key={k}
+                  testID={id}
+                  place={CHAIR_PLACES[k]!}
+                  chair={chair}
+                  disabled={busy}
+                  pending={busy && tapped === id}
+                  hint={open ? openHint : undefined}
+                  onPress={
+                    open
+                      ? () => {
+                          setTapped(id);
+                          onOpenChair();
+                        }
+                      : undefined
+                  }
+                />
+              );
+            })}
+          </SeatingCourt>
+        </Rise>
+      ))}
+      {more ? (
+        <Button
+          testID={`${testID}.more`}
+          label={more.label}
+          variant="secondary"
+          size="compact"
+          onPress={more.onPress}
+        />
+      ) : null}
+      {sitOut && sitOut.players.length > 0 ? (
+        <View style={{ gap: 6 }}>
+          <Text style={{ fontFamily: fonts.body800, fontSize: 12.5, color: colors.mut2 }}>
+            {sitOut.title}
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {sitOut.players.map((p) => (
+              <View
+                key={p.key}
+                style={{
+                  backgroundColor: p.mine ? colors.gstrong : colors.sub,
+                  borderRadius: radius.pill,
+                  paddingStart: 10,
+                  paddingEnd: 10,
+                  paddingTop: 4,
+                  paddingBottom: 4,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.body700,
+                    fontSize: 12,
+                    color: p.mine ? colors.card : colors.ink,
+                  }}
+                >
+                  {p.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
+      {note ? (
+        <Text
+          style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 18, color: colors.mut }}
+        >
+          {note}
+        </Text>
+      ) : null}
     </View>
   );
 }

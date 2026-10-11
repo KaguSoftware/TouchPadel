@@ -130,7 +130,7 @@ export function useCoachHours() {
   return useQuery({ queryKey: coachKeys.hours, queryFn: regate(() => fetchCoachHours(supabase)) });
 }
 
-/** The coach's past students (0334), names only; a booking refreshes it with the rest of ['coach']. */
+/** The coach's past students (0335), names only; a booking refreshes it with the rest of ['coach']. */
 export function useSavedStudents(enabled = true) {
   const regate = useRegate();
   return useQuery({

@@ -2,7 +2,7 @@ set lock_timeout = '3s';
 set statement_timeout = '60s';
 
 -- ===========================================================================
--- 0336 coach_slugs — a coach's share link names the coach (owner, 2026-10-11):
+-- 0337 coach_slugs — a coach's share link names the coach (owner, 2026-10-11):
 -- https://www.touch-padel.com/<locale>/c/omar-karim instead of /c/<coaches.id>.
 --
 --   * coaches.slug: made from display_name_en when the coach is made
@@ -13,7 +13,7 @@ set statement_timeout = '60s';
 --     /c/<coaches.id> keeps working for good.
 --   * 2..48 of a-z, 0-9 and dashes, starting with a letter or digit, and never
 --     shaped like a coach id, so a link's last segment is one or the other.
---   * Unique: 0337, the index in its own file.
+--   * Unique: 0338, the index in its own file.
 --   * coaching_public, coach_profile and coaches_admin carry it;
 --     app.coach_id_for_slug turns a link's slug into the coach's id (anon).
 --
@@ -23,19 +23,19 @@ set statement_timeout = '60s';
 alter table coaches add column if not exists slug text;
 
 comment on column coaches.slug is
-  '0336. The name in the coach''s share link (/c/<slug>): made from display_name_en at insert (trigger coaches_slug), edited only through app.coach_update. Unique (0337, coaches_slug_key). Public by design: coaching_public and coach_profile carry it.';
+  '0337. The name in the coach''s share link (/c/<slug>): made from display_name_en at insert (trigger coaches_slug), edited only through app.coach_update. Unique (0338, coaches_slug_key). Public by design: coaching_public and coach_profile carry it.';
 
 -- The share link's name, or false. Granted to every writing role because the
 -- CHECK below names it (the 0116 → 0121 lesson).
 create or replace function app.coach_slug_ok(p_slug text) returns boolean
-language sql immutable set search_path = public as $coach_slug_ok_0336$
+language sql immutable set search_path = public as $coach_slug_ok_0337$
   select p_slug is not null
      and p_slug ~ '^[a-z0-9][a-z0-9-]{1,47}$'
      and p_slug !~ '^[0-9a-f]{8}-[0-9a-f]{4}-'
-$coach_slug_ok_0336$;
+$coach_slug_ok_0337$;
 
 comment on function app.coach_slug_ok(text) is
-  '0336. True when p_slug can be a coach''s share link name: 2..48 of a-z, 0-9 and dashes, starting with a letter or digit, and not shaped like a coaches.id.';
+  '0337. True when p_slug can be a coach''s share link name: 2..48 of a-z, 0-9 and dashes, starting with a letter or digit, and not shaped like a coaches.id.';
 
 revoke all on function app.coach_slug_ok(text) from public;
 grant execute on function app.coach_slug_ok(text) to anon, authenticated, service_role;
@@ -45,7 +45,7 @@ grant execute on function app.coach_slug_ok(text) to anon, authenticated, servic
 -- with no latin letter). Taken: -2, -3, … p_self is the coach being named, so
 -- its own slug never counts as taken.
 create or replace function app.coach_slug_free(p_name text, p_self uuid) returns text
-language plpgsql stable security definer set search_path = public as $coach_slug_free_0336$
+language plpgsql stable security definer set search_path = public as $coach_slug_free_0337$
 declare
   v_base text;
   v_try  text;
@@ -62,10 +62,10 @@ begin
     v_try := v_base || '-' || v_n;
   end loop;
   return v_try;
-end $coach_slug_free_0336$;
+end $coach_slug_free_0337$;
 
 comment on function app.coach_slug_free(text, uuid) is
-  '0336. Internal: the first slug free for a coach named p_name (latin letters and digits of the name, dashes between words, at most 40; "coach" when none), with -2, -3, … when taken by another coach than p_self.';
+  '0337. Internal: the first slug free for a coach named p_name (latin letters and digits of the name, dashes between words, at most 40; "coach" when none), with -2, -3, … when taken by another coach than p_self.';
 
 revoke all on function app.coach_slug_free(text, uuid) from public, anon, authenticated;
 
@@ -73,7 +73,7 @@ revoke all on function app.coach_slug_free(text, uuid) from public, anon, authen
 -- (coach_update) is lowercased and must be free. Named so it sorts after
 -- coaches_sanitise (the name is clean by then) and before zz_branch_guard.
 create or replace function app.trg_coach_slug() returns trigger
-language plpgsql security definer set search_path = public as $trg_coach_slug_0336$
+language plpgsql security definer set search_path = public as $trg_coach_slug_0337$
 begin
   if new.slug is null then
     new.slug := app.coach_slug_free(new.display_name_en, new.id);
@@ -87,7 +87,7 @@ begin
     raise exception 'COACH_SLUG_TAKEN' using errcode = 'P0001';
   end if;
   return new;
-end $trg_coach_slug_0336$;
+end $trg_coach_slug_0337$;
 
 revoke all on function app.trg_coach_slug() from public, anon, authenticated;
 
@@ -97,21 +97,21 @@ create trigger coaches_slug before insert or update of slug on coaches
 
 -- Every coach today, oldest first, so the first of two same-named coaches
 -- keeps the plain name.
-do $backfill_coach_slugs_0336$
+do $backfill_coach_slugs_0337$
 declare
   r record;
 begin
   for r in select c.id from coaches c where c.slug is null order by c.created_at, c.id loop
     update coaches set slug = null where id = r.id;
   end loop;
-end $backfill_coach_slugs_0336$;
+end $backfill_coach_slugs_0337$;
 
 alter table coaches drop constraint if exists coaches_slug_chk;
 alter table coaches
   add constraint coaches_slug_chk check (app.coach_slug_ok(slug))
   not valid;
 
-do $validate_coaches_slug_0336$
+do $validate_coaches_slug_0337$
 begin
   if exists (select 1 from pg_constraint
               where conname = 'coaches_slug_chk'
@@ -119,7 +119,7 @@ begin
                 and not convalidated) then
     alter table coaches validate constraint coaches_slug_chk;
   end if;
-end $validate_coaches_slug_0336$;
+end $validate_coaches_slug_0337$;
 
 -- ===========================================================================
 -- app.coach_id_for_slug: a share link's slug → the coach's id
@@ -130,26 +130,26 @@ end $validate_coaches_slug_0336$;
 -- before). NULL when no coach that accepted going public and is not retired
 -- has the slug. Never raises.
 create or replace function app.coach_id_for_slug(p_slug text) returns uuid
-language sql stable security definer set search_path = public as $coach_id_for_slug_0336$
+language sql stable security definer set search_path = public as $coach_id_for_slug_0337$
   select c.id
     from coaches c
    where c.slug = lower(btrim(p_slug))
      and c.status <> 'retired'
      and c.public_accepted_at is not null
-$coach_id_for_slug_0336$;
+$coach_id_for_slug_0337$;
 
 comment on function app.coach_id_for_slug(text) is
-  '0336. Anon and authenticated, public by design (a share link names the coach). The id of the coach whose slug p_slug is (lowercased and trimmed), or NULL when none, or the coach is retired or has not accepted going public. Never raises.';
+  '0337. Anon and authenticated, public by design (a share link names the coach). The id of the coach whose slug p_slug is (lowercased and trimmed), or NULL when none, or the coach is retired or has not accepted going public. Never raises.';
 
 revoke all on function app.coach_id_for_slug(text) from public;
 grant execute on function app.coach_id_for_slug(text) to anon, authenticated;
 
 -- ===========================================================================
--- app.coaching_public, app.coach_profile (re-issued from 0283): + slug
+-- app.coaching_public, app.coach_profile (re-issued from 0334, which keeps levels): + slug
 -- ===========================================================================
 
 create or replace function app.coaching_public(p_venue_id uuid default null) returns jsonb
-language plpgsql stable security definer set search_path = public as $coaching_public_0336$
+language plpgsql stable security definer set search_path = public as $coaching_public_0337$
 declare
   v_venues  uuid[];
   v_coaches jsonb;
@@ -197,6 +197,8 @@ begin
                    'bio_ar', co.bio_ar,
                    'photo_path', co.photo_path,
                    'sort_order', co.sort_order,
+                   -- 0334: empty = every level.
+                   'levels', to_jsonb(co.levels),
                    'venue_ids', to_jsonb(b.venue_ids),
                    'offers', coalesce((
                      select jsonb_agg(jsonb_build_object(
@@ -254,16 +256,16 @@ begin
     'lesson_types', v_types,
     'sessions', app.lesson_read_sessions(v_venues, null),
     'server_now', now());
-end $coaching_public_0336$;
+end $coaching_public_0337$;
 
 comment on function app.coaching_public(uuid) is
-  '0283 (db.md §4.7.9, guest.md §4.3; X1, C-11, R16, R61, R76), 0336 (each coach carries slug, the name in its share link). Anon and authenticated, public by design; never raises. {off: true} when the named branch has coaching off, is closed or unknown, or (p_venue_id NULL) no open branch has coaching on. Else {off: false, branches[{venue_id, name_en, name_ar, timezone, payment_mode, prices_public, cancellation_window_hours}], coaches[{id, display_name_en, display_name_ar, slug, bio_en, bio_ar, photo_path, sort_order, venue_ids, offers[{lesson_type_id, venue_id, price_iqd}]}] (active coaches who accepted going public, with an active branch row), lesson_types[{id, venue_id, kind, name_*, description_*, duration_min, max_places, min_places, sessions_count, price_iqd, sort_order}] (on sale, taught by a listed coach), sessions[] (app.lesson_read_sessions), server_now}. Prices are always sent; the website drops them while prices_public is false. No student, phone, profile id or court id.';
+  '0283 (db.md §4.7.9, guest.md §4.3; X1, C-11, R16, R61, R76), 0334 (levels), 0337 (each coach carries slug, the name in its share link). Anon and authenticated, public by design; never raises. {off: true} when the named branch has coaching off, is closed or unknown, or (p_venue_id NULL) no open branch has coaching on. Else {off: false, branches[{venue_id, name_en, name_ar, timezone, payment_mode, prices_public, cancellation_window_hours}], coaches[{id, display_name_en, display_name_ar, slug, bio_en, bio_ar, photo_path, sort_order, levels (0334: a subset of beginner, intermediate, advanced; [] = every level), venue_ids, offers[{lesson_type_id, venue_id, price_iqd}]}] (active coaches who accepted going public, with an active branch row), lesson_types[{id, venue_id, kind, name_*, description_*, duration_min, max_places, min_places, sessions_count, price_iqd, sort_order}] (on sale, taught by a listed coach), sessions[] (app.lesson_read_sessions), server_now}. Prices are always sent; the website drops them while prices_public is false. No student, phone, profile id or court id.';
 
 revoke all on function app.coaching_public(uuid) from public;
 grant execute on function app.coaching_public(uuid) to anon, authenticated;
 
 create or replace function app.coach_profile(p_coach_id uuid, p_venue_id uuid default null) returns jsonb
-language plpgsql stable security definer set search_path = public as $coach_profile_0336$
+language plpgsql stable security definer set search_path = public as $coach_profile_0337$
 declare
   v_co     coaches%rowtype;
   v_v      venues%rowtype;
@@ -299,6 +301,8 @@ begin
     'bio_ar', v_co.bio_ar,
     'photo_path', v_co.photo_path,
     'status', v_co.status,
+    -- 0334: empty = every level.
+    'levels', to_jsonb(v_co.levels),
     'venue_ids', to_jsonb(v_ids));
 
   if p_venue_id is null then
@@ -362,20 +366,20 @@ begin
     'sessions', case when v_paused then '[]'::jsonb
                      else app.lesson_read_sessions(array[p_venue_id], v_co.id) end,
     'server_now', now());
-end $coach_profile_0336$;
+end $coach_profile_0337$;
 
 comment on function app.coach_profile(uuid, uuid) is
-  '0283 (db.md §4.7.9, guest.md §4.3; X2, R17, R61, R76), 0336 (the card carries slug). Anon and authenticated, public by design. INVALID_ARGUMENT (p_coach_id NULL); COACH_NOT_FOUND (unknown, retired, or not yet accepted). p_venue_id NULL: {off: true} when the coach is active at no open branch with coaching on, else {off: false, coach: {id, display_name_*, slug, bio_*, photo_path, status, venue_ids}, venue: null, bookable, offers: [], sessions: [], server_now}. A named branch: {off: true} when it is closed, unknown or has coaching off; COACH_NOT_AT_BRANCH when the coach is not active there; else the card, venue {venue_id, name_*, timezone, phone (the branch''s), payment_mode, prices_public, cancellation_window_hours}, bookable, offers[{lesson_type_id, kind, name_*, description_*, duration_min, max_places, min_places, sessions_count, cutoff_hours, price_iqd (lesson_price_for)}] and sessions[] (app.lesson_read_sessions). A paused coach answers status paused, bookable false, no offers and no sessions (R76). No profile id, student or court.';
+  '0283 (db.md §4.7.9, guest.md §4.3; X2, R17, R61, R76), 0334 (levels), 0337 (the card carries slug). Anon and authenticated, public by design. INVALID_ARGUMENT (p_coach_id NULL); COACH_NOT_FOUND (unknown, retired, or not yet accepted). p_venue_id NULL: {off: true} when the coach is active at no open branch with coaching on, else {off: false, coach: {id, display_name_*, slug, bio_*, photo_path, status, levels (0334: a subset of beginner, intermediate, advanced; [] = every level), venue_ids}, venue: null, bookable, offers: [], sessions: [], server_now}. A named branch: {off: true} when it is closed, unknown or has coaching off; COACH_NOT_AT_BRANCH when the coach is not active there; else the card, venue {venue_id, name_*, timezone, phone (the branch''s), payment_mode, prices_public, cancellation_window_hours}, bookable, offers[{lesson_type_id, kind, name_*, description_*, duration_min, max_places, min_places, sessions_count, cutoff_hours, price_iqd (lesson_price_for)}] and sessions[] (app.lesson_read_sessions). A paused coach answers status paused, bookable false, no offers and no sessions (R76). No profile id, student or court.';
 
 revoke all on function app.coach_profile(uuid, uuid) from public;
 grant execute on function app.coach_profile(uuid, uuid) to anon, authenticated;
 
 -- ===========================================================================
--- app.coaches_admin, app.coach_update (re-issued from 0290): + slug
+-- app.coaches_admin, app.coach_update (re-issued from 0334, which keeps levels): + slug
 -- ===========================================================================
 
 create or replace function app.coaches_admin(p_venue_id uuid default null) returns jsonb
-language plpgsql stable security definer set search_path = public as $coaches_admin_0336$
+language plpgsql stable security definer set search_path = public as $coaches_admin_0337$
 declare
   v_venue uuid;
   v_rules jsonb;
@@ -414,6 +418,8 @@ begin
                    'public_accepted_at', c.public_accepted_at,
                    'retired_at', c.retired_at,
                    'sort_order', c.sort_order,
+                   -- 0334: the levels the coach teaches; empty = every level.
+                   'levels', to_jsonb(c.levels),
                    'venue_ids', coalesce((select jsonb_agg(b2.venue_id order by b2.venue_id)
                                             from coach_branches b2
                                            where b2.coach_id = c.id and b2.active), '[]'::jsonb),
@@ -535,18 +541,19 @@ begin
              order by t.sort_order, t.name_en, t.id)
         from lesson_types t
        where t.venue_id = v_venue), '[]'::jsonb));
-end $coaches_admin_0336$;
+end $coaches_admin_0337$;
 
 comment on function app.coaches_admin(uuid) is
-  '0282 (db.md §4.6.3; X19, R46, R57), 0290 (DB-02: hours_elsewhere only at active, not-closed branches), 0336 (each coach carries slug). Manager and owner, at the branch (default: the caller''s resolved branch). {venue_id, coaching_enabled, server_now, coaches: [{coach_id, profile_id, full_name, phone, account_deleted, display_name_*, slug, bio_*, photo_path, status, public_accepted_at, retired_at, sort_order, venue_ids, active_here, lesson_type_ids, prices, hours, hours_set_by, hours_set_by_name, hours_updated_at, hours_elsewhere, time_off, upcoming_lessons, open_courses}], lesson_types: [{lesson_type_id, kind, name_*, description_*, duration_min, price_iqd, court_share_iqd, max_places, min_places, cutoff_hours, sessions_count, is_active, launched_at, sort_order, coach_ids, pending_run}]} for every coach with a coach_branches row at the branch and every type of the branch. hours_elsewhere lists the coach''s windows at the other branches where the coach is active and that are not closed. The profile''s name and phone are staff data, never public. FORBIDDEN by role, then by branch.';
+  '0282 (db.md §4.6.3; X19, R46, R57), 0290 (DB-02: hours_elsewhere only at active, not-closed branches), 0334 (levels), 0337 (each coach carries slug). Manager and owner, at the branch (default: the caller''s resolved branch). {venue_id, coaching_enabled, server_now, coaches: [{coach_id, profile_id, full_name, phone, account_deleted, display_name_*, slug, bio_*, photo_path, status, public_accepted_at, retired_at, sort_order, levels (a subset of beginner, intermediate, advanced; [] = every level), venue_ids, active_here, lesson_type_ids, prices, hours, hours_set_by, hours_set_by_name, hours_updated_at, hours_elsewhere, time_off, upcoming_lessons, open_courses}], lesson_types: [{lesson_type_id, kind, name_*, description_*, duration_min, price_iqd, court_share_iqd, max_places, min_places, cutoff_hours, sessions_count, is_active, launched_at, sort_order, coach_ids, pending_run}]} for every coach with a coach_branches row at the branch and every type of the branch. hours_elsewhere lists the coach''s windows at the other branches where the coach is active and that are not closed. The profile''s name and phone are staff data, never public. FORBIDDEN by role, then by branch.';
 
 revoke all on function app.coaches_admin(uuid) from public, anon;
 grant execute on function app.coaches_admin(uuid) to authenticated;
 
 create or replace function app.coach_update(p_coach_id uuid, p_patch jsonb) returns jsonb
-language plpgsql security definer set search_path = public as $coach_update_0336$
+language plpgsql security definer set search_path = public as $coach_update_0337$
 declare
-  v_allowed text[] := array['display_name_en', 'display_name_ar', 'slug', 'bio_en', 'bio_ar', 'photo_path', 'sort_order'];
+  v_allowed text[] := array['display_name_en', 'display_name_ar', 'slug', 'bio_en', 'bio_ar', 'photo_path', 'sort_order',
+                             'levels'];
   v_c       coaches%rowtype;
   v_new     coaches;
   v_key     text;
@@ -601,7 +608,7 @@ begin
     end if;
     v_new.display_name_ar := v_text;
   end if;
-  -- 0336: the share link's name. Lowercased and trimmed; taken by another
+  -- 0337: the share link's name. Lowercased and trimmed; taken by another
   -- coach is COACH_SLUG_TAKEN (the coach lock above holds a second edit of
   -- this coach; the unique index answers two coaches racing for one name).
   if p_patch ? 'slug' then
@@ -649,6 +656,22 @@ begin
   if p_patch ? 'sort_order' then
     v_new.sort_order := app.venue_patch_int(p_patch, 'sort_order', 0, 100000);
   end if;
+  -- 0334: the levels taught, an array of beginner | intermediate | advanced
+  -- (empty = every level), kept in that order, each once.
+  if p_patch ? 'levels' then
+    if jsonb_typeof(p_patch->'levels') <> 'array'
+       or exists (select 1 from jsonb_array_elements(p_patch->'levels') x
+                   where jsonb_typeof(x) <> 'string'
+                      or x #>> '{}' not in ('beginner', 'intermediate', 'advanced')) then
+      raise exception 'INVALID_ARGUMENT' using errcode = 'P0001', detail = 'levels';
+    end if;
+    v_new.levels := array(select l.v
+                            from unnest(array['beginner', 'intermediate', 'advanced']::text[])
+                                 with ordinality l(v, o)
+                           where exists (select 1 from jsonb_array_elements_text(p_patch->'levels') y(v)
+                                          where y.v = l.v)
+                           order by l.o);
+  end if;
 
   update coaches
      set display_name_en = v_new.display_name_en,
@@ -658,6 +681,7 @@ begin
          bio_ar = v_new.bio_ar,
          photo_path = v_new.photo_path,
          sort_order = v_new.sort_order,
+         levels = v_new.levels,
          updated_at = now()
    where id = v_c.id
      and status <> 'retired'
@@ -679,11 +703,13 @@ begin
                                              'display_name_ar', v_c.display_name_ar,
                                              'slug', v_c.slug,
                                              'photo_path', v_c.photo_path, 'sort_order', v_c.sort_order,
+                                             'levels', to_jsonb(v_c.levels),
                                              'bio_changed', false),
                           jsonb_build_object('display_name_en', v_new.display_name_en,
                                              'display_name_ar', v_new.display_name_ar,
                                              'slug', v_new.slug,
                                              'photo_path', v_new.photo_path, 'sort_order', v_new.sort_order,
+                                             'levels', to_jsonb(v_new.levels),
                                              'bio_changed', v_new.bio_en is distinct from v_c.bio_en
                                                             or v_new.bio_ar is distinct from v_c.bio_ar));
   return jsonb_build_object(
@@ -696,12 +722,13 @@ begin
     'bio_ar', v_new.bio_ar,
     'photo_path', v_new.photo_path,
     'sort_order', v_new.sort_order,
+    'levels', to_jsonb(v_new.levels),
     'public_accepted_at', v_new.public_accepted_at,
     'updated_at', v_new.updated_at);
-end $coach_update_0336$;
+end $coach_update_0337$;
 
 comment on function app.coach_update(uuid, jsonb) is
-  '0282 (db.md §4.6.3; C-7, R43), 0290 (DB-03), 0336 (slug: the share link''s name, lowercased; INVALID_ARGUMENT slug when it is not 2..48 of a-z, 0-9 and dashes starting with a letter or digit, or looks like a coach id; COACH_SLUG_TAKEN when another coach has it). Manager (a coach in scope) and owner: patch a coach''s display_name_en, display_name_ar (1..60), slug, bio_en, bio_ar (<= 1000), photo_path (NULL clears; coaches/<fresh uuid>/<file>, R43) and sort_order. Under the coach lock with the row FOR UPDATE, so a retirement or account deletion committed first is never written over. A replaced photo''s old folder is queued in coach_photo_purges. Refusals: FORBIDDEN (role); COACH_NOT_FOUND; FORBIDDEN (scope); INVALID_ARGUMENT p_patch | the key | retired. Audited coaching.coach.update (names, slug, photo, order and whether a bio changed). Returns the coach''s card.';
+  '0282 (db.md §4.6.3; C-7, R43), 0290 (DB-03), 0334 (levels), 0337 (slug: the share link''s name, lowercased; INVALID_ARGUMENT slug when it is not 2..48 of a-z, 0-9 and dashes starting with a letter or digit, or looks like a coach id; COACH_SLUG_TAKEN when another coach has it). Manager (a coach in scope) and owner: patch a coach''s display_name_en, display_name_ar (1..60), slug, bio_en, bio_ar (<= 1000), photo_path (NULL clears; coaches/<fresh uuid>/<file>, R43), sort_order and levels (an array of beginner | intermediate | advanced, stored in that order, each once; [] = every level). Under the coach lock with the row FOR UPDATE, so a retirement or account deletion committed first is never written over. A replaced photo''s old folder is queued in coach_photo_purges. Refusals: FORBIDDEN (role); COACH_NOT_FOUND; FORBIDDEN (scope); INVALID_ARGUMENT p_patch | the key | retired. Audited coaching.coach.update (names, slug, photo, order, levels and whether a bio changed). Returns the coach''s card {coach_id, status, display_name_*, slug, bio_*, photo_path, sort_order, levels, public_accepted_at, updated_at}.';
 
 revoke all on function app.coach_update(uuid, jsonb) from public, anon;
 grant execute on function app.coach_update(uuid, jsonb) to authenticated;

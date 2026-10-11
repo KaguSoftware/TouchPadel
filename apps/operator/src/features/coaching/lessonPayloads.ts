@@ -430,7 +430,7 @@ export interface Enrolment {
   flags: CustomerFlag[];
   party_size: number | null;
   friend_names: string[];
-  /** 0334/0335: the other students' phones a coach typed, by position against friend_names ('' for none). */
+  /** 0335/0336: the other students' phones a coach typed, by position against friend_names ('' for none). */
   friend_phones: string[];
   first_session_no: number | null;
   sessions_covered: number | null;
@@ -812,7 +812,7 @@ export interface AdminCoach {
   account_deleted: boolean;
   display_name_en: string;
   display_name_ar: string;
-  /** The name in the coach's share link (/c/<slug>, 0336); null from a server before it. */
+  /** The name in the coach's share link (/c/<slug>, 0337); null from a server before it. */
   slug: string | null;
   bio_en: string;
   bio_ar: string;
@@ -821,6 +821,11 @@ export interface AdminCoach {
   /** Null while the coach has not accepted a public profile (C-22, R61). */
   public_accepted_at: string | null;
   sort_order: number | null;
+  /**
+   * The levels the coach teaches (0334): beginner, intermediate, advanced.
+   * Empty means every level.
+   */
+  levels: string[];
   venue_ids: string[];
   /**
    * Active at this branch. False for a coach whose branch was switched off:
@@ -900,6 +905,7 @@ function readAdminCoach(c: Raw): AdminCoach | null {
     status: str(c.status) ?? 'active',
     public_accepted_at: str(c.public_accepted_at),
     sort_order: num(c.sort_order),
+    levels: strs(c.levels),
     venue_ids: strs(c.venue_ids),
     active_here: c.active_here !== false,
     lesson_type_ids: strs(c.lesson_type_ids),

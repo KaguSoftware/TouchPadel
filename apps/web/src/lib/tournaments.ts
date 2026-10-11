@@ -111,6 +111,13 @@ export interface TourPublicRound {
   matches: TourPublicMatch[];
 }
 
+/** A registered entry, in registration order, before and after the draw (play-coaches §4.3). */
+export interface TourPublicEntry {
+  player: TourPlayer;
+  /** The reader's own entry; always false on the site (no session). */
+  mine: boolean;
+}
+
 export interface TourPublicStanding {
   rank: number;
   player: TourPlayer;
@@ -144,6 +151,8 @@ export interface PublicTournament {
   places_left: number;
   waitlist_open: boolean;
   server_now: string | null;
+  /** The registered entries in registration order (play-coaches §4.3); [] when none or missing. */
+  entries: TourPublicEntry[];
   rounds: TourPublicRound[];
   standings: TourPublicStanding[];
 }
@@ -322,6 +331,12 @@ function parseRound(row: Record<string, unknown>): TourPublicRound | null {
   };
 }
 
+function parseEntry(row: Record<string, unknown>): TourPublicEntry | null {
+  const player = parsePlayer(row.player);
+  if (!player) return null;
+  return { player, mine: row.mine === true };
+}
+
 function parseStanding(row: Record<string, unknown>): TourPublicStanding | null {
   const rank = whole(row.rank);
   const player = parsePlayer(row.player);
@@ -367,6 +382,10 @@ export function parseTournamentPublic(raw: unknown): TournamentPageRead | null {
     places_left: common.places_left,
     waitlist_open: common.waitlist_open,
     server_now: instant(raw.server_now),
+    // Registration order as the server sends it: never re-sorted.
+    entries: rows(raw.entries)
+      .map(parseEntry)
+      .filter((e): e is TourPublicEntry => e !== null),
     rounds: rows(raw.rounds)
       .map(parseRound)
       .filter((r): r is TourPublicRound => r !== null)

@@ -45,6 +45,7 @@ import {
   OfferCard,
 } from '../../../src/components/coaching';
 import { useReduceMotion } from '../../../src/lib/useReduceMotion';
+import { LevelPills } from '../../../src/components/coachShowcase';
 import { useToast } from '../../../src/components/overlays';
 
 /** How far the name card rides up over the hero (Figma "D · Profile": the card overlaps the band). */
@@ -86,7 +87,7 @@ export default function CoachDetailScreen() {
     typeId?: string;
     date?: string;
   }>();
-  // The link's last segment: the coach's id, or since 0336 their slug, read
+  // The link's last segment: the coach's id, or since 0337 their slug, read
   // into the id first (a shared /c/omar-karim).
   const directId = typeof params.id === 'string' && isCoachId(params.id) ? params.id : null;
   const slug =
@@ -450,6 +451,18 @@ export default function CoachDetailScreen() {
                 </View>
               ) : null}
             </View>
+            {/* The player levels the coach teaches (play-coaches §4.2); none
+                listed is every level. They describe the player, not a rank. */}
+            {coach ? (
+              <LevelPills
+                title={t('coachShowcase.levelsTitle')}
+                labels={
+                  coach.levels.length > 0
+                    ? coach.levels.map((l) => t(`coachShowcase.levels.${l}`))
+                    : [t('coachShowcase.allLevels')]
+                }
+              />
+            ) : null}
             {bio ? (
               <Text
                 style={{

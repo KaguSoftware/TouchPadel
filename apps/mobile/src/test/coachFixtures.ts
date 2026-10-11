@@ -311,7 +311,7 @@ export function coachLessonRaw(over: Record<string, unknown> = {}) {
         name: 'Ali Student',
         phone: '+9647700000011',
         party_size: 3,
-        // 0334/0335: the other students the coach booked, phones by position.
+        // 0335/0336: the other students the coach booked, phones by position.
         friend_names: ['Omar Friend', 'Zaid Friend'],
         friend_phones: ['+9647700000013', ''],
         booked_by: 'coach',
