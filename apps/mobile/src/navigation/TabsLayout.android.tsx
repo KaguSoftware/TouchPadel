@@ -6,12 +6,18 @@ import { BlurView } from 'expo-blur';
 import { InnerScreen, ScreenContext, type ScreenProps } from 'react-native-screens';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, useTheme } from '../theme';
-import { TabBookIcon, TabBookingsIcon, TabProfileIcon } from '../components/icons';
+import {
+  TabBookIcon,
+  TabBookingsIcon,
+  TabCoachesIcon,
+  TabPlayIcon,
+  TabProfileIcon,
+} from '../components/icons';
 
 /**
  * Bar height, measured from what it holds: the 21 pt icon, a 2 pt gap, the
  * 9.5 pt display label (~13 pt line box), a 2 pt gap and the 3 pt active dot —
- * 41 pt — plus the button's 6 pt `paddingTop` (TAB_BUTTON).
+ * 41 pt — plus the button's 6 pt `paddingTop` (`tabButton`).
  *
  * It was 62 back when the bar added `insets.bottom` on top and the surplus was
  * swallowed by the system nav bar's strip. 49 (`TABBAR_HEIGHT_UIKIT`) was then
@@ -38,6 +44,15 @@ const TAB_BAR_BOTTOM_GAP = 14;
 const TAB_ITEM_SIDE_GAP = 8;
 
 /**
+ * Between two tabs, only a sliver. With five tabs (2026-10-11) an item is a
+ * fifth of the bar, about 72 pt on a 360 pt phone, and 8 pt on both sides of
+ * every item left "MY RESERVATIONS" under half its natural width. The corner
+ * gap is only needed on the screen's edge, so the first tab takes it on its
+ * leading side and the last on its trailing side; every other side takes this.
+ */
+const TAB_ITEM_INNER_GAP = 2;
+
+/**
  * expo-router's BottomTabItem defaults to `android_ripple: { borderless: true }`,
  * an unbounded gray circle that ignores the tab item's box — on this
  * absolutely-positioned edge-to-edge bar it painted past the bar into the
@@ -46,20 +61,23 @@ const TAB_ITEM_SIDE_GAP = 8;
  * confined to the (now correctly sized) tab item.
  *
  * The item is a plain rectangle (no pill radius) and spans the bar's whole
- * height and its third of the width, so a press greys the ENTIRE button (owner,
+ * height and its fifth of the width, so a press greys the ENTIRE button (owner,
  * 2026-09-29). That is why neither the bar nor `tabBarItemStyle` carries any
  * padding: BottomTabItem puts `tabBarItemStyle` on a WRAPPER View around the
  * button and hands the button only its `flex`, so padding there sat outside
  * the Pressable and the ripple stopped at the icon and label. Every gap lives
- * here, on the Pressable itself, where the ripple reaches it.
+ * here, on the Pressable itself, where the ripple reaches it (`tabButton`).
  */
 const RIPPLE = (color: string) => ({ color, borderless: false });
-const TAB_BUTTON = {
-  overflow: 'hidden',
-  paddingTop: 6,
-  paddingBottom: TAB_BAR_BOTTOM_GAP,
-  paddingHorizontal: TAB_ITEM_SIDE_GAP,
-} as const;
+type TabEdge = 'first' | 'inner' | 'last';
+const tabButton = (edge: TabEdge) =>
+  ({
+    overflow: 'hidden',
+    paddingTop: 6,
+    paddingBottom: TAB_BAR_BOTTOM_GAP,
+    paddingStart: edge === 'first' ? TAB_ITEM_SIDE_GAP : TAB_ITEM_INNER_GAP,
+    paddingEnd: edge === 'last' ? TAB_ITEM_SIDE_GAP : TAB_ITEM_INNER_GAP,
+  }) as const;
 
 /**
  * Display-face label + the 14×3 green active dot, per the design.
@@ -69,7 +87,8 @@ const TAB_BUTTON = {
  * becomes two lines the bar has no room for, and Android clips the second one
  * and the dot with it. So it stays on one line and shrinks to its item's width
  * instead, and the system font scale is capped at 1.3×, which the bar's slack
- * still holds (the ~13 pt line box grows to ~17).
+ * still holds (the ~13 pt line box grows to ~17). The floor is 0.6 since the
+ * bar holds five tabs: "MY RESERVATIONS" needs about 0.64 on a 360 pt phone.
  */
 function TabLabel({ text, focused }: { text: string; focused: boolean }) {
   const { colors, fonts, tracking } = useTheme();
@@ -78,7 +97,7 @@ function TabLabel({ text, focused }: { text: string; focused: boolean }) {
       <Text
         numberOfLines={1}
         adjustsFontSizeToFit
-        minimumFontScale={0.7}
+        minimumFontScale={0.6}
         maxFontSizeMultiplier={1.3}
         style={{
           fontFamily: focused ? fonts.display800 : fonts.display600,
@@ -141,7 +160,8 @@ const StableOrderScreen = forwardRef<View, ScreenProps>(function StableOrderScre
 });
 
 /**
- * Bottom tabs per the design: Bookings / Book / Profile, translucent bar
+ * Bottom tabs per the design, five since 2026-10-11 (play-coaches contracts
+ * §1): Bookings / Play / Book / Coaches / Profile, Book in the middle. Translucent bar
  * floating over the content, display-face labels, green active icon and dot. expo-router
  * `Tabs` per the native-feel convention — platform behavior (state
  * preservation, back handling) stays native while the visuals follow the
@@ -230,7 +250,7 @@ function AndroidTabs() {
            * the padding would only make the bar too tall.
            */
           height: TAB_BAR_BASE + TAB_BAR_BOTTOM_GAP,
-          // No padding here — it lives on the button (TAB_BUTTON) so the ripple covers it.
+          // No padding here — it lives on the button (`tabButton`) so the ripple covers it.
           paddingTop: 0,
           paddingBottom: 0,
         },
@@ -268,10 +288,12 @@ function AndroidTabs() {
       {/*
        * `tabBarButton` is declared PER SCREEN rather than once in
        * `screenOptions`, where it used to live, for one reason: the testID.
-       * screenOptions is shared by all three tabs, so a button built there
-       * cannot say WHICH tab it is, and `tabs.book` / `tabs.bookings` /
-       * `tabs.profile` have to differ — they are what the smoke tests press.
-       * The ripple override below is unchanged and is repeated with it.
+       * screenOptions is shared by all five tabs, so a button built there
+       * cannot say WHICH tab it is, and `tabs.bookings` / `tabs.play` /
+       * `tabs.book` / `tabs.coaches` / `tabs.profile` have to differ — they
+       * are what the smoke tests press. The ripple override below is unchanged
+       * and is repeated with it, and so is `tabButton`, which also needs to
+       * know whether the tab sits on the screen's edge.
        */}
       <Tabs.Screen
         name="bookings"
@@ -281,13 +303,28 @@ function AndroidTabs() {
               {...props}
               testID="tabs.bookings"
               android_ripple={RIPPLE(colors.line)}
-              style={[props.style, TAB_BUTTON]}
+              style={[props.style, tabButton('first')]}
             />
           ),
           tabBarIcon: ({ focused, color }) => (
             <TabBookingsIcon color={focused ? brand.green : color} />
           ),
           tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.bookings')} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="play"
+        options={{
+          tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
+            <Pressable
+              {...props}
+              testID="tabs.play"
+              android_ripple={RIPPLE(colors.line)}
+              style={[props.style, tabButton('inner')]}
+            />
+          ),
+          tabBarIcon: ({ focused, color }) => <TabPlayIcon color={focused ? brand.green : color} />,
+          tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.play')} focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -298,11 +335,28 @@ function AndroidTabs() {
               {...props}
               testID="tabs.book"
               android_ripple={RIPPLE(colors.line)}
-              style={[props.style, TAB_BUTTON]}
+              style={[props.style, tabButton('inner')]}
             />
           ),
           tabBarIcon: ({ focused, color }) => <TabBookIcon color={focused ? brand.green : color} />,
           tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.book')} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="coaches"
+        options={{
+          tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
+            <Pressable
+              {...props}
+              testID="tabs.coaches"
+              android_ripple={RIPPLE(colors.line)}
+              style={[props.style, tabButton('inner')]}
+            />
+          ),
+          tabBarIcon: ({ focused, color }) => (
+            <TabCoachesIcon color={focused ? brand.green : color} />
+          ),
+          tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.coaches')} focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -313,7 +367,7 @@ function AndroidTabs() {
               {...props}
               testID="tabs.profile"
               android_ripple={RIPPLE(colors.line)}
-              style={[props.style, TAB_BUTTON]}
+              style={[props.style, tabButton('last')]}
             />
           ),
           tabBarIcon: ({ focused, color }) => (

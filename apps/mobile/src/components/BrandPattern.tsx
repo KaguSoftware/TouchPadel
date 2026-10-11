@@ -71,7 +71,7 @@
  * alpha is applied to the whole group rather than per line, so the crossings
  * never double-blend into darker knots the way per-path opacity would.
  *
- * Memoised for the reason CourtIllustration is: the Book tab re-renders every
+ * Memoised because the Book tab re-renders every
  * minute off the open-now clock, and each render would otherwise hand
  * react-native-svg the whole drawing to parse again for a picture that cannot
  * have changed.

@@ -7,7 +7,6 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { DEFAULT_TZ } from '../../src/features/availability/assemble';
-import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
 import { useMatchByToken, useMatchInvite } from '../../src/features/matches/hooks';
 import { byCategory, type MatchCategory } from '../../src/features/matches/logic';
 import { errorCodeOf, refusalKey } from '../../src/features/matches/errors';
@@ -61,10 +60,8 @@ function Waiting() {
 
 function useFindMatch(): () => void {
   const router = useRouter();
-  return () => {
-    requestBookingSheet();
-    router.replace('/(tabs)');
-  };
+  // The Play tab is where open matches are listed (2026-10-11); it used to open the Book sheet.
+  return () => router.replace({ pathname: '/play', params: { show: 'matches' } });
 }
 
 /** "This match is no longer open" and "Find a match" (a bad token, a gone match, a closed invite). */

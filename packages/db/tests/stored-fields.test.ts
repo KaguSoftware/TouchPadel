@@ -192,6 +192,25 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     avatar_frame: n,
     // 0317: solid or court lines; reset to solid on deletion.
     avatar_frame_style: n,
+    // 0334: the optional play survey (level, years played, what they are
+    // after), answered by the guest and used only to order suggestions. The
+    // tombstone UPDATE empties all four (profiles_media_tombstone).
+    play_level: {
+      category: 'Other personal info',
+      why: 'the padel level the guest gave in the optional play survey, to order coach and match suggestions',
+      onDelete: 'scrub',
+    },
+    play_years: {
+      category: 'Other personal info',
+      why: 'how long the guest has played, from the optional play survey, to order suggestions',
+      onDelete: 'scrub',
+    },
+    play_wants: {
+      category: 'Other personal info',
+      why: 'what the guest is after (matches, tournaments, lessons), from the optional play survey, to order suggestions',
+      onDelete: 'scrub',
+    },
+    play_survey_at: { category: null, onDelete: 'scrub' },
   },
   // 0318: test accounts that wear every frame. Only a link and a note; the
   // row goes with the profile.
@@ -391,6 +410,8 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     },
     status: n, sort_order: n, public_accepted_at: n, created_by_staff_id: n, created_at: n, updated_at: n,
     retired_at: n,
+    // 0334: the levels the coach teaches (beginner, intermediate, advanced). Not personal.
+    levels: n,
   },
   courses: {
     id: n, venue_id: n, coach_id: n, lesson_type_id: n,

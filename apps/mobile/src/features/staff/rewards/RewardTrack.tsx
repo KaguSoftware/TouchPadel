@@ -8,7 +8,7 @@ import { LtrIsland } from '../../../i18n/direction';
 import { brand, radius, space, useTheme } from '../../../theme';
 import { MicroLabel } from '../../../components/ui';
 import { BrandPattern } from '../../../components/BrandPattern';
-import { CheckIcon, ChevronIcon, PadelBallIcon, RewardTrophyIcon } from '../../../components/icons';
+import { CheckIcon, ChevronIcon, PadelBallIcon, TrophyIcon } from '../../../components/icons';
 import { useReduceMotion } from '../../../lib/useReduceMotion';
 import type { MyReward, MyRewards } from './api';
 import { fillFor, newlyReached, trackModel, visibleLabels } from './logic';
@@ -214,7 +214,7 @@ function RewardTrackInner({ data, staffId, venueId, testID, onPress }: Props) {
             testID={`${testID}.unlocked`}
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}
           >
-            <RewardTrophyIcon size={14} color={brand.green} />
+            <TrophyIcon size={14} color={brand.green} />
             <Text
               numberOfLines={1}
               style={{ flex: 1, fontFamily: fonts.body800, fontSize: 12.5, color: brand.green }}

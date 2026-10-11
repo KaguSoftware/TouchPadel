@@ -203,6 +203,12 @@ export function tournamentAnswer({
     places_left: 0,
     waitlist_open: false,
     server_now: serverNow,
+    // The registered entries in registration order, before and after the draw (play-coaches
+    // §4.3); `mine` is false for anon.
+    entries: [
+      { player: P[0], mine: false, entry_id: 'x' },
+      ...P.slice(1).map((p) => ({ player: p, mine: false })),
+    ],
     rounds: rounds
       ? [
           {

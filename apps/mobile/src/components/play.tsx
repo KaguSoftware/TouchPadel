@@ -1,0 +1,670 @@
+/**
+ * The Play tab's building blocks (docs/design/play-coaches/contracts-2026-10-11.md
+ * §7): the pitched-court hero, the "Start a match" pill, a night's heading, the
+ * time rail every entry hangs from, the open-match card, the tournament card and
+ * the inline "could not load" row.
+ *
+ * THE BOOK PAGE'S VOCABULARY, CARRIED OVER. The hero is the Book tab's own 3D
+ * court (`CourtStage`, mounted by the screen behind its list), which pitches
+ * back as the list rises over it, the way it does under the booking card; every card
+ * leans into the finger (`TiltPress`) and every row arrives on `Rise`
+ * (components/motion.tsx). Display-face uppercase headings, the brand's green
+ * for seats and the blue for actions, as the open-match and tournament screens
+ * already use them.
+ *
+ * PRESENTATION ONLY. Every string arrives formatted or is a catalog key; the
+ * server decided the seats, the places and the states, and the screen passes
+ * those answers in.
+ *
+ * TEST IDS. `StartMatchButton`, `PlayMatchCard`, `PlayTournamentCard` and
+ * `PlayInlineNotice` render a Pressable (through `TiltPress`, or directly), take
+ * a REQUIRED `testID` from the call site and forward it explicitly; all four are
+ * in `testIdElements` (packages/config/src/eslint.js). `NightHeader`
+ * and `TimeRail` render none.
+ */
+import type { ReactNode } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../i18n/text';
+import { useLocale } from '../i18n/LocaleProvider';
+import { brand, radius, space, useTheme } from '../theme';
+import { SEATS_TOTAL, type MatchCategory } from '../features/matches/logic';
+import type { TourTone } from '../features/tournaments/logic';
+import { CategoryPill } from './match';
+import { CheckIcon, ChevronIcon, PlusIcon, TrophyIcon } from './icons';
+import { TiltPress } from './motion';
+
+// ── Hero ────────────────────────────────────────────────────────────────────
+
+/** How far the list's sheet rides up over the court's near end, as the Book card sits over its court. */
+export const PLAY_SHEET_OVERLAP = 30;
+
+// ── Start a match ───────────────────────────────────────────────────────────
+
+/** The page's one action, the Book page's green: a pill with a plus, beside the title. */
+export function StartMatchButton({
+  testID,
+  label,
+  onPress,
+}: {
+  testID: string;
+  label: string;
+  onPress: () => void;
+}) {
+  const { fonts, tracking } = useTheme();
+  const { dir } = useLocale();
+  return (
+    <TiltPress
+      testID={testID}
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        minHeight: 40,
+        paddingStart: 12,
+        paddingEnd: 15,
+        borderRadius: radius.pill,
+        backgroundColor: brand.green,
+      }}
+    >
+      <PlusIcon size={14} color={brand.greenInk} strokeWidth={2.8} />
+      <Text
+        numberOfLines={1}
+        style={{
+          fontFamily: fonts.display800,
+          fontSize: 12,
+          letterSpacing: dir === 'rtl' ? 0 : tracking(0.48),
+          textTransform: dir === 'rtl' ? 'none' : 'uppercase',
+          color: brand.greenInk,
+        }}
+      >
+        {label}
+      </Text>
+    </TiltPress>
+  );
+}
+
+// ── A night ─────────────────────────────────────────────────────────────────
+
+/**
+ * A trading night's heading: "TONIGHT", then a hairline, then what the night
+ * holds ("2 open matches · 1 tournament"). `highlight` is the night the route
+ * asked for (`date`): its name turns blue.
+ */
+export function NightHeader({
+  title,
+  line,
+  highlight,
+}: {
+  title: string;
+  line: string;
+  highlight?: boolean;
+}) {
+  const { colors, fonts, tracking } = useTheme();
+  const { dir } = useLocale();
+  const rtl = dir === 'rtl';
+  return (
+    <View
+      accessibilityRole="header"
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingTop: 22,
+        paddingBottom: 10,
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: fonts.display900,
+          fontSize: 17,
+          letterSpacing: rtl ? 0 : tracking(-0.1),
+          textTransform: rtl ? 'none' : 'uppercase',
+          color: highlight ? colors.blue : colors.ink,
+        }}
+      >
+        {title}
+      </Text>
+      <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.line2 }} />
+      {line ? (
+        <Text style={{ fontFamily: fonts.body600, fontSize: 12, color: colors.mut }}>{line}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+// ── The time rail ───────────────────────────────────────────────────────────
+
+const RAIL_W = 54;
+
+/**
+ * One entry on the night's timeline: its start time down the leading rail, a
+ * spine joining it to the next entry, and the card beside it. A tournament's
+ * rail carries the trophy under its time where a match's carries its length,
+ * so the two kinds read apart at a glance before the cards do. The rail repeats
+ * what the card reads out, so it is hidden from screen readers.
+ */
+export function TimeRail({
+  time,
+  sub,
+  tournament,
+  last,
+  children,
+}: {
+  time: string;
+  /** A match's length ("90 min"); a tournament shows the trophy instead. */
+  sub?: string | null;
+  tournament?: boolean;
+  /** The night's last entry: no spine under it. */
+  last: boolean;
+  children: ReactNode;
+}) {
+  const { colors, fonts } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', gap: 10 }}>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={{ width: RAIL_W, alignItems: 'center', paddingTop: 10 }}
+      >
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+          style={{ fontFamily: fonts.display900, fontSize: 16, color: colors.ink }}
+        >
+          {time}
+        </Text>
+        {tournament ? (
+          <View style={{ marginTop: 4 }}>
+            <TrophyIcon size={14} color={colors.blue} />
+          </View>
+        ) : sub ? (
+          <Text
+            style={{ fontFamily: fonts.body600, fontSize: 11, color: colors.mut, marginTop: 2 }}
+          >
+            {sub}
+          </Text>
+        ) : null}
+        {last ? null : (
+          <View
+            style={{
+              flex: 1,
+              width: 2,
+              borderRadius: 1,
+              marginTop: 8,
+              backgroundColor: colors.line2,
+            }}
+          />
+        )}
+      </View>
+      <View style={{ flex: 1, paddingBottom: last ? 0 : space.sm }}>{children}</View>
+    </View>
+  );
+}
+
+// ── The open-match card ─────────────────────────────────────────────────────
+
+const COURT_W = 92;
+const COURT_H = 50;
+const SPOT = 15;
+/** Where the four players stand, two a side on the service lines (match.tsx's MatchCourt, at card size). */
+const SPOTS = [
+  { start: '24%', top: '28%' },
+  { start: '24%', top: '72%' },
+  { start: '76%', top: '28%' },
+  { start: '76%', top: '72%' },
+] as const;
+
+/**
+ * The card's court, at a padel court's 2:1 seen from above: the turf, the
+ * walls, the service lines and the green net, and a marker per seat (taken a
+ * filled green disc, open a dashed blue ring). No names (GD-5): a marker is a
+ * seat, never a person. Decoration: the card reads the seats out in words.
+ */
+function MiniCourt({ taken }: { taken: number }) {
+  const { colors } = useTheme();
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        width: COURT_W,
+        height: COURT_H,
+        borderRadius: 8,
+        backgroundColor: colors.crtTurf,
+        borderWidth: 1,
+        borderColor: colors.crtTurfLine,
+      }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          top: 4,
+          bottom: 4,
+          start: 4,
+          end: 4,
+          borderWidth: 1,
+          borderColor: colors.crtLine,
+          opacity: 0.85,
+        }}
+      />
+      {(['24%', '76%'] as const).map((at) => (
+        <View
+          key={at}
+          style={{
+            position: 'absolute',
+            top: 4,
+            bottom: 4,
+            start: at,
+            width: 1,
+            backgroundColor: colors.crtLine,
+            opacity: 0.6,
+          }}
+        />
+      ))}
+      <View
+        style={{
+          position: 'absolute',
+          top: '50%',
+          start: '24%',
+          end: '24%',
+          height: 1,
+          backgroundColor: colors.crtLine,
+          opacity: 0.6,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: 2,
+          bottom: 2,
+          start: '50%',
+          width: 2,
+          marginStart: -1,
+          backgroundColor: brand.green,
+        }}
+      />
+      {SPOTS.map((spot, i) => {
+        const filled = i < taken;
+        return (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              start: spot.start,
+              top: spot.top,
+              width: SPOT,
+              height: SPOT,
+              marginStart: -SPOT / 2,
+              marginTop: -SPOT / 2,
+              borderRadius: SPOT / 2,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: filled ? colors.gstrong : colors.card,
+              borderWidth: 1.5,
+              borderStyle: filled ? 'solid' : 'dashed',
+              borderColor: filled ? colors.crtLine : colors.blue,
+            }}
+          >
+            {filled ? null : <PlusIcon size={8} color={colors.blue} strokeWidth={3.4} />}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/** The card's action, drawn but not a second target: the whole card is the button. */
+function ActionPill({ label, quiet }: { label: string; quiet?: boolean }) {
+  const { colors, fonts } = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+        paddingStart: 11,
+        paddingEnd: 8,
+        paddingTop: 6,
+        paddingBottom: 6,
+        borderRadius: radius.pill,
+        backgroundColor: quiet ? colors.tint : brand.blue,
+      }}
+    >
+      <Text
+        numberOfLines={1}
+        style={{
+          fontFamily: fonts.body800,
+          fontSize: 12,
+          color: quiet ? colors.blue : brand.white,
+        }}
+      >
+        {label}
+      </Text>
+      <ChevronIcon size={12} color={quiet ? colors.blue : brand.white} strokeWidth={2.6} />
+    </View>
+  );
+}
+
+/**
+ * One open match on the timeline: the little court with its seats, the
+ * category, the approve mark and the guest's own tag, the seats left (amber on
+ * the last one), the share at the desk or a refill line, and the action
+ * ("Join", "Ask to join", "View", or signed out "Sign in to join").
+ */
+export function PlayMatchCard({
+  testID,
+  a11yLabel,
+  category,
+  seatsTaken,
+  seatsLeft,
+  line,
+  approve,
+  refill,
+  tag,
+  action,
+  highlight,
+  onPress,
+}: {
+  testID: string;
+  /** Everything the card says, the time first: the rail is hidden from screen readers. */
+  a11yLabel: string;
+  category: MatchCategory;
+  seatsTaken: number;
+  /** The counted "1 seat left". */
+  seatsLeft: string;
+  line?: string | null;
+  /** The organiser approves each player: the short label beside the pill. */
+  approve?: string | null;
+  refill?: string | null;
+  tag?: string | null;
+  action: string;
+  /** The `at` param: this is the time the guest came for. */
+  highlight?: boolean;
+  onPress: () => void;
+}) {
+  const { colors, fonts } = useTheme();
+  const lastSeat = SEATS_TOTAL - seatsTaken === 1;
+  return (
+    <TiltPress
+      testID={testID}
+      accessibilityLabel={a11yLabel}
+      onPress={onPress}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        padding: 12,
+        borderRadius: radius.card,
+        backgroundColor: colors.card,
+        borderWidth: highlight || tag ? 1.5 : 1,
+        borderColor: highlight ? colors.blue : tag ? colors.gstrong : colors.line,
+      }}
+    >
+      <MiniCourt taken={seatsTaken} />
+      <View style={{ flex: 1, gap: 5 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+          <CategoryPill category={category} />
+          {approve ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <CheckIcon size={11} color={colors.blue} strokeWidth={3} />
+              <Text style={{ fontFamily: fonts.body700, fontSize: 11, color: colors.blue }}>
+                {approve}
+              </Text>
+            </View>
+          ) : null}
+          {tag ? (
+            <View
+              style={{
+                backgroundColor: colors.gtint,
+                borderRadius: radius.pill,
+                paddingStart: 8,
+                paddingEnd: 8,
+                paddingTop: 3,
+                paddingBottom: 3,
+              }}
+            >
+              <Text style={{ fontFamily: fonts.body800, fontSize: 11, color: colors.gtext }}>
+                {tag}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text
+              style={{
+                fontFamily: fonts.body800,
+                fontSize: 14,
+                color: lastSeat ? colors.ambstrong : colors.gtext,
+              }}
+            >
+              {seatsLeft}
+            </Text>
+            {line ? (
+              <Text style={{ fontFamily: fonts.body600, fontSize: 12, color: colors.mut }}>
+                {line}
+              </Text>
+            ) : null}
+            {refill ? (
+              <Text style={{ fontFamily: fonts.body600, fontSize: 12, color: colors.ambtext }}>
+                {refill}
+              </Text>
+            ) : null}
+          </View>
+          <ActionPill label={action} quiet={!!tag} />
+        </View>
+      </View>
+    </TiltPress>
+  );
+}
+
+// ── The tournament card ─────────────────────────────────────────────────────
+
+/**
+ * One tournament on the timeline, so it reads as a different thing from the
+ * matches around it: a band in the state's colour (blue before it starts, green
+ * in play, grey once over) with the trophy, the format and the status; then
+ * the name in the display face, the day and times (and the branch when there
+ * are several), the category, the places, the fee, the guest's own state, and
+ * how full it is.
+ */
+export function PlayTournamentCard({
+  testID,
+  tone,
+  status,
+  category,
+  format,
+  title,
+  when,
+  places,
+  fee,
+  mine,
+  fill,
+  onPress,
+}: {
+  testID: string;
+  tone: TourTone;
+  status: string | null;
+  category: MatchCategory;
+  format: string | null;
+  title: string;
+  when: string;
+  places: string | null;
+  fee: string;
+  mine: string | null;
+  /** 0–100 of the entries taken, or null when the tournament names no maximum. */
+  fill: number | null;
+  onPress: () => void;
+}) {
+  const { colors, fonts } = useTheme();
+  const band =
+    tone === 'running'
+      ? { bg: colors.gtint, fg: colors.gtext }
+      : tone === 'over'
+        ? { bg: colors.sub, fg: colors.mut }
+        : { bg: colors.tint, fg: colors.blue };
+  const bar = tone === 'running' ? colors.gstrong : tone === 'over' ? colors.fnt3 : colors.blue;
+  return (
+    <TiltPress
+      testID={testID}
+      accessibilityLabel={[title, status, when, places, fee, mine].filter(Boolean).join(', ')}
+      onPress={onPress}
+      style={{
+        borderRadius: radius.card,
+        backgroundColor: colors.card,
+        borderWidth: mine ? 1.5 : 1,
+        borderColor: mine ? colors.gstrong : colors.line,
+        overflow: 'hidden',
+      }}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 7,
+          paddingStart: 12,
+          paddingEnd: 12,
+          paddingTop: 8,
+          paddingBottom: 8,
+          backgroundColor: band.bg,
+        }}
+      >
+        <TrophyIcon size={15} color={band.fg} />
+        {format ? (
+          <Text style={{ fontFamily: fonts.body800, fontSize: 12, color: band.fg }}>{format}</Text>
+        ) : null}
+        <View style={{ flex: 1 }} />
+        {status ? (
+          <Text
+            numberOfLines={1}
+            style={{ fontFamily: fonts.body700, fontSize: 11.5, color: band.fg }}
+          >
+            {status}
+          </Text>
+        ) : null}
+      </View>
+      <View style={{ padding: 12, gap: 6 }}>
+        <Text
+          numberOfLines={2}
+          style={{ fontFamily: fonts.display800, fontSize: 17, color: colors.ink }}
+        >
+          {title}
+        </Text>
+        <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: colors.mut }}>{when}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 8,
+            }}
+          >
+            <CategoryPill category={category} />
+            {places ? (
+              <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.gtext }}>
+                {places}
+              </Text>
+            ) : null}
+            <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.mut2 }}>
+              {fee}
+            </Text>
+          </View>
+          {mine ? (
+            <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.blue }}>
+              {mine}
+            </Text>
+          ) : null}
+          <ChevronIcon size={16} color={colors.fnt2} />
+        </View>
+        {fill !== null ? (
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={{
+              height: 5,
+              borderRadius: radius.pill,
+              backgroundColor: colors.sub,
+              overflow: 'hidden',
+            }}
+          >
+            <View
+              style={{
+                width: `${fill}%`,
+                height: '100%',
+                borderRadius: radius.pill,
+                backgroundColor: bar,
+              }}
+            />
+          </View>
+        ) : null}
+      </View>
+    </TiltPress>
+  );
+}
+
+// ── One side failed ─────────────────────────────────────────────────────────
+
+/**
+ * One source failed while the other is on the page: its line and a Retry,
+ * inline, so what did load stays where it is (the full ErrorState is for both
+ * failing). `${testID}.retry` is the button.
+ */
+export function PlayInlineNotice({
+  testID,
+  text,
+  retryLabel,
+  onRetry,
+}: {
+  testID: string;
+  text: string;
+  retryLabel: string;
+  onRetry: () => void;
+}) {
+  const { colors, fonts } = useTheme();
+  return (
+    <View
+      testID={testID}
+      accessibilityRole="alert"
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: space.sm,
+        padding: space.sm,
+        paddingStart: space.m,
+        borderRadius: radius.button,
+        backgroundColor: colors.redtint,
+        borderWidth: 1,
+        borderColor: colors.redline,
+      }}
+    >
+      <Text
+        style={{
+          flex: 1,
+          fontFamily: fonts.body600,
+          fontSize: 13,
+          lineHeight: 18,
+          color: colors.redtext,
+        }}
+      >
+        {text}
+      </Text>
+      <Pressable
+        testID={`${testID}.retry`}
+        accessibilityRole="button"
+        accessibilityLabel={retryLabel}
+        onPress={onRetry}
+        hitSlop={8}
+        style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingStart: 6, paddingEnd: 6 })}
+      >
+        <Text style={{ fontFamily: fonts.body800, fontSize: 13, color: colors.blue }}>
+          {retryLabel}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}

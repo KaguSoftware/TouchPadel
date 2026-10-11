@@ -6,7 +6,7 @@
  * native-driver table by the Book tab, so nothing runs per frame on JS.
  */
 import { PerspectiveCamera, Vector3 } from 'three';
-import { cameraPose } from './rally';
+import { BALL_RADIUS, cameraPose, type CameraPose } from './rally';
 import { SPEC } from './spec';
 
 /** The net tape: 0.9 m high, posts just inside the sidelines at x = ±4.83 m. */
@@ -81,4 +81,75 @@ export function courtTopFraction(): number {
     top = Math.min(top, (1 - vC.y) / 2);
   }
   return top;
+}
+
+// ── The top view (Play and Coaches tabs) ────────────────────────────────────
+
+/**
+ * The court seen STRAIGHT DOWN and HORIZONTAL, with no pitch (Majed,
+ * 2026-10-11: the Play and Coaches pages show the court from a bird's-eye view,
+ * long axis left to right, net a vertical line in the middle; never the upright
+ * Book court and never an angled view, which costs the GPU more for nothing).
+ * Only `view: 'top'` poses its camera here (scene.ts); the Book tab's orbit
+ * above and the web are untouched.
+ *
+ * The camera stands over the court looking down −y with its up vector on −x,
+ * so on screen:
+ *
+ *   screen right = −z   (the court's far end, the Book's top of screen)
+ *   screen up    = −x   (the far sideline)
+ *   the net (z = 0) is a vertical line through the middle
+ *
+ * It is the Book's own camera recipe (makeCamera: the 24° vertical fov), only
+ * fixed: no orbit, no progress, no lift. Two numbers frame it:
+ *   · SPAN: the distance is chosen from the view's aspect so `span` metres (the
+ *     20 m court, its corner posts and a little margin) fill the view's WIDTH;
+ *     on a box too wide for that the court's `depth` fills its height instead.
+ *   · RAISE: the Play and Coaches stages run 82 pt under the page's content
+ *     plate, so the window onto the court is the stage's upper part. The camera
+ *     pans so the court's centre sits `raise` (NDC) above the stage's middle —
+ *     a pure pan, the picture is otherwise the same.
+ */
+export const TOP_VIEW = {
+  /** Metres across the view's width: the court's 20 m plus its posts and a margin. */
+  span: 23,
+  /** Metres top to bottom the court needs at least: the 10.2 m base, the post caps the perspective spreads, a margin. */
+  depth: 12.4,
+  /** How far above the stage's middle the court's centre sits, in NDC. */
+  raise: 0.2,
+} as const;
+
+/** The top view's camera pose for a view of this aspect (width / height). */
+export function topCameraPose(aspect: number): CameraPose {
+  const half = Math.tan((SPEC.camera.fov * Math.PI) / 360);
+  const distance = Math.max(
+    TOP_VIEW.span / 2 / (half * Math.max(aspect, 1e-3)),
+    TOP_VIEW.depth / 2 / (half * (1 - TOP_VIEW.raise)),
+  );
+  // Pan toward +x (screen-down), which puts the court's centre `raise` above the middle.
+  const pan = TOP_VIEW.raise * distance * half;
+  return {
+    position: { x: pan, y: distance, z: 0 },
+    up: { x: -1, y: 0, z: 0 },
+    lookAt: { x: pan, y: 0, z: 0 },
+  };
+}
+
+/** Put a camera over the court, framed for its own aspect. */
+export function poseTopCamera(camera: PerspectiveCamera): void {
+  const pose = topCameraPose(camera.aspect);
+  camera.position.set(pose.position.x, pose.position.y, pose.position.z);
+  camera.up.set(pose.up.x, pose.up.y, pose.up.z);
+  camera.lookAt(pose.lookAt.x, pose.lookAt.y, pose.lookAt.z);
+  camera.updateMatrixWorld();
+}
+
+/**
+ * Seen straight down a ball's height is otherwise invisible, so the top view
+ * draws it bigger the higher it flies (on top of its ground disc moving off
+ * it, rally.ts / drill.ts): ×1 on the turf, about ×1.3 at the top of a lob.
+ */
+export const TOP_BALL_GROWTH = 0.13;
+export function topBallScale(y: number): number {
+  return 1 + TOP_BALL_GROWTH * Math.max(0, y - BALL_RADIUS);
 }

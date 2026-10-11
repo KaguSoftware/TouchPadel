@@ -291,15 +291,15 @@ describe.each(LOCALES)('Today in %s', (locale) => {
     expect(withRow(chef, 'staff.row.marketing-inbox')).toBe(false);
   });
 
-  it('shows a tile per group, which opens the group in the native sheet on iOS', () => {
+  it('shows a tile per group, which opens the group in its native sheet route on iOS', () => {
     const screen = renderRoute(StaffToday, { locale, staff: { role: 'manager' } });
     try {
       const tile = screen.getByTestId('staff.group.team');
       expect(within(tile).getByText(t('staff.shell.today.groups.team'))).toBeTruthy();
       // The rows are in the sheet, not on Today.
       expect(screen.queryByTestId('staff.row.deductions')).toBeNull();
-      // iOS routes to app/staff-group.tsx, the native formSheet; its rows are
-      // covered by "closes the sheet and opens the page from a row" below.
+      // iOS pushes the formSheet route (app/staff-group.tsx) since d005ab35
+      // dropped the in-screen GroupSheetIOS; its rows are covered below.
       fireEvent.press(tile);
       expect(routerState.calls).toEqual([
         { method: 'push', arg: { pathname: '/staff-group', params: { group: 'team' } } },

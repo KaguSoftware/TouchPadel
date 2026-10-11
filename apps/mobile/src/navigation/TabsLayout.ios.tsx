@@ -21,13 +21,20 @@ const { Icon, Label } = NativeTabs.Trigger;
  * dropped here. Android keeps the custom bar in
  * `TabsLayout.android.tsx` — that platform split is deliberate.
  *
+ * Five tabs (2026-10-11, play-coaches contracts §1): My reservations, Play,
+ * Book, Coaches, Profile, so Book (still the initial route, `(tabs)/_layout`)
+ * is the exact middle. Book keeps its `figure.tennis`; Coaches wears
+ * `graduationcap` (lessons) rather than a second player figure, since two tabs
+ * in the same glyph read as one.
+ *
  * NO testIDs HERE, deliberately. `NativeTabs.Trigger` is a CONFIGURATION node,
  * not a view: it describes a `UITabBarItem` that UIKit draws outside the React
  * tree, so there is no RN node to hang an id from and nothing a testID could
- * reach. Android's bar is ordinary Pressables and carries `tabs.book` /
- * `tabs.bookings` / `tabs.profile`; the smoke tests see those same three ids
- * through the `expo-router/unstable-native-tabs` mock, which stands in for
- * UIKit (jest.setup.ts explains what that does and does not prove).
+ * reach. Android's bar is ordinary Pressables and carries `tabs.bookings` /
+ * `tabs.play` / `tabs.book` / `tabs.coaches` / `tabs.profile`; the smoke tests
+ * see those same five ids through the `expo-router/unstable-native-tabs` mock,
+ * which stands in for UIKit (jest.setup.ts explains what that does and does
+ * not prove).
  */
 export default function TabsLayoutIOS() {
   const { t } = useLocale();
@@ -48,9 +55,17 @@ export default function TabsLayoutIOS() {
         <Icon sf="calendar" />
         <Label>{t('tabs.bookings')}</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="play">
+        <Icon sf="sportscourt" />
+        <Label>{t('tabs.play')}</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="index">
         <Icon sf="figure.tennis" />
         <Label>{t('tabs.book')}</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="coaches">
+        <Icon sf="graduationcap" />
+        <Label>{t('tabs.coaches')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf="person.crop.circle" />

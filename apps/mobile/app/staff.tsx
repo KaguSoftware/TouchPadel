@@ -12,7 +12,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber } from '@touch/i18n';
@@ -32,10 +31,10 @@ import {
   BellIcon,
   CameraIcon,
   EyeIcon,
-  RewardTrophyIcon,
   SlidersIcon,
   StopwatchIcon,
   TitleSquiggle,
+  TrophyIcon,
   type IconProps,
 } from '../src/components/icons';
 import { RequireStaff, useStaffSignOut } from '../src/features/staff/RequireStaff';
@@ -46,6 +45,7 @@ import { showsVenuePicker } from '../src/features/staff/venue';
 import { useWaitingCount, useWorkAlerts } from '../src/features/staff/workAlerts';
 import { GroupRows, useTodayGroups, type TodayGroup } from '../src/features/staff/todayGroups';
 import type { StaffRowDef } from '../src/features/staff/rows';
+import { useQuery } from '@tanstack/react-query';
 import { staffKeys } from '../src/features/staff/keys';
 import { fetchMyRewards } from '../src/features/staff/rewards/api';
 import { RewardTrack } from '../src/features/staff/rewards/RewardTrack';
@@ -669,7 +669,7 @@ function TodayScreen() {
                   <GroupTile
                     key="rewards"
                     testID="staff.rewards-admin"
-                    icon={RewardTrophyIcon}
+                    icon={TrophyIcon}
                     title={t('staff.rewards.admin.entry')}
                     waiting={false}
                     preview={t('staff.rewards.admin.entryPreview')}

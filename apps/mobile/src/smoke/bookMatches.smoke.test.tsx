@@ -1,7 +1,8 @@
 /**
  * Open matches on the Book tab's booking sheet (docs/design/open-matches/
- * guest.md §4.11): the chips, the entry row and the Book / Start / Join
- * choice, in EN and AR.
+ * guest.md §4.11): the chips and the Book / Start / Join choice, in EN and
+ * AR. The list itself is the Play tab (2026-10-11), so the sheet has no entry
+ * row any more, and a time with several matches opens Play at that time.
  *
  * Not a route case (the Book tab's own case is tabs.smoke.test.tsx's, which
  * renders the court and its CTA): this suite renders the SHEET directly, open,
@@ -11,7 +12,7 @@
  * spied to answer with the button a case picks.
  *
  * The first case pins rule 1: with the branch's switch off (the fixture's
- * default) there is no chip, no entry row and no choice, and a tap on a free
+ * default) there is no chip and no choice, and a tap on a free
  * time goes where it always went.
  *
  * A signed-in join or start runs on a `verified` session: `in` has no phone
@@ -203,7 +204,7 @@ describe.each<Locale>(['en', 'ar'])('open matches on the booking sheet in %s', (
     }
   });
 
-  it('draws one chip for the time and the entry row, signed out', () => {
+  it('draws one chip for the time and no entry row, signed out', () => {
     const { screen, cellId } = renderSheet(
       locale,
       seeds({ on: true, slots: slotAtFirstTime() }),
@@ -218,8 +219,8 @@ describe.each<Locale>(['en', 'ar'])('open matches on the booking sheet in %s', (
       expect(first.props.accessibilityLabel).toContain(chip);
       // One chip per time: the second court's cell at that minute carries none.
       expect(within(screen.getByTestId(cellId(COURT_2.id))).queryByText(chip)).toBeNull();
-      const entry = screen.getByTestId('book.sheet.open-matches');
-      expect(within(entry).getByText(t('matches.book.entrySignIn'))).toBeTruthy();
+      // The list is the Play tab's: the sheet keeps only the chip at the hour.
+      expect(screen.queryByTestId('book.sheet.open-matches')).toBeNull();
       expect(screen.direction()).toBe(locale === 'ar' ? 'rtl' : 'ltr');
     } finally {
       screen.unmount();
@@ -473,21 +474,33 @@ describe.each<Locale>(['en', 'ar'])('open matches on the booking sheet in %s', (
     }
   });
 
-  // On an unverified phone (`in`): the list is browsing.
-  it('opens the list on the chosen night from the entry row, signed in', () => {
-    const { screen } = renderSheet(
+  it('opens the Play tab at that time when several matches share it, signed in', async () => {
+    const found = foundAtFirstTime();
+    const two = {
+      ...found,
+      matches: [...found.matches, { ...found.matches[0]!, matchId: '66666666-6666-4666-8666-000000000002' }],
+    };
+    const { screen, cellId } = renderSheet(
       locale,
-      seeds({ on: true, signedIn: true, slots: slotAtFirstTime({ mine: true }) }),
-      'in',
+      seeds({
+        on: true,
+        signedIn: true,
+        slots: [...slotAtFirstTime(), ...slotAtFirstTime({ seatsLeft: 2 })],
+        found: two,
+      }),
+      'verified',
     );
     try {
-      const entry = screen.getByTestId('book.sheet.open-matches');
-      expect(within(entry).getByText(t('matches.book.entry'))).toBeTruthy();
-      fireEvent.press(entry);
-      expect(routerState.calls).toContainEqual({
-        method: 'push',
-        arg: { pathname: '/matches', params: { date: tomorrow().date } },
+      pick = 0;
+      await act(async () => {
+        fireEvent.press(screen.getByTestId(cellId(COURT_1.id)));
       });
+      await waitFor(() =>
+        expect(routerState.calls).toContainEqual({
+          method: 'push',
+          arg: { pathname: '/play', params: { at: tomorrow().startAt.toISOString() } },
+        }),
+      );
     } finally {
       screen.unmount();
     }

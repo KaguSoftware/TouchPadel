@@ -53,11 +53,11 @@ describe('pendingJoin', () => {
   it('opens the screen each intent names (never a join, GD-2)', () => {
     expect(pendingJoinHref({ kind: 'link', token: 't' })).toEqual({ pathname: '/m/[token]', params: { token: 't' } });
     expect(pendingJoinHref({ kind: 'slot', venueId: 'v', startAt: 's' })).toEqual({
-      pathname: '/matches',
+      pathname: '/play',
       params: { at: 's' },
     });
     expect(pendingJoinHref({ kind: 'list', venueId: 'v', date: '2026-10-02' })).toEqual({
-      pathname: '/matches',
+      pathname: '/play',
       params: { date: '2026-10-02' },
     });
     expect(

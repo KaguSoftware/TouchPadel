@@ -16,7 +16,7 @@ import { useSyncExternalStore } from 'react';
 export type PendingJoin =
   /** An invite link opened signed out (m/[token]). */
   | { kind: 'link'; token: string }
-  /** "Join the open match" on a Book-tab chip. */
+  /** "Join the open match" on a Book-tab chip, or a signed-out match card on the Play tab. */
   | { kind: 'slot'; venueId: string; startAt: string }
   /** "Start an open match" on a free time. */
   | {
@@ -27,7 +27,11 @@ export type PendingJoin =
       durationMin: number;
       priceIqd: number | null;
     }
-  /** The Book tab's "Open matches · Sign in" row. */
+  /**
+   * A night of the Play tab. The Book sheet's "Open matches · Sign in" row set
+   * it until the open matches got a tab of their own (2026-10-11); nothing on
+   * the phone sets it now, and an intent of it still opens that night.
+   */
   | { kind: 'list'; venueId: string; date: string };
 
 /** How long an intent outlives the tap that made it: a guest backing out of sign-in must not be steered by it later. */
@@ -87,25 +91,25 @@ export function intentBooksCourt(intent: PendingJoin): boolean {
 /** Where an intent lands after sign-in: a root-stack route and its params. */
 export type PendingJoinHref =
   | { pathname: '/m/[token]'; params: { token: string } }
-  | { pathname: '/matches'; params: { at: string } | { date: string } }
+  | { pathname: '/play'; params: { at: string } | { date: string } }
   | {
       pathname: '/match-new';
       params: { venueId: string; courtId: string; startAt: string; durationMin: string; priceIqd?: string };
     };
 
 /**
- * The screen an intent opens (§4.18): a link its invite, a chip the list at
- * that time, a start the new-match form (which re-quotes: the price is a
- * hint, DF-3), the entry row the list on that night.
+ * The screen an intent opens (§4.18): a link its invite, a chip the Play tab
+ * at that time, a start the new-match form (which re-quotes: the price is a
+ * hint, DF-3), a night the Play tab on that night (contracts 2026-10-11 §1).
  */
 export function pendingJoinHref(intent: PendingJoin): PendingJoinHref {
   switch (intent.kind) {
     case 'link':
       return { pathname: '/m/[token]', params: { token: intent.token } };
     case 'slot':
-      return { pathname: '/matches', params: { at: intent.startAt } };
+      return { pathname: '/play', params: { at: intent.startAt } };
     case 'list':
-      return { pathname: '/matches', params: { date: intent.date } };
+      return { pathname: '/play', params: { date: intent.date } };
     case 'start':
       return {
         pathname: '/match-new',

@@ -813,6 +813,11 @@ export interface AdminCoach {
   /** Null while the coach has not accepted a public profile (C-22, R61). */
   public_accepted_at: string | null;
   sort_order: number | null;
+  /**
+   * The levels the coach teaches (0334): beginner, intermediate, advanced.
+   * Empty means every level.
+   */
+  levels: string[];
   venue_ids: string[];
   /**
    * Active at this branch. False for a coach whose branch was switched off:
@@ -891,6 +896,7 @@ function readAdminCoach(c: Raw): AdminCoach | null {
     status: str(c.status) ?? 'active',
     public_accepted_at: str(c.public_accepted_at),
     sort_order: num(c.sort_order),
+    levels: strs(c.levels),
     venue_ids: strs(c.venue_ids),
     active_here: c.active_here !== false,
     lesson_type_ids: strs(c.lesson_type_ids),

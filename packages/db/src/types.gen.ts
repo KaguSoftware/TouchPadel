@@ -4358,6 +4358,10 @@ export type Database = {
         Returns: Json
       }
       set_my_gender: { Args: { p_gender: string }; Returns: Json }
+      set_my_play_profile: {
+        Args: { p_level?: string; p_wants?: string[]; p_years?: string }
+        Returns: Json
+      }
       set_my_username: { Args: { p_username: string }; Returns: Json }
       set_opening_hours: {
         Args: {
@@ -7290,6 +7294,7 @@ export type Database = {
           display_name_ar: string
           display_name_en: string
           id: string
+          levels: string[]
           photo_path: string | null
           profile_id: string
           public_accepted_at: string | null
@@ -7306,6 +7311,7 @@ export type Database = {
           display_name_ar: string
           display_name_en: string
           id?: string
+          levels?: string[]
           photo_path?: string | null
           profile_id: string
           public_accepted_at?: string | null
@@ -7322,6 +7328,7 @@ export type Database = {
           display_name_ar?: string
           display_name_en?: string
           id?: string
+          levels?: string[]
           photo_path?: string | null
           profile_id?: string
           public_accepted_at?: string | null
@@ -12030,6 +12037,10 @@ export type Database = {
           payment_sandbox: boolean
           phone: string | null
           phone_key: string | null
+          play_level: string | null
+          play_survey_at: string | null
+          play_wants: string[] | null
+          play_years: string | null
           preferred_lang: string
           terms_accepted_at: string | null
           terms_version: string | null
@@ -12054,6 +12065,10 @@ export type Database = {
           payment_sandbox?: boolean
           phone?: string | null
           phone_key?: string | null
+          play_level?: string | null
+          play_survey_at?: string | null
+          play_wants?: string[] | null
+          play_years?: string | null
           preferred_lang?: string
           terms_accepted_at?: string | null
           terms_version?: string | null
@@ -12078,6 +12093,10 @@ export type Database = {
           payment_sandbox?: boolean
           phone?: string | null
           phone_key?: string | null
+          play_level?: string | null
+          play_survey_at?: string | null
+          play_wants?: string[] | null
+          play_years?: string | null
           preferred_lang?: string
           terms_accepted_at?: string | null
           terms_version?: string | null

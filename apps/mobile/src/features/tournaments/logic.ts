@@ -201,6 +201,15 @@ export interface TourPublicStanding {
   withdrawn: boolean;
 }
 
+/**
+ * One registered entry on the detail, in registration order, before and after the draw
+ * (play-coaches contracts §4.3): the seating board's chairs. `mine` is false for anon.
+ */
+export interface TourPublicEntry {
+  player: TourPlayer;
+  mine: boolean;
+}
+
 /** The guest's own entry on the detail, with what the desk takes on the day. */
 export interface TourMe extends TourMine {
   owedIqd: number;
@@ -230,6 +239,8 @@ export interface TournamentPublic {
   placesLeft: number;
   waitlistOpen: boolean;
   serverNow: string | null;
+  /** The registered entries in registration order (§4.3); [] from a server that sends none. */
+  entries: TourPublicEntry[];
   rounds: TourPublicRound[];
   standings: TourPublicStanding[];
   me: TourMe | null;
@@ -257,6 +268,7 @@ const MISSING: Omit<TournamentPublic, 'id'> = {
   placesLeft: 0,
   waitlistOpen: false,
   serverNow: null,
+  entries: [],
   rounds: [],
   standings: [],
   me: null,
@@ -282,6 +294,11 @@ function parseRound(json: unknown): TourPublicRound | null {
     sitOut: list(o.sit_out).map(parsePlayer),
     matches: list(o.matches).map(parseMatch),
   };
+}
+
+function parseEntry(json: unknown): TourPublicEntry {
+  const o = obj(json);
+  return { player: parsePlayer(o.player), mine: bool(o.mine) };
 }
 
 function parseStanding(json: unknown): TourPublicStanding {
@@ -331,6 +348,7 @@ export function parseTournamentPublic(json: unknown, id: string): TournamentPubl
     placesLeft: Math.max(0, int(o.places_left) ?? 0),
     waitlistOpen: bool(o.waitlist_open),
     serverNow: str(o.server_now),
+    entries: list(o.entries).map(parseEntry),
     rounds: list(o.rounds)
       .map(parseRound)
       .filter((r): r is TourPublicRound => r !== null)
@@ -543,4 +561,59 @@ export function isLive(
 /** The schedule and the standings are shown once a schedule exists (running or finished). */
 export function showsPlay(t: TournamentPublic): boolean {
   return (t.status === 'running' || t.status === 'finished') && t.rounds.length > 0;
+}
+
+// ── My reservations (play-coaches contracts §1, Majed 2026-10-11) ───────────
+
+/**
+ * The guest's tournament entries as My reservations files them, from `tournaments_public`'s
+ * `mine` (the server lists open, closed and running tournaments and those finished in the last
+ * 7 days; a cancelled one is not listed):
+ *
+ *  upcoming   registered or on the waitlist, the tournament not yet over; soonest first
+ *  played     registered in a finished tournament; latest first
+ *  cancelled  withdrawn (by the guest, the desk or an account deletion); latest first
+ *
+ * A no-show and a waitlist place that never turned into one are neither played nor cancelled, the
+ * bookings' rule: they stay on the tournament's own page. "Clear history" (`clearedAt`) hides a
+ * played or withdrawn entry whose tournament ended (or, with no end, started) before it.
+ */
+export interface MyTournamentEntries {
+  upcoming: TourListItem[];
+  played: TourListItem[];
+  cancelled: TourListItem[];
+}
+
+export function myTournamentEntries(
+  pub: TournamentsPublic | null | undefined,
+  clearedAt: string | null = null,
+): MyTournamentEntries {
+  const out: MyTournamentEntries = { upcoming: [], played: [], cancelled: [] };
+  if (!pub || pub.off) return out;
+  const cutoff = clearedAt ? Date.parse(clearedAt) : NaN;
+  const visible = (t: TourListItem) => {
+    if (!Number.isFinite(cutoff)) return true;
+    const end = Date.parse(t.endsAt ?? t.startsAt);
+    return !Number.isFinite(end) || end > cutoff;
+  };
+  const seen = new Set<string>();
+  for (const t of pub.tournaments) {
+    if (seen.has(t.id)) continue;
+    seen.add(t.id);
+    const own = t.mine?.status ?? null;
+    if (own === null) continue;
+    if (own === 'withdrawn') {
+      if (visible(t)) out.cancelled.push(t);
+    } else if (t.status !== null && UPCOMING.has(t.status)) {
+      if (own === 'registered' || own === 'waitlisted') out.upcoming.push(t);
+    } else if (t.status === 'finished' && own === 'registered') {
+      if (visible(t)) out.played.push(t);
+    }
+  }
+  const asc = (a: TourListItem, b: TourListItem) =>
+    a.startsAt === b.startsAt ? a.id.localeCompare(b.id) : a.startsAt.localeCompare(b.startsAt);
+  out.upcoming.sort(asc);
+  out.played.sort((a, b) => asc(b, a));
+  out.cancelled.sort((a, b) => asc(b, a));
+  return out;
 }

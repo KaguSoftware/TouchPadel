@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   COACHING_SHAPES,
+  COACH_LEVELS,
   PUBLIC_COACHING_READS,
   hasKeys,
   missingKeys,
@@ -316,5 +317,18 @@ describe('missingKeys / hasKeys', () => {
         '$.coaches[3].offers',
       ]),
     );
+  });
+});
+
+describe('coach levels (0334, play-coaches contracts §4.2)', () => {
+  it('lists the three levels in the order the server keeps them', () => {
+    expect(COACH_LEVELS).toEqual(['beginner', 'intermediate', 'advanced']);
+  });
+
+  it('carries levels on every coach a guest or the admin reads, and on the saved card', () => {
+    expect(COACHING_SHAPES.coaching_public.nested?.['coaches[]']).toContain('levels');
+    expect(COACHING_SHAPES.coach_profile.nested?.coach).toContain('levels');
+    expect(COACHING_SHAPES.coaches_admin.nested?.['coaches[]']).toContain('levels');
+    expect(COACHING_SHAPES.coach_update.keys).toContain('levels');
   });
 });

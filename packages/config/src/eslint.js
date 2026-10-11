@@ -167,7 +167,7 @@ export const clientSecretRules = {
  *  - `NativeTabs.Trigger` and the SwiftUI country sheet: configuration for a
  *    control UIKit draws outside the React tree — no node, nothing to name.
  *  - Containers (`ScrollView`, `FlatList`, `RefreshControl`) and drawings
- *    (icons, `Court3D`, `CourtIllustration`, `BrandPattern`, `LogoMark`,
+ *    (icons, `Court3D`, `BrandPattern`, `LogoMark`,
  *    `SmileyBall`): a test presses actions, not scenery.
  *
  * THE CHILD COMBINATOR IS LOAD-BEARING. `:has(> JSXAttribute…)` means an id on
@@ -210,6 +210,11 @@ const testIdElements = [
   'ErrorState',
   'EmptyState',
   'BookingSheet',
+  'TiltPress',
+  'ShowcaseCard',
+  'ShowcaseLink',
+  'SuggestionRow',
+  'ForYouStrip',
   'DegradedBanner',
   'CapsuleControl',
   'PlayersChip',
@@ -234,7 +239,6 @@ const testIdElements = [
   'MatchRow',
   'MatchCourtCard',
   'MatchEntryRow',
-  'EntryCard',
   'MatchRulesCard',
   'MatchRestrictedCard',
   // Coaching, the guest's side (docs/design/coaching/guest.md §4.17): each takes
@@ -260,8 +264,16 @@ const testIdElements = [
   'TimeOffRow',
   // Tournaments, the guest's side (tournaments plan §5.2): takes a required
   // testID and forwards it explicitly (apps/mobile src/components/tournament.tsx).
-  // TournamentRound and StandingsTable render no Pressable.
+  // TournamentRound and StandingsTable render no Pressable. SeatingBoard (play-coaches
+  // contracts §5) takes a required testID and forwards `${testID}.court.<no>.chair.<n>`.
   'TournamentRow',
+  'SeatingBoard',
+  // The Play tab (play-coaches contracts §7): each takes a required testID and forwards it
+  // explicitly (apps/mobile src/components/play.tsx); PlayHero, NightHeader, TimeRail render none.
+  'StartMatchButton',
+  'PlayMatchCard',
+  'PlayTournamentCard',
+  'PlayInlineNotice',
 ].join('|');
 
 const TEST_ID_MESSAGE =

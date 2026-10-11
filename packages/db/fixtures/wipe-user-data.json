@@ -187,7 +187,7 @@
     "wage_payments": "staff activity and staff-written content",
     "waiter_calls": "café orders, tabs and money"
   },
-  "profiles_kept": "staff ids, coaches.profile_id, and the logins named with --keep-email",
+  "profiles_kept": "staff ids, coaches.profile_id, and the logins named with --keep-email; their play survey answers (profiles.play_*, 0334) are emptied",
   "links_cleared": {
     "menu_items.release_run_id": "protocol_runs",
     "coach_prices.protocol_run_id": "protocol_runs"

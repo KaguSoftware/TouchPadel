@@ -11,11 +11,14 @@
  * Every entrance derives from the shared progress value p:
  *   sheet    0.25 → 1.00  translateY 360 → 0, scale 0.92 → 1     PITCH ease (direction-aware)
  *            0.25 → 0.45  opacity 0 → 1                          linear
- *   then three groups, each moving as one, linear in TIME (SPEC.groups:
- *   timed in seconds of the open spring and converted to p, all in by 0.6 s):
+ *   then two groups, each moving as one, linear in TIME (SPEC.groups:
+ *   timed in seconds of the open spring and converted to p):
  *   days     0.22 → 0.44 s   opacity + rise 14 px
  *   lanes    0.30 → 0.52 s   picker: opacity + rise 14 px; lanes: + rise 18 px, scale 0.96 → 1
- *   entries  0.38 → 0.60 s   open matches, lessons, tournaments: as the lanes
+ *   (SPEC's third slice carried the entry cards for open matches, lessons and
+ *   tournaments under the lanes; those moved to tabs of their own on 2026-10-11,
+ *   Play and Coaches, and an open match still shows at its hour on its lane
+ *   time, `matchLineFor`.)
  *   scroll edges: 10 / 14 px fades on the pills, 12 / 24 px on the grid, their
  *   ink squared towards the edge so the band never bleeds inward over the
  *   content; the leading fade only once scrolled.
@@ -56,9 +59,6 @@ import { wallTimeToUtc } from '@touch/core';
 import { formatDayNumber, formatTime, formatWeekdayShort, isolate } from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../features/availability/useAvailabilityBooking';
-import { useGuestVenue } from '../features/availability/hooks';
-import { useLessonEntry } from '../features/coaching/hooks';
-import { useTournamentEntry } from '../features/tournaments/hooks';
 import { mapErrorToKey } from '../features/booking/errors';
 import {
   groupSlice,
@@ -71,15 +71,8 @@ import {
 } from '@touch/court3d/spec';
 import { brand, shadows, space, useTheme, withAlpha } from '../theme';
 import { Button, SegmentedControl } from './ui';
-import {
-  CourtLaneRow,
-  DayChip,
-  ENTRY_CARD_H,
-  EntryCard,
-  MatchBallIcon,
-  useSwipeTrack,
-} from './booking';
-import { TrophyIcon, WhistleIcon, WifiOffIcon } from './icons';
+import { CourtLaneRow, DayChip, useSwipeTrack } from './booking';
+import { WifiOffIcon } from './icons';
 import { SkeletonList } from './states';
 import { ErrorAlert, NoticeSheet } from './overlays';
 
@@ -123,7 +116,7 @@ export interface BookingSheetProps {
   /**
    * `book.sheet`. Everything inside hangs off it — `book.sheet.retry`,
    * `book.sheet.duration`, `book.sheet.day.<date>`, `book.sheet.slot.<id>`,
-   * `book.sheet.call-venue`, `book.sheet.open-matches` (open matches on) — so the Book tab's own ids and the sheet's never
+   * `book.sheet.call-venue` — so the Book tab's own ids and the sheet's never
    * collide even though they live on the same route. REQUIRED for that reason.
    */
   testID: string;
@@ -142,48 +135,6 @@ export function BookingSheet({
   const dark = appearance === 'dark';
   // `open` gates the open-match chips' query: a prewarmed, closed card reads none.
   const a = useAvailabilityBooking({ origin: 'sheet', open: isOpen });
-  // "Lessons with a coach" (coaching guest.md §4.8.1): a static label and no
-  // query of its own (the branch's settings read is already cached), so the
-  // rally's thread gets no new work. `useAvailabilityBooking` is not touched.
-  const guestVenueId = useGuestVenue().venueId;
-  const lessonEntry = useLessonEntry(guestVenueId);
-  // "Tournaments" (tournaments plan §5.2), beside the lessons row and built the
-  // same way: a static label, no query of its own.
-  const tournamentEntry = useTournamentEntry(guestVenueId);
-  // The button cards under the court cards (owner, 2026-10-10): lessons
-  // (coaching guest.md §4.8.1), tournaments (tournaments plan §5.2), then open
-  // matches (guest.md §4.11, only while the branch has them on), two to a row; an
-  // odd one out takes its row's full width. Each row adds ENTRY_CARD_H and the
-  // gap above it, so with none of them on the card is exactly as before.
-  const entries = [
-    lessonEntry
-      ? {
-          key: 'lessons',
-          label: lessonEntry.label,
-          icon: WhistleIcon,
-          onPress: lessonEntry.onPress,
-        }
-      : null,
-    tournamentEntry
-      ? {
-          key: 'tournaments',
-          label: tournamentEntry.label,
-          icon: TrophyIcon,
-          onPress: tournamentEntry.onPress,
-        }
-      : null,
-    a.matchEntry
-      ? {
-          key: 'open-matches',
-          label: a.matchEntry.label,
-          icon: MatchBallIcon,
-          onPress: a.matchEntry.onPress,
-        }
-      : null,
-  ].filter((e) => e !== null);
-  const entryRows: (typeof entries)[] = [];
-  for (let i = 0; i < entries.length; i += 2) entryRows.push(entries.slice(i, i + 2));
-  const entriesH = entryRows.length * (ENTRY_CARD_H + 6);
   // Seeded from the window rather than starting at zero. This box spans the
   // stage's full width, so `width` is already exact; `height` is an
   // over-estimate that only ever relaxes the card's cap, and onLayout corrects
@@ -246,7 +197,7 @@ export function BookingSheet({
    */
   const [gridContentH, setGridContentH] = useState(0);
   /** The height the block asks for; a short phone's card gives it less. */
-  const gridWantH = Math.max(GRID_H + entriesH, gridContentH);
+  const gridWantH = Math.max(GRID_H, gridContentH);
   /**
    * Whether the block gave way, decided in the block's own onLayout against
    * the height that same render asked for. Comparing the latest content
@@ -278,14 +229,13 @@ export function BookingSheet({
     };
   }, [progress, direction, cardMaxH]);
 
-  // The three entrance groups (SPEC.groups), each moving as one: the day
-  // chips; the duration picker with the court lanes; the entry rows.
+  // The entrance groups (SPEC.groups), each moving as one: the day chips; the
+  // duration picker with the court lanes.
   const groups = useMemo(
     () => ({
       days: entrance(progress, groupSlice(0), SPEC.pills.y, 1),
       picker: entrance(progress, groupSlice(1), SPEC.pills.y, 1),
       lanes: entrance(progress, groupSlice(1), SPEC.grid.y, SPEC.grid.scale),
-      entries: entrance(progress, groupSlice(2), SPEC.grid.y, SPEC.grid.scale),
     }),
     [progress],
   );
@@ -394,12 +344,10 @@ export function BookingSheet({
     const gridContent = (
       // Both court cards sit fully in view and the block does not move up or
       // down (owner, 2026-09-26); only each court's times swipe sideways. The
-      // spacing below is trimmed so two courts fit GRID_H. With entry cards on,
-      // their rows are the last children and the block grows by entriesH to
-      // hold them.
+      // spacing below is trimmed so two courts fit GRID_H.
       //
-      // A plain View, and a ScrollView ONLY when the block gives way on a short
-      // phone and the last rows need reaching. On iOS 26 the tab bar takes a
+      // A plain View, and a ScrollView ONLY when a short phone squeezes the
+      // block below its content, so the second court is still reachable. On iOS 26 the tab bar takes a
       // vertical UIScrollView here as the tab's content scroll view and lays
       // its soft scroll-edge effect over it: court 2 and every row under it
       // came out blurred and washed out, in both languages (guest report,
@@ -446,33 +394,6 @@ export function BookingSheet({
             </Animated.View>
           );
         })}
-        {/* The entries group: open matches, lessons and tournaments as
-            button cards, two to a row. */}
-        {entryRows.map((row) => (
-          <Animated.View
-            key={row.map((e) => e.key).join('+')}
-            style={{
-              marginTop: 6,
-              flexDirection: 'row',
-              gap: 6,
-              opacity: groups.entries.opacity,
-              transform: [
-                { translateY: groups.entries.translateY },
-                { scale: groups.entries.scale },
-              ],
-            }}
-          >
-            {row.map((e) => (
-              <EntryCard
-                key={e.key}
-                testID={`${testID}.${e.key}`}
-                label={e.label}
-                icon={e.icon}
-                onPress={e.onPress}
-              />
-            ))}
-          </Animated.View>
-        ))}
       </View>
     );
     grid = gridScrolls ? (

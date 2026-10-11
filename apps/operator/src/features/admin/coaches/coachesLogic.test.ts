@@ -19,9 +19,11 @@ import {
   retireFacts,
   retireNoteOk,
   sameSet,
+  levelSet,
   splitRetired,
   teachingHere,
   toggleId,
+  toggleLevel,
   typeChange,
 } from './coachesLogic';
 
@@ -46,6 +48,7 @@ function coach(over: Partial<AdminCoach> = {}): AdminCoach {
     status: 'active',
     public_accepted_at: '2026-09-30T10:00:00Z',
     sort_order: 0,
+    levels: [],
     venue_ids: ['v1'],
     active_here: true,
     lesson_type_ids: ['t1', 't2'],
@@ -146,6 +149,20 @@ describe('the profile patch', () => {
     expect(replacedPhoto(c, { photo: null })).toBe(PHOTO);
     expect(replacedPhoto(c, { photo: PHOTO })).toBeNull();
     expect(replacedPhoto(coach(), { photo: PHOTO })).toBeNull();
+  });
+
+  it('the levels they coach: known ones only, in order, sent only when they change (0334)', () => {
+    expect(levelSet(['advanced', 'pro', 'beginner', 'advanced'])).toEqual(['beginner', 'advanced']);
+    expect(toggleLevel(['advanced'], 'beginner', true)).toEqual(['beginner', 'advanced']);
+    expect(toggleLevel(['beginner', 'advanced'], 'beginner', false)).toEqual(['advanced']);
+    expect(toggleLevel(['beginner'], 'beginner', true)).toEqual(['beginner']);
+    const c = coach({ levels: ['advanced', 'beginner'] });
+    expect(profileDraftOf(c).levels).toEqual(['beginner', 'advanced']);
+    expect(coachPatch(c, profileDraftOf(c))).toEqual({});
+    expect(coachPatch(c, { ...profileDraftOf(c), levels: [] })).toEqual({ levels: [] });
+    expect(coachPatch(coach(), { ...profileDraftOf(coach()), levels: ['intermediate'] })).toEqual({
+      levels: ['intermediate'],
+    });
   });
 
   it('needs both names; bios up to 1000', () => {

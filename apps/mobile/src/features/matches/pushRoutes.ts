@@ -62,18 +62,20 @@ export function isGuestPushKind(value: unknown): value is GuestPushKind {
 export type GuestHref =
   | { pathname: '/match/[id]'; params: { id: string } }
   | { pathname: '/tickets' }
-  | { pathname: '/(tabs)' };
+  | { pathname: '/play'; params: { show: 'matches' } };
 
 /**
  * The screen an open-match route opens (§4.21): `match` with an id its match,
- * the tabs without one; `tickets` the wallet (`tickets_refunded` carries no
+ * the Play tab on its matches without one (2026-10-11; it was the tabs); `tickets` the wallet (`tickets_refunded` carries no
  * id). A coaching route opens through `lessonPushHref`
  * (features/coaching/pushRoutes.ts).
  */
 export function guestPushHref(route: MatchPushRoute, id: string | null | undefined): GuestHref {
   switch (route) {
     case 'match':
-      return id ? { pathname: '/match/[id]', params: { id } } : { pathname: '/(tabs)' };
+      return id
+        ? { pathname: '/match/[id]', params: { id } }
+        : { pathname: '/play', params: { show: 'matches' } };
     case 'tickets':
       return { pathname: '/tickets' };
   }

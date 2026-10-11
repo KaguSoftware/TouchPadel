@@ -96,6 +96,7 @@ import {
   EnvelopeIcon,
   LockIcon,
   ImageIcon,
+  PadelBallIcon,
   PencilIcon,
   PhoneIcon,
   TabProfileIcon,
@@ -103,6 +104,7 @@ import {
 } from '../src/components/icons';
 import { SkeletonList } from '../src/components/states';
 import { NAME_PART_MAX, nameFieldsOf, namePatch } from '../src/features/profile/names';
+import { usePlayProfile } from '../src/features/playProfile/hooks';
 
 /**
  * Edit profile: a hub, then one small form per thing to change (owner,
@@ -344,6 +346,8 @@ function Hub() {
   const [birthOpen, setBirthOpen] = useState(false);
   const setAvatar = useSetAvatar();
   const setGender = useSetMyGender();
+  // "Your game" (the sign-up play survey, play-coaches contracts §8).
+  const play = usePlayProfile();
   // The gender sheet: open while unset and tapped; its wheel's current pick.
   const [genderOpen, setGenderOpen] = useState(false);
   const [genderPick, setGenderPick] = useState<GenderPick>('female');
@@ -600,6 +604,21 @@ function Hub() {
           label={t('profile.birthSection')}
           value={birthDate ? formatDate(birthDate, locale, BIRTH_TZ) : t('profile.notSet')}
           onPress={() => !saveBirth.isPending && setBirthOpen(true)}
+        />
+        {/* The sign-up play survey's answers; the same sheet, prefilled. */}
+        <HubRow
+          testID="profile-edit.play-profile"
+          icon={<PadelBallIcon size={18} />}
+          label={t('playProfile.row.label')}
+          value={
+            [
+              play?.level ? t(`playProfile.survey.level.${play.level}.title`) : null,
+              play?.years ? t(`playProfile.survey.years.${play.years}`) : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || t('profile.notSet')
+          }
+          onPress={() => router.push({ pathname: '/play-survey', params: { mode: 'edit' } })}
         />
       </RowGroup>
       <RowGroup label={t('profile.editGroupSecurity')}>

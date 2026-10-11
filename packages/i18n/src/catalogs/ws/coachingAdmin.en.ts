@@ -83,6 +83,11 @@ export const coachingAdminEn = {
       profile: 'Public profile',
       order: 'Place in the list',
       orderHint: 'Guests see coaches in this order, at every branch they teach at.',
+      // 0334: coaches.levels; none ticked = every level.
+      levels: 'Levels they coach',
+      levelsHint:
+        "Guests pick a level on the app's Coaches page. Leave all three unticked and this coach shows under every level.",
+      level: { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' },
       // OP-06: active_here false.
       notHere: "Not teaching at this branch. Their lesson types and prices here can't change until this branch is ticked again under Branches.",
       save: 'Save profile',

@@ -436,6 +436,7 @@
     "set_my_coach_hours",
     "set_my_frame",
     "set_my_gender",
+    "set_my_play_profile",
     "set_my_username",
     "set_opening_hours",
     "set_order_item_ready",
