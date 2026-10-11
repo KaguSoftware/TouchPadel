@@ -25,7 +25,6 @@ import {
 } from '../../src/features/availability/hooks';
 import { branchName } from '../../src/features/availability/branch';
 import { DEFAULT_TZ } from '../../src/features/availability/assemble';
-import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
 import { useOwnConsent, useOwnProfile } from '../../src/features/profile/hooks';
 import { serverNowMs } from '../../src/features/deposit/logic';
 import {
@@ -226,10 +225,8 @@ function MatchDetailScreen() {
     });
   };
 
-  const findAnother = () => {
-    requestBookingSheet();
-    router.navigate('/(tabs)');
-  };
+  // The Play tab is where open matches are listed (2026-10-11); it used to open the Book sheet.
+  const findAnother = () => router.navigate({ pathname: '/play', params: { show: 'matches' } });
 
   const onShare = () => {
     if (!detail?.shareToken) return;

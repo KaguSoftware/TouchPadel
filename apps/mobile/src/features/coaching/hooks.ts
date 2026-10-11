@@ -12,14 +12,12 @@
  * all three. A private booking takes a court, so it refreshes the court grid
  * too.
  */
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { clearLessonIntentKey, lessonIntentKey } from '../../lib/idempotency';
 import { useAuth } from '../auth/context';
 import { useGuestVenue, useVenueSettings } from '../availability/hooks';
-import { useLocale } from '../../i18n/LocaleProvider';
 import {
   bookPrivate,
   cancelMyLesson,
@@ -253,27 +251,7 @@ export function useConfirmLessonLink() {
   });
 }
 
-// ── Entry points ────────────────────────────────────────────────────────────
-
-/**
- * The Book tab's "Lessons with a coach" row (§4.8.1): shown only while the
- * sheet's branch has coaching on, with a static label and no query of its own
- * (the settings read is the sheet's own, already cached), so the rally's
- * thread gets no new work.
- */
-export function useLessonEntry(
-  venueId: string | null,
-): { label: string; onPress: () => void } | null {
-  const { t } = useLocale();
-  const router = useRouter();
-  const settings = useVenueSettings(venueId);
-  const on = coachingEnabled(settings.data);
-  const onPress = useCallback(() => router.push('/coaches'), [router]);
-  return useMemo(
-    () => (on ? { label: t('coaching.guest.entry.book'), onPress } : null),
-    [on, t, onPress],
-  );
-}
+// ── Branch ──────────────────────────────────────────────────────────────────
 
 /** The guest's branch and its coaching switch, for the browsing screens. */
 export function useCoachingBranch() {

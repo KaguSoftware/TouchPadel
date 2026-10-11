@@ -57,12 +57,15 @@ describe('the tournament push lists', () => {
 });
 
 describe('tournamentPushHref', () => {
-  it('opens the tournament with an id, the list without one', () => {
+  it('opens the tournament with an id, the Play tab on its tournaments without one', () => {
     expect(tournamentPushHref('t-1')).toEqual({
       pathname: '/tournament/[id]',
       params: { id: 't-1' },
     });
-    expect(tournamentPushHref(null)).toEqual({ pathname: '/tournaments' });
+    expect(tournamentPushHref(null)).toEqual({
+      pathname: '/play',
+      params: { show: 'tournaments' },
+    });
   });
 });
 

@@ -12,7 +12,6 @@ export default function CoachingLayout() {
   const screenOptions = useGroupStackOptions();
   return (
     <Stack screenOptions={screenOptions}>
-      <Stack.Screen name="coaches" />
       {/* Transparent from the push's first frame: the coach page's photo
           runs under the bar, and a bar drawn opaque until the screen's own
           options land flashed a white strip (coach/[id].tsx). */}

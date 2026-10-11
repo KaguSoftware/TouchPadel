@@ -1,3 +1,4 @@
+import { COACH_LEVELS, type CoachLevel } from '@touch/core/coaching';
 import { countPhrase, formatIQD, makeT, type Locale } from '@touch/i18n';
 import { publicMediaUrl } from './media';
 import { inviteWhen } from './site/matchInvite';
@@ -57,6 +58,8 @@ export interface PublicCoach {
   bio_ar: string;
   photo_path: string | null;
   sort_order: number;
+  /** The levels the coach teaches (0334), in `COACH_LEVELS` order; empty = every level. */
+  levels: CoachLevel[];
   venue_ids: string[];
   offers: CoachOffer[];
 }
@@ -210,6 +213,15 @@ function parseOffer(
   };
 }
 
+/**
+ * A coach's levels (0334): only the known ones, each once, in `COACH_LEVELS` order; anything that
+ * is not an array reads as [] (every level).
+ */
+function coachLevels(value: unknown): CoachLevel[] {
+  if (!Array.isArray(value)) return [];
+  return COACH_LEVELS.filter((level) => value.includes(level));
+}
+
 function parseCoach(
   row: Record<string, unknown>,
   showsPrices: (venueId: string) => boolean,
@@ -227,6 +239,7 @@ function parseCoach(
     bio_ar: text(row.bio_ar),
     photo_path: id(row.photo_path),
     sort_order: whole(row.sort_order) ?? 0,
+    levels: coachLevels(row.levels),
     venue_ids: Array.isArray(row.venue_ids)
       ? row.venue_ids.filter((v): v is string => id(v) !== null)
       : [],

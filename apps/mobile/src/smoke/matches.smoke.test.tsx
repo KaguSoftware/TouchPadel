@@ -4,9 +4,8 @@
  * `src/test/smokeCase.tsx` for how.
  *
  * Each route case seeds the parsed fixtures of `src/test/fixtures.ts` under
- * their `matchKeys`, so the first render draws real content: the list with
- * one match, a viewer's instant match at 3/4 with two tickets (Join), a
- * start the quote allows with a wallet that covers it, a signed-out invite
+ * their `matchKeys`, so the first render draws real content: a viewer's
+ * instant match at 3/4 with two tickets (Join), a start the quote allows with a wallet that covers it, a signed-out invite
  * (`open`), a report and an empty block list. `tickets` is cased with the
  * payment screens, in deposit.smoke.test.tsx.
  *
@@ -15,7 +14,7 @@
  * the buy and gender cards, a member's booked match with its money and
  * quick messages, an ended match's §4.15 line, the link's closed and
  * restricted layouts, the gender ask and the short wallet on the new-match
- * form, the list's banned and switched-off notices, and a blocked player.
+ * form, and a blocked player. The list is the Play tab's (play.smoke.test.tsx).
  * Last, the booking gate on Start and Join (owner, 2026-09-29): a phone nobody
  * has verified goes to the code first, before any purchase too. Then the seat
  * count a poll lowers under the picked one (the join sends what the card
@@ -40,7 +39,6 @@ import {
   matchRestrictedFixture,
   myBlocksFixture,
   myTicketsFixture,
-  openMatchesFixture,
   profileFixture,
   venueSettingsFixture,
 } from '../test/fixtures';
@@ -48,8 +46,7 @@ import { supabase } from '../lib/supabase';
 import { availabilityKeys } from '../features/availability/hooks';
 import { profileKeys } from '../features/profile/hooks';
 import { matchKeys } from '../features/matches/keys';
-import { guestWindow, type MatchDetail } from '../features/matches/logic';
-import MatchesScreen from '../../app/matches';
+import type { MatchDetail } from '../features/matches/logic';
 import MatchDetailScreen from '../../app/match/[id]';
 import MatchNewScreen from '../../app/match-new';
 import MatchLinkScreen from '../../app/m/[token]';
@@ -57,7 +54,6 @@ import MatchReportScreen from '../../app/match-report';
 import BlockedPlayersScreen from '../../app/blocked-players';
 
 const COURT_ID = courtFixture().id;
-const TZ = 'Asia/Baghdad';
 
 /** One open branch with open matches switched on, and its courts. */
 const venue = (settings: Record<string, unknown> = {}): [readonly unknown[], unknown][] => [
@@ -66,12 +62,6 @@ const venue = (settings: Record<string, unknown> = {}): [readonly unknown[], unk
   [availabilityKeys.courts(TEST_VENUE_ID), [courtFixture()]],
   [availabilityKeys.allCourts, [courtFixture()]],
 ];
-
-/** The list's key: the guest window of today (`useGuestVenue` → `useOpenMatches`). */
-const openKey = () => {
-  const { from, to } = guestWindow(new Date(), TZ);
-  return matchKeys.open(TEST_VENUE_ID, from, to);
-};
 
 /** The new-match form's params, and its quote's key. */
 const START_AT = matchDetailFixture().startAt;
@@ -94,12 +84,6 @@ const detail = (over: Partial<MatchDetail> = {}) => ({
 });
 
 const CASES: SmokeCase[] = [
-  {
-    route: 'matches',
-    Component: MatchesScreen,
-    labelKey: 'matches.list.filterAll',
-    options: { session: 'in', queryData: [...venue(), [openKey(), openMatchesFixture()]] },
-  },
   {
     route: 'match-detail',
     Component: MatchDetailScreen,
@@ -615,49 +599,6 @@ describe.each(LOCALES)('open-match states in %s', (locale) => {
       fireEvent.press(screen.getByTestId('match-detail.rules.toggle'));
       // The chevron is mirrored in Arabic, so "down" is the other way round.
       expect(rotation()).toBe(locale === 'ar' ? '-90deg' : '90deg');
-    } finally {
-      screen.unmount();
-    }
-  });
-
-  it('tells a banned guest why the list is empty, with no way to start one', () => {
-    const screen = renderRoute(MatchesScreen, {
-      locale,
-      session: 'in',
-      queryData: [...venue(), [openKey(), { banned: true, matches: [] }]],
-    });
-    try {
-      expect(screen.getByText(t('matches.errors.banned'))).toBeTruthy();
-      expect(screen.queryByTestId('matches.start-one')).toBeNull();
-    } finally {
-      screen.unmount();
-    }
-  });
-
-  it('says open matches are off at a branch that has them switched off', () => {
-    const screen = renderRoute(MatchesScreen, {
-      locale,
-      session: 'in',
-      queryData: venue({ matches_enabled: false }),
-    });
-    try {
-      expect(screen.getByText(t('matches.errors.off'))).toBeTruthy();
-      expect(screen.queryByTestId('matches.start-one')).toBeNull();
-    } finally {
-      screen.unmount();
-    }
-  });
-
-  it('lists a row with its seats left and the share at the desk, no names', () => {
-    const screen = renderRoute(MatchesScreen, {
-      locale,
-      session: 'in',
-      queryData: [...venue(), [openKey(), openMatchesFixture()]],
-    });
-    try {
-      const row = within(screen.getByTestId(`matches.row.${TEST_MATCH_ID}`));
-      expect(row.getByText(countPhrase('matches.count.seatsLeft', 1, locale))).toBeTruthy();
-      expect(row.queryByText(/Ahmed|Sara/)).toBeNull();
     } finally {
       screen.unmount();
     }

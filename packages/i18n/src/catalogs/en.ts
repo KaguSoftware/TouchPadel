@@ -19,6 +19,10 @@ import { branchesEn } from './branches.en';
 import { matchesEn } from './matches.en';
 import { coachingEn } from './coaching.en';
 import { tournamentsEn } from './tournaments.en';
+import { playEn } from './play.en';
+import { coachShowcaseEn } from './showcase.en';
+import { seatingEn } from './seating.en';
+import { playProfileEn } from './playProfile.en';
 
 export const en = {
   // Operator workspace strings (spec §05–§07), one file pair per lane: catalogs/ws/*.
@@ -762,7 +766,9 @@ export const en = {
   },
   tabs: {
     book: 'Book',
-    bookings: 'My Reservations',
+    bookings: 'Reservations',
+    play: 'Play',
+    coaches: 'Coaches',
     profile: 'Profile',
   },
   profile: {
@@ -1129,6 +1135,10 @@ export const en = {
   // Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.11): the phone's and
   // the website's words (tournaments.en.ts).
   tournaments: tournamentsEn,
+  play: playEn,
+  coachShowcase: coachShowcaseEn,
+  seating: seatingEn,
+  playProfile: playProfileEn,
   // Loyalty (docs/design/loyalty/build-contracts-2026-10-05.md §4).
   loyalty: {
     // The phone (plan §5.1): the member card, the loyalty screen and Profile's entries.

@@ -8,6 +8,19 @@
  * (the on-net button, the frosted sheet), exactly as the prototype's canvas
  * reads its `p` every frame.
  *
+ * Two things can play on it, chosen once per mount by `scene`: the Book tab's
+ * rally (`rally`, the default: every caller that does not ask gets exactly what
+ * it always had) or the Coaches tab's coaching drill (`drill`, through
+ * CourtStage: a ball machine and a coach on the right half feeding the four
+ * rackets down the left in turn, each swinging the rally's own clip as its ball
+ * arrives; packages/court3d drill.ts + drillProps.ts). And two ways to see it,
+ * by `view`: the Book's orbit (`book`, the default), or straight down and
+ * horizontal (`top`, the Play and Coaches tabs through CourtStage: the court's
+ * length left to right, the net a vertical line in the middle, never pitched
+ * whatever `progress` says, the walls' edge-on glass and mesh not built, and
+ * drawn at most at TOP_FPS). Everything below holds for all of them: same
+ * surfaces, same loop, same clock, same gates, same tiers.
+ *
  * Two surfaces, as the prototype has two canvases: the court (opaque, the page
  * colour behind it), then `children` — the caller's on-net button — then a
  * TRANSPARENT surface with only the ball, its trail and its ground disc, so
@@ -48,7 +61,9 @@
  *     frame loop only runs while the tab is focused and the app is active
  *     (expo-router keeps tab screens mounted).
  *   · Reduced motion: the rally freezes on a rest frame and the scene renders
- *     only when `p` changes.
+ *     only when `p` changes. The drill's rest frame is the ball loaded in the
+ *     machine's barrel, the coach beside it and every racket in its stance
+ *     (DRILL_REST_T).
  *   · The rally NEVER idles out. It used to: after three rallies with `p` at
  *     rest and nothing touched, it held at the next leg start, stopped the loop
  *     and put a "rally paused" note over the court, to be woken by a touch.
@@ -67,8 +82,11 @@
  *     expo-gl native module (a dev client built before expo-gl was added) →
  *     the same fallback, decided at import time below.
  *   · Low-end phones (quality.ts, decided once from expo-device) get the
- *     `lite` scene: no shadow pass, no ball trail, 2× MSAA instead of 4×.
- *     The `quality` prop overrides the detection.
+ *     `lite` scene: no shadow pass, the plainer racket, 2× MSAA instead of 4×.
+ *     The ball's trail is drawn on both tiers (scene.ts, TRAIL_N: unlit
+ *     spheres that never write depth); the drill's machine and coach cast
+ *     shadows on `full` only, like the rest of the court. The `quality` prop
+ *     overrides the detection.
  *   · The on-net button is NOT positioned from here: the caller projects the
  *     tape with the same camera maths (camera.ts) into a native-driver table
  *     keyed on p, so the button rides the tape without per-frame JS.
@@ -109,13 +127,15 @@ import { useFocusEffect } from 'expo-router';
 import * as THREE from 'three';
 import { detectCourtQuality } from '../features/courtTransition/deviceQuality';
 import type { CourtQuality } from '../features/courtTransition/quality';
-import type { CourtScene } from '@touch/court3d/scene';
-import { advance as advanceRally } from '@touch/court3d/rallyClock';
+import type { CourtScene, CourtSceneKind, CourtView } from '@touch/court3d/scene';
+import { DRILL_REST_T } from '@touch/court3d/drill';
+import { advance as advanceRally, MAX_STEP_S } from '@touch/court3d/rallyClock';
 import { pitchEase, type Dir } from '@touch/court3d/spec';
 import { buildPhoneCourt } from '../features/courtTransition/phoneCourt';
 import { canAnimate, canDraw } from '../features/courtTransition/surfaceState';
 import { contextAlive, presentFrame } from '../features/courtTransition/surfaceLiveness';
 import { frameRepaints } from '../features/courtTransition/staleCover';
+import { paceFrame } from '../features/courtTransition/framePacer';
 import { addBreadcrumb, captureException, captureMessage, describeError } from '../lib/telemetry';
 import { brand, useTheme } from '../theme';
 import { PATTERN_DEFAULT_OPACITY, patternInk } from '../theme/brandPattern';
@@ -194,6 +214,20 @@ export interface Court3DProps {
   reduceMotion: boolean;
   /** Shadows + trail only on `full`; defaults to the phone's detected tier. */
   quality?: CourtQuality;
+  /**
+   * What plays on the court, fixed for the life of the mount: `rally` (the
+   * default: the Book tab's, and anything that does not ask) or `drill` (the
+   * Coaches tab's ball machine feeding the four rackets, packages/court3d
+   * drill.ts). See the header.
+   */
+  scene?: CourtSceneKind;
+  /**
+   * How the court is seen, fixed for the life of the mount: `book` (the
+   * default: the Book tab's orbit, pitching with `progress`) or `top` (the Play
+   * and Coaches tabs: straight down and horizontal, never pitched, drawn at
+   * most at TOP_FPS). See the header.
+   */
+  view?: CourtView;
   /** The view's size in dp — the caller projects the net tape for the button from it (camera.ts). */
   onSize?: (size: { width: number; height: number }) => void;
   onUnavailable?: () => void;
@@ -232,6 +266,36 @@ export interface Court3DProps {
 
 /** Reduced motion holds the rally here: the first strike, ball on the face, no trail. */
 const REST_T = 0;
+/**
+ * …and the drill here (DRILL_REST_T, drill.ts): the ball loaded in the
+ * machine's barrel, aimed at the first racket, the coach beside it, every
+ * racket in its ready stance, no trail and no disc.
+ */
+const restTimeFor = (kind: CourtSceneKind): number => (kind === 'drill' ? DRILL_REST_T : REST_T);
+/**
+ * THE TOP VIEW IS DRAWN AT 45 FPS (Majed, 2026-10-11; it was 30), the Book view
+ * at whatever the display gives.
+ *
+ * Seen straight down there is no pitch to keep smooth under a finger and
+ * nothing the eye tracks closely — the ball crosses the court on a time-sampled
+ * trail (scene.ts, TRAIL_LAG), which reads the same at 30 as at 60 — and every
+ * frame not drawn is GPU time given back (Majed, 2026-10-11: no needless GPU
+ * pressure on Play and Coaches). 45 does not divide a 60 or 120 Hz display, so
+ * a simple "too soon since the last frame" floor would fall back to 30 there;
+ * `paceFrame` (courtTransition/framePacer.ts) keeps a running schedule that
+ * averages 45 on any display (60 Hz: 3 ticks of 4; 90 Hz: every second, evenly;
+ * 120 Hz: 25 / 17 ms). A tick it declines is skipped inside renderFrame, so the
+ * loop's draw-then-ask order (startLoop) is untouched.
+ */
+const TOP_FPS = 45;
+const TOP_FRAME_PERIOD_MS = 1000 / TOP_FPS;
+/**
+ * The top view's rally-clock cap (rallyClock.ts). At 45 fps on a 60 Hz display
+ * one gap in three is 33 ms, AT the Book's 1/30 s cap, and the jitter above it
+ * would be clipped, slowing the rally a little all the time; a 50 ms cap still
+ * turns any stall into a dropped frame rather than a jump.
+ */
+const TOP_MAX_STEP_S = 1 / 20;
 /**
  * The stale-frame cover's dissolve. Matched to the theme crossfade's fade-in
  * (FADE_IN_MS in theme/ThemeProvider.tsx) so the court arrives on the same beat
@@ -352,6 +416,8 @@ export function Court3D({
   direction,
   reduceMotion,
   quality: qualityProp,
+  scene: sceneProp,
+  view: viewProp,
   onSize,
   onUnavailable,
   onFirstFrame,
@@ -371,6 +437,12 @@ export function Court3D({
   const boxOffsetY = patternBox?.offsetY ?? 0;
   // Fixed for the life of the scene: the tier shapes what gets built.
   const quality = useRef(qualityProp ?? detectCourtQuality()).current;
+  // Fixed for the life of the scene too: the drill builds props the rally does not.
+  const [sceneKind] = useState<CourtSceneKind>(() => sceneProp ?? 'rally');
+  const restT = restTimeFor(sceneKind);
+  const [courtView] = useState<CourtView>(() => viewProp ?? 'book');
+  const framePeriodMs = courtView === 'top' ? TOP_FRAME_PERIOD_MS : 0;
+  const stepCapS = courtView === 'top' ? TOP_MAX_STEP_S : MAX_STEP_S;
   /** Wall-clock mark for the current context attach, for [courtperf]. */
   const attachAt = useRef<number | null>(null);
   const court = useRef<CourtScene | null>(null);
@@ -388,6 +460,8 @@ export function Court3D({
   const rallyT = useRef(0);
   /** `performance.now()` of the last frame that advanced it; null = no interval to measure. */
   const lastFrameAt = useRef<number | null>(null);
+  /** The top view's next booked frame (paceFrame); null after a start or a stop. */
+  const nextFrameDue = useRef<number | null>(null);
   /** A stall is on the record until the next frame that is not one. */
   const stalled = useRef(false);
   const loop = useRef<number | null>(null);
@@ -635,6 +709,7 @@ export function Court3D({
     // to the background — the rally was not on screen for that time and must
     // not be billed for it. The next frame starts a fresh interval.
     lastFrameAt.current = null;
+    nextFrameDue.current = null;
   }, []);
 
   const clearSurfaceTimer = useCallback(() => {
@@ -723,6 +798,14 @@ export function Court3D({
     const w = Math.round(box.width * scale);
     const h = Math.round(box.height * scale);
     if (w === 0 || h === 0) return;
+    // The top view's 45 fps pacing (TOP_FPS): a tick before the next booked
+    // frame draws nothing. Never under Reduce Motion, whose frames are all on
+    // demand, and never for the first frame after a stop (no booking yet).
+    if (framePeriodMs > 0 && !reduce.current) {
+      const pace = paceFrame(nextFrameDue.current, performance.now(), framePeriodMs);
+      nextFrameDue.current = pace.nextDueAt;
+      if (!pace.draw) return;
+    }
     const fit = (s: Surface) => {
       if (w !== s.width || h !== s.height) {
         s.width = w;
@@ -731,7 +814,7 @@ export function Court3D({
       }
     };
     const value = p.current;
-    let t = REST_T;
+    let t = restT;
     if (!reduce.current) {
       // Advance by the interval since the last frame actually DRAWN, capped
       // (rallyClock): a frame the JS thread was too busy to service is a
@@ -741,7 +824,7 @@ export function Court3D({
       const now = performance.now();
       const since = lastFrameAt.current === null ? null : now - lastFrameAt.current;
       lastFrameAt.current = now;
-      rallyT.current = advanceRally(rallyT.current, since);
+      rallyT.current = advanceRally(rallyT.current, since, stepCapS);
       t = rallyT.current;
       // A frame that arrives a second or more after the last one is a stall,
       // not a drop: the loop was never stopped, the thread simply did not get
@@ -841,7 +924,7 @@ export function Court3D({
       if (focusedRef.current) setGlGeneration((n) => n + 1);
       else needsSurface.current = true;
     }
-  }, [showStage, stopLoop, teardown, surfaceLost, detach]);
+  }, [showStage, stopLoop, teardown, surfaceLost, detach, restT, framePeriodMs, stepCapS]);
 
   /**
    * THE NEXT FRAME IS ASKED FOR AFTER THIS ONE IS DRAWN, NOT BEFORE IT.
@@ -980,7 +1063,10 @@ export function Court3D({
         if (!court.current) {
           // Android's frames are bound by the JS thread: it gets the lean
           // update (the same picture to the bit, scene.ts). iOS is unchanged.
-          court.current = buildPhoneCourt(quality, Platform.OS === 'android');
+          court.current = buildPhoneCourt(quality, Platform.OS === 'android', {
+            scene: sceneKind,
+            view: courtView,
+          });
           pushViewport();
         }
         // Outside the branch above: Android destroys the surface while the app
@@ -1078,6 +1164,8 @@ export function Court3D({
       teardown,
       requestOnce,
       quality,
+      sceneKind,
+      courtView,
       ink,
       pushViewport,
       armReveal,

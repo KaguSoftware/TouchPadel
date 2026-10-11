@@ -14,6 +14,10 @@ import { branchesAr } from './branches.ar';
 import { matchesAr } from './matches.ar';
 import { coachingAr } from './coaching.ar';
 import { tournamentsAr } from './tournaments.ar';
+import { playAr } from './play.ar';
+import { coachShowcaseAr } from './showcase.ar';
+import { seatingAr } from './seating.ar';
+import { playProfileAr } from './playProfile.ar';
 
 /**
  * Arabic (Iraq) message catalog. Mirrors `en.ts` key-for-key — the `Messages`
@@ -692,6 +696,8 @@ export const ar: Messages = {
   tabs: {
     book: 'حجز',
     bookings: 'حجوزاتي',
+    play: 'العب',
+    coaches: 'المدربون',
     profile: 'حسابي',
   },
   profile: {
@@ -1024,6 +1030,10 @@ export const ar: Messages = {
   matches: matchesAr,
   coaching: coachingAr,
   tournaments: tournamentsAr,
+  play: playAr,
+  coachShowcase: coachShowcaseAr,
+  seating: seatingAr,
+  playProfile: playProfileAr,
   // Loyalty (build-contracts-2026-10-05 §4). DRAFT-AR: on the client's review list.
   loyalty: {
     guest: {

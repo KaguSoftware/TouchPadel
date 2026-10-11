@@ -45,6 +45,8 @@ import { showsVenuePicker } from '../src/features/staff/venue';
 import { useWaitingCount, useWorkAlerts } from '../src/features/staff/workAlerts';
 import { GroupRows, useTodayGroups, type TodayGroup } from '../src/features/staff/todayGroups';
 import type { StaffRowDef } from '../src/features/staff/rows';
+import { useQuery } from '@tanstack/react-query';
+import { staffKeys } from '../src/features/staff/keys';
 import { fetchMyRewards } from '../src/features/staff/rewards/api';
 import { RewardTrack } from '../src/features/staff/rewards/RewardTrack';
 import { useReduceMotion } from '../src/lib/useReduceMotion';

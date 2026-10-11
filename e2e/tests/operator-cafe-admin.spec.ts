@@ -373,7 +373,11 @@ test.describe('operator cafe admin', () => {
     await expect(espresso).toBeVisible({ timeout: 30_000 });
 
     // Tick one item; the mark is optimistic, then persisted server-side.
-    await espresso.check();
+    // click(), not check(): the box is controlled, and the optimistic mark lands
+    // only after onMutate's `await cancelQueries`, so under load check()'s
+    // immediate read saw it still clear ("did not change its state"). The
+    // retrying toBeChecked waits for that tick instead.
+    await espresso.click();
     await expect(espresso).toBeChecked();
 
     // The audit's M1 repro: a reload used to lose every mark.

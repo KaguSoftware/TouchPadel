@@ -62,9 +62,9 @@ describe('the guest push catalogue', () => {
 });
 
 describe('guestPushHref', () => {
-  it('opens the match with an id, the tabs without one, and the wallet for tickets', () => {
+  it('opens the match with an id, the Play tab without one, and the wallet for tickets', () => {
     expect(guestPushHref('match', 'm-1')).toEqual({ pathname: '/match/[id]', params: { id: 'm-1' } });
-    expect(guestPushHref('match', null)).toEqual({ pathname: '/(tabs)' });
+    expect(guestPushHref('match', null)).toEqual({ pathname: '/play', params: { show: 'matches' } });
     expect(guestPushHref('tickets', null)).toEqual({ pathname: '/tickets' });
   });
 });

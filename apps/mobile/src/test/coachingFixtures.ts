@@ -118,6 +118,7 @@ export function coachingPublicFixture(now: Date = new Date()) {
         bio_ar: 'عشر سنوات في الملعب.',
         sort_order: 1,
         venue_ids: [COACH_VENUE_ID],
+        levels: ['beginner', 'intermediate'],
         offers: [
           { lesson_type_id: TYPE_PRIVATE_ID, venue_id: COACH_VENUE_ID, price_iqd: 30000 },
           { lesson_type_id: TYPE_GROUP_ID, venue_id: COACH_VENUE_ID, price_iqd: 15000 },
@@ -201,6 +202,7 @@ export function coachProfileFixture(over: Record<string, unknown> = {}, now: Dat
       bio_ar: 'عشر سنوات في الملعب.',
       status: 'active',
       venue_ids: [COACH_VENUE_ID],
+      levels: ['beginner', 'intermediate'],
     },
     venue: {
       venue_id: COACH_VENUE_ID,

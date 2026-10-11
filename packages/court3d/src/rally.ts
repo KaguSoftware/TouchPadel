@@ -180,15 +180,46 @@ export interface RallyState {
  */
 function racketAt(i: number, t: number, camK: number): RacketPose {
   const pl = PLAYERS[i]!;
+  return racketPose(
+    pl,
+    playerYaw(pl),
+    mod(t - SLOT[i]! * LEG_SECONDS + SWING_CONTACT, LOOP_SECONDS),
+    t,
+    camK,
+  );
+}
+
+/** Where a racket stands and which hand it swings off: what `racketPose` needs of a player. */
+export interface RacketSpot {
+  x: number;
+  z: number;
+  seed: number;
+  hand: 1 | -1;
+}
+
+/**
+ * One racket's pose with the swing clip at `clipTime` (swing.ts: outside
+ * [0, SWING_DURATION) is the rest stance), facing `yaw`, idle-drifting by t.
+ * The rally's own racketAt is this with its leg schedule and `playerYaw`; the
+ * coaching drill (drill.ts) is this with its feed schedule and its own yaws, so
+ * the drill's rackets hold, drift and swing exactly as the Book tab's do.
+ */
+export function racketPose(
+  pl: RacketSpot,
+  yaw: number,
+  clipTime: number,
+  t: number,
+  camK: number,
+): RacketPose {
   const lay = layAngle(camK);
-  const pose = swingAt(mod(t - SLOT[i]! * LEG_SECONDS + SWING_CONTACT, LOOP_SECONDS), pl.hand);
+  const pose = swingAt(clipTime, pl.hand);
   const rest = swingAt(-1, pl.hand);
   const base = v3(
     pl.x + Math.sin(t * 0.9 + pl.seed) * 0.25,
     lerp(RACKET_Y.flat, RACKET_Y.standing, camK) + Math.sin(t * 1.6 + pl.seed) * 0.06,
     pl.z + Math.cos(t * 0.7 + pl.seed) * 0.2,
   );
-  const rotation = v3(0, playerYaw(pl), (1 - camK) * 0.12 * Math.sin(t * 1.1 + pl.seed));
+  const rotation = v3(0, yaw, (1 - camK) * 0.12 * Math.sin(t * 1.1 + pl.seed));
   const restFace = faceOffset(rest, lay, pl.hand);
   const face = faceOffset(pose, lay, pl.hand);
   return {

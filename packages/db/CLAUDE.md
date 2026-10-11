@@ -17,8 +17,9 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0333`
-  (0333 reward_wages, a reward reached in a closed business month becomes a bonus on the wage and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0334`
+  (0334 play_profile_coach_levels, the guest's optional play survey on `profiles`, each coach's
+  levels and a tournament's entries before the draw, 2026-10-11; 0333 reward_wages, a reward reached in a closed business month becomes a bonus on the wage and
   the person gets a push when they unlock one, 2026-10-11; 0332 staff_rewards, the owner's per-person order targets and each person's own progress on
   the staff phone, 2026-10-10; 0331 legacy_reports, the pre-system monthly padel reports kept as written, 2026-10-10;
   0330 the assistant's stored-days cache, 2026-10-09; 0324–0329 the owner assistant, 2026-10-08: 0324 web search, 0325 search recall and the frozen
@@ -242,6 +243,13 @@ is a line in that file.
   longer unique: a run is one occurrence (`business_date` = its first day, `period_end`) per list
   and person (`assignee_id`, NULL for a shared list), and the legacy `save_checklist_template`
   writes the oldest live role list under an advisory lock.
+  Play profile, coach levels, tournament entries (0334, 2026-10-11): holds `set_my_play_profile`
+  (new; the four `play_*` columns are read by a direct own-row select), and is the latest body of
+  `tournament_public` (0311 is no longer the latest: it adds `entries` [{player, mine}], registered
+  entries in registration order, before and after the draw), `coaching_public`, `coach_profile`
+  and `coaches_admin` (each coach gains `levels`; empty means every level), `coach_update` (accepts
+  `levels`) and `trg_profile_media_tombstone` (0317 is no longer the latest: it also nulls the play
+  columns). Contract: `docs/design/play-coaches/contracts-2026-10-11.md` §4.
   Reward wages (0333, 2026-10-11): holds `wage_line`, `wages_month` and `mark_wage_paid` (0271 is
   no longer the latest: a line adds `bonuses_iqd`, `bonus_count` and `bonuses[]`, the
   `staff_reward_earnings` rows whose pay month it is, prize-only ones included; the net is salary -

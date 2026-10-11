@@ -255,6 +255,8 @@ const shapes = {
         'bio_ar',
         'photo_path',
         'sort_order',
+        // 0334 (play-coaches §4.2): beginner | intermediate | advanced; empty = every level.
+        'levels',
         'venue_ids',
         'offers',
       ],
@@ -291,6 +293,8 @@ const shapes = {
         'bio_ar',
         'photo_path',
         'status',
+        // 0334 (play-coaches §4.2): empty = every level.
+        'levels',
         'venue_ids',
       ],
       venue: [
@@ -760,6 +764,8 @@ const shapes = {
         'status',
         'public_accepted_at',
         'sort_order',
+        // 0334: the levels the coach teaches; empty = every level.
+        'levels',
         'venue_ids',
         'active_here',
         'lesson_type_ids',
@@ -828,6 +834,7 @@ const shapes = {
       'bio_ar',
       'photo_path',
       'sort_order',
+      'levels',
       'public_accepted_at',
       'updated_at',
     ],
@@ -1608,6 +1615,14 @@ const shapes = {
 } satisfies Record<string, CoachingShape>;
 
 export type CoachingShapeName = keyof typeof shapes;
+
+/**
+ * The levels a coach may teach (`coaches.levels`, 0334; play-coaches contracts §4.2), in the order
+ * the server keeps them. A coach whose `levels` is empty teaches EVERY level; a player's level
+ * `new` reads as `beginner` when coaches are matched.
+ */
+export const COACH_LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
+export type CoachLevel = (typeof COACH_LEVELS)[number];
 
 /** Every coaching answer's key list, by name (R41, R72). */
 export const COACHING_SHAPES: Readonly<Record<CoachingShapeName, CoachingShape>> = shapes;

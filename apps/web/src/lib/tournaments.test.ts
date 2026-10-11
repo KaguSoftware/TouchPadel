@@ -192,6 +192,11 @@ describe('parseTournamentPublic', () => {
           expect(Object.keys(pl).sort()).toEqual(nestedKeys(PAGE, 'rounds[].matches[].a[]'));
       }
     }
+    expect(p.entries).toHaveLength(8);
+    for (const e of p.entries) {
+      expect(Object.keys(e).sort()).toEqual(nestedKeys(PAGE, 'entries[]'));
+      expect(Object.keys(e.player).sort()).toEqual(nestedKeys(PAGE, 'entries[].player'));
+    }
     for (const s of p.standings) {
       expect(Object.keys(s).sort()).toEqual(nestedKeys(PAGE, 'standings[]'));
       expect(Object.keys(s.player).sort()).toEqual(nestedKeys(PAGE, 'standings[].player'));
@@ -230,6 +235,25 @@ describe('parseTournamentPublic', () => {
     );
     expect(parseTournamentPublic({ ...tournamentAnswer(), id: 'x' })?.status).toBe('missing');
     for (const raw of [null, 'x', 7, []]) expect(parseTournamentPublic(raw)).toBeNull();
+  });
+
+  it('keeps the entries in registration order, before the draw too, and drops a bad row', () => {
+    expect(page().entries.map((e) => e.player.no)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(page(tournamentAnswer({ rounds: false })).entries).toHaveLength(8);
+    expect(page().entries.every((e) => e.mine === false)).toBe(true);
+    const { entries: _dropped, ...noEntries } = tournamentAnswer();
+    expect(page(noEntries).entries).toEqual([]);
+    expect(page({ ...tournamentAnswer(), entries: 'x' }).entries).toEqual([]);
+    const odd = page({
+      ...tournamentAnswer(),
+      entries: [
+        null,
+        { mine: true },
+        { player: 'x' },
+        { player: { name: 'Aya S.', no: 1 }, mine: 'yes' },
+      ],
+    }).entries;
+    expect(odd).toEqual([{ player: { name: 'Aya S.', former: false, no: 1 }, mine: false }]);
   });
 
   it('drops a match without two full teams, and a half score', () => {

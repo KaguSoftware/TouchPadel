@@ -5,6 +5,7 @@ import {
   filterFromParam,
   isLive,
   isOwnEntry,
+  myTournamentEntries,
   parseRegisterResult,
   parseTournamentPublic,
   parseTournamentsPublic,
@@ -424,5 +425,118 @@ describe('the list card (tourFillPercent, tourToneOf)', () => {
     expect(tourToneOf('running')).toBe('running');
     expect(tourToneOf('finished')).toBe('over');
     expect(tourToneOf('cancelled')).toBe('over');
+  });
+});
+
+// ── the entries before the draw (play-coaches contracts §4.3) ────────────────
+
+describe('parseTournamentPublic: entries', () => {
+  it('reads the registered entries in order, the guest’s own marked', () => {
+    const d = parseTournamentPublic(tournamentPublicFixture(), TOUR_ID);
+    expect(d.entries.map((e) => e.player.no)).toEqual([1, 2, 3, 4, 5]);
+    expect(d.entries[2]).toEqual({ player: { name: 'Omar H.', former: false, no: 3 }, mine: true });
+    expect(d.entries.filter((e) => e.mine)).toHaveLength(1);
+  });
+
+  it('falls back to no entries, and reads a junk entry as a nameless player', () => {
+    expect(
+      parseTournamentPublic(tournamentPublicFixture({ entries: undefined }), TOUR_ID).entries,
+    ).toEqual([]);
+    expect(
+      parseTournamentPublic(tournamentPublicFixture({ entries: 'x' }), TOUR_ID).entries,
+    ).toEqual([]);
+    expect(
+      parseTournamentPublic(tournamentPublicFixture({ entries: [null, { mine: 'yes' }] }), TOUR_ID)
+        .entries,
+    ).toEqual([
+      { player: { name: null, former: false, no: null }, mine: false },
+      { player: { name: null, former: false, no: null }, mine: false },
+    ]);
+    expect(parseTournamentPublic({ missing: true }, TOUR_ID).entries).toEqual([]);
+  });
+});
+
+// ── My reservations (play-coaches contracts §1) ─────────────────────────────
+
+describe('myTournamentEntries', () => {
+  const HOUR = 3_600_000;
+  const at = (h: number) => new Date(Date.now() + h * HOUR).toISOString();
+  const row = (id: string, over: Record<string, unknown>) =>
+    tournamentListItemFixture({ id, ...over });
+  const mine = (status: string, waitlist_position: number | null = null) => ({
+    entry_id: `e-${status}`,
+    status,
+    waitlist_position,
+  });
+  const pub = parseTournamentsPublic(
+    tournamentsPublicFixture({
+      tournaments: [
+        row('later', { starts_at: at(72), ends_at: at(75), mine: mine('registered') }),
+        row('soon', { starts_at: at(24), ends_at: at(27), mine: mine('waitlisted', 2) }),
+        row('live', {
+          status: 'running',
+          starts_at: at(-1),
+          ends_at: at(2),
+          mine: mine('registered'),
+        }),
+        row('closed-no-show', { status: 'running', starts_at: at(-2), mine: mine('no_show') }),
+        row('not-mine', { mine: null }),
+        row('played-old', {
+          status: 'finished',
+          starts_at: at(-120),
+          ends_at: at(-117),
+          mine: mine('registered'),
+        }),
+        row('played-new', {
+          status: 'finished',
+          starts_at: at(-30),
+          ends_at: at(-27),
+          mine: mine('registered'),
+        }),
+        row('waitlist-never', {
+          status: 'finished',
+          starts_at: at(-40),
+          mine: mine('waitlisted', 1),
+        }),
+        row('left', { starts_at: at(96), ends_at: at(99), mine: mine('withdrawn') }),
+        row('left-old', {
+          status: 'finished',
+          starts_at: at(-100),
+          ends_at: at(-97),
+          mine: mine('withdrawn'),
+        }),
+      ],
+    }),
+  );
+
+  it('files registered and waitlisted entries as upcoming, soonest first', () => {
+    expect(myTournamentEntries(pub).upcoming.map((t) => t.id)).toEqual(['live', 'soon', 'later']);
+  });
+
+  it('files a finished registered entry as played and a withdrawal as cancelled, latest first', () => {
+    const split = myTournamentEntries(pub);
+    expect(split.played.map((t) => t.id)).toEqual(['played-new', 'played-old']);
+    expect(split.cancelled.map((t) => t.id)).toEqual(['left', 'left-old']);
+  });
+
+  it('leaves out a no-show, a waitlist place that never played and a tournament not entered', () => {
+    const split = myTournamentEntries(pub);
+    const ids = [...split.upcoming, ...split.played, ...split.cancelled].map((t) => t.id);
+    expect(ids).not.toContain('closed-no-show');
+    expect(ids).not.toContain('waitlist-never');
+    expect(ids).not.toContain('not-mine');
+  });
+
+  it('hides the played and withdrawn entries a cleared history covers, never an upcoming one', () => {
+    const split = myTournamentEntries(pub, at(-50));
+    expect(split.played.map((t) => t.id)).toEqual(['played-new']);
+    expect(split.cancelled.map((t) => t.id)).toEqual(['left']);
+    expect(split.upcoming).toHaveLength(3);
+  });
+
+  it('is empty while the read is off or not there', () => {
+    const empty = { upcoming: [], played: [], cancelled: [] };
+    expect(myTournamentEntries(undefined)).toEqual(empty);
+    expect(myTournamentEntries(parseTournamentsPublic({ off: true }))).toEqual(empty);
   });
 });

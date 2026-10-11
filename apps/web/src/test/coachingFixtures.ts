@@ -85,6 +85,7 @@ export function coachingAnswer({
         bio_ar: 'عشر سنوات في الملعب، صبور مع المبتدئين.',
         photo_path: ALI_PHOTO,
         sort_order: 1,
+        levels: [],
         venue_ids: [BRANCH_A],
         offers: [
           { lesson_type_id: TYPE_PRIVATE, venue_id: BRANCH_A, price_iqd: PRICES.aliPrivate },
@@ -103,6 +104,7 @@ export function coachingAnswer({
         bio_ar: '',
         photo_path: null,
         sort_order: 2,
+        levels: [],
         venue_ids: [BRANCH_A],
         offers: [{ lesson_type_id: TYPE_COURSE, venue_id: BRANCH_A, price_iqd: PRICES.course }],
       },
@@ -116,6 +118,7 @@ export function coachingAnswer({
               bio_ar: 'الفرع الثاني.',
               photo_path: null,
               sort_order: 3,
+              levels: [],
               venue_ids: [BRANCH_B],
               offers: [{ lesson_type_id: TYPE_B_PRIVATE, venue_id: BRANCH_B, price_iqd: 40000 }],
             },

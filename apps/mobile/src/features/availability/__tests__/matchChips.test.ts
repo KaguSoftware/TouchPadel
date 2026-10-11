@@ -3,8 +3,6 @@ import { isolateLtr, makeT } from '@touch/i18n';
 import {
   chipLineOf,
   chipLines,
-  entryLabelOf,
-  joinableAhead,
   matchTargetOf,
   slotChoiceOptions,
 } from '../matchChips';
@@ -20,7 +18,7 @@ import {
 /**
  * The Book tab's open matches (docs/design/open-matches/guest.md §4.11): the
  * words on a chip, where the chips go on a night, the choice sheet's buttons,
- * where "Join" lands and the entry row. Placement itself (`chipCellKeys`,
+ * where "Join" lands. Placement itself (`chipCellKeys`,
  * `slotActions`) is pinned in features/matches' logic test; this file pins
  * what the sheet makes of it, in both languages.
  */
@@ -200,38 +198,5 @@ describe('matchTargetOf', () => {
 
   it('answers null when nothing is left at that time', () => {
     expect(matchTargetOf('join', [])).toBeNull();
-  });
-});
-
-describe('joinableAhead', () => {
-  it('counts the future matches the guest could join', () => {
-    const byStart = slotMatchesByStart([
-      slot(),
-      slot({ mine: true }),
-      slot({ seatsLeft: 0 }),
-      slot({ startAt: LATER, seatsLeft: 2 }),
-      slot({ startAt: '2026-10-01T10:00:00.000Z' }),
-    ]);
-    expect(joinableAhead(byStart, Date.parse('2026-10-01T12:00:00.000Z'))).toBe(2);
-    expect(joinableAhead(byStart, AT_MS)).toBe(1);
-  });
-});
-
-describe('entryLabelOf', () => {
-  it('asks a signed-out guest to sign in', () => {
-    expect(entryLabelOf({ signedIn: false, joinable: 3 }, en, 'en')).toBe('Open matches · Sign in');
-    expect(entryLabelOf({ signedIn: false, joinable: 0 }, ar, 'ar')).toBe(
-      'المباريات المفتوحة · تسجيل الدخول',
-    );
-  });
-
-  it('counts what is coming up, or names the list', () => {
-    expect(entryLabelOf({ signedIn: true, joinable: 0 }, en, 'en')).toBe('Open matches');
-    expect(entryLabelOf({ signedIn: true, joinable: 3 }, en, 'en')).toBe(
-      `${n(3)} open matches coming up · Join`,
-    );
-    expect(entryLabelOf({ signedIn: true, joinable: 1 }, ar, 'ar')).toBe(
-      'مباراة مفتوحة قادمة · انضمام',
-    );
   });
 });

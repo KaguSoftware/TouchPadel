@@ -140,32 +140,3 @@ export function matchTargetOf(
   if (fits.length === 1) return { matchId: fits[0]!.matchId };
   return found.length > 0 ? 'list' : null;
 }
-
-/** Matches still to start that the guest could join: the entry row's count. */
-export function joinableAhead(
-  byStart: ReadonlyMap<number, readonly SlotMatch[]>,
-  nowMs: number,
-): number {
-  let n = 0;
-  for (const [ms, list] of byStart) {
-    if (ms <= nowMs) continue;
-    for (const m of list) if (joinable(m)) n++;
-  }
-  return n;
-}
-
-/**
- * The entry row's words (§4.11): signed out "Open matches · Sign in";
- * signed in "3 open matches coming up · Join", or "Open matches" with none.
- */
-export function entryLabelOf(
-  args: { signedIn: boolean; joinable: number },
-  t: T,
-  locale: Locale,
-): string {
-  if (!args.signedIn) return t('matches.book.entrySignIn');
-  if (args.joinable === 0) return t('matches.book.entry');
-  return t('matches.book.entryJoin', {
-    matches: countPhrase('matches.count.openMatchesSoon', args.joinable, locale),
-  });
-}

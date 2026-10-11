@@ -80,7 +80,7 @@ import { clearPendingLesson, getPendingLesson } from '../features/coaching/pendi
 import { BookingSheet } from '../components/BookingSheet';
 import { CoachStatusProvider } from '../features/coach/CoachStatusProvider';
 import CoachingLayout from '../../app/(coaching)/_layout';
-import CoachesScreen from '../../app/(coaching)/coaches';
+import CoachesScreen from '../../app/(tabs)/coaches';
 import CoachDetailScreen from '../../app/(coaching)/coach/[id]';
 import LessonTimesScreen from '../../app/(coaching)/lesson-times';
 import ClassesScreen from '../../app/(coaching)/classes';
@@ -137,10 +137,11 @@ const CASES: SmokeCase[] = [
     labelKey: 'coaching.guest.coaches.title',
   },
   {
+    // The Coaches tab (play-coaches contracts §6).
     route: 'coaches',
     Component: CoachesScreen,
-    // A list primary carries no text of its own (U5): the coach card's kind pill is in it.
-    nearbyKey: 'coaching.common.kindsTaught.private',
+    // A list primary carries no text of its own (U5): the line under the grid is beside it.
+    nearbyKey: 'coachShowcase.fairOrder',
     options: { session: 'out', queryData: publicSeeds() },
   },
   {
@@ -858,6 +859,38 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
   });
 
+  it('the Coaches tab: a level switch, cards to the coach, the ways to classes and My lessons', () => {
+    const screen = renderRoute(CoachesScreen, { locale, session: 'out', queryData: publicSeeds() });
+    try {
+      // Starts on All (no play level yet) with the line for it.
+      expect(screen.getByText(t('coachShowcase.levelLine.all'))).toBeTruthy();
+      expect(screen.getByTestId(`coaches.row.${COACH_ID}`)).toBeTruthy();
+
+      // The fixture's coach teaches beginners and intermediates.
+      fireEvent.press(screen.getByTestId('coaches.level.beginner'));
+      expect(screen.getByText(t('coachShowcase.levelLine.beginner'))).toBeTruthy();
+      expect(screen.getByTestId(`coaches.row.${COACH_ID}`)).toBeTruthy();
+
+      fireEvent.press(screen.getByTestId('coaches.level.advanced'));
+      expect(screen.queryByTestId(`coaches.row.${COACH_ID}`)).toBeNull();
+      expect(screen.getByText(t('coachShowcase.emptyLevel.title'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('coaches.show-all'));
+      expect(screen.getByText(t('coachShowcase.levelLine.all'))).toBeTruthy();
+
+      fireEvent.press(screen.getByTestId(`coaches.row.${COACH_ID}`));
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: { pathname: '/coach/[id]', params: { id: COACH_ID, venueId: TEST_VENUE_ID } },
+      });
+      fireEvent.press(screen.getByTestId('coaches.classes'));
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/classes' });
+      fireEvent.press(screen.getByTestId('coaches.my-lessons'));
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/my-lessons' });
+    } finally {
+      screen.unmount();
+    }
+  });
+
   it('switched off at the branch: the notice, no list (rule 7)', () => {
     const screen = renderRoute(CoachesScreen, { locale, session: 'out', queryData: venue(false) });
     try {
@@ -891,25 +924,18 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
   });
 
-  it('the Book tab’s sheet has "Lessons with a coach" only while the branch has coaching on', () => {
-    // Tomorrow, which has times whatever the hour the suite runs at: the rows sit under the lanes.
+  it('the Book tab’s sheet carries no lessons card, coaching on or off: the Coaches tab has them', () => {
+    // Tomorrow, which has times whatever the hour the suite runs at: the lanes are drawn.
     const tomorrow = listBookableDates(new Date(), 'Asia/Baghdad', 6, venueSettingsFixture())[1]!;
-    const off = renderRoute(Sheet, { locale, queryData: sheetSeeds(false) });
-    fireEvent.press(off.getByTestId(`book.sheet.day.${tomorrow}`));
-    try {
-      expect(off.queryByTestId('book.sheet.lessons')).toBeNull();
-    } finally {
-      off.unmount();
-    }
-    const on = renderRoute(Sheet, { locale, queryData: sheetSeeds(true) });
-    fireEvent.press(on.getByTestId(`book.sheet.day.${tomorrow}`));
-    try {
-      const row = on.getByTestId('book.sheet.lessons');
-      expect(within(row).getByText(t('coaching.guest.entry.book'))).toBeTruthy();
-      fireEvent.press(row);
-      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/coaches' });
-    } finally {
-      on.unmount();
+    for (const on of [false, true]) {
+      const sheet = renderRoute(Sheet, { locale, queryData: sheetSeeds(on) });
+      fireEvent.press(sheet.getByTestId(`book.sheet.day.${tomorrow}`));
+      try {
+        expect(sheet.queryByTestId('book.sheet.lessons')).toBeNull();
+        expect(sheet.queryByText(t('coaching.guest.entry.book'))).toBeNull();
+      } finally {
+        sheet.unmount();
+      }
     }
   });
 

@@ -117,9 +117,11 @@ describe('navigation targets', () => {
         .filter((r) => !r.endsWith('_layout'))
         .map((r) => '/' + r.replace(/\/index$/, '')),
     );
-    // A non-tab group adds nothing to the URL: (coaching)/coaches is `/coaches`.
+    // A group adds nothing to the URL: (coaching)/coach/[id] is `/coach/[id]`,
+    // and a tab is reached bare too: (tabs)/coaches is `/coaches` (the Coaches
+    // tab, play-coaches contracts §1).
     for (const r of [...routes]) {
-      const bare = r.replace(/\/\((?!tabs\))[^)]+\)/g, '');
+      const bare = r.replace(/\/\([^)]+\)/g, '');
       if (bare !== r) routes.add(bare);
     }
     // `/` and `/(tabs)` resolve to the tab group's own index.

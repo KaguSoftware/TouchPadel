@@ -246,6 +246,10 @@ describe.skipIf(!up)('hardening fixes (0026)', () => {
       p_device_id: `ROTATE-fresh-${Date.now()}`,
     });
     expect(locked.error?.message).toContain('PIN_LOCKED');
+    // Lift the lockout this case set: the window is shared state, and a suite
+    // that proves the manager PIN as `prep` inside the next 5 minutes
+    // (rls-matrix.test.ts) would otherwise read PIN_LOCKED.
+    await svc.schema('app').from('pin_attempts').delete().like('device_id', `${attackerUid}:%`);
 
     // A different caller with the correct PIN is not collateral damage.
     const bystander = await signedInClient(SEED_STAFF.court_desk);

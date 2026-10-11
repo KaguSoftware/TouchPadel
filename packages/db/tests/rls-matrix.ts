@@ -6574,4 +6574,15 @@ export const matrix: MatrixRule[] = [
     note: '0333: no client write grant: app.reward_sweep (service role) only',
     drop: 32,
   },
+  // ── 0334 play_profile_coach_levels (play-profile-coach-levels.test.ts) ──
+  // The play survey's writer: the caller's own profile only. An anonymous café
+  // session has no profile (ACCOUNT_REQUIRED); everyone else is refused the bad
+  // level (INVALID_PLAY_PROFILE), so nothing is written.
+  {
+    kind: 'rpc', schema: 'app', name: 'set_my_play_profile',
+    args: { p_level: 'pro', p_years: null, p_wants: null },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0334: the caller\'s own profile only; an unknown level is INVALID_PLAY_PROFILE, so nothing is written',
+    drop: 33,
+  },
 ];

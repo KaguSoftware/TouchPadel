@@ -26,10 +26,7 @@ import {
 import { useHistoryClearedAt } from '../../src/features/booking/history';
 import { matchLineOf, matchPillStatus, matchShareOf } from '../../src/features/booking/matchRows';
 import { useMyMatches, useMyTickets } from '../../src/features/matches/hooks';
-import {
-  SEATS_TOTAL,
-  type MyMatchRow,
-} from '../../src/features/matches/logic';
+import { SEATS_TOTAL, type MyMatchRow } from '../../src/features/matches/logic';
 import {
   mergeReservationLists,
   type ReservationItem,
@@ -54,6 +51,15 @@ import {
 } from '../../src/features/coaching/logic';
 import { lessonStateOf, moneyLineOf, stateLine } from '../../src/features/coaching/state';
 import { LessonRow } from '../../src/components/coaching';
+import { useTournamentsPublic } from '../../src/features/tournaments/hooks';
+import {
+  anyTournaments,
+  myTournamentEntries,
+  timezoneOf,
+  tournamentName,
+  type MyTournamentEntries,
+  type TourListItem,
+} from '../../src/features/tournaments/logic';
 import { DEFAULT_TZ } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
 import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
@@ -86,6 +92,30 @@ type Tab = 'upcoming' | 'played' | 'cancelled';
 
 /** The two tabs that look BACK: same timeline rail, same footer, own filter. */
 const PAST_TABS = new Set<Tab>(['played', 'cancelled']);
+
+/** A row of the lists: a booking or a match (mergeReservationLists), or a tournament entry. */
+type ListItem = ReservationItem | { kind: 'tournament'; startAt: string; row: TourListItem };
+
+const NO_TOURNAMENTS: MyTournamentEntries = { upcoming: [], played: [], cancelled: [] };
+
+const startMs = (i: ListItem) => Date.parse(i.startAt) || 0;
+
+/** `base` (already in the order it wants) with the tournament entries merged in by start. */
+function withTournaments(
+  base: readonly ReservationItem[],
+  rows: readonly TourListItem[],
+  order: 'asc' | 'desc',
+): ListItem[] {
+  if (rows.length === 0) return [...base];
+  const merged: ListItem[] = [
+    ...base,
+    ...rows.map((row): ListItem => ({ kind: 'tournament', startAt: row.startsAt, row })),
+  ];
+  // Stable: rows starting together keep the order mergeReservationLists gave them.
+  return merged.sort((a, b) =>
+    order === 'asc' ? startMs(a) - startMs(b) : startMs(b) - startMs(a),
+  );
+}
 
 /**
  * My reservations tab (design 2026-08-31; "more life" pass 2026-09-05).
@@ -150,6 +180,20 @@ const PAST_TABS = new Set<Tab>(['played', 'cancelled']);
  * booking has no `guest_id`, so it never comes back from `my_reservations` too.
  * The match rows ride on their own query: a failed read there never turns the
  * bookings into an error screen.
+ *
+ * TOURNAMENTS (play-coaches contracts §1, Majed 2026-10-11: "my reservations
+ * … takes … tournaments reservations") join the same lists from the guest's
+ * own entries on `tournaments_public` (`myTournamentEntries`): registered or on
+ * the waitlist and not yet over is an Upcoming row (and may be the hero),
+ * registered in a finished one is Played, withdrawn is Cancelled. A no-show
+ * and a waitlist place that never turned into one are neither, the bookings'
+ * rule. Each opens the tournament. Like the lessons, the read runs only while
+ * some branch has tournaments on and rides on its own query. The history link
+ * still counts the booking history alone: tournaments are not in it.
+ *
+ * LESSONS stay a section of their own above the Upcoming list (their past is
+ * My lessons'), and like a hold or a filling match they keep the screen off
+ * "No bookings yet".
  */
 
 export default function BookingsScreen() {
@@ -168,15 +212,24 @@ export default function BookingsScreen() {
   const branches = useBranches();
   const lessonsOn = anyCoaching(branches.data) && !!session;
   const lessons = useMyLessons('upcoming', { enabled: lessonsOn });
+  // TOURNAMENTS: the guest's own entries, the same gate as the lessons.
+  const tournamentsOn = anyTournaments(branches.data) && !!session;
+  const tournaments = useTournamentsPublic({ enabled: tournamentsOn });
   const { refetch: refetchBookings } = bookings;
   const { refetch: refetchMatches } = matches;
   const { refetch: refetchLessons } = lessons;
+  const { refetch: refetchTournaments } = tournaments;
   // The lessons too (MB-19), gated by hand: refetch() ignores `enabled`, and a
-  // read that is off must stay off.
+  // read that is off must stay off. The tournaments the same way.
   const refetchAll = useCallback(
     () =>
-      Promise.all([refetchBookings(), refetchMatches(), lessonsOn ? refetchLessons() : null]),
-    [refetchBookings, refetchMatches, refetchLessons, lessonsOn],
+      Promise.all([
+        refetchBookings(),
+        refetchMatches(),
+        lessonsOn ? refetchLessons() : null,
+        tournamentsOn ? refetchTournaments() : null,
+      ]),
+    [refetchBookings, refetchMatches, refetchLessons, refetchTournaments, lessonsOn, tournamentsOn],
   );
   const pull = usePullRefresh(refetchAll);
   const [tab, setTab] = useState<Tab>('upcoming');
@@ -226,6 +279,25 @@ export default function BookingsScreen() {
     () => mergeReservationLists(bookings.data ?? [], matches.data ?? [], now, cleared.data ?? null),
     [bookings.data, matches.data, now, cleared.data],
   );
+  // The guest's tournament entries, filed the same way and merged in by start;
+  // "Clear history" hides the played and withdrawn ones it covers.
+  const tours = useMemo(
+    () =>
+      tournamentsOn ? myTournamentEntries(tournaments.data, cleared.data ?? null) : NO_TOURNAMENTS,
+    [tournamentsOn, tournaments.data, cleared.data],
+  );
+  const upcomingItems = useMemo(
+    () => withTournaments(upcoming, tours.upcoming, 'asc'),
+    [upcoming, tours.upcoming],
+  );
+  const playedItems = useMemo(
+    () => withTournaments(played, tours.played, 'desc'),
+    [played, tours.played],
+  );
+  const cancelledItems = useMemo(
+    () => withTournaments(cancelled, tours.cancelled, 'desc'),
+    [cancelled, tours.cancelled],
+  );
   // The wallet line under OPEN MATCHES: read only while that section shows.
   const wallet = useMyTickets(openMatches.length > 0);
 
@@ -266,13 +338,13 @@ export default function BookingsScreen() {
   const sections = useMemo(() => {
     switch (tab) {
       case 'upcoming':
-        return [{ title: t('booking.upcoming'), key: 'upcoming', data: upcoming }];
+        return [{ title: t('booking.upcoming'), key: 'upcoming', data: upcomingItems }];
       case 'played':
-        return [{ title: t('booking.played'), key: 'played', data: played }];
+        return [{ title: t('booking.played'), key: 'played', data: playedItems }];
       case 'cancelled':
-        return [{ title: t('booking.cancelledTab'), key: 'cancelled', data: cancelled }];
+        return [{ title: t('booking.cancelledTab'), key: 'cancelled', data: cancelledItems }];
     }
-  }, [t, tab, upcoming, played, cancelled]);
+  }, [t, tab, upcomingItems, playedItems, cancelledItems]);
 
   // Pick the hold back up where Review left it. Everything the screen needs is
   // on the row, so this never depends on the tap that created the hold.
@@ -289,9 +361,7 @@ export default function BookingsScreen() {
         courtNameAr: courts.data?.find((c) => c.id === row.court_id)?.name_ar ?? '',
         startAt: row.start_at,
         durationMin: String(
-          Math.round(
-            (new Date(row.end_at).getTime() - new Date(row.start_at).getTime()) / 60_000,
-          ),
+          Math.round((new Date(row.end_at).getTime() - new Date(row.start_at).getTime()) / 60_000),
         ),
       },
     });
@@ -299,8 +369,7 @@ export default function BookingsScreen() {
   // A hold with an online deposit still open goes back to ITS payment screen
   // (build-contracts-2026-09-27 §4), never to Review: the attempt, not a new
   // one, is what the guest has to finish.
-  const finishPayment = (ref: string) =>
-    router.push({ pathname: '/pay/status', params: { ref } });
+  const finishPayment = (ref: string) => router.push({ pathname: '/pay/status', params: { ref } });
 
   // "20,000 IQD paid online · 20,000 IQD at the desk" on a booking with a
   // deposit; the figures are the server's (my_reservations), none computed here.
@@ -362,7 +431,8 @@ export default function BookingsScreen() {
     </View>
   );
 
-  const openMatch = (matchId: string) => router.push({ pathname: '/match/[id]', params: { id: matchId } });
+  const openMatch = (matchId: string) =>
+    router.push({ pathname: '/match/[id]', params: { id: matchId } });
   const matchLine = (row: MyMatchRow) => matchLineOf(row, { t, locale, timezone: tz });
   // A match row's heading: its court once it has one, and always the words
   // "Open match", which is the badge §4.16 asks the row to carry.
@@ -421,7 +491,11 @@ export default function BookingsScreen() {
               day={`${formatWeekdayShort(start, locale, tz)} · ${formatDate(start, locale, tz)}`}
               category={row.category}
               seatsTaken={row.seatsTaken}
-              seatsLeft={countPhrase('matches.count.seatsLeft', Math.max(0, SEATS_TOTAL - row.seatsTaken), locale)}
+              seatsLeft={countPhrase(
+                'matches.count.seatsLeft',
+                Math.max(0, SEATS_TOTAL - row.seatsTaken),
+                locale,
+              )}
               line={matchLine(row)}
               onPress={() => openMatch(row.matchId)}
             />
@@ -434,9 +508,17 @@ export default function BookingsScreen() {
   // A held slot counts: showing "No bookings yet" over a live hold is exactly
   // the blind spot the held section exists to close. Computed up here because
   // the tabs below need it — an account with nothing in it gets the empty
-  // state, not two chips both reading zero. A match still filling counts too.
+  // state, not two chips both reading zero. A match still filling counts too,
+  // and so do an upcoming lesson and any tournament entry the tabs list.
   const noBookings =
-    holds.length === 0 && openMatches.length === 0 && upcoming.length === 0 && history.length === 0;
+    holds.length === 0 &&
+    openMatches.length === 0 &&
+    upcoming.length === 0 &&
+    history.length === 0 &&
+    (lessons.data ?? []).length === 0 &&
+    tours.upcoming.length === 0 &&
+    tours.played.length === 0 &&
+    tours.cancelled.length === 0;
 
   // The two tabs. BOTH render whenever there is anything to show, including at
   // zero: a guest with no played games still has to be able to tap "0 played"
@@ -452,21 +534,21 @@ export default function BookingsScreen() {
       <FilterChip
         testID="bookings.filter.upcoming"
         icon={CalendarIcon}
-        label={t('booking.upcomingCount', { count: upcoming.length })}
+        label={t('booking.upcomingCount', { count: upcomingItems.length })}
         selected={tab === 'upcoming'}
         onPress={() => setTab('upcoming')}
       />
       <FilterChip
         testID="bookings.filter.played"
         icon={CheckIcon}
-        label={t('booking.playedCount', { count: played.length })}
+        label={t('booking.playedCount', { count: playedItems.length })}
         selected={tab === 'played'}
         onPress={() => setTab('played')}
       />
       <FilterChip
         testID="bookings.filter.cancelled"
         icon={CloseIcon}
-        label={t('booking.cancelledCount', { count: cancelled.length })}
+        label={t('booking.cancelledCount', { count: cancelledItems.length })}
         selected={tab === 'cancelled'}
         onPress={() => setTab('cancelled')}
       />
@@ -637,8 +719,7 @@ export default function BookingsScreen() {
     }
   };
 
-  const openBooking = (id: string) =>
-    router.push({ pathname: '/booking/[id]', params: { id } });
+  const openBooking = (id: string) => router.push({ pathname: '/booking/[id]', params: { id } });
 
   const durationLabel = (row: BookingRow) =>
     t('booking.durationMinutes', {
@@ -743,7 +824,7 @@ export default function BookingsScreen() {
    * they share one footer and differ only in the strings.
    */
   const pastFooter = (isPlayed: boolean) => {
-    const empty = (isPlayed ? played : cancelled).length === 0;
+    const empty = (isPlayed ? playedItems : cancelledItems).length === 0;
     return (
       <>
         {empty ? (
@@ -861,10 +942,120 @@ export default function BookingsScreen() {
     );
   };
 
-  const renderItem = (item: ReservationItem, index: number, key: string, total: number) => {
+  // ── Tournament entries ──────────────────────────────────────────────────
+  const openTournament = (id: string) =>
+    router.push({ pathname: '/tournament/[id]', params: { id } });
+  const tourTz = (row: TourListItem) =>
+    tournaments.data ? timezoneOf(tournaments.data, row.venueId) : tz;
+  // "Tournament · Americano": the badge's job on a match row ("Open match").
+  const tourKind = (row: TourListItem) =>
+    [
+      t('tournaments.common.tournament'),
+      row.format ? t(`tournaments.common.format.${row.format}`) : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  // The guest's own entry, which the pill alone cannot say.
+  const tourEntryLine = (row: TourListItem) =>
+    row.mine?.status === 'waitlisted'
+      ? row.mine.waitlistPosition !== null
+        ? t('tournaments.guest.detail.waitlistPosition', {
+            position: isolate(String(row.mine.waitlistPosition)),
+          })
+        : t('tournaments.common.entryStatus.waitlisted')
+      : t('tournaments.common.entryStatus.registered');
+  // Registered reads as a confirmed booking; a waitlist place as pending.
+  const tourPill = (row: TourListItem) =>
+    row.mine?.status === 'waitlisted' ? 'pending' : 'confirmed';
+  const tourFee = (row: TourListItem) =>
+    row.entryFeeIqd > 0 ? formatIQD(row.entryFeeIqd, locale) : t('tournaments.common.free');
+  const tourRange = (row: TourListItem) => {
+    const start = new Date(row.startsAt);
+    const zone = tourTz(row);
+    return row.endsAt
+      ? formatTimeRange(start, new Date(row.endsAt), locale, zone)
+      : formatTime(start, locale, zone);
+  };
+
+  const renderTournamentHero = (row: TourListItem) => {
+    const start = new Date(row.startsAt);
+    const zone = tourTz(row);
+    const proximity = startProximity({ start_at: row.startsAt } as BookingRow, now, zone);
+    return (
+      <NextUpCard
+        testID="bookings.next-up"
+        label={`${t('booking.nextUp')} · ${t('tournaments.common.tournament')}`}
+        courtName={tournamentName(row, locale)}
+        status={tourPill(row)}
+        when={`${formatWeekdayShort(start, locale, zone)} · ${formatDate(start, locale, zone)}`}
+        timeRange={tourRange(row)}
+        price={tourFee(row)}
+        proximity={proximityLabel(proximity)}
+        imminent={proximity.unit !== 'hours' && proximity.unit !== 'days'}
+        ctaLabel={t('seating.viewTournament')}
+        onPress={() => openTournament(row.id)}
+        note={`${tourKind(row)} · ${tourEntryLine(row)}`}
+      />
+    );
+  };
+
+  const renderUpcomingTournament = (row: TourListItem) => {
+    const start = new Date(row.startsAt);
+    return (
+      <UpcomingBookingRow
+        testID={`bookings.tournament.${row.id}`}
+        date={start}
+        courtName={tournamentName(row, locale)}
+        weekday={formatWeekdayShort(start, locale, tourTz(row))}
+        timeRange={tourRange(row)}
+        price={tourFee(row)}
+        status={tourPill(row)}
+        onPress={() => openTournament(row.id)}
+        note={`${tourKind(row)} · ${tourEntryLine(row)}`}
+      />
+    );
+  };
+
+  const renderPastTournament = (
+    row: TourListItem,
+    tabKey: string,
+    index: number,
+    total: number,
+  ) => {
+    const start = new Date(row.startsAt);
+    const zone = tourTz(row);
+    const withdrawn = tabKey === 'cancelled';
+    return (
+      <PastBookingRow
+        testID={`bookings.tournament.${row.id}`}
+        courtName={tournamentName(row, locale)}
+        when={`${formatDate(start, locale, zone)} · ${formatTime(start, locale, zone)}`}
+        price={null}
+        status={withdrawn ? 'cancelled' : 'completed'}
+        note={
+          withdrawn
+            ? `${tourKind(row)} · ${t('tournaments.common.entryStatus.withdrawn')}`
+            : tourKind(row)
+        }
+        first={index === 0}
+        last={index === total - 1}
+        onPress={() => openTournament(row.id)}
+      />
+    );
+  };
+
+  const renderItem = (item: ListItem, index: number, key: string, total: number) => {
+    if (item.kind === 'tournament') {
+      if (key === 'upcoming') {
+        return index === 0 ? renderTournamentHero(item.row) : renderUpcomingTournament(item.row);
+      }
+      return renderPastTournament(item.row, key, index, total);
+    }
     if (key === 'upcoming') {
       if (item.kind === 'match') {
-        return index === 0 ? renderMatchHero(item.row, item.state) : renderUpcomingMatch(item.row, item.state);
+        return index === 0
+          ? renderMatchHero(item.row, item.state)
+          : renderUpcomingMatch(item.row, item.state);
       }
       return index === 0 ? renderHero(item.row) : renderUpcoming(item.row);
     }
@@ -893,7 +1084,13 @@ export default function BookingsScreen() {
       ) : (
         <SectionList
           sections={sections}
-          keyExtractor={(item) => (item.kind === 'booking' ? item.row.id : `match-${item.row.matchId}`)}
+          keyExtractor={(item) =>
+            item.kind === 'booking'
+              ? item.row.id
+              : item.kind === 'match'
+                ? `match-${item.row.matchId}`
+                : `tournament-${item.row.id}`
+          }
           ListHeaderComponent={header}
           stickySectionHeadersEnabled={false}
           showsVerticalScrollIndicator={false}
@@ -968,7 +1165,9 @@ export default function BookingsScreen() {
               </Pressable>
             ) : null
           }
-          renderItem={({ item, index, section }) => renderItem(item, index, section.key, section.data.length)}
+          renderItem={({ item, index, section }) =>
+            renderItem(item, index, section.key, section.data.length)
+          }
         />
       )}
     </Screen>

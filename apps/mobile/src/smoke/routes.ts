@@ -53,6 +53,9 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: '(tabs)/_layout.tsx', route: 'tabs', primary: 'tabs.book' },
   { file: '(tabs)/index.tsx', route: 'book', primary: 'book.view-availability' },
   { file: '(tabs)/bookings.tsx', route: 'bookings', primary: 'bookings.filter.upcoming' },
+  // Open matches and tournaments together (play-coaches contracts §7), cased by
+  // play.smoke.test.tsx: its one action, "Start a match", beside the title.
+  { file: '(tabs)/play.tsx', route: 'play', primary: 'play.start' },
   { file: '(tabs)/profile.tsx', route: 'profile', primary: 'profile.settings' },
   // ── booking ───────────────────────────────────────────────────────────────
   { file: 'booking/[id].tsx', route: 'booking-detail', primary: 'booking-detail.cancel' },
@@ -69,6 +72,8 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // ── profile ───────────────────────────────────────────────────────────────
   { file: 'settings.tsx', route: 'settings', primary: 'settings.language' },
   { file: 'profile-edit.tsx', route: 'profile-edit', primary: 'profile-edit.name' },
+  // The sign-up play survey (play-coaches contracts §8), cased by playSurvey.smoke.test.tsx.
+  { file: 'play-survey.tsx', route: 'play-survey', primary: 'play-survey.skip' },
   { file: 'change-password.tsx', route: 'change-password', primary: 'change-password.submit' },
   { file: 'delete-account.tsx', route: 'delete-account', primary: 'delete-account.confirm' },
   { file: 'accept-terms.tsx', route: 'accept-terms', primary: 'accept-terms.accept' },
@@ -168,9 +173,7 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // docs/design/open-matches/guest.md §4.27, cased by matches.smoke.test.tsx
   // in EN and AR. Two spellings are fixed like booking/[id]: `match/[id]` →
   // `match-detail` and `m/[token]` → `match-link`.
-  // The header's "+" (matches.start-one) is a native bar item, which the smoke
-  // mocks never draw, so the list's primary is its first category chip.
-  { file: 'matches.tsx', route: 'matches', primary: 'matches.filter.all' },
+  // The list itself is the Play tab now (`(tabs)/play.tsx`, above).
   { file: 'match/[id].tsx', route: 'match-detail', primary: 'match-detail.join' },
   { file: 'match-new.tsx', route: 'match-new', primary: 'match-new.start' },
   { file: 'm/[token].tsx', route: 'match-link', primary: 'match-link.sign-in' },
@@ -190,7 +193,8 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
     primary: 'coaching-stack.bar',
     todo: 'an expo-router Stack layout renders only inside a live router, which Node has not got',
   },
-  { file: '(coaching)/coaches.tsx', route: 'coaches', primary: 'coaches.list' },
+  // The Coaches tab (play-coaches contracts §6) took over `/coaches`.
+  { file: '(tabs)/coaches.tsx', route: 'coaches', primary: 'coaches.list' },
   { file: '(coaching)/coach/[id].tsx', route: 'coach-detail', primary: 'coach-detail.offers' },
   { file: '(coaching)/classes.tsx', route: 'classes', primary: 'classes.list' },
   { file: '(coaching)/class/[id].tsx', route: 'class-detail', primary: 'class-detail.join' },
@@ -209,7 +213,6 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
     primary: 'tournaments-stack.bar',
     todo: 'an expo-router Stack layout renders only inside a live router, which Node has not got',
   },
-  { file: '(tournaments)/tournaments.tsx', route: 'tournaments', primary: 'tournaments.list' },
   {
     file: '(tournaments)/tournament/[id].tsx',
     route: 'tournament-detail',

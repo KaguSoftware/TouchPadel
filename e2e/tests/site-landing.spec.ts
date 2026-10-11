@@ -10,8 +10,8 @@
  * court stays, Book a court on its net; Arabic is right to left in natural case; and an address that matches no page
  * gets the site's own 404, in its language and direction, not Next's bare default.
  *
- * The local stack's venue phone is the seed's 00995419010203 (unverified, like
- * production's), so the booking buttons exist here; the no-phone fallback is covered by
+ * The local stack's venue phone is the seed's +964 782 255 5777 (the front desk's,
+ * since 2026-10-11), so the booking buttons exist here; the no-phone fallback is covered by
  * the page's unit test. English runs in `chromium-en`, the @ar cases in `chromium-ar`
  * (playwright.config.ts).
  */
@@ -306,7 +306,7 @@ test.describe('site home @ar', () => {
     // The printed desk number keeps its digit groups in order inside Arabic text.
     const number = page.locator('#visit .tp-visit__number');
     await expect(number).toHaveAttribute('dir', 'ltr');
-    await expect(number).toHaveText('+995 419 010 203');
+    await expect(number).toHaveText('+964 782 255 5777');
   });
 
   test('nothing scrolls sideways at 360 px in Arabic', async ({ page }) => {
