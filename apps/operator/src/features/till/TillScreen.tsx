@@ -79,9 +79,10 @@ export function TillScreen() {
   /** Basket line key whose note dialog is open — the line itself is read from `basket`. */
   const [noteLineKey, setNoteLineKey] = useState<string | null>(null);
   const [basket, setBasket] = useState<BasketLine[]>([]);
-  /* The basket is short by default — the item grid keeps the screen — and the
-     cashier opens it taller to read a long order before sending. */
-  const [basketExpanded, setBasketExpanded] = useState(false);
+  /* The basket is open by default, and opens again whenever a line lands, so
+     the cashier sees each addition arrive without reaching for the chevron;
+     they can still fold it to give the item grid the screen. */
+  const [basketExpanded, setBasketExpanded] = useState(true);
   const [sendError, setSendError] = useState<unknown>(null);
   const [sending, setSending] = useState(false);
   const [newTab, setNewTab] = useState<{ reservationId?: string } | null>(null);
@@ -194,6 +195,7 @@ export function TillScreen() {
       setSheetItem(item);
       return;
     }
+    setBasketExpanded(true);
     setBasket((b) =>
       mergeQuickLine(b, {
         key: crypto.randomUUID(),
@@ -495,6 +497,7 @@ export function TillScreen() {
           onClose={() => setSheetItem(null)}
           onAdd={(line) => {
             setBasket((b) => [...b, line]);
+            setBasketExpanded(true);
             setSheetItem(null);
           }}
         />

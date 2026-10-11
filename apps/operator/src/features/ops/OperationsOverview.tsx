@@ -35,6 +35,7 @@
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import { canAccess, useAuth } from '../../lib/auth';
+import { useWorkspaceOrNull } from '../../routes/__root';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatDate, formatDateTime, formatNumber, formatTime, type MessageKey } from '@touch/i18n';
@@ -172,9 +173,13 @@ export function useFloorNowHeading(): { subtitle: string | undefined; actions: R
 export function OperationsOverviewScreen() {
   const { staff } = useAuth();
   const navigate = useNavigate();
+  const workspace = useWorkspaceOrNull();
   // Whoever holds Observe reads the floor on its overview, so /ops is not a
-  // second copy of it (the "Online refunds" link still lands here).
-  const toObserve = canAccess(staff?.role, '/observation');
+  // second copy of it (the "Online refunds" link still lands here). Not in
+  // the Operations workspace, though: /ops is its home, and sending the owner
+  // on to /observation there swapped the rail straight back to Management,
+  // so an owner could never switch into Operations.
+  const toObserve = workspace?.active !== 'manager' && canAccess(staff?.role, '/observation');
   useEffect(() => {
     if (toObserve) void navigate({ to: '/observation', replace: true });
   }, [toObserve, navigate]);

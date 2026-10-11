@@ -68,7 +68,7 @@ import {
 } from '@touch/court3d/spec';
 import { brand, shadows, space, useTheme, withAlpha } from '../theme';
 import { Button, SegmentedControl } from './ui';
-import { CourtLaneRow, DayChip, MatchEntryRow } from './booking';
+import { CourtLaneRow, DayChip, MatchEntryRow, useSwipeTrack } from './booking';
 import { WifiOffIcon } from './icons';
 import { SkeletonList } from './states';
 import { ErrorAlert, NoticeSheet } from './overlays';
@@ -186,12 +186,41 @@ export function BookingSheet({
   // fresh at 0 anyway and the ref below is simply null that time round.
   const gridRef = useRef<ScrollView>(null);
   /**
+   * The day strip: a swipe track, not a ScrollView (useSwipeTrack in
+   * ./booking: on iOS 26 the tab bar fades whichever scroll view it takes,
+   * and the sheet now has none for it to take). Laid out left to right in
+   * both directions, the nights reversed in RTL, so tonight is at the start
+   * edge and the strip opens there: x = 0, or its far end in RTL.
+   */
+  const [stripBoxW, setStripBoxW] = useState(0);
+  const [stripContentW, setStripContentW] = useState(0);
+  const stripMaxX = Math.max(0, stripContentW - stripBoxW);
+  const stripRtl = dir === 'rtl';
+  const { translateX: stripTranslateX, panHandlers: stripPanHandlers } = useSwipeTrack({
+    maxX: stripMaxX,
+    startX: stripRtl ? stripMaxX : 0,
+    // Re-anchored when the nights' width changes (they load in): the strip
+    // has nothing a guest left mid-way that a reload must keep.
+    resetKey: `${dir}|${Math.round(stripMaxX)}`,
+  });
+  /**
    * The two court cards' real height. GRID_H is sized to iOS's text metrics;
    * Android's line boxes come out a few points taller, and at a fixed 240 the
    * second card's foot ran past the sheet's edge (owner, 2026-09-29). The block
    * takes whichever is taller, so iOS keeps its 240 exactly.
    */
   const [gridContentH, setGridContentH] = useState(0);
+  /** The height the block asks for; a short phone's card gives it less. */
+  const gridWantH = Math.max(GRID_H + ENTRY_H * entries, gridContentH);
+  /**
+   * Whether the block gave way, decided in the block's own onLayout against
+   * the height that same render asked for. Comparing the latest content
+   * height to a box laid out one render earlier said "overflowing" for a frame
+   * while the grid was being measured, swapped the View for a ScrollView and
+   * back, and remounted every lane mid-layout: an RTL lane then opened away
+   * from its first time (guest report, 2026-10-11).
+   */
+  const [gridScrolls, setGridScrolls] = useState(false);
   useEffect(() => {
     gridRef.current?.scrollTo({ y: 0, animated: false });
   }, [a.gridKey]);
@@ -333,25 +362,29 @@ export function BookingSheet({
       </Text>
     );
   } else {
-    grid = (
+    const gridContent = (
       // Both court cards sit fully in view and the block does not move up or
-      // down (owner, 2026-09-26); only each court's times swipe sideways. Kept
-      // a ScrollView with scrolling OFF, not swapped for a View: the date
-      // chips' glass stopped rendering when this block's structure changed, so
-      // the committed layout is left exactly as it was. The spacing below is
-      // trimmed so two courts fit GRID_H. With open matches on, the entry row
-      // is the last child and the block grows by ENTRY_H to hold it; scrolling
-      // comes on then only so that a short phone, where the block gives way,
-      // can still reach the row.
-      <ScrollView
-        ref={gridRef}
-        scrollEnabled={entries > 0}
-        bounces={false}
-        showsVerticalScrollIndicator={false}
-        onContentSizeChange={(_w, h) => setGridContentH((prev) => (prev === h ? prev : h))}
-        // The foot's air is part of the measured content, so the block grows by
-        // it and the last card never sits on the sheet's edge.
-        contentContainerStyle={{ paddingStart: PAD, paddingEnd: PAD, paddingBottom: PAD }}
+      // down (owner, 2026-09-26); only each court's times swipe sideways. The
+      // spacing below is trimmed so two courts fit GRID_H. With open matches,
+      // lessons or tournaments on, their rows follow and the block grows by
+      // ENTRY_H for each.
+      //
+      // A plain View, and a ScrollView ONLY when the block gives way on a short
+      // phone and the last rows need reaching. On iOS 26 the tab bar takes a
+      // vertical UIScrollView here as the tab's content scroll view and lays
+      // its soft scroll-edge effect over it: court 2 and every row under it
+      // came out blurred and washed out, in both languages (guest report,
+      // 2026-10-11). A View has no edge effect to draw. The date chips' glass
+      // that once kept this a ScrollView left the chips on 2026-09-26.
+      //
+      // The foot's air is part of the measured content, so the block grows by
+      // it and the last card never sits on the sheet's edge.
+      <View
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          setGridContentH((prev) => (prev === h ? prev : h));
+        }}
+        style={{ paddingStart: PAD, paddingEnd: PAD, paddingBottom: PAD }}
       >
         {/* One lane per court, name above, its times running sideways under it (owner, 2026-09-26).
             Keyed by POSITION, as the rows were: a day change reuses the lane
@@ -441,7 +474,14 @@ export function BookingSheet({
             />
           </Animated.View>
         ) : null}
+      </View>
+    );
+    grid = gridScrolls ? (
+      <ScrollView ref={gridRef} bounces={false} showsVerticalScrollIndicator={false}>
+        {gridContent}
       </ScrollView>
+    ) : (
+      gridContent
     );
   }
 
@@ -560,50 +600,64 @@ export function BookingSheet({
                   pills and so clipped nothing, and keeping it here leaves the
                   first and last pill resting exactly where they did before. */}
               <View style={{ marginStart: PAD, marginEnd: PAD, overflow: 'hidden' }}>
-                <ScrollView
-                  key={dir}
-                  horizontal
-                  // RN's ScrollView base style is { flexGrow: 1, flexShrink: 1 },
-                  // which on a card capped to a short stage makes the strip give
-                  // up height alongside the grid — and the edge fades, pinned to
-                  // its box, squash with it. The chips are a fixed-height control
-                  // (availability.tsx carries the same override for this reason).
-                  style={{ flexGrow: 0, flexShrink: 0 }}
-                  showsHorizontalScrollIndicator={false}
-                  scrollEventThrottle={32}
-                  contentContainerStyle={{
-                    gap: 4,
-                    // The heading used to open the card; the pills do now, so
-                    // they carry its top breathing room instead of 5 pt.
-                    paddingTop: 10,
+                <View
+                  {...stripPanHandlers}
+                  onLayout={(e) => {
+                    const w = e.nativeEvent.layout.width;
+                    setStripBoxW((prev) => (prev === w ? prev : w));
                   }}
+                  // A fixed-height control: it never gives up height to the grid.
+                  style={{ flexGrow: 0, flexShrink: 0, direction: 'ltr' }}
                 >
-                  {a.tzDates.map((d, i) => {
-                    const noon = wallTimeToUtc(d, 12 * 60, a.tz);
-                    const e = pills[i]!;
-                    return (
-                      <Animated.View
-                        key={d}
-                        style={{ opacity: e.opacity, transform: [{ translateY: e.translateY }] }}
-                      >
-                        <DayChip
-                          testID={`${testID}.day.${d}`}
-                          compact
-                          dow={formatWeekdayShort(noon, locale, a.tz)}
-                          dayNum={formatDayNumber(noon, locale, a.tz)}
-                          selected={d === a.date}
-                          closed={a.isClosedDate(d)}
-                          closedLabel={t('booking.closedChip')}
-                          // A selection tick on a real change, as the duration picker ticks.
-                          onPress={() => {
-                            if (d !== a.date) void Haptics.selectionAsync().catch(() => {});
-                            a.selectDate(d);
+                  <Animated.View
+                    onLayout={(e) => {
+                      const w = e.nativeEvent.layout.width;
+                      setStripContentW((prev) => (prev === w ? prev : w));
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignSelf: 'flex-start',
+                      gap: 4,
+                      // The heading used to open the card; the pills do now, so
+                      // they carry its top breathing room instead of 5 pt.
+                      paddingTop: 10,
+                      transform: [{ translateX: stripTranslateX }],
+                    }}
+                  >
+                    {/* Physical order, left to right: reversed in RTL. The entrance
+                      stagger still runs from tonight. */}
+                    {(stripRtl ? [...a.tzDates].reverse() : a.tzDates).map((d, p) => {
+                      const i = stripRtl ? a.tzDates.length - 1 - p : p;
+                      const noon = wallTimeToUtc(d, 12 * 60, a.tz);
+                      const e = pills[i]!;
+                      return (
+                        <Animated.View
+                          key={d}
+                          style={{
+                            direction: dir,
+                            opacity: e.opacity,
+                            transform: [{ translateY: e.translateY }],
                           }}
-                        />
-                      </Animated.View>
-                    );
-                  })}
-                </ScrollView>
+                        >
+                          <DayChip
+                            testID={`${testID}.day.${d}`}
+                            compact
+                            dow={formatWeekdayShort(noon, locale, a.tz)}
+                            dayNum={formatDayNumber(noon, locale, a.tz)}
+                            selected={d === a.date}
+                            closed={a.isClosedDate(d)}
+                            closedLabel={t('booking.closedChip')}
+                            // A selection tick on a real change, as the duration picker ticks.
+                            onPress={() => {
+                              if (d !== a.date) void Haptics.selectionAsync().catch(() => {});
+                              a.selectDate(d);
+                            }}
+                          />
+                        </Animated.View>
+                      );
+                    })}
+                  </Animated.View>
+                </View>
               </View>
 
               {/* Duration picker enters with the last pill */}
@@ -704,8 +758,14 @@ export function BookingSheet({
               {/* Time grid: two court cards, not scrolled. The one block that
                   gives way on a short stage */}
               <View
+                onLayout={(e) => {
+                  const gaveWay = e.nativeEvent.layout.height + 1 < gridWantH;
+                  setGridScrolls((prev) => (prev === gaveWay ? prev : gaveWay));
+                }}
                 style={{
-                  height: Math.max(GRID_H + ENTRY_H * entries, gridContentH),
+                  // Without a scroller the cards would draw past a block that gave way.
+                  overflow: 'hidden',
+                  height: gridWantH,
                   minHeight: 96,
                   flexShrink: 1,
                   marginTop: 6,

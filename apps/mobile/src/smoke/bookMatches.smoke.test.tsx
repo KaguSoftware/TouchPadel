@@ -19,7 +19,7 @@
  * it stops a hold (owner, 2026-09-29), which the gate cases pin.
  */
 import { useState } from 'react';
-import { ActionSheetIOS, Alert, Animated, Platform } from 'react-native';
+import { ActionSheetIOS, Alert, Animated, Platform, ScrollView } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { wallTimeToUtc } from '@touch/core';
@@ -160,6 +160,22 @@ function renderSheet(
 
 describe.each<Locale>(['en', 'ar'])('open matches on the booking sheet in %s', (locale) => {
   const t = makeT(locale);
+
+  it('swipes its day strip and court lanes without a horizontal scroll view', () => {
+    // On iOS 26 the tab bar fades a scroll view of its choosing, and the Book
+    // tab has none of its own, so it took the sheet's: first the grid, then
+    // court 1's lane (guest reports, 2026-10-11/12). The strip and lanes are
+    // swipe tracks (useSwipeTrack); a ScrollView back here brings the fade back.
+    const { screen } = renderSheet(locale, seeds({ on: false }), 'out');
+    try {
+      const horizontal = screen
+        .UNSAFE_queryAllByType(ScrollView)
+        .filter((node) => node.props.horizontal);
+      expect(horizontal).toHaveLength(0);
+    } finally {
+      screen.unmount();
+    }
+  });
 
   it('changes nothing while the branch has open matches off', async () => {
     const { screen, cellId } = renderSheet(

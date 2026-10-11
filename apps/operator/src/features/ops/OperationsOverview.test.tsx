@@ -30,6 +30,9 @@ vi.mock('../../lib/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useAuth: () => ({ staff: { id: 'm1', displayName: 'Manager', role: who.role } }),
 }));
+// Which workspace's rail is showing: /ops is the Operations workspace's home.
+const ws = vi.hoisted(() => ({ active: 'owner' as string | null }));
+vi.mock('../../routes/__root', () => ({ useWorkspaceOrNull: () => (ws.active ? { active: ws.active } : null) }));
 
 import { OperationsOverviewScreen } from './OperationsOverview';
 
@@ -83,6 +86,7 @@ beforeEach(() => {
   rpc.appRpc.mockReset();
   nav.navigate.mockReset();
   who.role = 'manager';
+  ws.active = 'manager';
 });
 
 describe('OperationsOverviewScreen', () => {
@@ -221,10 +225,20 @@ describe('OperationsOverviewScreen', () => {
 
   it('sends the owner to the Observe overview, which carries the floor now', async () => {
     who.role = 'owner';
+    ws.active = 'owner';
     rpc.appRpc.mockResolvedValue(payload);
     renderScreen();
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith({ to: '/observation', replace: true }));
     expect(screen.queryByRole('heading', { name: 'Today' })).toBeNull();
+  });
+
+  it('keeps the owner on Today inside the Operations workspace, whose home it is', async () => {
+    who.role = 'owner';
+    ws.active = 'manager';
+    rpc.appRpc.mockResolvedValue(payload);
+    renderScreen();
+    expect(await screen.findByRole('heading', { name: 'Today' })).toBeTruthy();
+    expect(nav.navigate).not.toHaveBeenCalledWith({ to: '/observation', replace: true });
   });
 
   it('puts "the day is not open" first, and routes it to day close', async () => {

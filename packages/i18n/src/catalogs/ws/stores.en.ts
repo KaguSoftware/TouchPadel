@@ -142,6 +142,13 @@ export const storesEn = {
     },
     storeFilter: 'Store',
     bothStores: 'Both stores',
+    /** The On hand column's heading with one store chosen; every item stays listed. */
+    atStore: {
+      cafe: 'In the cafe store',
+      bakery: 'In the bakery store',
+      shop: 'In the shop store',
+    },
+    total: 'Both stores {qty}',
     now: {
       phoneCounts: 'Counts from the phone to apply',
       phoneCountsHint: 'Counted blind on the phone. Apply or discard each one; stock changes only when applied.',

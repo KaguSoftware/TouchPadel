@@ -257,6 +257,12 @@ describe('input helpers', () => {
     // digits, so capping at the pattern's 11 must not clip a real one.
     expect(maxNationalDigits('DE')).toBe(11);
     expect(sanitizeNationalInput('15112345678', 'DE')).toBe('15112345678');
+    // Malaysian 011 mobiles are 10 digits against the pattern's 9; capping at
+    // 9 refused the last digit (guest report, 2026-10-11).
+    expect(maxNationalDigits('MY')).toBe(10);
+    expect(sanitizeNationalInput('1123456789', 'MY')).toBe('1123456789');
+    expect(maxNationalDigits('ID')).toBe(12);
+    expect(maxNationalDigits('NZ')).toBe(10);
   });
 
   it('never lets the cap exceed what E.164 allows', () => {
