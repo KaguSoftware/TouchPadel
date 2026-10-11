@@ -37,7 +37,6 @@ import {
 } from '../src/features/auth/welcomeSeen';
 import { CoachStatusProvider } from '../src/features/coach/CoachStatusProvider';
 import { StaffScreenGuard } from '../src/features/staff/screenGuard/StaffScreenGuard';
-import { withAssistantFab } from '../src/features/assistant/AssistantFab';
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
@@ -273,11 +272,9 @@ function RootStack() {
        * the app's own appearance, like the direction above it.
        */}
       <NavigationThemeProvider value={navTheme}>
-        {/* `screenLayout` draws the owner's assistant button INSIDE each
-            staff screen, so it slides in and out with its page; an overlay
-            over the whole stack followed the pathname, which only changes
-            once the navigation has happened, and so lagged every push and pop. */}
-        <Stack screenOptions={header} screenLayout={withAssistantFab}>
+        {/* The owner's assistant button is drawn inside each staff page by
+            the (staff) stack's `screenLayout` (app/(staff)/_layout.tsx). */}
+        <Stack screenOptions={header}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           {/* Formerly the (auth) group. Flattened for the same reason as (gated):
           a screen pushed from the tabs was the first entry of a nested stack,
@@ -329,15 +326,12 @@ function RootStack() {
           <Stack.Screen name="match-report" options={{ presentation: 'modal' }} />
           <Stack.Screen name="blocked-players" />
           <Stack.Screen name="tickets" />
-          {/* Coach mode (docs/design/coaching/guest.md §4.13): root-stack pushes
-          from Profile or, for staff who coach, the staff hub (C-27), each with
-          the native back item and its own RequireCoach. */}
-          <Stack.Screen name="coach-mode" />
-          <Stack.Screen name="coach-mode-hours" />
-          <Stack.Screen name="coach-mode-lesson" />
-          <Stack.Screen name="coach-mode-new" />
-          <Stack.Screen name="coach-mode-book" />
-          <Stack.Screen name="coach-mode-statements" />
+          {/* Coach mode (docs/design/coaching/guest.md §4.13), from Profile or,
+          for staff who coach, the staff hub (C-27): a stack of its own with its
+          own native bar, so the bar and its back button leave with the page at
+          the swipe's speed (app/(coach-mode)/_layout.tsx,
+          src/navigation/groupStack.tsx). Each screen has its own RequireCoach. */}
+          <Stack.Screen name="(coach-mode)" options={{ headerShown: false }} />
           {/* Coaching, the guest's side (docs/design/coaching/guest.md §4.8): a
           stack of its own with its own native bar, so the bar and its back
           button leave with the page at the swipe's speed
@@ -352,15 +346,10 @@ function RootStack() {
           with the native back item, each with its own RequireSession. */}
           <Stack.Screen name="loyalty" />
           <Stack.Screen name="member-card" />
-          {/* Place an order (0251): an item's size and options, as the platform's sheet over the table's menu. */}
-          <Stack.Screen
-            name="staff-order-item"
-            options={{
-              presentation: 'formSheet',
-              sheetAllowedDetents: [0.75, 1],
-              sheetGrabberVisible: true,
-            }}
-          />
+          {/* The staff pages Today opens: a stack of their own with their own
+          native bar, so the bar and its back button leave with the page on the
+          way back to Today (app/(staff)/_layout.tsx, src/navigation/groupStack.tsx). */}
+          <Stack.Screen name="(staff)" options={{ headerShown: false }} />
           {/* A Today group's pages on iOS (owner, 2026-10-01): the platform's
           sheet, sized to its rows. Android shows them in a modal on Today.
           Singular: a double tap on a tile pushed the sheet twice. */}

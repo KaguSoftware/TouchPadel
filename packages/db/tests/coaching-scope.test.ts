@@ -112,7 +112,7 @@ describe.skipIf(!docker)(
         E(
           'xp',
           'g1',
-          `select app.coach_book_private({{x_p}}, {{x}}, ${at(3)}, 'Student X', null, 1, 'k-xp')`,
+          `select app.coach_book_private({{x_p}}, {{x}}, ${at(3)}, 'Student X', '9647711112222', 1, 'k-xp')`,
         ),
         FROM('xp_l', 'xp', 'lesson_id'),
         E('xg', 'g1', `select app.coach_create_group({{x_g}}, {{x}}, ${at(3, 2)}, 'k-xg')`),
@@ -130,7 +130,7 @@ describe.skipIf(!docker)(
         E(
           'vp',
           'g1',
-          `select app.coach_book_private({{v_p}}, {{v}}, ${at(10)}, 'Student V', null, 1, 'k-vp')`,
+          `select app.coach_book_private({{v_p}}, {{v}}, ${at(10)}, 'Student V', '9647711112222', 1, 'k-vp')`,
         ),
         FROM('vp_l', 'vp', 'lesson_id'),
         FROM('vp_e', 'vp', 'enrolment_id'),

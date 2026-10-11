@@ -1,11 +1,12 @@
 /**
  * The screen options of a flow that runs in a stack of its own: tournaments
- * (`app/(tournaments)`) and lessons with a coach (`app/(coaching)`).
+ * (`app/(tournaments)`), lessons with a coach (`app/(coaching)`), coach mode
+ * (`app/(coach-mode)`) and the staff pages Today opens (`app/(staff)`).
  *
  * WHY THESE FLOWS NEST. On the root stack every screen shares ONE native bar,
  * and popping back to the tabs (which draw none) made UIKit animate that bar's
  * back item on its own clock: a fast swipe back left it trailing over the Book
- * tab after the page had gone (owner's recordings, 2026-10-09). In a nested
+ * tab (or staff's Today, which draws none either) after the page had gone (owner's recordings, 2026-10-09). In a nested
  * stack the native bar belongs to that stack, whose view IS the page the root
  * stack pushes and pops, so the bar and its back button leave with the page at
  * the swipe's own speed. The root stack shows no bar for the group.

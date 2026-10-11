@@ -98,7 +98,7 @@ const WRITES: Write[] = [
   W(
     'coach_book_private',
     'g1',
-    `select app.coach_book_private({{lt_p}}, {{v}}, ${at(3)}, 'Student', null, 1, 'k-s-cbp')`,
+    `select app.coach_book_private({{lt_p}}, {{v}}, ${at(3)}, 'Student', '9647711112222', 1, 'k-s-cbp')`,
     [['CBP', 'lesson_id']],
   ),
   W('coach_reschedule_session', 'g1', `select app.coach_reschedule_session({{CBP}}, ${at(3, 4)})`),

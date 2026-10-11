@@ -13,6 +13,7 @@ import { useLocale } from '../../../i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../../theme';
 import { CheckIcon, ChevronIcon } from '../../../components/icons';
 import { ErrorText, Field, MicroLabel } from '../../../components/ui';
+import { searchField } from '../../../components/fieldKeyboard';
 
 export interface PickerOption {
   value: string;
@@ -129,6 +130,7 @@ export function OptionPicker({
           {options.length > SEARCH_FROM ? (
             <View style={{ padding: space.s }}>
               <Field
+                {...searchField}
                 testID={`${testID}.search`}
                 placeholder={t('staff.protocols.form.search')}
                 value={query}

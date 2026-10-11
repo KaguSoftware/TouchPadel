@@ -18,10 +18,10 @@ import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { staffKeys } from '../features/staff/keys';
 import type { PickItem, PickList, StockToday } from '../features/staff/stores/logic';
 import type { StockView } from '../features/staff/stock/logic';
-import StaffStockLog from '../../app/staff-stock-log';
-import StaffStockMove from '../../app/staff-stock-move';
-import StaffStockCount from '../../app/staff-stock-count';
-import StaffStock from '../../app/staff-stock';
+import StaffStockLog from '../../app/(staff)/staff-stock-log';
+import StaffStockMove from '../../app/(staff)/staff-stock-move';
+import StaffStockCount from '../../app/(staff)/staff-stock-count';
+import StaffStock from '../../app/(staff)/staff-stock';
 
 const V = TEST_VENUE_ID;
 

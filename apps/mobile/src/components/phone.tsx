@@ -49,6 +49,7 @@ import {
   sanitizeNationalInput,
   type Country,
 } from '../features/profile/phone';
+import { searchField } from './fieldKeyboard';
 
 export function PhoneField({
   iso,
@@ -99,12 +100,14 @@ export function PhoneField({
     () => formatNational(iso, '0'.repeat(maxNationalDigits(iso))).length + 1 + MAX_DIAL_LENGTH,
     [iso],
   );
-  // `undefined` means "leave the caret alone" — the state after the guest has
-  // moved it themselves. It is only forced to the end on the render that
-  // follows a keystroke, which is the render that reformats the value.
-  const [selection, setSelection] = useState<{ start: number; end: number } | undefined>(
-    undefined,
-  );
+  // Once the country's digits are all in, the native cap drops to EXACTLY what
+  // is shown, so a further keystroke is refused by the keyboard itself. With
+  // the autofill padding above still in force, the extra digit was accepted
+  // natively, painted for a frame, then trimmed by `onType` — it flashed and
+  // vanished. A full field has nothing left for an autofill to complete; the
+  // guest clears it first, which lifts the cap back to the padded one.
+  const full = national.length >= maxNationalDigits(iso);
+  const maxLength = full ? shown.length : maxShownLength;
   const onType = useCallback(
     (next: string) => {
       // The iOS QuickType/Contacts suggestion replaces the whole field with a
@@ -116,25 +119,15 @@ export function PhoneField({
         const { iso: parsedIso, national: parsedNational } = parsePhone(next);
         if (parsedIso !== iso) onChangeIso(parsedIso);
         onChangeNational(parsedNational);
-        const end = formatNational(parsedIso, parsedNational).length;
-        setSelection({ start: end, end });
         return;
       }
       // Capped to the country's own length: past it the digits are dropped, so
       // the field stops rather than accepting a number that could never dial.
       const digits = sanitizeNationalInput(next, iso);
       onChangeNational(digits);
-      // Reformatting moves everything after the caret, so the only stable
-      // place to put it is the end of what the guest has typed so far.
-      const end = formatNational(iso, digits).length;
-      setSelection({ start: end, end });
     },
     [iso, onChangeIso, onChangeNational],
   );
-  // Once the platform reports the caret where we asked for it, control is
-  // handed back: holding `selection` fixed would stop the guest tapping into
-  // the middle of their own number.
-  const onSelectionChange = useCallback(() => setSelection(undefined), []);
   const country = countryByIso(iso);
   const flag = flagOf(country.iso);
   // Derived from the field's own vertical padding rather than a flat number:
@@ -165,18 +158,11 @@ export function PhoneField({
         // — while the guest sees the shape their own country writes.
         value={shown}
         onChangeText={onType}
-        // The caret, held explicitly at the end while typing.
-        //
-        // This is a controlled field whose value is REWRITTEN on every
-        // keystroke — `7705` becomes `770 5`, two characters longer than what
-        // was typed — and an uncontrolled caret is placed by the platform
-        // against the string it had before. Inserting a separator therefore
-        // made it lurch. Pinning it to the end of the new string is correct
-        // for typing and for backspacing, which is all this field supports:
-        // it is a phone-pad, so there is no selection gesture to preserve
-        // beyond the tap that `onSelectionChange` reports below.
-        selection={selection}
-        onSelectionChange={onSelectionChange}
+        // No `selection` prop. Both platforms keep the caret at the same
+        // distance from the END when the value is rewritten (`7705` →
+        // `770 5`), which is exactly right for typing and backspacing at the
+        // end. Forcing it from React fought that native placement on every
+        // keystroke and made the digits jump.
         // Refused NATIVELY, not corrected afterwards. Trimming in `onType`
         // still let the native input accept the keystroke and paint it for a
         // frame before React reset the value, so the extra digit visibly
@@ -184,7 +170,7 @@ export function PhoneField({
         // string — the separators are characters in the field too — computed
         // from a full-length number for this country so it does not shrink as
         // the guest types.
-        maxLength={maxShownLength}
+        maxLength={maxLength}
         placeholder={placeholder}
         keyboardType="phone-pad"
         autoComplete="tel"
@@ -368,6 +354,9 @@ function Chevron({ color }: { color: string }) {
  * cannot drift: `Intl.DisplayNames` is the platform's own CLDR data, with the
  * English name as the fallback on a runtime built without full ICU.
  */
+/** Iraq's name in each app language: the probe that the platform's names speak it. */
+const IRAQ = { en: 'Iraq', ar: 'العراق' } as const;
+
 function CountryPicker({
   testID,
   ...props
@@ -382,7 +371,12 @@ function CountryPicker({
   const { locale } = useLocale();
   const display = useMemo(() => {
     try {
-      return new Intl.DisplayNames([locale], { type: 'region' });
+      const names = new Intl.DisplayNames([locale], { type: 'region' });
+      // Hermes on Android can fall back to the PHONE's language for a tag it
+      // does not resolve (a Persian phone named every country in Persian in
+      // an English app). Trust it only when it answers in the app's language;
+      // otherwise the English name below.
+      return names.of('IQ') === IRAQ[locale] ? names : null;
     } catch {
       return null;
     }
@@ -594,6 +588,7 @@ function CountryPickerJS({
               {t('auth.countryCode')}
             </Text>
             <Field
+              {...searchField}
               testID={`${testID}.search`}
               value={query}
               onChangeText={setQuery}

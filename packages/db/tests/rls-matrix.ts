@@ -5392,7 +5392,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'coach_book_private',
     args: { p_lesson_type_id: NIL_UUID, p_venue_id: VENUE_A, p_start_at: FUTURE,
-            p_student_name: 'Matrix', p_student_phone: null, p_party_size: 1,
+            p_student_name: 'Matrix', p_student_phone: '9647711112222', p_party_size: 1,
             p_idempotency_key: 'matrix-coach-book' },
     expect: GUEST_OR_COACH,
     note: 'lesson_booking: a guest or coach write; nothing is written',
@@ -5590,6 +5590,13 @@ export const matrix: MatrixRule[] = [
     args: { p_from: FUTURE, p_to: new Date(Date.now() + 15 * 24 * 3600_000).toISOString() },
     expect: GUEST_OR_COACH,
     note: "lesson_booking: the coach's own lessons; a guest who is not a coach gets NOT_A_COACH (not a refusal)",
+    drop: 25,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'coach_saved_students',
+    args: {},
+    expect: GUEST_OR_COACH,
+    note: "coach_book_students (0334): the coach's own past students, names only (R54); NOT_A_COACH for anyone else",
     drop: 25,
   },
   {

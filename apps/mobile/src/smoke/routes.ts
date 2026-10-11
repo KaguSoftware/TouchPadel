@@ -15,7 +15,7 @@
  * where importing react-native throws, so this file holds strings and nothing
  * else. The suites import the components themselves.
  *
- * The route name is the file path minus `app/`, `(tabs)`, `(coaching)`, `(tournaments)` and `.tsx`, with
+ * The route name is the file path minus `app/`, `(tabs)`, `(coaching)`, `(coach-mode)`, `(tournaments)`, `(staff)` and `.tsx`, with
  * nine spellings fixed: `(tabs)/index` → `book`, `booking/[id]` →
  * `booking-detail`, `(tabs)/_layout` → `tabs`, `match/[id]` → `match-detail`,
  * `m/[token]` → `match-link`, `coach/[id]` → `coach-detail`, `class/[id]` →
@@ -83,87 +83,170 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // marketing, requests to marketing).
   { file: 'staff.tsx', route: 'staff', primary: 'staff.settings' },
   { file: 'staff-group.tsx', route: 'staff-group', primary: 'staff-group.list' },
-  { file: 'staff-work.tsx', route: 'staff-work', primary: 'staff-work.empty' },
-  { file: 'staff-request.tsx', route: 'staff-request', primary: 'staff-request.submit' },
-  { file: 'staff-checklist.tsx', route: 'staff-checklist', primary: 'staff-checklist.done' },
-  { file: 'staff-start.tsx', route: 'staff-start', primary: 'staff-start.submit' },
-  { file: 'staff-runs.tsx', route: 'staff-runs', primary: 'staff-runs.filter.waiting' },
-  { file: 'staff-run.tsx', route: 'staff-run', primary: 'staff-run.current-step' },
-  { file: 'staff-step.tsx', route: 'staff-step', primary: 'staff-step.submit' },
-  { file: 'staff-production.tsx', route: 'staff-production', primary: 'staff-production.record' },
-  { file: 'staff-shopping.tsx', route: 'staff-shopping', primary: 'staff-shopping.add' },
-  { file: 'staff-purchase.tsx', route: 'staff-purchase', primary: 'staff-purchase.save' },
+  {
+    file: '(staff)/_layout.tsx',
+    route: 'staff-stack',
+    primary: 'staff-stack.bar',
+    todo: 'an expo-router Stack layout renders only inside a live router, which Node has not got',
+  },
+  { file: '(staff)/staff-work.tsx', route: 'staff-work', primary: 'staff-work.empty' },
+  { file: '(staff)/staff-request.tsx', route: 'staff-request', primary: 'staff-request.list' },
+  {
+    file: '(staff)/staff-request-new.tsx',
+    route: 'staff-request-new',
+    primary: 'staff-request-new.submit',
+  },
+  {
+    file: '(staff)/staff-checklist.tsx',
+    route: 'staff-checklist',
+    primary: 'staff-checklist.done',
+  },
+  { file: '(staff)/staff-start.tsx', route: 'staff-start', primary: 'staff-start.submit' },
+  { file: '(staff)/staff-runs.tsx', route: 'staff-runs', primary: 'staff-runs.filter.waiting' },
+  { file: '(staff)/staff-run.tsx', route: 'staff-run', primary: 'staff-run.current-step' },
+  { file: '(staff)/staff-step.tsx', route: 'staff-step', primary: 'staff-step.submit' },
+  {
+    file: '(staff)/staff-production.tsx',
+    route: 'staff-production',
+    primary: 'staff-production.record',
+  },
+  { file: '(staff)/staff-shopping.tsx', route: 'staff-shopping', primary: 'staff-shopping.add' },
+  { file: '(staff)/staff-purchase.tsx', route: 'staff-purchase', primary: 'staff-purchase.save' },
   // Phase 2 Milestone 4b: the camera pages.
-  { file: 'staff-order-slip.tsx', route: 'staff-order-slip', primary: 'staff-order-slip.send' },
+  {
+    file: '(staff)/staff-order-slip.tsx',
+    route: 'staff-order-slip',
+    primary: 'staff-order-slip.send',
+  },
   // Place an order (0251): the tables, a table's menu, an item's sheet and the
   // review, cased by staffOrder.smoke.test.tsx.
-  { file: 'staff-order.tsx', route: 'staff-order', primary: 'staff-order.tables' },
-  { file: 'staff-order-menu.tsx', route: 'staff-order-menu', primary: 'staff-order-menu.review' },
-  { file: 'staff-order-item.tsx', route: 'staff-order-item', primary: 'staff-order-item.add' },
+  { file: '(staff)/staff-order.tsx', route: 'staff-order', primary: 'staff-order.tables' },
   {
-    file: 'staff-order-review.tsx',
+    file: '(staff)/staff-order-menu.tsx',
+    route: 'staff-order-menu',
+    primary: 'staff-order-menu.review',
+  },
+  {
+    file: '(staff)/staff-order-item.tsx',
+    route: 'staff-order-item',
+    primary: 'staff-order-item.add',
+  },
+  {
+    file: '(staff)/staff-order-review.tsx',
     route: 'staff-order-review',
     primary: 'staff-order-review.send',
   },
-  { file: 'staff-receipt.tsx', route: 'staff-receipt', primary: 'staff-receipt.send' },
-  { file: 'staff-marketing.tsx', route: 'staff-marketing', primary: 'staff-marketing.tab.take' },
-  { file: 'staff-notes.tsx', route: 'staff-notes', primary: 'staff-notes.add' },
-  // Role spec (plan #61–#74).
-  { file: 'staff-ideas.tsx', route: 'staff-ideas', primary: 'staff-ideas.submit' },
-  { file: 'staff-teachings.tsx', route: 'staff-teachings', primary: 'staff-teachings.list' },
+  { file: '(staff)/staff-receipt.tsx', route: 'staff-receipt', primary: 'staff-receipt.send' },
   {
-    file: 'staff-suggestions.tsx',
-    route: 'staff-suggestions',
-    primary: 'staff-suggestions.submit',
+    file: '(staff)/staff-marketing.tsx',
+    route: 'staff-marketing',
+    primary: 'staff-marketing.tab.take',
   },
-  { file: 'staff-stock.tsx', route: 'staff-stock', primary: 'staff-stock.list' },
-  { file: 'staff-recipes.tsx', route: 'staff-recipes', primary: 'staff-recipes.list' },
+  { file: '(staff)/staff-notes.tsx', route: 'staff-notes', primary: 'staff-notes.add' },
+  // Role spec (plan #61–#74).
+  { file: '(staff)/staff-ideas.tsx', route: 'staff-ideas', primary: 'staff-ideas.submit' },
   {
-    file: 'staff-recipe-change.tsx',
+    file: '(staff)/staff-teachings.tsx',
+    route: 'staff-teachings',
+    primary: 'staff-teachings.list',
+  },
+  {
+    file: '(staff)/staff-suggestions.tsx',
+    route: 'staff-suggestions',
+    primary: 'staff-suggestions.list',
+  },
+  {
+    file: '(staff)/staff-suggestion-new.tsx',
+    route: 'staff-suggestion-new',
+    primary: 'staff-suggestion-new.submit',
+  },
+  { file: '(staff)/staff-stock.tsx', route: 'staff-stock', primary: 'staff-stock.list' },
+  { file: '(staff)/staff-recipes.tsx', route: 'staff-recipes', primary: 'staff-recipes.list' },
+  {
+    file: '(staff)/staff-recipe-change.tsx',
     route: 'staff-recipe-change',
     primary: 'staff-recipe-change.submit',
   },
   {
-    file: 'staff-marketing-requests.tsx',
+    file: '(staff)/staff-marketing-requests.tsx',
     route: 'staff-marketing-requests',
-    primary: 'staff-marketing-requests.submit',
+    primary: 'staff-marketing-requests.list',
+  },
+  {
+    file: '(staff)/staff-marketing-request-new.tsx',
+    route: 'staff-marketing-request-new',
+    primary: 'staff-marketing-request-new.submit',
   },
   // Wave 5, lane R (wave5-addendum-2026-09-25 §2.1.8): the waiter's guest
   // calls, cased by staffCalls.smoke.test.tsx.
-  { file: 'staff-calls.tsx', route: 'staff-calls', primary: 'staff-calls.list' },
+  { file: '(staff)/staff-calls.tsx', route: 'staff-calls', primary: 'staff-calls.list' },
   // Wave 5, lane S (wave5-addendum-2026-09-25 §5.3): the stores, cased by
   // staffStores.smoke.test.tsx.
-  { file: 'staff-stock-log.tsx', route: 'staff-stock-log', primary: 'staff-stock-log.save' },
-  { file: 'staff-stock-move.tsx', route: 'staff-stock-move', primary: 'staff-stock-move.move' },
   {
-    file: 'staff-stock-count.tsx',
+    file: '(staff)/staff-stock-log.tsx',
+    route: 'staff-stock-log',
+    primary: 'staff-stock-log.save',
+  },
+  {
+    file: '(staff)/staff-stock-move.tsx',
+    route: 'staff-stock-move',
+    primary: 'staff-stock-move.move',
+  },
+  {
+    file: '(staff)/staff-stock-count.tsx',
     route: 'staff-stock-count',
     primary: 'staff-stock-count.submit',
   },
   // Wave 5, lane P (wave5-addendum-2026-09-25 §5.3): the people records,
   // cased by staffPeople.smoke.test.tsx.
-  { file: 'staff-deductions.tsx', route: 'staff-deductions', primary: 'staff-deductions.propose' },
-  { file: 'staff-incidents.tsx', route: 'staff-incidents', primary: 'staff-incidents.submit' },
-  { file: 'staff-content.tsx', route: 'staff-content', primary: 'staff-content.submit' },
+  {
+    file: '(staff)/staff-deductions.tsx',
+    route: 'staff-deductions',
+    primary: 'staff-deductions.list',
+  },
+  {
+    file: '(staff)/staff-deduction-propose.tsx',
+    route: 'staff-deduction-propose',
+    primary: 'staff-deduction-propose.submit',
+  },
+  {
+    file: '(staff)/staff-incidents.tsx',
+    route: 'staff-incidents',
+    primary: 'staff-incidents.list',
+  },
+  {
+    file: '(staff)/staff-incident-report.tsx',
+    route: 'staff-incident-report',
+    primary: 'staff-incident-report.submit',
+  },
+  { file: '(staff)/staff-content.tsx', route: 'staff-content', primary: 'staff-content.submit' },
   // The owner's assistant on the phone, cased by staffAssistant.smoke.test.tsx.
   // The thread's primary is the Send button, an icon with no text of its own,
   // so its case names a `nearbyKey`.
   {
-    file: 'staff-assistant.tsx',
+    file: '(staff)/staff-assistant.tsx',
     route: 'staff-assistant',
     primary: 'staff-assistant.composer.send',
   },
   {
-    file: 'staff-assistant-chats.tsx',
+    file: '(staff)/staff-assistant-chats.tsx',
     route: 'staff-assistant-chats',
     primary: 'staff-assistant-chats.new',
   },
   // The owner's list of staff screenshots, cased by staffAssistant.smoke.test.tsx.
-  { file: 'staff-screenshots.tsx', route: 'staff-screenshots', primary: 'staff-screenshots.intro' },
+  {
+    file: '(staff)/staff-screenshots.tsx',
+    route: 'staff-screenshots',
+    primary: 'staff-screenshots.intro',
+  },
   // Rewards for orders placed (0332), cased by staffRewards.smoke.test.tsx: the person's own
   // page (its how-it-counts note is always there) and the owner's page.
-  { file: 'staff-rewards.tsx', route: 'staff-rewards', primary: 'staff-rewards.how' },
-  { file: 'staff-rewards-admin.tsx', route: 'staff-rewards-admin', primary: 'staff-rewards-admin.intro' },
+  { file: '(staff)/staff-rewards.tsx', route: 'staff-rewards', primary: 'staff-rewards.how' },
+  {
+    file: '(staff)/staff-rewards-admin.tsx',
+    route: 'staff-rewards-admin',
+    primary: 'staff-rewards-admin.intro',
+  },
   // ── open matches ──────────────────────────────────────────────────────────
   // docs/design/open-matches/guest.md §4.27, cased by matches.smoke.test.tsx
   // in EN and AR. Two spellings are fixed like booking/[id]: `match/[id]` →
@@ -226,17 +309,35 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // EN and AR with the `coach` render option (a signed-in account that
   // coaches). A list primary carries no text of its own, so those cases name
   // a `nearbyKey`.
-  { file: 'coach-mode.tsx', route: 'coach-mode', primary: 'coach-mode.schedule' },
-  { file: 'coach-mode-hours.tsx', route: 'coach-mode-hours', primary: 'coach-mode-hours.save' },
   {
-    file: 'coach-mode-lesson.tsx',
+    file: '(coach-mode)/_layout.tsx',
+    route: 'coach-mode-stack',
+    primary: 'coach-mode-stack.bar',
+    todo: 'an expo-router Stack layout renders only inside a live router, which Node has not got',
+  },
+  { file: '(coach-mode)/coach-mode.tsx', route: 'coach-mode', primary: 'coach-mode.schedule' },
+  {
+    file: '(coach-mode)/coach-mode-hours.tsx',
+    route: 'coach-mode-hours',
+    primary: 'coach-mode-hours.save',
+  },
+  {
+    file: '(coach-mode)/coach-mode-lesson.tsx',
     route: 'coach-mode-lesson',
     primary: 'coach-mode-lesson.roster',
   },
-  { file: 'coach-mode-new.tsx', route: 'coach-mode-new', primary: 'coach-mode-new.create' },
-  { file: 'coach-mode-book.tsx', route: 'coach-mode-book', primary: 'coach-mode-book.book' },
   {
-    file: 'coach-mode-statements.tsx',
+    file: '(coach-mode)/coach-mode-new.tsx',
+    route: 'coach-mode-new',
+    primary: 'coach-mode-new.create',
+  },
+  {
+    file: '(coach-mode)/coach-mode-book.tsx',
+    route: 'coach-mode-book',
+    primary: 'coach-mode-book.book',
+  },
+  {
+    file: '(coach-mode)/coach-mode-statements.tsx',
     route: 'coach-mode-statements',
     primary: 'coach-mode-statements.month',
   },

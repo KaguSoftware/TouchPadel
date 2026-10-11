@@ -15,7 +15,7 @@ import { Tag } from './parts';
 
 /**
  * Today's checklists still to finish, at the top of the work alerts page
- * (app/staff-work.tsx) for every role (§6.1): one row per list
+ * (app/(staff)/staff-work.tsx) for every role (§6.1): one row per list
  * (`staff.checklist.<runId>`) that opens it. A finished list leaves the page;
  * the checklist page writes the same cache entry, so a tick there moves the
  * count here. Nothing shows while the read is in flight: the work list below

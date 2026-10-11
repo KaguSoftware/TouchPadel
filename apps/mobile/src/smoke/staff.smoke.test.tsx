@@ -10,15 +10,20 @@
  * staffPages.smoke.test.tsx.
  */
 import { describe, expect, it } from '@jest/globals';
+import { act } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { TEST_SESSION } from '../test/authState';
+import { headerAdd } from '../test/headerAdd';
+import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
 import StaffToday from '../../app/staff';
 import StaffGroup from '../../app/staff-group';
-import StaffWork from '../../app/staff-work';
-import StaffRequest from '../../app/staff-request';
+import StaffLayout from '../../app/(staff)/_layout';
+import StaffWork from '../../app/(staff)/staff-work';
+import StaffRequest from '../../app/(staff)/staff-request';
+import StaffRequestNew from '../../app/(staff)/staff-request-new';
 import TabsLayout from '../../app/(tabs)/_layout';
 
 runSmokeCases('staff', [
@@ -38,6 +43,11 @@ runSmokeCases('staff', [
     labelKey: 'staff.checklists.vacation.row',
     options: { staff: { role: 'head_chef' }, params: { group: 'team' } },
   },
+  // The staff pages' own stack: a todo in the table (it needs a live router).
+  {
+    route: 'staff-stack',
+    Component: StaffLayout,
+  },
   {
     // Today's checklists and work list, behind the Work alerts button. With
     // nothing waiting the page is its empty line, which carries no action, so
@@ -51,21 +61,35 @@ runSmokeCases('staff', [
         [staffKeys.checklists(TEST_VENUE_ID), { business_date: '2026-10-10', lists: [] }],
         [
           staffKeys.work(TEST_VENUE_ID),
-          { todo: [], waiting: [], decided: [], to_decide: [], counts: { todo: 0, waiting: 0, to_decide: 0 } },
+          {
+            todo: [],
+            waiting: [],
+            decided: [],
+            to_decide: [],
+            counts: { todo: 0, waiting: 0, to_decide: 0 },
+          },
         ],
       ],
     },
   },
   {
+    // The list is the page; the + in the bar opens the form, so the case
+    // checks the empty line inside the list.
     route: 'staff-request',
     Component: StaffRequest,
-    labelKey: 'staff.shell.requests.submit',
+    nearbyKey: 'staff.shell.requests.empty',
     options: {
       staff: { role: 'barista' },
       queryData: [
         [staffKeys.requests(TEST_SESSION.user.id), { requests: [], total: 0, pending: 0 }],
       ],
     },
+  },
+  {
+    route: 'staff-request-new',
+    Component: StaffRequestNew,
+    labelKey: 'staff.shell.requests.submit',
+    options: { staff: { role: 'barista' } },
   },
 ]);
 
@@ -107,7 +131,7 @@ describe.each(LOCALES)('the staff area’s stops in %s', (locale) => {
     try {
       expect(screen.getByText(t('staff.shell.update.title'))).toBeTruthy();
       expect(screen.getByTestId('staff.update.sign-out')).toBeTruthy();
-      expect(screen.queryByTestId('staff-request.submit')).toBeNull();
+      expect(screen.queryByTestId('staff-request.list')).toBeNull();
     } finally {
       screen.unmount();
     }
@@ -142,6 +166,25 @@ describe.each(LOCALES)('the staff area’s stops in %s', (locale) => {
       expect(screen.getByText(t('staff.shell.requests.decideOnOperator'))).toBeTruthy();
     } finally {
       screen.unmount();
+    }
+  });
+
+  it('gives every role a + that opens the request form, and no form on the list', () => {
+    for (const role of ['barista', 'owner'] as const) {
+      const screen = renderRoute(StaffRequest, {
+        locale,
+        staff: { role },
+        queryData: [[staffKeys.requests(UID), { requests: [], total: 0, pending: 0 }]],
+      });
+      try {
+        expect(screen.queryByTestId('staff-request-new.submit')).toBeNull();
+        const add = headerAdd(screen);
+        expect(add?.label).toBe(t('staff.shell.requests.newTitle'));
+        act(() => add?.onPress());
+        expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-request-new' });
+      } finally {
+        screen.unmount();
+      }
     }
   });
 

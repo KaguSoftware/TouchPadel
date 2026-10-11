@@ -1,6 +1,6 @@
 /**
  * Place an order (owner, 2026-09-28; migration 0251): the pure half of the
- * staff phone's order pages (app/staff-order*.tsx). The waiter picks a table,
+ * staff phone's order pages (app/(staff)/staff-order*.tsx). The waiter picks a table,
  * then one of its open tabs or a new one, adds items from the café menu with
  * their size and options, and sends them to the kitchen.
  *
@@ -443,12 +443,12 @@ export function tabItemCount(tab: Pick<FloorTab, 'lines'>): number {
 
 /** Menu search: items whose name (either language) holds every word typed. */
 export function searchMenu(menu: readonly MenuCategory[], query: string): MenuItem[] {
-  const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if (words.length === 0) return [];
   return menu
     .flatMap((c) => c.items)
     .filter((i) => {
-      const hay = `${i.name_en} ${i.name_ar}`.toLocaleLowerCase();
+      const hay = `${i.name_en} ${i.name_ar}`.toLowerCase();
       return words.every((w) => hay.includes(w));
     });
 }

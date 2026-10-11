@@ -426,7 +426,17 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
       onDelete: 'scrub',
     },
     party_size: n,
-    friend_names: { category: 'Name', why: 'the friends a guest brings to a private lesson', onDelete: 'empty' },
+    friend_names: {
+      category: 'Name',
+      why: 'the friends a guest brings to a private lesson, or the other students a coach books with one (0334)',
+      onDelete: 'empty',
+    },
+    // 0334: emptied with friend_names by the scrub trigger.
+    friend_phones: {
+      category: 'Phone number',
+      why: 'the other students’ numbers a coach typed for a private lesson (0334); shown to nobody yet, purged after 365 days (CD-8)',
+      onDelete: 'empty',
+    },
     booked_by_kind: n, booked_by_profile_id: n, booked_by_staff_id: n,
     price_iqd: { category: 'Purchase history', why: 'what the lesson place cost', onDelete: 'keep' },
     first_session_no: n, sessions_covered: n, payment_mode: n, status: n, hold_expires_at: n, cancel_kind: n,
@@ -857,6 +867,7 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     });
     const ownId = await ins('lesson_enrolments', {
       venue_id: VENUE_A_ID, lesson_id: lessonIds[1], guest_id: uid, party_size: 2, friend_names: ['SEC20 Friend'],
+      friend_phones: ['9647711113334'],
       booked_by_kind: 'guest', booked_by_profile_id: uid, link_confirmed_at: new Date().toISOString(),
       price_iqd: 40_000, payment_mode: 'desk', ...ended,
     });
@@ -940,7 +951,7 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     // 'empty' (0289): the row survives, the column is '' or {}.
     for (const [table, id, cols] of [
       ['coaches', coachId, ['bio_en', 'bio_ar']],
-      ['lesson_enrolments', ownId, ['friend_names']],
+      ['lesson_enrolments', ownId, ['friend_names', 'friend_phones']],
       ['coach_time_off', timeOffId, ['reason']],
     ] as const) {
       const { data, error } = await svc.from(table).select(cols.join(',')).eq('id', id).single();

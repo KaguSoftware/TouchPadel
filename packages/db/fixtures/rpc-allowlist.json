@@ -153,6 +153,7 @@
     "coach_promote",
     "coach_remove_student",
     "coach_reschedule_session",
+    "coach_saved_students",
     "coach_schedule",
     "coach_statement_approve",
     "coach_statement_detail",

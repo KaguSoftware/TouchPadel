@@ -10,9 +10,12 @@ import { useEffect, useRef } from 'react';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { BIRTH_TZ, birthDateToDate, dateToBirthDate } from '../features/profile/birthDate';
 import type { DateWheelSheetProps } from './WheelPicker.types';
+import { useLocale } from '../i18n/LocaleProvider';
+import { applyNativeLocale } from '../i18n/nativeLocale';
 
 export function DateWheelSheet(props: DateWheelSheetProps) {
   const { visible, value, min, max, removeLabel } = props;
+  const { locale } = useLocale();
   // The dialog outlives the render that opened it: handlers come from a ref.
   const handlers = useRef(props);
   useEffect(() => {
@@ -29,6 +32,8 @@ export function DateWheelSheet(props: DateWheelSheetProps) {
     shown.current = true;
     const day = birthDateToDate(value);
     if (!day) return handlers.current.onClose();
+    // The system dialog speaks the app's language, not the phone's.
+    applyNativeLocale(locale);
     DateTimePickerAndroid.open({
       value: day,
       mode: 'date',
@@ -49,7 +54,7 @@ export function DateWheelSheet(props: DateWheelSheetProps) {
       },
       onDismiss: () => handlers.current.onClose(),
     });
-  }, [visible, value, min, max, removeLabel]);
+  }, [visible, value, min, max, removeLabel, locale]);
 
   return null;
 }

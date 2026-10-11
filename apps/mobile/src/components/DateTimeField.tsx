@@ -25,6 +25,7 @@ import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/d
 import { formatDate, formatDateTime, formatTime } from '@touch/i18n';
 import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';
+import { applyNativeLocale } from '../i18n/nativeLocale';
 import { brand, radius, space, useTheme } from '../theme';
 
 export type DateTimeMode = 'date' | 'time' | 'datetime';
@@ -118,6 +119,8 @@ export function DateTimeField({
   }
 
   const open = () => {
+    // The system dialogs speak the app's language, not the phone's.
+    applyNativeLocale(locale);
     const common = {
       timeZoneName: timeZone,
       is24Hour: true,

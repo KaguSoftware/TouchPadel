@@ -1197,7 +1197,7 @@ export function coachPhotoUrl(
 /** The first letter of a coach's name for the photo-less avatar ('' when none). */
 export function coachInitial(name: string): string {
   const first = [...name.trim()][0];
-  return first ? first.toLocaleUpperCase() : '';
+  return first ? first.toUpperCase() : '';
 }
 
 /** The kinds a coach teaches at a branch, in the fixed order private, group, course. */

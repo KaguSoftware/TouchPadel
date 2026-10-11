@@ -470,6 +470,48 @@ export function scheduleSections(
     }));
 }
 
+export interface ScheduleSummary {
+  /** Lessons tonight, cancelled and expired left out. */
+  today: number;
+  /** Lessons tonight and the six nights after. */
+  week: number;
+  /** Places taken in those lessons. */
+  students: number;
+  /** Students still to mark while their window is open, and the oldest such lesson to open first. */
+  toMark: { students: number; lessonId: string } | null;
+}
+
+/** Coach mode's hero counts and its "to mark" card, from the sections the schedule shows. */
+export function scheduleSummary(sections: ScheduleSection[], now: Date): ScheduleSummary {
+  let today = 0;
+  let week = 0;
+  let students = 0;
+  let marking = 0;
+  let firstToMark: string | null = null;
+  for (const section of sections) {
+    for (const item of section.data) {
+      if (item.type !== 'lesson') continue;
+      const l = item.lesson;
+      if (l.status === 'cancelled' || l.status === 'expired') continue;
+      if (section.offset === 0) today += 1;
+      if (section.offset >= 0 && section.offset < 7) {
+        week += 1;
+        students += l.placesTaken;
+      }
+      if (l.unmarked > 0 && canMarkNow({ startAt: l.startAt }, now)) {
+        marking += l.unmarked;
+        firstToMark ??= l.lessonId;
+      }
+    }
+  }
+  return {
+    today,
+    week,
+    students,
+    toMark: firstToMark ? { students: marking, lessonId: firstToMark } : null,
+  };
+}
+
 function dayDiff(from: string, to: string): number {
   const a = Date.parse(`${from}T00:00:00Z`);
   const b = Date.parse(`${to}T00:00:00Z`);
@@ -1257,9 +1299,34 @@ export function coachBookIntent(a: {
   party: number;
   name: string;
   phone: string | null;
+  friends?: readonly { name: string; phone: string }[];
+  savedStudent?: string | null;
 }): string {
-  return `coach-book:${a.typeId}|${a.venueId}|${a.startAt}|${a.party}|${a.name.trim()}|${a.phone ?? ''}`;
+  const friends = (a.friends ?? []).map((f) => `${f.name.trim()}~${f.phone}`).join(',');
+  return `coach-book:${a.typeId}|${a.venueId}|${a.startAt}|${a.party}|${a.name.trim()}|${a.phone ?? ''}|${friends}|${a.savedStudent ?? ''}`;
 }
+
+/** A past student of the coach's (app.coach_saved_students, 0334): never a phone (R54). */
+export interface SavedStudent {
+  /** The enrolment to book again from: coach_book_private's p_saved_student. */
+  key: string;
+  name: string;
+  lessons: number;
+  lastAt: string;
+}
+
+/** app.coach_saved_students: `{students [{key, name, lessons, last_at}]}`, newest first. */
+export function parseSavedStudents(raw: unknown): SavedStudent[] {
+  const o = isObj(raw) ? raw : {};
+  return arr(o.students).flatMap((s) =>
+    isObj(s) && str(s.key) && str(s.name)
+      ? [{ key: str(s.key), name: str(s.name), lessons: int(s.lessons, 1), lastAt: str(s.last_at) }]
+      : [],
+  );
+}
+
+/** A friend's name on coach_book_private (p_friend_names, 1..40, as lesson_book_private takes them). */
+export const FRIEND_NAME_MAX = 40;
 
 export function groupIntent(a: { typeId: string; venueId: string; startAt: string }): string {
   return `group:${a.typeId}|${a.venueId}|${a.startAt}`;

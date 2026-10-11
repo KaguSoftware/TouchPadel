@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { AppState, InteractionManager, type AppStateStatus } from 'react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { createCourtsChannels } from './courtsChannel';
@@ -366,8 +366,8 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
  * the arrival of any of them re-warm the strip, and makes the inputs the same
  * objects the render path validates its cache against.
  *
- * Deferred behind `InteractionManager`, and one build per turn of the event
- * loop: `runAfterInteractions` puts them after whatever is animating, and the
+ * Deferred behind `requestIdleCallback`, and one build per turn of the event
+ * loop: an idle callback puts them after whatever is busy on the JS thread, and the
  * spacing keeps seven of them from landing in one tick — this shares a JS
  * thread with the court's rally loop, and a tick is a frame.
  */
@@ -409,7 +409,7 @@ export function useWarmDayGrids(dates: readonly string[], date: string): void {
     // so the strip is warmed by whichever one lands last.
     if (!settingsData || !courtsData || !rulesData || !pricesData || !availabilityData) return;
     let cancelled = false;
-    const handle = InteractionManager.runAfterInteractions(async () => {
+    const id = requestIdleCallback(async () => {
       for (const d of pending.split(',')) {
         if (cancelled) return;
         buildDayGrid(d, {
@@ -424,7 +424,7 @@ export function useWarmDayGrids(dates: readonly string[], date: string): void {
     });
     return () => {
       cancelled = true;
-      handle.cancel();
+      cancelIdleCallback(id);
     };
   }, [pending, settingsData, courtsData, rulesData, pricesData, availabilityData]);
 }

@@ -72,6 +72,21 @@ type MockTabsScreenProps = {
   options?: MockTabOptions | ((info: { route: { name: string } }) => MockTabOptions);
 };
 
+// ── runtime globals ─────────────────────────────────────────────────────────
+
+// React Native's runtime installs `requestIdleCallback`; Node does not. The app
+// uses it where it once used the deprecated InteractionManager (the Book tab's
+// sheet prewarm, the availability strip warm-up). A timer is close enough here.
+if (typeof globalThis.requestIdleCallback !== 'function') {
+  globalThis.requestIdleCallback = ((cb: IdleRequestCallback) =>
+    setTimeout(
+      () => cb({ didTimeout: false, timeRemaining: () => 50 }),
+      0,
+    )) as unknown as typeof requestIdleCallback;
+  globalThis.cancelIdleCallback = ((id: ReturnType<typeof setTimeout>) =>
+    clearTimeout(id)) as unknown as typeof cancelIdleCallback;
+}
+
 // ── expo core ───────────────────────────────────────────────────────────────
 
 jest.mock('expo', () => ({

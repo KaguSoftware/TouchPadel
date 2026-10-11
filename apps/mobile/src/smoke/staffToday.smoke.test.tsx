@@ -2,13 +2,13 @@
  * Today with the page lanes mounted (build-contracts-2026-09-23 §6.1): the
  * rows each role gets, and the Work alerts button whose badge counts the
  * checklists still to finish and the work list on the page it opens
- * (app/staff-work.tsx, owner 2026-10-10). The route's own table case is in
+ * (app/(staff)/staff-work.tsx, owner 2026-10-10). The route's own table case is in
  * staff.smoke.test.tsx; these are extra states, in EN and AR, so this file
  * names no route (smokeCoverage counts each route in exactly one suite).
  */
 import { Platform } from 'react-native';
 import { describe, expect, it, jest } from '@jest/globals';
-import { act, fireEvent, within } from '@testing-library/react-native';
+import { fireEvent, within } from '@testing-library/react-native';
 import type { MyProtocolWork } from '@touch/core';
 import { formatNumber, formatTime, makeT, type Locale } from '@touch/i18n';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
@@ -16,7 +16,7 @@ import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
 import { dueText, type ChecklistsToday } from '../features/staff/checklists/logic';
 import StaffToday from '../../app/staff';
-import StaffWork from '../../app/staff-work';
+import StaffWork from '../../app/(staff)/staff-work';
 import StaffGroup from '../../app/staff-group';
 import { ROW_GROUPS } from '../features/staff/todayGroups';
 import { isGuestPreview, setGuestPreview } from '../features/staff/guestPreview';
@@ -291,31 +291,41 @@ describe.each(LOCALES)('Today in %s', (locale) => {
     expect(withRow(chef, 'staff.row.marketing-inbox')).toBe(false);
   });
 
-  it('shows a tile per group, which opens the native sheet on iOS, its rows opening their page', () => {
+  it('shows a tile per group, which on iOS opens the group as its own sheet route (app/staff-group.tsx)', () => {
+    const os = jest.replaceProperty(Platform, 'OS', 'ios');
+    routerState.calls.length = 0;
     const screen = renderRoute(StaffToday, { locale, staff: { role: 'manager' } });
     try {
       const tile = screen.getByTestId('staff.group.team');
       expect(within(tile).getByText(t('staff.shell.today.groups.team'))).toBeTruthy();
       // The rows are in the sheet, not on Today.
       expect(screen.queryByTestId('staff.row.deductions')).toBeNull();
-      const sheet = () => screen.UNSAFE_getByProps({ fitToContents: true });
-      expect(sheet().props.isPresented).toBe(false);
       fireEvent.press(tile);
-      expect(routerState.calls).toEqual([]);
-      expect(sheet().props.isPresented).toBe(true);
-      const list = screen.getByTestId('staff.sheet.list');
-      // The Host is pointerEvents="none" (the sheet's content is presented
-      // in its own controller on a phone), which fireEvent honours; the row's
-      // handler is called directly.
-      const row = within(list).getByTestId('staff.row.deductions');
-      act(() => row.props.onClick());
-      // The row closes the sheet, and its page opens once the sheet has gone.
-      expect(sheet().props.isPresented).toBe(false);
-      expect(routerState.calls).toEqual([]);
-      act(() => sheet().props.onDismiss({ nativeEvent: {} }));
-      expect(routerState.calls).toEqual([{ method: 'push', arg: '/staff-deductions' }]);
+      // The sheet is the root stack's formSheet route; its rows are covered by
+      // the staff-group cases (staff.smoke.test.tsx, and below on Android).
+      expect(routerState.calls).toEqual([
+        { method: 'push', arg: { pathname: '/staff-group', params: { group: 'team' } } },
+      ]);
     } finally {
       screen.unmount();
+      os.restore();
+    }
+  });
+
+  it('opens the page straight away from a group of one page, on both platforms', () => {
+    for (const platform of ['ios', 'android'] as const) {
+      const os = jest.replaceProperty(Platform, 'OS', platform);
+      routerState.calls.length = 0;
+      // A manager's floor is Place an order alone (calls are the waiter's).
+      const screen = renderRoute(StaffToday, { locale, staff: { role: 'manager' } });
+      try {
+        fireEvent.press(screen.getByTestId('staff.group.floor'));
+        expect(routerState.calls).toEqual([{ method: 'push', arg: '/staff-order' }]);
+        expect(screen.queryByTestId('staff.sheet.list')).toBeNull();
+      } finally {
+        screen.unmount();
+        os.restore();
+      }
     }
   });
 

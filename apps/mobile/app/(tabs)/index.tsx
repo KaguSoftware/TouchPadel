@@ -3,7 +3,6 @@ import {
   AccessibilityInfo,
   Animated,
   BackHandler,
-  InteractionManager,
   Platform,
   Pressable,
   StyleSheet,
@@ -727,8 +726,8 @@ export default function BookHomeScreen() {
       // The court is up (or there will never be one): build the sheet now, out
       // of the way of whatever is still animating.
       if (courtPainted || glUnavailable) {
-        const handle = InteractionManager.runAfterInteractions(() => setSheetPrewarmed(true));
-        return () => handle.cancel();
+        const id = requestIdleCallback(() => setSheetPrewarmed(true));
+        return () => cancelIdleCallback(id);
       }
       // Still waiting on the first frame. This effect re-runs the moment it
       // lands, which clears the timer below — so the backstop only ever fires

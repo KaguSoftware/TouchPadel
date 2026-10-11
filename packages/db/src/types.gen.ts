@@ -1109,9 +1109,12 @@ export type Database = {
       }
       coach_book_private: {
         Args: {
+          p_friend_names?: string[]
+          p_friend_phones?: string[]
           p_idempotency_key: string
           p_lesson_type_id: string
           p_party_size: number
+          p_saved_student?: string
           p_start_at: string
           p_student_name: string
           p_student_phone: string
@@ -1204,6 +1207,7 @@ export type Database = {
         Args: { p_lesson_id: string; p_start_at: string }
         Returns: Json
       }
+      coach_saved_students: { Args: never; Returns: Json }
       coach_schedule: { Args: { p_from: string; p_to: string }; Returns: Json }
       coach_self: {
         Args: { p_raise?: boolean }
@@ -8679,6 +8683,7 @@ export type Database = {
           created_at: string
           first_session_no: number | null
           friend_names: string[]
+          friend_phones: string[]
           guest_id: string | null
           guest_name: string | null
           guest_phone: string | null
@@ -8707,6 +8712,7 @@ export type Database = {
           created_at?: string
           first_session_no?: number | null
           friend_names?: string[]
+          friend_phones?: string[]
           guest_id?: string | null
           guest_name?: string | null
           guest_phone?: string | null
@@ -8735,6 +8741,7 @@ export type Database = {
           created_at?: string
           first_session_no?: number | null
           friend_names?: string[]
+          friend_phones?: string[]
           guest_id?: string | null
           guest_name?: string | null
           guest_phone?: string | null

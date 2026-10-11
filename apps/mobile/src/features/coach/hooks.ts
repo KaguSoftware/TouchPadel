@@ -37,6 +37,7 @@ import {
   coachRescheduleSession,
   fetchCoachHours,
   fetchCoachLesson,
+  fetchSavedStudents,
   fetchCoachSchedule,
   fetchCoachSlots,
   fetchMyCoachStatements,
@@ -127,6 +128,16 @@ export function useCoachSchedule(window: { from: string; to: string } | null) {
 export function useCoachHours() {
   const regate = useRegate();
   return useQuery({ queryKey: coachKeys.hours, queryFn: regate(() => fetchCoachHours(supabase)) });
+}
+
+/** The coach's past students (0334), names only; a booking refreshes it with the rest of ['coach']. */
+export function useSavedStudents(enabled = true) {
+  const regate = useRegate();
+  return useQuery({
+    queryKey: coachKeys.savedStudents,
+    queryFn: regate(() => fetchSavedStudents(supabase)),
+    enabled,
+  });
 }
 
 export function useCoachLesson(lessonId: string | null) {
@@ -229,6 +240,8 @@ export function useCoachBook() {
       name: string;
       phone: string | null;
       partySize: number;
+      friends?: readonly { name: string; phone: string }[];
+      savedStudent?: string | null;
     }>) =>
       coachBookPrivate(supabase, {
         ...args,

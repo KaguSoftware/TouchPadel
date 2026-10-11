@@ -189,6 +189,7 @@ const files = [
   ...readdirSync(APP)
     .filter((name) => /^staff.*\.tsx$/.test(name))
     .map((name) => join(APP, name)),
+  ...walk(join(APP, '(staff)')),
 ];
 
 describe('the staff area names no station, till, desk or kitchen RPC', () => {
@@ -197,7 +198,7 @@ describe('the staff area names no station, till, desk or kitchen RPC', () => {
     const rel = files.map((f) => relative(join(SRC, '..', '..', '..'), f).split(sep).join('/'));
     expect(rel).toContain('src/features/staff/api.ts');
     expect(rel).toContain('app/staff.tsx');
-    expect(rel).toContain('app/staff-request.tsx');
+    expect(rel).toContain('app/(staff)/staff-request.tsx');
   });
 
   it('finds none', () => {

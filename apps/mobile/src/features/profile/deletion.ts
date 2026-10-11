@@ -224,12 +224,12 @@ export async function runAccountDeletion(fx: DeletionEffects): Promise<DeletionO
  * Latin word to close their account would be a comprehension test, not a
  * confirmation.
  *
- * `toLocaleLowerCase` without a locale argument uses the host's, which is what
- * we want: Arabic has no case, so the fold is a no-op there and cannot mangle
- * the word.
+ * The fold is plain `toLowerCase`, never the phone's locale: a Turkish phone
+ * would fold an English "I" to a dotless "ı" and the typed word would not
+ * match. Arabic has no case, so the fold is a no-op there.
  */
 export function confirmationMatches(typed: string, expected: string): boolean {
-  const norm = (s: string) => s.trim().toLocaleLowerCase();
+  const norm = (s: string) => s.trim().toLowerCase();
   const want = norm(expected);
   return want.length > 0 && norm(typed) === want;
 }

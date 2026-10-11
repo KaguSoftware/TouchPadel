@@ -109,12 +109,12 @@ export function stockState(item: Pick<StockItem, 'on_hand' | 'low' | 'below_par'
 
 /** Rows whose name (either language) or shop product matches the typed text. */
 export function filterStock(items: readonly StockItem[], query: string): StockItem[] {
-  const q = query.trim().toLocaleLowerCase();
+  const q = query.trim().toLowerCase();
   if (!q) return [...items];
   return items.filter((i) =>
     [i.name_en, i.name_ar, i.product?.name_en, i.product?.name_ar]
       .filter((s): s is string => typeof s === 'string')
-      .some((s) => s.toLocaleLowerCase().includes(q)),
+      .some((s) => s.toLowerCase().includes(q)),
   );
 }
 

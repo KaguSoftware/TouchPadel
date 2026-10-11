@@ -40,6 +40,8 @@ import {
   type CoachSlots,
   type CoachStatements,
   type HoursWindow,
+  type SavedStudent,
+  parseSavedStudents,
 } from './logic';
 
 type Client = SupabaseClient<Database>;
@@ -55,6 +57,7 @@ export const COACH_RPCS = [
   'cancel_my_time_off',
   'coach_lesson',
   'coach_slots',
+  'coach_saved_students',
   'coach_book_private',
   'coach_create_group',
   'coach_create_course',
@@ -113,6 +116,11 @@ export async function fetchCoachLesson(
   lessonId: string,
 ): Promise<CoachLessonDetail | null> {
   return parseCoachLesson(await coachRpc(client, 'coach_lesson', { p_lesson_id: lessonId }));
+}
+
+/** app.coach_saved_students (0334): the coach's past students, names only (R54). */
+export async function fetchSavedStudents(client: Client): Promise<SavedStudent[]> {
+  return parseSavedStudents(await coachRpc(client, 'coach_saved_students'));
 }
 
 /** app.coach_slots for the coach's own private type (R77). */
@@ -185,9 +193,15 @@ export async function coachBookPrivate(
     name: string;
     phone: string | null;
     partySize: number;
+    /** The other students (0334): names, and by position their phones ('' for none). */
+    friends?: readonly { name: string; phone: string }[];
+    /** A saved student booked again: their phone is the server's, never sent or shown (R54). */
+    savedStudent?: string | null;
     idempotencyKey: string;
   },
 ): Promise<{ lessonId: string | null; enrolmentId: string | null; duplicate: boolean }> {
+  const friends = args.friends ?? [];
+  const phones = friends.map((f) => f.phone);
   return parseBookResult(
     await coachRpc(client, 'coach_book_private', {
       p_lesson_type_id: args.typeId,
@@ -197,6 +211,10 @@ export async function coachBookPrivate(
       p_student_phone: args.phone,
       p_party_size: args.partySize,
       p_idempotency_key: args.idempotencyKey,
+      p_friend_names: friends.map((f) => f.name),
+      // Every phone empty: none sent.
+      p_friend_phones: phones.some((p) => p !== '') ? phones : [],
+      p_saved_student: args.savedStudent ?? null,
     }),
   );
 }

@@ -107,7 +107,7 @@ describe.skipIf(!docker)('coach hours and time off (TG-01, rolled back)', () => 
       E(
         'u_coach',
         'g1',
-        `select app.coach_book_private({{lt_p}}, {{v}}, ${sat(13)}, 'Student', null, 1, 'k-u_coach')`,
+        `select app.coach_book_private({{lt_p}}, {{v}}, ${sat(13)}, 'Student', '9647711112222', 1, 'k-u_coach')`,
       ),
       E(
         'u_desk_group',

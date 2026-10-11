@@ -1,6 +1,6 @@
 /**
  * Per-screen gate for coach mode, the RequireStaff shape: every
- * `app/coach-mode*.tsx` wraps itself in it (docs/design/coaching/guest.md
+ * `app/(coach-mode)/coach-mode*.tsx` wraps itself in it (docs/design/coaching/guest.md
  * §4.13.1).
  *
  *   pending           coach_me is being read: a spinner

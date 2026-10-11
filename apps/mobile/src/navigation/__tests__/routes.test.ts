@@ -20,14 +20,21 @@ const SRC = join(__dirname, '..', '..');
 /**
  * Route groups that legitimately remain: the tabs, which draw their own bar, and
  * the flows pushed from the tabs that run in a stack of their own (owner,
- * 2026-10-09): (tournaments) and (coaching). A root-stack screen's back item is
+ * 2026-10-09): (tournaments) and (coaching), and the staff pages Today opens,
+ * (staff), and coach mode, (coach-mode) (owner, 2026-10-11): Today, like the tabs, draws no bar. A root-stack screen's back item is
  * UIKit's shared bar's, which trails the page on a fast swipe back to the tabs;
  * the owner wants these flows' bar to leave WITH the page at any speed, which
  * only a bar owned by the page (a nested stack) can do. Each group's first screen
  * gets a native UIBarButtonItem with the system chevron instead of the back item
  * (src/navigation/groupStack.tsx). Nothing else may follow without the owner.
  */
-const ALLOWED_GROUPS = new Set(['(tabs)', '(tournaments)', '(coaching)']);
+const ALLOWED_GROUPS = new Set([
+  '(tabs)',
+  '(tournaments)',
+  '(coaching)',
+  '(coach-mode)',
+  '(staff)',
+]);
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -74,9 +81,11 @@ describe('route layout', () => {
     // A `_layout` outside (tabs) would reintroduce a nested navigator, and with
     // it the screens whose back item UIKit refuses to draw.
     const layouts = routeFiles.map(rel).filter((f) => f.endsWith('_layout.tsx'));
-    // (coaching) and (tournaments) are the documented exceptions (ALLOWED_GROUPS above).
+    // (coaching), (coach-mode), (tournaments) and (staff) are the documented exceptions (ALLOWED_GROUPS above).
     expect(layouts.sort()).toEqual([
+      '(coach-mode)/_layout.tsx',
       '(coaching)/_layout.tsx',
+      '(staff)/_layout.tsx',
       '(tabs)/_layout.tsx',
       '(tournaments)/_layout.tsx',
       '_layout.tsx',

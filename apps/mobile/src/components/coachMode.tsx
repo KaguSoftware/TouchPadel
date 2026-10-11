@@ -46,6 +46,32 @@ import {
   type TimeOffEntry,
 } from '../features/coach/logic';
 
+// ── The blue hero and its sheet (owner, 2026-10-11) ─────────────────────────
+
+/** How far a coach-mode page's rounded sheet rides up over its blue hero. */
+export const SHEET_RADIUS = 28;
+
+/** A step's number on its green tint (1 · Lesson type, 2 · When, …). */
+export function StepBadge({ n }: { n: number }) {
+  const { colors, fonts } = useTheme();
+  return (
+    <View
+      style={{
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: colors.gtint,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text style={{ fontFamily: fonts.body800, fontSize: 12, color: colors.gtext }}>
+        {isolateLtr(String(n))}
+      </Text>
+    </View>
+  );
+}
+
 // ── The coach's card ────────────────────────────────────────────────────────
 
 /** The coach's photo, or their initial on a tint when there is none. */
@@ -245,17 +271,26 @@ export function CoachLessonRow({
   lesson,
   tz,
   now,
+  highlight = false,
   onPress,
 }: {
   testID: string;
   lesson: ScheduleLesson;
   tz: string;
   now: Date;
+  /** Tonight's lessons: the time tile in green rather than the blue tint. */
+  highlight?: boolean;
   onPress: () => void;
 }) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const cancelled = lesson.status === 'cancelled' || lesson.status === 'expired';
+  const start = new Date(lesson.startAt);
+  const end = new Date(lesson.endAt);
+  const tile =
+    highlight && !cancelled
+      ? { bg: colors.gtint, fg: colors.gtext }
+      : { bg: colors.tint, fg: colors.blue };
   const type = pickName(lesson.typeNameEn, lesson.typeNameAr, locale);
   const title = pickName(lesson.titleEn, lesson.titleAr, locale);
   const court = pickName(lesson.courtNameEn, lesson.courtNameAr, locale);
@@ -275,15 +310,41 @@ export function CoachLessonRow({
         backgroundColor: pressed ? colors.sub : colors.card,
         borderWidth: 1,
         borderColor: colors.line,
-        borderRadius: radius.button,
-        paddingStart: space.m,
+        borderRadius: radius.card,
+        paddingStart: space.sm,
         paddingEnd: space.sm,
-        paddingTop: 12,
-        paddingBottom: 12,
+        paddingTop: space.sm,
+        paddingBottom: space.sm,
         marginBottom: space.s,
         opacity: cancelled ? 0.7 : 1,
       })}
     >
+      <View
+        accessibilityLabel={formatTimeRange(start, end, locale, tz)}
+        style={{
+          width: 60,
+          minHeight: 56,
+          borderRadius: radius.button,
+          backgroundColor: tile.bg,
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 1,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: fonts.display800,
+            fontSize: 15,
+            color: tile.fg,
+            textDecorationLine: cancelled ? 'line-through' : 'none',
+          }}
+        >
+          {isolateLtr(formatTime(start, locale, tz))}
+        </Text>
+        <Text style={{ fontFamily: fonts.body700, fontSize: 10.5, color: tile.fg }}>
+          {isolateLtr(formatTime(end, locale, tz))}
+        </Text>
+      </View>
       <View style={{ flex: 1, gap: 3 }}>
         <Text
           numberOfLines={1}
@@ -294,7 +355,7 @@ export function CoachLessonRow({
             textDecorationLine: cancelled ? 'line-through' : 'none',
           }}
         >
-          {`${formatTimeRange(new Date(lesson.startAt), new Date(lesson.endAt), locale, tz)} · ${isolate(title || type)}`}
+          {isolate(title || type)}
         </Text>
         <Text
           numberOfLines={1}

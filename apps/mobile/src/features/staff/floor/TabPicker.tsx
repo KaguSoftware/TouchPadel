@@ -14,6 +14,7 @@ import { Field } from '../../../components/ui';
 import { ListCard } from '../protocols/parts';
 import { ChoiceRow } from './parts';
 import { LABEL_MAX, localName, tabItemCount, tabName, type FloorTab, type Target } from './logic';
+import { otherPersonName } from '../../../components/fieldKeyboard';
 
 export function TabPicker({
   testID,
@@ -72,6 +73,7 @@ export function TabPicker({
       >
         <View style={{ marginTop: space.xs }}>
           <Field
+            {...otherPersonName}
             testID={`${testID}.name`}
             label={t('staff.floor.menu.guestName')}
             placeholder={t('staff.floor.menu.guestNamePlaceholder')}
