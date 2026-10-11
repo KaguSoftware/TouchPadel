@@ -14,6 +14,9 @@
  * It is also built on the `lite` tier (no shadow pass, 2× MSAA): seen from
  * straight above, the shadow map bought almost nothing for its cost; the
  * ball's ground disc stands in for its shadow.
+ * And it is ONE GL surface where the Book has two (Court3D ONE_SURFACE), with
+ * its static court merged and its trail instanced (scene.ts): about half the
+ * Book court's draw calls, and one framebuffer instead of two.
  *
  * WHAT PLAYS ON IT. `scene` passes straight through to Court3D: the Book tab's
  * rally by default (Play: its two pairs either side of the net), or the

@@ -1,6 +1,6 @@
 /**
  * Which court a phone gets. The scene (scene.ts) costs most in the shadow
- * pass — a 1024² map re-rendered every frame with every racket part as a
+ * pass — a 768² map re-rendered every frame with every racket part as a
  * caster — so a low-end phone gets the SAME court without it: the ball keeps
  * its ground disc, which reads as its shadow from the top-down camera anyway.
  * The ball trail is NOT cut; unlit spheres that never write depth are cheap,
