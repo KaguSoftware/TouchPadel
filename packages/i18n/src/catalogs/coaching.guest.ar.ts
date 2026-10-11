@@ -97,6 +97,9 @@ export const coachingGuestAr: DeepMessages<typeof coachingGuestEn> = {
       bookAndPay: 'الحجز والدفع عبر Qi Card',
       booked: 'تم الحجز، والدفع عند الاستقبال يوم الحصة.',
       payDeskInstead: 'الدفع عند الاستقبال بدلًا من ذلك',
+      friendsOptional: 'أسماء الأصدقاء (اختياري)',
+      upToCount: 'حتى {count}',
+      change: 'تغيير',
     },
     lesson: {
       title: 'الحصة',

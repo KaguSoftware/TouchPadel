@@ -33,9 +33,8 @@ import { TitleSquiggle } from '@/components/site/brand/TitleSquiggle';
  * Content is data: each page passes an ordered list of sections whose blocks
  * point at catalog keys (@touch/i18n `legal.*`). Nothing venue-specific is
  * typed here — the phone and hours come from venue_settings_public, and the
- * operating company's details from `legal.entity.*`, which every lookup
- * receives as {company}, {tradingName}, {registration}, {address}, {email},
- * {city} and {minPlayAge}.
+ * venue's details from `legal.entity.*`, which every lookup receives as
+ * {tradingName}, {email} and {minPlayAge}.
  */
 // The block and section shapes, and the Terms and Privacy section lists, live
 // in packages/i18n/src/legal.ts: the app's accept-terms gate shows the same text.
@@ -121,26 +120,21 @@ function VenueHours({ locale, venue }: { locale: Locale; venue: VenueOpeningHour
   );
 }
 
-/** Company email and address. The email is only a link once it is a real address. */
+/** The venue's email. It is only a link once it is a real address. */
 function EntityContact({ locale }: { locale: Locale }) {
   const tr = makeT(locale);
   const email = tr('legal.entity.email');
   return (
-    <>
-      <p>
-        {tr('legal.contact.emailLead')}{' '}
-        {isPlaceholder(email) ? (
-          email
-        ) : (
-          <a className="tp-legal__email" href={`mailto:${email}`} dir="ltr">
-            {email}
-          </a>
-        )}
-      </p>
-      <p>
-        {tr('legal.contact.addressLead')} {tr('legal.entity.address')}
-      </p>
-    </>
+    <p>
+      {tr('legal.contact.emailLead')}{' '}
+      {isPlaceholder(email) ? (
+        email
+      ) : (
+        <a className="tp-legal__email" href={`mailto:${email}`} dir="ltr">
+          {email}
+        </a>
+      )}
+    </p>
   );
 }
 

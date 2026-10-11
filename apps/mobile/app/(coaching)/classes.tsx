@@ -11,10 +11,10 @@ import {
   isolate,
   isolateLtr,
 } from '@touch/i18n';
-import { useLocale } from '../src/i18n/LocaleProvider';
-import { BranchPicker } from '../src/features/availability/BranchPicker';
-import { DEFAULT_TZ } from '../src/features/availability/assemble';
-import { useCoachingBranch, useCoachingPublic } from '../src/features/coaching/hooks';
+import { useLocale } from '../../src/i18n/LocaleProvider';
+import { BranchPicker } from '../../src/features/availability/BranchPicker';
+import { DEFAULT_TZ } from '../../src/features/availability/assemble';
+import { useCoachingBranch, useCoachingPublic } from '../../src/features/coaching/hooks';
 import {
   classRows,
   classTarget,
@@ -22,14 +22,14 @@ import {
   pick,
   type ClassFilter,
   type ClassRowData,
-} from '../src/features/coaching/logic';
-import { lessonErrorText } from '../src/features/coaching/errors';
-import { usePullRefresh } from '../src/lib/usePullRefresh';
-import { space, useTheme } from '../src/theme';
-import { Screen, SegmentedControl } from '../src/components/ui';
-import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
-import { MatchNotice } from '../src/components/match';
-import { ClassRow } from '../src/components/coaching';
+} from '../../src/features/coaching/logic';
+import { lessonErrorText } from '../../src/features/coaching/errors';
+import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { space, useTheme } from '../../src/theme';
+import { Screen, SegmentedControl } from '../../src/components/ui';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
+import { MatchNotice } from '../../src/components/match';
+import { ClassRow } from '../../src/components/coaching';
 
 /**
  * Group sessions and courses with places (docs/design/coaching/guest.md

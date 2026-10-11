@@ -18,7 +18,8 @@ import { useVenueSettings } from '../src/features/availability/hooks';
 import { venuePhoneOf } from '../src/features/availability/assemble';
 import { useAuth } from '../src/features/auth/context';
 import { bookingGateState } from '../src/features/auth/social';
-import { useOwnProfile } from '../src/features/profile/hooks';
+import { useOwnConsent, useOwnProfile } from '../src/features/profile/hooks';
+import { termsCheck } from '../src/features/profile/consent';
 import { brand, radius, space, useTheme } from '../src/theme';
 import { Button, Card, DashedDivider, ErrorText, LinkText, Screen } from '../src/components/ui';
 import { PayAtDeskCard, SummaryGrid } from '../src/components/booking';
@@ -92,6 +93,24 @@ function ReviewScreen() {
   // And no booking on a phone nobody verified (owner, 2026-09-27): the code
   // step pops back here, and the session it refreshes re-enables Reserve.
   const profileGate = bookingGateState(profile, session?.user);
+  // And no booking before the Terms are accepted (0153). The app does not
+  // interrupt launch for them; this is where a court booking asks, and the
+  // consent screen pops back here once accepted.
+  const user = session?.user ?? null;
+  const consentUid = user && !user.is_anonymous ? user.id : null;
+  const consent = useOwnConsent(consentUid);
+  const withTerms = (go: () => void) => {
+    // An anonymous session has no profile to accept with; the server refuses its booking.
+    if (!consentUid) return go();
+    const decide = (check: ReturnType<typeof termsCheck>) => {
+      if (check === 'ok') go();
+      else if (check === 'ask') router.push('/accept-terms');
+      else setError(t('errors.generic'));
+    };
+    const check = termsCheck(consent.data, user?.user_metadata);
+    if (check !== 'unknown') return decide(check);
+    void consent.refetch().then((r) => decide(termsCheck(r.data, user?.user_metadata)));
+  };
   const addPhone = () =>
     router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } });
   const verifyPhone = () =>
@@ -648,7 +667,7 @@ function ReviewScreen() {
           <Button
             testID="review.pay"
             label={payLabel}
-            onPress={onPay}
+            onPress={() => withTerms(onPay)}
             variant="cta"
             busy={payment.busy}
             disabled={blocked || confirm.isPending}
@@ -659,7 +678,7 @@ function ReviewScreen() {
           <Button
             testID="review.reserve"
             label={t(pay.kind === 'optional' ? 'deposit.confirmPayAtDeskCta' : 'booking.reserveCta')}
-            onPress={() => setDialogOpen(true)}
+            onPress={() => withTerms(() => setDialogOpen(true))}
             variant={pay.kind === 'optional' ? 'secondary' : 'cta'}
             size={pay.kind === 'optional' ? 'medium' : 'regular'}
             // Carries the write's spinner now that the confirmation is a system

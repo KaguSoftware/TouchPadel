@@ -24,32 +24,32 @@ import {
   formatWeekdayShort,
   isolate,
 } from '@touch/i18n';
-import { Text } from '../src/i18n/text';
-import { useLocale } from '../src/i18n/LocaleProvider';
-import { useAuth } from '../src/features/auth/context';
-import { useIsDegraded, useVenueSettings } from '../src/features/availability/hooks';
-import { addDays, venuePhoneOf, type MergedCell } from '../src/features/availability/assemble';
-import { useCoachProfile } from '../src/features/coaching/hooks';
-import { useLessonBooking } from '../src/features/coaching/useLessonBooking';
-import { lessonErrorText } from '../src/features/coaching/errors';
-import { setOnlyPendingLesson } from '../src/features/booking/pendingIntent';
-import { classTarget, displayCoachName, pick } from '../src/features/coaching/logic';
-import { useCoachStatus } from '../src/features/coach/useCoachStatus';
-import { brand, radius, shadows, space, useTheme } from '../src/theme';
-import { Button, Hint, Screen } from '../src/components/ui';
-import { DegradedBanner, slotTestID } from '../src/components/booking';
-import { ErrorState, SkeletonList } from '../src/components/states';
-import { MatchNotice, MatchSectionTitle } from '../src/components/match';
-import { ClassRow, CoachAvatar } from '../src/components/coaching';
+import { Text } from '../../src/i18n/text';
+import { useLocale } from '../../src/i18n/LocaleProvider';
+import { useAuth } from '../../src/features/auth/context';
+import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
+import { addDays, venuePhoneOf, type MergedCell } from '../../src/features/availability/assemble';
+import { useCoachProfile } from '../../src/features/coaching/hooks';
+import { useLessonBooking } from '../../src/features/coaching/useLessonBooking';
+import { lessonErrorText } from '../../src/features/coaching/errors';
+import { setOnlyPendingLesson } from '../../src/features/booking/pendingIntent';
+import { classTarget, displayCoachName, pick } from '../../src/features/coaching/logic';
+import { useCoachStatus } from '../../src/features/coach/useCoachStatus';
+import { brand, radius, shadows, space, useTheme } from '../../src/theme';
+import { Button, Hint, Screen } from '../../src/components/ui';
+import { DegradedBanner, slotTestID } from '../../src/components/booking';
+import { ErrorState, SkeletonList } from '../../src/components/states';
+import { MatchNotice, MatchSectionTitle } from '../../src/components/match';
+import { ClassRow, CoachAvatar } from '../../src/components/coaching';
 import {
   BackChevronIcon,
   CalendarIcon,
   ChevronDownIcon,
   ChevronIcon,
-} from '../src/components/icons';
-import { DateWheelSheet } from '../src/components/DateWheelSheet';
-import { useReduceMotion } from '../src/lib/useReduceMotion';
-import { liquidGlass } from '../src/lib/liquidGlass';
+} from '../../src/components/icons';
+import { DateWheelSheet } from '../../src/components/DateWheelSheet';
+import { useReduceMotion } from '../../src/lib/useReduceMotion';
+import { liquidGlass } from '../../src/lib/liquidGlass';
 
 /** Room the floating book bar takes over the list's foot, above the home indicator. */
 const BOOK_BAR_SPACE = 92;

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { clearBarOptions, useClearBarPad } from '../../src/navigation/clearBar';
+import { clearBarOptions, useClearBarPad } from '../../../src/navigation/clearBar';
 import { needsTermsAcceptance } from '@touch/core';
 import {
   countPhrase,
@@ -14,21 +14,21 @@ import {
   isolate,
   isolateLtr,
 } from '@touch/i18n';
-import { Text } from '../../src/i18n/text';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { useAuth } from '../../src/features/auth/context';
-import { bookingGateState } from '../../src/features/auth/social';
-import { useOwnConsent, useOwnProfile } from '../../src/features/profile/hooks';
-import { rpcErrorDetail } from '../../src/features/booking/errors';
-import { useJoinCourse, useJoinLesson, useLessonOffer } from '../../src/features/coaching/hooks';
-import { useStartLessonPayment } from '../../src/features/coaching/payment';
-import { setOnlyPendingLesson } from '../../src/features/booking/pendingIntent';
+import { Text } from '../../../src/i18n/text';
+import { useLocale } from '../../../src/i18n/LocaleProvider';
+import { useAuth } from '../../../src/features/auth/context';
+import { bookingGateState } from '../../../src/features/auth/social';
+import { useOwnConsent, useOwnProfile } from '../../../src/features/profile/hooks';
+import { rpcErrorDetail } from '../../../src/features/booking/errors';
+import { useJoinCourse, useJoinLesson, useLessonOffer } from '../../../src/features/coaching/hooks';
+import { useStartLessonPayment } from '../../../src/features/coaching/payment';
+import { setOnlyPendingLesson } from '../../../src/features/booking/pendingIntent';
 import {
   joinRefusalOf,
   lessonErrorCode,
   lessonErrorText,
-} from '../../src/features/coaching/errors';
-import { parsePriceChanged } from '../../src/features/matches/errors';
+} from '../../../src/features/coaching/errors';
+import { parsePriceChanged } from '../../../src/features/matches/errors';
 import {
   displayCoachName,
   effectiveChoice,
@@ -36,16 +36,16 @@ import {
   pick,
   type LessonWrite,
   type PaymentChoice,
-} from '../../src/features/coaching/logic';
-import type { ClassKind } from '../../src/features/coaching/keys';
-import { callPhone } from '../../src/lib/phone';
-import { space, useTheme } from '../../src/theme';
-import { Button, Card, ErrorText, Hint, Screen } from '../../src/components/ui';
-import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
-import { MatchNotice, MatchSectionTitle } from '../../src/components/match';
-import { CoachAvatar, LessonPoster, PaymentModeChoice } from '../../src/components/coaching';
-import { ChevronIcon } from '../../src/components/icons';
-import { useToast } from '../../src/components/overlays';
+} from '../../../src/features/coaching/logic';
+import type { ClassKind } from '../../../src/features/coaching/keys';
+import { callPhone } from '../../../src/lib/phone';
+import { space, useTheme } from '../../../src/theme';
+import { Button, Card, ErrorText, Hint, Screen } from '../../../src/components/ui';
+import { EmptyState, ErrorState, SkeletonList } from '../../../src/components/states';
+import { MatchNotice, MatchSectionTitle } from '../../../src/components/match';
+import { CoachAvatar, LessonPoster, PaymentModeChoice } from '../../../src/components/coaching';
+import { ChevronIcon } from '../../../src/components/icons';
+import { useToast } from '../../../src/components/overlays';
 
 /**
  * A group session or a course (docs/design/coaching/guest.md §4.8.5, §4.9.2):
@@ -99,7 +99,9 @@ export default function ClassDetailScreen() {
   const busy = joinLesson.isPending || joinCourse.isPending || payment.busy;
   const errorCtx = { locale, phone, termsCurrent: !needsTerms };
 
-  const header = <Stack.Screen options={{ title: t('coaching.guest.class.title'), ...clearBarOptions }} />;
+  const header = (
+    <Stack.Screen options={{ title: t('coaching.guest.class.title'), ...clearBarOptions }} />
+  );
 
   if (!kind || !id) {
     return (

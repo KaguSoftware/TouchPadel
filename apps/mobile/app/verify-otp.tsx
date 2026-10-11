@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { displayPhone } from '../src/features/profile/phone';
@@ -8,12 +8,12 @@ import {
   resendPhoneLink,
   resendSignUpCode,
   sendPasswordResetCode,
+  sendSignInCode,
   verifyPhoneLink,
   verifyPhoneOtp,
 } from '../src/features/auth/api';
 import {
   OTP_LENGTH,
-  RESEND_COOLDOWN_S,
   mapOtpError,
   parseLinkReturnTo,
   phoneOtpEnabled,
@@ -27,6 +27,8 @@ import { RequireSession } from '../src/features/auth/RequireSession';
 import { updateOwnProfile } from '../src/features/profile/api';
 import { profileKeys } from '../src/features/profile/hooks';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
+import { useFinishSignIn } from '../src/features/auth/useFinishSignIn';
+import { useResendCooldown } from '../src/features/auth/useResendCooldown';
 import { clearPendingIntents } from '../src/features/booking/pendingIntent';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useBack, useBackGuard } from '../src/navigation/back';
@@ -35,7 +37,7 @@ import { Button, ErrorText, FormScreen, Hint, LinkText, Screen, Title } from '..
 import { CodeInput } from '../src/components/CodeInput';
 import { useToast } from '../src/components/overlays';
 
-type Mode = 'signup' | 'reset' | 'link';
+type Mode = 'signup' | 'signin' | 'reset' | 'link';
 
 /**
  * Code entry. Reached with the E.164 number and the mode; a code was JUST
@@ -47,7 +49,11 @@ type Mode = 'signup' | 'reset' | 'link';
  *           returns the session -> the same post-auth continuation every other
  *           path uses. The name and language came with the sign-up, so there
  *           is no complete-profile step. This is the ONLY code a guest spends
- *           to get in; later sign-ins are phone + password.
+ *           to confirm the number.
+ *   signin  verifyOtp(type 'sms') on a sign-in code (app/sign-in.tsx, the
+ *           phone segment: code-only since 2026-10-11, owner) and lands the
+ *           way the email sign-in does (useFinishSignIn): staff to Today, an
+ *           incomplete profile to complete-profile, else the continuation.
  *   reset   verifyOtp(type 'sms') on a recovery code (app/forgot-password.tsx)
  *           signs the guest in, then app/reset-password.tsx sets the new
  *           password on that session.
@@ -64,7 +70,7 @@ type Mode = 'signup' | 'reset' | 'link';
  *           to Review or the match screen. phone-sign-in REPLACED itself
  *           with this screen there, so "Use a different number" swaps it back.
  *
- * signup / reset carry no RequireNoSession on purpose: the session lands
+ * signup / signin / reset carry no RequireNoSession on purpose: the session lands
  * mid-screen and the redirect would race the continuation (the verify-email
  * precedent).
  *
@@ -90,12 +96,12 @@ function VerifyOtpForm({
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
+  const finishSignIn = useFinishSignIn(continueAfterAuth);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [cooldownEnd, setCooldownEnd] = useState(() => Date.now() + RESEND_COOLDOWN_S * 1000);
-  const [secondsLeft, setSecondsLeft] = useState(RESEND_COOLDOWN_S);
+  const { secondsLeft, coolingDown, restart: restartCooldown } = useResendCooldown();
   const submitted = useRef(false);
 
   // A booking's pending slot, or an open match's pending intent, rides on this
@@ -112,19 +118,6 @@ function VerifyOtpForm({
     if (!returnTo) return back();
     leave(() => router.replace({ pathname: '/phone-sign-in', params: { returnTo, phone } }));
   };
-
-  // Tick only while a cooldown is running (verify-email's pattern).
-  useEffect(() => {
-    if (cooldownEnd === 0) return;
-    const update = () => {
-      const left = Math.max(0, Math.ceil((cooldownEnd - Date.now()) / 1000));
-      setSecondsLeft(left);
-      if (left === 0) setCooldownEnd(0);
-    };
-    update();
-    const id = setInterval(update, 500);
-    return () => clearInterval(id);
-  }, [cooldownEnd]);
 
   const onSubmit = async (value = code) => {
     if (value.length !== OTP_LENGTH || busy || submitted.current) return;
@@ -159,7 +152,12 @@ function VerifyOtpForm({
         router.replace('/(tabs)/profile');
         return;
       }
-      await verifyPhoneOtp(supabase, phone, value);
+      const { user } = await verifyPhoneOtp(supabase, phone, value);
+      if (mode === 'signin') {
+        // Reads the profile fresh (staleTime 0), so no invalidation first.
+        await finishSignIn(user);
+        return;
+      }
       // The profile row was written at sign-up; drop any signed-out cache of it.
       void queryClient.invalidateQueries({ queryKey: profileKeys.own });
       if (mode === 'reset') {
@@ -190,18 +188,16 @@ function VerifyOtpForm({
     try {
       if (mode === 'link') await resendPhoneLink(supabase, phone);
       else if (mode === 'reset') await sendPasswordResetCode(supabase, phone);
+      else if (mode === 'signin') await sendSignInCode(supabase, phone);
       else await resendSignUpCode(supabase, phone);
       setNotice(t('auth.codeSentAgain'));
-      setCooldownEnd(Date.now() + RESEND_COOLDOWN_S * 1000);
-      setSecondsLeft(RESEND_COOLDOWN_S);
+      restartCooldown();
     } catch (err) {
       setError(t(mapOtpError(err)));
     } finally {
       setBusy(false);
     }
   };
-
-  const coolingDown = secondsLeft > 0;
 
   return (
     <Screen gutter={20} edges={[]}>
@@ -261,7 +257,8 @@ function VerifyOtpForm({
 export default function VerifyOtpScreen() {
   const params = useLocalSearchParams<{ phone?: string; mode?: string; from?: string; returnTo?: string }>();
   const { session, initializing } = useAuth();
-  const mode: Mode = params.mode === 'link' ? 'link' : params.mode === 'reset' ? 'reset' : 'signup';
+  const mode: Mode =
+    params.mode === 'link' || params.mode === 'reset' || params.mode === 'signin' ? params.mode : 'signup';
   const phone = typeof params.phone === 'string' ? params.phone : '';
   if (mode === 'link') {
     // The booking modes work whatever the flag says (app/phone-sign-in.tsx).

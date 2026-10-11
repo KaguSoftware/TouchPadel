@@ -123,7 +123,7 @@ runSmokeCases('staff place an order', [
   {
     route: 'staff-order',
     Component: StaffOrder,
-    nearbyKey: 'staff.floor.tables.lead',
+    nearbyKey: 'staff.floor.tables.slip',
     options: { staff: WAITER, queryData: SEEDS },
   },
   {

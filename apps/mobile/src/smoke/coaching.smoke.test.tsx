@@ -79,14 +79,15 @@ import { cancelCopy } from '../features/coaching/cancel';
 import { clearPendingLesson, getPendingLesson } from '../features/coaching/pendingLesson';
 import { BookingSheet } from '../components/BookingSheet';
 import { CoachStatusProvider } from '../features/coach/CoachStatusProvider';
-import CoachesScreen from '../../app/coaches';
-import CoachDetailScreen from '../../app/coach/[id]';
-import LessonTimesScreen from '../../app/lesson-times';
-import ClassesScreen from '../../app/classes';
-import ClassDetailScreen from '../../app/class/[id]';
-import LessonReviewScreen from '../../app/lesson-review';
-import LessonDetailScreen from '../../app/lesson/[id]';
-import MyLessonsScreen from '../../app/my-lessons';
+import CoachingLayout from '../../app/(coaching)/_layout';
+import CoachesScreen from '../../app/(coaching)/coaches';
+import CoachDetailScreen from '../../app/(coaching)/coach/[id]';
+import LessonTimesScreen from '../../app/(coaching)/lesson-times';
+import ClassesScreen from '../../app/(coaching)/classes';
+import ClassDetailScreen from '../../app/(coaching)/class/[id]';
+import LessonReviewScreen from '../../app/(coaching)/lesson-review';
+import LessonDetailScreen from '../../app/(coaching)/lesson/[id]';
+import MyLessonsScreen from '../../app/(coaching)/my-lessons';
 import ProfileScreen from '../../app/(tabs)/profile';
 import BookingsScreen from '../../app/(tabs)/bookings';
 import PayStatusScreen from '../../app/pay/status';
@@ -129,6 +130,12 @@ const lessonSeeds = (over: Record<string, unknown> = {}): Seeds => [
 const START_AT = venueAt(1, 18 * 60).toISOString();
 
 const CASES: SmokeCase[] = [
+  // The group's own stack: a todo in the table (it needs a live router).
+  {
+    route: 'coaching-stack',
+    Component: CoachingLayout,
+    labelKey: 'coaching.guest.coaches.title',
+  },
   {
     route: 'coaches',
     Component: CoachesScreen,

@@ -232,7 +232,9 @@ const testIdElements = [
   'QuickMessageBar',
   'GenderAsk',
   'MatchRow',
+  'MatchCourtCard',
   'MatchEntryRow',
+  'EntryCard',
   'MatchRulesCard',
   'MatchRestrictedCard',
   // Coaching, the guest's side (docs/design/coaching/guest.md §4.17): each takes

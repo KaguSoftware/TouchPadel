@@ -1,21 +1,20 @@
-import { useCallback, useEffect, useState, type ComponentType, type ReactElement } from 'react';
+import { useEffect, useState, type ComponentType, type ReactElement } from 'react';
 import {
   Alert,
   Animated,
-  AppState,
   Easing,
-  Linking,
   Modal,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   View,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { formatNumber } from '@touch/i18n';
 import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../src/theme';
@@ -24,7 +23,6 @@ import {
   Card,
   ErrorText,
   Hint,
-  LinkText,
   MicroLabel,
   Screen,
   SegmentedControl,
@@ -32,7 +30,6 @@ import {
 import {
   BellIcon,
   CameraIcon,
-  ChevronIcon,
   EyeIcon,
   SlidersIcon,
   StopwatchIcon,
@@ -40,41 +37,33 @@ import {
   TrophyIcon,
   type IconProps,
 } from '../src/components/icons';
-import {
-  getPushPermissionState,
-  permissionStateAfter,
-  registerPushToken,
-  type PushPermissionState,
-} from '../src/features/profile/push';
 import { RequireStaff, useStaffSignOut } from '../src/features/staff/RequireStaff';
 import { setGuestPreview } from '../src/features/staff/guestPreview';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
 import { coachModeEntry, useCoachStatus } from '../src/features/coach/useCoachStatus';
-import { staffKeys } from '../src/features/staff/keys';
 import { showsVenuePicker } from '../src/features/staff/venue';
-import { mapStaffError } from '../src/features/staff/edge';
-import { fetchChecklistsToday } from '../src/features/staff/checklists/api';
-import { checklistTodos, dueText, localName } from '../src/features/staff/checklists/logic';
-import { Tag } from '../src/features/staff/checklists/parts';
-import { WorkList } from '../src/features/staff/protocols/WorkList';
-import { ListCard } from '../src/features/staff/protocols/parts';
+import { useWaitingCount, useWorkAlerts } from '../src/features/staff/workAlerts';
 import { GroupRows, useTodayGroups, type TodayGroup } from '../src/features/staff/todayGroups';
 import type { StaffRowDef } from '../src/features/staff/rows';
 import { fetchMyRewards } from '../src/features/staff/rewards/api';
 import { RewardTrack } from '../src/features/staff/rewards/RewardTrack';
 import { useReduceMotion } from '../src/lib/useReduceMotion';
-import { addBreadcrumb } from '../src/lib/telemetry';
 import { useToast } from '../src/components/overlays';
+import { BrandPattern } from '../src/components/BrandPattern';
+import { AssistantButton } from '../src/features/assistant/AssistantFab';
 
 /**
  * Today: the staff phone's home (build-contracts-2026-09-23 §6.1; layout:
  * owner, 2026-10-01, design option A).
  *
  * Top to bottom: who and where, the venue picker (only with more than one
- * venue), the work list, the pages this role has as a grid of group tiles
- * (todayGroups.ts; a tile opens its rows in a sheet, app/staff-group.tsx) with
+ * venue), the pages this role has as a grid of group tiles
+ * (todayGroups.ts; a tile opens its rows in a sheet, GroupModal below) with
  * coach mode and the owner's screenshots as tiles that open their page, and
- * the account as three buttons: work alerts, guest view, Settings. Reached by
+ * the account as three buttons: work alerts, guest view, Settings. Today's
+ * checklists and the work list moved behind the work alerts button, which
+ * badges how much of it waits on the person (owner, 2026-10-10;
+ * app/staff-work.tsx). Reached by
  * replacing, after a staff sign-in or from the tabs' gate, so there is nothing
  * to go back to: no header at all, since the page has no date to change.
  */
@@ -257,6 +246,7 @@ function AccountButton({
   warn,
   busy,
   compact,
+  badge,
   onPress,
 }: {
   testID: string;
@@ -265,19 +255,26 @@ function AccountButton({
   warn?: boolean;
   busy?: boolean;
   compact?: boolean;
+  /** How much waits behind the button: a red count on its corner when above zero. */
+  badge?: number;
   onPress: () => void;
 }) {
+  const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
+  const count = badge ?? 0;
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={
+        count > 0 ? `${label}, ${t('staff.shell.work.badge', { count })}` : label
+      }
       accessibilityState={{ busy: !!busy }}
       disabled={busy}
       onPress={onPress}
       style={({ pressed }) => ({
         flex: 1,
+        position: 'relative',
         alignItems: 'center',
         gap: compact ? 6 : 7,
         paddingVertical: compact ? 11 : space.m,
@@ -307,147 +304,31 @@ function AccountButton({
       >
         {label}
       </Text>
+      {count > 0 ? (
+        <View
+          testID={`${testID}.badge`}
+          style={{
+            position: 'absolute',
+            top: -6,
+            end: -6,
+            minWidth: 22,
+            height: 22,
+            paddingHorizontal: 6,
+            borderRadius: 11,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.danger,
+            borderWidth: 2,
+            borderColor: colors.bg,
+          }}
+        >
+          <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: brand.white }}>
+            {count > 99 ? '99+' : formatNumber(count, locale)}
+          </Text>
+        </View>
+      ) : null}
     </Pressable>
   );
-}
-
-/**
- * Today's checklists still to finish, at the top of To do for every role
- * (§6.1): one row per list (`staff.checklist.<runId>`) that opens it. A
- * finished list leaves Today; the checklist page writes the same cache entry,
- * so a tick there moves the count here. Nothing shows while the read is in
- * flight: the work list below carries the loading state.
- *
- * Scheduled lists (0323): overdue lists first, then by due time. Each row's
- * second line is the count and when it is due; an overdue row carries the
- * danger tag "Overdue since …" instead of the due time.
- */
-function TodayChecklists({ venueId }: { venueId: string }) {
-  const { t, locale } = useLocale();
-  const { colors, fonts } = useTheme();
-  const router = useRouter();
-  const lists = useQuery({
-    queryKey: staffKeys.checklists(venueId),
-    queryFn: () => fetchChecklistsToday(venueId),
-  });
-
-  if (lists.isPending) return null;
-  const now = new Date();
-  const todos = lists.isError ? [] : checklistTodos(lists.data, now);
-  if (!lists.isError && todos.length === 0) return null;
-
-  return (
-    <View style={{ gap: space.xs }}>
-      <MicroLabel style={{ paddingStart: 4 }}>
-        {lists.isError
-          ? t('staff.checklists.title')
-          : `${t('staff.checklists.title')} · ${todos.length}`}
-      </MicroLabel>
-      {lists.isError ? (
-        // The same failed-read line as the work list below: why, then the retry.
-        <View style={{ gap: space.xs }}>
-          <Hint>{t(mapStaffError(lists.error))}</Hint>
-          <LinkText
-            testID="staff.checklists.retry"
-            label={t('common.retry')}
-            onPress={() => void lists.refetch()}
-          />
-        </View>
-      ) : (
-        <ListCard>
-          {todos.map((list, i) => {
-            const due = dueText(list, now, locale, lists.data?.business_date);
-            const progress = t('staff.checklists.progress', { done: list.done, total: list.total });
-            return (
-              <Pressable
-                key={list.runId}
-                testID={`staff.checklist.${list.runId}`}
-                accessibilityRole="button"
-                onPress={() =>
-                  router.push({ pathname: '/staff-checklist', params: { id: list.runId } })
-                }
-                style={({ pressed }) => ({
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: space.s,
-                  paddingStart: space.l,
-                  paddingEnd: space.l,
-                  paddingTop: 12,
-                  paddingBottom: 12,
-                  borderBottomWidth: i === todos.length - 1 ? 0 : 1,
-                  borderBottomColor: colors.sub,
-                  backgroundColor: pressed ? colors.sub : 'transparent',
-                })}
-              >
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text
-                    numberOfLines={2}
-                    style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}
-                  >
-                    {localName(list, locale)}
-                  </Text>
-                  <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut }}>
-                    {due && !list.overdue ? `${progress} · ${due}` : progress}
-                  </Text>
-                  {due && list.overdue ? <Tag tone="bad" label={due} /> : null}
-                </View>
-                <ChevronIcon size={16} color={colors.fnt2} />
-              </Pressable>
-            );
-          })}
-        </ListCard>
-      )}
-    </View>
-  );
-}
-
-function useWorkAlerts() {
-  const { t } = useLocale();
-  const toast = useToast();
-  const [state, setState] = useState<PushPermissionState>('undetermined');
-  const [busy, setBusy] = useState(false);
-
-  // Re-probed on every foreground, as Settings does: coming back from the
-  // system settings with alerts turned on must show it, and must register the
-  // token that makes the alerts arrive at all.
-  useEffect(() => {
-    let cancelled = false;
-    const probe = () => {
-      void getPushPermissionState().then((next) => {
-        if (cancelled) return;
-        setState(next);
-        if (next === 'granted') {
-          void registerPushToken({ prompt: false }).then((result) =>
-            addBreadcrumb('push.register', { result, reason: 'staff-foreground' }),
-          );
-        }
-      });
-    };
-    probe();
-    const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'active') probe();
-    });
-    return () => {
-      cancelled = true;
-      sub.remove();
-    };
-  }, []);
-
-  // The only prompting call in the staff area: the lifecycle never asks, so an
-  // account that never turned alerts on has no token and every work push
-  // would end as NO_PUSH_TOKEN (plan §6.6).
-  const enable = useCallback(async () => {
-    setBusy(true);
-    const result = await registerPushToken({ prompt: true });
-    addBreadcrumb('push.register', { result, reason: 'staff-alerts-row' });
-    const observed = result === 'failed' ? await getPushPermissionState() : 'unavailable';
-    const next = permissionStateAfter(result, observed);
-    setState(next.state);
-    if (next.errored) toast(t('errors.generic'), 'error');
-    setBusy(false);
-  }, [t, toast]);
-
-  return { state, busy, enable };
 }
 
 /**
@@ -534,15 +415,15 @@ function GroupModal({
             ],
           }}
         >
-          <ScrollView
-            contentContainerStyle={{
+          {/* The grabber and the title stay put; only the rows scroll. */}
+          <View
+            style={{
               paddingTop: space.m,
               paddingStart: space.l,
               paddingEnd: space.l,
-              paddingBottom: space.xl + insets.bottom,
+              paddingBottom: space.m,
               gap: space.m,
             }}
-            showsVerticalScrollIndicator={false}
           >
             <View
               style={{
@@ -554,14 +435,24 @@ function GroupModal({
               }}
             />
             {group ? (
-              <>
-                <Text style={{ fontFamily: fonts.display800, fontSize: 19, color: colors.ink }}>
-                  {t(group.titleKey)}
-                </Text>
-                <View testID="staff.sheet.list">
-                  <GroupRows group={group} label={label} onOpen={onOpen} />
-                </View>
-              </>
+              <Text style={{ fontFamily: fonts.display800, fontSize: 19, color: colors.ink }}>
+                {t(group.titleKey)}
+              </Text>
+            ) : null}
+          </View>
+          <ScrollView
+            style={{ flexShrink: 1 }}
+            contentContainerStyle={{
+              paddingStart: space.l,
+              paddingEnd: space.l,
+              paddingBottom: space.xl + insets.bottom,
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            {group ? (
+              <View testID="staff.sheet.list">
+                <GroupRows group={group} label={label} onOpen={onOpen} />
+              </View>
             ) : null}
           </ScrollView>
         </Animated.View>
@@ -603,7 +494,10 @@ function TodayScreen() {
   // C-27, R45: the hub reads coach_me on mount, like Profile, whatever the
   // staff status and the coaching switches say.
   const coachEntry = coachModeEntry(useCoachStatus({ read: true }).status);
+  // Kept here as well as on the work alerts page: Today's foreground probe is
+  // what registers the push token once alerts are allowed.
   const alerts = useWorkAlerts();
+  const waitingCount = useWaitingCount(venueId);
   const toast = useToast();
   const out = useStaffSignOut();
   const { groups, label, waiting } = useTodayGroups();
@@ -638,18 +532,19 @@ function TodayScreen() {
     ]);
   };
 
-  // Work alerts: until push is allowed the button asks for it (the only
-  // prompting call in the staff area), and once refused it opens the system
-  // settings, the one place it can be turned back on.
+  // Amber while push is off; the page it opens asks for it.
   const alertsOff = alerts.state === 'undetermined' || alerts.state === 'denied';
-  const onAlerts = () => {
-    if (alerts.state === 'undetermined') void alerts.enable();
-    else void Linking.openSettings().catch(() => {});
-  };
 
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
+      {/* The brand line pattern the Book tab stands on, full bleed behind the
+          page. First child so every sibling paints over it; absolute children
+          resolve against the padding box, so it runs under the safe-area inset
+          and the side gutters too. */}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <BrandPattern />
+      </View>
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
@@ -658,35 +553,49 @@ function TodayScreen() {
           gap: compact ? 10 : space.sm,
         }}
         showsVerticalScrollIndicator={false}
-        // The page does not scroll or bounce (owner, 2026-10-01): it fits the
-        // screen, and only a long work list on a small phone makes it move.
-        // No pull to refresh, then; the queries refetch when the app comes
-        // back to the foreground (src/lib/queryClient.ts).
+        // The page does not scroll or bounce (owner, 2026-10-01; scrolling
+        // turned off entirely, 2026-10-09): it fits the screen. No pull to
+        // refresh, then; the queries refetch when the app comes back to the
+        // foreground (src/lib/queryClient.ts).
+        scrollEnabled={false}
         bounces={false}
         alwaysBounceVertical={false}
         overScrollMode="never"
       >
         {/* The room under the greeting is the room the old "Nothing is
-            waiting on you" line took, kept now that the line is gone. */}
-        <View style={{ gap: 2, marginBottom: compact ? space.sm : space.xxl + space.sm }}>
-          <Text
-            style={{
-              fontFamily: fonts.display800,
-              fontSize: compact ? 23 : 24,
-              lineHeight: compact ? 28 : 30,
-              color: colors.ink,
-            }}
-          >
-            {t('staff.shell.today.greeting', { name: staff.displayName })}
-          </Text>
-          <Text style={{ fontFamily: fonts.body600, fontSize: 13, color: colors.mut }}>
-            {here ? t('staff.shell.today.roleAtVenue', { role, venue: here }) : role}
-          </Text>
-          {/* The green stroke under the whole header, as under a tab's title. */}
-          <View style={{ alignItems: 'flex-start' }}>
-            <TitleSquiggle />
+            waiting on you" line took, kept now that the line is gone. On a
+            card so the brand pattern does not run under the words. */}
+        <Card
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: space.m,
+            padding: compact ? space.m : space.l,
+            marginBottom: compact ? space.sm : space.xxl + space.sm,
+          }}
+        >
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text
+              style={{
+                fontFamily: fonts.display800,
+                fontSize: compact ? 23 : 24,
+                lineHeight: compact ? 28 : 30,
+                color: colors.ink,
+              }}
+            >
+              {t('staff.shell.today.greeting', { name: staff.displayName })}
+            </Text>
+            <Text style={{ fontFamily: fonts.body600, fontSize: 13, color: colors.mut }}>
+              {here ? t('staff.shell.today.roleAtVenue', { role, venue: here }) : role}
+            </Text>
+            {/* The green stroke under the whole header, as under a tab's title. */}
+            <View style={{ alignItems: 'flex-start' }}>
+              <TitleSquiggle />
+            </View>
           </View>
-        </View>
+          {/* The owner's assistant, here rather than floating over Sign out. */}
+          <AssistantButton testID="staff.assistant.header" size={40} labelled />
+        </Card>
 
         {/* Rewards for orders placed: the owner sets them, so the owner has none. */}
         {venueId && staff.role !== 'owner' ? (
@@ -707,12 +616,6 @@ function TodayScreen() {
           </Card>
         ) : null}
         {status.venues.length === 0 ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
-
-        {/* The work list: today's checklists first, then what waits on the
-            person to decide, their open steps, what they sent and what was
-            decided (my_checklists_today, my_protocol_work), at `venueId`. */}
-        {venueId ? <TodayChecklists venueId={venueId} /> : null}
-        {venueId ? <WorkList venueId={venueId} /> : null}
 
         <TilePages
           tiles={[
@@ -794,24 +697,24 @@ function TodayScreen() {
         {/* The account and sign-out sit at the foot of the page: pushed to the
             bottom of the screen when the page is short, after the tiles when it
             scrolls. */}
-        <View style={{ marginTop: 'auto', paddingTop: compact ? space.s : space.m, gap: compact ? 10 : space.sm }}>
+        <Card
+          style={{
+            marginTop: 'auto',
+            padding: compact ? space.m : space.l,
+            gap: compact ? 10 : space.sm,
+          }}
+        >
           <View style={{ gap: space.xs }}>
             <MicroLabel style={{ paddingStart: 4 }}>{t('staff.shell.account.title')}</MicroLabel>
             <View style={{ flexDirection: 'row', gap: space.s }}>
               <AccountButton
-                testID={
-                  alerts.state === 'undetermined'
-                    ? 'staff.alerts.enable'
-                    : alerts.state === 'denied'
-                      ? 'staff.alerts.open-settings'
-                      : 'staff.alerts.on'
-                }
+                testID="staff.alerts"
                 icon={BellIcon}
                 label={t('staff.shell.account.alerts')}
                 warn={alertsOff}
-                busy={alerts.busy}
+                badge={waitingCount}
                 compact={compact}
-                onPress={onAlerts}
+                onPress={() => router.push('/staff-work')}
               />
               {/* The guest app as a guest sees it (guestPreview.ts); a pill over
                 the tabs comes back here. The toast says it is live, not a demo. */}
@@ -846,7 +749,7 @@ function TodayScreen() {
             onPress={confirmSignOut}
             style={{ backgroundColor: 'transparent' }}
           />
-        </View>
+        </Card>
       </ScrollView>
       {Platform.OS === 'ios' ? null : (
         <GroupModal

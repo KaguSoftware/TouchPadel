@@ -67,6 +67,24 @@ export const TagIcon = (p: IconProps) => (
     {...p}
   />
 );
+/** The booking sheet's lessons card: a coach's whistle on its cord. */
+export const WhistleIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M9 8h11v3.5h-5.5A5.5 5.5 0 119 8zM8.5 13.5h.01M9 8V4.5a1.5 1.5 0 00-3 0v4',
+    ]}
+    {...p}
+  />
+);
+/** The booking sheet's tournaments card. */
+export const TrophyIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M7 4h10v5a5 5 0 01-10 0V4zM7 6H4v1.5A3.5 3.5 0 007.3 11M17 6h3v1.5a3.5 3.5 0 01-3.3 3.5M12 14v3.5M8.5 20.5h7M9.5 20.5c0-1.7 1.1-3 2.5-3s2.5 1.3 2.5 3',
+    ]}
+    {...p}
+  />
+);
 export const WifiOffIcon = (p: IconProps) => (
   <StrokeIcon d={['M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0M12 19.3h.01M4 4l16 16']} {...p} />
 );

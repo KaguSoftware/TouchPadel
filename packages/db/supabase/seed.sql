@@ -46,9 +46,9 @@
 --
 -- PHONE. Named approver Mustafa Awad, Owner (pack `touch-padel.filler.contact`). Surfaced to
 -- guests through venue_settings_public -- it is the number shown in degraded mode.
--- !! UNVERIFIED: 00995419010203 parses as +995 (Georgia), not +964 (Iraq). The 2026-08-30 pack
--- !! repeats the SAME number as `approver.contact`, so it is consistent but still unverified.
--- !! Confirm with Mustafa before go-live; see docs/client/07-outstanding-2026-08-30.md.
+-- The packs gave 00995419010203, which parses as +995 (Georgia). The venue's real front-desk
+-- number, +964 782 255 5777, replaced it on 2026-10-11. Migration 0056 still writes the old one;
+-- the hosted value is set by staff in the operator app (Settings > Venue details).
 --
 -- closed_dates is deliberately left EMPTY. Both packs name four closures -- 9 and 10 Muharram,
 -- Arbaeen, Wafat al-Rasool -- but give no Gregorian dates, and they follow the Hijri calendar on
@@ -71,7 +71,7 @@ update venue_settings
                          "sat":[["00:00","02:00"],["09:00","24:00"]],
                          "sun":[["00:00","02:00"],["09:00","24:00"]]}'::jsonb,
        cancellation_window_hours = 4,           -- pack policy.cancelNote
-       phone         = '00995419010203',        -- pack filler.contact -- see UNVERIFIED note above
+       phone         = '+964 782 255 5777',     -- the venue's front desk (2026-10-11); see PHONE above
        cash_rounding_iqd = 1                    -- resolved override #1: rounding OFF
  where id;
 

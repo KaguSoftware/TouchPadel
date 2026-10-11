@@ -39,7 +39,11 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 /** APP-relative, '/'-separated regardless of platform (`join` emits '\' on Windows). */
-const rel = (f: string): string => f.slice(APP.length + 1).split(sep).join('/');
+const rel = (f: string): string =>
+  f
+    .slice(APP.length + 1)
+    .split(sep)
+    .join('/');
 
 const routeFiles = walk(APP).map(rel).sort();
 const tabled = SMOKE_ROUTES.map((r) => r.file).sort();
@@ -105,9 +109,7 @@ describe('smoke coverage', () => {
     for (const r of SMOKE_ROUTES) {
       const files = referencedBy.get(r.route) ?? [];
       if (files.length !== 1) {
-        problems.push(
-          `${r.route}: ${files.length === 0 ? 'no suite' : files.join(' and ')}`,
-        );
+        problems.push(`${r.route}: ${files.length === 0 ? 'no suite' : files.join(' and ')}`);
       }
     }
     expect(

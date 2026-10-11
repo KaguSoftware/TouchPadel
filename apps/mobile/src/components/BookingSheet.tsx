@@ -11,8 +11,11 @@
  * Every entrance derives from the shared progress value p:
  *   sheet    0.25 → 1.00  translateY 360 → 0, scale 0.92 → 1     PITCH ease (direction-aware)
  *            0.25 → 0.45  opacity 0 → 1                          linear
- *   pill i   0.45 + i·0.035, length 0.22   opacity + rise 14 px   linear
- *   row r    0.58 + r·0.06, length 0.28    opacity + rise 18 px + scale 0.96 → 1 (rows ≥ 3 share row 3)
+ *   then three groups, each moving as one, linear in TIME (SPEC.groups:
+ *   timed in seconds of the open spring and converted to p, all in by 0.6 s):
+ *   days     0.22 → 0.44 s   opacity + rise 14 px
+ *   lanes    0.30 → 0.52 s   picker: opacity + rise 14 px; lanes: + rise 18 px, scale 0.96 → 1
+ *   entries  0.38 → 0.60 s   open matches, lessons, tournaments: as the lanes
  *   scroll edges: 10 / 14 px fades on the pills, 12 / 24 px on the grid, their
  *   ink squared towards the edge so the band never bleeds inward over the
  *   content; the leading fade only once scrolled.
@@ -58,18 +61,18 @@ import { useLessonEntry } from '../features/coaching/hooks';
 import { useTournamentEntry } from '../features/tournaments/hooks';
 import { mapErrorToKey } from '../features/booking/errors';
 import {
-  pillSlice,
+  groupSlice,
   pitchEase,
-  rowSlice,
   sampleEased,
+  sampleOpenLinear,
   SPEC,
   type Dir,
   type Range,
 } from '@touch/court3d/spec';
 import { brand, shadows, space, useTheme, withAlpha } from '../theme';
 import { Button, SegmentedControl } from './ui';
-import { CourtLaneRow, DayChip, MatchEntryRow } from './booking';
-import { WifiOffIcon } from './icons';
+import { CourtLaneRow, DayChip, ENTRY_CARD_H, EntryCard, MatchBallIcon } from './booking';
+import { TrophyIcon, WhistleIcon, WifiOffIcon } from './icons';
 import { SkeletonList } from './states';
 import { ErrorAlert, NoticeSheet } from './overlays';
 
@@ -82,14 +85,6 @@ const CARD_RADIUS = 22;
  * phone the card caps itself and this block shrinks (min 96 pt) and scrolls.
  */
 const GRID_H = 240;
-/**
- * The open matches entry row under the court cards (guest.md §4.11): its 40 pt
- * and the gap above it. Added to the block only while the branch has open
- * matches on, so with the switch off the card is exactly as before. The
- * lessons row (coaching guest.md §4.8.1) is the same height, under it, while
- * the branch has coaching on: the block grows by one ENTRY_H per row.
- */
-const ENTRY_H = 46;
 const PAD = 10;
 interface Entrance {
   opacity: Animated.AnimatedInterpolation<number>;
@@ -105,7 +100,7 @@ function entrance(
   scaleFrom: number,
 ): Entrance {
   const table = (out: Range) =>
-    progress.interpolate({ ...sampleEased(range, out, undefined, 1), extrapolate: 'clamp' });
+    progress.interpolate({ ...sampleOpenLinear(range, out), extrapolate: 'clamp' });
   return { opacity: table([0, 1]), translateY: table([rise, 0]), scale: table([scaleFrom, 1]) };
 }
 
@@ -148,7 +143,40 @@ export function BookingSheet({
   // "Tournaments" (tournaments plan §5.2), beside the lessons row and built the
   // same way: a static label, no query of its own.
   const tournamentEntry = useTournamentEntry(guestVenueId);
-  const entries = (a.matchEntry ? 1 : 0) + (lessonEntry ? 1 : 0) + (tournamentEntry ? 1 : 0);
+  // The button cards under the court cards (owner, 2026-10-10): lessons
+  // (coaching guest.md §4.8.1), tournaments (tournaments plan §5.2), then open
+  // matches (guest.md §4.11, only while the branch has them on), two to a row; an
+  // odd one out takes its row's full width. Each row adds ENTRY_CARD_H and the
+  // gap above it, so with none of them on the card is exactly as before.
+  const entries = [
+    lessonEntry
+      ? {
+          key: 'lessons',
+          label: lessonEntry.label,
+          icon: WhistleIcon,
+          onPress: lessonEntry.onPress,
+        }
+      : null,
+    tournamentEntry
+      ? {
+          key: 'tournaments',
+          label: tournamentEntry.label,
+          icon: TrophyIcon,
+          onPress: tournamentEntry.onPress,
+        }
+      : null,
+    a.matchEntry
+      ? {
+          key: 'open-matches',
+          label: a.matchEntry.label,
+          icon: MatchBallIcon,
+          onPress: a.matchEntry.onPress,
+        }
+      : null,
+  ].filter((e) => e !== null);
+  const entryRows: (typeof entries)[] = [];
+  for (let i = 0; i < entries.length; i += 2) entryRows.push(entries.slice(i, i + 2));
+  const entriesH = entryRows.length * (ENTRY_CARD_H + 6);
   // Seeded from the window rather than starting at zero. This box spans the
   // stage's full width, so `width` is already exact; `height` is an
   // over-estimate that only ever relaxes the card's cap, and onLayout corrects
@@ -214,21 +242,15 @@ export function BookingSheet({
     };
   }, [progress, direction, cardMaxH]);
 
-  // Staggers are linear, so they depend only on how many pills there are.
-  const pillCount = a.tzDates.length;
-
-  const pills = useMemo(
-    () =>
-      Array.from({ length: pillCount + 1 }, (_, i) =>
-        entrance(progress, pillSlice(i), SPEC.pills.y, 1),
-      ),
-    [progress, pillCount],
-  );
-  const rows = useMemo(
-    () =>
-      Array.from({ length: SPEC.grid.sharedFromRow + 1 }, (_, r) =>
-        entrance(progress, rowSlice(r), SPEC.grid.y, SPEC.grid.scale),
-      ),
+  // The three entrance groups (SPEC.groups), each moving as one: the day
+  // chips; the duration picker with the court lanes; the entry rows.
+  const groups = useMemo(
+    () => ({
+      days: entrance(progress, groupSlice(0), SPEC.pills.y, 1),
+      picker: entrance(progress, groupSlice(1), SPEC.pills.y, 1),
+      lanes: entrance(progress, groupSlice(1), SPEC.grid.y, SPEC.grid.scale),
+      entries: entrance(progress, groupSlice(2), SPEC.grid.y, SPEC.grid.scale),
+    }),
     [progress],
   );
 
@@ -339,13 +361,13 @@ export function BookingSheet({
       // a ScrollView with scrolling OFF, not swapped for a View: the date
       // chips' glass stopped rendering when this block's structure changed, so
       // the committed layout is left exactly as it was. The spacing below is
-      // trimmed so two courts fit GRID_H. With open matches on, the entry row
-      // is the last child and the block grows by ENTRY_H to hold it; scrolling
-      // comes on then only so that a short phone, where the block gives way,
-      // can still reach the row.
+      // trimmed so two courts fit GRID_H. With entry cards on, their rows are
+      // the last children and the block grows by entriesH to hold them;
+      // scrolling comes on then only so that a short phone, where the block
+      // gives way, can still reach them.
       <ScrollView
         ref={gridRef}
-        scrollEnabled={entries > 0}
+        scrollEnabled={entriesH > 0}
         bounces={false}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={(_w, h) => setGridContentH((prev) => (prev === h ? prev : h))}
@@ -358,7 +380,7 @@ export function BookingSheet({
             views in place instead of tearing them down (the rally shares this
             JS thread — see Court3D). */}
         {a.lanes.map((lane, r) => {
-          const e = rows[Math.min(r, SPEC.grid.sharedFromRow)]!;
+          const e = groups.lanes;
           return (
             <Animated.View
               key={r}
@@ -384,63 +406,33 @@ export function BookingSheet({
             </Animated.View>
           );
         })}
-        {/* Enters with the last shared row, so it adds no interpolation of its own. */}
-        {a.matchEntry ? (
+        {/* The entries group: open matches, lessons and tournaments as
+            button cards, two to a row. */}
+        {entryRows.map((row) => (
           <Animated.View
+            key={row.map((e) => e.key).join('+')}
             style={{
               marginTop: 6,
-              opacity: rows[SPEC.grid.sharedFromRow]!.opacity,
+              flexDirection: 'row',
+              gap: 6,
+              opacity: groups.entries.opacity,
               transform: [
-                { translateY: rows[SPEC.grid.sharedFromRow]!.translateY },
-                { scale: rows[SPEC.grid.sharedFromRow]!.scale },
+                { translateY: groups.entries.translateY },
+                { scale: groups.entries.scale },
               ],
             }}
           >
-            <MatchEntryRow
-              testID={`${testID}.open-matches`}
-              label={a.matchEntry.label}
-              onPress={a.matchEntry.onPress}
-            />
+            {row.map((e) => (
+              <EntryCard
+                key={e.key}
+                testID={`${testID}.${e.key}`}
+                label={e.label}
+                icon={e.icon}
+                onPress={e.onPress}
+              />
+            ))}
           </Animated.View>
-        ) : null}
-        {/* After the match row, in the same wash: no interpolation of its own. */}
-        {lessonEntry ? (
-          <Animated.View
-            style={{
-              marginTop: 6,
-              opacity: rows[SPEC.grid.sharedFromRow]!.opacity,
-              transform: [
-                { translateY: rows[SPEC.grid.sharedFromRow]!.translateY },
-                { scale: rows[SPEC.grid.sharedFromRow]!.scale },
-              ],
-            }}
-          >
-            <MatchEntryRow
-              testID={`${testID}.lessons`}
-              label={lessonEntry.label}
-              onPress={lessonEntry.onPress}
-            />
-          </Animated.View>
-        ) : null}
-        {/* After the lessons row, in the same wash. */}
-        {tournamentEntry ? (
-          <Animated.View
-            style={{
-              marginTop: 6,
-              opacity: rows[SPEC.grid.sharedFromRow]!.opacity,
-              transform: [
-                { translateY: rows[SPEC.grid.sharedFromRow]!.translateY },
-                { scale: rows[SPEC.grid.sharedFromRow]!.scale },
-              ],
-            }}
-          >
-            <MatchEntryRow
-              testID={`${testID}.tournaments`}
-              label={tournamentEntry.label}
-              onPress={tournamentEntry.onPress}
-            />
-          </Animated.View>
-        ) : null}
+        ))}
       </ScrollView>
     );
   }
@@ -578,9 +570,9 @@ export function BookingSheet({
                     paddingTop: 10,
                   }}
                 >
-                  {a.tzDates.map((d, i) => {
+                  {a.tzDates.map((d) => {
                     const noon = wallTimeToUtc(d, 12 * 60, a.tz);
-                    const e = pills[i]!;
+                    const e = groups.days;
                     return (
                       <Animated.View
                         key={d}
@@ -606,14 +598,14 @@ export function BookingSheet({
                 </ScrollView>
               </View>
 
-              {/* Duration picker enters with the last pill */}
+              {/* Duration picker: enters with the court lanes (one group) */}
               <Animated.View
                 style={{
                   marginTop: 5,
                   paddingStart: PAD,
                   paddingEnd: PAD,
-                  opacity: pills[pillCount]!.opacity,
-                  transform: [{ translateY: pills[pillCount]!.translateY }],
+                  opacity: groups.picker.opacity,
+                  transform: [{ translateY: groups.picker.translateY }],
                 }}
               >
                 <SegmentedControl
@@ -649,7 +641,7 @@ export function BookingSheet({
                     marginTop: 6,
                     paddingStart: PAD,
                     paddingEnd: PAD,
-                    opacity: pills[pillCount]!.opacity,
+                    opacity: groups.picker.opacity,
                   }}
                 >
                   <Pressable
@@ -705,7 +697,7 @@ export function BookingSheet({
                   gives way on a short stage */}
               <View
                 style={{
-                  height: Math.max(GRID_H + ENTRY_H * entries, gridContentH),
+                  height: Math.max(GRID_H + entriesH, gridContentH),
                   minHeight: 96,
                   flexShrink: 1,
                   marginTop: 6,

@@ -9,9 +9,13 @@
  *     session exists yet at that moment (the phone code or the email link comes
  *     first), so nothing can be recorded then; once the session lands, the gate
  *     sees the metadata and records it WITHOUT asking again.
- *   • THE GATE (app/accept-terms.tsx). Everyone else whose recorded version is
- *     not CURRENT_TERMS_VERSION: Apple and Google sign-ups, desk-created
- *     accounts, accounts from before 0153, and every guest after a version bump.
+ *   • THE CONSENT SCREEN (app/accept-terms.tsx). Everyone else whose recorded
+ *     version is not CURRENT_TERMS_VERSION: Apple and Google sign-ups,
+ *     desk-created accounts, accounts from before 0153, and every guest after a
+ *     version bump. Not at launch (owner, 2026-10-10): where an action needs
+ *     the terms. Review asks before a court booking (termsCheck); open
+ *     matches, lessons, tournaments and tickets are refused TERMS_REQUIRED by
+ *     the server and their screens open it.
  *
  * Pure: takes the client, no React Native imports (vitest runs it in node).
  */
@@ -38,8 +42,8 @@ export async function fetchOwnConsent(client: Client, uid: string): Promise<Cons
 
 /**
  * Returns the row as it now stands, so the caller can put it in the cache
- * before the consent screen closes: a gate still reading the old row would
- * present the screen a second time.
+ * before the consent screen closes: Review still reading the old row would
+ * send the guest straight back to it.
  */
 export async function acceptTerms(client: Client, version: string = CURRENT_TERMS_VERSION): Promise<ConsentRow> {
   const { data, error } = await client.schema('app').rpc('accept_terms', { p_version: version });
@@ -52,7 +56,8 @@ export async function acceptTerms(client: Client, version: string = CURRENT_TERM
  *   'none'    nothing to do: accepted already, or not known yet (a profile
  *             that has not loaded must never flash the gate)
  *   'record'  the guest ticked the switch at sign-up for THIS version; record it
- *   'ask'     show the consent screen
+ *   'ask'     not accepted: the consent screen is shown where it is needed
+ *             (termsCheck below), never pushed at launch
  */
 export type ConsentAction = 'none' | 'record' | 'ask';
 
@@ -67,38 +72,24 @@ export function consentAction(
   return 'ask';
 }
 
-/** How long a dispatched push may take to show up on the navigation stack. */
-export const GATE_PUSH_SETTLE_MS = 2_000;
-
 /**
- * Whether the gate should push the consent screen now. Once per ask: routes
- * change several times around a sign-in before a pushed modal lands, and
- * pushing on each of them stacked two or three copies, so the guest accepted
- * the terms two or three times. So nothing is pushed while the screen is
- * already on the stack, or while a push is still on its way to it
- * (`pushedAt` within GATE_PUSH_SETTLE_MS). A screen that has left the stack
- * while the account is still asked (Android's back button, a later replace)
- * is pushed again.
+ * Whether an action that needs the terms (a court booking at Review) may go
+ * ahead: 'ok' accepted, or ticked at sign-up for this version (the gate records
+ * it); 'ask' open the consent screen first; 'unknown' not loaded yet, so read
+ * it before deciding. Never 'ok' on a row that has not loaded: that is how an
+ * action would slip past the terms.
  */
-export function shouldPushGate(args: {
-  action: ConsentAction;
-  onExemptScreen: boolean;
-  inStack: boolean;
-  pushedAt: number | null;
-  now: number;
-}): boolean {
-  const { action, onExemptScreen, inStack, pushedAt, now } = args;
-  if (action !== 'ask' || onExemptScreen || inStack) return false;
-  return pushedAt === null || now - pushedAt > GATE_PUSH_SETTLE_MS;
-}
+export type TermsCheck = 'ok' | 'ask' | 'unknown';
 
-interface NavState {
-  routes?: readonly { name: string; state?: NavState }[];
-}
-
-/** Whether a route by this name is anywhere in the navigation tree. */
-export function stackHas(state: NavState | null | undefined, name: string): boolean {
-  return (state?.routes ?? []).some((route) => route.name === name || stackHas(route.state, name));
+export function termsCheck(
+  consent: ConsentRow | null | undefined,
+  userMetadata: Record<string, unknown> | null | undefined,
+  current: string = CURRENT_TERMS_VERSION,
+): TermsCheck {
+  if (consent === undefined) return 'unknown';
+  // No row is an anonymous café session: it cannot book, and the server says so.
+  if (consent === null) return 'ok';
+  return consentAction(consent, userMetadata, current) === 'ask' ? 'ask' : 'ok';
 }
 
 /** How close to the bottom counts as "read to the end" (a fling rarely lands on 0). */

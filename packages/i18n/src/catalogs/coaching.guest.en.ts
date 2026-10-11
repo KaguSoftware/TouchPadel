@@ -107,6 +107,9 @@ export const coachingGuestEn = {
       bookAndPay: 'Book and pay with Qi Card',
       booked: 'Booked. Pay at the desk on the day.',
       payDeskInstead: 'Pay at the desk instead',
+      friendsOptional: "Friends' names (optional)",
+      upToCount: 'up to {count}',
+      change: 'Change',
     },
     lesson: {
       title: 'Lesson',

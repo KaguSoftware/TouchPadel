@@ -17,6 +17,7 @@ import { TEST_SESSION } from '../test/authState';
 import { staffKeys } from '../features/staff/keys';
 import StaffToday from '../../app/staff';
 import StaffGroup from '../../app/staff-group';
+import StaffWork from '../../app/staff-work';
 import StaffRequest from '../../app/staff-request';
 import TabsLayout from '../../app/(tabs)/_layout';
 
@@ -36,6 +37,24 @@ runSmokeCases('staff', [
     Component: StaffGroup,
     labelKey: 'staff.checklists.vacation.row',
     options: { staff: { role: 'head_chef' }, params: { group: 'team' } },
+  },
+  {
+    // Today's checklists and work list, behind the Work alerts button. With
+    // nothing waiting the page is its empty line, which carries no action, so
+    // the case checks its text.
+    route: 'staff-work',
+    Component: StaffWork,
+    nearbyKey: 'staff.shell.work.empty',
+    options: {
+      staff: { role: 'head_chef' },
+      queryData: [
+        [staffKeys.checklists(TEST_VENUE_ID), { business_date: '2026-10-10', lists: [] }],
+        [
+          staffKeys.work(TEST_VENUE_ID),
+          { todo: [], waiting: [], decided: [], to_decide: [], counts: { todo: 0, waiting: 0, to_decide: 0 } },
+        ],
+      ],
+    },
   },
   {
     route: 'staff-request',

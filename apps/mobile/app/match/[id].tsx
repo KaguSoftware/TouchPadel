@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, Share, Switch, Pressable, View } from 'react-native';
+import { ScrollView, Share, StyleSheet, Switch, Pressable, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -93,6 +93,7 @@ import { ConfirmAlert, useToast } from '../../src/components/overlays';
 import {
   GenderAsk,
   MatchMessages,
+  MatchInfoCard,
   MatchMoneyCard,
   MatchNotice,
   MatchPoster,
@@ -678,7 +679,6 @@ function MatchDetailScreen() {
     Date.parse(d.endAt) > nowMs;
 
   // ── The action card (§4.14 table) ─────────────────────────────────────────
-  const body = { fontFamily: fonts.body400, fontSize: 13, lineHeight: 19, color: colors.mut2 };
   const lead = { fontFamily: fonts.body700, fontSize: 14, lineHeight: 20, color: colors.ink };
 
   const seatsStepper = (maxSeats: number, wanted: number) =>
@@ -805,78 +805,10 @@ function MatchDetailScreen() {
         return <GenderAsk testID="match-detail.gender" busy={genderBusy} onPick={onGender} />;
       case 'join':
       case 'ask':
-      case 'buy': {
-        const kind =
-          card.kind === 'join' || (card.kind === 'buy' && card.mode === 'join')
-            ? 'join'
-            : 'request';
-        const missing =
-          card.kind === 'buy'
-            ? Math.max(card.missing, missingTickets(available, pickedSeats))
-            : missingTickets(available, pickedSeats);
-        const declared = !needsFriendsDeclaration(cat, pickedSeats) || declaredFor === pickedSeats;
-        return (
-          <>
-            {seatsStepper(card.maxSeats, pickedSeats)}
-            {missing > 0 ? (
-              <>
-                <Text style={[lead, { marginTop: card.maxSeats > 1 ? space.m : 0 }]}>
-                  {/* The zero form is a sentence of its own ("No tickets yet"),
-                      so an empty wallet has its own line (§4.24). */}
-                  {available > 0
-                    ? t('matches.detail.youHave', {
-                        ready: countPhrase('matches.count.ticketsReady', available, locale),
-                      })
-                    : t('matches.detail.youHaveNone')}
-                </Text>
-                <Button
-                  testID="match-detail.buy"
-                  label={t(
-                    kind === 'join' ? 'matches.detail.buyAndJoin' : 'matches.detail.buyAndAsk',
-                    {
-                      tickets: countPhrase('matches.count.ticketsGen', missing, locale),
-                    },
-                  )}
-                  variant="cta"
-                  disabled={!declared}
-                  // Before the purchase: the ticket continuation replays the join.
-                  onPress={() => {
-                    if (!verifyFirst()) buyThen(kind, missing);
-                  }}
-                  style={{ marginTop: space.sm }}
-                />
-              </>
-            ) : kind === 'join' ? (
-              <Button
-                testID="match-detail.join"
-                label={t('matches.detail.join')}
-                variant="cta"
-                busy={join.isPending}
-                disabled={busy || !declared}
-                onPress={() => onJoin('join')}
-                style={{ marginTop: card.maxSeats > 1 ? space.m : 0 }}
-              />
-            ) : (
-              <Button
-                testID="match-detail.ask"
-                label={t('matches.detail.ask')}
-                variant="cta"
-                busy={request.isPending}
-                disabled={busy || !declared}
-                onPress={() => onJoin('request')}
-                style={{ marginTop: card.maxSeats > 1 ? space.m : 0 }}
-              />
-            )}
-            <Text style={[body, { marginTop: 6 }]}>
-              {kind === 'join'
-                ? countPhrase('matches.count.ticketsUse', pickedSeats, locale)
-                : t(byCategory(cat, 'matches.detail.askCaption'), {
-                    tickets: countPhrase('matches.count.ticketsGen', pickedSeats, locale),
-                  })}
-            </Text>
-          </>
-        );
-      }
+      case 'buy':
+        // The action itself sits in the bar at the foot of the screen; the card
+        // keeps the seat count and the friends' declaration, when there are any.
+        return seatsStepper(card.maxSeats, pickedSeats);
       case 'refusal': {
         const text =
           card.code === 'TERMS_REQUIRED' && !needsTerms
@@ -917,6 +849,135 @@ function MatchDetailScreen() {
     }
   })();
 
+  // ── The join bar (Join, Ask, Buy) at the foot of the screen ───────────────
+  const joinPlan =
+    card.kind === 'join' || card.kind === 'ask' || card.kind === 'buy'
+      ? {
+          kind:
+            card.kind === 'join' || (card.kind === 'buy' && card.mode === 'join')
+              ? ('join' as const)
+              : ('request' as const),
+          missing:
+            card.kind === 'buy'
+              ? Math.max(card.missing, missingTickets(available, pickedSeats))
+              : missingTickets(available, pickedSeats),
+        }
+      : null;
+  const declared = !needsFriendsDeclaration(cat, pickedSeats) || declaredFor === pickedSeats;
+  // The share the next player takes (the four differ by at most 1 IQD).
+  const nextShare =
+    d.sharesIqd.length > 0 ? (d.sharesIqd[Math.min(d.seatsTaken, d.sharesIqd.length - 1)] ?? null) : null;
+
+  const joinBar = joinPlan ? (
+    <View
+      testID="match-detail.action"
+      style={{
+        position: 'absolute',
+        start: 0,
+        end: 0,
+        bottom: 0,
+        backgroundColor: colors.card,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: colors.line,
+        paddingStart: space.m,
+        paddingEnd: space.m,
+        paddingTop: 12,
+        paddingBottom: 12 + insets.bottom,
+        gap: 6,
+      }}
+    >
+      <ErrorText>{actionError}</ErrorText>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          {nextShare !== null ? (
+            <Text style={{ fontFamily: fonts.display900, fontSize: 17, color: colors.ink }}>
+              {money(nextShare)}
+            </Text>
+          ) : null}
+          <Text style={{ fontFamily: fonts.body600, fontSize: 12, lineHeight: 17, color: colors.mut }}>
+            {joinPlan.missing > 0
+              ? available > 0
+                ? t('matches.detail.youHave', {
+                    ready: countPhrase('matches.count.ticketsReady', available, locale),
+                  })
+                : t('matches.detail.youHaveNone')
+              : joinPlan.kind === 'join'
+                ? countPhrase('matches.count.ticketsUse', pickedSeats, locale)
+                : t(byCategory(cat, 'matches.detail.askCaption'), {
+                    tickets: countPhrase('matches.count.ticketsGen', pickedSeats, locale),
+                  })}
+          </Text>
+        </View>
+        {joinPlan.missing > 0 ? (
+          <Button
+            testID="match-detail.buy"
+            label={t(
+              joinPlan.kind === 'join' ? 'matches.detail.buyAndJoin' : 'matches.detail.buyAndAsk',
+              { tickets: countPhrase('matches.count.ticketsGen', joinPlan.missing, locale) },
+            )}
+            variant="cta"
+            disabled={!declared}
+            // Before the purchase: the ticket continuation replays the join.
+            onPress={() => {
+              if (!verifyFirst()) buyThen(joinPlan.kind, joinPlan.missing);
+            }}
+            style={{ paddingStart: 20, paddingEnd: 20 }}
+          />
+        ) : joinPlan.kind === 'join' ? (
+          <Button
+            testID="match-detail.join"
+            label={t('matches.detail.join')}
+            variant="cta"
+            busy={join.isPending}
+            disabled={busy || !declared}
+            onPress={() => onJoin('join')}
+            style={{ paddingStart: 28, paddingEnd: 28 }}
+          />
+        ) : (
+          <Button
+            testID="match-detail.ask"
+            label={t('matches.detail.ask')}
+            variant="cta"
+            busy={request.isPending}
+            disabled={busy || !declared}
+            onPress={() => onJoin('request')}
+            style={{ paddingStart: 24, paddingEnd: 24 }}
+          />
+        )}
+      </View>
+    </View>
+  ) : null;
+
+  const infoRows = joinPlan
+    ? [
+        ...(nextShare !== null
+          ? [
+              {
+                key: 'share' as const,
+                title: t('matches.detail.infoShareTitle', { share: money(nextShare) }),
+                body: t('matches.detail.infoShareBody'),
+              },
+            ]
+          : []),
+        {
+          key: 'ticket' as const,
+          title: t('matches.detail.infoTicketTitle'),
+          body: t('matches.detail.infoTicketBody'),
+        },
+        ...(d.status === 'filling' && d.fillDeadlineAt
+          ? [
+              {
+                key: 'court' as const,
+                title: t('matches.detail.infoCourtTitle'),
+                body: t('matches.detail.infoCourtBody', {
+                  time: formatTime(new Date(d.fillDeadlineAt), locale, tz),
+                }),
+              },
+            ]
+          : []),
+      ]
+    : [];
+
   // The money card is for members: a seat still in play, or played.
   const member = ownSeat !== null && (ownSeat.status === 'in' || ownSeat.status === 'attended');
   const ticketsHere = me.seats.filter((s) => s.ticketStatus === 'in_use').length;
@@ -925,11 +986,16 @@ function MatchDetailScreen() {
     <Screen edges={[]}>
       {header}
       <ScrollView
-        contentContainerStyle={{ paddingTop: space.sm, paddingBottom: 40 + insets.bottom }}
+        contentContainerStyle={{
+          paddingTop: space.sm,
+          paddingBottom: (joinBar ? 120 : 40) + insets.bottom,
+        }}
         showsVerticalScrollIndicator={false}
       >
         <MatchPoster
           time={formatTime(start, locale, tz)}
+          endTime={t('matches.detail.until', { time: formatTime(new Date(d.endAt), locale, tz) })}
+          seatsTaken={d.seatsTaken}
           when={branchLabel ? t('matches.detail.when', { day, branch: branchLabel }) : day}
           category={cat}
           chips={[
@@ -961,10 +1027,24 @@ function MatchDetailScreen() {
           />
         </MatchPoster>
 
-        <Card style={{ marginTop: space.m }}>
-          <View testID="match-detail.action">{actionCard}</View>
-          <ErrorText>{actionError}</ErrorText>
-        </Card>
+        {joinPlan ? (
+          actionCard ? (
+            <Card style={{ marginTop: space.m }}>
+              <View testID="match-detail.seats-card">{actionCard}</View>
+            </Card>
+          ) : null
+        ) : (
+          <Card style={{ marginTop: space.m }}>
+            <View testID="match-detail.action">{actionCard}</View>
+            <ErrorText>{actionError}</ErrorText>
+          </Card>
+        )}
+
+        {infoRows.length > 0 ? (
+          <View style={{ marginTop: space.m }}>
+            <MatchInfoCard rows={infoRows} />
+          </View>
+        ) : null}
 
         {member ? (
           <View style={{ marginTop: space.m }}>
@@ -1069,6 +1149,8 @@ function MatchDetailScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      {joinBar}
 
       <ConfirmAlert
         visible={confirm !== null}

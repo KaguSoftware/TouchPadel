@@ -97,7 +97,7 @@ const CASES: SmokeCase[] = [
   {
     route: 'matches',
     Component: MatchesScreen,
-    labelKey: 'matches.list.startOne',
+    labelKey: 'matches.list.filterAll',
     options: { session: 'in', queryData: [...venue(), [openKey(), openMatchesFixture()]] },
   },
   {
