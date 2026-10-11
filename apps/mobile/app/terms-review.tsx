@@ -1,9 +1,7 @@
-import { View } from 'react-native';
 import { useBack } from '../src/navigation/back';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { TermsReader } from '../src/features/profile/TermsReader';
 import { termsReviewAccepted } from '../src/features/profile/termsReview';
-import { space } from '../src/theme';
 import { Button } from '../src/components/ui';
 
 /**
@@ -28,14 +26,12 @@ export default function TermsReviewScreen() {
         back();
       }}
       footer={
-        <View style={{ marginBottom: space.l }}>
-          <Button
-            testID="terms-review.not-now"
-            label={t('consent.notNow')}
-            variant="secondary"
-            onPress={back}
-          />
-        </View>
+        <Button
+          testID="terms-review.not-now"
+          label={t('consent.notNow')}
+          variant="secondary"
+          onPress={back}
+        />
       }
     />
   );

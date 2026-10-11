@@ -79,14 +79,9 @@ export function LegalDocument({
       case 'entity': {
         const email = tr('legal.entity.email');
         return (
-          <View key={i} style={{ gap: space.s }}>
-            <Text style={body}>
-              {tr('legal.contact.emailLead')} {isPlaceholder(email) ? email : isolateLtr(email)}
-            </Text>
-            <Text style={body}>
-              {tr('legal.contact.addressLead')} {tr('legal.entity.address')}
-            </Text>
-          </View>
+          <Text key={i} style={body}>
+            {tr('legal.contact.emailLead')} {isPlaceholder(email) ? email : isolateLtr(email)}
+          </Text>
         );
       }
       case 'link':

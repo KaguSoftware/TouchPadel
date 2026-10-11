@@ -149,6 +149,8 @@ export const ar: Messages = {
     // الدخول برقم الهاتف (هيكل خامل 2026-09-05؛ يظهر فقط مع EXPO_PUBLIC_PHONE_OTP=on).
     orContinueWithPhone: 'أو تابع برقم هاتفك',
     orContinueWithPassword: 'أو تابع بكلمة مرور',
+    orContinueWithPhoneOrEmail: 'أو تابع برقم هاتفك أو بريدك الإلكتروني',
+    signInCodeHint: 'سنرسل رمز الدخول إلى هذا الرقم عبر واتساب أو رسالة نصية.',
     phoneSignInTitle: 'رقم هاتفك',
     phoneLinkBody: 'سنرسل رمزًا من 6 أرقام إلى هذا الرقم عبر واتساب أو برسالة نصية للتأكد من أنه يخصّك.',
     phoneOtpInvalid: 'رقم الهاتف غير صالح. تحقّق من رمز الدولة.',
@@ -786,6 +788,8 @@ export const ar: Messages = {
     phoneUpdated: 'حُدّث رقم الهاتف.',
     completeProfileNudge: 'أضف رقم هاتفك ليتمكن موظفو الاستقبال من التواصل معك بشأن حجوزاتك.',
     completeNameNudge: 'أضف اسمك ليعرف موظفو الاستقبال صاحب الحجز.',
+    completeProfileUsernameNudge: 'أضف رقم هاتفك واختر اسم مستخدم لتحجز الملاعب وتنضم إلى المباريات المفتوحة.',
+    completeNameUsernameNudge: 'أضف اسمك واختر اسم مستخدم لتحجز الملاعب وتنضم إلى المباريات المفتوحة.',
     currentPassword: 'كلمة المرور الحالية',
     newPasswordMin: 'كلمة المرور الجديدة (8 أحرف على الأقل)',
     confirmNewPassword: 'تأكيد كلمة المرور الجديدة',

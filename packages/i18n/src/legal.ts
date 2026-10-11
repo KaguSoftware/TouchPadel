@@ -23,7 +23,7 @@ export type LegalBlock =
   | { kind: 'phone' }
   /** The week's opening hours; omitted when the venue has none published. */
   | { kind: 'hours' }
-  /** The company's contact email (a mailto: once it is filled in) and address. */
+  /** The venue's contact email (a mailto: once it is filled in). */
   | { kind: 'entity' }
   | { kind: 'link'; to: LegalPageName; hash?: string; label: MessageKey };
 
@@ -39,19 +39,15 @@ export function isPlaceholder(value: string): boolean {
 }
 
 /**
- * The {company}, {email}, … values every legal string can interpolate, each
+ * The {tradingName}, {email}, … values every legal string can interpolate, each
  * bidi-isolated: a Latin company name or an email inside an Arabic sentence
  * must not reorder the words around it.
  */
 export function entityParams(locale: Locale): TParams {
   const tr = makeT(locale);
   return {
-    company: isolate(tr('legal.entity.company')),
     tradingName: isolate(tr('legal.entity.tradingName')),
-    registration: isolateLtr(tr('legal.entity.registration')),
-    address: isolate(tr('legal.entity.address')),
     email: isolateLtr(tr('legal.entity.email')),
-    city: isolate(tr('legal.entity.city')),
     minPlayAge: isolateLtr(tr('legal.entity.minPlayAge')),
   };
 }

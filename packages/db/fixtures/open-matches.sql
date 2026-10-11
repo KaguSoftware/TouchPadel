@@ -212,7 +212,7 @@ begin
           'p_visibility => %L, p_join_policy => %L, p_guest_name => %L, p_guest_phone => %L, '
           'p_extra_seats => 1, p_court_id => %L, p_venue_id => %L, p_idempotency_key => %L)',
           ((d + 3) + time '18:00') at time zone 'Asia/Baghdad', 'open', 'public', 'open',
-          'Fixture Walk-in', '+9647900000099', c2, 'c0000000-0000-4000-8000-000000000001',
+          'Fixture Walk-in', '+9647900000008', c2, 'c0000000-0000-4000-8000-000000000001',
           'fixture:match.desk_start:' || gen_random_uuid()))->>'match_id')::uuid;
 
   raise notice '[open-matches] M1 % | M2 % | M3 % | M4 % | M5 % | M6 %', m1, m2, m3, m4, m5, m6;

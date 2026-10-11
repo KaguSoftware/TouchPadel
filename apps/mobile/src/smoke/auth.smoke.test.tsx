@@ -51,7 +51,12 @@ afterAll(() => {
 
 const CASES: SmokeCase[] = [
   { route: 'welcome', Component: WelcomeScreen, labelKey: 'auth.signIn' },
-  { route: 'sign-in', Component: SignInScreen, labelKey: 'auth.signIn' },
+  {
+    route: 'sign-in',
+    Component: SignInScreen,
+    // Phone is the default segment and is code-only (2026-10-11): its CTA sends a code.
+    labelKey: 'auth.sendCode',
+  },
   { route: 'sign-up', Component: SignUpScreen, labelKey: 'auth.signUp' },
   {
     route: 'forgot-password',

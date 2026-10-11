@@ -65,8 +65,8 @@ export function TermsReader({
   busy?: boolean;
   error?: string | null;
   /**
-   * Under the scroll hint: the consent gate's ways out (sign out, delete
-   * instead), or the sign-up review's Not now.
+   * Under Accept and above the scroll hint: the consent gate's ways out
+   * (sign out, delete instead), or the sign-up review's Not now.
    */
   footer?: ReactNode;
 }) {
@@ -196,6 +196,7 @@ export function TermsReader({
         }}
         style={{ marginTop: space.m }}
       />
+      {footer ? <View style={{ marginTop: space.sm }}>{footer}</View> : null}
       {/* Kept in the layout once read (just hidden), so the box above never jumps. */}
       <Text
         accessibilityElementsHidden={read}
@@ -213,7 +214,6 @@ export function TermsReader({
       >
         {t('consent.scrollHint')}
       </Text>
-      {footer}
     </Screen>
   );
 }

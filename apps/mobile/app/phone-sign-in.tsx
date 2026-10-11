@@ -24,7 +24,7 @@ import { Button, ErrorText, FormScreen, Hint, Screen, Title } from '../src/compo
  * the account's phone is one they hold. The file keeps its old route name; the
  * signed-out code-only sign-in it used to serve was removed 2026-09-15 —
  * accounts are now created with phone + password (app/sign-up.tsx) and signed
- * into with a password.
+ * into with a code from app/sign-in.tsx (2026-10-11), not from here.
  *
  * Three ways in, told apart by `returnTo`:
  *

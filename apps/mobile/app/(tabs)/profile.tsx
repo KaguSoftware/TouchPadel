@@ -218,6 +218,8 @@ export default function ProfileScreen() {
   // what main's version of this card used at these same three spots.
   const idStyle = { textAlign: 'auto', writingDirection: 'ltr' } as const;
   const detailLine = profile.data?.phone ? isolateLtr(profile.data.phone) : '';
+  const needsUsername = !!profile.data && !profile.data.username;
+  const incomplete = profileGateState(profile) === 'incomplete';
 
   return (
     <Screen>
@@ -328,21 +330,65 @@ export default function ProfileScreen() {
           </Card>
           </Pressable>
 
-          {/* Phase 2 (0314): a username is required to join open matches, so a
-              guest without one is asked here, under the card, until they pick. */}
-          {profile.data && !profile.data.username ? (
-            <Card style={{ marginTop: space.m, backgroundColor: colors.gtint, borderColor: colors.gline }}>
-              <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 19, color: colors.ink }}>
-                {t('profile.usernameNudge')}
+          {/* One nudge card for whatever the profile still lacks. D3: a social
+              sign-in that left before completing its profile (amber, it gates
+              booking). Phase 2 (0314): a username is required to join open
+              matches. Both missing → both lines and both buttons in this card. */}
+          {needsUsername || incomplete ? (
+            <Card
+              style={{
+                marginTop: space.m,
+                backgroundColor: incomplete ? colors.amb : colors.gtint,
+                borderColor: incomplete ? colors.ambline : colors.gline,
+              }}
+            >
+              {/* One sentence for whatever is missing. A phone sign-up (OTP
+                  scaffold) has the phone and lacks the name; every other
+                  incomplete case lacks the phone. */}
+              <Text
+                style={{
+                  fontFamily: fonts.body600,
+                  fontSize: 12.5,
+                  lineHeight: 19,
+                  color: incomplete ? colors.ambtext : colors.ink,
+                }}
+              >
+                {t(
+                  !incomplete
+                    ? 'profile.usernameNudge'
+                    : profile.data?.phone
+                      ? needsUsername
+                        ? 'profile.completeNameUsernameNudge'
+                        : 'profile.completeNameNudge'
+                      : needsUsername
+                        ? 'profile.completeProfileUsernameNudge'
+                        : 'profile.completeProfileNudge',
+                )}
               </Text>
-              <Button
-                testID="profile.pick-username"
-                label={t('profile.usernameNudgeAction')}
-                variant="secondary"
-                size="compact"
-                onPress={() => router.push({ pathname: '/profile-edit', params: { section: 'username' } })}
-                style={{ marginTop: 10, alignSelf: 'flex-start' }}
-              />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                {incomplete ? (
+                  <Button
+                    testID="profile.complete-profile"
+                    label={t(profile.data?.phone ? 'auth.addNameLink' : 'auth.addPhoneLink')}
+                    variant="secondary"
+                    size="compact"
+                    onPress={() => router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } })}
+                    labelColor={colors.ambstrong}
+                    style={{ backgroundColor: 'transparent', borderColor: colors.ambstrong }}
+                  />
+                ) : null}
+                {needsUsername ? (
+                  <Button
+                    testID="profile.pick-username"
+                    label={t('profile.usernameNudgeAction')}
+                    variant="secondary"
+                    size="compact"
+                    onPress={() => router.push({ pathname: '/profile-edit', params: { section: 'username' } })}
+                    labelColor={incomplete ? colors.ambstrong : undefined}
+                    style={incomplete ? { backgroundColor: 'transparent', borderColor: colors.ambstrong } : undefined}
+                  />
+                ) : null}
+              </View>
             </Card>
           ) : null}
 
@@ -395,25 +441,6 @@ export default function ProfileScreen() {
                 <ChevronIcon size={16} color={colors.fnt2} />
               </Card>
             </Pressable>
-          ) : null}
-
-          {profileGateState(profile) === 'incomplete' ? (
-            // D3: a social sign-in that left before completing its profile.
-            <Card style={{ marginTop: space.m, backgroundColor: colors.amb, borderColor: colors.ambline }}>
-              <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 19, color: colors.ambtext }}>
-                {/* A phone sign-up (OTP scaffold) has the phone and lacks the name; every other case lacks the phone. */}
-                {t(profile.data?.phone ? 'profile.completeNameNudge' : 'profile.completeProfileNudge')}
-              </Text>
-              <Button
-                testID="profile.complete-profile"
-                label={t(profile.data?.phone ? 'auth.addNameLink' : 'auth.addPhoneLink')}
-                variant="secondary"
-                size="compact"
-                onPress={() => router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } })}
-                labelColor={colors.ambstrong}
-                style={{ marginTop: 10, alignSelf: 'flex-start', backgroundColor: 'transparent', borderColor: colors.ambstrong }}
-              />
-            </Card>
           ) : null}
 
           <MenuGroup label={t('profile.groupActivity')}>

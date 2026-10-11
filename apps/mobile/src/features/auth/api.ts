@@ -111,7 +111,11 @@ export async function signUpWithEmail(
   return data;
 }
 
-/** Every later sign-in: phone + password, no code (the code is spent once, at sign-up). */
+/**
+ * Phone + password. No longer the guest's sign-in (that is a code since
+ * 2026-10-11, sendSignInCode); change-password still proves the current
+ * password with it.
+ */
 export async function signInWithPhone(client: Client, phoneE164: string, password: string) {
   const { data, error } = await client.auth.signInWithPassword({ phone: phoneE164, password });
   if (error) throw error;
@@ -253,10 +257,12 @@ export async function setUserMetadata(client: Client, data: { full_name: string 
 // OTPIQ: WhatsApp first, SMS when the number cannot receive it), which refuses
 // when app.sms_limits says so — the refusal
 // reason reaches the app as the error message and features/auth/phoneOtp.ts
-// maps it to copy. A code is spent only to confirm a new number (sign-up, link)
-// and to recover a forgotten password; sign-in itself is by password.
+// maps it to copy. A code is spent to confirm a new number (sign-up, link), to
+// sign in with a phone number (owner, 2026-10-11: phone sign-in is code-only,
+// email sign-in keeps its password), to recover a forgotten password, and to
+// confirm a password change on a phone account.
 
-/** Confirms a phone sign-up (or a recovery sign-in) and returns the session. */
+/** Confirms a phone sign-up, a code sign-in or a recovery sign-in, and returns the session. */
 export async function verifyPhoneOtp(client: Client, phoneE164: string, code: string) {
   const { data, error } = await client.auth.verifyOtp({ phone: phoneE164, token: code, type: 'sms' });
   if (error) throw error;
@@ -270,17 +276,28 @@ export async function resendSignUpCode(client: Client, phoneE164: string) {
 }
 
 /**
- * Forgot password: a code to an EXISTING account's number. shouldCreateUser
- * false is load-bearing — without it a mistyped number would mint a
- * password-less, nameless account. The verified code signs the guest in and
- * app/reset-password.tsx sets the new password on that session.
+ * A code to an EXISTING account's number: phone sign-in, and the second proof
+ * of a password change (app/change-password.tsx). shouldCreateUser false is
+ * load-bearing — without it a mistyped number would mint a password-less,
+ * nameless account; no account answers `otp_disabled` "Signups not allowed"
+ * (phoneOtp.isNoAccountForPhone). verifyPhoneOtp signs the guest in. A number
+ * whose sign-up code was never entered gets a code too, and verifying it
+ * confirms the number.
  */
-export async function sendPasswordResetCode(client: Client, phoneE164: string) {
+export async function sendSignInCode(client: Client, phoneE164: string) {
   const { error } = await client.auth.signInWithOtp({
     phone: phoneE164,
     options: { shouldCreateUser: false },
   });
   if (error) throw error;
+}
+
+/**
+ * Forgot password: the same code as sign-in. The verified code signs the guest
+ * in and app/reset-password.tsx sets the new password on that session.
+ */
+export async function sendPasswordResetCode(client: Client, phoneE164: string) {
+  await sendSignInCode(client, phoneE164);
 }
 
 /**

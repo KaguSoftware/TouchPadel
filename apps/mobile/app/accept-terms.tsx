@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { View } from 'react-native';
 import { useBack } from '../src/navigation/back';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { useAcceptTerms } from '../src/features/profile/hooks';
 import { TermsReader } from '../src/features/profile/TermsReader';
 import { captureException } from '../src/lib/telemetry';
-import { space } from '../src/theme';
 import { Button } from '../src/components/ui';
 
 /**
@@ -50,15 +48,13 @@ function AcceptTermsScreen() {
       error={error}
       onAccept={() => void onAccept()}
       footer={
-        <View style={{ marginBottom: space.l }}>
-          <Button
-            testID="accept-terms.not-now"
-            label={t('consent.notNow')}
-            variant="secondary"
-            disabled={accept.isPending}
-            onPress={back}
-          />
-        </View>
+        <Button
+          testID="accept-terms.not-now"
+          label={t('consent.notNow')}
+          variant="secondary"
+          disabled={accept.isPending}
+          onPress={back}
+        />
       }
     />
   );

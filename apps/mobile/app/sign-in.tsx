@@ -1,22 +1,16 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../src/lib/supabase';
-import { resendSignUpCode, signIn, signInWithPhone } from '../src/features/auth/api';
+import { sendSignInCode, signIn } from '../src/features/auth/api';
 import { linkErrorParam } from '../src/features/auth/deepLink';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
-import { clearPendingIntents, hasPendingIntent } from '../src/features/booking/pendingIntent';
-import { readOwnStaffRow } from '../src/features/staff/api';
-import { writeStaffHint } from '../src/features/staff/hint';
 import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
-import { postSignInStep } from '../src/features/auth/social';
-import { classifyPhoneSignIn, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
+import { useFinishSignIn } from '../src/features/auth/useFinishSignIn';
+import { isNoAccountForPhone, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
 import { isValidEmail, parseAuthMethod, type AuthMethod } from '../src/features/auth/emailAuth';
 import { classifySignInFailure } from '../src/features/profile/changePasswordFlow';
-import { fetchOwnProfile } from '../src/features/profile/api';
-import { profileKeys } from '../src/features/profile/hooks';
 import { SocialSignInBlock } from '../src/components/social';
 import { PhoneField } from '../src/components/phone';
 import { parsePhone } from '../src/features/profile/phone';
@@ -29,6 +23,7 @@ import {
   Field,
   FooterLink,
   FormScreen,
+  Hint,
   LabeledDivider,
   LinkText,
   Screen,
@@ -37,14 +32,20 @@ import {
 import { useToast } from '../src/components/overlays';
 
 /**
- * Sign in: a password, with the account's phone number (default segment,
- * owner decision 2026-09-15) or its email (restored beside phone 2026-09-20,
- * Phase 2 plan O2 — the SOW's M1 names email). No code is sent here — a
- * number is confirmed once, at sign-up. Errors are distinguished (spec 05.4):
- * wrong credentials render on the password field; a number whose sign-up code
- * was never entered gets a fresh code and goes to the code step; an email
- * whose link was never opened goes to verify-email and its resend button;
- * anything else renders below.
+ * Sign in with the account's phone number (default segment, owner decision
+ * 2026-09-15) or its email (restored beside phone 2026-09-20, Phase 2 plan O2
+ * — the SOW's M1 names email).
+ *
+ *   phone  a code, no password (owner, 2026-10-11): the number gets a code and
+ *          app/verify-otp.tsx (mode signin) signs the guest in with it. Only an
+ *          existing account gets one; a number nobody uses is told so on the
+ *          field. A number whose sign-up code was never entered is confirmed
+ *          by this code too.
+ *   email  email + password. Wrong credentials render on the password field;
+ *          an address whose link was never opened goes to verify-email and its
+ *          resend button. Forgot password sits under this segment only.
+ *
+ * Anything else renders below (spec 05.4).
  *
  * An email account may predate the phone requirement and lack a phone. Such a
  * guest is routed through complete-profile before anything else — the same
@@ -58,14 +59,14 @@ function SignInScreen() {
   const { t } = useLocale();
   const router = useRouter();
   const toast = useToast();
-  const queryClient = useQueryClient();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
+  const finishSignIn = useFinishSignIn(continueAfterAuth);
   const params = useLocalSearchParams<{ authError?: string; method?: string; phone?: string; email?: string }>();
   // A screen that sent the guest here (sign-up's footer, a dead email link)
   // says which segment to open on, so the method never flips under them.
   const [method, setMethod] = useState<AuthMethod>(() => parseAuthMethod(params.method));
   // Sign-up finding the number or address already taken passes it on, so the
-  // guest only types the password.
+  // guest only asks for the code (or types the password).
   const [iso, setIso] = useState(() => parsePhone(typeof params.phone === 'string' ? params.phone : '').iso);
   const [national, setNational] = useState(
     () => parsePhone(typeof params.phone === 'string' ? params.phone : '').national,
@@ -103,31 +104,15 @@ function SignInScreen() {
     clearErrors();
     const { e164 } = validatePhoneInput(iso, national);
     if (!e164) return setPhoneError(t(national.trim() ? 'auth.phoneOtpInvalid' : 'auth.phoneRequired'));
-    if (!password) return setPasswordError(t('auth.passwordRequired'));
     setBusy(true);
     try {
-      await signInWithPhone(supabase, e164, password);
-      toast(t('auth.welcomeBack'), 'info');
-      // Pending slot -> hold + Review; otherwise the tabs.
-      continueAfterAuth();
+      await sendSignInCode(supabase, e164);
+      // verify-otp signs in, then lands like the email path: staff, an
+      // incomplete profile, the pending slot, or the tabs.
+      router.push({ pathname: '/verify-otp', params: { phone: e164, mode: 'signin' } });
     } catch (err) {
-      switch (classifyPhoneSignIn(err)) {
-        case 'wrong-credentials':
-          setPasswordError(t('auth.invalidCredentials'));
-          break;
-        case 'phone-not-confirmed':
-          // The sign-up's code was never entered. The password was right (GoTrue
-          // checks it first), so finishing the confirmation is all that is owed.
-          try {
-            await resendSignUpCode(supabase, e164);
-            router.push({ pathname: '/verify-otp', params: { phone: e164, mode: 'signup' } });
-          } catch (resendErr) {
-            setError(t(mapOtpError(resendErr)));
-          }
-          break;
-        default:
-          setError(t(mapErrorToKey(err)));
-      }
+      if (isNoAccountForPhone(err)) setPhoneError(t('auth.resetNoAccount'));
+      else setError(t(mapOtpError(err)));
     } finally {
       setBusy(false);
     }
@@ -141,39 +126,7 @@ function SignInScreen() {
     setBusy(true);
     try {
       const { user } = await signIn(supabase, email, password);
-      // Staff sign in here (build-contracts-2026-09-23 §6.6). The row is read
-      // under the status provider's own key, so it asks nothing twice, and
-      // alongside the profile, because RequireNoSession waits for both. A read
-      // that fails is no answer: the guest path runs, and the provider routes
-      // a staff account to Today once its own read lands.
-      const staffRead = user ? readOwnStaffRow(queryClient, user.id).catch(() => null) : Promise.resolve(null);
-      // Same cache entry RequireNoSession's useOwnProfile observes: one request.
-      const profile = await queryClient.fetchQuery({
-        queryKey: profileKeys.own,
-        queryFn: () => fetchOwnProfile(supabase),
-        staleTime: 0,
-      });
-      const staffRow = await staffRead;
-      // A slot or an open-match intent (guest.md §4.18): either keeps RequireNoSession
-      // from redirecting, so an incomplete profile is sent on from here.
-      switch (postSignInStep(profile, hasPendingIntent(), staffRow)) {
-        case 'staff':
-          // A staff account books nothing: the slot or match a guest tapped is dropped.
-          clearPendingIntents();
-          if (user) await writeStaffHint(user.id);
-          toast(t('auth.welcomeBack'), 'info');
-          router.replace('/staff');
-          return;
-        case 'complete-profile':
-          router.replace({ pathname: '/complete-profile', params: { returnTo: 'continue' } });
-          return;
-        case 'await-gate':
-          // RequireNoSession routes the incomplete profile there itself.
-          return;
-        default:
-          toast(t('auth.welcomeBack'), 'info');
-          continueAfterAuth();
-      }
+      await finishSignIn(user);
     } catch (err) {
       switch (classifySignInFailure(err)) {
         case 'wrong-password':
@@ -207,7 +160,7 @@ function SignInScreen() {
           style={{ marginTop: 14 }}
         />
         {hasSocial(social.available) ? (
-          <LabeledDivider label={t('auth.orContinueWithPassword')} style={{ marginTop: 18, marginBottom: 4 }} />
+          <LabeledDivider label={t('auth.orContinueWithPhoneOrEmail')} style={{ marginTop: 18, marginBottom: 4 }} />
         ) : null}
         <View style={{ marginTop: 6 }}>
           <SegmentedControl<AuthMethod>
@@ -224,19 +177,32 @@ function SignInScreen() {
           />
         </View>
         {method === 'email' ? (
-          <Field
-            testID="sign-in.email"
-            placeholder={t('auth.emailLabel')}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            textContentType="emailAddress"
-            error={emailError}
-            style={{ marginTop: 6 }}
-          />
+          <>
+            <Field
+              testID="sign-in.email"
+              placeholder={t('auth.emailLabel')}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              error={emailError}
+              style={{ marginTop: 6 }}
+            />
+            <Field
+              testID="sign-in.password"
+              placeholder={t('auth.passwordLabel')}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoComplete="current-password"
+              textContentType="password"
+              error={passwordError}
+              onSubmitEditing={() => void onSubmit()}
+            />
+          </>
         ) : (
           // Same 6pt the email Field takes, so the fields below sit at one
           // height whichever segment is selected.
@@ -250,35 +216,28 @@ function SignInScreen() {
               onChangeNational={setNational}
               error={phoneError}
             />
+            <Hint style={{ marginTop: 8 }}>{t('auth.signInCodeHint')}</Hint>
           </View>
         )}
-        <Field
-          testID="sign-in.password"
-          placeholder={t('auth.passwordLabel')}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="current-password"
-          textContentType="password"
-          error={passwordError}
-          onSubmitEditing={() => void onSubmit()}
-        />
         <ErrorText>{error ?? social.errorText ?? (linkError ? t(linkError) : null)}</ErrorText>
         <Button
           testID="sign-in.submit"
-          label={t('auth.signIn')}
+          label={t(method === 'email' ? 'auth.signIn' : 'auth.sendCode')}
           onPress={() => void onSubmit()}
           busy={busy || holdBusy}
           disabled={social.busyProvider !== null}
           variant="primary"
           style={{ marginTop: space.l }}
         />
-        <LinkText
-          testID="sign-in.forgot-password"
-          label={t('auth.forgotPassword')}
-          onPress={() => router.push({ pathname: '/forgot-password', params: { method } })}
-          style={{ marginTop: 12, paddingStart: 4 }}
-        />
+        {/* A phone sign-in has no password to forget. */}
+        {method === 'email' ? (
+          <LinkText
+            testID="sign-in.forgot-password"
+            label={t('auth.forgotPassword')}
+            onPress={() => router.push({ pathname: '/forgot-password', params: { method: 'email' } })}
+            style={{ marginTop: 12, paddingStart: 4 }}
+          />
+        ) : null}
         <FooterLink
           testID="sign-in.create-account"
           lead={t('auth.newHereLead')}

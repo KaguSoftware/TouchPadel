@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { fullNameOf, sendPasswordResetCode, signInWithPhone, signUpWithPhone, validateSignUp } from '../api';
+import { fullNameOf, sendPasswordResetCode, sendSignInCode, signInWithPhone, signUpWithPhone, validateSignUp } from '../api';
 
 /**
  * Phone + password accounts (owner decision 2026-09-15). What must not drift:
@@ -58,6 +58,18 @@ describe('signInWithPhone', () => {
     await signInWithPhone(client as never, '+447700900123', 'pw');
     expect(auth.signInWithPassword).toHaveBeenCalledWith({ phone: '+447700900123', password: 'pw' });
     expect(auth.signInWithOtp).not.toHaveBeenCalled();
+  });
+});
+
+describe('sendSignInCode', () => {
+  it('sends a code to an existing account only — a mistyped number mints nothing', async () => {
+    const { auth, client } = fakeAuth();
+    await sendSignInCode(client as never, '+9647701234567');
+    expect(auth.signInWithOtp).toHaveBeenCalledWith({
+      phone: '+9647701234567',
+      options: { shouldCreateUser: false },
+    });
+    expect(auth.signInWithPassword).not.toHaveBeenCalled();
   });
 });
 

@@ -142,13 +142,13 @@ describe.each(LOCALES)('terms page (%s)', (locale: Locale) => {
     );
   });
 
-  it('names the operator in the contact block, and links email only once it is filled in', async () => {
+  it('links the venue email and phone in the contact block', async () => {
     await renderServerPage(TermsPage, locale);
 
     const contact = document.querySelector('section#contact');
-    expect(plain(contact?.textContent)).toContain(t(locale, 'legal.entity.address'));
-    // Still a [FILL: …] placeholder: printed, never a broken mailto: link.
-    expect(contact?.querySelector('a[href^="mailto:"]')).toBeNull();
+    expect(contact?.querySelector('a[href^="mailto:"]')?.getAttribute('href')).toBe(
+      `mailto:${t(locale, 'legal.entity.email')}`,
+    );
     // The site footer prints the same number; this is the document's own.
     expect(
       within(document.querySelector<HTMLElement>('.tp-legal')!)
