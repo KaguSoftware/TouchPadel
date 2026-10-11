@@ -28,6 +28,7 @@
  */
 import * as THREE from 'three';
 import { buildSmileyShapes } from './smileyMark';
+import { mergeStatic } from './merge';
 import type { CourtQuality } from './quality';
 import {
   applyEulerYXZ,
@@ -342,7 +343,10 @@ function plugsGeometry(
   return g;
 }
 
-export function buildRacketKit(quality: CourtQuality): RacketKit {
+export function buildRacketKit(
+  quality: CourtQuality,
+  { merge = false }: { merge?: boolean } = {},
+): RacketKit {
   const full = quality === 'full';
   const segments = full ? 24 : 12;
   const disposables: { dispose(): void }[] = [];
@@ -583,6 +587,10 @@ export function buildRacketKit(quality: CourtQuality): RacketKit {
   // across the court every `full` frame, whose output is bit-identical to what
   // the plate behind them already wrote.
   for (const m of decals) m.castShadow = false;
+  // The body never moves inside the rig: one mesh per material and paint layer
+  // (merge.ts) instead of seventeen, cloned four times. FACE_STACK survives,
+  // because renderOrder is part of what has to match.
+  if (merge) disposables.push(...mergeStatic(body));
 
   return {
     disposables,

@@ -108,15 +108,63 @@ describe('the shadow map option', () => {
 });
 
 describe('the lean option', () => {
-  /** Every object's world matrix and visibility, in traversal order. */
-  const snapshot = (root: THREE.Object3D) => {
-    const out: { matrix: number[]; visible: boolean }[] = [];
-    root.traverse((o) => out.push({ matrix: [...o.matrixWorld.elements], visible: o.visible }));
+  /**
+   * What the renderer would draw, in world space: every visible vertex, keyed
+   * by the draw state that paints it (kind, material colour and opacity,
+   * renderOrder, shadow flags) and summed into moments — count, Σx, Σx², Σxy,
+   * … — so it does not matter how many meshes carry them or in what order,
+   * while a part that moved, went missing or changed draw state still shows.
+   * The instanced trail is expanded instance by instance, its per-ghost alpha
+   * standing in for the opacity.
+   */
+  const drawn = (root: THREE.Object3D) => {
+    const out = new Map<string, number[]>();
+    const v = new THREE.Vector3();
+    const m = new THREE.Matrix4();
+    const put = (key: string, g: THREE.BufferGeometry, world: THREE.Matrix4) => {
+      const pos = g.getAttribute('position');
+      const index = g.index;
+      const s = out.get(key) ?? new Array<number>(10).fill(0);
+      const n = index ? index.count : pos.count;
+      for (let i = 0; i < n; i++) {
+        const { x, y, z } = v.fromBufferAttribute(pos, index ? index.getX(i) : i).applyMatrix4(world);
+        const terms = [1, x, y, z, x * x, y * y, z * z, x * y, y * z, z * x];
+        for (let j = 0; j < 10; j++) s[j]! += terms[j]!;
+      }
+      out.set(key, s);
+    };
+    root.traverseVisible((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh && !(o as THREE.LineSegments).isLineSegments) return;
+      const mat = mesh.material as THREE.MeshBasicMaterial;
+      if (!mat.visible) return;
+      const kind = (o as THREE.LineSegments).isLineSegments ? 'lines' : 'mesh';
+      const state = (opacity: number) =>
+        [kind, mat.type, mat.color?.getHexString(), opacity.toFixed(4), o.renderOrder,
+          o.castShadow, o.receiveShadow].join('|');
+      const inst = o as THREE.InstancedMesh;
+      if (inst.isInstancedMesh) {
+        const alpha = mesh.geometry.getAttribute('instanceAlpha');
+        for (let i = 0; i < inst.count; i++) {
+          inst.getMatrixAt(i, m);
+          put(state(mat.opacity * alpha.getX(i)), mesh.geometry, m.premultiply(o.matrixWorld));
+        }
+      } else {
+        put(state(mat.opacity), mesh.geometry, o.matrixWorld);
+      }
+    });
     return out;
+  };
+  const expectSameDraws = (a: Map<string, number[]>, b: Map<string, number[]>) => {
+    expect([...a.keys()].sort()).toStrictEqual([...b.keys()].sort());
+    for (const [key, sums] of b) {
+      const mine = a.get(key)!;
+      sums.forEach((x, j) => expect(mine[j], `${key} [${j}]`).toBeCloseTo(x, 2));
+    }
   };
 
   it.each(['full', 'lite'] as const)(
-    'draws %s exactly as the default does: every world matrix and every ghost, to the bit',
+    'draws %s exactly as the default does: the same vertices in the same draw states',
     (quality) => {
       const plain = buildCourtScene(quality);
       const lean = buildCourtScene(quality, { lean: true });
@@ -124,15 +172,15 @@ describe('the lean option', () => {
         const t = frame / 60;
         const k = Math.min(1, frame / 180);
         const p = k;
-        for (const court of [plain, lean]) {
-          court.update(t, p, k);
-          // What the renderer does before each draw.
-          court.scene.updateMatrixWorld();
-          court.overlay.updateMatrixWorld();
-        }
-        if (frame % 20 === 0) {
-          expect(snapshot(lean.scene)).toStrictEqual(snapshot(plain.scene));
-          expect(snapshot(lean.overlay)).toStrictEqual(snapshot(plain.overlay));
+        for (const court of [plain, lean]) court.update(t, p, k);
+        if (frame % 40 === 0) {
+          for (const court of [plain, lean]) {
+            // What the renderer does before each draw.
+            court.scene.updateMatrixWorld();
+            court.overlay.updateMatrixWorld();
+          }
+          expectSameDraws(drawn(lean.scene), drawn(plain.scene));
+          expectSameDraws(drawn(lean.overlay), drawn(plain.overlay));
         }
       }
       plain.dispose();
@@ -140,18 +188,34 @@ describe('the lean option', () => {
     },
   );
 
+  it.each(['full', 'lite'] as const)('cuts %s to a third of the draw calls or fewer', (quality) => {
+    const calls = (court: ReturnType<typeof buildCourtScene>) => {
+      court.update(0.3, 0, 0);
+      let n = 0;
+      for (const root of [court.scene, court.overlay]) {
+        root.traverseVisible((o) => {
+          if ((o as THREE.Mesh).isMesh || (o as THREE.LineSegments).isLineSegments) n++;
+        });
+      }
+      return n;
+    };
+    expect(calls(buildCourtScene(quality, { lean: true })) * 3).toBeLessThanOrEqual(
+      calls(buildCourtScene(quality)),
+    );
+  });
+
   it('freezes only what never moves', () => {
     const court = buildCourtScene('full', { lean: true });
     expect(court.scene.matrixAutoUpdate).toBe(false);
     expect(court.camera.matrixAutoUpdate).toBe(true);
     const frozen = court.scene.children.filter((o) => !o.matrixAutoUpdate);
-    expect(frozen.length).toBeGreaterThan(50);
+    expect(frozen.length).toBeGreaterThan(10);
     for (const o of frozen) {
       expect(o instanceof THREE.Mesh || o instanceof THREE.LineSegments).toBe(true);
     }
     // The ball's shadow caster rides the ball every frame.
     const caster = court.scene.children.find(
-      (o) => o instanceof THREE.Mesh && o.castShadow,
+      (o) => o instanceof THREE.Mesh && o.castShadow && o.geometry instanceof THREE.SphereGeometry,
     )!;
     expect(caster.matrixAutoUpdate).toBe(true);
     court.dispose();

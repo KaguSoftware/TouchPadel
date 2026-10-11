@@ -38,6 +38,8 @@ import {
   LEG_SECONDS,
 } from './rally';
 import { buildRacketKit } from './racket';
+import { mergeStatic } from './merge';
+import { buildGhostTrail } from './trail';
 import { makeCamera, poseCamera } from './camera';
 import { lerp, slice, SPEC } from './spec';
 import type { CourtQuality } from './quality';
@@ -97,7 +99,11 @@ export interface CourtSceneOptions {
    *     matrices once at build and are skipped by every frame's matrix pass,
    *     instead of being recomposed and re-multiplied each frame;
    *   · the trail's ghosts read the ball alone (rally.ts, ballSampler) instead
-   *     of a whole rally state each: 36 × six racket poses a frame become two.
+   *     of a whole rally state each: 36 × six racket poses a frame become two;
+   *   · and fewer draw calls, each of which Android pays for on the JS thread:
+   *     the static court and each racket's body are merged into one mesh per
+   *     draw state (merge.ts), and the trail is one instanced mesh (trail.ts).
+   *     ~250 draws a frame (full, both surfaces) become ~90.
    * Off by default, so iOS and the web run exactly what they always did.
    */
   lean?: boolean;
@@ -431,6 +437,9 @@ export function buildCourtScene(
   // camera, the rackets, the ball's caster) keeps updating itself: none of it
   // is in this list, and each flags its own subtree when it changes.
   if (opts.lean) {
+    // And fold them into one mesh per draw state first (merge.ts): ~100 meshes
+    // over 17 materials become ~20 draw calls.
+    disposables.push(...mergeStatic(scene));
     for (const o of scene.children) {
       if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
         o.updateMatrix();
@@ -446,7 +455,7 @@ export function buildCourtScene(
   // rim highlights, lofted collar and wrapped lime grip (racket.ts). One shared
   // build; each player gets the rig — mount (stance) → pivot (hand) → lay (the
   // top-view cheat) → the racket — and the rally drives all three per frame.
-  const kit = buildRacketKit(quality);
+  const kit = buildRacketKit(quality, { merge: opts.lean });
   disposables.push(...kit.disposables);
   const rackets = PLAYERS.map((pl) => {
     const rig = kit.create(pl.hand);
@@ -486,17 +495,25 @@ export function buildCourtScene(
     caster = add(new THREE.SphereGeometry(BALL_RADIUS, 16, 12), casterMat, 0, 0, 0, true);
   }
 
-  // trail: fading ghosts of recent ball positions (both tiers, see TRAIL_N)
+  // trail: fading ghosts of recent ball positions (both tiers, see TRAIL_N).
+  // `lean` draws the same ghosts as one instanced mesh (trail.ts).
   const trail: THREE.Mesh[] = [];
   const ghostBall = opts.lean ? ballSampler() : null;
-  for (let i = 0; i < TRAIL_N; i++) {
-    const k = 1 - i / TRAIL_N;
+  const ghostSize = (i: number) => 0.25 + 0.7 * (1 - i / TRAIL_N);
+  const ghostAlpha = (i: number) => 0.1 * (1 - i / TRAIL_N);
+  const ghosts = opts.lean ? buildGhostTrail(TRAIL_N, BALL_RADIUS, ghostSize, ghostAlpha) : null;
+  const ghostAt: { x: number; y: number; z: number }[] = [];
+  if (ghosts) {
+    disposables.push(ghosts);
+    overlay.add(ghosts.mesh);
+  }
+  for (let i = 0; i < (ghosts ? 0 : TRAIL_N); i++) {
     const m = new THREE.Mesh(
-      geo(new THREE.SphereGeometry(BALL_RADIUS * (0.25 + 0.7 * k), 12, 10)),
+      geo(new THREE.SphereGeometry(BALL_RADIUS * ghostSize(i), 12, 10)),
       new THREE.MeshBasicMaterial({
         color: 0xffffff,
         transparent: true,
-        opacity: 0.1 * k,
+        opacity: ghostAlpha(i),
         depthWrite: false,
       }),
     );
@@ -575,6 +592,15 @@ export function buildCourtScene(
       // stops at the current leg's start — the ball turns at the racket, and a
       // trail that reached past it would cut a straight chord through the bat.
       const legStart = Math.floor(t / LEG_SECONDS) * LEG_SECONDS;
+      if (ghosts && ghostBall) {
+        ghostAt.length = 0;
+        for (let i = 0; i < TRAIL_N; i++) {
+          const at = t - ((i + 1) * TRAIL_LAG) / TRAIL_N;
+          if (at <= legStart) break;
+          ghostAt.push(ghostBall(at, camK));
+        }
+        ghosts.place(ball.position, ghostAt);
+      }
       trail.forEach((m, i) => {
         const back = ((i + 1) * TRAIL_LAG) / TRAIL_N;
         const at = t - back;

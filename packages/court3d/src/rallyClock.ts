@@ -32,15 +32,18 @@
  */
 
 /**
- * The cap, in seconds: 30 fps.
+ * The cap, in seconds: 15 fps.
  *
- * Deliberately not tighter. The phone really does render at 30 in places — the
- * `lite` quality tier, a hot device, the frames either side of a transition —
- * and a cap below the true frame interval would not merely refuse to jump the
- * rally, it would slow it down whenever the device was working hard, which is a
- * second, quieter version of the same complaint.
+ * Deliberately not tighter. It was 1/30, and a cap below the true frame
+ * interval does not merely refuse to jump the rally, it slows it down whenever
+ * the device is working hard: the Play build on a mid-range Android phone drew
+ * the court at 20–30 fps, so every frame was capped and the whole rally played
+ * at two thirds of its speed (screen recording, 2026-10-11: "court 3d is so
+ * slow"). At 1/15 anything down to 15 fps plays at real time, and a 200 ms
+ * block still moves the picture on by one 15 fps step — a dropped frame, not
+ * the teleport this file exists to prevent.
  */
-export const MAX_STEP_S = 1 / 30;
+export const MAX_STEP_S = 1 / 15;
 
 /**
  * The rally time to draw this frame.
