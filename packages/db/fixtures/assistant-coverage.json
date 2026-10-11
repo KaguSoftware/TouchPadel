@@ -62,6 +62,8 @@
     "incident_reports": "excluded: incident reports may name guests and describe injuries; never sent to the owner assistant or any LLM; purged 365 days after the report",
     "ingredient_aliases": "excluded: receipt scanning (0236): what a model read off a supplier receipt and the wording managers confirmed, reviewed on Goods in; the confirmed result is readable as deliveries and delivery_lines",
     "ingredients": "table_read",
+    "legacy_report_figures": "table_read",
+    "legacy_reports": "table_read",
     "lesson_attendance": "excluded: student identity, attendance, strikes or a coach's time-off reasons; the owner reads lessons through desk_lessons, customer_lessons and report_lessons",
     "lesson_enrolments": "excluded: student identity, attendance, strikes or a coach's time-off reasons; the owner reads lessons through desk_lessons, customer_lessons and report_lessons",
     "lesson_events": "excluded: student identity, attendance, strikes or a coach's time-off reasons; the owner reads lessons through desk_lessons, customer_lessons and report_lessons",

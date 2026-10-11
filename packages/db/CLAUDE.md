@@ -17,8 +17,9 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0330`
-  (0330 the assistant's stored-days cache, 2026-10-09; 0324–0329 the owner assistant, 2026-10-08: 0324 web search, 0325 search recall and the frozen
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0331`
+  (0331 legacy_reports, the pre-system monthly padel reports kept as written, 2026-10-10;
+  0330 the assistant's stored-days cache, 2026-10-09; 0324–0329 the owner assistant, 2026-10-08: 0324 web search, 0325 search recall and the frozen
   first turn, 0326 the tsv GIN index, 0327 card views, 0328 tournaments, open matches and loyalty
   tools, 0329 messages and calls written by the service role only; what each holds is below;
   0323 is `20261008000323_checklist_schedules.sql`, scheduled and assigned checklists;
@@ -48,7 +49,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0331`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0332`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

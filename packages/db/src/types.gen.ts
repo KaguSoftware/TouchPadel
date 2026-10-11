@@ -8430,6 +8430,161 @@ export type Database = {
           },
         ]
       }
+      legacy_report_figures: {
+        Row: {
+          category: string
+          count: number | null
+          count_stated: string | null
+          label_stated: string
+          note_stated: string | null
+          percent_stated: string | null
+          position: number
+          report_id: string
+          source: string
+          venue_id: string
+        }
+        Insert: {
+          category: string
+          count?: number | null
+          count_stated?: string | null
+          label_stated: string
+          note_stated?: string | null
+          percent_stated?: string | null
+          position: number
+          report_id: string
+          source: string
+          venue_id: string
+        }
+        Update: {
+          category?: string
+          count?: number | null
+          count_stated?: string | null
+          label_stated?: string
+          note_stated?: string | null
+          percent_stated?: string | null
+          position?: number
+          report_id?: string
+          source?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_report_figures_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "legacy_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legacy_report_figures_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_reports: {
+        Row: {
+          chart_caption: string | null
+          chart_language: string | null
+          chart_subtitle: string | null
+          chart_title: string | null
+          chart_total_line: string | null
+          department: string
+          employee_name: string
+          id: string
+          imported_at: string
+          period_from: string
+          period_stated: string
+          period_to: string
+          report_no: number | null
+          report_no_stated: string
+          revenue_amount: number | null
+          revenue_approximate: boolean
+          revenue_currency_stated: string | null
+          revenue_stated: string | null
+          revenue_words_stated: string | null
+          review_notes_ar: string
+          review_notes_en: string
+          section_heading_stated: string
+          source_created_at: string | null
+          source_file: string
+          source_sha256: string
+          summary_stated: string
+          title_stated: string
+          venue_id: string
+        }
+        Insert: {
+          chart_caption?: string | null
+          chart_language?: string | null
+          chart_subtitle?: string | null
+          chart_title?: string | null
+          chart_total_line?: string | null
+          department: string
+          employee_name: string
+          id: string
+          imported_at?: string
+          period_from: string
+          period_stated: string
+          period_to: string
+          report_no?: number | null
+          report_no_stated: string
+          revenue_amount?: number | null
+          revenue_approximate?: boolean
+          revenue_currency_stated?: string | null
+          revenue_stated?: string | null
+          revenue_words_stated?: string | null
+          review_notes_ar?: string
+          review_notes_en?: string
+          section_heading_stated: string
+          source_created_at?: string | null
+          source_file: string
+          source_sha256: string
+          summary_stated: string
+          title_stated: string
+          venue_id: string
+        }
+        Update: {
+          chart_caption?: string | null
+          chart_language?: string | null
+          chart_subtitle?: string | null
+          chart_title?: string | null
+          chart_total_line?: string | null
+          department?: string
+          employee_name?: string
+          id?: string
+          imported_at?: string
+          period_from?: string
+          period_stated?: string
+          period_to?: string
+          report_no?: number | null
+          report_no_stated?: string
+          revenue_amount?: number | null
+          revenue_approximate?: boolean
+          revenue_currency_stated?: string | null
+          revenue_stated?: string | null
+          revenue_words_stated?: string | null
+          review_notes_ar?: string
+          review_notes_en?: string
+          section_heading_stated?: string
+          source_created_at?: string | null
+          source_file?: string
+          source_sha256?: string
+          summary_stated?: string
+          title_stated?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_reports_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_attendance: {
         Row: {
           enrolment_id: string

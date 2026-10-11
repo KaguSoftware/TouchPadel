@@ -19,6 +19,8 @@
     "db:fixtures:venue-b": "node scripts/db-fixtures.mjs fixtures/venue-b.sql",
     "db:menu": "node scripts/db-menu.mjs",
     "db:client": "node scripts/db-client.mjs",
+    "db:legacy-reports": "node scripts/db-legacy-reports.mjs",
+    "db:wipe-user-data": "node scripts/wipe-user-data.mjs",
     "db:placeholders": "node scripts/make-placeholders.mjs",
     "db:clear-dev-till": "node scripts/clear-dev-till.mjs",
     "qr:artwork": "node scripts/qr-artwork.mjs",
