@@ -111,6 +111,7 @@ export function TiltPress({
   haptic = true,
   children,
   style,
+  fill = false,
 }: {
   testID: string;
   onPress?: () => void;
@@ -124,6 +125,8 @@ export function TiltPress({
   haptic?: boolean;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** Fill the parent's height (with `flex: 1` in `style`), e.g. to match a taller neighbour in a row. */
+  fill?: boolean;
 }) {
   const reduce = useReduceMotion();
   const [pressed] = useState(() => new Animated.Value(0));
@@ -138,6 +141,7 @@ export function TiltPress({
   return (
     <Pressable
       testID={testID}
+      style={fill ? { flex: 1 } : undefined}
       onPress={() => {
         if (haptic) void Haptics.selectionAsync().catch(() => undefined);
         onPress?.();
@@ -157,7 +161,9 @@ export function TiltPress({
             transform: [
               { perspective: 700 },
               { scale: pressed.interpolate({ inputRange: [0, 1], outputRange: [1, 0.97] }) },
-              { rotateX: pressed.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '3deg'] }) },
+              {
+                rotateX: pressed.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '3deg'] }),
+              },
             ],
           },
         ]}

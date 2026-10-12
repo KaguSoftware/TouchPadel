@@ -831,6 +831,7 @@ export function FilterChip({
   selected,
   onPress,
   testID,
+  large = false,
 }: {
   /** Optional: the open-matches category chips are words only. */
   icon?: ComponentType<IconProps>;
@@ -840,6 +841,8 @@ export function FilterChip({
   onPress: () => void;
   /** `bookings.filter.<upcoming|past|cancelled>` — named by the list it picks. */
   testID?: string;
+  /** The Join tab's category chips: a size up, the row's main control there. */
+  large?: boolean;
 }) {
   const { colors, fonts } = useTheme();
   return (
@@ -856,10 +859,10 @@ export function FilterChip({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 5,
-        paddingStart: 10,
-        paddingEnd: 11,
-        paddingTop: 6,
-        paddingBottom: 6,
+        paddingStart: large ? 16 : 10,
+        paddingEnd: large ? 16 : 11,
+        paddingTop: large ? 10 : 6,
+        paddingBottom: large ? 10 : 6,
         borderRadius: radius.pill,
         backgroundColor: selected ? brand.blue : colors.sub,
         borderWidth: 1,
@@ -867,11 +870,13 @@ export function FilterChip({
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      {Icon ? <Icon size={13} color={selected ? brand.white : colors.fnt} strokeWidth={2.2} /> : null}
+      {Icon ? (
+        <Icon size={13} color={selected ? brand.white : colors.fnt} strokeWidth={2.2} />
+      ) : null}
       <Text
         style={{
           fontFamily: fonts.body700,
-          fontSize: 12,
+          fontSize: large ? 14.5 : 12,
           color: selected ? brand.white : colors.mut,
         }}
       >

@@ -285,7 +285,10 @@ export function ShowcaseLink({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${title}, ${sub}`}
+      // Fills its slot, so a pair in a row both take the taller one's height.
+      fill
       style={{
+        flex: 1,
         minHeight: 96,
         backgroundColor: colors.card,
         borderWidth: 1,

@@ -25,7 +25,8 @@ const { Icon, Label } = NativeTabs.Trigger;
  * Book, Coaches, Profile, so Book (still the initial route, `(tabs)/_layout`)
  * is the exact middle. Book keeps its `figure.tennis`; Coaches wears
  * `graduationcap` (lessons) rather than a second player figure, since two tabs
- * in the same glyph read as one.
+ * in the same glyph read as one. Play wears a padel court (assets/tabs/play*.png,
+ * the Android TabPlayIcon drawn out), since SF Symbols has none.
  *
  * NO testIDs HERE, deliberately. `NativeTabs.Trigger` is a CONFIGURATION node,
  * not a view: it describes a `UITabBarItem` that UIKit draws outside the React
@@ -56,7 +57,9 @@ export default function TabsLayoutIOS() {
         <Label>{t('tabs.bookings')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="play">
-        <Icon sf="sportscourt" />
+        {/* A padel court, not SF Symbols' `sportscourt` (a football pitch):
+            Android's TabPlayIcon drawn to PNGs, tinted by the bar as a template. */}
+        <Icon src={require('../../assets/tabs/play.png')} renderingMode="template" />
         <Label>{t('tabs.play')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="index">
