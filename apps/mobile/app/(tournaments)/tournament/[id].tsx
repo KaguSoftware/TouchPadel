@@ -17,11 +17,11 @@ import { needsTermsAcceptance } from '@touch/core';
 import { Text } from '../../../src/i18n/text';
 import { useLocale } from '../../../src/i18n/LocaleProvider';
 import { useAuth } from '../../../src/features/auth/context';
-import { useOwnConsent } from '../../../src/features/profile/hooks';
+import { useOwnConsent, useOwnProfile } from '../../../src/features/profile/hooks';
 import { serverNowMs } from '../../../src/features/deposit/logic';
-import { useSetMyGender } from '../../../src/features/matches/hooks';
-import { errorCodeOf, matchErrorText } from '../../../src/features/matches/errors';
-import type { Gender } from '../../../src/features/matches/logic';
+import { errorCodeOf } from '../../../src/features/matches/errors';
+import { usePlayProfile } from '../../../src/features/playProfile/hooks';
+import { tournamentFit } from '../../../src/features/playProfile/fit';
 import {
   useRegisterTournament,
   useTournamentPublic,
@@ -119,12 +119,15 @@ export default function TournamentDetailScreen() {
   const branches = useBranches();
   const register = useRegisterTournament();
   const withdraw = useWithdrawTournament();
-  const setGender = useSetMyGender();
+  const profile = useOwnProfile(!!uid);
+  const play = usePlayProfile();
 
   const [notice, setNotice] = useState<Notice | null>(null);
-  const [askGender, setAskGender] = useState(false);
-  const [genderBusy, setGenderBusy] = useState<Gender | null>(null);
-  const [genderError, setGenderError] = useState<string | null>(null);
+  // Register was refused for want of a gender (GENDER_REQUIRED). The notice
+  // opens the questionnaire, and goes once the profile has the answer; then
+  // Register is one tap again.
+  const [genderRefused, setGenderRefused] = useState(false);
+  const askGender = genderRefused && !profile.data?.gender;
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   // The board folds past four courts (a 64-player tournament is sixteen of them).
   const [allCourts, setAllCourts] = useState(false);
@@ -184,7 +187,7 @@ export default function TournamentDetailScreen() {
       ? (d.branch.nameAr ?? d.branch.nameEn)
       : (d.branch.nameEn ?? d.branch.nameAr)
     : null;
-  const busy = register.isPending || withdraw.isPending || setGender.isPending;
+  const busy = register.isPending || withdraw.isPending;
 
   const nameOf = (p: TourPlayer) =>
     playerLabel(p, {
@@ -202,7 +205,11 @@ export default function TournamentDetailScreen() {
         router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } });
         return;
       case 'gender':
-        setAskGender(true);
+        setGenderRefused(true);
+        return;
+      case 'profile':
+        // 0339: a level or years question this tournament asks is unanswered.
+        router.push({ pathname: '/play-survey', params: { mode: 'edit' } });
         return;
       case 'banned':
         setNotice({ text: tournamentErrorText(err, t, { action }), tone: 'red', call: true });
@@ -254,24 +261,6 @@ export default function TournamentDetailScreen() {
     });
   };
 
-  const onGender = (gender: Gender) => {
-    setGenderError(null);
-    setGenderBusy(gender);
-    setGender.mutate(gender, {
-      onSuccess: () => {
-        setAskGender(false);
-        onRegister();
-      },
-      onError: (err) => {
-        if (errorCodeOf(err) === 'GENDER_ALREADY_SET') {
-          setAskGender(false);
-          onRegister();
-        } else setGenderError(matchErrorText(err, t, { locale }));
-      },
-      onSettled: () => setGenderBusy(null),
-    });
-  };
-
   const callVenue = () => {
     if (!phone) return;
     void callPhone(phone).then((ok) => {
@@ -311,7 +300,41 @@ export default function TournamentDetailScreen() {
   const lead = { fontFamily: fonts.body600, fontSize: 13.5, lineHeight: 20, color: colors.ink };
   const sub = { fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 18, color: colors.mut };
 
+  // 0339: who it is for (fit.ts, the twin of tournament_register's check). A
+  // signed-in guest it is not for, or who has not said their level or years, sees
+  // why in place of Register; an entry already made is never touched.
+  const answers = play ? { level: play.level, years: play.years } : null;
+  const fit = tournamentFit(d, answers);
+  const fitBlocks =
+    !!session && play !== null && (action === 'register' || action === 'waitlist') && fit.fit !== 'fits';
+
   const actionBlock = (() => {
+    if (fitBlocks) {
+      if (fit.fit === 'mismatch') {
+        return (
+          <View testID="tournament-detail.not-for-you">
+            <MatchNotice
+              text={t(
+                fit.on === 'years'
+                  ? 'tournaments.guest.errors.yearsMismatch'
+                  : 'tournaments.guest.errors.levelMismatch',
+              )}
+            />
+          </View>
+        );
+      }
+      return (
+        <View style={{ gap: space.sm }}>
+          <MatchNotice text={t('tournaments.guest.errors.profileRequired')} />
+          <Button
+            testID="tournament-detail.answer"
+            label={t('tournaments.guest.errors.answer')}
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/play-survey', params: { mode: 'edit' } })}
+          />
+        </View>
+      );
+    }
     switch (action) {
       case 'register':
       case 'waitlist':
@@ -359,7 +382,7 @@ export default function TournamentDetailScreen() {
         : ch.player
           ? nameOf(ch.player)
           : t('seating.chair.taken');
-  const canTake = action === 'register' || action === 'waitlist';
+  const canTake = (action === 'register' || action === 'waitlist') && !fitBlocks;
   const boardView = board
     ? (() => {
         const shown = visibleCourtsCount(board, allCourts);
@@ -603,12 +626,7 @@ export default function TournamentDetailScreen() {
           }}
         >
           {askGender ? (
-            <GenderAsk
-              testID="tournament-detail.gender"
-              busy={genderBusy}
-              error={genderError}
-              onPick={onGender}
-            />
+            <GenderAsk testID="tournament-detail.gender" />
           ) : null}
 
           {notice ? (

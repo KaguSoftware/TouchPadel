@@ -20,7 +20,7 @@ import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';
 import { radius, space, useTheme } from '../theme';
 import { useAuth } from '../features/auth/context';
-import { usePlayProfile } from '../features/playProfile/hooks';
+import { usePlayProfile, useSuggestionAvailability } from '../features/playProfile/hooks';
 import { hasAnswers } from '../features/playProfile/logic';
 import { topSuggestions, type Suggestion, type SuggestionKind } from '../features/playProfile/suggest';
 import { suggestionTarget } from '../features/playProfile/links';
@@ -207,6 +207,7 @@ export function ForYouStrip({ testID, surface }: { testID: string; surface: 'pla
   const play = usePlayProfile();
   const dismissed = useAskDismissed();
   const open = useOpenSuggestion();
+  const available = useSuggestionAvailability();
 
   if (!session || session.user.is_anonymous || !play) return null;
 
@@ -216,8 +217,10 @@ export function ForYouStrip({ testID, surface }: { testID: string; surface: 'pla
     return <AskCard testID={testID} />;
   }
 
-  const top = topSuggestions(play, MAX_STRIP);
-  if (top.length === 0) return null;
+  const top = topSuggestions(play, MAX_STRIP, available);
+  // No "What are you after?" answer: group sessions alone, and a way to say more.
+  const askWants = play.wants.length === 0;
+  if (top.length === 0 && !askWants) return null;
   return (
     <View testID={`${testID}.${surface}`}>
       <View
@@ -266,10 +269,42 @@ export function ForYouStrip({ testID, surface }: { testID: string; surface: 'pla
               testID={`${testID}.${s.kind}`}
               suggestion={s}
               onPress={() => open(s.kind)}
-              last={i === top.length - 1}
+              last={i === top.length - 1 && !askWants}
             />
           </Rise>
         ))}
+        {askWants ? (
+          <Pressable
+            testID={`${testID}.more`}
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/play-survey', params: { mode: 'edit', step: 'wants' } })}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: space.sm,
+              paddingStart: space.l,
+              paddingEnd: space.m,
+              paddingTop: space.m,
+              paddingBottom: space.m,
+              backgroundColor: pressed ? colors.sub : 'transparent',
+            })}
+          >
+            <SparkIcon size={16} color={colors.blue} />
+            <Text
+              style={{
+                flex: 1,
+                fontFamily: fonts.body600,
+                fontSize: 13,
+                lineHeight: 18,
+                color: colors.blue,
+                textAlign: 'auto',
+              }}
+            >
+              {t('playProfile.forYou.moreHint')}
+            </Text>
+            <ChevronIcon size={14} color={colors.blue} />
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );

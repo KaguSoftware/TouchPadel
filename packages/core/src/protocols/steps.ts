@@ -477,6 +477,10 @@ const RELEASE_FORMS: Record<string, readonly FieldDef[]> = {
 
 const TOURNAMENT_PLAN_SHORT: readonly FieldDef[] = [
   f.enumOf('class', ['A', 'B', 'C']),
+  // 0339: the players' years bracket, matched exactly to a guest's own answer
+  // (as the class is to their level). Required from the desk; the server takes
+  // a plan without it (an older build's).
+  f.enumOf('play_years', ['under_one', 'one_to_three', 'three_plus']),
   f.text('name_en', true),
   f.text('name_ar', true),
   {
@@ -501,9 +505,9 @@ const TOURNAMENT_PLAN_SHORT: readonly FieldDef[] = [
 ];
 
 const TOURNAMENT_PLAN_FULL: readonly FieldDef[] = [
-  ...TOURNAMENT_PLAN_SHORT.slice(0, 3),
+  ...TOURNAMENT_PLAN_SHORT.slice(0, 4),
   f.enumOf('format', ['americano', 'mexicano', 'knockout', 'league']),
-  ...TOURNAMENT_PLAN_SHORT.slice(3, 5),
+  ...TOURNAMENT_PLAN_SHORT.slice(4, 6),
   f.iqd('entry_fee_iqd', false),
   {
     name: 'prize',

@@ -378,6 +378,7 @@ export const staffProtocolsAr: DeepMessages<typeof staffProtocolsEn> = {
     at: 'التاريخ والوقت',
     photoPath: 'صورة المنيو',
     class: 'الفئة',
+    playYears: 'سنوات اللعب',
     format: 'نظام البطولة',
     ranges: 'الملاعب والأوقات',
     courtIds: 'الملاعب',
@@ -476,6 +477,11 @@ export const staffProtocolsAr: DeepMessages<typeof staffProtocolsEn> = {
       A: 'الفئة A',
       B: 'الفئة B',
       C: 'الفئة C',
+    },
+    playYears: {
+      under_one: 'أقل من سنة',
+      one_to_three: 'من سنة إلى ثلاث سنوات',
+      three_plus: 'أكثر من ثلاث سنوات',
     },
     format: {
       americano: 'أمريكانو',

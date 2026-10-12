@@ -201,9 +201,10 @@ export const matchesScreensEn = {
     sent: 'Sent to the players',
     empty: 'No messages yet.',
   },
-  // §4.9 GenderAsk
+  // §4.9 GenderAsk: the question itself is in the player questionnaire (play-survey).
   gender: {
-    ask: 'Before your first open match: are you a woman or a man? We ask once, so that women-only and men-only matches reach the right players. The front desk can correct it.',
+    ask: 'Women-only and men-only games need to know if you are a woman or a man. We ask once, in your player questions. The front desk can correct it.',
+    answer: 'Answer now',
     female: 'Woman',
     male: 'Man',
   },

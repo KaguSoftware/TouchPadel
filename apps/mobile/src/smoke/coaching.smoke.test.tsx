@@ -864,23 +864,13 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
   });
 
-  it('the Coaches tab: a level switch, cards to the coach, the ways to classes and My lessons', () => {
+  it('the Coaches tab signed out: every coach, no level line, the ways to classes and My lessons', () => {
     const screen = renderRoute(CoachesScreen, { locale, session: 'out', queryData: publicSeeds() });
     try {
-      // Starts on All (no play level yet) with the line for it.
-      expect(screen.getByText(t('coachShowcase.levelLine.all'))).toBeTruthy();
+      // The tab no longer asks the level (2026-10-12): it is the questionnaire's.
+      expect(screen.queryByTestId('coaches.level')).toBeNull();
+      expect(screen.queryByTestId('coaches.level.beginner')).toBeNull();
       expect(screen.getByTestId(`coaches.row.${COACH_ID}`)).toBeTruthy();
-
-      // The fixture's coach teaches beginners and intermediates.
-      fireEvent.press(screen.getByTestId('coaches.level.beginner'));
-      expect(screen.getByText(t('coachShowcase.levelLine.beginner'))).toBeTruthy();
-      expect(screen.getByTestId(`coaches.row.${COACH_ID}`)).toBeTruthy();
-
-      fireEvent.press(screen.getByTestId('coaches.level.advanced'));
-      expect(screen.queryByTestId(`coaches.row.${COACH_ID}`)).toBeNull();
-      expect(screen.getByText(t('coachShowcase.emptyLevel.title'))).toBeTruthy();
-      fireEvent.press(screen.getByTestId('coaches.show-all'));
-      expect(screen.getByText(t('coachShowcase.levelLine.all'))).toBeTruthy();
 
       fireEvent.press(screen.getByTestId(`coaches.row.${COACH_ID}`));
       expect(routerState.calls).toContainEqual({
@@ -891,6 +881,55 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
       expect(routerState.calls).toContainEqual({ method: 'push', arg: '/classes' });
       fireEvent.press(screen.getByTestId('coaches.my-lessons'));
       expect(routerState.calls).toContainEqual({ method: 'push', arg: '/my-lessons' });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  const withLevel = (level: string | null): Seeds => [
+    ...publicSeeds(),
+    [
+      profileKeys.own,
+      {
+        ...profileFixture(),
+        play_level: level,
+        play_years: null,
+        play_wants: null,
+        play_survey_at: '2026-10-11T18:00:00.000Z',
+      },
+    ],
+  ];
+
+  it("the Coaches tab filters by the questionnaire's level and shows no level block", () => {
+    const screen = renderRoute(CoachesScreen, { locale, session: 'in', queryData: withLevel('new') });
+    try {
+      // The level lives in Edit profile (Personal details), not on this tab.
+      expect(screen.queryByTestId('coaches.level')).toBeNull();
+      expect(screen.queryByTestId('coaches.change-level')).toBeNull();
+      // `new` reads as Beginner; the fixture's coach teaches beginners and intermediates.
+      expect(screen.getByTestId(`coaches.row.${COACH_ID}`)).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('the Coaches tab with no coach at the saved level offers every coach', () => {
+    const screen = renderRoute(CoachesScreen, { locale, session: 'in', queryData: withLevel('advanced') });
+    try {
+      expect(screen.queryByTestId(`coaches.row.${COACH_ID}`)).toBeNull();
+      expect(screen.getByText(t('coachShowcase.emptyLevel.title'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('coaches.show-all'));
+      expect(screen.getByTestId(`coaches.row.${COACH_ID}`)).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('the Coaches tab with no level saved shows every coach', () => {
+    const screen = renderRoute(CoachesScreen, { locale, session: 'in', queryData: withLevel(null) });
+    try {
+      expect(screen.queryByTestId('coaches.level')).toBeNull();
+      expect(screen.getByTestId(`coaches.row.${COACH_ID}`)).toBeTruthy();
     } finally {
       screen.unmount();
     }

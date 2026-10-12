@@ -1329,14 +1329,13 @@ export function holdLive(
 
 // ── The Coaches tab showcase (play-coaches contracts §6) ────────────────────
 
-/** The level switch's value: one player level, or every coach. */
+/** The level the tab shows: one player level, or every coach. */
 export type ShowcaseLevel = 'all' | CoachLevel;
-export const SHOWCASE_LEVELS: readonly ShowcaseLevel[] = ['all', ...COACH_LEVELS];
 
 /**
- * The switch's starting value from the guest's play level (the survey's
- * `play_level`, §4.1): `new` reads as `beginner` (§4.2), a level this build
- * does not know, or none, as `all`.
+ * The tab's level from the guest's play level (the survey's `play_level`,
+ * §4.1): `new` reads as `beginner` (§4.2), a level this build does not know,
+ * or none, as `all`.
  */
 export function showcaseLevelFor(playLevel: unknown): ShowcaseLevel {
   if (playLevel === 'new') return 'beginner';

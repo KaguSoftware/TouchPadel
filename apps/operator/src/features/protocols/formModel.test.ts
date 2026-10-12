@@ -26,6 +26,7 @@ describe('a form’s value', () => {
     const form = startForm('tournament', { variant: 'type1' });
     const v = initialValue(form.fields, {
       class: 'A',
+      play_years: 'one_to_three',
       name_en: ' Summer Cup ',
       name_ar: 'كأس الصيف',
       format: 'americano',

@@ -222,7 +222,7 @@ describe.each(LOCALES)('open-match states in %s', (locale) => {
     }
   });
 
-  it('asks the gender once, in place of Join, when the server needs it', () => {
+  it('sends the guest to the questionnaire for the gender, in place of Join, when the server needs it', () => {
     const screen = renderRoute(MatchDetailScreen, {
       locale,
       ...detail({
@@ -231,9 +231,16 @@ describe.each(LOCALES)('open-match states in %s', (locale) => {
     });
     try {
       expect(screen.getByTestId('match-detail.gender')).toBeTruthy();
-      expect(within(screen.getByTestId('match-detail.gender.female')).getByText(t('matches.gender.female'))).toBeTruthy();
-      expect(within(screen.getByTestId('match-detail.gender.male')).getByText(t('matches.gender.male'))).toBeTruthy();
+      // The question itself is the player questionnaire's (2026-10-12).
+      expect(screen.queryByTestId('match-detail.gender.female')).toBeNull();
+      const answer = screen.getByTestId('match-detail.gender.answer');
+      expect(within(answer).getByText(t('matches.gender.answer'))).toBeTruthy();
       expect(screen.queryByTestId('match-detail.join')).toBeNull();
+      fireEvent.press(answer);
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: { pathname: '/play-survey', params: { step: 'gender' } },
+      });
     } finally {
       screen.unmount();
     }

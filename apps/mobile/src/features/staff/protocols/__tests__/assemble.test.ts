@@ -186,6 +186,7 @@ describe('draftFromRecord', () => {
     const fields = fieldsOf('tournament', 'plan', { variant: 'type2' });
     const record = {
       class: 'B',
+      play_years: 'one_to_three',
       name_en: 'Friday social',
       name_ar: 'اجتماعي الجمعة',
       ranges: [{ court_ids: [UUID_A], from: '2026-10-02T15:00:00Z', to: '2026-10-02T19:00:00Z' }],

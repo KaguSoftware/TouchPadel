@@ -393,6 +393,7 @@ export const staffProtocolsEn = {
     at: 'Date and time',
     photoPath: 'Menu photo',
     class: 'Class',
+    playYears: 'Years played',
     format: 'Format',
     ranges: 'Courts and times',
     courtIds: 'Courts',
@@ -491,6 +492,11 @@ export const staffProtocolsEn = {
       A: 'Class A',
       B: 'Class B',
       C: 'Class C',
+    },
+    playYears: {
+      under_one: 'Less than a year',
+      one_to_three: '1 to 3 years',
+      three_plus: 'More than 3 years',
     },
     format: {
       americano: 'Americano',

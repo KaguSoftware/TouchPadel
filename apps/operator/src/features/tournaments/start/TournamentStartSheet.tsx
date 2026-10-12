@@ -60,10 +60,17 @@ import {
   type PlanSlot,
   type PlanState,
   type PlanUnit,
+  type PlanYears,
 } from './planModel';
 
 const F = 'ws.team.tasks.form.field';
 const CLASSES: readonly PlanClass[] = ['A', 'B', 'C'];
+/** 0339: the players' years bracket, with the catalog key of each card's title. */
+const YEARS: readonly { value: PlanYears; key: 'yearsUnderOne' | 'yearsOneToThree' | 'yearsThreePlus' }[] = [
+  { value: 'under_one', key: 'yearsUnderOne' },
+  { value: 'one_to_three', key: 'yearsOneToThree' },
+  { value: 'three_plus', key: 'yearsThreePlus' },
+];
 /** The court rows the desk labels by kind; another kind is said as "Already booked" alone. */
 const KINDS = ['booking', 'hold', 'maintenance', 'lesson'] as const;
 /** A class pill's colour by how hard it is: advanced red, intermediate orange, beginners green. */
@@ -464,6 +471,23 @@ export function TournamentStartSheet({
                           tagTone={CLASS_TONE[c]}
                           body={tr(`ws.tournaments.start.classes.${c}.body`)}
                           onPick={() => set({ cls: c })}
+                        />
+                      ))}
+                    </div>
+                  </Field>
+                  {/* 0339: who may play by experience, an exact bracket like the class:
+                      only a guest whose own answer is this one can register. */}
+                  <Field label={tr(`${F}.play_years`)} group required error={issueFor('play_years')}>
+                    <div role="radiogroup" className="tp-tour-choices" onKeyDown={radioKeys}>
+                      {YEARS.map((y, i) => (
+                        <ChoiceCard
+                          key={y.value}
+                          radio
+                          tabStop={plan.playYears === y.value || (plan.playYears === null && i === 0)}
+                          on={plan.playYears === y.value}
+                          title={tr(`ws.team.tasks.form.option.${y.key}`)}
+                          body={tr(`ws.tournaments.start.years.${y.value}.body`)}
+                          onPick={() => set({ playYears: y.value })}
                         />
                       ))}
                     </div>

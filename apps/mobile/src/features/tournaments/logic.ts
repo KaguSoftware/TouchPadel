@@ -19,6 +19,12 @@ import type { MatchCategory } from '../matches/logic';
 // ── Server vocabulary (build contracts §1.3) ────────────────────────────────
 
 export const TOUR_FORMATS = ['americano', 'mexicano'] as const;
+/** 0339: who it is for. The class by level (A advanced, B intermediate, C beginners). */
+export const TOUR_CLASSES = ['A', 'B', 'C'] as const;
+export type TourClass = (typeof TOUR_CLASSES)[number];
+/** 0339: the years bracket, the play survey's own words (`never` is never a bracket). */
+export const TOUR_YEARS = ['under_one', 'one_to_three', 'three_plus'] as const;
+export type TourYears = (typeof TOUR_YEARS)[number];
 export type TourFormat = (typeof TOUR_FORMATS)[number];
 
 export const TOUR_STATUSES = ['open', 'closed', 'running', 'finished', 'cancelled'] as const;
@@ -113,6 +119,10 @@ export interface TourListItem {
   nameAr: string | null;
   format: TourFormat | null;
   category: MatchCategory;
+  /** 0339: null from a server before it. */
+  tourClass: TourClass | null;
+  /** 0339: null asks nothing about years. */
+  playYears: TourYears | null;
   startsAt: string;
   endsAt: string | null;
   registrationClosesAt: string | null;
@@ -146,6 +156,8 @@ function parseListItem(json: unknown): TourListItem | null {
     nameAr: str(o.name_ar),
     format: oneOf(o.format, TOUR_FORMATS),
     category: oneOf(o.category, CATEGORIES) ?? 'open',
+    tourClass: oneOf(o.class, TOUR_CLASSES),
+    playYears: oneOf(o.play_years, TOUR_YEARS),
     startsAt,
     endsAt: str(o.ends_at),
     registrationClosesAt: str(o.registration_closes_at),
@@ -225,6 +237,8 @@ export interface TournamentPublic {
   nameAr: string | null;
   format: TourFormat | null;
   category: MatchCategory;
+  tourClass: TourClass | null;
+  playYears: TourYears | null;
   pointsTarget: number | null;
   roundsPlanned: number | null;
   startsAt: string;
@@ -254,6 +268,8 @@ const MISSING: Omit<TournamentPublic, 'id'> = {
   nameAr: null,
   format: null,
   category: 'open',
+  tourClass: null,
+  playYears: null,
   pointsTarget: null,
   roundsPlanned: null,
   startsAt: '',
@@ -334,6 +350,8 @@ export function parseTournamentPublic(json: unknown, id: string): TournamentPubl
     nameAr: str(o.name_ar),
     format: oneOf(o.format, TOUR_FORMATS),
     category: oneOf(o.category, CATEGORIES) ?? 'open',
+    tourClass: oneOf(o.class, TOUR_CLASSES),
+    playYears: oneOf(o.play_years, TOUR_YEARS),
     pointsTarget: int(o.points_target),
     roundsPlanned: int(o.rounds_planned),
     startsAt,

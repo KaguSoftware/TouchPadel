@@ -38,7 +38,6 @@ import {
   usePostMatchMessage,
   useRemovePlayer,
   useRequestMatch,
-  useSetMyGender,
   useWithdrawRequest,
 } from '../../../src/features/matches/hooks';
 import {
@@ -51,7 +50,6 @@ import {
   ORGANISER_CANCEL_REASONS,
   seatsOfLabel,
   SEATS_TOTAL,
-  type Gender,
   type MatchDetail,
   type MatchSeat,
   type MessageCode,
@@ -178,7 +176,6 @@ function MatchDetailScreen() {
   const cancel = useCancelMatch();
   const message = usePostMatchMessage();
   const block = useBlockPlayer();
-  const setGender = useSetMyGender();
 
   const knobs = settings.data ?? null;
   const tz = knobs?.timezone ?? DEFAULT_TZ;
@@ -200,7 +197,6 @@ function MatchDetailScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [deciding, setDeciding] = useState<{ id: string; approve: boolean } | null>(null);
-  const [genderBusy, setGenderBusy] = useState<Gender | null>(null);
   const [restUntil, setRestUntil] = useState<Partial<Record<MessageCode, number>>>({});
   const [confirm, setConfirm] = useState<Confirm | null>(null);
 
@@ -507,19 +503,6 @@ function MatchDetailScreen() {
     });
   };
 
-  const onGender = (gender: Gender) => {
-    setActionError(null);
-    setGenderBusy(gender);
-    setGender.mutate(gender, {
-      onError: (err) => {
-        if (errorCodeOf(err) === 'GENDER_ALREADY_SET')
-          toast(t('matches.errors.genderAlreadySet'), 'info');
-        else setActionError(matchErrorText(err, t, errorCtx));
-      },
-      onSettled: () => setGenderBusy(null),
-    });
-  };
-
   const onDecide = (requestId: string, approve: boolean) => {
     setDeciding({ id: requestId, approve });
     setRowErrors((prev) => {
@@ -802,7 +785,7 @@ function MatchDetailScreen() {
           </>
         );
       case 'gender':
-        return <GenderAsk testID="match-detail.gender" busy={genderBusy} onPick={onGender} />;
+        return <GenderAsk testID="match-detail.gender" />;
       case 'join':
       case 'ask':
       case 'buy':

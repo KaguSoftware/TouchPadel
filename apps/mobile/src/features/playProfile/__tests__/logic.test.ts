@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   EMPTY_ANSWERS,
   coachLevelOf,
+  consistentAnswers,
+  genderToSave,
   hasAnswers,
   nextStep,
   parseWants,
@@ -9,7 +11,10 @@ import {
   previousStep,
   rowPatchOf,
   surveyArgs,
+  surveyStepsFor,
   toggleWant,
+  withLevel,
+  yearsFitLevel,
 } from '../logic';
 
 const AT = '2026-10-11T18:00:00.000Z';
@@ -106,11 +111,89 @@ describe('coachLevelOf (§4.2)', () => {
 });
 
 describe('steps', () => {
+  it('asks the three play questions, then the gender only while it is unset', () => {
+    expect(surveyStepsFor({ askGender: false, genderOnly: false })).toEqual(['level', 'years', 'wants']);
+    expect(surveyStepsFor({ askGender: true, genderOnly: false })).toEqual([
+      'level',
+      'years',
+      'wants',
+      'gender',
+    ]);
+  });
+
+  it('asks the gender alone when a match or tournament sends the guest', () => {
+    expect(surveyStepsFor({ askGender: false, genderOnly: true })).toEqual(['gender']);
+    expect(surveyStepsFor({ askGender: true, genderOnly: true })).toEqual(['gender']);
+  });
+
   it('walks level → years → wants and back', () => {
-    expect(nextStep('level')).toBe('years');
-    expect(nextStep('years')).toBe('wants');
-    expect(nextStep('wants')).toBeNull();
-    expect(previousStep('wants')).toBe('years');
-    expect(previousStep('level')).toBeNull();
+    const steps = surveyStepsFor({ askGender: false, genderOnly: false });
+    expect(nextStep(steps, 'level')).toBe('years');
+    expect(nextStep(steps, 'years')).toBe('wants');
+    expect(nextStep(steps, 'wants')).toBeNull();
+    expect(previousStep(steps, 'wants')).toBe('years');
+    expect(previousStep(steps, 'level')).toBeNull();
+  });
+
+  it('walks on to the gender when it is asked', () => {
+    const steps = surveyStepsFor({ askGender: true, genderOnly: false });
+    expect(nextStep(steps, 'wants')).toBe('gender');
+    expect(nextStep(steps, 'gender')).toBeNull();
+    expect(previousStep(steps, 'gender')).toBe('wants');
+  });
+
+  it('has nothing before or after the gender asked alone', () => {
+    const steps = surveyStepsFor({ askGender: false, genderOnly: true });
+    expect(nextStep(steps, 'gender')).toBeNull();
+    expect(previousStep(steps, 'gender')).toBeNull();
+    expect(nextStep(steps, 'level')).toBeNull();
+  });
+});
+
+describe('level and years agree', () => {
+  it('"Not yet" fits only Just starting, or no level', () => {
+    expect(yearsFitLevel('new', 'never')).toBe(true);
+    expect(yearsFitLevel(null, 'never')).toBe(true);
+    expect(yearsFitLevel('beginner', 'never')).toBe(false);
+    expect(yearsFitLevel('intermediate', 'never')).toBe(false);
+    expect(yearsFitLevel('advanced', 'never')).toBe(false);
+  });
+
+  it('every other pairing is allowed', () => {
+    for (const level of ['new', 'beginner', 'intermediate', 'advanced'] as const) {
+      for (const years of ['under_one', 'one_to_three', 'three_plus'] as const) {
+        expect(yearsFitLevel(level, years)).toBe(true);
+      }
+    }
+  });
+
+  it('a new level drops a years answer it contradicts, and keeps one that fits', () => {
+    const started = { level: 'new' as const, years: 'never' as const, wants: [] };
+    expect(withLevel(started, 'advanced')).toEqual({ level: 'advanced', years: null, wants: [] });
+    expect(withLevel(started, 'new')).toEqual(started);
+    expect(withLevel({ ...started, years: 'three_plus' }, 'advanced')).toEqual({
+      level: 'advanced',
+      years: 'three_plus',
+      wants: [],
+    });
+  });
+
+  it('a pair saved before the rule loses its years answer', () => {
+    expect(consistentAnswers({ level: 'advanced', years: 'never', wants: ['matches'] })).toEqual({
+      level: 'advanced',
+      years: null,
+      wants: ['matches'],
+    });
+    const fine = { level: 'advanced' as const, years: 'three_plus' as const, wants: [] };
+    expect(consistentAnswers(fine)).toBe(fine);
+  });
+});
+
+describe('genderToSave', () => {
+  it('writes a woman or a man, and nothing for "prefer not to say" or no answer', () => {
+    expect(genderToSave('female')).toBe('female');
+    expect(genderToSave('male')).toBe('male');
+    expect(genderToSave('none')).toBeNull();
+    expect(genderToSave(null)).toBeNull();
   });
 });

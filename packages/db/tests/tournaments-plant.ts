@@ -15,7 +15,7 @@
  *   desk's live event blocks on every court of the plan's one range. `p` overrides: variant
  *   (type1), format (americano), fee (0), unit, count (16), courts (c1..c4), owner_ok (true),
  *   status (done), days (3: the range opens at 15:00 UTC three days on, for 4 hours), blocks
- *   (true).
+ *   (true), class (A) and play_years ("one_to_three"; null for a plan from before 0339).
  * - `pg_temp.field(tour, n, prefix)`: n guests (prefix1..prefixN) registered in the tournament in
  *   order, planted as postgres (entries prefix1_e..prefixN_e).
  * - `pg_temp.close(tour)`: what the sweep's cut-off does for a tournament with enough entries
@@ -36,6 +36,11 @@ import { KEEP, T, type Results } from './stores-harness';
 export const TOUR_SETUP =
   SETUP +
   String.raw`
+-- 0339: a guest answers the play survey to fit the plant's default plan (class A = advanced,
+-- play_years one_to_three), so registering is not refused by tournament_register's level check.
+-- A case passes {"level": ..., "years": ...} to its GUEST to differ (null: unanswered).
+insert into pg_temp.vars values ('_guest_defaults', '{"level": "advanced", "years": "one_to_three"}');
+
 create function pg_temp.tbranch() returns void language plpgsql as $f$
 declare v uuid; c3 uuid; c4 uuid;
 begin
@@ -75,7 +80,10 @@ begin
   v_courts := array(select pg_temp.var(x)::uuid
                       from jsonb_array_elements_text(coalesce(p->'courts', '["c1","c2","c3","c4"]')) x);
   v_data := jsonb_build_object(
-    'class', 'A', 'name_en', 'Summer Cup', 'name_ar', 'كأس الصيف',
+    'class', coalesce(p->>'class', 'A'),
+    -- 0339: {"play_years": null} plants a plan from before the years bracket.
+    'play_years', case when p ? 'play_years' then p->'play_years' else '"one_to_three"'::jsonb end,
+    'name_en', 'Summer Cup', 'name_ar', 'كأس الصيف',
     'ranges', jsonb_build_array(jsonb_build_object('court_ids', to_jsonb(v_courts), 'from', v_from, 'to', v_to)),
     'capacity', jsonb_build_object('unit', coalesce(p->>'unit', 'player' || 's'),
                                    'count', coalesce((p->>'count')::int, 16)));

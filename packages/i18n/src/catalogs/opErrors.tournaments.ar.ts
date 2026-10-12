@@ -16,6 +16,8 @@ export const opErrorsTournamentsAr: DeepMessages<typeof opErrorsTournamentsEn> =
   TOURNAMENT_NOT_OPEN: 'التسجيل في هذه البطولة غير مفتوح.',
   TOURNAMENT_FULL: 'اكتملت هذه البطولة وقائمة انتظارها.',
   TOURNAMENT_CATEGORY_MISMATCH: 'فئة هذه البطولة لا تناسب هذا اللاعب.',
+  TOURNAMENT_PROFILE_REQUIRED: 'التسجيل في هذه البطولة يتطلّب الإجابة عن سؤالَي المستوى وسنوات اللعب.',
+  TOURNAMENT_LEVEL_MISMATCH: 'هذه البطولة للاعبين من مستوى أو خبرة مختلفة.',
   TOURNAMENT_ENTRY_NOT_FOUND: 'تغيّر هذا الاشتراك، وحُدّثت القائمة.',
   TOURNAMENT_ROUNDS_INVALID: 'تعذّر حفظ هذه الجولات. يُرجى التحديث ثم إنشاؤها من جديد.',
   TOURNAMENT_SCORE_REFUSED: 'تعذّر حفظ هذه النتيجة. يُرجى مراجعتها والمحاولة مجددًا.',

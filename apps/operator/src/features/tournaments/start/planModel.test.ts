@@ -72,6 +72,7 @@ function filled(over: Partial<PlanState> = {}): PlanState {
   return {
     ...emptyPlan('type1'),
     cls: 'A',
+    playYears: 'one_to_three',
     nameEn: ' Friday Night Americano ',
     nameAr: 'أمريكانو ليلة الجمعة',
     format: 'americano',
@@ -87,6 +88,7 @@ describe('planRecord', () => {
     const record = planRecord(filled({ prizeText: 'Rackets', expected: '14' }), TZ, [C1, C2]);
     expect(record).toEqual({
       class: 'A',
+      play_years: 'one_to_three',
       name_en: 'Friday Night Americano',
       name_ar: 'أمريكانو ليلة الجمعة',
       format: 'americano',
@@ -118,6 +120,7 @@ describe('planRecord', () => {
       'class',
       'name_ar',
       'name_en',
+      'play_years',
       'ranges',
     ]);
     expect(
@@ -180,6 +183,7 @@ describe('planRecord', () => {
 describe('sections', () => {
   it('maps the server’s field paths onto the menu', () => {
     expect(sectionOfIssue({ field: 'name_ar' })).toBe('name');
+    expect(sectionOfIssue({ field: 'play_years' })).toBe('name');
     expect(sectionOfIssue({ field: 'ranges' })).toBe('courts');
     expect(sectionOfIssue({ field: 'capacity.count' })).toBe('players');
     expect(sectionOfIssue({ field: 'prize.iqd' })).toBe('players');
@@ -191,6 +195,8 @@ describe('sections', () => {
     const p = filled();
     expect(sectionDone(p, 'name')).toBe(true);
     expect(sectionDone({ ...p, format: null }, 'name')).toBe(false);
+    // 0339: the years card is part of the name step, like the class.
+    expect(sectionDone({ ...p, playYears: null }, 'name')).toBe(false);
     expect(sectionDone({ ...p, variant: 'type2', format: null }, 'name')).toBe(true);
     expect(sectionDone(p, 'courts')).toBe(true);
     expect(sectionDone({ ...p, count: '1' }, 'players')).toBe(false);

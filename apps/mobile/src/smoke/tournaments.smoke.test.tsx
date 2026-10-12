@@ -49,11 +49,23 @@ const venue = (on = true): Seeds => [
   [availabilityKeys.degraded(TEST_VENUE_ID), false],
 ];
 
-const detailSeeds = (raw: Record<string, unknown>, id = TOUR_ID): Seeds => [
+const detailSeeds = (
+  raw: Record<string, unknown>,
+  id = TOUR_ID,
+  play: Record<string, unknown> = {},
+): Seeds => [
   ...venue(),
-  [profileKeys.own, profileFixture()],
+  [profileKeys.own, { ...profileFixture(), ...play }],
   [tournamentKeys.one(id), parseTournamentPublic(raw, id)],
 ];
+
+/** A guest's play survey answers on the own-profile row (0334), for 0339's fit. */
+const answered = (level: string | null, years: string | null) => ({
+  play_level: level,
+  play_years: years,
+  play_wants: null,
+  play_survey_at: '2026-10-12T18:00:00.000Z',
+});
 
 const CASES: SmokeCase[] = [
   // The group's own stack: a todo in the table (it needs a live router).
@@ -83,6 +95,64 @@ const LOCALES: Locale[] = ['en', 'ar'];
 describe.each(LOCALES)('tournament states in %s', (locale) => {
   const t = makeT(locale);
   const money = (n: number) => isolate(formatIQD(n, locale));
+
+  // 0339: the fixture is class B (intermediate), and here 1 to 3 years.
+  const forB = { class: 'B', play_years: 'one_to_three' };
+
+  it('registers a guest the tournament is for', () => {
+    const screen = renderRoute(TournamentDetailScreen, {
+      locale,
+      session: 'in',
+      params: { id: TOUR_ID },
+      queryData: detailSeeds(openTournamentFixture(forB), TOUR_ID, answered('intermediate', 'one_to_three')),
+    });
+    try {
+      expect(screen.getByTestId('tournament-detail.register')).toBeTruthy();
+      expect(screen.queryByTestId('tournament-detail.not-for-you')).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('says why in place of Register for a guest of another level or years', () => {
+    for (const [level, years, key] of [
+      ['advanced', 'one_to_three', 'tournaments.guest.errors.levelMismatch'],
+      ['intermediate', 'three_plus', 'tournaments.guest.errors.yearsMismatch'],
+    ] as const) {
+      const screen = renderRoute(TournamentDetailScreen, {
+        locale,
+        session: 'in',
+        params: { id: TOUR_ID },
+        queryData: detailSeeds(openTournamentFixture(forB), TOUR_ID, answered(level, years)),
+      });
+      try {
+        expect(screen.queryByTestId('tournament-detail.register')).toBeNull();
+        expect(within(screen.getByTestId('tournament-detail.not-for-you')).getByText(t(key))).toBeTruthy();
+      } finally {
+        screen.unmount();
+      }
+    }
+  });
+
+  it('asks a guest who skipped the years question to answer it first', () => {
+    const screen = renderRoute(TournamentDetailScreen, {
+      locale,
+      session: 'in',
+      params: { id: TOUR_ID },
+      queryData: detailSeeds(openTournamentFixture(forB), TOUR_ID, answered('intermediate', null)),
+    });
+    try {
+      expect(screen.queryByTestId('tournament-detail.register')).toBeNull();
+      expect(screen.getByText(t('tournaments.guest.errors.profileRequired'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('tournament-detail.answer'));
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: { pathname: '/play-survey', params: { mode: 'edit' } },
+      });
+    } finally {
+      screen.unmount();
+    }
+  });
 
   it('offers the waitlist on Register’s id when no place is left', () => {
     const screen = renderRoute(TournamentDetailScreen, {

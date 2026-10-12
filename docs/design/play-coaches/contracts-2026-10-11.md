@@ -119,7 +119,12 @@ round". The guest's chair arriving animates (rise + green fill); nothing else lo
 ## 6. Coaches tab
 
 A showcase: big photos, name, the kinds they teach, from-price. A level switch (All / Beginner /
-Intermediate / Advanced), preselected from the guest's `play_level` when known. **No hierarchy**:
+Intermediate / Advanced), preselected from the guest's `play_level` when known.
+
+**Amended 2026-10-12 (owner):** the switch is gone, and the tab shows no level at all. It
+filters by the level saved in the play survey (§8), which the guest sees and changes in Edit
+profile's Personal details ("Your game"). No level saved, or signed out: every coach. An empty
+level offers "Show all coaches" until the saved level changes. **No hierarchy**:
 every card the same size and weight, no "featured", no ranking; the order within a level is a
 stable shuffle seeded by the date (it changes daily, so nobody is always first), not
 `sortOrder`. A coach with no levels shows under every level. Group sessions and My lessons stay
@@ -141,11 +146,28 @@ the tabs, and **never** while a booking / match / lesson intent is pending (it w
 calm landing). Skipping stamps `play_survey_at` so it never asks again. Profile carries a "Your
 game" row to change the answers.
 
+**Amended 2026-10-12 (owner):** the survey is the ONE place the app asks about the player. A
+fourth step, gender (Woman / Man / Prefer not to say), follows the three while the profile has
+none. It stays set-once (`set_my_gender`, OM-28; the desk corrects it), so a tap only chooses and
+Done writes it; Skip, a swipe and "Prefer not to say" write no gender. The match start, match
+join and tournament register screens no longer ask inline: on GENDER_REQUIRED `GenderAsk` says why
+and opens `/play-survey?step=gender` (that question alone, Cancel, Save), and the screen re-reads
+the profile when it saves. Edit profile's Gender row is unchanged (set once).
+
 Suggestions are pure (`src/features/playProfile/suggest.ts`, vitest): from the answers they rank
 what the Play tab's "For you" strip and the Coaches tab offer first, e.g. `new` / `beginner` or
 `never` → coaches for beginners and group sessions first; `intermediate` → open matches and
 Americano tournaments; `advanced` / `three_plus` → Mexicano tournaments and open matches; `play_wants`
 reorders within that. Never a filter that hides anything: only an order and a short "why".
+
+**Amended 2026-10-12 (owner):** what is SHOWN keeps to the wants. Once "What are you after?" has
+an answer, the strip and the survey's last page leave out tournaments (Americano, Mexicano)
+unless Tournaments was picked, and coaches unless Lessons was; group sessions and open matches
+need no want. `suggest()` still ranks every kind; `topSuggestions` applies `fitsWants`. With a level
+or years but no want, the strip offers group sessions alone and a line, "Want more suggestions?
+Tell us what you're after.", that opens the survey's edit at that question (`step=wants`). Also:
+"Not yet" (`play_years = never`) only fits the level "Just starting" (`yearsFitLevel`); the
+survey dims it after any other level and drops it when the level changes.
 
 ## 9. File ownership (parallel lanes; touch nothing outside your list without asking)
 

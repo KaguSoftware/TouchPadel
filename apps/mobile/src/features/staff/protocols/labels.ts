@@ -41,6 +41,7 @@ const BY_NAME = {
   at: 'staff.protocols.field.at',
   photo_path: 'staff.protocols.field.photoPath',
   class: 'staff.protocols.field.class',
+  play_years: 'staff.protocols.field.playYears',
   format: 'staff.protocols.field.format',
   ranges: 'staff.protocols.field.ranges',
   court_ids: 'staff.protocols.field.courtIds',
@@ -165,6 +166,11 @@ const OPTIONS = {
     A: 'staff.protocols.option.class.A',
     B: 'staff.protocols.option.class.B',
     C: 'staff.protocols.option.class.C',
+  },
+  play_years: {
+    under_one: 'staff.protocols.option.playYears.under_one',
+    one_to_three: 'staff.protocols.option.playYears.one_to_three',
+    three_plus: 'staff.protocols.option.playYears.three_plus',
   },
   format: {
     americano: 'staff.protocols.option.format.americano',

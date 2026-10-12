@@ -9,6 +9,12 @@ export type SuggestionTarget =
   | { kind: 'tab'; href: { pathname: '/play'; params: { show: 'matches' | 'tournaments' } } | { pathname: '/coaches' } }
   | { kind: 'push'; href: { pathname: '/classes' } };
 
+/**
+ * The survey at its gender question alone (app/play-survey.tsx `step=gender`):
+ * where a match or tournament that needs the answer sends the guest.
+ */
+export const GENDER_SURVEY_HREF = { pathname: '/play-survey', params: { step: 'gender' } } as const;
+
 export function suggestionTarget(kind: SuggestionKind): SuggestionTarget {
   switch (kind) {
     case 'coaches':

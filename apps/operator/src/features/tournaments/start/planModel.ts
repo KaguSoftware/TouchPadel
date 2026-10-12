@@ -23,6 +23,8 @@ export const PLAN_SECTIONS: readonly PlanSection[] = [
 ];
 
 export type PlanClass = 'A' | 'B' | 'C';
+/** 0339: the players' years bracket; a guest's own answer must be this one (as their level must fit the class). */
+export type PlanYears = 'under_one' | 'one_to_three' | 'three_plus';
 export type PlanFormat = 'americano' | 'mexicano' | 'knockout' | 'league';
 export type PlanUnit = 'players' | 'pairs';
 
@@ -37,6 +39,7 @@ export interface PlanSponsor {
 export interface PlanState {
   variant: TournamentVariant;
   cls: PlanClass | null;
+  playYears: PlanYears | null;
   nameEn: string;
   nameAr: string;
   format: PlanFormat | null;
@@ -58,6 +61,7 @@ export function emptyPlan(variant: TournamentVariant = 'type1'): PlanState {
   return {
     variant,
     cls: null,
+    playYears: null,
     nameEn: '',
     nameAr: '',
     format: null,
@@ -186,6 +190,7 @@ export function planRecord(
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   put(out, 'class', p.cls ?? undefined);
+  put(out, 'play_years', p.playYears ?? undefined);
   put(out, 'name_en', p.nameEn);
   put(out, 'name_ar', p.nameAr);
   out.ranges = slotsOf(p.picks, courtOrder).map((s) => ({
@@ -264,6 +269,7 @@ export function sectionDone(p: PlanState, section: PlanSection): boolean {
     case 'name':
       return (
         p.cls !== null &&
+        p.playYears !== null &&
         p.nameEn.trim() !== '' &&
         p.nameAr.trim() !== '' &&
         (!isFullPlan(p.variant) || p.format !== null)

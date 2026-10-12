@@ -6,20 +6,10 @@
  * the states and the kinds reuse `coaching.*`.
  */
 export const coachShowcaseEn = {
-  // Above the level switch: the guest picks their own level.
-  yourLevel: 'Your level',
   levels: {
-    all: 'All',
     beginner: 'Beginner',
     intermediate: 'Intermediate',
     advanced: 'Advanced',
-  },
-  // One line under the switch, about the player the level means.
-  levelLine: {
-    all: 'Every coach teaching at this branch.',
-    beginner: 'For players just starting out.',
-    intermediate: 'For players who can rally and want more.',
-    advanced: 'For competitive players sharpening their game.',
   },
   // Under the coaches: why the order moves.
   fairOrder: 'The order changes every day.',
@@ -29,7 +19,7 @@ export const coachShowcaseEn = {
   myLessonsSub: 'The lessons you booked',
   emptyLevel: {
     title: 'No coaches for this level yet',
-    message: 'You can see every coach at this branch under All.',
+    message: 'Every coach at this branch is still one tap away.',
     action: 'Show all coaches',
   },
   // The coach page: the levels a coach teaches, as pills.

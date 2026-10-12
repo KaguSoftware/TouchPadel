@@ -111,6 +111,7 @@ describe('TournamentStartSheet', () => {
     await user.type(screen.getByLabelText(/Name in English/), 'Friday Night Americano');
     await user.type(screen.getByLabelText(/Name in Arabic/), 'أمريكانو');
     await user.click(screen.getByRole('radio', { name: /^Class A Advanced/ }));
+    await user.click(screen.getByRole('radio', { name: /^1 to 3 years/ }));
     await user.click(screen.getByRole('radio', { name: /^Americano Runs in the app/ }));
 
     await user.click(menu().getByRole('button', { name: /^Courts & time/ }));
@@ -149,6 +150,7 @@ describe('TournamentStartSheet', () => {
       p_title_en: 'Friday Night Americano',
       p_first_record: {
         class: 'A',
+        play_years: 'one_to_three',
         format: 'americano',
         ranges: [{ court_ids: [C1], from: `${DAY}T15:00:00.000Z`, to: `${DAY}T17:00:00.000Z` }],
         capacity: { unit: 'players', count: 16 },

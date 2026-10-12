@@ -10,7 +10,8 @@
  *
  *  terms     /accept-terms, or "update the app" on a build whose terms are current
  *  phone     the fix card: /complete-profile?returnTo=back
- *  gender    the inline gender ask (`set_my_gender`), then Register again
+ *  gender    the gender ask (the play survey's gender step), then Register again
+ *  profile   TOURNAMENT_PROFILE_REQUIRED (0339): the play survey, then Register again
  *  banned    the red notice, with "Call {branch}"
  *  refetch   the detail read again: its state replaces the action (full, closed, gone, off)
  *  inline    the refusal's copy under the action
@@ -30,6 +31,8 @@ export const TOURNAMENT_GUEST_KEYS = {
   TOURNAMENT_NOT_OPEN: 'tournaments.guest.errors.notOpenStatus',
   TOURNAMENT_FULL: 'tournaments.guest.errors.full',
   TOURNAMENT_CATEGORY_MISMATCH: 'tournaments.guest.errors.categoryMismatch',
+  TOURNAMENT_PROFILE_REQUIRED: 'tournaments.guest.errors.profileRequired',
+  TOURNAMENT_LEVEL_MISMATCH: 'tournaments.guest.errors.levelMismatch',
   TOURNAMENT_ENTRY_NOT_FOUND: 'tournaments.guest.errors.entryNotFound',
 } as const satisfies Record<string, MessageKey>;
 
@@ -38,6 +41,10 @@ const DETAIL_KEYS: Readonly<Record<string, Readonly<Record<string, MessageKey>>>
   TOURNAMENT_NOT_OPEN: {
     cutoff: 'tournaments.guest.errors.notOpenCutoff',
     status: 'tournaments.guest.errors.notOpenStatus',
+  },
+  TOURNAMENT_LEVEL_MISMATCH: {
+    level: 'tournaments.guest.errors.levelMismatch',
+    years: 'tournaments.guest.errors.yearsMismatch',
   },
 };
 
@@ -81,7 +88,7 @@ export function tournamentErrorText(err: unknown, t: T, ctx: TournamentErrorCont
   return t(mapErrorToKey(err));
 }
 
-export type TournamentRefusal = 'terms' | 'phone' | 'gender' | 'banned' | 'refetch' | 'inline';
+export type TournamentRefusal = 'terms' | 'phone' | 'gender' | 'profile' | 'banned' | 'refetch' | 'inline';
 
 const REFETCH = new Set([
   'TOURNAMENTS_OFF',
@@ -100,6 +107,8 @@ export function tournamentRefusalOf(code: string | null): TournamentRefusal {
       return 'phone';
     case 'GENDER_REQUIRED':
       return 'gender';
+    case 'TOURNAMENT_PROFILE_REQUIRED':
+      return 'profile';
     case 'MATCH_BANNED':
       return 'banned';
     default:

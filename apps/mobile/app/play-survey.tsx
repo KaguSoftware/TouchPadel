@@ -15,16 +15,30 @@ import { useToast } from '../src/components/overlays';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { useBack } from '../src/navigation/back';
 import { captureException } from '../src/lib/telemetry';
-import { savePlayProfile, usePlayProfile, useSavePlayProfile } from '../src/features/playProfile/hooks';
+import {
+  savePlayProfile,
+  usePlayProfile,
+  useSavePlayProfile,
+  useSuggestionAvailability,
+} from '../src/features/playProfile/hooks';
+import { useOwnProfile } from '../src/features/profile/hooks';
+import { useSetMyGender } from '../src/features/matches/hooks';
+import { errorCodeOf } from '../src/features/matches/errors';
 import {
   EMPTY_ANSWERS,
+  GENDER_CHOICES,
   PLAY_LEVELS,
   PLAY_WANTS,
   PLAY_YEARS,
-  SURVEY_STEPS,
+  genderToSave,
   nextStep,
   previousStep,
+  consistentAnswers,
+  surveyStepsFor,
   toggleWant,
+  withLevel,
+  yearsFitLevel,
+  type GenderChoice,
   type PlayAnswers,
   type PlayProfile,
   type SurveyStep,
@@ -33,11 +47,17 @@ import { topSuggestions, type SuggestionKind } from '../src/features/playProfile
 
 /**
  * The play survey (docs/design/play-coaches/contracts-2026-10-11.md §8): the
- * platform's form sheet (app/_layout.tsx), three questions, one per step.
+ * platform's form sheet (app/_layout.tsx), one question per step. It is the
+ * one place the app asks about the player (2026-10-12); every question is
+ * optional.
  *
  *   1. level   one tap chooses and moves on
  *   2. years   one tap chooses and moves on
- *   3. wants   as many as they like, then Done
+ *   3. wants   as many as they like, then Next (or Done when it is the last)
+ *   4. gender  only while the profile has none: a tap chooses, Done saves.
+ *              Set once (OM-28, `set_my_gender`; the front desk corrects
+ *              it), so it never saves on a tap, a Skip or a swipe, and
+ *              "Prefer not to say" writes nothing.
  *
  * Skip sits in the corner of every step and ends the survey there, saving
  * what was answered (nothing answered is a skip, and the server stamps it, so
@@ -46,9 +66,16 @@ import { topSuggestions, type SuggestionKind } from '../src/features/playProfile
  * the top two suggestions (suggest.ts), each a way into the Play or Coaches
  * tab, and Done.
  *
- * `mode=edit` is Edit profile's "Your game" row and the Play strip's "Change
- * answers": the same steps prefilled, Cancel in place of Skip (it saves
- * nothing), Save at the end, no suggestions page.
+ * `mode=edit` is Edit profile's "Your game" row, the Play strip's "Change
+ * answers" and the Coaches tab's level line: the same steps prefilled, Cancel
+ * in place of Skip (it saves nothing), Save at the end, no suggestions page.
+ *
+ * `step=wants` (with `mode=edit`) is the Join tab's "more suggestions" line:
+ * the same edit, opened at "What are you after?", with Back to the others.
+ *
+ * `step=gender` is the match and tournament screens' way in when a women's or
+ * men's game needs the answer (GENDER_REQUIRED): the gender alone, Cancel,
+ * Save, and back to the game, which re-reads the profile.
  */
 
 type Phase = SurveyStep | 'result';
@@ -60,24 +87,26 @@ const RESULT_COUNT = 2;
 const kebab = (value: string) => value.replace(/_/g, '-');
 
 function answersOf(p: PlayProfile | null): PlayAnswers {
-  return p ? { level: p.level, years: p.years, wants: p.wants } : EMPTY_ANSWERS;
+  return p ? consistentAnswers({ level: p.level, years: p.years, wants: p.wants }) : EMPTY_ANSWERS;
 }
 
-function Dots({ phase }: { phase: Phase }) {
+function Dots({ phase, steps }: { phase: Phase; steps: readonly SurveyStep[] }) {
   const { t, locale } = useLocale();
   const { colors } = useTheme();
-  const at = phase === 'result' ? SURVEY_STEPS.length - 1 : SURVEY_STEPS.indexOf(phase);
+  const at = phase === 'result' ? steps.length - 1 : steps.indexOf(phase);
+  // One question has no progress to show.
+  const hidden = phase === 'result' || steps.length < 2;
   return (
     <View
-      accessible
+      accessible={!hidden}
       accessibilityRole="progressbar"
       accessibilityLabel={t('playProfile.survey.progress', {
         n: formatNumber(at + 1, locale),
-        total: formatNumber(SURVEY_STEPS.length, locale),
+        total: formatNumber(steps.length, locale),
       })}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, opacity: phase === 'result' ? 0 : 1 }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, opacity: hidden ? 0 : 1 }}
     >
-      {SURVEY_STEPS.map((s, i) => (
+      {steps.map((s, i) => (
         <View
           key={s}
           style={{
@@ -98,6 +127,7 @@ function Tile({
   body,
   selected,
   multi,
+  disabled,
   index,
   onPress,
 }: {
@@ -106,6 +136,8 @@ function Tile({
   body?: string;
   selected: boolean;
   multi?: boolean;
+  /** An answer that contradicts an earlier one: shown, dimmed, with its reason as the body. */
+  disabled?: boolean;
   index: number;
   onPress: () => void;
 }) {
@@ -115,8 +147,10 @@ function Tile({
       <TiltPress
         testID={testID}
         onPress={onPress}
+        disabled={disabled}
+        haptic={!disabled}
         accessibilityRole={multi ? 'checkbox' : 'radio'}
-        accessibilityState={multi ? { checked: selected } : { selected }}
+        accessibilityState={multi ? { checked: selected, disabled } : { selected, disabled }}
         accessibilityLabel={body ? `${title}. ${body}` : title}
         style={{
           flexDirection: 'row',
@@ -131,6 +165,7 @@ function Tile({
           borderWidth: 1.5,
           borderColor: selected ? colors.blue : colors.line,
           backgroundColor: selected ? colors.tint : colors.card,
+          opacity: disabled ? 0.45 : 1,
         }}
       >
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -179,14 +214,33 @@ function PlaySurvey() {
   const queryClient = useQueryClient();
   const back = useBack();
   const openSuggestion = useOpenSuggestion();
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
-  const editing = mode === 'edit';
+  const { mode, step } = useLocalSearchParams<{ mode?: string; step?: string }>();
+  const genderOnly = step === 'gender';
+  // `step=wants`: the Join tab's "more suggestions" line opens at that question.
+  const startAtWants = step === 'wants' && !genderOnly;
+  const editing = mode === 'edit' || genderOnly;
 
   const play = usePlayProfile();
+  const profile = useOwnProfile(true);
+  // null is "never answered"; a row cached by an older build has no `gender`
+  // at all, and then only `step=gender` (sent by the server's refusal) asks.
+  const genderUnset = profile.data?.gender === null;
+  // Latched: once this run asks the gender, the step stays, even after the
+  // save fills the profile in under it.
+  const [askGender, setAskGender] = useState(genderUnset);
+  if (genderUnset && !askGender) setAskGender(true);
+  const steps = surveyStepsFor({ askGender, genderOnly });
+  const lastStep = steps[steps.length - 1];
+
   const [answers, setAnswers] = useState<PlayAnswers>(() => answersOf(play));
-  const [phase, setPhase] = useState<Phase>('level');
+  const [gender, setGenderChoice] = useState<GenderChoice | null>(null);
+  const [phase, setPhase] = useState<Phase>(genderOnly ? 'gender' : startAtWants ? 'wants' : 'level');
   const [failed, setFailed] = useState(false);
   const save = useSavePlayProfile();
+  const setGender = useSetMyGender();
+  // 0339: a tournament suggestion only while an open one fits the guest.
+  const available = useSuggestionAvailability();
+  const saving = save.isPending || setGender.isPending;
 
   // Edit mode opened before the profile landed: fill in once it does, unless
   // the guest has already started choosing.
@@ -220,27 +274,42 @@ function PlaySurvey() {
     [editing, queryClient],
   );
 
-  const finish = (final: PlayAnswers) => {
+  /** The gender, once, and only on Done: another device answering first is fine. */
+  const saveGender = async () => {
+    const value = genderToSave(gender);
+    if (!value || profile.data?.gender) return;
+    try {
+      await setGender.mutateAsync(value);
+    } catch (error) {
+      if (errorCodeOf(error) !== 'GENDER_ALREADY_SET') throw error;
+      toast(t('matches.errors.genderAlreadySet'), 'info');
+    }
+  };
+
+  const finish = async (final: PlayAnswers) => {
+    if (saving) return;
     settled.current = true;
     setFailed(false);
-    save.mutate(final, {
-      onSuccess: () => {
-        if (editing) {
-          toast(t('playProfile.survey.saved'), 'info');
-          back();
-        } else if (topSuggestions(final, RESULT_COUNT).length > 0) {
-          setPhase('result');
-        } else {
-          back();
-        }
-      },
-      onError: (error) => {
-        // Not settled after all: a swipe now still saves.
-        settled.current = false;
-        setFailed(true);
-        captureException(error, { scope: 'playSurvey.save' });
-      },
-    });
+    try {
+      // The gender alone leaves the play answers as they are. A retry after
+      // the gender failed saves the play answers again, which changes nothing.
+      if (!genderOnly) await save.mutateAsync(final);
+      await saveGender();
+    } catch (error) {
+      // Not settled after all: a swipe now still saves.
+      settled.current = false;
+      setFailed(true);
+      captureException(error, { scope: 'playSurvey.save' });
+      return;
+    }
+    if (editing) {
+      toast(t('playProfile.survey.saved'), 'info');
+      back();
+    } else if (topSuggestions(final, RESULT_COUNT, available).length > 0) {
+      setPhase('result');
+    } else {
+      back();
+    }
   };
 
   const skip = () => {
@@ -255,15 +324,19 @@ function PlaySurvey() {
   };
 
   const goNext = (from: SurveyStep, next: PlayAnswers) => {
-    const step = nextStep(from);
-    if (step) setPhase(step);
-    else finish(next);
+    const to = nextStep(steps, from);
+    if (to) setPhase(to);
+    else void finish(next);
   };
 
   const choose = (step: 'level' | 'years', value: string) => {
     if (advanceTimer.current) return;
     touched.current = true;
-    const next = { ...answers, [step]: value } as PlayAnswers;
+    // A new level drops a years answer it contradicts (advanced and "Not yet").
+    const next =
+      step === 'level'
+        ? withLevel(answers, value as NonNullable<PlayAnswers['level']>)
+        : ({ ...answers, years: value } as PlayAnswers);
     setAnswers(next);
     advanceTimer.current = setTimeout(() => {
       advanceTimer.current = null;
@@ -277,7 +350,7 @@ function PlaySurvey() {
       advanceTimer.current = null;
     }
     if (phase === 'result') return;
-    const prev = previousStep(phase);
+    const prev = previousStep(steps, phase);
     if (prev) setPhase(prev);
   };
 
@@ -286,11 +359,21 @@ function PlaySurvey() {
     openSuggestion(kind);
   };
 
-  const canGoBack = phase === 'years' || phase === 'wants';
+  const canGoBack = phase !== 'result' && previousStep(steps, phase) !== null;
   const question: Record<SurveyStep, MessageKey> = {
     level: 'playProfile.survey.level.question',
     years: 'playProfile.survey.years.question',
     wants: 'playProfile.survey.wants.question',
+    gender: 'playProfile.survey.gender.question',
+  };
+  const hint: Partial<Record<SurveyStep, MessageKey>> = {
+    wants: 'playProfile.survey.wants.hint',
+    gender: 'playProfile.survey.gender.hint',
+  };
+  const genderLabel: Record<GenderChoice, MessageKey> = {
+    female: 'matches.gender.female',
+    male: 'matches.gender.male',
+    none: 'profile.genderPreferNot',
   };
 
   return (
@@ -327,7 +410,7 @@ function PlaySurvey() {
             </Pressable>
           ) : null}
         </View>
-        <Dots phase={phase} />
+        <Dots phase={phase} steps={steps} />
         <View style={{ width: 96, alignItems: 'flex-end' }}>
           {phase !== 'result' ? (
             <Pressable
@@ -394,7 +477,7 @@ function PlaySurvey() {
                   overflow: 'hidden',
                 }}
               >
-                {topSuggestions(answers, RESULT_COUNT).map((s, i, all) => (
+                {topSuggestions(answers, RESULT_COUNT, available).map((s, i, all) => (
                   <Rise key={s.kind} index={i + 1}>
                     <SuggestionRow
                       testID={`play-survey.suggestion.${s.kind}`}
@@ -429,17 +512,18 @@ function PlaySurvey() {
                 >
                   {t(question[phase])}
                 </Text>
-                {phase === 'wants' ? (
+                {hint[phase] ? (
                   <Text
                     style={{
                       marginTop: space.xs,
                       fontFamily: fonts.body400,
                       fontSize: 13.5,
+                      lineHeight: 19,
                       color: colors.mut,
                       textAlign: 'auto',
                     }}
                   >
-                    {t('playProfile.survey.wants.hint')}
+                    {t(hint[phase])}
                   </Text>
                 ) : null}
               </Rise>
@@ -457,31 +541,53 @@ function PlaySurvey() {
                     />
                   ))
                 : phase === 'years'
-                  ? PLAY_YEARS.map((v, i) => (
-                      <Tile
-                        key={v}
-                        testID={`play-survey.years.${kebab(v)}`}
-                        title={t(`playProfile.survey.years.${v}`)}
-                        selected={answers.years === v}
-                        index={i + 1}
-                        onPress={() => choose('years', v)}
-                      />
-                    ))
-                  : PLAY_WANTS.map((v, i) => (
-                      <Tile
-                        key={v}
-                        testID={`play-survey.wants.${kebab(v)}`}
-                        title={t(`playProfile.survey.wants.${v}.title`)}
-                        body={t(`playProfile.survey.wants.${v}.body`)}
-                        selected={answers.wants.includes(v)}
-                        multi
-                        index={i + 1}
-                        onPress={() => {
-                          touched.current = true;
-                          setAnswers((a) => ({ ...a, wants: toggleWant(a.wants, v) }));
-                        }}
-                      />
-                    ))}
+                  ? PLAY_YEARS.map((v, i) => {
+                      const fits = yearsFitLevel(answers.level, v);
+                      return (
+                        <Tile
+                          key={v}
+                          testID={`play-survey.years.${kebab(v)}`}
+                          title={t(`playProfile.survey.years.${v}`)}
+                          body={
+                            fits || !answers.level
+                              ? undefined
+                              : t('playProfile.survey.years.notWithLevel', {
+                                  level: t(`playProfile.survey.level.${answers.level}.title`),
+                                })
+                          }
+                          selected={answers.years === v}
+                          disabled={!fits}
+                          index={i + 1}
+                          onPress={() => choose('years', v)}
+                        />
+                      );
+                    })
+                  : phase === 'wants'
+                    ? PLAY_WANTS.map((v, i) => (
+                        <Tile
+                          key={v}
+                          testID={`play-survey.wants.${kebab(v)}`}
+                          title={t(`playProfile.survey.wants.${v}.title`)}
+                          body={t(`playProfile.survey.wants.${v}.body`)}
+                          selected={answers.wants.includes(v)}
+                          multi
+                          index={i + 1}
+                          onPress={() => {
+                            touched.current = true;
+                            setAnswers((a) => ({ ...a, wants: toggleWant(a.wants, v) }));
+                          }}
+                        />
+                      ))
+                    : GENDER_CHOICES.map((v, i) => (
+                        <Tile
+                          key={v}
+                          testID={`play-survey.gender.${v}`}
+                          title={t(genderLabel[v])}
+                          selected={gender === v}
+                          index={i + 1}
+                          onPress={() => setGenderChoice(v)}
+                        />
+                      ))}
             </>
           )}
         </View>
@@ -501,17 +607,18 @@ function PlaySurvey() {
             {t('playProfile.survey.saveFailed')}
           </Text>
         ) : null}
-        {phase === 'wants' ? (
+        {phase === 'result' ? (
+          <Button testID="play-survey.finish" label={t('common.done')} onPress={back} />
+        ) : phase === lastStep ? (
           <Button
             testID="play-survey.done"
             label={t(failed ? 'common.retry' : editing ? 'common.save' : 'common.done')}
-            busy={save.isPending}
-            onPress={() => finish(answers)}
+            busy={saving}
+            onPress={() => void finish(answers)}
           />
-        ) : phase === 'result' ? (
-          <Button testID="play-survey.finish" label={t('common.done')} onPress={back} />
-        ) : answers[phase] !== null ? (
-          // Back on a step already answered, or editing: keep the answer and go on.
+        ) : phase === 'wants' || (phase !== 'gender' && answers[phase] !== null) ? (
+          // Wants is never one tap; on a step already answered, or editing:
+          // keep the answer and go on.
           <Button
             testID="play-survey.next"
             variant="secondary"

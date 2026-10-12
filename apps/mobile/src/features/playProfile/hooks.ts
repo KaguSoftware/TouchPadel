@@ -4,6 +4,10 @@ import { useAuth } from '../auth/context';
 import { profileKeys, useOwnProfile } from '../profile/hooks';
 import type { ProfileRow } from '../profile/api';
 import { setMyPlayProfile } from './api';
+import { useTournamentsPublic } from '../tournaments/hooks';
+import { tournamentRows } from '../tournaments/logic';
+import { tournamentAvailability } from './fit';
+import type { SuggestionKind } from './suggest';
 import { playProfileOf, rowPatchOf, type PlayAnswers, type PlayProfile } from './logic';
 
 /**
@@ -40,4 +44,19 @@ export function useSavePlayProfile() {
     mutationKey: ['set-play-profile'],
     mutationFn: (answers: PlayAnswers) => savePlayProfile(queryClient, answers),
   });
+}
+
+/**
+ * What the suggestions have behind them (0339): an Americano or Mexicano suggestion only while
+ * an open one fits the guest. Undefined until the list is known: everything counts as on offer.
+ */
+export function useSuggestionAvailability(): Partial<Record<SuggestionKind, boolean>> | undefined {
+  const play = usePlayProfile();
+  const pub = useTournamentsPublic();
+  if (!pub.data) return undefined;
+  if (pub.data.off) return { americano: false, mexicano: false };
+  return tournamentAvailability(
+    tournamentRows(pub.data, 'upcoming'),
+    play ? { level: play.level, years: play.years } : null,
+  );
 }

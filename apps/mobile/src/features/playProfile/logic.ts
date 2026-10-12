@@ -3,6 +3,11 @@
  * §4.1, §8): three optional answers from the sign-up survey and when it was
  * answered or skipped. PURE (no RN, no supabase) so vitest runs it in node.
  *
+ * The survey is the ONE place the app asks about the player (2026-10-12): the
+ * three play questions and, while the profile has none, the gender (OM-28,
+ * `set_my_gender`, set once; the front desk corrects it). The match,
+ * tournament and coaches screens no longer ask: they send the guest here.
+ *
  *   play_level      new | beginner | intermediate | advanced
  *   play_years      never | under_one | one_to_three | three_plus
  *   play_wants      a subset of matches | tournaments | lessons
@@ -35,9 +40,28 @@ export interface PlayProfile extends PlayAnswers {
   answeredAt: string | null;
 }
 
-/** The survey's three steps, in order. */
-export const SURVEY_STEPS = ['level', 'years', 'wants'] as const;
+/** Every step the survey can ask, in order. Gender is asked only while unset. */
+export const SURVEY_STEPS = ['level', 'years', 'wants', 'gender'] as const;
 export type SurveyStep = (typeof SURVEY_STEPS)[number];
+
+/** The gender step's tiles. `none` ("Prefer not to say") writes nothing. */
+export const GENDER_CHOICES = ['female', 'male', 'none'] as const;
+export type GenderChoice = (typeof GENDER_CHOICES)[number];
+
+/**
+ * The steps one run of the survey asks. `genderOnly` is the match and
+ * tournament screens' way in (`step=gender`): that question alone. Otherwise
+ * the three play questions, then the gender while the profile has none.
+ */
+export function surveyStepsFor(o: { askGender: boolean; genderOnly: boolean }): SurveyStep[] {
+  if (o.genderOnly) return ['gender'];
+  return SURVEY_STEPS.filter((s) => s !== 'gender' || o.askGender);
+}
+
+/** What `set_my_gender` should store for a choice; null writes nothing. */
+export function genderToSave(choice: GenderChoice | null): 'female' | 'male' | null {
+  return choice === 'female' || choice === 'male' ? choice : null;
+}
 
 export const EMPTY_ANSWERS: PlayAnswers = { level: null, years: null, wants: [] };
 
@@ -87,6 +111,26 @@ export function hasAnswers(a: PlayAnswers | null | undefined): boolean {
   return !!a && (a.level !== null || a.years !== null || a.wants.length > 0);
 }
 
+/**
+ * Does a "how long have you played" answer fit the level? Every level past
+ * "Just starting" says the guest has played (a rally, the walls, competing),
+ * so "Not yet" fits only `new`, or no level. Every other pairing is possible
+ * (a tennis player can be Advanced within a year), so nothing else is refused.
+ */
+export function yearsFitLevel(level: PlayLevel | null, years: PlayYears): boolean {
+  return years !== 'never' || level === null || level === 'new';
+}
+
+/** The answers with a new level; a years answer it contradicts is dropped, to be asked again. */
+export function withLevel(a: PlayAnswers, level: PlayLevel): PlayAnswers {
+  return { ...a, level, years: a.years && !yearsFitLevel(level, a.years) ? null : a.years };
+}
+
+/** Saved answers made consistent: a pair stored before the rule loses its years answer. */
+export function consistentAnswers(a: PlayAnswers): PlayAnswers {
+  return a.level !== null && a.years !== null && !yearsFitLevel(a.level, a.years) ? { ...a, years: null } : a;
+}
+
 /** Add or remove one want, keeping the vocabulary order. */
 export function toggleWant(wants: readonly PlayWant[], want: PlayWant): PlayWant[] {
   const has = wants.includes(want);
@@ -131,14 +175,14 @@ export function coachLevelOf(level: PlayLevel | null | undefined): 'beginner' | 
   return null;
 }
 
-/** The step after `step`, or null after the last. */
-export function nextStep(step: SurveyStep): SurveyStep | null {
-  const i = SURVEY_STEPS.indexOf(step);
-  return SURVEY_STEPS[i + 1] ?? null;
+/** The step after `step` in `steps`, or null after the last (or for a step not in it). */
+export function nextStep(steps: readonly SurveyStep[], step: SurveyStep): SurveyStep | null {
+  const i = steps.indexOf(step);
+  return i < 0 ? null : (steps[i + 1] ?? null);
 }
 
-/** The step before `step`, or null on the first. */
-export function previousStep(step: SurveyStep): SurveyStep | null {
-  const i = SURVEY_STEPS.indexOf(step);
-  return i > 0 ? (SURVEY_STEPS[i - 1] ?? null) : null;
+/** The step before `step` in `steps`, or null on the first (or for a step not in it). */
+export function previousStep(steps: readonly SurveyStep[], step: SurveyStep): SurveyStep | null {
+  const i = steps.indexOf(step);
+  return i > 0 ? (steps[i - 1] ?? null) : null;
 }

@@ -16,7 +16,6 @@ import { useOwnConsent, useOwnProfile } from '../../src/features/profile/hooks';
 import {
   useMatchQuote,
   useMyTickets,
-  useSetMyGender,
   useStartMatch,
 } from '../../src/features/matches/hooks';
 import {
@@ -24,7 +23,6 @@ import {
   matchStartIntent,
   missingTickets,
   needsFriendsDeclaration,
-  type Gender,
   type JoinPolicy,
   type MatchCategory,
   type Visibility,
@@ -61,7 +59,7 @@ import { GenderAsk, MatchNotice, MatchRulesCard } from '../../src/components/mat
  * (DF-3) and is re-read on every visit.
  *
  * The form asks, top to bottom: the gender once (OM-28; the rest waits for
- * it), who can play (the quote's categories, DF-10), who can see it, how
+ * it; the question is the player questionnaire's, opened from here), who can play (the quote's categories, DF-10), who can see it, how
  * players join, and the guest's seats (friends' seats use the guest's
  * tickets, OM-20; a gendered match with friends needs the declaration,
  * OM-39). A wallet short of the seats swaps Start for "Buy {tickets} and
@@ -115,7 +113,6 @@ function MatchNewScreen() {
   const profile = useOwnProfile(!!session);
   const unverified = bookingGateState(profile, session?.user) === 'unverified';
   const start = useStartMatch();
-  const setGender = useSetMyGender();
 
   const knobs = settings.data ?? null;
   const tz = knobs?.timezone ?? DEFAULT_TZ;
@@ -131,8 +128,6 @@ function MatchNewScreen() {
   const [declaredFor, setDeclaredFor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [priceNote, setPriceNote] = useState<string | null>(null);
-  const [genderBusy, setGenderBusy] = useState<Gender | null>(null);
-  const [genderError, setGenderError] = useState<string | null>(null);
 
   // The categories the server offers (DF-10); a pick it no longer offers falls back.
   const categories: readonly MatchCategory[] = q?.categories ?? ['open'];
@@ -245,19 +240,6 @@ function MatchNewScreen() {
     });
   };
 
-  const onGender = (gender: Gender) => {
-    setGenderError(null);
-    setGenderBusy(gender);
-    setGender.mutate(gender, {
-      onError: (err) => {
-        if (errorCodeOf(err) === 'GENDER_ALREADY_SET')
-          toast(t('matches.errors.genderAlreadySet'), 'info');
-        else setGenderError(matchErrorText(err, t, errorCtx));
-      },
-      onSettled: () => setGenderBusy(null),
-    });
-  };
-
   const refusalText = (code: string) =>
     code === 'TERMS_REQUIRED' && !needsTerms ? t('matches.errors.updateApp') : t(refusalKey(code));
 
@@ -346,12 +328,7 @@ function MatchNewScreen() {
 
         {genderUnset ? (
           <View style={{ marginTop: space.m }}>
-            <GenderAsk
-              testID="match-new.gender"
-              busy={genderBusy}
-              error={genderError}
-              onPick={onGender}
-            />
+            <GenderAsk testID="match-new.gender" />
           </View>
         ) : null}
 

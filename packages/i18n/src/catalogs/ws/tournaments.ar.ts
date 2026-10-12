@@ -380,6 +380,11 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
         body: 'للاعبين الجدد ولمن يلعب للمتعة. مباريات ودّية ومفتوحة لكل من يتعلّم.',
       },
     },
+    years: {
+      under_one: { body: 'للاعبين الذين بدأوا قبل أقل من سنة، أو لم يبدأوا بعد.' },
+      one_to_three: { body: 'للاعبين الذين لعبوا من سنة إلى ثلاث سنوات.' },
+      three_plus: { body: 'للاعبين الذين لعبوا أكثر من ثلاث سنوات.' },
+    },
     formats: {
       americano: {
         tag: 'يُدار في التطبيق',

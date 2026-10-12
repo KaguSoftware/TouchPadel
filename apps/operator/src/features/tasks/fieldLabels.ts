@@ -44,6 +44,7 @@ export const FIELD_LABELS = {
   campaign_id: `${F}.campaign_id`,
   // Tournament plan
   class: `${F}.class`,
+  play_years: `${F}.play_years`,
   format: `${F}.format`,
   ranges: `${F}.ranges`,
   court_ids: `${F}.court_ids`,
@@ -144,6 +145,11 @@ export const OPTION_LABELS: Record<string, Record<string, MessageKey>> = {
   item_kind: { drink: 'work.item.kind.drink', dessert: 'work.item.kind.dessert', food: 'work.item.kind.food' },
   unit: { g: 'op.stock.unit.g', ml: 'op.stock.unit.ml', pc: 'op.stock.unit.pc', players: 'ws.team.tasks.form.option.players', pairs: 'ws.team.tasks.form.option.pairs' },
   class: { A: 'ws.team.tasks.form.option.classA', B: 'ws.team.tasks.form.option.classB', C: 'ws.team.tasks.form.option.classC' },
+  play_years: {
+    under_one: 'ws.team.tasks.form.option.yearsUnderOne',
+    one_to_three: 'ws.team.tasks.form.option.yearsOneToThree',
+    three_plus: 'ws.team.tasks.form.option.yearsThreePlus',
+  },
   format: {
     americano: 'ws.team.tasks.form.option.americano',
     mexicano: 'ws.team.tasks.form.option.mexicano',

@@ -28,10 +28,12 @@ import {
   courtFixture,
   matchSlotsFixture,
   openMatchesFixture,
+  profileFixture,
   venueSettingsFixture,
 } from '../test/fixtures';
 import { TOUR_ID, TOUR_ID_2, tournamentsPublicFixture } from '../test/tournamentsFixtures';
 import { availabilityKeys } from '../features/availability/hooks';
+import { profileKeys } from '../features/profile/hooks';
 import { matchKeys } from '../features/matches/keys';
 import { guestWindow } from '../features/matches/logic';
 import { clearPendingJoin, getPendingJoin } from '../features/matches/pendingJoin';
@@ -190,6 +192,54 @@ describe.each(LOCALES)('Play states in %s', (locale) => {
     } finally {
       screen.unmount();
       clearPendingJoin();
+    }
+  });
+
+  // 0339: both fixture tournaments are class B (intermediate); TOUR_ID is entered.
+  const withPlay = (level: string | null, years: string | null) =>
+    [
+      profileKeys.own,
+      {
+        ...profileFixture(),
+        play_level: level,
+        play_years: years,
+        play_wants: null,
+        play_survey_at: '2026-10-12T18:00:00.000Z',
+      },
+    ] as [readonly unknown[], unknown];
+
+  it('lists only the tournaments a guest is for, and always the one they entered', () => {
+    const screen = renderRoute(PlayScreen, {
+      locale,
+      session: 'in',
+      queryData: [...venue(false), ...tours(), withPlay('advanced', 'three_plus')],
+    });
+    try {
+      expect(screen.getByTestId(`play.tournament.${TOUR_ID}`)).toBeTruthy();
+      expect(screen.queryByTestId(`play.tournament.${TOUR_ID_2}`)).toBeNull();
+      expect(screen.queryByTestId('play.fit-ask')).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('shows a guest who skipped their level every tournament, and asks for it', () => {
+    const screen = renderRoute(PlayScreen, {
+      locale,
+      session: 'in',
+      queryData: [...venue(false), ...tours(), withPlay(null, null)],
+    });
+    try {
+      expect(screen.getByTestId(`play.tournament.${TOUR_ID_2}`)).toBeTruthy();
+      const ask = screen.getByTestId('play.fit-ask');
+      expect(within(ask).getByText(t('play.fitAsk'))).toBeTruthy();
+      fireEvent.press(ask);
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: { pathname: '/play-survey', params: { mode: 'edit' } },
+      });
+    } finally {
+      screen.unmount();
     }
   });
 

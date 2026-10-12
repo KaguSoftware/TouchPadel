@@ -195,9 +195,10 @@ describe('forms', () => {
     expect(startForm('price_promo', { change: 'rate' }).stepKey).toBe('propose');
   });
 
-  it('gives a type 2 tournament the short plan: class, names, ranges, capacity, notes', () => {
+  it('gives a type 2 tournament the short plan: class, years, names, ranges, capacity, notes', () => {
     expect(startForm('tournament', { variant: 'type2' }).fields.map((f) => f.name)).toEqual([
       'class',
+      'play_years',
       'name_en',
       'name_ar',
       'ranges',
@@ -312,6 +313,7 @@ describe('validateStep: release', () => {
 
 const PLAN = {
   class: 'B',
+  play_years: 'one_to_three',
   name_en: 'Autumn cup',
   name_ar: 'كأس الخريف',
   format: 'americano',

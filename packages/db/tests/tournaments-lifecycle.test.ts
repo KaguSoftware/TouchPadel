@@ -212,6 +212,8 @@ describe.skipIf(!docker)('tournament_publish (T-6, §1.9)', () => {
       format: 'americano',
       category: 'men',
       class: 'A',
+      // 0339: copied from the plan with the class.
+      play_years: 'one_to_three',
       points_target: 32,
       rounds_planned: null,
       max_entries: 16,
@@ -252,6 +254,12 @@ describe.skipIf(!docker)('register, waitlist, withdraw, promote (T-4, T-7)', () 
       GUEST('no_gender', '{"gender": null}'),
       GUEST('banned'),
       GUEST('man', '{"gender": "male"}'),
+      // 0339: t1 is class A, 1 to 3 years (the plant's plan); the plant's guests fit it.
+      GUEST('fit_none', '{"level": null, "years": null}'),
+      GUEST('fit_level', '{"level": "intermediate"}'),
+      GUEST('fit_no_years', '{"years": null}'),
+      GUEST('fit_more', '{"years": "three_plus"}'),
+      GUEST('fit_never', '{"years": "never"}'),
       `select pg_temp.ban('banned');`,
       ...['g1', 'g2', 'g3', 'g4', 'g5', 'g6'].map((g) =>
         T(`reg_${g}`, g, `select app.tournament_register({{t1}})`),
@@ -261,6 +269,9 @@ describe.skipIf(!docker)('register, waitlist, withdraw, promote (T-4, T-7)', () 
       T('no_gender', 'no_gender', `select app.tournament_register({{t1}})`),
       T('banned', 'banned', `select app.tournament_register({{t1}})`),
       T('man_w', 'man', `select app.tournament_register({{tw}})`),
+      ...['fit_none', 'fit_level', 'fit_no_years', 'fit_more', 'fit_never'].map((g) =>
+        T(g, g, `select app.tournament_register({{t1}})`),
+      ),
       T('nil', 'g1', `select app.tournament_register('00000000-0000-4000-8000-000000000000')`),
       T('pub_g1', 'g1', `select app.tournaments_public(null)`),
       E('pub_anon', null, `select app.tournaments_public(null)`),
@@ -305,6 +316,13 @@ describe.skipIf(!docker)('register, waitlist, withdraw, promote (T-4, T-7)', () 
     expect(refusal(r, 'no_gender')).toBe('GENDER_REQUIRED');
     expect(refusal(r, 'banned')).toBe('MATCH_BANNED');
     expect(refusal(r, 'man_w')).toBe('TOURNAMENT_CATEGORY_MISMATCH');
+    // 0339: only the guest the tournament is for; an unanswered question first.
+    expect(refusal(r, 'fit_none')).toBe('TOURNAMENT_PROFILE_REQUIRED:level');
+    expect(refusal(r, 'fit_level')).toBe('TOURNAMENT_LEVEL_MISMATCH:level');
+    expect(refusal(r, 'fit_no_years')).toBe('TOURNAMENT_PROFILE_REQUIRED:years');
+    // An exact bracket: more years is not 1 to 3, and "not yet" is under a year.
+    expect(refusal(r, 'fit_more')).toBe('TOURNAMENT_LEVEL_MISMATCH:years');
+    expect(refusal(r, 'fit_never')).toBe('TOURNAMENT_LEVEL_MISMATCH:years');
     expect(refusal(r, 'nil')).toBe('TOURNAMENT_NOT_FOUND');
 
     const list = answer<{ tournaments: Array<Record<string, unknown>> }>(r, 'pub_g1');
@@ -314,6 +332,9 @@ describe.skipIf(!docker)('register, waitlist, withdraw, promote (T-4, T-7)', () 
       places_left: 0,
       waitlist_open: false,
       mine: { status: 'registered' },
+      // 0339: who it is for, so the phone can match it to a play profile.
+      class: 'A',
+      play_years: 'one_to_three',
     });
     const anon = answer<{ tournaments: Array<Record<string, unknown>> }>(r, 'pub_anon');
     expect(anon.tournaments.every((t) => t.mine === null)).toBe(true);

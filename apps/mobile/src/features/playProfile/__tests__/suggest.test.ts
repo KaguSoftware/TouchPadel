@@ -66,8 +66,42 @@ describe('suggest (contracts §8)', () => {
     );
   });
 
+  it('topSuggestions shows tournaments only to a guest after Tournaments', () => {
+    // Advanced ranks Mexicano first, but they asked for matches and lessons.
+    const top = topSuggestions(a({ level: 'advanced', years: 'three_plus', wants: ['matches', 'lessons'] }), 5);
+    expect(top.map((s) => s.kind)).not.toContain('mexicano');
+    expect(top.map((s) => s.kind)).not.toContain('americano');
+    expect(top[0]?.kind).toBe('matches');
+    expect(
+      topSuggestions(a({ level: 'advanced', wants: ['tournaments'] }), 5).map((s) => s.kind),
+    ).toContain('mexicano');
+  });
+
+  it('topSuggestions shows coaches only after Lessons, and group sessions either way', () => {
+    const top = topSuggestions(a({ level: 'new', wants: ['matches'] }), 5).map((s) => s.kind);
+    expect(top).not.toContain('coaches');
+    expect(top).toContain('classes');
+    expect(topSuggestions(a({ level: 'new', wants: ['lessons'] }), 2).map((s) => s.kind)).toEqual([
+      'coaches',
+      'classes',
+    ]);
+  });
+
+  it('topSuggestions offers group sessions alone while no want is answered', () => {
+    expect(topSuggestions(a({ level: 'advanced' }), 3).map((s) => s.kind)).toEqual(['classes']);
+    // Even where the level gives them no points.
+    expect(topSuggestions(a({ level: 'intermediate', years: 'three_plus' }), 3).map((s) => s.kind)).toEqual([
+      'classes',
+    ]);
+    // Not on offer: nothing, never something else instead.
+    expect(topSuggestions(a({ level: 'new' }), 3, { classes: false })).toEqual([]);
+  });
+
   it('topSuggestions cuts to the ones the answers point at', () => {
-    expect(topSuggestions(a({ level: 'new' }), 2).map((s) => s.kind)).toEqual(['coaches', 'classes']);
+    expect(topSuggestions(a({ level: 'new', wants: ['lessons'] }), 2).map((s) => s.kind)).toEqual([
+      'coaches',
+      'classes',
+    ]);
     expect(topSuggestions(a({ wants: ['matches'] }), 3).map((s) => s.kind)).toEqual(['matches']);
     expect(topSuggestions(a({ level: 'intermediate' }), 0)).toEqual([]);
   });

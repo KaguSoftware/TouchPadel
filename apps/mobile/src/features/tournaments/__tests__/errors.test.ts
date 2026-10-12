@@ -99,6 +99,9 @@ describe('tournamentRefusalOf', () => {
 
   it('shows anything else inline', () => {
     expect(tournamentRefusalOf('TOURNAMENT_CATEGORY_MISMATCH')).toBe('inline');
+    // 0339: an unanswered level or years opens the play survey; a mismatch reads its line.
+    expect(tournamentRefusalOf('TOURNAMENT_PROFILE_REQUIRED')).toBe('profile');
+    expect(tournamentRefusalOf('TOURNAMENT_LEVEL_MISMATCH')).toBe('inline');
     expect(tournamentRefusalOf(null)).toBe('inline');
   });
 });

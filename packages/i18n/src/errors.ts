@@ -457,6 +457,10 @@ export const ERROR_CODE_KEYS = {
   TOURNAMENT_NOT_OPEN: 'op.errors.TOURNAMENT_NOT_OPEN',
   TOURNAMENT_FULL: 'op.errors.TOURNAMENT_FULL',
   TOURNAMENT_CATEGORY_MISMATCH: 'op.errors.TOURNAMENT_CATEGORY_MISMATCH',
+  // 0339 tournament_play_years: register refuses a guest the tournament is not for (detail
+  // level | years): the play survey question unanswered, or an answer outside the class / bracket.
+  TOURNAMENT_PROFILE_REQUIRED: 'op.errors.TOURNAMENT_PROFILE_REQUIRED',
+  TOURNAMENT_LEVEL_MISMATCH: 'op.errors.TOURNAMENT_LEVEL_MISMATCH',
   TOURNAMENT_ENTRY_NOT_FOUND: 'op.errors.TOURNAMENT_ENTRY_NOT_FOUND',
   TOURNAMENT_VIA_EVENTS: 'op.errors.TOURNAMENT_VIA_EVENTS',
   // tournaments_play: the rounds write (detail status | stale | engine | format | numbering |

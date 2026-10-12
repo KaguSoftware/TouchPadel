@@ -288,6 +288,10 @@ export const TOURNAMENT_SHAPES = {
         'name_ar',
         'format',
         'category',
+        // 0339: who it is for. class A | B | C (advanced, intermediate, beginners);
+        // play_years the years bracket (under_one | one_to_three | three_plus), null = any.
+        'class',
+        'play_years',
         'starts_at',
         'ends_at',
         'registration_closes_at',
@@ -314,6 +318,8 @@ export const TOURNAMENT_SHAPES = {
       'name_ar',
       'format',
       'category',
+      'class',
+      'play_years',
       'points_target',
       'rounds_planned',
       'starts_at',

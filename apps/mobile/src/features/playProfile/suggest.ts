@@ -2,10 +2,13 @@
  * What to offer a guest first, from their survey answers
  * (docs/design/play-coaches/contracts-2026-10-11.md §8). PURE.
  *
- * It ORDERS, it never filters: every kind comes back every time, ranked, each
- * with the one short reason that put it where it is. The Play tab's "For you"
- * strip shows the top few; the Coaches tab can read the same order. Nothing a
- * guest did not ask about is hidden from them.
+ * `suggest` ORDERS: every kind comes back every time, ranked, each with the
+ * one short reason that put it where it is. `topSuggestions`, what the Join
+ * tab's "For you" strip and the survey's last page show, also keeps to what
+ * the guest said they are after (2026-10-12): once "What are you after?" has
+ * an answer, tournaments need Tournaments and coaches need Lessons. Group
+ * sessions and open matches need no want. With a level or years but no want,
+ * it offers group sessions alone (the strip then asks for the wants).
  *
  * The rule, written as points so the order is explainable line by line:
  *   level   (3 for a strong fit, 1 for a mild one)
@@ -87,6 +90,19 @@ const WANT_RULES: Record<PlayWant, Rule> = {
   tournaments: { points: { americano: 1.5, mexicano: 1.5 }, reason: 'wantsTournaments' },
 };
 
+/** The want a kind needs once any want is answered; group sessions and open matches need none. */
+const NEEDS_WANT: Partial<Record<SuggestionKind, PlayWant>> = {
+  coaches: 'lessons',
+  americano: 'tournaments',
+  mexicano: 'tournaments',
+};
+
+/** Is this kind one the guest asked for? Always, while no want is answered. */
+export function fitsWants(kind: SuggestionKind, wants: readonly PlayWant[] | null | undefined): boolean {
+  const need = NEEDS_WANT[kind];
+  return !need || !wants || wants.length === 0 || wants.includes(need);
+}
+
 /**
  * Every kind, ranked for these answers. `answers` null (or all unanswered)
  * gives DEFAULT_ORDER with the `general` reason and a score of 0 everywhere.
@@ -126,15 +142,20 @@ export function suggest(
 
 /**
  * The first `max` suggestions the answers actually point at (score above 0,
- * and on offer). Empty when nothing was answered: the caller then asks
- * instead of guessing.
+ * on offer, and of a kind the guest's wants allow, `fitsWants`). Empty when
+ * nothing was answered: the caller then asks instead of guessing. Answered
+ * but no want: group sessions alone, whatever they score, when on offer.
  */
 export function topSuggestions(
   answers: PlayAnswers | null | undefined,
   max: number,
   available?: Partial<Record<SuggestionKind, boolean>>,
 ): Suggestion[] {
-  return suggest(answers, available)
-    .filter((s) => s.score > 0 && s.available)
+  const ranked = suggest(answers, available);
+  if (answers && (answers.level || answers.years) && answers.wants.length === 0) {
+    return ranked.filter((s) => s.kind === 'classes' && s.available).slice(0, Math.max(0, max));
+  }
+  return ranked
+    .filter((s) => s.score > 0 && s.available && fitsWants(s.kind, answers?.wants))
     .slice(0, Math.max(0, max));
 }

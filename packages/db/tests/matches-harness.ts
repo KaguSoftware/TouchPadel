@@ -75,7 +75,9 @@ end $f$;
 -- unsets), sandbox, push (an Expo token, so pushes are queued).
 create function pg_temp.guest(p_name text, p jsonb default '{}') returns uuid language plpgsql as $f$
 declare v uuid := gen_random_uuid(); q jsonb := jsonb_build_object('phone', '+9647' || lpad((floor(random() * 1e9))::bigint::text, 9, '0'), 'terms', '2026-09-23',
-                                                                   'gender', 'female') || p;
+                                                                   'gender', 'female')
+                                                || coalesce((select x.val::jsonb from pg_temp.vars x where x.name = '_guest_defaults'), '{}')
+                                                || p;
 begin
   insert into auth.users (id, email, raw_user_meta_data, aud, role)
   values (v, 'm260-' || p_name || '-' || v || '@test.touch.local', jsonb_build_object('full_name', 'Test ' || p_name),
@@ -91,6 +93,11 @@ begin
    where id = v;
   if q ? 'given' then
     update profiles set given_name = q->>'given', family_name = q->>'family' where id = v;
+  end if;
+  -- 0339: the play survey's level and years (null: unanswered); a suite sets its default
+  -- through the '_guest_defaults' var (the tournaments plant does).
+  if q ? 'level' or q ? 'years' then
+    update profiles set play_level = q->>'level', play_years = q->>'years', play_survey_at = now() where id = v;
   end if;
   insert into pg_temp.vars values (p_name, v::text);
   insert into pg_temp.guests values (v);

@@ -180,6 +180,28 @@ interface Push {
 }
 
 describe.skipIf(!docker)('tournament_desk_start: the court desk starts a tournament', () => {
+  it('0339: the plan takes a years bracket, keeps it, and refuses a bracket that is not one', () => {
+    const withYears = (years: string | null) =>
+      `select app.start_protocol('tournament', 'type2', 'Friday open', null, '{}',
+         ${plan('type2')} || jsonb_build_object('play_years', ${years === null ? 'null::text' : `'${years}'::text`}))`;
+    const r = scenario([
+      COURT('court'),
+      T('y_ok', 'desk', withYears('one_to_three')),
+      RES('y_sub', 'y_ok', 'submission_id'),
+      Q('y_rec', `select record from protocol_submissions where id = {{y_sub}}`),
+      T('y_none', 'desk', withYears(null)),
+      T('y_bad', 'desk', withYears('ten_years')),
+      T('y_never', 'desk', withYears('never')),
+    ]);
+    ok(r, 'y_ok');
+    expect(ok<Record<string, unknown>>(r, 'y_rec')).toMatchObject({ class: 'B', play_years: 'one_to_three' });
+    // A plan from an older desk build has none: still taken (the tournament asks nothing about years).
+    ok(r, 'y_none');
+    expect(refused(r, 'y_bad')).toBe('RECORD_INVALID:play_years');
+    // "Not yet" is a player's answer, never a tournament's bracket.
+    expect(refused(r, 'y_never')).toBe('RECORD_INVALID:play_years');
+  });
+
   it('the desk starts type 1 and type 2, type 3 with its sponsor; its plan waits for a manager', () => {
     const r = scenario([
       MK('desk2', 'court_desk'),

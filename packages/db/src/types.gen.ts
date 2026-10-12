@@ -16540,6 +16540,7 @@ export type Database = {
           min_entries: number
           name_ar: string
           name_en: string
+          play_years: string | null
           points_target: number
           prize_ar: string | null
           prize_en: string | null
@@ -16572,6 +16573,7 @@ export type Database = {
           min_entries: number
           name_ar: string
           name_en: string
+          play_years?: string | null
           points_target?: number
           prize_ar?: string | null
           prize_en?: string | null
@@ -16604,6 +16606,7 @@ export type Database = {
           min_entries?: number
           name_ar?: string
           name_en?: string
+          play_years?: string | null
           points_target?: number
           prize_ar?: string | null
           prize_en?: string | null

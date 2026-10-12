@@ -65,7 +65,10 @@ import {
 } from '../../src/features/play/timeline';
 import { playCourt } from '../../src/features/play/court';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
-import { space, useTheme } from '../../src/theme';
+import { Text } from '../../src/i18n/text';
+import { radius, space, useTheme } from '../../src/theme';
+import { usePlayProfile } from '../../src/features/playProfile/hooks';
+import { showsTournament, tournamentFit } from '../../src/features/playProfile/fit';
 import { Screen, SegmentedControl, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
@@ -160,7 +163,7 @@ const NO_TOURS: readonly TourListItem[] = [];
  */
 export default function PlayScreen() {
   const { t, locale, dir } = useLocale();
-  const { colors } = useTheme();
+  const { colors, fonts } = useTheme();
   const router = useRouter();
   const { session } = useAuth();
   const signedIn = session !== null;
@@ -248,10 +251,18 @@ export default function PlayScreen() {
   const bothOn = matchesState !== 'off' && toursState !== 'off';
 
   // ── The timeline ──────────────────────────────────────────────────────────
-  const tours = useMemo(
+  // 0339: only the tournaments this guest is for (their class and years bracket,
+  // fit.ts, the twin of tournament_register's check), plus every one they entered.
+  // An unanswered question hides nothing: the nudge below asks for it.
+  const play = usePlayProfile();
+  const answers = useMemo(() => (play ? { level: play.level, years: play.years } : null), [play]);
+  const allTours = useMemo(
     () => (pub.data && !pub.data.off ? tournamentRows(pub.data, 'upcoming') : NO_TOURS),
     [pub.data],
   );
+  const tours = useMemo(() => allTours.filter((r) => showsTournament(r, answers)), [allTours, answers]);
+  const askFit =
+    play !== null && allTours.some((r) => r.mine == null && tournamentFit(r, answers).fit === 'unanswered');
   const slotList = useMemo(() => {
     if (signedIn || !slots.data) return NO_SLOTS;
     // A time that has started is gone for a guest who has not even signed in yet.
@@ -596,6 +607,29 @@ export default function PlayScreen() {
   ) : null;
 
   const notices: ReactNode[] = [];
+  if (askFit && kind !== 'matches') {
+    // 0339: a signed-in guest who has not said their level or years sees every
+    // tournament, and is asked; registering asks too (TOURNAMENT_PROFILE_REQUIRED).
+    notices.push(
+      <Pressable
+        key="fit-ask"
+        testID="play.fit-ask"
+        accessibilityRole="button"
+        onPress={() => router.push({ pathname: '/play-survey', params: { mode: 'edit' } })}
+        style={({ pressed }) => ({
+          padding: space.m,
+          borderRadius: radius.button,
+          borderWidth: 1,
+          borderColor: colors.line,
+          backgroundColor: pressed ? colors.sub : colors.tint,
+        })}
+      >
+        <Text style={{ fontFamily: fonts.body600, fontSize: 13, lineHeight: 18, color: colors.ink }}>
+          {t('play.fitAsk')}
+        </Text>
+      </Pressable>,
+    );
+  }
   if (banned)
     notices.push(<MatchNotice key="banned" text={t('matches.errors.banned')} tone="red" />);
   if (matchesState === 'error' && toursState !== 'error') {

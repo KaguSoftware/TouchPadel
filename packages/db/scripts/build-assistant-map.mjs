@@ -497,7 +497,10 @@ export function readRules(file = PATHS.rules) {
 
 export function inventoryDocs() {
   const files = walkMd(PATHS.docsDir);
-  for (const name of readdirSync(ROOT).sort()) if (name.endsWith('.md')) files.push(path.join(ROOT, name));
+  // A `*.local.md` is a person's own gitignored notes (SECURITY-PENTEST-NOTES.local.md says
+  // "do not commit"): never read into the tracked map.
+  for (const name of readdirSync(ROOT).sort())
+    if (name.endsWith('.md') && !name.endsWith('.local.md')) files.push(path.join(ROOT, name));
   const dbReadme = path.join(DB, 'README.md');
   if (existsSync(dbReadme)) files.push(dbReadme);
   return files.map(rel).sort();

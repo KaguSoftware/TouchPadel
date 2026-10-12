@@ -7,7 +7,7 @@
  */
 export const playProfileEn = {
   survey: {
-    intro: 'Three quick questions for better matches. Skip any of them.',
+    intro: 'A few quick questions for better matches. Skip any of them.',
     skip: 'Skip',
     progress: 'Question {n} of {total}',
     level: {
@@ -23,6 +23,8 @@ export const playProfileEn = {
       under_one: 'Less than a year',
       one_to_three: '1 to 3 years',
       three_plus: 'More than 3 years',
+      // Under "Not yet" when the level says they have played (yearsFitLevel).
+      notWithLevel: "You picked {level}, so you've played before",
     },
     wants: {
       question: 'What are you after?',
@@ -30,6 +32,11 @@ export const playProfileEn = {
       matches: { title: 'Open matches', body: 'Join a game with other players' },
       tournaments: { title: 'Tournaments', body: 'Americano and Mexicano nights' },
       lessons: { title: 'Lessons', body: 'Learn with a coach' },
+    },
+    // Asked only while the profile has none; set once (OM-28).
+    gender: {
+      question: 'Are you a woman or a man?',
+      hint: "For women-only and men-only matches and tournaments. Once saved, only the front desk can change it.",
     },
     saveFailed: "That didn't save. Your answers are still here.",
     saved: 'Saved',
@@ -59,9 +66,11 @@ export const playProfileEn = {
   forYou: {
     title: 'For you',
     askTitle: 'Tell us your level for better matches',
-    askBody: 'Three quick questions. Skip any of them.',
+    askBody: 'A few quick questions. Skip any of them.',
     askDismiss: 'Not now',
     change: 'Change answers',
+    // Under the strip while "What are you after?" has no answer (group sessions alone above it).
+    moreHint: "Want more suggestions? Tell us what you're after.",
   },
   row: {
     label: 'Your game',

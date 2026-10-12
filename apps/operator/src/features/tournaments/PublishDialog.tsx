@@ -40,6 +40,13 @@ import { codeOf, pickName, refusedSetting, tournamentErrorText } from './tournam
 import { readPublishAnswer } from './tournamentPayloads';
 import { invalidateTournamentCourts, useTournamentIdemKey } from './useTournaments';
 
+/** 0339: the plan's years bracket, in the start sheet's own words. */
+const YEARS_LABEL: Record<'under_one' | 'one_to_three' | 'three_plus', MessageKey> = {
+  under_one: 'ws.team.tasks.form.option.yearsUnderOne',
+  one_to_three: 'ws.team.tasks.form.option.yearsOneToThree',
+  three_plus: 'ws.team.tasks.form.option.yearsThreePlus',
+};
+
 export function PublishDialog({
   runId,
   data,
@@ -232,6 +239,7 @@ export function PublishDialog({
           <dd style={{ margin: 0, fontWeight: 600 }}>
             <bdi>{pickName(locale, facts.nameEn, facts.nameAr)}</bdi>
             {facts.tournamentClass ? ` · ${facts.tournamentClass}` : ''}
+            {facts.playYears ? ` · ${tr(YEARS_LABEL[facts.playYears])}` : ''}
           </dd>
           <dt style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.tournaments.publish.fee')}</dt>
           <dd style={{ margin: 0 }}>

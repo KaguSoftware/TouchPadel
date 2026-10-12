@@ -77,6 +77,11 @@ export const tournamentsGuestEn = {
         'Registration has closed, so you can no longer withdraw in the app. The desk can take you off.',
       notOpenStatus: 'Registration for this tournament is not open now.',
       categoryMismatch: 'This tournament is for another category of players.',
+      // 0339: who it is for (class and years bracket).
+      profileRequired: 'Tell us your level and how long you have played to register.',
+      levelMismatch: 'This tournament is for players of another level.',
+      yearsMismatch: 'This tournament is for players with a different number of years played.',
+      answer: 'Answer now',
       full: 'This tournament and its waitlist are full.',
       notFound: 'This tournament is no longer available.',
       off: 'Tournaments are switched off at this branch.',

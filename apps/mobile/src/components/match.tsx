@@ -20,6 +20,7 @@ import { useState, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { SymbolView } from 'expo-symbols';
+import { useRouter } from 'expo-router';
 import { wallTimeToUtc } from '@touch/core';
 import {
   formatDayNumber,
@@ -39,11 +40,11 @@ import {
   MESSAGE_CODES,
   SEATS_TOTAL,
   tradingNightOf,
-  type Gender,
   type MatchCategory,
   type MatchSeat,
   type MessageCode,
 } from '../features/matches/logic';
+import { GENDER_SURVEY_HREF } from '../features/playProfile/links';
 import { Button } from './ui';
 import { CalendarIcon, CardIcon, CheckIcon, ChevronIcon, ClockIcon, PlusIcon, TagIcon } from './icons';
 
@@ -1345,24 +1346,16 @@ export function MatchRestrictedCard({
 // ── GenderAsk (§4.9, OM-28, DF-10) ──────────────────────────────────────────
 
 /**
- * The one-time question, inline (not a modal): "Before your first open
- * match: are you a woman or a man?…", with "Woman" (`${testID}.female`) and
- * "Man" (`${testID}.male`). The answer is `set_my_gender`; the front desk can
- * correct it.
+ * A women's or men's game needs the guest's gender, and the profile has none.
+ * The question itself lives in the player questionnaire (app/play-survey.tsx,
+ * 2026-10-12), so this only says why and opens it at the gender question
+ * (`${testID}.answer`). The answer is `set_my_gender`, set once; the screen
+ * behind re-reads the profile when the sheet saves.
  */
-export function GenderAsk({
-  testID,
-  busy,
-  error,
-  onPick,
-}: {
-  testID: string;
-  busy: Gender | null;
-  error?: string | null;
-  onPick: (gender: Gender) => void;
-}) {
+export function GenderAsk({ testID, error }: { testID: string; error?: string | null }) {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
+  const router = useRouter();
   return (
     <View
       testID={testID}
@@ -1385,28 +1378,13 @@ export function GenderAsk({
           {error}
         </Text>
       ) : null}
-      <View style={{ flexDirection: 'row', gap: space.s }}>
-        <Button
-          testID={`${testID}.female`}
-          label={t('matches.gender.female')}
-          variant="secondary"
-          size="compact"
-          busy={busy === 'female'}
-          disabled={busy !== null}
-          onPress={() => onPick('female')}
-          style={{ flex: 1 }}
-        />
-        <Button
-          testID={`${testID}.male`}
-          label={t('matches.gender.male')}
-          variant="secondary"
-          size="compact"
-          busy={busy === 'male'}
-          disabled={busy !== null}
-          onPress={() => onPick('male')}
-          style={{ flex: 1 }}
-        />
-      </View>
+      <Button
+        testID={`${testID}.answer`}
+        label={t('matches.gender.answer')}
+        variant="secondary"
+        size="compact"
+        onPress={() => router.push(GENDER_SURVEY_HREF)}
+      />
     </View>
   );
 }

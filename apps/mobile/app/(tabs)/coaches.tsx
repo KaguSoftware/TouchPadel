@@ -26,7 +26,6 @@ import {
   showcaseLevelFor,
   showcaseOrder,
   showcaseSeed,
-  SHOWCASE_LEVELS,
   type PublicCoach,
   type ShowcaseLevel,
 } from '../../src/features/coaching/logic';
@@ -34,14 +33,7 @@ import { lessonErrorText } from '../../src/features/coaching/errors';
 import { callPhone } from '../../src/lib/phone';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { space, useTheme } from '../../src/theme';
-import {
-  Button,
-  MicroLabel,
-  Screen,
-  SegmentedControl,
-  TAB_TITLE_TOP,
-  Title,
-} from '../../src/components/ui';
+import { Button, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { MatchNotice } from '../../src/components/match';
 import { BrandPattern } from '../../src/components/BrandPattern';
@@ -66,10 +58,13 @@ const COURT_AIR = 10;
  * NO HIERARCHY. Every card is the same size and weight (no featured coach, no
  * ranking, no "top"), and the order is `showcaseOrder` seeded by the
  * venue-local date: it holds all day and changes at midnight, so nobody is
- * always first. It is never the venue's `sortOrder`. The level switch shows
- * the coaches who teach a player at that level; a coach who lists no levels
- * teaches every level and shows under each one. The levels name the PLAYER
- * ("Your level"), never a coach's rank.
+ * always first. It is never the venue's `sortOrder`. The page shows the
+ * coaches who teach a player at the guest's own level, the one saved in the
+ * player questionnaire (app/play-survey.tsx). The tab neither shows nor asks
+ * the level (2026-10-12): it lives in Edit profile's Personal details ("Your
+ * game"). With no level saved (or signed out) every coach shows. A coach who lists no levels teaches every
+ * level and shows under each one. The levels name the PLAYER ("Your level"),
+ * never a coach's rank.
  *
  * Everything the old stack screen did stays (docs/design/coaching/guest.md
  * §4.8.2): the branch picker, the switched-off notice with the branch's
@@ -82,7 +77,7 @@ const COURT_AIR = 10;
  * Motion (the Book tab's energy, motion.tsx): the court tips
  * back as the page scrolls (the Book tab's 3D court, `CourtStage`, fixed
  * behind the page, set up as a coaching drill), the glass plate rides over its
- * foot, the cards rise in staggered (and again on a level switch), lean into
+ * foot, the cards rise in staggered (and again when the level changes), lean into
  * the finger (`TiltPress`), and their photos drift against the frame as they
  * cross the screen. All of it holds still under Reduce Motion.
  */
@@ -103,12 +98,14 @@ export default function CoachesScreen() {
   const phone = venuePhoneOf(settings.data);
   const branch = guest.branch ? branchName(guest.branch, locale) : '';
 
-  // The switch starts on the guest's own level once the play survey knows it
-  // (`new` reads as Beginner), else on All. A level the guest picks here wins
-  // for as long as the tab is mounted; it never writes the survey's answer.
+  // The guest's own level from the questionnaire (`new` reads as Beginner),
+  // else All (signed out, not loaded, or never answered).
   const playLevel = usePlayProfile()?.level ?? null;
-  const [picked, setPicked] = useState<ShowcaseLevel | null>(null);
-  const level: ShowcaseLevel = picked ?? showcaseLevelFor(playLevel);
+  // "Show all coaches" from an empty level holds for the level it was pressed
+  // on: a new answer in the questionnaire filters again.
+  const [showAllFor, setShowAllFor] = useState<{ level: typeof playLevel } | null>(null);
+  const showAll = showAllFor !== null && showAllFor.level === playLevel;
+  const level: ShowcaseLevel = showAll ? 'all' : showcaseLevelFor(playLevel);
 
   const tz = pub.data?.branches.find((b) => b.venueId === venueId)?.timezone ?? null;
   const seed = showcaseSeed(new Date(), tz);
@@ -166,43 +163,15 @@ export default function CoachesScreen() {
 
   const picker = <BranchPicker testID="coaches.branch" />;
 
-  const levelSwitch = (
-    // Laid out like BranchPicker above it: the label on the leading edge, the
-    // track sized to its words.
-    <View style={{ gap: space.s }}>
-      <MicroLabel>{t('coachShowcase.yourLevel')}</MicroLabel>
-      <SegmentedControl
-        testID="coaches.level"
-        fit
-        value={level}
-        onChange={setPicked}
-        options={SHOWCASE_LEVELS.map((l) => ({ value: l, label: t(`coachShowcase.levels.${l}`) }))}
-      />
-      <Text
-        style={{
-          fontFamily: fonts.body400,
-          fontSize: 13,
-          lineHeight: 19,
-          color: colors.mut,
-        }}
-      >
-        {t(`coachShowcase.levelLine.${level}`)}
-      </Text>
-    </View>
-  );
-
   // The plate over the court's foot: the branch picker whenever there is a
-  // choice (it is how a guest leaves a switched-off branch), the level switch
-  // once there are coaches. With neither there is no plate, not an empty one.
-  const plate = (withLevels: boolean) =>
-    !withLevels && !guest.showPicker ? (
+  // choice (it is how a guest leaves a switched-off branch). Without one there
+  // is no plate, not an empty one.
+  const plate = () =>
+    !guest.showPicker ? (
       <View style={{ height: space.l }} />
     ) : (
       <GlassPlate style={{ marginTop: -PLATE_OVERLAP, marginBottom: space.l }}>
-        <View style={{ padding: space.l, gap: space.m }}>
-          {picker}
-          {withLevels ? levelSwitch : null}
-        </View>
+        <View style={{ padding: space.l, gap: space.m }}>{picker}</View>
       </GlassPlate>
     );
 
@@ -275,7 +244,7 @@ export default function CoachesScreen() {
           title={t('coachShowcase.emptyLevel.title')}
           message={t('coachShowcase.emptyLevel.message')}
           actionLabel={t('coachShowcase.emptyLevel.action')}
-          onAction={() => setPicked('all')}
+          onAction={() => setShowAllFor({ level: playLevel })}
         />
       );
     }
@@ -283,7 +252,7 @@ export default function CoachesScreen() {
     for (let i = 0; i < shown.length; i += 2) rows.push(shown.slice(i, i + 2));
     return (
       <View onLayout={(e) => setGridY(e.nativeEvent.layout.y)}>
-        {/* Keyed by the level, so a switch replays the rise: the new set
+        {/* Keyed by the level, so a change replays the rise: the new set
             arrives rather than the old one silently changing. */}
         <View key={level} testID="coaches.list" style={{ gap: GAP }}>
           {rows.map((row, r) => {
@@ -334,7 +303,7 @@ export default function CoachesScreen() {
     if (!on || pub.data?.off) {
       return (
         <View>
-          {plate(false)}
+          {plate()}
           <View style={{ gap: space.m }}>
             <View testID="coaches.off">
               <MatchNotice text={t('coaching.common.errors.off')} />
@@ -355,7 +324,7 @@ export default function CoachesScreen() {
       if (pub.isError) {
         return (
           <View>
-            {plate(false)}
+            {plate()}
             <ErrorState
               testID="coaches.error"
               title={t('errors.loadFailedTitle')}
@@ -369,14 +338,14 @@ export default function CoachesScreen() {
       }
       return (
         <View>
-          {plate(false)}
+          {plate()}
           <SkeletonList rows={2} height={200} />
         </View>
       );
     }
     return (
       <View onLayout={(e) => setBodyY(e.nativeEvent.layout.y)}>
-        {plate(all.length > 0)}
+        {plate()}
         {links}
         {grid()}
       </View>

@@ -18,6 +18,8 @@ export const playEn = {
   emptyBody: 'No open matches or tournaments coming up. Start a match from any free time.',
   // One side failed to load while the other is on the page.
   matchesError: 'The open matches could not be loaded.',
+  // 0339: a signed-in guest who skipped the level or years question sees every tournament.
+  fitAsk: 'Tell us your level and how long you have played to see the tournaments for you.',
   // Both sides failed.
   loadError: 'Open matches and tournaments could not be loaded.',
   // The court under the title (packages/court3d join.ts): the next open match, its
