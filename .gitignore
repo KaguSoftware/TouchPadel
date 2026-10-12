@@ -83,3 +83,5 @@ packages/db/vitest-report.json
 
 # Agent worktrees created by Claude Code inside the repo (never committed).
 .claude/worktrees/
+SECURITY-PENTEST-NOTES.local.md
+pentest-idor.local.mjs

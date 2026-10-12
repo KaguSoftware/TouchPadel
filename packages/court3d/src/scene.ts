@@ -59,6 +59,20 @@ import { buildGhostTrail } from './trail';
 import { makeCamera, poseCamera, poseTopCamera, topBallScale } from './camera';
 import { DRILL_PLAYERS, drillAt, drillBallSampler, MACHINE } from './drill';
 import { buildDrillProps } from './drillProps';
+import {
+  JOIN_CHANGE,
+  JOIN_REST_LOCAL,
+  JOIN_SEATS,
+  playerSpot,
+  racketPresence,
+  seatPlayer,
+  spotPresence,
+  takenPlayers,
+  warmupAt,
+  warmupBallSampler,
+  warmupOrder,
+  type JoinSeats,
+} from './join';
 import { lerp, slice, SPEC } from './spec';
 import type { CourtQuality } from './quality';
 
@@ -97,9 +111,11 @@ export interface CourtBackdrop {
  * What plays on the court. `rally` (default): the Book tab's four-racket rally
  * (rally.ts). `drill`: the Coaches tab's coaching drill (drill.ts), a ball
  * machine and a coach on the right half feeding the four rackets down the
- * left, with the machine's and coach's meshes (drillProps.ts). Fixed at build.
+ * left, with the machine's and coach's meshes (drillProps.ts). `join`: the
+ * Play tab's next open match (join.ts), its taken seats warming up and its open
+ * ones marked, as the page says through `setJoin`. Fixed at build.
  */
-export type CourtSceneKind = 'rally' | 'drill';
+export type CourtSceneKind = 'rally' | 'drill' | 'join';
 
 /**
  * How the court is seen. `book` (default): the Book tab's orbit, top-down
@@ -147,15 +163,16 @@ export interface CourtSceneOptions {
    *     of a whole rally state each: 36 × six racket poses a frame become two;
    *   · and fewer draw calls, each of which Android pays for on the JS thread:
    *     the static court and each racket's body are merged into one mesh per
-   *     draw state (merge.ts), and the trail is one instanced mesh (trail.ts).
+   *     draw state (merge.ts), and the trail is one instanced mesh (trail.ts,
+   *     where the host says it can draw one: `instancing`).
    *     ~250 draws a frame (full, both surfaces) become ~90.
    * Off by default, so iOS and the web run exactly what they always did.
    */
   lean?: boolean;
   /**
    * The host's GL can draw instanced meshes (WebGL2, or WebGL1 with
-   * ANGLE_instanced_arrays). Read by the TOP view only, which then draws its
-   * 36 trail ghosts as one instanced mesh instead of 36 (see TRAIL_N). Off by
+   * ANGLE_instanced_arrays). The top view, and the Book view under `lean`, then
+   * draw the 36 trail ghosts as one instanced mesh instead of 36 (trail.ts). Off by
    * default: without instancing three silently draws nothing for an instanced
    * mesh, so only a host that has asked its renderer may turn it on.
    */
@@ -216,97 +233,60 @@ const ghostOpacity = (i: number) => 0.1 * (1 - i / TRAIL_N);
 /**
  * Build the trail into `overlay`.
  *
- * Instanced (the top view, on a host that can draw instances): ONE mesh and
- * one draw call for all 36 ghosts instead of 36, each ghost's opacity read
- * from a per-instance attribute (MeshBasicMaterial has no per-instance alpha
- * of its own). A hidden ghost is scaled to nothing. It draws the same picture
- * as the 36 meshes, for two reasons that hold only in the top view:
- *   · the ghosts are all the same white, and stacking layers of one colour
- *     gives the same result in any order, so drawing them in instance order
- *     rather than sorted by depth changes nothing;
- *   · straight down, every ghost is nearer the camera than the ground disc,
- *     so the disc was always drawn first: `renderOrder` 1 keeps it that way.
- * The Book view keeps its separate meshes (its pitched camera can put a ghost
- * behind the disc), and so does the web.
+ * Instanced (a host that can draw instances, in the top view or `lean`): ONE
+ * mesh and one draw call for all 36 ghosts instead of 36 (trail.ts), centred
+ * on the ball so three sorts it where the ball is. It draws the same picture
+ * as the 36 meshes because the ghosts are all the same white, and stacking
+ * layers of one colour gives the same result in any order. In the top view
+ * every ghost is also nearer the camera than the ground disc, so the disc was
+ * always drawn first: `renderOrder` 1 keeps it that way there. The pitched
+ * Book view can put a ghost behind the disc, so it is instanced only under
+ * `lean` (Android, whose frames pay for each draw call); iOS and the web keep
+ * its separate meshes.
  */
 function buildTrail(
   overlay: THREE.Scene,
   keep: (d: { dispose(): void }) => void,
-  instanced: boolean,
+  origin: THREE.Vector3,
+  { instanced, top }: { instanced: boolean; top: boolean },
 ): Trail {
-  const sphere = new THREE.SphereGeometry(1, 12, 10);
-  keep(sphere);
-  if (!instanced) {
-    const meshes: THREE.Mesh[] = [];
-    for (let i = 0; i < TRAIL_N; i++) {
-      const material = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: ghostOpacity(i),
-        depthWrite: false,
-      });
-      keep(material);
-      const m = new THREE.Mesh(sphere, material);
-      m.scale.setScalar(ghostRadius(i));
-      m.visible = false;
-      overlay.add(m);
-      meshes.push(m);
-    }
+  if (instanced) {
+    const ghosts = buildGhostTrail(TRAIL_N, 1, ghostRadius, ghostOpacity);
+    if (top) ghosts.mesh.renderOrder = 1;
+    overlay.add(ghosts.mesh);
+    keep(ghosts);
     return {
-      place(i, at, scale) {
-        const m = meshes[i]!;
-        m.visible = at !== null;
-        if (!at) return;
-        m.position.set(at.x, at.y, at.z);
-        m.scale.setScalar(ghostRadius(i) * scale);
-      },
-      commit() {},
+      place: ghosts.place,
+      commit: () => ghosts.commit(origin),
     };
   }
 
-  const alpha = new Float32Array(TRAIL_N);
-  for (let i = 0; i < TRAIL_N; i++) alpha[i] = ghostOpacity(i);
-  sphere.setAttribute('ghostOpacity', new THREE.InstancedBufferAttribute(alpha, 1));
-  const material = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    transparent: true,
-    depthWrite: false,
-  });
-  material.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader
-      .replace('void main() {', 'attribute float ghostOpacity;\nvarying float vGhostOpacity;\nvoid main() {')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvGhostOpacity = ghostOpacity;');
-    shader.fragmentShader = shader.fragmentShader
-      .replace('void main() {', 'varying float vGhostOpacity;\nvoid main() {')
-      .replace(
-        'vec4 diffuseColor = vec4( diffuse, opacity );',
-        'vec4 diffuseColor = vec4( diffuse, opacity * vGhostOpacity );',
-      );
-  };
-  keep(material);
-  const mesh = new THREE.InstancedMesh(sphere, material, TRAIL_N);
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  // The ghosts move every frame and three caches an instanced mesh's bounds
-  // once, so culling would test against where they first were.
-  mesh.frustumCulled = false;
-  mesh.renderOrder = 1;
-  const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
-  const m4 = new THREE.Matrix4();
-  for (let i = 0; i < TRAIL_N; i++) mesh.setMatrixAt(i, hidden);
-  overlay.add(mesh);
-  keep({ dispose: () => mesh.dispose() });
+  const sphere = new THREE.SphereGeometry(1, 12, 10);
+  keep(sphere);
+  const meshes: THREE.Mesh[] = [];
+  for (let i = 0; i < TRAIL_N; i++) {
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: ghostOpacity(i),
+      depthWrite: false,
+    });
+    keep(material);
+    const m = new THREE.Mesh(sphere, material);
+    m.scale.setScalar(ghostRadius(i));
+    m.visible = false;
+    overlay.add(m);
+    meshes.push(m);
+  }
   return {
     place(i, at, scale) {
-      if (!at) {
-        mesh.setMatrixAt(i, hidden);
-        return;
-      }
-      const r = ghostRadius(i) * scale;
-      mesh.setMatrixAt(i, m4.makeScale(r, r, r).setPosition(at.x, at.y, at.z));
+      const m = meshes[i]!;
+      m.visible = at !== null;
+      if (!at) return;
+      m.position.set(at.x, at.y, at.z);
+      m.scale.setScalar(ghostRadius(i) * scale);
     },
-    commit() {
-      mesh.instanceMatrix.needsUpdate = true;
-    },
+    commit() {},
   };
 }
 
@@ -333,6 +313,15 @@ export interface CourtScene {
    * patternInk) and re-does it on a theme flip. A no-op without a backdrop.
    */
   setBackdropInk(color: string): void;
+  /**
+   * The `join` scene's seats (join.ts, JoinSeats): which seats warm up and
+   * whether the open ones are marked. `animate` plays the change (a racket
+   * landing, a spot settling in, the warm-up starting again); without it the
+   * court is simply in the new state, already mid-warm-up (a fresh build, or
+   * Reduce Motion, whose still frame is then the first strike). Takes effect on
+   * the next `update`. A no-op on the other scenes.
+   */
+  setJoin(seats: JoinSeats, animate: boolean): void;
   /** Everything with a `dispose()`: geometries, materials. */
   dispose(): void;
 }
@@ -627,29 +616,22 @@ export function buildCourtScene(
     }
   }
 
-  // THE TOP VIEW DRAWS ITS STATIC COURT IN A HANDFUL OF CALLS. Everything built
-  // so far stands still, and the top view never changes anything about it but
-  // two opacities, which belong to the materials and so survive a merge. So
-  // the meshes that share a material are baked into one (mergeTopStatic): the
-  // posts, caps, rails and lines go from ~60 draw calls to ~10. It draws the
-  // same picture because, seen from straight above at rest, every transparent
-  // piece merged here is at opacity 1 (the frames, and the lines at p = 0),
-  // and an opaque-valued piece covers what is behind it in either draw order.
-  // The Book view's pitch fades them, so it keeps its separate meshes. `lean`
-  // merges everything below (merge.ts), so it skips this pass.
-  if (top && !opts.lean) mergeTopStatic(scene, geo);
+  // FEWER DRAW CALLS FOR THE STATIC COURT. Everything built so far stands
+  // still, so the meshes and lines that share a draw state are baked into one
+  // each (merge.ts): ~100 meshes over 17 materials become ~20 draw calls.
+  //   · The top view, on every host: it never changes anything about them but
+  //     opacities, which belong to the materials and so survive a merge, and
+  //     seen from straight above at rest every transparent piece merged here
+  //     is at opacity 1 (the frames, and the lines at p = 0), so the draw
+  //     order among them cannot show.
+  //   · `lean` (Android), in either view: its frames pay for each draw call on
+  //     the JS thread. The Book view's pitch fades the cage, and each merged
+  //     transparent group is one flat colour, so it blends the same in any
+  //     order among itself (merge.ts has the rest).
+  // iOS and the web keep the Book view's separate meshes.
+  if (top || opts.lean) disposables.push(...mergeStatic(scene));
 
-  // Everything built so far that is a mesh or a line never moves: freeze it
-  // (`lean`). Its matrix is composed here, once, and three skips it on every
-  // frame's matrix pass from now on. The scene's own matrix goes with it — it
-  // is identity and never changes, but recomposing it each frame flags every
-  // child for a world-matrix multiply, frozen or not. What does move (the
-  // camera, the rackets, the ball's caster) keeps updating itself: none of it
-  // is in this list, and each flags its own subtree when it changes.
   if (opts.lean) {
-    // And fold them into one mesh per draw state first (merge.ts): ~100 meshes
-    // over 17 materials become ~20 draw calls.
-    disposables.push(...mergeStatic(scene));
     for (const o of scene.children) {
       if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
         o.updateMatrix();
@@ -692,6 +674,10 @@ export function buildCourtScene(
     disposables.push(...drill.disposables);
     scene.add(drill.group);
   }
+  // The join scene's open-spot marks, one on each rally spot (only the open
+  // seats' are shown), and its own ball sampler for the trail.
+  const join = opts.scene === 'join';
+  const spots = join ? buildSpotMarks(scene, (d) => disposables.push(d)) : null;
 
   // ball (brand sticker): lime with a white + blue wavy seam — in the overlay, over the button
   const ball = new THREE.Group();
@@ -722,24 +708,16 @@ export function buildCourtScene(
     caster = add(new THREE.SphereGeometry(BALL_RADIUS, 16, 12), casterMat, 0, 0, 0, true);
   }
 
-  // trail: fading ghosts of recent ball positions (both tiers, see TRAIL_N).
-  // `lean` draws the same ghosts as one instanced mesh (trail.ts).
+  // trail: fading ghosts of recent ball positions (both tiers, see TRAIL_N)
   const ghostBall = opts.lean ? ballSampler() : null;
-  const ghostSize = (i: number) => 0.25 + 0.7 * (1 - i / TRAIL_N);
-  const ghostAlpha = (i: number) => 0.1 * (1 - i / TRAIL_N);
-  const ghosts = opts.lean ? buildGhostTrail(TRAIL_N, BALL_RADIUS, ghostSize, ghostAlpha) : null;
-  const ghostAt: { x: number; y: number; z: number }[] = [];
-  const ghostScale: number[] = [];
-  if (ghosts) {
-    disposables.push(ghosts);
-    overlay.add(ghosts.mesh);
-  }
   // The drill's ghosts always read the ball alone: there is no older path for
   // it to keep bit-for-bit, and the sampler is the same picture, cheaper.
   const ghostDrill = drill ? drillBallSampler() : null;
-  const trail = ghosts
-    ? null
-    : buildTrail(overlay, (d) => disposables.push(d), top && opts.instancing === true);
+  const ghostJoin = join ? warmupBallSampler() : null;
+  const trail = buildTrail(overlay, (d) => disposables.push(d), ball.position, {
+    instanced: opts.instancing === true && (top || opts.lean === true),
+    top,
+  });
 
   // the ground disc under the ball (overlay too: the prototype's disc rides over the button)
   const shadeMat = new THREE.MeshBasicMaterial({ color: NAVY, transparent: true, opacity: 0.28 });
@@ -793,31 +771,18 @@ export function buildCourtScene(
     // the barrel or across the racket — and none at all while the ball sits in
     // the machine. Each ghost also takes the ball's scale at its own time, so
     // the trail shrinks away with the ball.
-    if (ghosts) {
-      ghostAt.length = 0;
-      ghostScale.length = 0;
-      for (let i = 0; i < TRAIL_N; i++) {
-        const at = t - ((i + 1) * TRAIL_LAG) / TRAIL_N;
-        if (!(at > state.trailFrom)) break;
-        const g = sample(at, camK);
-        ghostAt.push(g.ball);
-        ghostScale.push(g.scale > 1e-3 ? g.scale * (top ? topBallScale(g.ball.y) : 1) : 0);
+    for (let i = 0; i < TRAIL_N; i++) {
+      const at = t - ((i + 1) * TRAIL_LAG) / TRAIL_N;
+      if (!(at > state.trailFrom)) {
+        trail.place(i, null, 0);
+        continue;
       }
-      ghosts.place(ball.position, ghostAt, ghostScale);
-    } else if (trail) {
-      for (let i = 0; i < TRAIL_N; i++) {
-        const at = t - ((i + 1) * TRAIL_LAG) / TRAIL_N;
-        if (!(at > state.trailFrom)) {
-          trail.place(i, null, 0);
-          continue;
-        }
-        const g = sample(at, camK);
-        if (g.scale > 1e-3) {
-          trail.place(i, g.ball, g.scale * (top ? topBallScale(g.ball.y) : 1));
-        } else trail.place(i, null, 0);
-      }
-      trail.commit();
+      const g = sample(at, camK);
+      if (g.scale > 1e-3) {
+        trail.place(i, g.ball, g.scale * (top ? topBallScale(g.ball.y) : 1));
+      } else trail.place(i, null, 0);
     }
+    trail.commit();
     shade.visible = state.shade.opacity > 1e-3;
     shade.position.set(state.shade.x, 0.012, state.shade.z);
     shade.scale.setScalar(Math.max(state.shade.scale, 1e-3));
@@ -835,6 +800,118 @@ export function buildCourtScene(
     props.coachHead.rotation.y = state.coach.head;
   };
 
+  /**
+   * The join scene's state. Each seat's racket and spot is shown or not, with
+   * the time it last changed (wall time t, or null for "already settled"), so
+   * a change plays once and then holds. `cycleAt` is the wall time the current
+   * warm-up began (join.ts: local time τ = t − cycleAt); `order` the players it
+   * passes the ball between. `pending` is the last `setJoin`, applied on the
+   * next update, which is the first moment the scene knows the wall time.
+   */
+  const seatRacket = PLAYERS.map(() => ({ on: false, at: null as number | null }));
+  const seatSpot = PLAYERS.map(() => ({ on: false, at: null as number | null }));
+  let order: number[] = [];
+  let cycleAt = 0;
+  let pending: { seats: JoinSeats; animate: boolean } | null = join
+    ? { seats: { taken: 0, spots: false, mirror: false }, animate: false }
+    : null;
+
+  /** Turn `setJoin` into per-player targets, at wall time t. */
+  const settleJoin = (t: number, seats: JoinSeats, animate: boolean) => {
+    const playing = takenPlayers(seats);
+    const nextOrder = warmupOrder(playing);
+    let landing = false;
+    for (let seat = 0; seat < JOIN_SEATS; seat++) {
+      const pl = seatPlayer(seat, seats.mirror);
+      const racketOn = playing.includes(pl);
+      const spotOn = seats.spots && !racketOn;
+      const r = seatRacket[pl]!;
+      if (r.on !== racketOn) {
+        r.on = racketOn;
+        r.at = animate ? t : null;
+        if (racketOn && animate) landing = true;
+      }
+      const sp = seatSpot[pl]!;
+      if (sp.on !== spotOn) {
+        sp.on = spotOn;
+        sp.at = animate ? t : null;
+      }
+    }
+    if (nextOrder.join() !== order.join() || !animate) {
+      order = nextOrder;
+      // A new warm-up: once a landing racket has settled (and a beat), or, with
+      // nothing to watch arrive, at its first strike already.
+      cycleAt = animate ? t + (landing ? JOIN_CHANGE.racketIn : 0) + 0.15 : t - JOIN_REST_LOCAL;
+    }
+  };
+
+  /** The join scene's frame: the warm-up, the seats coming and going, the trail. */
+  const applyJoin = (t: number, camK: number, marks: SpotMarks, sample: ReturnType<typeof warmupBallSampler>) => {
+    if (pending) {
+      settleJoin(t, pending.seats, pending.animate);
+      pending = null;
+    }
+    const tau = t - cycleAt;
+    const state = warmupAt(order, tau, cycleAt, camK);
+    const lay = layAngle(camK);
+    state.rackets.forEach((r, i) => {
+      const rig = rackets[i]!;
+      const seat = seatRacket[i]!;
+      const since = seat.at === null ? Infinity : t - seat.at;
+      const size = racketPresence(seat.on, since);
+      rig.mount.visible = size > 1e-3;
+      rig.mount.scale.setScalar(Math.max(size, 1e-3));
+      rig.mount.position.set(r.position.x, r.position.y, r.position.z);
+      rig.mount.rotation.set(r.rotation.x, r.rotation.y, r.rotation.z);
+      rig.pivot.position.set(r.swing.position.x, r.swing.position.y, r.swing.position.z);
+      rig.pivot.rotation.set(r.swing.rotation.x, r.swing.rotation.y, r.swing.rotation.z);
+      rig.lay.rotation.x = lay;
+    });
+    marks.forEach((mark, i) => {
+      const seat = seatSpot[i]!;
+      const since = seat.at === null ? Infinity : t - seat.at;
+      const { opacity, scale } = spotPresence(seat.on, since);
+      mark.mesh.visible = opacity > 1e-3;
+      mark.material.opacity = opacity;
+      mark.mesh.scale.setScalar(scale);
+    });
+    const s = state.ballScale;
+    const shown = s > 1e-3;
+    ball.visible = shown;
+    ball.scale.setScalar(shown ? s * (top ? topBallScale(state.ball.y) : 1) : 1);
+    ball.position.set(state.ball.x, state.ball.y, state.ball.z);
+    if (caster) {
+      caster.visible = shown;
+      caster.scale.setScalar(shown ? s : 1);
+      caster.position.copy(ball.position);
+    }
+    if (spinByTime) {
+      ball.rotation.x = t * BALL_SPIN.x;
+      ball.rotation.z = t * BALL_SPIN.z;
+    } else {
+      ball.rotation.x += 0.12;
+      ball.rotation.z += 0.07;
+    }
+    // As the drill's: each ghost is the ball at a fixed time behind t, only
+    // inside the current flight, at the ball's own scale at that time.
+    for (let i = 0; i < TRAIL_N; i++) {
+      const at = tau - ((i + 1) * TRAIL_LAG) / TRAIL_N;
+      if (!(at > state.trailFrom)) {
+        trail.place(i, null, 0);
+        continue;
+      }
+      const g = sample(order, at, cycleAt, camK);
+      if (g.scale > 1e-3) {
+        trail.place(i, g.ball, g.scale * (top ? topBallScale(g.ball.y) : 1));
+      } else trail.place(i, null, 0);
+    }
+    trail.commit();
+    shade.visible = state.shade.opacity > 1e-3;
+    shade.position.set(state.shade.x, 0.012, state.shade.z);
+    shade.scale.setScalar(Math.max(state.shade.scale, 1e-3));
+    shadeMat.opacity = state.shade.opacity;
+  };
+
   return {
     scene,
     overlay,
@@ -844,6 +921,9 @@ export function buildCourtScene(
     },
     setBackdropInk(color) {
       backdrop?.setInk(color);
+    },
+    setJoin(seats, animate) {
+      if (join) pending = { seats, animate };
     },
     update(t, p, camK) {
       // The top view never pitches: whatever progress the host hands in, it is
@@ -882,6 +962,10 @@ export function buildCourtScene(
         applyDrill(t, camK, drill, ghostDrill);
         return;
       }
+      if (spots && ghostJoin) {
+        applyJoin(t, camK, spots, ghostJoin);
+        return;
+      }
 
       const state = rallyAt(t, camK);
       const lay = layAngle(camK);
@@ -908,28 +992,15 @@ export function buildCourtScene(
       // stops at the current leg's start — the ball turns at the racket, and a
       // trail that reached past it would cut a straight chord through the bat.
       const legStart = Math.floor(t / LEG_SECONDS) * LEG_SECONDS;
-      if (ghosts && ghostBall) {
-        ghostAt.length = 0;
-        ghostScale.length = 0;
-        for (let i = 0; i < TRAIL_N; i++) {
-          const at = t - ((i + 1) * TRAIL_LAG) / TRAIL_N;
-          if (at <= legStart) break;
-          const g = ghostBall(at, camK);
-          ghostAt.push(g);
-          if (top) ghostScale.push(topBallScale(g.y));
-        }
-        ghosts.place(ball.position, ghostAt, top ? ghostScale : undefined);
-      } else if (trail) {
-        for (let i = 0; i < TRAIL_N; i++) {
-          const back = ((i + 1) * TRAIL_LAG) / TRAIL_N;
-          const at = t - back;
-          if (at > legStart) {
-            const p = ghostBall ? ghostBall(at, camK) : rallyAt(at, camK).ball;
-            trail.place(i, p, top ? topBallScale(p.y) : 1);
-          } else trail.place(i, null, 0);
-        }
-        trail.commit();
+      for (let i = 0; i < TRAIL_N; i++) {
+        const back = ((i + 1) * TRAIL_LAG) / TRAIL_N;
+        const at = t - back;
+        if (at > legStart) {
+          const p = ghostBall ? ghostBall(at, camK) : rallyAt(at, camK).ball;
+          trail.place(i, p, top ? topBallScale(p.y) : 1);
+        } else trail.place(i, null, 0);
       }
+      trail.commit();
       shade.position.set(state.shade.x, 0.012, state.shade.z);
       shade.scale.setScalar(state.shade.scale);
       shadeMat.opacity = state.shade.opacity;
@@ -943,62 +1014,110 @@ export function buildCourtScene(
   };
 }
 
+/** The join scene's open-spot marks, one per rally player (index = PLAYERS index). */
+type SpotMarks = { mesh: THREE.Mesh; material: THREE.MeshBasicMaterial }[];
+
 /**
- * Bake the scene's direct child meshes that share a material (and shadow
- * flags and render order) into one mesh each, in world space. For the top
- * view only: see the note where it is called. Geometries that cannot be
- * concatenated (different attributes, or not indexed) are left as they were.
+ * The open-spot mark: the match card's open seat (apps/mobile components/
+ * play.tsx, MiniCourt: a white disc, a dashed border, a blue plus) carried onto
+ * the blue turf. The card's border is blue on a light court; here blue dashes
+ * vanish into the turf and leave the disc looking notched, so the dashes are
+ * white and stand off the disc, a chalked outline round it: the disc and its
+ * plus say "a place for you", the dashed ring "nobody stands here yet". 1.5 m
+ * across, about a racket head, a touch nearer the net than the racket stands
+ * (join.ts, playerSpot) so it clears the service line.
+ *
+ * One mesh per spot, coloured per vertex, so a spot is one draw call and fades
+ * as one piece: the disc, then the ring, then the plus, in that order within
+ * the mesh (coplanar, so each later piece lies over the one before).
  */
-function mergeTopStatic(
-  scene: THREE.Scene,
-  geo: <G extends THREE.BufferGeometry>(g: G) => G,
-): void {
-  const groups = new Map<string, THREE.Mesh[]>();
-  for (const o of scene.children) {
-    if (!(o instanceof THREE.Mesh) || Array.isArray(o.material)) continue;
-    const key = `${o.material.uuid} ${o.castShadow} ${o.receiveShadow} ${o.renderOrder}`;
-    const list = groups.get(key) ?? [];
-    list.push(o);
-    groups.set(key, list);
+const SPOT = {
+  disc: 0.56,
+  ring: { inner: 0.68, outer: 0.75 },
+  dashes: 16,
+  dashFill: 0.55,
+  plus: 0.58,
+  stroke: 0.1,
+  y: 0.035,
+} as const;
+
+function buildSpotMarks(scene: THREE.Scene, keep: (d: { dispose(): void }) => void): SpotMarks {
+  const pos: number[] = [];
+  const col: number[] = [];
+  const index: number[] = [];
+  const white = new THREE.Color(0xffffff);
+  const blue = new THREE.Color(BLUE);
+  const vert = (x: number, y: number, c: THREE.Color) => {
+    pos.push(x, y, 0);
+    col.push(c.r, c.g, c.b);
+    return pos.length / 3 - 1;
+  };
+  // The disc: a fan.
+  const SEG = 40;
+  const centre = vert(0, 0, white);
+  for (let i = 0; i <= SEG; i++) {
+    const a = (i / SEG) * Math.PI * 2;
+    vert(Math.cos(a) * SPOT.disc, Math.sin(a) * SPOT.disc, white);
   }
-  for (const meshes of groups.values()) {
-    if (meshes.length < 2) continue;
-    const names = Object.keys(meshes[0]!.geometry.attributes).sort().join();
-    const fits = meshes.every(
-      (m) => m.geometry.index && Object.keys(m.geometry.attributes).sort().join() === names,
-    );
-    if (!fits) continue;
-    const parts = meshes.map((m) => {
-      m.updateMatrix();
-      return m.geometry.clone().applyMatrix4(m.matrix);
+  for (let i = 0; i < SEG; i++) index.push(centre, centre + 1 + i, centre + 2 + i);
+  // The dashed ring: arcs of quads on the turf round the disc.
+  const { inner, outer } = SPOT.ring;
+  const step = (Math.PI * 2) / SPOT.dashes;
+  for (let d = 0; d < SPOT.dashes; d++) {
+    const a0 = d * step;
+    const a1 = a0 + step * SPOT.dashFill;
+    const N = 4;
+    const first = pos.length / 3;
+    for (let k = 0; k <= N; k++) {
+      const a = lerp(a0, a1, k / N);
+      vert(Math.cos(a) * inner, Math.sin(a) * inner, white);
+      vert(Math.cos(a) * outer, Math.sin(a) * outer, white);
+    }
+    for (let k = 0; k < N; k++) {
+      const i0 = first + k * 2;
+      // Counter-clockwise seen from above, as the disc and the plus are: the
+      // mark is drawn front faces only, in one pass.
+      index.push(i0, i0 + 1, i0 + 2, i0 + 1, i0 + 3, i0 + 2);
+    }
+  }
+  // The plus: two bars.
+  const bar = (w: number, h: number) => {
+    const a = vert(-w / 2, -h / 2, blue);
+    const b = vert(w / 2, -h / 2, blue);
+    const c = vert(w / 2, h / 2, blue);
+    const e = vert(-w / 2, h / 2, blue);
+    index.push(a, b, c, a, c, e);
+  };
+  bar(SPOT.plus, SPOT.stroke);
+  bar(SPOT.stroke, SPOT.plus);
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geometry.setIndex(index);
+  keep(geometry);
+
+  return PLAYERS.map((_, player) => {
+    const p = playerSpot(player);
+    const material = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      // Front faces only: seen from above, always. (Double-sided, three draws a
+      // transparent mesh's back faces in a pass of their own BEFORE its front
+      // faces, so a piece wound the other way ends up under the disc.)
+      side: THREE.FrontSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -3,
+      polygonOffsetUnits: -3,
     });
-    const merged = new THREE.BufferGeometry();
-    for (const name of Object.keys(parts[0]!.attributes)) {
-      const size = parts[0]!.getAttribute(name).itemSize;
-      const out = new Float32Array(parts.reduce((n, g) => n + g.getAttribute(name).count * size, 0));
-      let at = 0;
-      for (const g of parts) {
-        const a = g.getAttribute(name).array as ArrayLike<number>;
-        out.set(a, at);
-        at += a.length;
-      }
-      merged.setAttribute(name, new THREE.BufferAttribute(out, size));
-    }
-    const index: number[] = [];
-    let base = 0;
-    for (const g of parts) {
-      const ix = g.index!.array;
-      for (let i = 0; i < ix.length; i++) index.push(ix[i]! + base);
-      base += g.getAttribute('position').count;
-      g.dispose();
-    }
-    merged.setIndex(index);
-    const first = meshes[0]!;
-    const mesh = new THREE.Mesh(geo(merged), first.material);
-    mesh.castShadow = first.castShadow;
-    mesh.receiveShadow = first.receiveShadow;
-    mesh.renderOrder = first.renderOrder;
-    for (const m of meshes) scene.remove(m);
+    keep(material);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(p.x, SPOT.y, p.z);
+    mesh.visible = false;
     scene.add(mesh);
-  }
+    return { mesh, material };
+  });
 }

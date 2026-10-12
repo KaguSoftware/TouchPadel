@@ -1,5 +1,5 @@
 /**
- * The ball's ghost trail as ONE draw call (scene.ts, `lean`).
+ * The ball's ghost trail as ONE draw call (scene.ts, `instancing`).
  *
  * The trail is 36 white spheres, each shrinking and fading behind the last.
  * Drawn as 36 meshes it was 36 draw calls a frame on the ball's own surface,
@@ -11,23 +11,28 @@
  * is under it, and white-over-white at alphas a and b leaves 1 − (1 − a)(1 − b)
  * of white in either order, so drawing them in one pass rather than three's
  * per-object depth sort lands on the same pixels.
+ *
+ * Only on a GL that can draw instances (WebGL2, or WebGL1 with
+ * ANGLE_instanced_arrays): without it three silently draws nothing for an
+ * instanced mesh, so scene.ts falls back to 36 meshes there.
  */
 import * as THREE from 'three';
+
+type Point = { x: number; y: number; z: number };
 
 export interface GhostTrail {
   mesh: THREE.InstancedMesh;
   /**
-   * Draw the first `positions.length` ghosts (the visible ones are always a
-   * prefix: the newest come first), centred on `origin` so three sorts the
-   * trail against the overlay's other transparent things where the ball is.
-   * `scales`, when given, multiplies each ghost's own size (the top view's
-   * height growth, the drill's ball scale); a 0 hides that ghost.
+   * Ghost i at `at`, `scale` times its own size (the top view's height growth,
+   * the drill's ball scale), or hidden (`at` null). Takes effect at `commit`.
    */
-  place(
-    origin: THREE.Vector3,
-    positions: readonly { x: number; y: number; z: number }[],
-    scales?: readonly number[],
-  ): void;
+  place(i: number, at: Point | null, scale: number): void;
+  /**
+   * Write the frame's ghosts, centred on `origin` (the ball) so three sorts the
+   * trail against the overlay's other transparent things where the ball is.
+   * A frame with no ghost shown draws nothing at all.
+   */
+  commit(origin: Point): void;
   dispose(): void;
 }
 
@@ -72,25 +77,45 @@ export function buildGhostTrail(
   // The instances move every frame and the mesh's own bounds know nothing of
   // them; the trail is always on screen with the ball anyway.
   mesh.frustumCulled = false;
-  mesh.count = 0;
   mesh.visible = false;
+  // A hidden ghost is scaled to nothing.
+  const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
+  for (let i = 0; i < count; i++) mesh.setMatrixAt(i, hidden);
 
-  const scales = Array.from({ length: count }, (_, i) => size(i));
+  const sizes = Array.from({ length: count }, (_, i) => size(i));
+  // This frame's ghosts, written by `place` without allocating: x, y, z, and
+  // the scale (0 = hidden).
+  const pos = new Float32Array(count * 3);
+  const mul = new Float32Array(count);
   const m = new THREE.Matrix4();
   return {
     mesh,
-    place(origin, positions, mul) {
-      const n = Math.min(positions.length, count);
-      mesh.position.copy(origin);
-      for (let i = 0; i < n; i++) {
-        const p = positions[i]!;
-        const s = scales[i]! * (mul ? mul[i]! : 1);
-        m.makeScale(s, s, s).setPosition(p.x - origin.x, p.y - origin.y, p.z - origin.z);
+    place(i, p, scale) {
+      mul[i] = p ? scale : 0;
+      if (!p) return;
+      pos[i * 3] = p.x;
+      pos[i * 3 + 1] = p.y;
+      pos[i * 3 + 2] = p.z;
+    },
+    commit(origin) {
+      mesh.position.set(origin.x, origin.y, origin.z);
+      let shown = false;
+      for (let i = 0; i < count; i++) {
+        const s = sizes[i]! * mul[i]!;
+        if (!(s > 0)) {
+          mesh.setMatrixAt(i, hidden);
+          continue;
+        }
+        m.makeScale(s, s, s).setPosition(
+          pos[i * 3]! - origin.x,
+          pos[i * 3 + 1]! - origin.y,
+          pos[i * 3 + 2]! - origin.z,
+        );
         mesh.setMatrixAt(i, m);
+        shown = true;
       }
-      mesh.count = n;
-      mesh.visible = n > 0;
-      if (n > 0) mesh.instanceMatrix.needsUpdate = true;
+      mesh.visible = shown;
+      mesh.instanceMatrix.needsUpdate = true;
     },
     dispose() {
       geometry.dispose();

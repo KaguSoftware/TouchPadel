@@ -14,14 +14,22 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { captureException } from '../../lib/telemetry';
+import { isAllowedPaymentUrl } from './logic';
 
 /**
  * Open the payment page. Resolves when the sheet is gone (iOS) or open
  * (Android). Falls back to the system browser if the in-app one cannot be
  * shown; never throws, because the status screen is already there with an
- * "Open payment page again" of its own.
+ * "Open payment page again" of its own. A URL off the host allowlist
+ * (`isAllowedPaymentUrl`) is never opened, in either browser.
  */
 export async function openPaymentPage(url: string): Promise<void> {
+  if (!isAllowedPaymentUrl(url)) {
+    captureException(new Error('payment URL refused by the host allowlist'), {
+      scope: 'deposit.openBrowser.untrustedUrl',
+    });
+    return;
+  }
   try {
     await WebBrowser.openBrowserAsync(url, {
       presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,

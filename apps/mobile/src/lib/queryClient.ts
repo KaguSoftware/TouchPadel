@@ -297,7 +297,9 @@ export const persister = createAsyncStoragePersister({
  * statement the coach's pay (coaching guest.md §4.7.3). And the
  * `tournament` family: a detail carries other players' names and the guest's
  * own entry and money, and a "registered" read back from disk would be shown
- * before it is re-checked (tournaments plan §5.2).
+ * before it is re-checked (tournaments plan §5.2). And the guest's own
+ * profile and consent rows: a name, phone and gender in a plain file
+ * (pentest 2026-10).
  */
 export const persistOptions = {
   persister,
@@ -313,6 +315,12 @@ export const persistOptions = {
       query.queryKey[0] !== 'coaching' &&
       query.queryKey[0] !== 'coach' &&
       query.queryKey[0] !== 'tournament' &&
+      // SEC (pentest 2026-10): the profile row carries full_name, phone and
+      // gender; keep it off this plaintext file, which a backup or a seized
+      // device can read (SecureStore holds the session). The consent row goes
+      // with it. Cold start paints the name and avatar after the fetch.
+      query.queryKey[0] !== 'own-profile' &&
+      query.queryKey[0] !== 'own-consent' &&
       // 0302: a signed avatar URL expires, and the date of birth is read only
       // by its guest; neither is kept on disk.
       query.queryKey[0] !== 'avatar-url' &&
@@ -322,7 +330,7 @@ export const persistOptions = {
       query.queryKey[0] !== 'username-check' &&
       // Loyalty: the member card carries its TOTP secret, which lives in
       // SecureStore (features/loyalty/cardStore.ts), never in this plain file.
-      // The balance read (`['loyalty', 'mine']`) is kept, like the profile.
+      // The balance read (`['loyalty', 'mine']`) is kept.
       !(query.queryKey[0] === 'loyalty' && query.queryKey[1] === 'card'),
   },
 } as const;
