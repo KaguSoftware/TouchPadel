@@ -39,6 +39,8 @@ import { ProfileAvatar } from '../../src/components/ProfileAvatar';
 import { frameOf, frameStyleOf } from '../../src/features/profile/frames';
 import { atUsername } from '../../src/features/profile/username';
 import { useToast } from '../../src/components/overlays';
+import { useResetTo } from '../../src/navigation/back';
+import { closeBookingSheetNow } from '../../src/features/courtTransition/openIntent';
 
 const LOGO_H = 40;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
@@ -78,6 +80,7 @@ export default function ProfileScreen() {
   const { t, dir, locale } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const router = useRouter();
+  const resetTo = useResetTo();
   const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
@@ -116,7 +119,8 @@ export default function ProfileScreen() {
     setSigningOut(true);
     try {
       await signOut(supabase);
-      router.replace('/(tabs)');
+      closeBookingSheetNow();
+      resetTo('/(tabs)');
     } catch (err) {
       setError(t(mapErrorToKey(err)));
     } finally {
@@ -262,64 +266,68 @@ export default function ProfileScreen() {
                 three evenly — with an explicit lineHeight on each, so the 16px name
                 does not add extra leading and make its gap read wider than the
                 12px lines' gap. */}
-            <View style={{ flex: 1, minWidth: 0, alignItems: 'stretch', gap: 1 }}>
-              <Text
-                numberOfLines={1}
-                style={{
-                  fontFamily: fonts.display800,
-                  fontSize: 16,
-                  lineHeight: 20,
-                  color: colors.ink,
-                  ...idStyle,
-                }}
-              >
-                {isolateLtr(name)}
-              </Text>
-              {/* Phase 2 (0314): the handle other players and the desk see. */}
-              {profile.data?.username ? (
-                <Text
-                  testID="profile.username"
-                  numberOfLines={1}
-                  style={{
-                    fontFamily: fonts.body600,
-                    fontSize: 12.5,
-                    lineHeight: 16,
-                    color: colors.gstrong,
-                    ...idStyle,
-                  }}
-                >
-                  {isolateLtr(atUsername(profile.data.username))}
-                </Text>
-              ) : null}
-              <Text
-                style={{
-                  fontFamily: fonts.body400,
-                  fontSize: 12,
-                  lineHeight: 16,
-                  color: colors.mut,
-                  ...idStyle,
-                }}
-                numberOfLines={1}
-              >
-                {isolateLtr(email)}
-              </Text>
-              {/* Design: "{phone}" on the third line, dropped when unset. */}
-              {detailLine ? (
+              <View style={{ flex: 1, minWidth: 0, alignItems: 'stretch', gap: 1 }}>
                 <Text
                   numberOfLines={1}
                   style={{
-                    fontFamily: fonts.body400,
-                    fontSize: 12,
-                    lineHeight: 16,
-                    color: colors.mut,
+                    fontFamily: fonts.display800,
+                    fontSize: 16,
+                    lineHeight: 20,
+                    color: colors.ink,
                     ...idStyle,
                   }}
                 >
-                  {detailLine}
+                  {isolateLtr(name)}
                 </Text>
-              ) : null}
-            </View>
-            {/* The card is LTR in both locales, so the chevron must point right in
+                {/* Phase 2 (0314): the handle other players and the desk see. */}
+                {profile.data?.username ? (
+                  <Text
+                    testID="profile.username"
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: fonts.body600,
+                      fontSize: 12.5,
+                      lineHeight: 16,
+                      color: colors.gstrong,
+                      ...idStyle,
+                    }}
+                  >
+                    {isolateLtr(atUsername(profile.data.username))}
+                  </Text>
+                ) : null}
+                {/* Dropped when unset (a phone sign-in has no email), like the phone line,
+                  so the card does not show an empty gap. */}
+                {email ? (
+                  <Text
+                    style={{
+                      fontFamily: fonts.body400,
+                      fontSize: 12,
+                      lineHeight: 16,
+                      color: colors.mut,
+                      ...idStyle,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {isolateLtr(email)}
+                  </Text>
+                ) : null}
+                {/* Design: "{phone}" on the third line, dropped when unset. */}
+                {detailLine ? (
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: fonts.body400,
+                      fontSize: 12,
+                      lineHeight: 16,
+                      color: colors.mut,
+                      ...idStyle,
+                    }}
+                  >
+                    {detailLine}
+                  </Text>
+                ) : null}
+              </View>
+              {/* The card is LTR in both locales, so the chevron must point right in
                 both; the icons flip themselves in RTL, so Arabic takes the back
                 chevron, which that flip turns to face right. */}
             {dir === 'rtl' ? (

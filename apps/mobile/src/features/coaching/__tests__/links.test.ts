@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COACH_ID_RE, coachShareUrl, isCoachId, normaliseCoachLink } from '../links';
+import { COACH_ID_RE, coachShareUrl, isCoachId, isCoachSlug, normaliseCoachLink } from '../links';
 import { normaliseIncomingPath, shareHost } from '../../matches/links';
 import { redirectSystemPath } from '../../../../app/+native-intent';
 
@@ -15,6 +15,8 @@ describe('normaliseCoachLink (§4.12)', () => {
     [`https://www.touch-padel.com/ar/c/${ID}?utm=x#top`, `/coach/${ID}?utm=x#top`],
     [`touchpadel://c/${ID}`, `/coach/${ID}`],
     [`touchpadel:///en/c/${ID}`, `/coach/${ID}`],
+    ['https://www.touch-padel.com/en/c/omar-karim', '/coach/omar-karim'],
+    ['touchpadel://c/omar-karim', '/coach/omar-karim'],
   ])('%s → %s', (input, expected) => {
     expect(normaliseCoachLink(input)).toBe(expected);
   });
@@ -53,15 +55,33 @@ describe('the coach id', () => {
   });
 });
 
+describe('the coach slug (0337)', () => {
+  it('is a share link name, never an id', () => {
+    expect(isCoachSlug('omar-karim')).toBe(true);
+    expect(isCoachSlug('Omar-Karim-2')).toBe(true);
+    expect(isCoachSlug('-omar')).toBe(false);
+    expect(isCoachSlug('o')).toBe(false);
+    expect(isCoachSlug('omar karim')).toBe(false);
+    expect(isCoachSlug(ID)).toBe(false);
+    expect(isCoachSlug(undefined)).toBe(false);
+  });
+});
+
 describe('coachShareUrl', () => {
-  it('is the website’s /<locale>/c/<id> on the host every build claims', () => {
-    const url = coachShareUrl(ID, 'en');
-    expect(new URL(url).pathname).toBe(`/en/c/${ID}`);
+  const COACH = { id: ID, slug: 'omar-karim' };
+
+  it('is the website’s /<locale>/c/<slug> on the host every build claims', () => {
+    const url = coachShareUrl(COACH, 'en');
+    expect(new URL(url).pathname).toBe('/en/c/omar-karim');
     expect(new URL(url).host).toBe(shareHost());
-    expect(new URL(coachShareUrl(ID, 'ar')).pathname).toBe(`/ar/c/${ID}`);
+    expect(new URL(coachShareUrl(COACH, 'ar')).pathname).toBe('/ar/c/omar-karim');
+  });
+
+  it('falls back to the id when the server sent no slug', () => {
+    expect(new URL(coachShareUrl({ id: ID, slug: null }, 'en')).pathname).toBe(`/en/c/${ID}`);
   });
 
   it('opens back in the app on the coach route', () => {
-    expect(normaliseCoachLink(coachShareUrl(ID, 'ar'))).toBe(`/coach/${ID}`);
+    expect(normaliseCoachLink(coachShareUrl(COACH, 'ar'))).toBe('/coach/omar-karim');
   });
 });

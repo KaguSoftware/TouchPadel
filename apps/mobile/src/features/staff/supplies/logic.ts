@@ -244,10 +244,10 @@ export function matchIngredients(
   query: string,
   limit = 8,
 ): IngredientOption[] {
-  const q = query.trim().toLocaleLowerCase();
+  const q = query.trim().toLowerCase();
   if (!q) return [];
   return options
-    .filter((o) => o.name_en.toLocaleLowerCase().includes(q) || o.name_ar.includes(query.trim()))
+    .filter((o) => o.name_en.toLowerCase().includes(q) || o.name_ar.includes(query.trim()))
     .slice(0, limit);
 }
 

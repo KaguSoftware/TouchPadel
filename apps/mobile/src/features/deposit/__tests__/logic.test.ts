@@ -13,6 +13,7 @@ import {
   failureTextKey,
   fetchFailureOf,
   holdIdOf,
+  isAllowedPaymentUrl,
   isPollingScreen,
   isTerminalScreen,
   isTicketPayment,
@@ -172,6 +173,42 @@ describe('parseDepositBegin', () => {
   it('refuses an answer with no page to open', () => {
     expect(() => parseDepositBegin({ request_id: 'r-1' })).toThrow('MALFORMED_DEPOSIT_BEGIN');
     expect(() => parseDepositBegin(null)).toThrow('MALFORMED_DEPOSIT_BEGIN');
+  });
+});
+
+describe('isAllowedPaymentUrl (pentest 2026-10)', () => {
+  const HOSTED = 'https://lczijabnorujcgmbuqlw.supabase.co';
+  const LAN = 'http://192.168.1.20:54321';
+
+  it("opens Qi's hosted page, https on qi.iq or a subdomain", () => {
+    expect(isAllowedPaymentUrl('https://uat-sandbox-3ds-api.qi.iq/api/v1/payment/p-1', HOSTED)).toBe(true);
+    expect(isAllowedPaymentUrl('https://qi.iq/payment/p-1', HOSTED)).toBe(true);
+  });
+
+  it('refuses a look-alike host, plain http to Qi, and anything unparseable', () => {
+    expect(isAllowedPaymentUrl('https://evilqi.iq/payment/p-1', HOSTED)).toBe(false);
+    expect(isAllowedPaymentUrl('https://qi.iq.evil.com/payment/p-1', HOSTED)).toBe(false);
+    expect(isAllowedPaymentUrl('http://pay.qi.iq/payment/p-1', HOSTED)).toBe(false);
+    expect(isAllowedPaymentUrl('https://pay.example/p', HOSTED)).toBe(false);
+    expect(isAllowedPaymentUrl('javascript:alert(1)', HOSTED)).toBe(false);
+    expect(isAllowedPaymentUrl('not a url', HOSTED)).toBe(false);
+    expect(isAllowedPaymentUrl('', HOSTED)).toBe(false);
+  });
+
+  it("opens the fake provider's page only on the app's own Supabase origin", () => {
+    expect(isAllowedPaymentUrl(`${LAN}/functions/v1/payments-fake?ref=r-1`, LAN)).toBe(true);
+    expect(isAllowedPaymentUrl(`${HOSTED}/functions/v1/payments-fake?ref=r-1`, HOSTED)).toBe(true);
+    // Same host, another port or scheme, is another origin.
+    expect(isAllowedPaymentUrl('http://192.168.1.20:8080/functions/v1/payments-fake', LAN)).toBe(false);
+    expect(isAllowedPaymentUrl('https://192.168.1.20:54321/functions/v1/payments-fake', LAN)).toBe(false);
+    expect(isAllowedPaymentUrl('http://127.0.0.1:54321/functions/v1/payments-fake', LAN)).toBe(false);
+  });
+
+  it('allows only Qi when the Supabase URL is missing or not http(s)', () => {
+    expect(isAllowedPaymentUrl(`${LAN}/functions/v1/payments-fake`, undefined)).toBe(false);
+    expect(isAllowedPaymentUrl(`${LAN}/functions/v1/payments-fake`, '')).toBe(false);
+    expect(isAllowedPaymentUrl('file:///etc/passwd', 'file:///')).toBe(false);
+    expect(isAllowedPaymentUrl('https://pay.qi.iq/payment/p-1', undefined)).toBe(true);
   });
 });
 

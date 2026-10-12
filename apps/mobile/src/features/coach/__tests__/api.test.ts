@@ -75,7 +75,7 @@ describe('coach mode’s calls', () => {
     expect(calls[0]!.args).toEqual({ p_starts_at: 'a', p_ends_at: 'b', p_reason: '' });
   });
 
-  it('books a private lesson for a student, keyed, with a NULL phone when there is none', async () => {
+  it('books a private lesson for a saved student: no phone sent, the saved key instead (0335)', async () => {
     const { client, calls } = stub({
       data: { lesson_id: 'l', enrolment_id: 'e', duplicate: false },
     });
@@ -86,6 +86,7 @@ describe('coach mode’s calls', () => {
       name: 'Ali',
       phone: null,
       partySize: 2,
+      savedStudent: 'old-e',
       idempotencyKey: 'k',
     });
     expect(calls[0]!.args).toEqual({
@@ -96,8 +97,37 @@ describe('coach mode’s calls', () => {
       p_student_phone: null,
       p_party_size: 2,
       p_idempotency_key: 'k',
+      p_friend_names: [],
+      p_friend_phones: [],
+      p_saved_student: 'old-e',
     });
     expect(r).toEqual({ lessonId: 'l', enrolmentId: 'e', duplicate: false });
+  });
+
+  it('sends the other students by position, phones only when one was typed (0335)', async () => {
+    const { client, calls } = stub({ data: { lesson_id: 'l', enrolment_id: 'e', duplicate: false } });
+    const book = (friends: { name: string; phone: string }[]) =>
+      coachBookPrivate(client, {
+        typeId: 't',
+        venueId: 'v',
+        startAt: 's',
+        name: 'Ali',
+        phone: '+9647711113331',
+        partySize: 3,
+        friends,
+        idempotencyKey: 'k',
+      });
+    await book([
+      { name: 'Omar', phone: '' },
+      { name: 'Zaid', phone: '+9647711113333' },
+    ]);
+    await book([{ name: 'Omar', phone: '' }]);
+    expect(calls[0]!.args).toMatchObject({
+      p_friend_names: ['Omar', 'Zaid'],
+      p_friend_phones: ['', '+9647711113333'],
+      p_saved_student: null,
+    });
+    expect(calls[1]!.args).toMatchObject({ p_friend_names: ['Omar'], p_friend_phones: [] });
   });
 
   it('adds a student to a course with p_lesson_id NULL (exactly one target)', async () => {

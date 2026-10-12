@@ -27,6 +27,7 @@ import {
   reasonValue,
   sameWindows,
   scheduleSections,
+  scheduleSummary,
   scheduleWindow,
   slotsByNight,
   snapToGrid,
@@ -330,6 +331,26 @@ describe('the schedule (X10, guest.md §4.13.2)', () => {
     expect(all[3]!.data[0]!.type).toBe('timeOff');
     const here = scheduleSections(schedule, { now, tz: TZ, venueId: COACH_VENUE_ID });
     expect(here.flatMap((s) => s.data.map((i) => i.key))).not.toContain('lesson.other');
+    // Coach mode's hero counts and its "to mark" card come from the same sections.
+    expect(scheduleSummary(all, now)).toEqual({
+      today: 2,
+      week: 3,
+      students: 3,
+      toMark: { students: 2, lessonId: 'mark' },
+    });
+    const cancelled = scheduleSections(
+      {
+        ...schedule,
+        lessons: schedule.lessons.map((l) => ({ ...l, status: 'cancelled' as const })),
+      },
+      { now, tz: TZ, venueId: null },
+    );
+    expect(scheduleSummary(cancelled, now)).toEqual({
+      today: 0,
+      week: 0,
+      students: 0,
+      toMark: null,
+    });
   });
 
   it('keeps a past lesson still to mark only while its marking window is open (MB-09, CD-11)', () => {
@@ -528,11 +549,23 @@ describe('a lesson’s roster (X11; C-16, CD-11, R44, R54, P13)', () => {
           phone: '+9647700000000',
           status: 'held',
           attendance: 'late',
+          friend_names: ['Y'],
+          friend_phones: ['+9647700000001'],
         },
       ],
     })!;
     expect(held.roster[0]!.phone).toBeNull();
     expect(held.roster[0]!.attendance).toBeNull();
+    expect(held.roster[0]!.friends).toEqual([{ name: 'Y', phone: null }]);
+  });
+
+  it('pairs the other students with their phones by position (0335, 0336)', () => {
+    const d = parseCoachLesson(coachLessonRaw())!;
+    expect(d.roster[0]!.friends).toEqual([
+      { name: 'Omar Friend', phone: '+9647700000013' },
+      { name: 'Zaid Friend', phone: null },
+    ]);
+    expect(d.roster[1]!.friends).toEqual([]);
   });
 
   it('answers null without a lesson, and no permission without `can`', () => {

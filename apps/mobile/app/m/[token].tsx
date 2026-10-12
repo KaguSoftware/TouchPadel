@@ -15,6 +15,7 @@ import { setOnlyPendingJoin } from '../../src/features/booking/pendingIntent';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, Screen } from '../../src/components/ui';
 import { ErrorState } from '../../src/components/states';
+import { useReturnTo } from '../../src/navigation/back';
 import { CategoryPill, MatchRestrictedCard } from '../../src/components/match';
 
 /**
@@ -59,9 +60,11 @@ function Waiting() {
 }
 
 function useFindMatch(): () => void {
-  const router = useRouter();
-  // The Play tab is where open matches are listed (2026-10-11); it used to open the Book sheet.
-  return () => router.replace({ pathname: '/play', params: { show: 'matches' } });
+  const returnTo = useReturnTo();
+  // The Play tab is where open matches are listed (2026-10-11); it used to open
+  // the Book sheet. useReturnTo, not replace: a replace built a second (tabs)
+  // over the one already on the root stack.
+  return () => returnTo({ pathname: '/play', params: { show: 'matches' } }, '(tabs)');
 }
 
 /** "This match is no longer open" and "Find a match" (a bad token, a gone match, a closed invite). */

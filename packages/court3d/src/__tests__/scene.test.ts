@@ -107,32 +107,82 @@ describe('the shadow map option', () => {
   });
 });
 
-describe('the lean option', () => {
-  /** Every object's world matrix and visibility, in traversal order. */
-  const snapshot = (root: THREE.Object3D) => {
-    const out: { matrix: number[]; visible: boolean }[] = [];
-    root.traverse((o) => out.push({ matrix: [...o.matrixWorld.elements], visible: o.visible }));
-    return out;
+/**
+ * What the renderer would draw, in world space: every visible vertex, keyed
+ * by the draw state that paints it (kind, material colour and opacity,
+ * renderOrder, shadow flags) and summed into moments — count, Σx, Σx², Σxy,
+ * … — so it does not matter how many meshes carry them or in what order,
+ * while a part that moved, went missing or changed draw state still shows.
+ * The instanced trail is expanded instance by instance, its per-ghost alpha
+ * standing in for the opacity.
+ */
+const drawn = (root: THREE.Object3D) => {
+  const out = new Map<string, number[]>();
+  const v = new THREE.Vector3();
+  const m = new THREE.Matrix4();
+  const put = (key: string, g: THREE.BufferGeometry, world: THREE.Matrix4) => {
+    const pos = g.getAttribute('position');
+    const index = g.index;
+    const s = out.get(key) ?? new Array<number>(10).fill(0);
+    const n = index ? index.count : pos.count;
+    for (let i = 0; i < n; i++) {
+      const { x, y, z } = v.fromBufferAttribute(pos, index ? index.getX(i) : i).applyMatrix4(world);
+      const terms = [1, x, y, z, x * x, y * y, z * z, x * y, y * z, z * x];
+      for (let j = 0; j < 10; j++) s[j]! += terms[j]!;
+    }
+    out.set(key, s);
   };
+  root.traverseVisible((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh && !(o as THREE.LineSegments).isLineSegments) return;
+    const mat = mesh.material as THREE.MeshBasicMaterial;
+    if (!mat.visible) return;
+    const kind = (o as THREE.LineSegments).isLineSegments ? 'lines' : 'mesh';
+    const state = (opacity: number) =>
+      [kind, mat.type, mat.color?.getHexString(), opacity.toFixed(4), o.renderOrder,
+        o.castShadow, o.receiveShadow].join('|');
+    const inst = o as THREE.InstancedMesh;
+    if (inst.isInstancedMesh) {
+      const alpha = mesh.geometry.getAttribute('instanceAlpha');
+      for (let i = 0; i < inst.count; i++) {
+        inst.getMatrixAt(i, m);
+        if (Math.abs(m.determinant()) < 1e-12) continue;
+        put(state(mat.opacity * alpha.getX(i)), mesh.geometry, m.premultiply(o.matrixWorld));
+      }
+    } else {
+      put(state(mat.opacity), mesh.geometry, o.matrixWorld);
+    }
+  });
+  return out;
+};
+const expectSameDraws = (a: Map<string, number[]>, b: Map<string, number[]>) => {
+  expect([...a.keys()].sort()).toStrictEqual([...b.keys()].sort());
+  for (const [key, sums] of b) {
+    const mine = a.get(key)!;
+    sums.forEach((x, j) => expect(mine[j], `${key} [${j}]`).toBeCloseTo(x, 2));
+  }
+};
 
+describe('the lean option', () => {
   it.each(['full', 'lite'] as const)(
-    'draws %s exactly as the default does: every world matrix and every ghost, to the bit',
+    'draws %s exactly as the default does: the same vertices in the same draw states',
     (quality) => {
       const plain = buildCourtScene(quality);
-      const lean = buildCourtScene(quality, { lean: true });
+      // As Android builds it: lean, on a GL that draws instances.
+      const lean = buildCourtScene(quality, { lean: true, instancing: true });
       for (let frame = 1; frame <= 240; frame++) {
         const t = frame / 60;
         const k = Math.min(1, frame / 180);
         const p = k;
-        for (const court of [plain, lean]) {
-          court.update(t, p, k);
-          // What the renderer does before each draw.
-          court.scene.updateMatrixWorld();
-          court.overlay.updateMatrixWorld();
-        }
-        if (frame % 20 === 0) {
-          expect(snapshot(lean.scene)).toStrictEqual(snapshot(plain.scene));
-          expect(snapshot(lean.overlay)).toStrictEqual(snapshot(plain.overlay));
+        for (const court of [plain, lean]) court.update(t, p, k);
+        if (frame % 40 === 0) {
+          for (const court of [plain, lean]) {
+            // What the renderer does before each draw.
+            court.scene.updateMatrixWorld();
+            court.overlay.updateMatrixWorld();
+          }
+          expectSameDraws(drawn(lean.scene), drawn(plain.scene));
+          expectSameDraws(drawn(lean.overlay), drawn(plain.overlay));
         }
       }
       plain.dispose();
@@ -140,18 +190,34 @@ describe('the lean option', () => {
     },
   );
 
+  it.each(['full', 'lite'] as const)('cuts %s to a third of the draw calls or fewer', (quality) => {
+    const calls = (court: ReturnType<typeof buildCourtScene>) => {
+      court.update(0.3, 0, 0);
+      let n = 0;
+      for (const root of [court.scene, court.overlay]) {
+        root.traverseVisible((o) => {
+          if ((o as THREE.Mesh).isMesh || (o as THREE.LineSegments).isLineSegments) n++;
+        });
+      }
+      return n;
+    };
+    expect(calls(buildCourtScene(quality, { lean: true, instancing: true })) * 3).toBeLessThanOrEqual(
+      calls(buildCourtScene(quality)),
+    );
+  });
+
   it('freezes only what never moves', () => {
     const court = buildCourtScene('full', { lean: true });
     expect(court.scene.matrixAutoUpdate).toBe(false);
     expect(court.camera.matrixAutoUpdate).toBe(true);
     const frozen = court.scene.children.filter((o) => !o.matrixAutoUpdate);
-    expect(frozen.length).toBeGreaterThan(50);
+    expect(frozen.length).toBeGreaterThan(10);
     for (const o of frozen) {
       expect(o instanceof THREE.Mesh || o instanceof THREE.LineSegments).toBe(true);
     }
     // The ball's shadow caster rides the ball every frame.
     const caster = court.scene.children.find(
-      (o) => o instanceof THREE.Mesh && o.castShadow,
+      (o) => o instanceof THREE.Mesh && o.castShadow && o.geometry instanceof THREE.SphereGeometry,
     )!;
     expect(caster.matrixAutoUpdate).toBe(true);
     court.dispose();
@@ -223,13 +289,8 @@ describe('the scene option (rally | drill)', () => {
   it.each(['full', 'lite'] as const)(
     'lean draws the %s drill exactly as the default does',
     (quality) => {
-      const snapshot = (root: THREE.Object3D) => {
-        const out: { matrix: number[]; visible: boolean }[] = [];
-        root.traverse((o) => out.push({ matrix: [...o.matrixWorld.elements], visible: o.visible }));
-        return out;
-      };
       const plain = buildCourtScene(quality, { scene: 'drill' });
-      const lean = buildCourtScene(quality, { scene: 'drill', lean: true });
+      const lean = buildCourtScene(quality, { scene: 'drill', lean: true, instancing: true });
       for (let frame = 1; frame <= 300; frame++) {
         const t = frame / 60;
         const k = Math.min(1, frame / 240);
@@ -239,8 +300,8 @@ describe('the scene option (rally | drill)', () => {
           court.overlay.updateMatrixWorld();
         }
         if (frame % 25 === 0) {
-          expect(snapshot(lean.scene)).toStrictEqual(snapshot(plain.scene));
-          expect(snapshot(lean.overlay)).toStrictEqual(snapshot(plain.overlay));
+          expectSameDraws(drawn(lean.scene), drawn(plain.scene));
+          expectSameDraws(drawn(lean.overlay), drawn(plain.overlay));
         }
       }
       plain.dispose();
@@ -258,6 +319,24 @@ describe('the view option (book | top)', () => {
     expect(lines(court)).toBeGreaterThan(0);
     court.dispose();
   });
+
+  it.each(['rally', 'drill'] as const)(
+    'lean draws the top view %s as the default does, its ghosts grown with the ball',
+    (scene) => {
+      const plain = buildCourtScene('lite', { view: 'top', scene });
+      const lean = buildCourtScene('lite', { view: 'top', scene, lean: true });
+      for (let frame = 1; frame <= 300; frame++) {
+        for (const court of [plain, lean]) {
+          court.update(frame / 60, 0, 0);
+          court.scene.updateMatrixWorld();
+          court.overlay.updateMatrixWorld();
+        }
+        if (frame % 25 === 0) expectSameDraws(drawn(lean.overlay), drawn(plain.overlay));
+      }
+      plain.dispose();
+      lean.dispose();
+    },
+  );
 
   it('the top view skips the edge-on glass and mesh, keeps the posts and the rackets', () => {
     const book = buildCourtScene('lite');
@@ -419,5 +498,155 @@ describe("the drill coach's arm rig", () => {
       expect(meshes.every((m) => m.castShadow === (quality === 'full'))).toBe(true);
       court.dispose();
     }
+  });
+});
+
+describe('the join scene (Play: the next open match)', () => {
+  const build = () => buildCourtScene('lite', { scene: 'join', view: 'top' });
+  /** The four racket rigs' mounts, in PLAYERS order (the scene's only groups). */
+  const mountsOf = (court: ReturnType<typeof buildCourtScene>) =>
+    court.scene.children.filter((o) => o instanceof THREE.Group);
+  /** The four open-spot marks, in PLAYERS order (the only vertex-coloured meshes). */
+  const spotsOf = (court: ReturnType<typeof buildCourtScene>) =>
+    court.scene.children.filter(
+      (o): o is THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> =>
+        o instanceof THREE.Mesh &&
+        o.material instanceof THREE.MeshBasicMaterial &&
+        o.material.vertexColors,
+    );
+  const shown = (objs: THREE.Object3D[]) => objs.map((o) => o.visible);
+
+  it('starts as an empty court: no racket, no spot, no ball, until the page says', () => {
+    const court = build();
+    court.update(0, 0, 0);
+    expect(mountsOf(court)).toHaveLength(4);
+    expect(spotsOf(court)).toHaveLength(4);
+    expect(shown(mountsOf(court))).toEqual([false, false, false, false]);
+    expect(shown(spotsOf(court))).toEqual([false, false, false, false]);
+    expect(ballOf(court).visible).toBe(false);
+    court.dispose();
+  });
+
+  it('two taken (left to right): the left pair warm up, the right pair are open spots', () => {
+    const court = build();
+    court.setJoin({ taken: 2, spots: true, mirror: false }, false);
+    court.update(3, 0, 0);
+    // PLAYERS 2 and 3 are the left (+z) pair, 0 and 1 the right.
+    expect(shown(mountsOf(court))).toEqual([false, false, true, true]);
+    expect(shown(spotsOf(court))).toEqual([true, true, false, false]);
+    expect(spotsOf(court)[0]!.material.opacity).toBe(1);
+    expect(ballOf(court).visible).toBe(true);
+    court.dispose();
+  });
+
+  it('mirrored, the open spots move to the other half', () => {
+    const court = build();
+    court.setJoin({ taken: 2, spots: true, mirror: true }, false);
+    court.update(3, 0, 0);
+    expect(shown(mountsOf(court))).toEqual([true, true, false, false]);
+    expect(shown(spotsOf(court))).toEqual([false, false, true, true]);
+    court.dispose();
+  });
+
+  it('no open match: four open spots and no ball; nothing to claim: four rackets and no spot', () => {
+    const court = build();
+    court.setJoin({ taken: 0, spots: true, mirror: false }, false);
+    court.update(1, 0, 0);
+    expect(shown(spotsOf(court))).toEqual([true, true, true, true]);
+    expect(ballOf(court).visible).toBe(false);
+    court.setJoin({ taken: 4, spots: false, mirror: false }, false);
+    court.update(2, 0, 0);
+    expect(shown(mountsOf(court))).toEqual([true, true, true, true]);
+    expect(shown(spotsOf(court))).toEqual([false, false, false, false]);
+    court.dispose();
+  });
+
+  it('a seat filling plays once: the spot fades, the racket lands, the warm-up restarts after it', () => {
+    const court = build();
+    court.setJoin({ taken: 1, spots: true, mirror: false }, false);
+    court.update(10, 0, 0);
+    court.setJoin({ taken: 2, spots: true, mirror: false }, true);
+    court.update(10, 0, 0);
+    const landing = mountsOf(court)[3]!;
+    expect(landing.visible).toBe(true);
+    expect(landing.scale.x).toBeCloseTo(1.3, 6);
+    // No ball while the new racket lands.
+    expect(ballOf(court).visible).toBe(false);
+    court.update(11, 0, 0);
+    expect(landing.scale.x).toBe(1);
+    expect(spotsOf(court)[3]!.visible).toBe(false);
+    expect(ballOf(court).visible).toBe(true);
+    court.dispose();
+  });
+
+  it('lean draws it as the default does, through a seat filling (merged court and rackets, frozen matrices)', () => {
+    const plain = build();
+    const lean = buildCourtScene('lite', { scene: 'join', view: 'top', lean: true });
+    for (const court of [plain, lean]) court.setJoin({ taken: 1, spots: true, mirror: false }, false);
+    for (let frame = 1; frame <= 600; frame++) {
+      if (frame === 240) {
+        for (const court of [plain, lean]) court.setJoin({ taken: 2, spots: true, mirror: false }, true);
+      }
+      for (const court of [plain, lean]) {
+        court.update(frame / 60, 0, 0);
+        court.scene.updateMatrixWorld();
+        court.overlay.updateMatrixWorld();
+      }
+      if (frame % 20 === 0) {
+        expectSameDraws(drawn(lean.scene), drawn(plain.scene));
+        expectSameDraws(drawn(lean.overlay), drawn(plain.overlay));
+      }
+    }
+    plain.dispose();
+    lean.dispose();
+  });
+
+  it("with instancing (Android's build) the warm-up's trail is one mesh, shown in flight", () => {
+    const court = buildCourtScene('lite', { scene: 'join', view: 'top', lean: true, instancing: true });
+    const trail = court.overlay.children.filter(
+      (o): o is THREE.InstancedMesh => o instanceof THREE.InstancedMesh,
+    );
+    expect(trail).toHaveLength(1);
+    expect(trail[0]!.renderOrder).toBe(1);
+    court.update(0, 0, 0);
+    expect(trail[0]!.visible).toBe(false);
+    court.setJoin({ taken: 2, spots: true, mirror: false }, false);
+    let shown = false;
+    for (let t = 0.1; t < 8 && !shown; t += 0.1) {
+      court.update(t, 0, 0);
+      shown = trail[0]!.visible;
+    }
+    expect(shown).toBe(true);
+    court.dispose();
+  });
+
+  it('every piece of a spot faces up (one pass, nothing drawn under the disc), and clears the service line', () => {
+    const court = build();
+    const mark = spotsOf(court)[0]!;
+    expect(mark.material.side).toBe(THREE.FrontSide);
+    const pos = mark.geometry.getAttribute('position');
+    const idx = mark.geometry.index!.array;
+    for (let i = 0; i < idx.length; i += 3) {
+      const [a, b, c] = [idx[i]!, idx[i + 1]!, idx[i + 2]!];
+      const area =
+        (pos.getX(b) - pos.getX(a)) * (pos.getY(c) - pos.getY(a)) -
+        (pos.getY(b) - pos.getY(a)) * (pos.getX(c) - pos.getX(a));
+      expect(area).toBeGreaterThan(0);
+    }
+    mark.geometry.computeBoundingSphere();
+    const r = mark.geometry.boundingSphere!.radius;
+    for (const m of spotsOf(court)) {
+      // The service lines run across the court at z = ±7, 0.1 m wide.
+      expect(Math.abs(m.position.z) + r).toBeLessThan(7 - 0.05 - 0.1);
+    }
+    court.dispose();
+  });
+
+  it('the other scenes ignore setJoin', () => {
+    const court = buildCourtScene('lite', { view: 'top' });
+    court.setJoin({ taken: 1, spots: true, mirror: false }, false);
+    court.update(1, 0, 0);
+    expect(shown(mountsOf(court))).toEqual([true, true, true, true]);
+    court.dispose();
   });
 });

@@ -5392,7 +5392,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'coach_book_private',
     args: { p_lesson_type_id: NIL_UUID, p_venue_id: VENUE_A, p_start_at: FUTURE,
-            p_student_name: 'Matrix', p_student_phone: null, p_party_size: 1,
+            p_student_name: 'Matrix', p_student_phone: '9647711112222', p_party_size: 1,
             p_idempotency_key: 'matrix-coach-book' },
     expect: GUEST_OR_COACH,
     note: 'lesson_booking: a guest or coach write; nothing is written',
@@ -5555,6 +5555,20 @@ export const matrix: MatrixRule[] = [
     drop: 25,
   },
   {
+    kind: 'rpc', schema: 'app', name: 'coach_id_for_slug',
+    args: { p_slug: 'matrix-probe-no-coach' },
+    expect: SELF_ANON_OK,
+    note: "0337 coach_slugs: a share link's slug to the id of a coach who accepted going public; NULL for anything else, never raises",
+    drop: 25,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'coach_slug_ok',
+    args: { p_slug: 'omar-karim' },
+    expect: ex<RpcExpectation>('execute'),
+    note: '0337 coach_slugs: pure text, granted to anon+authenticated because the coaches_slug_chk CHECK evaluates it as the writing role',
+    drop: 25,
+  },
+  {
     kind: 'rpc', schema: 'app', name: 'coach_slots',
     args: {
       p_coach_id: NIL_UUID, p_lesson_type_id: NIL_UUID,
@@ -5590,6 +5604,13 @@ export const matrix: MatrixRule[] = [
     args: { p_from: FUTURE, p_to: new Date(Date.now() + 15 * 24 * 3600_000).toISOString() },
     expect: GUEST_OR_COACH,
     note: "lesson_booking: the coach's own lessons; a guest who is not a coach gets NOT_A_COACH (not a refusal)",
+    drop: 25,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'coach_saved_students',
+    args: {},
+    expect: GUEST_OR_COACH,
+    note: "coach_book_students (0335): the coach's own past students, names only (R54); NOT_A_COACH for anyone else",
     drop: 25,
   },
   {

@@ -20,6 +20,15 @@ export const playEn = {
   matchesError: 'The open matches could not be loaded.',
   // Both sides failed.
   loadError: 'Open matches and tournaments could not be loaded.',
+  // The court under the title (packages/court3d join.ts): the next open match, its
+  // open seats marked on it. Its caption is "Tonight · 9:00 PM · 2 seats left"
+  // (built from the night, the time and `matches.count.seatsLeft`); these are the rest.
+  court: {
+    // No match has a seat open: the caption reads "No open seats right now · Start a match".
+    none: 'No open seats right now',
+    // Screen readers, on the caption: what a tap does.
+    hint: 'Shows this match in the list',
+  },
   count: {
     // A night's line beside `matches.count.openMatches`: "2 open matches · 1 tournament".
     tournaments: {

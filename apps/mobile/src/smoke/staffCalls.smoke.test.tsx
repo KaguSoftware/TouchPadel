@@ -18,7 +18,7 @@ import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { TEST_SESSION } from '../test/authState';
 import { staffKeys } from '../features/staff/keys';
 import type { WaiterCall } from '../features/staff/calls/logic';
-import StaffCalls from '../../app/staff-calls';
+import StaffCalls from '../../app/(staff)/staff-calls';
 import StaffToday from '../../app/staff';
 import StaffGroup from '../../app/staff-group';
 

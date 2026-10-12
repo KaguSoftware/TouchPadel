@@ -19,10 +19,11 @@
  * Book court's draw calls, and one framebuffer instead of two.
  *
  * WHAT PLAYS ON IT. `scene` passes straight through to Court3D: the Book tab's
- * rally by default (Play: its two pairs either side of the net), or the
- * coaching drill (Coaches: a ball machine and a coach on the right half feeding
- * the four rackets on the left in turn, packages/court3d drill.ts). The rackets
- * swing the Book tab's own clip either way.
+ * rally by default, the coaching drill (Coaches: a ball machine and a coach on
+ * the right half feeding the four rackets on the left in turn, packages/court3d
+ * drill.ts), or the next open match (Play: `join`, its taken seats warming up
+ * and its open ones marked as the `join` prop says, packages/court3d join.ts).
+ * The rackets swing the Book tab's own clip in all three.
  *
  * Everything else is Court3D's own: the frame loop that stops when the tab
  * loses focus or the app leaves the foreground, Reduce Motion holding the
@@ -34,12 +35,15 @@
  * page's pattern and this stage in one coordinate space and passes the box,
  * as the Book tab does (`courtPatternBox`).
  *
- * Decorative: hidden from screen readers and takes no touches.
+ * Decorative: hidden from screen readers and takes no touches. The Play tab's
+ * open spots are reached through targets of the page's own, over the court
+ * (projectTop), and a caption that says what they are.
  */
 import { useState } from 'react';
 import { Animated, View } from 'react-native';
 import { TOP_VIEW } from '@touch/court3d/camera';
 import type { CourtSceneKind } from '@touch/court3d/scene';
+import type { JoinSeats } from '@touch/court3d/join';
 import { useReduceMotion } from '../lib/useReduceMotion';
 import { Court3D } from './Court3D';
 
@@ -90,11 +94,13 @@ export interface CourtStageProps {
   height: number;
   /** The page pattern's box and this stage's corner inside it (see the header). */
   patternBox?: { width: number; height: number; offsetX: number; offsetY: number };
-  /** What plays on the court (Court3D's `scene`): the rally by default, or the coaching drill. */
+  /** What plays on the court (Court3D's `scene`): the rally by default, the coaching drill, or the next open match. */
   scene?: CourtSceneKind;
+  /** The `join` scene's seats (Court3D's `join`). */
+  join?: JoinSeats;
 }
 
-export function CourtStage({ top, height, patternBox, scene }: CourtStageProps) {
+export function CourtStage({ top, height, patternBox, scene, join }: CourtStageProps) {
   const reduceMotion = useReduceMotion();
   // Court3D reads progress every frame; the top view never moves it off 0.
   const [progress] = useState(() => new Animated.Value(0));
@@ -114,6 +120,7 @@ export function CourtStage({ top, height, patternBox, scene }: CourtStageProps) 
         reduceMotion={reduceMotion}
         view="top"
         scene={scene}
+        join={join}
         quality="lite"
         onUnavailable={() => setUnavailable(true)}
         patternBox={patternBox}

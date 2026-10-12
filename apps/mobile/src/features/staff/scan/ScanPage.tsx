@@ -1,9 +1,9 @@
 /**
  * The staff phone's two camera pages (Phase 2 Milestone 4b), one component:
  *
- *   order_slip  app/staff-order-slip.tsx  the waiter photographs a handwritten
+ *   order_slip  app/(staff)/staff-order-slip.tsx  the waiter photographs a handwritten
  *               order; it appears live on the till, which sends it to the kitchen
- *   receipt     app/staff-receipt.tsx     the driver or a manager photographs a
+ *   receipt     app/(staff)/staff-receipt.tsx     the driver or a manager photographs a
  *               supplier's receipt; a manager checks it in Goods in
  *
  * The camera opens straight from the photo tile (PhotoButton source="camera",

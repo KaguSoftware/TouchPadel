@@ -11,6 +11,7 @@ import { mapErrorToKey } from '../src/features/booking/errors';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../src/theme';
 import { Button, ErrorText, Field, FormScreen, Hint, Loading, Screen, Title } from '../src/components/ui';
+import { useToast } from '../src/components/overlays';
 
 /** How long we give a recovery link's session exchange before calling the link dead. */
 const LINK_GRACE_MS = 4000;
@@ -42,6 +43,7 @@ export default function ResetPasswordScreen() {
   const { session } = useAuth();
   const recovery = useRecoverySession();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
+  const toast = useToast();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -72,6 +74,8 @@ export default function ResetPasswordScreen() {
       // Spent: the same recovery session must not set a second password later.
       clearRecoverySession();
       setDone(true);
+      // Same toast as change-password: the confirmation reads the same either way.
+      toast(t('auth.passwordUpdated'));
     } catch (err) {
       setError(t(mapErrorToKey(err)));
     } finally {

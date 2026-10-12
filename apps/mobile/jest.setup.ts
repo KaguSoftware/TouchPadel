@@ -53,6 +53,12 @@ const mockH = createElement;
 const mockCreateContext = createContext;
 const mockUseEffect = useEffect;
 const mockRouterState = routerState;
+const mockContainerRef = {
+  current: null,
+  isReady: () => false,
+  getRootState: () => undefined,
+  dispatch: () => {},
+};
 const mockAuthState = authState;
 
 /**
@@ -71,6 +77,21 @@ type MockTabsScreenProps = {
   name: string;
   options?: MockTabOptions | ((info: { route: { name: string } }) => MockTabOptions);
 };
+
+// ── runtime globals ─────────────────────────────────────────────────────────
+
+// React Native's runtime installs `requestIdleCallback`; Node does not. The app
+// uses it where it once used the deprecated InteractionManager (the Book tab's
+// sheet prewarm, the availability strip warm-up). A timer is close enough here.
+if (typeof globalThis.requestIdleCallback !== 'function') {
+  globalThis.requestIdleCallback = ((cb: IdleRequestCallback) =>
+    setTimeout(
+      () => cb({ didTimeout: false, timeRemaining: () => 50 }),
+      0,
+    )) as unknown as typeof requestIdleCallback;
+  globalThis.cancelIdleCallback = ((id: ReturnType<typeof setTimeout>) =>
+    clearTimeout(id)) as unknown as typeof cancelIdleCallback;
+}
 
 // ── expo core ───────────────────────────────────────────────────────────────
 
@@ -129,6 +150,7 @@ jest.mock('expo-router', () => {
     // app/pay/return.tsx pops back to the payment screen already underneath.
     dismissTo: record('dismissTo'),
     canGoBack: () => false,
+    canDismiss: () => false,
     setParams: record('setParams'),
   };
   const Stack = nullRender('Stack') as ReturnType<typeof nullRender> & Record<string, unknown>;
@@ -158,6 +180,9 @@ jest.mock('expo-router', () => {
     Link: nullRender('Link'),
     router,
     useRouter: () => router,
+    // `useResetTo` pops the root stack through the container. Never ready
+    // here, so it goes straight to the recorded `replace`.
+    useNavigationContainerRef: () => mockContainerRef,
     useLocalSearchParams: () => state.params,
     useGlobalSearchParams: () => state.params,
     usePathname: () => state.pathname,
@@ -173,6 +198,7 @@ jest.mock('expo-router', () => {
       navigate: record('navigate'),
       goBack: record('back'),
       canGoBack: () => false,
+    canDismiss: () => false,
       isFocused: () => true,
     }),
     // The screen under test IS the focused screen, and it never blurs: run the
@@ -201,7 +227,6 @@ jest.mock('expo-router', () => {
         heavy: { fontFamily: 'System', fontWeight: '900' },
       },
     },
-    useNavigationContainerRef: () => ({ current: null }),
     // `undefined` = "the root navigator has not mounted". True here (there is
     // no navigator at all), and it is a state the real app passes through on
     // every cold start — `useAuthDeepLink` holds its redirect until it has a

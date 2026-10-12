@@ -47,10 +47,11 @@ import { availabilityKeys } from '../features/availability/hooks';
 import { profileKeys } from '../features/profile/hooks';
 import { matchKeys } from '../features/matches/keys';
 import type { MatchDetail } from '../features/matches/logic';
-import MatchDetailScreen from '../../app/match/[id]';
-import MatchNewScreen from '../../app/match-new';
+import MatchesLayout from '../../app/(matches)/_layout';
+import MatchDetailScreen from '../../app/(matches)/match/[id]';
+import MatchNewScreen from '../../app/(matches)/match-new';
 import MatchLinkScreen from '../../app/m/[token]';
-import MatchReportScreen from '../../app/match-report';
+import MatchReportScreen from '../../app/(matches)/match-report';
 import BlockedPlayersScreen from '../../app/blocked-players';
 
 const COURT_ID = courtFixture().id;
@@ -84,6 +85,12 @@ const detail = (over: Partial<MatchDetail> = {}) => ({
 });
 
 const CASES: SmokeCase[] = [
+  // The group's own stack: a todo in the table (it needs a live router).
+  {
+    route: 'matches-stack',
+    Component: MatchesLayout,
+    labelKey: 'matches.list.title',
+  },
   {
     route: 'match-detail',
     Component: MatchDetailScreen,

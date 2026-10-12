@@ -117,13 +117,14 @@ describe.each(LOCALES)('coaching page (%s)', (locale: Locale) => {
     // An empty bio prints nothing.
     expect(sara.querySelector('.tp-coach-card__bio')).toBeNull();
 
-    // Every card books through its coach's link; the app claims it where installed.
-    for (const [card, id] of [
-      [ali, COACH_ALI],
-      [sara, COACH_SARA],
+    // Every card books through its coach's link, which names the coach (0337); the app claims
+    // it where installed.
+    for (const [card, slug] of [
+      [ali, 'ali-fixture'],
+      [sara, 'sara-fixture'],
     ] as const) {
       const book = card.querySelector('a.tp-coach-card__book')!;
-      expect(book.getAttribute('href')).toBe(`/${locale}/c/${id}`);
+      expect(book.getAttribute('href')).toBe(`/${locale}/c/${slug}`);
       expect(book.textContent).toContain(tr('coaching.web.bookInApp'));
     }
   });
@@ -141,14 +142,14 @@ describe.each(LOCALES)('coaching page (%s)', (locale: Locale) => {
     const sessions = [...document.querySelectorAll<HTMLAnchorElement>('a.tp-coach-session')];
     expect(sessions).toHaveLength(2);
     const [group, course] = sessions as [HTMLAnchorElement, HTMLAnchorElement];
-    expect(group.getAttribute('href')).toBe(`/${locale}/c/${COACH_ALI}`);
+    expect(group.getAttribute('href')).toBe(`/${locale}/c/ali-fixture`);
     expect(group.querySelector('.tp-coach-session__places')?.textContent).toBe(
       countPhrase('coaching.common.count.placesLeft', 3, locale),
     );
     expect(plain(group.querySelector('.tp-coach-session__who')?.textContent)).toBe(
       tr('coaching.web.withCoach', { coach: locale === 'ar' ? 'علي التجربة' : 'Ali Fixture' }),
     );
-    expect(course.getAttribute('href')).toBe(`/${locale}/c/${COACH_SARA}`);
+    expect(course.getAttribute('href')).toBe(`/${locale}/c/sara-fixture`);
     expect(course.querySelector('.tp-coach-session__what')?.textContent).toBe(
       locale === 'ar' ? 'مبتدئو أكتوبر' : 'October beginners',
     );
@@ -207,7 +208,7 @@ describe.each(LOCALES)('coaching page (%s)', (locale: Locale) => {
     resetCoachingServer(coachingRead(raw));
     await renderServerPage(CoachingPage, locale);
     const course = document.querySelector<HTMLElement>(
-      `a[href$="/c/${COACH_SARA}"].tp-coach-session`,
+      'a[href$="/c/sara-fixture"].tp-coach-session',
     )!;
     expect(plain(course.querySelector('.tp-coach-session__when')?.textContent)).toContain(
       plain(countPhrase('coaching.common.count.sessionsLeft', 5, locale)),

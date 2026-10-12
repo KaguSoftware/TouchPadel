@@ -15,7 +15,6 @@
  */
 import { useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { useAuth } from '../auth/context';
@@ -24,6 +23,7 @@ import { savePendingPayment } from '../deposit/hooks';
 import { claimResume } from '../deposit/pendingPayment';
 import { lessonBegin } from './api';
 import { coachingKeys } from './keys';
+import { useReplaceTop } from '../../navigation/back';
 import type { LessonBegin } from './logic';
 
 /** The payment window when `lesson-begin` sends no deadline (the deposit's default). */
@@ -45,14 +45,15 @@ export function useLessonBegin() {
 /**
  * Start (or rejoin) the Qi payment of a held enrolment:
  *
- *   lesson-begin → the pointer → claim the ref → `router.replace('/pay/status',
- *   {ref})` → Qi's page
+ *   lesson-begin → the pointer → claim the ref → `/pay/status?ref` in place of
+ *   the screen it was started from (`useReplaceTop`) → Qi's page
  *
  * `beforeNavigate` runs first. A refusal leaves the enrolment held: the
  * caller toasts it and opens the lesson, whose "Finish payment" tries again.
  */
 export function useStartLessonPayment() {
   const { mutate, isPending } = useLessonBegin();
+  const replaceTop = useReplaceTop();
   const { session } = useAuth();
   const userId = session?.user.id ?? '';
   const start = useCallback(
@@ -78,13 +79,13 @@ export function useStartLessonPayment() {
           claimResume(attempt.ref);
           handlers.onStarted?.(attempt);
           handlers.beforeNavigate?.();
-          router.replace({ pathname: '/pay/status', params: { ref: attempt.ref } });
+          replaceTop({ pathname: '/pay/status', params: { ref: attempt.ref } });
           void openPaymentPage(attempt.formUrl);
         },
         onError: handlers.onError,
       });
     },
-    [mutate, userId],
+    [mutate, userId, replaceTop],
   );
   return { start, busy: isPending };
 }

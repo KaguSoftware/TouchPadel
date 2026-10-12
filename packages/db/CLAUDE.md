@@ -17,8 +17,13 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0334`
-  (0334 play_profile_coach_levels, the guest's optional play survey on `profiles`, each coach's
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0338`
+  (0335–0338 coach mode and coach links, 2026-10-11, written as 0334–0337 on the saeed branch and
+  renumbered +1 at the merge because main took 0334: 0335 coach_book_students, a coach books a
+  private lesson for a past or new student and the other students' phones; 0336
+  lesson_friend_phones_read, those phones in the coach's roster and the desk's lesson; 0337
+  coach_slugs, the coach's share link names the coach; 0338 the unique index on coaches.slug;
+  0334 play_profile_coach_levels, the guest's optional play survey on `profiles`, each coach's
   levels and a tournament's entries before the draw, 2026-10-11; 0333 reward_wages, a reward reached in a closed business month becomes a bonus on the wage and
   the person gets a push when they unlock one, 2026-10-11; 0332 staff_rewards, the owner's per-person order targets and each person's own progress on
   the staff phone, 2026-10-10; 0331 legacy_reports, the pre-system monthly padel reports kept as written, 2026-10-10;
@@ -52,7 +57,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0334`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0339`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -250,6 +255,15 @@ is a line in that file.
   and `coaches_admin` (each coach gains `levels`; empty means every level), `coach_update` (accepts
   `levels`) and `trg_profile_media_tombstone` (0317 is no longer the latest: it also nulls the play
   columns). Contract: `docs/design/play-coaches/contracts-2026-10-11.md` §4.
+  Coach mode and coach links (0335–0338, 2026-10-11): 0335 holds `coach_book_private` (0291 is no
+  longer the latest: a saved student's key in place of a phone, and the other students' names and
+  phones) plus the new `coach_saved_students`, the column `lesson_enrolments.friend_phones` and its
+  scrub trigger; 0336 is the latest body of `coach_lesson` (0283) and `desk_lesson_detail` (0294),
+  each adding `friend_phones`; 0337 is the latest body of `coaching_public`, `coach_profile`,
+  `coaches_admin` and `coach_update` (0334 is no longer the latest: each keeps `levels` and adds
+  `slug`; `coach_update` accepts `slug`, COACH_SLUG_TAKEN), plus `coaches.slug`, its trigger,
+  `coach_slug_ok`, `coach_slug_free` and the anon `coach_id_for_slug`; 0338 is the
+  `coaches_slug_key` unique index.
   Reward wages (0333, 2026-10-11): holds `wage_line`, `wages_month` and `mark_wage_paid` (0271 is
   no longer the latest: a line adds `bonuses_iqd`, `bonus_count` and `bonuses[]`, the
   `staff_reward_earnings` rows whose pay month it is, prize-only ones included; the net is salary -

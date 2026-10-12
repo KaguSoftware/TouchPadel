@@ -31,7 +31,7 @@ import { useFinishSignIn } from '../src/features/auth/useFinishSignIn';
 import { useResendCooldown } from '../src/features/auth/useResendCooldown';
 import { clearPendingIntents } from '../src/features/booking/pendingIntent';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { useBack, useBackGuard } from '../src/navigation/back';
+import { useBack, useBackGuard, useReturnTo } from '../src/navigation/back';
 import { space, useTheme } from '../src/theme';
 import { Button, ErrorText, FormScreen, Hint, LinkText, Screen, Title } from '../src/components/ui';
 import { CodeInput } from '../src/components/CodeInput';
@@ -91,6 +91,7 @@ function VerifyOtpForm({
 }) {
   const { t } = useLocale();
   const router = useRouter();
+  const returnToTab = useReturnTo();
   const back = useBack();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -113,6 +114,7 @@ function VerifyOtpForm({
       clearPendingIntents();
       go();
     },
+    onDismissed: clearPendingIntents,
   });
   const changeNumber = () => {
     if (!returnTo) return back();
@@ -149,7 +151,7 @@ function VerifyOtpForm({
         // From Edit profile the guest came THROUGH that form, so land back on
         // the Profile tab rather than leaving the half-finished editor on the
         // stack for a back-swipe to return to.
-        router.replace('/(tabs)/profile');
+        returnToTab('/(tabs)/profile', '(tabs)');
         return;
       }
       const { user } = await verifyPhoneOtp(supabase, phone, value);

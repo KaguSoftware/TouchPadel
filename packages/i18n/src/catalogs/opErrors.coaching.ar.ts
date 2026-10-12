@@ -24,6 +24,7 @@ export const opErrorsCoachingAr: DeepMessages<typeof opErrorsCoachingEn> = {
   ALREADY_COACH: 'هذا الزبون مدرّب أصلًا.',
   COACH_NOT_FOUND: 'تعذّر العثور على هذا المدرّب.',
   COACH_NOT_AT_BRANCH: 'لا يدرّب هذا المدرّب في هذا الفرع.',
+  COACH_SLUG_TAKEN: 'مدرّب آخر يستخدم اسم الرابط هذا. اختر اسمًا آخر.',
   LESSON_TYPE_NOT_FOUND: 'تعذّر العثور على نوع الحصة هذا.',
   LESSON_TYPE_NOT_OFFERED: 'لا يقدّم هذا المدرّب نوع الحصة هذا.',
   HOURS_INVALID: 'يجب أن تبدأ كل فترة قبل نهايتها ضمن اليوم نفسه.',

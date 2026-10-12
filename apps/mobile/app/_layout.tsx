@@ -37,7 +37,6 @@ import {
 } from '../src/features/auth/welcomeSeen';
 import { CoachStatusProvider } from '../src/features/coach/CoachStatusProvider';
 import { StaffScreenGuard } from '../src/features/staff/screenGuard/StaffScreenGuard';
-import { withAssistantFab } from '../src/features/assistant/AssistantFab';
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { usePlaySurveyPrompt } from '../src/features/playProfile/usePlaySurveyPrompt';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
@@ -56,6 +55,7 @@ import {
 import { ErrorState, OfflineBanner } from '../src/components/states';
 import { ToastProvider } from '../src/components/overlays';
 import { palettes, ThemeProvider, useTheme } from '../src/theme';
+import { useIsOnScreen } from '../src/navigation/back';
 
 /**
  * `/` is owned by (tabs)/index.tsx. A separate app/index.tsx used to redirect
@@ -279,11 +279,9 @@ function RootStack() {
        * the app's own appearance, like the direction above it.
        */}
       <NavigationThemeProvider value={navTheme}>
-        {/* `screenLayout` draws the owner's assistant button INSIDE each
-            staff screen, so it slides in and out with its page; an overlay
-            over the whole stack followed the pathname, which only changes
-            once the navigation has happened, and so lagged every push and pop. */}
-        <Stack screenOptions={header} screenLayout={withAssistantFab}>
+        {/* The owner's assistant button is drawn inside each staff page by
+            the (staff) stack's `screenLayout` (app/(staff)/_layout.tsx). */}
+        <Stack screenOptions={header}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           {/* Formerly the (auth) group. Flattened for the same reason as (gated):
           a screen pushed from the tabs was the first entry of a nested stack,
@@ -325,24 +323,22 @@ function RootStack() {
           <Stack.Screen name="pay/return" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="pay/status" />
           {/* Open matches (docs/design/open-matches/guest.md §4.12–§4.18; the
-          list is the Play tab since 2026-10-11). The invite link's landing
-          draws no bar and hands on in a frame, like the payment return; the report is a modal, like the terms gate. Each
-          screen carries its own session guard. */}
-          <Stack.Screen name="match/[id]" />
-          <Stack.Screen name="match-new" />
+          list is the Play tab since 2026-10-11): a stack of its own with its
+          own native bar, so the bar and its back button leave with the page at
+          the swipe's speed (app/(matches)/_layout.tsx,
+          src/navigation/groupStack.tsx). The invite link's landing stays here:
+          it draws no bar and hands on to the match in a frame, like the payment
+          return. */}
+          <Stack.Screen name="(matches)" options={{ headerShown: false }} />
           <Stack.Screen name="m/[token]" options={{ headerShown: false, animation: 'none' }} />
-          <Stack.Screen name="match-report" options={{ presentation: 'modal' }} />
           <Stack.Screen name="blocked-players" />
           <Stack.Screen name="tickets" />
-          {/* Coach mode (docs/design/coaching/guest.md §4.13): root-stack pushes
-          from Profile or, for staff who coach, the staff hub (C-27), each with
-          the native back item and its own RequireCoach. */}
-          <Stack.Screen name="coach-mode" />
-          <Stack.Screen name="coach-mode-hours" />
-          <Stack.Screen name="coach-mode-lesson" />
-          <Stack.Screen name="coach-mode-new" />
-          <Stack.Screen name="coach-mode-book" />
-          <Stack.Screen name="coach-mode-statements" />
+          {/* Coach mode (docs/design/coaching/guest.md §4.13), from Profile or,
+          for staff who coach, the staff hub (C-27): a stack of its own with its
+          own native bar, so the bar and its back button leave with the page at
+          the swipe's speed (app/(coach-mode)/_layout.tsx,
+          src/navigation/groupStack.tsx). Each screen has its own RequireCoach. */}
+          <Stack.Screen name="(coach-mode)" options={{ headerShown: false }} />
           {/* Coaching, the guest's side (docs/design/coaching/guest.md §4.8): a
           stack of its own with its own native bar, so the bar and its back
           button leave with the page at the swipe's speed
@@ -357,15 +353,10 @@ function RootStack() {
           with the native back item, each with its own RequireSession. */}
           <Stack.Screen name="loyalty" />
           <Stack.Screen name="member-card" />
-          {/* Place an order (0251): an item's size and options, as the platform's sheet over the table's menu. */}
-          <Stack.Screen
-            name="staff-order-item"
-            options={{
-              presentation: 'formSheet',
-              sheetAllowedDetents: [0.75, 1],
-              sheetGrabberVisible: true,
-            }}
-          />
+          {/* The staff pages Today opens: a stack of their own with their own
+          native bar, so the bar and its back button leave with the page on the
+          way back to Today (app/(staff)/_layout.tsx, src/navigation/groupStack.tsx). */}
+          <Stack.Screen name="(staff)" options={{ headerShown: false }} />
           {/* A Today group's pages on iOS (owner, 2026-10-01): the platform's
           sheet, sized to its rows. Android shows them in a modal on Today.
           Singular: a double tap on a tile pushed the sheet twice. */}
@@ -447,6 +438,7 @@ export default function RootLayout() {
 }
 
 function AppRoot({ prefs }: { prefs: BootPrefs }) {
+  const isOnScreen = useIsOnScreen();
   // One family covers both scripts, so this is every face the app renders in:
   // there is nothing left to load in the background and a language switch can
   // never wait on a face.
@@ -479,13 +471,20 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
   useEffect(
     () =>
       installNotificationHandler({
-        onOpenReservation: (id) => router.push({ pathname: '/booking/[id]', params: { id } }),
+        onOpenReservation: (id) => {
+          if (!isOnScreen('booking/[id]', id)) router.push({ pathname: '/booking/[id]', params: { id } });
+        },
         onOpenStaff: (href) => router.push(href),
         staffStatus: settledStaffStatus,
-        onOpenMatch: (id) => router.push({ pathname: '/match/[id]', params: { id } }),
+        // Already reading it: the notice below refreshes it in place, no second copy.
+        onOpenMatch: (id) => {
+          if (!isOnScreen('match/[id]', id)) router.push({ pathname: '/match/[id]', params: { id } });
+        },
         onOpenTickets: () => router.push('/tickets'),
         onMatchNotice: () => void queryClient.invalidateQueries({ queryKey: matchKeys.all }),
-        onOpenLesson: (id) => router.push({ pathname: '/lesson/[id]', params: { id } }),
+        onOpenLesson: (id) => {
+          if (!isOnScreen('lesson/[id]', id)) router.push({ pathname: '/lesson/[id]', params: { id } });
+        },
         onOpenCoachLesson: (id) => router.push(lessonPushHref('coach_lesson', id)),
         onOpenCoachStatements: () => router.push(lessonPushHref('coach_statements', null)),
         onLessonNotice: () => {
@@ -494,11 +493,15 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
           // roster, the schedule and the statements too.
           void queryClient.invalidateQueries({ queryKey: coachKeys.all });
         },
-        onOpenTournament: (id) => router.push({ pathname: '/tournament/[id]', params: { id } }),
+        onOpenTournament: (id) => {
+          if (!isOnScreen('tournament/[id]', id))
+            router.push({ pathname: '/tournament/[id]', params: { id } });
+        },
         onTournamentNotice: () =>
           void queryClient.invalidateQueries({ queryKey: tournamentKeys.all }),
       }),
-    [],
+    // Stable: `useIsOnScreen` reads the container ref, so this still runs once.
+    [isOnScreen],
   );
 
   // A face that fails to register must not hold the splash forever — the theme

@@ -21,13 +21,16 @@ import { formatIQD, formatMonthYear, isolate, makeT, type Locale } from '@touch/
 import { runSmokeCases } from '../test/smokeCase';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
+import { headerAdd } from '../test/headerAdd';
 import { staffKeys } from '../features/staff/keys';
 import type { DeductionProposal, MyDeductions } from '../features/staff/deductions/api';
 import type { IncidentRow, IncidentsPage } from '../features/staff/incidents/api';
 import type { ContentDetail, ContentPage, ContentRow } from '../features/staff/content/api';
-import StaffDeductions from '../../app/staff-deductions';
-import StaffIncidents from '../../app/staff-incidents';
-import StaffContent from '../../app/staff-content';
+import StaffDeductions from '../../app/(staff)/staff-deductions';
+import StaffDeductionPropose from '../../app/(staff)/staff-deduction-propose';
+import StaffIncidents from '../../app/(staff)/staff-incidents';
+import StaffIncidentReport from '../../app/(staff)/staff-incident-report';
+import StaffContent from '../../app/(staff)/staff-content';
 
 const V = TEST_VENUE_ID;
 const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -158,20 +161,35 @@ runSmokeCases('staff people records', [
   {
     route: 'staff-deductions',
     Component: StaffDeductions,
-    labelKey: 'staff.deductions.propose.open',
+    nearbyKey: 'staff.deductions.proposals.empty',
     options: {
       staff: { role: 'head_barista' },
       queryData: [[staffKeys.myDeductionProposals(V), { proposals: [] }]],
     },
   },
   {
+    route: 'staff-deduction-propose',
+    Component: StaffDeductionPropose,
+    labelKey: 'staff.deductions.propose.submit',
+    options: {
+      staff: { role: 'head_barista' },
+      queryData: [[staffKeys.deductionTargets(V), { staff: [] }]],
+    },
+  },
+  {
     route: 'staff-incidents',
     Component: StaffIncidents,
-    labelKey: 'staff.incidents.form.submit',
+    nearbyKey: 'staff.incidents.mine.empty',
     options: {
       staff: { role: 'driver' },
       queryData: [[staffKeys.myIncidents(V), { incidents: [] }]],
     },
+  },
+  {
+    route: 'staff-incident-report',
+    Component: StaffIncidentReport,
+    labelKey: 'staff.incidents.form.submit',
+    options: { staff: { role: 'driver' } },
   },
   {
     route: 'staff-content',
@@ -222,7 +240,7 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
       queryData: [[staffKeys.myDeductions(V, 'current'), mine]],
     });
     try {
-      expect(screen.queryByTestId('staff-deductions.propose')).toBeNull();
+      expect(headerAdd(screen)).toBeNull();
       expect(screen.queryByTestId('staff-deductions.view')).toBeNull();
       expect(screen.getByText(month('2026-09-01'))).toBeTruthy();
       expect(
@@ -249,12 +267,32 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
     }
   });
 
-  it('opens the head’s form on Propose, and says what is missing before anything is sent', () => {
+  it('gives the head a + that opens the propose page, and no waiting count', () => {
     const screen = renderRoute(StaffDeductions, {
       locale,
       staff: { role: 'head_barista' },
+      queryData: [[staffKeys.myDeductionProposals(V), { proposals: [] }]],
+    });
+    try {
+      // A head is no manager: no waiting count.
+      expect(screen.queryByText(t('staff.deductions.waiting', { count: 1 }))).toBeNull();
+      const add = headerAdd(screen);
+      expect(add?.label).toBe(t('staff.deductions.propose.open'));
+      add?.onPress();
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: '/staff-deduction-propose',
+      });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('shows the head’s form on the propose page, and says what is missing before anything is sent', () => {
+    const screen = renderRoute(StaffDeductionPropose, {
+      locale,
+      staff: { role: 'head_barista' },
       queryData: [
-        [staffKeys.myDeductionProposals(V), { proposals: [] }],
         [
           staffKeys.deductionTargets(V),
           { staff: [{ id: ID(40), display_name: 'Yusuf', role: 'barista' }] },
@@ -262,17 +300,15 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
       ],
     });
     try {
-      // A head is no manager: no waiting count.
-      expect(screen.queryByText(t('staff.deductions.waiting', { count: 1 }))).toBeNull();
-      fireEvent.press(screen.getByTestId('staff-deductions.propose'));
-      expect(screen.getByTestId(`staff-deductions.target.${ID(40)}`)).toBeTruthy();
+      expect(screen.getByText(t('staff.deductions.propose.lead'))).toBeTruthy();
+      expect(screen.getByTestId(`staff-deduction-propose.target.${ID(40)}`)).toBeTruthy();
       expect(screen.getByText(t('staff.deductions.propose.consequenceAnyone'))).toBeTruthy();
-      fireEvent.press(screen.getByTestId('staff-deductions.submit'));
+      fireEvent.press(screen.getByTestId('staff-deduction-propose.submit'));
       expect(screen.getByText(t('staff.deductions.propose.errors.who'))).toBeTruthy();
       expect(screen.getByText(t('staff.deductions.propose.errors.amount'))).toBeTruthy();
       expect(screen.getByText(t('staff.deductions.propose.errors.reason'))).toBeTruthy();
       // Choosing the person names them in what happens next.
-      fireEvent.press(screen.getByTestId(`staff-deductions.target.${ID(40)}`));
+      fireEvent.press(screen.getByTestId(`staff-deduction-propose.target.${ID(40)}`));
       expect(
         screen.getByText(t('staff.deductions.propose.consequence', { name: isolate('Yusuf') })),
       ).toBeTruthy();
@@ -306,7 +342,7 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
     try {
       // Only the owner decides, so a manager is told of nothing waiting.
       expect(screen.queryByText(t('staff.deductions.waiting', { count: 2 }))).toBeNull();
-      expect(screen.getByText(t('staff.deductions.propose.leadMgmt'))).toBeTruthy();
+      expect(headerAdd(screen)?.label).toBe(t('staff.deductions.propose.open'));
       expect(screen.getByTestId('staff-deductions.view.mine')).toBeTruthy();
       expect(screen.getByTestId(`staff-deductions.withdraw.${ID(13)}`)).toBeTruthy();
       expect(screen.queryByTestId(`staff-deductions.withdraw.${ID(14)}`)).toBeNull();
@@ -323,13 +359,28 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
     }
   });
 
-  it('tells the owner how many wait on the operator, and records the owner’s own entry at once', () => {
+  it('tells the owner how many wait on the operator, and gives the owner a +', () => {
     const screen = renderRoute(StaffDeductions, {
       locale,
       staff: { role: 'owner' },
       queryData: [
         [staffKeys.deductionsWaiting(V), { waiting_count: 2 }],
         [staffKeys.myDeductionProposals(V), { proposals: [] }],
+      ],
+    });
+    try {
+      expect(screen.getByText(t('staff.deductions.waiting', { count: 2 }))).toBeTruthy();
+      expect(headerAdd(screen)?.label).toBe(t('staff.deductions.propose.open'));
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('records the owner’s own entry at once, said on the propose page', () => {
+    const screen = renderRoute(StaffDeductionPropose, {
+      locale,
+      staff: { role: 'owner' },
+      queryData: [
         [
           staffKeys.deductionTargets(V),
           { staff: [{ id: ID(40), display_name: 'Yusuf', role: 'barista' }] },
@@ -337,9 +388,7 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
       ],
     });
     try {
-      expect(screen.getByText(t('staff.deductions.waiting', { count: 2 }))).toBeTruthy();
       expect(screen.getByText(t('staff.deductions.propose.leadOwner'))).toBeTruthy();
-      fireEvent.press(screen.getByTestId('staff-deductions.propose'));
       expect(screen.getByText(t('staff.deductions.propose.consequenceAnyoneOwner'))).toBeTruthy();
       expect(screen.getByText(t('staff.deductions.propose.submitOwner'))).toBeTruthy();
     } finally {
@@ -352,6 +401,28 @@ describe.each(LOCALES)('incident reports by role in %s', (locale) => {
   const t = makeT(locale);
 
   it('asks the reporter what, where and which court before sending, with the privacy line', () => {
+    const screen = renderRoute(StaffIncidentReport, {
+      locale,
+      staff: { role: 'court_desk' },
+      queryData: [[staffKeys.courts(V), [{ id: ID(90), name_en: 'Court 2', name_ar: 'الملعب 2' }]]],
+    });
+    try {
+      expect(screen.getByText(t('staff.incidents.form.privacyHint'))).toBeTruthy();
+      expect(screen.getByText(t('staff.incidents.form.whoSees'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-incident-report.submit'));
+      expect(screen.getByText(t('staff.incidents.form.errors.kind'))).toBeTruthy();
+      expect(screen.getByText(t('staff.incidents.form.errors.place'))).toBeTruthy();
+      expect(screen.getByText(t('staff.incidents.form.errors.description'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-incident-report.place.court'));
+      expect(screen.getByTestId(`staff-incident-report.court.${ID(90)}`)).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-incident-report.submit'));
+      expect(screen.getByText(t('staff.incidents.form.errors.court'))).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it("lists the reporter's own reports, a redacted one without its text or photos", () => {
     const screen = renderRoute(StaffIncidents, {
       locale,
       staff: { role: 'court_desk' },
@@ -370,22 +441,13 @@ describe.each(LOCALES)('incident reports by role in %s', (locale) => {
             ],
           },
         ],
-        [staffKeys.courts(V), [{ id: ID(90), name_en: 'Court 2', name_ar: 'الملعب 2' }]],
       ],
     });
     try {
-      // Not a reviewer: no switch, no review list.
-      expect(screen.queryByTestId('staff-incidents.view')).toBeNull();
-      expect(screen.getByText(t('staff.incidents.form.privacyHint'))).toBeTruthy();
-      expect(screen.getByText(t('staff.incidents.form.whoSees'))).toBeTruthy();
-      fireEvent.press(screen.getByTestId('staff-incidents.submit'));
-      expect(screen.getByText(t('staff.incidents.form.errors.kind'))).toBeTruthy();
-      expect(screen.getByText(t('staff.incidents.form.errors.place'))).toBeTruthy();
-      expect(screen.getByText(t('staff.incidents.form.errors.description'))).toBeTruthy();
-      fireEvent.press(screen.getByTestId('staff-incidents.place.court'));
-      expect(screen.getByTestId(`staff-incidents.court.${ID(90)}`)).toBeTruthy();
-      fireEvent.press(screen.getByTestId('staff-incidents.submit'));
-      expect(screen.getByText(t('staff.incidents.form.errors.court'))).toBeTruthy();
+      // Not a reviewer: no filters, and the form is its own page.
+      expect(screen.queryByTestId('staff-incidents.filter.open')).toBeNull();
+      expect(screen.queryByTestId('staff-incident-report.submit')).toBeNull();
+      expect(screen.getByTestId(`staff-incidents.item.${ID(21)}`)).toBeTruthy();
       // A redacted report shows that it was, never the stored marker, and never its photos.
       expect(screen.getByText(t('staff.incidents.list.redacted'))).toBeTruthy();
       expect(screen.queryByText('[deleted by the owner]')).toBeNull();
@@ -424,13 +486,7 @@ describe.each(LOCALES)('incident reports by role in %s', (locale) => {
       queryData: [[staffKeys.incidents(V, 'open'), page]],
     });
     try {
-      // Two open, one of them the manager's own: one is his to review.
-      expect(
-        within(screen.getByTestId('staff-incidents.view')).getByText(
-          t('staff.incidents.views.review', { count: 1 }),
-        ),
-      ).toBeTruthy();
-      expect(screen.queryByTestId('staff-incidents.submit')).toBeNull();
+      expect(screen.getByTestId('staff-incidents.filter.open')).toBeTruthy();
       // One's own report is reviewed by someone else.
       expect(screen.queryByTestId(`staff-incidents.review.${ID(23)}`)).toBeNull();
       expect(screen.getByText(t('staff.incidents.review.own'))).toBeTruthy();

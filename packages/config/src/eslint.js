@@ -215,6 +215,8 @@ const testIdElements = [
   'ShowcaseLink',
   'SuggestionRow',
   'ForYouStrip',
+  // Play tab: the court's caption (apps/mobile components/play.tsx)
+  'CourtCaption',
   'DegradedBanner',
   'CapsuleControl',
   'PlayersChip',

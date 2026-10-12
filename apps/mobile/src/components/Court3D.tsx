@@ -13,7 +13,9 @@
  * it always had) or the Coaches tab's coaching drill (`drill`, through
  * CourtStage: a ball machine and a coach on the right half feeding the four
  * rackets down the left in turn, each swinging the rally's own clip as its ball
- * arrives; packages/court3d drill.ts + drillProps.ts). And two ways to see it,
+ * arrives; packages/court3d drill.ts + drillProps.ts) or the Play tab's next
+ * open match (`join`, through CourtStage: its taken seats warming up, its open
+ * ones marked, as the `join` prop says; packages/court3d join.ts). And two ways to see it,
  * by `view`: the Book's orbit (`book`, the default), or straight down and
  * horizontal (`top`, the Play and Coaches tabs through CourtStage: the court's
  * length left to right, the net a vertical line in the middle, never pitched
@@ -131,6 +133,7 @@ import { detectCourtQuality } from '../features/courtTransition/deviceQuality';
 import type { CourtQuality } from '../features/courtTransition/quality';
 import type { CourtScene, CourtSceneKind, CourtView } from '@touch/court3d/scene';
 import { DRILL_REST_T } from '@touch/court3d/drill';
+import type { JoinSeats } from '@touch/court3d/join';
 import { advance as advanceRally, MAX_STEP_S } from '@touch/court3d/rallyClock';
 import { pitchEase, type Dir } from '@touch/court3d/spec';
 import { buildPhoneCourt } from '../features/courtTransition/phoneCourt';
@@ -211,6 +214,30 @@ function withoutWebGL1Warning<T>(gl: ExpoWebGLRenderingContext, build: () => T):
   }
 }
 
+/**
+ * Drop the `pixelStorei` parameters expo-gl does not implement.
+ *
+ * expo-gl's native pixelStorei (common/EXWebGLMethods.cpp) handles only
+ * UNPACK_FLIP_Y_WEBGL and UNPACK_ALIGNMENT; anything else is a no-op that
+ * console.logs "EXGL: gl.pixelStorei() doesn't support this parameter yet!".
+ * three sends UNPACK_PREMULTIPLY_ALPHA_WEBGL and UNPACK_COLORSPACE_CONVERSION_WEBGL
+ * on every texture upload, so the log repeats per texture. Filtering them here
+ * changes nothing on screen — native was already ignoring them — it only stops
+ * the log. Patched on the context instance, so it is per surface and idempotent.
+ */
+function withSupportedPixelStore(gl: ExpoWebGLRenderingContext): void {
+  if (Platform.OS === 'web') return;
+  const ctx = gl as unknown as { pixelStorei: (pname: number, param: number | boolean) => void };
+  const native = ctx.pixelStorei;
+  if ((native as { __filtered?: boolean }).__filtered) return;
+  const supported = new Set<number>([gl.UNPACK_FLIP_Y_WEBGL, gl.UNPACK_ALIGNMENT]);
+  const filtered = (pname: number, param: number | boolean) => {
+    if (supported.has(pname)) native.call(gl, pname, param);
+  };
+  (filtered as { __filtered?: boolean }).__filtered = true;
+  ctx.pixelStorei = filtered;
+}
+
 export interface Court3DProps {
   progress: Animated.Value;
   direction: Dir;
@@ -224,6 +251,15 @@ export interface Court3DProps {
    * drill.ts). See the header.
    */
   scene?: CourtSceneKind;
+  /**
+   * The `join` scene's seats (packages/court3d join.ts): how many warm up and
+   * whether the open ones are marked. Read by value, so a caller may rebuild it
+   * every render. A change after the court's first frame plays (a racket
+   * landing, a spot settling in), except under Reduce Motion, where the court
+   * is simply redrawn in the new state; the first seats a fresh scene gets are
+   * applied as they are. Ignored by the other scenes.
+   */
+  join?: JoinSeats;
   /**
    * How the court is seen, fixed for the life of the mount: `book` (the
    * default: the Book tab's orbit, pitching with `progress`) or `top` (the Play
@@ -434,6 +470,7 @@ export function Court3D({
   reduceMotion,
   quality: qualityProp,
   scene: sceneProp,
+  join,
   view: viewProp,
   onSize,
   onUnavailable,
@@ -465,6 +502,11 @@ export function Court3D({
   /** Wall-clock mark for the current context attach, for [courtperf]. */
   const attachAt = useRef<number | null>(null);
   const court = useRef<CourtScene | null>(null);
+  /** The join seats as last asked for: read when a scene is built, pushed when they change. */
+  const joinTaken = join?.taken ?? 0;
+  const joinSpots = join?.spots ?? false;
+  const joinMirror = join?.mirror ?? false;
+  const joinRef = useRef<JoinSeats>({ taken: joinTaken, spots: joinSpots, mirror: joinMirror });
   const layout = useRef<{ width: number; height: number } | null>(null);
   const surfaces = useRef<{ court: Surface | null; ball: Surface | null }>({
     court: null,
@@ -1065,6 +1107,18 @@ export function Court3D({
     if (running.current) requestOnce();
   }, [boxWidth, boxHeight, boxOffsetX, boxOffsetY, requestOnce]);
 
+  // New join seats: hand them to the scene, played once the court is on screen
+  // and the guest has not asked for less motion, and draw them now when no loop
+  // will (Reduce Motion's is stopped).
+  useEffect(() => {
+    const next = { taken: joinTaken, spots: joinSpots, mirror: joinMirror };
+    joinRef.current = next;
+    const scene = court.current;
+    if (!scene) return;
+    scene.setJoin(next, painted.current && !reduceMotion);
+    if (running.current && reduceMotion) requestOnce();
+  }, [joinTaken, joinSpots, joinMirror, reduceMotion, requestOnce]);
+
   const attach = useCallback(
     (kind: Kind, gl: ExpoWebGLRenderingContext) => {
       detach(kind); // Android hands us a fresh context after the surface is recreated
@@ -1072,6 +1126,7 @@ export function Court3D({
       // it does, exactly as on the first mount.
       if (kind === 'court') armReveal();
       try {
+        withSupportedPixelStore(gl);
         // three wants a canvas-shaped object; the context is expo-gl's.
         const w = gl.drawingBufferWidth;
         const h = gl.drawingBufferHeight;
@@ -1118,6 +1173,8 @@ export function Court3D({
             instancing:
               renderer.capabilities.isWebGL2 || renderer.extensions.has('ANGLE_instanced_arrays'),
           });
+          // A fresh scene starts in the seats as they are now, nothing to play.
+          court.current.setJoin(joinRef.current, false);
           pushViewport();
         }
         // Outside the branch above: Android destroys the surface while the app

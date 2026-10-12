@@ -14,7 +14,8 @@
  */
 import { useEffect } from 'react';
 import { View } from 'react-native';
-import { Redirect, usePathname } from 'expo-router';
+import { usePathname } from 'expo-router';
+import { useResetTo } from '../../navigation/back';
 import TabsLayout from '../../navigation/TabsLayout';
 import { guestTabsGate } from './gate';
 import { GuestPreviewPill } from './GuestPreviewPill';
@@ -36,7 +37,7 @@ export default function GuestTabsGate() {
     case 'loading':
       return <StaffPending />;
     case 'redirect-staff':
-      return <Redirect href="/staff" />;
+      return <ToStaff />;
     default:
       if (!staff) return <TabsLayout />;
       return (
@@ -46,4 +47,15 @@ export default function GuestTabsGate() {
         </View>
       );
   }
+}
+
+/**
+ * Today as the only screen. A `<Redirect>` replaced just the tabs, so "Back to
+ * staff view" left the Today the guest view started from underneath, and every
+ * round trip stacked another one.
+ */
+function ToStaff() {
+  const resetTo = useResetTo();
+  useEffect(() => resetTo('/staff'), [resetTo]);
+  return <StaffPending />;
 }

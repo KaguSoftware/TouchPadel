@@ -85,7 +85,7 @@ const CB = (label: string, when: string) =>
   E(
     label,
     'g2',
-    `select app.coach_book_private({{lt_p}}, {{v}}, ${when}, 'Student ${label}', null, 1, 'k-${label}')`,
+    `select app.coach_book_private({{lt_p}}, {{v}}, ${when}, 'Student ${label}', '9647711112222', 1, 'k-${label}')`,
   );
 
 const BODY: string[] = [
@@ -867,7 +867,7 @@ const BODY_291: string[] = [
   E(
     'x_cb',
     'desk',
-    `select app.coach_book_private({{lt_px}}, {{x}}, ${at(2)}, 'Student X', null, 1, 'k-x_cb')`,
+    `select app.coach_book_private({{lt_px}}, {{x}}, ${at(2)}, 'Student X', '9647711112222', 1, 'k-x_cb')`,
   ),
   FROM('x_cb_lesson', 'x_cb', 'lesson_id'),
   ROW_STATUS('xh1_after', 'xh1'),

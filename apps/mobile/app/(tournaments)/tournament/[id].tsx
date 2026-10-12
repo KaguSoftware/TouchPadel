@@ -39,7 +39,6 @@ import {
   showsPlay,
   tourActionOf,
   tourPlacesOf,
-  tourToneOf,
   tournamentName,
   type TournamentPublic,
   type TourPlayer,
@@ -443,7 +442,6 @@ export default function TournamentDetailScreen() {
         }
       >
         <TournamentTicket
-          tone={tourToneOf(d.status)}
           status={d.status ? t(`tournaments.common.status.${d.status}`) : null}
           category={d.category}
           title={tournamentName(d, locale)}

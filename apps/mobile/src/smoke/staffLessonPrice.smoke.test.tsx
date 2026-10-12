@@ -14,7 +14,7 @@ import type { Can, RunRow, StepRow } from '@touch/core';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { staffKeys } from '../features/staff/keys';
 import type { PriceNumbers, PriceTargets } from '../features/staff/protocols/types';
-import StaffStep from '../../app/staff-step';
+import StaffStep from '../../app/(staff)/staff-step';
 
 const V = TEST_VENUE_ID;
 const RUN = 'a0000000-0000-4000-8000-00000000a0d1';

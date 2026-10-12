@@ -696,7 +696,7 @@ export const ar: Messages = {
   tabs: {
     book: 'حجز',
     bookings: 'حجوزاتي',
-    play: 'العب',
+    play: 'انضم',
     coaches: 'المدربون',
     profile: 'حسابي',
   },

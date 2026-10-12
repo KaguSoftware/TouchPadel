@@ -31,6 +31,7 @@ export const opErrorsCoachingEn = {
   ALREADY_COACH: 'This customer is already a coach.',
   COACH_NOT_FOUND: "That coach can't be found.",
   COACH_NOT_AT_BRANCH: "This coach doesn't teach at this branch.",
+  COACH_SLUG_TAKEN: 'Another coach already uses this link name. Pick another.',
   LESSON_TYPE_NOT_FOUND: "That lesson type can't be found.",
   LESSON_TYPE_NOT_OFFERED: "This coach doesn't teach this lesson type.",
   HOURS_INVALID: 'Each window has to start before it ends, within one day.',

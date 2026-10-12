@@ -1,6 +1,6 @@
 /**
- * `staff.deductions.*`: the staff phone's deductions page (app/staff-deductions.tsx:
- * propose for your team, my proposals, my deductions). Owned by lane P
+ * `staff.deductions.*`: the staff phone's deductions pages (app/(staff)/staff-deductions.tsx:
+ * my proposals, my deductions; app/(staff)/staff-deduction-propose.tsx: propose). Owned by lane P
  * (docs/design/protocols/wave5-addendum-2026-09-25.md §1.2, §4.1).
  * Mirror every key in deductions.ar.ts.
  *
@@ -46,7 +46,6 @@ export const staffDeductionsEn = {
       'Recorded at once: it comes off the person’s next unpaid wage. They are told, and never see who entered it.',
     submit: 'Send for approval',
     submitOwner: 'Deduct from wage',
-    cancel: 'Cancel',
     sent: 'Sent. The owner decides.',
     recorded: 'Deduction recorded. It comes off their next unpaid wage.',
     noTargets: 'There is nobody you can propose a deduction for right now.',

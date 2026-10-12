@@ -171,6 +171,7 @@ export const staffChecklistsEn = {
     lead: 'An idea to make work or the venue better? Send it here. The manager and the owner read every suggestion, with your name on it.',
     field: 'Your suggestion',
     submit: 'Send suggestion',
+    new: 'New suggestion',
     sent: 'Suggestion sent',
     mine: 'Your suggestions',
     emptyMine: 'You have not sent a suggestion yet.',

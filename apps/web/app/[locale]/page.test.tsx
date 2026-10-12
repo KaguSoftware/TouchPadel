@@ -14,8 +14,6 @@ import { renderServerPage } from '@/test/renderPage';
 import { resetSiteRequest } from '@/lib/site/testSupport';
 import { PHOTO_GRADE_ID } from '@/lib/site/photoGrade';
 import {
-  COACH_ALI,
-  COACH_SARA,
   COACHING_ERROR,
   PRICES,
   coachingAnswer,
@@ -377,8 +375,8 @@ describe('home page, #lessons and coaching', () => {
     });
     const faces = within(strip).getAllByRole('link');
     expect(faces.map((a) => a.getAttribute('href'))).toEqual([
-      `/en/c/${COACH_ALI}`,
-      `/en/c/${COACH_SARA}`,
+      '/en/c/ali-fixture',
+      '/en/c/sara-fixture',
     ]);
     // The name is the link's text; the letter placeholder beside it is hidden from screen readers.
     expect(faces.map((a) => a.querySelector('.tp-coach-face__name')?.textContent)).toEqual([
@@ -436,7 +434,7 @@ describe('home page, #lessons and coaching', () => {
       'علي التجربة',
       'سارة التجربة',
     ]);
-    expect(faces[0]?.getAttribute('href')).toBe(`/ar/c/${COACH_ALI}`);
+    expect(faces[0]?.getAttribute('href')).toBe('/ar/c/ali-fixture');
     expect(
       within(lessons())
         .getByRole('link', { name: t('ar', 'coaching.web.landing.cta') })

@@ -17,6 +17,7 @@
  * later focus of the tab would replay the open.
  */
 let requested = false;
+const closeListeners = new Set<() => void>();
 
 /** Ask the Book tab to open the booking sheet the next time it is focused. */
 export function requestBookingSheet(): void {
@@ -28,4 +29,25 @@ export function takeBookingSheetRequest(): boolean {
   const wanted = requested;
   requested = false;
   return wanted;
+}
+
+/**
+ * The opposite, and at once: the Book tab drops its sheet to the court with no
+ * animation. Sign-out asks for it, since the router keeps the Book tab (and a
+ * sheet the signed-in guest left open) across a replace to the tabs. It runs
+ * while the tab is still hidden behind Profile, so the guest lands on the
+ * court with the rally already playing. A Book tab that is not mounted starts
+ * on the court anyway.
+ */
+export function closeBookingSheetNow(): void {
+  requested = false;
+  for (const close of closeListeners) close();
+}
+
+/** The Book tab's side of `closeBookingSheetNow`; returns the unsubscribe. */
+export function onCloseBookingSheetNow(close: () => void): () => void {
+  closeListeners.add(close);
+  return () => {
+    closeListeners.delete(close);
+  };
 }

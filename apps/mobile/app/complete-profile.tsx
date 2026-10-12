@@ -107,13 +107,16 @@ export default function CompleteProfileScreen() {
    * Review, or to the phone verification a booking now needs — is a departure
    * too, and the guard would otherwise turn it into a trip to the tabs.
    */
+  const toTabs = () => {
+    clearPendingIntents();
+    router.dismissTo('/(tabs)');
+  };
   const leave = useBackGuard({
     when: returnTo === 'continue',
-    onBlocked: (leave) =>
-      leave(() => {
-        clearPendingIntents();
-        router.replace('/(tabs)');
-      }),
+    onBlocked: (leave) => leave(toTabs),
+    // The iOS back item has already popped; the screen beneath may be the
+    // sign-in that sends an incomplete profile straight back here.
+    onDismissed: toTabs,
   });
 
   // Safety net with ONE legitimate trigger: the (auth) layout can route here from

@@ -49,6 +49,7 @@ import { ErrorState, SkeletonList } from '../../src/components/states';
 import { MatchNotice } from '../../src/components/match';
 import { CoachAvatar } from '../../src/components/coaching';
 import { useToast } from '../../src/components/overlays';
+import { otherPersonName } from '../../src/components/fieldKeyboard';
 
 /** How far the light sheet rides up over the blue header. */
 const SHEET_OVERLAP = 28;
@@ -528,6 +529,7 @@ function LessonReviewScreen() {
                     return (
                       <View key={col} style={{ flex: 1, minWidth: 0 }}>
                         <Field
+                          {...otherPersonName}
                           testID={`lesson-review.friend.${i + 1}`}
                           placeholder={t('coaching.guest.review.friend', {
                             n: isolateLtr(String(i + 1)),

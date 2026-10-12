@@ -23,6 +23,12 @@ describe('advance', () => {
     expect(advance(1, 1000 / 60)).toBeCloseTo(1 + 1 / 60, 10);
   });
 
+  it('runs at real time on a phone drawing 20 fps', () => {
+    // The Play build on a mid-range Android phone (2026-10-11): a cap under the
+    // frame interval played the whole rally at two thirds of its speed.
+    expect(advance(1, 50)).toBeCloseTo(1.05, 10);
+  });
+
   it('caps a frame the JS thread was too busy to draw', () => {
     // The whole bug in one assertion: 200 ms of contention moves the rally on
     // by one ordinary step, not by 200 ms of flight.

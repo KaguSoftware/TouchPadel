@@ -430,6 +430,8 @@ export interface Enrolment {
   flags: CustomerFlag[];
   party_size: number | null;
   friend_names: string[];
+  /** 0335/0336: the other students' phones a coach typed, by position against friend_names ('' for none). */
+  friend_phones: string[];
   first_session_no: number | null;
   sessions_covered: number | null;
   booked_by_kind: string | null;
@@ -580,6 +582,10 @@ export function readEnrolment(e: Raw): Enrolment | null {
     flags: flags(e.flags),
     party_size: num(e.party_size),
     friend_names: strs(e.friend_names),
+    // By position, so a missing or odd entry is '' rather than dropped.
+    friend_phones: Array.isArray(e.friend_phones)
+      ? e.friend_phones.map((p) => (typeof p === 'string' ? p : ''))
+      : [],
     first_session_no: num(e.first_session_no),
     sessions_covered: num(e.sessions_covered),
     booked_by_kind: str(e.booked_by_kind),
@@ -806,6 +812,8 @@ export interface AdminCoach {
   account_deleted: boolean;
   display_name_en: string;
   display_name_ar: string;
+  /** The name in the coach's share link (/c/<slug>, 0337); null from a server before it. */
+  slug: string | null;
   bio_en: string;
   bio_ar: string;
   photo_path: string | null;
@@ -890,6 +898,7 @@ function readAdminCoach(c: Raw): AdminCoach | null {
     account_deleted: flag(c.account_deleted),
     display_name_en: str(c.display_name_en) ?? '',
     display_name_ar: str(c.display_name_ar) ?? '',
+    slug: str(c.slug),
     bio_en: str(c.bio_en) ?? '',
     bio_ar: str(c.bio_ar) ?? '',
     photo_path: str(c.photo_path),

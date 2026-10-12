@@ -16,8 +16,8 @@ import type { Can, RunRow, StepRow } from '@touch/core';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { staffKeys } from '../features/staff/keys';
 import type { PriceNumbers, PriceTargets } from '../features/staff/protocols/types';
-import StaffStart from '../../app/staff-start';
-import StaffStep from '../../app/staff-step';
+import StaffStart from '../../app/(staff)/staff-start';
+import StaffStep from '../../app/(staff)/staff-step';
 
 const V = TEST_VENUE_ID;
 const ITEM = 'e0000000-0000-4000-8000-00000000e0a1';

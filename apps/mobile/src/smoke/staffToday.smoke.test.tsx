@@ -2,7 +2,7 @@
  * Today with the page lanes mounted (build-contracts-2026-09-23 §6.1): the
  * rows each role gets, and the Work alerts button whose badge counts the
  * checklists still to finish and the work list on the page it opens
- * (app/staff-work.tsx, owner 2026-10-10). The route's own table case is in
+ * (app/(staff)/staff-work.tsx, owner 2026-10-10). The route's own table case is in
  * staff.smoke.test.tsx; these are extra states, in EN and AR, so this file
  * names no route (smokeCoverage counts each route in exactly one suite).
  */
@@ -16,7 +16,7 @@ import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
 import { dueText, type ChecklistsToday } from '../features/staff/checklists/logic';
 import StaffToday from '../../app/staff';
-import StaffWork from '../../app/staff-work';
+import StaffWork from '../../app/(staff)/staff-work';
 import StaffGroup from '../../app/staff-group';
 import { ROW_GROUPS } from '../features/staff/todayGroups';
 import { isGuestPreview, setGuestPreview } from '../features/staff/guestPreview';
@@ -291,7 +291,9 @@ describe.each(LOCALES)('Today in %s', (locale) => {
     expect(withRow(chef, 'staff.row.marketing-inbox')).toBe(false);
   });
 
-  it('shows a tile per group, which opens the group in its native sheet route on iOS', () => {
+  it('shows a tile per group, which on iOS opens the group as its own sheet route (app/staff-group.tsx)', () => {
+    const os = jest.replaceProperty(Platform, 'OS', 'ios');
+    routerState.calls.length = 0;
     const screen = renderRoute(StaffToday, { locale, staff: { role: 'manager' } });
     try {
       const tile = screen.getByTestId('staff.group.team');
@@ -307,6 +309,24 @@ describe.each(LOCALES)('Today in %s', (locale) => {
       expect(screen.queryByTestId('staff.sheet.list')).toBeNull();
     } finally {
       screen.unmount();
+      os.restore();
+    }
+  });
+
+  it('opens the page straight away from a group of one page, on both platforms', () => {
+    for (const platform of ['ios', 'android'] as const) {
+      const os = jest.replaceProperty(Platform, 'OS', platform);
+      routerState.calls.length = 0;
+      // A manager's floor is Place an order alone (calls are the waiter's).
+      const screen = renderRoute(StaffToday, { locale, staff: { role: 'manager' } });
+      try {
+        fireEvent.press(screen.getByTestId('staff.group.floor'));
+        expect(routerState.calls).toEqual([{ method: 'push', arg: '/staff-order' }]);
+        expect(screen.queryByTestId('staff.sheet.list')).toBeNull();
+      } finally {
+        screen.unmount();
+        os.restore();
+      }
     }
   });
 

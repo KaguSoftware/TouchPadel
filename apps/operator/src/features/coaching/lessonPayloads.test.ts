@@ -83,7 +83,8 @@ function leaf(key: string): unknown {
   if (key === 'start_time') return '09:00';
   if (key === 'end_time') return '13:00';
   if (key === 'date' || key === 'from' || key === 'to') return '2026-10-01';
-  if (key === 'flags' || key === 'friend_names' || key === 'columns') return [];
+  if (key === 'flags' || key === 'friend_names' || key === 'friend_phones' || key === 'columns')
+    return [];
   if (key === 'attendance') return 'attended';
   if (key === 'change') return 'lesson_price';
   if (/_at$/.test(key) || key === 'at' || key === 'server_now') return AT;

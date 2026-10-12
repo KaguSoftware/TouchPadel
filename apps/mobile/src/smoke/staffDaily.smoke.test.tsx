@@ -14,10 +14,12 @@
  * manager's view of everyone's suggestions, and the owner's decision.
  */
 import { describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
+import { headerAdd } from '../test/headerAdd';
+import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
 import { supabase } from '../lib/supabase';
 import type { ChecklistsToday } from '../features/staff/checklists/logic';
@@ -26,13 +28,14 @@ import type { StockView } from '../features/staff/stock/logic';
 import type { TeachingsPage } from '../features/staff/teachings/logic';
 import type { SuggestionsPage } from '../features/staff/suggestions/logic';
 import type { RecipeChangesPage, RecipeView } from '../features/staff/recipes/logic';
-import StaffChecklist from '../../app/staff-checklist';
-import StaffProduction from '../../app/staff-production';
-import StaffStock from '../../app/staff-stock';
-import StaffTeachings from '../../app/staff-teachings';
-import StaffSuggestions from '../../app/staff-suggestions';
-import StaffRecipes from '../../app/staff-recipes';
-import StaffRecipeChange from '../../app/staff-recipe-change';
+import StaffChecklist from '../../app/(staff)/staff-checklist';
+import StaffProduction from '../../app/(staff)/staff-production';
+import StaffStock from '../../app/(staff)/staff-stock';
+import StaffTeachings from '../../app/(staff)/staff-teachings';
+import StaffSuggestions from '../../app/(staff)/staff-suggestions';
+import StaffSuggestionNew from '../../app/(staff)/staff-suggestion-new';
+import StaffRecipes from '../../app/(staff)/staff-recipes';
+import StaffRecipeChange from '../../app/(staff)/staff-recipe-change';
 
 const V = TEST_VENUE_ID;
 
@@ -270,8 +273,14 @@ runSmokeCases('staff daily work', [
   {
     route: 'staff-suggestions',
     Component: StaffSuggestions,
-    labelKey: 'staff.checklists.suggestions.submit',
+    nearbyKey: 'staff.checklists.suggestions.emptyMine',
     options: { staff: { role: 'cashier' }, queryData: [[staffKeys.mySuggestions(V), []]] },
+  },
+  {
+    route: 'staff-suggestion-new',
+    Component: StaffSuggestionNew,
+    labelKey: 'staff.checklists.suggestions.submit',
+    options: { staff: { role: 'cashier' } },
   },
   {
     route: 'staff-recipes',
@@ -393,7 +402,7 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
     }
   });
 
-  it('gives the head a Write button and the team member none', () => {
+  it('gives the head a + to write and the team member none', () => {
     const member = renderRoute(StaffTeachings, {
       locale,
       staff: { role: 'barista' },
@@ -401,7 +410,7 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
     });
     try {
       expect(member.getByTestId('staff-teachings.item.teach-1')).toBeTruthy();
-      expect(member.queryByTestId('staff-teachings.write')).toBeNull();
+      expect(headerAdd(member)).toBeNull();
     } finally {
       member.unmount();
     }
@@ -411,7 +420,11 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
       queryData: [[staffKeys.teachings(V, 'bar'), TEACHINGS]],
     });
     try {
-      expect(head.getByTestId('staff-teachings.write')).toBeTruthy();
+      const add = headerAdd(head);
+      expect(add?.label).toBe(t('staff.checklists.teachings.write'));
+      act(() => add?.onPress());
+      expect(head.getByTestId('staff-teachings.save')).toBeTruthy();
+      expect(headerAdd(head)).toBeNull();
     } finally {
       head.unmount();
     }
@@ -441,6 +454,35 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
     }
   });
 
+  it('gives every role a + that opens the suggestion form, and keeps the form off the list', () => {
+    const screen = renderRoute(StaffSuggestions, {
+      locale,
+      staff: { role: 'cashier' },
+      queryData: [[staffKeys.mySuggestions(V), []]],
+    });
+    try {
+      expect(screen.queryByTestId('staff-suggestions.submit')).toBeNull();
+      expect(screen.queryByTestId('staff-suggestion-new.submit')).toBeNull();
+      const add = headerAdd(screen);
+      expect(add?.label).toBe(t('staff.checklists.suggestions.new'));
+      act(() => add?.onPress());
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-suggestion-new' });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('asks for the suggestion before sending it', () => {
+    const screen = renderRoute(StaffSuggestionNew, { locale, staff: { role: 'cashier' } });
+    try {
+      expect(screen.getByText(t('staff.checklists.suggestions.lead'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-suggestion-new.submit'));
+      expect(screen.getByText(t('staff.checklists.suggestions.errors.required'))).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
   it('shows the manager everyone’s suggestions with Mark as read', () => {
     const screen = renderRoute(StaffSuggestions, {
       locale,
@@ -454,6 +496,7 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
       expect(screen.getByTestId('staff-suggestions.filter')).toBeTruthy();
       expect(screen.getByTestId('staff-suggestions.seen.sug-1')).toBeTruthy();
       expect(screen.getByText(t('staff.checklists.suggestions.teamTitle'))).toBeTruthy();
+      expect(headerAdd(screen)?.label).toBe(t('staff.checklists.suggestions.new'));
     } finally {
       screen.unmount();
     }

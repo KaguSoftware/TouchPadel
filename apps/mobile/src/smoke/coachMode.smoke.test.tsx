@@ -43,12 +43,13 @@ import {
   ENROLMENT_ID,
   ENROLMENT_2_ID,
 } from '../test/coachFixtures';
-import CoachMode from '../../app/coach-mode';
-import CoachModeHours from '../../app/coach-mode-hours';
-import CoachModeLesson from '../../app/coach-mode-lesson';
-import CoachModeNew from '../../app/coach-mode-new';
-import CoachModeBook from '../../app/coach-mode-book';
-import CoachModeStatements from '../../app/coach-mode-statements';
+import CoachModeLayout from '../../app/(coach-mode)/_layout';
+import CoachMode from '../../app/(coach-mode)/coach-mode';
+import CoachModeHours from '../../app/(coach-mode)/coach-mode-hours';
+import CoachModeLesson from '../../app/(coach-mode)/coach-mode-lesson';
+import CoachModeNew from '../../app/(coach-mode)/coach-mode-new';
+import CoachModeBook from '../../app/(coach-mode)/coach-mode-book';
+import CoachModeStatements from '../../app/(coach-mode)/coach-mode-statements';
 import StaffToday from '../../app/staff';
 import ProfileScreen from '../../app/(tabs)/profile';
 
@@ -62,6 +63,12 @@ const statementSeeds = (): [readonly unknown[], unknown][] => [
 ];
 
 runSmokeCases('coach mode', [
+  // The group's own stack: a todo in the table (it needs a live router).
+  {
+    route: 'coach-mode-stack',
+    Component: CoachModeLayout,
+    labelKey: 'coaching.coach.home.title',
+  },
   {
     route: 'coach-mode',
     Component: CoachMode,
@@ -88,7 +95,7 @@ runSmokeCases('coach mode', [
   {
     route: 'coach-mode-new',
     Component: CoachModeNew,
-    labelKey: 'coaching.coach.new.create',
+    labelKey: 'coaching.coach.new.createSession',
     options: { coach: coachMeFixture() },
   },
   {
@@ -317,6 +324,14 @@ describe.each(LOCALES)('coach mode’s states in %s', (locale) => {
     try {
       expect(screen.getByTestId(`coach-mode-lesson.student.${ENROLMENT_ID}`)).toBeTruthy();
       expect(screen.getByTestId(`coach-mode-lesson.student.${ENROLMENT_ID}.call`)).toBeTruthy();
+      // The other students the coach booked, each callable (0335, 0336).
+      expect(
+        screen.getByTestId(`coach-mode-lesson.student.${ENROLMENT_ID}.friend.1.call`),
+      ).toBeTruthy();
+      expect(screen.getByTestId(`coach-mode-lesson.student.${ENROLMENT_ID}.friend.2`)).toBeTruthy();
+      expect(
+        screen.queryByTestId(`coach-mode-lesson.student.${ENROLMENT_ID}.friend.2.call`),
+      ).toBeNull();
       expect(screen.getByTestId(`coach-mode-lesson.student.${ENROLMENT_ID}.mark`)).toBeTruthy();
       expect(screen.getByTestId(`coach-mode-lesson.student.${ENROLMENT_2_ID}.mark`)).toBeTruthy();
       expect(screen.getByText(t('coaching.coach.roster.phoneNote'))).toBeTruthy();

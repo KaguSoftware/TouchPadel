@@ -1,6 +1,6 @@
 /**
- * `staff.incidents.*`: the staff phone's incidents page (app/staff-incidents.tsx: report,
- * my reports, review). Owned by lane P (docs/design/protocols/wave5-addendum-2026-09-25.md §1.2, §4.1).
+ * `staff.incidents.*`: the staff phone's incidents pages (app/(staff)/staff-incidents.tsx: my
+ * reports, review; app/(staff)/staff-incident-report.tsx: the report form). Owned by lane P (docs/design/protocols/wave5-addendum-2026-09-25.md §1.2, §4.1).
  * Mirror every key in incidents.ar.ts.
  *
  * Kinds, places and statuses are `work.incident.*`, shared with the operator
@@ -12,11 +12,8 @@ export const staffIncidentsEn = {
   // Management's row while reports wait (§5.3).
   rowCount: 'Incidents ({count} to review)',
   title: 'Incidents',
-  views: {
-    review: 'To review ({count})',
-    reviewNone: 'To review',
-    report: 'Report',
-  },
+  // The + in the page's top bar, which opens the report form.
+  add: 'Report an incident',
   lead: 'An accident, an injury, a fight or damage at the venue. Report it here and the managers and the owner are told.',
   form: {
     title: 'Report an incident',
@@ -49,7 +46,6 @@ export const staffIncidentsEn = {
     },
   },
   mine: {
-    title: 'Your reports',
     empty: 'You have not reported anything.',
   },
   list: {

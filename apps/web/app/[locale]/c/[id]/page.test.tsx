@@ -209,12 +209,11 @@ describe.each(LOCALES)('coach link page (%s)', (locale: Locale) => {
 
 describe('coach link page, the id', () => {
   it.each([
-    ['not a uuid', 'ali'],
-    ['too short', COACH_ALI.slice(1)],
     ['a match token', 'Ab3_-x9ZqT0kLm2NpQr7sU'],
     ['markup', '"><script>alert(1)</script>'],
+    ['one letter', 'a'],
   ])(
-    'never reads for an id that is %s: not found, the app home, the other language’s coaches',
+    'never reads for a segment that is %s: not found, the app home, the other language’s coaches',
     async (_, id) => {
       await renderLink('en', id);
       expect(coachingServer.calls).toBe(0);
@@ -229,6 +228,28 @@ describe('coach link page, the id', () => {
   it('reads an upper-case id as its coach', async () => {
     await renderLink('en', COACH_ALI.toUpperCase());
     expect(heading()).toBe('Ali Fixture');
+  });
+
+  it('reads a slug as its coach (0337), any case; the app opens on the id', async () => {
+    await renderLink('en', 'Ali-Fixture');
+    expect(heading()).toBe('Ali Fixture');
+    expect(
+      screen.getByRole('link', { name: t('en', 'coaching.web.link.open') }).getAttribute('href'),
+    ).toBe(`touchpadel://c/${COACH_ALI}`);
+    expect(document.querySelector('a[hreflang="ar"]')?.getAttribute('href')).toBe(
+      '/ar/c/ali-fixture',
+    );
+  });
+
+  it.each([
+    ['an unknown slug', 'ali'],
+    ['an id cut short', COACH_ALI.slice(1)],
+  ])('shows not found for %s, with the app home', async (_, id) => {
+    await renderLink('en', id);
+    expect(heading()).toBe(t('en', 'coaching.web.link.notFound'));
+    expect(
+      screen.getByRole('link', { name: t('en', 'coaching.web.link.open') }).getAttribute('href'),
+    ).toBe('touchpadel://');
   });
 });
 

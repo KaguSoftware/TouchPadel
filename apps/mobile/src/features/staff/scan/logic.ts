@@ -1,6 +1,6 @@
 /**
- * The pure half of the phone's camera pages (app/staff-order-slip.tsx,
- * app/staff-receipt.tsx): who may use each, the two logs read defensively, and
+ * The pure half of the phone's camera pages (app/(staff)/staff-order-slip.tsx,
+ * app/(staff)/staff-receipt.tsx): who may use each, the two logs read defensively, and
  * each row's tone. PURE (vitest).
  */
 import type { StaffRole } from '@touch/core';

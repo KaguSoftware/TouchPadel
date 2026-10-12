@@ -767,7 +767,7 @@ export const en = {
   tabs: {
     book: 'Book',
     bookings: 'Reservations',
-    play: 'Play',
+    play: 'Join',
     coaches: 'Coaches',
     profile: 'Profile',
   },

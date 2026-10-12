@@ -7,7 +7,7 @@
  * main panel (`/staff`) carries it in its header instead (AssistantButton),
  * where the floating one sat over Sign out.
  *
- * It is drawn per screen, by the root Stack's `screenLayout`
+ * It is drawn per screen, by the (staff) Stack's `screenLayout`
  * (withAssistantFab), not once over the navigator: a single overlay could only
  * follow the pathname, which changes after the navigation, so the button
  * appeared and vanished late on every push and pop (owner, 2026-10-09). Inside
@@ -39,7 +39,7 @@ export function fabHidden(pathname: string): boolean {
 }
 
 /**
- * The root Stack's `screenLayout`: a staff page's content with the floating
+ * The (staff) Stack's `screenLayout` (app/(staff)/_layout.tsx): a staff page's content with the floating
  * button over it. Every other screen, and a staff sheet (the button stays on
  * the page beneath it, as before), is returned untouched.
  */

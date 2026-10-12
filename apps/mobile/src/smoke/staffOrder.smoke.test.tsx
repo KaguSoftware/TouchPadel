@@ -20,10 +20,10 @@ import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
 import { clearDraft, getDraft, updateDraft } from '../features/staff/floor/drafts';
 import { addLine, type Floor, type MenuCategory } from '../features/staff/floor/logic';
-import StaffOrder from '../../app/staff-order';
-import StaffOrderMenu from '../../app/staff-order-menu';
-import StaffOrderItem from '../../app/staff-order-item';
-import StaffOrderReview from '../../app/staff-order-review';
+import StaffOrder from '../../app/(staff)/staff-order';
+import StaffOrderMenu from '../../app/(staff)/staff-order-menu';
+import StaffOrderItem from '../../app/(staff)/staff-order-item';
+import StaffOrderReview from '../../app/(staff)/staff-order-review';
 
 const V = TEST_VENUE_ID;
 const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;

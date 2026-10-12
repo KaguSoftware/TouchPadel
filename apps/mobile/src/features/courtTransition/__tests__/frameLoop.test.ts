@@ -89,7 +89,7 @@ describe('the Book tab asks for nothing at transition priority', () => {
   // five-second expiry rather than time-sliced. The sheet prewarm used one and
   // therefore arrived after the tap it was meant to precede.
   it('prewarms the booking sheet without startTransition', () => {
-    expect(bookTab).toContain('runAfterInteractions(() => setSheetPrewarmed(true))');
+    expect(bookTab).toContain('requestIdleCallback(() => setSheetPrewarmed(true))');
     expect(bookTab).not.toContain('startTransition');
   });
 });

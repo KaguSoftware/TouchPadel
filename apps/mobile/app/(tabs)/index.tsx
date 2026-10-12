@@ -3,7 +3,6 @@ import {
   AccessibilityInfo,
   Animated,
   BackHandler,
-  InteractionManager,
   Platform,
   Pressable,
   StyleSheet,
@@ -20,7 +19,10 @@ import { useBranches, useVenueSettings } from '../../src/features/availability/h
 import { BranchPicker } from '../../src/features/availability/BranchPicker';
 import { openNowInfo, type VenueSettingsPublic } from '../../src/features/availability/assemble';
 import { useCourtTransition } from '../../src/features/courtTransition/useCourtTransition';
-import { takeBookingSheetRequest } from '../../src/features/courtTransition/openIntent';
+import {
+  onCloseBookingSheetNow,
+  takeBookingSheetRequest,
+} from '../../src/features/courtTransition/openIntent';
 import { lerp, pitchEase, sampleCurve, sampleEased, SPEC, type Range } from '@touch/court3d/spec';
 import { courtTopFraction, makeCamera, projectNet } from '@touch/court3d/camera';
 import { useReduceMotion } from '../../src/lib/useReduceMotion';
@@ -623,8 +625,16 @@ export default function BookHomeScreen() {
   const settings = useVenueSettings();
 
   const reduceMotion = useReduceMotion();
-  const { progress, veil, direction, isOpen, sheetMounted, openBooking, closeBooking } =
-    useCourtTransition();
+  const {
+    progress,
+    veil,
+    direction,
+    isOpen,
+    sheetMounted,
+    openBooking,
+    closeBooking,
+    snapClosed,
+  } = useCourtTransition();
 
   const [courtSize, setCourtSize] = useState<{ width: number; height: number } | null>(null);
   // See COURT_LAYOUT_WAIT_MS: the stage's height is final once the branch list is in.
@@ -725,8 +735,8 @@ export default function BookHomeScreen() {
       // The court is up (or there will never be one): build the sheet now, out
       // of the way of whatever is still animating.
       if (courtPainted || glUnavailable) {
-        const handle = InteractionManager.runAfterInteractions(() => setSheetPrewarmed(true));
-        return () => handle.cancel();
+        const id = requestIdleCallback(() => setSheetPrewarmed(true));
+        return () => cancelIdleCallback(id);
       }
       // Still waiting on the first frame. This effect re-runs the moment it
       // lands, which clears the timer below — so the backstop only ever fires
@@ -777,6 +787,9 @@ export default function BookHomeScreen() {
       if (takeBookingSheetRequest() && !isOpen) open();
     }, [isOpen, open]),
   );
+
+  // Sign-out: the old guest's sheet is gone before the tab is seen again.
+  useEffect(() => onCloseBookingSheetNow(snapClosed), [snapClosed]);
 
   // The court layer: lifted 60 px at full opacity (PITCH ease, direction-aware).
   // Both GL surfaces (court, ball) carry it; the button between them does not.

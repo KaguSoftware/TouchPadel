@@ -5,11 +5,7 @@ export const staffIncidentsAr: DeepMessages<typeof staffIncidentsEn> = {
   row: 'الحوادث',
   rowCount: 'الحوادث ({count} للمراجعة)',
   title: 'الحوادث',
-  views: {
-    review: 'للمراجعة ({count})',
-    reviewNone: 'للمراجعة',
-    report: 'إبلاغ',
-  },
+  add: 'الإبلاغ عن حادثة',
   lead: 'حادث أو إصابة أو شجار أو ضرر في المكان. بلّغ عنه هنا، وسيصل البلاغ إلى المديرين والمالك.',
   form: {
     title: 'بلاغ عن حادثة',
@@ -41,7 +37,6 @@ export const staffIncidentsAr: DeepMessages<typeof staffIncidentsEn> = {
     },
   },
   mine: {
-    title: 'بلاغاتك',
     empty: 'لا بلاغات بعد.',
   },
   list: {

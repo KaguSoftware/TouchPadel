@@ -5,35 +5,37 @@ The guest app: Expo SDK 57 with expo-router screens under `app/` and feature cod
 Written 2026-09-20 (Phase 2, Milestone 0 item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20
 code verification. Database-side rules are in `packages/db/CLAUDE.md`.
 
-The same app is the staff phone for a signed-in staff account (`app/staff*.tsx`,
+The same app is the staff phone for a signed-in staff account (`app/staff.tsx` is Today; the pages it opens sit in `app/(staff)/`, a
+nested stack like `(tournaments)` so their bar leaves with the page on the way back to Today;
 `src/features/staff`): `StaffStatusProvider` decides guest or staff, `GuestTabsGate` keeps a staff
 session out of the tabs, and a guest renders exactly as before. The binding shapes (routes, query
 keys, the status table, the no-station-RPC rule) are
 `docs/design/protocols/build-contracts-2026-09-23.md` §6 and §7.
 
-Coach mode (`app/coach-mode*.tsx`, `src/features/coach`; `docs/design/coaching/guest.md` §4.13): a
+Coach mode (`app/(coach-mode)/coach-mode*.tsx`, `src/features/coach`; `docs/design/coaching/guest.md` §4.13): a
 coach is a GUEST. `CoachStatusProvider` (inside `StaffStatusProvider`) reads `coach_me` while a
 reader is mounted and never changes what the staff status answers; `RequireCoach` gates every
 coach-mode screen (a retired coach reaches the statements only). Guests open it from Profile, staff
-who coach from the "Coach mode" row of the staff hub (C-27).
+who coach from the "Coach mode" row of the staff hub (C-27). Like `(staff)` it is a nested stack with its
+own native bar, so the bar and its back button leave with the page (owner, 2026-10-11).
 
 Screenshot guard (owner call 2026-10-07): `StaffScreenGuard`
 (`src/features/staff/screenGuard/`, mounted once in `app/_layout.tsx`) blocks screenshots and
 recordings for every staff role except the owner (`expo-screen-capture`: Android FLAG_SECURE; iOS
 cannot block a screenshot, it blanks recordings and the app switcher) and reports each screenshot it
 hears of to `log_staff_screenshot` (0313) with the page from `usePathname()`, retried a few times
-without signal. The owner reads the list at `app/staff-screenshots.tsx` (Today's "Screenshots" tile),
+without signal. The owner reads the list at `app/(staff)/staff-screenshots.tsx` (Today's "Screenshots" tile),
 the audit log's `staff.screenshot` rows through `audit_log_page`. The owner's assistant is a
-floating button (`src/features/assistant/AssistantFab.tsx`, drawn inside each screen by the root
-Stack's `screenLayout` so it moves with the page's transition) on staff
+floating button (`src/features/assistant/AssistantFab.tsx`, drawn inside each screen by the
+`(staff)` Stack's `screenLayout` so it moves with the page's transition) on staff
 pages other than the assistant's own and Today, which carries the same button (`AssistantButton`)
 at the end of its greeting card, where the floating one covered Sign out (owner, 2026-10-09).
 
 Rewards (Majed, 2026-10-10; migration 0332): the owner sets each waiter's, cashier's or manager's
 rewards (a number of orders placed in a business month, for an IQD bonus, a prize or both) at
-`app/staff-rewards-admin.tsx` (Today's "Rewards" tile). Each person sees only their own progress:
+`app/(staff)/staff-rewards-admin.tsx` (Today's "Rewards" tile). Each person sees only their own progress:
 the navy reward track under Today's greeting (`src/features/staff/rewards/RewardTrack.tsx`, shown
-only when they have a reward) and `app/staff-rewards.tsx`. The count is `app.my_rewards`'s, never
+only when they have a reward) and `app/(staff)/staff-rewards.tsx`. The count is `app.my_rewards`'s, never
 the phone's; the phone never adds rewards up and never compares people (PRODUCT.md: nothing grades
 staff). The track rolls from the count last seen on this phone (`rewards/seen.ts`) to now.
 
@@ -89,7 +91,10 @@ staff). The track rolls from the count last seen on this phone (`rewards/seen.ts
   state and is never persisted (`src/lib/queryClient.ts` leaves it out of the dehydrate filter).
   `match_start` is the only match write with a key: `matchIntentKey(matchStartIntent(…))` from
   `src/lib/idempotency.ts`, kept across the refusals the guest fixes and the ticket continuation
-  that replays the start. Every other match write is state-idempotent and takes none.
+  that replays the start. Every other match write is state-idempotent and takes none. The list
+  is the Play tab (`app/(tabs)/play.tsx`); the match, the start and the report sit in
+  `app/(matches)/`, a nested stack like `(tournaments)` (2026-10-11); the invite link's landing
+  `app/m/[token].tsx` stays on the root stack and replaces itself with the match.
 - Tournaments (tournaments plan §5.2; `docs/design/tournaments/build-contracts-2026-10-03.md`):
   `tournamentKeys` (`src/features/tournaments/keys.ts`), everything under `['tournament']` stays
   off disk and register / withdraw run now or fail now. Both are state-idempotent and take no key;

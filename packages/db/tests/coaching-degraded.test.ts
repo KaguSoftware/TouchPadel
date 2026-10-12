@@ -128,12 +128,12 @@ describe.skipIf(!docker)('DEGRADED_LOCKOUT on lesson paths (TG-05, rolled back)'
       E(
         'c_book_in',
         'g1',
-        `select app.coach_book_private({{lt_p}}, {{v}}, ${IN(12)}, 'Student', null, 1, 'k-c_book_in')`,
+        `select app.coach_book_private({{lt_p}}, {{v}}, ${IN(12)}, 'Student', '9647711112222', 1, 'k-c_book_in')`,
       ),
       E(
         'c_book_out',
         'g1',
-        `select app.coach_book_private({{lt_p}}, {{v}}, ${OUT(12)}, 'Student', null, 1, 'k-c_book_out')`,
+        `select app.coach_book_private({{lt_p}}, {{v}}, ${OUT(12)}, 'Student', '9647711112222', 1, 'k-c_book_out')`,
       ),
       FROM('c_book_out_l', 'c_book_out', 'lesson_id'),
       E(
@@ -183,7 +183,7 @@ describe.skipIf(!docker)('DEGRADED_LOCKOUT on lesson paths (TG-05, rolled back)'
       E(
         'w_coach_in',
         'g1',
-        `select app.coach_book_private({{lt_pw}}, {{w}}, ${IN(22)}, 'Student', null, 1, 'k-w_coach_in')`,
+        `select app.coach_book_private({{lt_pw}}, {{w}}, ${IN(22)}, 'Student', '9647711112222', 1, 'k-w_coach_in')`,
       ),
     ]);
   });

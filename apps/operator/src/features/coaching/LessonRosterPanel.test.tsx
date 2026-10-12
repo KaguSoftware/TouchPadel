@@ -90,6 +90,7 @@ function rawEnrolment(id: string, over: Raw = {}): Raw {
     flags: [],
     party_size: 1,
     friend_names: [],
+    friend_phones: [],
     first_session_no: null,
     sessions_covered: null,
     booked_by_kind: 'guest',
@@ -284,6 +285,20 @@ describe('LessonRosterPanel: rows and money lines (§5.10.4)', () => {
     expect(plain(within(row('e1')).getByText(/^With /).textContent)).toBe('With Huda, Zaid');
   });
 
+  it('the other students a coach booked, each with the phone typed for them (0335, 0336)', async () => {
+    raw = rawDetail({ kind: 'private', places_taken: null, max_places: null }, [
+      rawEnrolment('e1', {
+        party_size: 3,
+        friend_names: ['Huda', 'Zaid'],
+        friend_phones: ['+9647700000013', ''],
+      }),
+    ]);
+    await mount();
+    expect(plain(within(row('e1')).getByText(/^With /).textContent)).toBe(
+      'With Huda · +9647700000013, Zaid',
+    );
+  });
+
   it('a course sign-up: its sessions and a late join; leaving a running course keeps the next session (C-23)', async () => {
     raw = rawDetail(
       {
@@ -340,7 +355,9 @@ describe('LessonRosterPanel: earlier sign-ups fold after three', () => {
     const user = userEvent.setup();
     raw = rawDetail({}, [
       rawEnrolment('e1'),
-      ...['c1', 'c2', 'c3', 'c4', 'c5'].map((id) => rawEnrolment(id, { status: 'cancelled', cancel_kind: 'guest_late' })),
+      ...['c1', 'c2', 'c3', 'c4', 'c5'].map((id) =>
+        rawEnrolment(id, { status: 'cancelled', cancel_kind: 'guest_late' }),
+      ),
     ]);
     await mount();
     const earlier = () => document.querySelectorAll('[data-testid$="-earlier"]');

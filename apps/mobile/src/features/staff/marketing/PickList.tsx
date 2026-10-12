@@ -14,6 +14,7 @@ import { useLocale } from '../../../i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../../theme';
 import { ErrorText, Field, Hint, LinkText } from '../../../components/ui';
 import { CheckIcon } from '../../../components/icons';
+import { searchField } from '../../../components/fieldKeyboard';
 
 export interface PickOption {
   id: string;
@@ -26,10 +27,10 @@ export interface PickOption {
 const SHOWN = 8;
 
 export function matchOptions(options: readonly PickOption[], query: string): PickOption[] {
-  const q = query.trim().toLocaleLowerCase();
+  const q = query.trim().toLowerCase();
   const hits = q
     ? options.filter(
-        (o) => o.label.toLocaleLowerCase().includes(q) || (o.detail ?? '').toLocaleLowerCase().includes(q),
+        (o) => o.label.toLowerCase().includes(q) || (o.detail ?? '').toLowerCase().includes(q),
       )
     : options;
   return hits.slice(0, SHOWN);
@@ -93,6 +94,7 @@ export function PickList({
     <View style={{ gap: space.xs }}>
       {options.length > SHOWN ? (
         <Field
+          {...searchField}
           testID={`${testID}.search`}
           label={t('staff.marketing.pick.search')}
           value={query}
