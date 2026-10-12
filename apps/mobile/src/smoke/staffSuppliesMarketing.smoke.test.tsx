@@ -12,20 +12,22 @@
  * with no money, marketing's inbox, and a guest who never gets in.
  */
 import { describe, expect, it } from '@jest/globals';
-import { fireEvent, within } from '@testing-library/react-native';
+import { act, fireEvent, within } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
+import { headerAdd } from '../test/headerAdd';
 import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
 import type { IngredientOptions, MyPurchases, ShoppingItem, ShoppingListPage } from '../features/staff/supplies/api';
 import type { CampaignResults, MarketingRequest, MarketingRequestsPage } from '../features/staff/marketing/api';
-import StaffShopping from '../../app/staff-shopping';
-import StaffPurchase from '../../app/staff-purchase';
-import StaffMarketing from '../../app/staff-marketing';
-import StaffMarketingRequests from '../../app/staff-marketing-requests';
-import StaffOrderSlip from '../../app/staff-order-slip';
-import StaffReceipt from '../../app/staff-receipt';
+import StaffShopping from '../../app/(staff)/staff-shopping';
+import StaffPurchase from '../../app/(staff)/staff-purchase';
+import StaffMarketing from '../../app/(staff)/staff-marketing';
+import StaffMarketingRequests from '../../app/(staff)/staff-marketing-requests';
+import StaffMarketingRequestNew from '../../app/(staff)/staff-marketing-request-new';
+import StaffOrderSlip from '../../app/(staff)/staff-order-slip';
+import StaffReceipt from '../../app/(staff)/staff-receipt';
 
 const V = TEST_VENUE_ID;
 const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -126,7 +128,7 @@ runSmokeCases('staff supplies and marketing', [
   {
     route: 'staff-marketing-requests',
     Component: StaffMarketingRequests,
-    labelKey: 'staff.marketing.requests.submit',
+    nearbyKey: 'staff.marketing.requests.empty',
     options: {
       staff: { role: 'manager' },
       queryData: [
@@ -134,6 +136,12 @@ runSmokeCases('staff supplies and marketing', [
         [staffKeys.marketingRequests(V, 'open'), NO_REQUESTS],
       ],
     },
+  },
+  {
+    route: 'staff-marketing-request-new',
+    Component: StaffMarketingRequestNew,
+    labelKey: 'staff.marketing.requests.submit',
+    options: { staff: { role: 'manager' } },
   },
   // Phase 2 Milestone 4b: the camera pages, each with a row in its log.
   {
@@ -379,11 +387,51 @@ describe.each(LOCALES)('the marketing pages in %s', (locale) => {
       queryData: [[staffKeys.marketingRequests(V, 'open'), { requests: [request({})], open_count: 1, total: 1 }]],
     });
     try {
-      expect(screen.queryByTestId('staff-marketing-requests.submit')).toBeNull();
+      expect(headerAdd(screen)).toBeNull();
       // The named request opens on its answer.
       expect(screen.getByTestId('staff-marketing-requests.answer')).toBeTruthy();
       fireEvent.press(screen.getByTestId('staff-marketing-requests.answer.done'));
       expect(screen.getByText(t('staff.marketing.requests.errors.answer'))).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('gives an asker a + that opens the ask form, and keeps the form off the list', () => {
+    const screen = renderRoute(StaffMarketingRequests, {
+      locale,
+      staff: { role: 'manager' },
+      queryData: [
+        [staffKeys.myMarketingRequests(V), { requests: [] }],
+        [staffKeys.marketingRequests(V, 'open'), NO_REQUESTS],
+      ],
+    });
+    try {
+      expect(screen.queryByTestId('staff-marketing-request-new.submit')).toBeNull();
+      const add = headerAdd(screen);
+      expect(add?.label).toBe(t('staff.marketing.requests.newTitle'));
+      act(() => add?.onPress());
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-marketing-request-new' });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('asks for a title and the details before sending a request', () => {
+    const screen = renderRoute(StaffMarketingRequestNew, { locale, staff: { role: 'owner' } });
+    try {
+      fireEvent.press(screen.getByTestId('staff-marketing-request-new.submit'));
+      expect(screen.getByText(t('staff.marketing.requests.errors.title'))).toBeTruthy();
+      expect(screen.getByText(t('staff.marketing.requests.errors.body'))).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('keeps the ask form from marketing, which answers and never asks', () => {
+    const screen = renderRoute(StaffMarketingRequestNew, { locale, staff: { role: 'marketing' } });
+    try {
+      expect(screen.queryByTestId('staff-marketing-request-new.submit')).toBeNull();
     } finally {
       screen.unmount();
     }
@@ -419,7 +467,7 @@ describe.each(LOCALES)('the marketing pages in %s', (locale) => {
     for (const role of ['cashier', 'barista', 'waiter'] as const) {
       const screen = renderRoute(StaffMarketingRequests, { locale, staff: { role } });
       try {
-        expect(screen.queryByTestId('staff-marketing-requests.submit')).toBeNull();
+        expect(screen.queryByTestId('staff-marketing-requests.list')).toBeNull();
       } finally {
         screen.unmount();
       }
@@ -427,13 +475,14 @@ describe.each(LOCALES)('the marketing pages in %s', (locale) => {
   });
 
   it('never lets a guest in', () => {
-    for (const Component of [StaffShopping, StaffPurchase, StaffMarketing, StaffMarketingRequests]) {
+    for (const Component of [StaffShopping, StaffPurchase, StaffMarketing, StaffMarketingRequests, StaffMarketingRequestNew]) {
       const screen = renderRoute(Component, { locale, session: 'in' });
       try {
         expect(screen.queryByTestId('staff-shopping.add')).toBeNull();
         expect(screen.queryByTestId('staff-purchase.save')).toBeNull();
         expect(screen.queryByTestId('staff-marketing.tab.take')).toBeNull();
-        expect(screen.queryByTestId('staff-marketing-requests.submit')).toBeNull();
+        expect(screen.queryByTestId('staff-marketing-requests.list')).toBeNull();
+        expect(screen.queryByTestId('staff-marketing-request-new.submit')).toBeNull();
       } finally {
         screen.unmount();
       }

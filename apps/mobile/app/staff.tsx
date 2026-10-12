@@ -1,4 +1,5 @@
 import { useEffect, useState, type ComponentType, type ReactElement } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
   Animated,
@@ -45,14 +46,14 @@ import { showsVenuePicker } from '../src/features/staff/venue';
 import { useWaitingCount, useWorkAlerts } from '../src/features/staff/workAlerts';
 import { GroupRows, useTodayGroups, type TodayGroup } from '../src/features/staff/todayGroups';
 import type { StaffRowDef } from '../src/features/staff/rows';
-import { useQuery } from '@tanstack/react-query';
-import { staffKeys } from '../src/features/staff/keys';
 import { fetchMyRewards } from '../src/features/staff/rewards/api';
 import { RewardTrack } from '../src/features/staff/rewards/RewardTrack';
+import { staffKeys } from '../src/features/staff/keys';
 import { useReduceMotion } from '../src/lib/useReduceMotion';
 import { useToast } from '../src/components/overlays';
 import { BrandPattern } from '../src/components/BrandPattern';
 import { AssistantButton } from '../src/features/assistant/AssistantFab';
+import { useResetTo } from '../src/navigation/back';
 
 /**
  * Today: the staff phone's home (build-contracts-2026-09-23 §6.1; layout:
@@ -65,7 +66,7 @@ import { AssistantButton } from '../src/features/assistant/AssistantFab';
  * the account as three buttons: work alerts, guest view, Settings. Today's
  * checklists and the work list moved behind the work alerts button, which
  * badges how much of it waits on the person (owner, 2026-10-10;
- * app/staff-work.tsx). Reached by
+ * app/(staff)/staff-work.tsx). Reached by
  * replacing, after a staff sign-in or from the tabs' gate, so there is nothing
  * to go back to: no header at all, since the page has no date to change.
  */
@@ -169,7 +170,9 @@ const TILES_PER_PAGE = 8;
  * under it (owner, 2026-10-08).
  */
 function TilePages({ tiles }: { tiles: ReactElement[] }) {
-  const { colors } = useTheme();
+  const { colors, appearance } = useTheme();
+  // Brand blue in light, brand green in dark (owner, 2026-10-11).
+  const dot = appearance === 'dark' ? colors.gtext : colors.blue;
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
 
@@ -188,7 +191,9 @@ function TilePages({ tiles }: { tiles: ReactElement[] }) {
       }}
     >
       {pageTiles.map((tile) => (
-        <View key={tile.key} style={{ width: '48.5%', flexDirection: 'row' }}>
+        // A column, so the tile is stretched to exactly this width: in a row a
+        // long preview line sized the tile instead and it ran over its neighbour.
+        <View key={tile.key} style={{ width: '48.5%' }}>
           {tile}
         </View>
       ))}
@@ -197,8 +202,12 @@ function TilePages({ tiles }: { tiles: ReactElement[] }) {
 
   if (pages.length <= 1) return grid(tiles);
 
+  // A page is the grid plus the screen's gutter on each side, and the swipe
+  // runs edge to edge: the tiles keep their size, slide out to the screen's
+  // edge, and two pages pass with two gutters between them instead of touching.
+  const pageWidth = width + 2 * space.l;
   const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (width > 0) setPage(Math.round(e.nativeEvent.contentOffset.x / width));
+    if (width > 0) setPage(Math.round(e.nativeEvent.contentOffset.x / pageWidth));
   };
 
   return (
@@ -209,10 +218,14 @@ function TilePages({ tiles }: { tiles: ReactElement[] }) {
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onScrollEnd}
         // Pages are drawn once the width is known, so each is exactly one screen wide.
-        style={{ opacity: width > 0 ? 1 : 0 }}
+        style={{ marginHorizontal: -space.l, opacity: width > 0 ? 1 : 0 }}
       >
         {pages.map((pageTiles, i) => (
-          <View key={i} testID={`staff.tiles.page.${i}`} style={{ width: width || undefined }}>
+          <View
+            key={i}
+            testID={`staff.tiles.page.${i}`}
+            style={{ width: width ? pageWidth : undefined, paddingHorizontal: space.l }}
+          >
             {grid(pageTiles)}
           </View>
         ))}
@@ -222,7 +235,19 @@ function TilePages({ tiles }: { tiles: ReactElement[] }) {
         // Decoration: the pages themselves are what a screen reader walks.
         accessible={false}
         importantForAccessibility="no-hide-descendants"
-        style={{ flexDirection: 'row', justifyContent: 'center', gap: 6 }}
+        // The dots sit in a pill drawn like the tiles, so it reads on the page
+        // and the background's lines never run through them.
+        style={{
+          alignSelf: 'center',
+          flexDirection: 'row',
+          gap: 6,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+          borderRadius: radius.pill,
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.line,
+        }}
       >
         {pages.map((_, i) => (
           <View
@@ -231,7 +256,8 @@ function TilePages({ tiles }: { tiles: ReactElement[] }) {
               width: 7,
               height: 7,
               borderRadius: 3.5,
-              backgroundColor: i === Math.min(page, pages.length - 1) ? colors.gstrong : colors.line,
+              backgroundColor: dot,
+              opacity: i === Math.min(page, pages.length - 1) ? 1 : 0.3,
             }}
           />
         ))}
@@ -491,6 +517,7 @@ function TodayScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
+  const resetTo = useResetTo();
   const insets = useSafeAreaInsets();
   const { status, venueId, venues, setVenueId } = useStaffStatus();
   // C-27, R45: the hub reads coach_me on mount, like Profile, whatever the
@@ -548,10 +575,15 @@ function TodayScreen() {
         <BrandPattern />
       </View>
       <ScrollView
+        // Full width, the gutter moved inside: a ScrollView clips what it holds,
+        // so in the Screen's gutter the account card could not reach the edges.
+        style={{ marginHorizontal: -space.l }}
         contentContainerStyle={{
           flexGrow: 1,
+          paddingHorizontal: space.l,
           paddingTop: compact ? space.sm : space.l,
-          paddingBottom: (compact ? 20 : 40) + insets.bottom,
+          // The account card runs to the screen's foot and carries the inset itself.
+          paddingBottom: 0,
           gap: compact ? 10 : space.sm,
         }}
         showsVerticalScrollIndicator={false}
@@ -630,10 +662,14 @@ function TodayScreen() {
                 waiting={waiting(group)}
                 preview={group.rows.map(label).join(', ')}
                 compact={compact}
+                // A group of one page opens that page; a sheet of one row is a
+                // wasted tap (owner, 2026-10-11).
                 onPress={() =>
-                  Platform.OS === 'ios'
-                    ? router.push({ pathname: '/staff-group', params: { group: group.key } })
-                    : setSheetKey(group.key)
+                  group.rows.length === 1
+                    ? router.push(group.rows[0]!.href)
+                    : Platform.OS === 'ios'
+                      ? router.push({ pathname: '/staff-group', params: { group: group.key } })
+                      : setSheetKey(group.key)
                 }
               />
             )),
@@ -699,46 +735,56 @@ function TodayScreen() {
         {/* The account and sign-out sit at the foot of the page: pushed to the
             bottom of the screen when the page is short, after the tiles when it
             scrolls. */}
+        {/* Full bleed at the foot of the screen, like a sheet: edge to edge and
+            down under the home indicator, so no page shows around or under it. */}
         <Card
           style={{
             marginTop: 'auto',
-            padding: compact ? space.m : space.l,
-            gap: compact ? 10 : space.sm,
+            // Cancels the content's side gutter.
+            marginHorizontal: -space.l,
+            paddingHorizontal: space.l,
+            paddingTop: compact ? space.sm : space.m,
+            paddingBottom: (compact ? space.sm : space.m) + insets.bottom,
+            gap: compact ? space.xs : space.s,
+            borderWidth: 0,
+            borderTopWidth: 1,
+            borderRadius: 0,
+            borderTopStartRadius: radius.sheet,
+            borderTopEndRadius: radius.sheet,
           }}
         >
-          <View style={{ gap: space.xs }}>
-            <MicroLabel style={{ paddingStart: 4 }}>{t('staff.shell.account.title')}</MicroLabel>
-            <View style={{ flexDirection: 'row', gap: space.s }}>
-              <AccountButton
-                testID="staff.alerts"
-                icon={BellIcon}
-                label={t('staff.shell.account.alerts')}
-                warn={alertsOff}
-                badge={waitingCount}
-                compact={compact}
-                onPress={() => router.push('/staff-work')}
-              />
-              {/* The guest app as a guest sees it (guestPreview.ts); a pill over
+          {/* No "Account" heading: the three buttons say what they are, and the
+              heading cost the page the room the cards needed. */}
+          <View style={{ flexDirection: 'row', gap: space.s }}>
+            <AccountButton
+              testID="staff.alerts"
+              icon={BellIcon}
+              label={t('staff.shell.account.alerts')}
+              warn={alertsOff}
+              badge={waitingCount}
+              compact={compact}
+              onPress={() => router.push('/staff-work')}
+            />
+            {/* The guest app as a guest sees it (guestPreview.ts); a pill over
                 the tabs comes back here. The toast says it is live, not a demo. */}
-              <AccountButton
-                testID="staff.guest-view"
-                icon={EyeIcon}
-                label={t('staff.shell.guestView.tile')}
-                compact={compact}
-                onPress={() => {
-                  setGuestPreview(true);
-                  toast(t('staff.shell.guestView.note'), 'info');
-                  router.replace('/(tabs)');
-                }}
-              />
-              <AccountButton
-                testID="staff.settings"
-                icon={SlidersIcon}
-                label={t('settings.title')}
-                compact={compact}
-                onPress={() => router.push('/settings')}
-              />
-            </View>
+            <AccountButton
+              testID="staff.guest-view"
+              icon={EyeIcon}
+              label={t('staff.shell.guestView.tile')}
+              compact={compact}
+              onPress={() => {
+                setGuestPreview(true);
+                toast(t('staff.shell.guestView.note'), 'info');
+                resetTo('/(tabs)');
+              }}
+            />
+            <AccountButton
+              testID="staff.settings"
+              icon={SlidersIcon}
+              label={t('settings.title')}
+              compact={compact}
+              onPress={() => router.push('/settings')}
+            />
           </View>
 
           <ErrorText>{out.error}</ErrorText>

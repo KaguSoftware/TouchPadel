@@ -20,7 +20,7 @@ import {
   type PublicLessonType,
   type PublicSession,
 } from '@/lib/coaching';
-import { coachLinkPath } from '@/lib/site/coachLink';
+import { coachLinkPath, coachSegment } from '@/lib/site/coachLink';
 import { CoachPhoto } from './CoachPhoto';
 
 /**
@@ -119,7 +119,7 @@ function CoachCard({
         ) : null}
         <a
           className="tp-site-btn tp-site-btn--go tp-coach-card__book"
-          href={coachLinkPath(locale, coach.id)}
+          href={coachLinkPath(locale, coachSegment(coach))}
         >
           {tr('coaching.web.bookInApp')}
           <span className="tp-site-sr">{` · ${name}`}</span>
@@ -164,7 +164,7 @@ function Session({
       {/* The app shows that coach's sessions: the coach's link is the way in (§4.14.2). */}
       <a
         className="tp-coach-session"
-        href={coachLinkPath(locale, coach.id)}
+        href={coachLinkPath(locale, coachSegment(coach))}
         data-session={session.lesson_id ?? session.course_id ?? ''}
       >
         <span className="tp-coach-session__when tp-num">{when}</span>

@@ -70,9 +70,7 @@ export const TagIcon = (p: IconProps) => (
 /** The booking sheet's lessons card: a coach's whistle on its cord. */
 export const WhistleIcon = (p: IconProps) => (
   <StrokeIcon
-    d={[
-      'M9 8h11v3.5h-5.5A5.5 5.5 0 119 8zM8.5 13.5h.01M9 8V4.5a1.5 1.5 0 00-3 0v4',
-    ]}
+    d={['M9 8h11v3.5h-5.5A5.5 5.5 0 119 8zM8.5 13.5h.01M9 8V4.5a1.5 1.5 0 00-3 0v4']}
     {...p}
   />
 );
@@ -226,6 +224,57 @@ export const ReceiptIcon = (p: IconProps) => (
 /** Add to stock: a square with a plus. */
 export const PlusSquareIcon = (p: IconProps) => (
   <StrokeIcon d={['M4.5 4.5h15v15h-15v-15zM12 8.5v7M8.5 12h7']} {...p} />
+);
+/** Coach mode's "New group session or course" tile: a rounded square with a plus. */
+export const RoundedPlusIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={['M7 3h10a4 4 0 014 4v10a4 4 0 01-4 4H7a4 4 0 01-4-4V7a4 4 0 014-4zM12 8v8M8 12h8']}
+    {...p}
+  />
+);
+/** Coach mode's "Book for a student" tile: a rounded calendar page with its two rings. */
+export const CalendarBookIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={['M6 4h12a3 3 0 013 3v11a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3zM3 10h18M8 2v4M16 2v4']}
+    {...p}
+  />
+);
+/** Coach mode's "Statements" tile: a torn-off slip with two lines. */
+export const SlipIcon = (p: IconProps) => (
+  <StrokeIcon d={['M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6']} {...p} />
+);
+/** One person: a student row in coach mode's booking. */
+export const PersonIcon = (p: IconProps) => (
+  <StrokeIcon d={['M8 8a4 4 0 108 0 4 4 0 10-8 0zM4 21a8 8 0 0116 0']} {...p} />
+);
+/** Coach mode's "Group session" choice: two people. */
+export const PeopleIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M5.5 8a3.5 3.5 0 107 0 3.5 3.5 0 10-7 0zM2.5 20a6.5 6.5 0 0113 0',
+      'M14.5 9a2.5 2.5 0 105 0 2.5 2.5 0 10-5 0zM16 14.5a5 5 0 016 5.5',
+    ]}
+    {...p}
+  />
+);
+/** Coach mode's "Course" choice: a calendar page with sessions marked on it. */
+export const CourseIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M6 4h12a3 3 0 013 3v11a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3zM3 10h18M8 2v4M16 2v4',
+      'M8 14h2M14 14h2M8 17h2',
+    ]}
+    {...p}
+  />
+);
+/** A branch: a map pin. */
+export const PinIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M12 21s-7-6.2-7-11.5A7 7 0 0119 9.5C19 14.8 12 21 12 21zM9.5 9.5a2.5 2.5 0 105 0 2.5 2.5 0 10-5 0z',
+    ]}
+    {...p}
+  />
 );
 /** Show guest view: an eye. Not directional. */
 export const EyeIcon = (p: IconProps) => (

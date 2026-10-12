@@ -83,6 +83,9 @@ export const coachingAdminEn = {
       profile: 'Public profile',
       order: 'Place in the list',
       orderHint: 'Guests see coaches in this order, at every branch they teach at.',
+      slug: 'Link name',
+      slugHint: 'Their share link: {link}. Changing it stops the old link working.',
+      slugBad: 'Use 2 to 48 lowercase letters, numbers and dashes, starting with a letter or number.',
       // 0334: coaches.levels; none ticked = every level.
       levels: 'Levels they coach',
       levelsHint:

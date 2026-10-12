@@ -1,6 +1,6 @@
 /**
  * Work alerts (owner, 2026-10-10): Today's "Work alerts" button opens the
- * work alerts page (app/staff-work.tsx), which holds today's checklists and
+ * work alerts page (app/(staff)/staff-work.tsx), which holds today's checklists and
  * the work list, and the button carries a badge with how much of it waits on
  * the person. Two hooks both screens share: the push permission, and that
  * count.

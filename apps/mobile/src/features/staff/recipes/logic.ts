@@ -85,10 +85,10 @@ export interface RecipeView {
 
 /** Items whose name, category or an ingredient matches the typed text, in either language. */
 export function filterRecipeItems(items: readonly RecipeItem[], query: string): RecipeItem[] {
-  const q = query.trim().toLocaleLowerCase();
+  const q = query.trim().toLowerCase();
   if (!q) return [...items];
   const hit = (...s: (string | null | undefined)[]) =>
-    s.some((x) => typeof x === 'string' && x.toLocaleLowerCase().includes(q));
+    s.some((x) => typeof x === 'string' && x.toLowerCase().includes(q));
   return items.filter(
     (i) =>
       hit(i.name_en, i.name_ar, i.category_name_en, i.category_name_ar) ||
@@ -97,9 +97,9 @@ export function filterRecipeItems(items: readonly RecipeItem[], query: string): 
 }
 
 export function filterPrepared(prepared: readonly PreparedRecipe[], query: string): PreparedRecipe[] {
-  const q = query.trim().toLocaleLowerCase();
+  const q = query.trim().toLowerCase();
   if (!q) return [...prepared];
-  const hit = (...s: string[]) => s.some((x) => x.toLocaleLowerCase().includes(q));
+  const hit = (...s: string[]) => s.some((x) => x.toLowerCase().includes(q));
   return prepared.filter((p) => hit(p.name_en, p.name_ar) || p.lines.some((l) => hit(l.name_en, l.name_ar)));
 }
 
@@ -449,11 +449,11 @@ export function addableIngredients(
     ...draft.ops.filter((o) => o.op === 'add').map((o) => o.ingredientId),
     ...(target.kind === 'output' ? [target.id] : []),
   ]);
-  const q = query.trim().toLocaleLowerCase();
+  const q = query.trim().toLowerCase();
   return options.filter(
     (o) =>
       (o.kind === 'purchased' || o.kind === 'prepared') &&
       !taken.has(o.id) &&
-      (!q || o.name_en.toLocaleLowerCase().includes(q) || o.name_ar.toLocaleLowerCase().includes(q)),
+      (!q || o.name_en.toLowerCase().includes(q) || o.name_ar.toLowerCase().includes(q)),
   );
 }

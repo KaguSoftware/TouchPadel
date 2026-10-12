@@ -136,6 +136,7 @@ function enrolment(over: Partial<Enrolment> = {}): Enrolment {
     flags: [],
     party_size: 1,
     friend_names: [],
+    friend_phones: [],
     first_session_no: null,
     sessions_covered: null,
     booked_by_kind: 'guest',

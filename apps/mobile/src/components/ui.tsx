@@ -39,6 +39,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../i18n/LocaleProvider';
 import { useReduceMotion } from '../lib/useReduceMotion';
 import { brand, radius, shadows, space, useTheme } from '../theme';
+import { fieldKeyboardDefaults } from './fieldKeyboard';
 import { TitleSquiggle } from './icons';
 import { insetStart, isFrame, type Frame } from './segmentedThumb';
 
@@ -604,27 +605,21 @@ export function Field({
             // centring it in what the padding leaves puts it on the box's
             // middle — where iOS already has it.
             //
-            // iOS with a `lead` adornment (only the phone field, so far):
-            // stretching the input to the row's full height measures it a few
-            // points taller than the `lineHeight` line box its neighbours
-            // use (the chip's `Text`, the divider), so it renders a hair
-            // lower than them despite matching `lineHeight`. Left unstretched
-            // there, the input's natural (line-box) height is centred by the
-            // row's own `alignItems: 'center'` instead — what every other
-            // child in that row already gets.
-            alignSelf: lead && Platform.OS === 'ios' ? undefined : 'stretch',
-            // Even unstretched, the UITextField's own line box still measures
-            // a few points taller than the `lineHeight` box the chip's `Text`
-            // and the divider use, so centring it still left it a hair below
-            // them. 4pt pulls it back level — calibrated against the device.
-            ...(lead && Platform.OS === 'ios' ? { marginTop: -4 } : null),
+            alignSelf: 'stretch',
             ...Platform.select({
               android: { includeFontPadding: false, textAlignVertical: 'center' as const },
               default: null,
             }),
             fontFamily: fonts.body600,
             fontSize: 14,
-            lineHeight: LINE,
+            // NOT on a single-line iOS field. UIKit lays a pinned line height
+            // out as extra paragraph spacing above the glyphs but draws the
+            // caret against the font's own box, so the text sat lower than
+            // the blinking cursor (and lower than the phone chip beside it,
+            // which a -4pt nudge used to paper over). A single-line
+            // UITextField centres its own text vertically in the stretched
+            // frame, caret included, so it needs no line box at all.
+            lineHeight: Platform.OS === 'ios' && !inputProps.multiline ? undefined : LINE,
             color: colors.ink,
             // THE exception to the logical-alignment rule: TextInput is the one
             // element whose textAlign stays PHYSICAL on both platforms (Fabric
@@ -649,7 +644,11 @@ export function Field({
         // rule can see. The id is `<route>.<element>`, minted by the caller.
         testID={inputProps.testID}
         placeholderTextColor={colors.fnt2}
-        autoCapitalize="none"
+        // The keyboard follows what the field holds (fieldKeyboard.ts): a
+        // password, email, link or number is never capitalised or corrected,
+        // prose starts its sentence with a capital. The caller's spread below
+        // overrides any of it.
+        {...fieldKeyboardDefaults(inputProps)}
         onFocus={(e) => {
           setFocused(true);
           onFocus?.(e);

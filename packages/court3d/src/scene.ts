@@ -54,6 +54,8 @@ import {
   LEG_SECONDS,
 } from './rally';
 import { buildRacketKit } from './racket';
+import { mergeStatic } from './merge';
+import { buildGhostTrail } from './trail';
 import { makeCamera, poseCamera, poseTopCamera, topBallScale } from './camera';
 import { DRILL_PLAYERS, drillAt, drillBallSampler, MACHINE } from './drill';
 import { buildDrillProps } from './drillProps';
@@ -158,14 +160,19 @@ export interface CourtSceneOptions {
    *     matrices once at build and are skipped by every frame's matrix pass,
    *     instead of being recomposed and re-multiplied each frame;
    *   · the trail's ghosts read the ball alone (rally.ts, ballSampler) instead
-   *     of a whole rally state each: 36 × six racket poses a frame become two.
+   *     of a whole rally state each: 36 × six racket poses a frame become two;
+   *   · and fewer draw calls, each of which Android pays for on the JS thread:
+   *     the static court and each racket's body are merged into one mesh per
+   *     draw state (merge.ts), and the trail is one instanced mesh (trail.ts,
+   *     where the host says it can draw one: `instancing`).
+   *     ~250 draws a frame (full, both surfaces) become ~90.
    * Off by default, so iOS and the web run exactly what they always did.
    */
   lean?: boolean;
   /**
    * The host's GL can draw instanced meshes (WebGL2, or WebGL1 with
-   * ANGLE_instanced_arrays). Read by the TOP view only, which then draws its
-   * 36 trail ghosts as one instanced mesh instead of 36 (see TRAIL_N). Off by
+   * ANGLE_instanced_arrays). The top view, and the Book view under `lean`, then
+   * draw the 36 trail ghosts as one instanced mesh instead of 36 (trail.ts). Off by
    * default: without instancing three silently draws nothing for an instanced
    * mesh, so only a host that has asked its renderer may turn it on.
    */
@@ -226,97 +233,60 @@ const ghostOpacity = (i: number) => 0.1 * (1 - i / TRAIL_N);
 /**
  * Build the trail into `overlay`.
  *
- * Instanced (the top view, on a host that can draw instances): ONE mesh and
- * one draw call for all 36 ghosts instead of 36, each ghost's opacity read
- * from a per-instance attribute (MeshBasicMaterial has no per-instance alpha
- * of its own). A hidden ghost is scaled to nothing. It draws the same picture
- * as the 36 meshes, for two reasons that hold only in the top view:
- *   · the ghosts are all the same white, and stacking layers of one colour
- *     gives the same result in any order, so drawing them in instance order
- *     rather than sorted by depth changes nothing;
- *   · straight down, every ghost is nearer the camera than the ground disc,
- *     so the disc was always drawn first: `renderOrder` 1 keeps it that way.
- * The Book view keeps its separate meshes (its pitched camera can put a ghost
- * behind the disc), and so does the web.
+ * Instanced (a host that can draw instances, in the top view or `lean`): ONE
+ * mesh and one draw call for all 36 ghosts instead of 36 (trail.ts), centred
+ * on the ball so three sorts it where the ball is. It draws the same picture
+ * as the 36 meshes because the ghosts are all the same white, and stacking
+ * layers of one colour gives the same result in any order. In the top view
+ * every ghost is also nearer the camera than the ground disc, so the disc was
+ * always drawn first: `renderOrder` 1 keeps it that way there. The pitched
+ * Book view can put a ghost behind the disc, so it is instanced only under
+ * `lean` (Android, whose frames pay for each draw call); iOS and the web keep
+ * its separate meshes.
  */
 function buildTrail(
   overlay: THREE.Scene,
   keep: (d: { dispose(): void }) => void,
-  instanced: boolean,
+  origin: THREE.Vector3,
+  { instanced, top }: { instanced: boolean; top: boolean },
 ): Trail {
-  const sphere = new THREE.SphereGeometry(1, 12, 10);
-  keep(sphere);
-  if (!instanced) {
-    const meshes: THREE.Mesh[] = [];
-    for (let i = 0; i < TRAIL_N; i++) {
-      const material = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: ghostOpacity(i),
-        depthWrite: false,
-      });
-      keep(material);
-      const m = new THREE.Mesh(sphere, material);
-      m.scale.setScalar(ghostRadius(i));
-      m.visible = false;
-      overlay.add(m);
-      meshes.push(m);
-    }
+  if (instanced) {
+    const ghosts = buildGhostTrail(TRAIL_N, 1, ghostRadius, ghostOpacity);
+    if (top) ghosts.mesh.renderOrder = 1;
+    overlay.add(ghosts.mesh);
+    keep(ghosts);
     return {
-      place(i, at, scale) {
-        const m = meshes[i]!;
-        m.visible = at !== null;
-        if (!at) return;
-        m.position.set(at.x, at.y, at.z);
-        m.scale.setScalar(ghostRadius(i) * scale);
-      },
-      commit() {},
+      place: ghosts.place,
+      commit: () => ghosts.commit(origin),
     };
   }
 
-  const alpha = new Float32Array(TRAIL_N);
-  for (let i = 0; i < TRAIL_N; i++) alpha[i] = ghostOpacity(i);
-  sphere.setAttribute('ghostOpacity', new THREE.InstancedBufferAttribute(alpha, 1));
-  const material = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    transparent: true,
-    depthWrite: false,
-  });
-  material.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader
-      .replace('void main() {', 'attribute float ghostOpacity;\nvarying float vGhostOpacity;\nvoid main() {')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvGhostOpacity = ghostOpacity;');
-    shader.fragmentShader = shader.fragmentShader
-      .replace('void main() {', 'varying float vGhostOpacity;\nvoid main() {')
-      .replace(
-        'vec4 diffuseColor = vec4( diffuse, opacity );',
-        'vec4 diffuseColor = vec4( diffuse, opacity * vGhostOpacity );',
-      );
-  };
-  keep(material);
-  const mesh = new THREE.InstancedMesh(sphere, material, TRAIL_N);
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  // The ghosts move every frame and three caches an instanced mesh's bounds
-  // once, so culling would test against where they first were.
-  mesh.frustumCulled = false;
-  mesh.renderOrder = 1;
-  const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
-  const m4 = new THREE.Matrix4();
-  for (let i = 0; i < TRAIL_N; i++) mesh.setMatrixAt(i, hidden);
-  overlay.add(mesh);
-  keep({ dispose: () => mesh.dispose() });
+  const sphere = new THREE.SphereGeometry(1, 12, 10);
+  keep(sphere);
+  const meshes: THREE.Mesh[] = [];
+  for (let i = 0; i < TRAIL_N; i++) {
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: ghostOpacity(i),
+      depthWrite: false,
+    });
+    keep(material);
+    const m = new THREE.Mesh(sphere, material);
+    m.scale.setScalar(ghostRadius(i));
+    m.visible = false;
+    overlay.add(m);
+    meshes.push(m);
+  }
   return {
     place(i, at, scale) {
-      if (!at) {
-        mesh.setMatrixAt(i, hidden);
-        return;
-      }
-      const r = ghostRadius(i) * scale;
-      mesh.setMatrixAt(i, m4.makeScale(r, r, r).setPosition(at.x, at.y, at.z));
+      const m = meshes[i]!;
+      m.visible = at !== null;
+      if (!at) return;
+      m.position.set(at.x, at.y, at.z);
+      m.scale.setScalar(ghostRadius(i) * scale);
     },
-    commit() {
-      mesh.instanceMatrix.needsUpdate = true;
-    },
+    commit() {},
   };
 }
 
@@ -646,24 +616,21 @@ export function buildCourtScene(
     }
   }
 
-  // THE TOP VIEW DRAWS ITS STATIC COURT IN A HANDFUL OF CALLS. Everything built
-  // so far stands still, and the top view never changes anything about it but
-  // two opacities, which belong to the materials and so survive a merge. So
-  // the meshes that share a material are baked into one (mergeStatic): the
-  // posts, caps, rails and lines go from ~60 draw calls to ~10. It draws the
-  // same picture because, seen from straight above at rest, every transparent
-  // piece merged here is at opacity 1 (the frames, and the lines at p = 0),
-  // and an opaque-valued piece covers what is behind it in either draw order.
-  // The Book view's pitch fades them, so it keeps its separate meshes.
-  if (top) mergeStatic(scene, geo);
+  // FEWER DRAW CALLS FOR THE STATIC COURT. Everything built so far stands
+  // still, so the meshes and lines that share a draw state are baked into one
+  // each (merge.ts): ~100 meshes over 17 materials become ~20 draw calls.
+  //   · The top view, on every host: it never changes anything about them but
+  //     opacities, which belong to the materials and so survive a merge, and
+  //     seen from straight above at rest every transparent piece merged here
+  //     is at opacity 1 (the frames, and the lines at p = 0), so the draw
+  //     order among them cannot show.
+  //   · `lean` (Android), in either view: its frames pay for each draw call on
+  //     the JS thread. The Book view's pitch fades the cage, and each merged
+  //     transparent group is one flat colour, so it blends the same in any
+  //     order among itself (merge.ts has the rest).
+  // iOS and the web keep the Book view's separate meshes.
+  if (top || opts.lean) disposables.push(...mergeStatic(scene));
 
-  // Everything built so far that is a mesh or a line never moves: freeze it
-  // (`lean`). Its matrix is composed here, once, and three skips it on every
-  // frame's matrix pass from now on. The scene's own matrix goes with it — it
-  // is identity and never changes, but recomposing it each frame flags every
-  // child for a world-matrix multiply, frozen or not. What does move (the
-  // camera, the rackets, the ball's caster) keeps updating itself: none of it
-  // is in this list, and each flags its own subtree when it changes.
   if (opts.lean) {
     for (const o of scene.children) {
       if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
@@ -680,7 +647,7 @@ export function buildCourtScene(
   // rim highlights, lofted collar and wrapped lime grip (racket.ts). One shared
   // build; each player gets the rig — mount (stance) → pivot (hand) → lay (the
   // top-view cheat) → the racket — and the rally drives all three per frame.
-  const kit = buildRacketKit(quality);
+  const kit = buildRacketKit(quality, { merge: opts.lean });
   disposables.push(...kit.disposables);
   // The drill (Coaches tab) stands its rackets in its own column, facing their
   // returns (drill.ts), and adds the machine and the coach. The rally builds
@@ -747,7 +714,10 @@ export function buildCourtScene(
   // it to keep bit-for-bit, and the sampler is the same picture, cheaper.
   const ghostDrill = drill ? drillBallSampler() : null;
   const ghostJoin = join ? warmupBallSampler() : null;
-  const trail = buildTrail(overlay, (d) => disposables.push(d), top && opts.instancing === true);
+  const trail = buildTrail(overlay, (d) => disposables.push(d), ball.position, {
+    instanced: opts.instancing === true && (top || opts.lean === true),
+    top,
+  });
 
   // the ground disc under the ball (overlay too: the prototype's disc rides over the button)
   const shadeMat = new THREE.MeshBasicMaterial({ color: NAVY, transparent: true, opacity: 0.28 });
@@ -1150,64 +1120,4 @@ function buildSpotMarks(scene: THREE.Scene, keep: (d: { dispose(): void }) => vo
     scene.add(mesh);
     return { mesh, material };
   });
-}
-
-/**
- * Bake the scene's direct child meshes that share a material (and shadow
- * flags and render order) into one mesh each, in world space. For the top
- * view only: see the note where it is called. Geometries that cannot be
- * concatenated (different attributes, or not indexed) are left as they were.
- */
-function mergeStatic(
-  scene: THREE.Scene,
-  geo: <G extends THREE.BufferGeometry>(g: G) => G,
-): void {
-  const groups = new Map<string, THREE.Mesh[]>();
-  for (const o of scene.children) {
-    if (!(o instanceof THREE.Mesh) || Array.isArray(o.material)) continue;
-    const key = `${o.material.uuid} ${o.castShadow} ${o.receiveShadow} ${o.renderOrder}`;
-    const list = groups.get(key) ?? [];
-    list.push(o);
-    groups.set(key, list);
-  }
-  for (const meshes of groups.values()) {
-    if (meshes.length < 2) continue;
-    const names = Object.keys(meshes[0]!.geometry.attributes).sort().join();
-    const fits = meshes.every(
-      (m) => m.geometry.index && Object.keys(m.geometry.attributes).sort().join() === names,
-    );
-    if (!fits) continue;
-    const parts = meshes.map((m) => {
-      m.updateMatrix();
-      return m.geometry.clone().applyMatrix4(m.matrix);
-    });
-    const merged = new THREE.BufferGeometry();
-    for (const name of Object.keys(parts[0]!.attributes)) {
-      const size = parts[0]!.getAttribute(name).itemSize;
-      const out = new Float32Array(parts.reduce((n, g) => n + g.getAttribute(name).count * size, 0));
-      let at = 0;
-      for (const g of parts) {
-        const a = g.getAttribute(name).array as ArrayLike<number>;
-        out.set(a, at);
-        at += a.length;
-      }
-      merged.setAttribute(name, new THREE.BufferAttribute(out, size));
-    }
-    const index: number[] = [];
-    let base = 0;
-    for (const g of parts) {
-      const ix = g.index!.array;
-      for (let i = 0; i < ix.length; i++) index.push(ix[i]! + base);
-      base += g.getAttribute('position').count;
-      g.dispose();
-    }
-    merged.setIndex(index);
-    const first = meshes[0]!;
-    const mesh = new THREE.Mesh(geo(merged), first.material);
-    mesh.castShadow = first.castShadow;
-    mesh.receiveShadow = first.receiveShadow;
-    mesh.renderOrder = first.renderOrder;
-    for (const m of meshes) scene.remove(m);
-    scene.add(mesh);
-  }
 }

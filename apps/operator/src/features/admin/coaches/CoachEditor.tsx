@@ -75,6 +75,7 @@ import {
   typeChange,
   type CoachProfileDraft,
   type OrderWrite,
+  slugOf,
 } from './coachesLogic';
 
 const K = 'ws.coaching.coachesAdmin';
@@ -419,6 +420,27 @@ function ProfileSection({
         maxLength={COACH_LIMITS.name}
         disabled={busy}
       />
+      {/* 0337: the name in the coach's share link. A server before it sends none: no field. */}
+      {c.slug !== null && (
+        <Field
+          label={tr(`${E}.slug`)}
+          hint={tr(`${E}.slugHint`, {
+            link: isolateLtr(`touch-padel.com/c/${slugOf(draft.slug) || c.slug}`),
+          })}
+          error={problems.includes('slug') ? tr(`${E}.slugBad`) : undefined}
+        >
+          <input
+            style={inputStyle}
+            dir="ltr"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={draft.slug}
+            maxLength={COACH_LIMITS.slug}
+            disabled={busy}
+            onChange={(e) => set({ slug: e.target.value })}
+          />
+        </Field>
+      )}
       <BilingualFields
         labelEn={tr(`${K}.promote.bioEn`)}
         labelAr={tr(`${K}.promote.bioAr`)}

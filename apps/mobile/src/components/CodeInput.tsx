@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Platform, Pressable, TextInput, View } from 'react-native';
 import { Text } from '../i18n/text';
 import { MicroLabel } from './ui';
 import { brand, radius, space, useTheme } from '../theme';
@@ -121,8 +121,11 @@ export function CodeInput({
       {/*
        * The real field, stretched over the boxes so the system's autofill
        * affordance ("From Messages") appears where the guest is looking.
-       * `caretHidden` is iOS-only in effect; Android needs the transparent
-       * caret and a zero-width selection colour as well.
+       * The caret is hidden per platform. iOS: `caretHidden`. Android: NOT
+       * `caretHidden` — there it is `setCursorVisible(false)`, which also
+       * disables the EditText's insertion controller, so a long-press on the
+       * empty field never offers Paste. Android hides it with a transparent
+       * `cursorColor` instead, and the field stays pasteable.
        */}
       <TextInput
         // `.input`, not the bare id: the boxes above are what a guest taps and
@@ -140,7 +143,8 @@ export function CodeInput({
         autoComplete="one-time-code"
         textContentType="oneTimeCode"
         autoFocus={autoFocus}
-        caretHidden
+        caretHidden={Platform.OS === 'ios'}
+        cursorColor="transparent"
         selectionColor="transparent"
         style={{
           position: 'absolute',

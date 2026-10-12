@@ -14,14 +14,16 @@ import { formatIQD, formatPercent, makeT, type Locale } from '@touch/i18n';
 import type { Can, RunRow, StepRow } from '@touch/core';
 import { runSmokeCases } from '../test/smokeCase';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
+import { headerAdd } from '../test/headerAdd';
+import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
 import { WorkList } from '../features/staff/protocols/WorkList';
-import StaffStart from '../../app/staff-start';
-import StaffRuns from '../../app/staff-runs';
-import StaffRun from '../../app/staff-run';
-import StaffStep from '../../app/staff-step';
-import StaffIdeas from '../../app/staff-ideas';
-import StaffNotes from '../../app/staff-notes';
+import StaffStart from '../../app/(staff)/staff-start';
+import StaffRuns from '../../app/(staff)/staff-runs';
+import StaffRun from '../../app/(staff)/staff-run';
+import StaffStep from '../../app/(staff)/staff-step';
+import StaffIdeas from '../../app/(staff)/staff-ideas';
+import StaffNotes from '../../app/(staff)/staff-notes';
 
 const V = TEST_VENUE_ID;
 const RUN = 'a0000000-0000-4000-8000-0000000000a1';
@@ -397,8 +399,24 @@ describe.each(LOCALES)('the protocol pages’ other states in %s', (locale) => {
       queryData: [[staffKeys.runs(V, 'waiting'), { runs: [], total: 0 }]],
     });
     try {
-      expect(screen.queryByTestId('staff-runs.start')).toBeNull();
+      expect(headerAdd(screen)).toBeNull();
       expect(screen.getByText(t('staff.protocols.runs.empty.waiting'))).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('gives a role that may start something a + that opens the start page', () => {
+    const screen = renderRoute(StaffRuns, {
+      locale,
+      staff: { role: 'marketing' },
+      queryData: [[staffKeys.runs(V, 'waiting'), { runs: [], total: 0 }]],
+    });
+    try {
+      const add = headerAdd(screen);
+      expect(add?.label).toBe(t('staff.protocols.runs.start'));
+      add?.onPress();
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-start' });
     } finally {
       screen.unmount();
     }

@@ -167,19 +167,19 @@ export function pickMatches(
   taken: ReadonlySet<string> = new Set(),
 ): PickItem[] {
   const free = items.filter((i) => !taken.has(i.ingredient_id));
-  const q = query.trim().toLocaleLowerCase();
+  const q = query.trim().toLowerCase();
   if (!q) return free.length <= SHOW_ALL_UP_TO ? free : [];
   return free
-    .filter((i) => i.name_en.toLocaleLowerCase().includes(q) || i.name_ar.includes(query.trim()))
+    .filter((i) => i.name_en.toLowerCase().includes(q) || i.name_ar.includes(query.trim()))
     .slice(0, MATCHES_SHOWN);
 }
 
 /** Rows of a count sheet whose name holds the typed text (all of them for an empty search). */
 export function filterPick(items: readonly PickItem[], query: string): PickItem[] {
-  const q = query.trim().toLocaleLowerCase();
+  const q = query.trim().toLowerCase();
   if (!q) return [...items];
   return items.filter(
-    (i) => i.name_en.toLocaleLowerCase().includes(q) || i.name_ar.includes(query.trim()),
+    (i) => i.name_en.toLowerCase().includes(q) || i.name_ar.includes(query.trim()),
   );
 }
 

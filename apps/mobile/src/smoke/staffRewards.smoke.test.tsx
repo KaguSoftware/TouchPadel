@@ -12,8 +12,8 @@ import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
 import type { MyRewards, RewardsBoard } from '../features/staff/rewards/api';
-import StaffRewards from '../../app/staff-rewards';
-import StaffRewardsAdmin from '../../app/staff-rewards-admin';
+import StaffRewards from '../../app/(staff)/staff-rewards';
+import StaffRewardsAdmin from '../../app/(staff)/staff-rewards-admin';
 import StaffToday from '../../app/staff';
 
 const V = TEST_VENUE_ID;

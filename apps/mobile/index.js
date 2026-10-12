@@ -18,6 +18,7 @@
 // Guarded by src/lib/__tests__/reliability.test.ts ("entry order").
 import 'react-native-get-random-values';
 import { pinNativeRootLtr } from './src/i18n/nativeDirection';
+import { installAlertLocale } from './src/i18n/nativeLocale';
 import 'expo-router/entry';
 
 // The native RTL flag is held LTR for the app's whole life: layout direction is
@@ -25,3 +26,7 @@ import 'expo-router/entry';
 // a second, boot-time direction the bundle cannot observe. Runs before anything
 // renders (native starts the app only once the bundle has evaluated).
 pinNativeRootLtr();
+
+// Android alerts take the in-app language's direction, not the phone's
+// (src/i18n/nativeLocale.ts).
+installAlertLocale();

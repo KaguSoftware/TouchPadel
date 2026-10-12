@@ -1,6 +1,6 @@
 /**
  * The number on Today's Work alerts button (owner, 2026-10-10): what is
- * waiting on the person on the work alerts page (app/staff-work.tsx). That is
+ * waiting on the person on the work alerts page (app/(staff)/staff-work.tsx). That is
  * today's unfinished checklists, the submissions they decide and their own
  * open steps. What they sent and what was decided are news, not work, so they
  * are on the page but not in the count.

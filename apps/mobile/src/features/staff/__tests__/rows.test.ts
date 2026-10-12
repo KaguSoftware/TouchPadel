@@ -14,7 +14,10 @@ const APP = join(__dirname, '..', '..', '..', '..', 'app');
 describe('Today rows', () => {
   it('open a screen that exists under app/', () => {
     for (const row of STAFF_ROW_DEFS) {
-      expect(existsSync(join(APP, `${row.href.slice(1)}.tsx`)), row.href).toBe(true);
+      // Today itself and its sheet sit on the root stack, the pages in (staff).
+      const file = `${row.href.slice(1)}.tsx`;
+      const found = existsSync(join(APP, file)) || existsSync(join(APP, '(staff)', file));
+      expect(found, row.href).toBe(true);
     }
   });
 

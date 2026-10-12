@@ -42,6 +42,7 @@ function coach(over: Partial<AdminCoach> = {}): AdminCoach {
     account_deleted: false,
     display_name_en: 'Coach Sara',
     display_name_ar: 'المدرّبة سارة',
+    slug: 'coach-sara',
     bio_en: '',
     bio_ar: '',
     photo_path: null,
@@ -149,6 +150,24 @@ describe('the profile patch', () => {
     expect(replacedPhoto(c, { photo: null })).toBe(PHOTO);
     expect(replacedPhoto(c, { photo: PHOTO })).toBeNull();
     expect(replacedPhoto(coach(), { photo: PHOTO })).toBeNull();
+  });
+
+  it('sends the link name lower-cased when it changed; an emptied one is no change (0337)', () => {
+    const c = coach();
+    expect(coachPatch(c, { ...profileDraftOf(c), slug: ' Sara-K ' })).toEqual({ slug: 'sara-k' });
+    expect(coachPatch(c, { ...profileDraftOf(c), slug: 'COACH-SARA' })).toEqual({});
+    expect(coachPatch(c, { ...profileDraftOf(c), slug: '' })).toEqual({});
+    expect(coachPatch(coach({ slug: null }), profileDraftOf(coach({ slug: null })))).toEqual({});
+  });
+
+  it('refuses a link name the server would (0337)', () => {
+    const d = profileDraftOf(coach());
+    expect(profileProblems({ ...d, slug: 'sara-k' })).toEqual([]);
+    expect(profileProblems({ ...d, slug: '-sara' })).toEqual(['slug']);
+    expect(profileProblems({ ...d, slug: 'sara k' })).toEqual(['slug']);
+    expect(profileProblems({ ...d, slug: '0f8fad5b-d9cb-469f-a165-70867728950e' })).toEqual([
+      'slug',
+    ]);
   });
 
   it('the levels they coach: known ones only, in order, sent only when they change (0334)', () => {

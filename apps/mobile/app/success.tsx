@@ -17,6 +17,7 @@ import {
   StopwatchIcon,
   TagIcon,
 } from '../src/components/icons';
+import { useReturnTo } from '../src/navigation/back';
 import { displayRef } from '../src/features/booking/logic';
 
 /**
@@ -27,6 +28,7 @@ function SuccessScreen() {
   const { t, locale } = useLocale();
   const { fonts, tracking } = useTheme();
   const router = useRouter();
+  const returnTo = useReturnTo();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     reservationId?: string;
@@ -241,7 +243,7 @@ function SuccessScreen() {
           label={t('common.done')}
           variant="secondary"
           size="medium"
-          onPress={() => router.replace('/(tabs)/bookings')}
+          onPress={() => returnTo('/(tabs)/bookings', '(tabs)')}
           style={{ backgroundColor: 'transparent', borderColor: brand.navyLine, borderWidth: 1 }}
           labelColor={brand.navyText}
         />

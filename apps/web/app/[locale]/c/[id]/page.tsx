@@ -4,7 +4,7 @@ import { otherLocale, requireLocale } from '@/lib/locales';
 import { getCachedCoaching } from '@/lib/coaching.server';
 import {
   coachBio,
-  coachById,
+  coachByRef,
   coachName,
   coachTypes,
   lessonPrice,
@@ -14,7 +14,7 @@ import {
   type PublicCoach,
   type PublicCoaching,
 } from '@/lib/coaching';
-import { APP_HOME_URL, appCoachHref, coachLinkPath, parseCoachId } from '@/lib/site/coachLink';
+import { APP_HOME_URL, appCoachHref, coachLinkPath, parseCoachRef } from '@/lib/site/coachLink';
 import { getRequestNonce, getSiteMode } from '@/lib/site/mode.server';
 import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
 import { siteOgImage } from '@/lib/site/ogImage';
@@ -24,7 +24,7 @@ import { BrandLockup } from '@/components/site/brand/BrandLockup';
 import { CoachPhoto } from '@/components/coaching/CoachPhoto';
 
 /**
- * `/{locale}/c/<coachId>`: the coach link (docs/design/coaching/guest.md §4.12, §4.14.3). The
+ * `/{locale}/c/<slug>` (0337: `/c/omar-karim`) or `/{locale}/c/<coachId>`: the coach link (docs/design/coaching/guest.md §4.12, §4.14.3). The
  * website's "Book in the app" and the app's share sheet hand it out. Where the app is installed
  * and the domain verified, the phone opens the app on the coach (`LINK_PATHS`) and this page is
  * never seen; everywhere else (a WhatsApp preview, a browser, Safari tapping a same-domain link)
@@ -36,7 +36,7 @@ import { CoachPhoto } from '@/components/coaching/CoachPhoto';
  * scheme jump strands Safari on an error page when the app is absent.
  *
  * The read is the `/coaching` page's own cached `coaching_public` (60 s): only active coaches who
- * accepted the public profile are in it (C-22, R61). An id that is no uuid, an unknown, paused,
+ * accepted the public profile are in it (C-22, R61). A segment that is neither an id nor a slug, an unknown, paused,
  * retired or not-yet-public coach, and coaching switched off all read the same ("isn't taking
  * bookings online right now"), so the page never says which. Prices only where the branch shows
  * them (C-11; the parser drops the rest).
@@ -54,18 +54,21 @@ type CoachView =
   | { state: 'missing' }
   | { state: 'error' };
 
-function viewOf(read: CoachingRead, id: string | null): CoachView {
+function viewOf(read: CoachingRead, ref: string | null): CoachView {
   if (read.status === 'error') return { state: 'error' };
-  const coach = id && read.coaching ? coachById(read.coaching, id) : null;
+  const coach = ref && read.coaching ? coachByRef(read.coaching, ref) : null;
   return coach && read.coaching
     ? { state: 'found', coaching: read.coaching, coach }
     : { state: 'missing' };
 }
 
-/** The coach, read only for an id that is one (the server is never asked about anything else). */
-async function readCoach(id: string | null): Promise<CoachView> {
-  if (!id) return { state: 'missing' };
-  return viewOf(await getCachedCoaching(null), id);
+/**
+ * The coach, read only for a segment that is an id or a slug (the server is never asked about
+ * anything else).
+ */
+async function readCoach(ref: string | null): Promise<CoachView> {
+  if (!ref) return { state: 'missing' };
+  return viewOf(await getCachedCoaching(null), ref);
 }
 
 export async function generateViewport(): Promise<Viewport> {
@@ -76,7 +79,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const segments = await params;
   const locale = requireLocale(segments.locale);
   const tr = makeT(locale);
-  const view = await readCoach(parseCoachId(segments.id));
+  const view = await readCoach(parseCoachRef(segments.id));
   // "Lessons with Ali · Touch Padel" (the layout's title template); "Book a lesson" otherwise.
   const title =
     view.state === 'found'
@@ -165,12 +168,18 @@ function CoachCard({
 export default async function CoachLinkPage({ params }: { params: Params }) {
   const segments = await params;
   const locale = requireLocale(segments.locale);
-  const id = parseCoachId(segments.id);
-  const [view, mode, nonce] = await Promise.all([readCoach(id), getSiteMode(), getRequestNonce()]);
+  const ref = parseCoachRef(segments.id);
+  const [view, mode, nonce] = await Promise.all([readCoach(ref), getSiteMode(), getRequestNonce()]);
   const tr = makeT(locale);
   const other = otherLocale(locale);
   // Not found reads the same for every reason, and its app link opens the app's home.
-  const appHref = view.state === 'missing' ? APP_HOME_URL : appCoachHref(id);
+  // The app opens on the id, which every app build reads.
+  const appHref =
+    view.state === 'found'
+      ? appCoachHref(view.coach.id)
+      : view.state === 'missing'
+        ? APP_HOME_URL
+        : appCoachHref(ref);
 
   return (
     <div className="tp-site tp-clink" data-theme="padel" data-mode={mode} data-state={view.state}>
@@ -184,7 +193,7 @@ export default async function CoachLinkPage({ params }: { params: Params }) {
         </a>
         {/* A plain link, not the site's LanguageLink: that one remembers the choice in a
             cookie, and this page sets none. Same accessible name, visible word first. */}
-        <a className="tp-clink__lang" href={coachLinkPath(other, id)} hrefLang={other}>
+        <a className="tp-clink__lang" href={coachLinkPath(other, ref)} hrefLang={other}>
           <span lang={other}>{tr('site.nav.language')}</span>
           <span className="tp-clink__sr"> ({tr('site.nav.languageLabel')})</span>
         </a>

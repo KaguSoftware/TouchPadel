@@ -37,7 +37,7 @@ export interface StaffRowDef {
   id: string;
   /** `staff.row.<id>` (§6.3), or the route's own primary id for the requests row. */
   testID: string;
-  /** The page the row opens: a flat root-stack screen `app/staff-*.tsx`. */
+  /** The page the row opens: a flat root-stack screen `app/(staff)/staff-*.tsx`. */
   href: `/staff-${string}`;
   labelKey: MessageKey;
   /** The roles that see the row; left out, every staff role. */

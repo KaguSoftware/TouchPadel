@@ -290,7 +290,7 @@ describe.skipIf(!docker)(
         const out = await race(holder, app, () =>
           as(
             f.prof,
-            `select app.coach_book_private('${f.priv}', '${f.venue}', ${startIn(3, 2)}, 'Student', null, 1,
+            `select app.coach_book_private('${f.priv}', '${f.venue}', ${startIn(3, 2)}, 'Student', '9647711112222', 1,
                                          'c291-x-${f.tag}')`,
           ),
         );
@@ -309,7 +309,7 @@ describe.skipIf(!docker)(
         const app = `c291-book-${f.tag}`;
         const holder = as(
           f.prof,
-          `select app.coach_book_private('${f.priv}', '${f.venue}', ${startIn(3, 2)}, 'Student', null, 1,
+          `select app.coach_book_private('${f.priv}', '${f.venue}', ${startIn(3, 2)}, 'Student', '9647711112222', 1,
                                        'c291-y-${f.tag}')`,
           app,
         );

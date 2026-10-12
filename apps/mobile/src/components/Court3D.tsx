@@ -214,6 +214,30 @@ function withoutWebGL1Warning<T>(gl: ExpoWebGLRenderingContext, build: () => T):
   }
 }
 
+/**
+ * Drop the `pixelStorei` parameters expo-gl does not implement.
+ *
+ * expo-gl's native pixelStorei (common/EXWebGLMethods.cpp) handles only
+ * UNPACK_FLIP_Y_WEBGL and UNPACK_ALIGNMENT; anything else is a no-op that
+ * console.logs "EXGL: gl.pixelStorei() doesn't support this parameter yet!".
+ * three sends UNPACK_PREMULTIPLY_ALPHA_WEBGL and UNPACK_COLORSPACE_CONVERSION_WEBGL
+ * on every texture upload, so the log repeats per texture. Filtering them here
+ * changes nothing on screen — native was already ignoring them — it only stops
+ * the log. Patched on the context instance, so it is per surface and idempotent.
+ */
+function withSupportedPixelStore(gl: ExpoWebGLRenderingContext): void {
+  if (Platform.OS === 'web') return;
+  const ctx = gl as unknown as { pixelStorei: (pname: number, param: number | boolean) => void };
+  const native = ctx.pixelStorei;
+  if ((native as { __filtered?: boolean }).__filtered) return;
+  const supported = new Set<number>([gl.UNPACK_FLIP_Y_WEBGL, gl.UNPACK_ALIGNMENT]);
+  const filtered = (pname: number, param: number | boolean) => {
+    if (supported.has(pname)) native.call(gl, pname, param);
+  };
+  (filtered as { __filtered?: boolean }).__filtered = true;
+  ctx.pixelStorei = filtered;
+}
+
 export interface Court3DProps {
   progress: Animated.Value;
   direction: Dir;
@@ -1102,6 +1126,7 @@ export function Court3D({
       // it does, exactly as on the first mount.
       if (kind === 'court') armReveal();
       try {
+        withSupportedPixelStore(gl);
         // three wants a canvas-shaped object; the context is expo-gl's.
         const w = gl.drawingBufferWidth;
         const h = gl.drawingBufferHeight;

@@ -75,7 +75,7 @@ export default function VerifyEmailScreen() {
     } catch {
       // Nothing to lose here; leave regardless.
     }
-    router.replace('/(tabs)');
+    router.dismissTo('/(tabs)');
   };
 
   const coolingDown = secondsLeft > 0;

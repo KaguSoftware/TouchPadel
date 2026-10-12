@@ -171,6 +171,8 @@ export interface CoachOffer {
 export interface PublicCoach {
   /** `coaches.id`, never a profile id (R43). */
   id: string;
+  /** The name in the coach's share link (0337); null from a server before it. */
+  slug: string | null;
   displayNameEn: string;
   displayNameAr: string;
   bioEn: string;
@@ -309,6 +311,7 @@ export function parseCoachingPublic(json: unknown): CoachingPublic {
     if (!id) continue;
     coaches.push({
       id,
+      slug: str(c.slug),
       displayNameEn: text(c.display_name_en),
       displayNameAr: text(c.display_name_ar),
       bioEn: text(c.bio_en),
@@ -358,6 +361,8 @@ export function parseCoachingPublic(json: unknown): CoachingPublic {
 
 export interface ProfileCoach {
   id: string;
+  /** The name in the coach's share link (/c/<slug>, 0337); null from a server before it. */
+  slug: string | null;
   displayNameEn: string;
   displayNameAr: string;
   bioEn: string;
@@ -438,6 +443,7 @@ export function parseCoachProfile(json: unknown): CoachProfile {
       c && coachId
         ? {
             id: coachId,
+            slug: str(c.slug),
             displayNameEn: text(c.display_name_en),
             displayNameAr: text(c.display_name_ar),
             bioEn: text(c.bio_en),
@@ -1223,7 +1229,7 @@ export function coachPhotoUrl(
 /** The first letter of a coach's name for the photo-less avatar ('' when none). */
 export function coachInitial(name: string): string {
   const first = [...name.trim()][0];
-  return first ? first.toLocaleUpperCase() : '';
+  return first ? first.toUpperCase() : '';
 }
 
 /** The kinds a coach teaches at a branch, in the fixed order private, group, course. */

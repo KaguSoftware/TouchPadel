@@ -842,11 +842,16 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
   });
 
-  it('a coach id that is not one shows the not-found layout', () => {
+  it.each([
+    ['a coach id that is neither an id nor a slug', 'not a coach', [] as Seeds],
+    // 0337: a slug no public coach has (an old name, a typo).
+    ['a slug no coach has', 'nope', [[coachingKeys.slug('nope'), null]] as Seeds],
+  ])('%s shows the not-found layout', (_name, id, queryData) => {
     const screen = renderRoute(CoachDetailScreen, {
       locale,
       session: 'out',
-      params: { id: 'nope' },
+      params: { id },
+      queryData,
     });
     try {
       expect(

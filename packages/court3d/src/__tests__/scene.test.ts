@@ -107,32 +107,82 @@ describe('the shadow map option', () => {
   });
 });
 
-describe('the lean option', () => {
-  /** Every object's world matrix and visibility, in traversal order. */
-  const snapshot = (root: THREE.Object3D) => {
-    const out: { matrix: number[]; visible: boolean }[] = [];
-    root.traverse((o) => out.push({ matrix: [...o.matrixWorld.elements], visible: o.visible }));
-    return out;
+/**
+ * What the renderer would draw, in world space: every visible vertex, keyed
+ * by the draw state that paints it (kind, material colour and opacity,
+ * renderOrder, shadow flags) and summed into moments — count, Σx, Σx², Σxy,
+ * … — so it does not matter how many meshes carry them or in what order,
+ * while a part that moved, went missing or changed draw state still shows.
+ * The instanced trail is expanded instance by instance, its per-ghost alpha
+ * standing in for the opacity.
+ */
+const drawn = (root: THREE.Object3D) => {
+  const out = new Map<string, number[]>();
+  const v = new THREE.Vector3();
+  const m = new THREE.Matrix4();
+  const put = (key: string, g: THREE.BufferGeometry, world: THREE.Matrix4) => {
+    const pos = g.getAttribute('position');
+    const index = g.index;
+    const s = out.get(key) ?? new Array<number>(10).fill(0);
+    const n = index ? index.count : pos.count;
+    for (let i = 0; i < n; i++) {
+      const { x, y, z } = v.fromBufferAttribute(pos, index ? index.getX(i) : i).applyMatrix4(world);
+      const terms = [1, x, y, z, x * x, y * y, z * z, x * y, y * z, z * x];
+      for (let j = 0; j < 10; j++) s[j]! += terms[j]!;
+    }
+    out.set(key, s);
   };
+  root.traverseVisible((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh && !(o as THREE.LineSegments).isLineSegments) return;
+    const mat = mesh.material as THREE.MeshBasicMaterial;
+    if (!mat.visible) return;
+    const kind = (o as THREE.LineSegments).isLineSegments ? 'lines' : 'mesh';
+    const state = (opacity: number) =>
+      [kind, mat.type, mat.color?.getHexString(), opacity.toFixed(4), o.renderOrder,
+        o.castShadow, o.receiveShadow].join('|');
+    const inst = o as THREE.InstancedMesh;
+    if (inst.isInstancedMesh) {
+      const alpha = mesh.geometry.getAttribute('instanceAlpha');
+      for (let i = 0; i < inst.count; i++) {
+        inst.getMatrixAt(i, m);
+        if (Math.abs(m.determinant()) < 1e-12) continue;
+        put(state(mat.opacity * alpha.getX(i)), mesh.geometry, m.premultiply(o.matrixWorld));
+      }
+    } else {
+      put(state(mat.opacity), mesh.geometry, o.matrixWorld);
+    }
+  });
+  return out;
+};
+const expectSameDraws = (a: Map<string, number[]>, b: Map<string, number[]>) => {
+  expect([...a.keys()].sort()).toStrictEqual([...b.keys()].sort());
+  for (const [key, sums] of b) {
+    const mine = a.get(key)!;
+    sums.forEach((x, j) => expect(mine[j], `${key} [${j}]`).toBeCloseTo(x, 2));
+  }
+};
 
+describe('the lean option', () => {
   it.each(['full', 'lite'] as const)(
-    'draws %s exactly as the default does: every world matrix and every ghost, to the bit',
+    'draws %s exactly as the default does: the same vertices in the same draw states',
     (quality) => {
       const plain = buildCourtScene(quality);
-      const lean = buildCourtScene(quality, { lean: true });
+      // As Android builds it: lean, on a GL that draws instances.
+      const lean = buildCourtScene(quality, { lean: true, instancing: true });
       for (let frame = 1; frame <= 240; frame++) {
         const t = frame / 60;
         const k = Math.min(1, frame / 180);
         const p = k;
-        for (const court of [plain, lean]) {
-          court.update(t, p, k);
-          // What the renderer does before each draw.
-          court.scene.updateMatrixWorld();
-          court.overlay.updateMatrixWorld();
-        }
-        if (frame % 20 === 0) {
-          expect(snapshot(lean.scene)).toStrictEqual(snapshot(plain.scene));
-          expect(snapshot(lean.overlay)).toStrictEqual(snapshot(plain.overlay));
+        for (const court of [plain, lean]) court.update(t, p, k);
+        if (frame % 40 === 0) {
+          for (const court of [plain, lean]) {
+            // What the renderer does before each draw.
+            court.scene.updateMatrixWorld();
+            court.overlay.updateMatrixWorld();
+          }
+          expectSameDraws(drawn(lean.scene), drawn(plain.scene));
+          expectSameDraws(drawn(lean.overlay), drawn(plain.overlay));
         }
       }
       plain.dispose();
@@ -140,18 +190,34 @@ describe('the lean option', () => {
     },
   );
 
+  it.each(['full', 'lite'] as const)('cuts %s to a third of the draw calls or fewer', (quality) => {
+    const calls = (court: ReturnType<typeof buildCourtScene>) => {
+      court.update(0.3, 0, 0);
+      let n = 0;
+      for (const root of [court.scene, court.overlay]) {
+        root.traverseVisible((o) => {
+          if ((o as THREE.Mesh).isMesh || (o as THREE.LineSegments).isLineSegments) n++;
+        });
+      }
+      return n;
+    };
+    expect(calls(buildCourtScene(quality, { lean: true, instancing: true })) * 3).toBeLessThanOrEqual(
+      calls(buildCourtScene(quality)),
+    );
+  });
+
   it('freezes only what never moves', () => {
     const court = buildCourtScene('full', { lean: true });
     expect(court.scene.matrixAutoUpdate).toBe(false);
     expect(court.camera.matrixAutoUpdate).toBe(true);
     const frozen = court.scene.children.filter((o) => !o.matrixAutoUpdate);
-    expect(frozen.length).toBeGreaterThan(50);
+    expect(frozen.length).toBeGreaterThan(10);
     for (const o of frozen) {
       expect(o instanceof THREE.Mesh || o instanceof THREE.LineSegments).toBe(true);
     }
     // The ball's shadow caster rides the ball every frame.
     const caster = court.scene.children.find(
-      (o) => o instanceof THREE.Mesh && o.castShadow,
+      (o) => o instanceof THREE.Mesh && o.castShadow && o.geometry instanceof THREE.SphereGeometry,
     )!;
     expect(caster.matrixAutoUpdate).toBe(true);
     court.dispose();
@@ -223,13 +289,8 @@ describe('the scene option (rally | drill)', () => {
   it.each(['full', 'lite'] as const)(
     'lean draws the %s drill exactly as the default does',
     (quality) => {
-      const snapshot = (root: THREE.Object3D) => {
-        const out: { matrix: number[]; visible: boolean }[] = [];
-        root.traverse((o) => out.push({ matrix: [...o.matrixWorld.elements], visible: o.visible }));
-        return out;
-      };
       const plain = buildCourtScene(quality, { scene: 'drill' });
-      const lean = buildCourtScene(quality, { scene: 'drill', lean: true });
+      const lean = buildCourtScene(quality, { scene: 'drill', lean: true, instancing: true });
       for (let frame = 1; frame <= 300; frame++) {
         const t = frame / 60;
         const k = Math.min(1, frame / 240);
@@ -239,8 +300,8 @@ describe('the scene option (rally | drill)', () => {
           court.overlay.updateMatrixWorld();
         }
         if (frame % 25 === 0) {
-          expect(snapshot(lean.scene)).toStrictEqual(snapshot(plain.scene));
-          expect(snapshot(lean.overlay)).toStrictEqual(snapshot(plain.overlay));
+          expectSameDraws(drawn(lean.scene), drawn(plain.scene));
+          expectSameDraws(drawn(lean.overlay), drawn(plain.overlay));
         }
       }
       plain.dispose();
@@ -258,6 +319,24 @@ describe('the view option (book | top)', () => {
     expect(lines(court)).toBeGreaterThan(0);
     court.dispose();
   });
+
+  it.each(['rally', 'drill'] as const)(
+    'lean draws the top view %s as the default does, its ghosts grown with the ball',
+    (scene) => {
+      const plain = buildCourtScene('lite', { view: 'top', scene });
+      const lean = buildCourtScene('lite', { view: 'top', scene, lean: true });
+      for (let frame = 1; frame <= 300; frame++) {
+        for (const court of [plain, lean]) {
+          court.update(frame / 60, 0, 0);
+          court.scene.updateMatrixWorld();
+          court.overlay.updateMatrixWorld();
+        }
+        if (frame % 25 === 0) expectSameDraws(drawn(lean.overlay), drawn(plain.overlay));
+      }
+      plain.dispose();
+      lean.dispose();
+    },
+  );
 
   it('the top view skips the edge-on glass and mesh, keeps the posts and the rackets', () => {
     const book = buildCourtScene('lite');
@@ -497,6 +576,47 @@ describe('the join scene (Play: the next open match)', () => {
     expect(landing.scale.x).toBe(1);
     expect(spotsOf(court)[3]!.visible).toBe(false);
     expect(ballOf(court).visible).toBe(true);
+    court.dispose();
+  });
+
+  it('lean draws it as the default does, through a seat filling (merged court and rackets, frozen matrices)', () => {
+    const plain = build();
+    const lean = buildCourtScene('lite', { scene: 'join', view: 'top', lean: true });
+    for (const court of [plain, lean]) court.setJoin({ taken: 1, spots: true, mirror: false }, false);
+    for (let frame = 1; frame <= 600; frame++) {
+      if (frame === 240) {
+        for (const court of [plain, lean]) court.setJoin({ taken: 2, spots: true, mirror: false }, true);
+      }
+      for (const court of [plain, lean]) {
+        court.update(frame / 60, 0, 0);
+        court.scene.updateMatrixWorld();
+        court.overlay.updateMatrixWorld();
+      }
+      if (frame % 20 === 0) {
+        expectSameDraws(drawn(lean.scene), drawn(plain.scene));
+        expectSameDraws(drawn(lean.overlay), drawn(plain.overlay));
+      }
+    }
+    plain.dispose();
+    lean.dispose();
+  });
+
+  it("with instancing (Android's build) the warm-up's trail is one mesh, shown in flight", () => {
+    const court = buildCourtScene('lite', { scene: 'join', view: 'top', lean: true, instancing: true });
+    const trail = court.overlay.children.filter(
+      (o): o is THREE.InstancedMesh => o instanceof THREE.InstancedMesh,
+    );
+    expect(trail).toHaveLength(1);
+    expect(trail[0]!.renderOrder).toBe(1);
+    court.update(0, 0, 0);
+    expect(trail[0]!.visible).toBe(false);
+    court.setJoin({ taken: 2, spots: true, mirror: false }, false);
+    let shown = false;
+    for (let t = 0.1; t < 8 && !shown; t += 0.1) {
+      court.update(t, 0, 0);
+      shown = trail[0]!.visible;
+    }
+    expect(shown).toBe(true);
     court.dispose();
   });
 

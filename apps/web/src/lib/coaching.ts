@@ -2,7 +2,7 @@ import { COACH_LEVELS, type CoachLevel } from '@touch/core/coaching';
 import { countPhrase, formatIQD, makeT, type Locale } from '@touch/i18n';
 import { publicMediaUrl } from './media';
 import { inviteWhen } from './site/matchInvite';
-import { parseCoachId } from './site/coachLink';
+import { parseCoachId, parseCoachSlug } from './site/coachLink';
 
 /**
  * The pure half of the website's coaching pages (docs/design/coaching/guest.md §4.14.1): the
@@ -52,6 +52,8 @@ export interface CoachOffer {
 
 export interface PublicCoach {
   id: string;
+  /** The name in the coach's share link (0337); null from a server before it. */
+  slug: string | null;
   display_name_en: string;
   display_name_ar: string;
   bio_en: string;
@@ -233,6 +235,7 @@ function parseCoach(
   if (!nameEn && !nameAr) return null;
   return {
     id: coachId,
+    slug: parseCoachSlug(text(row.slug)),
     display_name_en: nameEn,
     display_name_ar: nameAr,
     bio_en: text(row.bio_en),
@@ -367,6 +370,11 @@ export function coachesAt(coaching: PublicCoaching, venueId: string): PublicCoac
 
 export function coachById(coaching: PublicCoaching, coachId: string): PublicCoach | null {
   return coaching.coaches.find((c) => c.id === coachId) ?? null;
+}
+
+/** The coach a link's segment names: their id, or their slug (0337). */
+export function coachByRef(coaching: PublicCoaching, ref: string): PublicCoach | null {
+  return coaching.coaches.find((c) => c.id === ref || c.slug === ref) ?? null;
 }
 
 export function typesAt(coaching: PublicCoaching, venueId: string): PublicLessonType[] {

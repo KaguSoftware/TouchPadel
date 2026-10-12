@@ -110,8 +110,9 @@ const rowStyle = (colors: ReturnType<typeof useTheme>['colors'], pressed: boolea
 
 /**
  * One coach in the list, as a card: the photo across the top (the initial on
- * the brand blue without one, as on the coach page), then the name, a pill
- * per kind taught and "From {price}". The whole card opens the coach.
+ * the brand blue without one, as on the coach page), then the name, one
+ * pill row's room (the kind pills are hidden) and "From {price}". Every card
+ * is the same height. The whole card opens the coach.
  */
 export function CoachCard({
   testID,
@@ -138,7 +139,7 @@ export function CoachCard({
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={[name, kinds.join(', '), from].filter(Boolean).join(', ')}
+      accessibilityLabel={[name, from].filter(Boolean).join(', ')}
       onPress={onPress}
       style={({ pressed }) => [
         {
@@ -179,21 +180,18 @@ export function CoachCard({
         >
           {name}
         </Text>
-        {kinds.length > 0 ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {kinds.map((k) => (
-              <KindPill key={k} label={k} />
-            ))}
-          </View>
-        ) : null}
-        {from ? (
-          <Text
-            numberOfLines={1}
-            style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.gtext }}
-          >
-            {from}
-          </Text>
-        ) : null}
+        {/* The kind pills are hidden (owner, 2026-10-11) but one row's room
+          stays, and the price line's room stays without a price, so every
+          card in the list is the same height. */}
+        <View style={{ opacity: 0 }}>
+          <KindPill label={kinds[0] ?? ' '} />
+        </View>
+        <Text
+          numberOfLines={1}
+          style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.gtext }}
+        >
+          {from ?? ' '}
+        </Text>
       </View>
     </Pressable>
   );
@@ -213,6 +211,7 @@ export function OfferCard({
   meta,
   price,
   selected,
+  disabled,
   onPress,
 }: {
   testID: string;
@@ -222,6 +221,8 @@ export function OfferCard({
   price: string | null;
   /** The private offer the grid below shows. */
   selected?: boolean;
+  /** Shown but not tappable: the coach on their own page (R56). */
+  disabled?: boolean;
   onPress: () => void;
 }) {
   const { colors, fonts } = useTheme();
@@ -229,8 +230,9 @@ export function OfferCard({
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityState={{ selected: !!selected }}
+      accessibilityState={{ selected: !!selected, disabled: !!disabled }}
       accessibilityLabel={[name, kind, meta, price].filter(Boolean).join(', ')}
+      disabled={disabled}
       onPress={onPress}
       // Borderless white at the card radius; the selected private offer takes
       // a 2 pt accent ring. The border is always 2 pt (card-coloured when not

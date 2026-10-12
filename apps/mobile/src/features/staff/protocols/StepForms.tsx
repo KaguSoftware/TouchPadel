@@ -82,6 +82,7 @@ import { MULTILINE_BOX, MULTILINE_TEXT } from './multiline';
 import { Muted, Section, StoredPhoto, Strong, serverIssue, useRefreshProtocols, useRolesText } from './parts';
 import type { RunDetail, StepDetail, SubmitResult } from './types';
 import { useAttachedPhotos, type StepReads } from './useStepReads';
+import { otherPersonName } from '../../../components/fieldKeyboard';
 
 interface StepFormProps {
   detail: StepDetail;
@@ -773,6 +774,7 @@ export function CandidatesForm({ detail, reads }: StepFormProps) {
       {editing ? (
         <View style={{ gap: space.s, paddingTop: space.s, borderTopWidth: 1, borderTopColor: colors.sub }}>
           <Field
+            {...otherPersonName}
             testID="staff-step.candidate.name"
             label={t('staff.protocols.candidates.name')}
             value={editing.name}
@@ -785,6 +787,10 @@ export function CandidatesForm({ detail, reads }: StepFormProps) {
             value={editing.phone}
             onChangeText={(phone) => setEditing({ ...editing, phone })}
             keyboardType="phone-pad"
+            // iOS fills it from Contacts; Android would only offer the
+            // phone owner's own number.
+            textContentType="telephoneNumber"
+            autoComplete="off"
             latin
             maxLength={32}
           />
@@ -998,7 +1004,10 @@ export function AddStaffForm({ detail, runDetail }: StepFormProps) {
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
-            autoCapitalize="none"
+            // The NEW member's address, not the owner's: autofill would offer
+            // the phone's own saved email.
+            autoComplete="off"
+            textContentType="none"
             latin
           />
           <Field
@@ -1007,11 +1016,15 @@ export function AddStaffForm({ detail, runDetail }: StepFormProps) {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
-            autoCapitalize="none"
+            // Someone else's password: no keychain suggestion, and no
+            // "Save password?" filing it under the owner's own login.
+            autoComplete="off"
+            textContentType="none"
             maxLength={72}
           />
           <Hint>{t('staff.protocols.addStaff.passwordHint')}</Hint>
           <Field
+            {...otherPersonName}
             testID="staff-step.field.display-name"
             label={t('staff.protocols.addStaff.displayName')}
             value={name}

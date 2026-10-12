@@ -28,6 +28,7 @@ import {
   type PickItem,
   type PickList,
 } from './logic';
+import { searchField } from '../../../components/fieldKeyboard';
 
 /** A quantity in the item's unit: "2,000 g", "12 pieces". */
 export function useQtyText(): (qty: number, unit: string) => string {
@@ -139,6 +140,7 @@ export function ItemFinder({
   return (
     <View>
       <Field
+        {...searchField}
         testID={`${testID}.find`}
         label={t('staff.stores.find')}
         value={query}

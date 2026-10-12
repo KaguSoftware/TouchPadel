@@ -26,6 +26,8 @@ export const coachingKeys = {
   all: ['coaching'] as const,
   /** app.coaching_public for one branch (the coach list, the classes). */
   public: (venueId: string) => ['coaching', 'public', venueId] as const,
+  /** app.coach_id_for_slug: the coach a share link's slug names (0337). */
+  slug: (slug: string) => ['coaching', 'slug', slug] as const,
   /** app.coach_profile; `venueId` '' is the link's read with no branch (R17). */
   profile: (coachId: string, venueId: string) => ['coaching', 'profile', coachId, venueId] as const,
   /** Every coach grid: refreshed after a COACH_BUSY or NO_COURT_FREE refusal (§4.8.3). */

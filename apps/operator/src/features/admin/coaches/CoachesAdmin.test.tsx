@@ -103,6 +103,7 @@ function coach(over: Record<string, unknown> = {}) {
     account_deleted: false,
     display_name_en: 'Coach Sara',
     display_name_ar: 'المدرّبة سارة',
+    slug: 'coach-sara',
     bio_en: '',
     bio_ar: '',
     photo_path: null,
@@ -589,6 +590,29 @@ describe('CoachesAdmin ▸ Coaches', () => {
       p_lesson_type_id: 't2',
       p_price_iqd: null,
     });
+  });
+
+  it('the link name shows the share link, refuses a bad one, and saves lower-cased (0337)', async () => {
+    const user = userEvent.setup();
+    nav.search = { coach: 'c1' };
+    answers.coach_update = () => ({});
+    mount();
+    const editor = within(await screen.findByTestId('coach-editor'));
+    const slug = editor.getByRole('textbox', { name: 'Link name' });
+    expect(editor.getByText(/touch-padel\.com\/c\/coach-sara/)).toBeTruthy();
+    await user.clear(slug);
+    await user.type(slug, '-bad');
+    expect(
+      editor.getByText(
+        'Use 2 to 48 lowercase letters, numbers and dashes, starting with a letter or number.',
+      ),
+    ).toBeTruthy();
+    expect(editor.getByRole('button', { name: 'Save profile' })).toHaveProperty('disabled', true);
+    await user.clear(slug);
+    await user.type(slug, 'Sara-K');
+    await user.click(editor.getByRole('button', { name: 'Save profile' }));
+    await waitFor(() => expect(calls('coach_update')).toHaveLength(1));
+    expect(calls('coach_update')[0]![1]).toEqual({ p_coach_id: 'c1', p_patch: { slug: 'sara-k' } });
   });
 
   it('BRANCH_HAS_BOOKINGS names the branch the coach still has lessons at', async () => {
