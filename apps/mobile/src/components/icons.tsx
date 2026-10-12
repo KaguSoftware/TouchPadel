@@ -369,15 +369,16 @@ export const TabBookingsIcon = ({ size = 21, color }: TabIconProps) => (
   </Svg>
 );
 /**
- * Play (open matches + tournaments, 2026-10-11): a court seen from above, the
- * net across it with its posts standing proud of the sidelines, and the
- * service line on each side. Symmetric, so it never mirrors.
+ * Play (open matches + tournaments, 2026-10-11): a padel court seen from above,
+ * lying landscape (owner, 2026-10-13), the net down it with its posts standing
+ * proud of the sidelines, and the service line on each side. Symmetric, so it
+ * never mirrors. iOS draws the same picture from assets/tabs/play*.png.
  */
 export const TabPlayIcon = ({ size = 21, color }: TabIconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
-    <Rect x={5} y={3} width={14} height={18} rx={2.5} stroke={color} strokeWidth={2} />
-    <Path d="M3 12h18" stroke={color} strokeWidth={2.4} strokeLinecap="round" />
-    <Path d="M5 7.5h14M5 16.5h14M12 7.5v9" stroke={color} strokeWidth={1.4} />
+    <Rect x={3} y={5} width={18} height={14} rx={2.5} stroke={color} strokeWidth={2} />
+    <Path d="M12 3v18" stroke={color} strokeWidth={2.4} strokeLinecap="round" />
+    <Path d="M7.5 5v14M16.5 5v14M7.5 12h9" stroke={color} strokeWidth={1.4} />
   </Svg>
 );
 /**
@@ -396,13 +397,19 @@ export const TabCoachesIcon = ({ size = 21, color }: TabIconProps) => (
     <Circle cx={8.5} cy={13.5} r={1.3} fill={color} />
   </Svg>
 );
+/**
+ * Profile: the iOS tab's `person.crop.circle` drawn for Android (owner,
+ * 2026-10-13), a head and shoulders cropped inside a ring, the shoulders
+ * meeting the ring. Symmetric, so it never mirrors.
+ */
 export const TabProfileIcon = ({ size = 21, color }: TabIconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
-    <Circle cx={12} cy={8.5} r={3.5} stroke={color} strokeWidth={2} />
+    <Circle cx={12} cy={12} r={9.25} stroke={color} strokeWidth={1.8} />
+    <Circle cx={12} cy={9.6} r={3.4} stroke={color} strokeWidth={1.8} />
     <Path
-      d="M5 19.5c1.5-3.2 4-4.5 7-4.5s5.5 1.3 7 4.5"
+      d="M5.62 18.7c1.4-2.4 3.7-3.7 6.38-3.7s4.98 1.3 6.38 3.7"
       stroke={color}
-      strokeWidth={2}
+      strokeWidth={1.8}
       strokeLinecap="round"
     />
   </Svg>

@@ -386,7 +386,7 @@ jest.mock('react-native-safe-area-context', () =>
 // they must occupy their slot, but nothing about a blur or a gradient is
 // assertable in Node.
 
-jest.mock('expo-blur', () => ({ BlurView: mockView }));
+jest.mock('expo-blur', () => ({ BlurView: mockView, BlurTargetView: mockView }));
 
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: mockView }));
 

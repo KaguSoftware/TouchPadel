@@ -1,5 +1,5 @@
 {
-  "generated_from": "92816c936ad32a1caa412a1e2a214a78b238ece6",
+  "generated_from": "74a28239e413e1f98d43e8c31396726682c6e986",
   "chunks": [
     {
       "kind": "page",
@@ -5950,7 +5950,7 @@
       "ref": "action:app.tournament_publish",
       "lang": "en",
       "title": "app.tournament_publish",
-      "body": "Tournaments (M7, T-6, build contracts §1.6, §1.9, S13). Manager or owner at the run's branch: a done tournament run becomes one tournaments row (names and class from the plan, max_entries = least(capacity.count, 64), the fee from the plan, starts_at/ends_at the adopted blocks' span) adopting the run's live event blocks on its plan (courts locked in court-id order, then the blocks FOR UPDATE). p_settings: format (type 2 required; type 1/3 must equal the plan's), category, points_target 8..64, rounds (Mexicano required, 1..30; ignored for Americano), min_entries 4..max, waitlist_max 0..64, registration_closes_at (required, after now, no later than the first block), prize_en, prize_ar (<= 200). FORBIDDEN; INVALID_ARGUMENT (detail p_idempotency_key, p_settings); PROTOCOL_NOT_FOUND; VENUE_MISMATCH; TOURNAMENTS_OFF; a replay returns the stored answer; TOURNAMENT_PUBLISH_REFUSED detail not_done, already_published, capacity_unit, capacity_count, format, fee_not_approved (a fee without the owner's OK on feasibility), no_blocks, settings:<key>. Audit tournament.publish. Returns {duplicate, tournament_id, status, starts_at, ends_at, blocks [{reservation_id, court_id, start_at, end_at}], unblocked_windows [{court_id, start_at, end_at}]}.\nSignature: app.tournament_publish(p_run_id uuid, p_settings jsonb, p_idempotency_key text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: tournament.publish.\nError codes: FORBIDDEN, INVALID_ARGUMENT, PROTOCOL_NOT_FOUND, VENUE_MISMATCH, TOURNAMENTS_OFF, TOURNAMENT_PUBLISH_REFUSED.\nCalled from: apps/operator/src/features/tournaments/PublishDialog.tsx.\nDefined in migration 0339 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Tournaments (M7, T-6, build contracts §1.6, §1.9, S13). Manager or owner at the run's branch: a done tournament run becomes one tournaments row (names, class and play_years (0339) from the plan, max_entries = least(capacity.count, 64), the fee from the plan, starts_at/ends_at the adopted blocks' span) adopting the run's live event blocks on its plan (courts locked in court-id order, then the blocks FOR UPDATE). p_settings: format (type 2 required; type 1/3 must equal the plan's), category, points_target 8..64, rounds (Mexicano required, 1..30; ignored for Americano), min_entries 4..max, waitlist_max 0..64, registration_closes_at (required, after now, no later than the first block), prize_en, prize_ar (<= 200). FORBIDDEN; INVALID_ARGUMENT (detail p_idempotency_key, p_settings); PROTOCOL_NOT_FOUND; VENUE_MISMATCH; TOURNAMENTS_OFF; a replay returns the stored answer; TOURNAMENT_PUBLISH_REFUSED detail not_done, already_published, capacity_unit, capacity_count, format, fee_not_approved (a fee without the owner's OK on feasibility), no_blocks, settings:<key>. Audit tournament.publish. Returns {duplicate, tournament_id, status, starts_at, ends_at, blocks [{reservation_id, court_id, start_at, end_at}], unblocked_windows [{court_id, start_at, end_at}]}.\nSignature: app.tournament_publish(p_run_id uuid, p_settings jsonb, p_idempotency_key text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: tournament.publish.\nError codes: FORBIDDEN, INVALID_ARGUMENT, PROTOCOL_NOT_FOUND, VENUE_MISMATCH, TOURNAMENTS_OFF, TOURNAMENT_PUBLISH_REFUSED.\nCalled from: apps/operator/src/features/tournaments/PublishDialog.tsx.\nDefined in migration 0339 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -25863,6 +25863,78 @@
       "lang": "en",
       "title": "docs/client/operator-download-2026-09-05.md › 6. Swapping the placeholder app icon",
       "body": "## 6. Swapping the placeholder app icon\n\nThe installer currently carries a placeholder (the padel ball on a Touch Blue\ntile). To use the official mark: replace\n`apps/operator-shell/assets/icon.png` with a 1024×1024 PNG (or replace\n`assets/icon.svg` and run `pnpm --filter @touch/operator-shell icon`), commit,\nand tag the next release. Windows `.ico` and macOS `.icns` are derived\nautomatically.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/payment-and-tech-overview.md#1",
+      "lang": "en",
+      "title": "docs/client/payment-and-tech-overview.md › Touch Padel: Payment System and Technology Overview",
+      "body": "# Touch Padel: Payment System and Technology Overview\n\nPrepared for: Qi Card onboarding and compliance review\nPrepared by: Kagu Web Studio, on behalf of Touch Padel\nDate: October 2026\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/payment-and-tech-overview.md#2",
+      "lang": "en",
+      "title": "docs/client/payment-and-tech-overview.md › 1. Business overview",
+      "body": "## 1. Business overview\n\nTouch Padel is a padel club with an attached café in Iraq. Customers book courts, order food and drinks, join matches, take coaching lessons, enter tournaments and buy from a small shop.\n\n| Item | Detail |\n|---|---|\n| Trading name | Touch Padel (café trades as Touch Cafe) |\n| Legal entity | [TO FILL: registered legal name and registration number] |\n| Address / city | [TO FILL] |\n| Branches | One in operation. The system supports several branches; none beyond the first is planned for now. |\n| Courts | [TO FILL] |\n| Currency | Iraqi dinar (IQD) only. Amounts are stored as whole dinars. |\n| Time zone / hours | Asia/Baghdad, 09:00 to 02:00 |\n| Languages | English and Arabic (right-to-left) |\n| Expected online volume | [TO FILL: transactions and value per month] |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/payment-and-tech-overview.md#3",
+      "lang": "en",
+      "title": "docs/client/payment-and-tech-overview.md › 2. Where money moves",
+      "body": "## 2. Where money moves\n\nPayment at the venue, in cash or by card, is the default for everything. Online payment through Qi Card is limited to three cases: court deposits, open-match tickets and, optionally, coaching lessons.\n\n| Revenue stream | Who pays and where | Method |\n|---|---|---|\n| Café and food orders | Customer, at the till or desk | Cash or card at the venue |\n| Table orders by QR code | Guest orders on the website, pays at the desk | Cash or card at the venue. No online payment. |\n| Court bookings | Guest books in the mobile app or at the desk | Balance paid at the desk. A deposit can be paid online. |\n| Court deposit | Guest, in the mobile app | Online through Qi Card. Default 50% of the booking, with a minimum amount. Set per branch as off, optional or required. Bookings made by staff at the desk never need a deposit. |\n| Open matches | Player, in the mobile app | A reusable match ticket bought online through Qi Card. Each player pays their share at the desk. |\n| Coaching lessons | Guest | Desk payment by default. Online through Qi Card is a per-branch setting. |\n| Shop | Customer, at a separate shop desk | Cash or card at the venue, paid immediately |\n| Tournament entry | Player, at the desk on the day | Cash or card at the venue |\n| Loyalty points | Earned on spending. Redeemed as a discount on the bill. Points are not a payment method. | Not applicable |\n\nNot offered: wallets, stored balances, memberships, saved cards, Apple Pay, Google Pay and bank transfers. The card terminal used at the venue is a separate device and is not connected to the system. Its batch total is entered at the end of the day and compared with the system.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/payment-and-tech-overview.md#4",
+      "lang": "en",
+      "title": "docs/client/payment-and-tech-overview.md › 3. Online payment flow (Qi Card)",
+      "body": "## 3. Online payment flow (Qi Card)\n\nGuests pay on Qi Card's hosted payment page, opened from the mobile app. Card details are entered only on Qi's page. Touch Padel's app, website and servers never see, transmit or store card numbers.\n\n1. The guest chooses a slot and taps pay. The server creates a payment attempt with a unique reference and sends it to Qi.\n2. The guest is sent to Qi's hosted page and completes payment there.\n3. The server learns the result in three independent ways. Whichever answers first is applied; the others do nothing.\n   - Qi's signed webhook notification. The signature is verified, and a notification that fails verification is rejected.\n   - The app checking the result while the guest waits.\n   - A background job that re-checks unfinished payments every 30 seconds.\n4. Qi's status service, queried with Touch Padel's credentials, is the source of truth, not the notification alone.\n5. A successful payment and the booking confirmation happen in the same step. A payment cannot exist without a booking.\n6. If the slot is lost after payment (for example, taken by another customer at the same moment), the payment is refunded automatically.\n\nEvery message received from Qi is recorded in an append-only log, without card data. Payment attempts move through a fixed set of states: created, pending, succeeded, failed or expired, then refund pending, refunded or refund failed. Only one controlled function can change these states.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/payment-and-tech-overview.md#5",
+      "lang": "en",
+      "title": "docs/client/payment-and-tech-overview.md › 4. Refunds and cancellations",
+      "body": "## 4. Refunds and cancellations\n\n| Case | Handling |\n|---|---|\n| Guest or staff cancels a booking | Deposit refunded automatically |\n| Slot lost after payment | Refunded automatically |\n| Venue cancels or goes offline | Refunded automatically |\n| Guest does not show up | Deposit kept by default. The owner can change this to refund. |\n| Manual refund requested by staff | Manager or owner only; full or partial amount |\n| Refund fails at Qi | Appears on an \"needs attention\" list. A manager can retry, or mark it settled another way with a manager PIN and a note. |\n| Open-match ticket | Does not expire. Cashed out at the desk by a manager, as one refund to Qi per purchase. |\n\nDesk refunds for café, shop and lesson sales are restricted to managers and owners, require a reason code, and restore stock. Refunds are counted on the day they are made.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/payment-and-tech-overview.md#6",
+      "lang": "en",
+      "title": "docs/client/payment-and-tech-overview.md › 5. Desk payments and cash control",
+      "body": "## 5. Desk payments and cash control\n\n- Staff record each payment at the till as cash or card. For cash, the amount handed over, change given and drawer opening are recorded.\n- Payment and refund records cannot be edited or deleted. Mistakes are corrected with a refund, so the history stays intact.\n- Every payment carries a unique key, so a repeated submission cannot charge twice.\n- Totals, tax and prices are calculated on the server, not on the till.\n- Discounts, price changes and refunds require a manager PIN.\n- A trading day opens with a cash float and closes with a count. Cash and card totals are compared against the system's expected figures, and the day cannot close while a bill is open. Online payments appear in the same close report.\n- When the internet drops, the till keeps working and saves actions in a local queue. They are applied in order on reconnection. Queued items are shown to staff as saved locally, never as completed.\n- An audit log records who did what and when.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/payment-and-tech-overview.md#7",
+      "lang": "en",
+      "title": "docs/client/payment-and-tech-overview.md › 6. Security and compliance",
+      "body": "## 6. Security and compliance\n\n- **Card data.** None is collected or stored. Card entry is on Qi's hosted page, which keeps Touch Padel outside the card-data scope. The app store privacy declarations state that no card data is collected.\n- **Webhook security.** Signature verification on notifications, plus a status check against Qi.\n- **Secrets.** Payment credentials are kept in the server's secret store only. They are never included in the mobile app, website or desktop app, and automated checks block secrets from being placed in any client-visible setting.\n- **Access control.** Staff roles (cashier, court desk, shop staff, kitchen, manager, owner) limit what each person can do. Money-sensitive actions are restricted to managers and owners.\n- **Data protection.** Database-level row security is enforced on every table, and all business changes go through controlled server functions. Access rules are covered by an automated test matrix.\n- **Testing and scanning.** Every change runs automated tests, a secret scan of the code history, and a dependency vulnerability audit before release.\n- **Sandbox separation.** Test accounts are routed to Qi's sandbox, and sandbox payments are excluded from financial figures.\n- **Known gaps.** Point-in-time database backup and a separate staging environment have not yet been purchased. Error tracking and uptime monitoring are planned.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/payment-and-tech-overview.md#8",
+      "lang": "en",
+      "title": "docs/client/payment-and-tech-overview.md › 7. Technology and why",
+      "body": "## 7. Technology and why\n\n| Component | Choice | Reason |\n|---|---|---|\n| Codebase | One TypeScript repository (pnpm and Turborepo) | One language and shared rules for money, pricing and availability across every app, so the numbers match everywhere |\n| Guest mobile app | Expo and React Native | One codebase for iPhone and Android, fast updates |\n| Website | Next.js on Vercel | Public site, café menu, QR ordering and payment return page. Good performance and simple hosting. |\n| Staff app (till, kitchen) | Desktop app (Electron with React) for Windows | Needs to work offline, print Arabic receipts and drive a kitchen screen on the local network. Iraq's power and internet interruptions make this essential. |\n| Database and backend | Supabase (PostgreSQL) hosted in Frankfurt | A mature relational database suits financial records. Frankfurt is the nearest well-supported region to Iraq. The project belongs to the client. |\n| Server logic | Database functions and edge functions | The server owns every figure, with the database enforcing permissions as a second layer |\n| Database changes | Versioned, reviewed migration files | Repeatable, auditable changes with no manual edits in production |\n| Sign-in and messages | Phone number codes by WhatsApp with SMS fallback, email, Google and Apple sign-in | Phone is the primary identity in the region. Cost is roughly 80 to 100 IQD per message. |\n| Notifications | Push notifications and a Telegram bot | Booking updates for guests, and order and waiter-call alerts for the café |\n| Languages | English and Arabic, full right-to-left layout | The customer base is bilingual |\n| Release process | GitHub Actions with automated tests and checks | Nothing ships unless tests and security checks pass |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/payment-and-tech-overview.md#9",
+      "lang": "en",
+      "title": "docs/client/payment-and-tech-overview.md › 8. Status and open items",
+      "body": "## 8. Status and open items\n\n- **Integration status.** The Qi Card integration is built and has been tested against Qi's public sandbox. It is switched off pending production credentials. Until then, the app offers desk payment.\n- **Needed from Qi.** Production access details and webhook verification key.\n- **Questions for Qi.**\n  1. Transaction fees and settlement schedule.\n  2. Time limit for refunds.\n  3. Lifetime of a payment page before it expires.\n  4. Whether selling prepaid match tickets is permitted under the merchant agreement.\n- **Tax.** No general VAT applies in Iraq. Tax is configurable per item group, and the applicable treatment for each revenue stream is being confirmed with the client's accountant.\n- **Contact.** info@touch-padel.com",
       "route": null
     },
     {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Animated,
   RefreshControl,
@@ -9,6 +9,7 @@ import {
   type LayoutRectangle,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatIQD, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
@@ -40,6 +41,7 @@ import { BrandPattern } from '../../src/components/BrandPattern';
 import { CalendarIcon, WhistleIcon } from '../../src/components/icons';
 import { Rise, useScrollY } from '../../src/components/motion';
 import { CourtStage, topStageFor } from '../../src/components/CourtStage';
+import { Frost, FrostTarget, PinnedTitle } from '../../src/components/scrollFrost';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { useToast } from '../../src/components/overlays';
 import { GlassPlate, ShowcaseCard, ShowcaseLink } from '../../src/components/coachShowcase';
@@ -87,6 +89,8 @@ export default function CoachesScreen() {
   const router = useRouter();
   const toast = useToast();
   const tabBarHeight = useTabBarHeight();
+  // The page runs up under the status bar; the pinned title clears it itself.
+  const safeTop = useSafeAreaInsets().top;
   const { width: screenW, height: screenH } = useWindowDimensions();
   const { y: scrollY, onScroll } = useScrollY();
 
@@ -146,19 +150,22 @@ export default function CoachesScreen() {
     });
   };
 
+  // The title never moves, scrolled or pulled (owner, 2026-10-12): it is
+  // pinned over the top of the screen, the clock and battery included, and
+  // the scroll view starts at its foot, as on Join (scrollFrost).
+  const [titleH, setTitleH] = useState(0);
+  const frostTarget = useRef<View>(null);
+  // The court's slot on screen: the scroll view starts at the title's foot.
+  const heroTop = heroY === null ? null : heroY + titleH;
+
+  // The court's slot: the 3D court is drawn BEHIND the scroll view, fixed,
+  // and this transparent block is the window onto it until the plate rises.
   const header = (
-    <View>
-      <View style={{ paddingTop: TAB_TITLE_TOP }}>
-        <Title>{t('coaching.guest.coaches.title')}</Title>
-      </View>
-      {/* The court's slot: the 3D court is drawn BEHIND the scroll view, fixed,
-          and this transparent block is the window onto it until the plate rises. */}
-      <View
-        pointerEvents="none"
-        onLayout={(e) => setHeroY(e.nativeEvent.layout.y)}
-        style={{ height: heroH }}
-      />
-    </View>
+    <View
+      pointerEvents="none"
+      onLayout={(e) => setHeroY(e.nativeEvent.layout.y)}
+      style={{ height: heroH }}
+    />
   );
 
   const picker = <BranchPicker testID="coaches.branch" />;
@@ -179,20 +186,20 @@ export default function CoachesScreen() {
     <View style={{ flexDirection: 'row', gap: GAP, marginBottom: space.xl }}>
       <View style={{ flex: 1 }}>
         <ShowcaseLink
-          testID="coaches.classes"
-          icon={<WhistleIcon size={16} color={colors.gstrong} />}
-          title={t('coachShowcase.classesTitle')}
-          sub={t('coachShowcase.classesSub')}
-          onPress={() => router.push('/classes')}
-        />
-      </View>
-      <View style={{ flex: 1 }}>
-        <ShowcaseLink
           testID="coaches.my-lessons"
           icon={<CalendarIcon size={16} color={colors.gstrong} />}
           title={t('coaching.guest.mine.title')}
           sub={t('coachShowcase.myLessonsSub')}
           onPress={() => router.push('/my-lessons')}
+        />
+      </View>
+      <View style={{ flex: 1 }}>
+        <ShowcaseLink
+          testID="coaches.classes"
+          icon={<WhistleIcon size={16} color={colors.gstrong} />}
+          title={t('coachShowcase.classesTitle')}
+          sub={t('coachShowcase.classesSub')}
+          onPress={() => router.push('/classes')}
         />
       </View>
     </View>
@@ -353,55 +360,71 @@ export default function CoachesScreen() {
   })();
 
   return (
-    <Screen padded={false} style={{ backgroundColor: colors.page }}>
-      {/* The Book tab's ground: the brand lines, full bleed and still while the
-          page scrolls over them; the court draws the same crop behind its scene. */}
-      <View
-        pointerEvents="none"
-        style={StyleSheet.absoluteFill}
-        onLayout={(e) => setPatternRect(e.nativeEvent.layout)}
-      >
-        <BrandPattern />
-      </View>
+    <Screen padded={false} edges={[]} style={{ backgroundColor: colors.page }}>
       <View style={{ flex: 1 }} onLayout={(e) => setFrame(e.nativeEvent.layout)}>
-        {frame && heroY !== null ? (
-          <CourtStage
-            scene="drill"
-            top={heroY}
-            height={stage.height}
-            patternBox={
-              patternRect
-                ? {
-                    width: patternRect.width,
-                    height: patternRect.height,
-                    offsetX: frame.x - patternRect.x,
-                    offsetY: frame.y + heroY - patternRect.y,
-                  }
-                : undefined
-            }
-          />
-        ) : null}
-        <Animated.ScrollView
-          testID="coaches.scroll"
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingStart: gutter,
-            paddingEnd: gutter,
-            paddingBottom: tabBarHeight + 24,
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={pull.refreshing}
-              onRefresh={pull.onRefresh}
-              tintColor={colors.blue}
-            />
-          }
+        {/* What the frosting blurs (Android needs it in one target view): the
+            brand lines and the court. */}
+        <FrostTarget
+          ref={frostTarget}
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { backgroundColor: colors.page }]}
         >
-          {header}
-          {body}
-        </Animated.ScrollView>
+          {/* The Book tab's ground: the brand lines, full bleed and still while the
+            page scrolls over them; the court draws the same crop behind its scene. */}
+          <View
+            pointerEvents="none"
+            style={StyleSheet.absoluteFill}
+            onLayout={(e) => setPatternRect(e.nativeEvent.layout)}
+          >
+            <BrandPattern />
+          </View>
+          {frame && heroTop !== null ? (
+            <CourtStage
+              scene="drill"
+              top={heroTop}
+              height={stage.height}
+              patternBox={
+                patternRect
+                  ? {
+                      width: patternRect.width,
+                      height: patternRect.height,
+                      offsetX: frame.x - patternRect.x,
+                      offsetY: frame.y + heroTop - patternRect.y,
+                    }
+                  : undefined
+              }
+            />
+          ) : null}
+        </FrostTarget>
+        <Frost scrollY={scrollY} span={heroH} target={frostTarget} />
+        <View style={{ flex: 1, marginTop: titleH }}>
+          <Animated.ScrollView
+            testID="coaches.scroll"
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingStart: gutter,
+              paddingEnd: gutter,
+              paddingBottom: tabBarHeight + 24,
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={pull.refreshing}
+                onRefresh={pull.onRefresh}
+                tintColor={colors.blue}
+              />
+            }
+          >
+            {header}
+            {body}
+          </Animated.ScrollView>
+        </View>
+        <PinnedTitle onHeight={setTitleH}>
+          <View style={{ paddingTop: safeTop + TAB_TITLE_TOP, paddingHorizontal: gutter }}>
+            <Title>{t('coaching.guest.coaches.title')}</Title>
+          </View>
+        </PinnedTitle>
       </View>
     </Screen>
   );

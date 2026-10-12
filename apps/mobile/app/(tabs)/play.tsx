@@ -11,6 +11,7 @@ import {
   type SectionListData,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { wallTimeToUtc } from '@touch/core';
 import { projectTop } from '@touch/court3d/camera';
@@ -77,6 +78,7 @@ import { FilterChip } from '../../src/components/booking';
 import { MatchNotice, nightLabel } from '../../src/components/match';
 import { Rise, useScrollY } from '../../src/components/motion';
 import { CourtStage, topStageFor } from '../../src/components/CourtStage';
+import { Frost, PinnedTitle } from '../../src/components/scrollFrost';
 
 import { ForYouStrip } from '../../src/components/forYou';
 import {
@@ -118,6 +120,8 @@ interface NightSection {
 
 /** Air between the court's near sideline and the sheet's top edge (the Coaches tab's spacing). */
 const COURT_AIR = 10;
+/** How far before the sheet reaches the title the title bar fades to the sheet's ground. */
+const TITLE_GROUND_FADE = 12;
 /** A finger's target over each open spot on the court (the drawn spot is about 25 pt across). */
 const SPOT_TARGET = 48;
 
@@ -194,6 +198,25 @@ export default function PlayScreen() {
   const [frame, setFrame] = useState<LayoutRectangle | null>(null);
   const [patternRect, setPatternRect] = useState<LayoutRectangle | null>(null);
   const [heroY, setHeroY] = useState<number | null>(null);
+  // The title row stays put while the page scrolls (scrollFrost): pinned over
+  // the top of the screen, the clock and battery included, with the list laid
+  // from its foot down. The court's slot on screen sits that much lower.
+  const safeTop = useSafeAreaInsets().top;
+  const [titleH, setTitleH] = useState(0);
+  const heroTop = heroY === null ? null : heroY + titleH;
+  // The kind switch and the chips scroll up with the sheet until they reach
+  // the title's foot, then stay there over the rest of the page (owner,
+  // 2026-10-13). They are laid once, over the list, and ride with the scroll
+  // until then (`controlsShift`); the sheet keeps a slot their size. `controlsY`
+  // is the slot's top in the sheet, null until it is measured: until then they
+  // sit in the slot itself (and always do where nothing lays out, the tests).
+  const [controlsY, setControlsY] = useState<number | null>(null);
+  const [controlsH, setControlsH] = useState(0);
+  // Jumps to a night or a match land under the pinned controls, not behind them.
+  const controlsHRef = useRef(0);
+  useEffect(() => {
+    controlsHRef.current = controlsY === null ? 0 : controlsH;
+  }, [controlsY, controlsH]);
   // Sized to the court itself, as on the Coaches tab (topStageFor): the court
   // sits just under the title and the sheet starts right under the court, so
   // the two tabs hold their court in the same place (Majed, 2026-10-12).
@@ -349,7 +372,7 @@ export default function PlayScreen() {
         ...found,
         animated: true,
         viewPosition: 0,
-        viewOffset: 8,
+        viewOffset: 8 + controlsHRef.current,
       });
     }, 80);
   }, [scrollAsk, nights, atMs, wantDate, settled]);
@@ -377,7 +400,12 @@ export default function PlayScreen() {
     setPicked(courtMatch.key);
     const found = { sectionIndex: courtMatch.sectionIndex, itemIndex: courtMatch.itemIndex };
     target.current = found;
-    listRef.current?.scrollToLocation({ ...found, animated: true, viewPosition: 0, viewOffset: 8 });
+    listRef.current?.scrollToLocation({
+      ...found,
+      animated: true,
+      viewPosition: 0,
+      viewOffset: 8 + controlsHRef.current,
+    });
   }, [courtMatch, startOne]);
   const openMatch = useCallback(
     (id: string) => router.push({ pathname: '/match/[id]', params: { id } }),
@@ -528,48 +556,54 @@ export default function PlayScreen() {
   }) => {
     const last = index === section.data.length - 1;
     const place = order.get(`${e.kind}:${e.key}`) ?? 0;
-    let body: ReactNode;
-    let time: string;
-    let sub: string | null = null;
+    let row: ReactNode;
     if (e.kind === 'tournament') {
+      // A tournament leaves the time rail: its card says the day and times
+      // itself, and spans the sheet, larger than the matches round it.
       const r = e.tournament;
-      time = formatTime(new Date(r.startsAt), locale, tourTz(r));
-      body = (
-        <PlayTournamentCard
-          testID={`play.tournament.${r.id}`}
-          tone={tourToneOf(r.status)}
-          status={r.status ? t(`tournaments.common.status.${r.status}`) : null}
-          category={r.category}
-          format={r.format ? t(`tournaments.common.format.${r.format}`) : null}
-          title={tournamentName(r, locale)}
-          when={tourWhen(r)}
-          places={tourPlaces(r)}
-          fee={
-            r.entryFeeIqd > 0
-              ? isolate(formatIQD(r.entryFeeIqd, locale))
-              : t('tournaments.common.free')
-          }
-          mine={tourMine(r)}
-          fill={tourFillPercent(r)}
-          onPress={() => openTournament(r.id)}
-        />
+      row = (
+        <View style={{ paddingBottom: last ? 0 : space.m }}>
+          <PlayTournamentCard
+            testID={`play.tournament.${r.id}`}
+            tone={tourToneOf(r.status)}
+            status={r.status ? t(`tournaments.common.status.${r.status}`) : null}
+            category={r.category}
+            format={r.format ? t(`tournaments.common.format.${r.format}`) : null}
+            title={tournamentName(r, locale)}
+            when={tourWhen(r)}
+            places={tourPlaces(r)}
+            fee={
+              r.entryFeeIqd > 0
+                ? isolate(formatIQD(r.entryFeeIqd, locale))
+                : t('tournaments.common.free')
+            }
+            mine={tourMine(r)}
+            fill={tourFillPercent(r)}
+            onPress={() => openTournament(r.id)}
+          />
+        </View>
       );
     } else {
       const durationMin = e.kind === 'match' ? e.match.durationMin : e.slot.durationMin;
-      time = formatTime(new Date(e.startAt), locale, tz);
-      sub = durationMin > 0 ? t('booking.durationMinutes', { minutes: durationMin }) : null;
-      body = matchCard(e, time, sub ?? '');
-    }
-    return (
-      <Rise
-        // Rows past the first screenful mount as the list reaches them and rise at once.
-        index={place < 8 ? place + 2 : 0}
-        style={{ backgroundColor: colors.bg, paddingStart: space.l, paddingEnd: space.l }}
-      >
-        <TimeRail time={time} sub={sub} tournament={e.kind === 'tournament'} last={last}>
-          {body}
+      const time = formatTime(new Date(e.startAt), locale, tz);
+      const sub = durationMin > 0 ? t('booking.durationMinutes', { minutes: durationMin }) : null;
+      row = (
+        <TimeRail time={time} sub={sub} last={last}>
+          {matchCard(e, time, sub ?? '')}
         </TimeRail>
-      </Rise>
+      );
+    }
+    // The sheet's ground stays put; only the row rises into it, so the court
+    // and lines behind never show through a row still fading in.
+    return (
+      <View style={{ backgroundColor: colors.bg, paddingStart: space.l, paddingEnd: space.l }}>
+        <Rise
+          // Rows past the first screenful mount as the list reaches them and rise at once.
+          index={place < 8 ? place + 2 : 0}
+        >
+          {row}
+        </Rise>
+      </View>
     );
   };
 
@@ -592,7 +626,7 @@ export default function PlayScreen() {
   const chips = anyRows ? (
     <View
       accessibilityRole="tablist"
-      style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: space.sm }}
+      style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: space.sm }}
     >
       {CATEGORIES.map((f) => (
         <FilterChip
@@ -601,10 +635,41 @@ export default function PlayScreen() {
           label={t(f.key)}
           selected={category === f.value}
           onPress={() => setCategory(f.value)}
+          large
         />
       ))}
     </View>
   ) : null;
+
+  // Their own strip of the sheet's ground, so the rows pass under them once pinned.
+  const controls =
+    kindSwitch || chips ? (
+      <View
+        style={{
+          backgroundColor: colors.bg,
+          paddingStart: space.l,
+          paddingEnd: space.l,
+          paddingTop: space.sm,
+          paddingBottom: space.sm,
+        }}
+      >
+        {kindSwitch}
+        {chips}
+      </View>
+    ) : null;
+  // Where the slot sits in the list's content: the sheet starts at the foot of
+  // the court's slot (the header's first thing), less its overlap.
+  const controlsAt = heroH - PLAY_SHEET_OVERLAP + (controlsY ?? 0);
+  const controlsShift = useMemo(
+    () =>
+      scroll.y.interpolate({
+        inputRange: [controlsAt - 1, controlsAt],
+        outputRange: [1, 0],
+        extrapolateLeft: 'extend',
+        extrapolateRight: 'clamp',
+      }),
+    [scroll.y, controlsAt],
+  );
 
   const notices: ReactNode[] = [];
   if (askFit && kind !== 'matches') {
@@ -731,14 +796,18 @@ export default function PlayScreen() {
       return { seat, start: mirror ? stageW - px.x : px.x, top: px.y };
     });
   }, [stageW, stage.height, mirror]);
-  const spotTargets = court.spots ? (
+  const spotTargets = (
     // Held over the court, which stays put while the list scrolls (CourtStage),
     // by undoing the scroll. Once the sheet rides over a spot it takes the touch.
+    // Mounted even with no spots (a quiet court, the Tournaments switch): it is
+    // what keeps `scroll.y` on the native side, and unmounting it dropped the
+    // value's native node and the Frost's listener with it, so the page no
+    // longer frosted on the scroll.
     <Animated.View
       pointerEvents="box-none"
       style={[StyleSheet.absoluteFill, { transform: [{ translateY: scroll.y }] }]}
     >
-      {spotPoints
+      {(court.spots ? spotPoints : [])
         .filter((p) => p.seat >= court.taken)
         .map((p) => (
           <Pressable
@@ -772,14 +841,32 @@ export default function PlayScreen() {
           </Pressable>
         ))}
     </Animated.View>
-  ) : null;
+  );
 
-  const header = (
-    <View>
+  // The title bar takes the sheet's ground once the sheet reaches it (owner,
+  // 2026-10-13): from there the bar, the pinned controls and the rows read as
+  // one surface. A short fade as the sheet's top edge arrives; a plain view
+  // beside the frosting, never over it, so the blur under it is untouched.
+  const sheetAt = heroH - PLAY_SHEET_OVERLAP;
+  const titleGround = useMemo(
+    () =>
+      scroll.y.interpolate({
+        inputRange: [sheetAt - TITLE_GROUND_FADE, sheetAt],
+        outputRange: [0, 1],
+        extrapolate: 'clamp',
+      }),
+    [scroll.y, sheetAt],
+  );
+  const titleRow = (
+    <PinnedTitle onHeight={setTitleH}>
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg, opacity: titleGround }]}
+      />
       <Rise index={0}>
         <View
           style={{
-            paddingTop: TAB_TITLE_TOP,
+            paddingTop: safeTop + TAB_TITLE_TOP,
             paddingStart: space.l,
             paddingEnd: space.l,
             flexDirection: 'row',
@@ -795,6 +882,11 @@ export default function PlayScreen() {
           ) : null}
         </View>
       </Rise>
+    </PinnedTitle>
+  );
+
+  const header = (
+    <View>
       {/* The court's slot: the 3D court is drawn BEHIND the list, fixed, and
           this transparent block is the window onto it until the sheet rises. */}
       <View
@@ -823,8 +915,25 @@ export default function PlayScreen() {
         <BranchPicker testID="play.branch" fit={false} />
         {/* For you (contracts §8): the survey's suggestions; a tap opens `/play?show=…`. */}
         <ForYouStrip testID="play.for-you" surface="play" />
-        {kindSwitch}
-        {chips}
+        {controls ? (
+          // The controls' slot, out to the sheet's edges and over the sheet's gap.
+          <View
+            onLayout={(e) => {
+              const { y, height } = e.nativeEvent.layout;
+              setControlsY(y);
+              if (controlsY === null) setControlsH(height);
+            }}
+            style={{
+              marginStart: -space.l,
+              marginEnd: -space.l,
+              marginTop: -space.sm,
+              marginBottom: -space.sm,
+              height: controlsY === null ? undefined : controlsH,
+            }}
+          >
+            {controlsY === null ? controls : null}
+          </View>
+        ) : null}
         {notices}
         {state}
       </Rise>
@@ -847,6 +956,7 @@ export default function PlayScreen() {
               lead={caption.lead}
               action={caption.action}
               hint={caption.hint}
+              green={court.show === 'none'}
               onPress={goToCourt}
             />
           </Rise>
@@ -856,7 +966,7 @@ export default function PlayScreen() {
   );
 
   return (
-    <Screen padded={false} style={{ backgroundColor: colors.page }}>
+    <Screen padded={false} edges={[]} style={{ backgroundColor: colors.page }}>
       {/* The Book tab's ground: the brand lines over the page colour, full bleed
           and still while the page scrolls over it. The sheet and every row
           carry the page's own ground, so the lines show only round the court. */}
@@ -868,11 +978,11 @@ export default function PlayScreen() {
         <BrandPattern />
       </View>
       <View style={{ flex: 1 }} onLayout={(e) => setFrame(e.nativeEvent.layout)}>
-        {frame && heroY !== null ? (
+        {frame && heroTop !== null ? (
           <CourtStage
             scene="join"
             join={courtSeats}
-            top={heroY}
+            top={heroTop}
             height={stage.height}
             patternBox={
               patternRect
@@ -880,59 +990,83 @@ export default function PlayScreen() {
                     width: patternRect.width,
                     height: patternRect.height,
                     offsetX: frame.x - patternRect.x,
-                    offsetY: frame.y + heroY - patternRect.y,
+                    offsetY: frame.y + heroTop - patternRect.y,
                   }
                 : undefined
             }
           />
         ) : null}
-        <Animated.SectionList<PlayEntry, NightSection>
-          ref={listRef}
-          testID="play.list"
-          sections={sections}
-          keyExtractor={(e) => `${e.kind}:${e.key}`}
-          stickySectionHeadersEnabled={false}
-          showsVerticalScrollIndicator={false}
-          onScroll={scroll.onScroll}
-          scrollEventThrottle={16}
-          ListHeaderComponent={header}
-          renderSectionHeader={({ section }) => (
-            <View
-              style={{ backgroundColor: colors.bg, paddingStart: space.l, paddingEnd: space.l }}
-            >
-              <NightHeader
-                title={section.title}
-                line={section.line}
-                highlight={wantDate === section.key}
+        <Frost scrollY={scroll.y} span={heroH} />
+        <View style={{ flex: 1, marginTop: titleH, overflow: 'hidden' }}>
+          <Animated.SectionList<PlayEntry, NightSection>
+            ref={listRef}
+            testID="play.list"
+            sections={sections}
+            keyExtractor={(e) => `${e.kind}:${e.key}`}
+            stickySectionHeadersEnabled={false}
+            showsVerticalScrollIndicator={false}
+            onScroll={scroll.onScroll}
+            scrollEventThrottle={16}
+            ListHeaderComponent={header}
+            renderSectionHeader={({ section }) => (
+              <View
+                style={{ backgroundColor: colors.bg, paddingStart: space.l, paddingEnd: space.l }}
+              >
+                <NightHeader
+                  title={section.title}
+                  line={section.line}
+                  highlight={wantDate === section.key}
+                />
+              </View>
+            )}
+            renderItem={renderEntry}
+            // Always room to scroll the court's slot fully away, however short the
+            // list (a couple of tournaments): the frosting comes up over that
+            // stretch, and a page that can barely move left the court sharp.
+            contentContainerStyle={{
+              flexGrow: 1,
+              minHeight: frame ? frame.height - titleH + heroH : undefined,
+            }}
+            ListFooterComponent={<View style={{ height: tabBarHeight + 24 }} />}
+            ListFooterComponentStyle={{ flexGrow: 1, backgroundColor: colors.bg }}
+            onScrollToIndexFailed={() => {
+              // Rows not measured yet: try once more when they are.
+              const again = target.current;
+              if (!again) return;
+              if (scrollTimer.current) clearTimeout(scrollTimer.current);
+              scrollTimer.current = setTimeout(() => {
+                listRef.current?.scrollToLocation({
+                  ...again,
+                  animated: true,
+                  viewPosition: 0,
+                  viewOffset: 8 + controlsHRef.current,
+                });
+              }, 250);
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={pull.refreshing}
+                onRefresh={pull.onRefresh}
+                tintColor={colors.blue}
               />
-            </View>
-          )}
-          renderItem={renderEntry}
-          contentContainerStyle={{ flexGrow: 1 }}
-          ListFooterComponent={<View style={{ height: tabBarHeight + 24 }} />}
-          ListFooterComponentStyle={{ flexGrow: 1, backgroundColor: colors.bg }}
-          onScrollToIndexFailed={() => {
-            // Rows not measured yet: try once more when they are.
-            const again = target.current;
-            if (!again) return;
-            if (scrollTimer.current) clearTimeout(scrollTimer.current);
-            scrollTimer.current = setTimeout(() => {
-              listRef.current?.scrollToLocation({
-                ...again,
-                animated: true,
-                viewPosition: 0,
-                viewOffset: 8,
-              });
-            }, 250);
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={pull.refreshing}
-              onRefresh={pull.onRefresh}
-              tintColor={colors.blue}
-            />
-          }
-        />
+            }
+          />
+          {controls && controlsY !== null ? (
+            <Animated.View
+              onLayout={(e) => setControlsH(e.nativeEvent.layout.height)}
+              style={{
+                position: 'absolute',
+                top: 0,
+                start: 0,
+                end: 0,
+                transform: [{ translateY: controlsShift }],
+              }}
+            >
+              <Rise index={1}>{controls}</Rise>
+            </Animated.View>
+          ) : null}
+        </View>
+        {titleRow}
       </View>
     </Screen>
   );

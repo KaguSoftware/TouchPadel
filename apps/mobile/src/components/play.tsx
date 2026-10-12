@@ -104,15 +104,20 @@ export function CourtCaption({
   lead,
   action,
   hint,
+  green = false,
   onPress,
 }: {
   testID: string;
   lead: string;
   action: string;
   hint?: string;
+  /** No match has a seat ("No open seats right now · Start a match"): brand green with black ink, in both themes. */
+  green?: boolean;
   onPress: () => void;
 }) {
   const { colors, fonts } = useTheme();
+  const ink = green ? brand.greenInk : colors.ink;
+  const accent = green ? brand.greenInk : colors.blue;
   return (
     <TiltPress
       testID={testID}
@@ -128,22 +133,24 @@ export function CourtCaption({
         paddingStart: 14,
         paddingEnd: 10,
         borderRadius: radius.pill,
-        backgroundColor: colors.card,
+        backgroundColor: green ? brand.green : colors.card,
         borderWidth: 1,
-        borderColor: colors.line,
+        borderColor: green ? brand.green : colors.line,
       }}
     >
       <Text
         numberOfLines={1}
-        style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13, color: colors.ink }}
+        style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13, color: ink }}
       >
         {lead}
       </Text>
-      <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.fnt }}>·</Text>
-      <Text numberOfLines={1} style={{ fontFamily: fonts.body800, fontSize: 13, color: colors.blue }}>
+      <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: green ? ink : colors.fnt }}>
+        ·
+      </Text>
+      <Text numberOfLines={1} style={{ fontFamily: fonts.body800, fontSize: 13, color: accent }}>
         {action}
       </Text>
-      <ChevronIcon size={13} color={colors.blue} strokeWidth={2.6} />
+      <ChevronIcon size={13} color={accent} strokeWidth={2.6} />
     </TiltPress>
   );
 }
@@ -211,14 +218,12 @@ const RAIL_W = 54;
 export function TimeRail({
   time,
   sub,
-  tournament,
   last,
   children,
 }: {
   time: string;
-  /** A match's length ("90 min"); a tournament shows the trophy instead. */
+  /** A match's length ("90 min"). */
   sub?: string | null;
-  tournament?: boolean;
   /** The night's last entry: no spine under it. */
   last: boolean;
   children: ReactNode;
@@ -239,11 +244,7 @@ export function TimeRail({
         >
           {time}
         </Text>
-        {tournament ? (
-          <View style={{ marginTop: 4 }}>
-            <TrophyIcon size={14} color={colors.blue} />
-          </View>
-        ) : sub ? (
+        {sub ? (
           <Text
             style={{ fontFamily: fonts.body600, fontSize: 11, color: colors.mut, marginTop: 2 }}
           >
@@ -562,14 +563,19 @@ export function PlayTournamentCard({
   fill: number | null;
   onPress: () => void;
 }) {
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, appearance } = useTheme();
+  // An upcoming band is the brand navy with brand-green words and trophy in
+  // light (owner, 2026-10-13), and the brand green with its own ink in dark,
+  // where `colors.blue` is white; its fill bar is the brand green in both.
   const band =
     tone === 'running'
       ? { bg: colors.gtint, fg: colors.gtext }
       : tone === 'over'
         ? { bg: colors.sub, fg: colors.mut }
-        : { bg: colors.tint, fg: colors.blue };
-  const bar = tone === 'running' ? colors.gstrong : tone === 'over' ? colors.fnt3 : colors.blue;
+        : appearance === 'dark'
+          ? { bg: brand.green, fg: brand.greenInk }
+          : { bg: brand.navy, fg: brand.green };
+  const bar = tone === 'running' ? colors.gstrong : tone === 'over' ? colors.fnt3 : brand.green;
   return (
     <TiltPress
       testID={testID}
@@ -587,36 +593,38 @@ export function PlayTournamentCard({
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 7,
-          paddingStart: 12,
-          paddingEnd: 12,
-          paddingTop: 8,
-          paddingBottom: 8,
+          gap: 8,
+          paddingStart: 16,
+          paddingEnd: 16,
+          paddingTop: 11,
+          paddingBottom: 11,
           backgroundColor: band.bg,
         }}
       >
-        <TrophyIcon size={15} color={band.fg} />
+        <TrophyIcon size={18} color={band.fg} />
         {format ? (
-          <Text style={{ fontFamily: fonts.body800, fontSize: 12, color: band.fg }}>{format}</Text>
+          <Text style={{ fontFamily: fonts.body800, fontSize: 13.5, color: band.fg }}>
+            {format}
+          </Text>
         ) : null}
         <View style={{ flex: 1 }} />
         {status ? (
           <Text
             numberOfLines={1}
-            style={{ fontFamily: fonts.body700, fontSize: 11.5, color: band.fg }}
+            style={{ fontFamily: fonts.body700, fontSize: 13, color: band.fg }}
           >
             {status}
           </Text>
         ) : null}
       </View>
-      <View style={{ padding: 12, gap: 6 }}>
+      <View style={{ padding: 16, gap: 9 }}>
         <Text
           numberOfLines={2}
-          style={{ fontFamily: fonts.display800, fontSize: 17, color: colors.ink }}
+          style={{ fontFamily: fonts.display800, fontSize: 21, color: colors.ink }}
         >
           {title}
         </Text>
-        <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: colors.mut }}>{when}</Text>
+        <Text style={{ fontFamily: fonts.body600, fontSize: 14, color: colors.mut }}>{when}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View
             style={{
@@ -629,27 +637,27 @@ export function PlayTournamentCard({
           >
             <CategoryPill category={category} />
             {places ? (
-              <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.gtext }}>
+              <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.gtext }}>
                 {places}
               </Text>
             ) : null}
-            <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.mut2 }}>
+            <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.mut2 }}>
               {fee}
             </Text>
           </View>
           {mine ? (
-            <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.blue }}>
+            <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.blue }}>
               {mine}
             </Text>
           ) : null}
-          <ChevronIcon size={16} color={colors.fnt2} />
+          <ChevronIcon size={18} color={colors.fnt2} />
         </View>
         {fill !== null ? (
           <View
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
             style={{
-              height: 5,
+              height: 6,
               borderRadius: radius.pill,
               backgroundColor: colors.sub,
               overflow: 'hidden',
