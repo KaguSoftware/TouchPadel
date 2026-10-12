@@ -421,3 +421,112 @@ describe("the drill coach's arm rig", () => {
     }
   });
 });
+
+describe('the join scene (Play: the next open match)', () => {
+  const build = () => buildCourtScene('lite', { scene: 'join', view: 'top' });
+  /** The four racket rigs' mounts, in PLAYERS order (the scene's only groups). */
+  const mountsOf = (court: ReturnType<typeof buildCourtScene>) =>
+    court.scene.children.filter((o) => o instanceof THREE.Group);
+  /** The four open-spot marks, in PLAYERS order (the only vertex-coloured meshes). */
+  const spotsOf = (court: ReturnType<typeof buildCourtScene>) =>
+    court.scene.children.filter(
+      (o): o is THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> =>
+        o instanceof THREE.Mesh &&
+        o.material instanceof THREE.MeshBasicMaterial &&
+        o.material.vertexColors,
+    );
+  const shown = (objs: THREE.Object3D[]) => objs.map((o) => o.visible);
+
+  it('starts as an empty court: no racket, no spot, no ball, until the page says', () => {
+    const court = build();
+    court.update(0, 0, 0);
+    expect(mountsOf(court)).toHaveLength(4);
+    expect(spotsOf(court)).toHaveLength(4);
+    expect(shown(mountsOf(court))).toEqual([false, false, false, false]);
+    expect(shown(spotsOf(court))).toEqual([false, false, false, false]);
+    expect(ballOf(court).visible).toBe(false);
+    court.dispose();
+  });
+
+  it('two taken (left to right): the left pair warm up, the right pair are open spots', () => {
+    const court = build();
+    court.setJoin({ taken: 2, spots: true, mirror: false }, false);
+    court.update(3, 0, 0);
+    // PLAYERS 2 and 3 are the left (+z) pair, 0 and 1 the right.
+    expect(shown(mountsOf(court))).toEqual([false, false, true, true]);
+    expect(shown(spotsOf(court))).toEqual([true, true, false, false]);
+    expect(spotsOf(court)[0]!.material.opacity).toBe(1);
+    expect(ballOf(court).visible).toBe(true);
+    court.dispose();
+  });
+
+  it('mirrored, the open spots move to the other half', () => {
+    const court = build();
+    court.setJoin({ taken: 2, spots: true, mirror: true }, false);
+    court.update(3, 0, 0);
+    expect(shown(mountsOf(court))).toEqual([true, true, false, false]);
+    expect(shown(spotsOf(court))).toEqual([false, false, true, true]);
+    court.dispose();
+  });
+
+  it('no open match: four open spots and no ball; nothing to claim: four rackets and no spot', () => {
+    const court = build();
+    court.setJoin({ taken: 0, spots: true, mirror: false }, false);
+    court.update(1, 0, 0);
+    expect(shown(spotsOf(court))).toEqual([true, true, true, true]);
+    expect(ballOf(court).visible).toBe(false);
+    court.setJoin({ taken: 4, spots: false, mirror: false }, false);
+    court.update(2, 0, 0);
+    expect(shown(mountsOf(court))).toEqual([true, true, true, true]);
+    expect(shown(spotsOf(court))).toEqual([false, false, false, false]);
+    court.dispose();
+  });
+
+  it('a seat filling plays once: the spot fades, the racket lands, the warm-up restarts after it', () => {
+    const court = build();
+    court.setJoin({ taken: 1, spots: true, mirror: false }, false);
+    court.update(10, 0, 0);
+    court.setJoin({ taken: 2, spots: true, mirror: false }, true);
+    court.update(10, 0, 0);
+    const landing = mountsOf(court)[3]!;
+    expect(landing.visible).toBe(true);
+    expect(landing.scale.x).toBeCloseTo(1.3, 6);
+    // No ball while the new racket lands.
+    expect(ballOf(court).visible).toBe(false);
+    court.update(11, 0, 0);
+    expect(landing.scale.x).toBe(1);
+    expect(spotsOf(court)[3]!.visible).toBe(false);
+    expect(ballOf(court).visible).toBe(true);
+    court.dispose();
+  });
+
+  it('every piece of a spot faces up (one pass, nothing drawn under the disc), and clears the service line', () => {
+    const court = build();
+    const mark = spotsOf(court)[0]!;
+    expect(mark.material.side).toBe(THREE.FrontSide);
+    const pos = mark.geometry.getAttribute('position');
+    const idx = mark.geometry.index!.array;
+    for (let i = 0; i < idx.length; i += 3) {
+      const [a, b, c] = [idx[i]!, idx[i + 1]!, idx[i + 2]!];
+      const area =
+        (pos.getX(b) - pos.getX(a)) * (pos.getY(c) - pos.getY(a)) -
+        (pos.getY(b) - pos.getY(a)) * (pos.getX(c) - pos.getX(a));
+      expect(area).toBeGreaterThan(0);
+    }
+    mark.geometry.computeBoundingSphere();
+    const r = mark.geometry.boundingSphere!.radius;
+    for (const m of spotsOf(court)) {
+      // The service lines run across the court at z = ±7, 0.1 m wide.
+      expect(Math.abs(m.position.z) + r).toBeLessThan(7 - 0.05 - 0.1);
+    }
+    court.dispose();
+  });
+
+  it('the other scenes ignore setJoin', () => {
+    const court = buildCourtScene('lite', { view: 'top' });
+    court.setJoin({ taken: 1, spots: true, mirror: false }, false);
+    court.update(1, 0, 0);
+    expect(shown(mountsOf(court))).toEqual([true, true, true, true]);
+    court.dispose();
+  });
+});

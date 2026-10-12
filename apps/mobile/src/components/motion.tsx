@@ -105,6 +105,7 @@ export function TiltPress({
   onPress,
   disabled,
   accessibilityLabel,
+  accessibilityHint,
   accessibilityRole = 'button',
   accessibilityState,
   haptic = true,
@@ -115,6 +116,8 @@ export function TiltPress({
   onPress?: () => void;
   disabled?: boolean;
   accessibilityLabel?: string;
+  /** What a tap does, when the label alone does not say. */
+  accessibilityHint?: string;
   accessibilityRole?: AccessibilityRole;
   accessibilityState?: { selected?: boolean; disabled?: boolean; checked?: boolean };
   /** A light tap of the Taptic engine on press. */
@@ -143,6 +146,7 @@ export function TiltPress({
       onPressOut={reduce ? undefined : () => to(0)}
       disabled={disabled}
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       accessibilityRole={accessibilityRole}
       accessibilityState={{ disabled: !!disabled, ...accessibilityState }}
     >

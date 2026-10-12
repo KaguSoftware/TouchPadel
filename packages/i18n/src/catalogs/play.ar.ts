@@ -15,6 +15,10 @@ export const playAr: DeepMessages<typeof playEn> = {
   emptyBody: 'لا مباريات مفتوحة ولا بطولات في الأيام القادمة. يمكن بدء مباراة من أي وقت متاح.',
   matchesError: 'تعذّر تحميل المباريات المفتوحة.',
   loadError: 'تعذّر تحميل المباريات المفتوحة والبطولات.',
+  court: {
+    none: 'لا مقاعد متاحة حاليًا',
+    hint: 'يعرض هذه المباراة في القائمة',
+  },
   count: {
     tournaments: {
       zero: 'لا بطولات',

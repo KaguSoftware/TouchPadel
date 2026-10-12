@@ -57,6 +57,20 @@ import { buildRacketKit } from './racket';
 import { makeCamera, poseCamera, poseTopCamera, topBallScale } from './camera';
 import { DRILL_PLAYERS, drillAt, drillBallSampler, MACHINE } from './drill';
 import { buildDrillProps } from './drillProps';
+import {
+  JOIN_CHANGE,
+  JOIN_REST_LOCAL,
+  JOIN_SEATS,
+  playerSpot,
+  racketPresence,
+  seatPlayer,
+  spotPresence,
+  takenPlayers,
+  warmupAt,
+  warmupBallSampler,
+  warmupOrder,
+  type JoinSeats,
+} from './join';
 import { lerp, slice, SPEC } from './spec';
 import type { CourtQuality } from './quality';
 
@@ -95,9 +109,11 @@ export interface CourtBackdrop {
  * What plays on the court. `rally` (default): the Book tab's four-racket rally
  * (rally.ts). `drill`: the Coaches tab's coaching drill (drill.ts), a ball
  * machine and a coach on the right half feeding the four rackets down the
- * left, with the machine's and coach's meshes (drillProps.ts). Fixed at build.
+ * left, with the machine's and coach's meshes (drillProps.ts). `join`: the
+ * Play tab's next open match (join.ts), its taken seats warming up and its open
+ * ones marked, as the page says through `setJoin`. Fixed at build.
  */
-export type CourtSceneKind = 'rally' | 'drill';
+export type CourtSceneKind = 'rally' | 'drill' | 'join';
 
 /**
  * How the court is seen. `book` (default): the Book tab's orbit, top-down
@@ -327,6 +343,15 @@ export interface CourtScene {
    * patternInk) and re-does it on a theme flip. A no-op without a backdrop.
    */
   setBackdropInk(color: string): void;
+  /**
+   * The `join` scene's seats (join.ts, JoinSeats): which seats warm up and
+   * whether the open ones are marked. `animate` plays the change (a racket
+   * landing, a spot settling in, the warm-up starting again); without it the
+   * court is simply in the new state, already mid-warm-up (a fresh build, or
+   * Reduce Motion, whose still frame is then the first strike). Takes effect on
+   * the next `update`. A no-op on the other scenes.
+   */
+  setJoin(seats: JoinSeats, animate: boolean): void;
   /** Everything with a `dispose()`: geometries, materials. */
   dispose(): void;
 }
@@ -682,6 +707,10 @@ export function buildCourtScene(
     disposables.push(...drill.disposables);
     scene.add(drill.group);
   }
+  // The join scene's open-spot marks, one on each rally spot (only the open
+  // seats' are shown), and its own ball sampler for the trail.
+  const join = opts.scene === 'join';
+  const spots = join ? buildSpotMarks(scene, (d) => disposables.push(d)) : null;
 
   // ball (brand sticker): lime with a white + blue wavy seam — in the overlay, over the button
   const ball = new THREE.Group();
@@ -717,6 +746,7 @@ export function buildCourtScene(
   // The drill's ghosts always read the ball alone: there is no older path for
   // it to keep bit-for-bit, and the sampler is the same picture, cheaper.
   const ghostDrill = drill ? drillBallSampler() : null;
+  const ghostJoin = join ? warmupBallSampler() : null;
   const trail = buildTrail(overlay, (d) => disposables.push(d), top && opts.instancing === true);
 
   // the ground disc under the ball (overlay too: the prototype's disc rides over the button)
@@ -800,6 +830,118 @@ export function buildCourtScene(
     props.coachHead.rotation.y = state.coach.head;
   };
 
+  /**
+   * The join scene's state. Each seat's racket and spot is shown or not, with
+   * the time it last changed (wall time t, or null for "already settled"), so
+   * a change plays once and then holds. `cycleAt` is the wall time the current
+   * warm-up began (join.ts: local time τ = t − cycleAt); `order` the players it
+   * passes the ball between. `pending` is the last `setJoin`, applied on the
+   * next update, which is the first moment the scene knows the wall time.
+   */
+  const seatRacket = PLAYERS.map(() => ({ on: false, at: null as number | null }));
+  const seatSpot = PLAYERS.map(() => ({ on: false, at: null as number | null }));
+  let order: number[] = [];
+  let cycleAt = 0;
+  let pending: { seats: JoinSeats; animate: boolean } | null = join
+    ? { seats: { taken: 0, spots: false, mirror: false }, animate: false }
+    : null;
+
+  /** Turn `setJoin` into per-player targets, at wall time t. */
+  const settleJoin = (t: number, seats: JoinSeats, animate: boolean) => {
+    const playing = takenPlayers(seats);
+    const nextOrder = warmupOrder(playing);
+    let landing = false;
+    for (let seat = 0; seat < JOIN_SEATS; seat++) {
+      const pl = seatPlayer(seat, seats.mirror);
+      const racketOn = playing.includes(pl);
+      const spotOn = seats.spots && !racketOn;
+      const r = seatRacket[pl]!;
+      if (r.on !== racketOn) {
+        r.on = racketOn;
+        r.at = animate ? t : null;
+        if (racketOn && animate) landing = true;
+      }
+      const sp = seatSpot[pl]!;
+      if (sp.on !== spotOn) {
+        sp.on = spotOn;
+        sp.at = animate ? t : null;
+      }
+    }
+    if (nextOrder.join() !== order.join() || !animate) {
+      order = nextOrder;
+      // A new warm-up: once a landing racket has settled (and a beat), or, with
+      // nothing to watch arrive, at its first strike already.
+      cycleAt = animate ? t + (landing ? JOIN_CHANGE.racketIn : 0) + 0.15 : t - JOIN_REST_LOCAL;
+    }
+  };
+
+  /** The join scene's frame: the warm-up, the seats coming and going, the trail. */
+  const applyJoin = (t: number, camK: number, marks: SpotMarks, sample: ReturnType<typeof warmupBallSampler>) => {
+    if (pending) {
+      settleJoin(t, pending.seats, pending.animate);
+      pending = null;
+    }
+    const tau = t - cycleAt;
+    const state = warmupAt(order, tau, cycleAt, camK);
+    const lay = layAngle(camK);
+    state.rackets.forEach((r, i) => {
+      const rig = rackets[i]!;
+      const seat = seatRacket[i]!;
+      const since = seat.at === null ? Infinity : t - seat.at;
+      const size = racketPresence(seat.on, since);
+      rig.mount.visible = size > 1e-3;
+      rig.mount.scale.setScalar(Math.max(size, 1e-3));
+      rig.mount.position.set(r.position.x, r.position.y, r.position.z);
+      rig.mount.rotation.set(r.rotation.x, r.rotation.y, r.rotation.z);
+      rig.pivot.position.set(r.swing.position.x, r.swing.position.y, r.swing.position.z);
+      rig.pivot.rotation.set(r.swing.rotation.x, r.swing.rotation.y, r.swing.rotation.z);
+      rig.lay.rotation.x = lay;
+    });
+    marks.forEach((mark, i) => {
+      const seat = seatSpot[i]!;
+      const since = seat.at === null ? Infinity : t - seat.at;
+      const { opacity, scale } = spotPresence(seat.on, since);
+      mark.mesh.visible = opacity > 1e-3;
+      mark.material.opacity = opacity;
+      mark.mesh.scale.setScalar(scale);
+    });
+    const s = state.ballScale;
+    const shown = s > 1e-3;
+    ball.visible = shown;
+    ball.scale.setScalar(shown ? s * (top ? topBallScale(state.ball.y) : 1) : 1);
+    ball.position.set(state.ball.x, state.ball.y, state.ball.z);
+    if (caster) {
+      caster.visible = shown;
+      caster.scale.setScalar(shown ? s : 1);
+      caster.position.copy(ball.position);
+    }
+    if (spinByTime) {
+      ball.rotation.x = t * BALL_SPIN.x;
+      ball.rotation.z = t * BALL_SPIN.z;
+    } else {
+      ball.rotation.x += 0.12;
+      ball.rotation.z += 0.07;
+    }
+    // As the drill's: each ghost is the ball at a fixed time behind t, only
+    // inside the current flight, at the ball's own scale at that time.
+    for (let i = 0; i < TRAIL_N; i++) {
+      const at = tau - ((i + 1) * TRAIL_LAG) / TRAIL_N;
+      if (!(at > state.trailFrom)) {
+        trail.place(i, null, 0);
+        continue;
+      }
+      const g = sample(order, at, cycleAt, camK);
+      if (g.scale > 1e-3) {
+        trail.place(i, g.ball, g.scale * (top ? topBallScale(g.ball.y) : 1));
+      } else trail.place(i, null, 0);
+    }
+    trail.commit();
+    shade.visible = state.shade.opacity > 1e-3;
+    shade.position.set(state.shade.x, 0.012, state.shade.z);
+    shade.scale.setScalar(Math.max(state.shade.scale, 1e-3));
+    shadeMat.opacity = state.shade.opacity;
+  };
+
   return {
     scene,
     overlay,
@@ -809,6 +951,9 @@ export function buildCourtScene(
     },
     setBackdropInk(color) {
       backdrop?.setInk(color);
+    },
+    setJoin(seats, animate) {
+      if (join) pending = { seats, animate };
     },
     update(t, p, camK) {
       // The top view never pitches: whatever progress the host hands in, it is
@@ -845,6 +990,10 @@ export function buildCourtScene(
 
       if (drill && ghostDrill) {
         applyDrill(t, camK, drill, ghostDrill);
+        return;
+      }
+      if (spots && ghostJoin) {
+        applyJoin(t, camK, spots, ghostJoin);
         return;
       }
 
@@ -893,6 +1042,114 @@ export function buildCourtScene(
       overlay.clear();
     },
   };
+}
+
+/** The join scene's open-spot marks, one per rally player (index = PLAYERS index). */
+type SpotMarks = { mesh: THREE.Mesh; material: THREE.MeshBasicMaterial }[];
+
+/**
+ * The open-spot mark: the match card's open seat (apps/mobile components/
+ * play.tsx, MiniCourt: a white disc, a dashed border, a blue plus) carried onto
+ * the blue turf. The card's border is blue on a light court; here blue dashes
+ * vanish into the turf and leave the disc looking notched, so the dashes are
+ * white and stand off the disc, a chalked outline round it: the disc and its
+ * plus say "a place for you", the dashed ring "nobody stands here yet". 1.5 m
+ * across, about a racket head, a touch nearer the net than the racket stands
+ * (join.ts, playerSpot) so it clears the service line.
+ *
+ * One mesh per spot, coloured per vertex, so a spot is one draw call and fades
+ * as one piece: the disc, then the ring, then the plus, in that order within
+ * the mesh (coplanar, so each later piece lies over the one before).
+ */
+const SPOT = {
+  disc: 0.56,
+  ring: { inner: 0.68, outer: 0.75 },
+  dashes: 16,
+  dashFill: 0.55,
+  plus: 0.58,
+  stroke: 0.1,
+  y: 0.035,
+} as const;
+
+function buildSpotMarks(scene: THREE.Scene, keep: (d: { dispose(): void }) => void): SpotMarks {
+  const pos: number[] = [];
+  const col: number[] = [];
+  const index: number[] = [];
+  const white = new THREE.Color(0xffffff);
+  const blue = new THREE.Color(BLUE);
+  const vert = (x: number, y: number, c: THREE.Color) => {
+    pos.push(x, y, 0);
+    col.push(c.r, c.g, c.b);
+    return pos.length / 3 - 1;
+  };
+  // The disc: a fan.
+  const SEG = 40;
+  const centre = vert(0, 0, white);
+  for (let i = 0; i <= SEG; i++) {
+    const a = (i / SEG) * Math.PI * 2;
+    vert(Math.cos(a) * SPOT.disc, Math.sin(a) * SPOT.disc, white);
+  }
+  for (let i = 0; i < SEG; i++) index.push(centre, centre + 1 + i, centre + 2 + i);
+  // The dashed ring: arcs of quads on the turf round the disc.
+  const { inner, outer } = SPOT.ring;
+  const step = (Math.PI * 2) / SPOT.dashes;
+  for (let d = 0; d < SPOT.dashes; d++) {
+    const a0 = d * step;
+    const a1 = a0 + step * SPOT.dashFill;
+    const N = 4;
+    const first = pos.length / 3;
+    for (let k = 0; k <= N; k++) {
+      const a = lerp(a0, a1, k / N);
+      vert(Math.cos(a) * inner, Math.sin(a) * inner, white);
+      vert(Math.cos(a) * outer, Math.sin(a) * outer, white);
+    }
+    for (let k = 0; k < N; k++) {
+      const i0 = first + k * 2;
+      // Counter-clockwise seen from above, as the disc and the plus are: the
+      // mark is drawn front faces only, in one pass.
+      index.push(i0, i0 + 1, i0 + 2, i0 + 1, i0 + 3, i0 + 2);
+    }
+  }
+  // The plus: two bars.
+  const bar = (w: number, h: number) => {
+    const a = vert(-w / 2, -h / 2, blue);
+    const b = vert(w / 2, -h / 2, blue);
+    const c = vert(w / 2, h / 2, blue);
+    const e = vert(-w / 2, h / 2, blue);
+    index.push(a, b, c, a, c, e);
+  };
+  bar(SPOT.plus, SPOT.stroke);
+  bar(SPOT.stroke, SPOT.plus);
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geometry.setIndex(index);
+  keep(geometry);
+
+  return PLAYERS.map((_, player) => {
+    const p = playerSpot(player);
+    const material = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      // Front faces only: seen from above, always. (Double-sided, three draws a
+      // transparent mesh's back faces in a pass of their own BEFORE its front
+      // faces, so a piece wound the other way ends up under the disc.)
+      side: THREE.FrontSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -3,
+      polygonOffsetUnits: -3,
+    });
+    keep(material);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(p.x, SPOT.y, p.z);
+    mesh.visible = false;
+    scene.add(mesh);
+    return { mesh, material };
+  });
 }
 
 /**

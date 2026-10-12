@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
+  Pressable,
   RefreshControl,
   StyleSheet,
   View,
+  useWindowDimensions,
   type LayoutRectangle,
   type SectionList,
   type SectionListData,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { wallTimeToUtc } from '@touch/core';
+import { projectTop } from '@touch/court3d/camera';
+import { seatSpot } from '@touch/court3d/join';
 import {
   countPhrase,
   formatDate,
@@ -58,6 +63,7 @@ import {
   type PlayEntry,
   type PlayKind,
 } from '../../src/features/play/timeline';
+import { playCourt } from '../../src/features/play/court';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { space, useTheme } from '../../src/theme';
 import { Screen, SegmentedControl, TAB_TITLE_TOP, Title } from '../../src/components/ui';
@@ -67,10 +73,12 @@ import { BrandPattern } from '../../src/components/BrandPattern';
 import { FilterChip } from '../../src/components/booking';
 import { MatchNotice, nightLabel } from '../../src/components/match';
 import { Rise, useScrollY } from '../../src/components/motion';
-import { CourtStage, courtHeroHeight } from '../../src/components/CourtStage';
+import { CourtStage, topStageFor } from '../../src/components/CourtStage';
 
 import { ForYouStrip } from '../../src/components/forYou';
 import {
+  COURT_CAPTION_H,
+  CourtCaption,
   NightHeader,
   PLAY_SHEET_OVERLAP,
   PlayInlineNotice,
@@ -105,8 +113,10 @@ interface NightSection {
   data: PlayEntry[];
 }
 
-/** How far the court's box runs on under the sheet, so its near baseline is never the box's edge. */
-const PLAY_COURT_FOOT = 48;
+/** Air between the court's near sideline and the sheet's top edge (the Coaches tab's spacing). */
+const COURT_AIR = 10;
+/** A finger's target over each open spot on the court (the drawn spot is about 25 pt across). */
+const SPOT_TARGET = 48;
 
 const NO_MATCHES: readonly OpenMatch[] = [];
 const NO_SLOTS: readonly SlotMatch[] = [];
@@ -135,12 +145,21 @@ const NO_TOURS: readonly TourListItem[] = [];
  * land back here at that time. "Start a match" opens the Book sheet, where a
  * free time starts one, as the list's "+" did.
  *
+ * THE COURT IS THE NEXT OPEN MATCH (Majed, 2026-10-12; features/play/court.ts,
+ * packages/court3d join.ts). The first match on this list with a seat open:
+ * its taken seats warm up, its open ones are marked, first seats on the
+ * reading start as on its card. An open spot and the caption hanging over the
+ * sheet's edge ("Tonight · 9:00 PM · 2 seats left") both scroll the list to
+ * that card and outline it; with no seat open anywhere, all four spots are
+ * open and they start a match. Loading, it is an empty court; with matches
+ * off, failed or filtered out, four rackets warm up and nothing is claimed.
+ *
  * Params (contracts §1): `at` (an ISO start) and `date` (a trading night) as
  * before; `show` (`matches` | `tournaments`) opens on that kind. A new set of
  * params while the tab is mounted is honoured again.
  */
 export default function PlayScreen() {
-  const { t, locale } = useLocale();
+  const { t, locale, dir } = useLocale();
   const { colors } = useTheme();
   const router = useRouter();
   const { session } = useAuth();
@@ -172,7 +191,12 @@ export default function PlayScreen() {
   const [frame, setFrame] = useState<LayoutRectangle | null>(null);
   const [patternRect, setPatternRect] = useState<LayoutRectangle | null>(null);
   const [heroY, setHeroY] = useState<number | null>(null);
-  const heroH = courtHeroHeight(frame?.height ?? 0);
+  // Sized to the court itself, as on the Coaches tab (topStageFor): the court
+  // sits just under the title and the sheet starts right under the court, so
+  // the two tabs hold their court in the same place (Majed, 2026-10-12).
+  const { width: screenW } = useWindowDimensions();
+  const stage = topStageFor(frame?.width ?? screenW);
+  const heroH = stage.courtBottom + COURT_AIR + PLAY_SHEET_OVERLAP;
 
   const banned = open.data?.banned === true;
   const matchesState: SourceState = (() => {
@@ -255,6 +279,18 @@ export default function PlayScreen() {
     [category, nights, nightsFor],
   );
 
+  // ── The court: the next open match on this list (features/play/court.ts) ──
+  // Its taken seats warm up and its open ones are marked (packages/court3d
+  // join.ts), the first seats on the reading start, as on every match card.
+  const court = useMemo(
+    () => playCourt({ matches: matchesState, kind, nights, nowMs }),
+    [matchesState, kind, nights, nowMs],
+  );
+  const mirror = dir === 'rtl';
+  const courtSeats = { taken: court.taken, spots: court.spots, mirror };
+  /** The card a tap on the court scrolled to: outlined, as an `at` link outlines its match. */
+  const [picked, setPicked] = useState<string | null>(null);
+
   const sections: NightSection[] = useMemo(
     () =>
       nights.map((n) => ({
@@ -320,6 +356,18 @@ export default function PlayScreen() {
     requestBookingSheet();
     router.navigate('/(tabs)');
   }, [router]);
+  const courtMatch = court.show === 'match' ? court.match : null;
+  /** The court's caption or an open spot: to the match's card, or, with none, the Book sheet. */
+  const goToCourt = useCallback(() => {
+    if (!courtMatch) {
+      startOne();
+      return;
+    }
+    setPicked(courtMatch.key);
+    const found = { sectionIndex: courtMatch.sectionIndex, itemIndex: courtMatch.itemIndex };
+    target.current = found;
+    listRef.current?.scrollToLocation({ ...found, animated: true, viewPosition: 0, viewOffset: 8 });
+  }, [courtMatch, startOne]);
   const openMatch = useCallback(
     (id: string) => router.push({ pathname: '/match/[id]', params: { id } }),
     [router],
@@ -452,7 +500,7 @@ export default function PlayScreen() {
         refill={refill}
         tag={tag}
         action={action}
-        highlight={isAtEntry(e, atMs)}
+        highlight={isAtEntry(e, atMs) || e.key === picked}
         onPress={() => (m ? openMatch(m.matchId) : signInFor(e.startAt))}
       />
     );
@@ -621,6 +669,77 @@ export default function PlayScreen() {
     );
   })();
 
+  // ── The court's caption and its open spots' targets ─────────────────────
+  const caption =
+    court.show === 'match'
+      ? {
+          lead: [
+            court.match.mine ? t('matches.list.mine') : null,
+            nightLabel(court.match.startAt, knobs, nowMs, t, locale),
+            formatTime(new Date(court.match.startAt), locale, tz),
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          action: countPhrase('matches.count.seatsLeft', court.match.seatsLeft, locale),
+          hint: t('play.court.hint'),
+        }
+      : court.show === 'none'
+        ? { lead: t('play.court.none'), action: t('play.start'), hint: undefined }
+        : null;
+  // Where each seat's spot lands on the stage (the court's own camera, projectTop).
+  const stageW = frame?.width ?? 0;
+  const spotPoints = useMemo(() => {
+    if (stageW <= 0 || stage.height <= 0) return [];
+    return [0, 1, 2, 3].map((seat) => {
+      const at = seatSpot(seat, mirror);
+      const px = projectTop({ x: at.x, y: 0, z: at.z }, stageW, stage.height);
+      // `start` is the reading start: the right edge in Arabic. The court is a picture and never flips.
+      return { seat, start: mirror ? stageW - px.x : px.x, top: px.y };
+    });
+  }, [stageW, stage.height, mirror]);
+  const spotTargets = court.spots ? (
+    // Held over the court, which stays put while the list scrolls (CourtStage),
+    // by undoing the scroll. Once the sheet rides over a spot it takes the touch.
+    <Animated.View
+      pointerEvents="box-none"
+      style={[StyleSheet.absoluteFill, { transform: [{ translateY: scroll.y }] }]}
+    >
+      {spotPoints
+        .filter((p) => p.seat >= court.taken)
+        .map((p) => (
+          <Pressable
+            key={p.seat}
+            testID={`play.court.spot.${p.seat}`}
+            // The caption is the screen reader's way to the same place.
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
+            onPress={() => {
+              void Haptics.selectionAsync().catch(() => undefined);
+              goToCourt();
+            }}
+            style={{
+              position: 'absolute',
+              top: p.top - SPOT_TARGET / 2,
+              start: p.start - SPOT_TARGET / 2,
+              width: SPOT_TARGET,
+              height: SPOT_TARGET,
+            }}
+          >
+            {({ pressed }) => (
+              <View
+                style={{
+                  flex: 1,
+                  borderRadius: SPOT_TARGET / 2,
+                  backgroundColor: colors.card,
+                  opacity: pressed ? 0.3 : 0,
+                }}
+              />
+            )}
+          </Pressable>
+        ))}
+    </Animated.View>
+  ) : null;
+
   const header = (
     <View>
       <Rise index={0}>
@@ -641,17 +760,16 @@ export default function PlayScreen() {
             <StartMatchButton testID="play.start" label={t('play.start')} onPress={startOne} />
           ) : null}
         </View>
-        <View style={{ paddingStart: space.l, paddingEnd: space.l }}>
-          <BranchPicker testID="play.branch" fit={false} style={{ marginBottom: space.s }} />
-        </View>
       </Rise>
       {/* The court's slot: the 3D court is drawn BEHIND the list, fixed, and
           this transparent block is the window onto it until the sheet rises. */}
       <View
-        pointerEvents="none"
+        pointerEvents="box-none"
         onLayout={(e) => setHeroY(e.nativeEvent.layout.y)}
         style={{ height: heroH }}
-      />
+      >
+        {spotTargets}
+      </View>
       <Rise
         index={1}
         style={{
@@ -659,12 +777,16 @@ export default function PlayScreen() {
           backgroundColor: colors.bg,
           borderTopStartRadius: 28,
           borderTopEndRadius: 28,
-          paddingTop: space.xl,
+          // Room under the court's caption, which hangs half over this edge;
+          // kept when there is no caption, so the list never jumps.
+          paddingTop: space.xl + COURT_CAPTION_H / 2,
           paddingStart: space.l,
           paddingEnd: space.l,
           gap: space.sm,
         }}
       >
+        {/* The branch picker rides on the sheet, under the court, as on Coaches. */}
+        <BranchPicker testID="play.branch" fit={false} />
         {/* For you (contracts §8): the survey's suggestions; a tap opens `/play?show=…`. */}
         <ForYouStrip testID="play.for-you" surface="play" />
         {kindSwitch}
@@ -672,6 +794,30 @@ export default function PlayScreen() {
         {notices}
         {state}
       </Rise>
+      {/* The court's caption: last, so it lies over the sheet's edge it hangs
+          across, and takes touches there on Android too (inside this view). */}
+      {caption && heroY !== null ? (
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute',
+            top: heroY + heroH - PLAY_SHEET_OVERLAP - COURT_CAPTION_H / 2,
+            start: space.l,
+            end: space.l,
+            alignItems: 'center',
+          }}
+        >
+          <Rise index={1} style={{ maxWidth: '100%' }}>
+            <CourtCaption
+              testID="play.court.caption"
+              lead={caption.lead}
+              action={caption.action}
+              hint={caption.hint}
+              onPress={goToCourt}
+            />
+          </Rise>
+        </View>
+      ) : null}
     </View>
   );
 
@@ -690,9 +836,10 @@ export default function PlayScreen() {
       <View style={{ flex: 1 }} onLayout={(e) => setFrame(e.nativeEvent.layout)}>
         {frame && heroY !== null ? (
           <CourtStage
-            scene="rally"
+            scene="join"
+            join={courtSeats}
             top={heroY}
-            height={heroH + PLAY_SHEET_OVERLAP + PLAY_COURT_FOOT}
+            height={stage.height}
             patternBox={
               patternRect
                 ? {

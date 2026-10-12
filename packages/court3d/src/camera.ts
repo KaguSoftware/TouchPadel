@@ -145,6 +145,22 @@ export function poseTopCamera(camera: PerspectiveCamera): void {
 }
 
 /**
+ * Where a point on the court lands in a width × height top view, px from the
+ * view's top-left (y down). The Play tab puts a touch target over each open
+ * spot (join.ts) from this, so the target and the drawn spot agree.
+ */
+export function projectTop(
+  point: { x: number; y: number; z: number },
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  const camera = makeCamera(width / height);
+  poseTopCamera(camera);
+  vC.set(point.x, point.y, point.z).project(camera);
+  return { x: ((vC.x + 1) / 2) * width, y: ((1 - vC.y) / 2) * height };
+}
+
+/**
  * Seen straight down a ball's height is otherwise invisible, so the top view
  * draws it bigger the higher it flies (on top of its ground disc moving off
  * it, rally.ts / drill.ts): ×1 on the turf, about ×1.3 at the top of a lob.

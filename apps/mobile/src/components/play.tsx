@@ -16,10 +16,11 @@
  * server decided the seats, the places and the states, and the screen passes
  * those answers in.
  *
- * TEST IDS. `StartMatchButton`, `PlayMatchCard`, `PlayTournamentCard` and
- * `PlayInlineNotice` render a Pressable (through `TiltPress`, or directly), take
- * a REQUIRED `testID` from the call site and forward it explicitly; all four are
- * in `testIdElements` (packages/config/src/eslint.js). `NightHeader`
+ * TEST IDS. `StartMatchButton`, `CourtCaption`, `PlayMatchCard`,
+ * `PlayTournamentCard` and `PlayInlineNotice` render a Pressable (through
+ * `TiltPress`, or directly), take a REQUIRED `testID` from the call site and
+ * forward it explicitly; `CourtCaption` is in `testIdElements`
+ * (packages/config/src/eslint.js). `NightHeader`
  * and `TimeRail` render none.
  */
 import type { ReactNode } from 'react';
@@ -81,6 +82,68 @@ export function StartMatchButton({
       >
         {label}
       </Text>
+    </TiltPress>
+  );
+}
+
+// ── The court's caption ─────────────────────────────────────────────────────
+
+/** The caption pill's height: it hangs half over the sheet's top edge. */
+export const COURT_CAPTION_H = 34;
+
+/**
+ * What the court under the title is showing (packages/court3d join.ts), and the
+ * way to it: "Tonight · 9:00 PM" in ink, then the part to act on in blue ("2
+ * seats left", or "Start a match" when no match has a seat), with a chevron.
+ * It hangs across the top edge of the list's sheet, between the court it
+ * describes and the card it leads to. The court's open spots do the same thing
+ * when tapped; this is the one screen readers reach (the court is a picture).
+ */
+export function CourtCaption({
+  testID,
+  lead,
+  action,
+  hint,
+  onPress,
+}: {
+  testID: string;
+  lead: string;
+  action: string;
+  hint?: string;
+  onPress: () => void;
+}) {
+  const { colors, fonts } = useTheme();
+  return (
+    <TiltPress
+      testID={testID}
+      accessibilityLabel={`${lead}, ${action}`}
+      accessibilityHint={hint}
+      onPress={onPress}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        height: COURT_CAPTION_H,
+        maxWidth: '100%',
+        paddingStart: 14,
+        paddingEnd: 10,
+        borderRadius: radius.pill,
+        backgroundColor: colors.card,
+        borderWidth: 1,
+        borderColor: colors.line,
+      }}
+    >
+      <Text
+        numberOfLines={1}
+        style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13, color: colors.ink }}
+      >
+        {lead}
+      </Text>
+      <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.fnt }}>·</Text>
+      <Text numberOfLines={1} style={{ fontFamily: fonts.body800, fontSize: 13, color: colors.blue }}>
+        {action}
+      </Text>
+      <ChevronIcon size={13} color={colors.blue} strokeWidth={2.6} />
     </TiltPress>
   );
 }
