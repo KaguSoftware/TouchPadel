@@ -167,6 +167,38 @@ export function parseDepositBegin(json: unknown): DepositBegin {
   return { ref, formUrl, amountIqd: int(o.amount_iqd), deadlineAt: str(o.deadline_at) };
 }
 
+/**
+ * SEC (pentest 2026-10): the only payment pages browser.ts opens. Qi's hosted
+ * page, https on qi.iq or a subdomain of it (a look-alike such as evilqi.iq
+ * fails), or the local fake provider's page, which is served by the app's own
+ * Supabase origin (scheme, host and port all match; it is http on a LAN
+ * address in dev). Defends against a tampered form_url opening a page that
+ * imitates the payment.
+ *
+ * Qi's live form_url is whatever its create answer carries, and the production
+ * host is still "ASK QI" (qi-deposit-plan §2). If it is not on qi.iq, every
+ * live payment page is refused here: confirm the host before go-live.
+ */
+export function isAllowedPaymentUrl(
+  url: string,
+  supabaseUrl: string | null | undefined = process.env.EXPO_PUBLIC_SUPABASE_URL,
+): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  if (u.protocol === 'https:' && (u.hostname === 'qi.iq' || u.hostname.endsWith('.qi.iq'))) return true;
+  if (!supabaseUrl) return false;
+  try {
+    const own = new URL(supabaseUrl);
+    return (own.protocol === 'https:' || own.protocol === 'http:') && u.origin === own.origin;
+  } catch {
+    return false;
+  }
+}
+
 // ── deposit-status ──────────────────────────────────────────────────────────
 
 export interface PaymentReservation {

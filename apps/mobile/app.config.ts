@@ -342,6 +342,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.kagu.touchpadel',
+    // SEC (pentest 2026-10): no Google Drive auto-backup and no `adb backup` of
+    // app data (AsyncStorage: the query cache, pending-payment refs, the staff
+    // hint). Expo's built-in withAllowBackup writes android:allowBackup="false"
+    // on <application>; no expo-build-properties needed. NATIVE CHANGE: needs a
+    // new dev client or EAS build. An OTA update cannot carry it.
+    allowBackup: false,
     // Match invites open the app (§4.19); see androidIntentFilters above.
     ...(androidIntentFilters ? { intentFilters: androidIntentFilters } : {}),
     // FCM — Android push credentials. Android push IS Firebase Cloud Messaging,

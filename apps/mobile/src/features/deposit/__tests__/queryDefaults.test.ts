@@ -68,4 +68,10 @@ describe('the disk cache', () => {
   it('still persists the guest’s ordinary reads', () => {
     expect(dehydrates(['courts'])).toBe(true);
   });
+
+  it('keeps the profile row and consent off disk (pentest 2026-10, MED-1)', () => {
+    // full_name, phone and gender must never reach this plaintext file.
+    expect(dehydrates(['own-profile'])).toBe(false);
+    expect(dehydrates(['own-consent', 'uid-1'])).toBe(false);
+  });
 });
