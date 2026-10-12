@@ -72,7 +72,7 @@ import {
   SectionLabel,
   SegmentedControl,
 } from '../src/components/ui';
-import { useBack } from '../src/navigation/back';
+import { useBack, useBackGuard } from '../src/navigation/back';
 import { PhoneField } from '../src/components/phone';
 import {
   composePhone,
@@ -125,7 +125,8 @@ import { usePlayProfile } from '../src/features/playProfile/hooks';
  * stays unset, and a women's or men's match asks again. The date of birth is optional, editable, and read
  * only by its guest.
  * Email is not editable (re-verification, spec 05.18); language lives in
- * Settings alone. Leaving never prompts: back drops unsaved edits (owner, 2026-09-09).
+ * Settings alone. Leaving never prompts: back drops unsaved edits (owner, 2026-09-09),
+ * except on the frame picker, whose Save sits below the fold (see FrameForm).
  *
  * USERNAME AND FRAME (Phase 2, owner 2026-10-06; migration 0314). Username
  * opens a form with a live availability check (`app.username_check`, after a
@@ -1000,7 +1001,8 @@ function UsernameForm() {
  * lines; 0317), then the four earned ones, locked
  * with their rule and progress (10 / 50; 0316) until the server says the guest
  * earned them: games played AND paid in full, or a tournament win. The avatar at
- * the top previews the pick; Save writes it.
+ * the top previews the pick; Save writes it. Save sits under both grids, out of
+ * sight on most phones, so leaving with an unsaved pick asks first.
  */
 function FrameForm() {
   const { t } = useLocale();
@@ -1010,7 +1012,6 @@ function FrameForm() {
   const frames = useMyFrames(!!session);
   const save = useSetFrame();
   const toast = useToast();
-  const back = useBack();
   const [picked, setPicked] = useState<FrameId | null>(null);
   const [pickedStyle, setPickedStyle] = useState<FrameStyle | null>(null);
   const current = frameOf(frames.data?.current ?? profile.data?.avatar_frame);
@@ -1029,6 +1030,18 @@ function FrameForm() {
   const progressOf = (id: FrameId) => frames.data?.frames.find((f) => f.id === id);
   const { first, last } = nameFieldsOf(profile.data ?? {});
   const initials = initialsOf(first, last, session?.user.email ?? '');
+  const dirty = selected !== current || selectedStyle !== currentStyle;
+
+  // Leaving with an unsaved pick asks first (the one back guard,
+  // src/navigation/back.ts). A successful save leaves through it too.
+  const leave = useBackGuard({
+    when: dirty,
+    onBlocked: (go) =>
+      Alert.alert(t('profile.frameDiscardTitle'), t('profile.frameDiscardBody'), [
+        { text: t('profile.frameKeepEditing'), style: 'cancel' },
+        { text: t('profile.frameDiscard'), style: 'destructive', onPress: () => go() },
+      ]),
+  });
 
   const onSave = () =>
     save.mutate(
@@ -1036,7 +1049,7 @@ function FrameForm() {
       {
         onSuccess: () => {
           toast(t('profile.frameSaved'));
-          back();
+          leave();
         },
         onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
       },
@@ -1221,7 +1234,7 @@ function FrameForm() {
         label={t('profile.frameSave')}
         variant="cta"
         busy={save.isPending}
-        disabled={selected === current && selectedStyle === currentStyle}
+        disabled={!dirty}
         onPress={onSave}
       />
     </FormScreen>

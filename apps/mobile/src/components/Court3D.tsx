@@ -27,6 +27,8 @@
  * the rally flies over the button while the ball's real shadow stays on the
  * turf beneath it. Both surfaces get `layerStyle` (the court layer's lift and
  * dim); the button between them is the caller's to move.
+ * The top view has no button and draws both passes on the one surface
+ * (ONE_SURFACE).
  *
  * The court surface is OPAQUE, and that is a frame-budget decision, not a
  * stylistic one. It was tried transparent so the Book tab's brand pattern
@@ -136,6 +138,7 @@ import { canAnimate, canDraw } from '../features/courtTransition/surfaceState';
 import { contextAlive, presentFrame } from '../features/courtTransition/surfaceLiveness';
 import { frameRepaints } from '../features/courtTransition/staleCover';
 import { paceFrame } from '../features/courtTransition/framePacer';
+import { bufferPx, glBoxFor, glScaleFor } from '../features/courtTransition/renderScale';
 import { addBreadcrumb, captureException, captureMessage, describeError } from '../lib/telemetry';
 import { brand, useTheme } from '../theme';
 import { PATTERN_DEFAULT_OPACITY, patternInk } from '../theme/brandPattern';
@@ -320,6 +323,20 @@ const TOP_FRAME_PERIOD_MS = 1000 / TOP_FPS;
  * turns any stall into a dropped frame rather than a jump.
  */
 const TOP_MAX_STEP_S = 1 / 20;
+/*
+ * ONE_SURFACE. The top view (Play and Coaches, through CourtStage) draws on ONE
+ * GL surface, not the header's two. The ball's surface exists so the rally
+ * flies over the Book tab's on-net button, and the top view has no button: the
+ * second surface was a whole full-size framebuffer, with its MSAA samples and
+ * depth, spent on a few spheres. So the ball's pass draws onto the court's
+ * surface after the court's, with depth cleared between them, which is what the
+ * two stacked surfaces composited to anyway (Majed, 2026-10-11: lower the
+ * court's memory). The Book view keeps both.
+ *
+ * RENDER SCALE. Every court, Book included, is drawn at 2× pixels at most and
+ * stretched to its box by the compositor (courtTransition/renderScale.ts;
+ * Majed, 2026-10-11, after comparing 3×, 2.5× and 2× side by side).
+ */
 /**
  * The stale-frame cover's dissolve. Matched to the theme crossfade's fade-in
  * (FADE_IN_MS in theme/ThemeProvider.tsx) so the court arrives on the same beat
@@ -466,6 +483,8 @@ export function Court3D({
   const restT = restTimeFor(sceneKind);
   const [courtView] = useState<CourtView>(() => viewProp ?? 'book');
   const framePeriodMs = courtView === 'top' ? TOP_FRAME_PERIOD_MS : 0;
+  /** One GL surface, not two: the top view has no button for the ball to fly over (ONE_SURFACE). */
+  const oneSurface = courtView === 'top';
   const stepCapS = courtView === 'top' ? TOP_MAX_STEP_S : MAX_STEP_S;
   /** Wall-clock mark for the current context attach, for [courtperf]. */
   const attachAt = useRef<number | null>(null);
@@ -557,6 +576,14 @@ export function Court3D({
   const probeTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   /** Bumped to remount both GLViews and ask the platform for fresh contexts. */
   const [glGeneration, setGlGeneration] = useState(0);
+  /**
+   * How much smaller than this view the GLViews are laid out, so the court is
+   * drawn at 2× pixels at most (courtTransition/renderScale.ts). The screen's
+   * ratio does not change, so neither does this.
+   */
+  const [glScale] = useState(() => glScaleFor(PixelRatio.get()));
+  /** This view's size, for the GLViews' own box when they are drawn smaller (glScale < 1). */
+  const [glBox, setGlBox] = useState<{ width: number; height: number } | null>(null);
   /**
    * The raw lifecycle state, kept WHOLE rather than reduced to an `active`
    * boolean — 'active', 'inactive' and 'background' are three different answers
@@ -817,10 +844,11 @@ export function Court3D({
     const box = layout.current;
     if (!scene || !main || !box) return;
     // Device pixels from the layout: what expo-gl sizes its buffers to (iOS
-    // contentScaleFactor, Android density — both PixelRatio.get()).
+    // contentScaleFactor, Android density — both PixelRatio.get()), of the
+    // GLViews' own box, which is this view's at glScale.
     const scale = PixelRatio.get();
-    const w = Math.round(box.width * scale);
-    const h = Math.round(box.height * scale);
+    const w = bufferPx(box.width, glScale, scale);
+    const h = bufferPx(box.height, glScale, scale);
     if (w === 0 || h === 0) return;
     // The top view's 45 fps pacing (TOP_FPS): a tick before the next booked
     // frame draws nothing. Never under Reduce Motion, whose frames are all on
@@ -874,6 +902,15 @@ export function Court3D({
       scene.update(t, value, ease.current(value));
       const __first = attachAt.current !== null;
       main.renderer.render(scene.scene, scene.camera);
+      if (oneSurface) {
+        // The ball's pass, onto the court's own surface (ONE_SURFACE). Depth is
+        // cleared first, as the ball's own surface had a depth buffer of its
+        // own: the ball and its trail are never hidden by the court.
+        main.renderer.autoClear = false;
+        main.renderer.clearDepth();
+        main.renderer.render(scene.overlay, scene.camera);
+        main.renderer.autoClear = true;
+      }
       // DID A SURFACE TAKE IT? A dead expo-gl context does not throw; it answers
       // every call with `undefined`, so this frame "drew" whether or not there
       // was anything to draw on — and everything below used to count it: the
@@ -948,7 +985,18 @@ export function Court3D({
       if (focusedRef.current) setGlGeneration((n) => n + 1);
       else needsSurface.current = true;
     }
-  }, [showStage, stopLoop, teardown, surfaceLost, detach, restT, framePeriodMs, stepCapS]);
+  }, [
+    showStage,
+    stopLoop,
+    teardown,
+    surfaceLost,
+    detach,
+    restT,
+    framePeriodMs,
+    stepCapS,
+    oneSurface,
+    glScale,
+  ]);
 
   /**
    * THE NEXT FRAME IS ASKED FOR AFTER THIS ONE IS DRAWN, NOT BEFORE IT.
@@ -1091,6 +1139,9 @@ export function Court3D({
           court.current = buildPhoneCourt(quality, Platform.OS === 'android', {
             scene: sceneKind,
             view: courtView,
+            // The top view draws its trail instanced where this GL can (scene.ts).
+            instancing:
+              renderer.capabilities.isWebGL2 || renderer.extensions.has('ANGLE_instanced_arrays'),
           });
           pushViewport();
         }
@@ -1475,6 +1526,21 @@ export function Court3D({
     style: [StyleSheet.absoluteFill, layerStyle],
   };
   const msaa = quality === 'full' ? 4 : 2;
+  // The GLViews' box: the whole view on a 2× screen, or a smaller centred box
+  // scaled back up on a denser one (renderScale.ts). The smaller box waits for
+  // this view's first layout, so a context is never created at full size.
+  const fit = glBox ? glBoxFor(glBox.width, glBox.height, glScale) : null;
+  const glStyle =
+    glScale === 1
+      ? StyleSheet.absoluteFill
+      : fit && {
+          position: 'absolute' as const,
+          start: fit.start,
+          top: fit.top,
+          width: fit.width,
+          height: fit.height,
+          transform: [{ scale: fit.scale }],
+        };
 
   return (
     // The reveal rides the ROOT, not the surfaces: the on-net button
@@ -1488,28 +1554,35 @@ export function Court3D({
         const { width, height } = e.nativeEvent.layout;
         if (width <= 0 || height <= 0) return;
         layout.current = { width, height };
+        setGlBox((was) =>
+          was && was.width === width && was.height === height ? was : { width, height },
+        );
         sizeCb.current?.({ width, height });
         pushViewport(); // the backdrop's crop depends on this view's size too
         if (running.current) requestOnce(); // reduced motion: redraw at the new size now
       }}
     >
       <Animated.View {...surface}>
-        <GLView
-          key={glGeneration}
-          style={StyleSheet.absoluteFill}
-          msaaSamples={msaa}
-          onContextCreate={onCourtContext}
-        />
+        {glStyle ? (
+          <GLView
+            key={glGeneration}
+            style={glStyle}
+            msaaSamples={msaa}
+            onContextCreate={onCourtContext}
+          />
+        ) : null}
       </Animated.View>
       {children}
-      <Animated.View {...surface}>
-        <GLView
-          key={glGeneration}
-          style={StyleSheet.absoluteFill}
-          msaaSamples={msaa}
-          onContextCreate={onBallContext}
-        />
-      </Animated.View>
+      {oneSurface || !glStyle ? null : (
+        <Animated.View {...surface}>
+          <GLView
+            key={glGeneration}
+            style={glStyle}
+            msaaSamples={msaa}
+            onContextCreate={onBallContext}
+          />
+        </Animated.View>
+      )}
       {/* The stale-frame cover: over BOTH GL surfaces, so the rackets and ball
           do not hang in front of it. Painted in the CURRENT page
           colour, which is the colour the surface will clear to once it draws —

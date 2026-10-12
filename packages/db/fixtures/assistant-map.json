@@ -1,5 +1,5 @@
 {
-  "generated_from": "da2a45e1d4e0fda6c6149368cd4def53e3cdb95a",
+  "generated_from": "acdfdec4089e7c43c6be17f261660ec80fa2e952",
   "chunks": [
     {
       "kind": "page",
@@ -22686,7 +22686,7 @@
       "ref": "label:ws.stores.onHand",
       "lang": "ar",
       "title": "ws.stores.onHand (packages/i18n/src/catalogs/ws/stores.ar.ts)",
-      "body": "split.cafe: مخزن الكافيه {qty}\nsplit.bakery: مخزن المخبز {qty}\nsplit.shop: مخزن المتجر {qty}\nstoreFilter: المخزن\nbothStores: المخزنان\nnow.phoneCounts: جرد من الهاتف ينتظر التطبيق\nnow.phoneCountsHint: يجري الموظف الجرد من الهاتف دون رؤية الكميات المسجّلة. طبّق كل جرد أو ألغِه. لا يتغير المخزون إلا عند التطبيق.\nnow.openCounts: فتح الجرد\nnow.needsCost: إضافات الموظفين بلا كلفة\nnow.needsCostHint: أُضيفت من الهاتف دون كلفة مسجّلة، فقيمتها صفر. حدّد كلفتها في استلام البضائع.\nnow.openGoodsIn: فتح استلام البضائع",
+      "body": "split.cafe: مخزن الكافيه {qty}\nsplit.bakery: مخزن المخبز {qty}\nsplit.shop: مخزن المتجر {qty}\nstoreFilter: المخزن\nbothStores: المخزنان\natStore.cafe: في مخزن الكافيه\natStore.bakery: في مخزن المخبز\natStore.shop: في مخزن المتجر\ntotal: المخزنان {qty}\nnow.phoneCounts: جرد من الهاتف ينتظر التطبيق\nnow.phoneCountsHint: يجري الموظف الجرد من الهاتف دون رؤية الكميات المسجّلة. طبّق كل جرد أو ألغِه. لا يتغير المخزون إلا عند التطبيق.\nnow.openCounts: فتح الجرد\nnow.needsCost: إضافات الموظفين بلا كلفة\nnow.needsCostHint: أُضيفت من الهاتف دون كلفة مسجّلة، فقيمتها صفر. حدّد كلفتها في استلام البضائع.\nnow.openGoodsIn: فتح استلام البضائع",
       "route": null
     },
     {
@@ -22694,7 +22694,7 @@
       "ref": "label:ws.stores.onHand",
       "lang": "en",
       "title": "ws.stores.onHand (packages/i18n/src/catalogs/ws/stores.en.ts)",
-      "body": "split.cafe: Cafe store {qty}\nsplit.bakery: Bakery store {qty}\nsplit.shop: Shop store {qty}\nstoreFilter: Store\nbothStores: Both stores\nnow.phoneCounts: Counts from the phone to apply\nnow.phoneCountsHint: Counted blind on the phone. Apply or discard each one; stock changes only when applied.\nnow.openCounts: Open counts\nnow.needsCost: Staff additions with no cost\nnow.needsCostHint: Added on the phone with no cost on record, so they are valued at nothing. Set a cost on Goods in.\nnow.openGoodsIn: Open Goods in",
+      "body": "split.cafe: Cafe store {qty}\nsplit.bakery: Bakery store {qty}\nsplit.shop: Shop store {qty}\nstoreFilter: Store\nbothStores: Both stores\natStore.cafe: In the cafe store\natStore.bakery: In the bakery store\natStore.shop: In the shop store\ntotal: Both stores {qty}\nnow.phoneCounts: Counts from the phone to apply\nnow.phoneCountsHint: Counted blind on the phone. Apply or discard each one; stock changes only when applied.\nnow.openCounts: Open counts\nnow.needsCost: Staff additions with no cost\nnow.needsCostHint: Added on the phone with no cost on record, so they are valued at nothing. Set a cost on Goods in.\nnow.openGoodsIn: Open Goods in",
       "route": null
     },
     {

@@ -17,9 +17,10 @@ import {
 import {
   Animated,
   Easing,
+  PanResponder,
+  type PanResponderGestureState,
   Platform,
   Pressable,
-  type ScrollView,
   StyleSheet,
   View,
   type StyleProp,
@@ -1639,9 +1640,134 @@ const LANE_TURN = ['40deg', '28deg', '0deg', '-28deg', '-40deg'];
 const LANE_TUCK = [-30, -8, 0, 8, 30];
 
 /**
+ * A horizontal track the guest swipes, in place of a native horizontal
+ * ScrollView, for the booking sheet's day strip and court lanes.
+ *
+ * WHY NOT A SCROLLVIEW: on iOS 26 the tab bar lays its scroll-edge effect (a
+ * fade and blur) over a scroll view of the tab's choosing, and the Book tab
+ * has none of its own, so it took one of the sheet's: first the time grid
+ * (court 2 and every row under it came out blurred), then court 1's row of
+ * times, which opened faded until the guest scrolled it, in both languages
+ * (guest reports and on-device tests, 2026-10-11/12; rebuilding the row's
+ * cells left the fade in place, so it sat on the scroller). Edge effects are
+ * a UIScrollView property and nothing else carries one, so a track that is a
+ * plain view cannot be faded, whatever the bar picks.
+ *
+ * `x` is the offset from the track's physical LEFT, like a scroll view's
+ * contentOffset.x, 0 … `maxX`; the content is drawn at translateX = -x. It is
+ * a native Animated value from birth: a swipe sets it per move, a release
+ * springs it native-side. With `snap`, a release lands on the nearest
+ * multiple (a fling carries it on); without, it coasts to where the fling
+ * would take it. Past either end the finger moves it at a third of its pace.
+ *
+ * The responder is claimed only once a move is clearly sideways (`capture`,
+ * so a press that turns into a swipe leaves the cell it began on), which
+ * leaves taps to the cells and vertical drags to whatever holds the track.
+ *
+ * `onOffset` hears every offset the JS side sets, and a release's target
+ * before its spring runs. `resetKey` puts it back at `startX`.
+ */
+export function useSwipeTrack({
+  maxX,
+  startX,
+  snap,
+  resetKey,
+  onOffset,
+}: {
+  maxX: number;
+  startX: number;
+  snap?: number;
+  resetKey?: string;
+  onOffset?: (x: number) => void;
+}) {
+  const [x] = useState(() => new Animated.Value(startX, { useNativeDriver: true }));
+  const [translateX] = useState(() => Animated.multiply(x, -1));
+  /** Where the track is, or is springing to. */
+  const pos = useRef(startX);
+  const conf = useRef({ maxX, startX, snap, onOffset });
+  useEffect(() => {
+    conf.current = { maxX, startX, snap, onOffset };
+  });
+
+  const set = useCallback(
+    (v: number) => {
+      pos.current = v;
+      x.setValue(v);
+      conf.current.onOffset?.(v);
+    },
+    [x],
+  );
+  const moveTo = useCallback(
+    (target: number, velocity = 0) => {
+      const to = Math.max(0, Math.min(conf.current.maxX, target));
+      pos.current = to;
+      conf.current.onOffset?.(to);
+      Animated.spring(x, {
+        toValue: to,
+        velocity,
+        stiffness: 260,
+        damping: 30,
+        mass: 1,
+        overshootClamping: true,
+        useNativeDriver: true,
+      }).start();
+    },
+    [x],
+  );
+
+  // A new day, duration or language starts the track over. `startX` is read
+  // here, not tracked: a refresh that changes the count must not move it.
+  useEffect(() => {
+    x.stopAnimation();
+    set(conf.current.startX);
+  }, [resetKey, x, set]);
+  // A range that shrank (fewer times, a wider box) must not leave the track
+  // past its new end.
+  useEffect(() => {
+    if (pos.current > maxX) set(Math.max(0, maxX));
+  }, [maxX, set]);
+
+  /** The offset the finger took the track at. */
+  const base = useRef(0);
+  const panHandlers = useMemo(() => {
+    const sideways = (g: PanResponderGestureState) =>
+      Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.2;
+    const responder = PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (_e, g) => sideways(g),
+      onMoveShouldSetPanResponder: (_e, g) => sideways(g),
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => {
+        x.stopAnimation();
+        base.current = pos.current;
+      },
+      onPanResponderMove: (_e, g) => {
+        const max = conf.current.maxX;
+        let v = base.current - g.dx;
+        if (v < 0) v /= 3;
+        else if (v > max) v = max + (v - max) / 3;
+        set(v);
+      },
+      onPanResponderRelease: (_e, g) => {
+        // vx is px/ms, positive to the right; the offset runs the other way.
+        const s = conf.current.snap;
+        const flung = pos.current - g.vx * (s ? 120 : 320);
+        moveTo(s ? Math.round(flung / s) * s : flung, -g.vx * 1000);
+      },
+      onPanResponderTerminate: () => {
+        const s = conf.current.snap;
+        moveTo(s ? Math.round(pos.current / s) * s : pos.current);
+      },
+    });
+    return responder.panHandlers;
+  }, [x, set, moveTo]);
+
+  return { x, translateX, panHandlers, moveTo };
+}
+
+/**
  * The booking sheet's court card (owner, 2026-09-26): a header — the court's
  * number badge, its name, indoor/outdoor, and a live "N free" pill — over the
- * court's times in a single horizontal line that scrolls sideways. Cells keep
+ * court's times in a single horizontal line that swipes sideways. Cells keep
  * the court's own state and `courtId`, so a tap holds this court.
  *
  * The card is a translucent `card` wash so it reads as glass on the sheet's
@@ -1652,12 +1778,17 @@ const LANE_TUCK = [-30, -8, 0, 8, 30];
  * and a selection haptic ticks as each new time reaches the middle. A tap on
  * a side time brings it to the middle; a tap on the middle one books it.
  *
- * `key={dir}` for the reason the day strip carries it: on Android a horizontal
- * offset is physical, so a lane already on screen across a language switch
- * would show its logical END — and in RTL the first time sits at the far end
- * of the scroll range, which `flip` accounts for. For the same reason a new
- * day / duration (`resetKey`) scrolls an LTR lane back to x = 0 in place, and
- * remounts an RTL one, where x = 0 is not reliably the start.
+ * The line is a `useSwipeTrack`, not a ScrollView (see there for why), laid
+ * out left to right in both directions: in RTL the times run in reverse, first
+ * time on the right, and the track opens at its far end. A time's slot from
+ * the left is `flip ? n - 1 - c : c`, for the drawing, the time in the middle
+ * and a tap's target alike. (As a native RTL scroller it mirrored its offsets
+ * differently for JS and for the native-driven drawing, and an Arabic iPhone
+ * scrolled a tapped time to its mirror image instead of booking it; guest
+ * report, 2026-10-11.)
+ *
+ * A new day / duration (`resetKey`) and a language switch bring the lane back
+ * to its first time.
  */
 export function CourtLaneRow({
   index,
@@ -1696,38 +1827,68 @@ export function CourtLaneRow({
   const { colors, fonts, tracking, appearance } = useTheme();
   const { t, dir } = useLocale();
   const dark = appearance === 'dark';
-  const scrollRef = useRef<ScrollView>(null);
   /** The logical index of the time in the middle. */
   const activeRef = useRef(0);
-  useEffect(() => {
-    activeRef.current = 0;
-    if (dir === 'ltr') scrollRef.current?.scrollTo({ x: 0, animated: false });
-  }, [resetKey, dir]);
 
   const PAD = 8;
   const step = cellWidth + LANE_GAP;
   const n = cells.length;
-  const flip = dir === 'rtl' && Platform.OS === 'android';
+  /** RTL: the times run right to left, so the first one is at the far end. */
+  const flip = dir === 'rtl';
+  const maxX = Math.max(0, n - 1) * step;
+  /** Where the first time sits: x = 0, or the far end in RTL. */
+  const startX = flip ? maxX : 0;
   const [laneW, setLaneW] = useState(0);
   // Enough lead-in and tail that the first and last time can sit in the middle.
   const side = laneW > 0 ? (laneW - cellWidth) / 2 : PAD;
-  const [scrollX] = useState(() => new Animated.Value(0));
 
-  const onScroll = useMemo(
+  // The time in the middle, from every offset the track sets; a tick as it changes.
+  const onOffset = useCallback(
+    (v: number) => {
+      if (n === 0) return;
+      const slot = Math.max(0, Math.min(n - 1, Math.round(v / step)));
+      const i = flip ? n - 1 - slot : slot;
+      if (i === activeRef.current) return;
+      activeRef.current = i;
+      void Haptics.selectionAsync().catch(() => {});
+    },
+    [n, step, flip],
+  );
+  const {
+    x: scrollX,
+    translateX,
+    panHandlers,
+    moveTo,
+  } = useSwipeTrack({ maxX, startX, snap: step, resetKey: `${dir}|${resetKey}`, onOffset });
+
+  /**
+   * Each time's size, turn and fade, built once per lane shape and reused on
+   * every render, so a re-render (the open-match chips and the availability
+   * landing a moment after the sheet opens) does not detach and re-attach
+   * every cell's native props node.
+   */
+  const cellStyles = useMemo(
     () =>
-      Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
-        useNativeDriver: true,
-        listener: (e: { nativeEvent: { contentOffset: { x: number } } }) => {
-          if (n === 0) return;
-          const slot = Math.max(
-            0,
-            Math.min(n - 1, Math.round(e.nativeEvent.contentOffset.x / step)),
-          );
-          const i = flip ? n - 1 - slot : slot;
-          if (i === activeRef.current) return;
-          activeRef.current = i;
-          void Haptics.selectionAsync().catch(() => {});
-        },
+      Array.from({ length: n }, (_, c) => {
+        const at = (flip ? n - 1 - c : c) * step;
+        const range = [at - 2 * step, at - step, at, at + step, at + 2 * step];
+        const lerp = (out: number[]) =>
+          scrollX.interpolate({ inputRange: range, outputRange: out, extrapolate: 'clamp' });
+        return {
+          opacity: lerp(LANE_OPACITY),
+          transform: [
+            { perspective: 600 },
+            { translateX: lerp(LANE_TUCK) },
+            {
+              rotateY: scrollX.interpolate({
+                inputRange: range,
+                outputRange: LANE_TURN,
+                extrapolate: 'clamp',
+              }),
+            },
+            { scale: lerp(LANE_SCALE) },
+          ],
+        };
       }),
     [scrollX, n, step, flip],
   );
@@ -1740,9 +1901,9 @@ export function CourtLaneRow({
         onPress(cell);
         return;
       }
-      scrollRef.current?.scrollTo({ x: (flip ? n - 1 - i : i) * step, animated: true });
+      moveTo((flip ? n - 1 - i : i) * step);
     },
-    [cells, onPress, flip, n, step],
+    [cells, onPress, flip, n, step, moveTo],
   );
   return (
     <View
@@ -1789,61 +1950,48 @@ export function CourtLaneRow({
         </View>
         <CourtFreePill free={freeCountOf(cells)} fontSize={9.5} />
       </View>
-      <Animated.ScrollView
-        ref={scrollRef}
-        key={dir === 'rtl' ? `rtl|${resetKey}` : 'ltr'}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        snapToInterval={step}
-        decelerationRate="fast"
-        scrollEventThrottle={16}
-        onScroll={onScroll}
+
+      {/* The window: clips the track and takes the swipe. */}
+      <View
+        {...panHandlers}
         onLayout={(e) => {
           const w = e.nativeEvent.layout.width;
           setLaneW((prev) => (prev === w ? prev : w));
         }}
-        style={{ flexGrow: 0, flexShrink: 0 }}
-        contentContainerStyle={{ gap: LANE_GAP, paddingStart: side, paddingEnd: side }}
+        style={{ overflow: 'hidden', direction: 'ltr' }}
       >
-        {cells.map((cell, c) => {
-          const at = (flip ? n - 1 - c : c) * step;
-          const range = [at - 2 * step, at - step, at, at + step, at + 2 * step];
-          const lerp = (out: number[]) =>
-            scrollX.interpolate({ inputRange: range, outputRange: out, extrapolate: 'clamp' });
-          return (
-            <Animated.View
-              key={c}
-              style={{
-                opacity: lerp(LANE_OPACITY),
-                transform: [
-                  { perspective: 600 },
-                  { translateX: lerp(LANE_TUCK) },
-                  {
-                    rotateY: scrollX.interpolate({
-                      inputRange: range,
-                      outputRange: LANE_TURN,
-                      extrapolate: 'clamp',
-                    }),
-                  },
-                  { scale: lerp(LANE_SCALE) },
-                ],
-              }}
-            >
-              <SlotCell
-                testID={slotTestID(testID, cell)}
-                compact
-                width={cellWidth}
-                cell={cell}
-                time={timeFor(cell)}
-                sub={subFor(cell)}
-                capacityLine=""
-                matchLine={matchLineFor?.(cell)}
-                onPress={onCellPress}
-              />
-            </Animated.View>
-          );
-        })}
-      </Animated.ScrollView>
+        <Animated.View
+          style={{
+            flexDirection: 'row',
+            alignSelf: 'flex-start',
+            gap: LANE_GAP,
+            paddingStart: side,
+            paddingEnd: side,
+            transform: [{ translateX }],
+          }}
+        >
+          {/* Physical order, left to right: reversed in RTL, so the first time
+              is on the right. Keyed by the time's own position in the night. */}
+          {(flip ? [...cells].reverse() : cells).map((cell, p) => {
+            const c = flip ? n - 1 - p : p;
+            return (
+              <Animated.View key={c} style={[cellStyles[c], { direction: dir }]}>
+                <SlotCell
+                  testID={slotTestID(testID, cell)}
+                  compact
+                  width={cellWidth}
+                  cell={cell}
+                  time={timeFor(cell)}
+                  sub={subFor(cell)}
+                  capacityLine=""
+                  matchLine={matchLineFor?.(cell)}
+                  onPress={onCellPress}
+                />
+              </Animated.View>
+            );
+          })}
+        </Animated.View>
+      </View>
     </View>
   );
 }

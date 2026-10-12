@@ -17,6 +17,7 @@ import {
   moveBaseQty,
   moveLineProblem,
   movePayload,
+  orderForStore,
   phoneCountWaitingAt,
   phoneCountsWaiting,
   readStaffLogs,
@@ -66,6 +67,17 @@ describe('stores', () => {
     expect(splitWorthShowing(undefined)).toBe(false);
     expect(anyInBakery(new Map([['m', { cafe: 1, bakery: 0, shop: 0 }]]))).toBe(false);
     expect(anyInBakery(new Map([['m', { cafe: 1, bakery: 0, shop: 0 }], ['f', { cafe: 0, bakery: 2, shop: 0 }]]))).toBe(true);
+  });
+
+  it('keeps every item listed when a store is chosen, what it holds first', () => {
+    const splits = new Map([
+      ['flour', { cafe: 0, bakery: 3000, shop: 0 }],
+      ['milk', { cafe: 800, bakery: 0, shop: 0 }],
+      ['sugar', { cafe: 200, bakery: 50, shop: 0 }],
+    ]);
+    const rows = ['butter', 'flour', 'milk', 'sugar'].map((ingredient_id) => ({ ingredient_id }));
+    expect(orderForStore(rows, splits, 'bakery').map((r) => r.ingredient_id)).toEqual(['flour', 'sugar', 'butter', 'milk']);
+    expect(orderForStore(rows, splits, 'cafe').map((r) => r.ingredient_id)).toEqual(['milk', 'sugar', 'butter', 'flour']);
   });
 });
 

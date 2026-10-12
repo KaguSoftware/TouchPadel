@@ -243,6 +243,22 @@ export function useBackGuard({
     [navigation, back],
   );
 
+  // The native half of the guard. On iOS the back item and the edge-swipe pop
+  // in UIKit BEFORE `beforeRemove` reaches JS, so `preventDefault` alone left
+  // the screen gone from the stack but still in JS state ("The screen
+  // 'profile-edit' was removed natively but didn't get removed from JS
+  // state"), and "Keep editing" had no screen left to keep (guest report,
+  // 2026-10-11). `preventNativeDismiss` makes react-native-screens put the
+  // screen back and report the attempt instead, which the native stack turns
+  // into a JS pop, and that pop is what the listener below catches. Passed
+  // through `unstable_nativeProps`, which the stack spreads AFTER its own
+  // `preventNativeDismiss`, rather than through `usePreventRemove`, which
+  // would also cost the chevron (above). A pop the screen dispatches itself
+  // (`leave`) is a JS removal and is not blocked by it.
+  useEffect(() => {
+    navigation.setOptions({ unstable_nativeProps: { preventNativeDismiss: when } });
+  }, [navigation, when]);
+
   useEffect(() => {
     if (!when) return;
     navigation.setOptions({ gestureEnabled: false });

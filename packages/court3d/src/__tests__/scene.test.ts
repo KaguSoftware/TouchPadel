@@ -94,8 +94,8 @@ describe('the spin option', () => {
 });
 
 describe('the shadow map option', () => {
-  it("is the phone's 1024 by default and takes the size asked for", () => {
-    expect(sunOf(buildCourtScene()).shadow.mapSize.x).toBe(1024);
+  it("is the phone's 768 by default and takes the size asked for", () => {
+    expect(sunOf(buildCourtScene()).shadow.mapSize.x).toBe(768);
     const sun = sunOf(buildCourtScene('full', { shadowMapSize: 2048 }));
     expect(sun.castShadow).toBe(true);
     expect(sun.shadow.mapSize.x).toBe(2048);
@@ -375,6 +375,88 @@ describe('the view option (book | top)', () => {
     expect(ballOf(book).scale.x).toBe(1);
     top.dispose();
     book.dispose();
+  });
+});
+
+describe('draw calls and shared buffers', () => {
+  /** Every mesh and line the renderer would draw, both passes. */
+  const drawn = (court: ReturnType<typeof buildCourtScene>) => {
+    const out: (THREE.Mesh | THREE.LineSegments)[] = [];
+    for (const root of [court.scene, court.overlay]) {
+      root.traverse((o) => {
+        if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) out.push(o);
+      });
+    }
+    return out;
+  };
+  const ghosts = (court: ReturnType<typeof buildCourtScene>) =>
+    court.overlay.children.filter(
+      (o): o is THREE.Mesh => o instanceof THREE.Mesh && o.geometry instanceof THREE.SphereGeometry,
+    );
+
+  it('equal shapes share one geometry: the cage repeats a few boxes many times', () => {
+    const court = buildCourtScene('lite');
+    const meshes = drawn(court);
+    const geometries = new Set(meshes.map((m) => m.geometry));
+    expect(geometries.size).toBeLessThan(meshes.length / 2);
+    court.dispose();
+  });
+
+  it('the Book view keeps 36 separate ghosts on one unit sphere, sized by their radius', () => {
+    const court = buildCourtScene('full');
+    const trail = ghosts(court);
+    expect(trail).toHaveLength(36);
+    expect(new Set(trail.map((m) => m.geometry)).size).toBe(1);
+    expect(trail.some((m) => m instanceof THREE.InstancedMesh)).toBe(false);
+    // Newest ghost biggest, oldest smallest, as each sphere used to be built.
+    expect(trail[0]!.scale.x).toBeGreaterThan(trail[35]!.scale.x);
+    court.dispose();
+  });
+
+  it('instancing is ignored outside the top view', () => {
+    const court = buildCourtScene('lite', { instancing: true });
+    expect(ghosts(court)).toHaveLength(36);
+    court.dispose();
+  });
+
+  it.each(['rally', 'drill'] as const)(
+    'the %s top view merges its static court and, with instancing, draws the trail in one mesh',
+    (scene) => {
+      const book = buildCourtScene('lite', { scene });
+      const top = buildCourtScene('lite', { scene, view: 'top', instancing: true });
+      const trail = ghosts(top);
+      expect(trail).toHaveLength(1);
+      expect(trail[0]).toBeInstanceOf(THREE.InstancedMesh);
+      expect((trail[0] as THREE.InstancedMesh).count).toBe(36);
+      // The trail moves every frame; a cached bound would cull it.
+      expect(trail[0]!.frustumCulled).toBe(false);
+      expect(drawn(top).length).toBeLessThan(drawn(book).length / 2);
+      // A hidden ghost is scaled to nothing, a shown one is not.
+      const m = new THREE.Matrix4();
+      const scales = (court: typeof top) => {
+        const mesh = ghosts(court)[0] as THREE.InstancedMesh;
+        return Array.from({ length: 36 }, (_, i) => {
+          mesh.getMatrixAt(i, m);
+          return m.elements[0]!;
+        });
+      };
+      let shown = false;
+      for (let t = 0.1; t < 6 && !shown; t += 0.1) {
+        top.update(t, 0, 0);
+        shown = scales(top).some((x) => x > 0);
+      }
+      expect(shown).toBe(true);
+      top.update(0, 0, 0); // no flight yet: no trail
+      expect(scales(top).every((x) => x === 0)).toBe(true);
+      book.dispose();
+      top.dispose();
+    },
+  );
+
+  it('without instancing the top view still merges, and keeps 36 ghost meshes', () => {
+    const top = buildCourtScene('lite', { view: 'top' });
+    expect(ghosts(top)).toHaveLength(36);
+    top.dispose();
   });
 });
 

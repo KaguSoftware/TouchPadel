@@ -130,7 +130,11 @@ export interface CourtSceneOptions {
    * every screen.
    */
   spin?: 'frame' | 'time';
-  /** The sun's shadow map, px square. Default 1024 (the phone's saving); the prototype drew 2048. */
+  /**
+   * The sun's shadow map, px square. Default 768, the phone's (Majed,
+   * 2026-10-11: 1024 → 768 saves ≈ 3.7 MB of colour + depth for edges only a
+   * magnifier tells apart; 512 lost the rackets' shapes). The prototype drew 2048.
+   */
   shadowMapSize?: number;
   /**
    * Cheaper frames, the same picture to the bit (Android only, for now: its
@@ -148,6 +152,14 @@ export interface CourtSceneOptions {
    * Off by default, so iOS and the web run exactly what they always did.
    */
   lean?: boolean;
+  /**
+   * The host's GL can draw instanced meshes (WebGL2, or WebGL1 with
+   * ANGLE_instanced_arrays). Read by the TOP view only, which then draws its
+   * 36 trail ghosts as one instanced mesh instead of 36 (see TRAIL_N). Off by
+   * default: without instancing three silently draws nothing for an instanced
+   * mesh, so only a host that has asked its renderer may turn it on.
+   */
+  instancing?: boolean;
 }
 
 /** The ball's spin in rad/s under `spin: 'time'`: the phone's 0.12 / 0.07 rad a frame, at 60 fps. */
@@ -182,6 +194,121 @@ const PANE = 0x92a087;
  */
 const TRAIL_N = 36;
 const TRAIL_LAG = 22 / 60;
+
+/**
+ * The trail as the frame sees it: ghost i at a point and a scale (on top of
+ * its own radius), or hidden (`at` null). `commit` once a frame, after the
+ * last `place`.
+ */
+interface Trail {
+  place(i: number, at: { x: number; y: number; z: number } | null, scale: number): void;
+  commit(): void;
+}
+
+/**
+ * Ghost i's radius and opacity: the oldest is the smallest and faintest. The
+ * ghosts share ONE unit sphere scaled to these radii, where each used to build
+ * its own sphere at its own radius: 36 buffers became one.
+ */
+const ghostRadius = (i: number) => BALL_RADIUS * (0.25 + 0.7 * (1 - i / TRAIL_N));
+const ghostOpacity = (i: number) => 0.1 * (1 - i / TRAIL_N);
+
+/**
+ * Build the trail into `overlay`.
+ *
+ * Instanced (the top view, on a host that can draw instances): ONE mesh and
+ * one draw call for all 36 ghosts instead of 36, each ghost's opacity read
+ * from a per-instance attribute (MeshBasicMaterial has no per-instance alpha
+ * of its own). A hidden ghost is scaled to nothing. It draws the same picture
+ * as the 36 meshes, for two reasons that hold only in the top view:
+ *   · the ghosts are all the same white, and stacking layers of one colour
+ *     gives the same result in any order, so drawing them in instance order
+ *     rather than sorted by depth changes nothing;
+ *   · straight down, every ghost is nearer the camera than the ground disc,
+ *     so the disc was always drawn first: `renderOrder` 1 keeps it that way.
+ * The Book view keeps its separate meshes (its pitched camera can put a ghost
+ * behind the disc), and so does the web.
+ */
+function buildTrail(
+  overlay: THREE.Scene,
+  keep: (d: { dispose(): void }) => void,
+  instanced: boolean,
+): Trail {
+  const sphere = new THREE.SphereGeometry(1, 12, 10);
+  keep(sphere);
+  if (!instanced) {
+    const meshes: THREE.Mesh[] = [];
+    for (let i = 0; i < TRAIL_N; i++) {
+      const material = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: ghostOpacity(i),
+        depthWrite: false,
+      });
+      keep(material);
+      const m = new THREE.Mesh(sphere, material);
+      m.scale.setScalar(ghostRadius(i));
+      m.visible = false;
+      overlay.add(m);
+      meshes.push(m);
+    }
+    return {
+      place(i, at, scale) {
+        const m = meshes[i]!;
+        m.visible = at !== null;
+        if (!at) return;
+        m.position.set(at.x, at.y, at.z);
+        m.scale.setScalar(ghostRadius(i) * scale);
+      },
+      commit() {},
+    };
+  }
+
+  const alpha = new Float32Array(TRAIL_N);
+  for (let i = 0; i < TRAIL_N; i++) alpha[i] = ghostOpacity(i);
+  sphere.setAttribute('ghostOpacity', new THREE.InstancedBufferAttribute(alpha, 1));
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    depthWrite: false,
+  });
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('void main() {', 'attribute float ghostOpacity;\nvarying float vGhostOpacity;\nvoid main() {')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvGhostOpacity = ghostOpacity;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', 'varying float vGhostOpacity;\nvoid main() {')
+      .replace(
+        'vec4 diffuseColor = vec4( diffuse, opacity );',
+        'vec4 diffuseColor = vec4( diffuse, opacity * vGhostOpacity );',
+      );
+  };
+  keep(material);
+  const mesh = new THREE.InstancedMesh(sphere, material, TRAIL_N);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  // The ghosts move every frame and three caches an instanced mesh's bounds
+  // once, so culling would test against where they first were.
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 1;
+  const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
+  const m4 = new THREE.Matrix4();
+  for (let i = 0; i < TRAIL_N; i++) mesh.setMatrixAt(i, hidden);
+  overlay.add(mesh);
+  keep({ dispose: () => mesh.dispose() });
+  return {
+    place(i, at, scale) {
+      if (!at) {
+        mesh.setMatrixAt(i, hidden);
+        return;
+      }
+      const r = ghostRadius(i) * scale;
+      mesh.setMatrixAt(i, m4.makeScale(r, r, r).setPosition(at.x, at.y, at.z));
+    },
+    commit() {
+      mesh.instanceMatrix.needsUpdate = true;
+    },
+  };
+}
 
 export interface CourtScene {
   /** The court: cage, net, rackets, turf with the ball's cast shadow. Opaque, under the button. */
@@ -243,8 +370,8 @@ export function buildCourtScene(
   sun.position.set(6, 30, 10);
   sun.castShadow = shadows;
   if (shadows) {
-    // 2048 in the prototype; the 1024 default keeps the shadow pass cheap on a phone.
-    const mapSize = opts.shadowMapSize ?? 1024;
+    // 2048 in the prototype; the 768 default keeps the shadow pass cheap on a phone.
+    const mapSize = opts.shadowMapSize ?? 768;
     sun.shadow.mapSize.set(mapSize, mapSize);
     sun.shadow.bias = -0.0002;
     sun.shadow.normalBias = 0.05;
@@ -269,6 +396,23 @@ export function buildCourtScene(
     disposables.push(g);
     return g;
   };
+  // ONE GEOMETRY PER SHAPE. The cage repeats the same few boxes and planes
+  // dozens of times (every post, cap, rail and window pane), and nothing ever
+  // writes to a geometry after it is built, so equal shapes share one buffer
+  // instead of each uploading its own copy. Same vertices, same picture.
+  const shapes = new Map<string, THREE.BufferGeometry>();
+  const shape = (key: string, make: () => THREE.BufferGeometry) => {
+    let g = shapes.get(key);
+    if (!g) {
+      g = geo(make());
+      shapes.set(key, g);
+    }
+    return g;
+  };
+  const box = (w: number, h: number, d: number) =>
+    shape(`box ${w} ${h} ${d}`, () => new THREE.BoxGeometry(w, h, d));
+  const plane = (w: number, h: number) =>
+    shape(`plane ${w} ${h}`, () => new THREE.PlaneGeometry(w, h));
   const add = (
     geometry: THREE.BufferGeometry,
     material: THREE.Material,
@@ -277,7 +421,7 @@ export function buildCourtScene(
     z: number,
     shadow = false,
   ) => {
-    const m = new THREE.Mesh(geo(geometry), material);
+    const m = new THREE.Mesh(geometry, material);
     m.position.set(x, y, z);
     m.castShadow = shadow && shadows;
     scene.add(m);
@@ -288,8 +432,8 @@ export function buildCourtScene(
   // The base is only as wide as the cage (the side posts stand at x = ±5): at 11.4 m
   // its 0.7 m side margins showed through the side fences in the pitched view as a
   // dark band over the walls (owner, 2026-09-29).
-  add(new THREE.BoxGeometry(10.2, 0.3, 21.4), Mat(NAVY), 0, -0.21, 0);
-  const turf = add(new THREE.PlaneGeometry(10, 20), Mat(TURF), 0, 0, 0);
+  add(box(10.2, 0.3, 21.4), Mat(NAVY), 0, -0.21, 0);
+  const turf = add(plane(10, 20), Mat(TURF), 0, 0, 0);
   turf.rotation.x = -Math.PI / 2;
   turf.receiveShadow = shadows;
 
@@ -304,7 +448,7 @@ export function buildCourtScene(
   });
   disposables.push(lineMat);
   const line = (w: number, d: number, x: number, z: number) => {
-    const m = add(new THREE.PlaneGeometry(w, d), lineMat, x, 0.02, z);
+    const m = add(plane(w, d), lineMat, x, 0.02, z);
     m.rotation.x = -Math.PI / 2;
   };
   const LW = 0.1;
@@ -325,12 +469,12 @@ export function buildCourtScene(
     opacity: 0.55,
   });
   disposables.push(netMat);
-  add(new THREE.PlaneGeometry(9.66, 0.86, 58, 6), netMat, 0, 0.45, 0);
-  add(new THREE.BoxGeometry(9.66, 0.07, 0.035), Mat(0xffffff, { roughness: 0.5 }), 0, 0.9, 0);
-  add(new THREE.BoxGeometry(0.06, 0.9, 0.04), Mat(0xffffff), 0, 0.45, 0);
+  add(geo(new THREE.PlaneGeometry(9.66, 0.86, 58, 6)), netMat, 0, 0.45, 0);
+  add(box(9.66, 0.07, 0.035), Mat(0xffffff, { roughness: 0.5 }), 0, 0.9, 0);
+  add(box(0.06, 0.9, 0.04), Mat(0xffffff), 0, 0.45, 0);
   const postMat = Mat(NAVY, { roughness: 0.4 });
-  for (const x of [-4.83, 4.83])
-    add(new THREE.CylinderGeometry(0.07, 0.07, 1.05, 14), postMat, x, 0.52, 0);
+  const netPost = geo(new THREE.CylinderGeometry(0.07, 0.07, 1.05, 14));
+  for (const x of [-4.83, 4.83]) add(netPost, postMat, x, 0.52, 0);
 
   // cage: lime glass panels with sage "window" squares (brand sticker) + dark mesh fence.
   // The bottom end wall (z = +10) gets its own materials so it can fade as the camera pitches.
@@ -377,7 +521,7 @@ export function buildCourtScene(
     ry: number,
     mat: THREE.Material,
   ) => {
-    const m = add(new THREE.PlaneGeometry(w, h), mat, x, y, z);
+    const m = add(plane(w, h), mat, x, y, z);
     m.rotation.y = ry;
     return m;
   };
@@ -395,19 +539,22 @@ export function buildCourtScene(
     ry: number,
     mat: THREE.LineBasicMaterial,
   ) => {
-    const pts: number[] = [];
-    const nx = Math.round(w / FENCE_CELL);
-    const ny = Math.round(h / FENCE_CELL);
-    for (let i = 0; i <= nx; i++) {
-      const u = -w / 2 + (i * w) / nx;
-      pts.push(u, -h / 2, 0, u, h / 2, 0);
-    }
-    for (let j = 0; j <= ny; j++) {
-      const v = -h / 2 + (j * h) / ny;
-      pts.push(-w / 2, v, 0, w / 2, v, 0);
-    }
-    const g = geo(new THREE.BufferGeometry());
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    const g = shape(`fence ${w} ${h}`, () => {
+      const pts: number[] = [];
+      const nx = Math.round(w / FENCE_CELL);
+      const ny = Math.round(h / FENCE_CELL);
+      for (let i = 0; i <= nx; i++) {
+        const u = -w / 2 + (i * w) / nx;
+        pts.push(u, -h / 2, 0, u, h / 2, 0);
+      }
+      for (let j = 0; j <= ny; j++) {
+        const v = -h / 2 + (j * h) / ny;
+        pts.push(-w / 2, v, 0, w / 2, v, 0);
+      }
+      const fence = new THREE.BufferGeometry();
+      fence.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+      return fence;
+    });
     const m = new THREE.LineSegments(g, mat);
     m.position.set(x, y, z);
     m.rotation.y = ry;
@@ -443,11 +590,11 @@ export function buildCourtScene(
     const fence = near ? fenceNear : fenceFar;
     const frame = near ? frameNear : frameFar;
     const post = (x: number, z: number, h: number, mat = frame) => {
-      add(new THREE.BoxGeometry(0.1, h, 0.1), mat, x, h / 2, z);
-      add(new THREE.BoxGeometry(0.18, 0.08, 0.18), capMat, x, h + 0.04, z);
+      add(box(0.1, h, 0.1), mat, x, h / 2, z);
+      add(box(0.18, 0.08, 0.18), capMat, x, h + 0.04, z);
     };
     const rail = (len: number, x: number, y: number, z: number, ry: number, mat = frame) => {
-      const m = add(new THREE.BoxGeometry(len, 0.08, 0.08), mat, x, y, z);
+      const m = add(box(len, 0.08, 0.08), mat, x, y, z);
       m.rotation.y = ry;
     };
     if (walls) {
@@ -479,6 +626,18 @@ export function buildCourtScene(
       post(x, s * 2, 3, frameFar);
     }
   }
+
+  // THE TOP VIEW DRAWS ITS STATIC COURT IN A HANDFUL OF CALLS. Everything built
+  // so far stands still, and the top view never changes anything about it but
+  // two opacities, which belong to the materials and so survive a merge. So
+  // the meshes that share a material are baked into one (mergeTopStatic): the
+  // posts, caps, rails and lines go from ~60 draw calls to ~10. It draws the
+  // same picture because, seen from straight above at rest, every transparent
+  // piece merged here is at opacity 1 (the frames, and the lines at p = 0),
+  // and an opaque-valued piece covers what is behind it in either draw order.
+  // The Book view's pitch fades them, so it keeps its separate meshes. `lean`
+  // merges everything below (merge.ts), so it skips this pass.
+  if (top && !opts.lean) mergeTopStatic(scene, geo);
 
   // Everything built so far that is a mesh or a line never moves: freeze it
   // (`lean`). Its matrix is composed here, once, and three skips it on every
@@ -565,7 +724,6 @@ export function buildCourtScene(
 
   // trail: fading ghosts of recent ball positions (both tiers, see TRAIL_N).
   // `lean` draws the same ghosts as one instanced mesh (trail.ts).
-  const trail: THREE.Mesh[] = [];
   const ghostBall = opts.lean ? ballSampler() : null;
   const ghostSize = (i: number) => 0.25 + 0.7 * (1 - i / TRAIL_N);
   const ghostAlpha = (i: number) => 0.1 * (1 - i / TRAIL_N);
@@ -579,21 +737,9 @@ export function buildCourtScene(
   // The drill's ghosts always read the ball alone: there is no older path for
   // it to keep bit-for-bit, and the sampler is the same picture, cheaper.
   const ghostDrill = drill ? drillBallSampler() : null;
-  for (let i = 0; i < (ghosts ? 0 : TRAIL_N); i++) {
-    const m = new THREE.Mesh(
-      geo(new THREE.SphereGeometry(BALL_RADIUS * ghostSize(i), 12, 10)),
-      new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: ghostAlpha(i),
-        depthWrite: false,
-      }),
-    );
-    disposables.push(m.material as THREE.Material);
-    m.visible = false;
-    overlay.add(m);
-    trail.push(m);
-  }
+  const trail = ghosts
+    ? null
+    : buildTrail(overlay, (d) => disposables.push(d), top && opts.instancing === true);
 
   // the ground disc under the ball (overlay too: the prototype's disc rides over the button)
   const shadeMat = new THREE.MeshBasicMaterial({ color: NAVY, transparent: true, opacity: 0.28 });
@@ -658,20 +804,20 @@ export function buildCourtScene(
         ghostScale.push(g.scale > 1e-3 ? g.scale * (top ? topBallScale(g.ball.y) : 1) : 0);
       }
       ghosts.place(ball.position, ghostAt, ghostScale);
+    } else if (trail) {
+      for (let i = 0; i < TRAIL_N; i++) {
+        const at = t - ((i + 1) * TRAIL_LAG) / TRAIL_N;
+        if (!(at > state.trailFrom)) {
+          trail.place(i, null, 0);
+          continue;
+        }
+        const g = sample(at, camK);
+        if (g.scale > 1e-3) {
+          trail.place(i, g.ball, g.scale * (top ? topBallScale(g.ball.y) : 1));
+        } else trail.place(i, null, 0);
+      }
+      trail.commit();
     }
-    trail.forEach((m, i) => {
-      const at = t - ((i + 1) * TRAIL_LAG) / TRAIL_N;
-      if (!(at > state.trailFrom)) {
-        m.visible = false;
-        return;
-      }
-      const g = sample(at, camK);
-      m.visible = g.scale > 1e-3;
-      if (m.visible) {
-        m.position.set(g.ball.x, g.ball.y, g.ball.z);
-        m.scale.setScalar(g.scale * (top ? topBallScale(g.ball.y) : 1));
-      }
-    });
     shade.visible = state.shade.opacity > 1e-3;
     shade.position.set(state.shade.x, 0.012, state.shade.z);
     shade.scale.setScalar(Math.max(state.shade.scale, 1e-3));
@@ -773,17 +919,17 @@ export function buildCourtScene(
           if (top) ghostScale.push(topBallScale(g.y));
         }
         ghosts.place(ball.position, ghostAt, top ? ghostScale : undefined);
-      }
-      trail.forEach((m, i) => {
-        const back = ((i + 1) * TRAIL_LAG) / TRAIL_N;
-        const at = t - back;
-        m.visible = at > legStart;
-        if (m.visible) {
-          const p = ghostBall ? ghostBall(at, camK) : rallyAt(at, camK).ball;
-          m.position.set(p.x, p.y, p.z);
-          if (top) m.scale.setScalar(topBallScale(p.y));
+      } else if (trail) {
+        for (let i = 0; i < TRAIL_N; i++) {
+          const back = ((i + 1) * TRAIL_LAG) / TRAIL_N;
+          const at = t - back;
+          if (at > legStart) {
+            const p = ghostBall ? ghostBall(at, camK) : rallyAt(at, camK).ball;
+            trail.place(i, p, top ? topBallScale(p.y) : 1);
+          } else trail.place(i, null, 0);
         }
-      });
+        trail.commit();
+      }
       shade.position.set(state.shade.x, 0.012, state.shade.z);
       shade.scale.setScalar(state.shade.scale);
       shadeMat.opacity = state.shade.opacity;
@@ -795,4 +941,64 @@ export function buildCourtScene(
       overlay.clear();
     },
   };
+}
+
+/**
+ * Bake the scene's direct child meshes that share a material (and shadow
+ * flags and render order) into one mesh each, in world space. For the top
+ * view only: see the note where it is called. Geometries that cannot be
+ * concatenated (different attributes, or not indexed) are left as they were.
+ */
+function mergeTopStatic(
+  scene: THREE.Scene,
+  geo: <G extends THREE.BufferGeometry>(g: G) => G,
+): void {
+  const groups = new Map<string, THREE.Mesh[]>();
+  for (const o of scene.children) {
+    if (!(o instanceof THREE.Mesh) || Array.isArray(o.material)) continue;
+    const key = `${o.material.uuid} ${o.castShadow} ${o.receiveShadow} ${o.renderOrder}`;
+    const list = groups.get(key) ?? [];
+    list.push(o);
+    groups.set(key, list);
+  }
+  for (const meshes of groups.values()) {
+    if (meshes.length < 2) continue;
+    const names = Object.keys(meshes[0]!.geometry.attributes).sort().join();
+    const fits = meshes.every(
+      (m) => m.geometry.index && Object.keys(m.geometry.attributes).sort().join() === names,
+    );
+    if (!fits) continue;
+    const parts = meshes.map((m) => {
+      m.updateMatrix();
+      return m.geometry.clone().applyMatrix4(m.matrix);
+    });
+    const merged = new THREE.BufferGeometry();
+    for (const name of Object.keys(parts[0]!.attributes)) {
+      const size = parts[0]!.getAttribute(name).itemSize;
+      const out = new Float32Array(parts.reduce((n, g) => n + g.getAttribute(name).count * size, 0));
+      let at = 0;
+      for (const g of parts) {
+        const a = g.getAttribute(name).array as ArrayLike<number>;
+        out.set(a, at);
+        at += a.length;
+      }
+      merged.setAttribute(name, new THREE.BufferAttribute(out, size));
+    }
+    const index: number[] = [];
+    let base = 0;
+    for (const g of parts) {
+      const ix = g.index!.array;
+      for (let i = 0; i < ix.length; i++) index.push(ix[i]! + base);
+      base += g.getAttribute('position').count;
+      g.dispose();
+    }
+    merged.setIndex(index);
+    const first = meshes[0]!;
+    const mesh = new THREE.Mesh(geo(merged), first.material);
+    mesh.castShadow = first.castShadow;
+    mesh.receiveShadow = first.receiveShadow;
+    mesh.renderOrder = first.renderOrder;
+    for (const m of meshes) scene.remove(m);
+    scene.add(mesh);
+  }
 }
