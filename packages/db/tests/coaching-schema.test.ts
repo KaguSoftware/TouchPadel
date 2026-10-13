@@ -1110,6 +1110,7 @@ describe.skipIf(!docker)('coaching schema (2a)', () => {
       set('bad_cap', 'owner', '{"coach_max_open_private":0}'),
       set('bad_mode', 'owner', '{"lesson_payment_mode":"cash"}'),
       set('bad_bool', 'owner', '{"coaching_enabled":"yes"}'),
+      X(`update platform_settings set online_payments_live = true where id`),
       set('online_early', 'owner', '{"lesson_payment_mode":"online_optional"}'),
       set(
         'switched_on',

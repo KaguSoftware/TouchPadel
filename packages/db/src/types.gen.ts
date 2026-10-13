@@ -3140,6 +3140,7 @@ export type Database = {
         }
         Returns: number
       }
+      online_payments_live: { Args: never; Returns: boolean }
       open_branch: {
         Args: { p_venue: string }
         Returns: Database["public"]["Tables"]["venues"]["Row"]
@@ -11993,6 +11994,7 @@ export type Database = {
           match_ticket_price_iqd: number
           max_filling_matches_per_guest: number
           max_live_holds_per_guest: number
+          online_payments_live: boolean
           timezone: string
           updated_at: string
         }
@@ -12011,6 +12013,7 @@ export type Database = {
           match_ticket_price_iqd?: number
           max_filling_matches_per_guest?: number
           max_live_holds_per_guest?: number
+          online_payments_live?: boolean
           timezone?: string
           updated_at?: string
         }
@@ -12029,6 +12032,7 @@ export type Database = {
           match_ticket_price_iqd?: number
           max_filling_matches_per_guest?: number
           max_live_holds_per_guest?: number
+          online_payments_live?: boolean
           timezone?: string
           updated_at?: string
         }

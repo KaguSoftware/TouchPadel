@@ -201,6 +201,10 @@ describe('social sign-in library boundary', () => {
   it('reads EXPO_PUBLIC_PHONE_OTP in features/auth/phoneOtp.ts only', () => {
     expect(importers('process.env.EXPO_PUBLIC_PHONE_OTP')).toEqual(['src/features/auth/phoneOtp.ts']);
   });
+
+  it('reads EXPO_PUBLIC_ONLINE_PAYMENTS in features/deposit/enabled.ts only', () => {
+    expect(importers('process.env.EXPO_PUBLIC_ONLINE_PAYMENTS')).toEqual(['src/features/deposit/enabled.ts']);
+  });
 });
 
 describe('expo-gl import boundary (the stale-binary crash)', () => {

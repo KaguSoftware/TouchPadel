@@ -41,6 +41,9 @@ import { takeBookingSheetRequest } from '../features/courtTransition/openIntent'
 import { tournamentKeys } from '../features/tournaments/keys';
 import { parseTournamentsPublic } from '../features/tournaments/logic';
 import PlayScreen from '../../app/(tabs)/play';
+import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
+
+onlinePaymentsOnForFile();
 
 type Seeds = [readonly unknown[], unknown][];
 const TZ = 'Asia/Baghdad';

@@ -47,6 +47,7 @@ import {
 } from './api';
 import { keepsStartKey } from './errors';
 import { matchKeys, type MatchScope } from './keys';
+import { onlinePaymentsShipped } from '../deposit/enabled';
 import {
   guestWindow,
   matchStartIntent,
@@ -195,7 +196,9 @@ export function useMyMatches(scope: MatchScope) {
   return useQuery({
     queryKey: matchKeys.mine(scope),
     queryFn: () => fetchMyMatches(supabase, scope),
-    enabled: !!session,
+    enabled: !!session && onlinePaymentsShipped(),
+    // Store build: nothing cached can show a match either.
+    select: (rows) => (onlinePaymentsShipped() ? rows : rows.slice(0, 0)),
     staleTime: 30_000,
   });
 }

@@ -10,6 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
 import type { Locale } from '@touch/i18n';
+import { onlinePaymentsShipped } from './enabled';
 import {
   DepositEdgeError,
   bodyErrorCode,
@@ -56,6 +57,8 @@ export async function invokeDepositEdge(
   name: DepositEdgeFunction,
   body: Record<string, unknown>,
 ): Promise<unknown> {
+  // Backstop for the store build: no payment call leaves the phone.
+  if (!onlinePaymentsShipped()) throw new DepositEdgeError('PROVIDER_UNAVAILABLE', null, null);
   const { data, error } = await client.functions.invoke(name, { body });
   if (!error) return data;
   const failure = error as { name?: string; context?: unknown };

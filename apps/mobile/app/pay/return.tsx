@@ -7,6 +7,7 @@ import { useAuth } from '../../src/features/auth/context';
 import { dismissPaymentPage } from '../../src/features/deposit/browser';
 import { rememberReturnRef } from '../../src/features/deposit/pendingPayment';
 import { space, useTheme } from '../../src/theme';
+import { withOnlinePaymentsGate } from '../../src/features/deposit/OnlinePaymentsGate';
 
 /**
  * `touchpadel://pay/return?ref=<request_id>` — where Qi's return page sends the
@@ -24,7 +25,7 @@ import { space, useTheme } from '../../src/theme';
  * and replaces this screen with a fresh one when it is not (a cold start from
  * the link). Both land on /pay/status with the ref.
  */
-export default function PayReturnScreen() {
+function PayReturnScreen() {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
@@ -72,3 +73,5 @@ export default function PayReturnScreen() {
     </View>
   );
 }
+
+export default withOnlinePaymentsGate(PayReturnScreen);

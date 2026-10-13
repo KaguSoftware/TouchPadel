@@ -22,6 +22,9 @@ import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { SMOKE_ROUTES } from './routes';
 import RootLayout from '../../app/_layout';
+import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
+
+onlinePaymentsOnForFile();
 
 // Not through `runSmokeCases` (see above), but still the table's row: the
 // coverage test looks for `route: 'app'` in exactly one suite, and the id

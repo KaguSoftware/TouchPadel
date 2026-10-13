@@ -18,6 +18,7 @@ import { useBack } from '../../src/navigation/back';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, ErrorText, FormScreen, MicroLabel, Screen } from '../../src/components/ui';
 import { useToast } from '../../src/components/overlays';
+import { withOnlinePaymentsGate } from '../../src/features/deposit/OnlinePaymentsGate';
 
 const REASON_KEY: Record<ReportReason, MessageKey> = {
   offensive_name: 'matches.report.offensiveName',
@@ -219,10 +220,12 @@ function MatchReportScreen() {
   );
 }
 
-export default function GuardedMatchReportScreen() {
+function GuardedMatchReportScreen() {
   return (
     <RequireSession>
       <MatchReportScreen />
     </RequireSession>
   );
 }
+
+export default withOnlinePaymentsGate(GuardedMatchReportScreen);

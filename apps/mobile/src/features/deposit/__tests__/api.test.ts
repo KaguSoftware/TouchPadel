@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { depositBegin, depositQuote, depositStatus } from '../api';
 import { DepositEdgeError } from '../logic';
+import { onlinePaymentsOn } from '../../../test/onlinePayments';
+
+onlinePaymentsOn();
 
 /**
  * The deposit's three call shapes (build-contracts-2026-09-27 §2.2, §3), on a

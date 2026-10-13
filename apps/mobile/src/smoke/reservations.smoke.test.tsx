@@ -31,6 +31,9 @@ import { profileKeys } from '../features/profile/hooks';
 import BookingsScreen from '../../app/(tabs)/bookings';
 import ProfileScreen from '../../app/(tabs)/profile';
 import BookingHistoryScreen from '../../app/booking-history';
+import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
+
+onlinePaymentsOnForFile();
 
 const VENUE: [readonly unknown[], unknown][] = [
   [availabilityKeys.branches, [branchFixture()]],

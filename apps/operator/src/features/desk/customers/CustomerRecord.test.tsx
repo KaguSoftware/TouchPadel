@@ -20,6 +20,8 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate,
   Link: ({ children }: { children: ReactNode }) => <a href="#">{children}</a>,
 }));
+// Online payments are live in these tests (the paused case is covered in useOnlinePaymentsLive.test.tsx).
+vi.mock('../../deposits/useOnlinePaymentsLive', () => ({ useOnlinePaymentsLive: () => true }));
 vi.mock('../../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
 vi.mock('../../../lib/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),

@@ -504,6 +504,20 @@ export async function readMatchSettings(): Promise<MatchSettingsRow> {
 }
 
 /**
+ * 0340: online money is paused platform-wide until `platform_settings.online_payments_live` is
+ * true. While it is false the settings RPCs refuse matches, online lessons and deposits
+ * (ONLINE_PAYMENTS_PAUSED) and the desk hides those surfaces, so every spec that drives them
+ * switches it on first (the suite exercises the live mode).
+ */
+export async function setOnlinePaymentsLive(live = true): Promise<void> {
+  const { error } = await serviceClient()
+    .from('platform_settings')
+    .update({ online_payments_live: live })
+    .eq('id', true);
+  if (error) throw new Error(`setOnlinePaymentsLive failed: ${error.message}`);
+}
+
+/**
  * Switch open matches on (or off) at the fixture branch the way the owner
  * does (app.set_match_settings), optionally with a fill deadline or a ticket
  * price (the price is every branch's).
@@ -514,6 +528,7 @@ export async function enableMatches(
   const patch: Record<string, unknown> = { matches_enabled: opts.on ?? true };
   if (opts.deadlineMinutes !== undefined) patch.match_fill_deadline_minutes = opts.deadlineMinutes;
   if (opts.ticketPriceIqd !== undefined) patch.match_ticket_price_iqd = opts.ticketPriceIqd;
+  if (opts.on ?? true) await setOnlinePaymentsLive(true);
   const owner = await signedInClient(SEED_STAFF.owner);
   try {
     await appRpc(owner, 'set_match_settings', { p_patch: patch, p_venue_id: FIXTURE_VENUE_ID });
@@ -855,6 +870,7 @@ export type LessonPaymentMode = 'desk' | 'online_optional' | 'online_required';
 export async function enableCoaching(opts: { enabled?: boolean; mode?: LessonPaymentMode } = {}): Promise<void> {
   const patch: Record<string, unknown> = { coaching_enabled: opts.enabled ?? true };
   if (opts.mode) patch.lesson_payment_mode = opts.mode;
+  await setOnlinePaymentsLive(true);
   const owner = await signedInClient(SEED_STAFF.owner);
   try {
     await appRpc(owner, 'set_coaching_settings', { p_venue_id: FIXTURE_VENUE_ID, p_patch: patch });

@@ -42,6 +42,7 @@ import { usePlaySurveyPrompt } from '../src/features/playProfile/usePlaySurveyPr
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { usePendingPaymentResume } from '../src/features/deposit/hooks';
+import { onlinePaymentsShipped } from '../src/features/deposit/enabled';
 import { matchKeys } from '../src/features/matches/keys';
 import { coachingKeys } from '../src/features/coaching/keys';
 import { tournamentKeys } from '../src/features/tournaments/keys';
@@ -478,9 +479,10 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
         staffStatus: settledStaffStatus,
         // Already reading it: the notice below refreshes it in place, no second copy.
         onOpenMatch: (id) => {
-          if (!isOnScreen('match/[id]', id)) router.push({ pathname: '/match/[id]', params: { id } });
+          if (!onlinePaymentsShipped()) router.push('/(tabs)');
+          else if (!isOnScreen('match/[id]', id)) router.push({ pathname: '/match/[id]', params: { id } });
         },
-        onOpenTickets: () => router.push('/tickets'),
+        onOpenTickets: () => router.push(onlinePaymentsShipped() ? '/tickets' : '/(tabs)'),
         onMatchNotice: () => void queryClient.invalidateQueries({ queryKey: matchKeys.all }),
         onOpenLesson: (id) => {
           if (!isOnScreen('lesson/[id]', id)) router.push({ pathname: '/lesson/[id]', params: { id } });

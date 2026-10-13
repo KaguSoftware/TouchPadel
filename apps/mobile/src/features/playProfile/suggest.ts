@@ -29,6 +29,7 @@
  * (`available`) sinks below every kind it has, in the same relative order.
  */
 import type { PlayAnswers, PlayLevel, PlayWant, PlayYears } from './logic';
+import { onlinePaymentsShipped } from '../deposit/enabled';
 
 export const SUGGESTION_KINDS = ['matches', 'americano', 'coaches', 'classes', 'mexicano'] as const;
 /**
@@ -129,7 +130,9 @@ export function suggest(
         reason = rule.reason;
       }
     }
-    return { kind, reason, score, available: available?.[kind] ?? true, order };
+    // Store build: open matches are not shipped, so they are never suggested.
+    const offered = kind === 'matches' && !onlinePaymentsShipped() ? false : (available?.[kind] ?? true);
+    return { kind, reason, score, available: offered, order };
   });
 
   ranked.sort((a, b) => {

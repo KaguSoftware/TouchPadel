@@ -20,6 +20,8 @@ vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'm1' }),
   useSearch: () => search,
 }));
+// Online payments are live in these tests (the paused case is covered in useOnlinePaymentsLive.test.tsx).
+vi.mock('../deposits/useOnlinePaymentsLive', () => ({ useOnlinePaymentsLive: () => true }));
 vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
 vi.mock('../../lib/realtime', () => ({ useBroadcast: vi.fn() }));
 vi.mock('../../lib/queries', async (importOriginal) => ({

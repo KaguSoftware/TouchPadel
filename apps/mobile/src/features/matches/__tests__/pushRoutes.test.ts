@@ -13,6 +13,9 @@ import {
 import { LESSON_PUSH_KINDS, LESSON_PUSH_ROUTES } from '../../coaching/pushRoutes';
 import { TOURNAMENT_PUSH_KINDS, TOURNAMENT_PUSH_ROUTES } from '../../tournaments/pushRoutes';
 import { isGuestTap, isStaffTap, tapDestination } from '../../profile/pushSync';
+import { onlinePaymentsOn } from '../../../test/onlinePayments';
+
+onlinePaymentsOn();
 
 /**
  * Open-match push taps (docs/design/open-matches/guest.md §4.21). The routes

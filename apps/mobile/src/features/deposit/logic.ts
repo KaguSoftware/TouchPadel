@@ -13,6 +13,7 @@
  */
 import type { BookingRow } from '../booking/logic';
 import { isTransportError } from '../../lib/network';
+import { onlinePaymentsShipped } from './enabled';
 
 // ── Server vocabulary ───────────────────────────────────────────────────────
 
@@ -138,6 +139,8 @@ export type ReviewPayment =
  * Review refetches the quote into the pay-only layout (plan §10 row 44).
  */
 export function reviewPayment(quote: DepositQuote | undefined, failed: boolean): ReviewPayment {
+  // Store build: no online payment whatever the venue's deposit mode says.
+  if (!onlinePaymentsShipped()) return { kind: 'off' };
   if (!quote) return failed ? { kind: 'off' } : { kind: 'loading' };
   if (quote.mode === 'off') return { kind: 'off' };
   return {

@@ -11,6 +11,7 @@ import type { opErrorsCoachingEn } from './opErrors.coaching.en';
  * (C-30, R55).
  */
 export const opErrorsCoachingAr: DeepMessages<typeof opErrorsCoachingEn> = {
+  ONLINE_PAYMENTS_PAUSED: 'المدفوعات الإلكترونية متوقفة مؤقتًا. لا يمكن تفعيل هذا الإعداد حاليًا.',
   ONLINE_PAYMENT_OFF: 'الدفع الإلكتروني للحصص غير متاح هنا.',
   STATEMENT_NOT_DRAFT: 'لم يعد هذا الكشف مسودة.',
   LESSON_VIA_COACHING: 'هذا الملعب محجوز لحصة، وتُعدَّل من صفحة الحصة نفسها.',

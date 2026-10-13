@@ -34,6 +34,9 @@ import {
   type PayScreenKind,
   type PaymentStatus,
 } from '../logic';
+import { onlinePaymentsOn } from '../../../test/onlinePayments';
+
+onlinePaymentsOn();
 
 /**
  * The online deposit's pure half (build-contracts-2026-09-27; plan §5.3, §11

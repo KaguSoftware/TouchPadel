@@ -11,6 +11,7 @@ import { useCancelReservation, useReservation } from '../../src/features/booking
 import { canCancel, dayPart, displayRef, endedNotice, isCourtFeePaid } from '../../src/features/booking/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { onlinePaymentOf, openPaymentRef, refundDetailKey } from '../../src/features/deposit/logic';
+import { onlinePaymentsShipped } from '../../src/features/deposit/enabled';
 import {
   useAllCourts,
   useCourtsBroadcast,
@@ -134,8 +135,9 @@ function BookingDetailScreen() {
   const price = booking ? formatPrice(booking.price_iqd, locale) : null;
   // The online deposit (build-contracts-2026-09-27 §2.2): what was paid in the
   // app, a payment still open on a hold, and a deposit on its way back.
-  const online = booking ? onlinePaymentOf(booking) : null;
-  const paymentRef = booking ? openPaymentRef(booking) : null;
+  const shipped = onlinePaymentsShipped();
+  const online = booking && shipped ? onlinePaymentOf(booking) : null;
+  const paymentRef = booking && shipped ? openPaymentRef(booking) : null;
   const refundKey = booking ? refundDetailKey(booking) : null;
   const money = (n: number) => isolate(formatIQD(n, locale));
   const cardPad = { paddingTop: 13, paddingBottom: 13, paddingStart: space.m, paddingEnd: space.m };

@@ -30,6 +30,7 @@ import {
   serviceClient,
   signedInClient,
   stackAvailable,
+  setOnlinePaymentsLive,
 } from './helpers';
 import { dockerReachable, psql } from './stores-harness';
 
@@ -69,6 +70,7 @@ end $f$;`;
 describe.skipIf(!docker)('0260 ticket helpers on committed tickets: ownership (R17), deleted holders (R18), the ledger', () => {
   let svc: SupabaseClient;
   let owner: SupabaseClient;
+  let wasLive = false;
   let savedEnabled: boolean;
   let court: string;
   const touched = new Set<string>();
@@ -114,6 +116,7 @@ describe.skipIf(!docker)('0260 ticket helpers on committed tickets: ownership (R
     const s = await rpc(owner, 'match_settings', { p_venue_id: VENUE_A_ID });
     expect(s.ok, s.code).toBe(true);
     savedEnabled = (s.data as Json).matches_enabled as boolean;
+    wasLive = await setOnlinePaymentsLive(true);
     expect((await rpc(owner, 'set_match_settings', { p_patch: { matches_enabled: true }, p_venue_id: VENUE_A_ID })).ok).toBe(true);
     court = await createTestCourt(svc, `m259 tickets ${Date.now()}`);
   });
@@ -121,6 +124,7 @@ describe.skipIf(!docker)('0260 ticket helpers on committed tickets: ownership (R
   afterAll(async () => {
     if (!owner || savedEnabled === undefined) return;
     await rpc(owner, 'set_match_settings', { p_patch: { matches_enabled: savedEnabled }, p_venue_id: VENUE_A_ID });
+    await setOnlinePaymentsLive(wasLive);
   });
 
   // money.md §9: the ledger holds after every step, for every guest touched.

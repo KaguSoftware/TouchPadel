@@ -10,6 +10,9 @@ import {
 } from '../pendingJoin';
 import { clearPendingIntents, hasPendingIntent } from '../../booking/pendingIntent';
 import { clearPendingSlot, getPendingSlot, setPendingSlot } from '../../booking/pendingSlot';
+import { onlinePaymentsOn } from '../../../test/onlinePayments';
+
+onlinePaymentsOn();
 
 /**
  * The open-match intent carried across sign-in (docs/design/open-matches/guest.md

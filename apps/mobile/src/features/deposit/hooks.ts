@@ -23,6 +23,7 @@ import { coachingKeys } from '../coaching/keys';
 import { depositBegin, depositQuote, depositStatus } from './api';
 import { openPaymentPage } from './browser';
 import { depositKeys } from './keys';
+import { onlinePaymentsShipped } from './enabled';
 import {
   fetchFailureOf,
   isPollingScreen,
@@ -218,6 +219,8 @@ export async function forgetPendingPayment(userId: string, ref?: string): Promis
  *   null         nothing to resume; carry on as before
  */
 export async function findPaymentToResume(): Promise<string | 'claimed' | null> {
+  // Store build: no payment is ever running, so there is nothing to reopen.
+  if (!onlinePaymentsShipped()) return null;
   let userId: string | null = null;
   try {
     const { data } = await supabase.auth.getSession();
@@ -260,6 +263,7 @@ export function usePendingPaymentResume(): void {
   const ready = Boolean(useRootNavigationState()?.key);
 
   useEffect(() => {
+    if (!onlinePaymentsShipped()) return;
     if (!userId || !ready || checkedUsers.has(userId) || !isResumeSafePath(pathname)) return;
     checkedUsers.add(userId);
     void (async () => {

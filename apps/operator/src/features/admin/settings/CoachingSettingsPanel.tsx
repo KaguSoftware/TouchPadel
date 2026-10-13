@@ -27,6 +27,7 @@ import { useToast } from '../../../components/toast';
 import { Switch } from '../../../components/Switch';
 import { Button, ErrorText, Field, Skeleton, inputStyle } from '../../../components/ui';
 import { MessagePresenter, Panel, SegmentedControl, StatusBadge } from '../../../components/kit';
+import { useOnlinePaymentsLive } from '../../deposits/useOnlinePaymentsLive';
 import { LessonReadNotice } from '../../coaching/LessonReadNotice';
 import { coachingErrorText } from '../../coaching/lessonLogic';
 import {
@@ -222,13 +223,19 @@ function CoachingSettingsForm({ saved }: { saved: CoachingSettings }) {
     setServerField(null);
   }
 
-  const modeOptions = LESSON_PAYMENT_MODES.map((m: LessonPaymentMode) => ({
+  // Online payments are paused until the provider is live: only desk payment
+  // is offered (a saved online mode stays shown so the control tells the truth).
+  const onlineLive = useOnlinePaymentsLive();
+  const modeOptions = LESSON_PAYMENT_MODES.filter(
+    (m: LessonPaymentMode) => onlineLive || !isOnlineMode(m) || m === saved.lesson_payment_mode,
+  ).map((m: LessonPaymentMode) => ({
     value: m,
     label: tr(`ws.coaching.common.lessonPaymentMode.${m}`),
     // The saved mode stays choosable even if a rule changed under it.
     disabled:
       save.isPending || (isOnlineMode(m) && blocked.length > 0 && m !== saved.lesson_payment_mode),
   }));
+  const deskOnly = modeOptions.length === 1;
   const fieldRefused =
     save.error != null &&
     save.error instanceof AppRpcError &&
@@ -260,13 +267,19 @@ function CoachingSettingsForm({ saved }: { saved: CoachingSettings }) {
           group
           style={{ marginBlockEnd: 0 }}
         >
-          <SegmentedControl<LessonPaymentMode>
-            value={draft.paymentMode}
-            onChange={(v) => set('paymentMode', v)}
-            options={modeOptions}
-          />
+          {deskOnly ? (
+            <span data-testid="payment-mode-desk-only" style={{ fontSize: 'var(--tp-fs-sm)' }}>
+              {modeOptions[0]?.label}
+            </span>
+          ) : (
+            <SegmentedControl<LessonPaymentMode>
+              value={draft.paymentMode}
+              onChange={(v) => set('paymentMode', v)}
+              options={modeOptions}
+            />
+          )}
         </Field>
-        {blocked.length > 0 && (
+        {onlineLive && blocked.length > 0 && (
           <ul
             data-testid="online-mode-block"
             style={{

@@ -1,5 +1,13 @@
 # Online deposit (Qi Card): the activation runbook
 
+> **Paused 2026-10-13.** Online payment and open matches are paused: Qi is delayed, so the store build
+> ships without them. The lock is `platform_settings.online_payments_live` (migration 0340, false). While
+> it is false the owner cannot switch on online deposits, online lesson payment or open matches
+> (`ONLINE_PAYMENTS_PAUSED`), and 0340 switched every branch off. No RPC or screen sets the flag.
+> To re-enable: set the Qi secrets and `PAYMENTS_PROVIDER`; ship a migration that sets
+> `online_payments_live = true`; set `EXPO_PUBLIC_ONLINE_PAYMENTS=on` in the mobile production profile;
+> ship an operator tag; submit the app update with review notes.
+
 Guests can pay a deposit on a court booking in the app, on Qi Card's own payment page. Everything is built
 and tested, and it stays switched off until the steps below are done. Nothing a guest sees changes until
 §D, when the owner turns it on in Settings.

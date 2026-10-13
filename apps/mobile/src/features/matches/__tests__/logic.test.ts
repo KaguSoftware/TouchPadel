@@ -33,6 +33,9 @@ import {
 import { mergeReservationLists } from '../reservations';
 import type { BookingRow } from '../../booking/logic';
 import { myMatchRowFixture } from '../../../test/fixtures';
+import { onlinePaymentsOn } from '../../../test/onlinePayments';
+
+onlinePaymentsOn();
 
 /**
  * The pure half of open matches (docs/design/open-matches/guest.md §4.3,

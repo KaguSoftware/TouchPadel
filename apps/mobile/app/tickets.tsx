@@ -32,6 +32,7 @@ import { radius, space, useTheme } from '../src/theme';
 import { Button, Card, ErrorText, Hint, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
 import { ChevronIcon } from '../src/components/icons';
 import { ErrorState, SkeletonList } from '../src/components/states';
+import { withOnlinePaymentsGate } from '../src/features/deposit/OnlinePaymentsGate';
 
 /** "How tickets work" (guest.md §4.10.1), in order. */
 const RULES: readonly MessageKey[] = [
@@ -428,10 +429,12 @@ function TicketsScreen() {
 }
 
 /** Signed-in only: a wallet belongs to an account (RequireSession). */
-export default function GuardedTicketsScreen() {
+function GuardedTicketsScreen() {
   return (
     <RequireSession>
       <TicketsScreen />
     </RequireSession>
   );
 }
+
+export default withOnlinePaymentsGate(GuardedTicketsScreen);

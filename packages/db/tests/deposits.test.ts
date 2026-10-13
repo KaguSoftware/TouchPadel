@@ -27,6 +27,7 @@ import {
   SEED_STAFF,
   DEV_PINS,
   VENUE_A_ID,
+  setOnlinePaymentsLive,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -111,7 +112,10 @@ describe.skipIf(!up)('0242 online deposits', () => {
     return data as Json;
   };
 
+  let wasLive = false;
+
   beforeAll(async () => {
+    wasLive = await setOnlinePaymentsLive(true);
     svc = serviceClient();
     owner = await signedInClient(SEED_STAFF.owner);
     manager = await signedInClient(SEED_STAFF.manager);
@@ -145,6 +149,7 @@ describe.skipIf(!up)('0242 online deposits', () => {
     if (!owner || !saved) return;
     const { venue_id: _v, ...rules } = saved;
     await appRpc(owner, 'set_deposit_settings', { p_patch: rules, p_venue_id: VENUE_A_ID });
+    await setOnlinePaymentsLive(wasLive);
   });
 
   // ── 0267: the signed payment id is the row's own ─────────────────────────
