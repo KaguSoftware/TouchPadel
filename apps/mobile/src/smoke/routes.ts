@@ -48,6 +48,7 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'verify-otp.tsx', route: 'verify-otp', primary: 'verify-otp.continue' },
   { file: 'verify-result.tsx', route: 'verify-result', primary: 'verify-result.continue' },
   { file: 'phone-sign-in.tsx', route: 'phone-sign-in', primary: 'phone-sign-in.send-code' },
+  { file: 'auth-callback.tsx', route: 'auth-callback', primary: 'auth-callback.waiting' },
   { file: 'complete-profile.tsx', route: 'complete-profile', primary: 'complete-profile.submit' },
   // ── tabs ──────────────────────────────────────────────────────────────────
   { file: '(tabs)/_layout.tsx', route: 'tabs', primary: 'tabs.book' },

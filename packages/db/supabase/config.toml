@@ -53,13 +53,15 @@ enabled = true
 site_url = "http://localhost:3000"
 # The mobile app's auth emails redirect to its custom scheme; a target that is
 # not listed here is silently replaced by site_url, which on a phone means the
-# browser lands on a localhost port nothing is serving. The HOSTED project needs
-# the same two entries under Auth -> URL Configuration — this file only governs
-# `supabase start`.
+# browser lands on a localhost port nothing is serving. auth-callback is where
+# Google sign-in in the browser returns (the Android fallback, 2026-10-13). The
+# HOSTED project needs the same three entries under Auth -> URL Configuration —
+# this file only governs `supabase start`.
 additional_redirect_urls = [
   "https://localhost:3000",
   "touchpadel://verify-email",
   "touchpadel://reset-password",
+  "touchpadel://auth-callback",
 ]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true

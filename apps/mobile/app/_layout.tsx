@@ -323,6 +323,10 @@ function RootStack() {
           screen carries its own RequireSession, like the screens above. */}
           <Stack.Screen name="pay/return" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="pay/status" />
+          {/* Google sign-in in the browser comes back here (the Android
+          fallback, src/features/auth/providers/googleWeb.ts). It lives a frame
+          and steps back to the sign-in underneath, so it draws no bar. */}
+          <Stack.Screen name="auth-callback" options={{ headerShown: false, animation: 'none' }} />
           {/* Open matches (docs/design/open-matches/guest.md §4.12–§4.18; the
           list is the Play tab since 2026-10-11): a stack of its own with its
           own native bar, so the bar and its back button leave with the page at

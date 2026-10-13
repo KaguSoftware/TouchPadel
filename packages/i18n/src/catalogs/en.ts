@@ -160,6 +160,10 @@ export const en = {
     // button self-localises; continueWithApple is its busy-placeholder a11y label.
     continueWithGoogle: 'Continue with Google',
     continueWithApple: 'Continue with Apple',
+    // Android, under the Google button once the phone's own Google sheet was closed:
+    // Google's page in the browser, for phones whose Play services cannot sign in.
+    continueWithGoogleInBrowser: 'Trouble with Google? Continue in your browser',
+    signingIn: 'Signing you in…',
     completeProfileTitle: 'Complete profile',
     completeProfileBody: 'One last step before you book. We need a phone number the desk can reach you on.',
     phoneRationale: 'The desk calls this number about your booking.',

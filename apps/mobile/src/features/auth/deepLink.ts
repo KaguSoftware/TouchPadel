@@ -107,6 +107,17 @@ export function isRecoveryLink(link: AuthLink): boolean {
   return link.path === 'reset-password';
 }
 
+/**
+ * Where GoTrue sends the browser back after Google sign-in in the browser
+ * (providers/googleWeb.ts, the Android fallback): touchpadel://auth-callback?code=…
+ * Allow-listed on the project like the two email paths.
+ */
+export const OAUTH_CALLBACK_PATH = 'auth-callback';
+
+export function isOAuthCallback(link: AuthLink): boolean {
+  return link.path === OAUTH_CALLBACK_PATH;
+}
+
 export type AuthLinkErrorKey = 'auth.linkExpired' | 'auth.linkInvalid';
 
 /**
