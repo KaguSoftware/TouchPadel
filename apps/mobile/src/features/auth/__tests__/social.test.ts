@@ -6,12 +6,15 @@ import {
   bookingGateState,
   buildProfilePatch,
   firstGoogleAttempt,
+  googleBrowserFallback,
+  googleStartsInBrowser,
   hasVerifiedPhone,
   isGoogleClientId,
   makeNonce,
   mapSocialError,
   needsProfileCompletion,
   nextGoogleStep,
+  oauthCallbackOutcome,
   postSignInStep,
   prefillDisplayName,
   profileGateState,
@@ -338,5 +341,69 @@ describe('postSignInStep', () => {
   it('fails open when there is no row to judge', () => {
     expect(postSignInStep(null, false)).toBe('continue');
     expect(postSignInStep(undefined, true)).toBe('continue');
+  });
+});
+
+describe('googleBrowserFallback', () => {
+  const err = (code: ConstructorParameters<typeof SocialAuthError>[0]) => new SocialAuthError(code, 'google');
+
+  it('opens the browser on an Android failure the guest did not choose', () => {
+    for (const code of ['PLAY_SERVICES_NOT_AVAILABLE', 'DEVELOPER_ERROR', 'NO_ID_TOKEN', 'FAILED'] as const) {
+      expect(googleBrowserFallback(err(code), 'android')).toBe('auto');
+    }
+  });
+
+  it('only offers the browser after a cancel (a dismissal and a broken sheet look the same)', () => {
+    expect(googleBrowserFallback(err('CANCELLED'), 'android')).toBe('offer');
+  });
+
+  it('does nothing for a double tap or a build without a Google client', () => {
+    expect(googleBrowserFallback(err('IN_PROGRESS'), 'android')).toBe('none');
+    expect(googleBrowserFallback(err('UNAVAILABLE'), 'android')).toBe('none');
+  });
+
+  it('never applies on iOS, or to an error the adapter did not translate', () => {
+    expect(googleBrowserFallback(err('FAILED'), 'ios')).toBe('none');
+    expect(googleBrowserFallback(err('CANCELLED'), 'ios')).toBe('none');
+    expect(googleBrowserFallback(new Error('boom'), 'android')).toBe('none');
+  });
+});
+
+describe('oauthCallbackOutcome', () => {
+  it('hands the code on', () => {
+    expect(oauthCallbackOutcome({ kind: 'pkce', path: 'auth-callback', code: 'abc' })).toEqual({
+      kind: 'code',
+      code: 'abc',
+    });
+  });
+
+  it('reads a closed browser and a Cancel on Google consent as a cancel', () => {
+    expect(oauthCallbackOutcome(null)).toEqual({ kind: 'cancelled' });
+    expect(
+      oauthCallbackOutcome({ kind: 'error', path: 'auth-callback', code: 'access_denied', description: null }),
+    ).toEqual({ kind: 'cancelled' });
+  });
+
+  it('reads any other refusal as a failure', () => {
+    expect(
+      oauthCallbackOutcome({ kind: 'error', path: 'auth-callback', code: 'server_error', description: 'x' }),
+    ).toEqual({ kind: 'failed', detail: 'server_error' });
+  });
+});
+
+describe('googleStartsInBrowser', () => {
+  it('sends a Huawei-made Android phone to the browser, whatever the casing', () => {
+    expect(googleStartsInBrowser('android', 'HUAWEI')).toBe(true);
+    expect(googleStartsInBrowser('android', 'Huawei')).toBe(true);
+  });
+
+  it('keeps every other maker on the phone sheet, a post-split Honor included', () => {
+    for (const maker of ['samsung', 'Xiaomi', 'Google', 'HONOR', 'OnePlus', '', null, undefined]) {
+      expect(googleStartsInBrowser('android', maker)).toBe(false);
+    }
+  });
+
+  it('never applies off Android', () => {
+    expect(googleStartsInBrowser('ios', 'HUAWEI')).toBe(false);
   });
 });

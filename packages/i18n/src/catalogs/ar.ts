@@ -141,6 +141,8 @@ export const ar: Messages = {
     // تسجيل الدخول عبر Apple / Google (إضافة من المورّد 2026-09-01). أسماء العلامات تبقى بالحروف اللاتينية.
     continueWithGoogle: 'المتابعة باستخدام Google',
     continueWithApple: 'المتابعة باستخدام Apple',
+    continueWithGoogleInBrowser: 'تواجه مشكلة مع Google؟ تابع في المتصفح',
+    signingIn: 'جارٍ تسجيل دخولك…',
     completeProfileTitle: 'إكمال الملف الشخصي',
     completeProfileBody: 'خطوة أخيرة قبل الحجز. نحتاج إلى رقم هاتف يمكن لموظفي الاستقبال الاتصال بك عليه.',
     phoneRationale: 'يتصل بك موظفو الاستقبال على هذا الرقم بشأن حجزك.',

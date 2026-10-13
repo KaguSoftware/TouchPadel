@@ -5,15 +5,23 @@
  * either the complete-profile step (D3: no phone yet) or the SAME post-auth
  * continuation the email path uses (welcome-back toast + continueAfterAuth).
  *
+ * Android Google has a second way in: Google's page in the browser
+ * (./providers/googleWeb.ts), first on a Huawei (googleStartsInBrowser), taken
+ * when the phone's sheet fails and offered when it is closed (social.ts,
+ * googleBrowserFallback). It ends in a session like the id-token grant and
+ * runs the same steps after it.
+ *
  * The provider SDKs are behind ./providers/*; everything decidable without them
  * is in ./social.ts and unit-tested there.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import type { User } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { isolate } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
-import { addBreadcrumb, captureException } from '../../lib/telemetry';
+import { addBreadcrumb, captureException, captureMessage } from '../../lib/telemetry';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { fetchOwnProfile, updateOwnProfile } from '../profile/api';
 import { profileKeys } from '../profile/hooks';
@@ -26,6 +34,8 @@ import {
   PROVIDER_LABEL,
   SocialAuthError,
   buildProfilePatch,
+  googleBrowserFallback,
+  googleStartsInBrowser,
   mapSocialError,
   postSignInStep,
   refusesSocialSignIn,
@@ -34,6 +44,43 @@ import {
 import { newNonce } from './providers/nonce';
 import { appleSignInExpected, isAppleSignInAvailable, requestAppleCredential } from './providers/apple';
 import { isGoogleSignInAvailable, requestGoogleIdToken } from './providers/google';
+import { signInWithGoogleInBrowser } from './providers/googleWeb';
+
+/** `browser`: Google's sign-in page instead of the phone's sheet (Android fallback, social.ts). */
+export type GoogleVia = 'native' | 'browser';
+
+/** The phone's maker, as Android reports it ("HUAWEI", "samsung", "Xiaomi"). */
+const MANUFACTURER = Platform.OS === 'android' ? Platform.constants.Manufacturer : undefined;
+
+/**
+ * Google through the phone's sheet, or its page in the browser. A Huawei goes
+ * to the browser first (googleStartsInBrowser). A native failure the guest did
+ * not choose goes straight on to the browser; a cancel calls `onOffer` so the
+ * screen can show the browser link (googleBrowserFallback).
+ */
+async function signInWithGoogle(via: GoogleVia, onOffer: () => void): Promise<User | null> {
+  if (via === 'browser' || googleStartsInBrowser(Platform.OS, MANUFACTURER)) {
+    return signInWithGoogleInBrowser();
+  }
+  const nonce = await newNonce();
+  let token: string;
+  try {
+    token = (await requestGoogleIdToken(nonce.hashed)).idToken;
+  } catch (error) {
+    const fallback = googleBrowserFallback(error, Platform.OS);
+    if (fallback === 'offer') onOffer();
+    if (fallback !== 'auto') throw error;
+    // How many guests the phone's sheet fails, and why: a rise on one build
+    // is a client or SHA-1 problem, a steady trickle is phones like GBox ones.
+    captureMessage('auth.google.browserFallback', 'warning', {
+      code: error instanceof SocialAuthError ? error.code : undefined,
+    });
+    return signInWithGoogleInBrowser();
+  }
+  // RAW nonce here — GoTrue hashes it and compares with the token's claim.
+  const { user } = await signInWithIdToken(supabase, { provider: 'google', token, nonce: nonce.raw });
+  return user;
+}
 
 export interface SocialAvailability {
   apple: boolean;
@@ -47,7 +94,9 @@ export interface UseSocialSignIn {
   busyProvider: SocialProvider | null;
   errorText: string | null;
   clearError: () => void;
-  signInWith: (provider: SocialProvider) => Promise<void>;
+  /** Android, after the phone's Google sheet was closed: offer Google in the browser. */
+  googleBrowserOffer: boolean;
+  signInWith: (provider: SocialProvider, via?: GoogleVia) => Promise<void>;
 }
 
 export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boolean }): UseSocialSignIn {
@@ -66,6 +115,7 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
   }));
   const [busyProvider, setBusyProvider] = useState<SocialProvider | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [googleBrowserOffer, setGoogleBrowserOffer] = useState(false);
   const busyRef = useRef(false);
 
   useEffect(() => {
@@ -80,29 +130,31 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
   }, []);
 
   const signInWith = useCallback(
-    async (provider: SocialProvider) => {
+    async (provider: SocialProvider, via: GoogleVia = 'native') => {
       if (busyRef.current || disabled) return;
       busyRef.current = true;
       setBusyProvider(provider);
       setErrorText(null);
-      addBreadcrumb('auth.social.start', { provider });
+      addBreadcrumb('auth.social.start', { provider, via });
       // Until the staff check below has answered, an active staff row reads as
       // a guest: nothing routes to Today, or writes the staff hint, on the way.
       holdStaffStatus(true);
       try {
-        const nonce = await newNonce();
-        let token: string;
+        let user: User | null;
         let fullName: string | null = null;
         if (provider === 'apple') {
+          const nonce = await newNonce();
           const credential = await requestAppleCredential(nonce.hashed);
-          token = credential.identityToken;
           fullName = credential.fullName;
+          // RAW nonce here — GoTrue hashes it and compares with the token's claim.
+          ({ user } = await signInWithIdToken(supabase, {
+            provider,
+            token: credential.identityToken,
+            nonce: nonce.raw,
+          }));
         } else {
-          const credential = await requestGoogleIdToken(nonce.hashed);
-          token = credential.idToken;
+          user = await signInWithGoogle(via, () => setGoogleBrowserOffer(true));
         }
-        // RAW nonce here — GoTrue hashes it and compares with the token's claim.
-        const { user } = await signInWithIdToken(supabase, { provider, token, nonce: nonce.raw });
 
         // Staff sign in with email and password only (build-contracts §6.6).
         // GoTrue links a provider to an account with the same verified email, so
@@ -201,5 +253,5 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
 
   const clearError = useCallback(() => setErrorText(null), []);
 
-  return { available, busyProvider, errorText, clearError, signInWith };
+  return { available, busyProvider, errorText, clearError, googleBrowserOffer, signInWith };
 }
