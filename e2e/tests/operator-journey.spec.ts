@@ -38,6 +38,16 @@ const TILL_TABLE = fixtureTableId(8); // T8
 // and every lookup below would miss it.
 const WALKIN_NAME = 'Playwright Walk-in';
 
+/**
+ * The basket opens by default and opens again whenever a line lands (39c53043), and open it
+ * covers the item tiles at the CI viewport. Fold it before reaching for a tile.
+ */
+async function foldBasket(page: Page): Promise<void> {
+  const hide = page.getByRole('button', { name: 'Hide the basket lines' });
+  if (await hide.isVisible()) await hide.click();
+  await expect(page.getByRole('button', { name: 'Show the basket lines' })).toBeVisible();
+}
+
 async function signIn(page: Page, email: string) {
   await page.goto(OPERATOR_URL);
   await page.getByLabel('Email').fill(email);
@@ -161,6 +171,7 @@ test.describe('operator journeys', () => {
     // ---- item 1: Cappuccino (Regular) + Oat Milk modifier -----------------
     // Leftover db-test categories can sort ahead of the fixtures — pick the
     // fixture category explicitly before reaching for its items.
+    await foldBasket(page);
     await page.getByRole('button', { name: /Hot Drinks/ }).click();
     await page.getByRole('button', { name: /^Cappuccino/ }).click();
     const capp = page.getByRole('dialog', { name: 'Cappuccino' });
@@ -170,6 +181,7 @@ test.describe('operator journeys', () => {
     await expect(capp).toBeHidden();
 
     // ---- item 2: Turkish Coffee (two sizes → the sheet still opens) -------
+    await foldBasket(page);
     await page.getByRole('button', { name: /^Turkish Coffee/ }).click();
     const turk = page.getByRole('dialog', { name: 'Turkish Coffee' });
     await turk.getByRole('button', { name: 'Add', exact: true }).click();
@@ -177,12 +189,10 @@ test.describe('operator journeys', () => {
 
     // ---- quick-add: Kunafa (one size, no modifiers) skips the sheet, and
     // the new basket ± controls bump and remove the line ---------------------
+    await foldBasket(page);
     await page.getByRole('button', { name: /Desserts/ }).click();
     await page.getByRole('button', { name: /^Kunafa/ }).click();
-    // The basket starts short, its lines folded away so the item grid keeps the
-    // screen. Opened only now: open, it takes the grid's room, and the tiles
-    // above are needed until the last item is in.
-    await page.getByRole('button', { name: 'Show the basket lines' }).click();
+    // A landing line opens the basket again, so its lines are already showing.
     await expect(page.getByText('1× Kunafa (Regular)')).toBeVisible();
     await page.getByRole('button', { name: '+1' }).last().click();
     await expect(page.getByText('2× Kunafa (Regular)')).toBeVisible();

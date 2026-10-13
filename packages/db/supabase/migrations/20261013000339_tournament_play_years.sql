@@ -94,7 +94,7 @@ begin
   if jsonb_typeof(p_record->'class') is distinct from 'string' or p_record->>'class' not in ('A', 'B', 'C') then
     raise exception 'RECORD_INVALID' using errcode = 'P0001', hint = 'class';
   end if;
-  -- 0339: the players' years bracket, optional (a plan started before it has
+  -- 0339: the playing-years bracket, optional (a plan started before it has
   -- none, and a tournament without one asks nothing about years).
   if p_record->'play_years' is not null and p_record->'play_years' <> 'null'::jsonb
      and (jsonb_typeof(p_record->'play_years') <> 'string'

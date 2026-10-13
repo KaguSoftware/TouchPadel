@@ -239,6 +239,9 @@ test.describe('operator tournaments', () => {
     });
     // Nine guests: eight fill the field (capacity 8), the ninth waits.
     players = await seedMatchPlayers(svc, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']);
+    // 0339: registering needs a play level that fits the class (these plans are class B).
+    for (const p of players)
+      await appRpc(p.client, 'set_my_play_profile', { p_level: 'intermediate' });
   });
 
   test.afterAll(async () => {
