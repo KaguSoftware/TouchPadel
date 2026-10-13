@@ -45,6 +45,16 @@ describe('normaliseIncomingPath', () => {
     expect(normaliseIncomingPath('/ar/m/short')).toBe('/m/short');
   });
 
+  it.each([
+    'https://www.touch-padel.com/m/../../delete-account',
+    '/m/../../delete-account',
+    'touchpadel://m/../settings',
+    '/m/token/extra',
+    '/en/m/..%2f..%2fx',
+  ])('neutralises a traversal / extra-segment link to a bare /m/ (LOW-2): %s', (path) => {
+    expect(normaliseIncomingPath(path)).toBe('/m/');
+  });
+
   it('is what +native-intent hands the router', () => {
     expect(redirectSystemPath({ path: `/en/m/${TOKEN}`, initial: true })).toBe(`/m/${TOKEN}`);
     expect(redirectSystemPath({ path: 'touchpadel://pay/return?ref=r', initial: false })).toBe(
