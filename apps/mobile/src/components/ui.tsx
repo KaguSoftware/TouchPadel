@@ -39,6 +39,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../i18n/LocaleProvider';
 import { useReduceMotion } from '../lib/useReduceMotion';
 import { brand, radius, shadows, space, useTheme } from '../theme';
+import { BlurTargetView, BlurView } from 'expo-blur';
+import { BrandPattern } from './BrandPattern';
 import { fieldKeyboardDefaults } from './fieldKeyboard';
 import { TitleSquiggle } from './icons';
 import { insetStart, isFrame, type Frame } from './segmentedThumb';
@@ -57,16 +59,28 @@ export type ScreenEdge = 'top' | 'bottom';
  * A screen UNDER A NATIVE HEADER must pass `edges={[]}` (or omit 'top'): the
  * bar already consumes the status-bar inset, so keeping the top padding here
  * applies it twice and pushes the page down by ~50pt.
+ *
+ * `pattern` lays the Book tab's brand lines (BrandPattern) under the page,
+ * full bleed and still while the content scrolls over them: My bookings and
+ * Profile, so the lines show round their cards the way they show round the
+ * court. Absolute children resolve against the padding box, so the lines run
+ * under the gutter and the status bar too. `'blur'` frosts them (Profile):
+ * the same lines, softened, so they read as a ground rather than as drawing.
+ * Android blurs only what sits inside a BlurTargetView, and only from
+ * Android 12 (the Coaches tab's FrostTarget); older phones get the tint.
  */
 export function Screen({
   children,
   padded = true,
   gutter = space.l,
   edges = ['top'],
+  pattern = false,
   style,
 }: {
   children: ReactNode;
   padded?: boolean;
+  /** The brand line pattern under the page, sharp or frosted (see above). */
+  pattern?: boolean | 'blur';
   /** Horizontal inset when padded (design: 16 in the app, 20 on the auth screens). */
   gutter?: number;
   edges?: readonly ScreenEdge[];
@@ -84,7 +98,32 @@ export function Screen({
         style,
       ]}
     >
+      {pattern === 'blur' ? <BlurredPattern /> : pattern ? <BrandPattern /> : null}
       {children}
+    </View>
+  );
+}
+
+const PATTERN_BLUR = 30;
+
+function BlurredPattern() {
+  const { colors, appearance } = useTheme();
+  const target = useRef<View>(null);
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <BlurTargetView
+        ref={target}
+        style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg }]}
+      >
+        <BrandPattern />
+      </BlurTargetView>
+      <BlurView
+        intensity={PATTERN_BLUR}
+        tint={appearance === 'dark' ? 'dark' : 'light'}
+        blurTarget={target}
+        blurMethod="dimezisBlurViewSdk31Plus"
+        style={StyleSheet.absoluteFill}
+      />
     </View>
   );
 }

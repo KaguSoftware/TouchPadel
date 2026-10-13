@@ -31,6 +31,7 @@ export const coachingGuestAr: DeepMessages<typeof coachingGuestEn> = {
       noTimesNoPhone: 'لا أوقات متاحة خلال الأسبوعين القادمين.',
       paused: 'الحجز غير متاح مع هذا المدرّب حاليًا.',
       taking: 'يستقبل الحجوزات',
+      bio: 'نبذة',
       fromTime: 'ابتداءً من {time}',
       pickTime: 'اختر وقتًا',
       pickDate: 'اختر تاريخًا',

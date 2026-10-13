@@ -79,8 +79,7 @@ import { MatchNotice, nightLabel } from '../../src/components/match';
 import { Rise, useScrollY } from '../../src/components/motion';
 import { CourtStage, topStageFor } from '../../src/components/CourtStage';
 import { Frost, PinnedTitle } from '../../src/components/scrollFrost';
-
-import { ForYouStrip } from '../../src/components/forYou';
+import { StickyOffset, StickyUnder } from '../../src/components/stickyUnder';
 import {
   COURT_CAPTION_H,
   CourtCaption,
@@ -120,8 +119,15 @@ interface NightSection {
 
 /** Air between the court's near sideline and the sheet's top edge (the Coaches tab's spacing). */
 const COURT_AIR = 10;
-/** How far before the sheet reaches the title the title bar fades to the sheet's ground. */
-const TITLE_GROUND_FADE = 12;
+/**
+ * How far before the sheet reaches the title the title bar starts fading from
+ * the frosting to the sheet's ground: long enough to read as a fade, not a
+ * snap (owner, 2026-10-13).
+ */
+const TITLE_GROUND_FADE = 40;
+/** The fade's ease-in-out, sampled for the interpolation (smoothstep). */
+const EASE_STEPS = [0, 0.25, 0.5, 0.75, 1];
+const EASE_OUT = EASE_STEPS.map((x) => x * x * (3 - 2 * x));
 /** A finger's target over each open spot on the court (the drawn spot is about 25 pt across). */
 const SPOT_TARGET = 48;
 
@@ -283,9 +289,13 @@ export default function PlayScreen() {
     () => (pub.data && !pub.data.off ? tournamentRows(pub.data, 'upcoming') : NO_TOURS),
     [pub.data],
   );
-  const tours = useMemo(() => allTours.filter((r) => showsTournament(r, answers)), [allTours, answers]);
+  const tours = useMemo(
+    () => allTours.filter((r) => showsTournament(r, answers)),
+    [allTours, answers],
+  );
   const askFit =
-    play !== null && allTours.some((r) => r.mine == null && tournamentFit(r, answers).fit === 'unanswered');
+    play !== null &&
+    allTours.some((r) => r.mine == null && tournamentFit(r, answers).fit === 'unanswered');
   const slotList = useMemo(() => {
     if (signedIn || !slots.data) return NO_SLOTS;
     // A time that has started is gone for a guest who has not even signed in yet.
@@ -689,7 +699,9 @@ export default function PlayScreen() {
           backgroundColor: pressed ? colors.sub : colors.tint,
         })}
       >
-        <Text style={{ fontFamily: fonts.body600, fontSize: 13, lineHeight: 18, color: colors.ink }}>
+        <Text
+          style={{ fontFamily: fonts.body600, fontSize: 13, lineHeight: 18, color: colors.ink }}
+        >
           {t('play.fitAsk')}
         </Text>
       </Pressable>,
@@ -845,14 +857,14 @@ export default function PlayScreen() {
 
   // The title bar takes the sheet's ground once the sheet reaches it (owner,
   // 2026-10-13): from there the bar, the pinned controls and the rows read as
-  // one surface. A short fade as the sheet's top edge arrives; a plain view
+  // one surface. An eased fade as the sheet's top edge comes up; a plain view
   // beside the frosting, never over it, so the blur under it is untouched.
   const sheetAt = heroH - PLAY_SHEET_OVERLAP;
   const titleGround = useMemo(
     () =>
       scroll.y.interpolate({
-        inputRange: [sheetAt - TITLE_GROUND_FADE, sheetAt],
-        outputRange: [0, 1],
+        inputRange: EASE_STEPS.map((x) => sheetAt - TITLE_GROUND_FADE * (1 - x)),
+        outputRange: EASE_OUT,
         extrapolate: 'clamp',
       }),
     [scroll.y, sheetAt],
@@ -913,8 +925,6 @@ export default function PlayScreen() {
       >
         {/* The branch picker rides on the sheet, under the court, as on Coaches. */}
         <BranchPicker testID="play.branch" fit={false} />
-        {/* For you (contracts §8): the survey's suggestions; a tap opens `/play?show=…`. */}
-        <ForYouStrip testID="play.for-you" surface="play" />
         {controls ? (
           // The controls' slot, out to the sheet's edges and over the sheet's gap.
           <View
@@ -998,59 +1008,64 @@ export default function PlayScreen() {
         ) : null}
         <Frost scrollY={scroll.y} span={heroH} />
         <View style={{ flex: 1, marginTop: titleH, overflow: 'hidden' }}>
-          <Animated.SectionList<PlayEntry, NightSection>
-            ref={listRef}
-            testID="play.list"
-            sections={sections}
-            keyExtractor={(e) => `${e.kind}:${e.key}`}
-            stickySectionHeadersEnabled={false}
-            showsVerticalScrollIndicator={false}
-            onScroll={scroll.onScroll}
-            scrollEventThrottle={16}
-            ListHeaderComponent={header}
-            renderSectionHeader={({ section }) => (
-              <View
-                style={{ backgroundColor: colors.bg, paddingStart: space.l, paddingEnd: space.l }}
-              >
-                <NightHeader
-                  title={section.title}
-                  line={section.line}
-                  highlight={wantDate === section.key}
+          {/* The night headers stick under the pinned controls, and the next
+              night pushes the one before it out (owner, 2026-10-13). */}
+          <StickyOffset.Provider value={controlsY === null ? 0 : controlsH}>
+            <Animated.SectionList<PlayEntry, NightSection>
+              ref={listRef}
+              testID="play.list"
+              sections={sections}
+              keyExtractor={(e) => `${e.kind}:${e.key}`}
+              stickySectionHeadersEnabled
+              StickyHeaderComponent={StickyUnder}
+              showsVerticalScrollIndicator={false}
+              onScroll={scroll.onScroll}
+              scrollEventThrottle={16}
+              ListHeaderComponent={header}
+              renderSectionHeader={({ section }) => (
+                <View
+                  style={{ backgroundColor: colors.bg, paddingStart: space.l, paddingEnd: space.l }}
+                >
+                  <NightHeader
+                    title={section.title}
+                    line={section.line}
+                    highlight={wantDate === section.key}
+                  />
+                </View>
+              )}
+              renderItem={renderEntry}
+              // Always room to scroll the court's slot fully away, however short the
+              // list (a couple of tournaments): the frosting comes up over that
+              // stretch, and a page that can barely move left the court sharp.
+              contentContainerStyle={{
+                flexGrow: 1,
+                minHeight: frame ? frame.height - titleH + heroH : undefined,
+              }}
+              ListFooterComponent={<View style={{ height: tabBarHeight + 24 }} />}
+              ListFooterComponentStyle={{ flexGrow: 1, backgroundColor: colors.bg }}
+              onScrollToIndexFailed={() => {
+                // Rows not measured yet: try once more when they are.
+                const again = target.current;
+                if (!again) return;
+                if (scrollTimer.current) clearTimeout(scrollTimer.current);
+                scrollTimer.current = setTimeout(() => {
+                  listRef.current?.scrollToLocation({
+                    ...again,
+                    animated: true,
+                    viewPosition: 0,
+                    viewOffset: 8 + controlsHRef.current,
+                  });
+                }, 250);
+              }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={pull.refreshing}
+                  onRefresh={pull.onRefresh}
+                  tintColor={colors.blue}
                 />
-              </View>
-            )}
-            renderItem={renderEntry}
-            // Always room to scroll the court's slot fully away, however short the
-            // list (a couple of tournaments): the frosting comes up over that
-            // stretch, and a page that can barely move left the court sharp.
-            contentContainerStyle={{
-              flexGrow: 1,
-              minHeight: frame ? frame.height - titleH + heroH : undefined,
-            }}
-            ListFooterComponent={<View style={{ height: tabBarHeight + 24 }} />}
-            ListFooterComponentStyle={{ flexGrow: 1, backgroundColor: colors.bg }}
-            onScrollToIndexFailed={() => {
-              // Rows not measured yet: try once more when they are.
-              const again = target.current;
-              if (!again) return;
-              if (scrollTimer.current) clearTimeout(scrollTimer.current);
-              scrollTimer.current = setTimeout(() => {
-                listRef.current?.scrollToLocation({
-                  ...again,
-                  animated: true,
-                  viewPosition: 0,
-                  viewOffset: 8 + controlsHRef.current,
-                });
-              }, 250);
-            }}
-            refreshControl={
-              <RefreshControl
-                refreshing={pull.refreshing}
-                onRefresh={pull.onRefresh}
-                tintColor={colors.blue}
-              />
-            }
-          />
+              }
+            />
+          </StickyOffset.Provider>
           {controls && controlsY !== null ? (
             <Animated.View
               onLayout={(e) => setControlsH(e.nativeEvent.layout.height)}

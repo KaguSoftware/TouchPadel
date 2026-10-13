@@ -148,7 +148,7 @@ export default function ProfileScreen() {
 
   if (!session) {
     return (
-      <Screen>
+      <Screen pattern="blur">
         {header}
         <View
           style={{
@@ -226,7 +226,7 @@ export default function ProfileScreen() {
   const incomplete = profileGateState(profile) === 'incomplete';
 
   return (
-    <Screen>
+    <Screen pattern="blur">
       {header}
       {profile.isLoading ? (
         <SkeletonList rows={2} height={90} />
@@ -539,14 +539,17 @@ export default function ProfileScreen() {
               native alert already marks it destructive; painted red it stood
               next to Delete account as a second alarm, and in dark mode coral
               text in a blue outline on navy did not read as anything (owner,
-              2026-09-11). The one red on this screen is the row that earns it. */}
+              2026-09-11). The words are red again (2026-10-13), the outline
+              stays quiet. Filled with the page's ground so the blurred lines
+              (Screen's `pattern`) do not show through it. */}
           <Button
             testID="profile.sign-out"
             label={t('auth.signOut')}
             variant="secondary"
             size="medium"
             onPress={confirmSignOut}
-            style={{ marginTop: space.m, backgroundColor: 'transparent' }}
+            labelColor={colors.redtext}
+            style={{ marginTop: space.m, backgroundColor: colors.bg }}
           />
         </ScrollView>
       )}

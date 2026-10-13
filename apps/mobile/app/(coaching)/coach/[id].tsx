@@ -1,6 +1,7 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   Platform,
   Pressable,
   ScrollView,
@@ -25,6 +26,7 @@ import { useCoachIdForSlug, useCoachProfile } from '../../../src/features/coachi
 import { lessonErrorCode, lessonErrorText } from '../../../src/features/coaching/errors';
 import { coachShareUrl, isCoachId, isCoachSlug } from '../../../src/features/coaching/links';
 import {
+  COACH_LEVELS,
   coachBranch,
   displayCoachName,
   pick,
@@ -45,13 +47,16 @@ import {
   OfferCard,
 } from '../../../src/components/coaching';
 import { useReduceMotion } from '../../../src/lib/useReduceMotion';
-import { LevelPills } from '../../../src/components/coachShowcase';
+import { LevelMeter } from '../../../src/components/coachShowcase';
+import { ChevronDownIcon } from '../../../src/components/icons';
 import { useToast } from '../../../src/components/overlays';
 
 /** How far the name card rides up over the hero (Figma "D · Profile": the card overlaps the band). */
 const CARD_OVERLAP = 56;
 /** The hero's height below the status bar (Figma "D · Profile": 340 with the bar). */
 const HERO_HEIGHT = 290;
+/** The bio fold's open and close, lesson-times' EASE_MS. */
+const BIO_EASE_MS = 220;
 /**
  * A coach's page (docs/design/coaching/guest.md §4.8.3): the card, the
  * lessons they offer at a branch, and the branch's phone.
@@ -140,6 +145,28 @@ export default function CoachDetailScreen() {
   const dockAt = coachDockAt(cardTop, insets.top, barHeight);
   // Whether the bar has filled in: the Android items go from white to blue.
   const [docked, setDocked] = useState(false);
+  // The bio's fold: the text is laid out off-flow to learn its height, and
+  // the box grows from 0 to it, clipped, so no line shows before the box
+  // reaches it; the text fades in over the last part and the arrow turns over
+  // the same 220 ms. Height is a layout prop, so the JS driver. Reduce Motion
+  // snaps all three.
+  const [bioOpen, setBioOpen] = useState(false);
+  const [bioH, setBioH] = useState(0);
+  const [bioTurn] = useState(() => new Animated.Value(0));
+  const toggleBio = () => {
+    const open = !bioOpen;
+    setBioOpen(open);
+    if (reduceMotion) {
+      bioTurn.setValue(open ? 1 : 0);
+      return;
+    }
+    Animated.timing(bioTurn, {
+      toValue: open ? 1 : 0,
+      duration: BIO_EASE_MS,
+      easing: Easing.inOut(Easing.ease),
+      useNativeDriver: false,
+    }).start();
+  };
   useEffect(() => {
     const sub = scrollY.addListener(({ value }) => setDocked(value >= dockAt - 20));
     return () => scrollY.removeListener(sub);
@@ -338,7 +365,13 @@ export default function CoachDetailScreen() {
     return (
       <Screen edges={[]} padded={false}>
         {headerFor(true)}
-        <CoachHero photoPath={null} name="" height={insets.top + HERO_HEIGHT} initial={false} />
+        <CoachHero
+          photoPath={null}
+          name=""
+          height={insets.top + HERO_HEIGHT}
+          initial={false}
+          pattern={false}
+        />
         <View style={{ paddingStart: space.l, paddingEnd: space.l, paddingTop: space.m }}>
           <SkeletonList rows={3} height={96} />
         </View>
@@ -390,10 +423,10 @@ export default function CoachDetailScreen() {
         />
         <View style={{ paddingStart: space.l, paddingEnd: space.l, gap: space.sm }}>
           {/* The name card rides up over the hero (Figma "D · Profile"): name,
-            branch, the "Taking bookings" badge while a private lesson is bookable, and the
-            bio in full. Not pressable (§4.8.3 item 1). Its top leaves
+            branch, the level meter (with "Taking bookings" while a private
+            lesson is bookable), and the bio behind a drop-down. Not pressable (§4.8.3 item 1). Its top leaves
             room for the avatar CoachDockBar draws on its edge, so the name,
-            branch and badge are centred under it. */}
+            and branch are centred under it. */}
           <View
             style={{
               marginTop: -CARD_OVERLAP,
@@ -411,8 +444,9 @@ export default function CoachDetailScreen() {
               <View style={{ alignItems: 'center', gap: 2 }}>
                 <Text
                   style={{
-                    fontFamily: fonts.display800,
-                    fontSize: 22,
+                    fontFamily: fonts.display900,
+                    fontSize: 28,
+                    lineHeight: 32,
                     color: colors.ink,
                     textAlign: 'center',
                   }}
@@ -434,46 +468,96 @@ export default function CoachDetailScreen() {
                   </Text>
                 ) : null}
               </View>
-              {bookable ? (
-                <View
-                  style={{
-                    backgroundColor: colors.gtint,
-                    borderRadius: 10,
-                    paddingTop: 6,
-                    paddingBottom: 6,
-                    paddingStart: 10,
-                    paddingEnd: 10,
-                  }}
-                >
-                  <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.gtext }}>
-                    {t('coaching.guest.coach.taking')}
-                  </Text>
-                </View>
-              ) : null}
             </View>
             {/* The player levels the coach teaches (play-coaches §4.2); none
                 listed is every level. They describe the player, not a rank. */}
             {coach ? (
-              <LevelPills
+              <LevelMeter
                 title={t('coachShowcase.levelsTitle')}
-                labels={
-                  coach.levels.length > 0
-                    ? coach.levels.map((l) => t(`coachShowcase.levels.${l}`))
-                    : [t('coachShowcase.allLevels')]
-                }
+                levels={COACH_LEVELS.map((l) => ({
+                  label: t(`coachShowcase.levels.${l}`),
+                  on: coach.levels.length === 0 || coach.levels.includes(l),
+                }))}
+                trailing={bookable ? t('coaching.guest.coach.taking') : null}
               />
             ) : null}
+            {/* The bio folds behind a "Bio" row, closed at first; open, it
+                shows in full. */}
             {bio ? (
-              <Text
-                style={{
-                  fontFamily: fonts.body400,
-                  fontSize: 14,
-                  lineHeight: 21,
-                  color: colors.mut2,
-                }}
-              >
-                {bio}
-              </Text>
+              <View style={{ borderTopWidth: 1, borderTopColor: colors.line }}>
+                <Pressable
+                  testID="coach-detail.bio"
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: bioOpen }}
+                  onPress={toggleBio}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: space.s,
+                    minHeight: 44,
+                    paddingTop: space.s,
+                  }}
+                >
+                  <Text style={{ fontFamily: fonts.body700, fontSize: 14, color: colors.ink }}>
+                    {t('coaching.guest.coach.bio')}
+                  </Text>
+                  <Animated.View
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
+                      backgroundColor: colors.tint,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transform: [
+                        {
+                          rotate: bioTurn.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['0deg', '180deg'],
+                          }),
+                        },
+                      ],
+                    }}
+                  >
+                    <ChevronDownIcon size={16} color={colors.blue} />
+                  </Animated.View>
+                </Pressable>
+                <Animated.View
+                  accessibilityElementsHidden={!bioOpen}
+                  importantForAccessibility={bioOpen ? 'auto' : 'no-hide-descendants'}
+                  style={{
+                    height: bioTurn.interpolate({ inputRange: [0, 1], outputRange: [0, bioH] }),
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Animated.View
+                    onLayout={(e) => setBioH(e.nativeEvent.layout.height)}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      start: 0,
+                      end: 0,
+                      paddingTop: space.s,
+                      opacity: bioTurn.interpolate({
+                        inputRange: [0, 0.4, 1],
+                        outputRange: [0, 0, 1],
+                      }),
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: fonts.body400,
+                        fontSize: 14,
+                        lineHeight: 21,
+                        color: colors.mut2,
+                      }}
+                    >
+                      {bio}
+                    </Text>
+                  </Animated.View>
+                </Animated.View>
+              </View>
             ) : null}
           </View>
 

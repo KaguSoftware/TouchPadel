@@ -11,7 +11,7 @@
  *                  photo gets the brand blue with the line pattern and their
  *                  initial, a picture as finished as a photo, never a grey hole
  *   ShowcaseLink   a tile to another coaching page (group sessions, My lessons)
- *   LevelPills     the coach page's "Player level" pills (no Pressable)
+ *   LevelMeter     the coach page's "Player level" meter (no Pressable)
  *
  * PRESENTATION ONLY: strings arrive translated, the order and the filter were
  * decided in `features/coaching/logic.ts` (`showcaseOrder`, `coachesForLevel`).
@@ -23,7 +23,7 @@
  *
  * TEST IDS: `ShowcaseCard` and `ShowcaseLink` render a `TiltPress` and take a
  * REQUIRED `testID`, forwarded explicitly. `GlassPlate` and
- * `LevelPills` render no Pressable.
+ * `LevelMeter` render no Pressable.
  */
 import type { ReactNode } from 'react';
 import { Animated, Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -331,34 +331,74 @@ export function ShowcaseLink({
   );
 }
 
-// ── LevelPills (the coach page) ─────────────────────────────────────────────
+// ── LevelMeter (the coach page) ─────────────────────────────────────────────
 
-/** "Player level: Beginner · Intermediate" as quiet pills, centred under the name. */
-export function LevelPills({ title, labels }: { title: string; labels: string[] }) {
+/**
+ * "Player level" as a three-step meter, Beginner to Advanced, the steps the
+ * coach teaches lit green (none taught is every level, all lit). `trailing`
+ * (the "Taking bookings" line, already translated) sits at the header's end.
+ * It describes the player, not a rank: the steps are equal, nothing fills up.
+ */
+export function LevelMeter({
+  title,
+  levels,
+  trailing,
+}: {
+  title: string;
+  /** Every level in order, translated, with whether this coach teaches it. */
+  levels: { label: string; on: boolean }[];
+  trailing?: string | null;
+}) {
   const { colors, fonts } = useTheme();
-  if (labels.length === 0) return null;
+  if (levels.length === 0) return null;
+  const taught = levels.filter((l) => l.on).map((l) => l.label);
   return (
     <View
       accessible
-      accessibilityLabel={`${title}: ${labels.join(', ')}`}
-      style={{ alignItems: 'center', gap: 6 }}
+      accessibilityLabel={[`${title}: ${taught.join(', ')}`, trailing].filter(Boolean).join('. ')}
+      style={{ gap: 6 }}
     >
-      <Text style={{ fontFamily: fonts.body600, fontSize: 11.5, color: colors.fnt }}>{title}</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 }}>
-        {labels.map((l) => (
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.s }}>
+        <Text style={{ fontFamily: fonts.body600, fontSize: 11.5, color: colors.fnt }}>
+          {title}
+        </Text>
+        {trailing ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.gtext }} />
+            <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: colors.gtext }}>
+              {trailing}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 4 }}>
+        {levels.map((l) => (
           <View
-            key={l}
+            key={l.label}
             style={{
-              backgroundColor: colors.tint,
+              flex: 1,
+              height: 8,
               borderRadius: radius.pill,
-              paddingStart: 10,
-              paddingEnd: 10,
-              paddingTop: 4,
-              paddingBottom: 4,
+              backgroundColor: l.on ? brand.green : colors.sub,
+            }}
+          />
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 4 }}>
+        {levels.map((l) => (
+          <Text
+            key={l.label}
+            numberOfLines={1}
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              fontFamily: fonts.body700,
+              fontSize: 11,
+              color: l.on ? colors.ink : colors.fnt,
             }}
           >
-            <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.blue }}>{l}</Text>
-          </View>
+            {l.label}
+          </Text>
         ))}
       </View>
     </View>

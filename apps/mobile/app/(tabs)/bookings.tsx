@@ -654,7 +654,7 @@ export default function BookingsScreen() {
   // Signed-out: same empty state, with the sign-in path.
   if (!session) {
     return (
-      <Screen>
+      <Screen pattern>
         {header}
         <View style={[{ flex: 1 }, bottomPad]}>
           <EmptyState
@@ -673,7 +673,7 @@ export default function BookingsScreen() {
 
   if (bookings.isLoading) {
     return (
-      <Screen>
+      <Screen pattern>
         {header}
         <SkeletonList rows={3} height={78} />
       </Screen>
@@ -683,7 +683,7 @@ export default function BookingsScreen() {
   // An error is never presented as "no bookings" — that lie shipped once.
   if (bookings.isError) {
     return (
-      <Screen>
+      <Screen pattern>
         {header}
         <View style={[{ flex: 1 }, bottomPad]}>
           <ErrorState
@@ -1065,7 +1065,7 @@ export default function BookingsScreen() {
   };
 
   return (
-    <Screen>
+    <Screen pattern>
       {noBookings ? (
         <>
           {header}

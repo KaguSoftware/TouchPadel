@@ -30,6 +30,7 @@ import { coachInitial, coachPhotoUrl, type PaymentChoice } from '../features/coa
 import type { MergedCell } from '../features/availability/assemble';
 import { Button, Card, SegmentedControl } from './ui';
 import { ChevronIcon } from './icons';
+import { BrandPattern } from './BrandPattern';
 
 // ── Small pieces ────────────────────────────────────────────────────────────
 
@@ -276,7 +277,9 @@ const OFFER_CARD_WIDTH = 168;
 
 /**
  * The band at the top of a coach's page: their photo full width, or, without
- * one, their initial on the brand blue. The brand blue is theme-invariant on
+ * one, the brand lines (and their initial, unless `initial` is off) on the
+ * brand blue, as on the Coaches tab's card. The loading band (`pattern` off)
+ * stays plain so a photo does not arrive over lines. The brand blue is theme-invariant on
  * purpose: in blue mode it is the ramp's own step (`line2`), so the band still
  * reads as the brand against the darker ground. The coach page makes its
  * native header transparent, so the system back and share items float over
@@ -287,6 +290,7 @@ export function CoachHero({
   name,
   height = 200,
   initial = true,
+  pattern = true,
   testID,
 }: {
   photoPath: string | null;
@@ -294,6 +298,8 @@ export function CoachHero({
   height?: number;
   /** The initial disc without a photo; off when `CoachDockBar` draws the avatar. */
   initial?: boolean;
+  /** The brand lines without a photo; off while the coach is loading. */
+  pattern?: boolean;
   testID?: string;
 }) {
   const uri = coachPhotoUrl(photoPath);
@@ -315,11 +321,16 @@ export function CoachHero({
           resizeMode="cover"
           style={{ position: 'absolute', top: 0, bottom: 0, start: 0, end: 0 }}
         />
-      ) : initial ? (
-        <View style={{ marginBottom: space.xxl }}>
-          <CoachAvatar photoPath={null} name={name} size={88} />
-        </View>
-      ) : null}
+      ) : (
+        <>
+          {pattern ? <BrandPattern color={brand.white} opacity={0.16} /> : null}
+          {initial ? (
+            <View style={{ marginBottom: space.xxl }}>
+              <CoachAvatar photoPath={null} name={name} size={88} />
+            </View>
+          ) : null}
+        </>
+      )}
     </View>
   );
 }

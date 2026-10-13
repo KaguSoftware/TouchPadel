@@ -6,7 +6,7 @@ import Constants from 'expo-constants';
 import { isRunningInExpoGo } from 'expo';
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { isolate, type Locale } from '@touch/i18n';
+import { type Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import {
   getPushPermissionState,
@@ -15,25 +15,22 @@ import {
   type PushPermissionState,
 } from '../src/features/profile/push';
 import { sendTestPush } from '../src/features/profile/api';
-import { useVenueSettings } from '../src/features/availability/hooks';
-import { venuePhoneOf } from '../src/features/availability/assemble';
 import { mapErrorToKey, rpcErrorCode } from '../src/features/booking/errors';
 import { supabase } from '../src/lib/supabase';
 import { errorMessageOf } from '../src/lib/network';
 import { addBreadcrumb } from '../src/lib/telemetry';
-import { callPhone } from '../src/lib/phone';
 import { legalUrl, type LegalPage } from '../src/lib/legal';
-import { radius, space, useTheme, type AppearancePreference } from '../src/theme';
+import { space, useTheme, type AppearancePreference } from '../src/theme';
 import { Button, Card, Hint, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
-import { BellIcon, GlobeIcon, LockIcon, MoonIcon, PhoneIcon } from '../src/components/icons';
+import { BellIcon, GlobeIcon, MoonIcon } from '../src/components/icons';
 import { useToast } from '../src/components/overlays';
 
 /**
  * Settings (design 2026-08-31): Appearance (System/Light/Dark — app-driven
  * theme, System following the device),
  * Language (segmented; the switch applies in place), Notifications (the three
- * permission states render differently), the venue call card, and the version
- * footer. Public route; reached from the signed-in Profile.
+ * permission states render differently), then the legal links and the
+ * version at the foot. Public route; reached from the signed-in Profile.
  */
 /**
  * The RPC's own P0001 codes, which the booking mapper does not know (they are
@@ -52,7 +49,6 @@ export default function SettingsScreen() {
   const { t, locale, setLocale } = useLocale();
   const { colors, fonts, preference, setAppearance } = useTheme();
   const insets = useSafeAreaInsets();
-  const settings = useVenueSettings();
   const toast = useToast();
 
   const [pushState, setPushState] = useState<PushPermissionState>('undetermined');
@@ -154,18 +150,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const phone = venuePhoneOf(settings.data);
-  const onCall = () => {
-    if (!phone) {
-      toast(t('settings.phoneUnavailable'), 'info');
-      return;
-    }
-    void callPhone(phone).then((ok) => {
-      // Isolated: an RTL paragraph would otherwise reorder the number groups.
-      if (!ok) toast(t('errors.callFailed', { phone: isolate(phone) }), 'error');
-    });
-  };
-
   const openLegal = (page: LegalPage) => {
     void Linking.openURL(legalUrl(page, locale)).catch(() => toast(t('settings.linkFailed'), 'error'));
   };
@@ -187,7 +171,12 @@ export default function SettingsScreen() {
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('settings.title') }} />
       <ScrollView
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + insets.bottom, gap: space.sm }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: 4,
+          paddingBottom: 40 + insets.bottom,
+          gap: space.sm,
+        }}
         showsVerticalScrollIndicator={false}
       >
         {/* Appearance. Bound to the PREFERENCE, not the resolved scheme: under
@@ -327,63 +316,11 @@ export default function SettingsScreen() {
           )}
         </Card>
 
-        {/* Venue */}
-        <Card style={{ padding: space.m }}>
-          {groupLabel(<PhoneIcon size={13} color={colors.gstrong} />, t('settings.venue'))}
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginTop: 8,
-              gap: 10,
-            }}
-          >
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}>
-                {t('common.appName')}
-              </Text>
-              {phone ? (
-                <Text
-                  numberOfLines={1}
-                  // Shrink-wrapped to the leading edge (logical, English unchanged):
-                  // a digits-only string has no strong character, so iOS's natural
-                  // alignment would put it on the LEFT of this column in Arabic.
-                  style={{
-                    alignSelf: 'flex-start',
-                    fontFamily: fonts.body400,
-                    fontSize: 12,
-                    color: colors.mut,
-                    marginTop: 2,
-                  }}
-                >
-                  {phone}
-                </Text>
-              ) : null}
-            </View>
-            <Button
-              testID="settings.call-venue"
-              label={t('common.call')}
-              variant="primary"
-              size="compact"
-              disabled={settings.isLoading}
-              onPress={onCall}
-              style={{
-                minHeight: 0,
-                paddingTop: 10,
-                paddingBottom: 10,
-                paddingStart: 18,
-                paddingEnd: 18,
-                borderRadius: radius.pill,
-              }}
-            />
-          </View>
-        </Card>
-
-        {/* About: the privacy policy has to be reachable in the app (5.1.1(i)); the
-            terms are what the guest accepted (0153). */}
-        <Card style={{ padding: space.m }}>
-          {groupLabel(<LockIcon size={13} color={colors.gstrong} />, t('settings.about'))}
+        {/* The legal links and the version, bare at the foot of the page
+            (`marginTop: 'auto'` in the grown content), no card or label: the
+            privacy policy has to be reachable in the app (5.1.1(i)); the terms
+            are what the guest accepted (0153). */}
+        <View style={{ marginTop: 'auto' }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
             <Button
               testID="settings.privacy-policy"
@@ -410,19 +347,18 @@ export default function SettingsScreen() {
               style={{ flexGrow: 1 }}
             />
           </View>
-        </Card>
-
-        <Text
-          style={{
-            textAlign: 'center',
-            fontFamily: fonts.body400,
-            fontSize: 11,
-            color: colors.fnt2,
-            marginTop: 6,
-          }}
-        >
-          {t('settings.versionLine', { name: t('common.appName'), version: appVersion, build })}
-        </Text>
+          <Text
+            style={{
+              textAlign: 'center',
+              fontFamily: fonts.body400,
+              fontSize: 11,
+              color: colors.fnt2,
+              marginTop: 12,
+            }}
+          >
+            {t('settings.versionLine', { name: t('common.appName'), version: appVersion, build })}
+          </Text>
+        </View>
       </ScrollView>
     </Screen>
   );

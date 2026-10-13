@@ -34,6 +34,8 @@ export const coachingGuestEn = {
       paused: 'Not taking new bookings right now.',
       // The name card's badge while the grid is open (Figma "D · Profile").
       taking: 'Taking bookings',
+      // The name card's fold-out row over the coach's bio.
+      bio: 'Bio',
       // A lesson page's day row: "7 free times · from 3:30 PM".
       fromTime: 'from {time}',
       // A private lesson's page: the week picker, then the next four days.
