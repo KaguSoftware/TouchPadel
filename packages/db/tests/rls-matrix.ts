@@ -6606,4 +6606,12 @@ export const matrix: MatrixRule[] = [
     note: '0334: the caller\'s own profile only; an unknown level is INVALID_PLAY_PROFILE, so nothing is written',
     drop: 33,
   },
+  // ── 0340 online_payments_paused (online-payments-paused.test.ts) ──
+  {
+    kind: 'rpc', schema: 'app', name: 'online_payments_live',
+    args: {},
+    expect: SELF_AUTHED,
+    note: '0340: publicByDesign; a harmless boolean (the platform lock on online payments), never raises',
+    drop: 33,
+  },
 ];

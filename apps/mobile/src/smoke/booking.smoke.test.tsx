@@ -27,6 +27,9 @@ import BookingDetailScreen from '../../app/booking/[id]';
 import BookingHistoryScreen from '../../app/booking-history';
 import ReviewScreen from '../../app/review';
 import SuccessScreen from '../../app/success';
+import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
+
+onlinePaymentsOnForFile();
 
 /**
  * Everything the availability grid and the venue-aware screens read: ONE open

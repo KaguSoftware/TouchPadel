@@ -39,6 +39,9 @@ import {
   setOnlyPendingLesson,
   setOnlyPendingSlot,
 } from '../features/booking/pendingIntent';
+import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
+
+onlinePaymentsOnForFile();
 
 function Probe() {
   const { continueAfterAuth } = usePostAuthContinue();

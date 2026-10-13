@@ -68,6 +68,7 @@ import { SummaryGrid, type SummaryRow } from '../../src/components/booking';
 import { ConfirmAlert, useToast } from '../../src/components/overlays';
 import { ErrorState } from '../../src/components/states';
 import { CalendarIcon, CardIcon, ClockIcon, TagIcon } from '../../src/components/icons';
+import { withOnlinePaymentsGate } from '../../src/features/deposit/OnlinePaymentsGate';
 
 /**
  * THE payment screen (build-contracts-2026-09-27 §4; plan §5.3).
@@ -1184,10 +1185,12 @@ function PayStatusScreen() {
 }
 
 /** Session-gated like the rest of the booking flow (RequireSession). */
-export default function GuardedPayStatusScreen() {
+function GuardedPayStatusScreen() {
   return (
     <RequireSession>
       <PayStatusScreen />
     </RequireSession>
   );
 }
+
+export default withOnlinePaymentsGate(GuardedPayStatusScreen);

@@ -8,6 +8,7 @@ import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
 import { phoneOtpEnabled } from '../../src/features/auth/phoneOtp';
+import { onlinePaymentsShipped } from '../../src/features/deposit/enabled';
 import { supabase } from '../../src/lib/supabase';
 import { signOut } from '../../src/features/auth/api';
 import { useOwnProfile } from '../../src/features/profile/hooks';
@@ -491,12 +492,14 @@ export default function ProfileScreen() {
             ) : null}
             {/* Open matches (docs/design/open-matches/guest.md §4.16): the
               ticket wallet here, the players this guest blocked under Account. */}
-            <MenuRow
-              testID="profile.tickets"
-              icon={<ReceiptIcon size={15} color={colors.gstrong} />}
-              label={t('profile.tickets')}
-              onPress={() => router.push('/tickets')}
-            />
+            {onlinePaymentsShipped() ? (
+              <MenuRow
+                testID="profile.tickets"
+                icon={<ReceiptIcon size={15} color={colors.gstrong} />}
+                label={t('profile.tickets')}
+                onPress={() => router.push('/tickets')}
+              />
+            ) : null}
           </MenuGroup>
 
           <MenuGroup label={t('profile.groupAccount')}>
@@ -509,12 +512,14 @@ export default function ProfileScreen() {
                 onPress={() => router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })}
               />
             ) : null}
-            <MenuRow
-              testID="profile.blocked-players"
-              icon={<CloseIcon size={15} color={colors.gstrong} />}
-              label={t('profile.blockedPlayers')}
-              onPress={() => router.push('/blocked-players')}
-            />
+            {onlinePaymentsShipped() ? (
+              <MenuRow
+                testID="profile.blocked-players"
+                icon={<CloseIcon size={15} color={colors.gstrong} />}
+                label={t('profile.blockedPlayers')}
+                onPress={() => router.push('/blocked-players')}
+              />
+            ) : null}
             <MenuRow
               testID="profile.settings"
               icon={<SlidersIcon size={15} color={colors.gstrong} />}

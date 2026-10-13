@@ -26,22 +26,34 @@ export function isMatchToken(value: unknown): value is string {
 }
 
 /**
- * `(https://<host>)?(/(en|ar))?/m/<anything>` and `touchpadel://m/<anything>`
- * → `/m/<anything>` (the query and fragment kept). Anything else is returned
- * as it came. The token is not checked here: `m/[token]` validates it itself.
+ * `(https://<host>)?(/(en|ar))?/m/<token>` and `touchpadel://m/<token>`
+ * → `/m/<token>` (a trailing query/fragment kept). Anything else is returned
+ * as it came. The token is not judged here — `m/[token]` validates it — but a
+ * remainder that is not token-shaped (a `/`, a `.`, `..` traversal) folds to a
+ * bare `/m/`, never a path that could navigate off the match route (LOW-2).
  */
 export function normaliseIncomingPath(path: string): string {
   if (typeof path !== 'string' || path.length === 0) return path;
   const scheme = /^touchpadel:\/\/\/?(?:(?:en|ar)\/)?m\/(.*)$/i.exec(path);
-  if (scheme) return `/m/${scheme[1]}`;
+  if (scheme) return foldMatchToken(scheme[1] ?? '');
   // The origin, when present, must end in its own slash: `…touch-padel.com/auth`
   // is never read as host `…touch-padel.co` + `m/auth`.
   const web = /^(?:https?:\/\/[^/?#]+\/|\/)?(?:(?:en|ar)\/)?m\/(.*)$/i.exec(path);
-  if (web) {
-    // A bare relative path the router already routes ("m/abc") only needs its slash.
-    return `/m/${web[1]}`;
-  }
+  // A bare relative path the router already routes ("m/abc") only needs its slash.
+  if (web) return foldMatchToken(web[1] ?? '');
   return path;
+}
+
+/**
+ * Fold a captured `m/<rest>` onto a safe route (SEC, pentest 2026-10, LOW-2).
+ * Only token characters may follow `/m/`; a trailing `?query`/`#fragment` is
+ * kept (invites carry `?utm=…`). A remainder with a `.`, a `/` or `..`
+ * traversal folds to a bare `/m/`, so a crafted link such as
+ * `/m/../../delete-account` can never fold into a path that leaves the match
+ * route, whatever expo-router does with `..`.
+ */
+function foldMatchToken(rest: string): string {
+  return `/m/${/^[A-Za-z0-9_-]+(?:[?#].*)?$/.test(rest) ? rest : ''}`;
 }
 
 /** The invite link for a match (`${siteUrl()}/m/<token>`); the operator's has the same shape. */

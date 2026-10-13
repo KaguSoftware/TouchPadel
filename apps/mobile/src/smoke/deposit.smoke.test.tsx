@@ -34,6 +34,9 @@ import PayReturnScreen from '../../app/pay/return';
 import PayStatusScreen from '../../app/pay/status';
 import NotFoundScreen from '../../app/+not-found';
 import TicketsScreen from '../../app/tickets';
+import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
+
+onlinePaymentsOnForFile();
 
 const REF = '55555555-5555-4555-8555-555555555555';
 

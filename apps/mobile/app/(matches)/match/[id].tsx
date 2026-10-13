@@ -105,6 +105,7 @@ import {
   ShareGlyph,
 } from '../../../src/components/match';
 import { nativeChoice } from '../../../src/components/nativeChoice';
+import { withOnlinePaymentsGate } from '../../../src/features/deposit/OnlinePaymentsGate';
 
 /** A preset message rests this long after a send (GD-7): a local courtesy, the server decides. */
 const MESSAGE_REST_MS = 2 * 60_000;
@@ -1153,10 +1154,12 @@ function MatchDetailScreen() {
   );
 }
 
-export default function GuardedMatchDetailScreen() {
+function GuardedMatchDetailScreen() {
   return (
     <RequireSession>
       <MatchDetailScreen />
     </RequireSession>
   );
 }
+
+export default withOnlinePaymentsGate(GuardedMatchDetailScreen);

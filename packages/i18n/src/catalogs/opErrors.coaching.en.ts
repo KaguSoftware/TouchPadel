@@ -18,6 +18,7 @@
  * catalogs' (ws.coaching.*, coaching.*), added with their screens (R52).
  */
 export const opErrorsCoachingEn = {
+  ONLINE_PAYMENTS_PAUSED: "Online payments are paused. This setting can't be turned on yet.",
   ONLINE_PAYMENT_OFF: "Online payment isn't available for lessons here.",
   STATEMENT_NOT_DRAFT: "This statement isn't a draft any more.",
   LESSON_VIA_COACHING: "This court is held for a lesson. Change it from the lesson's own screen.",

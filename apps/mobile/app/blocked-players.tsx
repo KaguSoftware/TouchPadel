@@ -14,6 +14,7 @@ import { radius, space, useTheme } from '../src/theme';
 import { Button, Screen } from '../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
 import { ConfirmAlert, useToast } from '../src/components/overlays';
+import { withOnlinePaymentsGate } from '../src/features/deposit/OnlinePaymentsGate';
 
 /**
  * The players the guest blocked (docs/design/open-matches/guest.md §4.17),
@@ -148,10 +149,12 @@ function BlockedPlayersScreen() {
   );
 }
 
-export default function GuardedBlockedPlayersScreen() {
+function GuardedBlockedPlayersScreen() {
   return (
     <RequireSession>
       <BlockedPlayersScreen />
     </RequireSession>
   );
 }
+
+export default withOnlinePaymentsGate(GuardedBlockedPlayersScreen);

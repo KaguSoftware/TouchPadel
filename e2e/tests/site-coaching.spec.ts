@@ -157,10 +157,15 @@ async function pollPage(page: Page, path: string, check: () => Promise<void>): P
 
 let svc: SupabaseClient;
 let coachId: string;
+let coachSlug: string;
 
 test.beforeAll(async () => {
   svc = serviceClient();
   coachId = await seedPublicCoach(svc);
+  // Since 0337 the card and the link page carry the coach's slug; the app link keeps the id.
+  const { data: slugRow, error: slugErr } = await svc.from('coaches').select('slug').eq('id', coachId).single();
+  if (slugErr || !slugRow?.slug) throw new Error(`coach slug: ${slugErr?.message ?? 'none'}`);
+  coachSlug = slugRow.slug as string;
   await setCoachingSwitches(svc, { coaching_enabled: true, lesson_prices_public: false });
 });
 
@@ -185,7 +190,7 @@ test.describe('site coaching', () => {
     await expect(card.locator('.tp-coach-card__types')).toContainText(LESSON_TYPE.en);
     await expect(
       card.getByRole('link', { name: new RegExp(en.coaching.web.bookInApp) }),
-    ).toHaveAttribute('href', `/en/c/${coachId}`);
+    ).toHaveAttribute('href', `/en/c/${coachSlug}`);
     // C-11: the answer carries the price; the page does not print it.
     await expect(page.locator('main')).not.toContainText(PRICE_EN);
     await expect(page.locator('.tp-coach-card__price, .tp-coach-type__price')).toHaveCount(0);
@@ -222,7 +227,7 @@ test.describe('site coaching', () => {
       await expect(card).toBeVisible({ timeout: 2_000 });
     });
     await card.getByRole('link', { name: new RegExp(en.coaching.web.bookInApp) }).click();
-    await expect(page).toHaveURL(new RegExp(`/en/c/${coachId}$`));
+    await expect(page).toHaveURL(new RegExp(`/en/c/${coachSlug}$`));
     await expect(page.getByRole('heading', { level: 1, name: COACH_NAME.en })).toBeVisible();
     await expect(page.getByRole('link', { name: en.coaching.web.link.open })).toHaveAttribute(
       'href',
@@ -235,7 +240,7 @@ test.describe('site coaching', () => {
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
     // Still here: no script sent the browser to the app's scheme.
     await page.waitForTimeout(1_000);
-    expect(page.url()).toMatch(new RegExp(`/en/c/${coachId}$`));
+    expect(page.url()).toMatch(new RegExp(`/en/c/${coachSlug}$`));
 
     // An id that names nobody reads as not taking bookings, and opens the app's home.
     await page.goto('/en/c/3f2b8c1e-7a4d-4e6f-9b0a-1c2d3e4f5a6b');
@@ -265,7 +270,7 @@ test.describe('site coaching', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText(/coaching/i);
 
     await page.setViewportSize(SMALL);
-    for (const path of ['/en/coaching', `/en/c/${coachId}`]) {
+    for (const path of ['/en/coaching', `/en/c/${coachSlug}`]) {
       await page.goto(path);
       expect(await horizontalOverflow(page), path).toBeLessThanOrEqual(1);
     }
@@ -296,7 +301,7 @@ test.describe('site coaching @ar', () => {
     await expect(page.locator('main')).not.toContainText(/د\.ع/);
 
     await card.getByRole('link', { name: new RegExp(ar.coaching.web.bookInApp) }).click();
-    await expect(page).toHaveURL(new RegExp(`/ar/c/${coachId}$`));
+    await expect(page).toHaveURL(new RegExp(`/ar/c/${coachSlug}$`));
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('heading', { level: 1, name: COACH_NAME.ar })).toBeVisible();
     await expect(page.getByRole('link', { name: ar.coaching.web.link.open })).toHaveAttribute(
@@ -307,7 +312,7 @@ test.describe('site coaching @ar', () => {
 
   test('nothing scrolls sideways at 360 px in Arabic', async ({ page }) => {
     await page.setViewportSize(SMALL);
-    for (const path of ['/ar/coaching', `/ar/c/${coachId}`]) {
+    for (const path of ['/ar/coaching', `/ar/c/${coachSlug}`]) {
       await page.goto(path);
       expect(await horizontalOverflow(page), path).toBeLessThanOrEqual(1);
     }

@@ -390,6 +390,9 @@ export const ERROR_CODE_KEYS = {
   // coaching_settings: set_coaching_settings refuses an online lesson payment mode before
   // the lessons terms are live (detail terms; R50, R67).
   ONLINE_PAYMENT_OFF: 'op.errors.ONLINE_PAYMENT_OFF',
+  // online_payments_paused (0340): the platform lock refuses an online deposit mode, an online
+  // lesson payment mode and open matches until a migration opens it.
+  ONLINE_PAYMENTS_PAUSED: 'op.errors.ONLINE_PAYMENTS_PAUSED',
   // coaching_tables: the lines of an approved, paid or void coach statement are frozen (R22).
   STATEMENT_NOT_DRAFT: 'op.errors.STATEMENT_NOT_DRAFT',
   // lesson_reservation_guards: a lesson's court row is changed only through the coaching RPCs

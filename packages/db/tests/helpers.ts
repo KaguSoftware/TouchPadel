@@ -66,6 +66,32 @@ export function serviceClient(): SupabaseClient {
 }
 
 /**
+ * 0340: the platform lock on online deposits, online lesson payment and open
+ * matches (`platform_settings.online_payments_live`, false until Qi is live).
+ * No RPC sets it, so a suite that turns one of those settings on through the
+ * RPCs opens the lock in beforeAll and puts it back in afterAll:
+ *
+ *   let wasLive = false;
+ *   beforeAll(async () => { wasLive = await setOnlinePaymentsLive(true); });
+ *   afterAll(async () => { await setOnlinePaymentsLive(wasLive); });
+ *
+ * Returns the value it replaced. Files run one at a time (one fork), so the
+ * lock is never open under a file that expects it closed.
+ */
+export async function setOnlinePaymentsLive(on: boolean): Promise<boolean> {
+  const svc = serviceClient();
+  const { data, error: readError } = await svc
+    .from('platform_settings')
+    .select('online_payments_live')
+    .eq('id', true)
+    .single();
+  if (readError) throw new Error(`online_payments_live read: ${readError.message}`);
+  const { error } = await svc.from('platform_settings').update({ online_payments_live: on }).eq('id', true);
+  if (error) throw new Error(`online_payments_live write: ${error.message}`);
+  return (data as { online_payments_live: boolean }).online_payments_live;
+}
+
+/**
  * True when the local stack answers; suites skip themselves otherwise.
  *
  * TP_REQUIRE_STACK=1 (the CI db job) turns "skip" into a failure: one slow

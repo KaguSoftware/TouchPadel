@@ -60,6 +60,9 @@ import {
   myLessonRowFixture,
   venueAt,
 } from '../../../test/coachingFixtures';
+import { onlinePaymentsOn } from '../../../test/onlinePayments';
+
+onlinePaymentsOn();
 
 // ── Reading the keys of the shapes (R41, R81) ───────────────────────────────
 

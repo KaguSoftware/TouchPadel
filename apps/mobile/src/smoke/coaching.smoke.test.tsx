@@ -91,6 +91,9 @@ import MyLessonsScreen from '../../app/(coaching)/my-lessons';
 import ProfileScreen from '../../app/(tabs)/profile';
 import BookingsScreen from '../../app/(tabs)/bookings';
 import PayStatusScreen from '../../app/pay/status';
+import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
+
+onlinePaymentsOnForFile();
 
 type Seeds = [readonly unknown[], unknown][];
 

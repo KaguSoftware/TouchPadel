@@ -3,7 +3,8 @@ import * as Linking from 'expo-linking';
 import { router, useRootNavigationState } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
-import { authLinkErrorKey, isRecoveryLink, parseAuthLink, type AuthLink } from './deepLink';
+import { authLinkErrorKey, isOAuthCallback, isRecoveryLink, parseAuthLink, type AuthLink } from './deepLink';
+import { deliverOAuthCallback } from './providers/googleWeb';
 import { markRecoverySession } from './recovery';
 
 /**
@@ -95,6 +96,10 @@ export function useAuthDeepLink(): void {
       const link = parseAuthLink(url);
       if (!link) return;
       seen.current.add(url);
+      // A Google sign-in in the browser is waiting for this one and exchanges
+      // it itself (providers/googleWeb.ts); exchanging it here too would spend
+      // the single-use code twice.
+      if (isOAuthCallback(link) && deliverOAuthCallback(url)) return;
       void apply(link);
     };
 

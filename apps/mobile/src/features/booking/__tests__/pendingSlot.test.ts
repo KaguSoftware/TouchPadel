@@ -15,6 +15,9 @@ import {
 } from '../pendingIntent';
 import { getPendingJoin } from '../../matches/pendingJoin';
 import { getPendingLesson } from '../../coaching/pendingLesson';
+import { onlinePaymentsOn } from '../../../test/onlinePayments';
+
+onlinePaymentsOn();
 
 afterEach(() => {
   clearPendingIntents();

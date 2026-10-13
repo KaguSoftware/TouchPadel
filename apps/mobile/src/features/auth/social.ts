@@ -10,6 +10,7 @@
  */
 import type { MessageKey } from '@touch/i18n';
 import { errorMessageOf, isTransportError } from '../../lib/network';
+import type { AuthLink } from './deepLink';
 
 export type SocialProvider = 'apple' | 'google';
 
@@ -389,4 +390,64 @@ export function nextGoogleStep(type: GoogleResponseType, attempt: GoogleAttempt)
  */
 export function firstGoogleAttempt(os: string): GoogleAttempt {
   return os === 'ios' ? 'createAccount' : 'signIn';
+}
+
+/**
+ * What a failed native Google attempt leads to (2026-10-13). Some Android
+ * phones run Google Play services that cannot hand Credential Manager an id
+ * token: a Huawei with Google services added through GBox shows the account
+ * sheet with every account marked "account inconsistency", while the same
+ * accounts sign in on a Samsung. Google's sign-in page in the browser does not
+ * go through the phone's Play services, so it is the way past that.
+ *
+ *   auto   a failure the guest did not choose: open the browser sign-in now.
+ *   offer  a cancel: Credential Manager reports a real dismissal and a broken
+ *          sheet the same way, so the browser is offered under the button
+ *          instead of opened over a guest who meant to close the sheet.
+ *   none   iOS (the Google SDK there is not Play services), a double tap, or a
+ *          build with no Google client.
+ */
+export type GoogleBrowserFallback = 'auto' | 'offer' | 'none';
+
+/**
+ * Huawei phones go to the browser first. Huawei has shipped no Google Play
+ * services since 2019, so Google on one of its phones is an add-on like GBox,
+ * whose sheet greys out every account and can only be closed: the guest would
+ * close it and then find the browser link (2026-10-13). By maker, not by brand:
+ * an Honor phone made before the 2020 split reports HUAWEI as its maker and
+ * lacks Play services the same way; an Honor made since reports HONOR and has
+ * them. An older Huawei that does have them loses nothing: the browser sign-in
+ * works there too.
+ */
+export function googleStartsInBrowser(os: string, manufacturer: string | null | undefined): boolean {
+  return os === 'android' && (manufacturer ?? '').trim().toUpperCase() === 'HUAWEI';
+}
+
+export function googleBrowserFallback(err: unknown, os: string): GoogleBrowserFallback {
+  if (os !== 'android' || !(err instanceof SocialAuthError)) return 'none';
+  switch (err.code) {
+    case 'CANCELLED':
+      return 'offer';
+    case 'IN_PROGRESS':
+    case 'UNAVAILABLE':
+      return 'none';
+    default:
+      return 'auto';
+  }
+}
+
+export type OAuthCallbackOutcome =
+  | { kind: 'code'; code: string }
+  | { kind: 'cancelled' }
+  | { kind: 'failed'; detail: string };
+
+/**
+ * The browser sign-in's return link, or null when the browser closed without
+ * one. Google's "Cancel" on its consent page comes back as access_denied.
+ */
+export function oauthCallbackOutcome(link: AuthLink | null): OAuthCallbackOutcome {
+  if (!link) return { kind: 'cancelled' };
+  if (link.kind === 'pkce') return { kind: 'code', code: link.code };
+  if (link.code === 'access_denied') return { kind: 'cancelled' };
+  return { kind: 'failed', detail: link.code };
 }

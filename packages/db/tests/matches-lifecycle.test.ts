@@ -39,6 +39,7 @@ import {
   stackAvailable,
   testIdemKey,
   uniqueTestPhone,
+  setOnlinePaymentsLive,
 } from './helpers';
 import { Q, X, dockerReachable, psql, psqlSession, scenario, waitForSleeper, type Results } from './stores-harness';
 import { E, GUEST, K, SETUP, START, at, data, failed } from './matches-harness';
@@ -710,6 +711,7 @@ describe.skipIf(!docker)('late leavers hold their number; a refill of the organi
 describe.skipIf(!docker)('the lifecycle over HTTP with paid tickets (committed; the ledger after every case)', () => {
   let svc: SupabaseClient;
   let owner: SupabaseClient;
+  let wasLive = false;
   let savedEnabled: boolean | undefined;
   let court: string;
   const touched = new Set<string>();
@@ -746,6 +748,7 @@ describe.skipIf(!docker)('the lifecycle over HTTP with paid tickets (committed; 
     const s = await rpc(owner, 'match_settings', { p_venue_id: VENUE_A_ID });
     expect(s.ok, s.code).toBe(true);
     savedEnabled = s.data.matches_enabled as boolean;
+    wasLive = await setOnlinePaymentsLive(true);
     expect((await rpc(owner, 'set_match_settings', { p_patch: { matches_enabled: true }, p_venue_id: VENUE_A_ID })).ok).toBe(true);
     await ensureTestRateRule(svc);
     court = await createTestCourt(svc, `m260 lifecycle ${Date.now()}`);
@@ -755,6 +758,7 @@ describe.skipIf(!docker)('the lifecycle over HTTP with paid tickets (committed; 
   afterAll(async () => {
     if (!owner || savedEnabled === undefined) return;
     await rpc(owner, 'set_match_settings', { p_patch: { matches_enabled: savedEnabled }, p_venue_id: VENUE_A_ID });
+    await setOnlinePaymentsLive(wasLive);
   });
 
   // money.md §9: the ledger holds after every case, for every guest touched,

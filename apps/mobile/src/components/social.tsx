@@ -22,6 +22,7 @@ import type { SocialProvider } from '../features/auth/social';
 import type { SocialAvailability } from '../features/auth/useSocialSignIn';
 import { AppleButton } from './AppleButton';
 import { GoogleGMark } from './icons';
+import { LinkText } from './ui';
 
 /** = Button regular minH, so the pair matches the email CTA beneath the divider. */
 export const SOCIAL_BUTTON_HEIGHT = 50;
@@ -100,6 +101,8 @@ export function SocialSignInBlock({
   busyProvider,
   disabled,
   onPress,
+  googleBrowserOffer,
+  onGoogleBrowser,
   style,
   testID,
 }: {
@@ -107,6 +110,13 @@ export function SocialSignInBlock({
   busyProvider: SocialProvider | null;
   disabled?: boolean;
   onPress: (provider: SocialProvider) => void;
+  /**
+   * Android, once the phone's Google sheet was closed: a link to Google's own
+   * page in the browser, for phones whose Play services cannot sign in
+   * (useSocialSignIn, googleBrowserFallback). `${testID}.google-browser`.
+   */
+  googleBrowserOffer?: boolean;
+  onGoogleBrowser?: () => void;
   style?: StyleProp<ViewStyle>;
   /**
    * `<route>.social` for the block; the two buttons derive `${testID}.apple`
@@ -138,6 +148,14 @@ export function SocialSignInBlock({
           onPress={() => onPress('google')}
           busy={busyProvider === 'google'}
           disabled={disabled || otherBusy('google')}
+        />
+      ) : null}
+      {available.google && googleBrowserOffer && onGoogleBrowser && busyProvider === null && !disabled ? (
+        <LinkText
+          testID={testID ? `${testID}.google-browser` : undefined}
+          label={t('auth.continueWithGoogleInBrowser')}
+          onPress={onGoogleBrowser}
+          style={{ alignSelf: 'center' }}
         />
       ) : null}
     </View>

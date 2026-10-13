@@ -17,6 +17,7 @@ import { Button, Screen } from '../../src/components/ui';
 import { ErrorState } from '../../src/components/states';
 import { useReturnTo } from '../../src/navigation/back';
 import { CategoryPill, MatchRestrictedCard } from '../../src/components/match';
+import { withOnlinePaymentsGate } from '../../src/features/deposit/OnlinePaymentsGate';
 
 /**
  * The invite link's landing (docs/design/open-matches/guest.md §4.18,
@@ -32,7 +33,7 @@ import { CategoryPill, MatchRestrictedCard } from '../../src/components/match';
  * layout. Signing in never joins by itself (GD-2). The stored branch is
  * never written (DF-1).
  */
-export default function MatchLinkScreen() {
+function MatchLinkScreen() {
   const params = useLocalSearchParams<{ token?: string }>();
   const token = isMatchToken(params.token) ? params.token : null;
   const { session, initializing } = useAuth();
@@ -247,3 +248,5 @@ function SignedOut({ token }: { token: string }) {
     </Screen>
   );
 }
+
+export default withOnlinePaymentsGate(MatchLinkScreen);

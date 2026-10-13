@@ -228,6 +228,8 @@ function SignUpScreen() {
           busyProvider={social.busyProvider}
           disabled={busy || holdBusy}
           onPress={(provider) => void social.signInWith(provider)}
+          googleBrowserOffer={social.googleBrowserOffer}
+          onGoogleBrowser={() => void social.signInWith('google', 'browser')}
           style={{ marginTop: 14 }}
         />
         {hasSocial(social.available) ? (

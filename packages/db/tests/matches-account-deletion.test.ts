@@ -45,6 +45,7 @@ import {
   serviceClient,
   signedInClient,
   stackAvailable,
+  setOnlinePaymentsLive,
 } from './helpers';
 import { Q, X, dockerReachable, psql, psqlSession, scenario, waitForSleeper, type Results } from './stores-harness';
 import { E, GUEST, K, SETUP, at, data, failed } from './matches-harness';
@@ -613,6 +614,7 @@ describe.skipIf(!docker)('0264 a player with tickets in every state deletes the 
 describe.skipIf(!docker)('0264 over HTTP: the deletion refunds the free purchases itself; a held ticket is skipped, not waited for (committed)', () => {
   let svc: SupabaseClient;
   let owner: SupabaseClient;
+  let wasLive = false;
   let savedEnabled: boolean | undefined;
   const touched = new Set<string>();
 
@@ -640,6 +642,7 @@ describe.skipIf(!docker)('0264 over HTTP: the deletion refunds the free purchase
     const s = await rpc(owner, 'match_settings', { p_venue_id: VENUE_A_ID });
     expect(s.ok, s.code).toBe(true);
     savedEnabled = (s.data as Json).matches_enabled as boolean;
+    wasLive = await setOnlinePaymentsLive(true);
     // ticket_payment_prepare refuses MATCHES_OFF while no open branch has matches on.
     expect((await rpc(owner, 'set_match_settings', { p_patch: { matches_enabled: true }, p_venue_id: VENUE_A_ID })).ok).toBe(true);
   });
@@ -647,6 +650,7 @@ describe.skipIf(!docker)('0264 over HTTP: the deletion refunds the free purchase
   afterAll(async () => {
     if (!owner || savedEnabled === undefined) return;
     await rpc(owner, 'set_match_settings', { p_patch: { matches_enabled: savedEnabled }, p_venue_id: VENUE_A_ID });
+    await setOnlinePaymentsLive(wasLive);
   });
 
   // money.md §9: the ledger holds after every case, for every guest touched.

@@ -41,6 +41,7 @@ import {
   shapedGuest,
   signedInClient,
   stackAvailable,
+  setOnlinePaymentsLive,
 } from './helpers';
 import { KEEP, MK, Q, T, X, dockerReachable, ok, psql, psqlSession, refused, scenario, waitForSleeper, type Results } from './stores-harness';
 
@@ -71,6 +72,7 @@ describe.skipIf(!up)('0259 open-match tickets', () => {
   let cashier: SupabaseClient;
   let savedEnabled: boolean;
   let savedPrice: number;
+  let wasLive = false;
   const touched = new Set<string>();
 
   const svcRpc = (fn: string, args: Json) => rpcOf(svc, fn, args);
@@ -156,12 +158,14 @@ describe.skipIf(!up)('0259 open-match tickets', () => {
     expect(s.ok, s.code).toBe(true);
     savedEnabled = (s.data as Json).matches_enabled as boolean;
     savedPrice = Number((s.data as Json).match_ticket_price_iqd);
+    wasLive = await setOnlinePaymentsLive(true);
     await settings({ matches_enabled: true, match_ticket_price_iqd: 10_000 });
   });
 
   afterAll(async () => {
     if (!owner || savedEnabled === undefined) return;
     await settings({ matches_enabled: savedEnabled, match_ticket_price_iqd: savedPrice });
+    await setOnlinePaymentsLive(wasLive);
   });
 
   // money.md §9: the ledger holds after every case, for every guest it touched.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { authLinkErrorKey, isRecoveryLink, linkErrorParam, parseAuthLink } from '../deepLink';
+import { authLinkErrorKey, isOAuthCallback, isRecoveryLink, linkErrorParam, parseAuthLink } from '../deepLink';
 
 describe('parseAuthLink', () => {
   it('reads a PKCE code from the query string', () => {
@@ -99,6 +99,25 @@ describe('isRecoveryLink', () => {
   it('ignores a type param — a link cannot promote itself to a recovery link', () => {
     const link = parseAuthLink('touchpadel://verify-email?code=x&type=recovery');
     expect(link && isRecoveryLink(link)).toBe(false);
+  });
+});
+
+describe('isOAuthCallback', () => {
+  it('is the browser Google sign-in return link, in a build and under Expo Go', () => {
+    for (const url of ['touchpadel://auth-callback?code=abc', 'exp://192.168.1.2:8081/--/auth-callback?code=abc']) {
+      const link = parseAuthLink(url);
+      expect(link).toEqual({ kind: 'pkce', path: 'auth-callback', code: 'abc' });
+      expect(isOAuthCallback(link!)).toBe(true);
+    }
+  });
+
+  it('is not an email link', () => {
+    expect(isOAuthCallback(parseAuthLink('touchpadel://verify-email?code=abc')!)).toBe(false);
+    expect(isOAuthCallback(parseAuthLink('touchpadel://reset-password?code=abc')!)).toBe(false);
+  });
+
+  it('still refuses a raw-token return link (S6)', () => {
+    expect(parseAuthLink('touchpadel://auth-callback#access_token=a&refresh_token=b')).toBeNull();
   });
 });
 

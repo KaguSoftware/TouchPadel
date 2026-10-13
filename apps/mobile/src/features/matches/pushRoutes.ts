@@ -23,6 +23,7 @@
  */
 import { LESSON_PUSH_KINDS, LESSON_PUSH_ROUTES } from '../coaching/pushRoutes';
 import { TOURNAMENT_PUSH_KINDS, TOURNAMENT_PUSH_ROUTES } from '../tournaments/pushRoutes';
+import { onlinePaymentsShipped } from '../deposit/enabled';
 
 /** The open-match routes: what `guestPushHref` opens. */
 export const MATCH_PUSH_ROUTES = ['match', 'tickets'] as const;
@@ -62,7 +63,8 @@ export function isGuestPushKind(value: unknown): value is GuestPushKind {
 export type GuestHref =
   | { pathname: '/match/[id]'; params: { id: string } }
   | { pathname: '/tickets' }
-  | { pathname: '/play'; params: { show: 'matches' } };
+  | { pathname: '/play'; params: { show: 'matches' } }
+  | { pathname: '/(tabs)' };
 
 /**
  * The screen an open-match route opens (§4.21): `match` with an id its match,
@@ -71,6 +73,8 @@ export type GuestHref =
  * (features/coaching/pushRoutes.ts).
  */
 export function guestPushHref(route: MatchPushRoute, id: string | null | undefined): GuestHref {
+  // Store build: open matches and tickets are not shipped; a push lands on Home.
+  if (!onlinePaymentsShipped()) return { pathname: '/(tabs)' };
   switch (route) {
     case 'match':
       return id

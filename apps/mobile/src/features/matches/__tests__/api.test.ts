@@ -15,6 +15,9 @@ import {
 } from '../api';
 import { DepositEdgeError } from '../../deposit/logic';
 import { mapErrorToKey } from '../../booking/errors';
+import { onlinePaymentsOn } from '../../../test/onlinePayments';
+
+onlinePaymentsOn();
 
 /**
  * The open-match call shapes (docs/design/open-matches/guest.md §4.3; build

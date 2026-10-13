@@ -21,6 +21,7 @@ import {
   type OpeningHours,
 } from '@touch/core';
 import { isolate, isolateLtr, type MessageKey, type TParams } from '@touch/i18n';
+import { onlinePaymentsShipped } from '../deposit/enabled';
 
 // ── Server vocabulary (build-contracts §1.3) ────────────────────────────────
 
@@ -1159,7 +1160,8 @@ export interface MatchBranchSettings {
 
 /** The branch has open matches switched on (rule 1: off means no work at all). */
 export function matchesEnabled(settings: MatchBranchSettings | null | undefined): boolean {
-  return settings?.matches_enabled === true;
+  // Store build: open matches are not shipped, whatever the branch's switch says.
+  return onlinePaymentsShipped() && settings?.matches_enabled === true;
 }
 
 /**

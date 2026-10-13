@@ -19,6 +19,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ASK_DISMISSED_KEY, __resetAskDismissed } from '../features/playProfile/askDismissed';
 import PlaySurveyScreen from '../../app/play-survey';
 import ProfileEditScreen from '../../app/profile-edit';
+import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
+
+onlinePaymentsOnForFile();
 
 type Seeds = [readonly unknown[], unknown][];
 

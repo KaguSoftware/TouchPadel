@@ -34,6 +34,7 @@ import {
 import type { GuestState } from '../../src/features/matches/state';
 import { MatchRow } from '../../src/components/match';
 import { onlinePaymentOf, openPaymentRef, refundNoteKey } from '../../src/features/deposit/logic';
+import { onlinePaymentsShipped } from '../../src/features/deposit/enabled';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import {
   useAllCourts,
@@ -299,7 +300,7 @@ export default function BookingsScreen() {
     [cancelled, tours.cancelled],
   );
   // The wallet line under OPEN MATCHES: read only while that section shows.
-  const wallet = useMyTickets(openMatches.length > 0);
+  const wallet = useMyTickets(onlinePaymentsShipped() && openMatches.length > 0);
 
   // A hold's countdown has to move every second, but re-splitting the whole
   // list that often is waste — so the seconds tick is its own state and runs
@@ -374,7 +375,7 @@ export default function BookingsScreen() {
   // "20,000 IQD paid online · 20,000 IQD at the desk" on a booking with a
   // deposit; the figures are the server's (my_reservations), none computed here.
   const paymentNote = (row: BookingRow): string | null => {
-    const online = onlinePaymentOf(row);
+    const online = onlinePaymentsShipped() ? onlinePaymentOf(row) : null;
     if (!online) return null;
     const paid = isolate(formatIQD(online.paid, locale));
     return online.rest > 0
@@ -399,7 +400,7 @@ export default function BookingsScreen() {
       {holds.map((row) => {
         const left = secondsUntil(row.hold_expires_at ?? null, holdNow) ?? 0;
         const start = new Date(row.start_at);
-        const paymentRef = openPaymentRef(row);
+        const paymentRef = onlinePaymentsShipped() ? openPaymentRef(row) : null;
         return (
           <HeldSlotCard
             testID={`bookings.held.${row.id}`}

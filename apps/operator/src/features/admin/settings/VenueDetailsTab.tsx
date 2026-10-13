@@ -26,6 +26,7 @@ import { Switch } from '../../../components/Switch';
 import { Button, ErrorText, Field, Skeleton, inputStyle } from '../../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
 import { DepositSettingsPanel } from '../../deposits/DepositSettingsPanel';
+import { useOnlinePaymentsLive } from '../../deposits/useOnlinePaymentsLive';
 import { MatchSettingsPanel } from './MatchSettingsPanel';
 import { CoachingSettingsPanel } from './CoachingSettingsPanel';
 import { TournamentsSettingsPanel } from './TournamentsSettingsPanel';
@@ -61,6 +62,7 @@ export function VenueDetailsTab() {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
   const canEdit = can(staff?.role, 'editVenueDetails');
+  const onlineLive = useOnlinePaymentsLive();
   const venueQ = useQuery({ queryKey: VENUE_ADMIN_KEY, queryFn: fetchVenueAdmin, staleTime: 60_000 });
   const taxQ = useQuery({ queryKey: TAX_GROUPS_KEY, queryFn: fetchTaxGroups, staleTime: 60_000 });
   const n = (v: number) => formatNumber(v, locale);
@@ -96,9 +98,10 @@ export function VenueDetailsTab() {
               saved={venueQ.data}
               afterRules={
                 <>
-                  <DepositSettingsPanel canEdit />
+                  {/* Online deposits and open matches stay hidden while online payments are paused. */}
+                  {onlineLive && <DepositSettingsPanel canEdit />}
                   {/* Open matches (operator.md §5.16): own draft, own Save. */}
-                  <MatchSettingsPanel canEdit />
+                  {onlineLive && <MatchSettingsPanel canEdit />}
                   {/* Lessons and coaches (coaching operator.md §5.12): own draft, own Save. */}
                   <CoachingSettingsPanel canEdit />
                   {/* Tournaments (tournaments build contracts §1.6): one switch, its own save. */}
@@ -139,8 +142,8 @@ export function VenueDetailsTab() {
                   ]}
                 />
               </Panel>
-              <DepositSettingsPanel canEdit={false} />
-              <MatchSettingsPanel canEdit={false} />
+              {onlineLive && <DepositSettingsPanel canEdit={false} />}
+              {onlineLive && <MatchSettingsPanel canEdit={false} />}
               <CoachingSettingsPanel canEdit={false} />
               <TournamentsSettingsPanel canEdit={false} />
               <Panel title={tr('ws.owner.settings.details.offlineTitle')}>

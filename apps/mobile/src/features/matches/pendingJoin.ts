@@ -12,6 +12,7 @@
  * for this store and `pendingSlot` together.
  */
 import { useSyncExternalStore } from 'react';
+import { onlinePaymentsShipped } from '../deposit/enabled';
 
 export type PendingJoin =
   /** An invite link opened signed out (m/[token]). */
@@ -46,12 +47,15 @@ function emit(): void {
 }
 
 export function setPendingJoin(intent: PendingJoin): void {
+  // Store build: open matches are not shipped, so no join is ever waiting.
+  if (!onlinePaymentsShipped()) return;
   pending = intent;
   pendingAt = Date.now();
   emit();
 }
 
 export function getPendingJoin(): PendingJoin | null {
+  if (!onlinePaymentsShipped()) return null;
   if (pending !== null && Date.now() - pendingAt > PENDING_JOIN_TTL_MS) {
     // Stale: forget it without emitting (this runs during render).
     pending = null;

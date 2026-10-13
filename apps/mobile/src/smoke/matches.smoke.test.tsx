@@ -53,6 +53,9 @@ import MatchNewScreen from '../../app/(matches)/match-new';
 import MatchLinkScreen from '../../app/m/[token]';
 import MatchReportScreen from '../../app/(matches)/match-report';
 import BlockedPlayersScreen from '../../app/blocked-players';
+import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
+
+onlinePaymentsOnForFile();
 
 const COURT_ID = courtFixture().id;
 

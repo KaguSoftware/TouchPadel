@@ -19,6 +19,7 @@ import {
   stackAvailable,
   SEED_STAFF,
   VENUE_A_ID,
+  setOnlinePaymentsLive,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -72,7 +73,10 @@ describe.skipIf(!up)('0257 open-match settings', () => {
   const write = (patch: unknown, c: SupabaseClient = owner) =>
     appRpc(c, 'set_match_settings', { p_patch: patch, p_venue_id: VENUE_A_ID });
 
+  let wasLive = false;
+
   beforeAll(async () => {
+    wasLive = await setOnlinePaymentsLive(true);
     svc = serviceClient();
     owner = await signedInClient(SEED_STAFF.owner);
     manager = await signedInClient(SEED_STAFF.manager);
@@ -83,6 +87,7 @@ describe.skipIf(!up)('0257 open-match settings', () => {
   afterAll(async () => {
     if (!owner) return;
     await write(DEFAULTS);
+    await setOnlinePaymentsLive(wasLive);
   });
 
   it('ships every branch off with the defaults', async () => {

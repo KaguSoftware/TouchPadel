@@ -46,6 +46,9 @@ import { clearPendingJoin, getPendingJoin } from '../features/matches/pendingJoi
 import { clearPendingSlot, getPendingSlot } from '../features/booking/pendingSlot';
 import { BookingSheet } from '../components/BookingSheet';
 import { nativeChoice } from '../components/nativeChoice';
+import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
+
+onlinePaymentsOnForFile();
 
 const TZ = 'Asia/Baghdad';
 const COURT_1 = courtFixture();

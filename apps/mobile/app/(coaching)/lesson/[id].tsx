@@ -23,6 +23,7 @@ import {
   useMyLesson,
 } from '../../../src/features/coaching/hooks';
 import { useStartLessonPayment } from '../../../src/features/coaching/payment';
+import { onlinePaymentsShipped } from '../../../src/features/deposit/enabled';
 import {
   lessonBeginErrorText,
   lessonBeginRefusalOf,
@@ -405,7 +406,7 @@ function LessonDetailScreen() {
 
         {error ? <MatchNotice text={error} /> : null}
 
-        {data.can.pay ? (
+        {data.can.pay && onlinePaymentsShipped() ? (
           <Button
             testID="lesson-detail.pay"
             label={t('coaching.guest.lesson.pay')}

@@ -18,6 +18,7 @@ import { keepPreviousData, useQuery, type QueryClient, type UseQueryResult } fro
 import { appRpc, isRpcMissing } from '../../lib/appRpc';
 import { can, useAuth } from '../../lib/auth';
 import { QK, invalidateReservations } from '../../lib/queryKeys';
+import { useOnlinePaymentsLive } from '../deposits/useOnlinePaymentsLive';
 import { useBroadcast } from '../../lib/realtime';
 import { useStationReach } from '../../lib/stationReach';
 import { isMatchLiteral, matchReadStatus, type MatchCaps, type MatchReadStatus } from './matchLogic';
@@ -67,10 +68,14 @@ export function useOpenMatches(
 ): UseQueryResult<OpenMatches | null> {
   const fromIso = dayStart?.toISOString() ?? '';
   const toIso = dayEnd?.toISOString() ?? '';
+  const onlineLive = useOnlinePaymentsLive();
   return useQuery({
     queryKey: QK.deskMatches.open(fromIso, toIso),
     enabled: enabled && fromIso !== '' && toIso !== '',
     queryFn: () => matchRead(() => appRpc('desk_open_matches', { p_from: fromIso, p_to: toIso }), readOpenMatches),
+    // Paused online payments: answer null ("no matches here"), so the strip,
+    // the board panel and the Start entry all render nothing.
+    select: (data) => (onlineLive ? data : null),
     refetchInterval: 30_000,
     placeholderData: keepPreviousData,
   });
@@ -182,16 +187,18 @@ export interface AllMatchCaps extends MatchCaps {
 /** The signed-in role's open-match capabilities. Never compare roles inline. */
 export function useMatchCaps(): AllMatchCaps {
   const role = useAuth().staff?.role;
+  // Open matches are paused until online payments are live: no desk surface may run them.
+  const onlineLive = useOnlinePaymentsLive();
   return useMemo(
     () => ({
-      runMatches: can(role, 'runMatches'),
+      runMatches: onlineLive && can(role, 'runMatches'),
       takeSeatPayment: can(role, 'takeSeatPayment'),
       writeOffSeat: can(role, 'writeOffSeat'),
       cashOutTickets: can(role, 'cashOutTickets'),
       banFromMatches: can(role, 'banFromMatches'),
       reviewMatchReports: can(role, 'reviewMatchReports'),
     }),
-    [role],
+    [role, onlineLive],
   );
 }
 

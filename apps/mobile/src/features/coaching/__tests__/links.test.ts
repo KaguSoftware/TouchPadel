@@ -35,6 +35,15 @@ describe('normaliseCoachLink (§4.12)', () => {
     }
   });
 
+  it.each([
+    'https://www.touch-padel.com/c/../../delete-account',
+    '/c/../settings',
+    'touchpadel://c/..%2fx',
+    '/c/id/extra',
+  ])('neutralises a traversal / extra-segment coach link to a bare /coach/ (LOW-2): %s', (path) => {
+    expect(normaliseCoachLink(path)).toBe('/coach/');
+  });
+
   it('the native intent folds a coach link first, then the match fold, else the path as it came', () => {
     expect(redirectSystemPath({ path: `/en/c/${ID}`, initial: true })).toBe(`/coach/${ID}`);
     expect(redirectSystemPath({ path: '/m/abcdefghijklmnopqrstuv', initial: true })).toBe(

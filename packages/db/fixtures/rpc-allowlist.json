@@ -49,6 +49,7 @@
     "match_slots": "open matches: anon grid counts at an open branch, no ids, names or money (DF-9)",
     "menu_availability": "guest menu, pre-identity: what is orderable right now",
     "my_reservations": "booking: guarded by reservation OWNERSHIP (guest_id = auth.uid()) inside the body, not by role; a caller who owns nothing matches no row",
+    "online_payments_live": "online_payments_paused (0340): a harmless boolean, whether the platform lock on online payments is open; any signed-in caller (the operator hides its settings panels, the phone its payment screens), no argument, never raises",
     "open_table_session": "guest menu, pre-identity: binds a scanned table to a session",
     "open_venue_ids": "0225/multi-venue: the ids of the branches open to guests, which every guest can already see through venue_settings_public and venues. Granted to anon as well as authenticated because the guest branch of the catalogue read policies calls it, and a function named in a policy runs as the READING role (the 0121 trap)",
     "order_is_callers": "tells the caller only about the caller",

@@ -27,6 +27,7 @@ let saveAnswer: (args: Record<string, unknown>) => unknown = (args) => ({
   ...(args.p_patch as object),
 });
 let reachable = true;
+let onlineLive = true;
 
 vi.mock('../../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
 vi.mock('../../../lib/stationReach', () => ({ useStationReach: () => ({ reachable }) }));
@@ -35,6 +36,7 @@ vi.mock('../../../lib/appRpc', async (importOriginal) => {
   return {
     ...actual,
     appRpc: vi.fn(async (fn: string, args: Record<string, unknown>) => {
+      if (fn === 'online_payments_live') return onlineLive;
       if (fn === 'coaching_settings') return settingsRead();
       if (fn === 'set_coaching_settings') return saveAnswer(args);
       return {};
@@ -61,6 +63,7 @@ beforeEach(() => {
   settingsRead = () => SETTINGS;
   saveAnswer = (args) => ({ ...SETTINGS, ...(args.p_patch as object) });
   reachable = true;
+  onlineLive = true;
   vi.mocked(appRpc).mockClear();
 });
 
@@ -98,6 +101,17 @@ describe('CoachingSettingsPanel', () => {
         'Online lesson payment can be switched on once the terms and privacy text with a lessons section are live.',
       ),
     ).toBeTruthy();
+  });
+
+  it('online payments paused: the owner is offered the desk only, with no online options or terms line', async () => {
+    onlineLive = false;
+    mount(<CoachingSettingsPanel canEdit />);
+    expect(await screen.findByTestId('payment-mode-desk-only')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'At the desk or online' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Online only' })).toBeNull();
+    expect(screen.queryByTestId('online-mode-block')).toBeNull();
+    // The rest of the lesson settings stays.
+    expect(screen.getByRole('switch', { name: /Lessons at this branch/ })).toBeTruthy();
   });
 
   it('terms live: the owner can choose online; a missing provider refusal lands on the payment mode with its line', async () => {

@@ -17,8 +17,8 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0338`
-  (0335–0338 coach mode and coach links, 2026-10-11, written as 0334–0337 on the saeed branch and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0340`
+  (0340 online_payments_paused, 2026-10-13: `platform_settings.online_payments_live` lock, false until Qi is live; holds `set_deposit_settings`, `set_match_settings`, `set_coaching_settings` (0242, 0257, 0277 are no longer the latest: each raises `ONLINE_PAYMENTS_PAUSED` when the patch turns online money or matches on) plus `online_payments_live()`; a test that turns those settings on through the RPCs wraps itself in `setOnlinePaymentsLive` (`tests/helpers.ts`); 0339 tournament_play_years; 0335–0338 coach mode and coach links, 2026-10-11, written as 0334–0337 on the saeed branch and
   renumbered +1 at the merge because main took 0334: 0335 coach_book_students, a coach books a
   private lesson for a past or new student and the other students' phones; 0336
   lesson_friend_phones_read, those phones in the coach's roster and the desk's lesson; 0337
@@ -57,7 +57,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0339`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0341`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

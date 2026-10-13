@@ -1,5 +1,5 @@
 /**
- * The ten auth screens, rendered in both languages.
+ * The eleven auth screens, rendered in both languages.
  *
  * WHAT A CASE ASSERTS, AND WHY IT IS THOSE THREE THINGS:
  *  1. the screen mounts at all — this app had ZERO component tests before
@@ -32,6 +32,7 @@ import VerifyOtpScreen from '../../app/verify-otp';
 import VerifyResultScreen from '../../app/verify-result';
 import PhoneSignInScreen from '../../app/phone-sign-in';
 import CompleteProfileScreen from '../../app/complete-profile';
+import AuthCallbackScreen from '../../app/auth-callback';
 
 /**
  * phone-sign-in and verify-otp are behind the phone-OTP flag, which
@@ -110,6 +111,13 @@ const CASES: SmokeCase[] = [
     // once `useOwnProfile` has settled. Seeded rather than fetched, so the
     // assertion is about the form and not about a request's timing.
     options: { session: 'in', queryData: [[profileKeys.own, profileFixture({ phone: null })]] },
+  },
+  {
+    route: 'auth-callback',
+    Component: AuthCallbackScreen,
+    // A spinner and one line: the screen lives for the frame it takes to step
+    // back to the sign-in that is exchanging the code.
+    nearbyKey: 'auth.signingIn',
   },
 ];
 

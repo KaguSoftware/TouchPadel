@@ -52,6 +52,7 @@ import {
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { GenderAsk, MatchNotice, MatchRulesCard } from '../../src/components/match';
+import { withOnlinePaymentsGate } from '../../src/features/deposit/OnlinePaymentsGate';
 
 /**
  * Start an open match (docs/design/open-matches/guest.md §4.13), from a free
@@ -497,10 +498,12 @@ function MatchNewScreen() {
   );
 }
 
-export default function GuardedMatchNewScreen() {
+function GuardedMatchNewScreen() {
   return (
     <RequireSession>
       <MatchNewScreen />
     </RequireSession>
   );
 }
+
+export default withOnlinePaymentsGate(GuardedMatchNewScreen);

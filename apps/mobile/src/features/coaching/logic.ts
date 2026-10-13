@@ -31,6 +31,7 @@ import {
 import type { Locale } from '@touch/i18n';
 import type { MergedCell } from '../availability/assemble';
 import { tradingNightOf } from '../matches/logic';
+import { onlinePaymentsShipped } from '../deposit/enabled';
 
 // ── Server vocabulary (build contracts §1.3) ────────────────────────────────
 
@@ -1042,6 +1043,8 @@ export function anyCoaching(
 
 /** What a branch's mode offers: the desk, both, or Qi only. */
 export function paymentChoices(mode: LessonPaymentMode): PaymentChoice[] {
+  // Store build: the desk is the only way to pay, whatever the branch's mode says.
+  if (!onlinePaymentsShipped()) return ['desk'];
   switch (mode) {
     case 'online_optional':
       return ['desk', 'online'];
@@ -1054,7 +1057,7 @@ export function paymentChoices(mode: LessonPaymentMode): PaymentChoice[] {
 
 /** The choice a form starts on: the desk unless the branch requires Qi. */
 export function defaultPaymentChoice(mode: LessonPaymentMode): PaymentChoice {
-  return mode === 'online_required' ? 'online' : 'desk';
+  return mode === 'online_required' && onlinePaymentsShipped() ? 'online' : 'desk';
 }
 
 /** A choice the branch no longer offers (the mode changed under the form) falls back to its default. */
