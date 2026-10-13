@@ -583,7 +583,31 @@ export function TillScreen() {
             {tr('ws.cashier.till.rail.newTab')}
           </Button>
         </span>
-        <aside style={{ gridColumn: 2, gridRow: 2, minBlockSize: 0, minInlineSize: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)' }}>
+        {/* The service rail (owner's pick, 2026-10-13): where the work waiting
+            on the floor lives, drawn in blue mode's palette on either
+            appearance, on its deepest blue, so it reads apart from the plan
+            and from a blue page alike. Everything inside takes the palette
+            from the two attributes; a dialog opened from here resets to the
+            app's own (Modal). */}
+        <aside
+          data-theme="operator"
+          data-mode="blue"
+          style={{
+            gridColumn: 2,
+            gridRow: 2,
+            minBlockSize: 0,
+            minInlineSize: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--tp-sp-3)',
+            background: 'var(--tp-rail)',
+            color: 'var(--tp-fg)',
+            borderRadius: 'var(--tp-radius-panel)',
+            padding: 'var(--tp-sp-3)',
+          }}
+        >
           <WaiterCallsPanel status={floorStatus} />
           <ScannedSlipsPanel />
           {/* Wave 5 (§5.1): the till shift's start panel while none is open, else the sound strip. */}

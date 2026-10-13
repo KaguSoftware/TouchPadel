@@ -2,6 +2,11 @@
  * Toasts: `toast.ok(msg)`, `toast.info(msg)`, `toast.err(unknown | string)`.
  * `err` runs errorToMessageKey so every RPC / edge / network failure is ONE
  * call. Auto-dismiss 3 s, max 3 stacked, bottom-end corner (logical).
+ *
+ * A toast fades in (tp-rise) and fades out: a dismissed one, by its X or its
+ * time, stays up as `leaving` under [data-closing] (tpSink) until that
+ * animation ends, then goes; a timer covers reduced motion and a background
+ * tab, where no animationend arrives.
  */
 import {
   createContext,
@@ -29,11 +34,15 @@ export interface ToastApi {
 
 export const TOAST_TTL_MS = 3_000;
 export const TOAST_MAX = 3;
+/** How long a leaving toast waits for its exit before it goes anyway: past --tp-dur-base (220ms). */
+const TOAST_EXIT_FALLBACK_MS = 400;
 
 interface ToastItem {
   id: number;
   kind: ToastKind;
   message: string;
+  /** Dismissed, playing its exit. */
+  leaving?: boolean;
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -44,12 +53,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const seq = useRef(0);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
-  const dismiss = useCallback((id: number) => {
+  /** Gone from the store: once its exit has played. */
+  const remove = useCallback((id: number) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
     const timer = timers.current.get(id);
     if (timer !== undefined) clearTimeout(timer);
     timers.current.delete(id);
   }, []);
+
+  /** Starts the exit; `remove` follows on animationend, or the fallback. */
+  const dismiss = useCallback(
+    (id: number) => {
+      setItems((prev) => prev.map((item) => (item.id === id ? { ...item, leaving: true } : item)));
+      const timer = timers.current.get(id);
+      if (timer !== undefined) clearTimeout(timer);
+      timers.current.set(
+        id,
+        setTimeout(() => remove(id), TOAST_EXIT_FALLBACK_MS),
+      );
+    },
+    [remove],
+  );
 
   const push = useCallback(
     (kind: ToastKind, message: string) => {
@@ -83,7 +107,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <ToastViewport items={items} onDismiss={dismiss} />
+      <ToastViewport items={items} onDismiss={dismiss} onGone={remove} />
     </ToastContext.Provider>
   );
 }
@@ -110,9 +134,11 @@ const TONE: Record<ToastKind, { style: CSSProperties; icon: IconName }> = {
 function ToastViewport({
   items,
   onDismiss,
+  onGone,
 }: {
   items: ToastItem[];
   onDismiss: (id: number) => void;
+  onGone: (id: number) => void;
 }) {
   const { tr } = useLocale();
   if (items.length === 0) return null;
@@ -137,11 +163,12 @@ function ToastViewport({
           <div
             key={item.id}
             role={item.kind === 'err' ? 'alert' : 'status'}
-            // Enter only. Playing an exit would mean holding a dismissed item
-            // in the store past its removal, which is a lifecycle change.
-            // Toasts used to blink into the corner a cashier is least likely
-            // to be watching.
+            // In on tpRise, out on tpSink while `leaving` (GlobalStyles
+            // .tp-rise[data-closing]). Toasts used to blink into the corner a
+            // cashier is least likely to be watching, and blink out of it.
             className="tp-rise"
+            data-closing={item.leaving ? 'true' : undefined}
+            onAnimationEnd={item.leaving ? () => onGone(item.id) : undefined}
             style={{
               ...tone.style,
               display: 'flex',
@@ -163,6 +190,7 @@ function ToastViewport({
             <button
               type="button"
               onClick={() => onDismiss(item.id)}
+              disabled={item.leaving}
               aria-label={tr('common.close')}
               style={{
                 display: 'inline-flex',

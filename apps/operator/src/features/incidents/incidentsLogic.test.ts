@@ -10,7 +10,11 @@ import {
   readMyIncidents,
   reportArgs,
   reportRefusalField,
+  REPORT_STEPS,
+  filterMine,
   reviewIssue,
+  stepDone,
+  stepOfField,
   validateReport,
   type ReportDraft,
 } from './incidentsLogic';
@@ -188,5 +192,33 @@ describe('the review note', () => {
     expect(reviewIssue('')).toBe('required');
     expect(reviewIssue('Spoke to both guests.')).toBeNull();
     expect(reviewIssue('x'.repeat(1001))).toBe('tooLong');
+  });
+});
+
+describe('the report dialog’s steps', () => {
+  it('puts every field on one of the three steps', () => {
+    expect(REPORT_STEPS).toEqual(['kind', 'story', 'placeTime', 'review']);
+    expect(stepOfField('kind')).toBe('kind');
+    expect(['when', 'place', 'courtId', 'placeDetail'].map((f) => stepOfField(f as never))).toEqual(['placeTime', 'placeTime', 'placeTime', 'placeTime']);
+    expect(['description', 'people', 'photos'].map((f) => stepOfField(f as never))).toEqual(['story', 'story', 'story']);
+  });
+
+  it('counts a step done once none of its fields has an issue', () => {
+    const issues = [{ field: 'courtId' as const, code: 'required' as const }];
+    expect(stepDone('kind', issues)).toBe(true);
+    expect(stepDone('placeTime', issues)).toBe(false);
+    expect(stepDone('story', issues)).toBe(true);
+    // The review holds no field: it is done once nothing anywhere is missing.
+    expect(stepDone('review', issues)).toBe(false);
+    expect(stepDone('review', [])).toBe(true);
+  });
+});
+
+describe('filterMine', () => {
+  it('splits the reporter’s own list by status', () => {
+    const rows = readMyIncidents({ incidents: [{ id: 'a', status: 'open' }, { id: 'b', status: 'reviewed' }] });
+    expect(filterMine(rows, 'all').map((r) => r.id)).toEqual(['a', 'b']);
+    expect(filterMine(rows, 'open').map((r) => r.id)).toEqual(['a']);
+    expect(filterMine(rows, 'reviewed').map((r) => r.id)).toEqual(['b']);
   });
 });

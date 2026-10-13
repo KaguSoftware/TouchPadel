@@ -484,6 +484,45 @@ button.tp-nav-item { background: transparent; }
   --tp-zoom-thumb-ring: var(--tp-brand-white);
 }
 
+/* ---- the till's floor board (features/till/FloorView): the tables' paint ----
+   The geometry is inline; the paint is here because the pointer changes it.
+   A table is a stack of flat slices (.tp-floor-side, its walls) under a top
+   (.tp-floor-top). Free is the board's plain table, a live tab is Padel Green
+   with a glow, and waiting for payment keeps the green top and turns the
+   walls amber. The table under the pointer (or with keyboard focus) takes the
+   mode's hover colour, top and walls (brand blue on paper, white on blue),
+   except that paying walls stay amber. */
+.tp-floor-table { cursor: pointer; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; }
+/* The sides fade with the top, so a hover changes the whole table at once.
+   They stay hittable: the side band is part of the table under the finger,
+   and what lies beneath it is the floor. */
+.tp-floor-table .tp-floor-side {
+  background: var(--tp-floor-free-side);
+  transition: background var(--tp-dur-fast) var(--tp-ease-out);
+}
+.tp-floor-table .tp-floor-top {
+  background: var(--tp-floor-free); color: var(--tp-floor-fg); border: 1px solid var(--tp-floor-free-side);
+  transition: background var(--tp-dur-fast) var(--tp-ease-out), box-shadow var(--tp-dur-fast) var(--tp-ease-out);
+}
+.tp-floor-table[data-status='open'] .tp-floor-side, .tp-floor-table[data-status='paying'] .tp-floor-side { background: var(--tp-floor-success-side); }
+.tp-floor-table[data-status='open'] .tp-floor-top, .tp-floor-table[data-status='paying'] .tp-floor-top {
+  background: var(--tp-success); color: var(--tp-accent-2-contrast); border-color: var(--tp-floor-success-side);
+  box-shadow: 0 0 calc(var(--tp-floor-m) * 0.3) var(--tp-floor-live-glow);
+}
+.tp-floor-table[data-status='paying'] .tp-floor-side { background: var(--tp-floor-warn-side); }
+.tp-floor-table[data-status='paying'] .tp-floor-top { border: 3px solid var(--tp-warn); }
+.tp-floor-table:hover .tp-floor-top, .tp-floor-table:focus-visible .tp-floor-top {
+  background: var(--tp-floor-hover); color: var(--tp-floor-hover-fg); border-color: var(--tp-floor-hover-side);
+  box-shadow: 0 0 calc(var(--tp-floor-m) * 0.35) var(--tp-floor-hover-glow);
+}
+.tp-floor-table:hover .tp-floor-side, .tp-floor-table:focus-visible .tp-floor-side { background: var(--tp-floor-hover-side); }
+.tp-floor-table[data-status='paying']:hover .tp-floor-top, .tp-floor-table[data-status='paying']:focus-visible .tp-floor-top { border-color: var(--tp-warn); }
+.tp-floor-table[data-status='paying']:hover .tp-floor-side, .tp-floor-table[data-status='paying']:focus-visible .tp-floor-side { background: var(--tp-floor-warn-side); }
+/* A guest calling from a table: the bell pulses, unless motion is reduced. */
+@keyframes tp-floor-bell { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+.tp-floor-bell { animation: tp-floor-bell 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .tp-floor-bell { animation: none; } }
+
 /* A report figure group (FigureGroup in reports/ReportParts): a brand-colour
    strip on top and a tint of the same colour behind the tiles. The colour
    comes from the group's place in its band, in the owner's order (2026-09-24):
@@ -720,6 +759,21 @@ button.tp-nav-item { background: transparent; }
 .tp-tour-choices[data-cols='2'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 40rem) { .tp-tour-choices[data-cols='2'] { grid-template-columns: minmax(0, 1fr); } }
 .tp-tour-choice[aria-pressed='true'], .tp-tour-choice[aria-checked='true'] { border: 2px solid var(--tp-accent); background: var(--tp-accent-soft); padding: calc(var(--tp-sp-4) - 1px); }
+/* The incident dialog's place, time and court cards: the picked one's blue
+   outline at half strength (the tournament start keeps the full one). */
+.tp-incident-choice:hover:not(:disabled), .tp-incident-choice[aria-pressed='true'] {
+  border-color: color-mix(in oklab, var(--tp-accent) 50%, var(--tp-surface));
+}
+/* An incident kind's card (features/incidents) takes its own colour, hovered
+   and picked, from the --tp-kind-* pair the card sets (KIND_LOOK). The card's
+   wash is a lighter cut of the tint, so its icon's tile (the full tint) still
+   shows on it. Mixed in oklab: oklch would also blend the hue, and the
+   surface's faint blue pulled amber round through cyan. */
+.tp-incident-kind:hover:not(:disabled), .tp-incident-kind[aria-pressed='true'] {
+  /* The outline at half strength, so it frames the card without shouting. */
+  border-color: color-mix(in oklab, var(--tp-kind-fg) 50%, var(--tp-surface));
+  background: color-mix(in oklab, var(--tp-kind-soft) 45%, var(--tp-surface));
+}
 /* The picked slots under the timetable: compact blue cards, like a chosen
    choice card, three or so to a row. */
 /* The list fills the room left under the timetable and scrolls only when its

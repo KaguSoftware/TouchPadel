@@ -4,13 +4,14 @@
  *
  * Two pages behind one route, because the two jobs are different:
  *
- *  - **At the desk and the till** the job is to get a report in, minutes after
- *    something happened. The form IS the page, with the person's own reports
- *    beside it: what they sent, and the manager's note once it is reviewed.
+ *  - **At the desk and the till** the page is the person's own reports: what
+ *    they sent, waiting or reviewed, with the manager's note as a reply. The
+ *    blue "Report an incident" opens the form in a dialog, so a report goes in
+ *    minutes after something happened without leaving the page.
  *  - **For management** the job is the queue: Open (oldest first), Reviewed
  *    and All from app.incidents_page, each report opening a sheet with its
- *    photos and the review. "Report an incident" opens the same form inline
- *    above the list, since managers report too.
+ *    photos and the review. "Report an incident" opens the same dialog, since
+ *    managers report too.
  *
  * Which page a person gets is the capability matrix's call (reviewIncidents),
  * never a role compared here. A report is kept a year and never reaches the
@@ -40,14 +41,14 @@ import {
   type Column,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
-import { CardTitle } from '../ops/OpsVisuals';
 import { PhotoViewer, StaffPhotoThumb } from '../checklists/StaffPhoto';
 import { IK, fetchIncidentsOpen, fetchMyIncidents } from './api';
 import { IncidentSheet } from './IncidentSheet';
-import { ReportIncidentForm } from './ReportIncidentForm';
+import { KindIcon, ReportIncidentDialog } from './ReportIncidentForm';
 import {
   INCIDENTS_PAGE_SIZE,
   INCIDENT_FILTERS,
+  filterMine,
   incidentTone,
   placeText,
   readIncidentsPage,
@@ -63,95 +64,126 @@ export function IncidentsPageScreen() {
   return can(staff?.role, 'reviewIncidents') ? <ReviewQueue /> : <ReportDesk />;
 }
 
-/** The desk's and the till's page: the form, and what this person reported. */
+/** The desk's and the till's page: their own reports, and the form in a dialog. */
 function ReportDesk() {
   const { tr } = useLocale();
+  const [reporting, setReporting] = useState(false);
   return (
     <div style={{ maxInlineSize: '84rem' }}>
-      <PageHeader title={tr('ws.incidents.title')} subtitle={tr('ws.incidents.leadStation')} />
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-5)', alignItems: 'flex-start' }}>
-        <Panel title={<CardTitle icon="alert">{tr('ws.incidents.form.title')}</CardTitle>} style={{ flex: '1 1 30rem', maxInlineSize: '42rem' }} data-testid="incidents.report">
-          <ReportIncidentForm />
-        </Panel>
-        <MyReports />
-      </div>
+      <PageHeader
+        title={tr('ws.incidents.mine.title')}
+        subtitle={tr('ws.incidents.mine.lead')}
+        actions={
+          <Button kind="primary" size="lg" icon="plus" onClick={() => setReporting(true)} data-testid="incidents.report.open">
+            {tr('ws.incidents.form.title')}
+          </Button>
+        }
+      />
+      <MyReports />
+      {reporting && <ReportIncidentDialog onClose={() => setReporting(false)} />}
     </div>
   );
 }
 
-/** "My reports": the reporter's own, with the review note once there is one (app.my_incidents). */
+/** "My reports": the reporter's own as cards, with the review note once there is one (app.my_incidents). */
 function MyReports() {
   const { tr, locale } = useLocale();
   const q = useQuery({ queryKey: IK.mine, queryFn: fetchMyIncidents, refetchInterval: 60_000 });
-  const rows = readMyIncidents(q.data);
+  const all = readMyIncidents(q.data);
+  const [filter, setFilter] = useState<IncidentFilter>('all');
+  const rows = filterMine(all, filter);
   const cap = useListCap(rows);
   const [photos, setPhotos] = useState<readonly string[] | null>(null);
+  const counts = { all: all.length, open: filterMine(all, 'open').length, reviewed: filterMine(all, 'reviewed').length };
+
+  if (q.isError) {
+    return (
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
+        <ErrorText error={q.error} style={{ marginBlock: 0 }} />
+        <Button size="sm" icon="refresh" onClick={() => void q.refetch()}>
+          {tr('common.retry')}
+        </Button>
+      </div>
+    );
+  }
+  if (q.isPending) return <Skeleton lines={4} />;
+  if (all.length === 0) {
+    return (
+      <Panel data-testid="incidents.mine">
+        <EmptyState kind="initial" icon="fileText" title={tr('ws.incidents.mine.emptyTitle')} body={tr('ws.incidents.mine.empty')} />
+      </Panel>
+    );
+  }
 
   return (
-    <Panel title={<CardTitle icon="fileText">{tr('ws.incidents.mine.title')}</CardTitle>} style={{ flex: '1 1 22rem' }} data-testid="incidents.mine">
-      {q.isError ? (
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
-          <ErrorText error={q.error} style={{ marginBlock: 0 }} />
-          <Button size="sm" icon="refresh" onClick={() => void q.refetch()}>
-            {tr('common.retry')}
-          </Button>
-        </div>
-      ) : q.isPending ? (
-        <Skeleton lines={3} />
-      ) : rows.length === 0 ? (
-        <p style={muted}>{tr('ws.incidents.mine.empty')}</p>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }} data-testid="incidents.mine">
+      <div>
+        <SegmentedControl<IncidentFilter>
+          aria-label={tr('ws.incidents.filterLabel')}
+          value={filter}
+          onChange={setFilter}
+          options={INCIDENT_FILTERS.map((f) => ({ value: f, label: `${tr(`ws.incidents.filter.${f}`)} · ${formatNumber(counts[f], locale)}` }))}
+        />
+      </div>
+      {rows.length === 0 ? (
+        <p style={muted}>{tr(`ws.incidents.empty.${filter}`)}</p>
       ) : (
-        <>
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
-            {cap.shown.map((r, i) => (
-              <li
-                key={r.id}
-                data-testid={`incidents.mine.${r.id}`}
-                // A hairline between reports, none under the last.
-                style={{ display: 'grid', gap: 'var(--tp-sp-1)', paddingBlockEnd: i < cap.shown.length - 1 ? 'var(--tp-sp-3)' : undefined, borderBlockEnd: i < cap.shown.length - 1 ? '1px solid var(--tp-border)' : undefined }}
-              >
-                <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-                  <strong>{tr(`work.incident.kind.${r.kind}`)}</strong>
-                  <bdi style={muted}>{placeText(r, locale, (p) => tr(`work.incident.place.${p}`))}</bdi>
-                  <span style={{ marginInlineStart: 'auto' }}>
-                    <StatusBadge size="sm" tone={incidentTone(r.status)} label={tr(`work.incident.status.${r.status}`)} />
-                  </span>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(20rem, 1fr))', gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
+          {cap.shown.map((r) => (
+            <li
+              key={r.id}
+              data-testid={`incidents.mine.${r.id}`}
+              style={{ display: 'grid', gap: 'var(--tp-sp-2-5)', padding: 'var(--tp-sp-4)', borderRadius: 'var(--tp-radius-panel)', border: '1px solid var(--tp-border)', background: 'var(--tp-surface)', minInlineSize: 0 }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2-5)' }}>
+                <KindIcon kind={r.kind} />
+                <span style={{ display: 'grid', flex: 1, minInlineSize: 0 }}>
+                  <strong>
+                    {tr(`work.incident.kind.${r.kind}`)} · <bdi>{placeText(r, locale, (p) => tr(`work.incident.place.${p}`))}</bdi>
+                  </strong>
+                  {r.occurredAt && <span style={muted}>{tr('ws.incidents.happenedAt', { time: formatDateTime(new Date(r.occurredAt), locale) })}</span>}
                 </span>
-                {r.occurredAt && <span style={muted}>{tr('ws.incidents.happenedAt', { time: formatDateTime(new Date(r.occurredAt), locale) })}</span>}
-                {r.redacted ? (
-                  <p style={{ ...muted, fontStyle: 'italic' }}>{tr('ws.incidents.redactedText')}</p>
-                ) : (
-                  <p dir="auto" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {r.description}
-                  </p>
-                )}
-                {r.photos.length > 0 && !r.redacted && (
-                  <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-                    {r.photos.map((p, i) => (
-                      <StaffPhotoThumb key={p} path={p} label={tr('ws.incidents.sheet.photoAlt', { n: formatNumber(i + 1, locale) })} onClick={() => setPhotos(r.photos)} />
-                    ))}
+                <StatusBadge size="sm" tone={incidentTone(r.status)} label={tr(`work.incident.status.${r.status}`)} />
+              </span>
+              {r.redacted ? (
+                <p style={{ ...muted, fontStyle: 'italic' }}>{tr('ws.incidents.redactedText')}</p>
+              ) : (
+                <p dir="auto" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {r.description}
+                </p>
+              )}
+              {r.photos.length > 0 && !r.redacted && (
+                <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
+                  {r.photos.map((p, i) => (
+                    <StaffPhotoThumb key={p} path={p} label={tr('ws.incidents.sheet.photoAlt', { n: formatNumber(i + 1, locale) })} onClick={() => setPhotos(r.photos)} />
+                  ))}
+                </span>
+              )}
+              {r.status === 'reviewed' ? (
+                // The manager's note reads as a reply to the report.
+                <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', borderRadius: 'var(--tp-radius-panel)', borderStartStartRadius: 'var(--tp-radius-sm)', background: 'var(--tp-accent-soft)' }}>
+                  <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-accent-soft-fg)' }}>
+                    {tr('ws.incidents.reviewedBy', { name: isolate(r.reviewedByName ?? '—'), time: r.reviewedAt ? formatDateTime(new Date(r.reviewedAt), locale) : '' })}
                   </span>
-                )}
-                {r.status === 'reviewed' && (
-                  <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', borderRadius: 'var(--tp-radius-ctl)', background: 'var(--tp-surface-2)' }}>
-                    <span style={{ ...muted, fontWeight: 600 }}>
-                      {tr('ws.incidents.reviewedBy', { name: isolate(r.reviewedByName ?? '—'), time: r.reviewedAt ? formatDateTime(new Date(r.reviewedAt), locale) : '' })}
-                    </span>
-                    {r.reviewNote && (
-                      <p dir="auto" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                        {r.reviewNote}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-          <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
-        </>
+                  {r.reviewNote && (
+                    <p dir="auto" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                      {r.reviewNote}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-2-5)', borderRadius: 'var(--tp-radius-ctl)', background: 'var(--tp-warn-soft)', color: 'var(--tp-warn-fg)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>
+                  <Icon name="hourglass" size={14} />
+                  {tr('ws.incidents.mine.waiting')}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
       {photos && <PhotoViewer title={tr('ws.incidents.sheet.photos', { count: formatNumber(photos.length, locale) })} paths={photos} onClose={() => setPhotos(null)} />}
-    </Panel>
+    </div>
   );
 }
 
@@ -268,18 +300,14 @@ function ReviewQueue() {
         title={tr('ws.incidents.title')}
         subtitle={tr('ws.incidents.leadReview')}
         actions={
-          can(staff?.role, 'reportIncidents') && !reporting ? (
+          can(staff?.role, 'reportIncidents') ? (
             <Button kind="primary" icon="plus" onClick={() => setReporting(true)} data-testid="incidents.report.open">
               {tr('ws.incidents.form.title')}
             </Button>
           ) : undefined
         }
       />
-      {reporting && (
-        <Panel title={<CardTitle icon="alert">{tr('ws.incidents.form.title')}</CardTitle>} style={{ maxInlineSize: '42rem', marginBlockEnd: 'var(--tp-sp-4)' }} data-testid="incidents.report">
-          <ReportIncidentForm onSent={() => setReporting(false)} onCancel={() => setReporting(false)} />
-        </Panel>
-      )}
+      {reporting && <ReportIncidentDialog onClose={() => setReporting(false)} />}
       <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
         <SegmentedControl<IncidentFilter>
           aria-label={tr('ws.incidents.filterLabel')}

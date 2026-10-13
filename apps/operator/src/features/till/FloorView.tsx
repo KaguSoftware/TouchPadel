@@ -8,8 +8,9 @@
  * same side of the screen as it is of the room. The text inside it still
  * reads in the reader's direction (bdi).
  *
- * Tables are real <button>s laid over an SVG of the room rather than shapes
- * inside it, so they take focus, read their state aloud and are found by role.
+ * The room is a dark board in CSS 3D (CafePlan): every piece stands on it as a
+ * solid, and the tables are real <button>s, so they take focus, read their
+ * state aloud and are found by role.
  */
 import type { CSSProperties, ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,13 +20,12 @@ import { QK, fetchVenueSettings } from '../../lib/queries';
 import { tonightScope } from '../desk/useTradingNight';
 import { useLocale, pickName } from '../../lib/i18n';
 import { AsyncStateWrapper, EmptyState, SegmentedControl, ViewMore, useListCap } from '../../components/kit';
-import { Icon } from '../../components/icons';
+import { ChevronForward, Icon } from '../../components/icons';
 import { formatElapsed } from './elapsed';
 import {
   CAFE_SPOTS,
   CAFE_VIEW,
   cafeSeats,
-  spotPosition,
   type BoardBooking,
   type CafeSpot,
   type CourtBoard,
@@ -164,13 +164,18 @@ export function FloorView({
             <CafePlan spots={placed} onTable={onTable} />
           )}
           {offPlan.length > 0 && (
-            <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+            // One line under the plan: the words, then each table as a round
+            // chip, its number and its line side by side.
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
               <p style={muted}>{tr('ws.cashier.floor.offPlan')}</p>
-              <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
-                {offPlanCap.shown.map((s) => (
-                  <TableButton key={s.table.id} spot={s} onPress={() => onTable(s)} style={{ ...touchTarget, minInlineSize: '5.5rem', borderRadius: 'var(--tp-radius-ctl)' }} />
-                ))}
-              </div>
+              {offPlanCap.shown.map((s) => (
+                <TableButton
+                  key={s.table.id}
+                  spot={s}
+                  onPress={() => onTable(s)}
+                  style={{ ...touchTarget, gridAutoFlow: 'column', alignItems: 'baseline', columnGap: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-4)', borderRadius: 'var(--tp-radius-pill)' }}
+                />
+              ))}
               <ViewMore hidden={offPlanCap.hidden} open={offPlanCap.open} onToggle={offPlanCap.toggle} style={{ marginBlockStart: 0 }} />
             </div>
           )}
@@ -227,9 +232,10 @@ function Legend() {
   );
 }
 
-function CallingMark({ style }: { style?: CSSProperties }) {
+function CallingMark({ style, className }: { style?: CSSProperties; className?: string }) {
   return (
     <span
+      className={className}
       style={{
         display: 'inline-grid',
         placeItems: 'center',
@@ -247,116 +253,375 @@ function CallingMark({ style }: { style?: CSSProperties }) {
   );
 }
 
-/** The room behind the tables, in metres (the same frame as CAFE_SPOTS). */
-function RoomDrawing() {
-  const { tr } = useLocale();
-  const wall = { stroke: 'var(--tp-border-strong)', strokeWidth: 0.08, strokeLinecap: 'round' as const };
-  const label = { fontSize: 0.34, fill: 'var(--tp-muted-fg)', textAnchor: 'middle' as const, dominantBaseline: 'middle' as const };
-  const zBottom = CAFE_VIEW.z + CAFE_VIEW.d - 0.15;
-  return (
-    <svg
-      viewBox={`${CAFE_VIEW.x} ${CAFE_VIEW.z} ${CAFE_VIEW.w} ${CAFE_VIEW.d}`}
-      preserveAspectRatio="none"
-      aria-hidden="true"
-      style={{ position: 'absolute', inset: 0, inlineSize: '100%', blockSize: '100%' }}
-    >
-      <rect x={CAFE_VIEW.x} y={CAFE_VIEW.z} width={CAFE_VIEW.w} height={CAFE_VIEW.d} fill="var(--tp-surface-2)" />
-      {/* kitchen pass */}
-      <rect x={-2.95} y={-3.35} width={5.9} height={0.7} rx={0.08} fill="var(--tp-neutral-soft)" stroke="var(--tp-border)" strokeWidth={0.03} />
-      <text x={0} y={-3.0} {...label}>
-        {tr('ws.cashier.floor.kitchen')}
-      </text>
-      {/* the bar: a U open toward the kitchen, as floorScene draws it */}
-      <path
-        d="M -2.8 -2.1 L -2.8 -1.15 A 0.9 0.9 0 0 0 -1.9 -0.25 L 1.9 -0.25 A 0.9 0.9 0 0 0 2.8 -1.15 L 2.8 -2.1 L 2.2 -2.1 L 2.2 -1.15 A 0.3 0.3 0 0 1 1.9 -0.85 L -1.9 -0.85 A 0.3 0.3 0 0 1 -2.2 -1.15 L -2.2 -2.1 Z"
-        fill="var(--tp-accent-soft)"
-        stroke="var(--tp-accent)"
-        strokeWidth={0.03}
-      />
-      <text x={0} y={-1.45} {...label}>
-        {tr('ws.cashier.floor.bar')}
-      </text>
-      {[-1.9, -0.95, 0, 0.95, 1.9].map((x) => (
-        <circle key={x} cx={x} cy={0.2} r={0.17} fill="var(--tp-surface-3)" stroke="var(--tp-border)" strokeWidth={0.02} />
-      ))}
-      {/* chairs */}
-      {CAFE_SPOTS.map((_, i) => (
-        <g key={i} fill="var(--tp-surface-3)" stroke="var(--tp-border)" strokeWidth={0.02}>
-          {cafeSeats(i).map((c, k) => (
-            <rect
-              key={k}
-              x={c.x - 0.13}
-              y={c.z - 0.2}
-              width={0.26}
-              height={0.4}
-              rx={0.07}
-              transform={`rotate(${(c.angle * 180) / Math.PI} ${c.x} ${c.z})`}
-            />
-          ))}
-        </g>
-      ))}
-      {/* walls, and the way in */}
-      <line x1={CAFE_VIEW.x + 0.04} y1={CAFE_VIEW.z} x2={CAFE_VIEW.x + 0.04} y2={zBottom} {...wall} />
-      <line x1={-CAFE_VIEW.x - 0.04} y1={CAFE_VIEW.z} x2={-CAFE_VIEW.x - 0.04} y2={zBottom} {...wall} />
-      <line x1={CAFE_VIEW.x + 0.04} y1={zBottom} x2={-1.1} y2={zBottom} {...wall} />
-      <line x1={1.1} y1={zBottom} x2={-CAFE_VIEW.x - 0.04} y2={zBottom} {...wall} />
-      <text x={0} y={zBottom - 0.35} {...label}>
-        {tr('ws.cashier.floor.entrance')}
-      </text>
-    </svg>
-  );
+/**
+ * The plan: the café as a model on the counter (the owner's design, picked
+ * from samples and refined, 2026-10-13). A board leaned back in CSS
+ * perspective, with the walls, the kitchen pass, the bar and its four stools,
+ * the chairs (small couches: seat, padded back, two arms), six palms and the
+ * tables standing on it as solids: a stack of flat slices in a side colour
+ * under a top. It follows the operator's appearance: a pale board on paper, a
+ * deep blue one in blue mode (the --tp-floor-* tokens).
+ *
+ * A live table's top is Padel Green with a glow; a table waiting for payment
+ * has amber walls; the table under the pointer takes the mode's hover colour,
+ * top and walls (GlobalStyles, "the till's floor board"). A four-seat table
+ * whose chairs stand on the diagonals is a square turned 45°, a rhombus with
+ * equal sides, so each flat side faces a chair; its number is turned back
+ * upright. Tables are real buttons, found by role and read aloud with their
+ * state; nothing else on the board is reachable.
+ *
+ * Everything is placed in metres (the same frame as CAFE_SPOTS): one metre is
+ * --tp-floor-m, a tenth of the room's width in the plan's own container units,
+ * so the board scales with its panel and every piece keeps its proportions.
+ * The plan keeps the room's proportions at any window size: the wrapper is a
+ * size container, and the room is as large as fits inside it both ways.
+ *
+ * Plain CSS, not the live floor's three.js: it costs nothing to load, needs no
+ * WebGL, and the tables stay DOM buttons.
+ */
+const PLAN_TILT = '24deg';
+/** The viewer stands this many board-heights away, so the depth looks the same at any panel size. */
+const PLAN_DISTANCE = 3;
+/**
+ * How tall the tilted board looks against its flat height, at PLAN_TILT and
+ * PLAN_DISTANCE (measured in the browser). The board's depth is stretched by
+ * its inverse before the tilt, so the room keeps its real proportions on
+ * screen (a round table stays round, the room is not wider than it is) while
+ * the tables, chairs and walls keep their height; and the board fills the
+ * panel instead of leaving a band of empty page above it.
+ */
+const FORESHORTEN = 0.83;
+/** Of the panel's width, what the board's near edge may take. */
+const PLAN_WIDTH = 0.96;
+/**
+ * How much wider than the room's true proportions the board is drawn: the
+ * till's panel is wide, and at 1:1 the room left wide empty bands either side
+ * (owner call, 2026-10-13: between true and the earlier, too-wide look).
+ */
+const PLAN_WIDEN = 1.18;
+/** How much of the space it could fill the board takes, leaving a margin round it (owner call, 2026-10-13). */
+const PLAN_FILL = 0.9;
+/** Heights in metres. A chair's seat, arms and back stand above HEIGHT.chair. */
+const HEIGHT = { table: 0.28, chair: 0.08, bar: 0.34, pass: 0.3, wall: 0.25, pot: 0.36 } as const;
+/** Four bar stools along the bar's front, 0.8 m apart and centred (owner call, 2026-10-13). */
+const STOOLS = [-1.2, -0.4, 0.4, 1.2] as const;
+/** Palms along the side walls, as the live floor stands them. */
+const PALMS = [-2.4, 1.0, 4.4].flatMap((z) => [-4.5, 4.5].map((x) => ({ x, z })));
+
+const metres = (v: number) => `calc(var(--tp-floor-m) * ${v})`;
+
+/** How many slices a solid of this height gets: enough to read as solid at the tilt, and few enough to stay cheap. */
+function slicesFor(height: number): number {
+  return Math.max(2, Math.round(5 * Math.min(1, height / 0.5)) + 1);
+}
+
+/** Where a piece stands and how big it is, in metres, centred on (x, z). */
+function place(x: number, z: number, w: number, d: number, rotate = 0): CSSProperties {
+  return {
+    position: 'absolute',
+    insetInlineStart: metres(x - CAFE_VIEW.x - w / 2),
+    insetBlockStart: metres(z - CAFE_VIEW.z - d / 2),
+    inlineSize: metres(w),
+    blockSize: metres(d),
+    transform: rotate ? `rotate(${rotate}rad)` : undefined,
+    transformStyle: 'preserve-3d',
+  };
 }
 
 /**
- * The plan keeps the room's proportions at any window size: the wrapper is a
- * size container, and the room is as large as fits inside it both ways.
+ * A solid on the board: its walls as slices from the floor up, then its top at
+ * `height`. `side` paints a slice and `top` the top (background, or a border
+ * for the bar's U and the stool's ring).
  */
+function Solid({
+  height,
+  radius,
+  side,
+  top,
+  children,
+  style,
+}: {
+  height: number;
+  radius: string;
+  side: CSSProperties;
+  top: CSSProperties;
+  children?: ReactNode;
+  style: CSSProperties;
+}) {
+  const n = slicesFor(height);
+  const face: CSSProperties = { position: 'absolute', inset: 0, borderRadius: radius, boxSizing: 'border-box' };
+  return (
+    <div aria-hidden="true" style={style}>
+      {Array.from({ length: n }, (_, k) => (
+        <span key={k} style={{ ...face, ...side, transform: `translateZ(${metres((height * k) / n)})` }} />
+      ))}
+      <span style={{ ...face, ...top, transform: `translateZ(${metres(height)})` }}>{children}</span>
+    </div>
+  );
+}
+
+/** A word lying on the floor itself. */
+function FloorText({ x, z, children }: { x: number; z: number; children: ReactNode }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        insetInlineStart: metres(x - CAFE_VIEW.x),
+        insetBlockStart: metres(z - CAFE_VIEW.z),
+        transform: 'translate(-50%, -50%)',
+        color: 'var(--tp-floor-muted)',
+        fontSize: metres(0.36),
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** The chairs' paint: a cushion lit in its middle, the frame's thin softened line. */
+const CUSHION = 'radial-gradient(circle at 50% 45%, color-mix(in oklab, var(--tp-floor-chair) 80%, var(--tp-brand-white)) 0 35%, var(--tp-floor-chair) 62%)';
+const chairSide: CSSProperties = { background: 'var(--tp-floor-chair-side)' };
+const frameTop = (lit: '90deg' | '180deg'): CSSProperties => ({
+  background: `linear-gradient(${lit}, color-mix(in oklab, var(--tp-floor-chair) 78%, var(--tp-brand-white)), var(--tp-floor-chair) 55%)`,
+  outline: '1px solid color-mix(in oklab, var(--tp-floor-chair-line) 70%, transparent)',
+  outlineOffset: '-1px',
+});
+
+/**
+ * A chair like a small couch, facing the table at angle `a`: a cushioned
+ * seat, a short arm at each end and a thick padded back on the outer edge.
+ * The seat has no outline of its own; the back and arms carry one thin line
+ * and are drawn over the seat's edges.
+ */
+function Chair({ x, z, a }: { x: number; z: number; a: number }) {
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  const pill = '999px';
+  return (
+    <>
+      <Solid style={place(x, z, 0.36, 0.42, a)} height={HEIGHT.chair + 0.08} radius={metres(0.07)} side={chairSide} top={{ background: CUSHION }} />
+      {[-1, 1].map((k) => (
+        <Solid
+          key={k}
+          style={place(x - sin * 0.22 * k + cos * 0.03, z + cos * 0.22 * k + sin * 0.03, 0.3, 0.08, a)}
+          height={HEIGHT.chair + 0.22}
+          radius={pill}
+          side={chairSide}
+          top={frameTop('180deg')}
+        />
+      ))}
+      <Solid style={place(x + cos * 0.21, z + sin * 0.21, 0.14, 0.5, a)} height={HEIGHT.chair + 0.34} radius={pill} side={chairSide} top={frameTop('90deg')} />
+    </>
+  );
+}
+
+/** A bar stool: a tall round cushioned seat on a footrest ring. */
+function Stool({ x }: { x: number }) {
+  return (
+    <>
+      <Solid
+        style={place(x, 0.2, 0.44, 0.44)}
+        height={0.06}
+        radius="50%"
+        side={{ background: 'var(--tp-floor-stool-ring-side)' }}
+        top={{ background: 'transparent', border: `${metres(0.04)} solid var(--tp-floor-stool-ring)` }}
+      />
+      <Solid style={place(x, 0.2, 0.34, 0.34)} height={HEIGHT.chair + 0.3} radius="50%" side={chairSide} top={{ background: CUSHION }} />
+    </>
+  );
+}
+
+/** A palm, as the live floor draws one: a pale round pot and a fan of long fronds from its centre. */
+function Palm({ x, z }: { x: number; z: number }) {
+  return (
+    <>
+      <Solid
+        style={place(x, z, 0.44, 0.44)}
+        height={HEIGHT.pot}
+        radius="50%"
+        side={{ background: 'var(--tp-floor-pot-side)' }}
+        top={{ background: 'var(--tp-floor-pot)', boxShadow: `inset 0 0 0 ${metres(0.05)} var(--tp-floor-pot-side)` }}
+      />
+      {Array.from({ length: 12 }, (_, i) => {
+        const len = 0.5 + (i % 4) * 0.1;
+        return (
+          <span
+            key={i}
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              insetInlineStart: metres(x - CAFE_VIEW.x - 0.07),
+              insetBlockStart: metres(z - CAFE_VIEW.z - len),
+              inlineSize: metres(0.14),
+              blockSize: metres(len),
+              borderRadius: '50% 50% 45% 45% / 60% 60% 40% 40%',
+              background: 'linear-gradient(180deg, var(--tp-floor-leaf), var(--tp-floor-leaf-dark))',
+              transformOrigin: '50% 100%',
+              transform: `translateZ(${metres(HEIGHT.pot + 0.02 + (i % 2) * 0.08)}) rotate(${i * 2.399 + x * 3.1}rad)`,
+            }}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+/** The room: walls, palms, the kitchen pass, the bar and its stools, the chairs. */
+function Room() {
+  const { tr } = useLocale();
+  const wall = (x: number, z: number, w: number, d: number) => (
+    <Solid style={place(x, z, w, d)} height={HEIGHT.wall} radius="2px" side={{ background: 'var(--tp-floor-wall-side)' }} top={{ background: 'var(--tp-floor-wall)' }} />
+  );
+  const barU: CSSProperties = { borderStyle: 'solid', borderWidth: metres(0.6), borderBlockStartWidth: 0, background: 'transparent' };
+  return (
+    <>
+      {wall(CAFE_VIEW.x + 0.06, 1.5, 0.1, 10.2)}
+      {wall(-CAFE_VIEW.x - 0.06, 1.5, 0.1, 10.2)}
+      {wall(-3.0, 6.55, 3.9, 0.1)}
+      {wall(3.0, 6.55, 3.9, 0.1)}
+      <FloorText x={0} z={6.1}>
+        {tr('ws.cashier.floor.entrance')}
+      </FloorText>
+      {PALMS.map((p) => (
+        <Palm key={`${p.x},${p.z}`} x={p.x} z={p.z} />
+      ))}
+
+      <Solid
+        style={place(0, -3.0, 5.9, 0.7)}
+        height={HEIGHT.pass}
+        radius={metres(0.08)}
+        side={{ background: 'var(--tp-floor-pass-side)' }}
+        top={{ background: 'var(--tp-floor-pass)', border: '1px solid var(--tp-floor-line)', display: 'grid', placeItems: 'center', color: 'var(--tp-floor-muted)', fontWeight: 600, fontSize: metres(0.32) }}
+      >
+        {tr('ws.cashier.floor.kitchen')}
+      </Solid>
+
+      {/* the bar: a U open toward the kitchen, as floorScene draws it */}
+      <Solid
+        style={place(0, -1.175, 5.6, 1.85)}
+        height={HEIGHT.bar}
+        radius={`0 0 ${metres(0.9)} ${metres(0.9)}`}
+        side={{ ...barU, borderColor: 'var(--tp-floor-bar-side)' }}
+        top={{ ...barU, borderColor: 'var(--tp-floor-bar)' }}
+      />
+      <FloorText x={0} z={-1.55}>
+        {tr('ws.cashier.floor.bar')}
+      </FloorText>
+      {STOOLS.map((x) => (
+        <Stool key={x} x={x} />
+      ))}
+
+      {CAFE_SPOTS.map((_, i) => cafeSeats(i).map((c, k) => <Chair key={`${i}-${k}`} x={c.x} z={c.z} a={c.angle} />))}
+    </>
+  );
+}
+
 function CafePlan({ spots, onTable }: { spots: readonly CafeSpot[]; onTable: (s: CafeSpot) => void }) {
   const ratio = CAFE_VIEW.w / CAFE_VIEW.d;
   return (
-    <div style={{ flex: 1, minBlockSize: '18rem', containerType: 'size', display: 'grid', placeItems: 'start center' }}>
+    // The panel is the size container; the stage inside it holds the
+    // perspective, sized from the board, and stands the board on its bottom
+    // edge. The near edge pivots in place, so it is never wider than the
+    // board's own box; the far edge leans back toward the top of the panel.
+    <div style={{ flex: 1, minBlockSize: '18rem', containerType: 'size', overflow: 'hidden', borderRadius: 'var(--tp-radius-panel)' }}>
+      <div
+        style={{
+          ...({ '--tp-floor-board-h': `calc(min(100cqb, calc(${PLAN_WIDTH * 100}cqi / ${ratio} / ${PLAN_WIDEN})) * ${PLAN_FILL})` } as CSSProperties),
+          position: 'relative',
+          blockSize: '100%',
+          perspective: `calc(var(--tp-floor-board-h) / ${FORESHORTEN} * ${PLAN_DISTANCE})`,
+          perspectiveOrigin: '50% 100%',
+        }}
+      >
       <div
         dir="ltr"
         style={{
-          position: 'relative',
-          inlineSize: `min(100cqi, calc(100cqb * ${ratio}))`,
+          ...({ '--tp-floor-m': '10cqi' } as CSSProperties),
+          // Pinned by its bottom and centred, since the tilt pivots on the
+          // near edge. When the panel's width is the limit, the room left over
+          // is split above and below rather than all left on top.
+          position: 'absolute',
+          insetBlockEnd: 'max(0px, calc((100cqb - var(--tp-floor-board-h)) / 2))',
+          insetInlineStart: '50%',
+          marginInlineStart: `calc(var(--tp-floor-board-h) * ${ratio} / -2)`,
+          blockSize: 'var(--tp-floor-board-h)',
           aspectRatio: `${CAFE_VIEW.w} / ${CAFE_VIEW.d}`,
           containerType: 'inline-size',
+          backgroundColor: 'var(--tp-floor-bg)',
+          // A faint half-metre tile.
+          backgroundImage: 'linear-gradient(var(--tp-floor-tile) 1px, transparent 1px), linear-gradient(90deg, var(--tp-floor-tile) 1px, transparent 1px)',
+          backgroundSize: `${metres(0.5)} ${metres(0.5)}`,
+          backgroundPosition: `${metres(0.5)} ${metres(0.4)}`,
           borderRadius: 'var(--tp-radius-panel)',
-          overflow: 'hidden',
-          border: '1px solid var(--tp-border)',
+          boxShadow: '0 1px 0 var(--tp-floor-edge), 0 6px 0 var(--tp-floor-edge), var(--tp-shadow-popover)',
+          transform: `rotateX(${PLAN_TILT}) scale(${PLAN_WIDEN}, ${(1 / FORESHORTEN).toFixed(4)})`,
+          transformOrigin: '50% 100%',
+          transformStyle: 'preserve-3d',
         }}
       >
-        <RoomDrawing />
-        {spots.map((s) => {
-          const def = CAFE_SPOTS[s.slot!]!;
-          const p = spotPosition(def);
-          const size = def.seats === 4 ? 9.4 : 8.6;
-          return (
-            <TableButton
-              key={s.table.id}
-              spot={s}
-              onPress={() => onTable(s)}
-              style={{
-                position: 'absolute',
-                insetInlineStart: `${p.inline * 100}%`,
-                insetBlockStart: `${p.block * 100}%`,
-                inlineSize: `${size}%`,
-                aspectRatio: '1',
-                transform: 'translate(-50%, -50%)',
-                borderRadius: def.seats === 4 ? '12%' : '50%',
-                fontSize: 'clamp(0.85rem, 1.55cqi, 1.2rem)',
-              }}
-            />
-          );
-        })}
+        <Room />
+        {spots.map((s) => (
+          <TableSolid key={s.table.id} spot={s} onPress={() => onTable(s)} />
+        ))}
+      </div>
       </div>
     </div>
   );
 }
 
-function TableButton({ spot, onPress, style }: { spot: CafeSpot; onPress: () => void; style: CSSProperties }) {
+/** A table on the board: a real button whose walls and top are painted by the .tp-floor-* rules. */
+function TableSolid({ spot, onPress }: { spot: CafeSpot; onPress: () => void }) {
   const { tr, locale } = useLocale();
+  const slot = spot.slot!;
+  const def = CAFE_SPOTS[slot]!;
+  // Chairs on the diagonals (cafeSeats: every other row of four-seaters).
+  const diamond = def.seats === 4 && Math.floor(slot / 3) % 2 === 0;
+  const size = def.seats === 4 ? (diamond ? 0.88 : 0.94) : 0.86;
+  const radius = def.seats === 4 ? '12%' : '50%';
+  const { name, state, detail, first } = describeSpot(spot, tr, locale);
+  // More slices than a chair or a wall gets: a table is the thing under the
+  // finger, and its sides must read as one solid edge, round tables above all.
+  const n = Math.max(10, slicesFor(HEIGHT.table));
+  const face: CSSProperties = { position: 'absolute', inset: 0, borderRadius: radius };
+  return (
+    <button
+      type="button"
+      className="tp-floor-table"
+      data-status={spot.status}
+      aria-label={[name, state, first?.offlineState ? tr(OFFLINE_MARK[first.offlineState].key) : null, spot.calling ? tr('ws.cashier.floor.legend.calling') : null].filter(Boolean).join(', ')}
+      onClick={onPress}
+      style={{ ...place(def.x, def.z, size, size, diamond ? Math.PI / 4 : 0), fontSize: 'clamp(0.85rem, 1.55cqi, 1.2rem)' }}
+    >
+      {Array.from({ length: n }, (_, k) => (
+        <span key={k} className="tp-floor-side" aria-hidden="true" style={{ ...face, transform: `translateZ(${metres((HEIGHT.table * k) / n)})` }} />
+      ))}
+      <span className="tp-floor-top" style={{ ...face, transform: `translateZ(${metres(HEIGHT.table)})`, display: 'grid', placeItems: 'center' }}>
+        <span style={{ display: 'grid', justifyItems: 'center', gap: '0.1em', padding: '0.2em', maxInlineSize: diamond ? '100%' : undefined, transform: diamond ? 'rotate(-45deg)' : undefined }}>
+          <strong style={{ fontSize: '1.45em', lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' }}>
+            <bdi>{spot.table.table_number}</bdi>
+          </strong>
+          {detail && (
+            <span style={{ fontSize: '0.82em', fontWeight: 600, lineHeight: 1.1, maxInlineSize: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25em' }}>
+              {first?.offlineState && <OfflineMarkIcon state={first.offlineState} size={11} />}
+              <bdi>{detail}</bdi>
+            </span>
+          )}
+        </span>
+        {spot.calling && (
+          <span style={{ position: 'absolute', insetBlockStart: '-0.5rem', insetInlineEnd: '-0.5rem' }}>
+            <CallingMark className="tp-floor-bell" style={{ boxShadow: 'var(--tp-shadow-raised)' }} />
+          </span>
+        )}
+      </span>
+    </button>
+  );
+}
+
+/** The words for a table: its name, its state for the accessible name, and the line under its number. */
+function describeSpot(spot: CafeSpot, tr: ReturnType<typeof useLocale>['tr'], locale: ReturnType<typeof useLocale>['locale']) {
   const name = `${tr('op.till.table')} ${spot.table.table_number}`;
   const count = spot.tabs.length;
   const first = spot.tabs[0];
@@ -370,6 +635,13 @@ function TableButton({ spot, onPress, style }: { spot: CafeSpot; onPress: () => 
           : null;
   const state =
     spot.status === 'free' ? tr('ws.cashier.floor.legend.free') : spot.status === 'paying' ? tr('ws.cashier.floor.legend.paying') : count > 1 ? tr('ws.cashier.floor.tabCount', { count: formatNumber(count, locale) }) : tr('ws.cashier.floor.legend.open');
+  return { name, state, detail, first };
+}
+
+/** A table the plan has no place for (the list beside it): a flat tile in the same colours. */
+function TableButton({ spot, onPress, style }: { spot: CafeSpot; onPress: () => void; style: CSSProperties }) {
+  const { tr, locale } = useLocale();
+  const { name, state, detail, first } = describeSpot(spot, tr, locale);
   return (
     <button
       type="button"
@@ -580,29 +852,36 @@ export function OtherTabsList({ tabs, onPick }: { tabs: readonly OtherTab[]; onP
             type="button"
             className="tp-tile"
             onClick={() => onPick(t.id)}
+            // A ticket on the service rail like the calls above it: a green dot
+            // for a live tab, the name, a Paying chip, and the way in.
             style={{
               ...touchTarget,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 'var(--tp-sp-1-5)',
+              gap: 'var(--tp-sp-2)',
               textAlign: 'start',
-              paddingBlock: 'var(--tp-sp-1-5)',
+              paddingBlock: 'var(--tp-sp-2)',
               paddingInline: 'var(--tp-sp-2-5)',
-              border: '1px solid var(--tp-success-mark)',
-              borderRadius: 'var(--tp-radius-ctl)',
-              background: 'var(--tp-success-soft)',
+              border: 'none',
+              borderRadius: 'var(--tp-radius-panel)',
+              background: 'var(--tp-surface)',
               color: 'var(--tp-fg)',
               font: 'inherit',
               minInlineSize: 0,
             }}
           >
-            <strong style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span aria-hidden="true" style={{ inlineSize: '0.6rem', blockSize: '0.6rem', borderRadius: '50%', background: 'var(--tp-success)', flexShrink: 0 }} />
+            <strong style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               <bdi>{t.label}</bdi>
             </strong>
-            <span style={{ ...muted, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', whiteSpace: 'nowrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', whiteSpace: 'nowrap' }}>
               {t.offlineState && <OfflineMarkIcon state={t.offlineState} size={12} label={tr(OFFLINE_MARK[t.offlineState].key)} />}
-              {t.status === 'awaiting_payment' && tr('ws.cashier.floor.paying')}
+              {t.status === 'awaiting_payment' && (
+                <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 700, borderRadius: 'var(--tp-radius-pill)', paddingInline: 'var(--tp-sp-2)', background: 'var(--tp-warn)', color: 'var(--tp-brand-black)' }}>
+                  {tr('ws.cashier.floor.paying')}
+                </span>
+              )}
+              <ChevronForward size={16} style={{ color: 'var(--tp-muted-fg)' }} />
             </span>
           </button>
         ))}

@@ -42,6 +42,9 @@ export const incidentsEn = {
   },
   mine: {
     title: 'My reports',
+    lead: 'What you reported, and the manager’s note once it is reviewed.',
+    emptyTitle: 'No reports yet',
+    waiting: 'Waiting for a manager',
     empty:
       'You have not reported anything. What you send shows here, with the manager’s note once it is reviewed.',
   },
@@ -51,6 +54,32 @@ export const incidentsEn = {
     when: 'When',
     whenHint: 'Up to 7 days ago.',
     now: 'Now',
+    minutesAgo: '{count} min ago',
+    hourAgo: '1 hour ago',
+    pickTime: 'Pick a time',
+    // The stepped dialog (the tournament start's layout): three steps, side menu.
+    lead: 'A manager reviews every report.',
+    menu: 'Report steps',
+    stepOf: 'Step {n} of {total}',
+    progress: '{done} of {total} done',
+    needsLook: 'Needs a look',
+    written: 'Written',
+    steps: {
+      kind: 'What kind',
+      placeTime: 'Where & when',
+      story: 'What happened',
+      review: 'Review',
+    },
+    reviewLead: 'Check the report before you send it.',
+    change: 'Change',
+    changeLabel: 'Change {what}',
+    kindHint: {
+      accident: 'A fall, a slip, a collision.',
+      injury: 'Someone got hurt.',
+      fight: 'An argument or a fight.',
+      damage: 'Something broke.',
+      other: 'Anything else.',
+    },
     place: 'Where',
     court: 'Which court',
     chooseCourt: 'Choose a court',
@@ -67,6 +96,14 @@ export const incidentsEn = {
       whenRange: 'Pick a time in the last 7 days.',
       tooLong: 'Keep it to {limit} characters.',
       tooMany: 'Up to {limit} photos.',
+    },
+    // A required answer that is missing, in the words of the step that asks for it.
+    missing: {
+      kind: 'Please select the type of incident.',
+      description: 'Please describe what happened.',
+      place: 'Please select where the incident occurred.',
+      courtId: 'Please select the court.',
+      when: 'Please select when the incident occurred.',
     },
     // A server refusal, on the field it names.
     refused: {

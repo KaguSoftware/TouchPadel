@@ -129,6 +129,40 @@ export const operatorBlueVars = {
   '--tp-kds-muted': GRAY_LIGHT,
   '--tp-kds-border': BLUE_L50,
 
+  // ── the till's floor board: a deep blue board on the blue page ───────────
+  // Chairs step up a shade so they show on it, and the table under the
+  // pointer turns white with blue ink, since white is this mode's accent.
+  '--tp-floor-bg': BLUE_L33,
+  '--tp-floor-edge': BLUE_L18,
+  '--tp-floor-tile': 'rgb(255 255 255 / 0.05)',
+  '--tp-floor-fg': 'var(--tp-brand-white)',
+  '--tp-floor-muted': GRAY_LIGHT,
+  '--tp-floor-line': BLUE_L50,
+  '--tp-floor-wall': BLUE_L50,
+  '--tp-floor-wall-side': BLUE_L29,
+  '--tp-floor-pass': BLUE_L38,
+  '--tp-floor-pass-side': BLUE_L29,
+  '--tp-floor-free': BLUE_L38,
+  '--tp-floor-free-side': BLUE_L18,
+  '--tp-floor-bar': BLUE_L58,
+  '--tp-floor-bar-side': BLUE_L29,
+  '--tp-floor-chair': BLUE_L58,
+  '--tp-floor-chair-side': BLUE_L29,
+  '--tp-floor-chair-line': 'var(--tp-brand-black)',
+  '--tp-floor-stool-ring': GRAY_SOFT,
+  '--tp-floor-stool-ring-side': BLUE_L18,
+  '--tp-floor-pot': 'var(--tp-brand-white)',
+  '--tp-floor-pot-side': GRAY_SOFT,
+  '--tp-floor-leaf': 'oklch(64% 0.09 128.68)',
+  '--tp-floor-leaf-dark': 'oklch(48% 0.08 128.68)',
+  '--tp-floor-success-side': 'oklch(50% 0.12 128.68)',
+  '--tp-floor-warn-side': 'oklch(52% 0.12 70)',
+  '--tp-floor-live-glow': 'oklch(80% 0.14 128.68 / 0.55)',
+  '--tp-floor-hover': 'var(--tp-brand-white)',
+  '--tp-floor-hover-side': 'var(--tp-brand-gray)',
+  '--tp-floor-hover-fg': 'var(--tp-brand-blue)',
+  '--tp-floor-hover-glow': 'rgb(255 255 255 / 0.45)',
+
   // ── focus ring: the halo is white, the gap is the page ───────────────────
   '--tp-ring': '0 0 0 2px var(--tp-bg), 0 0 0 4px var(--tp-brand-white)',
 

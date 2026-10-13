@@ -68,7 +68,7 @@ export function StaffPhoto({ path, alt, style }: { path: string; alt: string; st
  * when it cannot be, the square holds a photo mark instead, with the reason as
  * its tooltip.
  */
-export function StaffPhotoThumb({ path, label, expanded, onClick }: { path: string; label: string; expanded?: boolean; onClick: () => void }) {
+export function StaffPhotoThumb({ path, label, expanded, onClick, size = '3rem' }: { path: string; label: string; expanded?: boolean; onClick: () => void; /** The square's side; a form's photo grid draws them larger. */ size?: string }) {
   const { tr } = useLocale();
   const q = useSignedPhoto(path);
   return (
@@ -82,8 +82,8 @@ export function StaffPhotoThumb({ path, label, expanded, onClick }: { path: stri
         flex: '0 0 auto',
         display: 'grid',
         placeItems: 'center',
-        inlineSize: '3rem',
-        blockSize: '3rem',
+        inlineSize: size,
+        blockSize: size,
         padding: 0,
         borderRadius: 'var(--tp-radius-ctl)',
         border: `1px solid ${expanded ? 'var(--tp-accent)' : 'var(--tp-border)'}`,

@@ -10,6 +10,7 @@
  */
 import type { StaffRole } from '../../lib/auth';
 import type { Tone } from '../../components/kit';
+import type { IconName } from '../../components/icons';
 import { isolate } from '@touch/i18n';
 import { bilingual, isObject, list, num, role, str } from '../roleExtras/roleExtrasLogic';
 
@@ -138,6 +139,37 @@ export function onlyManagerReviews(reporterRole: StaffRole | null | undefined): 
   return reporterRole === 'owner';
 }
 
+/**
+ * How a kind reads before its word: an icon on a tinted square. The tints are
+ * existing pairs (warn, danger, lesson, tournament, neutral), each with a blue
+ * mode value, so the five stay apart in every theme.
+ */
+export const KIND_LOOK: Record<IncidentKind, { icon: IconName; fg: string; soft: string }> = {
+  accident: { icon: 'alert', fg: 'var(--tp-warn-fg)', soft: 'var(--tp-warn-soft)' },
+  injury: { icon: 'medical', fg: 'var(--tp-danger-fg)', soft: 'var(--tp-danger-soft)' },
+  fight: { icon: 'fist', fg: 'var(--tp-lesson)', soft: 'var(--tp-lesson-soft)' },
+  damage: { icon: 'glassBroken', fg: 'var(--tp-tournament)', soft: 'var(--tp-tournament-soft)' },
+  other: { icon: 'more', fg: 'var(--tp-neutral-fg)', soft: 'var(--tp-neutral-soft)' },
+};
+
+/**
+ * The form's quick times: most reports are filed minutes after, so three
+ * taps cover them and the picker is the fallback. Minutes before the moment
+ * the chip is tapped; 'pick' opens the datetime field.
+ */
+export const QUICK_TIMES = [
+  { id: 'now', minutes: 0 },
+  { id: 'm15', minutes: 15 },
+  { id: 'h1', minutes: 60 },
+] as const;
+export type WhenChoice = (typeof QUICK_TIMES)[number]['id'] | 'pick';
+
+/** The reporter's own list, filtered on the page (app.my_incidents returns at most 30). */
+export function filterMine(rows: readonly IncidentRow[], filter: IncidentFilter): IncidentRow[] {
+  if (filter === 'all') return [...rows];
+  return rows.filter((r) => r.status === (filter === 'open' ? 'open' : 'reviewed'));
+}
+
 /** Open waits on a manager (amber); reviewed is done (green). */
 export function incidentTone(status: IncidentStatus): Tone {
   return status === 'open' ? 'warn' : 'success';
@@ -215,6 +247,46 @@ export function reportArgs(d: ReportDraft, occurredAt: Date, key: string): Recor
     p_idempotency_key: key,
   };
 }
+
+/**
+ * The report dialog's steps (the tournament start's layout): the kind, then
+ * what happened with who and the photos, then where and when, then a review
+ * of it all before Send. Every field belongs to one of the first three, so an
+ * issue or a refusal opens the step that holds it; the review holds none.
+ */
+export const FORM_STEPS = ['kind', 'story', 'placeTime'] as const;
+export const REPORT_STEPS = [...FORM_STEPS, 'review'] as const;
+export type FormStep = (typeof FORM_STEPS)[number];
+export type ReportStep = (typeof REPORT_STEPS)[number];
+
+const FIELD_STEP: Record<ReportField, FormStep> = {
+  kind: 'kind',
+  when: 'placeTime',
+  place: 'placeTime',
+  courtId: 'placeTime',
+  placeDetail: 'placeTime',
+  description: 'story',
+  people: 'story',
+  photos: 'story',
+};
+
+export function stepOfField(field: ReportField): FormStep {
+  return FIELD_STEP[field];
+}
+
+/** The fields a step holds, in the order the step shows them. */
+export function fieldsOfStep(step: ReportStep): ReportField[] {
+  return (Object.keys(FIELD_STEP) as ReportField[]).filter((f) => FIELD_STEP[f] === step);
+}
+
+/** A step is done once it has no issue of its own; the review, once every step before it is. */
+export function stepDone(step: ReportStep, issues: readonly ReportIssue[]): boolean {
+  if (step === 'review') return issues.length === 0;
+  return !issues.some((i) => FIELD_STEP[i.field] === step);
+}
+
+/** The order the kinds are offered in: the ones the desk reports most, first. */
+export const KIND_ORDER: readonly IncidentKind[] = ['injury', 'fight', 'damage', 'accident', 'other'];
 
 /** The field a server refusal names (the hints of app.submit_incident), so the form marks it. */
 export function reportRefusalField(code: string | null, hint: string | null): ReportField | null {

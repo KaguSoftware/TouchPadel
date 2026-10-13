@@ -37,6 +37,7 @@ import { mutate } from '../../lib/mutate';
 import { useLocale } from '../../lib/i18n';
 import type { BroadcastStatus } from '../../lib/realtime';
 import { Button, ErrorText, card } from '../../components/ui';
+import { Icon } from '../../components/icons';
 import { ConnectionPill } from '../../components/ConnectionPill';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { CALL_ALARM_CONFIG } from '../kds/alarms';
@@ -90,6 +91,12 @@ const URGENCY_STRIPE: Record<Urgency, string> = {
   calm: 'var(--tp-border)',
   warn: 'var(--tp-warn-mark)',
   late: 'var(--tp-danger-mark)',
+};
+/** A ticket's table block: red when late, amber when warming up, the rail's own blue when calm or answered. */
+const URGENCY_BLOCK: Record<Urgency, { background: string; color: string }> = {
+  calm: { background: 'var(--tp-rail-active)', color: 'var(--tp-fg)' },
+  warn: { background: 'var(--tp-warn)', color: 'var(--tp-brand-black)' },
+  late: { background: 'var(--tp-danger)', color: 'var(--tp-danger-contrast)' },
 };
 
 /** Unresolved calls, oldest first. The floor plan reads the same key to mark a calling table. */
@@ -196,12 +203,13 @@ export function WaiterCallsPanel({ status, layout = 'panel' }: { status?: Broadc
     <section
       aria-labelledby="waiter-calls-title"
       style={{
-        ...card,
         display: 'grid',
         gap: 'var(--tp-sp-2)',
         minInlineSize: 0,
-        // The strip puts the heading beside the calls: one row of height, not two.
-        ...(strip ? { gridTemplateColumns: 'auto minmax(0, 1fr)', alignItems: 'center', columnGap: 'var(--tp-sp-4)', paddingBlock: 'var(--tp-sp-2)' } : {}),
+        // The strip is a card of its own on the page, its heading beside the
+        // calls: one row of height, not two. The panel stands straight on the
+        // till floor's service rail (TillScreen), which is its card.
+        ...(strip ? { ...card, gridTemplateColumns: 'auto minmax(0, 1fr)', alignItems: 'center', columnGap: 'var(--tp-sp-4)', paddingBlock: 'var(--tp-sp-2)' } : {}),
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
@@ -229,13 +237,16 @@ export function WaiterCallsPanel({ status, layout = 'panel' }: { status?: Broadc
       </div>
 
       {callsQ.isSuccess && calls.length === 0 && (
-        <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('op.floor.noCalls')}</p>
+        <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+          <Icon name="checkCircle" size={16} style={{ flexShrink: 0 }} />
+          {tr('op.floor.noCalls')}
+        </p>
       )}
 
       {recent.length > 0 && (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1-5)', ...(strip ? STRIP_LIST : {}) }}>
           {recent.map((c) => (
-            <CallRow key={c.id} call={c} now={now} stale={stale.has(c.id)} busy={busyId === c.id || clearing} onAct={(a) => void act(c.id, a)} />
+            <CallRow key={c.id} call={c} now={now} stale={stale.has(c.id)} ticket={!strip} busy={busyId === c.id || clearing} onAct={(a) => void act(c.id, a)} />
           ))}
         </ul>
       )}
@@ -265,7 +276,7 @@ export function WaiterCallsPanel({ status, layout = 'panel' }: { status?: Broadc
           {showOld && (
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
               {old.map((c) => (
-                <CallRow key={c.id} call={c} now={now} stale={false} quiet busy={busyId === c.id || clearing} onAct={(a) => void act(c.id, a)} />
+                <CallRow key={c.id} call={c} now={now} stale={false} quiet ticket={!strip} busy={busyId === c.id || clearing} onAct={(a) => void act(c.id, a)} />
               ))}
             </ul>
           )}
@@ -281,6 +292,7 @@ function CallRow({
   now,
   stale,
   quiet = false,
+  ticket = false,
   busy,
   onAct,
 }: {
@@ -289,6 +301,8 @@ function CallRow({
   stale: boolean;
   /** A folded-away old call: listed for tidying, not raised as an alarm. */
   quiet?: boolean;
+  /** The service rail's look: a kitchen ticket with the table's number in a block on its start edge. */
+  ticket?: boolean;
   busy: boolean;
   onAct: (action: 'ack' | 'resolve') => void;
 }) {
@@ -297,6 +311,79 @@ function CallRow({
   const urgency = quiet ? 'calm' : callUrgency(call.status, minutes, stale);
   const age = formatElapsed(call.raised_at, now, tr);
   const raised = call.status === 'raised';
+  const ageText = minutes < 1 ? tr('op.floor.ageNow') : raised ? tr('op.floor.overdue', { age }) : tr('op.floor.ageMinutes', { age });
+  const actions = (
+    <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+      {raised && (
+        <Button size="sm" disabled={busy} onClick={() => onAct('ack')} style={ticket ? { flex: 1 } : undefined}>
+          {tr('op.floor.ack')}
+        </Button>
+      )}
+      <Button size="sm" kind="primary" icon="check" disabled={busy} onClick={() => onAct('resolve')} style={ticket ? { flex: 1 } : undefined}>
+        {tr('op.floor.resolve')}
+      </Button>
+    </div>
+  );
+
+  if (ticket) {
+    const num = call.table?.table_number ?? '—';
+    return (
+      <li
+        data-urgency={urgency}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '4rem minmax(0, 1fr)',
+          borderRadius: 'var(--tp-radius-panel)',
+          background: 'var(--tp-surface)',
+          overflow: 'hidden',
+          minInlineSize: 0,
+        }}
+      >
+        {/* The words say it as well as the colour: "Table 8", read as one name. */}
+        <span
+          style={{
+            ...URGENCY_BLOCK[urgency],
+            display: 'grid',
+            alignContent: 'center',
+            justifyItems: 'center',
+            paddingBlock: 'var(--tp-sp-2)',
+            paddingInline: 'var(--tp-sp-1)',
+            textAlign: 'center',
+          }}
+        >
+          <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, opacity: 0.85 }}>{tr('op.till.table')} </span>
+          <strong style={{ fontSize: 'var(--tp-fs-xl)', lineHeight: 1.05, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
+            <bdi>{num}</bdi>
+          </strong>
+        </span>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-2-5)', minInlineSize: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+            <strong>{tr(`op.floor.reasons.${call.reason}`)}</strong>
+            <span
+              style={{
+                marginInlineStart: 'auto',
+                color: urgency === 'calm' ? 'var(--tp-muted-fg)' : URGENCY_INK[urgency],
+                fontWeight: urgency === 'calm' ? 400 : 700,
+                fontSize: 'var(--tp-fs-sm)',
+                fontVariantNumeric: 'tabular-nums',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {ageText}
+            </span>
+          </div>
+          {!raised && (
+            <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+              {tr('op.floor.acked')}
+              {call.acknowledged_label && <bdi> ({call.acknowledged_label})</bdi>}
+            </span>
+          )}
+          {actions}
+        </div>
+      </li>
+    );
+  }
+
   return (
     <li
       data-urgency={urgency}
@@ -325,7 +412,7 @@ function CallRow({
             whiteSpace: 'nowrap',
           }}
         >
-          {minutes < 1 ? tr('op.floor.ageNow') : raised ? tr('op.floor.overdue', { age }) : tr('op.floor.ageMinutes', { age })}
+          {ageText}
         </span>
       </div>
       <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
@@ -338,16 +425,7 @@ function CallRow({
           </>
         )}
       </span>
-      <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
-        {raised && (
-          <Button size="sm" disabled={busy} onClick={() => onAct('ack')}>
-            {tr('op.floor.ack')}
-          </Button>
-        )}
-        <Button size="sm" kind="primary" icon="check" disabled={busy} onClick={() => onAct('resolve')}>
-          {tr('op.floor.resolve')}
-        </Button>
-      </div>
+      {actions}
     </li>
   );
 }

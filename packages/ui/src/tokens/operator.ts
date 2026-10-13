@@ -166,6 +166,43 @@ export const operatorVars = {
   /** Ink on an age-state or alarm fill; was reaching for --tp-brand-black direct. */
   '--tp-kds-on-fill': 'var(--tp-brand-black)',
 
+  // ── the till's floor board (features/till/FloorView) ─────────────────────
+  // The café plan in CSS 3D (owner's design, 2026-10-13). Every piece on the
+  // board has a top and a side; the side is the darker rung of the same
+  // colour, so a solid reads as standing on the board rather than painted on
+  // it. Paper: a pale board, white free tables, brand-blue chairs.
+  '--tp-floor-bg': `oklch(93.5% 0.008 ${HUE})`,
+  '--tp-floor-edge': `oklch(83% 0.015 ${HUE})`,
+  '--tp-floor-tile': `oklch(20% 0.03 ${HUE} / 0.05)`,
+  '--tp-floor-fg': 'var(--tp-fg)',
+  '--tp-floor-muted': 'var(--tp-muted-fg)',
+  '--tp-floor-line': 'var(--tp-border)',
+  '--tp-floor-wall': `oklch(81% 0.015 ${HUE})`,
+  '--tp-floor-wall-side': `oklch(70% 0.02 ${HUE})`,
+  '--tp-floor-pass': `oklch(91% 0.008 ${HUE})`,
+  '--tp-floor-pass-side': `oklch(80% 0.015 ${HUE})`,
+  '--tp-floor-free': 'var(--tp-brand-white)',
+  '--tp-floor-free-side': 'var(--tp-brand-gray)',
+  '--tp-floor-bar': `oklch(90% 0.04 ${HUE})`,
+  '--tp-floor-bar-side': `oklch(36% 0.12 ${HUE})`,
+  '--tp-floor-chair': 'var(--tp-brand-blue)',
+  '--tp-floor-chair-side': `oklch(36% 0.12 ${HUE})`,
+  '--tp-floor-chair-line': 'var(--tp-brand-black)',
+  '--tp-floor-stool-ring': `oklch(62% 0.02 ${HUE})`,
+  '--tp-floor-stool-ring-side': `oklch(42% 0.02 ${HUE})`,
+  '--tp-floor-pot': `oklch(97.5% 0.003 ${HUE})`,
+  '--tp-floor-pot-side': `oklch(83% 0.012 ${HUE})`,
+  '--tp-floor-leaf': `oklch(64% 0.09 ${GREEN_HUE})`,
+  '--tp-floor-leaf-dark': `oklch(48% 0.08 ${GREEN_HUE})`,
+  '--tp-floor-success-side': `oklch(50% 0.12 ${GREEN_HUE})`,
+  '--tp-floor-warn-side': 'oklch(52% 0.12 70)',
+  '--tp-floor-live-glow': `oklch(60% 0.12 ${GREEN_HUE} / 0.35)`,
+  /** The table under the pointer: the brand blue, white ink. */
+  '--tp-floor-hover': 'var(--tp-brand-blue)',
+  '--tp-floor-hover-side': `oklch(36% 0.12 ${HUE})`,
+  '--tp-floor-hover-fg': 'var(--tp-brand-white)',
+  '--tp-floor-hover-glow': `oklch(48% 0.12 ${HUE} / 0.65)`,
+
   // focus ring
   '--tp-ring': '0 0 0 2px var(--tp-brand-white), 0 0 0 4px var(--tp-brand-blue)',
   /** The room a focus ring needs OUTSIDE the control it belongs to: the global

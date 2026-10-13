@@ -19,6 +19,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
+import { useTheme } from '@touch/ui';
 import { useLocale } from '../lib/i18n';
 import { errorToMessageKey } from '../lib/errors';
 import { Icon, type IconName } from './icons';
@@ -495,6 +496,7 @@ export function Modal({
   bare?: (close: () => void) => ReactNode;
 }) {
   const { tr } = useLocale();
+  const { mode: themeMode } = useTheme();
   const panelRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -645,6 +647,12 @@ export function Modal({
       aria-modal="true"
       aria-label={title}
       data-tone={tone}
+      // The app's own palette again, for a dialog opened inside a zone that
+      // borrows another one (the till floor's service rail is blue mode on
+      // paper): without it the slip review would open blue on a white till.
+      // A board dialog keeps its tone, which a theme block here would undo.
+      data-theme={tone ? undefined : 'operator'}
+      data-mode={tone || themeMode === 'light' ? undefined : themeMode}
       className="tp-fade"
       style={{
         position: 'fixed',
