@@ -161,19 +161,33 @@ test.describe('operator people records', () => {
     const description = `E2E: a guest slipped by the cafe counter (${stamp}).`;
     const desk = await signIn(browser, SEED_STAFF.court_desk);
     await desk.goto(`${OPERATOR_URL}/incidents`);
+    // "Report an incident" now opens the form in a dialog (06865bfc), and the
+    // form itself is a kind -> story -> placeTime -> review wizard, each step
+    // finished before the next (incidentsLogic.ts REPORT_STEPS).
+    await desk.getByTestId('incidents.report.open').click();
     const form = desk.getByTestId('incidents.form');
-    await expect(form.getByTestId('incidents.form.privacy')).toHaveText('Write only what is needed. Do not add phone numbers.');
     await form.getByRole('group', { name: 'What kind' }).getByRole('button', { name: 'Injury' }).click();
-    await form.getByRole('group', { name: 'Where' }).getByRole('button', { name: 'Cafe' }).click();
+    await form.getByTestId('incidents.form.next').click();
+    await expect(form.getByTestId('incidents.form.privacy')).toHaveText('Write only what is needed. Do not add phone numbers.');
     await form.getByTestId('incidents.form.description').fill(description);
+    await form.getByTestId('incidents.form.next').click();
+    await form.getByRole('group', { name: 'Where' }).getByRole('button', { name: 'Cafe' }).click();
+    await form.getByTestId('incidents.form.next').click();
     await form.getByTestId('incidents.form.submit').click();
-    await expect(desk.getByTestId('incidents.mine').getByText(description)).toBeVisible();
-    await desk.context().close();
+    // The dialog closes itself on a successful send (CloseNow); wait for that
+    // before reading the row back, instead of racing the mutation.
+    await expect(desk.getByTestId('incidents.form')).toHaveCount(0);
 
     const row = await svc.from('incident_reports').select('id').eq('description', description).single();
     if (row.error || !row.data) throw new Error(`the report did not land: ${row.error?.message}`);
     const id = (row.data as { id: string }).id;
     incidentIds.push(id);
+
+    // The card (RecordCards.tsx) shows kind/time/place, not the description;
+    // it opens MyIncidentModal, which has the full text.
+    await desk.getByTestId(`incidents.mine.${id}`).click();
+    await expect(desk.getByRole('dialog').getByText(description)).toBeVisible();
+    await desk.context().close();
 
     const manager = await signIn(browser, SEED_STAFF.manager);
     await manager.goto(`${OPERATOR_URL}/incidents`);
