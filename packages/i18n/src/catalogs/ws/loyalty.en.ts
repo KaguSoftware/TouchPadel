@@ -82,6 +82,12 @@ export const loyaltyEn = {
     noTier: 'No tier',
     history: 'History',
     historyEmpty: 'No points earned or used yet.',
+    // The record's loyalty dialog (2026-10-15).
+    worth: '≈ {amount} off',
+    ready: 'Ready to use',
+    earns: 'earns ×{multiplier}',
+    perMonth: 'Earned per month',
+    perMonthSpan: 'Last 6 months',
     columns: {
       when: 'When',
       what: 'What',

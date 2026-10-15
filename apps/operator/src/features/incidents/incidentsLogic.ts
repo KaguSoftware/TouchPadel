@@ -23,6 +23,8 @@ export type IncidentStatus = 'open' | 'reviewed';
 /** MGMT's list (§5.2): Open (oldest first), Reviewed and All (newest first). */
 export const INCIDENT_FILTERS = ['open', 'reviewed', 'all'] as const;
 export type IncidentFilter = (typeof INCIDENT_FILTERS)[number];
+/** My reports (the desk and the till): All first, the page's default. */
+export const MINE_FILTERS = ['all', 'open', 'reviewed'] as const satisfies readonly IncidentFilter[];
 
 export const INCIDENTS_PAGE_SIZE = 50;
 export const MY_INCIDENTS_LIMIT = 30;
@@ -151,6 +153,15 @@ export const KIND_LOOK: Record<IncidentKind, { icon: IconName; fg: string; soft:
   damage: { icon: 'glassBroken', fg: 'var(--tp-tournament)', soft: 'var(--tp-tournament-soft)' },
   other: { icon: 'more', fg: 'var(--tp-neutral-fg)', soft: 'var(--tp-neutral-soft)' },
 };
+
+/**
+ * Text set beside an icon. Lama Sans carries Arabic, so its line box has a
+ * tall ascent (hhea 760 / -250 of 1000, typo 700 / -250 on Windows) and a
+ * Latin word sits about 0.1em above the centre of its own box, which is where
+ * flex centres the icon. The offset is the font's, not the line height's, so
+ * one em-based nudge lines every icon row up at every size.
+ */
+export const BESIDE_ICON = { position: 'relative', insetBlockStart: '0.08em' } as const;
 
 /**
  * The form's quick times: most reports are filed minutes after, so three

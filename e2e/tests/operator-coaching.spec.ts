@@ -672,6 +672,8 @@ test.describe('operator coaching', () => {
     await closeStationShift();
     const page = await signIn(browser, SEED_STAFF.cashier);
     await page.goto(`${OPERATOR_URL}/desk/customers/${guest!.id}`);
+    // The record's sections open from their cards, in a dialog.
+    await page.getByTestId('card-lessons').click({ timeout: 30_000 });
     const panel = page.getByTestId('customer-lessons');
     await expect(panel).toBeVisible({ timeout: 30_000 });
     await panel.getByRole('button', { name: C.customers.takeCardAria }).first().click();

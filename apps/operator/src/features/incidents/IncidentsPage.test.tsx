@@ -222,13 +222,24 @@ describe('IncidentsPageScreen at the desk', () => {
     ];
     renderPage('cashier');
     const first = await screen.findByTestId('incidents.mine.m1');
-    expect(within(first).getByText('Called the guest, all fine.')).toBeTruthy();
-    expect(within(first).getByText(/Reviewed by .?Omar/)).toBeTruthy();
+    // The card says who reviewed it; the note waits in the sheet.
+    expect(within(first).getByText(/^Reviewed by .?Omar.?$/)).toBeTruthy();
+    expect(within(first).queryByText('Called the guest, all fine.')).toBeNull();
     expect(within(first).queryByText('Waiting for a manager')).toBeNull();
+    await userEvent.setup().click(first);
+    const review = await screen.findByRole('dialog');
+    expect(within(review).getByText('Called the guest, all fine.')).toBeTruthy();
+    expect(within(review).getByText(/Reviewed by .?Omar/)).toBeTruthy();
+    await userEvent.setup().click(within(review).getAllByRole('button', { name: 'Close' })[0]!);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     const second = screen.getByTestId('incidents.mine.m2');
     expect(within(second).getByText('Waiting for a manager')).toBeTruthy();
-    // The 365-day purge and a redaction read the same: the text was deleted, not by whom.
-    expect(within(second).getByText('This report’s text was deleted.')).toBeTruthy();
+    // The card never shows what happened; the sheet does. The 365-day purge and
+    // a redaction read the same there: the text was deleted, not by whom.
+    expect(screen.queryByText('[deleted after 365 days]')).toBeNull();
+    await userEvent.setup().click(second);
+    const sheet = await screen.findByRole('dialog');
+    expect(within(sheet).getByText('This report’s text was deleted.')).toBeTruthy();
     expect(screen.queryByText('[deleted after 365 days]')).toBeNull();
   });
 
@@ -240,6 +251,21 @@ describe('IncidentsPageScreen at the desk', () => {
     await user.click(screen.getByRole('button', { name: /^To review/ }));
     expect(screen.queryByTestId('incidents.mine.m1')).toBeNull();
     expect(screen.getByTestId('incidents.mine.m2')).toBeTruthy();
+  });
+
+  it('opens a report in the sheet when its card is clicked, read only', async () => {
+    const user = userEvent.setup();
+    mine = [row({ id: 'm1' })];
+    renderPage('cashier');
+    const card = await screen.findByTestId('incidents.mine.m1');
+    expect(within(card).queryByText('A player twisted an ankle.')).toBeNull();
+    await user.click(card);
+    const sheet = await screen.findByRole('dialog');
+    expect(within(sheet).getByText('A player twisted an ankle.')).toBeTruthy();
+    expect(within(sheet).getByText('What happened')).toBeTruthy();
+    expect(within(sheet).getByText(/^Waiting for a manager\./)).toBeTruthy();
+    expect(within(sheet).queryByText('Reported by')).toBeNull();
+    expect(within(sheet).queryByTestId('incidents.review.confirm')).toBeNull();
   });
 
   it('shows three of the reporter’s reports, then View more reveals the rest', async () => {

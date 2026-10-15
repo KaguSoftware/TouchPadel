@@ -38,6 +38,10 @@ export const incidentsAr: DeepMessages<typeof incidentsEn> = {
     lead: 'ما أبلغت عنه، مع ملاحظة المدير بعد مراجعته.',
     emptyTitle: 'لا بلاغات بعد',
     waiting: 'بانتظار مراجعة مدير',
+    reviewedBy: 'راجعه {name}',
+    details: 'اضغط لمزيد من التفاصيل',
+    review: 'مراجعة المدير',
+    waitingLong: 'بانتظار مراجعة مدير. تظهر ملاحظته هنا بعد المراجعة.',
     empty: 'لم تبلِّغ عن شيء بعد. يظهر هنا ما ترسله، مع ملاحظة المدير بعد مراجعته.',
   },
   form: {

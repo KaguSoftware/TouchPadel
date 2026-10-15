@@ -27,6 +27,7 @@ import { useStationReach } from '../../lib/stationReach';
 import { useVenue } from '../../lib/venue';
 import { Button } from '../../components/ui';
 import { MessagePresenter, Panel, StatusBadge, ViewMore, useListCap } from '../../components/kit';
+import { Icon } from '../../components/icons';
 import type { PaymentMethod } from '../till/PaymentPane';
 import { LessonBadge } from './LessonBadge';
 import { enrolmentLine, enrolmentStatusKey, moneyLineText, type MoneyLine } from './lessonLogic';
@@ -91,7 +92,10 @@ export function CustomerLessonsPanel({
   data,
   tz,
   refetch,
+  onBookLesson,
 }: {
+  /** "Book a lesson" on the empty view; left out when this person cannot book one. */
+  onBookLesson?: () => void;
   /** The record's name: the student as Take payment names them. */
   customerName: string;
   data: CustomerLessons;
@@ -115,7 +119,15 @@ export function CustomerLessonsPanel({
     !data.counts.no_shows &&
     strikes === 0 &&
     !data.coach;
-  if (nothing) return null;
+  // The record opens this panel in a dialog from its Lessons card, so a customer
+  // with no lessons gets a sentence saying so, never an empty dialog.
+  if (nothing) {
+    return (
+      <Panel title={tr(`${C}.panelTitle`)} data-testid="customer-lessons">
+        <NoLessons onBook={onBookLesson} />
+      </Panel>
+    );
+  }
 
   function pay(l: CustomerLesson, method: PaymentMethod) {
     setNotice(null);
@@ -153,10 +165,10 @@ export function CustomerLessonsPanel({
           )}
         </div>
         {notice && <MessagePresenter tone="info" message={notice} />}
-        {showList &&
-          (data.lessons.length === 0 ? (
-            <p style={{ margin: 0, color: 'var(--tp-muted-fg)' }}>{tr(`${C}.empty`)}</p>
-          ) : (
+        {data.lessons.length === 0 ? (
+          <NoLessons onBook={onBookLesson} />
+        ) : (
+          showList && (
             <>
               {upcoming.length > 0 && (
                 <LessonRows title={tr(`${C}.upcoming`)} rows={upcoming} tz={tz} onPay={pay} />
@@ -369,5 +381,56 @@ function LessonRows({
         style={{ marginBlockStart: 0 }}
       />
     </section>
+  );
+}
+
+/**
+ * A customer with no lessons. The record opens this panel in a dialog from its
+ * Lessons card, so the empty view fills the dialog like a page (a large mark, a
+ * heading, what will appear here, the way to book one) rather than leaving a
+ * one-line strip.
+ */
+function NoLessons({ onBook }: { onBook?: () => void }) {
+  const { tr } = useLocale();
+  return (
+    <div
+      style={{
+        minBlockSize: '18rem',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        gap: 'var(--tp-sp-3)',
+        paddingBlock: 'var(--tp-sp-6)',
+        paddingInline: 'var(--tp-sp-4)',
+        borderRadius: 'var(--tp-radius-dialog)',
+        background: 'linear-gradient(180deg, var(--tp-lesson-soft) 0%, var(--tp-surface) 75%)',
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          inlineSize: '4.5rem',
+          blockSize: '4.5rem',
+          borderRadius: '50%',
+          display: 'grid',
+          placeItems: 'center',
+          background: 'var(--tp-surface)',
+          color: 'var(--tp-lesson)',
+          border: '1px solid var(--tp-border)',
+          boxShadow: 'var(--tp-shadow-popover)',
+        }}
+      >
+        <Icon name="whistle" size={30} />
+      </span>
+      <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-xl)', fontWeight: 700, color: 'var(--tp-fg)' }}>{tr(`${C}.empty`)}</h3>
+      <p style={{ margin: 0, maxInlineSize: '42ch', color: 'var(--tp-muted-fg)' }}>{tr(`${C}.emptyBody`)}</p>
+      {onBook && (
+        <Button kind="primary" icon="whistle" onClick={onBook} style={{ marginBlockStart: 'var(--tp-sp-1)' }}>
+          {tr(`${C}.bookLesson`)}
+        </Button>
+      )}
+    </div>
   );
 }

@@ -20,44 +20,49 @@
  * Lessons panel, where a cashier takes lesson money (R20). A server without
  * coaching (RPC_MISSING) shows none of it.
  */
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { formatDate, formatDateTime, formatNumber, formatTimeRange, isolate, VENUE_TZ, type MessageKey } from '@touch/i18n';
-import { appRpc } from '../../../lib/appRpc';
+import { appRpc, isRpcMissing } from '../../../lib/appRpc';
 import { QK, fetchActiveCourts, fetchVenueSettings } from '../../../lib/queries';
 import { useToast } from '../../../components/toast';
 import { useLocale, pickName } from '../../../lib/i18n';
-import { canAccess, useAuth } from '../../../lib/auth';
+import { can, canAccess, useAuth } from '../../../lib/auth';
 import { useStationReach } from '../../../lib/stationReach';
 import { useVenue } from '../../../lib/venue';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components/ui';
+import { Button, ErrorText, Field, Modal, Skeleton, inputStyle } from '../../../components/ui';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import {
   AsyncStateWrapper,
+  DataTable,
+  BidirectionalTextRenderer,
   BookingStatusIndicator,
   CustomerFlagBadge,
-  DescriptionList,
   EmptyState,
+  InSectionDialog,
   MessagePresenter,
   Money,
-  PageHeader,
   Panel,
   ReasonCodePrompt,
   StatusBadge,
   TabStatusIndicator,
   ViewMore,
   useListCap,
+  type Column,
   type CustomerFlagType,
 } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
 import { matchStatusKey } from '../../matches/matchLogic';
-import { invalidateMatchCustomer, useMatchCaps } from '../../matches/useMatches';
+import { invalidateMatchCustomer, useGuestTickets, useMatchCaps, useMatchRead } from '../../matches/useMatches';
 import type { CustomerFlag, CustomerMatchRow, CustomerNote, CustomerRecord, CustomerReservationRow } from '../deskTypes';
 import type { CustomerSearchParams } from './CustomerSearch';
 import { GenderDialog } from './GenderDialog';
 import { TicketsPanel } from './TicketsPanel';
-import { CustomerLoyaltyPanel } from '../../loyalty/CustomerLoyaltyPanel';
+import { CustomerLoyaltyPanel, CustomerLoyaltyTop } from '../../loyalty/CustomerLoyaltyPanel';
+import { useLoyaltyCustomer } from '../../loyalty/useLoyalty';
+import { CardFoot, CardPill, Figure, KeptRing, MiniList, RacketMark, RecordCard, SectionCard, Spark, StatRow, TearLine } from './RecordCards';
+import { cafeSpark, initials, keptShare, lastOrderAt, nextBooking, tierColour, untilStart, type RecordSection } from './recordSummary';
 import { editableFlags, isHereMatch, isMatchBanned, playsAsLine, playsAsOf, recordMatches, seatKindKey, seatStatusKey } from './ticketsLogic';
 import { CustomerHoldStanding } from '../../holds/HoldStandingPanels';
 import { CoachBadge } from '../../coaching/CoachBadge';
@@ -118,8 +123,6 @@ export function CustomerRecordScreen() {
   // A server before 0262 sends no gender key and no matches: no open-match block on the record.
   const matchesKnown = rec ? playsAsOf(rec.customer).known || rec.matches !== undefined : false;
   const flagCount = rec ? editableFlags(rec.flags).length : 0;
-  const cafeCap = useListCap(rec?.cafeOrders ?? []);
-  const seriesCap = useListCap(rec?.series ?? []);
   const attachLabel =
     params.attach === 'booking'
       ? tr('ws.courtDesk.customers.attachBooking')
@@ -129,175 +132,393 @@ export function CustomerRecordScreen() {
           ? tr('ws.tournaments.entries.attach')
           : tr('ws.courtDesk.customers.attachTab');
 
+  // The cards (2026-10-14): each opens its section in a dialog.
+  const [section, setSection] = useState<RecordSection | null>(null);
+  const loyaltyAllowed = can(staff?.role, 'attachMember');
+  const loyaltyQ = useLoyaltyCustomer(id, loyaltyAllowed);
+  const showLoyalty = loyaltyAllowed && !isRpcMissing(loyaltyQ.error);
+  const ticketsQ = useGuestTickets(id, caps.runMatches);
+  const ticketsRead = useMatchRead(ticketsQ);
+  const showTickets = caps.runMatches && ticketsRead.kind !== 'absent';
+  const showMatches = matchesKnown && caps.runMatches;
+
+  const nowMs = Date.now();
+  const next = rec ? nextBooking(rec.upcoming) : null;
+  const kept = keptShare(counts);
+  const keptShown = kept ?? { kept: 0, cancelled: 0, noShows: 0, pct: 0 };
+  const playsAs = rec ? playsAsOf(rec.customer) : null;
+  const matchRows = rec ? recordMatches(rec.matches, nowMs) : { upcoming: [], recent: [] };
+  const lastOrder = rec ? lastOrderAt(rec.cafeOrders) : null;
+  const n = (v: number | null | undefined) => (v == null ? '—' : formatNumber(v, locale));
+  const nameOfRow = (r: CustomerReservationRow) => (r.court_name_en && r.court_name_ar ? pickName(locale, { name_en: r.court_name_en, name_ar: r.court_name_ar }) : courtName(r.court_id));
+  const countdown = (startIso: string) => {
+    const e = untilStart(startIso, nowMs);
+    switch (e.unit) {
+      case 'now':
+        return tr('ws.courtDesk.record.cards.startsNow');
+      case 'minutes':
+        return tr('ws.courtDesk.record.cards.startsInMinutes', { minutes: formatNumber(e.minutes, locale) });
+      case 'hours':
+        return tr('ws.courtDesk.record.cards.startsInHours', { hours: formatNumber(e.hours, locale), minutes: formatNumber(e.minutes, locale) });
+      case 'days':
+        return tr('ws.courtDesk.record.cards.startsInDays', { days: formatNumber(e.days, locale), hours: formatNumber(e.hours, locale) });
+    }
+  };
+  const close = () => setSection(null);
+  const cafeColumns: Column<CustomerRecord['cafeOrders'][number]>[] = [
+    { key: 'date', header: tr('ws.courtDesk.record.orderDate'), render: (o) => <bdi>{formatDateTime(new Date(o.opened_at), locale, tz)}</bdi> },
+    { key: 'status', header: tr('ws.courtDesk.common.status'), render: (o) => <TabStatusIndicator status={o.status} size="sm" /> },
+    { key: 'total', header: tr('ws.courtDesk.record.orderTotal'), numeric: true, render: (o) => <Money amount={o.total_iqd} /> },
+  ];
+
   return (
-    <div>
-      <PageHeader
-        eyebrow={tr('ws.courtDesk.record.eyebrow')}
-        title={rec?.customer.full_name ?? tr('ws.courtDesk.customers.title')}
-        subtitle={
-          rec ? (
-            <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              {lessons?.coach && <CoachBadge status={lessons.coach.status} />}
-              {rec.flags.map((f, i) => (
-                <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} size="md" />
-              ))}
-              <Button size="sm" kind="ghost" icon="tag" onClick={() => setFlagsOpen(true)}>
-                {flagCount === 0 ? tr('ws.courtDesk.record.addFlags') : tr('ws.courtDesk.record.editFlags')}
-              </Button>
-            </span>
-          ) : undefined
-        }
-        actions={
-          <>
-            <Button kind="ghost" icon="chevronStart" onClick={() => void navigate({ to: '/desk/customers' })}>
-              {tr('ws.courtDesk.record.backToSearch')}
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+      {/* Top bar: the way back, and the booking actions. */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', paddingBlockEnd: 'var(--tp-sp-3)', borderBlockEnd: '1px solid var(--tp-border)' }}>
+        {/* A bordered button, not a ghost (owner, 2026-10-15). */}
+        <Button icon="chevronStart" onClick={() => void navigate({ to: '/desk/customers' })}>
+          {tr('ws.courtDesk.record.backToSearch')}
+        </Button>
+        <div className="tp-page-actions" style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+          {params.attach && (
+            <Button kind="primary" icon="userPlus" onClick={attach}>
+              {attachLabel}
             </Button>
-            {params.attach && (
-              <Button kind="primary" icon="userPlus" onClick={attach}>
-                {attachLabel}
-              </Button>
-            )}
-            {lessons && coachCaps.manageCoaches && !params.attach && (
-              <Button
-                icon="whistle"
-                onClick={() =>
-                  void navigate({
-                    to: '/admin/coaches',
-                    search: (lessons.coach ? { coach: lessons.coach.coach_id } : { tab: 'coaches', promote: id }) as never,
-                  })
-                }
-              >
-                {lessons.coach ? tr('ws.coaching.customers.openInCoaches') : tr('ws.coaching.customers.makeCoach')}
-              </Button>
-            )}
-            {lessons && canBook && coachCaps.runLessons && !params.attach && (
-              <Button icon="whistle" onClick={() => void navigate({ to: '/desk', search: { customer: id, kind: 'lesson' } as never })}>
-                {tr('ws.coaching.customers.bookLesson')}
-              </Button>
-            )}
-            {canBook && matchesKnown && caps.runMatches && !params.attach && (
-              <Button icon="users" onClick={() => void navigate({ to: '/desk', search: { customer: id, kind: 'match' } as never })}>
-                {tr('ws.matches.customers.startMatch')}
-              </Button>
-            )}
-            {canBook && (
-              <Button kind={params.attach ? 'default' : 'primary'} icon="calendar" onClick={() => void navigate({ to: '/desk', search: { customer: id } as never })}>
-                {tr('ws.courtDesk.record.newBooking')}
-              </Button>
-            )}
-          </>
-        }
-      />
+          )}
+          {canBook && matchesKnown && caps.runMatches && !params.attach && (
+            <Button icon="users" onClick={() => void navigate({ to: '/desk', search: { customer: id, kind: 'match' } as never })}>
+              {tr('ws.matches.customers.startMatch')}
+            </Button>
+          )}
+          {lessons && canBook && coachCaps.runLessons && !params.attach && (
+            <Button icon="whistle" onClick={() => void navigate({ to: '/desk', search: { customer: id, kind: 'lesson' } as never })}>
+              {tr('ws.coaching.customers.bookLesson')}
+            </Button>
+          )}
+          {canBook && (
+            <Button kind={params.attach ? 'default' : 'primary'} icon="calendar" onClick={() => void navigate({ to: '/desk', search: { customer: id } as never })}>
+              {tr('ws.courtDesk.record.newBooking')}
+            </Button>
+          )}
+        </div>
+      </div>
+
       <AsyncStateWrapper status={status} error={recordQ.error} onRetry={() => void recordQ.refetch()} emptyContent={<EmptyState icon="users" title={tr('ws.courtDesk.record.notFound')} />}>
         {rec && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(20rem, 2fr)', gap: '1rem', alignItems: 'start' }}>
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              <Panel>
-                <DescriptionList
-                  columns={3}
-                  items={[
-                    { label: tr('ws.courtDesk.record.phone'), value: rec.customer.phone ? <bdi dir="ltr">{rec.customer.phone}</bdi> : '—' },
-                    { label: tr('ws.courtDesk.record.email'), value: rec.customer.email ? <bdi dir="ltr">{rec.customer.email}</bdi> : '—' },
-                    { label: tr('ws.courtDesk.record.language'), value: rec.customer.preferred_lang === 'ar' ? tr('ws.courtDesk.customers.lang.ar') : rec.customer.preferred_lang === 'en' ? tr('ws.courtDesk.customers.lang.en') : '—' },
-                    { label: tr('ws.courtDesk.record.bookings'), value: formatNumber(counts.bookings, locale), numeric: true },
-                    { label: tr('ws.courtDesk.record.cancellations'), value: formatNumber(counts.cancellations, locale), numeric: true },
-                    {
-                      label: tr('ws.courtDesk.record.noShows'),
-                      // DF-12, DF-15: the count includes open-match seat no-shows, and says how many.
-                      value: counts.matchNoShows
-                        ? tr('ws.matches.customers.noShowsWithMatches', { count: formatNumber(counts.noShows, locale), matches: formatNumber(counts.matchNoShows, locale) })
-                        : formatNumber(counts.noShows, locale),
-                      numeric: true,
-                    },
-                    { label: tr('ws.courtDesk.record.cafeOrders'), value: formatNumber(counts.cafeOrders ?? rec.cafeOrders.length, locale), numeric: true },
-                    ...(counts.matchesPlayed !== undefined
-                      ? [{ label: tr('ws.matches.customers.matchesPlayed'), value: formatNumber(counts.matchesPlayed, locale), numeric: true }]
-                      : []),
-                    ...(counts.lateLeaves !== undefined ? [{ label: tr('ws.matches.customers.lateLeaves'), value: formatNumber(counts.lateLeaves, locale), numeric: true }] : []),
-                    ...(rec.customer.created_at ? [{ label: tr('ws.courtDesk.record.since'), value: <bdi>{formatDate(new Date(rec.customer.created_at), locale, tz)}</bdi> }] : []),
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+            {/* Who this is. */}
+            <header style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'center' }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  inlineSize: '3.6rem',
+                  blockSize: '3.6rem',
+                  flex: 'none',
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  background: 'var(--tp-accent)',
+                  color: 'var(--tp-accent-contrast)',
+                  fontWeight: 700,
+                  fontSize: 'var(--tp-fs-xl)',
+                  boxShadow: '0 0 0 3px var(--tp-bg), 0 0 0 5px var(--tp-accent-2)',
+                }}
+              >
+                {initials(rec.customer.full_name)}
+              </span>
+              <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', minInlineSize: 0 }}>
+                <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <h1 style={{ fontSize: 'var(--tp-fs-3xl)', fontWeight: 700, lineHeight: 1.1, margin: 0 }}>{rec.customer.full_name}</h1>
+                  {lessons?.coach && <CoachBadge status={lessons.coach.status} />}
+                  {rec.flags.map((f, i) => (
+                    <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} size="md" />
+                  ))}
+                  <Button size="sm" kind="ghost" icon="tag" onClick={() => setFlagsOpen(true)}>
+                    {flagCount === 0 ? tr('ws.courtDesk.record.addFlags') : tr('ws.courtDesk.record.editFlags')}
+                  </Button>
+                  {lessons && coachCaps.manageCoaches && !params.attach && (
+                    <Button
+                      size="sm"
+                      kind="ghost"
+                      icon="whistle"
+                      onClick={() =>
+                        void navigate({
+                          to: '/admin/coaches',
+                          search: (lessons.coach ? { coach: lessons.coach.coach_id } : { tab: 'coaches', promote: id }) as never,
+                        })
+                      }
+                    >
+                      {lessons.coach ? tr('ws.coaching.customers.openInCoaches') : tr('ws.coaching.customers.makeCoach')}
+                    </Button>
+                  )}
+                </div>
+                <BidirectionalTextRenderer
+                  style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}
+                  parts={[
+                    ...(rec.customer.phone ? [<bdi key="p" dir="ltr" style={{ fontFamily: 'var(--tp-font-numeric)' }}>{rec.customer.phone}</bdi>] : []),
+                    ...(rec.customer.email ? [<bdi key="e" dir="ltr">{rec.customer.email}</bdi>] : []),
+                    ...(rec.customer.preferred_lang === 'ar' ? [tr('ws.courtDesk.customers.lang.ar')] : rec.customer.preferred_lang === 'en' ? [tr('ws.courtDesk.customers.lang.en')] : []),
+                    ...(rec.customer.created_at ? [`${tr('ws.courtDesk.record.since')} ${formatDate(new Date(rec.customer.created_at), locale, tz)}`] : []),
                   ]}
                 />
-              </Panel>
-              {matchesKnown && caps.runMatches && <MatchesPanel record={rec} tz={tz} onChanged={invalidate} />}
-              {lessons && (
-                <CustomerLessonsPanel
-                  customerName={rec.customer.full_name}
-                  data={lessons}
-                  tz={tz}
-                  refetch={async () => (await lessonsQ.refetch()).data}
+              </div>
+            </header>
+
+            <CustomerHoldStanding customerId={id} />
+
+            {/* The summary cards. */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: 'var(--tp-sp-3)' }}>
+              <RecordCard
+                label={tr('ws.courtDesk.record.cards.nextBooking')}
+                tone="accent"
+                decoration={<RacketMark />}
+                aside={next ? <CardPill tone="green">{countdown(next.start_at)}</CardPill> : undefined}
+                testId="card-next-booking"
+              >
+                {next ? (
+                  <>
+                    <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', position: 'relative' }}>
+                      <span style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700, lineHeight: 1.1 }}>
+                        <bdi>{formatDate(new Date(next.start_at), locale, tz)}</bdi>
+                      </span>
+                      <span style={{ fontFamily: 'var(--tp-font-numeric)', fontVariantNumeric: 'tabular-nums', fontSize: 'var(--tp-fs-lg)', opacity: 0.92 }}>
+                        <bdi>{formatTimeRange(new Date(next.start_at), new Date(next.end_at), locale, tz)}</bdi>
+                      </span>
+                    </span>
+                    <span style={{ fontSize: 'var(--tp-fs-sm)', opacity: 0.9, position: 'relative' }}>
+                      <bdi>{nameOfRow(next)}</bdi>
+                      {next.price_iqd != null && (
+                        <>
+                          {' · '}
+                          <Money amount={next.price_iqd} />
+                        </>
+                      )}
+                    </span>
+                  </>
+                ) : (
+                  <Figure size="md" value={tr('ws.courtDesk.record.cards.nothingBooked')} />
+                )}
+                <CardFoot rule>
+                  <span>{tr('ws.courtDesk.record.cards.bookingsLine', { upcoming: n(rec.upcoming.length), past: n(rec.history.length) })}</span>
+                </CardFoot>
+              </RecordCard>
+
+              <RecordCard label={tr('ws.courtDesk.record.cards.kept')} tone="scoreboard" onOpen={() => setSection('bookings')} testId="card-kept">
+                {/* With no bookings yet the ring still shows, empty, at 0% and every count 0. */}
+                <KeptRing
+                  centre={tr('ws.courtDesk.record.cards.keptValue', { pct: formatNumber(keptShown.pct, locale) })}
+                  parts={[
+                    { key: 'kept', label: tr('ws.courtDesk.record.cards.keptPart'), value: keptShown.kept, color: 'var(--tp-ring-kept)' },
+                    { key: 'cancelled', label: tr('ws.courtDesk.record.cards.cancelledPart'), value: keptShown.cancelled, color: 'var(--tp-ring-cancelled)' },
+                    { key: 'noShows', label: tr('ws.courtDesk.record.cards.noShowsPart'), value: keptShown.noShows, color: 'var(--tp-ring-no-show)' },
+                  ]}
                 />
+                {/* DF-12, DF-15: every no-show, saying how many were open-match seats. */}
+                {counts.matchNoShows ? (
+                  <CardFoot>
+                    <span>{tr('ws.courtDesk.record.cards.allNoShows')}</span>
+                    <span>{tr('ws.matches.customers.noShowsWithMatches', { count: formatNumber(counts.noShows, locale), matches: formatNumber(counts.matchNoShows, locale) })}</span>
+                  </CardFoot>
+                ) : null}
+              </RecordCard>
+
+              {showLoyalty && (
+                <RecordCard
+                  label={tr('ws.loyalty.panel.title')}
+                  tone="loyalty"
+                  tier={tierColour(loyaltyQ.data?.tier?.name_en)}
+                  aside={loyaltyQ.data?.tier ? <CardPill tone="tier">{pickName(locale, { name_en: loyaltyQ.data.tier.name_en, name_ar: loyaltyQ.data.tier.name_ar })}</CardPill> : undefined}
+                  onOpen={() => setSection('loyalty')}
+                  testId="card-loyalty"
+                >
+                  {loyaltyQ.data ? (
+                    <>
+                      <Figure value={n(loyaltyQ.data.balance)} unit={tr('ws.loyalty.panel.balance')} />
+                      <CardFoot rule>
+                        <span>{tr('ws.loyalty.panel.points12m')}</span>
+                        <span style={{ fontFamily: 'var(--tp-font-numeric)', fontWeight: 600, color: 'var(--tp-fg)' }}>{n(loyaltyQ.data.points_12m)}</span>
+                      </CardFoot>
+                    </>
+                  ) : loyaltyQ.isError ? (
+                    <Figure size="md" value="—" />
+                  ) : (
+                    <Skeleton lines={2} />
+                  )}
+                </RecordCard>
               )}
-              <TicketsPanel customerId={id} />
-              {/* Loyalty (build-contracts-2026-10-05 §5): balance, tier, history, Adjust points. */}
-              <CustomerLoyaltyPanel customerId={id} tz={tz} />
-              <CustomerHoldStanding customerId={id} />
-              <BookingsPanel title={tr('ws.courtDesk.record.upcoming')} empty={tr('ws.courtDesk.record.upcomingEmpty')} rows={rec.upcoming} tz={tz} courtName={courtName} />
-              {/* Sections with nothing in them are left out rather than drawn
-                  as a titled box saying "none": the counts above already say
-                  zero. Series in particular: customer_record does not fill it
-                  yet (0065), so "No recurring series" was stated about
-                  customers who have one. */}
-              {rec.history.length > 0 && <BookingsPanel title={tr('ws.courtDesk.record.history')} empty={tr('ws.courtDesk.record.historyEmpty')} rows={rec.history} tz={tz} courtName={courtName} />}
-              {rec.cafeOrders.length > 0 && (
-              <Panel title={tr('ws.courtDesk.record.cafe')} padded={false}>
-                {(
-                  <table className="tp-table" data-dense="true">
-                    <thead>
-                      <tr>
-                        <th>{tr('ws.courtDesk.record.orderDate')}</th>
-                        <th>{tr('ws.courtDesk.common.status')}</th>
-                        <th data-align="end">{tr('ws.courtDesk.record.orderTotal')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cafeCap.shown.map((o) => (
-                        <tr key={o.id}>
-                          <td>
-                            <bdi>{formatDateTime(new Date(o.opened_at), locale, tz)}</bdi>
-                          </td>
-                          <td>
-                            <TabStatusIndicator status={o.status} size="sm" />
-                          </td>
-                          <td data-align="end">
-                            <Money amount={o.total_iqd} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-                <ViewMore hidden={cafeCap.hidden} open={cafeCap.open} onToggle={cafeCap.toggle} style={UNPADDED_MORE} />
-              </Panel>
-              )}
-              {rec.series.length > 0 && (
-              <Panel title={tr('ws.courtDesk.record.series')}>
-                {(
-                  <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.35rem' }}>
-                    {seriesCap.shown.map((s) => (
-                      <li key={s.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <Icon name="repeat" size={14} style={{ color: 'var(--tp-muted-fg)' }} />
-                        <bdi>{courtName(s.court_id)}</bdi>
-                        <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-                          <bdi>
-                            {formatDate(new Date(`${s.starts_on}T12:00:00Z`), locale, 'UTC')} – {formatDate(new Date(`${s.ends_on}T12:00:00Z`), locale, 'UTC')}
-                          </bdi>
-                          {s.occurrences !== undefined && <> · {tr('ws.courtDesk.record.occurrences', { count: formatNumber(s.occurrences, locale) })}</>}
+
+              {showTickets && (
+                <RecordCard label={tr('ws.matches.customers.tickets.title')} tone="ticket" onOpen={() => setSection('tickets')} testId="card-tickets">
+                  {ticketsRead.kind === 'ready' ? (
+                    <>
+                      <Figure value={n(ticketsRead.data.available)} unit={tr('ws.matches.customers.tickets.available')} />
+                      <TearLine />
+                      <CardFoot>
+                        <span>
+                          {tr('ws.matches.customers.tickets.reserved')} {n(ticketsRead.data.reserved)} · {tr('ws.matches.customers.tickets.inUse')} {n(ticketsRead.data.in_use)}
                         </span>
-                        <Link to="/desk/series/$id" params={{ id: s.id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
-                          {tr('ws.courtDesk.common.open')}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <ViewMore hidden={seriesCap.hidden} open={seriesCap.open} onToggle={seriesCap.toggle} />
-              </Panel>
+                      </CardFoot>
+                    </>
+                  ) : ticketsRead.kind === 'loading' ? (
+                    <Skeleton lines={2} />
+                  ) : (
+                    <Figure size="md" value="—" />
+                  )}
+                </RecordCard>
               )}
             </div>
-            <NoteList customerId={id} notes={rec.notes} tz={tz} onChanged={invalidate} />
+
+            {/* The section cards, and the staff notes beside them. */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(18rem, 22rem)', gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))', gap: 'var(--tp-sp-3)', alignContent: 'start' }}>
+                {showMatches && playsAs && (
+                  <SectionCard icon="users" tone="matches" testId="card-matches" title={tr('ws.matches.customers.title')} sub={playsAsLine(playsAs, tr)} openLabel={tr('ws.courtDesk.record.cards.open')} onOpen={() => setSection('matches')}>
+                    <Figure size="md" value={n(counts.matchesPlayed ?? 0)} unit={tr('ws.matches.customers.matchesPlayed')} />
+                    {counts.lateLeaves !== undefined && (
+                      <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                        <span>{tr('ws.matches.customers.lateLeaves')}</span> <strong style={{ color: 'var(--tp-fg)' }}>{n(counts.lateLeaves)}</strong>
+                      </span>
+                    )}
+                    <MiniList
+                      rows={[...matchRows.upcoming, ...matchRows.recent].slice(0, 2).map((r) => ({
+                        key: r.match_id,
+                        dot: matchRows.upcoming.includes(r) ? 'info' : r.seat_status === 'attended' ? 'ok' : r.seat_status === 'no_show' ? 'bad' : 'neutral',
+                        text: <bdi>{formatDate(new Date(r.start_at), locale, tz)}</bdi>,
+                        aside: matchStatusKey(r.status) ? tr(matchStatusKey(r.status)!) : r.status,
+                      }))}
+                    />
+                  </SectionCard>
+                )}
+                {lessons && (
+                  <SectionCard icon="whistle" tone="lessons" testId="card-lessons" title={tr('ws.coaching.customers.panelTitle')} sub={tr('ws.coaching.customers.counts', { lessons: n(lessons.counts.lessons), noShows: n(lessons.counts.no_shows) })} openLabel={tr('ws.courtDesk.record.cards.open')} onOpen={() => setSection('lessons')}>
+                    <Figure size="md" value={n(lessons.counts.lessons)} unit={tr('ws.coaching.customers.panelTitle')} />
+                    <MiniList
+                      rows={[...lessons.lessons]
+                        .sort((a, b) => b.start_at.localeCompare(a.start_at))
+                        .slice(0, 2)
+                        .map((l) => ({
+                          key: l.enrolment_id,
+                          dot: Date.parse(l.start_at) > nowMs ? 'info' : l.attendance === 'attended' ? 'ok' : l.attendance === 'no_show' ? 'bad' : 'neutral',
+                          text: <bdi>{formatDate(new Date(l.start_at), locale, tz)}</bdi>,
+                          aside: pickName(locale, { name_en: l.type_name_en ?? '', name_ar: l.type_name_ar ?? '' }) || undefined,
+                        }))}
+                    />
+                  </SectionCard>
+                )}
+                {rec.cafeOrders.length > 0 && (
+                  <SectionCard
+                    icon="receipt"
+                    tone="cafe" testId="card-cafe"
+                    title={tr('ws.courtDesk.record.cafe')}
+                    sub={lastOrder ? tr('ws.courtDesk.record.cards.lastOrder', { date: formatDate(new Date(lastOrder), locale, tz) }) : undefined}
+                    openLabel={tr('ws.courtDesk.record.cards.open')}
+                    onOpen={() => setSection('cafe')}
+                  >
+                    <Figure size="md" value={n(counts.cafeOrders ?? rec.cafeOrders.length)} unit={tr('ws.courtDesk.record.cafe')} />
+                    <Spark values={cafeSpark(rec.cafeOrders)} />
+                  </SectionCard>
+                )}
+                {rec.series.length > 0 && (
+                  <SectionCard icon="repeat" tone="series" testId="card-series" title={tr('ws.courtDesk.record.series')} openLabel={tr('ws.courtDesk.record.cards.open')} onOpen={() => setSection('series')}>
+                    <Figure size="md" value={n(rec.series.length)} unit={tr('ws.courtDesk.record.series')} />
+                    <MiniList
+                      rows={rec.series.slice(0, 2).map((s) => ({
+                        key: s.id,
+                        dot: s.cancelled_at ? 'neutral' : 'info',
+                        text: <bdi>{courtName(s.court_id)}</bdi>,
+                        aside: <bdi>{formatDate(new Date(`${s.ends_on}T12:00:00Z`), locale, 'UTC')}</bdi>,
+                      }))}
+                    />
+                  </SectionCard>
+                )}
+              </div>
+              <NoteList customerId={id} notes={rec.notes} tz={tz} onChanged={invalidate} />
+            </div>
           </div>
         )}
       </AsyncStateWrapper>
+
+      {/* The dialogs the cards open. */}
+      {rec && section === 'bookings' && (
+        <SectionDialog
+          title={tr('ws.courtDesk.record.cards.bookings')}
+          subtitle={rec.customer.full_name}
+          flat={false}
+          band="scoreboard"
+          bandExtra={
+            <StatRow
+              items={[
+                { key: 'past', label: tr('ws.courtDesk.record.cards.statPast'), value: n(rec.history.length) },
+                { key: 'cancelled', label: tr('ws.courtDesk.record.cards.cancelledPart'), value: n(kept?.cancelled ?? counts.cancellations), tone: 'warn' },
+                { key: 'noShows', label: tr('ws.courtDesk.record.cards.noShowsPart'), value: n(kept?.noShows ?? 0), tone: 'danger' },
+              ]}
+            />
+          }
+          onClose={close}
+        >
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+            <BookingsPanel title={tr('ws.courtDesk.record.history')} empty={tr('ws.courtDesk.record.historyEmpty')} rows={rec.history} tz={tz} courtName={courtName} />
+          </div>
+        </SectionDialog>
+      )}
+      {rec && section === 'matches' && (
+        <SectionDialog title={tr('ws.matches.customers.title')} subtitle={rec.customer.full_name} band="section" section="matches" onClose={close}>
+          <MatchesPanel record={rec} tz={tz} onChanged={invalidate} />
+        </SectionDialog>
+      )}
+      {rec && section === 'lessons' && lessons && (
+        <SectionDialog title={tr('ws.coaching.customers.panelTitle')} subtitle={rec.customer.full_name} band="section" section="lessons" onClose={close}>
+          <CustomerLessonsPanel
+            customerName={rec.customer.full_name}
+            data={lessons}
+            tz={tz}
+            refetch={async () => (await lessonsQ.refetch()).data}
+            onBookLesson={canBook && coachCaps.runLessons && !params.attach ? () => void navigate({ to: '/desk', search: { customer: id, kind: 'lesson' } as never }) : undefined}
+          />
+        </SectionDialog>
+      )}
+      {rec && section === 'tickets' && (
+        <SectionDialog title={tr('ws.matches.customers.tickets.title')} subtitle={rec.customer.full_name} band="section" section="tickets" onClose={close}>
+          <TicketsPanel customerId={id} />
+        </SectionDialog>
+      )}
+      {rec && section === 'loyalty' && (
+        <SectionDialog title={tr('ws.loyalty.panel.title')} subtitle={rec.customer.full_name} band="loyalty" tier={tierColour(loyaltyQ.data?.tier?.name_en)} bandExtra={<CustomerLoyaltyTop customerId={id} />} onClose={close}>
+          <CustomerLoyaltyPanel customerId={id} tz={tz} withTop={false} />
+        </SectionDialog>
+      )}
+      {rec && section === 'cafe' && (
+        <SectionDialog title={tr('ws.courtDesk.record.cafe')} subtitle={rec.customer.full_name} band="section" section="cafe" onClose={close}>
+          <DataTable
+            aria-label={tr('ws.courtDesk.record.cafe')}
+            dense
+            columns={cafeColumns}
+            rows={rec.cafeOrders}
+            rowKey={(o) => o.id}
+          />
+        </SectionDialog>
+      )}
+      {rec && section === 'series' && (
+        <SectionDialog title={tr('ws.courtDesk.record.series')} subtitle={rec.customer.full_name} band="section" section="series" onClose={close}>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+            {rec.series.map((s) => (
+              <li key={s.id} style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+                <Icon name="repeat" size={14} style={{ color: 'var(--tp-muted-fg)' }} />
+                <bdi>{courtName(s.court_id)}</bdi>
+                <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+                  <bdi>
+                    {formatDate(new Date(`${s.starts_on}T12:00:00Z`), locale, 'UTC')} – {formatDate(new Date(`${s.ends_on}T12:00:00Z`), locale, 'UTC')}
+                  </bdi>
+                  {s.occurrences !== undefined && <> · {tr('ws.courtDesk.record.occurrences', { count: formatNumber(s.occurrences, locale) })}</>}
+                </span>
+                <Link to="/desk/series/$id" params={{ id: s.id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
+                  {tr('ws.courtDesk.common.open')}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </SectionDialog>
+      )}
 
       {flagsOpen && rec && (
         <FlagsEditor
@@ -315,8 +536,100 @@ export function CustomerRecordScreen() {
   );
 }
 
-/** ViewMore inside an unpadded (table) panel: the panel body's own padding. */
-const UNPADDED_MORE = { marginBlockStart: 0, paddingBlock: '0.6rem', paddingInline: '0.85rem' } as const;
+/**
+ * One section of the record in a dialog. `flat` (one self-contained Panel
+ * inside) lets that panel drop its own title and edge: the dialog's header
+ * names it (InSectionDialog).
+ *
+ * `band` (owner, 2026-10-15): the dialog's header wears the look of the card
+ * that opened it, the same moving ground (GlobalStyles .tp-record-card tones),
+ * with the title, the customer and the close button on it; the body below
+ * stays on the ordinary dialog ground.
+ */
+function SectionDialog({
+  title,
+  subtitle,
+  flat = true,
+  band,
+  tier,
+  section,
+  bandExtra,
+  onClose,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  flat?: boolean;
+  band?: 'accent' | 'scoreboard' | 'loyalty' | 'section';
+  tier?: string | null;
+  /** With band="section": whose colour the header wears. */
+  section?: 'matches' | 'lessons' | 'tickets' | 'cafe' | 'series';
+  /** Shown in the band, under the title (the bookings dialog's count tiles). */
+  bandExtra?: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const { tr } = useLocale();
+  const body = <InSectionDialog.Provider value={flat}>{children}</InSectionDialog.Provider>;
+  if (!band) {
+    return (
+      <Modal title={title} subtitle={subtitle} size="lg" onClose={onClose}>
+        {body}
+      </Modal>
+    );
+  }
+  return (
+    <Modal
+      title={title}
+      size="lg"
+      onClose={onClose}
+      bare={(close) => (
+        // The scope carries the header's colour to the tiles in the dialog
+        // (.tp-band-scope in GlobalStyles): their ground matches the header.
+        <div className="tp-band-scope" data-band={band} data-tier={tier ?? undefined} data-section={section} style={{ display: 'flex', flexDirection: 'column', minBlockSize: 0, flex: 1 }}>
+          <header
+            className="tp-record-card"
+            data-tone={band}
+            data-tier={tier ?? undefined}
+            data-section={section}
+            style={{
+              position: 'relative',
+              overflow: 'hidden',
+              flex: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--tp-sp-4)',
+              paddingBlock: 'var(--tp-sp-5)',
+              paddingInline: 'var(--tp-sp-5)',
+              border: 'none',
+              borderRadius: 0,
+              boxShadow: 'none',
+              minBlockSize: '7rem',
+            }}
+          >
+            {band === 'accent' && <RacketMark />}
+            <span style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--tp-sp-4)', position: 'relative' }}>
+              <span style={{ display: 'grid', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
+                <h2 style={{ margin: 0, fontSize: 'var(--tp-fs-2xl)', fontWeight: 700, color: 'inherit' }}>{title}</h2>
+                {subtitle && (
+                  <span style={{ fontSize: 'var(--tp-fs-md)', opacity: 0.85 }}>
+                    <bdi>{subtitle}</bdi>
+                  </span>
+                )}
+              </span>
+              <Button kind="ghost" size="sm" icon="x" className="tp-band-close" onClick={close} aria-label={tr('common.close')} style={{ color: 'inherit' }} />
+            </span>
+            {/* The band's ink is light; tiles set their own dark ink on their own ground. */}
+            {bandExtra && <div style={{ position: 'relative', color: 'var(--tp-fg)' }}>{bandExtra}</div>}
+          </header>
+          <div style={{ overflowY: 'auto', minBlockSize: 0, paddingBlock: 'var(--tp-sp-4)', paddingInline: 'var(--tp-sp-4)' }}>{body}</div>
+        </div>
+      )}
+    >
+      {null}
+    </Modal>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Open matches (operator.md §5.15): plays as, the ban, their matches.
@@ -476,95 +789,80 @@ function MatchRows({
   const { tr, locale } = useLocale();
   const category = (c: string) => (c === 'open' || c === 'women' || c === 'men' ? tr(`ws.matches.common.category.${c}`) : c);
   const words = (key: MessageKey | null, raw: string | null) => (key ? tr(key) : (raw ?? '—'));
-  const cap = useListCap(rows);
+  const columns: Column<CustomerMatchRow>[] = [
+    { key: 'date', header: tr('ws.courtDesk.common.date'), render: (r) => <bdi>{formatDate(new Date(r.start_at), locale, tz)}</bdi> },
+    {
+      key: 'time',
+      header: tr('ws.courtDesk.common.time'),
+      numeric: true,
+      align: 'start',
+      render: (r) => <bdi>{r.end_at ? formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz) : formatDateTime(new Date(r.start_at), locale, tz)}</bdi>,
+    },
+    { key: 'category', header: tr('ws.courtDesk.record.cards.category'), render: (r) => category(r.category) },
+    { key: 'status', header: tr('ws.courtDesk.common.status'), render: (r) => <StatusBadge size="sm" tone="neutral" label={words(matchStatusKey(r.status), r.status)} /> },
+    {
+      key: 'seat',
+      header: tr('ws.courtDesk.record.cards.seat'),
+      render: (r) => {
+        const kind = seatKindKey(r.kind);
+        return (
+          <>
+            {words(seatStatusKey(r.seat_status), r.seat_status)}
+            {kind && <span style={{ color: 'var(--tp-muted-fg)' }}> · {tr(kind)}</span>}
+          </>
+        );
+      },
+    },
+    {
+      key: 'open',
+      header: '',
+      align: 'end',
+      render: (r) =>
+        isHereMatch(r, branchId) ? (
+          <Link to="/desk/matches/$id" params={{ id: r.match_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
+            {tr('ws.matches.customers.matches.open')}
+          </Link>
+        ) : (
+          <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+            {tr('ws.matches.customers.matches.otherBranch', { branch: isolate(branchName(r.venue_id)) })}
+          </span>
+        ),
+    },
+  ];
   return (
     <section aria-label={title} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
       <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>{title}</h3>
-      <table className="tp-table" data-dense="true">
-        <tbody>
-          {cap.shown.map((r) => {
-            const kind = seatKindKey(r.kind);
-            return (
-              <tr key={r.match_id}>
-                <td style={{ whiteSpace: 'nowrap' }}>
-                  <bdi>{formatDate(new Date(r.start_at), locale, tz)}</bdi>
-                </td>
-                <td style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                  <bdi>{r.end_at ? formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz) : formatDateTime(new Date(r.start_at), locale, tz)}</bdi>
-                </td>
-                <td>{category(r.category)}</td>
-                <td>
-                  <StatusBadge size="sm" tone="neutral" label={words(matchStatusKey(r.status), r.status)} />
-                </td>
-                <td>
-                  {words(seatStatusKey(r.seat_status), r.seat_status)}
-                  {kind && <span style={{ color: 'var(--tp-muted-fg)' }}> · {tr(kind)}</span>}
-                </td>
-                <td data-align="end">
-                  {isHereMatch(r, branchId) ? (
-                    <Link to="/desk/matches/$id" params={{ id: r.match_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
-                      {tr('ws.matches.customers.matches.open')}
-                    </Link>
-                  ) : (
-                    <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-                      {tr('ws.matches.customers.matches.otherBranch', { branch: isolate(branchName(r.venue_id)) })}
-                    </span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} style={{ marginBlockStart: 0 }} />
+      <DataTable aria-label={title} dense columns={columns} rows={rows} rowKey={(r) => r.match_id} />
     </section>
   );
 }
 
 function BookingsPanel({ title, empty, rows, tz, courtName }: { title: string; empty: string; rows: readonly CustomerReservationRow[]; tz: string; courtName: (id: string) => string }) {
-  const { locale } = useLocale();
+  const { tr, locale } = useLocale();
   // The RPC carries the court's names with each row; the courts query is only the fallback.
   const nameOf = (r: CustomerReservationRow) => (r.court_name_en && r.court_name_ar ? pickName(locale, { name_en: r.court_name_en, name_ar: r.court_name_ar }) : courtName(r.court_id));
   const navigate = useNavigate();
-  const cap = useListCap(rows);
+  const columns: Column<CustomerReservationRow>[] = [
+    { key: 'date', header: tr('ws.courtDesk.common.date'), render: (r) => <bdi>{formatDate(new Date(r.start_at), locale, tz)}</bdi> },
+    { key: 'time', header: tr('ws.courtDesk.common.time'), numeric: true, align: 'start', render: (r) => <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi> },
+    { key: 'court', header: tr('ws.courtDesk.common.court'), render: (r) => <bdi>{nameOf(r)}</bdi> },
+    { key: 'status', header: tr('ws.courtDesk.common.status'), render: (r) => <BookingStatusIndicator status={r.status} size="sm" /> },
+    { key: 'price', header: tr('ws.courtDesk.record.cards.price'), numeric: true, render: (r) => <Money amount={r.price_iqd} /> },
+  ];
   return (
-    <Panel title={title} padded={rows.length === 0}>
-      {rows.length === 0 ? (
-        <p style={{ color: 'var(--tp-muted-fg)' }}>{empty}</p>
-      ) : (
-        <table className="tp-table" data-dense="true" aria-label={title}>
-          <tbody>
-            {cap.shown.map((r) => (
-              <tr
-                key={r.id}
-                data-clickable="true"
-                tabIndex={0}
-                onClick={() => void navigate({ to: '/desk/bookings/$id', params: { id: r.id } })}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void navigate({ to: '/desk/bookings/$id', params: { id: r.id } });
-                }}
-              >
-                <td style={{ whiteSpace: 'nowrap' }}>
-                  <bdi>{formatDate(new Date(r.start_at), locale, tz)}</bdi>
-                </td>
-                <td style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                  <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
-                </td>
-                <td>
-                  <bdi>{nameOf(r)}</bdi>
-                </td>
-                <td>
-                  <BookingStatusIndicator status={r.status} size="sm" />
-                </td>
-                <td data-align="end">
-                  <Money amount={r.price_iqd} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} style={UNPADDED_MORE} />
+    <Panel title={title}>
+      {/* The table keeps an edge of its own inside the panel's padding. */}
+      <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', overflow: 'hidden' }}>
+        <DataTable
+          aria-label={title}
+          dense
+          columns={columns}
+          rows={rows}
+          rowKey={(r) => r.id}
+          onRowClick={(r) => void navigate({ to: '/desk/bookings/$id', params: { id: r.id } })}
+          emptyContent={empty}
+        />
+      </div>
     </Panel>
   );
 }
@@ -596,7 +894,6 @@ export function NoteList({ customerId, notes, tz, onChanged }: { customerId: str
 
   return (
     <Panel title={tr('ws.courtDesk.record.notes')} data-testid="customer-notes">
-      <MessagePresenter tone="info" icon="lock" message={tr('ws.courtDesk.record.notesLead')} style={{ marginBlockEnd: '0.75rem' }} />
       {notes.length === 0 ? (
         <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: '0.75rem' }}>{tr('ws.courtDesk.record.noNotes')}</p>
       ) : (
@@ -610,15 +907,58 @@ export function NoteList({ customerId, notes, tz, onChanged }: { customerId: str
         </div>
       )}
       <Field label={tr('ws.courtDesk.record.addNote')}>
-        <textarea style={{ ...inputStyle, minBlockSize: '4.5rem', resize: 'vertical' }} value={draft} disabled={busy} maxLength={2000} placeholder={tr('ws.courtDesk.record.notePlaceholder')} onChange={(e) => setDraft(e.target.value)} />
+        <AutoGrowTextarea value={draft} disabled={busy} maxLength={2000} placeholder={tr('ws.courtDesk.record.notePlaceholder')} onChange={setDraft} />
       </Field>
       <ErrorText error={error} />
+      {/* Who sees these: under the note box, above Save (owner, 2026-10-15). */}
+      <MessagePresenter tone="info" icon="lock" message={tr('ws.courtDesk.record.notesLead')} style={{ marginBlockEnd: '0.75rem' }} />
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Button kind="primary" icon="note" busy={busy} disabled={!draft.trim()} disabledReason={tr('ws.courtDesk.record.noteEmpty')} onClick={() => void add()}>
           {tr('ws.courtDesk.record.saveNote')}
         </Button>
       </div>
     </Panel>
+  );
+}
+
+/**
+ * A note box that is not resized by hand: it grows a line at a time as the note
+ * does (owner, 2026-10-15), from two lines up to about twelve, then scrolls.
+ */
+function AutoGrowTextarea({
+  value,
+  onChange,
+  disabled,
+  maxLength,
+  placeholder,
+  autoFocus,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  maxLength?: number;
+  placeholder?: string;
+  autoFocus?: boolean;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.blockSize = 'auto';
+    el.style.blockSize = `${el.scrollHeight + 2}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={2}
+      style={{ ...inputStyle, resize: 'none', overflowY: 'auto', maxBlockSize: '18rem', minBlockSize: '3.25rem' }}
+      value={value}
+      disabled={disabled}
+      maxLength={maxLength}
+      placeholder={placeholder}
+      autoFocus={autoFocus}
+      onChange={(e) => onChange(e.target.value)}
+    />
   );
 }
 
@@ -669,7 +1009,7 @@ export function NoteEntry({ note, tz, onChanged }: { note: CustomerNote; tz: str
       </div>
       {editing ? (
         <div>
-          <textarea style={{ ...inputStyle, minBlockSize: '4rem', resize: 'vertical' }} value={body} disabled={busy} maxLength={2000} onChange={(e) => setBody(e.target.value)} autoFocus />
+          <AutoGrowTextarea value={body} disabled={busy} maxLength={2000} onChange={setBody} autoFocus />
           <ErrorText error={error} />
           <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', marginBlockStart: '0.35rem' }}>
             <Button size="sm" disabled={busy} onClick={() => { setEditing(false); setBody(note.body); }}>

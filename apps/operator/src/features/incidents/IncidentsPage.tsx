@@ -20,7 +20,7 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatDateTime, formatNumber, isolate } from '@touch/i18n';
+import { formatDateTime, formatDayNumber, formatMonthShort, formatNumber, formatTime, formatWeekdayShort, isolate } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { can, useAuth } from '../../lib/auth';
 import { QK } from '../../lib/queryKeys';
@@ -40,14 +40,17 @@ import {
   useListCap,
   type Column,
 } from '../../components/kit';
-import { Icon } from '../../components/icons';
-import { PhotoViewer, StaffPhotoThumb } from '../checklists/StaffPhoto';
+import { ChevronForward, Icon } from '../../components/icons';
 import { IK, fetchIncidentsOpen, fetchMyIncidents } from './api';
 import { IncidentSheet } from './IncidentSheet';
-import { KindIcon, ReportIncidentDialog } from './ReportIncidentForm';
+import { MyIncidentModal } from './MyIncidentModal';
+import { ReportIncidentDialog } from './ReportIncidentForm';
 import {
   INCIDENTS_PAGE_SIZE,
   INCIDENT_FILTERS,
+  BESIDE_ICON,
+  KIND_LOOK,
+  MINE_FILTERS,
   filterMine,
   incidentTone,
   placeText,
@@ -85,7 +88,7 @@ function ReportDesk() {
   );
 }
 
-/** "My reports": the reporter's own as cards, with the review note once there is one (app.my_incidents). */
+/** "My reports": the reporter's own as cards, with the review note once there is one (app.my_incidents); a card opens the report in MyIncidentModal. */
 function MyReports() {
   const { tr, locale } = useLocale();
   const q = useQuery({ queryKey: IK.mine, queryFn: fetchMyIncidents, refetchInterval: 60_000 });
@@ -93,7 +96,8 @@ function MyReports() {
   const [filter, setFilter] = useState<IncidentFilter>('all');
   const rows = filterMine(all, filter);
   const cap = useListCap(rows);
-  const [photos, setPhotos] = useState<readonly string[] | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const opened = openId ? (all.find((r) => r.id === openId) ?? null) : null;
   const counts = { all: all.length, open: filterMine(all, 'open').length, reviewed: filterMine(all, 'reviewed').length };
 
   if (q.isError) {
@@ -122,67 +126,116 @@ function MyReports() {
           aria-label={tr('ws.incidents.filterLabel')}
           value={filter}
           onChange={setFilter}
-          options={INCIDENT_FILTERS.map((f) => ({ value: f, label: `${tr(`ws.incidents.filter.${f}`)} · ${formatNumber(counts[f], locale)}` }))}
+          options={MINE_FILTERS.map((f) => ({ value: f, label: `${tr(`ws.incidents.filter.${f}`)} · ${formatNumber(counts[f], locale)}` }))}
         />
       </div>
       {rows.length === 0 ? (
         <p style={muted}>{tr(`ws.incidents.empty.${filter}`)}</p>
       ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(20rem, 1fr))', gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
-          {cap.shown.map((r) => (
-            <li
-              key={r.id}
-              data-testid={`incidents.mine.${r.id}`}
-              style={{ display: 'grid', gap: 'var(--tp-sp-2-5)', padding: 'var(--tp-sp-4)', borderRadius: 'var(--tp-radius-panel)', border: '1px solid var(--tp-border)', background: 'var(--tp-surface)', minInlineSize: 0 }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2-5)' }}>
-                <KindIcon kind={r.kind} />
-                <span style={{ display: 'grid', flex: 1, minInlineSize: 0 }}>
-                  <strong>
-                    {tr(`work.incident.kind.${r.kind}`)} · <bdi>{placeText(r, locale, (p) => tr(`work.incident.place.${p}`))}</bdi>
-                  </strong>
-                  {r.occurredAt && <span style={muted}>{tr('ws.incidents.happenedAt', { time: formatDateTime(new Date(r.occurredAt), locale) })}</span>}
-                </span>
-                <StatusBadge size="sm" tone={incidentTone(r.status)} label={tr(`work.incident.status.${r.status}`)} />
-              </span>
-              {r.redacted ? (
-                <p style={{ ...muted, fontStyle: 'italic' }}>{tr('ws.incidents.redactedText')}</p>
-              ) : (
-                <p dir="auto" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {r.description}
-                </p>
-              )}
-              {r.photos.length > 0 && !r.redacted && (
-                <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-                  {r.photos.map((p, i) => (
-                    <StaffPhotoThumb key={p} path={p} label={tr('ws.incidents.sheet.photoAlt', { n: formatNumber(i + 1, locale) })} onClick={() => setPhotos(r.photos)} />
-                  ))}
-                </span>
-              )}
-              {r.status === 'reviewed' ? (
-                // The manager's note reads as a reply to the report.
-                <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', borderRadius: 'var(--tp-radius-panel)', borderStartStartRadius: 'var(--tp-radius-sm)', background: 'var(--tp-accent-soft)' }}>
-                  <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-accent-soft-fg)' }}>
-                    {tr('ws.incidents.reviewedBy', { name: isolate(r.reviewedByName ?? '—'), time: r.reviewedAt ? formatDateTime(new Date(r.reviewedAt), locale) : '' })}
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(20rem, 1fr))', gridAutoRows: '1fr', gap: 'var(--tp-sp-3)' }}>
+          {cap.shown.map((r) => {
+            const look = KIND_LOOK[r.kind];
+            const at = r.occurredAt ? new Date(r.occurredAt) : null;
+            return (
+              // Every row is as tall as the tallest card (gridAutoRows 1fr), and every card fills its cell.
+              <li key={r.id} style={{ display: 'grid', minInlineSize: 0 }}>
+                {/* The whole card is one button: it opens the report in the sheet. */}
+                <button
+                  type="button"
+                  className="tp-incident-card"
+                  onClick={() => setOpenId(r.id)}
+                  data-testid={`incidents.mine.${r.id}`}
+                  style={{
+                    display: 'grid',
+                    gridTemplateRows: 'auto 1fr auto',
+                    inlineSize: '100%',
+                    padding: 0,
+                    font: 'inherit',
+                    color: 'inherit',
+                    textAlign: 'start',
+                    cursor: 'pointer',
+                    borderRadius: 'var(--tp-radius-panel)',
+                    border: '1px solid var(--tp-border)',
+                    // The kind's tint runs down from the band and fades into the panel.
+                    background: `linear-gradient(180deg, color-mix(in oklch, ${look.soft} 55%, var(--tp-surface)) 0%, var(--tp-surface) 70%)`,
+                    boxShadow: 'var(--tp-shadow-raised)',
+                    overflow: 'hidden',
+                    minInlineSize: 0,
+                  }}
+                >
+                  {/* The band: the kind; its icon repeats large and faint behind. */}
+                  <span
+                    style={{
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 'var(--tp-sp-3)',
+                      padding: 'var(--tp-sp-4)',
+                      background: `linear-gradient(120deg, ${look.soft} 30%, color-mix(in oklch, ${look.soft} 78%, ${look.fg}))`,
+                      color: look.fg,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <Icon name={look.icon} size={120} style={{ position: 'absolute', insetInlineEnd: '-1rem', insetBlockEnd: 0, transform: 'translateY(30%)', opacity: 0.1, pointerEvents: 'none' }} />
+                    <span style={{ display: 'grid', placeItems: 'center', inlineSize: '2.75rem', blockSize: '2.75rem', flex: 'none', borderRadius: 'var(--tp-radius-panel)', background: 'var(--tp-surface)', boxShadow: 'var(--tp-shadow-raised)' }}>
+                      <Icon name={look.icon} size={22} />
+                    </span>
+                    <span style={{ ...BESIDE_ICON, display: 'grid', gap: 'var(--tp-sp-0)', flex: 1, minInlineSize: 0 }}>
+                      <strong style={{ fontSize: 'var(--tp-fs-lg)' }}>{tr(`work.incident.kind.${r.kind}`)}</strong>
+                    </span>
                   </span>
-                  {r.reviewNote && (
-                    <p dir="auto" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                      {r.reviewNote}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-2-5)', borderRadius: 'var(--tp-radius-ctl)', background: 'var(--tp-warn-soft)', color: 'var(--tp-warn-fg)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>
-                  <Icon name="hourglass" size={14} />
-                  {tr('ws.incidents.mine.waiting')}
-                </span>
-              )}
-            </li>
-          ))}
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--tp-sp-3)', padding: 'var(--tp-sp-4)', minInlineSize: 0 }}>
+                    {/* What happened is read in the sheet; the card is the kind, place, time and where the review stands. */}
+                    {/* The time and the place on one line; "where exactly" and the photos are in the dialog. */}
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--tp-sp-2)' }}>
+                      {at && (
+                        <span title={tr('ws.incidents.happenedAt', { time: formatDateTime(at, locale) })} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', fontVariantNumeric: 'tabular-nums' }}>
+                          <span style={{ display: 'grid', placeItems: 'center', inlineSize: '2rem', blockSize: '2rem', flex: 'none', borderRadius: 'var(--tp-radius-ctl)', background: 'var(--tp-surface-2)', color: 'var(--tp-muted-fg)' }}>
+                            <Icon name="clock" size={16} />
+                          </span>
+                          <span style={{ ...BESIDE_ICON, display: 'grid' }}>
+                            <span style={{ fontWeight: 700 }}>{formatTime(at, locale)}</span>
+                            <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', fontWeight: 600 }}>
+                              {formatWeekdayShort(at, locale)} {formatDayNumber(at, locale)} {formatMonthShort(at, locale)}
+                            </span>
+                          </span>
+                        </span>
+                      )}
+                      {/* The place, built like the time: an icon square and the place, set in from the edge. */}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', marginInlineEnd: 'var(--tp-sp-4)', minInlineSize: 0 }}>
+                        <span style={{ display: 'grid', placeItems: 'center', inlineSize: '2rem', blockSize: '2rem', flex: 'none', borderRadius: 'var(--tp-radius-ctl)', background: 'var(--tp-surface-2)', color: 'var(--tp-muted-fg)' }}>
+                          <Icon name="pin" size={16} />
+                        </span>
+                        <span style={{ ...BESIDE_ICON, display: 'grid', minInlineSize: 0 }}>
+                          <bdi style={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{placeText({ ...r, placeDetail: null }, locale, (p) => tr(`work.incident.place.${p}`))}</bdi>
+                        </span>
+                      </span>
+                    </span>
+                    {r.status === 'reviewed' ? (
+                      // Who reviewed it; the time and the note are read in the sheet.
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'auto', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', borderRadius: 'var(--tp-radius-panel)', background: 'var(--tp-success-soft)', color: 'var(--tp-success-fg)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>
+                        <Icon name="checkCircle" size={15} style={{ flex: 'none' }} />
+                        <span style={BESIDE_ICON}>{tr('ws.incidents.mine.reviewedBy', { name: isolate(r.reviewedByName ?? '—') })}</span>
+                      </span>
+                    ) : (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'auto', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', borderRadius: 'var(--tp-radius-panel)', border: '1px dashed var(--tp-warn-mark)', background: 'var(--tp-warn-soft)', color: 'var(--tp-warn-fg)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>
+                        <Icon name="hourglass" size={15} style={{ flex: 'none' }} />
+                        <span style={BESIDE_ICON}>{tr('ws.incidents.mine.waiting')}</span>
+                      </span>
+                    )}
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', paddingBlock: 'var(--tp-sp-2-5)', paddingInline: 'var(--tp-sp-4)', borderBlockStart: '1px solid var(--tp-border)', color: 'var(--tp-accent-soft-fg)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>
+                    <span style={BESIDE_ICON}>{tr('ws.incidents.mine.details')}</span>
+                    <ChevronForward size={16} style={{ flex: 'none' }} />
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
       <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
-      {photos && <PhotoViewer title={tr('ws.incidents.sheet.photos', { count: formatNumber(photos.length, locale) })} paths={photos} onClose={() => setPhotos(null)} />}
+      {opened && <MyIncidentModal row={opened} onClose={() => setOpenId(null)} />}
     </div>
   );
 }

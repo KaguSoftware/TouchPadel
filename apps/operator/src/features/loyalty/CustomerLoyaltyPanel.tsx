@@ -10,22 +10,25 @@
  *
  * A server without loyalty (RPC_MISSING) shows nothing. Adjusting is online only.
  */
-import { useState } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { formatDateTime, formatNumber } from '@touch/i18n';
+import { formatDateTime, formatIQD, formatMonthShort, formatNumber } from '@touch/i18n';
 import { isRpcMissing } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
 import { can, useAuth } from '../../lib/auth';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, Skeleton, inputStyle } from '../../components/ui';
-import { DescriptionList, Panel, PinPromptOverlay } from '../../components/kit';
-import { adjustErrors, isPinRefusal, ledgerKind, parseSigned } from './loyaltyLogic';
-import { LOYALTY_KEYS, adjustPoints, useLoyaltyCustomer } from './useLoyalty';
+import { DataTable, Panel, PinPromptOverlay, StatusBadge, type Column } from '../../components/kit';
+import { adjustErrors, isPinRefusal, ledgerKind, monthlyEarned, parseSigned } from './loyaltyLogic';
+import { LOYALTY_KEYS, adjustPoints, useLoyaltyCustomer, useLoyaltyTerms } from './useLoyalty';
+import type { LedgerRow } from '@touch/core/loyalty';
+import { CardPill } from '../desk/customers/RecordCards';
+import { tierColour } from '../desk/customers/recordSummary';
 
 const K = 'ws.loyalty';
 
-export function CustomerLoyaltyPanel({ customerId, tz }: { customerId: string; tz: string }) {
+export function CustomerLoyaltyPanel({ customerId, tz, withTop = true }: { customerId: string; tz: string; withTop?: boolean }) {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
   const { reachable } = useStationReach();
@@ -33,29 +36,17 @@ export function CustomerLoyaltyPanel({ customerId, tz }: { customerId: string; t
   const q = useLoyaltyCustomer(customerId, allowed);
   const [adjusting, setAdjusting] = useState(false);
   const canAdjust = can(staff?.role, 'adjustLoyalty');
+  // The point value and the smallest use, for "≈ … off" and "Ready to use".
+  const termsQ = useLoyaltyTerms(allowed);
 
   if (!allowed || isRpcMissing(q.error)) return null;
   const d = q.data;
-  const n = (v: number) => formatNumber(v, locale);
   const tier = d?.tier ? (locale === 'ar' ? d.tier.name_ar : d.tier.name_en) : null;
 
   return (
     <Panel
       title={tr(`${K}.panel.title`)}
       data-testid="customer-loyalty"
-      actions={
-        canAdjust && d ? (
-          <Button
-            size="sm"
-            icon="sliders"
-            disabled={!reachable}
-            disabledReason={reachable ? undefined : tr(`${K}.member.noConnection`)}
-            onClick={() => setAdjusting(true)}
-          >
-            {tr(`${K}.adjust.button`)}
-          </Button>
-        ) : undefined
-      }
     >
       {q.isLoading && <Skeleton lines={3} />}
       {q.isError && !d && (
@@ -67,71 +58,245 @@ export function CustomerLoyaltyPanel({ customerId, tz }: { customerId: string; t
         </div>
       )}
       {d && (
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
-          <DescriptionList
-            columns={2}
-            items={[
-              {
-                label: tr(`${K}.panel.balance`),
-                value: <span data-testid="loyalty-balance">{n(d.balance)}</span>,
-                numeric: true,
-              },
-              {
-                label: tr(`${K}.panel.tier`),
-                value: tier ? <bdi>{tier}</bdi> : tr(`${K}.panel.noTier`),
-              },
-              { label: tr(`${K}.panel.points12m`), value: n(d.points_12m), numeric: true },
-              { label: tr(`${K}.panel.lifetime`), value: n(d.lifetime), numeric: true },
-            ]}
-          />
-          <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
-            <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>
-              {tr(`${K}.panel.history`)}
-            </h3>
-            {d.history.length === 0 ? (
-              <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-                {tr(`${K}.panel.historyEmpty`)}
-              </p>
-            ) : (
-              <div style={{ maxBlockSize: '20rem', overflowY: 'auto' }}>
-                <table className="tp-table" data-dense="true">
-                  <thead>
-                    <tr>
-                      <th>{tr(`${K}.panel.columns.when`)}</th>
-                      <th>{tr(`${K}.panel.columns.what`)}</th>
-                      <th style={{ textAlign: 'end' }}>{tr(`${K}.panel.columns.points`)}</th>
-                      <th>{tr(`${K}.panel.columns.note`)}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {d.history.map((r) => (
-                      <tr key={r.id}>
-                        <td>
-                          <bdi>{formatDateTime(new Date(r.created_at), locale, tz)}</bdi>
-                        </td>
-                        <td>{tr(`${K}.panel.kind.${ledgerKind(r.kind)}`)}</td>
-                        <td
-                          dir="ltr"
-                          style={{
-                            textAlign: 'end',
-                            fontVariantNumeric: 'tabular-nums',
-                            color: r.delta < 0 ? 'var(--tp-muted-fg)' : undefined,
-                          }}
-                        >
-                          {r.delta > 0 ? `+${n(r.delta)}` : n(r.delta)}
-                        </td>
-                        <td>{r.note ? <bdi>{r.note}</bdi> : null}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
+        <LoyaltyBody
+          data={d}
+          withTop={withTop}
+          tz={tz}
+          tier={tier}
+          pointValueIqd={termsQ.data?.pointValueIqd ?? null}
+          minRedeemPoints={termsQ.data?.minRedeemPoints ?? null}
+          adjust={
+            canAdjust ? (
+              <Button
+                kind="primary"
+                icon="sliders"
+                disabled={!reachable}
+                disabledReason={reachable ? undefined : tr(`${K}.member.noConnection`)}
+                onClick={() => setAdjusting(true)}
+              >
+                {tr(`${K}.adjust.button`)}
+              </Button>
+            ) : null
+          }
+        />
       )}
       {adjusting && <AdjustDialog customerId={customerId} onClose={() => setAdjusting(false)} />}
     </Panel>
+  );
+}
+
+/**
+ * The loyalty dialog's body (owner's pick "D", 2026-10-15): the points as a big
+ * figure with what they are worth and whether they can be used, tiles in the
+ * owner's four colours (.tp-tone-tile), the points earned per month for the last
+ * six months, then the history in the app's standard table, and Adjust points
+ * at the foot.
+ */
+/**
+ * The loyalty dialog's top: the points card and the tiles. The record shows it
+ * inside the dialog's coloured header (CustomerLoyaltyTop), like the bookings
+ * dialog's count tiles; in a band, the cards wear the header's moving ground
+ * (.tp-band-scope in GlobalStyles).
+ */
+function LoyaltyTop({
+  data: d,
+  tier,
+  tierKey,
+  pointValueIqd,
+  minRedeemPoints,
+}: {
+  data: { balance: number; lifetime: number; points_12m: number; tier: { multiplier: number; name_en?: string } | null };
+  tier: string | null;
+  /** The tier's card colour (tierColour), as the record's loyalty card has it. */
+  tierKey: string | null;
+  pointValueIqd: number | null;
+  minRedeemPoints: number | null;
+}) {
+  const { tr, locale } = useLocale();
+  const n = (v: number) => formatNumber(v, locale);
+  const ready = minRedeemPoints != null && minRedeemPoints > 0 && d.balance >= minRedeemPoints;
+  const tile = (key: string, label: string, value: ReactNode, span?: boolean, tone?: string) => (
+    <div
+      key={key}
+      className="tp-tone-tile"
+      style={{
+        // A colour by name instead of by place (the tier tile wears its tier's).
+        ...(tone ? ({ '--tp-tone': tone } as CSSProperties) : null),
+        border: '1px solid var(--tp-tone)',
+        borderBlockStart: '6px solid var(--tp-tone)',
+        borderRadius: 'var(--tp-radius-panel)',
+        paddingBlock: 'var(--tp-sp-3)',
+        paddingInline: 'var(--tp-sp-3)',
+        display: 'grid',
+        gap: 'var(--tp-sp-2)',
+        gridColumn: span ? '1 / -1' : undefined,
+      }}
+    >
+      <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-band-ink, var(--tp-fg))' }}>{label}</span>
+      <span style={{ color: 'var(--tp-band-ink, var(--tp-fg))' }}>{value}</span>
+    </div>
+  );
+  const figure = (v: number) => (
+    <span style={{ fontFamily: 'var(--tp-font-numeric)', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: 'var(--tp-fs-2xl)', lineHeight: 1 }}>{n(v)}</span>
+  );
+
+  return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(16rem, 1fr))', gap: 'var(--tp-sp-3)' }}>
+        <div
+          // The record's loyalty card itself (owner, 2026-10-15): the same tier
+          // ground, motion, ink and shine (.tp-record-card[data-tone='loyalty']).
+          className="tp-record-card"
+          data-tone="loyalty"
+          data-tier={tierKey ?? undefined}
+          style={{
+            position: 'relative',
+            overflow: 'hidden',
+            borderColor: 'var(--tp-loyalty-edge)',
+            paddingBlock: 'var(--tp-sp-4)',
+            paddingInline: 'var(--tp-sp-4)',
+            display: 'grid',
+            gap: 'var(--tp-sp-2)',
+            alignContent: 'start',
+          }}
+        >
+          <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-band-ink, var(--tp-muted-fg))' }}>
+            {tr(`${K}.panel.balance`)}
+            {tier && <CardPill tone="tier">{tier}</CardPill>}
+          </span>
+          <span data-testid="loyalty-balance" style={{ fontFamily: 'var(--tp-font-numeric)', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '2.75rem', lineHeight: 1, letterSpacing: '-0.02em' }}>
+            {n(d.balance)}
+          </span>
+          {(pointValueIqd != null && d.balance > 0) || ready ? (
+            <span style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+              {pointValueIqd != null && d.balance > 0 && (
+                <StatusBadge tone="success" size="sm" dot={false} label={tr(`${K}.panel.worth`, { amount: formatIQD(d.balance * pointValueIqd, locale) })} />
+              )}
+              {ready && <StatusBadge tone="info" size="sm" dot={false} label={tr(`${K}.panel.ready`)} />}
+            </span>
+          ) : null}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
+          {tile('12m', tr(`${K}.panel.points12m`), figure(d.points_12m))}
+          {tile('lifetime', tr(`${K}.panel.lifetime`), figure(d.lifetime))}
+          {tile(
+            'tier',
+            tr(`${K}.panel.tier`),
+            <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-xl)' }}>{tier ? <bdi>{tier}</bdi> : tr(`${K}.panel.noTier`)}</span>
+              {d.tier && <span style={{ color: 'var(--tp-band-ink, var(--tp-muted-fg))', opacity: 0.8, fontSize: 'var(--tp-fs-sm)' }}>{tr(`${K}.panel.earns`, { multiplier: formatNumber(d.tier.multiplier, locale) })}</span>}
+            </span>,
+            true,
+            // Its tier's own colour, not the black of its place, which blue mode turns
+            // white and loses on the white tile (owner, 2026-10-15), deepened a quarter so the pale
+            // silver and platinum still show on white. Member: the night-court navy.
+            tierKey ? `color-mix(in oklab, var(--tp-tier-${tierKey}) 75%, var(--tp-brand-black))` : 'color-mix(in oklab, var(--tp-brand-blue) 38%, var(--tp-brand-black))',
+          )}
+        </div>
+      </div>
+  );
+}
+
+/** The top of a customer's loyalty, for the dialog's header: null where the panel shows nothing. */
+export function CustomerLoyaltyTop({ customerId }: { customerId: string }) {
+  const { locale } = useLocale();
+  const { staff } = useAuth();
+  const allowed = can(staff?.role, 'attachMember');
+  const q = useLoyaltyCustomer(customerId, allowed);
+  const termsQ = useLoyaltyTerms(allowed);
+  const d = q.data;
+  if (!allowed || !d) return null;
+  const tier = d.tier ? (locale === 'ar' ? d.tier.name_ar : d.tier.name_en) : null;
+  return <LoyaltyTop data={d} tier={tier} tierKey={tierColour(d.tier?.name_en)} pointValueIqd={termsQ.data?.pointValueIqd ?? null} minRedeemPoints={termsQ.data?.minRedeemPoints ?? null} />;
+}
+
+function LoyaltyBody({
+  data: d,
+  tz,
+  tier,
+  pointValueIqd,
+  minRedeemPoints,
+  adjust,
+  withTop = true,
+}: {
+  data: { balance: number; lifetime: number; points_12m: number; tier: { multiplier: number; name_en?: string } | null; history: LedgerRow[] };
+  tz: string;
+  tier: string | null;
+  pointValueIqd: number | null;
+  minRedeemPoints: number | null;
+  adjust: ReactNode;
+  /** False when the dialog's header carries the top (CustomerLoyaltyTop). */
+  withTop?: boolean;
+}) {
+  const { tr, locale } = useLocale();
+  const n = (v: number) => formatNumber(v, locale);
+  const months = monthlyEarned(d.history, Date.now(), tz);
+  const top = Math.max(1, ...months.map((m) => m.total));
+  const columns: Column<LedgerRow>[] = [
+    { key: 'when', header: tr(`${K}.panel.columns.when`), render: (r) => <bdi>{formatDateTime(new Date(r.created_at), locale, tz)}</bdi> },
+    { key: 'what', header: tr(`${K}.panel.columns.what`), render: (r) => tr(`${K}.panel.kind.${ledgerKind(r.kind)}`) },
+    {
+      key: 'points',
+      header: tr(`${K}.panel.columns.points`),
+      numeric: true,
+      render: (r) => (
+        <span dir="ltr" style={{ fontWeight: 600, color: r.delta < 0 ? 'var(--tp-muted-fg)' : 'var(--tp-success-fg)' }}>
+          {r.delta > 0 ? `+${n(r.delta)}` : n(r.delta)}
+        </span>
+      ),
+    },
+    { key: 'note', header: tr(`${K}.panel.columns.note`), render: (r) => (r.note ? <bdi>{r.note}</bdi> : null) },
+  ];
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+      {withTop && <LoyaltyTop data={d} tier={tier} tierKey={tierColour(d.tier?.name_en)} pointValueIqd={pointValueIqd} minRedeemPoints={minRedeemPoints} />}
+
+      <section aria-label={tr(`${K}.panel.perMonth`)} style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', paddingBlock: 'var(--tp-sp-3)', paddingInline: 'var(--tp-sp-4)', display: 'grid', gap: 'var(--tp-sp-2)' }}>
+        <span style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>
+          <span>{tr(`${K}.panel.perMonth`)}</span>
+          <span style={{ fontWeight: 500 }}>{tr(`${K}.panel.perMonthSpan`)}</span>
+        </span>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${months.length}, minmax(0, 1fr))`, gap: 'var(--tp-sp-3)', alignItems: 'end', blockSize: '7rem' }}>
+          {months.map((m, i) => {
+            const now = i === months.length - 1;
+            return (
+              <div key={m.key} style={{ display: 'grid', gridTemplateRows: 'auto 1fr auto', justifyItems: 'center', gap: 'var(--tp-sp-1)', blockSize: '100%' }}>
+                <span style={{ fontFamily: 'var(--tp-font-numeric)', fontSize: 'var(--tp-fs-xs)', fontWeight: 600 }}>{n(m.total)}</span>
+                <span style={{ alignSelf: 'end', inlineSize: '100%', display: 'flex', alignItems: 'flex-end', blockSize: '100%' }}>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      inlineSize: '100%',
+                      blockSize: `${Math.max(3, Math.round((m.total / top) * 100))}%`,
+                      borderStartStartRadius: '6px',
+                      borderStartEndRadius: '6px',
+                      background: now ? 'var(--tp-accent-2)' : 'color-mix(in oklab, var(--tp-accent-2) 65%, var(--tp-surface))',
+                      borderBlockStart: '3px solid var(--tp-success-mark)',
+                    }}
+                  />
+                </span>
+                <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{formatMonthShort(new Date(`${m.key}-15T12:00:00Z`), locale, 'UTC')}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section aria-label={tr(`${K}.panel.history`)} style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+        <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>{tr(`${K}.panel.history`)}</h3>
+        <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', overflow: 'hidden' }}>
+          <DataTable
+            aria-label={tr(`${K}.panel.history`)}
+            dense
+            columns={columns}
+            rows={d.history}
+            rowKey={(r) => r.id}
+            emptyContent={tr(`${K}.panel.historyEmpty`)}
+          />
+        </div>
+      </section>
+
+      {adjust && <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBlockStart: 'var(--tp-sp-3)', borderBlockStart: '1px solid var(--tp-border)' }}>{adjust}</div>}
+    </div>
   );
 }
 

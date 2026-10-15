@@ -104,6 +104,15 @@ export function Toolbar({ children, style, end }: { children?: ReactNode; end?: 
  */
 const InPanel = createContext(false);
 
+/**
+ * Set by a dialog that holds one self-contained Panel (the customer record's
+ * cards open their sections this way). The outermost Panel inside then drops
+ * its own title and edge: the dialog's header already names it, and a bordered
+ * panel inside a dialog read as a card inside a card. Its actions stay, on the
+ * end edge.
+ */
+export const InSectionDialog = createContext(false);
+
 /** A grouped section with an optional title row. Use sparingly: most content needs no container. */
 export function Panel({
   title,
@@ -145,39 +154,43 @@ export function Panel({
   'data-testid'?: string;
 }) {
   const Heading = `h${level}` as 'h2' | 'h3' | 'h4';
+  const inDialog = useContext(InSectionDialog);
+  const nested = useContext(InPanel);
+  const flat = inDialog && !nested;
+  const shownTitle = flat ? undefined : title;
   return (
     <section
       data-testid={testId}
       className={className}
       style={{
         background: muted ? 'var(--tp-surface-2)' : 'var(--tp-surface)',
-        border: '1px solid var(--tp-border)',
+        border: flat ? undefined : '1px solid var(--tp-border)',
         borderRadius: 'var(--tp-radius-panel)',
         overflow: 'hidden',
         ...(fill ? { display: 'flex', flexDirection: 'column', minBlockSize: 0 } : null),
         ...style,
       }}
     >
-      {(title || actions) && (
+      {(shownTitle || actions) && (
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: shownTitle ? 'space-between' : 'flex-end',
             gap: '0.75rem',
-            paddingBlock: '0.6rem',
-            paddingInline: '0.85rem',
-            borderBlockEnd: '1px solid var(--tp-border)',
+            paddingBlock: flat ? '0 0.6rem' : '0.6rem',
+            paddingInline: flat ? 0 : '0.85rem',
+            borderBlockEnd: flat ? undefined : '1px solid var(--tp-border)',
           }}
         >
-          {title && <Heading style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{title}</Heading>}
+          {shownTitle && <Heading style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{shownTitle}</Heading>}
           {actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>{actions}</div>}
         </div>
       )}
       <div
         className={bodyClassName}
         style={{
-          ...(padded ? { paddingBlock: '0.75rem', paddingInline: '0.85rem' } : null),
+          ...(padded ? { paddingBlock: flat ? '0 0.25rem' : '0.75rem', paddingInline: flat ? 0 : '0.85rem' } : null),
           ...(fill ? { flex: 1, minBlockSize: 0, display: 'flex', flexDirection: 'column' } : null),
         }}
       >
@@ -432,6 +445,7 @@ export function StatusBadge({
   const t = TONE_STYLE[tone];
   return (
     <span
+      className="tp-status-badge"
       title={title}
       style={{
         display: 'inline-flex',
@@ -477,8 +491,11 @@ const BOOKING_TONE: Record<BookingStatus, Tone> = {
   pending: 'warn',
   confirmed: 'accent',
   arrived: 'success',
-  completed: 'neutral',
-  cancelled: 'danger',
+  // Played and done: green, like arrived (owner, 2026-10-14). It was neutral grey.
+  completed: 'success',
+  // Cancelled amber and no-show red, matching the customer record's count tiles
+  // (owner, 2026-10-15, swapped from the day before).
+  cancelled: 'warn',
   no_show: 'danger',
   expired: 'neutral',
 };

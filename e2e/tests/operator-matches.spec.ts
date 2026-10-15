@@ -385,6 +385,7 @@ test.describe('operator open matches', () => {
     const badge = 'Banned from open matches · Reported by players';
     await manager.goto(`${OPERATOR_URL}/desk/customers/${farah!.id}`);
     await expect(manager.getByText(badge, { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+    await manager.getByTestId('card-matches').click();
     await expect(manager.getByTestId('customer-matches').getByRole('button', { name: 'Lift ban' })).toBeVisible();
     await manager.context().close();
 
@@ -392,6 +393,7 @@ test.describe('operator open matches', () => {
     const desk = await signIn(browser, SEED_STAFF.court_desk);
     await desk.goto(`${OPERATOR_URL}/desk/customers/${farah!.id}`);
     await expect(desk.getByText(badge, { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+    await desk.getByTestId('card-matches').click();
     await expect(desk.getByTestId('customer-matches')).toBeVisible();
     await expect(desk.getByRole('button', { name: 'Lift ban' })).toHaveCount(0);
     await desk.context().close();
@@ -403,6 +405,7 @@ test.describe('operator open matches', () => {
 
     const manager = await signIn(browser, SEED_STAFF.manager);
     await manager.goto(`${OPERATOR_URL}/desk/customers/${ghada!.id}`);
+    await manager.getByTestId('card-tickets').click({ timeout: 30_000 });
     const cashOut = manager.getByRole('button', { name: /^Cash out .*20,000/ }).first();
     await expect(cashOut).toBeVisible({ timeout: 30_000 });
     await cashOut.click();

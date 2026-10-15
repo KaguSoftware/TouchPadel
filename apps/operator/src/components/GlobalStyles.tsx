@@ -181,6 +181,11 @@ input:disabled, select:disabled, textarea:disabled {
    renders soft at rest and flips to solid accent on hover, because the
    :hover rule above out-specifies the bare attribute selector. */
 .tp-btn[aria-pressed='true']:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
+/* An incident card on My reports (/incidents) is one button that opens its sheet: it lifts under the pointer. */
+.tp-incident-card { transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease; }
+.tp-incident-card:hover { transform: translateY(-2px); box-shadow: var(--tp-shadow-popover) !important; border-color: var(--tp-border-strong) !important; }
+.tp-incident-card:focus-visible { outline: 2px solid var(--tp-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .tp-incident-card, .tp-incident-card:hover { transition: none; transform: none; } }
 .tp-iconbtn { padding-inline: 0.45rem; inline-size: 2.25rem; }
 .tp-iconbtn[data-size='sm'] { inline-size: 1.85rem; }
 /* Fingers, not mice: the till and the kitchen board get the real target. */
@@ -223,6 +228,332 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-tile:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-tile:active:not(:disabled) { transform: scale(0.99); }
 .tp-tile:disabled { cursor: not-allowed; }
+/* The customer record's cards (features/desk/customers/RecordCards). A card
+   keeps its own ground on hover and is lifted by its edge and a shadow instead:
+   the cards carry coloured figures that the pale hover tint washed out. The
+   lead card (next booking) is the accent, deepening on hover like a primary
+   button. */
+.tp-record-card {
+  background: var(--tp-surface); color: var(--tp-fg);
+  border: 1px solid var(--tp-border); border-radius: var(--tp-radius-dialog);
+  box-shadow: var(--tp-shadow-raised);
+  transition: border-color var(--tp-dur-fast) var(--tp-ease-out), box-shadow var(--tp-dur-fast) var(--tp-ease-out), background var(--tp-dur-fast) var(--tp-ease-out);
+}
+.tp-record-card.tp-tile:hover:not(:disabled) { background: var(--tp-surface); color: var(--tp-fg); border-color: var(--tp-accent); box-shadow: var(--tp-shadow-popover); }
+.tp-record-card .tp-record-open { color: var(--tp-muted-fg); }
+/* A section card's outline takes its strip's colour on hover only (owner, 2026-10-15). */
+.tp-record-card.tp-section-card.tp-tile:hover:not(:disabled) { border-color: var(--tp-strip); }
+.tp-record-card.tp-tile:hover .tp-record-open { color: var(--tp-accent); }
+/* The next-booking card: brand blue with white ink in both modes (owner,
+   2026-10-15). It used --tp-accent, which blue mode turns white. */
+.tp-record-card[data-tone='accent'] {
+  background: linear-gradient(140deg, var(--tp-brand-blue) 0%, color-mix(in oklab, var(--tp-brand-blue) 72%, var(--tp-brand-black)) 100%);
+  border-color: transparent; color: var(--tp-brand-white);
+}
+.tp-record-card[data-tone='accent'].tp-tile:hover:not(:disabled) {
+  background: linear-gradient(140deg, color-mix(in oklab, var(--tp-brand-blue) 88%, var(--tp-brand-black)) 0%, color-mix(in oklab, var(--tp-brand-blue) 72%, var(--tp-brand-black)) 100%);
+  border-color: transparent; color: var(--tp-brand-white);
+}
+.tp-record-card[data-tone='accent'] .tp-record-open { color: var(--tp-brand-white); }
+/* The next-booking card moves like the loyalty card (owner, 2026-10-15): soft
+   bands of deep brand blue, brand blue and a sky-blue floodlight glow (owner:
+   "floodlit court") that drift, sway and turn clockwise,
+   blurred so no line shows. Same layer and motions as the loyalty card's
+   ::before below; the racket and the text paint above it. */
+.tp-record-card[data-tone='accent'] { isolation: isolate; }
+.tp-record-card[data-tone='accent']::before {
+  content: '';
+  position: absolute;
+  inset: auto;
+  inset-inline-start: 50%;
+  inset-block-start: 50%;
+  inline-size: 1400px;
+  block-size: 1400px;
+  margin-inline-start: -700px;
+  margin-block-start: -700px;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(18px);
+  background-image: repeating-linear-gradient(115deg, color-mix(in oklab, var(--tp-brand-blue) 72%, var(--tp-brand-black)) 0px, var(--tp-brand-blue) 100px, var(--tp-floodlight) 160px, var(--tp-brand-blue) 220px, color-mix(in oklab, var(--tp-brand-blue) 72%, var(--tp-brand-black)) 320px);
+  animation: tpLoyaltyAurora 10s linear infinite, tpLoyaltySway 9s ease-in-out infinite, tpLoyaltySpin 40s linear infinite;
+}
+.tp-record-card[data-tone='accent'].tp-tile:hover:not(:disabled)::before {
+  background-image: repeating-linear-gradient(115deg, color-mix(in oklab, var(--tp-brand-blue) 84%, var(--tp-brand-black)) 0px, var(--tp-brand-blue) 90px, color-mix(in oklab, var(--tp-floodlight) 85%, var(--tp-brand-white)) 160px, var(--tp-brand-blue) 230px, color-mix(in oklab, var(--tp-brand-blue) 84%, var(--tp-brand-black)) 320px);
+}
+@media (prefers-reduced-motion: reduce) { .tp-record-card[data-tone='accent']::before { animation: none; } }
+/* The Keeps bookings card, "scoreboard" (owner, 2026-10-15): deep charcoal with
+   a soft grey glow that drifts, sways and turns like the cards beside it, and
+   white ink, so the ring's full green, orange and red stand out. The same in
+   both modes. */
+.tp-record-card[data-tone='scoreboard'] {
+  isolation: isolate;
+  background: linear-gradient(140deg, color-mix(in oklab, var(--tp-brand-black) 86%, var(--tp-brand-gray)) 0%, color-mix(in oklab, var(--tp-brand-black) 93%, var(--tp-brand-gray)) 100%);
+  border-color: transparent; color: var(--tp-brand-white);
+  --tp-ring-track: color-mix(in oklab, var(--tp-brand-white) 14%, transparent);
+}
+.tp-record-card[data-tone='scoreboard'].tp-tile:hover:not(:disabled) {
+  background: linear-gradient(140deg, color-mix(in oklab, var(--tp-brand-gray) 42%, var(--tp-brand-black)) 0%, color-mix(in oklab, var(--tp-brand-black) 93%, var(--tp-brand-gray)) 100%);
+  border-color: transparent; color: var(--tp-brand-white);
+}
+.tp-record-card[data-tone='scoreboard'] .tp-record-open { color: var(--tp-brand-white); }
+/* Its labels' grey is set inline, so !important to lift them to the white ink. */
+/* Not inside a tone tile: the bookings dialog's count tiles sit in this band on
+   their own light ground and keep their dark ink. */
+.tp-record-card[data-tone='scoreboard'] span:not(.tp-tone-tile *) { color: var(--tp-brand-white) !important; }
+.tp-record-card[data-tone='scoreboard']::before {
+  content: '';
+  position: absolute;
+  inset: auto;
+  inset-inline-start: 50%;
+  inset-block-start: 50%;
+  inline-size: 1400px;
+  block-size: 1400px;
+  margin-inline-start: -700px;
+  margin-block-start: -700px;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(18px);
+  background-image: repeating-linear-gradient(115deg, color-mix(in oklab, var(--tp-brand-black) 93%, var(--tp-brand-gray)) 0px, color-mix(in oklab, var(--tp-brand-gray) 42%, var(--tp-brand-black)) 160px, color-mix(in oklab, var(--tp-brand-black) 93%, var(--tp-brand-gray)) 320px);
+  animation: tpLoyaltyAurora 10s linear infinite, tpLoyaltySway 9s ease-in-out infinite, tpLoyaltySpin 40s linear infinite;
+}
+.tp-record-card[data-tone='scoreboard'].tp-tile:hover:not(:disabled)::before {
+  background-image: repeating-linear-gradient(115deg, color-mix(in oklab, var(--tp-brand-black) 86%, var(--tp-brand-gray)) 0px, color-mix(in oklab, var(--tp-brand-gray) 52%, var(--tp-brand-black)) 160px, color-mix(in oklab, var(--tp-brand-black) 86%, var(--tp-brand-gray)) 320px);
+}
+@media (prefers-reduced-motion: reduce) { .tp-record-card[data-tone='scoreboard']::before { animation: none; } }
+/* The close button on a dialog's coloured header (SectionDialog): a soft tint of
+   the header's own ink on hover, not the app's pale-blue hover, which read as a
+   light patch with dark ink on the dark headers (owner, 2026-10-15). */
+.tp-btn.tp-band-close[data-kind='ghost']:hover:not(:disabled) { background: color-mix(in oklab, currentColor 18%, transparent); color: inherit; }
+.tp-btn.tp-band-close[data-kind='ghost']:active:not(:disabled) { background: color-mix(in oklab, currentColor 26%, transparent); }
+
+/* The section dialogs' headers (owner, 2026-10-15: "the banner on all of
+   them"): each in its card's colour, deep with a lighter glow, moving like the
+   loyalty header, white ink. Open matches and tickets green, lessons violet,
+   café amber, series teal. */
+.tp-record-card[data-tone='section'][data-section='matches'], .tp-band-scope[data-section='matches'] { --tp-section-deep: color-mix(in oklab, var(--tp-success-mark) 62%, var(--tp-brand-black)); --tp-section-glow: color-mix(in oklab, var(--tp-accent-2) 55%, color-mix(in oklab, var(--tp-success-mark) 62%, var(--tp-brand-black))); }
+.tp-record-card[data-tone='section'][data-section='tickets'], .tp-band-scope[data-section='tickets'] { --tp-section-deep: color-mix(in oklab, var(--tp-success-mark) 62%, var(--tp-brand-black)); --tp-section-glow: color-mix(in oklab, var(--tp-accent-2) 55%, color-mix(in oklab, var(--tp-success-mark) 62%, var(--tp-brand-black))); }
+.tp-record-card[data-tone='section'][data-section='lessons'], .tp-band-scope[data-section='lessons'] { --tp-section-deep: color-mix(in oklab, var(--tp-lesson) 70%, var(--tp-brand-black)); --tp-section-glow: color-mix(in oklab, var(--tp-lesson) 62%, var(--tp-brand-white)); }
+.tp-record-card[data-tone='section'][data-section='cafe'], .tp-band-scope[data-section='cafe'] { --tp-section-deep: color-mix(in oklab, var(--tp-warn-mark) 62%, var(--tp-brand-black)); --tp-section-glow: color-mix(in oklab, var(--tp-warn) 60%, color-mix(in oklab, var(--tp-warn-mark) 62%, var(--tp-brand-black))); }
+.tp-record-card[data-tone='section'][data-section='series'], .tp-band-scope[data-section='series'] { --tp-section-deep: color-mix(in oklab, var(--tp-tournament) 72%, var(--tp-brand-black)); --tp-section-glow: color-mix(in oklab, var(--tp-tournament) 60%, var(--tp-brand-white)); }
+.tp-record-card[data-tone='section'] { isolation: isolate; background: var(--tp-section-deep); color: var(--tp-brand-white); }
+.tp-record-card[data-tone='section']::before {
+  content: '';
+  position: absolute;
+  inset: auto;
+  inset-inline-start: 50%;
+  inset-block-start: 50%;
+  inline-size: 1400px;
+  block-size: 1400px;
+  margin-inline-start: -700px;
+  margin-block-start: -700px;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(18px);
+  background-image: repeating-linear-gradient(115deg, var(--tp-section-deep) 0px, var(--tp-section-glow) 160px, var(--tp-section-deep) 320px);
+  animation: tpLoyaltyAurora 10s linear infinite, tpLoyaltySway 9s ease-in-out infinite, tpLoyaltySpin 40s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) { .tp-record-card[data-tone='section']::before { animation: none; } }
+
+/* A banded dialog's scope: the header's ground and ink (--tp-band-ground,
+   --tp-band-ink, --tp-band-edge). The cards inside it reset these to white with
+   dark ink below, so only the header itself is coloured. */
+.tp-band-scope[data-band='scoreboard'] { --tp-band-ground: color-mix(in oklab, var(--tp-brand-black) 86%, var(--tp-brand-gray)); --tp-band-ink: var(--tp-brand-white); --tp-band-edge: transparent; }
+.tp-band-scope[data-band='accent'] { --tp-band-ground: var(--tp-brand-blue); --tp-band-ink: var(--tp-brand-white); --tp-band-edge: transparent; }
+.tp-band-scope[data-band='loyalty'] { --tp-band-ground: color-mix(in oklab, var(--tp-brand-blue) 38%, var(--tp-brand-black)); --tp-band-ink: var(--tp-brand-white); --tp-band-edge: transparent; }
+.tp-band-scope[data-band='loyalty'][data-tier] { --tp-band-ground: color-mix(in oklab, var(--tp-loyal-tone) 40%, var(--tp-brand-white)); --tp-band-ink: color-mix(in oklab, var(--tp-brand-black) 82%, var(--tp-brand-blue)); --tp-band-edge: color-mix(in oklab, var(--tp-brand-black) 15%, transparent); }
+.tp-band-scope[data-tier='gold'] { --tp-loyal-tone: var(--tp-tier-gold); }
+.tp-band-scope[data-tier='silver'] { --tp-loyal-tone: var(--tp-tier-silver); }
+.tp-band-scope[data-tier='bronze'] { --tp-loyal-tone: var(--tp-tier-bronze); }
+.tp-band-scope[data-tier='platinum'] { --tp-loyal-tone: var(--tp-tier-platinum); }
+.tp-band-scope[data-band='section'] { --tp-band-ground: var(--tp-section-deep); --tp-band-ink: var(--tp-brand-white); --tp-band-edge: transparent; }
+/* Each header's two colours (--tp-band-a deep, --tp-band-b glow), kept for the
+   bands; the cards in the dialog no longer use them (see below). */
+.tp-band-scope[data-band='scoreboard'] { --tp-band-a: color-mix(in oklab, var(--tp-brand-black) 93%, var(--tp-brand-gray)); --tp-band-b: color-mix(in oklab, var(--tp-brand-gray) 42%, var(--tp-brand-black)); }
+.tp-band-scope[data-band='accent'] { --tp-band-a: color-mix(in oklab, var(--tp-brand-blue) 72%, var(--tp-brand-black)); --tp-band-b: var(--tp-floodlight); }
+.tp-band-scope[data-band='loyalty'] { --tp-band-a: color-mix(in oklab, var(--tp-brand-blue) 38%, var(--tp-brand-black)); --tp-band-b: color-mix(in oklab, var(--tp-brand-green) 34%, color-mix(in oklab, var(--tp-brand-blue) 38%, var(--tp-brand-black))); }
+.tp-band-scope[data-band='loyalty'][data-tier] { --tp-band-a: color-mix(in oklab, var(--tp-loyal-tone) 55%, var(--tp-brand-white)); --tp-band-b: var(--tp-loyal-tone); }
+.tp-band-scope[data-band='section'] { --tp-band-a: var(--tp-section-deep); --tp-band-b: var(--tp-section-glow); }
+:root .tp-band-scope .tp-tone-tile.tp-tone-tile,
+:root .tp-band-scope .tp-band-card.tp-band-card {
+  text-shadow: none;
+  /* White and still, in both modes; the strips and outlines keep their colours
+     (owner, 2026-10-15, reverting the moving ground). The ink is pinned dark,
+     because blue mode's own ink is light. */
+  background: var(--tp-brand-white) !important;
+  --tp-band-ink: color-mix(in oklab, var(--tp-brand-black) 82%, var(--tp-brand-blue));
+  --tp-band-edge: color-mix(in oklab, var(--tp-brand-black) 12%, transparent);
+}
+
+/* The loyalty card's ground (owner, 2026-10-14): slanted bands at the shine's angle,
+   equal bands of the tier's colour (the
+   brand green the website uses, full strength) and the brand blue, each 40px solid
+   with a long 120px fade between, so one melts into the other (owner: "the same size", "dark blue",
+   "the website's green"), over a ground of
+   the tier's colour lightly tinted blue, no white (owner: "green and blue", the
+   green leading), like
+   northern lights. The bands live on a layer wider than
+   the card behind the content (::before) and slide one way without end, the way
+   the shine below sweeps (owner: "the motion should be like this", then "just
+   goes and repeats"): a repeating pattern moved by exactly one repeat. The tier comes from data-tier (gold, silver, bronze,
+   platinum); any other tier, and a customer without one, is the brand green.
+   The same in both modes (owner, 2026-10-15): mixed with white rather than the
+   surface, which is navy in blue mode, and no blue-mode overrides. Still under
+   reduced motion. */
+.tp-record-card[data-tone='loyalty'] { --tp-loyal-tone: var(--tp-accent-2); isolation: isolate; }
+.tp-record-card[data-tone='loyalty'][data-tier='gold'] { --tp-loyal-tone: var(--tp-tier-gold); }
+.tp-record-card[data-tone='loyalty'][data-tier='silver'] { --tp-loyal-tone: var(--tp-tier-silver); }
+.tp-record-card[data-tone='loyalty'][data-tier='bronze'] { --tp-loyal-tone: var(--tp-tier-bronze); }
+.tp-record-card[data-tone='loyalty'][data-tier='platinum'] { --tp-loyal-tone: var(--tp-tier-platinum); }
+.tp-record-card[data-tone='loyalty'] { background-color: color-mix(in oklab, color-mix(in oklab, var(--tp-loyal-tone) 82%, color-mix(in oklab, var(--tp-brand-blue) 14%, var(--tp-brand-white))) 50%, transparent); background-image: none; }
+.tp-record-card[data-tone='loyalty'].tp-tile:hover:not(:disabled) { background-color: color-mix(in oklab, color-mix(in oklab, var(--tp-loyal-tone) 88%, color-mix(in oklab, var(--tp-brand-blue) 18%, var(--tp-brand-white))) 50%, transparent); background-image: none; }
+.tp-record-card[data-tone='loyalty']::before {
+  content: '';
+  position: absolute;
+  /* Past the card on both sides by more than one repeat of the bands (353px),
+     so at every point of the slide the whole card is covered. Covering one
+     side only left the other uncovered mid-slide, a hard edge (owner's
+     screenshot, 2026-10-14). */
+  /* And past top and bottom, so the sway (scale, skew, tilt) never bares an edge. */
+  inset: -25% -400px;
+  z-index: -1;
+  pointer-events: none;
+  /* The whole card's colour at 50% (owner, 2026-10-15): these bands and the
+     card's own ground (background-color above, mixed to 50%) alike. */
+  opacity: 0.5;
+  background-image: repeating-linear-gradient(115deg, var(--tp-loyal-tone) 0px, var(--tp-loyal-tone) 40px, var(--tp-brand-blue) 160px, var(--tp-brand-blue) 200px, var(--tp-loyal-tone) 320px);
+  /* Two motions on two properties: the endless drift moves 'translate', the
+     aurora's sway moves 'transform', so neither overrides the other. */
+  animation: tpLoyaltyAurora 10s linear infinite, tpLoyaltySway 9s ease-in-out infinite;
+}
+.tp-record-card[data-tone='loyalty'].tp-tile:hover:not(:disabled)::before {
+  background-image: repeating-linear-gradient(115deg, var(--tp-loyal-tone) 0px, var(--tp-loyal-tone) 40px, color-mix(in oklab, var(--tp-brand-blue) 82%, var(--tp-brand-black)) 160px, color-mix(in oklab, var(--tp-brand-blue) 82%, var(--tp-brand-black)) 200px, var(--tp-loyal-tone) 320px);
+}
+/* The shine (owner, 2026-10-14): a diagonal streak of light sweeps across the
+   card the way sun catches a gold or silver bank card, then rests. Only the
+   metal tiers shine: bronze, silver, gold and platinum. It runs over
+   the colours but under the text (z-index -1, after ::before), so nothing it
+   crosses gets harder to read. Softer in blue mode; none under reduced motion. */
+.tp-record-card[data-tone='loyalty'][data-tier='bronze']::after,
+.tp-record-card[data-tone='loyalty'][data-tier='silver']::after,
+.tp-record-card[data-tone='loyalty'][data-tier='gold']::after,
+.tp-record-card[data-tone='loyalty'][data-tier='platinum']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: linear-gradient(115deg,
+    transparent 38%,
+    color-mix(in oklab, var(--tp-brand-white) 0%, transparent) 42%,
+    color-mix(in oklab, var(--tp-brand-white) 70%, transparent) 48%,
+    color-mix(in oklab, var(--tp-brand-white) 85%, transparent) 50%,
+    color-mix(in oklab, var(--tp-brand-white) 70%, transparent) 52%,
+    transparent 58%);
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  background-position: 120% 0;
+  animation: tpLoyaltyShine 6s ease-in-out infinite;
+}
+@keyframes tpLoyaltyShine {
+  0%   { background-position: 120% 0; }
+  25%  { background-position: -20% 0; }
+  100% { background-position: -20% 0; }
+}
+@media (prefers-reduced-motion: reduce) { .tp-record-card[data-tone='loyalty']::after { animation: none; opacity: 0; } }
+/* The card's dark ink crosses the dark blue band, where it alone
+   reads poorly, and white would not read on the green, so the text carries a
+   soft light halo that keeps it legible on both, in both modes. */
+.tp-record-card[data-tone='loyalty'] { text-shadow: 0 0 0.35rem color-mix(in oklab, var(--tp-brand-white) 75%, transparent), 0 0 0.12rem color-mix(in oklab, var(--tp-brand-white) 60%, transparent); }
+/* One dark ink on the card in both modes (blue mode's own ink is light, and
+   would vanish on these colours), the labels included: their grey is set
+   inline, so this needs !important to reach them. */
+.tp-record-card[data-tone='loyalty'] { --tp-loyal-ink: color-mix(in oklab, var(--tp-brand-black) 82%, var(--tp-brand-blue)); color: var(--tp-loyal-ink); }
+/* Not inside the white cards a dialog's header holds (the loyalty tiles), and
+   not in a status badge, which keeps its own colours. */
+.tp-record-card[data-tone='loyalty'] span:not(.tp-band-card *):not(.tp-tone-tile *):not(.tp-status-badge):not(.tp-status-badge *) { color: var(--tp-loyal-ink) !important; }
+/* The tier badge on the card wears the same colour, outlined in black at 30% in
+   both modes (owner, 2026-10-14). */
+.tp-record-card[data-tone='loyalty'] .tp-tier-pill { background: color-mix(in oklab, var(--tp-loyal-tone) 45%, var(--tp-brand-white)); border: 1px solid color-mix(in oklab, var(--tp-brand-black) 30%, transparent); color: var(--tp-loyal-ink); }
+/* Member, and any tier without a metal (owner, 2026-10-15, "night court"):
+   a solid deep navy card with a soft brand-green light drifting across it on
+   the same seamless loop, and white ink. Solid, not see-through, and no halo:
+   white on navy reads on its own. The metal tiers keep their colours above. */
+.tp-record-card[data-tone='loyalty']:not([data-tier]) {
+  --tp-loyal-ink: var(--tp-brand-white);
+  background-color: color-mix(in oklab, var(--tp-brand-blue) 38%, var(--tp-brand-black));
+  text-shadow: none;
+}
+.tp-record-card[data-tone='loyalty']:not([data-tier]).tp-tile:hover:not(:disabled) { background-color: color-mix(in oklab, var(--tp-brand-blue) 46%, var(--tp-brand-black)); }
+.tp-record-card[data-tone='loyalty']:not([data-tier])::before {
+  opacity: 1;
+  /* A soft wash, not a line: one continuous fade with no flat stops, blurred
+     so no edge survives (owner, 2026-10-15). */
+  filter: blur(18px);
+  background-image: repeating-linear-gradient(115deg, color-mix(in oklab, var(--tp-brand-blue) 38%, var(--tp-brand-black)) 0px, color-mix(in oklab, var(--tp-brand-green) 34%, color-mix(in oklab, var(--tp-brand-blue) 38%, var(--tp-brand-black))) 160px, color-mix(in oklab, var(--tp-brand-blue) 38%, var(--tp-brand-black)) 320px);
+}
+.tp-record-card[data-tone='loyalty']:not([data-tier]).tp-tile:hover:not(:disabled)::before {
+  background-image: repeating-linear-gradient(115deg, color-mix(in oklab, var(--tp-brand-blue) 46%, var(--tp-brand-black)) 0px, color-mix(in oklab, var(--tp-brand-green) 42%, color-mix(in oklab, var(--tp-brand-blue) 46%, var(--tp-brand-black))) 160px, color-mix(in oklab, var(--tp-brand-blue) 46%, var(--tp-brand-black)) 320px);
+}
+.tp-record-card[data-tone='loyalty']:not([data-tier]) .tp-tier-pill {
+  background: color-mix(in oklab, var(--tp-brand-green) 30%, color-mix(in oklab, var(--tp-brand-blue) 38%, var(--tp-brand-black)));
+  border-color: color-mix(in oklab, var(--tp-brand-white) 30%, transparent);
+}
+@keyframes tpLoyaltyAurora {
+  /* One repeat of the bands, measured along x: 320px / sin(115deg). Ending on
+     exactly one repeat makes the loop seamless, so it only ever moves one way: left to right,
+     like the shine. Physical on purpose: the light falls the same way in Arabic. */
+  from { translate: -353.1px 0; }
+  to   { translate: 0 0; }
+}
+/* The aurora: the bands bend, stretch and tilt slowly, like curtains of light,
+   while they drift. Never scaled below 1, so the layer always covers the card. */
+@keyframes tpLoyaltySway {
+  0%   { transform: skewX(0deg) scaleY(1.05) rotate(0deg); }
+  30%  { transform: skewX(-9deg) scaleY(1.22) rotate(2deg); }
+  65%  { transform: skewX(7deg) scaleY(1.1) rotate(-2deg); }
+  100% { transform: skewX(0deg) scaleY(1.05) rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) { .tp-record-card[data-tone='loyalty']::before { animation: none; } }
+/* The owner's four (blue, green, black, light blue, then round again; memory of
+   2026-09-24, the report figure groups below) on the customer record's tiles,
+   by their place among their siblings: a 3px strip on top and a tint of the
+   same colour behind. --tp-tone-ink is the text that reads on the colour
+   itself (the date leaf's weekday strip). Blue mode keeps the strip, drops the
+   tint and swaps the strips a blue ground swallows, as the figure groups do. */
+.tp-tone-tile { background: color-mix(in oklab, var(--tp-tone) var(--tp-tone-tint), var(--tp-surface)); border-block-start: 3px solid var(--tp-tone); }
+.tp-tone-tile:nth-child(4n + 1) { --tp-tone: var(--tp-brand-blue); --tp-tone-tint: 12%; --tp-tone-ink: var(--tp-brand-white); }
+.tp-tone-tile:nth-child(4n + 2) { --tp-tone: var(--tp-brand-green); --tp-tone-tint: 22%; --tp-tone-ink: var(--tp-brand-black); }
+.tp-tone-tile:nth-child(4n + 3) { --tp-tone: var(--tp-brand-black); --tp-tone-tint: 6%; --tp-tone-ink: var(--tp-brand-white); }
+.tp-tone-tile:nth-child(4n + 4) { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 45%, var(--tp-brand-white)); --tp-tone-tint: 22%; --tp-tone-ink: var(--tp-brand-black); }
+.tp-record-card.tp-tone-tile.tp-tile:hover:not(:disabled) { background: color-mix(in oklab, var(--tp-tone) calc(var(--tp-tone-tint) + 8%), var(--tp-surface)); border-color: var(--tp-border); border-block-start-color: var(--tp-tone); }
+:root[data-theme='operator'][data-mode='blue'] .tp-tone-tile { background: var(--tp-surface-2); }
+:root[data-theme='operator'][data-mode='blue'] .tp-record-card.tp-tone-tile.tp-tile:hover:not(:disabled) { background: var(--tp-surface-3); }
+:root[data-theme='operator'][data-mode='blue'] .tp-tone-tile:nth-child(4n + 1) { --tp-tone: var(--tp-border-strong); --tp-tone-ink: var(--tp-fg); }
+:root[data-theme='operator'][data-mode='blue'] .tp-tone-tile:nth-child(4n + 3) { --tp-tone: var(--tp-brand-white); --tp-tone-ink: var(--tp-brand-black); }
+:root[data-theme='operator'][data-mode='blue'] .tp-tone-tile:nth-child(4n + 4) { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 30%, var(--tp-brand-white)); }
+/* A tile that names its colour instead of taking its place's: cancellations
+   red, no-shows amber (owner, 2026-10-14). Weighted past the place rules, blue mode's
+   included; blue mode still drops the tint and keeps the red strip. */
+:root .tp-tone-tile.tp-tone-tile.tp-tone-tile[data-tone='danger'] { --tp-tone: var(--tp-danger); --tp-tone-tint: 10%; --tp-tone-ink: var(--tp-danger-contrast); }
+:root .tp-tone-tile.tp-tone-tile.tp-tone-tile[data-tone='warn'] { --tp-tone: var(--tp-warn); --tp-tone-tint: 22%; --tp-tone-ink: var(--tp-brand-black); }
+/* The next-booking racket sits on the end edge (insetInlineEnd), so in Arabic it
+   moves to the left; the drawing is mirrored too, so its handle still points
+   into the card rather than off it. */
+[dir='rtl'] .tp-racket-mark { transform: scaleX(-1); }
+/* A card pill's word, optically centred: the Latin face draws its letters high
+   in the line box, so a centred line-height-1 box still left "Member" ~1.3px
+   above the pill's middle (owner's screenshot, 2026-10-14). The shell's
+   Chromium has no text-box-trim yet, so a little padding on top instead. The
+   Arabic face sits differently and keeps none. */
+.tp-card-pill { padding-block-start: 0.2em; }
+[dir='rtl'] .tp-card-pill { padding-block-start: 0; }
+/* The tickets card is drawn as a stub: two notches on the tear line. */
+.tp-record-card[data-tone='ticket']::before, .tp-record-card[data-tone='ticket']::after {
+  content: ''; position: absolute; inset-block-start: 5.4rem; inline-size: 1.1rem; block-size: 1.1rem;
+  border-radius: 50%; background: var(--tp-bg); border: 1px solid var(--tp-border);
+}
+.tp-record-card[data-tone='ticket']::before { inset-inline-start: -0.6rem; }
+.tp-record-card[data-tone='ticket']::after { inset-inline-end: -0.6rem; }
 /* The report switcher (features/reports/ReportTabs). Filled when open, so the
    current report reads from across the room, not from a 2px underline. */
 .tp-report-tab {

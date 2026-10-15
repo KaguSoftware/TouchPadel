@@ -107,6 +107,16 @@ function mount() {
 
 const calls = (fn: string) => rpc.mock.calls.filter(([name]) => name === fn);
 
+/** The record's sections open from their cards, in a dialog (2026-10-14). */
+async function openSection(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
+  await user.click(await screen.findByRole('button', { name }));
+}
+/** The dialog on top: a section's own prompt opens over the section's dialog. */
+async function topDialog() {
+  const all = await screen.findAllByRole('dialog');
+  return within(all[all.length - 1]!);
+}
+
 beforeEach(() => {
   role = 'manager';
   current = record();
@@ -123,14 +133,16 @@ describe('CustomerRecord ▸ open matches', () => {
     expect(await screen.findByText('3 (open matches 1)')).toBeTruthy();
     expect(screen.getByText('Open matches played')).toBeTruthy();
     expect(screen.getByText('Late leaves')).toBeTruthy();
-    expect(within(screen.getByTestId('customer-matches')).getByTestId('plays-as').textContent).toBe('Woman · set by the guest');
+    await openSection(userEvent.setup(), /^Open matches/);
+    expect(within(await screen.findByTestId('customer-matches')).getByTestId('plays-as').textContent).toBe('Woman · set by the guest');
   });
 
   it('Change sends the other gender through staff_set_customer_gender', async () => {
     const user = userEvent.setup();
     mount();
+    await openSection(user, /^Open matches/);
     await user.click(await screen.findByRole('button', { name: 'Change' }));
-    const dialog = within(await screen.findByRole('dialog'));
+    const dialog = await topDialog();
     const save = dialog.getByRole('button', { name: 'Save' }) as HTMLButtonElement;
     // The current choice is no change.
     expect(save.disabled).toBe(true);
@@ -143,8 +155,9 @@ describe('CustomerRecord ▸ open matches', () => {
   it('a manager bans with a code and an optional note, sent as `<code>: <note>`', async () => {
     const user = userEvent.setup();
     mount();
+    await openSection(user, /^Open matches/);
     await user.click(await screen.findByRole('button', { name: 'Ban from open matches' }));
-    const dialog = within(await screen.findByRole('dialog'));
+    const dialog = await topDialog();
     expect(dialog.getByText(/Applies at every branch/)).toBeTruthy();
     await user.click(dialog.getByText('Repeated no-shows'));
     await user.type(dialog.getByRole('textbox'), 'three in a month');
@@ -158,8 +171,9 @@ describe('CustomerRecord ▸ open matches', () => {
     current = record({ flags: [{ type: 'match_ban', label: 'reported' }] });
     mount();
     expect(await screen.findByText(/Banned from open matches/)).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Lift ban' }));
-    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Lift ban' }));
+    await openSection(user, /^Open matches/);
+    await user.click(await screen.findByRole('button', { name: 'Lift ban' }));
+    await user.click((await topDialog()).getByRole('button', { name: 'Lift ban' }));
     await waitFor(() => expect(calls('set_match_ban')).toHaveLength(1));
     expect(calls('set_match_ban')[0]![1]).toEqual({ p_customer_id: 'c1', p_banned: false, p_reason: null });
     // The desk's flag editor still counts no flags of its own.
@@ -169,27 +183,44 @@ describe('CustomerRecord ▸ open matches', () => {
   it('court_desk runs matches but cannot ban', async () => {
     role = 'court_desk';
     mount();
+    await openSection(userEvent.setup(), /^Open matches/);
     expect(await screen.findByTestId('customer-matches')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Ban from open matches' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Start an open match' })).toBeTruthy();
   });
 
-  it('long lists show three, then View more reveals the rest in place (bookings, notes)', async () => {
+  it('the bookings dialog: past, cancelled and no-show counts and the past bookings table, nothing upcoming; notes stay on the page', async () => {
     const user = userEvent.setup();
-    const booking = (n: number) => ({ id: `b${n}`, court_id: 'k1', court_name_en: `Court ${n}`, court_name_ar: `ملعب ${n}`, start_at: `2026-10-1${n}T15:00:00Z`, end_at: `2026-10-1${n}T16:00:00Z`, status: 'confirmed', kind: 'booking', price_iqd: 30000 });
+    const booking = (n: number, day = `2026-10-1${n}`) => ({ id: `b${n}`, court_id: 'k1', court_name_en: `Court ${n}`, court_name_ar: `ملعب ${n}`, start_at: `${day}T15:00:00Z`, end_at: `${day}T16:00:00Z`, status: 'confirmed', kind: 'booking', price_iqd: 30000 });
     const note = (n: number) => ({ id: `n${n}`, body: `Note number ${n}`, author_id: null, created_at: `2026-09-1${n}T10:00:00Z` });
-    current = record({ upcoming: [1, 2, 3, 4, 5].map(booking), notes: [1, 2, 3, 4].map(note) });
+    current = record({ upcoming: [booking(1, '2099-10-11')], history: [booking(7), booking(8)], notes: [1, 2, 3, 4].map(note) });
     mount();
-    const upcoming = within(await screen.findByRole('table', { name: 'Upcoming bookings' }));
-    expect(upcoming.getAllByRole('row')).toHaveLength(3);
+    // The next booking only shows; the bookings dialog opens from Keeps bookings.
+    expect((await screen.findByTestId('card-next-booking')).tagName).not.toBe('BUTTON');
+    await user.click(screen.getByTestId('card-kept'));
+    const dialog = await topDialog();
+    expect(dialog.queryByText('Court 1')).toBeNull();
+    expect(dialog.getByText('Past')).toBeTruthy();
+    const past = within(dialog.getByRole('table', { name: 'Past bookings' }));
+    expect(past.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Date', 'Time', 'Court', 'Status', 'Price']);
+    expect(past.getAllByRole('row')).toHaveLength(3);
+    await user.click(past.getByText('Court 7'));
+    expect(navigate).toHaveBeenCalledWith({ to: '/desk/bookings/$id', params: { id: 'b7' } });
+    // The notes stay on the page, under the dialog.
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('table', { name: 'Past bookings' })).toBeNull());
     const notes = within(screen.getByTestId('customer-notes'));
     expect(notes.getAllByText(/^Note number \d$/)).toHaveLength(3);
-    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
-    expect(upcoming.getAllByRole('row')).toHaveLength(5);
     await user.click(notes.getByRole('button', { name: 'View more (1)' }));
     expect(notes.getAllByText(/^Note number \d$/)).toHaveLength(4);
-    await user.click(notes.getByRole('button', { name: 'Show less' }));
-    expect(notes.getAllByText(/^Note number \d$/)).toHaveLength(3);
+  });
+
+  it('no bookings yet: the Keeps bookings ring still shows, at 0% with every count 0', async () => {
+    current = record({ counts: { bookings: 0, cancellations: 0, noShows: 0, cafeOrders: 0 } });
+    mount();
+    const card = within(await screen.findByTestId('card-kept'));
+    expect(card.getByText('0%')).toBeTruthy();
+    expect(card.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Kept0', 'Cancelled0', 'No-shows0']);
   });
 
   it('a server before 0262 shows no open-match block', async () => {
@@ -281,6 +312,7 @@ describe('CustomerRecord ▸ lessons', () => {
     const user = userEvent.setup();
     lessonsRead = () => lessons();
     mount();
+    await openSection(user, /^Lessons/);
     const panel = within(await screen.findByTestId('customer-lessons'));
     expect(plain(panel.getByTestId('lesson-counts').textContent)).toBe('Lessons 5 · No-shows 1');
     expect(plain(panel.getByText(/Late cancels and no-shows in 30 days/).textContent)).toBe('Late cancels and no-shows in 30 days: 2');
@@ -302,6 +334,7 @@ describe('CustomerRecord ▸ lessons', () => {
     lessonsRead = () =>
       lessons({ lessons: [1, 2, 3, 4].map((n) => lessonRow({ enrolment_id: `e${n}`, lesson_id: `L${n}`, start_at: `2026-10-0${n + 4}T15:00:00Z`, end_at: `2026-10-0${n + 4}T16:00:00Z` })) });
     mount();
+    await openSection(user, /^Lessons/);
     const panel = within(await screen.findByTestId('customer-lessons'));
     const upcoming = within(panel.getByRole('region', { name: 'Coming up' }));
     expect(upcoming.getAllByRole('listitem')).toHaveLength(3);
@@ -314,6 +347,7 @@ describe('CustomerRecord ▸ lessons', () => {
     role = 'cashier';
     lessonsRead = () => lessons();
     mount();
+    await openSection(user, /^Lessons/);
     const panel = within(await screen.findByTestId('customer-lessons'));
     expect(screen.queryByRole('button', { name: 'Make coach' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Book a lesson' })).toBeNull();
@@ -332,6 +366,18 @@ describe('CustomerRecord ▸ lessons', () => {
       p_tendered_iqd: 30000,
       p_device_id: 'DESK-1',
     });
+  });
+
+  it('no lessons at all: the Lessons dialog says none are recorded, never opens empty', async () => {
+    const user = userEvent.setup();
+    lessonsRead = () => lessons({ counts: { lessons: 0, no_shows: 0 }, lesson_strikes_30d: 0, lessons: [] });
+    mount();
+    await openSection(user, /^Lessons/);
+    const panel = within(await screen.findByTestId('customer-lessons'));
+    expect(panel.getByRole('heading', { name: 'No lessons recorded' })).toBeTruthy();
+    // The way to book one, from the empty dialog.
+    await user.click(panel.getByRole('button', { name: 'Book a lesson' }));
+    expect(navigate).toHaveBeenLastCalledWith({ to: '/desk', search: { customer: 'c1', kind: 'lesson' } });
   });
 
   it('a server without coaching (RPC_MISSING) shows none of it', async () => {

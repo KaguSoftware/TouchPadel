@@ -1,5 +1,5 @@
 {
-  "generated_from": "f3ca0a0ec1b9ffc7bdff33d9e4c23a72ecc42c68",
+  "generated_from": "5cd5cca02475eeae9a275a8f0cbff336dcfc38ec",
   "chunks": [
     {
       "kind": "page",
@@ -4502,7 +4502,7 @@
       "ref": "action:app.online_payments_live",
       "lang": "en",
       "title": "app.online_payments_live",
-      "body": "0340. Any signed-in caller: whether platform_settings.online_payments_live is true (false when there is no row). A harmless boolean.\nSignature: app.online_payments_live() returns boolean.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0340 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0340. Any signed-in caller: whether platform_settings.online_payments_live is true (false when there is no row). A harmless boolean.\nSignature: app.online_payments_live() returns boolean.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nCalled from: apps/operator/src/features/deposits/useOnlinePaymentsLive.ts.\nDefined in migration 0340 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -17766,7 +17766,7 @@
       "ref": "label:ws.coaching.customers",
       "lang": "ar",
       "title": "ws.coaching.customers (packages/i18n/src/catalogs/ws/coachingAdmin.ar.ts)",
-      "body": "badge.active: مدرّب\nbadge.paused: مدرّب · موقوف مؤقتًا\nbadge.retired: مدرّب · متقاعد\nmakeCoach: تعيين مدرّب\nopenInCoaches: فتح في المدرّبين\nbookLesson: حجز حصة\ncounts: الحصص {lessons} · الغياب {noShows}\nstrikes: الإلغاءات المتأخرة والغياب خلال 30 يومًا: {count}\npanelTitle: الحصص\nupcoming: القادمة\nrecent: الأخيرة\nempty: لا حصص بعد.\natBranch: في {branch}\nanotherBranch: فرع آخر\nopenLesson: فتح الحصة\ntakeCard: بطاقة\ntakeCardAria: استلام الدفع بالبطاقة\ntypeAndCoach: {type} · {coach}",
+      "body": "badge.active: مدرّب\nbadge.paused: مدرّب · موقوف مؤقتًا\nbadge.retired: مدرّب · متقاعد\nmakeCoach: تعيين مدرّب\nopenInCoaches: فتح في المدرّبين\nbookLesson: حجز حصة\ncounts: الحصص {lessons} · الغياب {noShows}\nstrikes: الإلغاءات المتأخرة والغياب خلال 30 يومًا: {count}\npanelTitle: الحصص\nupcoming: القادمة\nrecent: الأخيرة\nempty: لا توجد حصص مسجّلة\nemptyBody: تظهر هنا الحصص التي يحجزها هذا العميل أو ينضم إليها، مع المبلغ المتبقي وإن كان قد حضر.\natBranch: في {branch}\nanotherBranch: فرع آخر\nopenLesson: فتح الحصة\ntakeCard: بطاقة\ntakeCardAria: استلام الدفع بالبطاقة\ntypeAndCoach: {type} · {coach}",
       "route": "/desk/customers"
     },
     {
@@ -17774,7 +17774,7 @@
       "ref": "label:ws.coaching.customers",
       "lang": "en",
       "title": "ws.coaching.customers (packages/i18n/src/catalogs/ws/coachingAdmin.en.ts)",
-      "body": "badge.active: Coach\nbadge.paused: Coach · paused\nbadge.retired: Coach · retired\nmakeCoach: Make coach\nopenInCoaches: Open in Coaches\nbookLesson: Book a lesson\ncounts: Lessons {lessons} · No-shows {noShows}\nstrikes: Late cancels and no-shows in 30 days: {count}\npanelTitle: Lessons\nupcoming: Coming up\nrecent: Recent\nempty: No lessons yet.\natBranch: At {branch}\nanotherBranch: another branch\nopenLesson: Open lesson\ntakeCard: Card\ntakeCardAria: Take payment by card\ntypeAndCoach: {type} · {coach}",
+      "body": "badge.active: Coach\nbadge.paused: Coach · paused\nbadge.retired: Coach · retired\nmakeCoach: Make coach\nopenInCoaches: Open in Coaches\nbookLesson: Book a lesson\ncounts: Lessons {lessons} · No-shows {noShows}\nstrikes: Late cancels and no-shows in 30 days: {count}\npanelTitle: Lessons\nupcoming: Coming up\nrecent: Recent\nempty: No lessons recorded\nemptyBody: Lessons this customer books or joins show up here, with what is still to pay and whether they came.\natBranch: At {branch}\nanotherBranch: another branch\nopenLesson: Open lesson\ntakeCard: Card\ntakeCardAria: Take payment by card\ntypeAndCoach: {type} · {coach}",
       "route": "/desk/customers"
     },
     {
@@ -18390,7 +18390,7 @@
       "ref": "label:ws.courtDesk.record",
       "lang": "ar",
       "title": "ws.courtDesk.record (packages/i18n/src/catalogs/ws/courtDesk.ar.ts)",
-      "body": "eyebrow: زبون\nnotFound: تعذّر العثور على هذا الزبون.\ncontact: التواصل\nphone: الهاتف\nemail: البريد الإلكتروني\nlanguage: اللغة المفضلة\nsince: زبون منذ\nflags: العلامات\naddFlags: إضافة علامة\neditFlags: تعديل العلامات\nflagsTitle: علامات الزبون\nflagsLead: تظهر العلامات أينما ظهر هذا الزبون: في الحجوزات والفواتير ونتائج البحث.\nflagLabel: التسمية (اختيارية)\nflagOn: مفعّل\nsaveFlags: حفظ العلامات\ndepositExemptHint: يحجز من التطبيق دون أن يدفع عربونًا مسبقًا، حتى لو طلبه النادي.\ncounts: السجل\nbookings: الحجوزات\ncancellations: الإلغاءات\nnoShows: عدم الحضور\ncafeOrders: طلبات الكافيه\nupcoming: الحجوزات القادمة\nupcomingEmpty: لا حجوزات قادمة.\nhistory: الحجوزات السابقة\nhistoryEmpty: لا حجوزات سابقة.\ncafe: طلبات الكافيه\nseries: السلاسل\nnotes: ملاحظات الموظفين\nnotesLead: مرئية للموظفين فقط. لا تُطبع ولا تُعرض للضيف أبدًا.\nnoNotes: لا ملاحظات بعد.\nnoteEmpty: اكتب الملاحظة أولًا.\naddNote: إضافة ملاحظة\nnotePlaceholder: اكتب ملاحظة للفريق…\nsaveNote: حفظ الملاحظة\neditNote: تعديل\ncancelEdit: إلغاء\nedited: مُعدَّلة\nby: بواسطة {name}\nnewBooking: حجز لهذا الزبون\nbackToSearch: الزبائن\norderTotal: المجموع\norderDate: التاريخ\norderTable: الطاولة\noccurrences: عدد المواعيد: {count}",
+      "body": "eyebrow: زبون\nnotFound: تعذّر العثور على هذا الزبون.\ncontact: التواصل\nphone: الهاتف\nemail: البريد الإلكتروني\nlanguage: اللغة المفضلة\nsince: زبون منذ\nflags: العلامات\naddFlags: إضافة علامة\neditFlags: تعديل العلامات\nflagsTitle: علامات الزبون\nflagsLead: تظهر العلامات أينما ظهر هذا الزبون: في الحجوزات والفواتير ونتائج البحث.\nflagLabel: التسمية (اختيارية)\nflagOn: مفعّل\nsaveFlags: حفظ العلامات\ndepositExemptHint: يحجز من التطبيق دون أن يدفع عربونًا مسبقًا، حتى لو طلبه النادي.\ncounts: السجل\nbookings: الحجوزات\ncancellations: الإلغاءات\nnoShows: عدم الحضور\ncafeOrders: طلبات الكافيه\nupcoming: الحجوزات القادمة\nupcomingEmpty: لا حجوزات قادمة.\nhistory: الحجوزات السابقة\nhistoryEmpty: لا حجوزات سابقة.\ncafe: طلبات الكافيه\nseries: السلاسل\nnotes: ملاحظات الموظفين\nnotesLead: مرئية للموظفين فقط. لا تُطبع ولا تُعرض للضيف أبدًا.\nnoNotes: لا ملاحظات بعد.\nnoteEmpty: اكتب الملاحظة أولًا.\naddNote: إضافة ملاحظة\nnotePlaceholder: اكتب ملاحظة للفريق…\nsaveNote: حفظ الملاحظة\neditNote: تعديل\ncancelEdit: إلغاء\nedited: مُعدَّلة\nby: بواسطة {name}\nnewBooking: حجز لهذا الزبون\nbackToSearch: الزبائن\norderTotal: المجموع\norderDate: التاريخ\norderTable: الطاولة\noccurrences: عدد المواعيد: {count}\ncards.nextBooking: الحجز القادم\ncards.nothingBooked: لا حجوزات قادمة\ncards.bookings: الحجوزات\ncards.bookingsLine: القادمة {upcoming} · السابقة {past}\ncards.startsNow: يبدأ الآن\ncards.startsInMinutes: بعد {minutes} د\ncards.startsInHours: بعد {hours} س {minutes} د\ncards.startsInDays: بعد {days} يوم {hours} س\ncards.kept: الالتزام بالحجوزات\ncards.keptValue: {pct}٪\ncards.keptPart: تمّت\ncards.cancelledPart: أُلغيت\ncards.noShowsPart: لم يحضر\ncards.allNoShows: كل حالات عدم الحضور\ncards.lastOrder: آخر طلب {date}\ncards.open: فتح\ncards.price: السعر\ncards.category: الفئة\ncards.seat: مقعده\ncards.statPast: السابقة",
       "route": "/desk"
     },
     {
@@ -18398,7 +18398,7 @@
       "ref": "label:ws.courtDesk.record",
       "lang": "en",
       "title": "ws.courtDesk.record (packages/i18n/src/catalogs/ws/courtDesk.en.ts)",
-      "body": "eyebrow: Customer\nnotFound: This customer does not exist.\ncontact: Contact\nphone: Phone\nemail: Email\nlanguage: Preferred language\nsince: Customer since\nflags: Flags\naddFlags: Add a flag\neditFlags: Edit flags\nflagsTitle: Customer flags\nflagsLead: Flags surface wherever this customer appears — on bookings, tabs and search results.\nflagLabel: Label (optional)\nflagOn: Set\nsaveFlags: Save flags\ndepositExemptHint: Books in the app without paying a deposit first, even when the club asks for one.\ncounts: History\nbookings: Bookings\ncancellations: Cancellations\nnoShows: No-shows\ncafeOrders: Cafe orders\nupcoming: Upcoming bookings\nupcomingEmpty: Nothing upcoming.\nhistory: Past bookings\nhistoryEmpty: No past bookings.\ncafe: Cafe orders\nseries: Series\nnotes: Staff notes\nnotesLead: Visible to staff only. Never printed, never shown to the guest.\nnoNotes: No notes yet.\nnoteEmpty: Write the note first.\naddNote: Add note\nnotePlaceholder: Write a note for the team…\nsaveNote: Save note\neditNote: Edit\ncancelEdit: Cancel\nedited: edited\nby: by {name}\nnewBooking: Book for this customer\nbackToSearch: Customers\norderTotal: Total\norderDate: Date\norderTable: Table\noccurrences: {count} occurrences",
+      "body": "eyebrow: Customer\nnotFound: This customer does not exist.\ncontact: Contact\nphone: Phone\nemail: Email\nlanguage: Preferred language\nsince: Customer since\nflags: Flags\naddFlags: Add a flag\neditFlags: Edit flags\nflagsTitle: Customer flags\nflagsLead: Flags surface wherever this customer appears — on bookings, tabs and search results.\nflagLabel: Label (optional)\nflagOn: Set\nsaveFlags: Save flags\ndepositExemptHint: Books in the app without paying a deposit first, even when the club asks for one.\ncounts: History\nbookings: Bookings\ncancellations: Cancellations\nnoShows: No-shows\ncafeOrders: Cafe orders\nupcoming: Upcoming bookings\nupcomingEmpty: Nothing upcoming.\nhistory: Past bookings\nhistoryEmpty: No past bookings.\ncafe: Cafe orders\nseries: Series\nnotes: Staff notes\nnotesLead: Visible to staff only. Never printed, never shown to the guest.\nnoNotes: No notes yet.\nnoteEmpty: Write the note first.\naddNote: Add note\nnotePlaceholder: Write a note for the team…\nsaveNote: Save note\neditNote: Edit\ncancelEdit: Cancel\nedited: edited\nby: by {name}\nnewBooking: Book for this customer\nbackToSearch: Customers\norderTotal: Total\norderDate: Date\norderTable: Table\noccurrences: {count} occurrences\ncards.nextBooking: Next booking\ncards.nothingBooked: Nothing booked\ncards.bookings: Bookings\ncards.bookingsLine: Upcoming {upcoming} · Past {past}\ncards.startsNow: starting now\ncards.startsInMinutes: in {minutes} min\ncards.startsInHours: in {hours} h {minutes} min\ncards.startsInDays: in {days} d {hours} h\ncards.kept: Keeps bookings\ncards.keptValue: {pct}%\ncards.keptPart: Kept\ncards.cancelledPart: Cancelled\ncards.noShowsPart: No-shows\ncards.allNoShows: All no-shows\ncards.lastOrder: Last order {date}\ncards.open: Open\ncards.price: Price\ncards.category: Category\ncards.seat: Their seat\ncards.statPast: Past",
       "route": "/desk"
     },
     {
@@ -18918,7 +18918,7 @@
       "ref": "label:ws.incidents.form",
       "lang": "ar",
       "title": "ws.incidents.form (packages/i18n/src/catalogs/ws/incidents.ar.ts)",
-      "body": "title: بلاغ عن حادثة\nkind: نوع الحادثة\nwhen: متى\nwhenHint: خلال آخر 7 أيام.\nnow: الآن\nplace: أين\ncourt: أي ملعب\nchooseCourt: اختر ملعبًا\nplaceDetail: أين بالتحديد\nplaceDetailPlaceholder: قرب المدخل\nprivacyHint: اكتب ما يلزم فقط. لا تضف أرقام هواتف.\ndescription: ماذا حدث\npeople: الأشخاص المعنيون\npeopleHint: موظفون أو ضيوف أو غيرهم، بأقصر عبارة ممكنة.\nsubmit: إرسال البلاغ\nsent: أُرسل البلاغ. سيراجعه مدير.\nissue.required: هذا الحقل مطلوب.\nissue.whenRange: اختر وقتًا خلال آخر 7 أيام.\nissue.tooLong: الحد الأقصى للأحرف: {limit}.\nissue.tooMany: الحد الأقصى للصور: {limit}.\nrefused.kind: اختر نوع الحادثة.\nrefused.when: اختر وقتًا خلال آخر 7 أيام.\nrefused.place: اختر مكان وقوع الحادثة.\nrefused.courtId: لم يعد هذا الملعب ضمن هذا المكان. اختر ملعبًا آخر.\nrefused.placeDetail: النص طويل جدًا.\nrefused.description: اكتب ما حدث في 2,000 حرف على الأكثر.\nrefused.people: النص طويل جدًا.\nrefused.photos: لم تُرفع إحدى الصور كما ينبغي. أزلها ثم أضفها مرة أخرى.",
+      "body": "title: بلاغ عن حادثة\nkind: نوع الحادثة\nwhen: متى\nwhenHint: خلال آخر 7 أيام.\nnow: الآن\nminutesAgo: قبل {count} دقيقة\nhourAgo: قبل ساعة\npickTime: اختر وقتًا\nlead: يراجع مدير كل بلاغ.\nmenu: خطوات البلاغ\nstepOf: الخطوة {n} من {total}\nprogress: اكتمل {done} من {total}\nneedsLook: يحتاج إلى مراجعة\nwritten: مكتوب\nsteps.kind: نوع الحادثة\nsteps.placeTime: المكان والوقت\nsteps.story: ماذا حدث\nsteps.review: المراجعة\nreviewLead: راجع البلاغ قبل إرساله.\nchange: تغيير\nchangeLabel: تغيير {what}\nkindHint.accident: سقوط أو انزلاق أو اصطدام.\nkindHint.injury: أصيب أحدهم.\nkindHint.fight: جدال أو شجار.\nkindHint.damage: انكسر شيء ما.\nkindHint.other: أي شيء آخر.\nplace: أين\ncourt: أي ملعب\nchooseCourt: اختر ملعبًا\nplaceDetail: أين بالتحديد\nplaceDetailPlaceholder: قرب المدخل\nprivacyHint: اكتب ما يلزم فقط. لا تضف أرقام هواتف.\ndescription: ماذا حدث\npeople: الأشخاص المعنيون\npeopleHint: موظفون أو ضيوف أو غيرهم، بأقصر عبارة ممكنة.\nsubmit: إرسال البلاغ\nsent: أُرسل البلاغ. سيراجعه مدير.\nissue.required: هذا الحقل مطلوب.\nissue.whenRange: اختر وقتًا خلال آخر 7 أيام.\nissue.tooLong: الحد الأقصى للأحرف: {limit}.\nissue.tooMany: الحد الأقصى للصور: {limit}.\nmissing.kind: يرجى اختيار نوع الحادثة.\nmissing.description: يرجى وصف ما حدث.\nmissing.place: يرجى تحديد مكان وقوع الحادثة.\nmissing.courtId: يرجى اختيار الملعب.\nmissing.when: يرجى تحديد وقت وقوع الحادثة.\nrefused.kind: اختر نوع الحادثة.\nrefused.when: اختر وقتًا خلال آخر 7 أيام.\nrefused.place: اختر مكان وقوع الحادثة.\nrefused.courtId: لم يعد هذا الملعب ضمن هذا المكان. اختر ملعبًا آخر.\nrefused.placeDetail: النص طويل جدًا.\nrefused.description: اكتب ما حدث في 2,000 حرف على الأكثر.\nrefused.people: النص طويل جدًا.\nrefused.photos: لم تُرفع إحدى الصور كما ينبغي. أزلها ثم أضفها مرة أخرى.",
       "route": null
     },
     {
@@ -18926,7 +18926,7 @@
       "ref": "label:ws.incidents.form",
       "lang": "en",
       "title": "ws.incidents.form (packages/i18n/src/catalogs/ws/incidents.en.ts)",
-      "body": "title: Report an incident\nkind: What kind\nwhen: When\nwhenHint: Up to 7 days ago.\nnow: Now\nplace: Where\ncourt: Which court\nchooseCourt: Choose a court\nplaceDetail: Where exactly\nplaceDetailPlaceholder: By the entrance\nprivacyHint: Write only what is needed. Do not add phone numbers.\ndescription: What happened\npeople: Who was involved\npeopleHint: Staff, guests or others, as briefly as you can.\nsubmit: Send report\nsent: Report sent. A manager will review it.\nissue.required: Fill this in.\nissue.whenRange: Pick a time in the last 7 days.\nissue.tooLong: Keep it to {limit} characters.\nissue.tooMany: Up to {limit} photos.\nrefused.kind: Pick what kind of incident it was.\nrefused.when: Pick a time in the last 7 days.\nrefused.place: Pick where it happened.\nrefused.courtId: That court is not at this venue any more. Pick another.\nrefused.placeDetail: That is too long.\nrefused.description: Write what happened, in up to 2,000 characters.\nrefused.people: That is too long.\nrefused.photos: A photo did not upload properly. Remove it and add it again.",
+      "body": "title: Report an incident\nkind: What kind\nwhen: When\nwhenHint: Up to 7 days ago.\nnow: Now\nminutesAgo: {count} min ago\nhourAgo: 1 hour ago\npickTime: Pick a time\nlead: A manager reviews every report.\nmenu: Report steps\nstepOf: Step {n} of {total}\nprogress: {done} of {total} done\nneedsLook: Needs a look\nwritten: Written\nsteps.kind: What kind\nsteps.placeTime: Where & when\nsteps.story: What happened\nsteps.review: Review\nreviewLead: Check the report before you send it.\nchange: Change\nchangeLabel: Change {what}\nkindHint.accident: A fall, a slip, a collision.\nkindHint.injury: Someone got hurt.\nkindHint.fight: An argument or a fight.\nkindHint.damage: Something broke.\nkindHint.other: Anything else.\nplace: Where\ncourt: Which court\nchooseCourt: Choose a court\nplaceDetail: Where exactly\nplaceDetailPlaceholder: By the entrance\nprivacyHint: Write only what is needed. Do not add phone numbers.\ndescription: What happened\npeople: Who was involved\npeopleHint: Staff, guests or others, as briefly as you can.\nsubmit: Send report\nsent: Report sent. A manager will review it.\nissue.required: Fill this in.\nissue.whenRange: Pick a time in the last 7 days.\nissue.tooLong: Keep it to {limit} characters.\nissue.tooMany: Up to {limit} photos.\nmissing.kind: Please select the type of incident.\nmissing.description: Please describe what happened.\nmissing.place: Please select where the incident occurred.\nmissing.courtId: Please select the court.\nmissing.when: Please select when the incident occurred.\nrefused.kind: Pick what kind of incident it was.\nrefused.when: Pick a time in the last 7 days.\nrefused.place: Pick where it happened.\nrefused.courtId: That court is not at this venue any more. Pick another.\nrefused.placeDetail: That is too long.\nrefused.description: Write what happened, in up to 2,000 characters.\nrefused.people: That is too long.\nrefused.photos: A photo did not upload properly. Remove it and add it again.",
       "route": null
     },
     {
@@ -18934,7 +18934,7 @@
       "ref": "label:ws.incidents.mine",
       "lang": "ar",
       "title": "ws.incidents.mine (packages/i18n/src/catalogs/ws/incidents.ar.ts)",
-      "body": "title: بلاغاتي\nempty: لم تبلِّغ عن شيء بعد. يظهر هنا ما ترسله، مع ملاحظة المدير بعد مراجعته.",
+      "body": "title: بلاغاتي\nlead: ما أبلغت عنه، مع ملاحظة المدير بعد مراجعته.\nemptyTitle: لا بلاغات بعد\nwaiting: بانتظار مراجعة مدير\nreviewedBy: راجعه {name}\ndetails: اضغط لمزيد من التفاصيل\nreview: مراجعة المدير\nwaitingLong: بانتظار مراجعة مدير. تظهر ملاحظته هنا بعد المراجعة.\nempty: لم تبلِّغ عن شيء بعد. يظهر هنا ما ترسله، مع ملاحظة المدير بعد مراجعته.",
       "route": null
     },
     {
@@ -18942,7 +18942,7 @@
       "ref": "label:ws.incidents.mine",
       "lang": "en",
       "title": "ws.incidents.mine (packages/i18n/src/catalogs/ws/incidents.en.ts)",
-      "body": "title: My reports",
+      "body": "title: My reports\nlead: What you reported, and the manager’s note once it is reviewed.\nemptyTitle: No reports yet\nwaiting: Waiting for a manager\nreviewedBy: Reviewed by {name}\ndetails: Click for more details\nreview: Manager’s review\nwaitingLong: Waiting for a manager. Their note shows here once they review it.",
       "route": null
     },
     {
@@ -19478,7 +19478,7 @@
       "ref": "label:ws.loyalty.panel",
       "lang": "ar",
       "title": "ws.loyalty.panel (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
-      "body": "title: الولاء\nbalance: النقاط\ntier: الفئة\npoints12m: النقاط في آخر 12 شهرًا\nlifetime: كل النقاط المكتسبة\nnoTier: بلا فئة\nhistory: السجل\nhistoryEmpty: لم تُكسب نقاط ولم تُستخدم بعد.\ncolumns.when: الوقت\ncolumns.what: العملية\ncolumns.points: النقاط\ncolumns.note: ملاحظة\nkind.earn: مكتسبة\nkind.redeem: مستخدمة على فاتورة\nkind.redeem_void: تراجع عن استخدام\nkind.reward: مكافأة\nkind.adjust: تعديل\nkind.clawback: مسترجعة بعد استرداد\nkind.expire: منتهية\nkind.merge_in: منقولة من حساب آخر",
+      "body": "title: الولاء\nbalance: النقاط\ntier: الفئة\npoints12m: النقاط في آخر 12 شهرًا\nlifetime: كل النقاط المكتسبة\nnoTier: بلا فئة\nhistory: السجل\nhistoryEmpty: لم تُكسب نقاط ولم تُستخدم بعد.\nworth: ≈ خصم {amount}\nready: جاهزة للاستخدام\nearns: يكسب ×{multiplier}\nperMonth: المكتسب شهريًا\nperMonthSpan: آخر ستة أشهر\ncolumns.when: الوقت\ncolumns.what: العملية\ncolumns.points: النقاط\ncolumns.note: ملاحظة\nkind.earn: مكتسبة\nkind.redeem: مستخدمة على فاتورة\nkind.redeem_void: تراجع عن استخدام\nkind.reward: مكافأة\nkind.adjust: تعديل\nkind.clawback: مسترجعة بعد استرداد\nkind.expire: منتهية\nkind.merge_in: منقولة من حساب آخر",
       "route": "/panel"
     },
     {
@@ -19486,7 +19486,7 @@
       "ref": "label:ws.loyalty.panel",
       "lang": "en",
       "title": "ws.loyalty.panel (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
-      "body": "title: Loyalty\nbalance: Points\ntier: Tier\npoints12m: Points in the last 12 months\nlifetime: Points ever earned\nnoTier: No tier\nhistory: History\nhistoryEmpty: No points earned or used yet.\ncolumns.when: When\ncolumns.what: What\ncolumns.points: Points\ncolumns.note: Note\nkind.earn: Earned\nkind.redeem: Used on a bill\nkind.redeem_void: Use undone\nkind.reward: Reward\nkind.adjust: Adjusted\nkind.clawback: Taken back after a refund\nkind.expire: Expired\nkind.merge_in: Joined from another account",
+      "body": "title: Loyalty\nbalance: Points\ntier: Tier\npoints12m: Points in the last 12 months\nlifetime: Points ever earned\nnoTier: No tier\nhistory: History\nhistoryEmpty: No points earned or used yet.\nworth: ≈ {amount} off\nready: Ready to use\nearns: earns ×{multiplier}\nperMonth: Earned per month\nperMonthSpan: Last 6 months\ncolumns.when: When\ncolumns.what: What\ncolumns.points: Points\ncolumns.note: Note\nkind.earn: Earned\nkind.redeem: Used on a bill\nkind.redeem_void: Use undone\nkind.reward: Reward\nkind.adjust: Adjusted\nkind.clawback: Taken back after a refund\nkind.expire: Expired\nkind.merge_in: Joined from another account",
       "route": "/panel"
     },
     {

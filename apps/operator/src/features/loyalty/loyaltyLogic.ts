@@ -213,6 +213,44 @@ export function ledgerKind(kind: string): LedgerKind {
   return (LEDGER_KINDS as readonly string[]).includes(kind) ? (kind as LedgerKind) : 'adjust';
 }
 
+/**
+ * Points earned per calendar month (in the venue's time zone) for the `months`
+ * months ending with the current one, oldest first: the customer record's
+ * "Earned per month" chart. Only `earn` rows count; uses, rewards, adjustments
+ * and take-backs are not earning. Reads only the history it is given
+ * (loyalty_customer sends the newest 100 rows).
+ */
+export function monthlyEarned(
+  history: readonly { kind: string; delta: number; created_at: string }[],
+  nowMs: number,
+  tz: string,
+  months = 6,
+): { key: string; total: number }[] {
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit' });
+  const keyOf = (ms: number) => {
+    const parts = fmt.formatToParts(new Date(ms));
+    return `${parts.find((x) => x.type === 'year')?.value}-${parts.find((x) => x.type === 'month')?.value}`;
+  };
+  let [y, m] = keyOf(nowMs).split('-').map(Number) as [number, number];
+  const keys: string[] = [];
+  for (let i = 0; i < months; i++) {
+    keys.unshift(`${y}-${String(m).padStart(2, '0')}`);
+    m -= 1;
+    if (m === 0) {
+      m = 12;
+      y -= 1;
+    }
+  }
+  const totals = new Map(keys.map((k) => [k, 0]));
+  for (const r of history) {
+    if (r.kind !== 'earn' || r.delta <= 0) continue;
+    const k = keyOf(Date.parse(r.created_at));
+    const t = totals.get(k);
+    if (t !== undefined) totals.set(k, t + r.delta);
+  }
+  return keys.map((key) => ({ key, total: totals.get(key) ?? 0 }));
+}
+
 // ---------------------------------------------------------------------------
 // Setup › Loyalty
 // ---------------------------------------------------------------------------

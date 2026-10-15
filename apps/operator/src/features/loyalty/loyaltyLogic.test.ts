@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   adjustErrors,
+  monthlyEarned,
   defaultRedeemPoints,
   identifyCode,
   isBaseTier,
@@ -300,5 +301,35 @@ describe('Setup › Loyalty drafts', () => {
       { id: 'd', active: true, venue_id: 'v2' },
     ];
     expect(rewardsHere(rows, 'v1').map((r) => r.id)).toEqual(['a', 'c']);
+  });
+});
+
+describe('monthlyEarned', () => {
+  const row = (created_at: string, delta: number, kind = 'earn') => ({ kind, delta, created_at });
+  const now = Date.parse('2026-10-15T09:00:00Z');
+
+  it('sums earned points per venue month for the last six months, oldest first', () => {
+    const out = monthlyEarned(
+      [row('2026-10-13T17:42:00Z', 260), row('2026-10-02T10:00:00Z', 90), row('2026-09-03T10:00:00Z', 410), row('2026-05-20T10:00:00Z', 320)],
+      now,
+      'Asia/Baghdad',
+    );
+    expect(out.map((m) => m.key)).toEqual(['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10']);
+    expect(out.map((m) => m.total)).toEqual([320, 0, 0, 0, 410, 350]);
+  });
+
+  it('counts only earning, and only inside the window', () => {
+    const out = monthlyEarned(
+      [row('2026-10-05T10:00:00Z', -500, 'redeem'), row('2026-10-05T10:00:00Z', 200, 'adjust'), row('2026-03-01T10:00:00Z', 999)],
+      now,
+      'Asia/Baghdad',
+    );
+    expect(out.every((m) => m.total === 0)).toBe(true);
+  });
+
+  it('files a late-night earning in the venue month, not the UTC one', () => {
+    // 22:30 UTC on 30 Sep is 01:30 on 1 Oct in Baghdad.
+    const out = monthlyEarned([row('2026-09-30T22:30:00Z', 50)], now, 'Asia/Baghdad');
+    expect(out.at(-1)).toEqual({ key: '2026-10', total: 50 });
   });
 });

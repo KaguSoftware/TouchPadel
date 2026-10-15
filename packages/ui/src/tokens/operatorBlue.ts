@@ -112,6 +112,28 @@ export const operatorBlueVars = {
   '--tp-tournament': '#B9EEE8',
   '--tp-tournament-soft': '#1E4F55',
 
+  // The Keeps bookings ring (owner, 2026-10-14: "full green, full orange, full
+  // red"): pure, saturated hues, each clear of the blue ground.
+  '--tp-ring-kept': '#00BF0D',
+  '--tp-ring-cancelled': '#FF8A00',
+  '--tp-ring-no-show': '#FF2D2D',
+
+  // The loyalty card's tier colours: the same as paper, because the card looks
+  // the same in both modes (owner, 2026-10-15).
+  '--tp-tier-gold': 'oklch(82% 0.15 86)',
+  '--tp-tier-silver': 'oklch(84% 0.012 260)',
+  '--tp-tier-bronze': 'oklch(70% 0.12 55)',
+  '--tp-tier-platinum': 'oklch(86% 0.04 220)',
+
+  // The next-booking card's floodlight (owner, 2026-10-15, "floodlit court"): a
+  // sky blue glowing through the brand blue, like lights on an evening court.
+  // The same in both modes, like the card.
+  '--tp-floodlight': 'oklch(66% 0.13 250)',
+
+  // The loyalty dialog's points card outline: the blue it has in blue mode (that
+  // mode's --tp-border), in both modes (owner, 2026-10-15).
+  '--tp-loyalty-edge': '#3B6EC4',
+
   // ── the rail: two steps below the page; the active pill is the selection blue
   '--tp-rail': BLUE_L29,
   '--tp-rail-2': BLUE_L33,

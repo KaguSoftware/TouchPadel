@@ -45,6 +45,13 @@ export const incidentsEn = {
     lead: 'What you reported, and the manager’s note once it is reviewed.',
     emptyTitle: 'No reports yet',
     waiting: 'Waiting for a manager',
+    // A reviewed card; the time and the note are in the sheet.
+    reviewedBy: 'Reviewed by {name}',
+    // The foot of every card: the card opens the report in the sheet.
+    details: 'Click for more details',
+    // The report's dialog (MyIncidentModal).
+    review: 'Manager’s review',
+    waitingLong: 'Waiting for a manager. Their note shows here once they review it.',
     empty:
       'You have not reported anything. What you send shows here, with the manager’s note once it is reviewed.',
   },

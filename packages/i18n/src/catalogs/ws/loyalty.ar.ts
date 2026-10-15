@@ -80,6 +80,11 @@ export const loyaltyAr: DeepMessages<typeof loyaltyEn> = {
     noTier: 'بلا فئة',
     history: 'السجل',
     historyEmpty: 'لم تُكسب نقاط ولم تُستخدم بعد.',
+    worth: '≈ خصم {amount}',
+    ready: 'جاهزة للاستخدام',
+    earns: 'يكسب ×{multiplier}',
+    perMonth: 'المكتسب شهريًا',
+    perMonthSpan: 'آخر ستة أشهر',
     columns: {
       when: 'الوقت',
       what: 'العملية',

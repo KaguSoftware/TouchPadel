@@ -133,6 +133,30 @@ export const operatorVars = {
   '--tp-tournament': 'oklch(45% 0.09 195)',
   '--tp-tournament-soft': 'oklch(95% 0.03 195)',
 
+  // The customer record's Keeps bookings ring (2026-10-14): kept, cancelled,
+  // no-show. Full, saturated colours in both modes (owner, 2026-10-15): the ring
+  // sits on the dark "scoreboard" card, where the status marks read dull.
+  '--tp-ring-kept': '#00BF0D',
+  '--tp-ring-cancelled': '#FF8A00',
+  '--tp-ring-no-show': '#FF2D2D',
+
+  // The loyalty card's tier colours (owner, 2026-10-14): the card's moving
+  // ground takes the customer's tier (by its English name: gold, silver,
+  // bronze, platinum). Any other tier keeps the brand green.
+  '--tp-tier-gold': 'oklch(82% 0.15 86)',
+  '--tp-tier-silver': 'oklch(84% 0.012 260)',
+  '--tp-tier-bronze': 'oklch(70% 0.12 55)',
+  '--tp-tier-platinum': 'oklch(86% 0.04 220)',
+
+  // The next-booking card's floodlight (owner, 2026-10-15, "floodlit court"): a
+  // sky blue glowing through the brand blue, like lights on an evening court.
+  // The same in both modes, like the card.
+  '--tp-floodlight': 'oklch(66% 0.13 250)',
+
+  // The loyalty dialog's points card outline: the blue it has in blue mode (that
+  // mode's --tp-border), in both modes (owner, 2026-10-15).
+  '--tp-loyalty-edge': '#3B6EC4',
+
   // the navigation rail — the one committed brand surface
   '--tp-rail': `oklch(25% 0.05 ${HUE})`,
   '--tp-rail-2': `oklch(30% 0.055 ${HUE})`,
