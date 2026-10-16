@@ -68,6 +68,7 @@ import { courtsRpc } from './api';
 import { appRpc } from '../../../lib/appRpc';
 import { CourtsTab } from './CourtsTab';
 import { COURT_A, COURT_B, cafeNoLinksJson, fixtureFor } from './fixtures';
+import { shopJson } from './shopFixtures';
 
 const rpc = vi.mocked(courtsRpc);
 
@@ -120,19 +121,22 @@ beforeEach(() => {
       ? ({ hit: false, key: 'x', params_hash: 'h', last: null } as never)
       : fn === 'assistant_usage'
         ? ({ pricing: {}, fallback_micros_per_mtok: 0 } as never)
-        : (undefined as never),
+        : // 0346: the Touch Shop's sales, padel revenue (300,000 in each window here).
+          fn === 'analytics_shop'
+          ? (shopJson as never)
+          : (undefined as never),
   );
 });
 
 describe('CourtsTab', () => {
-  it('shows skeletons on first load, then the eight sections with the summary, each section\'s answer, and the folded charts', async () => {
+  it('shows skeletons on first load, then the nine sections with the summary, each section\'s answer, and the folded charts', async () => {
     serveFixtures();
     renderTab();
     expect(skeletons()).toBeGreaterThan(0);
     await waitFor(() => expect(skeletons()).toBe(0), { timeout: 5000 });
 
     // In the order the owner asks, named for the question each answers.
-    const order = ['Summary', 'What stands out', 'When courts are busy', 'Courts compared', 'Cancellations and no-shows', 'How people book', 'Guests', 'Court players at the cafe'];
+    const order = ['Summary', 'What stands out', 'When courts are busy', 'Courts compared', 'Cancellations and no-shows', 'How people book', 'Guests', 'Touch Shop', 'Court players at the cafe'];
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(order);
 
     // Every window and every RPC was asked for exactly once: five current, four
@@ -145,12 +149,22 @@ describe('CourtsTab', () => {
     const pulse = screen.getByRole('region', { name: 'Summary' });
     const bookingsTile = within(pulse).getByText('Bookings').closest('div')!;
     expect(within(bookingsTile).getByText('48', { selector: 'strong' })).toBeTruthy();
-    // Court revenue lands in money form, twice: the court tile and the venue row (the cafe is empty here).
-    expect(within(pulse).getAllByText('1,200,000 IQD', { selector: 'strong' })).toHaveLength(2);
-    const venueRow = within(pulse).getByText('Venue revenue').closest('li')!;
-    expect(within(venueRow).getByText('1,200,000 IQD', { selector: 'strong' })).toBeTruthy();
+    // Padel revenue (court bookings 1,200,000 plus the shop's 300,000, 0346) lands in money
+    // form, twice: the padel tile and the venue row (the cafe is empty here).
+    expect(within(pulse).getAllByText('1,500,000 IQD', { selector: 'strong' })).toHaveLength(2);
+    const padelTile = within(pulse).getByText('Padel revenue').closest('div')!;
     // Case-insensitive: en-GB compact is '1.2M' or '1.2m' depending on the ICU build.
-    expect(within(venueRow).getByText(/^0 cafe · 1\.2M courts$/i)).toBeTruthy();
+    expect(within(padelTile).getByText(/^1\.2M courts · 300K shop$/i)).toBeTruthy();
+    const venueRow = within(pulse).getByText('Venue revenue').closest('li')!;
+    expect(within(venueRow).getByText('1,500,000 IQD', { selector: 'strong' })).toBeTruthy();
+    expect(within(venueRow).getByText(/^0 cafe · 1\.5M padel$/i)).toBeTruthy();
+
+    // The shop section leads with its answer and its two lead figures.
+    const shopZone = screen.getByRole('region', { name: 'Touch Shop' });
+    expect(within(shopZone).getByText('The shop brought in 300,000 IQD over 6 paid sales, 50,000 IQD each on average.')).toBeTruthy();
+    expect(within(within(shopZone).getByText('Shop sales').closest('div')!).getByText('300,000 IQD', { selector: 'strong' })).toBeTruthy();
+    expect(within(within(shopZone).getByText('Margin after cost').closest('div')!).getByText('115,000 IQD', { selector: 'strong' })).toBeTruthy();
+    expect(within(shopZone).getByText('Racket · Pro')).toBeTruthy();
     // Cancellations and no-shows are one lead figure: 16 of 64 booked is 25%, both counts named.
     const lostTile = within(pulse).getByText('Cancelled or no-show').closest('div')!;
     expect(within(lostTile).getByText('25%', { selector: 'strong' })).toBeTruthy();

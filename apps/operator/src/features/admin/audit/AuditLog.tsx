@@ -328,7 +328,7 @@ export function AuditLog() {
 
       <Toolbar>
         <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>{tr('ws.manager.audit.period')}</span>
-        <DateRangeControl period={period} onChange={setPeriod} presets={PRESETS} now={today} />
+        <DateRangeControl period={period} onChange={setPeriod} presets={PRESETS} now={today} aria-label={tr('ws.manager.audit.period')} />
       </Toolbar>
       <Toolbar style={{ alignItems: 'flex-end' }}>
         <Field label={tr('op.common.search')} style={{ marginBlockEnd: 0, inlineSize: '17rem', maxInlineSize: '100%' }}>

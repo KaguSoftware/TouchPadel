@@ -71,6 +71,10 @@ describe('key registries', () => {
     for (const k of PUBLIC_SETTING_KEYS) expect(k.startsWith('telegram_')).toBe(false);
   });
 
+  it('waits 15 minutes before the idle lock, not the registry’s 5', () => {
+    expect(CAFE_SETTING_DEFAULTS.till_idle_lock_seconds).toBe(900);
+  });
+
   it('carries the wages settings with 0270’s defaults: the reminder is the owner’s, the attendance rule the manager’s too', () => {
     expect(CAFE_SETTING_DEFAULTS.attendance_grace_minutes).toBe(0);
     expect(CAFE_SETTING_DEFAULTS.attendance_penalty_iqd).toBe(0);

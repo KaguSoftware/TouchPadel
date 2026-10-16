@@ -170,6 +170,11 @@ const HARD: readonly Signal[] = [
   ['advice-signal', /(?<=\s)(?:شنو|ماذا|شو|ايش|وش) (?:اسوي|افعل|اعمل|الافضل|ينبغي|تنصح|تقترح|لازم اسوي|نسوي|نفعل|نعمل)(?=\s)|(?<=\s)(?:هل يجب|هل الافضل|هل ينبغي|هل يستاهل|يستاهل|انصحني|ننصح|نصيحه|نصائح|اقتراح|اقترح|افكار|فكره|تحسين|احسن|اطور|اوفر|اقلل|ازيد|اربح|اكسب|ارباح اكثر|نزيد|نربح|نكسب|نحسن|نطور|نوفر|نقلل|نكبر|نوسع|نشجع|نجيب|نجذب|نرجع|نملي|نبيع|نزود|نرفع|نخفض|اجيب|اجذب|ارجع|املي|ابيع|ازود|ارفع|اخفض)(?=\s)/],
   // growth asked as a how-to: "how can we attract more players", "how do we fill empty courts"
   ['advice-signal', /\bhow (?:do|can|could|would|should|might) (?:i|we|you|one) (?:attract|fill|grow|retain|encourage|persuade|convince|motivate|win|boost|drive|expand|upsell|sell|bring (?:back|in|more|people|players|customers|guests|them)|get (?:more|new|players|customers|guests|people|members|clients|them)|keep (?:players|customers|guests|people|members|clients|them))\b/],
+  // the world outside the club (other clubs, competitors, the market): only the
+  // deep tier carries web_search (turnPolicy webSearchOn), so these go deep.
+  // No city names (a branch may be named after one) and no "online" (app bookings).
+  ['outside-signal', /\b(?:other (?:padel )?(?:clubs?|venues?|courts|places|academies)|competitors?|rival (?:clubs?|venues?)|the market|market (?:prices?|rates?|average)|going rate|industry|benchmarks?|elsewhere|nearby clubs?|on the internet|worldwide|globally|internationally|abroad)\b/],
+  ['outside-signal', ar('نوادي اخري|نوادي الاخري|انديه اخري|انديه الاخري|نادي ثاني|نادي اخر|ملاعب اخري|ملاعب ثانيه|منافس|منافسين|سوق|انترنت|عالميا')],
   // money nouns are soft: see SOFT
 ];
 
@@ -339,7 +344,7 @@ function splitParts(normalized: string): string[] {
  * tools and a sentence, which Sonnet at effort low answers as well as Opus.
  * When unsure, MEDIUM on Sonnet, never DEEP by default.
  */
-const DEEP_REASONS: ReadonlySet<string> = new Set(['advice-signal', 'why-signal', 'long-question', 'empty']);
+const DEEP_REASONS: ReadonlySet<string> = new Set(['advice-signal', 'why-signal', 'outside-signal', 'long-question', 'empty']);
 const MEDIUM_REASONS: ReadonlySet<string> = new Set(['compare-signal', 'trend-signal', 'no-lookup-pattern']);
 
 function analysisRank(reason: string): number {

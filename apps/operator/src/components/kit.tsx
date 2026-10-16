@@ -1571,6 +1571,8 @@ export function DateRangeControl({
   presets = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'last30'],
   disabled,
   now,
+  'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
 }: {
   period: Period;
   onChange: (p: Period) => void;
@@ -1578,6 +1580,10 @@ export function DateRangeControl({
   disabled?: boolean;
   /** The day presets count back from. Defaults to the station clock; pass the venue's business day to match Analytics. */
   now?: Date;
+  /** Falls back to a generic "Date range" name; pass one when the control's own label isn't nearby. */
+  'aria-label'?: string;
+  /** Set by `Field`'s `group` prop when a visible label sits beside the control. */
+  'aria-labelledby'?: string;
 }) {
   const { tr } = useLocale();
   const [draft, setDraft] = useState<Period>(period);
@@ -1587,13 +1593,25 @@ export function DateRangeControl({
     return pp.from === period.from && pp.to === period.to;
   }), [presets, period, now]);
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }} role="group">
-      {presets.map((p) => (
-        <Button key={p} size="sm" aria-pressed={active === p} disabled={disabled} onClick={() => onChange(presetPeriod(p, now))}>
-          {tr(`ws.kit.dateRange.${p}`)}
-        </Button>
-      ))}
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginInlineStart: '0.4rem' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+      <Select<PeriodPreset>
+        value={active ?? 'custom'}
+        disabled={disabled}
+        aria-label={ariaLabelledBy ? undefined : (ariaLabel ?? tr('ws.kit.dateRange.label'))}
+        aria-labelledby={ariaLabelledBy}
+        style={{ inlineSize: 'auto' }}
+        onChange={(p) => {
+          if (p === 'custom') return;
+          onChange(presetPeriod(p, now));
+        }}
+        options={[
+          ...presets.map((p) => ({ value: p as PeriodPreset, label: tr(`ws.kit.dateRange.${p}`) })),
+          // Never itself chosen: it is how the control shows that the dates
+          // below were typed by hand rather than matching any preset.
+          { value: 'custom' as const, label: tr('ws.kit.dateRange.custom'), disabled: true },
+        ]}
+      />
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
         {/* DateField: a raw date input let '20266-…' through the `from > to`
             string check, and formatting it threw, taking the whole report down. */}
         <DateField

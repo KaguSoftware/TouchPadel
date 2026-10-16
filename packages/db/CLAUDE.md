@@ -17,8 +17,52 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0340`
-  (0340 online_payments_paused, 2026-10-13: `platform_settings.online_payments_live` lock, false until Qi is live; holds `set_deposit_settings`, `set_match_settings`, `set_coaching_settings` (0242, 0257, 0277 are no longer the latest: each raises `ONLINE_PAYMENTS_PAUSED` when the patch turns online money or matches on) plus `online_payments_live()`; a test that turns those settings on through the RPCs wraps itself in `setOnlinePaymentsLive` (`tests/helpers.ts`); 0339 tournament_play_years; 0335–0338 coach mode and coach links, 2026-10-11, written as 0334–0337 on the saeed branch and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0346`
+  (0346 shop_analytics, 2026-10-16: Touch Shop sales in the owner's analytics, counted as padel
+  revenue (Majed). New owner-only `app.analytics_shop(p_from, p_to)` (analytics_guard, the analysed
+  branch: kpis, by_day, by_hour, items, categories; a sale is a settled kind `shop` tab), and **0346
+  holds `app.analytics_daily_sales`** (0219 is no longer the latest: café only, shop tabs, their
+  lines and orders and the shop store's waste are left out), so a shop sale counts once, as padel,
+  in the analytics Venue revenue. The Reports pages and the café item analytics are unchanged
+  (`report_revenue` keeps "of which shop" inside café); `tests/shop-analytics.test.ts`;
+  0345 staff_access, 2026-10-16: the owner's per-person Access list. `staff.extra_roles`
+  (second jobs, front-line roles only, `staff_extra_roles_chk`) and `staff.blocked_areas` (the
+  `ACCESS_AREAS` keys of `packages/core/src/staff/access.ts`, `staff_blocked_areas_chk`), both
+  set by the owner-only `app.set_staff_access`. **0345 holds `app.is_staff`** (0010 is no longer
+  the latest: it now counts a second job) and `app.staff_ids_with_roles` (0160 is no longer the
+  latest); `app.staff_role()` still returns the main role alone. Blocks are a screen rule, read by
+  no RPC; `tests/staff-access.test.ts`;
+  0342–0344 customer discounts, main cash and wage advances, 2026-10-16 (see their headers);
+  0341 staff_activity, 2026-10-16: the owner's activity monitor. Table `staff_activity`, one row per
+  staff member and app (`operator` | `mobile`), no client grant; `app.staff_activity_ping(p_surface,
+  p_state, p_screen, p_app_version)` (any staff, own row, throttled to a write per 20 s unless state
+  or screen changed), the `audit_log_staff_activity` AFTER INSERT trigger (stamps the actor's last
+  action on the app named by the `x-touch-app` request header, or the operator when only
+  `x-station-id` is sent; never raises) and the owner-only `app.staff_activity_board()`; the
+  internal `app.request_surface()`. Both clients send `x-touch-app` on every request;
+  `tests/staff-activity.test.ts`;
+  0342 customer_discounts, 2026-10-16: a customer's standing café and court discount (percent or
+  amount), set by any till or desk staff with no PIN. Tables `customer_discounts` (chain-wide, no
+  client grant), `reservation_court_discounts` (per booking, `zz_branch_guard`) and
+  `customer_discount_waivers` ("not on this bill": p_kind `none` writes it, `standing` or a
+  one-off lifts it, a refresh respects it); RPCs
+  `customer_discount`, `set_customer_discount`, `apply_customer_discount` (tab rows with
+  reason_code `customer_discount` | `customer_discount_once`), `apply_customer_court_discount`,
+  `bill_customer_discount`; holds `court_fee_remaining` (0262 is no longer the latest: it also
+  subtracts `app.court_fee_discount`); the `profiles_discount_tombstone` trigger drops the row on
+  account deletion; `tests/customer-discounts.test.ts`;
+  0343 main_cash and 0344 wage_advances, 2026-10-16 (Majed: a main cash, "the safe", beside the
+  separate desk and café drawers; costs are paid from it; salary advances): table `main_cash_entries`
+  (one ledger: payment from the safe or the bank, hand_in / to_drawer per box cafe|desk|shop,
+  owner_in/out, bank_in/out, count; `delta_iqd` is the row's effect, the balance is the live sum; no
+  client grant) with `main_cash_overview`, `main_cash_pay`, `main_cash_move`, `main_cash_count`,
+  `main_cash_void`, `main_cash_day_boxes` and `main_cash_hand_in_day` (manager and owner; a box is
+  `stations.mode`, else the café till); 0344 adds `wage_advances` (owner only, LLM wall) with
+  `give_wage_advance` / `undo_wage_advance`, and holds `wage_line`, `wages_month`, `mark_wage_paid`
+  (now `+ p_paid_from, p_expected_paid_iqd`; paid = net − advances), `undo_wage_paid` (0271 is no
+  longer the latest: it voids the safe row) and `coach_statement_mark_paid` (0293 is no longer the
+  latest: `+ p_paid_from`); `tests/main-cash.test.ts`;
+  0340 online_payments_paused, 2026-10-13: `platform_settings.online_payments_live` lock, false until Qi is live; holds `set_deposit_settings`, `set_match_settings`, `set_coaching_settings` (0242, 0257, 0277 are no longer the latest: each raises `ONLINE_PAYMENTS_PAUSED` when the patch turns online money or matches on) plus `online_payments_live()`; a test that turns those settings on through the RPCs wraps itself in `setOnlinePaymentsLive` (`tests/helpers.ts`); 0339 tournament_play_years; 0335–0338 coach mode and coach links, 2026-10-11, written as 0334–0337 on the saeed branch and
   renumbered +1 at the merge because main took 0334: 0335 coach_book_students, a coach books a
   private lesson for a past or new student and the other students' phones; 0336
   lesson_friend_phones_read, those phones in the coach's roster and the desk's lesson; 0337
@@ -57,7 +101,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0341`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0342`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

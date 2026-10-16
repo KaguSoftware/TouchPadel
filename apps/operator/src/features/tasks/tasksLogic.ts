@@ -7,7 +7,7 @@
 import type { MessageKey, TParams } from '@touch/i18n';
 import { formatDate, formatDateTime, formatIQD, formatNumber, isolate } from '@touch/i18n';
 import { PROTOCOL_KINDS, type ProtocolKind, type TournamentVariant } from '@touch/core/protocols';
-import { can, type StaffRole } from '../../lib/auth';
+import { can, type StaffWho } from '../../lib/auth';
 import type { AppFunctionName } from '../../lib/appRpc';
 import type { Tone } from '../../components/kit';
 import { campaignTone } from '../marketing/marketingTypes';
@@ -105,7 +105,7 @@ export function runTitle(item: { titleEn: string | null; titleAr: string | null;
  * "Propose a new item", marketing's "Price or promo change" and the desk's
  * "Start a tournament" (§5.1). The capability matrix decides; no role here.
  */
-export function taskStarts(role: StaffRole | undefined): TaskStart[] {
+export function taskStarts(role: StaffWho): TaskStart[] {
   const out: TaskStart[] = [];
   if (can(role, 'startProtocolRelease')) out.push('product_release');
   if (can(role, 'startProtocolPriceChange')) out.push('price_promo');
@@ -149,7 +149,7 @@ export type PhoneSection = (typeof PHONE_SECTIONS)[number];
  * /tasks role reads (its checklists, requests, notes and suggestions, its own
  * requests to marketing) need none.
  */
-export function phoneSectionsFor(role: StaffRole | undefined): PhoneSection[] {
+export function phoneSectionsFor(role: StaffWho): PhoneSection[] {
   if (!role) return [];
   const marketing = can(role, 'marketingWork');
   const on: Record<PhoneSection, boolean> = {
@@ -176,7 +176,7 @@ export function phoneSectionsFor(role: StaffRole | undefined): PhoneSection[] {
 }
 
 /** The read behind one copy. Marketing's requests are its inbox; everyone else's are their own. */
-export function phoneRead(section: PhoneSection, role: StaffRole | undefined): { fn: AppFunctionName; args: Record<string, unknown> } {
+export function phoneRead(section: PhoneSection, role: StaffWho): { fn: AppFunctionName; args: Record<string, unknown> } {
   switch (section) {
     case 'checklists':
       return { fn: 'my_checklists_today', args: {} };

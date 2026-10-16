@@ -34,6 +34,7 @@
  * audit are observation.
  */
 import type { IconName } from '../components/icons';
+import { rolesOf, type StaffAccess } from '@touch/core';
 import type { StaffRole } from './auth';
 
 export type WorkspaceKey = 'courtDesk' | 'cashier' | 'prep' | 'manager' | 'owner' | 'team' | 'shop';
@@ -48,7 +49,7 @@ export interface NavItem {
     | 'panel' | 'analytics' | 'staff' | 'branches' | 'courts' | 'tables' | 'settings' | 'guestSite'
     // Management's Financial / Observation sections (see the header note).
     | 'menuPrices'
-    | 'floorNow' | 'staffActivity' | 'requests' | 'marketing' | 'telegram'
+    | 'floorNow' | 'staffActivity' | 'activityMonitor' | 'requests' | 'marketing' | 'telegram'
     // Management's Stock section: the /stock screens, then the stock value report and the shop.
     | 'onHand' | 'goodsIn' | 'moveStock' | 'wasteProduction' | 'expiry' | 'alerts'
     | 'stockCount' | 'countDifferences' | 'margins' | 'ingredients' | 'recipes'
@@ -67,6 +68,8 @@ export interface NavItem {
     | 'wages' | 'attendance'
     // Staff rewards (0332–0333): beside Wages, where a reached bonus lands.
     | 'rewards'
+    // The main cash (0343): the safe, where costs are paid from.
+    | 'safe'
     // Coaching (docs/design/coaching/operator.md §5.3.3): Setup's coaches, Financial's coach pay.
     | 'coaches' | 'coachPay'
     // Tournaments (build-contracts-2026-10-03 §1.11): the desk's list.
@@ -121,7 +124,7 @@ export interface NavGroup {
   items: readonly NavItem[];
 }
 
-export type SectionKey = 'financial' | 'observation' | 'stock' | 'setup';
+export type SectionKey = 'financial' | 'observation' | 'stock' | 'setup' | 'run' | 'records' | 'opsSetup';
 
 /**
  * A named part of a workspace with its own landing screen and its own rail.
@@ -204,6 +207,11 @@ const CASHIER: readonly NavItem[] = [
  *   * Records — what already happened.
  *   * Setup — what the other screens are priced and built from.
  *
+ * Run the day, Records and Setup are SECTIONS, not dropdowns (owner call,
+ * 2026-10-16): pressing one opens its first screen, and from there the rail
+ * is that section's rows and a way back, as on Management. The workspace's
+ * own rail is Today plus one button per section, each with its icon.
+ *
  * Row names match the title of the screen they open ("Open tabs", not
  * "Tills"): a row that says one thing and lands on a page headed another made
  * a manager check whether they had clicked the right one.
@@ -226,6 +234,8 @@ const MANAGER_RUN: readonly NavItem[] = [
   // row of that rail, and on the workspace switcher.
   { to: '/stock', labelKey: 'stock', icon: 'package', activePrefix: '/stock' },
   { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
+  // The main cash (0343): managers log costs and moves too (Majed, 2026-10-16).
+  { to: '/safe', labelKey: 'safe', icon: 'lock' },
   PROTOCOLS,
   SUGGESTIONS,
   DEDUCTIONS,
@@ -293,6 +303,8 @@ const OWNER_FINANCIAL: readonly NavItem[] = [
   { to: '/financial', labelKey: 'overview', icon: 'grid', exact: true },
   { to: '/reports/revenue', labelKey: 'reports', icon: 'chart', activePrefix: '/reports' },
   { to: '/till/drawer', labelKey: 'cashDrawer', icon: 'drawer' },
+  // The main cash (0343): beside the drawers it is filled from; every cost is paid from it.
+  { to: '/safe', labelKey: 'safe', icon: 'lock' },
   { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
   // Wages (0270–0272): what each person is paid, when, and what comes off it.
   // The count is the wages due now or overdue: the owner's pay-day reminder.
@@ -331,6 +343,8 @@ const OWNER_OBSERVATION: readonly NavItem[] = [
   { to: '/observation/courts', labelKey: 'bookings', icon: 'calendar' },
   { to: '/observation/tills', labelKey: 'tills', icon: 'receipt' },
   { to: '/reports/staff', labelKey: 'staffActivity', icon: 'users' },
+  // Who is on the operator and the phone right now, and their last action (0341).
+  { to: '/observation/activity', labelKey: 'activityMonitor', icon: 'clock' },
   // "From the team": one dropdown for everything staff send up to the owner.
   // Pay deductions wait on a decision like the requests (wave 5); protocols
   // hold a step to decide or to do; suggestions are the staff box; incident
@@ -453,15 +467,19 @@ export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
     key: 'manager',
     home: '/ops',
     icon: 'dashboard',
-    groups: [
-      { labelKey: null, items: MANAGER_TODAY },
-      { labelKey: 'groupRun', items: MANAGER_RUN },
-      { labelKey: 'groupRecords', items: MANAGER_RECORDS },
-      { labelKey: 'groupSetup', items: MANAGER_SETUP },
+    groups: [{ labelKey: null, items: MANAGER_TODAY }],
+    sections: [
+      // Stock opens its own rail, as it does for the owner (owner call,
+      // 2026-09-27), from its row in Run the day rather than a section button.
+      // FIRST, because Run the day lists the same /stock row: on /stock both
+      // match exactly, and sectionForPath keeps the earlier section on a tie.
+      { ...STOCK_SECTION, fromRow: true },
+      // Each lands on its first row, like Management's Setup.
+      { key: 'run', home: '/desk', icon: 'play', items: MANAGER_RUN },
+      { key: 'records', home: '/reports/courts', icon: 'bookOpen', items: MANAGER_RECORDS },
+      // The sliders, as on Management's Setup: the same idea, the same glyph.
+      { key: 'opsSetup', home: '/admin/menu', icon: 'sliders', items: MANAGER_SETUP },
     ],
-    // Stock opens its own rail, as it does for the owner (owner call,
-    // 2026-09-27), from its row in Run the day rather than a section button.
-    sections: [{ ...STOCK_SECTION, fromRow: true }],
   },
   owner: {
     key: 'owner',
@@ -503,6 +521,20 @@ export function workspacesForRole(role: StaffRole): readonly WorkspaceKey[] {
   }
 }
 
+/**
+ * The workspaces a person may enter (0345): their main role's, then each
+ * second job's, once each. A cashier who also runs the court desk gets the
+ * till and the desk, and the rail's switcher to move between them. Blocked
+ * pages are the shell's to drop (it asks canAccess of each home).
+ */
+export function workspacesFor(who: StaffAccess): readonly WorkspaceKey[] {
+  const out: WorkspaceKey[] = [];
+  for (const role of rolesOf(who)) {
+    for (const key of workspacesForRole(role)) if (!out.includes(key)) out.push(key);
+  }
+  return out;
+}
+
 export function defaultWorkspace(role: StaffRole): WorkspaceKey {
   return workspacesForRole(role)[0]!;
 }
@@ -510,8 +542,7 @@ export function defaultWorkspace(role: StaffRole): WorkspaceKey {
 const STORAGE_KEY = 'touch-operator-workspace';
 
 /** Station-local memory of the last chosen workspace; validated against the role. */
-export function loadWorkspace(role: StaffRole): WorkspaceKey {
-  const allowed = workspacesForRole(role);
+export function loadWorkspace(role: StaffRole, allowed: readonly WorkspaceKey[] = workspacesForRole(role)): WorkspaceKey {
   try {
     const raw = localStorage.getItem(STORAGE_KEY) as WorkspaceKey | null;
     if (raw && (allowed as readonly string[]).includes(raw)) return raw;

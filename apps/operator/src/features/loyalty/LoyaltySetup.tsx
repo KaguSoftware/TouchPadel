@@ -48,7 +48,7 @@ const K = 'ws.loyalty.setup';
 export function LoyaltySetupScreen() {
   const { tr } = useLocale();
   const { staff } = useAuth();
-  const canEdit = can(staff?.role, 'editLoyalty');
+  const canEdit = can(staff, 'editLoyalty');
   const q = useLoyaltyAdmin();
   const status = q.isError && !q.data ? 'error' : q.data ? 'ready' : 'loading';
 

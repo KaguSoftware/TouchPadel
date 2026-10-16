@@ -45,6 +45,7 @@ import { ScopeStrip } from './ScopeStrip';
 import { UsageMeter, slotHasUsage, slotTotal, type MeterSlot } from './UsageMeter';
 import { normaliseScopes, refusedScopes, saveRememberedScopes } from './scopes';
 import { useAssistantChat } from './useAssistantChat';
+import { useAssistantMode } from './useAssistantMode';
 import { monthSoFar } from './usageDates';
 
 export function Thread({
@@ -68,6 +69,7 @@ export function Thread({
 }) {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
+  const assistantMode = useAssistantMode();
   const toast = useToast();
   const qc = useQueryClient();
 
@@ -369,6 +371,7 @@ export function Thread({
             }}
             disabled={chat.streaming || (conversationId !== null && !conversation.data)}
             titleHidden
+            onChooseFree={assistantMode.canUsePaid ? () => assistantMode.setMode('free') : undefined}
           />
         </Disclosure>
         <Composer onAsk={(q) => void chat.ask(q)} onStop={chat.stop} streaming={chat.streaming} autoFocus={autoFocus} disabled={conversationId !== null && conversation.isSuccess && conversation.data === null} />

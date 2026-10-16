@@ -3,7 +3,7 @@
  * shape of src/features/auth/gate.ts. RequireStaff and GuestTabsGate render
  * what these answer (build-contracts-2026-09-23 §6.5).
  */
-import type { StaffRole } from '@touch/core';
+import { rolesOf, type StaffRole } from '@touch/core';
 import type { StaffStatus } from './status';
 
 export type StaffGateDecision =
@@ -33,7 +33,8 @@ export function staffGate(status: StaffStatus, roles?: readonly StaffRole[]): St
     case 'unsupported':
       return 'unsupported';
     case 'staff':
-      return roles && !roles.includes(status.staff.role) ? 'redirect-staff-home' : 'allow';
+      // 0345: a second job opens its pages too, as the server's is_staff does.
+      return roles && !rolesOf(status.staff).some((r) => roles.includes(r)) ? 'redirect-staff-home' : 'allow';
   }
 }
 

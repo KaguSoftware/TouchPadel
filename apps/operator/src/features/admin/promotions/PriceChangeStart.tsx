@@ -20,7 +20,7 @@ import { priceChangeSearch, type PriceChangeTarget } from './priceChange';
 export function usePriceChangeStart(): ((target: PriceChangeTarget) => void) | null {
   const { staff } = useAuth();
   const navigate = useNavigate();
-  const role = staff?.role;
+  const role = staff;
   if (!can(role, 'startProtocolPriceChange') || !canAccess(role, '/protocols')) return null;
   return (target) => void navigate({ to: '/protocols', search: priceChangeSearch(target) });
 }

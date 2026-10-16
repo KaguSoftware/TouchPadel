@@ -77,6 +77,7 @@ import {
   seedLessonTypes,
   seedMatchPlayers,
   seedPrivateLesson,
+  openTodayQueue,
   serviceClient,
   setLessonTerms,
   settleLessonCash,
@@ -515,6 +516,8 @@ test.describe('operator coaching', () => {
 
     const manager = await signIn(browser, SEED_STAFF.manager);
     await manager.goto(`${OPERATOR_URL}/ops`);
+    // Today: lesson refunds are a row of "Needs you" that opens in place.
+    await openTodayQueue(manager, 'lessonRefunds', en.ws.manager.ops.needs.lessonRefundsAction);
     const due = manager.getByTestId('lesson-refunds');
     const row = due.getByTestId('lesson-refund').filter({ hasText: student }).first();
     await expect(row).toContainText(/Due .*30,000/, { timeout: 30_000 });
@@ -790,6 +793,7 @@ test.describe('operator coaching', () => {
       await expect(page.getByText(C.banner.cancelled.coach_retired)).toBeVisible({ timeout: 30_000 });
     }
     await page.goto(`${OPERATOR_URL}/ops`);
+    await openTodayQueue(page, 'lessonRefunds', en.ws.manager.ops.needs.lessonRefundsAction);
     await expect(page.getByTestId('lesson-refunds')).toContainText(paid, { timeout: 30_000 });
     await page.context().close();
   });
@@ -834,6 +838,8 @@ test.describe('operator coaching', () => {
 
       const manager = await signIn(browser, SEED_STAFF.manager);
       await manager.goto(`${OPERATOR_URL}/ops`);
+      // Today: the online refunds are a row of "Needs you" that opens in place.
+      await openTodayQueue(manager, 'deposits', en.ws.manager.ops.needs.depositsAction);
       await expect(manager.getByText(new RegExp(`Lesson refund · .*${guest!.name}`)).first()).toBeVisible({ timeout: 30_000 });
       await manager.context().close();
     } finally {

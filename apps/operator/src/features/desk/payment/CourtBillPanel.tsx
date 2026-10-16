@@ -35,6 +35,12 @@
  * While the booking has an open bill the member block sits under the sentence (loyalty build
  * contracts §5): the booking's guest already earns on it (app.tab_customer), and the desk can
  * attach a different member or use their points before taking the payment.
+ *
+ * The customer's own discount (0342, features/discounts): a plain booking
+ * brings its customer's standing discount onto the court fee (and onto the
+ * café items of its open bill) by itself, and "Customer discount" beside Cash
+ * and Card sets or changes it with no PIN. The court fee shown is already the
+ * discounted one, so the discount is said under it, never subtracted again.
  */
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -69,6 +75,9 @@ import {
   type OnlineRefundState,
 } from './deskPaymentLogic';
 import { useBookingBill } from './useBookingBill';
+import { BillDiscountDialog } from '../../discounts/BillDiscountDialog';
+import { canDiscount, rpcMissing, useAutoCustomerDiscount, useBillDiscount } from '../../discounts/useCustomerDiscount';
+import { useDiscountWords } from '../../discounts/useDiscountWords';
 
 type Method = 'cash' | 'card';
 
@@ -124,8 +133,8 @@ export function CourtBillView({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { staff } = useAuth();
-  const allowed = permissionsFor(staff?.role).takeCourtPayment;
-  const canOpenTill = canAccess(staff?.role, '/till');
+  const allowed = permissionsFor(staff).takeCourtPayment;
+  const canOpenTill = canAccess(staff, '/till');
 
   const [paying, setPaying] = useState<Method | null>(null);
   // What the last settle did, kept on screen until the clerk chooses where to
@@ -138,6 +147,7 @@ export function CourtBillView({
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [addingCafe, setAddingCafe] = useState(false);
+  const [discountOpen, setDiscountOpen] = useState(false);
   /**
    * A close that went onto the durable queue (item 9, 0120) and has not been
    * answered yet: tab id -> the envelope's localId. The Close button stays off
@@ -285,6 +295,34 @@ export function CourtBillView({
   const matchBooking = match || isMatchBill(bill);
   const playersOwe = matchBillSentence(bill);
   const matchRows = matchBillRows(bill);
+
+  // The customer's own discount (0342): plain bookings only (an open match prices its seats).
+  const discountAllowed = canDiscount(staff);
+  const discountLive = !matchBooking && (tab !== null || bill.live);
+  const discountVersion = [
+    tab?.id,
+    tab?.subtotal_iqd,
+    tab?.item_count,
+    tab?.discount_iqd,
+    tab?.court_iqd,
+    tab?.paid_iqd,
+    bill.court_remaining_iqd,
+    bill.court_paid_iqd,
+  ].join('|');
+  const billDiscQ = useBillDiscount({ tabId: tab?.id ?? null, reservationId: bill.reservation.id, version: discountVersion, enabled: discountAllowed && discountLive });
+  const billDisc = billDiscQ.data;
+  useAutoCustomerDiscount({ tabId: tab?.id ?? null, reservationId: bill.reservation.id, state: billDisc, version: discountVersion, enabled: discountAllowed && discountLive });
+  const discountWords = useDiscountWords();
+  const discountShown = discountAllowed && discountLive && billDisc !== undefined && !rpcMissing(billDiscQ.error) && (billDisc.court_allowed || tab !== null);
+  // The café part of the bill's discount, out of the server's discount figure into its own row.
+  const cafeCustomerOff = tab && billDisc?.cafe && billDisc.cafe.amount_iqd <= tab.discount_iqd ? billDisc.cafe.amount_iqd : 0;
+  const courtNote =
+    billDisc?.court && billDisc.court.amount_iqd > 0
+      ? tr('ws.discounts.bill.courtNote', { label: discountWords.billLabel(billDisc.court, billDisc.standing?.reason), amount: amount(billDisc.court.amount_iqd) })
+      : null;
+  // "Remove from this bill" waived their standing discount on this booking or its bill.
+  const courtWaived = Boolean(billDisc?.court_waived && billDisc.standing?.court);
+  const cafeWaived = Boolean(tab && billDisc?.cafe_waived && billDisc.standing?.cafe);
   const seatsOf = (p: BookingBill['settled_tabs'][number]['payments'][number]) => {
     const nos = paymentSeatNumbers(p);
     return nos.length > 0 ? tr('ws.matches.bill.seats', { list: nos.map((n) => formatNumber(n, locale)).join(tr('ws.matches.bill.listSeparator')) }) : null;
@@ -321,6 +359,16 @@ export function CourtBillView({
           </div>
         )}
         <MessagePresenter tone={sentenceTone} icon={sentenceIcon} message={sentence} />
+        {!tab && courtNote && canTakePayment(state) && (
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }} data-testid="court-discount-note">
+            {courtNote}
+          </p>
+        )}
+        {canTakePayment(state) && (courtWaived || cafeWaived) && (
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }} data-testid="discount-waived-note">
+            {[courtWaived ? tr('ws.discounts.bill.courtWaived') : null, cafeWaived ? tr('ws.discounts.bill.cafeWaived') : null].filter(Boolean).join(' · ')}
+          </p>
+        )}
         {playersOwe && <MessagePresenter tone="info" icon="users" message={tr(playersOwe.key, { amount: amount(playersOwe.amount) })} />}
         {dayBlocked && (canTakePayment(state) || state === 'closeBill') && <MessagePresenter tone="refused" icon="lock" message={tr('ws.courtDesk.payment.dayClosed')} />}
         {notice && <MessagePresenter tone="refused" message={notice} />}
@@ -347,8 +395,17 @@ export function CourtBillView({
           // the far edge, with the total set apart and what is left to pay last.
           <dl style={{ margin: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
             <BillRow label={tr(onlinePaid > 0 ? 'ws.courtDesk.payment.courtFeeRest' : 'ws.courtDesk.payment.courtFee')} amount={tab.court_iqd} />
+            {courtNote && (
+              <div data-testid="court-discount-note">
+                <dt className="tp-sr-only">{tr('ws.discounts.bill.row')}</dt>
+                <dd style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{courtNote}</dd>
+              </div>
+            )}
             {tab.item_count > 0 && <BillRow label={tr('ws.courtDesk.payment.cafeItems', { count: formatNumber(tab.item_count, locale) })} amount={tab.subtotal_iqd} />}
-            {tab.discount_iqd > 0 && <BillRow label={tr('ws.courtDesk.payment.discount')} amount={-tab.discount_iqd} />}
+            {tab.discount_iqd - cafeCustomerOff > 0 && <BillRow label={tr('ws.courtDesk.payment.discount')} amount={-(tab.discount_iqd - cafeCustomerOff)} />}
+            {cafeCustomerOff > 0 && billDisc?.cafe && (
+              <BillRow label={`${tr('ws.discounts.bill.row')} · ${discountWords.billLabel(billDisc.cafe, billDisc.standing?.reason)}`} amount={-cafeCustomerOff} />
+            )}
             {tab.tax_iqd > 0 && <BillRow label={tr('ws.courtDesk.payment.tax')} amount={tab.tax_iqd} />}
             <BillRow label={tr('ws.courtDesk.payment.total')} amount={tab.total_iqd} strong divider />
             {tab.paid_iqd > 0 && <BillRow label={tr('ws.courtDesk.payment.paidSoFar')} amount={tab.paid_iqd} />}
@@ -367,6 +424,12 @@ export function CourtBillView({
                   {tr('ws.courtDesk.payment.card')}
                 </Button>
               </>
+            )}
+            {/* The customer's own price (0342), no PIN: the court fee, and the café items on the bill. */}
+            {discountShown && canTakePayment(state) && (
+              <Button icon="user" disabled={busy} data-testid="customer-discount-button" onClick={() => setDiscountOpen(true)}>
+                {tr('ws.discounts.action')}
+              </Button>
             )}
             {state === 'closeBill' && (
               <Button
@@ -455,6 +518,8 @@ export function CourtBillView({
           <ErrorText error={error} />
         </Modal>
       )}
+
+      {discountOpen && billDisc && <BillDiscountDialog tabId={tab?.id ?? null} reservationId={bill.reservation.id} state={billDisc} onClose={() => setDiscountOpen(false)} />}
 
       {addingCafe && (
         <AddCafeBillDialog

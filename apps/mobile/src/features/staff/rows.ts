@@ -266,8 +266,10 @@ export const STAFF_ROW_DEFS: readonly StaffRowDef[] = [
   },
 ];
 
-export function staffRows(role: StaffRole): StaffRowDef[] {
-  return STAFF_ROW_DEFS.filter((row) => !row.roles || row.roles.includes(role));
+/** The rows of the role and of each second job (0345), in the one list order. */
+export function staffRows(role: StaffRole, extraRoles: readonly StaffRole[] = []): StaffRowDef[] {
+  const mine = [role, ...extraRoles];
+  return STAFF_ROW_DEFS.filter((row) => !row.roles || mine.some((r) => row.roles!.includes(r)));
 }
 
 /**
@@ -290,8 +292,8 @@ const MGMT_ROLES: readonly StaffRole[] = ['manager', 'owner'];
  * progress involves them. Notes on new items: while one is at its feedback
  * stage, for everyone who may write one.
  */
-export function todayRows(role: StaffRole, signals: TodaySignals): StaffRowDef[] {
-  return staffRows(role).filter((row) => {
+export function todayRows(role: StaffRole, signals: TodaySignals, extraRoles: readonly StaffRole[] = []): StaffRowDef[] {
+  return staffRows(role, extraRoles).filter((row) => {
     if (row.id === 'protocols') return MGMT_ROLES.includes(role) || (signals.runs ?? 0) > 0;
     if (row.id === 'notes') return (signals.notes ?? 0) > 0;
     return true;

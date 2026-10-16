@@ -223,6 +223,7 @@ describe('sections', () => {
     expect(sectionForPath(owner, '/till/drawer')?.key).toBe('financial');
     expect(sectionForPath(owner, '/wages')?.key).toBe('financial');
     expect(sectionForPath(owner, '/rewards')?.key).toBe('financial');
+    expect(sectionForPath(owner, '/safe')?.key).toBe('financial');
     expect(sectionForPath(owner, '/attendance')?.key).toBe('financial');
 
     expect(sectionForPath(owner, '/observation')?.key).toBe('observation');
@@ -234,6 +235,7 @@ describe('sections', () => {
     // Bookings and tills are Observe's own view-only boards...
     expect(sectionForPath(owner, '/observation/courts')?.key).toBe('observation');
     expect(sectionForPath(owner, '/observation/tills')?.key).toBe('observation');
+    expect(sectionForPath(owner, '/observation/activity')?.key).toBe('observation');
     // ...and the working screens behind them still keep the rail on a drill-through.
     expect(sectionForPath(owner, '/desk/today')?.key).toBe('observation');
     expect(sectionForPath(owner, '/till/tabs')?.key).toBe('observation');
@@ -255,7 +257,7 @@ describe('sections', () => {
     expect(sectionForPath(owner, '/panel')).toBeNull();
     expect(sectionForPath(owner, '/analytics')).toBeNull();
     expect(sectionForPath(owner, '/analytics/courts')).toBeNull();
-    // A workspace without sections never claims anything.
+    // The manager's home is the workspace's own row, in no section.
     expect(sectionForPath(WORKSPACES.manager, '/ops')).toBeNull();
   });
 
@@ -289,6 +291,19 @@ describe('sections', () => {
     // ...but the section still owns them, so the rail survives the trip.
     expect(sectionForPath(owner, '/admin/promotions')?.key).toBe('observation');
     expect(workspaceOwnsPath('owner', '/admin/promotions')).toBe(true);
+  });
+
+  it("prints Observe's live boards in order, the activity monitor right after the staff activity report", () => {
+    const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
+    const rail = sectionRailItems(observation).map((i) => [i.to, i.labelKey]);
+    expect(rail.slice(0, 6)).toEqual([
+      ['/observation', 'overview'],
+      ['/observation/courts', 'bookings'],
+      ['/observation/tills', 'tills'],
+      ['/reports/staff', 'staffActivity'],
+      ['/observation/activity', 'activityMonitor'],
+      ['/observation/requests', 'requests'],
+    ]);
   });
 
   it('lists Deductions, Protocols, Suggestions and Incidents right after the requests they sit beside, and keeps four sections', () => {
@@ -363,17 +378,37 @@ describe('the manager rail', () => {
   // Grouped by when a manager reaches for each row, and every row named after
   // the screen it opens. It used to be one ten-row column with "Tills" opening
   // a page headed "Open tabs".
-  it('groups its rows as Today, Run the day, Records and Setup', () => {
-    expect(WORKSPACES.manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([
-      [null, ['today']],
-      ['groupRun', ['bookings', 'openTabs', 'stock', 'dayClose', 'protocols', 'suggestions', 'deductions', 'attendance', 'incidents']],
-      ['groupRecords', ['reports', 'coachPay', 'audit']],
-      ['groupSetup', ['menu', 'rates', 'coaches', 'promotions']],
+  it('is Today, then Run the day, Records and Setup as sections of their own', () => {
+    expect(WORKSPACES.manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([[null, ['today']]]);
+    expect(WORKSPACES.manager.sections?.map((s) => [s.key, s.home, s.items.map((i) => i.labelKey)])).toEqual([
+      ['stock', '/stock', WORKSPACES.owner.sections?.find((s) => s.key === 'stock')?.items.map((i) => i.labelKey)],
+      ['run', '/desk', ['bookings', 'openTabs', 'stock', 'dayClose', 'safe', 'protocols', 'suggestions', 'deductions', 'attendance', 'incidents']],
+      ['records', '/reports/courts', ['reports', 'coachPay', 'audit']],
+      ['opsSetup', '/admin/menu', ['menu', 'rates', 'coaches', 'promotions']],
     ]);
+    // Every section lands on its own first row.
+    for (const sec of WORKSPACES.manager.sections ?? []) expect(sec.items[0]?.to).toBe(sec.home);
+  });
+
+  it('puts every screen on the rail of the section that lists it', () => {
+    const manager = WORKSPACES.manager;
+    expect(sectionForPath(manager, '/desk')?.key).toBe('run');
+    expect(sectionForPath(manager, '/desk/today')?.key).toBe('run');
+    expect(sectionForPath(manager, '/till/tabs')?.key).toBe('run');
+    expect(sectionForPath(manager, '/admin/day-close')?.key).toBe('run');
+    expect(sectionForPath(manager, '/incidents')?.key).toBe('run');
+    expect(sectionForPath(manager, '/reports/courts')?.key).toBe('records');
+    expect(sectionForPath(manager, '/reports/coaches')?.key).toBe('records');
+    expect(sectionForPath(manager, '/admin/audit')?.key).toBe('records');
+    expect(sectionForPath(manager, '/admin/menu')?.key).toBe('opsSetup');
+    expect(sectionForPath(manager, '/admin/categories')?.key).toBe('opsSetup');
+    expect(sectionForPath(manager, '/admin/coaches')?.key).toBe('opsSetup');
+    // Run the day's Stock row opens the Stock rail, not Run the day's.
+    expect(sectionForPath(manager, '/stock')?.key).toBe('stock');
+    expect(sectionForPath(manager, '/reports/stock')?.key).toBe('stock');
   });
 
   it('opens Stock as a section, the same list as the owner’s', () => {
-    expect(WORKSPACES.manager.sections?.map((s) => s.key)).toEqual(['stock']);
     expect(sectionForPath(WORKSPACES.manager, '/stock/receive')?.key).toBe('stock');
     expect(WORKSPACES.manager.sections?.[0]?.items).toBe(WORKSPACES.owner.sections?.find((s) => s.key === 'stock')?.items);
     // Opened from its row in Run the day, so no second Stock button.
@@ -391,7 +426,7 @@ describe('menu editor tabs', () => {
   // Categories, add-ons and suggested items are tabs of the menu editor but
   // live beside /admin/menu, so the Menu row must claim them explicitly.
   it('keeps the Menu row lit on every tab of the menu editor', () => {
-    const menuRow = WORKSPACES.manager.groups.flatMap((g) => g.items).find((i) => i.labelKey === 'menu')!;
+    const menuRow = workspaceItems(WORKSPACES.manager).find((i) => i.labelKey === 'menu')!;
     for (const path of ['/admin/menu', '/admin/categories', '/admin/addons', '/admin/suggested']) {
       expect(isNavActive(menuRow, path), path).toBe(true);
     }

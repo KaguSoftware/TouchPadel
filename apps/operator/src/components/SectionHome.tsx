@@ -74,7 +74,7 @@ export function SectionHome({
 }) {
   const { tr } = useLocale();
   const { staff } = useAuth();
-  const items = sectionDestinations(sectionKey).filter((item) => canAccess(staff?.role, item.to));
+  const items = sectionDestinations(sectionKey).filter((item) => canAccess(staff, item.to));
 
   return (
     <div style={fullWidth ? undefined : { maxInlineSize: '64rem' }}>

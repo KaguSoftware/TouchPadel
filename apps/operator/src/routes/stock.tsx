@@ -85,7 +85,7 @@ function StockShellGuarded() {
 function StockShell() {
   const { staff } = useAuth();
   const { tr, locale } = useLocale();
-  const visible = new Set(staff ? allowedSubRoutes(staff.role, '/stock') : []);
+  const visible = new Set(staff ? allowedSubRoutes(staff, '/stock') : []);
   visible.add('/stock'); // the index (on-hand) is the layout's own path
   // Counts from the phone waiting for a manager: the Stock count row's badge
   // (wave5-addendum-2026-09-25 §2.8.5, no push).

@@ -38,7 +38,7 @@ const ROWS_SHOWN = 5;
 export function ChecklistsCard() {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
-  const canEdit = can(staff?.role, 'editChecklists');
+  const canEdit = can(staff, 'editChecklists');
   const today = useBusinessToday();
   // The RPC's payload as returned: day close shares this key family.
   const q = useQuery({

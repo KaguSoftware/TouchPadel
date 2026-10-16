@@ -2078,7 +2078,7 @@
       "ref": "rpc:analytics_courts_demand",
       "lang": "en",
       "title": "tool analytics_courts_demand",
-      "body": "Court demand by weekday and hour over a range (the heat calendar).\nKind: aggregate. Scope: courts. Loaded on demand.\nSame numbers on the page: /analytics/courts.\nDatabase function: app.analytics_courts_demand (through app.assistant_run_tool).\nArguments:\n  from (date, required) — First business day of the range, YYYY-MM-DD.\n  to (date, required) — Last business day of the range, YYYY-MM-DD (inclusive).\n  court (id) — Optional court id or handle; omit for every court.\nResult: an object of aggregates (key/value lines); id columns court_id get handles.",
+      "body": "How guests book courts over a range: booking sources, durations, how far ahead they book (lead time), series against single bookings, the hold funnel, and the weekday and hour bookings are MADE (created_dow / created_hour, not when they are played). For when courts are busy use analytics_courts_summary.\nKind: aggregate. Scope: courts. Loaded on demand.\nSame numbers on the page: /analytics/courts.\nDatabase function: app.analytics_courts_demand (through app.assistant_run_tool).\nArguments:\n  from (date, required) — First business day of the range, YYYY-MM-DD.\n  to (date, required) — Last business day of the range, YYYY-MM-DD (inclusive).\n  court (id) — Optional court id or handle; omit for every court.\nResult: an object of aggregates (key/value lines); id columns court_id get handles.",
       "route": "/analytics/courts"
     },
     {
@@ -2102,7 +2102,7 @@
       "ref": "rpc:analytics_courts_summary",
       "lang": "en",
       "title": "tool analytics_courts_summary",
-      "body": "Courts analytics KPIs for a range: occupancy, revenue, bookings, average price, per court.\nKind: aggregate. Scope: courts. Always loaded.\nSame numbers on the page: /analytics/courts.\nDatabase function: app.analytics_courts_summary (through app.assistant_run_tool).\nArguments:\n  from (date, required) — First business day of the range, YYYY-MM-DD.\n  to (date, required) — Last business day of the range, YYYY-MM-DD (inclusive).\n  court (id) — Optional court id or handle; omit for every court.\nResult: an object of aggregates (key/value lines); id columns court_id get handles.",
+      "body": "Courts analytics KPIs for a range: occupancy, revenue, bookings, average price, per day, per court, and the heat map of when courts are played (weekday × hour, by booking start). Use for the busiest days and hours.\nKind: aggregate. Scope: courts. Always loaded.\nSame numbers on the page: /analytics/courts.\nDatabase function: app.analytics_courts_summary (through app.assistant_run_tool).\nArguments:\n  from (date, required) — First business day of the range, YYYY-MM-DD.\n  to (date, required) — Last business day of the range, YYYY-MM-DD (inclusive).\n  court (id) — Optional court id or handle; omit for every court.\nResult: an object of aggregates (key/value lines); id columns court_id get handles.",
       "route": "/analytics/courts"
     },
     {

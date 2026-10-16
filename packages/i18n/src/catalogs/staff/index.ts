@@ -51,6 +51,10 @@ import { staffScreenshotsAr } from './screenshots.ar';
 import { staffRewardsEn } from './rewards.en';
 import { staffRewardsAr } from './rewards.ar';
 
+// The owner's staff activity monitor (0341; app/staff-activity.tsx).
+import { staffActivityEn } from './activity.en';
+import { staffActivityAr } from './activity.ar';
+
 export const staffEn = {
   shell: staffShellEn,
   protocols: staffProtocolsEn,
@@ -69,6 +73,7 @@ export const staffEn = {
   assistant: staffAssistantEn,
   screenshots: staffScreenshotsEn,
   rewards: staffRewardsEn,
+  activity: staffActivityEn,
 } as const;
 
 export const staffAr = {
@@ -89,4 +94,5 @@ export const staffAr = {
   assistant: staffAssistantAr,
   screenshots: staffScreenshotsAr,
   rewards: staffRewardsAr,
+  activity: staffActivityAr,
 } as const;

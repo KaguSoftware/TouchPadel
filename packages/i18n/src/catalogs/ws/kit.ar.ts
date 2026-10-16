@@ -125,6 +125,7 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     noPrevious: 'لا بيانات سابقة',
   },
   dateRange: {
+    label: 'الفترة الزمنية',
     today: 'اليوم',
     yesterday: 'أمس',
     thisWeek: 'هذا الأسبوع',

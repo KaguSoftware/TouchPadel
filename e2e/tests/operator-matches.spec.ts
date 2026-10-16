@@ -48,6 +48,7 @@ import {
   ensureOpenDay,
   ensureTillFresh,
   grantTickets,
+  openTodayQueue,
   passShiftGate,
   readMatchSettings,
   seedBookedMatch,
@@ -372,6 +373,8 @@ test.describe('operator open matches', () => {
 
     const manager = await signIn(browser, SEED_STAFF.manager);
     await manager.goto(`${OPERATOR_URL}/ops`);
+    // Today: the player reports are a row of "Needs you" that opens in place.
+    await openTodayQueue(manager, 'matchReports', 'Review reports');
     const report = manager.getByTestId('match-report').filter({ hasText: farah!.name });
     await expect(report).toContainText('Abusive behaviour', { timeout: 30_000 });
     await expect(report).toContainText(new RegExp(`Reported by .*${eman!.name}`));

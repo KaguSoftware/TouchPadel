@@ -204,10 +204,15 @@ export function useTodayGroups(): {
     staffRole === null
       ? []
       : groupRows(
-          todayRows(staffRole, {
-            runs: involvedRuns.data ? involvedRuns.data.total : null,
-            notes: noteItems.data ? noteItems.data.length : null,
-          }),
+          todayRows(
+            staffRole,
+            {
+              runs: involvedRuns.data ? involvedRuns.data.total : null,
+              notes: noteItems.data ? noteItems.data.length : null,
+            },
+            // 0345: a second job's rows too (an owner's list is ignored).
+            status.kind === 'staff' && staffRole !== 'owner' ? (status.staff.extraRoles ?? []) : [],
+          ),
         );
 
   const count = (id: string): number =>

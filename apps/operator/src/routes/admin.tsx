@@ -57,7 +57,7 @@ export function AdminShell() {
   const { staff } = useAuth();
   const { tr } = useLocale();
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const visible = new Set(staff ? allowedSubRoutes(staff.role, '/admin') : []);
+  const visible = new Set(staff ? allowedSubRoutes(staff, '/admin') : []);
   const family = FAMILIES.find((f) => f.items.some((i) => path === i.to || path.startsWith(`${i.to}/`)));
   const groups: SubNavGroup[] = family
     ? [

@@ -32,9 +32,6 @@ export const shellEn = {
     lead: 'A workspace is the set of screens for one job. Pick the job you are doing now; you can come back here any time from Switch workspace in the sidebar.',
     current: 'You are here',
     open: 'Open',
-    confirmTitle: 'Switch to {workspace}?',
-    confirmBody: 'The sidebar will change to the {workspace} screens. Nothing on your current screen is lost; you can switch back from Switch workspace.',
-    confirmLabel: 'Switch',
   },
   // The connectivity strip (rulebook 9.6). It answers one question — can this
   // station reach the server — so "ok" no longer promises anything about the
@@ -49,6 +46,8 @@ export const shellEn = {
   // role"; a verbal noun, so the Arabic template agrees with it.
   forbidden: {
     action: 'Opening this screen',
+    // 0345: the owner unticked this page on the person's Access list.
+    blocked: 'The owner has closed this page for you. Ask them if you need it.',
   },
   lock: {
     title: 'Station locked',
@@ -120,12 +119,19 @@ export const shellEn = {
     observation: 'Observe',
     stock: 'Stock',
     setup: 'Setup',
+    // Operations' three sections (owner call, 2026-10-16).
+    run: 'Run the day',
+    records: 'Records',
+    opsSetup: 'Setup',
   },
   sectionLead: {
     financial: 'Money in, money out, and whether the cash agrees',
     observation: 'The floor now, the pattern behind it, and what is waiting on you',
     stock: 'On hand, deliveries, waste, counts and what the shelves are worth',
     setup: 'Staff, courts, tables and how the venue is configured',
+    run: 'Bookings, tabs, stock, the day close and the team',
+    records: 'Reports, coach pay and the audit log',
+    opsSetup: 'Menu, rates, coaches and promotions',
   },
   workspaceLead: {
     courtDesk: 'Bookings, arrivals and customers',
@@ -192,6 +198,7 @@ export const shellEn = {
     // Observation section rows.
     floorNow: 'Floor now',
     staffActivity: 'Staff activity',
+    activityMonitor: 'Activity monitor',
     requests: 'Requests',
     marketing: 'Marketing',
     telegram: 'Telegram',
@@ -213,6 +220,7 @@ export const shellEn = {
     attendance: 'Late and early',
     // Staff rewards (0332–0333): beside Wages, where a reached bonus lands.
     rewards: 'Rewards',
+    safe: 'Safe',
     // Coaching (docs/design/coaching/operator.md §5.3.3).
     coaches: 'Coaches',
     coachPay: 'Coach pay',

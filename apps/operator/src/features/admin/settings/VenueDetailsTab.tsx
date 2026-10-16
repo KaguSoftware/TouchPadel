@@ -61,7 +61,7 @@ const SERVER_FIELD: Record<string, VenueField> = {
 export function VenueDetailsTab() {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
-  const canEdit = can(staff?.role, 'editVenueDetails');
+  const canEdit = can(staff, 'editVenueDetails');
   const onlineLive = useOnlinePaymentsLive();
   const venueQ = useQuery({ queryKey: VENUE_ADMIN_KEY, queryFn: fetchVenueAdmin, staleTime: 60_000 });
   const taxQ = useQuery({ queryKey: TAX_GROUPS_KEY, queryFn: fetchTaxGroups, staleTime: 60_000 });

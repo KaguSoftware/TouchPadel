@@ -230,6 +230,25 @@ export function previousTurnOf(row: { tokens?: unknown; created_at?: unknown } |
 }
 
 /**
+ * Models that always carry web_search. The deep tier (advice, why, the world
+ * outside the club) runs on the chat default, Opus unless the owner picked
+ * another, so tying the tool to the model keeps one cached prefix per model.
+ */
+export const WEB_SEARCH_MODELS: ReadonlySet<string> = new Set(['claude-opus-5-5']);
+
+/**
+ * Whether this turn sends the web_search tool. Measured 2026-10-16 (billed
+ * input, claude-sonnet-5-5): the tool adds 5,671 tokens to an 18,458-token
+ * prefix, written fresh on every cold start, and no Sonnet turn had searched
+ * (the prompt keeps the web to ideas, plans and outside facts, which route
+ * deep). So: always on a WEB_SEARCH_MODELS model, otherwise only on a deep
+ * route (model null: an owner who pinned Sonnet still gets the web for advice).
+ */
+export function webSearchOn(model: string, route: { kind: string; model: string | null }): boolean {
+  return WEB_SEARCH_MODELS.has(model) || (route.kind === 'analysis' && route.model === null);
+}
+
+/**
  * A lookup inside the warm window runs on the previous turn's model and
  * effort, so it reads the cache instead of re-writing it. Analysis is never
  * changed (its model is a quality call). Nor is a lookup when the owner's own

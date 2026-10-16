@@ -110,4 +110,14 @@ export const opErrorsCodesEn = {
   REWARD_INVALID: 'Set a target from 1 to 100,000 orders and a bonus or a prize.',
   REWARD_TARGET_TAKEN: 'This person already has a reward at that target.',
   REWARD_LIMIT: 'A person can have up to 5 rewards.',
+  // Customer discounts (0342).
+  SELF_DISCOUNT: 'You cannot set or give a discount to yourself. Ask a colleague to do it.',
+  COURT_DISCOUNT_NOT_ALLOWED: 'A court discount goes on a confirmed booking only, not on an open match.',
+  COURT_BILL_CLOSED: 'This booking’s bill was already closed with this discount, so it can no longer change.',
+  COURT_FEE_PAID: 'The court fee for this booking is already paid, so there is nothing left to discount.',
+  // Main cash (0343) and wage advances (0344).
+  MAIN_CASH_CHANGED: 'The safe changed while you were counting. Check the new figure and count again.',
+  MAIN_CASH_HANDED_IN: 'This drawer was already handed in to the safe for that day. Take that entry back on the Safe page to redo it.',
+  MAIN_CASH_LINKED: 'This payment belongs to a wage, an advance or a coach payment. Undo it on that page and the safe follows.',
+  WAGE_ADVANCE_TOO_LARGE: 'That is more than they are still owed this month.',
 };

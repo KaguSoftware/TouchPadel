@@ -32,6 +32,7 @@ import {
   BellIcon,
   CameraIcon,
   EyeIcon,
+  PeopleIcon,
   SlidersIcon,
   StopwatchIcon,
   TitleSquiggle,
@@ -726,6 +727,21 @@ function TodayScreen() {
                     preview={t('staff.screenshots.entryPreview')}
                     compact={compact}
                     onPress={() => router.push('/staff-screenshots')}
+                  />,
+                ]
+              : []),
+            // The owner's activity monitor: who is on the operator and the phone (0341).
+            ...(staff.role === 'owner'
+              ? [
+                  <GroupTile
+                    key="activity"
+                    testID="staff.activity"
+                    icon={PeopleIcon}
+                    title={t('staff.activity.entry')}
+                    waiting={false}
+                    preview={t('staff.activity.entryPreview')}
+                    compact={compact}
+                    onPress={() => router.push('/staff-activity')}
                   />,
                 ]
               : []),

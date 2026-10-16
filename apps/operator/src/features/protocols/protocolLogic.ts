@@ -22,7 +22,7 @@ import {
 } from '@touch/core/protocols';
 import { HIREABLE_ROLES, STAFF_ROLES, type StaffRole } from '@touch/core/staff/roles';
 import type { Locale } from '@touch/i18n';
-import { can } from '../../lib/auth';
+import { can, type StaffWho } from '../../lib/auth';
 
 // ── Small readers ──────────────────────────────────────────────────────────
 
@@ -733,7 +733,7 @@ export const OWNER_STEP_ROLES: readonly StaffRole[] = HIREABLE_ROLES;
  * what a decision would carry (a new item's section, §2.8); who may press
  * anything is the engine's `can`, never this.
  */
-export function decidesStep(role: StaffRole | null | undefined, needsOwnerOk: boolean): boolean {
+export function decidesStep(role: StaffWho, needsOwnerOk: boolean): boolean {
   return can(role ?? undefined, needsOwnerOk ? 'decideOwnerOkSteps' : 'decideSteps');
 }
 
@@ -742,7 +742,7 @@ export function decidesStep(role: StaffRole | null | undefined, needsOwnerOk: bo
  * TEXT_BOTH_LANGUAGES_REQUIRED; `titleRunsInBoth`); staff may type one (Q10).
  * The server's rule, mirrored so the form asks for the right thing.
  */
-export function titlesInBoth(role: StaffRole | null | undefined): boolean {
+export function titlesInBoth(role: StaffWho): boolean {
   return can(role ?? undefined, 'titleRunsInBoth');
 }
 

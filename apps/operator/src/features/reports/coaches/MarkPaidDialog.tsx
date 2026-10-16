@@ -9,6 +9,10 @@
  * characters and never a run of 12 or more digits across spaces, hyphens and
  * dots (a card or account number). A PIN refusal stays on the PIN prompt;
  * every other refusal comes back here with its §5.19 line.
+ *
+ * 0344: "Paid from" (Safe, preselected, or Bank transfer) goes as
+ * `p_paid_from`; from the safe, the server takes the amount out of the main
+ * cash. Same words as the Wages dialogs.
  */
 import { useState } from 'react';
 import { isolate } from '@touch/i18n';
@@ -17,7 +21,7 @@ import { deviceId } from '../../../lib/idem';
 import { useLocale } from '../../../lib/i18n';
 import { useStationReach } from '../../../lib/stationReach';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components/ui';
-import { PinPromptOverlay } from '../../../components/kit';
+import { PinPromptOverlay, SegmentedControl } from '../../../components/kit';
 import { readStatementPaid, type StatementRow } from '../../coaching/lessonPayloads';
 import { coachingErrorText } from '../../coaching/lessonLogic';
 import {
@@ -42,6 +46,7 @@ export function MarkPaidDialog({
   const { tr, locale } = useLocale();
   const { reachable } = useStationReach();
   const [reference, setReference] = useState('');
+  const [paidFrom, setPaidFrom] = useState<'safe' | 'bank'>('safe');
   const [touched, setTouched] = useState(false);
   const [pinOpen, setPinOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -70,6 +75,7 @@ export function MarkPaidDialog({
           p_reference: reference.trim(),
           p_pin: pin,
           p_device_id: deviceId(),
+          p_paid_from: paidFrom,
         }),
       );
       setPinOpen(false);
@@ -136,6 +142,20 @@ export function MarkPaidDialog({
             disabled={busy}
             onChange={(e) => setReference(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && next()}
+          />
+        </Field>
+        <Field
+          label={tr('ws.coaching.coachPay.markPaid.paidFrom')}
+          hint={tr(paidFrom === 'safe' ? 'ws.coaching.coachPay.markPaid.safeHint' : 'ws.coaching.coachPay.markPaid.bankHint')}
+          group
+        >
+          <SegmentedControl<'safe' | 'bank'>
+            value={paidFrom}
+            onChange={setPaidFrom}
+            options={[
+              { value: 'safe', label: tr('ws.coaching.coachPay.markPaid.paidFromSafe'), disabled: busy, testId: 'markPaid.from.safe' },
+              { value: 'bank', label: tr('ws.coaching.coachPay.markPaid.paidFromBank'), disabled: busy, testId: 'markPaid.from.bank' },
+            ]}
           />
         </Field>
         <ErrorText

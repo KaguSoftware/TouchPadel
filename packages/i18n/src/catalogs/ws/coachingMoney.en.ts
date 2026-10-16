@@ -127,6 +127,12 @@ export const coachingMoneyEn = {
       next: 'Continue',
       // Inside "Enter a manager PIN to {action}."
       pinAction: 'mark {amount} paid to {coach}',
+      // 0344: where the money came from (the Wages dialogs use the same words).
+      paidFrom: 'Paid from',
+      paidFromSafe: 'Safe',
+      paidFromBank: 'Bank transfer',
+      safeHint: 'The money comes out of the safe.',
+      bankHint: 'Nothing comes out of the safe.',
     },
     void: {
       title: 'Void statement',

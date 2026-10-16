@@ -226,7 +226,7 @@ export function RecipeChangeSheet({ id, fallback, onClose }: { id: string; fallb
   const qc = useQueryClient();
   const targetName = useTargetName();
   const fmt = useStockFormat();
-  const canDecide = can(staff?.role, 'decideRecipeChanges');
+  const canDecide = can(staff, 'decideRecipeChanges');
   const allQ = useQuery({
     queryKey: RK.recipeChanges('all', 0),
     queryFn: () => appRpc<unknown>('recipe_changes_page', { p_filter: 'all', p_limit: 100, p_offset: 0 }),

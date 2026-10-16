@@ -87,6 +87,18 @@ import { loyaltyAr } from './loyalty.ar';
 // Staff rewards (0332–0333): the owner's Rewards page; bonuses reach the wage through wages.*.
 import { rewardsEn } from './rewards.en';
 import { rewardsAr } from './rewards.ar';
+// The main cash (0343): the Safe page.
+import { safeEn } from './safe.en';
+import { safeAr } from './safe.ar';
+// The owner's activity monitor (0341): last seen and last action, operator and mobile apart.
+import { activityEn } from './activity.en';
+import { activityAr } from './activity.ar';
+// Standing customer discounts (0342): the record's Discount card and the bill's Customer discount.
+import { discountsEn } from './discounts.en';
+import { discountsAr } from './discounts.ar';
+// The free AI (owner call 2026-10-16): every staff role's assistant, and the owner's "The free AI".
+import { assistantFreeEn } from './assistantFree.en';
+import { assistantFreeAr } from './assistantFree.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -121,6 +133,10 @@ export const wsEn = {
   tournaments: tournamentsEn,
   loyalty: loyaltyEn,
   rewards: rewardsEn,
+  safe: safeEn,
+  activity: activityEn,
+  discounts: discountsEn,
+  assistantFree: assistantFreeEn,
 } as const;
 
 export const wsAr = {
@@ -156,4 +172,8 @@ export const wsAr = {
   tournaments: tournamentsAr,
   loyalty: loyaltyAr,
   rewards: rewardsAr,
+  safe: safeAr,
+  activity: activityAr,
+  discounts: discountsAr,
+  assistantFree: assistantFreeAr,
 } as const;

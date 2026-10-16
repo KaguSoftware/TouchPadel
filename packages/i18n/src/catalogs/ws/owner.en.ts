@@ -502,6 +502,43 @@ export const ownerEn = {
       save: 'Save stations',
       saved: 'Stations saved.',
     },
+    // 0345: second jobs and blocked pages, per person (StaffAccountEditor's AccessField).
+    access: {
+      title: 'Access',
+      lead: 'Their role ticks the pages it opens. Add a second job for someone who covers two jobs, or untick a page to keep them out of it.',
+      owner: 'An owner opens everything, so there is nothing to tick.',
+      jobsTitle: 'Second jobs',
+      jobsHint: 'Each one adds that job’s screens and buttons beside their role.',
+      management: 'A manager already opens the till, the desk, the kitchen screen and the shop.',
+      pagesTitle: 'Pages they can open',
+      pagesHint: 'Untick a page to take it off their menu and keep them out of it.',
+      areas: {
+        till: 'Till',
+        desk: 'Court desk',
+        customers: 'Customers',
+        tournaments: 'Tournaments',
+        kds: 'Kitchen',
+        shop: 'Touch Shop',
+        tasks: 'My tasks',
+        incidents: 'Incidents',
+        ops: 'Operations',
+        stock: 'Stock',
+        admin: 'Setup (menu, courts, day close)',
+        reports: 'Reports',
+        protocols: 'Protocols',
+        suggestions: 'Suggestions',
+        deductions: 'Pay deductions',
+        attendance: 'Late and early',
+      },
+      save: 'Save access',
+      saved: 'Access saved.',
+      confirmTitle: 'Change what {name} can open?',
+      confirmAddJobs: 'Adds the second job: {list}.',
+      confirmRemoveJobs: 'Takes away the second job: {list}.',
+      confirmBlock: 'Keeps them out of: {list}.',
+      confirmUnblock: 'Opens again: {list}.',
+      confirmWhen: 'Their screens update within a minute.',
+    },
     // 0105: the daily allowance, set here because it is about people.
     breaks: {
       title: 'Breaks',
@@ -644,11 +681,14 @@ export const ownerEn = {
       rewards: 'Bonuses and prizes for orders placed in a month, set per person. A bonus reached is added to the next month’s wage.',
       // Coaching (coaching operator.md §5.3.3).
       coachPay: 'Monthly coach statements: approve and mark paid',
+      // The main cash (0343).
+      safe: 'The main cash: pay a cost in three taps, move cash in from the drawers, and see where the money went.',
     },
     // A card's status line: "To approve 2 · To pay 1" (coaching operator.md §5.3.3).
     status: {
       toApprove: 'To approve',
       toPay: 'To pay',
+      inSafe: 'In the safe',
     },
     headline: {
       title: 'This month so far',
@@ -1049,7 +1089,6 @@ export const ownerEn = {
       docs: 'Documents',
       tables: 'Any table (advanced)',
       presets: {
-        everything: 'Everything',
         moneyAndFloor: 'Money and floor',
         justHelp: 'Just help',
       },

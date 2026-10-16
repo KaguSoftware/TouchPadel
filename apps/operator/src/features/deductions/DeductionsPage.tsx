@@ -103,9 +103,9 @@ export function DeductionsPageScreen() {
         title={tr('ws.deductions.title')}
         subtitle={tr('ws.deductions.lead')}
         actions={
-          can(staff?.role, 'proposeDeductions') && !proposing ? (
+          can(staff, 'proposeDeductions') && !proposing ? (
             <Button kind="primary" icon="plus" onClick={() => setProposing(true)} data-testid="deductions.propose">
-              {tr(ownerRecordsAtOnce(staff?.role) ? 'ws.deductions.propose.openOwner' : 'ws.deductions.propose.open')}
+              {tr(ownerRecordsAtOnce(staff) ? 'ws.deductions.propose.openOwner' : 'ws.deductions.propose.open')}
             </Button>
           ) : undefined
         }

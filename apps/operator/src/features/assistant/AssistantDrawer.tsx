@@ -1,23 +1,30 @@
 /**
- * The assistant on every owner page (plan §5.1): a sheet on the inline-end
- * side, opened from the rail footer or Ctrl/⌘ K, so "where is …" can be
- * asked from anywhere and the answer's page links keep the section rail.
+ * The assistant on every page (plan §5.1): a sheet on the inline-end side,
+ * opened from the rail footer or Ctrl/⌘ K, so "where is …" can be asked from
+ * anywhere and the answer's page links keep the section rail.
  *
- * Mounted once in the shell. The open conversation lives in sessionStorage
- * so a reload lands on the same chat; the scopes a new chat starts with are
- * the page's own scope plus Pages and how-to on top of the owner's last set.
- * Owner only — `canAccess('/assistant')` decides, same as the route.
+ * Every signed-in staff member may open it (owner call 2026-10-16), but what
+ * it holds depends on who: staff ALWAYS get the free AI (FreeThread, Groq,
+ * pages and how-to only, no business data); the owner gets the paid Thread
+ * unless he picked "The free AI" (useAssistantMode). The /assistant page
+ * stays owner-only, so "Open full page" and the paid new-chat button are his.
+ *
+ * Mounted once in the shell. The open paid conversation lives in
+ * sessionStorage so a reload lands on the same chat; a new paid chat starts
+ * with Pages and how-to, the page's own scope and the owner's last ticks.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import type { AssistantScope } from '@touch/core/assistant/tools';
-import { canAccess, useAuth } from '../../lib/auth';
+import { useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
 import { Button, trapTab } from '../../components/ui';
 import { Kbd } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { useOwnsScreen } from '../../lib/screenOwner';
 import { Thread } from './Thread';
+import { FreeThread } from './FreeThread';
+import { useAssistantMode } from './useAssistantMode';
 import { initialScopes, loadSessionConversation, saveSessionConversation } from './scopes';
 
 interface DrawerContextValue {
@@ -43,7 +50,8 @@ export function useAssistantDrawerOrNull(): DrawerContextValue | null {
 
 export function AssistantDrawerProvider({ children }: { children: ReactNode }) {
   const { staff } = useAuth();
-  const allowed = canAccess(staff?.role, '/assistant');
+  // Everyone signed in: staff get the free AI, the owner the paid one or the free one.
+  const allowed = !!staff;
   const [open, setOpen] = useState(false);
   const openDrawer = useCallback(() => setOpen(true), []);
   const closeDrawer = useCallback(() => setOpen(false), []);
@@ -107,6 +115,8 @@ export function AssistantDrawer() {
 function DrawerSheet({ open, onClose, onExited }: { open: boolean; onClose: () => void; onExited: () => void }) {
   const { tr } = useLocale();
   const { staff } = useAuth();
+  const { mode, canUsePaid } = useAssistantMode();
+  const paid = mode === 'paid';
   const path = useRouterState({ select: (s) => s.location.pathname });
   const panel = useRef<HTMLDivElement>(null);
   const [conversationId, setConversationId] = useState<string | null>(() => loadSessionConversation());
@@ -215,21 +225,28 @@ function DrawerSheet({ open, onClose, onExited }: { open: boolean; onClose: () =
         <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
           <Icon name="spark" size={18} />
           <h2 style={{ fontSize: 'var(--tp-fs-lg)', fontWeight: 700, margin: 0, flex: 1 }}>{tr('ws.owner.assistant.title')}</h2>
-          <Button size="sm" kind="ghost" icon="plus" onClick={() => pick(null)} title={tr('ws.owner.assistant.newChat')} aria-label={tr('ws.owner.assistant.newChat')} />
-          <Link
-            to={conversationId ? '/assistant/$id' : '/assistant'}
-            params={(conversationId ? { id: conversationId } : {}) as never}
-            className="tp-link"
-            onClick={onClose}
-            style={{ fontSize: 'var(--tp-fs-sm)', display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}
-          >
-            <Icon name="expand" size={14} />
-            {tr('ws.owner.assistant.openFullPage')}
-          </Link>
+          {paid && <Button size="sm" kind="ghost" icon="plus" onClick={() => pick(null)} title={tr('ws.owner.assistant.newChat')} aria-label={tr('ws.owner.assistant.newChat')} />}
+          {/* The full page is the owner's; FreeThread carries its own "New chat". */}
+          {canUsePaid && (
+            <Link
+              to={paid && conversationId ? '/assistant/$id' : '/assistant'}
+              params={(paid && conversationId ? { id: conversationId } : {}) as never}
+              className="tp-link"
+              onClick={onClose}
+              style={{ fontSize: 'var(--tp-fs-sm)', display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}
+            >
+              <Icon name="expand" size={14} />
+              {tr('ws.owner.assistant.openFullPage')}
+            </Link>
+          )}
           <Button size="sm" kind="ghost" icon="x" onClick={onClose} aria-label={tr('ws.owner.assistant.close')} title={tr('ws.owner.assistant.close')} />
         </header>
         <div style={{ flex: 1, minBlockSize: 0 }}>
-          <Thread conversationId={conversationId} onConversation={(id) => pick(id)} newScopes={newScopes} onNewScopesChange={setNewScopes} compact autoFocus onNavigate={onClose} />
+          {paid ? (
+            <Thread conversationId={conversationId} onConversation={(id) => pick(id)} newScopes={newScopes} onNewScopesChange={setNewScopes} compact autoFocus onNavigate={onClose} />
+          ) : (
+            <FreeThread compact autoFocus onNavigate={onClose} />
+          )}
         </div>
       </div>
     </>

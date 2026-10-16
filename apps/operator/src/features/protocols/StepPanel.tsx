@@ -55,7 +55,7 @@ const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as co
 export function StepPanel({ stepId, run }: { stepId: string; run?: RunDetail | null }) {
   const { tr } = useLocale();
   const { staff } = useAuth();
-  const mgmt = canAccess(staff?.role, '/protocols');
+  const mgmt = canAccess(staff, '/protocols');
   const q = useStepDetail(stepId);
   const d = q.data;
   const runQ = useRunDetail(run ? null : d?.run.id ?? null);
@@ -394,7 +394,7 @@ function ElsewhereAction({ kind, runId, stepId }: { kind: 'courts' | 'hire'; run
   const { staff } = useAuth();
   const navigate = useNavigate();
   const route = kind === 'courts' ? '/desk/block' : '/admin/staff';
-  const allowed = canAccess(staff?.role, route);
+  const allowed = canAccess(staff, route);
   return (
     <section style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
       <p style={{ margin: 0 }}>{tr(`ws.protocols.elsewhere.${kind}.body`)}</p>
@@ -433,7 +433,7 @@ function StepSubmitForm({ d, runDetail, ctx }: { d: StepDetail; runDetail: RunDe
     baseForm && run.kind === 'price_promo' && stepKey === 'numbers'
       ? { ...baseForm, fields: numbersFields(baseForm.fields, proposal) }
       : baseForm;
-  const submitterDecides = decidesStep(staff?.role, step.needs_owner_ok);
+  const submitterDecides = decidesStep(staff, step.needs_owner_ok);
   // A manager or the owner covering a step whose actors they are not (§2.7 "Who may act").
   const covering = step.assigned_to !== staff?.id && !(staff?.role && step.actor_roles.includes(staff.role));
   const targetsQ = useTargets(run.kind === 'price_promo' && stepKey === 'propose' ? change : null);

@@ -45,7 +45,7 @@ export function StationsPanel() {
   const confirm = useConfirm();
   const qc = useQueryClient();
   const { branchId, current, stationBranchId } = useVenue();
-  const canManage = can(staff?.role, 'editVenueDetails') || staff?.role === 'manager';
+  const canManage = can(staff, 'editVenueDetails') || staff?.role === 'manager';
   const here = station();
   const hereMode = touch.getStation().mode;
 

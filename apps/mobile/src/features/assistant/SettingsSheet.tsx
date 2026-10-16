@@ -8,15 +8,22 @@
  * as coach mode's accept sheet. The modal sits outside the app's direction
  * root, so it takes `dir`. The body mounts only while the sheet is open, so the
  * month's spend is read fresh each time it opens.
+ *
+ * Below the paid models sits "The free AI" (owner call 2026-10-16): not a
+ * model the chat is saved with, but a switch of the whole screen to the free
+ * assistant (`onChooseFree`; FREE_MODEL_CHOICE names its row, never an
+ * `assistant_set_model` value).
  */
 import { Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isolate } from '@touch/i18n';
+import { FREE_MODEL_CHOICE } from '@touch/core/assistant/free';
 import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../theme';
 import { Button, Hint, MicroLabel } from '../../components/ui';
+import { ChevronIcon, SparkIcon } from '../../components/icons';
 import { assistantKeys, fetchUsage } from './api';
 import { formatUsd, modelName } from './chat';
 import { ModelRow } from './parts';
@@ -34,6 +41,8 @@ export interface SettingsSheetProps {
   value: string | null;
   onChange: (next: string | null) => void;
   disabled?: boolean;
+  /** "The free AI": switch the screen to the free assistant. Left out, the row is not offered. */
+  onChooseFree?: () => void;
 }
 
 export function SettingsSheet(props: SettingsSheetProps) {
@@ -59,6 +68,7 @@ export function SettingsBody({
   value,
   onChange,
   disabled,
+  onChooseFree,
 }: SettingsSheetProps) {
   const { t, dir } = useLocale();
   const { colors, fonts } = useTheme();
@@ -193,6 +203,42 @@ export function SettingsBody({
                 ? t('staff.assistant.model.defaultIs', { model: modelName(defaultModel) })
                 : t('staff.assistant.model.next')}
             </Hint>
+          </View>
+        ) : null}
+
+        {onChooseFree ? (
+          <View style={{ gap: space.s }}>
+            {models.length === 0 ? (
+              <MicroLabel style={{ paddingStart: 4 }}>{t('staff.assistant.model.title')}</MicroLabel>
+            ) : null}
+            <Pressable
+              testID={`${testID}.model.${FREE_MODEL_CHOICE}`}
+              accessibilityRole="button"
+              accessibilityHint={t('staff.assistant.free.choiceHint')}
+              disabled={disabled}
+              onPress={onChooseFree}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: space.m,
+                paddingVertical: space.m,
+                paddingHorizontal: space.l,
+                backgroundColor: pressed ? colors.sub : colors.card,
+                borderWidth: 1,
+                borderColor: colors.line,
+                borderRadius: radius.card,
+                opacity: disabled ? 0.55 : 1,
+              })}
+            >
+              <SparkIcon size={20} color={colors.blue} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={labelStyle}>{t('staff.assistant.free.choice')}</Text>
+                <Text style={{ fontFamily: fonts.body400, fontSize: 14, lineHeight: 20, color: colors.mut }}>
+                  {t('staff.assistant.free.choiceHint')}
+                </Text>
+              </View>
+              <ChevronIcon size={16} color={colors.mut} />
+            </Pressable>
           </View>
         ) : null}
       </ScrollView>

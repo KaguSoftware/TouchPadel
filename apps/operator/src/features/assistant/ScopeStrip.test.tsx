@@ -18,13 +18,18 @@ describe('ScopeStrip', () => {
   it('marks the matching preset as pressed and applies another on a tap', () => {
     const { onChange } = renderStrip();
     expect(screen.getByRole('button', { name: 'Just help' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('button', { name: 'Everything' }).getAttribute('aria-pressed')).toBe('false');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Everything' }));
-    expect(onChange).toHaveBeenLastCalledWith([...ASSISTANT_SCOPES]);
+    expect(screen.getByRole('button', { name: 'Money and floor' }).getAttribute('aria-pressed')).toBe('false');
 
     fireEvent.click(screen.getByRole('button', { name: 'Money and floor' }));
     expect(onChange).toHaveBeenLastCalledWith([...ASSISTANT_PRESETS.moneyAndFloor].sort((a, b) => ASSISTANT_SCOPES.indexOf(a) - ASSISTANT_SCOPES.indexOf(b)));
+  });
+
+  // Owner call 2026-10-16: no one-tap "every scope"; the owner ticks what a chat needs.
+  it('offers no Everything preset, only Money and floor and Just help', () => {
+    renderStrip();
+    expect(screen.queryByRole('button', { name: 'Everything' })).toBeNull();
+    const presets = document.querySelectorAll('[data-scope-strip] [role="group"] button');
+    expect(presets).toHaveLength(2);
   });
 
   it('toggles one checkbox and keeps catalog order', () => {

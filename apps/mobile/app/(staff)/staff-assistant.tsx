@@ -35,15 +35,24 @@ import {
 import { useAssistantChat } from '../../src/features/assistant/useAssistantChat';
 import { Answer, Composer, ScopeChips, UserBubble } from '../../src/features/assistant/parts';
 import { SettingsSheet } from '../../src/features/assistant/SettingsSheet';
+import { FreeThread } from '../../src/features/assistant/FreeThread';
+import { freeFrom } from '../../src/features/assistant/free';
+import { setFreeMode, useFreeMode } from '../../src/features/assistant/freeMode';
 import { captureException } from '../../src/lib/telemetry';
 
 /**
- * The owner's assistant on the phone (docs/design/assistant). One screen: the
- * thread, the scopes the chat may read as chips, the composer; the model and
- * what was spent sit behind the header's settings button (SettingsSheet). Reached from
- * the highlighted button on Today, owner only; the edge function
- * (`assistant-chat`) and RLS are the wall, this gate only keeps a page from
- * rendering a refusal.
+ * The assistant on the phone (docs/design/assistant). For the owner, one
+ * screen: the thread, the scopes the chat may read as chips, the composer; the
+ * model and what was spent sit behind the header's settings button
+ * (SettingsSheet). Reached from the highlighted button on Today and the
+ * floating one; the edge function (`assistant-chat`, owner only) and RLS are
+ * the wall, the role check here only keeps a page from rendering a refusal.
+ *
+ * The free assistant (owner call 2026-10-16): every other staff role gets
+ * FreeThread and nothing else (no scopes, no models, no spend, no chat list,
+ * no paid path). The owner can pick "The free AI" in the settings sheet; the
+ * choice is kept on this phone (freeMode.ts) and "Use the paid assistant"
+ * switches back. `from` is the staff page the button was pressed on.
  *
  * The record is the database: stored rows render the thread, the live turn
  * streams over it and gives way when its stored rows arrive. A new chat holds
@@ -56,10 +65,12 @@ function AssistantThread({
   initialId,
   settingsOpen,
   onCloseSettings,
+  onChooseFree,
 }: {
   initialId: string | null;
   settingsOpen: boolean;
   onCloseSettings: () => void;
+  onChooseFree: () => void;
 }) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
@@ -385,6 +396,7 @@ function AssistantThread({
         onChange={(next) => {
           if (next !== chosenModel) changeModel.mutate(next);
         }}
+        onChooseFree={onChooseFree}
       />
     </KeyboardAvoidingView>
   );
@@ -394,8 +406,14 @@ function AssistantScreen() {
   const { t } = useLocale();
   const { colors } = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const { status } = useStaffStatus();
+  const owner = status.kind === 'staff' && status.staff.role === 'owner';
+  const ownerFree = useFreeMode() === true;
+  // Everyone but the owner has the free assistant and only that one.
+  const free = !owner || ownerFree;
+  const params = useLocalSearchParams<{ id?: string; from?: string }>();
   const fromParam = params.id && params.id !== '' ? params.id : null;
+  const askedFrom = freeFrom(params.from);
 
   // The thread owns its conversation id (a first question makes the row); the
   // screen only decides when to start over: a chat picked from the list, or
@@ -407,14 +425,52 @@ function AssistantScreen() {
     if (fromParam !== seen.current) {
       seen.current = fromParam;
       setSession((s) => ({ epoch: s.epoch + 1, id: fromParam }));
+      // A stored chat is the paid assistant's: opening one leaves the free mode.
+      if (fromParam && owner) setFreeMode(false);
     }
-  }, [fromParam]);
+  }, [fromParam, owner]);
 
   const newChat = () => {
     seen.current = null;
     setSession((s) => ({ epoch: s.epoch + 1, id: null }));
     router.setParams({ id: '' });
   };
+
+  const newChatButton = (
+    <Pressable
+      testID={`${T}.new-chat`}
+      accessibilityRole="button"
+      accessibilityLabel={t('staff.assistant.chats.new')}
+      hitSlop={10}
+      onPress={newChat}
+      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+    >
+      <PlusIcon size={24} color={colors.blue} />
+    </Pressable>
+  );
+
+  if (free) {
+    return (
+      <Screen edges={[]} padded={false}>
+        <Stack.Screen
+          options={{
+            title: t('staff.assistant.free.title'),
+            headerRight: () => (
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.m }}>
+                {newChatButton}
+              </View>
+            ),
+          }}
+        />
+        <FreeThread
+          key={session.epoch}
+          testID={T}
+          from={askedFrom}
+          onUsePaid={owner ? () => setFreeMode(false) : undefined}
+        />
+      </Screen>
+    );
+  }
 
   return (
     <Screen edges={[]} padded={false}>
@@ -452,16 +508,7 @@ function AssistantScreen() {
               >
                 <ClockIcon size={24} color={colors.blue} />
               </Pressable>
-              <Pressable
-                testID={`${T}.new-chat`}
-                accessibilityRole="button"
-                accessibilityLabel={t('staff.assistant.chats.new')}
-                hitSlop={10}
-                onPress={newChat}
-                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-              >
-                <PlusIcon size={24} color={colors.blue} />
-              </Pressable>
+              {newChatButton}
             </View>
           ),
         }}
@@ -471,6 +518,10 @@ function AssistantScreen() {
         initialId={session.id}
         settingsOpen={settingsOpen}
         onCloseSettings={() => setSettingsOpen(false)}
+        onChooseFree={() => {
+          setSettingsOpen(false);
+          setFreeMode(true);
+        }}
       />
     </Screen>
   );
@@ -478,7 +529,8 @@ function AssistantScreen() {
 
 export default function StaffAssistantRoute() {
   return (
-    <RequireStaff roles={['owner']}>
+    // Every staff role: the owner's paid assistant or anyone's free one (AssistantScreen decides).
+    <RequireStaff>
       <AssistantScreen />
     </RequireStaff>
   );

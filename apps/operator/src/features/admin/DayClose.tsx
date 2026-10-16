@@ -43,12 +43,19 @@
  * shift is a WARNING, never a block: close_day ends it
  * uncounted, and nothing about shifts reaches deriveDayCloseState or
  * closeBlock. The CSV gains a row per shift.
+ *
+ * Main cash (0343, Majed 2026-10-16): once the day is closed, "Hand cash to
+ * the safe" (HandInToSafe.tsx) moves each drawer box's cash into the safe, one
+ * hand-in per box. The same panel sits beside "Open the day" while the last
+ * closed day still has a box that took cash and was not handed in.
  */
 import { DayCloseShop } from '../shop/DayCloseShop';
 import { DayCloseOnline, useDayCloseOnline } from './DayCloseOnline';
 import { reservationNameOf } from '../matches/matchLogic';
 import { useMatchStates } from '../matches/useMatches';
 import { HoldReviewsPanel } from '../holds/HoldStandingPanels';
+import { HandInToSafe, useDayBoxes } from './HandInToSafe';
+import { hasPendingHandIn } from './handInLogic';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -121,6 +128,8 @@ interface OpenTabRow {
 }
 
 interface LastCloseRow {
+  /** The day the "Hand cash to the safe" panel offers, while its cash is not all in the safe. */
+  day_session_id: string;
   business_date: string;
   cash_variance_iqd: number | null;
 }
@@ -146,6 +155,19 @@ const STATE_TONE: Partial<Record<DayCloseState, 'success' | 'danger' | 'warn' | 
 };
 
 const showDate = (iso: string, locale: Locale) => formatDate(new Date(`${iso}T00:00:00`), locale);
+
+/** The last closed day (['dayLastClose']): read beside the open-day form and by the hand-in panel there. */
+async function fetchLastClose(): Promise<LastCloseRow | null> {
+  const { data, error } = await supabase
+    .from('v_day_close_summary')
+    .select('day_session_id, business_date, cash_variance_iqd')
+    .eq('status', 'closed')
+    .order('closed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data as unknown as LastCloseRow | null;
+}
 
 export function DayClose() {
   const { tr, locale } = useLocale();
@@ -238,6 +260,18 @@ export function DayClose() {
   // the "Money outside the drawer" card, so it is fetched once.
   const onlineQ = useDayCloseOnline(day?.id ?? null, Boolean(day));
   const refundsDatedByShift = onlineQ.data?.refunds_dated_by_shift ?? null;
+
+  // Main cash (0343): the closed day's drawer boxes, so "Open the next day"
+  // steps back while there is still cash to hand to the safe, and the last
+  // closed day beside the open-day form, whose hand-in may still be waiting.
+  const closedBoxesQ = useDayBoxes(can.closeDay ? (closeResult?.day_session_id ?? null) : null);
+  const handInPending = hasPendingHandIn(closedBoxesQ.data);
+  const lastCloseQ = useQuery({
+    queryKey: ['dayLastClose'],
+    queryFn: fetchLastClose,
+    enabled: dayQ.isSuccess && !day && !closeResult,
+  });
+  const lastClosedDayId = lastCloseQ.data?.day_session_id ?? null;
 
   const adjustmentsQ = useQuery({
     queryKey: ['dayCloseAdjustments', daySessionId],
@@ -511,7 +545,10 @@ export function DayClose() {
               {tr('ws.manager.dayClose.openDayBtn')}
             </Button>
           </Panel>
-          <LastClose />
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', flex: '0 1 30rem', minInlineSize: 0 }}>
+            <LastClose />
+            {can.closeDay && lastClosedDayId && <HandInToSafe mode="pending" daySessionId={lastClosedDayId} />}
+          </div>
         </div>
       </div>
     );
@@ -542,7 +579,11 @@ export function DayClose() {
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(24rem, 1fr))', alignItems: 'start' }}>
         {/* ------------------------------------------------ the close itself */}
         {closeResult && businessDate ? (
-          <ClosedResult result={closeResult} businessDate={businessDate} onNextDay={startNextDay} />
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', minInlineSize: 0 }}>
+            <ClosedResult result={closeResult} businessDate={businessDate} onNextDay={startNextDay} quietNextDay={handInPending} />
+            {/* Main cash (0343): each drawer box hands its cash to the safe, once. */}
+            {can.closeDay && <HandInToSafe mode="closed" daySessionId={closeResult.day_session_id} />}
+          </div>
         ) : (
           <Panel
             title={<CardTitle icon="sun">{tr('ws.manager.dayClose.stepsTitle')}</CardTitle>}
@@ -1156,7 +1197,18 @@ function DaySummary({ summary, error, joinNames }: { summary: DaySummaryRow | nu
 }
 
 /** The screen after a successful close: the server's final figures, then the way on. */
-function ClosedResult({ result, businessDate, onNextDay }: { result: CloseResult; businessDate: string; onNextDay: () => void }) {
+function ClosedResult({
+  result,
+  businessDate,
+  onNextDay,
+  quietNextDay,
+}: {
+  result: CloseResult;
+  businessDate: string;
+  onNextDay: () => void;
+  /** The cash is not in the safe yet: the hand-in below is the next thing to do, so this steps back. */
+  quietNextDay?: boolean;
+}) {
   const { tr, locale } = useLocale();
   return (
     <Panel
@@ -1172,7 +1224,7 @@ function ClosedResult({ result, businessDate, onNextDay }: { result: CloseResult
         <FigureRow label={tr('ws.manager.dayClose.cardBatchShort')} value={<Money amount={result.card_terminal_batch_iqd} />} />
       </RowList>
       <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
-        <Button kind="primary" icon="sun" onClick={onNextDay}>
+        <Button kind={quietNextDay ? 'default' : 'primary'} icon="sun" onClick={onNextDay}>
           {tr('ws.manager.dayClose.nextDay')}
         </Button>
       </div>
@@ -1189,17 +1241,7 @@ function LastClose() {
   const { tr, locale } = useLocale();
   const lastQ = useQuery({
     queryKey: ['dayLastClose'],
-    queryFn: async (): Promise<LastCloseRow | null> => {
-      const { data, error } = await supabase
-        .from('v_day_close_summary')
-        .select('business_date, cash_variance_iqd')
-        .eq('status', 'closed')
-        .order('closed_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data as unknown as LastCloseRow | null;
-    },
+    queryFn: fetchLastClose,
   });
   if (lastQ.isPending || lastQ.isError) return null;
   const last = lastQ.data;

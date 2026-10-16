@@ -36,6 +36,12 @@
  *    on a few; it opens from "Promotion" among the actions.
  *  - "Due" twice. The amount still to pay after a part payment is said once,
  *    in the pay footer beside the buttons that take it.
+ *
+ * The customer's own discount (0342, features/discounts) has its own row and
+ * its own button beside the manager's Discount, with no PIN. While the tab is
+ * open the customer's standing discount is brought onto it automatically and
+ * re-worked as lines are added (useAutoCustomerDiscount); a court discount
+ * shows as a note under the court fee, which the server already reduced.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -52,7 +58,7 @@ import { useAuth, usePermissions } from '../../lib/auth';
 import { Button, ErrorText, Field, PinReasonModal, Skeleton, inputStyle } from '../../components/ui';
 import { Kbd, MessagePresenter, Money, ReasonCodePrompt, SegmentedControl, StatusBadge, TabStatusIndicator } from '../../components/kit';
 import { Icon } from '../../components/icons';
-import { computeTabTotals, discountBreakdown } from './tabTotals';
+import { computeTabTotals, discountBreakdown, liveLines } from './tabTotals';
 import { useTaxContext } from './useTaxContext';
 import { BillView } from './BillView';
 import { MergeTabsDialog, OverridePriceDialog, RefundDialog } from './ManagerActions';
@@ -65,6 +71,10 @@ import { DRAWER_REASONS } from './drawerReasons';
 import { useTillShiftOptional } from '../tillShift/shiftContext';
 import { MemberAttach } from '../loyalty/MemberAttach';
 import { loyaltyDiscountIqd } from '../loyalty/loyaltyLogic';
+import { LOCAL_TAB_PREFIX } from '../../lib/offlineTabs';
+import { BillDiscountDialog } from '../discounts/BillDiscountDialog';
+import { canDiscount, rpcMissing, useAutoCustomerDiscount, useBillDiscount } from '../discounts/useCustomerDiscount';
+import { useDiscountWords } from '../discounts/useDiscountWords';
 
 /** The part of app.booking_bill (0106) the till reads. Every figure is the server's. */
 interface TillBookingBill {
@@ -79,6 +89,7 @@ type Overlay =
   | { kind: 'pay'; method: PaymentMethod }
   | { kind: 'split' }
   | { kind: 'discount' }
+  | { kind: 'customerDiscount' }
   | { kind: 'void'; lineId: string }
   | { kind: 'override'; lineId: string }
   | { kind: 'bill' }
@@ -102,7 +113,7 @@ export function TabDetailPanel({
   const can = usePermissions();
   const { staff } = useAuth();
   const tillShift = useTillShiftOptional();
-  const bookingsVisible = canReadBookings(staff?.role);
+  const bookingsVisible = canReadBookings(staff);
   const [promoOpen, setPromoOpen] = useState(false);
   const [openLineId, setOpenLineId] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -198,6 +209,18 @@ export function TabDetailPanel({
   // Points used on the bill (loyalty_redeem writes a discount row) get their own row, out of the manager figure.
   const loyaltyOff = useMemo(() => loyaltyDiscountIqd(tab?.tab_adjustments ?? []), [tab]);
   const due = totals.due;
+
+  // The customer's own discount (0342). The version is this tab's own figures:
+  // when the goods or the other discounts move, the state is asked again and a
+  // percent is re-worked.
+  const discountAllowed = canDiscount(staff);
+  const discountLive = tab !== undefined && !settled && !tabId.startsWith(LOCAL_TAB_PREFIX) && (tab.status === 'open' || tab.status === 'awaiting_payment');
+  const discountVersion = `${totals.subtotal}|${liveLines(tab?.orders).length}|${discounts.manager}|${discounts.promotion}|${discounts.customer}|${totals.paid}`;
+  const billDiscQ = useBillDiscount({ tabId, reservationId, version: discountVersion, enabled: discountAllowed && discountLive });
+  const billDisc = billDiscQ.data;
+  useAutoCustomerDiscount({ tabId, reservationId, state: billDisc, version: discountVersion, enabled: discountAllowed && discountLive });
+  const discountWords = useDiscountWords();
+  const customerDiscountShown = discountAllowed && discountLive && billDisc !== undefined && !rpcMissing(billDiscQ.error);
 
   // F4/F5 from anywhere on the till OPEN the pane (TillScreen dispatches);
   // money is confirmed by click only. Registered before any early return.
@@ -559,6 +582,22 @@ export function TabDetailPanel({
           <Row label={tr('common.subtotal')} amount={totals.subtotal} />
           {discounts.manager - loyaltyOff > 0 && <Row label={tr('ws.cashier.detail.managerDiscount')} amount={-(discounts.manager - loyaltyOff)} />}
           {loyaltyOff > 0 && <Row label={tr('ws.loyalty.redeem.billRow')} amount={-loyaltyOff} />}
+          {discounts.customer > 0 && (
+            <Row
+              label={
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }} data-testid="customer-discount-row">
+                  <Icon name="user" size={13} /> {tr('ws.discounts.bill.row')}
+                  {billDisc?.cafe && <> · {discountWords.billLabel(billDisc.cafe, billDisc.standing?.reason)}</>}
+                </span>
+              }
+              amount={-discounts.customer}
+            />
+          )}
+          {billDisc?.cafe_waived && billDisc.standing?.cafe && (
+            <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }} data-testid="cafe-waived-note">
+              {tr('ws.discounts.bill.cafeWaived')}
+            </span>
+          )}
           {discounts.promotion > 0 && (
             <Row
               label={
@@ -573,7 +612,23 @@ export function TabDetailPanel({
           {courtPending ? (
             <Row label={courtLabel} amount={null} />
           ) : totals.court > 0 ? (
-            <Row label={courtLabel} amount={totals.court} />
+            <>
+              <Row label={courtLabel} amount={totals.court} />
+              {/* The fee above already has it taken off (0342): said, not subtracted twice. */}
+              {billDisc?.court && billDisc.court.amount_iqd > 0 && (
+                <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>
+                  {tr('ws.discounts.bill.courtNote', {
+                    label: discountWords.billLabel(billDisc.court, billDisc.standing?.reason),
+                    amount: formatIQD(billDisc.court.amount_iqd, locale),
+                  })}
+                </span>
+              )}
+              {billDisc?.court_waived && billDisc.standing?.court && (
+                <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }} data-testid="court-waived-note">
+                  {tr('ws.discounts.bill.courtWaived')}
+                </span>
+              )}
+            </>
           ) : courtPaidEarlier ? (
             <div style={{ ...kvRow, ...muted }}>
               <span>{courtLabel}</span>
@@ -644,6 +699,12 @@ export function TabDetailPanel({
                 <Button icon="tag" style={actionButton} disabled={busy} onClick={() => { setPinError(null); setOverlay({ kind: 'discount' }); }}>
                   {tr('ws.cashier.detail.discount')}
                 </Button>
+                {/* The customer's own price (0342): beside the manager's Discount, and no PIN. */}
+                {customerDiscountShown && (
+                  <Button icon="user" style={actionButton} disabled={busy} data-testid="customer-discount-button" onClick={() => setOverlay({ kind: 'customerDiscount' })}>
+                    {tr('ws.discounts.action')}
+                  </Button>
+                )}
                 {/* Clearing the notice is part of the toggle, like the discount
                     button's setPinError(null) above: a refusal describes ONE
                     press against ONE snapshot of a tab, and this one used to
@@ -927,6 +988,7 @@ export function TabDetailPanel({
           </Field>
         </PinReasonModal>
       )}
+      {overlay.kind === 'customerDiscount' && billDisc && <BillDiscountDialog tabId={tabId} reservationId={reservationId} state={billDisc} onClose={close} />}
       {overlay.kind === 'void' && (
         <PinReasonModal
           title={tr('op.till.voidTitle')}

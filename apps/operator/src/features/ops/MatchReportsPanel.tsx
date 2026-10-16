@@ -12,9 +12,10 @@
  * confirm, hidden once the player is banned. A report someone else dealt with
  * first (REPORT_CLOSED) refreshes the list and says so.
  *
- * Mounted `hideWhenEmpty` on Today, after the online refunds: nothing while
- * nothing waits, and nothing on a server without open matches (RPC_MISSING).
- * A failed first read says so with Retry (§5.5). Online only (DF-11).
+ * On Today it is a row of "Needs you" (Player reports, with its count), and
+ * its rows open in place under it (`bare`): nothing while nothing waits, and
+ * nothing on a server without open matches (RPC_MISSING). A failed first read
+ * says so with Retry (§5.5). Online only (DF-11).
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -38,25 +39,38 @@ import { reportActions, reportCategoryKey, reportReasonKey, reportRefusalRefetch
 
 const K = 'ws.matches.ops';
 
-export function MatchReportsPanel({ hideWhenEmpty = false }: { hideWhenEmpty?: boolean }) {
-  const { tr } = useLocale();
+/**
+ * The player reports read for the branch on the rail, shared by the panel and
+ * Today's "Needs you" row (one cache). Null when this person may not review them.
+ */
+export function useMatchReportsQueue() {
   const caps = useMatchCaps();
   const branch = currentBranchId();
   const q = useMatchReports(branch, caps.reviewMatchReports);
   const status = useMatchRead(q);
+  return { allowed: caps.reviewMatchReports, q, status };
+}
+
+/**
+ * `bare`: the rows alone, for Today, where the reports open in place under
+ * their "Needs you" row (which carries the title and the count).
+ */
+export function MatchReportsPanel({ hideWhenEmpty = false, bare = false }: { hideWhenEmpty?: boolean; bare?: boolean }) {
+  const { tr } = useLocale();
+  const branch = currentBranchId();
+  const { allowed, q, status } = useMatchReportsQueue();
   const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings, staleTime: 5 * 60_000 });
   const tz = settingsQ.data?.timezone ?? VENUE_TZ;
   const rows = status.kind === 'ready' ? sortReports(status.data) : null;
   const cap = useListCap(rows ?? []);
 
-  if (!caps.reviewMatchReports || status.kind === 'absent') return null;
+  if (!allowed || status.kind === 'absent') return null;
   // Nothing disappears silently: a failed first read shows even on Today.
-  const show = status.kind === 'failed' || (status.kind === 'loading' ? !hideWhenEmpty : showReportsPanel({ rows: rows?.length, hideWhenEmpty }));
+  const show = bare || status.kind === 'failed' || (status.kind === 'loading' ? !hideWhenEmpty : showReportsPanel({ rows: rows?.length, hideWhenEmpty }));
   if (!show) return null;
 
-  return (
-    <Panel title={<CardTitle icon="alert">{tr(`${K}.title`)}</CardTitle>} data-testid="match-reports">
-      <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)', maxInlineSize: '70ch' }}>{tr(`${K}.lead`)}</p>
+  const body = (
+    <>
       {status.kind === 'loading' && <Skeleton lines={3} blockSize="1.4rem" />}
       <MatchReadNotice status={status} onRetry={() => void q.refetch()} tz={tz} />
       {rows && rows.length === 0 && <EmptyState compact icon="checkCircle" kind="nothingToDo" title={tr(`${K}.empty`)} titleAs="h3" />}
@@ -70,6 +84,14 @@ export function MatchReportsPanel({ hideWhenEmpty = false }: { hideWhenEmpty?: b
           <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
         </>
       )}
+    </>
+  );
+
+  if (bare) return <div data-testid="match-reports">{body}</div>;
+  return (
+    <Panel title={<CardTitle icon="alert">{tr(`${K}.title`)}</CardTitle>} data-testid="match-reports">
+      <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)', maxInlineSize: '70ch' }}>{tr(`${K}.lead`)}</p>
+      {body}
     </Panel>
   );
 }

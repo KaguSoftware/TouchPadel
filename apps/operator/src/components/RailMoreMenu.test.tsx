@@ -78,6 +78,26 @@ describe('the rail foot group', () => {
     expect(body()?.getAttribute('data-open')).toBeNull();
   });
 
+  it('collapses when anything outside it is pressed', async () => {
+    const user = userEvent.setup();
+    render(
+      <Wrap>
+        <button type="button">elsewhere</button>
+        <RailMoreMenu canSwitch onSwitchWorkspace={vi.fn()} />
+      </Wrap>,
+    );
+    await user.click(screen.getByTestId('rail.more'));
+    expect(body()?.getAttribute('data-open')).toBe('true');
+    await user.click(screen.getByText('elsewhere'));
+    expect(screen.getByTestId('rail.more').getAttribute('aria-expanded')).toBe('false');
+    expect(body()?.getAttribute('data-open')).toBeNull();
+
+    // Switch workspace sits beside the group, not in it, so it shuts it too.
+    await user.click(screen.getByTestId('rail.more'));
+    await user.click(screen.getByTestId('rail.more.workspace'));
+    expect(body()?.getAttribute('data-open')).toBeNull();
+  });
+
   it('holds the three station preferences and keeps the workspace row outside', async () => {
     const user = userEvent.setup();
     renderMenu();
@@ -91,13 +111,25 @@ describe('the rail foot group', () => {
     expect(screen.getByTestId('rail.more.mode')).toBeTruthy();
   });
 
-  // A cashier has one workspace and no assistant: the group must not collapse
-  // to an empty body, it still holds the two station preferences.
-  it('holds only language and appearance when neither is permitted', async () => {
+  // A cashier has one workspace, and since 2026-10-16 the free AI: the
+  // drawer is open to every signed-in person (AssistantDrawerProvider), so the
+  // assistant row is there beside the two station preferences.
+  it('gives a one-workspace cashier the assistant row with language and appearance', async () => {
+    const user = userEvent.setup();
+    renderMenu({ canSwitch: false });
+    expect(screen.queryByTestId('rail.more.workspace')).toBeNull();
+    await user.click(screen.getByTestId('rail.more'));
+    expect(screen.getByTestId('rail.more.assistant')).toBeTruthy();
+    expect(screen.getByTestId('rail.more.language')).toBeTruthy();
+    expect(screen.getByTestId('rail.more.mode')).toBeTruthy();
+  });
+
+  // Signed out (the drawer refuses), the group must not collapse to an empty
+  // body: it still holds the two station preferences.
+  it('holds only language and appearance when the assistant is not permitted', async () => {
     const user = userEvent.setup();
     drawer.allowed = false;
     renderMenu({ canSwitch: false });
-    expect(screen.queryByTestId('rail.more.workspace')).toBeNull();
     await user.click(screen.getByTestId('rail.more'));
     expect(screen.queryByTestId('rail.more.assistant')).toBeNull();
     expect(screen.getByTestId('rail.more.language')).toBeTruthy();

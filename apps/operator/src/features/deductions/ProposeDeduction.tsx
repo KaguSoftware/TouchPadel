@@ -64,7 +64,7 @@ export function ProposeDeduction({
   const { staff } = useAuth();
   const qc = useQueryClient();
   // The owner's entry is approved as it is made (0272); anyone else's waits for the owner.
-  const atOnce = ownerRecordsAtOnce(staff?.role);
+  const atOnce = ownerRecordsAtOnce(staff);
   const today = useBusinessToday();
   const bounds = dateWindow(today);
   const [draft, setDraft] = useState<ProposeDraft>({ ...EMPTY, staffId: initialStaffId ?? '', date: today });

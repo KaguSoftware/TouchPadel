@@ -30,7 +30,8 @@ import {
 } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatNumber } from '@touch/i18n';
-import { useAuth, can, canAccess, homeRoute, type StaffRole } from '../lib/auth';
+import { useAuth, can, canAccess, homeRouteFor, isBlockedRoute, type StaffRole } from '../lib/auth';
+import type { StaffAccess } from '@touch/core';
 import { useLocale } from '../lib/i18n';
 import { useThemeMode } from '../lib/themeMode';
 import {
@@ -43,6 +44,7 @@ import {
   sectionRailItems,
   workspaceForRoute,
   workspaceOwnsPath,
+  workspacesFor,
   workspacesForRole,
   type NavGroup,
   type NavItem,
@@ -66,7 +68,7 @@ import { contentWaitingCount } from '../features/content/contentLogic';
 import { fetchWagesDue } from '../features/wages/api';
 import { wagesDueCount } from '../features/wages/wagesLogic';
 import { Button, ErrorText, Field, Modal, Spinner, card, inputStyle, trapTab } from '../components/ui';
-import { PermissionRefusedNotice, StatusBadge } from '../components/kit';
+import { MessagePresenter, PermissionRefusedNotice, StatusBadge } from '../components/kit';
 import { ChevronBack, ChevronForward, Icon, CourtLines, ThemeModeIcon } from '../components/icons';
 import { RAIL_EDGE, RAIL_ITEM_PAD, RAIL_PAD, navButtonStyle, navItemStyle } from '../components/railStyles';
 import { RailMoreMenu } from '../components/RailMoreMenu';
@@ -81,6 +83,7 @@ import { ToastProvider } from '../components/toast';
 import { ConfirmProvider, useConfirm } from '../components/ConfirmDialog';
 import { touch, type LeaveResult, type UpdateReadyInfo } from '../ipc/bridge';
 import { useHeartbeat, type HeartbeatState } from '../lib/heartbeat';
+import { useActivityPing } from '../lib/useActivityPing';
 import { VenueStatusBanner } from '../components/VenueStatusBanner';
 import { isElectron } from '../lib/mutate';
 import { ScreenOwnerClaim, ScreenOwnerProvider, useScreenOwned } from '../lib/screenOwner';
@@ -232,6 +235,8 @@ function RootShell() {
     appVersion: APP_VERSION,
     onState: useCallback((s: HeartbeatState) => setVenue(s), []),
   });
+  // The owner's activity monitor (0341): who is on this operator, on which screen.
+  useActivityPing(staff?.id ?? null);
 
   // Station identity comes before the human's (design-arch §2.1). A machine
   // without station.json shows the setup screen instead of sign-in; a machine
@@ -250,7 +255,7 @@ function RootShell() {
     return <NotStaffScreen email={session.user.email ?? null} onSignOut={() => void signOut()} />;
   }
 
-  return <WorkspaceShell role={staff.role} venue={venue} />;
+  return <WorkspaceShell who={staff} venue={venue} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -358,17 +363,26 @@ function NotStaffScreen({ email, onSignOut }: { email: string | null; onSignOut:
 // ---------------------------------------------------------------------------
 // WorkspaceShell — rail + banner region + routed screen
 // ---------------------------------------------------------------------------
-function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatState | null }) {
+function WorkspaceShell({ who, venue }: { who: StaffAccess; venue: HeartbeatState | null }) {
   // Every screen remounts when the branch changes, so no editor keeps a draft
   // seeded from the last branch and saves it into this one.
   const { branchId } = useVenue();
-  const available = useMemo(() => workspacesForRole(role), [role]);
-  const [active, setActiveState] = useState<WorkspaceKey>(() => loadWorkspace(role));
+  const role = who.role;
+  // 0345: the second jobs' workspaces too, less any whose home the owner
+  // blocked. Keyed on the lists, not the object: the role re-check hands over
+  // a fresh one every minute.
+  const accessKey = `${role}|${(who.extraRoles ?? []).join(',')}|${(who.blockedAreas ?? []).join(',')}`;
+  const available = useMemo(() => {
+    const open = workspacesFor(who).filter((key) => canAccess(who, WORKSPACES[key].home));
+    return open.length > 0 ? open : workspacesForRole(role);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessKey]);
+  const [active, setActiveState] = useState<WorkspaceKey>(() => loadWorkspace(role, available));
   const path = useRouterState({ select: (s) => s.location.pathname });
 
   // A role change (re-login as someone else on the same station) re-validates.
   useEffect(() => {
-    setActiveState((cur) => ((available as readonly string[]).includes(cur) ? cur : loadWorkspace(role)));
+    setActiveState((cur) => ((available as readonly string[]).includes(cur) ? cur : loadWorkspace(role, available)));
   }, [available, role]);
 
   // Following a link into another workspace's home keeps the rail coherent:
@@ -548,10 +562,10 @@ function useBadgeSum(badges: readonly (NavItem['badge'] | undefined)[]): number 
   });
   // A row counts only what it names: a disabled query still hands back what
   // another row cached under the same key, so the flag gates the sum too.
-  const deductionsOn = on.has('deductionsWaiting') && can(staff?.role, 'decideDeductions');
-  const incidentsOn = on.has('incidentsOpen') && can(staff?.role, 'reviewIncidents');
-  const contentOn = on.has('contentWaiting') && can(staff?.role, 'decideContent');
-  const wagesOn = on.has('wagesDue') && can(staff?.role, 'manageWages');
+  const deductionsOn = on.has('deductionsWaiting') && can(staff, 'decideDeductions');
+  const incidentsOn = on.has('incidentsOpen') && can(staff, 'reviewIncidents');
+  const contentOn = on.has('contentWaiting') && can(staff, 'decideContent');
+  const wagesOn = on.has('wagesDue') && can(staff, 'manageWages');
   const deductions = useQuery({
     queryKey: QK.deductionsWaiting,
     queryFn: fetchDeductionsWaiting,
@@ -792,7 +806,8 @@ function WorkspaceNav({
   const workspace = WORKSPACES[workspaceKey];
   // Only the jokers change workspace (owner call, 2026-09-18): a cashier or a
   // desk clerk has one, and the row was never more than a dead end for them.
-  const canSwitch = available.length > 1 && (staff?.role === 'manager' || staff?.role === 'owner');
+  // Since 0345 someone with a second job has two, and switches like a joker.
+  const canSwitch = available.length > 1;
   const navigate = useNavigate();
   const confirm = useConfirm();
   // Moving between a section and its own workspace goes without asking (owner
@@ -826,8 +841,8 @@ function WorkspaceNav({
   // back. Read from the path, so the rail and the screen can never disagree.
   const section = sectionForPath(workspace, path);
   // A section opened from one of the groups' rows has no button of its own.
-  const sections = (workspace.sections ?? []).filter((sec) => !sec.fromRow && canAccess(staff?.role, sec.home));
-  const sectionRows = section ? sectionRailItems(section).filter((item) => canAccess(staff?.role, item.to)) : [];
+  const sections = (workspace.sections ?? []).filter((sec) => !sec.fromRow && canAccess(staff, sec.home));
+  const sectionRows = section ? sectionRailItems(section).filter((item) => canAccess(staff, item.to)) : [];
   const sectionCurrent = activeNavItem(sectionRows, path);
 
   // Accordion: at most one group open at a time. The group holding the
@@ -835,7 +850,7 @@ function WorkspaceNav({
   // row buried in a closed group; otherwise the last group opened by hand on
   // this station, remembered across shifts.
   const visibleGroups = workspace.groups
-    .map((group) => ({ group, items: group.items.filter((item) => canAccess(staff?.role, item.to)) }))
+    .map((group) => ({ group, items: group.items.filter((item) => canAccess(staff, item.to)) }))
     .filter(({ items }) => items.length > 0);
   const activeGroupKey = visibleGroups.find(({ items }) => items.some((item) => isNavActive(item, path)))?.group.labelKey ?? null;
   const [openGroup, setOpenGroup] = useState<string | null>(() => activeGroupKey ?? loadOpenGroup());
@@ -1656,7 +1671,7 @@ function ExitFullscreen() {
   if (typeof window === 'undefined' || !window.touch) return null;
   if (!fullscreen) return null;
   const locked = touch.getStation().locked === true;
-  const needsPin = locked && (askPin || !can(staff?.role, 'leaveStationWithoutPin'));
+  const needsPin = locked && (askPin || !can(staff, 'leaveStationWithoutPin'));
 
   function close() {
     setOpen(false);
@@ -1864,7 +1879,7 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
   // configured station opens in kiosk (lockWindow, 2026-09-23) the lights are
   // hidden there, so a signed-out Mac till had no way out at all.
   const locked = touch.getStation().locked === true;
-  const needsPin = locked && (askPin || !can(staff?.role, 'leaveStationWithoutPin'));
+  const needsPin = locked && (askPin || !can(staff, 'leaveStationWithoutPin'));
 
   function close() {
     setOpen(false);
@@ -2215,19 +2230,25 @@ function requiredRoleFor(route: string): StaffRole {
 export function RequireRole({ route, children }: { route: string; children: ReactNode }) {
   const { staff } = useAuth();
   const { tr } = useLocale();
-  if (!canAccess(staff?.role as StaffRole | undefined, route)) {
+  if (!canAccess(staff, route)) {
     return (
       <div style={{ ...card, display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start', maxInlineSize: 'var(--tp-measure-form)' }} role="alert">
         {/* This forked its own card with a generic sentence and never said
             which role was missing, so the operator had nothing to act on and no
             one to ask. PermissionRefusedNotice exists for exactly this and
             names the role. */}
-        <PermissionRefusedNotice
-          action={tr('ws.shell.forbidden.action')}
-          requiredRole={requiredRoleFor(route)}
-        />
+        {/* 0345: their job opens it; the owner closed it for them. Naming a
+            role here would send them to ask for one they already hold. */}
+        {isBlockedRoute(staff, route) ? (
+          <MessagePresenter tone="info" message={tr('ws.shell.forbidden.blocked')} />
+        ) : (
+          <PermissionRefusedNotice
+            action={tr('ws.shell.forbidden.action')}
+            requiredRole={requiredRoleFor(route)}
+          />
+        )}
         {staff && (
-          <Link to={homeRoute(staff.role)} className="tp-link">
+          <Link to={homeRouteFor(staff)} className="tp-link">
             {tr('op.crash.home')}
           </Link>
         )}

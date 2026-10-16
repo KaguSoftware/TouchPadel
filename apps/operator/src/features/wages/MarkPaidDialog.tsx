@@ -10,10 +10,15 @@
  * comes back WAGE_CHANGED, the page refetches, and the message stays above
  * the new figures until the owner confirms again. One idempotency key per
  * dialog, so a retry after a lost answer never pays twice.
+ *
+ * 0344: the advances already given come off between the net and the amount
+ * handed over now (the server's to_pay_iqd, sent back as
+ * p_expected_paid_iqd), and "Paid from" (Safe, preselected, or Bank transfer)
+ * says where that money came from: from the safe it leaves the main cash.
  */
 import { useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { countPhrase, isolate } from '@touch/i18n';
+import { countPhrase, formatIQD, isolate } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
@@ -22,8 +27,9 @@ import { MessagePresenter, Money } from '../../components/kit';
 import { refusalCode } from '../protocols/errors';
 import { dayLabel, monthLabel } from '../deductions/venueDate';
 import { WK } from './api';
-import { isWageStale, payableIqd, type WageLine } from './wagesLogic';
+import { isWageStale, type PaidFrom, type WageLine } from './wagesLogic';
 import { BonusList } from './BonusList';
+import { PaidFromField } from './PaidFromField';
 
 export interface PayTarget extends WageLine {
   staffId: string;
@@ -37,6 +43,7 @@ export function MarkPaidDialog({ line, onClose, onDone }: { line: PayTarget; onC
   const toast = useToast();
   const qc = useQueryClient();
   const [key] = useState(() => `wage.paid:${crypto.randomUUID()}`);
+  const [paidFrom, setPaidFrom] = useState<PaidFrom>('safe');
 
   const pay = useMutation({
     mutationFn: () =>
@@ -44,10 +51,14 @@ export function MarkPaidDialog({ line, onClose, onDone }: { line: PayTarget; onC
         p_staff_id: line.staffId,
         p_month: line.month,
         p_expected_net_iqd: line.netIqd,
+        p_expected_paid_iqd: line.toPayIqd,
+        p_paid_from: paidFrom,
         p_idempotency_key: key,
       }),
     onSuccess: () => {
-      toast.ok(tr('ws.wages.pay.done'));
+      const amount = isolate(formatIQD(line.toPayIqd, locale));
+      toast.ok(line.toPayIqd > 0 ? tr(paidFrom === 'safe' ? 'ws.wages.pay.doneSafe' : 'ws.wages.pay.doneBank', { amount }) : tr('ws.wages.pay.done'));
+      void qc.invalidateQueries({ queryKey: ['main-cash'] });
       onDone();
     },
     // The month moved under the dialog: the message stays, and the figures catch up behind it.
@@ -55,6 +66,10 @@ export function MarkPaidDialog({ line, onClose, onDone }: { line: PayTarget; onC
   });
 
   const negative = line.netIqd < 0;
+  const advanced = line.advancesIqd > 0;
+  // The advances covered the month exactly, or more than it (a deduction approved after them).
+  const covered = advanced && !negative && line.toPayIqd === 0 && line.owedIqd === 0;
+  const overAdvanced = advanced && !negative && line.owedIqd < 0;
   const waiting = line.waitingCount ?? 0;
   const paidAlready = refusalCode(pay.error) === 'WAGE_ALREADY_PAID';
 
@@ -91,8 +106,17 @@ export function MarkPaidDialog({ line, onClose, onDone }: { line: PayTarget; onC
         <Line label={tr('ws.wages.pay.net')} rule>
           <Money amount={line.netIqd} strong style={negative ? { color: 'var(--tp-danger-fg)' } : undefined} />
         </Line>
-        <Line label={tr('ws.wages.pay.toPay')}>
-          <Money amount={payableIqd(line.netIqd)} strong style={{ fontSize: 'var(--tp-fs-lg)' }} />
+        {advanced && (
+          <Line label={tr('ws.wages.pay.advances')} note={countPhrase('ws.wages.count.advances', line.advanceCount, locale)}>
+            <span data-testid="wages.pay.advances">
+              <Money amount={-line.advancesIqd} />
+            </span>
+          </Line>
+        )}
+        <Line label={tr(advanced ? 'ws.wages.pay.toPayNow' : 'ws.wages.pay.toPay')} rule={advanced}>
+          <span data-testid="wages.pay.toPay">
+            <Money amount={line.toPayIqd} strong style={{ fontSize: 'var(--tp-fs-lg)' }} />
+          </span>
         </Line>
       </dl>
       {line.bonuses.length > 0 && (
@@ -103,9 +127,16 @@ export function MarkPaidDialog({ line, onClose, onDone }: { line: PayTarget; onC
       )}
       <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
         {negative && <MessagePresenter tone="refused" message={tr('ws.wages.pay.belowZero')} />}
+        {covered && <MessagePresenter tone="info" message={tr('ws.wages.pay.covered')} />}
+        {overAdvanced && <MessagePresenter tone="refused" message={tr('ws.wages.pay.advancesOver')} />}
         {waiting > 0 && <MessagePresenter tone="info" message={tr('ws.wages.pay.waiting', { deductions: countPhrase('ws.wages.count.deductions', waiting, locale) })} />}
         <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.wages.pay.frozen')}</p>
       </div>
+      {line.toPayIqd > 0 && (
+        <div style={{ marginBlockStart: 'var(--tp-sp-4)' }}>
+          <PaidFromField value={paidFrom} onChange={setPaidFrom} disabled={pay.isPending} testId="wages.pay.from" />
+        </div>
+      )}
       <ErrorText error={pay.error} />
     </Modal>
   );

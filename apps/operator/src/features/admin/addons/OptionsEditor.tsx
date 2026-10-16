@@ -70,7 +70,7 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
   const queryClient = useQueryClient();
   const { refresh } = useAddons();
   const { staff } = useAuth();
-  const caps = { editLaunchedPrices: can(staff?.role, 'editLaunchedPrices'), launchDirectly: can(staff?.role, 'launchDirectly') };
+  const caps = { editLaunchedPrices: can(staff, 'editLaunchedPrices'), launchDirectly: can(staff, 'launchDirectly') };
   const [draft, setDraft] = useState<{ nameEn: string; nameAr: string; delta: number } | null>(null);
   const [openReveals, setOpenReveals] = useState<string | null>(null);
 

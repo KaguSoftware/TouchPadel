@@ -27,6 +27,12 @@ item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Databa
   change a permission (SOW L185). Four inline comparisons remain (Q4); do not add a fifth.
 - What a failed role lookup means is decided in `src/lib/roleResolution.ts` (SEC-35), not by the
   caller.
+- Ask `canAccess`, `can` and `permissionsFor` about the PERSON (`staff`), not `staff.role`
+  (0345): a `StaffInfo` carries the second jobs the owner ticked (they open that job's pages and
+  capabilities, as the server's `app.is_staff` does) and the pages the owner blocked. A bare role
+  is still accepted for the tables' own tests and for naming the smallest role in a refusal. A new
+  route a front-line role opens needs an `ACCESS_AREAS` entry (`packages/core/src/staff/access.ts`,
+  plus the two SQL lists of 0345 in a new migration); `auth.test.ts` fails without one.
 
 ## Writes
 

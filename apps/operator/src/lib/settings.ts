@@ -35,7 +35,12 @@ export interface CafeSettings {
   analytics_business_day_start_hour: number;
   analytics_excluded_item_ids: string[];
   analytics_engagement_floor: string | null;
-  /** 0064: seconds of till inactivity before the lock overlay (0 = disabled). */
+  /**
+   * 0064: seconds of till inactivity before the lock overlay (0 = disabled).
+   * The default here is 900 (15 min), longer than the registry's 300: the
+   * lock is client-only, nothing in SQL reads the registry default, and no
+   * screen writes the key, so this is the value every station runs on.
+   */
   till_idle_lock_seconds: number;
   /** 0105: minutes of break per person per business day, across all their breaks (0 = no breaks). */
   break_allowance_minutes: number;
@@ -69,7 +74,7 @@ export const CAFE_SETTING_DEFAULTS: Readonly<CafeSettings> = {
   analytics_business_day_start_hour: 4,
   analytics_excluded_item_ids: [],
   analytics_engagement_floor: null,
-  till_idle_lock_seconds: 300,
+  till_idle_lock_seconds: 900,
   break_allowance_minutes: 60,
   attendance_grace_minutes: 0,
   attendance_penalty_iqd: 0,

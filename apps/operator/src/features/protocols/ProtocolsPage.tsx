@@ -66,7 +66,7 @@ export function ProtocolsPageScreen() {
   const { staff } = useAuth();
   const navigate = useNavigate();
   const search = useSearch({ strict: false }) as ProtocolsSearch;
-  const owner = can(staff?.role, 'editProtocols');
+  const owner = can(staff, 'editProtocols');
   const overview = useOverview();
   const cards = useMemo(() => protocolCards(overview.data ?? []), [overview.data]);
   const [how, setHow] = useState<ProtocolCard | null>(null);

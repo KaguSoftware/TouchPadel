@@ -50,10 +50,12 @@ import { wagesDueCount } from '../wages/wagesLogic';
 import { useCoachingCaps } from '../coaching/useCoaching';
 import { useCoachStatements } from '../reports/coaches/statementKeys';
 import { hasCoachPayWork, statementCounts } from '../reports/coaches/statementsLogic';
+import { SK, fetchOverview } from '../safe/api';
+import { readOverview } from '../safe/safeLogic';
 
 type CardKey =
   | 'reports' | 'cashDrawer'
-  | 'dayClose' | 'wages' | 'rewards' | 'coachPay' | 'rates' | 'menuPrices';
+  | 'dayClose' | 'wages' | 'rewards' | 'coachPay' | 'rates' | 'menuPrices' | 'safe';
 
 /** How many closed days the cash card lists. A week is what an owner scans. */
 export const RECENT_CLOSES = 7;
@@ -71,12 +73,15 @@ export function FinancialHomeScreen() {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
   // The Wages card's live line: the rail badge's own read (QK.wagesDue), so the two agree.
-  const wagesOn = can(staff?.role, 'manageWages');
+  const wagesOn = can(staff, 'manageWages');
   const wagesQ = useQuery({ queryKey: QK.wagesDue, queryFn: fetchWagesDue, enabled: wagesOn, refetchInterval: 60_000 });
   // Coach pay's card line: this month's statements at the rail's branch.
   const { settleCoaches } = useCoachingCaps();
   const statementsQ = useCoachStatements(null, settleCoaches);
   const coachPay = statementsQ.data ? statementCounts(statementsQ.data.statements) : null;
+  // The Safe card's live line: the Safe page's own read (0343), so the two agree.
+  const safeQ = useQuery({ queryKey: SK.overview(null), queryFn: () => fetchOverview(null), refetchInterval: 60_000 });
+  const safeBalance = safeQ.isSuccess ? readOverview(safeQ.data).balanceIqd : null;
 
   const figure = (label: MessageKey, n: number) => (
     <>
@@ -85,6 +90,17 @@ export function FinancialHomeScreen() {
     </>
   );
   function status(key: string): ReactNode {
+    if ((key as CardKey) === 'safe') {
+      if (safeBalance === null) return null;
+      return (
+        <>
+          <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.financialHome.status.inSafe')}</span>
+          <strong style={{ fontVariantNumeric: 'tabular-nums' }} dir="ltr" data-testid="financial.safe.status">
+            {formatIQD(safeBalance, locale)}
+          </strong>
+        </>
+      );
+    }
     if ((key as CardKey) === 'wages') {
       if (!wagesOn || !wagesQ.isSuccess) return null;
       return figure('ws.wages.financial.dueNow', wagesDueCount(wagesQ.data));

@@ -5,9 +5,11 @@
  * Floor now used to be a screen of its own under this one; it is an overview,
  * so it lives here (owner call, 2026-10-08). The screen answers, in order:
  *
- *  1. **Does anything need me?** One "Needs you now" list (FloorNow, the
- *     manager's Today body): the floor's alarms and the people records, then
- *     what only the owner answers and nothing else in the venue will surface:
+ *  1. **Does anything need me?** One "Needs you" list (FloorNow, the
+ *     manager's Today body, rebuilt 2026-10-16): the floor's alarms, the
+ *     online refunds, lesson refunds and player reports (each opening in
+ *     place), and the people records, then what only the owner answers and
+ *     nothing else in the venue will surface:
  *       - staff requests (a person is waiting for an answer);
  *       - new staff suggestions (build-contracts-2026-09-23 §5.4);
  *       - scheduled campaigns whose start date has passed, and live campaigns
@@ -16,8 +18,9 @@
  *         "scheduled" for last week is still scheduled until someone says so.
  *     Three rows show and the rest wait behind "View more". When nothing is
  *     waiting it says so plainly rather than disappearing.
- *  2. **What is the floor doing?** The online refunds, the live floor plan,
- *     then courts, cafe, stock, closing the day and staff activity.
+ *  2. **What is the floor doing?** On the floor now with the live floor plan
+ *     under it, and who worked today; beside them, before you close, stock to
+ *     watch and so far today.
  *  3. **Where do I look?** The section's screens as cards, in rail order, each
  *     with one live line where there is an honest figure for it.
  *
@@ -61,7 +64,7 @@ function cardKey(key: CardKey): MessageKey {
 export function ObservationHomeScreen() {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
-  const canMarketing = canAccess(staff?.role, '/marketing');
+  const canMarketing = canAccess(staff, '/marketing');
 
   const pendingQ = useQuery({
     queryKey: [...REQUESTS_QUERY_KEY, 'pending-count'],
@@ -79,14 +82,14 @@ export function ObservationHomeScreen() {
     queryFn: async () => normalizeOverview(await appRpc<unknown>('ops_overview')),
     refetchInterval: OPS_REFETCH_MS,
   });
-  const canProtocols = canAccess(staff?.role, '/protocols');
-  const canSuggestions = canAccess(staff?.role, '/suggestions');
+  const canProtocols = canAccess(staff, '/protocols');
+  const canSuggestions = canAccess(staff, '/suggestions');
   const protocolsQ = useQuery({ queryKey: QK.protocolsWaiting, queryFn: fetchProtocolsWaiting, refetchInterval: 60_000, enabled: canProtocols });
   const suggestionsQ = useQuery({ queryKey: QK.suggestionsNew, queryFn: fetchSuggestionsNew, refetchInterval: 60_000, enabled: canSuggestions });
   // Wave 5: deductions to decide, incidents to review, posts to approve.
   const people = usePeopleRecordCounts();
   // Wave 5, till shifts (§5.2, §8 Q27): today's closed short or over, to Day close.
-  const shiftDiffs = useShiftDifferences(canAccess(staff?.role, '/admin/day-close'));
+  const shiftDiffs = useShiftDifferences(canAccess(staff, '/admin/day-close'));
   const heading = useFloorNowHeading();
 
   const count = (n: number) => <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNumber(n, locale)}</strong>;
@@ -151,7 +154,7 @@ export function ObservationHomeScreen() {
 type Read<T> = { data?: T; isPending: boolean; isError: boolean; refetch: () => unknown };
 
 /**
- * What only the owner answers, as rows for "Needs you now". The protocol,
+ * What only the owner answers, as rows for "Needs you". The protocol,
  * people-record and till-shift rows are already the floor's own; their reads
  * are passed here only so a failed one is said.
  */

@@ -10,12 +10,15 @@
  *    word. Same JWT header and refusal mapping as the operator's `streamEdge`;
  *    never cached, never retried (repeating a billed model call behind the
  *    owner's back is not a retry).
+ *  - The free guide is `POST /functions/v1/assistant-free` (sendFreeQuestion),
+ *    the same stream for any staff role; it reads no data and stores nothing.
  *
  * No deadline: the Stop button is the deadline, and the function itself ends a
  * runaway turn at 50 s with an `error` event.
  */
 import { fetch as streamingFetch } from 'expo/fetch';
 import type { AssistantScope } from '@touch/core/assistant/tools';
+import { FREE_ASSISTANT_FN, type FreeAskBody } from '@touch/core/assistant/free';
 import { supabase } from '../../lib/supabase';
 import {
   AssistantStreamError,
@@ -28,6 +31,7 @@ import {
   type MessageRow,
 } from './chat';
 import { parseSseChunk, parseSseData } from './sse';
+import { FreeStreamError, freeRefusal } from './free';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
@@ -159,7 +163,40 @@ export async function sendMessage(req: ChatRequest, opts: StreamOptions): Promis
     // Auth and quota refuse as plain JSON before the stream starts.
     throw new AssistantStreamError(refusalCode(res.status, await readJson(res)));
   }
+  await readStream(res, opts);
+}
 
+/**
+ * One question to the free assistant (`assistant-free`, owner call
+ * 2026-10-16): any staff role, Groq's free tier, no business data, nothing
+ * stored. Same header, stream and Stop as `sendMessage`; a refusal before the
+ * stream throws FreeStreamError with its scope and wait. Never retried.
+ */
+export async function sendFreeQuestion(body: FreeAskBody, opts: StreamOptions): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new FreeStreamError({ code: 'AUTH_REQUIRED' }, 'no session');
+
+  const res = await streamingFetch(`${supabaseUrl}/functions/v1/${FREE_ASSISTANT_FN}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      apikey: supabaseAnonKey,
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+    },
+    body: JSON.stringify(body),
+    signal: opts.signal,
+  });
+
+  if (!res.ok) throw new FreeStreamError(freeRefusal(res.status, await readJson(res)));
+  await readStream(res, opts);
+}
+
+type StreamResponse = Awaited<ReturnType<typeof streamingFetch>>;
+
+/** Hand every SSE event of a 2xx answer to `onEvent`, in order, until the stream ends. */
+async function readStream(res: StreamResponse, opts: StreamOptions): Promise<void> {
   const emit = (events: readonly { event: string; data: string }[]) => {
     for (const ev of events) opts.onEvent(ev.event, parseSseData(ev.data));
   };

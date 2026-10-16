@@ -367,6 +367,22 @@ describe('the route shape', () => {
     }
   });
 
+  it('a question about the world outside the club goes deep, where web_search rides (2026-10-16)', () => {
+    for (const q of [
+      'How much do other clubs charge per hour?',
+      'What do our competitors charge?',
+      'What is the market price for a padel court?',
+      'كم تاخذ النوادي الاخرى على الساعة',
+      'شكد اسعار المنافسين',
+    ]) {
+      expect(routeTurn({ text: q, scopes: FULL, explicitModel: null }), q).toMatchObject({ kind: 'analysis', model: null, effort: 'medium', reason: 'outside-signal' });
+    }
+    // Not outside: our own branches, app bookings, marketing and tournaments stay where they were.
+    for (const q of ['How many online bookings this week?', 'How did marketing do this month?', 'How many teams entered the competition?']) {
+      expect(routeTurn({ text: q, scopes: FULL, explicitModel: null }).reason, q).not.toBe('outside-signal');
+    }
+  });
+
   it('a comparison or a trend runs on the cheap model at effort medium', () => {
     for (const q of ['Compare this week with last week', 'Is the cafe trending down?']) {
       expect(routeTurn({ text: q, scopes: FULL, explicitModel: null }), q).toMatchObject({ kind: 'analysis', model: LOOKUP_MODEL, effort: 'medium', sticky: true });

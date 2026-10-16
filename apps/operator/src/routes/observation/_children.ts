@@ -6,6 +6,7 @@ import { RoutePending, guarded } from '../admin/_shared';
 const StaffRequests = lazyRouteComponent(() => import('../../features/observation/StaffRequests'), 'StaffRequestsScreen');
 const CourtsObserve = lazyRouteComponent(() => import('../../features/observation/courts/CourtsObserve'), 'CourtsObserveScreen');
 const TillsObserve = lazyRouteComponent(() => import('../../features/observation/tills/TillsObserve'), 'TillsObserveScreen');
+const ActivityMonitor = lazyRouteComponent(() => import('../../features/observation/activity/ActivityMonitor'), 'ActivityMonitorScreen');
 
 export const observationChildren = [
   observationIndexRoute,
@@ -27,6 +28,13 @@ export const observationChildren = [
     getParentRoute: () => observationRoute,
     path: 'tills',
     component: guarded('/observation/tills', TillsObserve),
+    pendingComponent: RoutePending,
+    wrapInSuspense: true,
+  }),
+  createRoute({
+    getParentRoute: () => observationRoute,
+    path: 'activity',
+    component: guarded('/observation/activity', ActivityMonitor),
     pendingComponent: RoutePending,
     wrapInSuspense: true,
   }),

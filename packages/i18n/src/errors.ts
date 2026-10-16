@@ -706,6 +706,16 @@ export const ERROR_CODE_KEYS = {
   REWARD_INVALID: 'op.errors.REWARD_INVALID',
   REWARD_TARGET_TAKEN: 'op.errors.REWARD_TARGET_TAKEN',
   REWARD_LIMIT: 'op.errors.REWARD_LIMIT',
+  // Customer discounts (0342): the standing discount and the court fee.
+  SELF_DISCOUNT: 'op.errors.SELF_DISCOUNT',
+  COURT_DISCOUNT_NOT_ALLOWED: 'op.errors.COURT_DISCOUNT_NOT_ALLOWED',
+  COURT_BILL_CLOSED: 'op.errors.COURT_BILL_CLOSED',
+  COURT_FEE_PAID: 'op.errors.COURT_FEE_PAID',
+  // Main cash (0343) and wage advances (0344): the safe and the Wages page.
+  MAIN_CASH_CHANGED: 'op.errors.MAIN_CASH_CHANGED',
+  MAIN_CASH_HANDED_IN: 'op.errors.MAIN_CASH_HANDED_IN',
+  MAIN_CASH_LINKED: 'op.errors.MAIN_CASH_LINKED',
+  WAGE_ADVANCE_TOO_LARGE: 'op.errors.WAGE_ADVANCE_TOO_LARGE',
 
   // ── Edge functions' own body codes (never raised by SQL) ──────────────────
   // _shared/http.ts mapPgError: a unique violation, a retryable database error

@@ -213,12 +213,12 @@ export function KdsBoard() {
   // theirs to do, plus the ideas a head has to review. Prep, the manager and
   // the owner open no /tasks, so their board gets no button.
   const { staff } = useAuth();
-  const hasTasks = canAccess(staff?.role, '/tasks');
+  const hasTasks = canAccess(staff, '/tasks');
   const workQ = useQuery({ queryKey: TK.work, queryFn: fetchMyWork, enabled: hasTasks, refetchInterval: 60_000 });
   const ideasQ = useQuery({
     queryKey: QK.ideasToReview,
     queryFn: fetchIdeasToReview,
-    enabled: hasTasks && can(staff?.role, 'reviewIdeas'),
+    enabled: hasTasks && can(staff, 'reviewIdeas'),
     refetchInterval: 60_000,
   });
   const taskCount = kitchenTaskCount(workQ.data, ideasWaiting(ideasQ.data));

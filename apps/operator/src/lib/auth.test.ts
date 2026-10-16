@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ACCESS_AREAS, areaOfRouteKey } from '@touch/core';
 import {
   CAPABILITY_ROLES,
   ROUTE_ROLES,
@@ -9,6 +10,8 @@ import {
   can,
   canAccess,
   homeRoute,
+  homeRouteFor,
+  isBlockedRoute,
   permissionsFor,
   type Capability,
   type StaffRole,
@@ -581,5 +584,59 @@ describe('permissionsFor (spec §03 can.*)', () => {
     expect(canAccess('cashier', '/desk/customers')).toBe(true);
     expect(canAccess('cashier', '/desk/customers/new')).toBe(false);
     expect(canAccess('court_desk', '/workspaces')).toBe(false);
+  });
+});
+
+describe('per-person access (0345)', () => {
+  const cashierOnDesk = { role: 'cashier', extraRoles: ['court_desk'] } as const;
+
+  it('a second job opens its pages and capabilities, and nothing above them', () => {
+    expect(canAccess('cashier', '/desk/today')).toBe(false);
+    expect(canAccess(cashierOnDesk, '/desk/today')).toBe(true);
+    expect(canAccess(cashierOnDesk, '/till')).toBe(true);
+    expect(canAccess(cashierOnDesk, '/ops')).toBe(false);
+    expect(can('cashier', 'runMatches')).toBe(false);
+    expect(can(cashierOnDesk, 'runMatches')).toBe(true);
+    expect(canAccess(cashierOnDesk, '/workspaces')).toBe(true);
+    expect(permissionsFor(cashierOnDesk).refund).toBe(false);
+    expect(permissionsFor({ role: 'barista', extraRoles: ['cashier'] }).takePayment).toBe(true);
+  });
+
+  it('a blocked page stays shut whatever role opens it; its neighbours stay open', () => {
+    const blocked = { role: 'court_desk', blockedAreas: ['desk'] } as const;
+    expect(canAccess(blocked, '/desk/today')).toBe(false);
+    expect(canAccess(blocked, '/desk/customers')).toBe(true);
+    expect(canAccess({ role: 'manager', blockedAreas: ['reports'] }, '/reports/cafe')).toBe(false);
+    expect(canAccess({ role: 'manager', blockedAreas: ['reports'] }, '/stock')).toBe(true);
+    expect(isBlockedRoute(blocked, '/desk/today')).toBe(true);
+    expect(isBlockedRoute(blocked, '/ops')).toBe(false);
+    // Capabilities are not pages: a block takes none away.
+    expect(can(blocked, 'runMatches')).toBe(true);
+  });
+
+  it('an owner ignores both lists', () => {
+    const owner = { role: 'owner', extraRoles: ['driver'], blockedAreas: ['reports'] } as const;
+    expect(canAccess(owner, '/reports')).toBe(true);
+    expect(canAccess(owner, '/tasks')).toBe(false);
+  });
+
+  it('lands on the first home that is not blocked', () => {
+    expect(homeRouteFor(cashierOnDesk)).toBe('/till');
+    expect(homeRouteFor({ ...cashierOnDesk, blockedAreas: ['till'] })).toBe('/desk/today');
+    expect(homeRouteFor({ role: 'cashier', blockedAreas: ['till'] })).toBe('/till');
+  });
+
+  // A management-only page may go without an area (a manager is blocked from
+  // the ones listed); a page a front-line job opens may not, or a second job
+  // or a role would open it with no box to untick.
+  it('every page a front-line job can open belongs to exactly one area', () => {
+    const owned = Object.values(ACCESS_AREAS).flat();
+    expect(new Set(owned).size).toBe(owned.length);
+    for (const [key, roles] of Object.entries(ROUTE_ROLES)) {
+      if (key === '/workspaces') continue;
+      if (roles.every((r) => r === 'owner' || r === 'manager')) continue;
+      expect(areaOfRouteKey(key), key).not.toBeNull();
+    }
+    for (const key of owned) expect(Object.keys(ROUTE_ROLES), key).toContain(key);
   });
 });

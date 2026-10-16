@@ -32,7 +32,7 @@ type SettingsTab = 'hours' | 'day' | 'analytics' | 'details';
 export function VenueSettingsScreen() {
   const { tr } = useLocale();
   const { staff } = useAuth();
-  const showAnalytics = canAccess(staff?.role, '/analytics');
+  const showAnalytics = canAccess(staff, '/analytics');
   const [tab, setTab] = useState<SettingsTab>('hours');
   return (
     <div>

@@ -145,7 +145,7 @@ export function HeroBuilder() {
   const [saving, setSaving] = useState(false);
   const [switchingOff, setSwitchingOff] = useState(false);
   // Read from what is saved: see heroLocks.
-  const locks = heroLocks(settings, can(staff?.role, 'editLaunchedPrices'));
+  const locks = heroLocks(settings, can(staff, 'editLaunchedPrices'));
 
   useEffect(() => {
     if (!isLoading && !draft) setDraft(fromSettings(settings));

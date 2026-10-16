@@ -28,6 +28,9 @@ export const STAFF_RPCS = [
   // screenshots (0313): a staff screenshot is reported; the owner reads the list from the audit log
   'log_staff_screenshot',
   'audit_log_page',
+  // activity monitor (0341): every staff phone pings while signed in; the owner reads the board
+  'staff_activity_ping',
+  'staff_activity_board',
   // rewards (0332): the caller's own progress; the owner sets and ends a person's rewards
   'my_rewards',
   'staff_rewards_board',
@@ -159,7 +162,7 @@ export async function callStaffEdge<T>(
 export async function fetchStaffStatusRead(uid: string): Promise<StaffStatusRead> {
   const { data: row, error } = await supabase
     .from('staff')
-    .select('id, display_name, role, is_active')
+    .select('id, display_name, role, is_active, extra_roles, blocked_areas')
     .eq('id', uid)
     .maybeSingle();
   if (error) throw error;

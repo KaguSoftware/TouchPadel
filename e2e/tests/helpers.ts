@@ -1395,3 +1395,24 @@ export async function showEveryRow(page: Page): Promise<void> {
     await more.first().click();
   }
 }
+
+/**
+ * Open one of Today's queues (/ops, rebuilt 2026-10-16). The online refunds,
+ * the lesson refunds and the player reports are rows of "Needs you" that open
+ * in place under their row ("Review refunds", "Review lesson refunds",
+ * "Review reports"); a row may sit behind "View more" until the list is
+ * unfolded. Waits for the row, which appears once its read answers, then
+ * opens it unless it is open already. The queue's own rows keep their test
+ * ids (`deposit-attention`, `lesson-refunds` / `lesson-refund`,
+ * `match-reports` / `match-report`).
+ */
+export async function openTodayQueue(page: Page, key: 'deposits' | 'lessonRefunds' | 'matchReports', label: string): Promise<void> {
+  const row = page.getByTestId(`need-${key}`);
+  const more = page.getByTestId('needs-you').getByRole('button', { name: /^(View more|عرض المزيد) \(/ });
+  await expect(async () => {
+    if (!(await row.isVisible()) && (await more.count()) > 0) await more.first().click();
+    await expect(row).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 30_000 });
+  const toggle = row.getByRole('button', { name: label });
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+}

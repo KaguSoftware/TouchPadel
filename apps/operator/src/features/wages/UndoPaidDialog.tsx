@@ -2,7 +2,7 @@
  * Take back a payment marked in error (app.undo_wage_paid, the owner only).
  * A reason is required (1 to 1000 characters); the month opens again and adds
  * up afresh. A day or deduction that landed in a later month while it was paid
- * stays there.
+ * stays there. A payment handed over from the safe (0344) goes back into it.
  */
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -14,13 +14,15 @@ import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui
 import { refusalCode } from '../protocols/errors';
 import { monthLabel } from '../deductions/venueDate';
 import { WK } from './api';
-import { UNDO_REASON_MAX, isWageStale, undoReasonIssue } from './wagesLogic';
+import { UNDO_REASON_MAX, isWageStale, undoReasonIssue, type PaidFrom } from './wagesLogic';
 
 export interface UndoTarget {
   paymentId: string;
   displayName: string;
   month: string;
   paidIqd: number;
+  /** Where the money came from (null before 0344). */
+  paidFrom: PaidFrom | null;
 }
 
 export function UndoPaidDialog({ target, onClose, onDone }: { target: UndoTarget; onClose: () => void; onDone: () => void }) {
@@ -35,6 +37,7 @@ export function UndoPaidDialog({ target, onClose, onDone }: { target: UndoTarget
     mutationFn: () => appRpc('undo_wage_paid', { p_id: target.paymentId, p_reason: reason.trim() }),
     onSuccess: () => {
       toast.ok(tr('ws.wages.undo.done'));
+      if (target.paidFrom === 'safe') void qc.invalidateQueries({ queryKey: ['main-cash'] });
       onDone();
     },
     onError: (e) => isWageStale(refusalCode(e)) && void qc.invalidateQueries({ queryKey: WK.all }),
@@ -67,6 +70,7 @@ export function UndoPaidDialog({ target, onClose, onDone }: { target: UndoTarget
     >
       <p style={{ marginBlockStart: 0 }}>
         {tr('ws.wages.undo.body', { name: isolate(target.displayName), month: monthLabel(target.month, locale), amount: isolate(formatIQD(target.paidIqd, locale)) })}
+        {target.paidFrom === 'safe' && target.paidIqd > 0 && <> {tr('ws.wages.undo.backToSafe', { amount: isolate(formatIQD(target.paidIqd, locale)) })}</>}
       </p>
       <Field
         label={tr('ws.wages.undo.reason')}

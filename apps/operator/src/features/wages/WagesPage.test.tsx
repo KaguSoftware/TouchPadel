@@ -51,6 +51,21 @@ const yusufWithBonuses = () => ({
   ],
 });
 
+/** Yusuf's month after two advances (0344): 100,000 handed over, 620,000 still owed. */
+const yusufAdvanced = (over: Record<string, unknown> = {}) => ({
+  ...yusuf(),
+  waiting_count: 0,
+  advances_iqd: 100000,
+  advance_count: 2,
+  owed_iqd: 620000,
+  to_pay_iqd: 620000,
+  advances: [
+    { id: 'v1', amount_iqd: 60000, paid_from: 'safe', note: 'Rent help', given_at: '2026-10-02T10:00:00Z', given_by_name: 'Majed' },
+    { id: 'v2', amount_iqd: 40000, paid_from: 'bank', note: null, given_at: '2026-10-03T10:00:00Z', given_by_name: 'Majed' },
+  ],
+  ...over,
+});
+
 const yusuf = () => ({
   ...line(),
   staff_id: 's-yusuf',
@@ -91,6 +106,8 @@ const twoDue = () => [
   { ...line(), staff_id: 's-yusuf', display_name: 'Yusuf', role: 'barista' },
 ];
 let duePeople: () => Record<string, unknown>[] = twoDue;
+let totalsOver: Record<string, unknown> = {};
+let giveAdvance: (args: Record<string, unknown>) => unknown = () => ({ id: 'v9', status: 'given', pay_month: '2026-10-01', owed_iqd: 620000 });
 let markPaid: (args: Record<string, unknown>) => unknown = () => ({ id: 'p1', status: 'paid', pay_month: '2026-10-01', net_iqd: 720000, paid_iqd: 720000 });
 const calls: { fn: string; args: Record<string, unknown> }[] = [];
 const waitingRow = {
@@ -122,7 +139,7 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
           current_month: '2026-10-01',
           today: '2026-10-03',
           remind_days: 3,
-          totals: { salary_iqd: 850000, deductions_iqd: 165000, penalties_iqd: 5000, net_iqd: 680000, paid_iqd: 0, people: 3, paid: 1, due: 1, overdue: 0, upcoming: 0, unset: 1 },
+          totals: { salary_iqd: 850000, deductions_iqd: 165000, penalties_iqd: 5000, net_iqd: 680000, paid_iqd: 0, people: 3, paid: 1, due: 1, overdue: 0, upcoming: 0, unset: 1, ...totalsOver },
           people,
         };
       case 'wages_due':
@@ -139,6 +156,10 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
         return { staff: [{ id: 's-yusuf', display_name: 'Yusuf', role: 'barista' }] };
       case 'mark_wage_paid':
         return markPaid(args);
+      case 'give_wage_advance':
+        return giveAdvance(args);
+      case 'undo_wage_advance':
+        return { status: 'undone' };
       case 'set_staff_wage':
         return { id: 'w1', effective_month: '2026-11-01', salary_iqd: args.p_salary_iqd, pay_day: args.p_pay_day, replaced: false };
       case 'undo_wage_paid':
@@ -171,6 +192,8 @@ function renderPage(locale: 'en' | 'ar' = 'en') {
 beforeEach(() => {
   people = [yusuf(), hasan(), ali()];
   duePeople = twoDue;
+  totalsOver = {};
+  giveAdvance = () => ({ id: 'v9', status: 'given', pay_month: '2026-10-01', owed_iqd: 620000 });
   markPaid = () => ({ id: 'p1', status: 'paid', pay_month: '2026-10-01', net_iqd: 720000, paid_iqd: 720000 });
   calls.length = 0;
   try {
@@ -225,7 +248,8 @@ describe('WagesPageScreen', () => {
     expect(within(dialog).getByText(/still waiting: approve or decline them first/)).toBeTruthy();
     await user.click(within(dialog).getByTestId('wages.pay.confirm'));
     const sent = calls.find((c) => c.fn === 'mark_wage_paid')?.args;
-    expect(sent).toMatchObject({ p_staff_id: 's-yusuf', p_month: '2026-10-01', p_expected_net_iqd: 720000 });
+    // Safe is preselected; the amount handed over is the server's to-pay figure (here, before 0344: the net).
+    expect(sent).toMatchObject({ p_staff_id: 's-yusuf', p_month: '2026-10-01', p_expected_net_iqd: 720000, p_expected_paid_iqd: 720000, p_paid_from: 'safe' });
     expect(String(sent?.p_idempotency_key)).toMatch(/^wage\.paid:/);
   });
 
@@ -356,5 +380,132 @@ describe('WagesPageScreen', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'الرواتب' })).toBeTruthy();
     expect(await screen.findByText('مستحقة الآن')).toBeTruthy();
     expect(screen.getByRole('columnheader', { name: 'المكافآت' })).toBeTruthy();
+  });
+
+  it('gives an advance: amount up to what is still owed, Safe preselected, the amount on the button, one key per dialog', async () => {
+    const user = userEvent.setup();
+    people = [{ ...yusuf(), owed_iqd: 720000, to_pay_iqd: 720000 }, hasan(), ali()];
+    renderPage();
+    // A paid month and a month with no salary take no advance.
+    expect(await screen.findByTestId('wages.row.advance.s-yusuf')).toBeTruthy();
+    expect(screen.queryByTestId('wages.row.advance.s-ali')).toBeNull();
+    expect(screen.queryByTestId('wages.row.advance.s-hasan')).toBeNull();
+    await user.click(screen.getByTestId('wages.row.advance.s-yusuf'));
+    const dialog = screen.getByRole('dialog', { name: /Give .*Yusuf.* an advance/ });
+    expect(within(dialog).getByText(/Up to .*720,000 IQD.* still owed this month/)).toBeTruthy();
+    expect(within(dialog).getByTestId('wages.advance.from.safe').getAttribute('aria-pressed')).toBe('true');
+    expect(within(dialog).getByText('The money comes out of the safe.')).toBeTruthy();
+    // The amount is focused; nothing is sent without one, or above what is owed.
+    const amount = within(dialog).getByRole('textbox', { name: /^Amount/ });
+    expect(document.activeElement).toBe(amount);
+    await user.click(within(dialog).getByTestId('wages.advance.confirm'));
+    expect(within(dialog).getByText('Enter an amount.')).toBeTruthy();
+    await user.type(amount, '800000');
+    await user.click(within(dialog).getByTestId('wages.advance.confirm'));
+    expect(within(dialog).getByText(/At most .*720,000 IQD.*: that is what is still owed this month\./)).toBeTruthy();
+    expect(count('give_wage_advance')).toBe(0);
+    await user.clear(amount);
+    await user.type(amount, '100000');
+    expect(within(dialog).getByTestId('wages.advance.confirm').textContent).toMatch(/Give .*100,000 IQD/);
+    await user.type(within(dialog).getByRole('textbox', { name: /^Note/ }), ' Rent help ');
+    await user.click(within(dialog).getByTestId('wages.advance.confirm'));
+    await waitFor(() => expect(count('give_wage_advance')).toBe(1));
+    const sent = calls.find((c) => c.fn === 'give_wage_advance')?.args;
+    expect(sent).toMatchObject({ p_staff_id: 's-yusuf', p_amount_iqd: 100000, p_paid_from: 'safe', p_month: '2026-10-01', p_note: 'Rent help' });
+    expect(String(sent?.p_idempotency_key)).toMatch(/^wage\.advance:/);
+  });
+
+  it('gives an advance by bank transfer, and says the most it can give when the server refuses it as too large', async () => {
+    const user = userEvent.setup();
+    people = [{ ...yusuf(), owed_iqd: 720000, to_pay_iqd: 720000 }, hasan(), ali()];
+    giveAdvance = () => {
+      throw new AppRpcError('WAGE_ADVANCE_TOO_LARGE', 'WAGE_ADVANCE_TOO_LARGE', '85000');
+    };
+    renderPage();
+    await user.click(await screen.findByTestId('wages.row.advance.s-yusuf'));
+    const dialog = screen.getByRole('dialog', { name: /Give .*Yusuf.* an advance/ });
+    await user.type(within(dialog).getByRole('textbox', { name: /^Amount/ }), '100000');
+    await user.click(within(dialog).getByTestId('wages.advance.from.bank'));
+    expect(within(dialog).getByText('Nothing comes out of the safe.')).toBeTruthy();
+    await user.click(within(dialog).getByTestId('wages.advance.confirm'));
+    expect(await within(dialog).findByText(/The most you can give now is .*85,000 IQD/)).toBeTruthy();
+    expect(calls.find((c) => c.fn === 'give_wage_advance')?.args).toMatchObject({ p_paid_from: 'bank', p_note: null });
+  });
+
+  it('shows what was advanced and what is still owed on the row, and the advances behind it with Undo', async () => {
+    const user = userEvent.setup();
+    people = [yusufAdvanced(), hasan(), ali()];
+    renderPage();
+    expect((await screen.findByTestId('wages.row.advanced.s-yusuf')).textContent).toMatch(/Advanced .*100,000 IQD/);
+    expect(screen.getByTestId('wages.row.owed.s-yusuf').textContent).toMatch(/Still owed .*620,000 IQD/);
+    await user.click(screen.getByTestId('wages.row.details.s-yusuf'));
+    const list = screen.getByTestId('wages.details.advances.s-yusuf');
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+    expect(list.textContent).toMatch(/From the safe.*Rent help.*Given by .*Majed/);
+    expect(list.textContent).toContain('By bank transfer');
+    await user.click(screen.getByTestId('wages.details.advance.undo.v1'));
+    const dialog = screen.getByRole('dialog', { name: 'Take back this advance?' });
+    expect(within(dialog).getByText(/The money goes back into the safe\./)).toBeTruthy();
+    await user.click(within(dialog).getByTestId('wages.advance.undo.confirm'));
+    expect(within(dialog).getByText('A reason is required.')).toBeTruthy();
+    await user.type(within(dialog).getByRole('textbox'), 'Logged twice');
+    await user.click(within(dialog).getByTestId('wages.advance.undo.confirm'));
+    await waitFor(() => expect(calls.find((c) => c.fn === 'undo_wage_advance')?.args).toEqual({ p_id: 'v1', p_reason: 'Logged twice' }));
+  });
+
+  it('warns when more was advanced than the month comes to', async () => {
+    people = [yusufAdvanced({ owed_iqd: -30000, to_pay_iqd: 0 }), hasan(), ali()];
+    renderPage();
+    expect((await screen.findByTestId('wages.row.owed.s-yusuf')).textContent).toMatch(/Advanced .*30,000 IQD.* more than earned/);
+    expect(screen.queryByTestId('wages.row.advance.s-yusuf')).toBeNull();
+  });
+
+  it('keeps the totals as they were while no advance was given', async () => {
+    renderPage();
+    expect((await screen.findByTestId('wages.totals')).textContent).not.toContain('Advances');
+  });
+
+  it('shows Advances and Still to pay in the totals when the month has advances', async () => {
+    totalsOver = { advances_iqd: 100000, to_pay_iqd: 620000 };
+    people = [yusufAdvanced(), hasan(), ali()];
+    renderPage();
+    expect((await screen.findByTestId('wages.totals')).textContent).toMatch(/Net.*Advances.*100,000 IQD.*Still to pay.*620,000 IQD.*Paid/);
+  });
+
+  it('takes the advances off in Mark paid, pays the server’s to-pay figure, and asks where the money came from', async () => {
+    const user = userEvent.setup();
+    people = [yusufAdvanced(), hasan(), ali()];
+    renderPage();
+    await user.click(await screen.findByTestId('wages.row.pay.s-yusuf'));
+    const dialog = screen.getByRole('dialog', { name: /Mark .*Yusuf.* wage paid\?/ });
+    const breakdown = within(dialog).getByTestId('wages.pay.breakdown').textContent ?? '';
+    expect(breakdown).toMatch(/Net.*720,000 IQD.*Advances already given · .*2.* advances.*100,000 IQD.*To pay now.*620,000 IQD/);
+    expect(within(dialog).getByTestId('wages.pay.from.safe').getAttribute('aria-pressed')).toBe('true');
+    await user.click(within(dialog).getByTestId('wages.pay.from.bank'));
+    await user.click(within(dialog).getByTestId('wages.pay.confirm'));
+    expect(calls.find((c) => c.fn === 'mark_wage_paid')?.args).toMatchObject({ p_expected_net_iqd: 720000, p_expected_paid_iqd: 620000, p_paid_from: 'bank' });
+  });
+
+  it('says the advances covered the month when nothing is left to pay, and asks nothing about the safe', async () => {
+    const user = userEvent.setup();
+    people = [yusufAdvanced({ advances_iqd: 720000, advance_count: 1, owed_iqd: 0, to_pay_iqd: 0 }), hasan(), ali()];
+    renderPage();
+    await user.click(await screen.findByTestId('wages.row.pay.s-yusuf'));
+    const dialog = screen.getByRole('dialog', { name: /Mark .*Yusuf.* wage paid\?/ });
+    expect(within(dialog).getByText('The advances already covered this month. Marking it paid closes the month.')).toBeTruthy();
+    expect(within(dialog).queryByTestId('wages.pay.from.safe')).toBeNull();
+    await user.click(within(dialog).getByTestId('wages.pay.confirm'));
+    expect(calls.find((c) => c.fn === 'mark_wage_paid')?.args).toMatchObject({ p_expected_paid_iqd: 0, p_paid_from: 'safe' });
+  });
+
+  it('says a payment from the safe goes back into it when undone, and where a paid month was paid from', async () => {
+    const user = userEvent.setup();
+    const paid = ali();
+    people = [yusuf(), hasan(), { ...paid, payment: { ...(paid.payment as unknown as Record<string, unknown>), paid_iqd: 60000, paid_from: 'safe' } }];
+    renderPage();
+    expect((await screen.findByTestId('wages.row.paidFrom.s-ali')).textContent).toBe('From the safe');
+    await user.click(screen.getByTestId('wages.row.undo.s-ali'));
+    const dialog = screen.getByRole('dialog', { name: 'Undo this payment?' });
+    expect(within(dialog).getByText(/The .*60,000 IQD.* goes back into the safe\./)).toBeTruthy();
   });
 });

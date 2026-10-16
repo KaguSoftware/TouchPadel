@@ -186,7 +186,8 @@ export interface AllMatchCaps extends MatchCaps {
 
 /** The signed-in role's open-match capabilities. Never compare roles inline. */
 export function useMatchCaps(): AllMatchCaps {
-  const role = useAuth().staff?.role;
+  // The person, not the role: a second job (0345) brings its capabilities.
+  const role = useAuth().staff;
   // Open matches are paused until online payments are live: no desk surface may run them.
   const onlineLive = useOnlinePaymentsLive();
   return useMemo(

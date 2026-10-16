@@ -271,7 +271,7 @@ export function BookingDetailScreen() {
         ? matchTitle
         : (guestName ?? tr('ws.courtDesk.detail.walkIn'));
   const night = r ? tradingDateOf(r.start_at, tz, settingsQ.data?.opening_hours) : null;
-  const canCharge = canAccess(staff?.role, '/till');
+  const canCharge = canAccess(staff, '/till');
   const start = r ? new Date(r.start_at) : null;
 
   const actionLabel: Record<ActionKind, string> = {

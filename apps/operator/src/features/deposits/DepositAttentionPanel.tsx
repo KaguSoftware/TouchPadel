@@ -4,10 +4,11 @@
  * app.deposit_attention for the branch the rail shows.
  *
  * Mounted twice with one body: on the owner's Financial home (with its empty
- * state, once deposits are on) and on the manager's Today (only when a row
- * waits), because /financial is the owner's alone and the manager is the one
- * on the floor when a guest asks where their money is. Both roles pass the
- * RPC guards (manager, owner).
+ * state, once deposits are on) and on Today, as a row of "Needs you" whose
+ * rows open in place under it (`bare`, only when a row waits), because
+ * /financial is the owner's alone and the manager is the one on the floor
+ * when a guest asks where their money is. Both roles pass the RPC guards
+ * (manager, owner).
  *
  * Each row says who, which booking, how much, what went wrong in plain words
  * and since when, and offers only the action the server will take for it
@@ -66,19 +67,30 @@ const K = 'ws.manager.onlineRefunds';
 
 const KIND_TONE: Record<AttentionKind, Tone> = { refundFailed: 'danger', refundSlow: 'warn', paidNotLive: 'warn' };
 
-export function DepositAttentionPanel({ hideWhenEmpty = false }: { hideWhenEmpty?: boolean }) {
-  const { tr } = useLocale();
+/** The online refunds read, shared by the panel and Today's "Needs you" row (one cache). */
+export function useDepositAttention() {
   const branch = currentBranchId();
-  const attentionQ = useQuery({
+  return useQuery({
     queryKey: depositAttentionKey(branch),
     queryFn: () => fetchDepositAttention(branch),
     refetchInterval: 60_000,
   });
+}
+
+/**
+ * `bare`: the rows alone, for Today, where the list opens in place under its
+ * "Needs you" row (which carries the title and the count), so no card is
+ * drawn inside that card. The row decides whether there is anything to show.
+ */
+export function DepositAttentionPanel({ hideWhenEmpty = false, bare = false }: { hideWhenEmpty?: boolean; bare?: boolean }) {
+  const { tr } = useLocale();
+  const branch = currentBranchId();
+  const attentionQ = useDepositAttention();
   // Only the home asks whether deposits are on, to decide whether an empty list is news.
   const settingsQ = useQuery({
     queryKey: depositSettingsKey(branch),
     queryFn: () => fetchDepositSettings(branch),
-    enabled: !hideWhenEmpty,
+    enabled: !hideWhenEmpty && !bare,
     staleTime: 60_000,
   });
 
@@ -86,26 +98,31 @@ export function DepositAttentionPanel({ hideWhenEmpty = false }: { hideWhenEmpty
   const mode = settingsQ.data?.deposit_mode ?? null;
   // Worst first (sortAttention), so the three that show are the three to act on.
   const cap = useListCap(rows ?? []);
-  if (!showAttentionPanel({ rows: rows ? rows.length : null, mode, hideWhenEmpty })) return null;
+  if (!bare && !showAttentionPanel({ rows: rows ? rows.length : null, mode, hideWhenEmpty })) return null;
 
+  const body = (
+    <AsyncStateWrapper
+      status={attentionQ.isError && !attentionQ.data ? 'error' : !rows ? 'loading' : rows.length === 0 ? 'empty' : 'ready'}
+      error={attentionQ.error}
+      onRetry={() => void attentionQ.refetch()}
+      compact
+      skeleton={<Skeleton lines={3} blockSize="1.4rem" />}
+      emptyContent={<EmptyState compact icon="checkCircle" kind="nothingToDo" title={tr(`${K}.empty`)} titleAs="h3" />}
+    >
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
+        {cap.shown.map((r) => (
+          <AttentionRow key={r.id} row={r} />
+        ))}
+      </ul>
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+    </AsyncStateWrapper>
+  );
+
+  if (bare) return <div data-testid="deposit-attention">{body}</div>;
   return (
     <Panel title={<CardTitle icon="card">{tr(`${K}.title`)}</CardTitle>} data-testid="deposit-attention">
       <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)', maxInlineSize: '70ch' }}>{tr(`${K}.lead`)}</p>
-      <AsyncStateWrapper
-        status={attentionQ.isError && !attentionQ.data ? 'error' : !rows ? 'loading' : rows.length === 0 ? 'empty' : 'ready'}
-        error={attentionQ.error}
-        onRetry={() => void attentionQ.refetch()}
-        compact
-        skeleton={<Skeleton lines={3} blockSize="1.4rem" />}
-        emptyContent={<EmptyState compact icon="checkCircle" kind="nothingToDo" title={tr(`${K}.empty`)} titleAs="h3" />}
-      >
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
-          {cap.shown.map((r) => (
-            <AttentionRow key={r.id} row={r} />
-          ))}
-        </ul>
-        <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
-      </AsyncStateWrapper>
+      {body}
     </Panel>
   );
 }

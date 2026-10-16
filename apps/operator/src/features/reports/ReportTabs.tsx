@@ -45,7 +45,7 @@ export function ReportTabs({ value }: { value: ReportName }) {
   const here = REPORT_TABS.find((t) => t.id === value);
   const section = here ? sectionForPath(workspace, here.path) : null;
   const tabs = REPORT_TABS.filter(
-    (t) => canAccess(staff?.role, t.path) && (!section || sectionForPath(workspace, t.path)?.key === section.key),
+    (t) => canAccess(staff, t.path) && (!section || sectionForPath(workspace, t.path)?.key === section.key),
   );
 
   const open = (id: ReportName) => {

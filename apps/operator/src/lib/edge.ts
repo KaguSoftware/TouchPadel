@@ -30,6 +30,8 @@ export type EdgeFunctionName =
   | 'assistant-index'
   | 'assistant-job'
   | 'assistant-component'
+  // The free AI (owner call 2026-10-16): Groq, every staff role, no business data.
+  | 'assistant-free'
   // The owner's Launch of a new item (build-contracts-2026-09-23 §2.20, §5.3).
   | 'protocol-action'
   // Goods in's scanned receipts (0237): reads one with the connected model.
@@ -55,13 +57,20 @@ export class EdgeError extends Error {
    * `EDGE_<kind>`. Read like AppRpcError.code.
    */
   readonly code: string;
+  /**
+   * The JSON refusal body itself, when there was one: for the fields a caller
+   * reads beyond the code (`assistant-free`'s 429 carries `scope` and
+   * `retry_after_s`). Never shown raw.
+   */
+  readonly body: unknown;
 
-  constructor(status: number, kind: EdgeErrorCode, message: string, serverCode?: string | null) {
+  constructor(status: number, kind: EdgeErrorCode, message: string, serverCode?: string | null, body?: unknown) {
     super(message);
     this.name = 'EdgeError';
     this.status = status;
     this.kind = kind;
     this.serverCode = serverCode ?? null;
+    this.body = body ?? null;
     this.code = serverCode && isErrorCode(serverCode) ? serverCode : `EDGE_${kind}`;
   }
 }
@@ -309,6 +318,7 @@ export async function streamEdge<Req>(fn: EdgeFunctionName, body: Req, opts: Str
       statusToEdgeCode(res.status, payload),
       bodyMessage(payload) ?? `edge ${fn} failed with ${res.status}`,
       bodyCode(payload),
+      payload,
     );
   }
 

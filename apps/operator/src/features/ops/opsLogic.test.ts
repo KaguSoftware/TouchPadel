@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
+  NEEDS,
   STOCK_HREF,
-  alertsFor,
   auditDrillHref,
   dayCloseState,
+  needsFor,
   normalizeCount,
   normalizeOverview,
+  overviewNeedCounts,
   tillTabHref,
-  workAlertsFor,
 } from './opsLogic';
 import { protocolsWaitingTotal, readProtocolsWaiting } from './protocolsWaiting';
 
@@ -108,6 +109,13 @@ describe('normalizeOverview', () => {
   });
 });
 
+describe('normalizeOverview — today', () => {
+  it('reads today\'s business date by the server\'s clock, open day or not', () => {
+    expect(normalizeOverview({ businessDate: '2026-10-16', dayClose: { open: false } }).today).toBe('2026-10-16');
+    expect(normalizeOverview({}).today).toBeNull();
+  });
+});
+
 describe('normalizeCount', () => {
   it('reads count + amount under either key style', () => {
     expect(normalizeCount({ count: 2, amountIqd: 100 })).toEqual({ count: 2, amountIqd: 100 });
@@ -131,75 +139,104 @@ describe('drill hrefs', () => {
   });
 });
 
-// The selection rules decide what "Needs you now" contains, which is where the
+// The selection rules decide what "Needs you" contains, which is where the
 // readability of the screen actually lives.
 
-describe('alertsFor', () => {
+describe('needsFor', () => {
   const openDay = { open: true, businessDate: '2026-09-03', openedAt: '2026-09-03T06:00:00Z', blockingTabs: [] };
 
-  it('drops every zero, so a clear floor on an open day produces no alerts at all', () => {
+  it('drops every zero, so a clear floor on an open day needs nothing at all', () => {
     const o = normalizeOverview({
       bookings: { today: 12, arrived: 12, upcoming: 0, noShows: 3 },
       cafe: { openTabs: 3, ticketsQueued: 2, ticketsLate: 0, waiterCallsOpen: 0 },
       stock: { low: 0, belowPar: 5, expiringSoon: 1, expired: 0 },
       dayClose: openDay,
     });
-    // belowPar and expiringSoon belong to the stock card, and no-shows to the
-    // courts card: none of them is something to go and do right now.
-    expect(alertsFor(o)).toEqual([]);
+    // Below par and expiring soon are stock to watch, and no-shows are a fact
+    // about the day: none of them is something to go and do right now.
+    expect(needsFor(overviewNeedCounts(o))).toEqual([]);
   });
 
-  it('returns the standing alarms in table order, never by count', () => {
-    const o = normalizeOverview({
-      cafe: { ticketsLate: 3, waiterCallsOpen: 1 },
-      stock: { low: 4, expired: 7 },
-      dayClose: { ...openDay, open: false },
+  it('never makes the day not being open a row: that is the banner above the list', () => {
+    const o = normalizeOverview({ dayClose: { ...openDay, open: false } });
+    expect(needsFor(overviewNeedCounts(o))).toEqual([]);
+    expect(NEEDS.map((n) => n.key)).not.toContain('dayNotOpen');
+  });
+
+  it('orders the rows by who is waiting, never by count', () => {
+    const rows = needsFor({
+      content: 1,
+      incidents: 1,
+      deductions: 1,
+      protocols: 1,
+      tillShifts: 1,
+      purchases: 1,
+      low: 40,
+      expired: 1,
+      matchReports: 1,
+      lessonRefunds: 1,
+      deposits: 1,
+      ticketsLate: 597,
+      waiterCalls: 2,
     });
-    expect(alertsFor(o).map((a) => a.key)).toEqual(['dayNotOpen', 'waiterCalls', 'ticketsLate', 'low', 'expired']);
-    expect(alertsFor(o).map((a) => a.count)).toEqual([1, 1, 3, 4, 7]);
+    expect(rows.map((r) => r.key)).toEqual([
+      // A guest in the building, then a guest owed money, then a complaint.
+      'waiterCalls',
+      'ticketsLate',
+      'deposits',
+      'lessonRefunds',
+      'matchReports',
+      // The shelves: nobody may use expired stock, before what may sell out.
+      'expired',
+      'low',
+      // The paperwork.
+      'purchases',
+      'tillShifts',
+      'protocols',
+      'deductions',
+      'incidents',
+      'content',
+    ]);
+    expect(rows.map((r) => r.count).slice(0, 2)).toEqual([2, 597]);
   });
 
-  it('carries each alarm to the screen that resolves it, and late tickets to none', () => {
-    const o = normalizeOverview({ cafe: { ticketsLate: 1, waiterCallsOpen: 1 }, stock: { low: 1, expired: 1 } });
-    expect(Object.fromEntries(alertsFor(o).map((a) => [a.key, a.href]))).toEqual({
-      dayNotOpen: '/admin/day-close',
-      waiterCalls: '/till/tabs',
-      // Nothing in this workspace lists late tickets; the tab list does not.
-      ticketsLate: null,
-      low: '/stock?filter=low',
-      expired: '/stock/expiry',
+  it('gives each row one way to act: a screen, the queue in place, or nothing here', () => {
+    const rows = needsFor({ waiterCalls: 1, ticketsLate: 1, deposits: 1, lessonRefunds: 1, matchReports: 1, expired: 1, low: 1, purchases: 1, tillShifts: 1, protocols: 1, deductions: 1, incidents: 1, content: 1 });
+    expect(Object.fromEntries(rows.map((r) => [r.key, r.action]))).toEqual({
+      waiterCalls: { kind: 'open', href: '/till/tabs' },
+      // The kitchen cooks them; no screen in this workspace does.
+      ticketsLate: { kind: 'none' },
+      deposits: { kind: 'review' },
+      lessonRefunds: { kind: 'review' },
+      matchReports: { kind: 'review' },
+      expired: { kind: 'open', href: '/stock/expiry' },
+      low: { kind: 'open', href: '/stock?filter=low' },
+      purchases: { kind: 'open', href: '/stock/receive' },
+      tillShifts: { kind: 'open', href: '/admin/day-close' },
+      protocols: { kind: 'open', href: '/protocols?filter=waiting' },
+      deductions: { kind: 'open', href: '/deductions' },
+      incidents: { kind: 'open', href: '/incidents' },
+      content: { kind: 'open', href: '/marketing' },
     });
   });
-});
 
-describe('workAlertsFor', () => {
-  // Protocol steps and the driver's purchases come from their own reads, not
-  // ops_overview (build-contracts-2026-09-23 §5.4), after the standing alarms.
-  it('shows a row only when something waits, each opening the screen that clears it', () => {
-    expect(workAlertsFor({ protocols: 0, purchases: 0 })).toEqual([]);
-    expect(workAlertsFor({ protocols: 3, purchases: 2 })).toEqual([
-      { key: 'protocols', severity: 'warn', href: '/protocols?filter=waiting', count: 3 },
-      { key: 'purchases', severity: 'warn', href: '/stock/receive', count: 2 },
-    ]);
+  it('counts a read the role never made, or that has not answered, as none', () => {
+    // A manager never reads content (§8 Q14) or deductions: their counts are absent.
+    expect(needsFor({ protocols: 1, deductions: undefined, incidents: 0 }).map((r) => r.key)).toEqual(['protocols']);
   });
 
-  it('adds the wave-5 people records after them, each to its own screen, and counts a read the role never made as none', () => {
-    expect(workAlertsFor({ deductions: 2, incidents: 1, content: 3 })).toEqual([
-      { key: 'deductions', severity: 'warn', href: '/deductions', count: 2 },
-      { key: 'incidents', severity: 'warn', href: '/incidents', count: 1 },
-      { key: 'content', severity: 'warn', href: '/marketing', count: 3 },
-    ]);
-    // A manager never reads content (§8 Q14): its count is simply absent.
-    expect(workAlertsFor({ protocols: 1, deductions: 0, incidents: 0 }).map((a) => a.key)).toEqual(['protocols']);
+  it('lets a read lower a row from danger to warn', () => {
+    expect(needsFor({ deposits: 2 })[0]!.severity).toBe('danger');
+    expect(needsFor({ deposits: 2 }, { deposits: 'warn' })[0]!.severity).toBe('warn');
+    expect(needsFor({ ticketsLate: 1, expired: 1, low: 1 }).map((r) => r.severity)).toEqual(['danger', 'danger', 'warn']);
   });
 
-  it('sends till shifts closed short or over to Day close, last, and says nothing when every count matched (wave 5 §5.2, §8 Q27)', () => {
-    expect(workAlertsFor({ tillShifts: 2 })).toEqual([{ key: 'tillShifts', severity: 'warn', href: '/admin/day-close', count: 2 }]);
-    expect(workAlertsFor({ protocols: 1, tillShifts: 1 }).map((a) => a.key)).toEqual(['protocols', 'tillShifts']);
-    expect(workAlertsFor({ tillShifts: 0 })).toEqual([]);
+  it('reads its four counts from ops_overview', () => {
+    const o = normalizeOverview({ cafe: { ticketsLate: 3, waiterCallsOpen: 1 }, stock: { low: 4, expired: 7 } });
+    expect(overviewNeedCounts(o)).toEqual({ waiterCalls: 1, ticketsLate: 3, expired: 7, low: 4 });
   });
 
-  it('counts the steps to decide and to do as one "waiting on you"', () => {
+  it('counts the protocol steps to decide and to do as one "waiting on you"', () => {
     expect(protocolsWaitingTotal({ to_decide: 2, todo: 1 })).toBe(3);
     expect(readProtocolsWaiting({ to_decide: '4', todo: null })).toEqual({ toDecide: 4, todo: 0 });
     expect(protocolsWaitingTotal(undefined)).toBe(0);

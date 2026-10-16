@@ -176,6 +176,12 @@ describe('staffGate', () => {
     expect(staffGate(STAFF, ['head_chef', 'chef', 'manager', 'owner'])).toBe('allow');
     expect(staffGate(STAFF, ['driver', 'manager', 'owner'])).toBe('redirect-staff-home');
   });
+
+  it('opens a second job\'s pages too (0345)', () => {
+    if (STAFF.kind !== 'staff') throw new Error('fixture');
+    const withDriver = { ...STAFF, staff: { ...STAFF.staff, extraRoles: ['driver'] as const } };
+    expect(staffGate(withDriver, ['driver', 'manager', 'owner'])).toBe('allow');
+  });
 });
 
 describe('guestTabsGate', () => {

@@ -3,7 +3,9 @@
  * with no order among them, each repeating the same comparison caveat. Now:
  *
  *  1. Four LEAD figures, the ones an owner decides on: how many bookings, how
- *     full the courts were, what they earned, and what was lost to
+ *     full the courts were, what padel earned (court bookings plus the Touch
+ *     Shop, 0346; court bookings alone once a court is picked, since the shop
+ *     is not tied to a court), and what was lost to
  *     cancellations and no-shows (one figure, both counts named, each opening
  *     its own transactions).
  *  2. The SUPPORTING figures as rows: booked hours, what an hour sells for,
@@ -17,6 +19,7 @@ import { pctDelta } from '@touch/core';
 import { useLocale } from '../../../../lib/i18n';
 import { FigureGroup, FigureLine, Kpi } from '../../cards/Kpi';
 import type { VenueRevenue } from '../../useVenueRevenue';
+import type { ShopData } from '../useShopData';
 import type { DrillTarget } from '../../drill';
 import { smallCourtSample, type CourtKpiKey } from '../derive';
 import { gridColumns } from '../../Zone';
@@ -29,9 +32,10 @@ export function PulseSection({
   state,
   f,
   venue,
+  shop,
   openDrill,
   courtId,
-}: SectionProps & { venue: VenueRevenue; openDrill: (target: DrillTarget) => void; courtId: string | null }) {
+}: SectionProps & { venue: VenueRevenue; shop: ShopData; openDrill: (target: DrillTarget) => void; courtId: string | null }) {
   const { tr } = useLocale();
   const k = raw?.summary.kpis;
   const kp = raw?.summaryPrev?.kpis ?? null;
@@ -52,6 +56,13 @@ export function PulseSection({
   const lostPrevPct = kp && kp.bookedTotal > 0 ? ((kp.cancellations + kp.noShows) / kp.bookedTotal) * 100 : null;
   const lostDelta = reliable && lostPct != null && lostPrevPct != null ? Math.round(lostPct - lostPrevPct) : null;
   const venueDelta = venue.current && venue.previous && reliable ? pctDelta(venue.current.venueIqd, venue.previous.venueIqd) : null;
+  // Padel revenue: court bookings plus the shop, whole-venue only. With a court
+  // picked, or the shop figures failing, the tile is the court bookings alone.
+  const withShop = courtId == null && shop.state !== 'error';
+  const shopNow = shop.current?.kpis.netIqd ?? 0;
+  const padel = (k?.revenueIqd ?? 0) + (withShop ? shopNow : 0);
+  const padelPrev = kp && (!withShop || shop.previous) ? kp.revenueIqd + (withShop ? (shop.previous?.kpis.netIqd ?? 0) : 0) : null;
+  const padelDelta = !withShop ? delta('revenue') : reliable && padelPrev != null ? pctDelta(padel, padelPrev) : null;
   const events = raw?.summary.eventMinutes ?? 0;
   const eventsPrev = raw?.summaryPrev?.eventMinutes ?? 0;
 
@@ -78,13 +89,16 @@ export function PulseSection({
           {...common}
         />
         <Kpi
-          label={tr('ws.analytics.courts.kpi.revenue')}
-          value={f.money(k?.revenueIqd ?? 0)}
-          delta={delta('revenue')}
-          previous={was(kp?.revenueIqd, f.money)}
-          tip={tr('ws.analytics.courts.tips.revenue')}
+          label={tr(withShop ? 'ws.analytics.courts.kpi.padelRevenue' : 'ws.analytics.courts.kpi.revenue')}
+          value={f.money(padel)}
+          delta={padelDelta}
+          previous={padelPrev == null ? null : f.money(padelPrev)}
+          tip={tr(withShop ? 'ws.analytics.courts.tips.padelRevenue' : 'ws.analytics.courts.tips.revenue')}
+          note={withShop && k && shop.current ? tr('ws.analytics.courts.kpi.padelSplit', { courts: f.compact(k.revenueIqd), shop: f.compact(shopNow) }) : undefined}
           drills={[drill('padelRevenue', tr('ws.analytics.courts.kpi.revenue'))]}
-          {...common}
+          loading={loading || (withShop && shop.state === 'loading')}
+          unavailable={broken}
+          f={f}
         />
         <Kpi
           label={tr('ws.analytics.courts.kpi.lost')}
@@ -150,14 +164,14 @@ export function PulseSection({
             tip={tr('ws.analytics.courts.tips.attachRate')}
             {...common}
           />
-          {/* Venue-wide, whatever the court filter says: cafe net plus every court's revenue. */}
+          {/* Venue-wide, whatever the court filter says: cafe net plus padel (every court's revenue and the shop). */}
           <FigureLine
             label={tr('analytics.kpi.venueRevenue')}
             value={f.money(venue.current?.venueIqd ?? 0)}
             delta={venueDelta}
             previous={venue.previous ? f.money(venue.previous.venueIqd) : null}
             tip={tr('ws.analytics.venue.revenueTip')}
-            note={venue.current ? tr('analytics.kpi.venueSplit', { cafe: f.compact(venue.current.cafeIqd), courts: f.compact(venue.current.courtsIqd) }) : undefined}
+            note={venue.current ? tr('ws.analytics.venue.split', { cafe: f.compact(venue.current.cafeIqd), padel: f.compact(venue.current.padelIqd) }) : undefined}
             drills={[{ label: tr('analytics.kpi.venueRevenue'), onOpen: () => openDrill({ figure: 'revenue', label: tr('analytics.kpi.venueRevenue') }) }]}
             loading={venue.state === 'loading'}
             unavailable={venue.state === 'error'}

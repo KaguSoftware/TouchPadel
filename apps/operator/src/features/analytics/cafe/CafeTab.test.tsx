@@ -63,6 +63,7 @@ import { analyticsRpc, fetchRejections, fetchStoredInsights, fetchStoredPatterns
 import { courtsRpc } from '../courts/api';
 import { appRpc } from '../../../lib/appRpc';
 import { summaryJson } from '../courts/fixtures';
+import { shopJson } from '../courts/shopFixtures';
 import { cafeFixtureFor } from '../fixtures';
 import { CafeTab } from './CafeTab';
 
@@ -116,7 +117,10 @@ beforeEach(() => {
       ? ({ hit: false, key: 'x', params_hash: 'h', last: null } as never)
       : fn === 'assistant_usage'
         ? ({ pricing: {}, fallback_micros_per_mtok: 0 } as never)
-        : (undefined as never),
+        : // 0346: the Touch Shop's sales, padel revenue (300,000 in each window here).
+          fn === 'analytics_shop'
+          ? (shopJson as never)
+          : (undefined as never),
   );
 });
 
@@ -135,11 +139,12 @@ describe('CafeTab', () => {
     const tile = (label: string) => within(pulse).getByText(label).closest('div')!;
     const row = (label: string) => within(pulse).getByText(label).closest('li')!;
     expect(within(tile('Cafe sales')).getByText('700,000 IQD', { selector: 'strong' })).toBeTruthy();
-    // Venue revenue = cafe net 700,000 + the venue-wide court revenue 1,200,000.
-    expect(within(row('Venue revenue')).getByText('1,900,000 IQD', { selector: 'strong' })).toBeTruthy();
+    // Venue revenue = cafe net 700,000 + padel 1,500,000 (the venue-wide court revenue
+    // 1,200,000 and the shop's 300,000, 0346: a shop sale is padel, never cafe).
+    expect(within(row('Venue revenue')).getByText('2,200,000 IQD', { selector: 'strong' })).toBeTruthy();
     // Case-insensitive: en-GB compact notation is '700K' in older ICU and '700k' in
     // the newer CLDR that CI's Node 22 ships. The figure is what is under test.
-    expect(within(row('Venue revenue')).getByText(/^700K cafe · 1\.2M courts$/i)).toBeTruthy();
+    expect(within(row('Venue revenue')).getByText(/^700K cafe · 1\.5M padel$/i)).toBeTruthy();
     // Cash and card are two rows with their units, not "630,000 / 350,000".
     expect(within(row('Cash')).getByText('630,000 IQD', { selector: 'strong' })).toBeTruthy();
     expect(within(row('Cash')).getByText('64% of cash and card')).toBeTruthy();

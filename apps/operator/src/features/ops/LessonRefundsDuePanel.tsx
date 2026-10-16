@@ -12,7 +12,8 @@
  * (C-23); a share Qi could not refund (`online_blocked_iqd`) says it needs
  * attention, links the online refunds panel and offers Record the handback.
  *
- * Mounted `hideWhenEmpty` on Today after the player reports: nothing while
+ * On Today it is a row of "Needs you" (Lesson money to give back, with the
+ * total due), and its rows open in place under it (`bare`): nothing while
  * nothing is due, and nothing on a server without coaching (RPC_MISSING). A
  * failed first read says so with Retry (§5.5).
  */
@@ -45,12 +46,26 @@ export function showLessonRefunds(opts: {
   return opts.rows > 0 || !opts.hideWhenEmpty;
 }
 
-export function LessonRefundsDuePanel({ hideWhenEmpty = false }: { hideWhenEmpty?: boolean }) {
-  const { tr } = useLocale();
+/**
+ * The lesson money read for the branch on the rail, shared by the panel and
+ * Today's "Needs you" row (one cache). `allowed` is false for anyone who may
+ * not refund, and then no read is made.
+ */
+export function useLessonRefundsQueue() {
   const caps = useCoachingCaps();
   const branch = currentBranchId();
   const q = useRefundsDue(branch, caps.refund);
   const status = useLessonRead(q);
+  return { allowed: caps.refund, q, status };
+}
+
+/**
+ * `bare`: the rows alone, for Today, where they open in place under their
+ * "Needs you" row (which carries the title, the count and the total due).
+ */
+export function LessonRefundsDuePanel({ hideWhenEmpty = false, bare = false }: { hideWhenEmpty?: boolean; bare?: boolean }) {
+  const { tr } = useLocale();
+  const { allowed, q, status } = useLessonRefundsQueue();
   const settingsQ = useQuery({
     queryKey: QK.venueSettings,
     queryFn: fetchVenueSettings,
@@ -61,8 +76,9 @@ export function LessonRefundsDuePanel({ hideWhenEmpty = false }: { hideWhenEmpty
   const rows = data?.items ?? null;
   const cap = useListCap(rows ?? []);
 
-  if (!caps.refund || status.kind === 'absent') return null;
+  if (!allowed || status.kind === 'absent') return null;
   if (
+    !bare &&
     !showLessonRefunds({
       rows: rows ? rows.length : null,
       hideWhenEmpty,
@@ -71,6 +87,33 @@ export function LessonRefundsDuePanel({ hideWhenEmpty = false }: { hideWhenEmpty
   )
     return null;
 
+  const body = (
+    <>
+      {status.kind === 'loading' && <Skeleton lines={3} blockSize="1.4rem" />}
+      <LessonReadNotice status={status} onRetry={() => void q.refetch()} tz={tz} />
+      {rows && rows.length === 0 && (
+        <EmptyState
+          compact
+          icon="checkCircle"
+          kind="nothingToDo"
+          title={tr(`${K}.empty`)}
+          titleAs="h3"
+        />
+      )}
+      {rows && rows.length > 0 && (
+        <>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
+            {cap.shown.map((item) => (
+              <RefundRow key={item.enrolment_id} item={item} tz={tz} />
+            ))}
+          </ul>
+          <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+        </>
+      )}
+    </>
+  );
+
+  if (bare) return <div data-testid="lesson-refunds">{body}</div>;
   return (
     <Panel
       title={<CardTitle icon="whistle">{tr(`${K}.title`)}</CardTitle>}
@@ -93,27 +136,7 @@ export function LessonRefundsDuePanel({ hideWhenEmpty = false }: { hideWhenEmpty
       >
         {tr(`${K}.lead`)}
       </p>
-      {status.kind === 'loading' && <Skeleton lines={3} blockSize="1.4rem" />}
-      <LessonReadNotice status={status} onRetry={() => void q.refetch()} tz={tz} />
-      {rows && rows.length === 0 && (
-        <EmptyState
-          compact
-          icon="checkCircle"
-          kind="nothingToDo"
-          title={tr(`${K}.empty`)}
-          titleAs="h3"
-        />
-      )}
-      {rows && rows.length > 0 && (
-        <>
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
-            {cap.shown.map((item) => (
-              <RefundRow key={item.enrolment_id} item={item} tz={tz} />
-            ))}
-          </ul>
-          <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
-        </>
-      )}
+      {body}
     </Panel>
   );
 }

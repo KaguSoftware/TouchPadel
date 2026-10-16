@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  advanceMaxFromHint,
+  advanceMonthInRange,
   bonusKind,
+  canGiveAdvance,
+  canUndoAdvance,
   canMarkPaid,
   canStepWageForward,
   canUndoPaid,
@@ -14,6 +18,7 @@ import {
   readWagesMonth,
   undoReasonIssue,
   unsetPeople,
+  validateAdvanceDraft,
   validateWageDraft,
   wageRefusalField,
   wageTone,
@@ -194,7 +199,7 @@ describe('what a line shows and offers', () => {
     // No salary but a reward bonus: the bonus is paid alone (0333).
     for (const s of ['unset', 'none'] as const) expect(canMarkPaid({ status: s, bonusesIqd: 25000 })).toBe(true);
     expect(canMarkPaid({ status: 'paid', bonusesIqd: 25000 })).toBe(false);
-    const pay = { id: 'p', paidIqd: 1, paidAt: null, paidByName: null, undoneAt: null, undoneByName: null, undoReason: null };
+    const pay = { id: 'p', paidIqd: 1, advancesIqd: 0, paidFrom: null, paidAt: null, paidByName: null, undoneAt: null, undoneByName: null, undoReason: null };
     expect(canUndoPaid({ payment: { ...pay, status: 'paid' } })).toBe(true);
     expect(canUndoPaid({ payment: { ...pay, status: 'undone' } })).toBe(false);
     expect(canUndoPaid({ payment: null })).toBe(false);
@@ -265,5 +270,119 @@ describe('the month stepper and the salary form', () => {
   it('knows the refusals that mean the month moved', () => {
     for (const c of ['WAGE_ALREADY_PAID', 'WAGE_CHANGED', 'REF_NOT_FOUND', 'INVALID_TRANSITION']) expect(isWageStale(c)).toBe(true);
     for (const c of ['WAGE_NOT_SET', 'FORBIDDEN', null]) expect(isWageStale(c)).toBe(false);
+  });
+});
+
+describe('advances (0344)', () => {
+  it('reads the advances, what is still owed and what Mark paid hands over, as the server sent them', () => {
+    const m = readWagesMonth({
+      month: '2026-10-01',
+      totals: { net_iqd: 715000, advances_iqd: 100000, to_pay_iqd: 615000, paid_iqd: 0 },
+      people: [
+        {
+          ...line({
+            advances_iqd: 100000,
+            advance_count: 2,
+            owed_iqd: 615000,
+            to_pay_iqd: 615000,
+            advances: [
+              { id: 'v1', amount_iqd: 60000, paid_from: 'safe', note: 'Rent', given_at: '2026-10-03T10:00:00Z', given_by_name: 'Majed' },
+              { id: 'v2', amount_iqd: 40000, paid_from: 'bank', note: null, given_at: '2026-10-04T10:00:00Z', given_by_name: null },
+              { id: 'v3', amount_iqd: 1, paid_from: 'cheque' },
+              { amount_iqd: 1, paid_from: 'safe' },
+            ],
+          }),
+          staff_id: 's1',
+          display_name: 'Yusuf',
+        },
+      ],
+    });
+    const [y] = m.people;
+    expect(y!.advancesIqd).toBe(100000);
+    expect(y!.advanceCount).toBe(2);
+    expect(y!.owedIqd).toBe(615000);
+    expect(y!.toPayIqd).toBe(615000);
+    expect(y!.advances).toEqual([
+      { id: 'v1', amountIqd: 60000, paidFrom: 'safe', note: 'Rent', givenAt: '2026-10-03T10:00:00Z', givenByName: 'Majed' },
+      { id: 'v2', amountIqd: 40000, paidFrom: 'bank', note: null, givenAt: '2026-10-04T10:00:00Z', givenByName: null },
+    ]);
+    expect(m.totals.advancesIqd).toBe(100000);
+    expect(m.totals.toPayIqd).toBe(615000);
+  });
+
+  it('keeps owed below zero as sent, with nothing to pay', () => {
+    const [y] = readWagesMonth({ people: [{ ...line({ advances_iqd: 800000, owed_iqd: -85000, to_pay_iqd: 0 }), staff_id: 's1' }] }).people;
+    expect(y!.owedIqd).toBe(-85000);
+    expect(y!.toPayIqd).toBe(0);
+  });
+
+  it('reads the payment snapshot: the advances and where the money came from', () => {
+    const [y] = readWagesMonth({
+      people: [
+        {
+          ...line({
+            status: 'paid',
+            owed_iqd: 0,
+            to_pay_iqd: 0,
+            payment: { id: 'p1', status: 'paid', paid_iqd: 615000, advances_iqd: 100000, paid_from: 'safe', paid_at: null, paid_by_name: null, undone_at: null, undone_by_name: null, undo_reason: null },
+          }),
+          staff_id: 's1',
+        },
+      ],
+    }).people;
+    expect(y!.payment).toMatchObject({ paidIqd: 615000, advancesIqd: 100000, paidFrom: 'safe' });
+    const [old] = readWagesMonth({ people: [{ ...line({ status: 'paid', payment: { id: 'p0', status: 'paid', paid_iqd: 1 } }), staff_id: 's1' }] }).people;
+    expect(old!.payment).toMatchObject({ advancesIqd: 0, paidFrom: null });
+  });
+
+  it('reads a line from before 0344 as no advances: owed is the net, to pay the net or nothing', () => {
+    const [y, neg, paid] = readWagesMonth({
+      people: [
+        { ...line(), staff_id: 's1' },
+        { ...line({ net_iqd: -5000 }), staff_id: 's2' },
+        { ...line({ status: 'paid' }), staff_id: 's3' },
+      ],
+    }).people;
+    expect([y!.advancesIqd, y!.advanceCount, y!.advances, y!.owedIqd, y!.toPayIqd]).toEqual([0, 0, [], 715000, 715000]);
+    expect([neg!.owedIqd, neg!.toPayIqd]).toEqual([-5000, 0]);
+    expect([paid!.owedIqd, paid!.toPayIqd]).toEqual([0, 0]);
+    expect(readWagesMonth({}).totals.advancesIqd).toBe(0);
+  });
+
+  it('offers Give advance on an open month with a salary that still owes something', () => {
+    const base = { status: 'due' as const, owedIqd: 100000, bonusOnly: false, month: '2026-10-01' };
+    for (const status of ['due', 'overdue', 'upcoming'] as const) expect(canGiveAdvance({ ...base, status })).toBe(true);
+    for (const status of ['paid', 'unset', 'none'] as const) expect(canGiveAdvance({ ...base, status })).toBe(false);
+    expect(canGiveAdvance({ ...base, owedIqd: 0 })).toBe(false);
+    expect(canGiveAdvance({ ...base, owedIqd: -1 })).toBe(false);
+    expect(canGiveAdvance({ ...base, bonusOnly: true })).toBe(false);
+    // The server takes last month to next month.
+    expect(canGiveAdvance(base, '2026-10-01')).toBe(true);
+    expect(canGiveAdvance({ ...base, month: '2026-09-01' }, '2026-10-01')).toBe(true);
+    expect(canGiveAdvance({ ...base, month: '2026-11-01' }, '2026-10-01')).toBe(true);
+    expect(canGiveAdvance({ ...base, month: '2026-08-01' }, '2026-10-01')).toBe(false);
+    expect(canGiveAdvance({ ...base, month: '2026-12-01' }, '2026-10-01')).toBe(false);
+    expect(advanceMonthInRange('2020-01-01', null)).toBe(true);
+  });
+
+  it('takes an advance back only while its month is open', () => {
+    expect(canUndoAdvance({ status: 'due' })).toBe(true);
+    expect(canUndoAdvance({ status: 'paid' })).toBe(false);
+  });
+
+  it('states the advance rules before the server refuses', () => {
+    expect(validateAdvanceDraft({ amount: null, note: '' }, 100000)).toEqual([{ field: 'amount', code: 'required' }]);
+    expect(validateAdvanceDraft({ amount: 0, note: '' }, 100000)).toEqual([{ field: 'amount', code: 'positive' }]);
+    expect(validateAdvanceDraft({ amount: 100001, note: '' }, 100000)).toEqual([{ field: 'amount', code: 'tooLarge' }]);
+    expect(validateAdvanceDraft({ amount: 100000, note: '  Rent  ' }, 100000)).toEqual([]);
+    expect(validateAdvanceDraft({ amount: 1, note: 'x'.repeat(301) }, 100000)).toEqual([{ field: 'note', code: 'tooLong' }]);
+    expect(validateAdvanceDraft({ amount: 1, note: 'ع'.repeat(300) }, 100000)).toEqual([]);
+  });
+
+  it('reads the most that may still be given from WAGE_ADVANCE_TOO_LARGE', () => {
+    expect(advanceMaxFromHint('85000')).toBe(85000);
+    expect(advanceMaxFromHint('0')).toBe(0);
+    expect(advanceMaxFromHint(null)).toBeNull();
+    expect(advanceMaxFromHint('amount')).toBeNull();
   });
 });

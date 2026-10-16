@@ -64,7 +64,7 @@ const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as co
 
 export function IncidentsPageScreen() {
   const { staff } = useAuth();
-  return can(staff?.role, 'reviewIncidents') ? <ReviewQueue /> : <ReportDesk />;
+  return can(staff, 'reviewIncidents') ? <ReviewQueue /> : <ReportDesk />;
 }
 
 /** The desk's and the till's page: their own reports, and the form in a dialog. */
@@ -353,7 +353,7 @@ function ReviewQueue() {
         title={tr('ws.incidents.title')}
         subtitle={tr('ws.incidents.leadReview')}
         actions={
-          can(staff?.role, 'reportIncidents') ? (
+          can(staff, 'reportIncidents') ? (
             <Button kind="primary" icon="plus" onClick={() => setReporting(true)} data-testid="incidents.report.open">
               {tr('ws.incidents.form.title')}
             </Button>

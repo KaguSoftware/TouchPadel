@@ -611,11 +611,8 @@ export interface LayoutInput {
  */
 export function layout(input: LayoutInput): string {
   const { source, tz, rows, fold: f, rest } = input;
-  const lines: string[] = [];
-  const legendBits = [`${source.name}: ${input.rows_total} rows`, 'IQD integers', `times ${tz}`];
-  if (f) for (const l of f.legend) legendBits.push(`${l.key}=${l.value} for all`);
   if (source.kind === 'chunk') return layoutChunk(source, rest, rows);
-  lines.push(`# ${legendBits.join('; ')}`);
+  const lines: string[] = [];
   if (rest && Object.keys(rest).length) lines.push(...layoutObject(rest));
   if (rows && f) {
     if (f.columns.length) lines.push(f.columns.join('\t'));
@@ -625,8 +622,22 @@ export function layout(input: LayoutInput): string {
       lines.push([...cells, ...tail].join('\t').replace(/\t+$/, ''));
     }
   }
-  return lines.join('\n');
+  // An aggregate (rows === null) is one object, not a list: a row count there
+  // read "0 rows" over a payload full of figures (review 2026-10-16).
+  const legendBits = [rows ? `${source.name}: ${input.rows_total} rows` : source.name, 'IQD integers', `times ${tz}`];
+  if (f) for (const l of f.legend) legendBits.push(`${l.key}=${l.value} for all`);
+  if (lines.some((l) => DOW_COLUMN_RE.test(l))) legendBits.push(DOW_LEGEND);
+  return [`# ${legendBits.join('; ')}`, ...lines].join('\n');
 }
+
+/**
+ * A weekday column or section (`dow`, `created_dow`, `by_dow`): the reports
+ * take it from Postgres `extract(dow …)`, 0 = Sunday, and nothing else in the
+ * result says so (review 2026-10-16: an Iraqi week starts on Saturday and
+ * 0 = Monday is a common reading).
+ */
+const DOW_COLUMN_RE = /(?:^|[\t.\s])(?:[a-z]+_)?dow(?=[\t:\s]|$)/m;
+export const DOW_LEGEND = 'dow 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat';
 
 function layoutObject(obj: Row, prefix = ''): string[] {
   const lines: string[] = [];

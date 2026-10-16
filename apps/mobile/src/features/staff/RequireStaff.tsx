@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
-import { Redirect } from 'expo-router';
+import { Redirect, usePathname } from 'expo-router';
 import type { StaffRole } from '@touch/core';
 import type { MessageKey } from '@touch/i18n';
 import { Text } from '../../i18n/text';
@@ -28,6 +28,7 @@ import { signOut } from '../auth/api';
 import { mapErrorToKey } from '../booking/errors';
 import { staffGate } from './gate';
 import { useStaffStatus } from './StaffStatusProvider';
+import { pingSignedOut } from './activity/api';
 
 /** How long the pending spinner runs before it offers a way out. */
 const SLOW_MS = 10_000;
@@ -43,12 +44,16 @@ export function useStaffSignOut(): {
   error: string | null;
 } {
   const { t } = useLocale();
+  const pathname = usePathname();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = useCallback(async () => {
     setError(null);
     setBusy(true);
     try {
+      // The owner's activity monitor hears "signed out" while the session can
+      // still say who; best effort, never longer than a moment (0341).
+      await pingSignedOut(pathname);
       await signOut(supabase);
     } catch (err) {
       captureException(err, { scope: 'staff.signOut' });
@@ -56,7 +61,7 @@ export function useStaffSignOut(): {
     } finally {
       setBusy(false);
     }
-  }, [t]);
+  }, [t, pathname]);
   return { signOut: run, busy, error };
 }
 

@@ -287,8 +287,8 @@ export function coachingCapsFor(role: Parameters<typeof can>[0]): CoachingCaps {
 }
 
 export function useCoachingCaps(): CoachingCaps {
-  const role = useAuth().staff?.role;
-  return useMemo(() => coachingCapsFor(role), [role]);
+  const staff = useAuth().staff;
+  return useMemo(() => coachingCapsFor(staff), [staff]);
 }
 
 // ---------------------------------------------------------------------------

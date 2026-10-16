@@ -49,7 +49,7 @@ export function TournamentsListScreen() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
   const { staff } = useAuth();
-  const addTournament = addTournamentTarget(staff?.role);
+  const addTournament = addTournamentTarget(staff);
   // One window per mount: the clock moving does not re-key the query.
   const win = useMemo(() => listWindow(Date.now()), []);
   const q = useDeskTournaments(win.from, win.to);

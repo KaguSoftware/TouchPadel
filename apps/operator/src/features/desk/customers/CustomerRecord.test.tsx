@@ -68,6 +68,8 @@ const missing = () => {
 /** app.customer_lessons; a server without coaching by default (RPC_MISSING). */
 let lessonsRead: () => unknown = missing;
 let settleAnswer: () => unknown = () => ({ duplicate: false, payment_id: 'pay1', amount_iqd: 30000, change_iqd: 0 });
+/** app.customer_discount (0342); none by default. */
+let discountRead: () => unknown = () => ({ customer_id: 'c1', discount: null });
 
 function record(over: Record<string, unknown> = {}, customer: Record<string, unknown> = {}) {
   return {
@@ -93,6 +95,7 @@ function mount() {
     if (fn === 'guest_tickets') throw new AppRpcError('RPC_MISSING', 'RPC_MISSING');
     if (fn === 'customer_lessons') return lessonsRead();
     if (fn === 'lesson_settle') return settleAnswer();
+    if (fn === 'customer_discount') return discountRead();
     return {};
   });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -122,6 +125,7 @@ beforeEach(() => {
   current = record();
   lessonsRead = missing;
   settleAnswer = () => ({ duplicate: false, payment_id: 'pay1', amount_iqd: 30000, change_iqd: 0 });
+  discountRead = () => ({ customer_id: 'c1', discount: null });
   rpc.mockReset();
   navigate.mockReset();
   localStorage.clear();
@@ -387,5 +391,72 @@ describe('CustomerRecord ▸ lessons', () => {
     expect(screen.queryByTestId('customer-lessons')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Make coach' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Book a lesson' })).toBeNull();
+  });
+});
+
+// Discount (0342): the customer's own price on a section card, set and
+// removed from the dialog it opens, with no PIN.
+
+describe('CustomerRecord ▸ discount', () => {
+  it('no discount: the card says so, and Set saves 20% on the café with a reason', async () => {
+    const user = userEvent.setup();
+    mount();
+    const card = await screen.findByTestId('card-discount');
+    expect(card.textContent).toContain('No discount');
+    await user.click(card);
+    const dialog = await topDialog();
+    await user.click(within(dialog.getByTestId('discount-cafe')).getByRole('button', { name: '%' }));
+    await user.type(dialog.getByRole('textbox', { name: 'Café and shop: how much' }), '20');
+    await user.click(dialog.getByRole('radio', { name: 'Coach' }));
+    await user.type(dialog.getByRole('textbox', { name: /^Note/ }), 'Club coach');
+    await user.click(dialog.getByRole('button', { name: 'Save discount' }));
+    await waitFor(() => expect(calls('set_customer_discount')).toHaveLength(1));
+    expect(calls('set_customer_discount')[0]![1]).toEqual({
+      p_customer_id: 'c1',
+      p_cafe_kind: 'percent',
+      p_cafe_value: 2000,
+      p_court_kind: null,
+      p_court_value: null,
+      p_reason: 'coach',
+      p_note: 'Club coach',
+    });
+    expect(calls('verify_manager_pin')).toHaveLength(0);
+  });
+
+  it('a discount: both parts, the reason, the note and who set it; the badge by the name; Remove clears both', async () => {
+    const user = userEvent.setup();
+    discountRead = () => ({
+      customer_id: 'c1',
+      discount: {
+        cafe: { kind: 'percent', value: 2000 },
+        court: { kind: 'amount', value: 5000 },
+        reason: 'coach',
+        note: 'Club coach',
+        set_by: { id: 's9', name: 'Ali' },
+        set_at: '2026-10-12T09:00:00Z',
+      },
+    });
+    mount();
+    const card = within(await screen.findByTestId('card-discount'));
+    expect(card.getByText('20%')).toBeTruthy();
+    expect(plain(card.getByText(/IQD/).textContent)).toBe('5,000 IQD');
+    expect(card.getByText('Coach')).toBeTruthy();
+    expect(card.getByText('Club coach')).toBeTruthy();
+    expect(plain(card.getByText(/^Set by/).textContent)).toBe('Set by Ali · Oct 12, 2026');
+    expect(screen.getByText('Discount · Coach')).toBeTruthy();
+    await user.click(screen.getByTestId('card-discount'));
+    const dialog = await topDialog();
+    expect((dialog.getByRole('textbox', { name: 'Court fee: how much' }) as HTMLInputElement).value).toBe('5000');
+    await user.click(dialog.getByRole('button', { name: 'Remove discount' }));
+    await waitFor(() => expect(calls('set_customer_discount')).toHaveLength(1));
+    expect(calls('set_customer_discount')[0]![1]).toMatchObject({ p_customer_id: 'c1', p_cafe_kind: null, p_court_kind: null });
+  });
+
+  it('a server without discounts (RPC_MISSING) shows no card', async () => {
+    discountRead = missing;
+    mount();
+    expect(await screen.findByText('Sara Karim', { selector: 'h1' })).toBeTruthy();
+    await waitFor(() => expect(calls('customer_discount').length).toBeGreaterThan(0));
+    expect(screen.queryByTestId('card-discount')).toBeNull();
   });
 });

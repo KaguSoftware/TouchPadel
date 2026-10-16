@@ -2235,6 +2235,8 @@ export const matrix: MatrixRule[] = [
   { kind: 'rpc', schema: 'app', name: 'analytics_courts_endings', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
   { kind: 'rpc', schema: 'app', name: 'analytics_courts_guests', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
   { kind: 'rpc', schema: 'app', name: 'analytics_courts_summary', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
+  // 0346: the shop block of the Courts tab, same guard and prologue.
+  { kind: 'rpc', schema: 'app', name: 'analytics_shop', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
   {
     kind: 'rpc', schema: 'app', name: 'save_analytics_patterns',
     // Inverted range -> INVALID_RANGE, so owner never reaches the INSERT.
@@ -2270,6 +2272,13 @@ export const matrix: MatrixRule[] = [
     // coercion, before the function body, so no principal would reach the guard
     // and every 'guarded' expectation here would silently stop meaning anything.
     args: { p_staff_id: NIL_UUID, p_role: 'cashier' },
+    expect: OWNER_ONLY, drop: 7,
+  },
+  {
+    // 0345: probed with NIL_UUID, so every principal past the owner guard meets
+    // STAFF_NOT_FOUND and nothing is written.
+    kind: 'rpc', schema: 'app', name: 'set_staff_access',
+    args: { p_staff_id: NIL_UUID, p_extra_roles: ['court_desk'], p_blocked_areas: [] },
     expect: OWNER_ONLY, drop: 7,
   },
   { kind: 'rpc', schema: 'app', name: 'set_telegram_staff', args: { p_tg_user_id: 1, p_staff_id: NIL_UUID }, expect: OWNER_ONLY, drop: 7 },
@@ -6613,5 +6622,218 @@ export const matrix: MatrixRule[] = [
     expect: SELF_AUTHED,
     note: '0340: publicByDesign; a harmless boolean (the platform lock on online payments), never raises',
     drop: 33,
+  },  // ── 0341 staff_activity (staff-activity.test.ts) ──
+  // Who is on which app and what they last did: the owner reads it through
+  // app.staff_activity_board only. No client reads or writes the table.
+  {
+    kind: 'select',
+    name: 'staff_activity',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0341: no client grant at all; app.staff_activity_board (owner) reads it',
+    drop: 33,
+  },
+  {
+    kind: 'write',
+    name: 'staff_activity',
+    op: 'insert',
+    payload: { staff_id: NIL_UUID, surface: 'operator' },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0341: no client write grant: app.staff_activity_ping and the audit_log trigger only',
+    drop: 33,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_activity_ping',
+    args: { p_surface: 'operator', p_state: 'bogus', p_screen: null, p_app_version: null }, expect: STAFF_ANY,
+    note: '0341: any active staff member, for their own row only; an unknown state is INVALID_ARGUMENT, so nothing is written',
+    drop: 33,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_activity_board',
+    args: {}, expect: OWNER_ONLY,
+    note: '0341: the owner: every active staff member at the branches in scope with their operator and mobile activity',
+    drop: 33,
+  },
+  // ── 0342 customer_discounts (customer-discounts.test.ts) ──
+  // A customer's standing discount and a booking's court discount: no client
+  // grant on either table; the till and desk read and write them through the
+  // RPCs below, with no PIN. A nil id fails past the role guard.
+  {
+    kind: 'select',
+    name: 'customer_discounts',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0342: no client grant; app.customer_discount and app.bill_customer_discount read it',
+    drop: 34,
+  },
+  {
+    kind: 'write',
+    name: 'customer_discounts',
+    op: 'insert',
+    payload: { customer_id: NIL_UUID, cafe_kind: 'percent', cafe_value: 10000, reason: 'other', set_by: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0342: no client write grant: app.set_customer_discount only',
+    drop: 34,
+  },
+  {
+    kind: 'select',
+    name: 'reservation_court_discounts',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0342: no client grant; app.bill_customer_discount reads it, court_fee_remaining subtracts it',
+    drop: 34,
+  },
+  {
+    kind: 'write',
+    name: 'reservation_court_discounts',
+    op: 'insert',
+    payload: { reservation_id: NIL_UUID, kind: 'percent', value: 10000, reason: 'other', standing: false, applied_by: NIL_UUID, authorized_by: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0342: no client write grant: app.apply_customer_court_discount only',
+    drop: 34,
+  },
+  {
+    kind: 'select',
+    name: 'customer_discount_waivers',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0342: no client grant; the two apply RPCs and app.bill_customer_discount read it',
+    drop: 34,
+  },
+  {
+    kind: 'write',
+    name: 'customer_discount_waivers',
+    op: 'insert',
+    payload: { tab_id: NIL_UUID, waived_by: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0342: no client write grant: apply_customer_discount / apply_customer_court_discount with p_kind none only',
+    drop: 34,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'customer_discount',
+    args: { p_customer_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0342: court_desk|cashier|shop_staff|manager|owner; nil customer fails CUSTOMER_NOT_FOUND past the guard',
+    drop: 34,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_customer_discount',
+    args: { p_customer_id: NIL_UUID, p_cafe_kind: 'percent', p_cafe_value: 10000, p_reason: 'other' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0342: any till or desk staff, no PIN; nil customer fails CUSTOMER_NOT_FOUND past the guard, nothing written',
+    drop: 34,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'apply_customer_discount',
+    args: { p_tab_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0342: any till or desk staff, no PIN; nil tab fails TAB_NOT_FOUND past the guard',
+    drop: 34,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'apply_customer_court_discount',
+    args: { p_reservation_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0342: court_desk|cashier|manager|owner, no PIN; nil booking fails RESERVATION_NOT_FOUND past the guard',
+    drop: 34,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'bill_customer_discount',
+    args: { p_tab_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0342: court_desk|cashier|shop_staff|manager|owner; nil tab fails TAB_NOT_FOUND past the guard',
+    drop: 34,
+  },
+  // ── 0343–0344: the main cash (the safe) and wage advances (main-cash.test.ts) ──
+  // The safe is read and written through RPCs only (manager and owner); an
+  // advance is the owner's, money about a named person like a wage payment.
+  // Every probe below stops at a validation error past the guard, so nothing
+  // is written.
+  {
+    kind: 'select',
+    name: 'main_cash_entries',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0343: no client grant; app.main_cash_overview reads it',
+    drop: 35,
+  },
+  {
+    kind: 'write',
+    name: 'main_cash_entries',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0343: no client write grant: the app.main_cash_* RPCs and the wage, advance and coach pay RPCs only',
+    drop: 35,
+  },
+  {
+    kind: 'write',
+    name: 'wage_advances',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0344: no client write grant: app.give_wage_advance and app.undo_wage_advance only',
+    drop: 35,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'main_cash_overview',
+    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: '0343: MGMT at the branch: the balance, the month\'s rows and costs; a wage row\'s person hidden from a manager',
+    drop: 35,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'main_cash_pay',
+    args: { p_amount_iqd: 0, p_category: 'other', p_payee: 'matrix', p_paid_from: 'safe', p_venue_id: VENUE_A },
+    expect: MANAGER_UP,
+    note: '0343: MGMT at the branch; an amount of 0 is INVALID_ARGUMENT:amount past the guard, nothing written',
+    drop: 35,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'main_cash_move',
+    args: { p_kind: 'matrix', p_amount_iqd: 1, p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: '0343: MGMT at the branch; an unknown kind is INVALID_ARGUMENT:kind past the guard, nothing written',
+    drop: 35,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'main_cash_count',
+    args: { p_counted_iqd: -1, p_expected_iqd: 0, p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: '0343: MGMT at the branch; a count below 0 is INVALID_ARGUMENT:counted past the guard, nothing written',
+    drop: 35,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'main_cash_void',
+    args: { p_id: NIL_UUID, p_reason: 'matrix' }, expect: MANAGER_UP,
+    note: '0343: MGMT at the row\'s branch; an unknown row is REF_NOT_FOUND',
+    drop: 35,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'main_cash_day_boxes',
+    args: { p_day_session_id: NIL_UUID }, expect: MANAGER_UP,
+    note: '0343: MGMT at the day\'s branch; an unknown day is REF_NOT_FOUND:day',
+    drop: 35,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'main_cash_hand_in_day',
+    args: { p_day_session_id: NIL_UUID, p_boxes: [] }, expect: MANAGER_UP,
+    note: '0343: MGMT at the day\'s branch; an unknown day is REF_NOT_FOUND:day, nothing written',
+    drop: 35,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'give_wage_advance',
+    args: { p_staff_id: NIL_UUID, p_amount_iqd: 1, p_paid_from: 'safe', p_month: '2099-01-01', p_venue_id: VENUE_A },
+    expect: OWNER_ONLY,
+    note: '0344: the owner; a month past next month is INVALID_ARGUMENT:month before the person check, nothing written',
+    drop: 35,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'undo_wage_advance',
+    args: { p_id: NIL_UUID, p_reason: 'matrix' }, expect: OWNER_ONLY,
+    note: '0344: the owner; an unknown advance is REF_NOT_FOUND',
+    drop: 35,
   },
 ];

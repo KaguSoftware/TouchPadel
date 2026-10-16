@@ -92,10 +92,10 @@ function RunBody({ d, selected, onStep }: { d: RunDetail; selected: string | nul
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const { run, steps, can } = d;
-  const owner = canDo(staff?.role, 'editProtocols');
+  const owner = canDo(staff, 'editProtocols');
   const lastKey = steps[steps.length - 1]?.step_key ?? null;
   const afterChoices = owner && can.add_step ? addStepAfterChoices(steps, lastKey) : [];
-  const offerPublish = canOfferPublish(run, canDo(staff?.role, 'publishTournaments'));
+  const offerPublish = canOfferPublish(run, canDo(staff, 'publishTournaments'));
   const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings, enabled: offerPublish });
 
   async function act(tag: string, fn: () => Promise<unknown>, done: MessageKey) {

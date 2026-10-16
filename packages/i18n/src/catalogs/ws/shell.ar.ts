@@ -29,9 +29,6 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     lead: 'مساحة العمل مجموعة شاشات لمهمة واحدة. اختر المهمة التي تعمل عليها الآن. يمكنك العودة إلى هنا في أي وقت عبر «تبديل مساحة العمل» في الشريط الجانبي.',
     current: 'أنت هنا',
     open: 'فتح',
-    confirmTitle: 'الانتقال إلى {workspace}؟',
-    confirmBody: 'سيعرض الشريط الجانبي شاشات {workspace}. لن يضيع شيء من شاشتك الحالية، ويمكنك العودة عبر «تبديل مساحة العمل».',
-    confirmLabel: 'انتقال',
   },
   status: {
     ok: 'متصل.',
@@ -39,6 +36,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
   },
   forbidden: {
     action: 'فتح هذه الشاشة',
+    blocked: 'أغلق المالك هذه الصفحة أمامك. اطلبها منه إن احتجت إليها.',
   },
   lock: {
     title: 'المحطة مقفلة',
@@ -97,12 +95,18 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     observation: 'المتابعة',
     stock: 'المخزون',
     setup: 'الإعداد',
+    run: 'إدارة اليوم',
+    records: 'السجلات',
+    opsSetup: 'الإعداد',
   },
   sectionLead: {
     financial: 'ما يدخل وما يخرج من المال، وهل يتطابق النقد',
     observation: 'الصالة الآن، والنمط وراءها، وما ينتظر قرارك',
     stock: 'المتوفر واستلام البضائع والهدر والجرد وقيمة ما على الرفوف',
     setup: 'الموظفون والملاعب والطاولات وإعدادات المكان',
+    run: 'الحجوزات والفواتير والمخزون وإغلاق اليوم والفريق',
+    records: 'التقارير ومستحقات المدرّبين وسجل التدقيق',
+    opsSetup: 'المنيو والأسعار والمدرّبون والعروض',
   },
   workspaceLead: {
     courtDesk: 'الحجوزات والوصول والزبائن',
@@ -162,6 +166,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     shopSuppliers: 'المورّدون',
     floorNow: 'الصالة الآن',
     staffActivity: 'نشاط الموظفين',
+    activityMonitor: 'مراقبة النشاط',
     requests: 'طلبات الموظفين',
     marketing: 'التسويق',
     telegram: 'تيليغرام',
@@ -176,6 +181,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     wages: 'الرواتب',
     attendance: 'التأخير والانصراف المبكر',
     rewards: 'المكافآت',
+    safe: 'القاصة',
     // DRAFT-AR (coaching operator.md §5.3.3).
     coaches: 'المدرّبون',
     coachPay: 'مستحقات المدرّبين',

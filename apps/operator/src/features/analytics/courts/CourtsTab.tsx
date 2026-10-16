@@ -1,5 +1,6 @@
 /**
- * `/analytics/courts` — the Courts tab: eight sections over one data hook.
+ * `/analytics/courts` — the Courts tab: nine sections over the courts data hook
+ * and the Touch Shop's (0346: shop sales are padel revenue).
  * The frame (title, period) and the sticky bar (tabs, filters, court select,
  * jump-nav) are shared with the Cafe tab; this file owns everything below.
  *
@@ -53,8 +54,11 @@ import { GuestsSection } from './sections/GuestsSection';
 import { LossesSection } from './sections/LossesSection';
 import { PulseSection } from './sections/PulseSection';
 import { ShapeSection } from './sections/ShapeSection';
+import { ShopSection } from './sections/ShopSection';
 import { WhenSection } from './sections/WhenSection';
 import { useCourtsData, type CourtsQueryKey } from './useCourtsData';
+import { useShopData } from './useShopData';
+import { shopLead } from './shop';
 import { smallCourtSample } from './derive';
 import { COURT_ZONES } from './zones';
 import { cafeTakeaway, courtsTakeaway, guestsTakeaway, lossesTakeaway, shapeTakeaway, whenTakeaway } from './takeaways';
@@ -81,6 +85,7 @@ export function CourtsTab() {
   const data = useCourtsData(search, locale, copy);
   const { raw, derived, state, stateFor } = data;
   const venue = useVenueRevenue(data.range, data.compareRange);
+  const shop = useShopData(data.range, data.compareRange);
   // The filter's options come from the venue's courts, not from the filtered
   // payload: with court A selected the payload lists only A, and B would vanish.
   const activeCourts = useQuery({ queryKey: QK.courts, queryFn: fetchActiveCourts, staleTime: 60_000 });
@@ -104,6 +109,8 @@ export function CourtsTab() {
       { label: tr('ws.analytics.courts.kpi.bookedHours'), value: dv('bookedHours').current, previous: dv('bookedHours').previous },
       { label: tr('ws.analytics.courts.kpi.occupancy'), value: k?.occupancyPct ?? null, previous: kp?.occupancyPct ?? null },
       { label: tr('ws.analytics.courts.kpi.revenue'), value: k?.revenueIqd ?? null, previous: kp?.revenueIqd ?? null },
+      { label: tr('ws.analytics.shop.kpi.sales'), value: shop.current?.kpis.netIqd ?? null, previous: shop.previous?.kpis.netIqd ?? null },
+      { label: tr('ws.analytics.courts.kpi.padelRevenue'), value: venue.current?.padelIqd ?? null, previous: venue.previous?.padelIqd ?? null },
       { label: tr('analytics.kpi.venueRevenue'), value: venue.current?.venueIqd ?? null, previous: venue.previous?.venueIqd ?? null },
       { label: tr('ws.analytics.courts.kpi.revPerOpenHour'), value: k?.revPerOpenHourIqd ?? null, previous: kp?.revPerOpenHourIqd ?? null },
       { label: tr('ws.analytics.courts.kpi.pricePerBookedHour'), value: k?.pricePerBookedHourIqd ?? null, previous: kp?.pricePerBookedHourIqd ?? null },
@@ -123,6 +130,10 @@ export function CourtsTab() {
   /** A section's sentence, once its queries are in. */
   const lead = (keys: readonly CourtsQueryKey[], build: () => string | null) => (raw && derived && stateFor(keys) === 'ready' ? build() : null);
   const zone = (id: string): ZoneDef => COURT_ZONES.find((z) => z.id === id)!;
+  const shopLeadText = () => {
+    const l = shop.state === 'ready' && shop.current ? shopLead(shop.current.kpis) : null;
+    return l ? tr(`ws.analytics.shop.${l.key}`, { net: f.money(l.net), n: f.num(l.n), avg: f.money(l.avg) }) : null;
+  };
 
   const notices: Notice[] = [];
   if (derived && raw?.summaryPrev && derived.compareReliable && smallCourtSample(raw)) {
@@ -150,7 +161,7 @@ export function CourtsTab() {
       <Notices notices={notices} onRetry={state.error != null ? data.refetchAll : undefined} />
 
       <Zone zone={zone('pulse')}>
-        <PulseSection {...section(NEEDS.pulse)} venue={venue} openDrill={drill.open} courtId={data.courtId ?? null} />
+        <PulseSection {...section(NEEDS.pulse)} venue={venue} shop={shop} openDrill={drill.open} courtId={data.courtId ?? null} />
       </Zone>
 
       <Zone zone={zone('insights')}>
@@ -233,6 +244,10 @@ export function CourtsTab() {
 
       <Zone zone={zone('guests')} lead={lead(NEEDS.guests, () => guestsTakeaway(raw!, tr, f))}>
         <GuestsSection {...section(NEEDS.guests)} />
+      </Zone>
+
+      <Zone zone={zone('shop')} lead={shopLeadText()}>
+        <ShopSection shop={shop} f={f} range={data.range} rangeLabel={rangeLabel} courtFiltered={data.courtId != null} />
       </Zone>
 
       <Zone zone={zone('cafe')} lead={lead(NEEDS.cross, () => cafeTakeaway(raw!, tr, f))}>

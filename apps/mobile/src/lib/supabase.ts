@@ -41,7 +41,16 @@ export const supabase = createClient<Database>(
     // Every request has a deadline (requestTimeoutMs): nothing timed out before,
     // so a request the network swallowed — a captive portal, a socket that died
     // while the phone slept — held its spinner, or a booking step, forever.
-    global: { fetch: timeoutFetch((input, init) => fetch(input, init), requestTimeoutMs) },
+    //
+    // `x-touch-app: mobile` names the app on every request (0341): supabase-js
+    // merges `global.headers` into PostgREST (every RPC), auth, functions and
+    // storage. The server reads it to stamp a staff member's last action on
+    // their phone's row of the owner's activity monitor; a guest's requests
+    // carry it too and the server records nothing for them.
+    global: {
+      headers: { 'x-touch-app': 'mobile' },
+      fetch: timeoutFetch((input, init) => fetch(input, init), requestTimeoutMs),
+    },
   },
 );
 
