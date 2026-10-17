@@ -99,9 +99,9 @@ describe('SetupHomeScreen', () => {
     data.needsCost = 0;
   });
 
-  it('is headed Setup and repeats no list of its screens', () => {
+  it('is headed Settings overview and repeats no list of its screens', () => {
     renderSetup('owner');
-    expect(screen.getByRole('heading', { level: 1, name: 'Setup' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings overview' })).toBeTruthy();
     // No card back to itself, and no grid of links to what the rail lists.
     expect(screen.queryAllByRole('link')).toHaveLength(0);
   });
@@ -113,7 +113,7 @@ describe('SetupHomeScreen', () => {
     const first = within(results).getAllByRole('link')[0]!;
     expect(first.getAttribute('href')).toBe('/admin/settings/kitchen');
     expect(within(first).getByText('Kitchen screens')).toBeTruthy();
-    expect(within(first).getByText('Setup › Devices')).toBeTruthy();
+    expect(within(first).getByText('Settings › Computers & screens')).toBeTruthy();
   });
 
   it('offers a manager only the settings a manager may open', async () => {

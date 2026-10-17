@@ -105,7 +105,7 @@ describe('LiveFloor', () => {
     expect(refetch).toHaveBeenCalled();
   });
 
-  it('offers the Observe boards only where asked, and they go there', () => {
+  it('offers the view-only boards only where asked, and they go there', () => {
     live.mockReturnValue(result());
     const { unmount } = renderFloor();
     expect(screen.queryByRole('button', { name: 'Bookings board' })).toBeNull();
@@ -114,7 +114,7 @@ describe('LiveFloor', () => {
     renderFloor({ boardLinks: true });
     fireEvent.click(screen.getByRole('button', { name: 'Bookings board' }));
     expect(navigate).toHaveBeenCalledWith({ to: '/observation/courts' });
-    fireEvent.click(screen.getByRole('button', { name: 'Tills board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open tabs board' }));
     expect(navigate).toHaveBeenCalledWith({ to: '/observation/tills' });
   });
 

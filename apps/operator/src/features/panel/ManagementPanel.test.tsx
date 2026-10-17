@@ -17,6 +17,8 @@ vi.mock('../../lib/settings', () => ({
 // panel's tests are about the panel's figures. It is covered in
 // ../floor/LiveFloor.test.tsx.
 vi.mock('../floor/LiveFloor', () => ({ LiveFloor: () => <div data-testid="live-floor" /> }));
+// "Needs you" reads the floor and the owner's inboxes; its rows are tested with NeedsYou itself.
+vi.mock('./PanelNeedsYou', () => ({ PanelNeedsYou: () => <div data-testid="needs-you" /> }));
 // The wages card reads its own RPC; this test answers every appRpc call with one value.
 vi.mock('../wages/WagesDueCard', () => ({ WagesDueCard: () => null }));
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
@@ -59,10 +61,18 @@ describe('ManagementPanelScreen — four states', () => {
   it('loading: shows the skeleton and no figures', () => {
     rpc.mockReturnValue(new Promise(() => {}));
     renderPanel();
-    expect(screen.getByRole('heading', { name: 'Management panel' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Overview' })).toBeTruthy();
     expect(document.querySelector('[aria-busy="true"]')).toBeTruthy();
     expect(screen.queryByText('15,000 IQD')).toBeNull();
     expect(rpc).toHaveBeenCalledWith('panel_headline', expect.objectContaining({ p_compare: 'previousPeriod' }));
+  });
+
+  it('puts what needs the owner above the live floor, both above the period (Floor now folded in, 2026-10-17)', () => {
+    rpc.mockReturnValue(new Promise(() => {}));
+    renderPanel();
+    const needs = screen.getByTestId('needs-you');
+    const floor = screen.getByTestId('live-floor');
+    expect(needs.compareDocumentPosition(floor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('opens on the window Analytics opens on: the last 30 days, ending on the business day', () => {

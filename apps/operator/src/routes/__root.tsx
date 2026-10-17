@@ -41,6 +41,7 @@ import {
   saveWorkspace,
   sectionForPath,
   sectionRailItems,
+  sectionTarget,
   workspaceForRoute,
   workspaceOwnsPath,
   workspacesFor,
@@ -48,6 +49,7 @@ import {
   rowTarget,
   type NavGroup,
   type NavItem,
+  type NavSearch,
   type NavSection,
   type WorkspaceKey,
 } from '../lib/workspaces';
@@ -58,7 +60,7 @@ import { GoToPalette, GoToRailButton, useGoToShortcut } from '../components/GoTo
 import { Button, ErrorText, Field, Modal, Spinner, card, inputStyle, trapTab } from '../components/ui';
 import { MessagePresenter, PageFamilyContext, PermissionRefusedNotice, StatusBadge } from '../components/kit';
 import { ChevronBack, ChevronForward, Icon, CourtLines, ThemeModeIcon } from '../components/icons';
-import { RAIL_EDGE, RAIL_ITEM_PAD, RAIL_PAD, navButtonStyle, navItemStyle } from '../components/railStyles';
+import { RAIL_EDGE, RAIL_ITEM_PAD, RAIL_PAD, navButtonStyle, navItemStyle, railLabelStyle } from '../components/railStyles';
 import { RailMoreMenu } from '../components/RailMoreMenu';
 import { RailBranch } from '../components/RailBranch';
 import { useVenue } from '../lib/venue';
@@ -594,7 +596,7 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
       aria-current={active ? 'page' : undefined}
     >
       <Icon name={item.icon} size={17} />
-      <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={railLabelStyle}>
         {tr(`ws.shell.nav.${item.labelKey}`)}
       </span>
       <RailCount count={count} />
@@ -602,14 +604,18 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-/** A section's row on the workspace rail: it opens a place, so a forward chevron, and its count. */
-function SectionLink({ section }: { section: NavSection }) {
+/**
+ * A section's row on the workspace rail: it opens a place, so a forward
+ * chevron, and its count. It goes to the first page of the section the person
+ * may open (sectionTarget).
+ */
+function SectionLink({ section, target }: { section: NavSection; target: { to: string; search?: Readonly<Record<string, string>> } }) {
   const { tr } = useLocale();
   const count = useRowsCount(section.items);
   return (
-    <Link to={section.home} className="tp-nav-item" style={navItemStyle}>
+    <Link to={target.to} search={(target.search ?? {}) as never} className="tp-nav-item" style={navItemStyle}>
       <Icon name={section.icon} size={17} />
-      <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={railLabelStyle}>
         {tr(`ws.shell.section.${section.key}`)}
       </span>
       <RailCount count={count} />
@@ -686,7 +692,7 @@ function RailGroup({
         onClick={onToggle}
         style={navButtonStyle}
       >
-        <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={railLabelStyle}>
           {tr(`ws.shell.nav.${labelKey}`)}
         </span>
         {!open && <RailCount count={count} />}
@@ -766,22 +772,27 @@ function WorkspaceNav({
   };
   // Inside a section the rail IS the section: its name, its list, and one way
   // back. Read from the path, so the rail and the screen can never disagree.
-  const section = sectionForPath(workspace, path);
+  const search = useRouterState({ select: (s) => s.location.search }) as NavSearch;
+  const section = sectionForPath(workspace, path, search);
   // A family row is printed when the person may open any of its pages; a
   // plain row when they may open the row's own.
   const canOpenTab = useRailTabOpen();
   const rowVisible = (row: NavItem) => (row.tabs?.length ? row.tabs.some(canOpenTab) : canAccess(staff, row.to));
-  // A section opened from one of the groups' rows has no button of its own.
-  const sections = (workspace.sections ?? []).filter((sec) => !sec.fromRow && canAccess(staff, sec.home));
+  // A section is printed when the person may open any of its rows, and its
+  // button opens the first of them.
+  const sections = (workspace.sections ?? []).flatMap((sec) => {
+    const target = sectionTarget(sec, rowVisible, canOpenTab);
+    return target ? [{ sec, target }] : [];
+  });
   const sectionRows = section ? sectionRailItems(section).filter(rowVisible) : [];
-  const sectionCurrent = activeNavItem(sectionRows, path);
+  const sectionCurrent = activeNavItem(sectionRows, path, search);
 
   // Accordion: at most one group open at a time. The group holding the
   // current screen always wins, so arriving via a link never leaves the lit
   // row buried in a closed group; otherwise the last group opened by hand on
   // this station, remembered across shifts.
   const visibleGroups = workspace.groups
-    .map((group) => ({ group, items: group.items.filter(rowVisible) }))
+    .map((group) => ({ group, items: group.items.filter((item) => !item.hidden && rowVisible(item)) }))
     .filter(({ items }) => items.length > 0);
   const activeGroupKey = visibleGroups.find(({ items }) => items.some((item) => isNavActive(item, path)))?.group.labelKey ?? null;
   const [openGroup, setOpenGroup] = useState<string | null>(() => activeGroupKey ?? loadOpenGroup());
@@ -838,7 +849,7 @@ function WorkspaceNav({
             <span style={{ display: 'inline-flex', color: 'var(--tp-rail-green)' }}>
               <Icon name={section ? section.icon : workspace.icon} size={16} />
             </span>
-            <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-md)', color: 'var(--tp-brand-white)' }}>
+            <span style={{ ...railLabelStyle, fontWeight: 700, fontSize: 'var(--tp-fs-md)', color: 'var(--tp-brand-white)' }}>
               {section ? tr(`ws.shell.section.${section.key}`) : tr(`ws.shell.workspace.${workspaceKey}`)}
             </span>
           </div>
@@ -868,7 +879,7 @@ function WorkspaceNav({
               onClick={() => void navigate({ to: workspace.home })}
             >
               <ChevronBack size={14} />
-              <span style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={railLabelStyle}>
                 {tr(`ws.shell.workspace.${workspaceKey}`)}
               </span>
             </button>
@@ -885,6 +896,9 @@ function WorkspaceNav({
         style={{
           flex: 1,
           overflowY: 'auto',
+          // Never sideways: a label wraps (railLabelStyle) instead of widening the rail.
+          overflowX: 'hidden',
+          gridTemplateColumns: 'minmax(0, 1fr)',
           paddingBlock: 'var(--tp-sp-2-5)',
           paddingInline: RAIL_PAD,
           display: 'grid',
@@ -931,8 +945,8 @@ function WorkspaceNav({
                 does not switch a screen. */}
             {sections.length > 0 && (
               <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-                {sections.map((sec) => (
-                  <SectionLink key={sec.key} section={sec} />
+                {sections.map(({ sec, target }) => (
+                  <SectionLink key={sec.key} section={sec} target={target} />
                 ))}
               </div>
             )}
@@ -1020,7 +1034,7 @@ function WorkspaceNav({
             <RailIdentity />
             <p
               title={tr('ws.shell.nav.station', { id: station.stationId })}
-              style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflowWrap: 'anywhere' }}
             >
               {tr('ws.shell.nav.station', { id: station.stationId })}
             </p>
@@ -1080,10 +1094,10 @@ function RailIdentity() {
     /* No padding of its own: the rail's foot now wraps this and the station /
        version lines in one padded row beside the sign-out button. */
     <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
         <bdi
           title={name}
-          style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-brand-white)' }}
+          style={{ minInlineSize: 0, overflowWrap: 'anywhere', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-brand-white)' }}
         >
           {name}
         </bdi>
@@ -1096,7 +1110,7 @@ function RailIdentity() {
         />
       </div>
       {cover && (
-        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflowWrap: 'anywhere' }}>
           {tr('ws.shell.break.coveringFor', { name: staff?.displayName ?? '' })}
         </p>
       )}

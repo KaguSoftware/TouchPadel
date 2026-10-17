@@ -8,18 +8,14 @@
  * own plus its own rail: the workspace shows one button for it, and once
  * inside, the rail is the section's list and nothing else.
  *
- * Management's sections are FINANCIAL, OBSERVE, STOCK and SETUP, cut by the
- * question being asked rather than by screen type:
- *
- *   * Financial answers "how much came in, how much went out, does the cash
- *     agree": the money reports, the cash (day close, safe, drawer), pay, and
- *     the prices that produce tomorrow's figures.
- *   * Observe (key `observation`) answers "what is happening, who did it, what
- *     is waiting on me": the floor, the boards, staff activity, what the team
- *     sends up, protocols, marketing and the audit log.
- *   * Stock answers "what is on the shelves, what came in, what went out and
- *     what is it worth".
- *   * Setup is configuration, not a reading of the business.
+ * Management's and Operations' sections are the same seven, cut by part of
+ * the club (page map, Sait 2026-10-17): FINANCIAL (key `money`), COURTS, CAFÉ & SHOP, STOCK,
+ * TEAM, CUSTOMERS & MARKETING and SETTINGS. Before, the owner's were cut by
+ * question (Financial, Observe, Stock, Setup) and the manager's by verb (Run
+ * the day, Records, Setup); people had to guess which question or verb a page
+ * answered before they could look for it, and the same page lived in two
+ * places for the two of them. Each person sees the rows and tabs they may
+ * open.
  *
  * FAMILIES (management rebuild, 2026-10-17,
  * docs/design/operator-ui/management-rebuild-brief-2026-10-16.md). A section's
@@ -77,6 +73,10 @@ export type NavLabelKey =
   | 'tournaments' | 'loyalty'
   // Setup's families: courts and their rules, the venue, the guest app, devices.
   | 'bookingRules' | 'onlineDeposit' | 'openMatches'
+  // The page map (2026-10-17): Court settings, the sales report tabs, bills
+  // paid from the main cash, the settings tabs that shared another page's name.
+  | 'courtSettings' | 'courtSales' | 'cafeSales' | 'billsSuppliers' | 'tournamentRules'
+  | 'analyticsSettings' | 'computersScreens'
   | 'venue' | 'venueDetails' | 'openingHours' | 'businessDay'
   | 'guestApp' | 'devices' | 'stations' | 'kitchenScreens' | 'offlineMode';
 
@@ -146,12 +146,14 @@ export interface NavGroup {
   items: readonly NavItem[];
 }
 
-export type SectionKey = 'financial' | 'observation' | 'stock' | 'setup' | 'run' | 'records' | 'opsSetup';
+/** Courts and Café & shop have a key per rail (their first rows differ); `courtsDesk` and `cafeFloor` are the manager's. */
+export type SectionKey = 'money' | 'courts' | 'courtsDesk' | 'cafe' | 'cafeFloor' | 'stock' | 'team' | 'customers' | 'settings';
 
 /**
- * A named part of a workspace with its own landing screen and its own rail.
- * `home` is where the workspace's button lands; `items` is the rail shown
- * from there on.
+ * A named part of a workspace with its own rail. `home` is its first page;
+ * the section button opens the first row the person may open (sectionTarget),
+ * so a manager's Financial opens Court sales, the owner's Money in. `items` is the
+ * rail shown from there on.
  * Name and lead read from ws.shell.section.* / ws.shell.sectionLead.*.
  */
 export interface NavSection {
@@ -159,11 +161,6 @@ export interface NavSection {
   home: string;
   icon: IconName;
   items: readonly NavItem[];
-  /**
-   * Opened from a row in the workspace's own groups, so the rail prints no
-   * separate section button for it (the manager's Stock, in Run the day).
-   */
-  fromRow?: boolean;
 }
 
 export interface Workspace {
@@ -186,12 +183,10 @@ const MY_TASKS: NavItem = { to: '/tasks', labelKey: 'myTasks', icon: 'checkCircl
 /**
  * Wave 5, people records (wave5-addendum-2026-09-25 §5.2). Incidents are
  * reported at the desk and the till and reviewed by management, so the row
- * sits on the desk's and the till's rails; management reaches it under From
- * the team.
+ * sits on the desk's and the till's rails; management reaches it under Team ›
+ * Staff inbox.
  */
 const INCIDENTS: NavItem = { to: '/incidents', labelKey: 'incidents', icon: 'alert', badge: 'incidentsOpen' };
-/** Late arrivals and early leaves (0271): the manager records them; the owner reads them under Pay. */
-const ATTENDANCE: NavItem = { to: '/attendance', labelKey: 'attendance', icon: 'clock' };
 
 const COURT_DESK: readonly NavItem[] = [
   { to: '/desk/today', labelKey: 'today', icon: 'today' },
@@ -215,13 +210,23 @@ const CASHIER: readonly NavItem[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Families shared by the owner's and the manager's rails.
+// Families: one row per job, its pages as tabs. Shared by the owner's and the
+// manager's rails, which print the same sections (page map, 2026-10-17): a
+// page is in the same place for both, and each person sees the rows and tabs
+// they may open.
 // ---------------------------------------------------------------------------
+
+/** The money reports share one screen frame; each is a tab. */
+const REPORT_TABS: readonly NavTab[] = [
+  { to: '/reports/revenue', labelKey: 'revenue' },
+  { to: '/reports/courts', labelKey: 'courtSales' },
+  { to: '/reports/cafe', labelKey: 'cafeSales' },
+];
 
 /**
  * The cash, in the order the money moves at the end of a day: whether the
- * drawers agreed (day close), the main cash every cost is paid from (0343),
- * then the drawer itself. Before the rebuild these were three unrelated rows.
+ * drawers agreed (the end of day count), the main cash every cost is paid
+ * from (0343), then the drawer itself.
  */
 const CASH_TABS: readonly NavTab[] = [
   { to: '/admin/day-close', labelKey: 'dayClose' },
@@ -230,16 +235,44 @@ const CASH_TABS: readonly NavTab[] = [
 ];
 
 /**
- * What the team sends up to management. The owner decides requests and pay
- * deductions; a manager proposes deductions (theirs is the same page, read as
- * their role), reviews incidents and reads the suggestion box. Protocols stay
- * a row of their own: they are a tool for running a change, not an inbox.
+ * Everything paid out: salaries, the bills and suppliers paid from the main
+ * cash (the Safe page showing its payments, `?show=payments`), the pay
+ * deductions the owner decides, bonuses and the coaches' statements. "Pay a
+ * supplier" is looked for under Pay, not under Cash (Sait, 2026-10-17).
  */
-const FROM_TEAM_TABS: readonly NavTab[] = [
-  { to: '/observation/requests', labelKey: 'requests' },
+const PAY_TABS: readonly NavTab[] = [
+  { to: '/wages', labelKey: 'wages', badge: 'wagesDue' },
+  { to: '/safe', labelKey: 'billsSuppliers', search: { show: 'payments' } },
   { to: '/deductions', labelKey: 'deductions', badge: 'deductionsWaiting' },
-  { to: '/incidents', labelKey: 'incidents', badge: 'incidentsOpen' },
-  { to: '/suggestions', labelKey: 'suggestions', badge: 'suggestionsNew' },
+  { to: '/rewards', labelKey: 'rewards' },
+  { to: '/reports/coaches', labelKey: 'coachPay' },
+];
+
+/**
+ * Everything about playing on a court, in one place (Sait, 2026-10-17): the
+ * prices, the courts, the booking rules, the online deposit and open matches,
+ * the opening hours and the tournament rules.
+ */
+const COURT_SETTINGS_TABS: readonly NavTab[] = [
+  { to: '/admin/rates', labelKey: 'rates' },
+  { to: '/admin/courts', labelKey: 'courts' },
+  { to: '/admin/settings/booking', labelKey: 'bookingRules' },
+  { to: '/admin/settings/deposit', labelKey: 'onlineDeposit', when: 'onlinePaymentsLive' },
+  { to: '/admin/settings/matches', labelKey: 'openMatches', when: 'onlinePaymentsLive' },
+  { to: '/admin/hours', labelKey: 'openingHours' },
+  { to: '/admin/settings/tournaments', labelKey: 'tournamentRules' },
+];
+
+/**
+ * Coaches, lesson types, the coaches' hours and the lesson rules. One route,
+ * told apart by `?tab=` (routes/admin/coaches.tsx); the picked coach travels
+ * to Hours.
+ */
+const COACHES_TABS: readonly NavTab[] = [
+  { to: '/admin/coaches', labelKey: 'coaches', keepSearch: ['coach'] },
+  { to: '/admin/coaches', labelKey: 'lessonTypes', search: { tab: 'types' } },
+  { to: '/admin/coaches', labelKey: 'coachHours', search: { tab: 'hours' }, keepSearch: ['coach'] },
+  { to: '/admin/coaches', labelKey: 'lessonRules', search: { tab: 'rules' } },
 ];
 
 /** The menu editor and its siblings, one tab each. */
@@ -250,176 +283,7 @@ const MENU_TABS: readonly NavTab[] = [
   { to: '/admin/suggested', labelKey: 'suggested' },
 ];
 
-/**
- * Coaches, lesson types, the coaches' hours and the lesson rules (the rules
- * used to be a panel inside Venue settings). One route, told apart by `?tab=`
- * (routes/admin/coaches.tsx); the picked coach travels to Hours.
- */
-const COACHES_TABS: readonly NavTab[] = [
-  { to: '/admin/coaches', labelKey: 'coaches', keepSearch: ['coach'] },
-  { to: '/admin/coaches', labelKey: 'lessonTypes', search: { tab: 'types' } },
-  { to: '/admin/coaches', labelKey: 'coachHours', search: { tab: 'hours' }, keepSearch: ['coach'] },
-  { to: '/admin/coaches', labelKey: 'lessonRules', search: { tab: 'rules' } },
-];
-
-/**
- * Coach pay (coaching operator.md §5.3.3): its exact `to` beats a '/reports'
- * prefix in `sectionForPath`, so it lights on its own screen.
- */
-const COACH_PAY: NavItem = { to: '/reports/coaches', labelKey: 'coachPay', icon: 'whistle' };
-const COACHES: NavItem = { to: '/admin/coaches', labelKey: 'coaches', icon: 'whistle', tabs: COACHES_TABS };
-
-/**
- * Protocols and the suggestion box, on both management rails with their
- * counts (build-contracts-2026-09-23 §5.1).
- */
-const PROTOCOLS: NavItem = { to: '/protocols', labelKey: 'protocols', icon: 'split', badge: 'protocolsWaiting' };
-
-// ---------------------------------------------------------------------------
-// Operations (the manager)
-// ---------------------------------------------------------------------------
-
-/**
- * The manager's rail: Today, then three sections (owner call, 2026-10-16).
- * Pressing a section opens its first screen, and from there the rail is that
- * section's rows and a way back.
- *
- *   * Today — the landing screen: what needs the manager now.
- *   * Run the day — the working screens a shift moves between.
- *   * Records — what already happened.
- *   * Setup — what the other screens are priced and built from.
- */
-const MANAGER_TODAY: readonly NavItem[] = [{ to: '/ops', labelKey: 'today', icon: 'dashboard' }];
-
-/** What the team sends up, as a manager reads it: no staff requests (the owner's). */
-const MANAGER_FROM_TEAM_TABS: readonly NavTab[] = [
-  { to: '/deductions', labelKey: 'deductions', badge: 'deductionsWaiting' },
-  { to: '/incidents', labelKey: 'incidents', badge: 'incidentsOpen' },
-  { to: '/suggestions', labelKey: 'suggestions', badge: 'suggestionsNew' },
-];
-
-const MANAGER_RUN: readonly NavItem[] = [
-  { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk' },
-  { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt', activePrefix: '/till/tabs' },
-  // Stock opens the Stock section's own rail (STOCK_SECTION below).
-  { to: '/stock', labelKey: 'stock', icon: 'package', activePrefix: '/stock' },
-  { to: '/admin/day-close', labelKey: 'cash', icon: 'drawer', tabs: CASH_TABS },
-  PROTOCOLS,
-  { to: '/deductions', labelKey: 'fromTeam', icon: 'bell', tabs: MANAGER_FROM_TEAM_TABS },
-  ATTENDANCE,
-];
-
-/** The manager's reports: courts, cafe and staff activity (revenue is the owner's). */
-const MANAGER_REPORT_TABS: readonly NavTab[] = [
-  { to: '/reports/courts', labelKey: 'courts' },
-  { to: '/reports/cafe', labelKey: 'cafe' },
-  { to: '/reports/staff', labelKey: 'staffActivity' },
-];
-
-const MANAGER_RECORDS: readonly NavItem[] = [
-  { to: '/reports/courts', labelKey: 'reports', icon: 'chart', tabs: MANAGER_REPORT_TABS },
-  COACH_PAY,
-  { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
-];
-
-const MANAGER_SETUP: readonly NavItem[] = [
-  { to: '/admin/menu', labelKey: 'menu', icon: 'layers', tabs: MENU_TABS },
-  { to: '/admin/rates', labelKey: 'rates', icon: 'scale' },
-  COACHES,
-  { to: '/admin/promotions', labelKey: 'promotions', icon: 'tag' },
-];
-
-// ---------------------------------------------------------------------------
-// Management (the owner)
-// ---------------------------------------------------------------------------
-
-/**
- * Management's own rail. The panel is the headline every other screen in the
- * workspace elaborates, and Analytics and the assistant read across every
- * section, so they sit above the split (owner calls, 2026-09-13 and
- * docs/design/assistant §5.1).
- */
-const OWNER_PRIMARY: readonly NavItem[] = [
-  { to: '/panel', labelKey: 'panel', icon: 'dashboard' },
-  { to: '/analytics', labelKey: 'analytics', icon: 'trendUp', activePrefix: '/analytics' },
-  { to: '/assistant', labelKey: 'assistant', icon: 'spark', activePrefix: '/assistant' },
-];
-
-/** The money reports share one screen frame; each is a tab. */
-const REVENUE_REPORT_TABS: readonly NavTab[] = [
-  { to: '/reports/revenue', labelKey: 'revenue' },
-  { to: '/reports/courts', labelKey: 'courts' },
-  { to: '/reports/cafe', labelKey: 'cafe' },
-];
-
-/**
- * Paying people: salaries and pay days, the late arrivals and early leaves
- * that come off them (it hid inside Wages before the rebuild), the rewards
- * added to them, and the coaches' monthly statements.
- */
-const PAY_TABS: readonly NavTab[] = [
-  { to: '/wages', labelKey: 'wages', badge: 'wagesDue' },
-  { to: '/attendance', labelKey: 'attendance' },
-  { to: '/rewards', labelKey: 'rewards' },
-  { to: '/reports/coaches', labelKey: 'coachPay' },
-];
-
-/**
- * FINANCIAL — money in, money out, and the places it is counted. Order is the
- * money's own path: what was earned, the cash and whether it agrees, what is
- * paid out to people, then the prices that will produce tomorrow's figures.
- */
-const OWNER_FINANCIAL: readonly NavItem[] = [
-  { to: '/financial', labelKey: 'overview', icon: 'grid', exact: true },
-  { to: '/reports/revenue', labelKey: 'reports', icon: 'chart', tabs: REVENUE_REPORT_TABS },
-  { to: '/admin/day-close', labelKey: 'cash', icon: 'drawer', tabs: CASH_TABS },
-  { to: '/wages', labelKey: 'pay', icon: 'banknote', tabs: PAY_TABS },
-  { to: '/admin/rates', labelKey: 'rates', icon: 'scale' },
-  { to: '/admin/menu', labelKey: 'menuPrices', icon: 'layers', tabs: MENU_TABS },
-];
-
-/** Who is on the operator and the phone now (0341), and what they did over a period. */
-const STAFF_ACTIVITY_TABS: readonly NavTab[] = [
-  { to: '/observation/activity', labelKey: 'whoIsOn' },
-  { to: '/reports/staff', labelKey: 'whatTheyDid' },
-];
-
-/** Campaigns, the promotions they run, and the Telegram group (all hidden inside Marketing before). */
-const MARKETING_TABS: readonly NavTab[] = [
-  { to: '/marketing', labelKey: 'campaigns', activePrefix: '/marketing', badge: 'contentWaiting' },
-  { to: '/admin/promotions', labelKey: 'promotions' },
-  { to: '/admin/telegram', labelKey: 'telegram' },
-];
-
-/**
- * OBSERVE — watching the venue rather than counting it. Right now (the
- * overview and the two boards), who is working, what the team sends up, the
- * protocols running, marketing, and the audit log, where you go when one of
- * the others raised a question.
- *
- * Bookings and Tills are Observe's OWN boards, view-only (owner call,
- * 2026-09-13); every write is an "Open in …" button away.
- */
-const OWNER_OBSERVATION: readonly NavItem[] = [
-  { to: '/observation', labelKey: 'overview', icon: 'grid', exact: true },
-  { to: '/observation/courts', labelKey: 'bookings', icon: 'calendar' },
-  { to: '/observation/tills', labelKey: 'tills', icon: 'receipt' },
-  { to: '/observation/activity', labelKey: 'staffActivity', icon: 'users', tabs: STAFF_ACTIVITY_TABS },
-  { to: '/observation/requests', labelKey: 'fromTeam', icon: 'bell', tabs: FROM_TEAM_TABS },
-  PROTOCOLS,
-  { to: '/marketing', labelKey: 'marketing', icon: 'spark', tabs: MARKETING_TABS },
-  { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
-  // Floor now is the overview's own body (owner call, 2026-10-08); /ops sends
-  // the owner there, and this keeps the rail on Observe for that moment.
-  { to: '/ops', labelKey: 'floorNow', icon: 'dashboard', hidden: true },
-  // The overview's area buttons still open the working screens; these keep
-  // the Observe rail there. `/till/tabs` carries no prefix: '/till' would also
-  // claim /till/drawer, which is Financial's.
-  { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk', hidden: true },
-  { to: '/till/tabs', labelKey: 'tills', icon: 'receipt', hidden: true },
-];
-
-/** What is on the shelves: the stock itself, the warnings about it, what expires, what it is worth. */
+/** What is on the shelves: the stock itself, what runs low, what expires, what it is worth. */
 const ON_HAND_TABS: readonly NavTab[] = [
   { to: '/stock', labelKey: 'onHand', exact: true },
   { to: '/stock/alerts', labelKey: 'alerts' },
@@ -447,56 +311,44 @@ const STOCK_COSTS_TABS: readonly NavTab[] = [
   { to: '/stock/margins', labelKey: 'margins' },
 ];
 
-/**
- * STOCK — the shelves, on the owner's rail and the manager's alike: four
- * families and the Touch Shop desk (0243–0246), whose till, drawer and
- * products are its own.
- */
-const STOCK: readonly NavItem[] = [
-  // Claims the whole /stock subtree, so an old link to a /stock path with no
-  // tab of its own still keeps this rail; every tab is a more specific match.
-  { to: '/stock', labelKey: 'onHand', icon: 'package', activePrefix: '/stock', tabs: ON_HAND_TABS },
-  { to: '/stock/receive', labelKey: 'stockMovement', icon: 'box', tabs: STOCK_MOVEMENT_TABS },
-  { to: '/stock/counts', labelKey: 'stockCounting', icon: 'scale', tabs: STOCK_COUNTING_TABS },
-  { to: '/stock/ingredients', labelKey: 'stockCosts', icon: 'fileText', tabs: STOCK_COSTS_TABS },
-  { to: '/shop', labelKey: 'shop', icon: 'tag' },
+/** Who is on the operator and the phone now (0341), and what they did over a period. */
+const STAFF_ACTIVITY_TABS: readonly NavTab[] = [
+  { to: '/observation/activity', labelKey: 'whoIsOn' },
+  { to: '/reports/staff', labelKey: 'whatTheyDid' },
 ];
 
 /**
- * Courts and every rule about playing on them. The booking rules, the online
- * deposit, open matches and tournaments were panels inside Venue settings.
+ * What the team sends up: the owner decides requests; management reviews
+ * incidents and reads the suggestion box. Pay deductions are Pay's.
  */
-const COURTS_TABS: readonly NavTab[] = [
-  { to: '/admin/courts', labelKey: 'courts' },
-  { to: '/admin/settings/booking', labelKey: 'bookingRules' },
-  { to: '/admin/settings/deposit', labelKey: 'onlineDeposit', when: 'onlinePaymentsLive' },
-  { to: '/admin/settings/matches', labelKey: 'openMatches', when: 'onlinePaymentsLive' },
-  { to: '/admin/settings/tournaments', labelKey: 'tournaments' },
+const STAFF_INBOX_TABS: readonly NavTab[] = [
+  { to: '/observation/requests', labelKey: 'requests' },
+  { to: '/incidents', labelKey: 'incidents', badge: 'incidentsOpen' },
+  { to: '/suggestions', labelKey: 'suggestions', badge: 'suggestionsNew' },
+];
+
+/** Campaigns, the discounts they run, and the Telegram group. */
+const MARKETING_TABS: readonly NavTab[] = [
+  { to: '/marketing', labelKey: 'campaigns', activePrefix: '/marketing', badge: 'contentWaiting' },
+  { to: '/admin/promotions', labelKey: 'promotions' },
+  { to: '/admin/telegram', labelKey: 'telegram' },
 ];
 
 /**
- * The venue itself: its name and the values fixed at setup, when it opens,
- * when its business day starts, and what analytics leaves out. `/admin/settings`
- * stays the venue's address; `/admin/hours` stops being a second copy of the
- * opening hours and becomes this family's tab.
+ * The club itself: its name and the values fixed at setup, when its business
+ * day starts, and what analytics leaves out. `/admin/settings` stays its
+ * address. The opening hours are Court settings'.
  */
-const VENUE_TABS: readonly NavTab[] = [
+const CLUB_TABS: readonly NavTab[] = [
   { to: '/admin/settings', labelKey: 'venueDetails', exact: true },
-  { to: '/admin/hours', labelKey: 'openingHours' },
   { to: '/admin/settings/day', labelKey: 'businessDay' },
-  { to: '/admin/settings/analytics', labelKey: 'analytics' },
-];
-
-/** What a guest sees: the guest app's home screen and the table QR cards that open it. */
-const GUEST_APP_TABS: readonly NavTab[] = [
-  { to: '/admin/hero', labelKey: 'guestSite', activePrefix: '/admin/hero' },
-  { to: '/admin/qr', labelKey: 'tables' },
+  { to: '/admin/settings/analytics', labelKey: 'analyticsSettings' },
 ];
 
 /**
  * The machines: which ones report in, which stations are registered at the
- * branch, the kitchen screens paired to the till (on the hidden Setup
- * overview before), and when the venue counts as offline.
+ * branch, the kitchen screens paired to the till, and when the venue counts
+ * as offline.
  */
 const DEVICES_TABS: readonly NavTab[] = [
   { to: '/admin/settings/devices', labelKey: 'devices' },
@@ -505,18 +357,131 @@ const DEVICES_TABS: readonly NavTab[] = [
   { to: '/admin/settings/offline', labelKey: 'offlineMode' },
 ];
 
-/** SETUP — configuration: people, the courts and their rules, the venue, the guest app, loyalty, the machines. */
-const OWNER_SETUP: readonly NavItem[] = [
-  { to: '/setup', labelKey: 'overview', icon: 'grid', exact: true },
-  { to: '/admin/staff', labelKey: 'staff', icon: 'shield' },
+// Rows both rails print in more than one list.
+const COURT_SETTINGS: NavItem = { to: '/admin/rates', labelKey: 'courtSettings', icon: 'sliders', tabs: COURT_SETTINGS_TABS };
+const COACHES: NavItem = { to: '/admin/coaches', labelKey: 'coaches', icon: 'whistle', tabs: COACHES_TABS };
+const MENU: NavItem = { to: '/admin/menu', labelKey: 'menu', icon: 'bookOpen', tabs: MENU_TABS };
+const TABLES: NavItem = { to: '/admin/qr', labelKey: 'tables', icon: 'qr' };
+const SHOP_ROW: NavItem = { to: '/shop', labelKey: 'shop', icon: 'tag' };
+/** Protocols, with what waits on the signed-in person (build-contracts-2026-09-23 §5.1). */
+const PROTOCOLS: NavItem = { to: '/protocols', labelKey: 'protocols', icon: 'checkCircle', badge: 'protocolsWaiting' };
+
+// ---------------------------------------------------------------------------
+// Management (the owner) and Operations (the manager)
+// ---------------------------------------------------------------------------
+
+/**
+ * Management's own rail, above the section buttons: Overview (the panel, with
+ * "Needs you" and the live floor on top since 2026-10-17, when the owner's
+ * Floor now page folded into it), and Trends and the assistant, which read
+ * across every section. The manager's home sends an owner to the Overview, so
+ * /ops keeps this rail (hidden).
+ */
+const OWNER_PRIMARY: readonly NavItem[] = [
+  { to: '/panel', labelKey: 'panel', icon: 'dashboard' },
+  { to: '/ops', labelKey: 'panel', icon: 'dashboard', hidden: true },
+  { to: '/analytics', labelKey: 'analytics', icon: 'trendUp', activePrefix: '/analytics' },
+  { to: '/assistant', labelKey: 'assistant', icon: 'spark', activePrefix: '/assistant' },
+];
+
+/** The manager's own rail: Today, the landing screen of what needs them now. */
+const MANAGER_TODAY: readonly NavItem[] = [{ to: '/ops', labelKey: 'today', icon: 'dashboard' }];
+
+/**
+ * The sections (page map, Sait 2026-10-17). Cut by part of the club rather
+ * than by verb, because "Observe", "Run the day" and "Records" made people
+ * guess before they could look: Financial, Courts, Café & shop, Stock, Team,
+ * Customers & marketing, Settings. Each page has one place; a section button
+ * opens the first page of it the person may open.
+ */
+
+/** FINANCIAL: what came in, the cash and whether it agrees, and everything paid out. */
+const MONEY: readonly NavItem[] = [
+  { to: '/reports/revenue', labelKey: 'reports', icon: 'chart', tabs: REPORT_TABS },
+  { to: '/admin/day-close', labelKey: 'cash', icon: 'drawer', tabs: CASH_TABS },
+  { to: '/wages', labelKey: 'pay', icon: 'banknote', tabs: PAY_TABS },
+  // The old Financial overview still opens from links; it keeps this rail.
+  { to: '/financial', labelKey: 'overview', icon: 'grid', exact: true, hidden: true },
+];
+
+/**
+ * COURTS for the owner: Bookings is the view-only board (owner call,
+ * 2026-09-13); its "Open in …" buttons open the desk, which keeps this rail.
+ */
+const OWNER_COURTS: readonly NavItem[] = [
+  { to: '/observation/courts', labelKey: 'bookings', icon: 'calendar' },
   COACHES,
-  { to: '/admin/courts', labelKey: 'courts', icon: 'court', tabs: COURTS_TABS },
-  { to: '/admin/settings', labelKey: 'venue', icon: 'home', tabs: VENUE_TABS },
-  { to: '/admin/branches', labelKey: 'branches', icon: 'pin' },
-  { to: '/admin/hero', labelKey: 'guestApp', icon: 'globe', tabs: GUEST_APP_TABS },
+  COURT_SETTINGS,
+  { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk', hidden: true },
+];
+
+/** COURTS for the manager: Bookings is the desk calendar they work in. */
+const MANAGER_COURTS: readonly NavItem[] = [
+  { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk' },
+  COACHES,
+  COURT_SETTINGS,
+];
+
+/**
+ * CAFÉ & SHOP for the owner: the view-only tills board, the menu, the table
+ * QR cards and the Touch Shop desk. `/till/tabs` carries no prefix: '/till'
+ * would also claim /till/drawer, which is Financial's.
+ */
+const OWNER_CAFE: readonly NavItem[] = [
+  { to: '/observation/tills', labelKey: 'tills', icon: 'receipt' },
+  MENU,
+  TABLES,
+  SHOP_ROW,
+  { to: '/till/tabs', labelKey: 'tills', icon: 'receipt', hidden: true },
+];
+
+/** CAFÉ & SHOP for the manager: the open tabs they work in. */
+const MANAGER_CAFE: readonly NavItem[] = [
+  { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt', activePrefix: '/till/tabs' },
+  MENU,
+  TABLES,
+  SHOP_ROW,
+];
+
+/** STOCK: what is on the shelves, what came in and went out, the counts, and what a dish costs. */
+const STOCK: readonly NavItem[] = [
+  // Claims the whole /stock subtree, so an old link to a /stock path with no
+  // tab of its own still keeps this rail; every tab is a more specific match.
+  { to: '/stock', labelKey: 'onHand', icon: 'package', activePrefix: '/stock', tabs: ON_HAND_TABS },
+  { to: '/stock/receive', labelKey: 'stockMovement', icon: 'box', tabs: STOCK_MOVEMENT_TABS },
+  { to: '/stock/counts', labelKey: 'stockCounting', icon: 'scale', tabs: STOCK_COUNTING_TABS },
+  { to: '/stock/ingredients', labelKey: 'stockCosts', icon: 'note', tabs: STOCK_COSTS_TABS },
+];
+
+/**
+ * TEAM: the people, who is working, late arrivals and early leaves (recorded
+ * here, taken off pay under Pay), what the team sends up, and the protocols.
+ */
+const PEOPLE: readonly NavItem[] = [
+  { to: '/admin/staff', labelKey: 'staff', icon: 'user' },
+  { to: '/observation/activity', labelKey: 'staffActivity', icon: 'eye', tabs: STAFF_ACTIVITY_TABS },
+  { to: '/attendance', labelKey: 'attendance', icon: 'clock' },
+  { to: '/observation/requests', labelKey: 'fromTeam', icon: 'mail', tabs: STAFF_INBOX_TABS },
+  PROTOCOLS,
+];
+
+/** CUSTOMERS & MARKETING: the guests, their points, the campaigns and discounts, and the guest app. */
+const CUSTOMERS: readonly NavItem[] = [
+  { to: '/desk/customers', labelKey: 'customers', icon: 'users' },
   // Loyalty (build-contracts-2026-10-05 §5): business-wide points, tiers and rewards.
   { to: '/admin/loyalty', labelKey: 'loyalty', icon: 'star' },
-  { to: '/admin/settings/devices', labelKey: 'devices', icon: 'settings', tabs: DEVICES_TABS },
+  { to: '/marketing', labelKey: 'marketing', icon: 'image', tabs: MARKETING_TABS },
+  { to: '/admin/hero', labelKey: 'guestApp', icon: 'phone', activePrefix: '/admin/hero' },
+];
+
+/** SETTINGS: the club, its branches, the machines, and the change history. */
+const SETTINGS: readonly NavItem[] = [
+  { to: '/admin/settings', labelKey: 'venue', icon: 'home', tabs: CLUB_TABS },
+  { to: '/admin/branches', labelKey: 'branches', icon: 'pin' },
+  { to: '/admin/settings/devices', labelKey: 'computersScreens', icon: 'keyboard', tabs: DEVICES_TABS },
+  { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
+  // The old Setup overview still opens from links; it keeps this rail.
+  { to: '/setup', labelKey: 'overview', icon: 'grid', exact: true, hidden: true },
 ];
 
 /**
@@ -544,46 +509,41 @@ const SHOP: readonly NavItem[] = [
  */
 const TEAM: readonly NavItem[] = [MY_TASKS];
 
-/** Stock as a section, on the owner's rail and the manager's alike. */
-const STOCK_SECTION: NavSection = { key: 'stock', home: '/stock', icon: 'package', items: STOCK };
-
+/**
+ * The sections, in the same order on both rails. Courts and Café & shop have
+ * a key per rail because their first row differs (the owner's view-only
+ * boards, the manager's working screens); both carry the same name. `home` is
+ * the section's first page; the shell opens the first one the person may open.
+ */
 const OWNER_SECTIONS: readonly NavSection[] = [
-  { key: 'financial', home: '/financial', icon: 'banknote', items: OWNER_FINANCIAL },
-  { key: 'observation', home: '/observation', icon: 'eye', items: OWNER_OBSERVATION },
-  STOCK_SECTION,
-  // Sliders, not the gear: the gear is the Devices row inside this section,
-  // and the mobile app's settings glyph is the same sliders.
-  { key: 'setup', home: '/setup', icon: 'sliders', items: OWNER_SETUP },
+  { key: 'money', home: '/reports/revenue', icon: 'banknote', items: MONEY },
+  { key: 'courts', home: '/observation/courts', icon: 'court', items: OWNER_COURTS },
+  { key: 'cafe', home: '/observation/tills', icon: 'cake', items: OWNER_CAFE },
+  { key: 'stock', home: '/stock', icon: 'package', items: STOCK },
+  { key: 'team', home: '/admin/staff', icon: 'users', items: PEOPLE },
+  { key: 'customers', home: '/desk/customers', icon: 'userPlus', items: CUSTOMERS },
+  // Icons (Sait, 2026-10-17): each names what is inside, and no two buttons on
+  // one rail share a glyph. Café & shop is food, Customers & marketing is
+  // winning guests, Settings is the gear.
+  { key: 'settings', home: '/admin/settings', icon: 'settings', items: SETTINGS },
+];
+
+const MANAGER_SECTIONS: readonly NavSection[] = [
+  { key: 'money', home: '/reports/revenue', icon: 'banknote', items: MONEY },
+  { key: 'courtsDesk', home: '/desk', icon: 'court', items: MANAGER_COURTS },
+  { key: 'cafeFloor', home: '/till/tabs', icon: 'cake', items: MANAGER_CAFE },
+  { key: 'stock', home: '/stock', icon: 'package', items: STOCK },
+  { key: 'team', home: '/admin/staff', icon: 'users', items: PEOPLE },
+  { key: 'customers', home: '/desk/customers', icon: 'userPlus', items: CUSTOMERS },
+  { key: 'settings', home: '/admin/settings', icon: 'settings', items: SETTINGS },
 ];
 
 export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
   courtDesk: { key: 'courtDesk', home: '/desk/today', icon: 'calendar', groups: [{ labelKey: null, items: COURT_DESK }] },
   cashier: { key: 'cashier', home: '/till', icon: 'grid', groups: [{ labelKey: null, items: CASHIER }] },
   prep: { key: 'prep', home: '/kds', icon: 'flame', groups: [] },
-  manager: {
-    key: 'manager',
-    home: '/ops',
-    icon: 'dashboard',
-    groups: [{ labelKey: null, items: MANAGER_TODAY }],
-    sections: [
-      // Stock opens its own rail, as it does for the owner (owner call,
-      // 2026-09-27), from its row in Run the day rather than a section button.
-      // FIRST, because Run the day lists the same /stock row: on /stock both
-      // match exactly, and sectionForPath keeps the earlier section on a tie.
-      { ...STOCK_SECTION, fromRow: true },
-      // Each lands on its first row, like Management's Setup.
-      { key: 'run', home: '/desk', icon: 'play', items: MANAGER_RUN },
-      { key: 'records', home: '/reports/courts', icon: 'bookOpen', items: MANAGER_RECORDS },
-      { key: 'opsSetup', home: '/admin/menu', icon: 'sliders', items: MANAGER_SETUP },
-    ],
-  },
-  owner: {
-    key: 'owner',
-    home: '/panel',
-    icon: 'shield',
-    groups: [{ labelKey: null, items: OWNER_PRIMARY }],
-    sections: OWNER_SECTIONS,
-  },
+  manager: { key: 'manager', home: '/ops', icon: 'dashboard', groups: [{ labelKey: null, items: MANAGER_TODAY }], sections: MANAGER_SECTIONS },
+  owner: { key: 'owner', home: '/panel', icon: 'shield', groups: [{ labelKey: null, items: OWNER_PRIMARY }], sections: OWNER_SECTIONS },
   team: { key: 'team', home: '/tasks', icon: 'checkCircle', groups: [{ labelKey: null, items: TEAM }] },
   shop: { key: 'shop', home: '/shop', icon: 'tag', groups: [{ labelKey: null, items: SHOP }] },
 };
@@ -750,14 +710,14 @@ export function workspaceItems(ws: Workspace): readonly NavItem[] {
  * one. /reports/stock is Stock's (its own tab) although Financial's Reports
  * family also lives under /reports.
  */
-export function sectionForPath(ws: Workspace, path: string): NavSection | null {
+export function sectionForPath(ws: Workspace, path: string, search: NavSearch = {}): NavSection | null {
   const bare = barePath(path);
   let best: NavSection | null = null;
   let bestScore = -1;
   for (const section of ws.sections ?? []) {
     const matches = section.items.filter((item) => isNavActive(item, path));
     if (matches.length === 0) continue;
-    const score = Math.max(...matches.map((item) => navMatchScore(item, bare)));
+    const score = Math.max(...matches.map((item) => navMatchScore(item, bare, search)));
     if (score > bestScore) {
       best = section;
       bestScore = score;
@@ -766,15 +726,28 @@ export function sectionForPath(ws: Workspace, path: string): NavSection | null {
   return best;
 }
 
-/** How specifically the row or tab itself matches; -1 when it does not. */
-function ownScore(item: Matchable, bare: string): number {
+/** The query of the page being matched (`?show=payments`); a tab that names one needs it. */
+export type NavSearch = Readonly<Record<string, unknown>>;
+
+/** The score of a row or tab whose `to` IS the path; a tab whose query also matches scores one more. */
+const EXACT_SCORE = 1_000_000;
+
+/**
+ * How specifically the row or tab itself matches; -1 when it does not. A tab
+ * that names a query matches only with that query, and then beats a tab on the
+ * same path without one: on /safe?show=payments Pay's Bills & suppliers beats
+ * Cash's Main cash, which keeps plain /safe.
+ */
+function ownScore(item: Matchable & { search?: Readonly<Record<string, string>> }, bare: string, search: NavSearch = {}): number {
   if (!ownActive(item, bare)) return -1;
-  return item.to === bare ? Number.MAX_SAFE_INTEGER : (item.activePrefix ?? item.to).length;
+  const score = item.to === bare ? EXACT_SCORE : (item.activePrefix ?? item.to).length;
+  if (!item.search) return score;
+  return Object.entries(item.search).every(([key, value]) => search[key] === value) ? score + 1 : -1;
 }
 
 /** How specifically a row matches, counting its tabs: its own path beats any prefix, a longer prefix a shorter one. */
-function navMatchScore(item: NavItem, bare: string): number {
-  return Math.max(ownScore(item, bare), ...(item.tabs ?? []).map((tab) => ownScore(tab, bare)));
+function navMatchScore(item: NavItem, bare: string, search: NavSearch = {}): number {
+  return Math.max(ownScore(item, bare), ...(item.tabs ?? []).map((tab) => ownScore(tab, bare, search)));
 }
 
 /**
@@ -785,13 +758,13 @@ function navMatchScore(item: NavItem, bare: string): number {
  * printed (hidden and role-filtered rows removed), so a row nobody can see
  * never takes the light from its visible parent.
  */
-export function activeNavItem(items: readonly NavItem[], path: string): NavItem | null {
+export function activeNavItem(items: readonly NavItem[], path: string, search: NavSearch = {}): NavItem | null {
   const bare = barePath(path);
   let best: NavItem | null = null;
   let bestScore = -1;
   for (const item of items) {
     if (!isNavActive(item, path)) continue;
-    const score = navMatchScore(item, bare);
+    const score = navMatchScore(item, bare, search);
     if (score > bestScore) {
       best = item;
       bestScore = score;
@@ -821,10 +794,10 @@ export function sectionRailItems(section: NavSection): readonly NavItem[] {
  * null when the page stands alone. Only printed rows count: a hidden row has
  * no tabs to show.
  */
-export function familyRowForPath(ws: Workspace, path: string): NavItem | null {
-  const section = sectionForPath(ws, path);
+export function familyRowForPath(ws: Workspace, path: string, search: NavSearch = {}): NavItem | null {
+  const section = sectionForPath(ws, path, search);
   const rows = (section ? section.items : ws.groups.flatMap((g) => g.items)).filter((row) => !row.hidden);
-  const row = activeNavItem(rows, path);
+  const row = activeNavItem(rows, path, search);
   return row?.tabs?.length ? row : null;
 }
 
@@ -851,7 +824,7 @@ export function activeTab(tabs: readonly NavTab[], path: string, search: Readonl
   for (const tab of tabs) {
     if (bare !== tab.to) continue;
     if (!searchSelects(tab, tabs, search)) continue;
-    const score = ownScore(tab, bare);
+    const score = ownScore(tab, bare, search);
     if (score > bestScore) {
       best = tab;
       bestScore = score;
@@ -868,4 +841,18 @@ export function activeTab(tabs: readonly NavTab[], path: string, search: Readonl
 export function rowTarget(row: NavItem, canOpen: (tab: NavTab) => boolean): { to: string; search?: Readonly<Record<string, string>> } {
   const tab = row.tabs?.find(canOpen);
   return tab ? { to: tab.to, ...(tab.search ? { search: tab.search } : {}) } : { to: row.to };
+}
+
+/**
+ * Where a section button goes: the first printed row the person may open,
+ * through rowTarget. Null when they may open none of it, and the button is
+ * not printed.
+ */
+export function sectionTarget(
+  section: NavSection,
+  canOpenRow: (row: NavItem) => boolean,
+  canOpenTab: (tab: NavTab) => boolean,
+): { to: string; search?: Readonly<Record<string, string>> } | null {
+  const row = sectionRailItems(section).find(canOpenRow);
+  return row ? rowTarget(row, canOpenTab) : null;
 }

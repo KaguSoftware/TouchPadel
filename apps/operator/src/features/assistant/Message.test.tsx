@@ -132,7 +132,7 @@ describe('Message page links', () => {
     const buttons = [...document.querySelectorAll('[data-page-links] button')];
     expect(buttons.map((b) => b.getAttribute('title'))).toEqual(['/admin/day-close', '/stock/waste']);
     // A page with a rail row is named by its row.
-    expect(buttons[0]!.textContent).toBe('Go to Day close');
+    expect(buttons[0]!.textContent).toBe('Go to End of day count');
     fireEvent.click(buttons[1]!);
     expect(navigate).toHaveBeenCalledWith({ to: '/stock/waste' });
     expect(onNavigate).toHaveBeenCalledOnce();

@@ -426,11 +426,11 @@ describe('OperationsOverviewScreen', () => {
     expect(staff.getByText('Person 5')).toBeTruthy();
   });
 
-  it('sends the owner to the Observe overview, which carries the floor now', async () => {
+  it('sends the owner to the Overview, which carries what needs them and the live floor', async () => {
     who.role = 'owner';
     ws.active = 'owner';
     renderScreen();
-    await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith({ to: '/observation', replace: true }));
+    await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith({ to: '/panel', replace: true }));
     expect(screen.queryByRole('heading', { name: 'Today' })).toBeNull();
   });
 
@@ -439,7 +439,7 @@ describe('OperationsOverviewScreen', () => {
     ws.active = 'manager';
     renderScreen();
     expect(await screen.findByRole('heading', { name: 'Today' })).toBeTruthy();
-    expect(nav.navigate).not.toHaveBeenCalledWith({ to: '/observation', replace: true });
+    expect(nav.navigate).not.toHaveBeenCalledWith({ to: '/panel', replace: true });
   });
 
   it('renders the error state with a retry', async () => {

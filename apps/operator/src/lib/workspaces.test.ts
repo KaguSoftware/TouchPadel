@@ -15,6 +15,7 @@ import {
   activeTab,
   familyRowForPath,
   rowTarget,
+  sectionTarget,
   type NavTab,
 } from './workspaces';
 import { ROUTE_ROLES, SUB_ROUTES, canAccess, type StaffRole } from './auth';
@@ -69,7 +70,11 @@ describe('navigation sets', () => {
       courtDesk: 'court_desk',
       cashier: 'cashier',
       prep: 'prep',
-      manager: 'manager',
+      // Management and Operations print the same sections (page map,
+      // 2026-10-17) and each person sees the rows they may open, so the
+      // manager's rail is held to the owner here and to "something to open
+      // in every section" under 'the manager rail'.
+      manager: 'owner',
       owner: 'owner',
       team: 'driver',
       shop: 'shop_staff',
@@ -83,6 +88,7 @@ describe('navigation sets', () => {
       }
       expect(canAccess(roleFor[ws.key], ws.home), `${ws.key} home`).toBe(true);
     }
+    expect(canAccess('manager', WORKSPACES.manager.home)).toBe(true);
     // Every role that holds a workspace can open all of it, not just the one
     // named above.
     for (const role of ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'marketing', 'waiter'] as const) {
@@ -191,7 +197,7 @@ describe('workspaceForRoute', () => {
     expect(workspaceForRoute('/ops')).toBe('manager');
     expect(workspaceForRoute('/wages')).toBe('owner');
     expect(workspaceForRoute('/rewards')).toBe('owner');
-    // A manager records attendance; the owner opens it from Wages.
+    // Manager and owner both open it, under Team.
     expect(workspaceForRoute('/attendance')).toBeNull();
     // Eight roles open My tasks in their own workspace (§5.1), so it pins none.
     expect(workspaceForRoute('/tasks')).toBeNull();
@@ -203,169 +209,125 @@ describe('workspaceForRoute', () => {
   });
 });
 
-describe('sections', () => {
+describe('sections (page map, 2026-10-17)', () => {
   const owner = WORKSPACES.owner;
+  const manager = WORKSPACES.manager;
 
-  it("management's own rail is the panel and analytics, plus one button per section", () => {
+  it("management's own rail is the Overview, Trends and the assistant, plus one button per part of the club", () => {
     expect(owner.groups).toHaveLength(1);
-    // Reports live in the sections that own the question they answer; analytics
-    // spans courts and cafe, so it is back on the rail (owner call, 2026-09-13).
-    expect(owner.groups[0]!.items.map((i) => i.to)).toEqual(['/panel', '/analytics', '/assistant']);
-    expect(owner.sections?.map((s) => s.key)).toEqual(['financial', 'observation', 'stock', 'setup']);
+    // Floor now folded into the Overview (2026-10-17): "Needs you" and the live floor sit on top of it.
+    expect(owner.groups[0]!.items.filter((i) => !i.hidden).map((i) => i.to)).toEqual(['/panel', '/analytics', '/assistant']);
+    expect(owner.sections?.map((s) => s.key)).toEqual(['money', 'courts', 'cafe', 'stock', 'team', 'customers', 'settings']);
+  });
+
+  it('gives the manager the same sections in the same order, under the same names', () => {
+    expect(manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([[null, ['today']]]);
+    expect(manager.sections?.map((s) => s.key)).toEqual(['money', 'courtsDesk', 'cafeFloor', 'stock', 'team', 'customers', 'settings']);
+    // Only Courts and Café & shop differ, in their first row: the owner's
+    // view-only boards, the manager's working screens.
+    for (const [i, sec] of (manager.sections ?? []).entries()) {
+      const theirs = owner.sections![i]!;
+      if (sec.key === theirs.key) expect(sec.items, sec.key).toBe(theirs.items);
+      else expect(sectionRailItems(sec).slice(1), sec.key).toEqual(sectionRailItems(theirs).slice(1));
+    }
   });
 
   it('every section opens on its own first rail item, so the rail can lead back to it', () => {
-    for (const section of owner.sections ?? []) {
-      expect(section.items[0]!.to, section.key).toBe(section.home);
-    }
-  });
-
-  it('splits money from observation', () => {
-    expect(sectionForPath(owner, '/financial')?.key).toBe('financial');
-    expect(sectionForPath(owner, '/reports/revenue')?.key).toBe('financial');
-    expect(sectionForPath(owner, '/admin/day-close')?.key).toBe('financial');
-    expect(sectionForPath(owner, '/till/drawer')?.key).toBe('financial');
-    expect(sectionForPath(owner, '/wages')?.key).toBe('financial');
-    expect(sectionForPath(owner, '/rewards')?.key).toBe('financial');
-    expect(sectionForPath(owner, '/safe')?.key).toBe('financial');
-    expect(sectionForPath(owner, '/attendance')?.key).toBe('financial');
-
-    expect(sectionForPath(owner, '/observation')?.key).toBe('observation');
-    expect(sectionForPath(owner, '/observation/requests')?.key).toBe('observation');
-    expect(sectionForPath(owner, '/protocols')?.key).toBe('observation');
-    expect(sectionForPath(owner, '/suggestions')?.key).toBe('observation');
-    expect(sectionForPath(owner, '/marketing')?.key).toBe('observation');
-    expect(sectionForPath(owner, '/ops')?.key).toBe('observation');
-    // Bookings and tills are Observe's own view-only boards...
-    expect(sectionForPath(owner, '/observation/courts')?.key).toBe('observation');
-    expect(sectionForPath(owner, '/observation/tills')?.key).toBe('observation');
-    expect(sectionForPath(owner, '/observation/activity')?.key).toBe('observation');
-    // ...and the working screens behind them still keep the rail on a drill-through.
-    expect(sectionForPath(owner, '/desk/today')?.key).toBe('observation');
-    expect(sectionForPath(owner, '/till/tabs')?.key).toBe('observation');
-
-    expect(sectionForPath(owner, '/stock')?.key).toBe('stock');
-    expect(sectionForPath(owner, '/stock/variance')?.key).toBe('stock');
-    expect(sectionForPath(owner, '/stock/receive')?.key).toBe('stock');
-    // One lit row: Goods in on its own screen, On hand only on /stock itself.
-    const stockRows = (owner.sections ?? []).find((s) => s.key === 'stock')!.items;
-    expect(activeNavItem(stockRows, '/stock/receive')?.to).toBe('/stock/receive');
-    expect(activeNavItem(stockRows, '/stock')?.to).toBe('/stock');
-    expect(sectionForPath(owner, '/stock/products')?.key).toBe('stock');
-    expect(sectionForPath(owner, '/reports/stock')?.key).toBe('stock');
-
-    expect(sectionForPath(owner, '/setup')?.key).toBe('setup');
-    expect(sectionForPath(owner, '/admin/settings/trading')?.key).toBe('setup');
-
-    // The workspace's own rows are not in any section.
-    expect(sectionForPath(owner, '/panel')).toBeNull();
-    expect(sectionForPath(owner, '/analytics')).toBeNull();
-    expect(sectionForPath(owner, '/analytics/courts')).toBeNull();
-    // The manager's home is the workspace's own row, in no section.
-    expect(sectionForPath(WORKSPACES.manager, '/ops')).toBeNull();
-  });
-
-  it('keeps the two till screens in different sections', () => {
-    // The drawer is money and the tabs are observation; an activePrefix of
-    // '/till' on either would light both rails at once.
-    expect(sectionForPath(owner, '/till/drawer')?.key).toBe('financial');
-    expect(sectionForPath(owner, '/till/tabs')?.key).toBe('observation');
-  });
-
-  it('never lets two sections claim the same screen', () => {
-    const seen = new Map<string, string>();
-    for (const section of owner.sections ?? []) {
-      for (const item of section.items) {
-        expect(seen.has(item.to), `${item.to} in both ${seen.get(item.to)} and ${section.key}`).toBe(false);
-        seen.set(item.to, section.key);
-      }
-    }
-  });
-
-  it('hides only the working screens a drill-through still lands on', () => {
-    const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
-    const hidden = observation.items.filter((i) => i.hidden).map((i) => i.to);
-    // Floor now is the overview's own body (2026-10-08); the desk and the tab
-    // board are reached only by drilling through from the overview's area
-    // buttons. Promotions and Telegram are Marketing's tabs now, not hidden.
-    expect(hidden).toEqual(['/ops', '/desk', '/till/tabs']);
-    expect(sectionRailItems(observation).map((i) => i.to)).not.toContain('/ops');
-    // The section still owns them, so the rail survives the trip.
-    expect(sectionForPath(owner, '/admin/promotions')?.key).toBe('observation');
-    expect(workspaceOwnsPath('owner', '/admin/promotions')).toBe(true);
-    // No section of either management rail hides anything else.
-    for (const ws of [WORKSPACES.owner, WORKSPACES.manager]) {
+    for (const ws of [owner, manager]) {
       for (const section of ws.sections ?? []) {
-        if (section.key === 'observation') continue;
-        expect(section.items.filter((i) => i.hidden).map((i) => i.to), section.key).toEqual([]);
+        expect(section.items[0]!.to, section.key).toBe(section.home);
       }
     }
   });
 
-  it("prints Observe's rows in order: now, the boards, the team, protocols, marketing, the audit log", () => {
-    const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
-    expect(sectionRailItems(observation).map((i) => [i.to, i.labelKey])).toEqual([
-      ['/observation', 'overview'],
-      ['/observation/courts', 'bookings'],
-      ['/observation/tills', 'tills'],
-      ['/observation/activity', 'staffActivity'],
-      ['/observation/requests', 'fromTeam'],
-      ['/protocols', 'protocols'],
-      ['/marketing', 'marketing'],
-      ['/admin/audit', 'audit'],
-    ]);
+  it('puts each page where the owner would look first', () => {
+    const where = (path: string, search = {}) => sectionForPath(owner, path, search)?.key;
+    // Financial: sales, the cash, everything paid out.
+    for (const path of ['/reports/revenue', '/reports/courts', '/reports/cafe', '/admin/day-close', '/safe', '/till/drawer', '/wages', '/deductions', '/rewards', '/reports/coaches']) {
+      expect(where(path), path).toBe('money');
+    }
+    // Courts: bookings, every court setting, coaches.
+    for (const path of ['/observation/courts', '/admin/rates', '/admin/courts', '/admin/settings/booking', '/admin/hours', '/admin/settings/tournaments', '/admin/coaches']) {
+      expect(where(path), path).toBe('courts');
+    }
+    // Café & shop.
+    for (const path of ['/observation/tills', '/admin/menu', '/admin/categories', '/admin/qr', '/shop']) {
+      expect(where(path), path).toBe('cafe');
+    }
+    // Stock, its value included.
+    for (const path of ['/stock', '/stock/receive', '/stock/variance', '/stock/margins', '/reports/stock']) {
+      expect(where(path), path).toBe('stock');
+    }
+    // Team: lateness is recorded here, not under Pay.
+    for (const path of ['/admin/staff', '/observation/activity', '/reports/staff', '/attendance', '/observation/requests', '/incidents', '/suggestions', '/protocols']) {
+      expect(where(path), path).toBe('team');
+    }
+    for (const path of ['/desk/customers', '/admin/loyalty', '/marketing', '/admin/promotions', '/admin/telegram', '/admin/hero']) {
+      expect(where(path), path).toBe('customers');
+    }
+    for (const path of ['/admin/settings', '/admin/settings/day', '/admin/branches', '/admin/settings/kitchen', '/admin/audit']) {
+      expect(where(path), path).toBe('settings');
+    }
+    // The workspace's own rows are in no section.
+    expect(sectionForPath(owner, '/panel')).toBeNull();
+    expect(sectionForPath(owner, '/observation')).toBeNull();
+    expect(sectionForPath(owner, '/ops')).toBeNull();
+    expect(sectionForPath(owner, '/analytics/courts')).toBeNull();
+    expect(sectionForPath(manager, '/ops')).toBeNull();
   });
 
-  it('gathers what the team sends up into one family, protocols beside it, and keeps four sections', () => {
-    const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
-    const fromTeam = observation.items.find((i) => i.labelKey === 'fromTeam')!;
-    expect(fromTeam.tabs?.map((t) => [t.to, t.labelKey])).toEqual([
-      ['/observation/requests', 'requests'],
-      ['/deductions', 'deductions'],
-      ['/incidents', 'incidents'],
-      ['/suggestions', 'suggestions'],
-    ]);
-    expect(observation.items.find((i) => i.labelKey === 'protocols')?.tabs).toBeUndefined();
-    expect(owner.sections).toHaveLength(4);
+  it('opens the main cash under Cash, and the same page showing its payments under Pay', () => {
+    const money = owner.sections!.find((s) => s.key === 'money')!;
+    expect(activeNavItem(sectionRailItems(money), '/safe')?.labelKey).toBe('cash');
+    expect(activeNavItem(sectionRailItems(money), '/safe', { show: 'payments' })?.labelKey).toBe('pay');
+    expect(familyRowForPath(owner, '/safe')?.labelKey).toBe('cash');
+    expect(familyRowForPath(owner, '/safe', { show: 'payments' })?.labelKey).toBe('pay');
+    expect(familyRowForPath(manager, '/safe', { show: 'payments' })?.labelKey).toBe('pay');
+    const pay = familyRowForPath(owner, '/safe', { show: 'payments' })!.tabs!;
+    expect(activeTab(pay, '/safe', { show: 'payments' })?.labelKey).toBe('billsSuppliers');
   });
 
-  it("rails Observe's bookings and tills to the view-only boards, not the workstations", () => {
-    const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
-    const rail = sectionRailItems(observation);
-    expect(rail.find((i) => i.labelKey === 'bookings')?.to).toBe('/observation/courts');
-    expect(rail.find((i) => i.labelKey === 'tills')?.to).toBe('/observation/tills');
-    expect(rail.map((i) => i.to)).not.toContain('/desk');
-    expect(rail.map((i) => i.to)).not.toContain('/till/tabs');
+  it('keeps the working screens behind the owner’s boards on the owner’s rail', () => {
+    // Bookings and the tills are the owner's view-only boards (2026-09-13);
+    // their "Open in …" buttons open the desk and the tab board.
+    expect(sectionForPath(owner, '/desk/today')?.key).toBe('courts');
+    expect(sectionForPath(owner, '/till/tabs')?.key).toBe('cafe');
+    expect(sectionForPath(manager, '/desk/today')?.key).toBe('courtsDesk');
+    expect(sectionForPath(manager, '/till/tabs')?.key).toBe('cafeFloor');
+    // The drawer is money: an activePrefix of '/till' on the tabs would light both.
+    expect(sectionForPath(owner, '/till/drawer')?.key).toBe('money');
+    // The old overviews still open from links, and keep a rail.
+    expect(sectionForPath(owner, '/financial')?.key).toBe('money');
+    expect(sectionForPath(owner, '/setup')?.key).toBe('settings');
   });
 
-  it('puts every report in exactly one section: money in Financial, staff in Observe, stock in Stock', () => {
-    const tabsOf = (key: string) =>
-      sectionRailItems((owner.sections ?? []).find((s) => s.key === key)!)
-        .flatMap((i) => (i.tabs ?? [{ to: i.to, labelKey: i.labelKey }]).map((t) => [t.to, t.labelKey]))
-        .filter(([to]) => to!.startsWith('/reports'));
-    // Financial's Reports family is the three money reports; Coach pay
-    // (coaching operator.md §5.3.3) is a tab of Pay.
-    expect(tabsOf('financial')).toEqual([
-      ['/reports/revenue', 'revenue'],
-      ['/reports/courts', 'courts'],
-      ['/reports/cafe', 'cafe'],
-      ['/reports/coaches', 'coachPay'],
-    ]);
-    expect(tabsOf('observation')).toEqual([['/reports/staff', 'whatTheyDid']]);
-    expect(tabsOf('stock')).toEqual([['/reports/stock', 'stockValue']]);
+  it('hides only the screens a link or a drill-through still lands on', () => {
+    const hidden = (ws: typeof owner) =>
+      [...ws.groups.flatMap((g) => g.items), ...(ws.sections ?? []).flatMap((s) => s.items)].filter((i) => i.hidden).map((i) => i.to);
+    expect(hidden(owner)).toEqual(['/ops', '/financial', '/desk', '/till/tabs', '/setup']);
+    expect(hidden(manager)).toEqual(['/financial', '/setup']);
+  });
 
-    expect(sectionForPath(owner, '/reports/revenue')?.key).toBe('financial');
-    expect(sectionForPath(owner, '/reports/courts')?.key).toBe('financial');
-    expect(sectionForPath(owner, '/reports/cafe')?.key).toBe('financial');
-    expect(sectionForPath(owner, '/reports/staff')?.key).toBe('observation');
-    expect(sectionForPath(owner, '/reports/coaches')?.key).toBe('financial');
-    expect(sectionForPath(owner, '/admin/coaches')?.key).toBe('setup');
-    expect(sectionForPath(owner, '/reports/stock')?.key).toBe('stock');
+  it('never lists one page twice on a rail', () => {
+    for (const ws of [owner, manager]) {
+      const seen = new Set<string>();
+      for (const sec of ws.sections ?? []) {
+        for (const row of sec.items) {
+          if (row.hidden) continue;
+          for (const page of row.tabs ?? [{ to: row.to, labelKey: row.labelKey } as NavTab]) {
+            const id = `${page.to}?${new URLSearchParams(page.search ?? {}).toString()}`;
+            expect(seen.has(id), `${ws.key} ${id}`).toBe(false);
+            seen.add(id);
+          }
+        }
+      }
+    }
   });
 
   it('leaves no /reports child stranded outside a section', () => {
-    for (const path of ['/reports/revenue', '/reports/courts', '/reports/cafe', '/reports/stock', '/reports/staff']) {
+    for (const path of ['/reports/revenue', '/reports/courts', '/reports/cafe', '/reports/stock', '/reports/staff', '/reports/coaches']) {
       expect(sectionForPath(owner, path), path).not.toBeNull();
+      expect(sectionForPath(manager, path), path).not.toBeNull();
     }
   });
 });
@@ -374,7 +336,6 @@ describe('workspaceOwnsPath', () => {
   it("keeps management on /ops, which is also the manager's home", () => {
     expect(workspaceOwnsPath('owner', '/ops')).toBe(true);
     expect(workspaceOwnsPath('owner', '/admin/staff')).toBe(true);
-    // The stock module is a Management section now, so it keeps the owner rail.
     expect(workspaceOwnsPath('owner', '/stock/counts')).toBe(true);
     expect(workspaceOwnsPath('owner', '/analytics/cafe')).toBe(true);
     // /kds is nowhere on the owner's rail: following that link does hand the
@@ -392,54 +353,33 @@ describe('workspaceOwnsPath', () => {
 });
 
 describe('the manager rail', () => {
-  // Grouped by when a manager reaches for each row, and every row named after
-  // the screen it opens. It used to be one ten-row column with "Tills" opening
-  // a page headed "Open tabs".
-  it('is Today, then Run the day, Records and Setup as sections of their own', () => {
-    expect(WORKSPACES.manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([[null, ['today']]]);
-    expect(WORKSPACES.manager.sections?.map((s) => [s.key, s.home, s.items.map((i) => i.labelKey)])).toEqual([
-      ['stock', '/stock', WORKSPACES.owner.sections?.find((s) => s.key === 'stock')?.items.map((i) => i.labelKey)],
-      // Ten rows became seven: the cash is one family (day close, safe,
-      // drawer), and what the team sends up another.
-      ['run', '/desk', ['bookings', 'openTabs', 'stock', 'cash', 'protocols', 'fromTeam', 'attendance']],
-      ['records', '/reports/courts', ['reports', 'coachPay', 'audit']],
-      ['opsSetup', '/admin/menu', ['menu', 'rates', 'coaches', 'promotions']],
-    ]);
-    // Every section lands on its own first row.
-    for (const sec of WORKSPACES.manager.sections ?? []) expect(sec.items[0]?.to).toBe(sec.home);
-    // The manager's cash family carries the drawer, which had no row before.
-    const cash = WORKSPACES.manager.sections?.find((s) => s.key === 'run')?.items.find((i) => i.labelKey === 'cash');
-    expect(cash?.tabs?.map((t) => t.to)).toEqual(['/admin/day-close', '/safe', '/till/drawer']);
+  const manager = WORKSPACES.manager;
+
+  it('has something a manager may open in every section, and opens the first of it', () => {
+    const canOpen = (to: string) => canAccess('manager', to);
+    for (const sec of manager.sections ?? []) {
+      const target = sectionTarget(sec, (row) => (row.tabs?.length ? row.tabs.some((t) => canOpen(t.to)) : canOpen(row.to)), (t) => canOpen(t.to));
+      expect(target, sec.key).not.toBeNull();
+      expect(canOpen(target!.to), `${sec.key} → ${target!.to}`).toBe(true);
+    }
+    // Money in is the owner's: the manager's Financial opens on Court sales.
+    const money = manager.sections!.find((s) => s.key === 'money')!;
+    expect(sectionTarget(money, () => true, (t) => canOpen(t.to))?.to).toBe('/reports/courts');
   });
 
-  it('puts every screen on the rail of the section that lists it', () => {
-    const manager = WORKSPACES.manager;
-    expect(sectionForPath(manager, '/desk')?.key).toBe('run');
-    expect(sectionForPath(manager, '/desk/today')?.key).toBe('run');
-    expect(sectionForPath(manager, '/till/tabs')?.key).toBe('run');
-    expect(sectionForPath(manager, '/admin/day-close')?.key).toBe('run');
-    expect(sectionForPath(manager, '/incidents')?.key).toBe('run');
-    expect(sectionForPath(manager, '/reports/courts')?.key).toBe('records');
-    expect(sectionForPath(manager, '/reports/coaches')?.key).toBe('records');
-    expect(sectionForPath(manager, '/admin/audit')?.key).toBe('records');
-    expect(sectionForPath(manager, '/admin/menu')?.key).toBe('opsSetup');
-    expect(sectionForPath(manager, '/admin/categories')?.key).toBe('opsSetup');
-    expect(sectionForPath(manager, '/admin/coaches')?.key).toBe('opsSetup');
-    // Run the day's Stock row opens the Stock rail, not Run the day's.
-    expect(sectionForPath(manager, '/stock')?.key).toBe('stock');
-    expect(sectionForPath(manager, '/reports/stock')?.key).toBe('stock');
+  it('works in the desk and the tab board, not the owner’s view-only boards', () => {
+    const rail = (key: string) => sectionRailItems(manager.sections!.find((s) => s.key === key)!).map((i) => i.to);
+    expect(rail('courtsDesk')[0]).toBe('/desk');
+    expect(rail('cafeFloor')[0]).toBe('/till/tabs');
+    expect(rail('courtsDesk')).not.toContain('/observation/courts');
+    expect(rail('cafeFloor')).not.toContain('/observation/tills');
   });
 
-  it('opens Stock as a section, the same list as the owner’s', () => {
-    expect(sectionForPath(WORKSPACES.manager, '/stock/receive')?.key).toBe('stock');
-    expect(WORKSPACES.manager.sections?.[0]?.items).toBe(WORKSPACES.owner.sections?.find((s) => s.key === 'stock')?.items);
-    // Opened from its row in Run the day, so no second Stock button.
-    expect(WORKSPACES.manager.sections?.[0]?.fromRow).toBe(true);
-  });
-
-  it('only links screens a manager may open', () => {
-    for (const item of workspaceItems(WORKSPACES.manager)) {
-      expect(canAccess('manager', item.to), item.to).toBe(true);
+  it('keeps the owner’s own rail the owner’s', () => {
+    // Every page of the owner's own rail is refused to a manager.
+    for (const item of WORKSPACES.owner.groups.flatMap((g) => g.items)) {
+      if (item.to === '/ops') continue;
+      expect(canAccess('manager', item.to), item.to).toBe(false);
     }
   });
 });
@@ -457,12 +397,12 @@ describe('menu editor tabs', () => {
 });
 
 describe('Touch Shop desk (0243–0246)', () => {
-  const ownerStock = WORKSPACES.owner.sections!.find((s) => s.key === 'stock')!;
-  const managerStock = WORKSPACES.manager.sections!.find((s) => s.key === 'stock')!;
+  const ownerCafe = WORKSPACES.owner.sections!.find((s) => s.key === 'cafe')!;
+  const managerCafe = WORKSPACES.manager.sections!.find((s) => s.key === 'cafeFloor')!;
 
-  it('gives owner and manager a Shop row, on the Stock rail, that opens the shop desk', () => {
-    expect(ownerStock.items.find((i) => i.labelKey === 'shop')?.to).toBe('/shop');
-    expect(managerStock.items.find((i) => i.labelKey === 'shop')?.to).toBe('/shop');
+  it('gives owner and manager a Shop row, under Café & shop, that opens the shop desk', () => {
+    expect(ownerCafe.items.find((i) => i.labelKey === 'shop')?.to).toBe('/shop');
+    expect(managerCafe.items.find((i) => i.labelKey === 'shop')?.to).toBe('/shop');
     expect(workspaceForRoute('/shop')).toBe('shop');
     expect(workspaceForRoute('/shop/products')).toBe('shop');
   });
@@ -504,18 +444,15 @@ describe('families (management rebuild, 2026-10-17)', () => {
   const section = (key: string) => (owner.sections ?? []).find((s) => s.key === key)!;
   const rowNamed = (key: string, label: string) => section(key).items.find((i) => i.labelKey === label)!;
 
-  it('prints one short row per job in each Management section, with no dropdowns', () => {
-    expect(sectionRailItems(section('financial')).map((i) => i.labelKey)).toEqual(['overview', 'reports', 'cash', 'pay', 'rates', 'menuPrices']);
-    expect(sectionRailItems(section('observation'))).toHaveLength(8);
-    expect(sectionRailItems(section('stock')).map((i) => i.labelKey)).toEqual(['onHand', 'stockMovement', 'stockCounting', 'stockCosts', 'shop']);
-    expect(sectionRailItems(section('setup')).map((i) => i.labelKey)).toEqual([
-      'overview', 'staff', 'coaches', 'courts', 'venue', 'branches', 'guestApp', 'loyalty', 'devices',
-    ]);
-  });
-
-  it('opens Setup on its overview, now a printed row', () => {
-    expect(section('setup').home).toBe('/setup');
-    expect(sectionRailItems(section('setup'))[0]?.to).toBe('/setup');
+  it('prints one short row per job in each section, with no dropdowns', () => {
+    const rows = (key: string) => sectionRailItems(section(key)).map((i) => i.labelKey);
+    expect(rows('money')).toEqual(['reports', 'cash', 'pay']);
+    expect(rows('courts')).toEqual(['bookings', 'coaches', 'courtSettings']);
+    expect(rows('cafe')).toEqual(['tills', 'menu', 'tables', 'shop']);
+    expect(rows('stock')).toEqual(['onHand', 'stockMovement', 'stockCounting', 'stockCosts']);
+    expect(rows('team')).toEqual(['staff', 'staffActivity', 'attendance', 'fromTeam', 'protocols']);
+    expect(rows('customers')).toEqual(['customers', 'loyalty', 'marketing', 'guestApp']);
+    expect(rows('settings')).toEqual(['venue', 'branches', 'computersScreens', 'audit']);
   });
 
   it('gives every family at least two pages and opens a family on its first', () => {
@@ -530,39 +467,25 @@ describe('families (management rebuild, 2026-10-17)', () => {
     }
   });
 
-  it('never lists one page twice in the owner’s sections', () => {
-    const seen = new Set<string>();
-    for (const sec of owner.sections ?? []) {
-      for (const row of sec.items) {
-        if (row.hidden) continue;
-        for (const page of row.tabs ?? [{ to: row.to, labelKey: row.labelKey } as NavTab]) {
-          const id = `${page.to}?${new URLSearchParams(page.search ?? {}).toString()}`;
-          expect(seen.has(id), id).toBe(false);
-          seen.add(id);
-        }
-      }
-    }
-  });
-
-  it('gives every page that hid inside another a tab of its own', () => {
-    const tabs = (row: string, sec: string) => rowNamed(sec, row).tabs?.map((t) => t.to);
-    expect(tabs('pay', 'financial')).toContain('/attendance');
-    expect(tabs('marketing', 'observation')).toEqual(['/marketing', '/admin/promotions', '/admin/telegram']);
-    expect(tabs('venue', 'setup')).toContain('/admin/hours');
-    expect(tabs('devices', 'setup')).toContain('/admin/settings/kitchen');
+  it('puts what is paid out under Pay, and every court setting under Court settings', () => {
+    const tabs = (sec: string, row: string) => rowNamed(sec, row).tabs?.map((t) => t.labelKey);
+    expect(tabs('money', 'pay')).toEqual(['wages', 'billsSuppliers', 'deductions', 'rewards', 'coachPay']);
+    expect(tabs('courts', 'courtSettings')).toEqual(['rates', 'courts', 'bookingRules', 'onlineDeposit', 'openMatches', 'openingHours', 'tournamentRules']);
+    expect(tabs('team', 'fromTeam')).toEqual(['requests', 'incidents', 'suggestions']);
+    expect(tabs('settings', 'computersScreens')).toContain('kitchenScreens');
     // Every settings page that used to be a panel of Venue settings has a tab.
-    const allSetupTabs = new Set(section('setup').items.flatMap((r) => (r.tabs ?? []).map((t) => t.to)));
+    const allTabs = new Set((owner.sections ?? []).flatMap((s) => s.items.flatMap((r) => (r.tabs ?? []).map((t) => t.to))));
     for (const route of SUB_ROUTES['/admin'].filter((r) => r.startsWith('/admin/settings'))) {
-      expect(allSetupTabs.has(route), route).toBe(true);
+      expect(allTabs.has(route), route).toBe(true);
     }
   });
 
   it('finds the family a page belongs to, on either management rail', () => {
     expect(familyRowForPath(owner, '/safe')?.labelKey).toBe('cash');
-    expect(familyRowForPath(owner, '/admin/settings/deposit')?.labelKey).toBe('courts');
+    expect(familyRowForPath(owner, '/admin/settings/deposit')?.labelKey).toBe('courtSettings');
     expect(familyRowForPath(owner, '/reports/staff')?.labelKey).toBe('staffActivity');
     expect(familyRowForPath(WORKSPACES.manager, '/safe')?.labelKey).toBe('cash');
-    expect(familyRowForPath(WORKSPACES.manager, '/reports/staff')?.labelKey).toBe('reports');
+    expect(familyRowForPath(WORKSPACES.manager, '/reports/staff')?.labelKey).toBe('staffActivity');
     // A page that stands alone has no family.
     expect(familyRowForPath(owner, '/panel')).toBeNull();
     expect(familyRowForPath(owner, '/observation/courts')).toBeNull();
@@ -572,15 +495,15 @@ describe('families (management rebuild, 2026-10-17)', () => {
   });
 
   it('selects the tab the path and its query name, and no tab under one', () => {
-    const cash = rowNamed('financial', 'cash').tabs!;
+    const cash = rowNamed('money', 'cash').tabs!;
     expect(activeTab(cash, '/safe')?.labelKey).toBe('safe');
     expect(activeTab(cash, '/admin/day-close?x=1')?.labelKey).toBe('dayClose');
     // A promotion's editor sits under the Promotions tab, not on it.
-    const marketing = rowNamed('observation', 'marketing').tabs!;
+    const marketing = rowNamed('customers', 'marketing').tabs!;
     expect(activeTab(marketing, '/admin/promotions')?.labelKey).toBe('promotions');
     expect(activeTab(marketing, '/admin/promotions/new')).toBeNull();
     // Coaches' tabs share a path and differ by ?tab=.
-    const coaches = rowNamed('setup', 'coaches').tabs!;
+    const coaches = rowNamed('courts', 'coaches').tabs!;
     expect(activeTab(coaches, '/admin/coaches', {})?.labelKey).toBe('coaches');
     expect(activeTab(coaches, '/admin/coaches', { coach: 'c1' })?.labelKey).toBe('coaches');
     expect(activeTab(coaches, '/admin/coaches', { tab: 'types' })?.labelKey).toBe('lessonTypes');
@@ -589,17 +512,19 @@ describe('families (management rebuild, 2026-10-17)', () => {
   });
 
   it('sends a family row to the first page the person may open', () => {
-    const fromTeam = rowNamed('observation', 'fromTeam');
-    expect(rowTarget(fromTeam, () => true).to).toBe('/observation/requests');
-    expect(rowTarget(fromTeam, (t) => t.to !== '/observation/requests').to).toBe('/deductions');
-    const lessonRules = rowNamed('setup', 'coaches');
-    expect(rowTarget(lessonRules, (t) => t.labelKey === 'lessonRules')).toEqual({ to: '/admin/coaches', search: { tab: 'rules' } });
+    const inbox = rowNamed('team', 'fromTeam');
+    expect(rowTarget(inbox, () => true).to).toBe('/observation/requests');
+    expect(rowTarget(inbox, (t) => t.to !== '/observation/requests').to).toBe('/incidents');
+    const pay = rowNamed('money', 'pay');
+    expect(rowTarget(pay, (t) => t.to !== '/wages')).toEqual({ to: '/safe', search: { show: 'payments' } });
+    const coaches = rowNamed('courts', 'coaches');
+    expect(rowTarget(coaches, (t) => t.labelKey === 'lessonRules')).toEqual({ to: '/admin/coaches', search: { tab: 'rules' } });
     // A plain row goes to its own page.
-    expect(rowTarget(rowNamed('observation', 'audit'), () => true).to).toBe('/admin/audit');
+    expect(rowTarget(rowNamed('settings', 'audit'), () => true).to).toBe('/admin/audit');
   });
 
   it('keeps online deposits and open matches behind the online-payments condition', () => {
-    const courts = rowNamed('setup', 'courts').tabs!;
+    const courts = rowNamed('courts', 'courtSettings').tabs!;
     expect(courts.filter((t) => t.when === 'onlinePaymentsLive').map((t) => t.to)).toEqual([
       '/admin/settings/deposit',
       '/admin/settings/matches',

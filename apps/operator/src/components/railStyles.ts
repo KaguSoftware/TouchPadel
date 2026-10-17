@@ -36,3 +36,17 @@ export const navButtonStyle: CSSProperties = {
   lineHeight: 'inherit',
   textAlign: 'start',
 };
+
+/**
+ * A rail label: the whole name, wrapped onto a second line when it does not
+ * fit, never cut off and never pushing the rail wider (Sait, 2026-10-17: the
+ * page map's plain names, "Customers & marketing", "الحواسيب والأجهزة اللوحية",
+ * outgrow 208px). `anywhere` breaks a single word longer than the rail.
+ */
+export const railLabelStyle: CSSProperties = {
+  flex: 1,
+  minInlineSize: 0,
+  whiteSpace: 'normal',
+  overflowWrap: 'anywhere',
+  lineHeight: 1.25,
+};

@@ -45,7 +45,7 @@ export function useFamilyHeader(workspaceKey: WorkspaceKey): PageFamily | null {
   const search = useRouterState({ select: (s) => s.location.search }) as Readonly<Record<string, unknown>>;
   const canOpen = useTabOpen(workspaceKey === 'owner' || workspaceKey === 'manager');
 
-  const row = familyRowForPath(WORKSPACES[workspaceKey], path);
+  const row = familyRowForPath(WORKSPACES[workspaceKey], path, search);
   const current = row?.tabs ? activeTab(row.tabs, path, search) : null;
   // The page being shown always keeps its tab, even when its condition is off
   // (a direct link to the online deposit while payments are paused).

@@ -24,51 +24,72 @@ import { useTabOpen } from '../lib/navAccess';
 import { WORKSPACES, type NavItem, type NavLabelKey, type NavTab, type SectionKey, type WorkspaceKey } from '../lib/workspaces';
 import { Modal } from './ui';
 import { Icon } from './icons';
-import { navButtonStyle } from './railStyles';
+import { navButtonStyle, railLabelStyle } from './railStyles';
 
-/** Extra words people use for a page, beside its name (both languages are always searched). */
+/**
+ * Extra words people use for a page, beside its name (both languages are always
+ * searched). A page renamed by the page map (2026-10-17) keeps its old name
+ * here, so "day close" still finds End of day count.
+ */
 const KEYWORDS: Partial<Record<NavLabelKey, readonly string[]>> = {
-  dayClose: ['close the day', 'reconcile', 'end of day', 'إغلاق', 'مطابقة'],
-  safe: ['main cash', 'costs', 'expenses', 'pay a cost', 'مصاريف', 'تكاليف', 'الصندوق الرئيسي'],
+  panel: ['home', 'management panel', 'dashboard', 'لوحة الإدارة'],
+  analytics: ['analytics', 'charts', 'growth', 'التحليلات'],
+  assistant: ['assistant', 'ai', 'المساعد'],
+  dayClose: ['day close', 'close the day', 'reconcile', 'end of day', 'إغلاق اليوم', 'مطابقة'],
+  safe: ['safe', 'main cash', 'القاصة', 'الصندوق الرئيسي'],
+  billsSuppliers: ['supplier', 'pay a supplier', 'bill', 'rent', 'repair', 'cost', 'expense', 'مورد', 'إيجار', 'مصاريف', 'تكاليف'],
   cashDrawer: ['drawer', 'till', 'shift', 'درج', 'وردية'],
   wages: ['salary', 'payroll', 'advance', 'pay day', 'راتب', 'سلفة'],
   attendance: ['late', 'early', 'lateness', 'تأخير', 'انصراف'],
-  rewards: ['bonus', 'prize', 'مكافأة', 'جائزة'],
+  rewards: ['rewards', 'bonus', 'prize', 'مكافأة', 'جائزة'],
   deductions: ['penalty', 'fine', 'غرامة', 'عقوبة'],
   rates: ['court price', 'peak', 'hourly', 'rate', 'سعر الملعب', 'ذروة'],
   menuItems: ['price', 'item', 'drink', 'food', 'سعر', 'صنف', 'مشروب'],
-  revenue: ['income', 'sales', 'money', 'دخل', 'مبيعات'],
-  whoIsOn: ['online', 'last seen', 'monitor', 'activity', 'آخر ظهور', 'متصل', 'نشاط'],
+  categories: ['categories', 'الفئات'],
+  addons: ['add-ons', 'addons', 'modifiers', 'extra'],
+  suggested: ['suggested items', 'upsell', 'الأصناف المقترحة'],
+  revenue: ['revenue', 'income', 'sales', 'money', 'الإيرادات', 'دخل', 'مبيعات'],
+  courtSales: ['court report', 'bookings income', 'تقرير الملاعب'],
+  cafeSales: ['cafe', 'cafe report', 'coffee sales', 'تقرير الكافيه'],
+  whoIsOn: ['who is on', 'online', 'last seen', 'monitor', 'activity', 'آخر ظهور', 'متصل', 'نشاط'],
   whatTheyDid: ['activity', 'voids', 'discounts', 'authorised', 'نشاط', 'إلغاء', 'خصم'],
   requests: ['leave', 'swap', 'advance', 'correction', 'إجازة', 'تبديل', 'سلفة'],
+  incidents: ['incident', 'accident', 'الحوادث'],
+  suggestions: ['suggestions', 'ideas', 'الاقتراحات'],
+  protocols: ['protocol', 'protocols', 'checklist', 'البروتوكولات'],
+  tills: ['tills', 'tabs', 'bills', 'الصناديق'],
   telegram: ['bot', 'group', 'messages', 'بوت', 'مجموعة', 'رسائل'],
   campaigns: ['marketing', 'campaign', 'posts', 'تسويق', 'حملة', 'منشورات'],
-  audit: ['log', 'history', 'who changed', 'سجل', 'من غيّر'],
-  onHand: ['stock', 'inventory', 'مخزون', 'جرد'],
-  alerts: ['low', 'out of stock', 'warning', 'نفد', 'تنبيه'],
-  goodsIn: ['delivery', 'receive', 'receipt', 'supplier', 'توريد', 'استلام', 'فاتورة'],
+  promotions: ['promotion', 'promotions', 'discount', 'offer', 'happy hour', 'العروض', 'خصم'],
+  audit: ['audit log', 'log', 'history', 'who changed', 'سجل التدقيق', 'من غيّر'],
+  onHand: ['on hand', 'stock', 'inventory', 'المتوفر', 'مخزون', 'جرد'],
+  alerts: ['alerts', 'low', 'out of stock', 'warning', 'التنبيهات', 'نفد', 'تنبيه'],
+  expiry: ['expiry', 'expire', 'out of date', 'الصلاحية'],
+  goodsIn: ['goods in', 'delivery', 'receive', 'receipt', 'supplier', 'استلام البضائع', 'توريد', 'استلام', 'فاتورة'],
   wasteProduction: ['waste', 'spoiled', 'production', 'هدر', 'تالف', 'تحضير'],
   stockCount: ['count', 'stocktake', 'جرد'],
-  countDifferences: ['variance', 'difference', 'فرق', 'فروقات'],
-  margins: ['profit', 'cost', 'ربح', 'تكلفة'],
+  countDifferences: ['count differences', 'variance', 'difference', 'فروقات الجرد', 'فرق'],
+  margins: ['margins', 'profit', 'cost', 'الهوامش', 'ربح', 'تكلفة'],
   stockValue: ['worth', 'value', 'قيمة'],
   staff: ['employee', 'account', 'pin', 'access', 'role', 'موظف', 'حساب', 'رقم سري', 'صلاحية'],
+  lessonTypes: ['lesson types', 'lesson price', 'أنواع الحصص'],
   lessonRules: ['coach share', 'lesson payment', 'حصة المدرب', 'دفع الحصص'],
   coachHours: ['schedule', 'time off', 'جدول', 'إجازة'],
   bookingRules: ['cancellation', 'cancel', 'hold', 'how far ahead', 'إلغاء', 'حجز مسبق'],
   onlineDeposit: ['deposit', 'qi card', 'online payment', 'عربون', 'كي كارد', 'دفع إلكتروني'],
   openMatches: ['match', 'ticket', 'مباراة', 'تذكرة'],
-  venueDetails: ['name', 'phone', 'tax', 'currency', 'timezone', 'اسم', 'هاتف', 'ضريبة', 'عملة'],
+  tournamentRules: ['tournament', 'tournaments', 'entry fee', 'البطولات'],
+  venueDetails: ['venue', 'details', 'name', 'phone', 'tax', 'currency', 'timezone', 'البيانات', 'اسم', 'هاتف', 'ضريبة', 'عملة'],
   openingHours: ['hours', 'closed days', 'holiday', 'open', 'ساعات', 'عطلة', 'أيام الإغلاق'],
-  businessDay: ['midnight', 'waiter call', 'منتصف الليل', 'نداء النادل'],
-  analytics: ['exclude', 'leave out', 'استبعاد'],
-  guestSite: ['home screen', 'hero', 'website', 'ticker', 'الشاشة الرئيسية', 'موقع'],
-  tables: ['qr', 'table card', 'رمز', 'طاولة'],
-  devices: ['version', 'heartbeat', 'reporting', 'إصدار'],
-  stations: ['register', 'till', 'تسجيل', 'صندوق'],
+  businessDay: ['business day', 'midnight', 'waiter call', 'يوم العمل', 'منتصف الليل', 'نداء النادل'],
+  analyticsSettings: ['analytics', 'exclude', 'leave out', 'استبعاد'],
+  guestApp: ['guest site', 'home screen', 'hero', 'website', 'ticker', 'موقع الضيوف', 'الشاشة الرئيسية', 'موقع'],
+  tables: ['qr', 'table card', 'tables', 'رمز', 'طاولة'],
+  devices: ['devices', 'version', 'heartbeat', 'reporting', 'الأجهزة', 'إصدار'],
+  stations: ['stations', 'register', 'till', 'المحطات', 'تسجيل', 'صندوق'],
   kitchenScreens: ['kds', 'pair', 'pairing', 'kitchen', 'ربط', 'المطبخ'],
-  offlineMode: ['offline', 'internet', 'connection', 'انترنت', 'اتصال'],
-  loyalty: ['points', 'tiers', 'نقاط', 'مستويات'],
+  offlineMode: ['offline', 'internet', 'connection', 'وضع عدم الاتصال', 'انترنت', 'اتصال'],
+  loyalty: ['loyalty', 'points', 'tiers', 'الولاء', 'نقاط', 'مستويات'],
   courts: ['court', 'ملعب'],
   coaches: ['coach', 'lesson', 'مدرب', 'حصة'],
 };
@@ -320,7 +341,7 @@ export function GoToRailButton({ onOpen }: { onOpen: () => void }) {
       data-testid="rail.goTo"
     >
       <Icon name="search" size={17} />
-      <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'start' }}>
+      <span style={{ ...railLabelStyle, textAlign: 'start' }}>
         {tr('ws.shell.goTo.open')}
       </span>
       <kbd className="tp-goto-kbd" dir="ltr">

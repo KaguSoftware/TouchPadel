@@ -82,7 +82,7 @@ describe('Stock count by store', () => {
     const user = userEvent.setup();
     mount();
     await screen.findByTestId('count-start-cafe');
-    await user.click(screen.getByRole('tab', { name: 'Bakery store' }));
+    await user.click(screen.getByRole('button', { name: 'Bakery store' }));
     await screen.findByTestId('count-start-bakery');
     expect(data.openAsked).toEqual(expect.arrayContaining(['cafe', 'bakery']));
     await user.click(within(screen.getByTestId('count-start-bakery')).getByRole('button', { name: 'Start count' }));
@@ -100,7 +100,7 @@ describe('Stock count by store', () => {
     // The cafe store can still be counted.
     const cafeStart = within(await screen.findByTestId('count-start-cafe')).getByRole('button', { name: 'Start count' }) as HTMLButtonElement;
     expect(cafeStart.disabled).toBe(false);
-    await user.click(screen.getByRole('tab', { name: 'Bakery store' }));
+    await user.click(screen.getByRole('button', { name: 'Bakery store' }));
     const bakeryStart = within(await screen.findByTestId('count-start-bakery')).getByRole('button', { name: 'Start count' }) as HTMLButtonElement;
     expect(bakeryStart.disabled).toBe(true);
     expect(screen.getAllByText('A count from the phone is waiting for the bakery store. Apply or discard it first.').length).toBeGreaterThan(0);
@@ -153,8 +153,8 @@ describe('Stock count by store', () => {
     data.open = { cafe: { id: 'oc1', started_at: '2026-09-26T07:00:00Z', finalized_at: null, location: 'cafe', source: 'operator' } };
     data.lines = { oc1: [{ ingredient_id: 'flour', theoretical_qty: 5000, counted_qty: 5000 }] };
     mount();
-    // The tab says the store is being counted.
-    expect(await screen.findByRole('tab', { name: 'Cafe store · Counting' })).toBeTruthy();
+    // The store's button says it is being counted.
+    expect(await screen.findByRole('button', { name: 'Cafe store · Counting' })).toBeTruthy();
     await screen.findByTestId('count-open-cafe');
     await user.click(screen.getByTestId('count-discard'));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('discard_count', { p_count_id: 'oc1' }));

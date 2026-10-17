@@ -3,7 +3,7 @@ export const ownerEn = {
   title: 'Owner',
   building: 'This screen is being built.',
   panel: {
-    title: 'Management panel',
+    title: 'Overview',
     period: '{from} – {to}',
     periodCompared: '{from} – {to}, compared with {prevFrom} – {prevTo}',
     earned: 'Earned',
@@ -175,7 +175,7 @@ export const ownerEn = {
     noWebgl: 'This computer cannot draw the 3D plan. The counts above are still live.',
     ariaLabel: 'Three-dimensional plan of the venue',
     openBookings: 'Bookings board',
-    openTills: 'Tills board',
+    openTills: 'Open tabs board',
   },
   /**
    * The Setup section's landing screen (/setup). One card per destination,
@@ -184,14 +184,14 @@ export const ownerEn = {
    * revoked.
    */
   setupHome: {
-    title: 'Setup',
+    title: 'Settings overview',
     // Management rebuild (2026-10-17): the overview's search and its one-line summary.
     find: {
       title: 'Find a setting',
       placeholder: 'Deposit, opening hours, kitchen screen…',
     },
     glance: 'At a glance',
-    screens: 'Setup screens',
+    screens: 'Settings screens',
     // The kitchen-screen pairing card (features/admin/KitchenPairing).
     kitchen: {
       title: 'Kitchen screens',
@@ -680,7 +680,7 @@ export const ownerEn = {
   // Management's Financial and Observe sections (apps/operator/src/lib/workspaces.ts).
   // ---------------------------------------------------------------------
   financialHome: {
-    title: 'Financial',
+    title: 'Financial overview',
     // Management rebuild (2026-10-17): the sections that replaced the cards.
     cash: {
       title: 'The cash',
@@ -732,8 +732,8 @@ export const ownerEn = {
     },
   },
   observationHome: {
-    title: 'Observe',
-    screens: 'Everything in Observe',
+    title: 'Floor now',
+    screens: 'Everything on the floor',
     cards: {
       bookings: 'Which courts are in play and which are free, the night in two-hour rows, and a month shaded by how busy each day was.',
       tills: 'Which tables are occupied, what the open tabs are carrying, and what was settled — day by day.',
@@ -836,7 +836,7 @@ export const ownerEn = {
       },
     },
     tills: {
-      title: 'Tills',
+      title: 'Open tabs',
       lead: 'View only. Open a tab to act on it at the till.',
       figures: {
         activeHint: 'Waiting to pay: {count}',

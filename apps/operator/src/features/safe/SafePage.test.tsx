@@ -10,7 +10,9 @@ import { AppRpcError } from '../../lib/appRpc';
 
 const navigate = vi.fn();
 const toastOk = vi.fn();
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
+// The query the page opened with: `?show=payments` is Pay › Bills & suppliers.
+let search: Record<string, string> = {};
+vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate, useSearch: () => search }));
 vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
 vi.mock('../../components/toast', () => ({ useToast: () => ({ ok: toastOk, info: vi.fn(), err: vi.fn() }) }));
 
@@ -188,6 +190,13 @@ describe('SafePageScreen', () => {
     await user.type(screen.getByTestId('safe.void.reason'), 'Logged twice');
     await user.click(screen.getByTestId('safe.void.confirm'));
     await waitFor(() => expect(calls.find((c) => c.fn === 'main_cash_void')?.args).toEqual({ p_id: 'e-in', p_reason: 'Logged twice' }));
+  });
+
+  it('opens on what was paid out when reached as Bills & suppliers', async () => {
+    search = { show: 'payments' };
+    renderPage();
+    expect((await screen.findByTestId('safe.ledger.filter.payments')).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByTestId('safe.entry.void.e-in')).toBeNull();
   });
 
   it('reads in Arabic', async () => {

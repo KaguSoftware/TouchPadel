@@ -238,7 +238,7 @@ export const en = {
   stock: { title: 'Stock' },
   admin: { title: 'Admin' },
   analytics: {
-    title: 'Analytics',
+    title: 'Trends',
     deck: {
       today: 'Today',
       d7: '7 days',
@@ -1777,7 +1777,7 @@ export const en = {
     // The audit log has been written correctly since day 1 and read by nothing.
     // SOW L241-243 promises it; L434-439 makes it an acceptance test.
     audit: {
-      title: 'Audit log',
+      title: 'Change history',
       hint: 'Every discount, void, refund, override and reservation change, newest first. Showing the last {count}.',
       searchHint: 'What happened, name, reason…',
       family: 'Area',
@@ -1999,7 +1999,7 @@ export const en = {
       discard: 'Discard changes',
     },
     qr: {
-      title: 'Tables & QR',
+      title: 'Table QR codes',
       printHint: 'One card per page, A6 size. Print on plain white card.',
       rotatedPartial:
         'Replaced {done} of {total}. These tables still have their old QR code: {tables}. Print new cards for the ones that were replaced.',

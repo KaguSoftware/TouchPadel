@@ -187,13 +187,13 @@ export function ReportFrame({
         }
         actions={onExport && <ExportButton onExport={onExport} disabled={exportDisabled} scope={tr('ws.reports.frame.exportScope')} />}
       />
+      {/* One line: the period, then the report's filters beside it. */}
       <Toolbar style={{ alignItems: 'flex-end', gap: 'var(--tp-sp-3)' }}>
         <Field label={tr('ws.reports.filters.period')} group style={{ marginBlockEnd: 0 }}>
           <DateRangeControl period={period} onChange={onPeriod} disabled={busy} now={today} />
         </Field>
+        {filters}
       </Toolbar>
-      {/* A row of its own: beside the period they wrapped one at a time, half on each line. */}
-      {filters && <Toolbar style={{ alignItems: 'flex-end', gap: 'var(--tp-sp-3)' }}>{filters}</Toolbar>}
       {children}
     </div>
   );

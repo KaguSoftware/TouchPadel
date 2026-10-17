@@ -108,10 +108,10 @@ describe('Courts › Online deposit and Open matches', () => {
   }
 });
 
-describe('Venue › Details', () => {
+describe('Settings › Club details', () => {
   it('owner edits the name; the page title is the tab’s name', async () => {
     mount(<VenueDetailsScreen />);
-    expect(screen.getByRole('heading', { level: 1, name: 'Details' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Club details' })).toBeTruthy();
     expect(await screen.findByDisplayValue('Touch')).toBeTruthy();
   });
 

@@ -32,8 +32,8 @@ import { useLocale } from '../../../lib/i18n';
 import { useCafeSettings, useSetCafeSetting, type TelegramLang } from '../../../lib/settings';
 import { useToast } from '../../../components/toast';
 import { Switch } from '../../../components/Switch';
-import { Button, Field, Select, Skeleton, Spinner, Tabs, inputStyle } from '../../../components/ui';
-import { PageHeader, Panel, StatusBadge } from '../../../components/kit';
+import { Button, Field, Select, Skeleton, Spinner, inputStyle } from '../../../components/ui';
+import { PageHeader, Panel, SegmentedControl, StatusBadge } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
 import { CardTitle, FigureRow, MARK, MARK_FG, RowList } from '../../ops/OpsVisuals';
 import { SettingsGroup, SettingsRow, settingField } from '../settings/SettingsList';
@@ -175,12 +175,15 @@ export function TelegramSettings() {
   return (
     <div style={{ maxInlineSize: 'var(--tp-measure-wide)' }}>
       <PageHeader title={tr('op.telegram.title')} subtitle={tr('ws.manager.settings.telegram.lead')} />
-      <Tabs
+      {/* A segmented control, not a tab strip: the tabs above are the
+          Marketing family's pages, and these are two views of this one. */}
+      <SegmentedControl<'setup' | 'outbox'>
+        aria-label={tr('op.telegram.title')}
         value={tab}
         onChange={setTab}
-        items={[
-          { id: 'setup', label: tr('op.telegram.settingsTab') },
-          { id: 'outbox', label: tr('op.telegram.outbox') },
+        options={[
+          { value: 'setup', label: tr('op.telegram.settingsTab'), testId: 'telegram.view.setup' },
+          { value: 'outbox', label: tr('op.telegram.outbox'), testId: 'telegram.view.outbox' },
         ]}
       />
 
