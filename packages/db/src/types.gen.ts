@@ -2110,6 +2110,14 @@ export type Database = {
       }
       jsonb_top_keys_text: { Args: { p: Json }; Returns: string }
       kitchen_board: { Args: { p_venue_id?: string }; Returns: Json }
+      legacy_add_to_figures: {
+        Args: { p_fig: Json; p_lg: Json }
+        Returns: Json
+      }
+      legacy_report_totals: {
+        Args: { p_from: string; p_to: string; p_venues: string[] }
+        Returns: Json
+      }
       lesson_assert_coach_bookable: {
         Args: { p_by: string; p_coach_id: string; p_lesson_type_id: string }
         Returns: number

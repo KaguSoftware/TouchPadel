@@ -605,6 +605,8 @@
     "item_required_ingredients": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "jsonb_top_keys_text": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "kitchen_board": "map:action",
+    "legacy_add_to_figures": "excluded: internal — adds the pre-system monthly reports to a reports_figures object for panel_headline (legacy_reports_in_figures migration), never called by a client",
+    "legacy_report_totals": "excluded: internal — the pre-system monthly reports whose whole month lies in a range, for panel_headline and analytics_courts_summary (legacy_reports_in_figures migration), never called by a client",
     "lesson_assert_coach_bookable": "excluded: service_role only — the coach, the type link and the price read again under the coach lock (lesson_booking_guards migration, DB-08), never called by a client",
     "lesson_blocked_refund_record": "map:action",
     "lesson_book_private": "map:action",

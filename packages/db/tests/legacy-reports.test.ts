@@ -111,6 +111,61 @@ describe.skipIf(!up)('0331 legacy reports', () => {
     expect(res.error?.message).toMatch(/legacy_report_figures_count_chk/);
   });
 
+  // ── 0349: the reports in the figures the owner already reads ──
+  const panel = async (from: string, to: string) => {
+    const res = await appRpc(owner, 'panel_headline', { p_from: from, p_to: to, p_compare: 'previousPeriod' }).then(outcome);
+    expect(res.ok, res.errorMessage).toBe(true);
+    const d = res.data as { figures: { key: string; value: number; previous: number | null }[]; history: { period: { included: unknown[]; partial: unknown[] } } };
+    const fig = (k: string) => d.figures.find((x) => x.key === k)!;
+    return { d, fig };
+  };
+  const courts = async (from: string, to: string, courtId: string | null = null) => {
+    const res = await appRpc(owner, 'analytics_courts_summary', { p_from: from, p_to: to, p_court_id: courtId }).then(outcome);
+    expect(res.ok, res.errorMessage).toBe(true);
+    return res.data as { kpis: Record<string, number | null>; history: { included: unknown[]; partial: unknown[] } };
+  };
+
+  it('0349 panel: a whole report month adds its completed, no-shows and money; the comparison its own month', async () => {
+    // Everything live in these months is test noise on a shared stack, so
+    // compare a month with the report against the same month without it.
+    const live = (await panel('2026-08-01', '2026-08-30')).fig; // cuts August: no report
+    const { d, fig } = await panel('2026-08-01', '2026-08-31');
+    expect(d.history.period.included).toHaveLength(1);
+    expect(fig('bookings').value - live('bookings').value).toBeGreaterThanOrEqual(203);
+    expect(fig('padelRevenue').value - live('padelRevenue').value).toBeGreaterThanOrEqual(5087250);
+    // previous = 1..31 July, which holds the July report (1..30 July).
+    expect(fig('padelRevenue').previous).toBeGreaterThanOrEqual(9180500);
+    expect(fig('bookings').previous).toBeGreaterThanOrEqual(263);
+  });
+
+  it('0349 panel: a range that cuts a report month leaves it out and says so', async () => {
+    const { d } = await panel('2026-08-01', '2026-08-30');
+    expect(d.history.period.included).toEqual([]);
+    expect(d.history.period.partial).toEqual([expect.objectContaining({ from: '2026-08-01', to: '2026-08-31' })]);
+  });
+
+  it('0349 courts: summary figures in kpis (August: cancelled 105, September: 61 no-shows); hours unknown', async () => {
+    const cut = await courts('2026-06-02', '2026-09-29'); // cuts June and September, holds July and August
+    const all = await courts('2026-06-01', '2026-09-30');
+    expect(all.history.included).toHaveLength(4);
+    expect(cut.history.included).toHaveLength(2);
+    expect(cut.history.partial).toHaveLength(2);
+    // June + September add: completed 285 + 242, no cancellations, 61 no-shows, training 64 + 81, no money.
+    expect((all.kpis.bookings as number) - (cut.kpis.bookings as number)).toBeGreaterThanOrEqual(527);
+    expect((all.kpis.no_shows as number) - (cut.kpis.no_shows as number)).toBeGreaterThanOrEqual(61);
+    expect(all.kpis.occupancy_pct).toBeNull();
+    expect(all.kpis.price_per_booked_hour_iqd).toBeNull();
+    // July + August: cancelled 45 + 105, revenue 9,180,500 + 5,087,250.
+    expect(cut.kpis.cancellations as number).toBeGreaterThanOrEqual(150);
+    expect(cut.kpis.revenue_iqd as number).toBeGreaterThanOrEqual(14267750);
+  });
+
+  it('0349 courts: one court picked, the reports (which name no court) stay out', async () => {
+    const { data } = await svc.from('courts').select('id').eq('venue_id', VENUE_A_ID).limit(1);
+    const one = await courts('2026-08-01', '2026-08-31', data![0]!.id as string);
+    expect(one.history.included).toEqual([]);
+  });
+
   it('the owner assistant reads both through table_read', async () => {
     for (const table of ['legacy_reports', 'legacy_report_figures']) {
       const res = await appRpc(owner, 'assistant_run_tool', {

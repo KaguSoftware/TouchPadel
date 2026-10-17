@@ -17,8 +17,12 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0348`
-  (0348 legacy_reports_data, 2026-10-17: the four pre-system padel reports inserted by migration,
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0349`
+  (0349 legacy_reports_in_figures, 2026-10-17: the pre-system padel reports count in panel_headline and
+  analytics_courts_summary when the range holds their whole month (helpers app.legacy_report_totals,
+  app.legacy_add_to_figures); **0349 now holds the latest panel_headline and analytics_courts_summary**
+  (0288 no longer); reports_figures stays 0288's, unchanged;
+  0348 legacy_reports_data, 2026-10-17: the four pre-system padel reports inserted by migration,
   generated from client-data/padel-monthly-2026/reports.json, never edited by hand; 0347 discounts_merge;
   0346 shop_analytics, 2026-10-16: Touch Shop sales in the owner's analytics, counted as padel
   revenue (Majed). New owner-only `app.analytics_shop(p_from, p_to)` (analytics_guard, the analysed
@@ -103,7 +107,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0349`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0350`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

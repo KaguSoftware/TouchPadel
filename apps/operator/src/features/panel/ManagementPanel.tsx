@@ -75,6 +75,8 @@ import { LiveFloor } from '../floor/LiveFloor';
 import { FIGURES, figuresIn, hasLessonFigures, hasOnlineFigures, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
 import { DRILLABLE_FIGURES, buildPanelExport, fetchAllTransactions, type DrillRange } from './exportAll';
 import { WagesDueCard } from '../wages/WagesDueCard';
+import { Notices } from '../analytics/Notices';
+import { legacyNotices, parseLegacyHistory } from '../analytics/legacyHistory';
 
 export const PANEL_QUERY_KEY = ['panel', 'headline'] as const;
 
@@ -174,6 +176,9 @@ export function ManagementPanelScreen() {
       <Toolbar end={<ComparisonControl mode={compare} onChange={setCompare} disabled={headlineQ.isFetching} />}>
         <DateRangeControl period={period} onChange={setPeriod} disabled={headlineQ.isFetching} now={today} />
       </Toolbar>
+      {/* 0349: says when the figures include the padel desk's monthly reports
+          from before the system, and why a report month the range cuts is out. */}
+      <Notices notices={legacyNotices(parseLegacyHistory(headlineQ.data?.history?.period), 'panel', tr, locale)} />
 
       <AsyncStateWrapper
         status={status}

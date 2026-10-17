@@ -1,5 +1,5 @@
 {
-  "generated_from": "538acbfc1050cbb03fe8040065bf1703eb78916f",
+  "generated_from": "43c19e6c051f800db731dd9fcad9b08687131440",
   "chunks": [
     {
       "kind": "page",
@@ -17142,7 +17142,7 @@
       "ref": "label:ws.analytics.notices",
       "lang": "ar",
       "title": "ws.analytics.notices (packages/i18n/src/catalogs/ws/analytics.ar.ts)",
-      "body": "title: قبل القراءة\nsomeFailed: تعذّر تحميل بعض الأرقام.\nsettingsFailed: تعذّر تحميل إعدادات المكان، لذا يبدأ يوم العمل عند الساعة الافتراضية 04:00.",
+      "body": "title: قبل القراءة\nsomeFailed: تعذّر تحميل بعض الأرقام.\nsettingsFailed: تعذّر تحميل إعدادات المكان، لذا يبدأ يوم العمل عند الساعة الافتراضية 04:00.\nhistory.panel: تشمل الأرقام التقارير الشهرية لقسم البادل من قبل النظام عن {months}: الحجوزات وعدم الحضور وإيرادات البادل، كما وردت فيها.\nhistory.courts: تشمل الأرقام التقارير الشهرية لقسم البادل من قبل النظام عن {months}: الحجوزات والإلغاءات وعدم الحضور والتدريب والإيرادات، كما وردت فيها. لا تذكر هذه التقارير ساعات، لذا تُركت نسبة الإشغال وأرقام الساعة فارغة.\nhistory.approximate: {months}: المبلغ تقريبي كما يذكر التقرير نفسه.\nhistory.partial: {months}: لا يُحتسب التقرير الشهري إلا إذا كان الشهر كاملاً ضمن الفترة، لذا لم يُحتسب هنا.",
       "route": "/analytics"
     },
     {
@@ -17150,7 +17150,7 @@
       "ref": "label:ws.analytics.notices",
       "lang": "en",
       "title": "ws.analytics.notices (packages/i18n/src/catalogs/ws/analytics.en.ts)",
-      "body": "title: Before you read\nsomeFailed: Some figures could not be loaded.\nsettingsFailed: The venue settings could not be loaded, so the business day starts at the default 04:00.",
+      "body": "title: Before you read\nsomeFailed: Some figures could not be loaded.\nsettingsFailed: The venue settings could not be loaded, so the business day starts at the default 04:00.\nhistory.panel: Includes the padel desk's monthly reports from before the system for {months}: bookings, no-shows and padel revenue, as written in them.\nhistory.courts: Includes the padel desk's monthly reports from before the system for {months}: bookings, cancellations, no-shows, lessons and revenue, as written in them. They have no hours, so occupancy and the per-hour figures are blank.\nhistory.approximate: {months}: the report itself calls its money approximate.\nhistory.partial: {months}: a monthly report counts only when the whole month is in the range, so it is left out here.",
       "route": "/analytics"
     },
     {

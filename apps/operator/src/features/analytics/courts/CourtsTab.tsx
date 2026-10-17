@@ -32,6 +32,7 @@ import { QK, fetchActiveCourts } from '../../../lib/queries';
 import { AnalyticsBar } from '../AnalyticsBar';
 import { AnalyticsFrame, usePeriodLine } from '../AnalyticsFrame';
 import { Notices, type Notice } from '../Notices';
+import { legacyNotices } from '../legacyHistory';
 import { Zone, ZoneGrid, type ZoneDef } from '../Zone';
 import { makeFormatters } from '../format';
 import type { AnalyticsSearch } from '../search';
@@ -154,6 +155,8 @@ export function CourtsTab() {
     });
   }
   if (state.settingsError != null) notices.push({ key: 'settings', text: tr('ws.analytics.notices.settingsFailed') });
+  // 0349: the padel desk's monthly reports from before the system, when the range holds a whole report month.
+  notices.push(...legacyNotices(raw?.summary?.history ?? null, 'courts', tr, locale));
 
   return (
     <AnalyticsFrame subtitle={periodLine} actions={<ExportButton onExport={exportPulse} disabled={stateFor(NEEDS.pulse) !== 'ready'} />}>

@@ -330,6 +330,13 @@ export const analyticsEn = {
     title: 'Before you read',
     someFailed: 'Some figures could not be loaded.',
     settingsFailed: 'The venue settings could not be loaded, so the business day starts at the default 04:00.',
+    // 0349: the padel desk's monthly reports from before the system, in the figures.
+    history: {
+      panel: 'Includes the padel desk\'s monthly reports from before the system for {months}: bookings, no-shows and padel revenue, as written in them.',
+      courts: 'Includes the padel desk\'s monthly reports from before the system for {months}: bookings, cancellations, no-shows, lessons and revenue, as written in them. They have no hours, so occupancy and the per-hour figures are blank.',
+      approximate: '{months}: the report itself calls its money approximate.',
+      partial: '{months}: a monthly report counts only when the whole month is in the range, so it is left out here.',
+    },
   },
   // A figure's change line.
   summary: {

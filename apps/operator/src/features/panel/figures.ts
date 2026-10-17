@@ -131,6 +131,8 @@ export interface PanelHeadline {
   period?: { from: string; to: string } | null;
   /** The window the changes are measured against; absent when comparing with nothing. */
   comparison?: { from: string; to: string } | null;
+  /** 0349: the pre-system monthly reports in the figures (`period`) and in the comparison. */
+  history?: { period?: unknown; comparison?: unknown } | null;
 }
 
 const KEY_SET: ReadonlySet<string> = new Set(ALL_FIGURE_KEYS);

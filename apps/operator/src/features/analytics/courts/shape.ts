@@ -5,6 +5,7 @@
  * dash and never a misleading 0%. Unit-tested.
  */
 import type { HeatCellRow } from '@touch/core';
+import { parseLegacyHistory, type LegacyHistory } from '../legacyHistory';
 
 const num = (v: unknown): number => {
   const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN;
@@ -86,6 +87,8 @@ export interface CourtsSummary {
   perCourt: CourtRow[];
   byDay: CourtsDay[];
   heatmap: CourtsHeatCell[];
+  /** 0349: the pre-system monthly reports counted in kpis, and those the range cuts. */
+  history: LegacyHistory | null;
 }
 
 export function parseCourtsSummary(json: unknown): CourtsSummary {
@@ -94,6 +97,7 @@ export function parseCourtsSummary(json: unknown): CourtsSummary {
   const range = obj(o.range);
   return {
     range: { from: str(range.from), to: str(range.to) },
+    history: parseLegacyHistory(o.history),
     courtsCount: num(o.courts_count),
     openMinutes: num(o.open_minutes),
     eventMinutes: num(o.event_minutes),
