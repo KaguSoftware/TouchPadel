@@ -65,3 +65,4 @@ export function readReports(): LegacyReportsJson;
 export function reportRow(report: LegacyReportJson, venueId: string): Row;
 export function figureRows(report: LegacyReportJson, venueId: string): Row[];
 export function allRows(venueId?: string): { reports: Row[]; figures: Row[] };
+export function migrationRowsSql(venueId?: string): string;
