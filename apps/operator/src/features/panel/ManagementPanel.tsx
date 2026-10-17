@@ -71,6 +71,7 @@ import { downloadWorkbook } from '../analytics/exportTables';
 import { DrillDialog } from '../reports/DrillDialog';
 import { FigureGroup } from '../reports/FigureGroup';
 import { readDrill } from '../reports/reportPayloads';
+import { PanelNeedsYou } from './PanelNeedsYou';
 import { LiveFloor } from '../floor/LiveFloor';
 import { FIGURES, figuresIn, hasLessonFigures, hasOnlineFigures, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
 import { DRILLABLE_FIGURES, buildPanelExport, fetchAllTransactions, type DrillRange } from './exportAll';
@@ -165,11 +166,13 @@ export function ManagementPanelScreen() {
       )}
       {/* The owner's pay-day reminder (0271): hidden when nothing is due. */}
       <WagesDueCard />
-      {/* Now, before the period: the floor this minute is the one thing on the
-          screen the date range does not govern, so it sits above the range
-          control rather than among the figures it would otherwise seem to
-          belong to (owner request, 2026-09-18). */}
-      <div style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
+      {/* Now, before the period: what waits on the owner, then the floor this
+          minute, are the things on the screen the date range does not govern,
+          so they sit above the range control rather than among the figures
+          they would otherwise seem to belong to (owner requests, 2026-09-18;
+          "Needs you" moved here from Floor now, 2026-10-17). */}
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', marginBlockEnd: 'var(--tp-sp-4)' }}>
+        <PanelNeedsYou />
         <LiveFloor blockSize="24rem" boardLinks />
       </div>
 
@@ -283,7 +286,24 @@ export function ManagementPanelScreen() {
           )}
         </div>
 
-        <nav aria-label={tr('ws.owner.panel.otherReports')} style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'center', marginBlockStart: 'var(--tp-sp-4)' }}>
+        {/* Sticks to the bottom of the window, so the other reports are one
+            click away without scrolling past every figure (Sait, 2026-10-17). */}
+        <nav
+          aria-label={tr('ws.owner.panel.otherReports')}
+          style={{
+            position: 'sticky',
+            insetBlockEnd: 0,
+            zIndex: 'var(--tp-z-sticky)',
+            display: 'flex',
+            gap: 'var(--tp-sp-2)',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            marginBlockStart: 'var(--tp-sp-4)',
+            padding: 'var(--tp-sp-3) var(--tp-sp-4)',
+            borderBlockStart: '1px solid var(--tp-border)',
+            background: 'var(--tp-surface)',
+          }}
+        >
           <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{tr('ws.owner.panel.otherReports')}</span>
           <Button size="sm" icon="chart" onClick={() => go('/reports/revenue')}>{tr('ws.owner.panel.openRevenue')}</Button>
           <Button size="sm" icon="box" onClick={() => go('/reports/stock')}>{tr('ws.owner.panel.openStock')}</Button>

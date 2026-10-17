@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { localIsoDate, parseTypedDate } from '@touch/core';
 import { formatDate, isolate, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space } from '../../src/theme';
-import { Button, Card, ErrorText, Field, Hint, LinkText, Screen } from '../../src/components/ui';
+import { Button, Card, Field, Hint, LinkText, Screen } from '../../src/components/ui';
+import { ScreenWithBar } from '../../src/components/BottomBar';
+import { DetailsFold } from '../../src/components/DetailsFold';
 import { useToast } from '../../src/components/overlays';
 import { PhotoButton, type AttachedPhoto } from '../../src/components/PhotoButton';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
@@ -15,7 +16,7 @@ import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { staffKeys } from '../../src/features/staff/keys';
 import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
-import { useBack } from '../../src/navigation/back';
+import { useBackToItem } from '../../src/navigation/back';
 import {
   GroupLabel,
   MULTILINE_BOX,
@@ -54,8 +55,8 @@ function dayLabel(day: string, locale: 'en' | 'ar'): string {
 function AskMarketingScreen() {
   const { t, locale } = useLocale();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
-  const back = useBack('/staff-marketing-requests');
+  // Back to the list, the new request first and marked.
+  const showInList = useBackToItem('/staff-marketing-requests');
   const queryClient = useQueryClient();
   const { status, venueId } = useStaffStatus();
 
@@ -92,14 +93,14 @@ function AskMarketingScreen() {
     mutationKey: staffKeys.mutation('marketing_request'),
     mutationFn: ({ args, intent }: { args: ReturnType<typeof requestArgs>; intent: string }) =>
       addMarketingRequest(args, staffIntentKey(intent, 'marketing_request')),
-    onSuccess: (_data, { intent }) => {
+    onSuccess: (data, { intent }) => {
       clearStaffIntentKey(intent);
       toast(t('staff.marketing.requests.sent'), 'success');
       void queryClient.invalidateQueries({ queryKey: staffKeys.myMarketingRequests(venue) });
       for (const f of REQUEST_FILTERS) {
         void queryClient.invalidateQueries({ queryKey: staffKeys.marketingRequests(venue, f) });
       }
-      back();
+      showInList(data.id);
     },
     onError: (err) => setError(t(mapStaffError(err))),
   });
@@ -142,15 +143,18 @@ function AskMarketingScreen() {
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.marketing.requests.newTitle') }} />
-      <ScrollView
-        contentContainerStyle={{
-          paddingTop: space.m,
-          paddingBottom: 40 + insets.bottom,
-          gap: space.sm,
-        }}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}
+      <ScreenWithBar
+        contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}
+        error={error}
+        bar={
+          <Button
+            testID="staff-marketing-request-new.submit"
+            label={t('staff.marketing.requests.submit')}
+            variant="primary"
+            busy={ask.isPending}
+            onPress={onAsk}
+          />
+        }
       >
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
         <Card style={{ padding: space.m, gap: space.s }}>
@@ -171,58 +175,64 @@ function AskMarketingScreen() {
             style={MULTILINE_TEXT}
             error={fieldError('body')}
           />
-          <Field
-            testID="staff-marketing-request-new.want-by"
-            label={t('staff.marketing.requests.wantBy')}
-            value={draft.wantBy}
-            onChangeText={(wantBy) => edit({ wantBy })}
-            keyboardType="numbers-and-punctuation"
-            latin
-            error={fieldError('wantBy')}
-          />
-          <Hint style={{ marginTop: 0 }}>
-            {wantByDay
-              ? dayLabel(wantByDay, locale)
-              : t('staff.marketing.dateHint', { example: isolate(today) })}
-          </Hint>
-          {pickingItem || draft.menuItemId ? (
-            <View style={{ gap: space.xs }}>
-              <GroupLabel>{t('staff.marketing.requests.item')}</GroupLabel>
-              <PickList
-                testID="staff-marketing-request-new.menu-item"
-                options={itemOptions}
-                loading={items.isPending}
-                value={draft.menuItemId}
-                onChange={(menuItemId) => edit({ menuItemId })}
-              />
-            </View>
-          ) : (
-            <LinkText
-              testID="staff-marketing-request-new.menu-item.open"
-              label={t('staff.marketing.requests.item')}
-              onPress={() => setPickingItem(true)}
+          {/* A title and what is needed are enough to ask; the date, the item
+              and photos wait under Add details (Sait, 2026-10-17). */}
+          <DetailsFold
+            testID="staff-marketing-request-new.details"
+            summary={t('staff.marketing.requests.detailsSummary')}
+            keepOpen={
+              draft.wantBy !== '' ||
+              !!fieldError('wantBy') ||
+              !!draft.menuItemId ||
+              pickingItem ||
+              photos.length > 0
+            }
+          >
+            <Field
+              testID="staff-marketing-request-new.want-by"
+              label={t('staff.marketing.requests.wantBy')}
+              value={draft.wantBy}
+              onChangeText={(wantBy) => edit({ wantBy })}
+              keyboardType="numbers-and-punctuation"
+              latin
+              error={fieldError('wantBy')}
             />
-          )}
-          <GroupLabel>{t('staff.marketing.requests.photos')}</GroupLabel>
-          <PhotoButton
-            testID="staff-marketing-request-new.photo"
-            venueId={venue}
-            folder="requests"
-            photos={photos}
-            onChange={setPhotos}
-            max={CAPS.requestPhotos}
-            disabled={ask.isPending || venue === ''}
-          />
-          <ErrorText>{error}</ErrorText>
-          <Button
-            testID="staff-marketing-request-new.submit"
-            label={t('staff.marketing.requests.submit')}
-            variant="primary"
-            busy={ask.isPending}
-            onPress={onAsk}
-          />
+            <Hint style={{ marginTop: 0 }}>
+              {wantByDay
+                ? dayLabel(wantByDay, locale)
+                : t('staff.marketing.dateHint', { example: isolate(today) })}
+            </Hint>
+            {pickingItem || draft.menuItemId ? (
+              <View style={{ gap: space.xs }}>
+                <GroupLabel>{t('staff.marketing.requests.item')}</GroupLabel>
+                <PickList
+                  testID="staff-marketing-request-new.menu-item"
+                  options={itemOptions}
+                  loading={items.isPending}
+                  value={draft.menuItemId}
+                  onChange={(menuItemId) => edit({ menuItemId })}
+                />
+              </View>
+            ) : (
+              <LinkText
+                testID="staff-marketing-request-new.menu-item.open"
+                label={t('staff.marketing.requests.item')}
+                onPress={() => setPickingItem(true)}
+              />
+            )}
+            <GroupLabel>{t('staff.marketing.requests.photos')}</GroupLabel>
+            <PhotoButton
+              testID="staff-marketing-request-new.photo"
+              venueId={venue}
+              folder="requests"
+              photos={photos}
+              onChange={setPhotos}
+              max={CAPS.requestPhotos}
+              disabled={ask.isPending || venue === ''}
+            />
+          </DetailsFold>
         </Card>
-      </ScrollView>
+      </ScreenWithBar>
     </Screen>
   );
 }

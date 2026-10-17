@@ -1,16 +1,18 @@
 /**
- * The tournament start's plan, as the section-menu sheet edits it
- * (TournamentStartSheet, 2026-10-05 redesign "C + D"). PURE.
+ * The tournament start's plan, as the operator's section-menu sheet
+ * (TournamentStartSheet, 2026-10-05 redesign "C + D") and the staff phone's
+ * step pages edit it. PURE; both apps import it from here.
  *
  * The sheet keeps plain strings and the court-hour cells picked on its
  * timeline; this module turns them into the `tournament.plan` record the
  * server validates (`TOURNAMENT_PLAN_SHORT` / `_FULL` in
  * @touch/core/protocols): `ranges` from the picked cells, `capacity`, and the
  * full plan's money, risks and sponsor. A field left empty is left out, as
- * the generic forms do (tasks/formModel.ts `toRecord`).
+ * the generic forms do (the operator's tasks/formModel.ts `toRecord`).
  */
-import { wallTimeToUtc } from '@touch/core';
-import type { FieldIssue, TournamentVariant } from '@touch/core/protocols';
+import { wallTimeToUtc } from '../time/tz';
+import type { TournamentVariant } from './types';
+import type { FieldIssue } from './validate';
 
 export type PlanSection = 'type' | 'name' | 'courts' | 'players' | 'notes' | 'sponsor';
 export const PLAN_SECTIONS: readonly PlanSection[] = [

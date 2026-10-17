@@ -24,6 +24,8 @@ export const staffChecklistsEn = {
   photoOf: 'Photo for {item}',
   untickTitle: 'Untick this line?',
   untickPhoto: 'Its photo is taken off the line. Ticking it again needs a new photo.',
+  // The Undo toast after unticking a line with a photo (Sait, 2026-10-17).
+  untickDone: 'Unticked. Its photo goes with it.',
   untick: 'Untick',
   note: 'Note: {note}',
   done: 'Done',
@@ -113,6 +115,11 @@ export const staffChecklistsEn = {
       prepared: 'Made here',
       retail: 'Shop',
     },
+    // The two filter buttons over the list, and their sheets (Sait, 2026-10-17).
+    storeButton: 'Store',
+    storeSheet: 'Show stock from',
+    itemsButton: 'Items',
+    itemsSheet: 'Show which items',
     search: 'Find an item',
     listTitle: 'On hand',
     asOf: 'As of {time}',

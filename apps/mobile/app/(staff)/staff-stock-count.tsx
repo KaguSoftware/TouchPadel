@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate, formatDateTime, formatTime, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
@@ -22,6 +21,9 @@ import { EmptyState, ErrorState, SkeletonList } from '../../src/components/state
 import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
+import { useRememberedChoice } from '../../src/features/staff/remembered';
+import { ScreenWithBar } from '../../src/components/BottomBar';
+import { useFieldChain } from '../../src/components/fieldChain';
 import { staffKeys } from '../../src/features/staff/keys';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { localName } from '../../src/features/staff/checklists/logic';
@@ -83,7 +85,6 @@ function CountScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { status, venueId } = useStaffStatus();
   const role = status.kind === 'staff' ? status.staff.role : null;
@@ -91,9 +92,14 @@ function CountScreen() {
   const qtyText = useQtyText();
 
   const stores = role ? countStoresFor(role) : [];
-  const [chosen, setChosen] = useState<StockLocation | null>(null);
-  const store: StockLocation | null =
-    chosen && stores.includes(chosen) ? chosen : role ? defaultCountStore(role) : null;
+  // The store opens on the one this phone counted last (Sait, 2026-10-17).
+  const home = role ? defaultCountStore(role) : null;
+  const [remembered, setChosen] = useRememberedChoice<StockLocation>(
+    'stock-count.store',
+    stores,
+    home ?? 'bakery',
+  );
+  const store: StockLocation | null = home ? remembered : null;
 
   const pick = useQuery({
     queryKey: staffKeys.stockPick(venue, 'count', store ?? 'bakery'),
@@ -138,6 +144,9 @@ function CountScreen() {
       if (refusal.issue) void pick.refetch();
     },
   });
+
+  // Next on the keypad goes to the next item on the sheet (Sait, 2026-10-17).
+  const chain = useFieldChain(filterPick(pick.data?.items ?? [], search).length);
 
   if (!role || !store) return null;
 
@@ -260,9 +269,13 @@ function CountScreen() {
                       )}
                     </View>
                     {/* Field carries its own top margin for a form; a sheet row centres it instead. */}
-                    <View style={{ width: 112, marginTop: -space.sm }}>
+                    <View style={{ width: 140, marginTop: -space.sm }}>
                       <Field
+                        {...chain.field(i, 'numeric')}
                         testID={`staff-stock-count.item.${id}`}
+                        unit={t(
+                          `staff.supplies.units.many.${entry.unit === 'pack' ? 'pack' : item.unit}`,
+                        )}
                         value={entry.qty}
                         onChangeText={(qty) => setEntry(id, { qty })}
                         keyboardType="decimal-pad"
@@ -384,15 +397,39 @@ function CountScreen() {
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t(`staff.stores.count.title.${store}`) }} />
-      <ScrollView
-        contentContainerStyle={{
-          paddingTop: space.m,
-          paddingBottom: 40 + insets.bottom,
-          gap: space.sm,
-        }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <ScreenWithBar
+        contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
+        error={listError ?? formError}
+        bar={
+          <>
+            {/* How far the count has got, by the button that sends it. */}
+            {items.length > 0 ? (
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.ink }}>
+                  {t('staff.stores.count.counted', { count: typed, total: items.length })}
+                </Text>
+                <View style={{ height: 5, borderRadius: 3, backgroundColor: colors.sub, overflow: 'hidden' }}>
+                  <View
+                    style={{
+                      height: 5,
+                      width: `${Math.round((typed / items.length) * 100)}%`,
+                      backgroundColor: colors.gstrong,
+                    }}
+                  />
+                </View>
+              </View>
+            ) : null}
+            <Button
+              testID="staff-stock-count.submit"
+              label={t('staff.stores.count.submit')}
+              variant="primary"
+              busy={send.isPending}
+              disabled={waiting !== null}
+              onPress={onSubmit}
+            />
+          </>
+        }
       >
         <Lead>{t('staff.stores.count.lead')}</Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
@@ -437,24 +474,9 @@ function CountScreen() {
           }}
         >
           <MicroLabel>{t('staff.stores.count.sheetTitle')}</MicroLabel>
-          {items.length > 0 ? (
-            <Text style={{ fontFamily: fonts.body600, fontSize: 12, color: colors.mut }}>
-              {t('staff.stores.count.counted', { count: typed, total: items.length })}
-            </Text>
-          ) : null}
         </View>
         {theSheet()}
 
-        <ErrorText>{listError ?? formError}</ErrorText>
-        <Button
-          testID="staff-stock-count.submit"
-          label={t('staff.stores.count.submit')}
-          variant="primary"
-          busy={send.isPending}
-          disabled={waiting !== null}
-          onPress={onSubmit}
-          style={{ marginTop: space.xs }}
-        />
         {/* The reason sits by the button it holds, not only at the top of a long sheet. */}
         {waiting ? <Hint>{t('staff.stores.count.held')}</Hint> : null}
 
@@ -462,7 +484,8 @@ function CountScreen() {
           {t('staff.stores.count.recentTitle')}
         </MicroLabel>
         {recentCounts()}
-      </ScrollView>
+        {chain.bar}
+      </ScreenWithBar>
     </Screen>
   );
 }

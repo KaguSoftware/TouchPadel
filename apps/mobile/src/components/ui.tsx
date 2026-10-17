@@ -16,7 +16,7 @@
  * `no-restricted-syntax` rule in `@touch/config/eslint` (`testIdRules`) fails
  * `lint` on any call site that leaves one off.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -462,6 +462,17 @@ export function FooterLink({
 // ── Inputs ──────────────────────────────────────────────────────────────────
 
 export interface FieldProps extends TextInputProps {
+  /**
+   * The input itself, so a form can move the caret to its next field when the
+   * keyboard's Next is pressed (fieldChain.ts). React 19 hands it on through
+   * the props spread below.
+   */
+  ref?: Ref<TextInput>;
+  /**
+   * The unit, inside the box after the number ("kg", "pieces"), so the field
+   * itself says what to type (Sait, 2026-10-17).
+   */
+  unit?: string;
   label?: string;
   error?: string | null;
   /**
@@ -517,6 +528,7 @@ const LEAD_GAP = 10;
 export const LINE = 17;
 
 export function Field({
+  unit,
   label,
   error,
   latin,
@@ -698,6 +710,14 @@ export function Field({
         }}
         {...inputProps}
       />
+      {unit ? (
+        <Text
+          numberOfLines={1}
+          style={{ marginStart: space.s, fontFamily: fonts.body700, fontSize: 13, color: colors.mut }}
+        >
+          {unit}
+        </Text>
+      ) : null}
       </View>
       <ErrorText>{error}</ErrorText>
     </View>

@@ -338,6 +338,10 @@ describe.each(LOCALES)('the owner assistant in %s', (locale) => {
     expect(fabHidden('/staff-assistant-chats')).toBe(true);
     expect(fabHidden('/(tabs)')).toBe(true);
     expect(fabHidden('/staff-order')).toBe(false);
+    // Off the "new" forms a header + opens (owner, 2026-10-17).
+    expect(fabHidden('/staff-incident-report')).toBe(true);
+    expect(fabHidden('/staff-start')).toBe(true);
+    expect(fabHidden('/staff-incidents')).toBe(false);
     // The main panel carries it in its header instead.
     expect(fabHidden('/staff')).toBe(true);
     // Drawn per screen by the Stack's screenLayout: a staff page is wrapped,

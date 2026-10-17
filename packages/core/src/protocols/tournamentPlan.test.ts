@@ -4,7 +4,7 @@ import {
   startForm,
   validateStart,
   type FieldDef,
-} from '@touch/core/protocols';
+} from './index';
 import {
   cellKey,
   emptyPlan,
@@ -16,7 +16,7 @@ import {
   planSections,
   slotsOf,
   type PlanState,
-} from './planModel';
+} from './tournamentPlan';
 
 const TZ = 'Asia/Baghdad'; // UTC+3, no DST
 const C1 = '11111111-1111-4111-8111-111111111111';

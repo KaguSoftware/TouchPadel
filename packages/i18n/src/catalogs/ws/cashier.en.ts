@@ -438,7 +438,7 @@ export const cashierEn = {
     kitchen: 'Kitchen',
     bar: 'Bar',
     entrance: 'Entrance',
-    noTables: 'No tables are in use yet. They are added in Setup, under Tables & QR.',
+    noTables: 'No tables are in use yet. They are added under Café & shop › Table QR codes.',
     offPlan: 'These tables have no place on the plan yet:',
     noCourts: 'No courts are open for booking.',
     others: 'Other open tabs',

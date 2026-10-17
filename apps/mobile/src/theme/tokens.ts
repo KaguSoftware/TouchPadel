@@ -16,6 +16,12 @@
  * the owner kept (amber, red). No other hue may enter. When you need a new step,
  * take another lightness off the relevant ramp; do not eyedrop a colour.
  *
+ * One exception: the incident kinds' band colours (`inc*`) are the operator's
+ * own (packages/ui/src/tokens/operator.ts and operatorBlue.ts: warn, danger,
+ * lesson violet, tournament teal, neutral), so a report reads the same colour
+ * on the phone as at the desk (Parsa, 2026-10-16). They are used on the
+ * incident cards only.
+ *
  * `palettes.dark` DIVERGES from the design file on purpose: the artboards' dark
  * mode was hand-picked navy (#0D1830 is hue 221 at L12 — a colour that merely
  * looks blue-ish), which read as "very dark" instead of as the brand. Dark is
@@ -84,6 +90,20 @@ export interface Palette {
   /** The floating court's two-layer cast shadow (design `.tpfloat` drop-shadows). */
   crtCast: string;
   crtCast2: string;
+  /**
+   * The incident kinds' bands, the operator's exact colours (see the header):
+   * `*Tint` is the band, the plain name the icon and text on it.
+   */
+  incAccident: string;
+  incAccidentTint: string;
+  incInjury: string;
+  incInjuryTint: string;
+  incFight: string;
+  incFightTint: string;
+  incDamage: string;
+  incDamageTint: string;
+  incOther: string;
+  incOtherTint: string;
 }
 
 export const palettes: Record<'light' | 'dark', Palette> = {
@@ -127,6 +147,17 @@ export const palettes: Record<'light' | 'dark', Palette> = {
     crtShadow: '#1B2C47',
     crtCast: '#1B2C4759',
     crtCast2: '#1B2C472E',
+    // operator.ts's oklch values in sRGB: warn, danger, lesson, tournament, neutral.
+    incAccident: '#814800',
+    incAccidentTint: '#FFEECB',
+    incInjury: '#9E1618',
+    incInjuryTint: '#FFE7E4',
+    incFight: '#79368D',
+    incFightTint: '#F9E8FE',
+    incDamage: '#006465',
+    incDamageTint: '#D8F5F5',
+    incOther: '#414853',
+    incOtherTint: '#E9EBEF',
   },
   // ── Dark = "blue mode" ────────────────────────────────────────────────────
   // Every blue below is an EXACT shade of brand #3360AB: hue 217.5, saturation
@@ -197,6 +228,17 @@ export const palettes: Record<'light' | 'dark', Palette> = {
     // white halo.
     crtCast: '#FFFFFF3D',
     crtCast2: '#FFFFFF1F',
+    // operatorBlue.ts's values, as they are.
+    incAccident: '#F0CB85',
+    incAccidentTint: '#4F380D',
+    incInjury: '#F0B0B4',
+    incInjuryTint: '#4A2A3A',
+    incFight: '#E8C0F4',
+    incFightTint: '#4B2F63',
+    incDamage: '#B9EEE8',
+    incDamageTint: '#1E4F55',
+    incOther: '#E0E0E1',
+    incOtherTint: '#274982',
   },
 };
 

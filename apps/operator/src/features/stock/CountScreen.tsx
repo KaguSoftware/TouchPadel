@@ -35,7 +35,7 @@
  * difference is worth is not shown: no server read carries it, and money is
  * never worked out here (PRODUCT.md principle 3).
  */
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDate, formatDateTime, isolate } from '@touch/i18n';
@@ -44,7 +44,7 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { usePermissions } from '../../lib/auth';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, inputStyle, Tabs, Skeleton } from '../../components/ui';
+import { Button, ErrorText, inputStyle, Skeleton } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, ResultCount, SearchField, SegmentedControl, StatusBadge, Toolbar, ViewMore, asyncStatus, useListCap, type Column } from '../../components/kit';
 import { CardTitle, Step } from '../ops/OpsVisuals';
 import { Footnote, useStockFormat, useStoreName } from './stockUi';
@@ -82,6 +82,7 @@ export function CountScreen() {
   const [store, setStore] = useState<StockLocation>(() => stores[0]!);
   const countsQ = useQuery({ queryKey: SK.unfinishedCounts, queryFn: fetchUnfinishedCounts, refetchInterval: 60_000 });
   const waiting = phoneCountsWaiting(countsQ.data).filter((c) => (stores as readonly string[]).includes(c.location));
+  const storeLabelId = useId();
   const openAt = (s: StockLocation) => (countsQ.data ?? []).some((c) => c.source === 'operator' && c.location === s);
 
   return (
@@ -91,16 +92,27 @@ export function CountScreen() {
       <div style={{ display: 'grid', gap: 'var(--tp-sp-5)' }}>
         {waiting.length > 0 && <PhoneCounts counts={waiting} />}
 
-        <section aria-label={tr('ws.stores.counts.storeTabs')}>
+        <section aria-label={tr('ws.stores.counts.storeTabs')} style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+          {/* A segmented control, not a tab strip: the tabs above this page are
+              its family's pages (Count stock, Missing or extra), and the store
+              is a choice inside this one (Sait, 2026-10-17: two tab strips
+              read as two levels of pages). */}
           {stores.length > 1 && (
-            <Tabs<StockLocation>
-              value={store}
-              onChange={setStore}
-              items={stores.map((s) => ({
-                id: s,
-                label: openAt(s) ? `${tr(`work.store.${s}`)} · ${tr('ws.stores.counts.counting')}` : tr(`work.store.${s}`),
-              }))}
-            />
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+              <span id={storeLabelId} style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>
+                {tr('ws.stores.counts.storeTabs')}
+              </span>
+              <SegmentedControl<StockLocation>
+                aria-labelledby={storeLabelId}
+                value={store}
+                onChange={setStore}
+                options={stores.map((s) => ({
+                  value: s,
+                  label: openAt(s) ? `${tr(`work.store.${s}`)} · ${tr('ws.stores.counts.counting')}` : tr(`work.store.${s}`),
+                  testId: `count.store.${s}`,
+                }))}
+              />
+            </div>
           )}
           <StoreCount key={store} store={store} phoneWaiting={phoneCountWaitingAt(countsQ.data, store)} />
         </section>

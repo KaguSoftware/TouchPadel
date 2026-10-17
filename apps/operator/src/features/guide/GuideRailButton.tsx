@@ -7,6 +7,7 @@
 import type { CSSProperties } from 'react';
 import { useLocale } from '../../lib/i18n';
 import { Icon } from '../../components/icons';
+import { railLabelStyle } from '../../components/railStyles';
 import { useGuideOrNull } from './GuideProvider';
 
 export function GuideRailButton({ style }: { style?: CSSProperties }) {
@@ -24,7 +25,7 @@ export function GuideRailButton({ style }: { style?: CSSProperties }) {
       onClick={guide.openGuide}
     >
       <Icon name="bookOpen" size={16} />
-      <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={railLabelStyle}>
         {tr('ws.guide.chrome.open')}
       </span>
     </button>

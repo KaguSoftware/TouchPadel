@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,11 +14,13 @@ import { useToast } from '../../src/components/overlays';
 import { PhotoButton, type AttachedPhoto } from '../../src/components/PhotoButton';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
+import { useRememberedChoice } from '../../src/features/staff/remembered';
 import { staffKeys } from '../../src/features/staff/keys';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { staffPhotoUrl } from '../../src/features/staff/photo';
 import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
 import { archiveTeaching, fetchTeachings, saveTeaching } from '../../src/features/staff/teachings/api';
+import { cacheEdit, useUndoable } from '../../src/features/staff/undo';
 import {
   BODY_MAX,
   PHOTOS_MAX,
@@ -36,6 +38,7 @@ import {
   validateTeaching,
   type Teaching,
   type TeachingArgs,
+  type TeachingsPage,
   type TeachingDraft,
   type TeachingField,
   type TeachingIssue,
@@ -52,6 +55,7 @@ import {
 import { useReduceMotion } from '../../src/lib/useReduceMotion';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { useHeaderAddOptions } from '../../src/navigation/headerAdd';
+import { useHideAssistantFab } from '../../src/features/assistant/AssistantFab';
 
 /**
  * Teachings (build-contracts-2026-09-23 §2.24.3, §6.1; plan #64): what the
@@ -77,7 +81,12 @@ function TeachingsScreen() {
   const writer = canWriteTeaching(role);
   const venue = venueId ?? '';
 
-  const [filter, setFilter] = useState<TeachingsFilter>('all');
+  // Bar, kitchen or both: management's view, kept on this phone (Sait, 2026-10-17).
+  const [filter, setFilter] = useRememberedChoice<TeachingsFilter>(
+    'teachings.team',
+    teachingFilters(role),
+    'all',
+  );
   const listKey = staffKeys.teachings(venue, teachingsKeyTeam(role, filter));
   const teachings = useQuery({
     queryKey: listKey,
@@ -119,15 +128,22 @@ function TeachingsScreen() {
     onError: (err) => setError(t(mapStaffError(err))),
   });
 
-  const archive = useMutation({
-    mutationKey: staffKeys.mutation('teaching.archive'),
-    mutationFn: (id: string) => archiveTeaching(id),
-    onSuccess: () => {
-      toast(t('staff.checklists.teachings.archived'), 'info');
-      refreshLists();
-    },
-    onError: (err) => toast(t(mapStaffError(err)), 'error'),
-  });
+  // Archive at once, with Undo on the toast instead of "Are you sure?"
+  // (Sait, 2026-10-17): the teaching leaves the list now, the call goes when
+  // the toast's time is up.
+  const undoable = useUndoable();
+  const archive = (teaching: Teaching) =>
+    undoable({
+      message: t('staff.checklists.teachings.archived'),
+      ...cacheEdit<TeachingsPage>(queryClient, listKey, (page) => ({
+        ...page,
+        teachings: page.teachings.filter((x) => x.id !== teaching.id),
+        total: Math.max(0, page.total - 1),
+      })),
+      send: () => archiveTeaching(teaching.id),
+      onSent: refreshLists,
+      onError: (err) => toast(t(mapStaffError(err)), 'error'),
+    });
 
   const openNew = () => {
     setDraft(emptyTeaching(role));
@@ -166,6 +182,7 @@ function TeachingsScreen() {
   const scroll = useRef<ScrollView>(null);
   const reduceMotion = useReduceMotion();
   const formOpen = draft !== null;
+  useHideAssistantFab(formOpen);
   useEffect(() => {
     if (formOpen) scroll.current?.scrollTo({ y: 0, animated: !reduceMotion });
   }, [formOpen, reduceMotion]);
@@ -183,17 +200,6 @@ function TeachingsScreen() {
     const found = validateTeaching(withPhotos, role);
     setIssues(found);
     if (found.length === 0) save.mutate(teachingArgs(withPhotos, role, venue));
-  };
-
-  const confirmArchive = (teaching: Teaching) => {
-    Alert.alert(t('staff.checklists.teachings.archiveTitle'), t('staff.checklists.teachings.archiveBody'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('staff.checklists.teachings.archive'),
-        style: 'destructive',
-        onPress: () => archive.mutate(teaching.id),
-      },
-    ]);
   };
 
   // The + opens a new teaching; it stands aside while the form is open.
@@ -374,8 +380,7 @@ function TeachingsScreen() {
               testID={`staff-teachings.archive.${row.id}`}
               label={t('staff.checklists.teachings.archive')}
               variant="ghost"
-              busy={archive.isPending && archive.variables === row.id}
-              onPress={() => confirmArchive(row)}
+              onPress={() => archive(row)}
             />
           </View>
         ) : null}

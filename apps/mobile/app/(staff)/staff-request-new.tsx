@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   STAFF_REQUEST_KINDS,
   localIsoDate,
@@ -18,7 +17,10 @@ import {
 import { formatDate, isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space } from '../../src/theme';
-import { Button, Card, ErrorText, Field, Hint, MicroLabel, Screen } from '../../src/components/ui';
+import { Button, Card, Field, Hint, MicroLabel, Screen } from '../../src/components/ui';
+import { ScreenWithBar } from '../../src/components/BottomBar';
+import { DetailsFold } from '../../src/components/DetailsFold';
+import { useFieldChain } from '../../src/components/fieldChain';
 import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
@@ -27,7 +29,7 @@ import { mapStaffError } from '../../src/features/staff/edge';
 import { staffKeys } from '../../src/features/staff/keys';
 import { Chip } from '../../src/features/staff/protocols/FormFields';
 import { MULTILINE_BOX, MULTILINE_TEXT } from '../../src/features/staff/protocols/multiline';
-import { useBack } from '../../src/navigation/back';
+import { useBackToItem } from '../../src/navigation/back';
 
 /**
  * A new request (migration 0072): leave, a shift swap, a wage advance or a
@@ -49,8 +51,8 @@ function freshDraft(): StaffRequestDraft {
 function NewRequestScreen() {
   const { t, locale } = useLocale();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
-  const back = useBack('/staff-request');
+  // Back to the list, the new request first and marked.
+  const showInList = useBackToItem('/staff-request');
   const queryClient = useQueryClient();
   const { status } = useStaffStatus();
   const uid = status.kind === 'staff' ? status.staff.id : '';
@@ -69,10 +71,10 @@ function NewRequestScreen() {
   const submit = useMutation({
     mutationKey: staffKeys.mutation('request'),
     mutationFn: (args: StaffRequestArgs) => submitStaffRequest(args),
-    onSuccess: () => {
+    onSuccess: (id) => {
       toast(t('staff.shell.requests.sent'), 'success');
       void queryClient.invalidateQueries({ queryKey: staffKeys.requests(uid) });
-      back();
+      showInList(id);
     },
     onError: (err) => setError(t(mapStaffError(err))),
   });
@@ -104,19 +106,37 @@ function NewRequestScreen() {
     draft.kind === 'correction'
       ? t('staff.shell.requests.noteCorrection')
       : t('staff.shell.requests.noteOptional');
+  // The keyboard's Next walks the one-line fields of this kind, Done sends.
+  const chain = useFieldChain(dated ? 2 : 1, onSubmit);
+
+  const note = (
+    <Field
+      testID="staff-request-new.note"
+      label={noteLabel}
+      value={draft.note}
+      onChangeText={(note) => edit({ note })}
+      multiline
+      boxStyle={MULTILINE_BOX}
+      style={MULTILINE_TEXT}
+      error={fieldError('note')}
+    />
+  );
 
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.shell.requests.newTitle') }} />
-      <ScrollView
-        contentContainerStyle={{
-          paddingTop: space.m,
-          paddingBottom: 40 + insets.bottom,
-          gap: space.sm,
-        }}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}
+      <ScreenWithBar
+        contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}
+        error={error}
+        bar={
+          <Button
+            testID="staff-request-new.submit"
+            label={t('staff.shell.requests.submit')}
+            variant="primary"
+            busy={submit.isPending}
+            onPress={onSubmit}
+          />
+        }
       >
         <Card style={{ padding: space.m, gap: space.s }}>
           {/* The kind is one choice of four: the same chips, with the same
@@ -139,6 +159,7 @@ function NewRequestScreen() {
           {dated ? (
             <>
               <Field
+                {...chain.field(0)}
                 testID="staff-request-new.from"
                 label={t('staff.shell.requests.from')}
                 value={draft.from}
@@ -149,6 +170,7 @@ function NewRequestScreen() {
               />
               {datePreview(draft.from)}
               <Field
+                {...chain.field(1)}
                 testID="staff-request-new.to"
                 label={t('staff.shell.requests.to')}
                 value={draft.to}
@@ -163,6 +185,7 @@ function NewRequestScreen() {
           {draft.kind === 'correction' ? (
             <>
               <Field
+                {...chain.field(0)}
                 testID="staff-request-new.from"
                 label={t('staff.shell.requests.day')}
                 value={draft.from}
@@ -179,6 +202,7 @@ function NewRequestScreen() {
           ) : null}
           {draft.kind === 'advance' ? (
             <Field
+              {...chain.field(0, 'numeric')}
               testID="staff-request-new.amount"
               label={t('staff.shell.requests.amount')}
               value={draft.amount}
@@ -188,26 +212,22 @@ function NewRequestScreen() {
               error={fieldError('amount')}
             />
           ) : null}
-          <Field
-            testID="staff-request-new.note"
-            label={noteLabel}
-            value={draft.note}
-            onChangeText={(note) => edit({ note })}
-            multiline
-            boxStyle={MULTILINE_BOX}
-            style={MULTILINE_TEXT}
-            error={fieldError('note')}
-          />
-          <ErrorText>{error}</ErrorText>
-          <Button
-            testID="staff-request-new.submit"
-            label={t('staff.shell.requests.submit')}
-            variant="primary"
-            busy={submit.isPending}
-            onPress={onSubmit}
-          />
+          {/* A correction says what to correct, so its note is asked for; on
+              the other kinds the note is extra and waits under Add details. */}
+          {draft.kind === 'correction' ? (
+            note
+          ) : (
+            <DetailsFold
+              testID="staff-request-new.details"
+              summary={t('staff.shell.requests.noteOptional')}
+              keepOpen={draft.note !== '' || !!fieldError('note')}
+            >
+              {note}
+            </DetailsFold>
+          )}
         </Card>
-      </ScrollView>
+        {chain.bar}
+      </ScreenWithBar>
     </Screen>
   );
 }

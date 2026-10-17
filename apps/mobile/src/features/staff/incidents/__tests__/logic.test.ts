@@ -5,8 +5,15 @@ import { staffIdemKey } from '../../../../lib/idempotency';
 import {
   INCIDENT_KINDS,
   INCIDENT_PLACES,
+  KIND_ORDER,
+  REPORT_STEPS,
   emptyIncidentDraft,
+  groupIncidentsByDay,
   incidentArgs,
+  issuesOnStep,
+  parseReportStep,
+  stepDone,
+  stepOfField,
   ownReportLine,
   reviewsIncidents,
   toReviewCount,
@@ -177,5 +184,57 @@ describe('management’s count and the own-report line', () => {
     expect(ownReportLine('owner')).toBe('ownOwner');
     expect(ownReportLine('manager')).toBe('own');
     expect(ownReportLine(null)).toBe('own');
+  });
+});
+
+describe('groupIncidentsByDay', () => {
+  const at = (y: number, mo: number, d: number, h: number) => ({
+    occurred_at: new Date(y, mo - 1, d, h).toISOString(),
+    id: `${d}-${h}`,
+  });
+  const now = new Date(2026, 9, 16, 15).getTime();
+
+  it('puts the newest day first and the latest report first inside a day', () => {
+    const days = groupIncidentsByDay(
+      [at(2026, 10, 14, 9), at(2026, 10, 16, 10), at(2026, 10, 15, 22), at(2026, 10, 16, 14)],
+      now,
+    );
+    expect(days.map((d) => d.key)).toEqual(['2026-10-16', '2026-10-15', '2026-10-14']);
+    expect(days.map((d) => d.daysAgo)).toEqual([0, 1, 2]);
+    expect(days[0]!.rows.map((r) => r.id)).toEqual(['16-14', '16-10']);
+  });
+
+  it('gives an empty list no days', () => {
+    expect(groupIncidentsByDay([], now)).toEqual([]);
+  });
+});
+
+describe('the stepped report', () => {
+  it('runs the operator’s steps in its order, the review last', () => {
+    expect(REPORT_STEPS).toEqual(['kind', 'story', 'placeTime', 'review']);
+    expect(parseReportStep('placeTime')).toBe('placeTime');
+    expect(parseReportStep('nope')).toBe('kind');
+    expect(parseReportStep(undefined)).toBe('kind');
+  });
+
+  it('puts each issue on the step that asks for it', () => {
+    const issues = validateIncident(emptyIncidentDraft(Date.parse('2026-10-17T10:00:00Z')), Date.parse('2026-10-17T10:00:00Z'));
+    expect(issuesOnStep(issues, 'kind').map((i) => i.field)).toEqual(['kind']);
+    expect(issuesOnStep(issues, 'story').map((i) => i.field)).toEqual(['description']);
+    expect(issuesOnStep(issues, 'placeTime').map((i) => i.field)).toEqual(['place']);
+    expect(stepOfField('photos')).toBe('story');
+    expect(stepOfField('courtId')).toBe('placeTime');
+  });
+
+  it('calls a step done once it has no issue, and the review once nothing is left', () => {
+    const issues = [{ field: 'description' as const, code: 'required' as const }];
+    expect(stepDone('kind', issues)).toBe(true);
+    expect(stepDone('story', issues)).toBe(false);
+    expect(stepDone('review', issues)).toBe(false);
+    expect(stepDone('review', [])).toBe(true);
+  });
+
+  it('offers the kinds in the operator’s order', () => {
+    expect(KIND_ORDER).toEqual(['injury', 'fight', 'damage', 'accident', 'other']);
   });
 });

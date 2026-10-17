@@ -205,6 +205,10 @@ function CallsScreen() {
           gap: space.xs,
           borderBottomWidth: last ? 0 : 1,
           borderBottomColor: colors.sub,
+          // The wait colours the whole row, so the oldest call stands out
+          // from across the room (Sait, 2026-10-17).
+          backgroundColor:
+            urgency === 'late' ? colors.redtint : urgency === 'warn' ? colors.amb : undefined,
         }}
       >
         <View
@@ -219,8 +223,9 @@ function CallsScreen() {
             style={{
               flexShrink: 1,
               fontFamily: fonts.display800,
-              fontSize: 19,
-              lineHeight: 25,
+              // Big enough to read at arm's length (Sait, 2026-10-17).
+              fontSize: 30,
+              lineHeight: 36,
               color: colors.ink,
             }}
           >
@@ -228,8 +233,8 @@ function CallsScreen() {
           </Text>
           <Text
             style={{
-              fontFamily: urgency === 'calm' ? fonts.body600 : fonts.body700,
-              fontSize: 12.5,
+              fontFamily: urgency === 'calm' ? fonts.body600 : fonts.body800,
+              fontSize: 14,
               color: inkOf(urgency),
             }}
           >
@@ -248,7 +253,6 @@ function CallsScreen() {
                 testID={`staff-calls.ack.${call.id}`}
                 label={t('op.floor.ack')}
                 variant="secondary"
-                size="compact"
                 busy={busyAck}
                 disabled={busyDone}
                 onPress={() => act(call.id, 'ack')}
@@ -260,7 +264,6 @@ function CallsScreen() {
               testID={`staff-calls.done.${call.id}`}
               label={t('op.floor.resolve')}
               variant="primary"
-              size="compact"
               busy={busyDone}
               disabled={busyAck}
               onPress={() => act(call.id, 'resolve')}

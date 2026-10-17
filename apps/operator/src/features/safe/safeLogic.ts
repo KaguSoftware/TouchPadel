@@ -249,6 +249,19 @@ export function canVoid(e: Pick<SafeEntry, 'source' | 'voidedAt'>): boolean {
 }
 
 export type LedgerFilter = 'all' | 'payments' | 'moves';
+
+/**
+ * `/safe?show=payments`: the page opened as Financial › Pay › Bills & suppliers,
+ * with the ledger showing what was paid out (page map, 2026-10-17). Plain
+ * `/safe` is Financial › Cash › Main cash.
+ */
+export interface SafeSearch {
+  show?: 'payments';
+}
+
+export function validateSafeSearch(raw: Record<string, unknown>): SafeSearch {
+  return raw.show === 'payments' ? { show: 'payments' } : {};
+}
 export function filterEntries(entries: readonly SafeEntry[], f: LedgerFilter): SafeEntry[] {
   if (f === 'payments') return entries.filter((e) => e.kind === 'payment');
   if (f === 'moves') return entries.filter((e) => e.kind !== 'payment');

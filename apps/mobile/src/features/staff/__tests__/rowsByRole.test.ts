@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { STAFF_ROLES, type StaffRole } from '@touch/core';
-import { staffRows, todayRows } from '../rows';
+import { quietRow, staffRows, todayRows } from '../rows';
 
 /**
  * What each role sees on Today (build-contracts-2026-09-23 §6.1, "Today rows
@@ -205,39 +205,45 @@ describe('Today rows by role', () => {
 });
 
 /**
- * Two rows depend on the day, not the role (owner, 2026-09-28): Protocols
- * for management always and for anyone else while a run in progress involves
- * them; Notes on new items while one is at its feedback stage. Unknown (a read
- * still out, or failed) hides the row.
+ * Protocols and Notes on new items stay on Today every day (Sait, 2026-10-17;
+ * it was the owner's 2026-09-28 rule to hide them while empty) and say
+ * "nothing now" when empty: Protocols with no run in progress that involves
+ * the person (never for management, who run them), Notes with no new item at
+ * its feedback stage. Unknown (a read still out, or failed) is not quiet.
  */
 describe('Today rows that depend on the day', () => {
-  const ids = (role: StaffRole, runs: number | null, notes: number | null) =>
-    todayRows(role, { runs, notes }).map((r) => r.id);
+  it('keeps every row of the role on Today, Protocols and Notes included', () => {
+    for (const role of STAFF_ROLES) {
+      expect(todayRows(role).map((r) => r.id), role).toEqual(staffRows(role).map((r) => r.id));
+      expect(todayRows(role).map((r) => r.id), role).toEqual(expect.arrayContaining(['protocols', 'notes']));
+    }
+  });
 
-  it('shows Protocols to management always, and to others only with a run that involves them', () => {
+  it('says nothing now on Protocols only for a non-manager with no run that involves them', () => {
     for (const role of ['manager', 'owner'] as const) {
-      expect(ids(role, 0, 0), role).toContain('protocols');
-      expect(ids(role, null, null), role).toContain('protocols');
+      expect(quietRow('protocols', role, { runs: 0, notes: 0 }), role).toBe(false);
+      expect(quietRow('protocols', role, { runs: null, notes: null }), role).toBe(false);
     }
     for (const role of ['waiter', 'cashier', 'barista', 'head_chef', 'marketing'] as const) {
-      expect(ids(role, 0, 0), role).not.toContain('protocols');
-      expect(ids(role, null, 0), role).not.toContain('protocols');
-      expect(ids(role, 2, 0), role).toContain('protocols');
+      expect(quietRow('protocols', role, { runs: 0, notes: 0 }), role).toBe(true);
+      expect(quietRow('protocols', role, { runs: null, notes: 0 }), role).toBe(false);
+      expect(quietRow('protocols', role, { runs: 2, notes: 0 }), role).toBe(false);
     }
   });
 
-  it('shows Notes on new items only while one is at its feedback stage, to everyone', () => {
+  it('says nothing now on Notes while no new item is at its feedback stage, for everyone', () => {
     for (const role of STAFF_ROLES) {
-      expect(ids(role, 1, 0), role).not.toContain('notes');
-      expect(ids(role, 1, null), role).not.toContain('notes');
-      expect(ids(role, 1, 1), role).toContain('notes');
+      expect(quietRow('notes', role, { runs: 1, notes: 0 }), role).toBe(true);
+      expect(quietRow('notes', role, { runs: 1, notes: null }), role).toBe(false);
+      expect(quietRow('notes', role, { runs: 1, notes: 1 }), role).toBe(false);
     }
   });
 
-  it('leaves every other row to the role', () => {
+  it('never quiets any other row', () => {
     for (const role of STAFF_ROLES) {
-      const all = staffRows(role).map((r) => r.id).filter((id) => id !== 'protocols' && id !== 'notes');
-      expect(ids(role, 0, 0).filter((id) => id !== 'protocols'), role).toEqual(all);
+      for (const row of staffRows(role).filter((r) => r.id !== 'protocols' && r.id !== 'notes')) {
+        expect(quietRow(row.id, role, { runs: 0, notes: 0 }), `${role} ${row.id}`).toBe(false);
+      }
     }
   });
 });

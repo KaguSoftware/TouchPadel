@@ -21,7 +21,7 @@
  */
 import { useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { countPhrase, formatDate, formatIQD, formatTime, isolate, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
@@ -63,6 +63,7 @@ import {
   type PayDraft,
   type SafeEntry,
   type SafeOverview,
+  type SafeSearch,
 } from './safeLogic';
 
 const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
@@ -576,7 +577,15 @@ function Costs({ ov }: { ov: SafeOverview }) {
 
 function Ledger({ ov }: { ov: SafeOverview }) {
   const { tr } = useLocale();
-  const [filter, setFilter] = useState<LedgerFilter>('all');
+  // Opened as Bills & suppliers, the ledger starts on what was paid out.
+  const show = (useSearch({ strict: false }) as SafeSearch | undefined)?.show;
+  const [filter, setFilter] = useState<LedgerFilter>(show ?? 'all');
+  const [shownFor, setShownFor] = useState(show);
+  if (shownFor !== show) {
+    // Moving between Main cash and Bills & suppliers keeps the page mounted.
+    setShownFor(show);
+    setFilter(show ?? 'all');
+  }
   const [voiding, setVoiding] = useState<SafeEntry | null>(null);
   const rows = filterEntries(ov.entries, filter);
   const cap = useListCap(rows);

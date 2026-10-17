@@ -9,7 +9,7 @@ import { useThemeMode } from '../lib/themeMode';
 import { Kbd } from './kit';
 import { Icon, ThemeModeIcon, type IconName } from './icons';
 import { useAssistantDrawerOrNull } from '../features/assistant/AssistantDrawer';
-import { navButtonStyle } from './railStyles';
+import { navButtonStyle, railLabelStyle } from './railStyles';
 
 /**
  * The rail foot's one collapsible group (owner call, 2026-09-21). The
@@ -145,7 +145,7 @@ export function RailMoreMenu({
           }}
         >
           <Icon name="repeat" size={16} />
-          <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={railLabelStyle}>
             {tr('ws.shell.nav.switchWorkspace')}
           </span>
         </button>
@@ -170,7 +170,7 @@ export function RailMoreMenu({
             in words. The Setup SECTION wears the sliders instead, so the two
             never read as the same destination. */}
         <Icon name="settings" size={16} />
-        <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={railLabelStyle}>
           {tr('ws.shell.nav.more')}
         </span>
         <span className="tp-rail-group-chevron" style={{ display: 'inline-flex' }}>

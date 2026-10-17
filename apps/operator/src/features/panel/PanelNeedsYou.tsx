@@ -1,44 +1,29 @@
 /**
- * Observation home (/observation) — the landing screen of Management's
- * Observe section, and the owner's reading of the floor right now.
+ * "Needs you" on the owner's Overview (/panel), above the live floor (page map,
+ * Sait 2026-10-17). It moved here from the Observe overview, the owner's old
+ * Floor now page, so the first screen the owner lands on says what is waiting:
  *
- * Floor now is this overview's body (owner call, 2026-10-08). The screen
- * answers, in order:
+ *   - the floor's own rows (FloorNow's "Needs you": alarms, online and lesson
+ *     refunds, player reports, people records, till shifts closed short or
+ *     over);
+ *   - and what only the owner answers, which nothing else in the venue will
+ *     surface: staff requests, new staff suggestions, and scheduled campaigns
+ *     whose start date has passed or live ones whose last day has passed
+ *     (nothing moves a campaign's status on its own; app.set_campaign_status
+ *     is the only writer).
  *
- *  1. **Does anything need me?** One "Needs you" list (FloorNow, the
- *     manager's Today body, rebuilt 2026-10-16): the floor's alarms, the
- *     online refunds, lesson refunds and player reports (each opening in
- *     place), and the people records, then what only the owner answers and
- *     nothing else in the venue will surface:
- *       - staff requests (a person is waiting for an answer);
- *       - new staff suggestions (build-contracts-2026-09-23 §5.4);
- *       - scheduled campaigns whose start date has passed, and live campaigns
- *         whose last day has passed. Nothing moves a campaign's status on its
- *         own (app.set_campaign_status is the only writer).
- *     Three rows show and the rest wait behind "View more". When nothing is
- *     waiting it says so plainly rather than disappearing.
- *  2. **What is the floor doing?** On the floor now with the live floor plan
- *     under it, who worked today, and so far today.
- *
- * Management rebuild (2026-10-17): the grid of one card per Observe screen is
- * gone, because the rail beside it already lists them, and "Before you close"
- * and "Stock to watch" are left to the sections that own them (FloorNow's
- * `observe` variant). Every row of "Needs you" still links to its screen.
- *
- * Figures come from reads the other Observe screens already make:
- * `ops_overview` (under the same query key as Today, so the two share a
- * cache), `staff_requests_page`, `marketing_overview`, and the rail badges'
+ * Three rows show and the rest wait behind "View more"; when nothing is
+ * waiting it says so plainly. Figures come from reads other screens already
+ * make: `ops_overview` (Today's query key, so the two share a cache),
+ * `staff_requests_page`, `marketing_overview`, and the rail badges'
  * QK.protocolsWaiting and QK.suggestionsNew.
  */
 import { useQuery } from '@tanstack/react-query';
 import { appRpc } from '../../lib/appRpc';
 import { canAccess, useAuth } from '../../lib/auth';
-import { useLocale } from '../../lib/i18n';
-import { PageHeader } from '../../components/kit';
-import { FloorNow, useFloorNowHeading, type ExtraNeed, type FloorNowExtras } from '../ops/OperationsOverview';
+import { NeedsYouNow, type ExtraNeed, type FloorNowExtras } from '../ops/OperationsOverview';
 import { MARKETING_QUERY_KEY, overdueCampaigns, type MarketingOverview } from '../marketing/marketingTypes';
-import { REQUESTS_QUERY_KEY, type StaffRequestsPage } from './requestTypes';
-import { LiveFloor } from '../floor/LiveFloor';
+import { REQUESTS_QUERY_KEY, type StaffRequestsPage } from '../observation/requestTypes';
 import { QK } from '../../lib/queryKeys';
 import { fetchProtocolsWaiting } from '../ops/protocolsWaiting';
 import { fetchSuggestionsNew } from '../roleExtras/api';
@@ -46,8 +31,7 @@ import { newSuggestionCount } from '../roleExtras/roleExtrasLogic';
 import { usePeopleRecordCounts } from '../deductions/peopleRecordCounts';
 import { useShiftDifferences } from '../tillShift/useShiftDifferences';
 
-export function ObservationHomeScreen() {
-  const { tr } = useLocale();
+export function PanelNeedsYou() {
   const { staff } = useAuth();
   const canMarketing = canAccess(staff, '/marketing');
 
@@ -70,7 +54,6 @@ export function ObservationHomeScreen() {
   const people = usePeopleRecordCounts();
   // Wave 5, till shifts (§5.2, §8 Q27): today's closed short or over, to Day close.
   const shiftDiffs = useShiftDifferences(canAccess(staff, '/admin/day-close'));
-  const heading = useFloorNowHeading();
 
   const extras = useOwnerNeeds({
     pendingQ,
@@ -81,13 +64,7 @@ export function ObservationHomeScreen() {
     shiftDiffs,
   });
 
-  return (
-    <div>
-      <PageHeader title={tr('ws.owner.observationHome.title')} subtitle={heading.subtitle} actions={heading.actions} />
-      {/* The live plan sits after what needs a decision (owner request, 2026-09-18). */}
-      <FloorNow variant="observe" extras={extras} afterAttention={<LiveFloor blockSize="30rem" />} />
-    </div>
-  );
+  return <NeedsYouNow extras={extras} />;
 }
 
 type Read<T> = { data?: T; isPending: boolean; isError: boolean; refetch: () => unknown };

@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, View } from 'react-native';
+import { Alert, RefreshControl, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDateTime, formatIQD, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space, useTheme } from '../../src/theme';
-import { Button, Card, ErrorText, Field, Hint, LinkText, MicroLabel, Screen } from '../../src/components/ui';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+import { Button, Card, Field, Hint, LinkText, MicroLabel, Screen } from '../../src/components/ui';
+import { ScreenWithBar } from '../../src/components/BottomBar';
+import { useFieldChain } from '../../src/components/fieldChain';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { PhotoButton, type AttachedPhoto } from '../../src/components/PhotoButton';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
@@ -71,7 +72,6 @@ function PurchaseScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { status, venueId } = useStaffStatus();
   const params = useLocalSearchParams<{ itemIds?: string }>();
@@ -138,7 +138,11 @@ function PurchaseScreen() {
   const [saved, setSaved] = useState(false);
   const gone = ready && !saved ? missingItemIds(itemIds, openItems).length : 0;
 
-  const [shop, setShop] = useState('');
+  // The shop is the one the driver named last time until they type another
+  // (Sait, 2026-10-17: fill in what the app already knows).
+  const [shopTyped, setShopTyped] = useState<string | null>(null);
+  const lastShop = purchases.data?.purchases.find((p) => p.shop_name)?.shop_name ?? '';
+  const shop = shopTyped ?? lastShop;
   const [receipt, setReceipt] = useState<AttachedPhoto[]>([]);
   const [issues, setIssues] = useState<PurchaseIssue[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -169,7 +173,7 @@ function PurchaseScreen() {
       toast(t('staff.supplies.purchase.form.saved'), 'success');
       setEdited([]);
       setSaved(true);
-      setShop('');
+      setShopTyped(null);
       setReceipt([]);
       setIssues([]);
       refresh();
@@ -221,7 +225,7 @@ function PurchaseScreen() {
   const formError = (): string | null => {
     const issue = issues.find((i) => i.line === undefined);
     if (!issue) return null;
-    if (issue.field === 'shop') return t('staff.supplies.purchase.form.errors.shopTooLong');
+    if (issue.field === 'shop') return null;
     return t(issue.code === 'tooLong' ? 'staff.supplies.purchase.form.errors.tooMany' : 'staff.supplies.purchase.form.errors.lines');
   };
 
@@ -249,6 +253,13 @@ function PurchaseScreen() {
 
   const [shownReceipt, setShownReceipt] = useState<string | null>(null);
 
+  // Next walks every line's amounts (and an extra line's name), then the shop:
+  // three slots a line, the shop after them.
+  const chain = useFieldChain(lines.length * 3 + 1);
+  const shopError = issues.some((i) => i.field === 'shop')
+    ? t('staff.supplies.purchase.form.errors.shopTooLong')
+    : null;
+
   if (status.kind !== 'staff') return null;
 
   const body = { fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.mut2 };
@@ -274,6 +285,7 @@ function PurchaseScreen() {
             {remove}
           </View>
           <Field
+            {...chain.field(index * 3)}
             testID={`staff-purchase.line.${index}.label`}
             label={t('staff.supplies.purchase.form.label')}
             value={line.label}
@@ -283,6 +295,7 @@ function PurchaseScreen() {
           <View style={{ flexDirection: 'row', gap: space.s }}>
             <View style={{ flex: 1 }}>
               <Field
+                {...chain.field(index * 3 + 1, 'numeric')}
                 testID={`staff-purchase.line.${index}.qty`}
                 label={t('staff.supplies.purchase.form.boughtNoUnit')}
                 value={line.qty}
@@ -294,6 +307,7 @@ function PurchaseScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Field
+                {...chain.field(index * 3 + 2, 'numeric')}
                 testID={`staff-purchase.line.${index}.price`}
                 label={t('staff.supplies.purchase.form.paid')}
                 value={line.price}
@@ -330,6 +344,7 @@ function PurchaseScreen() {
         <View style={{ flexDirection: 'row', gap: space.s }}>
           <View style={{ flex: 1 }}>
             <Field
+              {...chain.field(index * 3 + 1, 'numeric')}
               testID={`staff-purchase.line.${index}.qty`}
               label={
                 unitWord
@@ -345,6 +360,7 @@ function PurchaseScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Field
+              {...chain.field(index * 3 + 2, 'numeric')}
               testID={`staff-purchase.line.${index}.price`}
               label={t('staff.supplies.purchase.form.paid')}
               value={line.price}
@@ -362,11 +378,32 @@ function PurchaseScreen() {
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.supplies.purchase.title') }} />
-      <ScrollView
-        contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <ScreenWithBar
+        contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
+        error={formError() ?? error}
+        bar={
+          buyer ? (
+            <>
+              {/* The total rides with Save, so the driver sees it while filling the lines. */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.ink }}>
+                  {t('staff.supplies.purchase.form.total')}
+                </Text>
+                <Text style={{ fontFamily: fonts.display800, fontSize: 17, color: colors.ink }}>
+                  {formatIQD(purchaseTotal(lines), locale)}
+                </Text>
+              </View>
+              <Button
+                testID="staff-purchase.save"
+                label={t('staff.supplies.purchase.form.save')}
+                variant="primary"
+                busy={save.isPending}
+                onPress={onSave}
+              />
+            </>
+          ) : null
+        }
       >
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
 
@@ -395,13 +432,15 @@ function PurchaseScreen() {
               onPress={() => setLines((all) => [...all, emptyFreeLine()])}
             />
             <Field
+              {...chain.field(lines.length * 3)}
               testID="staff-purchase.shop"
               label={t('staff.supplies.purchase.form.shop')}
               value={shop}
               onChangeText={(value) => {
-                setShop(value);
+                setShopTyped(value);
                 setIssues((all) => all.filter((x) => x.field !== 'shop'));
               }}
+              error={shopError}
             />
             <View style={{ gap: space.xs }}>
               <GroupLabel>{t('staff.supplies.purchase.form.receipt')}</GroupLabel>
@@ -416,22 +455,6 @@ function PurchaseScreen() {
               />
               <Hint style={{ marginTop: 0 }}>{t('staff.supplies.purchase.form.receiptHint')}</Hint>
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.ink }}>
-                {t('staff.supplies.purchase.form.total')}
-              </Text>
-              <Text style={{ fontFamily: fonts.display800, fontSize: 17, color: colors.ink }}>
-                {formatIQD(purchaseTotal(lines), locale)}
-              </Text>
-            </View>
-            <ErrorText>{formError() ?? error}</ErrorText>
-            <Button
-              testID="staff-purchase.save"
-              label={t('staff.supplies.purchase.form.save')}
-              variant="primary"
-              busy={save.isPending}
-              onPress={onSave}
-            />
           </Card>
         ) : (
           <Hint>{t('staff.supplies.purchase.list.mgmtNote')}</Hint>
@@ -451,7 +474,7 @@ function PurchaseScreen() {
             onRetry={() => void purchases.refetch()}
           />
         ) : rows.length === 0 ? (
-          <Hint>{t('staff.supplies.purchase.list.empty')}</Hint>
+          <EmptyState centered testID="staff-purchase.empty" title={t('staff.supplies.purchase.list.empty')} />
         ) : (
           rows.map((p) => (
             <Card key={p.id} style={{ padding: space.m, gap: 6 }}>
@@ -517,7 +540,8 @@ function PurchaseScreen() {
             </Card>
           ))
         )}
-      </ScrollView>
+        {chain.bar}
+      </ScreenWithBar>
     </Screen>
   );
 }

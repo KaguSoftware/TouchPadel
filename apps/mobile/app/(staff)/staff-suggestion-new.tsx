@@ -1,18 +1,17 @@
 import { useState } from 'react';
-import { ScrollView } from 'react-native';
 import { Stack } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space } from '../../src/theme';
-import { Button, Card, ErrorText, Field, Hint, Screen } from '../../src/components/ui';
+import { Button, Card, Field, Hint, Screen } from '../../src/components/ui';
+import { ScreenWithBar } from '../../src/components/BottomBar';
 import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { staffKeys } from '../../src/features/staff/keys';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
-import { useBack } from '../../src/navigation/back';
+import { useBackToItem } from '../../src/navigation/back';
 import { addSuggestion } from '../../src/features/staff/suggestions/api';
 import {
   BODY_MAX,
@@ -32,8 +31,8 @@ import { Lead, MULTILINE_BOX, MULTILINE_TEXT } from '../../src/features/staff/ch
 function SuggestionNewScreen() {
   const { t } = useLocale();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
-  const back = useBack('/staff-suggestions');
+  // Back to the list, the new suggestion first and marked.
+  const showInList = useBackToItem('/staff-suggestions');
   const queryClient = useQueryClient();
   const { status, venueId } = useStaffStatus();
   const staff = status.kind === 'staff' ? status.staff : null;
@@ -48,7 +47,7 @@ function SuggestionNewScreen() {
     mutationKey: staffKeys.mutation('suggestion'),
     mutationFn: (text: string) =>
       addSuggestion(venue, text, staffIntentKey(suggestionIntent(venue, text), 'suggestion')),
-    onSuccess: (_result, text) => {
+    onSuccess: (result, text) => {
       clearStaffIntentKey(suggestionIntent(venue, text));
       toast(t('staff.checklists.suggestions.sent'), 'success');
       void queryClient.invalidateQueries({ queryKey: staffKeys.mySuggestions(venue) });
@@ -57,7 +56,7 @@ function SuggestionNewScreen() {
           void queryClient.invalidateQueries({ queryKey: staffKeys.suggestions(venue, f) });
         }
       }
-      back();
+      showInList(result.id);
     },
     onError: (err) => setError(t(mapStaffError(err))),
   });
@@ -72,14 +71,19 @@ function SuggestionNewScreen() {
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.checklists.suggestions.new') }} />
-      <ScrollView
-        contentContainerStyle={{
-          paddingTop: space.m,
-          paddingBottom: 40 + insets.bottom,
-          gap: space.sm,
-        }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <ScreenWithBar
+        contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}
+        error={error}
+        bar={
+          <Button
+            testID="staff-suggestion-new.submit"
+            label={t('staff.checklists.suggestions.submit')}
+            variant="primary"
+            busy={send.isPending}
+            disabled={venue === ''}
+            onPress={onSend}
+          />
+        }
       >
         <Lead>{t('staff.checklists.suggestions.lead')}</Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
@@ -107,17 +111,8 @@ function SuggestionNewScreen() {
             }
           />
           <Hint style={{ marginTop: 0 }}>{t('staff.checklists.noGuestData')}</Hint>
-          <ErrorText>{error}</ErrorText>
-          <Button
-            testID="staff-suggestion-new.submit"
-            label={t('staff.checklists.suggestions.submit')}
-            variant="primary"
-            busy={send.isPending}
-            disabled={venue === ''}
-            onPress={onSend}
-          />
         </Card>
-      </ScrollView>
+      </ScreenWithBar>
     </Screen>
   );
 }

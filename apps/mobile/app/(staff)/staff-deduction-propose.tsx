@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
-import { ScrollView } from 'react-native';
 import { Stack } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { parseTypedAmount, parseTypedDate, type StaffRole } from '@touch/core';
 import { formatDate, formatIQD, isolate, type MessageKey } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space, useTheme } from '../../src/theme';
-import { Button, Card, ErrorText, Field, Hint, Screen } from '../../src/components/ui';
+import { Button, Card, Field, Hint, Screen } from '../../src/components/ui';
+import { ScreenWithBar } from '../../src/components/BottomBar';
+import { useFieldChain } from '../../src/components/fieldChain';
 import { ErrorState } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
@@ -16,7 +16,7 @@ import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { staffKeys } from '../../src/features/staff/keys';
 import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
-import { useBack } from '../../src/navigation/back';
+import { useBackToItem } from '../../src/navigation/back';
 import {
   GroupLabel,
   Lead,
@@ -63,8 +63,8 @@ function DeductionProposeScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
-  const back = useBack('/staff-deductions');
+  // Back to the list, the new proposal first and marked.
+  const showInList = useBackToItem('/staff-deductions');
   const queryClient = useQueryClient();
   const { status, venueId } = useStaffStatus();
 
@@ -93,6 +93,13 @@ function DeductionProposeScreen() {
   );
 
   const [draft, setDraft] = useState<DeductionDraft>(() => emptyDeductionDraft(today));
+  // With one person to choose, they are chosen once the list arrives (Sait,
+  // 2026-10-17: fill in what the app already knows); Change still clears it.
+  const [autoPicked, setAutoPicked] = useState(false);
+  if (!autoPicked && targetOptions.length === 1 && !draft.staffId) {
+    setAutoPicked(true);
+    setDraft((d) => ({ ...d, staffId: targetOptions[0]!.id }));
+  }
   const [issues, setIssues] = useState<DeductionIssue[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,7 +112,7 @@ function DeductionProposeScreen() {
     mutationKey: staffKeys.mutation('deduction'),
     mutationFn: ({ args, intent }: { args: ReturnType<typeof deductionArgs>; intent: string }) =>
       proposeDeduction(args, staffIntentKey(intent, 'deduction')),
-    onSuccess: (_data, { intent }) => {
+    onSuccess: (data, { intent }) => {
       clearStaffIntentKey(intent);
       toast(
         t(atOnce ? 'staff.deductions.propose.recorded' : 'staff.deductions.propose.sent'),
@@ -113,7 +120,7 @@ function DeductionProposeScreen() {
       );
       void queryClient.invalidateQueries({ queryKey: staffKeys.myDeductionProposals(venue) });
       void queryClient.invalidateQueries({ queryKey: staffKeys.deductionsWaiting(venue) });
-      back();
+      showInList(data.id);
     },
     onError: (err) => setError(t(mapStaffError(err))),
   });
@@ -150,6 +157,9 @@ function DeductionProposeScreen() {
     return t(keys[field], { example: isolate(today) });
   };
 
+  // Next walks amount and date; Done on the date sends.
+  const chain = useFieldChain(2);
+
   if (status.kind !== 'staff') return null;
 
   const body = { fontFamily: fonts.body400, fontSize: 13, lineHeight: 19, color: colors.mut2 };
@@ -160,15 +170,21 @@ function DeductionProposeScreen() {
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.deductions.propose.title') }} />
-      <ScrollView
-        contentContainerStyle={{
-          paddingTop: space.m,
-          paddingBottom: 40 + insets.bottom,
-          gap: space.sm,
-        }}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}
+      <ScreenWithBar
+        contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}
+        error={error}
+        bar={
+          <Button
+            testID="staff-deduction-propose.submit"
+            label={t(
+              atOnce ? 'staff.deductions.propose.submitOwner' : 'staff.deductions.propose.submit',
+            )}
+            variant="primary"
+            busy={propose.isPending}
+            disabled={venue === '' || !access.proposes}
+            onPress={onPropose}
+          />
+        }
       >
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
         <Lead>
@@ -203,6 +219,7 @@ function DeductionProposeScreen() {
             />
           )}
           <Field
+            {...chain.field(0, 'numeric')}
             testID="staff-deduction-propose.amount"
             label={t('staff.deductions.propose.amount')}
             value={draft.amount}
@@ -215,6 +232,7 @@ function DeductionProposeScreen() {
             <Hint style={{ marginTop: 0 }}>{formatIQD(amountPreview, locale)}</Hint>
           ) : null}
           <Field
+            {...chain.field(1)}
             testID="staff-deduction-propose.date"
             label={t('staff.deductions.propose.date')}
             value={draft.date}
@@ -256,19 +274,9 @@ function DeductionProposeScreen() {
                     : 'staff.deductions.propose.consequenceAnyone',
                 )}
           </Text>
-          <ErrorText>{error}</ErrorText>
-          <Button
-            testID="staff-deduction-propose.submit"
-            label={t(
-              atOnce ? 'staff.deductions.propose.submitOwner' : 'staff.deductions.propose.submit',
-            )}
-            variant="primary"
-            busy={propose.isPending}
-            disabled={venue === '' || !access.proposes}
-            onPress={onPropose}
-          />
         </Card>
-      </ScrollView>
+        {chain.bar}
+      </ScreenWithBar>
     </Screen>
   );
 }

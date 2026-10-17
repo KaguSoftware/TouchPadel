@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { StaffRole } from '@touch/core';
 import { formatDate, formatIQD, formatMonthYear, isolate } from '@touch/i18n';
@@ -9,7 +9,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, Hint, MicroLabel, Screen, SegmentedControl } from '../../src/components/ui';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { BackChevronIcon, ChevronIcon } from '../../src/components/icons';
 import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
@@ -26,7 +26,9 @@ import {
   fetchMyDeductionProposals,
   fetchMyDeductions,
   withdrawDeduction,
+  type MyDeductionProposals,
 } from '../../src/features/staff/deductions/api';
+import { cacheEdit, useUndoable } from '../../src/features/staff/undo';
 import {
   DEDUCTION_TONE,
   canWithdraw,
@@ -137,33 +139,26 @@ function DeductionsScreen() {
   );
 
   // ── Withdraw ───────────────────────────────────────────────────────────────
-  const withdraw = useMutation({
-    mutationKey: staffKeys.mutation('deduction.withdraw'),
-    mutationFn: (id: string) => withdrawDeduction(id),
-    onSuccess: () => {
-      toast(t('staff.deductions.proposals.withdrawn'), 'info');
-      void queryClient.invalidateQueries({ queryKey: staffKeys.myDeductionProposals(venue) });
-      void queryClient.invalidateQueries({ queryKey: staffKeys.deductionsWaiting(venue) });
-    },
-    onError: (err) => {
-      toast(t(mapStaffError(err)), 'error');
-      void queryClient.invalidateQueries({ queryKey: staffKeys.myDeductionProposals(venue) });
-    },
-  });
-
-  const confirmWithdraw = (id: string) =>
-    Alert.alert(
-      t('staff.deductions.proposals.withdrawTitle'),
-      t('staff.deductions.proposals.withdrawBody'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('staff.deductions.proposals.withdraw'),
-          style: 'destructive',
-          onPress: () => withdraw.mutate(id),
-        },
-      ],
-    );
+  // Withdraw at once, with Undo on the toast instead of "Are you sure?"
+  // (Sait, 2026-10-17); the call goes when the toast's time is up.
+  const undoable = useUndoable();
+  const withdraw = (id: string) =>
+    undoable({
+      message: t('staff.deductions.proposals.withdrawn'),
+      ...cacheEdit<MyDeductionProposals>(queryClient, staffKeys.myDeductionProposals(venue), (mine) => ({
+        ...mine,
+        proposals: mine.proposals.map((p) => (p.id === id ? { ...p, status: 'withdrawn' } : p)),
+      })),
+      send: () => withdrawDeduction(id),
+      onSent: () => {
+        void queryClient.invalidateQueries({ queryKey: staffKeys.myDeductionProposals(venue) });
+        void queryClient.invalidateQueries({ queryKey: staffKeys.deductionsWaiting(venue) });
+      },
+      onError: (err) => {
+        toast(t(mapStaffError(err)), 'error');
+        void queryClient.invalidateQueries({ queryKey: staffKeys.myDeductionProposals(venue) });
+      },
+    });
 
   if (status.kind !== 'staff') return null;
 
@@ -201,7 +196,7 @@ function DeductionsScreen() {
       ) : proposals.isError ? (
         loadError('staff-deductions.proposals-error', proposals)
       ) : (proposals.data?.proposals ?? []).length === 0 ? (
-        <Hint>{t('staff.deductions.proposals.empty')}</Hint>
+        <EmptyState centered testID="staff-deductions.proposals-empty" title={t('staff.deductions.proposals.empty')} />
       ) : (
         <ListCard>
           {namedFirst(proposals.data?.proposals ?? [], params.id).map((p, i, all) => (
@@ -248,8 +243,7 @@ function DeductionsScreen() {
                   testID={`staff-deductions.withdraw.${p.id}`}
                   label={t('staff.deductions.proposals.withdraw')}
                   variant="ghost"
-                  busy={withdraw.isPending && withdraw.variables === p.id}
-                  onPress={() => confirmWithdraw(p.id)}
+                  onPress={() => withdraw(p.id)}
                   style={{ alignSelf: 'flex-start', marginTop: 2 }}
                 />
               ) : null}
@@ -331,7 +325,7 @@ function DeductionsScreen() {
       ) : mine.isError ? (
         loadError('staff-deductions.mine-error', mine)
       ) : mineRows.length === 0 ? (
-        <Hint>{t('staff.deductions.mine.empty', { month: monthLabel(shownMonth, locale) })}</Hint>
+        <EmptyState centered testID="staff-deductions.mine-empty" title={t('staff.deductions.mine.empty', { month: monthLabel(shownMonth, locale) })} />
       ) : (
         <>
           {/* The month's one figure: what was approved to come off pay. */}

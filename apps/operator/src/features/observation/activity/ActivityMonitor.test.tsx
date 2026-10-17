@@ -89,7 +89,7 @@ describe('ActivityMonitorScreen', () => {
     expect(within(op).getByText('Online')).toBeTruthy();
     expect(plain(op.textContent)).toContain('Last seen 2 min ago');
     // The operator screen is named by its rail row, not its path.
-    expect(within(op).getByText(/Screen: Tills/)).toBeTruthy();
+    expect(within(op).getByText(/Screen: Open tabs/)).toBeTruthy();
     expect(mob.dataset.status).toBe('away');
     expect(within(mob).getByText('Away')).toBeTruthy();
     expect(within(mob).getByText(/\/staff-order/)).toBeTruthy();

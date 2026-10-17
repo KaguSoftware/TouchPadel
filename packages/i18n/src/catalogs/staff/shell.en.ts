@@ -12,13 +12,33 @@ export const staffShellEn = {
     roleAtVenue: '{role} · {venue}',
     // Today's pages, in short lists (app/staff.tsx ROW_GROUPS).
     groups: {
-      protocols: 'Protocols & ideas',
-      supplies: 'Stock & supplies',
+      protocols: 'Menu changes',
+      supplies: 'Stock & buying',
       recipes: 'Recipes & teaching',
       daily: 'Daily work',
-      team: 'Requests',
+      // Heads and management only: pay deductions (Sait, 2026-10-17).
+      people: 'Team',
+      team: 'My requests',
     },
+    sections: {
+      create: 'Add new',
+      open: 'Open',
+    },
+    // A page that stays on Today with nothing in it (Sait, 2026-10-17).
+    nothingNow: '{page} · nothing now',
   },
+  // One set of status words for every staff list (Sait, 2026-10-17).
+  status: {
+    waiting: 'Waiting',
+    approved: 'Approved',
+    done: 'Done',
+    declined: 'Declined',
+    withdrawn: 'Withdrawn',
+    cancelled: 'Cancelled',
+  },
+  // A form's optional fields, folded until asked for (Sait, 2026-10-17).
+  addDetails: 'Add details',
+  hideDetails: 'Hide details',
   venue: {
     label: 'Working at',
     none: 'No venue is linked to your account yet. Ask the owner to add you to one.',
@@ -78,7 +98,7 @@ export const staffShellEn = {
     title: 'Requests',
     lead: 'Ask for leave, a shift swap, a wage advance or a correction to your record. The owner decides.',
     // The owner reads requests here and decides them on the operator (plan #16, #56).
-    decideOnOperator: 'Decide in Observe ▸ Requests on the operator.',
+    decideOnOperator: 'Decide in Team ▸ Staff inbox ▸ Staff requests on the operator.',
     managerNote: 'The owner decides requests. Your team’s requests are listed here too.',
     newTitle: 'New request',
     kind: 'Asking for',

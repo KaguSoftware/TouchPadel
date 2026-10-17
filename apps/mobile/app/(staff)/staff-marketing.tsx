@@ -9,7 +9,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Field, Hint, MicroLabel, Screen, SegmentedControl } from '../../src/components/ui';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { MenuRow } from '../../src/components/booking';
 import { CheckIcon, EnvelopeIcon } from '../../src/components/icons';
 import { useToast } from '../../src/components/overlays';
@@ -687,7 +687,7 @@ function MarketingScreen() {
       ) : results.isError ? (
         loadError('staff-marketing.results-error', results)
       ) : (results.data?.campaigns ?? []).length === 0 ? (
-        <Hint>{t('staff.marketing.results.empty')}</Hint>
+        <EmptyState centered testID="staff-marketing.results-empty" title={t('staff.marketing.results.empty')} />
       ) : (
         (results.data?.campaigns ?? []).map(resultCard)
       )}

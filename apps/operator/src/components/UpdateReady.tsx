@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { useLocale } from '../lib/i18n';
 import { Button } from './ui';
 import { Icon } from './icons';
+import { railLabelStyle } from './railStyles';
 
 /**
  * "Update ready — restart" (design-arch §2.5). The shell downloads updates
@@ -63,7 +64,7 @@ export function UpdateReadyControl({
       style={{ ...style, color: 'var(--tp-rail-green)', fontWeight: 600 }}
     >
       <Icon name="refresh" size={16} />
-      <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={railLabelStyle}>
         {tr('ws.shell.nav.updateReady')} <span dir="ltr">{version}</span>
       </span>
     </button>

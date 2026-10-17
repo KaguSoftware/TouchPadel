@@ -1,13 +1,12 @@
 /**
- * `/observation` LAYOUT route — Management's Observation section. Children
- * attach in main.tsx via routes/observation/_children.ts.
+ * `/observation` LAYOUT route — the owner's view-only boards and inboxes
+ * (bookings, open tabs, who is working, staff requests). Children attach in
+ * main.tsx via routes/observation/_children.ts. `/observation` alone was the
+ * owner's Floor now page; its "Needs you" list moved to the Overview (page
+ * map, 2026-10-17), so it sends the owner there.
  */
-import { Outlet, createRoute } from '@tanstack/react-router';
+import { Outlet, createRoute, redirect } from '@tanstack/react-router';
 import { rootRoute, RequireRole } from './__root';
-import { RoutePending, guarded } from './admin/_shared';
-import { lazyRouteComponent } from '@tanstack/react-router';
-
-const ObservationHome = lazyRouteComponent(() => import('../features/observation/ObservationHome'), 'ObservationHomeScreen');
 
 export const observationRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -22,7 +21,7 @@ export const observationRoute = createRoute({
 export const observationIndexRoute = createRoute({
   getParentRoute: () => observationRoute,
   path: '/',
-  component: guarded('/observation', ObservationHome),
-  pendingComponent: RoutePending,
-  wrapInSuspense: true,
+  beforeLoad: () => {
+    throw redirect({ to: '/panel', replace: true });
+  },
 });

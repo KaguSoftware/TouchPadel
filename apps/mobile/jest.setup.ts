@@ -146,6 +146,8 @@ jest.mock('expo-router', () => {
     replace: record('replace'),
     navigate: record('navigate'),
     back: record('back'),
+    // The start's pages come off the stack when a start lands (staff-start.tsx).
+    dismiss: record('dismiss'),
     dismissAll: record('dismissAll'),
     // app/pay/return.tsx pops back to the payment screen already underneath.
     dismissTo: record('dismissTo'),

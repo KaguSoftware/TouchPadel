@@ -33,9 +33,11 @@ describe('buildGoToEntries', () => {
   it('lists every page and tab of Management, each with where it lives', () => {
     const entries = entriesFor('owner', 'owner');
     const safe = entries.find((e) => e.to === '/safe')!;
-    expect(safe.label).toBe('Safe');
+    expect(safe.label).toBe('Main cash');
     expect(safe.trail).toBe('Financial › Cash');
-    expect(entries.find((e) => e.to === '/admin/settings/deposit')?.trail).toBe('Setup › Courts');
+    // The same page showing what was paid out is Pay's.
+    expect(entries.find((e) => e.to === '/safe' && e.search?.show === 'payments')?.trail).toBe('Financial › Pay');
+    expect(entries.find((e) => e.to === '/admin/settings/deposit')?.trail).toBe('Courts › Court settings');
     expect(entries.find((e) => e.to === '/panel')?.trail).toBe('Management');
     // Hidden rows are drill-through targets, not places to go.
     expect(entries.map((e) => e.to)).not.toContain('/ops');

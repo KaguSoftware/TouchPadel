@@ -116,6 +116,8 @@ export const staffKeys = {
   ideasToReview: (venue: string) => ['staff', 'ideasToReview', venue] as const,
   cafeCategories: (venue: string) => ['staff', 'cafeCategories', venue] as const,
   courts: (venue: string) => ['staff', 'courts', venue] as const,
+  /** A day's court bookings, for the tournament start's courts step. */
+  courtBookings: (venue: string, day: string) => ['staff', 'courtBookings', venue, day] as const,
   /** The accounts a hiring run's add_staff step may send (protocols/api.ts `fetchNewHires`). */
   newHires: (runId: string) => ['staff', 'newHires', runId] as const,
   // Wave 5, the people records (P, wave5-addendum-2026-09-25 §5.3). `month`

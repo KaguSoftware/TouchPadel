@@ -22,6 +22,7 @@ export const staffContentAr: DeepMessages<typeof staffContentEn> = {
     againImages: 'تبقى الصور مع المنشور السابق. أضفها من جديد إن احتجتها.',
     link: 'رابط لفيديو أو تصميم · اختياري',
     linkHint: 'رابط كامل يبدأ بـ https://. يراه المالك نصًا.',
+    detailsSummary: 'الرابط، ملاحظة للمالك',
     note: 'ملاحظة للمالك · اختياري',
     about: 'يخصّ أيضًا',
     abouts: {

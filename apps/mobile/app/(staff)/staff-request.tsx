@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
-import { Alert, RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate, formatIQD, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space, useTheme } from '../../src/theme';
 import { Button, Hint, MicroLabel, Screen } from '../../src/components/ui';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { MenuRow } from '../../src/components/booking';
 import { CardIcon } from '../../src/components/icons';
 import { useToast } from '../../src/components/overlays';
@@ -18,12 +18,14 @@ import {
   fetchStaffRequests,
   withdrawStaffRequest,
   type StaffRequestRow,
+  type StaffRequestsPage,
 } from '../../src/features/staff/api';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { staffKeys } from '../../src/features/staff/keys';
 import { isMgmt } from '../../src/features/staff/protocols/logic';
 import { ListCard, StatusPill, type Tone } from '../../src/features/staff/protocols/parts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { cacheEdit, useUndoable } from '../../src/features/staff/undo';
 import { useHeaderAddOptions } from '../../src/navigation/headerAdd';
 import { Lead } from '../../src/features/staff/checklists/parts';
 
@@ -75,26 +77,20 @@ function RequestsScreen() {
   // operator shows here without leaving the page.
   const pull = usePullRefresh(refetchList);
 
-  const withdraw = useMutation({
-    mutationKey: staffKeys.mutation('request.withdraw'),
-    mutationFn: (id: string) => withdrawStaffRequest(id),
-    onSuccess: () => {
-      toast(t('staff.shell.requests.withdrawn'), 'info');
-      void refetchList();
-    },
-    onError: (err) => toast(t(mapStaffError(err)), 'error'),
-  });
-
-  const confirmWithdraw = (id: string) => {
-    Alert.alert(t('staff.shell.requests.withdraw'), t('staff.shell.requests.withdrawConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('staff.shell.requests.withdraw'),
-        style: 'destructive',
-        onPress: () => withdraw.mutate(id),
-      },
-    ]);
-  };
+  // Withdraw at once, with Undo on the toast instead of "Are you sure?"
+  // (Sait, 2026-10-17); the call goes when the toast's time is up.
+  const undoable = useUndoable();
+  const withdraw = (id: string) =>
+    undoable({
+      message: t('staff.shell.requests.withdrawn'),
+      ...cacheEdit<StaffRequestsPage>(queryClient, staffKeys.requests(uid), (page) => ({
+        ...page,
+        requests: page.requests.map((r) => (r.id === id ? { ...r, status: 'withdrawn' } : r)),
+      })),
+      send: () => withdrawStaffRequest(id),
+      onSent: () => void refetchList(),
+      onError: (err) => toast(t(mapStaffError(err)), 'error'),
+    });
 
   const rows = useMemo(() => {
     const list = requests.data?.requests ?? [];
@@ -171,7 +167,7 @@ function RequestsScreen() {
               onRetry={() => void requests.refetch()}
             />
           ) : rows.length === 0 ? (
-            <Hint>{t('staff.shell.requests.empty')}</Hint>
+            <EmptyState centered testID="staff-request.empty" title={t('staff.shell.requests.empty')} />
           ) : (
             // One list, split by hairlines; the status is the same pill the
             // protocol pages use, so "waiting" looks the same everywhere.
@@ -257,8 +253,7 @@ function RequestsScreen() {
                         testID={`staff-request.withdraw.${row.id}`}
                         label={t('staff.shell.requests.withdraw')}
                         variant="ghost"
-                        busy={withdraw.isPending && withdraw.variables === row.id}
-                        onPress={() => confirmWithdraw(row.id)}
+                        onPress={() => withdraw(row.id)}
                         style={{ alignSelf: 'flex-start', marginTop: 4 }}
                       />
                     ) : null}

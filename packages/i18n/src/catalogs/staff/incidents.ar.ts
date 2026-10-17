@@ -47,6 +47,31 @@ export const staffIncidentsAr: DeepMessages<typeof staffIncidentsEn> = {
     reviewedBy: 'راجعه {name}: {note}',
     from: '{name} · {role}',
     reportedAt: 'أُبلغ عنه {when}',
+    waiting: 'بانتظار المراجعة',
+    reviewedByName: 'راجعه {name}',
+    waitingLong: 'بانتظار المراجعة. تظهر الملاحظة هنا بعد المراجعة.',
+    details: 'اضغط لمزيد من التفاصيل',
+  },
+  days: {
+    today: 'اليوم',
+    yesterday: 'أمس',
+    day: '{weekday} {day} {month}',
+  },
+  count: {
+    reports: {
+      zero: 'لا بلاغات',
+      one: 'بلاغ واحد',
+      two: 'بلاغان',
+      few: '{count} بلاغات',
+      many: '{count} بلاغًا',
+      other: '{count} بلاغ',
+    },
+  },
+  sheet: {
+    whatHappened: 'ماذا حدث',
+    people: 'الأشخاص المعنيون',
+    photos: 'الصور',
+    review: 'المراجعة',
   },
   review: {
     filters: {

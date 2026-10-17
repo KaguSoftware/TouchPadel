@@ -59,6 +59,24 @@ export function useBack(fallback: Href = '/(tabs)'): () => void {
  *
  * Stable across renders, so it is safe in an effect's dependency list.
  */
+/**
+ * Back to a list with the item just sent on it (Sait, 2026-10-17: after
+ * sending, show it in the list): the list's `?id=` lists that row first and
+ * marks it, as it does for an item a push names. The list under the form is
+ * returned to with the id; with nothing under it, the list opens.
+ */
+export function useBackToItem(list: '/staff-request' | '/staff-suggestions' | '/staff-marketing-requests' | '/staff-deductions'): (id: string) => void {
+  const router = useRouter();
+  return useCallback(
+    (id: string) => {
+      const href = { pathname: list, params: { id } } as const;
+      if (router.canGoBack()) router.dismissTo(href);
+      else router.replace(href);
+    },
+    [router, list],
+  );
+}
+
 export function useResetTo(): (href: Href) => void {
   const router = useRouter();
   const container = useNavigationContainerRef();

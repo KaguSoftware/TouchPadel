@@ -338,8 +338,8 @@ describe.each(LOCALES)('Today in %s', (locale) => {
       fireEvent.press(screen.getByTestId('staff.group.team'));
       expect(routerState.calls).toEqual([]);
       const list = screen.getByTestId('staff.sheet.list');
-      fireEvent.press(within(list).getByTestId('staff.row.deductions'));
-      expect(routerState.calls).toEqual([{ method: 'push', arg: '/staff-deductions' }]);
+      fireEvent.press(within(list).getByTestId('staff.requests'));
+      expect(routerState.calls).toEqual([{ method: 'push', arg: '/staff-request' }]);
       expect(screen.queryByTestId('staff.sheet.list')).toBeNull();
     } finally {
       screen.unmount();
@@ -354,12 +354,12 @@ describe.each(LOCALES)('Today in %s', (locale) => {
       params: { group: 'team' },
     });
     try {
-      fireEvent.press(screen.getByTestId('staff.row.deductions'));
+      fireEvent.press(screen.getByTestId('staff.requests'));
       // Nothing under the sheet in a test (canGoBack is false), so the close
       // lands on Today before the page is pushed.
       expect(routerState.calls).toEqual([
         { method: 'replace', arg: '/staff' },
-        { method: 'push', arg: '/staff-deductions' },
+        { method: 'push', arg: '/staff-request' },
       ]);
     } finally {
       screen.unmount();
@@ -367,7 +367,7 @@ describe.each(LOCALES)('Today in %s', (locale) => {
   });
 
   // Wave 5 (wave5-addendum-2026-09-25 §5.3): the people records' counted rows.
-  it('counts the reports a manager can review, and puts deductions with the requests', () => {
+  it('counts the reports a manager can review, and puts deductions in the Team group', () => {
     const manager: Options = {
       locale,
       staff: { role: 'manager' },
@@ -394,11 +394,11 @@ describe.each(LOCALES)('Today in %s', (locale) => {
         ).toBeTruthy(),
       ),
     ).toBe(true);
-    const team = renderRoute(StaffGroup, { ...manager, params: { group: 'team' } });
+    const people = renderRoute(StaffGroup, { ...manager, params: { group: 'people' } });
     try {
-      expect(team.getByTestId('staff.row.deductions')).toBeTruthy();
+      expect(people.getByTestId('staff.row.deductions')).toBeTruthy();
     } finally {
-      team.unmount();
+      people.unmount();
     }
   });
 
@@ -454,9 +454,9 @@ describe.each(LOCALES)('Today in %s', (locale) => {
   });
 
   // Owner, 2026-09-28: Place an order replaces Scan an order on the floor
-  // group; Protocols shows only to management or with a run that involves the
-  // person; Notes on new items only while one is at its feedback stage.
-  it('gives the waiter Place an order, and no Protocols or Notes with nothing in them', () => {
+  // group. Sait, 2026-10-17: Protocols and Notes on new items stay on Today
+  // and say "nothing now" when empty, so the tiles never move.
+  it('gives the waiter Place an order, and Protocols and Notes saying nothing now', () => {
     const waiter: Options = {
       locale,
       staff: { role: 'waiter' },
@@ -473,8 +473,16 @@ describe.each(LOCALES)('Today in %s', (locale) => {
       }),
     ).toBe(true);
     expect(withRow(waiter, 'staff.row.order-slip')).toBe(false);
-    expect(withRow(waiter, 'staff.row.protocols')).toBe(false);
-    expect(withRow(waiter, 'staff.row.notes')).toBe(false);
+    for (const [id, key] of [
+      ['staff.row.protocols', 'staff.protocols.runs.title'],
+      ['staff.row.notes', 'staff.notes.title'],
+    ] as const) {
+      expect(
+        withRow(waiter, id, (row) => {
+          expect(within(row).getByText(t('staff.shell.today.nothingNow', { page: t(key) }))).toBeTruthy();
+        }),
+      ).toBe(true);
+    }
   });
 
   it('shows Protocols with a run that involves them, and Notes with an item at its feedback stage', () => {
@@ -500,18 +508,50 @@ describe.each(LOCALES)('Today in %s', (locale) => {
         ],
       ],
     };
-    expect(withRow(waiter, 'staff.row.protocols')).toBe(true);
-    expect(withRow(waiter, 'staff.row.notes')).toBe(true);
+    expect(
+      withRow(waiter, 'staff.row.protocols', (row) => {
+        expect(within(row).getByText(t('staff.protocols.runs.title'))).toBeTruthy();
+      }),
+    ).toBe(true);
+    expect(
+      withRow(waiter, 'staff.row.notes', (row) => {
+        expect(within(row).getByText(t('staff.notes.title'))).toBeTruthy();
+      }),
+    ).toBe(true);
   });
 
-  it('always shows management the Protocols row', () => {
+  it('always shows management the Protocols row by its name', () => {
     const manager: Options = {
       locale,
       staff: { role: 'manager' },
       queryData: [[staffKeys.notes(V), []]],
     };
-    expect(withRow(manager, 'staff.row.protocols')).toBe(true);
-    expect(withRow(manager, 'staff.row.notes')).toBe(false);
+    expect(
+      withRow(manager, 'staff.row.protocols', (row) => {
+        expect(within(row).getByText(t('staff.protocols.runs.title'))).toBeTruthy();
+      }),
+    ).toBe(true);
+    expect(withRow(manager, 'staff.row.notes')).toBe(true);
+  });
+
+  // Sait, 2026-10-17: a deduction is proposed about someone, so it has its own
+  // Team group for the heads and management; Ask marketing is daily work.
+  it('puts Pay deductions in the Team group and Ask marketing in Daily work', () => {
+    const manager: Options = { locale, staff: { role: 'manager' } };
+    const groupOf = (id: string) => {
+      for (const { key } of ROW_GROUPS) {
+        const screen = renderRoute(StaffGroup, { ...manager, params: { group: key } });
+        try {
+          if (screen.queryByTestId(id)) return key;
+        } finally {
+          screen.unmount();
+        }
+      }
+      return null;
+    };
+    expect(groupOf('staff.row.deductions')).toBe('people');
+    expect(groupOf('staff.row.ask-marketing')).toBe('daily');
+    expect(groupOf('staff.requests')).toBe('team');
   });
 
   it('opens the guest view from the account', () => {

@@ -10,8 +10,9 @@
  * larger than the source shows refused before it is sent, the blind count, and
  * the stock page by store.
  */
-import { describe, expect, it } from '@jest/globals';
-import { fireEvent } from '@testing-library/react-native';
+import { describe, expect, it, jest } from '@jest/globals';
+import { ActionSheetIOS } from 'react-native';
+import { fireEvent, within } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
@@ -379,7 +380,7 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
     }
   });
 
-  it('splits the stock page by store for the waiter, and keeps the desk’s one list', () => {
+  it('splits the stock page by store for the waiter, and keeps the desk’s one list', async () => {
     const view: StockView = {
       as_of: '2026-09-26T09:00:00Z',
       items: [
@@ -424,9 +425,19 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
     });
     try {
       expect(waiter.getByTestId('staff-stock.list')).toBeTruthy();
-      expect(waiter.getByTestId('staff-stock.store.cafe')).toBeTruthy();
-      fireEvent.press(waiter.getByTestId('staff-stock.store.bakery'));
-      expect(waiter.getByText(t('staff.stores.stock.notHere.bakery', { count: 1 }))).toBeTruthy();
+      // The Store button says where the list is from; a tap opens the phone's
+      // sheet (cafe, bakery, shop), and picking the bakery shows its list.
+      const button = waiter.getByTestId('staff-stock.store');
+      expect(within(button).getByText(t('work.store.cafe'))).toBeTruthy();
+      const sheet = jest
+        .spyOn(ActionSheetIOS, 'showActionSheetWithOptions')
+        .mockImplementation((_options, pick) => pick(1));
+      fireEvent.press(button);
+      expect(
+        await waiter.findByText(t('staff.stores.stock.notHere.bakery', { count: 1 })),
+      ).toBeTruthy();
+      expect(within(button).getByText(t('work.store.bakery'))).toBeTruthy();
+      sheet.mockRestore();
     } finally {
       waiter.unmount();
     }

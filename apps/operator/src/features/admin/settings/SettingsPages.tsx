@@ -109,10 +109,10 @@ export function BusinessDayScreen() {
   );
 }
 
-/** Venue › Analytics (`/admin/settings/analytics`): what analytics leaves out. Owner only. */
+/** Settings › Club details › Trends settings (`/admin/settings/analytics`): what analytics leaves out. Owner only. */
 export function AnalyticsSettingsScreen() {
   return (
-    <SettingsPage title="ws.shell.nav.analytics">
+    <SettingsPage title="ws.shell.nav.analyticsSettings">
       <AnalyticsTab />
     </SettingsPage>
   );
@@ -157,7 +157,7 @@ export function OpenMatchesSettingsScreen() {
 export function TournamentsSettingsScreen() {
   const { staff } = useAuth();
   return (
-    <SettingsPage title="ws.shell.nav.tournaments">
+    <SettingsPage title="ws.shell.nav.tournamentRules">
       <TournamentsSettingsPanel canEdit={can(staff, 'editVenueDetails')} />
     </SettingsPage>
   );

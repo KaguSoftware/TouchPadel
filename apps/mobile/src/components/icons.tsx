@@ -202,6 +202,54 @@ export const DeductionIcon = (p: IconProps) => (
 export const WarningIcon = (p: IconProps) => (
   <StrokeIcon d={['M12 4L2.8 19.5h18.4L12 4zM12 10v4.2M12 17h.01']} {...p} />
 );
+// The incident kinds' glyphs, traced from the operator's set (apps/operator/src/components/icons.tsx).
+/** Injury: a first-aid cross in a rounded square. */
+export const MedicalIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={['M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zM12 8v8M8 12h8']}
+    {...p}
+  />
+);
+/** Fight: a fist (Lucide's hand-fist). */
+export const FistIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M12.035 17.012a3 3 0 0 0-3-3l-.311-.002a.72.72 0 0 1-.505-1.229l1.195-1.195A2 2 0 0 1 10.828 11H12a2 2 0 0 0 0-4H9.243a3 3 0 0 0-2.122.879l-2.707 2.707A4.83 4.83 0 0 0 3 14a8 8 0 0 0 8 8h2a8 8 0 0 0 8-8V7a2 2 0 1 0-4 0v2a2 2 0 1 0 4 0M13.888 9.662A2 2 0 0 0 17 8V5a2 2 0 1 0-4 0M9 5a2 2 0 1 0-4 0v5M9 7V4a2 2 0 1 1 4 0v3.268',
+    ]}
+    {...p}
+  />
+);
+/** Damage: a shattered pane of glass. */
+export const GlassBrokenIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM11 9l2.5.3.5 2.3-1.8 1.4-2.2-1.2zM11 9l-1-3-1-3M13.5 9.3l1.5-2.8L17 3M14 11.6l3.5.4L21 13M12.2 13l.8 4 1 4M10 11.8l-3.5 1.2L3 15M17.5 12 13 17',
+    ]}
+    {...p}
+  />
+);
+/** Other: three dots. */
+export const MoreIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+    ]}
+    {...p}
+  />
+);
+/** Waiting for a review: an hourglass. */
+export const HourglassIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M5 22h14M5 2h14M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22M7 2v4.2a2 2 0 0 0 .6 1.4L12 12l4.4-4.4a2 2 0 0 0 .6-1.4V2',
+    ]}
+    {...p}
+  />
+);
+/** Reviewed: a tick in a circle. */
+export const CheckCircleIcon = (p: IconProps) => (
+  <StrokeIcon d={['M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4L12 14.01l-3-3']} {...p} />
+);
 /** Content for approval: a picture. */
 export const ImageIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 5h16v14H4V5zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9h.01']} {...p} />
@@ -276,6 +324,16 @@ export const PinIcon = (p: IconProps) => (
     {...p}
   />
 );
+/** The incident form's privacy line (the operator's `shield`). Not directional. */
+export const ShieldIcon = (p: IconProps) => <StrokeIcon d={['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z']} {...p} />;
+/** A court, seen from above (the operator's `court`): the incident form's court cards. Not directional. */
+export const CourtIcon = (p: IconProps) => (
+  <StrokeIcon d={['M3 4h18v16H3zM12 4v16M3 10h4M17 10h4M3 14h4M17 14h4']} {...p} />
+);
+/** What a step is missing (the operator's `info`). Not directional. */
+export const InfoIcon = (p: IconProps) => (
+  <StrokeIcon d={['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01']} {...p} />
+);
 /** Show guest view: an eye. Not directional. */
 export const EyeIcon = (p: IconProps) => (
   <StrokeIcon
@@ -307,6 +365,18 @@ export const QrIcon = (p: IconProps) => (
 /** Count the store: a clipboard with lines. */
 export const ClipboardIcon = (p: IconProps) => (
   <StrokeIcon d={['M9 3.5h6v3H9v-3zM9 5H6v15.5h12V5h-3M9 11h6M9 15h4']} {...p} />
+);
+/** The bar's roles (hiring): a cup with its handle; never mirrored. */
+export const CupIcon = (p: IconProps) => (
+  <StrokeIcon d={['M5 9h12v5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5V9zM17 10h1a2 2 0 0 1 0 4h-1']} {...p} />
+);
+/** The kitchen's roles (hiring): a chef's hat over its band. */
+export const ChefHatIcon = (p: IconProps) => (
+  <StrokeIcon d={['M8 17h8v3.5H8V17zM6 13a4 4 0 1 1 3-6.5 4 4 0 0 1 6 0A4 4 0 1 1 18 13v4H6v-4z']} {...p} />
+);
+/** The driver (hiring): a van with its two wheels; directional, so it mirrors under RTL. */
+export const TruckIcon = (p: IconProps) => (
+  <StrokeIcon d={['M3 16V7h11v9M14 10h4l3 3v3h-2M9 17h6M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0z']} flip {...p} />
 );
 
 /** The brand padel-ball mark (circle + two racket-face arcs), 48-viewBox. */

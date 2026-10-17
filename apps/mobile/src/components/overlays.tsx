@@ -45,7 +45,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Alert, Animated, Easing, View, type AlertButton } from 'react-native';
+import { Alert, Animated, Easing, Pressable, View, type AlertButton } from 'react-native';
 import { Text } from '../i18n/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../i18n/LocaleProvider';
@@ -239,12 +239,30 @@ export function ConfirmAlert({
 
 export type ToastTone = 'success' | 'info' | 'error';
 
+/** A button on the toast: the staff pages' Undo (Sait, 2026-10-17). */
+export interface ToastAction {
+  label: string;
+  onPress: () => void;
+}
+
+export interface ToastOptions {
+  action?: ToastAction;
+  /** How long it stays, in ms. Default 2.6 s, or 5 s when it has an action. */
+  duration?: number;
+}
+
 interface ToastState {
   message: string;
   tone: ToastTone;
+  action?: ToastAction;
 }
 
-const ToastContext = createContext<(message: string, tone?: ToastTone) => void>(() => {});
+export const TOAST_MS = 2600;
+export const ACTION_TOAST_MS = 5000;
+
+type ShowToast = (message: string, tone?: ToastTone, options?: ToastOptions) => void;
+
+const ToastContext = createContext<ShowToast>(() => {});
 
 export function useToast() {
   return useContext(ToastContext);
@@ -255,10 +273,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastState | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const show = useCallback((message: string, tone: ToastTone = 'success') => {
+  const show = useCallback<ShowToast>((message, tone = 'success', options) => {
     if (timer.current) clearTimeout(timer.current);
-    setToast({ message, tone });
-    timer.current = setTimeout(() => setToast(null), 2600);
+    setToast({ message, tone, action: options?.action });
+    timer.current = setTimeout(
+      () => setToast(null),
+      options?.duration ?? (options?.action ? ACTION_TOAST_MS : TOAST_MS),
+    );
+  }, []);
+
+  // The action closes the toast as it runs, so an Undo is never tapped twice.
+  const act = useCallback((action: ToastAction) => {
+    if (timer.current) clearTimeout(timer.current);
+    setToast(null);
+    action.onPress();
   }, []);
 
   useEffect(
@@ -272,7 +300,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <ToastHost toast={toast} />
+      <ToastHost toast={toast} onAction={act} />
     </ToastContext.Provider>
   );
 }
@@ -280,7 +308,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 const TOAST_OUT_MS = 180;
 const TOAST_FROM_SCALE = 0.5;
 
-function ToastHost({ toast: next }: { toast: ToastState | null }) {
+function ToastHost({
+  toast: next,
+  onAction,
+}: {
+  toast: ToastState | null;
+  onAction: (action: ToastAction) => void;
+}) {
   const { appearance, colors, fonts } = useTheme();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
@@ -329,9 +363,11 @@ function ToastHost({ toast: next }: { toast: ToastState | null }) {
   const greenToast = toast.tone !== 'error' && appearance === 'dark';
   const bg = toast.tone === 'error' ? colors.danger : greenToast ? brand.green : brand.navy;
   const ink = greenToast ? brand.greenInk : brand.white;
+  const action = toast.action;
   return (
     <View
-      pointerEvents="none"
+      // Taps pass through a plain toast; one with an action takes its own.
+      pointerEvents={action ? 'box-none' : 'none'}
       style={{
         position: 'absolute',
         start: space.l,
@@ -353,9 +389,26 @@ function ToastHost({ toast: next }: { toast: ToastState | null }) {
           paddingBottom: 11,
           maxWidth: '100%',
           boxShadow: shadows.toast,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: space.l,
         }}
       >
-        <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: ink }}>{toast.message}</Text>
+        <Text style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 12.5, color: ink }}>
+          {toast.message}
+        </Text>
+        {action ? (
+          <Pressable
+            testID="toast.action"
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={() => onAction(action)}
+          >
+            <Text style={{ fontFamily: fonts.body800, fontSize: 13, color: greenToast ? ink : brand.green }}>
+              {action.label}
+            </Text>
+          </Pressable>
+        ) : null}
       </Animated.View>
     </View>
   );

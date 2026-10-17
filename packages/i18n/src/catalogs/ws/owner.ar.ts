@@ -5,7 +5,7 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
   title: 'المالك',
   building: 'هذه الشاشة قيد البناء.',
   panel: {
-    title: 'لوحة الإدارة',
+    title: 'نظرة عامة',
     period: '{from} – {to}',
     periodCompared: '{from} – {to}، مقارنة بـ {prevFrom} – {prevTo}',
     earned: 'المكتسب',
@@ -166,16 +166,16 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
     noWebgl: 'لا يستطيع هذا الجهاز رسم المخطط ثلاثي الأبعاد. الأرقام أعلاه ما زالت تتحدّث مباشرة.',
     ariaLabel: 'مخطط ثلاثي الأبعاد للمكان',
     openBookings: 'لوحة الحجوزات',
-    openTills: 'لوحة الصناديق',
+    openTills: 'لوحة الفواتير المفتوحة',
   },
   setupHome: {
-    title: 'الإعداد',
+    title: 'نظرة على الإعدادات',
     find: {
       title: 'ابحث عن إعداد',
       placeholder: 'العربون، ساعات العمل، شاشة المطبخ…',
     },
     glance: 'نظرة سريعة',
-    screens: 'شاشات الإعداد',
+    screens: 'شاشات الإعدادات',
     kitchen: {
       title: 'شاشات المطبخ',
       lead: 'تتصل شاشة المطبخ الجديدة بهذا الصندوق عبر رمز. اعرض الرمز هنا، ثم أدخله في شاشة المطبخ.',
@@ -639,7 +639,7 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
   // قسما الإدارة الجديدان (apps/operator/src/lib/workspaces.ts).
   // ---------------------------------------------------------------------
   financialHome: {
-    title: 'المالية',
+    title: 'نظرة على المالية',
     cash: {
       title: 'النقد',
       openSafe: 'فتح القاصة',
@@ -688,8 +688,8 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
     },
   },
   observationHome: {
-    title: 'المتابعة',
-    screens: 'كل ما في المتابعة',
+    title: 'الصالة الآن',
+    screens: 'كل ما في الصالة',
     cards: {
       bookings: 'أي الملاعب قيد اللعب وأيها شاغر، والليلة في صفوف كل ساعتين، وشهر مظلل بحسب ازدحام كل يوم.',
       tills: 'أي الطاولات مشغولة، وما تحمله الفواتير المفتوحة، وما سُوّي منها، يومًا بيوم.',
@@ -786,7 +786,7 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       },
     },
     tills: {
-      title: 'الصندوق',
+      title: 'الفواتير المفتوحة',
       lead: 'للعرض فقط. افتح فاتورة للتعامل معها في الصندوق.',
       figures: {
         activeHint: 'بانتظار الدفع: {count}',

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState, type ComponentType, type ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -21,11 +21,18 @@ import {
 import { formatIQD, isolate, type MessageKey } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
-import { space, useTheme } from '../../src/theme';
-import { Button, ErrorText, Field, Hint, LinkText, Screen } from '../../src/components/ui';
+import { radius, space, useTheme } from '../../src/theme';
+import { Button, ErrorText, Field, Hint, Screen } from '../../src/components/ui';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
-import { ChevronIcon } from '../../src/components/icons';
+import {
+  ChevronIcon,
+  PeopleIcon,
+  SparkIcon,
+  TagIcon,
+  TrophyIcon,
+  type IconProps,
+} from '../../src/components/icons';
 import { PhotoButton, type AttachedPhoto } from '../../src/components/PhotoButton';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
@@ -62,6 +69,11 @@ import { useAttachedPhotos } from '../../src/features/staff/protocols/useStepRea
 import { fetchIdeasToReview } from '../../src/features/staff/ideas/api';
 import type { ReviewIdea } from '../../src/features/staff/ideas/logic';
 import { searchField } from '../../src/components/fieldKeyboard';
+import { TonePill, TournamentPlanStep, TYPE_TONE } from '../../src/features/staff/protocols/TournamentPlanStep';
+import { newPlanId } from '../../src/features/staff/protocols/tournamentDraft';
+import { parsePlanStep, phoneSteps } from '../../src/features/staff/protocols/tournamentSteps';
+import { HiringStart } from '../../src/features/staff/protocols/HiringStart';
+import { parseHiringStep } from '../../src/features/staff/protocols/hiringSteps';
 
 /**
  * Start a protocol (build-contracts-2026-09-23 §6.1
@@ -111,6 +123,98 @@ function ChoiceRow({
         {hint ? <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 18, color: colors.mut }}>{hint}</Text> : null}
       </View>
       <ChevronIcon size={16} color={colors.fnt2} />
+    </Pressable>
+  );
+}
+
+type Tone = 'blue' | 'green' | 'ink' | 'amber';
+
+/** Each kind keeps its own icon and colour, on its variants and changes too. */
+const KIND_LOOK: Record<ProtocolKind, { icon: ComponentType<IconProps>; tone: Tone }> = {
+  product_release: { icon: SparkIcon, tone: 'green' },
+  tournament: { icon: TrophyIcon, tone: 'blue' },
+  hiring: { icon: PeopleIcon, tone: 'amber' },
+  price_promo: { icon: TagIcon, tone: 'ink' },
+};
+
+/**
+ * One choice of a short picker (what to start, the tournament type, the kind
+ * of change) as its own card: a coloured icon badge, the title and its hint.
+ * The long lists (the item or rule a change is aimed at) stay ChoiceRows.
+ */
+function ChoiceCard({
+  testID,
+  icon: Icon,
+  tone,
+  title,
+  tag,
+  hint,
+  onPress,
+}: {
+  testID: string;
+  icon: ComponentType<IconProps>;
+  tone: Tone;
+  title: string;
+  /** A small label beside the title (a tournament type's kind). */
+  tag?: ReactNode;
+  hint?: string | null;
+  onPress: () => void;
+}) {
+  const { colors, fonts } = useTheme();
+  const badge = {
+    blue: { bg: colors.tint, fg: colors.blue },
+    green: { bg: colors.gtint, fg: colors.gstrong },
+    ink: { bg: colors.sub, fg: colors.ink },
+    amber: { bg: colors.amb, fg: colors.ambtext },
+  }[tone];
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: space.m,
+        padding: space.m,
+        backgroundColor: pressed ? colors.sub : colors.card,
+        borderWidth: 1,
+        borderColor: colors.line,
+        borderRadius: radius.card,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+      })}
+    >
+      <View
+        style={{
+          width: 46,
+          height: 46,
+          borderRadius: 14,
+          backgroundColor: badge.bg,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon size={22} color={badge.fg} />
+      </View>
+      <View style={{ flex: 1, gap: 3 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.s, flexWrap: 'wrap' }}>
+          <Text style={{ fontFamily: fonts.display800, fontSize: 15.5, lineHeight: 20, color: colors.ink }}>{title}</Text>
+          {tag}
+        </View>
+        {hint ? <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 18, color: colors.mut }}>{hint}</Text> : null}
+      </View>
+      <View
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          backgroundColor: colors.sub,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <ChevronIcon size={14} color={colors.mut} />
+      </View>
     </Pressable>
   );
 }
@@ -241,6 +345,7 @@ function StartForm({
 }) {
   const { t, locale } = useLocale();
   const router = useRouter();
+  const params = useLocalSearchParams<{ depth?: string }>();
   const toast = useToast();
   const refresh = useRefreshProtocols();
   const { kind, variant, change } = setup;
@@ -334,6 +439,10 @@ function StartForm({
       clearStaffIntentKey(intent);
       toast(t(result.auto ? 'staff.protocols.start.startedAuto' : 'staff.protocols.start.started'), 'success');
       void refresh();
+      // Each choice was its own page; take them off so back from the run
+      // goes where the start began, not to a picker.
+      const steps = stepDepth(params.depth);
+      if (steps > 0) router.dismiss(steps);
       router.replace({ pathname: '/staff-run', params: { id: result.run_id } });
     },
     onError: (err) => {
@@ -476,9 +585,22 @@ function StartFromSetup(props: {
   return <StartForm {...props} initialPhotos={photos} />;
 }
 
+/** How many choice pages sit above the first start page (the `depth` param). */
+function stepDepth(raw: string | undefined): number {
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}
+
+/**
+ * Each choice (the kind, the tournament type, the change, its target) opens
+ * the next step as a page of its own, so the native back goes back one step
+ * at a time to the first choice (owner, 2026-10-16). The choices travel as
+ * params, the same ones a link from elsewhere uses.
+ */
 function StartScreen() {
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { status, venueId } = useStaffStatus();
   const params = useLocalSearchParams<{
     kind?: string;
@@ -489,6 +611,14 @@ function StartScreen() {
     promotionId?: string;
     ruleId?: string;
     ideaId?: string;
+    /** `none`: the change's own choice without a listed target (a new rate, the featured item kept). */
+    target?: string;
+    depth?: string;
+    /** A tournament start: the plan its pages share (tournamentDraft.ts) and the page. */
+    plan?: string;
+    step?: string;
+    /** A hiring step opened again from the Check page: its button goes back there. */
+    ret?: string;
   }>();
   const role = status.kind === 'staff' ? status.staff.role : null;
   const kinds = startableKinds(role);
@@ -496,15 +626,15 @@ function StartScreen() {
   // (coaching 0285): neither the list nor a link starts one here.
   const changes = phoneStartChanges(priceChangeKinds(role));
   const paramKind = kinds.find((k) => k === params.kind) ?? null;
-  const [kind, setKind] = useState<ProtocolKind | null>(paramKind ?? (kinds.length === 1 ? kinds[0]! : null));
-  const [variant, setVariant] = useState<TournamentVariant | null>(parseVariant(params.variant));
-  const [change, setChange] = useState<PriceChangeKind | null>(
-    changes.find((c) => c === params.change) ?? null,
-  );
+  const kind: ProtocolKind | null = paramKind ?? (kinds.length === 1 ? kinds[0]! : null);
+  const variant: TournamentVariant | null = parseVariant(params.variant);
+  const change: PriceChangeKind | null = changes.find((c) => c === params.change) ?? null;
   // A link may name the target (a price change from an item); add-ons are all listed anyway.
   const paramTarget = params.itemId ?? params.promotionId ?? params.ruleId ?? null;
-  const [target, setTarget] = useState<{ id: string | null } | null>(paramTarget ? { id: paramTarget } : null);
+  const targetId = paramTarget;
+  const hasTarget = paramTarget !== null || params.target === 'none';
   const venue = venueId ?? '';
+  const [linkPlan] = useState(newPlanId);
 
   const targetKind = change ? targetKindOf(change) : 'none';
   const needsTargets = kind === 'price_promo' && change !== null && change !== 'promotion';
@@ -520,15 +650,16 @@ function StartScreen() {
     enabled: venue !== '' && ideaId !== null,
   });
 
-  const setup = useMemo<FormSetup | null>(() => {
+  // Plain, not useMemo: the choices are params now, and the React Compiler memoizes it.
+  const setup = ((): FormSetup | null => {
     if (!kind) return null;
     if (kind === 'tournament' && !variant) return null;
     if (kind === 'price_promo') {
       if (!change) return null;
       if (needsTargets && !targets.data) return null;
-      if ((targetKind === 'item' || targetKind === 'promotion') && !target) return null;
-      if ((targetKind === 'rule' || targetKind === 'featured') && !target) return null;
-      const s = priceProposeStart(change, targets.data, target?.id ?? null);
+      if ((targetKind === 'item' || targetKind === 'promotion') && !hasTarget) return null;
+      if ((targetKind === 'rule' || targetKind === 'featured') && !hasTarget) return null;
+      const s = priceProposeStart(change, targets.data, targetId);
       return { kind, variant: null, change, draft: s.draft, fixed: s.fixed, hidden: s.hidden, idea: null };
     }
     const form = startForm(kind, { variant });
@@ -542,15 +673,28 @@ function StartScreen() {
     const draft = emptyDraft(form.fields);
     if (kind === 'tournament') draft.capacity = { unit: 'players', count: '' };
     return { kind, variant, change: null, draft, fixed: {}, hidden: [], idea: null };
-  }, [kind, variant, change, needsTargets, targets.data, targetKind, target, ideaId, ideas.data]);
+  })();
 
   const offeredChanges = PRICE_CHANGE_KINDS.filter((c) => changes.includes(c));
 
-  const reset = () => {
-    setKind(kinds.length === 1 ? kinds[0]! : null);
-    setVariant(null);
-    setChange(null);
-    setTarget(null);
+  /** The next step, as a page over this one. */
+  const next = (step: Record<string, string>) =>
+    router.push({
+      pathname: '/staff-start',
+      params: {
+        ...(kind ? { kind } : {}),
+        ...(variant ? { variant } : {}),
+        ...(change ? { change } : {}),
+        ...(typeof params.ideaId === 'string' ? { ideaId: params.ideaId } : {}),
+        ...step,
+        depth: String(stepDepth(params.depth) + 1),
+      },
+    });
+  const pickTarget = (id: string | null) => {
+    if (id === null) return next({ target: 'none' });
+    if (targetKind === 'promotion') return next({ promotionId: id });
+    if (targetKind === 'rule') return next({ ruleId: id });
+    return next({ itemId: id });
   };
 
   const body = (() => {
@@ -560,18 +704,17 @@ function StartScreen() {
       return (
         <View style={{ gap: space.s }}>
           <Strong>{t('staff.protocols.start.lead')}</Strong>
-          <ListCard>
-            {kinds.map((k, i) => (
-              <ChoiceRow
-                key={k}
-                testID={`staff-start.kind.${k}`}
-                title={t(`work.protocol.kind.${k}`)}
-                hint={t(`staff.protocols.start.kindHint.${k}`)}
-                onPress={() => setKind(k)}
-                last={i === kinds.length - 1}
-              />
-            ))}
-          </ListCard>
+          {kinds.map((k) => (
+            <ChoiceCard
+              key={k}
+              testID={`staff-start.kind.${k}`}
+              icon={KIND_LOOK[k].icon}
+              tone={KIND_LOOK[k].tone}
+              title={t(`work.protocol.kind.${k}`)}
+              hint={t(`staff.protocols.start.kindHint.${k}`)}
+              onPress={() => next(k === 'hiring' ? { kind: k, plan: newPlanId(), step: 'role' } : { kind: k })}
+            />
+          ))}
         </View>
       );
     }
@@ -579,18 +722,18 @@ function StartScreen() {
       return (
         <View style={{ gap: space.s }}>
           <Strong>{t('staff.protocols.start.variantTitle')}</Strong>
-          <ListCard>
-            {TOURNAMENT_VARIANTS.map((v, i) => (
-              <ChoiceRow
-                key={v}
-                testID={`staff-start.field.variant.${v}`}
-                title={t(`work.protocol.variant.${v}`)}
-                hint={t(`staff.protocols.start.variantHint.${v}`)}
-                onPress={() => setVariant(v)}
-                last={i === TOURNAMENT_VARIANTS.length - 1}
-              />
-            ))}
-          </ListCard>
+          {TOURNAMENT_VARIANTS.map((v) => (
+            <ChoiceCard
+              key={v}
+              testID={`staff-start.field.variant.${v}`}
+              icon={KIND_LOOK.tournament.icon}
+              tone={KIND_LOOK.tournament.tone}
+              title={t(`work.protocol.variant.${v}`)}
+              tag={<TonePill label={t(`ws.tournaments.start.typeTag.${v}`)} tone={TYPE_TONE[v]} />}
+              hint={t(`staff.protocols.start.variantHint.${v}`)}
+              onPress={() => next({ variant: v, plan: newPlanId(), step: phoneSteps(v)[0]! })}
+            />
+          ))}
         </View>
       );
     }
@@ -598,17 +741,16 @@ function StartScreen() {
       return (
         <View style={{ gap: space.s }}>
           <Strong>{t('staff.protocols.start.changeTitle')}</Strong>
-          <ListCard>
-            {offeredChanges.map((c, i) => (
-              <ChoiceRow
-                key={c}
-                testID={`staff-start.change.${c}`}
-                title={t(`work.protocol.change.${c}`)}
-                onPress={() => setChange(c)}
-                last={i === offeredChanges.length - 1}
-              />
-            ))}
-          </ListCard>
+          {offeredChanges.map((c) => (
+            <ChoiceCard
+              key={c}
+              testID={`staff-start.change.${c}`}
+              icon={KIND_LOOK.price_promo.icon}
+              tone={KIND_LOOK.price_promo.tone}
+              title={t(`work.protocol.change.${c}`)}
+              onPress={() => next({ change: c })}
+            />
+          ))}
         </View>
       );
     }
@@ -625,8 +767,8 @@ function StartScreen() {
         <SkeletonList rows={3} height={72} />
       );
     }
-    if (kind === 'price_promo' && change && targets.data && !target && targetKind !== 'addons' && targetKind !== 'none') {
-      return <TargetChooser change={change} targets={targets.data} onPick={(id) => setTarget({ id })} />;
+    if (kind === 'price_promo' && change && targets.data && !hasTarget && targetKind !== 'addons' && targetKind !== 'none') {
+      return <TargetChooser change={change} targets={targets.data} onPick={pickTarget} />;
     }
     if (ideaId && ideas.isPending) return <SkeletonList rows={2} height={72} />;
     if (!setup) return <SkeletonList rows={2} height={72} />;
@@ -634,7 +776,7 @@ function StartScreen() {
       <>
         {ideaId && !setup.idea ? <Hint>{t('staff.protocols.start.ideaGone')}</Hint> : null}
         <StartFromSetup
-          key={`${kind}:${variant ?? ''}:${change ?? ''}:${target?.id ?? ''}`}
+          key={`${kind}:${variant ?? ''}:${change ?? ''}:${targetId ?? ''}`}
           setup={setup}
           role={role}
           venueId={venueId}
@@ -644,20 +786,43 @@ function StartScreen() {
     );
   })();
 
-  const chose = kind !== null && (kinds.length > 1 || variant !== null || change !== null);
+  // A hire: Role, The job, Pay, Check, a page each.
+  if (kind === 'hiring' && role && venueId) {
+    return (
+      <HiringStart
+        planId={typeof params.plan === 'string' ? params.plan : linkPlan}
+        step={parseHiringStep(params.step)}
+        depth={stepDepth(params.depth)}
+        returnTo={params.ret === 'check' ? 'check' : null}
+        byOwner={role === 'owner'}
+        venueId={venueId}
+      />
+    );
+  }
+
+  // A tournament, once its type is picked: the plan's steps, a page each.
+  if (kind === 'tournament' && variant && role && venueId) {
+    return (
+      <TournamentPlanStep
+        planId={typeof params.plan === 'string' ? params.plan : linkPlan}
+        variant={variant}
+        step={parsePlanStep(params.step, variant)}
+        depth={stepDepth(params.depth)}
+        byOwner={role === 'owner'}
+        venueId={venueId}
+      />
+    );
+  }
 
   return (
     <Screen edges={[]}>
-      <Stack.Screen options={{ title: t('staff.protocols.start.title') }} />
+      <Stack.Screen options={{ title: kind && kinds.length > 1 ? t(`work.protocol.kind.${kind}`) : t('staff.protocols.start.title') }} />
       <ScrollView
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
-        {chose ? (
-          <LinkText testID="staff-start.back" label={t('staff.protocols.start.otherKind')} onPress={reset} />
-        ) : null}
         {body}
       </ScrollView>
     </Screen>

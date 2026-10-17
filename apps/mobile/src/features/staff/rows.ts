@@ -273,11 +273,10 @@ export function staffRows(role: StaffRole, extraRoles: readonly StaffRole[] = []
 }
 
 /**
- * What Today knows beyond the role (owner, 2026-09-28: a section is seen by
- * the people it concerns): `runs`, the runs in progress that involve the
- * person (protocol_runs_page 'active'; 0249 tightened "involved"); `notes`,
- * the new items at their feedback stage (release_notes_for_me). Null while
- * the read is out, or failed: the row stays hidden rather than flicker in.
+ * What Today knows beyond the role: `runs`, the runs in progress that involve
+ * the person (protocol_runs_page 'active'; 0249 tightened "involved");
+ * `notes`, the new items at their feedback stage (release_notes_for_me). Null
+ * while the read is out, or failed.
  */
 export interface TodaySignals {
   runs: number | null;
@@ -287,15 +286,23 @@ export interface TodaySignals {
 const MGMT_ROLES: readonly StaffRole[] = ['manager', 'owner'];
 
 /**
- * Today's rows: the role's (staffRows), less the two that depend on the day.
- * Protocols: management always (they run them), anyone else while a run in
- * progress involves them. Notes on new items: while one is at its feedback
- * stage, for everyone who may write one.
+ * Today's rows: every row of the role (staffRows). Protocols and Notes on new
+ * items used to show only while they held something (owner, 2026-09-28); they
+ * now stay in place and say "nothing now" when empty (quietRow), so the tiles
+ * never move from one day to the next (Sait, 2026-10-17).
  */
-export function todayRows(role: StaffRole, signals: TodaySignals, extraRoles: readonly StaffRole[] = []): StaffRowDef[] {
-  return staffRows(role, extraRoles).filter((row) => {
-    if (row.id === 'protocols') return MGMT_ROLES.includes(role) || (signals.runs ?? 0) > 0;
-    if (row.id === 'notes') return (signals.notes ?? 0) > 0;
-    return true;
-  });
+export function todayRows(role: StaffRole, extraRoles: readonly StaffRole[] = []): StaffRowDef[] {
+  return staffRows(role, extraRoles);
+}
+
+/**
+ * Whether a row has nothing in it today: Protocols with no run in progress
+ * that involves the person (never for management, who run them), Notes with
+ * no new item at its feedback stage. Unknown (a read still out, or failed) is
+ * not quiet: the row shows its plain name rather than flicker.
+ */
+export function quietRow(id: string, role: StaffRole, signals: TodaySignals): boolean {
+  if (id === 'protocols') return !MGMT_ROLES.includes(role) && signals.runs === 0;
+  if (id === 'notes') return signals.notes === 0;
+  return false;
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate, isolate } from '@touch/i18n';
@@ -8,10 +8,11 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space, useTheme } from '../../src/theme';
 import { Button, Card, Hint, MicroLabel, Screen, SegmentedControl } from '../../src/components/ui';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
+import { namedFirst } from '../../src/features/staff/marketing/logic';
 import { staffKeys } from '../../src/features/staff/keys';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { useHeaderAddOptions } from '../../src/navigation/headerAdd';
@@ -56,6 +57,8 @@ function SuggestionsScreen() {
   const venue = venueId ?? '';
 
   const [filter, setFilter] = useState<SuggestionFilter>('new');
+  // `?id=` is a suggestion just sent: listed first and marked (Sait, 2026-10-17).
+  const params = useLocalSearchParams<{ id?: string }>();
 
   const mine = useQuery({
     queryKey: staffKeys.mySuggestions(venue),
@@ -103,7 +106,7 @@ function SuggestionsScreen() {
       );
     }
     const rows = team.data?.suggestions ?? [];
-    if (rows.length === 0) return <Hint>{t('staff.checklists.suggestions.emptyTeam')}</Hint>;
+    if (rows.length === 0) return <EmptyState centered testID="staff-suggestions.team-empty" title={t('staff.checklists.suggestions.emptyTeam')} />;
     return rows.map((row) => (
       <Card key={row.id} style={{ padding: space.m, gap: 6 }}>
         <View testID={`staff-suggestions.team.${row.id}`} style={{ gap: 4 }}>
@@ -156,9 +159,16 @@ function SuggestionsScreen() {
       );
     }
     const rows = mine.data ?? [];
-    if (rows.length === 0) return <Hint>{t('staff.checklists.suggestions.emptyMine')}</Hint>;
-    return rows.map((row) => (
-      <Card key={row.id} style={{ padding: space.m, gap: 6 }}>
+    if (rows.length === 0) return <EmptyState centered testID="staff-suggestions.mine-empty" title={t('staff.checklists.suggestions.emptyMine')} />;
+    return namedFirst(rows, params.id).map((row) => (
+      <Card
+        key={row.id}
+        style={{
+          padding: space.m,
+          gap: 6,
+          ...(row.id === params.id ? { backgroundColor: colors.tint } : null),
+        }}
+      >
         <View testID={`staff-suggestions.item.${row.id}`} style={{ gap: 6 }}>
           <Text style={bodyText}>{row.body}</Text>
           <View

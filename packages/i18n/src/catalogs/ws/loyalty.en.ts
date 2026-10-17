@@ -122,7 +122,7 @@ export const loyaltyEn = {
     done: 'Points adjusted. New balance: {points}.',
   },
   setup: {
-    title: 'Loyalty',
+    title: 'Loyalty points',
     lead: 'Points across every branch: what a guest earns, what a point is worth, the tiers and the rewards.',
     card: 'Points, tiers and rewards guests earn on every bill, at every branch.',
     ownerOnly: 'Only the owner can change loyalty.',

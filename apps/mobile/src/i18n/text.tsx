@@ -33,14 +33,43 @@
  * native layout property that no typecheck can see, so the rule is pinned by
  * src/i18n/__tests__/direction.test.ts instead.
  */
-import type { ComponentRef, Ref } from 'react';
-import { Animated, Text as RNText, type TextProps } from 'react-native';
+import { createContext, useContext, type ComponentRef, type ReactNode, type Ref } from 'react';
+import { Animated, StyleSheet, Text as RNText, type TextProps, type TextStyle } from 'react-native';
 import { useLocale } from './LocaleProvider';
 
 export type AppTextProps = TextProps & { ref?: Ref<ComponentRef<typeof RNText>> };
 
-export function Text({ style, ref, ...rest }: AppTextProps) {
+/**
+ * The smallest text a part of the app draws (Sait, 2026-10-17: bigger text on
+ * the staff pages, read at arm's length behind a bar or a counter). Under it,
+ * a smaller size is raised to the floor and its line height grows with it.
+ * Null, the default, leaves every size as written: the guest app is untouched.
+ */
+const MinFontSizeContext = createContext<number | null>(null);
+
+/** The staff pages' smallest text, in points: Today, its sheets and every page they open. */
+export const STAFF_MIN_FONT = 12.5;
+
+export function MinFontSize({ value, children }: { value: number; children: ReactNode }) {
+  return <MinFontSizeContext.Provider value={value}>{children}</MinFontSizeContext.Provider>;
+}
+
+/** `style` with any font size under `floor` raised to it. PURE apart from StyleSheet.flatten. */
+export function raiseFontSize(style: TextProps['style'], floor: number): TextStyle | TextProps['style'] {
+  const flat = StyleSheet.flatten(style) as TextStyle | undefined;
+  if (!flat || typeof flat.fontSize !== 'number' || flat.fontSize >= floor) return style;
+  const scale = floor / flat.fontSize;
+  return {
+    ...flat,
+    fontSize: floor,
+    ...(typeof flat.lineHeight === 'number' ? { lineHeight: Math.round(flat.lineHeight * scale) } : null),
+  };
+}
+
+export function Text({ style: written, ref, ...rest }: AppTextProps) {
   const { dir } = useLocale();
+  const floor = useContext(MinFontSizeContext);
+  const style = floor === null ? written : raiseFontSize(written, floor);
   return <RNText ref={ref} {...rest} style={[{ writingDirection: dir }, style]} />;
 }
 

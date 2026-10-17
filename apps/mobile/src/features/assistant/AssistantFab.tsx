@@ -14,8 +14,13 @@
  * follow the pathname, which changes after the navigation, so the button
  * appeared and vanished late on every push and pop (owner, 2026-10-09). Inside
  * the screen it moves with the page's own transition.
+ *
+ * It also stays off the "new" forms a page's header + opens (owner,
+ * 2026-10-17), where it sat over the form's own Save: the routes in
+ * ADD_ROUTES, and a page that opens its form in place (teachings) hides it
+ * with useHideAssistantFab while the form is open.
  */
-import { useEffect, type ReactElement } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactElement } from 'react';
 import { Pressable, View, type ViewStyle } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,15 +34,49 @@ import { loadFreeMode } from './freeMode';
 const SIZE = 56;
 const EDGE = 16;
 
+/** The "new" forms the header + opens (src/navigation/headerAdd.tsx). */
+const ADD_ROUTES = new Set([
+  '/staff-start',
+  '/staff-incident-report',
+  '/staff-request-new',
+  '/staff-suggestion-new',
+  '/staff-marketing-request-new',
+  '/staff-deduction-propose',
+]);
+
 /**
- * The button floats on staff pages only: not on the assistant's own, and not
- * on the main panel, whose header holds it.
+ * The button floats on staff pages only: not on the assistant's own, not on
+ * the main panel, whose header holds it, and not on a + page's form.
  */
 export function fabHidden(pathname: string): boolean {
   return (
     pathname === '/staff' ||
     pathname.startsWith('/staff-assistant') ||
+    ADD_ROUTES.has(pathname) ||
     !pathname.startsWith('/staff')
+  );
+}
+
+const HideFab = createContext<(hidden: boolean) => void>(() => {});
+
+/** Hides the page's floating button while `hidden` (a form opened in place). */
+export function useHideAssistantFab(hidden: boolean) {
+  const setHidden = useContext(HideFab);
+  useEffect(() => {
+    setHidden(hidden);
+    return () => setHidden(false);
+  }, [hidden, setHidden]);
+}
+
+function FabPage({ path, children }: { path: string; children: ReactElement }) {
+  const [hidden, setHidden] = useState(false);
+  return (
+    <HideFab.Provider value={setHidden}>
+      <View style={{ flex: 1 }}>
+        {children}
+        {hidden ? null : <AssistantFab path={path} />}
+      </View>
+    </HideFab.Provider>
   );
 }
 
@@ -58,12 +97,7 @@ export function withAssistantFab({
   const path = `/${route.name}`;
   const sheet = options.presentation !== undefined && options.presentation !== 'card';
   if (sheet || fabHidden(path)) return children;
-  return (
-    <View style={{ flex: 1 }}>
-      {children}
-      <AssistantFab path={path} />
-    </View>
-  );
+  return <FabPage path={path}>{children}</FabPage>;
 }
 
 /** `path` is the screen it is drawn in; without one, the current pathname. */

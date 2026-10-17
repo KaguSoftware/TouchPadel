@@ -767,13 +767,18 @@ export async function buildMap({ catalog, sha } = {}) {
   }
   const allPages = [...new Set([...routes, ...pages.keys()])].sort();
   const pageRoles = (route) => rolesForRoute(route, routeRoles);
-  const pageWhere = (route, lang) =>
-    (railByRoute.get(route) ?? []).map((r) => {
+  const pageWhere = (route, lang) => {
+    const places = (railByRoute.get(route) ?? []).map((r) => {
       const name = (k) => (lang === 'ar' ? navAr(k) ?? navEn(k) : navEn(k));
       const label = r.family ? `${name(r.family)} › ${name(r.labelKey)}` : name(r.labelKey);
-      const where = r.section ? `${wsName(r.workspace, lang)} › ${secName(r.section, lang)}` : wsName(r.workspace, lang);
-      return `${where}: "${label}"${r.hidden ? (lang === 'ar' ? ' (غير مطبوع في الشريط)' : ' (not a printed rail row)') : ''}`;
+      const inside = `${r.section ? `${secName(r.section, lang)}: ` : ': '}"${label}"${r.hidden ? (lang === 'ar' ? ' (غير مطبوع في الشريط)' : ' (not a printed rail row)') : ''}`;
+      return { workspace: r.workspace, inside, text: `${wsName(r.workspace, lang)}${r.section ? ' › ' : ''}${inside}` };
     });
+    // Management and Operations print the same sections (page map, 2026-10-17):
+    // a page in the same place on both is named once, as Management's.
+    const ownerPlaces = new Set(places.filter((p) => p.workspace === 'owner').map((p) => p.inside));
+    return places.filter((p) => p.workspace !== 'manager' || !ownerPlaces.has(p.inside)).map((p) => p.text);
+  };
 
   for (const route of allPages) {
     const roles = pageRoles(route);

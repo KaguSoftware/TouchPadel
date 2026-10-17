@@ -164,14 +164,18 @@ interface GlanceRow {
   place: MessageKey;
 }
 
-/** "Find a setting": Go to, limited to Setup, on the page itself. */
+/**
+ * "Find a setting": Go to on the page itself. Every section, since the page
+ * map (2026-10-17) put each setting beside what it sets: court settings under
+ * Courts, the menu under Café & shop, the club under Settings.
+ */
 function FindASetting() {
   const { tr } = useLocale();
   const { staff } = useAuth();
   const canOpenTab = useTabOpen(true);
   const [query, setQuery] = useState('');
   const entries = useMemo(
-    () => buildGoToEntries('owner', (k) => tr(k), [T_EN, T_AR], (row) => canAccess(staff, row.to), canOpenTab, 'setup'),
+    () => buildGoToEntries('owner', (k) => tr(k), [T_EN, T_AR], (row) => canAccess(staff, row.to), canOpenTab),
     [tr, staff, canOpenTab],
   );
   const results = query.trim() ? rankEntries(entries, query).slice(0, 8) : [];

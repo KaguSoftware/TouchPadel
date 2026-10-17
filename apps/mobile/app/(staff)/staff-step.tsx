@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GENERIC_STEP_FORM,
@@ -24,6 +24,7 @@ import { CheckIcon } from '../../src/components/icons';
 import { DecisionBar, type DecisionAnswer } from '../../src/components/DecisionBar';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
+import { cacheEdit, useUndoable } from '../../src/features/staff/undo';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { staffKeys } from '../../src/features/staff/keys';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
@@ -334,15 +335,21 @@ function StepScreen() {
     onError: (err) => setDecisionError(t(mapStaffError(err))),
   });
 
-  const withdraw = useMutation({
-    mutationKey: staffKeys.mutation('withdraw'),
-    mutationFn: (submissionId: string) => withdrawStep(submissionId),
-    onSuccess: () => {
-      toast(t('staff.protocols.step.withdrawn'), 'info');
-      void refresh();
-    },
-    onError: (err) => toast(t(mapStaffError(err)), 'error'),
-  });
+  // Withdraw at once, with Undo on the toast instead of "Are you sure?"
+  // (Sait, 2026-10-17); the call goes when the toast's time is up.
+  const queryClient = useQueryClient();
+  const undoable = useUndoable();
+  const withdraw = (submissionId: string) =>
+    undoable({
+      message: t('staff.protocols.step.withdrawn'),
+      ...cacheEdit<StepDetail>(queryClient, staffKeys.step(id), (d) => ({
+        ...d,
+        can: { ...d.can, withdraw_submission_id: null },
+      })),
+      send: () => withdrawStep(submissionId),
+      onSent: () => void refresh(),
+      onError: (err) => toast(t(mapStaffError(err)), 'error'),
+    });
 
   const skip = useMutation({
     mutationKey: staffKeys.mutation('skip'),
@@ -448,17 +455,7 @@ function StepScreen() {
             testID="staff-step.withdraw"
             label={t('staff.protocols.step.withdraw')}
             variant="secondary"
-            busy={withdraw.isPending}
-            onPress={() =>
-              Alert.alert(t('staff.protocols.step.withdraw'), t('staff.protocols.step.withdrawConfirm'), [
-                { text: t('staff.protocols.step.decide.cancel'), style: 'cancel' },
-                {
-                  text: t('work.protocol.action.withdraw'),
-                  style: 'destructive',
-                  onPress: () => withdraw.mutate(can.withdraw_submission_id as string),
-                },
-              ])
-            }
+            onPress={() => withdraw(can.withdraw_submission_id as string)}
           />
         ) : null}
         {can.decide_submission_id ? (

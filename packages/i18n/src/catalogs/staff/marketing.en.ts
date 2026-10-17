@@ -129,6 +129,8 @@ export const staffMarketingEn = {
     titleField: 'What do you need?',
     body: 'Details',
     wantBy: 'Needed by · Optional',
+    // The folded optional fields (Sait, 2026-10-17).
+    detailsSummary: 'Date, item, photos',
     item: 'About a menu item · Optional',
     photos: 'Photos · Optional',
     submit: 'Send to marketing',

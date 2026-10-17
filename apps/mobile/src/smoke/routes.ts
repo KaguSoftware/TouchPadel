@@ -223,7 +223,8 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   {
     file: '(staff)/staff-incident-report.tsx',
     route: 'staff-incident-report',
-    primary: 'staff-incident-report.submit',
+    // The first of the report's steps opens on its way on: the next step.
+    primary: 'staff-incident-report.next',
   },
   { file: '(staff)/staff-content.tsx', route: 'staff-content', primary: 'staff-content.submit' },
   // The owner's assistant on the phone, cased by staffAssistant.smoke.test.tsx.

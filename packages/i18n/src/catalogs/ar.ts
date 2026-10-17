@@ -50,6 +50,7 @@ export const ar: Messages = {
     call: 'اتصال',
     keepIt: 'إبقاء',
     notYet: 'ليس الآن',
+    undo: 'تراجع',
   },
   auth: {
     signIn: 'تسجيل الدخول',
@@ -208,7 +209,7 @@ export const ar: Messages = {
   stock: { title: 'المخزون' },
   admin: { title: 'الإدارة' },
   analytics: {
-    title: 'التحليلات',
+    title: 'الاتجاهات',
     deck: {
       today: 'اليوم',
       d7: '7 أيام',
@@ -1623,7 +1624,7 @@ export const ar: Messages = {
       newTitle: 'ملعب جديد',
     },
     audit: {
-      title: 'سجل التدقيق',
+      title: 'سجل التغييرات',
       hint: 'كل خصم وإلغاء واسترداد وتعديل سعر وتغيير حجز، الأحدث أولًا. المعروض: آخر {count}.',
       searchHint: 'ما حدث أو الاسم أو السبب…',
       family: 'المجال',
@@ -1845,7 +1846,7 @@ export const ar: Messages = {
       discard: 'تجاهل التغييرات',
     },
     qr: {
-      title: 'الطاولات ورموز QR',
+      title: 'رموز QR للطاولات',
       printHint: 'بطاقة واحدة لكل صفحة بحجم A6. اطبع على كرتون أبيض عادي.',
       rotatedPartial:
         'استُبدلت الرموز: {done} من {total}. هذه الطاولات ما زالت برمزها القديم: {tables}. اطبع بطاقات جديدة للطاولات التي استُبدلت رموزها.',

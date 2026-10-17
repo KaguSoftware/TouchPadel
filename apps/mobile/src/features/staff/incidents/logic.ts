@@ -32,7 +32,8 @@ export const INCIDENT_PLACES: readonly IncidentPlace[] = [
   'outside',
   'other',
 ];
-export const INCIDENT_FILTERS: readonly IncidentsFilter[] = ['open', 'reviewed', 'all'];
+/** All first, the page's default, as the operator's My reports (incidentsLogic.ts MINE_FILTERS). */
+export const INCIDENT_FILTERS: readonly IncidentsFilter[] = ['all', 'open', 'reviewed'];
 
 /** Management reviews (review_incident, incidents_page); every role reports. */
 export const REVIEW_ROLES: readonly StaffRole[] = ['manager', 'owner'];
@@ -183,3 +184,97 @@ export const INCIDENT_TONE: Record<IncidentStatus, IncidentTone> = {
   open: 'warn',
   reviewed: 'good',
 };
+
+/** A phone-local calendar day as `YYYY-MM-DD`, the key the day groups sort on. */
+export function localDayKey(at: Date): string {
+  const m = String(at.getMonth() + 1).padStart(2, '0');
+  const d = String(at.getDate()).padStart(2, '0');
+  return `${at.getFullYear()}-${m}-${d}`;
+}
+
+export interface IncidentDay<T> {
+  /** `YYYY-MM-DD` on the phone's calendar. */
+  key: string;
+  /** How many days before `now` this day is: 0 today, 1 yesterday. */
+  daysAgo: number;
+  rows: T[];
+}
+
+/**
+ * The reports grouped under the day they happened, as the Play tab's Join list
+ * groups its nights: the newest day first and, inside a day, the latest first.
+ * Days are the phone's calendar, as the cards' times are.
+ */
+export function groupIncidentsByDay<T extends { occurred_at: string }>(
+  rows: readonly T[],
+  nowMs: number,
+): IncidentDay<T>[] {
+  const today = new Date(nowMs);
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const sorted = [...rows].sort(
+    (a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime(),
+  );
+  const days: IncidentDay<T>[] = [];
+  for (const r of sorted) {
+    const at = new Date(r.occurred_at);
+    const key = localDayKey(at);
+    const last = days[days.length - 1];
+    if (last && last.key === key) {
+      last.rows.push(r);
+      continue;
+    }
+    const midnight = new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
+    days.push({ key, daysAgo: Math.round((todayMidnight - midnight) / 86_400_000), rows: [r] });
+  }
+  return days;
+}
+
+// ── The stepped report (the operator's ReportIncidentForm, one step a page) ──
+
+/** The steps that take answers, in the operator's order, then the review that sends. */
+export const FORM_STEPS = ['kind', 'story', 'placeTime'] as const;
+export const REPORT_STEPS = [...FORM_STEPS, 'review'] as const;
+export type FormStep = (typeof FORM_STEPS)[number];
+export type ReportStep = (typeof REPORT_STEPS)[number];
+
+const FIELD_STEP: Record<IncidentField, FormStep> = {
+  kind: 'kind',
+  description: 'story',
+  people: 'story',
+  photos: 'story',
+  when: 'placeTime',
+  place: 'placeTime',
+  courtId: 'placeTime',
+  placeDetail: 'placeTime',
+};
+
+export function stepOfField(field: IncidentField): FormStep {
+  return FIELD_STEP[field];
+}
+
+/** The issues one step holds. */
+export function issuesOnStep(issues: readonly IncidentIssue[], step: ReportStep): IncidentIssue[] {
+  return issues.filter((i) => FIELD_STEP[i.field] === step);
+}
+
+/** A step is done once it has no issue of its own; the review, once nothing is left anywhere. */
+export function stepDone(step: ReportStep, issues: readonly IncidentIssue[]): boolean {
+  if (step === 'review') return issues.length === 0;
+  return issuesOnStep(issues, step).length === 0;
+}
+
+/** The `step` param as a step; anything else is the first. */
+export function parseReportStep(raw: unknown): ReportStep {
+  return REPORT_STEPS.find((s) => s === raw) ?? 'kind';
+}
+
+/** The order the kinds are offered in, the operator's: the ones reported most, first. */
+export const KIND_ORDER: readonly IncidentKind[] = ['injury', 'fight', 'damage', 'accident', 'other'];
+
+/** The three quick times (minutes before the step opened) and the picker behind "Pick a time". */
+export const QUICK_TIMES = [
+  { id: 'now', minutes: 0 },
+  { id: 'm15', minutes: 15 },
+  { id: 'h1', minutes: 60 },
+] as const;
+export type WhenChoice = (typeof QUICK_TIMES)[number]['id'] | 'pick';

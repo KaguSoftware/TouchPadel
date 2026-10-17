@@ -17,7 +17,11 @@ import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { headerAdd } from '../test/headerAdd';
 import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
+import { availabilityKeys } from '../features/availability/keys';
+import { addDays, listBookableDates } from '../features/availability/assemble';
+import { venueSettingsFixture } from '../test/fixtures';
 import { WorkList } from '../features/staff/protocols/WorkList';
+import { updateHiringDraft } from '../features/staff/protocols/hiringDraft';
 import StaffStart from '../../app/(staff)/staff-start';
 import StaffRuns from '../../app/(staff)/staff-runs';
 import StaffRun from '../../app/(staff)/staff-run';
@@ -204,6 +208,55 @@ const LOCALES: Locale[] = ['en', 'ar'];
 
 describe.each(LOCALES)('the protocol pages’ other states in %s', (locale) => {
   const t = makeT(locale);
+
+  // Sait, 2026-10-17: the person's own part of a run comes first, with its
+  // button; the run's current step stays below for the rest.
+  it('puts the person’s own step at the top of the run, opening that step', () => {
+    const screen = renderRoute(StaffRun, {
+      locale,
+      staff: { role: 'court_desk' },
+      params: { id: RUN },
+      queryData: [
+        [staffKeys.run(RUN), RUN_DETAIL],
+        [
+          staffKeys.work(V),
+          {
+            todo: [
+              {
+                run_step_id: STEP,
+                run_id: RUN,
+                kind: 'price_change',
+                variant: null,
+                title_en: null,
+                title_ar: null,
+                step_key: null,
+                name_en: 'Check',
+                name_ar: 'Check',
+                opened_at: null,
+                round: 1,
+              },
+            ],
+            waiting: [],
+            decided: [],
+            to_decide: [],
+            counts: { todo: 1, waiting: 0, to_decide: 0 },
+          },
+        ],
+      ],
+    });
+    try {
+      expect(screen.getByText(t('staff.protocols.run.yourTodo', { name: 'Check' }))).toBeTruthy();
+      // The same step is not offered twice.
+      expect(screen.queryByTestId('staff-run.current-step')).toBeNull();
+      fireEvent.press(screen.getByTestId('staff-run.my-step'));
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: { pathname: '/staff-step', params: { id: STEP } },
+      });
+    } finally {
+      screen.unmount();
+    }
+  });
 
   it('gives a decider the three answers, and no form', () => {
     const screen = renderRoute(StaffStep, {
@@ -459,6 +512,196 @@ describe.each(LOCALES)('the protocol pages’ other states in %s', (locale) => {
     try {
       expect(screen.getByTestId(`staff.todo.${STEP}`)).toBeTruthy();
       expect(screen.getByText(`${t('staff.protocols.work.todo')} · 1`)).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  // The tournament start, a page a plan section (owner, 2026-10-16).
+  const COURT_A = 'c1000000-0000-4000-8000-0000000000c1';
+  const COURT_B = 'c1000000-0000-4000-8000-0000000000c2';
+  const settings = venueSettingsFixture();
+  const firstDay = listBookableDates(new Date(), 'Asia/Baghdad', 60, settings)[0]!;
+  const laterDay = addDays(firstDay, 2);
+  const planSeeds: [readonly unknown[], unknown][] = [
+    [availabilityKeys.settings(V), settings],
+    [
+      staffKeys.courts(V),
+      [
+        { id: COURT_A, name_en: 'Court 1', name_ar: 'ملعب 1' },
+        { id: COURT_B, name_en: 'Court 2', name_ar: 'ملعب 2' },
+      ],
+    ],
+    [staffKeys.courtBookings(V, firstDay), []],
+    [
+      staffKeys.courtBookings(V, laterDay),
+      // 18:00–19:00 Baghdad on court 1 is booked.
+      [{ court_id: COURT_A, start_at: `${laterDay}T15:00:00Z`, end_at: `${laterDay}T16:00:00Z`, kind: 'booking' }],
+    ],
+  ];
+
+  it('opens a tournament type on the plan’s first step, the type’s pill on its card', () => {
+    const screen = renderRoute(StaffStart, {
+      locale,
+      staff: { role: 'manager' },
+      params: { kind: 'tournament' },
+    });
+    try {
+      expect(screen.getAllByText(t('ws.tournaments.start.typeTag.type3')).length).toBeGreaterThan(0);
+      fireEvent.press(screen.getByTestId('staff-start.field.variant.type3'));
+      const push = routerState.calls.find((c) => c.method === 'push');
+      expect(push?.arg).toMatchObject({
+        pathname: '/staff-start',
+        params: { kind: 'tournament', variant: 'type3', step: 'name', depth: '1' },
+      });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('holds the name step until it is filled, then opens courts & time', () => {
+    const screen = renderRoute(StaffStart, {
+      locale,
+      staff: { role: 'court_desk' },
+      params: { kind: 'tournament', variant: 'type1', plan: `name-${locale}`, step: 'name', depth: '1' },
+      queryData: planSeeds,
+    });
+    try {
+      expect(screen.getByText(t('staff.protocols.start.tournament.stepOf', { n: '1', total: '4' }))).toBeTruthy();
+      const next = screen.getByTestId('staff-start.plan.next');
+      fireEvent.press(next);
+      expect(routerState.calls.some((c) => c.method === 'push')).toBe(false);
+      expect(screen.getAllByText(t('staff.protocols.form.required')).length).toBeGreaterThan(0);
+
+      fireEvent.changeText(screen.getByTestId('staff-start.plan.name_en'), 'Friday Cup');
+      fireEvent.changeText(screen.getByTestId('staff-start.plan.name_ar'), 'كأس الجمعة');
+      fireEvent.press(screen.getByTestId('staff-start.plan.class.B'));
+      fireEvent.press(screen.getByTestId('staff-start.plan.years.one_to_three'));
+      fireEvent.press(screen.getByTestId('staff-start.plan.format.americano'));
+      fireEvent.press(screen.getByTestId('staff-start.plan.next'));
+      const push = routerState.calls.find((c) => c.method === 'push');
+      expect(push?.arg).toMatchObject({
+        params: { kind: 'tournament', variant: 'type1', plan: `name-${locale}`, step: 'courts', depth: '2' },
+      });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('picks court hours on the courts step, and will not pick a booked one', () => {
+    const screen = renderRoute(StaffStart, {
+      locale,
+      staff: { role: 'manager' },
+      params: { kind: 'tournament', variant: 'type2', plan: `courts-${locale}`, step: 'courts', depth: '2' },
+      queryData: planSeeds,
+    });
+    try {
+      fireEvent.press(screen.getByTestId(`staff-start.plan.day.${laterDay}`));
+      expect(screen.getByText(t('ws.tournaments.start.courts.none'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId(`staff-start.plan.cell.${COURT_A}-${18 * 60}`));
+      expect(screen.getByText(t('ws.tournaments.start.courts.none'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId(`staff-start.plan.cell.${COURT_B}-${18 * 60}`));
+      fireEvent.press(screen.getByTestId(`staff-start.plan.cell.${COURT_B}-${19 * 60}`));
+      expect(screen.queryByText(t('ws.tournaments.start.courts.none'))).toBeNull();
+      const slot = screen.getByTestId(`staff-start.plan.slot.${laterDay}-${18 * 60}-${20 * 60}`);
+      expect(slot).toBeTruthy();
+      fireEvent.press(screen.getByTestId(`staff-start.plan.slot.${laterDay}-${18 * 60}-${20 * 60}.remove`));
+      expect(screen.getByText(t('ws.tournaments.start.courts.none'))).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('ends a plan on its last step with the start', () => {
+    const screen = renderRoute(StaffStart, {
+      locale,
+      staff: { role: 'manager' },
+      params: { kind: 'tournament', variant: 'type3', plan: `last-${locale}`, step: 'sponsor', depth: '5' },
+      queryData: planSeeds,
+    });
+    try {
+      expect(screen.getByText(t('staff.protocols.start.tournament.stepOf', { n: '5', total: '5' }))).toBeTruthy();
+      expect(screen.queryByTestId('staff-start.plan.next')).toBeNull();
+      expect(screen.getByTestId('staff-start.submit')).toBeTruthy();
+      // An empty plan goes back to its first step, the name.
+      fireEvent.press(screen.getByTestId('staff-start.submit'));
+      expect(routerState.calls).toContainEqual({ method: 'dismiss', arg: 4 });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  // The hiring start, a page a step (Sait, 2026-10-17).
+  it('opens a hire on its role page, and holds it there until a role is picked', () => {
+    const kinds = renderRoute(StaffStart, { locale, staff: { role: 'manager' }, params: {} });
+    try {
+      fireEvent.press(kinds.getByTestId('staff-start.kind.hiring'));
+      const push = routerState.calls.find((c) => c.method === 'push');
+      expect(push?.arg).toMatchObject({ pathname: '/staff-start', params: { kind: 'hiring', step: 'role', depth: '1' } });
+    } finally {
+      kinds.unmount();
+    }
+    routerState.calls.length = 0;
+    const screen = renderRoute(StaffStart, {
+      locale,
+      staff: { role: 'manager' },
+      params: { kind: 'hiring', plan: `role-${locale}`, step: 'role', depth: '1' },
+    });
+    try {
+      expect(screen.getByText(t('staff.protocols.start.hiring.questions.role'))).toBeTruthy();
+      expect(screen.getByText(t('staff.protocols.start.flow.stepOf', { n: '1', total: '4' }))).toBeTruthy();
+      const next = screen.getByTestId('staff-start.hiring.next');
+      fireEvent.press(next);
+      expect(routerState.calls.some((c) => c.method === 'push')).toBe(false);
+      expect(screen.getByText(t('staff.protocols.form.required'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-start.hiring.role.barista'));
+      fireEvent.press(screen.getByTestId('staff-start.hiring.next'));
+      const push = routerState.calls.find((c) => c.method === 'push');
+      expect(push?.arg).toMatchObject({ params: { kind: 'hiring', plan: `role-${locale}`, step: 'job', depth: '2' } });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('names the run from the role on the Check page, and opens a step again from Change', () => {
+    const plan = `check-${locale}`;
+    updateHiringDraft(plan, {
+      answers: { role: 'barista', why: 'Evenings are one short', hours: '4 pm to midnight', startDate: '2026-11-01' },
+    });
+    const screen = renderRoute(StaffStart, {
+      locale,
+      staff: { role: 'manager' },
+      params: { kind: 'hiring', plan, step: 'check', depth: '4' },
+    });
+    try {
+      expect(screen.getByTestId('staff-start.hiring.title-en').props.value).toBe('Hiring: Barista');
+      expect(screen.getByTestId('staff-start.hiring.title-ar').props.value).toBe('توظيف: باريستا');
+      expect(screen.getByTestId('staff-start.submit')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-start.hiring.change.hours'));
+      const push = routerState.calls.find((c) => c.method === 'push');
+      expect(push?.arg).toMatchObject({ params: { kind: 'hiring', plan, step: 'job', ret: 'check', depth: '5' } });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('goes back to Check from a step opened by Change', () => {
+    const plan = `back-${locale}`;
+    updateHiringDraft(plan, {
+      answers: { role: 'driver', why: 'Two runs a day', hours: 'Mornings', startDate: '2026-11-01' },
+    });
+    const screen = renderRoute(StaffStart, {
+      locale,
+      staff: { role: 'manager' },
+      params: { kind: 'hiring', plan, step: 'job', ret: 'check', depth: '5' },
+    });
+    try {
+      const button = screen.getByTestId('staff-start.hiring.next');
+      expect(screen.getByText(t('staff.protocols.start.flow.backTo', { step: t('staff.protocols.start.hiring.steps.check') }))).toBeTruthy();
+      fireEvent.press(button);
+      // useBack: the page under it on a phone; the mock router has none, so Today.
+      expect(routerState.calls).toContainEqual({ method: 'replace', arg: '/staff' });
+      expect(routerState.calls.some((c) => c.method === 'push')).toBe(false);
     } finally {
       screen.unmount();
     }

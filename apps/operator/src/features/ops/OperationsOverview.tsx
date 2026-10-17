@@ -98,7 +98,7 @@ function useOpsOverview() {
  * and since when, not a description of the screen), and the last-updated time
  * beside a refresh button. Observe's overview uses the same.
  */
-export function useFloorNowHeading(): { subtitle: string | undefined; actions: ReactNode } {
+function useFloorNowHeading(): { subtitle: string | undefined; actions: ReactNode } {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
   const overviewQ = useOpsOverview();
@@ -127,15 +127,16 @@ export function OperationsOverviewScreen() {
   const { staff } = useAuth();
   const navigate = useNavigate();
   const workspace = useWorkspaceOrNull();
-  // Whoever holds Observe reads the floor on its overview, so /ops is not a
-  // second copy of it. Not in the Operations workspace, though: /ops is its
-  // home, and sending the owner on to /observation there swapped the rail
-  // straight back to Management, so an owner could never switch into Operations.
-  const toObserve = workspace?.active !== 'manager' && canAccess(staff, '/observation');
+  // The owner reads what needs them on the Overview (/panel, page map
+  // 2026-10-17), so /ops is not a second copy of it. Not in the Operations
+  // workspace, though: /ops is its home, and sending the owner on to /panel
+  // there swapped the rail straight back to Management, so an owner could
+  // never switch into Operations.
+  const toOverview = workspace?.active !== 'manager' && canAccess(staff, '/panel');
   useEffect(() => {
-    if (toObserve) void navigate({ to: '/observation', replace: true });
-  }, [toObserve, navigate]);
-  return toObserve ? null : <TodayScreen />;
+    if (toOverview) void navigate({ to: '/panel', replace: true });
+  }, [toOverview, navigate]);
+  return toOverview ? null : <TodayScreen />;
 }
 
 function TodayScreen() {
@@ -149,54 +150,50 @@ function TodayScreen() {
   );
 }
 
-/**
- * The floor right now, under whatever heading the screen gives it. `extras`
- * join "Needs you"; `afterAttention` renders under "On the floor now" (Observe
- * puts the live floor plan there).
- */
-/**
- * `observe` is the owner's Observe overview (management rebuild, 2026-10-17):
- * it leaves out "Before you close" and "Stock to watch", which the owner reads
- * on the Financial overview's cash lines and on Stock's own page. The
- * manager's Today keeps both: it is the manager's one page for the shift.
- */
-export type FloorNowVariant = 'today' | 'observe';
-
-export function FloorNow({ extras, afterAttention, variant = 'today' }: { extras?: FloorNowExtras; afterAttention?: ReactNode; variant?: FloorNowVariant }) {
-  const navigate = useNavigate();
-  const queued = useQueuedCount();
+/** Live reads of the floor: the overview, refreshed when the floor, the courts or the kitchen move. */
+function useLiveOpsOverview() {
   const overviewQ = useOpsOverview();
-
   // Cache-bust hints; the poll above is the safety net while disconnected.
   useBroadcast({ topic: 'floor', isPrivate: true, invalidateKeys: [OPS_OVERVIEW_KEY] });
   useBroadcast({ topic: 'courts', isPrivate: true, invalidateKeys: [OPS_OVERVIEW_KEY] });
   useBroadcast({ topic: 'kds', isPrivate: true, invalidateKeys: [OPS_OVERVIEW_KEY] });
+  return overviewQ;
+}
 
+/** The manager's floor right now: the body of Today. */
+export function FloorNow() {
+  const navigate = useNavigate();
+  const queued = useQueuedCount();
+  const overviewQ = useLiveOpsOverview();
   const go: Go = (href) => void navigate({ href });
   const status = asyncStatus(overviewQ, () => false);
 
   return (
     <AsyncStateWrapper status={status} error={overviewQ.error} onRetry={() => void overviewQ.refetch()}>
-      {overviewQ.data && <Day data={overviewQ.data} queued={queued} go={go} extras={extras} afterAttention={afterAttention} variant={variant} />}
+      {overviewQ.data && <Day data={overviewQ.data} queued={queued} go={go} />}
     </AsyncStateWrapper>
   );
 }
 
-function Day({
-  data,
-  queued,
-  go,
-  extras,
-  afterAttention,
-  variant,
-}: {
-  data: OpsOverview;
-  queued: number;
-  go: Go;
-  extras?: FloorNowExtras;
-  afterAttention?: ReactNode;
-  variant: FloorNowVariant;
-}) {
+/**
+ * "Needs you" on its own, for the owner's Overview (page map, 2026-10-17):
+ * the floor's alarms and the people records, with `extras`, what only the
+ * owner answers. It used to be the top of the owner's Floor now page.
+ */
+export function NeedsYouNow({ extras }: { extras?: FloorNowExtras }) {
+  const navigate = useNavigate();
+  const overviewQ = useLiveOpsOverview();
+  const go: Go = (href) => void navigate({ href });
+  const status = asyncStatus(overviewQ, () => false);
+
+  return (
+    <AsyncStateWrapper status={status} error={overviewQ.error} onRetry={() => void overviewQ.refetch()}>
+      {overviewQ.data && <NeedsYou data={overviewQ.data} go={go} extras={extras} />}
+    </AsyncStateWrapper>
+  );
+}
+
+function Day({ data, queued, go }: { data: OpsOverview; queued: number; go: Go }) {
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
       {!data.dayClose.open && <DayClosedBanner go={go} />}
@@ -204,14 +201,13 @@ function Day({
           page (about a 1220px screen): a flex sidebar, no media query. */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--tp-sp-4)' }}>
         <div style={{ flex: '999 1 0', minInlineSize: '58%', display: 'grid', gap: 'var(--tp-sp-4)' }}>
-          <NeedsYou data={data} go={go} extras={extras} />
+          <NeedsYou data={data} go={go} />
           <FloorPanel data={data} go={go} />
-          {afterAttention}
           <WhoWorked rows={data.staffActivity} />
         </div>
         <div style={{ flex: '1 1 22rem', minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-4)' }}>
-          {variant === 'today' && data.dayClose.open && <BeforeYouClose data={data} queued={queued} go={go} />}
-          {variant === 'today' && <StockToWatch data={data} go={go} />}
+          {data.dayClose.open && <BeforeYouClose data={data} queued={queued} go={go} />}
+          <StockToWatch data={data} go={go} />
           <SoFarToday data={data} go={go} />
         </div>
       </div>
