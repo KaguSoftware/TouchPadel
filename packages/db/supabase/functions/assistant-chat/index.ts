@@ -106,7 +106,7 @@
  * line, the false-refusal retry and the money-only gate retry, all with the
  * same messages, events and stop reasons as when it was a closure here. This
  * file injects what touches the world: `provider.stream` (system, tools,
- * effort, webSearch: true, the wall's signal), the tool runners as the owner,
+ * effort, webSearch per turnPolicy webSearchOn, the wall's signal), the tool runners as the owner,
  * the refusal retry's search, the price list estimate and the per-search
  * price (0324). It keeps the context, the history, the pre-search, HTTP and
  * persistence, and reads the loop's `TurnState` at persist, so a turn that
@@ -180,6 +180,7 @@ import {
   TURN_COST_CAP_CHEAP_MICROS,
   TURN_COST_CAP_MICROS,
   turnEstimateMicros,
+  webSearchOn,
   type FrozenContext,
   type ModelRates,
 } from '../_shared/assistant/turnPolicy.ts';
@@ -1456,7 +1457,7 @@ Deno.serve(handle('assistant-chat', async (req) => {
           messages: msgs,
           maxTokens: route.sticky ? MAX_TOKENS_CHAT_CHEAP : MAX_TOKENS_CHAT,
           effort: route.effort,
-          webSearch: true,
+          webSearch: webSearchOn(provider.model, route),
           onText,
           onToolStart: () => {},
           signal: abort.signal,

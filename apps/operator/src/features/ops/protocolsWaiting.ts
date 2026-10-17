@@ -1,7 +1,7 @@
 /**
  * What waits on the signed-in person in protocols: app.protocols_waiting_count,
  * `{to_decide, todo}` (build-contracts-2026-09-23 §2.7, §5.2). One read for the
- * rail badge, the /ops "Needs you now" row, the Observe home's Waiting on you
+ * rail badge, the /ops "Needs you" row, the Observe home's Waiting on you
  * row and the Protocols page, all under QK.protocolsWaiting, which holds the
  * payload as returned.
  */

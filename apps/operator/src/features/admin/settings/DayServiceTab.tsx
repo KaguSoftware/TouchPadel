@@ -36,7 +36,7 @@ export function DayServiceTab() {
   const queryClient = useQueryClient();
   const { staff } = useAuth();
   // Capability matrix, not an inline role comparison — see lib/auth.tsx.
-  const canSetBusinessDay = can(staff?.role, 'setBusinessDayStart');
+  const canSetBusinessDay = can(staff, 'setBusinessDayStart');
   const { settings, isLoading } = useCafeSettings();
   const setSetting = useSetCafeSetting();
 

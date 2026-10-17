@@ -29,6 +29,7 @@ import { Button } from '../../components/ui';
 import { Panel, ViewMore, useListCap } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { RefundDialog } from '../till/ManagerActions';
+import { useQueueOpener } from '../ops/queueOpener';
 import { BlockedRefundDialog } from './BlockedRefundDialog';
 import type { Tr } from './lessonLogic';
 import type { RefundDueItem, RefundDuePayment } from './lessonPayloads';
@@ -127,19 +128,24 @@ export function HandbackButton({ item }: { item: RefundDueItem }) {
 }
 
 /**
- * "Online refunds": the online refunds panel. On Ops it sits above the lesson
- * refunds when a row waits there, so the link scrolls to it; elsewhere (or
- * with no row in it) it opens Ops.
+ * "Online refunds": the online refunds. On Today they are a row of "Needs
+ * you", so the link opens that row and brings it into view (queueOpener);
+ * elsewhere it scrolls to an online refunds panel on the page, or opens Today.
  */
 export function OnlineRefundsLink() {
   const { tr } = useLocale();
   const navigate = useNavigate();
+  const openQueue = useQueueOpener();
   return (
     <Button
       size="sm"
       kind="ghost"
       iconEnd="arrowUpRight"
       onClick={() => {
+        if (openQueue) {
+          openQueue('deposits');
+          return;
+        }
         const panel = document.querySelector('[data-testid="deposit-attention"]');
         if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         else void navigate({ to: '/ops' });

@@ -166,7 +166,7 @@ function PersonRow({ person: p, first, onCancel }: { person: MonthPerson; first:
   const [open, setOpen] = useState(false);
   const panelId = `deductions-person-${p.staffId}`;
   // A paid month is frozen (0272): nothing in it can be cancelled.
-  const mayCancel = can(staff?.role, 'cancelDeductions') && !p.wagePaid;
+  const mayCancel = can(staff, 'cancelDeductions') && !p.wagePaid;
   return (
     <li style={{ borderBlockStart: first ? undefined : '1px solid var(--tp-border)' }}>
       <button
@@ -222,7 +222,7 @@ function PersonRow({ person: p, first, onCancel }: { person: MonthPerson; first:
       </button>
       {open && (
         <ul id={panelId} style={{ listStyle: 'none', margin: 0, paddingBlock: 'var(--tp-sp-1) var(--tp-sp-3)', paddingInline: 'var(--tp-sp-4)', display: 'grid', gap: 'var(--tp-sp-2)' }}>
-          {p.wagePaid && can(staff?.role, 'cancelDeductions') && (
+          {p.wagePaid && can(staff, 'cancelDeductions') && (
             <li style={muted} data-testid={`deductions.paid-locked.${p.staffId}`}>
               {tr('ws.deductions.cancel.paidLocked')}
             </li>

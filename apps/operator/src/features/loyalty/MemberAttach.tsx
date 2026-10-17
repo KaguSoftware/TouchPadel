@@ -324,7 +324,7 @@ export function MemberAttach({
   const { staff } = useAuth();
   const { reachable } = useStationReach();
   const qc = useQueryClient();
-  const allowed = can(staff?.role, 'attachMember');
+  const allowed = can(staff, 'attachMember');
   const local = tabId.startsWith(LOCAL_TAB_PREFIX);
   const tabQ = useTabLoyalty(allowed && !local ? tabId : null);
   const customerId = tabQ.data?.customer_id ?? null;

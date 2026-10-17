@@ -20,7 +20,6 @@ import { BUSINESS_DAY_START_OPTIONS, RANGE_PRESETS, isIsoDate, type CompareBasis
 import type { MessageKey } from '@touch/i18n';
 import { Button, ErrorText, inputStyle } from '../../components/ui';
 import { SelectMenu } from '../../components/SelectMenu';
-import { SegmentedControl } from '../../components/kit';
 import { InfoTip } from '../../components/InfoTip';
 import { Icon } from '../../components/icons';
 import { useLocale } from '../../lib/i18n';
@@ -159,7 +158,7 @@ export function AnalyticsBar({
 
       <div style={row}>
         <Group label={tr('ws.reports.filters.period')}>
-          <SegmentedControl<RangePreset>
+          <SelectMenu<RangePreset>
             aria-label={tr('ws.reports.filters.period')}
             value={editingCustom ? 'custom' : search.range}
             onChange={(preset) => {
@@ -176,6 +175,8 @@ export function AnalyticsBar({
                 ? { value: preset, label: tr('analytics.deck.custom') }
                 : { value: preset, label: tr(PRESET_KEY[preset as Exclude<RangePreset, 'custom'>]) },
             )}
+            style={small}
+            className={GLASS_CTL}
           />
         </Group>
 

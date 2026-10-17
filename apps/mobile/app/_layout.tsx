@@ -37,6 +37,7 @@ import {
 } from '../src/features/auth/welcomeSeen';
 import { CoachStatusProvider } from '../src/features/coach/CoachStatusProvider';
 import { StaffScreenGuard } from '../src/features/staff/screenGuard/StaffScreenGuard';
+import { StaffActivityPing } from '../src/features/staff/activity/StaffActivityPing';
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { usePlaySurveyPrompt } from '../src/features/playProfile/usePlaySurveyPrompt';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
@@ -550,6 +551,8 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
                         <ConnectivityBanner />
                         {/* Staff other than the owner: no screenshots, and the owner is told of each. */}
                         <StaffScreenGuard />
+                        {/* Staff only: tells the owner's activity monitor this phone is in use (0341). */}
+                        <StaffActivityPing />
                       </CoachStatusProvider>
                     </StaffStatusProvider>
                   </ToastProvider>

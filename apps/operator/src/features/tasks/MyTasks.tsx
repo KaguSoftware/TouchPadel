@@ -53,8 +53,8 @@ export function MyTasksScreen() {
   const navigate = useNavigate();
   const workspace = useWorkspaceOrNull();
   const search = useSearch({ strict: false }) as TasksSearch;
-  const starts = useMemo(() => taskStarts(staff?.role), [staff?.role]);
-  const reviewsIdeas = can(staff?.role, 'reviewIdeas');
+  const starts = useMemo(() => taskStarts(staff), [staff]);
+  const reviewsIdeas = can(staff, 'reviewIdeas');
 
   const workQ = useQuery({ queryKey: TK.work, queryFn: fetchMyWork, refetchInterval: 60_000 });
   const work = useMemo(() => readMyWork(workQ.data), [workQ.data]);
@@ -137,7 +137,7 @@ export function MyTasksScreen() {
 
       {/* Marketing's posts for the owners' approval (wave5-addendum-2026-09-25
           §5.1): written and revised here as well as on the phone. */}
-      {can(staff?.role, 'submitContent') && <MarketingContentPanel />}
+      {can(staff, 'submitContent') && <MarketingContentPanel />}
 
       <PhoneCopies />
 

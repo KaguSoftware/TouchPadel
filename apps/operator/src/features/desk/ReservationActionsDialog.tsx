@@ -89,7 +89,7 @@ export function ReservationActionsDialog({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { staff } = useAuth();
-  const canPay = permissionsFor(staff?.role).takeCourtPayment && r.kind === 'booking' && ['confirmed', 'arrived', 'completed'].includes(r.status);
+  const canPay = permissionsFor(staff).takeCourtPayment && r.kind === 'booking' && ['confirmed', 'arrived', 'completed'].includes(r.status);
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);

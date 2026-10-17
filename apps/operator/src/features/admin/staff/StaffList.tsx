@@ -312,7 +312,7 @@ function HireBanner({ stepId, onAdd }: { stepId: string; onAdd(intent: HireInten
           {tr('ws.kit.async.retry')}
         </Button>
       )}
-      {run && canAccess(staff?.role, '/protocols') && (
+      {run && canAccess(staff, '/protocols') && (
         <Button size="sm" onClick={() => void navigate({ to: '/protocols', search: { run, step: stepId } })}>
           {tr('ws.events.hire.openRun')}
         </Button>

@@ -32,8 +32,8 @@ export function ShiftProvider({ offline, children }: { offline: boolean; childre
   const device = useMemo(() => shiftDeviceId(), []);
   const mode = useMemo(() => stationMode(), []);
   const holder = useMemo<Holder>(
-    () => ({ holdsShift: perms.takeCourtPayment, payOnOthersShift: can(staff?.role, 'payOnOthersShift') }),
-    [perms.takeCourtPayment, staff?.role],
+    () => ({ holdsShift: perms.takeCourtPayment, payOnOthersShift: can(staff, 'payOnOthersShift') }),
+    [perms.takeCourtPayment, staff],
   );
   const enabled = !!staff && holder.holdsShift && stationHasDrawer(mode);
 

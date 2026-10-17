@@ -3,6 +3,8 @@
  * thread. One component for both URLs — the layout route renders it and only
  * the `$id` param changes — so a first question that creates a conversation
  * and moves the URL to `/assistant/<id>` does not unmount the stream.
+ * When the owner has picked "The free AI" (useAssistantMode) the thread
+ * section holds the free thread instead; the page itself stays owner-only.
  */
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
@@ -14,11 +16,14 @@ import { Button } from '../../components/ui';
 import { ConversationList } from './ConversationList';
 import { loadOpen, saveOpen } from './Disclosure';
 import { Thread } from './Thread';
+import { FreeThread } from './FreeThread';
+import { useAssistantMode } from './useAssistantMode';
 import { initialScopes, saveSessionConversation } from './scopes';
 
 export function AssistantPageScreen() {
   const { tr } = useLocale();
   const { staff } = useAuth();
+  const { mode } = useAssistantMode();
   const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id?: string };
   const conversationId = id ?? null;
@@ -79,7 +84,11 @@ export function AssistantPageScreen() {
           )}
         </aside>
         <section aria-label={tr('ws.owner.assistant.title')} style={{ minBlockSize: 0, minInlineSize: 0 }}>
-          <Thread conversationId={conversationId} onConversation={(next) => goTo(next)} newScopes={newScopes} onNewScopesChange={setNewScopes} autoFocus />
+          {mode === 'free' ? (
+            <FreeThread autoFocus />
+          ) : (
+            <Thread conversationId={conversationId} onConversation={(next) => goTo(next)} newScopes={newScopes} onNewScopesChange={setNewScopes} autoFocus />
+          )}
         </section>
       </div>
     </div>

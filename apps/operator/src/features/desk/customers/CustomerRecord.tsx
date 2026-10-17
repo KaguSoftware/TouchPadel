@@ -19,6 +19,11 @@
  * (`manageCoaches`), Book a lesson (`runLessons`), the lesson counts and the
  * Lessons panel, where a cashier takes lesson money (R20). A server without
  * coaching (RPC_MISSING) shows none of it.
+ *
+ * Discount (0342, features/discounts): the customer's own price, a café part
+ * and a court part, on a section card that opens the editor, and a badge
+ * beside the name while they have one. No PIN; a server without 0342 shows
+ * none of it.
  */
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -68,6 +73,9 @@ import { CustomerHoldStanding } from '../../holds/HoldStandingPanels';
 import { CoachBadge } from '../../coaching/CoachBadge';
 import { CustomerLessonsPanel } from '../../coaching/CustomerLessonsPanel';
 import { useCoachingCaps, useCustomerLessons } from '../../coaching/useCoaching';
+import { CustomerDiscountCard, CustomerDiscountDialog } from '../../discounts/CustomerDiscountCard';
+import { canDiscount, rpcMissing, useCustomerDiscount } from '../../discounts/useCustomerDiscount';
+import { useDiscountWords } from '../../discounts/useDiscountWords';
 
 const FLAG_TYPES: readonly CustomerFlagType[] = ['vip', 'birthday', 'payment_note', 'special_request', 'deposit_exempt'];
 
@@ -114,7 +122,7 @@ export function CustomerRecordScreen() {
 
   const counts = rec?.counts ?? { bookings: 0, cancellations: 0, noShows: 0, cafeOrders: 0 };
   const { staff } = useAuth();
-  const canBook = canAccess(staff?.role, '/desk');
+  const canBook = canAccess(staff, '/desk');
   const caps = useMatchCaps();
   // Coaching (§5.15): null on a server without customer_lessons (RPC_MISSING), and then no coaching UI.
   const lessonsQ = useCustomerLessons(id);
@@ -134,13 +142,20 @@ export function CustomerRecordScreen() {
 
   // The cards (2026-10-14): each opens its section in a dialog.
   const [section, setSection] = useState<RecordSection | null>(null);
-  const loyaltyAllowed = can(staff?.role, 'attachMember');
+  const loyaltyAllowed = can(staff, 'attachMember');
   const loyaltyQ = useLoyaltyCustomer(id, loyaltyAllowed);
   const showLoyalty = loyaltyAllowed && !isRpcMissing(loyaltyQ.error);
   const ticketsQ = useGuestTickets(id, caps.runMatches);
   const ticketsRead = useMatchRead(ticketsQ);
   const showTickets = caps.runMatches && ticketsRead.kind !== 'absent';
   const showMatches = matchesKnown && caps.runMatches;
+  // Discount (0342): the five till and desk roles; nothing on a server without it.
+  const discountAllowed = canDiscount(staff);
+  const discountQ = useCustomerDiscount(id, discountAllowed);
+  const showDiscount = discountAllowed && discountQ.data !== undefined && !rpcMissing(discountQ.error);
+  const discount = discountQ.data ?? null;
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const discountWords = useDiscountWords();
 
   const nowMs = Date.now();
   const next = rec ? nextBooking(rec.upcoming) : null;
@@ -233,6 +248,16 @@ export function CustomerRecordScreen() {
                   {rec.flags.map((f, i) => (
                     <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} size="md" />
                   ))}
+                  {showDiscount && discount && (
+                    <StatusBadge
+                      tone="accent"
+                      icon="tag"
+                      dot={false}
+                      size="md"
+                      label={tr('ws.discounts.card.badge', { reason: discountWords.reason(discount.reason) })}
+                      title={discountWords.parts(discount)}
+                    />
+                  )}
                   <Button size="sm" kind="ghost" icon="tag" onClick={() => setFlagsOpen(true)}>
                     {flagCount === 0 ? tr('ws.courtDesk.record.addFlags') : tr('ws.courtDesk.record.editFlags')}
                   </Button>
@@ -371,6 +396,8 @@ export function CustomerRecordScreen() {
             {/* The section cards, and the staff notes beside them. */}
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(18rem, 22rem)', gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))', gap: 'var(--tp-sp-3)', alignContent: 'start' }}>
+                {/* First: it is what the desk needs before taking their money. */}
+                {showDiscount && <CustomerDiscountCard discount={discount} tz={tz} onOpen={() => setDiscountOpen(true)} />}
                 {showMatches && playsAs && (
                   <SectionCard icon="users" tone="matches" testId="card-matches" title={tr('ws.matches.customers.title')} sub={playsAsLine(playsAs, tr)} openLabel={tr('ws.courtDesk.record.cards.open')} onOpen={() => setSection('matches')}>
                     <Figure size="md" value={n(counts.matchesPlayed ?? 0)} unit={tr('ws.matches.customers.matchesPlayed')} />
@@ -518,6 +545,10 @@ export function CustomerRecordScreen() {
             ))}
           </ul>
         </SectionDialog>
+      )}
+
+      {discountOpen && rec && (
+        <CustomerDiscountDialog customerId={id} customerName={rec.customer.full_name} discount={discount} self={staff?.id === id} onClose={() => setDiscountOpen(false)} />
       )}
 
       {flagsOpen && rec && (

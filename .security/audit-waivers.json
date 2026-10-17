@@ -18,51 +18,51 @@
     {
       "id": "GHSA-532v-xpq5-8h95",
       "module": "electron",
-      "reason": "Use-after-free in the offscreen child-window paint callback. The shell renders no offscreen windows: the only BrowserWindow is the operator UI, and print-receipt.ts creates a hidden window that is on-screen-class, not offscreen-rendered. Real fix is the Electron 33 -> 39 upgrade, which is Block 4 desktop work (better-sqlite3 ABI + Windows packaging must be re-verified) and cannot ride along with a CI change.",
+      "reason": "Use-after-free in the offscreen child-window paint callback. The shell renders no offscreen windows: the only BrowserWindow is the operator UI, and print-receipt.ts creates a hidden window that is on-screen-class, not offscreen-rendered. Real fix is the Electron 33 -> 39 upgrade, which is Block 4 desktop work (better-sqlite3 ABI + Windows packaging must be re-verified) and cannot ride along with a CI change. Extended 2026-10-17 to 2026-11-16 on Majed's word for go-live: reachability unchanged (no remote content, no child or offscreen windows); the Electron 33 → 41.10.6 upgrade is still owed.",
       "owner": "DEV",
-      "expires": "2026-10-15"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-8337-3p73-46f4",
       "module": "electron",
-      "reason": "Use-after-free in WebContents fullscreen / pointer-lock. Reachable only from renderer content; the shell loads no remote content (will-navigate blocked, setWindowOpenHandler filtered) so an attacker needs code execution in the operator bundle first. Cleared by the same 33 -> 39 upgrade.",
+      "reason": "Use-after-free in WebContents fullscreen / pointer-lock. Reachable only from renderer content; the shell loads no remote content (will-navigate blocked, setWindowOpenHandler filtered) so an attacker needs code execution in the operator bundle first. Cleared by the same 33 -> 39 upgrade. Extended 2026-10-17 to 2026-11-16 on Majed's word for go-live: reachability unchanged (no remote content, no child or offscreen windows); the Electron 33 → 41.10.6 upgrade is still owed.",
       "owner": "DEV",
-      "expires": "2026-10-15"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-jjp3-mq3x-295m",
       "module": "electron",
-      "reason": "Use-after-free in PowerMonitor. Same upgrade, same reachability argument: no remote content is ever loaded into the shell.",
+      "reason": "Use-after-free in PowerMonitor. Same upgrade, same reachability argument: no remote content is ever loaded into the shell. Extended 2026-10-17 to 2026-11-16 on Majed's word for go-live: reachability unchanged (no remote content, no child or offscreen windows); the Electron 33 → 41.10.6 upgrade is still owed.",
       "owner": "DEV",
-      "expires": "2026-10-15"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-9wfr-w7mm-pc7f",
       "module": "electron",
-      "reason": "Renderer command-line switch injection. Requires an attacker-controlled renderer; the shell has one, loaded from the packaged asar. Cleared by the 33 -> 39 upgrade.",
+      "reason": "Renderer command-line switch injection. Requires an attacker-controlled renderer; the shell has one, loaded from the packaged asar. Cleared by the 33 -> 39 upgrade. Extended 2026-10-17 to 2026-11-16 on Majed's word for go-live: reachability unchanged (no remote content, no child or offscreen windows); the Electron 33 → 41.10.6 upgrade is still owed.",
       "owner": "DEV",
-      "expires": "2026-10-15"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-v3j7-r9gq-3gjw",
       "module": "electron",
-      "reason": "Custom protocol with supportFetchAPI but not corsEnabled. The shell registers no custom protocol with supportFetchAPI, so this is not reachable as configured. Cleared by the 33 -> 39 upgrade.",
+      "reason": "Custom protocol with supportFetchAPI but not corsEnabled. The shell registers no custom protocol with supportFetchAPI, so this is not reachable as configured. Cleared by the 33 -> 39 upgrade. Extended 2026-10-17 to 2026-11-16 on Majed's word for go-live: reachability unchanged (no remote content, no child or offscreen windows); the Electron 33 → 41.10.6 upgrade is still owed.",
       "owner": "DEV",
-      "expires": "2026-10-15"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-h7rp-cf8h-j98x",
       "module": "electron",
-      "reason": "Context-isolation bypass via Function.prototype.bind hijack. This is the most serious of the seven for this app, because context isolation is exactly what stands between the renderer and the durable queue, the PIN cache and the printer. It still needs hostile code running in the renderer to exploit. It is the reason the Electron upgrade is dated rather than open-ended.",
+      "reason": "Context-isolation bypass via Function.prototype.bind hijack. This is the most serious of the seven for this app, because context isolation is exactly what stands between the renderer and the durable queue, the PIN cache and the printer. It still needs hostile code running in the renderer to exploit. It is the reason the Electron upgrade is dated rather than open-ended. Extended 2026-10-17 to 2026-11-16 on Majed's word for go-live: reachability unchanged (no remote content, no child or offscreen windows); the Electron 33 → 41.10.6 upgrade is still owed.",
       "owner": "DEV",
-      "expires": "2026-10-15"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-9f4c-93c8-jc8g",
       "module": "electron",
-      "reason": "Sandboxed iframe bypassing allow-popups. The operator UI embeds no third-party iframes. Cleared by the 33 -> 39 upgrade.",
+      "reason": "Sandboxed iframe bypassing allow-popups. The operator UI embeds no third-party iframes. Cleared by the 33 -> 39 upgrade. Extended 2026-10-17 to 2026-11-16 on Majed's word for go-live: reachability unchanged (no remote content, no child or offscreen windows); the Electron 33 → 41.10.6 upgrade is still owed.",
       "owner": "DEV",
-      "expires": "2026-10-15"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-5xrq-8626-4rwp",
@@ -81,30 +81,30 @@
     {
       "id": "GHSA-hq2x-r82h-9wj4",
       "module": "electron",
-      "reason": "Popups opened through OpenURLFromTab drop inherited HTML sandbox restrictions (fixed in 41.10.4). The shell opens no Electron popup at all: setWindowOpenHandler denies every window.open and hands allowed https links to the system browser (window-security.ts mayOpenExternally). Waived on Parsa's word 2026-09-29; cleared by the Electron upgrade the other electron waivers date.",
+      "reason": "Popups opened through OpenURLFromTab drop inherited HTML sandbox restrictions (fixed in 41.10.4). The shell opens no Electron popup at all: setWindowOpenHandler denies every window.open and hands allowed https links to the system browser (window-security.ts mayOpenExternally). Waived on Parsa's word 2026-09-29; cleared by the Electron upgrade the other electron waivers date. Extended 2026-10-17 to 2026-11-16 on Majed's word for go-live: reachability unchanged (no remote content, no child or offscreen windows); the Electron 33 → 41.10.6 upgrade is still owed.",
       "owner": "DEV",
-      "expires": "2026-10-15"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-gr2m-v5gq-v685",
       "module": "electron",
-      "reason": "Windows opened from a sandboxed top-level document do not inherit its sandbox (fixed in 41.10.6). Same reachability as GHSA-hq2x-r82h-9wj4: no child BrowserWindow is ever created from the renderer (setWindowOpenHandler returns deny). Cleared by the same upgrade.",
+      "reason": "Windows opened from a sandboxed top-level document do not inherit its sandbox (fixed in 41.10.6). Same reachability as GHSA-hq2x-r82h-9wj4: no child BrowserWindow is ever created from the renderer (setWindowOpenHandler returns deny). Cleared by the same upgrade. Extended 2026-10-17 to 2026-11-16 on Majed's word for go-live: reachability unchanged (no remote content, no child or offscreen windows); the Electron 33 → 41.10.6 upgrade is still owed.",
       "owner": "DEV",
-      "expires": "2026-10-15"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-j84w-jfhq-vhvj",
       "module": "electron",
-      "reason": "File and HTTP protocol handlers allow cross-origin reads without corsEnabled (fixed in 41.10.6). The shell registers no protocol handler (no protocol.handle / register* call); it loads its own renderer from disk and will-navigate pins the frame to it, so a read needs hostile code in the operator bundle first. Cleared by the same upgrade.",
+      "reason": "File and HTTP protocol handlers allow cross-origin reads without corsEnabled (fixed in 41.10.6). The shell registers no protocol handler (no protocol.handle / register* call); it loads its own renderer from disk and will-navigate pins the frame to it, so a read needs hostile code in the operator bundle first. Cleared by the same upgrade. Extended 2026-10-17 to 2026-11-16 on Majed's word for go-live: reachability unchanged (no remote content, no child or offscreen windows); the Electron 33 → 41.10.6 upgrade is still owed.",
       "owner": "DEV",
-      "expires": "2026-10-15"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-9qh4-3jw8-366w",
       "module": "electron",
-      "reason": "A <webview> can enable Node.js integration in Web Workers despite embedder restrictions (fixed in 41.10.6). The shell never lets a webview attach: webviewTag is off and will-attach-webview calls preventDefault (index.ts). Cleared by the same upgrade.",
+      "reason": "A <webview> can enable Node.js integration in Web Workers despite embedder restrictions (fixed in 41.10.6). The shell never lets a webview attach: webviewTag is off and will-attach-webview calls preventDefault (index.ts). Cleared by the same upgrade. Extended 2026-10-17 to 2026-11-16 on Majed's word for go-live: reachability unchanged (no remote content, no child or offscreen windows); the Electron 33 → 41.10.6 upgrade is still owed.",
       "owner": "DEV",
-      "expires": "2026-10-15"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-jmr9-qjv8-65gv",
@@ -123,9 +123,9 @@
     {
       "id": "GHSA-86w9-cpqp-85rv",
       "module": "node-forge",
-      "reason": "NO FIX PUBLISHED (advisory lists fixed in <0.0.0). RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements. Reached only through @expo/cli (its own use and @expo/code-signing-certificates): a development and build-time tool for expo-updates code signing, never in an app bundle, the web build or an edge function. Re-check at expiry, or upgrade when Expo ships a node-forge with the fix.",
+      "reason": "NO FIX PUBLISHED (advisory lists fixed in <0.0.0). RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements. Reached only through @expo/cli (its own use and @expo/code-signing-certificates): a development and build-time tool for expo-updates code signing, never in an app bundle, the web build or an edge function. Re-check at expiry, or upgrade when Expo ships a node-forge with the fix. Extended 2026-10-17 to 2026-11-16 on Majed's word: the advisory still names no fixed version.",
       "owner": "DEV",
-      "expires": "2026-10-16"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-vfj7-8cjw-p6xm",

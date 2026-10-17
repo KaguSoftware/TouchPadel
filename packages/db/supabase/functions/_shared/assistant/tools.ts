@@ -39,20 +39,24 @@ export const ASSISTANT_SCOPES = [
 ] as const;
 export type AssistantScope = (typeof ASSISTANT_SCOPES)[number];
 
-export const ASSISTANT_PRESETS: Readonly<Record<'everything' | 'moneyAndFloor' | 'justHelp', readonly AssistantScope[]>> = {
-  everything: ASSISTANT_SCOPES,
+/**
+ * The quick sets above the checkboxes. No "everything" (owner call
+ * 2026-10-16): the owner picks what a question needs, so a chat never reads
+ * every scope by default or by one press.
+ */
+export const ASSISTANT_PRESETS: Readonly<Record<'moneyAndFloor' | 'justHelp', readonly AssistantScope[]>> = {
   moneyAndFloor: ['money', 'cafe', 'courts', 'system', 'howto'],
   justHelp: ['howto'],
 };
 
 /**
- * Every scope (owner call 2026-10-09: the assistant decides what it reads). A
- * scope no longer pre-loads anything (the chat sends no context packs), so an
- * open scope costs nothing until the model calls one of its tools; the owner's
- * checkboxes only take tools away. Was DECIDE 14's ['howto'] while every
- * checked scope added its packs to the first turn.
+ * Pages and how-to only (owner call 2026-10-16: "force the owner to select
+ * what he needs only"). A new chat reads no business scope until the owner
+ * ticks it; a question that needs one is answered "<scope> context is off for
+ * this chat" with a Turn on button. Was every scope from 2026-10-09 to
+ * 2026-10-16, and DECIDE 14's ['howto'] before that.
  */
-export const DEFAULT_SCOPES: readonly AssistantScope[] = ASSISTANT_SCOPES;
+export const DEFAULT_SCOPES: readonly AssistantScope[] = ['howto'];
 
 /** The chunk kinds `search` may return per scope (§5.5 table). */
 export const SCOPE_CHUNK_KINDS: Readonly<Record<AssistantScope, readonly string[]>> = {
@@ -449,7 +453,8 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'analytics_courts_summary',
     scope: 'courts',
     kind: 'aggregate',
-    description: 'Courts analytics KPIs for a range: occupancy, revenue, bookings, average price, per court.',
+    description:
+      'Courts analytics KPIs for a range: occupancy, revenue, bookings, average price, per day, per court, and the heat map of when courts are played (weekday × hour, by booking start). Use for the busiest days and hours.',
     route: '/analytics/courts',
     rpc: 'analytics_courts_summary',
     args: { ...RANGE, court: COURT },
@@ -461,7 +466,8 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'analytics_courts_demand',
     scope: 'courts',
     kind: 'aggregate',
-    description: 'Court demand by weekday and hour over a range (the heat calendar).',
+    description:
+      'How guests book courts over a range: booking sources, durations, how far ahead they book (lead time), series against single bookings, the hold funnel, and the weekday and hour bookings are MADE (created_dow / created_hour, not when they are played). For when courts are busy use analytics_courts_summary.',
     route: '/analytics/courts',
     rpc: 'analytics_courts_demand',
     args: { ...RANGE, court: COURT },

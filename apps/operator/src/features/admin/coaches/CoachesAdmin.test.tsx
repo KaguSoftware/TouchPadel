@@ -24,6 +24,7 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: ReactNode }) => <a href="#">{children}</a>,
 }));
 vi.mock('../../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
+vi.mock('../settings/CoachingSettingsPanel', () => ({ CoachingSettingsPanel: () => <div data-testid="coaching-rules" /> }));
 vi.mock('../../../lib/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useAuth: () => ({ staff: { id: 's1', displayName: 'Staff', role: who.role } }),
@@ -668,14 +669,13 @@ describe('CoachesAdmin ▸ Coaches', () => {
     expect(screen.queryByRole('tablist')).toBeNull();
   });
 
-  it('the tabs are bound to ?tab=', async () => {
-    const user = userEvent.setup();
+  it('shows the page ?tab= names; the tabs themselves are the family’s, under the title', async () => {
+    // The tab strip is the shell's (components/FamilyTabs.tsx, lib/workspaces.ts
+    // COACHES_TABS), so the screen draws none of its own.
+    nav.search = { tab: 'rules' };
     mount();
-    await user.click(await screen.findByRole('tab', { name: 'Hours' }));
-    expect(nav.navigate).toHaveBeenLastCalledWith({
-      to: '/admin/coaches',
-      search: { tab: 'hours' },
-      replace: true,
-    });
+    expect(await screen.findByTestId('coaching-rules')).toBeTruthy();
+    expect(screen.queryByRole('tablist')).toBeNull();
+    nav.search = {};
   });
 });

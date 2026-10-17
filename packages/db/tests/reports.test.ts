@@ -384,12 +384,18 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     expect(Number(tabDay.cafeIqd)).toBeGreaterThanOrEqual(tabTotal);
     expect(Number(tabDay.cafeNetIqd)).toBeLessThanOrEqual(Number(tabDay.cafeIqd));
     // 0096: Reports and Analytics read the SAME helper, so the day agrees to the dinar.
+    // 0346: Analytics splits the shop out of the café (it is padel revenue
+    // there), so the report's café is the analytics café plus the shop.
     const daily = await appRpc(owner, 'analytics_daily_sales', { p_from: from, p_to: to }).then(outcome);
     expect(daily.ok, daily.errorMessage).toBe(true);
     const dailyRow = (daily.data as { business_date: string; cafe_gross_iqd: number; cafe_net_iqd: number; discount_iqd: number }[]).find((r) => r.business_date === today)!;
-    expect(Number(tabDay.cafeIqd)).toBe(Number(dailyRow.cafe_gross_iqd));
-    expect(Number(tabDay.cafeNetIqd)).toBe(Number(dailyRow.cafe_net_iqd));
-    expect(Number(tabDay.discountsIqd)).toBe(Number(dailyRow.discount_iqd));
+    const shopRes = await appRpc(owner, 'analytics_shop', { p_from: from, p_to: to }).then(outcome);
+    expect(shopRes.ok, shopRes.errorMessage).toBe(true);
+    const shopDay = (shopRes.data as { by_day: { business_date: string; gross_iqd: number; net_iqd: number; discount_iqd: number }[] }).by_day.find((r) => r.business_date === today);
+    const shopOf = (k: 'gross_iqd' | 'net_iqd' | 'discount_iqd') => Number(shopDay?.[k] ?? 0);
+    expect(Number(tabDay.cafeIqd)).toBe(Number(dailyRow.cafe_gross_iqd) + shopOf('gross_iqd'));
+    expect(Number(tabDay.cafeNetIqd)).toBe(Number(dailyRow.cafe_net_iqd) + shopOf('net_iqd'));
+    expect(Number(tabDay.discountsIqd)).toBe(Number(dailyRow.discount_iqd) + shopOf('discount_iqd'));
     expect(Number(tabDay.cashIqd)).toBeGreaterThanOrEqual(tabTotal);
     expect(Number(tabDay.orders)).toBeGreaterThanOrEqual(1);
     const bookDay = d.rows.find((r) => r.period === bookingDay)!;

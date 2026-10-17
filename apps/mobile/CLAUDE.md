@@ -39,6 +39,20 @@ only when they have a reward) and `app/(staff)/staff-rewards.tsx`. The count is 
 the phone's; the phone never adds rewards up and never compares people (PRODUCT.md: nothing grades
 staff). The track rolls from the count last seen on this phone (`rewards/seen.ts`) to now.
 
+Activity monitor (Majed, 2026-10-16; migration 0341): every request from the app carries
+`x-touch-app: mobile` (`global.headers` in `src/lib/supabase.ts`), which is how the server stamps a
+staff member's last audited action on their phone's row rather than the operator's. While a staff
+account (any role) is signed in, `StaffActivityPing` (`src/features/staff/activity/`, mounted once
+in `app/_layout.tsx` beside the screenshot guard) calls `staff_activity_ping` with the page from
+`usePathname()`: "active" on mount, every 60 s in the foreground and on each new page,
+"background" when the app leaves the screen; `useStaffSignOut` sends "signed_out" first, waiting
+1.5 s at most. Guests never ping, and every failure is silent. The timing rules are
+`activity/logic.ts` (`shouldPing`, vitest). The owner reads `staff_activity_board` at
+`app/(staff)/staff-activity.tsx` (Today's "Activity" tile): one card per person in name order, the
+operator and the phone as two labelled parts with the server's status, "last seen" counted from
+the board's server time, the last action in the desktop Audit log's words
+(`ws.manager.audit.actions.*`), and an on-break badge. Nothing ranks anyone.
+
 ## Commits
 
 - No AI co-author trailer of any kind (`Co-Authored-By: Claude …`, Copilot, …). If a harness appends

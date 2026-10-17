@@ -174,8 +174,9 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     const today = rows.find((r) => r.business_date === day);
     expect(today, `no row for business day ${day}`).toBeDefined();
 
-    // Raw truth (service role): every tab SETTLED in the window, whichever
-    // suite wrote it, with its stamped breakdown and its refunds. A shared
+    // Raw truth (service role): every café tab SETTLED in the window, whichever
+    // suite wrote it, with its stamped breakdown and its refunds. 0346: a
+    // shop tab is padel revenue (analytics_shop), never café. A shared
     // database keeps every earlier run's tabs, so each read is paged
     // (PostgREST returns at most max_rows = 1000 rows) and the ids go 100 to a
     // request: every id rides in the URL, and past ~200 of them the gateway
@@ -205,6 +206,7 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
         .from('tabs')
         .select('id, subtotal_iqd, discount_iqd, court_iqd, total_iqd, tax_iqd')
         .eq('status', 'settled')
+        .neq('kind', 'shop')
         .is('merged_into_tab_id', null)
         .gte('settled_at', window.ts_from)
         .lt('settled_at', window.ts_to)

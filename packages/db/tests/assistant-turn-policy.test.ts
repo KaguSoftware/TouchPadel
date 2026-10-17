@@ -27,6 +27,7 @@ import {
   FLOOR_RATES,
   gateSignatureInput,
   keepWarmRoute,
+  webSearchOn,
   lookupReplays,
   previousTurnOf,
   signedPreviousNumbers,
@@ -320,6 +321,18 @@ describe('review: a lookup keeps a warm cache', () => {
     expect(CACHE_WARM_MS).toBe(5 * 60_000);
     const r = keepWarmRoute(lookup, opusMedium(2 * 60_000), { nowMs: NOW, ownerModel: null, allowed: priced });
     expect(r).toMatchObject({ kind: 'lookup', model: OPUS, effort: 'medium', preRetrieve: true, reason: `${lookup.reason}+warm-cache` });
+  });
+
+  it('web_search rides every Opus call and a deep turn on any model, never a cheap Sonnet turn (2026-10-16)', () => {
+    const figure = routeTurn({ text: 'how much did we make yesterday?', scopes: ['money'], explicitModel: null });
+    const advice = routeTurn({ text: 'what should we do about the empty evenings?', scopes: ['money'], explicitModel: null });
+    expect(webSearchOn(LOOKUP_MODEL, lookup)).toBe(false);
+    expect(webSearchOn(LOOKUP_MODEL, figure)).toBe(false);
+    // A cheap turn kept on Opus by the warm cache keeps the Opus prefix, web tool included.
+    expect(webSearchOn(OPUS, keepWarmRoute(figure, opusMedium(60_000), { nowMs: NOW, ownerModel: null, allowed: priced }))).toBe(true);
+    expect(webSearchOn(OPUS, advice)).toBe(true);
+    // An owner who pinned Sonnet still gets the web for advice.
+    expect(webSearchOn(LOOKUP_MODEL, routeTurn({ text: 'what should we do about the empty evenings?', scopes: ['money'], explicitModel: LOOKUP_MODEL }))).toBe(true);
   });
 
   it('a plain figure question is sticky like a lookup; a deep analysis is not', () => {

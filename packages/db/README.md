@@ -277,7 +277,8 @@ Secrets (`pnpm exec supabase secrets set …`; template in `supabase/functions/.
 | `POSTHOG_PROJECT_ID` | analytics-posthog | unset → `configured:false` |
 | `POSTHOG_HOST` | analytics-posthog | `https://eu.posthog.com` |
 | `POSTHOG_ENGAGEMENT_FLOOR` | analytics-posthog | unset (no clipping) |
-| `GROQ_API_KEY` | analytics-insights | unset → `degraded:true` |
+| `GROQ_API_KEY` | analytics-insights, assistant-free | unset → `degraded:true`; assistant-free 503 `NOT_CONFIGURED` |
+| `ASSISTANT_FREE_MODEL` | assistant-free | `openai/gpt-oss-20b` (a Claude id is ignored) |
 | `GROQ_MODEL` | analytics-insights | `openai/gpt-oss-120b` |
 | `GROQ_JUDGE_MODEL` | analytics-insights | `llama-3.1-8b-instant` |
 

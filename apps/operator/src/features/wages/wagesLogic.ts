@@ -22,6 +22,9 @@ export const SALARY_MAX = 100_000_000;
 export const PAY_DAY_MIN = 1;
 export const PAY_DAY_MAX = 31;
 export const UNDO_REASON_MAX = 1000;
+/** app.give_wage_advance: 1 to 100,000,000 IQD, a note of at most 300 characters. */
+export const ADVANCE_MAX = 100_000_000;
+export const ADVANCE_NOTE_MAX = 300;
 /** How far ahead "Starting" offers an explicit month: this month to three ahead. */
 export const FROM_MONTHS_AHEAD = 3;
 
@@ -36,10 +39,20 @@ const int = (v: unknown): number | null => {
 // app.wage_line, the shape every wages read shares
 // ---------------------------------------------------------------------------
 
+/** Where the money for a wage, an advance or a coach's pay came from (0344). */
+export const PAID_FROM = ['safe', 'bank'] as const;
+export type PaidFrom = (typeof PAID_FROM)[number];
+const paidFromOf = (v: unknown): PaidFrom | null => ((PAID_FROM as readonly unknown[]).includes(v) ? (v as PaidFrom) : null);
+
 export interface WagePayment {
   id: string;
   status: 'paid' | 'undone';
+  /** What was handed over at Mark paid: the net less the advances, or 0 below zero. */
   paidIqd: number;
+  /** The advances already given before it (0344; 0 on an older payment). */
+  advancesIqd: number;
+  /** null on a payment from before 0344. */
+  paidFrom: PaidFrom | null;
   paidAt: string | null;
   paidByName: string | null;
   undoneAt: string | null;
@@ -61,6 +74,16 @@ export interface WageBonus {
   target: number;
   rewardIqd: number;
   prize: string | null;
+}
+
+/** Part of a pay month handed over before pay day (0344 wage_advances). */
+export interface WageAdvance {
+  id: string;
+  amountIqd: number;
+  paidFrom: PaidFrom;
+  note: string | null;
+  givenAt: string | null;
+  givenByName: string | null;
 }
 
 export interface NextRate {
@@ -98,6 +121,15 @@ export interface WageLine {
   bonusOnly: boolean;
   /** salary − deductions − penalties + bonuses, as the server added it up. May be below zero. */
   netIqd: number;
+  /** The advances already given against the month (0344; a paid month: its snapshot). */
+  advancesIqd: number;
+  advanceCount: number;
+  /** Each advance standing, earliest first. */
+  advances: WageAdvance[];
+  /** net − advances as the server answers it: below zero when more was advanced than earned; 0 once paid. */
+  owedIqd: number;
+  /** What Mark paid hands over now: the owed amount, or 0 below zero; 0 once paid. */
+  toPayIqd: number;
   payment: WagePayment | null;
   /** Every reward this month carries, prize-only ones too, by earned month then target. */
   bonuses: WageBonus[];
@@ -109,6 +141,8 @@ function readPayment(v: unknown): WagePayment | null {
     id: v.id,
     status: v.status === 'paid' ? 'paid' : 'undone',
     paidIqd: num(v.paid_iqd) ?? 0,
+    advancesIqd: num(v.advances_iqd) ?? 0,
+    paidFrom: paidFromOf(v.paid_from),
     paidAt: str(v.paid_at),
     paidByName: str(v.paid_by_name),
     undoneAt: str(v.undone_at),
@@ -134,10 +168,29 @@ function readBonuses(v: unknown): WageBonus[] {
     }));
 }
 
+function readAdvances(v: unknown): WageAdvance[] {
+  return list(v)
+    .filter((a) => typeof a.id === 'string' && paidFromOf(a.paid_from) !== null)
+    .map((a) => ({
+      id: str(a.id) ?? '',
+      amountIqd: num(a.amount_iqd) ?? 0,
+      paidFrom: paidFromOf(a.paid_from) ?? 'safe',
+      note: str(a.note),
+      givenAt: str(a.given_at),
+      givenByName: str(a.given_by_name),
+    }));
+}
+
 export function readWageLine(r: Record<string, unknown>): WageLine {
+  const status = statusOf(r.status);
+  const netIqd = num(r.net_iqd) ?? 0;
+  // A server from before 0344 sends neither figure: it had no advances, so
+  // what is owed was the net and what is paid the net or nothing (as it said).
+  const owedIqd = num(r.owed_iqd) ?? (status === 'paid' ? 0 : netIqd);
+  const toPayIqd = num(r.to_pay_iqd) ?? (status === 'paid' ? 0 : payableIqd(netIqd));
   return {
     month: str(r.month) ?? '',
-    status: statusOf(r.status),
+    status,
     salaryIqd: num(r.salary_iqd) ?? 0,
     payDay: int(r.pay_day),
     rateFrom: str(r.rate_from),
@@ -151,7 +204,12 @@ export function readWageLine(r: Record<string, unknown>): WageLine {
     bonusesIqd: num(r.bonuses_iqd) ?? 0,
     bonusCount: count(r.bonus_count),
     bonusOnly: r.bonus_only === true,
-    netIqd: num(r.net_iqd) ?? 0,
+    netIqd,
+    advancesIqd: num(r.advances_iqd) ?? 0,
+    advanceCount: count(r.advance_count),
+    advances: readAdvances(r.advances),
+    owedIqd,
+    toPayIqd,
     payment: readPayment(r.payment),
     bonuses: readBonuses(r.bonuses),
   };
@@ -199,6 +257,10 @@ export interface WagesTotals {
   /** null when the server sent no bonuses total: the row is then not shown, never shown as 0. */
   bonusesIqd: number | null;
   netIqd: number;
+  /** The advances given against the month (0 from a server before 0344). */
+  advancesIqd: number;
+  /** What Mark paid still hands over across the month. */
+  toPayIqd: number;
   paidIqd: number;
   people: number;
   paid: number;
@@ -231,6 +293,8 @@ export function readWagesMonth(payload: unknown): WagesMonth {
       penaltiesIqd: num(t.penalties_iqd) ?? 0,
       bonusesIqd: num(t.bonuses_iqd),
       netIqd: num(t.net_iqd) ?? 0,
+      advancesIqd: num(t.advances_iqd) ?? 0,
+      toPayIqd: num(t.to_pay_iqd) ?? 0,
       paidIqd: num(t.paid_iqd) ?? 0,
       people: count(t.people),
       paid: count(t.paid),
@@ -386,6 +450,72 @@ export function bonusKind(b: Pick<WageBonus, 'rewardIqd' | 'prize'>): 'amount' |
  */
 export function payableIqd(netIqd: number): number {
   return netIqd < 0 ? 0 : netIqd;
+}
+
+// ---------------------------------------------------------------------------
+// Advances (0344)
+// ---------------------------------------------------------------------------
+
+/**
+ * app.give_wage_advance takes a pay month from last month to next month: the
+ * page offers an advance only on a month in that window when it knows the
+ * current one.
+ */
+export function advanceMonthInRange(month: string, current: string | null): boolean {
+  if (current === null) return true;
+  return month >= shiftMonth(current, -1) && month <= shiftMonth(current, 1);
+}
+
+/**
+ * Give advance is offered on an open month with a salary that still owes
+ * something: not paid, not unset or "not paid here" (WAGE_NOT_SET), not a
+ * bonus-only month for someone who left, and owed above zero (the server
+ * refuses more than is owed, WAGE_ADVANCE_TOO_LARGE).
+ */
+export function canGiveAdvance(
+  line: Pick<WageLine, 'status' | 'owedIqd' | 'bonusOnly' | 'month'>,
+  current: string | null = null,
+): boolean {
+  if (line.status !== 'due' && line.status !== 'overdue' && line.status !== 'upcoming') return false;
+  if (line.bonusOnly) return false;
+  return line.owedIqd > 0 && advanceMonthInRange(line.month, current);
+}
+
+/** An advance is taken back only while its month is open (WAGE_ALREADY_PAID otherwise). */
+export function canUndoAdvance(line: Pick<WageLine, 'status'>): boolean {
+  return line.status !== 'paid';
+}
+
+export interface AdvanceDraft {
+  amount: number | null;
+  note: string;
+}
+export type AdvanceField = 'amount' | 'note';
+export type AdvanceIssueCode = 'required' | 'positive' | 'tooLarge' | 'tooLong';
+export interface AdvanceIssue {
+  field: AdvanceField;
+  code: AdvanceIssueCode;
+}
+
+/**
+ * The advance form's guard before anything is sent: an amount from 1 to what
+ * is still owed this month (the server's figure), a note of at most 300
+ * characters. The server is the wall; this only says it first.
+ */
+export function validateAdvanceDraft(d: AdvanceDraft, owedIqd: number): AdvanceIssue[] {
+  const issues: AdvanceIssue[] = [];
+  if (d.amount === null) issues.push({ field: 'amount', code: 'required' });
+  else if (!Number.isInteger(d.amount) || d.amount <= 0) issues.push({ field: 'amount', code: 'positive' });
+  else if (d.amount > owedIqd || d.amount > ADVANCE_MAX) issues.push({ field: 'amount', code: 'tooLarge' });
+  if ([...d.note.trim()].length > ADVANCE_NOTE_MAX) issues.push({ field: 'note', code: 'tooLong' });
+  return issues;
+}
+
+/** WAGE_ADVANCE_TOO_LARGE carries the most that may still be given as its hint. */
+export function advanceMaxFromHint(hint: string | null): number | null {
+  if (hint === null || !/^\d+$/.test(hint.trim())) return null;
+  const n = Number(hint.trim());
+  return Number.isSafeInteger(n) ? n : null;
 }
 
 // ---------------------------------------------------------------------------

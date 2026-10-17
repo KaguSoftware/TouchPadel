@@ -32,10 +32,10 @@ export function CustomerLoyaltyPanel({ customerId, tz, withTop = true }: { custo
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
   const { reachable } = useStationReach();
-  const allowed = can(staff?.role, 'attachMember');
+  const allowed = can(staff, 'attachMember');
   const q = useLoyaltyCustomer(customerId, allowed);
   const [adjusting, setAdjusting] = useState(false);
-  const canAdjust = can(staff?.role, 'adjustLoyalty');
+  const canAdjust = can(staff, 'adjustLoyalty');
   // The point value and the smallest use, for "≈ … off" and "Ready to use".
   const termsQ = useLoyaltyTerms(allowed);
 
@@ -200,7 +200,7 @@ function LoyaltyTop({
 export function CustomerLoyaltyTop({ customerId }: { customerId: string }) {
   const { locale } = useLocale();
   const { staff } = useAuth();
-  const allowed = can(staff?.role, 'attachMember');
+  const allowed = can(staff, 'attachMember');
   const q = useLoyaltyCustomer(customerId, allowed);
   const termsQ = useLoyaltyTerms(allowed);
   const d = q.data;

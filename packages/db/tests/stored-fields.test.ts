@@ -306,6 +306,20 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     label: { category: 'User content', why: 'free-text label on the customer', onDelete: 'row' },
     created_by: n, created_at: n,
   },
+  // 0342: the customer's standing discount (sponsored, family, coach…).
+  customer_discounts: {
+    customer_id: n,
+    cafe_kind: n, cafe_value: n, court_kind: n, court_value: n,
+    reason: { category: 'App activity', why: 'why the club gives this person their own price (sponsored, family, coach)', onDelete: 'row' },
+    note: { category: 'User content', why: 'free-text note on the discount', onDelete: 'row' },
+    set_by: n, set_at: n,
+  },
+  // 0342: a booking's court discount, part of the money trail.
+  reservation_court_discounts: {
+    reservation_id: n, customer_id: n, kind: n, value: n, standing: n,
+    reason: { category: 'Purchase history', why: 'why this booking was charged less — part of the venue’s takings', onDelete: 'keep' },
+    applied_by: n, authorized_by: n, created_at: n,
+  },
   notification_outbox: {
     id: n, profile_id: n, kind: n,
     payload: { category: 'User content', why: 'the text of the push queued for this guest', onDelete: 'row' },
@@ -768,6 +782,14 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     await svc
       .from('customer_flags')
       .insert({ customer_id: uid, type: 'vip', label: 'sec20', created_by: SEED_STAFF_IDS.court_desk });
+    await svc.from('customer_discounts').insert({
+      customer_id: uid,
+      cafe_kind: 'percent',
+      cafe_value: 2000,
+      reason: 'family',
+      note: 'sec20 note',
+      set_by: SEED_STAFF_IDS.court_desk,
+    });
     await svc.from('notification_outbox').insert({
       profile_id: uid,
       kind: 'reservation_reminder',
@@ -964,6 +986,7 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     for (const [table, col] of [
       ['customer_notes', 'customer_id'],
       ['customer_flags', 'customer_id'],
+      ['customer_discounts', 'customer_id'],
       ['notification_outbox', 'profile_id'],
       ['match_blocks', 'blocker_id'],
       ['match_blocks', 'blocked_id'],

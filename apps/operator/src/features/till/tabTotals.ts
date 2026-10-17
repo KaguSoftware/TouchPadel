@@ -199,26 +199,33 @@ export function computeTabTotals(tab: TotalsInput | null, tax: TaxContext | null
 }
 
 /**
- * Split the tab's discount rows into what a manager did and what the server
- * applied as a promotion (0067: `reason_code = 'promotion'`). Both are plain
- * sums of server rows — the same rule computeTabTotals uses for `discount` —
- * so the two lines on the bill add up to that figure. Non-discount kinds
- * (price overrides) are not discounts and are excluded, as in computeTabTotals.
+ * Split the tab's discount rows into what a manager did, what the server
+ * applied as a promotion (0067: `reason_code = 'promotion'`) and the customer's
+ * own discount (0342: `customer_discount` from their standing one,
+ * `customer_discount_once` given at this bill only). All are plain sums of
+ * server rows — the same rule computeTabTotals uses for `discount` — so the
+ * lines on the bill add up to that figure. Non-discount kinds (price
+ * overrides) are not discounts and are excluded, as in computeTabTotals.
  */
 export interface DiscountBreakdown {
   manager: number;
   promotion: number;
+  customer: number;
 }
+
+const CUSTOMER_REASONS = new Set(['customer_discount', 'customer_discount_once']);
 
 export function discountBreakdown(
   adjustments: readonly (TotalsAdjustment & { reason_code?: string | null })[],
 ): DiscountBreakdown {
   let manager = 0;
   let promotion = 0;
+  let customer = 0;
   for (const a of adjustments) {
     if (!DISCOUNT_KINDS.has(a.kind)) continue;
     if (a.reason_code === 'promotion') promotion += a.amount_iqd;
+    else if (CUSTOMER_REASONS.has(a.reason_code ?? '')) customer += a.amount_iqd;
     else manager += a.amount_iqd;
   }
-  return { manager, promotion };
+  return { manager, promotion, customer };
 }

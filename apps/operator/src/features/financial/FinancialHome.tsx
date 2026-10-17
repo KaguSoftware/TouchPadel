@@ -1,31 +1,25 @@
 /**
  * Financial home (/financial) — the landing screen of Management's Financial
- * section.
+ * section: money in, money out, and whether the cash agrees.
  *
- * The rail names the section's question: money in, money out, and whether the
- * cash agrees. This screen answers the first and the last before it lists the
- * screens:
+ * Management rebuild (2026-10-17): the nine cards that repeated the rail are
+ * gone; what they carried live (the safe's balance, wages due, coach
+ * statements waiting) now sits in the sections below, each line linking to
+ * the tab where it is handled. In the order an owner asks:
  *
- *  1. **This month so far** — read straight from `panel_headline`, the RPC the
+ *  1. **Needs you** — online deposits whose refund failed or stalled, with
+ *     Retry and "Settled another way" (contract §6). Shown only when a row
+ *     waits or deposits are on, so it is the first thing when it matters.
+ *  2. **This month so far** — read straight from `panel_headline`, the RPC the
  *     management panel uses, so the two screens can never state different
- *     revenue for the same month. The figures are split the way they are
- *     counted: what was EARNED (revenue) and what was TAKEN (cash, card). The
- *     old band printed the three side by side, and an owner adding cash and
- *     card got a number that is not the revenue beside it — with nothing to
- *     say that it never will be (bookings are earned on the day they are
- *     played, payments land on the day they are taken).
- *  2. **Does the cash agree?** — the last few closed days, expected against
- *     counted, and the variance in words (short / over / matches). It was only
- *     visible inside the day-close screen at the moment of closing; afterwards
- *     no screen showed it at all. Tone only on a non-zero variance.
- *  3. **Online refunds needing attention** — online deposits whose refund
- *     failed or stalled, with Retry and "Settled another way" (contract §6).
- *     Shown once deposits are on, or whenever a row waits.
- *  4. **The screens**, one card each, as before. Coach pay's card (coaching
- *     operator.md §5.3.3) says how many of this month's statements wait:
- *     "To approve 2 · To pay 1" (drafts and approved ones, from
- *     report_coach_statements), and nothing when both are zero or the server
- *     has no statements yet (RPC_MISSING).
+ *     revenue for the same month. Split the way the money is counted: what
+ *     was EARNED (revenue) and what was TAKEN (cash, card), because bookings
+ *     are earned on the day they are played and payments land on the day
+ *     they are taken.
+ *  3. **The cash** — what is in the safe (0343), then the last closed days,
+ *     expected against counted, and the variance in words.
+ *  4. **Coming due** — wages due now (the rail's own read), and this month's
+ *     coach statements to approve and to pay.
  */
 import { useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -36,26 +30,22 @@ import { can, useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { useLocale } from '../../lib/i18n';
 import { QK, fetchOpenDay } from '../../lib/queries';
-import { SectionHome } from '../../components/SectionHome';
-import { Button, Skeleton, card } from '../../components/ui';
-import { AsyncStateWrapper, Panel, ViewMore, useListCap } from '../../components/kit';
+import { Button, Skeleton } from '../../components/ui';
+import { AsyncStateWrapper, PageHeader, Panel, ViewMore, useListCap } from '../../components/kit';
 import { useReportPeriod } from '../reports/ReportParts';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { varianceMagnitude, varianceSign } from '../admin/dayCloseLogic';
 import { figuresIn, mapFigures, type FigureKey, type PanelHeadline } from '../panel/figures';
 import { DepositAttentionPanel } from '../deposits/DepositAttentionPanel';
-import { FigureGroup } from '../reports/FigureGroup';
 import { fetchWagesDue } from '../wages/api';
 import { wagesDueCount } from '../wages/wagesLogic';
 import { useCoachingCaps } from '../coaching/useCoaching';
 import { useCoachStatements } from '../reports/coaches/statementKeys';
-import { hasCoachPayWork, statementCounts } from '../reports/coaches/statementsLogic';
+import { statementCounts } from '../reports/coaches/statementsLogic';
+import { SK, fetchOverview } from '../safe/api';
+import { readOverview } from '../safe/safeLogic';
 
-type CardKey =
-  | 'reports' | 'cashDrawer'
-  | 'dayClose' | 'wages' | 'rewards' | 'coachPay' | 'rates' | 'menuPrices';
-
-/** How many closed days the cash card lists. A week is what an owner scans. */
+/** How many closed days the cash section lists. A week is what an owner scans. */
 export const RECENT_CLOSES = 7;
 
 export interface ClosedDay {
@@ -68,59 +58,20 @@ export interface ClosedDay {
 }
 
 export function FinancialHomeScreen() {
-  const { tr, locale } = useLocale();
-  const { staff } = useAuth();
-  // The Wages card's live line: the rail badge's own read (QK.wagesDue), so the two agree.
-  const wagesOn = can(staff?.role, 'manageWages');
-  const wagesQ = useQuery({ queryKey: QK.wagesDue, queryFn: fetchWagesDue, enabled: wagesOn, refetchInterval: 60_000 });
-  // Coach pay's card line: this month's statements at the rail's branch.
-  const { settleCoaches } = useCoachingCaps();
-  const statementsQ = useCoachStatements(null, settleCoaches);
-  const coachPay = statementsQ.data ? statementCounts(statementsQ.data.statements) : null;
-
-  const figure = (label: MessageKey, n: number) => (
-    <>
-      <span style={{ color: 'var(--tp-muted-fg)' }}>{tr(label)}</span>
-      <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNumber(n, locale)}</strong>
-    </>
-  );
-  function status(key: string): ReactNode {
-    if ((key as CardKey) === 'wages') {
-      if (!wagesOn || !wagesQ.isSuccess) return null;
-      return figure('ws.wages.financial.dueNow', wagesDueCount(wagesQ.data));
-    }
-    if ((key as CardKey) !== 'coachPay' || !coachPay || !hasCoachPayWork(coachPay)) return null;
-    return (
-      <span data-testid="financial.coachPay.status" style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'baseline', flexWrap: 'wrap' }}>
-        {figure('ws.owner.financialHome.status.toApprove', coachPay.toApprove)}
-        <span aria-hidden="true" style={{ color: 'var(--tp-muted-fg)' }}>
-          ·
-        </span>
-        {figure('ws.owner.financialHome.status.toPay', coachPay.toPay)}
-      </span>
-    );
-  }
-
+  const { tr } = useLocale();
   return (
-    <SectionHome
-      sectionKey="financial"
-      fullWidth
-      title={tr('ws.owner.financialHome.title')}
-      card={(key) => tr(`ws.owner.financialHome.cards.${key as CardKey}`)}
-      status={status}
-      screensTitle={tr('ws.owner.financialHome.screens')}
-      toned
-    >
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(24rem, 1fr))', alignItems: 'start' }}>
-        <MonthSoFar />
-        <RecentCloses />
-      </div>
-      {/* Online deposits (build-contracts-2026-09-27 §6): refunds a person must see to. */}
-      <div style={{ marginBlockStart: 'var(--tp-sp-4)' }}>
+    <div>
+      <PageHeader title={tr('ws.owner.financialHome.title')} />
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-5)' }}>
+        {/* Online deposits (build-contracts-2026-09-27 §6): refunds a person must see to. */}
         <DepositAttentionPanel />
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(26rem, 1fr))', alignItems: 'start' }}>
+          <MonthSoFar />
+          <TheCash />
+        </div>
+        <ComingDue />
       </div>
-      <div style={{ blockSize: 'var(--tp-sp-4)' }} />
-    </SectionHome>
+    </div>
   );
 }
 
@@ -167,33 +118,41 @@ function MonthSoFar() {
         onRetry={() => void headlineQ.refetch()}
         skeleton={<Skeleton lines={3} blockSize="1.4rem" />}
       >
-        {/* The panel's group cards, so Earned and Money taken wear the same
-            colours here as on the management panel (blue, then green). Side by
-            side: each group spans the header row and the figures row, so the
-            two rules sit level. */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gridTemplateRows: 'auto auto', gap: 'var(--tp-sp-4)' }}>
-          <FigureGroup title={tr('ws.owner.panel.earned')} hint={tr('ws.owner.panel.earnedHint')}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-5)', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))' }}>
+          <FigureBlock caption={tr('ws.owner.panel.earned')} hint={tr('ws.owner.panel.earnedHint')}>
             <Figure label={label(revenue!)} value={value(revenue!)} large />
-          </FigureGroup>
-          <FigureGroup title={tr('ws.owner.panel.taken')} hint={tr('ws.owner.panel.takenHint')}>
+          </FigureBlock>
+          <FigureBlock caption={tr('ws.owner.panel.taken')} hint={tr('ws.owner.panel.takenHint')}>
             <Figure label={label(cash!)} value={value(cash!)} />
             <Figure label={label(card!)} value={value(card!)} />
-          </FigureGroup>
+          </FigureBlock>
         </div>
       </AsyncStateWrapper>
     </Panel>
   );
 }
 
-/** One figure as its own white tile on the group's tint, so Cash and Card read as two cards. */
+/** A caption over the figures it names: earned, or taken in payments. */
+function FigureBlock({ caption, hint, children }: { caption: string; hint: string; children: ReactNode }) {
+  return (
+    <section aria-label={caption} style={{ display: 'grid', gap: 'var(--tp-sp-2)', alignContent: 'start' }}>
+      <div>
+        <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>{caption}</h3>
+        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', maxInlineSize: '40ch' }}>{hint}</p>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2) var(--tp-sp-5)' }}>{children}</div>
+    </section>
+  );
+}
+
+/** One figure: its name, then the server's amount. */
 function Figure({ label, value, large }: { label: string; value: string; large?: boolean }) {
   return (
-    <div style={{ ...card, display: 'grid', gap: 'var(--tp-sp-0)', alignContent: 'start' }}>
-      <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{label}</span>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+      <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{label}</span>
       <span
         dir="ltr"
         style={{
-          margin: 0,
           fontSize: large ? 'var(--tp-fs-2xl)' : 'var(--tp-fs-xl)',
           fontWeight: 700,
           fontVariantNumeric: 'tabular-nums',
@@ -207,8 +166,8 @@ function Figure({ label, value, large }: { label: string; value: string; large?:
   );
 }
 
-/** The last closed days: expected, counted, and the variance in words. */
-function RecentCloses() {
+/** The cash: what is in the safe, then the last closed days, expected against counted. */
+function TheCash() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
   const dayQ = useQuery({ queryKey: QK.day, queryFn: fetchOpenDay });
@@ -228,16 +187,31 @@ function RecentCloses() {
   });
   const openDay = dayQ.data;
   const cap = useListCap(closesQ.data ?? []);
+  // The safe page's own read (0343), so the two agree.
+  const safeQ = useQuery({ queryKey: SK.overview(null), queryFn: () => fetchOverview(null), refetchInterval: 60_000 });
+  const safeBalance = safeQ.isSuccess ? readOverview(safeQ.data).balanceIqd : null;
 
   return (
     <Panel
-      title={<CardTitle icon="sun">{tr('ws.owner.financialHome.closes.title')}</CardTitle>}
+      title={<CardTitle icon="drawer">{tr('ws.owner.financialHome.cash.title')}</CardTitle>}
       actions={
         <Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/admin/day-close' })}>
           {tr('ws.owner.financialHome.closes.open')}
         </Button>
       }
     >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', paddingBlockEnd: 'var(--tp-sp-3)', marginBlockEnd: 'var(--tp-sp-3)', borderBlockEnd: '1px solid var(--tp-border)' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+          <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.financialHome.status.inSafe')}</span>
+          <strong dir="ltr" data-testid="financial.safe.status" style={{ fontSize: 'var(--tp-fs-xl)', fontVariantNumeric: 'tabular-nums', textAlign: 'start' }}>
+            {safeBalance === null ? '—' : formatIQD(safeBalance, locale)}
+          </strong>
+        </div>
+        <Button size="sm" kind="ghost" iconEnd="arrowUpRight" style={{ marginInlineStart: 'auto' }} onClick={() => void navigate({ to: '/safe' })}>
+          {tr('ws.owner.financialHome.cash.openSafe')}
+        </Button>
+      </div>
+      <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>{tr('ws.owner.financialHome.closes.title')}</h3>
       <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>
         {openDay?.opened_at
           ? tr('ws.owner.financialHome.closes.dayOpen', { time: formatTime(new Date(openDay.opened_at), locale) })
@@ -304,5 +278,68 @@ function CloseRow({ day: d, locale }: { day: ClosedDay; locale: Locale }) {
         </bdi>
       </span>
     </li>
+  );
+}
+
+/**
+ * What is owed soon: wages due now (the rail's Pay badge reads the same) and
+ * this month's coach statements waiting to be approved or paid. A line shows
+ * for each the owner may act on; zero is said as zero, so the section does
+ * not jump about from one day to the next.
+ */
+function ComingDue() {
+  const { tr, locale } = useLocale();
+  const navigate = useNavigate();
+  const { staff } = useAuth();
+  const wagesOn = can(staff, 'manageWages');
+  const wagesQ = useQuery({ queryKey: QK.wagesDue, queryFn: fetchWagesDue, enabled: wagesOn, refetchInterval: 60_000 });
+  const { settleCoaches } = useCoachingCaps();
+  const statementsQ = useCoachStatements(null, settleCoaches);
+  const coachPay = statementsQ.data ? statementCounts(statementsQ.data.statements) : null;
+  const n = (v: number) => formatNumber(v, locale);
+
+  const lines: { key: string; label: MessageKey; value: ReactNode; open: MessageKey; to: string }[] = [];
+  if (wagesOn && wagesQ.isSuccess) {
+    lines.push({ key: 'wages', label: 'ws.owner.financialHome.due.wages', value: n(wagesDueCount(wagesQ.data)), open: 'ws.owner.financialHome.due.openWages', to: '/wages' });
+  }
+  if (settleCoaches && coachPay) {
+    lines.push({
+      key: 'coachPay',
+      label: 'ws.owner.financialHome.due.coachPay',
+      value: (
+        <span data-testid="financial.coachPay.status">
+          {tr('ws.owner.financialHome.status.toApprove')} {n(coachPay.toApprove)} · {tr('ws.owner.financialHome.status.toPay')} {n(coachPay.toPay)}
+        </span>
+      ),
+      open: 'ws.owner.financialHome.due.openCoachPay',
+      to: '/reports/coaches',
+    });
+  }
+  if (lines.length === 0) return null;
+
+  return (
+    <Panel title={<CardTitle icon="clock">{tr('ws.owner.financialHome.due.title')}</CardTitle>}>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
+        {lines.map((line, i) => (
+          <li
+            key={line.key}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--tp-sp-3)',
+              flexWrap: 'wrap',
+              paddingBlock: 'var(--tp-sp-2)',
+              borderBlockStart: i > 0 ? '1px solid var(--tp-border)' : undefined,
+            }}
+          >
+            <span style={{ color: 'var(--tp-muted-fg)', minInlineSize: '12rem' }}>{tr(line.label)}</span>
+            <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{line.value}</strong>
+            <Button size="sm" kind="ghost" iconEnd="arrowUpRight" style={{ marginInlineStart: 'auto' }} onClick={() => void navigate({ to: line.to as never })}>
+              {tr(line.open)}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </Panel>
   );
 }

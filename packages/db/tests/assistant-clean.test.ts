@@ -338,6 +338,25 @@ describe('clean() edge cases', () => {
     expect(c.numbers).toContain(650000);
   });
 
+  it('heads an aggregate with its name only: no "0 rows" over a payload full of figures', () => {
+    const c = clean(sourceForTool(toolByName('report_cafe')!), { kpis: { tabs: 42 } }, opts());
+    const header = c.text.split('\n')[1];
+    expect(header).toBe('# report_cafe; IQD integers; times Asia/Baghdad');
+    expect(header).not.toMatch(/rows/);
+  });
+
+  it('says what a weekday number means wherever a dow column or section appears, and only then', () => {
+    const spec = toolByName('analytics_courts_summary')!;
+    const heat = clean(sourceForTool(spec), { heatmap: [{ dow: 0, hour: 18, bookings: 3 }, { dow: 5, hour: 20, bookings: 1 }] }, opts());
+    expect(heat.text).toContain('dow 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat');
+    const demand = clean(sourceForTool(toolByName('analytics_courts_demand')!), { created_dow: [{ dow: 6, bookings: 2 }, { dow: 1, bookings: 4 }] }, opts());
+    expect(demand.text).toContain('0=Sun');
+    const endings = clean(sourceForTool(toolByName('analytics_courts_endings')!), { no_shows: { by_dow: [{ dow: 2, n: 1 }, { dow: 3, n: 2 }] } }, opts());
+    expect(endings.text).toContain('0=Sun');
+    const none = clean(sourceForTool(spec), { kpis: { bookings: 24, window: 'dowel' } }, opts());
+    expect(none.text).not.toContain('0=Sun');
+  });
+
   it('redacts a customer note inside a lookup payload', () => {
     const spec = toolByName('customer_record')!;
     const c = clean(sourceForTool(spec), { id: uuid(9), full_name: 'Ali Hassan', phone: '+9647701234567', notes: [{ id: uuid(10), body: 'prefers court 2, 07701234567' }] }, opts());

@@ -30,11 +30,11 @@ const FIRST_ROWS = 25;
 export function PhoneCopies() {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
-  const sections = useMemo(() => phoneSectionsFor(staff?.role), [staff?.role]);
+  const sections = useMemo(() => phoneSectionsFor(staff), [staff]);
   const [picked, setPicked] = useState<PhoneSection | null>(null);
   const [expanded, setExpanded] = useState(false);
   const section = picked && sections.includes(picked) ? picked : (sections[0] ?? null);
-  const read = section ? phoneRead(section, staff?.role) : null;
+  const read = section ? phoneRead(section, staff) : null;
   const fmt = useStockFormat();
 
   const q = useQuery({

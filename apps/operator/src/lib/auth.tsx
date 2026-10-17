@@ -16,6 +16,8 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 import { touch } from '../ipc/bridge';
 import { setMutateStaffId } from './mutate';
+import { sendSignedOutPing } from './useActivityPing';
+import { areaOfRouteKey, blockedAreasOf, rolesOf, type StaffAccess } from '@touch/core';
 import {
   ROLE_RECHECK_MS,
   STAFF_ROLES,
@@ -57,7 +59,7 @@ async function resolveStaff(userId: string): Promise<RoleResolution> {
   try {
     const { data, error } = await supabase
       .from('staff')
-      .select('id, display_name, role, is_active')
+      .select('id, display_name, role, is_active, extra_roles, blocked_areas')
       .eq('id', userId)
       .maybeSingle();
     return resolveStaffRow(data, error);
@@ -198,6 +200,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    // The activity monitor's "signed out" (0341): best effort, 1.5 s at most,
+    // and never a reason not to sign out.
+    await sendSignedOutPing();
     await supabase.auth.signOut();
   }, []);
 
@@ -248,6 +253,12 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // Setup › Loyalty (loyalty build contracts §5): points, tiers and rewards
   // are business-wide and the owner's (set_loyalty_settings is owner-only).
   '/admin/loyalty': ['owner'],
+  // Setup's settings pages (management rebuild, 2026-10-17). Two stay the
+  // owner's, as they were before they became pages: what analytics leaves out
+  // (its tab was hidden from a manager) and the kitchen screen pairing (it
+  // lived on the owner-only /setup).
+  '/admin/settings/analytics': ['owner'],
+  '/admin/settings/kitchen': ['owner'],
   '/analytics': ['owner'],
   '/ops': ['manager', 'owner'],
   '/panel': ['owner'],
@@ -267,6 +278,8 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // The owner assistant (docs/design/assistant, decision 5): the tool guards,
   // the audit access and the money figures it reads are all owner-level.
   '/assistant': ['owner'],
+  // The workspace picker. Since 0345 also anyone with a second job (canAccess):
+  // they hold two workspaces and switch like a manager.
   '/workspaces': ['manager', 'owner'],
   // Every hireable role that is not management works its protocol steps here
   // as well as on the phone (build-contracts-2026-09-23 §5.1, Q2): the
@@ -305,6 +318,8 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // Staff rewards (0332–0333): setting and ending rewards, and reading every
   // person's count, are the owner's alone (app.staff_rewards_board).
   '/rewards': ['owner'],
+  // The main cash (0343): managers and the owner log costs and moves.
+  '/safe': ['manager', 'owner'],
 };
 
 /** Every known sub-route per layout prefix — drives the admin sub-nav. */
@@ -325,6 +340,17 @@ export const SUB_ROUTES = {
     '/admin/day-close',
     '/admin/telegram',
     '/admin/settings',
+    // Setup's settings pages (management rebuild, 2026-10-17).
+    '/admin/settings/day',
+    '/admin/settings/analytics',
+    '/admin/settings/booking',
+    '/admin/settings/deposit',
+    '/admin/settings/matches',
+    '/admin/settings/tournaments',
+    '/admin/settings/devices',
+    '/admin/settings/stations',
+    '/admin/settings/kitchen',
+    '/admin/settings/offline',
     '/admin/staff',
     '/admin/branches',
     '/admin/loyalty',
@@ -373,23 +399,50 @@ function matchRouteKey(route: string): string | undefined {
   return best;
 }
 
-export function canAccess(role: StaffRole | undefined, route: string): boolean {
-  if (!role) return false;
+/**
+ * Who a permission is asked about: a bare role (the guard's own tables, a
+ * refusal naming the smallest role), or a signed-in person with their second
+ * jobs and blocked pages (0345, `StaffInfo` is one). Pass the person wherever
+ * there is one, so a second job opens its screens and a block keeps them shut.
+ */
+export type StaffWho = StaffRole | StaffAccess | null | undefined;
+
+function accessOf(who: StaffWho): StaffAccess | null {
+  if (!who) return null;
+  return typeof who === 'string' ? { role: who } : who;
+}
+
+export function canAccess(who: StaffWho, route: string): boolean {
+  const access = accessOf(who);
+  if (!access) return false;
   const key = matchRouteKey(route);
   if (key === undefined) return false;
-  return ROUTE_ROLES[key]?.includes(role) ?? false;
+  // A blocked page stays shut whatever role would open it (owners have none).
+  const area = areaOfRouteKey(key);
+  if (area && blockedAreasOf(access).has(area)) return false;
+  const allowed = ROUTE_ROLES[key];
+  const roles = rolesOf(access);
+  if (key === '/workspaces' && roles.length > 1) return true;
+  return allowed !== undefined && roles.some((r) => allowed.includes(r));
 }
 
-/** Top-level routes (single path segment) the role may open — sidebar filtering. */
-export function allowedRoutes(role: StaffRole): string[] {
+/** True when the person's jobs open the route and only the owner's block keeps them out (0345). */
+export function isBlockedRoute(who: StaffWho, route: string): boolean {
+  const access = accessOf(who);
+  if (!access?.blockedAreas?.length) return false;
+  return canAccess({ ...access, blockedAreas: [] }, route) && !canAccess(access, route);
+}
+
+/** Top-level routes (single path segment) the person may open — sidebar filtering. */
+export function allowedRoutes(who: StaffWho): string[] {
   return Object.keys(ROUTE_ROLES)
     .filter((route) => route.lastIndexOf('/') === 0)
-    .filter((route) => canAccess(role, route));
+    .filter((route) => canAccess(who, route));
 }
 
-/** Sub-routes of a layout prefix the role may open — sub-nav filtering. */
-export function allowedSubRoutes(role: StaffRole, prefix: SubRoutePrefix): string[] {
-  return SUB_ROUTES[prefix].filter((route) => canAccess(role, route));
+/** Sub-routes of a layout prefix the person may open — sub-nav filtering. */
+export function allowedSubRoutes(who: StaffWho, prefix: SubRoutePrefix): string[] {
+  return SUB_ROUTES[prefix].filter((route) => canAccess(who, route));
 }
 
 /**
@@ -603,10 +656,16 @@ export const CAPABILITY_ROLES = {
 
 export type Capability = keyof typeof CAPABILITY_ROLES;
 
-/** Default-deny, exactly like `canAccess`: no role, no capability. */
-export function can(role: StaffRole | undefined, capability: Capability): boolean {
-  if (!role) return false;
-  return (CAPABILITY_ROLES[capability] as readonly StaffRole[]).includes(role);
+/**
+ * Default-deny, exactly like `canAccess`: no role, no capability. A second job
+ * brings its capabilities (the server's is_staff counts it too); a blocked
+ * page takes none away, because a block is about pages.
+ */
+export function can(who: StaffWho, capability: Capability): boolean {
+  const access = accessOf(who);
+  if (!access) return false;
+  const allowed = CAPABILITY_ROLES[capability] as readonly StaffRole[];
+  return rolesOf(access).some((r) => allowed.includes(r));
 }
 
 /** The screen a freshly signed-in staff member lands on (spec §04 workspace map). */
@@ -634,6 +693,16 @@ export function homeRoute(role: StaffRole): string {
     case 'shop_staff':
       return '/shop';
   }
+}
+
+/**
+ * Where this person lands (0345): their main job's screen, or, when the owner
+ * blocked it, the first of their second jobs' screens they may open. With
+ * every one blocked it is still the main job's, where the guard says why.
+ */
+export function homeRouteFor(who: StaffAccess): string {
+  const homes = rolesOf(who).map(homeRoute);
+  return homes.find((route) => canAccess(who, route)) ?? homeRoute(who.role);
 }
 
 /**
@@ -676,8 +745,10 @@ const MANAGEMENT: readonly StaffRole[] = ['manager', 'owner'];
  */
 const SELLER_UP: readonly StaffRole[] = ['cashier', 'shop_staff', 'manager', 'owner'];
 
-export function permissionsFor(role: StaffRole | undefined): Permissions {
-  const is = (roles: readonly StaffRole[]) => role !== undefined && roles.includes(role);
+export function permissionsFor(who: StaffWho): Permissions {
+  const access = accessOf(who);
+  const mine = access ? rolesOf(access) : [];
+  const is = (roles: readonly StaffRole[]) => mine.some((r) => roles.includes(r));
   return {
     takePayment: is(SELLER_UP),
     // Also the SHIFT list (who holds a drawer): the shop assistant holds the
@@ -726,5 +797,5 @@ export function requiredRoleFor(permission: keyof Permissions): StaffRole {
 /** Convenience hook: the signed-in role's permission map. */
 export function usePermissions(): Permissions {
   const { staff } = useAuth();
-  return useMemo(() => permissionsFor(staff?.role), [staff?.role]);
+  return useMemo(() => permissionsFor(staff), [staff]);
 }

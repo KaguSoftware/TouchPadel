@@ -70,8 +70,8 @@ test.describe('operator cafe admin', () => {
   test('(a) the home screen builder drives the guest hero', async ({ page, context }) => {
     await signIn(page, SEED_STAFF.owner);
     await gotoAdmin(page, 'hero');
-    // op.hero.title — the page h1 names the rail row it opens from ("Guest site").
-    await expect(page.getByRole('heading', { level: 1, name: 'Guest site home screen', exact: true })).toBeVisible({
+    // The Guest app family (management rebuild): the h1 is the tab's words, ws.shell.nav.guestSite.
+    await expect(page.getByRole('heading', { level: 1, name: 'Guest site', exact: true })).toBeVisible({
       timeout: 30_000,
     });
 
@@ -312,11 +312,9 @@ test.describe('operator cafe admin', () => {
     ).toBeVisible();
 
     // The range lives in the URL, so a reload keeps the owner where they were.
+    // The period is a SelectMenu: the combobox trigger shows the chosen preset.
     await page.reload();
-    await expect(page.getByRole('button', { name: '7 days' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await expect(page.getByRole('combobox', { name: 'Period' })).toHaveText('7 days');
   });
 
   test('(f) a ticket left queued raises the KDS stale banner', async ({ page }) => {

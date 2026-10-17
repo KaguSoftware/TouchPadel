@@ -58,7 +58,8 @@ export function WagesDueCard() {
             <span style={{ color: 'var(--tp-muted-fg)' }}>{monthLabel(r.month, locale)}</span>
             <StatusBadge size="sm" tone={wageTone(r.status)} label={tr(`ws.wages.status.${r.status}`)} />
             <DueWhenText daysLeft={r.daysLeft} />
-            <Money amount={r.netIqd} strong style={{ marginInlineStart: 'auto', whiteSpace: 'nowrap' }} />
+            {/* Still owed: the net less any advance already given (the server's owed_iqd, 0344). */}
+            <Money amount={r.owedIqd} strong style={{ marginInlineStart: 'auto', whiteSpace: 'nowrap' }} />
           </li>
         ))}
       </ul>

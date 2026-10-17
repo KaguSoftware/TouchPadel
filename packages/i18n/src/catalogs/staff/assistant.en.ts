@@ -93,6 +93,49 @@ export const staffAssistantEn = {
     ASSISTANT_MODEL_NOT_PRICED: 'The chosen model has no rates in the pricing table, so nothing was asked or billed.',
     UNKNOWN: 'The assistant could not answer. Ask again.',
   },
+  /**
+   * The free assistant (owner call 2026-10-16; `assistant-free`): every staff role's only
+   * assistant, and the owner's when they pick "The free AI" in the chat's settings. It finds
+   * pages and explains how things work; it reads no data. `errors.minute` is counted
+   * (`countPhrase`, the six Arabic forms).
+   */
+  free: {
+    title: 'Free AI',
+    entryHint: 'Finds pages and explains how things work',
+    emptyTitle: 'Ask how things work',
+    intro:
+      'Free AI: finds pages and explains how things work in the app. It can’t see sales, bookings or any other data.',
+    starters: {
+      dayOff: 'How do I ask for a day off?',
+      suggestion: 'Where do I post a suggestion?',
+      incident: 'How do I report an incident?',
+    },
+    badge: 'Free AI · can’t see any data',
+    usePaid: 'Use the paid assistant',
+    choice: 'The free AI',
+    choiceHint: 'Free · finds pages and explains how things work; can’t see your data',
+    thinking: 'Thinking…',
+    stopped: 'Stopped before the answer was finished.',
+    open: 'Open {page}',
+    retry: 'Try again',
+    errors: {
+      minute: {
+        zero: 'You’ve asked a lot in a minute; try again in a moment.',
+        one: 'You’ve asked a lot in a minute; try again in a second.',
+        two: 'You’ve asked a lot in a minute; try again in two seconds.',
+        few: 'You’ve asked a lot in a minute; try again in {count} seconds.',
+        many: 'You’ve asked a lot in a minute; try again in {count} seconds.',
+        other: 'You’ve asked a lot in a minute; try again in {count} seconds.',
+      },
+      day: 'Today’s free questions are used up; they come back tomorrow.',
+      busy: 'The free AI is busy right now; try again in a minute.',
+      notConfigured: 'The free AI isn’t set up yet.',
+      auth: 'Your session has ended. Sign in again to ask.',
+      forbidden: 'This account can’t use the free AI.',
+      invalid: 'The question couldn’t be sent as written.',
+      generic: 'The free AI couldn’t answer. Try again.',
+    },
+  },
   chats: {
     title: 'Chats',
     open: 'Chats',

@@ -296,8 +296,10 @@ export function TearLine() {
 // ---------------------------------------------------------------------------
 
 /** Each section's icon chip: its own family, clear of the others (operator.ts). */
-export type SectionTone = 'matches' | 'lessons' | 'cafe' | 'series';
+export type SectionTone = 'matches' | 'lessons' | 'cafe' | 'series' | 'discount';
 const SECTION_TONE: Record<SectionTone, { fg: string; bg: string; strip: string }> = {
+  // The customer's own price (0342): the accent, the colour of what the desk set itself.
+  discount: { fg: 'var(--tp-accent-soft-fg)', bg: 'var(--tp-accent-soft)', strip: 'var(--tp-accent)' },
   matches: { fg: 'var(--tp-success-fg)', bg: 'var(--tp-success-soft)', strip: 'var(--tp-success-mark)' },
   lessons: { fg: 'var(--tp-lesson)', bg: 'var(--tp-lesson-soft)', strip: 'var(--tp-lesson)' },
   cafe: { fg: 'var(--tp-warn-fg)', bg: 'var(--tp-warn-soft)', strip: 'var(--tp-warn)' },

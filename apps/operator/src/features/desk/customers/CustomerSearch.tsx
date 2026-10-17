@@ -136,7 +136,7 @@ export function CustomerSearchScreen() {
   const search = useCustomerSearch(serverMode ? query : '', CUSTOMER_SEARCH_LIMIT);
   // The cashier searches customers too, and cannot open the desk calendar.
   const { staff } = useAuth();
-  const canBook = canAccess(staff?.role, '/desk');
+  const canBook = canAccess(staff, '/desk');
 
   const trimmed = query.trim();
   const filtering = trimmed.length >= CUSTOMER_SEARCH_MIN;

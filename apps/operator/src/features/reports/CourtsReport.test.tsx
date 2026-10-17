@@ -96,15 +96,12 @@ beforeEach(() => {
 });
 
 describe('CourtsReportScreen', () => {
-  it("offers only Financial's reports as tabs, the open one selected", async () => {
+  it('draws no report switcher of its own: the family tabs come from the shell', () => {
+    // Financial › Reports is a family (lib/workspaces.ts REVENUE_REPORT_TABS);
+    // PageHeader prints its tabs (components/FamilyTabs.tsx), tested there.
     rpc.mockReturnValue(new Promise(() => {}));
     renderReport();
-    const tabs = within(screen.getByRole('tablist', { name: 'Reports' })).getAllByRole('tab');
-    // Staff activity is Observe's and stock value is Stock's: neither is duplicated here.
-    expect(tabs.map((t) => t.textContent)).toEqual(['Revenue', 'Courts', 'Cafe']);
-    expect(screen.getByRole('tab', { name: 'Courts' }).getAttribute('aria-selected')).toBe('true');
-    await userEvent.click(screen.getByRole('tab', { name: 'Cafe' }));
-    expect(navigate).toHaveBeenCalledWith({ to: '/reports/cafe' });
+    expect(screen.queryByRole('tablist', { name: 'Reports' })).toBeNull();
   });
 
   it('loading: header, period and a disabled export while the report waits', () => {

@@ -41,12 +41,13 @@ import { wagesRoute } from './routes/wages';
 import { attendanceRoute } from './routes/attendance';
 // Staff rewards (0332–0333).
 import { rewardsRoute } from './routes/rewards';
+import { safeRoute } from './routes/safe';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
 import { analyticsChildren } from './routes/analytics/_children';
 import { LocaleProvider, useLocale } from './lib/i18n';
 import { ThemeModeProvider, useThemeMode } from './lib/themeMode';
-import { AuthProvider, useAuth, homeRoute } from './lib/auth';
+import { AuthProvider, useAuth, homeRouteFor } from './lib/auth';
 import { VenueProvider } from './lib/venue';
 import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './components/CrashScreen';
 import { captureException, installGlobalHandlers } from './lib/telemetry';
@@ -82,6 +83,7 @@ const routeTree = rootRoute.addChildren([
   wagesRoute,
   attendanceRoute,
   rewardsRoute,
+  safeRoute,
 ]);
 
 /** Send the operator back to the screen their role starts on; fall back to `/`. */
@@ -89,7 +91,7 @@ function useGoHome(): () => void {
   const navigate = useNavigate();
   const { staff } = useAuth();
   return useCallback(() => {
-    void navigate({ to: staff ? homeRoute(staff.role) : '/' });
+    void navigate({ to: staff ? homeRouteFor(staff) : '/' });
   }, [navigate, staff]);
 }
 

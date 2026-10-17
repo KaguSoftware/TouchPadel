@@ -14,6 +14,10 @@
  *                  see, never widen it. On a registered station the station
  *                  wins on the server (0228), for reads and writes alike.
  *
+ *   x-touch-app    always 'operator' (0341): the audit trigger files each
+ *                  person's last action under the app it came from, for the
+ *                  owner's activity monitor (/observation/activity).
+ *
  * Module state, not React state: the Supabase client is created once, so a
  * custom fetch reads the current values on every request. `VenueProvider`
  * (lib/venue.tsx) keeps them up to date.
@@ -70,7 +74,7 @@ function urlOf(input: Parameters<typeof fetch>[0]): string {
 
 /** The headers a request to `url` carries now. Exported for tests. */
 export function scopeHeaders(url = ''): Record<string, string> {
-  const h: Record<string, string> = {};
+  const h: Record<string, string> = { 'x-touch-app': 'operator' };
   if (stationId) h['x-station-id'] = stationId;
   if (reportScope && REPORT_RPC.test(url)) {
     h['x-venue-scope'] = reportScope !== 'all' ? reportScope : branchId ? `all:${branchId}` : 'all';
@@ -81,7 +85,6 @@ export function scopeHeaders(url = ''): Record<string, string> {
 /** Adds the scope headers to one call. */
 const scopedFetch: typeof fetch = (input, init) => {
   const extra = scopeHeaders(urlOf(input));
-  if (Object.keys(extra).length === 0) return fetch(input, init);
   const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
   for (const [k, v] of Object.entries(extra)) headers.set(k, v);
   return fetch(input, { ...init, headers });

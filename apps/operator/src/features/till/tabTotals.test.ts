@@ -355,15 +355,33 @@ describe('discountBreakdown', () => {
       { kind: 'discount_amount', amount_iqd: 250, reason_code: 'promotion' },
       { kind: 'price_override', amount_iqd: 9999, reason_code: 'other' },
     ]);
-    expect(out).toEqual({ manager: 1000, promotion: 750 });
+    expect(out).toEqual({ manager: 1000, promotion: 750, customer: 0 });
+  });
+
+  it("puts the customer's own discount (standing or this bill only) in its own bucket (0342)", () => {
+    const out = discountBreakdown([
+      { kind: 'discount_percent', amount_iqd: 2000, reason_code: 'customer_discount' },
+      { kind: 'discount_amount', amount_iqd: 500, reason_code: 'customer_discount_once' },
+      { kind: 'discount_amount', amount_iqd: 300, reason_code: 'comp' },
+    ]);
+    expect(out).toEqual({ manager: 300, promotion: 0, customer: 2500 });
+  });
+
+  it('the buckets add up to the discount computeTabTotals takes off', () => {
+    const adjustments = [
+      { kind: 'discount_amount', amount_iqd: 1000, reason_code: 'comp', order_item_id: null },
+      { kind: 'discount_percent', amount_iqd: 1800, reason_code: 'customer_discount', order_item_id: null },
+    ];
+    const b = discountBreakdown(adjustments);
+    expect(b.manager + b.promotion + b.customer).toBe(computeTabTotals(tab({ tab_adjustments: adjustments }), NO_TAX).discount);
   });
 
   it('treats a missing reason as a manager discount', () => {
-    expect(discountBreakdown([{ kind: 'discount_amount', amount_iqd: 300 }])).toEqual({ manager: 300, promotion: 0 });
+    expect(discountBreakdown([{ kind: 'discount_amount', amount_iqd: 300 }])).toEqual({ manager: 300, promotion: 0, customer: 0 });
   });
 
   it('is zero for no adjustments', () => {
-    expect(discountBreakdown([])).toEqual({ manager: 0, promotion: 0 });
+    expect(discountBreakdown([])).toEqual({ manager: 0, promotion: 0, customer: 0 });
   });
 });
 

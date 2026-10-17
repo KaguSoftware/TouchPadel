@@ -2,7 +2,12 @@
  * Owner assistant smoke (docs/design/assistant plan §8, adapted to a stack
  * with NO Anthropic key): the drawer, its scope strip and presets, the
  * Ctrl/⌘ K shortcut, the not-configured refusal, the /assistant and
- * /assistant/usage pages, the cashier's refusal, and the Arabic variant.
+ * /assistant/usage pages, the cashier's free AI (and refusal of the paid
+ * page), and the Arabic variant.
+ *
+ * Owner call 2026-10-16: a new chat starts with Pages and how-to plus the
+ * page's own scope (never every scope), there is no "Everything" preset, and
+ * every staff role gets the drawer with the free AI only.
  *
  * `supabase functions serve` runs here without ANTHROPIC_API_KEY, so a real
  * question answers 503 NOT_CONFIGURED and the thread must show the i18n
@@ -30,7 +35,12 @@ const EN = {
   // where the model's vendor has a key, the no-key sentence where it has none.
   startLine: /^(Every question starts at|The starting size cannot be measured)/,
   presetJustHelp: 'Just help',
+  presetMoneyAndFloor: 'Money and floor',
   presetEverything: 'Everything',
+  // ws.assistantFree.* (assistantFree.en.ts)
+  freeBadge: 'Free',
+  usePaid: 'Use the paid assistant',
+  openFullPage: 'Open full page',
   ask: 'Ask',
   stop: 'Stop',
   thisMessage: 'This message',
@@ -110,19 +120,19 @@ async function openDrawerWithScopes(page: Page, s: { railButton: RegExp; drawerT
 }
 
 test.describe('owner assistant', () => {
-  test('rail button opens the drawer with every scope pre-checked and the start size', async ({ page }) => {
+  test("rail button opens the drawer with how-to and the page's scope pre-checked and the start size", async ({ page }) => {
     await signIn(page, SEED_STAFF.owner);
     await page.goto(`${OPERATOR_URL}/analytics/cafe`);
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
 
     const dialog = await openDrawerWithScopes(page, EN);
 
-    // Every scope (2026-10-09): nothing is pre-loaded, the assistant decides what to read.
+    // 2026-10-16: Pages and how-to plus the page's own scope (Cafe here), never
+    // every scope; the owner ticks the rest.
     await expect(dialog.getByRole('checkbox', { name: EN.scopeCafe })).toBeChecked();
     await expect(dialog.getByRole('checkbox', { name: EN.scopeHowto })).toBeChecked();
-    const boxes = await dialog.getByRole('checkbox').count();
-    expect(boxes).toBeGreaterThan(2);
-    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(boxes);
+    expect(await dialog.getByRole('checkbox').count()).toBeGreaterThan(2);
+    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
 
     // The dry run answers one start line; the boxes carry no size of their own.
     await expect(dialog.getByText(EN.startLine)).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
@@ -144,12 +154,13 @@ test.describe('owner assistant', () => {
     await expect(page.getByRole('button', { name: EN.railButton })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('presets: Just help leaves only how-to; Everything checks all', async ({ page }) => {
+  test('presets: Just help leaves only how-to; Money and floor checks its five; no Everything', async ({ page }) => {
     await signIn(page, SEED_STAFF.owner);
     await page.goto(`${OPERATOR_URL}/analytics/cafe`);
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
     const dialog = await openDrawerWithScopes(page, EN);
-    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(await dialog.getByRole('checkbox').count());
+    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
+    await expect(dialog.getByRole('button', { name: EN.presetEverything, exact: true })).toHaveCount(0);
 
     await dialog.getByRole('button', { name: EN.presetJustHelp, exact: true }).click();
     await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(1);
@@ -157,10 +168,11 @@ test.describe('owner assistant', () => {
     await expect(dialog.getByRole('checkbox', { name: EN.scopeCafe })).not.toBeChecked();
     await expect(dialog.getByRole('button', { name: EN.presetJustHelp, exact: true })).toHaveAttribute('aria-pressed', 'true');
 
-    await dialog.getByRole('button', { name: EN.presetEverything, exact: true }).click();
-    const all = await dialog.getByRole('checkbox').count();
-    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(all);
-    await expect(dialog.getByRole('button', { name: EN.presetEverything, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    // ASSISTANT_PRESETS.moneyAndFloor: money, cafe, courts, system and how-to.
+    await dialog.getByRole('button', { name: EN.presetMoneyAndFloor, exact: true }).click();
+    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(5);
+    await expect(dialog.getByRole('checkbox', { name: EN.scopeCafe })).toBeChecked();
+    await expect(dialog.getByRole('button', { name: EN.presetMoneyAndFloor, exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('a question with no key shows the not-configured sentence, no usage footer, no Stop', async ({ page }) => {
@@ -225,16 +237,28 @@ test.describe('owner assistant', () => {
     await expect(pricing.getByText('claude-sonnet-5-5', { exact: true })).toBeVisible();
   });
 
-  test('cashier: no rail button, no shortcut, /assistant is refused', async ({ page }) => {
+  test('cashier: the rail button and shortcut open the free AI only; /assistant is refused', async ({ page }) => {
     await signIn(page, SEED_STAFF.cashier);
     // The till is the cashier's home. Its heading is "Floor" with a business
     // day open and "Till" without one, and this suite opens no day — so the
     // landing is asserted by URL, not by what the till draws.
     await expect(page).toHaveURL(/\/till\b/, { timeout: 30_000 });
 
-    await expect(page.getByRole('button', { name: EN.railButton })).toHaveCount(0);
+    // 2026-10-16: every staff role gets the drawer, holding the free AI and nothing paid.
+    await openRailOptions(page);
+    await expect(page.getByRole('button', { name: EN.railButton })).toHaveCount(1);
     await page.keyboard.press('ControlOrMeta+k');
-    await expect(page.getByRole('dialog', { name: EN.drawerTitle })).toHaveCount(0);
+    const dialog = page.getByRole('dialog', { name: EN.drawerTitle });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByTestId('assistant.free')).toBeVisible();
+    await expect(dialog.getByText(EN.freeBadge, { exact: true })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: EN.contextToggle })).toHaveCount(0);
+    await expect(dialog.getByRole('checkbox')).toHaveCount(0);
+    await expect(dialog.locator('[data-model-switch]')).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: EN.usePaid })).toHaveCount(0);
+    await expect(dialog.getByRole('link', { name: EN.openFullPage })).toHaveCount(0);
+    await page.keyboard.press('ControlOrMeta+k');
+    await expect(dialog).toHaveCount(0);
 
     await page.goto(`${OPERATOR_URL}/assistant`);
     const notice = page.getByRole('alert').filter({ has: page.getByRole('note') });
@@ -255,7 +279,7 @@ test.describe('owner assistant @ar', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   }
 
-  test('rail button opens the drawer with every scope pre-checked and the start size', async ({ page }) => {
+  test("rail button opens the drawer with how-to and the page's scope pre-checked and the start size", async ({ page }) => {
     await signInArabic(page);
     await page.goto(`${OPERATOR_URL}/analytics/cafe`);
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
@@ -263,7 +287,7 @@ test.describe('owner assistant @ar', () => {
     const dialog = await openDrawerWithScopes(page, AR);
     await expect(dialog.getByRole('checkbox', { name: AR.scopeCafe })).toBeChecked();
     await expect(dialog.getByRole('checkbox', { name: AR.scopeHowto })).toBeChecked();
-    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(await dialog.getByRole('checkbox').count());
+    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
     await expect(dialog.getByText(AR.startLine)).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
   });
 

@@ -170,6 +170,11 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
   },
   setupHome: {
     title: 'الإعداد',
+    find: {
+      title: 'ابحث عن إعداد',
+      placeholder: 'العربون، ساعات العمل، شاشة المطبخ…',
+    },
+    glance: 'نظرة سريعة',
     screens: 'شاشات الإعداد',
     kitchen: {
       title: 'شاشات المطبخ',
@@ -228,6 +233,10 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
     title: 'إعدادات المكان',
     lead: 'ساعات العمل ويوم العمل والبيانات التي يراها الضيوف. يُسجَّل كل تغيير في سجل التدقيق.',
     ownerOnly: 'للمالك فقط',
+    paused: {
+      title: 'الدفع الإلكتروني متوقف مؤقتًا',
+      body: 'تظهر هذه القواعد هنا بعد ربط حساب الدفع الإلكتروني للنادي. يتولى ربطه من جهّز نظامكم.',
+    },
     tabs: {
       hours: 'ساعات العمل',
       day: 'اليوم والخدمة',
@@ -468,6 +477,42 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       save: 'حفظ المحطات',
       saved: 'حُفظت المحطات.',
     },
+    access: {
+      title: 'الصلاحيات',
+      lead: 'يحدّد الدور الصفحات المؤشَّرة. أضف وظيفة ثانية لمن يقوم بعملين، أو أزل التأشير عن صفحة لمنعه من فتحها.',
+      owner: 'المالك يفتح كل شيء، فلا شيء هنا للتأشير.',
+      jobsTitle: 'وظائف إضافية',
+      jobsHint: 'كل وظيفة تضيف شاشاتها وأزرارها إلى جانب دوره.',
+      management: 'المدير يفتح أصلًا الصندوق ومكتب الملاعب وشاشة المطبخ والمتجر.',
+      pagesTitle: 'الصفحات التي يفتحها',
+      pagesHint: 'أزل التأشير عن صفحة لتختفي من قائمته ولا يستطيع فتحها.',
+      areas: {
+        till: 'الصندوق',
+        desk: 'مكتب الملاعب',
+        customers: 'العملاء',
+        tournaments: 'البطولات',
+        kds: 'المطبخ',
+        shop: 'متجر تتش',
+        tasks: 'مهامي',
+        incidents: 'الحوادث',
+        ops: 'العمليات',
+        stock: 'المخزون',
+        admin: 'الإعداد (القائمة، الملاعب، إغلاق اليوم)',
+        reports: 'التقارير',
+        protocols: 'البروتوكولات',
+        suggestions: 'الاقتراحات',
+        deductions: 'الخصومات من الراتب',
+        attendance: 'التأخير والانصراف المبكر',
+      },
+      save: 'حفظ الصلاحيات',
+      saved: 'حُفظت الصلاحيات.',
+      confirmTitle: 'تغيير ما يستطيع {name} فتحه؟',
+      confirmAddJobs: 'يضيف الوظيفة الإضافية: {list}.',
+      confirmRemoveJobs: 'يزيل الوظيفة الإضافية: {list}.',
+      confirmBlock: 'يمنعه من فتح: {list}.',
+      confirmUnblock: 'يفتح له من جديد: {list}.',
+      confirmWhen: 'تتحدّث شاشاته خلال دقيقة.',
+    },
     breaks: {
       title: 'الاستراحات',
       allowance: 'وقت الاستراحة لكل شخص في اليوم',
@@ -595,6 +640,17 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
   // ---------------------------------------------------------------------
   financialHome: {
     title: 'المالية',
+    cash: {
+      title: 'النقد',
+      openSafe: 'فتح القاصة',
+    },
+    due: {
+      title: 'مستحقات قريبة',
+      wages: 'رواتب مستحقة الآن',
+      coachPay: 'كشوف المدرّبين لهذا الشهر',
+      openWages: 'فتح الرواتب',
+      openCoachPay: 'فتح مستحقات المدرّبين',
+    },
     screens: 'كل ما في المالية',
     cards: {
       reports: 'الإيرادات ودخل الملاعب ومبيعات الكافيه لأي فترة، لكل منها تبويب، مع التفاصيل والتصدير بصيغة CSV.',
@@ -606,11 +662,13 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       rewards: 'مكافآت مالية وجوائز لعدد من الطلبات في الشهر، تحدّدها لكل شخص. وتُضاف المكافأة المالية التي يبلغها إلى راتب الشهر التالي.',
       // DRAFT-AR (coaching operator.md §5.3.3).
       coachPay: 'كشوف حساب المدرّبين الشهرية: الاعتماد وتسجيل الدفع',
+      safe: 'النقد الرئيسي: ادفع مصروفًا بثلاث نقرات، وانقل النقد من الأدراج، واعرف أين ذهب المال.',
     },
     // DRAFT-AR: «للاعتماد 2 · للدفع 1».
     status: {
       toApprove: 'للاعتماد',
       toPay: 'للدفع',
+      inSafe: 'في القاصة',
     },
     headline: {
       title: 'هذا الشهر حتى الآن',
@@ -1002,7 +1060,6 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       docs: 'المستندات',
       tables: 'أي جدول (متقدم)',
       presets: {
-        everything: 'كل شيء',
         moneyAndFloor: 'المال والصالة',
         justHelp: 'المساعدة فقط',
       },

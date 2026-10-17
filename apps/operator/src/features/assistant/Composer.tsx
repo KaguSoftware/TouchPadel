@@ -1,7 +1,9 @@
 /**
  * The question box (plan §5.2, §5.3). Enter sends, Shift+Enter starts a new
  * line; the Ask button's hint says a press is billed; Stop replaces Ask while
- * an answer streams. Nothing here is sent without a press.
+ * an answer streams. Nothing here is sent without a press. The free AI
+ * (FreeThread) passes its own placeholder, hint and length cap: its press is
+ * not billed.
  */
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useLocale } from '../../lib/i18n';
@@ -13,12 +15,20 @@ export function Composer({
   streaming,
   disabled,
   autoFocus,
+  placeholder,
+  hint,
+  maxLength = 4000,
 }: {
   onAsk: (text: string) => void;
   onStop: () => void;
   streaming: boolean;
   disabled?: boolean;
   autoFocus?: boolean;
+  /** Defaults to the paid assistant's words. */
+  placeholder?: string;
+  /** The line under the box and the Ask button's title; defaults to "billed". */
+  hint?: string;
+  maxLength?: number;
 }) {
   const { tr } = useLocale();
   const [text, setText] = useState('');
@@ -52,9 +62,9 @@ export function Composer({
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
           rows={2}
-          maxLength={4000}
+          maxLength={maxLength}
           disabled={disabled}
-          placeholder={tr('ws.owner.assistant.composer.placeholder')}
+          placeholder={placeholder ?? tr('ws.owner.assistant.composer.placeholder')}
           aria-label={tr('ws.owner.assistant.composer.ask')}
           aria-describedby={hintId}
           style={{ ...inputStyle, resize: 'vertical', minBlockSize: '3.25rem', flex: 1 }}
@@ -64,13 +74,13 @@ export function Composer({
             {tr('ws.owner.assistant.composer.stop')}
           </Button>
         ) : (
-          <Button kind="primary" icon="spark" onClick={send} disabled={disabled || text.trim() === ''} title={tr('ws.owner.assistant.composer.askBilled')}>
+          <Button kind="primary" icon="spark" onClick={send} disabled={disabled || text.trim() === ''} title={hint ?? tr('ws.owner.assistant.composer.askBilled')}>
             {tr('ws.owner.assistant.composer.ask')}
           </Button>
         )}
       </div>
       <p id={hintId} style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-        {tr('ws.owner.assistant.composer.askBilled')}
+        {hint ?? tr('ws.owner.assistant.composer.askBilled')}
       </p>
     </div>
   );

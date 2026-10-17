@@ -245,6 +245,13 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
     route: 'staff-screenshots',
     primary: 'staff-screenshots.intro',
   },
+  // The owner's activity monitor (0341), cased by staffActivity.smoke.test.tsx. The filter is
+  // always on screen, whatever the board holds.
+  {
+    file: '(staff)/staff-activity.tsx',
+    route: 'staff-activity',
+    primary: 'staff-activity.filter',
+  },
   // Rewards for orders placed (0332), cased by staffRewards.smoke.test.tsx: the person's own
   // page (its how-it-counts note is always there) and the owner's page.
   { file: '(staff)/staff-rewards.tsx', route: 'staff-rewards', primary: 'staff-rewards.how' },

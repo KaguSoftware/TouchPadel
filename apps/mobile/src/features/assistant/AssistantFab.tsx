@@ -1,8 +1,10 @@
 /**
- * The owner's assistant, one tap from every staff screen: a round button over
- * the bottom-right corner (the bottom-left in Arabic). Only the owner's staff
- * session gets it; the edge function and RLS refuse anyone else regardless.
- * It stays off the assistant's own screens and off every screen outside the
+ * The assistant, one tap from every staff screen: a round button over the
+ * bottom-right corner (the bottom-left in Arabic). Every staff role gets it
+ * (owner call 2026-10-16): the owner opens the paid assistant (or the free
+ * one, if they picked it), everyone else the free assistant only, which finds
+ * pages and explains how things work and reads no data; the edge functions
+ * are the wall either way (`assistant-chat` is owner-only). It stays off the assistant's own screens and off every screen outside the
  * staff area (sign-in, the guest tabs), where it would cover the work. The
  * main panel (`/staff`) carries it in its header instead (AssistantButton),
  * where the floating one sat over Sign out.
@@ -13,7 +15,7 @@
  * appeared and vanished late on every push and pop (owner, 2026-10-09). Inside
  * the screen it moves with the page's own transition.
  */
-import type { ReactElement } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { Pressable, View, type ViewStyle } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +24,7 @@ import { Text } from '../../i18n/text';
 import { brand, radius, space, useTheme } from '../../theme';
 import { SparkIcon } from '../../components/icons';
 import { useStaffStatus } from '../staff/StaffStatusProvider';
+import { loadFreeMode } from './freeMode';
 
 const SIZE = 56;
 const EDGE = 16;
@@ -71,39 +74,52 @@ export function AssistantFab({ path }: { path?: string }) {
   return (
     <AssistantButton
       testID="staff.assistant.fab"
+      from={path ?? pathname}
       style={{ position: 'absolute', end: EDGE, bottom: EDGE + insets.bottom }}
     />
   );
 }
 
 /**
- * The assistant button, in place; owner only, like the floating one. Round by
- * default; `labelled` makes it a flat pill with the word beside the spark, the
- * shape Today's greeting card carries (owner, 2026-10-09).
+ * The assistant button, in place; every staff role, like the floating one.
+ * Round by default; `labelled` makes it a flat pill with the word beside the
+ * spark, the shape Today's greeting card carries (owner, 2026-10-09). `from`
+ * is the page it sits on, handed to the free assistant as where the question
+ * was asked.
  */
 export function AssistantButton({
   testID,
   size = SIZE,
   labelled = false,
+  from,
   style,
 }: {
   testID: string;
   size?: number;
   labelled?: boolean;
+  from?: string;
   style?: ViewStyle;
 }) {
   const { t } = useLocale();
   const { fonts } = useTheme();
   const { status } = useStaffStatus();
-  if (status.kind !== 'staff' || status.staff.role !== 'owner') return null;
+  const owner = status.kind === 'staff' && status.staff.role === 'owner';
+  // The owner's paid-or-free choice, read before the tap so the screen opens on it.
+  useEffect(() => {
+    if (owner) loadFreeMode();
+  }, [owner]);
+  if (status.kind !== 'staff') return null;
+  const hint = owner ? t('staff.assistant.entry.hint') : t('staff.assistant.free.entryHint');
+  const open = () =>
+    router.push(from ? { pathname: '/staff-assistant', params: { from } } : '/staff-assistant');
   if (labelled) {
     return (
       <Pressable
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={t('staff.assistant.entry.title')}
-        accessibilityHint={t('staff.assistant.entry.hint')}
-        onPress={() => router.push('/staff-assistant')}
+        accessibilityHint={hint}
+        onPress={open}
         style={({ pressed }) => ({
           ...style,
           height: size,
@@ -129,8 +145,8 @@ export function AssistantButton({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={t('staff.assistant.entry.title')}
-      accessibilityHint={t('staff.assistant.entry.hint')}
-      onPress={() => router.push('/staff-assistant')}
+      accessibilityHint={hint}
+      onPress={open}
       style={({ pressed }) => ({
         ...style,
         width: size,

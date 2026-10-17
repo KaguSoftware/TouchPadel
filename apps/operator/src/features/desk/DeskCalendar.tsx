@@ -255,7 +255,7 @@ export function DeskCalendar() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { staff } = useAuth();
-  const addTournament = addTournamentTarget(staff?.role);
+  const addTournament = addTournamentTarget(staff);
   const toast = useToast();
   const search = useSearch({ strict: false }) as DeskCalendarSearch;
   const [date, setDate] = useState<string>(() => search.date ?? todayInTz(VENUE_TZ));

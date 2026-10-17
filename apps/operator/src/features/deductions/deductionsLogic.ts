@@ -7,7 +7,7 @@
  *
  * Nothing here computes money: every amount and total is the server's.
  */
-import { can, type StaffRole } from '../../lib/auth';
+import { can, type StaffRole, type StaffWho } from '../../lib/auth';
 import type { Tone } from '../../components/kit';
 import { isObject, list, num, role, str } from '../roleExtras/roleExtrasLogic';
 import { addDays } from './venueDate';
@@ -122,7 +122,7 @@ export function deductionsWaitingCount(payload: unknown): number {
  * so the owner's deduction is recorded approved at once and comes off the
  * person's next unpaid wage. Anyone else's waits for the owner.
  */
-export function ownerRecordsAtOnce(viewerRole: StaffRole | null | undefined): boolean {
+export function ownerRecordsAtOnce(viewerRole: StaffWho): boolean {
   return can(viewerRole ?? undefined, 'decideDeductions');
 }
 

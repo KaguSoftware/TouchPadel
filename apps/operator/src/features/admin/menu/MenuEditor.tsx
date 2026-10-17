@@ -163,7 +163,7 @@ export function MenuEditor() {
   const noCost = data ? countWithoutCost(data.items, data.costs) : 0;
   const menuStatus = asyncStatus(menu, (d) => d.categories.length === 0);
   const crossCategory = view.mode !== 'category';
-  const addMode = newItemMode(activeCat ? categoryById.get(activeCat)?.kind : undefined, hasCapability(staff?.role, 'launchDirectly'));
+  const addMode = newItemMode(activeCat ? categoryById.get(activeCat)?.kind : undefined, hasCapability(staff, 'launchDirectly'));
   const proposeItem = () => void navigate({ to: '/protocols', search: { start: 'product_release' } });
 
   const columns: Column<ItemRow>[] = [
@@ -276,7 +276,7 @@ export function MenuEditor() {
               {tr('ws.manager.menu.newCategory')}
             </Button>
             {addMode === 'propose' ? (
-              <Button kind="primary" icon="plus" disabled={!hasCapability(staff?.role, 'startProtocolRelease')} onClick={proposeItem}>
+              <Button kind="primary" icon="plus" disabled={!hasCapability(staff, 'startProtocolRelease')} onClick={proposeItem}>
                 {tr('ws.release.menu.proposeItem')}
               </Button>
             ) : (
@@ -468,7 +468,7 @@ export function MenuEditor() {
                     body={addMode === 'propose' ? undefined : tr('ws.manager.menu.emptyCategoryBody')}
                     action={
                       addMode === 'propose' ? (
-                        <Button kind="primary" size="sm" icon="plus" disabled={!hasCapability(staff?.role, 'startProtocolRelease')} onClick={proposeItem}>
+                        <Button kind="primary" size="sm" icon="plus" disabled={!hasCapability(staff, 'startProtocolRelease')} onClick={proposeItem}>
                           {tr('ws.release.menu.proposeItem')}
                         </Button>
                       ) : (

@@ -241,3 +241,13 @@ describe('Today rows that depend on the day', () => {
     }
   });
 });
+
+describe('second jobs (0345)', () => {
+  it('adds the second job\'s rows to the role\'s, once each', () => {
+    const cashier = staffRows('cashier').map((r) => r.id);
+    const both = staffRows('cashier', ['driver']).map((r) => r.id);
+    for (const id of cashier) expect(both).toContain(id);
+    for (const id of staffRows('driver').map((r) => r.id)) expect(both).toContain(id);
+    expect(new Set(both).size).toBe(both.length);
+  });
+});

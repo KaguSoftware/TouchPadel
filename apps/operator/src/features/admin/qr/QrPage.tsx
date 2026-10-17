@@ -84,7 +84,7 @@ export function QrPage() {
   const queryClient = useQueryClient();
   const { staff } = useAuth();
   // Capability matrix, not an inline role comparison — see lib/auth.tsx.
-  const canRotate = can(staff?.role, 'rotateTableToken');
+  const canRotate = can(staff, 'rotateTableToken');
   // Never a localhost card in a release build — see resolveGuestSiteUrl.
   const siteUrl = resolveGuestSiteUrl(import.meta.env.VITE_GUEST_SITE_URL, import.meta.env.PROD);
   const [editing, setEditing] = useState<TableDraft | null>(null);

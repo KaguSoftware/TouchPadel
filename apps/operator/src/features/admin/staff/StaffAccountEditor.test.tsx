@@ -10,7 +10,22 @@ import type { StaffRow } from './staffModel';
 // took access away with a two-word question. Every change that gives power or
 // takes access away now says what it does and waits for a yes.
 
-vi.mock('../../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
+// The Access section (0345) reads the person's two columns off `staff`; every
+// other read here answers an empty list.
+const access = vi.hoisted(() => ({ row: { extra_roles: [] as string[], blocked_areas: [] as string[] } }));
+vi.mock('../../../lib/supabase', () => {
+  const chain = (table: string): unknown => {
+    const result = { data: table === 'staff' ? access.row : [], error: null };
+    const q: Record<string, unknown> = {
+      select: () => q,
+      eq: () => q,
+      maybeSingle: async () => result,
+      then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
+    };
+    return q;
+  };
+  return { supabase: { from: chain }, supabaseUrl: '', supabaseAnonKey: '' };
+});
 vi.mock('../../../components/toast', () => ({ useToast: () => ({ ok: vi.fn(), info: vi.fn(), err: vi.fn() }) }));
 vi.mock('../../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -106,5 +121,54 @@ describe('StaffAccountEditor', () => {
     expect(screen.getByRole('button', { name: 'Set PIN' })).toBeTruthy();
     expect(screen.getByText(/cannot take a break until one is set/)).toBeTruthy();
     expect(screen.queryByText(/approve/)).toBeNull();
+  });
+
+  it('Access: a second job adds its pages, an unticked page is blocked, and both save together after a yes', async () => {
+    access.row = { extra_roles: [], blocked_areas: [] };
+    renderPanel(cashier);
+    const section = await screen.findByTestId('staff-access');
+    // A cashier's own pages are ticked; the desk is not theirs yet.
+    expect((within(section).getByTestId('access-page-till') as HTMLInputElement).checked).toBe(true);
+    expect(within(section).queryByTestId('access-page-desk')).toBeNull();
+    // Their own role is never offered as a second job.
+    expect(within(section).queryByTestId('access-job-cashier')).toBeNull();
+
+    await userEvent.click(within(section).getByTestId('access-job-court_desk'));
+    expect((within(section).getByTestId('access-page-desk') as HTMLInputElement).checked).toBe(true);
+    await userEvent.click(within(section).getByTestId('access-page-incidents'));
+    expect(rpc).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save access' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Change what Sara can open?' });
+    expect(within(dialog).getByText('Adds the second job: Court desk.')).toBeTruthy();
+    expect(within(dialog).getByText('Keeps them out of: Incidents.')).toBeTruthy();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save access' }));
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith('set_staff_access', {
+        p_staff_id: 'c1',
+        p_extra_roles: ['court_desk'],
+        p_blocked_areas: ['incidents'],
+      }),
+    );
+  });
+
+  it('Access: taking a second job away drops the blocks on the pages it brought', async () => {
+    access.row = { extra_roles: ['court_desk'], blocked_areas: ['tournaments'] };
+    renderPanel(cashier);
+    const section = await screen.findByTestId('staff-access');
+    expect((within(section).getByTestId('access-page-tournaments') as HTMLInputElement).checked).toBe(false);
+    await userEvent.click(within(section).getByTestId('access-job-court_desk'));
+    expect(within(section).queryByTestId('access-page-tournaments')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Save access' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Save access' }));
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith('set_staff_access', { p_staff_id: 'c1', p_extra_roles: [], p_blocked_areas: [] }),
+    );
+  });
+
+  it('Access: an owner has nothing to tick', async () => {
+    renderPanel({ ...cashier, role: 'owner' });
+    expect(await screen.findByText('An owner opens everything, so there is nothing to tick.')).toBeTruthy();
+    expect(screen.queryByTestId('staff-access')).toBeNull();
   });
 });

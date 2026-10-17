@@ -28,9 +28,9 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { formatNumber } from '@touch/i18n';
-import { useAuth, can, canAccess, homeRoute, type StaffRole } from '../lib/auth';
+import { useAuth, can, canAccess, homeRouteFor, isBlockedRoute, type StaffRole } from '../lib/auth';
+import type { StaffAccess } from '@touch/core';
 import { useLocale } from '../lib/i18n';
 import { useThemeMode } from '../lib/themeMode';
 import {
@@ -43,30 +43,20 @@ import {
   sectionRailItems,
   workspaceForRoute,
   workspaceOwnsPath,
+  workspacesFor,
   workspacesForRole,
+  rowTarget,
   type NavGroup,
   type NavItem,
   type NavSection,
   type WorkspaceKey,
 } from '../lib/workspaces';
-import { QK } from '../lib/queryKeys';
-import { SK, fetchUnfinishedCounts } from '../features/stock/stockKeys';
-import { phoneCountsWaiting } from '../features/stock/storeLogic';
-import { fetchProtocolsWaiting, protocolsWaitingTotal } from '../features/ops/protocolsWaiting';
-import { fetchSuggestionsNew } from '../features/roleExtras/api';
-import { newSuggestionCount } from '../features/roleExtras/roleExtrasLogic';
-// Wave 5, people records: the rail's three counts (wave5-addendum-2026-09-25 §5.2).
-import { fetchDeductionsWaiting } from '../features/deductions/api';
-import { deductionsWaitingCount } from '../features/deductions/deductionsLogic';
-import { fetchIncidentsOpen } from '../features/incidents/api';
-import { incidentsOpenCount } from '../features/incidents/incidentsLogic';
-import { fetchContentWaiting } from '../features/content/api';
-import { contentWaitingCount } from '../features/content/contentLogic';
-// Wages (0271): the owner's pay-day reminder on the Wages row.
-import { fetchWagesDue } from '../features/wages/api';
-import { wagesDueCount } from '../features/wages/wagesLogic';
+import { rowBadges, useBadgeSum } from '../lib/navBadges';
+import { useTabOpen } from '../lib/navAccess';
+import { useFamilyHeader } from '../components/FamilyTabs';
+import { GoToPalette, GoToRailButton, useGoToShortcut } from '../components/GoToPalette';
 import { Button, ErrorText, Field, Modal, Spinner, card, inputStyle, trapTab } from '../components/ui';
-import { PermissionRefusedNotice, StatusBadge } from '../components/kit';
+import { MessagePresenter, PageFamilyContext, PermissionRefusedNotice, StatusBadge } from '../components/kit';
 import { ChevronBack, ChevronForward, Icon, CourtLines, ThemeModeIcon } from '../components/icons';
 import { RAIL_EDGE, RAIL_ITEM_PAD, RAIL_PAD, navButtonStyle, navItemStyle } from '../components/railStyles';
 import { RailMoreMenu } from '../components/RailMoreMenu';
@@ -81,6 +71,7 @@ import { ToastProvider } from '../components/toast';
 import { ConfirmProvider, useConfirm } from '../components/ConfirmDialog';
 import { touch, type LeaveResult, type UpdateReadyInfo } from '../ipc/bridge';
 import { useHeartbeat, type HeartbeatState } from '../lib/heartbeat';
+import { useActivityPing } from '../lib/useActivityPing';
 import { VenueStatusBanner } from '../components/VenueStatusBanner';
 import { isElectron } from '../lib/mutate';
 import { ScreenOwnerClaim, ScreenOwnerProvider, useScreenOwned } from '../lib/screenOwner';
@@ -232,6 +223,8 @@ function RootShell() {
     appVersion: APP_VERSION,
     onState: useCallback((s: HeartbeatState) => setVenue(s), []),
   });
+  // The owner's activity monitor (0341): who is on this operator, on which screen.
+  useActivityPing(staff?.id ?? null);
 
   // Station identity comes before the human's (design-arch §2.1). A machine
   // without station.json shows the setup screen instead of sign-in; a machine
@@ -250,7 +243,7 @@ function RootShell() {
     return <NotStaffScreen email={session.user.email ?? null} onSignOut={() => void signOut()} />;
   }
 
-  return <WorkspaceShell role={staff.role} venue={venue} />;
+  return <WorkspaceShell who={staff} venue={venue} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -358,17 +351,26 @@ function NotStaffScreen({ email, onSignOut }: { email: string | null; onSignOut:
 // ---------------------------------------------------------------------------
 // WorkspaceShell — rail + banner region + routed screen
 // ---------------------------------------------------------------------------
-function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatState | null }) {
+function WorkspaceShell({ who, venue }: { who: StaffAccess; venue: HeartbeatState | null }) {
   // Every screen remounts when the branch changes, so no editor keeps a draft
   // seeded from the last branch and saves it into this one.
   const { branchId } = useVenue();
-  const available = useMemo(() => workspacesForRole(role), [role]);
-  const [active, setActiveState] = useState<WorkspaceKey>(() => loadWorkspace(role));
+  const role = who.role;
+  // 0345: the second jobs' workspaces too, less any whose home the owner
+  // blocked. Keyed on the lists, not the object: the role re-check hands over
+  // a fresh one every minute.
+  const accessKey = `${role}|${(who.extraRoles ?? []).join(',')}|${(who.blockedAreas ?? []).join(',')}`;
+  const available = useMemo(() => {
+    const open = workspacesFor(who).filter((key) => canAccess(who, WORKSPACES[key].home));
+    return open.length > 0 ? open : workspacesForRole(role);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessKey]);
+  const [active, setActiveState] = useState<WorkspaceKey>(() => loadWorkspace(role, available));
   const path = useRouterState({ select: (s) => s.location.pathname });
 
   // A role change (re-login as someone else on the same station) re-validates.
   useEffect(() => {
-    setActiveState((cur) => ((available as readonly string[]).includes(cur) ? cur : loadWorkspace(role)));
+    setActiveState((cur) => ((available as readonly string[]).includes(cur) ? cur : loadWorkspace(role, available)));
   }, [available, role]);
 
   // Following a link into another workspace's home keeps the rail coherent:
@@ -425,6 +427,12 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
   // A downloaded update waiting for a restart: a rail row where there is a
   // rail, a floating pill on the kitchen screen, which has none.
   const update = useUpdateReady();
+  // Go to (Ctrl+G): Management and Operations only; the till and the desk keep their keys.
+  const managing = active === 'owner' || active === 'manager';
+  const [goToOpen, setGoToOpen] = useState(false);
+  useGoToShortcut(managing, () => setGoToOpen(true));
+  // The page header reads its family (rail row, tab, strip) from here (kit.tsx PageFamilyContext).
+  const family = useFamilyHeader(active);
 
   return (
     <WorkspaceContext.Provider value={value}>
@@ -457,6 +465,7 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
       >
         <IdleLock />
         <BreakOverlay />
+        {goToOpen && managing && <GoToPalette workspaceKey={active} onClose={() => setGoToOpen(false)} />}
         <AssistantDrawer />
         <WorkspaceGuideHost />
         {/* On the kitchen screen there is no rail, so the strip spans the
@@ -467,7 +476,9 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           <UpdateReadyControl variant="pill" version={update.version} onInstall={() => void touch.installUpdate()} />
         )}
         <div style={{ display: 'flex', flex: 1, minBlockSize: 0 }}>
-          {!noNav && <WorkspaceNav workspaceKey={active} path={path} update={update} />}
+          {!noNav && (
+            <WorkspaceNav workspaceKey={active} path={path} update={update} onGoTo={managing ? () => setGoToOpen(true) : undefined} />
+          )}
           {/* tabIndex -1 so the skip link has somewhere to land; the routed
               screen's own first heading is the next stop from here. */}
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minInlineSize: 0, minBlockSize: 0 }}>
@@ -490,9 +501,11 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
                 paddingInline: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-5)',
               }}
             >
-              <Fragment key={branchId ?? 'no-branch'}>
-                <Outlet />
-              </Fragment>
+              <PageFamilyContext.Provider value={family}>
+                <Fragment key={branchId ?? 'no-branch'}>
+                  <Outlet />
+                </Fragment>
+              </PageFamilyContext.Provider>
             </main>
           </div>
         </div>
@@ -507,92 +520,28 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
 }
 
 /**
- * A rail row's live count (NavItem.badge): what waits on the signed-in person
- * behind that row (build-contracts-2026-09-23 §5.1, §5.4). Each badge is one
- * shared read, refetched every minute and on focus, so every row and screen
- * that shows the same count agrees with the others.
+ * A rail row's live count: what waits on the signed-in person behind that row
+ * and its tabs (lib/navBadges.ts), counting only the tabs they may open.
  */
-function useNavBadge(badge: NavItem['badge'] | undefined): number {
-  return useBadgeSum(badge ? [badge] : []);
+function useRowCount(row: NavItem): number {
+  const canOpen = useRailTabOpen();
+  return useBadgeSum(rowBadges(row, canOpen));
 }
 
 /**
  * What a set of rows counts between them: a section's button (Observe) and a
- * closed rail group (the manager's Run the day) show it, so a count is never
- * tucked away where the operator cannot see it.
+ * closed rail group show it, so a count is never tucked away where the
+ * operator cannot see it.
  */
-function useRowsBadge(items: readonly NavItem[]): number {
-  return useBadgeSum(items.filter((i) => !i.hidden).map((i) => i.badge));
+function useRowsCount(rows: readonly NavItem[]): number {
+  const canOpen = useRailTabOpen();
+  return useBadgeSum(rows.filter((r) => !r.hidden).flatMap((r) => rowBadges(r, canOpen)));
 }
 
-/**
- * The sum of the named badges' counts, one shared read each. A wave-5 count
- * (wave5-addendum-2026-09-25 §5.2) is read only by the role that acts on it:
- * the Incidents row sits on the desk's and the till's rail too, and
- * app.incidents_page would refuse them, so theirs carries no count.
- */
-function useBadgeSum(badges: readonly (NavItem['badge'] | undefined)[]): number {
-  const { staff } = useAuth();
-  const on = new Set(badges);
-  const protocols = useQuery({
-    queryKey: QK.protocolsWaiting,
-    queryFn: fetchProtocolsWaiting,
-    enabled: on.has('protocolsWaiting'),
-    refetchInterval: 60_000,
-  });
-  const suggestions = useQuery({
-    queryKey: QK.suggestionsNew,
-    queryFn: fetchSuggestionsNew,
-    enabled: on.has('suggestionsNew'),
-    refetchInterval: 60_000,
-  });
-  // A row counts only what it names: a disabled query still hands back what
-  // another row cached under the same key, so the flag gates the sum too.
-  const deductionsOn = on.has('deductionsWaiting') && can(staff?.role, 'decideDeductions');
-  const incidentsOn = on.has('incidentsOpen') && can(staff?.role, 'reviewIncidents');
-  const contentOn = on.has('contentWaiting') && can(staff?.role, 'decideContent');
-  const wagesOn = on.has('wagesDue') && can(staff?.role, 'manageWages');
-  const deductions = useQuery({
-    queryKey: QK.deductionsWaiting,
-    queryFn: fetchDeductionsWaiting,
-    enabled: deductionsOn,
-    refetchInterval: 60_000,
-  });
-  const incidents = useQuery({
-    queryKey: QK.incidentsOpen,
-    queryFn: fetchIncidentsOpen,
-    enabled: incidentsOn,
-    refetchInterval: 60_000,
-  });
-  const content = useQuery({
-    queryKey: QK.contentWaiting,
-    queryFn: fetchContentWaiting,
-    enabled: contentOn,
-    refetchInterval: 60_000,
-  });
-  const wages = useQuery({
-    queryKey: QK.wagesDue,
-    queryFn: fetchWagesDue,
-    enabled: wagesOn,
-    refetchInterval: 60_000,
-  });
-  // The phone counts waiting on the Stock count row: the same read the stock
-  // screens make, so the rail and the screen agree.
-  const stockCounts = useQuery({
-    queryKey: SK.unfinishedCounts,
-    queryFn: fetchUnfinishedCounts,
-    enabled: on.has('stockCountsWaiting'),
-    refetchInterval: 60_000,
-  });
-  return (
-    (on.has('protocolsWaiting') ? protocolsWaitingTotal(protocols.data) : 0) +
-    (on.has('suggestionsNew') ? newSuggestionCount(suggestions.data) : 0) +
-    (deductionsOn && deductions.isSuccess ? deductionsWaitingCount(deductions.data) : 0) +
-    (incidentsOn && incidents.isSuccess ? incidentsOpenCount(incidents.data) : 0) +
-    (contentOn && content.isSuccess ? contentWaitingCount(content.data) : 0) +
-    (wagesOn && wages.isSuccess ? wagesDueCount(wages.data) : 0) +
-    (on.has('stockCountsWaiting') && stockCounts.isSuccess ? phoneCountsWaiting(stockCounts.data).length : 0)
-  );
+/** The rail's own tab check: conditions are read only where a family can carry one. */
+function useRailTabOpen() {
+  const ws = useWorkspaceOrNull();
+  return useTabOpen(ws?.active === 'owner' || ws?.active === 'manager');
 }
 
 /** The count at a row's end: nothing at zero, so a quiet rail stays quiet. */
@@ -631,10 +580,14 @@ function RailCount({ count }: { count: number }) {
  */
 function RailLink({ item, active }: { item: NavItem; active: boolean }) {
   const { tr } = useLocale();
-  const count = useNavBadge(item.badge);
+  const count = useRowCount(item);
+  const canOpen = useRailTabOpen();
+  // A family row opens the first of its pages this person may open.
+  const target = rowTarget(item, canOpen);
   return (
     <Link
-      to={item.to}
+      to={target.to}
+      search={(target.search ?? {}) as never}
       className="tp-nav-item"
       style={navItemStyle}
       data-active={active ? 'true' : undefined}
@@ -652,7 +605,7 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
 /** A section's row on the workspace rail: it opens a place, so a forward chevron, and its count. */
 function SectionLink({ section }: { section: NavSection }) {
   const { tr } = useLocale();
-  const count = useRowsBadge(section.items);
+  const count = useRowsCount(section.items);
   return (
     <Link to={section.home} className="tp-nav-item" style={navItemStyle}>
       <Icon name={section.icon} size={17} />
@@ -711,7 +664,7 @@ function RailGroup({
   open,
   onToggle,
 }: {
-  labelKey: NonNullable<NavGroup['labelKey']> | NonNullable<NavItem['folder']>;
+  labelKey: NonNullable<NavGroup['labelKey']>;
   items: readonly NavItem[];
   path: string;
   open: boolean;
@@ -720,7 +673,7 @@ function RailGroup({
   const { tr } = useLocale();
   const listId = `rail-group-${labelKey}`;
   // Open, the rows show their own counts.
-  const count = useRowsBadge(items);
+  const count = useRowsCount(items);
   const current = activeNavItem(items, path);
 
   return (
@@ -757,21 +710,6 @@ function RailGroup({
   );
 }
 
-/**
- * A section's dropdown ("From the team"): the rows tagged with `folder`,
- * printed as one title row that opens the list. Same look as a RailGroup, but
- * it opens on its own state, not the workspace's one-open-at-a-time memory,
- * and it opens itself while one of its screens is current.
- */
-function SectionFolder({ folder, items, path }: { folder: NonNullable<NavItem['folder']>; items: readonly NavItem[]; path: string }) {
-  const current = activeNavItem(items, path);
-  const [open, setOpen] = useState(current !== null);
-  useEffect(() => {
-    if (current) setOpen(true);
-  }, [current]);
-  return <RailGroup labelKey={folder} items={items} path={path} open={open} onToggle={() => setOpen((o) => !o)} />;
-}
-
 // ---------------------------------------------------------------------------
 // WorkspaceNav — the rail. Props: items, activeKey, role (spec §07).
 // ---------------------------------------------------------------------------
@@ -779,10 +717,13 @@ function WorkspaceNav({
   workspaceKey,
   path,
   update,
+  onGoTo,
 }: {
   workspaceKey: WorkspaceKey;
   path: string;
   update: UpdateReadyInfo | null;
+  /** Opens Go to; Management and Operations only. */
+  onGoTo?: () => void;
 }) {
   const { tr } = useLocale();
   const { staff, signOut } = useAuth();
@@ -792,7 +733,8 @@ function WorkspaceNav({
   const workspace = WORKSPACES[workspaceKey];
   // Only the jokers change workspace (owner call, 2026-09-18): a cashier or a
   // desk clerk has one, and the row was never more than a dead end for them.
-  const canSwitch = available.length > 1 && (staff?.role === 'manager' || staff?.role === 'owner');
+  // Since 0345 someone with a second job has two, and switches like a joker.
+  const canSwitch = available.length > 1;
   const navigate = useNavigate();
   const confirm = useConfirm();
   // Moving between a section and its own workspace goes without asking (owner
@@ -825,9 +767,13 @@ function WorkspaceNav({
   // Inside a section the rail IS the section: its name, its list, and one way
   // back. Read from the path, so the rail and the screen can never disagree.
   const section = sectionForPath(workspace, path);
+  // A family row is printed when the person may open any of its pages; a
+  // plain row when they may open the row's own.
+  const canOpenTab = useRailTabOpen();
+  const rowVisible = (row: NavItem) => (row.tabs?.length ? row.tabs.some(canOpenTab) : canAccess(staff, row.to));
   // A section opened from one of the groups' rows has no button of its own.
-  const sections = (workspace.sections ?? []).filter((sec) => !sec.fromRow && canAccess(staff?.role, sec.home));
-  const sectionRows = section ? sectionRailItems(section).filter((item) => canAccess(staff?.role, item.to)) : [];
+  const sections = (workspace.sections ?? []).filter((sec) => !sec.fromRow && canAccess(staff, sec.home));
+  const sectionRows = section ? sectionRailItems(section).filter(rowVisible) : [];
   const sectionCurrent = activeNavItem(sectionRows, path);
 
   // Accordion: at most one group open at a time. The group holding the
@@ -835,7 +781,7 @@ function WorkspaceNav({
   // row buried in a closed group; otherwise the last group opened by hand on
   // this station, remembered across shifts.
   const visibleGroups = workspace.groups
-    .map((group) => ({ group, items: group.items.filter((item) => canAccess(staff?.role, item.to)) }))
+    .map((group) => ({ group, items: group.items.filter(rowVisible) }))
     .filter(({ items }) => items.length > 0);
   const activeGroupKey = visibleGroups.find(({ items }) => items.some((item) => isNavActive(item, path)))?.group.labelKey ?? null;
   const [openGroup, setOpenGroup] = useState<string | null>(() => activeGroupKey ?? loadOpenGroup());
@@ -946,21 +892,13 @@ function WorkspaceNav({
           alignContent: 'start',
         }}
       >
+        {/* Go to: first in the list, so finding a page is never below the fold. */}
+        {onGoTo && <GoToRailButton onOpen={onGoTo} />}
         {section ? (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-            {sectionRows.map((item, i) => {
-              if (!item.folder) return <RailLink key={item.to} item={item} active={item === sectionCurrent} />;
-              // The dropdown sits where its first row is; the rest are inside it.
-              if (sectionRows.findIndex((r) => r.folder === item.folder) !== i) return null;
-              return (
-                <SectionFolder
-                  key={item.folder}
-                  folder={item.folder}
-                  items={sectionRows.filter((r) => r.folder === item.folder)}
-                  path={path}
-                />
-              );
-            })}
+            {sectionRows.map((item) => (
+              <RailLink key={`${item.to}:${item.labelKey}`} item={item} active={item === sectionCurrent} />
+            ))}
           </div>
         ) : (
           <>
@@ -1656,7 +1594,7 @@ function ExitFullscreen() {
   if (typeof window === 'undefined' || !window.touch) return null;
   if (!fullscreen) return null;
   const locked = touch.getStation().locked === true;
-  const needsPin = locked && (askPin || !can(staff?.role, 'leaveStationWithoutPin'));
+  const needsPin = locked && (askPin || !can(staff, 'leaveStationWithoutPin'));
 
   function close() {
     setOpen(false);
@@ -1864,7 +1802,7 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
   // configured station opens in kiosk (lockWindow, 2026-09-23) the lights are
   // hidden there, so a signed-out Mac till had no way out at all.
   const locked = touch.getStation().locked === true;
-  const needsPin = locked && (askPin || !can(staff?.role, 'leaveStationWithoutPin'));
+  const needsPin = locked && (askPin || !can(staff, 'leaveStationWithoutPin'));
 
   function close() {
     setOpen(false);
@@ -2215,19 +2153,25 @@ function requiredRoleFor(route: string): StaffRole {
 export function RequireRole({ route, children }: { route: string; children: ReactNode }) {
   const { staff } = useAuth();
   const { tr } = useLocale();
-  if (!canAccess(staff?.role as StaffRole | undefined, route)) {
+  if (!canAccess(staff, route)) {
     return (
       <div style={{ ...card, display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start', maxInlineSize: 'var(--tp-measure-form)' }} role="alert">
         {/* This forked its own card with a generic sentence and never said
             which role was missing, so the operator had nothing to act on and no
             one to ask. PermissionRefusedNotice exists for exactly this and
             names the role. */}
-        <PermissionRefusedNotice
-          action={tr('ws.shell.forbidden.action')}
-          requiredRole={requiredRoleFor(route)}
-        />
+        {/* 0345: their job opens it; the owner closed it for them. Naming a
+            role here would send them to ask for one they already hold. */}
+        {isBlockedRoute(staff, route) ? (
+          <MessagePresenter tone="info" message={tr('ws.shell.forbidden.blocked')} />
+        ) : (
+          <PermissionRefusedNotice
+            action={tr('ws.shell.forbidden.action')}
+            requiredRole={requiredRoleFor(route)}
+          />
+        )}
         {staff && (
-          <Link to={homeRoute(staff.role)} className="tp-link">
+          <Link to={homeRouteFor(staff)} className="tp-link">
             {tr('op.crash.home')}
           </Link>
         )}

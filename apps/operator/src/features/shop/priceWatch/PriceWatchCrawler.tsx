@@ -55,7 +55,7 @@ export function PriceWatchCrawler() {
       toast.info(count === 1 ? tr('ws.shop.priceWatch.changedToastOne') : tr('ws.shop.priceWatch.changedToastMany', { count: formatNumber(count, locale) }));
   });
   // Only the shop's roles: anyone else would be refused every hour.
-  const signedIn = staff !== null && canAccess(staff.role, '/shop');
+  const signedIn = staff !== null && canAccess(staff, '/shop');
 
   useEffect(() => {
     if (!crawlerRuns(touch.getStation(), signedIn)) return;

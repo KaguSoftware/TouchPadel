@@ -138,6 +138,7 @@ export const kitEn = {
     noPrevious: 'No earlier data',
   },
   dateRange: {
+    label: 'Date range',
     today: 'Today',
     yesterday: 'Yesterday',
     thisWeek: 'This week',

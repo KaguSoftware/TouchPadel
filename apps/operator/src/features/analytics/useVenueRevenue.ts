@@ -1,12 +1,16 @@
 /**
  * Venue revenue for the pulse row of BOTH tabs: cafe net revenue (the daily
- * sales rows, settle-day basis) plus court revenue (live bookings, slot-day
+ * sales rows, settle-day basis) plus padel revenue, which is court revenue
+ * (live bookings, slot-day basis) plus Touch Shop sales (0346, settle-day
  * basis), venue-wide even when the Courts tab is filtered to one court.
+ * Since 0346 the daily sales rows leave shop tabs out, so a shop sale counts
+ * once, as padel.
  *
- * The two queries use the tabs' own keys — `['analytics','dailySales',from,to]`
- * and `['analytics','courts','analytics_courts_summary',from,to,'']` — so
- * react-query dedupes them against the tab that is already fetching the same
- * window: no second round-trip for a figure the page already has.
+ * The three queries use the tabs' own keys — `['analytics','dailySales',from,to]`,
+ * `['analytics','courts','analytics_courts_summary',from,to,'']` and
+ * `['analytics','courts','analytics_shop',from,to]` — so react-query dedupes
+ * them against the tab that is already fetching the same window: no second
+ * round-trip for a figure the page already has.
  */
 import { useQuery } from '@tanstack/react-query';
 import type { DateRange } from '@touch/core';
@@ -16,12 +20,17 @@ import { useCafeSettings } from '../../lib/settings';
 import type { CardState } from './cards/CardShell';
 import { courtsRpc } from './courts/api';
 import { parseCourtsSummary } from './courts/shape';
+import { parseShop } from './courts/shop';
+import { useShopWindow } from './courts/useShopData';
 import { parseDailySales } from './shape';
 import { sumBy } from './derive';
 
 export interface VenueRevenueFigures {
   cafeIqd: number;
   courtsIqd: number;
+  shopIqd: number;
+  /** Court bookings plus the shop. */
+  padelIqd: number;
   venueIqd: number;
 }
 
@@ -45,16 +54,21 @@ function useWindow(range: DateRange, enabled: boolean) {
     enabled,
     staleTime: 30_000,
   });
+  const shop = useShopWindow(range, enabled);
   const figures: VenueRevenueFigures | null =
-    cafe.data !== undefined && courts.data !== undefined
+    cafe.data !== undefined && courts.data !== undefined && shop.data !== undefined
       ? (() => {
           const cafeIqd = sumBy(parseDailySales(cafe.data as Json), (d) => d.revenueIqd);
           const courtsIqd = parseCourtsSummary(courts.data as Json).kpis.revenueIqd;
-          return { cafeIqd, courtsIqd, venueIqd: cafeIqd + courtsIqd };
+          const shopIqd = parseShop(shop.data as Json).kpis.netIqd;
+          const padelIqd = courtsIqd + shopIqd;
+          return { cafeIqd, courtsIqd, shopIqd, padelIqd, venueIqd: cafeIqd + padelIqd };
         })()
       : null;
-  const state: CardState = !enabled || cafe.isPending || courts.isPending ? 'loading' : cafe.isError || courts.isError ? 'error' : 'ready';
-  return { figures, state, error: cafe.error ?? courts.error ?? null };
+  const pending = cafe.isPending || courts.isPending || shop.isPending;
+  const failed = cafe.isError || courts.isError || shop.isError;
+  const state: CardState = !enabled || pending ? 'loading' : failed ? 'error' : 'ready';
+  return { figures, state, error: cafe.error ?? courts.error ?? shop.error ?? null };
 }
 
 export function useVenueRevenue(range: DateRange, compareRange: DateRange): VenueRevenue {

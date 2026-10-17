@@ -7,8 +7,14 @@
  *
  * The same button row, without the default entry, is `ModelChoice` on the
  * usage page, where it sets the venue default above the pricing table.
+ *
+ * "The free AI" (owner call 2026-10-16) closes the chat's row: it is not a
+ * model of this chat and is never saved on it or sent to assistant-chat. It
+ * switches the assistant to the free thread (useAssistantMode), which asks
+ * `assistant-free` instead.
  */
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
+import { FREE_MODEL_CHOICE } from '@touch/core/assistant/free';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocale } from '../../lib/i18n';
 import { AppRpcError } from '../../lib/appRpc';
@@ -67,6 +73,7 @@ export function ModelChoice({
   value,
   onChange,
   disabled,
+  trailing,
   'aria-labelledby': ariaLabelledBy,
   'aria-describedby': ariaDescribedBy,
 }: {
@@ -76,6 +83,8 @@ export function ModelChoice({
   value: string | null;
   onChange: (next: string | null) => void;
   disabled?: boolean;
+  /** One more button after the models, in the same row (the chat's "The free AI"). */
+  trailing?: ReactNode;
   'aria-labelledby'?: string;
   'aria-describedby'?: string;
 }) {
@@ -103,6 +112,7 @@ export function ModelChoice({
           </Button>
         );
       })}
+      {trailing}
     </div>
   );
 }
@@ -113,6 +123,7 @@ export function ModelSwitch({
   onChange,
   disabled,
   titleHidden,
+  onChooseFree,
 }: {
   /** `null` while the chat has no row yet: the choice is held by the parent. */
   conversationId: string | null;
@@ -123,6 +134,8 @@ export function ModelSwitch({
   disabled?: boolean;
   /** The title stays for screen readers but is not drawn (a Disclosure header already shows it). */
   titleHidden?: boolean;
+  /** Offer "The free AI" after the models; pressing it switches the assistant, not this chat. */
+  onChooseFree?: () => void;
 }) {
   const { tr } = useLocale();
   const toast = useToast();
@@ -150,6 +163,12 @@ export function ModelSwitch({
   const models = modelsQ.data?.models ?? [];
   const defaultModel = modelsQ.data?.default_model ?? null;
 
+  const freeButton = onChooseFree ? (
+    <Button size="sm" kind="soft" icon="spark" aria-pressed={false} data-testid={`model-${FREE_MODEL_CHOICE}`} onClick={onChooseFree} disabled={disabled}>
+      <span dir="auto">{`${tr('ws.assistantFree.name')} · ${tr('ws.assistantFree.hint')}`}</span>
+    </Button>
+  ) : null;
+
   return (
     <div data-model-switch="" style={{ display: 'grid', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
       <span id={titleId} style={titleHidden ? { position: 'absolute', inlineSize: 1, blockSize: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' } : { fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>
@@ -167,10 +186,12 @@ export function ModelSwitch({
             if (next !== value) save.mutate(next);
           }}
           disabled={disabled || save.isPending}
+          trailing={freeButton}
           aria-labelledby={titleId}
           aria-describedby={hintId}
         />
       )}
+      {models.length === 0 && freeButton}
       <p id={hintId} style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', margin: 0 }}>
         {tr('ws.owner.assistant.model.hint')}
       </p>

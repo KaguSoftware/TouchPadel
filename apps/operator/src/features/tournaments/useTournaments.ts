@@ -148,8 +148,8 @@ export function tournamentCapsFor(role: Parameters<typeof can>[0]): TournamentCa
 }
 
 export function useTournamentCaps(): TournamentCaps {
-  const role = useAuth().staff?.role;
-  return useMemo(() => tournamentCapsFor(role), [role]);
+  const staff = useAuth().staff;
+  return useMemo(() => tournamentCapsFor(staff), [staff]);
 }
 
 // ── writes: the key and the refresh ──────────────────────────────────────────

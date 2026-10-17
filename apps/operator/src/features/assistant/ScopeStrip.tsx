@@ -4,7 +4,9 @@
  * prompt, tool list and the checked scopes' packs, from the `dry_run` call),
  * so the owner sees the price of context before asking. The boxes carry no
  * sizes of their own; the sum of the packs was never the whole start, and a
- * row of small numbers read as the bill. Three presets sit above the list.
+ * row of small numbers read as the bill. Two presets sit above the list;
+ * there is no "Everything" (owner call 2026-10-16): the owner ticks what a
+ * chat needs, one scope at a time.
  * The set that applies is stored on the conversation; this strip only edits
  * it, and the server refuses what is not in it.
  */
@@ -16,7 +18,7 @@ import { formatTokens, formatUsd, priceFor, type PricingMap } from '../../lib/as
 import type { StartSize } from './api';
 import { normaliseScopes, sameScopes } from './scopes';
 
-const PRESET_KEYS = ['everything', 'moneyAndFloor', 'justHelp'] as const;
+const PRESET_KEYS = ['moneyAndFloor', 'justHelp'] as const;
 
 export function ScopeStrip({
   scopes,

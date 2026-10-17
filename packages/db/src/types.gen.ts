@@ -444,6 +444,7 @@ export type Database = {
           variant_id: string
         }[]
       }
+      analytics_shop: { Args: { p_from: string; p_to: string }; Returns: Json }
       analytics_sold_items: {
         Args: { p_basis?: string; p_from: string; p_to: string }
         Returns: Json
@@ -458,6 +459,26 @@ export type Database = {
           p_device_id?: string
           p_idempotency_key?: string
           p_tab_id: string
+        }
+        Returns: Json
+      }
+      apply_customer_court_discount: {
+        Args: {
+          p_device_id?: string
+          p_kind?: string
+          p_reason?: string
+          p_reservation_id: string
+          p_value?: number
+        }
+        Returns: Json
+      }
+      apply_customer_discount: {
+        Args: {
+          p_device_id?: string
+          p_kind?: string
+          p_reason?: string
+          p_tab_id: string
+          p_value?: number
         }
         Returns: Json
       }
@@ -811,6 +832,10 @@ export type Database = {
       b64url_decode: { Args: { p: string }; Returns: string }
       b64url_encode: { Args: { p: string }; Returns: string }
       base32_encode: { Args: { p_bytes: string }; Returns: string }
+      bill_customer_discount: {
+        Args: { p_reservation_id?: string; p_tab_id?: string }
+        Returns: Json
+      }
       block_courts_for_event: {
         Args: { p_blocks: Json; p_idempotency_key?: string; p_run_id: string }
         Returns: Json
@@ -819,6 +844,10 @@ export type Database = {
       booking_bill_states: {
         Args: { p_reservation_ids: string[] }
         Returns: Json
+      }
+      booking_discount_customer: {
+        Args: { p_reservation_id: string }
+        Returns: string
       }
       branch_readiness: { Args: { p_venue: string }; Returns: Json }
       break_allowance_seconds: { Args: never; Returns: number }
@@ -1280,6 +1309,7 @@ export type Database = {
       coach_statement_mark_paid: {
         Args: {
           p_device_id?: string
+          p_paid_from?: string
           p_pin: string
           p_reference: string
           p_statement_id: string
@@ -1435,6 +1465,14 @@ export type Database = {
         Args: { p_enrolment_id: string; p_session_no: number }
         Returns: number
       }
+      court_discount_closed: {
+        Args: { p_reservation_id: string }
+        Returns: boolean
+      }
+      court_fee_discount: {
+        Args: { p_reservation_id: string }
+        Returns: number
+      }
       court_fee_paid: {
         Args: { p_exclude_tab_id?: string; p_reservation_id: string }
         Returns: number
@@ -1519,6 +1557,8 @@ export type Database = {
       current_venue_or_default: { Args: never; Returns: string }
       customer_counts: { Args: { p_customer_id: string }; Returns: Json }
       customer_directory: { Args: { p_limit?: number }; Returns: Json }
+      customer_discount: { Args: { p_customer_id: string }; Returns: Json }
+      customer_discount_json: { Args: { p_customer_id: string }; Returns: Json }
       customer_flags_json: { Args: { p_customer_id: string }; Returns: Json }
       customer_lessons: { Args: { p_customer_id: string }; Returns: Json }
       customer_record: { Args: { p_customer_id: string }; Returns: Json }
@@ -1532,6 +1572,17 @@ export type Database = {
       customer_search: {
         Args: { p_limit?: number; p_query: string }
         Returns: Json[]
+      }
+      customer_tab_discount_plan: {
+        Args: { p_customer_id: string; p_tab_id: string }
+        Returns: {
+          amount_iqd: number
+          authorized_by: string
+          base_iqd: number
+          kind: string
+          reason_code: string
+          value: number
+        }[]
       }
       day_close_online: { Args: { p_day_session_id?: string }; Returns: Json }
       day_close_shop: { Args: { p_day_session_id?: string }; Returns: Json }
@@ -1933,6 +1984,18 @@ export type Database = {
       }
       generate_promo_code: { Args: { p_id: string }; Returns: string }
       generate_table_token: { Args: { p_table_id: string }; Returns: string }
+      give_wage_advance: {
+        Args: {
+          p_amount_iqd: number
+          p_idempotency_key?: string
+          p_month?: string
+          p_note?: string
+          p_paid_from: string
+          p_staff_id: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       guest_games_played: { Args: { p_guest_id: string }; Returns: number }
       guest_hold_standing: { Args: { p_customer_id: string }; Returns: Json }
       guest_match_no_shows: { Args: { p_guest_id: string }; Returns: number }
@@ -2548,6 +2611,7 @@ export type Database = {
         Args: { p_manager: string; p_profile: string }
         Returns: undefined
       }
+      lock_main_cash: { Args: { p_venue: string }; Returns: undefined }
       lock_match_money: { Args: { p_match_id: string }; Returns: undefined }
       lock_match_venue: { Args: { p_venue: string }; Returns: undefined }
       lock_principal: {
@@ -2671,6 +2735,75 @@ export type Database = {
         Returns: string
       }
       loyalty_unredeem: { Args: { p_adjustment_id: string }; Returns: Json }
+      main_cash_balance: { Args: { p_venue: string }; Returns: number }
+      main_cash_box: { Args: { p_station: string }; Returns: string }
+      main_cash_count: {
+        Args: {
+          p_counted_iqd: number
+          p_expected_iqd: number
+          p_idempotency_key?: string
+          p_note?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      main_cash_day_boxes: { Args: { p_day_session_id: string }; Returns: Json }
+      main_cash_hand_in_day: {
+        Args: {
+          p_boxes: Json
+          p_day_session_id: string
+          p_idempotency_key?: string
+        }
+        Returns: Json
+      }
+      main_cash_move: {
+        Args: {
+          p_amount_iqd: number
+          p_box?: string
+          p_idempotency_key?: string
+          p_kind: string
+          p_note?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      main_cash_overview: {
+        Args: { p_month?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      main_cash_pay: {
+        Args: {
+          p_amount_iqd: number
+          p_category: string
+          p_idempotency_key?: string
+          p_note?: string
+          p_paid_from: string
+          p_payee: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      main_cash_record_payment: {
+        Args: {
+          p_amount: number
+          p_category: string
+          p_paid_from: string
+          p_payee: string
+          p_source: string
+          p_source_id: string
+          p_venue: string
+        }
+        Returns: string
+      }
+      main_cash_venue: { Args: { p_venue_id: string }; Returns: string }
+      main_cash_void: {
+        Args: { p_id: string; p_reason: string }
+        Returns: Json
+      }
+      main_cash_void_source: {
+        Args: { p_reason: string; p_source: string; p_source_id: string }
+        Returns: undefined
+      }
       mark_checklist_item: {
         Args: {
           p_done: boolean
@@ -2696,8 +2829,10 @@ export type Database = {
       mark_wage_paid: {
         Args: {
           p_expected_net_iqd?: number
+          p_expected_paid_iqd?: number
           p_idempotency_key?: string
           p_month: string
+          p_paid_from?: string
           p_staff_id: string
           p_venue_id?: string
         }
@@ -4052,6 +4187,7 @@ export type Database = {
         }
         Returns: Json
       }
+      request_surface: { Args: never; Returns: string }
       resolve_match_report: {
         Args: { p_outcome: string; p_report_id: string }
         Returns: Json
@@ -4321,6 +4457,18 @@ export type Database = {
         Args: { p_patch: Json; p_venue_id: string }
         Returns: Json
       }
+      set_customer_discount: {
+        Args: {
+          p_cafe_kind?: string
+          p_cafe_value?: number
+          p_court_kind?: string
+          p_court_value?: number
+          p_customer_id: string
+          p_note?: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
       set_customer_flags: {
         Args: { p_customer_id: string; p_flags: Json }
         Returns: Json
@@ -4418,6 +4566,14 @@ export type Database = {
       }
       set_shop_price_watch: {
         Args: { p_url: string; p_variant_id: string }
+        Returns: Json
+      }
+      set_staff_access: {
+        Args: {
+          p_blocked_areas: string[]
+          p_extra_roles: Database["public"]["Enums"]["staff_role"][]
+          p_staff_id: string
+        }
         Returns: Json
       }
       set_staff_active: {
@@ -4581,6 +4737,16 @@ export type Database = {
         Returns: number[]
       }
       split_person_name: { Args: { p: string }; Returns: string[] }
+      staff_activity_board: { Args: never; Returns: Json }
+      staff_activity_ping: {
+        Args: {
+          p_app_version?: string
+          p_screen?: string
+          p_state?: string
+          p_surface: string
+        }
+        Returns: Json
+      }
       staff_create_reservation: {
         Args: {
           p_client_ref?: string
@@ -5107,6 +5273,10 @@ export type Database = {
       try_lock_match_venue: {
         Args: { p_courts?: boolean; p_venue: string }
         Returns: boolean
+      }
+      undo_wage_advance: {
+        Args: { p_id: string; p_reason: string }
+        Returns: Json
       }
       undo_wage_paid: {
         Args: { p_id: string; p_reason: string }
@@ -7541,6 +7711,103 @@ export type Database = {
           },
         ]
       }
+      customer_discount_waivers: {
+        Row: {
+          created_at: string
+          id: string
+          reservation_id: string | null
+          tab_id: string | null
+          waived_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reservation_id?: string | null
+          tab_id?: string | null
+          waived_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reservation_id?: string | null
+          tab_id?: string | null
+          waived_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_discount_waivers_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: true
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_discount_waivers_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: true
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_discount_waivers_waived_by_fkey"
+            columns: ["waived_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_discounts: {
+        Row: {
+          cafe_kind: string | null
+          cafe_value: number | null
+          court_kind: string | null
+          court_value: number | null
+          customer_id: string
+          note: string | null
+          reason: string
+          set_at: string
+          set_by: string
+        }
+        Insert: {
+          cafe_kind?: string | null
+          cafe_value?: number | null
+          court_kind?: string | null
+          court_value?: number | null
+          customer_id: string
+          note?: string | null
+          reason: string
+          set_at?: string
+          set_by: string
+        }
+        Update: {
+          cafe_kind?: string | null
+          cafe_value?: number | null
+          court_kind?: string | null
+          court_value?: number | null
+          customer_id?: string
+          note?: string | null
+          reason?: string
+          set_at?: string
+          set_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_discounts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_discounts_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_flags: {
         Row: {
           created_at: string
@@ -9581,6 +9848,108 @@ export type Database = {
           ok?: boolean
         }
         Relationships: []
+      }
+      main_cash_entries: {
+        Row: {
+          amount_iqd: number
+          box: string | null
+          category: string | null
+          day_session_id: string | null
+          delta_iqd: number
+          id: string
+          kind: string
+          logged_at: string
+          logged_by: string
+          note: string | null
+          occurred_on: string
+          paid_from: string | null
+          payee: string | null
+          source: string
+          source_id: string | null
+          venue_id: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          amount_iqd: number
+          box?: string | null
+          category?: string | null
+          day_session_id?: string | null
+          delta_iqd: number
+          id?: string
+          kind: string
+          logged_at?: string
+          logged_by: string
+          note?: string | null
+          occurred_on: string
+          paid_from?: string | null
+          payee?: string | null
+          source?: string
+          source_id?: string | null
+          venue_id: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          amount_iqd?: number
+          box?: string | null
+          category?: string | null
+          day_session_id?: string | null
+          delta_iqd?: number
+          id?: string
+          kind?: string
+          logged_at?: string
+          logged_by?: string
+          note?: string | null
+          occurred_on?: string
+          paid_from?: string | null
+          payee?: string | null
+          source?: string
+          source_id?: string | null
+          venue_id?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "main_cash_entries_day_session_id_fkey"
+            columns: ["day_session_id"]
+            isOneToOne: false
+            referencedRelation: "day_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "main_cash_entries_day_session_id_fkey"
+            columns: ["day_session_id"]
+            isOneToOne: false
+            referencedRelation: "v_day_close_summary"
+            referencedColumns: ["day_session_id"]
+          },
+          {
+            foreignKeyName: "main_cash_entries_logged_by_fkey"
+            columns: ["logged_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "main_cash_entries_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "main_cash_entries_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       manager_alerts: {
         Row: {
@@ -13484,6 +13853,71 @@ export type Database = {
           },
         ]
       }
+      reservation_court_discounts: {
+        Row: {
+          applied_by: string
+          authorized_by: string
+          created_at: string
+          customer_id: string | null
+          kind: string
+          reason: string
+          reservation_id: string
+          standing: boolean
+          value: number
+        }
+        Insert: {
+          applied_by: string
+          authorized_by: string
+          created_at?: string
+          customer_id?: string | null
+          kind: string
+          reason: string
+          reservation_id: string
+          standing: boolean
+          value: number
+        }
+        Update: {
+          applied_by?: string
+          authorized_by?: string
+          created_at?: string
+          customer_id?: string | null
+          kind?: string
+          reason?: string
+          reservation_id?: string
+          standing?: boolean
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_court_discounts_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_court_discounts_authorized_by_fkey"
+            columns: ["authorized_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_court_discounts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_court_discounts_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: true
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reservation_series: {
         Row: {
           cancelled_at: string | null
@@ -14069,27 +14503,33 @@ export type Database = {
       }
       staff: {
         Row: {
+          blocked_areas: string[]
           created_at: string
           created_by: string | null
           display_name: string
+          extra_roles: Database["public"]["Enums"]["staff_role"][]
           id: string
           is_active: boolean
           pin_hash: string | null
           role: Database["public"]["Enums"]["staff_role"]
         }
         Insert: {
+          blocked_areas?: string[]
           created_at?: string
           created_by?: string | null
           display_name: string
+          extra_roles?: Database["public"]["Enums"]["staff_role"][]
           id: string
           is_active?: boolean
           pin_hash?: string | null
           role: Database["public"]["Enums"]["staff_role"]
         }
         Update: {
+          blocked_areas?: string[]
           created_at?: string
           created_by?: string | null
           display_name?: string
+          extra_roles?: Database["public"]["Enums"]["staff_role"][]
           id?: string
           is_active?: boolean
           pin_hash?: string | null
@@ -14099,6 +14539,56 @@ export type Database = {
           {
             foreignKeyName: "staff_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_activity: {
+        Row: {
+          app_version: string | null
+          device_id: string | null
+          last_action: string | null
+          last_action_at: string | null
+          last_action_entity: string | null
+          last_seen_at: string
+          screen: string | null
+          staff_id: string
+          state: string
+          state_at: string
+          surface: string
+        }
+        Insert: {
+          app_version?: string | null
+          device_id?: string | null
+          last_action?: string | null
+          last_action_at?: string | null
+          last_action_entity?: string | null
+          last_seen_at?: string
+          screen?: string | null
+          staff_id: string
+          state?: string
+          state_at?: string
+          surface: string
+        }
+        Update: {
+          app_version?: string | null
+          device_id?: string | null
+          last_action?: string | null
+          last_action_at?: string | null
+          last_action_entity?: string | null
+          last_seen_at?: string
+          screen?: string | null
+          staff_id?: string
+          state?: string
+          state_at?: string
+          surface?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_activity_staff_id_fkey"
+            columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
@@ -16863,8 +17353,87 @@ export type Database = {
         }
         Relationships: []
       }
+      wage_advances: {
+        Row: {
+          amount_iqd: number
+          given_at: string
+          given_by: string
+          id: string
+          note: string | null
+          paid_from: string
+          pay_month: string
+          staff_id: string
+          status: string
+          undo_reason: string | null
+          undone_at: string | null
+          undone_by: string | null
+          venue_id: string
+        }
+        Insert: {
+          amount_iqd: number
+          given_at?: string
+          given_by: string
+          id?: string
+          note?: string | null
+          paid_from: string
+          pay_month: string
+          staff_id: string
+          status?: string
+          undo_reason?: string | null
+          undone_at?: string | null
+          undone_by?: string | null
+          venue_id: string
+        }
+        Update: {
+          amount_iqd?: number
+          given_at?: string
+          given_by?: string
+          id?: string
+          note?: string | null
+          paid_from?: string
+          pay_month?: string
+          staff_id?: string
+          status?: string
+          undo_reason?: string | null
+          undone_at?: string | null
+          undone_by?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wage_advances_given_by_fkey"
+            columns: ["given_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wage_advances_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wage_advances_undone_by_fkey"
+            columns: ["undone_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wage_advances_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wage_payments: {
         Row: {
+          advance_count: number
+          advances_iqd: number
           bonus_count: number
           bonuses_iqd: number
           deduction_count: number
@@ -16874,6 +17443,7 @@ export type Database = {
           net_iqd: number
           paid_at: string
           paid_by: string
+          paid_from: string | null
           paid_iqd: number
           pay_month: string
           penalties_iqd: number
@@ -16887,6 +17457,8 @@ export type Database = {
           venue_id: string
         }
         Insert: {
+          advance_count?: number
+          advances_iqd?: number
           bonus_count?: number
           bonuses_iqd?: number
           deduction_count: number
@@ -16896,6 +17468,7 @@ export type Database = {
           net_iqd: number
           paid_at?: string
           paid_by: string
+          paid_from?: string | null
           paid_iqd: number
           pay_month: string
           penalties_iqd: number
@@ -16909,6 +17482,8 @@ export type Database = {
           venue_id: string
         }
         Update: {
+          advance_count?: number
+          advances_iqd?: number
           bonus_count?: number
           bonuses_iqd?: number
           deduction_count?: number
@@ -16918,6 +17493,7 @@ export type Database = {
           net_iqd?: number
           paid_at?: string
           paid_by?: string
+          paid_from?: string | null
           paid_iqd?: number
           pay_month?: string
           penalties_iqd?: number

@@ -70,7 +70,7 @@ describe('ManagementPanelScreen — four states', () => {
     renderPanel();
     const today = businessTodayISO(new Date(), 4, VENUE_TZ);
     expect(rpc).toHaveBeenCalledWith('panel_headline', { p_from: addDays(today, -29), p_to: today, p_compare: 'previousPeriod' });
-    expect(screen.getByRole('button', { name: 'Last 30 days', pressed: true })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Date range' }).textContent).toContain('Last 30 days');
   });
 
   it('ready: renders the server figures verbatim, with comparison', async () => {
@@ -101,8 +101,8 @@ describe('ManagementPanelScreen — four states', () => {
     renderPanel();
     expect(await screen.findByText('No trading in this period')).toBeTruthy();
     expect(screen.getByText('Nothing was sold or booked between these dates. Pick another period.')).toBeTruthy();
-    // The default is already the last 30 days, so the way out is last month, on top of the preset strip.
-    expect(screen.getAllByRole('button', { name: 'Last month' }).length).toBeGreaterThan(1);
+    // The default is already the last 30 days, so the way out is last month.
+    expect(screen.getByRole('button', { name: 'Last month' })).toBeTruthy();
   });
 
   it('error: surfaces the failure with a retry', async () => {

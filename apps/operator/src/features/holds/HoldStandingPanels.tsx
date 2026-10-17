@@ -99,7 +99,7 @@ function StandingRow({ standing: s, withName }: { standing: HoldStanding; withNa
   const [error, setError] = useState<unknown>(null);
   const [confirmBan, setConfirmBan] = useState(false);
 
-  const mayDecide = can(staff?.role, 'decideHoldStanding');
+  const mayDecide = can(staff, 'decideHoldStanding');
   const actions = holdStandingActions(s);
   const guest = s.guest_name?.trim() || tr(`${K}.noName`);
   const until = s.blocked_until ? formatDateTime(new Date(s.blocked_until), locale, tz) : '';

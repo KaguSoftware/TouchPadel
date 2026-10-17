@@ -79,6 +79,23 @@ describe('ModelSwitch', () => {
     expect(alert.textContent).toBe('That model has no rates in the pricing table, so it cannot be billed. Add its four rates first.');
   });
 
+  it('offers The free AI after the models only when the parent allows it', async () => {
+    renderSwitch();
+    await screen.findByRole('button', { name: 'Opus 5.5 · best answers' });
+    expect(screen.queryByTestId('model-__free__')).toBeNull();
+  });
+
+  it('switches to the free AI without saving anything on the chat', async () => {
+    const onChooseFree = vi.fn();
+    const { onChange } = renderSwitch({ onChooseFree });
+    const free = await screen.findByTestId('model-__free__');
+    expect(free.textContent).toBe("The free AI · finds pages, explains how things work, can't see your data");
+    fireEvent.click(free);
+    expect(onChooseFree).toHaveBeenCalledOnce();
+    expect(save).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('disables every button while streaming', async () => {
     renderSwitch({ disabled: true });
     const btn = await screen.findByRole('button', { name: 'Opus 5.5 · best answers' });

@@ -94,7 +94,7 @@ export function StartSheet(props: StartSheetProps) {
     return (
       <TournamentStartSheet
         initialVariant={props.variant ?? null}
-        byOwner={titlesInBoth(staff?.role)}
+        byOwner={titlesInBoth(staff)}
         onClose={props.onClose}
         onStarted={(run) => {
           toast.ok(tr(run.auto ? 'ws.protocols.start.startedAuto' : 'ws.protocols.start.started'));
@@ -135,8 +135,8 @@ function GenericStartSheet({
   // Start waits for that read, so the form asks the decider's fields of the
   // right person; a failed read falls back to the built-in default.
   const templateLoading = templateId === null ? overview.isLoading : template.isLoading;
-  const submitterDecides = decidesStep(staff?.role, firstNeedsOk ?? first?.needsOwnerOk ?? false);
-  const both = titlesInBoth(staff?.role);
+  const submitterDecides = decidesStep(staff, firstNeedsOk ?? first?.needsOwnerOk ?? false);
+  const both = titlesInBoth(staff);
 
   const targets = useTargets(kind === 'price_promo' ? change : null);
   const ideas = useQuery({

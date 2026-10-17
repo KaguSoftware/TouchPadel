@@ -19,6 +19,10 @@
  * or a scanner burst that is a member card (TP-…) rather than a barcode. The sale is rung up
  * with them attached (set_tab_customer), and a step before the payment offers Use points and
  * Rewards on it. Offline there is no server tab to attach to, so the sale goes without.
+ *
+ * That same step brings the member's own discount onto the sale (0342, features/discounts):
+ * their standing café and shop discount comes on by itself, and "Customer discount" sets or
+ * changes it there, with no PIN. A sale without a member has no customer to discount.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -44,6 +48,10 @@ import { can, useAuth } from '../../lib/auth';
 import { MemberAttach, MemberChip, MemberIdentifyDialog } from '../loyalty/MemberAttach';
 import { isMemberScan, memberView } from '../loyalty/loyaltyLogic';
 import { setTabCustomer } from '../loyalty/useLoyalty';
+import { BillDiscountDialog } from '../discounts/BillDiscountDialog';
+import { canDiscount, rpcMissing, useAutoCustomerDiscount, useBillDiscount } from '../discounts/useCustomerDiscount';
+import { useDiscountWords } from '../discounts/useDiscountWords';
+import { discountBreakdown } from '../till/tabTotals';
 import {
   addToBasket,
   basketCount,
@@ -112,7 +120,7 @@ export function ShopTill() {
   const [paying, setPaying] = useState<Paying | null>(null);
   const [paid, setPaid] = useState<Paid | null>(null);
   const { staff } = useAuth();
-  const canMember = can(staff?.role, 'attachMember');
+  const canMember = can(staff, 'attachMember');
   /** The member the next sale is rung up for, and the field open on a scan or the button. */
   const [member, setMember] = useState<IdentifiedMember | null>(null);
   const [identify, setIdentify] = useState<{ code: string } | null>(null);
@@ -501,19 +509,55 @@ export function ShopTill() {
   );
 }
 
-/** The member block on a sale before its payment, with what is still owed read live (points move it). */
+/**
+ * The member block on a sale before its payment, with what is still owed read live (points
+ * move it), and the member's own discount (0342): brought on by itself, changed with
+ * "Customer discount".
+ */
 function ShopMemberStep({ tabId, fallbackDue }: { tabId: string; fallbackDue: number }) {
   const { tr } = useLocale();
+  const { staff } = useAuth();
   const detailQ = useQuery({ queryKey: ['tab', tabId] as const, queryFn: () => fetchTabDetail(tabId) });
   const d = detailQ.data;
   const due = d ? Math.max((d.total_iqd ?? d.subtotal_iqd ?? 0) - d.payments.reduce((s, p) => s + p.amount_iqd, 0), 0) : fallbackDue;
+  const discountAllowed = canDiscount(staff);
+  const off = discountBreakdown(d?.tab_adjustments ?? []);
+  const version = `${d?.subtotal_iqd ?? ''}|${off.manager}|${off.promotion}|${off.customer}`;
+  const billDiscQ = useBillDiscount({ tabId, reservationId: null, version, enabled: discountAllowed && d !== undefined });
+  const billDisc = billDiscQ.data;
+  useAutoCustomerDiscount({ tabId, reservationId: null, state: billDisc, version, enabled: discountAllowed && d !== undefined });
+  const words = useDiscountWords();
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const shown = discountAllowed && billDisc !== undefined && !rpcMissing(billDiscQ.error);
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 'var(--tp-fs-lg)', fontWeight: 700 }}>
         <span>{tr('ws.shop.till.total')}</span>
         <Money amount={due} strong />
       </div>
+      {off.customer > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }} data-testid="customer-discount-row">
+          <span>
+            {tr('ws.discounts.bill.row')}
+            {billDisc?.cafe && <> · {words.billLabel(billDisc.cafe, billDisc.standing?.reason)}</>}
+          </span>
+          <Money amount={-off.customer} />
+        </div>
+      )}
+      {billDisc?.cafe_waived && billDisc.standing?.cafe && (
+        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }} data-testid="cafe-waived-note">
+          {tr('ws.discounts.bill.cafeWaived')}
+        </span>
+      )}
       <MemberAttach tabId={tabId} remainingIqd={due} />
+      {shown && billDisc.customer && (
+        <div>
+          <Button icon="user" data-testid="customer-discount-button" onClick={() => setDiscountOpen(true)}>
+            {tr('ws.discounts.action')}
+          </Button>
+        </div>
+      )}
+      {discountOpen && billDisc && <BillDiscountDialog tabId={tabId} reservationId={null} state={billDisc} onClose={() => setDiscountOpen(false)} />}
     </div>
   );
 }

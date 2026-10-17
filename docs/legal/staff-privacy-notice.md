@@ -38,8 +38,10 @@ can see, and photos of marketing content sent for approval, which only marketing
 is seen only by the person who filed it, managers and the owner. A pay deduction is seen by managers and the owner, by the
 person who proposed it, and by you once it is approved. The owner can ask the system's
 AI assistant about operations, and the records it needs to answer (which can include staff names) are sent to an AI
-provider (currently Groq, in the United States). Pay deductions and incident reports are never sent to it or to any other AI
-provider. The system is hosted by Supabase in Frankfurt, Germany. We do not
+provider (currently Anthropic, in the United States). Every staff member can ask the free assistant how to use the
+system: the question, the last few messages of that chat, your role and the names of the pages you can open are sent to
+Groq, in the United States. It is given no records, and the chat is not stored. Pay deductions and incident reports are
+never sent to any AI provider. The system is hosted by Supabase in Frankfurt, Germany. We do not
 sell staff information or use it for advertising.
 
 **What it is not used for.** The staff area uses your phone's camera only when you take a work photo, and your
@@ -90,8 +92,9 @@ Employee name: ______________________ Signature: ______________ Date: __________
 بلاغات الحوادث، ولا يراها إلا أنت والمديرون والمالك؛ وصور محتوى التسويق المرسل للموافقة، ولا يراها إلا التسويق والمالك. ولا
 يرى بلاغ الحادثة إلا من قدّمه والمديرون والمالك. ويرى الخصم من الراتب المديرون والمالك ومن اقترحه، وتراه أنت بعد الموافقة عليه.
 ويستطيع المالك أن يسأل مساعد الذكاء الاصطناعي في النظام عن التشغيل، وتُرسل السجلات التي يحتاج إليها للإجابة (وقد تتضمن أسماء
-موظفين) إلى مزوّد خدمة ذكاء اصطناعي (حاليًا Groq في الولايات المتحدة). ولا تُرسل الخصومات من الراتب ولا بلاغات الحوادث إلى
-هذا المزوّد ولا إلى أي مزوّد آخر أبدًا. ويُستضاف النظام لدى Supabase في فرانكفورت بألمانيا. لا نبيع معلومات الموظفين ولا
+موظفين) إلى مزوّد خدمة ذكاء اصطناعي (حاليًا Anthropic في الولايات المتحدة). ويستطيع كل موظف أن يسأل المساعد المجاني عن طريقة
+استخدام النظام، فيُرسل سؤاله وآخر رسائل تلك المحادثة ودوره وأسماء الصفحات التي يستطيع فتحها إلى Groq في الولايات المتحدة. ولا
+يُعطى هذا المساعد أي سجلات، ولا تُحفظ المحادثة. ولا تُرسل الخصومات من الراتب ولا بلاغات الحوادث إلى أي مزوّد ذكاء اصطناعي أبدًا. ويُستضاف النظام لدى Supabase في فرانكفورت بألمانيا. لا نبيع معلومات الموظفين ولا
 نستخدمها في الإعلانات.
 
 **ما لا تُستخدم له.** لا يستخدم قسم الموظفين كاميرا هاتفك إلا عندما تلتقط صورة عمل، ولا مكتبة صورك إلا عندما تختار صورة

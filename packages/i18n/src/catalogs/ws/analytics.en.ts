@@ -33,6 +33,9 @@ export const analyticsEn = {
       cafe: 'Court players at the cafe',
       cafeNav: 'At the cafe',
       cafeDesc: 'What court bookings buy from the cafe, from tabs the till linked to a booking.',
+      shop: 'Touch Shop',
+      shopNav: 'Shop',
+      shopDesc: 'Sales at the shop desk, counted in padel revenue: what sold, when, and what it earned after cost.',
     },
     kpi: {
       bookings: 'Bookings',
@@ -48,6 +51,8 @@ export const analyticsEn = {
       nOfN: '{n} of {total}',
       lost: 'Cancelled or no-show',
       lostSplit: '{cancelled} cancelled · {noShows} no-shows',
+      padelRevenue: 'Padel revenue',
+      padelSplit: '{courts} courts · {shop} shop',
     },
     // The summary's two lists of supporting figures.
     summary: {
@@ -245,6 +250,7 @@ export const analyticsEn = {
       bookedHours: 'Court time sold: the sum of every live booking\'s length.',
       occupancy: 'Booked minutes over the minutes the venue was open, from the opening hours with closed dates removed, times the number of courts. Every court is assumed open the same hours.',
       revenue: 'The booking price of live bookings. The cafe part of a bill is not included.',
+      padelRevenue: 'Court bookings plus Touch Shop sales. Bookings count at their booking price on the day they are played; shop sales count after refunds on the day they are paid. The cafe is not included. Open the figure for the bookings.',
       revPerOpenHour: 'Court revenue for each hour the venue was open, across all courts.',
       pricePerBookedHour: 'Court revenue for each hour actually booked: what an hour of court time sells for on average.',
       cancelRate: 'Cancellations over everything that was booked (live plus cancelled plus no-show). Shown as a count until there are twenty bookings.',
@@ -386,7 +392,57 @@ export const analyticsEn = {
   },
   // Venue revenue on both pulse rows.
   venue: {
-    revenueTip: 'Cafe net revenue plus the price of live court bookings, for the whole venue. The court filter does not narrow it.',
+    revenueTip: 'Cafe net revenue plus padel revenue (live court bookings and Touch Shop sales), for the whole venue. A shop sale counts once, as padel, never as cafe. The court filter does not narrow it.',
+    split: '{cafe} cafe · {padel} padel',
+  },
+  // The Touch Shop block of the Courts tab (0346, app.analytics_shop): shop
+  // sales are padel revenue.
+  shop: {
+    kpi: {
+      sales: 'Shop sales',
+      count: 'Sales',
+      avgSale: 'Average sale',
+      units: 'Units sold',
+      margin: 'Margin after cost',
+      refunds: 'Refunded',
+    },
+    note: {
+      methods: '{cash} cash · {card} card',
+      costed: 'Cost known for {n} of {total} units',
+      refunded: '{n} sales refunded',
+      wholeShop: 'The shop is not tied to a court: these are the whole shop\'s figures.',
+    },
+    cards: {
+      byDay: 'Shop sales by day',
+      byHour: 'When the shop sells',
+      products: 'Top products',
+      sections: 'By shop section',
+    },
+    cols: {
+      product: 'Product',
+      units: 'Units',
+      sales: 'Sales',
+      revenue: 'Revenue',
+      margin: 'Margin',
+      day: 'Day',
+      hour: 'Hour',
+    },
+    lead: 'The shop brought in {net} over {n} paid sales, {avg} each on average.',
+    leadOne: 'The shop brought in {net} from one sale.',
+    empty: 'No shop sales in this period. Sales rung up at the shop desk appear here and count in padel revenue.',
+    noCost: 'No cost recorded',
+    tips: {
+      sales: 'Sales paid at the shop desk, after refunds, on the day they were paid. This is the shop part of padel revenue.',
+      count: 'Shop sales paid in the period. One receipt is one sale, whatever it holds.',
+      avgSale: 'Shop sales divided by the number of sales.',
+      units: 'Items sold, less items returned.',
+      margin: 'Revenue less what the items cost, for the items whose cost is known from goods received. Before tax.',
+      refunds: 'Money given back on shop sales paid in the period.',
+      byDay: 'Shop sales after refunds for each business day.',
+      byHour: 'Shop sales by the hour they were paid.',
+      products: 'The products that brought in the most, after discounts and refunds, before tax. Margin shows when the cost is known.',
+      sections: 'Shop sales by section of the shop catalogue.',
+    },
   },
   // Every chart's table and CSV twin.
   twin: {

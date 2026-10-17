@@ -300,7 +300,7 @@ export function CafeTab() {
                 delta={venueDelta}
                 previous={venue.previous ? f.money(venue.previous.venueIqd) : null}
                 tip={tr('ws.analytics.venue.revenueTip')}
-                note={venue.current ? tr('analytics.kpi.venueSplit', { cafe: f.compact(venue.current.cafeIqd), courts: f.compact(venue.current.courtsIqd) }) : undefined}
+                note={venue.current ? tr('ws.analytics.venue.split', { cafe: f.compact(venue.current.cafeIqd), padel: f.compact(venue.current.padelIqd) }) : undefined}
                 drills={[{ onOpen: () => drill.open({ figure: 'revenue', label: tr('analytics.kpi.venueRevenue') }) }]}
                 loading={venue.state === 'loading'}
                 unavailable={venue.state === 'error'}

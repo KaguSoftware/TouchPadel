@@ -35,7 +35,7 @@ interface RetireResult {
 export function DevicesPanel({ staleSeconds }: { staleSeconds: number }) {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
-  const canRetire = can(staff?.role, 'editVenueDetails');
+  const canRetire = can(staff, 'editVenueDetails');
   const toast = useToast();
   const qc = useQueryClient();
   const confirm = useConfirm();

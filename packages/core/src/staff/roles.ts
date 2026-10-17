@@ -15,6 +15,7 @@
  *
  * Pure: no supabase, no react.
  */
+import { parseStaffAccess, type StaffAccess } from './access';
 
 /**
  * Every value of the `staff_role` enum this build knows, in the enum's own
@@ -95,7 +96,7 @@ export const HIREABLE_ROLES: readonly StaffRole[] = [
  */
 export const ROLE_RECHECK_MS = 60_000;
 
-export interface StaffInfo {
+export interface StaffInfo extends StaffAccess {
   id: string;
   displayName: string;
   role: StaffRole;
@@ -107,6 +108,9 @@ export interface StaffRow {
   display_name: string;
   role: string;
   is_active: boolean;
+  /** 0345: second jobs and blocked pages; absent from a select that did not ask. */
+  extra_roles?: unknown;
+  blocked_areas?: unknown;
 }
 
 export type RoleResolution =
@@ -157,6 +161,9 @@ export function resolveStaffRow(
       id: row.id,
       displayName: typeof row.display_name === 'string' ? row.display_name : '',
       role: row.role,
+      // 0345: only when the select asked for them, so a row read without
+      // the two columns reads exactly as it did before.
+      ...('extra_roles' in row || 'blocked_areas' in row ? parseStaffAccess(row) : {}),
     },
   };
 }

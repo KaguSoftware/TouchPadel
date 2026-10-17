@@ -194,7 +194,7 @@ export function NewTabDialog({
   // A role that cannot read bookings (see canReadBookings) would get a select
   // that only ever held "No booking". Shown when it can hold something, or
   // when the desk already chose the booking.
-  const showBookings = canReadBookings(staff?.role) || Boolean(initialReservationId);
+  const showBookings = canReadBookings(staff) || Boolean(initialReservationId);
   const [tableId, setTableId] = useState('');
   const [label, setLabel] = useState('');
   const [reservationId, setReservationId] = useState(initialReservationId ?? '');
@@ -203,7 +203,7 @@ export function NewTabDialog({
 
   // ACTIVE tables only (QK.activeCafeTables is separate from the QR admin's all-rows key).
   const tablesQ = useQuery({ queryKey: QK.activeCafeTables, queryFn: fetchActiveCafeTables });
-  const reservationsQ = useTodaysOpenReservations(canReadBookings(staff?.role) || Boolean(initialReservationId));
+  const reservationsQ = useTodaysOpenReservations(canReadBookings(staff) || Boolean(initialReservationId));
   const reservations = reservationsQ.data ?? [];
   const preboundMissing =
     Boolean(initialReservationId) && reservationsQ.isSuccess && !reservations.some((r) => r.id === initialReservationId);

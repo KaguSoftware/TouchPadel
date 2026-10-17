@@ -28,16 +28,19 @@ describe('AnalyticsBar', () => {
   it('writes a preset to the search and hides the date inputs until Custom is chosen', async () => {
     const setSearch = renderBar();
     expect(screen.queryByLabelText('From')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: '7 days' }));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Period' }));
+    await userEvent.click(screen.getByRole('option', { name: '7 days' }));
     expect(setSearch).toHaveBeenCalledWith({ range: '7d', from: undefined, to: undefined });
-    await userEvent.click(screen.getByRole('button', { name: 'Custom' }));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Period' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Custom' }));
     expect(screen.getByLabelText('From')).toBeTruthy();
     expect(setSearch).toHaveBeenCalledTimes(1);
   });
 
   it('applies a custom range only when both dates are valid and ordered', async () => {
     const setSearch = renderBar();
-    await userEvent.click(screen.getByRole('button', { name: 'Custom' }));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Period' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Custom' }));
     const apply = screen.getByRole('button', { name: 'Apply' });
     expect((apply as HTMLButtonElement).disabled).toBe(true);
     await userEvent.type(screen.getByLabelText('From'), '2026-08-10');

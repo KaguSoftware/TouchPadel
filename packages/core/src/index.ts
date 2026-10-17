@@ -18,6 +18,7 @@ export * from './pairing/pairingCode';
 export * from './phone/iraq';
 export * from './legal/terms';
 export * from './staff/roles';
+export * from './staff/access';
 export * from './staff/requests';
 export * from './protocols';
 export * from './coaching';

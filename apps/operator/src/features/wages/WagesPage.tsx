@@ -12,8 +12,11 @@
  *  - **No salary yet.** Who has no rate on record at the branch.
  *  - **The month.** Per person: salary, pay day, approved deductions,
  *    lateness, the bonuses of rewards reached (0333), the net and where it
- *    stands, with Set salary, Mark paid, Undo and Deduct; a row opens to the
- *    deductions, late days and rewards behind it.
+ *    stands, with Set salary, Mark paid, Give advance, Undo and Deduct; a row
+ *    opens to the deductions, late days, rewards and advances behind it.
+ *  - **Advances (0344).** Part of a wage handed over before pay day; the row
+ *    then shows what was advanced and what is still owed (the server's
+ *    owed_iqd), and Mark paid hands over the rest.
  *
  * Every figure is the server's (app.wage_line adds a month up); nothing here
  * sums money. A paid month answers from its snapshot. Money about a named
@@ -39,14 +42,17 @@ import { ProposeDeduction } from '../deductions/ProposeDeduction';
 import { dayLabel, monthLabel, shiftMonth } from '../deductions/venueDate';
 import { WK, fetchWagesDue, fetchWagesMonth } from './api';
 import {
+  canGiveAdvance,
   canMarkPaid,
   canStepWageForward,
+  canUndoAdvance,
   canUndoPaid,
   prizeCount,
   readWagesDue,
   readWagesMonth,
   unsetPeople,
   wageTone,
+  type WageAdvance,
   type WageDueRow,
   type WagePerson,
   type WagesMonth,
@@ -56,6 +62,7 @@ import { BonusList } from './BonusList';
 import { SetWageDialog, type WageTarget } from './SetWageDialog';
 import { MarkPaidDialog, type PayTarget } from './MarkPaidDialog';
 import { UndoPaidDialog, type UndoTarget } from './UndoPaidDialog';
+import { GiveAdvanceDialog, UndoAdvanceDialog, type AdvanceTarget, type UndoAdvanceTarget } from './AdvanceDialog';
 
 const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
 const REMIND_MAX = 14;
@@ -90,6 +97,8 @@ export function WagesPageScreen() {
   const [setting, setSetting] = useState<WageTarget | null>(null);
   const [paying, setPaying] = useState<PayingRef | null>(null);
   const [undoing, setUndoing] = useState<UndoTarget | null>(null);
+  const [advancing, setAdvancing] = useState<AdvanceTarget | null>(null);
+  const [undoingAdvance, setUndoingAdvance] = useState<UndoAdvanceTarget | null>(null);
   const [deducting, setDeducting] = useState<string | null>(null);
   const [deciding, setDeciding] = useState<{ row: DeductionRow; approve: boolean } | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -110,7 +119,13 @@ export function WagesPageScreen() {
   const startPaying = (line: PayTarget) => setPaying({ staffId: line.staffId, month: line.month, snapshot: line });
   const startSetting = (p: WagePerson) => setSetting({ staffId: p.staffId, displayName: p.displayName, status: p.status, salaryIqd: p.salaryIqd, payDay: p.payDay });
   const startUndo = (p: WagePerson) =>
-    p.payment && setUndoing({ paymentId: p.payment.id, displayName: p.displayName, month: p.month, paidIqd: p.payment.paidIqd });
+    p.payment && setUndoing({ paymentId: p.payment.id, displayName: p.displayName, month: p.month, paidIqd: p.payment.paidIqd, paidFrom: p.payment.paidFrom });
+  const startAdvance = (p: WagePerson) => setAdvancing({ staffId: p.staffId, displayName: p.displayName, month: p.month, owedIqd: p.owedIqd });
+  /** The advance dialog's "still owed" follows a refetch (a deduction that landed while it was open). */
+  const advanceTarget = (t: AdvanceTarget): AdvanceTarget => {
+    const fresh = data.month === t.month ? data.people.find((p) => p.staffId === t.staffId) : undefined;
+    return fresh ? { ...t, owedIqd: fresh.owedIqd } : t;
+  };
 
   const unset = unsetPeople(data);
   const expandedPerson = expanded ? data.people.find((p) => p.staffId === expanded) : undefined;
@@ -184,11 +199,12 @@ export function WagesPageScreen() {
           onToggle={(id) => setExpanded((e) => (e === id ? null : id))}
           onSet={startSetting}
           onPay={startPaying}
+          onAdvance={startAdvance}
           onUndo={startUndo}
           onDeduct={(id) => setDeducting(id)}
         />
 
-        {expandedPerson && <PersonDetails person={expandedPerson} />}
+        {expandedPerson && <PersonDetails person={expandedPerson} onUndoAdvance={(advance) => setUndoingAdvance({ advance, displayName: expandedPerson.displayName })} />}
       </section>
 
       {setting && (
@@ -218,6 +234,26 @@ export function WagesPageScreen() {
           onClose={() => setUndoing(null)}
           onDone={() => {
             setUndoing(null);
+            refresh();
+          }}
+        />
+      )}
+      {advancing && (
+        <GiveAdvanceDialog
+          target={advanceTarget(advancing)}
+          onClose={() => setAdvancing(null)}
+          onDone={() => {
+            setAdvancing(null);
+            refresh();
+          }}
+        />
+      )}
+      {undoingAdvance && (
+        <UndoAdvanceDialog
+          target={undoingAdvance}
+          onClose={() => setUndoingAdvance(null)}
+          onDone={() => {
+            setUndoingAdvance(null);
             refresh();
           }}
         />
@@ -277,7 +313,11 @@ function DueNow({ rows, remindDays, onPay }: { rows: WageDueRow[]; remindDays: n
             <span style={{ minInlineSize: '8rem' }}>{monthLabel(r.month, locale)}</span>
             {r.dueDate && <span style={muted}>{tr('ws.wages.due.payDay', { date: dayLabel(r.dueDate, locale) })}</span>}
             <DueWhenText daysLeft={r.daysLeft} />
-            <Money amount={r.netIqd} strong style={{ marginInlineStart: 'auto', whiteSpace: 'nowrap', ...(r.netIqd < 0 ? { color: 'var(--tp-danger-fg)' } : null) }} />
+            <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', justifyItems: 'end', marginInlineStart: 'auto' }}>
+              {/* What is still owed: the net, less any advance already given (the server's owed_iqd). */}
+              <Money amount={r.owedIqd} strong style={{ whiteSpace: 'nowrap', ...(r.owedIqd < 0 ? { color: 'var(--tp-danger-fg)' } : null) }} />
+              {r.advancesIqd > 0 && <span style={muted}>{tr('ws.wages.advance.dueAfter', { amount: isolate(formatIQD(r.advancesIqd, locale)) })}</span>}
+            </span>
             <Button size="sm" kind="primary" icon="check" onClick={() => onPay(r)} data-testid={`wages.due.pay.${r.staffId}.${r.month}`}>
               {tr('ws.wages.actions.markPaid')}
             </Button>
@@ -368,6 +408,13 @@ function Totals({ data }: { data: WagesMonth }) {
     [tr('ws.wages.totals.penalties'), t.penaltiesIqd, false],
     ...(t.bonusesIqd === null ? [] : ([[tr('ws.wages.totals.bonuses'), t.bonusesIqd, false]] as [string, number, boolean][])),
     [tr('ws.wages.totals.net'), t.netIqd, true],
+    // 0344: shown only once an advance was given this month.
+    ...(t.advancesIqd > 0
+      ? ([
+          [tr('ws.wages.totals.advances'), t.advancesIqd, false],
+          [tr('ws.wages.totals.toPay'), t.toPayIqd, true],
+        ] as [string, number, boolean][])
+      : []),
     [tr('ws.wages.totals.paid'), t.paidIqd, false],
   ];
   return (
@@ -392,6 +439,7 @@ function MonthTable({
   onToggle,
   onSet,
   onPay,
+  onAdvance,
   onUndo,
   onDeduct,
 }: {
@@ -402,6 +450,7 @@ function MonthTable({
   onToggle: (staffId: string) => void;
   onSet: (p: WagePerson) => void;
   onPay: (p: WagePerson) => void;
+  onAdvance: (p: WagePerson) => void;
   onUndo: (p: WagePerson) => void;
   onDeduct: (staffId: string) => void;
 }) {
@@ -510,6 +559,7 @@ function MonthTable({
         <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', justifyItems: 'end' }}>
           <Money amount={p.netIqd} strong style={{ whiteSpace: 'nowrap', ...(p.netIqd < 0 ? { color: 'var(--tp-danger-fg)' } : null) }} />
           {p.netIqd < 0 && <span style={{ ...muted, color: 'var(--tp-danger-fg)', maxInlineSize: '14rem', whiteSpace: 'normal', textAlign: 'end' }}>{tr('ws.wages.net.negative')}</span>}
+          {p.advancesIqd > 0 && <AdvanceFigures person={p} />}
         </span>
       ),
       truncateTitle: (p) => String(p.netIqd),
@@ -522,6 +572,11 @@ function MonthTable({
           <StatusBadge size="sm" tone={wageTone(p.status)} label={tr(`ws.wages.status.${p.status}`)} />
           {p.payment?.status === 'paid' && p.payment.paidByName && p.payment.paidAt && (
             <span style={muted}>{tr('ws.wages.paidBy', { name: isolate(p.payment.paidByName), time: when(p.payment.paidAt) })}</span>
+          )}
+          {p.payment?.status === 'paid' && p.payment.paidFrom && p.payment.paidIqd > 0 && (
+            <span style={muted} data-testid={`wages.row.paidFrom.${p.staffId}`}>
+              {tr(p.payment.paidFrom === 'safe' ? 'ws.wages.paidFrom.fromSafe' : 'ws.wages.paidFrom.byBank')}
+            </span>
           )}
           {p.payment?.status === 'undone' && p.payment.undoneByName && p.payment.undoneAt && (
             <span style={muted}>{tr('ws.wages.undoneBy', { name: isolate(p.payment.undoneByName), time: when(p.payment.undoneAt) })}</span>
@@ -539,6 +594,11 @@ function MonthTable({
           {canMarkPaid(p) && (
             <Button size="sm" kind="primary" icon="check" onClick={() => onPay(p)} data-testid={`wages.row.pay.${p.staffId}`}>
               {tr('ws.wages.actions.markPaid')}
+            </Button>
+          )}
+          {canGiveAdvance(p, data.currentMonth) && (
+            <Button size="sm" icon="banknote" onClick={() => onAdvance(p)} data-testid={`wages.row.advance.${p.staffId}`}>
+              {tr('ws.wages.actions.giveAdvance')}
             </Button>
           )}
           {canUndoPaid(p) && (
@@ -587,7 +647,7 @@ function MonthTable({
 }
 
 /** A row opened: the month's approved deductions, late or early days and rewards behind its figures. */
-function PersonDetails({ person: p }: { person: WagePerson }) {
+function PersonDetails({ person: p, onUndoAdvance }: { person: WagePerson; onUndoAdvance: (a: WageAdvance) => void }) {
   const { tr, locale } = useLocale();
   const item = { display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', paddingBlock: 'var(--tp-sp-1-5)', borderBlockEnd: '1px solid var(--tp-border)' } as const;
   return (
@@ -643,7 +703,68 @@ function PersonDetails({ person: p }: { person: WagePerson }) {
           <h3 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.wages.details.bonuses')}</h3>
           {p.bonuses.length === 0 ? <p style={muted}>{tr('ws.wages.details.noBonuses')}</p> : <BonusList bonuses={p.bonuses} testId={`wages.details.bonuses.${p.staffId}`} />}
         </div>
+        <div>
+          <h3 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.wages.details.advances')}</h3>
+          {p.advances.length === 0 ? (
+            <p style={muted}>{tr('ws.wages.details.noAdvances')}</p>
+          ) : (
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }} data-testid={`wages.details.advances.${p.staffId}`}>
+              {p.advances.map((a) => (
+                <li key={a.id} style={item} data-testid={`wages.details.advance.${a.id}`}>
+                  <span style={{ ...muted, whiteSpace: 'nowrap' }}>{a.givenAt ? formatDateTime(new Date(a.givenAt), locale) : ''}</span>
+                  <span style={{ flex: '1 1 10rem', display: 'grid', gap: 'var(--tp-sp-0)' }}>
+                    <span>{tr(a.paidFrom === 'safe' ? 'ws.wages.paidFrom.fromSafe' : 'ws.wages.paidFrom.byBank')}</span>
+                    {a.note && (
+                      <span dir="auto" style={{ ...muted, overflowWrap: 'anywhere' }}>
+                        {a.note}
+                      </span>
+                    )}
+                    {a.givenByName && <span style={muted}>{tr('ws.wages.details.givenBy', { name: isolate(a.givenByName) })}</span>}
+                  </span>
+                  <Money amount={a.amountIqd} strong style={{ whiteSpace: 'nowrap' }} />
+                  {canUndoAdvance(p) && (
+                    <Button size="sm" kind="ghost" icon="undo" onClick={() => onUndoAdvance(a)} data-testid={`wages.details.advance.undo.${a.id}`}>
+                      {tr('ws.wages.details.undoAdvance')}
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </Panel>
+  );
+}
+
+/**
+ * Under a net with advances (0344): what was advanced, and what is still owed
+ * (the server's owed_iqd). Advanced past what the month comes to (a deduction
+ * approved after the advance) reads as a warning, not a figure below zero. A
+ * paid month only says what was advanced: nothing is owed any more.
+ */
+function AdvanceFigures({ person: p }: { person: WagePerson }) {
+  const { tr, locale } = useLocale();
+  const money = (n: number) => isolate(formatIQD(n, locale));
+  // One line each: an amount split across two lines ("200,000 / IQD") reads as two figures.
+  const line = { ...muted, whiteSpace: 'nowrap', textAlign: 'end' } as const;
+  return (
+    <>
+      <span style={line} data-testid={`wages.row.advanced.${p.staffId}`}>
+        {tr('ws.wages.advance.advanced', { amount: money(p.advancesIqd) })}
+      </span>
+      {/* A net already below zero says so above it; the owed line would only repeat it. */}
+      {p.status !== 'paid' &&
+        p.netIqd >= 0 &&
+        (p.owedIqd < 0 ? (
+          <span style={{ ...line, color: 'var(--tp-warn-fg)', fontWeight: 600 }} data-testid={`wages.row.owed.${p.staffId}`}>
+            {tr('ws.wages.advance.over', { amount: money(-p.owedIqd) })}
+          </span>
+        ) : (
+          <span style={{ ...line, color: 'var(--tp-fg)', fontWeight: 600 }} data-testid={`wages.row.owed.${p.staffId}`}>
+            {tr('ws.wages.advance.owed', { amount: money(p.owedIqd) })}
+          </span>
+        ))}
+    </>
   );
 }

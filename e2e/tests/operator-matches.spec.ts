@@ -48,6 +48,7 @@ import {
   ensureOpenDay,
   ensureTillFresh,
   grantTickets,
+  openTodayQueue,
   passShiftGate,
   readMatchSettings,
   seedBookedMatch,
@@ -337,8 +338,8 @@ test.describe('operator open matches', () => {
   test('the owner edits the open-match rules; the manager reads them', async ({ browser }) => {
     try {
       const owner = await signIn(browser, SEED_STAFF.owner);
-      await owner.goto(`${OPERATOR_URL}/admin/settings`);
-      await owner.getByRole('tab', { name: 'Venue details' }).click();
+      // Setup › Courts › Open matches (its own page since the 2026-10-17 rebuild).
+      await owner.goto(`${OPERATOR_URL}/admin/settings/matches`);
       const rules = owner.getByTestId('match-settings');
       await expect(rules.getByText('Changing these changes them at every branch.')).toBeVisible({ timeout: 30_000 });
       await rules.getByLabel('Fill deadline').fill('150');
@@ -349,8 +350,8 @@ test.describe('operator open matches', () => {
       await owner.context().close();
 
       const manager = await signIn(browser, SEED_STAFF.manager);
-      await manager.goto(`${OPERATOR_URL}/admin/settings`);
-      await manager.getByRole('tab', { name: 'Venue details' }).click();
+      // Setup › Courts › Open matches (its own page since the 2026-10-17 rebuild).
+      await manager.goto(`${OPERATOR_URL}/admin/settings/matches`);
       const facts = manager.getByTestId('match-settings');
       await expect(facts.getByText('Only the owner can change these.')).toBeVisible({ timeout: 30_000 });
       await expect(facts).toContainText('150');
@@ -372,6 +373,8 @@ test.describe('operator open matches', () => {
 
     const manager = await signIn(browser, SEED_STAFF.manager);
     await manager.goto(`${OPERATOR_URL}/ops`);
+    // Today: the player reports are a row of "Needs you" that opens in place.
+    await openTodayQueue(manager, 'matchReports', 'Review reports');
     const report = manager.getByTestId('match-report').filter({ hasText: farah!.name });
     await expect(report).toContainText('Abusive behaviour', { timeout: 30_000 });
     await expect(report).toContainText(new RegExp(`Reported by .*${eman!.name}`));

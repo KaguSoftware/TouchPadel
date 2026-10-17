@@ -103,8 +103,8 @@ export function ItemForm({
   const { refresh } = useAdminMenu();
   const readOnly = !can.editMenu;
   const locks = itemLocks(item, categoryKind, {
-    editLaunchedPrices: hasCapability(staff?.role, 'editLaunchedPrices'),
-    launchDirectly: hasCapability(staff?.role, 'launchDirectly'),
+    editLaunchedPrices: hasCapability(staff, 'editLaunchedPrices'),
+    launchDirectly: hasCapability(staff, 'launchDirectly'),
   });
   // A new item that cannot go on sale from here starts switched off, and that
   // is its resting state, not an unsaved change.

@@ -99,7 +99,7 @@ export function ProductsAdmin() {
   const fmt = useStockFormat();
   const queryClient = useQueryClient();
   const { staff } = useAuth();
-  const caps: Caps = { editLaunchedPrices: can(staff?.role, 'editLaunchedPrices'), launchDirectly: can(staff?.role, 'launchDirectly') };
+  const caps: Caps = { editLaunchedPrices: can(staff, 'editLaunchedPrices'), launchDirectly: can(staff, 'launchDirectly') };
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Editing | null>(null);
   // 0246: the shop's sections are made here, never in the café's menu editor.

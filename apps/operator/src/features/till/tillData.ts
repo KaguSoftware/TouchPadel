@@ -10,6 +10,7 @@
  * `queueResults` invalidates ['tab'] / ['tabs'] on mutation acks, so the key
  * shapes here are load-bearing — do not rename them.
  */
+import { rolesOf, type StaffAccess, type StaffRole } from '@touch/core';
 import { supabase } from '../../lib/supabase';
 import { cachedQuery } from '../../lib/refCache';
 import { MATCH_RESERVATION_NAME } from '../matches/matchLogic';
@@ -360,8 +361,11 @@ export function basketLineEstimate(l: BasketLine): number {
  * this gate exists. A UX mirror of the policies — the server stays the
  * authority, exactly as with lib/auth's permissions.
  */
-export function canReadBookings(role: string | null | undefined): boolean {
-  return role === 'cashier' || role === 'court_desk' || role === 'manager' || role === 'owner';
+export function canReadBookings(who: StaffRole | StaffAccess | null | undefined): boolean {
+  if (!who) return false;
+  // 0345: a second job counts, as reservations_cashier_read's is_staff does.
+  const roles = typeof who === 'string' ? [who] : rolesOf(who);
+  return roles.some((role) => role === 'cashier' || role === 'court_desk' || role === 'manager' || role === 'owner');
 }
 
 /** A tab that is still taking orders or payment — the one tab a booking may have at a time (0106). */

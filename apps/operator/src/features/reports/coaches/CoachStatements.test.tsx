@@ -436,6 +436,11 @@ describe('Coach pay: the statement dialog', () => {
     expect(screen.queryByLabelText(/^PIN/)).toBeNull();
     await user.clear(reference);
     await user.type(reference, 'Receipt 4471');
+    // 0344: Paid from, Safe preselected; this one went by bank transfer.
+    expect(within(pay).getByTestId('markPaid.from.safe').getAttribute('aria-pressed')).toBe('true');
+    expect(within(pay).getByText('The money comes out of the safe.')).toBeTruthy();
+    await user.click(within(pay).getByTestId('markPaid.from.bank'));
+    expect(within(pay).getByText('Nothing comes out of the safe.')).toBeTruthy();
     await user.click(within(pay).getByTestId('markPaid.next'));
     await user.type(await screen.findByLabelText(/^PIN/), '4821');
     await user.click(screen.getByRole('button', { name: 'Authorise' }));
@@ -445,6 +450,7 @@ describe('Coach pay: the statement dialog', () => {
       p_reference: 'Receipt 4471',
       p_pin: '4821',
       p_device_id: 'DESK-1',
+      p_paid_from: 'bank',
     });
     expect(toast.ok).toHaveBeenCalledWith('Marked paid.');
   });

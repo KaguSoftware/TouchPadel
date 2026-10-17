@@ -3,7 +3,7 @@
  * it can be rendered by a test without dragging in supabase, the IPC bridge
  * and the whole shell.
  */
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocale } from '../lib/i18n';
 import { useThemeMode } from '../lib/themeMode';
 import { Kbd } from './kit';
@@ -32,7 +32,12 @@ import { navButtonStyle } from './railStyles';
  * .tp-rail-group-body in GlobalStyles, what RailGroup uses for Operations and
  * Records). That is one collapse idiom on the rail rather than two, and it
  * brings the 0fr→1fr row animation, the chevron rotation and its RTL mirror
- * for free. No floating layer, so nothing to position, clip or dismiss.
+ * for free. No floating layer, so nothing to position or clip.
+ *
+ * A press anywhere outside the Options row and its list folds it shut again
+ * (owner call, 2026-10-16), like any other menu. A press on one of its own
+ * settings does not: the row renames under the finger, and a second change is
+ * one press away.
  */
 export function RailMoreMenu({
   canSwitch,
@@ -57,6 +62,22 @@ export function RailMoreMenu({
   // standing open above Sign out.
   const [open, setOpen] = useState(false);
   const listId = 'rail-more-body';
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    // Capture phase, so a control that stops propagation still shuts it.
+    // `pointerdown` rather than `click`: the toggle's own press is excluded
+    // below, so it is never shut here and reopened by its click.
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (toggleRef.current?.contains(t) || bodyRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [open]);
 
   // Every item is optional by role, so an owner sees three and a cashier two.
   // `glyph` is for a row whose icon is not a static member of the set: the
@@ -130,6 +151,7 @@ export function RailMoreMenu({
         </button>
       )}
       <button
+        ref={toggleRef}
         type="button"
         className="tp-nav-item tp-rail-group"
         style={navButtonStyle}
@@ -155,7 +177,7 @@ export function RailMoreMenu({
           <Icon name="chevronDown" size={14} />
         </span>
       </button>
-      <div id={listId} className="tp-rail-group-body" data-open={open ? 'true' : undefined}>
+      <div ref={bodyRef} id={listId} className="tp-rail-group-body" data-open={open ? 'true' : undefined}>
         {/* `inert` while shut, so the controls are not Tab stops and a
             screen reader does not read a closed drawer — the same guard
             RailGroup puts on its own collapsed list. */}

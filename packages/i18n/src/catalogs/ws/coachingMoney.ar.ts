@@ -121,6 +121,11 @@ export const coachingMoneyAr: DeepMessages<typeof coachingMoneyEn> = {
       referenceHint: 'رقم الإيصال أو التحويل، أو ملاحظة عن طريقة الدفع. لا يُكتب رقم بطاقة أو حساب أبدًا.',
       next: 'متابعة',
       pinAction: 'تسجيل دفع {amount} إلى {coach}',
+      paidFrom: 'دُفع من',
+      paidFromSafe: 'القاصة',
+      paidFromBank: 'تحويل بنكي',
+      safeHint: 'يُسحب المبلغ من القاصة.',
+      bankHint: 'لا يُسحب شيء من القاصة.',
     },
     void: {
       title: 'إلغاء كشف الحساب',

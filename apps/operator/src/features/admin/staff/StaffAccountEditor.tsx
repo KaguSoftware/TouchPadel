@@ -15,6 +15,11 @@
  *    name — "Remove" alone read as "delete this person";
  *  - removing a PIN says the person can no longer approve at the till.
  *
+ * The Access section (0345) holds the person's second jobs and blocked pages:
+ * two lists of checkboxes, saved together through `set_staff_access`, with a
+ * confirm that names every job added or taken away and every page closed or
+ * opened again.
+ *
  * The old "Email" field is gone: it was a disabled input that always read "—"
  * (the address lives in the auth system and list_staff does not return it).
  * Its one useful sentence — create a new account to change the email — moved
@@ -24,7 +29,15 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { appRpc } from '../../../lib/appRpc';
 import { supabase } from '../../../lib/supabase';
-import type { StaffRole } from '../../../lib/auth';
+import { canAccess, type StaffRole } from '../../../lib/auth';
+import {
+  ACCESS_AREAS,
+  ACCESS_AREA_KEYS,
+  SECOND_JOB_ROLES,
+  parseStaffAccess,
+  type AccessArea,
+  type SecondJobRole,
+} from '@touch/core';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { useVenue } from '../../../lib/venue';
 import { useToast } from '../../../components/toast';
@@ -175,6 +188,8 @@ export function StaffAccountEditor({
           </Actions>
         )}
       </Section>
+
+      <AccessField staff={staff} locked={locked || !staff.is_active} onError={setError} />
 
       <Section title={tr('ws.owner.staff.pin.title')}>
         {/* Every role holds a PIN since 0105; the note says what THIS one does. */}
@@ -423,5 +438,221 @@ function BranchesField({ staff, canManage, onError }: { staff: StaffRow; canMana
         </div>
       )}
     </Section>
+  );
+}
+
+interface AccessDraft {
+  extraRoles: SecondJobRole[];
+  blockedAreas: AccessArea[];
+}
+
+const sameSet = <T,>(a: readonly T[], b: readonly T[]) => a.length === b.length && a.every((x) => b.includes(x));
+
+/**
+ * 0345: what this person can open beyond, or short of, their role. Second
+ * jobs add a front-line role the server counts in every guard (app.is_staff);
+ * the pages list is every page their jobs open, ticked unless blocked, and it
+ * follows the jobs as they are ticked, so the owner sees what a second job
+ * brings before saving. A block on a page no job opens any more is dropped on
+ * save rather than kept invisibly.
+ */
+function AccessField({ staff, locked, onError }: { staff: StaffRow; locked: boolean; onError: (e: unknown) => void }) {
+  const { tr, locale } = useLocale();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const queryClient = useQueryClient();
+  const isOwner = staff.role === 'owner';
+  const key = ['staffAccess', staff.id] as const;
+  const accessQ = useQuery({
+    queryKey: key,
+    enabled: !isOwner,
+    queryFn: async (): Promise<AccessDraft> => {
+      const { data, error } = await supabase.from('staff').select('extra_roles, blocked_areas').eq('id', staff.id).maybeSingle();
+      if (error) throw new Error(error.message);
+      return parseStaffAccess(data ?? {});
+    },
+  });
+  const [draft, setDraft] = useState<AccessDraft | null>(null);
+  // A fresh answer from the server replaces an untouched draft.
+  useEffect(() => setDraft(null), [accessQ.data]);
+
+  const save = useMutation({
+    mutationFn: (v: AccessDraft) =>
+      appRpc('set_staff_access', { p_staff_id: staff.id, p_extra_roles: v.extraRoles, p_blocked_areas: v.blockedAreas }),
+    onSuccess: () => {
+      toast.ok(tr('ws.owner.staff.access.saved'));
+      onError(null);
+      void queryClient.invalidateQueries({ queryKey: key });
+    },
+    onError: (e: unknown) => onError(e),
+  });
+
+  if (isOwner) {
+    return (
+      <Section title={tr('ws.owner.staff.access.title')}>
+        <Note>{tr('ws.owner.staff.access.owner')}</Note>
+      </Section>
+    );
+  }
+  if (accessQ.isLoading) {
+    return (
+      <Section title={tr('ws.owner.staff.access.title')}>
+        <Note>…</Note>
+      </Section>
+    );
+  }
+  if (accessQ.isError) {
+    return (
+      <Section title={tr('ws.owner.staff.access.title')}>
+        <StaffErrorText error={accessQ.error} />
+      </Section>
+    );
+  }
+
+  const saved: AccessDraft = accessQ.data ?? { extraRoles: [], blockedAreas: [] };
+  const current = draft ?? saved;
+  // A manager's role already holds every job a tick could add.
+  const offerJobs = staff.role !== 'manager';
+  const jobs = SECOND_JOB_ROLES.filter((r) => r !== staff.role);
+  // The pages the main role and the ticked jobs open, before any block.
+  const reach = { role: staff.role, extraRoles: current.extraRoles };
+  const pages = ACCESS_AREA_KEYS.filter((area) => canAccess(reach, ACCESS_AREAS[area][0]));
+  const blocked = current.blockedAreas.filter((a) => pages.includes(a));
+  const next: AccessDraft = { extraRoles: current.extraRoles, blockedAreas: blocked };
+  const dirty = !sameSet(next.extraRoles, saved.extraRoles) || !sameSet(next.blockedAreas, saved.blockedAreas);
+  const disabled = locked || save.isPending;
+
+  const edit = (patch: Partial<AccessDraft>) => setDraft({ ...current, ...patch });
+  const toggle = <T,>(list: readonly T[], item: T, on: boolean): T[] => (on ? [...list, item] : list.filter((x) => x !== item));
+
+  const listOf = (items: string[]) => new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(items);
+  const jobName = (r: StaffRole) => tr(`op.roles.${r}`);
+  const pageName = (a: AccessArea) => tr(`ws.owner.staff.access.areas.${a}`);
+
+  async function onSave() {
+    const added = next.extraRoles.filter((r) => !saved.extraRoles.includes(r));
+    const removed = saved.extraRoles.filter((r) => !next.extraRoles.includes(r));
+    const closed = next.blockedAreas.filter((a) => !saved.blockedAreas.includes(a));
+    const reopened = saved.blockedAreas.filter((a) => !next.blockedAreas.includes(a) && pages.includes(a));
+    const lines = [
+      added.length > 0 && tr('ws.owner.staff.access.confirmAddJobs', { list: listOf(added.map(jobName)) }),
+      removed.length > 0 && tr('ws.owner.staff.access.confirmRemoveJobs', { list: listOf(removed.map(jobName)) }),
+      closed.length > 0 && tr('ws.owner.staff.access.confirmBlock', { list: listOf(closed.map(pageName)) }),
+      reopened.length > 0 && tr('ws.owner.staff.access.confirmUnblock', { list: listOf(reopened.map(pageName)) }),
+    ].filter((l): l is string => Boolean(l));
+    const ok = await confirm({
+      title: tr('ws.owner.staff.access.confirmTitle', { name: staff.display_name }),
+      body: (
+        <>
+          {lines.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+          <p style={{ marginBlockStart: 'var(--tp-sp-2)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.staff.access.confirmWhen')}</p>
+        </>
+      ),
+      kind: 'primary',
+      confirmLabel: tr('ws.owner.staff.access.save'),
+    });
+    if (ok) save.mutate(next);
+  }
+
+  return (
+    <Section title={tr('ws.owner.staff.access.title')}>
+      <div data-testid="staff-access" style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+        <Note>{tr('ws.owner.staff.access.lead')}</Note>
+
+        <fieldset style={{ border: 0, padding: 0, margin: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+          <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, padding: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>
+            {tr('ws.owner.staff.access.jobsTitle')}
+          </legend>
+          {offerJobs ? (
+            <>
+              <Note>{tr('ws.owner.staff.access.jobsHint')}</Note>
+              <CheckGrid>
+                {jobs.map((r) => (
+                  <Check
+                    key={r}
+                    testId={`access-job-${r}`}
+                    label={jobName(r)}
+                    checked={current.extraRoles.includes(r)}
+                    disabled={disabled}
+                    onChange={(on) => edit({ extraRoles: toggle(current.extraRoles, r, on) })}
+                  />
+                ))}
+              </CheckGrid>
+            </>
+          ) : (
+            <Note>{tr('ws.owner.staff.access.management')}</Note>
+          )}
+        </fieldset>
+
+        <fieldset style={{ border: 0, padding: 0, margin: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+          <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, padding: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>
+            {tr('ws.owner.staff.access.pagesTitle')}
+          </legend>
+          <Note>{tr('ws.owner.staff.access.pagesHint')}</Note>
+          <CheckGrid>
+            {pages.map((a) => (
+              <Check
+                key={a}
+                testId={`access-page-${a}`}
+                label={pageName(a)}
+                checked={!blocked.includes(a)}
+                disabled={disabled}
+                onChange={(on) => edit({ blockedAreas: toggle(current.blockedAreas, a, !on) })}
+              />
+            ))}
+          </CheckGrid>
+        </fieldset>
+      </div>
+      {dirty && (
+        <Actions>
+          <Button size="sm" kind="ghost" disabled={save.isPending} onClick={() => setDraft(null)}>
+            {tr('ws.kit.actions.discard')}
+          </Button>
+          <Button size="sm" kind="primary" icon="check" busy={save.isPending} disabled={locked} onClick={() => void onSave()}>
+            {tr('ws.owner.staff.access.save')}
+          </Button>
+        </Actions>
+      )}
+    </Section>
+  );
+}
+
+/** Two columns of checkboxes in a narrow panel; one when it is narrower still. */
+function CheckGrid({ children }: { children: ReactNode }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', columnGap: 'var(--tp-sp-3)' }}>
+      {children}
+    </div>
+  );
+}
+
+function Check({
+  label,
+  checked,
+  disabled,
+  onChange,
+  testId,
+}: {
+  label: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (on: boolean) => void;
+  testId: string;
+}) {
+  return (
+    <label
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 'var(--tp-sp-1-5)',
+        minBlockSize: 'var(--tp-touch)',
+        cursor: disabled ? 'default' : 'pointer',
+      }}
+    >
+      <input type="checkbox" data-testid={testId} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <span>{label}</span>
+    </label>
   );
 }

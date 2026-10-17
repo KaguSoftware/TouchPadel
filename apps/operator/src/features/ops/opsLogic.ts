@@ -37,6 +37,8 @@ export interface OpsStaffRow {
 }
 
 export interface OpsOverview {
+  /** Today's business date by the server's clock (`businessDate`), whether or not a day is open. */
+  today: string | null;
   bookings: {
     today: number;
     arrived: number;
@@ -156,6 +158,7 @@ export function normalizeOverview(raw: unknown): OpsOverview {
   const blockingCount = Array.isArray(blockingRaw) ? blockingTabs.length : num(blockingRaw);
 
   return {
+    today: str(r.businessDate),
     bookings: {
       today: num(bookings.today),
       arrived: num(bookings.arrived),
@@ -234,77 +237,114 @@ export const STOCK_HREF = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// What needs the manager now
+// Needs you: the one to-do list
 // ---------------------------------------------------------------------------
 
 /**
- * The things that mean "stop and deal with this", in the order a manager
- * should deal with them, each with the screen that resolves it.
+ * Every row "Needs you" can hold, in the order it shows them. The page has
+ * ONE to-do list (the 2026-10-16 rebuild): the floor's alarms, the work that
+ * waits on this person, and the three queues that used to be panels of their
+ * own (online refunds, lesson money, player reports), which a manager read as
+ * a second, third and fourth to-do list in three different designs.
  *
- * Order is by who is waiting: a day that is not open stops the whole till; a
- * guest is standing at a table; an order is late in front of a guest; then
- * the shelves. It is never sorted by count — 390 late tickets must not push
- * one closed day below it.
+ * Order is by who is waiting, never by count, so 597 late tickets cannot push
+ * a guest owed money below them:
  *
- * `href: null` means there is nothing in this workspace that fixes it. Late
- * tickets used to open the tab list, which does not show tickets at all; the
- * honest answer is "talk to the kitchen", so the row says that and offers no
- * button that would pretend otherwise.
+ *   1. a guest in the building: a table calling, an order running late;
+ *   2. a guest owed money: online refunds, lesson money paid at the desk;
+ *   3. a complaint about a player;
+ *   4. the shelves: expired stock (nobody may use it), then running low;
+ *   5. the paperwork: goods to book in, a till counted short or over, protocol
+ *      steps, pay deductions (the owner's), incident reports, posts (the owner's).
  *
- * No-shows are NOT here any more. A no-show has already happened and nothing on
- * any screen undoes it; it is a fact about the day, and it lives on the courts
- * card with the rest of those.
+ * How a row is acted on:
+ *   - `open`: one button to the screen that shows exactly those items;
+ *   - `review`: the queue opens in place, under its row, with every action it
+ *     had as a panel (Try again, Refund, Settled another way, Close report,
+ *     Ban, the lesson Refund, Record the handback);
+ *   - `none`: nothing on this workspace fixes it. Late orders are the kitchen's
+ *     to cook, so the row says "Tell the kitchen" where a button would be.
+ *
+ * The day not being open is NOT a row: it is the banner above the list,
+ * because it stops the whole till and is the page's one primary action.
+ * No-shows are not a row either: a no-show has already happened, and it is a
+ * fact about the day ("So far today").
  */
-export const OPS_ALERTS = [
-  { key: 'dayNotOpen', severity: 'danger', href: '/admin/day-close', count: (o: OpsOverview) => (o.dayClose.open ? 0 : 1) },
-  { key: 'waiterCalls', severity: 'warn', href: '/till/tabs', count: (o: OpsOverview) => o.cafe.waiterCallsOpen },
-  { key: 'ticketsLate', severity: 'danger', href: null, count: (o: OpsOverview) => o.cafe.ticketsLate },
-  { key: 'low', severity: 'danger', href: STOCK_HREF.low, count: (o: OpsOverview) => o.stock.low },
-  { key: 'expired', severity: 'danger', href: STOCK_HREF.expired, count: (o: OpsOverview) => o.stock.expired },
-] as const;
+export type NeedKey =
+  | 'waiterCalls'
+  | 'ticketsLate'
+  | 'deposits'
+  | 'lessonRefunds'
+  | 'matchReports'
+  | 'expired'
+  | 'low'
+  | 'purchases'
+  | 'tillShifts'
+  | 'protocols'
+  | 'deductions'
+  | 'incidents'
+  | 'content';
+
+export type NeedSeverity = 'danger' | 'warn';
+
+export type NeedAction = { kind: 'open'; href: string } | { kind: 'review' } | { kind: 'none' };
+
+export interface NeedDef {
+  key: NeedKey;
+  severity: NeedSeverity;
+  action: NeedAction;
+}
+
+export const NEEDS: readonly NeedDef[] = [
+  { key: 'waiterCalls', severity: 'warn', action: { kind: 'open', href: '/till/tabs' } },
+  { key: 'ticketsLate', severity: 'danger', action: { kind: 'none' } },
+  // Danger while a refund failed or a paid booking is off; a refund Qi is
+  // still answering is only a warn (nothing to press, see needCounts).
+  { key: 'deposits', severity: 'danger', action: { kind: 'review' } },
+  { key: 'lessonRefunds', severity: 'warn', action: { kind: 'review' } },
+  { key: 'matchReports', severity: 'warn', action: { kind: 'review' } },
+  { key: 'expired', severity: 'danger', action: { kind: 'open', href: STOCK_HREF.expired } },
+  { key: 'low', severity: 'warn', action: { kind: 'open', href: STOCK_HREF.low } },
+  // The driver's purchases still to be received as stock (app.purchases_to_receive, Goods in's read).
+  { key: 'purchases', severity: 'warn', action: { kind: 'open', href: '/stock/receive' } },
+  // Wave 5 (wave5-addendum-2026-09-25 §5.2, §8 Q27): the day's closed till
+  // shifts whose count differs from the expected (app.till_shift_list).
+  { key: 'tillShifts', severity: 'warn', action: { kind: 'open', href: '/admin/day-close' } },
+  // Steps to decide and to do (app.protocols_waiting_count, the rail badge's read).
+  { key: 'protocols', severity: 'warn', action: { kind: 'open', href: '/protocols?filter=waiting' } },
+  // Wave 5 people records: each is counted only for a role its read admits.
+  { key: 'deductions', severity: 'warn', action: { kind: 'open', href: '/deductions' } },
+  { key: 'incidents', severity: 'warn', action: { kind: 'open', href: '/incidents' } },
+  { key: 'content', severity: 'warn', action: { kind: 'open', href: '/marketing' } },
+];
+
+/** A count per row; a read that has not answered, or that the role never makes, is absent and counts none. */
+export type NeedCounts = Partial<Record<NeedKey, number>>;
+
+export interface Need extends NeedDef {
+  count: number;
+}
 
 /**
- * Two more rows from their own reads, not from ops_overview
- * (build-contracts-2026-09-23 §5.4): protocol steps waiting on this person
- * (app.protocols_waiting_count, the rail badge's read) and the driver's
- * purchases still to be received as stock (app.purchases_to_receive, Goods
- * in's read). Both wait on the manager rather than on a guest, so they follow
- * the table above.
+ * The rows that stand, in table order, zeros dropped. `severity` overrides a
+ * row's tone where its own read knows better (an online refund that is only
+ * slow is a warn, not a danger).
  */
-export const OPS_WORK_ALERTS = [
-  { key: 'protocols', severity: 'warn', href: '/protocols?filter=waiting' },
-  { key: 'purchases', severity: 'warn', href: '/stock/receive' },
-  // Wave 5, people records (wave5-addendum-2026-09-25 §5.2): pay deductions
-  // to decide, incident reports to review, and (the owner's) posts to approve.
-  // Each is counted only for a role its read admits; the rest count none.
-  { key: 'deductions', severity: 'warn', href: '/deductions' },
-  { key: 'incidents', severity: 'warn', href: '/incidents' },
-  { key: 'content', severity: 'warn', href: '/marketing' },
-  // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2, §8 Q27): the day's
-  // closed shifts whose count differs from the expected, any non-zero
-  // difference (app.till_shift_list, tillShift shiftsWithDifference).
-  { key: 'tillShifts', severity: 'warn', href: '/admin/day-close' },
-] as const;
-
-export type OpsWorkKey = (typeof OPS_WORK_ALERTS)[number]['key'];
-export type OpsAlertKey = (typeof OPS_ALERTS)[number]['key'] | OpsWorkKey;
-export type OpsSeverity = 'danger' | 'warn';
-
-export interface OpsAlert {
-  key: OpsAlertKey;
-  count: number;
-  severity: OpsSeverity;
-  href: string | null;
+export function needsFor(counts: NeedCounts, severity: Partial<Record<NeedKey, NeedSeverity>> = {}): Need[] {
+  return NEEDS.flatMap((d) => {
+    const count = counts[d.key] ?? 0;
+    return count > 0 ? [{ ...d, severity: severity[d.key] ?? d.severity, count }] : [];
+  });
 }
 
-/** The standing alarms, in table order. Nothing is sorted by value. */
-export function alertsFor(o: OpsOverview): OpsAlert[] {
-  return OPS_ALERTS.map((a) => ({ key: a.key, severity: a.severity, href: a.href, count: a.count(o) })).filter((a) => a.count > 0);
-}
-
-/** The work rows with their counts; a read that has not answered, or that the role does not make, counts none. */
-export function workAlertsFor(counts: Readonly<Partial<Record<OpsWorkKey, number>>>): OpsAlert[] {
-  return OPS_WORK_ALERTS.map((a) => ({ key: a.key, severity: a.severity, href: a.href, count: counts[a.key] ?? 0 })).filter((a) => a.count > 0);
+/** The rows `ops_overview` itself answers. */
+export function overviewNeedCounts(o: OpsOverview): NeedCounts {
+  return {
+    waiterCalls: o.cafe.waiterCallsOpen,
+    ticketsLate: o.cafe.ticketsLate,
+    expired: o.stock.expired,
+    low: o.stock.low,
+  };
 }
 
 /**

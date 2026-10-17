@@ -350,8 +350,8 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
   // Back to where the step was opened: the run's sheet for management, My
   // tasks for the desk.
   function back() {
-    if (canAccess(staff?.role, '/protocols')) void navigate({ to: '/protocols', search: { run: runId, step: stepId } });
-    else if (canAccess(staff?.role, '/tasks')) void navigate({ to: '/tasks' });
+    if (canAccess(staff, '/protocols')) void navigate({ to: '/protocols', search: { run: runId, step: stepId } });
+    else if (canAccess(staff, '/tasks')) void navigate({ to: '/tasks' });
     else void navigate({ to: '/desk', search: {} as never });
   }
   function openCalendar() {

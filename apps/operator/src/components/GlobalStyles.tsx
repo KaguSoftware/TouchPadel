@@ -58,6 +58,9 @@ textarea:focus-visible, [tabindex]:focus-visible {
   outline-offset: 2px;
 }
 input, select, textarea, button { font: inherit; color: inherit; }
+/* SearchField draws its own clear button; the browser's native one on a
+   type="search" input made two crosses side by side once text was typed. */
+input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
 input, select, textarea {
   transition: border-color var(--tp-dur-fast) var(--tp-ease-out), box-shadow var(--tp-dur-fast) var(--tp-ease-out);
 }
@@ -554,25 +557,65 @@ input:disabled, select:disabled, textarea:disabled {
 }
 .tp-record-card[data-tone='ticket']::before { inset-inline-start: -0.6rem; }
 .tp-record-card[data-tone='ticket']::after { inset-inline-end: -0.6rem; }
-/* The report switcher (features/reports/ReportTabs). Filled when open, so the
-   current report reads from across the room, not from a 2px underline. */
-.tp-report-tab {
-  display: flex; align-items: center; gap: var(--tp-sp-2);
-  padding-block: var(--tp-sp-2); padding-inline: var(--tp-sp-2) var(--tp-sp-3);
-  border: 1px solid var(--tp-border); border-radius: var(--tp-radius-ctl);
+/* The family tabs (components/FamilyTabs.tsx): the pages of one rail row,
+   under the page title. The same underline vocabulary as ui.tsx's Tabs, so a
+   tab looks like a tab everywhere; the page being shown is full ink, bold and
+   underlined in the accent, the others muted until hovered. */
+.tp-family-tabs {
+  display: flex; gap: var(--tp-sp-1);
+  border-block-end: 1px solid var(--tp-border);
+  /* overflow-x alone turns overflow-y to auto, and the -1px underline then
+     grows a vertical scrollbar; still swipeable when too narrow. */
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+}
+.tp-family-tab {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  min-block-size: var(--tp-touch);
+  padding-inline: 0.85rem;
+  border-block-end: 2px solid transparent; margin-block-end: -1px;
+  color: var(--tp-muted-fg); font-size: var(--tp-fs-md); font-weight: 500;
+  white-space: nowrap; text-decoration: none;
+  transition: color var(--tp-dur-fast) var(--tp-ease-out);
+}
+.tp-family-tab:hover { color: var(--tp-fg); }
+.tp-family-tab[aria-current='page'] { color: var(--tp-fg); font-weight: 700; border-block-end-color: var(--tp-accent); }
+.tp-family-tab:focus-visible { outline-offset: -2px; }
+.tp-family-tab-count {
+  font-size: var(--tp-fs-xs); font-weight: 600; font-variant-numeric: tabular-nums;
+  padding-inline: 0.4rem; border-radius: var(--tp-radius-pill);
+  background: var(--tp-surface-3); color: var(--tp-fg);
+}
+.tp-family-tab[aria-current='page'] .tp-family-tab-count { background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); }
+
+/* Go to (components/GoToPalette.tsx): one search over every page. The field is
+   the dialog's first thing and its largest; the list scrolls inside the
+   dialog, the highlighted option carries the selection ground. */
+.tp-goto-input {
+  inline-size: 100%; box-sizing: border-box; min-block-size: 3rem;
+  padding-block: 0.5rem; padding-inline: 2.5rem 0.75rem;
+  border: 1px solid var(--tp-border-input); border-radius: var(--tp-radius-ctl);
   background: var(--tp-surface); color: var(--tp-fg);
-  font: inherit; font-size: var(--tp-fs-md); font-weight: 600; text-align: start;
-  cursor: pointer; min-inline-size: 0;
-  transition: background var(--tp-dur-fast) var(--tp-ease-out), border-color var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out);
+  font: inherit; font-size: var(--tp-fs-lg);
 }
-.tp-report-tab:hover:not([aria-selected='true']) { background: var(--tp-hover); color: var(--tp-hover-fg); }
-.tp-report-tab[aria-selected='true'] { background: var(--tp-accent); border-color: var(--tp-accent); color: var(--tp-accent-contrast); cursor: default; }
-.tp-report-tab-icon {
-  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-  inline-size: 2rem; block-size: 2rem; border-radius: 50%;
-  background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg);
+.tp-goto-list {
+  list-style: none; margin: 0; padding: 0;
+  max-block-size: min(26rem, 55vh); overflow-y: auto;
+  border: 1px solid var(--tp-border); border-radius: var(--tp-radius-panel);
 }
-.tp-report-tab[aria-selected='true'] .tp-report-tab-icon { background: color-mix(in srgb, var(--tp-accent-contrast) 20%, transparent); color: inherit; }
+.tp-goto-option {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--tp-sp-3);
+  padding-block: var(--tp-sp-2); padding-inline: var(--tp-sp-3);
+  min-block-size: var(--tp-touch); box-sizing: border-box;
+  border-block-end: 1px solid var(--tp-border); cursor: pointer;
+}
+.tp-goto-option:last-child { border-block-end: none; }
+.tp-goto-option[aria-selected='true'] { background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); }
+.tp-goto-option[aria-selected='true'] span { color: inherit !important; }
+.tp-goto-kbd {
+  flex-shrink: 0; font: inherit; font-size: var(--tp-fs-xs); font-variant-numeric: tabular-nums;
+  padding-inline: 0.35rem; border: 1px solid var(--tp-rail-border); border-radius: var(--tp-radius-ctl);
+  color: var(--tp-rail-muted);
+}
 .tp-link { color: var(--tp-accent); text-decoration: none; }
 .tp-link:hover { text-decoration: underline; background: var(--tp-hover); color: var(--tp-hover-fg); }
 

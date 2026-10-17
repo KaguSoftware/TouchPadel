@@ -47,10 +47,11 @@ describe('scopeHeaders', () => {
   it('names the station and the branch; "all" only on a report call while a report asks', () => {
     // venue.tsx names this machine's station at module load; start from none.
     setStationHeader(null);
-    expect(scopeHeaders()).toEqual({});
+    // The app name rides on every call, station or not (0341, the activity monitor).
+    expect(scopeHeaders()).toEqual({ 'x-touch-app': 'operator' });
     setStationHeader('TILL-1');
     setBranchScope(A);
-    expect(scopeHeaders()).toEqual({ 'x-station-id': 'TILL-1', 'x-venue-scope': A });
+    expect(scopeHeaders()).toEqual({ 'x-touch-app': 'operator', 'x-station-id': 'TILL-1', 'x-venue-scope': A });
     setReportAllBranches(true);
     const rpc = (fn: string) => `http://127.0.0.1:54321/rest/v1/rpc/${fn}`;
     // The report call carries every branch, on the page's own clock (0228)...

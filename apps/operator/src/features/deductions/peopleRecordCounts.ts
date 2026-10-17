@@ -27,7 +27,7 @@ type Read = { isPending: boolean; isError: boolean; refetch: () => unknown };
 
 export function usePeopleRecordCounts(): PeopleRecordCounts & { reads: Read[] } {
   const { staff } = useAuth();
-  const role = staff?.role;
+  const role = staff;
   const deductionsOn = can(role, 'decideDeductions');
   const incidentsOn = can(role, 'reviewIncidents');
   const contentOn = can(role, 'decideContent');

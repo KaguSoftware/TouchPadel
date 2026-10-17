@@ -54,7 +54,6 @@ import {
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { downloadTable, type CsvCell, type SheetColumn } from '../analytics/exportTables';
-import { ReportTabs } from './ReportTabs';
 import { reportFilename } from './reportFile';
 import { readCompared, sortBy, type Compared, type FigureChange } from './reportPayloads';
 import type { ReportName } from './reportTypes';
@@ -187,9 +186,7 @@ export function ReportFrame({
             : periodText(period, locale, tr)
         }
         actions={onExport && <ExportButton onExport={onExport} disabled={exportDisabled} scope={tr('ws.reports.frame.exportScope')} />}
-      >
-        <ReportTabs value={name} />
-      </PageHeader>
+      />
       <Toolbar style={{ alignItems: 'flex-end', gap: 'var(--tp-sp-3)' }}>
         <Field label={tr('ws.reports.filters.period')} group style={{ marginBlockEnd: 0 }}>
           <DateRangeControl period={period} onChange={onPeriod} disabled={busy} now={today} />

@@ -20,5 +20,6 @@ import * as tools from '../supabase/functions/_shared/assistant/tools.ts';
 import * as turn from '../supabase/functions/_shared/assistant/turn.ts';
 import * as turnPolicy from '../supabase/functions/_shared/assistant/turnPolicy.ts';
 import * as groqWire from '../supabase/functions/_shared/assistant/groqWire.ts';
+import * as free from '../supabase/functions/_shared/assistant/free.ts';
 
-export const ASSISTANT_PURE_MODULES = { clean, embed, estimate, gate, groqWire, handles, pool, prompt, recheck, scopes, sse, tools, turn, turnPolicy } as const;
+export const ASSISTANT_PURE_MODULES = { clean, embed, estimate, free, gate, groqWire, handles, pool, prompt, recheck, scopes, sse, tools, turn, turnPolicy } as const;
