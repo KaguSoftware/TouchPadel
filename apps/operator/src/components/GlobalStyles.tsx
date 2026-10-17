@@ -209,7 +209,10 @@ input:disabled, select:disabled, textarea:disabled {
    below the hover rule, rather than inline, above it. */
 .tp-row[role='menuitem'] { background: none; }
 .tp-row[data-clickable='true']:hover { background: var(--tp-hover); color: var(--tp-hover-fg); }
-.tp-row[data-selected='true'] { background: var(--tp-accent-soft); }
+/* Selected is a solid bar (round 3, 2026-10-18): Touch Blue on paper, white in
+   blue mode. The row also borrows the other mode's palette for its contents
+   (theme.ts, the cross scopes), so links, grey text and badges stay readable. */
+.tp-row[data-selected='true'] { background: var(--tp-selected); color: var(--tp-selected-fg); }
 /* A tappable choice chip (ReasonCodePrompt): a <label> around a visually
    hidden radio, so the group stays a real radiogroup for keyboard and AT. */
 .tp-choice {
@@ -609,7 +612,7 @@ input:disabled, select:disabled, textarea:disabled {
   border-block-end: 1px solid var(--tp-border); cursor: pointer;
 }
 .tp-goto-option:last-child { border-block-end: none; }
-.tp-goto-option[aria-selected='true'] { background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); }
+.tp-goto-option[aria-selected='true'] { background: var(--tp-selected); color: var(--tp-selected-fg); }
 .tp-goto-option[aria-selected='true'] span { color: inherit !important; }
 .tp-goto-kbd {
   flex-shrink: 0; font: inherit; font-size: var(--tp-fs-xs); font-variant-numeric: tabular-nums;
@@ -754,7 +757,9 @@ button.tp-nav-item { background: transparent; }
 .tp-table { inline-size: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
 .tp-table th {
   position: sticky; inset-block-start: 0; z-index: var(--tp-z-table-head);
-  background: var(--tp-surface-2); color: var(--tp-muted-fg);
+  /* The column band carries the brand colour (round 3, 2026-10-18): solid
+     Touch Blue with white labels on paper, pale with blue labels in blue mode. */
+  background: var(--tp-table-head); color: var(--tp-table-head-fg);
   /* Was 12px ALL-CAPS with tracking — the worst case for a bright venue at
      arm's length, and rulebook 6.2 wants the header to read as the same words
      as the field on the detail page. Weight and colour carry it instead. */
@@ -773,7 +778,9 @@ button.tp-nav-item { background: transparent; }
 .tp-table th[data-sortable='true']:hover { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-table tbody tr[data-clickable='true'] { cursor: pointer; }
 .tp-table tbody tr[data-clickable='true']:hover td { background: var(--tp-hover); color: var(--tp-hover-fg); }
-.tp-table tbody tr[data-selected='true'] td { background: var(--tp-accent-soft); }
+/* :hover listed too, so pointing at the selected row does not repaint it pale. */
+.tp-table tbody tr[data-selected='true'] td,
+.tp-table tbody tr[data-selected='true']:hover td { background: var(--tp-selected); color: var(--tp-selected-fg); }
 .tp-table[data-dense='true'] td { block-size: var(--tp-row-h-dense); padding-block: 0.25rem; }
 
 /* ---- kitchen board ---- */

@@ -87,11 +87,11 @@ export function PageHeader({
           )}
           {titleAfter ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700 }}>{title}</h1>
+              <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700, color: 'var(--tp-heading)' }}>{title}</h1>
               {titleAfter}
             </div>
           ) : (
-            <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700 }}>{title}</h1>
+            <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700, color: 'var(--tp-heading)' }}>{title}</h1>
           )}
           {subtitle && (
             <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: '0.2rem', maxInlineSize: '70ch' }}>{subtitle}</p>
@@ -200,7 +200,13 @@ export function Panel({
     >
       {(shownTitle || actions) && (
         <div
+          // The title band (round 3, 2026-10-18): Touch Blue on paper, white in
+          // blue mode. `tp-band` gives it the other mode's palette for its
+          // actions (theme.ts), so a close button or a badge reads on it. A flat
+          // panel inside a dialog has no band: the dialog's header frames it.
+          className={flat ? undefined : 'tp-band'}
           style={{
+            background: flat ? undefined : 'var(--tp-panel-head)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: shownTitle ? 'space-between' : 'flex-end',
@@ -210,7 +216,7 @@ export function Panel({
             borderBlockEnd: flat ? undefined : '1px solid var(--tp-border)',
           }}
         >
-          {shownTitle && <Heading style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{shownTitle}</Heading>}
+          {shownTitle && <Heading style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, color: flat ? undefined : 'var(--tp-panel-head-fg)' }}>{shownTitle}</Heading>}
           {actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>{actions}</div>}
         </div>
       )}

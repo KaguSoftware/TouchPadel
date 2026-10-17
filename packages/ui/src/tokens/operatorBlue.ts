@@ -28,7 +28,7 @@
  * Contrast (WCAG, computed 2026-10-17; pinned in apps/operator/src/lib/tokens.test.ts):
  *   white on --tp-bg 6.17:1 · on --tp-surface 10.63:1 · on --tp-surface-2 14.40:1
  *   --tp-muted-fg on --tp-bg 4.68:1 · on --tp-surface 8.06:1 · on --tp-hover 6.68:1
- *   --tp-border-input on --tp-surface 4.74:1 (1.4.11 wants 3:1)
+ *   --tp-border-input on --tp-bg 3.28:1 · on --tp-surface 5.66:1 (1.4.11 wants 3:1)
  *   white on --tp-accent-soft 4.98:1 · --tp-accent-contrast on --tp-accent 6.17:1
  *   --tp-rail-fg on --tp-rail 9.84:1 · the green pill on the rail 7.40:1 ·
  *   --tp-rail-active-fg on the pill 8.31:1
@@ -70,7 +70,6 @@ const INK_PANEL = '#2A3F5F'; // oklch(36.5% 0.062 259)
 const INK_TOOLBAR = '#1A2A44'; // oklch(28.5% 0.052 259)
 const INK_WELL = '#142238'; // oklch(25% 0.046 259)
 const INK_HOVER = '#354B6E'; // oklch(41% 0.065 259)
-const INK_BORDER = '#42536E'; // oklch(44% 0.05 259)
 const INK_BORDER_STRONG = '#5A6E90';
 
 export const operatorBlueVars = {
@@ -84,9 +83,14 @@ export const operatorBlueVars = {
   // the 4.5:1 body floor on the page and on every panel.
   '--tp-muted-fg': GRAY_LIGHT,
   '--tp-muted': INK_HOVER,
-  '--tp-border': INK_BORDER,
+  // White at low alpha rather than a solid ink, so an edge reads the same on
+  // the true-blue page and on a panel (round 3, "more white in the blue mode").
+  '--tp-border': 'rgb(255 255 255 / 0.22)',
   '--tp-border-strong': INK_BORDER_STRONG,
-  '--tp-border-input': GRAY_SOFT,
+  // The brand gray itself: 3.28:1 on the true-blue page and 5.66:1 on a panel.
+  // #ACADAF measured 2.75:1 on the page, under WCAG 1.4.11's 3:1 for a field
+  // sitting straight on it (found by the round 3 contrast test, 2026-10-18).
+  '--tp-border-input': 'var(--tp-brand-gray)',
   '--tp-overlay': `color-mix(in srgb, ${BLUE_L18} 70%, transparent)`,
   '--tp-skeleton': INK_HOVER,
   '--tp-disabled-fg': GRAY_SOFT,
@@ -101,6 +105,16 @@ export const operatorBlueVars = {
   // lighter, so a selected row is the brightest blue on the screen.
   '--tp-accent-soft': BLUE_L50,
   '--tp-accent-soft-fg': 'var(--tp-brand-white)',
+  // Round 3 (2026-10-18): white carries the headers and the selection, the
+  // mirror of paper's blue. Inside a white band or a selected row the paper
+  // palette applies (theme.ts, the cross scopes).
+  '--tp-heading': 'var(--tp-brand-white)',
+  '--tp-panel-head': '#F4F7FB',
+  '--tp-panel-head-fg': '#274982',
+  '--tp-table-head': '#DCE3EE',
+  '--tp-table-head-fg': '#1D3762',
+  '--tp-selected': '#F4F7FB',
+  '--tp-selected-fg': '#274982',
   // Hover is a lift of the panel ink, not the selection blue, so a row under
   // the pointer is never mistaken for the selected one.
   '--tp-hover': INK_HOVER,

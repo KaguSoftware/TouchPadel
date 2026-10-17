@@ -16,7 +16,7 @@ import { palettes, type ThemeName } from './tokens/palette';
 import { fontVars } from './tokens/typography';
 import { fontFaceCss } from './fontFace';
 import { cafeBrandVars, dirVars, statusVars } from './tokens/cafeBrand';
-import { operatorVars } from './tokens/operator';
+import { operatorPalette, operatorVars } from './tokens/operator';
 import { OPERATOR_BLUE_MODE, operatorBlueVars } from './tokens/operatorBlue';
 import { SITE_NIGHT_MODE, siteLightVars, siteNightVars, siteScaleVars } from './tokens/site';
 
@@ -62,6 +62,63 @@ function operatorBlueBlock(): string {
 }
 
 /**
+ * The operator's CROSS SCOPES (round 3, 2026-10-18): where one mode borrows the
+ * other's colour as a solid ground, the content on that ground takes the other
+ * mode's palette too. In blue mode a white panel title band and a white
+ * selected row hold paper-coloured links, grey text, buttons and badges; on
+ * paper a solid Touch Blue selected row holds blue-mode ones. Without this a
+ * blue-mode link (white) on a white band, or a paper link (#3360AB) on a
+ * Touch Blue row, simply disappears.
+ *
+ * The scope re-declares every colour token blue mode overrides, with the
+ * other mode's value, on the scoped element; descendants inherit those. The
+ * ground tokens themselves are left out, so the band and the row keep their
+ * own mode's colour.
+ */
+export const OPERATOR_SCOPE_GROUNDS = [
+  '--tp-panel-head',
+  '--tp-panel-head-fg',
+  '--tp-selected',
+  '--tp-selected-fg',
+] as const;
+
+/** What a selected row is, everywhere the operator draws one. */
+const SELECTED_ROWS = [
+  ".tp-table tbody tr[data-selected='true']",
+  ".tp-row[data-selected='true']",
+  ".tp-goto-option[aria-selected='true']",
+];
+
+function operatorCrossScopes(): string {
+  const grounds = new Set<string>(OPERATOR_SCOPE_GROUNDS);
+  const paperAll: Readonly<Record<string, string>> = { ...operatorPalette, ...operatorVars };
+  const paper: Record<string, string> = {};
+  const blue: Record<string, string> = {};
+  for (const [name, value] of Object.entries(operatorBlueVars)) {
+    if (grounds.has(name)) continue;
+    const paperValue = paperAll[name];
+    if (paperValue !== undefined) paper[name] = paperValue;
+    blue[name] = value;
+  }
+  const blueRoot = `[data-theme='operator'][data-mode='${OPERATOR_BLUE_MODE}']`;
+  const paperRoot = `[data-theme='operator']:not([data-mode='${OPERATOR_BLUE_MODE}'])`;
+  // `.tp-band` (the panel title band) crosses in BOTH modes: Touch Blue on
+  // paper, white in blue mode.
+  const toPaper = ['.tp-paper', '.tp-band', ...SELECTED_ROWS].map((s) => `${blueRoot} ${s}`).join(',\n');
+  const toBlue = ['.tp-blue', '.tp-band', ...SELECTED_ROWS].map((s) => `${paperRoot} ${s}`).join(',\n');
+  return [
+    `${toPaper} {
+  color-scheme: light;
+${varsBlock(paper)}
+}`,
+    `${toBlue} {
+  color-scheme: dark;
+${varsBlock(blue)}
+}`,
+  ].join('\n\n');
+}
+
+/**
  * The public site's night mode (tokens/site.ts) — the guest app's blue mode on the web.
  * Same two-attribute mechanism as the operator's: `[data-theme='padel'][data-mode='night']`
  * (0,3,0) out-specifies the padel block (0,2,0), so only the colours it names change.
@@ -87,6 +144,7 @@ export const themeCss: string = [
   themeBlock('cafe'),
   themeBlock('operator'),
   operatorBlueBlock(),
+  operatorCrossScopes(),
   // Base ground: paint from tokens so an unthemed flash never shows raw UA colors.
   // Fallbacks are tokens, not raw #fff / #000: DESIGN.md forbids both, and an
   // unthemed flash is exactly the moment a raw value would be visible.

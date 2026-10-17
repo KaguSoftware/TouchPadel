@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { operatorBlueVars, operatorPalette, operatorVars } from '@touch/ui';
+import { OPERATOR_SCOPE_GROUNDS, operatorBlueVars, operatorPalette, operatorVars, themeCss } from '@touch/ui';
 
 // apps/operator/CLAUDE.md "i18n and styling": every new colour token needs a
 // blue-mode value in operatorBlue.ts. The coaching lesson family
@@ -123,10 +123,15 @@ const TEXT_PAIRS: Array<[string, string]> = [
   ['--tp-danger-fg', '--tp-danger-soft'],
   ['--tp-neutral-fg', '--tp-neutral-soft'],
   ['--tp-info-fg', '--tp-info-soft'],
+  ['--tp-heading', '--tp-bg'],
+  ['--tp-panel-head-fg', '--tp-panel-head'],
+  ['--tp-table-head-fg', '--tp-table-head'],
+  ['--tp-selected-fg', '--tp-selected'],
 ];
 
 const MARK_PAIRS: Array<[string, string]> = [
   ['--tp-border-input', '--tp-surface'],
+  ['--tp-border-input', '--tp-bg'],
   ['--tp-rail-active', '--tp-rail'],
   ['--tp-success-mark', '--tp-surface'],
   ['--tp-warn-mark', '--tp-surface'],
@@ -163,3 +168,44 @@ describe('panel colours (2026-10-17): where the real blue sits', () => {
     expect(resolve('--tp-rail-active', blue)).toBe('#A5D06F');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Round 3 cross scopes (2026-10-18): a solid band or selected row borrows the
+// other mode's palette for its contents. Those contents must read on it.
+// ---------------------------------------------------------------------------
+
+describe('panel colours round 3: the cross scopes', () => {
+  const paperVars = { ...operatorTheme };
+  const blueVars = { ...operatorTheme, ...blue };
+  const INK = ['--tp-fg', '--tp-muted-fg', '--tp-accent'];
+
+  it.each(INK)('blue-mode %s reads on the paper selected row (Touch Blue)', (ink) => {
+    expect(ratioOf(resolve(ink, blueVars), resolve('--tp-selected', paperVars))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(INK)('blue-mode %s reads on the paper Touch Blue panel band', (ink) => {
+    expect(ratioOf(resolve(ink, blueVars), resolve('--tp-panel-head', paperVars))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(INK)('paper %s reads on the blue-mode white band and selected row', (ink) => {
+    expect(ratioOf(resolve(ink, paperVars), resolve('--tp-panel-head', blueVars))).toBeGreaterThanOrEqual(4.5);
+    expect(ratioOf(resolve(ink, paperVars), resolve('--tp-selected', blueVars))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('emits both scopes and leaves the grounds to their own mode', () => {
+    expect(themeCss).toContain("[data-theme='operator'][data-mode='blue'] .tp-paper");
+    expect(themeCss).toContain("[data-theme='operator']:not([data-mode='blue']) .tp-band");
+    expect(themeCss).toContain("[data-theme='operator'][data-mode='blue'] .tp-band");
+    expect(themeCss).toContain("[data-theme='operator']:not([data-mode='blue']) .tp-table tbody tr[data-selected='true']");
+    const scopes = themeCss.slice(themeCss.indexOf("[data-mode='blue'] .tp-paper"));
+    const firstBlock = scopes.slice(0, scopes.indexOf('}'));
+    for (const ground of OPERATOR_SCOPE_GROUNDS) expect(firstBlock).not.toContain(`${ground}:`);
+    expect(firstBlock).toContain('--tp-fg:');
+  });
+});
+
+function ratioOf(a: string, b: string): number {
+  const x = luminance(a);
+  const y = luminance(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}

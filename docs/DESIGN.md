@@ -31,14 +31,33 @@ in play (running tournaments). Other success states (paid, ready, completed) kee
 green tint, so an arrival stands out. Green is never a button, a link or decoration in the data,
 and green text never sits on a light ground.
 
+**Each mode borrows the other's colour** (round 3, owner 2026-10-18: "more white in the blue mode
+and more blue in the white mode"). Headers and selection carry it, in the same places in both
+modes:
+
+| | Paper | Blue mode |
+|---|---|---|
+| `--tp-heading` (page titles) | #1D3762 | white |
+| `--tp-panel-head` / `-fg` (panel title band) | Touch Blue / white | #F4F7FB / #274982 |
+| `--tp-table-head` / `-fg` (column band) | Touch Blue / white | #DCE3EE / #1D3762 |
+| `--tp-selected` / `-fg` (selected row, Go to option) | Touch Blue / white | #F4F7FB / #274982 |
+
+A solid band or selected row also **borrows the other mode's palette for what sits inside it**:
+`theme.ts` emits two cross scopes. The panel title band (`.tp-band`) and a selected row take the
+other mode's colour tokens in both modes: blue-mode tokens on paper's Touch Blue, paper tokens on
+blue mode's white. `.tp-paper` and `.tp-blue` force one direction for anything else. Links, grey text, buttons and badges inside
+then stay readable without per-screen edits. The ground tokens themselves
+(`OPERATOR_SCOPE_GROUNDS`) are left out of the scopes. Every pair, including the crossed ones,
+is pinned in `apps/operator/src/lib/tokens.test.ts`.
+
 | Token | Value | Use |
 |---|---|---|
-| `--tp-bg` | **#F3F6FB** (HSL L97 shade of Touch Blue) | page ground |
+| `--tp-bg` | **#E4EBF7** (HSL L93 shade of Touch Blue; L97 until 2026-10-18) | page ground |
 | `--tp-surface` | oklch(99.5% 0.003 260) | panels, tiles, tables |
 | `--tp-surface-2` | **#E4EBF7** (L93 shade) | toolbars, table heads, secondary panels |
 | `--tp-fg` | oklch(22% 0.035 260) | text |
-| `--tp-muted-fg` | oklch(46% 0.03 260) | secondary text (≥ 4.5:1 on every surface) |
-| `--tp-border` | oklch(89% 0.018 260) | hairlines |
+| `--tp-muted-fg` | oklch(46% 0.05 260), #485974 | secondary text (≥ 4.5:1 on every surface) |
+| `--tp-border` | #C4D4ED (L85 shade) | hairlines |
 | `--tp-border-strong` | oklch(82% 0.015 260) | inputs, focused rows |
 | `--tp-accent` | **#3360AB** (`var(--tp-brand-blue)`) | primary action, selection |
 | `--tp-accent-hover` / `-active` | #2D5495 / #274982 (L38 / L33 shades) | |
@@ -47,7 +66,7 @@ and green text never sits on a light ground.
 | `--tp-warn` / `-soft` / `-fg` | amber 75 hue | attention, ageing |
 | `--tp-danger` / `-soft` / `-fg` | red 27 hue | refused, void, stale |
 | `--tp-*-mark` | ~58% lightness | dots, small icons, 2px rules — see below |
-| `--tp-border-input` | oklch(62% 0.03 260) | control boundaries; clears 3:1 |
+| `--tp-border-input` | oklch(58% 0.035 260) | control boundaries; clears 3:1 on page and panel |
 | `--tp-skeleton` | oklch(90% 0.012 260) | the loading ground |
 | `--tp-rail` / `--tp-rail-2` / `--tp-rail-fg` | **#3360AB** / #2D5495 / oklch(97.5% 0.006 260) | workspace navigation |
 | `--tp-rail-active` / `--tp-rail-active-fg` | Padel Green / #152847 | the current-page pill and its label |
@@ -89,7 +108,8 @@ change at all"). **The page is #3360AB, unmodified.** The rail is a darker exact
 Panels, toolbars and wells are **not** shades of the page any more (panel colours pass,
 2026-10-17: "the blue in blue mode is too blue"). When they were L38 / L33 / L29 at the brand's
 full saturation, the page and every panel on it were bright blue and nothing stood out. They are
-now the brand hue at low chroma (panel #2A3F5F, toolbar #1A2A44, well #142238, hover #354B6E):
+now the brand hue at low chroma (panel #2A3F5F, toolbar #1A2A44, well #142238, hover #354B6E,
+hairlines white at 22% so an edge reads the same on the page and on a panel):
 the operator's tinted neutrals, the exception the closed palette already allows. White text
 measures 10.63:1 on a panel. Selection stays the one step *up* (L50, #3B6EC4), so a selected row
 is the brightest blue on the screen, and hover is a lift of the panel ink, never the selection

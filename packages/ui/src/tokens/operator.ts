@@ -45,7 +45,10 @@ export const operatorPalette = {
   // real blue"). The page ground and the toolbar step are exact HSL shades of
   // #3360AB (L97, L93), so the paper carries the brand blue instead of a grey
   // that only leans toward it. The panel stays a near-white tinted neutral.
-  '--tp-bg': '#F3F6FB',
+  // Round 3 (owner, 2026-10-18: "a bit more of the blue in the body"): the page
+  // ground went from L97 to the L93 shade, so white panels sit on a clearly
+  // blue page.
+  '--tp-bg': '#E4EBF7',
   '--tp-fg': `oklch(22% 0.035 ${HUE})`,
   '--tp-surface': `oklch(99.5% 0.003 ${HUE})`,
   '--tp-accent': 'var(--tp-brand-blue)',
@@ -55,8 +58,10 @@ export const operatorPalette = {
   // not pure black. 8.31:1 on #A5D06F (2026-10-17).
   '--tp-accent-2-contrast': '#152847',
   '--tp-muted': `oklch(86% 0.012 ${HUE})`,
-  '--tp-muted-fg': `oklch(46% 0.03 ${HUE})`,
-  '--tp-border': `oklch(89% 0.018 ${HUE})`,
+  // Round 3 (2026-10-18, "more blue in the white mode"): secondary text and
+  // hairlines lean further toward the brand blue (#485974; the L85 shade).
+  '--tp-muted-fg': `oklch(46% 0.05 ${HUE})`,
+  '--tp-border': '#C4D4ED',
   '--tp-danger': 'oklch(52% 0.19 27)',
   '--tp-danger-contrast': `oklch(99% 0.002 ${HUE})`,
 } as const satisfies PaletteVars;
@@ -66,11 +71,12 @@ export const operatorVars = {
   // surfaces
   '--tp-surface-2': '#E4EBF7',
   '--tp-surface-3': '#D8E2F3',
-  '--tp-border-strong': `oklch(82% 0.015 ${HUE})`,
+  '--tp-border-strong': '#B0C5E8',
   // A boundary you must SEE to operate — input, select, textarea, outlined
   // button. WCAG 1.4.11 wants 3:1 for those; --tp-border-strong measures
   // 1.72:1 on --tp-surface and was doing this job anyway. 3.18:1.
-  '--tp-border-input': `oklch(62% 0.03 ${HUE})`,
+  // 3.5:1 on the L93 page ground, 4.1:1 on a panel.
+  '--tp-border-input': `oklch(58% 0.035 ${HUE})`,
   '--tp-overlay': `oklch(20% 0.03 ${HUE} / 0.5)`,
   // The loading ground. --tp-surface-3 sat at 1.09:1 against the panel it
   // renders on, so a skeleton read as an empty panel rather than as pending.
@@ -89,6 +95,22 @@ export const operatorVars = {
   '--tp-accent-active': '#274982',
   '--tp-accent-soft': '#DCE5F4',
   '--tp-accent-soft-fg': '#274982',
+  // Headers and selection carry the brand colour (round 3, 2026-10-18): page
+  // titles in deep Touch Blue, panel title bands in the L93 tint, table column
+  // bands in solid Touch Blue, and the selected row as a solid Touch Blue bar.
+  // Blue mode mirrors each in white. A solid band or selected row borrows the
+  // OTHER mode's palette for whatever sits inside it (theme.ts, the cross
+  // scopes), so links, grey text and badges stay readable on it.
+  // The panel title band is Touch Blue itself with a white title (owner,
+  // 2026-10-18: "the bg of the header segment ... the main blue"), 6.17:1.
+  // Like the selected row it borrows the blue-mode palette for its contents.
+  '--tp-heading': '#1D3762',
+  '--tp-panel-head': 'var(--tp-brand-blue)',
+  '--tp-panel-head-fg': 'var(--tp-brand-white)',
+  '--tp-table-head': 'var(--tp-brand-blue)',
+  '--tp-table-head-fg': 'var(--tp-brand-white)',
+  '--tp-selected': 'var(--tp-brand-blue)',
+  '--tp-selected-fg': 'var(--tp-brand-white)',
   // The one hover ground for everything a pointer can land on (owner call,
   // 2026-09-24): the pale accent-blue tint, with the page's own ink on it.
   '--tp-hover': 'var(--tp-accent-soft)',
@@ -117,7 +139,9 @@ export const operatorVars = {
   // a caller never has to know which families need a separate rung.
   '--tp-danger-mark': 'var(--tp-danger)',
   '--tp-danger-fg': 'oklch(45% 0.17 27)',
-  '--tp-info-soft': 'var(--tp-accent-soft)',
+  // One step bluer than --tp-accent-soft (L88): an info banner sits straight
+  // on the page ground, and L91 measured 1.04:1 against the L93 page.
+  '--tp-info-soft': '#D0DCF1',
   '--tp-info-fg': 'var(--tp-accent-soft-fg)',
   '--tp-neutral-soft': '#EBF1F9',
   '--tp-neutral-mark': `oklch(55% 0.02 ${HUE})`,
@@ -283,7 +307,7 @@ export const operatorVars = {
      is the only thing the frost has to show. Held more transparent than the
      menu: a toolbar is a large area, and an alpha that suits a small panel
      makes a whole bar read as opaque. */
-  '--tp-glass-bar': 'rgb(243 246 251 / 0.6)',
+  '--tp-glass-bar': 'rgb(228 235 247 / 0.6)',
   /* A CONTROL standing ON that frosted bar. It cannot be translucent over a
      translucent ground — two 88% layers stack to a muddy 98% and the control
      stops reading as a control — so it is a near-opaque lift of --tp-surface
