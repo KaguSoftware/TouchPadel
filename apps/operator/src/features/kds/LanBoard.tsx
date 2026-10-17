@@ -99,6 +99,9 @@ export function lanTicketViews(
       id: t.ref,
       status: t.status,
       source: 'till',
+      service: t.service ?? 'deliver',
+      // The LAN carries no spot; the cloud board says it once it is back.
+      noSpot: false,
       tag: { kind: 'label', label: t.tabLabel ?? `#${t.ref.slice(-6)}` },
       createdAt: t.createdAt,
       ageSeconds,

@@ -153,6 +153,8 @@ export interface TabListRow {
   orders: {
     source: string;
     status: string;
+    /** 0352: the table this order is brought to; absent on a row cached before it joined the select. */
+    deliver_table?: { table_number: string } | null;
     order_items: { id?: string; line_total_iqd: number; voided: boolean; menu_item: { category_id: string } | null }[];
   }[];
   tab_adjustments: { kind: string; amount_iqd: number; order_item_id?: string | null }[];
@@ -169,7 +171,7 @@ export const OPEN_TABS_QUERY = {
           `id, status, label, opened_at, total_iqd,
            table:cafe_tables(table_number),
            reservation:reservations!tabs_reservation_id_fkey(guest_id, guest_name, court:courts!reservations_court_id_fkey(id, name_en, name_ar)),
-           orders!orders_tab_id_fkey(source, status, order_items(id, line_total_iqd, voided, menu_item:menu_items(category_id))),
+           orders!orders_tab_id_fkey(source, status, deliver_table:cafe_tables!orders_deliver_table_id_fkey(table_number), order_items(id, line_total_iqd, voided, menu_item:menu_items(category_id))),
            tab_adjustments(kind, amount_iqd, order_item_id),
            payments(amount_iqd)`,
         )
@@ -264,6 +266,12 @@ export interface TabOrderRow {
   status: string;
   source: string;
   placed_at: string;
+  /** 0351/0352; absent on a detail cached before the columns joined the select. */
+  service?: OrderService;
+  deliver_table_id?: string | null;
+  deliver_reservation_id?: string | null;
+  deliver_table?: { table_number: string } | null;
+  deliver_reservation?: { id: string; court: { name_en: string; name_ar: string } | null } | null;
   order_items: TabLineRow[];
 }
 
@@ -304,7 +312,9 @@ export async function fetchTabDetail(tabId: string): Promise<TabDetail> {
        table:cafe_tables(table_number),
        reservation:reservations!tabs_reservation_id_fkey(guest_id, guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar)),
        orders!orders_tab_id_fkey (
-         id, status, source, placed_at,
+         id, status, source, placed_at, service, deliver_table_id, deliver_reservation_id,
+         deliver_table:cafe_tables!orders_deliver_table_id_fkey(table_number),
+         deliver_reservation:reservations!orders_deliver_reservation_id_fkey(id, court:courts!reservations_court_id_fkey(name_en, name_ar)),
          order_items (
            id, qty, unit_price_iqd, line_total_iqd, voided, notes,
            menu_item:menu_items(name_en, name_ar, category_id),
@@ -433,4 +443,64 @@ export function tabAnchorLabel(
     return tab.reservation.guest_name ?? reservationWord;
   }
   return tab.label ?? '—';
+}
+
+/** 0351: how a send reaches the guest. */
+export type OrderService = 'deliver' | 'pickup';
+
+/**
+ * Where "Bring to …" points for a tab, and what the till's choice starts on:
+ * the server's own default (app.till_add_items with no p_service), so a
+ * cashier who never touches it sends exactly what an older till sent. A table
+ * or a booking is a spot to bring it to; a counter tab (0352, order first)
+ * is not, and starts on pick up (the cashier can still choose to bring it and
+ * attach the table to the order afterwards, from the tab).
+ *
+ * An offline tab knows only its table number and its typed name, so one with
+ * no table starts on pick up: since 0352 that is almost always a counter tab
+ * (a booking's bill opened offline is the rare case, and one press away).
+ */
+export function orderServiceFor(
+  tab:
+    | { kind: 'online'; table: { table_number: string } | null; reservation: { court: { name_en: string; name_ar: string } | null } | null }
+    | { kind: 'offline'; tableNumber: string | null; label: string | null },
+  tableWord: string,
+  courtName: (court: { name_en: string; name_ar: string }) => string,
+): { spot: string | null; service: OrderService } {
+  if (tab.kind === 'offline') {
+    if (tab.tableNumber) return { spot: `${tableWord} ${tab.tableNumber}`, service: 'deliver' };
+    return { spot: null, service: 'pickup' };
+  }
+  if (tab.table) return { spot: `${tableWord} ${tab.table.table_number}`, service: 'deliver' };
+  if (tab.reservation) return { spot: tab.reservation.court ? courtName(tab.reservation.court) : null, service: 'deliver' };
+  return { spot: null, service: 'pickup' };
+}
+
+/**
+ * 0352: what one sent order says about reaching the guest, for the tab panel's
+ * "Bring to…" row. The order's own spot wins; with none, a deliver order goes
+ * to the tab's seat (its table, its booking's court), and on a counter tab it
+ * has nowhere yet.
+ */
+export type OrderDelivery =
+  | { kind: 'pickup' }
+  | { kind: 'deliver'; spot: string; own: boolean }
+  | { kind: 'noSpot' };
+
+export function orderDelivery(
+  order: Pick<TabOrderRow, 'service' | 'deliver_table' | 'deliver_reservation'>,
+  tab: { table: { table_number: string } | null; reservation: { court: { name_en: string; name_ar: string } | null } | null },
+  tableWord: string,
+  courtName: (court: { name_en: string; name_ar: string }) => string,
+  courtWord: string,
+): OrderDelivery {
+  if (order.service === 'pickup') return { kind: 'pickup' };
+  if (order.deliver_table) return { kind: 'deliver', spot: `${tableWord} ${order.deliver_table.table_number}`, own: true };
+  if (order.deliver_reservation) {
+    const court = order.deliver_reservation.court;
+    return { kind: 'deliver', spot: court ? courtName(court) : courtWord, own: true };
+  }
+  if (tab.table) return { kind: 'deliver', spot: `${tableWord} ${tab.table.table_number}`, own: false };
+  if (tab.reservation) return { kind: 'deliver', spot: tab.reservation.court ? courtName(tab.reservation.court) : courtWord, own: false };
+  return { kind: 'noSpot' };
 }

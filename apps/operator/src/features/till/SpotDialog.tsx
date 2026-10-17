@@ -1,21 +1,23 @@
 /**
  * What a tap on the floor opens when it cannot simply go to a tab.
  *
- *   open    a free table, or a booking with no live tab: "Open a tab on
- *           Table 4?" with an optional guest name (tables only, since a
- *           booking already names its guest). One press opens it and the
- *           till goes straight to the menu.
- *   choose  a table carrying two or more tabs: which one to add to, and a
- *           way to open one more there. One tab on a table never gets here;
- *           the tap goes to it directly.
+ *   booking  a booking with no live tab: "Open a tab for this booking?". One
+ *            press opens its bill and the till goes straight to the menu.
+ *   table    a table carrying two or more tabs (or orders brought there):
+ *            which one to go to. One never gets here; the tap goes to it.
+ *            A free table opens nothing (0352, order first): the order is
+ *            placed at the counter (New order) and this table is attached to
+ *            it afterwards, from the tab's "Bring to…". The dialog says so
+ *            and offers New order.
  *
- * The write is openTabOn (NewTabDialog), the same one the New tab dialog
- * makes, so offline opens behave exactly as they always have.
+ * The booking write is openTabOn (NewTabDialog), the same one the New order
+ * dialog makes, so offline opens behave exactly as they always have.
  */
 import { useState } from 'react';
 import { formatNumber, formatTime } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Modal } from '../../components/ui';
+import { MessagePresenter } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { formatElapsed } from './elapsed';
 import { openTabOn } from './NewTabDialog';
@@ -32,31 +34,28 @@ export function SpotDialog({
   onClose,
   onOpened,
   onPickTab,
+  onNewOrder,
 }: {
   target: SpotTarget;
   onClose: () => void;
   /** A new tab was opened; the id is the one the till selects. */
   onOpened: (tabId: string) => void;
   onPickTab: (tabId: string) => void;
+  /** A free table: start the order at the counter instead (0352). */
+  onNewOrder: () => void;
 }) {
   const { tr } = useLocale();
   const tableName = target.kind === 'table' ? `${tr('op.till.table')} ${target.spot.table.table_number}` : '';
-  const shared = target.kind === 'table' && target.spot.tabs.length > 1;
-  const [adding, setAdding] = useState(!shared);
-  const [label, setLabel] = useState('');
+  const free = target.kind === 'table' && target.spot.tabs.length === 0;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   async function open() {
-    if (busy) return;
+    if (busy || target.kind !== 'booking') return;
     setBusy(true);
     setError(null);
     try {
-      const id =
-        target.kind === 'table'
-          ? await openTabOn({ tableId: target.spot.table.id, label: label.trim() || undefined }, target.spot.table.table_number)
-          : await openTabOn({ reservationId: target.reservationId }, null);
-      onOpened(id);
+      onOpened(await openTabOn({ reservationId: target.reservationId }, null));
     } catch (e) {
       setError(e);
     } finally {
@@ -67,9 +66,9 @@ export function SpotDialog({
   const title =
     target.kind === 'booking'
       ? tr('ws.cashier.floor.spot.openBookingTitle')
-      : shared && !adding
-        ? tr('ws.cashier.floor.spot.chooseTitle', { table: tableName })
-        : tr('ws.cashier.floor.spot.openTitle', { table: tableName });
+      : free
+        ? tableName
+        : tr('ws.cashier.floor.spot.chooseTitle', { table: tableName });
 
   return (
     <Modal
@@ -77,13 +76,20 @@ export function SpotDialog({
       size="sm"
       onClose={onClose}
       footer={(close) =>
-        adding ? (
+        target.kind === 'booking' ? (
           <>
-            <Button onClick={shared ? () => setAdding(false) : close} disabled={busy}>
-              {shared ? tr('common.back') : tr('common.cancel')}
+            <Button onClick={close} disabled={busy}>
+              {tr('common.cancel')}
             </Button>
-            <Button kind="primary" icon="plus" busy={busy} onClick={() => void open()} autoFocus={target.kind === 'booking'}>
+            <Button kind="primary" icon="plus" busy={busy} onClick={() => void open()} autoFocus>
               {tr('op.till.openTabBtn')}
+            </Button>
+          </>
+        ) : free ? (
+          <>
+            <Button onClick={close}>{tr('common.cancel')}</Button>
+            <Button kind="primary" icon="plus" onClick={onNewOrder} autoFocus>
+              {tr('ws.cashier.newTab.orderTitle')}
             </Button>
           </>
         ) : (
@@ -97,33 +103,17 @@ export function SpotDialog({
         </p>
       )}
 
-      {target.kind === 'table' && shared && !adding && (
-        <TabChooser tabs={target.spot.tabs} onPick={onPickTab} onAnother={() => setAdding(true)} />
+      {target.kind === 'table' && free && (
+        <MessagePresenter tone="info" icon="info" message={tr('ws.cashier.floor.spot.orderFirst', { table: tableName })} />
       )}
 
-      {target.kind === 'table' && adding && (
-        <Field label={tr('ws.cashier.floor.spot.name')} optional hint={tr('ws.cashier.newTab.nameHint')}>
-          <input
-            style={inputStyle}
-            value={label}
-            maxLength={60}
-            autoFocus
-            onChange={(e) => setLabel(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                void open();
-              }
-            }}
-          />
-        </Field>
-      )}
+      {target.kind === 'table' && !free && <TabChooser tabs={target.spot.tabs} onPick={onPickTab} />}
       <ErrorText error={error} />
     </Modal>
   );
 }
 
-function TabChooser({ tabs, onPick, onAnother }: { tabs: readonly SpotTab[]; onPick: (id: string) => void; onAnother: () => void }) {
+function TabChooser({ tabs, onPick }: { tabs: readonly SpotTab[]; onPick: (id: string) => void }) {
   const { tr, locale } = useLocale();
   const now = Date.now();
   return (
@@ -182,9 +172,6 @@ function TabChooser({ tabs, onPick, onAnother }: { tabs: readonly SpotTab[]; onP
           </button>
         ))}
       </div>
-      <Button kind="ghost" icon="plus" onClick={onAnother} style={{ justifySelf: 'start' }}>
-        {tr('ws.cashier.floor.spot.another')}
-      </Button>
     </div>
   );
 }

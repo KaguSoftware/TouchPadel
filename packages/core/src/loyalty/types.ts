@@ -61,6 +61,10 @@ export interface RedeemResult {
   points: number;
   amount_iqd: number;
   balance: number;
+  /** 0350: the line an item reward freed, else null. */
+  order_item_id?: string | null;
+  /** 0350: the item reward ordered its item onto the tab first. */
+  item_added?: boolean;
 }
 
 export interface LoyaltySettings {

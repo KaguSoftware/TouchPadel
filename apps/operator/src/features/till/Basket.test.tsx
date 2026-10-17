@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { LocaleProvider } from '../../lib/i18n';
 import { Basket } from './Basket';
 import { BASKET_LIST_ROWS } from './tillStyles';
@@ -24,6 +24,9 @@ function renderBasket(expanded: boolean, lines: BasketLine[] = [line({ key: 'a' 
       <Basket
         lines={lines}
         forLabel="Table T8"
+        service="deliver"
+        serviceSpot="Table T8"
+        onService={vi.fn()}
         sending={false}
         error={null}
         canSend
@@ -154,5 +157,66 @@ describe('Basket — Send and the estimate hold their place', () => {
   it('counts units in the heading, not lines', () => {
     renderBasket(false, [line({ key: 'a', qty: 2 }), line({ key: 'b', qty: 4 })]);
     expect(screen.getByText('(6)')).toBeTruthy();
+  });
+});
+
+describe('Basket — pick up or bring it (0351)', () => {
+  it('names the spot, shows the choice and reports a press', () => {
+    const onService = vi.fn();
+    render(
+      <LocaleProvider>
+        <Basket
+          lines={[line({ key: 'a' })]}
+          forLabel="Ahmed"
+          service="deliver"
+          serviceSpot="Court 2"
+          onService={onService}
+          sending={false}
+          error={null}
+          canSend
+          expanded={false}
+          onToggleExpanded={vi.fn()}
+          onBump={vi.fn()}
+          onNote={vi.fn()}
+          onRemove={vi.fn()}
+          onClear={vi.fn()}
+          onSend={vi.fn()}
+        />
+      </LocaleProvider>,
+    );
+    const deliver = screen.getByTestId('basket-service-deliver');
+    const pickup = screen.getByTestId('basket-service-pickup');
+    expect(deliver.textContent).toContain('Bring to Court 2');
+    expect(deliver.getAttribute('aria-pressed')).toBe('true');
+    expect(pickup.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(pickup);
+    expect(onService).toHaveBeenCalledWith('pickup');
+  });
+
+  it('stays in place, disabled, with no tab chosen', () => {
+    render(
+      <LocaleProvider>
+        <Basket
+          lines={[]}
+          forLabel={null}
+          service={null}
+          serviceSpot={null}
+          onService={vi.fn()}
+          sending={false}
+          error={null}
+          canSend={false}
+          expanded={false}
+          onToggleExpanded={vi.fn()}
+          onBump={vi.fn()}
+          onNote={vi.fn()}
+          onRemove={vi.fn()}
+          onClear={vi.fn()}
+          onSend={vi.fn()}
+        />
+      </LocaleProvider>,
+    );
+    expect((screen.getByTestId('basket-service-deliver') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('basket-service-pickup') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('basket-service-deliver').textContent).toContain('Bring it to them');
   });
 });

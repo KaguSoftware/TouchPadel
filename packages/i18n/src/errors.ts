@@ -105,6 +105,7 @@ export const ERROR_CODE_KEYS = {
   INVALID_QTY: 'op.errors.INVALID_QTY',
   CAFE_CLOSED: 'op.errors.CAFE_CLOSED',
   TICKET_NOT_FOUND: 'op.errors.TICKET_NOT_FOUND',
+  ORDER_NOT_FOUND: 'op.errors.ORDER_NOT_FOUND',
   ITEM_NOT_FOUND: 'op.errors.ITEM_NOT_FOUND',
   ITEM_VOIDED: 'op.errors.ITEM_VOIDED',
   INVALID_DURATION: 'op.errors.INVALID_DURATION',
@@ -502,6 +503,8 @@ export const ERROR_CODE_KEYS = {
   MEMBER_CODE_LOCKED: 'op.errors.MEMBER_CODE_LOCKED',
   MEMBER_CODE_MISMATCH: 'op.errors.MEMBER_CODE_MISMATCH',
   REWARD_EXCEEDS_BILL: 'op.errors.REWARD_EXCEEDS_BILL',
+  // 0350: an item reward the court desk would have to order onto the bill.
+  REWARD_ITEM_NOT_ON_TAB: 'op.errors.REWARD_ITEM_NOT_ON_TAB',
   LOYALTY_REDEEMED: 'op.errors.LOYALTY_REDEEMED',
 
   // ── Guest refusals the desk never meets (the phone's lines) ───────────────

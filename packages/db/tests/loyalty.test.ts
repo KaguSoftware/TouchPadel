@@ -23,6 +23,9 @@
  *     the clawback works on a cumulative target over what earned; the points a cap swallowed or
  *     a refund returned come back; adjustments never raise a tier; the guest never reads a
  *     manager's note.
+ *   * 0350: an item reward frees one unit of its exact size on the tab (a line discount of that
+ *     line's unit price), ordering it onto the tab first when no line has a unit free; the court
+ *     desk cannot order one; a reward on a line voided before the settle comes back whole.
  *
  * Every case but the last is one rolled-back psql transaction (stores-harness `scenario`); the
  * last races two committed sessions on one account (its guest and rows stay, like the coaching
@@ -1217,6 +1220,154 @@ function missed(r: Results, label: string): string {
   expect(d.customer_id, `${label} found someone`).toBeNull();
   return d.error ?? '';
 }
+
+// ── 0350: an item reward is the item ─────────────────────────────────────────
+
+/** A café menu at branch A: one item in two sizes, small 4,000 and large 6,000. */
+const MENU = [
+  KEEP(
+    'cat',
+    `insert into menu_categories (name_en, name_ar, tax_group_id, venue_id)
+     values ('LOY coffee', 'قهوة', {{tax}}, {{venue}}) returning id::text`,
+  ),
+  KEEP(
+    'item',
+    `insert into menu_items (category_id, name_en, name_ar, venue_id, is_active)
+     values ({{cat}}, 'LOY latte', 'لاتيه', {{venue}}, true) returning id::text`,
+  ),
+  KEEP(
+    'small',
+    `insert into menu_item_variants (item_id, name_en, name_ar, price_iqd, is_default)
+     values ({{item}}, 'Small', 'صغير', 4000, true) returning id::text`,
+  ),
+  KEEP(
+    'large',
+    `insert into menu_item_variants (item_id, name_en, name_ar, price_iqd, is_default)
+     values ({{item}}, 'Large', 'كبير', 6000, false) returning id::text`,
+  ),
+  T(
+    'rw',
+    'owner',
+    `select app.upsert_loyalty_reward(jsonb_build_object('name_en', 'Free small latte', 'name_ar', 'لاتيه مجاني',
+       'cost_points', 150, 'kind', 'item', 'menu_variant_id', {{small}}))`,
+  ),
+  KEEP(
+    'rw',
+    `select id::text from loyalty_rewards where name_en = 'Free small latte' order by created_at desc limit 1`,
+  ),
+];
+const ORDER = (tab: string, variant: string, qty: number) =>
+  `select app.till_add_items({{${tab}}}, jsonb_build_array(jsonb_build_object('variant_id', {{${variant}}}, 'qty', ${qty})))`;
+/** A tab's loyalty adjustments as [{line (the variant's name_en, or null), amount}], oldest first. */
+const REWARDS_ON = (label: string, tab: string) =>
+  Q(
+    label,
+    `select coalesce(jsonb_agg(jsonb_build_object('line', v.name_en, 'amount', a.amount_iqd)
+                               order by a.created_at, a.id), '[]'::jsonb)
+       from tab_adjustments a
+       left join order_items oi on oi.id = a.order_item_id
+       left join menu_item_variants v on v.id = oi.variant_id
+      where a.tab_id = {{${tab}}}::uuid and a.reason_code = 'loyalty_reward'`,
+  );
+
+describe.skipIf(!docker)('loyalty item rewards (0350)', () => {
+  it('frees one unit of that size on the tab, ordering it first when none is free', () => {
+    const r = run('loy-item', [
+      GUEST('g1'),
+      GUEST('g2'),
+      PTS('g1', 1000),
+      PTS('g2', 100),
+      STALE('cashier'),
+      STALE('desk'),
+      ...MENU,
+      // two small lattes and a large one on the tab: the reward frees one small, then the other
+      TAB('t1', 'cafe', { customer: 'g1' }),
+      T('order', 'cashier', ORDER('t1', 'small', 2)),
+      T('order_large', 'cashier', ORDER('t1', 'large', 1)),
+      GRANT('cashier'),
+      T('first', 'cashier', REDEEM('t1', null, 'rw')),
+      GRANT('cashier'),
+      T('second', 'cashier', REDEEM('t1', null, 'rw')),
+      // both small units are free: the third orders a small latte onto the tab, already free
+      GRANT('cashier'),
+      T('third', 'cashier', REDEEM('t1', null, 'rw')),
+      REWARDS_ON('on_t1', 't1'),
+      Q('totals', `select to_jsonb(t) from app.compute_tab_totals({{t1}}) t`),
+      Q(
+        'orders',
+        `select jsonb_build_object(
+                  'orders', (select count(*) from orders where tab_id = {{t1}}::uuid),
+                  'tickets', (select count(*) from tickets k join orders o on o.id = k.order_id
+                               where o.tab_id = {{t1}}::uuid),
+                  'by', (select count(*) from orders where tab_id = {{t1}}::uuid
+                           and placed_by_staff_id = {{cashier}}::uuid and source = 'till'))`,
+      ),
+      // undo takes the reward off; the latte it added stays on the bill at its price
+      KEEP(
+        'third_adj',
+        `select a.id::text from tab_adjustments a where a.tab_id = {{t1}}::uuid
+            and a.reason_code = 'loyalty_reward' order by a.created_at desc, a.id desc limit 1`,
+      ),
+      T('undo', 'cashier', `select app.loyalty_unredeem({{third_adj}})`),
+      Q('totals_after_undo', `select to_jsonb(t) from app.compute_tab_totals({{t1}}) t`),
+      // the court desk cannot order a latte onto a tab
+      TAB('t2', 'cafe', { customer: 'g1' }),
+      GRANT('desk'),
+      T('desk', 'desk', REDEEM('t2', null, 'rw')),
+      // too few points: nothing is ordered
+      TAB('t3', 'cafe', { customer: 'g2' }),
+      GRANT('cashier'),
+      T('poor', 'cashier', REDEEM('t3', null, 'rw')),
+      Q('t3_orders', `select to_jsonb(count(*)) from orders where tab_id = {{t3}}::uuid`),
+      // the freed line voided before the settle: all its points come back at the settle
+      TAB('t4', 'cafe', { customer: 'g1' }),
+      GRANT('cashier'),
+      T('voided', 'cashier', REDEEM('t4', null, 'rw')),
+      X(
+        `update order_items set voided = true, void_reason_code = 'customer_changed_mind'
+          where order_id in (select id from orders where tab_id = {{t4}}::uuid)`,
+      ),
+      SETTLE('t4'),
+      Q(
+        'voided_back',
+        `select to_jsonb(coalesce(sum(l.delta), 0)) from loyalty_ledger l
+          where l.kind = 'redeem_void' and l.tab_id = {{t4}}::uuid`,
+      ),
+      BALANCE('balance', 'g1'),
+      // a sold-out item is not ordered
+      X(`update menu_items set sold_out = true where id = {{item}}::uuid`),
+      TAB('t5', 'cafe', { customer: 'g1' }),
+      GRANT('cashier'),
+      T('sold_out', 'cashier', REDEEM('t5', null, 'rw')),
+    ]);
+
+    expect(ok(r, 'rw')).toBeTruthy();
+    expect(ok(r, 'first')).toMatchObject({ points: 150, amount_iqd: 4000, item_added: false });
+    expect(ok(r, 'second')).toMatchObject({ points: 150, amount_iqd: 4000, item_added: false });
+    expect(ok<{ order_item_id: string }>(r, 'second').order_item_id).toBe(
+      ok<{ order_item_id: string }>(r, 'first').order_item_id,
+    );
+    expect(ok(r, 'third')).toMatchObject({ points: 150, amount_iqd: 4000, item_added: true, balance: 550 });
+    expect(ok(r, 'on_t1')).toEqual([
+      { line: 'Small', amount: 4000 },
+      { line: 'Small', amount: 4000 },
+      { line: 'Small', amount: 4000 },
+    ]);
+    // 2 x 4,000 + 6,000 + the added 4,000; three small lattes free
+    expect(ok(r, 'totals')).toMatchObject({ subtotal_iqd: 18000, discount_iqd: 12000 });
+    expect(ok(r, 'orders')).toEqual({ orders: 3, tickets: 3, by: 3 });
+    expect(ok(r, 'undo')).toMatchObject({ balance: 700 });
+    expect(ok(r, 'totals_after_undo')).toMatchObject({ subtotal_iqd: 18000, discount_iqd: 8000 });
+    expect(refused(r, 'desk')).toBe('REWARD_ITEM_NOT_ON_TAB');
+    expect(refused(r, 'poor')).toBe('POINTS_INSUFFICIENT');
+    expect(ok<number>(r, 't3_orders')).toBe(0);
+    expect(ok(r, 'voided')).toMatchObject({ item_added: true });
+    expect(ok<number>(r, 'voided_back')).toBe(150);
+    // 1,000 - 3 x 150 + 150 (undo) - 150 + 150 (voided line, back at the settle)
+    expect(ok<number>(r, 'balance')).toBe(700);
+    expect(refused(r, 'sold_out')).toBe('ITEM_UNAVAILABLE');
+  });
+});
 
 describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
   it('takes a token within ±1 step or the exact phone, and tells expired from invalid', () => {

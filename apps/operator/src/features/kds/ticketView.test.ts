@@ -3,6 +3,7 @@ import {
   canTransition,
   openCount,
   ticketTag,
+  ticketNoSpot,
   ticketViewFromRow,
   ticketViews,
   type TicketRow,
@@ -60,19 +61,46 @@ function row(over: Partial<TicketRow> = {}): TicketRow {
 
 describe('ticketTag', () => {
   it('prefers the table, then the court reservation, then the tab label', () => {
-    expect(ticketTag(row())).toEqual({ kind: 'table', number: '9' });
+    expect(ticketTag(row(), 'en')).toEqual({ kind: 'table', number: '9' });
     const court = row({
       order: {
         ...row().order!,
         tab: { id: 'tab1', label: 'x', table: null, reservation: { id: 'r1', guest_name: 'Ahmed' } },
       },
     });
-    expect(ticketTag(court)).toEqual({ kind: 'court', guest: 'Ahmed' });
+    expect(ticketTag(court, 'en')).toEqual({ kind: 'court', court: null, guest: 'Ahmed' });
+    // 0351: the court's name reaches every board role; the guest only the till and MGMT.
+    const named0351 = row({
+      order: {
+        ...row().order!,
+        tab: { id: 'tab1', label: 'x', table: null, reservation: null, court: { name_en: 'Court 2', name_ar: 'ملعب ٢' } },
+      },
+    });
+    expect(ticketTag(named0351, 'ar')).toEqual({ kind: 'court', court: 'ملعب ٢', guest: null });
     const named = row({
       order: { ...row().order!, tab: { id: 'tab1', label: 'Walk-in', table: null, reservation: null } },
     });
-    expect(ticketTag(named)).toEqual({ kind: 'label', label: 'Walk-in' });
-    expect(ticketTag(row({ order: null }))).toEqual({ kind: 'label', label: null });
+    expect(ticketTag(named, 'en')).toEqual({ kind: 'label', label: 'Walk-in' });
+    expect(ticketTag(row({ order: null }), 'en')).toEqual({ kind: 'label', label: null });
+  });
+});
+
+describe('the spot attached to the order (0352)', () => {
+  const counterTab = { id: 'tab1', label: '#3', table: null, reservation: null };
+  it('wins over the tab, and a counter order with none says so', () => {
+    const onTable = row({ order: { ...row().order!, service: 'deliver', deliver_table: { table_number: '4' }, tab: counterTab } });
+    expect(ticketTag(onTable, 'en')).toEqual({ kind: 'table', number: '4' });
+    expect(ticketNoSpot(onTable)).toBe(false);
+    const onCourt = row({ order: { ...row().order!, service: 'deliver', deliver_court: { name_en: 'Court 2', name_ar: 'ملعب ٢' }, tab: counterTab } });
+    expect(ticketTag(onCourt, 'en')).toEqual({ kind: 'court', court: 'Court 2', guest: null });
+    const nowhere = row({ order: { ...row().order!, service: 'deliver', tab: counterTab } });
+    expect(ticketTag(nowhere, 'en')).toEqual({ kind: 'label', label: '#3' });
+    expect(ticketNoSpot(nowhere)).toBe(true);
+  });
+
+  it('a pick up never waits for a table, and a seat tab already has one', () => {
+    expect(ticketNoSpot(row({ order: { ...row().order!, service: 'pickup', tab: counterTab } }))).toBe(false);
+    expect(ticketNoSpot(row())).toBe(false);
   });
 });
 
@@ -109,6 +137,12 @@ describe('ticketViewFromRow', () => {
   it('tags till orders as till', () => {
     const v = ticketViewFromRow(row({ order: { ...row().order!, source: 'till' } }), T0, false, 'en');
     expect(v.source).toBe('till');
+  });
+
+  it('carries the order service, deliver when the row predates 0351', () => {
+    expect(ticketViewFromRow(row(), T0, false, 'en').service).toBe('deliver');
+    const pickup = ticketViewFromRow(row({ order: { ...row().order!, service: 'pickup' } }), T0, false, 'en');
+    expect(pickup.service).toBe('pickup');
   });
 });
 

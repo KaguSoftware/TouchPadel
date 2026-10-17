@@ -671,11 +671,6 @@ export function OpenTabsScreen() {
 
       {newTab && (
         <NewTabDialog
-          openTabs={tabsQ.data ?? []}
-          onPickExisting={(tabId) => {
-            setNewTab(false);
-            goToTill(tabId);
-          }}
           onClose={() => setNewTab(false)}
           onOpened={(tabId) => {
             setNewTab(false);

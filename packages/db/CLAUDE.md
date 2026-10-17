@@ -17,8 +17,21 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0349`
-  (0349 legacy_reports_in_figures, 2026-10-17: the pre-system padel reports count in panel_headline and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0352`
+  (0352 counter_orders, 2026-10-17: order first, the table after. A café tab may open with no table
+  and no booking (a counter tab, labelled with the name given or the day's `#<n>`; TAB_ANCHOR_REQUIRED
+  is now only `send_order_slip`'s); `orders.deliver_table_id` / `deliver_reservation_id` say where
+  ONE order is brought, attached any time after by `app.order_set_delivery` (online only, re-announces
+  the ticket on `kds`); **0352 holds `open_tab` and `kitchen_board`** (0280 and 0231 no longer).
+  0351 order_service, 2026-10-17: `orders.service` (`deliver` | `pickup`, default `deliver`);
+  **0351 holds `till_add_items`** (0244 no longer), now `(uuid, jsonb, text, text, text)` with
+  `p_service`, defaulting from the tab (a seat: deliver, none: pickup), carried by the queued
+  `order.add_items` payload's optional `service`;
+  0350 loyalty_item_rewards, 2026-10-17: an item reward frees one unit of its exact variant on the
+  tab as a line discount of that line's unit price, ordering it onto the tab first when no line has
+  a unit free (`REWARD_ITEM_NOT_ON_TAB` for the court desk); **0350 holds `loyalty_redeem` and
+  `trg_loyalty_redeem_cap`** (0308 is no longer the latest: a reward on a line voided before the
+  settle comes back whole); 0349 legacy_reports_in_figures, 2026-10-17: the pre-system padel reports count in panel_headline and
   analytics_courts_summary when the range holds their whole month (helpers app.legacy_report_totals,
   app.legacy_add_to_figures); **0349 now holds the latest panel_headline and analytics_courts_summary**
   (0288 no longer); reports_figures stays 0288's, unchanged;
@@ -107,7 +120,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0350`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0353`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

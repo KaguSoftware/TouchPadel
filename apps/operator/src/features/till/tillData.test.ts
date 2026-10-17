@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bookingTakesNewTab, canReadBookings, mergeDonorLabel, tabAnchorLabel, tabIsRemovable, tabRemovalBlocker, type TabListRow } from './tillData';
+import { bookingTakesNewTab, canReadBookings, mergeDonorLabel, orderDelivery, orderServiceFor, tabAnchorLabel, tabIsRemovable, tabRemovalBlocker, type TabListRow } from './tillData';
 
 /** A tab as the board sees it: opened, never touched. */
 const bare: TabListRow = {
@@ -167,5 +167,67 @@ describe('mergeDonorLabel', () => {
     expect(mergeDonorLabel(row, WORDS, 'Court 1', null)).toBe('Sara Ahmed · Court 1');
     expect(mergeDonorLabel(row, WORDS, null, '19:00')).toBe('Sara Ahmed · 19:00');
     expect(mergeDonorLabel(row, WORDS, '', '')).toBe('Sara Ahmed');
+  });
+});
+
+describe('orderServiceFor — the till starts where app.till_add_items would (0351)', () => {
+  const name = (c: { name_en: string }) => c.name_en;
+  const court = { name_en: 'Court 2', name_ar: 'ملعب ٢' };
+
+  it('brings it to a table or a booking, named', () => {
+    expect(orderServiceFor({ kind: 'online', table: { table_number: '4' }, reservation: null }, 'Table', name)).toEqual({
+      spot: 'Table 4',
+      service: 'deliver',
+    });
+    expect(orderServiceFor({ kind: 'online', table: null, reservation: { court } }, 'Table', name)).toEqual({
+      spot: 'Court 2',
+      service: 'deliver',
+    });
+    expect(orderServiceFor({ kind: 'online', table: null, reservation: { court: null } }, 'Table', name)).toEqual({
+      spot: null,
+      service: 'deliver',
+    });
+  });
+
+  it('starts a counter tab on pick up', () => {
+    expect(orderServiceFor({ kind: 'online', table: null, reservation: null }, 'Table', name)).toEqual({ spot: null, service: 'pickup' });
+    expect(orderServiceFor({ kind: 'offline', tableNumber: null, label: 'Ali' }, 'Table', name)).toEqual({ spot: null, service: 'pickup' });
+  });
+
+  it('reads an offline tab from what it kept', () => {
+    expect(orderServiceFor({ kind: 'offline', tableNumber: '7', label: null }, 'Table', name)).toEqual({ spot: 'Table 7', service: 'deliver' });
+    // No table: a counter tab (0352), named or numbered later by the server.
+    expect(orderServiceFor({ kind: 'offline', tableNumber: null, label: null }, 'Table', name)).toEqual({ spot: null, service: 'pickup' });
+  });
+});
+
+describe('orderDelivery — the tab panel\'s "Bring to…" row (0352)', () => {
+  const name = (c: { name_en: string }) => c.name_en;
+  const counter = { table: null, reservation: null };
+
+  it('says pick up, whatever the tab', () => {
+    expect(orderDelivery({ service: 'pickup' }, { table: { table_number: '4' }, reservation: null }, 'Table', name, 'Court')).toEqual({ kind: 'pickup' });
+  });
+
+  it('prefers the spot attached to the order', () => {
+    expect(orderDelivery({ service: 'deliver', deliver_table: { table_number: '9' } }, counter, 'Table', name, 'Court')).toEqual({
+      kind: 'deliver',
+      spot: 'Table 9',
+      own: true,
+    });
+    expect(
+      orderDelivery({ service: 'deliver', deliver_reservation: { id: 'r', court: { name_en: 'Court 2', name_ar: '' } } }, counter, 'Table', name, 'Court'),
+    ).toEqual({ kind: 'deliver', spot: 'Court 2', own: true });
+  });
+
+  it("falls back to the tab's seat, else has nowhere yet", () => {
+    expect(orderDelivery({ service: 'deliver' }, { table: { table_number: '4' }, reservation: null }, 'Table', name, 'Court')).toEqual({
+      kind: 'deliver',
+      spot: 'Table 4',
+      own: false,
+    });
+    expect(orderDelivery({ service: 'deliver' }, counter, 'Table', name, 'Court')).toEqual({ kind: 'noSpot' });
+    // A detail cached before 0351 has no service: it was a deliver order.
+    expect(orderDelivery({}, counter, 'Table', name, 'Court')).toEqual({ kind: 'noSpot' });
   });
 });

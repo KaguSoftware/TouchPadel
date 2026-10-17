@@ -33,13 +33,20 @@ export const muted: CSSProperties = { color: 'var(--tp-muted-fg)', fontSize: 'va
 export const touchTarget: CSSProperties = { minBlockSize: 'var(--tp-touch)', minInlineSize: 'var(--tp-touch)' };
 
 /**
+ * The pick-up-or-bring-it row above Send (0351): a touch-height segmented
+ * control (its 1px border and its inner padding on each edge) and the gap
+ * that separates it from the estimate row.
+ */
+const BASKET_SERVICE_ROW = 'var(--tp-touch) + 2 * var(--tp-sp-0) + 2px + var(--tp-sp-1-5)';
+
+/**
  * The basket's reserved height. A cashier aims at the item grid without
  * looking; if the basket grew a row every time a line landed, the grid moved
  * under the finger already travelling towards it (rulebook 11.5). The basket
  * therefore claims its space before the first line exists and scrolls inside
  * it — the grid above never resizes for the length of a shift.
  */
-export const BASKET_BLOCK_SIZE = '8.5rem';
+export const BASKET_BLOCK_SIZE = `calc(8.5rem + ${BASKET_SERVICE_ROW})`;
 
 /** Lines the open basket shows before it starts scrolling. */
 export const BASKET_LIST_ROWS = 4;

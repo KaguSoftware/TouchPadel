@@ -57,7 +57,7 @@ import { deriveTileState, tileInteractive } from './tileState';
 import { useTillClock } from './useTillClock';
 import { useCafeSettings } from '../../lib/settings';
 import { normalizeBusinessDayStart } from '@touch/core';
-import { OPEN_TABS_QUERY, TILL_MENU_QUERY, basketLineEstimate, fetchTabDetail, tabAnchorLabel, type BasketLine, type ItemRow } from './tillData';
+import { OPEN_TABS_QUERY, TILL_MENU_QUERY, basketLineEstimate, fetchTabDetail, orderServiceFor, tabAnchorLabel, type BasketLine, type ItemRow, type OrderService } from './tillData';
 import type { TillSearch } from './tillSearch';
 import { ScannedSlipsPanel } from './slips/ScannedSlipsPanel';
 import { SLIPS_KEY } from './slips/SlipReview';
@@ -85,6 +85,10 @@ export function TillScreen() {
   const [basketExpanded, setBasketExpanded] = useState(true);
   const [sendError, setSendError] = useState<unknown>(null);
   const [sending, setSending] = useState(false);
+  /* Pick up or bring it (0351), as the cashier set it for one tab. Keyed on
+     the tab so moving to another tab starts that tab on its own default
+     rather than carrying a choice made for someone else. */
+  const [serviceChoice, setServiceChoice] = useState<{ tabId: string; service: OrderService } | null>(null);
   const [newTab, setNewTab] = useState<{ reservationId?: string } | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [floorMode, setFloorMode] = useState<FloorMode>('cafe');
@@ -295,6 +299,22 @@ export function TillScreen() {
     setBasket((b) => b.map((l) => (l.key === key ? { ...l, notes } : l)));
   }
 
+  // ---- pick up or bring it (0351) ---------------------------------------------
+  // Where "Bring to …" points and what the choice starts on: the server's own
+  // default for this tab, so a cashier who never touches it sends what an
+  // older till sent.
+  const serviceTarget = (() => {
+    if (!selectedTabId) return null;
+    if (selectedTabId.startsWith(LOCAL_TAB_PREFIX)) {
+      const ot = offlineTabs.find((t) => `${LOCAL_TAB_PREFIX}${t.idemKey}` === selectedTabId);
+      return ot ? orderServiceFor({ kind: 'offline', tableNumber: ot.tableNumber, label: ot.label }, tr('op.till.table'), (c) => pickName(locale, c)) : null;
+    }
+    const t = (tabsQ.data ?? []).find((x) => x.id === selectedTabId);
+    return t ? orderServiceFor({ kind: 'online', table: t.table, reservation: t.reservation }, tr('op.till.table'), (c) => pickName(locale, c)) : null;
+  })();
+  const service: OrderService =
+    serviceChoice && serviceChoice.tabId === selectedTabId ? serviceChoice.service : (serviceTarget?.service ?? 'deliver');
+
   // ---- send basket ----------------------------------------------------------
   async function sendBasket() {
     if (!selectedTabId || basket.length === 0 || sending) return;
@@ -311,13 +331,13 @@ export function TillScreen() {
       // Single write path: queued durably in Electron, direct RPC in browser mode.
       if (selectedTabId.startsWith(LOCAL_TAB_PREFIX)) {
         const idemKey = selectedTabId.slice(LOCAL_TAB_PREFIX.length);
-        await mutate('order.add_items', { tabIdemKey: idemKey, items });
+        await mutate('order.add_items', { tabIdemKey: idemKey, items, service });
         appendOfflineLines(
           idemKey,
           part.map((l) => ({ name: `${l.itemName} (${l.variantName})`, qty: l.qty, priceIqd: basketLineEstimate(l) / l.qty })),
         );
       } else {
-        await mutate('order.add_items', { tabId: selectedTabId, items });
+        await mutate('order.add_items', { tabId: selectedTabId, items, service });
       }
       const sent = new Set(part.map((l) => l.key));
       setBasket((b) => b.filter((l) => !sent.has(l.key)));
@@ -524,16 +544,15 @@ export function TillScreen() {
             setSpotTarget(null);
             openedTab(tabId);
           }}
+          onNewOrder={() => {
+            setSpotTarget(null);
+            setNewTab({});
+          }}
         />
       )}
       {newTab && (
         <NewTabDialog
           initialReservationId={newTab.reservationId}
-          openTabs={tabsQ.data ?? []}
-          onPickExisting={(tabId) => {
-            setNewTab(null);
-            void selectTab(tabId);
-          }}
           onClose={() => setNewTab(null)}
           onOpened={(tabId) => {
             setNewTab(null);
@@ -772,6 +791,9 @@ export function TillScreen() {
               onToggleExpanded={() => setBasketExpanded((v) => !v)}
               lines={basket}
               forLabel={selectedLabel}
+              service={selectedTabId ? service : null}
+              serviceSpot={serviceTarget?.spot ?? null}
+              onService={(s) => selectedTabId && setServiceChoice({ tabId: selectedTabId, service: s })}
               sending={sending}
               error={sendError}
               canSend={basket.length > 0}

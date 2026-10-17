@@ -3339,6 +3339,16 @@ export type Database = {
           qty: number
         }[]
       }
+      order_set_delivery: {
+        Args: {
+          p_device_id?: string
+          p_order_id: string
+          p_reservation_id?: string
+          p_service: string
+          p_table_id?: string
+        }
+        Returns: Json
+      }
       other_active_owners: { Args: { p_staff_id: string }; Returns: number }
       override_price: {
         Args: {
@@ -5082,6 +5092,7 @@ export type Database = {
           p_device_id?: string
           p_idempotency_key?: string
           p_items: Json
+          p_service?: string
           p_tab_id: string
         }
         Returns: Json
@@ -12135,42 +12146,65 @@ export type Database = {
       }
       orders: {
         Row: {
+          deliver_reservation_id: string | null
+          deliver_table_id: string | null
           device_id: string | null
           guest_session_id: string | null
           id: string
           idempotency_key: string | null
           placed_at: string
           placed_by_staff_id: string | null
+          service: Database["public"]["Enums"]["order_service"]
           source: Database["public"]["Enums"]["order_source"]
           status: Database["public"]["Enums"]["order_status"]
           tab_id: string
           venue_id: string
         }
         Insert: {
+          deliver_reservation_id?: string | null
+          deliver_table_id?: string | null
           device_id?: string | null
           guest_session_id?: string | null
           id?: string
           idempotency_key?: string | null
           placed_at?: string
           placed_by_staff_id?: string | null
+          service?: Database["public"]["Enums"]["order_service"]
           source: Database["public"]["Enums"]["order_source"]
           status?: Database["public"]["Enums"]["order_status"]
           tab_id: string
           venue_id?: string
         }
         Update: {
+          deliver_reservation_id?: string | null
+          deliver_table_id?: string | null
           device_id?: string | null
           guest_session_id?: string | null
           id?: string
           idempotency_key?: string | null
           placed_at?: string
           placed_by_staff_id?: string | null
+          service?: Database["public"]["Enums"]["order_service"]
           source?: Database["public"]["Enums"]["order_source"]
           status?: Database["public"]["Enums"]["order_status"]
           tab_id?: string
           venue_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_deliver_reservation_id_fkey"
+            columns: ["deliver_reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_deliver_table_id_fkey"
+            columns: ["deliver_table_id"]
+            isOneToOne: false
+            referencedRelation: "cafe_tables"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_guest_session_id_fkey"
             columns: ["guest_session_id"]
@@ -18029,6 +18063,7 @@ export type Database = {
         | "refund_reversal"
         | "product_test"
         | "transfer"
+      order_service: "deliver" | "pickup"
       order_source: "guest_web" | "till"
       order_status: "sent" | "preparing" | "ready" | "served" | "voided"
       payment_method: "cash" | "card"
@@ -18226,6 +18261,7 @@ export const Constants = {
         "product_test",
         "transfer",
       ],
+      order_service: ["deliver", "pickup"],
       order_source: ["guest_web", "till"],
       order_status: ["sent", "preparing", "ready", "served", "voided"],
       payment_method: ["cash", "card"],

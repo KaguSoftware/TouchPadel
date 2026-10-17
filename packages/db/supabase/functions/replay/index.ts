@@ -158,7 +158,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
   // --- Drop-2/3 RPCs (0015/0016/0018). Arg mappers pass ONLY the parameters
   // each function declares — verified against the migration SQL:
   //   open_tab(p_table_id, p_label, p_reservation_id, p_idempotency_key, p_device_id)
-  //   till_add_items(p_tab_id, p_items, p_idempotency_key, p_device_id)
+  //   till_add_items(p_tab_id, p_items, p_idempotency_key, p_device_id, p_service) — p_service since 0351
   //   set_ticket_status(p_ticket_id, p_status, p_device_id)              — no idem key
   //   settle_tab(p_tab_id, p_method, p_tendered_iqd, p_amount_iqd,
   //              p_idempotency_key, p_device_id)
@@ -195,7 +195,13 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
   'order.add_items': (p, c) => ({
     rpc: 'till_add_items',
     entity: 'order',
-    args: () => ({ p_tab_id: p?.tabId, p_items: orderItems(p), ...common(c) }),
+    // 0351: p_service only when the till chose (same call as mutate.ts).
+    args: () => ({
+      p_tab_id: p?.tabId,
+      p_items: orderItems(p),
+      ...(p?.service ? { p_service: p.service } : {}),
+      ...common(c),
+    }),
   }),
   'ticket.status': (p, c) => ({
     rpc: 'set_ticket_status',

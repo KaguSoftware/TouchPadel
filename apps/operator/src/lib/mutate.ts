@@ -92,7 +92,14 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
   }),
   'order.add_items': (p, key, device) => ({
     fn: 'till_add_items',
-    args: { p_tab_id: p?.tabId, p_items: orderItems(p), p_idempotency_key: key, p_device_id: device },
+    args: {
+      p_tab_id: p?.tabId,
+      p_items: orderItems(p),
+      p_idempotency_key: key,
+      p_device_id: device,
+      // 0351: only when the till chose; left out, the server decides from the tab.
+      ...(p?.service ? { p_service: p.service } : {}),
+    },
   }),
   'tab.open': (p, key, device) => ({
     fn: 'open_tab',

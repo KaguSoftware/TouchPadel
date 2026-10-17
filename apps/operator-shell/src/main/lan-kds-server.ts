@@ -54,6 +54,7 @@ function ticketFromEnvelope(m: MutationEnvelope): LanTicket | null {
     items?: { variantId?: string; qty?: number; notes?: string; modifiers?: { modifierId?: string; qty?: number }[] }[];
     tabIdemKey?: string;
     shop?: boolean;
+    service?: string;
   } | null;
   // 0146: a Touch Shop sale is never kitchen work (the server makes no ticket for it).
   if (p?.shop === true) return null;
@@ -72,6 +73,7 @@ function ticketFromEnvelope(m: MutationEnvelope): LanTicket | null {
     // The till knows the human label only in its renderer; the payload carries
     // the offline tab key at best. KDS shows the ref tail as the anchor.
     tabLabel: p?.tabIdemKey ? `#${p.tabIdemKey.slice(-6)}` : null,
+    ...(p?.service === 'pickup' || p?.service === 'deliver' ? { service: p.service } : {}),
     items,
     createdAt: m.createdAt,
     status: 'queued',

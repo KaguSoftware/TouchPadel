@@ -127,8 +127,13 @@ export function placeCafe(
   const byNumber = new Map<string, SpotTab[]>();
   const push = (n: string, t: SpotTab) => byNumber.set(n, [...(byNumber.get(n) ?? []), t]);
   for (const t of tabs) {
-    if (!t.table) continue;
-    push(t.table.table_number, {
+    // 0352: a counter tab sits at every table one of its orders is brought
+    // to (order first, the table attached after), once per table, until the
+    // tab is paid: a served order's guest is still sitting there.
+    const at = t.table
+      ? [t.table.table_number]
+      : [...new Set((t.orders ?? []).filter((o) => o.status !== 'voided' && o.deliver_table).map((o) => o.deliver_table!.table_number))];
+    for (const table of at) push(table, {
       id: t.id,
       status: t.status,
       label: t.label,

@@ -282,8 +282,11 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
   it('opens a shop sale without a table only for a labelled shop tab, and only at the shop desk', async () => {
     const noLabel = await appRpc(shop, 'open_tab', { p_kind: 'shop' }).then(outcome);
     expect(noLabel.errorMessage).toContain('LABEL_REQUIRED');
-    const cafeTab = await appRpc(cashier, 'open_tab', { p_label: 'Ali' }).then(outcome);
-    expect(cafeTab.errorMessage).toContain('TAB_ANCHOR_REQUIRED');
+    // 0352: a café tab on a name alone is a counter tab (order first), not a shop sale.
+    const cafeTab = await appRpc(cashier, 'open_tab', { p_label: 'Ali' });
+    expect(cafeTab.error).toBeNull();
+    const cafeRow = await svc.from('tabs').select('kind').eq('id', (cafeTab.data as { tab_id: string }).tab_id).single();
+    expect(cafeRow.data).toMatchObject({ kind: 'cafe' });
     // 0244: the café cashier no longer rings up the shop.
     const cashierShop = await appRpc(cashier, 'open_tab', { p_kind: 'shop', p_label: 'Ali' }).then(outcome);
     expect(cashierShop.errorMessage).toContain('TAB_KIND_FORBIDDEN');

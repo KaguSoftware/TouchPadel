@@ -2066,6 +2066,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   options,
   size = 'md',
+  block = false,
   'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledBy,
   'aria-describedby': ariaDescribedBy,
@@ -2075,6 +2076,12 @@ export function SegmentedControl<T extends string>({
   /** `testId` lands on the segment's button as data-testid. */
   options: readonly { value: T; label: ReactNode; icon?: IconName; disabled?: boolean; testId?: string }[];
   size?: 'sm' | 'md';
+  /**
+   * The full width of its row, the segments shared equally, each at the touch
+   * floor: for a choice made by finger on every sale (the till's pick up or
+   * bring it, 0351), not one made once in a form.
+   */
+  block?: boolean;
   'aria-label'?: string;
   /** Field(group) names the group from its own label text rather than wrapping it. */
   'aria-labelledby'?: string;
@@ -2087,7 +2094,8 @@ export function SegmentedControl<T extends string>({
       aria-labelledby={ariaLabelledBy}
       aria-describedby={ariaDescribedBy}
       style={{
-        display: 'inline-flex',
+        display: block ? 'flex' : 'inline-flex',
+        inlineSize: block ? '100%' : undefined,
         background: 'var(--tp-surface-2)',
         border: '1px solid var(--tp-border)',
         borderRadius: 'var(--tp-radius-ctl)',
@@ -2108,6 +2116,10 @@ export function SegmentedControl<T extends string>({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
+              justifyContent: block ? 'center' : undefined,
+              flex: block ? '1 1 0' : undefined,
+              minInlineSize: block ? 0 : undefined,
+              minBlockSize: block ? 'var(--tp-touch)' : undefined,
               gap: '0.35rem',
               border: 'none',
               borderRadius: 'var(--tp-radius-sm)',
@@ -2128,8 +2140,10 @@ export function SegmentedControl<T extends string>({
             {/* The selected segment is bold, and bold is wider: each label is
                 laid out in a zero-height bold ghost so the group keeps one
                 width and nothing shifts as the selection moves. */}
-            <span style={{ display: 'grid' }}>
-              <span style={{ gridArea: '1 / 1' }}>{o.label}</span>
+            <span style={{ display: 'grid', minInlineSize: 0 }}>
+              <span style={{ gridArea: '1 / 1', overflow: block ? 'hidden' : undefined, textOverflow: block ? 'ellipsis' : undefined }}>
+                {o.label}
+              </span>
               <span aria-hidden="true" style={{ gridArea: '1 / 1', fontWeight: 700, visibility: 'hidden', blockSize: 0 }}>
                 {o.label}
               </span>

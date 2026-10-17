@@ -184,6 +184,8 @@ export interface KitchenTicket {
   /** The order envelope's idempotency key — the ticket's LAN identity. */
   ref: string;
   tabLabel: string | null;
+  /** 0351: absent from an older till's frame, which meant deliver. */
+  service?: 'deliver' | 'pickup';
   items: {
     variantId: string;
     qty: number;

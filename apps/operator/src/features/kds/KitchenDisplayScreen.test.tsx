@@ -15,7 +15,9 @@ function ticket(over: Partial<TicketView> = {}): TicketView {
     id: 't1',
     status: 'queued',
     source: 'web',
+    service: 'deliver',
     tag: { kind: 'table', number: '9' },
+    noSpot: false,
     createdAt: new Date(NOW - 60_000).toISOString(),
     ageSeconds: 60,
     targetSeconds: 600,
@@ -40,7 +42,8 @@ function renderScreen(over: Partial<KitchenDisplayScreenProps> = {}) {
         id: 't2',
         status: 'ready',
         source: 'till',
-        tag: { kind: 'court', guest: 'Ahmed' },
+        service: 'pickup',
+        tag: { kind: 'court', court: 'Court 2', guest: 'Ahmed' },
         ageSeconds: 700,
         ageState: 'late',
         items: [{ id: 'i3', qty: 1, name: 'Club sandwich', variant: null, modifiers: [], notes: null, ready: false }],
@@ -97,6 +100,12 @@ describe('KitchenDisplayScreen states', () => {
     expect(within(cards[1]!).getByText('Till')).toBeTruthy();
     expect(within(cards[1]!).getByText('Late')).toBeTruthy();
     expect(within(cards[1]!).getByText('Ahmed')).toBeTruthy();
+    // 0351: the court's name, and a pick-up order says so; a delivered one carries no mark.
+    expect(within(cards[1]!).getByText('Court 2')).toBeTruthy();
+    expect(within(cards[1]!).getByTestId('ticket-pickup').textContent).toBe('Pick up');
+    expect(cards[1]!.getAttribute('aria-label')).toMatch(/^Pick up · Court 2 · Ahmed/);
+    expect(within(cards[0]!).queryByTestId('ticket-pickup')).toBeNull();
+    expect(within(cards[0]!).queryByTestId('ticket-no-spot')).toBeNull();
     // Modifiers and notes are on the line; the checkbox is named by its line (e2e anchor).
     expect(screen.getByRole('checkbox', { name: /Espresso/ })).toBeTruthy();
     expect(within(cards[0]!).getByText('Extra shot')).toBeTruthy();

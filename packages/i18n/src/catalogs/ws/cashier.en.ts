@@ -40,7 +40,7 @@ export const cashierEn = {
     },
     rail: {
       title: 'Open tabs',
-      newTab: 'New tab',
+      newTab: 'New order',
       awaiting: 'Awaiting payment',
       // Not a connectivity verdict: an offline tab is one whose open has not
       // reached the server yet, whatever the connection is doing now.
@@ -62,6 +62,11 @@ export const cashierEn = {
       titleFor: 'Basket for',
       collapse: 'Hide the basket lines',
       expand: 'Show the basket lines',
+      // 0351: how this send reaches the guest. {spot} is "Table 4" or the court's name.
+      service: 'How it reaches the guest',
+      deliverTo: 'Bring to {spot}',
+      deliver: 'Bring it to them',
+      pickup: 'Pick up',
     },
     note: {
       title: 'Line note',
@@ -385,15 +390,28 @@ export const cashierEn = {
     fromBooking: 'Bound to booking',
     fromBookingHint: 'This tab is opened for the booking chosen on the desk; the court fee is added at settlement.',
     bookingMissing: 'That booking is not available to open a tab on (already has a tab, or not today).',
-    needAnchor: 'Pick a table, or choose a booking.',
-    nameHint: 'Shown on the tab instead of the table number.',
-    needTable: 'Pick a table.',
-    tableHasTab: 'This table already has an open tab.',
-    goToTab: 'Go to that tab',
+    // 0352: order first; the table is attached to each order afterwards.
+    orderTitle: 'New order',
+    start: 'Start order',
+    nameLabel: 'Name or number',
+    counterHint: 'Left empty, it takes the next counter number. Attach a table to each order from the tab, once the guest sits.',
     counterSale: 'Shop counter sale',
     counterSaleHint: 'For someone buying from the shop: no table or booking, just a name or a number.',
     counterNameHint: 'Shown on the tab and on the day close.',
     needLabel: 'Type a name or a number.',
+  },
+  // 0352: "Bring to…" on a sent order (order first, the table after).
+  delivery: {
+    title: 'Bring to…',
+    tabSeat: 'Where the tab sits: {spot}',
+    notYet: 'No table yet (choose later)',
+    tables: 'Tables',
+    courts: 'Courts tonight',
+    noTables: 'No active tables.',
+    noBookings: 'No live bookings tonight.',
+    rowNoSpot: 'Bring it: no table yet',
+    choose: 'Choose table',
+    change: 'Change',
   },
   shop: {
     scanUnknown: 'No product has the barcode {code}.',
@@ -437,12 +455,11 @@ export const cashierEn = {
       openTab: 'Open a tab',
     },
     spot: {
-      openTitle: 'Open a tab on {table}?',
       openBookingTitle: 'Open a tab for this booking?',
       chooseTitle: '{table} has more than one tab',
       chooseLead: 'Pick the tab to add to.',
-      another: 'Open another tab on this table',
-      name: 'Guest name',
+      // 0352: a free table opens nothing; the order starts at the counter.
+      orderFirst: 'Nothing is on {table} yet. Orders start at the counter: press New order, send it, then attach {table} to it with "Bring to…" on the tab.',
       tabN: 'Tab {n}',
       items: '{count} items',
       since: 'since {time}',

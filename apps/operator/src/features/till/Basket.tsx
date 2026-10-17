@@ -14,9 +14,9 @@ import type { CSSProperties } from 'react';
 import { formatIQD, formatNumber } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { Button, ErrorText } from '../../components/ui';
-import { Kbd } from '../../components/kit';
+import { Kbd, SegmentedControl } from '../../components/kit';
 import { Icon } from '../../components/icons';
-import { basketLineEstimate, type BasketLine } from './tillData';
+import { basketLineEstimate, type BasketLine, type OrderService } from './tillData';
 import { BASKET_LIST_OPEN, kvRow, muted, numeric, reservedStatusLine, sectionTitle } from './tillStyles';
 
 /** A − or + in a line's stepper: a compact square, little padding round the glyph. */
@@ -32,6 +32,9 @@ const stepBtn: CSSProperties = {
 export function Basket({
   lines,
   forLabel,
+  service,
+  serviceSpot,
+  onService,
   sending,
   error,
   canSend,
@@ -47,6 +50,11 @@ export function Basket({
   lines: readonly BasketLine[];
   /** The tab the basket will be sent to, or null when none is chosen. */
   forLabel?: string | null;
+  /** 0351: how this send reaches the guest; null with no tab chosen (the control stays, disabled). */
+  service: OrderService | null;
+  /** "Table 4" or the court's name, for "Bring to …"; null when the tab names no spot. */
+  serviceSpot: string | null;
+  onService: (service: OrderService) => void;
   sending: boolean;
   error: unknown;
   canSend: boolean;
@@ -312,6 +320,33 @@ export function Basket({
           it is the second-most-pressed control on the till and it must be in
           the same place at the start of a line as at the end of one. */}
       <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+        {/* 0351: pick up or bring it, chosen per send. Mounted from the first
+            paint like Send (BASKET_BLOCK_SIZE holds its row), so the choice is
+            always in the same place, right above the button it changes. */}
+        <SegmentedControl<OrderService>
+          block
+          aria-label={tr('ws.cashier.till.basket.service')}
+          value={service ?? 'deliver'}
+          onChange={onService}
+          options={[
+            {
+              value: 'deliver',
+              icon: 'arrowEnd',
+              label: serviceSpot
+                ? tr('ws.cashier.till.basket.deliverTo', { spot: serviceSpot })
+                : tr('ws.cashier.till.basket.deliver'),
+              disabled: service === null || sending,
+              testId: 'basket-service-deliver',
+            },
+            {
+              value: 'pickup',
+              icon: 'package',
+              label: tr('ws.cashier.till.basket.pickup'),
+              disabled: service === null || sending,
+              testId: 'basket-service-pickup',
+            },
+          ]}
+        />
         {/* An estimate from the cached menu; the server prices the ticket. One
             word says that — the two-line disclaimer under it said it at length
             on every sale. It reads as a row of its own above Send, which then

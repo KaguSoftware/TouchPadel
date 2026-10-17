@@ -168,7 +168,11 @@ describe.skipIf(!docker)('lock-order gate over the local stack (loyalty)', () =>
     expect(line('merge_accounts').trim().endsWith('loyalty_accounts')).toBe(true);
     // 0308 (c3, c17): the throttle key under the tab, the gift key before the account.
     const seq = (fn: string) => line(fn).trim().slice(fn.length).trim();
-    expect(seq('loyalty_redeem')).toBe('tabs -> loyalty_attempts_advisory -> loyalty_accounts');
+    // 0350: an item reward may order its item onto the tab first (a shop item takes its stock,
+    // as till_add_items does), still before the account.
+    expect(seq('loyalty_redeem')).toBe(
+      'tabs -> loyalty_attempts_advisory -> stock_batches -> loyalty_accounts',
+    );
     expect(seq('loyalty_identify')).toBe('loyalty_attempts_advisory');
     expect(seq('link_guest_session')).toBe('loyalty_attempts_advisory');
     expect(seq('loyalty_adjust')).toBe('loyalty_gift_advisory -> loyalty_accounts');

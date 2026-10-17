@@ -1007,6 +1007,20 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc',
     schema: 'app',
+    name: 'order_set_delivery',
+    args: { p_order_id: NIL_UUID, p_service: 'pickup' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      cashier: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: '0352: a nil order is ORDER_NOT_FOUND past the guard — no side effect',
+    drop: 2,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
     name: 'settle_tab',
     args: { p_tab_id: NIL_UUID, p_method: 'cash' },
     expect: CASHIER_DESK_UP,

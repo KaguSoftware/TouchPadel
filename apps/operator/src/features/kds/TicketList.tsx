@@ -178,7 +178,7 @@ function TagText({ ticket }: { ticket: TicketView }) {
   if (tag.kind === 'court') {
     return (
       <>
-        {tr('op.kds.court')}
+        {tag.court ? <bdi>{tag.court}</bdi> : tr('op.kds.court')}
         {tag.guest && (
           <>
             {' · '}
@@ -193,9 +193,58 @@ function TagText({ ticket }: { ticket: TicketView }) {
 
 function tagLabel(ticket: TicketView, tr: (k: MessageKey, p?: TParams) => string): string {
   const tag = ticket.tag;
-  if (tag.kind === 'table') return tr('op.kds.table', { table: tag.number });
-  if (tag.kind === 'court') return `${tr('op.kds.court')}${tag.guest ? ` · ${tag.guest}` : ''}`;
-  return tag.label ?? '—';
+  const where =
+    tag.kind === 'table'
+      ? tr('op.kds.table', { table: tag.number })
+      : tag.kind === 'court'
+        ? `${tag.court ?? tr('op.kds.court')}${tag.guest ? ` · ${tag.guest}` : ''}`
+        : (tag.label ?? '—');
+  if (ticket.service === 'pickup') return `${tr('op.kds.pickup')} · ${where}`;
+  return ticket.noSpot ? `${where} · ${tr('op.kds.noSpot')}` : where;
+}
+
+/**
+ * 0351: a pick-up order says so before anything else on the card, so whoever
+ * finishes it calls the guest to the counter instead of walking it out. A
+ * delivered order needs no mark: it is what every ticket has always meant.
+ */
+function PickupMark() {
+  const { tr } = useLocale();
+  return (
+    <span data-testid="ticket-pickup" style={markStyle}>
+      {tr('op.kds.pickup')}
+    </span>
+  );
+}
+
+const markStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  flexShrink: 0,
+  blockSize: 'var(--tp-row-h-dense)',
+  paddingInline: 'var(--tp-sp-2)',
+  borderRadius: 'var(--tp-radius-ctl)',
+  background: 'var(--tp-kds-on-fill)',
+  color: 'var(--tp-kds-fg)',
+  fontSize: 'var(--tp-fs-kds)',
+  fontWeight: 700,
+  textTransform: 'uppercase',
+};
+
+/**
+ * 0352: a counter order to be brought over whose table the cashier has not
+ * attached yet. Said on the card so it is finished and held, not walked out
+ * to nowhere; the board re-reads the moment a table is attached.
+ */
+function NoSpotMark() {
+  const { tr } = useLocale();
+  return (
+    // Outlined, not filled: it reads as "waiting on the till", where the
+    // filled PICK UP is an instruction.
+    <span data-testid="ticket-no-spot" style={{ ...markStyle, background: 'transparent', color: 'inherit', boxShadow: 'inset 0 0 0 2px var(--tp-kds-on-fill)' }}>
+      {tr('op.kds.noSpot')}
+    </span>
+  );
 }
 
 export const TicketCard = memo(function TicketCard({
@@ -325,6 +374,8 @@ export const TicketCard = memo(function TicketCard({
               {keyHint}
             </span>
           )}
+          {t.service === 'pickup' && <PickupMark />}
+          {t.noSpot && <NoSpotMark />}
           <span
             style={{
               fontSize: 'var(--tp-fs-kds-lg)',

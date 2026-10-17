@@ -78,7 +78,8 @@ type NewRole = (typeof NEW_ROLES)[number];
 // what this returned to a role that reads every table it embeds.
 const OLD_BOARD_SELECT = `id, status, target_seconds, created_at, completed_at, last_actor_label,
   order:orders (
-    id, source, status,
+    id, source, status, service,
+    deliver_table:cafe_tables!orders_deliver_table_id_fkey ( table_number ),
     tab:tabs!orders_tab_id_fkey ( id, label, table:cafe_tables ( table_number ),
                reservation:reservations!tabs_reservation_id_fkey ( id, guest_name ) ),
     order_items (
@@ -126,11 +127,15 @@ interface BoardTicket {
     id: string;
     source: string;
     status: string;
+    service: 'deliver' | 'pickup';
+    deliver_table: { table_number: string } | null;
+    deliver_court: { name_en: string; name_ar: string } | null;
     tab: {
       id: string;
       label: string | null;
       table: { table_number: string } | null;
       reservation: { id: string; guest_name: string | null } | null;
+      court: { name_en: string; name_ar: string } | null;
     } | null;
     order_items: BoardLine[];
   } | null;
@@ -176,6 +181,7 @@ describe.skipIf(!up)('kitchen_board_read: app.kitchen_board', () => {
   // A court tab's ticket, for the booking rule.
   let courtTicketId: string;
   let reservationId: string;
+  let courtName: string;
   // Completed a minute, three minutes and a week ago.
   let doneMinuteAgo: string;
   let doneThreeMinutesAgo: string;
@@ -293,7 +299,8 @@ describe.skipIf(!up)('kitchen_board_read: app.kitchen_board', () => {
 
     // A court tab: its own court, so the booking meets no other on the
     // exclusion constraint.
-    const courtId = await createTestCourt(svc, `Kitchen Board ${Date.now()}`);
+    courtName = `Kitchen Board ${Date.now()}`;
+    const courtId = await createTestCourt(svc, courtName);
     const start = new Date(Date.now() + 60 * 86_400_000);
     start.setUTCHours(12, 0, 0, 0);
     const booking = await svc
@@ -416,7 +423,12 @@ describe.skipIf(!up)('kitchen_board_read: app.kitchen_board', () => {
     for (const id of [ticketId, courtTicketId]) {
       const old = await owner.from('tickets').select(OLD_BOARD_SELECT).eq('id', id).single();
       expect(old.error).toBeNull();
-      expect(tickets.find((t) => t.id === id), `ticket ${id}`).toEqual(old.data);
+      // 0351's tab.court and 0352's deliver_court have no column to embed: they
+      // are checked on their own (below, and counter-orders.test.ts).
+      const found = tickets.find((t) => t.id === id);
+      const { court: _court, ...tab } = found?.order?.tab ?? { court: null };
+      const { deliver_court: _deliverCourt, ...order } = found?.order ?? { deliver_court: null };
+      expect(found && { ...found, order: { ...order, tab } }, `ticket ${id}`).toEqual(old.data);
     }
   });
 
@@ -453,6 +465,87 @@ describe.skipIf(!up)('kitchen_board_read: app.kitchen_board', () => {
         : null;
       expect(court!.order?.tab?.reservation, `${role} booking`).toEqual(expected);
     }
+  });
+
+  describe('order service (0351)', () => {
+    async function openOn(anchor: Record<string, unknown>): Promise<string> {
+      const tab = await appRpc(cashier, 'open_tab', { ...anchor, p_idempotency_key: testIdemKey('tab.open') });
+      if (tab.error) throw new Error(tab.error.message);
+      return (tab.data as { tab_id: string }).tab_id;
+    }
+    async function send(tab: string, service?: string) {
+      return appRpc(cashier, 'till_add_items', {
+        p_tab_id: tab,
+        p_items: [{ variant_id: item.variantId, qty: 1 }],
+        p_idempotency_key: testIdemKey('order.add_items'),
+        ...(service === undefined ? {} : { p_service: service }),
+      });
+    }
+    /** A tab with no table and no booking. open_tab no longer opens one (TAB_ANCHOR_REQUIRED), but older rows exist. */
+    async function anchorless(): Promise<string> {
+      const day = await svc.from('day_sessions').select('id').eq('venue_id', VENUE_A_ID).eq('status', 'open').single();
+      if (day.error) throw new Error(day.error.message);
+      const tab = await svc
+        .from('tabs')
+        .insert({ venue_id: VENUE_A_ID, day_session_id: (day.data as { id: string }).id, label: `kb-named-${Date.now()}` })
+        .select('id')
+        .single();
+      if (tab.error) throw new Error(tab.error.message);
+      return (tab.data as { id: string }).id;
+    }
+    async function serviceOf(orderId: string): Promise<string> {
+      const r = await svc.from('orders').select('service').eq('id', orderId).single();
+      if (r.error) throw new Error(r.error.message);
+      return (r.data as { service: string }).service;
+    }
+
+    it('left out, the tab decides: deliver on a table or booking, pickup on a tab with neither', async () => {
+      expect(await serviceOf(orderId), 'table').toBe('deliver');
+      const court = (await boardOf(owner, 'owner')).find((t) => t.id === courtTicketId);
+      expect(court?.order?.service, 'booking').toBe('deliver');
+      const named = await send(await anchorless());
+      expect(named.error).toBeNull();
+      expect((named.data as { service: string }).service).toBe('pickup');
+      expect(await serviceOf((named.data as { order_id: string }).order_id)).toBe('pickup');
+    });
+
+    it('takes the till’s choice either way, and the board shows it to every role', async () => {
+      const onTable = await send(await openOn({ p_table_id: await createTestCafeTable(svc, 'kb-pickup') }), 'pickup');
+      expect(onTable.error).toBeNull();
+      const named = await send(await anchorless(), 'deliver');
+      expect(named.error).toBeNull();
+      expect(await serviceOf((named.data as { order_id: string }).order_id)).toBe('deliver');
+      const pickupTicket = (onTable.data as { ticket_id: string }).ticket_id;
+      for (const [role, c] of board) {
+        const t = (await boardOf(c, role)).find((x) => x.id === pickupTicket);
+        expect(t?.order?.service, `${role} sees pickup`).toBe('pickup');
+      }
+    });
+
+    it('a duplicate key returns the first call’s service', async () => {
+      const tab = await openOn({ p_table_id: await createTestCafeTable(svc, 'kb-dup') });
+      const key = testIdemKey('order.add_items');
+      const args = { p_tab_id: tab, p_items: [{ variant_id: item.variantId, qty: 1 }], p_idempotency_key: key };
+      const first = await appRpc(cashier, 'till_add_items', { ...args, p_service: 'pickup' });
+      expect(first.error).toBeNull();
+      const again = await appRpc(cashier, 'till_add_items', { ...args, p_service: 'deliver' });
+      expect(again.data).toMatchObject({ duplicate: true, service: 'pickup' });
+    });
+
+    it('refuses anything but deliver or pickup', async () => {
+      const res = await send(tabId, 'drone');
+      expect(res.error?.message).toBe('INVALID_ARGUMENT');
+      expect(res.error?.hint).toBe('service');
+    });
+
+    it('names the booking’s court for every board role, the guest only for the till and MGMT', async () => {
+      for (const [role, c] of board) {
+        const t = (await boardOf(c, role)).find((x) => x.id === courtTicketId);
+        expect(t?.order?.tab?.court, `${role} court`).toEqual({ name_en: courtName, name_ar: `ملعب اختبار ${courtName}` });
+      }
+      const onTable = (await boardOf(prep, 'prep')).find((t) => t.id === ticketId);
+      expect(onTable?.order?.tab?.court, 'a table tab has no court').toBeNull();
+    });
   });
 
   it('keeps a completed ticket for two minutes and not a moment of history more', async () => {

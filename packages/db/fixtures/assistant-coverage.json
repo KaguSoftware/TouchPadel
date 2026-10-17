@@ -854,6 +854,7 @@
     "order_is_callers": "map:action",
     "order_is_shop": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "order_item_bom": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "order_set_delivery": "map:action",
     "other_active_owners": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "override_price": "map:action",
     "panel_headline": "tool:panel_headline",

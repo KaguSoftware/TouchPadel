@@ -27,6 +27,8 @@ export interface LanTicket {
   ref: string;
   /** Human anchor the till composes (table number / label) — display only. */
   tabLabel: string | null;
+  /** 0351: the till's choice; absent from a frame of an older till (deliver). */
+  service?: 'deliver' | 'pickup';
   items: LanTicketItem[];
   createdAt: string;
   status: 'queued' | 'preparing' | 'ready' | 'completed';

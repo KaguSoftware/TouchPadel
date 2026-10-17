@@ -869,7 +869,12 @@ function RewardsDialog({
     try {
       const res = await redeemReward(tabId, r.id, key, await proof.prove());
       proof.settle(null);
-      onDone(tr(`${K}.rewards.done`, { amount: formatIQD(Number(res.amount_iqd), locale) }));
+      const name = locale === 'ar' ? r.name_ar : r.name_en;
+      onDone(
+        r.kind === 'item'
+          ? tr(`${K}.rewards.${res.item_added ? 'doneItemAdded' : 'doneItem'}`, { name })
+          : tr(`${K}.rewards.done`, { amount: formatIQD(Number(res.amount_iqd), locale) }),
+      );
     } catch (e) {
       proof.settle(e);
       setError(e);

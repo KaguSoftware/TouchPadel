@@ -1,5 +1,6 @@
 /**
- * New tab dialog — table / by-name / booking anchor (app.open_tab). Also the
+ * New order dialog — a counter tab, or a booking's bill (app.open_tab; order
+ * first since 0352, the table attached to each order after). Also the
  * home of the reservation picker that 06.17 (charge to booking) reuses.
  *
  * Offline: a queued tab.open becomes a local tab whose identity is the
@@ -11,13 +12,13 @@ import { formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
 import { LOCAL_TAB_PREFIX, addOfflineTab } from '../../lib/offlineTabs';
-import { QK, fetchActiveCafeTables, fetchVenueSettings } from '../../lib/queries';
+import { QK, fetchVenueSettings } from '../../lib/queries';
 import { tonightScope } from '../desk/useTradingNight';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useAuth } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../components/ui';
 import { MessagePresenter, SearchField } from '../../components/kit';
-import { bookingTakesNewTab, canReadBookings, type TabListRow } from './tillData';
+import { bookingTakesNewTab, canReadBookings } from './tillData';
 import { isMatchLiteral } from '../matches/matchLogic';
 import { isLessonLiteral } from '../coaching/lessonLogic';
 import { muted, reasonedFooter, touchTarget } from './tillStyles';
@@ -177,17 +178,11 @@ export function NewTabDialog({
   onClose,
   onOpened,
   initialReservationId,
-  openTabs = [],
-  onPickExisting,
 }: {
   onClose: () => void;
   onOpened: (tabId: string) => void;
   /** `/till?reservation=<id>` — pre-bind the tab to that booking. */
   initialReservationId?: string;
-  /** The floor's open tabs, so a table that already has one can say so. */
-  openTabs?: readonly Pick<TabListRow, 'id' | 'table'>[];
-  /** Go to a table's existing tab instead of opening a second one. */
-  onPickExisting?: (tabId: string) => void;
 }) {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
@@ -195,37 +190,28 @@ export function NewTabDialog({
   // that only ever held "No booking". Shown when it can hold something, or
   // when the desk already chose the booking.
   const showBookings = canReadBookings(staff) || Boolean(initialReservationId);
-  const [tableId, setTableId] = useState('');
   const [label, setLabel] = useState('');
   const [reservationId, setReservationId] = useState(initialReservationId ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  // ACTIVE tables only (QK.activeCafeTables is separate from the QR admin's all-rows key).
-  const tablesQ = useQuery({ queryKey: QK.activeCafeTables, queryFn: fetchActiveCafeTables });
   const reservationsQ = useTodaysOpenReservations(canReadBookings(staff) || Boolean(initialReservationId));
   const reservations = reservationsQ.data ?? [];
   const preboundMissing =
     Boolean(initialReservationId) && reservationsQ.isSuccess && !reservations.some((r) => r.id === initialReservationId);
 
-  // Whitespace is not an anchor. Untrimmed, a single space in "By name" both
-  // satisfied the anchor gate here and passed app.open_tab's
-  // TAB_ANCHOR_REQUIRED check (`p_label is null`), opening a tab the board can
-  // only render as a blank row.
+  // Whitespace is not a name: the server would number it like an empty one.
   const trimmedLabel = label.trim();
 
   async function submit() {
     setBusy(true);
     setError(null);
     try {
-      // Touch Shop sells at its own desk (0244): a café tab always sits at a
-      // table or on a booking.
-      onOpened(
-        await openTabOn(
-          { tableId: tableId || undefined, label: trimmedLabel || undefined, reservationId: reservationId || undefined },
-          tableId ? ((tablesQ.data ?? []).find((t) => t.id === tableId)?.table_number ?? null) : null,
-        ),
-      );
+      /* Order first (0352): a café order starts at the counter with no table.
+         Where each order goes is attached to that order afterwards, from the
+         tab ("Bring to…"), whenever the guest sits; a booking is still a bill
+         of its own (the court fee joins it at settlement). */
+      onOpened(await openTabOn({ label: trimmedLabel || undefined, reservationId: reservationId || undefined }, null));
     } catch (e) {
       setError(e);
     } finally {
@@ -234,46 +220,18 @@ export function NewTabDialog({
   }
 
   const bound = reservations.find((r) => r.id === reservationId);
-  /*
-   * A tab is anchored to a SEAT: a table, or a booking (which carries its own
-   * court). A name on its own is not an anchor — it used to be, and a tab with
-   * nothing but a name cannot be found by anyone who was not standing at the
-   * till when it was opened. The name stays as the tab's display label, which
-   * is the job it was actually doing. Mirrored by app.open_tab (0084).
-   */
-  const anchored = Boolean(tableId || reservationId);
-  const chosenTable = (tablesQ.data ?? []).find((t) => t.id === tableId);
-  // Two tabs on one table split its bill in a way nobody asked for; the usual
-  // intent is "add to the table's tab". Said, not blocked — a second party at
-  // a shared table is real.
-  const existing = chosenTable ? openTabs.find((t) => t.table?.table_number === chosenTable.table_number) : undefined;
 
   return (
     <Modal
-      title={tr('op.till.newTab')}
+      title={tr('ws.cashier.newTab.orderTitle')}
       onClose={onClose}
       footer={(close) => (
-        // Reserved height: the reason line below "Open tab" appears and clears
-        // as the cashier picks an anchor, and the button it explains must not
-        // travel while they are reaching for it.
         <div style={reasonedFooter}>
           <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
-          <Button
-            kind="primary"
-            busy={busy}
-            disabled={!anchored}
-            disabledReason={
-              anchored
-                ? undefined
-                : showBookings
-                  ? tr('ws.cashier.newTab.needAnchor')
-                  : tr('ws.cashier.newTab.needTable')
-            }
-            onClick={() => void submit()}
-          >
-            {tr('op.till.openTabBtn')}
+          <Button kind="primary" busy={busy} onClick={() => void submit()}>
+            {tr('ws.cashier.newTab.start')}
           </Button>
         </div>
       )}
@@ -295,35 +253,17 @@ export function NewTabDialog({
       {preboundMissing && (
         <MessagePresenter tone="refused" style={{ marginBlockEnd: 'var(--tp-sp-3)' }} message={tr('ws.cashier.newTab.bookingMissing')} />
       )}
-      <Field label={tr('op.till.table')} required={!reservationId}>
-        <Select
-          value={tableId}
-          onChange={setTableId}
-          options={[
-            { value: '', label: tr('op.till.chooseTable') },
-            ...(tablesQ.data ?? []).map((t) => ({ value: t.id, label: String(t.table_number) })),
-          ]}
+      <Field label={tr('ws.cashier.newTab.nameLabel')} optional hint={tr('ws.cashier.newTab.counterHint')}>
+        <input
+          style={inputStyle}
+          value={label}
+          maxLength={60}
+          autoFocus
+          onChange={(e) => setLabel(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !busy) void submit();
+          }}
         />
-      </Field>
-      {existing && (
-        <MessagePresenter
-          tone="info"
-          icon="receipt"
-          style={{ marginBlock: 'calc(-1 * var(--tp-sp-1)) var(--tp-sp-3)' }}
-          message={
-            <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-              {tr('ws.cashier.newTab.tableHasTab')}
-              {onPickExisting && (
-                <Button size="sm" iconEnd="arrowUpRight" onClick={() => onPickExisting(existing.id)}>
-                  {tr('ws.cashier.newTab.goToTab')}
-                </Button>
-              )}
-            </span>
-          }
-        />
-      )}
-      <Field label={tr('op.till.byName')} optional hint={tr('ws.cashier.newTab.nameHint')}>
-        <input style={inputStyle} value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} />
       </Field>
       {showBookings && (
         <Field label={tr('op.till.reservationLabel')} optional>

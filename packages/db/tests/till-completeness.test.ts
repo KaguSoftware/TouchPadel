@@ -414,23 +414,24 @@ describe.skipIf(!up)('0053 till completeness', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Tab anchor (0084)
+  // Tab anchor (0084), lifted for the counter tab (0352: order first, the
+  // table attached to each order after; counter-orders.test.ts).
   // -------------------------------------------------------------------------
-  describe('app.open_tab requires a seat', () => {
-    it('refuses a tab carrying nothing but a name', async () => {
-      const res = await appRpc(cashier, 'open_tab', {
-        p_label: `nameless-${Date.now()}`,
-        p_idempotency_key: testIdemKey('tab.open'),
-      });
-      expect(res.error?.message).toBe('TAB_ANCHOR_REQUIRED');
+  describe('app.open_tab labels', () => {
+    it('opens a counter tab on a name alone (0352)', async () => {
+      const label = `nameless-${Date.now()}`;
+      const res = await appRpc(cashier, 'open_tab', { p_label: label, p_idempotency_key: testIdemKey('tab.open') });
+      expect(res.error).toBeNull();
+      expect(res.data).toMatchObject({ label });
     });
 
-    it('refuses whitespace as a label, which used to pass the null check', async () => {
+    it('numbers a counter tab whose label is whitespace, rather than storing spaces', async () => {
       const res = await appRpc(cashier, 'open_tab', {
         p_label: '   ',
         p_idempotency_key: testIdemKey('tab.open'),
       });
-      expect(res.error?.message).toBe('TAB_ANCHOR_REQUIRED');
+      expect(res.error).toBeNull();
+      expect((res.data as { label: string }).label).toMatch(/^#\d+$/);
     });
 
     it('stores a blank label as NULL rather than as spaces', async () => {

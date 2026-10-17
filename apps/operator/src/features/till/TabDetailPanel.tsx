@@ -65,7 +65,8 @@ import { MergeTabsDialog, OverridePriceDialog, RefundDialog } from './ManagerAct
 import { SplitBillDialog } from './SplitBillDialog';
 import { ChargeToBookingDialog } from './ChargeToBookingDialog';
 import { PaymentPane, type PaymentMethod, type SettleResult } from './PaymentPane';
-import { canReadBookings, tabDetailQuery, tabAnchorLabel, tabHasWebOrder, type TabLineRow } from './tillData';
+import { canReadBookings, orderDelivery, tabDetailQuery, tabAnchorLabel, tabHasWebOrder, type OrderDelivery, type TabLineRow } from './tillData';
+import { DeliveryDialog } from './DeliveryDialog';
 import { actionButton, kvRow, muted, numeric, sectionTitle } from './tillStyles';
 import { DRAWER_REASONS } from './drawerReasons';
 import { useTillShiftOptional } from '../tillShift/shiftContext';
@@ -116,6 +117,8 @@ export function TabDetailPanel({
   const bookingsVisible = canReadBookings(staff);
   const [promoOpen, setPromoOpen] = useState(false);
   const [openLineId, setOpenLineId] = useState<string | null>(null);
+  /** 0352: the sent order whose "Bring to…" dialog is open. */
+  const [deliveryOrderId, setDeliveryOrderId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const [overlay, setOverlay] = useState<Overlay>({ kind: 'none' });
   const [discountKind, setDiscountKind] = useState<'discount_percent' | 'discount_amount'>('discount_percent');
@@ -449,6 +452,7 @@ export function TabDetailPanel({
   const voidedLines = allLines.filter((l) => l.voided);
   const partiallyPaid = !settled && !courtPending && totals.paid > 0 && due > 0;
   const overrideLine = overlay.kind === 'override' ? allLines.find((l) => l.id === overlay.lineId) : undefined;
+  const deliveryOrder = deliveryOrderId ? liveOrders.find((o) => o.id === deliveryOrderId) : undefined;
   const web = tabHasWebOrder(tab);
 
   // Rulebook 4.3 — no dead ends. Only STATE gets a reason here: `busy` is
@@ -529,8 +533,15 @@ export function TabDetailPanel({
             const active = o.order_items.filter((l) => !l.voided);
             if (active.length === 0) return null;
             return (
-            // Cards need air between them; 2px was spacing for bare text rows.
-            <ul key={o.id} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            <div key={o.id} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            {/* 0352: how this order reaches the guest, changeable while it is live. */}
+            <OrderDeliveryRow
+              delivery={orderDelivery(o, tab, tr('op.till.table'), (c) => pickName(locale, c), tr('op.kds.court'))}
+              editable={!settled && ['sent', 'preparing', 'ready'].includes(o.status)}
+              onEdit={() => setDeliveryOrderId(o.id)}
+            />
+            {/* Cards need air between them; 2px was spacing for bare text rows. */}
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
               {active.map((line) => (
                 <TabLine
                   key={line.id}
@@ -549,6 +560,7 @@ export function TabDetailPanel({
                 />
               ))}
             </ul>
+            </div>
             );
           })}
           {voidRefused && <MessagePresenter tone="refused" message={tr('ws.cashier.detail.voidRefused')} />}
@@ -1004,7 +1016,59 @@ export function TabDetailPanel({
           <MessagePresenter tone="refused" icon="alert" message={tr('ws.cashier.detail.voidConsequence')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
         </PinReasonModal>
       )}
+      {deliveryOrder && (
+        <DeliveryDialog
+          order={deliveryOrder}
+          tabId={tabId}
+          seatLabel={tab.table ? `${tr('op.till.table')} ${tab.table.table_number}` : tab.reservation ? (courtName ?? tr('op.kds.court')) : null}
+          onClose={() => setDeliveryOrderId(null)}
+        />
+      )}
     </section>
+  );
+}
+
+/**
+ * 0352: one sent order's "Bring to…" line. A counter order to be brought over
+ * with no table yet is the one that needs the cashier, so it alone is tinted
+ * and its button says what to do; the rest say where it goes and offer Change.
+ */
+function OrderDeliveryRow({ delivery, editable, onEdit }: { delivery: OrderDelivery; editable: boolean; onEdit: () => void }) {
+  const { tr } = useLocale();
+  const waiting = delivery.kind === 'noSpot';
+  return (
+    <div
+      data-testid="order-delivery"
+      data-kind={delivery.kind}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 'var(--tp-sp-2)',
+        minBlockSize: 'var(--tp-row-h-dense)',
+        paddingInline: waiting ? 'var(--tp-sp-2)' : 0,
+        borderRadius: 'var(--tp-radius-ctl)',
+        background: waiting ? 'var(--tp-warn-soft)' : undefined,
+        color: waiting ? 'var(--tp-warn-fg)' : undefined,
+        fontSize: 'var(--tp-fs-sm)',
+      }}
+    >
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', minInlineSize: 0, ...(waiting ? {} : muted) }}>
+        <Icon name={delivery.kind === 'pickup' ? 'package' : 'arrowEnd'} size={13} />
+        <bdi style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {delivery.kind === 'pickup'
+            ? tr('ws.cashier.till.basket.pickup')
+            : delivery.kind === 'deliver'
+              ? tr('ws.cashier.till.basket.deliverTo', { spot: delivery.spot })
+              : tr('ws.cashier.delivery.rowNoSpot')}
+        </bdi>
+      </span>
+      {editable && (
+        <Button size="sm" kind={waiting ? 'primary' : 'ghost'} onClick={onEdit} data-testid="order-delivery-edit">
+          {waiting ? tr('ws.cashier.delivery.choose') : tr('ws.cashier.delivery.change')}
+        </Button>
+      )}
+    </div>
   );
 }
 

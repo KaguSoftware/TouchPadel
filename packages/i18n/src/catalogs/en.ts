@@ -1548,6 +1548,10 @@ export const en = {
       empty: 'No open tickets — all caught up.',
       table: 'Table {table}',
       court: 'Court',
+      // 0351: the guest collects it at the counter; a runner brings every other order.
+      pickup: 'Pick up',
+      // 0352: a counter order to be brought over, before the cashier attached its table.
+      noSpot: 'No table yet',
       sourceGuest: 'QR',
       sourceTill: 'Till',
       start: 'Start',
@@ -2274,6 +2278,8 @@ export const en = {
       CAFE_CLOSED: 'The cafe day is not open.',
       TICKET_NOT_FOUND: 'Ticket not found.',
       ITEM_NOT_FOUND: 'Item not found.',
+      // 0352: also an order already served or voided.
+      ORDER_NOT_FOUND: 'That order is no longer live: it was served or voided.',
       ITEM_VOIDED: 'This line is already voided.',
       INVALID_DURATION: 'That duration is not offered on this court.',
       SLOT_IN_PAST: 'That slot is in the past.',

@@ -298,6 +298,11 @@ export const orderAddItemsPayloadSchema = z
      * fallback, which knows nothing of the menu, not to show a racket to the kitchen.
      */
     shop: z.literal(true).optional(),
+    /**
+     * 0351: brought to the tab's table or court, or picked up at the counter.
+     * Left out, the server decides from the tab (a spot: deliver; none: pickup).
+     */
+    service: z.enum(['deliver', 'pickup']).optional(),
     // NOTE: no price fields — unit_price_iqd / line_total_iqd are DB snapshots at send time.
   })
   .strict()

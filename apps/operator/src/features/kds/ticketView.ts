@@ -20,10 +20,13 @@ export const BOARD_REFETCH_MS = 30_000;
 export type TicketStatus = 'queued' | 'preparing' | 'ready' | 'completed';
 export type TicketAction = 'preparing' | 'ready' | 'completed';
 export type TicketSource = 'web' | 'till';
+/** 0351: brought to the tab's table or court, or collected at the counter. */
+export type TicketService = 'deliver' | 'pickup';
 
 export type TicketTag =
   | { kind: 'table'; number: string }
-  | { kind: 'court'; guest: string | null }
+  /** `court` is the court's name (0351, every board role); `guest` only for the till and MGMT. */
+  | { kind: 'court'; court: string | null; guest: string | null }
   | { kind: 'label'; label: string | null };
 
 export interface TicketItemView {
@@ -41,7 +44,10 @@ export interface TicketView {
   id: string;
   status: TicketStatus;
   source: TicketSource;
+  service: TicketService;
   tag: TicketTag;
+  /** 0352: brought to the guest, but no table attached yet (a counter order). */
+  noSpot: boolean;
   createdAt: string;
   ageSeconds: number;
   targetSeconds: number;
@@ -76,11 +82,18 @@ export interface TicketRow {
     id: string;
     source: 'guest_web' | 'till';
     status: string;
+    /** 0351; absent from a row read before the migration reached the server. */
+    service?: TicketService;
+    /** 0352: the table or court attached to THIS order, after it was placed. */
+    deliver_table?: { table_number: string } | null;
+    deliver_court?: { name_en: string; name_ar: string } | null;
     tab: {
       id: string;
       label: string | null;
       table: { table_number: string } | null;
       reservation: { id: string; guest_name: string | null } | null;
+      /** 0351: the booking's court, for every board role. */
+      court?: { name_en: string; name_ar: string } | null;
     } | null;
     order_items: {
       id: string;
@@ -98,12 +111,34 @@ export interface TicketRow {
   } | null;
 }
 
-/** Where the ticket goes: a table number, a court (with the guest), or a named tab. */
-export function ticketTag(row: TicketRow): TicketTag {
-  const tab = row.order?.tab;
+/**
+ * Where the ticket goes: the table or court attached to the order (0352),
+ * else the tab's own table, its booking's court (with the guest), or its name.
+ */
+export function ticketTag(row: TicketRow, locale: Locale): TicketTag {
+  const order = row.order;
+  if (order?.service !== 'pickup') {
+    if (order?.deliver_table) return { kind: 'table', number: order.deliver_table.table_number };
+    if (order?.deliver_court) return { kind: 'court', court: pickName(locale, order.deliver_court), guest: null };
+  }
+  const tab = order?.tab;
   if (tab?.table) return { kind: 'table', number: tab.table.table_number };
-  if (tab?.reservation) return { kind: 'court', guest: tab.reservation.guest_name };
+  if (tab?.court || tab?.reservation) {
+    return {
+      kind: 'court',
+      court: tab.court ? pickName(locale, tab.court) : null,
+      guest: tab.reservation?.guest_name ?? null,
+    };
+  }
   return { kind: 'label', label: tab?.label ?? null };
+}
+
+/** 0352: a bring-it order with nowhere to bring it yet: no spot on the order, none on its tab. */
+export function ticketNoSpot(row: TicketRow): boolean {
+  const order = row.order;
+  if (!order || (order.service ?? 'deliver') !== 'deliver') return false;
+  if (order.deliver_table || order.deliver_court) return false;
+  return !order.tab?.table && !order.tab?.court && !order.tab?.reservation;
 }
 
 export function ticketViewFromRow(
@@ -131,7 +166,9 @@ export function ticketViewFromRow(
     // 'voided' rows are filtered out before they reach the board.
     status: row.status === 'voided' ? 'completed' : row.status,
     source: row.order?.source === 'guest_web' ? 'web' : 'till',
-    tag: ticketTag(row),
+    service: row.order?.service ?? 'deliver',
+    tag: ticketTag(row, locale),
+    noSpot: ticketNoSpot(row),
     createdAt: row.created_at,
     ageSeconds,
     targetSeconds: row.target_seconds,

@@ -108,6 +108,27 @@ describe('placeCafe', () => {
     expect(at('T7').tabs[0]).toMatchObject({ offline: true, offlineState: 'failed' });
   });
 
+  it('puts a counter tab at each table its orders are brought to, once, and nowhere for a pick up (0352)', () => {
+    const line = { line_total_iqd: 1, voided: false, menu_item: null };
+    const counter = tab('c', null, {
+      label: '#3',
+      orders: [
+        { source: 'till', status: 'sent', deliver_table: { table_number: 'T2' }, order_items: [line] },
+        { source: 'till', status: 'served', deliver_table: { table_number: 'T2' }, order_items: [line] },
+        { source: 'till', status: 'sent', deliver_table: { table_number: 'T3' }, order_items: [line] },
+        { source: 'till', status: 'voided', deliver_table: { table_number: 'T4' }, order_items: [line] },
+      ],
+    });
+    const pickup = tab('p', null, { label: 'Ali', orders: [{ source: 'till', status: 'sent', deliver_table: null, order_items: [line] }] });
+    const spots = placeCafe(tables, [counter, pickup], []);
+    const at = (n: string) => spots.find((s) => s.table.table_number === n)!;
+    expect(at('T2').tabs.map((t) => t.id)).toEqual(['c']);
+    expect(at('T3').tabs.map((t) => t.id)).toEqual(['c']);
+    expect(at('T4').tabs).toEqual([]);
+    expect(spots.some((s) => s.tabs.some((t) => t.id === 'p'))).toBe(false);
+    expect(otherOpenTabs([counter, pickup], [], spots, [])).toEqual(['p']);
+  });
+
   it('marks a table calling only while a call on it is raised', () => {
     const spots = placeCafe(tables, [], [], [
       { status: 'raised', table: { table_number: 'T7' } },
