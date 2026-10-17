@@ -35,6 +35,7 @@ import { callPhone } from '../../src/lib/phone';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { space, useTheme } from '../../src/theme';
 import { Button, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
+import { AccountButton } from '../../src/components/AccountButton';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { MatchNotice } from '../../src/components/match';
 import { BrandPattern } from '../../src/components/BrandPattern';
@@ -421,8 +422,19 @@ export default function CoachesScreen() {
           </Animated.ScrollView>
         </View>
         <PinnedTitle onHeight={setTitleH}>
-          <View style={{ paddingTop: safeTop + TAB_TITLE_TOP, paddingHorizontal: gutter }}>
-            <Title>{t('coaching.guest.coaches.title')}</Title>
+          <View
+            style={{
+              paddingTop: safeTop + TAB_TITLE_TOP,
+              paddingHorizontal: gutter,
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              gap: space.sm,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Title>{t('coaching.guest.coaches.title')}</Title>
+            </View>
+            <AccountButton testID="coaches.account" />
           </View>
         </PinnedTitle>
       </View>

@@ -52,7 +52,7 @@ import { guestWindow } from '../features/matches/logic';
 import ReviewScreen from '../../app/review';
 import LessonReviewScreen from '../../app/(coaching)/lesson-review';
 import PlayScreen from '../../app/(tabs)/play';
-import ProfileScreen from '../../app/(tabs)/profile';
+import ProfileScreen from '../../app/profile';
 import BookingsScreen from '../../app/(tabs)/bookings';
 import TicketsScreen from '../../app/tickets';
 import PayStatusScreen from '../../app/pay/status';

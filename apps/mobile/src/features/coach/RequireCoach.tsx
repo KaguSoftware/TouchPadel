@@ -50,7 +50,7 @@ export function RequireCoach({
     case 'redirect-statements':
       return <Redirect href="/coach-mode-statements" />;
     case 'redirect-home':
-      return <Redirect href="/(tabs)/profile" />;
+      return <Redirect href="/profile" />;
     case 'error':
       return (
         <Screen edges={[]}>

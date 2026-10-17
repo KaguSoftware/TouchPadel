@@ -201,6 +201,7 @@ const testIdElements = [
   'AppleButton',
   'SocialSignInBlock',
   'MenuRow',
+  'AccountButton',
   'FilterChip',
   'DayChip',
   'SlotCell',

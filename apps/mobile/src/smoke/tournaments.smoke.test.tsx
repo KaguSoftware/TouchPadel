@@ -37,7 +37,7 @@ import { tournamentKeys } from '../features/tournaments/keys';
 import { parseTournamentPublic } from '../features/tournaments/logic';
 import TournamentsLayout from '../../app/(tournaments)/_layout';
 import TournamentDetailScreen from '../../app/(tournaments)/tournament/[id]';
-import ProfileScreen from '../../app/(tabs)/profile';
+import ProfileScreen from '../../app/profile';
 
 type Seeds = [readonly unknown[], unknown][];
 

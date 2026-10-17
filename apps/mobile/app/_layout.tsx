@@ -295,6 +295,9 @@ function RootStack() {
           <Stack.Screen name="sign-in" />
           <Stack.Screen name="sign-up" />
           <Stack.Screen name="forgot-password" />
+          {/* The account page (2026-10-17): no longer a tab, opened by the avatar on
+              every tab's title row (components/AccountButton.tsx). */}
+          <Stack.Screen name="profile" />
           <Stack.Screen name="settings" />
           <Stack.Screen name="profile-edit" />
           <Stack.Screen name="change-password" />
@@ -359,6 +362,8 @@ function RootStack() {
           with the native back item, each with its own RequireSession. */}
           <Stack.Screen name="loyalty" />
           <Stack.Screen name="member-card" />
+          {/* The view-only café menu, opened from the account page. */}
+          <Stack.Screen name="cafe-menu" />
           {/* The staff pages Today opens: a stack of their own with their own
           native bar, so the bar and its back button leave with the page on the
           way back to Today (app/(staff)/_layout.tsx, src/navigation/groupStack.tsx). */}

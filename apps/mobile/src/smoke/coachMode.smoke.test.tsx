@@ -51,7 +51,7 @@ import CoachModeNew from '../../app/(coach-mode)/coach-mode-new';
 import CoachModeBook from '../../app/(coach-mode)/coach-mode-book';
 import CoachModeStatements from '../../app/(coach-mode)/coach-mode-statements';
 import StaffToday from '../../app/staff';
-import ProfileScreen from '../../app/(tabs)/profile';
+import ProfileScreen from '../../app/profile';
 
 const scheduleSeed = (): [readonly unknown[], unknown] => [
   coachScheduleKey(),

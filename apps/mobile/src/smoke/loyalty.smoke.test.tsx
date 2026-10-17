@@ -30,7 +30,7 @@ import { loyaltyKeys } from '../features/loyalty/keys';
 import { parseMemberCard, parseMyLoyalty } from '../features/loyalty/logic';
 import MemberCardScreen from '../../app/member-card';
 import LoyaltyScreen from '../../app/loyalty';
-import ProfileScreen from '../../app/(tabs)/profile';
+import ProfileScreen from '../../app/profile';
 
 type Seeds = [readonly unknown[], unknown][];
 

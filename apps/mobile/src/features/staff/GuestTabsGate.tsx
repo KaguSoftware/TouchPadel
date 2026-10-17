@@ -8,17 +8,14 @@
  * app lands here, so this one gate catches all of them.
  *
  * The one exception is "Show guest view" (guestPreview.ts, owner 2026-09-28):
- * a staff session that asked for it gets the tabs with a "Back to staff view"
- * pill over the Profile tab only (iOS and Android). Anything but an active
- * staff account drops the preview.
+ * a staff session that asked for it gets the tabs, and the account page (no
+ * longer a tab since 2026-10-17, app/profile.tsx) carries the "Back to staff
+ * view" pill. Anything but an active staff account drops the preview.
  */
 import { useEffect } from 'react';
-import { View } from 'react-native';
-import { usePathname } from 'expo-router';
 import { useResetTo } from '../../navigation/back';
 import TabsLayout from '../../navigation/TabsLayout';
 import { guestTabsGate } from './gate';
-import { GuestPreviewPill } from './GuestPreviewPill';
 import { setGuestPreview, useGuestPreview } from './guestPreview';
 import { StaffPending } from './RequireStaff';
 import { useStaffStatus } from './StaffStatusProvider';
@@ -27,7 +24,6 @@ export default function GuestTabsGate() {
   const { status } = useStaffStatus();
   const previewing = useGuestPreview();
   const staff = status.kind === 'staff';
-  const onProfile = usePathname().endsWith('/profile');
 
   useEffect(() => {
     if (!staff && status.kind !== 'pending' && previewing) setGuestPreview(false);
@@ -39,13 +35,7 @@ export default function GuestTabsGate() {
     case 'redirect-staff':
       return <ToStaff />;
     default:
-      if (!staff) return <TabsLayout />;
-      return (
-        <View style={{ flex: 1 }}>
-          <TabsLayout />
-          {onProfile ? <GuestPreviewPill /> : null}
-        </View>
-      );
+      return <TabsLayout />;
   }
 }
 

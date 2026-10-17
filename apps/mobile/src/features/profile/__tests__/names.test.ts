@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { greetingNameOf, nameFieldsOf, namePatch } from '../names';
+import { avatarInitialsOf, greetingNameOf, nameFieldsOf, namePatch } from '../names';
 
 /**
  * The name in two parts (0256; docs/design/open-matches/guest.md §4.9): the
@@ -53,5 +53,17 @@ describe('namePatch', () => {
   it('sends both parts trimmed, and a blank surname as NULL', () => {
     expect(namePatch(' Ahmed ', ' Kareem ')).toEqual({ given_name: 'Ahmed', family_name: 'Kareem' });
     expect(namePatch('Zainab', '   ')).toEqual({ given_name: 'Zainab', family_name: null });
+  });
+});
+
+describe('avatarInitialsOf', () => {
+  it('takes the first letters of the first two words of the name', () => {
+    expect(avatarInitialsOf('majed ahdab khalil', 'm@x.io')).toBe('MA');
+    expect(avatarInitialsOf('  Sara  ', null)).toBe('S');
+  });
+
+  it('falls back to the email, then a dot', () => {
+    expect(avatarInitialsOf('', 'zed@x.io')).toBe('Z');
+    expect(avatarInitialsOf(null, null)).toBe('•');
   });
 });

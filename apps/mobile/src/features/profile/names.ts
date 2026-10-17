@@ -56,3 +56,22 @@ export function namePatch(first: string, last: string): { given_name: string; fa
   const family = last.trim();
   return { given_name: first.trim(), family_name: family || null };
 }
+
+/**
+ * The letters on a photo-less avatar: the first letters of the first two words of the name,
+ * else the email's first letter, else a dot, so the circle is never empty. Profile's identity
+ * card and the tabs' account button draw the same ones.
+ */
+export function avatarInitialsOf(name: string | null | undefined, email: string | null | undefined): string {
+  return (
+    (name ?? '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() ||
+    (email ?? '').slice(0, 1).toUpperCase() ||
+    '•'
+  );
+}

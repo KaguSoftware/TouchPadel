@@ -790,6 +790,10 @@ export const en = {
     groupActivity: 'Activity',
     groupAccount: 'Account',
     groupVenue: 'Venue',
+    // The account page's café group and the avatar button that opens the page (app/profile.tsx).
+    groupCafe: 'Café & rewards',
+    cafeMenu: 'Café menu',
+    openAccount: 'Your account',
     // Edit profile row groups (app/profile-edit.tsx).
     editGroupPublic: 'Public profile',
     editGroupContact: 'Contact',
@@ -1117,6 +1121,12 @@ export const en = {
     priceChanged: 'Some prices in your basket were updated.',
     removedUnavailable: 'Some items are no longer available and were removed from your basket.',
     localeSwitch: 'العربية',
+    // The guest app's view-only menu (apps/mobile app/cafe-menu.tsx): nothing is ordered there.
+    viewOnlyNote: 'To order, scan the QR code on your table or ask at the counter.',
+    menuEmpty: {
+      title: 'Nothing on the menu yet',
+      body: 'This branch has not put its café menu up yet.',
+    },
   },
   // Staff-only page (/download, noindex): the operator desktop installer.
   download: {

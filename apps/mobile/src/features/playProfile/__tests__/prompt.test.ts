@@ -34,7 +34,7 @@ afterEach(() => __resetSurveyShown());
 describe('shouldOpenSurvey (contracts §8)', () => {
   it('opens for a new account that landed on a tab and was never asked', () => {
     expect(shouldOpenSurvey(base)).toBe(true);
-    for (const pathname of ['/bookings', '/play', '/coaches', '/profile']) {
+    for (const pathname of ['/bookings', '/play', '/coaches']) {
       expect(shouldOpenSurvey({ ...base, pathname })).toBe(true);
     }
   });
@@ -63,7 +63,7 @@ describe('shouldOpenSurvey (contracts §8)', () => {
   });
 
   it('waits off the tabs: auth screens, complete-profile, Review, a match', () => {
-    for (const pathname of ['/complete-profile', '/sign-up', '/verify-otp', '/review', '/match/1', '/accept-terms', null]) {
+    for (const pathname of ['/profile', '/complete-profile', '/sign-up', '/verify-otp', '/review', '/match/1', '/accept-terms', null]) {
       expect(shouldOpenSurvey({ ...base, pathname })).toBe(false);
     }
   });

@@ -1,7 +1,8 @@
 /**
- * The tab navigator and three of its five screens: Play is cased in
+ * The tab navigator, two of its four screens, and the account page the tabs'
+ * avatar opens (app/profile.tsx, a tab until 2026-10-17): Play is cased in
  * play.smoke.test.tsx and Coaches in coaching.smoke.test.tsx (each route is
- * named by exactly one suite); both bars are checked here for all five ids.
+ * named by exactly one suite); both bars are checked here for all four ids.
  *
  * The hardest three renders in the app live here: `(tabs)/index` builds the
  * court's GL stage and a glass sheet, `(tabs)/_layout` is UIKit's own tab bar,
@@ -15,7 +16,7 @@
  *    `(tabs)/_layout` to). `TabsLayout.ios.tsx` carries NO testID — UIKit
  *    draws the bar — and `tabs.book` exists only because jest.setup.ts's
  *    `expo-router/unstable-native-tabs` mock names each Trigger's View after
- *    its route. The case proves the layout declares five triggers with the
+ *    its route. The case proves the layout declares four triggers with the
  *    locale's labels; it does not prove a `tabs.book` node exists on a device.
  *    The Android case below is where that id is asserted on the app's own
  *    Pressable.
@@ -30,6 +31,7 @@ import { fireEvent, within } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
 import { renderRoute } from '../test/smoke';
+import { routerState } from '../test/routerState';
 import {
   TEST_VENUE_ID,
   TEST_VENUE_2_ID,
@@ -48,11 +50,11 @@ import TabsLayout from '../../app/(tabs)/_layout';
 import { isGuestPreview, setGuestPreview } from '../features/staff/guestPreview';
 // The `.android` file BY NAME, past the preset's platform resolution: this is
 // the navigator whose tab buttons are the app's own Pressables, and the only
-// place `tabs.book` / `tabs.bookings` / `tabs.profile` are minted by app code.
+// place `tabs.book` / `tabs.bookings` / `tabs.coaches` are minted by app code.
 import TabsLayoutAndroid from '../navigation/TabsLayout.android';
 import BookScreen from '../../app/(tabs)/index';
 import BookingsScreen from '../../app/(tabs)/bookings';
-import ProfileScreen from '../../app/(tabs)/profile';
+import ProfileScreen from '../../app/profile';
 
 const CASES: SmokeCase[] = [
   {
@@ -181,24 +183,23 @@ describe.each(LOCALES)('book branch picker in %s', (locale) => {
 });
 
 /**
- * Five tabs on both bars, in this order (play-coaches contracts §1), each with
- * its own id and the locale's label: Book stays the exact middle.
+ * Four tabs on both bars, in this order, each with its own id and the locale's
+ * label. Profile left the bar on 2026-10-17 for the avatar on each title row.
  */
 const TAB_ORDER = [
   ['tabs.bookings', 'tabs.bookings'],
   ['tabs.play', 'tabs.play'],
   ['tabs.book', 'tabs.book'],
   ['tabs.coaches', 'tabs.coaches'],
-  ['tabs.profile', 'tabs.profile'],
 ] as const;
 
-describe.each(LOCALES)('the five tabs in %s', (locale) => {
+describe.each(LOCALES)('the four tabs in %s', (locale) => {
   const t = makeT(locale);
 
   it.each<[string, typeof TabsLayout]>([
     ['iOS', TabsLayout],
     ['Android', TabsLayoutAndroid],
-  ])('the %s bar declares all five, Book in the middle', (_name, Layout) => {
+  ])('the %s bar declares all four, and no Profile tab', (_name, Layout) => {
     const screen = renderRoute(Layout, { locale });
     try {
       const ids = TAB_ORDER.map(([id, key]) => {
@@ -218,34 +219,56 @@ describe.each(LOCALES)('the five tabs in %s', (locale) => {
 });
 
 // "Show guest view" (owner, 2026-09-28): a staff session that asked for it
-// gets the guest tabs with a way back; without asking, it never does.
+// gets the guest tabs with a way back; without asking, it never does. The way
+// back lives on the account page since Profile left the bar (2026-10-17).
 describe.each<Locale>(['en', 'ar'])('the guest view for staff in %s', (locale) => {
   const t = makeT(locale);
 
-  it('shows the tabs and, on Profile, a Back to staff view pill that ends the preview', () => {
+  it('shows the tabs, and the account page carries a Back to staff view pill that ends the preview', () => {
     setGuestPreview(true);
-    const screen = renderRoute(TabsLayout, { locale, staff: { role: 'manager' }, pathname: '/profile' });
+    const tabs = renderRoute(TabsLayout, { locale, staff: { role: 'manager' } });
     try {
-      expect(screen.getByText(t('tabs.book'))).toBeTruthy();
-      const back = screen.getByTestId('tabs.back-to-staff');
+      expect(tabs.getByText(t('tabs.book'))).toBeTruthy();
+      expect(tabs.queryByTestId('tabs.back-to-staff')).toBeNull();
+    } finally {
+      tabs.unmount();
+    }
+    const account = renderRoute(ProfileScreen, {
+      locale,
+      session: 'in',
+      staff: { role: 'manager' },
+      pathname: '/profile',
+      queryData: [
+        [profileKeys.own, profileFixture()],
+        [availabilityKeys.branches, [branchFixture()]],
+        [availabilityKeys.settings(TEST_VENUE_ID), null],
+      ],
+    });
+    try {
+      const back = account.getByTestId('tabs.back-to-staff');
       expect(within(back).getByText(t('staff.shell.guestView.back'))).toBeTruthy();
       fireEvent.press(back);
       expect(isGuestPreview()).toBe(false);
     } finally {
-      screen.unmount();
+      account.unmount();
       setGuestPreview(false);
     }
   });
 
-  it('shows the pill on the Profile tab only', () => {
-    setGuestPreview(true);
-    const screen = renderRoute(TabsLayout, { locale, staff: { role: 'manager' }, pathname: '/book' });
+  it('shows no pill on the account page of a guest', () => {
+    const screen = renderRoute(ProfileScreen, {
+      locale,
+      session: 'in',
+      queryData: [
+        [profileKeys.own, profileFixture()],
+        [availabilityKeys.branches, [branchFixture()]],
+        [availabilityKeys.settings(TEST_VENUE_ID), null],
+      ],
+    });
     try {
-      expect(screen.getByText(t('tabs.book'))).toBeTruthy();
       expect(screen.queryByTestId('tabs.back-to-staff')).toBeNull();
     } finally {
       screen.unmount();
-      setGuestPreview(false);
     }
   });
 
@@ -254,6 +277,42 @@ describe.each<Locale>(['en', 'ar'])('the guest view for staff in %s', (locale) =
     try {
       expect(screen.queryByTestId('tabs.back-to-staff')).toBeNull();
       expect(screen.queryByText(t('tabs.book'))).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+  });
+});
+
+/**
+ * The account button (Majed, 2026-10-17): the guest's picture on the trailing
+ * edge of each tab's title row, in place of the Profile tab. It opens the
+ * account page, signed in or out, and the screen reader hears "Your account".
+ */
+describe.each(LOCALES)('the account button in %s', (locale) => {
+  const t = makeT(locale);
+
+  it.each<[string, typeof BookScreen, 'in' | 'out', [readonly unknown[], unknown][]]>([
+    ['book', BookScreen, 'out', bookSeeds([branchFixture()])],
+    [
+      'bookings',
+      BookingsScreen,
+      'in',
+      [
+        [bookingKeys.mine, [bookingFixture()]],
+        [matchKeys.mine('upcoming'), myMatchesFixture()],
+        [matchKeys.tickets, myTicketsFixture()],
+        [availabilityKeys.branches, [branchFixture()]],
+        [availabilityKeys.allCourts, [courtFixture()]],
+        [profileKeys.own, profileFixture()],
+      ],
+    ],
+  ])('the %s tab opens the account page', (route, Screen, session, queryData) => {
+    const screen = renderRoute(Screen, { locale, session, queryData });
+    try {
+      const button = screen.getByTestId(`${route}.account`);
+      expect(button.props.accessibilityLabel).toBe(t('profile.openAccount'));
+      fireEvent.press(button);
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/profile' });
     } finally {
       screen.unmount();
     }

@@ -1,47 +1,52 @@
 import { Children, cloneElement, isValidElement, useState, type ReactElement, type ReactNode } from 'react';
 import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
-import { Text } from '../../src/i18n/text';
-import { useRouter } from 'expo-router';
-import { useTabBarHeight } from '../../src/components/useTabBarHeight';
+import { Text } from '../src/i18n/text';
+import { Stack, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber, isolate, isolateLtr } from '@touch/i18n';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { useAuth } from '../../src/features/auth/context';
-import { profileGateState } from '../../src/features/auth/social';
-import { phoneOtpEnabled } from '../../src/features/auth/phoneOtp';
-import { onlinePaymentsShipped } from '../../src/features/deposit/enabled';
-import { supabase } from '../../src/lib/supabase';
-import { signOut } from '../../src/features/auth/api';
-import { useOwnProfile } from '../../src/features/profile/hooks';
-import { useBranches, useVenueSettings } from '../../src/features/availability/hooks';
-import { venuePhoneOf } from '../../src/features/availability/assemble';
-import { mapErrorToKey } from '../../src/features/booking/errors';
-import { callPhone } from '../../src/lib/phone';
-import { radius, space, useTheme } from '../../src/theme';
-import { Button, Card, ErrorText, Screen, SectionLabel, TAB_TITLE_TOP, Title } from '../../src/components/ui';
-import { MenuRow } from '../../src/components/booking';
-import { anyCoaching } from '../../src/features/coaching/logic';
-import { anyTournaments } from '../../src/features/tournaments/logic';
-import { useMyLoyalty } from '../../src/features/loyalty/hooks';
-import { loyaltyOn } from '../../src/features/loyalty/logic';
-import { coachModeEntry, useCoachStatus } from '../../src/features/coach/useCoachStatus';
+import { useLocale } from '../src/i18n/LocaleProvider';
+import { useAuth } from '../src/features/auth/context';
+import { profileGateState } from '../src/features/auth/social';
+import { phoneOtpEnabled } from '../src/features/auth/phoneOtp';
+import { onlinePaymentsShipped } from '../src/features/deposit/enabled';
+import { supabase } from '../src/lib/supabase';
+import { signOut } from '../src/features/auth/api';
+import { useOwnProfile } from '../src/features/profile/hooks';
+import { useBranches, useVenueSettings } from '../src/features/availability/hooks';
+import { venuePhoneOf } from '../src/features/availability/assemble';
+import { mapErrorToKey } from '../src/features/booking/errors';
+import { callPhone } from '../src/lib/phone';
+import { radius, space, useTheme } from '../src/theme';
+import { Button, Card, ErrorText, Screen, SectionLabel } from '../src/components/ui';
+import { MenuRow } from '../src/components/booking';
+import { anyCoaching } from '../src/features/coaching/logic';
+import { anyTournaments } from '../src/features/tournaments/logic';
+import { useMyLoyalty } from '../src/features/loyalty/hooks';
+import { loyaltyOn } from '../src/features/loyalty/logic';
+import { coachModeEntry, useCoachStatus } from '../src/features/coach/useCoachStatus';
 import {
   BackChevronIcon,
   CalendarIcon,
   ChevronIcon,
   CloseIcon,
+  CupIcon,
   PhoneIcon,
   QrIcon,
   ReceiptIcon,
   SlidersIcon,
   TagIcon,
-} from '../../src/components/icons';
-import { ErrorState, SkeletonList } from '../../src/components/states';
-import { ProfileAvatar } from '../../src/components/ProfileAvatar';
-import { frameOf, frameStyleOf } from '../../src/features/profile/frames';
-import { atUsername } from '../../src/features/profile/username';
-import { useToast } from '../../src/components/overlays';
-import { useResetTo } from '../../src/navigation/back';
-import { closeBookingSheetNow } from '../../src/features/courtTransition/openIntent';
+} from '../src/components/icons';
+import { ErrorState, SkeletonList } from '../src/components/states';
+import { ProfileAvatar } from '../src/components/ProfileAvatar';
+import { frameOf, frameStyleOf } from '../src/features/profile/frames';
+import { atUsername } from '../src/features/profile/username';
+import { avatarInitialsOf } from '../src/features/profile/names';
+import { GuestPreviewPill } from '../src/features/staff/GuestPreviewPill';
+import { useGuestPreview } from '../src/features/staff/guestPreview';
+import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
+import { useToast } from '../src/components/overlays';
+import { useResetTo } from '../src/navigation/back';
+import { closeBookingSheetNow } from '../src/features/courtTransition/openIntent';
 
 const LOGO_H = 40;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
@@ -74,15 +79,21 @@ function MenuGroup({ label, children }: { label: string; children: ReactNode }) 
 }
 
 /**
- * Profile tab (design 2026-08-31): avatar card + menu rows when signed in;
+ * The account page (design 2026-08-31): avatar card + menu rows when signed in;
  * the sign-in / create-account pitch when signed out (browsing is public).
+ *
+ * A root-stack push since 2026-10-17 (Majed): it was the bar's fifth tab, and is
+ * now opened by the avatar on the trailing edge of every tab's title row
+ * (components/AccountButton.tsx), so the native bar gives it its title and back.
+ * The member card, Points & rewards and the view-only café menu sit together
+ * here; the café menu is offered signed out too, since the menu is public.
  */
 export default function ProfileScreen() {
   const { t, dir, locale } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const router = useRouter();
   const resetTo = useResetTo();
-  const tabBarHeight = useTabBarHeight();
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
   const settings = useVenueSettings();
@@ -100,6 +111,11 @@ export default function ProfileScreen() {
   const loyalty = useMyLoyalty(!!session && !session.user.is_anonymous);
   const showLoyalty = loyaltyOn(loyalty.data);
   const toast = useToast();
+  // "Show guest view" (guestPreview.ts): the way back to the staff side lived over
+  // the Profile tab, and lives on this page now that Profile is not a tab.
+  const staff = useStaffStatus().status.kind === 'staff';
+  const previewing = useGuestPreview() && staff;
+  const bottomPad = insets.bottom + 24 + (previewing ? 60 : 0);
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -141,15 +157,12 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const header = (
-    <View style={{ paddingTop: TAB_TITLE_TOP }}>
-      <Title>{t('profile.title')}</Title>
-    </View>
-  );
+  const header = <Stack.Screen options={{ title: t('profile.title') }} />;
+  const previewPill = previewing ? <GuestPreviewPill bottom={insets.bottom + space.sm} /> : null;
 
   if (!session) {
     return (
-      <Screen pattern="blur">
+      <Screen pattern="blur" edges={[]}>
         {header}
         <View
           style={{
@@ -158,14 +171,14 @@ export default function ProfileScreen() {
             justifyContent: 'center',
             paddingStart: 12, // + the 16 gutter = the design's 28
             paddingEnd: 12,
-            paddingBottom: tabBarHeight + 24,
+            paddingBottom: bottomPad,
           }}
         >
           <Image
             source={
               appearance === 'dark'
-                ? require('../../assets/logo-white.png')
-                : require('../../assets/logo.png')
+                ? require('../assets/logo-white.png')
+                : require('../assets/logo.png')
             }
             resizeMode="contain"
             style={{ height: LOGO_H, width: LOGO_W }}
@@ -197,23 +210,23 @@ export default function ProfileScreen() {
             onPress={() => router.push('/sign-up')}
             style={{ alignSelf: 'stretch', marginTop: 9 }}
           />
+          {/* The menu is public: a guest who has not signed in can still look. */}
+          <Button
+            testID="profile.cafe-menu"
+            label={t('profile.cafeMenu')}
+            variant="ghost"
+            onPress={() => router.push('/cafe-menu')}
+            style={{ alignSelf: 'stretch', marginTop: space.l }}
+          />
         </View>
+        {previewPill}
       </Screen>
     );
   }
 
   const name = profile.data?.full_name ?? '';
   const email = session.user.email ?? '';
-  const initials =
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((w) => w[0])
-      .slice(0, 2)
-      .join('')
-      .toUpperCase() ||
-    email.slice(0, 1).toUpperCase() ||
-    '•';
+  const initials = avatarInitialsOf(name, email);
   // The whole identity card is LTR in BOTH locales: avatar on the left, then the
   // text column. `direction: 'ltr'` on the row stops RN's RTL layout mirroring it
   // in Arabic; LRI + writingDirection keep the values themselves LTR, since a "+"
@@ -227,7 +240,7 @@ export default function ProfileScreen() {
   const incomplete = profileGateState(profile) === 'incomplete';
 
   return (
-    <Screen pattern="blur">
+    <Screen pattern="blur" edges={[]}>
       {header}
       {profile.isLoading ? (
         <SkeletonList rows={2} height={90} />
@@ -242,7 +255,7 @@ export default function ProfileScreen() {
         />
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingBottom: tabBarHeight + 24 }}
+          contentContainerStyle={{ paddingTop: space.s, paddingBottom: bottomPad }}
           showsVerticalScrollIndicator={false}
         >
           {/* Tapping the identity card (avatar + name) opens the edit form; there is no separate Edit profile row. */}
@@ -452,6 +465,26 @@ export default function ProfileScreen() {
             </Pressable>
           ) : null}
 
+          {/* The café side of the club, together (Majed, 2026-10-17): the points the
+              till gives and takes, and the menu to look at. Ordering stays at the
+              table's QR and the counter; the menu says so. */}
+          <MenuGroup label={t('profile.groupCafe')}>
+            {showLoyalty ? (
+              <MenuRow
+                testID="profile.loyalty"
+                icon={<TagIcon size={15} color={colors.gstrong} />}
+                label={t('loyalty.guest.home.title')}
+                onPress={() => router.push('/loyalty')}
+              />
+            ) : null}
+            <MenuRow
+              testID="profile.cafe-menu"
+              icon={<CupIcon size={15} color={colors.gstrong} />}
+              label={t('profile.cafeMenu')}
+              onPress={() => router.push('/cafe-menu')}
+            />
+          </MenuGroup>
+
           <MenuGroup label={t('profile.groupActivity')}>
             {coachEntry ? (
               <MenuRow
@@ -480,14 +513,6 @@ export default function ProfileScreen() {
                 label={t('tournaments.guest.entry.mine')}
                 // My reservations lists the guest's tournaments now (play-coaches §1).
                 onPress={() => router.navigate('/bookings')}
-              />
-            ) : null}
-            {showLoyalty ? (
-              <MenuRow
-                testID="profile.loyalty"
-                icon={<TagIcon size={15} color={colors.gstrong} />}
-                label={t('loyalty.guest.home.title')}
-                onPress={() => router.push('/loyalty')}
               />
             ) : null}
             {/* Open matches (docs/design/open-matches/guest.md §4.16): the
@@ -558,6 +583,7 @@ export default function ProfileScreen() {
           />
         </ScrollView>
       )}
+      {previewPill}
     </Screen>
   );
 }

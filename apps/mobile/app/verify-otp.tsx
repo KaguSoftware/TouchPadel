@@ -149,9 +149,9 @@ function VerifyOtpForm({
           return;
         }
         // From Edit profile the guest came THROUGH that form, so land back on
-        // the Profile tab rather than leaving the half-finished editor on the
+        // the account page rather than leaving the half-finished editor on the
         // stack for a back-swipe to return to.
-        returnToTab('/(tabs)/profile', '(tabs)');
+        returnToTab('/profile', 'profile');
         return;
       }
       const { user } = await verifyPhoneOtp(supabase, phone, value);

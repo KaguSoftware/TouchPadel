@@ -57,7 +57,6 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // Open matches and tournaments together (play-coaches contracts §7), cased by
   // play.smoke.test.tsx: its one action, "Start a match", beside the title.
   { file: '(tabs)/play.tsx', route: 'play', primary: 'play.start' },
-  { file: '(tabs)/profile.tsx', route: 'profile', primary: 'profile.settings' },
   // ── booking ───────────────────────────────────────────────────────────────
   { file: 'booking/[id].tsx', route: 'booking-detail', primary: 'booking-detail.cancel' },
   { file: 'booking-history.tsx', route: 'booking-history', primary: 'booking-history.clear' },
@@ -71,6 +70,12 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'pay/status.tsx', route: 'pay-status', primary: 'pay-status.open-again' },
   { file: '+not-found.tsx', route: 'not-found', primary: 'not-found.bookings' },
   // ── profile ───────────────────────────────────────────────────────────────
+  // The account page: the bar's Profile tab until 2026-10-17, now a root-stack
+  // push from the avatar on every tab's title row. Still cased by tabs.smoke.test.tsx.
+  { file: 'profile.tsx', route: 'profile', primary: 'profile.settings' },
+  // The view-only café menu the account page opens, cased by cafe.smoke.test.tsx.
+  // No action of its own: its primary is the list.
+  { file: 'cafe-menu.tsx', route: 'cafe-menu', primary: 'cafe-menu.list' },
   { file: 'settings.tsx', route: 'settings', primary: 'settings.language' },
   { file: 'profile-edit.tsx', route: 'profile-edit', primary: 'profile-edit.name' },
   // The sign-up play survey (play-coaches contracts §8), cased by playSurvey.smoke.test.tsx.

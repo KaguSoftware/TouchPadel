@@ -715,6 +715,10 @@ export const ar: Messages = {
     groupActivity: 'نشاطي',
     groupAccount: 'الحساب',
     groupVenue: 'المكان',
+    // The account page's café group and the avatar button that opens the page (app/profile.tsx).
+    groupCafe: 'المقهى والمكافآت',
+    cafeMenu: 'منيو المقهى',
+    openAccount: 'حسابك',
     // Edit profile row groups (app/profile-edit.tsx).
     editGroupPublic: 'الملف العام',
     editGroupContact: 'معلومات التواصل',
@@ -1018,6 +1022,12 @@ export const ar: Messages = {
     priceChanged: 'تغيّرت بعض الأسعار في سلّتك.',
     removedUnavailable: 'أزلنا من سلّتك أصنافًا لم تعد متوفرة.',
     localeSwitch: 'English',
+    // The guest app's view-only menu (apps/mobile app/cafe-menu.tsx): nothing is ordered there.
+    viewOnlyNote: 'للطلب، امسح رمز QR على طاولتك أو اطلب من الكاونتر.',
+    menuEmpty: {
+      title: 'لا شيء في المنيو بعد',
+      body: 'لم يضع هذا الفرع منيو المقهى بعد.',
+    },
   },
   download: {
     title: 'Touch Padel Operator',

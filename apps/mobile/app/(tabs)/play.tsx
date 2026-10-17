@@ -71,6 +71,7 @@ import { radius, space, useTheme } from '../../src/theme';
 import { usePlayProfile } from '../../src/features/playProfile/hooks';
 import { showsTournament, tournamentFit } from '../../src/features/playProfile/fit';
 import { Screen, SegmentedControl, TAB_TITLE_TOP, Title } from '../../src/components/ui';
+import { AccountButton } from '../../src/components/AccountButton';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { BrandPattern } from '../../src/components/BrandPattern';
@@ -892,6 +893,7 @@ export default function PlayScreen() {
           {canStart ? (
             <StartMatchButton testID="play.start" label={t('play.start')} onPress={startOne} />
           ) : null}
+          <AccountButton testID="play.account" />
         </View>
       </Rise>
     </PinnedTitle>

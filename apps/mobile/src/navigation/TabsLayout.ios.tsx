@@ -21,9 +21,10 @@ const { Icon, Label } = NativeTabs.Trigger;
  * dropped here. Android keeps the custom bar in
  * `TabsLayout.android.tsx` — that platform split is deliberate.
  *
- * Five tabs (2026-10-11, play-coaches contracts §1): My reservations, Play,
- * Book, Coaches, Profile, so Book (still the initial route, `(tabs)/_layout`)
- * is the exact middle. Book keeps its `figure.tennis`; Coaches wears
+ * Four tabs since 2026-10-17: My reservations, Play, Book, Coaches. Profile
+ * left the bar (Majed): the account is the avatar on the trailing edge of each
+ * tab's title row (components/AccountButton.tsx), a push to `app/profile.tsx`.
+ * Book is still the initial route (`(tabs)/_layout`). Book keeps its `figure.tennis`; Coaches wears
  * `graduationcap` (lessons) rather than a second player figure, since two tabs
  * in the same glyph read as one. Play wears a padel court (assets/tabs/play*.png,
  * the Android TabPlayIcon drawn out), since SF Symbols has none.
@@ -32,8 +33,8 @@ const { Icon, Label } = NativeTabs.Trigger;
  * not a view: it describes a `UITabBarItem` that UIKit draws outside the React
  * tree, so there is no RN node to hang an id from and nothing a testID could
  * reach. Android's bar is ordinary Pressables and carries `tabs.bookings` /
- * `tabs.play` / `tabs.book` / `tabs.coaches` / `tabs.profile`; the smoke tests
- * see those same five ids through the `expo-router/unstable-native-tabs` mock,
+ * `tabs.play` / `tabs.book` / `tabs.coaches`; the smoke tests
+ * see those same four ids through the `expo-router/unstable-native-tabs` mock,
  * which stands in for UIKit (jest.setup.ts explains what that does and does
  * not prove).
  */
@@ -69,10 +70,6 @@ export default function TabsLayoutIOS() {
       <NativeTabs.Trigger name="coaches">
         <Icon sf="graduationcap" />
         <Label>{t('tabs.coaches')}</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="profile">
-        <Icon sf="person.crop.circle" />
-        <Label>{t('tabs.profile')}</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

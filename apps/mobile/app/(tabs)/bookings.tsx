@@ -67,6 +67,7 @@ import { requestBookingSheet } from '../../src/features/courtTransition/openInte
 import { formatPrice } from '../../src/lib/price';
 import { radius, space, useTheme } from '../../src/theme';
 import { Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
+import { AccountButton } from '../../src/components/AccountButton';
 import {
   FilterChip,
   HeldSlotCard,
@@ -630,7 +631,12 @@ export default function BookingsScreen() {
 
   const header = (
     <View style={{ paddingTop: TAB_TITLE_TOP }}>
-      <Title>{t('booking.myBookings')}</Title>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.sm }}>
+        <View style={{ flex: 1 }}>
+          <Title>{t('booking.myBookings')}</Title>
+        </View>
+        <AccountButton testID="bookings.account" />
+      </View>
 
       {tabs}
       {heldSection}

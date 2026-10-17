@@ -11,7 +11,6 @@ import {
   TabBookingsIcon,
   TabCoachesIcon,
   TabPlayIcon,
-  TabProfileIcon,
 } from '../components/icons';
 
 /**
@@ -44,8 +43,8 @@ const TAB_BAR_BOTTOM_GAP = 14;
 const TAB_ITEM_SIDE_GAP = 8;
 
 /**
- * Between two tabs, only a sliver. With five tabs (2026-10-11) an item is a
- * fifth of the bar, about 72 pt on a 360 pt phone, and 8 pt on both sides of
+ * Between two tabs, only a sliver. With five tabs (2026-10-11) an item was a
+ * fifth of the bar, about 72 pt on a 360 pt phone (four since 2026-10-17), and 8 pt on both sides of
  * every item left "MY RESERVATIONS" under half its natural width. The corner
  * gap is only needed on the screen's edge, so the first tab takes it on its
  * leading side and the last on its trailing side; every other side takes this.
@@ -160,8 +159,9 @@ const StableOrderScreen = forwardRef<View, ScreenProps>(function StableOrderScre
 });
 
 /**
- * Bottom tabs per the design, five since 2026-10-11 (play-coaches contracts
- * §1): Bookings / Play / Book / Coaches / Profile, Book in the middle. Translucent bar
+ * Bottom tabs per the design, four since 2026-10-17: Bookings / Play / Book /
+ * Coaches. Profile left the bar for the avatar on each tab's title row
+ * (components/AccountButton.tsx, Majed). Translucent bar
  * floating over the content, display-face labels, green active icon and dot. expo-router
  * `Tabs` per the native-feel convention — platform behavior (state
  * preservation, back handling) stays native while the visuals follow the
@@ -288,9 +288,9 @@ function AndroidTabs() {
       {/*
        * `tabBarButton` is declared PER SCREEN rather than once in
        * `screenOptions`, where it used to live, for one reason: the testID.
-       * screenOptions is shared by all five tabs, so a button built there
+       * screenOptions is shared by all four tabs, so a button built there
        * cannot say WHICH tab it is, and `tabs.bookings` / `tabs.play` /
-       * `tabs.book` / `tabs.coaches` / `tabs.profile` have to differ — they
+       * `tabs.book` / `tabs.coaches` have to differ — they
        * are what the smoke tests press. The ripple override below is unchanged
        * and is repeated with it, and so is `tabButton`, which also needs to
        * know whether the tab sits on the screen's edge.
@@ -350,30 +350,13 @@ function AndroidTabs() {
               {...props}
               testID="tabs.coaches"
               android_ripple={RIPPLE(colors.line)}
-              style={[props.style, tabButton('inner')]}
+              style={[props.style, tabButton('last')]}
             />
           ),
           tabBarIcon: ({ focused, color }) => (
             <TabCoachesIcon color={focused ? brand.green : color} />
           ),
           tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.coaches')} focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
-            <Pressable
-              {...props}
-              testID="tabs.profile"
-              android_ripple={RIPPLE(colors.line)}
-              style={[props.style, tabButton('last')]}
-            />
-          ),
-          tabBarIcon: ({ focused, color }) => (
-            <TabProfileIcon color={focused ? brand.green : color} />
-          ),
-          tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.profile')} focused={focused} />,
         }}
       />
     </Tabs>

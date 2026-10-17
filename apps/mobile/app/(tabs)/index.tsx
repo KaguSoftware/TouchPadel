@@ -28,6 +28,7 @@ import { courtTopFraction, makeCamera, projectNet } from '@touch/court3d/camera'
 import { useReduceMotion } from '../../src/lib/useReduceMotion';
 import { brand, radius, space, useTheme, withAlpha } from '../../src/theme';
 import { Screen, Title } from '../../src/components/ui';
+import { AccountButton } from '../../src/components/AccountButton';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { BrandPattern } from '../../src/components/BrandPattern';
@@ -1079,13 +1080,18 @@ export default function BookHomeScreen() {
             pointerEvents={isOpen ? 'none' : 'auto'}
             accessibilityElementsHidden={isOpen}
             importantForAccessibility={isOpen ? 'no-hide-descendants' : 'auto'}
-            style={{ marginStart: space.sm }}
+            style={{ marginStart: space.sm, flexDirection: 'row', alignItems: 'center', gap: space.s }}
           >
             <OpenNowPill
               key={sheetMounted ? 'fading' : 'rest'}
               settings={settings.data ?? undefined}
               fade={sheetMounted ? header.out : 1}
             />
+            {/* The account, on the trailing edge of every tab's title row (Majed,
+                2026-10-17); here it leaves with the court view like the pill. */}
+            <Animated.View style={{ opacity: sheetMounted ? header.out : 1 }}>
+              <AccountButton testID="book.account" />
+            </Animated.View>
           </View>
         </View>
 

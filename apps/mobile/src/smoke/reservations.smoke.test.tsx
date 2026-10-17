@@ -29,7 +29,7 @@ import { bookingKeys } from '../features/booking/hooks';
 import { matchKeys } from '../features/matches/keys';
 import { profileKeys } from '../features/profile/hooks';
 import BookingsScreen from '../../app/(tabs)/bookings';
-import ProfileScreen from '../../app/(tabs)/profile';
+import ProfileScreen from '../../app/profile';
 import BookingHistoryScreen from '../../app/booking-history';
 import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
 

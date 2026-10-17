@@ -36,8 +36,8 @@ export const CALM_MS = 1100;
  */
 export const BOOT_SETTLE_MS = 4500;
 
-/** The tab routes as `usePathname()` reports them. */
-const TAB_PATHS = new Set(['/', '/bookings', '/play', '/coaches', '/profile']);
+/** The tab routes as `usePathname()` reports them (Profile left the bar 2026-10-17). */
+const TAB_PATHS = new Set(['/', '/bookings', '/play', '/coaches']);
 
 export function isTabPath(pathname: string | null | undefined): boolean {
   return !!pathname && TAB_PATHS.has(pathname);
