@@ -122,6 +122,15 @@ const nextConfig: NextConfig = {
         headers: [...TABLE_ROUTE_HEADERS],
       },
       {
+        // The one-line Windows installer (`irm <site>/install-operator.ps1 | iex`). Served as
+        // text so `irm` hands iex a string, and never cached for long: a fix must reach the next run.
+        source: '/install-operator.ps1',
+        headers: [
+          { key: 'Content-Type', value: 'text/plain; charset=utf-8' },
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        ],
+      },
+      {
         // Next's default for public/ is a revalidate-every-time no-cache, which
         // on a QR menu means every scanned table re-checks seven font files
         // before it can paint them, over the venue wifi the whole self-hosting

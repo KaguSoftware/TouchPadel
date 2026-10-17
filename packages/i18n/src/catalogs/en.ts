@@ -1137,6 +1137,13 @@ export const en = {
     macIntelButton: 'Download for Mac (Intel)',
     macWhichNote:
       'Not sure which Mac? Apple menu → About This Mac: a chip named "Apple M1/M2/M3/M4" is Apple silicon; a processor named "Intel" is Intel.',
+    installTitle: 'Install with PowerShell',
+    installSteps: 'Right-click the Start button and choose Windows PowerShell (or press Win+X). Paste the line below and press Enter.',
+    installCommandLabel: 'Install command',
+    installNote: 'No browser warning and no administrator needed. It downloads, checks and installs the latest version, then opens it.',
+    copy: 'Copy',
+    copied: 'Copied',
+    orDownload: 'Or download the installer',
     macSoon: 'Mac: coming soon',
     smartScreenNote:
       'Windows may show "Windows protected your PC" the first time. Choose "More info", then "Run anyway".',

@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { makeT } from '@touch/i18n';
 import { LOCALES, requireLocale } from '@/lib/locales';
 import { CafeStyles } from '@/components/cafe/CafeStyles';
+import { CopyCommand } from '@/components/download/CopyCommand';
+import { siteOrigin } from '@/lib/site/origin';
 
 /**
  * Staff download page for the operator desktop app — /{locale}/download.
@@ -57,6 +59,22 @@ export default async function DownloadPage({ params }: { params: Promise<{ local
       <main className="tp-boot tp-download">
         <h1 className="tp-download__title">{tr('download.title')}</h1>
         <p className="tp-download__meta">{tr('download.lead')}</p>
+
+        <section className="tp-download__install" aria-labelledby="tp-install-title">
+          <h2 id="tp-install-title" className="tp-download__install-title">
+            {tr('download.installTitle')}
+          </h2>
+          <p className="tp-download__meta">{tr('download.installSteps')}</p>
+          <CopyCommand
+            command={`irm ${siteOrigin()}/install-operator.ps1 | iex`}
+            copyLabel={tr('download.copy')}
+            copiedLabel={tr('download.copied')}
+            commandLabel={tr('download.installCommandLabel')}
+          />
+          <p className="tp-download__meta">{tr('download.installNote')}</p>
+        </section>
+
+        <p className="tp-download__alt">{tr('download.orDownload')}</p>
 
         <div className="tp-download__buttons">
           <a className="tp-btn tp-btn--primary tp-download__btn" href={WIN_STABLE}>
