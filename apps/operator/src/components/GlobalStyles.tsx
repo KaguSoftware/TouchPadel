@@ -648,10 +648,14 @@ input:disabled, select:disabled, textarea:disabled {
    rest. Scores below :hover and [data-active], so both still paint it. */
 button.tp-nav-item { background: transparent; }
 .tp-nav-item:hover { background: var(--tp-rail-2); }
-.tp-nav-item[data-active='true'] { background: var(--tp-rail-active); color: var(--tp-rail-fg-active); font-weight: 700; }
+/* The current page is a Padel Green pill (2026-10-17), so its label and icon
+   take the pill's own ink: the rail's white measures 1.9:1 on the green. */
+.tp-nav-item[data-active='true'] { background: var(--tp-rail-active); color: var(--tp-rail-active-fg); font-weight: 700; }
 /* Drawn INSIDE the row: the collapsible groups' body is overflow: hidden, so
    the default 2px outset ring was cut off on every edge of a nested row. */
 .tp-nav-item:focus-visible { outline-color: var(--tp-rail-green); outline-offset: -2px; }
+/* A green ring inside a green pill is invisible; on the pill it is the ink. */
+.tp-nav-item[data-active='true']:focus-visible { outline-color: var(--tp-rail-active-fg); }
 .tp-nav-item svg { opacity: 0.85; }
 /* A .tp-btn standing ON the rail (the rail foot's Sign out). .tp-btn's ground
    is --tp-surface/--tp-fg, which are the LIGHT tokens: on a 25%-lightness rail
@@ -713,7 +717,7 @@ button.tp-nav-item { background: transparent; }
    less the row's own 0.7rem padding). */
 .tp-rail-options-list[data-lead='icon'] { padding-inline-start: calc(16px + 0.6rem); }
 .tp-rail-options-list[data-lead='icon']::before { inset-inline-start: calc(0.7rem + 8px - 0.5px); }
-.tp-nav-item[data-active='true'] svg { opacity: 1; color: var(--tp-rail-green); }
+.tp-nav-item[data-active='true'] svg { opacity: 1; color: var(--tp-rail-active-fg); }
 /* The way out of a section rail.
    It used to be styled as the quietest thing on the rail — 11px, --tp-rail-muted,
    no surface — on the theory that leaving is not a destination. That reasoning
@@ -736,7 +740,7 @@ button.tp-nav-item { background: transparent; }
   text-decoration: none;
   transition: background var(--tp-dur-fast) var(--tp-ease-out), border-color var(--tp-dur-fast) var(--tp-ease-out);
 }
-.tp-rail-back:hover { background: var(--tp-rail-active); border-color: var(--tp-rail-green); }
+.tp-rail-back:hover { background: var(--tp-rail-active); border-color: var(--tp-rail-green); color: var(--tp-rail-active-fg); }
 /* Same frame-of-the-press nudge as .tp-btn, and for the same reason. */
 .tp-rail-back:active { transform: translateY(1px); }
 .tp-rail-back:focus-visible { outline-color: var(--tp-rail-green); }
@@ -744,6 +748,7 @@ button.tp-nav-item { background: transparent; }
    hover nudge would overwrite the mirror and point the arrow the wrong way in
    Arabic. Colour is the whole affordance. */
 .tp-rail-back svg { color: var(--tp-rail-green); }
+.tp-rail-back:hover svg { color: var(--tp-rail-active-fg); }
 
 /* ---- tables ---- */
 .tp-table { inline-size: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }

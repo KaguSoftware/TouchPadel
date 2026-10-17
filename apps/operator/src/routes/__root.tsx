@@ -836,7 +836,10 @@ function WorkspaceNav({
         }}
       >
         <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <CourtLines opacity={0.16} />
+          {/* 0.28, up from 0.16 (2026-10-17): the motif was all but gone
+              on the Touch Blue rail and the owner asked for more green. Any
+              stronger and the lines cut through the workspace subtitle. */}
+          <CourtLines opacity={0.28} />
         </div>
         <div style={{ position: 'relative' }}>
           {/* 34, not the old 26: the header's top padding grew to clear the

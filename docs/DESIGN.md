@@ -20,29 +20,37 @@ high-contrast board with large type. Both are decided by the room, not by the ca
 
 ## Color (OKLCH, all neutrals tinted toward the brand blue hue 262)
 Strategy: **Restrained**. One accent (Touch Blue) on primary actions, selection and focus,
-under 10% of any surface. Padel Green is a semantic colour (live, ready, arrived, success), not
-decoration. The navigation rail is the single committed brand surface: deep navy ink carrying
-the court-line motif at low opacity.
+under 10% of any surface. The navigation rail is the single committed brand surface: **Touch
+Blue itself** on paper, a darker exact shade of it in blue mode, carrying the court-line motif in
+green (panel colours pass, owner 2026-10-17: "the white mode has none of the real blue").
+
+**Padel Green means here and now.** Solid #A5D06F with `--tp-accent-2-contrast` ink (#152847,
+the L18 shade of Touch Blue, 8.31:1) marks the page you are on (the rail's current-page pill),
+a guest who has arrived (the `live` tone; `BookingStatusIndicator`, the desk grid), and what is
+in play (running tournaments). Other success states (paid, ready, completed) keep the soft
+green tint, so an arrival stands out. Green is never a button, a link or decoration in the data,
+and green text never sits on a light ground.
 
 | Token | Value | Use |
 |---|---|---|
-| `--tp-bg` | oklch(98.5% 0.004 260) | page ground |
-| `--tp-surface` | oklch(99.4% 0.002 260) | panels, tiles, tables |
-| `--tp-surface-2` | oklch(96.4% 0.006 260) | toolbars, table heads, secondary panels |
-| `--tp-fg` | oklch(22% 0.03 260) | text |
-| `--tp-muted-fg` | oklch(48% 0.025 260) | secondary text (≥ 4.5:1 on bg) |
-| `--tp-border` | oklch(90% 0.01 260) | hairlines |
+| `--tp-bg` | **#F3F6FB** (HSL L97 shade of Touch Blue) | page ground |
+| `--tp-surface` | oklch(99.5% 0.003 260) | panels, tiles, tables |
+| `--tp-surface-2` | **#E4EBF7** (L93 shade) | toolbars, table heads, secondary panels |
+| `--tp-fg` | oklch(22% 0.035 260) | text |
+| `--tp-muted-fg` | oklch(46% 0.03 260) | secondary text (≥ 4.5:1 on every surface) |
+| `--tp-border` | oklch(89% 0.018 260) | hairlines |
 | `--tp-border-strong` | oklch(82% 0.015 260) | inputs, focused rows |
 | `--tp-accent` | **#3360AB** (`var(--tp-brand-blue)`) | primary action, selection |
-| `--tp-accent-hover` | oklch(42% 0.13 260) | |
-| `--tp-accent-soft` | oklch(94% 0.03 260) | selected row / chip ground |
+| `--tp-accent-hover` / `-active` | #2D5495 / #274982 (L38 / L33 shades) | |
+| `--tp-accent-soft` / `-soft-fg` | #DCE5F4 / #274982 (L91 / L33 shades) | selected row / chip ground |
 | `--tp-success` / `-soft` / `-fg` | **#A5D06F**, hue 128.68 | live, ready, arrived |
 | `--tp-warn` / `-soft` / `-fg` | amber 75 hue | attention, ageing |
 | `--tp-danger` / `-soft` / `-fg` | red 27 hue | refused, void, stale |
 | `--tp-*-mark` | ~58% lightness | dots, small icons, 2px rules — see below |
-| `--tp-border-input` | oklch(65% 0.02 260) | control boundaries; clears 3:1 |
+| `--tp-border-input` | oklch(62% 0.03 260) | control boundaries; clears 3:1 |
 | `--tp-skeleton` | oklch(90% 0.012 260) | the loading ground |
-| `--tp-rail` / `--tp-rail-fg` / `--tp-rail-active` | navy ink family | workspace navigation |
+| `--tp-rail` / `--tp-rail-2` / `--tp-rail-fg` | **#3360AB** / #2D5495 / oklch(97.5% 0.006 260) | workspace navigation |
+| `--tp-rail-active` / `--tp-rail-active-fg` | Padel Green / #152847 | the current-page pill and its label |
 | `--tp-kds-bg` / `--tp-kds-card` / `--tp-kds-fg` | dark family | kitchen display only |
 
 ### The palette is closed
@@ -75,12 +83,19 @@ The mobile app's dark theme is **blue mode**: its every blue is a true shade of 
 
 The operator has no dark mode. It has **blue mode** (owner call, 2026-09-19: "instead of using
 dark colours just use the brand's blue" — and, on the first cut, "use the exact same blue, no
-change at all"). **The page is #3360AB, unmodified.** Panels step *down* from it (L38 panel, L33
-toolbar, L29 well and rail), because darker is the only direction with room for white text: it
-measures 6.17:1 on the page and a panel one step lighter would already fall under 5:1. Selection
-and the active rail pill are the one step *up* (L50), so a selected row is the brightest blue on
-the screen. Every blue is an exact HSL shade of #3360AB, the same rule the mobile app's blue mode
-follows; the ink is white and the lighter shades of the brand gray.
+change at all"). **The page is #3360AB, unmodified.** The rail is a darker exact shade (L22,
+#1A3156), so the true blue reads as the page and the rail frames it.
+
+Panels, toolbars and wells are **not** shades of the page any more (panel colours pass,
+2026-10-17: "the blue in blue mode is too blue"). When they were L38 / L33 / L29 at the brand's
+full saturation, the page and every panel on it were bright blue and nothing stood out. They are
+now the brand hue at low chroma (panel #2A3F5F, toolbar #1A2A44, well #142238, hover #354B6E):
+the operator's tinted neutrals, the exception the closed palette already allows. White text
+measures 10.63:1 on a panel. Selection stays the one step *up* (L50, #3B6EC4), so a selected row
+is the brightest blue on the screen, and hover is a lift of the panel ink, never the selection
+blue. The current page in the rail is the same Padel Green pill as on paper (7.40:1 against the
+rail). The ink is white and the lighter shades of the brand gray. Every pair is pinned in
+`apps/operator/src/lib/tokens.test.ts`.
 
 Tokens live in `packages/ui/src/tokens/operatorBlue.ts` and are emitted under
 `:root[data-theme='operator'][data-mode='blue']`, after the operator block and at higher
@@ -98,7 +113,8 @@ What flips, and why:
   #4F380D, danger becomes a dusky rose (#F0B0B4 on #4A2A3A) with #C93B30 as the one strong
   red, the filled destructive surface. All four families clear 5:1 on their soft ground and
   every mark clears 3:1 on the panel.
-- The kitchen board, already dark, is re-tinted onto the brand ramp (L29 / L33 / L38).
+- The kitchen board, already dark, is re-tinted onto the brand ramp (L29 / L33 / L38), and the
+  till's floor board keeps the same ramp; neither moved in the 2026-10-17 pass.
 - Charts: Recharts reads literals, so `features/analytics/charts/colors.ts` carries a second
   set behind `useChartColors()`. Series 1 is white, rust and magenta clear 3:1 on the L38 card,
   and the heat ramp runs card → L50 → white.

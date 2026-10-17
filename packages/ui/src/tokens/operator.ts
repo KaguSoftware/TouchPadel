@@ -41,16 +41,22 @@ export const operatorPalette = {
   // 1.02:1 between the page and a card sitting on it — so DESIGN.md's
   // "elevation is a border first" had nothing to lean on and every panel
   // needed its outline to exist at all. Each step is now >= 1.09:1.
-  '--tp-bg': `oklch(96.5% 0.005 ${HUE})`,
-  '--tp-fg': `oklch(22% 0.03 ${HUE})`,
-  '--tp-surface': `oklch(99.4% 0.002 ${HUE})`,
+  // Panel colours pass (owner, 2026-10-17: "the white mode has none of the
+  // real blue"). The page ground and the toolbar step are exact HSL shades of
+  // #3360AB (L97, L93), so the paper carries the brand blue instead of a grey
+  // that only leans toward it. The panel stays a near-white tinted neutral.
+  '--tp-bg': '#F3F6FB',
+  '--tp-fg': `oklch(22% 0.035 ${HUE})`,
+  '--tp-surface': `oklch(99.5% 0.003 ${HUE})`,
   '--tp-accent': 'var(--tp-brand-blue)',
   '--tp-accent-contrast': 'var(--tp-brand-white)',
   '--tp-accent-2': 'var(--tp-brand-green)',
-  '--tp-accent-2-contrast': 'var(--tp-brand-black)',
+  // Ink on a Padel Green fill: the deepest exact shade of #3360AB (HSL L18),
+  // not pure black. 8.31:1 on #A5D06F (2026-10-17).
+  '--tp-accent-2-contrast': '#152847',
   '--tp-muted': `oklch(86% 0.012 ${HUE})`,
-  '--tp-muted-fg': `oklch(48% 0.025 ${HUE})`,
-  '--tp-border': `oklch(90% 0.01 ${HUE})`,
+  '--tp-muted-fg': `oklch(46% 0.03 ${HUE})`,
+  '--tp-border': `oklch(89% 0.018 ${HUE})`,
   '--tp-danger': 'oklch(52% 0.19 27)',
   '--tp-danger-contrast': `oklch(99% 0.002 ${HUE})`,
 } as const satisfies PaletteVars;
@@ -58,13 +64,13 @@ export const operatorPalette = {
 /** Operator-only extras, emitted inside the operator theme block. */
 export const operatorVars = {
   // surfaces
-  '--tp-surface-2': `oklch(93.5% 0.008 ${HUE})`,
-  '--tp-surface-3': `oklch(90% 0.011 ${HUE})`,
+  '--tp-surface-2': '#E4EBF7',
+  '--tp-surface-3': '#D8E2F3',
   '--tp-border-strong': `oklch(82% 0.015 ${HUE})`,
   // A boundary you must SEE to operate — input, select, textarea, outlined
   // button. WCAG 1.4.11 wants 3:1 for those; --tp-border-strong measures
   // 1.72:1 on --tp-surface and was doing this job anyway. 3.18:1.
-  '--tp-border-input': `oklch(65% 0.02 ${HUE})`,
+  '--tp-border-input': `oklch(62% 0.03 ${HUE})`,
   '--tp-overlay': `oklch(20% 0.03 ${HUE} / 0.5)`,
   // The loading ground. --tp-surface-3 sat at 1.09:1 against the panel it
   // renders on, so a skeleton read as an empty panel rather than as pending.
@@ -77,10 +83,12 @@ export const operatorVars = {
   '--tp-opacity-disabled': '0.5',
 
   // accent states
-  '--tp-accent-hover': `oklch(42% 0.13 ${HUE})`,
-  '--tp-accent-active': `oklch(38% 0.13 ${HUE})`,
-  '--tp-accent-soft': `oklch(94% 0.03 ${HUE})`,
-  '--tp-accent-soft-fg': `oklch(38% 0.12 ${HUE})`,
+  // Exact HSL shades of #3360AB (L38 / L33 / L91). The old OKLCH soft ground
+  // (94% 0.03) sat outside sRGB and rendered as #E0ECFF, a different blue.
+  '--tp-accent-hover': '#2D5495',
+  '--tp-accent-active': '#274982',
+  '--tp-accent-soft': '#DCE5F4',
+  '--tp-accent-soft-fg': '#274982',
   // The one hover ground for everything a pointer can land on (owner call,
   // 2026-09-24): the pale accent-blue tint, with the page's own ink on it.
   '--tp-hover': 'var(--tp-accent-soft)',
@@ -109,9 +117,9 @@ export const operatorVars = {
   // a caller never has to know which families need a separate rung.
   '--tp-danger-mark': 'var(--tp-danger)',
   '--tp-danger-fg': 'oklch(45% 0.17 27)',
-  '--tp-info-soft': `oklch(94% 0.03 ${HUE})`,
-  '--tp-info-fg': `oklch(38% 0.12 ${HUE})`,
-  '--tp-neutral-soft': `oklch(94% 0.006 ${HUE})`,
+  '--tp-info-soft': 'var(--tp-accent-soft)',
+  '--tp-info-fg': 'var(--tp-accent-soft-fg)',
+  '--tp-neutral-soft': '#EBF1F9',
   '--tp-neutral-mark': `oklch(55% 0.02 ${HUE})`,
   '--tp-neutral-fg': `oklch(40% 0.02 ${HUE})`,
 
@@ -157,17 +165,21 @@ export const operatorVars = {
   // mode's --tp-border), in both modes (owner, 2026-10-15).
   '--tp-loyalty-edge': '#3B6EC4',
 
-  // the navigation rail — the one committed brand surface
-  '--tp-rail': `oklch(25% 0.05 ${HUE})`,
-  '--tp-rail-2': `oklch(30% 0.055 ${HUE})`,
-  '--tp-rail-fg': `oklch(90% 0.015 ${HUE})`,
+  // the navigation rail — the one committed brand surface. It is Touch Blue
+  // itself (owner, 2026-10-17), not the navy it used to be, so the real blue is
+  // on every screen. Hover and dividers are the L38 shade.
+  '--tp-rail': 'var(--tp-brand-blue)',
+  '--tp-rail-2': '#2D5495',
+  '--tp-rail-fg': `oklch(97.5% 0.006 ${HUE})`,
   '--tp-rail-fg-active': 'var(--tp-brand-white)',
-  '--tp-rail-muted': `oklch(68% 0.03 ${HUE})`,
-  // The pill under the current screen. At 36% it measured 1.47:1 against the
-  // rail — the one element on the rail whose whole job is to be found at a
-  // glance was the hardest thing on it to see. 1.88:1.
-  '--tp-rail-active': `oklch(42% 0.09 ${HUE})`,
-  '--tp-rail-border': `oklch(34% 0.05 ${HUE})`,
+  '--tp-rail-muted': '#DCE3EE',
+  // The pill under the current screen is Padel Green: green marks what is
+  // here and now (DESIGN.md), and green over blue is the brand's own pairing.
+  // 3.48:1 against this rail, 7.40:1 against blue mode's. Its label and icon
+  // take --tp-rail-active-fg, never the rail's white (1.9:1 on the green).
+  '--tp-rail-active': 'var(--tp-accent-2)',
+  '--tp-rail-active-fg': 'var(--tp-accent-2-contrast)',
+  '--tp-rail-border': '#2D5495',
   '--tp-rail-green': 'var(--tp-accent-2)',
   // The court-line motif's stroke. Was borrowed from --tp-rail-green with a
   // raw #A5D06F fallback baked into the component, so it could not be tuned
@@ -271,7 +283,7 @@ export const operatorVars = {
      is the only thing the frost has to show. Held more transparent than the
      menu: a toolbar is a large area, and an alpha that suits a small panel
      makes a whole bar read as opaque. */
-  '--tp-glass-bar': `oklch(96.5% 0.005 ${HUE} / 0.6)`,
+  '--tp-glass-bar': 'rgb(243 246 251 / 0.6)',
   /* A CONTROL standing ON that frosted bar. It cannot be translucent over a
      translucent ground — two 88% layers stack to a muddy 98% and the control
      stops reading as a control — so it is a near-opaque lift of --tp-surface

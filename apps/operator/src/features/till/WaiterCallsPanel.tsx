@@ -92,9 +92,11 @@ const URGENCY_STRIPE: Record<Urgency, string> = {
   warn: 'var(--tp-warn-mark)',
   late: 'var(--tp-danger-mark)',
 };
-/** A ticket's table block: red when late, amber when warming up, the rail's own blue when calm or answered. */
+/** A ticket's table block: red when late, amber when warming up, the selection blue when calm or answered. */
 const URGENCY_BLOCK: Record<Urgency, { background: string; color: string }> = {
-  calm: { background: 'var(--tp-rail-active)', color: 'var(--tp-fg)' },
+  // Was the rail's active pill, which is Padel Green since 2026-10-17 and
+  // would read as "arrived". The selection blue keeps calm quiet in both modes.
+  calm: { background: 'var(--tp-accent-soft)', color: 'var(--tp-accent-soft-fg)' },
   warn: { background: 'var(--tp-warn)', color: 'var(--tp-brand-black)' },
   late: { background: 'var(--tp-danger)', color: 'var(--tp-danger-contrast)' },
 };

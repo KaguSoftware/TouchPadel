@@ -441,12 +441,18 @@ export function ScreenScaffold({ title, lead }: { title: string; lead?: string }
 // Status indicators (spec: seven booking statuses, all handled; labelled, never colour-only)
 // ---------------------------------------------------------------------------
 
-export type Tone = 'neutral' | 'accent' | 'success' | 'warn' | 'danger' | 'info';
+/**
+ * `live` is the one SOLID tone: Padel Green with brand-blue ink, for what is
+ * here and now (a guest who has arrived). Every other tone is a soft tint, so
+ * paid / ready / completed stay quiet and an arrival stands out (2026-10-17).
+ */
+export type Tone = 'neutral' | 'accent' | 'success' | 'live' | 'warn' | 'danger' | 'info';
 
 const TONE_STYLE: Record<Tone, { bg: string; fg: string; dot: string }> = {
   neutral: { bg: 'var(--tp-neutral-soft)', fg: 'var(--tp-neutral-fg)', dot: 'var(--tp-muted-fg)' },
   accent: { bg: 'var(--tp-accent-soft)', fg: 'var(--tp-accent-soft-fg)', dot: 'var(--tp-accent)' },
   success: { bg: 'var(--tp-success-soft)', fg: 'var(--tp-success-fg)', dot: 'var(--tp-success)' },
+  live: { bg: 'var(--tp-accent-2)', fg: 'var(--tp-accent-2-contrast)', dot: 'var(--tp-accent-2-contrast)' },
   warn: { bg: 'var(--tp-warn-soft)', fg: 'var(--tp-warn-fg)', dot: 'var(--tp-warn)' },
   danger: { bg: 'var(--tp-danger-soft)', fg: 'var(--tp-danger-fg)', dot: 'var(--tp-danger)' },
   info: { bg: 'var(--tp-info-soft)', fg: 'var(--tp-info-fg)', dot: 'var(--tp-accent)' },
@@ -517,7 +523,8 @@ export type BookingStatus = 'pending' | 'confirmed' | 'arrived' | 'completed' | 
 const BOOKING_TONE: Record<BookingStatus, Tone> = {
   pending: 'warn',
   confirmed: 'accent',
-  arrived: 'success',
+  // Here now: the solid green, the one status that is (owner, 2026-10-17).
+  arrived: 'live',
   // Played and done: green, like arrived (owner, 2026-10-14). It was neutral grey.
   completed: 'success',
   // Cancelled amber and no-show red, matching the customer record's count tiles

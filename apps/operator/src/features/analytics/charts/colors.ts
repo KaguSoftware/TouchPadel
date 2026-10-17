@@ -117,11 +117,11 @@ export const LIGHT_CHART_COLORS: ChartColors = build({
 
 /**
  * Blue mode. Mirrors tokens/operatorBlue.ts: the page is #3360AB itself, the
- * card one step darker (L38), ink is white, ticks the light brand gray. The
- * heat ramp runs from the card up through the ramp to white — "more" is
- * brighter, as it is on the month calendar, which mixes the (white) accent
- * into the surface. Graphics need 3:1 on the card (WCAG 1.4.11): rust 3.44:1,
- * magenta 3.57:1, muted bar 3.54:1, rose danger 4.11:1.
+ * card the calm panel ink (#2A3F5F since 2026-10-17), ink is white, ticks the
+ * light brand gray. The heat ramp runs from the card up through the brand ramp
+ * to white — "more" is brighter, as it is on the month calendar, which mixes
+ * the (white) accent into the surface. Graphics need 3:1 on the card (WCAG
+ * 1.4.11): rust 4.90:1, magenta 5.08:1, muted bar 5.05:1, rose danger 5.86:1.
  */
 export const BLUE_CHART_COLORS: ChartColors = build({
   SERIES_1: '#FFFFFF',
@@ -131,11 +131,11 @@ export const BLUE_CHART_COLORS: ChartColors = build({
   BAR_MUTED: '#99B4E1',
   BAR_CURSOR: 'rgba(255, 255, 255, 0.08)',
   AXIS: '#E0E0E1',
-  GRID: '#3B6EC4',
-  SURFACE: '#2D5495',
+  GRID: '#42536E',
+  SURFACE: '#2A3F5F',
   INK: '#FFFFFF',
   DANGER: '#F0B0B4',
-  HEAT_RAMP: ['#2D5495', '#3B6EC4', '#5A85CE', '#99B4E1', '#D8E2F3', '#FFFFFF'],
+  HEAT_RAMP: ['#2A3F5F', '#3B6EC4', '#5A85CE', '#99B4E1', '#D8E2F3', '#FFFFFF'],
 });
 
 /** The set for the current appearance. Light when rendered outside the provider (tests). */

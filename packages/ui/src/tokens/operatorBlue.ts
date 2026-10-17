@@ -3,42 +3,50 @@
  * (`data-theme="operator"` + `data-mode="blue"`).
  *
  * The owner asked for a dark mode that is not dark: "instead of using dark
- * colours just use the brand's blue", and then, when the first cut sat on a
- * deeper ramp, "use the exact same blue, no change at all" (2026-09-19). So
- * the PAGE IS #3360AB, unmodified, and the ink on it is white and the brand
- * gray's lighter shades. Panels step DOWN from the page rather than up, because
- * the only direction with room for text is darker: white on #3360AB is 6.17:1,
- * and a panel one step lighter (L50) would already drop it under 5:1.
+ * colours just use the brand's blue", and then "use the exact same blue, no
+ * change at all" (2026-09-19). So the PAGE IS #3360AB, unmodified, and the ink
+ * on it is white and the brand gray's lighter shades.
  *
- * Every blue is an EXACT shade of #3360AB — HSL hue 217.5, saturation 54.05%,
- * lightness the only thing that moves — the same rule the mobile app's blue
- * mode follows (`apps/mobile/src/theme/tokens.ts`, `palettes.dark`), and the
- * steps are that ramp's own: L29 / L33 / L38 below the page, L50 / L58 above.
+ * The panel colours pass (2026-10-17, "the blue in blue mode is too blue";
+ * "make the rail the darker blue and the body the true blue") kept the page
+ * and changed what sits on it. The rail is a darker exact shade (L22). Panels,
+ * toolbars and wells are no longer full-saturation shades of the page; they
+ * are calm low-chroma inks of the same hue (INK_* below), so the work sits on
+ * something quiet and the true blue frames it. The current page in the rail is
+ * a Padel Green pill, as on paper: green marks what is here and now.
+ *
+ * Every rail blue is an EXACT shade of #3360AB — HSL hue 217.5, saturation
+ * 54.05%, lightness the only thing that moves — the same rule the mobile app's
+ * blue mode follows (`apps/mobile/src/theme/tokens.ts`, `palettes.dark`). The
+ * kitchen board and the till's floor board keep the L29 / L33 / L38 ramp.
  *
  * Only COLOUR tokens live here. Type, spacing, radii, z-index and layout come
  * from `operator.ts` untouched; this block is emitted after it at a higher
  * specificity (`:root[data-theme='operator'][data-mode='blue']`) and overrides
  * only what it names.
  *
- * Contrast (WCAG, computed 2026-09-19):
- *   white on --tp-bg 6.17:1 · white on --tp-surface 7.46:1
- *   --tp-muted-fg on --tp-bg 4.68:1 · on --tp-surface 5.66:1
- *   --tp-border-input on --tp-surface 3.32:1 (1.4.11 wants 3:1)
- *   white on --tp-accent-soft / --tp-rail-active 4.98:1
+ * Contrast (WCAG, computed 2026-10-17; pinned in apps/operator/src/lib/tokens.test.ts):
+ *   white on --tp-bg 6.17:1 · on --tp-surface 10.63:1 · on --tp-surface-2 14.40:1
+ *   --tp-muted-fg on --tp-bg 4.68:1 · on --tp-surface 8.06:1 · on --tp-hover 6.68:1
+ *   --tp-border-input on --tp-surface 4.74:1 (1.4.11 wants 3:1)
+ *   white on --tp-accent-soft 4.98:1 · --tp-accent-contrast on --tp-accent 6.17:1
+ *   --tp-rail-fg on --tp-rail 9.84:1 · the green pill on the rail 7.40:1 ·
+ *   --tp-rail-active-fg on the pill 8.31:1
  *   --tp-success-fg on -soft 5.6:1 · --tp-warn-fg on -soft 6.4:1 ·
  *   --tp-danger-fg on -soft 6.2:1 · white on --tp-danger 5.06:1
- *   the three -mark rungs on --tp-surface 3.7 – 4.2:1
- *   --tp-lesson on --tp-lesson-soft 7.04:1 · on --tp-surface 4.72:1 · on --tp-bg 3.90:1
+ *   the three -mark rungs on --tp-surface 5.32 – 6.00:1
+ *   --tp-lesson on --tp-lesson-soft 7.04:1 · on --tp-surface 6.72:1
  *
- * Because the accent is white here, `--tp-accent` cannot carry the brand blue
- * itself: #3360AB on #3360AB is nothing. That is the same call the mobile
- * Welcome screen makes — a white primary button with blue ink on it — and
- * `--tp-accent-contrast` flips to the brand blue to match.
+ * Because the page is the brand blue, `--tp-accent` cannot carry it: #3360AB
+ * on #3360AB is nothing. That is the same call the mobile Welcome screen makes
+ * — a white primary button with blue ink on it — and `--tp-accent-contrast`
+ * flips to the brand blue to match.
  */
 import type { PaletteVars } from './palette';
 
 /** Exact shades of #3360AB, by HSL lightness. #3360AB itself is L43.53. */
 const BLUE_L18 = '#152847';
+const BLUE_L22 = '#1A3156';
 const BLUE_L29 = '#224072';
 const BLUE_L33 = '#274982';
 const BLUE_L38 = '#2D5495';
@@ -49,24 +57,40 @@ const BLUE_L58 = '#5A85CE';
 const GRAY_LIGHT = '#E0E0E1';
 const GRAY_SOFT = '#ACADAF';
 
+/**
+ * The work-area inks (panel colours pass, owner 2026-10-17: "the blue in blue
+ * mode is too blue"). Panels, toolbars and wells used to be L38 / L33 / L29
+ * shades of the brand blue at its full 54% saturation, so the page AND every
+ * panel on it were bright blue and nothing stood out. They are now the brand
+ * hue at low chroma, the operator's tinted neutrals rather than brand shades
+ * (DESIGN.md allows exactly that exception), so rows sit on something calm and
+ * the true blue around them reads as the brand.
+ */
+const INK_PANEL = '#2A3F5F'; // oklch(36.5% 0.062 259)
+const INK_TOOLBAR = '#1A2A44'; // oklch(28.5% 0.052 259)
+const INK_WELL = '#142238'; // oklch(25% 0.046 259)
+const INK_HOVER = '#354B6E'; // oklch(41% 0.065 259)
+const INK_BORDER = '#42536E'; // oklch(44% 0.05 259)
+const INK_BORDER_STRONG = '#5A6E90';
+
 export const operatorBlueVars = {
   // ── surfaces: the page is THE brand blue; panels step down from it ───────
   '--tp-bg': 'var(--tp-brand-blue)',
-  '--tp-surface': BLUE_L38,
-  '--tp-surface-2': BLUE_L33,
-  '--tp-surface-3': BLUE_L29,
+  '--tp-surface': INK_PANEL,
+  '--tp-surface-2': INK_TOOLBAR,
+  '--tp-surface-3': INK_WELL,
   '--tp-fg': 'var(--tp-brand-white)',
   // The brand gray itself measures 3.28:1 on #3360AB; one step lighter clears
   // the 4.5:1 body floor on the page and on every panel.
   '--tp-muted-fg': GRAY_LIGHT,
-  '--tp-muted': BLUE_L50,
-  '--tp-border': BLUE_L50,
-  '--tp-border-strong': BLUE_L58,
+  '--tp-muted': INK_HOVER,
+  '--tp-border': INK_BORDER,
+  '--tp-border-strong': INK_BORDER_STRONG,
   '--tp-border-input': GRAY_SOFT,
   '--tp-overlay': `color-mix(in srgb, ${BLUE_L18} 70%, transparent)`,
-  '--tp-skeleton': BLUE_L33,
+  '--tp-skeleton': INK_HOVER,
   '--tp-disabled-fg': GRAY_SOFT,
-  '--tp-disabled-bg': BLUE_L33,
+  '--tp-disabled-bg': INK_TOOLBAR,
 
   // ── accent: white on the blue ground, blue ink on the white ─────────────
   '--tp-accent': 'var(--tp-brand-white)',
@@ -77,9 +101,10 @@ export const operatorBlueVars = {
   // lighter, so a selected row is the brightest blue on the screen.
   '--tp-accent-soft': BLUE_L50,
   '--tp-accent-soft-fg': 'var(--tp-brand-white)',
-  // Hover is the accent-soft ground, as in paper mode.
-  '--tp-hover': 'var(--tp-accent-soft)',
-  '--tp-hover-fg': 'var(--tp-accent-soft-fg)',
+  // Hover is a lift of the panel ink, not the selection blue, so a row under
+  // the pointer is never mistaken for the selected one.
+  '--tp-hover': INK_HOVER,
+  '--tp-hover-fg': 'var(--tp-brand-white)',
 
   // ── status families: fills unchanged, soft grounds darkened, ink lifted ──
   '--tp-success-soft': '#334918',
@@ -99,7 +124,7 @@ export const operatorBlueVars = {
   '--tp-danger-fg': '#F0B0B4',
   '--tp-info-soft': BLUE_L50,
   '--tp-info-fg': 'var(--tp-brand-white)',
-  '--tp-neutral-soft': BLUE_L33,
+  '--tp-neutral-soft': INK_TOOLBAR,
   '--tp-neutral-mark': GRAY_SOFT,
   '--tp-neutral-fg': GRAY_LIGHT,
   // Coaching lessons (operator.md §5.8): a pale violet ink on a deep violet
@@ -134,14 +159,17 @@ export const operatorBlueVars = {
   // mode's --tp-border), in both modes (owner, 2026-10-15).
   '--tp-loyalty-edge': '#3B6EC4',
 
-  // ── the rail: two steps below the page; the active pill is the selection blue
-  '--tp-rail': BLUE_L29,
-  '--tp-rail-2': BLUE_L33,
+  // ── the rail: a darker shade of the page blue (owner, 2026-10-17: "the
+  // rail the darker blue and the body the true blue"); the current page is the
+  // same Padel Green pill as on paper, with brand-blue ink on it.
+  '--tp-rail': BLUE_L22,
+  '--tp-rail-2': BLUE_L29,
   '--tp-rail-fg': GRAY_LIGHT,
   '--tp-rail-fg-active': 'var(--tp-brand-white)',
   '--tp-rail-muted': GRAY_SOFT,
-  '--tp-rail-active': BLUE_L50,
-  '--tp-rail-border': BLUE_L38,
+  '--tp-rail-active': 'var(--tp-accent-2)',
+  '--tp-rail-active-fg': 'var(--tp-accent-2-contrast)',
+  '--tp-rail-border': BLUE_L33,
 
   // ── the kitchen board: dark on the brand ramp ────────────────────────────
   '--tp-kds-bg': BLUE_L29,
@@ -195,7 +223,7 @@ export const operatorBlueVars = {
   // still reads as one of THIS mode's surfaces and not as a grey pane. The
   // lit hairline is white at a much lower alpha than on paper — on a dark
   // ground a 0.7 white edge reads as a stroke rather than as a highlight.
-  '--tp-glass': 'rgb(45 84 149 / 0.86)',
+  '--tp-glass': 'rgb(42 63 95 / 0.88)',
   '--tp-glass-border': 'rgb(255 255 255 / 0.14)',
   // The sticky bar is the page ground, opaque: on a blue page a translucent
   // bar picks up the saturate() in --tp-glass-blur and reads as a lighter
@@ -203,7 +231,7 @@ export const operatorBlueVars = {
   // can afford the frost because its ground is near-white; here the bar's
   // job is to hide what scrolls under it, so it takes --tp-bg flat.
   '--tp-glass-bar': 'var(--tp-brand-blue)',
-  '--tp-glass-ctl': 'rgb(45 84 149 / 0.8)',
+  '--tp-glass-ctl': 'rgb(42 63 95 / 0.8)',
   '--tp-shadow-dialog': '0 2px 6px rgb(0 0 0 / 0.3), 0 24px 64px rgb(0 0 0 / 0.55)',
 } as const satisfies PaletteVars;
 

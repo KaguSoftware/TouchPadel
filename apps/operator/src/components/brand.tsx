@@ -16,7 +16,10 @@
  *                   lock, rail head, kitchen head) — never inside the data.
  *
  * Colour comes from tokens, never from these files. `tone="onDark"` is the
- * deck's own blue-ground treatment: white wordmark, green ball, same swoosh.
+ * deck's own blue-ground treatment: white wordmark, green ball, and a swoosh
+ * that runs green into WHITE rather than into Touch Blue. Since the rail became
+ * #3360AB itself (2026-10-17) a blue-ended swoosh vanished into it, and the "P"
+ * of Padel with it; on the darker grounds it was already faint.
  */
 import { useId, type CSSProperties } from 'react';
 import { BALL_BOX, BALL_D, SWOOSH_D, VB, WORDMARK_D } from './brandMark';
@@ -37,11 +40,11 @@ const WORDMARK_FILL: Record<BrandTone, string> = {
  * green now meets the blue directly. Declared per instance because two lockups
  * on one screen would otherwise share an id.
  */
-function SwooshGradient({ id }: { id: string }) {
+function SwooshGradient({ id, end = 'var(--tp-brand-blue)' }: { id: string; end?: string }) {
   return (
     <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="7.7" y1="17" x2="50.5" y2="9">
       <stop offset="0" stopColor="var(--tp-brand-green)" />
-      <stop offset="1" stopColor="var(--tp-brand-blue)" />
+      <stop offset="1" stopColor={end} />
     </linearGradient>
   );
 }
@@ -76,7 +79,7 @@ export function BrandLockup({
       style={{ display: 'block', flexShrink: 0, ...style }}
     >
       <defs>
-        <SwooshGradient id={gid} />
+        <SwooshGradient id={gid} end={tone === 'onDark' ? 'var(--tp-brand-white)' : undefined} />
       </defs>
       <path d={SWOOSH_D} fill={`url(#${gid})`} />
       {WORDMARK_D.map((d, i) => (

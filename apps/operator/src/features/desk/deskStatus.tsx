@@ -25,6 +25,7 @@ export const TONE_SOFT: Record<Tone, string> = {
   neutral: 'var(--tp-neutral-soft)',
   accent: 'var(--tp-accent-soft)',
   success: 'var(--tp-success-soft)',
+  live: 'var(--tp-accent-2)',
   warn: 'var(--tp-warn-soft)',
   danger: 'var(--tp-danger-soft)',
   info: 'var(--tp-info-soft)',
@@ -35,6 +36,7 @@ export const TONE_FG: Record<Tone, string> = {
   neutral: 'var(--tp-neutral-fg)',
   accent: 'var(--tp-accent-soft-fg)',
   success: 'var(--tp-success-fg)',
+  live: 'var(--tp-accent-2-contrast)',
   warn: 'var(--tp-warn-fg)',
   danger: 'var(--tp-danger-fg)',
   info: 'var(--tp-info-fg)',
@@ -50,6 +52,7 @@ export const TONE_EDGE: Record<Tone, string> = {
   neutral: 'var(--tp-neutral-mark)',
   accent: 'var(--tp-accent)',
   success: 'var(--tp-success-mark)',
+  live: 'var(--tp-success-mark)',
   warn: 'var(--tp-warn-mark)',
   danger: 'var(--tp-danger-mark)',
   info: 'var(--tp-accent)',
@@ -66,7 +69,7 @@ export function reservationTone(r: ReservationLike): Tone {
   if (r.kind === 'hold') return 'info';
   switch (r.status) {
     case 'arrived':
-      return 'success';
+      return 'live';
     case 'pending':
       return 'warn';
     case 'completed':
