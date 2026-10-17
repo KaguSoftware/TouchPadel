@@ -123,9 +123,9 @@
     {
       "id": "GHSA-86w9-cpqp-85rv",
       "module": "node-forge",
-      "reason": "NO FIX PUBLISHED (advisory lists fixed in <0.0.0). RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements. Reached only through @expo/cli (its own use and @expo/code-signing-certificates): a development and build-time tool for expo-updates code signing, never in an app bundle, the web build or an edge function. Re-check at expiry, or upgrade when Expo ships a node-forge with the fix.",
+      "reason": "NO FIX PUBLISHED (advisory lists fixed in <0.0.0). RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements. Reached only through @expo/cli (its own use and @expo/code-signing-certificates): a development and build-time tool for expo-updates code signing, never in an app bundle, the web build or an edge function. Re-check at expiry, or upgrade when Expo ships a node-forge with the fix. Extended 2026-10-17 to 2026-11-16 on Majed's word: the advisory still names no fixed version.",
       "owner": "DEV",
-      "expires": "2026-10-16"
+      "expires": "2026-11-16"
     },
     {
       "id": "GHSA-vfj7-8cjw-p6xm",
