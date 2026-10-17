@@ -151,9 +151,15 @@ test.describe('operator stock (module 5)', () => {
     await signIn(page, SEED_STAFF.cashier);
     await openCounterOrder(page, STOCK_ORDER);
     await expect(page.getByRole('heading', { name: STOCK_ORDER, exact: true })).toBeVisible();
-    // Filter, not the grid: with a shift banner up (a suite before left the
-    // drawer open), the basket and its pick-up/bring control (0351) cover the
-    // second row of tiles at this viewport.
+    // A suite before (the shop) left cash in the drawer, so the till asks the
+    // cashier to take it over before anything else. Answer it the way a
+    // cashier would: at this viewport its banner leaves the menu grid under
+    // the basket and its pick-up/bring control (0351).
+    const handover = page.getByRole('button', { name: 'That’s right' });
+    if (await handover.waitFor({ timeout: 5_000 }).then(() => true, () => false)) {
+      await handover.click();
+      await expect(handover).toBeHidden();
+    }
     await page.getByRole('textbox', { name: 'Filter items' }).fill('Karak');
     await page.getByRole('button', { name: /^Karak Tea/ }).click();
     const karak = page.getByRole('dialog', { name: 'Karak Tea' });
