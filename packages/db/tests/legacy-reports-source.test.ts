@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { DATA_DIR, figureRows, readReports, type LegacyReportJson } from '../scripts/lib/legacy-reports.mjs';
+import { DATA_DIR, figureRows, migrationRowsSql, readReports, type LegacyReportJson } from '../scripts/lib/legacy-reports.mjs';
 
 /** The entries of a .zip (a .docx), by name: enough of the format for Word files. */
 function unzip(buf: Buffer): Map<string, Buffer> {
@@ -61,6 +61,11 @@ describe('0331 legacy reports: the JSON is the original files, nothing added', (
     expect(doc.reports.map((r) => r.month)).toEqual(['2026-06', '2026-07', '2026-08', '2026-09']);
     expect(new Set(doc.reports.map((r) => r.department))).toEqual(new Set(['padel']));
     expect(new Set(doc.reports.map((r) => r.employee_name))).toEqual(new Set(['حسين الصراف']));
+  });
+
+  it('migration 0348 carries exactly the rows this JSON makes', () => {
+    const file = readFileSync(join(DATA_DIR, '..', '..', 'supabase', 'migrations', '20261017000348_legacy_reports_data.sql'), 'utf8');
+    expect(file.endsWith(migrationRowsSql())).toBe(true);
   });
 
   describe.each(doc.reports.map((r) => [r.month, r] as [string, LegacyReportJson]))('%s', (_month, r) => {

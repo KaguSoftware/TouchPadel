@@ -100,3 +100,26 @@ export function allRows(venueId = DEFAULT_VENUE_ID) {
     figures: reports.flatMap((r) => figureRows(r, venueId)),
   };
 }
+
+const sqlValue = (v) => {
+  if (v === null || v === undefined) return 'null';
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  if (typeof v === 'number') return String(v);
+  return `'${String(v).replace(/'/g, "''")}'`;
+};
+
+function insertSql(table, rows, conflict) {
+  const cols = Object.keys(rows[0]);
+  const values = rows.map((r) => `  (${cols.map((c) => sqlValue(r[c])).join(', ')})`).join(',\n');
+  return `insert into ${table} (${cols.join(', ')})\nvalues\n${values}\non conflict ${conflict} do nothing;\n`;
+}
+
+/**
+ * The body of migration 0348: the same rows the loader writes, as SQL, so the
+ * reports reach every database (hosted included) with the deploy. Generated:
+ * tests/legacy-reports-source.test.ts fails if the file and this disagree.
+ */
+export function migrationRowsSql(venueId = DEFAULT_VENUE_ID) {
+  const { reports, figures } = allRows(venueId);
+  return `${insertSql('legacy_reports', reports, '(id)')}\n${insertSql('legacy_report_figures', figures, '(report_id, source, position)')}`;
+}
