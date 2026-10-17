@@ -1,8 +1,7 @@
 /**
- * `/admin/settings` mounts `CafeSettings` (routes/admin/settings.tsx, shell
- * lane). Since 06.49 that name resolves to the merged VenueSettingsScreen —
- * opening hours, day & service, analytics, venue details — so the route file
- * needs no edit. The tabs live in DayServiceTab, AnalyticsTab and
- * VenueDetailsTab.
+ * `/admin/settings` mounts `VenueDetailsScreen` (routes/admin/settings.tsx).
+ * "Venue settings" was split into pages by the management rebuild
+ * (2026-10-17, SettingsPages.tsx); this name stays for anything that still
+ * imports it.
  */
-export { VenueSettingsScreen as CafeSettings, VenueSettingsScreen } from './VenueSettings';
+export { VenueDetailsScreen as CafeSettings } from './SettingsPages';

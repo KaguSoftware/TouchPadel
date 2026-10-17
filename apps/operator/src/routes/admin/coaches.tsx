@@ -3,7 +3,8 @@ import { adminRoute } from '../admin';
 import { RoutePending, guarded } from './_shared';
 
 // Setup › Coaches (docs/design/coaching/operator.md §5.13): coaches, lesson
-// types and hours, one tab each (`?tab=`).
+// types, hours and the lesson rules, one family tab each (`?tab=`,
+// lib/workspaces.ts COACHES_TABS).
 const CoachesAdmin = lazyRouteComponent(
   () => import('../../features/admin/coaches/CoachesAdmin'),
   'CoachesAdmin',
@@ -14,7 +15,7 @@ function uuidParam(v: unknown): string | undefined {
   return typeof v === 'string' && UUID.test(v) ? v.toLowerCase() : undefined;
 }
 
-export type CoachesTab = 'coaches' | 'types' | 'hours';
+export type CoachesTab = 'coaches' | 'types' | 'hours' | 'rules';
 
 export interface CoachesSearch {
   tab?: CoachesTab;
@@ -29,7 +30,7 @@ export interface CoachesSearch {
 /** `/admin/coaches?tab=…&coach=…&promote=…&type=…` (§5.3.2). */
 export function validateCoachesSearch(raw: Record<string, unknown>): CoachesSearch {
   const tab =
-    raw.tab === 'coaches' || raw.tab === 'types' || raw.tab === 'hours' ? raw.tab : undefined;
+    raw.tab === 'coaches' || raw.tab === 'types' || raw.tab === 'hours' || raw.tab === 'rules' ? raw.tab : undefined;
   const coach = uuidParam(raw.coach);
   const promote = uuidParam(raw.promote);
   const type = uuidParam(raw.type);

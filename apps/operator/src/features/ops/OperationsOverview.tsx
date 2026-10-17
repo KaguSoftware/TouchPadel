@@ -154,7 +154,15 @@ function TodayScreen() {
  * join "Needs you"; `afterAttention` renders under "On the floor now" (Observe
  * puts the live floor plan there).
  */
-export function FloorNow({ extras, afterAttention }: { extras?: FloorNowExtras; afterAttention?: ReactNode }) {
+/**
+ * `observe` is the owner's Observe overview (management rebuild, 2026-10-17):
+ * it leaves out "Before you close" and "Stock to watch", which the owner reads
+ * on the Financial overview's cash lines and on Stock's own page. The
+ * manager's Today keeps both: it is the manager's one page for the shift.
+ */
+export type FloorNowVariant = 'today' | 'observe';
+
+export function FloorNow({ extras, afterAttention, variant = 'today' }: { extras?: FloorNowExtras; afterAttention?: ReactNode; variant?: FloorNowVariant }) {
   const navigate = useNavigate();
   const queued = useQueuedCount();
   const overviewQ = useOpsOverview();
@@ -169,12 +177,26 @@ export function FloorNow({ extras, afterAttention }: { extras?: FloorNowExtras; 
 
   return (
     <AsyncStateWrapper status={status} error={overviewQ.error} onRetry={() => void overviewQ.refetch()}>
-      {overviewQ.data && <Day data={overviewQ.data} queued={queued} go={go} extras={extras} afterAttention={afterAttention} />}
+      {overviewQ.data && <Day data={overviewQ.data} queued={queued} go={go} extras={extras} afterAttention={afterAttention} variant={variant} />}
     </AsyncStateWrapper>
   );
 }
 
-function Day({ data, queued, go, extras, afterAttention }: { data: OpsOverview; queued: number; go: Go; extras?: FloorNowExtras; afterAttention?: ReactNode }) {
+function Day({
+  data,
+  queued,
+  go,
+  extras,
+  afterAttention,
+  variant,
+}: {
+  data: OpsOverview;
+  queued: number;
+  go: Go;
+  extras?: FloorNowExtras;
+  afterAttention?: ReactNode;
+  variant: FloorNowVariant;
+}) {
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
       {!data.dayClose.open && <DayClosedBanner go={go} />}
@@ -188,8 +210,8 @@ function Day({ data, queued, go, extras, afterAttention }: { data: OpsOverview; 
           <WhoWorked rows={data.staffActivity} />
         </div>
         <div style={{ flex: '1 1 22rem', minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-4)' }}>
-          {data.dayClose.open && <BeforeYouClose data={data} queued={queued} go={go} />}
-          <StockToWatch data={data} go={go} />
+          {variant === 'today' && data.dayClose.open && <BeforeYouClose data={data} queued={queued} go={go} />}
+          {variant === 'today' && <StockToWatch data={data} go={go} />}
           <SoFarToday data={data} go={go} />
         </div>
       </div>

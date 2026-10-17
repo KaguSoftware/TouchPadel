@@ -1,8 +1,10 @@
 /**
  * Setup › Coaches at `/admin/coaches` (docs/design/coaching/operator.md
- * §5.13): coaches, lesson types and hours at the rail's branch, one tab each,
- * bound to `?tab=` (route search `{tab, coach, promote, type}`,
- * routes/admin/coaches.tsx).
+ * §5.13): coaches, lesson types, hours and the lesson rules at the rail's
+ * branch, bound to `?tab=` (route search `{tab, coach, promote, type}`,
+ * routes/admin/coaches.tsx). The tabs are the family's (lib/workspaces.ts
+ * COACHES_TABS), printed by PageHeader; the lesson rules were a panel inside
+ * Venue settings before the management rebuild (2026-10-17).
  *
  * One read, app.coaches_admin (`QK.coaching.admin(branch)`, 60 s while open).
  * A server without coaching (RPC_MISSING) shows the §5.5 empty state; with
@@ -16,10 +18,11 @@
  */
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
+import { can, useAuth } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { useVenue } from '../../../lib/venue';
 import { useStationReach } from '../../../lib/stationReach';
-import { Button, Skeleton, Tabs } from '../../../components/ui';
+import { Button, Skeleton } from '../../../components/ui';
 import { EmptyState, MessagePresenter, PageHeader } from '../../../components/kit';
 import { LessonReadNotice } from '../../coaching/LessonReadNotice';
 import type { AdminCoach } from '../../coaching/lessonPayloads';
@@ -31,11 +34,13 @@ import { CoachHoursTab } from './CoachHoursTab';
 import { LessonTypesTab } from './LessonTypesTab';
 import { PromoteCoachDialog, type PromoteSeed } from './PromoteCoachDialog';
 import { newLessonTypeDraft, type LessonTypeDraft } from './lessonTypeLogic';
+import { CoachingSettingsPanel } from '../settings/CoachingSettingsPanel';
 
 const K = 'ws.coaching.coachesAdmin';
 
 export function CoachesAdmin() {
   const { tr } = useLocale();
+  const { staff } = useAuth();
   const { branchId } = useVenue();
   const navigate = useNavigate();
   const search = ((useSearch({ strict: false }) as CoachesSearch | undefined) ??
@@ -98,19 +103,15 @@ export function CoachesAdmin() {
   return (
     <div>
       <PageHeader title={tr(`${K}.title`)} subtitle={tr(`${K}.lead`)} actions={headerAction} />
-      {status.kind === 'absent' ? (
+      {tab === 'rules' ? (
+        // The lesson rules (coaching operator.md §5.12): their own read, draft and Save.
+        <div style={{ maxInlineSize: 'var(--tp-measure-wide)' }}>
+          <CoachingSettingsPanel canEdit={can(staff, 'editVenueDetails')} />
+        </div>
+      ) : status.kind === 'absent' ? (
         <EmptyState icon="whistle" title={tr('ws.coaching.offline.serverMissing')} />
       ) : (
         <>
-          <Tabs<TabId>
-            value={tab}
-            onChange={(t) => go({ tab: t, coach: t === 'types' ? undefined : search.coach })}
-            items={[
-              { id: 'coaches', label: tr(`${K}.tabs.coaches`) },
-              { id: 'types', label: tr(`${K}.tabs.types`) },
-              { id: 'hours', label: tr(`${K}.tabs.hours`) },
-            ]}
-          />
           <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
             {status.kind === 'loading' && <Skeleton lines={6} />}
             <LessonReadNotice status={status} onRetry={() => void q.refetch()} />

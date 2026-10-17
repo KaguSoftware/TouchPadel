@@ -94,6 +94,7 @@ export function ReceiveDelivery() {
     return (
       <div style={{ maxInlineSize: '80rem' }}>
         <PageHeader
+          ownTitle
           title={tr('ws.receipts.review.title')}
           actions={
             <Button kind="ghost" size="sm" icon="chevronStart" onClick={() => void navigate({ to: '/stock/receive' })}>
@@ -109,6 +110,7 @@ export function ReceiveDelivery() {
     return (
       <div style={{ maxInlineSize: '64rem' }}>
         <PageHeader
+          ownTitle
           title={tr('ws.supplies.purchase.title')}
           actions={
             <Button kind="ghost" size="sm" icon="chevronStart" onClick={() => void navigate({ to: '/stock/receive' })}>

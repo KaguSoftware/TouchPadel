@@ -185,6 +185,12 @@ export const ownerEn = {
    */
   setupHome: {
     title: 'Setup',
+    // Management rebuild (2026-10-17): the overview's search and its one-line summary.
+    find: {
+      title: 'Find a setting',
+      placeholder: 'Deposit, opening hours, kitchen screen…',
+    },
+    glance: 'At a glance',
     screens: 'Setup screens',
     // The kitchen-screen pairing card (features/admin/KitchenPairing).
     kitchen: {
@@ -247,6 +253,12 @@ export const ownerEn = {
     title: 'Venue settings',
     lead: 'Opening hours, the business day, and the details guests see. Every change is recorded in the audit log.',
     ownerOnly: 'Owner only',
+    // Courts › Online deposit and Open matches, opened while online payments
+    // are paused (their tabs are hidden then; a direct link lands here).
+    paused: {
+      title: 'Online payments are paused',
+      body: 'These rules open here once the club’s online payment account is connected. Whoever set up your system connects it.',
+    },
     tabs: {
       hours: 'Opening hours',
       day: 'Day & service',
@@ -669,6 +681,18 @@ export const ownerEn = {
   // ---------------------------------------------------------------------
   financialHome: {
     title: 'Financial',
+    // Management rebuild (2026-10-17): the sections that replaced the cards.
+    cash: {
+      title: 'The cash',
+      openSafe: 'Open the safe',
+    },
+    due: {
+      title: 'Coming due',
+      wages: 'Wages due now',
+      coachPay: 'Coach statements this month',
+      openWages: 'Open wages',
+      openCoachPay: 'Open coach pay',
+    },
     screens: 'Everything in Financial',
     cards: {
       reports: 'Revenue, court income and cafe sales over any period — one tab each, with drill-through and CSV export.',

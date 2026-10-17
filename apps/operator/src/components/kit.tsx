@@ -20,6 +20,20 @@ import { BilingualFields, DateField } from './inputs';
 // Page structure
 // ---------------------------------------------------------------------------
 
+/**
+ * The family of the page being shown (components/FamilyTabs.tsx): the rail
+ * row's name, the tab's name and the tab strip. The shell hands it down so
+ * every PageHeader in a family reads the same way, family small above, page as
+ * the title, tabs under it, without the page placing anything. Null outside
+ * the shell (tests, the gallery) and on a page that stands alone.
+ */
+export interface PageFamily {
+  eyebrow: string;
+  title: string;
+  tabs: ReactNode;
+}
+export const PageFamilyContext = createContext<PageFamily | null>(null);
+
 export function PageHeader({
   title,
   titleAfter,
@@ -28,6 +42,7 @@ export function PageHeader({
   eyebrow,
   children,
   style,
+  ownTitle,
 }: {
   title: string;
   /**
@@ -41,7 +56,18 @@ export function PageHeader({
   actions?: ReactNode;
   children?: ReactNode;
   style?: CSSProperties;
+  /**
+   * A view inside a tab's page that is not the tab itself (a scanned receipt
+   * opened on Goods in): it keeps its own title and shows no family tabs.
+   */
+  ownTitle?: boolean;
 }) {
+  const inFamily = useContext(PageFamilyContext);
+  const family = ownTitle ? null : inFamily;
+  if (family) {
+    title = family.title;
+    eyebrow = family.eyebrow;
+  }
   return (
     <header
       style={{
@@ -73,6 +99,7 @@ export function PageHeader({
         </div>
         {actions && <div className="tp-page-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}
       </div>
+      {family?.tabs}
       {children}
     </header>
   );

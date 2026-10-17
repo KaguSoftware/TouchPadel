@@ -8,10 +8,10 @@ import type { StaffRole } from '../../lib/auth';
 import type { StaffRow } from './staff/staffModel';
 import type * as SettingsModule from '../../lib/settings';
 
-// The landing screen of the Setup section: what in setup will bite a shift,
-// then one card per destination with the same role wall as the rail — a card
-// is a link to a screen, so a role that may not open the screen may not be
-// offered the card.
+// The landing screen of the Setup section (management rebuild, 2026-10-17):
+// what in setup will bite a shift, a search over Setup's pages, and the setup
+// at a glance, one line each with the page that changes it. The grid of one
+// card per screen is gone: the rail beside it lists them.
 
 let role: StaffRole = 'owner';
 const data: {
@@ -99,37 +99,28 @@ describe('SetupHomeScreen', () => {
     data.needsCost = 0;
   });
 
-  it('offers every setup destination, each with what the screen decides', () => {
+  it('is headed Setup and repeats no list of its screens', () => {
     renderSetup('owner');
-    expect(screen.getByRole('heading', { name: 'Setup' })).toBeTruthy();
-    const links = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
-    expect(links).toEqual([
-      '/admin/staff',
-      '/admin/branches',
-      '/admin/courts',
-      // Coaching (coaching operator.md §5.3.3): Coaches sits after Courts.
-      '/admin/coaches',
-      '/admin/qr',
-      // Loyalty (build-contracts-2026-10-05 §5): business-wide, before the branch's settings.
-      '/admin/loyalty',
-      '/admin/settings',
-      '/admin/hero',
-    ]);
-    // The card says more than its rail row could: names alone are not answers.
-    expect(screen.getByText(/replace a lost one/)).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Setup' })).toBeTruthy();
+    // No card back to itself, and no grid of links to what the rail lists.
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
   });
 
-  it('never offers the section overview a card back to itself', () => {
+  it('finds a setting by what the owner calls it, and opens its page', async () => {
     renderSetup('owner');
-    expect(screen.queryByRole('link', { name: /Overview/ })).toBeNull();
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Deposit, opening hours, kitchen screen…' }), 'kitchen');
+    const results = screen.getByRole('list', { name: 'Pages and settings' });
+    const first = within(results).getAllByRole('link')[0]!;
+    expect(first.getAttribute('href')).toBe('/admin/settings/kitchen');
+    expect(within(first).getByText('Kitchen screens')).toBeTruthy();
+    expect(within(first).getByText('Setup › Devices')).toBeTruthy();
   });
 
-  it('drops a destination the role may not open', () => {
-    // Staff is owner-only (ROUTE_ROLES); the rest of /admin is manager's too.
+  it('offers a manager only the settings a manager may open', async () => {
     renderSetup('manager');
-    const links = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
-    expect(links).not.toContain('/admin/staff');
-    expect(links).toContain('/admin/courts');
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Deposit, opening hours, kitchen screen…' }), 'staff');
+    const hrefs = screen.queryAllByRole('link').map((a) => a.getAttribute('href'));
+    expect(hrefs).not.toContain('/admin/staff');
   });
 
   it('says plainly when nothing needs attention, and a switched-off Telegram is a choice, not a problem', async () => {
@@ -245,11 +236,15 @@ describe('SetupHomeScreen', () => {
     expect(document.querySelectorAll('li[data-check]')).toHaveLength(3);
   });
 
-  it('puts one honest live line on the cards it can count', async () => {
+  it('sums the setup up one line each, with the page that changes it', async () => {
     data.staff = [person({ id: 'o1', role: 'owner', has_pin: true }), person({ id: 'o2', role: 'owner', has_pin: true }), person({ id: 'x', is_active: false })];
     renderSetup('owner');
-    const staffCard = screen.getAllByRole('link').find((a) => a.getAttribute('href') === '/admin/staff')!;
-    await waitFor(() => expect(within(staffCard).getByText('People with access')).toBeTruthy());
-    expect(within(staffCard).getByText('2')).toBeTruthy();
+    const glance = screen.getByRole('heading', { name: 'At a glance' }).closest('section, div[class], div')!.parentElement!;
+    await waitFor(() => expect(within(glance).getByText('People with access')).toBeTruthy());
+    const staffLine = within(glance).getByText('People with access').closest('li')!;
+    // The count waits for its read rather than saying zero.
+    await waitFor(() => expect(within(staffLine).getByText('2')).toBeTruthy());
+    await userEvent.click(within(staffLine).getByRole('button', { name: 'Staff' }));
+    expect(navigate).toHaveBeenCalledWith({ to: '/admin/staff' });
   });
 });

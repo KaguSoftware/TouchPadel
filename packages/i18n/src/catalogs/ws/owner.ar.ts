@@ -170,6 +170,11 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
   },
   setupHome: {
     title: 'الإعداد',
+    find: {
+      title: 'ابحث عن إعداد',
+      placeholder: 'العربون، ساعات العمل، شاشة المطبخ…',
+    },
+    glance: 'نظرة سريعة',
     screens: 'شاشات الإعداد',
     kitchen: {
       title: 'شاشات المطبخ',
@@ -228,6 +233,10 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
     title: 'إعدادات المكان',
     lead: 'ساعات العمل ويوم العمل والبيانات التي يراها الضيوف. يُسجَّل كل تغيير في سجل التدقيق.',
     ownerOnly: 'للمالك فقط',
+    paused: {
+      title: 'الدفع الإلكتروني متوقف مؤقتًا',
+      body: 'تظهر هذه القواعد هنا بعد ربط حساب الدفع الإلكتروني للنادي. يتولى ربطه من جهّز نظامكم.',
+    },
     tabs: {
       hours: 'ساعات العمل',
       day: 'اليوم والخدمة',
@@ -631,6 +640,17 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
   // ---------------------------------------------------------------------
   financialHome: {
     title: 'المالية',
+    cash: {
+      title: 'النقد',
+      openSafe: 'فتح القاصة',
+    },
+    due: {
+      title: 'مستحقات قريبة',
+      wages: 'رواتب مستحقة الآن',
+      coachPay: 'كشوف المدرّبين لهذا الشهر',
+      openWages: 'فتح الرواتب',
+      openCoachPay: 'فتح مستحقات المدرّبين',
+    },
     screens: 'كل ما في المالية',
     cards: {
       reports: 'الإيرادات ودخل الملاعب ومبيعات الكافيه لأي فترة، لكل منها تبويب، مع التفاصيل والتصدير بصيغة CSV.',

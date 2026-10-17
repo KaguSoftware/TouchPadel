@@ -12,8 +12,12 @@ import {
   workspaceItems,
   workspaceOwnsPath,
   workspacesForRole,
+  activeTab,
+  familyRowForPath,
+  rowTarget,
+  type NavTab,
 } from './workspaces';
-import { ROUTE_ROLES, canAccess, type StaffRole } from './auth';
+import { ROUTE_ROLES, SUB_ROUTES, canAccess, type StaffRole } from './auth';
 
 describe('workspacesForRole', () => {
   it('gives single-role staff exactly their own workspace', () => {
@@ -278,39 +282,50 @@ describe('sections', () => {
     }
   });
 
-  it('hides the screens that are opened from inside another screen', () => {
+  it('hides only the working screens a drill-through still lands on', () => {
     const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
     const hidden = observation.items.filter((i) => i.hidden).map((i) => i.to);
-    // Promotions and Telegram are reached from the marketing panel; Floor now
-    // is the overview's own body (2026-10-08); the desk and the tab board are
-    // reached only by drilling through from the overview's area cards.
-    expect(hidden).toEqual(['/admin/promotions', '/admin/telegram', '/ops', '/desk', '/till/tabs']);
-    // Hidden rows never print...
-    expect(sectionRailItems(observation).map((i) => i.to)).not.toContain('/admin/promotions');
+    // Floor now is the overview's own body (2026-10-08); the desk and the tab
+    // board are reached only by drilling through from the overview's area
+    // buttons. Promotions and Telegram are Marketing's tabs now, not hidden.
+    expect(hidden).toEqual(['/ops', '/desk', '/till/tabs']);
     expect(sectionRailItems(observation).map((i) => i.to)).not.toContain('/ops');
-    // ...but the section still owns them, so the rail survives the trip.
+    // The section still owns them, so the rail survives the trip.
     expect(sectionForPath(owner, '/admin/promotions')?.key).toBe('observation');
     expect(workspaceOwnsPath('owner', '/admin/promotions')).toBe(true);
+    // No section of either management rail hides anything else.
+    for (const ws of [WORKSPACES.owner, WORKSPACES.manager]) {
+      for (const section of ws.sections ?? []) {
+        if (section.key === 'observation') continue;
+        expect(section.items.filter((i) => i.hidden).map((i) => i.to), section.key).toEqual([]);
+      }
+    }
   });
 
-  it("prints Observe's live boards in order, the activity monitor right after the staff activity report", () => {
+  it("prints Observe's rows in order: now, the boards, the team, protocols, marketing, the audit log", () => {
     const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
-    const rail = sectionRailItems(observation).map((i) => [i.to, i.labelKey]);
-    expect(rail.slice(0, 6)).toEqual([
+    expect(sectionRailItems(observation).map((i) => [i.to, i.labelKey])).toEqual([
       ['/observation', 'overview'],
       ['/observation/courts', 'bookings'],
       ['/observation/tills', 'tills'],
-      ['/reports/staff', 'staffActivity'],
-      ['/observation/activity', 'activityMonitor'],
-      ['/observation/requests', 'requests'],
+      ['/observation/activity', 'staffActivity'],
+      ['/observation/requests', 'fromTeam'],
+      ['/protocols', 'protocols'],
+      ['/marketing', 'marketing'],
+      ['/admin/audit', 'audit'],
     ]);
   });
 
-  it('lists Deductions, Protocols, Suggestions and Incidents right after the requests they sit beside, and keeps four sections', () => {
+  it('gathers what the team sends up into one family, protocols beside it, and keeps four sections', () => {
     const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
-    const rail = sectionRailItems(observation).map((i) => i.to);
-    const at = rail.indexOf('/observation/requests');
-    expect(rail.slice(at, at + 5)).toEqual(['/observation/requests', '/deductions', '/protocols', '/suggestions', '/incidents']);
+    const fromTeam = observation.items.find((i) => i.labelKey === 'fromTeam')!;
+    expect(fromTeam.tabs?.map((t) => [t.to, t.labelKey])).toEqual([
+      ['/observation/requests', 'requests'],
+      ['/deductions', 'deductions'],
+      ['/incidents', 'incidents'],
+      ['/suggestions', 'suggestions'],
+    ]);
+    expect(observation.items.find((i) => i.labelKey === 'protocols')?.tabs).toBeUndefined();
     expect(owner.sections).toHaveLength(4);
   });
 
@@ -324,23 +339,25 @@ describe('sections', () => {
   });
 
   it('puts every report in exactly one section: money in Financial, staff in Observe, stock in Stock', () => {
-    const rows = (key: string) =>
-      sectionRailItems((owner.sections ?? []).find((s) => s.key === key)!).filter((i) => i.to.startsWith('/reports'));
-    // Financial's one Reports row stands for its three tabs; Coach pay
-    // (coaching operator.md §5.3.3) is its own screen with an exact row.
-    expect(rows('financial').map((i) => [i.to, i.labelKey])).toEqual([
-      ['/reports/revenue', 'reports'],
+    const tabsOf = (key: string) =>
+      sectionRailItems((owner.sections ?? []).find((s) => s.key === key)!)
+        .flatMap((i) => (i.tabs ?? [{ to: i.to, labelKey: i.labelKey }]).map((t) => [t.to, t.labelKey]))
+        .filter(([to]) => to!.startsWith('/reports'));
+    // Financial's Reports family is the three money reports; Coach pay
+    // (coaching operator.md §5.3.3) is a tab of Pay.
+    expect(tabsOf('financial')).toEqual([
+      ['/reports/revenue', 'revenue'],
+      ['/reports/courts', 'courts'],
+      ['/reports/cafe', 'cafe'],
       ['/reports/coaches', 'coachPay'],
     ]);
-    expect(rows('observation').map((i) => [i.to, i.labelKey])).toEqual([['/reports/staff', 'staffActivity']]);
-    expect(rows('stock').map((i) => i.to)).toEqual(['/reports/stock']);
+    expect(tabsOf('observation')).toEqual([['/reports/staff', 'whatTheyDid']]);
+    expect(tabsOf('stock')).toEqual([['/reports/stock', 'stockValue']]);
 
     expect(sectionForPath(owner, '/reports/revenue')?.key).toBe('financial');
     expect(sectionForPath(owner, '/reports/courts')?.key).toBe('financial');
     expect(sectionForPath(owner, '/reports/cafe')?.key).toBe('financial');
-    // An exact row beats Financial's '/reports' prefix.
     expect(sectionForPath(owner, '/reports/staff')?.key).toBe('observation');
-    // Coach pay lights its own row, not the Reports row (coaching operator.md §5.3.3).
     expect(sectionForPath(owner, '/reports/coaches')?.key).toBe('financial');
     expect(sectionForPath(owner, '/admin/coaches')?.key).toBe('setup');
     expect(sectionForPath(owner, '/reports/stock')?.key).toBe('stock');
@@ -382,12 +399,17 @@ describe('the manager rail', () => {
     expect(WORKSPACES.manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([[null, ['today']]]);
     expect(WORKSPACES.manager.sections?.map((s) => [s.key, s.home, s.items.map((i) => i.labelKey)])).toEqual([
       ['stock', '/stock', WORKSPACES.owner.sections?.find((s) => s.key === 'stock')?.items.map((i) => i.labelKey)],
-      ['run', '/desk', ['bookings', 'openTabs', 'stock', 'dayClose', 'safe', 'protocols', 'suggestions', 'deductions', 'attendance', 'incidents']],
+      // Ten rows became seven: the cash is one family (day close, safe,
+      // drawer), and what the team sends up another.
+      ['run', '/desk', ['bookings', 'openTabs', 'stock', 'cash', 'protocols', 'fromTeam', 'attendance']],
       ['records', '/reports/courts', ['reports', 'coachPay', 'audit']],
       ['opsSetup', '/admin/menu', ['menu', 'rates', 'coaches', 'promotions']],
     ]);
     // Every section lands on its own first row.
     for (const sec of WORKSPACES.manager.sections ?? []) expect(sec.items[0]?.to).toBe(sec.home);
+    // The manager's cash family carries the drawer, which had no row before.
+    const cash = WORKSPACES.manager.sections?.find((s) => s.key === 'run')?.items.find((i) => i.labelKey === 'cash');
+    expect(cash?.tabs?.map((t) => t.to)).toEqual(['/admin/day-close', '/safe', '/till/drawer']);
   });
 
   it('puts every screen on the rail of the section that lists it', () => {
@@ -474,5 +496,120 @@ describe('Touch Shop desk (0243–0246)', () => {
     expect(activeNavItem(rows, '/shop')?.labelKey).toBe('shopTill');
     expect(activeNavItem(rows, '/shop/products')?.labelKey).toBe('shopProducts');
     expect(activeNavItem(rows, '/shop/drawer')?.labelKey).toBe('cashDrawer');
+  });
+});
+
+describe('families (management rebuild, 2026-10-17)', () => {
+  const owner = WORKSPACES.owner;
+  const section = (key: string) => (owner.sections ?? []).find((s) => s.key === key)!;
+  const rowNamed = (key: string, label: string) => section(key).items.find((i) => i.labelKey === label)!;
+
+  it('prints one short row per job in each Management section, with no dropdowns', () => {
+    expect(sectionRailItems(section('financial')).map((i) => i.labelKey)).toEqual(['overview', 'reports', 'cash', 'pay', 'rates', 'menuPrices']);
+    expect(sectionRailItems(section('observation'))).toHaveLength(8);
+    expect(sectionRailItems(section('stock')).map((i) => i.labelKey)).toEqual(['onHand', 'stockMovement', 'stockCounting', 'stockCosts', 'shop']);
+    expect(sectionRailItems(section('setup')).map((i) => i.labelKey)).toEqual([
+      'overview', 'staff', 'coaches', 'courts', 'venue', 'branches', 'guestApp', 'loyalty', 'devices',
+    ]);
+  });
+
+  it('opens Setup on its overview, now a printed row', () => {
+    expect(section('setup').home).toBe('/setup');
+    expect(sectionRailItems(section('setup'))[0]?.to).toBe('/setup');
+  });
+
+  it('gives every family at least two pages and opens a family on its first', () => {
+    for (const ws of [WORKSPACES.owner, WORKSPACES.manager]) {
+      for (const sec of ws.sections ?? []) {
+        for (const row of sec.items) {
+          if (!row.tabs) continue;
+          expect(row.tabs.length, `${sec.key} ${row.labelKey}`).toBeGreaterThan(1);
+          expect(row.to, `${sec.key} ${row.labelKey}`).toBe(row.tabs[0]!.to);
+        }
+      }
+    }
+  });
+
+  it('never lists one page twice in the owner’s sections', () => {
+    const seen = new Set<string>();
+    for (const sec of owner.sections ?? []) {
+      for (const row of sec.items) {
+        if (row.hidden) continue;
+        for (const page of row.tabs ?? [{ to: row.to, labelKey: row.labelKey } as NavTab]) {
+          const id = `${page.to}?${new URLSearchParams(page.search ?? {}).toString()}`;
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+    }
+  });
+
+  it('gives every page that hid inside another a tab of its own', () => {
+    const tabs = (row: string, sec: string) => rowNamed(sec, row).tabs?.map((t) => t.to);
+    expect(tabs('pay', 'financial')).toContain('/attendance');
+    expect(tabs('marketing', 'observation')).toEqual(['/marketing', '/admin/promotions', '/admin/telegram']);
+    expect(tabs('venue', 'setup')).toContain('/admin/hours');
+    expect(tabs('devices', 'setup')).toContain('/admin/settings/kitchen');
+    // Every settings page that used to be a panel of Venue settings has a tab.
+    const allSetupTabs = new Set(section('setup').items.flatMap((r) => (r.tabs ?? []).map((t) => t.to)));
+    for (const route of SUB_ROUTES['/admin'].filter((r) => r.startsWith('/admin/settings'))) {
+      expect(allSetupTabs.has(route), route).toBe(true);
+    }
+  });
+
+  it('finds the family a page belongs to, on either management rail', () => {
+    expect(familyRowForPath(owner, '/safe')?.labelKey).toBe('cash');
+    expect(familyRowForPath(owner, '/admin/settings/deposit')?.labelKey).toBe('courts');
+    expect(familyRowForPath(owner, '/reports/staff')?.labelKey).toBe('staffActivity');
+    expect(familyRowForPath(WORKSPACES.manager, '/safe')?.labelKey).toBe('cash');
+    expect(familyRowForPath(WORKSPACES.manager, '/reports/staff')?.labelKey).toBe('reports');
+    // A page that stands alone has no family.
+    expect(familyRowForPath(owner, '/panel')).toBeNull();
+    expect(familyRowForPath(owner, '/observation/courts')).toBeNull();
+    expect(familyRowForPath(owner, '/admin/audit')).toBeNull();
+    // The cashier's drawer is a row of its own on the till.
+    expect(familyRowForPath(WORKSPACES.cashier, '/till/drawer')).toBeNull();
+  });
+
+  it('selects the tab the path and its query name, and no tab under one', () => {
+    const cash = rowNamed('financial', 'cash').tabs!;
+    expect(activeTab(cash, '/safe')?.labelKey).toBe('safe');
+    expect(activeTab(cash, '/admin/day-close?x=1')?.labelKey).toBe('dayClose');
+    // A promotion's editor sits under the Promotions tab, not on it.
+    const marketing = rowNamed('observation', 'marketing').tabs!;
+    expect(activeTab(marketing, '/admin/promotions')?.labelKey).toBe('promotions');
+    expect(activeTab(marketing, '/admin/promotions/new')).toBeNull();
+    // Coaches' tabs share a path and differ by ?tab=.
+    const coaches = rowNamed('setup', 'coaches').tabs!;
+    expect(activeTab(coaches, '/admin/coaches', {})?.labelKey).toBe('coaches');
+    expect(activeTab(coaches, '/admin/coaches', { coach: 'c1' })?.labelKey).toBe('coaches');
+    expect(activeTab(coaches, '/admin/coaches', { tab: 'types' })?.labelKey).toBe('lessonTypes');
+    expect(activeTab(coaches, '/admin/coaches', { tab: 'hours', coach: 'c1' })?.labelKey).toBe('coachHours');
+    expect(activeTab(coaches, '/admin/coaches', { tab: 'rules' })?.labelKey).toBe('lessonRules');
+  });
+
+  it('sends a family row to the first page the person may open', () => {
+    const fromTeam = rowNamed('observation', 'fromTeam');
+    expect(rowTarget(fromTeam, () => true).to).toBe('/observation/requests');
+    expect(rowTarget(fromTeam, (t) => t.to !== '/observation/requests').to).toBe('/deductions');
+    const lessonRules = rowNamed('setup', 'coaches');
+    expect(rowTarget(lessonRules, (t) => t.labelKey === 'lessonRules')).toEqual({ to: '/admin/coaches', search: { tab: 'rules' } });
+    // A plain row goes to its own page.
+    expect(rowTarget(rowNamed('observation', 'audit'), () => true).to).toBe('/admin/audit');
+  });
+
+  it('keeps online deposits and open matches behind the online-payments condition', () => {
+    const courts = rowNamed('setup', 'courts').tabs!;
+    expect(courts.filter((t) => t.when === 'onlinePaymentsLive').map((t) => t.to)).toEqual([
+      '/admin/settings/deposit',
+      '/admin/settings/matches',
+    ]);
+  });
+
+  it('keeps the owner-only settings pages the owner’s', () => {
+    expect(canAccess('manager', '/admin/settings/booking')).toBe(true);
+    expect(canAccess('manager', '/admin/settings/analytics')).toBe(false);
+    expect(canAccess('manager', '/admin/settings/kitchen')).toBe(false);
+    expect(canAccess('owner', '/admin/settings/kitchen')).toBe(true);
   });
 });

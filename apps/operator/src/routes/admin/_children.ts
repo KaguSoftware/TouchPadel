@@ -17,7 +17,19 @@ import { adminPromotionsRoute, adminPromotionEditorRoute } from './promotions';
 import { adminHoursRoute } from './hours';
 import { adminDayCloseRoute } from './day-close';
 import { adminTelegramRoute } from './telegram';
-import { adminSettingsRoute } from './settings';
+import {
+  adminSettingsAnalyticsRoute,
+  adminSettingsBookingRoute,
+  adminSettingsDayRoute,
+  adminSettingsDepositRoute,
+  adminSettingsDevicesRoute,
+  adminSettingsKitchenRoute,
+  adminSettingsMatchesRoute,
+  adminSettingsOfflineRoute,
+  adminSettingsRoute,
+  adminSettingsStationsRoute,
+  adminSettingsTournamentsRoute,
+} from './settings';
 import { adminStaffRoute } from './staff';
 import { adminAuditRoute } from './audit';
 import { adminBranchesRoute } from './branches';
@@ -40,6 +52,16 @@ export const adminChildren = [
   adminDayCloseRoute,
   adminTelegramRoute,
   adminSettingsRoute,
+  adminSettingsDayRoute,
+  adminSettingsAnalyticsRoute,
+  adminSettingsBookingRoute,
+  adminSettingsDepositRoute,
+  adminSettingsMatchesRoute,
+  adminSettingsTournamentsRoute,
+  adminSettingsDevicesRoute,
+  adminSettingsStationsRoute,
+  adminSettingsKitchenRoute,
+  adminSettingsOfflineRoute,
   adminStaffRoute,
   adminAuditRoute,
   adminBranchesRoute,

@@ -253,6 +253,12 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // Setup › Loyalty (loyalty build contracts §5): points, tiers and rewards
   // are business-wide and the owner's (set_loyalty_settings is owner-only).
   '/admin/loyalty': ['owner'],
+  // Setup's settings pages (management rebuild, 2026-10-17). Two stay the
+  // owner's, as they were before they became pages: what analytics leaves out
+  // (its tab was hidden from a manager) and the kitchen screen pairing (it
+  // lived on the owner-only /setup).
+  '/admin/settings/analytics': ['owner'],
+  '/admin/settings/kitchen': ['owner'],
   '/analytics': ['owner'],
   '/ops': ['manager', 'owner'],
   '/panel': ['owner'],
@@ -334,6 +340,17 @@ export const SUB_ROUTES = {
     '/admin/day-close',
     '/admin/telegram',
     '/admin/settings',
+    // Setup's settings pages (management rebuild, 2026-10-17).
+    '/admin/settings/day',
+    '/admin/settings/analytics',
+    '/admin/settings/booking',
+    '/admin/settings/deposit',
+    '/admin/settings/matches',
+    '/admin/settings/tournaments',
+    '/admin/settings/devices',
+    '/admin/settings/stations',
+    '/admin/settings/kitchen',
+    '/admin/settings/offline',
     '/admin/staff',
     '/admin/branches',
     '/admin/loyalty',

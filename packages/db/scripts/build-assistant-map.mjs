@@ -402,11 +402,27 @@ export function rolesForRoute(route, routeRoles) {
 
 export function inventoryRail() {
   const src = readFileSync(PATHS.workspaces, 'utf8');
+  // A family's pages (management rebuild, 2026-10-17) are a named tab list
+  // (`const CASH_TABS: readonly NavTab[] = [ … ];`) that a row names
+  // (`tabs: CASH_TABS`). A tab may carry one nested object (`search: { tab: 'types' }`).
+  const ITEM = String.raw`\{\s*to:\s*'([^']+)',\s*labelKey:\s*'([^']+)'((?:[^{}]|\{[^{}]*\})*)\}`;
+  const tabLists = new Map();
+  for (const m of src.matchAll(/^const ([A-Z_]+): readonly NavTab\[\] = \[([\s\S]*?)\];[ \t]*$/gm)) {
+    const body = m[2].replace(/\/\/[^\n]*/g, '');
+    tabLists.set(
+      m[1],
+      [...body.matchAll(new RegExp(ITEM, 'g'))].map((t) => ({ to: t[1], labelKey: t[2], search: /search:\s*\{\s*tab:\s*'(\w+)'/.exec(t[3])?.[1] ?? null })),
+    );
+  }
+  const tabsOf = (rest) => {
+    const name = /tabs:\s*([A-Z_]+)/.exec(rest ?? '')?.[1];
+    return name ? tabLists.get(name) ?? [] : [];
+  };
   // A row shared by several lists is a named constant (`const COACHES: NavItem = { … };`),
   // placed bare (`COACHES,`) or spread (`{ ...ATTENDANCE, hidden: true }`).
   const named = new Map();
   for (const m of src.matchAll(/^const ([A-Z_]+): NavItem = \{\s*to:\s*'([^']+)',\s*labelKey:\s*'([^']+)'([^}]*)\};/gm)) {
-    named.set(m[1], { to: m[2], labelKey: m[3], hidden: /hidden:\s*true/.test(m[4]) });
+    named.set(m[1], { to: m[2], labelKey: m[3], hidden: /hidden:\s*true/.test(m[4]), tabs: tabsOf(m[4]) });
   }
   const lists = new Map();
   // A list ends at the first line that ends in `];`: a one-line list (MANAGER_TODAY) included,
@@ -415,7 +431,7 @@ export function inventoryRail() {
     const items = [];
     const body = m[2].replace(/\/\/[^\n]*/g, '');
     for (const it of body.matchAll(/\{\s*to:\s*'([^']+)',\s*labelKey:\s*'([^']+)'([^}]*)\}|\{\s*\.\.\.([A-Z_]+)([^}]*)\}|^\s*([A-Z_]+),?\s*$/gm)) {
-      if (it[1]) items.push({ to: it[1], labelKey: it[2], hidden: /hidden:\s*true/.test(it[3]) });
+      if (it[1]) items.push({ to: it[1], labelKey: it[2], hidden: /hidden:\s*true/.test(it[3]), tabs: tabsOf(it[3]) });
       else {
         const base = named.get(it[4] ?? it[6]);
         if (base) items.push({ ...base, hidden: base.hidden || /hidden:\s*true/.test(it[5] ?? '') });
@@ -716,17 +732,29 @@ export async function buildMap({ catalog, sha } = {}) {
 
   // ── routes: inventory = ROUTE_ROLES ∪ SUB_ROUTES ∪ rail `to`s; pages.md may add more
   const routes = new Set([...routeRoles.keys(), ...[...subRoutes.values()].flat()]);
-  const railByRoute = new Map(); // route → [{workspace, section, group, labelKey, hidden}]
+  const railByRoute = new Map(); // route → [{workspace, section, group, labelKey, family, hidden}]
+  const reach = (route, entry) => {
+    routes.add(route);
+    if (!railByRoute.has(route)) railByRoute.set(route, []);
+    railByRoute.get(route).push(entry);
+  };
   for (const ws of rail.workspaces) {
-    for (const g of ws.groups) for (const it of g.items) {
-      routes.add(it.to);
-      if (!railByRoute.has(it.to)) railByRoute.set(it.to, []);
-      railByRoute.get(it.to).push({ workspace: ws.key, section: null, group: g.labelKey, labelKey: it.labelKey, hidden: it.hidden });
-    }
-    for (const s of ws.sections) for (const it of s.items) {
-      routes.add(it.to);
-      if (!railByRoute.has(it.to)) railByRoute.set(it.to, []);
-      railByRoute.get(it.to).push({ workspace: ws.key, section: s.key, group: null, labelKey: it.labelKey, hidden: it.hidden });
+    const rows = [
+      ...ws.groups.flatMap((g) => g.items.map((it) => ({ it, section: null, group: g.labelKey }))),
+      ...ws.sections.flatMap((s) => s.items.map((it) => ({ it, section: s.key, group: null }))),
+    ];
+    for (const { it, section, group } of rows) {
+      // A family row is reached through its tabs, each named "Row › Tab".
+      if (it.tabs?.length) {
+        for (const tab of it.tabs) {
+          // Tabs told apart by `?tab=` share one route: that route is the family itself, named once.
+          const shared = it.tabs.filter((t) => t.to === tab.to).length > 1;
+          if (shared && tab !== it.tabs.find((t) => t.to === tab.to)) continue;
+          reach(tab.to, { workspace: ws.key, section, group, labelKey: shared ? it.labelKey : tab.labelKey, family: shared ? null : it.labelKey, hidden: it.hidden });
+        }
+      } else {
+        reach(it.to, { workspace: ws.key, section, group, labelKey: it.labelKey, family: null, hidden: it.hidden });
+      }
     }
   }
   const missing = [...routes].filter((r) => !pages.has(r)).sort();
@@ -741,7 +769,8 @@ export async function buildMap({ catalog, sha } = {}) {
   const pageRoles = (route) => rolesForRoute(route, routeRoles);
   const pageWhere = (route, lang) =>
     (railByRoute.get(route) ?? []).map((r) => {
-      const label = lang === 'ar' ? navAr(r.labelKey) ?? navEn(r.labelKey) : navEn(r.labelKey);
+      const name = (k) => (lang === 'ar' ? navAr(k) ?? navEn(k) : navEn(k));
+      const label = r.family ? `${name(r.family)} › ${name(r.labelKey)}` : name(r.labelKey);
       const where = r.section ? `${wsName(r.workspace, lang)} › ${secName(r.section, lang)}` : wsName(r.workspace, lang);
       return `${where}: "${label}"${r.hidden ? (lang === 'ar' ? ' (غير مطبوع في الشريط)' : ' (not a printed rail row)') : ''}`;
     });
@@ -774,13 +803,21 @@ export async function buildMap({ catalog, sha } = {}) {
           lang,
           title: `${wsName(ws.key, lang)}${sect}: ${nav(r.labelKey)}`,
           body:
-            lang === 'ar'
+            (lang === 'ar'
               ? `صف "${nav(r.labelKey)}" في مساحة "${wsName(ws.key, lang)}"${sect} يفتح ${r.to}.${r.hidden ? ' لا يُطبع في الشريط؛ يُفتح من داخل شاشة أخرى.' : ''} الاسم بالإنجليزية: "${navEn(r.labelKey)}". الأدوار: ${pageRoles(r.to).join(', ')}.`
-              : `Rail row "${nav(r.labelKey)}" in the ${wsName(ws.key, lang)} workspace${sect} opens ${r.to}.${r.hidden ? ' Not printed on the rail; opened from inside another screen.' : ''} Arabic label: "${navAr(r.labelKey) ?? '—'}". Roles: ${pageRoles(r.to).join(', ')}.`,
+              : `Rail row "${nav(r.labelKey)}" in the ${wsName(ws.key, lang)} workspace${sect} opens ${r.to}.${r.hidden ? ' Not printed on the rail; opened from inside another screen.' : ''} Arabic label: "${navAr(r.labelKey) ?? '—'}". Roles: ${pageRoles(r.to).join(', ')}.`) +
+            (r.tabs?.length
+              ? lang === 'ar'
+                ? ` صفحاته، كتبويبات تحت عنوان الصفحة: ${r.tabs.map((t) => `${nav(t.labelKey)} ← ${t.to}${t.search ? `?tab=${t.search}` : ''}`).join('؛ ')}.`
+                : ` Its pages, as tabs under the page title: ${r.tabs.map((t) => `${nav(t.labelKey)} → ${t.to}${t.search ? `?tab=${t.search}` : ''}`).join('; ')}.`
+              : ''),
           route: r.to,
         });
       }
-      const visible = (items) => items.filter((i) => !i.hidden).map((i) => `${nav(i.labelKey)} → ${i.to}`);
+      const visible = (items) =>
+        items
+          .filter((i) => !i.hidden)
+          .map((i) => `${nav(i.labelKey)} → ${i.to}${i.tabs?.length ? ` (${i.tabs.map((t) => nav(t.labelKey)).join(', ')})` : ''}`);
       const wsBody = [
         lang === 'ar' ? `مساحة العمل "${wsName(ws.key, lang)}" تبدأ من ${ws.home}.` : `Workspace "${wsName(ws.key, lang)}" opens at ${ws.home}.`,
         ...ws.groups.map((g) => `${g.labelKey ? nav(g.labelKey) : lang === 'ar' ? 'الصفوف' : 'Rows'}: ${visible(g.items).join('; ')}`),
@@ -931,10 +968,11 @@ export async function buildMap({ catalog, sha } = {}) {
  * boundary (`; ` or `. `) and ends in ` …`. The page chunk keeps the whole sentence, so the
  * assistant still finds it by search; the prefix only has to say what each page is for. Set
  * when wages (0270–0272) and coaching (0273–0289) together took the prefix past the target;
- * 900 → 850 when the Rewards page (0332–0333) did it again; 850 → 800 when staff activity, main
- * cash, wage advances and staff access (0341–0346) did.
+ * 900 → 850 when the Rewards page (0332–0333) did it again.
  */
-export const COMPACT_SENTENCE_CAP = 800;
+// 780 since 2026-10-17: the management rebuild's settings pages and family tabs took the
+// prefix past the byte target again; 16 of 94 page sentences are clipped one clause earlier.
+export const COMPACT_SENTENCE_CAP = 780;
 
 function clipSentence(sentence) {
   if (sentence.length <= COMPACT_SENTENCE_CAP) return sentence;
@@ -949,14 +987,16 @@ export function renderCompact(map) {
   const lines = [
     '# Touch Padel operator app — compact map',
     '',
-    'Generated by packages/db/scripts/build-assistant-map.mjs; do not edit. Roles in brackets; rail location after the route. A sentence ending in … continues in its page chunk.',
+    'Generated by packages/db/scripts/build-assistant-map.mjs; do not edit. Roles in brackets; rail location after the route (a Management section unless another workspace is named). A sentence ending in … continues in its page chunk.',
     '',
     '## Pages',
     '',
   ];
   for (const p of pages) {
     const roles = /^Roles: (.*)\.$/m.exec(p.body)?.[1] ?? '';
-    const where = /^Reached from: (.*)\.$/m.exec(p.body)?.[1] ?? '';
+    // Management's sections are named without "Management › ", and a row as "Section › Row › Tab"
+    // (2026-10-17: the family tabs lengthened every location past the byte target).
+    const where = (/^Reached from: (.*)\.$/m.exec(p.body)?.[1] ?? '').replace(/Management › /g, '').replace(/: "([^"]*)"/g, ' › $1');
     const sentence = clipSentence(p.body.split('\n')[0]);
     // ': ' not ' — ': the em dash is 3 bytes in UTF-8, and this line repeats for every page
     // (2026-10-08: the prefix had reached the byte target).
