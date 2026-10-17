@@ -1,24 +1,26 @@
 import { useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDateTime, formatIQD, formatNumber, formatPercent } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space, useTheme } from '../../src/theme';
-import { Button, Hint, Screen } from '../../src/components/ui';
+import { Button, Hint, MicroLabel, Screen } from '../../src/components/ui';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { ChevronIcon } from '../../src/components/icons';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
+import { cacheEdit, useUndoable } from '../../src/features/staff/undo';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { staffKeys } from '../../src/features/staff/keys';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import {
   cancelSchedule,
   fetchMarketingNotesForRun,
+  fetchMyWork,
   fetchReleaseReview,
   fetchRunDetail,
   stopProtocol,
@@ -127,6 +129,18 @@ function RunBody({ detail, mgmt, isOwner }: { detail: RunDetail; mgmt: boolean; 
   const current = run.current_steps[0] ?? null;
   const isRelease = run.kind === 'product_release';
 
+  // What this person has to do on this run, first (Sait, 2026-10-17): their
+  // own work list (the same read as Work alerts) names the exact step.
+  const { venueId } = useStaffStatus();
+  const work = useQuery({
+    queryKey: staffKeys.work(venueId ?? ''),
+    queryFn: () => fetchMyWork(venueId ?? ''),
+    enabled: !!venueId,
+  });
+  const myTodo = work.data?.todo.find((w) => w.run_id === run.id) ?? null;
+  const myDecision = work.data?.to_decide.find((w) => w.run_id === run.id) ?? null;
+  const mine = myTodo ?? myDecision;
+
   const review = useQuery({
     queryKey: staffKeys.review(run.id),
     queryFn: () => fetchReleaseReview(run.id),
@@ -148,29 +162,46 @@ function RunBody({ detail, mgmt, isOwner }: { detail: RunDetail; mgmt: boolean; 
       void refresh();
     },
   });
-  const withdraw = useMutation({
-    mutationKey: staffKeys.mutation('run.withdraw'),
-    mutationFn: () => withdrawProtocol(run.id),
-    onSuccess: () => {
-      toast(t('staff.protocols.run.withdrawn'), 'info');
-      void refresh();
-    },
-    onError: (err) => toast(t(mapStaffError(err)), 'error'),
-  });
-  const unschedule = useMutation({
-    mutationKey: staffKeys.mutation('run.cancel_schedule'),
-    mutationFn: () => cancelSchedule(run.id),
-    onSuccess: () => {
-      toast(t('staff.protocols.run.scheduleCancelled'), 'info');
-      void refresh();
-    },
-    onError: (err) => toast(t(mapStaffError(err)), 'error'),
-  });
+  // Withdraw or cancel the schedule at once, with Undo on the toast instead
+  // of "Are you sure?" (Sait, 2026-10-17); the call goes when the toast's
+  // time is up. Until then the run's buttons stand aside.
+  const queryClient = useQueryClient();
+  const undoable = useUndoable();
+  const settle = (message: string, send: () => Promise<unknown>) =>
+    undoable({
+      message,
+      ...cacheEdit<RunDetail>(queryClient, staffKeys.run(run.id), (d) => ({
+        ...d,
+        can: { ...d.can, withdraw_run: false, cancel_schedule: false, stop: false },
+      })),
+      send,
+      onSent: () => void refresh(),
+      onError: (err) => toast(t(mapStaffError(err)), 'error'),
+    });
+  const withdraw = () => settle(t('staff.protocols.run.withdrawn'), () => withdrawProtocol(run.id));
+  const unschedule = () =>
+    settle(t('staff.protocols.run.scheduleCancelled'), () => cancelSchedule(run.id));
 
   const openStep = (id: string) => router.push({ pathname: '/staff-step', params: { id } });
 
   return (
     <>
+      {mine ? (
+        <Section style={{ borderColor: colors.blue, borderWidth: 1.5 }}>
+          <MicroLabel>{t('staff.protocols.run.yourPart')}</MicroLabel>
+          <Strong>
+            {t(myTodo ? 'staff.protocols.run.yourTodo' : 'staff.protocols.run.yourDecision', {
+              name: bilingual(locale, mine.name_en, mine.name_ar) ?? '',
+            })}
+          </Strong>
+          <Button
+            testID="staff-run.my-step"
+            label={t('staff.protocols.run.openMine')}
+            variant="cta"
+            onPress={() => openStep(mine.run_step_id)}
+          />
+        </Section>
+      ) : null}
       <Section>
         <Strong style={{ fontSize: 18, lineHeight: 24 }}>{title}</Strong>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.s, alignItems: 'center' }}>
@@ -194,7 +225,8 @@ function RunBody({ detail, mgmt, isOwner }: { detail: RunDetail; mgmt: boolean; 
         {run.finished_at ? (
           <Muted>{t('staff.protocols.run.finishedAt', { when: formatDateTime(new Date(run.finished_at), locale) })}</Muted>
         ) : null}
-        {current ? (
+        {/* The run's current step, when it is not the person's own (that one is on top). */}
+        {current && current.id !== mine?.run_step_id ? (
           <Button
             testID="staff-run.current-step"
             label={t('staff.protocols.run.openStep', { name: bilingual(locale, current.name_en, current.name_ar) ?? '' })}
@@ -278,13 +310,7 @@ function RunBody({ detail, mgmt, isOwner }: { detail: RunDetail; mgmt: boolean; 
           testID="staff-run.cancel-schedule"
           label={t('work.protocol.action.cancelSchedule')}
           variant="secondary"
-          busy={unschedule.isPending}
-          onPress={() =>
-            Alert.alert(t('work.protocol.action.cancelSchedule'), t('staff.protocols.run.cancelScheduleConfirm'), [
-              { text: t('staff.protocols.step.decide.cancel'), style: 'cancel' },
-              { text: t('work.protocol.action.cancelSchedule'), onPress: () => unschedule.mutate() },
-            ])
-          }
+          onPress={unschedule}
         />
       ) : null}
       {can.withdraw_run ? (
@@ -292,13 +318,7 @@ function RunBody({ detail, mgmt, isOwner }: { detail: RunDetail; mgmt: boolean; 
           testID="staff-run.withdraw"
           label={t('staff.protocols.run.withdraw')}
           variant="dangerOutline"
-          busy={withdraw.isPending}
-          onPress={() =>
-            Alert.alert(t('staff.protocols.run.withdraw'), t('staff.protocols.run.withdrawConfirm'), [
-              { text: t('staff.protocols.step.decide.cancel'), style: 'cancel' },
-              { text: t('staff.protocols.run.withdraw'), style: 'destructive', onPress: () => withdraw.mutate() },
-            ])
-          }
+          onPress={withdraw}
         />
       ) : null}
       {can.stop ? (

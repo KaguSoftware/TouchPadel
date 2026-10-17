@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,8 +7,8 @@ import type { FieldIssue } from '@touch/core';
 import { formatDateTime, isolate, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space, useTheme } from '../../src/theme';
-import { Button, ErrorText, Hint, MicroLabel, Screen } from '../../src/components/ui';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+import { Button, ErrorText, MicroLabel, Screen } from '../../src/components/ui';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { PhotoButton, type AttachedPhoto } from '../../src/components/PhotoButton';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
@@ -16,6 +16,7 @@ import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { staffKeys } from '../../src/features/staff/keys';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { cacheEdit, useUndoable } from '../../src/features/staff/undo';
 import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
 import { intentFor } from '../../src/features/staff/supplies/logic';
 import { declineIdea, fetchIdeasToReview, fetchMyIdeas, submitIdea, withdrawIdea } from '../../src/features/staff/ideas/api';
@@ -46,7 +47,8 @@ import {
   useRefreshProtocols,
 } from '../../src/features/staff/protocols/parts';
 import { RecordView } from '../../src/features/staff/protocols/RecordView';
-import { Lead } from '../../src/features/staff/checklists/parts';
+import { Lead, Tag } from '../../src/features/staff/checklists/parts';
+import { statusTone } from '../../src/features/staff/statusTone';
 
 /**
  * New-item ideas (build-contracts-2026-09-23 §6.1 `staff-ideas.tsx?id=`, role
@@ -153,23 +155,31 @@ function MyIdeaCard({ idea, focused }: { idea: MyIdea; focused: boolean }) {
   const { colors } = useTheme();
   const toast = useToast();
   const refresh = useRefreshProtocols();
-  const withdraw = useMutation({
-    mutationKey: staffKeys.mutation('idea.withdraw'),
-    mutationFn: () => withdrawIdea(idea.id),
-    onSuccess: () => {
-      toast(t('staff.protocols.ideas.withdrawn'), 'info');
-      void refresh();
-    },
-    onError: (err) => toast(t(mapStaffError(err)), 'error'),
-  });
+  // Withdraw at once, with Undo on the toast instead of "Are you sure?"
+  // (Sait, 2026-10-17); the call goes when the toast's time is up.
+  const queryClient = useQueryClient();
+  const { venueId } = useStaffStatus();
+  const undoable = useUndoable();
+  const withdraw = () =>
+    undoable({
+      message: t('staff.protocols.ideas.withdrawn'),
+      ...cacheEdit<MyIdea[]>(queryClient, staffKeys.ideas(venueId ?? ''), (mine) =>
+        mine.map((i) => (i.id === idea.id ? { ...i, status: 'withdrawn' } : i)),
+      ),
+      send: () => withdrawIdea(idea.id),
+      onSent: () => void refresh(),
+      onError: (err) => toast(t(mapStaffError(err)), 'error'),
+    });
   const steps = (idea.run?.current_steps ?? []).map((s) => bilingual(locale, s.name_en, s.name_ar)).filter(Boolean);
   return (
     <View testID={`staff-ideas.idea.${idea.id}`}>
       <Section style={focused ? { borderColor: colors.blue, borderWidth: 1.5 } : undefined}>
         <Strong>{ideaName(idea.record, locale) ?? t('staff.protocols.common.untitled')}</Strong>
-        <Muted style={{ color: idea.status === 'declined' ? colors.redtext : colors.mut }}>
-          {`${t(`work.idea.status.${idea.status}`)} · ${formatDateTime(new Date(idea.submitted_at), locale)}`}
-        </Muted>
+        {/* The status as a pill in the colours every staff list uses (Sait, 2026-10-17). */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.s, flexWrap: 'wrap' }}>
+          <Tag tone={statusTone(idea.status, 'info')} label={t(`work.idea.status.${idea.status}`)} />
+          <Muted>{formatDateTime(new Date(idea.submitted_at), locale)}</Muted>
+        </View>
         {idea.status === 'declined' && idea.decline_reason ? (
           <Muted>
             {t('staff.protocols.ideas.declinedBecause', {
@@ -192,13 +202,7 @@ function MyIdeaCard({ idea, focused }: { idea: MyIdea; focused: boolean }) {
             testID={`staff-ideas.withdraw.${idea.id}`}
             label={t('staff.protocols.ideas.withdraw')}
             variant="ghost"
-            busy={withdraw.isPending}
-            onPress={() =>
-              Alert.alert(t('staff.protocols.ideas.withdraw'), t('staff.protocols.ideas.withdrawConfirm'), [
-                { text: t('staff.protocols.step.decide.cancel'), style: 'cancel' },
-                { text: t('staff.protocols.ideas.withdraw'), style: 'destructive', onPress: () => withdraw.mutate() },
-              ])
-            }
+            onPress={withdraw}
             style={{ alignSelf: 'flex-start' }}
           />
         ) : null}
@@ -340,7 +344,7 @@ function IdeasScreen() {
                 onRetry={() => void mine.refetch()}
               />
             ) : mine.data.length === 0 ? (
-              <Hint>{t('staff.protocols.ideas.mineEmpty')}</Hint>
+              <EmptyState centered testID="staff-ideas.mine-empty" title={t('staff.protocols.ideas.mineEmpty')} />
             ) : (
               focusFirst(mine.data, params.id).map((idea) => (
                 <MyIdeaCard key={idea.id} idea={idea} focused={idea.id === params.id} />
@@ -363,7 +367,7 @@ function IdeasScreen() {
                 onRetry={() => void review.refetch()}
               />
             ) : review.data.ideas.length === 0 ? (
-              <Hint>{t('staff.protocols.ideas.reviewEmpty')}</Hint>
+              <EmptyState centered testID="staff-ideas.review-empty" title={t('staff.protocols.ideas.reviewEmpty')} />
             ) : (
               focusFirst(review.data.ideas, params.id).map((idea) => (
                 <ReviewCard key={idea.id} idea={idea} names={names} focused={idea.id === params.id} />

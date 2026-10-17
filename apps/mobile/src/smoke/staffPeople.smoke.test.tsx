@@ -188,7 +188,8 @@ runSmokeCases('staff people records', [
   {
     route: 'staff-incident-report',
     Component: StaffIncidentReport,
-    labelKey: 'staff.incidents.form.submit',
+    // The first step's way on names the next step, as the operator's does.
+    labelKey: 'ws.incidents.form.steps.story',
     options: { staff: { role: 'driver' } },
   },
   {
@@ -301,17 +302,19 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
     });
     try {
       expect(screen.getByText(t('staff.deductions.propose.lead'))).toBeTruthy();
-      expect(screen.getByTestId(`staff-deduction-propose.target.${ID(40)}`)).toBeTruthy();
-      expect(screen.getByText(t('staff.deductions.propose.consequenceAnyone'))).toBeTruthy();
-      fireEvent.press(screen.getByTestId('staff-deduction-propose.submit'));
-      expect(screen.getByText(t('staff.deductions.propose.errors.who'))).toBeTruthy();
-      expect(screen.getByText(t('staff.deductions.propose.errors.amount'))).toBeTruthy();
-      expect(screen.getByText(t('staff.deductions.propose.errors.reason'))).toBeTruthy();
-      // Choosing the person names them in what happens next.
-      fireEvent.press(screen.getByTestId(`staff-deduction-propose.target.${ID(40)}`));
+      // The only person on the team is chosen already (Sait, 2026-10-17), and
+      // named in what happens next.
       expect(
         screen.getByText(t('staff.deductions.propose.consequence', { name: isolate('Yusuf') })),
       ).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-deduction-propose.submit'));
+      expect(screen.queryByText(t('staff.deductions.propose.errors.who'))).toBeNull();
+      expect(screen.getByText(t('staff.deductions.propose.errors.amount'))).toBeTruthy();
+      expect(screen.getByText(t('staff.deductions.propose.errors.reason'))).toBeTruthy();
+      // Change clears the choice, and the list is back.
+      fireEvent.press(screen.getByTestId('staff-deduction-propose.target.change'));
+      expect(screen.getByTestId(`staff-deduction-propose.target.${ID(40)}`)).toBeTruthy();
+      expect(screen.getByText(t('staff.deductions.propose.consequenceAnyone'))).toBeTruthy();
     } finally {
       screen.unmount();
     }
@@ -389,7 +392,9 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
     });
     try {
       expect(screen.getByText(t('staff.deductions.propose.leadOwner'))).toBeTruthy();
-      expect(screen.getByText(t('staff.deductions.propose.consequenceAnyoneOwner'))).toBeTruthy();
+      expect(
+        screen.getByText(t('staff.deductions.propose.consequenceOwner', { name: isolate('Yusuf') })),
+      ).toBeTruthy();
       expect(screen.getByText(t('staff.deductions.propose.submitOwner'))).toBeTruthy();
     } finally {
       screen.unmount();
@@ -400,23 +405,73 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
 describe.each(LOCALES)('incident reports by role in %s', (locale) => {
   const t = makeT(locale);
 
-  it('asks the reporter what, where and which court before sending, with the privacy line', () => {
-    const screen = renderRoute(StaffIncidentReport, {
+  /** One step of the report, on a draft of its own so the cases never share answers. */
+  const reportStep = (step: string, draft: string) =>
+    renderRoute(StaffIncidentReport, {
       locale,
       staff: { role: 'court_desk' },
+      params: { draft: `${locale}-${draft}`, step },
       queryData: [[staffKeys.courts(V), [{ id: ID(90), name_en: 'Court 2', name_ar: 'الملعب 2' }]]],
     });
+
+  it('opens on the kind, the operator’s five cards, and holds Next until one is picked', () => {
+    const screen = reportStep('kind', 'kind');
     try {
-      expect(screen.getByText(t('staff.incidents.form.privacyHint'))).toBeTruthy();
-      expect(screen.getByText(t('staff.incidents.form.whoSees'))).toBeTruthy();
-      fireEvent.press(screen.getByTestId('staff-incident-report.submit'));
-      expect(screen.getByText(t('staff.incidents.form.errors.kind'))).toBeTruthy();
-      expect(screen.getByText(t('staff.incidents.form.errors.place'))).toBeTruthy();
-      expect(screen.getByText(t('staff.incidents.form.errors.description'))).toBeTruthy();
+      for (const k of ['injury', 'fight', 'damage', 'accident', 'other']) {
+        expect(screen.getByTestId(`staff-incident-report.kind.${k}`)).toBeTruthy();
+      }
+      expect(screen.getByText(t('ws.incidents.form.kindHint.injury'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-incident-report.next'));
+      expect(screen.getByText(t('ws.incidents.form.missing.kind'))).toBeTruthy();
+      expect(routerState.calls.some((c) => c.method === 'push')).toBe(false);
+      fireEvent.press(screen.getByTestId('staff-incident-report.kind.injury'));
+      expect(screen.queryByText(t('ws.incidents.form.missing.kind'))).toBeNull();
+      fireEvent.press(screen.getByTestId('staff-incident-report.next'));
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: { pathname: '/staff-incident-report', params: { draft: `${locale}-kind`, step: 'story' } },
+      });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('asks what happened under the privacy line, and wants it written before going on', () => {
+    const screen = reportStep('story', 'story');
+    try {
+      expect(screen.getByText(t('ws.incidents.form.privacyHint'))).toBeTruthy();
+      expect(screen.getByText(t('ws.incidents.form.peopleHint'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-incident-report.next'));
+      expect(screen.getByText(t('ws.incidents.form.missing.description'))).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('asks where and when, with the quick times, and which court for a court', () => {
+    const screen = reportStep('placeTime', 'place');
+    try {
+      for (const c of ['now', 'm15', 'h1', 'pick']) {
+        expect(screen.getByTestId(`staff-incident-report.when.${c}`)).toBeTruthy();
+      }
+      fireEvent.press(screen.getByTestId('staff-incident-report.next'));
+      expect(screen.getByText(t('ws.incidents.form.missing.place'))).toBeTruthy();
       fireEvent.press(screen.getByTestId('staff-incident-report.place.court'));
       expect(screen.getByTestId(`staff-incident-report.court.${ID(90)}`)).toBeTruthy();
-      fireEvent.press(screen.getByTestId('staff-incident-report.submit'));
-      expect(screen.getByText(t('staff.incidents.form.errors.court'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-incident-report.next'));
+      expect(screen.getByText(t('ws.incidents.form.missing.courtId'))).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('reviews every answer with a Change, and sends from there', () => {
+    const screen = reportStep('review', 'review');
+    try {
+      expect(screen.getByText(t('ws.incidents.form.reviewLead'))).toBeTruthy();
+      expect(screen.getByTestId('staff-incident-report.change.kind')).toBeTruthy();
+      expect(screen.getByTestId('staff-incident-report.submit')).toBeTruthy();
+      expect(screen.queryByTestId('staff-incident-report.next')).toBeNull();
     } finally {
       screen.unmount();
     }

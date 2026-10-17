@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,7 +17,7 @@ import {
   Screen,
   SegmentedControl,
 } from '../../src/components/ui';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
@@ -40,7 +40,9 @@ import {
   withdrawMarketingRequest,
   type MarketingRequest,
   type RequestsFilter,
+  type MyMarketingRequests,
 } from '../../src/features/staff/marketing/api';
+import { cacheEdit, useUndoable } from '../../src/features/staff/undo';
 import {
   REQUEST_FILTERS,
   canAnswer,
@@ -128,33 +130,23 @@ function RequestsScreen() {
   };
 
   // ── Withdraw, answer ───────────────────────────────────────────────────────
-  const withdraw = useMutation({
-    mutationKey: staffKeys.mutation('marketing_request.withdraw'),
-    mutationFn: (id: string) => withdrawMarketingRequest(id),
-    onSuccess: () => {
-      toast(t('staff.marketing.requests.withdrawn'), 'info');
-      refresh();
-    },
-    onError: (err) => {
-      toast(t(mapStaffError(err)), 'error');
-      refresh();
-    },
-  });
-
-  const confirmWithdraw = (id: string) => {
-    Alert.alert(
-      t('staff.marketing.requests.withdraw'),
-      t('staff.marketing.requests.withdrawConfirm'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('staff.marketing.requests.withdraw'),
-          style: 'destructive',
-          onPress: () => withdraw.mutate(id),
-        },
-      ],
-    );
-  };
+  // Withdraw at once, with Undo on the toast instead of "Are you sure?"
+  // (Sait, 2026-10-17); the call goes when the toast's time is up.
+  const undoable = useUndoable();
+  const withdraw = (id: string) =>
+    undoable({
+      message: t('staff.marketing.requests.withdrawn'),
+      ...cacheEdit<MyMarketingRequests>(queryClient, staffKeys.myMarketingRequests(venue), (mine) => ({
+        ...mine,
+        requests: mine.requests.map((r) => (r.id === id ? { ...r, status: 'withdrawn' } : r)),
+      })),
+      send: () => withdrawMarketingRequest(id),
+      onSent: refresh,
+      onError: (err) => {
+        toast(t(mapStaffError(err)), 'error');
+        refresh();
+      },
+    });
 
   // Marketing answers one request at a time; a named one opens first.
   const [answering, setAnswering] = useState<string | null>(
@@ -283,7 +275,7 @@ function RequestsScreen() {
               ) : mine.isError ? (
                 loadError('staff-marketing-requests.error', mine)
               ) : mineRows.length === 0 ? (
-                <Hint>{t('staff.marketing.requests.empty')}</Hint>
+                <EmptyState centered={!view.readsAll} testID="staff-marketing-requests.empty" title={t('staff.marketing.requests.empty')} />
               ) : (
                 mineRows.map((r) => (
                   <Card key={r.id} style={{ padding: space.m, gap: 4, ...namedStyle(r.id) }}>
@@ -295,8 +287,7 @@ function RequestsScreen() {
                         testID={`staff-marketing-requests.withdraw.${r.id}`}
                         label={t('staff.marketing.requests.withdraw')}
                         variant="ghost"
-                        busy={withdraw.isPending && withdraw.variables === r.id}
-                        onPress={() => confirmWithdraw(r.id)}
+                        onPress={() => withdraw(r.id)}
                         style={{ alignSelf: 'flex-start', marginTop: 4 }}
                       />
                     ) : null}
@@ -330,7 +321,7 @@ function RequestsScreen() {
               ) : page.isError ? (
                 loadError('staff-marketing-requests.inbox-error', page)
               ) : pageRows.length === 0 ? (
-                <Hint>{t('staff.marketing.requests.inboxEmpty')}</Hint>
+                <EmptyState centered testID="staff-marketing-requests.inbox-empty" title={t('staff.marketing.requests.inboxEmpty')} />
               ) : (
                 pageRows.map((r) => {
                   // A request whose asker has no role on record reads as the name

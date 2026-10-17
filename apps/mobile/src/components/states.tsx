@@ -11,8 +11,8 @@
  * An empty state and an error state are different things and must never share
  * a branch again.
  */
-import { useEffect, useRef } from 'react';
-import { Animated, Easing, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, View, useWindowDimensions } from 'react-native';
 import { Text } from '../i18n/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { brand, radius, space, useTheme } from '../theme';
@@ -185,6 +185,7 @@ export function EmptyState({
   actionLabel,
   onAction,
   fill = false,
+  centered = false,
   testID,
   actionTestID,
 }: {
@@ -194,6 +195,12 @@ export function EmptyState({
   onAction?: () => void;
   /** Centre in the remaining space instead of sitting under the header. */
   fill?: boolean;
+  /**
+   * Centre in the visible screen below where the block starts, for a list
+   * inside a ScrollView, where `fill` has no height to grow into. The block
+   * measures its own top once and takes the rest of the window as its height.
+   */
+  centered?: boolean;
   /** `<route>.empty` for the block itself. */
   testID?: string;
   /**
@@ -204,11 +211,26 @@ export function EmptyState({
   actionTestID?: string;
 }) {
   const { colors, fonts } = useTheme();
+  const box = useRef<View>(null);
+  const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [minHeight, setMinHeight] = useState<number | undefined>(undefined);
   return (
     <View
+      ref={box}
       testID={testID}
+      onLayout={
+        centered && minHeight === undefined
+          ? () =>
+              box.current?.measureInWindow((_x, y) => {
+                const rest = height - y - insets.bottom - space.xl;
+                if (rest > 0) setMinHeight(rest);
+              })
+          : undefined
+      }
       style={{
         flex: fill ? 1 : undefined,
+        minHeight,
         alignItems: 'center',
         justifyContent: 'center',
         paddingStart: space.xl,

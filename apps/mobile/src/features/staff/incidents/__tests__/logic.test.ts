@@ -5,9 +5,15 @@ import { staffIdemKey } from '../../../../lib/idempotency';
 import {
   INCIDENT_KINDS,
   INCIDENT_PLACES,
+  KIND_ORDER,
+  REPORT_STEPS,
   emptyIncidentDraft,
   groupIncidentsByDay,
   incidentArgs,
+  issuesOnStep,
+  parseReportStep,
+  stepDone,
+  stepOfField,
   ownReportLine,
   reviewsIncidents,
   toReviewCount,
@@ -200,5 +206,35 @@ describe('groupIncidentsByDay', () => {
 
   it('gives an empty list no days', () => {
     expect(groupIncidentsByDay([], now)).toEqual([]);
+  });
+});
+
+describe('the stepped report', () => {
+  it('runs the operator’s steps in its order, the review last', () => {
+    expect(REPORT_STEPS).toEqual(['kind', 'story', 'placeTime', 'review']);
+    expect(parseReportStep('placeTime')).toBe('placeTime');
+    expect(parseReportStep('nope')).toBe('kind');
+    expect(parseReportStep(undefined)).toBe('kind');
+  });
+
+  it('puts each issue on the step that asks for it', () => {
+    const issues = validateIncident(emptyIncidentDraft(Date.parse('2026-10-17T10:00:00Z')), Date.parse('2026-10-17T10:00:00Z'));
+    expect(issuesOnStep(issues, 'kind').map((i) => i.field)).toEqual(['kind']);
+    expect(issuesOnStep(issues, 'story').map((i) => i.field)).toEqual(['description']);
+    expect(issuesOnStep(issues, 'placeTime').map((i) => i.field)).toEqual(['place']);
+    expect(stepOfField('photos')).toBe('story');
+    expect(stepOfField('courtId')).toBe('placeTime');
+  });
+
+  it('calls a step done once it has no issue, and the review once nothing is left', () => {
+    const issues = [{ field: 'description' as const, code: 'required' as const }];
+    expect(stepDone('kind', issues)).toBe(true);
+    expect(stepDone('story', issues)).toBe(false);
+    expect(stepDone('review', issues)).toBe(false);
+    expect(stepDone('review', [])).toBe(true);
+  });
+
+  it('offers the kinds in the operator’s order', () => {
+    expect(KIND_ORDER).toEqual(['injury', 'fight', 'damage', 'accident', 'other']);
   });
 });

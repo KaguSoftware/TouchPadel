@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,8 +9,9 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Field, Hint, LinkText, MicroLabel, Screen, SegmentedControl } from '../../src/components/ui';
+import { DetailsFold } from '../../src/components/DetailsFold';
 import { ChecklistRow } from '../../src/components/ChecklistRow';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { MenuRow } from '../../src/components/booking';
 import { CardIcon, CheckIcon, ChevronIcon } from '../../src/components/icons';
 import { useToast } from '../../src/components/overlays';
@@ -30,7 +31,9 @@ import {
   fetchShoppingList,
   type IngredientOption,
   type ShoppingItem,
+  type ShoppingListPage,
 } from '../../src/features/staff/supplies/api';
+import { cacheEdit, cacheEdits, useUndoable } from '../../src/features/staff/undo';
 import {
   CAPS,
   DECLINED_SHOWN,
@@ -194,25 +197,28 @@ function ShoppingScreen() {
   };
 
   // ── Cancel, decide ─────────────────────────────────────────────────────────
-  const cancel = useMutation({
-    mutationKey: staffKeys.mutation('shopping.cancel'),
-    mutationFn: (id: string) => cancelShoppingItem(id),
-    onSuccess: () => {
-      toast(t('staff.supplies.shopping.list.cancelled'), 'info');
-      refreshLists();
-    },
-    onError: (err) => {
-      toast(t(mapStaffError(err)), 'error');
-      refreshLists();
-    },
-  });
-
-  const confirmCancel = (id: string) => {
-    Alert.alert(t('staff.supplies.shopping.list.cancel'), t('staff.supplies.shopping.list.cancelConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('staff.supplies.shopping.list.cancel'), style: 'destructive', onPress: () => cancel.mutate(id) },
-    ]);
-  };
+  // Cancel at once, with Undo on the toast instead of "Are you sure?" (Sait,
+  // 2026-10-17): the line leaves every list now, the call goes when the
+  // toast's time is up.
+  const undoable = useUndoable();
+  const cancel = (id: string) =>
+    undoable({
+      message: t('staff.supplies.shopping.list.cancelled'),
+      ...cacheEdits(
+        SHOPPING_LIST_STATUSES.map((s) =>
+          cacheEdit<ShoppingListPage>(queryClient, staffKeys.shopping(venue, s), (page) => ({
+            ...page,
+            items: page.items.filter((i) => i.id !== id),
+          })),
+        ),
+      ),
+      send: () => cancelShoppingItem(id),
+      onSent: refreshLists,
+      onError: (err) => {
+        toast(t(mapStaffError(err)), 'error');
+        refreshLists();
+      },
+    });
 
   const [declining, setDeclining] = useState<{ id: string; reason: string; error: string | null } | null>(null);
   const decide = useMutation({
@@ -294,7 +300,7 @@ function ShoppingScreen() {
         testID={`staff-shopping.cancel.${item.id}`}
         label={t('staff.supplies.shopping.list.cancel')}
         color={colors.redtext}
-        onPress={() => confirmCancel(item.id)}
+        onPress={() => cancel(item.id)}
         style={{ marginTop: 4 }}
       />
     ) : null;
@@ -493,16 +499,23 @@ function ShoppingScreen() {
               onChange={(unit) => edit({ unit })}
             />
             <ErrorText>{addFieldError('unit')}</ErrorText>
-            <Field
-              testID="staff-shopping.note"
-              label={t('staff.supplies.shopping.add.note')}
-              value={draft.note}
-              onChangeText={(note) => edit({ note })}
-              multiline
-              boxStyle={MULTILINE_BOX}
-              style={MULTILINE_TEXT}
-              error={addFieldError('note')}
-            />
+            {/* The note is extra: it waits under Add details (Sait, 2026-10-17). */}
+            <DetailsFold
+              testID="staff-shopping.details"
+              summary={t('staff.supplies.shopping.add.note')}
+              keepOpen={draft.note !== '' || !!addFieldError('note')}
+            >
+              <Field
+                testID="staff-shopping.note"
+                label={t('staff.supplies.shopping.add.note')}
+                value={draft.note}
+                onChangeText={(note) => edit({ note })}
+                multiline
+                boxStyle={MULTILINE_BOX}
+                style={MULTILINE_TEXT}
+                error={addFieldError('note')}
+              />
+            </DetailsFold>
             {view.addWaitsForOk ? <Hint style={{ marginTop: 0 }}>{t('staff.supplies.shopping.add.waitsForOk')}</Hint> : null}
             <ErrorText>{addError}</ErrorText>
             <Button
@@ -555,7 +568,7 @@ function ShoppingScreen() {
         ) : open.isError ? (
           loadError('staff-shopping.error', open)
         ) : openItems.length === 0 ? (
-          <Hint>{t('staff.supplies.shopping.list.empty')}</Hint>
+          <EmptyState centered testID="staff-shopping.empty" title={t('staff.supplies.shopping.list.empty')} />
         ) : view.runChecklist ? (
           // The run is a checklist like the day's lists, so it ticks like one:
           // the shared row, one card, the amount on the line it belongs to.

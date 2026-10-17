@@ -49,6 +49,7 @@ import { coachKeys } from '../features/coach/keys';
 import type { CoachMeRead } from '../features/coach/logic';
 import { ToastProvider } from '../components/overlays';
 import { resetRouterState } from './routerState';
+import { __resetStaffChoices } from '../features/staff/remembered';
 import { TEST_SESSION, setTestSession } from './authState';
 
 /**
@@ -139,6 +140,8 @@ export function renderRoute(
   }: RenderRouteOptions = {},
 ): SmokeResult {
   resetRouterState(params, pathname);
+  // Every render is a fresh phone: no store or filter remembered from a case before.
+  __resetStaffChoices();
   setTestSession(staff || coach ? (session === 'verified' ? 'verified' : 'in') : session);
 
   const client = new QueryClient({

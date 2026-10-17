@@ -324,6 +324,16 @@ export const PinIcon = (p: IconProps) => (
     {...p}
   />
 );
+/** The incident form's privacy line (the operator's `shield`). Not directional. */
+export const ShieldIcon = (p: IconProps) => <StrokeIcon d={['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z']} {...p} />;
+/** A court, seen from above (the operator's `court`): the incident form's court cards. Not directional. */
+export const CourtIcon = (p: IconProps) => (
+  <StrokeIcon d={['M3 4h18v16H3zM12 4v16M3 10h4M17 10h4M3 14h4M17 14h4']} {...p} />
+);
+/** What a step is missing (the operator's `info`). Not directional. */
+export const InfoIcon = (p: IconProps) => (
+  <StrokeIcon d={['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01']} {...p} />
+);
 /** Show guest view: an eye. Not directional. */
 export const EyeIcon = (p: IconProps) => (
   <StrokeIcon
@@ -355,6 +365,18 @@ export const QrIcon = (p: IconProps) => (
 /** Count the store: a clipboard with lines. */
 export const ClipboardIcon = (p: IconProps) => (
   <StrokeIcon d={['M9 3.5h6v3H9v-3zM9 5H6v15.5h12V5h-3M9 11h6M9 15h4']} {...p} />
+);
+/** The bar's roles (hiring): a cup with its handle; never mirrored. */
+export const CupIcon = (p: IconProps) => (
+  <StrokeIcon d={['M5 9h12v5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5V9zM17 10h1a2 2 0 0 1 0 4h-1']} {...p} />
+);
+/** The kitchen's roles (hiring): a chef's hat over its band. */
+export const ChefHatIcon = (p: IconProps) => (
+  <StrokeIcon d={['M8 17h8v3.5H8V17zM6 13a4 4 0 1 1 3-6.5 4 4 0 0 1 6 0A4 4 0 1 1 18 13v4H6v-4z']} {...p} />
+);
+/** The driver (hiring): a van with its two wheels; directional, so it mirrors under RTL. */
+export const TruckIcon = (p: IconProps) => (
+  <StrokeIcon d={['M3 16V7h11v9M14 10h4l3 3v3h-2M9 17h6M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0z']} flip {...p} />
 );
 
 /** The brand padel-ball mark (circle + two racket-face arcs), 48-viewBox. */

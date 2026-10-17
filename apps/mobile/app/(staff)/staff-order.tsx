@@ -7,7 +7,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
 import { Card, Hint, LinkText, MicroLabel, Screen } from '../../src/components/ui';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { mapStaffError } from '../../src/features/staff/edge';
@@ -120,7 +120,7 @@ function TablesScreen() {
       );
     }
     const { tables, day_open } = floor.data;
-    if (tables.length === 0) return <Hint>{t('staff.floor.tables.empty')}</Hint>;
+    if (tables.length === 0) return <EmptyState centered testID="staff-order.empty" title={t('staff.floor.tables.empty')} />;
     // By zone, in the server's number order within each; one unnamed group
     // when the branch names none.
     const zones = [...new Set(tables.map((tb) => tb.zone ?? ''))];

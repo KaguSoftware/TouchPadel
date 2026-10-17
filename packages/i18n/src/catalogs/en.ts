@@ -49,6 +49,8 @@ export const en = {
     call: 'Call',
     keepIt: 'Keep it',
     notYet: 'Not yet',
+    // The toast button that takes back a withdraw, cancel or untick (staff, 2026-10-17).
+    undo: 'Undo',
   },
   auth: {
     signIn: 'Sign in',

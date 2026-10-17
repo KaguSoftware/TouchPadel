@@ -8,7 +8,7 @@ import { formatDateTime } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
 import { Hint, Screen } from '../../src/components/ui';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { FilterChip } from '../../src/components/booking';
 import { BellIcon, CheckIcon, ChevronIcon, ClockIcon, PencilIcon } from '../../src/components/icons';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
@@ -137,7 +137,7 @@ function RunsScreen() {
             onRetry={() => void runs.refetch()}
           />
         ) : runs.data.runs.length === 0 ? (
-          <Hint>{t(`staff.protocols.runs.empty.${filter}`)}</Hint>
+          <EmptyState centered testID="staff-runs.empty" title={t(`staff.protocols.runs.empty.${filter}`)} />
         ) : (
           <>
             {runs.data.runs.map((run) => (

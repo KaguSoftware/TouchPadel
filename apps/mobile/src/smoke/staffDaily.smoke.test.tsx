@@ -578,7 +578,11 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
       queryData: [[staffKeys.stock(V, 'all'), STOCK]],
     });
     try {
-      expect(owner.getByTestId('staff-stock.filter.retail')).toBeTruthy();
+      // The Items button opens on every kind; its four choices (All, Bought in,
+      // Made here, Shop) come up in the wheel sheet.
+      expect(
+        within(owner.getByTestId('staff-stock.filter')).getByText(t('staff.checklists.stock.filter.all')),
+      ).toBeTruthy();
     } finally {
       owner.unmount();
     }

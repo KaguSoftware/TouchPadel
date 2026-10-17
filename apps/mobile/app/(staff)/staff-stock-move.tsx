@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatTime, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space, useTheme } from '../../src/theme';
-import { Button, Card, ErrorText, Hint, MicroLabel, Screen } from '../../src/components/ui';
+import { Button, Card, Hint, MicroLabel, Screen } from '../../src/components/ui';
+import { ScreenWithBar } from '../../src/components/BottomBar';
+import { useRememberedChoice } from '../../src/features/staff/remembered';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
@@ -63,17 +64,21 @@ import {
  * on the line. The key is `move:<from>`.
  */
 
+
+/** The two stores stock moves between. */
+const MOVE_FROM: readonly StockLocation[] = ['cafe', 'bakery'];
 function MoveScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { venueId } = useStaffStatus();
   const venue = venueId ?? '';
   const qtyText = useQtyText();
 
-  const [from, setFrom] = useState<StockLocation>('cafe');
+  // From the cafe by default (deliveries land there), or the way this phone
+  // last moved stock (Sait, 2026-10-17).
+  const [from, setFrom] = useRememberedChoice<StockLocation>('stock-move.from', MOVE_FROM, 'cafe');
   const to = otherStore(from);
 
   const pick = useQuery({
@@ -253,15 +258,19 @@ function MoveScreen() {
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.stores.move.title') }} />
-      <ScrollView
-        contentContainerStyle={{
-          paddingTop: space.m,
-          paddingBottom: 40 + insets.bottom,
-          gap: space.sm,
-        }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <ScreenWithBar
+        contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
+        error={listError ?? formError}
+        bar={
+          <Button
+            testID="staff-stock-move.move"
+            label={t(`staff.stores.move.save.${to}`)}
+            variant="primary"
+            busy={move.isPending}
+            onPress={onMove}
+          />
+        }
       >
         <Lead>{t('staff.stores.move.lead')}</Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
@@ -325,22 +334,13 @@ function MoveScreen() {
             <Hint style={{ marginTop: space.xs }}>{t('staff.stores.move.noLines')}</Hint>
           )}
 
-          <ErrorText>{listError ?? formError}</ErrorText>
-          <Button
-            testID="staff-stock-move.move"
-            label={t(`staff.stores.move.save.${to}`)}
-            variant="primary"
-            busy={move.isPending}
-            onPress={onMove}
-            style={{ marginTop: space.xs }}
-          />
         </Card>
 
         <MicroLabel style={{ paddingStart: 4, marginTop: space.s }}>
           {t('staff.stores.move.todayTitle')}
         </MicroLabel>
         {movedToday()}
-      </ScrollView>
+      </ScreenWithBar>
     </Screen>
   );
 }

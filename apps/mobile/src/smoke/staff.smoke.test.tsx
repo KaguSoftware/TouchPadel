@@ -9,8 +9,9 @@
  * the screen through on the first render. The page lane's screens are cased in
  * staffPages.smoke.test.tsx.
  */
-import { describe, expect, it } from '@jest/globals';
-import { act } from '@testing-library/react-native';
+import { describe, expect, it, jest } from '@jest/globals';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
+import { supabase } from '../lib/supabase';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
@@ -166,6 +167,45 @@ describe.each(LOCALES)('the staff area’s stops in %s', (locale) => {
       expect(screen.getByText(t('staff.shell.requests.decideOnOperator'))).toBeTruthy();
     } finally {
       screen.unmount();
+    }
+  });
+
+  // Sait, 2026-10-17: Undo instead of "Are you sure?". The withdraw shows at
+  // once, the toast offers Undo, and Undo puts the request back unsent.
+  it('withdraws a request at once with Undo on the toast, and Undo sends nothing', async () => {
+    const rpc = jest.fn(() => Promise.resolve({ data: null, error: null }));
+    Object.assign(supabase, { schema: () => ({ rpc }) });
+    const row = {
+      id: 'req-1',
+      kind: 'leave',
+      status: 'pending',
+      from_date: '2026-10-22',
+      to_date: '2026-10-24',
+      amount_iqd: null,
+      note: '',
+      created_at: '2026-10-17T09:00:00Z',
+      decided_at: null,
+      decision_note: null,
+      staff_id: UID,
+      staff_name: 'Test Staff',
+      staff_role: 'barista',
+      decided_by_name: null,
+    };
+    const screen = renderRoute(StaffRequest, {
+      locale,
+      staff: { role: 'barista' },
+      queryData: [[staffKeys.requests(UID), { requests: [row], total: 1, pending: 1 }]],
+    });
+    try {
+      fireEvent.press(screen.getByTestId('staff-request.withdraw.req-1'));
+      await waitFor(() => expect(screen.queryByTestId('staff-request.withdraw.req-1')).toBeNull());
+      expect(screen.getAllByText(t('staff.shell.requests.withdrawn')).length).toBeGreaterThan(0);
+      fireEvent.press(screen.getByTestId('toast.action'));
+      expect(await screen.findByTestId('staff-request.withdraw.req-1')).toBeTruthy();
+      expect(rpc).not.toHaveBeenCalled();
+    } finally {
+      screen.unmount();
+      delete (supabase as { schema?: unknown }).schema;
     }
   });
 

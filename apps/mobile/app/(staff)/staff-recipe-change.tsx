@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate, formatNumber, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
@@ -18,7 +17,7 @@ import {
   Screen,
   SegmentedControl,
 } from '../../src/components/ui';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
@@ -72,6 +71,9 @@ import { Lead, MULTILINE_BOX, MULTILINE_TEXT, Tag, type TagTone } from '../../sr
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { formatQty } from '../../src/features/staff/supplies/logic';
 import { searchField } from '../../src/components/fieldKeyboard';
+import { ScreenWithBar } from '../../src/components/BottomBar';
+import { cacheEdit, useUndoable } from '../../src/features/staff/undo';
+import { DetailsFold } from '../../src/components/DetailsFold';
 
 /**
  * Recipe changes (build-contracts-2026-09-23 §2.24.7, §6.1; plan #71, #72).
@@ -119,7 +121,6 @@ function RecipeChangeScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { status, venueId } = useStaffStatus();
   const params = useLocalSearchParams<{ target?: string; targetId?: string; id?: string }>();
@@ -227,15 +228,19 @@ function RecipeChangeScreen() {
     }
   };
 
-  const withdraw = useMutation({
-    mutationKey: staffKeys.mutation('recipe_change.withdraw'),
-    mutationFn: (id: string) => withdrawRecipeChange(id),
-    onSuccess: () => {
-      toast(t('staff.checklists.recipeChange.withdrawn'), 'info');
-      void queryClient.invalidateQueries({ queryKey: staffKeys.myRecipeChanges(venue) });
-    },
-    onError: (err) => setDecideError(t(mapStaffError(err))),
-  });
+  // Withdraw at once, with Undo on the toast instead of "Are you sure?"
+  // (Sait, 2026-10-17); the call goes when the toast's time is up.
+  const undoable = useUndoable();
+  const withdraw = (id: string) =>
+    undoable({
+      message: t('staff.checklists.recipeChange.withdrawn'),
+      ...cacheEdit<MyRecipeChange[]>(queryClient, staffKeys.myRecipeChanges(venue), (mine) =>
+        mine.map((c) => (c.id === id ? { ...c, status: 'withdrawn' } : c)),
+      ),
+      send: () => withdrawRecipeChange(id),
+      onSent: () => void queryClient.invalidateQueries({ queryKey: staffKeys.myRecipeChanges(venue) }),
+      onError: (err) => setDecideError(t(mapStaffError(err))),
+    });
 
   const decide = useMutation({
     mutationKey: staffKeys.mutation('recipe_change.decide'),
@@ -263,16 +268,6 @@ function RecipeChangeScreen() {
     setReasonIssue(null);
     setDeclining(false);
   };
-
-  const confirmWithdraw = (id: string) =>
-    Alert.alert(t('staff.checklists.recipeChange.withdrawTitle'), t('staff.checklists.recipeChange.withdrawBody'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('staff.checklists.recipeChange.withdraw'),
-        style: 'destructive',
-        onPress: () => withdraw.mutate(id),
-      },
-    ]);
 
   const confirmApprove = (id: string) =>
     Alert.alert(t('staff.checklists.recipeChange.approveTitle'), t('staff.checklists.recipeChange.approveBody'), [
@@ -566,28 +561,26 @@ function RecipeChangeScreen() {
             />
           )}
 
-          <Field
-            testID="staff-recipe-change.note"
-            label={t('staff.checklists.recipeChange.note')}
-            value={draft.note}
-            onChangeText={(note) => change({ ...draft, note })}
-            multiline
-            boxStyle={MULTILINE_BOX}
-            style={MULTILINE_TEXT}
-            maxLength={NOTE_MAX}
-            error={issues.some((i) => i.field === 'note') ? t('staff.checklists.recipeChange.errors.note') : null}
-          />
+          {/* The note is extra: it waits under Add details (Sait, 2026-10-17). */}
+          <DetailsFold
+            testID="staff-recipe-change.details"
+            summary={t('staff.checklists.recipeChange.note')}
+            keepOpen={draft.note !== '' || issues.some((i) => i.field === 'note')}
+          >
+            <Field
+              testID="staff-recipe-change.note"
+              label={t('staff.checklists.recipeChange.note')}
+              value={draft.note}
+              onChangeText={(note) => change({ ...draft, note })}
+              multiline
+              boxStyle={MULTILINE_BOX}
+              style={MULTILINE_TEXT}
+              maxLength={NOTE_MAX}
+              error={issues.some((i) => i.field === 'note') ? t('staff.checklists.recipeChange.errors.note') : null}
+            />
+          </DetailsFold>
         </>
       ) : null}
-      <ErrorText>{draftError()}</ErrorText>
-      <Button
-        testID="staff-recipe-change.submit"
-        label={t('staff.checklists.recipeChange.submit')}
-        variant="primary"
-        busy={send.isPending}
-        disabled={venue === ''}
-        onPress={onSend}
-      />
     </Card>
   );
 
@@ -642,7 +635,7 @@ function RecipeChangeScreen() {
       );
     }
     const rows = mine.data ?? [];
-    if (rows.length === 0) return <Hint>{t('staff.checklists.recipeChange.emptyMine')}</Hint>;
+    if (rows.length === 0) return <EmptyState centered testID="staff-recipe-change.mine-empty" title={t('staff.checklists.recipeChange.emptyMine')} />;
     return (
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         {rows.map((r, i) =>
@@ -667,7 +660,7 @@ function RecipeChangeScreen() {
       );
     }
     const rows = page.data?.requests ?? [];
-    if (rows.length === 0) return <Hint>{t('staff.checklists.recipeChange.emptyList')}</Hint>;
+    if (rows.length === 0) return <EmptyState centered testID="staff-recipe-change.list-empty" title={t('staff.checklists.recipeChange.emptyList')} />;
     return (
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         {rows.map((r, i) =>
@@ -736,8 +729,7 @@ function RecipeChangeScreen() {
           label={t('staff.checklists.recipeChange.withdraw')}
           variant="dangerOutline"
           size="compact"
-          busy={withdraw.isPending}
-          onPress={() => confirmWithdraw(r.id)}
+          onPress={() => withdraw(r.id)}
         />
       ) : null}
     </Card>
@@ -900,11 +892,24 @@ function RecipeChangeScreen() {
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.checklists.recipeChange.title') }} />
-      <ScrollView
-        contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <ScreenWithBar
+        contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
+        // The head's draft sends from the bar; a request opened, and the
+        // owner's and manager's lists, have nothing to send.
+        error={head && !selectedId ? draftError() : null}
+        bar={
+          head && !selectedId ? (
+            <Button
+              testID="staff-recipe-change.submit"
+              label={t('staff.checklists.recipeChange.submit')}
+              variant="primary"
+              busy={send.isPending}
+              disabled={venue === ''}
+              onPress={onSend}
+            />
+          ) : null
+        }
       >
         <Lead>{t(lead)}</Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
@@ -933,7 +938,7 @@ function RecipeChangeScreen() {
             {pageList()}
           </>
         )}
-      </ScrollView>
+      </ScreenWithBar>
     </Screen>
   );
 }

@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { localIsoDate } from '@touch/core';
 import { formatTime, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
@@ -11,7 +10,6 @@ import { space, useTheme } from '../../src/theme';
 import {
   Button,
   Card,
-  ErrorText,
   Hint,
   MicroLabel,
   Screen,
@@ -26,6 +24,8 @@ import { mapStaffError } from '../../src/features/staff/edge';
 import { localName } from '../../src/features/staff/checklists/logic';
 import { GroupLabel, Lead, Tag } from '../../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { ScreenWithBar } from '../../src/components/BottomBar';
+import { useRememberedChoice } from '../../src/features/staff/remembered';
 import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
 import {
   fetchStockPick,
@@ -82,7 +82,6 @@ function LogScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { status, venueId } = useStaffStatus();
   const role = status.kind === 'staff' ? status.staff.role : null;
@@ -90,9 +89,14 @@ function LogScreen() {
   const qtyText = useQtyText();
 
   const stores = role ? logStoresFor(role) : [];
-  const [chosen, setChosen] = useState<StockLocation | null>(null);
-  const store: StockLocation | null =
-    chosen && stores.includes(chosen) ? chosen : role ? defaultLogStore(role) : null;
+  // The store opens on the one this phone used last (Sait, 2026-10-17).
+  const home = role ? defaultLogStore(role) : null;
+  const [remembered, setChosen] = useRememberedChoice<StockLocation>(
+    'stock-log.store',
+    stores,
+    home ?? 'cafe',
+  );
+  const store: StockLocation | null = home ? remembered : null;
 
   const pick = useQuery({
     queryKey: staffKeys.stockPick(venue, 'log', store ?? 'cafe'),
@@ -273,15 +277,19 @@ function LogScreen() {
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.stores.log.title') }} />
-      <ScrollView
-        contentContainerStyle={{
-          paddingTop: space.m,
-          paddingBottom: 40 + insets.bottom,
-          gap: space.sm,
-        }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <ScreenWithBar
+        contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
+        error={listError ?? formError}
+        bar={
+          <Button
+            testID="staff-stock-log.save"
+            label={t(`staff.stores.log.save.${store}`)}
+            variant="primary"
+            busy={save.isPending}
+            onPress={onSave}
+          />
+        }
       >
         <Lead>
           {t(role === 'shop_staff' ? 'staff.stores.log.leadShop' : 'staff.stores.log.lead')}
@@ -353,22 +361,13 @@ function LogScreen() {
             <Hint style={{ marginTop: space.xs }}>{t('staff.stores.log.noLines')}</Hint>
           )}
 
-          <ErrorText>{listError ?? formError}</ErrorText>
-          <Button
-            testID="staff-stock-log.save"
-            label={t(`staff.stores.log.save.${store}`)}
-            variant="primary"
-            busy={save.isPending}
-            onPress={onSave}
-            style={{ marginTop: space.xs }}
-          />
         </Card>
 
         <MicroLabel style={{ paddingStart: 4, marginTop: space.s }}>
           {t('staff.stores.log.todayTitle')}
         </MicroLabel>
         {addedToday()}
-      </ScrollView>
+      </ScreenWithBar>
     </Screen>
   );
 }

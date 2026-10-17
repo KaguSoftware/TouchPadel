@@ -50,6 +50,7 @@ export const ar: Messages = {
     call: 'اتصال',
     keepIt: 'إبقاء',
     notYet: 'ليس الآن',
+    undo: 'تراجع',
   },
   auth: {
     signIn: 'تسجيل الدخول',

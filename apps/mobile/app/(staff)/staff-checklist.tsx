@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { ChecklistRow } from '../../src/components/ChecklistRow';
 import { PhotoButton, type AttachedPhoto } from '../../src/components/PhotoButton';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
+import { cacheEdit, useUndoable } from '../../src/features/staff/undo';
 import { staffKeys } from '../../src/features/staff/keys';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { fetchChecklistsToday, markChecklistItem } from '../../src/features/staff/checklists/api';
@@ -112,6 +113,8 @@ function ChecklistScreen() {
     },
   });
 
+  const undoable = useUndoable();
+
   const send = (item: ChecklistItem, done: boolean, photoPath?: string | null) => {
     const args = markArgs(item, done, photoPath);
     if (!args) {
@@ -131,10 +134,19 @@ function ChecklistScreen() {
       send(item, false);
       return;
     }
-    Alert.alert(t('staff.checklists.untickTitle'), t('staff.checklists.untickPhoto'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('staff.checklists.untick'), style: 'destructive', onPress: () => send(item, false) },
-    ]);
+    // Unticking a line takes its photo with it, so it waits five seconds with
+    // Undo on the toast instead of asking "Are you sure?" (Sait, 2026-10-17).
+    const args = markArgs(item, false);
+    if (!args) return;
+    undoable({
+      message: t('staff.checklists.untickDone'),
+      ...cacheEdit<ChecklistsToday>(queryClient, key, (data) =>
+        applyMark(data, { ...item, done_at: null, done_by_name: null, photo_path: null }),
+      ),
+      send: () => markChecklistItem(args),
+      onSent: () => void queryClient.invalidateQueries({ queryKey: key }),
+      onError: (err) => setErrors((e) => ({ ...e, [item.id]: t(mapStaffError(err)) })),
+    });
   };
 
   // The photo is the tick: once it is up, the tick goes with it.

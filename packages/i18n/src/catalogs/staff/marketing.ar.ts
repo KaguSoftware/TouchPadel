@@ -118,6 +118,7 @@ export const staffMarketingAr: DeepMessages<typeof staffMarketingEn> = {
     titleField: 'ماذا تحتاج؟',
     body: 'التفاصيل',
     wantBy: 'مطلوب قبل · اختياري',
+    detailsSummary: 'التاريخ، الصنف، الصور',
     item: 'عن صنف من المنيو · اختياري',
     photos: 'صور · اختياري',
     submit: 'إرسال إلى التسويق',

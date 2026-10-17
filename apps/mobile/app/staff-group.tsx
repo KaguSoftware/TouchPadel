@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '../src/i18n/text';
+import { Text, MinFontSize, STAFF_MIN_FONT } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space, useTheme } from '../src/theme';
 import { Hint } from '../src/components/ui';
@@ -66,7 +66,10 @@ function GroupSheet() {
 export default function StaffGroupRoute() {
   return (
     <RequireStaff>
-      <GroupSheet />
+      {/* Bigger text on the staff pages (Sait, 2026-10-17). */}
+      <MinFontSize value={STAFF_MIN_FONT}>
+        <GroupSheet />
+      </MinFontSize>
     </RequireStaff>
   );
 }

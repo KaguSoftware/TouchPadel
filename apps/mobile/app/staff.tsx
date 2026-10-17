@@ -16,7 +16,7 @@ import {
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber } from '@touch/i18n';
-import { Text } from '../src/i18n/text';
+import { Text, MinFontSize, STAFF_MIN_FONT } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../src/theme';
 import {
@@ -834,7 +834,10 @@ function TodayScreen() {
 export default function StaffTodayRoute() {
   return (
     <RequireStaff>
-      <TodayScreen />
+      {/* Bigger text on the staff pages (Sait, 2026-10-17). */}
+      <MinFontSize value={STAFF_MIN_FONT}>
+        <TodayScreen />
+      </MinFontSize>
     </RequireStaff>
   );
 }

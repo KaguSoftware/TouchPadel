@@ -7,7 +7,9 @@ import { formatDate, formatTime } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space, useTheme } from '../../src/theme';
-import { Card, Field, Hint, MicroLabel, Screen, SegmentedControl } from '../../src/components/ui';
+import { Card, Field, Hint, MicroLabel, Screen } from '../../src/components/ui';
+import { ChoiceButton } from '../../src/components/ChoiceButton';
+import { useRememberedChoice } from '../../src/features/staff/remembered';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
@@ -63,9 +65,10 @@ function StockScreen() {
   const role = status.kind === 'staff' ? status.staff.role : null;
   const venue = venueId ?? '';
   const filters = role ? stockFilters(role) : [];
-  const [filter, setFilter] = useState<StockFilter>('all');
+  // Both choices open where this phone left them (Sait, 2026-10-17).
+  const [filter, setFilter] = useRememberedChoice<StockFilter>('stock.items', filters, 'all');
   const [query, setQuery] = useState('');
-  const [store, setStore] = useState<StockLocation>(() => homeStore(role));
+  const [store, setStore] = useRememberedChoice<StockLocation>('stock.store', STOCK_LOCATIONS, homeStore(role));
 
   const stock = useQuery({
     queryKey: staffKeys.stock(venue, filter),
@@ -205,21 +208,33 @@ function StockScreen() {
                 : 'staff.checklists.stock.lead',
           )}
         </Lead>
-        {split ? (
-          <SegmentedControl<StockLocation>
-            testID="staff-stock.store"
-            options={STOCK_LOCATIONS.map((l) => ({ value: l, label: t(`work.store.${l}`) }))}
-            value={store}
-            onChange={setStore}
-          />
-        ) : null}
-        {filters.length > 0 ? (
-          <SegmentedControl<StockFilter>
-            testID="staff-stock.filter"
-            options={filters.map((f) => ({ value: f, label: t(`staff.checklists.stock.filter.${f}`) }))}
-            value={filter}
-            onChange={setFilter}
-          />
+        {/* One row of two big buttons, each saying what it filters and what it
+            shows now; a tap opens the phone's own choice (Sait, 2026-10-17). */}
+        {split || filters.length > 0 ? (
+          <View style={{ flexDirection: 'row', gap: space.s }}>
+            {split ? (
+              <ChoiceButton<StockLocation>
+                testID="staff-stock.store"
+                label={t('staff.checklists.stock.storeButton')}
+                title={t('staff.checklists.stock.storeSheet')}
+                options={STOCK_LOCATIONS.map((l) => ({ value: l, label: t(`work.store.${l}`) }))}
+                value={store}
+                onChange={setStore}
+                style={{ flex: 1 }}
+              />
+            ) : null}
+            {filters.length > 0 ? (
+              <ChoiceButton<StockFilter>
+                testID="staff-stock.filter"
+                label={t('staff.checklists.stock.itemsButton')}
+                title={t('staff.checklists.stock.itemsSheet')}
+                options={filters.map((f) => ({ value: f, label: t(`staff.checklists.stock.filter.${f}`) }))}
+                value={filter}
+                onChange={setFilter}
+                style={{ flex: 1 }}
+              />
+            ) : null}
+          </View>
         ) : null}
         <Field
           {...searchField}

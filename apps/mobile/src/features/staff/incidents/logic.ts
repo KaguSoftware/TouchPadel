@@ -228,3 +228,53 @@ export function groupIncidentsByDay<T extends { occurred_at: string }>(
   }
   return days;
 }
+
+// ── The stepped report (the operator's ReportIncidentForm, one step a page) ──
+
+/** The steps that take answers, in the operator's order, then the review that sends. */
+export const FORM_STEPS = ['kind', 'story', 'placeTime'] as const;
+export const REPORT_STEPS = [...FORM_STEPS, 'review'] as const;
+export type FormStep = (typeof FORM_STEPS)[number];
+export type ReportStep = (typeof REPORT_STEPS)[number];
+
+const FIELD_STEP: Record<IncidentField, FormStep> = {
+  kind: 'kind',
+  description: 'story',
+  people: 'story',
+  photos: 'story',
+  when: 'placeTime',
+  place: 'placeTime',
+  courtId: 'placeTime',
+  placeDetail: 'placeTime',
+};
+
+export function stepOfField(field: IncidentField): FormStep {
+  return FIELD_STEP[field];
+}
+
+/** The issues one step holds. */
+export function issuesOnStep(issues: readonly IncidentIssue[], step: ReportStep): IncidentIssue[] {
+  return issues.filter((i) => FIELD_STEP[i.field] === step);
+}
+
+/** A step is done once it has no issue of its own; the review, once nothing is left anywhere. */
+export function stepDone(step: ReportStep, issues: readonly IncidentIssue[]): boolean {
+  if (step === 'review') return issues.length === 0;
+  return issuesOnStep(issues, step).length === 0;
+}
+
+/** The `step` param as a step; anything else is the first. */
+export function parseReportStep(raw: unknown): ReportStep {
+  return REPORT_STEPS.find((s) => s === raw) ?? 'kind';
+}
+
+/** The order the kinds are offered in, the operator's: the ones reported most, first. */
+export const KIND_ORDER: readonly IncidentKind[] = ['injury', 'fight', 'damage', 'accident', 'other'];
+
+/** The three quick times (minutes before the step opened) and the picker behind "Pick a time". */
+export const QUICK_TIMES = [
+  { id: 'now', minutes: 0 },
+  { id: 'm15', minutes: 15 },
+  { id: 'h1', minutes: 60 },
+] as const;
+export type WhenChoice = (typeof QUICK_TIMES)[number]['id'] | 'pick';

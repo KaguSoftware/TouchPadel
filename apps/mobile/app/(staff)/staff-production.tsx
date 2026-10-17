@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { localIsoDate } from '@touch/core';
 import { formatTime, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Field, Hint, MicroLabel, Screen } from '../../src/components/ui';
+import { ScreenWithBar } from '../../src/components/BottomBar';
+import { DetailsFold } from '../../src/components/DetailsFold';
+import { useFieldChain } from '../../src/components/fieldChain';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
@@ -63,11 +65,15 @@ import { Stepper } from '../../src/features/staff/floor/parts';
 
 const FRESH: BatchDraft = { ingredientId: null, qty: '', expiry: '' };
 
+/** The use-by of something made now that keeps `days` days, as a typed date. */
+function expiryAfter(days: number): string {
+  return localIsoDate(new Date(Date.now() + days * 86_400_000));
+}
+
 function ProductionScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { venueId } = useStaffStatus();
   const venue = venueId ?? '';
@@ -116,11 +122,16 @@ function ProductionScreen() {
   const list = sortProduction(items.data ?? []);
   const picked = list.find((i) => i.ingredient_id === draft.ingredientId) ?? null;
 
-  // Pick an item: with a batch size, one batch's amount is filled in.
+  // Pick an item: with a batch size, one batch's amount is filled in, and with
+  // a shelf life, its use-by (Sait, 2026-10-17: fill in what the app knows).
   const pick = (id: string) => {
     const item = list.find((i) => i.ingredient_id === id);
     setBatches(1);
-    edit({ ingredientId: id, qty: item?.batch_yield ? batchQtyText(item.batch_yield, 1) : '' });
+    edit({
+      ingredientId: id,
+      qty: item?.batch_yield ? batchQtyText(item.batch_yield, 1) : '',
+      expiry: item?.shelf_life_days ? expiryAfter(item.shelf_life_days) : '',
+    });
   };
   const setBatchCount = (n: number) => {
     setBatches(n);
@@ -147,6 +158,9 @@ function ProductionScreen() {
       ? t('staff.checklists.production.errors.expiryPast')
       : t('staff.checklists.production.errors.expiry', { example: isolate(example) });
   };
+
+  // Next goes from the amount to the use-by; Done records.
+  const chain = useFieldChain(2, onRecord);
 
   const whatToMake = () => {
     if (venue === '') return <Hint>{t('staff.shell.venue.none')}</Hint>;
@@ -257,11 +271,19 @@ function ProductionScreen() {
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.checklists.production.title') }} />
-      <ScrollView
-        contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <ScreenWithBar
+        contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
+        error={error}
+        bar={
+          <Button
+            testID="staff-production.record"
+            label={t('staff.checklists.production.record')}
+            variant="primary"
+            busy={record.isPending}
+            onPress={onRecord}
+          />
+        }
       >
         <Lead>{t('staff.checklists.production.lead')}</Lead>
 
@@ -308,6 +330,7 @@ function ProductionScreen() {
             </View>
           ) : null}
           <Field
+            {...chain.field(0, 'numeric')}
             testID="staff-production.qty"
             label={
               picked
@@ -327,35 +350,37 @@ function ProductionScreen() {
                 : t('staff.checklists.production.noBatch')}
             </Hint>
           ) : null}
-          <Field
-            testID="staff-production.expiry"
-            label={t('staff.checklists.production.expiry')}
-            value={draft.expiry}
-            onChangeText={(expiry) => edit({ expiry })}
-            keyboardType="numbers-and-punctuation"
-            latin
-            error={fieldError('expiry')}
-          />
-          <Hint style={{ marginTop: 0 }}>
-            {picked?.shelf_life_days
-              ? t('staff.checklists.production.expiryShelfLife', { days: picked.shelf_life_days })
-              : t('staff.checklists.production.expiryHint', { example: isolate(example) })}
-          </Hint>
-          <ErrorText>{error}</ErrorText>
-          <Button
-            testID="staff-production.record"
-            label={t('staff.checklists.production.record')}
-            variant="primary"
-            busy={record.isPending}
-            onPress={onRecord}
-          />
+          {/* The use-by is optional: filled from the shelf life when there is
+              one, else waiting under Add details (Sait, 2026-10-17). */}
+          <DetailsFold
+            testID="staff-production.details"
+            summary={t('staff.checklists.production.expiry')}
+            keepOpen={draft.expiry !== '' || !!fieldError('expiry')}
+          >
+            <Field
+              {...chain.field(1)}
+              testID="staff-production.expiry"
+              label={t('staff.checklists.production.expiry')}
+              value={draft.expiry}
+              onChangeText={(expiry) => edit({ expiry })}
+              keyboardType="numbers-and-punctuation"
+              latin
+              error={fieldError('expiry')}
+            />
+            <Hint style={{ marginTop: 0 }}>
+              {picked?.shelf_life_days
+                ? t('staff.checklists.production.expiryShelfLife', { days: picked.shelf_life_days })
+                : t('staff.checklists.production.expiryHint', { example: isolate(example) })}
+            </Hint>
+          </DetailsFold>
         </Card>
 
         <MicroLabel style={{ paddingStart: 4, marginTop: space.s }}>
           {t('staff.checklists.production.logTitle')}
         </MicroLabel>
         {madeToday()}
-      </ScrollView>
+        {chain.bar}
+      </ScreenWithBar>
     </Screen>
   );
 }

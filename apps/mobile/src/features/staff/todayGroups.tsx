@@ -5,9 +5,11 @@
  * so a tile's count and its sheet's rows never disagree.
  */
 import type { ComponentType } from 'react';
+import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MenuRow } from '../../components/booking';
-import { useTheme } from '../../theme';
+import { space, useTheme } from '../../theme';
+import { MicroLabel } from '../../components/ui';
 import { ListCard } from './protocols/parts';
 import { formatNumber, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../../i18n/LocaleProvider';
@@ -40,7 +42,7 @@ import {
 } from '../../components/icons';
 import { useStaffStatus } from './StaffStatusProvider';
 import { staffKeys } from './keys';
-import { todayRows, type StaffRowDef } from './rows';
+import { quietRow, todayRows, type StaffRowDef, type TodaySignals } from './rows';
 import { fetchRuns } from './protocols/api';
 import { fetchNoteItems } from './notes/api';
 import { CALL_ROLES } from './calls/logic';
@@ -130,12 +132,20 @@ export const ROW_GROUPS = [
     ids: ['recipes', 'recipe-changes', 'teachings'],
   },
   { key: 'daily', titleKey: 'staff.shell.today.groups.daily', icon: CalendarIcon, ids: null },
-  // Wave 5, lane P: a deduction is proposed about someone, like a request (§5.3).
+  // Heads and management: a deduction is proposed about someone (§5.3), so it
+  // sits with the team, not with the person's own requests (Sait, 2026-10-17).
+  {
+    key: 'people',
+    titleKey: 'staff.shell.today.groups.people',
+    icon: DeductionIcon,
+    ids: ['deductions'],
+  },
+  // The person's own asks. Ask marketing is daily work now (Sait, 2026-10-17).
   {
     key: 'team',
     titleKey: 'staff.shell.today.groups.team',
     icon: EnvelopeIcon,
-    ids: ['requests', 'deductions', 'suggestions', 'ask-marketing'],
+    ids: ['requests', 'suggestions'],
   },
 ] as const satisfies readonly {
   key: string;
@@ -153,17 +163,31 @@ export interface TodayGroup {
   rows: StaffRowDef[];
 }
 
-/** The groups that have at least one of `rows`, in ROW_GROUPS order. */
+/**
+ * The rows that make something new rather than open a list: they lead their
+ * group, under their own label in the sheet (Sait, 2026-10-17).
+ */
+export const CREATE_ROW_IDS: ReadonlySet<string> = new Set(['start', 'order', 'receipt', 'stock-log']);
+
+const isCreateRow = (row: StaffRowDef): boolean => CREATE_ROW_IDS.has(row.id);
+
+/**
+ * The groups that have at least one of `rows`, in ROW_GROUPS order; inside a
+ * group the create rows come first, each part in rows.ts's order.
+ */
 export function groupRows(rows: readonly StaffRowDef[]): TodayGroup[] {
   const named = new Set<string>(ROW_GROUPS.flatMap((g) => (g.ids ? [...g.ids] : [])));
-  return ROW_GROUPS.map((g) => ({
-    key: g.key,
-    titleKey: g.titleKey,
-    icon: g.icon,
-    rows: rows.filter((r) =>
+  return ROW_GROUPS.map((g) => {
+    const mine = rows.filter((r) =>
       g.ids ? (g.ids as readonly string[]).includes(r.id) : !named.has(r.id),
-    ),
-  })).filter((g) => g.rows.length > 0);
+    );
+    return {
+      key: g.key,
+      titleKey: g.titleKey,
+      icon: g.icon,
+      rows: [...mine.filter(isCreateRow), ...mine.filter((r) => !isCreateRow(r))],
+    };
+  }).filter((g) => g.rows.length > 0);
 }
 
 /**
@@ -185,9 +209,9 @@ export function useTodayGroups(): {
   // waiting on the owner or sent back to marketing.
   const toReview = useToReviewCount(venueId, staffRole !== null && reviewsIncidents(staffRole));
   const content = useContentRowCount(venueId, staffRole);
-  // Two rows depend on the day, not the role (rows.ts todayRows): Protocols
-  // while a run in progress involves the person (management always), and
-  // Notes on new items while one is at its feedback stage. The same cache
+  // Two rows say "nothing now" when empty (rows.ts quietRow): Protocols with
+  // no run in progress that involves the person (management always has it),
+  // and Notes on new items with none at its feedback stage. The same cache
   // entries as the runs page's "In progress" and the notes page.
   const involvedRuns = useQuery({
     queryKey: staffKeys.runs(venueId ?? '', 'active'),
@@ -200,16 +224,16 @@ export function useTodayGroups(): {
     enabled: !!venueId && staffRole !== null,
   });
 
+  const signals: TodaySignals = {
+    runs: involvedRuns.data ? involvedRuns.data.total : null,
+    notes: noteItems.data ? noteItems.data.length : null,
+  };
   const groups =
     staffRole === null
       ? []
       : groupRows(
           todayRows(
             staffRole,
-            {
-              runs: involvedRuns.data ? involvedRuns.data.total : null,
-              notes: noteItems.data ? noteItems.data.length : null,
-            },
             // 0345: a second job's rows too (an owner's list is ignored).
             status.kind === 'staff' && staffRole !== 'owner' ? (status.staff.extraRoles ?? []) : [],
           ),
@@ -226,6 +250,9 @@ export function useTodayGroups(): {
 
   const label = (row: StaffRowDef): string => {
     const n = count(row.id);
+    if (staffRole && quietRow(row.id, staffRole, signals)) {
+      return t('staff.shell.today.nothingNow', { page: t(row.labelKey) });
+    }
     if (n === 0) return t(row.labelKey);
     const value = { count: formatNumber(n, locale) };
     if (row.id === 'calls') return t('staff.calls.rowCount', value);
@@ -237,8 +264,10 @@ export function useTodayGroups(): {
 }
 
 /**
- * A group's pages as one card of rows: the body of the group sheet on both
- * platforms (app/staff-group.tsx on iOS, the modal on Today on Android).
+ * A group's pages as cards of rows: the body of the group sheet on both
+ * platforms (app/staff-group.tsx on iOS, the modal on Today on Android). A
+ * group with both kinds splits them: "Add new" first, then "Open" (Sait,
+ * 2026-10-17); a group of one kind is one card with no label.
  */
 export function GroupRows({
   group,
@@ -249,10 +278,13 @@ export function GroupRows({
   label: (row: StaffRowDef) => string;
   onOpen: (row: StaffRowDef) => void;
 }) {
+  const { t } = useLocale();
   const { colors } = useTheme();
-  return (
+  const create = group.rows.filter(isCreateRow);
+  const open = group.rows.filter((r) => !isCreateRow(r));
+  const card = (rows: StaffRowDef[]) => (
     <ListCard>
-      {group.rows.map((row, i) => {
+      {rows.map((row, i) => {
         const Icon = rowIcon(row.id);
         return (
           <MenuRow
@@ -261,10 +293,21 @@ export function GroupRows({
             icon={<Icon size={15} color={colors.gstrong} />}
             label={label(row)}
             onPress={() => onOpen(row)}
-            last={i === group.rows.length - 1}
+            last={i === rows.length - 1}
           />
         );
       })}
     </ListCard>
+  );
+  if (create.length === 0 || open.length === 0) return card(group.rows);
+  return (
+    <View style={{ gap: space.xs }}>
+      <MicroLabel style={{ paddingStart: 4 }}>{t('staff.shell.today.sections.create')}</MicroLabel>
+      {card(create)}
+      <MicroLabel style={{ paddingStart: 4, marginTop: space.sm }}>
+        {t('staff.shell.today.sections.open')}
+      </MicroLabel>
+      {card(open)}
+    </View>
   );
 }

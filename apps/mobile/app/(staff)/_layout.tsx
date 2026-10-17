@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { useGroupStackOptions } from '../../src/navigation/groupStack';
 import { withAssistantFab } from '../../src/features/assistant/AssistantFab';
+import { MinFontSize, STAFF_MIN_FONT } from '../../src/i18n/text';
 
 /**
  * The staff pages Today opens, as a stack of their own with their own native
@@ -17,7 +18,11 @@ import { withAssistantFab } from '../../src/features/assistant/AssistantFab';
 export default function StaffLayout() {
   const screenOptions = useGroupStackOptions();
   return (
-    <Stack screenOptions={screenOptions} screenLayout={withAssistantFab}>
+    <Stack
+      screenOptions={screenOptions}
+      // Bigger text on every staff page: nothing smaller than STAFF_MIN_FONT.
+      screenLayout={(props) => <MinFontSize value={STAFF_MIN_FONT}>{withAssistantFab(props)}</MinFontSize>}
+    >
       {/* Place an order (0251): an item's size and options, as the platform's sheet over the table's menu. */}
       <Stack.Screen
         name="staff-order-item"

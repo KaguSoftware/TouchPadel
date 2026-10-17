@@ -29,7 +29,7 @@ import {
   type IconProps,
 } from '../../src/components/icons';
 import { Button, Field, Hint, MicroLabel, Screen } from '../../src/components/ui';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
@@ -607,7 +607,7 @@ function IncidentsScreen() {
       ) : mine.isError ? (
         loadError('staff-incidents.mine-error', mine)
       ) : (mine.data?.incidents ?? []).length === 0 ? (
-        <Hint>{t('staff.incidents.mine.empty')}</Hint>
+        <EmptyState centered testID="staff-incidents.mine-empty" title={t('staff.incidents.mine.empty')} />
       ) : (
         byDay(mine.data?.incidents ?? [])
       )}

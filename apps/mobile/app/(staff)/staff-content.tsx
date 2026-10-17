@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +18,8 @@ import {
   Screen,
   SegmentedControl,
 } from '../../src/components/ui';
+import { DetailsFold } from '../../src/components/DetailsFold';
+import { cacheEdit, useUndoable } from '../../src/features/staff/undo';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { ChevronIcon } from '../../src/components/icons';
 import { useToast } from '../../src/components/overlays';
@@ -147,7 +149,10 @@ function ContentForm({
   const venue = venueId ?? '';
   const today = localIsoDate(new Date());
 
-  const [draft, setDraft] = useState<ContentDraft>(initial);
+  // A new post is planned for today until said otherwise (Sait, 2026-10-17).
+  const [draft, setDraft] = useState<ContentDraft>(() =>
+    mode === 'new' && !initial.plannedFor ? { ...initial, plannedFor: today } : initial,
+  );
   const [photos, setPhotos] = useState<AttachedPhoto[]>(initialPhotos);
   const [issues, setIssues] = useState<ContentIssue[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -319,30 +324,40 @@ function ContentForm({
       {mode === 'again' ? (
         <Hint style={{ marginTop: 0 }}>{t('staff.content.form.againImages')}</Hint>
       ) : null}
-      <Field
-        testID="staff-content.link"
-        label={t('staff.content.form.link')}
-        value={draft.link}
-        onChangeText={(link) => edit({ link })}
-        keyboardType="url"
-        autoCapitalize="none"
-        autoCorrect={false}
-        latin
-        maxLength={CONTENT_CAPS.link}
-        error={fieldError('link')}
-      />
-      <Hint style={{ marginTop: 0 }}>{t('staff.content.form.linkHint')}</Hint>
-      <Field
-        testID="staff-content.note"
-        label={t('staff.content.form.note')}
-        value={draft.note}
-        onChangeText={(note) => edit({ note })}
-        multiline
-        boxStyle={MULTILINE_BOX}
-        style={MULTILINE_TEXT}
-        maxLength={CONTENT_CAPS.note}
-        error={fieldError('note')}
-      />
+      {/* The link and the note to the owner are extra: they wait under Add
+          details (Sait, 2026-10-17). */}
+      <DetailsFold
+        testID="staff-content.details"
+        summary={t('staff.content.form.detailsSummary')}
+        keepOpen={
+          draft.link !== '' || draft.note !== '' || !!fieldError('link') || !!fieldError('note')
+        }
+      >
+        <Field
+          testID="staff-content.link"
+          label={t('staff.content.form.link')}
+          value={draft.link}
+          onChangeText={(link) => edit({ link })}
+          keyboardType="url"
+          autoCapitalize="none"
+          autoCorrect={false}
+          latin
+          maxLength={CONTENT_CAPS.link}
+          error={fieldError('link')}
+        />
+        <Hint style={{ marginTop: 0 }}>{t('staff.content.form.linkHint')}</Hint>
+        <Field
+          testID="staff-content.note"
+          label={t('staff.content.form.note')}
+          value={draft.note}
+          onChangeText={(note) => edit({ note })}
+          multiline
+          boxStyle={MULTILINE_BOX}
+          style={MULTILINE_TEXT}
+          maxLength={CONTENT_CAPS.note}
+          error={fieldError('note')}
+        />
+      </DetailsFold>
       {linking ? (
         <>
           <GroupLabel>{t('staff.content.form.about')}</GroupLabel>
@@ -625,27 +640,26 @@ function ContentItemView({ id, role }: { id: string; role: StaffRole }) {
   };
 
   // ── Withdraw ─────────────────────────────────────────────────────────────
-  const withdraw = useMutation({
-    mutationKey: staffKeys.mutation('content.withdraw'),
-    mutationFn: () => withdrawContent(id),
-    onSuccess: () => {
-      toast(t('staff.content.item.withdrawn'), 'info');
-      invalidateContent(queryClient, venue, id);
-    },
-    onError: (err) => {
-      toast(t(mapStaffError(err)), 'error');
-      invalidateContent(queryClient, venue, id);
-    },
-  });
-  const confirmWithdraw = () =>
-    Alert.alert(t('staff.content.item.withdrawTitle'), t('staff.content.item.withdrawBody'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('staff.content.item.withdraw'),
-        style: 'destructive',
-        onPress: () => withdraw.mutate(),
+  // Withdraw at once, with Undo on the toast instead of "Are you sure?"
+  // (Sait, 2026-10-17); the call goes when the toast's time is up.
+  const undoable = useUndoable();
+  const withdraw = () =>
+    undoable({
+      message: t('staff.content.item.withdrawn'),
+      ...cacheEdit<ContentDetail>(queryClient, staffKeys.contentDetail(id), (detail) => ({
+        ...detail,
+        content: { ...detail.content, status: 'withdrawn' },
+        can_decide: false,
+        can_revise: false,
+        can_withdraw: false,
+      })),
+      send: () => withdrawContent(id),
+      onSent: () => invalidateContent(queryClient, venue, id),
+      onError: (err) => {
+        toast(t(mapStaffError(err)), 'error');
+        invalidateContent(queryClient, venue, id);
       },
-    ]);
+    });
 
   // ── Decide (the owner) ───────────────────────────────────────────────────
   const [choice, setChoice] = useState<Choice>(null);
@@ -1035,8 +1049,7 @@ function ContentItemView({ id, role }: { id: string; role: StaffRole }) {
                     testID="staff-content.withdraw"
                     label={t('staff.content.item.withdraw')}
                     variant="ghost"
-                    busy={withdraw.isPending}
-                    onPress={confirmWithdraw}
+                    onPress={withdraw}
                     style={{ alignSelf: 'flex-start' }}
                   />
                 ) : null}

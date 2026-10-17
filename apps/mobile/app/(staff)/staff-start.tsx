@@ -72,6 +72,8 @@ import { searchField } from '../../src/components/fieldKeyboard';
 import { TonePill, TournamentPlanStep, TYPE_TONE } from '../../src/features/staff/protocols/TournamentPlanStep';
 import { newPlanId } from '../../src/features/staff/protocols/tournamentDraft';
 import { parsePlanStep, phoneSteps } from '../../src/features/staff/protocols/tournamentSteps';
+import { HiringStart } from '../../src/features/staff/protocols/HiringStart';
+import { parseHiringStep } from '../../src/features/staff/protocols/hiringSteps';
 
 /**
  * Start a protocol (build-contracts-2026-09-23 §6.1
@@ -615,6 +617,8 @@ function StartScreen() {
     /** A tournament start: the plan its pages share (tournamentDraft.ts) and the page. */
     plan?: string;
     step?: string;
+    /** A hiring step opened again from the Check page: its button goes back there. */
+    ret?: string;
   }>();
   const role = status.kind === 'staff' ? status.staff.role : null;
   const kinds = startableKinds(role);
@@ -708,7 +712,7 @@ function StartScreen() {
               tone={KIND_LOOK[k].tone}
               title={t(`work.protocol.kind.${k}`)}
               hint={t(`staff.protocols.start.kindHint.${k}`)}
-              onPress={() => next({ kind: k })}
+              onPress={() => next(k === 'hiring' ? { kind: k, plan: newPlanId(), step: 'role' } : { kind: k })}
             />
           ))}
         </View>
@@ -781,6 +785,20 @@ function StartScreen() {
       </>
     );
   })();
+
+  // A hire: Role, The job, Pay, Check, a page each.
+  if (kind === 'hiring' && role && venueId) {
+    return (
+      <HiringStart
+        planId={typeof params.plan === 'string' ? params.plan : linkPlan}
+        step={parseHiringStep(params.step)}
+        depth={stepDepth(params.depth)}
+        returnTo={params.ret === 'check' ? 'check' : null}
+        byOwner={role === 'owner'}
+        venueId={venueId}
+      />
+    );
+  }
 
   // A tournament, once its type is picked: the plan's steps, a page each.
   if (kind === 'tournament' && variant && role && venueId) {

@@ -30,6 +30,8 @@ export const staffContentEn = {
     againImages: 'Images stay with the earlier item. Add them again if you need them.',
     link: 'Link to a video or design · Optional',
     linkHint: 'A full https:// link. The owner sees it as text.',
+    // The folded optional fields (Sait, 2026-10-17).
+    detailsSummary: 'Link, note to the owner',
     note: 'Note for the owner · Optional',
     about: 'Also about',
     abouts: {
