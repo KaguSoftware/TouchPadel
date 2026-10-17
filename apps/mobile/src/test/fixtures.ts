@@ -228,9 +228,13 @@ const TEST_SEAT_IDS = [
   '77777777-7777-4777-8777-000000000003',
 ] as const;
 
-/** Two days out at 20:00 Baghdad (17:00 UTC), 90 minutes: filling, well before its deadline. */
+/**
+ * Two days out at 20:00 Baghdad (17:00 UTC), 90 minutes: filling, well before its deadline.
+ * The day is Baghdad's (UTC+3, no DST), not UTC's: from 21:00 UTC the UTC date is a day behind,
+ * and the match would leave the night of a tournament starting 48 hours from now.
+ */
 function matchTimes(): { startAt: string; endAt: string; deadline: string } {
-  const day = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+  const day = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000);
   const start = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 17, 0, 0));
   return {
     startAt: start.toISOString(),

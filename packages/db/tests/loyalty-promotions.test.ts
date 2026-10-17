@@ -619,6 +619,9 @@ commit;`);
       const second = psqlSession(`begin;
 ${apply(tabB)}
 commit;`);
+      // Handled now: under load the second session can close (and reject) before the await on
+      // the first returns, and vitest would count that as an unhandled rejection.
+      second.catch(() => {});
       await expect(first).resolves.toBeTypeOf('string');
       await expect(second).rejects.toThrow(/CODE_NOT_ELIGIBLE/);
       expect(

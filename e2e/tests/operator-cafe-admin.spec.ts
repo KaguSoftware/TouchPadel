@@ -312,11 +312,9 @@ test.describe('operator cafe admin', () => {
     ).toBeVisible();
 
     // The range lives in the URL, so a reload keeps the owner where they were.
+    // The period is a SelectMenu: the combobox trigger shows the chosen preset.
     await page.reload();
-    await expect(page.getByRole('button', { name: '7 days' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await expect(page.getByRole('combobox', { name: 'Period' })).toHaveText('7 days');
   });
 
   test('(f) a ticket left queued raises the KDS stale banner', async ({ page }) => {
