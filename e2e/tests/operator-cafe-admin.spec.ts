@@ -70,8 +70,8 @@ test.describe('operator cafe admin', () => {
   test('(a) the home screen builder drives the guest hero', async ({ page, context }) => {
     await signIn(page, SEED_STAFF.owner);
     await gotoAdmin(page, 'hero');
-    // The Guest app family (management rebuild): the h1 is the tab's words, ws.shell.nav.guestSite.
-    await expect(page.getByRole('heading', { level: 1, name: 'Guest site', exact: true })).toBeVisible({
+    // Customers & marketing (page map, 2026-10-17): the h1 is the page's own title.
+    await expect(page.getByRole('heading', { level: 1, name: 'Guest site home screen', exact: true })).toBeVisible({
       timeout: 30_000,
     });
 
@@ -133,7 +133,7 @@ test.describe('operator cafe admin', () => {
   test('(c) QR page prints one card per active table and the bell persists', async ({ page }) => {
     await signIn(page, SEED_STAFF.manager);
     await gotoAdmin(page, 'qr');
-    await expect(page.getByRole('heading', { level: 1, name: 'Tables & QR', exact: true })).toBeVisible({
+    await expect(page.getByRole('heading', { level: 1, name: 'Table QR codes', exact: true })).toBeVisible({
       timeout: 30_000,
     });
 
@@ -280,8 +280,9 @@ test.describe('operator cafe admin', () => {
       )
       .toBeGreaterThan(before.count ?? 0);
 
-    // The sent-messages tab lists it, in words (kind 'test' → "Test message").
-    await page.getByRole('tab', { name: 'Sent messages', exact: true }).click();
+    // The sent-messages view lists it, in words (kind 'test' → "Test message").
+    // A segmented control, not a tab strip: the tabs above are the family's pages.
+    await page.getByTestId('telegram.view.outbox').click();
     await expect(
       page.getByRole('table', { name: 'Sent messages', exact: true }).getByText('Test message', { exact: true }).first(),
     ).toBeVisible();
@@ -291,10 +292,10 @@ test.describe('operator cafe admin', () => {
     await signIn(page, SEED_STAFF.owner);
     await page.goto(`${OPERATOR_URL}/analytics/cafe?range=7d`);
 
-    // Analytics is a Management rail row with two tabs; the cafe tab is the one
-    // this case is about. The page h1 is the wait target (the rail row is also
-    // called "Analytics", so a bare text match would resolve to the link).
-    await expect(page.getByRole('heading', { level: 1, name: 'Analytics' })).toBeVisible({
+    // Trends (page map, 2026-10-17) is a rail row with two tabs; the cafe tab is
+    // the one this case is about. The page h1 is the wait target (the rail row is
+    // also called "Trends", so a bare text match would resolve to the link).
+    await expect(page.getByRole('heading', { level: 1, name: 'Trends' })).toBeVisible({
       timeout: 60_000,
     });
     await expect(page).toHaveURL(/\/analytics\/cafe\?range=7d/);
@@ -483,7 +484,7 @@ test.describe('operator cafe admin', () => {
     await expect(soldOut).toHaveAttribute('aria-checked', String(!wasOn), { timeout: 15_000 });
 
     await gotoAdmin(page, 'audit');
-    await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Change history' })).toBeVisible({
       timeout: 30_000,
     });
 

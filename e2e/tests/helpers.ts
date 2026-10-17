@@ -248,6 +248,29 @@ export async function voidOpenTabsForTable(svc: SupabaseClient, tableId: string)
   if (error) throw new Error(`voidOpenTabsForTable failed: ${error.message}`);
 }
 
+/** Void any open/awaiting tab with this label (a counter order, 0352: it has no table). */
+export async function voidOpenTabsByLabel(svc: SupabaseClient, label: string): Promise<void> {
+  const { error } = await svc
+    .from('tabs')
+    .update({ status: 'void' })
+    .eq('label', label)
+    .in('status', ['open', 'awaiting_payment']);
+  if (error) throw new Error(`voidOpenTabsByLabel failed: ${error.message}`);
+}
+
+/**
+ * Open a café order the way the till does since 0352: New order at the
+ * counter, named, with no table (a free table's dialog only says so now).
+ * Lands on the new tab's menu.
+ */
+export async function openCounterOrder(page: Page, label: string): Promise<void> {
+  await page.getByRole('button', { name: 'New order', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'New order' });
+  await dialog.getByLabel(/^Name or number/).fill(label);
+  await dialog.getByRole('button', { name: 'Start order' }).click();
+  await expect(dialog).toBeHidden();
+}
+
 /**
  * Wipe the table's waiter-call history: the raise cooldown looks at
  * max(raised_at) over ALL calls (open or resolved), so a rerun within the

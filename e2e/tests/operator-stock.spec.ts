@@ -22,15 +22,16 @@ import {
   appRpc,
   ensureOpenDay,
   ensureTillFresh,
-  fixtureTableId,
+  openCounterOrder,
   serviceClient,
   signedInClient,
-  voidOpenTabsForTable,
+  voidOpenTabsByLabel,
   passShiftGate,
   showEveryRow,
 } from './helpers';
 
-const TILL_TABLE = fixtureTableId(8);
+// Café orders start at the counter since 0352; reruns void this one by its name.
+const STOCK_ORDER = 'Playwright Stock Order';
 
 async function signIn(page: Page, email: string) {
   await page.goto(`${OPERATOR_URL}/`);
@@ -61,7 +62,7 @@ test.describe('operator stock (module 5)', () => {
       .from('stock_counts')
       .update({ finalized_at: new Date().toISOString() })
       .is('finalized_at', null);
-    await voidOpenTabsForTable(svc, TILL_TABLE);
+    await voidOpenTabsByLabel(svc, STOCK_ORDER);
   });
 
   test.afterAll(async () => {
@@ -85,7 +86,7 @@ test.describe('operator stock (module 5)', () => {
       await svc.from('manager_alerts').delete().contains('payload', { ingredient_id: ingredientId });
       await svc.from('ingredients').delete().eq('id', ingredientId);
     }
-    await voidOpenTabsForTable(svc, TILL_TABLE);
+    await voidOpenTabsByLabel(svc, STOCK_ORDER);
   });
 
   test('(a) create an ingredient; it appears on hand at zero', async ({ page }) => {
@@ -148,11 +149,12 @@ test.describe('operator stock (module 5)', () => {
 
     // Ring one Karak on the till and send it to the kitchen.
     await signIn(page, SEED_STAFF.cashier);
-    await page.getByRole('button', { name: /^Table T8, Free/ }).click();
-    const newTab = page.getByRole('dialog', { name: 'Open a tab on Table T8?' });
-    await newTab.getByRole('button', { name: 'Open tab' }).click();
-    await expect(newTab).toBeHidden();
-    await page.getByRole('button', { name: /Hot Drinks/ }).click();
+    await openCounterOrder(page, STOCK_ORDER);
+    await expect(page.getByRole('heading', { name: STOCK_ORDER, exact: true })).toBeVisible();
+    // Filter, not the grid: with a shift banner up (a suite before left the
+    // drawer open), the basket and its pick-up/bring control (0351) cover the
+    // second row of tiles at this viewport.
+    await page.getByRole('textbox', { name: 'Filter items' }).fill('Karak');
     await page.getByRole('button', { name: /^Karak Tea/ }).click();
     const karak = page.getByRole('dialog', { name: 'Karak Tea' });
     await karak.getByRole('button', { name: 'Add', exact: true }).click();
@@ -174,7 +176,7 @@ test.describe('operator stock (module 5)', () => {
       )
       .toBe(-50);
 
-    // Settle so the day can close and other suites find the table free.
+    // Settle so the day can close.
     await page.getByRole('button', { name: 'Cash', exact: true }).click();
     // The cashier's first payment here asks for a shift first (wave 5).
     await passShiftGate(page);

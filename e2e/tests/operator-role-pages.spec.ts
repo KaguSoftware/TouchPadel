@@ -113,7 +113,7 @@ test.describe('operator role pages', () => {
 
     const page = await signIn(browser, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/suggestions`);
-    await expect(page.getByRole('heading', { level: 1, name: 'Suggestions' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Staff ideas' })).toBeVisible();
     const row = page.getByTestId(`suggestion-${id}`);
     await expect(row).toBeVisible();
     await expect(row.getByText(body)).toBeVisible();

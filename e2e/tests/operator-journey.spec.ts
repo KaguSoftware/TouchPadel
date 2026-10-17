@@ -29,10 +29,16 @@ import {
   signedInClient,
   appRpc,
   voidOpenTabsForTable,
+  voidOpenTabsByLabel,
+  openCounterOrder,
   passShiftGate,
 } from './helpers';
 
 const TILL_TABLE = fixtureTableId(8); // T8
+// Café orders start at the counter since 0352: the tabs these journeys open
+// carry a name, not a table, and reruns find (and void) them by it.
+const TILL_ORDER = 'Playwright Till Order';
+const REFUND_ORDER = 'Playwright Refund Order';
 // No digits in a guest name: the desk strips them as the operator types
 // (deskLogic sanitizeName), so 'E2E Walk-in' would be saved as 'EE Walk-in'
 // and every lookup below would miss it.
@@ -76,6 +82,7 @@ test.describe('operator journeys', () => {
       .eq('guest_name', WALKIN_NAME)
       .in('status', ['pending', 'confirmed', 'arrived']);
     await voidOpenTabsForTable(svc, TILL_TABLE);
+    await voidOpenTabsByLabel(svc, TILL_ORDER);
   });
 
   test('court_desk: calendar renders courts; walk-in booking create + cancel', async ({
@@ -158,15 +165,19 @@ test.describe('operator journeys', () => {
       timeout: 30_000,
     });
 
-    // ---- open a tab on T8: tap the free table, confirm --------------------
+    // ---- a free table opens nothing: orders start at the counter (0352) ----
     // The table's name leads its label ("Table T8, Free"), on the plan or in
     // the off-plan row when leftover test tables sort ahead of it.
     await page.getByRole('button', { name: /^Table T8, Free/ }).click();
-    const newTab = page.getByRole('dialog', { name: 'Open a tab on Table T8?' });
-    await newTab.getByRole('button', { name: 'Open tab' }).click();
-    await expect(newTab).toBeHidden();
-    // exact: the basket's own "Basket for Table T8" heading matches a substring.
-    await expect(page.getByRole('heading', { name: 'Table T8', exact: true })).toBeVisible();
+    const spot = page.getByRole('dialog', { name: 'Table T8' });
+    await expect(spot).toContainText('Orders start at the counter');
+    await spot.getByRole('button', { name: 'Cancel' }).click();
+    await expect(spot).toBeHidden();
+
+    // ---- open a counter order, named ---------------------------------------
+    await openCounterOrder(page, TILL_ORDER);
+    // exact: the basket's own "Basket for …" heading matches a substring.
+    await expect(page.getByRole('heading', { name: TILL_ORDER, exact: true })).toBeVisible();
 
     // ---- item 1: Cappuccino (Regular) + Oat Milk modifier -----------------
     // Leftover db-test categories can sort ahead of the fixtures — pick the
@@ -444,8 +455,7 @@ test.describe('operator journeys', () => {
   test('cashier: override a price, show the bill, refund with items', async ({ page }) => {
     // The RPCs behind all three have been granted and tested since the first
     // drops. Nothing called them.
-    const TABLE = fixtureTableId(7); // T7 — away from the T8 journey above
-    await voidOpenTabsForTable(svc, TABLE);
+    await voidOpenTabsByLabel(svc, REFUND_ORDER);
 
     await signIn(page, SEED_STAFF.manager);
     // A manager lands on the desk (homeRoute), not the till.
@@ -454,10 +464,7 @@ test.describe('operator journeys', () => {
       timeout: 30_000,
     });
 
-    await page.getByRole('button', { name: /^Table T7, Free/ }).click();
-    const newTab = page.getByRole('dialog', { name: 'Open a tab on Table T7?' });
-    await newTab.getByRole('button', { name: 'Open tab' }).click();
-    await expect(newTab).toBeHidden();
+    await openCounterOrder(page, REFUND_ORDER);
 
     await page.getByRole('button', { name: /Hot Drinks/ }).click();
     await page.getByRole('button', { name: /^Turkish Coffee/ }).click();
@@ -487,7 +494,7 @@ test.describe('operator journeys', () => {
       const { data, error: embedErr } = await svc
         .from('tabs')
         .select('id, orders!orders_tab_id_fkey(order_items(unit_price_iqd))')
-        .eq('table_id', TABLE)
+        .eq('label', REFUND_ORDER)
         .in('status', ['open', 'awaiting_payment'])
         .single();
       if (embedErr) throw new Error(`tabs query failed: ${embedErr.code} ${embedErr.message}`);
