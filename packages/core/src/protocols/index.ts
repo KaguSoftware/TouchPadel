@@ -3,3 +3,4 @@
 export * from './types';
 export * from './steps';
 export * from './validate';
+export * from './tournamentPlan';

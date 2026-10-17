@@ -26,8 +26,15 @@ export const staffProtocolsAr: DeepMessages<typeof staffProtocolsEn> = {
       hiring: 'وظيفة جديدة: سبب الحاجة، ثم المقابلات، ثم يضيف المالك الموظف الجديد.',
       price_promo: 'تغيير سعر أو عرض أو سعر ملعب أو خصم. يوافق المالك على الأرقام.',
     },
+    tournament: {
+      stepOf: 'الخطوة {n} من {total}',
+      next: 'التالي: {step}',
+      courtsHint: 'اضغط على الساعات لاختيارها. غيّر اليوم لإضافة موعد آخر.',
+      bookingsFailed: 'تعذّر تحميل حجوزات هذا اليوم.',
+      pastHour: 'بدأت هذه الساعة بالفعل.',
+      earlierStep: 'خطوة سابقة تحتاج إلى مراجعة.',
+    },
     notAllowed: 'لا يسمح دورك ببدء هذا.',
-    otherKind: 'بدء شيء آخر',
     variantTitle: 'ما نوع البطولة؟',
     variantHint: {
       type1: 'ينظّمها النادي. يوافق المالك على دراسة الجدوى.',

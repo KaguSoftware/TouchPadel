@@ -57,6 +57,34 @@ export const staffIncidentsEn = {
     reviewedBy: 'Reviewed by {name}: {note}',
     from: '{name} · {role}',
     reportedAt: 'Reported {when}',
+    waiting: 'Waiting for review',
+    reviewedByName: 'Reviewed by {name}',
+    waitingLong: 'Waiting for review. The note shows here once it is reviewed.',
+    // The foot of every card: the card opens the report in the sheet.
+    details: 'Tap for more details',
+  },
+  // The day headers the cards are grouped under, as the Play tab's nights.
+  days: {
+    today: 'Today',
+    yesterday: 'Yesterday',
+    day: '{weekday} {day} {month}',
+  },
+  count: {
+    reports: {
+      zero: 'No reports',
+      one: '1 report',
+      two: '2 reports',
+      few: '{count} reports',
+      many: '{count} reports',
+      other: '{count} reports',
+    },
+  },
+  // The report opened from its card.
+  sheet: {
+    whatHappened: 'What happened',
+    people: 'Who was involved',
+    photos: 'Photos',
+    review: 'Review',
   },
   review: {
     filters: {

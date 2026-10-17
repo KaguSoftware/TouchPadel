@@ -72,7 +72,7 @@ import { useResetTo } from '../src/navigation/back';
  */
 
 /**
- * One group as a tile (or one page, as coach mode): its icon (with an amber dot when a row in it is
+ * One group as a tile (or one page, as coach mode): its icon (with a red dot when a row in it is
  * waiting on the person), the title and a one-line preview of its pages.
  */
 function GroupTile({
@@ -125,12 +125,13 @@ function GroupTile({
         >
           <Icon size={compact ? 15 : 16} color={colors.gstrong} />
         </View>
-        {/* No page count (owner, 2026-10-01); an amber dot says something in
-            the group is waiting on the person. */}
+        {/* No page count (owner, 2026-10-01); a red dot says something in
+            the group is waiting on the person (red like the work alerts
+            badge, owner, 2026-10-16). */}
         {waiting ? (
           <View
             testID={`${testID}.waiting`}
-            style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.ambtext }}
+            style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger }}
           />
         ) : null}
       </View>

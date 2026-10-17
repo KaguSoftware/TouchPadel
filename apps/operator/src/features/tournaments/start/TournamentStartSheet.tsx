@@ -8,12 +8,12 @@
  * Both starts open it: the court desk's on /tasks and a manager's on
  * /protocols (each StartSheet hands a tournament here). It sends the same
  * `start_protocol` call and `tournament.plan` record the generic form did
- * (planModel.ts builds it, `validateStart` checks it first); the run's
+ * (@touch/core/protocols tournamentPlan.ts builds it, `validateStart` checks it first); the run's
  * titles are the names, which the generic form fell back to as well.
  *
  * Unlike the generic form it never reads the venue's template for
  * `submitterDecides`: the tournament plan has no decider-only field, so the
- * flag changes nothing (planModel.test.ts fails the day one is added, and the
+ * flag changes nothing (tournamentPlan.test.ts fails the day one is added, and the
  * template read comes back with it).
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
@@ -61,7 +61,7 @@ import {
   type PlanState,
   type PlanUnit,
   type PlanYears,
-} from './planModel';
+} from '@touch/core/protocols';
 
 const F = 'ws.team.tasks.form.field';
 const CLASSES: readonly PlanClass[] = ['A', 'B', 'C'];

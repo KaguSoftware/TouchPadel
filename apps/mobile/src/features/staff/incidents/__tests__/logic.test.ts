@@ -6,6 +6,7 @@ import {
   INCIDENT_KINDS,
   INCIDENT_PLACES,
   emptyIncidentDraft,
+  groupIncidentsByDay,
   incidentArgs,
   ownReportLine,
   reviewsIncidents,
@@ -177,5 +178,27 @@ describe('management’s count and the own-report line', () => {
     expect(ownReportLine('owner')).toBe('ownOwner');
     expect(ownReportLine('manager')).toBe('own');
     expect(ownReportLine(null)).toBe('own');
+  });
+});
+
+describe('groupIncidentsByDay', () => {
+  const at = (y: number, mo: number, d: number, h: number) => ({
+    occurred_at: new Date(y, mo - 1, d, h).toISOString(),
+    id: `${d}-${h}`,
+  });
+  const now = new Date(2026, 9, 16, 15).getTime();
+
+  it('puts the newest day first and the latest report first inside a day', () => {
+    const days = groupIncidentsByDay(
+      [at(2026, 10, 14, 9), at(2026, 10, 16, 10), at(2026, 10, 15, 22), at(2026, 10, 16, 14)],
+      now,
+    );
+    expect(days.map((d) => d.key)).toEqual(['2026-10-16', '2026-10-15', '2026-10-14']);
+    expect(days.map((d) => d.daysAgo)).toEqual([0, 1, 2]);
+    expect(days[0]!.rows.map((r) => r.id)).toEqual(['16-14', '16-10']);
+  });
+
+  it('gives an empty list no days', () => {
+    expect(groupIncidentsByDay([], now)).toEqual([]);
   });
 });

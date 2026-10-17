@@ -28,6 +28,7 @@ import type {
   TournamentFeasibility,
 } from './types';
 import type { RunFilter } from './logic';
+import type { CourtBooking } from './tournamentSteps';
 
 // ── Reads ───────────────────────────────────────────────────────────────────
 
@@ -142,6 +143,26 @@ export async function fetchCourts(venueId: string): Promise<NamedRow[]> {
     .order('sort_order');
   if (error) throw error;
   return (data ?? []) as NamedRow[];
+}
+
+/**
+ * The bookings that hold a court between two instants, for the tournament
+ * start's courts step: the desk's blocking statuses, and no guest's name (the
+ * step says a court is taken and by what kind, not by whom). The court desk,
+ * managers and the owner read reservations (0226 `reservations_staff_read`),
+ * and they are who starts a tournament.
+ */
+export async function fetchCourtBookings(venueId: string, from: string, to: string): Promise<CourtBooking[]> {
+  const { data, error } = await supabase
+    .from('reservations')
+    .select('court_id, start_at, end_at, kind')
+    .eq('venue_id', venueId)
+    .in('status', ['pending', 'confirmed', 'arrived'])
+    .lt('start_at', to)
+    .gt('end_at', from)
+    .order('start_at');
+  if (error) throw error;
+  return (data ?? []) as CourtBooking[];
 }
 
 /**

@@ -32,7 +32,8 @@ export const INCIDENT_PLACES: readonly IncidentPlace[] = [
   'outside',
   'other',
 ];
-export const INCIDENT_FILTERS: readonly IncidentsFilter[] = ['open', 'reviewed', 'all'];
+/** All first, the page's default, as the operator's My reports (incidentsLogic.ts MINE_FILTERS). */
+export const INCIDENT_FILTERS: readonly IncidentsFilter[] = ['all', 'open', 'reviewed'];
 
 /** Management reviews (review_incident, incidents_page); every role reports. */
 export const REVIEW_ROLES: readonly StaffRole[] = ['manager', 'owner'];
@@ -183,3 +184,47 @@ export const INCIDENT_TONE: Record<IncidentStatus, IncidentTone> = {
   open: 'warn',
   reviewed: 'good',
 };
+
+/** A phone-local calendar day as `YYYY-MM-DD`, the key the day groups sort on. */
+export function localDayKey(at: Date): string {
+  const m = String(at.getMonth() + 1).padStart(2, '0');
+  const d = String(at.getDate()).padStart(2, '0');
+  return `${at.getFullYear()}-${m}-${d}`;
+}
+
+export interface IncidentDay<T> {
+  /** `YYYY-MM-DD` on the phone's calendar. */
+  key: string;
+  /** How many days before `now` this day is: 0 today, 1 yesterday. */
+  daysAgo: number;
+  rows: T[];
+}
+
+/**
+ * The reports grouped under the day they happened, as the Play tab's Join list
+ * groups its nights: the newest day first and, inside a day, the latest first.
+ * Days are the phone's calendar, as the cards' times are.
+ */
+export function groupIncidentsByDay<T extends { occurred_at: string }>(
+  rows: readonly T[],
+  nowMs: number,
+): IncidentDay<T>[] {
+  const today = new Date(nowMs);
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const sorted = [...rows].sort(
+    (a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime(),
+  );
+  const days: IncidentDay<T>[] = [];
+  for (const r of sorted) {
+    const at = new Date(r.occurred_at);
+    const key = localDayKey(at);
+    const last = days[days.length - 1];
+    if (last && last.key === key) {
+      last.rows.push(r);
+      continue;
+    }
+    const midnight = new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
+    days.push({ key, daysAgo: Math.round((todayMidnight - midnight) / 86_400_000), rows: [r] });
+  }
+  return days;
+}

@@ -447,7 +447,11 @@ describe.each(LOCALES)('incident reports by role in %s', (locale) => {
       // Not a reviewer: no filters, and the form is its own page.
       expect(screen.queryByTestId('staff-incidents.filter.open')).toBeNull();
       expect(screen.queryByTestId('staff-incident-report.submit')).toBeNull();
-      expect(screen.getByTestId(`staff-incidents.item.${ID(21)}`)).toBeTruthy();
+      // The card is the kind, place, time and review state; the report opens in the sheet.
+      expect(screen.getByText(t('staff.incidents.list.waiting'))).toBeTruthy();
+      expect(screen.queryByTestId('staff-incidents.sheet')).toBeNull();
+      fireEvent.press(screen.getByTestId(`staff-incidents.item.${ID(21)}`));
+      expect(screen.getByTestId('staff-incidents.sheet')).toBeTruthy();
       // A redacted report shows that it was, never the stored marker, and never its photos.
       expect(screen.getByText(t('staff.incidents.list.redacted'))).toBeTruthy();
       expect(screen.queryByText('[deleted by the owner]')).toBeNull();
@@ -483,14 +487,17 @@ describe.each(LOCALES)('incident reports by role in %s', (locale) => {
     const screen = renderRoute(StaffIncidents, {
       locale,
       staff: { role: 'manager' },
-      queryData: [[staffKeys.incidents(V, 'open'), page]],
+      queryData: [[staffKeys.incidents(V, 'all'), page]],
     });
     try {
       expect(screen.getByTestId('staff-incidents.filter.open')).toBeTruthy();
       // One's own report is reviewed by someone else.
-      expect(screen.queryByTestId(`staff-incidents.review.${ID(23)}`)).toBeNull();
+      fireEvent.press(screen.getByTestId(`staff-incidents.item.${ID(23)}`));
+      expect(screen.queryByTestId('staff-incidents.review.confirm')).toBeNull();
       expect(screen.getByText(t('staff.incidents.review.own'))).toBeTruthy();
-      fireEvent.press(screen.getByTestId(`staff-incidents.review.${ID(22)}`));
+      fireEvent.press(screen.getByTestId('staff-incidents.sheet.close'));
+      expect(screen.queryByTestId('staff-incidents.sheet')).toBeNull();
+      fireEvent.press(screen.getByTestId(`staff-incidents.item.${ID(22)}`));
       expect(screen.getByText(t('staff.incidents.review.noteHint'))).toBeTruthy();
       fireEvent.press(screen.getByTestId('staff-incidents.review.confirm'));
       expect(screen.getByText(t('staff.incidents.review.errors.note'))).toBeTruthy();

@@ -33,8 +33,16 @@ export const staffProtocolsEn = {
       hiring: 'A new position: why it is needed, the interviews, then the owner adds the person.',
       price_promo: 'A price, promotion, court rate or discount change. The owner approves the figures.',
     },
+    // The tournament start, one plan section a page (owner, 2026-10-16).
+    tournament: {
+      stepOf: 'Step {n} of {total}',
+      next: 'Next: {step}',
+      courtsHint: 'Tap the hours to pick them. Change the day to add another slot.',
+      bookingsFailed: 'Could not read this day’s bookings.',
+      pastHour: 'This hour has already started.',
+      earlierStep: 'An earlier step needs a look.',
+    },
     notAllowed: 'Your role cannot start this.',
-    otherKind: 'Start something else',
     variantTitle: 'Which kind of tournament?',
     variantHint: {
       type1: 'Run by the club. The owner approves the feasibility.',

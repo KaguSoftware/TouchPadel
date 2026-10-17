@@ -202,6 +202,54 @@ export const DeductionIcon = (p: IconProps) => (
 export const WarningIcon = (p: IconProps) => (
   <StrokeIcon d={['M12 4L2.8 19.5h18.4L12 4zM12 10v4.2M12 17h.01']} {...p} />
 );
+// The incident kinds' glyphs, traced from the operator's set (apps/operator/src/components/icons.tsx).
+/** Injury: a first-aid cross in a rounded square. */
+export const MedicalIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={['M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zM12 8v8M8 12h8']}
+    {...p}
+  />
+);
+/** Fight: a fist (Lucide's hand-fist). */
+export const FistIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M12.035 17.012a3 3 0 0 0-3-3l-.311-.002a.72.72 0 0 1-.505-1.229l1.195-1.195A2 2 0 0 1 10.828 11H12a2 2 0 0 0 0-4H9.243a3 3 0 0 0-2.122.879l-2.707 2.707A4.83 4.83 0 0 0 3 14a8 8 0 0 0 8 8h2a8 8 0 0 0 8-8V7a2 2 0 1 0-4 0v2a2 2 0 1 0 4 0M13.888 9.662A2 2 0 0 0 17 8V5a2 2 0 1 0-4 0M9 5a2 2 0 1 0-4 0v5M9 7V4a2 2 0 1 1 4 0v3.268',
+    ]}
+    {...p}
+  />
+);
+/** Damage: a shattered pane of glass. */
+export const GlassBrokenIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM11 9l2.5.3.5 2.3-1.8 1.4-2.2-1.2zM11 9l-1-3-1-3M13.5 9.3l1.5-2.8L17 3M14 11.6l3.5.4L21 13M12.2 13l.8 4 1 4M10 11.8l-3.5 1.2L3 15M17.5 12 13 17',
+    ]}
+    {...p}
+  />
+);
+/** Other: three dots. */
+export const MoreIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+    ]}
+    {...p}
+  />
+);
+/** Waiting for a review: an hourglass. */
+export const HourglassIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M5 22h14M5 2h14M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22M7 2v4.2a2 2 0 0 0 .6 1.4L12 12l4.4-4.4a2 2 0 0 0 .6-1.4V2',
+    ]}
+    {...p}
+  />
+);
+/** Reviewed: a tick in a circle. */
+export const CheckCircleIcon = (p: IconProps) => (
+  <StrokeIcon d={['M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4L12 14.01l-3-3']} {...p} />
+);
 /** Content for approval: a picture. */
 export const ImageIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 5h16v14H4V5zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9h.01']} {...p} />
