@@ -4,13 +4,14 @@
 // operator-v*). Always passed explicitly with `--config electron-builder.config.cjs`:
 // electron-builder only auto-discovers `electron-builder.{yml,js,cjs,...}`.
 //
-// Why JavaScript rather than the old YAML: Windows signing has two routes
-// (Azure Trusted Signing, classic PFX) and neither may be configured yet. A
-// static `win.azureSignOptions` block makes Invoke-TrustedSigning fail whenever
-// the Azure env is absent (local builds, the CI smoke job), so that block only
-// exists when all of its env is present. The PFX route needs no config at all:
-// electron-builder reads CSC_LINK / CSC_KEY_PASSWORD itself and treats an empty
-// value as "unsigned, no error". Same idea on macOS: `notarize: true` is a
+// Why JavaScript rather than the old YAML: Windows signing has three routes
+// (Azure Trusted Signing, SSL.com eSigner, classic PFX) and none may be
+// configured yet. A static `win.azureSignOptions` block makes
+// Invoke-TrustedSigning fail whenever the Azure env is absent (local builds, the
+// CI smoke job), so that block only exists when all of its env is present. The
+// PFX route needs no config at all for the signing itself: electron-builder
+// reads CSC_LINK / CSC_KEY_PASSWORD itself and treats an empty value as
+// "unsigned, no error". Same idea on macOS: `notarize: true` is a
 // no-op warning until APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID exist.
 
 const env = (/** @type {string} */ key) => (process.env[key] ?? '').trim();
@@ -24,6 +25,34 @@ const AZURE_ENV = [
   'AZURE_CERTIFICATE_PROFILE_NAME',
 ];
 const azureSigning = AZURE_ENV.every((key) => env(key) !== '');
+
+const ESIGNER_ENV = [
+  'WIN_ESIGNER_USERNAME',
+  'WIN_ESIGNER_PASSWORD',
+  'WIN_ESIGNER_CREDENTIAL_ID',
+  'WIN_ESIGNER_TOTP_SECRET',
+];
+// WIN_SIGN_DRY_RUN=1 turns the eSigner route on without credentials; the hook
+// then only logs what it would sign (scripts/sign-win.cjs), to count the
+// signings one release costs. eSigner bills per signing.
+const dryRun = env('WIN_SIGN_DRY_RUN') === '1';
+// Precedence: Azure > eSigner > PFX. Mutually exclusive on purpose: electron-builder
+// refuses azureSignOptions together with signtoolOptions, and two routes would
+// sign twice.
+const esignerSigning = !azureSigning && (dryRun || ESIGNER_ENV.every((key) => env(key) !== ''));
+const pfxSigning = !azureSigning && !esignerSigning && (env('CSC_LINK') !== '' || env('WIN_CSC_LINK') !== '');
+const anySigning = azureSigning || esignerSigning || pfxSigning;
+
+// Comma-separated so a renewed certificate with a different CN can be listed
+// beside the old one. electron-builder writes it into resources/app-update.yml
+// and electron-updater then refuses any update not signed by one of these names.
+// Never set without a signing route: an unsigned build carrying it would make
+// every installed app reject its own updates (and unsigned ones are all it has).
+const publisherNames = env('WIN_SIGN_PUBLISHER_NAME')
+  .split(',')
+  .map((name) => name.trim())
+  .filter(Boolean);
+const publisherName = anySigning && publisherNames.length > 0 ? publisherNames : null;
 
 /** @type {import('electron-builder').Configuration} */
 const config = {
@@ -100,19 +129,33 @@ const config = {
             certificateProfileName: env('AZURE_CERTIFICATE_PROFILE_NAME'),
             // Azure does not tell electron-builder the certificate's CN, and
             // electron-updater only verifies a downloaded installer's signature
-            // when app-update.yml carries publisherName. Set it once the cert
-            // exists (must equal the CN exactly).
-            ...(env('WIN_SIGN_PUBLISHER_NAME') ? { publisherName: env('WIN_SIGN_PUBLISHER_NAME') } : {}),
+            // when app-update.yml carries publisherName. Must equal the CN exactly.
+            // Azure takes one string (also used when signing): the first name.
+            ...(publisherName ? { publisherName: publisherName[0] } : {}),
+          },
+        }
+      : {}),
+    // eSigner and PFX share signtoolOptions (never alongside azureSignOptions).
+    ...(esignerSigning || pfxSigning
+      ? {
+          signtoolOptions: {
+            // eSigner: the hook signs each file via CodeSignTool. sha256 only, so
+            // each file is signed (and billed) once; sha1 is long obsolete.
+            ...(esignerSigning ? { sign: 'scripts/sign-win.cjs', signingHashAlgorithms: ['sha256'] } : {}),
+            ...(publisherName ? { publisherName } : {}),
           },
         }
       : {}),
   },
   nsis: {
-    // Assisted installer, not one-click: a welcome page, "just me / everyone",
-    // a folder picker, then a finish page with "Run Touch Padel Operator"
-    // ticked. The one-click variant flashed a progress bar and vanished, which
-    // on the first public build read as "nothing happened" (2026-09-07).
+    // Assisted installer, not one-click: a welcome page, a folder picker, then a
+    // finish page with "Run Touch Padel Operator" ticked. Always per-user:
+    // assets/installer.nsh skips the "just me / everyone" page, so there is no
+    // UAC prompt, the app lands in %LOCALAPPDATA%\Programs and update-at-start
+    // keeps working. The one-click variant flashed a progress bar and vanished,
+    // which on the first public build read as "nothing happened" (2026-09-07).
     oneClick: false,
+    include: 'assets/installer.nsh',
     allowToChangeInstallationDirectory: true,
     createDesktopShortcut: true,
     createStartMenuShortcut: true,

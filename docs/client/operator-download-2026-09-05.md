@@ -85,11 +85,84 @@ live only after the installer, its `.blockmap` and `latest.yml` are all present.
 A half-finished run therefore never changes what `releases/latest` serves — the
 draft just sits in the public repo until the next successful run reuses it.
 
-## 4. Code signing (removes the SmartScreen prompt) — pick one route
+## 4. Code signing (removes the SmartScreen prompt)
 
-Both routes are already wired. Add the secrets and the next tag push signs.
+**Decision, 2026-10-17 (owner): Route C below, an OV certificate signed through
+SSL.com eSigner.** Why: every Windows release so far has shipped unsigned (only
+the `MAC_CSC_*` secrets exist), so each release is a new unknown file to
+SmartScreen and the "Windows protected your PC" and browser "not commonly
+downloaded" warnings never fade. Azure Trusted Signing (Route A) is not
+available to us: the company is registered in Turkey, and public-trust
+validation is open only to organisations in the US, Canada, the EU, the UK,
+Australia, New Zealand, Japan, South Korea, Singapore, Switzerland, Norway and
+Israel. EV is not worth the extra money: Microsoft says EV no longer skips
+SmartScreen reputation.
 
-### Route A — Azure Trusted Signing (recommended)
+Even signed, the warnings fade only after weeks of installs under the same
+certificate. Every release must be signed with the same identity.
+
+Until the first signed release, staff install with the PowerShell command on
+the download page, which does not trigger SmartScreen
+(`docs/install-runbook.md` §1).
+
+Routes A and B stay wired in `electron-builder.config.cjs` as alternatives
+(precedence: Azure, then eSigner, then PFX). **They are not the chosen route.**
+
+### Route C — OV certificate with SSL.com eSigner (CHOSEN)
+
+About US$129/year for the certificate. Cloud signing: no USB token, and the
+build server signs through SSL.com. Owner checklist:
+
+1. **Check first.** Ask SSL.com support to confirm they validate a company
+   registered in Turkey, before paying.
+2. **Buy** an OV code-signing certificate with eSigner cloud signing, and a
+   signing plan. One release makes 6 signings (x64 app exe, ia32 app exe, two
+   `elevate.exe`, the uninstaller, the installer). At 4–8 releases a month
+   that is 24–48 signings, so the 20-signing tier (about US$20/month) is too
+   small. The 100-signing tier (about US$85/month) fits. Prices are from
+   SSL.com's eSigner pricing page; confirm at checkout.
+3. **Validation.** Complete SSL.com's organisation validation. Standard
+   validation takes 3–5 business days.
+4. **Enrol the certificate in eSigner** and note the account username,
+   password, credential ID and the TOTP secret (the text secret shown when you
+   set up the authenticator).
+5. **Add to the source repo** (GitHub → Settings → Secrets and variables →
+   Actions):
+
+| Name | Kind | Value |
+|---|---|---|
+| `WIN_ESIGNER_USERNAME` | secret | the SSL.com account username |
+| `WIN_ESIGNER_PASSWORD` | secret | its password |
+| `WIN_ESIGNER_CREDENTIAL_ID` | secret | the certificate's eSigner credential ID |
+| `WIN_ESIGNER_TOTP_SECRET` | secret | the TOTP secret from eSigner setup |
+| `WIN_SIGN_PUBLISHER_NAME` | **variable** | the certificate's exact subject CN. After a renewal that changes the CN, list the old and the new one, comma-separated |
+
+   The release workflow downloads SSL.com CodeSignTool v1.3.1 (pinned by
+   sha256) and signs through `apps/operator-shell/scripts/sign-win.cjs`.
+6. **Optional dry run before buying.** SSL.com publishes eSigner sandbox demo
+   credentials (`https://ssl.com/guide/esigner-demo-credentials-and-certificates/`).
+   Put them in the four secrets and push a test tag. Test-mode signatures are
+   not trusted by Windows, but they prove the pipeline works. Do not set
+   `WIN_SIGN_PUBLISHER_NAME` for a sandbox run, and put the real values back
+   afterwards.
+7. **First signed tag.** Push `operator-vX.Y.Z` as usual. Then, on a Windows
+   machine, run `Get-AuthenticodeSignature` on the downloaded installer and on
+   the installed `Touch Padel Operator.exe`: both must show `Valid`.
+8. **Flip the download-page note.** Set `SHOW_SMARTSCREEN_NOTE` in
+   `apps/web/app/[locale]/download/page.tsx` to `false` only once a fresh
+   browser download shows no warning. That can take weeks of installs.
+9. **Defender false positive?** Submit the file at
+   `https://www.microsoft.com/wdsi/filesubmission`.
+
+> **Warning: the publisher name.** Once `WIN_SIGN_PUBLISHER_NAME` is set,
+> every installed station checks each update's signature against it. A release
+> that is not signed would be refused by every station's updater, so the
+> release workflow now **fails** rather than publish unsigned while the
+> variable is set. Never clear the variable to "get a release out" without
+> understanding that: stations would keep the old version until a correctly
+> signed release comes out.
+
+### Route A — Azure Trusted Signing (not chosen; unavailable to a Turkish company)
 
 Roughly US$10/month; no hardware token; SmartScreen trusts it quickly.
 
@@ -114,7 +187,7 @@ Roughly US$10/month; no hardware token; SmartScreen trusts it quickly.
 | `AZURE_CERTIFICATE_PROFILE_NAME` | **variable** | the certificate profile name |
 | `WIN_SIGN_PUBLISHER_NAME` | **variable** | the certificate's exact CN (e.g. `Kagu Software Ltd`), so installed apps verify updates |
 
-### Route B — a certificate file (OV/EV from a certificate authority)
+### Route B — a certificate file (OV/EV from a certificate authority; not chosen)
 
 Roughly US$200–500/year. Since 2023 most CAs deliver on a USB token, which a
 build server cannot use; ask for a **cloud-HSM or exportable .pfx** OV
@@ -125,8 +198,8 @@ certificate. OV builds SmartScreen reputation over weeks; EV is trusted at once.
    `[Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx")) | Set-Clipboard` (PowerShell).
 3. Add `WIN_CSC_LINK` (secret, the base64 text) and `WIN_CSC_KEY_PASSWORD` (secret).
 
-When either route is configured, ask the developer to flip
-`SHOW_SMARTSCREEN_NOTE` on the download page.
+Whichever route is configured, `SHOW_SMARTSCREEN_NOTE` on the download page
+flips only after a fresh browser download shows no warning (Route C, step 8).
 
 ## 5. macOS (optional; only if a Mac will ever run the operator app) — ✔ DONE 2026-09-07
 

@@ -96,6 +96,11 @@ jobs:
           RELEASES_GH_TOKEN: ${{ secrets.RELEASES_GH_TOKEN }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_ESIGNER_USERNAME: ${{ secrets.WIN_ESIGNER_USERNAME }}
+          WIN_ESIGNER_PASSWORD: ${{ secrets.WIN_ESIGNER_PASSWORD }}
+          WIN_ESIGNER_CREDENTIAL_ID: ${{ secrets.WIN_ESIGNER_CREDENTIAL_ID }}
+          WIN_ESIGNER_TOTP_SECRET: ${{ secrets.WIN_ESIGNER_TOTP_SECRET }}
+          WIN_SIGN_PUBLISHER_NAME: ${{ vars.WIN_SIGN_PUBLISHER_NAME }}
           MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
@@ -111,7 +116,18 @@ jobs:
           fi
           win=unsigned
           [ -n "$WIN_CSC_LINK" ] && win=pfx
+          if [ -n "$WIN_ESIGNER_USERNAME" ] && [ -n "$WIN_ESIGNER_PASSWORD" ] && [ -n "$WIN_ESIGNER_CREDENTIAL_ID" ] && [ -n "$WIN_ESIGNER_TOTP_SECRET" ]; then
+            win=esigner
+          fi
           [ -n "$AZURE_CLIENT_ID" ] && win=azure
+          # Once a publisher name is set, installed apps verify every update's
+          # signature against it. An unsigned release after a signed one would be
+          # refused by every station's updater, which then stops updating, silently.
+          # So a release that cannot be signed must not ship at all.
+          if [ -n "$WIN_SIGN_PUBLISHER_NAME" ] && [ "$win" = "unsigned" ]; then
+            echo "::error::WIN_SIGN_PUBLISHER_NAME is set but no Windows signing credentials exist (WIN_ESIGNER_*, WIN_CSC_LINK or AZURE_*). An unsigned release would be refused by every installed station's updater. Add the credentials, or clear the variable on purpose."
+            exit 1
+          fi
           mac=false
           if [ -n "$MAC_CSC_LINK" ] && [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
             mac=true
@@ -183,6 +199,24 @@ jobs:
       - name: Rebuild better-sqlite3 for Electron (and prove it loads)
         run: pnpm --filter @touch/operator-shell native:electron
 
+      # eSigner route only. The Windows zip carries its own JDK, so no setup-java.
+      # Pinned by version and sha256 (the release has no checksum file of its own;
+      # hash taken from the v1.3.1 zip on 2026-10-17). Bump both together.
+      - name: Fetch SSL.com CodeSignTool (eSigner route)
+        if: needs.prepare.outputs.win_signing == 'esigner'
+        shell: pwsh
+        run: |
+          $url = 'https://www.ssl.com/wp-content/uploads/2024/10/CodeSignTool-v1.3.1-windows.zip'
+          $sha = 'e45a9e6c2aac4cae16c114eb590a2196406681357eb587507c65cd3646b5330d'
+          $zip = Join-Path $env:RUNNER_TEMP 'codesigntool.zip'
+          $dir = Join-Path $env:RUNNER_TEMP 'codesigntool'
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          $got = (Get-FileHash -Algorithm SHA256 $zip).Hash
+          if ($got -ne $sha) { Write-Output "::error::CodeSignTool zip sha256 mismatch ($got)"; exit 1 }
+          Expand-Archive -Path $zip -DestinationPath $dir
+          # The zip has no top-level folder: jdk-*/ and jar/ land directly in $dir.
+          "CODESIGNTOOL_PATH=$dir" >> $env:GITHUB_ENV
+
       - name: Build the installer, sign if credentials exist, publish
         working-directory: apps/operator-shell
         env:
@@ -200,10 +234,44 @@ jobs:
           AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
           AZURE_CERTIFICATE_PROFILE_NAME: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
           WIN_SIGN_PUBLISHER_NAME: ${{ vars.WIN_SIGN_PUBLISHER_NAME }}
-          # Route b — a PFX. An empty value is "unsigned" to electron-builder.
+          # Route b — SSL.com eSigner (cloud OV certificate). All four present →
+          # the config adds win.signtoolOptions.sign (scripts/sign-win.cjs), which
+          # runs the CodeSignTool fetched above (CODESIGNTOOL_PATH).
+          WIN_ESIGNER_USERNAME: ${{ secrets.WIN_ESIGNER_USERNAME }}
+          WIN_ESIGNER_PASSWORD: ${{ secrets.WIN_ESIGNER_PASSWORD }}
+          WIN_ESIGNER_CREDENTIAL_ID: ${{ secrets.WIN_ESIGNER_CREDENTIAL_ID }}
+          WIN_ESIGNER_TOTP_SECRET: ${{ secrets.WIN_ESIGNER_TOTP_SECRET }}
+          # Route c — a PFX. An empty value is "unsigned" to electron-builder.
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: pnpm exec electron-builder --win --config electron-builder.config.cjs --publish always
+
+      # Belt and braces: a route that resolved to signed must have produced signed
+      # files, or the job fails (and `publish` needs this job, so the draft stays
+      # a draft). The upload already happened inside the build step.
+      - name: Prove the Windows build is signed
+        if: needs.prepare.outputs.win_signing != 'unsigned'
+        shell: pwsh
+        working-directory: apps/operator-shell/release
+        env:
+          WIN_SIGN_PUBLISHER_NAME: ${{ vars.WIN_SIGN_PUBLISHER_NAME }}
+        run: |
+          $bad = $false
+          $files = @('Touch-Padel-Operator-Setup.exe', 'win-unpacked/Touch Padel Operator.exe', 'win-ia32-unpacked/Touch Padel Operator.exe')
+          foreach ($f in $files) {
+            $s = Get-AuthenticodeSignature -LiteralPath $f
+            if (($s.Status -in 'NotSigned', 'HashMismatch') -or $null -eq $s.SignerCertificate) {
+              Write-Output "::error::$f is not signed (status $($s.Status))"
+              $bad = $true
+            } else {
+              Write-Output "$f : $($s.Status) by $($s.SignerCertificate.Subject)"
+            }
+          }
+          if ($env:WIN_SIGN_PUBLISHER_NAME -and -not (Select-String -Path 'win-unpacked/resources/app-update.yml' -Pattern 'publisherName' -Quiet)) {
+            Write-Output '::error::app-update.yml has no publisherName'
+            $bad = $true
+          }
+          if ($bad) { exit 1 }
 
       # A debugging copy. The public release is the real output.
       - uses: actions/upload-artifact@v4

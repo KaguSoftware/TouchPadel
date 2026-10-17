@@ -34,6 +34,15 @@ describe.each(LOCALES)('download page (%s)', (locale: Locale) => {
     expect(screen.getByText(t(locale, 'download.smartScreenNote'))).toBeTruthy();
   });
 
+  it('shows the PowerShell one-liner with a copy button, LTR', async () => {
+    await renderServerPage(DownloadPage, locale);
+
+    const code = screen.getByLabelText(t(locale, 'download.installCommandLabel'));
+    expect(code.textContent).toMatch(/^irm https?:\/\/\S+\/install-operator\.ps1 \| iex$/);
+    expect(code.getAttribute('dir')).toBe('ltr');
+    expect(screen.getByRole('button', { name: t(locale, 'download.copy') })).toBeTruthy();
+  });
+
   it('offers exactly three installers, at stable version-less URLs', async () => {
     await renderServerPage(DownloadPage, locale);
 

@@ -1027,6 +1027,13 @@ export const ar: Messages = {
     macIntelButton: 'تنزيل لأجهزة Mac (Intel)',
     macWhichNote:
       'لا تعرف نوع جهاز Mac لديك؟ افتح قائمة Apple ثم اختر «About This Mac»: إن كانت الشريحة باسم «Apple M1/M2/M3/M4» فجهازك Apple silicon، وإن كان المعالج باسم «Intel» فجهازك Intel.',
+    installTitle: 'التثبيت عبر PowerShell',
+    installSteps: 'انقر بزر الفأرة الأيمن على زر «ابدأ» واختر Windows PowerShell (أو اضغط Win+X). الصق السطر أدناه ثم اضغط Enter.',
+    installCommandLabel: 'أمر التثبيت',
+    installNote: 'بلا تحذيرات من المتصفح وبلا حاجة إلى صلاحيات المسؤول. ينزّل أحدث إصدار ويتحقق منه ويثبّته ثم يفتحه.',
+    copy: 'نسخ',
+    copied: 'تم النسخ',
+    orDownload: 'أو نزّل ملف التثبيت',
     macSoon: 'Mac: قريبًا',
     smartScreenNote:
       'قد يعرض Windows عند التشغيل الأول رسالة «Windows protected your PC». اختر «More info» ثم «Run anyway».',

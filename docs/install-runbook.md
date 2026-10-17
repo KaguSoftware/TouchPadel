@@ -9,17 +9,40 @@ station roles — the role is chosen on the machine's first launch and lives in
 
 - **Staff download page:** `https://<guest-site>/download` (e.g.
   `https://touch-padel-web.vercel.app/download`, later `https://touch-padel.com/download`).
-  The Windows button is a stable link that always serves the newest release:
-  `https://github.com/KaguSoftware/touchpadel-releases/releases/latest/download/Touch-Padel-Operator-Setup.exe`
+  It shows the PowerShell command below with a copy button, and the browser
+  download as the fallback.
 - **Which Windows:** Windows 10 or 11, 64-bit or 32-bit. The one installer
   carries both builds and installs the right one by itself (the 32-bit build
   also covers Windows 10 on ARM). If it will not start at all, see §2.
-- **Installing:** the installer is the assisted kind (`oneClick: false`), not
-  one click: a welcome page, then **Choose Installation Options**. Run it from
-  the Windows account the station logs in with and pick **Only for me**, never
-  **Anyone who uses this computer (all users)**: an all-users install cannot
-  update itself at start (§6). Keep the default folder; the last page starts
-  the app.
+- **Primary route, PowerShell (no admin needed).** Open **Windows PowerShell**
+  (right-click Start, or Win+X, then **Windows PowerShell**) and paste:
+
+  ```text
+  irm https://<guest-site>/install-operator.ps1 | iex
+  ```
+
+  The script (`apps/web/public/install-operator.ps1`) turns on TLS 1.2, reads
+  the release feed (`latest.yml`), downloads the versioned installer and checks
+  its sha512 against the feed. On a mismatch it deletes the file and stops. It
+  refuses to run if Windows is set to **Microsoft Store only**, or if an
+  all-users copy of the app is already installed. If the app is running it
+  says so (the app closes and reopens during the install). Then it installs
+  silently for the current user and opens the app. A download made by
+  PowerShell carries no Mark of the Web, so SmartScreen does not prompt.
+  PowerShell is blocked in S mode (§2).
+- **Fallback, browser download.** The Windows button on the download page is a
+  stable link that always serves the newest release:
+  `https://github.com/KaguSoftware/touchpadel-releases/releases/latest/download/Touch-Padel-Operator-Setup.exe`
+  A browser download is tagged "from the internet", so until releases are
+  signed, SmartScreen and the browser warn (§2).
+- **Installing:** the installer is always per-user ("Only for me"). There is
+  no "just me / everyone" page and no administrator prompt. Run it from the
+  Windows account the station logs in with. Keep the default folder; the last
+  page starts the app. A machine with an old **all-users** install: the
+  per-user installer does not remove it, and two copies would end up side by
+  side. Uninstall the all-users copy first (Settings > Apps, needs an
+  administrator; `queue.db` and `station.json` in `%APPDATA%` are kept), then
+  install.
 - **All versions:** `https://github.com/KaguSoftware/touchpadel-releases/releases`
   (public repo; also the auto-update feed). To roll back, install an older
   `Touch-Padel-Operator-Setup.exe` from there. It replaces the installed
@@ -36,25 +59,28 @@ station roles — the role is chosen on the machine's first launch and lives in
   `apps/operator-shell/release/`. Note `apps/operator/.env` on a dev machine
   points the guest site at localhost; do not hand a local build to the venue.
 
-## 2. SmartScreen (until the build is signed), and an installer that won't start
+## 2. Warnings and refusals (SmartScreen until the build is signed)
 
-Windows signing is wired but conditional on a certificate the owner has not
-sourced yet (`docs/client/operator-download-2026-09-05.md` §4). Until then, on
-first launch Windows shows "Windows protected your PC" — click **More info →
-Run anyway**. Once a signing route is configured the warning stops on the next
-release; then flip `SHOW_SMARTSCREEN_NOTE` on the download page to `false`.
+Every Windows release so far has shipped unsigned, so each one is a new unknown
+file to SmartScreen. The owner chose a signing route on 2026-10-17
+(`docs/client/operator-download-2026-09-05.md` §4). Even once releases are
+signed, the warnings fade only after weeks of installs under the same
+certificate. After the first signed release, check it with
+`Get-AuthenticodeSignature`, and flip `SHOW_SMARTSCREEN_NOTE` on the download
+page to `false` only when a fresh browser download shows no warning.
 
-If the installer will not start, the message says which of these it is:
+What you see, and what to do:
 
-- **"This app can't run on your PC"**: a 32-bit Windows given an installer
-  older than the one with the 32-bit build (operator-v0.2.21). Download it
-  again from the stable link in §1.
-- **"Windows protected your PC"**: SmartScreen, above.
-- **"…only runs verified apps from the Store"**: Windows is in **S mode**, which
-  runs nothing from outside the Microsoft Store, whatever the build. Switch out
-  of it (free, one-way): Settings → Update & Security → Activation → **Switch
-  to Windows 10 Home/Pro** → Go to the Store → Get (Windows 11: Settings →
-  System → Activation).
+| What you see | What to do |
+|---|---|
+| **"Windows protected your PC"** (SmartScreen) | Click **More info**, then **Run anyway**. Or use the PowerShell route (§1), which does not prompt. |
+| The browser says the file is **not commonly downloaded** or blocked | Same cause. Keep the file (in Edge, **...** then **Keep**, then **Keep anyway**) and run it, or use the PowerShell route. |
+| **"The app you're trying to install isn't a Microsoft-verified app"** | **Choose where to get apps** is set to Store only (or "warn me"). Set it to **Anywhere**: Windows 10: Settings > Apps > Apps & features. Windows 11: Settings > Apps > Advanced app settings. No Microsoft account is needed. |
+| **"…only runs verified apps from the Store"**, or it asks for a Microsoft account or OneDrive | Windows is in **S mode**. It runs nothing from outside the Store, whatever the build, and PowerShell is blocked too. Only leaving S mode helps (free, one-way, and the Store may ask for a Microsoft account sign-in): Settings > Update & Security > Activation > **Switch to Windows 10 Home/Pro** > Go to the Store > Get (Windows 11: Settings > System > Activation). |
+| **"This app can't run on your PC"** | A 32-bit Windows given an installer older than the one with the 32-bit build (operator-v0.2.21). Download it again from the stable link in §1. |
+| The script says Windows is set to **Store only** | Same as the Microsoft-verified row. Change the setting to **Anywhere**, then run the command again. If an administrator policy sets it, ask whoever manages the PC. |
+| The script says an **all-users copy** is installed | Uninstall it from Settings > Apps (needs an administrator; `queue.db` and `station.json` are kept), then run the command again. |
+| The script says the download **does not match** the release feed (sha512) | Nothing was installed. Run the command again. If it fails a second time, stop and report it. |
 
 ## 3. Station identity (per machine, once)
 
@@ -157,12 +183,14 @@ enough to update it.
 
 A start installs an update only when all of these hold:
 
-- **The app was installed Only for me.** An install for all users makes the
-  installer ask Windows for administrator approval, and at a start nobody is
-  there to give it. Such a machine never installs at start: use Update ready
-  or Quit to desktop with someone there to approve the prompt (the app reopens
-  only if they do), or reinstall it Only for me. Uninstall the all-users copy
-  first (Settings > Apps); `queue.db` and `station.json` are kept.
+- **The app is installed per-user.** The installer always installs this way
+  now. An older all-users install makes the installer ask Windows for
+  administrator approval, and at a start nobody is there to give it. Such a
+  machine never installs at start: use Update ready or Quit to desktop with
+  someone there to approve the prompt (the app reopens only if they do), or
+  reinstall per-user. Uninstall the all-users copy first (Settings > Apps,
+  needs an administrator); the per-user installer does not remove it.
+  `queue.db` and `station.json` are kept.
 - **No earlier start tried that version.** A start gets one try per version.
   If the station comes back still on the old version (the installer failed),
   later starts leave that version alone and **Update ready** stays in the
