@@ -8,14 +8,21 @@
  * own plus its own rail: the workspace shows one button for it, and once
  * inside, the rail is the section's list and nothing else.
  *
- * Management's and Operations' sections are the same seven, cut by part of
- * the club (page map, Sait 2026-10-17): FINANCIAL (key `money`), COURTS, CAFÉ & SHOP, STOCK,
- * TEAM, CUSTOMERS & MARKETING and SETTINGS. Before, the owner's were cut by
- * question (Financial, Observe, Stock, Setup) and the manager's by verb (Run
- * the day, Records, Setup); people had to guess which question or verb a page
- * answered before they could look for it, and the same page lived in two
- * places for the two of them. Each person sees the rows and tabs they may
- * open.
+ * Management's sections are seven, cut by part of the club (page map, Sait
+ * 2026-10-17): FINANCIAL (key `money`), COURTS, CAFÉ & SHOP, STOCK, TEAM,
+ * CUSTOMERS & MARKETING and SETTINGS. Before, the owner's were cut by question
+ * (Financial, Observe, Stock, Setup) and the manager's by verb (Run the day,
+ * Records, Setup); people had to guess which question or verb a page answered
+ * before they could look for it, and the same page lived in two places for the
+ * two of them.
+ *
+ * ONE WORKSPACE FOR THE OWNER AND THE MANAGER (Majed, 2026-10-19). The
+ * manager's Operations workspace had become a copy of Management with fewer
+ * rows, so it is gone: both open Management, and each sees the rows and tabs
+ * they may open. Where the two need different screens for the same job (the
+ * owner's Overview, the manager's Today; the owner's view-only boards, the
+ * manager's desk and open tabs) the manager's row carries `unless` and prints
+ * only for someone who cannot open the owner's.
  *
  * FAMILIES (management rebuild, 2026-10-17,
  * docs/design/operator-ui/management-rebuild-brief-2026-10-16.md). A section's
@@ -37,7 +44,7 @@ import type { IconName } from '../components/icons';
 import { rolesOf, type StaffAccess } from '@touch/core';
 import type { StaffRole } from './auth';
 
-export type WorkspaceKey = 'courtDesk' | 'cashier' | 'prep' | 'manager' | 'owner' | 'team' | 'shop';
+export type WorkspaceKey = 'courtDesk' | 'cashier' | 'prep' | 'management' | 'team' | 'shop';
 
 /** i18n key under ws.shell.nav: a rail row's name, or a family tab's. */
 export type NavLabelKey =
@@ -134,6 +141,13 @@ export interface NavItem {
    */
   hidden?: boolean;
   /**
+   * Printed only for someone who may NOT open this page: the manager's version
+   * of a row the owner sees instead (Today for Overview, the desk calendar for
+   * the courts board). Still owned by the rail when not printed, as a hidden
+   * row is, so the owner who follows a link to /desk keeps the Courts rail.
+   */
+  unless?: string;
+  /**
    * The family's pages, shown as tabs under the page title. The row goes to
    * the first tab the person may open and lights on every tab.
    */
@@ -146,8 +160,7 @@ export interface NavGroup {
   items: readonly NavItem[];
 }
 
-/** Courts and Café & shop have a key per rail (their first rows differ); `courtsDesk` and `cafeFloor` are the manager's. */
-export type SectionKey = 'money' | 'courts' | 'courtsDesk' | 'cafe' | 'cafeFloor' | 'stock' | 'team' | 'customers' | 'settings';
+export type SectionKey = 'money' | 'courts' | 'cafe' | 'stock' | 'team' | 'customers' | 'settings';
 
 /**
  * A named part of a workspace with its own rail. `home` is its first page;
@@ -170,6 +183,12 @@ export interface Workspace {
   groups: readonly NavGroup[];
   /** Sections reachable from this workspace's rail, one button each. */
   sections?: readonly NavSection[];
+  /**
+   * Where the workspace opens for someone who may not open `home`, first
+   * openable wins (workspaceHome): Management opens on the owner's Overview,
+   * and on Today for the manager.
+   */
+  altHomes?: readonly string[];
 }
 
 /**
@@ -210,10 +229,10 @@ const CASHIER: readonly NavItem[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Families: one row per job, its pages as tabs. Shared by the owner's and the
-// manager's rails, which print the same sections (page map, 2026-10-17): a
-// page is in the same place for both, and each person sees the rows and tabs
-// they may open.
+// Families: one row per job, its pages as tabs. Management prints the same
+// sections for the owner and the manager (page map, 2026-10-17): a page is in
+// the same place for both, and each person sees the rows and tabs they may
+// open.
 // ---------------------------------------------------------------------------
 
 /** The money reports share one screen frame; each is a tab. */
@@ -357,7 +376,7 @@ const DEVICES_TABS: readonly NavTab[] = [
   { to: '/admin/settings/offline', labelKey: 'offlineMode' },
 ];
 
-// Rows both rails print in more than one list.
+// Rows printed in more than one list.
 const COURT_SETTINGS: NavItem = { to: '/admin/rates', labelKey: 'courtSettings', icon: 'sliders', tabs: COURT_SETTINGS_TABS };
 const COACHES: NavItem = { to: '/admin/coaches', labelKey: 'coaches', icon: 'whistle', tabs: COACHES_TABS };
 const MENU: NavItem = { to: '/admin/menu', labelKey: 'menu', icon: 'bookOpen', tabs: MENU_TABS };
@@ -367,25 +386,22 @@ const SHOP_ROW: NavItem = { to: '/shop', labelKey: 'shop', icon: 'tag' };
 const PROTOCOLS: NavItem = { to: '/protocols', labelKey: 'protocols', icon: 'checkCircle', badge: 'protocolsWaiting' };
 
 // ---------------------------------------------------------------------------
-// Management (the owner) and Operations (the manager)
+// Management: the owner and the manager
 // ---------------------------------------------------------------------------
 
 /**
- * Management's own rail, above the section buttons: Overview (the panel, with
- * "Needs you" and the live floor on top since 2026-10-17, when the owner's
- * Floor now page folded into it), and Trends and the assistant, which read
- * across every section. The manager's home sends an owner to the Overview, so
- * /ops keeps this rail (hidden).
+ * Management's own rail, above the section buttons. The owner's is Overview
+ * (the panel, with "Needs you" and the live floor on top since 2026-10-17,
+ * when the owner's Floor now page folded into it), Trends and the assistant,
+ * which read across every section. The manager can open none of those three
+ * and gets Today instead: the landing screen of what needs them now.
  */
-const OWNER_PRIMARY: readonly NavItem[] = [
+const MANAGEMENT_PRIMARY: readonly NavItem[] = [
   { to: '/panel', labelKey: 'panel', icon: 'dashboard' },
-  { to: '/ops', labelKey: 'panel', icon: 'dashboard', hidden: true },
+  { to: '/ops', labelKey: 'today', icon: 'dashboard', unless: '/panel' },
   { to: '/analytics', labelKey: 'analytics', icon: 'trendUp', activePrefix: '/analytics' },
   { to: '/assistant', labelKey: 'assistant', icon: 'spark', activePrefix: '/assistant' },
 ];
-
-/** The manager's own rail: Today, the landing screen of what needs them now. */
-const MANAGER_TODAY: readonly NavItem[] = [{ to: '/ops', labelKey: 'today', icon: 'dashboard' }];
 
 /**
  * The sections (page map, Sait 2026-10-17). Cut by part of the club rather
@@ -405,39 +421,26 @@ const MONEY: readonly NavItem[] = [
 ];
 
 /**
- * COURTS for the owner: Bookings is the view-only board (owner call,
- * 2026-09-13); its "Open in …" buttons open the desk, which keeps this rail.
+ * COURTS. Bookings is the owner's view-only board (owner call, 2026-09-13)
+ * and the manager's desk calendar, which they work in. The owner's board
+ * opens the desk from its "Open in …" buttons, and the desk keeps this rail.
  */
-const OWNER_COURTS: readonly NavItem[] = [
+const COURTS: readonly NavItem[] = [
   { to: '/observation/courts', labelKey: 'bookings', icon: 'calendar' },
-  COACHES,
-  COURT_SETTINGS,
-  { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk', hidden: true },
-];
-
-/** COURTS for the manager: Bookings is the desk calendar they work in. */
-const MANAGER_COURTS: readonly NavItem[] = [
-  { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk' },
+  { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk', unless: '/observation/courts' },
   COACHES,
   COURT_SETTINGS,
 ];
 
 /**
- * CAFÉ & SHOP for the owner: the view-only tills board, the menu, the table
- * QR cards and the Touch Shop desk. `/till/tabs` carries no prefix: '/till'
- * would also claim /till/drawer, which is Financial's.
+ * CAFÉ & SHOP: the owner's view-only tills board or the manager's open tabs,
+ * then the menu, the table QR cards and the Touch Shop desk. `/till/tabs`
+ * claims only its own subtree: '/till' would also claim /till/drawer, which
+ * is Financial's.
  */
-const OWNER_CAFE: readonly NavItem[] = [
+const CAFE: readonly NavItem[] = [
   { to: '/observation/tills', labelKey: 'tills', icon: 'receipt' },
-  MENU,
-  TABLES,
-  SHOP_ROW,
-  { to: '/till/tabs', labelKey: 'tills', icon: 'receipt', hidden: true },
-];
-
-/** CAFÉ & SHOP for the manager: the open tabs they work in. */
-const MANAGER_CAFE: readonly NavItem[] = [
-  { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt', activePrefix: '/till/tabs' },
+  { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt', activePrefix: '/till/tabs', unless: '/observation/tills' },
   MENU,
   TABLES,
   SHOP_ROW,
@@ -510,15 +513,13 @@ const SHOP: readonly NavItem[] = [
 const TEAM: readonly NavItem[] = [MY_TASKS];
 
 /**
- * The sections, in the same order on both rails. Courts and Café & shop have
- * a key per rail because their first row differs (the owner's view-only
- * boards, the manager's working screens); both carry the same name. `home` is
- * the section's first page; the shell opens the first one the person may open.
+ * The sections, in rail order. `home` is the section's first page; the shell
+ * opens the first one the person may open.
  */
-const OWNER_SECTIONS: readonly NavSection[] = [
+const MANAGEMENT_SECTIONS: readonly NavSection[] = [
   { key: 'money', home: '/reports/revenue', icon: 'banknote', items: MONEY },
-  { key: 'courts', home: '/observation/courts', icon: 'court', items: OWNER_COURTS },
-  { key: 'cafe', home: '/observation/tills', icon: 'cake', items: OWNER_CAFE },
+  { key: 'courts', home: '/observation/courts', icon: 'court', items: COURTS },
+  { key: 'cafe', home: '/observation/tills', icon: 'cake', items: CAFE },
   { key: 'stock', home: '/stock', icon: 'package', items: STOCK },
   { key: 'team', home: '/admin/staff', icon: 'users', items: PEOPLE },
   { key: 'customers', home: '/desk/customers', icon: 'userPlus', items: CUSTOMERS },
@@ -528,22 +529,11 @@ const OWNER_SECTIONS: readonly NavSection[] = [
   { key: 'settings', home: '/admin/settings', icon: 'settings', items: SETTINGS },
 ];
 
-const MANAGER_SECTIONS: readonly NavSection[] = [
-  { key: 'money', home: '/reports/revenue', icon: 'banknote', items: MONEY },
-  { key: 'courtsDesk', home: '/desk', icon: 'court', items: MANAGER_COURTS },
-  { key: 'cafeFloor', home: '/till/tabs', icon: 'cake', items: MANAGER_CAFE },
-  { key: 'stock', home: '/stock', icon: 'package', items: STOCK },
-  { key: 'team', home: '/admin/staff', icon: 'users', items: PEOPLE },
-  { key: 'customers', home: '/desk/customers', icon: 'userPlus', items: CUSTOMERS },
-  { key: 'settings', home: '/admin/settings', icon: 'settings', items: SETTINGS },
-];
-
 export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
   courtDesk: { key: 'courtDesk', home: '/desk/today', icon: 'calendar', groups: [{ labelKey: null, items: COURT_DESK }] },
   cashier: { key: 'cashier', home: '/till', icon: 'grid', groups: [{ labelKey: null, items: CASHIER }] },
   prep: { key: 'prep', home: '/kds', icon: 'flame', groups: [] },
-  manager: { key: 'manager', home: '/ops', icon: 'dashboard', groups: [{ labelKey: null, items: MANAGER_TODAY }], sections: MANAGER_SECTIONS },
-  owner: { key: 'owner', home: '/panel', icon: 'shield', groups: [{ labelKey: null, items: OWNER_PRIMARY }], sections: OWNER_SECTIONS },
+  management: { key: 'management', home: '/panel', icon: 'shield', groups: [{ labelKey: null, items: MANAGEMENT_PRIMARY }], sections: MANAGEMENT_SECTIONS, altHomes: ['/ops'] },
   team: { key: 'team', home: '/tasks', icon: 'checkCircle', groups: [{ labelKey: null, items: TEAM }] },
   shop: { key: 'shop', home: '/shop', icon: 'tag', groups: [{ labelKey: null, items: SHOP }] },
 };
@@ -572,9 +562,8 @@ export function workspacesForRole(role: StaffRole): readonly WorkspaceKey[] {
     case 'shop_staff':
       return ['shop'];
     case 'manager':
-      return ['manager', 'courtDesk', 'cashier', 'prep', 'shop'];
     case 'owner':
-      return ['owner', 'manager', 'courtDesk', 'cashier', 'prep', 'shop'];
+      return ['management', 'courtDesk', 'cashier', 'prep', 'shop'];
   }
 }
 
@@ -590,6 +579,14 @@ export function workspacesFor(who: StaffAccess): readonly WorkspaceKey[] {
     for (const key of workspacesForRole(role)) if (!out.includes(key)) out.push(key);
   }
   return out;
+}
+
+/**
+ * Where a workspace opens for this person: its home, or the first of its
+ * other homes they may open (a manager's Management opens on Today).
+ */
+export function workspaceHome(ws: Workspace, canOpenPath: (path: string) => boolean): string {
+  return [ws.home, ...(ws.altHomes ?? [])].find(canOpenPath) ?? ws.home;
 }
 
 export function defaultWorkspace(role: StaffRole): WorkspaceKey {
@@ -633,17 +630,16 @@ export function saveWorkspace(key: WorkspaceKey): void {
  */
 export function workspaceForRoute(path: string): WorkspaceKey | null {
   if (path === '/kds') return 'prep';
-  if (path === '/panel' || path.startsWith('/reports/revenue')) return 'owner';
-  if (path === '/analytics' || path.startsWith('/analytics/')) return 'owner';
-  if (path === '/assistant' || path.startsWith('/assistant/')) return 'owner';
-  if (path === '/setup' || path.startsWith('/setup/')) return 'owner';
+  if (path === '/panel' || path === '/ops' || path.startsWith('/reports/revenue')) return 'management';
+  if (path === '/analytics' || path.startsWith('/analytics/')) return 'management';
+  if (path === '/assistant' || path.startsWith('/assistant/')) return 'management';
+  if (path === '/setup' || path.startsWith('/setup/')) return 'management';
   // The section homes. /observation/requests is owner-only too, so the whole
   // subtree resolves here rather than only its landing screen.
-  if (path === '/financial' || path === '/observation' || path.startsWith('/observation/')) return 'owner';
-  if (path === '/marketing' || path.startsWith('/marketing/')) return 'owner';
-  if (path === '/wages') return 'owner';
-  if (path === '/rewards') return 'owner';
-  if (path === '/ops') return 'manager';
+  if (path === '/financial' || path === '/observation' || path.startsWith('/observation/')) return 'management';
+  if (path === '/marketing' || path.startsWith('/marketing/')) return 'management';
+  if (path === '/wages') return 'management';
+  if (path === '/rewards') return 'management';
   if (path === '/shop' || path.startsWith('/shop/')) return 'shop';
   // /tasks is not pinned: eight roles open it in their own workspace (the
   // desk's and the till's rail row, the kitchen board's My tasks), and only
@@ -775,13 +771,23 @@ export function activeNavItem(items: readonly NavItem[], path: string, search: N
 
 /**
  * Can this workspace's rail — its own or one of its sections' — reach `path`?
- * Guards the shell's "follow a link into another workspace" rule: /ops is the
- * manager's home AND a hidden row of the owner's Observe, and an owner opening
- * it must keep the management rail.
+ * Guards the shell's "follow a link into another workspace" rule: /desk is the
+ * court desk's AND a row of Management's Courts, and a manager opening it from
+ * there must keep the Management rail.
  */
 export function workspaceOwnsPath(key: WorkspaceKey, path: string): boolean {
   const ws = WORKSPACES[key];
   return workspaceItems(ws).some((item) => isNavActive(item, path));
+}
+
+/**
+ * Is `row` printed for this person: not when they may open the page it stands
+ * in for (`unless`), and otherwise when they may open any of its tabs, or its
+ * own page when it has none.
+ */
+export function rowShown(row: NavItem, canOpenPath: (path: string) => boolean, canOpenTab: (tab: NavTab) => boolean): boolean {
+  if (row.unless && canOpenPath(row.unless)) return false;
+  return row.tabs?.length ? row.tabs.some(canOpenTab) : canOpenPath(row.to);
 }
 
 /** The rows a section's rail prints — its items minus the hidden ones. */

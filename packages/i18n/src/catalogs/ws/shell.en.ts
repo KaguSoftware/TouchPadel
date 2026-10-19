@@ -29,9 +29,13 @@ export const shellEn = {
   },
   switcher: {
     title: 'Choose a workspace',
-    lead: 'A workspace is the set of screens for one job. Pick the job you are doing now; you can come back here any time from Switch workspace in the sidebar.',
+    // Shortened 2026-10-19 (Majed): everyone who reaches this screen already
+    // knows what a workspace is; the job they are doing is the one question.
+    lead: 'Pick the job you are doing now.',
     current: 'You are here',
     open: 'Open',
+    // Beside the title. Each tile shows its number; the digit key opens it.
+    keys: 'Press a number from 1 to {last} to open one.',
   },
   // The connectivity strip (rulebook 9.6). It answers one question — can this
   // station reach the server — so "ok" no longer promises anything about the
@@ -104,8 +108,8 @@ export const shellEn = {
     courtDesk: 'Court desk',
     cashier: 'Till',
     prep: 'Kitchen',
-    manager: 'Operations',
-    owner: 'Management',
+    // The owner and the manager both work here (2026-10-19: Operations folded in).
+    management: 'Management',
     // Driver and marketing (0155): one rail row, My tasks, for now.
     team: 'Team',
     // The Touch Shop desk (0243–0246).
@@ -115,13 +119,10 @@ export const shellEn = {
   // (lib/workspaces.ts). Management shows one button per section instead of
   // spilling all fourteen destinations into its own column.
   section: {
-    // The page map (Sait, 2026-10-17): parts of the club, the same on both
-    // rails. Courts and Café & shop have a key per rail (lib/workspaces.ts).
+    // The page map (Sait, 2026-10-17): parts of the club.
     money: 'Financial',
     courts: 'Courts',
-    courtsDesk: 'Courts',
     cafe: 'Café & shop',
-    cafeFloor: 'Café & shop',
     stock: 'Stock',
     team: 'Team',
     customers: 'Customers & marketing',
@@ -130,9 +131,7 @@ export const shellEn = {
   sectionLead: {
     money: 'Sales, cash, wages and bills',
     courts: 'Bookings, court settings and coaches',
-    courtsDesk: 'Bookings, court settings and coaches',
     cafe: 'Open tabs, the menu, table QR codes and the shop',
-    cafeFloor: 'Open tabs, the menu, table QR codes and the shop',
     stock: 'What we have, deliveries, counts and costs',
     team: 'Staff, who is working, the staff inbox and protocols',
     customers: 'Customers, loyalty points, marketing and the guest app',
@@ -142,8 +141,7 @@ export const shellEn = {
     courtDesk: 'Bookings, arrivals and customers',
     cashier: 'Orders, tabs and payment',
     prep: 'The ticket board the cooks work from',
-    manager: 'Floor, stock, day close and reports',
-    owner: 'The whole business in one place',
+    management: 'The whole business in one place',
     team: 'Tasks and checklists given to you',
     shop: 'The shop till, its drawer, stock and products',
   },

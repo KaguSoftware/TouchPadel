@@ -43,7 +43,7 @@ export function useFamilyHeader(workspaceKey: WorkspaceKey): PageFamily | null {
   const { tr } = useLocale();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const search = useRouterState({ select: (s) => s.location.search }) as Readonly<Record<string, unknown>>;
-  const canOpen = useTabOpen(workspaceKey === 'owner' || workspaceKey === 'manager');
+  const canOpen = useTabOpen(workspaceKey === 'management');
 
   const row = familyRowForPath(WORKSPACES[workspaceKey], path, search);
   const current = row?.tabs ? activeTab(row.tabs, path, search) : null;

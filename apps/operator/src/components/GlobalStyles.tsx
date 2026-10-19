@@ -234,6 +234,58 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-tile:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-tile:active:not(:disabled) { transform: scale(0.99); }
 .tp-tile:disabled { cursor: not-allowed; }
+/* The workspace picker's tiles (routes/workspaces.tsx, Majed 2026-10-19). A
+   head in the rail's colour carries a line drawing of what the workspace runs
+   (components/WorkspaceArt) in the court-line stroke; the body holds the name
+   and the lead. The workspace you are in turns its head Padel Green, the same
+   "you are here" the rail's current-page pill uses. Hover only lifts the
+   drawing and tints the body; nothing moves. */
+.tp-ws-tile {
+  display: flex; flex-direction: column; min-block-size: 0; padding: 0;
+  text-align: start; color: var(--tp-fg); background: var(--tp-surface);
+  border: 1px solid var(--tp-border); border-radius: var(--tp-radius-panel);
+  overflow: hidden; cursor: pointer;
+  transition: background var(--tp-dur-fast) var(--tp-ease-out), border-color var(--tp-dur-fast) var(--tp-ease-out);
+}
+.tp-ws-tile:hover { background: var(--tp-hover); }
+.tp-ws-head {
+  position: relative; flex: 1; min-block-size: 6rem;
+  display: flex; align-items: flex-end; padding: var(--tp-sp-5);
+  background: var(--tp-rail); color: var(--tp-rail-green);
+}
+.tp-ws-art {
+  position: absolute; inset: 0; inline-size: 100%; block-size: 100%;
+  fill: none; stroke: var(--tp-court-line); stroke-width: 1.5px; stroke-linecap: round; stroke-linejoin: round;
+  opacity: 0.6; transition: opacity var(--tp-dur-fast) var(--tp-ease-out);
+}
+[dir='rtl'] .tp-ws-art { transform: scaleX(-1); }
+.tp-ws-tile:hover .tp-ws-art { opacity: 0.9; }
+.tp-ws-icon { position: relative; display: inline-flex; }
+.tp-ws-key {
+  position: absolute; inset-block-start: var(--tp-sp-4); inset-inline-end: var(--tp-sp-4);
+  display: inline-flex; align-items: center; justify-content: center;
+  inline-size: 2.125rem; block-size: 2.125rem; border-radius: var(--tp-radius-ctl);
+  border: 1px solid color-mix(in oklab, var(--tp-court-line) 55%, transparent);
+  color: var(--tp-rail-fg); font-weight: 700; font-size: var(--tp-fs-lg);
+}
+.tp-ws-here {
+  position: absolute; inset-block-start: var(--tp-sp-4); inset-inline-start: var(--tp-sp-4);
+  display: inline-flex; align-items: center; gap: var(--tp-sp-1-5);
+  block-size: 1.875rem; padding-inline: var(--tp-sp-3); border-radius: var(--tp-radius-pill);
+  background: var(--tp-rail-active-fg); color: var(--tp-rail-active);
+  font-size: var(--tp-fs-md); font-weight: 600;
+}
+.tp-ws-body {
+  display: flex; align-items: flex-end; gap: var(--tp-sp-4);
+  padding-block: var(--tp-sp-4) var(--tp-sp-5); padding-inline: var(--tp-sp-5);
+}
+.tp-ws-tile[data-current='true'] { border-color: var(--tp-rail-active); }
+.tp-ws-tile[data-current='true'] .tp-ws-head { background: var(--tp-rail-active); color: var(--tp-rail-active-fg); }
+.tp-ws-tile[data-current='true'] .tp-ws-art { stroke: var(--tp-rail-active-fg); opacity: 0.4; }
+.tp-ws-tile[data-current='true'] .tp-ws-key {
+  color: var(--tp-rail-active-fg);
+  border-color: color-mix(in oklab, var(--tp-rail-active-fg) 50%, transparent);
+}
 /* The customer record's cards (features/desk/customers/RecordCards). A card
    keeps its own ground on hover and is lifted by its edge and a shadow instead:
    the cards carry coloured figures that the pale hover tint washed out. The

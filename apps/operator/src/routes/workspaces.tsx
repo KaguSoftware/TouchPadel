@@ -1,18 +1,29 @@
 /**
  * WorkspaceSwitcherScreen (spec §05): presented when a staff account holds
- * more than one role, and reachable thereafter from the rail.
+ * more than one workspace, and reachable thereafter from the rail.
  *
- * Each tile is a button, so each one says so with a chevron — the tiles used
- * to be flat cards with nothing marking them as the thing to press. The lead
- * explains what a workspace is instead of claiming the account "holds more
- * than one role", which is not how an owner or a manager thinks of it.
+ * Redesigned 2026-10-19 (Majed): the tiles fill the screen instead of a 64rem
+ * column. Each one has a head in the rail's colour with a line drawing of what
+ * that workspace actually runs at the club (components/WorkspaceArt), and a
+ * body with its name and one line. The workspace you are in turns its head
+ * Padel Green, the rail's own "you are here". Layout: lib/workspaceGrid.
+ *
+ * Every tile carries its number and the digit key opens it, so a cashier can
+ * switch without reaching for the mouse. Choosing a tile goes straight there,
+ * with no "Switch to …?" question (owner call, 2026-10-16): opening a
+ * workspace loses nothing, and the way back is this same screen.
  */
+import { useEffect } from 'react';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { rootRoute, RequireRole, useWorkspace } from './__root';
 import { useLocale } from '../lib/i18n';
-import { WORKSPACES } from '../lib/workspaces';
-import { PageHeader, StatusBadge } from '../components/kit';
+import { WORKSPACES, workspaceHome, type WorkspaceKey } from '../lib/workspaces';
+import { canAccess, useAuth } from '../lib/auth';
+import { pickerIndexForKey, pickerLayout, PICKER_TRACKS } from '../lib/workspaceGrid';
+import { PageHeader } from '../components/kit';
 import { ChevronForward, Icon } from '../components/icons';
+import { WorkspaceArt } from '../components/WorkspaceArt';
+import { isTypingTarget } from '../features/kds/kdsKeyboard';
 import { touch } from '../ipc/bridge';
 
 export const workspacesRoute = createRoute({
@@ -28,108 +39,111 @@ export const workspacesRoute = createRoute({
 function WorkspaceSwitcherScreen() {
   const { tr } = useLocale();
   const { active, available, setActive } = useWorkspace();
+  const { staff } = useAuth();
   const navigate = useNavigate();
   const station = touch.getStation();
-  /*
-   * Choosing a tile goes straight there, with no "Switch to …?" question
-   * (owner call, 2026-10-16): opening a workspace loses nothing, and the way
-   * back is this same list.
-   */
-  const open = (key: typeof available[number]) => {
-    setActive(key);
-    void navigate({ to: WORKSPACES[key].home });
-  };
-  return (
-    /* A full-height column so the build line can sit at the FOOT of the
-       screen rather than 2rem under the last tile. <main> is a flex item with
-       its own padding, so 100% here is the content box it owns; the version's
-       `auto` top margin eats whatever is left over. With enough workspaces to
-       scroll, there is nothing left over and the line simply follows the
-       tiles, which is the same place it would have been anyway.
+  const { rows, spans } = pickerLayout(available.length);
 
-       The 64rem measure is on the header and the grid, NOT here. It used to
-       cap the whole page, which also capped the version line — so "centred"
-       centred it in the column of tiles and left it sitting visibly left of
-       the middle of the white area it appears to be standing in. */
-    <div style={{ minBlockSize: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ maxInlineSize: '64rem' }}>
-        <PageHeader title={tr('ws.shell.switcher.title')} subtitle={tr('ws.shell.switcher.lead')} />
-      </div>
-      <div style={{ maxInlineSize: '64rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(20rem, 1fr))', gap: 'var(--tp-sp-4)' }}>
-        {available.map((key) => {
+  /* A workspace's home can depend on who opens it (Management opens on the
+     panel for the owner and on Today for a manager), so ask which of its
+     homes this person may open rather than taking the first. */
+  const open = (key: WorkspaceKey) => {
+    setActive(key);
+    void navigate({ to: workspaceHome(WORKSPACES[key], (p) => canAccess(staff, p)) });
+  };
+
+  /* 1 to 9 open the tile with that number. Not while typing (Go to, a PIN
+     prompt), not with a modifier held (Ctrl+1 belongs to the shell), and not
+     on a key something else already handled. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
+      const index = pickerIndexForKey(e.key, available.length);
+      if (index === null) return;
+      e.preventDefault();
+      open(available[index]!);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  return (
+    /* A full-height column: the header, the grid taking whatever height is
+       left, and the build line at the foot. <main> owns its padding, so 100%
+       here is its content box. Each row keeps at least 14rem, so a short
+       window scrolls rather than squashing the drawings. */
+    <div style={{ minBlockSize: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-5)' }}>
+      <PageHeader
+        title={tr('ws.shell.switcher.title')}
+        subtitle={tr('ws.shell.switcher.lead')}
+        actions={
+          available.length > 1 ? (
+            <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>
+              {tr('ws.shell.switcher.keys', { last: String(Math.min(available.length, 9)) })}
+            </span>
+          ) : undefined
+        }
+        style={{ marginBlockEnd: 0 }}
+      />
+      <div
+        style={{
+          flex: 1,
+          display: 'grid',
+          gridTemplateColumns: `repeat(${PICKER_TRACKS}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${rows}, minmax(14rem, 1fr))`,
+          gap: 'var(--tp-sp-4)',
+        }}
+      >
+        {available.map((key, i) => {
           const ws = WORKSPACES[key];
           const current = key === active;
+          const number = i < 9 ? String(i + 1) : null;
           return (
             <button
               key={key}
               type="button"
-              // A brand-colour strip on top by the tile's place in the grid
-              // (blue, green, black, light blue — .tp-figure-panel), as on the
-              // Financial overview's cards.
-              className="tp-tile tp-figure-panel"
+              className="tp-ws-tile"
+              data-current={current ? 'true' : undefined}
               aria-current={current ? 'true' : undefined}
+              aria-keyshortcuts={number ?? undefined}
               onClick={() => open(key)}
-              style={{
-                background: 'var(--tp-surface)',
-                border: `1px solid ${current ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
-                borderBlockStart: '3px solid var(--tp-tone)',
-                borderRadius: 'var(--tp-radius-panel)',
-                paddingBlock: 'var(--tp-sp-5)',
-                paddingInline: 'var(--tp-sp-5)',
-                display: 'grid',
-                gap: 'var(--tp-sp-3)',
-                alignContent: 'start',
-                minBlockSize: '11rem',
-                textAlign: 'start',
-              }}
+              style={{ gridColumn: `span ${spans[i]}` }}
             >
-              <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-                <span style={{ display: 'inline-flex', inlineSize: '3rem', blockSize: '3rem', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'var(--tp-rail)', color: 'var(--tp-rail-green)' }}>
-                  <Icon name={ws.icon} size={24} />
-                </span>
-                {current ? (
-                  <StatusBadge tone="accent" label={tr('ws.shell.switcher.current')} size="sm" />
-                ) : (
-                  <ChevronForward size={16} style={{ color: 'var(--tp-muted-fg)' }} />
+              <span className="tp-ws-head">
+                <WorkspaceArt workspace={key} />
+                {current && (
+                  <span className="tp-ws-here">
+                    <Icon name="check" size={14} strokeWidth={2.4} />
+                    {tr('ws.shell.switcher.current')}
+                  </span>
                 )}
+                {number && <span className="tp-ws-key" aria-hidden="true">{number}</span>}
+                <span className="tp-ws-icon">
+                  <Icon name={ws.icon} size={56} strokeWidth={1.5} />
+                </span>
               </span>
-              <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-xl)' }}>{tr(`ws.shell.workspace.${key}`)}</span>
-              <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>{tr(`ws.shell.workspaceLead.${key}`)}</span>
+              <span className="tp-ws-body">
+                <span style={{ flex: 1, minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+                  <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-3xl)', lineHeight: 1.15, color: 'var(--tp-heading)' }}>
+                    {tr(`ws.shell.workspace.${key}`)}
+                  </span>
+                  <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-lg)', lineHeight: 1.4 }}>
+                    {tr(`ws.shell.workspaceLead.${key}`)}
+                  </span>
+                </span>
+                <ChevronForward size={24} style={{ color: 'var(--tp-heading)', flex: 'none' }} />
+              </span>
             </button>
           );
         })}
       </div>
       {/* The shell build, so "which version is that till on" is answerable
-          from the till itself and not only from device_heartbeats. It used to
-          be a third muted line under the rail's identity block, in front of
-          every shift all day to answer a question asked about twice a year.
-          Here it is out of the way and still somewhere a person on the phone
-          can be told to go and read it from.
-
-          Centred, and at the bottom of the screen rather than trailing the
-          last tile: it belongs to the station, not to any one workspace, so
-          sitting against the grid would read as a caption on the tile above
-          it. The page is a column and this has `margin-block-start: auto`,
-          which is what carries it down there.
-
-          The centre it takes is the middle of the WHITE area, not of the
-          window: this stretches to <main>, which begins where the rail ends,
-          so the navy panel is not part of the measure. That is also why it
-          escapes the 64rem cap the header and the grid keep.
-
-          U+2068/U+2069 isolate the Latin version inside either direction, the
-          same way the rail's line did — without them the Arabic
-          "الإصدار dev" flips its two halves. */}
-      <p
-        style={{
-          marginBlockStart: 'auto',
-          paddingBlockStart: 'var(--tp-sp-6)',
-          textAlign: 'center',
-          fontSize: 'var(--tp-fs-xs)',
-          color: 'var(--tp-muted-fg)',
-        }}
-      >
-        {tr('ws.shell.nav.version', { version: `\u2068${station.appVersion}\u2069` })}
+          from the till itself. Centred at the foot of the screen: it belongs
+          to the station, not to any one workspace. U+2068/U+2069 isolate the
+          Latin version so the Arabic line does not flip its two halves. */}
+      <p style={{ margin: 0, textAlign: 'center', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+        {tr('ws.shell.nav.version', { version: `⁨${station.appVersion}⁩` })}
       </p>
     </div>
   );

@@ -21,7 +21,7 @@ import { makeT, type MessageKey } from '@touch/i18n';
 import { useAuth, canAccess } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
 import { useTabOpen } from '../lib/navAccess';
-import { WORKSPACES, type NavItem, type NavLabelKey, type NavTab, type SectionKey, type WorkspaceKey } from '../lib/workspaces';
+import { WORKSPACES, rowShown, type NavItem, type NavLabelKey, type NavTab, type SectionKey, type WorkspaceKey } from '../lib/workspaces';
 import { Modal } from './ui';
 import { Icon } from './icons';
 import { navButtonStyle, railLabelStyle } from './railStyles';
@@ -238,7 +238,7 @@ export function GoToPalette({ workspaceKey, onClose }: { workspaceKey: Workspace
         workspaceKey,
         (k) => tr(k),
         [T_EN, T_AR],
-        (row) => canAccess(staff, row.to),
+        (row) => rowShown(row, (p) => canAccess(staff, p), canOpenTab),
         canOpenTab,
       ),
     [workspaceKey, tr, staff, canOpenTab],
