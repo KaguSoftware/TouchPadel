@@ -5,7 +5,7 @@ export const staffCallsAr: DeepMessages<typeof staffCallsEn> = {
   title: 'نداءات الضيوف',
   rowCount: 'نداءات الضيوف · {count}',
   group: 'في الصالة',
-  lead: 'يرى الصندوق هذه النداءات أيضًا. أول من يردّ يتولّى النداء.',
+  lead: 'يرى كاشير الكافيه هذه النداءات أيضًا. أول من يردّ يتولّى النداء.',
   listTitle: 'النداءات المفتوحة',
   mine: 'أنت في الطريق',
   other: 'شخص آخر في الطريق',

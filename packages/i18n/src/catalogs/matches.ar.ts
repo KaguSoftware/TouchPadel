@@ -30,7 +30,7 @@ export const matchesAr: DeepMessages<typeof matchesEn> = {
     termsRequired: 'يلزم قبول الشروط المحدَّثة لاستخدام المباريات المفتوحة.',
     banned: 'المباريات المفتوحة غير متاحة لحسابك. يُرجى التواصل مع النادي.',
     // 0260: نواة المباريات.
-    genderRequired: 'للمشاركة في المباريات المفتوحة نحتاج إلى معرفة ذلك مرة واحدة: امرأة أم رجل؟',
+    genderRequired: 'أخبرنا مرة واحدة: امرأة أم رجل؟ بعض المباريات والأوقات مخصصة للنساء أو للرجال.',
     notFound: 'هذه المباراة غير متاحة.',
     needTickets: 'ليست لديك تذاكر كافية لذلك، ويلزم شراء تذاكر للمتابعة.',
     // {tickets} is the nominative `count.tickets`: no verb or adjective that

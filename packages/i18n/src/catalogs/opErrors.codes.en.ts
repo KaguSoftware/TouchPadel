@@ -120,4 +120,6 @@ export const opErrorsCodesEn = {
   MAIN_CASH_HANDED_IN: 'This drawer was already handed in to the safe for that day. Take that entry back on the Safe page to redo it.',
   MAIN_CASH_LINKED: 'This payment belongs to a wage, an advance or a coach payment. Undo it on that page and the safe follows.',
   WAGE_ADVANCE_TOO_LARGE: 'That is more than they are still owed this month.',
+  // Gender hours (0353).
+  SLOT_GENDER_RESTRICTED: 'This court is kept for women only or men only at this time. Pick another time or court.',
 };

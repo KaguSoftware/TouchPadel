@@ -8,6 +8,7 @@ export * from './money/promotion';
 export * from './money/format';
 export * from './pricing/rateRules';
 export * from './availability/slotGrid';
+export * from './availability/genderRules';
 export * from './schemas/mutations';
 export * from './status/machines';
 export * from './i18n/pickLocale';

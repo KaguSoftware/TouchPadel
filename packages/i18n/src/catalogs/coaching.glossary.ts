@@ -54,7 +54,7 @@ const coachingGlossaryEn = {
   walkIn: 'walk-in',
   frontDesk: 'front desk',
   venue: 'venue',
-  till: 'till',
+  till: 'cafe cashier',
 } as const;
 
 export type CoachingTerm = keyof typeof coachingGlossaryEn;
@@ -97,6 +97,6 @@ export const coachingGlossary: CoachingGlossary = {
     walkIn: 'زبون عابر',
     frontDesk: 'الاستقبال',
     venue: 'النادي',
-    till: 'الصندوق',
+    till: 'كاشير الكافيه',
   },
 };

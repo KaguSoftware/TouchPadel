@@ -57,6 +57,9 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // Open matches and tournaments together (play-coaches contracts §7), cased by
   // play.smoke.test.tsx: its one action, "Start a match", beside the title.
   { file: '(tabs)/play.tsx', route: 'play', primary: 'play.start' },
+  // The centre tab (2026-10-19): member card or café menu, cased by cafe.smoke.test.tsx. Its
+  // primary is the switch between the two.
+  { file: '(tabs)/club.tsx', route: 'club', primary: 'club.view' },
   // ── booking ───────────────────────────────────────────────────────────────
   { file: 'booking/[id].tsx', route: 'booking-detail', primary: 'booking-detail.cancel' },
   { file: 'booking-history.tsx', route: 'booking-history', primary: 'booking-history.clear' },

@@ -502,7 +502,7 @@ describe('families (management rebuild, 2026-10-17)', () => {
   it('puts what is paid out under Pay, and every court setting under Court settings', () => {
     const tabs = (sec: string, row: string) => rowNamed(sec, row).tabs?.map((t) => t.labelKey);
     expect(tabs('money', 'pay')).toEqual(['wages', 'billsSuppliers', 'deductions', 'rewards', 'coachPay']);
-    expect(tabs('courts', 'courtSettings')).toEqual(['rates', 'courts', 'bookingRules', 'onlineDeposit', 'openMatches', 'openingHours', 'tournamentRules']);
+    expect(tabs('courts', 'courtSettings')).toEqual(['rates', 'genderHours', 'courts', 'bookingRules', 'onlineDeposit', 'openMatches', 'openingHours', 'tournamentRules']);
     expect(tabs('team', 'fromTeam')).toEqual(['requests', 'incidents', 'suggestions']);
     expect(tabs('settings', 'computersScreens')).toContain('kitchenScreens');
     // Every settings page that used to be a panel of Venue settings has a tab.

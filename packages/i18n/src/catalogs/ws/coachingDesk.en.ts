@@ -152,7 +152,7 @@ export const coachingDeskEn = {
   // Cancel a sign-up, a lesson or a course (§5.10.8): what happens to the money.
   cancel: {
     signUpAction: "Cancel {name}'s sign-up",
-    deskPaid: '{amount} was paid at the desk. It becomes a refund a manager makes at the till.',
+    deskPaid: '{amount} was paid at the desk. It becomes a refund a manager makes at the café cashier.',
     online: "The online payment goes back to the guest's card.",
     courseSignUp: 'Money for the sessions not yet held goes back: online to the card, desk money as a refund due.',
     nothingPaid: 'Nothing was paid, so nothing is refunded.',

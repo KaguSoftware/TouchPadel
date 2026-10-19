@@ -1,5 +1,5 @@
 /**
- * 06.2 ReservationCalendarScreen — day grid (courts × 30-min rows over one
+ * 06.2 ReservationCalendarScreen — day grid (courts × hourly rows over one
  * trading night) and a zoomed-out month. Reservations render from the DB; the
  * 'courts' broadcast refreshes them. Writes go through mutate(); a move the
  * server refuses renders a ConflictNotice, never a silent revert.
@@ -120,6 +120,7 @@ import { useDeskTournaments } from '../tournaments/useTournaments';
 import { addTournamentTarget } from '../tournaments/addTournament';
 import { useAuth } from '../../lib/auth';
 import { SLOT_MIN, tonightInTz, todayInTz, useTradingNight } from './useTradingNight';
+import { GenderBands, useGenderRules } from './GenderBands';
 import { DateField } from '../../components/inputs';
 import { BLOCKING_STATUSES, canMoveReservation, gridPlacement, isVisible, packLanes } from './deskLogic';
 import { dropRefusal, dropStartMin, grabRowOffset, type DropRefusal } from './dragLogic';
@@ -143,8 +144,13 @@ const DRAG_THRESHOLD_PX = 6;
 const EDGE_SCROLL_BAND_PX = 56;
 const EDGE_SCROLL_RATE = 0.28;
 const CLOCK_TICK_MS = 30_000;
+/**
+ * One grid row is one hour (SLOT_MIN). It keeps the height two half-hour rows
+ * had, so a booking card is as tall as before the grid went hourly.
+ */
+const ROW_HEIGHT = 'calc(4.8rem + var(--tp-sp-0))';
 /** One grid row: its height plus the row gap. The now line is placed with it. */
-const ROW_PITCH = 'calc(2.4rem + var(--tp-sp-0))';
+const ROW_PITCH = `calc(${ROW_HEIGHT} + var(--tp-sp-0))`;
 
 /**
  * The hairline between two reservation cards that sit next to each other.
@@ -284,6 +290,8 @@ export function DeskCalendar() {
     dayStart,
     closed,
   } = night;
+  // Gender hours (0353): the kept bands over each court's column.
+  const genderRules = useGenderRules();
 
   // Open matches over the same night (§5.8): the strip, the bump warning,
   // and the organiser's name and seat chip on a match's booking. A server
@@ -1065,7 +1073,7 @@ export function DeskCalendar() {
                     style={{
                       ...STICKY_TIME,
                       display: 'grid',
-                      gridTemplateRows: `repeat(${rowCount}, 2.4rem)`,
+                      gridTemplateRows: `repeat(${rowCount}, ${ROW_HEIGHT})`,
                       rowGap: 'var(--tp-sp-0)',
                     }}
                   >
@@ -1135,7 +1143,7 @@ export function DeskCalendar() {
                         key={c.id}
                         style={{
                           display: 'grid',
-                          gridTemplateRows: `repeat(${rowCount}, 2.4rem)`,
+                          gridTemplateRows: `repeat(${rowCount}, ${ROW_HEIGHT})`,
                           /* Nothing should land outside the named rows now that
                            every child names one; at 0 an accidental one is
                            visibly wrong here rather than silently adding
@@ -1145,6 +1153,8 @@ export function DeskCalendar() {
                           position: 'relative',
                         }}
                       >
+                        {/* Gender hours (0353): kept stretches, under the now line and the bookings. */}
+                        <GenderBands rules={genderRules} courtId={c.id} date={date} openMin={openMin} rowCount={rowCount} slotMin={SLOT_MIN} rowPitch={ROW_PITCH} tz={tz} />
                         {nowMinInGrid !== null && (
                           // Above the slots, below the bookings (they paint later),
                           // and never in the way of a click.

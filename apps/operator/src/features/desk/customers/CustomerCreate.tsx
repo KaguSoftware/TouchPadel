@@ -4,6 +4,9 @@
  * §0: the guest can later claim it). Duplicate phone / email and an invalid
  * phone come back as codes and land on the field. States: ready · busy · error.
  *
+ * Gender is a must on every new customer (0353, Gender hours): Woman or Man,
+ * no default, and Create stays disabled until one is chosen.
+ *
  * `?attach=match&match=<id>` (open matches operator.md §5.3): the desk was
  * adding a player to an open match and the player had no record yet, so the
  * new customer goes straight back to `/desk/matches/$id?customer=<new id>`,
@@ -18,7 +21,7 @@ import { callEdge, EdgeError, type EdgeFunctionName } from '../../../lib/edge';
 import { useToast } from '../../../components/toast';
 import { useLocale } from '../../../lib/i18n';
 import { Button, ErrorText, Field, Select, inputStyle } from '../../../components/ui';
-import { MessagePresenter, PageHeader, Panel } from '../../../components/kit';
+import { MessagePresenter, PageHeader, Panel, SegmentedControl } from '../../../components/kit';
 
 type Lang = 'en' | 'ar';
 type FieldError = 'DUPLICATE_PHONE' | 'DUPLICATE_EMAIL' | 'INVALID_PHONE';
@@ -29,6 +32,8 @@ interface CreateBody {
   phone: string;
   email?: string;
   preferredLang: Lang;
+  /** A must on every new account (0353): some courts and hours are kept for women or men. */
+  gender: 'female' | 'male';
 }
 
 /** The function name is not in lib/edge's union yet (shell-owned) — proposed for promotion. */
@@ -59,6 +64,8 @@ export function CustomerCreateScreen() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [lang, setLang] = useState<Lang>(locale);
+  // No default: the desk asks, it never guesses.
+  const [gender, setGender] = useState<'' | 'female' | 'male'>('');
   const [busy, setBusy] = useState(false);
   const queryClient = useQueryClient();
   const [error, setError] = useState<unknown>(null);
@@ -67,7 +74,8 @@ export function CustomerCreateScreen() {
 
   const nameMissing = fullName.trim().length === 0;
   const phoneMissing = phone.trim().length === 0;
-  const canSubmit = !busy && !nameMissing && !phoneMissing;
+  const genderMissing = gender === '';
+  const canSubmit = !busy && !nameMissing && !phoneMissing && !genderMissing;
 
   async function submit() {
     setTouched(true);
@@ -76,7 +84,7 @@ export function CustomerCreateScreen() {
     setError(null);
     setFieldError(null);
     try {
-      const body: CreateBody = { fullName: fullName.trim(), phone: phone.trim(), preferredLang: lang, ...(email.trim() ? { email: email.trim() } : {}) };
+      const body: CreateBody = { fullName: fullName.trim(), phone: phone.trim(), preferredLang: lang, gender, ...(email.trim() ? { email: email.trim() } : {}) };
       const res = await callEdge<CreateBody, { id: string }>(DESK_CUSTOMER_CREATE, body, { ttlMs: 0 });
       toast.ok(tr('ws.courtDesk.createCustomer.created'));
       // The Customers list is kept in memory; the new record belongs in it now.
@@ -144,6 +152,27 @@ export function CustomerCreateScreen() {
                 }}
               />
             </Field>
+            <Field label={tr('ws.genderHours.customer.gender')} required group hint={tr('ws.genderHours.customer.hint')}>
+              <SegmentedControl<'' | 'female' | 'male'>
+                value={gender}
+                onChange={setGender}
+                options={[
+                  { value: 'female', label: tr('ws.genderHours.customer.woman'), disabled: busy, testId: 'customer-gender-female' },
+                  { value: 'male', label: tr('ws.genderHours.customer.man'), disabled: busy, testId: 'customer-gender-male' },
+                ]}
+              />
+            </Field>
+            <Field label={tr('ws.courtDesk.createCustomer.language')}>
+              <Select<Lang>
+                value={lang}
+                disabled={busy}
+                onChange={setLang}
+                options={[
+                  { value: 'en', label: tr('ws.courtDesk.customers.lang.en') },
+                  { value: 'ar', label: tr('ws.courtDesk.customers.lang.ar') },
+                ]}
+              />
+            </Field>
             <Field label={tr('ws.courtDesk.createCustomer.email')} error={fieldError === 'DUPLICATE_EMAIL' ? tr('ws.courtDesk.createCustomer.errors.DUPLICATE_EMAIL') : undefined}>
               <input
                 style={inputStyle}
@@ -160,24 +189,20 @@ export function CustomerCreateScreen() {
                 }}
               />
             </Field>
-            <Field label={tr('ws.courtDesk.createCustomer.language')}>
-              <Select<Lang>
-                value={lang}
-                disabled={busy}
-                onChange={setLang}
-                options={[
-                  { value: 'en', label: tr('ws.courtDesk.customers.lang.en') },
-                  { value: 'ar', label: tr('ws.courtDesk.customers.lang.ar') },
-                ]}
-              />
-            </Field>
           </div>
           <ErrorText error={error} />
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
             <Button kind="ghost" onClick={() => void navigate({ to: '/desk/customers' })}>
               {tr('ws.courtDesk.createCustomer.cancel')}
             </Button>
-            <Button type="submit" kind="primary" icon="userPlus" busy={busy} disabled={busy}>
+            <Button
+              type="submit"
+              kind="primary"
+              icon="userPlus"
+              busy={busy}
+              disabled={busy || genderMissing}
+              disabledReason={genderMissing ? tr('ws.genderHours.customer.required') : undefined}
+            >
               {tr('ws.courtDesk.createCustomer.submit')}
             </Button>
           </div>

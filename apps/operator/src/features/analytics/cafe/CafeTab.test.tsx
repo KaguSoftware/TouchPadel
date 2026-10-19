@@ -169,7 +169,7 @@ describe('CafeTab', () => {
     fireEvent.click(within(pulse).getByRole('button', { name: 'Open the transactions behind Card' }));
     await waitFor(() => expect(appRpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'card' })));
     expect(within(row('QR share of orders')).getByText('33%', { selector: 'strong' })).toBeTruthy();
-    expect(within(row('QR share of orders')).getByText('28 QR · 56 till')).toBeTruthy();
+    expect(within(row('QR share of orders')).getByText('28 QR · 56 café cashier')).toBeTruthy();
     // The retired cards are gone.
     expect(screen.queryByText('Covers')).toBeNull();
     expect(screen.queryByText('Peak hours')).toBeNull();
@@ -177,6 +177,9 @@ describe('CafeTab', () => {
     expect(screen.queryByText('Language preference')).toBeNull();
     // Without PostHog the page says so ONCE, the guest-menu rows are left out of the
     // summary rather than printed as dashes, and nothing errors.
+    // Past the first two notes the rest fold behind one link; the PostHog note is among them here.
+    const moreNotes = screen.queryByRole('button', { name: /^Show \d+ more notes?$/ });
+    if (moreNotes) fireEvent.click(moreNotes);
     expect(screen.getAllByText(/Guest analytics are not configured yet/)).toHaveLength(1);
     expect(within(pulse).queryByText('Menu views')).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();

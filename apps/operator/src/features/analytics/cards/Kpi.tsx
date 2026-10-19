@@ -27,6 +27,7 @@ import { useLocale } from '../../../lib/i18n';
 import { MARK_FG } from '../../ops/OpsVisuals';
 import { describeChange, type Change, type DeltaKind } from '../change';
 import type { Formatters } from '../format';
+import { Sparkline, type SparkSeries } from '../charts/Sparkline';
 
 export interface KpiDrill {
   /** Names the figure when a tile carries more than one; a lone drill reads "See transactions". */
@@ -59,6 +60,13 @@ interface FigureProps {
   /** The query behind this figure failed — show a dash, never a misleading 0. */
   unavailable?: boolean;
   f: Formatters;
+}
+
+interface LeadVisuals {
+  /** The figure's days, as a line under the value (a lead tile only). */
+  spark?: SparkSeries | null;
+  /** A small picture of the figure beside the value: a ring for a rate (a lead tile only). */
+  aside?: ReactNode;
 }
 
 function useChange(delta: number | null | undefined, kind: DeltaKind | undefined, invert: boolean | undefined, neutral: boolean | undefined, f: Formatters): Change | null {
@@ -96,7 +104,7 @@ function ChangeLine({ change, previous }: { change: Change | null; previous?: st
 }
 
 /** A lead figure: a tile with a large value. */
-export function Kpi({ label, value, delta, kind, invert, neutral, previous, note, tip, drills, loading, unavailable, tone, f }: FigureProps) {
+export function Kpi({ label, value, delta, kind, invert, neutral, previous, note, tip, drills, loading, unavailable, tone, f, spark, aside }: FigureProps & LeadVisuals) {
   const { tr } = useLocale();
   const change = useChange(unavailable ? null : delta, kind, invert, neutral, f);
   const live = !loading && !unavailable;
@@ -143,10 +151,14 @@ export function Kpi({ label, value, delta, kind, invert, neutral, previous, note
       {loading ? (
         <Skeleton lines={1} blockSize="1.75rem" style={{ marginBlock: '0.2rem' }} />
       ) : (
-        <strong dir="auto" style={{ display: 'block', fontSize: 'var(--tp-fs-2xl)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)' }}>
-          {unavailable ? '—' : value}
-        </strong>
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
+          <strong dir="auto" style={{ display: 'block', fontSize: 'var(--tp-fs-2xl)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)', minInlineSize: 0 }}>
+            {unavailable ? '—' : value}
+          </strong>
+          {live && aside}
+        </span>
       )}
+      {live && spark && <Sparkline series={spark} label={tr('ws.analytics.viz.byDay', { figure: label })} />}
       {live && <ChangeLine change={change} previous={previous} />}
       {live && note && <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{note}</span>}
       {live && drills && drills.length > 0 && (

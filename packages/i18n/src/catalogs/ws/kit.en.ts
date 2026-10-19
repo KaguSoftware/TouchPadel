@@ -65,7 +65,7 @@ export const kitEn = {
   },
   source: {
     web: 'Website',
-    till: 'Till',
+    till: 'Café cashier',
     mobile: 'App',
     desk: 'Desk',
   },

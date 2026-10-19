@@ -24,7 +24,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { pickLocale } from '@touch/core';
+import { bookableDurations, pickLocale } from '@touch/core';
 import {
   formatDayNumber,
   formatMonthShort,
@@ -41,6 +41,7 @@ import {
   useIsDegraded,
   useWarmDayGrids,
   useVenueSettings,
+  useGenderRules,
   type DayGrid,
 } from './hooks';
 import {
@@ -54,6 +55,7 @@ import {
   type MergedCell,
 } from './assemble';
 import { chipLines, matchTargetOf, slotChoiceOptions } from './matchChips';
+import { isKeptOut, keepLanes, keptTagKey } from './genderKeep';
 import { useHoldSlot } from '../booking/hooks';
 import { type SlotOrigin } from '../booking/pendingSlot';
 import { setOnlyPendingJoin, setOnlyPendingSlot } from '../booking/pendingIntent';
@@ -128,7 +130,8 @@ export interface AvailabilityBooking {
   /**
    * The open-match chip of a lane cell ('' for none), or undefined while the
    * branch has open matches off. Its identity follows the chips' answer and
-   * the lanes, never the tap handler's.
+   * the lanes, never the tap handler's. With gender hours (0353) it also
+   * carries a kept time's tag ("Women only"), so it is defined then too.
    */
   matchLineFor: ((cell: MergedCell) => string) | undefined;
 }
@@ -175,6 +178,11 @@ export function useAvailabilityBooking(
   const courts = useCourts(venueId);
   const venueSettings = useVenueSettings(venueId);
   const degraded = useIsDegraded(venueId);
+  // Gender hours (0353, genderKeep.ts): the branch's kept windows, read like
+  // the rate rules; a failed read paints no tags.
+  const genderRules = useGenderRules(venueId);
+  const signedIn = !!session && !session.user.is_anonymous;
+  const myGender = profile.data?.gender;
 
   // One minute tick drives "past" cells and the day strip. The heavy grid
   // build (useDayGrid) is data-driven only; applying the clock is O(cells).
@@ -211,9 +219,9 @@ export function useAvailabilityBooking(
 
   const durations = useMemo(() => {
     const set = new Set<number>();
-    for (const c of courts.data ?? []) for (const d of c.duration_options) set.add(d);
+    for (const c of courts.data ?? []) for (const d of bookableDurations(c.duration_options)) set.add(d);
     const out = [...set].sort((a, b) => a - b);
-    return out.length > 0 ? out : [60, 90];
+    return out.length > 0 ? out : [60];
   }, [courts.data]);
 
   const [durationChoice, setDurationMin] = useState(60);
@@ -327,6 +335,13 @@ export function useAvailabilityBooking(
     }
     return out;
   }, [day.grid, courts.data, durationMin, horizonEnd, now, locale]);
+  // Gender hours (0353): a free time a rule keeps carries its tag, and one
+  // kept for the other gender reads as taken (genderKeep.ts). The same lanes
+  // object when the branch has no rule.
+  const keptLanes = useMemo(
+    () => keepLanes(lanes, { rules: genderRules.data, tz, durationMin, signedIn, gender: myGender }),
+    [lanes, genderRules.data, tz, durationMin, signedIn, myGender],
+  );
 
   // "Closed" means the venue does not trade that day. A duration that simply
   // has no priced slots is "no times", not "closed" — the old check compared
@@ -360,6 +375,20 @@ export function useAvailabilityBooking(
         : undefined,
     [chips],
   );
+  // The third line of a lane cell also carries a kept time's tag ("Women
+  // only"), before any match chip; a time kept for the other gender shows no
+  // chip, its tag stands in for the price (subFor).
+  const keptRules = genderRules.data;
+  const lineFor = useMemo(() => {
+    if (!keptRules || keptRules.length === 0) return matchLineFor;
+    return (cell: MergedCell) => {
+      if (isKeptOut(cell)) return '';
+      const chip = matchLineFor?.(cell) ?? '';
+      const tag = keptTagKey(cell);
+      if (!tag) return chip;
+      return chip ? `${t(tag)} · ${chip}` : t(tag);
+    };
+  }, [keptRules, matchLineFor, t]);
   /**
    * What a tap needs to know about matches, behind a ref (rule 6): the answer,
    * the lanes and the settings change with every poll and every minute, and as
@@ -590,6 +619,9 @@ export function useAvailabilityBooking(
   );
 
   const subFor = useCallback((cell: MergedCell): string => {
+    // Kept for the other gender (0353): the tag says why it reads as taken.
+    const keptTag = isKeptOut(cell) ? keptTagKey(cell) : null;
+    if (keptTag) return t(keptTag);
     switch (cell.state) {
       case 'free':
         // A free slot with no price cannot be taken online, but the desk can
@@ -642,7 +674,7 @@ export function useAvailabilityBooking(
     durations,
     day,
     cells,
-    lanes,
+    lanes: keptLanes,
     closedDay,
     isClosedDate,
     phone,
@@ -657,6 +689,6 @@ export function useAvailabilityBooking(
     subFor,
     capacityLineFor,
     onCall,
-    matchLineFor,
+    matchLineFor: lineFor,
   };
 }

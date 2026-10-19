@@ -95,4 +95,6 @@ export const opErrorsCodesAr: DeepMessages<typeof opErrorsCodesEn> = {
   MAIN_CASH_HANDED_IN: 'سُلّم نقد هذا الدرج إلى القاصة لذلك اليوم مسبقًا. ألغِ ذلك القيد من صفحة القاصة لإعادته.',
   MAIN_CASH_LINKED: 'هذه الدفعة تابعة لراتب أو سلفة أو أجر مدرّب. ألغِها من صفحتها وستتبعها القاصة.',
   WAGE_ADVANCE_TOO_LARGE: 'هذا المبلغ أكبر مما بقي له من راتب هذا الشهر.',
+  // Gender hours (0353).
+  SLOT_GENDER_RESTRICTED: 'هذا الملعب مخصص للنساء فقط أو للرجال فقط في هذا الوقت. اختر وقتًا أو ملعبًا آخر.',
 };

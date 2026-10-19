@@ -163,8 +163,27 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
           t('loyalty.guest.history.kind.redeem'),
         ),
       ).toBeTruthy();
+      // Not opened from the Club tab: the card is that tab's, so it switches there on the card.
       fireEvent.press(screen.getByTestId('loyalty.show-card'));
-      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/member-card' });
+      expect(routerState.calls).toContainEqual({
+        method: 'replace',
+        arg: { pathname: '/club', params: { show: 'card' } },
+      });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('opened from the Club tab, "show my card" goes back to the card underneath', () => {
+    const screen = renderRoute(LoyaltyScreen, {
+      locale,
+      session: 'in',
+      queryData: homeSeeds(),
+      params: { from: 'club' },
+    });
+    try {
+      fireEvent.press(screen.getByTestId('loyalty.show-card'));
+      expect(routerState.calls).toEqual([{ method: 'back', arg: undefined }]);
     } finally {
       screen.unmount();
     }
@@ -220,7 +239,10 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       const card = on.getByTestId('profile.member-card');
       expect(within(card).getByText(t('loyalty.guest.card.profileTitle'))).toBeTruthy();
       fireEvent.press(card);
-      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/member-card' });
+      expect(routerState.calls).toContainEqual({
+        method: 'replace',
+        arg: { pathname: '/club', params: { show: 'card' } },
+      });
       const row = on.getByTestId('profile.loyalty');
       expect(within(row).getByText(t('loyalty.guest.home.title'))).toBeTruthy();
       fireEvent.press(row);

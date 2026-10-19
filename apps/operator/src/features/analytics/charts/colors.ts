@@ -108,11 +108,11 @@ export const LIGHT_CHART_COLORS: ChartColors = build({
   BAR_MUTED: '#8E9FBE',
   BAR_CURSOR: 'rgba(51, 96, 171, 0.06)',
   AXIS: '#565E6C',
-  GRID: '#DADEE5',
-  SURFACE: '#FCFDFE',
+  GRID: '#D3DCEB',
+  SURFACE: '#F2F7FF',
   INK: '#131B29',
   DANGER: '#B42318',
-  HEAT_RAMP: ['#F2F3F7', '#D0DDF4', '#ACC3ED', '#85A6E2', '#5E84CA', '#3360AB'],
+  HEAT_RAMP: ['#EAEFF8', '#D0DDF4', '#ACC3ED', '#85A6E2', '#5E84CA', '#3360AB'],
 });
 
 /**

@@ -190,10 +190,9 @@ describe('level and years agree', () => {
 });
 
 describe('genderToSave', () => {
-  it('writes a woman or a man, and nothing for "prefer not to say" or no answer', () => {
+  it('writes a woman or a man, and nothing for no answer', () => {
     expect(genderToSave('female')).toBe('female');
     expect(genderToSave('male')).toBe('male');
-    expect(genderToSave('none')).toBeNull();
     expect(genderToSave(null)).toBeNull();
   });
 });

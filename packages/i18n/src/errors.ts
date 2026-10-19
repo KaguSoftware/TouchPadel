@@ -565,6 +565,8 @@ export const ERROR_CODE_KEYS = {
   // inline, DF-10); NEED_TICKETS app.ticket_pick's, whose detail has its own
   // line (matches.errors.needTicketsCount) for the screen that reads it.
   GENDER_REQUIRED: 'matches.errors.genderRequired',
+  // 0353: a booking or open match on a court kept for the other gender.
+  SLOT_GENDER_RESTRICTED: 'op.errors.SLOT_GENDER_RESTRICTED',
   NEED_TICKETS: 'matches.errors.needTickets',
   // 0261: the guest's open-match calls (start, join, request, decide, leave,
   // remove, cancel, message, report, block).

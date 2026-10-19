@@ -6,7 +6,7 @@ export const staffFloorAr: DeepMessages<typeof staffFloorEn> = {
   row: 'تسجيل طلب',
   tables: {
     title: 'تسجيل طلب',
-    dayClosed: 'لم يُفتح اليوم بعد. يمكن تسجيل الطلبات بعد فتح اليوم من الصندوق.',
+    dayClosed: 'لم يُفتح اليوم بعد. يمكن تسجيل الطلبات بعد فتح اليوم من كاشير الكافيه.',
     empty: 'لا توجد طاولات مُعدّة لهذا الفرع بعد.',
     table: 'طاولة {number}',
     free: 'فارغة',
@@ -36,7 +36,7 @@ export const staffFloorAr: DeepMessages<typeof staffFloorEn> = {
     openTab: 'فتح الفاتورة',
     noResults: 'لا شيء في المنيو يطابق «{query}».',
     menuEmpty: 'منيو الكافيه فارغ.',
-    tabGone: 'أُغلقت هذه الفاتورة عند الصندوق. اختر فاتورة أخرى أو افتح فاتورة جديدة.',
+    tabGone: 'أُغلقت هذه الفاتورة عند كاشير الكافيه. اختر فاتورة أخرى أو افتح فاتورة جديدة.',
   },
   item: {
     size: 'الحجم',

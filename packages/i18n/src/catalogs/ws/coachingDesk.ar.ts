@@ -138,7 +138,7 @@ export const coachingDeskAr: DeepMessages<typeof coachingDeskEn> = {
   },
   cancel: {
     signUpAction: 'إلغاء تسجيل {name}',
-    deskPaid: 'دُفع {amount} في الاستقبال، ويصبح مبلغًا يردّه مدير عند الصندوق.',
+    deskPaid: 'دُفع {amount} في الاستقبال، ويصبح مبلغًا يردّه مدير عند كاشير الكافيه.',
     online: 'يعود الدفع الإلكتروني إلى بطاقة الزبون.',
     courseSignUp: 'يُرد المبلغ عن الحصص التي لم تُعقد بعد: الإلكتروني إلى البطاقة، والمدفوع في الاستقبال يصبح مستحق الرد.',
     nothingPaid: 'لم يُدفع شيء، فلا شيء يُرد.',

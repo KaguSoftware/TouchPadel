@@ -61,7 +61,16 @@ describe('open-matches error codes', () => {
 
   it('0260: the match core refusals (match_guest, match_lock, ticket_pick) have their own lines', () => {
     const cases = {
-      GENDER_REQUIRED: ['matches.errors.genderRequired', "To play open matches, tell us once whether you're a woman or a man."],
+      // 0353 widened the line: booking hours can be kept too.
+      GENDER_REQUIRED: [
+        'matches.errors.genderRequired',
+        "Tell us once whether you're a woman or a man: some matches and hours are kept for women or men.",
+      ],
+      // 0353: a booking or match on a time kept for the other gender (the shared catalogue's line).
+      SLOT_GENDER_RESTRICTED: [
+        'op.errors.SLOT_GENDER_RESTRICTED',
+        'This court is kept for women only or men only at this time. Pick another time or court.',
+      ],
       MATCH_NOT_FOUND: ['matches.errors.notFound', "This match isn't available."],
       NEED_TICKETS: ['matches.errors.needTickets', "You don't have enough tickets for this. Buy tickets to continue."],
     } as const;

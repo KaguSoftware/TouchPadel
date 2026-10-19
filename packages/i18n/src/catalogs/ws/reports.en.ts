@@ -74,8 +74,8 @@ export const reportsEn = {
     },
     table: 'Table {table}',
     lineQty: '{item} × {qty}',
-    methods: { cash: 'Cash', card: 'Card', online: 'Online', outside: 'Outside the till' },
-    sources: { till: 'At the till', guest_web: 'QR order' },
+    methods: { cash: 'Cash', card: 'Card', online: 'Online', outside: 'Outside the cashier' },
+    sources: { till: 'At the café cashier', guest_web: 'QR order' },
     adjKinds: { discount_percent: 'Percentage off', discount_amount: 'Amount off', price_override: 'Price changed' },
     reasons: { promotion: 'Promotion' },
     kinds: {

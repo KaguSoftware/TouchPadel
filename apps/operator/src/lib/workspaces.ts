@@ -84,7 +84,7 @@ export type NavLabelKey =
   // paid from the main cash, the settings tabs that shared another page's name.
   | 'courtSettings' | 'courtSales' | 'cafeSales' | 'billsSuppliers' | 'tournamentRules'
   | 'analyticsSettings' | 'computersScreens'
-  | 'venueDetails' | 'openingHours' | 'businessDay'
+  | 'venueDetails' | 'openingHours' | 'businessDay' | 'genderHours'
   | 'guestApp' | 'devices' | 'stations' | 'kitchenScreens' | 'offlineMode';
 
 /**
@@ -280,6 +280,8 @@ const PAY_TABS: readonly NavTab[] = [
  */
 const COURT_SETTINGS_TABS: readonly NavTab[] = [
   { to: '/admin/rates', labelKey: 'rates' },
+  // Courts kept for women or men at set times (0353), the rate card's sibling.
+  { to: '/admin/gender-hours', labelKey: 'genderHours' },
   { to: '/admin/courts', labelKey: 'courts' },
   { to: '/admin/settings/booking', labelKey: 'bookingRules' },
   { to: '/admin/settings/deposit', labelKey: 'onlineDeposit', when: 'onlinePaymentsLive' },

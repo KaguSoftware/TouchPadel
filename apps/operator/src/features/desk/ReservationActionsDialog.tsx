@@ -23,13 +23,13 @@
  * (bookingLabel) with the seat chip beside the status.
  *
  * e2e selectors kept: dialog named by guest name, label 'Reason for this
- * change', button 'Shorten −30 min', button 'Cancel booking' (click → the
+ * change', button 'Shorten −1 hour', button 'Cancel booking' (click → the
  * cancel panel with label 'Reason' → click again to confirm).
  */
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { wallTimeToUtc } from '@touch/core';
+import { BOOKING_STEP_MIN, bookableDurations, wallTimeToUtc } from '@touch/core';
 import { formatIQD, formatTime, formatTimeRange } from '@touch/i18n';
 import { mutate } from '../../lib/mutate';
 import type { CourtRow } from '../../lib/queries';
@@ -52,8 +52,8 @@ import type { DeskLesson } from '../coaching/lessonPayloads';
 const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
 export const OVERRIDE_REASONS = ['customer_request', 'staff_error', 'weather', 'duplicate', 'other'] as const;
 
-/** Shorten and extend move in half-hour steps, matching the grid. */
-export const STEP_MIN = 30;
+/** Shorten and extend move in whole hours, matching the grid. */
+export const STEP_MIN = BOOKING_STEP_MIN;
 
 export function ReservationActionsDialog({
   reservation: r,
@@ -197,7 +197,8 @@ export function ReservationActionsDialog({
   const court = courts.find((c) => c.id === r.court_id);
   // The floor is the court's own shortest bookable duration: shorter than that
   // and no rate rule prices the slot, so the server refuses. Do not offer it.
-  const minDurationMin = court?.duration_options?.length ? Math.min(...court.duration_options) : STEP_MIN;
+  const whole = bookableDurations(court?.duration_options ?? []);
+  const minDurationMin = whole.length ? Math.min(...whole) : STEP_MIN;
   const title = r.kind === 'maintenance' ? tr('op.desk.maintenance') : r.kind === 'hold' ? tr('op.desk.hold') : (bookingLabel(r, match, tr) ?? tr('op.desk.walkIn'));
   // Known from the state, or detected from the row itself when the state has not come.
   const isMatch = r.kind === 'booking' && (match != null || isMatchLiteral(r));
@@ -314,7 +315,7 @@ export function ReservationActionsDialog({
                     )
                   }
                 >
-                  {tr('op.desk.shorten30')}
+                  {tr('op.desk.shortenHour')}
                 </Button>
                 <span aria-hidden style={{ inlineSize: '1px', background: 'var(--tp-border)' }} />
                 <Button
@@ -332,7 +333,7 @@ export function ReservationActionsDialog({
                     )
                   }
                 >
-                  {tr('op.desk.extend30')}
+                  {tr('op.desk.extendHour')}
                 </Button>
               </span>
             </span>

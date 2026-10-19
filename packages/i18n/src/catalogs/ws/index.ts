@@ -99,6 +99,9 @@ import { discountsAr } from './discounts.ar';
 // The free AI (owner call 2026-10-16): every staff role's assistant, and the owner's "The free AI".
 import { assistantFreeEn } from './assistantFree.en';
 import { assistantFreeAr } from './assistantFree.ar';
+// Gender hours (0353): the management page, the desk calendar's kept bands, a new customer's gender.
+import { genderHoursEn } from './genderHours.en';
+import { genderHoursAr } from './genderHours.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -137,6 +140,7 @@ export const wsEn = {
   activity: activityEn,
   discounts: discountsEn,
   assistantFree: assistantFreeEn,
+  genderHours: genderHoursEn,
 } as const;
 
 export const wsAr = {
@@ -176,4 +180,5 @@ export const wsAr = {
   activity: activityAr,
   discounts: discountsAr,
   assistantFree: assistantFreeAr,
+  genderHours: genderHoursAr,
 } as const;

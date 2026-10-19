@@ -9,7 +9,7 @@
  * explanation, not state, so it now sits behind the info button (read on
  * hover, focus or tap) and the heading row stays one line of type.
  */
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import type { MessageKey } from '@touch/i18n';
 import { InfoTip } from '../../components/InfoTip';
 import { BreakdownFrame, useCardRow } from '../../components/BreakdownCards';
@@ -156,6 +156,13 @@ export function scrollToZone(id: string) {
  * The heading used to carry an ordinal ("05 Courts"). Nothing referred to the
  * numbers, and the jump pills printed them again; they are gone.
  */
+/**
+ * The section's answer is the line most owners stop at, so it reads one step
+ * up from body text and a weight heavier (2026-10-19); it used to sit at the
+ * same size as every note on the page.
+ */
+const leadStyle: CSSProperties = { margin: 0, fontSize: 'var(--tp-fs-lg)', fontWeight: 500, lineHeight: 1.45, maxInlineSize: '80ch', color: 'var(--tp-fg)' };
+
 /** Set by a Zone whose heading is drawn by the frame inside it (ZoneFrame). */
 const ZoneHead = createContext<{ id: string; title: string; desc: string } | null>(null);
 
@@ -198,7 +205,7 @@ export function Zone({
     return (
       <section id={`zone-${zone.id}`} aria-labelledby={`zone-${zone.id}-title`} style={{ marginBlockEnd: 'var(--tp-sp-6)', scrollMarginBlockStart: '12.5rem' }}>
         {lead && (
-          <p data-testid={`zone-${zone.id}-lead`} style={{ margin: 0, marginBlockEnd: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-md)', maxInlineSize: '90ch' }}>
+          <p data-testid={`zone-${zone.id}-lead`} style={{ ...leadStyle, marginBlockEnd: 'var(--tp-sp-3)' }}>
             {lead}
           </p>
         )}
@@ -222,7 +229,7 @@ export function Zone({
       >
         <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', padding: 'var(--tp-sp-4)' }}>
           {lead && (
-            <p data-testid={`zone-${zone.id}-lead`} style={{ margin: 0, fontSize: 'var(--tp-fs-md)', maxInlineSize: '90ch' }}>
+            <p data-testid={`zone-${zone.id}-lead`} style={leadStyle}>
               {lead}
             </p>
           )}

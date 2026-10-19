@@ -113,7 +113,7 @@ export const guideEn = {
       },
       overpaid: {
         title: 'Overpaid',
-        body: 'If a booking was paid more than it owes, a manager refunds the difference at the till, and then the bill can close.',
+        body: 'If a booking was paid more than it owes, a manager refunds the difference at the café cashier, and then the bill can close.',
       },
     },
     customers: {
@@ -183,11 +183,11 @@ export const guideEn = {
       title: 'Start of shift',
       day: {
         title: 'Is the day open?',
-        body: 'If no business day is open, the till says so and takes no orders. A manager opens the day on Day close.',
+        body: 'If no business day is open, the café cashier says so and takes no orders. A manager opens the day on Day close.',
       },
       shift: {
         title: 'Start your shift',
-        body: 'At the top of the till, check the amount it asks about. If it is in the drawer, press {confirm}; if not, press {different} and type what you counted.',
+        body: 'At the top of the café cashier screen, check the amount it asks about. If it is in the drawer, press {confirm}; if not, press {different} and type what you counted.',
       },
       others: {
         title: 'Someone else’s shift is still open',
@@ -222,7 +222,7 @@ export const guideEn = {
       },
       send: {
         title: 'Send to the kitchen',
-        body: 'Press {send}. Lines you have not sent are lost if you switch to another tab, so the till asks first.',
+        body: 'Press {send}. Lines you have not sent are lost if you switch to another tab, so the café cashier asks first.',
       },
       calls: {
         title: 'Waiter calls',
@@ -276,7 +276,7 @@ export const guideEn = {
       },
       refund: {
         title: 'Refunds',
-        body: 'Only a manager signed in on the till can refund a payment.',
+        body: 'Only a manager signed in on the café cashier can refund a payment.',
       },
       merge: {
         title: 'Merge tabs',
@@ -292,7 +292,7 @@ export const guideEn = {
       },
       offline: {
         title: 'Working offline',
-        body: 'Orders, payments, voids and refunds made offline are saved on the till and sent when the connection returns. Merging tabs, opening the drawer and shifts need the connection.',
+        body: 'Orders, payments, voids and refunds made offline are saved on the café cashier and sent when the connection returns. Merging tabs, opening the drawer and shifts need the connection.',
       },
     },
     more: {
@@ -307,7 +307,7 @@ export const guideEn = {
       },
       break: {
         title: 'Take a break',
-        body: 'Press {goOnBreak} and enter your PIN. A colleague can cover the till with their own PIN, and your PIN ends the break.',
+        body: 'Press {goOnBreak} and enter your PIN. A colleague can cover the café cashier with their own PIN, and your PIN ends the break.',
       },
     },
     end: {
@@ -343,7 +343,7 @@ export const guideEn = {
       title: 'Reading a ticket',
       source: {
         title: 'Where tickets come from',
-        body: 'Orders sent from the till and by guests on the website arrive here, oldest first. Each card says which: {till} or {web}.',
+        body: 'Orders sent from the café cashier and by guests on the website arrive here, oldest first. Each card says which: {till} or {web}.',
       },
       card: {
         title: 'What a card shows',
@@ -381,7 +381,7 @@ export const guideEn = {
       },
       voided: {
         title: 'Voided lines',
-        body: 'When the till voids a line, it disappears from its ticket.',
+        body: 'When the café cashier voids a line, it disappears from its ticket.',
       },
     },
     keys: {
@@ -403,7 +403,7 @@ export const guideEn = {
       title: 'Problems',
       offline: {
         title: 'No internet',
-        body: 'Tickets keep arriving from the till over the local network. Ticking items comes back when the connection does.',
+        body: 'Tickets keep arriving from the café cashier over the local network. Ticking items comes back when the connection does.',
       },
       error: {
         title: 'Tickets could not be loaded',

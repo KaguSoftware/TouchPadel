@@ -39,6 +39,8 @@ export interface ProfileFixture {
   full_name: string | null;
   phone: string | null;
   preferred_lang: Locale;
+  /** 0353: a must for every account; null = never answered (the completion gate's case). */
+  gender: 'female' | 'male' | null;
 }
 
 export const profileFixture = (over: Partial<ProfileFixture> = {}): ProfileFixture => ({
@@ -46,6 +48,7 @@ export const profileFixture = (over: Partial<ProfileFixture> = {}): ProfileFixtu
   full_name: 'Test Guest',
   phone: '+9647700000000',
   preferred_lang: 'en',
+  gender: 'female',
   ...over,
 });
 

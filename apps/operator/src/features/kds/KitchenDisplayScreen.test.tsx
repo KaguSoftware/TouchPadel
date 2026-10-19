@@ -97,7 +97,7 @@ describe('KitchenDisplayScreen states', () => {
     expect(within(cards[0]!).getByText('Table 9')).toBeTruthy();
     expect(within(cards[0]!).getByText('Website')).toBeTruthy();
     expect(within(cards[0]!).getByText('On time')).toBeTruthy();
-    expect(within(cards[1]!).getByText('Till')).toBeTruthy();
+    expect(within(cards[1]!).getByText('Café cashier')).toBeTruthy();
     expect(within(cards[1]!).getByText('Late')).toBeTruthy();
     expect(within(cards[1]!).getByText('Ahmed')).toBeTruthy();
     // 0351: the court's name, and a pick-up order says so; a delivered one carries no mark.
@@ -155,7 +155,7 @@ describe('KitchenDisplayScreen states', () => {
 
   it('degraded: the LAN notice shows and item marks are off', () => {
     renderScreen({ degraded: true, tickets: [ticket({ canMarkItems: false })] });
-    expect(screen.getByText(/arriving from the till over the local network/)).toBeTruthy();
+    expect(screen.getByText(/arriving from the café cashier over the local network/)).toBeTruthy();
     expect(screen.queryByRole('checkbox')).toBeNull();
     expect(screen.getByText('Ticking items comes back when the connection does.')).toBeTruthy();
   });

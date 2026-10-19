@@ -168,13 +168,17 @@ export function FormScreen({
 
 /**
  * Space above a tab's page title, under the status-bar inset the Screen pads.
+ * EVERY tab's title row takes it, the Book tab's included, so the title and
+ * the account avatar sit on the same line from tab to tab: Book's row stood
+ * 4 pt lower on iOS (20 against 16) and the avatar jumped on every switch
+ * (Majed, 2026-10-19).
  *
- * Android matches the Book tab's heading row (10 + its 14 pt PICK_PILL_TOP_AIR,
- * app/(tabs)/index.tsx): Android's inset stops right at the status icons, so a
- * 16 pt gap put the title against them, and the tabs sat at two different
- * heights (owner, 2026-09-29). iOS keeps its 16 — its inset already has air.
+ * The figure is the Book tab's: its PICK A TIME capsule pulls itself up round
+ * the heading, and its glass rim needs air under the status bar. Android takes
+ * more, since its inset stops right at the status icons, with none of the room
+ * iOS's has under the Dynamic Island (owner, 2026-09-29).
  */
-export const TAB_TITLE_TOP = Platform.OS === 'android' ? 24 : space.l;
+export const TAB_TITLE_TOP = Platform.OS === 'android' ? 24 : 20;
 
 /** Big uppercase page title with the green squiggle underneath. */
 export function Title({

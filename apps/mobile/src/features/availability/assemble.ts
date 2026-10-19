@@ -5,6 +5,7 @@
  * app.price_slot) stays the authority; this only paints the grid.
  */
 import {
+  bookableDurations,
   buildSlotGrid,
   dayOfWeekOfDate,
   displayWindows,
@@ -210,7 +211,7 @@ export function assembleDayGrid(args: AssembleArgs): CourtSlots[] {
     date: args.date,
     openingHours: (args.settings.opening_hours ?? {}) as OpeningHours,
     closedDates: args.settings.closed_dates ?? [],
-    courts: args.courts.map((c) => ({ id: c.id, durationOptions: c.duration_options })),
+    courts: args.courts.map((c) => ({ id: c.id, durationOptions: bookableDurations(c.duration_options) })),
     reservations,
     now: args.now,
     tz,

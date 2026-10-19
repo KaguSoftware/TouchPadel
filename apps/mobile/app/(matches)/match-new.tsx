@@ -8,7 +8,12 @@ import { useLocale } from '../../src/i18n/LocaleProvider';
 import { RequireSession } from '../../src/features/auth/RequireSession';
 import { useAuth } from '../../src/features/auth/context';
 import { bookingGateState } from '../../src/features/auth/social';
-import { useBranches, useVenueSettings } from '../../src/features/availability/hooks';
+import {
+  useBranches,
+  useGenderRules,
+  useVenueSettings,
+} from '../../src/features/availability/hooks';
+import { matchKeepOf, type MatchKeep } from '../../src/features/availability/genderKeep';
 import { branchName } from '../../src/features/availability/branch';
 import { DEFAULT_TZ } from '../../src/features/availability/assemble';
 import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
@@ -131,7 +136,17 @@ function MatchNewScreen() {
   const [priceNote, setPriceNote] = useState<string | null>(null);
 
   // The categories the server offers (DF-10); a pick it no longer offers falls back.
-  const categories: readonly MatchCategory[] = q?.categories ?? ['open'];
+  const quoted: readonly MatchCategory[] = q?.categories ?? ['open'];
+  // Gender hours (0353): a time kept for women or men at the branch, on ANY
+  // court (the match takes its court late), takes only that gender's match,
+  // so the choice is locked to it, or the form says the time is not theirs
+  // (genderKeep.ts). Not judged before the gender is answered.
+  const genderRules = useGenderRules(venueId);
+  const keep: MatchKeep =
+    q && startAt && q.myGender !== null
+      ? matchKeepOf(genderRules.data, new Date(startAt), q.durationMin || durationMin, tz, quoted)
+      : { kind: 'open' };
+  const categories: readonly MatchCategory[] = keep.kind === 'locked' ? [keep.category] : quoted;
   const category = categories.includes(picked) ? picked : (categories[0] ?? 'open');
   const seatsMax = q?.seatsMax ?? 3;
   const seats = Math.min(seatsPicked, seatsMax);
@@ -333,6 +348,12 @@ function MatchNewScreen() {
           </View>
         ) : null}
 
+        {keep.kind !== 'open' && !refusal && !off ? (
+          <View testID="match-new.gender-hours" style={{ marginTop: space.m }}>
+            <MatchNotice text={t(keep.noteKey)} />
+          </View>
+        ) : null}
+
         {/* Everything below waits for the gender answer (OM-28). */}
         <View pointerEvents={locked ? 'none' : 'auto'} style={{ opacity: genderUnset ? 0.45 : 1 }}>
           {label(t('matches.create.whoCanPlay'))}
@@ -479,7 +500,10 @@ function MatchNewScreen() {
               variant="cta"
               busy={start.isPending}
               disabled={
-                genderUnset || q.priceIqd === null || (needsDeclaration && !friendsDeclared)
+                genderUnset ||
+                keep.kind === 'closed' ||
+                q.priceIqd === null ||
+                (needsDeclaration && !friendsDeclared)
               }
               onPress={onStart}
               style={{ marginTop: space.m }}

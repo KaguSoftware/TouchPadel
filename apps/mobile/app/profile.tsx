@@ -45,7 +45,7 @@ import { GuestPreviewPill } from '../src/features/staff/GuestPreviewPill';
 import { useGuestPreview } from '../src/features/staff/guestPreview';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
 import { useToast } from '../src/components/overlays';
-import { useResetTo } from '../src/navigation/back';
+import { useResetTo, useReturnTo } from '../src/navigation/back';
 import { closeBookingSheetNow } from '../src/features/courtTransition/openIntent';
 
 const LOGO_H = 40;
@@ -93,6 +93,7 @@ export default function ProfileScreen() {
   const { colors, fonts, appearance } = useTheme();
   const router = useRouter();
   const resetTo = useResetTo();
+  const returnTo = useReturnTo();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
@@ -420,7 +421,7 @@ export default function ProfileScreen() {
               testID="profile.member-card"
               accessibilityRole="button"
               accessibilityLabel={t('loyalty.guest.card.profileTitle')}
-              onPress={() => router.push('/member-card')}
+              onPress={() => returnTo({ pathname: '/club', params: { show: 'card' } }, '(tabs)')}
               style={({ pressed }) => ({ marginTop: space.m, opacity: pressed ? 0.7 : 1 })}
             >
               <Card style={{ flexDirection: 'row', gap: 13, alignItems: 'center' }}>

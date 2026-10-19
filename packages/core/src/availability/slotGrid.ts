@@ -14,8 +14,10 @@ import type { IQD } from '../money/iqd';
  *   `[["00:00","02:00"],["09:00","24:00"]]` -- which this builder already handles as an ordinary
  *   split day. See `../time/openingHours.ts` for the conversion.
  * - A slot must fit ENTIRELY inside one window, so midnight is a hard slot boundary: with 60-min
- *   durations on a 30-min grid the starts run ...22:30, 23:00 | 00:00, 00:30, 01:00. The 23:30
- *   start is deliberately not offered (decision 2026-08-29).
+ *   durations on the hourly grid the starts run ...22:00, 23:00 | 00:00, 01:00.
+ * - Court bookings run on whole hours only (Majed, 2026-10-19): starts sit on the hour and a
+ *   length that is not a whole number of hours (90 min) is never offered. `bookableDurations`
+ *   is the one filter both apps apply to `courts.duration_options`.
  * - A date listed in closedDates yields an empty slot list (nothing bookable, nothing shown).
  * - Expired holds (holdExpiresAt <= now) count as free — matching the DB's lazy-expiry reads.
  */
@@ -81,10 +83,18 @@ export interface BuildSlotGridArgs {
   now: Date;
   /** IANA venue timezone, e.g. 'Asia/Baghdad'. */
   tz: string;
-  /** Grid granularity for slot starts; default 30 minutes. */
+  /** Grid granularity for slot starts, aligned to local midnight; default BOOKING_STEP_MIN. */
   slotIncrementMin?: number;
   /** Optional pricing hook (wrap resolveRateRule); priceIqd is null when omitted or unmatched. */
   price?: (courtId: string, startAt: Date, durationMin: number) => IQD | null;
+}
+
+/** Court bookings start and end on the hour: the start grid and the extend/shorten step. */
+export const BOOKING_STEP_MIN = 60;
+
+/** The lengths a court can actually be booked for: whole hours only (60, 120, …; never 90). */
+export function bookableDurations(options: readonly number[]): number[] {
+  return options.filter((d) => Number.isInteger(d) && d > 0 && d % BOOKING_STEP_MIN === 0);
 }
 
 const DAY_KEYS: readonly DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -145,7 +155,7 @@ export function buildSlotGrid(args: BuildSlotGridArgs): CourtSlots[] {
     holds = [],
     now,
     tz,
-    slotIncrementMin = 30,
+    slotIncrementMin = BOOKING_STEP_MIN,
     price,
   } = args;
 
@@ -175,7 +185,9 @@ export function buildSlotGrid(args: BuildSlotGridArgs): CourtSlots[] {
     const durations = [...court.durationOptions].sort((a, b) => a - b);
     const slots: Slot[] = [];
     for (const [open, close] of windows) {
-      for (let startMin = open; startMin < close; startMin += slotIncrementMin) {
+      // A window opening off the grid (09:30) starts at the next grid line (10:00).
+      const first = Math.ceil(open / slotIncrementMin) * slotIncrementMin;
+      for (let startMin = first; startMin < close; startMin += slotIncrementMin) {
         for (const durationMin of durations) {
           if (!Number.isInteger(durationMin) || durationMin <= 0) {
             throw new RangeError(`invalid duration option ${durationMin} on court ${court.id}`);

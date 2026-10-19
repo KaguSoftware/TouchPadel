@@ -126,9 +126,9 @@ export const tillShiftEn = {
     title: 'Your shift',
     since: 'Since {time}',
     blindHint: 'The expected amount shows when you end your shift and count the drawer.',
-    none: 'No shift is open on this till',
+    none: 'No shift is open on this café cashier',
     noneHint: 'Start your shift before you take payment.',
-    others: '{name}’s shift is open on this till',
+    others: '{name}’s shift is open on this café cashier',
     othersHint: 'Since {time}. Close it with a manager’s PIN to start yours.',
     shiftsTitle: 'Shifts',
     shiftsEmpty: 'No shifts on this day.',
@@ -154,12 +154,12 @@ export const tillShiftEn = {
   },
   // The "Till shifts" step on /admin/day-close.
   dayClose: {
-    title: 'Till shifts',
+    title: 'Cashier shifts',
     none: 'No shifts',
     allClosed: 'All closed',
     openLeft: '{count} still open',
     openHint:
-      'Closing the day ends an open shift without a count. Ask its holder to end it at the till, or close it there with a manager’s PIN.',
+      'Closing the day ends an open shift without a count. Ask its holder to end it at the café cashier, or close it there with a manager’s PIN.',
     outsideTitle: 'Taken outside a shift',
     outsideLead:
       'At a station while no shift was open there. The next handover at that station counts it.',
@@ -171,9 +171,9 @@ export const tillShiftEn = {
     retry: 'Try again',
     // CSV rows: the figure column; the value is the difference or the amount.
     csv: {
-      shift: 'Till shift difference: {name}, {station}',
-      shiftOpen: 'Till shift still open: {name}, {station}',
-      shiftByDay: 'Till shift ended with the day, not counted: {name}, {station}',
+      shift: 'Cashier shift difference: {name}, {station}',
+      shiftOpen: 'Cashier shift still open: {name}, {station}',
+      shiftByDay: 'Cashier shift ended with the day, not counted: {name}, {station}',
       outsideIn: 'Cash taken outside a shift: {station}',
       outsideOut: 'Cash refunded outside a shift: {station}',
       crossDay: 'Cash refunds made this day for earlier days',
@@ -181,10 +181,10 @@ export const tillShiftEn = {
   },
   // /reports/staff, the "Till shifts" view.
   report: {
-    view: 'Till shifts',
-    lead: 'Each till and desk shift in the period, with its count and difference, in the order they started.',
-    tooLong: 'Till shifts show for up to 62 days at a time. Pick a shorter period.',
-    empty: 'No till shifts in this period.',
+    view: 'Cashier shifts',
+    lead: 'Each café cashier and desk shift in the period, with its count and difference, in the order they started.',
+    tooLong: 'Cashier shifts show for up to 62 days at a time. Pick a shorter period.',
+    empty: 'No cashier shifts in this period.',
     columns: {
       day: 'Day',
       person: 'Person',
@@ -196,12 +196,12 @@ export const tillShiftEn = {
   setup: {
     noPin: 'Cashiers and desk staff with no PIN',
     noPinHint:
-      'They end their till shift with a manager’s PIN. Give each one a PIN of their own under Staff.',
+      'They end their cashier shift with a manager’s PIN. Give each one a PIN of their own under Staff.',
     noPinAction: 'Go to Staff',
   },
   // /ops "Needs you now" and the Observe home.
   ops: {
-    title: 'Till shifts closed short or over today',
+    title: 'Cashier shifts closed short or over today',
     hint: 'Each difference is on Day close, with who counted it and who signed.',
     action: 'Open Day close',
   },

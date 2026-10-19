@@ -97,6 +97,38 @@ export async function fetchActiveCourts(): Promise<CourtRow[]> {
   });
 }
 
+/**
+ * A Gender hours rule (0353, `court_gender_rules`): a court, or every court
+ * (`court_id` null), kept for women or men in a clock window on some weekdays.
+ */
+export interface GenderRuleRow {
+  id: string;
+  name: string;
+  gender: 'female' | 'male';
+  court_id: string | null;
+  days_of_week: number[];
+  /** 'HH:MM:SS'; an end at or before the start runs past midnight. */
+  start_time: string;
+  end_time: string;
+  valid_from: string | null;
+  valid_to: string | null;
+  is_active: boolean;
+}
+
+/**
+ * Every rule of the branch in scope, switched off ones too: the Gender hours
+ * page lists them all and the desk calendar keeps only the active ones
+ * (slotGenderRules ignores the rest). The server narrows to the branch.
+ */
+export async function fetchGenderRules(): Promise<GenderRuleRow[]> {
+  const { data, error } = await supabase
+    .from('court_gender_rules')
+    .select('id, name, gender, court_id, days_of_week, start_time, end_time, valid_from, valid_to, is_active')
+    .order('created_at');
+  if (error) throw error;
+  return data as unknown as GenderRuleRow[];
+}
+
 /** The day session the till and day-close screen both work against.
  *  cachedQuery: "no business day is open" must mean the day is closed, never
  *  that the network died — the till keeps trading against the cached day. */

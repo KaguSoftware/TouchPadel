@@ -23,6 +23,7 @@ import { playEn } from './play.en';
 import { coachShowcaseEn } from './showcase.en';
 import { seatingEn } from './seating.en';
 import { playProfileEn } from './playProfile.en';
+import { guestGenderEn } from './guestGender.en';
 
 export const en = {
   // Operator workspace strings (spec §05–§07), one file pair per lane: catalogs/ws/*.
@@ -232,7 +233,7 @@ export const en = {
     appName: 'Touch Padel — Operator',
     home: 'Choose a view from the navigation.',
   },
-  till: { title: 'Till' },
+  till: { title: 'Café cashier' },
   desk: { title: 'Desk calendar' },
   kds: { title: 'Kitchen display' },
   stock: { title: 'Stock' },
@@ -288,7 +289,7 @@ export const en = {
       orders: 'Orders',
       avgOrderValue: 'Average order value',
       qrShare: 'QR share of orders',
-      qrSplit: '{qr} QR · {till} till',
+      qrSplit: '{qr} QR · {till} café cashier',
       views: 'Menu views',
       median: 'Median session',
       calls: 'Waiter calls',
@@ -322,7 +323,7 @@ export const en = {
       generatedAt: 'Generated {date}',
       empty: 'No findings for this period yet. Ask for findings to have the numbers read for you.',
       degraded: 'The AI model is not available, so these findings are written from templates over the same numbers.',
-      source: 'Source: till sales + guest menu analytics, judged by AI',
+      source: 'Source: café cashier sales + guest menu analytics, judged by AI',
       replacing: 'Looking for a replacement finding…',
       basisCopy: {
         salesDays: '{s}/{r} days with sales',
@@ -406,7 +407,7 @@ export const en = {
       onlyHiddenGems: 'Hidden gems only',
       csv: 'Export',
       howToRead:
-        'Views come from the QR menu; sales come from the till and include guests who never scanned.',
+        'Views come from the QR menu; sales come from the café cashier and include guests who never scanned.',
       showAll: 'Show all',
       showLess: 'Show fewer',
       searchItems: 'Search items…',
@@ -772,10 +773,14 @@ export const en = {
   },
   tabs: {
     book: 'Book',
-    bookings: 'Reservations',
+    // 'Bookings', not 'Reservations' (Majed, 2026-10-19): iOS 26 sizes each tab by its label, and
+    // the long one pushed Club (the centre tab) off the middle.
+    bookings: 'Bookings',
     play: 'Join',
     coaches: 'Coaches',
     profile: 'Profile',
+    // The centre tab (2026-10-19): the member card and the café menu (app/(tabs)/club.tsx).
+    club: 'Club',
   },
   profile: {
     title: 'Profile',
@@ -863,7 +868,6 @@ export const en = {
     photoUnavailable: 'Update the app to add a profile photo.',
     photoCameraOff: 'Camera access is off for Touch Padel. Turn it on in Settings.',
     genderSection: 'Gender',
-    genderPreferNot: 'Prefer not to say',
     genderConfirmTitle: 'Set gender to {value}?',
     genderConfirmBody: "You won't be able to change this yourself. The front desk can correct it.",
     genderConfirm: 'Set',
@@ -1131,7 +1135,7 @@ export const en = {
   // Staff-only page (/download, noindex): the operator desktop installer.
   download: {
     title: 'Touch Padel Operator',
-    lead: 'The till, desk and kitchen-screen app for Touch Padel staff. Installs and updates itself.',
+    lead: 'The café cashier, desk and kitchen-screen app for Touch Padel staff. Installs and updates itself.',
     windowsButton: 'Download for Windows',
     macArmButton: 'Download for Mac (Apple silicon)',
     macIntelButton: 'Download for Mac (Intel)',
@@ -1166,6 +1170,7 @@ export const en = {
   coachShowcase: coachShowcaseEn,
   seating: seatingEn,
   playProfile: playProfileEn,
+  guestGender: guestGenderEn,
   // Loyalty (docs/design/loyalty/build-contracts-2026-10-05.md §4).
   loyalty: {
     // The phone (plan §5.1): the member card, the loyalty screen and Profile's entries.
@@ -1174,28 +1179,30 @@ export const en = {
     guest: {
       card: {
         title: 'Member card',
-        show: 'Show this code at the till',
-        sayNumber: 'Or say your number at the till',
+        show: 'Show this code at the cashier',
+        sayNumber: 'Or say your number at the cashier',
         memberCode: 'Member code',
         refreshesIn: 'New code in {seconds}s',
-        offline: 'Offline: your code still works at the till.',
+        offline: 'Offline: your code still works at the cashier.',
         newCode: 'Not working? Get a new code',
         newCodeTitle: 'Get a new code?',
         newCodeBody:
-          'Your old code stops working straight away. Do this if the code was shared or the till could not read it.',
+          'Your old code stops working straight away. Do this if the code was shared or the cashier could not read it.',
         newCodeConfirm: 'Get a new code',
         newCodeDone: 'New code ready',
         error: 'Your member card could not be loaded.',
         // Profile's card under the identity card.
         profileTitle: 'Member card',
-        profileBody: 'Show it at the till to earn points',
+        profileBody: 'Show it at the cashier to earn points',
+        // The Club tab's card view, signed out.
+        signInPitch: 'Sign in to get your member card and collect points at the cashier.',
       },
       home: {
         title: 'Points & rewards',
         balance: 'Points',
-        worth: 'Worth {amount} at the till',
+        worth: 'Worth {amount} at the cashier',
         lifetime: 'Earned so far: {points}',
-        minRedeem: 'Use points at the till from {points}.',
+        minRedeem: 'Use points at the cashier from {points}.',
         showCard: 'Show my member card',
         historyTitle: 'History',
         historyEmpty: 'No points yet. Show your member card when you pay to start earning.',
@@ -1204,7 +1211,7 @@ export const en = {
       history: {
         kind: {
           earn: 'Earned',
-          redeem: 'Used at the till',
+          redeem: 'Used at the cashier',
           redeem_void: 'Use cancelled',
           reward: 'Reward',
           adjust: 'Adjusted by the venue',
@@ -1215,7 +1222,7 @@ export const en = {
       },
       rewards: {
         title: 'Rewards',
-        note: 'Show your member card at the till to use a reward.',
+        note: 'Show your member card at the cashier to use a reward.',
         cost: 'Points: {points}',
         empty: 'No rewards right now.',
       },
@@ -1237,7 +1244,7 @@ export const en = {
         eyebrow: 'Touch Padel members',
         title: 'Your account',
         intro:
-          'Show your member card at the till to collect points on courts, lessons, the café and the shop.',
+          'Show your member card at the cashier to collect points on courts, lessons, the café and the shop.',
         loading: 'Loading…',
         unavailable: 'Your account can’t be opened on the website right now. Please use the app.',
         error: 'We couldn’t load your card and points. Check your connection and try again.',
@@ -1254,11 +1261,11 @@ export const en = {
         nextTier: '{points} more points in the next 12 months to reach {tier}',
         topTier: 'You’re at the top tier.',
         rewardsTitle: 'Rewards',
-        rewardsHint: 'Ask at the till to use your points or a reward.',
+        rewardsHint: 'Ask at the cashier to use your points or a reward.',
         rewardsEmpty: 'No rewards to show yet.',
         card: {
           title: 'Member card',
-          hint: 'Show this code at the till.',
+          hint: 'Show this code at the cashier.',
           qrLabel: 'Your member QR code',
           refresh: 'New code in {seconds} s',
           code: 'Member code',
@@ -1548,8 +1555,8 @@ export const en = {
       moveTitle: 'Move reservation',
       newCourt: 'New court',
       newStart: 'New start time',
-      shorten30: 'Shorten −30 min',
-      extend30: 'Extend +30 min',
+      shortenHour: 'Shorten −1 hour',
+      extendHour: 'Extend +1 hour',
       // SOW L313: every override carries a reason, not the 'staff_op' default.
       overrideReason: 'Reason for this change',
       unpriced: 'No rate',
@@ -1573,13 +1580,13 @@ export const en = {
       // 0352: a counter order to be brought over, before the cashier attached its table.
       noSpot: 'No table yet',
       sourceGuest: 'QR',
-      sourceTill: 'Till',
+      sourceTill: 'Café cashier',
       start: 'Start',
       ready: 'Ready',
       complete: 'Complete',
       voided: 'Voided',
-      lanMode: 'Offline — tickets arriving from the till over the local network.',
-      lanEmpty: 'Offline — waiting for tickets from the till over the local network.',
+      lanMode: 'Offline — tickets arriving from the café cashier over the local network.',
+      lanEmpty: 'Offline — waiting for tickets from the café cashier over the local network.',
       statusQueued: 'Queued',
       statusPreparing: 'Preparing',
       statusReady: 'Ready',
@@ -1897,10 +1904,10 @@ export const en = {
     },
     categories: {
       title: 'Categories',
-      lead: 'The sections of the menu, in the order the till and the guest menu show them.',
+      lead: 'The sections of the menu, in the order the café cashier and the guest menu show them.',
       photo: 'Category photo',
       photoHint: 'Wide (16 by 9), shown at the top of the category on the guest menu.',
-      active: 'Shown on the till and the guest menu',
+      active: 'Shown on the café cashier and the guest menu',
       activeHint: 'Switched off, the category is hidden and nothing in it can be ordered.',
       taxGroupHint: 'Sets the tax on every item in this category.',
       reorder: 'Reorder',
@@ -2160,10 +2167,10 @@ export const en = {
       closeBtn: 'Close day',
       blockedTabs: 'These tabs must be settled or voided first:',
       unsyncedTitle: 'Waiting to sync',
-      unsyncedHint: 'Anything waiting or sending will sync by itself once the station is online. Anything the server refused will never sync: check that tab at the till, then dismiss it here with a manager PIN.',
+      unsyncedHint: 'Anything waiting or sending will sync by itself once the station is online. Anything the server refused will never sync: check that tab at the café cashier, then dismiss it here with a manager PIN.',
       dismissRow: 'Dismiss',
       dismissTitle: 'Dismiss a change the server refused',
-      dismissLead: 'The server refused this change and trying again will not help. Dismissing it stops it holding up the day close. What it carried — an order, a payment — is NOT recorded, so check the tab at the till first.',
+      dismissLead: 'The server refused this change and trying again will not help. Dismissing it stops it holding up the day close. What it carried — an order, a payment — is NOT recorded, so check the tab at the café cashier first.',
       cashExpected: 'Cash expected',
       cashCounted: 'Cash counted',
       variance: 'Variance',
@@ -2191,7 +2198,7 @@ export const en = {
       NO_OPEN_DAY: 'No business day is open.',
       PREVIOUS_DAY_OPEN: 'Close the previous day before opening a new one.',
       DAY_OPEN_TABS: 'Open tabs remain — settle or void them before closing the day.',
-      DAY_UNSYNCED: 'A till still has queued offline writes — let it finish syncing.',
+      DAY_UNSYNCED: 'A café cashier still has queued offline writes — let it finish syncing.',
       INVALID_DURATIONS: 'Duration options must be 30–300 minutes in 15-minute steps.',
       COURT_HAS_FUTURE_RESERVATIONS:
         'This court still has upcoming bookings — move or cancel them at the desk first.',
@@ -2275,7 +2282,7 @@ export const en = {
       LAST_OPEN_BRANCH: 'This is the only open branch. Open another branch before closing it.',
       BRANCH_DAY_OPEN: 'Close this branch’s day before closing the branch.',
       STATION_RETIRED: 'This station was retired. Register it again in Settings → Venue details → Stations.',
-      STATION_HAS_HISTORY: 'This station name has till shifts at another branch. Pick another name.',
+      STATION_HAS_HISTORY: 'This station name has cashier shifts at another branch. Pick another name.',
       BRANCH_HAS_BOOKINGS: 'This branch still has bookings, lessons, holds or series to come. Cancel or move them first.',
       VENUE_CLOSED: 'This branch is closed.',
       NO_PIN_SET: 'This account has no PIN yet. Ask the owner to set one.',
@@ -2317,7 +2324,7 @@ export const en = {
       LABEL_REQUIRED: 'A counter sale needs a name or a number.',
       MIXED_BASKET: 'Café items and shop items go out as two orders. Send again.',
       SHOP_ITEM_NOT_ORDERABLE: 'Shop items are sold at the counter, not from the table.',
-      TAB_KIND_FORBIDDEN: 'This sale belongs to the other till: shop sales are rung up at the shop desk, café bills at the café till.',
+      TAB_KIND_FORBIDDEN: 'This sale belongs to the other cashier: shop sales are rung up at the shop desk, café bills at the café cashier.',
       TAB_KIND_MISMATCH: 'Shop items and café items never go on the same bill.',
       SHOP_TAB_NO_ANCHOR: 'A shop sale is paid at the shop desk; it never goes on a table or a booking.',
       DAY_NOT_FOUND: 'That day could not be found at this branch.',

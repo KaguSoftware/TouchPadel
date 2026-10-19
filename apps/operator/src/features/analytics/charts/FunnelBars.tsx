@@ -2,6 +2,8 @@
  * Engagement funnel — hand-rolled (no Recharts): a funnel is a list of shrinking
  * proportional bars plus a step-to-step drop-off, which plain flex boxes express
  * better than any chart primitive, and it keeps the lazy chunk smaller.
+ * The bars are centred on one axis, so the steps narrow like a funnel and the
+ * drop between two steps is the width that falls away on both sides.
  */
 import type { MessageKey } from '@touch/i18n';
 import { useLocale } from '../../../lib/i18n';
@@ -37,7 +39,7 @@ export function FunnelBars({ steps, f }: { steps: readonly FunnelStep[]; f: Form
                 {drop !== null && drop > 0 ? ` · −${f.num(drop)}%` : ''}
               </span>
             </div>
-            <div style={{ background: 'var(--tp-surface)', borderRadius: '0.25rem', blockSize: '1.1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', background: 'var(--tp-surface)', borderRadius: '0.25rem', blockSize: '1.5rem' }}>
               <div
                 style={{
                   inlineSize: `${Math.max(2, Math.round(ratio * 100))}%`,

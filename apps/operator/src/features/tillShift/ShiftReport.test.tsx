@@ -70,7 +70,7 @@ describe('the Till shifts view', () => {
     expect(periodDays('2026-06-01', '2026-09-26')).toBe(118);
     expect(periodDays('2026-08-01', '2026-10-01')).toBe(62);
     mount('2026-06-01', '2026-09-26');
-    expect(await screen.findByText('Till shifts show for up to 62 days at a time. Pick a shorter period.')).toBeTruthy();
+    expect(await screen.findByText('Cashier shifts show for up to 62 days at a time. Pick a shorter period.')).toBeTruthy();
     await waitFor(() => expect(rpc).not.toHaveBeenCalled());
   });
 });

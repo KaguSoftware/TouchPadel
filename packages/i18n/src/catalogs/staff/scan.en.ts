@@ -12,10 +12,10 @@ export const staffScanEn = {
   },
   slip: {
     title: 'Scan an order',
-    lead: 'Photograph the order slip, flat and in good light, with the table number on it. The till checks it and sends it to the kitchen.',
+    lead: 'Photograph the order slip, flat and in good light, with the table number on it. The café cashier checks it and sends it to the kitchen.',
     photo: 'Order slip',
-    send: 'Send to the till',
-    sent: 'Sent. The till has it.',
+    send: 'Send to the café cashier',
+    sent: 'Sent. The café cashier has it.',
     noPhoto: 'Take a photo of the slip first.',
     mine: 'My slips today',
     empty: 'Nothing sent today.',

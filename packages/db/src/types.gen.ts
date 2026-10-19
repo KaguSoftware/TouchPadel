@@ -1860,6 +1860,7 @@ export type Database = {
           p_actor_id: string
           p_customer_id: string
           p_full_name: string
+          p_gender?: string
           p_phone: string
           p_preferred_lang: string
         }
@@ -4730,6 +4731,15 @@ export type Database = {
         Returns: Json
       }
       slips_to_send: { Args: { p_venue_id?: string }; Returns: Json }
+      slot_gender_rules: {
+        Args: {
+          p_court_id: string
+          p_end_at: string
+          p_start_at: string
+          p_venue_id: string
+        }
+        Returns: string[]
+      }
       sms_send_gate: {
         Args: { p_phone_e164: string; p_purpose?: string; p_user_id?: string }
         Returns: Json
@@ -5330,6 +5340,22 @@ export type Database = {
           p_name_en: string
           p_photo_path?: string
           p_sort_order?: number
+        }
+        Returns: string
+      }
+      upsert_court_gender_rule: {
+        Args: {
+          p_court_id?: string
+          p_days_of_week: number[]
+          p_end_time: string
+          p_gender: string
+          p_id?: string
+          p_is_active?: boolean
+          p_name: string
+          p_start_time: string
+          p_valid_from?: string
+          p_valid_to?: string
+          p_venue_id?: string
         }
         Returns: string
       }
@@ -7667,6 +7693,69 @@ export type Database = {
           },
           {
             foreignKeyName: "courses_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      court_gender_rules: {
+        Row: {
+          court_id: string | null
+          created_at: string
+          days_of_week: number[]
+          end_time: string
+          gender: string
+          id: string
+          is_active: boolean
+          name: string
+          start_time: string
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+          venue_id: string
+        }
+        Insert: {
+          court_id?: string | null
+          created_at?: string
+          days_of_week: number[]
+          end_time: string
+          gender: string
+          id?: string
+          is_active?: boolean
+          name: string
+          start_time: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          venue_id?: string
+        }
+        Update: {
+          court_id?: string | null
+          created_at?: string
+          days_of_week?: number[]
+          end_time?: string
+          gender?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          start_time?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "court_gender_rules_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "court_gender_rules_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"

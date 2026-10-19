@@ -547,6 +547,7 @@
     "upsert_loyalty_reward",
     "upsert_loyalty_tier",
     "upsert_menu_category",
+    "upsert_court_gender_rule",
     "upsert_menu_item",
     "upsert_modifier",
     "upsert_modifier_group",

@@ -181,7 +181,8 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
 
       expect(screen.getByText(t('playProfile.survey.gender.question'))).toBeTruthy();
       expect(screen.getByText(t('playProfile.survey.gender.hint'))).toBeTruthy();
-      expect(screen.getByTestId('play-survey.gender.none')).toBeTruthy();
+      // A gender is a must (0353): there is no "prefer not to say".
+      expect(screen.queryByTestId('play-survey.gender.none')).toBeNull();
       // A tap only chooses: the answer is set once, so it waits for Done.
       fireEvent.press(screen.getByTestId('play-survey.gender.female'));
       expect(saves(rpc)).toEqual([]);
@@ -201,7 +202,7 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
     }
   });
 
-  it('"Prefer not to say" saves the play answers and writes no gender', async () => {
+  it('no gender answer saves the play answers and writes no gender (the gate asks later)', async () => {
     const rpc = jest.fn((_name: string, _args?: unknown) =>
       Promise.resolve({ data: { ...NEVER_ASKED, play_survey_at: ANSWERED.play_survey_at }, error: null }),
     );
@@ -216,7 +217,6 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
       fireEvent.press(screen.getByTestId('play-survey.next'));
       fireEvent.press(screen.getByTestId('play-survey.next'));
       fireEvent.press(screen.getByTestId('play-survey.next'));
-      fireEvent.press(screen.getByTestId('play-survey.gender.none'));
       await act(async () => {
         fireEvent.press(screen.getByTestId('play-survey.done'));
       });

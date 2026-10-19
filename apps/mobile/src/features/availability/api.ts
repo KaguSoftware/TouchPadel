@@ -8,7 +8,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import { wallTimeToUtc } from '@touch/core';
+import { wallTimeToUtc, type GenderRuleLike } from '@touch/core';
 import type {
   AvailabilityRow,
   CourtRow,
@@ -127,6 +127,21 @@ export async function fetchRateRules(client: Client, venueId: string): Promise<R
     .eq('venue_id', venueId);
   if (error) throw error;
   return (data ?? []) as RateRuleRow[];
+}
+
+/**
+ * One branch's active gender hours (0353, `court_gender_rules`): courts kept
+ * for women or men at set times. Guests read the active rows of open branches,
+ * as they read rate_rules; the server's triggers stay the authority.
+ */
+export async function fetchGenderRules(client: Client, venueId: string): Promise<GenderRuleLike[]> {
+  const { data, error } = await client
+    .from('court_gender_rules')
+    .select('id, court_id, gender, days_of_week, start_time, end_time, valid_from, valid_to, is_active')
+    .eq('venue_id', venueId)
+    .eq('is_active', true);
+  if (error) throw error;
+  return (data ?? []) as GenderRuleLike[];
 }
 
 /** Rule prices (no venue column: matched to the branch's rules by `rule_id`). */

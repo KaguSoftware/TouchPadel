@@ -34,7 +34,7 @@ afterEach(() => __resetSurveyShown());
 describe('shouldOpenSurvey (contracts §8)', () => {
   it('opens for a new account that landed on a tab and was never asked', () => {
     expect(shouldOpenSurvey(base)).toBe(true);
-    for (const pathname of ['/bookings', '/play', '/coaches']) {
+    for (const pathname of ['/bookings', '/play', '/club', '/coaches']) {
       expect(shouldOpenSurvey({ ...base, pathname })).toBe(true);
     }
   });

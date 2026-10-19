@@ -168,7 +168,10 @@ describe('CourtsTab', () => {
     // Cancellations and no-shows are one lead figure: 16 of 64 booked is 25%, both counts named.
     const lostTile = within(pulse).getByText('Cancelled or no-show').closest('div')!;
     expect(within(lostTile).getByText('25%', { selector: 'strong' })).toBeTruthy();
-    expect(within(lostTile).getByText('12 cancelled · 4 no-shows')).toBeTruthy();
+    // Both counts are named, each beside the colour key of its arc in the tile's ring.
+    expect(within(lostTile).getByText('12 cancelled')).toBeTruthy();
+    expect(within(lostTile).getByText('4 no-shows')).toBeTruthy();
+    expect(within(lostTile).getByRole('img', { name: '25% of bookings cancelled or not shown' })).toBeTruthy();
     // It was 10 of 50 (20%) before; a rate's change is never printed as a percent of a percent.
     expect(lostTile.textContent).toMatch(/was 20%/);
     expect(lostTile.textContent).not.toMatch(/\+5%/);

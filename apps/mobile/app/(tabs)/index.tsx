@@ -27,7 +27,7 @@ import { lerp, pitchEase, sampleCurve, sampleEased, SPEC, type Range } from '@to
 import { courtTopFraction, makeCamera, projectNet } from '@touch/court3d/camera';
 import { useReduceMotion } from '../../src/lib/useReduceMotion';
 import { brand, radius, space, useTheme, withAlpha } from '../../src/theme';
-import { Screen, Title } from '../../src/components/ui';
+import { Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { AccountButton } from '../../src/components/AccountButton';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -61,26 +61,6 @@ const BACK_GAP = 8;
  */
 const PICK_PILL_PAD_X = 16;
 const PICK_PILL_PAD_Y = 9;
-/**
- * Extra air above the title row.
- *
- * The capsule pulls itself back up by its own PAD_Y so it grows around the
- * line rather than pushing it down, which leaves its plate's top edge close to
- * whatever is above the row (the logo row, until the logo moved to the court's
- * turf on 2026-09-26; now the status bar). That was fine while the capsule
- * barely had an edge; with real glass, and its bright rim on iOS 26, the
- * boundary is visible and reads as crowded.
- *
- * It goes on the ROW, not on the capsule. Both headings then take it together,
- * which is what keeps BOOK A COURT and PICK A TIME cross-fading in place: they
- * overlap on the same slice (SPEC.back.fade), so a capsule whose text sat lower
- * than the heading it replaces would visibly drift against it mid-transition.
- *
- * Android takes more of it: its status-bar inset stops right at the icons,
- * with none of the spare room iOS's inset has under the Dynamic Island, so the
- * title and the open-now pill sat against the status bar (owner, 2026-09-29).
- */
-const PICK_PILL_TOP_AIR = android ? 14 : 10;
 /**
  * How far the capsule's backdrop sits BELOW the box that measures the text.
  *
@@ -975,10 +955,13 @@ export default function BookHomeScreen() {
             paddingStart: space.l,
             paddingEnd: space.l,
             // The capsule pulls itself up by its own PAD_Y round the heading,
-            // and on iOS its glass rim wants air above it. The air goes on the
-            // WHOLE row, so both headings take it together and BOOK A COURT ⇄
-            // PICK A TIME still cross-fade in place.
-            paddingTop: 10 + PICK_PILL_TOP_AIR,
+            // which leaves its glass rim close to the status bar; the air above
+            // it is the same TAB_TITLE_TOP every tab's title row takes, so the
+            // account avatar holds its line from tab to tab. It goes on the
+            // WHOLE row, not the capsule, so both headings take it together and
+            // BOOK A COURT ⇄ PICK A TIME still cross-fade in place (they overlap
+            // on SPEC.back.fade's slice).
+            paddingTop: TAB_TITLE_TOP,
             flexDirection: 'row',
             alignItems: 'flex-start',
           }}

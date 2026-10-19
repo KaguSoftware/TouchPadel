@@ -17,7 +17,10 @@ import { FigureGroup, FigureLine, Kpi } from '../../cards/Kpi';
 import { CardShell } from '../../cards/CardShell';
 import { ChartCard } from '../../charts/ChartCard';
 import { CountBars } from '../../charts/CountBars';
-import { HBarChart } from '../../charts/HBarChart';
+import { Donut, RingMeter } from '../../charts/Donut';
+import { TrendArea } from '../../charts/TrendArea';
+import { useChartColors } from '../../charts/colors';
+import { daySeries } from '../../spark';
 import { barTwin } from '../../charts/twins';
 import { MoreCharts, ZoneGrid, gridColumns } from '../../Zone';
 import type { Formatters } from '../../format';
@@ -40,6 +43,7 @@ export function ShopSection({
   courtFiltered: boolean;
 }) {
   const { tr, locale } = useLocale();
+  const { SERIES_1, SERIES_2, SERIES_3, BAR_MUTED } = useChartColors();
   const k = shop.current?.kpis;
   const kp = shop.previous?.kpis ?? null;
   const loading = shop.state === 'loading';
@@ -56,8 +60,16 @@ export function ShopSection({
   const days = fillShopDays(range.from, range.to, shop.current?.byDay ?? []);
   const dayRows = days.map((d) => ({ label: f.date(d.date), value: d.netIqd }));
   const hourRows = (shop.current?.byHour ?? []).map((h) => ({ label: f.hour(h.hour), value: h.netIqd }));
-  // The server sorts sections by revenue: the first is the one to emphasise.
-  const sectionRows = (shop.current?.categories ?? []).map((c, i) => ({ label: pickLocale({ en: c.nameEn, ar: c.nameAr }, locale) || c.categoryId, value: c.netIqd, highlight: i === 0 }));
+  // The server sorts sections by revenue. The ring shows the first three and folds the rest into
+  // "Other" (dataviz: no more than four parts, a fourth hue is never generated); the table twin keeps every section.
+  const sectionRows = (shop.current?.categories ?? []).map((c) => ({ label: pickLocale({ en: c.nameEn, ar: c.nameAr }, locale) || c.categoryId, value: c.netIqd, key: c.categoryId }));
+  const SECTION_COLORS = [SERIES_1, SERIES_2, SERIES_3];
+  const rest = sectionRows.slice(3).reduce((n, r) => n + Math.max(0, r.value), 0);
+  const sectionSlices = [
+    ...sectionRows.slice(0, 3).map((r, i) => ({ key: r.key, label: r.label, value: r.value, color: SECTION_COLORS[i]! })),
+    ...(rest > 0 ? [{ key: 'other', label: tr('ws.analytics.viz.other'), value: rest, color: BAR_MUTED }] : []),
+  ];
+  const salesSpark = daySeries(range, shop.current?.byDay, (d) => d.netIqd, (d) => f.date(d), f.compact);
   const items = (shop.current?.items ?? []).slice(0, TOP_PRODUCTS);
   const productName = (i: ShopItem) => {
     const name = pickLocale({ en: i.nameEn, ar: i.nameAr }, locale) || i.itemId;
@@ -88,6 +100,7 @@ export function ShopSection({
           delta={delta((x) => x.netIqd)}
           previous={was(kp?.netIqd, f.money)}
           tip={tr('ws.analytics.shop.tips.sales')}
+          spark={salesSpark}
           note={k && k.sales > 0 ? tr('ws.analytics.shop.note.methods', { cash: f.compact(k.cashIqd), card: f.compact(k.cardIqd) }) : undefined}
           {...common}
         />
@@ -98,6 +111,11 @@ export function ShopSection({
           delta={delta((x) => x.marginIqd)}
           previous={was(kp?.marginIqd, f.money)}
           tip={tr('ws.analytics.shop.tips.margin')}
+          aside={
+            k?.marginPct == null ? undefined : (
+              <RingMeter pct={k.marginPct} size={52} label={tr('ws.analytics.viz.meter', { label: tr('ws.analytics.shop.kpi.margin'), pct: f.pct(k.marginPct) })} />
+            )
+          }
           note={
             k && k.units > 0
               ? k.costedUnits > 0
@@ -154,7 +172,7 @@ export function ShopSection({
           height={220}
           twin={barTwin(dayRows, tr('ws.analytics.shop.cols.day'), tr('ws.analytics.shop.cols.revenue'), `shop-by-day-${rangeLabel}`)}
         >
-          <CountBars rows={dayRows} format={(n) => f.compact(n)} name={tr('ws.analytics.shop.cols.revenue')} interval={dayRows.length > 14 ? Math.ceil(dayRows.length / 10) - 1 : 0} />
+          <TrendArea rows={dayRows} format={(n) => f.compact(n)} name={tr('ws.analytics.shop.cols.revenue')} interval={dayRows.length > 14 ? Math.ceil(dayRows.length / 10) - 1 : 0} />
         </ChartCard>
         <CardShell
           title={tr('ws.analytics.shop.cards.products')}
@@ -185,10 +203,18 @@ export function ShopSection({
             state={sectionRows.length === 0 && state === 'ready' ? 'empty' : state}
             refreshing={shop.refreshing}
             emptyKey="ws.analytics.shop.empty"
-            height={Math.max(120, 40 * sectionRows.length + 40)}
+            height={200}
             twin={barTwin(sectionRows, tr('ws.analytics.shop.cards.sections'), tr('ws.analytics.shop.cols.revenue'), `shop-by-section-${rangeLabel}`)}
           >
-            <HBarChart rows={sectionRows} format={(n) => f.compact(n)} name={tr('ws.analytics.shop.cols.revenue')} axisWidth={110} />
+            <Donut
+              slices={sectionSlices}
+              format={(n) => f.compact(n)}
+              pct={(n) => f.pct(n)}
+              total={f.compact(sectionRows.reduce((n, r) => n + Math.max(0, r.value), 0))}
+              caption={tr('ws.analytics.shop.cols.revenue')}
+              label={tr('ws.analytics.shop.cards.sections')}
+              size={150}
+            />
           </ChartCard>
         </ZoneGrid>
       </MoreCharts>

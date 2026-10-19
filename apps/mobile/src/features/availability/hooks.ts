@@ -10,6 +10,7 @@ import {
   fetchAvailabilityWindow,
   fetchBranches,
   fetchCourts,
+  fetchGenderRules,
   fetchIsDegraded,
   fetchRatePrices,
   fetchRateRules,
@@ -115,6 +116,21 @@ export function useRateRules(venueId: string | null) {
   return useQuery({
     queryKey: availabilityKeys.rates(venueId ?? ''),
     queryFn: () => fetchRateRules(supabase, venueId!),
+    enabled: !!venueId,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * One branch's active gender hours (0353), read like the rate rules. Not one
+ * of the grid's own queries: a failed read (a database without 0353 yet)
+ * paints no tags and never turns the grid into an error. The server refuses a
+ * kept slot whatever this says.
+ */
+export function useGenderRules(venueId: string | null) {
+  return useQuery({
+    queryKey: availabilityKeys.genderRules(venueId ?? ''),
+    queryFn: () => fetchGenderRules(supabase, venueId!),
     enabled: !!venueId,
     staleTime: 5 * 60_000,
   });

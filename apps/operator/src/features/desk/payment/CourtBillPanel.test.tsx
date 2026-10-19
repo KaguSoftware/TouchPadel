@@ -158,7 +158,7 @@ describe('CourtBillView', () => {
 
   it('money owed back: the desk is told a manager refunds it, and is offered no payment and no till', () => {
     view(bill({ court_paid_iqd: 30000, court_remaining_iqd: 0, court_refund_due_iqd: 10000 }));
-    expect(screen.getByText(/A manager refunds it at the till/)).toBeTruthy();
+    expect(screen.getByText(/A manager refunds it at the café cashier/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Open on till' })).toBeNull();
   });

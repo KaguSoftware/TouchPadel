@@ -6850,4 +6850,33 @@ export const matrix: MatrixRule[] = [
     note: '0344: the owner; an unknown advance is REF_NOT_FOUND',
     drop: 35,
   },
+  // ── 0353 court_gender_rules ──
+  {
+    kind: 'rpc', schema: 'app', name: 'upsert_court_gender_rule',
+    // A named court that does not exist -> COURT_NOT_FOUND. Leaving p_court_id
+    // null would make it a rule for every court, created for real.
+    args: {
+      p_name: 'matrix probe', p_gender: 'female', p_days_of_week: [1], p_start_time: '10:00',
+      p_end_time: '11:00', p_court_id: NIL_UUID,
+    },
+    expect: MANAGER_UP,
+    note: '0353: manager or owner; a nil court is COURT_NOT_FOUND past the guard, nothing is written',
+    drop: 36,
+  },
+  {
+    kind: 'select',
+    name: 'court_gender_rules',
+    expect: ex<SelectExpectation>('silence'),
+    note: '0353: guests read the active rules of open branches, staff their branches\'; no probe row is planted, so every principal reads silence',
+    drop: 36,
+  },
+  {
+    kind: 'write',
+    name: 'court_gender_rules',
+    op: 'insert',
+    payload: { name: 'matrix', gender: 'female', days_of_week: [1], start_time: '10:00', end_time: '11:00' },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0353: no client write grant; app.upsert_court_gender_rule only',
+    drop: 36,
+  },
 ];

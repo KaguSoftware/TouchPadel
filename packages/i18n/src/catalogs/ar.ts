@@ -18,6 +18,7 @@ import { playAr } from './play.ar';
 import { coachShowcaseAr } from './showcase.ar';
 import { seatingAr } from './seating.ar';
 import { playProfileAr } from './playProfile.ar';
+import { guestGenderAr } from './guestGender.ar';
 
 /**
  * Arabic (Iraq) message catalog. Mirrors `en.ts` key-for-key — the `Messages`
@@ -203,7 +204,7 @@ export const ar: Messages = {
     appName: 'تتش بادل · التشغيل',
     home: 'اختر شاشة من القائمة.',
   },
-  till: { title: 'الصندوق' },
+  till: { title: 'كاشير الكافيه' },
   desk: { title: 'تقويم مكتب الملاعب' },
   kds: { title: 'شاشة المطبخ' },
   stock: { title: 'المخزون' },
@@ -260,7 +261,7 @@ export const ar: Messages = {
       orders: 'الطلبات',
       avgOrderValue: 'متوسط قيمة الطلب',
       qrShare: 'حصة QR من الطلبات',
-      qrSplit: '{qr} QR · {till} صندوق',
+      qrSplit: '{qr} QR · {till} كاشير',
       views: 'مشاهدات المنيو',
       median: 'وسيط مدة الجلسة',
       calls: 'نداءات النادل',
@@ -294,7 +295,7 @@ export const ar: Messages = {
       generatedAt: 'أُنشئ في {date}',
       empty: 'لا استنتاجات لهذه الفترة بعد. اطلب استنتاجات لتُقرأ لك الأرقام.',
       degraded: 'نموذج الذكاء الاصطناعي غير متاح، فكُتبت هذه الاستنتاجات من قوالب جاهزة تعتمد على الأرقام نفسها.',
-      source: 'المصدر: مبيعات الصندوق وتحليلات منيو الضيوف، بمراجعة الذكاء الاصطناعي',
+      source: 'المصدر: مبيعات كاشير الكافيه وتحليلات منيو الضيوف، بمراجعة الذكاء الاصطناعي',
       replacing: 'جارٍ البحث عن استنتاج بديل…',
       basisCopy: {
         salesDays: 'الأيام ذات المبيعات ({s}/{r})',
@@ -377,7 +378,7 @@ export const ar: Messages = {
       hiddenGem: 'جوهرة مخفية',
       onlyHiddenGems: 'الجواهر المخفية فقط',
       csv: 'تصدير',
-      howToRead: 'المشاهدات من منيو QR، والمبيعات من الصندوق وتشمل ضيوفًا لم يمسحوا الرمز أصلًا.',
+      howToRead: 'المشاهدات من منيو QR، والمبيعات من كاشير الكافيه وتشمل ضيوفًا لم يمسحوا الرمز أصلًا.',
       showAll: 'عرض الكل',
       showLess: 'عرض أقل',
       searchItems: 'ابحث عن صنف…',
@@ -702,6 +703,8 @@ export const ar: Messages = {
     play: 'انضم',
     coaches: 'المدربون',
     profile: 'حسابي',
+    // The centre tab (2026-10-19): the member card and the café menu (app/(tabs)/club.tsx).
+    club: 'النادي',
   },
   profile: {
     title: 'حسابي',
@@ -788,7 +791,6 @@ export const ar: Messages = {
     photoUnavailable: 'حدّث التطبيق لإضافة صورة للملف الشخصي.',
     photoCameraOff: 'الوصول إلى الكاميرا متوقف لتطبيق تتش بادل. فعّله من الإعدادات.',
     genderSection: 'الجنس',
-    genderPreferNot: 'أفضّل عدم الإفصاح',
     genderConfirmTitle: 'تحديد الجنس: {value}؟',
     genderConfirmBody: 'لن تتمكن من تغيير هذا بنفسك. يمكن لمكتب الاستقبال تصحيحه.',
     genderConfirm: 'تحديد',
@@ -1031,7 +1033,7 @@ export const ar: Messages = {
   },
   download: {
     title: 'Touch Padel Operator',
-    lead: 'تطبيق الصندوق ومكتب الملاعب وشاشة المطبخ لموظفي تتش بادل. يثبّت نفسه ويتلقّى التحديثات تلقائيًا.',
+    lead: 'تطبيق كاشير الكافيه ومكتب الملاعب وشاشة المطبخ لموظفي تتش بادل. يثبّت نفسه ويتلقّى التحديثات تلقائيًا.',
     windowsButton: 'تنزيل لنظام Windows',
     macArmButton: 'تنزيل لأجهزة Mac (Apple silicon)',
     macIntelButton: 'تنزيل لأجهزة Mac (Intel)',
@@ -1058,6 +1060,7 @@ export const ar: Messages = {
   coachShowcase: coachShowcaseAr,
   seating: seatingAr,
   playProfile: playProfileAr,
+  guestGender: guestGenderAr,
   // Loyalty (build-contracts-2026-10-05 §4). DRAFT-AR: on the client's review list.
   loyalty: {
     guest: {
@@ -1077,6 +1080,8 @@ export const ar: Messages = {
         error: 'تعذّر تحميل بطاقة العضوية.',
         profileTitle: 'بطاقة العضوية',
         profileBody: 'اعرضها عند الكاشير لتجمع النقاط',
+        // The Club tab's card view, signed out.
+        signInPitch: 'سجّل الدخول لتحصل على بطاقة العضوية وتجمع النقاط عند الكاشير.',
       },
       home: {
         title: 'النقاط والمكافآت',
@@ -1404,8 +1409,8 @@ export const ar: Messages = {
       moveTitle: 'نقل الحجز',
       newCourt: 'الملعب الجديد',
       newStart: 'وقت البدء الجديد',
-      shorten30: 'تقصير 30 دقيقة',
-      extend30: 'تمديد 30 دقيقة',
+      shortenHour: 'تقصير ساعة',
+      extendHour: 'تمديد ساعة',
       // SOW L313: every override carries a reason, not the 'staff_op' default.
       overrideReason: 'سبب هذا التغيير',
       unpriced: 'دون سعر',
@@ -1427,12 +1432,12 @@ export const ar: Messages = {
       pickup: 'استلام',
       noSpot: 'لا طاولة بعد',
       sourceGuest: 'QR',
-      sourceTill: 'الصندوق',
+      sourceTill: 'كاشير الكافيه',
       start: 'بدء',
       ready: 'جاهز',
       complete: 'إنهاء',
-      lanMode: 'دون اتصال. تصل التذاكر من الصندوق عبر الشبكة المحلية.',
-      lanEmpty: 'دون اتصال. بانتظار التذاكر من الصندوق عبر الشبكة المحلية.',
+      lanMode: 'دون اتصال. تصل التذاكر من كاشير الكافيه عبر الشبكة المحلية.',
+      lanEmpty: 'دون اتصال. بانتظار التذاكر من كاشير الكافيه عبر الشبكة المحلية.',
       voided: 'ملغى',
       statusQueued: 'في الانتظار',
       statusPreparing: 'قيد التحضير',
@@ -1739,10 +1744,10 @@ export const ar: Messages = {
     },
     categories: {
       title: 'الفئات',
-      lead: 'أقسام المنيو، بالترتيب الذي يعرضه الصندوق ومنيو الضيوف.',
+      lead: 'أقسام المنيو، بالترتيب الذي يعرضه كاشير الكافيه ومنيو الضيوف.',
       photo: 'صورة الفئة',
       photoHint: 'صورة عريضة (16 إلى 9) تظهر أعلى الفئة في منيو الضيوف.',
-      active: 'تظهر في الصندوق ومنيو الضيوف',
+      active: 'تظهر في كاشير الكافيه ومنيو الضيوف',
       activeHint: 'عند إيقافها تختفي الفئة ولا يمكن طلب أي صنف منها.',
       taxGroupHint: 'تحدد الضريبة التي تُطبَّق على كل صنف في هذه الفئة.',
       reorder: 'إعادة الترتيب',
@@ -2001,10 +2006,10 @@ export const ar: Messages = {
       closeBtn: 'إغلاق اليوم',
       blockedTabs: 'يجب تسوية هذه الفواتير أو إلغاؤها أولًا:',
       unsyncedTitle: 'بانتظار المزامنة',
-      unsyncedHint: 'ما ينتظر الإرسال أو يُرسل الآن سيتزامن تلقائيًا عند اتصال المحطة. أما ما رفضه الخادم فلن يتزامن أبدًا: تحقق من تلك الفاتورة في الصندوق، ثم استبعده هنا بالرقم السري للمدير.',
+      unsyncedHint: 'ما ينتظر الإرسال أو يُرسل الآن سيتزامن تلقائيًا عند اتصال المحطة. أما ما رفضه الخادم فلن يتزامن أبدًا: تحقق من تلك الفاتورة في كاشير الكافيه، ثم استبعده هنا بالرقم السري للمدير.',
       dismissRow: 'استبعاد',
       dismissTitle: 'استبعاد تغيير رفضه الخادم',
-      dismissLead: 'رفض الخادم هذا التغيير ولن تفيد إعادة المحاولة. باستبعاده لا يعود يمنع إغلاق اليوم. ما كان يحمله من طلب أو دفعة لن يُسجَّل، فتحقق من الفاتورة في الصندوق أولًا.',
+      dismissLead: 'رفض الخادم هذا التغيير ولن تفيد إعادة المحاولة. باستبعاده لا يعود يمنع إغلاق اليوم. ما كان يحمله من طلب أو دفعة لن يُسجَّل، فتحقق من الفاتورة في كاشير الكافيه أولًا.',
       cashExpected: 'النقد المتوقع',
       cashCounted: 'النقد المعدود',
       variance: 'الفرق',
@@ -2115,7 +2120,7 @@ export const ar: Messages = {
       LAST_OPEN_BRANCH: 'هذا هو الفرع المفتوح الوحيد. افتح فرعًا آخر قبل إغلاقه.',
       BRANCH_DAY_OPEN: 'أغلق يوم هذا الفرع قبل إغلاق الفرع.',
       STATION_RETIRED: 'أُوقفت هذه المحطة. سجّلها من جديد من الإعدادات ← تفاصيل المكان ← المحطات.',
-      STATION_HAS_HISTORY: 'لاسم هذه المحطة ورديات صندوق في فرع آخر. اختر اسمًا آخر.',
+      STATION_HAS_HISTORY: 'لاسم هذه المحطة ورديات كاشير في فرع آخر. اختر اسمًا آخر.',
       BRANCH_HAS_BOOKINGS: 'لا تزال لهذا الفرع حجوزات أو حصص أو حجوزات مؤقتة أو سلاسل قادمة. ألغها أو انقلها أولًا.',
       VENUE_CLOSED: 'هذا الفرع مغلق.',
       NO_PIN_SET: 'لا يوجد رقم سري لهذا الحساب بعد. اطلب من المالك تحديده.',
@@ -2156,7 +2161,7 @@ export const ar: Messages = {
       LABEL_REQUIRED: 'البيع على الكاونتر يحتاج اسمًا أو رقمًا.',
       MIXED_BASKET: 'تُرسل أصناف الكافيه ومنتجات المتجر كطلبين منفصلين. أعد الإرسال.',
       SHOP_ITEM_NOT_ORDERABLE: 'منتجات المتجر تُباع على الكاونتر، لا من الطاولة.',
-      TAB_KIND_FORBIDDEN: 'هذا البيع يخص صندوقًا آخر: مبيعات المتجر تُسجَّل في مكتب المتجر، وفواتير الكافيه في صندوق الكافيه.',
+      TAB_KIND_FORBIDDEN: 'هذا البيع يخص كاشيرًا آخر: مبيعات المتجر تُسجَّل في مكتب المتجر، وفواتير الكافيه في كاشير الكافيه.',
       TAB_KIND_MISMATCH: 'لا تُجمع منتجات المتجر وأصناف الكافيه في فاتورة واحدة.',
       SHOP_TAB_NO_ANCHOR: 'بيع المتجر يُدفع في مكتب المتجر، ولا يمكن إضافته إلى طاولة أو حجز.',
       DAY_NOT_FOUND: 'تعذّر العثور على هذا اليوم في هذا الفرع.',

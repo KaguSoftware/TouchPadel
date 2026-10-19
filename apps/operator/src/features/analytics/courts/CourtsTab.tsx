@@ -166,7 +166,7 @@ export function CourtsTab() {
       <Notices notices={notices} onRetry={state.error != null ? data.refetchAll : undefined} />
 
       <Zone zone={zone('pulse')} headInFrame>
-        <PulseSection {...section(NEEDS.pulse)} venue={venue} shop={shop} openDrill={drill.open} courtId={data.courtId ?? null} />
+        <PulseSection {...section(NEEDS.pulse)} venue={venue} shop={shop} openDrill={drill.open} courtId={data.courtId ?? null} range={data.range} />
       </Zone>
 
       <Zone zone={zone('insights')} actions={insightsRow.pager}>

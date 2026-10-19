@@ -71,7 +71,7 @@ export const staffRewardsEn = {
     /** Under a bonus reached last month: the wage month it is paid in ("Added to your November wage"). */
     inWage: 'Added to your {month} wage',
     howTitle: 'How it counts',
-    how: 'Every order you place on the till or on this phone counts, at this branch. A voided order does not. The count starts again with each new month.',
+    how: 'Every order you place at the café cashier or on this phone counts, at this branch. A voided order does not. The count starts again with each new month.',
     empty: 'No rewards yet. When the owner sets one for you, it shows here and on Today.',
     loadFailed: 'Your rewards could not be loaded.',
   },

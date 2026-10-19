@@ -44,6 +44,7 @@ const KEYWORDS: Partial<Record<NavLabelKey, readonly string[]>> = {
   rewards: ['rewards', 'bonus', 'prize', 'مكافأة', 'جائزة'],
   deductions: ['penalty', 'fine', 'غرامة', 'عقوبة'],
   rates: ['court price', 'peak', 'hourly', 'rate', 'سعر الملعب', 'ذروة'],
+  genderHours: ['women only', 'men only', 'ladies', 'gender', 'للسيدات', 'للرجال', 'نساء'],
   menuItems: ['price', 'item', 'drink', 'food', 'سعر', 'صنف', 'مشروب'],
   categories: ['categories', 'الفئات'],
   addons: ['add-ons', 'addons', 'modifiers', 'extra'],

@@ -217,10 +217,10 @@ describe('ReservationActionsDialog', () => {
 
   it('carries the chosen reason on an override (SOW L313)', async () => {
     const user = userEvent.setup();
-    wrap(<ReservationActionsDialog reservation={booking({ id: 'r1', end_at: at(21 * 60 + 30).toISOString() })} courts={courts} date={DATE} tz={TZ} rows={rows} onClose={vi.fn()} onChanged={vi.fn()} />);
+    wrap(<ReservationActionsDialog reservation={booking({ id: 'r1', end_at: at(22 * 60).toISOString() })} courts={courts} date={DATE} tz={TZ} rows={rows} onClose={vi.fn()} onChanged={vi.fn()} />);
     await user.click(screen.getByRole('combobox', { name: 'Reason for this change' }));
     await user.click(within(screen.getByRole('listbox')).getByRole('option', { name: 'Weather' }));
-    await user.click(screen.getByRole('button', { name: 'Shorten −30 min' }));
+    await user.click(screen.getByRole('button', { name: 'Shorten −1 hour' }));
     await waitFor(() => expect(mutate).toHaveBeenCalledWith('reservation.update', expect.objectContaining({ action: 'extend', reservationId: 'r1', reason: 'weather' })));
   });
 });
@@ -492,7 +492,7 @@ describe('ReservationActionsDialog — a lesson (§5.8)', () => {
   const rows = [19 * 60, 20 * 60, 21 * 60];
   const lessonRow = booking({ id: 'lr', kind: 'lesson', guest_name: 'Lesson', price_iqd: null, end_at: at(21 * 60 + 30).toISOString() });
   /** Every control the booking branch offers; none of them may show for a lesson (R7, R35). */
-  const BOOKING_ACTIONS = ['Mark arrived', 'Mark complete', 'Mark no-show', 'Move', 'Cancel booking', 'Shorten −30 min', 'Extend +30 min', 'Take payment', 'Open booking'];
+  const BOOKING_ACTIONS = ['Mark arrived', 'Mark complete', 'Mark no-show', 'Move', 'Cancel booking', 'Shorten −1 hour', 'Extend +1 hour', 'Take payment', 'Open booking'];
   const footerButtons = () => screen.getAllByRole('button').map((b) => b.textContent?.trim()).filter(Boolean);
 
   it('shows the lesson’s summary and offers only Open lesson', async () => {

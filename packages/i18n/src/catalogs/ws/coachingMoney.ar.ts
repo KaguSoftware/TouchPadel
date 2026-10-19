@@ -12,7 +12,7 @@ import type { coachingMoneyEn } from './coachingMoney.en';
 export const coachingMoneyAr: DeepMessages<typeof coachingMoneyEn> = {
   coachPay: {
     title: 'مستحقات المدرّبين',
-    lead: 'كشف حساب شهري لكل مدرّب: ما حُصّل عن حصصه بعد خصم أجرة الملعب، ونصيبه من الباقي. يُسلَّم المبلغ خارج الصندوق.',
+    lead: 'كشف حساب شهري لكل مدرّب: ما حُصّل عن حصصه بعد خصم أجرة الملعب، ونصيبه من الباقي. يُسلَّم المبلغ خارج الكاشير.',
     month: {
       thisMonth: 'أحدث شهر',
     },
@@ -152,7 +152,7 @@ export const coachingMoneyAr: DeepMessages<typeof coachingMoneyEn> = {
       deskRefunded: 'المردود في الاستقبال اليوم أيًّا كان يوم الدفع (من الصندوق)',
       owed: 'حصص عُقدت ولم تُدفع',
       refundsDueDesk: 'مبالغ مستحقة الرد في الاستقبال',
-      owedToCoaches: 'مستحق للمدرّبين عن حصص اليوم (يُدفع خارج الصندوق)',
+      owedToCoaches: 'مستحق للمدرّبين عن حصص اليوم (يُدفع خارج الكاشير)',
     },
   },
   reports: {
@@ -220,7 +220,7 @@ export const coachingMoneyAr: DeepMessages<typeof coachingMoneyEn> = {
   },
   panel: {
     title: 'الحصص',
-    owedToCoachesHint: 'يُدفع خارج الصندوق',
+    owedToCoachesHint: 'يُدفع خارج الكاشير',
   },
   deposits: {
     lessonRow: 'رد مبلغ حصة · {name}',

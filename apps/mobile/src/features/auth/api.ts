@@ -40,6 +40,12 @@ export interface SignUpArgs {
    * the code or link is confirmed; useTermsGate records it then.
    */
   termsVersion?: string;
+  /**
+   * 0353: the gender every account must have. Rides in the metadata for the
+   * same reason as the terms: no session until the code or link is confirmed;
+   * useGenderGate records it through app.set_my_gender once one lands.
+   */
+  gender?: 'female' | 'male';
 }
 
 /** "First Last" — profiles keeps one name column; the parts also ride in metadata. */
@@ -56,6 +62,7 @@ function signUpMetadata(args: SignUpArgs) {
     phone: args.phone,
     preferred_lang: args.preferredLang,
     ...(args.termsVersion ? { terms_version: args.termsVersion } : {}),
+    ...(args.gender ? { gender: args.gender } : {}),
   };
 }
 
@@ -192,6 +199,7 @@ export async function signOut(client: Client) {
 export type SignUpValidation =
   | 'FIRST_NAME_REQUIRED'
   | 'LAST_NAME_REQUIRED'
+  | 'GENDER_REQUIRED'
   | 'EMAIL_INVALID'
   | 'PHONE_REQUIRED'
   | 'PASSWORD_TOO_SHORT'
@@ -200,21 +208,24 @@ export type SignUpValidation =
 export const PASSWORD_MIN = 8;
 
 /**
- * In the form's order — first name, surname, (email), phone, password — so
- * the guest is corrected top to bottom. `email` is checked only when the form
- * has an email field (the email segment); the phone segment passes none. The
- * phone's LENGTH rule is the phone field's own (validatePhoneInput), checked by
- * the screen after this.
+ * In the form's order — first name, surname, gender, (email), phone,
+ * password — so the guest is corrected top to bottom. `email` is checked only
+ * when the form has an email field (the email segment); the phone segment
+ * passes none. `gender` likewise only when the form asks it (0353: null is
+ * "not chosen yet"). The phone's LENGTH rule is the phone field's own
+ * (validatePhoneInput), checked by the screen after this.
  */
 export function validateSignUp(args: {
   firstName: string;
   lastName: string;
+  gender?: 'female' | 'male' | null;
   email?: string;
   phoneNational: string;
   password: string;
 }): SignUpValidation {
   if (!args.firstName.trim()) return 'FIRST_NAME_REQUIRED';
   if (!args.lastName.trim()) return 'LAST_NAME_REQUIRED';
+  if (args.gender === null) return 'GENDER_REQUIRED';
   if (args.email !== undefined && !isValidEmail(args.email)) return 'EMAIL_INVALID';
   if (!args.phoneNational.trim()) return 'PHONE_REQUIRED';
   if (args.password.length < PASSWORD_MIN) return 'PASSWORD_TOO_SHORT';

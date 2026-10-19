@@ -11,7 +11,7 @@ export const incidentsEn = {
   leadStation:
     'Report an accident, an injury, a fight or damage here. A manager reviews every report.',
   leadReview:
-    'Reports from the desk, the till and staff phones. Review each one with a note the reporter reads.',
+    'Reports from the desk, the café cashier and staff phones. Review each one with a note the reporter reads.',
   filterLabel: 'Show reports',
   filter: {
     open: 'To review',

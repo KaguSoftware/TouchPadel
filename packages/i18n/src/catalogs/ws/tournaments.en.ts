@@ -265,10 +265,10 @@ export const tournamentsEn = {
   },
   refundsDue: {
     title: 'Refunds due',
-    lead: 'Each is taken back through the till, on the payment it was paid with.',
+    lead: 'Each is taken back through the café cashier, on the payment it was paid with.',
     empty: 'Nothing is due back.',
     row: '{name}: {amount}',
-    openTill: 'Open the till',
+    openTill: 'Open the café cashier',
   },
   calendar: {
     blockLabel: 'Tournament: {name}',

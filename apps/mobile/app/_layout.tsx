@@ -40,6 +40,7 @@ import { StaffScreenGuard } from '../src/features/staff/screenGuard/StaffScreenG
 import { StaffActivityPing } from '../src/features/staff/activity/StaffActivityPing';
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { usePlaySurveyPrompt } from '../src/features/playProfile/usePlaySurveyPrompt';
+import { useGenderGate } from '../src/features/auth/useGenderGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { usePendingPaymentResume } from '../src/features/deposit/hooks';
@@ -194,6 +195,10 @@ function RootStack() {
   // pending slot, match or lesson intent, never for staff. Here, beside the
   // terms gate, so no sign-up path or continuation has to know about it.
   usePlaySurveyPrompt();
+  // A gender for every account (0353): records the sign-up form's answer once
+  // the session lands, and sends a guest without one to complete-profile on a
+  // calm landing on the tabs, once per launch. Never staff (genderGate.ts).
+  useGenderGate();
   // Push registration lives HERE, under AuthProvider, because it needs the live
   // session: the server drops a notification on the floor when the profile
   // holds no token (migration 0075's trigger returns early and nothing

@@ -166,7 +166,7 @@ export const matchesEn = {
       ticket_used: 'The ticket that came back has already been used in another match.',
       court_reused: 'The court was booked again after this match closed.',
       replaced: 'Someone has taken this seat since, so the no-show stays.',
-      paid: 'This player has paid. Refund the payment at the till before marking a no-show.',
+      paid: 'This player has paid. Refund the payment at the café cashier before marking a no-show.',
       match_ended: 'This match has ended, so a mark can only be switched between arrived and no-show.',
     },
     // INVALID_TRANSITION · detail
@@ -184,7 +184,7 @@ export const matchesEn = {
     // PAYMENT_STATE · detail
     paymentState: {
       empty: 'Nothing has been paid on this bill yet. Take the shares under Players instead.',
-      over_paid: 'More was paid on this bill than the booking now owes. A manager refunds the difference at the till.',
+      over_paid: 'More was paid on this bill than the booking now owes. A manager refunds the difference at the café cashier.',
       ticket: 'Ticket purchases are refunded only by a cash-out.',
     },
     // INVALID_ARGUMENT · already_linked

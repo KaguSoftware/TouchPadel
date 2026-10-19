@@ -56,7 +56,7 @@ export const kitAr: DeepMessages<typeof kitEn> = {
   },
   source: {
     web: 'الموقع',
-    till: 'الصندوق',
+    till: 'كاشير الكافيه',
     mobile: 'التطبيق',
     desk: 'المكتب',
   },

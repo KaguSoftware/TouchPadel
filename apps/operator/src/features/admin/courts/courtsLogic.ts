@@ -6,7 +6,8 @@
  */
 import { AppRpcError } from '../../../lib/appRpc';
 
-export const DURATION_CHOICES = [30, 45, 60, 75, 90, 120, 150, 180] as const;
+/** Whole hours only: court bookings start and end on the hour (Majed, 2026-10-19). */
+export const DURATION_CHOICES = [60, 120, 180] as const;
 
 export function toggleDuration(selected: readonly number[], value: number): number[] {
   const next = selected.includes(value)

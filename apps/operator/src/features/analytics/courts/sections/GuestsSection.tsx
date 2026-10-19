@@ -1,8 +1,8 @@
-/** Guests, as anonymous counts only: returning against new and the regulars open; visit frequency and the weekly series one click away. */
+/** Guests, as anonymous counts only: returning against new and the regulars open; visit frequency and the weekly series (stacked areas, new on returning) one click away. */
 import { useLocale } from '../../../../lib/i18n';
 import { ChartCard } from '../../charts/ChartCard';
 import { CountBars } from '../../charts/CountBars';
-import { StackedBars } from '../../charts/StackedBars';
+import { StackedArea } from '../../charts/StackedArea';
 import { barTwin, seriesTwin } from '../../charts/twins';
 import { MoreCharts, ZoneGrid } from '../../Zone';
 import { StatPair } from '../cards/StatPair';
@@ -32,6 +32,8 @@ export function GuestsSection({ raw, state, refreshing, f, rangeLabel }: Section
           state={empty ? 'empty' : state}
           refreshing={refreshing}
           emptyKey="ws.analytics.courts.empty.guests"
+          meter={g && g.identifiedBookings > 0 ? { pct: g.returningPct, label: tr('ws.analytics.courts.type.returning'), of: g.identifiedBookings } : null}
+          pct={(n) => f.pct(n)}
           items={[
             { label: tr('ws.analytics.courts.type.returning'), value: f.num(g?.returningBookings ?? 0), sub: g ? rateText(tr, f, g.returningPct, g.returningBookings, g.identifiedBookings) : undefined },
             { label: tr('ws.analytics.courts.type.new'), value: f.num(g?.newBookings ?? 0) },
@@ -43,6 +45,8 @@ export function GuestsSection({ raw, state, refreshing, f, rangeLabel }: Section
           state={empty ? 'empty' : state}
           refreshing={refreshing}
           emptyKey="ws.analytics.courts.empty.guests"
+          meter={g?.regularsBookingsPct == null ? null : { pct: g.regularsBookingsPct, label: tr('ws.analytics.courts.cards.regulars'), of: g.identifiedBookings }}
+          pct={(n) => f.pct(n)}
           items={[
             { label: tr('ws.analytics.courts.cards.regulars'), value: f.num(g?.regulars ?? 0), sub: g?.regularsBookingsPct == null ? undefined : tr('ws.analytics.courts.cards.regularsShare', { pct: f.pct(g.regularsBookingsPct) }) },
             { label: tr('ws.analytics.courts.cards.lapsing'), value: f.num(g?.lapsingRegulars ?? 0) },
@@ -71,7 +75,7 @@ export function GuestsSection({ raw, state, refreshing, f, rangeLabel }: Section
             height={200}
             twin={seriesTwin(weekRows, tr('ws.analytics.courts.cards.byWeek'), weekSeries, `guests-by-week-${rangeLabel}`)}
           >
-            <StackedBars rows={weekRows} series={weekSeries} format={(n) => f.num(n)} interval={weekRows.length > 16 ? 1 : 0} />
+            <StackedArea rows={weekRows} series={weekSeries} format={(n) => f.num(n)} interval={weekRows.length > 16 ? 1 : 0} />
           </ChartCard>
         </div>
       </MoreCharts>

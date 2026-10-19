@@ -74,7 +74,7 @@ export const safeEn = {
     from: 'From',
     to: 'To',
     parties: {
-      cafe: 'Café till',
+      cafe: 'Café cashier',
       desk: 'Court desk',
       shop: 'Shop desk',
       bank: 'Bank',
@@ -138,7 +138,7 @@ export const safeEn = {
       count: 'Counted {amount}',
     },
     boxes: {
-      cafe: 'café till',
+      cafe: 'café cashier',
       desk: 'court desk',
       shop: 'shop desk',
     },

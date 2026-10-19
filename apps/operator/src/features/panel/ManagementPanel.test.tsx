@@ -182,7 +182,7 @@ describe('ManagementPanelScreen — Lessons', () => {
     expect(within(group).getByRole('heading', { name: 'Lessons' })).toBeTruthy();
     expect(within(group).getByText('330,000 IQD')).toBeTruthy();
     expect(within(group).getByText('Owed to coaches')).toBeTruthy();
-    expect(within(group).getByText('Paid outside the till')).toBeTruthy();
+    expect(within(group).getByText('Paid outside the cashier')).toBeTruthy();
     fireEvent.click(within(group).getByText('Owed to coaches'));
     expect(navigate).toHaveBeenCalledWith({ to: '/reports/coaches' });
     fireEvent.click(within(group).getAllByText('Lessons')[1]!);

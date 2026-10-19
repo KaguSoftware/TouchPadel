@@ -7,6 +7,10 @@
  * textbook's "Stars / Plowhorses / Puzzles / Dogs", which an owner would have
  * to look up; and each item's two numbers say which is the profit and which
  * the count.
+ *
+ * Above the lists, the matrix drawn as a scatter (charts/MenuScatter.tsx):
+ * where each item sits against the two lines, which a list cannot show. The
+ * lists keep the three best of each quadrant by name.
  */
 import { Link } from '@tanstack/react-router';
 import { pickLocale, type MenuQuadrant } from '@touch/core';
@@ -16,6 +20,7 @@ import type { Derived } from '../derive';
 import type { Formatters } from '../format';
 import { CardShell, type CardState } from './CardShell';
 import { StatusBadge } from '../../../components/kit';
+import { MenuScatter } from '../charts/MenuScatter';
 
 const QUADRANTS: readonly MenuQuadrant[] = ['star', 'plowhorse', 'puzzle', 'dog'];
 const TITLE: Record<MenuQuadrant, MessageKey> = {
@@ -78,6 +83,8 @@ export function MenuMatrixCard({ derived, state, f }: { derived: Derived | null;
       }
     >
       {me && (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+        <MenuScatter items={me.items} qtyLine={me.popularityThreshold * me.totals.qty} marginLine={me.avgUnitMarginIqd} f={f} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
           {QUADRANTS.map((q) => {
             const items = me.items.filter((i) => i.quadrant === q).sort((a, b) => b.profitIqd - a.profitIqd);
@@ -88,7 +95,7 @@ export function MenuMatrixCard({ derived, state, f }: { derived: Derived | null;
                   <StatusBadge size="sm" dot={false} tone={q === 'star' ? 'success' : q === 'dog' ? 'danger' : 'neutral'} label={f.num(me.counts[q])} />
                 </div>
                 <ul style={{ margin: 0, paddingInlineStart: '1rem', fontSize: 'var(--tp-fs-sm)' }}>
-                  {items.slice(0, 4).map((i) => (
+                  {items.slice(0, 3).map((i) => (
                     <li key={i.id} style={{ color: i.losingMoney ? 'var(--tp-danger)' : undefined }}>
                       {pickLocale({ en: i.nameEn, ar: i.nameAr }, locale) || i.id}
                       <span style={{ display: 'block', color: i.losingMoney ? undefined : 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>
@@ -100,6 +107,7 @@ export function MenuMatrixCard({ derived, state, f }: { derived: Derived | null;
               </div>
             );
           })}
+        </div>
         </div>
       )}
     </CardShell>

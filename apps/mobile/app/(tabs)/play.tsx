@@ -876,26 +876,27 @@ export default function PlayScreen() {
         pointerEvents="none"
         style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg, opacity: titleGround }]}
       />
-      <Rise index={0}>
-        <View
-          style={{
-            paddingTop: safeTop + TAB_TITLE_TOP,
-            paddingStart: space.l,
-            paddingEnd: space.l,
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            gap: space.sm,
-          }}
-        >
-          <View style={{ flex: 1 }}>
-            <Title fit>{t('tabs.play')}</Title>
-          </View>
-          {canStart ? (
-            <StartMatchButton testID="play.start" label={t('play.start')} onPress={startOne} />
-          ) : null}
-          <AccountButton testID="play.account" />
+      {/* Still, not in a Rise: the title row is the same line on every tab,
+          and a row that slid up 16 pt on arrival moved the account avatar
+          (Majed, 2026-10-19). The page below it still rises. */}
+      <View
+        style={{
+          paddingTop: safeTop + TAB_TITLE_TOP,
+          paddingStart: space.l,
+          paddingEnd: space.l,
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          gap: space.sm,
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <Title fit>{t('tabs.play')}</Title>
         </View>
-      </Rise>
+        {canStart ? (
+          <StartMatchButton testID="play.start" label={t('play.start')} onPress={startOne} />
+        ) : null}
+        <AccountButton testID="play.account" />
+      </View>
     </PinnedTitle>
   );
 

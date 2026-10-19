@@ -524,7 +524,7 @@ describe('LessonRosterPanel: Take payment and cancel (§5.10.5, §5.10.8)', () =
     const prompt = await screen.findByRole('dialog');
     expect(
       within(prompt).getByText(
-        '15,000 IQD was paid at the desk. It becomes a refund a manager makes at the till.',
+        '15,000 IQD was paid at the desk. It becomes a refund a manager makes at the café cashier.',
       ),
     ).toBeTruthy();
     await user.type(within(prompt).getByLabelText(/note/i), 'Asked by phone');

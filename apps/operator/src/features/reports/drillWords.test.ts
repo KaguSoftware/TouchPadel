@@ -43,7 +43,7 @@ describe('drillWords', () => {
 
   it('says online and outside-the-till lesson money in words (0292)', () => {
     expect(words({ sub: 'payment', method: 'online', tabLabel: 'Lesson' }).text).toBe('Online · Lesson');
-    expect(words({ sub: 'refund', reason: 'lesson_refund_outside', method: 'outside' }).text).toBe('lesson refund outside · Outside the till');
+    expect(words({ sub: 'refund', reason: 'lesson_refund_outside', method: 'outside' }).text).toBe('lesson refund outside · Outside the cashier');
     expect(words({ sub: 'payment', method: 'online', tabLabel: 'Lesson' }, 'ar').text).toContain('إلكترونيًا');
   });
 

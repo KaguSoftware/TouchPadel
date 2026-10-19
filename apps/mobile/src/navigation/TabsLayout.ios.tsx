@@ -21,10 +21,12 @@ const { Icon, Label } = NativeTabs.Trigger;
  * dropped here. Android keeps the custom bar in
  * `TabsLayout.android.tsx` — that platform split is deliberate.
  *
- * Four tabs since 2026-10-17: My reservations, Play, Book, Coaches. Profile
- * left the bar (Majed): the account is the avatar on the trailing edge of each
- * tab's title row (components/AccountButton.tsx), a push to `app/profile.tsx`.
- * Book is still the initial route (`(tabs)/_layout`). Book keeps its `figure.tennis`; Coaches wears
+ * Five tabs since 2026-10-19: My reservations, Play, Club, Book, Coaches.
+ * Profile left the bar on 2026-10-17 (Majed): the account is the avatar on the
+ * trailing edge of each tab's title row (components/AccountButton.tsx), a push
+ * to `app/profile.tsx`. Club took the centre (Majed, 2026-10-19): the member
+ * card's QR and the café menu, in SF Symbols' `qrcode`. Book is still the
+ * initial route (`(tabs)/_layout`). Book keeps its `figure.tennis`; Coaches wears
  * `graduationcap` (lessons) rather than a second player figure, since two tabs
  * in the same glyph read as one. Play wears a padel court (assets/tabs/play*.png,
  * the Android TabPlayIcon drawn out), since SF Symbols has none.
@@ -33,8 +35,8 @@ const { Icon, Label } = NativeTabs.Trigger;
  * not a view: it describes a `UITabBarItem` that UIKit draws outside the React
  * tree, so there is no RN node to hang an id from and nothing a testID could
  * reach. Android's bar is ordinary Pressables and carries `tabs.bookings` /
- * `tabs.play` / `tabs.book` / `tabs.coaches`; the smoke tests
- * see those same four ids through the `expo-router/unstable-native-tabs` mock,
+ * `tabs.play` / `tabs.club` / `tabs.book` / `tabs.coaches`; the smoke tests
+ * see those same five ids through the `expo-router/unstable-native-tabs` mock,
  * which stands in for UIKit (jest.setup.ts explains what that does and does
  * not prove).
  */
@@ -62,6 +64,10 @@ export default function TabsLayoutIOS() {
             Android's TabPlayIcon drawn to PNGs, tinted by the bar as a template. */}
         <Icon src={require('../../assets/tabs/play.png')} renderingMode="template" />
         <Label>{t('tabs.play')}</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="club">
+        <Icon sf="qrcode" />
+        <Label>{t('tabs.club')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="index">
         <Icon sf="figure.tennis" />

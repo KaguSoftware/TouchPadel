@@ -54,7 +54,8 @@ export function dropStartMin(
   closeMin: number,
   slotMin: number,
 ): number {
-  const last = Math.max(openMin, closeMin - spanRows * slotMin);
+  // The last start stays on a row, so a close off the hour never lands a drop at xx:30.
+  const last = openMin + Math.max(0, Math.floor((closeMin - spanRows * slotMin - openMin) / slotMin)) * slotMin;
   return Math.min(Math.max(pointerMin - grabRows * slotMin, openMin), last);
 }
 

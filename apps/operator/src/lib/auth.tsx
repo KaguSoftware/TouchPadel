@@ -338,6 +338,8 @@ export const SUB_ROUTES = {
     // Coaching (docs/design/coaching/operator.md §5.3.2): coaches, lesson types, hours.
     '/admin/coaches',
     '/admin/rates',
+    // Gender hours (0353): courts kept for women or men at set times.
+    '/admin/gender-hours',
     '/admin/hours',
     '/admin/promotions',
     '/admin/day-close',
@@ -731,6 +733,11 @@ export interface Permissions {
   closeDay: boolean;
   editMenu: boolean;
   editRates: boolean;
+  /**
+   * Gender hours (0353): keep a court, or every court, for women or men at set
+   * times. Not a price, so the manager saves too (app.upsert_court_gender_rule).
+   */
+  editGenderRules: boolean;
   editPromotions: boolean;
   manageStaff: boolean;
   viewReports: boolean;
@@ -771,6 +778,7 @@ export function permissionsFor(who: StaffWho): Permissions {
     // The owner's since price_promo (#57): a manager proposes a rate or a
     // promotion as a price or promo change, and keeps a promotion's off switch.
     editRates: is(['owner']),
+    editGenderRules: is(MANAGEMENT),
     editPromotions: is(['owner']),
     manageStaff: is(['owner']),
     viewReports: is(MANAGEMENT),

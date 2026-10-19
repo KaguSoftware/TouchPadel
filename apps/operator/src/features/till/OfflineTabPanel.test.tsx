@@ -104,7 +104,7 @@ describe('OfflineTabPanel', () => {
     mount();
     expect(screen.getByText('Did not sync — see Day close')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Card' })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Remove from this till' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove from this café cashier' }));
     expect(h.removeOfflineTab).toHaveBeenCalledWith('k1');
   });
 });

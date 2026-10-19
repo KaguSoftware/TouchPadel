@@ -9,7 +9,7 @@ export const staffFloorEn = {
   row: 'Place an order',
   tables: {
     title: 'Place an order',
-    dayClosed: 'The day isn’t open yet. Orders can go in once the till opens the day.',
+    dayClosed: 'The day isn’t open yet. Orders can go in once the café cashier opens the day.',
     empty: 'No tables are set up for this branch yet.',
     table: 'Table {number}',
     free: 'Free',
@@ -39,7 +39,7 @@ export const staffFloorEn = {
     openTab: 'Open the tab',
     noResults: 'Nothing on the menu matches “{query}”.',
     menuEmpty: 'The café menu is empty.',
-    tabGone: 'That tab was closed at the till. Pick another, or open a new one.',
+    tabGone: 'That tab was closed at the café cashier. Pick another, or open a new one.',
   },
   item: {
     size: 'Size',

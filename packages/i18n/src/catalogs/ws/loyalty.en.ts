@@ -188,7 +188,7 @@ export const loyaltyEn = {
     },
     rewards: {
       title: 'Rewards',
-      lead: 'What a guest can take for points at the till. Switch a reward off to stop offering it.',
+      lead: 'What a guest can take for points at the café cashier. Switch a reward off to stop offering it.',
       add: 'Add a reward',
       edit: 'Edit reward',
       empty: 'No rewards yet.',

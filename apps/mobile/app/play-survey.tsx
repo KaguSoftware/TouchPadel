@@ -373,7 +373,6 @@ function PlaySurvey() {
   const genderLabel: Record<GenderChoice, MessageKey> = {
     female: 'matches.gender.female',
     male: 'matches.gender.male',
-    none: 'profile.genderPreferNot',
   };
 
   return (

@@ -73,8 +73,8 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
     },
     table: 'طاولة {table}',
     lineQty: '{item} × {qty}',
-    methods: { cash: 'نقدًا', card: 'بطاقة', online: 'إلكترونيًا', outside: 'خارج الصندوق' },
-    sources: { till: 'من الصندوق', guest_web: 'طلب عبر رمز QR' },
+    methods: { cash: 'نقدًا', card: 'بطاقة', online: 'إلكترونيًا', outside: 'خارج الكاشير' },
+    sources: { till: 'من كاشير الكافيه', guest_web: 'طلب عبر رمز QR' },
     adjKinds: { discount_percent: 'خصم بنسبة مئوية', discount_amount: 'خصم بمبلغ', price_override: 'تعديل السعر' },
     reasons: { promotion: 'عرض ترويجي' },
     kinds: {

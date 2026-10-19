@@ -8,8 +8,13 @@
  * Each line is a plain sentence; a line that something on another screen
  * resolves carries that link, and a failed load carries a retry. Nothing is
  * rendered when there is nothing to say.
+ *
+ * The first two notes always show (the caller orders them: the comparison
+ * first); past that the rest fold behind "Show n more notes", so four
+ * paragraphs of caveats no longer push the summary below the fold. The
+ * failed-load line is never folded.
  */
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Button } from '../../components/ui';
 import { Icon } from '../../components/icons';
 import { useLocale } from '../../lib/i18n';
@@ -22,9 +27,15 @@ export interface Notice {
   action?: ReactNode;
 }
 
+/** Notes shown before the rest fold. */
+const SHOWN = 2;
+
 export function Notices({ notices, onRetry }: { notices: readonly Notice[]; onRetry?: () => void }) {
   const { tr } = useLocale();
+  const [open, setOpen] = useState(false);
   if (notices.length === 0 && !onRetry) return null;
+  const folded = notices.length - SHOWN;
+  const shown = open || folded <= 0 ? notices : notices.slice(0, SHOWN);
   return (
     <ul
       aria-label={tr('ws.analytics.notices.title')}
@@ -41,13 +52,20 @@ export function Notices({ notices, onRetry }: { notices: readonly Notice[]; onRe
         borderRadius: 'var(--tp-radius-panel)',
       }}
     >
-      {notices.map((n) => (
+      {shown.map((n) => (
         <li key={n.key} style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)' }}>
           <Icon name="info" size={14} style={{ color: MARK.warn, flex: '0 0 auto', alignSelf: 'center' }} />
           <span style={{ flex: '1 1 30rem', minInlineSize: 0 }}>{n.text}</span>
           {n.action}
         </li>
       ))}
+      {folded > 0 && (
+        <li>
+          <button type="button" className="tp-link" aria-expanded={open} onClick={() => setOpen((v) => !v)} style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, background: 'none', border: 'none', padding: 0, cursor: 'pointer', marginInlineStart: 'calc(14px + var(--tp-sp-2))' }}>
+            {open ? tr('ws.analytics.viz.fewerNotes') : tr('ws.analytics.viz.moreNotes', { n: folded })}
+          </button>
+        </li>
+      )}
       {onRetry && (
         <li style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)' }}>
           <Icon name="alert" size={14} style={{ color: MARK.danger, flex: '0 0 auto' }} />

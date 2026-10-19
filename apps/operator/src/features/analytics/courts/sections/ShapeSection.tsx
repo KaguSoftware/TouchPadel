@@ -82,6 +82,8 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
             state={empty ? 'empty' : state}
             refreshing={refreshing}
             emptyKey="ws.analytics.courts.empty.bookings"
+            meter={demand && demand.series.seriesBookings + demand.series.singleBookings > 0 ? { pct: demand.series.seriesPct, label: tr('ws.analytics.courts.series.standing'), of: demand.series.seriesBookings + demand.series.singleBookings } : null}
+            pct={(n) => f.pct(n)}
             items={[
               { label: tr('ws.analytics.courts.series.standing'), value: f.num(demand?.series.seriesBookings ?? 0), sub: demand ? rateText(tr, f, demand.series.seriesPct, demand.series.seriesBookings, demand.series.seriesBookings + demand.series.singleBookings) : undefined },
               { label: tr('ws.analytics.courts.series.single'), value: f.num(demand?.series.singleBookings ?? 0) },
@@ -93,6 +95,8 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
             state={state === 'ready' && funnel && funnel.holdsEnded === 0 ? 'empty' : state}
             refreshing={refreshing}
             emptyKey="ws.analytics.courts.empty.holds"
+            meter={funnel && funnel.holdsEnded > 0 ? { pct: funnel.conversionPct, label: tr('ws.analytics.courts.cards.holdsConverted'), of: funnel.holdsEnded } : null}
+            pct={(n) => f.pct(n)}
             items={[
               // holds_ended counts every app hold that reached an end, converted ones included (0093).
               { label: tr('ws.analytics.courts.cards.holdsConverted'), value: f.num(funnel?.converted ?? 0), sub: funnel ? rateText(tr, f, funnel.conversionPct, funnel.converted, funnel.holdsEnded) : undefined },

@@ -27,6 +27,8 @@ export const QK = {
   venueSettings: ['venueSettings'] as const satisfies QueryKey,
   /** Active courts, ordered for display. */
   courts: ['courts'] as const satisfies QueryKey,
+  /** court_gender_rules of the branch in scope, on and off (0353): Gender hours and the desk calendar's kept bands. */
+  genderRules: ['genderRules'] as const satisfies QueryKey,
   /** The open (or closing) day session, or null. */
   day: ['day'] as const satisfies QueryKey,
   /** ACTIVE cafe tables only — the till's table picker. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { iqd } from '../money/iqd';
 import { parseHHMM, wallTimeToUtc } from '../time/tz';
-import { buildSlotGrid, type BuildSlotGridArgs, type Slot } from './slotGrid';
+import { bookableDurations, buildSlotGrid, type BuildSlotGridArgs, type Slot } from './slotGrid';
 
 const TZ = 'Asia/Baghdad'; // UTC+3
 const DATE = '2026-09-07'; // a Monday
@@ -48,6 +48,17 @@ describe('buildSlotGrid — grid generation', () => {
     expect(late90).toHaveLength(0); // last 90-min start is 21:30
     const last60 = grid?.slots.filter((s) => s.durationMin === 60).at(-1);
     expect(last60?.startAt.getTime()).toBe(at('22:00').getTime());
+  });
+
+  it('defaults to whole-hour starts, on the hour even when a window opens at :30', () => {
+    const { slotIncrementMin: _unused, ...rest } = base({ openingHours: { mon: [['09:30', '12:00']] } });
+    const [grid] = buildSlotGrid(rest);
+    expect(grid?.slots.map((s) => s.startAt.getTime())).toEqual([at('10:00').getTime(), at('11:00').getTime()]);
+  });
+
+  it('bookableDurations keeps whole hours only (no 90)', () => {
+    expect(bookableDurations([60, 90, 120, 45, 180])).toEqual([60, 120, 180]);
+    expect(bookableDurations([90])).toEqual([]);
   });
 
   it('a closed date yields no slots', () => {

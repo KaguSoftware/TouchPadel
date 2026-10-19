@@ -36,7 +36,7 @@ export const matchesEn = {
     termsRequired: 'Accept the updated terms to use open matches.',
     banned: "Open matches aren't available on your account. Please contact the venue.",
     // 0260: the match core.
-    genderRequired: "To play open matches, tell us once whether you're a woman or a man.",
+    genderRequired: "Tell us once whether you're a woman or a man: some matches and hours are kept for women or men.",
     notFound: "This match isn't available.",
     needTickets: "You don't have enough tickets for this. Buy tickets to continue.",
     // NEED_TICKETS with its detail {needed, available, buy}; {tickets} is the
