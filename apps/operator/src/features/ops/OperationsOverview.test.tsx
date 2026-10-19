@@ -35,9 +35,6 @@ vi.mock('../../lib/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useAuth: () => ({ staff: { id: 'm1', displayName: 'Manager', role: who.role } }),
 }));
-// Which workspace's rail is showing: /ops is the Operations workspace's home.
-const ws = vi.hoisted(() => ({ active: 'owner' as string | null }));
-vi.mock('../../routes/__root', () => ({ useWorkspaceOrNull: () => (ws.active ? { active: ws.active } : null) }));
 
 import { OperationsOverviewScreen } from './OperationsOverview';
 
@@ -92,7 +89,6 @@ beforeEach(() => {
   rpc.appRpc.mockReset();
   nav.navigate.mockReset();
   who.role = 'manager';
-  ws.active = 'manager';
   queue.rows = [];
   answers = { ops_overview: payload };
   rpc.appRpc.mockImplementation(async (fn: string) => {
@@ -428,18 +424,9 @@ describe('OperationsOverviewScreen', () => {
 
   it('sends the owner to the Overview, which carries what needs them and the live floor', async () => {
     who.role = 'owner';
-    ws.active = 'owner';
     renderScreen();
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith({ to: '/panel', replace: true }));
     expect(screen.queryByRole('heading', { name: 'Today' })).toBeNull();
-  });
-
-  it('keeps the owner on Today inside the Operations workspace, whose home it is', async () => {
-    who.role = 'owner';
-    ws.active = 'manager';
-    renderScreen();
-    expect(await screen.findByRole('heading', { name: 'Today' })).toBeTruthy();
-    expect(nav.navigate).not.toHaveBeenCalledWith({ to: '/panel', replace: true });
   });
 
   it('renders the error state with a retry', async () => {

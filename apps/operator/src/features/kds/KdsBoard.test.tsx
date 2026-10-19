@@ -149,12 +149,12 @@ describe('KdsBoard exit', () => {
   });
 
   it('several: asks via the switcher, having already left prep for the account\u2019s own workspace', async () => {
-    workspaceCtx = { active: 'prep', available: ['owner', 'manager', 'courtDesk', 'cashier', 'prep'], setActive };
+    workspaceCtx = { active: 'prep', available: ['management', 'courtDesk', 'cashier', 'prep'], setActive };
     renderBoard();
     await userEvent.click(await screen.findByTestId('kds-exit'));
-    // 'owner' because workspacesForRole puts the role's own workspace first,
-    // so the switcher opens in the right palette with the right tile current.
-    expect(setActive).toHaveBeenCalledWith('owner');
+    // 'management' because workspacesForRole puts the role's own workspace
+    // first, so the switcher opens in the right palette with the right tile current.
+    expect(setActive).toHaveBeenCalledWith('management');
     expect(navigate).toHaveBeenCalledWith({ to: '/workspaces' });
   });
 });

@@ -12,7 +12,7 @@ const navigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 
 const setActive = vi.fn();
-let available: readonly WorkspaceKey[] = ['owner', 'courtDesk'];
+let available: readonly WorkspaceKey[] = ['management', 'courtDesk'];
 vi.mock('../../routes/__root', () => ({ useWorkspace: () => ({ available, setActive }) }));
 
 import { DetailPanel, type WorkspaceTarget } from './DetailPanel';
@@ -34,7 +34,7 @@ function renderPanel(target: WorkspaceTarget | null, locale: 'en' | 'ar' = 'en')
 beforeEach(() => {
   navigate.mockReset();
   setActive.mockReset();
-  available = ['owner', 'courtDesk'];
+  available = ['management', 'courtDesk'];
 });
 
 afterEach(() => {

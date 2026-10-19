@@ -43,7 +43,7 @@ describe('the rail Guide row', () => {
     expect(row.getAttribute('aria-haspopup')).toBe('dialog');
   });
 
-  it.each(['manager', 'owner', 'team'] as WorkspaceKey[])('is absent on %s', (ws) => {
+  it.each(['management', 'team'] as WorkspaceKey[])('is absent on %s', (ws) => {
     renderRow(ws);
     expect(screen.queryByTestId('rail.guide')).toBeNull();
   });

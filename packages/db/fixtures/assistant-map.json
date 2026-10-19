@@ -1,5 +1,5 @@
 {
-  "generated_from": "00563d6e76abdf97eb999185dff592f8225a2f10",
+  "generated_from": "b86d4cc716177e4fe875d0eef0a0604c3ef879a7",
   "chunks": [
     {
       "kind": "page",
@@ -1014,7 +1014,7 @@
       "ref": "nav:management",
       "lang": "ar",
       "title": "مساحة العمل: الإدارة",
-      "body": "مساحة العمل \"الإدارة\" تبدأ من /panel، أو من /ops لمن لا يستطيع فتحها.\nالصفوف: نظرة عامة → /panel; التحليلات → /analytics; المساعد → /assistant\nالأقسام: المالية → /reports/revenue; الملاعب → /observation/courts; الكافيه والمتجر → /observation/tills; المخزون → /stock; الفريق → /admin/staff; الزبائن والتسويق → /desk/customers; الإعدادات → /admin/branches",
+      "body": "مساحة العمل \"الإدارة\" تبدأ من /panel، أو من /ops لمن لا يستطيع فتحها.\nالصفوف: نظرة عامة → /panel; اليوم → /ops (بدل /panel); التحليلات → /analytics; المساعد → /assistant\nالأقسام: المالية → /reports/revenue; الملاعب → /observation/courts; الكافيه والمتجر → /observation/tills; المخزون → /stock; الفريق → /admin/staff; الزبائن والتسويق → /desk/customers; الإعدادات → /admin/branches",
       "route": "/panel"
     },
     {
@@ -1022,7 +1022,7 @@
       "ref": "nav:management",
       "lang": "en",
       "title": "Workspace: Management",
-      "body": "Workspace \"Management\" opens at /panel, or at /ops for whoever cannot open it.\nRows: Overview → /panel; Analytics → /analytics; Assistant → /assistant\nSections: Financial → /reports/revenue; Courts → /observation/courts; Café & shop → /observation/tills; Stock → /stock; Team → /admin/staff; Customers & marketing → /desk/customers; Settings → /admin/branches",
+      "body": "Workspace \"Management\" opens at /panel, or at /ops for whoever cannot open it.\nRows: Overview → /panel; Today → /ops (instead of /panel); Analytics → /analytics; Assistant → /assistant\nSections: Financial → /reports/revenue; Courts → /observation/courts; Café & shop → /observation/tills; Stock → /stock; Team → /admin/staff; Customers & marketing → /desk/customers; Settings → /admin/branches",
       "route": "/panel"
     },
     {
@@ -1094,7 +1094,7 @@
       "ref": "nav:management:cafe",
       "lang": "ar",
       "title": "الإدارة › الكافيه والمتجر",
-      "body": "الفواتير المفتوحة والمنيو ورموز QR للطاولات والمتجر\nالصفحة الرئيسية: /observation/tills\nالصفوف: الفواتير المفتوحة → /observation/tills; المنيو → /admin/menu (أصناف المنيو, مجموعات المنيو, الإضافات, اقتراحات الصندوق); رموز QR للطاولات → /admin/qr; متجر تتش → /shop",
+      "body": "الفواتير المفتوحة والمنيو ورموز QR للطاولات والمتجر\nالصفحة الرئيسية: /observation/tills\nالصفوف: الفواتير المفتوحة → /observation/tills; الفواتير المفتوحة → /till/tabs (بدل /observation/tills); المنيو → /admin/menu (أصناف المنيو, مجموعات المنيو, الإضافات, اقتراحات الصندوق); رموز QR للطاولات → /admin/qr; متجر تتش → /shop",
       "route": "/observation/tills"
     },
     {
@@ -1102,7 +1102,7 @@
       "ref": "nav:management:cafe",
       "lang": "en",
       "title": "Management › Café & shop",
-      "body": "Open tabs, the menu, table QR codes and the shop\nHome: /observation/tills\nRows: Open tabs → /observation/tills; Menu → /admin/menu (Menu items, Menu groups, Extras, Till suggestions); Table QR codes → /admin/qr; Touch Shop → /shop",
+      "body": "Open tabs, the menu, table QR codes and the shop\nHome: /observation/tills\nRows: Open tabs → /observation/tills; Open tabs → /till/tabs (instead of /observation/tills); Menu → /admin/menu (Menu items, Menu groups, Extras, Till suggestions); Table QR codes → /admin/qr; Touch Shop → /shop",
       "route": "/observation/tills"
     },
     {
@@ -1190,7 +1190,7 @@
       "ref": "nav:management:courts",
       "lang": "ar",
       "title": "الإدارة › الملاعب",
-      "body": "الحجوزات وإعدادات الملاعب والمدرّبون\nالصفحة الرئيسية: /observation/courts\nالصفوف: الحجوزات → /observation/courts; البطولات → /desk/tournaments; المدرّبون → /admin/coaches (المدرّبون, الحصص والأسعار, أوقات المدرّبين, قواعد الحصص); إعدادات الملاعب → /admin/rates (أسعار الملاعب, الملاعب, قواعد الحجز, العربون الإلكتروني, المباريات المفتوحة, ساعات العمل, قواعد البطولات)",
+      "body": "الحجوزات وإعدادات الملاعب والمدرّبون\nالصفحة الرئيسية: /observation/courts\nالصفوف: الحجوزات → /observation/courts; الحجوزات → /desk (بدل /observation/courts); البطولات → /desk/tournaments; المدرّبون → /admin/coaches (المدرّبون, الحصص والأسعار, أوقات المدرّبين, قواعد الحصص); إعدادات الملاعب → /admin/rates (أسعار الملاعب, الملاعب, قواعد الحجز, العربون الإلكتروني, المباريات المفتوحة, ساعات العمل, قواعد البطولات)",
       "route": "/observation/courts"
     },
     {
@@ -1198,7 +1198,7 @@
       "ref": "nav:management:courts",
       "lang": "en",
       "title": "Management › Courts",
-      "body": "Bookings, court settings and coaches\nHome: /observation/courts\nRows: Bookings → /observation/courts; Tournaments → /desk/tournaments; Coaches → /admin/coaches (Coaches, Lessons & prices, Coach hours, Lesson rules); Court settings → /admin/rates (Court prices, Courts, Booking rules, Online deposit, Open matches, Opening hours, Tournament rules)",
+      "body": "Bookings, court settings and coaches\nHome: /observation/courts\nRows: Bookings → /observation/courts; Bookings → /desk (instead of /observation/courts); Tournaments → /desk/tournaments; Coaches → /admin/coaches (Coaches, Lessons & prices, Coach hours, Lesson rules); Court settings → /admin/rates (Court prices, Courts, Booking rules, Online deposit, Open matches, Opening hours, Tournament rules)",
       "route": "/observation/courts"
     },
     {

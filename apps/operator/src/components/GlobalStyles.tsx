@@ -253,8 +253,11 @@ input:disabled, select:disabled, textarea:disabled {
   display: flex; align-items: flex-end; padding: var(--tp-sp-5);
   background: var(--tp-rail); color: var(--tp-rail-green);
 }
+/* The drawing starts under the row the number and "You are here" sit in, so
+   neither lands on a line of it. */
 .tp-ws-art {
-  position: absolute; inset: 0; inline-size: 100%; block-size: 100%;
+  position: absolute; inset-block: 3.75rem var(--tp-sp-4); inset-inline: var(--tp-sp-4) var(--tp-sp-5);
+  inline-size: calc(100% - var(--tp-sp-4) - var(--tp-sp-5)); block-size: calc(100% - 3.75rem - var(--tp-sp-4));
   fill: none; stroke: var(--tp-court-line); stroke-width: 1.5px; stroke-linecap: round; stroke-linejoin: round;
   opacity: 0.6; transition: opacity var(--tp-dur-fast) var(--tp-ease-out);
 }
