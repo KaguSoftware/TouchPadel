@@ -10,6 +10,8 @@ const renders: string[] = [];
 let lastCourt: ThreeModule.Scene | null = null;
 const renderer = {
   shadowMap: { enabled: false, type: 0 },
+  capabilities: { isWebGL2: true },
+  extensions: { has: () => false },
   autoClear: true,
   setClearColor: vi.fn(),
   setPixelRatio: vi.fn(),
@@ -89,21 +91,21 @@ describe('court canvas', () => {
     c.dispose();
   });
 
-  it("draws a phone's box at the screen's full 3x, and only an oversized box below it", async () => {
+  it("draws a 3x phone's box at 2x, the phone app's ratio, and only an oversized box below it", async () => {
     Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 3 });
     const phone = createCourtCanvas({ host: host(357, 442) });
     await settle();
-    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(3);
+    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(2);
     phone.dispose();
     const huge = createCourtCanvas({ host: host(1200, 1200) });
     await settle();
     const ratio = renderer.setPixelRatio.mock.lastCall![0] as number;
-    expect(ratio).toBeLessThan(3);
+    expect(ratio).toBeLessThan(2);
     expect(ratio * ratio * 1200 * 1200).toBeCloseTo(PIXEL_BUDGET, -2);
     huge.dispose();
   });
 
-  it('always draws the full court: shadows on, with the 2048 map', async () => {
+  it('always draws the full court: shadows on, with the 1024 map', async () => {
     const c = createCourtCanvas({ host: host() });
     await settle();
     expect(renderer.shadowMap.enabled).toBe(true);
@@ -111,7 +113,7 @@ describe('court canvas', () => {
       (o): o is ThreeModule.DirectionalLight => (o as ThreeModule.DirectionalLight).isDirectionalLight === true,
     )!;
     expect(sun.castShadow).toBe(true);
-    expect(sun.shadow.mapSize.x).toBe(2048);
+    expect(sun.shadow.mapSize.x).toBe(1024);
     c.dispose();
   });
 

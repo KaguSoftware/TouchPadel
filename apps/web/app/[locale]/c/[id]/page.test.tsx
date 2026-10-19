@@ -37,6 +37,10 @@ vi.mock('@/lib/coaching.server', async () => {
   };
 });
 
+// The site footer's venue read (address, hours, the desk): none here, so the footer keeps to
+// its links.
+vi.mock('@/lib/menu.server', () => ({ getCachedVenue: () => Promise.resolve(null) }));
+
 vi.mock('@/lib/site/mode.server', async () => {
   const { siteRequest } = await import('@/lib/site/testSupport');
   return {
@@ -176,9 +180,10 @@ describe.each(LOCALES)('coach link page (%s)', (locale: Locale) => {
     expect(document.querySelector(`a[hreflang="${other}"]`)?.getAttribute('href')).toBe(
       `/${other}/c/${COACH_ALI}`,
     );
-    expect(
-      screen.getByRole('link', { name: t(locale, 'site.brandHome') }).getAttribute('href'),
-    ).toBe(`/${locale}`);
+    // The bar's lockup and the site footer's both go home.
+    const home = screen.getAllByRole('link', { name: t(locale, 'site.brandHome') });
+    expect(home).toHaveLength(2);
+    for (const link of home) expect(link.getAttribute('href')).toBe(`/${locale}`);
     expect(
       screen.getByRole('link', { name: t(locale, 'site.footer.support') }).getAttribute('href'),
     ).toBe(`/${locale}/support`);

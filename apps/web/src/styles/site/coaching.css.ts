@@ -25,6 +25,10 @@ export const siteCoachingCss = `
 .tp-coaching__head { display: grid; gap: clamp(1.25rem, 3vw, 1.75rem); }
 .tp-coaching__title { --tp-fit: 18; --tp-cap: 6.25rem; }
 [dir='rtl'] .tp-coaching__title { --tp-fit: 24; }
+/* In Black, tracked tight, the word space all but closes and "AT TOUCH" read as one word.
+   Line one ("COACHING") stays the longest, so the fit is unchanged. Arabic is untracked. */
+.tp-coaching__title .tp-display__l2 { word-spacing: 0.25em; }
+[dir='rtl'] .tp-coaching__title .tp-display__l2 { word-spacing: normal; }
 .tp-coaching__intro, .tp-coaching__ask-body, .tp-coaching__app-body {
   max-inline-size: 44ch;
   font-size: var(--tp-site-fs-lg);

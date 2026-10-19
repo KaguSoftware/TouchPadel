@@ -527,6 +527,14 @@ export function tournamentPath(locale: Locale, tourId: string): string {
   return `/${locale}/events/${tourId}`;
 }
 
+/** The home page's upcoming tournaments (the Events cards; the Events words when none are listed). */
+export const TOURNAMENTS_ANCHOR = 'tournaments';
+
+/** "All tournaments": the home page, at the upcoming tournaments. */
+export function allTournamentsPath(locale: Locale): string {
+  return `/${locale}#${TOURNAMENTS_ANCHOR}`;
+}
+
 /** The app's tournament route (apps/mobile `app/tournament/[id].tsx`); `scheme: 'touchpadel'`. */
 export const APP_TOURNAMENT_URL = 'touchpadel://tournament';
 

@@ -3,7 +3,7 @@
  * lockup bar, the "Americano · Open to all" eyebrow, one heading (the tournament's name, or the
  * state), the branch and the time, the facts (fee, points, places, prize), the cancelled notice,
  * the app buttons, then the schedule (a round per block, a match per row) and the standings table,
- * and a foot with Support.
+ * and the site footer (footerKit.css.ts).
  *
  * Like the coach link (coachLink.css.ts) it ships WITHOUT the site sheet: the link is shared on
  * WhatsApp and opened in an in-app browser, often courtside on a phone, and the visitor should
@@ -21,7 +21,7 @@ export const siteTournamentPageCss = `
 .tp-tpage :where(h1, h2, h3, p, ul, ol, dl, dd) { margin: 0; }
 .tp-tpage :where(ul, ol) { padding: 0; list-style: none; }
 .tp-tpage :where(a):focus-visible { outline: 2px solid var(--tp-site-ring); outline-offset: 3px; }
-.tp-tpage__bar, .tp-tpage__foot { inline-size: 100%; max-inline-size: var(--tp-site-max); margin-inline: auto; padding-inline: var(--tp-site-gutter); }
+.tp-tpage__bar { inline-size: 100%; max-inline-size: var(--tp-site-max); margin-inline: auto; padding-inline: var(--tp-site-gutter); }
 .tp-tpage__bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; block-size: var(--tp-site-header-h); }
 .tp-tpage__home { display: flex; align-items: center; block-size: 2.25rem; border-radius: var(--tp-site-radius-sm); }
 .tp-tpage .tp-lockup { display: block; block-size: 100%; inline-size: auto; aspect-ratio: 72.55 / 26.78; overflow: visible; }
@@ -98,8 +98,6 @@ export const siteTournamentPageCss = `
 .tp-tpage__table td { color: var(--tp-fg); }
 .tp-tpage__table :where(.tp-tpage__num) { text-align: end; }
 .tp-tpage__table .tp-tpage__rank { font-weight: var(--tp-site-fw-label); }
-.tp-tpage__foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; padding-block: 0.5rem 1rem; border-block-start: 1px solid var(--tp-border); font-size: var(--tp-site-fs-sm); }
-.tp-tpage__foot a { display: inline-flex; align-items: center; min-block-size: var(--tp-site-touch); color: var(--tp-site-ink-2); }
 @media (prefers-reduced-motion: reduce) {
   .tp-tpage__open { transition: none; }
 }

@@ -206,6 +206,29 @@ describe('the lean option', () => {
     );
   });
 
+  it('mergeOpaqueOnly (the web) leaves every transparent piece its own mesh, and draws the same', () => {
+    const transparentMeshes = (court: ReturnType<typeof buildCourtScene>) =>
+      court.scene.children.filter(
+        (o) =>
+          ((o as THREE.Mesh).isMesh || (o as THREE.LineSegments).isLineSegments) &&
+          ((o as THREE.Mesh).material as THREE.Material).transparent,
+      ).length;
+    const plain = buildCourtScene('full');
+    const web = buildCourtScene('full', { lean: true, mergeOpaqueOnly: true, instancing: true });
+    const phone = buildCourtScene('full', { lean: true, instancing: true });
+    expect(transparentMeshes(web)).toBe(transparentMeshes(plain));
+    expect(transparentMeshes(phone)).toBeLessThan(transparentMeshes(plain));
+    expect(web.scene.children.length).toBeLessThan(plain.scene.children.length);
+    for (const court of [plain, web]) {
+      court.update(1.5, 0, 0.6);
+      court.scene.updateMatrixWorld();
+      court.overlay.updateMatrixWorld();
+    }
+    expectSameDraws(drawn(web.scene), drawn(plain.scene));
+    expectSameDraws(drawn(web.overlay), drawn(plain.overlay));
+    for (const court of [plain, web, phone]) court.dispose();
+  });
+
   it('freezes only what never moves', () => {
     const court = buildCourtScene('full', { lean: true });
     expect(court.scene.matrixAutoUpdate).toBe(false);

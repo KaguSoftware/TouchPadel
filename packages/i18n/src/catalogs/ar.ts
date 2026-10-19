@@ -1135,7 +1135,7 @@ export const ar: Messages = {
         off: 'النقاط غير مفعّلة بعد. بطاقة عضويتك جاهزة حين تُفعَّل.',
         balanceTitle: 'نقاطك',
         points: '{points} نقطة',
-        tier: 'عضو {tier}',
+        tier: '{tier}',
         nextTier: 'تحتاج {points} نقطة إضافية خلال الأشهر الاثني عشر القادمة لتصل إلى {tier}',
         topTier: 'أنت في أعلى مستوى.',
         rewardsTitle: 'المكافآت',

@@ -2,7 +2,7 @@
  * The coach link page (`app/[locale]/c/[id]/page.tsx`, docs/design/coaching/guest.md §4.14.3):
  * the lockup bar, the coach's photo (or first letter), the "Padel coach" eyebrow, one heading
  * (the coach's name, or the state), where they teach, the bio, the lesson types they teach, the
- * big Open in the app button and the quiet ways out, then a foot with Support.
+ * big Open in the app button and the quiet ways out, then the site footer (footerKit.css.ts).
  *
  * Like the open-match invite (matchInvite.css.ts) it ships WITHOUT the site sheet: the link is
  * opened from WhatsApp, often in an in-app browser, and the visitor should not download the
@@ -19,7 +19,7 @@ export const siteCoachLinkCss = `
 .tp-clink :where(h1, h2, p, ul) { margin: 0; }
 .tp-clink :where(ul) { padding: 0; list-style: none; }
 .tp-clink :where(a):focus-visible { outline: 2px solid var(--tp-site-ring); outline-offset: 3px; }
-.tp-clink__bar, .tp-clink__foot { inline-size: 100%; max-inline-size: var(--tp-site-max); margin-inline: auto; padding-inline: var(--tp-site-gutter); }
+.tp-clink__bar { inline-size: 100%; max-inline-size: var(--tp-site-max); margin-inline: auto; padding-inline: var(--tp-site-gutter); }
 .tp-clink__bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; block-size: var(--tp-site-header-h); }
 .tp-clink__home { display: flex; align-items: center; block-size: 2.25rem; border-radius: var(--tp-site-radius-sm); }
 .tp-clink .tp-lockup { display: block; block-size: 100%; inline-size: auto; aspect-ratio: 72.55 / 26.78; overflow: visible; }
@@ -77,8 +77,6 @@ export const siteCoachLinkCss = `
 }
 .tp-clink__get, .tp-clink__all { display: inline-flex; align-items: center; min-block-size: var(--tp-site-touch); color: var(--tp-fg); font-size: var(--tp-site-fs-sm); font-weight: 700; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.25em; }
 .tp-clink__all { color: var(--tp-site-ink-2); font-weight: var(--tp-site-fw-label); }
-.tp-clink__foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; padding-block: 0.5rem 1rem; border-block-start: 1px solid var(--tp-border); font-size: var(--tp-site-fs-sm); }
-.tp-clink__foot a { display: inline-flex; align-items: center; min-block-size: var(--tp-site-touch); color: var(--tp-site-ink-2); }
 @media (prefers-reduced-motion: reduce) {
   .tp-clink__open { transition: none; }
 }

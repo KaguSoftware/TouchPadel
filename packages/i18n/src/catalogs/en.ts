@@ -1249,7 +1249,8 @@ export const en = {
         off: 'Points aren’t switched on yet. Your member card is ready for when they are.',
         balanceTitle: 'Your points',
         points: '{points} points',
-        tier: '{tier} member',
+        // The tier's own name, already a full label ("Member", "Green member"): adding a word doubled it.
+        tier: '{tier}',
         nextTier: '{points} more points in the next 12 months to reach {tier}',
         topTier: 'You’re at the top tier.',
         rewardsTitle: 'Rewards',

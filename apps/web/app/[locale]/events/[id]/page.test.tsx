@@ -38,6 +38,10 @@ vi.mock('@/lib/tournaments.server', async () => {
   };
 });
 
+// The site footer's venue read (address, hours, the desk): none here, so the footer keeps to
+// its links.
+vi.mock('@/lib/menu.server', () => ({ getCachedVenue: () => Promise.resolve(null) }));
+
 vi.mock('@/lib/site/mode.server', async () => {
   const { siteRequest } = await import('@/lib/site/testSupport');
   return {
@@ -159,7 +163,7 @@ describe.each(LOCALES)('tournament page (%s)', (locale: Locale) => {
       screen
         .getByRole('link', { name: t(locale, 'tournaments.web.page.allEvents') })
         .getAttribute('href'),
-    ).toBe(`/${locale}#events`);
+    ).toBe(`/${locale}#tournaments`);
     expect(container.querySelector('.tp-tpage__live')?.textContent).toBe(
       t(locale, 'tournaments.web.page.live'),
     );
@@ -241,9 +245,10 @@ describe.each(LOCALES)('tournament page (%s)', (locale: Locale) => {
     expect(document.querySelector(`a[hreflang="${other}"]`)?.getAttribute('href')).toBe(
       `/${other}/events/${TOUR_RUNNING}`,
     );
-    expect(
-      screen.getByRole('link', { name: t(locale, 'site.brandHome') }).getAttribute('href'),
-    ).toBe(`/${locale}`);
+    // The bar's lockup and the site footer's both go home.
+    const home = screen.getAllByRole('link', { name: t(locale, 'site.brandHome') });
+    expect(home).toHaveLength(2);
+    for (const link of home) expect(link.getAttribute('href')).toBe(`/${locale}`);
     expect(
       screen.getByRole('link', { name: t(locale, 'site.footer.support') }).getAttribute('href'),
     ).toBe(`/${locale}/support`);
@@ -286,7 +291,7 @@ describe('tournament page, the id', () => {
       await renderPage('en', id);
       expect(tournamentsServer.calls).toBe(0);
       expect(heading()).toBe(t('en', 'tournaments.web.page.missing'));
-      expect(document.querySelector('a[hreflang="ar"]')?.getAttribute('href')).toBe('/ar#events');
+      expect(document.querySelector('a[hreflang="ar"]')?.getAttribute('href')).toBe('/ar#tournaments');
     },
   );
 

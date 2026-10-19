@@ -72,7 +72,21 @@ export const siteHeroCss = `
   color: var(--tp-fg);
   text-wrap: pretty;
 }
-.tp-front__ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-block-start: 0.5rem; }
+/* The two buttons share one width, the wider label's: a grid of equal tracks sized to its
+   content. Stacked by default; side by side once the copy column (.tp-fit, the container)
+   holds both. The thresholds are the two widest labels plus the gap, per language; a column
+   a little short of one wraps the label inside the button instead of overflowing it. */
+.tp-front__ctas {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  inline-size: max-content;
+  max-inline-size: 100%;
+  gap: 0.75rem;
+  margin-block-start: 0.5rem;
+}
+.tp-front__ctas .tp-site-btn { padding-inline: 1rem; }
+@container (min-width: 32.25rem) { .tp-front__ctas { grid-auto-flow: column; } }
+@container (min-width: 26rem) { [dir='rtl'] .tp-front__ctas { grid-auto-flow: column; } }
 .tp-front .tp-site-btn--ghost { border-color: var(--tp-fg); }
 @media (min-width: 48rem) and (orientation: portrait) {
   .tp-front__photo .tp-photo__img { object-position: 66% 15%; }

@@ -56,6 +56,9 @@ describe('Events without tournaments', () => {
     expect(container.querySelector('.tp-events__cards')).toBeNull();
     expect(container.querySelector('.tp-tour-card')).toBeNull();
     expect(container.querySelector('.tp-events__stage')).not.toBeNull();
+    // A tournament page's "All tournaments" still lands somewhere: the words about them.
+    expect(container.querySelectorAll('#tournaments')).toHaveLength(1);
+    expect(container.querySelector('#tournaments')?.className).toBe('tp-events__note');
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(
       t('en', 'site.events.title'),
     );
@@ -149,6 +152,12 @@ describe.each(['en', 'ar'] as const)('Events with tournaments (%s)', (locale) =>
     expect(container.querySelector('#events-title')?.textContent).toBe(
       t(locale, 'site.events.title'),
     );
+  });
+
+  it('is where "All tournaments" lands: #tournaments is the cards, and only the cards', () => {
+    const { container } = renderEvents(locale, read);
+    expect(container.querySelectorAll('#tournaments')).toHaveLength(1);
+    expect(container.querySelector('#tournaments')?.className).toBe('tp-events__cards');
   });
 
   it('prints nothing a public read must never carry', () => {

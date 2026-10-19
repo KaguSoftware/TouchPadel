@@ -1557,6 +1557,32 @@ button.tp-nav-item { background: transparent; }
   }
 }
 
+/* The Courts | Café switcher on the analytics bar (features/analytics/
+   AnalyticsTabs). Filled when open, so the tab being shown reads from across
+   the room. It used to borrow .tp-report-tab, which left with the report
+   switcher, and fell back to raw browser buttons. The same --tp-row-h and
+   --tp-surface as the jump-nav chips beside it, so the bar's first line is one
+   height and one material. */
+.tp-analytics-tab {
+  display: flex; align-items: center; gap: var(--tp-sp-2);
+  min-block-size: var(--tp-row-h); box-sizing: border-box; margin: 0;
+  padding-block: var(--tp-sp-1); padding-inline: var(--tp-sp-1) var(--tp-sp-3);
+  border: 1px solid var(--tp-border); border-radius: var(--tp-radius-ctl);
+  background: var(--tp-surface); color: var(--tp-fg);
+  font: inherit; font-size: var(--tp-fs-sm); font-weight: 600; line-height: 1.2; text-align: start;
+  cursor: pointer; min-inline-size: 0;
+  transition: background var(--tp-dur-fast) var(--tp-ease-out), border-color var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out);
+}
+.tp-analytics-tab:hover:not([aria-selected='true']) { background: var(--tp-hover); color: var(--tp-hover-fg); }
+.tp-analytics-tab[aria-selected='true'] { background: var(--tp-accent); border-color: var(--tp-accent); color: var(--tp-accent-contrast); cursor: default; }
+.tp-analytics-tab-icon {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  inline-size: 1.75rem; block-size: 1.75rem; border-radius: 50%;
+  background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg);
+}
+.tp-analytics-tab-icon svg { display: block; }
+.tp-analytics-tab[aria-selected='true'] .tp-analytics-tab-icon { background: color-mix(in srgb, var(--tp-accent-contrast) 20%, transparent); color: inherit; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   /*

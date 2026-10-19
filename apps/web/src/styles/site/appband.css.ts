@@ -101,6 +101,11 @@ export const siteAppBandCss = `
 .tp-stores { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-block-start: 0.25rem; }
 .tp-store { position: relative; display: inline-flex; border-radius: 14px; text-decoration: none; }
 .tp-store__badge { display: block; block-size: 2.75rem; inline-size: auto; }
+/* Google's PNG carries a clear margin baked into the artwork (the badge is 564 x 168 of
+   646 x 250, 41 px on every side), so at the same box height it read a third smaller than
+   Apple's edge-to-edge SVG. Scale the image so the badge itself is 2.75rem tall, and pull
+   the margin back in with a negative one so the box hugs the badge. */
+.tp-store--google-play .tp-store__badge { block-size: calc(2.75rem * 250 / 168); margin: calc(2.75rem * -41 / 168); }
 .tp-store--soon .tp-store__badge { opacity: 0.5; filter: grayscale(1); }
 .tp-store__soon {
   position: absolute;
