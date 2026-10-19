@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { t, type Locale, type MessageKey } from '@touch/i18n';
-import { drillWords } from './drillWords';
+import { drillColumns, drillWords } from './drillWords';
 import type { DrillTransaction } from './reportPayloads';
 
 // The drill window used to print the server's English label with raw codes
@@ -49,5 +49,38 @@ describe('drillWords', () => {
 
   it('falls back to the server label when there is no detail', () => {
     expect(words(null)).toEqual({ kind: null, text: 'raw label' });
+  });
+});
+
+// The drill table splits a row over What / Location / Customer (Sait, 2026-10-19).
+const cols = (d: Record<string, unknown> | null, locale: Locale = 'en') =>
+  drillColumns(tx(d), (key: MessageKey, params) => t(locale, key, params), locale);
+
+describe('drillColumns', () => {
+  it('puts a booking\'s court under Location and its guest under Customer', () => {
+    expect(cols({ sub: 'booking', courtEn: 'Court 2', courtAr: 'الملعب 2', guest: 'علي' })).toEqual({
+      sub: 'booking',
+      kind: 'Booking',
+      detail: null,
+      location: 'Court 2',
+      customer: 'علي',
+    });
+    expect(cols({ sub: 'booking', courtEn: 'Court 2', courtAr: 'الملعب 2' }, 'ar').location).toBe('الملعب 2');
+  });
+
+  it('keeps a cancelled booking\'s status beside the kind', () => {
+    expect(cols({ sub: 'booking', status: 'no_show', courtEn: 'Court 1', guest: 'Ali' }).detail).toBe('No-show');
+  });
+
+  it('puts a cafe bill\'s table under Location', () => {
+    expect(cols({ sub: 'settledTab', table: '12' })).toMatchObject({ kind: 'Cafe bill', location: 'Table 12', customer: null });
+  });
+
+  it('leaves a refund\'s reason and method beside the kind, with no place or customer', () => {
+    expect(cols({ sub: 'refund', reason: 'quality', method: 'cash' })).toMatchObject({ detail: 'Quality issue · Cash', location: null, customer: null });
+  });
+
+  it('falls back to the server label when there is no detail', () => {
+    expect(cols(null)).toEqual({ sub: null, kind: null, detail: 'raw label', location: null, customer: null });
   });
 });

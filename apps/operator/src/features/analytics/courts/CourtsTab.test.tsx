@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../../lib/i18n';
@@ -176,6 +176,8 @@ describe('CourtsTab', () => {
     const priceRow = within(pulse).getByText('Price per booked hour').closest('li')!;
     expect(within(priceRow).getByText('20,000 IQD', { selector: 'strong' })).toBeTruthy();
     // Tournament hours are named beside them (event_court_blocks): 240 minutes in both windows.
+    // The card shows three rows; the rest are behind its "View more".
+    fireEvent.click(within(pulse).getAllByRole('button', { name: /View more/ })[0]!);
     const eventsRow = within(pulse).getByText('Event hours').closest('li')!;
     expect(within(eventsRow).getByText('4', { selector: 'strong' })).toBeTruthy();
     expect(eventsRow.textContent).toMatch(/was 4/);

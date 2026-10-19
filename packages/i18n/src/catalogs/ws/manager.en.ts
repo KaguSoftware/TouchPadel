@@ -1097,6 +1097,7 @@ export const managerEn = {
         show: 'Show',
         onHand: 'On hand',
         par: 'Par',
+        unit: 'Unit',
         status: 'Status',
         recordsSay: 'records say {qty}',
         none: {

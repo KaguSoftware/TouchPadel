@@ -162,9 +162,9 @@ describe('CafeTab', () => {
     fireEvent.click(within(pulse).getByRole('button', { name: 'Open the transactions behind Cafe sales' }));
     await waitFor(() => expect(appRpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'cafeNet', p_key: null })));
     // The shared transactions window: titled by figure and dates, columns in words.
-    expect(await screen.findByText(/^Cafe sales · /)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Cafe sales' })).toBeTruthy();
     expect(await screen.findByText('Table 4')).toBeTruthy();
-    expect(screen.getByRole('columnheader', { name: 'Amount' })).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Amount (IQD)' })).toBeTruthy();
     expect(screen.queryByText('amountIqd')).toBeNull();
     fireEvent.click(within(pulse).getByRole('button', { name: 'Open the transactions behind Card' }));
     await waitFor(() => expect(appRpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'card' })));

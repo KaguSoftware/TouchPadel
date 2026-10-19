@@ -9,11 +9,14 @@
  * explanation, not state, so it now sits behind the info button (read on
  * hover, focus or tap) and the heading row stays one line of type.
  */
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { MessageKey } from '@touch/i18n';
 import { InfoTip } from '../../components/InfoTip';
+import { BreakdownFrame, useCardRow } from '../../components/BreakdownCards';
+import { Panel } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { useLocale } from '../../lib/i18n';
+import { BreakdownLook } from './cards/CardShell';
 
 export interface ZoneDef {
   id: string;
@@ -142,14 +145,6 @@ export function scrollToZone(id: string) {
   node.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-const headRow: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 'var(--tp-sp-1)',
-  borderBlockEnd: '1px solid var(--tp-border)',
-  paddingBlockEnd: 'var(--tp-sp-1-5)',
-};
-
 /**
  * One section of a tab: its heading, then — before any chart — the section's
  * ANSWER as a plain sentence (`lead`), e.g. "Busiest: Thursday 19:00, 82% full
@@ -161,13 +156,35 @@ const headRow: CSSProperties = {
  * The heading used to carry an ordinal ("05 Courts"). Nothing referred to the
  * numbers, and the jump pills printed them again; they are gone.
  */
+/** Set by a Zone whose heading is drawn by the frame inside it (ZoneFrame). */
+const ZoneHead = createContext<{ id: string; title: string; desc: string } | null>(null);
+
+/**
+ * A section's Breakdown frame that carries the section's own heading and its
+ * "i" in its band, so the section draws no heading row above it (Sait,
+ * 2026-10-19). Used inside <Zone headInFrame>.
+ */
+export function ZoneFrame({ lead, children }: { lead?: ReactNode; children: ReactNode }) {
+  const { tr } = useLocale();
+  const head = useContext(ZoneHead);
+  if (!head) throw new Error('ZoneFrame needs a <Zone headInFrame> around it');
+  return (
+    <BreakdownFrame title={head.title} titleId={head.id} tip={head.desc} tipLabel={tr('ws.analytics.tips.about', { title: head.title })} lead={lead}>
+      {children}
+    </BreakdownFrame>
+  );
+}
+
 export function Zone({
   zone,
   lead,
   actions,
+  headInFrame,
   children,
 }: {
   zone: ZoneDef;
+  /** The heading and its "i" are drawn by the ZoneFrame inside, in its band. */
+  headInFrame?: boolean;
   /** The section's answer in one or two sentences. Omitted while loading or when there is nothing to say. */
   lead?: ReactNode;
   /** Controls at the end of the heading row. */
@@ -177,23 +194,44 @@ export function Zone({
   const { tr } = useLocale();
   const title = tr(zone.titleKey);
   // scrollMarginBlockStart is replaced with the measured bar height by scrollToZone.
+  if (headInFrame) {
+    return (
+      <section id={`zone-${zone.id}`} aria-labelledby={`zone-${zone.id}-title`} style={{ marginBlockEnd: 'var(--tp-sp-6)', scrollMarginBlockStart: '12.5rem' }}>
+        {lead && (
+          <p data-testid={`zone-${zone.id}-lead`} style={{ margin: 0, marginBlockEnd: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-md)', maxInlineSize: '90ch' }}>
+            {lead}
+          </p>
+        )}
+        <ZoneHead.Provider value={{ id: `zone-${zone.id}-title`, title, desc: tr(zone.descKey) }}>{children}</ZoneHead.Provider>
+      </section>
+    );
+  }
+  // Every section in the Summary's frame (Sait, 2026-10-19): a Touch Blue
+  // band with the title and its "i" right after it, the section's controls
+  // at the band's end, then its answer and its cards on the frame's ground.
+  // The cards inside keep their own design.
   return (
     <section id={`zone-${zone.id}`} aria-labelledby={`zone-${zone.id}-title`} style={{ marginBlockEnd: 'var(--tp-sp-6)', scrollMarginBlockStart: '12.5rem' }}>
-      <div style={headRow}>
-        <h2 id={`zone-${zone.id}-title`} style={{ margin: 0, fontSize: 'var(--tp-fs-xl)' }}>
-          {title}
-        </h2>
-        <InfoTip content={tr(zone.descKey)} label={tr('ws.analytics.tips.about', { title })} />
-        {actions && <span style={{ marginInlineStart: 'auto' }}>{actions}</span>}
-      </div>
-      {lead ? (
-        <p data-testid={`zone-${zone.id}-lead`} style={{ margin: 0, marginBlock: 'var(--tp-sp-2) var(--tp-sp-3)', fontSize: 'var(--tp-fs-md)', maxInlineSize: '90ch' }}>
-          {lead}
-        </p>
-      ) : (
-        <div style={{ blockSize: 'var(--tp-sp-3)' }} />
-      )}
-      {children}
+      <Panel
+        title={<span id={`zone-${zone.id}-title`}>{title}</span>}
+        titleEnd={<InfoTip content={tr(zone.descKey)} label={tr('ws.analytics.tips.about', { title })} style={{ marginBlock: '-0.4rem' }} />}
+        actions={actions}
+        band="group"
+        padded={false}
+        style={{ background: 'var(--tp-breakdown-frame)' }}
+      >
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', padding: 'var(--tp-sp-4)' }}>
+          {lead && (
+            <p data-testid={`zone-${zone.id}-lead`} style={{ margin: 0, fontSize: 'var(--tp-fs-md)', maxInlineSize: '90ch' }}>
+              {lead}
+            </p>
+          )}
+          {/* Every card in a section wears the Breakdown look (Sait, 2026-10-19). */}
+          <div>
+            <BreakdownLook.Provider value="card">{children}</BreakdownLook.Provider>
+          </div>
+        </div>
+      </Panel>
     </section>
   );
 }
@@ -208,12 +246,63 @@ export function gridColumns(columns: number, min = columns >= 3 ? '17rem' : '20r
   return `repeat(auto-fit, minmax(max(min(100%, ${min}), calc((100% - ${columns - 1} * var(--tp-sp-3)) / ${columns})), 1fr))`;
 }
 
-/** The grid every section body uses. */
+/**
+ * A zone's cards in one sideways row, like the overview's Breakdown (Sait,
+ * 2026-10-19): `columns` across, the rest a scroll away behind back/forward
+ * arrows. Never narrower than `min`, so a narrow window shows fewer cards.
+ * Every card in it wears the Breakdown look, coloured by its place, and the
+ * row's two shared tracks (band, body) make every band one height.
+ *
+ * Pass `row` to put the arrows somewhere else (the zone's band, as "What
+ * stands out" does); without it the row shows its own above the cards, and
+ * only while some card is out of view.
+ */
+export function ZoneRow({
+  row: given,
+  columns = 3,
+  min = '20rem',
+  children,
+}: {
+  row?: ReturnType<typeof useCardRow>;
+  columns?: number;
+  min?: string;
+  children: ReactNode;
+}) {
+  const own = useCardRow();
+  const row = given ?? own;
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
+      {!given && row.pager && <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{row.pager}</div>}
+      <div
+        ref={row.ref}
+        onScroll={row.measure}
+        className="tp-zone-row"
+        data-testid="zone-card-row"
+        style={{
+          display: 'grid',
+          gridAutoFlow: 'column',
+          gridAutoColumns: `minmax(max(min(100%, ${min}), calc((100% - ${columns - 1} * var(--tp-sp-3)) / ${columns})), 1fr)`,
+          gridTemplateRows: 'auto 1fr',
+          alignItems: 'stretch',
+          columnGap: 'var(--tp-sp-3)',
+          overflowX: 'auto',
+          // The arrows do the telling; no scrollbar band under the cards.
+          scrollbarWidth: 'none',
+          scrollSnapType: 'x mandatory',
+        }}
+      >
+        <BreakdownLook.Provider value="row">{children}</BreakdownLook.Provider>
+      </div>
+    </div>
+  );
+}
+
+/** A section body's cards: the sideways row, two across unless told otherwise. */
 export function ZoneGrid({ columns = 2, min, children }: { columns?: number; min?: string; children: ReactNode }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: gridColumns(columns, min), gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
+    <ZoneRow columns={columns} min={min ?? (columns >= 3 ? '17rem' : '20rem')}>
       {children}
-    </div>
+    </ZoneRow>
   );
 }
 

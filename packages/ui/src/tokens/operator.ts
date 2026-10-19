@@ -107,10 +107,89 @@ export const operatorVars = {
   '--tp-heading': '#1D3762',
   '--tp-panel-head': 'var(--tp-brand-blue)',
   '--tp-panel-head-fg': 'var(--tp-brand-white)',
-  '--tp-table-head': 'var(--tp-brand-blue)',
-  '--tp-table-head-fg': 'var(--tp-brand-white)',
-  '--tp-selected': 'var(--tp-brand-blue)',
-  '--tp-selected-fg': 'var(--tp-brand-white)',
+  // The band of a panel that GROUPS other panels (the management overview's
+  // Breakdown): Touch Blue with white ink in both modes, a step brighter in
+  // blue mode so it shows on the blue page (Sait, 2026-10-19). The cards under
+  // it wear their own colours (--tp-breakdown-*), so the blue is the frame.
+  '--tp-group-head': 'var(--tp-brand-blue)',
+  '--tp-group-head-fg': 'var(--tp-brand-white)',
+  // The Breakdown's figure cards (Sait, 2026-10-19): one colour per card for
+  // its title band and its outline, navy ink on the band, and a wash of the
+  // same colour behind its rows (--tp-breakdown-wash-mix of the colour into
+  // --tp-breakdown-wash) that a hovered row deepens (--tp-breakdown-hover-mix).
+  // Padel green, cafe violet, money out rose, online light blue, lessons teal,
+  // and gold for a sixth card.
+  // Blue mode swaps each for a calm deep version with a light ink.
+  '--tp-breakdown-green': 'var(--tp-brand-green)',
+  '--tp-breakdown-green-fg': '#152847',
+  '--tp-breakdown-green-edge': 'var(--tp-brand-green)',
+  '--tp-breakdown-violet': '#C9B0EC',
+  '--tp-breakdown-violet-fg': '#152847',
+  '--tp-breakdown-violet-edge': '#C9B0EC',
+  '--tp-breakdown-rose': '#E9A6AA',
+  '--tp-breakdown-rose-fg': '#152847',
+  '--tp-breakdown-rose-edge': '#E9A6AA',
+  '--tp-breakdown-sky': '#9DB4DA',
+  '--tp-breakdown-sky-fg': '#152847',
+  '--tp-breakdown-sky-edge': '#9DB4DA',
+  '--tp-breakdown-teal': '#9ED9D2',
+  '--tp-breakdown-teal-fg': '#152847',
+  '--tp-breakdown-teal-edge': '#9ED9D2',
+  '--tp-breakdown-gold': '#E6CF7A',
+  '--tp-breakdown-gold-fg': '#152847',
+  '--tp-breakdown-gold-edge': '#E6CF7A',
+  // The Breakdown panel's own ground behind the cards (the deep rail blue in blue mode).
+  // The owner's four card colours, by place (report figure groups, headline
+  // tiles, the customer record's tiles, the analytics cards): the Breakdown's
+  // green, violet, rose, light blue, teal and gold, then round again (Sait,
+  // 2026-10-19; blue, green, black, light blue before). Blue mode uses the calm light inks, so a strip shows on
+  // a navy panel. --tp-card-ink is text set on the colour itself.
+  '--tp-card-1': 'var(--tp-breakdown-green)',
+  '--tp-card-2': 'var(--tp-breakdown-violet)',
+  '--tp-card-3': 'var(--tp-breakdown-rose)',
+  '--tp-card-4': 'var(--tp-breakdown-sky)',
+  '--tp-card-5': 'var(--tp-breakdown-teal)',
+  '--tp-card-6': 'var(--tp-breakdown-gold)',
+  '--tp-card-ink': '#152847',
+  '--tp-breakdown-frame': 'var(--tp-surface)',
+  '--tp-breakdown-wash': 'var(--tp-brand-white)',
+  '--tp-breakdown-wash-mix': '16%',
+  '--tp-breakdown-hover-mix': '38%',
+  // Tables (Sait, 2026-10-19). The column band is the Breakdown's group band in
+  // both modes; the selected row is Padel Green with navy ink in both modes
+  // (green marks what is here and now, as the rail's current-page pill), and
+  // nothing inside it turns grey (theme.ts, SELECTED_ROWS). A table's total
+  // row is green too.
+  '--tp-table-head': 'var(--tp-group-head)',
+  '--tp-table-head-fg': 'var(--tp-group-head-fg)',
+  '--tp-selected': 'var(--tp-brand-green)',
+  '--tp-selected-fg': 'var(--tp-accent-2-contrast)',
+  '--tp-table-total': 'var(--tp-brand-green)',
+  '--tp-table-total-fg': 'var(--tp-accent-2-contrast)',
+  // The figure card over a drill's rows: blue mode's deep panel ink in BOTH
+  // modes, and the bar beneath it in full-strength card colours in both, so
+  // green reads as the same green on paper and on the blue page (Sait).
+  '--tp-total-card': '#1A2A44',
+  '--tp-total-card-fg': 'var(--tp-brand-white)',
+  '--tp-total-card-muted': '#E0E0E1',
+  '--tp-split-green': '#A5D06F',
+  '--tp-split-violet': '#C9B0EC',
+  '--tp-split-rose': '#E9A6AA',
+  '--tp-split-sky': '#9DB4DA',
+  '--tp-split-teal': '#9ED9D2',
+  '--tp-split-gold': '#E6CF7A',
+  // Segmented buttons (Sait, 2026-10-19): a light grey track on paper, the
+  // accent blue on the blue page; the chosen segment is Padel Green with navy
+  // ink and slides to the new choice (kit.tsx SegmentedControl).
+  '--tp-seg-track': '#ECEEF1',
+  // The whole control is framed in Touch Blue at 30% (Sait, 2026-10-19).
+  '--tp-seg-edge': 'color-mix(in oklab, var(--tp-brand-blue) 30%, transparent)',
+  '--tp-seg-fg': '#152847',
+  '--tp-seg-hover': '#DFE2E7',
+  // The chosen segment is Touch Blue with white ink on paper (Sait,
+  // 2026-10-19, picked from a screenshot); blue mode keeps Padel Green.
+  '--tp-seg-on': 'var(--tp-brand-blue)',
+  '--tp-seg-on-fg': 'var(--tp-brand-white)',
   // The one hover ground for everything a pointer can land on (owner call,
   // 2026-09-24): the pale accent-blue tint, with the page's own ink on it.
   '--tp-hover': 'var(--tp-accent-soft)',
@@ -348,6 +427,8 @@ export const operatorVars = {
   '--tp-subnav-w': '176px',
   '--tp-row-h': '40px',
   '--tp-row-h-dense': '34px',
+  // The column header band, one height in every table (Sait, 2026-10-19).
+  '--tp-row-h-head': '44px',
   '--tp-touch': '44px',
   '--tp-tile-min-block': '72px',
   /** Prose measure. Seven hand-picked maxInlineSize values existed. */

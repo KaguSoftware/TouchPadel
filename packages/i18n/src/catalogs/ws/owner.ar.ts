@@ -16,6 +16,7 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
     // DRAFT-AR (open matches, operator.md §5.19, R38).
     online: 'الأموال الإلكترونية والمباريات المفتوحة',
     otherReports: 'تقارير أخرى',
+    cardsTitle: 'التفصيل',
     headline: 'الأرقام الرئيسية',
     padel: 'البادل',
     cafe: 'الكافيه',

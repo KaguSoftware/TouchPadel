@@ -238,7 +238,7 @@ export const en = {
   stock: { title: 'Stock' },
   admin: { title: 'Admin' },
   analytics: {
-    title: 'Trends',
+    title: 'Analytics',
     deck: {
       today: 'Today',
       d7: '7 days',

@@ -65,18 +65,16 @@ function PanelLinks({ links, go }: { links: readonly { label: string; href: stri
   );
 }
 
-/** A named group inside a panel ("Courts", "Café", "Kitchen") with its rows. */
+/**
+ * A named group inside a panel ("Courts", "Café", "Kitchen") with its rows,
+ * as a card of its own built like every other card on the page: the title
+ * band, its way to the screen it reads from at the band's end, then the rows.
+ */
 function Group({ title, link, children }: { title: string; link?: ReactNode; children: ReactNode }) {
   return (
-    <section style={{ display: 'grid', alignContent: 'start', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
-      {/* The link follows its own title: pushed to the far end, it sat beside
-          the next group's title and the three headers read as one run. */}
-      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--tp-sp-2)', minBlockSize: '2rem' }}>
-        <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 700, color: 'var(--tp-fg)' }}>{title}</h3>
-        {link}
-      </div>
+    <Panel level={3} title={title} actions={link} style={{ minInlineSize: 0 }}>
       {children}
-    </section>
+    </Panel>
   );
 }
 
@@ -92,7 +90,7 @@ export function FloorPanel({ data, go }: { data: OpsOverview; go: Go }) {
   const next = b.nextArrivalAt ? [formatTime(new Date(b.nextArrivalAt), locale), court, b.nextArrivalLabel].filter(Boolean).join(' · ') : null;
   return (
     <Panel data-testid="floor-now" title={<CardTitle icon="court">{tr('ws.manager.ops.floor.title')}</CardTitle>}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', columnGap: 'var(--tp-sp-6)', rowGap: 'var(--tp-sp-5)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))', gap: 'var(--tp-sp-4)' }}>
         <Group title={tr('ws.manager.ops.floor.courts')} link={<GroupLink label={tr('ws.manager.ops.floor.courtsLink')} href="/desk" go={go} />}>
           <RowList chevrons={false}>
             <FigureRow label={tr('ws.manager.ops.floor.booked')} value={b.today} />

@@ -248,8 +248,11 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/admin': ['manager', 'owner'],
   '/admin/telegram': ['owner'],
   '/admin/staff': ['owner'],
-  // Multi-venue slice 4: the branches and "Open a new branch" are the owner's.
-  '/admin/branches': ['owner'],
+  // Multi-venue slice 4: the branches. Since 2026-10-18 a branch card is the
+  // way into its club details, so a manager sees the list too (their own
+  // branches); opening, closing and "Open a new branch" stay the owner's
+  // (manageBranches).
+  '/admin/branches': ['manager', 'owner'],
   // Setup › Loyalty (loyalty build contracts §5): points, tiers and rewards
   // are business-wide and the owner's (set_loyalty_settings is owner-only).
   '/admin/loyalty': ['owner'],
@@ -468,6 +471,8 @@ export const CAPABILITY_ROLES = {
   setEngagementFloor: ['owner'],
   /** Venue name, phone and booking rules (app.set_venue_details, 0104). */
   editVenueDetails: ['owner'],
+  /** Open a new branch, its checklist, Open to guests and Close (app.create_branch / open_branch / close_branch). */
+  manageBranches: ['owner'],
 
   // Protocols (build-contracts-2026-09-23 §5.1). Row-level buttons on a run or
   // a step follow the RPC's own `can` answer; these gate the screen-level ones.

@@ -125,8 +125,15 @@ const TEXT_PAIRS: Array<[string, string]> = [
   ['--tp-info-fg', '--tp-info-soft'],
   ['--tp-heading', '--tp-bg'],
   ['--tp-panel-head-fg', '--tp-panel-head'],
+  ['--tp-group-head-fg', '--tp-group-head'],
   ['--tp-table-head-fg', '--tp-table-head'],
   ['--tp-selected-fg', '--tp-selected'],
+  ['--tp-table-total-fg', '--tp-table-total'],
+  ['--tp-total-card-fg', '--tp-total-card'],
+  ['--tp-total-card-muted', '--tp-total-card'],
+  ['--tp-seg-fg', '--tp-seg-track'],
+  ['--tp-seg-fg', '--tp-seg-hover'],
+  ['--tp-seg-on-fg', '--tp-seg-on'],
 ];
 
 const MARK_PAIRS: Array<[string, string]> = [
@@ -179,24 +186,29 @@ describe('panel colours round 3: the cross scopes', () => {
   const blueVars = { ...operatorTheme, ...blue };
   const INK = ['--tp-fg', '--tp-muted-fg', '--tp-accent'];
 
-  it.each(INK)('blue-mode %s reads on the paper selected row (Touch Blue)', (ink) => {
-    expect(ratioOf(resolve(ink, blueVars), resolve('--tp-selected', paperVars))).toBeGreaterThanOrEqual(4.5);
-  });
-
   it.each(INK)('blue-mode %s reads on the paper Touch Blue panel band', (ink) => {
     expect(ratioOf(resolve(ink, blueVars), resolve('--tp-panel-head', paperVars))).toBeGreaterThanOrEqual(4.5);
   });
 
-  it.each(INK)('paper %s reads on the blue-mode white band and selected row', (ink) => {
+  it.each(INK)('paper %s reads on the blue-mode white band', (ink) => {
     expect(ratioOf(resolve(ink, paperVars), resolve('--tp-panel-head', blueVars))).toBeGreaterThanOrEqual(4.5);
-    expect(ratioOf(resolve(ink, paperVars), resolve('--tp-selected', blueVars))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // The selected row is Padel Green in both modes (Sait, 2026-10-19): paper
+  // ink on it, with grey text and accent ink pinned to the row's navy.
+  it.each(INK)('%s reads on the green selected row in both modes', (ink) => {
+    const onRow = { '--tp-muted-fg': 'var(--tp-selected-fg)', '--tp-accent': 'var(--tp-selected-fg)' };
+    for (const vars of [paperVars, blueVars]) {
+      expect(ratioOf(resolve(ink, { ...paperVars, ...onRow }), resolve('--tp-selected', vars))).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it('emits both scopes and leaves the grounds to their own mode', () => {
     expect(themeCss).toContain("[data-theme='operator'][data-mode='blue'] .tp-paper");
     expect(themeCss).toContain("[data-theme='operator']:not([data-mode='blue']) .tp-band");
     expect(themeCss).toContain("[data-theme='operator'][data-mode='blue'] .tp-band");
-    expect(themeCss).toContain("[data-theme='operator']:not([data-mode='blue']) .tp-table tbody tr[data-selected='true']");
+    expect(themeCss).toContain("[data-theme='operator'][data-mode='blue'] .tp-table tbody tr[data-selected='true']");
+    expect(themeCss).toContain('--tp-muted-fg: var(--tp-selected-fg);');
     const scopes = themeCss.slice(themeCss.indexOf("[data-mode='blue'] .tp-paper"));
     const firstBlock = scopes.slice(0, scopes.indexOf('}'));
     for (const ground of OPERATOR_SCOPE_GROUNDS) expect(firstBlock).not.toContain(`${ground}:`);

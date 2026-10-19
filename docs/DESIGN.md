@@ -39,13 +39,23 @@ modes:
 |---|---|---|
 | `--tp-heading` (page titles) | #1D3762 | white |
 | `--tp-panel-head` / `-fg` (panel title band) | Touch Blue / white | #F4F7FB / #274982 |
-| `--tp-table-head` / `-fg` (column band) | Touch Blue / white | #DCE3EE / #1D3762 |
-| `--tp-selected` / `-fg` (selected row, Go to option) | Touch Blue / white | #F4F7FB / #274982 |
+| `--tp-group-head` / `-fg` (band of a panel holding panels) | Touch Blue / white | #3B6EC4 / white |
+| `--tp-breakdown-<tone>` / `-fg` / `-edge` (the overview's Breakdown cards: green, violet, rose, sky, teal, gold) | full colour / navy | calm deep colour / light ink |
+| `--tp-card-1..6` (figure cards by place, repeating after six: groups, tile strips, record tiles, analytics cards) | green, violet, rose, light blue, teal, gold | the same as calm light inks |
+| `--tp-table-head` / `-fg` (column band, = `--tp-group-head`) | Touch Blue / white | #3B6EC4 / white |
+| `--tp-selected` / `-fg` (selected row, Go to option) | Padel Green / navy | Padel Green / navy |
+| `--tp-table-total` / `-fg` (a table's total row) | Padel Green / navy | Padel Green / navy |
+| `--tp-total-card` / `-fg` / `-muted` (a drill's figure card) | #1A2A44 / white | the same |
+| `--tp-split-<tone>` (the figure card's bar, full-strength card colours) | the same in both | the same in both |
+| `--tp-seg-track` / `-edge` / `-fg` / `-hover` (segmented buttons) | light grey, Touch Blue frame at 30% / navy ink | #3B6EC4 / white ink |
+| `--tp-seg-on` / `-on-fg` (the chosen segment) | Touch Blue / white | Padel Green / navy |
 
 A solid band or selected row also **borrows the other mode's palette for what sits inside it**:
-`theme.ts` emits two cross scopes. The panel title band (`.tp-band`) and a selected row take the
-other mode's colour tokens in both modes: blue-mode tokens on paper's Touch Blue, paper tokens on
-blue mode's white. `.tp-paper` and `.tp-blue` force one direction for anything else. Links, grey text, buttons and badges inside
+`theme.ts` emits two cross scopes. The panel title band (`.tp-band`) takes the other mode's colour
+tokens in both modes: blue-mode tokens on paper's Touch Blue, paper tokens on blue mode's white.
+The selected row is Padel Green in both modes (Sait, 2026-10-19), a light ground, so it takes the
+paper tokens in blue mode and keeps its own on paper; inside it `--tp-muted-fg` and `--tp-accent`
+are pinned to its navy, so nothing on the green is grey or link-blue. `.tp-paper` and `.tp-blue` force one direction for anything else. Links, grey text, buttons and badges inside
 then stay readable without per-screen edits. The ground tokens themselves
 (`OPERATOR_SCOPE_GROUNDS`) are left out of the scopes. Every pair, including the crossed ones,
 is pinned in `apps/operator/src/lib/tokens.test.ts`.
@@ -179,7 +189,12 @@ prose ≤ 70ch.
 for badges. Elevation is a border first; shadow only on overlays (dialogs, sheets, toasts).
 
 ## Density
-Tables: 40px rows (`--tp-row-h`), 34px dense (`--tp-row-h-dense`). Till tiles ≥ 72px
+Tables: 40px rows (`--tp-row-h`), 34px dense (`--tp-row-h-dense`), a 44px column header
+(`--tp-row-h-head`, 14px bold). Every table draws its own 1px edge, inside a panel or a dialog
+too. Only the rows scroll: the vertical scrollbar is a thin thumb drawn over
+the rows between the header and the total row (the native bar shortened both), and there is no
+rubber band (Sait, 2026-10-19). A log grouped by day uses DataTable `groupColumn`: one Day cell beside each
+day's rows (weekday, date, month, the day's total) and a single line between days. Till tiles ≥ 72px
 (`--tp-tile-min-block`). 44px minimum touch target (`--tp-touch`) everywhere on till and
 kitchen. Forms: 8px between label and control, 16px between fields. These are tokens, and they
 are px — do not re-type the numbers.
@@ -190,6 +205,13 @@ Tabs, Modal, ConfirmationDialog, PinPromptOverlay, ReasonCodePrompt, AsyncStateW
 DataTable, StatusIndicator (booking / payment / ticket / tab), HeadlineFigure, ComparisonDelta,
 PermissionRefusedNotice, ConflictNotice, MessagePresenter, DegradedBanner, WorkspaceNav,
 BilingualFieldPair, SearchField, Pagination, EmptyState, Skeleton, Spinner, Icon.
+
+**Date ranges** use one control, `DateRangePicker` (operator, 2026-10-19; `DateRangeControl` and
+the Analytics bar wrap it). The field is only the dates and a chevron ("20 Sep – 19 Oct"; the year
+only when it is not this one, and both years when a range crosses one). Its panel: the screen's
+periods as chips on one line that scrolls sideways, a one-month calendar whose title opens a month
+grid and then a year grid, and Clear / Apply. No summary line: the field shows the pick as it is
+made, Apply keeps it, Escape or a press outside cancels.
 
 ## States
 Every interactive component: default, hover, focus-visible (2px accent ring, 2px offset),
@@ -214,6 +236,11 @@ One attention loop exists, `.tp-attention` on `--tp-dur-attention`, and it may o
 being made. It rides a ring or a dot that carries **no text** — it used to run on the KDS card
 root, dropping the most urgent ticket on the board to 45% opacity, which is the opposite of what
 an alarm is for.
+
+Two asked-for exceptions, both Sait's (2026-10-19): the overview Breakdown's View more glides
+open and closed, and a segmented control's green thumb slides (220ms) to the new choice. The
+thumb animates its inline position and size, because segments differ in width. Both stop under
+`prefers-reduced-motion`. A third needs the owner's word, not a reviewer's.
 
 Utility classes live in `GlobalStyles.tsx`: `.tp-rise`, `.tp-fade`, `.tp-attention`, `.tp-skel`,
 `.tp-spin` / `.tp-ball-spin`. Indeterminate progress is exempted from the reduced-motion kill and

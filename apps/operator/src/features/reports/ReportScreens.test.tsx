@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -124,7 +124,8 @@ describe('RevenueReportScreen', () => {
     await user.click(within(screen.getByRole('table', { name: 'Given away' })).getByText('12,345 IQD'));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('report_drill', { p_figure: 'discounts', p_key: null, p_from: '2026-09-14', p_to: '2026-09-14' }));
     const dialog = await screen.findByRole('dialog');
-    expect(await within(dialog).findByText('Discount or void')).toBeTruthy();
+    // The kind is a tag in the row (it filters to its kind) and a line in the figure card.
+    expect(await within(dialog).findByRole('button', { name: 'Discount or void' })).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Refunds' }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'refunds', p_from: '2026-09-14' })));
   });
@@ -160,9 +161,11 @@ describe('RevenueReportScreen', () => {
     expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Day', 'Padel', 'Cafe', 'Lessons', 'Revenue', 'Bookings', 'Orders']);
     expect(within(table).getByText('30,000 IQD')).toBeTruthy();
     const band = screen.getByRole('region', { name: 'Revenue' });
+    // Earned shows three rows; the lesson two are behind its "View more".
+    fireEvent.click(within(band).getByRole('button', { name: /View more/ }));
     expect(within(band).getByText('Lessons')).toBeTruthy();
     expect(within(band).getByText('Owed to coaches')).toBeTruthy();
-    expect(within(band).getByText("Coaches' share of lesson money, paid outside the till")).toBeTruthy();
+    expect(within(band).queryByText("Coaches' share of lesson money, paid outside the till")).toBeNull();
     expect(within(band).getByText('18,000 IQD')).toBeTruthy();
   });
 
@@ -172,6 +175,7 @@ describe('RevenueReportScreen', () => {
     const table = await screen.findByRole('table', { name: 'Earned' });
     expect(within(table).queryByRole('columnheader', { name: 'Lessons' })).toBeNull();
     const band = screen.getByRole('region', { name: 'Revenue' });
+    fireEvent.click(within(band).getByRole('button', { name: /View more/ }));
     const lessons = within(band).getByText('Lessons').closest('div')!;
     expect(lessons.parentElement!.textContent).toContain('—');
     expect(within(band).getByText('Owed to coaches')).toBeTruthy();

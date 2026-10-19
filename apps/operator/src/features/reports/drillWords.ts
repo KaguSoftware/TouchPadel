@@ -104,6 +104,85 @@ export function drillWords(t: DrillTransaction, tr: Tr, locale: Locale): { kind:
 }
 
 // ---------------------------------------------------------------------------
+// The drill table's columns
+// ---------------------------------------------------------------------------
+
+export type DrillSub = Sub;
+
+/**
+ * One transaction split over the drill table's columns (Sait, 2026-10-19):
+ * the kind of thing it is, where it happened (court, table or tab) and the
+ * customer, each under its own label. Whatever else the sentence carries
+ * (a reason, a method, an item) stays beside the kind as `detail`. A row
+ * without `detail` (an older server) keeps its label there.
+ */
+export interface DrillColumns {
+  sub: Sub | null;
+  kind: string | null;
+  detail: string | null;
+  location: string | null;
+  customer: string | null;
+}
+
+export function drillColumns(t: DrillTransaction, tr: Tr, locale: Locale): DrillColumns {
+  const d = t.detail;
+  const sub: Sub | null = d && has(SUBS, d.sub) ? d.sub : null;
+  if (!d || !sub) return { sub: null, kind: null, detail: t.label, location: null, customer: null };
+
+  let location: string | null = null;
+  const rest: (string | null)[] = [];
+  switch (sub) {
+    case 'booking':
+      location = inLocale(d.courtEn, d.courtAr, locale);
+      if (d.status === 'cancelled' || d.status === 'no_show') rest.push(tr(`ws.kit.bookingStatus.${d.status}`));
+      break;
+    case 'settledTab':
+      location = where(d, tr);
+      break;
+    case 'order':
+      location = where(d, tr);
+      rest.push(d.source === 'till' || d.source === 'guest_web' ? tr(`ws.reports.drill.sources.${d.source}`) : text_(d.source));
+      break;
+    case 'payment':
+      location = where(d, tr);
+      rest.push(methodWords(d.method, tr));
+      break;
+    case 'refund':
+      rest.push(reasonWords(d.reason, tr), methodWords(d.method, tr));
+      break;
+    case 'discount':
+      location = where(d, tr);
+      rest.push(
+        d.adjKind === 'discount_percent' || d.adjKind === 'discount_amount' || d.adjKind === 'price_override' ? tr(`ws.reports.drill.adjKinds.${d.adjKind}`) : text_(d.adjKind),
+        reasonWords(d.reason, tr),
+      );
+      break;
+    case 'void':
+      location = where(d, tr);
+      rest.push(inLocale(d.itemEn, d.itemAr, locale), reasonWords(d.reason, tr));
+      break;
+    case 'waste': {
+      const qty = typeof d.qty === 'number' ? d.qty : Number(d.qty);
+      const unit = has(UNITS, d.unit) ? tr(`op.stock.unit.${d.unit}`) : text_(d.unit);
+      rest.push(
+        inLocale(d.ingredientEn, d.ingredientAr, locale),
+        Number.isFinite(qty) && unit ? tr('op.stock.qty', { qty: new Intl.NumberFormat(locale === 'ar' ? 'ar-IQ-u-nu-latn' : 'en-IQ').format(qty), unit }) : null,
+        reasonWords(d.reason, tr) ?? (has(MOVEMENTS, d.movement) ? tr(`op.stock.movement.${d.movement}`) : null),
+      );
+      break;
+    }
+    case 'line': {
+      location = where(d, tr);
+      const item = inLocale(d.itemEn, d.itemAr, locale);
+      rest.push(item ? tr('ws.reports.drill.lineQty', { item, qty: String(d.qty ?? '') }) : null);
+      break;
+    }
+  }
+  const words = rest.filter((p): p is string => !!p);
+  return { sub, kind: tr(`ws.reports.drill.subs.${sub}`), detail: words.length ? words.join(' · ') : null, location, customer: text_(d.guest) };
+}
+
+// ---------------------------------------------------------------------------
 // The same facts, one per column, for the export
 // ---------------------------------------------------------------------------
 

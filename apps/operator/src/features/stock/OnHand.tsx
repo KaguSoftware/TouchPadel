@@ -60,7 +60,7 @@ import {
 } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
 import { LedgerDrawer } from './LedgerDrawer';
-import { AttentionList, Footnote, IngredientName, useStockFormat, type AttentionItem } from './stockUi';
+import { AlignedQty, AttentionList, Footnote, IngredientName, useStockFormat, type AttentionItem } from './stockUi';
 import { anyInBakery, heldAt, inScope, orderForStore, phoneCountsWaiting, splitByStore, splitWorthShowing, type StockLocation, type StoreSplit } from './storeLogic';
 import { useStockScope } from './stockScope';
 import {
@@ -236,8 +236,8 @@ export function OnHand() {
           const here = heldAt(split, atStore);
           return (
             <span style={{ display: 'grid', justifyItems: 'end' }}>
-              <span dir="ltr" style={{ fontWeight: 700, color: here > 0 ? undefined : 'var(--tp-muted-fg)' }}>
-                <bdi>{fmt.qty(here, r.unit)}</bdi>
+              <span style={{ fontWeight: 700 }}>
+                <AlignedQty text={fmt.num(here)} muted={here <= 0} />
               </span>
               <bdi style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontWeight: 400, whiteSpace: 'nowrap' }}>
                 {tr('ws.stores.onHand.total', { qty: fmt.qty(r.on_hand, r.unit) })}
@@ -247,8 +247,8 @@ export function OnHand() {
         }
         return (
           <span style={{ display: 'grid', justifyItems: 'end' }}>
-            <span dir="ltr" style={{ fontWeight: 700 }}>
-              <bdi>{fmt.qty(r.on_hand, r.unit)}</bdi>
+            <span style={{ fontWeight: 700 }}>
+              <AlignedQty text={fmt.num(r.on_hand)} />
             </span>
             {splitWorthShowing(split) && <StoreSplitLine split={split!} unit={r.unit} />}
           </span>
@@ -259,7 +259,13 @@ export function OnHand() {
       key: 'par',
       header: tr('ws.manager.stock.onHand.table.par'),
       numeric: true,
-      render: (r) => <span style={{ color: 'var(--tp-muted-fg)' }}>{r.par_level === null ? '—' : <bdi>{fmt.qty(r.par_level, r.unit)}</bdi>}</span>,
+      render: (r) => (r.par_level === null ? <span style={{ color: 'var(--tp-muted-fg)' }}>—</span> : <AlignedQty text={fmt.num(r.par_level)} muted />),
+    },
+    // Numbers only in the two columns before it; the unit is said once, here (Sait, 2026-10-19).
+    {
+      key: 'unit',
+      header: tr('ws.manager.stock.onHand.table.unit'),
+      render: (r) => <span style={{ color: 'var(--tp-muted-fg)', whiteSpace: 'nowrap' }}>{fmt.unit(r.unit)}</span>,
     },
     {
       key: 'status',

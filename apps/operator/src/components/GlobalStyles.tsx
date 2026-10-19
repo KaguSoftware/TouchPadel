@@ -520,23 +520,23 @@ input:disabled, select:disabled, textarea:disabled {
   100% { transform: skewX(0deg) scaleY(1.05) rotate(0deg); }
 }
 @media (prefers-reduced-motion: reduce) { .tp-record-card[data-tone='loyalty']::before { animation: none; } }
-/* The owner's four (blue, green, black, light blue, then round again; memory of
-   2026-09-24, the report figure groups below) on the customer record's tiles,
-   by their place among their siblings: a 3px strip on top and a tint of the
-   same colour behind. --tp-tone-ink is the text that reads on the colour
-   itself (the date leaf's weekday strip). Blue mode keeps the strip, drops the
-   tint and swaps the strips a blue ground swallows, as the figure groups do. */
-.tp-tone-tile { background: color-mix(in oklab, var(--tp-tone) var(--tp-tone-tint), var(--tp-surface)); border-block-start: 3px solid var(--tp-tone); }
-.tp-tone-tile:nth-child(4n + 1) { --tp-tone: var(--tp-brand-blue); --tp-tone-tint: 12%; --tp-tone-ink: var(--tp-brand-white); }
-.tp-tone-tile:nth-child(4n + 2) { --tp-tone: var(--tp-brand-green); --tp-tone-tint: 22%; --tp-tone-ink: var(--tp-brand-black); }
-.tp-tone-tile:nth-child(4n + 3) { --tp-tone: var(--tp-brand-black); --tp-tone-tint: 6%; --tp-tone-ink: var(--tp-brand-white); }
-.tp-tone-tile:nth-child(4n + 4) { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 45%, var(--tp-brand-white)); --tp-tone-tint: 22%; --tp-tone-ink: var(--tp-brand-black); }
+/* The owner's four card colours (--tp-card-1..6: green, violet, rose, light
+   blue, teal, gold, the Breakdown's, Sait 2026-10-19; they were blue, green, black, light
+   blue from 2026-09-24) on the customer record's tiles, by their place among
+   their siblings: a 3px strip on top and a tint of the same colour behind.
+   --tp-tone-ink is the text that reads on the colour itself (the date leaf's
+   weekday strip). Blue mode's tokens are the calm light inks, and blue mode
+   drops the tint, as the figure groups do. */
+.tp-tone-tile { background: color-mix(in oklab, var(--tp-tone) var(--tp-tone-tint), var(--tp-surface)); border-block-start: 3px solid var(--tp-tone); --tp-tone-tint: 20%; --tp-tone-ink: var(--tp-card-ink); }
+.tp-tone-tile:nth-child(6n + 1) { --tp-tone: var(--tp-card-1); }
+.tp-tone-tile:nth-child(6n + 2) { --tp-tone: var(--tp-card-2); }
+.tp-tone-tile:nth-child(6n + 3) { --tp-tone: var(--tp-card-3); }
+.tp-tone-tile:nth-child(6n + 4) { --tp-tone: var(--tp-card-4); }
+.tp-tone-tile:nth-child(6n + 5) { --tp-tone: var(--tp-card-5); }
+.tp-tone-tile:nth-child(6n + 6) { --tp-tone: var(--tp-card-6); }
 .tp-record-card.tp-tone-tile.tp-tile:hover:not(:disabled) { background: color-mix(in oklab, var(--tp-tone) calc(var(--tp-tone-tint) + 8%), var(--tp-surface)); border-color: var(--tp-border); border-block-start-color: var(--tp-tone); }
 :root[data-theme='operator'][data-mode='blue'] .tp-tone-tile { background: var(--tp-surface-2); }
 :root[data-theme='operator'][data-mode='blue'] .tp-record-card.tp-tone-tile.tp-tile:hover:not(:disabled) { background: var(--tp-surface-3); }
-:root[data-theme='operator'][data-mode='blue'] .tp-tone-tile:nth-child(4n + 1) { --tp-tone: var(--tp-border-strong); --tp-tone-ink: var(--tp-fg); }
-:root[data-theme='operator'][data-mode='blue'] .tp-tone-tile:nth-child(4n + 3) { --tp-tone: var(--tp-brand-white); --tp-tone-ink: var(--tp-brand-black); }
-:root[data-theme='operator'][data-mode='blue'] .tp-tone-tile:nth-child(4n + 4) { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 30%, var(--tp-brand-white)); }
 /* A tile that names its colour instead of taking its place's: cancellations
    red, no-shows amber (owner, 2026-10-14). Weighted past the place rules, blue mode's
    included; blue mode still drops the tint and keeps the red strip. */
@@ -757,15 +757,14 @@ button.tp-nav-item { background: transparent; }
 .tp-table { inline-size: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
 .tp-table th {
   position: sticky; inset-block-start: 0; z-index: var(--tp-z-table-head);
-  /* The column band carries the brand colour (round 3, 2026-10-18): solid
-     Touch Blue with white labels on paper, pale with blue labels in blue mode. */
+  /* The Breakdown's group band (Sait, 2026-10-19): Touch Blue on paper, the
+     brighter blue in blue mode, white 14px bold labels, one fixed height. */
   background: var(--tp-table-head); color: var(--tp-table-head-fg);
   /* Was 12px ALL-CAPS with tracking — the worst case for a bright venue at
      arm's length, and rulebook 6.2 wants the header to read as the same words
      as the field on the detail page. Weight and colour carry it instead. */
-  font-size: var(--tp-fs-sm); font-weight: 600;
-  text-align: start; padding-block: 0.45rem; padding-inline: 0.75rem;
-  border-block-end: 1px solid var(--tp-border);
+  font-size: var(--tp-fs-md); font-weight: 700;
+  text-align: start; block-size: var(--tp-row-h-head); padding-block: 0.45rem; padding-inline: 0.75rem;
   white-space: nowrap;
 }
 /* One floor, one place. rulebook 6.8 wants >=40px; this used to be whatever
@@ -777,11 +776,75 @@ button.tp-nav-item { background: transparent; }
 .tp-table th[data-sortable='true'] { cursor: pointer; }
 .tp-table th[data-sortable='true']:hover { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-table tbody tr[data-clickable='true'] { cursor: pointer; }
-.tp-table tbody tr[data-clickable='true']:hover td { background: var(--tp-hover); color: var(--tp-hover-fg); }
-/* :hover listed too, so pointing at the selected row does not repaint it pale. */
-.tp-table tbody tr[data-selected='true'] td,
-.tp-table tbody tr[data-selected='true']:hover td { background: var(--tp-selected); color: var(--tp-selected-fg); }
+.tp-table tbody tr[data-clickable='true']:hover td:not([data-group-cell]) { background: var(--tp-hover); color: var(--tp-hover-fg); }
+/* :hover listed too, so pointing at the selected row does not repaint it pale.
+   Green with navy ink in both modes; theme.ts pins grey text inside it to navy. */
+.tp-table tbody tr[data-selected='true'] td:not([data-group-cell]),
+.tp-table tbody tr[data-selected='true']:hover td:not([data-group-cell]) { background: var(--tp-selected); color: var(--tp-selected-fg); }
 .tp-table[data-dense='true'] td { block-size: var(--tp-row-h-dense); padding-block: 0.25rem; }
+/* The total row is Padel Green and stays at the bottom while the rows scroll. */
+.tp-table tfoot td {
+  position: sticky; inset-block-end: 0; z-index: var(--tp-z-table-head);
+  background: var(--tp-table-total); color: var(--tp-table-total-fg); font-weight: 700;
+  block-size: var(--tp-row-h); padding-block: 0.45rem; padding-inline: 0.75rem;
+}
+/* A group column (DataTable groupColumn, the drill's Day column): one cell
+   beside each group's rows, its content riding down as they scroll, and ONE
+   line between groups — the last row of a group drops its own line. */
+.tp-table td[data-group-cell] { vertical-align: top; background: var(--tp-surface-2); border-inline-end: 1px solid var(--tp-border); border-block-end: none; padding-block: 0.6rem; padding-inline: 0.5rem; }
+.tp-table-group-cell { position: sticky; inset-block-start: calc(var(--tp-thead-h, 0px) + 0.6rem); display: grid; justify-items: center; line-height: 1.15; }
+.tp-table tbody tr[data-group-end='true'] td { border-block-end: none; }
+.tp-table tbody tr[data-group-start='true'] td { border-block-start: 1px solid var(--tp-border-strong); }
+.tp-table tbody tr[data-group-start='true']:first-child td { border-block-start: none; }
+/* The table's vertical scrollbar is DRAWN (Sait, 2026-10-19): a thin thumb
+   over the rows, only between the column header and the total row, so both
+   reach the full width and nothing sits beside them (DataTable places it, as
+   the Breakdown's list does). The native vertical bar is hidden; the sideways
+   one stays for a table wider than its page. No rubber band either: at the
+   first or last row the elastic overscroll dragged the sticky header and total
+   row into the table and snapped them back. */
+.tp-table-frame { position: relative; }
+.tp-table-scroll { scrollbar-width: auto; scrollbar-color: auto; overscroll-behavior: none; }
+.tp-table-scroll::-webkit-scrollbar { width: 0; height: 10px; background: transparent; }
+.tp-table-scroll::-webkit-scrollbar-thumb { background: var(--tp-border-strong); border-radius: var(--tp-radius-pill); border: 2px solid transparent; background-clip: padding-box; }
+.tp-table-scroll::-webkit-scrollbar-corner { background: transparent; }
+@supports not selector(::-webkit-scrollbar) { .tp-table-scroll { scrollbar-width: none; } }
+.tp-table-thumb {
+  position: absolute; inset-inline-end: 3px; inline-size: 6px; z-index: calc(var(--tp-z-table-head) + 1);
+  border-radius: var(--tp-radius-pill); background: color-mix(in oklab, var(--tp-fg) 35%, transparent);
+  cursor: grab; touch-action: none;
+}
+.tp-table-thumb:hover, .tp-table-thumb:active { background: color-mix(in oklab, var(--tp-fg) 55%, transparent); }
+
+/* ---- segmented buttons (Sait, 2026-10-19) ----
+   A light grey track on paper, the accent blue on the blue page; the chosen
+   segment is a thumb (Touch Blue on paper, Padel Green in blue mode) that slides to the new choice — an asked-for
+   exception to "nothing the operator causes animates", like the Breakdown's
+   View more. Until the thumb is placed (first paint, jsdom) the chosen button
+   paints the green itself. The full-width form is a pill. */
+.tp-seg { position: relative; display: inline-flex; align-items: stretch; gap: 2px; padding: 3px; background: var(--tp-seg-track); border: 1px solid var(--tp-seg-edge); border-radius: var(--tp-radius-panel); max-inline-size: 100%; }
+.tp-seg[data-block='true'] { display: flex; inline-size: 100%; border-radius: var(--tp-radius-pill); }
+.tp-seg-btn {
+  position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 0.35rem;
+  border: none; background: transparent; color: var(--tp-seg-fg); border-radius: calc(var(--tp-radius-panel) - 3px);
+  padding-block: 0.35rem; padding-inline: 0.8rem; font: inherit; font-size: var(--tp-fs-md); font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: background var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out);
+}
+.tp-seg[data-size='sm'] .tp-seg-btn { padding-block: 0.2rem; padding-inline: 0.55rem; font-size: var(--tp-fs-sm); }
+.tp-seg[data-block='true'] .tp-seg-btn { flex: 1 1 0; justify-content: center; min-inline-size: 0; min-block-size: var(--tp-touch); border-radius: var(--tp-radius-pill); }
+/* aria-selected: the same look on a role="tab" strip (the Analytics Courts | Café switch). */
+.tp-seg-btn:hover:not(:disabled):not([aria-pressed='true']):not([aria-selected='true']) { background: var(--tp-seg-hover); }
+.tp-seg-btn[aria-pressed='true'], .tp-seg-btn[aria-selected='true'] { color: var(--tp-seg-on-fg); font-weight: 700; }
+.tp-seg:not([data-thumb='true']) .tp-seg-btn[aria-pressed='true'], .tp-seg:not([data-thumb='true']) .tp-seg-btn[aria-selected='true'] { background: var(--tp-seg-on); }
+.tp-seg-btn:disabled { cursor: not-allowed; opacity: var(--tp-opacity-disabled); }
+.tp-seg-thumb { position: absolute; z-index: 0; background: var(--tp-seg-on); border-radius: calc(var(--tp-radius-panel) - 3px); box-shadow: var(--tp-shadow-raised); pointer-events: none; }
+.tp-seg[data-block='true'] .tp-seg-thumb { border-radius: var(--tp-radius-pill); }
+.tp-seg[data-animate='true'] .tp-seg-thumb {
+  transition: inset-inline-start 220ms cubic-bezier(0.3, 0.7, 0.2, 1), inline-size 220ms cubic-bezier(0.3, 0.7, 0.2, 1), inset-block-start 220ms ease;
+}
+@media (prefers-reduced-motion: reduce) { .tp-seg-thumb { transition: none !important; } }
+.tp-seg-n { font-size: var(--tp-fs-xs); font-weight: 600; padding-inline: 0.4rem; min-inline-size: 1.25rem; line-height: 1.15rem; border-radius: var(--tp-radius-pill); text-align: center; font-variant-numeric: tabular-nums; background: color-mix(in oklab, currentColor 16%, transparent); }
 
 /* ---- kitchen board ---- */
 [data-workspace='prep'] { background: var(--tp-kds-bg); color: var(--tp-kds-fg); }
@@ -909,52 +972,132 @@ button.tp-nav-item { background: transparent; }
 .tp-floor-bell { animation: tp-floor-bell 1.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .tp-floor-bell { animation: none; } }
 
-/* A report figure group (FigureGroup in reports/ReportParts): a brand-colour
-   strip on top and a tint of the same colour behind the tiles. The colour
-   comes from the group's place in its band, in the owner's order (2026-09-24):
-   blue, green, black, light blue, then round again from blue for a fifth.
-   Blue mode keeps the strip but not the tint, which vanished for blue and went
-   murky for the rest on a blue panel, and swaps the strips a blue ground
-   swallows: brand blue for a lighter blue, black for white. */
-.tp-figure-group { background: color-mix(in oklab, var(--tp-tone) var(--tp-tone-tint), var(--tp-surface)); }
-.tp-figure-group:nth-child(4n + 1), .tp-figure-panel:nth-child(4n + 1) { --tp-tone: var(--tp-brand-blue); --tp-tone-tint: 12%; }
-.tp-figure-group:nth-child(4n + 2), .tp-figure-panel:nth-child(4n + 2) { --tp-tone: var(--tp-brand-green); --tp-tone-tint: 22%; }
-.tp-figure-group:nth-child(4n + 3), .tp-figure-panel:nth-child(4n + 3) { --tp-tone: var(--tp-brand-black); --tp-tone-tint: 6%; }
-.tp-figure-group:nth-child(4n + 4), .tp-figure-panel:nth-child(4n + 4) { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 45%, var(--tp-brand-white)); --tp-tone-tint: 22%; }
-/* The same colours on a figure-row Panel (the management panel's Padel, Cafe
-   and Discounts columns): only the strip on top, no tint. */
+/* A report figure group (FigureGroup in reports/ReportParts): a colour strip
+   on top and a tint of the same colour behind the tiles. The colour comes
+   from the group's place in its band: the owner's four card colours
+   (--tp-card-1..6: green, violet, rose, light blue, teal, gold, Sait
+   2026-10-19), then round again from the seventh. Blue mode keeps the strip (its tokens are the calm
+   light inks) but not the tint, which went murky on a blue panel. */
+.tp-figure-group { background: color-mix(in oklab, var(--tp-tone) var(--tp-tone-tint), var(--tp-surface)); --tp-tone-tint: 20%; }
+.tp-figure-group:nth-child(6n + 1), .tp-figure-panel:nth-child(6n + 1) { --tp-tone: var(--tp-card-1); }
+.tp-figure-group:nth-child(6n + 2), .tp-figure-panel:nth-child(6n + 2) { --tp-tone: var(--tp-card-2); }
+.tp-figure-group:nth-child(6n + 3), .tp-figure-panel:nth-child(6n + 3) { --tp-tone: var(--tp-card-3); }
+.tp-figure-group:nth-child(6n + 4), .tp-figure-panel:nth-child(6n + 4) { --tp-tone: var(--tp-card-4); }
+.tp-figure-group:nth-child(6n + 5), .tp-figure-panel:nth-child(6n + 5) { --tp-tone: var(--tp-card-5); }
+.tp-figure-group:nth-child(6n + 6), .tp-figure-panel:nth-child(6n + 6) { --tp-tone: var(--tp-card-6); }
+/* The same colours on the workspace tiles (.tp-figure-panel): only the strip
+   on top, no tint. A card with the blue title band wears no strip (owner,
+   2026-10-18). */
 :root[data-theme='operator'][data-mode='blue'] .tp-figure-group { background: var(--tp-surface-2); }
-:root[data-theme='operator'][data-mode='blue'] .tp-figure-group:nth-child(4n + 1),
-:root[data-theme='operator'][data-mode='blue'] .tp-figure-panel:nth-child(4n + 1) { --tp-tone: var(--tp-border-strong); }
-:root[data-theme='operator'][data-mode='blue'] .tp-figure-group:nth-child(4n + 3),
-:root[data-theme='operator'][data-mode='blue'] .tp-figure-panel:nth-child(4n + 3) { --tp-tone: var(--tp-brand-white); }
-:root[data-theme='operator'][data-mode='blue'] .tp-figure-group:nth-child(4n + 4),
-:root[data-theme='operator'][data-mode='blue'] .tp-figure-panel:nth-child(4n + 4) { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 30%, var(--tp-brand-white)); }
 
 /* The same four colours picked by name rather than by place: the analytics
-   cards (CardShell) mix them, so each card says which one it wears. */
-.tp-tone-card[data-tone='blue'] { --tp-tone: var(--tp-brand-blue); }
-.tp-tone-card[data-tone='green'] { --tp-tone: var(--tp-brand-green); }
-.tp-tone-card[data-tone='black'] { --tp-tone: var(--tp-brand-black); }
-.tp-tone-card[data-tone='sky'] { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 45%, var(--tp-brand-white)); }
-:root[data-theme='operator'][data-mode='blue'] .tp-tone-card[data-tone='blue'] { --tp-tone: var(--tp-border-strong); }
-:root[data-theme='operator'][data-mode='blue'] .tp-tone-card[data-tone='black'] { --tp-tone: var(--tp-brand-white); }
-:root[data-theme='operator'][data-mode='blue'] .tp-tone-card[data-tone='sky'] { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 30%, var(--tp-brand-white)); }
+   cards (CardShell) mix them, so each card says which one it wears. The names
+   are the old colours' (2026-09-24); each now wears the new colour of the
+   same place (blue → green, green → violet, black → rose, sky → light blue). */
+.tp-tone-card[data-tone='blue'] { --tp-tone: var(--tp-card-1); }
+.tp-tone-card[data-tone='green'] { --tp-tone: var(--tp-card-2); }
+.tp-tone-card[data-tone='black'] { --tp-tone: var(--tp-card-3); }
+.tp-tone-card[data-tone='sky'] { --tp-tone: var(--tp-card-4); }
 
 /* Every figure tile in the app (HeadlineFigure) wears the same strip, by its
-   place in its row: blue, green, black, light blue, then round again. Inside
-   a report figure group the group's card carries the colour, so its tiles
-   drop back to the plain border (initial = unset, so the inline fallback). */
-.tp-headline-tile:nth-child(4n + 1) { --tp-tile-strip: 3px solid var(--tp-brand-blue); }
-.tp-headline-tile:nth-child(4n + 2) { --tp-tile-strip: 3px solid var(--tp-brand-green); }
-.tp-headline-tile:nth-child(4n + 3) { --tp-tile-strip: 3px solid var(--tp-brand-black); }
-.tp-headline-tile:nth-child(4n + 4) { --tp-tile-strip: 3px solid color-mix(in oklab, var(--tp-brand-blue) 45%, var(--tp-brand-white)); }
-:root[data-theme='operator'][data-mode='blue'] .tp-headline-tile:nth-child(4n + 1) { --tp-tile-strip: 3px solid var(--tp-border-strong); }
-:root[data-theme='operator'][data-mode='blue'] .tp-headline-tile:nth-child(4n + 3) { --tp-tile-strip: 3px solid var(--tp-brand-white); }
-:root[data-theme='operator'][data-mode='blue'] .tp-headline-tile:nth-child(4n + 4) { --tp-tile-strip: 3px solid color-mix(in oklab, var(--tp-brand-blue) 30%, var(--tp-brand-white)); }
+   place in its row: the owner's six card colours, then round again. Inside a
+   report figure group the group's card carries the colour, so its tiles drop
+   back to the plain border (initial = unset, so the inline fallback). */
+.tp-headline-tile:nth-child(6n + 1) { --tp-tile-strip: 3px solid var(--tp-card-1); }
+.tp-headline-tile:nth-child(6n + 2) { --tp-tile-strip: 3px solid var(--tp-card-2); }
+.tp-headline-tile:nth-child(6n + 3) { --tp-tile-strip: 3px solid var(--tp-card-3); }
+.tp-headline-tile:nth-child(6n + 4) { --tp-tile-strip: 3px solid var(--tp-card-4); }
+.tp-headline-tile:nth-child(6n + 5) { --tp-tile-strip: 3px solid var(--tp-card-5); }
+.tp-headline-tile:nth-child(6n + 6) { --tp-tile-strip: 3px solid var(--tp-card-6); }
 /* Weighted past the blue-mode rules above (:root + two attributes + class +
    nth-child), so a grouped tile stays plain in both modes. */
 :root .tp-figure-group .tp-headline-tile.tp-headline-tile.tp-headline-tile.tp-headline-tile { --tp-tile-strip: initial; }
+
+/* The management overview's Breakdown cards (Sait, 2026-10-19). Each card
+   wears one colour (data-tone): its title band, its outline, and a wash of it
+   behind the rows, which a hovered row deepens. Every text on the card is the
+   page's own ink, labels and flat changes included (no muted grey), so the
+   muted token is lifted to it here. The tokens carry both modes, so nothing
+   below needs a blue-mode rule. */
+.tp-breakdown-card[data-tone='green'] { --tp-bd: var(--tp-breakdown-green); --tp-bd-fg: var(--tp-breakdown-green-fg); --tp-bd-edge: var(--tp-breakdown-green-edge); }
+.tp-breakdown-card[data-tone='violet'] { --tp-bd: var(--tp-breakdown-violet); --tp-bd-fg: var(--tp-breakdown-violet-fg); --tp-bd-edge: var(--tp-breakdown-violet-edge); }
+.tp-breakdown-card[data-tone='rose'] { --tp-bd: var(--tp-breakdown-rose); --tp-bd-fg: var(--tp-breakdown-rose-fg); --tp-bd-edge: var(--tp-breakdown-rose-edge); }
+.tp-breakdown-card[data-tone='sky'] { --tp-bd: var(--tp-breakdown-sky); --tp-bd-fg: var(--tp-breakdown-sky-fg); --tp-bd-edge: var(--tp-breakdown-sky-edge); }
+.tp-breakdown-card[data-tone='teal'] { --tp-bd: var(--tp-breakdown-teal); --tp-bd-fg: var(--tp-breakdown-teal-fg); --tp-bd-edge: var(--tp-breakdown-teal-edge); }
+.tp-breakdown-card[data-tone='gold'] { --tp-bd: var(--tp-breakdown-gold); --tp-bd-fg: var(--tp-breakdown-gold-fg); --tp-bd-edge: var(--tp-breakdown-gold-edge); }
+.tp-breakdown-card {
+  --tp-hover: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash));
+  --tp-hover-fg: var(--tp-fg);
+  --tp-muted-fg: var(--tp-fg);
+  background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-wash-mix), var(--tp-breakdown-wash));
+  border: 1px solid var(--tp-bd-edge);
+  color: var(--tp-fg);
+}
+.tp-breakdown-head { background: var(--tp-bd); color: var(--tp-bd-fg); }
+.tp-breakdown-head .tp-btn[data-kind='ghost'] { color: inherit; }
+.tp-breakdown-head .tp-btn[data-kind='ghost']:hover:not(:disabled) { background: color-mix(in oklab, currentColor 12%, transparent); color: inherit; }
+/* The three rows a card shows take three of the card row's shared tracks
+   (subgrid), so a row is as tall as the same row in every other card. Opened
+   by "View more", the list keeps that height and scrolls through the rest. */
+/* The rows area (.tp-breakdown-body): three of the card's tracks, positioned,
+   so the opened list and its scroll thumb lie over exactly the rows, in a
+   frame or in a card that stands alone. */
+.tp-breakdown-body { grid-row: span 3; display: grid; grid-template-rows: subgrid; position: relative; min-block-size: 0; }
+.tp-breakdown-rows { grid-row: span 3; display: grid; grid-template-rows: subgrid; list-style: none; margin: 0; padding: 0; min-block-size: 0; }
+.tp-breakdown-rows > li + li { border-block-start: 1px solid color-mix(in oklab, var(--tp-bd-edge) 35%, transparent); }
+/* The opened list lies over the three rows' area (position: absolute on the
+   card's tracks 2-4), so opening it never moves a track: it scrolls instead.
+   Its scrollbar is a thumb drawn over the rows (.tp-breakdown-thumb, placed by
+   ManagementPanel), not the native bar, so it takes no width and nothing on
+   the card moves when the list opens (Sait, 2026-10-19). */
+.tp-breakdown-scroll {
+  display: block; position: absolute; inset: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.tp-breakdown-scroll::-webkit-scrollbar { display: none; }
+.tp-breakdown-track { position: absolute; inset: 0; pointer-events: none; }
+.tp-breakdown-thumb {
+  position: absolute; inset-inline-end: var(--tp-sp-1); inline-size: 6px; border-radius: var(--tp-radius-pill);
+  background: color-mix(in oklab, var(--tp-fg) 35%, transparent); pointer-events: auto; cursor: grab; touch-action: none;
+}
+.tp-breakdown-thumb:hover, .tp-breakdown-thumb:active { background: color-mix(in oklab, var(--tp-fg) 55%, transparent); }
+.tp-breakdown-card { scroll-snap-align: start; }
+/* The analytics "What stands out" row (Sait, 2026-10-19): every card in it,
+   AI cards and pattern groups alike, takes the six card colours by its place
+   among the row's cards, round again after six. Counted among the cards only
+   (of .tp-breakdown-card), so a "View more" in the row does not shift them;
+   weighted past the data-tone rules above. */
+.tp-zone-row > :nth-child(6n + 1 of .tp-breakdown-card) { --tp-bd: var(--tp-breakdown-green); --tp-bd-fg: var(--tp-breakdown-green-fg); --tp-bd-edge: var(--tp-breakdown-green-edge); }
+.tp-zone-row > :nth-child(6n + 2 of .tp-breakdown-card) { --tp-bd: var(--tp-breakdown-violet); --tp-bd-fg: var(--tp-breakdown-violet-fg); --tp-bd-edge: var(--tp-breakdown-violet-edge); }
+.tp-zone-row > :nth-child(6n + 3 of .tp-breakdown-card) { --tp-bd: var(--tp-breakdown-rose); --tp-bd-fg: var(--tp-breakdown-rose-fg); --tp-bd-edge: var(--tp-breakdown-rose-edge); }
+.tp-zone-row > :nth-child(6n + 4 of .tp-breakdown-card) { --tp-bd: var(--tp-breakdown-sky); --tp-bd-fg: var(--tp-breakdown-sky-fg); --tp-bd-edge: var(--tp-breakdown-sky-edge); }
+.tp-zone-row > :nth-child(6n + 5 of .tp-breakdown-card) { --tp-bd: var(--tp-breakdown-teal); --tp-bd-fg: var(--tp-breakdown-teal-fg); --tp-bd-edge: var(--tp-breakdown-teal-edge); }
+.tp-zone-row > :nth-child(6n + 6 of .tp-breakdown-card) { --tp-bd: var(--tp-breakdown-gold); --tp-bd-fg: var(--tp-breakdown-gold-fg); --tp-bd-edge: var(--tp-breakdown-gold-edge); }
+.tp-breakdown-rows .tp-row { background: transparent; }
+.tp-breakdown-card { --tp-breakdown-row: 4.25rem; }
+.tp-breakdown-more { background: transparent; border: 0; border-block-start: 1px solid var(--tp-bd-edge); }
+.tp-breakdown-more:hover { background: var(--tp-hover); }
+/* A row that opens from a button stretched over it (the analytics figures,
+   whose info tip must stay a button of its own): the label looks like text,
+   its ::after covers the row, and the ring is drawn on the row. */
+.tp-breakdown-stretch { all: unset; font-size: var(--tp-fs-md); font-weight: 500; cursor: pointer; }
+.tp-breakdown-stretch::after { content: ''; position: absolute; inset: 0; }
+.tp-breakdown-card .tp-breakdown-stretch:focus-visible { outline: none; }
+.tp-breakdown-card .tp-row:has(.tp-breakdown-stretch:focus-visible) { outline: 2px solid currentColor; outline-offset: -2px; border-radius: var(--tp-radius-ctl); }
+/* Focus on a Breakdown card sits INSIDE the control: the card clips what
+   pokes past its edge (overflow: hidden, for the rounded corners), so the
+   global ring drawn outside a row showed only as a line under it (Sait,
+   2026-10-19). The ring takes the card's own ink, which reads on its wash and
+   on its band in both modes. */
+.tp-breakdown-card :is(.tp-row, .tp-breakdown-more, .tp-btn, [tabindex]):focus-visible {
+  outline: 2px solid currentColor; outline-offset: -2px; border-radius: var(--tp-radius-ctl);
+}
+/* View more's motion (Sait, 2026-10-19; an asked-for exception to the motion
+   rule): the chevron turns, and the rows it reveals fade in. */
+.tp-breakdown-chevron { transition: transform var(--tp-dur-base) var(--tp-ease-out); }
+.tp-breakdown-chevron[data-open='true'] { transform: rotate(180deg); }
+.tp-breakdown-revealed { animation: tpFadeIn var(--tp-dur-base) var(--tp-ease-out) both; }
+@media (prefers-reduced-motion: reduce) { .tp-breakdown-chevron { transition: none; } .tp-breakdown-revealed { animation: none; } }
 
 /* ---- keyframes ---- */
 @keyframes tpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
@@ -985,6 +1128,13 @@ button.tp-nav-item { background: transparent; }
    controls. */
 [data-closing] .tp-rise, .tp-rise[data-closing] { animation: tpSink var(--tp-dur-base) var(--tp-ease-out) both; }
 [data-closing].tp-fade, .tp-fade[data-closing] { animation: tpFadeOut var(--tp-dur-base) var(--tp-ease-out) both; }
+
+/* Light <-> blue mode cross-fade (lib/themeMode.tsx runs the flip inside a
+   view transition). The browser's default is a 250ms linear fade, which on a
+   whole-screen colour change reads as a flicker; this is slower and settles.
+   Reduced motion never starts the transition, so it needs no override here. */
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 360ms; animation-timing-function: var(--tp-ease-settle); }
 
 /* Indeterminate progress. '.tp-ball-spin' is referenced by components/brand.tsx
    (BrandBall spin) and had no rule at all, so the brand ball was silently
@@ -1298,6 +1448,85 @@ button.tp-nav-item { background: transparent; }
 .tp-menu-glass [role='option']:hover:not(:disabled):not([data-active='true']) {
   background: var(--tp-hover); color: var(--tp-hover-fg);
 }
+
+/* ---- DateRangePicker (components/DateRangePicker.tsx) ----
+   Sait's choices, 2026-10-19: the field is just the dates and a chevron; the
+   chips stay on ONE line and scroll sideways; the month/year button and the
+   arrows beside it are one height and one style; 20px below that row; a day
+   under the pointer is a solid accent chip with contrast ink, the same as a
+   picked end; hover never recolours the title's text. */
+.tp-drp-field { display: inline-flex; align-items: center; gap: var(--tp-sp-2); white-space: nowrap; font-variant-numeric: tabular-nums; cursor: pointer; text-align: start; }
+.tp-drp-field:disabled { cursor: not-allowed; }
+.tp-drp-field > svg { color: var(--tp-muted-fg); flex-shrink: 0; transition: transform var(--tp-dur-fast) var(--tp-ease-out); }
+.tp-drp-field[data-open] > svg { transform: rotate(180deg); }
+.tp-drp-field [data-placeholder] { color: var(--tp-muted-fg); }
+.tp-drp {
+  --tp-drp-cell: 2.375rem;
+  display: grid; gap: var(--tp-sp-3); padding: var(--tp-sp-3);
+  inline-size: calc(7 * var(--tp-drp-cell) + 2 * var(--tp-sp-3));
+  box-sizing: border-box;
+}
+/* No scrollbar (Sait, 2026-10-19): the row runs out to the panel's edge, so
+   a chip that does not fit shows cut in half there, and that is the sign the
+   row moves. The wheel scrolls it sideways (DateRangePicker's onWheel). */
+.tp-drp-chips {
+  display: flex; gap: var(--tp-sp-1-5); overflow-x: auto; scrollbar-width: none;
+  margin-inline-end: calc(-1 * var(--tp-sp-3)); padding-inline-end: var(--tp-sp-3);
+}
+.tp-drp-chips::-webkit-scrollbar { display: none; }
+.tp-drp-chip {
+  flex: none; white-space: nowrap; font: inherit; font-size: var(--tp-fs-sm); cursor: pointer;
+  padding-block: var(--tp-sp-1); padding-inline: var(--tp-sp-3);
+  border: 1px solid var(--tp-border-strong); border-radius: var(--tp-radius-pill);
+  background: var(--tp-surface); color: var(--tp-fg);
+}
+.tp-drp-chip:hover { border-color: var(--tp-accent); }
+.tp-drp-chip[aria-pressed='true'] { background: var(--tp-accent); border-color: var(--tp-accent); color: var(--tp-accent-contrast); }
+.tp-drp-head { display: flex; align-items: center; justify-content: space-between; gap: var(--tp-sp-2); margin-block-end: calc(var(--tp-sp-4) + var(--tp-sp-1) - var(--tp-sp-3)); }
+.tp-drp-title, .tp-drp-nav {
+  block-size: 2.25rem; box-sizing: border-box; font: inherit; color: var(--tp-fg);
+  border: 1px solid var(--tp-border); border-radius: var(--tp-radius-ctl); background: var(--tp-surface);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--tp-sp-1); cursor: pointer;
+}
+.tp-drp-title { padding-inline: var(--tp-sp-3); font-weight: 600; }
+.tp-drp-title > svg { color: var(--tp-muted-fg); }
+.tp-drp-title[data-plain] { border-color: transparent; background: transparent; cursor: default; font-variant-numeric: tabular-nums; }
+.tp-drp-nav { inline-size: 2.25rem; padding: 0; }
+.tp-drp-title:not([data-plain]):hover, .tp-drp-nav:hover:not(:disabled) { background: var(--tp-accent-soft); border-color: var(--tp-accent); color: var(--tp-fg); }
+.tp-drp-nav:disabled { opacity: var(--tp-opacity-disabled); cursor: default; }
+.tp-drp-grid { display: grid; grid-template-columns: repeat(7, var(--tp-drp-cell)); row-gap: var(--tp-sp-0); }
+.tp-drp-wd { text-align: center; font-size: var(--tp-fs-xs); font-weight: 600; color: var(--tp-muted-fg); padding-block-end: var(--tp-sp-1); }
+.tp-drp-day {
+  position: relative; isolation: isolate; block-size: 2.25rem; padding: 0; border: 0; font: inherit;
+  font-variant-numeric: tabular-nums; background: transparent; color: var(--tp-fg);
+  border-radius: var(--tp-radius-ctl); cursor: pointer;
+}
+/* The range is one square band; only its two ends round off. */
+.tp-drp-day[data-in] { background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); border-radius: 0; }
+.tp-drp-day[data-start] { border-start-start-radius: var(--tp-radius-ctl); border-end-start-radius: var(--tp-radius-ctl); }
+.tp-drp-day[data-end] { border-start-end-radius: var(--tp-radius-ctl); border-end-end-radius: var(--tp-radius-ctl); }
+.tp-drp-day[data-start], .tp-drp-day[data-end] { background: var(--tp-accent); color: var(--tp-accent-contrast); font-weight: 600; }
+/* Hover paints its rounded chip on a layer of its own, so the band behind
+   the day stays square and unbroken. */
+.tp-drp-day:hover:not(:disabled), .tp-drp-day:focus-visible { color: var(--tp-accent-contrast); }
+.tp-drp-day:hover:not(:disabled)::before, .tp-drp-day:focus-visible::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; border-radius: var(--tp-radius-ctl); background: var(--tp-accent);
+}
+.tp-drp-day[data-today]::after, .tp-drp-pick[data-now]::after {
+  content: ''; position: absolute; inset-inline: 32%; inset-block-end: 0.25rem; block-size: 3px;
+  border-radius: var(--tp-radius-pill); background: var(--tp-accent-2);
+}
+.tp-drp-day:disabled { color: var(--tp-disabled-fg); cursor: default; }
+.tp-drp-picks { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--tp-sp-1-5); }
+.tp-drp-pick {
+  position: relative; block-size: 3.25rem; border: 0; font: inherit; font-weight: 500; font-variant-numeric: tabular-nums;
+  background: transparent; color: var(--tp-fg); border-radius: var(--tp-radius-ctl); cursor: pointer;
+}
+.tp-drp-pick:hover:not(:disabled) { background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); }
+.tp-drp-pick[data-has] { background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); }
+.tp-drp-pick[data-cur] { background: var(--tp-accent); color: var(--tp-accent-contrast); font-weight: 600; }
+.tp-drp-pick:disabled { color: var(--tp-disabled-fg); cursor: default; }
+.tp-drp-foot { display: flex; justify-content: space-between; gap: var(--tp-sp-2); border-block-start: 1px solid var(--tp-border); padding-block-start: var(--tp-sp-3); }
 
 /* ---- the frosted sticky bar, and the controls standing on it ----
    The analytics bar is pinned over a scrolling <main>, so charts and tables
