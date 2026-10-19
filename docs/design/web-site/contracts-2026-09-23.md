@@ -205,7 +205,11 @@ dev `@types/three` 0.160.0) and the `pnpm-lock.yaml` change that follows from `p
 - Behaviour: dynamic `import()` of three after mount (never in the first-load chunk); WebGL
   probe with try/catch (`webgl.ts`). **Revised 2026-09-25:** no tiers: every browser with WebGL
   gets the full court (shadows on, 2048 shadow map, time-based spin), DPR up to 3 within a
-  2.4-megapixel budget; the flat SVG is only the no-WebGL / failed-load fallback. Loop only while
+  2.4-megapixel budget; the flat SVG is only the no-WebGL / failed-load fallback.
+  **Revised 2026-10-18 (lighter frames, same court):** 1024 shadow map, DPR up to 2 (the phone's
+  ratio), and the scene built `lean` with `mergeOpaqueOnly` (the transparent cage keeps its
+  per-piece blending). Pixel diff against the build before: lean identical, the shadow map moves
+  soft shadow edges by 22/255 at most; draws 270 → 178 a frame (`courtCanvas.ts` header). Loop only while
   intersecting (IntersectionObserver) and `document.visibilityState === 'visible'`; ResizeObserver; `webglcontextlost/restored`; full dispose (strict mode
   mounts twice); fix the per-frame ball spin to be time-based on the web (WEB: line);
   reduced motion → rest frame (`t = 0`, no trail), no scroll link, `renderOnce` on resize;

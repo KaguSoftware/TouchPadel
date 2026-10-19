@@ -166,9 +166,20 @@ export interface CourtSceneOptions {
    *     draw state (merge.ts), and the trail is one instanced mesh (trail.ts,
    *     where the host says it can draw one: `instancing`).
    *     ~250 draws a frame (full, both surfaces) become ~90.
-   * Off by default, so iOS and the web run exactly what they always did.
+   * Off by default, so iOS runs exactly what it always did.
    */
   lean?: boolean;
+  /**
+   * Merge only the OPAQUE static court (`lean` and the top view); the
+   * transparent cage (glass, panes, mesh, frames) keeps one mesh per piece,
+   * sorted by depth piece by piece as without a merge. Merged, each group is
+   * sorted as one object, and where the glass and the mesh overlap edge-on
+   * (the side walls in the Book view) they blend in another order: on the web's
+   * large canvas that showed as a lighter mesh strip along the near side wall
+   * (2026-10-18, pixel diff against the unmerged court). The web sets it; the
+   * phone keeps the full merge.
+   */
+  mergeOpaqueOnly?: boolean;
   /**
    * The host's GL can draw instanced meshes (WebGL2, or WebGL1 with
    * ANGLE_instanced_arrays). The top view, and the Book view under `lean`, then
@@ -229,6 +240,12 @@ interface Trail {
  */
 const ghostRadius = (i: number) => BALL_RADIUS * (0.25 + 0.7 * (1 - i / TRAIL_N));
 const ghostOpacity = (i: number) => 0.1 * (1 - i / TRAIL_N);
+
+/** A static piece `mergeOpaqueOnly` may fold: one material, not transparent. */
+const isOpaque = (o: THREE.Object3D): boolean => {
+  const m = (o as THREE.Mesh).material;
+  return !Array.isArray(m) && m?.transparent !== true;
+};
 
 /**
  * Build the trail into `overlay`.
@@ -628,8 +645,11 @@ export function buildCourtScene(
   //     the JS thread. The Book view's pitch fades the cage, and each merged
   //     transparent group is one flat colour, so it blends the same in any
   //     order among itself (merge.ts has the rest).
-  // iOS and the web keep the Book view's separate meshes.
-  if (top || opts.lean) disposables.push(...mergeStatic(scene));
+  // iOS keeps the Book view's separate meshes; the web merges only the opaque
+  // ones (`mergeOpaqueOnly`).
+  if (top || opts.lean) {
+    disposables.push(...mergeStatic(scene, opts.mergeOpaqueOnly ? isOpaque : undefined));
+  }
 
   if (opts.lean) {
     for (const o of scene.children) {

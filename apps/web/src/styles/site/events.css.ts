@@ -355,6 +355,9 @@ export const siteEventsCss = `
   padding-inline: var(--tp-site-gutter);
   color: var(--tp-fg);
 }
+/* #tournaments (a tournament page's "All tournaments") lands here, or on the note when no
+   card is listed: the page's scroll padding clears the bar, this leaves the heading room. */
+.tp-events__cards, .tp-events__note { scroll-margin-block-start: 1rem; }
 .tp-events__cards-title {
   font-family: var(--tp-font-display);
   font-size: var(--tp-site-fs-xl);

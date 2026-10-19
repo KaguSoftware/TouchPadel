@@ -4,6 +4,43 @@
  * and the two "on a dark block" re-scopes. Everything is scoped under `.tp-site`, so none
  * of it can reach the café menu that shares the document.
  */
+/**
+ * A block on a dark ground re-scopes the ink tokens. Its own export so the pages that ship
+ * without this sheet (the coach link, the tournament page) can carry it with the footer
+ * (footerKit.css.ts).
+ */
+export const siteOnDarkCss = `
+/* A section standing on the poster black, the brand navy, Touch Blue or a photo (and the
+   site header, navy in both modes): every token that names ink, accent, status or
+   ring turns to the dark-ground version, whatever the page's mode. */
+.tp-on-dark, .tp-on-blue, .tp-site-header {
+  --tp-fg: var(--tp-brand-white);
+  --tp-muted-fg: var(--tp-brand-gray);
+  --tp-site-green-text: var(--tp-brand-green);
+  --tp-site-warn-fg: var(--tp-site-warn-fg-on-dark);
+  --tp-accent: var(--tp-brand-white);
+  --tp-site-ink-2: var(--tp-site-block-muted);
+  --tp-site-display-1: var(--tp-brand-white);
+  --tp-site-display-2: var(--tp-brand-green);
+  --tp-site-ring: var(--tp-brand-white);
+  --tp-site-lockup-ink: var(--tp-brand-white);
+  --tp-site-lockup-swoosh-end: var(--tp-brand-white);
+  --tp-site-accent-hover: var(--tp-site-block-muted);
+  --tp-site-tint: var(--tp-site-navy-card);
+  color: var(--tp-fg);
+}
+`;
+
+/** The venue's hours list (HoursList): the footer's and #visit's. Exported like siteOnDarkCss. */
+export const siteHoursListCss = `
+/* The venue's hours: one line when every day is the same, else the week. */
+.tp-hours-list { font-variant-numeric: tabular-nums; }
+.tp-hours-list__window { font-weight: 700; }
+.tp-hours-list--week { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1rem; }
+.tp-hours-list--week div { display: contents; }
+.tp-hours-list--week dt { color: var(--tp-muted-fg); }
+`;
+
 export const siteBaseCss = `
 .tp-site {
   position: relative;
@@ -59,25 +96,7 @@ export const siteBaseCss = `
 }
 .tp-site-skip:focus-visible { transform: none; }
 
-/* A section standing on the poster black, the brand navy, Touch Blue or a photo (and the
-   site header, navy in both modes): every token that names ink, accent, status or
-   ring turns to the dark-ground version, whatever the page's mode. */
-.tp-on-dark, .tp-on-blue, .tp-site-header {
-  --tp-fg: var(--tp-brand-white);
-  --tp-muted-fg: var(--tp-brand-gray);
-  --tp-site-green-text: var(--tp-brand-green);
-  --tp-site-warn-fg: var(--tp-site-warn-fg-on-dark);
-  --tp-accent: var(--tp-brand-white);
-  --tp-site-ink-2: var(--tp-site-block-muted);
-  --tp-site-display-1: var(--tp-brand-white);
-  --tp-site-display-2: var(--tp-brand-green);
-  --tp-site-ring: var(--tp-brand-white);
-  --tp-site-lockup-ink: var(--tp-brand-white);
-  --tp-site-lockup-swoosh-end: var(--tp-brand-white);
-  --tp-site-accent-hover: var(--tp-site-block-muted);
-  --tp-site-tint: var(--tp-site-navy-card);
-  color: var(--tp-fg);
-}
+${siteOnDarkCss}
 .tp-on-dark, .tp-site-header { --tp-accent-contrast: var(--tp-site-navy); }
 /* On Touch Blue the brand gray is only 3.28:1, so secondary ink is the light gray step. */
 .tp-on-blue { --tp-muted-fg: var(--tp-site-block-muted); --tp-accent-contrast: var(--tp-brand-blue); --tp-site-tint: var(--tp-site-block-deep); }
@@ -151,11 +170,13 @@ export const siteBaseCss = `
 [dir='rtl'] .tp-site-btn { text-transform: none; letter-spacing: 0; font-size: 1rem; }
 .tp-site-btn--go { background: var(--tp-site-green); color: var(--tp-site-green-ink); --tp-btn-hover: var(--tp-site-green-hover); }
 .tp-site-btn--primary { background: var(--tp-accent); color: var(--tp-accent-contrast); --tp-btn-hover: var(--tp-site-accent-hover); }
-.tp-site-btn--ghost { color: var(--tp-fg); border-color: var(--tp-muted-fg); --tp-btn-hover: var(--tp-site-tint); }
-/* The fill covers the border's box, but the rim still antialiases past it, so the outline
-   fades out as the fill fades in. Doubled class to outrank section overrides (.tp-front). */
+/* Hover lights the button up the way the filled ones deepen: a wash of its own ink under
+   the label and the outline at full ink. A wash of the ink, not a fixed tint, so it shows
+   on every ground (the light tint was the light cards' own ground, and the button vanished
+   on them). Doubled class to outrank section overrides (.tp-front). */
+.tp-site-btn--ghost { color: var(--tp-fg); border-color: var(--tp-muted-fg); --tp-btn-hover: color-mix(in srgb, var(--tp-fg) 12%, transparent); }
 .tp-site-btn.tp-site-btn--ghost { transition: transform var(--tp-site-dur-fast) var(--tp-site-ease-out), border-color var(--tp-site-dur-fast) var(--tp-site-ease-out); }
-@media (hover: hover) { .tp-site-btn.tp-site-btn--ghost:hover { border-color: transparent; } }
+@media (hover: hover) { .tp-site-btn.tp-site-btn--ghost:hover { border-color: var(--tp-fg); } }
 /* Touch Blue in both modes (the app's own blue button), deepening on hover: 6.2:1 white. */
 .tp-site-btn--blue { background: var(--tp-site-block); color: var(--tp-brand-white); --tp-btn-hover: var(--tp-site-block-deep); }
 .tp-site-btn--sm { padding-inline: 1rem; font-size: 0.8125rem; }
@@ -268,12 +289,7 @@ export const siteBaseCss = `
 .tp-open__sep { opacity: 0.6; }
 .tp-open__hours { font-variant-numeric: tabular-nums; }
 
-/* The venue's hours: one line when every day is the same, else the week. */
-.tp-hours-list { font-variant-numeric: tabular-nums; }
-.tp-hours-list__window { font-weight: 700; }
-.tp-hours-list--week { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1rem; }
-.tp-hours-list--week div { display: contents; }
-.tp-hours-list--week dt { color: var(--tp-muted-fg); }
+${siteHoursListCss}
 
 @media (prefers-reduced-motion: reduce) {
   .tp-site-btn, .tp-site-btn.tp-site-btn--ghost, .tp-site-btn::before, .tp-site-iconbtn::before { transition: none; }

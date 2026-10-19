@@ -15,12 +15,15 @@ import {
   type PublicCoaching,
 } from '@/lib/coaching';
 import { APP_HOME_URL, appCoachHref, coachLinkPath, parseCoachRef } from '@/lib/site/coachLink';
+import { getCachedVenue } from '@/lib/menu.server';
 import { getRequestNonce, getSiteMode } from '@/lib/site/mode.server';
 import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
 import { siteOgImage } from '@/lib/site/ogImage';
 import { siteTokensBridgeCss } from '@/styles/site/tokens-bridge.css';
 import { siteCoachLinkCss } from '@/styles/site/coachLink.css';
+import { siteFooterKitCss } from '@/styles/site/footerKit.css';
 import { BrandLockup } from '@/components/site/brand/BrandLockup';
+import { SiteFooter } from '@/components/site/SiteFooter';
 import { CoachPhoto } from '@/components/coaching/CoachPhoto';
 
 /**
@@ -169,7 +172,12 @@ export default async function CoachLinkPage({ params }: { params: Params }) {
   const segments = await params;
   const locale = requireLocale(segments.locale);
   const ref = parseCoachRef(segments.id);
-  const [view, mode, nonce] = await Promise.all([readCoach(ref), getSiteMode(), getRequestNonce()]);
+  const [view, venue, mode, nonce] = await Promise.all([
+    readCoach(ref),
+    getCachedVenue(),
+    getSiteMode(),
+    getRequestNonce(),
+  ]);
   const tr = makeT(locale);
   const other = otherLocale(locale);
   // Not found reads the same for every reason, and its app link opens the app's home.
@@ -185,7 +193,9 @@ export default async function CoachLinkPage({ params }: { params: Params }) {
     <div className="tp-site tp-clink" data-theme="padel" data-mode={mode} data-state={view.state}>
       <style
         nonce={nonce}
-        dangerouslySetInnerHTML={{ __html: `${siteTokensBridgeCss}\n${siteCoachLinkCss}` }}
+        dangerouslySetInnerHTML={{
+          __html: `${siteTokensBridgeCss}\n${siteCoachLinkCss}\n${siteFooterKitCss}`,
+        }}
       />
       <header className="tp-clink__bar">
         <a className="tp-clink__home" href={`/${locale}`} aria-label={tr('site.brandHome')}>
@@ -221,9 +231,9 @@ export default async function CoachLinkPage({ params }: { params: Params }) {
           {tr('coaching.web.link.allCoaches')}
         </a>
       </main>
-      <footer className="tp-clink__foot">
-        <a href={`/${locale}/support`}>{tr('site.footer.support')}</a>
-      </footer>
+      {/* The site's own footer (address, hours, the desk, the links), as on every site page;
+          its sheet rides along in siteFooterKitCss, not the whole site sheet. */}
+      <SiteFooter locale={locale} venue={venue} path={ref ? `/c/${ref}` : null} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   localText,
   placesLine,
   registrationOpen,
+  TOURNAMENTS_ANCHOR,
   tournamentName,
   tournamentPath,
   tournamentWhen,
@@ -139,7 +140,9 @@ export function Events({
           </p>
         </div>
       </div>
-      <div className="tp-events__note">
+      {/* `#tournaments` is where a tournament page's "All tournaments" lands: the cards when
+          there are some, else the words about tournaments here. */}
+      <div id={list ? undefined : TOURNAMENTS_ANCHOR} className="tp-events__note">
         <div className="tp-events__intro" data-reveal="">
           <p className="tp-events__eyebrow">{tr('site.events.eyebrow')}</p>
           <h2 id="events-title" className="tp-events__title">
@@ -198,7 +201,7 @@ function EventsCards({ locale, list }: { locale: Locale; list: PublicTournaments
   const cards = upcomingTournaments(list).slice(0, CARDS);
   const manyBranches = list.branches.length > 1;
   return (
-    <div className="tp-events__cards" data-reveal="">
+    <div id={TOURNAMENTS_ANCHOR} className="tp-events__cards" data-reveal="">
       <h2 id="events-cards-title" className="tp-events__cards-title">
         {tr('tournaments.web.eventsCards.title')}
       </h2>

@@ -1,10 +1,9 @@
 /**
- * The Courts | Cafe switcher. Same bordered-button look and the same
- * `role="tablist"` contract as the report switcher (.tp-report-tab in
- * GlobalStyles), with three deliberate differences: no role or section
- * filtering (the page is owner-only), no "fewer than two" early return, and
- * navigation keeps the search params, so the period, compare basis and court
- * filter survive a tab switch.
+ * The Courts | Cafe switcher: two bordered buttons, filled when open
+ * (.tp-analytics-tab in GlobalStyles), with a `role="tablist"` contract. No
+ * role or section filtering (the page is owner-only), and navigation keeps
+ * the search params, so the period, compare basis and court filter survive a
+ * tab switch.
  */
 import type { KeyboardEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
@@ -50,7 +49,7 @@ export function AnalyticsTabs({ value }: { value: AnalyticsTab }) {
       role="tablist"
       aria-label={tr('analytics.title')}
       onKeyDown={onKeyDown}
-      style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(9.5rem, 13rem))', gap: 'var(--tp-sp-2)' }}
+      style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(8.5rem, 11rem))', alignItems: 'stretch', gap: 'var(--tp-sp-2)' }}
     >
       {ANALYTICS_TABS.map((tab) => {
         const selected = tab.id === value;
@@ -59,12 +58,12 @@ export function AnalyticsTabs({ value }: { value: AnalyticsTab }) {
             key={tab.id}
             type="button"
             role="tab"
-            className="tp-report-tab"
+            className="tp-analytics-tab"
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
             onClick={() => open(tab.id)}
           >
-            <span className="tp-report-tab-icon" aria-hidden="true">
+            <span className="tp-analytics-tab-icon" aria-hidden="true">
               <Icon name={tab.icon} size={16} />
             </span>
             <span style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

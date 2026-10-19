@@ -147,12 +147,14 @@ export const siteHeaderCss = `
     font-weight: 600;
     text-decoration: none;
     white-space: nowrap;
-    transition: background-color 150ms ease;
+    transition: background-color 150ms ease, border-color 150ms ease;
   }
   .tp-site-header__lang .tp-icon { inline-size: 1.1em; block-size: 1.1em; flex: none; color: var(--tp-site-green-text); }
 }
 @media (min-width: 64rem) and (hover: hover) {
-  .tp-site-header__lang:hover { background: var(--tp-site-tint); }
+  /* Lit like the ghost buttons: a wash of its own ink and the rim at full ink, so it shows
+     over the hero photo and on the light bar alike. */
+  .tp-site-header__lang:hover { background: color-mix(in srgb, currentColor 12%, transparent); border-color: currentColor; }
 }
 @media (min-width: 64rem) and (max-width: 72rem) {
   .tp-site-nav__link, .tp-site-tools .tp-site-nav__lang { padding-inline: 0.5rem; }

@@ -4,12 +4,23 @@
  * Not React: CourtStage owns the component side and loads this module with a
  * dynamic `import()`, so three.js is never in the first-load chunk.
  *
- * ONE BUILD: the full court, at its best. Any browser with WebGL gets it (the
- * flat SVG court is only for a browser without): shadows on with the prototype's
- * 2048² map, the full racket, MSAA, and a pixel ratio up to 3 inside a pixel
- * budget (PIXEL_BUDGET) that is below what the phone app already draws full
- * screen. The ball spins by the rally clock, so a 120 Hz screen does not spin it
- * twice as fast.
+ * ONE BUILD: the full court. Any browser with WebGL gets it (the flat SVG court
+ * is only for a browser without): shadows on, the full racket, MSAA, and a pixel
+ * ratio up to 2 inside a pixel budget (PIXEL_BUDGET). The ball spins by the rally
+ * clock, so a 120 Hz screen does not spin it twice as fast.
+ *
+ * LIGHTER FRAMES, THE SAME COURT (2026-10-18), after the phone's own tuning
+ * (2026-10-11), each checked by a pixel diff against the build before:
+ *  - the shadow map is 1024² (it was the prototype's 2048², 4.2 MP re-drawn each
+ *    frame, more than the court itself; the phone draws 768). Only the soft
+ *    shadow edges move, by 22/255 at most;
+ *  - the pixel ratio stops at 2× (it was 3×), the ratio Majed chose for the
+ *    phone after comparing 3×, 2.5× and 2× side by side; a 3× phone draws 2.25×
+ *    fewer pixels, and a 2× laptop exactly what it drew;
+ *  - the scene is `lean` (static matrices once, a ball-only trail sampler,
+ *    racket bodies merged, the trail instanced) with `mergeOpaqueOnly`, so the
+ *    see-through cage keeps its per-piece blending: identical to the pixel.
+ *    270 draws a frame become 178.
  *
  * What it takes over from apps/mobile/src/components/Court3D.tsx is the SHAPE of
  * its loop, not its code (most of that file is expo-gl surface workarounds):
@@ -85,15 +96,14 @@ export interface CourtCanvas {
 
 /**
  * Most device pixels the canvas may hold. A 544 × 673 desktop box at 2x is
- * 1.46 MP and a 357 × 442 phone box at 3x is 1.42 MP, so both draw at their
- * screen's full density; the phone app draws ~2.96 MP full screen with 4x MSAA.
- * Only an unusually large box is scaled back, never below 1x.
+ * 1.46 MP and a 357 × 442 phone box at 2x is 0.63 MP. Only an unusually large
+ * box is scaled back, never below 1x.
  */
 export const PIXEL_BUDGET = 2_400_000;
-/** The densest screen worth drawing for. */
-export const DPR_MAX = 3;
-/** The sun's shadow map, px square: the prototype's own (the phone saves at 1024). */
-export const SHADOW_MAP_SIZE = 2048;
+/** The densest pixel ratio drawn: the phone app's (MAX_RENDER_RATIO); a denser screen is stretched. */
+export const DPR_MAX = 2;
+/** The sun's shadow map, px square (the prototype drew 2048, the phone draws 768). */
+export const SHADOW_MAP_SIZE = 1024;
 
 /** The pixel ratio for a w × h CSS-px box on a screen of density `dpr`. */
 export function pixelRatioFor(w: number, h: number, dpr: number): number {
@@ -134,6 +144,9 @@ export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
   const court: CourtScene = buildCourtScene('full', {
     spin: 'time',
     shadowMapSize: SHADOW_MAP_SIZE,
+    lean: true,
+    mergeOpaqueOnly: true,
+    instancing: renderer.capabilities.isWebGL2 || renderer.extensions.has('ANGLE_instanced_arrays'),
   });
 
   // ── state ───────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { sitePayReturnCss } from './payReturn.css';
 import { siteMatchInviteCss } from './matchInvite.css';
 import { siteCoachLinkCss } from './coachLink.css';
 import { siteTournamentPageCss } from './tournamentPage.css';
+import { siteFooterKitCss } from './footerKit.css';
 
 /**
  * Style guard for the site family, run over every site module AND over the court's
@@ -31,6 +32,8 @@ const ALL: [string, string][] = [
   ['coach-link', siteCoachLinkCss],
   // The tournament page's whole sheet, which also ships without it (events/[id]/page.tsx).
   ['tournament-page', siteTournamentPageCss],
+  // The site footer as those two pages carry it (footerKit.css.ts).
+  ['footer-kit', siteFooterKitCss],
 ];
 
 describe('site css guard', () => {

@@ -3,6 +3,7 @@ import { isolateLtr, makeT, type Locale } from '@touch/i18n';
 import { otherLocale, requireLocale } from '@/lib/locales';
 import { getCachedTournament } from '@/lib/tournaments.server';
 import {
+  allTournamentsPath,
   appTournamentHref,
   feeLine,
   formatLine,
@@ -22,12 +23,15 @@ import {
   type TourPublicRound,
   type TourPublicStanding,
 } from '@/lib/tournaments';
+import { getCachedVenue } from '@/lib/menu.server';
 import { getRequestNonce, getSiteMode } from '@/lib/site/mode.server';
 import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
 import { siteOgImage } from '@/lib/site/ogImage';
 import { siteTokensBridgeCss } from '@/styles/site/tokens-bridge.css';
 import { siteTournamentPageCss } from '@/styles/site/tournamentPage.css';
+import { siteFooterKitCss } from '@/styles/site/footerKit.css';
 import { BrandLockup } from '@/components/site/brand/BrandLockup';
+import { SiteFooter } from '@/components/site/SiteFooter';
 import { RefreshWhileRunning } from '@/components/tournaments/RefreshWhileRunning';
 
 /**
@@ -293,8 +297,9 @@ export default async function TournamentPage({ params }: { params: Params }) {
   const segments = await params;
   const locale = requireLocale(segments.locale);
   const id = parseTournamentId(segments.id);
-  const [read, mode, nonce] = await Promise.all([
+  const [read, venue, mode, nonce] = await Promise.all([
     readTournament(id),
+    getCachedVenue(),
     getSiteMode(),
     getRequestNonce(),
   ]);
@@ -312,7 +317,9 @@ export default async function TournamentPage({ params }: { params: Params }) {
     >
       <style
         nonce={nonce}
-        dangerouslySetInnerHTML={{ __html: `${siteTokensBridgeCss}\n${siteTournamentPageCss}` }}
+        dangerouslySetInnerHTML={{
+          __html: `${siteTokensBridgeCss}\n${siteTournamentPageCss}\n${siteFooterKitCss}`,
+        }}
       />
       <header className="tp-tpage__bar">
         <a className="tp-tpage__home" href={`/${locale}`} aria-label={tr('site.brandHome')}>
@@ -322,7 +329,7 @@ export default async function TournamentPage({ params }: { params: Params }) {
             cookie, and this page sets none. Same accessible name, visible word first. */}
         <a
           className="tp-tpage__lang"
-          href={id ? tournamentPath(other, id) : `/${other}#events`}
+          href={id ? tournamentPath(other, id) : allTournamentsPath(other)}
           hrefLang={other}
         >
           <span lang={other}>{tr('site.nav.language')}</span>
@@ -342,13 +349,13 @@ export default async function TournamentPage({ params }: { params: Params }) {
             </h1>
           </div>
         )}
-        <a className="tp-tpage__all" href={`/${locale}#events`}>
+        <a className="tp-tpage__all" href={allTournamentsPath(locale)}>
           {tr('tournaments.web.page.allEvents')}
         </a>
       </main>
-      <footer className="tp-tpage__foot">
-        <a href={`/${locale}/support`}>{tr('site.footer.support')}</a>
-      </footer>
+      {/* The site's own footer (address, hours, the desk, the links), as on every site page;
+          its sheet rides along in siteFooterKitCss, not the whole site sheet. */}
+      <SiteFooter locale={locale} venue={venue} path={id ? `/events/${id}` : null} />
     </div>
   );
 }
