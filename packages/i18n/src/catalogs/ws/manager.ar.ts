@@ -1073,6 +1073,7 @@ export const managerAr: DeepMessages<typeof managerEn> = {
         show: 'عرض',
         onHand: 'المتوفر',
         par: 'الحد الأدنى',
+        unit: 'الوحدة',
         status: 'الحالة',
         recordsSay: 'حسب السجل: {qty}',
         none: {

@@ -41,7 +41,7 @@
  * left out when the server sent neither (before 0288). Like the online group,
  * a row opens its report (revenue; Coach pay) and is never drilled.
  */
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { businessTodayISO, normalizeBusinessDayStart, resolveRange } from '@touch/core';
@@ -53,36 +53,31 @@ import { Button, Skeleton } from '../../components/ui';
 import {
   AsyncStateWrapper,
   ComparisonControl,
-  ComparisonDelta,
   DateRangeControl,
   EmptyState,
   ExportButton,
   HeadlineFigure,
   PageHeader,
-  Panel,
   Toolbar,
   asyncStatus,
   presetPeriod,
   type ComparisonMode,
   type Period,
 } from '../../components/kit';
-import { Icon } from '../../components/icons';
 import { downloadWorkbook } from '../analytics/exportTables';
 import { DrillDialog } from '../reports/DrillDialog';
 import { FigureGroup } from '../reports/FigureGroup';
 import { readDrill } from '../reports/reportPayloads';
 import { PanelNeedsYou } from './PanelNeedsYou';
 import { LiveFloor } from '../floor/LiveFloor';
-import { FIGURES, figuresIn, hasLessonFigures, hasOnlineFigures, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
+import { FIGURES, figuresIn, hasLessonFigures, hasOnlineFigures, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelGroup, type PanelHeadline } from './figures';
 import { DRILLABLE_FIGURES, buildPanelExport, fetchAllTransactions, type DrillRange } from './exportAll';
 import { WagesDueCard } from '../wages/WagesDueCard';
+import { BreakdownCard, BreakdownFrame, BreakdownRows, type BreakdownItem } from '../../components/BreakdownCards';
 import { Notices } from '../analytics/Notices';
 import { legacyNotices, parseLegacyHistory } from '../analytics/legacyHistory';
 
 export const PANEL_QUERY_KEY = ['panel', 'headline'] as const;
-
-/** The coloured strip on a figure panel; inline because Panel's own inline border would win over a class. */
-const FIGURE_PANEL_STRIP: CSSProperties = { borderBlockStart: '3px solid var(--tp-tone)' };
 
 export function ManagementPanelScreen() {
   const { tr, locale } = useLocale();
@@ -151,6 +146,24 @@ export function ManagementPanelScreen() {
   }
 
   const go = (to: FigureMeta['report']) => void navigate({ to });
+  // A card's rows. A row opens its transactions; the online and lesson rows
+  // open their report instead (report_drill cannot list them).
+  const rowsOf = (group: PanelGroup, toReport = false, noteOf?: (meta: FigureMeta) => string | undefined): BreakdownItem[] =>
+    figuresIn(group).map((meta) => {
+      const f = figures.get(meta.key);
+      return {
+        key: meta.key,
+        label: label(meta.key),
+        note: noteOf?.(meta),
+        value: valueOf(meta, f),
+        change: compare !== 'none' && f ? f : null,
+        format: meta.kind === 'money' ? money : count,
+        invert: meta.invert,
+        // A figure the server did not send has nothing to open.
+        onOpen: f ? (toReport ? () => go(meta.report) : () => setDrill(meta.key)) : undefined,
+        openTitle: toReport ? undefined : tr('ws.kit.drill.title'),
+      };
+    });
 
   return (
     <div>
@@ -228,78 +241,58 @@ export function ManagementPanelScreen() {
           ))}
         </section>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(19rem, 1fr))', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
-          {/* Same colour order as the cards above (blue, green, black), as a
-              strip only. */}
-          <Panel
+        <BreakdownFrame title={tr('ws.owner.panel.cardsTitle')}>
+          {/* One colour per card (Sait, 2026-10-19): padel green, cafe violet,
+              money out rose, online light blue, lessons teal. */}
+          <BreakdownCard
+            tone="green"
             title={tr('ws.owner.panel.padel')}
-            padded={false}
-            className="tp-figure-panel"
-            style={FIGURE_PANEL_STRIP}
-            actions={<Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => go('/reports/courts')}>{tr('ws.owner.panel.openCourts')}</Button>}
+            action={<Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => go('/reports/courts')}>{tr('ws.owner.panel.openCourts')}</Button>}
           >
-            <FigureRows metas={figuresIn('padel')} figures={figures} compare={compare} label={label} valueOf={valueOf} money={money} count={count} onDrill={setDrill} />
-          </Panel>
-          <Panel
+            <BreakdownRows items={rowsOf('padel')} />
+          </BreakdownCard>
+          <BreakdownCard
+            tone="violet"
             title={tr('ws.owner.panel.cafe')}
-            padded={false}
-            className="tp-figure-panel"
-            style={FIGURE_PANEL_STRIP}
-            actions={<Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => go('/reports/cafe')}>{tr('ws.owner.panel.openCafe')}</Button>}
+            action={<Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => go('/reports/cafe')}>{tr('ws.owner.panel.openCafe')}</Button>}
           >
-            <FigureRows metas={figuresIn('cafe')} figures={figures} compare={compare} label={label} valueOf={valueOf} money={money} count={count} onDrill={setDrill} />
-          </Panel>
-          <Panel title={tr('ws.owner.panel.losses')} padded={false} className="tp-figure-panel" style={FIGURE_PANEL_STRIP}>
-            <FigureRows metas={figuresIn('losses')} figures={figures} compare={compare} label={label} valueOf={valueOf} money={money} count={count} onDrill={setDrill} />
-          </Panel>
+            <BreakdownRows items={rowsOf('cafe')} />
+          </BreakdownCard>
+          <BreakdownCard tone="rose" title={tr('ws.owner.panel.losses')}>
+            <BreakdownRows items={rowsOf('losses')} />
+          </BreakdownCard>
           {hasOnlineFigures(figures) && (
-            <Panel title={tr('ws.owner.panel.online')} padded={false} className="tp-figure-panel" style={FIGURE_PANEL_STRIP} data-testid="panel-online">
-              <FigureRows
-                metas={figuresIn('online')}
-                figures={figures}
-                compare={compare}
-                label={label}
-                valueOf={valueOf}
-                money={money}
-                count={count}
-                onDrill={setDrill}
-                onOpen={(meta) => go(meta.report)}
-                hintOf={(meta) => (meta.chainWide ? tr('ws.matches.reports.allBranches') : undefined)}
-              />
-            </Panel>
+            <BreakdownCard tone="sky" title={tr('ws.owner.panel.online')} data-testid="panel-online">
+              <BreakdownRows items={rowsOf('online', true, (meta) => (meta.chainWide ? tr('ws.matches.reports.allBranches') : undefined))} />
+            </BreakdownCard>
           )}
           {hasLessonFigures(figures) && (
-            <Panel title={tr('ws.coaching.panel.title')} padded={false} className="tp-figure-panel" style={FIGURE_PANEL_STRIP} data-testid="panel-lessons">
-              <FigureRows
-                metas={figuresIn('lessons')}
-                figures={figures}
-                compare={compare}
-                label={label}
-                valueOf={valueOf}
-                money={money}
-                count={count}
-                onDrill={setDrill}
-                onOpen={(meta) => go(meta.report)}
-                hintOf={(meta) => (meta.key === 'owedToCoaches' ? tr('ws.coaching.panel.owedToCoachesHint') : undefined)}
-              />
-            </Panel>
+            <BreakdownCard tone="teal" title={tr('ws.coaching.panel.title')} data-testid="panel-lessons">
+              <BreakdownRows items={rowsOf('lessons', true, (meta) => (meta.key === 'owedToCoaches' ? tr('ws.coaching.panel.owedToCoachesHint') : undefined))} />
+            </BreakdownCard>
           )}
-        </div>
+        </BreakdownFrame>
 
         {/* Sticks to the bottom of the window, so the other reports are one
-            click away without scrolling past every figure (Sait, 2026-10-17). */}
+            click away without scrolling past every figure (Sait, 2026-10-17).
+            It bleeds through <main>'s padding (inline --tp-sp-5, block
+            --tp-sp-4, routes/__root.tsx) so it runs from the rail to the
+            window's edge and sits flush on the bottom (Sait, 2026-10-18). */}
         <nav
           aria-label={tr('ws.owner.panel.otherReports')}
           style={{
             position: 'sticky',
-            insetBlockEnd: 0,
+            insetBlockEnd: 'calc(-1 * var(--tp-sp-4))',
             zIndex: 'var(--tp-z-sticky)',
             display: 'flex',
             gap: 'var(--tp-sp-2)',
             flexWrap: 'wrap',
             alignItems: 'center',
             marginBlockStart: 'var(--tp-sp-4)',
-            padding: 'var(--tp-sp-3) var(--tp-sp-4)',
+            marginInline: 'calc(-1 * var(--tp-sp-5))',
+            marginBlockEnd: 'calc(-1 * var(--tp-sp-4))',
+            paddingBlock: 'var(--tp-sp-3)',
+            paddingInline: 'var(--tp-sp-5)',
             borderBlockStart: '1px solid var(--tp-border)',
             background: 'var(--tp-surface)',
           }}
@@ -320,100 +313,6 @@ export function ManagementPanelScreen() {
         />
       )}
     </div>
-  );
-}
-
-/** Dense figure rows for the padel / cafe columns: label, value, delta, drill. */
-function FigureRows({
-  metas,
-  figures,
-  compare,
-  label,
-  valueOf,
-  money,
-  count,
-  onDrill,
-  onOpen,
-  hintOf,
-}: {
-  metas: readonly FigureMeta[];
-  figures: ReadonlyMap<FigureKey, HeadlineFigureRow>;
-  compare: ComparisonMode;
-  label: (key: FigureKey) => string;
-  valueOf: (meta: FigureMeta, f: HeadlineFigureRow | undefined) => string;
-  money: (n: number) => string;
-  count: (n: number) => string;
-  onDrill: (key: FigureKey) => void;
-  /** Open the figure's report instead of a drill window (the online group, which report_drill cannot list). */
-  onOpen?: (meta: FigureMeta) => void;
-  /** A second muted line under the label ("All branches"). */
-  hintOf?: (meta: FigureMeta) => string | undefined;
-}) {
-  const { tr } = useLocale();
-  const row: CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) auto auto',
-    alignItems: 'center',
-    gap: 'var(--tp-sp-3)',
-    inlineSize: '100%',
-    paddingBlock: 'var(--tp-sp-2-5)',
-    paddingInline: 'var(--tp-sp-3)',
-    background: 'transparent',
-    border: 'none',
-    color: 'inherit',
-    textAlign: 'start',
-    font: 'inherit',
-  };
-  return (
-    <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-      {metas.map((meta) => {
-        const f = figures.get(meta.key);
-        const drillable = Boolean(f);
-        const hint = hintOf?.(meta);
-        const body = (
-          <>
-            <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
-              <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{label(meta.key)}</span>
-              {hint && <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{hint}</span>}
-              {compare !== 'none' && f && (
-                <ComparisonDelta changeAbs={f.changeAbs} changePct={f.changePct} format={meta.kind === 'money' ? money : count} invert={meta.invert} />
-              )}
-            </span>
-            <span dir="ltr" style={{ fontSize: 'var(--tp-fs-lg)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)' }}>
-              {valueOf(meta, f)}
-            </span>
-            {/* Reserved either way, so nothing shifts as figures arrive (11.5). */}
-            <Icon name="arrowUpRight" size={14} style={{ color: 'var(--tp-muted-fg)', visibility: drillable ? 'visible' : 'hidden' }} />
-          </>
-        );
-        return (
-          <li key={meta.key} style={{ borderBlockEnd: '1px solid var(--tp-border)' }}>
-            {/*
-              A figure the server did not send has nothing to open. It used to
-              render as a disabled button carrying no reason, which the rulebook
-              treats as a dead end (4.3) — and there is no reason to give: the
-              row already says '—' where the value would be. So it is not a
-              control at all, and the keyboard walks past it instead of landing
-              on something that cannot answer.
-            */}
-            {drillable ? (
-              <button
-                type="button"
-                className="tp-row"
-                data-clickable="true"
-                onClick={() => (onOpen ? onOpen(meta) : onDrill(meta.key))}
-                title={onOpen ? undefined : tr('ws.kit.drill.title')}
-                style={{ ...row, cursor: 'pointer' }}
-              >
-                {body}
-              </button>
-            ) : (
-              <div style={row}>{body}</div>
-            )}
-          </li>
-        );
-      })}
-    </ul>
   );
 }
 

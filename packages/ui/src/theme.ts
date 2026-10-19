@@ -103,9 +103,15 @@ function operatorCrossScopes(): string {
   const blueRoot = `[data-theme='operator'][data-mode='${OPERATOR_BLUE_MODE}']`;
   const paperRoot = `[data-theme='operator']:not([data-mode='${OPERATOR_BLUE_MODE}'])`;
   // `.tp-band` (the panel title band) crosses in BOTH modes: Touch Blue on
-  // paper, white in blue mode.
+  // paper, white in blue mode. The selected row is Padel Green in both modes
+  // (Sait, 2026-10-19), a light ground, so it takes the paper palette in blue
+  // mode and keeps its own on paper.
   const toPaper = ['.tp-paper', '.tp-band', ...SELECTED_ROWS].map((s) => `${blueRoot} ${s}`).join(',\n');
-  const toBlue = ['.tp-blue', '.tp-band', ...SELECTED_ROWS].map((s) => `${paperRoot} ${s}`).join(',\n');
+  const toBlue = ['.tp-blue', '.tp-band'].map((s) => `${paperRoot} ${s}`).join(',\n');
+  // Nothing on the green turns grey or link-blue: secondary text and accent
+  // ink take the row's own navy. Listed after the cross scopes, at the same
+  // specificity, so it wins over the paper values they set.
+  const onSelected = SELECTED_ROWS.flatMap((s) => [`${blueRoot} ${s}`, `${paperRoot} ${s}`]).join(',\n');
   return [
     `${toPaper} {
   color-scheme: light;
@@ -114,6 +120,10 @@ ${varsBlock(paper)}
     `${toBlue} {
   color-scheme: dark;
 ${varsBlock(blue)}
+}`,
+    `${onSelected} {
+  --tp-muted-fg: var(--tp-selected-fg);
+  --tp-accent: var(--tp-selected-fg);
 }`,
   ].join('\n\n');
 }

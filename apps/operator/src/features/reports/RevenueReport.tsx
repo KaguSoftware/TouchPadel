@@ -43,10 +43,7 @@ import {
   EmptyPeriod,
   exportTable,
   Fig,
-  FigureBand,
-  FigureGroup,
   formatDay,
-  HeadlineFigure,
   money,
   ReportFrame,
   ReportSkeleton,
@@ -61,6 +58,7 @@ import {
   type ReportColumn,
 } from './ReportParts';
 import { GroupFilter, PaymentFilter, StaffFilter, useReportStaff } from './ReportFilterBar';
+import { BreakdownCard, BreakdownFrame, BreakdownRows, type BreakdownItem } from '../../components/BreakdownCards';
 import { bucketRange, readRevenue, revenueHasLessons, type RevenueRow } from './reportPayloads';
 import type { PaymentMethodFilter, ReportGroup } from './reportTypes';
 
@@ -133,18 +131,25 @@ function RevenueReport() {
     });
   }
   // `field` is the totals key the server compares; a rise in what was given away is bad news.
-  const figure = (key: string, label: MessageKey, value: number | null, hint?: string, field?: string, invert?: boolean) => (
-    <HeadlineFigure
-      label={tr(label)}
-      value={money(value, locale)}
-      hint={hint}
-      comparison={field ? changeOf(changes, field) : null}
-      format={(n) => money(n, locale)}
-      invert={invert}
-      drillable={value !== null}
-      onDrill={() => open(tr(label), [{ key, label }], period.from, period.to)}
-    />
-  );
+  const figure = (key: string, label: MessageKey, value: number | null, note?: string, field?: string, invert?: boolean): BreakdownItem => ({
+    key,
+    label: tr(label),
+    note,
+    value: money(value, locale),
+    change: field ? changeOf(changes, field) : null,
+    format: (n) => money(n, locale),
+    invert,
+    onOpen: value !== null ? () => open(tr(label), [{ key, label }], period.from, period.to) : undefined,
+    openTitle: tr('ws.kit.drill.title'),
+  });
+  /** A figure report_drill cannot list (lessons, tax): shown, never opened. */
+  const plain = (key: string, label: MessageKey, value: number | null, field?: string): BreakdownItem => ({
+    key,
+    label: tr(label),
+    value: money(value, locale),
+    change: field ? changeOf(changes, field) : null,
+    format: (n) => money(n, locale),
+  });
 
   const periodLabel = (r: RevenueRow) =>
     group === 'month' ? formatMonthYear(new Date(`${r.period}T12:00:00Z`), locale, 'UTC') : formatDay(r.period, locale);
@@ -196,37 +201,44 @@ function RevenueReport() {
       >
         {data && (
           <>
-            <FigureBand label={tr('ws.reports.nav.revenue')} columns={4}>
-              <FigureGroup title={tr('ws.reports.revenue.earned')} hint={tr('ws.reports.revenue.earnedHint')}>
-                {figure('revenue', 'ws.reports.revenue.revenue', t?.totalIqd ?? null, undefined, 'totalIqd')}
-                {figure('padelRevenue', 'ws.reports.revenue.padel', t?.padelIqd ?? null, t?.bookings != null ? tr('ws.reports.revenue.bookingsCount', { count: count(t.bookings, locale) }) : undefined, 'padelIqd')}
-                {figure('cafeNet', 'ws.reports.revenue.cafe', t?.cafeNetIqd ?? null, t?.orders != null ? tr('ws.reports.revenue.ordersCount', { count: count(t.orders, locale) }) : undefined, 'cafeNetIqd')}
-                {/* Coaching (§5.18.3): plain figures, "—" on a server without them; report_drill has no lesson figure. */}
-                <HeadlineFigure
-                  label={tr('ws.reports.revenue.lessons')}
-                  value={money(t?.lessonIqd ?? null, locale)}
-                  comparison={changeOf(changes, 'lessonIqd')}
-                  format={(n) => money(n, locale)}
-                />
-                <HeadlineFigure
-                  label={tr('ws.reports.revenue.owedToCoaches')}
-                  value={money(t?.owedToCoachesIqd ?? null, locale)}
-                  hint={tr('ws.reports.revenue.owedToCoachesHint')}
-                />
-              </FigureGroup>
-              <FigureGroup title={tr('ws.reports.revenue.taken')} hint={tr('ws.reports.revenue.takenHint')}>
-                {figure('cash', 'ws.reports.revenue.cash', t?.cashIqd ?? null, undefined, 'cashIqd')}
-                {figure('card', 'ws.reports.revenue.card', t?.cardIqd ?? null, undefined, 'cardIqd')}
-              </FigureGroup>
-              <FigureGroup title={tr('ws.reports.revenue.givenAway')} hint={tr('ws.reports.revenue.givenAwayHint')}>
-                {figure('discounts', 'ws.reports.revenue.discounts', t?.discountsIqd ?? null, undefined, 'discountsIqd', true)}
-                {figure('voids', 'ws.reports.revenue.voids', t?.voidsIqd ?? null, undefined, 'voidsIqd', true)}
-                {figure('refunds', 'ws.reports.revenue.refunds', t?.refundsIqd ?? null, undefined, 'refundsIqd', true)}
-              </FigureGroup>
-              <FigureGroup title={tr('ws.reports.revenue.tax')} hint={tr('ws.reports.revenue.taxHint')}>
-                <HeadlineFigure label={tr('ws.reports.revenue.tax')} value={money(t?.taxIqd ?? null, locale)} comparison={changeOf(changes, 'taxIqd')} format={(n) => money(n, locale)} />
-              </FigureGroup>
-            </FigureBand>
+            {/* The overview's Breakdown cards (Sait, 2026-10-19): earned green,
+                taken violet, given away rose, tax light blue. */}
+            <section aria-label={tr('ws.reports.nav.revenue')} style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
+              <BreakdownFrame title={tr('ws.reports.revenue.figuresTitle')}>
+                <BreakdownCard tone="green" title={tr('ws.reports.revenue.earned')} hint={tr('ws.reports.revenue.earnedHint')}>
+                  <BreakdownRows
+                    items={[
+                      figure('revenue', 'ws.reports.revenue.revenue', t?.totalIqd ?? null, undefined, 'totalIqd'),
+                      figure('padelRevenue', 'ws.reports.revenue.padel', t?.padelIqd ?? null, t?.bookings != null ? tr('ws.reports.revenue.bookingsCount', { count: count(t.bookings, locale) }) : undefined, 'padelIqd'),
+                      figure('cafeNet', 'ws.reports.revenue.cafe', t?.cafeNetIqd ?? null, t?.orders != null ? tr('ws.reports.revenue.ordersCount', { count: count(t.orders, locale) }) : undefined, 'cafeNetIqd'),
+                      // Coaching (§5.18.3): plain figures, "—" on a server without them; report_drill has no lesson figure.
+                      plain('lessons', 'ws.reports.revenue.lessons', t?.lessonIqd ?? null, 'lessonIqd'),
+                      plain('owedToCoaches', 'ws.reports.revenue.owedToCoaches', t?.owedToCoachesIqd ?? null),
+                    ]}
+                  />
+                </BreakdownCard>
+                <BreakdownCard tone="violet" title={tr('ws.reports.revenue.taken')} hint={tr('ws.reports.revenue.takenHint')}>
+                  <BreakdownRows
+                    items={[
+                      figure('cash', 'ws.reports.revenue.cash', t?.cashIqd ?? null, undefined, 'cashIqd'),
+                      figure('card', 'ws.reports.revenue.card', t?.cardIqd ?? null, undefined, 'cardIqd'),
+                    ]}
+                  />
+                </BreakdownCard>
+                <BreakdownCard tone="rose" title={tr('ws.reports.revenue.givenAway')} hint={tr('ws.reports.revenue.givenAwayHint')}>
+                  <BreakdownRows
+                    items={[
+                      figure('discounts', 'ws.reports.revenue.discounts', t?.discountsIqd ?? null, undefined, 'discountsIqd', true),
+                      figure('voids', 'ws.reports.revenue.voids', t?.voidsIqd ?? null, undefined, 'voidsIqd', true),
+                      figure('refunds', 'ws.reports.revenue.refunds', t?.refundsIqd ?? null, undefined, 'refundsIqd', true),
+                    ]}
+                  />
+                </BreakdownCard>
+                <BreakdownCard tone="sky" title={tr('ws.reports.revenue.tax')} hint={tr('ws.reports.revenue.taxHint')}>
+                  <BreakdownRows items={[plain('tax', 'ws.reports.revenue.tax', t?.taxIqd ?? null, 'taxIqd')]} />
+                </BreakdownCard>
+              </BreakdownFrame>
+            </section>
 
             <ViewSwitch<View>
               value={view}

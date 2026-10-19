@@ -48,16 +48,20 @@ describe('AmountPad nullable', () => {
 });
 
 describe('DateRangeControl', () => {
-  it('holds a five-digit year instead of offering it to Apply', () => {
+  // The two date boxes are gone (DateRangePicker, 2026-10-19): the periods are
+  // the panel's chips, resolved against `now`, and nothing applies until Apply.
+  it('offers its periods as chips and applies the one picked', () => {
     const onChange = vi.fn();
     render(
       <LocaleProvider>
-        <DateRangeControl period={{ from: '2026-09-01', to: '2026-09-23' }} onChange={onChange} />
+        <DateRangeControl period={{ from: '2026-09-01', to: '2026-09-23' }} onChange={onChange} now={new Date(2026, 8, 23)} />
       </LocaleProvider>,
     );
-    fireEvent.change(screen.getByLabelText('To'), { target: { value: '20266-09-01' } });
-    // The draft never took the bad year, so there is nothing to apply.
-    expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Date range' }));
+    expect(screen.getByRole('button', { name: 'This month', pressed: true })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Yesterday' }));
     expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(onChange).toHaveBeenCalledWith({ from: '2026-09-22', to: '2026-09-22' });
   });
 });

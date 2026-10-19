@@ -39,12 +39,25 @@ export const reportsEn = {
     seconds: '{seconds} s',
   },
   drill: {
-    title: '{what} · {range}',
     figure: 'Show',
     when: 'When',
     what: 'What',
     by: 'By',
     amount: 'Amount',
+    // The drill window's table and figure card (Sait, 2026-10-19).
+    day: 'Day',
+    time: 'Time',
+    location: 'Location',
+    customer: 'Customer',
+    amountIqd: 'Amount (IQD)',
+    total: 'Total',
+    totalRow: 'Total ({count})',
+    itemsCount: 'Items: {count}',
+    allBy: 'All taken by {name}',
+    kind: 'Kind',
+    all: 'All',
+    search: 'Search customer, place or staff',
+    showOnly: 'Show only {name}',
     capped: 'The latest 500 are listed.',
     notByMethod: 'This list includes every payment method.',
     // Words for the structured `detail` report_drill sends since 0102.
@@ -75,6 +88,7 @@ export const reportsEn = {
     },
   },
   revenue: {
+    figuresTitle: 'Totals',
     emptyTitle: 'No sales, bookings or payments in this period',
     emptyBody: 'Try a longer period.',
     earned: 'Earned',
@@ -85,7 +99,6 @@ export const reportsEn = {
     // Coaching (coaching operator.md §5.18.3): lesson money, its own line (C-18).
     lessons: 'Lessons',
     owedToCoaches: 'Owed to coaches',
-    owedToCoachesHint: "Coaches' share of lesson money, paid outside the till",
     bookingsCount: 'Bookings: {count}',
     ordersCount: 'Orders: {count}',
     taken: 'Money taken',

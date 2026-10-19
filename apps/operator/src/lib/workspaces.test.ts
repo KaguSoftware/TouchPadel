@@ -213,7 +213,7 @@ describe('sections (page map, 2026-10-17)', () => {
   const owner = WORKSPACES.owner;
   const manager = WORKSPACES.manager;
 
-  it("management's own rail is the Overview, Trends and the assistant, plus one button per part of the club", () => {
+  it("management's own rail is the Overview, Analytics and the assistant, plus one button per part of the club", () => {
     expect(owner.groups).toHaveLength(1);
     // Floor now folded into the Overview (2026-10-17): "Needs you" and the live floor sit on top of it.
     expect(owner.groups[0]!.items.filter((i) => !i.hidden).map((i) => i.to)).toEqual(['/panel', '/analytics', '/assistant']);
@@ -375,6 +375,16 @@ describe('the manager rail', () => {
     expect(rail('cafeFloor')).not.toContain('/observation/tills');
   });
 
+  it('lights Tournaments, not Bookings, on a tournament page in either Courts section', () => {
+    for (const [ws, key] of [[WORKSPACES.owner, 'courts'], [manager, 'courtsDesk']] as const) {
+      const sec = ws.sections!.find((s) => s.key === key)!;
+      for (const path of ['/desk/tournaments', '/desk/tournaments/t1']) {
+        expect(sectionForPath(ws, path)?.key, `${key} ${path}`).toBe(key);
+        expect(activeNavItem(sectionRailItems(sec), path)?.labelKey, `${key} ${path}`).toBe('tournaments');
+      }
+    }
+  });
+
   it('keeps the owner’s own rail the owner’s', () => {
     // Every page of the owner's own rail is refused to a manager.
     for (const item of WORKSPACES.owner.groups.flatMap((g) => g.items)) {
@@ -447,12 +457,22 @@ describe('families (management rebuild, 2026-10-17)', () => {
   it('prints one short row per job in each section, with no dropdowns', () => {
     const rows = (key: string) => sectionRailItems(section(key)).map((i) => i.labelKey);
     expect(rows('money')).toEqual(['reports', 'cash', 'pay']);
-    expect(rows('courts')).toEqual(['bookings', 'coaches', 'courtSettings']);
+    expect(rows('courts')).toEqual(['bookings', 'tournaments', 'coaches', 'courtSettings']);
     expect(rows('cafe')).toEqual(['tills', 'menu', 'tables', 'shop']);
     expect(rows('stock')).toEqual(['onHand', 'stockMovement', 'stockCounting', 'stockCosts']);
     expect(rows('team')).toEqual(['staff', 'staffActivity', 'attendance', 'fromTeam', 'protocols']);
     expect(rows('customers')).toEqual(['customers', 'loyalty', 'marketing', 'guestApp']);
-    expect(rows('settings')).toEqual(['venue', 'branches', 'computersScreens', 'audit']);
+    expect(rows('settings')).toEqual(['branches', 'computersScreens', 'audit']);
+  });
+
+  it('opens club details from a branch card only, and keeps Branches lit there', () => {
+    const branches = rowNamed('settings', 'branches');
+    expect(branches.tabs!.map((t) => t.labelKey)).toEqual(['branches', 'businessDay', 'analyticsSettings']);
+    expect(familyRowForPath(owner, '/admin/settings')?.labelKey).toBe('branches');
+    expect(activeTab(branches.tabs!, '/admin/settings')).toBeNull();
+    // The rows under /admin/settings keep their own light.
+    expect(familyRowForPath(owner, '/admin/settings/devices')?.labelKey).toBe('computersScreens');
+    expect(familyRowForPath(owner, '/admin/settings/booking')?.labelKey).toBe('courtSettings');
   });
 
   it('gives every family at least two pages and opens a family on its first', () => {
@@ -475,7 +495,8 @@ describe('families (management rebuild, 2026-10-17)', () => {
     expect(tabs('settings', 'computersScreens')).toContain('kitchenScreens');
     // Every settings page that used to be a panel of Venue settings has a tab.
     const allTabs = new Set((owner.sections ?? []).flatMap((s) => s.items.flatMap((r) => (r.tabs ?? []).map((t) => t.to))));
-    for (const route of SUB_ROUTES['/admin'].filter((r) => r.startsWith('/admin/settings'))) {
+    // Club details is the exception: a branch card opens it (Sait, 2026-10-18).
+    for (const route of SUB_ROUTES['/admin'].filter((r) => r.startsWith('/admin/settings') && r !== '/admin/settings')) {
       expect(allTabs.has(route), route).toBe(true);
     }
   });

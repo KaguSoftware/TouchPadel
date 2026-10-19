@@ -150,6 +150,22 @@ export const kitEn = {
     from: 'From',
     to: 'To',
     apply: 'Apply',
+    /** Empties the pick in the calendar panel so a fresh range can be chosen; nothing changes until Apply. */
+    clear: 'Clear',
+    /** The field's words after Clear, before a new range is picked. */
+    pickDates: 'Pick dates',
+    /** The calendar panel's name for screen readers. */
+    panel: 'Choose dates',
+    /** Column heads, Sunday first, comma-separated. */
+    weekdays: 'Su,Mo,Tu,We,Th,Fr,Sa',
+    prevMonth: 'Previous month',
+    nextMonth: 'Next month',
+    prevYear: 'Previous year',
+    nextYear: 'Next year',
+    prevYears: 'Earlier years',
+    nextYears: 'Later years',
+    chooseMonth: 'Choose month and year',
+    chooseYear: 'Choose year',
   },
   export: {
     /** The file is a styled .xlsx workbook, so the button does not name a format. */
@@ -201,6 +217,13 @@ export const kitEn = {
     chooseOne: 'Choose one of the options to continue',
   },
   /** A capped stacking list's control (components/kit.tsx ViewMore). */
+  /** The Breakdown cards (components/BreakdownCards.tsx): the frame's pager and its note. */
+  breakdown: {
+    about: 'About {title}',
+    back: 'Earlier cards',
+    more: 'More cards',
+    hint: 'Click any figure to see the transactions behind it.',
+  },
   list: {
     viewMore: 'View more ({count})',
     showLess: 'Show less',

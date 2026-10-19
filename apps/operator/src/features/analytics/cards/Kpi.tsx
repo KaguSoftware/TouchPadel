@@ -18,8 +18,9 @@
  *  - A figure that opens its transactions says so in words ("See
  *    transactions"), and a tile with two figures names each.
  */
-import type { ReactNode } from 'react';
+import { Children, Fragment, isValidElement, type ReactNode } from 'react';
 import { Button, Skeleton, card } from '../../../components/ui';
+import { BreakdownCard, BreakdownList, breakdownRowStyle, type BreakdownTone } from '../../../components/BreakdownCards';
 import { InfoTip } from '../../../components/InfoTip';
 import { Icon } from '../../../components/icons';
 import { useLocale } from '../../../lib/i18n';
@@ -53,6 +54,8 @@ interface FigureProps {
   /** Open the transactions behind the figure. Hidden while loading or unavailable. */
   drills?: readonly KpiDrill[];
   loading?: boolean;
+  /** A lead tile's card colour, by its place among the frame's cards (Sait, 2026-10-19). */
+  tone?: BreakdownTone;
   /** The query behind this figure failed — show a dash, never a misleading 0. */
   unavailable?: boolean;
   f: Formatters;
@@ -93,15 +96,49 @@ function ChangeLine({ change, previous }: { change: Change | null; previous?: st
 }
 
 /** A lead figure: a tile with a large value. */
-export function Kpi({ label, value, delta, kind, invert, neutral, previous, note, tip, drills, loading, unavailable, f }: FigureProps) {
+export function Kpi({ label, value, delta, kind, invert, neutral, previous, note, tip, drills, loading, unavailable, tone, f }: FigureProps) {
   const { tr } = useLocale();
   const change = useChange(unavailable ? null : delta, kind, invert, neutral, f);
   const live = !loading && !unavailable;
   return (
-    <div style={{ ...card, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-1)' }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
-        <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-        {tip && <InfoTip content={tip} label={tr('ws.analytics.tips.about', { title: label })} style={{ marginBlock: '-0.4rem' }} />}
+    // With a tone the tile keeps its shape and takes a Breakdown card's
+    // colours (wash, outline, one ink) from the class, so no inline ground.
+    <div
+      className={tone ? 'tp-breakdown-card' : undefined}
+      data-tone={tone}
+      style={{ ...card, ...(tone ? { background: undefined, border: undefined, overflow: 'hidden' } : null), minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-1)' }}
+    >
+      {/* With a tone the label row is the card colour's band, out to the
+          tile's edges, like a Breakdown card's (Sait, 2026-10-19). */}
+      <span
+        className={tone ? 'tp-breakdown-head' : undefined}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--tp-sp-0)',
+          minInlineSize: 0,
+          ...(tone
+            ? {
+                justifyContent: 'space-between',
+                marginInline: 'calc(-1 * var(--tp-sp-3))',
+                marginBlockStart: 'calc(-1 * var(--tp-sp-3))',
+                marginBlockEnd: 'var(--tp-sp-1)',
+                paddingBlock: 'var(--tp-sp-2)',
+                paddingInline: 'var(--tp-sp-3)',
+                minBlockSize: '2.75rem',
+              }
+            : null),
+        }}
+      >
+        <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: tone ? 'inherit' : 'var(--tp-muted-fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+        {/* At the band's end with a tone, its icon on the tile's inset (Sait, 2026-10-19). */}
+        {tip && (
+          <InfoTip
+            content={tip}
+            label={tr('ws.analytics.tips.about', { title: label })}
+            style={{ marginBlock: '-0.4rem', ...(tone ? { flexShrink: 0, marginInlineEnd: 'calc((14px - 1.85rem) / 2)' } : null) }}
+          />
+        )}
       </span>
       {loading ? (
         <Skeleton lines={1} blockSize="1.75rem" style={{ marginBlock: '0.2rem' }} />
@@ -133,9 +170,11 @@ export function Kpi({ label, value, delta, kind, invert, neutral, previous, note
 }
 
 /**
- * A supporting figure: label (and its change) at the start, the value at the
- * end, and an icon button into the transactions when there are any. Rows
- * without a drill keep the button's width so every value ends on one edge.
+ * A supporting figure, as a Breakdown row (Sait, 2026-10-19): label, its info
+ * tip and its change at the start, the value at the end. A figure that opens
+ * its transactions opens from anywhere on the row: the label is a button
+ * stretched over the whole row (the info tip sits above it), so there is no
+ * arrow on the row; the frame's note says the figures open.
  */
 export function FigureLine({ label, value, delta, kind, invert, neutral, previous, note, tip, drills, loading, unavailable, f }: FigureProps) {
   const { tr } = useLocale();
@@ -143,46 +182,60 @@ export function FigureLine({ label, value, delta, kind, invert, neutral, previou
   const live = !loading && !unavailable;
   const drill = live ? drills?.[0] : undefined;
   return (
-    <li
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) auto 2rem',
-        alignItems: 'center',
-        columnGap: 'var(--tp-sp-2)',
-        paddingBlock: 'var(--tp-sp-2)',
-        borderBlockEnd: '1px solid var(--tp-border)',
-      }}
-    >
+    <div className="tp-row" data-clickable={drill ? 'true' : undefined} style={{ ...breakdownRowStyle, position: 'relative' }}>
       <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
-          <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{label}</span>
-          {tip && <InfoTip content={tip} label={tr('ws.analytics.tips.about', { title: label })} style={{ marginBlock: '-0.4rem' }} />}
+          {drill ? (
+            <button
+              type="button"
+              className="tp-breakdown-stretch"
+              onClick={drill.onOpen}
+              aria-label={tr('ws.analytics.drill.openAria', { figure: drill.label ?? label })}
+              title={tr('ws.kit.drill.title')}
+            >
+              {label}
+            </button>
+          ) : (
+            <span style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 500 }}>{label}</span>
+          )}
+          {tip && <InfoTip content={tip} label={tr('ws.analytics.tips.about', { title: label })} style={{ marginBlock: '-0.4rem', position: 'relative', zIndex: 1 }} />}
         </span>
         {live && <ChangeLine change={change} previous={previous} />}
-        {live && note && <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{note}</span>}
+        {live && note && <span style={{ fontSize: 'var(--tp-fs-xs)' }}>{note}</span>}
       </span>
       {loading ? (
         <Skeleton lines={1} blockSize="1.1rem" style={{ inlineSize: '5rem' }} />
       ) : (
-        <strong dir="auto" style={{ fontSize: 'var(--tp-fs-lg)', fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)', textAlign: 'end' }}>
+        <strong dir="auto" style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)', textAlign: 'end' }}>
           {unavailable ? '—' : value}
         </strong>
       )}
-      {drill ? (
-        <Button size="sm" kind="ghost" icon="arrowUpRight" onClick={drill.onOpen} aria-label={tr('ws.analytics.drill.openAria', { figure: drill.label ?? label })} />
-      ) : (
-        <span aria-hidden="true" />
-      )}
-    </li>
+    </div>
   );
 }
 
-/** A titled list of supporting figures (the panel's figure-row look). */
-export function FigureGroup({ title, children }: { title: string; children: ReactNode }) {
+/** Every FigureLine among the children, fragments opened, so the card can cap and key them. */
+function rowsOf(children: ReactNode): { key: string; node: ReactNode }[] {
+  const out: { key: string; node: ReactNode }[] = [];
+  const walk = (nodes: ReactNode, prefix: string) =>
+    Children.toArray(nodes).forEach((child, i) => {
+      if (isValidElement<{ children?: ReactNode }>(child) && child.type === Fragment) walk(child.props.children, `${prefix}${i}.`);
+      else if (child) out.push({ key: `${prefix}${isValidElement(child) && child.key != null ? child.key : i}`, node: child });
+    });
+  walk(children, '');
+  return out;
+}
+
+/**
+ * A titled list of supporting figures, as a Breakdown card (Sait,
+ * 2026-10-19): its colour band, outline and wash, three rows and "View more".
+ * Inside a BreakdownFrame it takes the frame's shared tracks; `alone` for one
+ * card set beside lead tiles.
+ */
+export function FigureGroup({ title, tone, alone, children }: { title: string; tone: BreakdownTone; alone?: boolean; children: ReactNode }) {
   return (
-    <section style={{ ...card, minInlineSize: 0 }}>
-      <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{title}</h3>
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>{children}</ul>
-    </section>
+    <BreakdownCard tone={tone} title={title} alone={alone}>
+      <BreakdownList rows={rowsOf(children)} />
+    </BreakdownCard>
   );
 }

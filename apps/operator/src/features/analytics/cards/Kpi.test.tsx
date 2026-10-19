@@ -84,13 +84,11 @@ describe('Kpi', () => {
 });
 
 describe('FigureLine', () => {
-  it('puts the value at the end of the row and the drill behind an icon button named for the figure', () => {
+  it('puts the value at the end of the row and opens from a button named for the figure', () => {
     const open = vi.fn();
     render(
       <LocaleProvider>
-        <ul>
-          <FigureLine label="Refunds" value="70,000 IQD" delta={40} invert previous="50,000 IQD" drills={[{ onOpen: open }]} f={f} />
-        </ul>
+        <FigureLine label="Refunds" value="70,000 IQD" delta={40} invert previous="50,000 IQD" drills={[{ onOpen: open }]} f={f} />
       </LocaleProvider>,
     );
     expect(screen.getByText('70,000 IQD', { selector: 'strong' })).toBeTruthy();

@@ -209,7 +209,7 @@ export const ar: Messages = {
   stock: { title: 'المخزون' },
   admin: { title: 'الإدارة' },
   analytics: {
-    title: 'الاتجاهات',
+    title: 'التحليلات',
     deck: {
       today: 'اليوم',
       d7: '7 أيام',

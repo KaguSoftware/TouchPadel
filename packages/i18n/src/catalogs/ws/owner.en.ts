@@ -14,6 +14,7 @@ export const ownerEn = {
     // Open matches (operator.md §5.19): the `online` figure group.
     online: 'Online money and open matches',
     otherReports: 'Other reports',
+    cardsTitle: 'Breakdown',
     headline: 'Headline',
     padel: 'Padel',
     cafe: 'Cafe',

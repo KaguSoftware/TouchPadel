@@ -52,6 +52,22 @@ export function useStockFormat() {
   };
 }
 
+/**
+ * A quantity lined up on its decimal point down a column (Sait, 2026-10-19):
+ * the whole part right-aligned, the fraction in a slot of its own that stays
+ * empty for whole numbers, so 2.4, 46 and 212 line up. Takes the already
+ * formatted number; the unit lives in its own column.
+ */
+export function AlignedQty({ text, muted }: { text: string; muted?: boolean }) {
+  const m = /^(.*?)([.\u066B]\d+)$/.exec(text);
+  return (
+    <span dir="ltr" style={{ display: 'inline-flex', justifyContent: 'flex-end', fontVariantNumeric: 'tabular-nums', color: muted ? 'var(--tp-muted-fg)' : undefined }}>
+      <span>{m ? m[1] : text}</span>
+      <span style={{ display: 'inline-block', minInlineSize: '3ch', textAlign: 'start' }}>{m ? m[2] : ''}</span>
+    </span>
+  );
+}
+
 /** Name + prepared marker, the way every stock table leads a row. */
 export function IngredientName({ name, prepared, strong }: { name: string; prepared?: boolean; strong?: boolean }) {
   const { tr } = useLocale();

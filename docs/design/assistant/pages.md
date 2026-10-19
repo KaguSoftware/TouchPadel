@@ -124,7 +124,7 @@ here.
 - /admin/telegram — The "Telegram" settings with "Set up" and "Sent messages" tabs: connection health from the telegram-diagnose function, "Send test message" (app.telegram_send_test), the group chat id and message language saved as cafe settings, and the people who may press the bot's buttons set with app.set_telegram_staff.
 - /admin/settings — Club details: the venue's name and phone (owner, app.set_venue_details), the values fixed at setup and the tax per item group. The other panels of the old "Venue settings" are pages under /admin/settings/.
 - /admin/settings/day — Day start time: when a business day starts (owner) and the wait between waiter calls.
-- /admin/settings/analytics — Trends settings (owner): items left out of analytics and the guest-app visits start date.
+- /admin/settings/analytics — Analytics settings (owner): items left out of analytics and the guest-app visits start date.
 - /admin/settings/booking — Booking rules: cancellation, hold time, how far ahead and slots per guest (owner edits, manager reads).
 - /admin/settings/deposit — Online deposit: the Qi Card deposit rules (owner, app.set_deposit_settings); only while online payments are live.
 - /admin/settings/matches — Open matches: the open-match rules (owner, app.set_match_settings); only while online payments are live.

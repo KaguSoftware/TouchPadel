@@ -17,7 +17,7 @@
  * vocabulary ("good / bad" against the system's "success / danger") painted in
  * a second palette. Every call site renders `StatusBadge`.
  */
-import type { CSSProperties, ReactNode } from 'react';
+import { createContext, useContext, type CSSProperties, type ReactNode } from 'react';
 import type { MessageKey } from '@touch/i18n';
 import { Button, ErrorText, Skeleton, card } from '../../../components/ui';
 import { InfoTip } from '../../../components/InfoTip';
@@ -58,6 +58,25 @@ function toneFor(title: string): (typeof TONES)[number] {
   return TONES[Math.abs(h) % TONES.length]!;
 }
 
+/**
+ * Set by a dashboard section (Zone.tsx): its cards wear the overview's
+ * Breakdown look instead (Sait, 2026-10-19), a title band in one of the six
+ * card colours, an outline and a wash of it. In a sideways row ('row') the
+ * colour comes from the card's place (GlobalStyles, .tp-zone-row) and the
+ * card takes the row's two shared tracks; on its own ('card') it comes from
+ * the title.
+ */
+export const BreakdownLook = createContext<false | 'card' | 'row'>(false);
+
+/** The six Breakdown colours, for a card outside a row: picked from its title, so it keeps its colour. */
+const BREAKDOWN_TONES = ['green', 'violet', 'rose', 'sky', 'teal', 'gold'] as const;
+
+function breakdownToneFor(title: string): (typeof BREAKDOWN_TONES)[number] {
+  let h = 0;
+  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) | 0;
+  return BREAKDOWN_TONES[Math.abs(h) % BREAKDOWN_TONES.length]!;
+}
+
 export function CardShell({
   title,
   state,
@@ -90,16 +109,26 @@ export function CardShell({
   style?: CSSProperties;
 }) {
   const { tr } = useLocale();
-  return (
-    // The strip is inline because card's own inline border would win over a class.
-    <div className="tp-tone-card" data-tone={toneFor(title)} style={{ ...card, borderBlockStart: '3px solid var(--tp-tone)', ...style }}>
-      <div style={head}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
-          <h3 style={cardTitle}>{title}</h3>
-          {tip && <InfoTip content={tip} label={tr('ws.analytics.tips.about', { title })} />}
-        </div>
-        {actions && <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexShrink: 0 }}>{actions}</div>}
+  const look = useContext(BreakdownLook);
+  // The "i" sits right after the title when the band has a button, which
+  // takes the line's end; with no button the "i" takes the end itself (Sait,
+  // 2026-10-19).
+  const info = tip && <InfoTip content={tip} label={tr('ws.analytics.tips.about', { title })} />;
+  const titleRow = (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
+        <h3 style={cardTitle}>{title}</h3>
+        {actions && info}
       </div>
+      {actions ? (
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexShrink: 0 }}>{actions}</div>
+      ) : (
+        info && <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{info}</div>
+      )}
+    </>
+  );
+  const body = (
+    <>
       {/* A div, not a paragraph: a note may carry a link or a small share bar. */}
       {note && <div style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{note}</div>}
       {state === 'loading' && <Skeleton lines={skeletonLines} />}
@@ -132,6 +161,37 @@ export function CardShell({
           {children}
         </div>
       )}
+    </>
+  );
+  if (look) {
+    return (
+      <section
+        className="tp-breakdown-card"
+        data-tone={breakdownToneFor(title)}
+        style={{
+          // In a row: its two tracks (band, body) through a subgrid, so every band in the row is one height.
+          ...(look === 'row' ? { display: 'grid', gridRow: 'span 2', gridTemplateRows: 'subgrid', rowGap: 0 } : { display: 'flex', flexDirection: 'column' }),
+          borderRadius: 'var(--tp-radius-panel)',
+          overflow: 'hidden',
+          minInlineSize: 0,
+          ...style,
+        }}
+      >
+        <div
+          className="tp-breakdown-head"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', paddingBlock: 'var(--tp-sp-3)', paddingInline: 'var(--tp-sp-4)' }}
+        >
+          {titleRow}
+        </div>
+        <div style={{ padding: 'var(--tp-sp-4)' }}>{body}</div>
+      </section>
+    );
+  }
+  return (
+    // The strip is inline because card's own inline border would win over a class.
+    <div className="tp-tone-card" data-tone={toneFor(title)} style={{ ...card, borderBlockStart: '3px solid var(--tp-tone)', ...style }}>
+      <div style={head}>{titleRow}</div>
+      {body}
     </div>
   );
 }

@@ -6,12 +6,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../../lib/i18n';
 import { ConfirmProvider } from '../../../components/ConfirmDialog';
 
-// Setup › Branches, Close (coaching operator.md §5.7, §5.19, §5.21; R37): a
-// branch with coaching money to settle refuses BRANCH_HAS_BOOKINGS
-// `coaching_money`, and the refusal reads its own line, beside the button and
-// in the toast; any other refusal keeps its shared line.
+// Settings › Branches. Opening a branch in the list switches to it and lands
+// on its Club details, where Close sits (coaching operator.md §5.7, §5.19,
+// §5.21; R37): a branch with coaching money to settle refuses
+// BRANCH_HAS_BOOKINGS `coaching_money`, and the refusal reads its own line,
+// beside the button and in the toast; any other refusal keeps its shared line.
 
 const toast = vi.hoisted(() => ({ ok: vi.fn(), err: vi.fn(), info: vi.fn() }));
+const navigate = vi.hoisted(() => vi.fn());
+const venue = vi.hoisted(() => ({ branchId: 'v1' as string | null, canSwitch: true, setBranch: vi.fn(), venues: [] as { id: string }[] }));
+const who = vi.hoisted(() => ({ role: 'owner' }));
 
 const BRANCH = {
   id: 'v1',
@@ -27,7 +31,7 @@ const BRANCH = {
 };
 
 vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigate,
   Link: ({ children }: { children: ReactNode }) => <a href="#">{children}</a>,
 }));
 vi.mock('../../../lib/supabase', () => {
@@ -36,6 +40,11 @@ vi.mock('../../../lib/supabase', () => {
   chain.order = () => Promise.resolve({ data: [BRANCH], error: null });
   return { supabase: { from: () => chain }, supabaseUrl: '', supabaseAnonKey: '' };
 });
+vi.mock('../../../lib/auth', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useAuth: () => ({ staff: { role: who.role } }),
+}));
+vi.mock('../../../lib/venue', () => ({ useVenue: () => venue }));
 vi.mock('../../../components/toast', () => ({ useToast: () => toast }));
 vi.mock('../../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -43,12 +52,12 @@ vi.mock('../../../lib/appRpc', async (importOriginal) => ({
 }));
 
 import { AppRpcError, appRpc } from '../../../lib/appRpc';
-import { BranchesAdmin } from './BranchesAdmin';
+import { BranchesAdmin, CurrentBranchPanel } from './BranchesAdmin';
 
 const rpc = vi.mocked(appRpc);
 let closeAnswer: () => unknown;
 
-function mount() {
+function mount(screenUnderTest: ReactNode = <CurrentBranchPanel />) {
   rpc.mockImplementation(async (fn: string) => {
     if (fn === 'branch_readiness') return [{ key: 'manager', required: true, ok: true }];
     if (fn === 'close_branch') return closeAnswer();
@@ -59,7 +68,7 @@ function mount() {
     <QueryClientProvider client={qc}>
       <LocaleProvider>
         <ConfirmProvider>
-          <BranchesAdmin />
+          {screenUnderTest}
         </ConfirmProvider>
       </LocaleProvider>
     </QueryClientProvider>,
@@ -67,8 +76,6 @@ function mount() {
 }
 
 async function close(user: ReturnType<typeof userEvent.setup>) {
-  // An open branch is not picked for you: choose it in the list first.
-  await user.click(await screen.findByRole('button', { name: /Karrada/ }));
   await user.click(await screen.findByRole('button', { name: 'Close branch' }));
   await user.click(
     within(await screen.findByRole('dialog', { name: 'Close branch' })).getByRole('button', {
@@ -81,9 +88,48 @@ const COACHING_MONEY =
   'This branch still has coach statements to approve or pay, a month or a pay adjustment not drafted yet, or lesson money still to refund or being refunded. Settle them in Coach pay and Ops first.';
 
 beforeEach(() => {
+  venue.branchId = 'v1';
+  venue.canSwitch = true;
+  venue.setBranch.mockReset();
+  venue.venues = [];
+  who.role = 'owner';
+  navigate.mockReset();
   rpc.mockReset();
   toast.err.mockReset();
   toast.ok.mockReset();
+});
+
+describe('BranchesAdmin ▸ the list', () => {
+  it('opening a branch switches to it and lands on its club details', async () => {
+    const user = userEvent.setup();
+    venue.branchId = 'v0';
+    mount(<BranchesAdmin />);
+    await user.click(await screen.findByRole('button', { name: /Karrada/ }));
+    expect(venue.setBranch).toHaveBeenCalledWith('v1');
+    expect(navigate).toHaveBeenCalledWith({ to: '/admin/settings' });
+  });
+
+  it('a manager sees only the branches they work at, and opens no new one', async () => {
+    who.role = 'manager';
+    venue.venues = [{ id: 'v1' }];
+    mount(<BranchesAdmin />);
+    expect(await screen.findByRole('button', { name: /Karrada/ })).toBeTruthy();
+    expect(screen.queryByTestId('branches-open-new')).toBeNull();
+  });
+
+  it('a manager on club details gets the way back, not Open or Close', async () => {
+    who.role = 'manager';
+    mount();
+    expect(await screen.findByTestId('branch-details-back')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Close branch' })).toBeNull();
+  });
+
+  it('a station cannot open another branch', async () => {
+    venue.branchId = 'v0';
+    venue.canSwitch = false;
+    mount(<BranchesAdmin />);
+    expect(((await screen.findByRole('button', { name: /Karrada/ })) as HTMLButtonElement).disabled).toBe(true);
+  });
 });
 
 describe('BranchesAdmin ▸ Close', () => {
@@ -121,5 +167,6 @@ describe('BranchesAdmin ▸ Close', () => {
     mount();
     await close(user);
     await waitFor(() => expect(toast.ok).toHaveBeenCalledWith('Karrada is closed.'));
+    expect(navigate).toHaveBeenCalledWith({ to: '/admin/branches' });
   });
 });

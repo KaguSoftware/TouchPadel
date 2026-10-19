@@ -821,8 +821,8 @@ export async function buildMap({ catalog, sha } = {}) {
       }
       const visible = (items) =>
         items
-          .filter((i) => !i.hidden && !i.unless)
-          .map((i) => `${nav(i.labelKey)} → ${i.to}${i.tabs?.length ? ` (${i.tabs.map((t) => nav(t.labelKey)).join(', ')})` : ''}`);
+          .filter((i) => !i.hidden)
+          .map((i) => `${nav(i.labelKey)} → ${i.to}${i.unless ? ` (${lang === 'ar' ? 'بدل' : 'instead of'} ${i.unless})` : ''}${i.tabs?.length ? ` (${i.tabs.map((t) => nav(t.labelKey)).join(', ')})` : ''}`);
       const wsBody = [
         lang === 'ar'
           ? `مساحة العمل "${wsName(ws.key, lang)}" تبدأ من ${ws.home}${ws.altHomes.length ? `، أو من ${ws.altHomes.join('، ')} لمن لا يستطيع فتحها` : ''}.`

@@ -82,6 +82,7 @@ export function ShopSection({
       {courtFiltered && <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.analytics.shop.note.wholeShop')}</p>}
       <div style={{ display: 'grid', gridTemplateColumns: gridColumns(3, '13rem'), gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
         <Kpi
+          tone="green"
           label={tr('ws.analytics.shop.kpi.sales')}
           value={f.money(k?.netIqd ?? 0)}
           delta={delta((x) => x.netIqd)}
@@ -91,6 +92,7 @@ export function ShopSection({
           {...common}
         />
         <Kpi
+          tone="violet"
           label={tr('ws.analytics.shop.kpi.margin')}
           value={k?.marginIqd == null ? '—' : f.money(k.marginIqd)}
           delta={delta((x) => x.marginIqd)}
@@ -105,7 +107,8 @@ export function ShopSection({
           }
           {...common}
         />
-        <FigureGroup title={tr('ws.analytics.courts.zones.shopNav')}>
+        {/* A Breakdown card on its own beside the lead tiles (Sait, 2026-10-19). */}
+        <FigureGroup tone="rose" alone title={tr('ws.analytics.courts.zones.shopNav')}>
           <FigureLine
             label={tr('ws.analytics.shop.kpi.count')}
             value={f.num(k?.sales ?? 0)}

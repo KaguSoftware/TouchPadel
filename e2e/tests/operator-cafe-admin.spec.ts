@@ -292,10 +292,10 @@ test.describe('operator cafe admin', () => {
     await signIn(page, SEED_STAFF.owner);
     await page.goto(`${OPERATOR_URL}/analytics/cafe?range=7d`);
 
-    // Trends (page map, 2026-10-17) is a rail row with two tabs; the cafe tab is
+    // Analytics (page map 2026-10-17; named Trends until 2026-10-19) is a rail row with two tabs; the cafe tab is
     // the one this case is about. The page h1 is the wait target (the rail row is
-    // also called "Trends", so a bare text match would resolve to the link).
-    await expect(page.getByRole('heading', { level: 1, name: 'Trends' })).toBeVisible({
+    // also called "Analytics", so a bare text match would resolve to the link).
+    await expect(page.getByRole('heading', { level: 1, name: 'Analytics' })).toBeVisible({
       timeout: 60_000,
     });
     await expect(page).toHaveURL(/\/analytics\/cafe\?range=7d/);
@@ -313,9 +313,13 @@ test.describe('operator cafe admin', () => {
     ).toBeVisible();
 
     // The range lives in the URL, so a reload keeps the owner where they were.
-    // The period is a SelectMenu: the combobox trigger shows the chosen preset.
+    // The period is a DateRangePicker: the field shows the dates, and the
+    // chosen preset is the chip that is on when it opens.
     await page.reload();
-    await expect(page.getByRole('combobox', { name: 'Period' })).toHaveText('7 days');
+    await expect(page).toHaveURL(/range=7d/);
+    await page.getByRole('button', { name: 'Period' }).click();
+    await expect(page.getByRole('button', { name: '7 days', pressed: true })).toBeVisible();
+    await page.keyboard.press('Escape');
   });
 
   test('(f) a ticket left queued raises the KDS stale banner', async ({ page }) => {

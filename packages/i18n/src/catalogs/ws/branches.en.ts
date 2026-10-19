@@ -22,7 +22,8 @@ export const branchesEn = {
   },
   list: {
     title: 'Branches',
-    intro: 'Every Touch location. A new branch is set up in Preparing, then opened to guests.',
+    intro: 'Every Touch location. Open one to see and change its club details. A new branch is set up in Preparing, then opened to guests.',
+    current: 'Showing now',
     openNew: 'Open a new branch',
     empty: 'No branches yet.',
     tables: '{n} tables',

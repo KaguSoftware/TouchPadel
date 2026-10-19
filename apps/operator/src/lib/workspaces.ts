@@ -84,7 +84,7 @@ export type NavLabelKey =
   // paid from the main cash, the settings tabs that shared another page's name.
   | 'courtSettings' | 'courtSales' | 'cafeSales' | 'billsSuppliers' | 'tournamentRules'
   | 'analyticsSettings' | 'computersScreens'
-  | 'venue' | 'venueDetails' | 'openingHours' | 'businessDay'
+  | 'venueDetails' | 'openingHours' | 'businessDay'
   | 'guestApp' | 'devices' | 'stations' | 'kitchenScreens' | 'offlineMode';
 
 /**
@@ -207,14 +207,20 @@ const MY_TASKS: NavItem = { to: '/tasks', labelKey: 'myTasks', icon: 'checkCircl
  */
 const INCIDENTS: NavItem = { to: '/incidents', labelKey: 'incidents', icon: 'alert', badge: 'incidentsOpen' };
 
+/**
+ * Tournaments (build-contracts-2026-10-03 §1.11): the list; one opens from it
+ * or its calendar block. On the desk's rail and in both Courts sections (Sait,
+ * 2026-10-18), so the owner and the manager find it where they look for courts.
+ */
+const TOURNAMENTS: NavItem = { to: '/desk/tournaments', labelKey: 'tournaments', icon: 'trophy' };
+
 const COURT_DESK: readonly NavItem[] = [
   { to: '/desk/today', labelKey: 'today', icon: 'today' },
   { to: '/desk', labelKey: 'calendar', icon: 'calendar', exact: true },
   { to: '/desk/customers', labelKey: 'customers', icon: 'users' },
   { to: '/desk/series/new', labelKey: 'newSeries', icon: 'repeat', activePrefix: '/desk/series' },
   { to: '/desk/block', labelKey: 'blockCourt', icon: 'ban' },
-  // Tournaments (build-contracts-2026-10-03 §1.11): the list; one opens from it or its calendar block.
-  { to: '/desk/tournaments', labelKey: 'tournaments', icon: 'trophy' },
+  TOURNAMENTS,
   INCIDENTS,
   MY_TASKS,
 ];
@@ -354,15 +360,17 @@ const MARKETING_TABS: readonly NavTab[] = [
 ];
 
 /**
- * The club itself: its name and the values fixed at setup, when its business
- * day starts, and what analytics leaves out. `/admin/settings` stays its
- * address. The opening hours are Court settings'.
+ * The owner's branches, when the business day starts, and what analytics
+ * leaves out. A branch's club details (`/admin/settings`) are no tab: each
+ * branch card opens its own, switching to that branch first. The opening
+ * hours are Court settings'.
  */
-const CLUB_TABS: readonly NavTab[] = [
-  { to: '/admin/settings', labelKey: 'venueDetails', exact: true },
+const BRANCH_TABS: readonly NavTab[] = [
+  { to: '/admin/branches', labelKey: 'branches' },
   { to: '/admin/settings/day', labelKey: 'businessDay' },
   { to: '/admin/settings/analytics', labelKey: 'analyticsSettings' },
 ];
+
 
 /**
  * The machines: which ones report in, which stations are registered at the
@@ -392,7 +400,7 @@ const PROTOCOLS: NavItem = { to: '/protocols', labelKey: 'protocols', icon: 'che
 /**
  * Management's own rail, above the section buttons. The owner's is Overview
  * (the panel, with "Needs you" and the live floor on top since 2026-10-17,
- * when the owner's Floor now page folded into it), Trends and the assistant,
+ * when the owner's Floor now page folded into it), Analytics and the assistant,
  * which read across every section. The manager can open none of those three
  * and gets Today instead: the landing screen of what needs them now.
  */
@@ -428,6 +436,7 @@ const MONEY: readonly NavItem[] = [
 const COURTS: readonly NavItem[] = [
   { to: '/observation/courts', labelKey: 'bookings', icon: 'calendar' },
   { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk', unless: '/observation/courts' },
+  TOURNAMENTS,
   COACHES,
   COURT_SETTINGS,
 ];
@@ -477,15 +486,20 @@ const CUSTOMERS: readonly NavItem[] = [
   { to: '/admin/hero', labelKey: 'guestApp', icon: 'phone', activePrefix: '/admin/hero' },
 ];
 
-/** SETTINGS: the club, its branches, the machines, and the change history. */
+/**
+ * SETTINGS: the branches, the machines, and the change history. Club details
+ * is no row or tab of its own (Sait, 2026-10-18): each branch card opens its
+ * branch's details, and the Branches row stays lit there. A manager's list
+ * holds the branches they work at.
+ */
 const SETTINGS: readonly NavItem[] = [
-  { to: '/admin/settings', labelKey: 'venue', icon: 'home', tabs: CLUB_TABS },
-  { to: '/admin/branches', labelKey: 'branches', icon: 'pin' },
+  { to: '/admin/branches', labelKey: 'branches', icon: 'pin', tabs: BRANCH_TABS, alsoActive: ['/admin/settings'] },
   { to: '/admin/settings/devices', labelKey: 'computersScreens', icon: 'keyboard', tabs: DEVICES_TABS },
   { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
   // The old Setup overview still opens from links; it keeps this rail.
   { to: '/setup', labelKey: 'overview', icon: 'grid', exact: true, hidden: true },
 ];
+
 
 /**
  * SHOP — the Touch Shop's own desk (docs/design/shop/shop-desk-2026-09-27.md):
@@ -526,7 +540,7 @@ const MANAGEMENT_SECTIONS: readonly NavSection[] = [
   // Icons (Sait, 2026-10-17): each names what is inside, and no two buttons on
   // one rail share a glyph. Café & shop is food, Customers & marketing is
   // winning guests, Settings is the gear.
-  { key: 'settings', home: '/admin/settings', icon: 'settings', items: SETTINGS },
+  { key: 'settings', home: '/admin/branches', icon: 'settings', items: SETTINGS },
 ];
 
 export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
@@ -537,7 +551,6 @@ export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
   team: { key: 'team', home: '/tasks', icon: 'checkCircle', groups: [{ labelKey: null, items: TEAM }] },
   shop: { key: 'shop', home: '/shop', icon: 'tag', groups: [{ labelKey: null, items: SHOP }] },
 };
-
 
 /** The workspaces a role may enter, own one first. */
 export function workspacesForRole(role: StaffRole): readonly WorkspaceKey[] {
