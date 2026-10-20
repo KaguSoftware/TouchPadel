@@ -208,6 +208,8 @@ export const shellEn = {
     // The owner assistant: a rail row on Management's own list and the drawer
     // button in the rail footer share this label.
     assistant: 'Assistant',
+    // The Files page (0354), on Management's own list beside the assistant.
+    files: 'Files',
     // The team workspace's one row (driver, marketing), and the till's and
     // the desk's last row.
     myTasks: 'My tasks',

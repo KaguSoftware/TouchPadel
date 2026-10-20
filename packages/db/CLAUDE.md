@@ -17,8 +17,19 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0353`
-  (0353 court_gender_rules, 2026-10-19 (Majed: some courts are women-only at set times, some hours
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0354`
+  (0354 venue_files, 2026-10-20 (Majed: a Files section for the manager and the owner, read by the
+  assistant, every file compressed before it touches the database): table `venue_files` (metadata
+  only, no client grant), the private `venue-files` bucket (gzip and WebP only, 50 MB an object, a
+  2 GB compressed quota per branch), the minted-path flow `venue_file_begin` → upload →
+  `venue_file_finish`, `venue_files_list`, `venue_file_update`, `venue_file_delete` (objects
+  first, then the row: storage reads an object through its read rule before deleting it), the
+  policy helpers `is_venue_file_path` and `venue_file_object_{readable,uploadable,removable}`, an
+  owner_only flag the owner alone sets and sees, and the owner assistant's `assistant_files_list` /
+  `assistant_file_get` (tools `files_list`, `file_read`; the edge function downloads and gunzips
+  the `<id>.txt.gz` text as the owner); **0354 holds `assistant_run_tool`** (0330 is no longer the
+  latest); `tests/venue-files.test.ts`;
+  0353 court_gender_rules, 2026-10-19 (Majed: some courts are women-only at set times, some hours
   on every court; a gender is a must for every account): table `court_gender_rules` (the operator's
   Gender hours card, rates-shaped: one court or every court, weekdays, a window that runs past
   midnight when its end is at or before its start, optional dates, on/off, gender female | male;
@@ -132,7 +143,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0354`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0355`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

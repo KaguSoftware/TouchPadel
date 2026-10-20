@@ -1222,6 +1222,7 @@ export const ownerEn = {
       howto: 'Pages and how-to',
       docs: 'Documents',
       tables: 'Any table (advanced)',
+      files: 'Saved files',
       presets: {
         moneyAndFloor: 'Money and floor',
         justHelp: 'Just help',

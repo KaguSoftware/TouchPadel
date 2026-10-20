@@ -1165,6 +1165,7 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       howto: 'الصفحات وطريقة الاستخدام',
       docs: 'المستندات',
       tables: 'أي جدول (متقدم)',
+      files: 'الملفات المحفوظة',
       presets: {
         moneyAndFloor: 'المال والصالة',
         justHelp: 'المساعدة فقط',

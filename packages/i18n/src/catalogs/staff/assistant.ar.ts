@@ -58,6 +58,7 @@ export const staffAssistantAr: DeepMessages<typeof staffAssistantEn> = {
     howto: 'المساعدة',
     docs: 'المستندات',
     tables: 'أي جدول',
+    files: 'الملفات المحفوظة',
     turnOn: 'تشغيل «{scope}»',
     turnOnHint: 'قال المساعد إن هذا مغلق في هذه المحادثة. تشغيله يعيد طرح سؤالك الأخير.',
     saved: 'تم التحديث',

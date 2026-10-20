@@ -227,11 +227,12 @@ describe('sections (page map, 2026-10-17)', () => {
   const primary = (role: StaffRole) =>
     mgmt.groups[0]!.items.filter((i) => !i.hidden && rowShown(i, (p) => canAccess(role, p), (t) => canAccess(role, t.to))).map((i) => i.to);
 
-  it("management's own rail is the owner's Overview, Analytics and the assistant, or the manager's Today, plus one button per part of the club", () => {
+  it("management's own rail is the owner's Overview, Analytics and the assistant, or the manager's Today, then Files for both, plus one button per part of the club", () => {
     expect(mgmt.groups).toHaveLength(1);
     // Floor now folded into the Overview (2026-10-17): "Needs you" and the live floor sit on top of it.
-    expect(primary('owner')).toEqual(['/panel', '/analytics', '/assistant']);
-    expect(primary('manager')).toEqual(['/ops']);
+    // Files (0354) is the owner's and the managers' documents, so it is on both.
+    expect(primary('owner')).toEqual(['/panel', '/analytics', '/assistant', '/files']);
+    expect(primary('manager')).toEqual(['/ops', '/files']);
     expect(mgmt.sections?.map((s) => s.key)).toEqual(['money', 'courts', 'cafe', 'stock', 'team', 'customers', 'settings']);
   });
 
@@ -400,9 +401,10 @@ describe('the manager in Management', () => {
   });
 
   it('keeps the owner’s own rail the owner’s', () => {
-    // Every page of the owner's own rail is refused to a manager, Today aside.
+    // Every page of the owner's own rail is refused to a manager, Today and
+    // Files (0354, management's shared documents) aside.
     for (const item of mgmt.groups.flatMap((g) => g.items)) {
-      if (item.unless) continue;
+      if (item.unless || item.to === '/files') continue;
       expect(canAccess('manager', item.to), item.to).toBe(false);
     }
   });

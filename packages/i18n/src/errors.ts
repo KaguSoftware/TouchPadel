@@ -720,6 +720,11 @@ export const ERROR_CODE_KEYS = {
   MAIN_CASH_CHANGED: 'op.errors.MAIN_CASH_CHANGED',
   MAIN_CASH_HANDED_IN: 'op.errors.MAIN_CASH_HANDED_IN',
   MAIN_CASH_LINKED: 'op.errors.MAIN_CASH_LINKED',
+  // Files (0354).
+  FILE_NOT_FOUND: 'op.errors.FILE_NOT_FOUND',
+  FILE_NOT_YOURS: 'op.errors.FILE_NOT_YOURS',
+  FILE_TOO_LARGE: 'op.errors.FILE_TOO_LARGE',
+  FILES_QUOTA_FULL: 'op.errors.FILES_QUOTA_FULL',
   WAGE_ADVANCE_TOO_LARGE: 'op.errors.WAGE_ADVANCE_TOO_LARGE',
 
   // ── Edge functions' own body codes (never raised by SQL) ──────────────────

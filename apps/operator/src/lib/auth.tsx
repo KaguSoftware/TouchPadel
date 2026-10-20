@@ -323,6 +323,9 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/rewards': ['owner'],
   // The main cash (0343): managers and the owner log costs and moves.
   '/safe': ['manager', 'owner'],
+  // Files (0354): managers and the owner keep documents; an owner_only file
+  // is the owner's alone (app.venue_files_list).
+  '/files': ['manager', 'owner'],
 };
 
 /** Every known sub-route per layout prefix — drives the admin sub-nav. */

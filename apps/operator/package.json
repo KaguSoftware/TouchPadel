@@ -21,6 +21,7 @@
     "@touch/db": "workspace:*",
     "@touch/i18n": "workspace:*",
     "@touch/ui": "workspace:*",
+    "pdfjs-dist": "^6.4.299",
     "qrcode": "^1.5.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",

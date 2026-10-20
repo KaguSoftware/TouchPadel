@@ -170,6 +170,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     marketing: 'التسويق',
     telegram: 'تيليغرام',
     assistant: 'المساعد',
+    files: 'الملفات',
     myTasks: 'مهامي',
     protocols: 'البروتوكولات',
     suggestions: 'أفكار الموظفين',

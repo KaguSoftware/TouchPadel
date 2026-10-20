@@ -59,6 +59,7 @@
     "tax_groups": "the branch and its settings",
     "telegram_chats": "staff, stations and pay rules",
     "telegram_staff": "staff, stations and pay rules",
+    "venue_files": "the club's own documents on the Files page (leases, licences, supplier price lists), kept with their objects in the venue-files bucket",
     "venue_settings": "the branch and its settings",
     "venues": "the branch and its settings"
   },

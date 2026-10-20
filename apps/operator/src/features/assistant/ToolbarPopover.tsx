@@ -124,6 +124,25 @@ export function ToolbarPopover({
     setPlace({ position: 'fixed', ...block, ...inline });
   }, [portal, open, side, align]);
 
+  // In place, the panel hangs off the trigger's edge and can run past the
+  // window: the composer's Reads button sits right of the model button, so its
+  // 27.5rem panel ran 100px off a 1280px screen and "Just help" with it. Pull
+  // it back along the inline axis, never past the window's other side.
+  const [nudge, setNudge] = useState(0);
+  useLayoutEffect(() => {
+    if (portal || !mounted) return;
+    const el = wrap.current;
+    const pane = panelRef.current;
+    if (!el || !pane) return;
+    const r = el.getBoundingClientRect();
+    const rtl = getComputedStyle(el).direction === 'rtl';
+    const margin = 8;
+    // The panel's distance from the viewport edge it is pinned to (start or end).
+    const fromPinned = align === 'end' ? (rtl ? r.left : window.innerWidth - r.right) : rtl ? window.innerWidth - r.right : r.left;
+    const overflow = fromPinned + pane.offsetWidth - (window.innerWidth - margin);
+    setNudge(Math.max(0, Math.min(overflow, fromPinned - margin)));
+  }, [portal, mounted, align]);
+
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape' && open) {
       e.stopPropagation();
@@ -147,7 +166,7 @@ export function ToolbarPopover({
           : {
               position: 'absolute',
               ...(side === 'below' ? { insetBlockStart: 'calc(100% + var(--tp-sp-1-5))' } : { insetBlockEnd: 'calc(100% + var(--tp-sp-1-5))' }),
-              ...(align === 'end' ? { insetInlineEnd: 0 } : { insetInlineStart: 0 }),
+              ...(align === 'end' ? { insetInlineEnd: 0, marginInlineEnd: -nudge } : { insetInlineStart: 0, marginInlineStart: -nudge }),
               zIndex: 'var(--tp-z-popover)' as unknown as number,
             }),
         inlineSize: 'min(24rem, calc(100vw - 2 * var(--tp-sp-4)))',

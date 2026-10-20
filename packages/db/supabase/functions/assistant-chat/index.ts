@@ -189,6 +189,7 @@ import { newHandleTable, toJson, type HandleTable } from '../_shared/assistant/h
 import { diffNumbers } from '../_shared/assistant/recheck.ts';
 import { normalizeQuestion, planReuse, reusableQuestion, reuseNote, type ReusePlan } from '../_shared/assistant/reuse.ts';
 import { localRunner } from '../_shared/assistant/localRunner.ts';
+import { FILES_BUCKET, FILE_READ_DEFAULT_CHARS, FileTextTooLarge, fileWindow, gunzipText } from '../_shared/assistant/files.ts';
 import { compactText, describe as mapDescribe, pageLookup } from '../_shared/assistant/map.ts';
 import { buildChunkExtractPrompt, buildFirstUserTurn, buildJobSystem, buildSystem, titleFrom, type PackForPrompt } from '../_shared/assistant/prompt.ts';
 import {
@@ -516,6 +517,60 @@ async function runRpcTool(ctx: DispatchCtx, spec: ToolSpec, input: Record<string
   const cleaned = clean(sourceForTool(spec, columns), payload, { tz: ctx.tz, lang: ctx.lang, handles: ctx.handles, requested, total, cap, capHint: capHintFor(cap, max) });
   const row_count = typeof wrapped.row_count === 'number' ? wrapped.row_count : cleaned.stats.rows_out;
   return { cleaned, isError: false, row_count };
+}
+
+/**
+ * `file_read` (0354): the file's details through the dispatcher (owner-only,
+ * read-only, and it says where the file's words are), then the gzipped text
+ * object downloaded as the owner, so the venue-files storage read rule applies
+ * too (an owner_only file is the owner's; this assistant is the owner's).
+ * The window the model asked for goes through clean() as lines; the storage
+ * path never reaches the model.
+ */
+async function runFileRead(ctx: DispatchCtx, spec: ToolSpec, input: Record<string, unknown>): Promise<Dispatched> {
+  const { data, error } = await aborting(ctx.asOwner.schema('app').rpc('assistant_run_tool', { p_tool: spec.rpc, p_args: rpcArgs(spec, input) }), ctx.signal);
+  if (error) {
+    const mapped = mapPgError(error);
+    return { cleaned: cleanedNotice(`${mapped.code}: ${mapped.message}`), isError: true, row_count: null };
+  }
+  const meta = ((data ?? {}) as { data?: unknown }).data;
+  const file = meta && typeof meta === 'object' && !Array.isArray(meta) ? { ...(meta as Record<string, unknown>) } : {};
+  const textPath = typeof file.text_path === 'string' ? file.text_path : null;
+  delete file.text_path;
+  delete file.id;
+
+  if (!textPath) {
+    const payload = { file, readable: false, why: 'no words could be read from this file (a photo or a scanned page); answer from its name and note' };
+    return { cleaned: clean(sourceForTool(spec), payload, { tz: ctx.tz, lang: ctx.lang, handles: ctx.handles }), isError: false, row_count: 0 };
+  }
+
+  let text: string;
+  try {
+    const { data: blob, error: dlError } = await ctx.asOwner.storage.from(FILES_BUCKET).download(textPath);
+    if (dlError || !blob) {
+      logError('assistant-chat', dlError ?? new Error('empty download'), `file_read download failed`);
+      return { cleaned: cleanedNotice('the file text could not be downloaded'), isError: true, row_count: null };
+    }
+    text = await gunzipText(blob);
+  } catch (e) {
+    if (e instanceof FileTextTooLarge) return { cleaned: cleanedNotice(e.message), isError: true, row_count: null };
+    logError('assistant-chat', e, 'file_read unzip failed');
+    return { cleaned: cleanedNotice('the file text could not be read'), isError: true, row_count: null };
+  }
+
+  const offset = typeof input.offset === 'number' ? input.offset : 0;
+  const chars = typeof input.chars === 'number' ? input.chars : FILE_READ_DEFAULT_CHARS;
+  const w = fileWindow(text, offset, chars);
+  const payload = {
+    file,
+    total_chars: w.total_chars,
+    offset: w.offset,
+    next_offset: w.next_offset,
+    lines: w.lines.map((line) => ({ text: line })),
+  };
+  // Every line goes (the window already bounds the size); no row cap marker.
+  const cleaned = clean(sourceForTool(spec), payload, { tz: ctx.tz, lang: ctx.lang, handles: ctx.handles, cap: Math.max(w.lines.length, 1) });
+  return { cleaned, isError: false, row_count: w.lines.length };
 }
 
 /**
@@ -909,7 +964,10 @@ async function rerunStored(ctx: DispatchCtx, items: readonly { name: string; arg
       else {
         const resolved = resolveArgs(spec, args, ctx.handles);
         if (typeof resolved === 'string') r = { cleaned: cleanedNotice(resolved), isError: true, row_count: null };
-        else r = await withDeadline(spec.name === 'posthog' ? runPosthog(ctx, spec, resolved) : runRpcTool(ctx, spec, resolved), remaining);
+        else r = await withDeadline(
+          spec.name === 'posthog' ? runPosthog(ctx, spec, resolved) : spec.name === 'file_read' ? runFileRead(ctx, spec, resolved) : runRpcTool(ctx, spec, resolved),
+          remaining,
+        );
       }
       out.row_count = r.row_count;
       if (r.isError) out.error = r.cleaned.text.slice(0, 300);
@@ -1313,6 +1371,7 @@ Deno.serve(handle('assistant-chat', async (req) => {
     if (spec.name === 'propose_job') return runProposeJob(ctx, provider, resolved, parsed.lang);
     if (spec.kind === 'knowledge' || spec.kind === 'meta') return runKnowledgeOrMeta(ctx, spec, resolved);
     if (spec.name === 'posthog') return runPosthog(ctx, spec, resolved);
+    if (spec.name === 'file_read') return runFileRead(ctx, spec, resolved);
     return runRpcTool(ctx, spec, resolved);
   };
 

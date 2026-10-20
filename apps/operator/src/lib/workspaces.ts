@@ -64,8 +64,8 @@ export type NavLabelKey =
   | 'stockValue' | 'shop' | 'stockMovement' | 'stockCounting' | 'stockCosts'
   // The Touch Shop desk's own rail (0243–0246).
   | 'shopTill' | 'shopStock' | 'shopReceive' | 'shopCounts' | 'shopProducts' | 'shopSuppliers'
-  // The owner assistant (docs/design/assistant §5.1).
-  | 'assistant'
+  // The owner assistant (docs/design/assistant §5.1), and the Files it reads (0354).
+  | 'assistant' | 'files'
   // The team workspace (driver, marketing), and the till's and the desk's row.
   | 'myTasks'
   // Protocols and the staff suggestion box (build-contracts-2026-09-23 §5.1).
@@ -411,6 +411,8 @@ const MANAGEMENT_PRIMARY: readonly NavItem[] = [
   { to: '/ops', labelKey: 'today', icon: 'dashboard', unless: '/panel' },
   { to: '/analytics', labelKey: 'analytics', icon: 'trendUp', activePrefix: '/analytics' },
   { to: '/assistant', labelKey: 'assistant', icon: 'spark', activePrefix: '/assistant' },
+  // Files (0354): the owner's and the managers' documents, which the assistant reads.
+  { to: '/files', labelKey: 'files', icon: 'folder' },
 ];
 
 /**
@@ -655,6 +657,7 @@ export function workspaceForRoute(path: string): WorkspaceKey | null {
   if (path === '/marketing' || path.startsWith('/marketing/')) return 'management';
   if (path === '/wages') return 'management';
   if (path === '/rewards') return 'management';
+  if (path === '/files') return 'management';
   if (path === '/shop' || path.startsWith('/shop/')) return 'shop';
   // /tasks is not pinned: eight roles open it in their own workspace (the
   // desk's and the till's rail row, the kitchen board's My tasks), and only
