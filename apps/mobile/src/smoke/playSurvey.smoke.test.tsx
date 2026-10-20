@@ -11,7 +11,12 @@ import { runSmokeCases } from '../test/smokeCase';
 import { supabase } from '../lib/supabase';
 import { renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
-import { TEST_VENUE_ID, branchFixture, profileFixture, venueSettingsFixture } from '../test/fixtures';
+import {
+  TEST_VENUE_ID,
+  branchFixture,
+  profileFixture,
+  venueSettingsFixture,
+} from '../test/fixtures';
 import { profileKeys } from '../features/profile/hooks';
 import { availabilityKeys } from '../features/availability/hooks';
 import { ForYouStrip } from '../components/forYou';
@@ -52,7 +57,7 @@ runSmokeCases('play survey', [
   {
     route: 'play-survey',
     Component: PlaySurveyScreen,
-    labelKey: 'playProfile.survey.skip',
+    labelKey: 'playProfile.survey.level.beginner.title',
     options: { session: 'in', queryData: seeds(NEVER_ASKED) },
   },
 ]);
@@ -60,13 +65,23 @@ runSmokeCases('play survey', [
 describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
   const t = makeT(locale);
 
-  it('asks the level first, and one tap moves on to how long they have played', async () => {
-    const screen = renderRoute(PlaySurveyScreen, { locale, session: 'in', queryData: seeds(NEVER_ASKED) });
+  it('asks the level first, and a tap then Next moves on to how long they have played', async () => {
+    const screen = renderRoute(PlaySurveyScreen, {
+      locale,
+      session: 'in',
+      queryData: seeds(NEVER_ASKED),
+    });
     try {
       expect(screen.getByText(t('playProfile.survey.level.question'))).toBeTruthy();
       expect(screen.getByText(t('playProfile.survey.intro'))).toBeTruthy();
       expect(screen.queryByTestId('play-survey.back')).toBeNull();
+      // A tap only picks: Next is off until then, and moves on.
+      expect(screen.getByTestId('play-survey.next').props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
       fireEvent.press(screen.getByTestId('play-survey.level.beginner'));
+      expect(screen.queryByTestId('play-survey.years.never')).toBeNull();
+      fireEvent.press(screen.getByTestId('play-survey.next'));
       await waitFor(() => expect(screen.getByTestId('play-survey.years.never')).toBeTruthy());
       expect(screen.getByText(t('playProfile.survey.years.question'))).toBeTruthy();
       expect(screen.getByTestId('play-survey.back')).toBeTruthy();
@@ -77,20 +92,29 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
   });
 
   it('after Advanced, "Not yet" cannot be picked and says why', async () => {
-    const screen = renderRoute(PlaySurveyScreen, { locale, session: 'in', queryData: seeds(NEVER_ASKED) });
+    const screen = renderRoute(PlaySurveyScreen, {
+      locale,
+      session: 'in',
+      queryData: seeds(NEVER_ASKED),
+    });
     try {
       fireEvent.press(screen.getByTestId('play-survey.level.advanced'));
+      fireEvent.press(screen.getByTestId('play-survey.next'));
       await waitFor(() => expect(screen.getByTestId('play-survey.years.never')).toBeTruthy());
       const never = screen.getByTestId('play-survey.years.never');
       expect(never.props.accessibilityState).toMatchObject({ disabled: true });
       expect(
         within(never).getByText(
-          t('playProfile.survey.years.notWithLevel', { level: t('playProfile.survey.level.advanced.title') }),
+          t('playProfile.survey.years.notWithLevel', {
+            level: t('playProfile.survey.level.advanced.title'),
+          }),
         ),
       ).toBeTruthy();
       fireEvent.press(never);
       expect(never.props.accessibilityState).toMatchObject({ selected: false });
-      expect(screen.getByTestId('play-survey.years.under-one').props.accessibilityState).toMatchObject({
+      expect(
+        screen.getByTestId('play-survey.years.under-one').props.accessibilityState,
+      ).toMatchObject({
         disabled: false,
       });
     } finally {
@@ -111,24 +135,32 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
         selected: false,
         disabled: true,
       });
-      // Unanswered again, so there is no Next until a fitting answer is picked.
-      expect(screen.queryByTestId('play-survey.next')).toBeNull();
+      // Unanswered again, so Next is off until a fitting answer is picked.
+      expect(screen.getByTestId('play-survey.next').props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
     } finally {
       screen.unmount();
     }
   });
 
   it('Skip closes the sheet at once', () => {
-    const screen = renderRoute(PlaySurveyScreen, { locale, session: 'in', queryData: seeds(NEVER_ASKED) });
+    const screen = renderRoute(PlaySurveyScreen, {
+      locale,
+      session: 'in',
+      queryData: seeds(NEVER_ASKED),
+    });
     try {
       fireEvent.press(screen.getByTestId('play-survey.skip'));
-      expect(routerState.calls.some((c) => c.method === 'back' || c.method === 'replace')).toBe(true);
+      expect(routerState.calls.some((c) => c.method === 'back' || c.method === 'replace')).toBe(
+        true,
+      );
     } finally {
       screen.unmount();
     }
   });
 
-  it('edit mode is prefilled, offers Cancel instead of Skip, and keeps an answer with Next', () => {
+  it('edit mode is prefilled, has no Skip or Cancel (a swipe closes it), and keeps an answer with Next', () => {
     const screen = renderRoute(PlaySurveyScreen, {
       locale,
       session: 'in',
@@ -136,18 +168,24 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
       queryData: seeds(ANSWERED),
     });
     try {
-      expect(within(screen.getByTestId('play-survey.skip')).getByText(t('common.cancel'))).toBeTruthy();
+      expect(screen.queryByTestId('play-survey.skip')).toBeNull();
       expect(screen.queryByText(t('playProfile.survey.intro'))).toBeNull();
-      expect(screen.getByTestId('play-survey.level.intermediate').props.accessibilityState).toMatchObject({
+      expect(
+        screen.getByTestId('play-survey.level.intermediate').props.accessibilityState,
+      ).toMatchObject({
         selected: true,
       });
       fireEvent.press(screen.getByTestId('play-survey.next'));
       expect(screen.getByTestId('play-survey.years.one-to-three')).toBeTruthy();
       fireEvent.press(screen.getByTestId('play-survey.next'));
-      expect(screen.getByTestId('play-survey.wants.lessons').props.accessibilityState).toMatchObject({
+      expect(
+        screen.getByTestId('play-survey.wants.lessons').props.accessibilityState,
+      ).toMatchObject({
         checked: true,
       });
-      expect(within(screen.getByTestId('play-survey.done')).getByText(t('common.save'))).toBeTruthy();
+      expect(
+        within(screen.getByTestId('play-survey.done')).getByText(t('common.save')),
+      ).toBeTruthy();
     } finally {
       screen.unmount();
     }
@@ -171,8 +209,10 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
     });
     try {
       fireEvent.press(screen.getByTestId('play-survey.level.new'));
+      fireEvent.press(screen.getByTestId('play-survey.next'));
       await waitFor(() => expect(screen.getByTestId('play-survey.years.never')).toBeTruthy());
       fireEvent.press(screen.getByTestId('play-survey.years.never'));
+      fireEvent.press(screen.getByTestId('play-survey.next'));
       await waitFor(() => expect(screen.getByTestId('play-survey.wants.matches')).toBeTruthy());
       fireEvent.press(screen.getByTestId('play-survey.wants.matches'));
       // Wants is no longer the last question: Next, not Done.
@@ -186,15 +226,15 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
       // A tap only chooses: the answer is set once, so it waits for Done.
       fireEvent.press(screen.getByTestId('play-survey.gender.female'));
       expect(saves(rpc)).toEqual([]);
-      expect(screen.getByTestId('play-survey.gender.female').props.accessibilityState).toMatchObject({
+      expect(
+        screen.getByTestId('play-survey.gender.female').props.accessibilityState,
+      ).toMatchObject({
         selected: true,
       });
       await act(async () => {
         fireEvent.press(screen.getByTestId('play-survey.done'));
       });
-      await waitFor(() =>
-        expect(saves(rpc)).toEqual(['set_my_play_profile', 'set_my_gender']),
-      );
+      await waitFor(() => expect(saves(rpc)).toEqual(['set_my_play_profile', 'set_my_gender']));
       expect(rpc).toHaveBeenCalledWith('set_my_gender', { p_gender: 'female' });
     } finally {
       screen.unmount();
@@ -204,7 +244,10 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
 
   it('no gender answer saves the play answers and writes no gender (the gate asks later)', async () => {
     const rpc = jest.fn((_name: string, _args?: unknown) =>
-      Promise.resolve({ data: { ...NEVER_ASKED, play_survey_at: ANSWERED.play_survey_at }, error: null }),
+      Promise.resolve({
+        data: { ...NEVER_ASKED, play_survey_at: ANSWERED.play_survey_at },
+        error: null,
+      }),
     );
     Object.assign(supabase, { schema: () => ({ rpc }) });
     const screen = renderRoute(PlaySurveyScreen, {
@@ -238,7 +281,9 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
       fireEvent.press(screen.getByTestId('play-survey.next'));
       fireEvent.press(screen.getByTestId('play-survey.next'));
       // Wants is the last question again.
-      expect(within(screen.getByTestId('play-survey.done')).getByText(t('common.save'))).toBeTruthy();
+      expect(
+        within(screen.getByTestId('play-survey.done')).getByText(t('common.save')),
+      ).toBeTruthy();
       expect(screen.queryByTestId('play-survey.gender.female')).toBeNull();
     } finally {
       screen.unmount();
@@ -259,15 +304,19 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
     try {
       expect(screen.getByText(t('playProfile.survey.gender.question'))).toBeTruthy();
       expect(screen.queryByTestId('play-survey.back')).toBeNull();
-      expect(within(screen.getByTestId('play-survey.skip')).getByText(t('common.cancel'))).toBeTruthy();
+      expect(screen.queryByTestId('play-survey.skip')).toBeNull();
       fireEvent.press(screen.getByTestId('play-survey.gender.male'));
-      expect(within(screen.getByTestId('play-survey.done')).getByText(t('common.save'))).toBeTruthy();
+      expect(
+        within(screen.getByTestId('play-survey.done')).getByText(t('common.save')),
+      ).toBeTruthy();
       await act(async () => {
         fireEvent.press(screen.getByTestId('play-survey.done'));
       });
       await waitFor(() => expect(saves(rpc)).toEqual(['set_my_gender']));
       await waitFor(() =>
-        expect(routerState.calls.some((c) => c.method === 'back' || c.method === 'replace')).toBe(true),
+        expect(routerState.calls.some((c) => c.method === 'back' || c.method === 'replace')).toBe(
+          true,
+        ),
       );
     } finally {
       screen.unmount();
@@ -276,7 +325,11 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
   });
 
   it('Edit profile carries a "Your game" row that opens the sheet in edit mode', () => {
-    const screen = renderRoute(ProfileEditScreen, { locale, session: 'in', queryData: seeds(ANSWERED) });
+    const screen = renderRoute(ProfileEditScreen, {
+      locale,
+      session: 'in',
+      queryData: seeds(ANSWERED),
+    });
     try {
       const row = screen.getByTestId('profile-edit.play-profile');
       expect(within(row).getByText(t('playProfile.row.label'))).toBeTruthy();

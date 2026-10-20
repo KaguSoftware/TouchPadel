@@ -128,7 +128,7 @@ export default function ClubScreen() {
   };
 
   return (
-    <Screen pattern>
+    <Screen pattern="blur">
       <View
         style={{
           paddingTop: TAB_TITLE_TOP,

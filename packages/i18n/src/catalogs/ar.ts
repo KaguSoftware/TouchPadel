@@ -1066,8 +1066,8 @@ export const ar: Messages = {
     guest: {
       card: {
         title: 'بطاقة العضوية',
-        show: 'اعرض هذا الرمز عند الكاشير',
         sayNumber: 'أو قل رقم هاتفك عند الكاشير',
+        show: 'اعرض هذا الرمز عند الكاشير',
         memberCode: 'رمز العضوية',
         refreshesIn: 'رمز جديد بعد {seconds} ث',
         offline: 'أنت غير متصل: رمزك يعمل عند الكاشير رغم ذلك.',

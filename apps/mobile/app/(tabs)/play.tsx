@@ -18,10 +18,9 @@ import { projectTop } from '@touch/court3d/camera';
 import { seatSpot } from '@touch/court3d/join';
 import {
   countPhrase,
-  formatDate,
   formatIQD,
   formatTime,
-  formatTimeRange,
+  formatTimeRangeShort,
   isolate,
   isolateLtr,
 } from '@touch/i18n';
@@ -75,7 +74,8 @@ import { AccountButton } from '../../src/components/AccountButton';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { BrandPattern } from '../../src/components/BrandPattern';
-import { FilterChip } from '../../src/components/booking';
+import { FilterMenu } from '../../src/components/FilterMenu';
+import { ChevronIcon } from '../../src/components/icons';
 import { MatchNotice, nightLabel } from '../../src/components/match';
 import { Rise, useScrollY } from '../../src/components/motion';
 import { CourtStage, topStageFor } from '../../src/components/CourtStage';
@@ -114,7 +114,6 @@ type SourceState = 'loading' | 'error' | 'off' | 'ready';
 interface NightSection {
   key: string;
   title: string;
-  line: string;
   data: PlayEntry[];
 }
 
@@ -342,12 +341,6 @@ export default function PlayScreen() {
         key: n.key,
         // From the night's own noon, so a tournament filed under tonight reads "Tonight".
         title: nightLabel(wallTimeToUtc(n.key, 12 * 60, tz).toISOString(), knobs, nowMs, t, locale),
-        line: [
-          n.matches > 0 ? countPhrase('matches.count.openMatches', n.matches, locale) : null,
-          n.tournaments > 0 ? countPhrase('play.count.tournaments', n.tournaments, locale) : null,
-        ]
-          .filter(Boolean)
-          .join(' · '),
         data: n.entries,
       })),
     [nights, tz, knobs, nowMs, t, locale],
@@ -459,13 +452,13 @@ export default function PlayScreen() {
     const zone = tourTz(r);
     const start = new Date(r.startsAt);
     const times = r.endsAt
-      ? formatTimeRange(start, new Date(r.endsAt), locale, zone)
+      ? formatTimeRangeShort(start, new Date(r.endsAt), locale, zone)
       : formatTime(start, locale, zone);
-    const when = `${formatDate(start, locale, zone)} · ${times}`;
-    if (!multiBranch || !pub.data) return when;
+    // The time only: the card sits under its night's header, which says the day.
+    if (!multiBranch || !pub.data) return times;
     const b = pub.data.branches.find((x) => x.venueId === r.venueId);
     const name = b ? (locale === 'ar' ? (b.nameAr ?? b.nameEn) : (b.nameEn ?? b.nameAr)) : null;
-    return name ? `${when} · ${name}` : when;
+    return name ? `${times} · ${name}` : times;
   };
   const tourPlaces = (r: TourListItem): string | null => {
     const p = tourPlacesOf(r);
@@ -578,7 +571,6 @@ export default function PlayScreen() {
             testID={`play.tournament.${r.id}`}
             tone={tourToneOf(r.status)}
             status={r.status ? t(`tournaments.common.status.${r.status}`) : null}
-            category={r.category}
             format={r.format ? t(`tournaments.common.format.${r.format}`) : null}
             title={tournamentName(r, locale)}
             when={tourWhen(r)}
@@ -634,40 +626,31 @@ export default function PlayScreen() {
       />
     ) : null;
 
-  const chips = anyRows ? (
-    <View
-      accessibilityRole="tablist"
-      style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: space.sm }}
-    >
-      {CATEGORIES.map((f) => (
-        <FilterChip
-          key={f.value}
-          testID={`play.filter.${f.value}`}
-          label={t(f.key)}
-          selected={category === f.value}
-          onPress={() => setCategory(f.value)}
-          large
-        />
-      ))}
-    </View>
+  // One round button for the category, in the title bar beside the avatar (Sait, 2026-10-20).
+  const filter = anyRows ? (
+    <FilterMenu<CategoryFilter>
+      testID="play.filter"
+      label={t('play.filter.label')}
+      options={CATEGORIES.map((f) => ({ value: f.value, label: t(f.key) }))}
+      value={category}
+      onChange={setCategory}
+    />
   ) : null;
 
   // Their own strip of the sheet's ground, so the rows pass under them once pinned.
-  const controls =
-    kindSwitch || chips ? (
-      <View
-        style={{
-          backgroundColor: colors.bg,
-          paddingStart: space.l,
-          paddingEnd: space.l,
-          paddingTop: space.sm,
-          paddingBottom: space.sm,
-        }}
-      >
-        {kindSwitch}
-        {chips}
-      </View>
-    ) : null;
+  const controls = kindSwitch ? (
+    <View
+      style={{
+        backgroundColor: colors.bg,
+        paddingStart: space.l,
+        paddingEnd: space.l,
+        paddingTop: space.sm,
+        paddingBottom: space.sm,
+      }}
+    >
+      {kindSwitch}
+    </View>
+  ) : null;
   // Where the slot sits in the list's content: the sheet starts at the foot of
   // the court's slot (the header's first thing), less its overlap.
   const controlsAt = heroH - PLAY_SHEET_OVERLAP + (controlsY ?? 0);
@@ -693,6 +676,9 @@ export default function PlayScreen() {
         accessibilityRole="button"
         onPress={() => router.push({ pathname: '/play-survey', params: { mode: 'edit' } })}
         style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: space.s,
           padding: space.m,
           borderRadius: radius.button,
           borderWidth: 1,
@@ -701,10 +687,17 @@ export default function PlayScreen() {
         })}
       >
         <Text
-          style={{ fontFamily: fonts.body600, fontSize: 13, lineHeight: 18, color: colors.ink }}
+          style={{
+            flex: 1,
+            fontFamily: fonts.body600,
+            fontSize: 13,
+            lineHeight: 18,
+            color: colors.ink,
+          }}
         >
           {t('play.fitAsk')}
         </Text>
+        <ChevronIcon size={16} color={colors.blue} strokeWidth={2.4} />
       </Pressable>,
     );
   }
@@ -895,6 +888,7 @@ export default function PlayScreen() {
         {canStart ? (
           <StartMatchButton testID="play.start" label={t('play.start')} onPress={startOne} />
         ) : null}
+        {filter}
         <AccountButton testID="play.account" />
       </View>
     </PinnedTitle>
@@ -1029,11 +1023,7 @@ export default function PlayScreen() {
                 <View
                   style={{ backgroundColor: colors.bg, paddingStart: space.l, paddingEnd: space.l }}
                 >
-                  <NightHeader
-                    title={section.title}
-                    line={section.line}
-                    highlight={wantDate === section.key}
-                  />
+                  <NightHeader title={section.title} highlight={wantDate === section.key} />
                 </View>
               )}
               renderItem={renderEntry}

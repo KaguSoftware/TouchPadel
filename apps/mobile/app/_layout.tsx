@@ -388,15 +388,15 @@ function RootStack() {
           />
           {/* The play survey (play-coaches contracts §8): the platform's sheet,
           three questions and a Skip. Singular: the sign-up prompt and Edit
-          profile's "Your game" row must never stack two. */}
+          profile's "Your game" row must never stack two. Sized to the screen's
+          own fixed-height view, so its buttons sit at the sheet's foot. */}
           <Stack.Screen
             name="play-survey"
             dangerouslySingular
             options={{
               presentation: 'formSheet',
-              sheetAllowedDetents: [0.86],
+              sheetAllowedDetents: 'fitToContents',
               sheetGrabberVisible: true,
-              sheetExpandsWhenScrolledToEdge: false,
               headerShown: false,
             }}
           />
@@ -488,19 +488,22 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
     () =>
       installNotificationHandler({
         onOpenReservation: (id) => {
-          if (!isOnScreen('booking/[id]', id)) router.push({ pathname: '/booking/[id]', params: { id } });
+          if (!isOnScreen('booking/[id]', id))
+            router.push({ pathname: '/booking/[id]', params: { id } });
         },
         onOpenStaff: (href) => router.push(href),
         staffStatus: settledStaffStatus,
         // Already reading it: the notice below refreshes it in place, no second copy.
         onOpenMatch: (id) => {
           if (!onlinePaymentsShipped()) router.push('/(tabs)');
-          else if (!isOnScreen('match/[id]', id)) router.push({ pathname: '/match/[id]', params: { id } });
+          else if (!isOnScreen('match/[id]', id))
+            router.push({ pathname: '/match/[id]', params: { id } });
         },
         onOpenTickets: () => router.push(onlinePaymentsShipped() ? '/tickets' : '/(tabs)'),
         onMatchNotice: () => void queryClient.invalidateQueries({ queryKey: matchKeys.all }),
         onOpenLesson: (id) => {
-          if (!isOnScreen('lesson/[id]', id)) router.push({ pathname: '/lesson/[id]', params: { id } });
+          if (!isOnScreen('lesson/[id]', id))
+            router.push({ pathname: '/lesson/[id]', params: { id } });
         },
         onOpenCoachLesson: (id) => router.push(lessonPushHref('coach_lesson', id)),
         onOpenCoachStatements: () => router.push(lessonPushHref('coach_statements', null)),

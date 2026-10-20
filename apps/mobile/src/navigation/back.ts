@@ -60,6 +60,23 @@ export function useBack(fallback: Href = '/(tabs)'): () => void {
  * Stable across renders, so it is safe in an effect's dependency list.
  */
 /**
+ * Down to a tab from a root-stack page over the tabs (Profile's member card row
+ * to the Club tab's card; Sait, 2026-10-20): the page closes and the tab under
+ * it is switched to, instead of the tab opening as a new page that swipes back
+ * to the one it came from. With nothing under it, the tab opens in its place.
+ */
+export function useDownToTab(): (href: Href) => void {
+  const router = useRouter();
+  return useCallback(
+    (href: Href) => {
+      if (router.canGoBack()) router.dismissTo(href);
+      else router.replace(href);
+    },
+    [router],
+  );
+}
+
+/**
  * Back to a list with the item just sent on it (Sait, 2026-10-17: after
  * sending, show it in the list): the list's `?id=` lists that row first and
  * marks it, as it does for an item a push names. The list under the form is

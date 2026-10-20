@@ -103,8 +103,8 @@ const CASES: SmokeCase[] = [
   {
     route: 'member-card',
     Component: MemberCardScreen,
-    // The QR is a mark with no text of its own: the till's other way in is beside it.
-    nearbyKey: 'loyalty.guest.card.sayNumber',
+    // The QR is a mark with no text of its own: the line over it says what it is for.
+    nearbyKey: 'loyalty.guest.card.show',
     options: { session: 'in', queryData: cardSeeds },
   },
   {
@@ -125,7 +125,7 @@ const LRI_PDI = /[⁦-⁩]/g;
 describe.each(LOCALES)('loyalty states in %s', (locale) => {
   const t = makeT(locale);
 
-  it('the member card draws a live TP- token, the phone and "Get a new code"', () => {
+  it('the member card draws a live TP- token and "Get a new code", and no phone number', () => {
     const screen = renderRoute(MemberCardScreen, { locale, session: 'in', queryData: cardSeeds });
     try {
       const token = String(screen.getByTestId('member-card.code').props.children).replace(
@@ -134,7 +134,7 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       );
       expect(token).toMatch(MEMBER_TOKEN_RE);
       expect(token.startsWith('TP-8F3K2QXM-')).toBe(true);
-      expect(screen.getByTestId('member-card.phone')).toBeTruthy();
+      expect(screen.queryByTestId('member-card.phone')).toBeNull();
       expect(screen.getByTestId('member-card.progress')).toBeTruthy();
       const again = screen.getByTestId('member-card.new-code');
       expect(within(again).getByText(t('loyalty.guest.card.newCode'))).toBeTruthy();

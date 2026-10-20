@@ -192,6 +192,8 @@ const testIdElements = [
   'SegmentedControl',
   'GenderPicker',
   'ChoiceButton',
+  'FilterMenu',
+  'SheetTextButton',
   'DetailsFold',
   'WheelPicker',
   'WheelSheet',

@@ -82,7 +82,7 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'settings.tsx', route: 'settings', primary: 'settings.language' },
   { file: 'profile-edit.tsx', route: 'profile-edit', primary: 'profile-edit.name' },
   // The sign-up play survey (play-coaches contracts §8), cased by playSurvey.smoke.test.tsx.
-  { file: 'play-survey.tsx', route: 'play-survey', primary: 'play-survey.skip' },
+  { file: 'play-survey.tsx', route: 'play-survey', primary: 'play-survey.level.beginner' },
   { file: 'change-password.tsx', route: 'change-password', primary: 'change-password.submit' },
   { file: 'delete-account.tsx', route: 'delete-account', primary: 'delete-account.confirm' },
   { file: 'accept-terms.tsx', route: 'accept-terms', primary: 'accept-terms.accept' },
