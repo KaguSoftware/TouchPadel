@@ -91,7 +91,7 @@ export function RecheckControl({ messageId, result, onResult }: { messageId: str
 
   return (
     <div data-recheck="" style={{ display: 'grid', gap: 'var(--tp-sp-1)', justifyItems: 'start', fontSize: 'var(--tp-fs-xs)' }}>
-      <Button kind="soft" size="sm" icon="refresh" busy={busy} onClick={() => void run()} title={tr('ws.owner.assistant.message.recheck.hint')}>
+      <Button kind="ghost" size="sm" icon="refresh" busy={busy} onClick={() => void run()} title={tr('ws.owner.assistant.message.recheck.hint')}>
         {busy ? tr('ws.owner.assistant.message.recheck.checking') : tr('ws.owner.assistant.message.recheck.button')}
       </Button>
       {busy && (

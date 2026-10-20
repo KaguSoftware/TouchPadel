@@ -61,7 +61,12 @@ export interface UseAssistantChat {
   live: LiveTurn | null;
   streaming: boolean;
   lastQuestion: string | null;
-  ask: (text: string) => Promise<void>;
+  /**
+   * Ask a question. `scopes` replaces the checked set for a NEW chat (a
+   * starter question carries its own); an existing chat keeps its row's. A new
+   * chat with nothing checked sends nothing: the owner picks first.
+   */
+  ask: (text: string, opts?: { scopes?: readonly AssistantScope[] }) => Promise<void>;
   stop: () => void;
   dismissLive: () => void;
 }
@@ -213,10 +218,12 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
 
   const dismissLive = useCallback(() => setLive(null), []);
 
-  const ask = useCallback(async (text: string) => {
+  const ask = useCallback(async (text: string, askOpts?: { scopes?: readonly AssistantScope[] }) => {
     const question = text.trim();
     if (question === '' || controller.current) return;
-    const { conversationId, scopes, range, model, lang, onConversation } = optsRef.current;
+    const { conversationId, range, model, lang, onConversation } = optsRef.current;
+    const scopes = askOpts?.scopes ?? optsRef.current.scopes;
+    if (!conversationId && scopes.length === 0) return;
     const ac = new AbortController();
     controller.current = ac;
     setStreaming(true);

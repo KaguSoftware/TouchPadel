@@ -3,14 +3,8 @@
  * the conversation and enforced by the edge function; everything here is
  * what the UI pre-checks for a new chat and how it recognises a refusal.
  */
-import { ASSISTANT_SCOPES, DEFAULT_SCOPES, scopeForRoute, type AssistantScope } from '@touch/core/assistant/tools';
+import { ASSISTANT_SCOPES, type AssistantScope } from '@touch/core/assistant/tools';
 
-/**
- * v3 since 2026-10-16: a new chat starts with Pages and how-to only
- * (DEFAULT_SCOPES) and the owner ticks what it needs. The v2 key held the
- * every-scope set of 2026-10-09, so it is dropped rather than carried over.
- */
-export const SCOPES_STORAGE_KEY = 'touch-assistant-scopes-v3';
 export const CONVERSATION_SESSION_KEY = 'touch-assistant-conversation';
 
 export function isScope(value: unknown): value is AssistantScope {
@@ -29,43 +23,15 @@ export function sameScopes(a: readonly string[], b: readonly string[]): boolean 
   return na.length === nb.length && na.every((s, i) => s === nb[i]);
 }
 
-interface Remembered {
-  owner: string;
-  scopes: AssistantScope[];
-}
-
-/** The last set this owner used on this station, or null. */
-export function loadRememberedScopes(ownerId: string): AssistantScope[] | null {
-  try {
-    const raw = localStorage.getItem(SCOPES_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<Remembered>;
-    if (parsed.owner !== ownerId || !Array.isArray(parsed.scopes)) return null;
-    return normaliseScopes(parsed.scopes.filter(isScope));
-  } catch {
-    return null;
-  }
-}
-
-export function saveRememberedScopes(ownerId: string, scopes: readonly AssistantScope[]): void {
-  try {
-    const value: Remembered = { owner: ownerId, scopes: normaliseScopes(scopes) };
-    localStorage.setItem(SCOPES_STORAGE_KEY, JSON.stringify(value));
-  } catch {
-    /* private mode */
-  }
-}
-
 /**
- * What a new chat opened from `path` starts with: Pages and how-to, the
- * page's own scope, and whatever this owner last ticked. Never every scope by
- * default (owner call 2026-10-16): the owner selects what a chat may read.
+ * A new chat reads nothing until the owner picks (owner call 2026-10-20: the
+ * AI is expensive, so the owner must choose what each chat reads). No page
+ * scope, no remembered set and no Pages and how-to pre-checked: the composer
+ * stays locked until at least one scope is on, or a starter question that
+ * names its own scopes is pressed. Was Pages and how-to plus the page's scope
+ * and the owner's last ticks from 2026-10-16.
  */
-export function initialScopes(path: string, ownerId: string): AssistantScope[] {
-  const remembered = loadRememberedScopes(ownerId) ?? DEFAULT_SCOPES;
-  const route = scopeForRoute(path);
-  return normaliseScopes([...remembered, ...(route ? [route] : []), 'howto']);
-}
+export const NEW_CHAT_SCOPES: readonly AssistantScope[] = [];
 
 export function loadSessionConversation(): string | null {
   try {

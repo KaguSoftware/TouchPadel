@@ -102,3 +102,25 @@ describe('ModelSwitch', () => {
     expect((btn as HTMLButtonElement).disabled).toBe(true);
   });
 });
+
+describe('ModelSwitch compact (the chat toolbar)', () => {
+  it('shows short names, presses the venue default when the chat names none, and saves another pick', async () => {
+    save.mockResolvedValue({} as never);
+    const { onChange } = renderSwitch({ compact: true, onChooseFree: vi.fn() });
+    const opus = await screen.findByTestId('model-claude-opus-5-5');
+    // The kit's segmented control: its label (and a hidden bold twin that holds the width).
+    expect(opus.className).toBe('tp-seg-btn');
+    expect(opus.textContent).toMatch(/^Opus 5\.5/);
+    expect(opus.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByRole('button', { name: /^Venue default/ })).toBeNull();
+    // Apart from the Claude pair, with its own "Free" tag.
+    expect(screen.getByTestId('model-__free__').textContent).toBe('Free AIFree');
+    expect(screen.getByRole('group', { name: 'Claude models' }).contains(screen.getByTestId('model-__free__'))).toBe(false);
+
+    fireEvent.click(opus);
+    expect(save).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('model-claude-sonnet-5-5'));
+    await waitFor(() => expect(save).toHaveBeenCalledWith('c1', 'claude-sonnet-5-5'));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith('claude-sonnet-5-5'));
+  });
+});

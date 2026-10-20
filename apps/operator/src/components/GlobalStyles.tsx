@@ -1068,6 +1068,123 @@ button.tp-nav-item { background: transparent; }
    nth-child), so a grouped tile stays plain in both modes. */
 :root .tp-figure-group .tp-headline-tile.tp-headline-tile.tp-headline-tile.tp-headline-tile { --tp-tile-strip: initial; }
 
+/* The assistant's green (Sait, 2026-10-20): in dark (blue) mode the question
+   box's edge, Ask, New chat and the paid/free switch wear Padel Green with
+   its navy ink; light mode keeps the brand blue. */
+.tp-assistant-box { border: 1.5px solid var(--tp-accent); box-shadow: 0 4px 16px color-mix(in oklab, var(--tp-accent) 12%, transparent); }
+.tp-assistant-ask { background: var(--tp-accent); color: var(--tp-accent-contrast); }
+.tp-assistant-ask:disabled { background: var(--tp-disabled-bg); color: var(--tp-disabled-fg); }
+:root[data-theme='operator'][data-mode='blue'] .tp-assistant-box { border-color: var(--tp-brand-green); box-shadow: 0 4px 16px color-mix(in oklab, var(--tp-brand-green) 18%, transparent); }
+/* The line you type on has no frame of its own inside the box (Sait,
+   2026-10-20): the box is the field, so focus thickens the box's edge instead
+   of drawing the global ring around the textarea. */
+.tp-assistant-input:focus-visible { outline: none; box-shadow: none; }
+.tp-assistant-box:focus-within { box-shadow: 0 0 0 1px var(--tp-accent), 0 4px 16px color-mix(in oklab, var(--tp-accent) 18%, transparent); }
+:root[data-theme='operator'][data-mode='blue'] .tp-assistant-box:focus-within { box-shadow: 0 0 0 1px var(--tp-brand-green), 0 4px 16px color-mix(in oklab, var(--tp-brand-green) 26%, transparent); }
+:root[data-theme='operator'][data-mode='blue'] .tp-assistant-ask:not(:disabled),
+:root[data-theme='operator'][data-mode='blue'] .tp-btn.tp-assistant-green { background: var(--tp-accent-2); border-color: var(--tp-accent-2); color: var(--tp-accent-2-contrast); }
+:root[data-theme='operator'][data-mode='blue'] .tp-assistant-ask:not(:disabled):hover,
+:root[data-theme='operator'][data-mode='blue'] .tp-btn.tp-assistant-green:hover:not(:disabled) { background: color-mix(in oklab, var(--tp-accent-2) 88%, var(--tp-brand-white)); border-color: var(--tp-accent-2); color: var(--tp-accent-2-contrast); }
+
+/* New chat, light mode: the darker brand-blue shades, so it stands out on the
+   rail-blue toolbar (Sait, 2026-10-20). Dark mode keeps the green above. */
+.tp-btn.tp-assistant-new[data-kind='primary'] { background: var(--tp-accent-active); border-color: var(--tp-accent-active); color: var(--tp-accent-contrast); }
+.tp-btn.tp-assistant-new[data-kind='primary']:hover:not(:disabled) { background: var(--tp-accent-2-contrast); border-color: var(--tp-accent-2-contrast); color: var(--tp-accent-contrast); }
+
+/* The chat toolbar (Thread, FreeThread): in light mode the strip wears the
+   rail's own blue, the subject in the rail's ink; its buttons keep their own
+   colours. Dark (blue) mode keeps the panel surface (Sait, 2026-10-20). */
+.tp-assistant-toolbar { background: var(--tp-rail); border: 1px solid var(--tp-rail-border); color: var(--tp-rail-fg); }
+:root[data-theme='operator'][data-mode='blue'] .tp-assistant-toolbar { background: var(--tp-surface); border-color: var(--tp-border); color: var(--tp-fg); }
+
+/* The assistant's pop-up panels (ToolbarPopover) fade and settle from their
+   button, and fade back on close; the chevron turns instead of swapping. */
+.tp-pop { opacity: 0; transform: translateY(6px) scale(0.98); transition: opacity var(--tp-dur-fast) var(--tp-ease-out), transform var(--tp-dur-base) var(--tp-ease-settle); }
+.tp-pop[data-side='below'] { transform: translateY(-6px) scale(0.98); transform-origin: top; }
+.tp-pop[data-side='above'] { transform-origin: bottom; }
+.tp-pop[data-shown] { opacity: 1; transform: none; }
+.tp-pop-chevron { transition: transform var(--tp-dur-base) var(--tp-ease-settle); }
+.tp-pop-chevron[data-flip] { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .tp-pop, .tp-pop-chevron { transition: none; } }
+
+/* The chat list rows (ChatListView, design L1): a soft hover, the open chat
+   tinted, its archive/delete action shown on hover or keyboard focus. */
+.tp-chat-row { transition: box-shadow var(--tp-dur-fast) var(--tp-ease-out), background-color var(--tp-dur-fast) var(--tp-ease-out); }
+.tp-chat-row:hover:not([data-active]) { background: color-mix(in oklab, var(--tp-hover) 55%, transparent); }
+.tp-chat-row[data-active] { background: var(--tp-accent-soft); }
+/* The chat list's day labels: the day in a colour apart from the rows, and a
+   rule of the same colour, faint, running on to the row's end. */
+.tp-chat-day { color: var(--tp-accent-active); }
+.tp-chat-day-rule { background: color-mix(in oklab, currentColor 30%, transparent); }
+:root[data-theme='operator'][data-mode='blue'] .tp-chat-day { color: var(--tp-brand-green); }
+/* The open chat's side bar: brand blue in light mode, Padel Green in dark (Sait, 2026-10-20). */
+.tp-chat-bar { background: var(--tp-accent); }
+:root[data-theme='operator'][data-mode='blue'] .tp-chat-bar { background: var(--tp-brand-green); }
+/* Dark mode: the open chat is a deep, faintly green row, not the bright
+   accent-soft blue, so its scope dots and its text read clearly on it. */
+:root[data-theme='operator'][data-mode='blue'] .tp-chat-row[data-active] { background: color-mix(in oklab, var(--tp-brand-green) 14%, var(--tp-surface)); }
+/* Hover (or keyboard focus) swaps the row's end column as drawn: the action
+   takes the cost's place at the top, the cost moves down over the time. */
+.tp-chat-act, .tp-chat-cost-low { visibility: hidden; }
+.tp-chat-row:hover .tp-chat-act, .tp-chat-row:focus-within .tp-chat-act,
+.tp-chat-row:hover .tp-chat-cost-low, .tp-chat-row:focus-within .tp-chat-cost-low { visibility: visible; }
+.tp-chat-row:hover .tp-chat-cost, .tp-chat-row:focus-within .tp-chat-cost,
+.tp-chat-row:hover .tp-chat-time, .tp-chat-row:focus-within .tp-chat-time { visibility: hidden; }
+.tp-chat-act-btn { inline-size: 26px; block-size: 26px; border-radius: 8px; border: none; background: color-mix(in oklab, currentColor 10%, transparent); color: inherit; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color var(--tp-dur-fast) var(--tp-ease-out); }
+.tp-chat-act-btn:hover { background: color-mix(in oklab, currentColor 18%, transparent); }
+
+/* "Ask next" (Thread): an accent-outlined pill that fills softly on hover. */
+.tp-follow-up { border: 1px solid var(--tp-accent); background: var(--tp-surface); color: var(--tp-accent-active); transition: background-color var(--tp-dur-fast) var(--tp-ease-out); }
+.tp-follow-up:hover:not(:disabled) { background: var(--tp-accent-soft); }
+/* The assistant's hand-drawn buttons (popover triggers, scope chips, quick
+   sets) set their colours inline, so hover lays a tint of their own ink over
+   whatever fill they have, light or dark. */
+.tp-hover-tint { transition: box-shadow var(--tp-dur-fast) var(--tp-ease-out); }
+.tp-hover-tint:hover:not(:disabled) { box-shadow: inset 0 0 0 100vmax color-mix(in oklab, currentColor 9%, transparent); }
+
+/* The cost panel's "Usage and limits" button (Thread): colours here so it has a hover. */
+.tp-cost-usage { border: 1px solid var(--tp-border-strong); background: var(--tp-surface-2); color: var(--tp-accent-active); transition: background-color var(--tp-dur-fast) var(--tp-ease-out), border-color var(--tp-dur-fast) var(--tp-ease-out); }
+.tp-cost-usage:hover { background: var(--tp-accent-soft); border-color: var(--tp-accent); color: var(--tp-accent-active); }
+
+/* The assistant's starter cards (StartScreen). Light mode: the card is its
+   pastel (--tp-card-n) with ink on it and frosted question rows. Dark (blue)
+   mode: dressed like the Breakdown cards below — the deep colour as the title
+   band, a wash of it behind the questions, its edge as the outline — so the
+   two read as one family (Sait, 2026-10-20). */
+.tp-starter[data-tone='green'] { --tp-st: var(--tp-card-1); --tp-bd: var(--tp-breakdown-green); --tp-bd-fg: var(--tp-breakdown-green-fg); --tp-bd-edge: var(--tp-breakdown-green-edge); }
+.tp-starter[data-tone='violet'] { --tp-st: var(--tp-card-2); --tp-bd: var(--tp-breakdown-violet); --tp-bd-fg: var(--tp-breakdown-violet-fg); --tp-bd-edge: var(--tp-breakdown-violet-edge); }
+.tp-starter[data-tone='rose'] { --tp-st: var(--tp-card-3); --tp-bd: var(--tp-breakdown-rose); --tp-bd-fg: var(--tp-breakdown-rose-fg); --tp-bd-edge: var(--tp-breakdown-rose-edge); }
+.tp-starter[data-tone='sky'] { --tp-st: var(--tp-card-4); --tp-bd: var(--tp-breakdown-sky); --tp-bd-fg: var(--tp-breakdown-sky-fg); --tp-bd-edge: var(--tp-breakdown-sky-edge); }
+.tp-starter[data-tone='teal'] { --tp-st: var(--tp-card-5); --tp-bd: var(--tp-breakdown-teal); --tp-bd-fg: var(--tp-breakdown-teal-fg); --tp-bd-edge: var(--tp-breakdown-teal-edge); }
+.tp-starter[data-tone='gold'] { --tp-st: var(--tp-card-6); --tp-bd: var(--tp-breakdown-gold); --tp-bd-fg: var(--tp-breakdown-gold-fg); --tp-bd-edge: var(--tp-breakdown-gold-edge); }
+.tp-starter { background: var(--tp-st); color: var(--tp-card-ink); border: 1px solid transparent; }
+.tp-starter-head { color: var(--tp-card-ink); }
+.tp-starter-q { background: color-mix(in oklab, var(--tp-brand-white) 72%, transparent); color: var(--tp-card-ink); transition: background-color var(--tp-dur-fast) var(--tp-ease-out); }
+.tp-starter-q:hover:not(:disabled) { background: color-mix(in oklab, var(--tp-brand-white) 90%, transparent); }
+/* A starter question inside a Breakdown-style card (Sait, 2026-10-20): a full
+   row, a rule above every row but the first, the card's hover wash. */
+.tp-starter-row { display: block; inline-size: 100%; text-align: start; border: none; background: transparent; color: var(--tp-fg); font: inherit; cursor: pointer; padding-block: var(--tp-sp-2-5); padding-inline: var(--tp-sp-3); min-block-size: 2.75rem; transition: background-color var(--tp-dur-fast) var(--tp-ease-out); }
+.tp-starter-row + .tp-starter-row { border-block-start: 1px solid color-mix(in oklab, var(--tp-bd-edge) 35%, transparent); }
+.tp-starter-row:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
+.tp-starter-row:disabled { cursor: default; opacity: var(--tp-opacity-disabled); }
+/* The free AI's page tiles wear a card's tone and deepen a little on hover. */
+.tp-starter-tile { transition: background-color var(--tp-dur-fast) var(--tp-ease-out); }
+.tp-starter-tile:hover { background: color-mix(in oklab, var(--tp-st) 82%, var(--tp-card-ink)); }
+:root[data-theme='operator'][data-mode='blue'] .tp-starter-tile:hover { background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash)); }
+:root[data-theme='operator'][data-mode='blue'] .tp-starter {
+  background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-wash-mix), var(--tp-breakdown-wash));
+  border-color: var(--tp-bd-edge);
+  color: var(--tp-fg);
+}
+:root[data-theme='operator'][data-mode='blue'] .tp-starter-head { background: var(--tp-bd); color: var(--tp-bd-fg); }
+:root[data-theme='operator'][data-mode='blue'] .tp-starter-q {
+  background: color-mix(in oklab, var(--tp-bd) 30%, var(--tp-breakdown-wash));
+  color: var(--tp-fg);
+}
+:root[data-theme='operator'][data-mode='blue'] .tp-starter-q:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash));
+}
+
 /* The management overview's Breakdown cards (Sait, 2026-10-19). Each card
    wears one colour (data-tone): its title band, its outline, and a wash of it
    behind the rows, which a hovered row deepens. Every text on the card is the
@@ -1266,6 +1383,24 @@ button.tp-nav-item { background: transparent; }
 }
 .tp-sheet-inline { animation: tpSheetIn var(--tp-dur-base) var(--tp-ease-settle) both; }
 .tp-sheet-inline[data-closing] { animation: tpSheetOut var(--tp-dur-fast) var(--tp-ease-settle) both; }
+/* A drawer from the inline-START edge (the assistant's chat list). It stays
+   mounted and slides on a compositor-only transform, so opening it never
+   waits on a mount or a fetch. Shut, it is off-screen and hidden (no Tab stop,
+   nothing read); visibility flips only after the slide out ends. */
+.tp-drawer-start {
+  transform: translate3d(calc(-100% * var(--tp-dir-sign, 1)), 0, 0);
+  visibility: hidden;
+  transition: transform var(--tp-dur-base) var(--tp-ease-settle), visibility 0s linear var(--tp-dur-base);
+  will-change: transform;
+}
+.tp-drawer-start[data-open] {
+  transform: translate3d(0, 0, 0);
+  visibility: visible;
+  transition: transform var(--tp-dur-base) var(--tp-ease-settle), visibility 0s;
+}
+.tp-drawer-scrim { opacity: 0; pointer-events: none; transition: opacity var(--tp-dur-base) var(--tp-ease-out); will-change: opacity; }
+.tp-drawer-scrim[data-open] { opacity: 1; pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) { .tp-drawer-start, .tp-drawer-start[data-open], .tp-drawer-scrim { transition: none; } }
 .tp-sheet-scrim { animation: tpFadeIn var(--tp-dur-base) var(--tp-ease-out) both; }
 .tp-sheet-scrim[data-closing] { animation: tpFadeIn var(--tp-dur-fast) var(--tp-ease-out) reverse both; }
 

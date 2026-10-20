@@ -43,7 +43,7 @@ export function ShopSection({
   courtFiltered: boolean;
 }) {
   const { tr, locale } = useLocale();
-  const { SERIES_1, SERIES_2, SERIES_3, BAR_MUTED } = useChartColors();
+  const { RING_1, RING_2, RING_3, RING_MUTED } = useChartColors();
   const k = shop.current?.kpis;
   const kp = shop.previous?.kpis ?? null;
   const loading = shop.state === 'loading';
@@ -63,11 +63,11 @@ export function ShopSection({
   // The server sorts sections by revenue. The ring shows the first three and folds the rest into
   // "Other" (dataviz: no more than four parts, a fourth hue is never generated); the table twin keeps every section.
   const sectionRows = (shop.current?.categories ?? []).map((c) => ({ label: pickLocale({ en: c.nameEn, ar: c.nameAr }, locale) || c.categoryId, value: c.netIqd, key: c.categoryId }));
-  const SECTION_COLORS = [SERIES_1, SERIES_2, SERIES_3];
+  const SECTION_COLORS = [RING_1, RING_2, RING_3];
   const rest = sectionRows.slice(3).reduce((n, r) => n + Math.max(0, r.value), 0);
   const sectionSlices = [
     ...sectionRows.slice(0, 3).map((r, i) => ({ key: r.key, label: r.label, value: r.value, color: SECTION_COLORS[i]! })),
-    ...(rest > 0 ? [{ key: 'other', label: tr('ws.analytics.viz.other'), value: rest, color: BAR_MUTED }] : []),
+    ...(rest > 0 ? [{ key: 'other', label: tr('ws.analytics.viz.other'), value: rest, color: RING_MUTED }] : []),
   ];
   const salesSpark = daySeries(range, shop.current?.byDay, (d) => d.netIqd, (d) => f.date(d), f.compact);
   const items = (shop.current?.items ?? []).slice(0, TOP_PRODUCTS);

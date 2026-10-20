@@ -12,8 +12,8 @@
  * fade is a hover state on the 160ms token, not motion.
  *
  * Colour follows the entity, never its rank: the caller passes each slice's
- * colour from the validated categorical trio (charts/colors.ts), with
- * BAR_MUTED for the "other" or "unknown" slice.
+ * colour from the ring trio (RING_1..3 in charts/colors.ts, the same in both modes), with
+ * RING_MUTED for the "other" or "unknown" slice.
  */
 import { useState, type ReactNode } from 'react';
 import { useLocale } from '../../../lib/i18n';
@@ -192,12 +192,12 @@ export function RingMeter({
   label: string;
   color?: string;
 }) {
-  const { HEAT_RAMP, SERIES_1 } = useChartColors();
+  const { RING_TRACK, RING_1 } = useChartColors();
   const c = size / 2;
   const t = thickness ?? Math.max(5, Math.round(size * 0.13));
   const outer = c - 1;
   const inner = outer - t;
-  const stack = parts ?? [{ pct: pct ?? 0, color: color ?? SERIES_1 }];
+  const stack = parts ?? [{ pct: pct ?? 0, color: color ?? RING_1 }];
   let at = 0;
   const arcs = stack.flatMap((p) => {
     const sweep = meterSweep(p.pct);
@@ -208,7 +208,7 @@ export function RingMeter({
   return (
     <div role="img" aria-label={label} style={{ position: 'relative', inlineSize: size, blockSize: size, flex: '0 0 auto' }}>
       <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} aria-hidden="true" style={{ display: 'block' }}>
-        <path d={arcPath(c, c, inner, outer, 0, Math.PI * 2)} fill={HEAT_RAMP[1]} />
+        <path d={arcPath(c, c, inner, outer, 0, Math.PI * 2)} fill={RING_TRACK} />
         {arcs.map((a, i) => (
           <path key={i} d={a.d} fill={a.color} />
         ))}

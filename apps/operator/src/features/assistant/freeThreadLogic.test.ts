@@ -3,6 +3,8 @@ import { FREE_HISTORY_MAX } from '@touch/core/assistant/free';
 import { EdgeError } from '../../lib/edge';
 import {
   FREE_THREAD_SESSION_KEY,
+  FREE_TOPICS,
+  needsData,
   applyFreeEvent,
   canRetry,
   freeErrorFromEvent,
@@ -118,5 +120,27 @@ describe('the session mirror', () => {
   it('ignores junk', () => {
     expect(parseFreeThread('{', 'u1')).toEqual([]);
     expect(parseFreeThread(JSON.stringify({ user: 'u1', exchanges: [{ nope: 1 }] }), 'u1')).toEqual([]);
+  });
+});
+
+describe('needsData', () => {
+  it("hears the guide's cannot-see-data sentence in English and Arabic", () => {
+    expect(needsData("I can't see any of the club's data, but takings are on the Revenue report.")).toBe(true);
+    expect(needsData('I cannot see sales figures. Open Reports to look them up.')).toBe(true);
+    expect(needsData('لا أستطيع رؤية بيانات النادي، لكن المبيعات في صفحة التقارير.')).toBe(true);
+  });
+
+  it('stays quiet on an ordinary how-to answer', () => {
+    expect(needsData('Open Breaks and press Go on break, then type your PIN.')).toBe(false);
+    expect(needsData('You can see your tasks on the Tasks page.')).toBe(false);
+  });
+});
+
+describe('FREE_TOPICS', () => {
+  it('keeps six topics, each tone once, with unique question ids', () => {
+    expect(FREE_TOPICS).toHaveLength(6);
+    expect(new Set(FREE_TOPICS.map((t) => t.tone)).size).toBe(6);
+    const ids = FREE_TOPICS.flatMap((t) => t.questions.map((q) => q.id));
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

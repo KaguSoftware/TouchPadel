@@ -979,7 +979,8 @@ export async function buildMap({ catalog, sha } = {}) {
  */
 // 780 since 2026-10-17: the management rebuild's settings pages and family tabs took the
 // prefix past the byte target again; 16 of 94 page sentences are clipped one clause earlier.
-export const COMPACT_SENTENCE_CAP = 780;
+// 740 since 2026-10-20: the operator pages added since (gender hours among them) did it again.
+export const COMPACT_SENTENCE_CAP = 740;
 
 function clipSentence(sentence) {
   if (sentence.length <= COMPACT_SENTENCE_CAP) return sentence;

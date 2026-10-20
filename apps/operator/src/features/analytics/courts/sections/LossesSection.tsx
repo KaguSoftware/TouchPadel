@@ -29,7 +29,7 @@ import type { SectionProps } from './types';
 
 export function LossesSection({ raw, derived, state, refreshing, f, rangeLabel }: SectionProps) {
   const { tr, locale } = useLocale();
-  const { SERIES_1, SERIES_2, BAR_MUTED } = useChartColors();
+  const { RING_1, RING_2, RING_MUTED } = useChartColors();
   const e = raw?.endings;
   const empty = state === 'ready' && ((e?.cancellations.total ?? 0) + (e?.noShows.total ?? 0) === 0);
   const series = [
@@ -76,7 +76,7 @@ export function LossesSection({ raw, derived, state, refreshing, f, rangeLabel }
 
   const noticeRows = (e?.cancellations.byNotice ?? []).map((b) => ({ label: noticeLabel(tr, f, b), value: b.n, highlight: b.policyEdge }));
   // Who cancelled, as one ring: guest and staff in the trio's first two, "unknown" in the muted bar colour.
-  const ACTOR_COLOR = { guest: SERIES_1, staff: SERIES_2, unknown: BAR_MUTED } as const;
+  const ACTOR_COLOR = { guest: RING_1, staff: RING_2, unknown: RING_MUTED } as const;
   const actors = (e?.cancellations.byActor ?? []).map((a) => ({ key: a.actor, label: tr(`ws.analytics.courts.series.${a.actor}`), value: a.n, color: ACTOR_COLOR[a.actor] }));
   const actorTotal = actors.reduce((n, a) => n + a.value, 0);
   const resold = e?.cancellations.resold;

@@ -32,7 +32,7 @@ describe('PinControl', () => {
   it('pins the question with the successful business tools and the cafe scope', async () => {
     pin.mockResolvedValue({ key: 'pin_x' } as never);
     renderIn(<Message role="assistant" messageId="m1" question="How much did the cafe make last week?" text="Cafe made 48,000 IQD." tools={TOOLS} scopes={['cafe', 'howto']} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Pin to Analytics' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Pin' }));
     await waitFor(() => expect(document.querySelector('[data-pin-result="done"]')).toBeTruthy());
     expect(pin).toHaveBeenCalledTimes(1);
     const input = pin.mock.calls[0]![0];
@@ -46,20 +46,20 @@ describe('PinControl', () => {
   it('says so when the pin fails, and stays pressable', async () => {
     pin.mockRejectedValue(new Error('PIN_NO_TOOLS'));
     renderIn(<Message role="assistant" messageId="m1" question="q" text="t" tools={TOOLS} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Pin to Analytics' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Pin' }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
-    expect((screen.getByRole('button', { name: 'Pin to Analytics' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: 'Pin' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('is absent without a question, on a job answer, while streaming, or with knowledge-only tools', () => {
     renderIn(<Message role="assistant" messageId="m1" text="t" tools={TOOLS} />);
-    expect(screen.queryByRole('button', { name: 'Pin to Analytics' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Pin' })).toBeNull();
     renderIn(<Message role="assistant" messageId="m2" question="q" fromJob text="t" tools={TOOLS} />);
-    expect(screen.queryByRole('button', { name: 'Pin to Analytics' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Pin' })).toBeNull();
     renderIn(<Message role="assistant" messageId="m3" question="q" streaming text="t" tools={TOOLS} />);
-    expect(screen.queryByRole('button', { name: 'Pin to Analytics' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Pin' })).toBeNull();
     renderIn(<Message role="assistant" messageId="m4" question="q" text="t" tools={KNOWLEDGE_ONLY} />);
-    expect(screen.queryByRole('button', { name: 'Pin to Analytics' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Pin' })).toBeNull();
   });
 
   it('helpers: pinnable needs one successful business read; the scope follows the side the answer read', () => {

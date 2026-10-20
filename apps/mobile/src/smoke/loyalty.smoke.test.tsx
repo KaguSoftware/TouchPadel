@@ -183,7 +183,8 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
     });
     try {
       fireEvent.press(screen.getByTestId('loyalty.show-card'));
-      expect(routerState.calls).toEqual([{ method: 'back', arg: undefined }]);
+      // useBack pops to the card when there is history; a test has none, so it lands on the card.
+      expect(routerState.calls).toEqual([{ method: 'replace', arg: { pathname: '/club', params: { show: 'card' } } }]);
     } finally {
       screen.unmount();
     }

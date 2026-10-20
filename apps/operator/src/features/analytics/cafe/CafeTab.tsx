@@ -88,7 +88,7 @@ const NEEDS = {
 
 export function CafeTab() {
   const { tr, locale } = useLocale();
-  const { SERIES_1, SERIES_2 } = useChartColors();
+  const { RING_1, RING_2 } = useChartColors();
   const search = useSearch({ from: '/analytics' }) as AnalyticsSearch;
   const navigate = useNavigate();
   const f = useMemo(() => makeFormatters(locale), [locale]);
@@ -281,11 +281,11 @@ export function CafeTab() {
                         {cashShare != null && (
                           <span style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--tp-sp-2)' }}>
                             <span>
-                              <Swatch color={SERIES_1} />
+                              <Swatch color={RING_1} />
                               {tr('ws.analytics.viz.cashPct', { pct: f.pct(cashShare) })}
                             </span>
                             <span>
-                              <Swatch color={SERIES_2} />
+                              <Swatch color={RING_2} />
                               {tr('ws.analytics.viz.cardPct', { pct: f.pct(100 - cashShare) })}
                             </span>
                           </span>
@@ -298,8 +298,8 @@ export function CafeTab() {
                       <RingMeter
                         size={52}
                         parts={[
-                          { pct: cashShare, color: SERIES_1 },
-                          { pct: 100 - cashShare, color: SERIES_2 },
+                          { pct: cashShare, color: RING_1 },
+                          { pct: 100 - cashShare, color: RING_2 },
                         ]}
                         label={tr('ws.analytics.viz.cashRing', { cash: f.pct(cashShare), card: f.pct(100 - cashShare) })}
                       />
@@ -321,11 +321,11 @@ export function CafeTab() {
                     k && k.qrShare.d > 0 ? (
                       <span style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--tp-sp-2)' }}>
                         <span>
-                          <Swatch color={SERIES_1} />
+                          <Swatch color={RING_1} />
                           {tr('ws.analytics.viz.qrN', { n: f.num(k.qrOrders) })}
                         </span>
                         <span>
-                          <Swatch color={SERIES_2} />
+                          <Swatch color={RING_2} />
                           {tr('ws.analytics.viz.tillN', { n: f.num(k.tillOrders) })}
                         </span>
                       </span>
@@ -336,8 +336,8 @@ export function CafeTab() {
                       <RingMeter
                         size={52}
                         parts={[
-                          { pct: k.qrShare.pct, color: SERIES_1 },
-                          { pct: 100 - k.qrShare.pct, color: SERIES_2 },
+                          { pct: k.qrShare.pct, color: RING_1 },
+                          { pct: 100 - k.qrShare.pct, color: RING_2 },
                         ]}
                         label={tr('ws.analytics.viz.qrRing', { pct: f.pct(k.qrShare.pct) })}
                       />

@@ -48,7 +48,7 @@ export function PulseSection({
   range,
 }: SectionProps & { venue: VenueRevenue; shop: ShopData; openDrill: (target: DrillTarget) => void; courtId: string | null; range: { from: string; to: string } }) {
   const { tr } = useLocale();
-  const { SERIES_1, SERIES_2 } = useChartColors();
+  const { RING_1, RING_2 } = useChartColors();
   const k = raw?.summary.kpis;
   const kp = raw?.summaryPrev?.kpis ?? null;
   const cafe = raw?.cafe.attach;
@@ -149,11 +149,11 @@ export function PulseSection({
                 k ? (
                   <span style={{ display: 'inline-flex', flexWrap: 'wrap', columnGap: 'var(--tp-sp-2)', alignItems: 'baseline' }}>
                     <span>
-                      <Swatch color={SERIES_1} />
+                      <Swatch color={RING_1} />
                       {tr('ws.analytics.viz.cancelledN', { n: f.num(k.cancellations) })}
                     </span>
                     <span>
-                      <Swatch color={SERIES_2} />
+                      <Swatch color={RING_2} />
                       {tr('ws.analytics.viz.noShowsN', { n: f.num(k.noShows) })}
                     </span>
                   </span>
@@ -164,8 +164,8 @@ export function PulseSection({
                   <RingMeter
                     size={52}
                     parts={[
-                      { pct: cancelledPct, color: SERIES_1 },
-                      { pct: noShowPct, color: SERIES_2 },
+                      { pct: cancelledPct, color: RING_1 },
+                      { pct: noShowPct, color: RING_2 },
                     ]}
                     label={tr('ws.analytics.viz.lostRing', { pct: f.pct(cancelledPct + noShowPct) })}
                   />

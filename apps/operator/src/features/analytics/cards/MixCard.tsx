@@ -23,14 +23,14 @@ import type { VenueRevenue } from '../useVenueRevenue';
 
 export function MixCard({ venue, tone, f, alone }: { venue: VenueRevenue; tone: BreakdownTone; f: Formatters; alone?: boolean }) {
   const { tr } = useLocale();
-  const { SERIES_1, SERIES_2, SERIES_3 } = useChartColors();
+  const { RING_1, RING_2, RING_3 } = useChartColors();
   const v = venue.current;
   const title = tr('ws.analytics.viz.mix.title');
   const slices = v
     ? [
-        { key: 'courts', label: tr('ws.analytics.viz.mix.courts'), value: v.courtsIqd, color: SERIES_1 },
-        { key: 'cafe', label: tr('ws.analytics.viz.mix.cafe'), value: v.cafeIqd, color: SERIES_2 },
-        { key: 'shop', label: tr('ws.analytics.viz.mix.shop'), value: v.shopIqd, color: SERIES_3 },
+        { key: 'courts', label: tr('ws.analytics.viz.mix.courts'), value: v.courtsIqd, color: RING_1 },
+        { key: 'cafe', label: tr('ws.analytics.viz.mix.cafe'), value: v.cafeIqd, color: RING_2 },
+        { key: 'shop', label: tr('ws.analytics.viz.mix.shop'), value: v.shopIqd, color: RING_3 },
       ]
     : [];
   return (

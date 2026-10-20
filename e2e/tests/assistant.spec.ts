@@ -5,9 +5,11 @@
  * /assistant/usage pages, the cashier's free AI (and refusal of the paid
  * page), and the Arabic variant.
  *
- * Owner call 2026-10-16: a new chat starts with Pages and how-to plus the
- * page's own scope (never every scope), there is no "Everything" preset, and
- * every staff role gets the drawer with the free AI only.
+ * Owner call 2026-10-20: a new chat reads NOTHING until the owner picks (no
+ * page scope, no Pages and how-to pre-checked): the composer is locked and
+ * the toolbar's "Reads" button says "Pick what it reads". Scopes are on/off
+ * buttons (aria-pressed), not checkboxes. There is no "Everything" preset
+ * (2026-10-16), and every staff role gets the drawer with the free AI only.
  *
  * `supabase functions serve` runs here without ANTHROPIC_API_KEY, so a real
  * question answers 503 NOT_CONFIGURED and the thread must show the i18n
@@ -28,12 +30,11 @@ import { DEV_PASSWORD, SEED_STAFF, serviceClient } from './helpers';
 const EN = {
   railButton: /^Assistant\b/, // "Assistant ⌘K" — the Kbd is part of the name
   drawerTitle: 'Assistant',
-  contextToggle: /^What this chat may read/,
-  scopeCafe: /^Cafe\b/,
-  scopeHowto: /^Pages and how-to\b/,
+  pickLine: 'Pick at least one to start asking.',
   // The one start line under the boxes once the dry run has answered: a size
   // where the model's vendor has a key, the no-key sentence where it has none.
-  startLine: /^(Every question starts at|The starting size cannot be measured)/,
+  // The Reads panel's dark band (design P3): the start figure once measured, or the no-key sentence.
+  startLine: /(\d\S* tokens|The starting size cannot be measured)/,
   presetJustHelp: 'Just help',
   presetMoneyAndFloor: 'Money and floor',
   presetEverything: 'Everything',
@@ -60,10 +61,8 @@ const EN = {
 const AR = {
   railButton: /^المساعد/,
   drawerTitle: 'المساعد',
-  contextToggle: /^ما يمكن لهذه المحادثة/,
-  scopeCafe: /^الكافيه/,
-  scopeHowto: /^الصفحات وطريقة الاستخدام/,
-  startLine: /^(حجم البداية لكل سؤال|تعذّر قياس حجم البداية)/,
+  pickLine: 'اختر شيئًا واحدًا على الأقل لتبدأ بالسؤال.',
+  startLine: /(الرموز:|تعذّر قياس حجم البداية)/,
   ask: 'اسأل',
   stop: 'إيقاف',
   thisMessage: 'هذه الرسالة',
@@ -107,36 +106,40 @@ async function openRailOptions(page: Page) {
   await expect(more).toHaveAttribute('aria-expanded', 'true');
 }
 
-/** Open the drawer from the rail and expand the (collapsed-in-compact) scope strip. */
-async function openDrawerWithScopes(page: Page, s: { railButton: RegExp; drawerTitle: string; contextToggle: RegExp }) {
+/** Open the drawer from the rail and open the toolbar's "Reads" panel. */
+async function openDrawerWithScopes(page: Page, s: { railButton: RegExp; drawerTitle: string }) {
   await openRailOptions(page);
   await page.getByRole('button', { name: s.railButton }).click();
   const dialog = page.getByRole('dialog', { name: s.drawerTitle });
   await expect(dialog).toBeVisible();
-  // The drawer starts with the strip folded behind "Context · n · starts at … tokens".
-  const toggle = dialog.getByRole('button', { name: s.contextToggle });
-  if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
+  const reads = dialog.getByTestId('assistant-reads');
+  if ((await reads.getAttribute('aria-expanded')) !== 'true') await reads.click();
   return dialog;
 }
 
+const scopeButtons = (dialog: ReturnType<Page['getByRole']>) => dialog.locator('[data-testid^="scope-"]');
+const pressedScopes = (dialog: ReturnType<Page['getByRole']>) => dialog.locator('[data-testid^="scope-"][aria-pressed="true"]');
+
 test.describe('owner assistant', () => {
-  test("rail button opens the drawer with how-to and the page's scope pre-checked and the start size", async ({ page }) => {
+  test('a new chat in the drawer reads nothing until the owner picks; a pick unlocks Ask and shows the start size', async ({ page }) => {
     await signIn(page, SEED_STAFF.owner);
     await page.goto(`${OPERATOR_URL}/analytics/cafe`);
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
 
     const dialog = await openDrawerWithScopes(page, EN);
 
-    // 2026-10-16: Pages and how-to plus the page's own scope (Cafe here), never
-    // every scope; the owner ticks the rest.
-    await expect(dialog.getByRole('checkbox', { name: EN.scopeCafe })).toBeChecked();
-    await expect(dialog.getByRole('checkbox', { name: EN.scopeHowto })).toBeChecked();
-    expect(await dialog.getByRole('checkbox').count()).toBeGreaterThan(2);
-    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
+    // 2026-10-20: nothing pre-checked, not even the page's own scope; Ask is shut.
+    expect(await scopeButtons(dialog).count()).toBeGreaterThan(2);
+    await expect(pressedScopes(dialog)).toHaveCount(0);
+    await expect(dialog.getByText(EN.pickLine)).toBeVisible();
+    await expect(dialog.getByRole('textbox', { name: EN.ask })).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: EN.ask, exact: true })).toBeDisabled();
 
-    // The dry run answers one start line; the boxes carry no size of their own.
+    // One pick: the dry run answers one start line and Ask opens.
+    await dialog.getByTestId('scope-cafe').click();
+    await expect(pressedScopes(dialog)).toHaveCount(1);
     await expect(dialog.getByText(EN.startLine)).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
-    await expect(dialog.getByRole('checkbox', { name: /tokens/ })).toHaveCount(0);
+    await expect(dialog.getByRole('textbox', { name: EN.ask })).toBeEnabled();
   });
 
   test('Ctrl/⌘ K opens and closes the drawer', async ({ page }) => {
@@ -154,33 +157,33 @@ test.describe('owner assistant', () => {
     await expect(page.getByRole('button', { name: EN.railButton })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('presets: Just help leaves only how-to; Money and floor checks its five; no Everything', async ({ page }) => {
+  test('presets: Just help turns on only how-to; Money and floor turns on its five; no Everything', async ({ page }) => {
     await signIn(page, SEED_STAFF.owner);
     await page.goto(`${OPERATOR_URL}/analytics/cafe`);
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
     const dialog = await openDrawerWithScopes(page, EN);
-    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
+    await expect(pressedScopes(dialog)).toHaveCount(0);
     await expect(dialog.getByRole('button', { name: EN.presetEverything, exact: true })).toHaveCount(0);
 
     await dialog.getByRole('button', { name: EN.presetJustHelp, exact: true }).click();
-    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(1);
-    await expect(dialog.getByRole('checkbox', { name: EN.scopeHowto })).toBeChecked();
-    await expect(dialog.getByRole('checkbox', { name: EN.scopeCafe })).not.toBeChecked();
+    await expect(pressedScopes(dialog)).toHaveCount(1);
+    await expect(dialog.getByTestId('scope-howto')).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.getByTestId('scope-cafe')).toHaveAttribute('aria-pressed', 'false');
     await expect(dialog.getByRole('button', { name: EN.presetJustHelp, exact: true })).toHaveAttribute('aria-pressed', 'true');
 
     // ASSISTANT_PRESETS.moneyAndFloor: money, cafe, courts, system and how-to.
     await dialog.getByRole('button', { name: EN.presetMoneyAndFloor, exact: true }).click();
-    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(5);
-    await expect(dialog.getByRole('checkbox', { name: EN.scopeCafe })).toBeChecked();
+    await expect(pressedScopes(dialog)).toHaveCount(5);
+    await expect(dialog.getByTestId('scope-cafe')).toHaveAttribute('aria-pressed', 'true');
     await expect(dialog.getByRole('button', { name: EN.presetMoneyAndFloor, exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('a question with no key shows the not-configured sentence, no usage footer, no Stop', async ({ page }) => {
     await signIn(page, SEED_STAFF.owner);
-    await openRailOptions(page);
-    await page.getByRole('button', { name: EN.railButton }).click();
-    const dialog = page.getByRole('dialog', { name: EN.drawerTitle });
-    await expect(dialog).toBeVisible();
+    // A new chat reads nothing until a pick (2026-10-20): Just help, then ask.
+    const dialog = await openDrawerWithScopes(page, EN);
+    await dialog.getByRole('button', { name: EN.presetJustHelp, exact: true }).click();
+    await dialog.getByTestId('assistant-reads').click();
 
     await dialog.getByRole('textbox', { name: EN.ask }).fill(QUESTION);
     await dialog.getByRole('button', { name: EN.ask, exact: true }).click();
@@ -252,7 +255,7 @@ test.describe('owner assistant', () => {
     await expect(dialog).toBeVisible();
     await expect(dialog.getByTestId('assistant.free')).toBeVisible();
     await expect(dialog.getByText(EN.freeBadge, { exact: true })).toBeVisible();
-    await expect(dialog.getByRole('button', { name: EN.contextToggle })).toHaveCount(0);
+    await expect(dialog.getByTestId('assistant-reads')).toHaveCount(0);
     await expect(dialog.getByRole('checkbox')).toHaveCount(0);
     await expect(dialog.locator('[data-model-switch]')).toHaveCount(0);
     await expect(dialog.getByRole('button', { name: EN.usePaid })).toHaveCount(0);
@@ -279,24 +282,24 @@ test.describe('owner assistant @ar', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   }
 
-  test("rail button opens the drawer with how-to and the page's scope pre-checked and the start size", async ({ page }) => {
+  test('a new chat in the drawer reads nothing until the owner picks; a pick shows the start size', async ({ page }) => {
     await signInArabic(page);
     await page.goto(`${OPERATOR_URL}/analytics/cafe`);
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
 
     const dialog = await openDrawerWithScopes(page, AR);
-    await expect(dialog.getByRole('checkbox', { name: AR.scopeCafe })).toBeChecked();
-    await expect(dialog.getByRole('checkbox', { name: AR.scopeHowto })).toBeChecked();
-    await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
+    await expect(pressedScopes(dialog)).toHaveCount(0);
+    await expect(dialog.getByText(AR.pickLine)).toBeVisible();
+    await dialog.getByTestId('scope-cafe').click();
+    await expect(pressedScopes(dialog)).toHaveCount(1);
     await expect(dialog.getByText(AR.startLine)).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
   });
 
   test('a question with no key shows the Arabic not-configured sentence', async ({ page }) => {
     await signInArabic(page);
-    await openRailOptions(page);
-    await page.getByRole('button', { name: AR.railButton }).click();
-    const dialog = page.getByRole('dialog', { name: AR.drawerTitle });
-    await expect(dialog).toBeVisible();
+    const dialog = await openDrawerWithScopes(page, AR);
+    await dialog.getByTestId('scope-howto').click();
+    await dialog.getByTestId('assistant-reads').click();
 
     await dialog.getByRole('textbox', { name: AR.ask }).fill(QUESTION);
     await dialog.getByRole('button', { name: AR.ask, exact: true }).click();

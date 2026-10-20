@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { LocaleProvider } from '../../lib/i18n';
+import { Sources } from './Sources';
 import { Message, parseBlocks } from './Message';
 
 // Sources rows link to the page the numbers live on; the router is not
@@ -88,7 +89,7 @@ describe('Message', () => {
     expect(onTurnOn).toHaveBeenCalledWith('cafe');
   });
 
-  it('lists what was read with a link carrying the range', () => {
+  it('opens what was read in a box from "Read n" at the end of the answer, each row with its Open link', () => {
     renderIn(
       <Message
         role="assistant"
@@ -99,12 +100,21 @@ describe('Message', () => {
         ]}
       />,
     );
-    const rows = document.querySelectorAll('[data-source-row]');
+    expect(document.querySelectorAll('[data-source-row]')).toHaveLength(0);
+    const toggle = screen.getByTestId('assistant-details').querySelector('button')!;
+    expect(toggle.textContent).toContain('Read ⁨2⁩');
+    fireEvent.click(toggle);
+    const rows = document.querySelectorAll('[data-answer-details] [data-source-row]');
     expect(rows).toHaveLength(2);
-    const link = rows[0]!.querySelector('a')!;
+    expect(rows[0]!.querySelector('a')!.getAttribute('href')).toBe('/panel');
+    expect(rows[1]!.textContent).toContain('could not be read');
+  });
+
+  it('keeps the range on a source link', () => {
+    renderIn(<Sources items={[{ call_id: 'c1', name: 'panel_headline', args: { from: '2026-09-01', to: '2026-09-07' }, row_count: 14, ms: 120, route: '/panel' }]} />);
+    const link = document.querySelector('[data-source-row] a')!;
     expect(link.getAttribute('href')).toBe('/panel');
     expect(link.getAttribute('data-search')).toBe(JSON.stringify({ from: '2026-09-01', to: '2026-09-07' }));
-    expect(rows[1]!.textContent).toContain('could not be read');
   });
 
   it('shows the error sentence for a failed turn', () => {

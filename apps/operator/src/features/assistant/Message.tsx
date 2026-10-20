@@ -9,6 +9,10 @@
  * button (pageLinks.ts). A saved answer that read business figures carries the
  * re-check control (plan §3.5, DECIDE 10); figures it reports as changed get
  * the same mark with a different sentence.
+ *
+ * Since 2026-10-20 (design D) every action on an answer is a button in one
+ * row at the foot of the answer card: Go to, Re-check, Pin, Copy, and an "i"
+ * that opens a box with what it read (each row's "Open" works) and its cost.
  */
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from '@tanstack/react-router';
@@ -18,12 +22,13 @@ import { Button, Spinner } from '../../components/ui';
 import type { AssistantErrorCode, GatePayload, RecheckResult, UsagePayload } from './api';
 import { RecheckControl, hasRecheckableTools, rawsForValues } from './RecheckControl';
 import { PinControl, hasPinnableTools } from './PinControl';
-import { Sources, scopeLabel, type SourceRow } from './Sources';
+import { SourcesBox, scopeLabel, type SourceRow } from './Sources';
+import { Icon } from '../../components/icons';
 import { UnverifiedMark } from './UnverifiedMark';
 import { UsageMeter } from './UsageMeter';
-import { Disclosure } from './Disclosure';
+import { ToolbarPopover } from './ToolbarPopover';
 import { navItemFor, routesIn } from './pageLinks';
-import { formatTokens, formatUsd, priceFor, totalTokens, type PricingMap } from '../../lib/assistantPricing';
+import { formatUsd, priceFor, totalTokens, type PricingMap } from '../../lib/assistantPricing';
 
 // ---------------------------------------------------------------------------
 // The renderer
@@ -246,7 +251,7 @@ function PageLinks({ text, onNavigate }: { text: string; onNavigate?: () => void
         return (
           <Button
             key={path}
-            kind="soft"
+            kind="ghost"
             size="sm"
             icon={item?.icon ?? 'arrowUpRight'}
             title={path}
@@ -269,16 +274,19 @@ export function Message(props: MessageProps) {
   // The last re-check of this message; forgotten when the row changes.
   const [recheck, setRecheck] = useState<RecheckResult | null>(null);
   useEffect(() => setRecheck(null), [props.messageId]);
+  const [copied, setCopied] = useState(false);
+  const [details, setDetails] = useState(false);
 
   if (role === 'user') {
     return (
-      <div data-message-role="user" style={{ display: 'grid', gap: '0.15rem', justifyItems: 'end', marginInlineStart: compact ? 'var(--tp-sp-4)' : '20%' }}>
+      <div data-message-role="user" style={{ display: 'grid', gap: '0.15rem', justifyItems: 'end', marginInlineStart: compact ? 'var(--tp-sp-4)' : '25%' }}>
         <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{tr('ws.owner.assistant.message.you')}</span>
         <div
           style={{
-            background: 'var(--tp-accent-soft, var(--tp-surface-2))',
-            border: '1px solid var(--tp-border)',
-            borderRadius: 'var(--tp-radius-panel)',
+            background: 'var(--tp-accent)',
+            color: 'var(--tp-accent-contrast)',
+            borderRadius: 'calc(var(--tp-radius-panel) + 4px)',
+            borderEndEndRadius: 'var(--tp-radius-sm)',
             paddingBlock: 'var(--tp-sp-2)',
             paddingInline: 'var(--tp-sp-3)',
             whiteSpace: 'pre-wrap',
@@ -298,9 +306,94 @@ export function Message(props: MessageProps) {
   const changedRaws = recheck ? rawsForValues(text, recheck.changed.map((c) => c.value_then)) : [];
   const canRecheck = !streaming && !!props.messageId && hasRecheckableTools(tools);
   const canPin = !streaming && !!props.messageId && !!props.question && !props.fromJob && hasPinnableTools(tools);
+  const billed = !!usage && totalTokens(usage) > 0;
+  const hasDetails = !streaming && (tools.length > 0 || billed);
+  const costText = billed ? `⁨${formatUsd(usage!.cost_micros ?? priceFor({ model: usage!.model ?? '', ...usage! }, props.pricing, props.fallbackMicrosPerMtok ?? 0))}⁩` : null;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* no clipboard in this window: nothing to say */
+    }
+  };
+  // What it read and what it cost: "Read n · $x" at the end of the answer's
+  // button row opens a floating box (Sait, 2026-10-20), like the info tips but
+  // one you can work in: each row's "Open" goes to the page with the figures.
+  const detailsButton = hasDetails ? (
+    <span data-testid="assistant-details" style={{ marginInlineStart: 'auto', display: 'inline-flex' }}>
+      <ToolbarPopover
+        open={details}
+        onOpenChange={setDetails}
+        side="above"
+        align="end"
+        portal
+        title={tr('ws.owner.assistant.message.detailsTitle')}
+        panelLabel={tr('ws.owner.assistant.message.detailsTitle')}
+        label={
+          <>
+            <Icon name="layers" size={14} />
+            {tr('ws.owner.assistant.message.readShort', { n: `⁨${tools.length}⁩` })}
+            {costText && (
+              <span style={{ paddingInline: 'var(--tp-sp-1-5)', borderRadius: 'var(--tp-radius-pill)', background: 'var(--tp-surface-3)', color: 'var(--tp-fg)', fontSize: 'var(--tp-fs-xs)', fontWeight: 600, lineHeight: 1.6 }}>{costText}</span>
+            )}
+          </>
+        }
+        triggerStyle={{
+          minBlockSize: '2rem',
+          paddingInline: 'var(--tp-sp-3)',
+          gap: 'var(--tp-sp-1-5)',
+          border: '1px solid var(--tp-border-strong)',
+          borderRadius: 'var(--tp-radius-pill)',
+          background: details ? 'var(--tp-accent-soft)' : 'var(--tp-surface)',
+          color: 'var(--tp-fg)',
+          fontSize: 'var(--tp-fs-sm)',
+          fontWeight: 600,
+        }}
+      >
+        <div data-answer-details="" style={{ display: 'grid', gap: 'var(--tp-sp-3)', minInlineSize: 'min(22rem, 80vw)' }}>
+          <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+            <h3 style={{ margin: 0, flex: 1, fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{tr('ws.owner.assistant.sources.title')}</h3>
+            <span style={{ paddingInline: 'var(--tp-sp-2)', borderRadius: 'var(--tp-radius-pill)', background: 'var(--tp-accent-soft)', color: 'var(--tp-accent-active)', fontSize: 'var(--tp-fs-xs)', fontWeight: 700, lineHeight: 1.8 }}>
+              {tr('ws.owner.assistant.message.readShort', { n: `⁨${tools.length}⁩` })}
+            </span>
+            {costText && (
+              <span style={{ paddingInline: 'var(--tp-sp-2)', borderRadius: 'var(--tp-radius-pill)', background: 'var(--tp-surface-3)', fontSize: 'var(--tp-fs-xs)', fontWeight: 700, lineHeight: 1.8 }}>{costText}</span>
+            )}
+          </header>
+          {tools.length > 0 ? (
+            <SourcesBox
+              items={tools}
+              scopes={props.scopes}
+              onNavigate={() => {
+                setDetails(false);
+                props.onNavigate?.();
+              }}
+            />
+          ) : (
+            <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.sources.none')}</p>
+          )}
+          {billed && (
+            <section style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>
+              <h4 style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', fontWeight: 700, color: 'var(--tp-muted-fg)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{tr('ws.owner.assistant.sources.cost')}</h4>
+              <UsageMeter
+                compact
+                hideLabels
+                slots={[{ label: 'thisMessage', tokens: usage!, costMicros: usage!.cost_micros ?? null, model: usage!.model ?? null, calls: usage!.calls ?? null }]}
+                pricing={props.pricing}
+                fallbackMicrosPerMtok={props.fallbackMicrosPerMtok ?? 0}
+              />
+            </section>
+          )}
+        </div>
+      </ToolbarPopover>
+    </span>
+  ) : null;
+  const showFooter = !streaming && text !== '';
 
   return (
-    <div data-message-role="assistant" style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginInlineEnd: compact ? 0 : '10%' }}>
+    <div data-message-role="assistant" style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
       <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontWeight: 600, display: 'flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}>
         {tr('ws.owner.assistant.message.assistant')}
         {props.fromJob && <span style={{ fontWeight: 400 }}>· {tr('ws.owner.assistant.sources.job')}</span>}
@@ -328,17 +421,16 @@ export function Message(props: MessageProps) {
           data-answer-bubble=""
           style={{
             display: 'grid',
-            gap: 'var(--tp-sp-2)',
             background: 'var(--tp-surface)',
             color: 'var(--tp-fg)',
             border: '1px solid var(--tp-border-strong, var(--tp-border))',
-            borderRadius: 'var(--tp-radius-panel)',
+            borderRadius: 'calc(var(--tp-radius-panel) + 4px)',
             boxShadow: 'var(--tp-shadow-raised)',
-            paddingBlock: 'var(--tp-sp-3)',
-            paddingInline: 'var(--tp-sp-4)',
+            overflow: 'hidden',
             minInlineSize: 0,
           }}
         >
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', paddingBlock: 'var(--tp-sp-4)', paddingInline: 'calc(var(--tp-sp-4) + 2px)', lineHeight: 1.55 }}>
           {text !== '' ? (
             <AssistantText text={text} unverified={unverified} changed={changedRaws} />
           ) : streaming ? (
@@ -354,9 +446,24 @@ export function Message(props: MessageProps) {
             </p>
           )}
 
-          {!streaming && text !== '' && <PageLinks text={text} onNavigate={props.onNavigate} />}
+          </div>
+          {showFooter && (
+            <div
+              data-answer-actions=""
+              style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', alignItems: 'center', background: 'var(--tp-surface-2)', borderBlockStart: '1px solid var(--tp-border)', paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-2)' }}
+            >
+              <PageLinks text={text} onNavigate={props.onNavigate} />
+              {canRecheck && <RecheckControl messageId={props.messageId!} result={recheck} onResult={setRecheck} />}
+              {canPin && <PinControl question={props.question!} tools={tools} scopes={props.scopes} />}
+              <Button size="sm" kind="ghost" icon={copied ? 'check' : 'fileText'} onClick={() => void copy()}>
+                {tr(copied ? 'ws.owner.assistant.message.copied' : 'ws.owner.assistant.message.copy')}
+              </Button>
+              {detailsButton}
+            </div>
+          )}
         </div>
       )}
+      {!showFooter && detailsButton && <div style={{ display: 'flex' }}>{detailsButton}</div>}
 
       {stopped && <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.composer.stopped')}</p>}
 
@@ -377,32 +484,6 @@ export function Message(props: MessageProps) {
           </div>
           <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.scopes.turnOnHint')}</p>
         </div>
-      )}
-
-      {!streaming && tools.length > 0 && <Sources items={tools} scopes={props.scopes} compact={compact} onNavigate={props.onNavigate} />}
-
-      {(canRecheck || canPin) && (
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'start' }}>
-          {canRecheck && <RecheckControl messageId={props.messageId!} result={recheck} onResult={setRecheck} />}
-          {canPin && <PinControl question={props.question!} tools={tools} scopes={props.scopes} />}
-        </div>
-      )}
-
-      {usage && totalTokens(usage) > 0 && (
-        <Disclosure
-          storageKey="message-meter"
-          defaultOpen={false}
-          title={tr('ws.owner.assistant.meter.thisMessage')}
-          summary={`⁨${formatTokens(totalTokens(usage))}⁩ · ⁨${formatUsd(usage.cost_micros ?? priceFor({ model: usage.model ?? '', ...usage }, props.pricing, props.fallbackMicrosPerMtok ?? 0))}⁩`}
-        >
-          <UsageMeter
-            compact
-            hideLabels
-            slots={[{ label: 'thisMessage', tokens: usage, costMicros: usage.cost_micros ?? null, model: usage.model ?? null, calls: usage.calls ?? null }]}
-            pricing={props.pricing}
-            fallbackMicrosPerMtok={props.fallbackMicrosPerMtok ?? 0}
-          />
-        </Disclosure>
       )}
     </div>
   );
