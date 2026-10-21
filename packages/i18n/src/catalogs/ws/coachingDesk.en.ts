@@ -238,4 +238,28 @@ export const coachingDeskEn = {
     due: 'Due {amount}',
     empty: 'No lesson money is waiting to go back.',
   },
+  // The court desk's Coaches tab (CoachesBoard.tsx, 0356): each coach's day and their free times.
+  deskCoaches: {
+    title: 'Coaches',
+    lead: "Each coach's day: when they work, the lessons they already have and when they're free. Press a free time to book a lesson.",
+    lessonType: 'Lesson type',
+    legend: {
+      hours: 'Working',
+      busy: 'Lesson',
+      off: 'Time off',
+    },
+    // "Works 10:00–14:00, 18:00–22:00".
+    works: 'Works {times}',
+    notWorking: 'Not working this day',
+    paused: 'Paused: not taking lessons',
+    // "Free times · Private 60 min".
+    freeTimes: 'Free times · {type}',
+    noFree: 'No free time left this day.',
+    noPrivate: "Doesn't teach private lessons here.",
+    newLesson: 'New lesson',
+    none: 'No coaches at this branch yet.',
+    noneBody: 'Coaches are added under Courts › Coaches.',
+    closed: 'The club is closed this day.',
+    off: "Lessons are switched off here. The desk can still book them, but guests can't see them yet.",
+  },
 };

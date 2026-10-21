@@ -75,7 +75,7 @@ export type NavLabelKey =
   // Wages (0270–0272), rewards (0332–0333), the main cash (0343).
   | 'wages' | 'attendance' | 'rewards' | 'safe'
   // Coaching (docs/design/coaching/operator.md §5.3.3).
-  | 'coaches' | 'coachPay' | 'lessonTypes' | 'coachHours' | 'lessonRules'
+  | 'coaches' | 'coachPay' | 'lessonTypes' | 'coachHours' | 'lessonRules' | 'coachSchedules'
   // Tournaments (build-contracts-2026-10-03 §1.11) and loyalty (build-contracts-2026-10-05 §5).
   | 'tournaments' | 'loyalty'
   // Setup's families: courts and their rules, the venue, the guest app, devices.
@@ -218,6 +218,8 @@ const COURT_DESK: readonly NavItem[] = [
   { to: '/desk/today', labelKey: 'today', icon: 'today' },
   { to: '/desk', labelKey: 'calendar', icon: 'calendar', exact: true },
   { to: '/desk/customers', labelKey: 'customers', icon: 'users' },
+  // The Coaches tab (0356): each coach's day, and a lesson booked from a free time.
+  { to: '/desk/coaches', labelKey: 'coaches', icon: 'whistle' },
   { to: '/desk/series/new', labelKey: 'newSeries', icon: 'repeat', activePrefix: '/desk/series' },
   { to: '/desk/block', labelKey: 'blockCourt', icon: 'ban' },
   TOURNAMENTS,
@@ -300,6 +302,9 @@ const COACHES_TABS: readonly NavTab[] = [
   { to: '/admin/coaches', labelKey: 'lessonTypes', search: { tab: 'types' } },
   { to: '/admin/coaches', labelKey: 'coachHours', search: { tab: 'hours' }, keepSearch: ['coach'] },
   { to: '/admin/coaches', labelKey: 'lessonRules', search: { tab: 'rules' } },
+  // The court desk's Coaches tab (0356), for the manager and the owner too (Majed, 2026-10-21):
+  // each coach's day and a lesson booked from a free time.
+  { to: '/desk/coaches', labelKey: 'coachSchedules' },
 ];
 
 /** The menu editor and its siblings, one tab each. */

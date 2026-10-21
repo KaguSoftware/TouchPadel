@@ -113,6 +113,12 @@ export interface StartLessonDialogProps {
   guestName?: string;
   guestPhone?: string;
   /**
+   * The coach and lesson type picked where it was opened (the Coaches tab's
+   * free time): the kind follows the type. Ignored when not on sale here.
+   */
+  coachId?: string | null;
+  lessonTypeId?: string | null;
+  /**
    * The night's desk_lessons envelope: kinds, types, coaches and prices, the
    * coaching switch and `server_now`. Undefined while it loads; null when it
    * could not be read (the dialog then says so, and Create stays off).
@@ -131,6 +137,8 @@ export function StartLessonDialog({
   customer: initialCustomer = null,
   guestName: initialName = '',
   guestPhone: initialPhone = '',
+  coachId: initialCoachId = null,
+  lessonTypeId: initialTypeId = null,
   lessons,
   lessonsAt,
   onClose,
@@ -155,13 +163,15 @@ export function StartLessonDialog({
   const coaches: readonly DeskCoach[] = lessons?.coaches ?? [];
   const offered = kindsOnSale(types);
 
-  const [kindPick, setKindPick] = useState<LessonKind | null>(null);
+  const [kindPick, setKindPick] = useState<LessonKind | null>(
+    () => types.find((t) => t.lesson_type_id === initialTypeId)?.kind ?? null,
+  );
   const kind = kindPick && offered.includes(kindPick) ? kindPick : (offered[0] ?? null);
   const typesHere = typesOfKind(types, kind);
-  const [typePick, setTypePick] = useState<string | null>(null);
+  const [typePick, setTypePick] = useState<string | null>(initialTypeId);
   const type = typesHere.find((t) => t.lesson_type_id === typePick) ?? typesHere[0] ?? null;
   const choices = coachesFor(type?.lesson_type_id, coaches);
-  const [coachPick, setCoachPick] = useState<string | null>(null);
+  const [coachPick, setCoachPick] = useState<string | null>(initialCoachId);
   const coach =
     choices.find((c) => c.coach.coach_id === coachPick && !c.paused)?.coach ??
     choices.find((c) => !c.paused)?.coach ??

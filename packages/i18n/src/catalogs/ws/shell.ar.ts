@@ -204,6 +204,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     lessonTypes: 'الحصص والأسعار',
     coachHours: 'أوقات المدرّبين',
     lessonRules: 'قواعد الحصص',
+    coachSchedules: 'الجداول',
     bookingRules: 'قواعد الحجز',
     onlineDeposit: 'العربون الإلكتروني',
     openMatches: 'المباريات المفتوحة',

@@ -1818,3 +1818,86 @@ export function readStatementPaid(raw: unknown): {
     total_iqd: num(r.total_iqd),
   };
 }
+
+// ---------------------------------------------------------------------------
+// app.desk_coach_schedule(p_venue_id, p_from, p_to) (0356): the Coaches tab
+// ---------------------------------------------------------------------------
+
+export interface CoachHoursWindow {
+  /** 0 = Sunday, as coach_hours stores it. */
+  weekday: number;
+  /** Local 'HH:MM'; the end may be '24:00'. */
+  start_time: string;
+  end_time: string;
+}
+
+export interface CoachBusy {
+  /** A lesson at this branch; null for one at another branch. */
+  lesson_id: string | null;
+  here: boolean;
+  start_at: string;
+  end_at: string;
+}
+
+export interface ScheduleCoach {
+  coach_id: string;
+  display_name_en: string;
+  display_name_ar: string;
+  status: string;
+  photo_path: string | null;
+  hours: CoachHoursWindow[];
+  time_off: { starts_at: string; ends_at: string }[];
+  busy: CoachBusy[];
+}
+
+export interface CoachSchedule {
+  timezone: string | null;
+  server_now: string | null;
+  coaches: ScheduleCoach[];
+}
+
+const HHMM = /^([01]\d|2[0-4]):[0-5]\d$/;
+
+function readScheduleCoach(c: Raw): ScheduleCoach | null {
+  const id = str(c.coach_id);
+  if (!id) return null;
+  return {
+    coach_id: id,
+    display_name_en: str(c.display_name_en) ?? '',
+    display_name_ar: str(c.display_name_ar) ?? str(c.display_name_en) ?? '',
+    status: str(c.status) ?? 'active',
+    photo_path: str(c.photo_path),
+    hours: list(c.hours).flatMap((h) => {
+      const weekday = num(h.weekday);
+      const from = str(h.start_time);
+      const to = str(h.end_time);
+      return weekday !== null && weekday >= 0 && weekday <= 6 && from && to && HHMM.test(from) && HHMM.test(to)
+        ? [{ weekday, start_time: from, end_time: to }]
+        : [];
+    }),
+    time_off: list(c.time_off).flatMap((t) => {
+      const from = str(t.starts_at);
+      const to = str(t.ends_at);
+      return from && to ? [{ starts_at: from, ends_at: to }] : [];
+    }),
+    busy: list(c.busy).flatMap((b) => {
+      const from = str(b.start_at);
+      const to = str(b.end_at);
+      return from && to
+        ? [{ lesson_id: str(b.lesson_id), here: flag(b.here), start_at: from, end_at: to }]
+        : [];
+    }),
+  };
+}
+
+export function readCoachSchedule(raw: unknown): CoachSchedule {
+  const s = obj(raw) ?? {};
+  return {
+    timezone: str(s.timezone),
+    server_now: str(s.server_now),
+    coaches: list(s.coaches).flatMap((c) => {
+      const coach = readScheduleCoach(c);
+      return coach ? [coach] : [];
+    }),
+  };
+}

@@ -7011,4 +7011,11 @@ export const matrix: MatrixRule[] = [
     note: '0355: no client write grant: app.shop_reward_sweep (service role) only',
     drop: 38,
   },
+  {
+    kind: 'rpc', schema: 'app', name: 'desk_coach_schedule',
+    args: { p_venue_id: VENUE_A, p_from: TS_FROM, p_to: TS_TO },
+    expect: DESK_UP,
+    note: "0356: the court desk's Coaches tab (hours, time off, busy); a window over 7 days is INVALID_ARGUMENT past the guard",
+    drop: 38,
+  },
 ];

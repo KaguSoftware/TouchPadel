@@ -249,6 +249,7 @@ export const shellEn = {
     lessonTypes: 'Lessons & prices',
     coachHours: 'Coach hours',
     lessonRules: 'Lesson rules',
+    coachSchedules: 'Schedules',
     bookingRules: 'Booking rules',
     onlineDeposit: 'Online deposit',
     openMatches: 'Open matches',

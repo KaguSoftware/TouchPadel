@@ -19,6 +19,7 @@ const CustomerSearch = lazyRouteComponent(() => import('../../features/desk/cust
 const CustomerCreate = lazyRouteComponent(() => import('../../features/desk/customers/CustomerCreate'), 'CustomerCreateScreen');
 const CustomerRecord = lazyRouteComponent(() => import('../../features/desk/customers/CustomerRecord'), 'CustomerRecordScreen');
 const MatchDetail = lazyRouteComponent(() => import('../../features/matches/MatchDetail'), 'MatchDetailScreen');
+const CoachesBoard = lazyRouteComponent(() => import('../../features/coaching/CoachesBoard'), 'CoachesBoardScreen');
 const LessonDetail = lazyRouteComponent(() => import('../../features/coaching/LessonDetail'), 'LessonDetailScreen');
 const TournamentsList = lazyRouteComponent(() => import('../../features/tournaments/TournamentsList'), 'TournamentsListScreen');
 const TournamentDetail = lazyRouteComponent(() => import('../../features/tournaments/TournamentDetail'), 'TournamentDetailScreen');
@@ -264,6 +265,9 @@ export const customerRecordRoute = createRoute({
 export const deskChildren = [
   deskIndexRoute,
   child('today', '/desk', TodaysBoard),
+  // The Coaches tab (0356). No ROUTE_ROLES key: it inherits `/desk` by longest
+  // prefix, as `/desk/block` does, so blocking the court desk blocks it too.
+  child('coaches', '/desk', CoachesBoard),
   bookingDetailRoute,
   courtBlockRoute,
   child('series/new', '/desk', SeriesCreate),

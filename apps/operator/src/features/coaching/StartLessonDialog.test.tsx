@@ -219,6 +219,17 @@ describe('StartLessonDialog — kinds, types and coaches', () => {
     );
   });
 
+  it('opens on the coach and type picked on the Coaches tab, the kind following the type', () => {
+    const lina: DeskCoach = { ...sara, coach_id: 'lina', display_name_en: 'Coach Lina', display_name_ar: 'المدرّبة لينا' };
+    open({ coachId: 'lina', lessonTypeId: 'g90', lessons: envelope({ coaches: [sara, lina] }) });
+    const kinds = screen.getByRole('group', { name: 'Kind' });
+    expect(
+      within(kinds).getByRole('button', { name: 'Group session' }).getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(screen.getByRole('combobox', { name: 'Lesson type' }).textContent).toContain('Group 90 min');
+    expect(screen.getByRole('combobox', { name: 'Coach' }).textContent).toContain('Coach Lina');
+  });
+
   it('says so when nothing is on sale, and Create stays off', () => {
     open({ lessons: envelope({ lesson_types: [] }) });
     expect(screen.getByText('No lesson type is on sale at this branch yet.')).toBeTruthy();

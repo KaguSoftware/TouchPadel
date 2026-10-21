@@ -173,6 +173,8 @@ export const QK = {
     admin: (branchId: string | null) => ['coaching', 'admin', branchId ?? ''] as const satisfies QueryKey,
     /** app.coaching_settings for the branch in scope: Venue details. */
     settings: (branchId: string | null) => ['coaching', 'settings', branchId ?? ''] as const satisfies QueryKey,
+    /** app.desk_coach_schedule (0356): the Coaches tab's night, under the desk root so a booking refreshes it. */
+    schedule: (fromIso: string, toIso: string) => ['coaching', 'desk', 'schedule', fromIso, toIso] as const satisfies QueryKey,
     /** app.coach_slots: one coach, one lesson type, one local day. */
     slots: (coachId: string, typeId: string, fromIso: string, toIso: string) =>
       ['coaching', 'slots', coachId, typeId, fromIso, toIso] as const satisfies QueryKey,

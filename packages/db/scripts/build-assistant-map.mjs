@@ -595,6 +595,8 @@ const LABEL_ROUTE_HINTS = {
   // Financial's; lesson refunds and online payments wait on the manager's Today.
   coachesAdmin: '/admin/coaches', lessonTypes: '/admin/coaches', coachHours: '/admin/coaches', coachPay: '/reports/coaches',
   lessonRefunds: '/ops', deposits: '/ops',
+  // The court desk's Coaches tab (0356): each coach's day and their free times.
+  deskCoaches: '/desk/coaches',
 };
 const CATALOG_FILE_ROUTE = { cashier: '/till', courtDesk: '/desk', prep: '/kds', manager: '/ops', owner: '/panel', reports: '/reports', analytics: '/analytics', team: '/tasks', matches: '/desk', shell: null, kit: null };
 // Lane fragments spread into another ws catalog (ws/index.ts mounts only the assembly): file → mount.

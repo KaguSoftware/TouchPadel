@@ -1818,6 +1818,10 @@ export type Database = {
         Args: { p_match_id: string; p_reason: string }
         Returns: Json
       }
+      desk_coach_schedule: {
+        Args: { p_from: string; p_to: string; p_venue_id: string }
+        Returns: Json
+      }
       desk_create_course: {
         Args: {
           p_coach_id: string

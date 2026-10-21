@@ -526,6 +526,7 @@
     "desk_cancel_enrolment": "map:action",
     "desk_cancel_lesson": "map:action",
     "desk_cancel_match": "map:action",
+    "desk_coach_schedule": "map:action",
     "desk_create_course": "map:action",
     "desk_create_group": "map:action",
     "desk_lesson_detail": "map:action",
