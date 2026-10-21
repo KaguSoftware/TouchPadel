@@ -321,7 +321,7 @@ test.describe('operator cafe admin', () => {
     // chosen preset is the chip that is on when it opens.
     await page.reload();
     await expect(page).toHaveURL(/range=7d/);
-    await page.getByRole('button', { name: 'Period' }).click();
+    await page.getByRole('button', { name: 'Period', exact: true }).click();
     await expect(page.getByRole('button', { name: '7 days', pressed: true })).toBeVisible();
     await page.keyboard.press('Escape');
   });

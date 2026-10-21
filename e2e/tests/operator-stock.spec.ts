@@ -125,7 +125,9 @@ test.describe('operator stock (module 5)', () => {
 
     await page.goto(`${OPERATOR_URL}/stock`);
     const row = page.locator('tr').filter({ hasText: ING });
-    await expect(row.getByText('400 g', { exact: true })).toBeVisible();
+    // On hand and its unit are their own columns ("400" | "g").
+    await expect(row.getByRole('cell', { name: '400', exact: true })).toBeVisible();
+    await expect(row.getByRole('cell', { name: 'g', exact: true })).toBeVisible();
     await row.getByRole('button', { name: 'History' }).click();
     // The history names the movement in words; goods_in reads "Delivery".
     const history = page.getByRole('dialog', { name: `History: ${ING}` });
