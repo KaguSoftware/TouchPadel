@@ -160,6 +160,20 @@ describe.skipIf(!up)('0331 legacy reports', () => {
     expect(cut.kpis.revenue_iqd as number).toBeGreaterThanOrEqual(14267750);
   });
 
+  it('0355: each counted report carries its own summary figures, null where it has none', async () => {
+    const all = await courts('2026-06-01', '2026-09-30');
+    const months = all.history.included as { from: string; bookings: number | null; cancellations: number | null; noShows: number | null; lessons: number | null; revenue: number | null }[];
+    expect(months.map((m) => [m.from, m.bookings, m.cancellations, m.noShows, m.lessons, m.revenue])).toEqual([
+      ['2026-06-01', 285, null, null, 64, null],
+      ['2026-07-01', 263, 45, null, 82, 9180500],
+      ['2026-08-01', 203, 105, null, 85, 5087250],
+      ['2026-09-01', 242, null, 61, 81, null],
+    ]);
+    // The panel passes the same object through.
+    const { d } = await panel('2026-08-01', '2026-08-31');
+    expect(d.history.period.included).toEqual([expect.objectContaining({ from: '2026-08-01', bookings: 203, cancellations: 105 })]);
+  });
+
   it('0349 courts: one court picked, the reports (which name no court) stay out', async () => {
     const { data } = await svc.from('courts').select('id').eq('venue_id', VENUE_A_ID).limit(1);
     const one = await courts('2026-08-01', '2026-08-31', data![0]!.id as string);

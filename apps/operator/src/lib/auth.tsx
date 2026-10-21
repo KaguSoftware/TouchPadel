@@ -581,10 +581,12 @@ export const CAPABILITY_ROLES = {
   payOnOthersShift: ['manager', 'owner'],
   /**
    * Quit and Exit forced full screen on a locked station with no manager PIN
-   * (owner call, 2026-09-27). Main confirms the role with the server itself
+   * (owner call, 2026-09-27). Marketing too (owner call, 2026-10-21): an
+   * outside agency on its own machine, whose window main does not keep in
+   * kiosk at all. Main confirms the role with the server itself
    * (operator-shell main/owner-exit.ts) and asks for the PIN when it cannot.
    */
-  leaveStationWithoutPin: ['owner'],
+  leaveStationWithoutPin: ['owner', 'marketing'],
 
   // Open matches (docs/design/open-matches/operator.md §5.3, R1). Screen-level
   // buttons only: a row's own buttons follow the `can` objects of

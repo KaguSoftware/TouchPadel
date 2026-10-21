@@ -5,7 +5,8 @@
  * reports it counted and which the range cut (`history`); this turns that into
  * the notice lines both screens show, so the owner always knows when a figure
  * includes a report, when its money is the report's own approximation, and
- * why a report month is missing.
+ * why a report month is missing. Since 0355 each counted month also carries
+ * its own bookings and money, which the Courts lines draw by month.
  */
 import { formatMonthYear, type Locale, type MessageKey, type TParams } from '@touch/i18n';
 
@@ -19,6 +20,9 @@ export interface LegacyMonth {
   from: string;
   to: string;
   revenueApproximate: boolean;
+  /** The report's own figures (0355), null where it has none or the server predates 0355. */
+  bookings: number | null;
+  revenue: number | null;
 }
 
 export interface LegacyHistory {
@@ -28,11 +32,17 @@ export interface LegacyHistory {
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
+/** jsonb bigint arrives as a number; a string number is read too, anything else is unknown. */
+function count(v: unknown): number | null {
+  const n = typeof v === 'string' ? Number(v) : v;
+  return typeof n === 'number' && Number.isFinite(n) ? n : null;
+}
+
 function months(v: unknown): LegacyMonth[] {
   if (!Array.isArray(v)) return [];
   return v.filter(isObj).flatMap((m) =>
     typeof m.from === 'string' && typeof m.to === 'string'
-      ? [{ from: m.from, to: m.to, revenueApproximate: m.revenueApproximate === true }]
+      ? [{ from: m.from, to: m.to, revenueApproximate: m.revenueApproximate === true, bookings: count(m.bookings), revenue: count(m.revenue) }]
       : [],
   );
 }

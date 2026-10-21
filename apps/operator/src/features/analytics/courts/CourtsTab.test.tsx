@@ -158,6 +158,12 @@ describe('CourtsTab', () => {
     const venueRow = within(pulse).getByText('Venue revenue').closest('li')!;
     expect(within(venueRow).getByText('1,500,000 IQD', { selector: 'strong' })).toBeTruthy();
     expect(within(venueRow).getByText(/^0 cafe · 1\.5M padel$/i)).toBeTruthy();
+    // The ring has two parts (Majed 2026-10-21): padel, court bookings and the shop as one income, and the cafe.
+    const mix = screen.getByTestId('analytics-mix');
+    expect(within(mix).getByText('Padel')).toBeTruthy();
+    expect(within(mix).getByText('Cafe')).toBeTruthy();
+    expect(within(mix).queryByText('Touch Shop')).toBeNull();
+    expect(within(mix).queryByText('Court bookings')).toBeNull();
 
     // The shop section leads with its answer and its two lead figures.
     const shopZone = screen.getByRole('region', { name: 'Touch Shop' });

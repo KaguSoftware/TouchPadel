@@ -15,11 +15,11 @@ import { TrendArea } from './TrendArea';
 
 export const TREND_SYNC_ID = 'cafeTrend';
 
-export function SalesTrendChart({ rows, f }: { rows: readonly TrendDay[]; f: Formatters }) {
+export function SalesTrendChart({ rows, f, label = f.date }: { rows: readonly TrendDay[]; f: Formatters; label?: (iso: string) => string }) {
   const { tr } = useLocale();
   return (
     <TrendArea
-      rows={rows.map((r) => ({ label: f.date(r.date), value: r.revenue }))}
+      rows={rows.map((r) => ({ label: label(r.date), value: r.revenue }))}
       format={(n) => f.compact(n)}
       tooltipFormat={(n) => f.money(n)}
       name={tr('analytics.cards.revenue')}

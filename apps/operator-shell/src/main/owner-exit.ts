@@ -1,7 +1,11 @@
 import type { AuthState } from '../ipc-channels';
 
 /**
- * The owner leaves a locked station without a PIN (owner call, 2026-09-27).
+ * The owner leaves a locked station without a PIN (owner call, 2026-09-27),
+ * and so does marketing (owner call, 2026-10-21): an outside agency using the
+ * system to talk to the club, on its own machine, not staff kept at a till.
+ * Marketing goes further: its window is never held in kiosk at all
+ * (runsUnlocked; main/index.ts releases it on sign-in).
  *
  * Quit and Exit forced full screen otherwise take a manager's PIN that is not
  * the signed-in person's own (pin-cache.ts mayLeave). That rule exists to keep
@@ -16,7 +20,7 @@ import type { AuthState } from '../ipc-channels';
  * paired with the owner's id is refused before any request. A forged token
  * fails at the server.
  *
- * The answer is kept for the current session only (verifiedOwner), learnt on
+ * The answer is kept for the current session only (verified), learnt on
  * every auth push, so an owner signed in while online can still leave after
  * the connection drops. Anyone else, or an owner main could not confirm, is
  * back to the manager PIN.
@@ -24,7 +28,13 @@ import type { AuthState } from '../ipc-channels';
 
 const LOOKUP_TIMEOUT_MS = 4000;
 
-let verifiedOwner: string | null = null;
+/** Roles that leave without a PIN. */
+const FREE_ROLES: readonly string[] = ['owner', 'marketing'];
+/** Of those, the ones whose window is not kept in kiosk while they are signed in. */
+const UNLOCKED_ROLES: readonly string[] = ['marketing'];
+
+/** The person this session was confirmed as, and their role. */
+let verified: { staffId: string; role: string } | null = null;
 let generation = 0;
 
 /** The `sub` claim of a Supabase access token, unverified: the server verifies it. */
@@ -41,11 +51,15 @@ export function tokenSubject(accessToken: string): string | null {
   }
 }
 
-/** The server's answer: is this session's user an active owner? Null when it could not be asked. */
-export async function lookupOwner(
+/**
+ * The server's answer: the role of this session's user when it is an active
+ * one that leaves without a PIN, false when it is not, null when it could not
+ * be asked.
+ */
+export async function lookupFreeRole(
   auth: AuthState,
   fetchImpl: typeof fetch = fetch,
-): Promise<boolean | null> {
+): Promise<string | false | null> {
   if (tokenSubject(auth.accessToken) !== auth.staffId) return false;
   try {
     const res = await fetchImpl(
@@ -60,10 +74,20 @@ export async function lookupOwner(
     if (!res.ok) return null;
     const rows = (await res.json()) as { role?: unknown; is_active?: unknown }[];
     const row = Array.isArray(rows) ? rows[0] : undefined;
-    return row?.role === 'owner' && row.is_active === true;
+    if (row?.is_active !== true || typeof row.role !== 'string') return false;
+    return FREE_ROLES.includes(row.role) ? row.role : false;
   } catch {
     return null;
   }
+}
+
+/** lookupFreeRole as a yes/no: may this session's user leave without a PIN? */
+export async function lookupOwner(
+  auth: AuthState,
+  fetchImpl: typeof fetch = fetch,
+): Promise<boolean | null> {
+  const role = await lookupFreeRole(auth, fetchImpl);
+  return role === null ? null : role !== false;
 }
 
 /**
@@ -75,13 +99,13 @@ export function learnSession(
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
   const gen = ++generation;
-  if (verifiedOwner !== (auth?.staffId ?? null)) verifiedOwner = null;
+  if (verified?.staffId !== (auth?.staffId ?? null)) verified = null;
   if (!auth) return Promise.resolve();
-  return lookupOwner(auth, fetchImpl).then((owner) => {
+  return lookupFreeRole(auth, fetchImpl).then((role) => {
     // A later push won the race: its own lookup decides.
     if (gen !== generation) return;
-    if (owner === true) verifiedOwner = auth.staffId;
-    else if (owner === false) verifiedOwner = null;
+    if (typeof role === 'string') verified = { staffId: auth.staffId, role };
+    else if (role === false) verified = null;
     // null (offline): keep what an earlier push of the same person learnt.
   });
 }
@@ -92,14 +116,19 @@ export async function ownerMayLeave(
   fetchImpl: typeof fetch = fetch,
 ): Promise<boolean> {
   if (!auth) return false;
-  if (verifiedOwner === auth.staffId) return true;
-  const owner = await lookupOwner(auth, fetchImpl);
-  if (owner === true) verifiedOwner = auth.staffId;
-  return owner === true;
+  if (verified?.staffId === auth.staffId) return true;
+  const role = await lookupFreeRole(auth, fetchImpl);
+  if (typeof role === 'string') verified = { staffId: auth.staffId, role };
+  return typeof role === 'string';
+}
+
+/** Is the signed-in person one whose window is not kept in kiosk? Only what learnSession confirmed counts. */
+export function runsUnlocked(auth: AuthState | null): boolean {
+  return !!auth && verified?.staffId === auth.staffId && UNLOCKED_ROLES.includes(verified.role);
 }
 
 /** Tests only. */
 export function resetOwnerExit(): void {
-  verifiedOwner = null;
+  verified = null;
   generation = 0;
 }

@@ -32,6 +32,22 @@ describe('pre-system monthly reports in the figures (0349)', () => {
     expect(text(n[0]!)).toMatch(/^August 2026: .*whole month/);
   });
 
+  it('keeps each month\'s own bookings and money (0355), unknown as null', () => {
+    const h = parseLegacyHistory({
+      included: [
+        { from: '2026-08-01', to: '2026-08-31', bookings: 203, revenue: 5087250, revenueApproximate: true },
+        { from: '2026-09-01', to: '2026-09-30', bookings: '242', revenue: null },
+        { from: '2026-06-01', to: '2026-06-30' },
+      ],
+      partial: [],
+    });
+    expect(h?.included.map((m) => [m.bookings, m.revenue])).toEqual([
+      [203, 5087250],
+      [242, null],
+      [null, null],
+    ]);
+  });
+
   it('reads Arabic month names in Arabic', () => {
     const n = legacyNotices(parseLegacyHistory({ included: [{ from: '2026-06-01', to: '2026-06-30' }], partial: [] }), 'panel', makeT('ar'), 'ar');
     expect(text(n[0]!)).not.toMatch(/June/);

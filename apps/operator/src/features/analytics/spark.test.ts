@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addSeries, daySeries, fillTrendDays } from './spark';
+import { addSeries, dayLabeler, daySeries, fillTrendDays, monthSeries } from './spark';
 
 const id = (s: string) => s;
 const fmt = (n: number) => String(n);
@@ -25,6 +25,51 @@ describe('daySeries', () => {
     expect(daySeries({ from: '2026-10-01', to: '2026-10-01' }, [], () => 0, id, fmt)).toBeNull();
     expect(daySeries({ from: '2026-10-01', to: '2026-10-09' }, null, () => 0, id, fmt)).toBeNull();
     expect(daySeries({ from: '', to: '' }, [], () => 0, id, fmt)).toBeNull();
+  });
+});
+
+describe('monthSeries', () => {
+  const label = { month: (iso: string) => `M ${iso}`, days: (from: string, to: string) => `${from}..${to}` };
+
+  it('sums each month and adds its report figure; a month the range cuts is named by its days', () => {
+    const s = monthSeries(
+      { from: '2026-07-24', to: '2026-10-21' },
+      [
+        { date: '2026-07-25', n: 2 },
+        { date: '2026-09-30', n: 1 },
+        { date: '2026-10-01', n: 4 },
+        { date: '2026-10-21', n: 1 },
+        { date: '2026-10-22', n: 100 }, // past the range
+      ],
+      (r) => r.n,
+      new Map([
+        ['2026-08', 203],
+        ['2026-09', 242],
+      ]),
+      label,
+      fmt,
+    );
+    expect(s?.values).toEqual([2, 203, 243, 5]);
+    expect(s?.byMonth).toBe(true);
+    expect(s?.labels).toEqual(['2026-07-24..2026-07-31', 'M 2026-08-01', 'M 2026-09-01', '2026-10-01..2026-10-21']);
+  });
+
+  it('crosses a year, and draws no line for a single month', () => {
+    const s = monthSeries({ from: '2025-12-01', to: '2026-01-31' }, [], () => 0, new Map([['2026-01', 7]]), label, fmt);
+    expect(s?.values).toEqual([0, 7]);
+    expect(s?.labels).toEqual(['M 2025-12-01', 'M 2026-01-01']);
+    expect(monthSeries({ from: '2026-08-01', to: '2026-08-31' }, [], () => 0, new Map([['2026-08', 5]]), label, fmt)).toBeNull();
+    expect(monthSeries({ from: '2026-08-01', to: '2026-10-31' }, null, () => 0, new Map(), label, fmt)).toBeNull();
+  });
+});
+
+describe('dayLabeler', () => {
+  const date = (iso: string, withYear?: boolean) => (withYear ? `${iso.slice(5)} ${iso.slice(0, 4)}` : iso.slice(5));
+
+  it('adds the year only once the period crosses into another year', () => {
+    expect(dayLabeler({ from: '2026-03-01', to: '2026-06-23' }, date)('2026-03-01')).toBe('03-01');
+    const across = dayLabeler({ from: '2025-10-21', to: '2026-10-21' }, date);
+    expect(across('2025-10-21')).not.toBe(across('2026-10-21'));
   });
 });
 

@@ -17,8 +17,13 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0354`
-  (0354 venue_files, 2026-10-20 (Majed: a Files section for the manager and the owner, read by the
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0355`
+  (0355 legacy_report_months, 2026-10-21 (Majed: the analytics charts must show the whole picked
+  period, nothing missed): **0355 holds `app.legacy_report_totals`** (0349 is no longer the latest:
+  each `included` report gains its own summary bookings, cancellations, noShows and lessons, null
+  where it has none, so Analytics › Courts draws a range holding a report month by month);
+  `tests/legacy-reports.test.ts`;
+  0354 venue_files, 2026-10-20 (Majed: a Files section for the manager and the owner, read by the
   assistant, every file compressed before it touches the database): table `venue_files` (metadata
   only, no client grant), the private `venue-files` bucket (gzip and WebP only, 50 MB an object, a
   2 GB compressed quota per branch), the minted-path flow `venue_file_begin` → upload →

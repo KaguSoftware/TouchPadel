@@ -23,7 +23,7 @@ import { startUpdater, updaterPendingFile, type UpdaterHandle } from './updater'
 import { startHeartbeat } from './heartbeat';
 import { getAuthState, setAuthState } from './auth-state';
 import { mayLeave, observePin, unlockPinOffline } from './pin-cache';
-import { learnSession, ownerMayLeave } from './owner-exit';
+import { learnSession, ownerMayLeave, runsUnlocked } from './owner-exit';
 import { printReceiptHtml } from './print/print-receipt';
 import { fetchSupplierPage } from './supplier-fetch';
 import { startSyncWorker, type SyncWorker } from './sync-worker';
@@ -215,6 +215,47 @@ function lockWindow(win: BrowserWindow): void {
   win.setAutoHideMenuBar(true);
   win.setMenuBarVisibility(false);
   if (!win.isKiosk()) win.setKiosk(true);
+}
+
+/**
+ * Let a window out of the lock: kiosk off, closable, minimisable, windowed.
+ * Exit forced full screen does this after its PIN check, and a marketing
+ * sign-in does it with none (owner-exit.ts runsUnlocked). It lasts until the
+ * signed-in person changes (touch:auth-state puts it back via lockWindow).
+ */
+function releaseWindow(win: BrowserWindow): void {
+  released.add(win);
+  win.setMinimizable(true);
+  // Order matters: kiosk off first, because on macOS leaving kiosk is
+  // itself a fullscreen transition and setFullScreen(false) before it
+  // gets undone. setSimpleFullScreen covers the macOS-only variant.
+  if (win.isKiosk()) win.setKiosk(false);
+  if (win.isFullScreen()) win.setFullScreen(false);
+  if (process.platform === 'darwin' && win.isSimpleFullScreen()) {
+    win.setSimpleFullScreen(false);
+  }
+  win.setClosable(true);
+  win.setMenuBarVisibility(true);
+  win.setAutoHideMenuBar(false);
+  win.setAlwaysOnTop(false);
+  // Production windows are built frameless (`frame: relaxed`), and
+  // Electron cannot grow a titlebar after creation — so dropping kiosk
+  // alone would leave an undecorated sheet still covering the screen,
+  // which reads as "nothing happened". Shrink it to a windowed size and
+  // centre it: that, not the titlebar, is what tells the operator they
+  // are out, and the desktop behind it becomes reachable either way.
+  if (win.isMaximized()) win.unmaximize();
+  const { width, height } = screen.getDisplayMatching(win.getBounds()).workAreaSize;
+  win.setBounds(
+    {
+      width: Math.round(width * 0.9),
+      height: Math.round(height * 0.9),
+      x: Math.round(width * 0.05),
+      y: Math.round(height * 0.05),
+    },
+    true,
+  );
+  win.setMovable(true);
 }
 
 function createWindow(): BrowserWindow {
@@ -504,9 +545,6 @@ if (gotTheLock) {
       guardIpc('authState', () => {
         const next = validateAuthState(s);
         setAuthState(next);
-        // Whether this session is the owner's, who leaves without a PIN
-        // (owner-exit.ts). Learnt now, while the station is most likely online.
-        void learnSession(next);
         // A released station goes back in when the person changes: the next
         // shift is not let out because a manager let the last one out and
         // forgot. A token refresh is the same person, so it changes nothing.
@@ -517,6 +555,15 @@ if (gotTheLock) {
           lastStaff.set(win, staffId);
           if (changed && released.has(win) && stationLocked) lockWindow(win);
         }
+        // Whether this session is the owner's or marketing's, who leave
+        // without a PIN (owner-exit.ts). Learnt now, while the station is
+        // most likely online. Marketing is not kept in kiosk at all: once the
+        // server confirms the role, the window is let out with no PIN asked.
+        void learnSession(next).then(() => {
+          if (!stationLocked || !win || win.isDestroyed() || released.has(win)) return;
+          if (getAuthState()?.staffId !== next?.staffId || !runsUnlocked(next)) return;
+          releaseWindow(win);
+        });
         return null;
       });
     });
@@ -735,38 +782,7 @@ if (gotTheLock) {
         return leaveCheck(pin).then((refusal) => {
           if (refusal) return { ok: false as const, error: refusal };
           if (win.isDestroyed()) return { ok: false as const, error: 'no-window' as const };
-          released.add(win);
-          win.setMinimizable(true);
-          // Order matters: kiosk off first, because on macOS leaving kiosk is
-          // itself a fullscreen transition and setFullScreen(false) before it
-          // gets undone. setSimpleFullScreen covers the macOS-only variant.
-          if (win.isKiosk()) win.setKiosk(false);
-          if (win.isFullScreen()) win.setFullScreen(false);
-          if (process.platform === 'darwin' && win.isSimpleFullScreen()) {
-            win.setSimpleFullScreen(false);
-          }
-          win.setClosable(true);
-          win.setMenuBarVisibility(true);
-          win.setAutoHideMenuBar(false);
-          win.setAlwaysOnTop(false);
-          // Production windows are built frameless (`frame: relaxed`), and
-          // Electron cannot grow a titlebar after creation — so dropping kiosk
-          // alone would leave an undecorated sheet still covering the screen,
-          // which reads as "nothing happened". Shrink it to a windowed size and
-          // centre it: that, not the titlebar, is what tells the operator they
-          // are out, and the desktop behind it becomes reachable either way.
-          if (win.isMaximized()) win.unmaximize();
-          const { width, height } = screen.getDisplayMatching(win.getBounds()).workAreaSize;
-          win.setBounds(
-            {
-              width: Math.round(width * 0.9),
-              height: Math.round(height * 0.9),
-              x: Math.round(width * 0.05),
-              y: Math.round(height * 0.05),
-            },
-            true,
-          );
-          win.setMovable(true);
+          releaseWindow(win);
           return { ok: true as const };
         });
       }),

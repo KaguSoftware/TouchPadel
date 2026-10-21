@@ -1,10 +1,10 @@
 /**
  * "Where the money came from": the whole venue's revenue for the period as
- * one ring, court bookings, the Touch Shop and the cafe, in a Breakdown card
- * beside the summary's figure cards. Both tabs show it with the same three
- * colours (court fee blue, cafe rust, as the cross-section's stacked bars
- * already use them, and the shop the trio's third), so a part keeps its
- * colour across the page.
+ * one ring in two parts, padel (court bookings and the Touch Shop, one income
+ * since Majed 2026-10-21) and the cafe, in a Breakdown card beside the
+ * summary's figure cards. Both tabs show it with the same two colours (padel
+ * blue, cafe rust, as the cross-section's stacked bars already use them), so a
+ * part keeps its colour across the page.
  *
  * It sits in the frame's card row but holds a picture rather than rows: its
  * band takes the row's first shared track (so every band is one height) and
@@ -23,14 +23,13 @@ import type { VenueRevenue } from '../useVenueRevenue';
 
 export function MixCard({ venue, tone, f, alone }: { venue: VenueRevenue; tone: BreakdownTone; f: Formatters; alone?: boolean }) {
   const { tr } = useLocale();
-  const { RING_1, RING_2, RING_3 } = useChartColors();
+  const { RING_1, RING_2 } = useChartColors();
   const v = venue.current;
   const title = tr('ws.analytics.viz.mix.title');
   const slices = v
     ? [
-        { key: 'courts', label: tr('ws.analytics.viz.mix.courts'), value: v.courtsIqd, color: RING_1 },
+        { key: 'padel', label: tr('ws.analytics.viz.mix.padel'), value: v.padelIqd, color: RING_1 },
         { key: 'cafe', label: tr('ws.analytics.viz.mix.cafe'), value: v.cafeIqd, color: RING_2 },
-        { key: 'shop', label: tr('ws.analytics.viz.mix.shop'), value: v.shopIqd, color: RING_3 },
       ]
     : [];
   return (

@@ -158,7 +158,7 @@ export function Kpi({ label, value, delta, kind, invert, neutral, previous, note
           {live && aside}
         </span>
       )}
-      {live && spark && <Sparkline series={spark} label={tr('ws.analytics.viz.byDay', { figure: label })} />}
+      {live && spark && <Sparkline series={spark} label={tr(spark.byMonth ? 'ws.analytics.viz.byMonth' : 'ws.analytics.viz.byDay', { figure: label })} />}
       {live && <ChangeLine change={change} previous={previous} />}
       {live && note && <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{note}</span>}
       {live && drills && drills.length > 0 && (

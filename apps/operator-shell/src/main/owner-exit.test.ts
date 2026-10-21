@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { AuthState } from '../ipc-channels';
-import { learnSession, lookupOwner, ownerMayLeave, resetOwnerExit, tokenSubject } from './owner-exit';
+import { learnSession, lookupOwner, ownerMayLeave, resetOwnerExit, runsUnlocked, tokenSubject } from './owner-exit';
 
 const OWNER = '11111111-1111-4111-8111-111111111111';
 const MANAGER = '22222222-2222-4222-8222-222222222222';
+const MARKETING = '33333333-3333-4333-8333-333333333333';
 
 function token(sub: string): string {
   const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -75,5 +76,26 @@ describe('owner leaves a locked station without a PIN', () => {
     await learnSession(auth(OWNER), server([{ role: 'owner', is_active: true }]).impl);
     await learnSession(auth(OWNER), server(401).impl);
     expect(await ownerMayLeave(auth(OWNER), server('offline').impl)).toBe(false);
+  });
+
+  it('lets marketing out too, and keeps only its window out of kiosk', async () => {
+    expect(await lookupOwner(auth(MARKETING), server([{ role: 'marketing', is_active: true }]).impl)).toBe(true);
+    expect(await lookupOwner(auth(MARKETING), server([{ role: 'marketing', is_active: false }]).impl)).toBe(false);
+
+    await learnSession(auth(MARKETING), server([{ role: 'marketing', is_active: true }]).impl);
+    expect(runsUnlocked(auth(MARKETING))).toBe(true);
+    expect(await ownerMayLeave(auth(MARKETING), server('offline').impl)).toBe(true);
+
+    await learnSession(auth(OWNER), server([{ role: 'owner', is_active: true }]).impl);
+    expect(runsUnlocked(auth(OWNER))).toBe(false);
+    expect(runsUnlocked(auth(MARKETING))).toBe(false);
+  });
+
+  it('never runs unlocked on an unconfirmed session', async () => {
+    await learnSession(auth(MARKETING), server('offline').impl);
+    expect(runsUnlocked(auth(MARKETING))).toBe(false);
+    await learnSession(auth(MARKETING, MANAGER), server([{ role: 'marketing', is_active: true }]).impl);
+    expect(runsUnlocked(auth(MARKETING, MANAGER))).toBe(false);
+    expect(runsUnlocked(null)).toBe(false);
   });
 });

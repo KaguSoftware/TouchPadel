@@ -20,7 +20,7 @@ import { CountBars } from '../../charts/CountBars';
 import { Donut, RingMeter } from '../../charts/Donut';
 import { TrendArea } from '../../charts/TrendArea';
 import { useChartColors } from '../../charts/colors';
-import { daySeries } from '../../spark';
+import { dayLabeler, daySeries } from '../../spark';
 import { barTwin } from '../../charts/twins';
 import { MoreCharts, ZoneGrid, gridColumns } from '../../Zone';
 import type { Formatters } from '../../format';
@@ -58,7 +58,9 @@ export function ShopSection({
   }
 
   const days = fillShopDays(range.from, range.to, shop.current?.byDay ?? []);
-  const dayRows = days.map((d) => ({ label: f.date(d.date), value: d.netIqd }));
+  // The year joins a day's label once the period crosses into another year.
+  const dayLabel = dayLabeler(range, f.date);
+  const dayRows = days.map((d) => ({ label: dayLabel(d.date), value: d.netIqd }));
   const hourRows = (shop.current?.byHour ?? []).map((h) => ({ label: f.hour(h.hour), value: h.netIqd }));
   // The server sorts sections by revenue. The ring shows the first three and folds the rest into
   // "Other" (dataviz: no more than four parts, a fourth hue is never generated); the table twin keeps every section.
@@ -69,7 +71,7 @@ export function ShopSection({
     ...sectionRows.slice(0, 3).map((r, i) => ({ key: r.key, label: r.label, value: r.value, color: SECTION_COLORS[i]! })),
     ...(rest > 0 ? [{ key: 'other', label: tr('ws.analytics.viz.other'), value: rest, color: RING_MUTED }] : []),
   ];
-  const salesSpark = daySeries(range, shop.current?.byDay, (d) => d.netIqd, (d) => f.date(d), f.compact);
+  const salesSpark = daySeries(range, shop.current?.byDay, (d) => d.netIqd, dayLabel, f.compact);
   const items = (shop.current?.items ?? []).slice(0, TOP_PRODUCTS);
   const productName = (i: ShopItem) => {
     const name = pickLocale({ en: i.nameEn, ar: i.nameAr }, locale) || i.itemId;

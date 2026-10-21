@@ -94,8 +94,9 @@ describe('deriveCourts: comparison', () => {
     const cur = parseCourtsSummary({ ...summaryJson, kpis: { ...(summaryJson.kpis as object), occupancy_pct: null, rev_per_open_hour_iqd: null } });
     const d = deriveCourts(raw({ summary: cur }), copy);
     expect(d.deltas.occupancy).toEqual({ delta: null, current: null, previous: 25.5 });
-    // Money with no current figure compares from 0 (a count), with the previous kept.
-    expect(d.deltas.revPerOpenHour).toEqual({ delta: pctDelta(0, 5102), current: 0, previous: 5102 });
+    // A per-hour figure with no current value is unknown (no hours, or a report month in): the
+    // tile prints "—", so there is no change either, never "−100%"; the previous is kept.
+    expect(d.deltas.revPerOpenHour).toEqual({ delta: null, current: null, previous: 5102 });
   });
 });
 

@@ -13,19 +13,25 @@
  */
 import { useState, type PointerEvent } from 'react';
 import { nearestIndex, sparkPaths, sparkPoints } from './geometry';
+import { useLocale } from '../../../lib/i18n';
 import { useChartColors } from './colors';
 
 const W = 240;
 
 export interface SparkSeries {
   values: readonly number[];
-  /** One per value: the day it is ("Tue 14 Oct"). */
+  /** One per value: the day it is ("Tue 14 Oct"), or the month on a by-month line. */
   labels: readonly string[];
   format: (n: number) => string;
+  /** A point is a month, not a day (monthSeries). */
+  byMonth?: boolean;
 }
 
 export function Sparkline({ series, height = 36, label }: { series: SparkSeries; height?: number; label: string }) {
   const { SERIES_1, SURFACE } = useChartColors();
+  // The box is dir=ltr (time runs left to right); the reading goes to the corner
+  // away from the tile's figure, which sits at the page's start side.
+  const { dir } = useLocale();
   const [at, setAt] = useState<number | null>(null);
   const points = sparkPoints(series.values, W, height);
   if (points.length < 2) return null;
@@ -75,7 +81,7 @@ export function Sparkline({ series, height = 36, label }: { series: SparkSeries;
           style={{
             position: 'absolute',
             insetBlockEnd: '100%',
-            insetInlineEnd: 0,
+            ...(dir === 'rtl' ? { insetInlineStart: 0 } : { insetInlineEnd: 0 }),
             marginBlockEnd: 2,
             fontSize: 'var(--tp-fs-xs)',
             fontWeight: 600,

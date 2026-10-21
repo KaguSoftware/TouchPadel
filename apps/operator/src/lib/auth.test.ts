@@ -233,6 +233,8 @@ describe('capability matrix', () => {
   const SHARED: Partial<Record<Capability, readonly StaffRole[]>> = {
     startProtocolRelease: ['head_barista', 'head_chef', 'manager', 'owner'],
     startProtocolPriceChange: ['marketing', 'manager', 'owner'],
+    // Owner and marketing leave a locked station without a PIN (owner-exit.ts).
+    leaveStationWithoutPin: ['owner', 'marketing'],
     startProtocolTournament: ['court_desk', 'manager', 'owner'],
     reviewIdeas: ['head_barista', 'head_chef', 'manager', 'owner'],
     writeTeachings: ['head_barista', 'head_chef', 'manager', 'owner'],
@@ -493,8 +495,9 @@ describe('capability matrix', () => {
     }
   });
 
-  it('lets only the owner leave a locked station without a manager PIN', () => {
+  it('lets only the owner and marketing leave a locked station without a manager PIN', () => {
     expect(can('owner', 'leaveStationWithoutPin')).toBe(true);
+    expect(can('marketing', 'leaveStationWithoutPin')).toBe(true);
     for (const role of ['manager', 'cashier', 'court_desk', 'barista', 'chef'] as const) {
       expect(can(role, 'leaveStationWithoutPin'), role).toBe(false);
     }

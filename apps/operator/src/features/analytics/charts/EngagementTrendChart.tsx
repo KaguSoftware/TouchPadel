@@ -17,10 +17,10 @@ import { TREND_SYNC_ID } from './SalesTrendChart';
 /** A day the period has no row for carries nulls: the lines break there (see fillTrendDays). */
 export type TrendDay = Omit<SalesVsEngagementDay, 'views' | 'waiterCalls'> & { views: number | null; waiterCalls: number | null };
 
-export function EngagementTrendChart({ rows, f, showViews = true }: { rows: readonly TrendDay[]; f: Formatters; showViews?: boolean }) {
+export function EngagementTrendChart({ rows, f, showViews = true, label = f.date }: { rows: readonly TrendDay[]; f: Formatters; showViews?: boolean; label?: (iso: string) => string }) {
   const { AXIS, GRID, SERIES_2, SERIES_3 } = useChartColors();
   const { tr, dir } = useLocale();
-  const data = rows.map((r) => ({ label: f.date(r.date), views: r.views, waiterCalls: r.waiterCalls }));
+  const data = rows.map((r) => ({ label: label(r.date), views: r.views, waiterCalls: r.waiterCalls }));
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} syncId={TREND_SYNC_ID} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>

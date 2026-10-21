@@ -1,5 +1,5 @@
 {
-  "generated_from": "eef7225c8eb20298d6da9674056e84ea8a8f08df",
+  "generated_from": "6926b2cbc66dc526d8dbd048fac1e630febaafc9",
   "chunks": [
     {
       "kind": "page",
@@ -17774,7 +17774,7 @@
       "ref": "label:ws.analytics.viz",
       "lang": "ar",
       "title": "ws.analytics.viz (packages/i18n/src/catalogs/ws/analytics.ar.ts)",
-      "body": "cashPct: نقد {pct}\ncardPct: بطاقة {pct}\nqrN: {n} QR\ntillN: {n} كاشير\ncashRing: النقد {cash} والبطاقة {card} من المبلغ المحصّل\nqrRing: طلبات QR: {pct} من الطلبات\nscatter.popularity: الوحدات المبيعة\nscatter.profitEach: الربح للوحدة\nscatter.hint: أشر إلى نقطة لترى الصنف\nscatter.label: {n} صنفًا موزعة حسب الوحدات المبيعة والربح للوحدة\ncancelledN: الإلغاء: {n}\nnoShowsN: عدم الحضور: {n}\nonCourt: وقت الملعب\neveryDay: {hour}، كل الأيام\nallDay: {day}، طوال اليوم\naverage: بمتوسط {value}\nbyDay: {figure} حسب اليوم\nother: أخرى\nlostRing: {pct} من الحجوزات أُلغيت أو لم يحضر أصحابها\nmeter: {label}: {pct}\nmoreNotes: عرض {n} ملاحظات أخرى\nfewerNotes: عرض ملاحظات أقل\nmix.title: من أين جاء المال\nmix.caption: إيراد المكان\nmix.courts: حجوزات الملاعب\nmix.shop: متجر تتش\nmix.cafe: الكافيه\nmix.tip: إيراد المكان كله في هذه الفترة، في ثلاثة أجزاء: حجوزات الملاعب ومتجر تتش (وهما معًا البادل)، والكافيه بعد المرتجعات. لا يضيّقه اختيار الملعب.\nmixNone: لا إيراد في هذه الفترة بعد.",
+      "body": "cashPct: نقد {pct}\ncardPct: بطاقة {pct}\nqrN: {n} QR\ntillN: {n} كاشير\ncashRing: النقد {cash} والبطاقة {card} من المبلغ المحصّل\nqrRing: طلبات QR: {pct} من الطلبات\nscatter.popularity: الوحدات المبيعة\nscatter.profitEach: الربح للوحدة\nscatter.hint: أشر إلى نقطة لترى الصنف\nscatter.label: {n} صنفًا موزعة حسب الوحدات المبيعة والربح للوحدة\ncancelledN: الإلغاء: {n}\nnoShowsN: عدم الحضور: {n}\nonCourt: وقت الملعب\neveryDay: {hour}، كل الأيام\nallDay: {day}، طوال اليوم\naverage: بمتوسط {value}\nbyDay: {figure} حسب اليوم\nbyMonth: {figure} حسب الشهر\nother: أخرى\nlostRing: {pct} من الحجوزات أُلغيت أو لم يحضر أصحابها\nmeter: {label}: {pct}\nmoreNotes: عرض {n} ملاحظات أخرى\nfewerNotes: عرض ملاحظات أقل\nmix.title: من أين جاء المال\nmix.caption: إيراد المكان\nmix.padel: البادل\nmix.cafe: الكافيه\nmix.tip: إيراد المكان كله في هذه الفترة، في جزأين: البادل (حجوزات الملاعب ومبيعات متجر تتش معًا) والكافيه، بعد المرتجعات. لا يضيّقه اختيار الملعب.\nmixNone: لا إيراد في هذه الفترة بعد.",
       "route": "/analytics"
     },
     {
@@ -17782,7 +17782,7 @@
       "ref": "label:ws.analytics.viz",
       "lang": "en",
       "title": "ws.analytics.viz (packages/i18n/src/catalogs/ws/analytics.en.ts)",
-      "body": "cashPct: Cash {pct}\ncardPct: Card {pct}\nqrN: {n} QR\ntillN: {n} café cashier\ncashRing: Cash {cash}, card {card} of the money taken\nqrRing: QR {pct} of orders\nscatter.popularity: Units sold\nscatter.profitEach: Profit each\nscatter.hint: Point at a dot for the item\nscatter.label: {n} items placed by units sold and profit each\ncancelledN: {n} cancelled\nnoShowsN: {n} no-shows\nonCourt: On court\neveryDay: {hour}, every day\nallDay: {day}, all day\naverage: {value} on average\nbyDay: {figure} by day\nother: Other\nlostRing: {pct} of bookings cancelled or not shown\nmeter: {label}: {pct}\nmoreNotes: Show {n} more notes\nfewerNotes: Show fewer notes\nmix.title: Where the money came from\nmix.caption: venue revenue\nmix.courts: Court bookings\nmix.shop: Touch Shop\nmix.cafe: Cafe\nmix.tip: The whole venue's revenue for the period, in three parts: court bookings and the Touch Shop (together, padel) and the cafe, net of refunds. The court filter does not narrow it.\nmixNone: No revenue in this period yet.",
+      "body": "cashPct: Cash {pct}\ncardPct: Card {pct}\nqrN: {n} QR\ntillN: {n} café cashier\ncashRing: Cash {cash}, card {card} of the money taken\nqrRing: QR {pct} of orders\nscatter.popularity: Units sold\nscatter.profitEach: Profit each\nscatter.hint: Point at a dot for the item\nscatter.label: {n} items placed by units sold and profit each\ncancelledN: {n} cancelled\nnoShowsN: {n} no-shows\nonCourt: On court\neveryDay: {hour}, every day\nallDay: {day}, all day\naverage: {value} on average\nbyDay: {figure} by day\nbyMonth: {figure} by month\nother: Other\nlostRing: {pct} of bookings cancelled or not shown\nmeter: {label}: {pct}\nmoreNotes: Show {n} more notes\nfewerNotes: Show fewer notes\nmix.title: Where the money came from\nmix.caption: venue revenue\nmix.padel: Padel\nmix.cafe: Cafe\nmix.tip: The whole venue's revenue for the period, in two parts: padel (court bookings and Touch Shop sales together) and the cafe, net of refunds. The court filter does not narrow it.\nmixNone: No revenue in this period yet.",
       "route": "/analytics"
     },
     {

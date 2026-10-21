@@ -170,8 +170,9 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
   for (const i of cafe.items) itemNames.set(i.itemId, { nameEn: i.nameEn, nameAr: i.nameAr });
   for (const i of cafe.topItems) if (!itemNames.has(i.itemId)) itemNames.set(i.itemId, { nameEn: i.nameEn, nameAr: i.nameAr });
 
-  const money = (cur: number, prev: number | null | undefined): KpiDelta => ({
-    delta: compareReliable && prev != null ? pctDelta(cur, prev) : null,
+  // An unknown figure (null: a per-hour figure with a report month in, 0349) has no change, never -100%.
+  const money = (cur: number | null, prev: number | null | undefined): KpiDelta => ({
+    delta: compareReliable && cur != null && prev != null ? pctDelta(cur, prev) : null,
     current: cur,
     previous: prev ?? null,
   });
@@ -186,8 +187,8 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
     bookedHours: money(k.bookedMinutes / 60, kp ? kp.bookedMinutes / 60 : null),
     occupancy: rate(k.occupancyPct, kp?.occupancyPct),
     revenue: money(k.revenueIqd, kp?.revenueIqd),
-    revPerOpenHour: money(k.revPerOpenHourIqd ?? 0, kp?.revPerOpenHourIqd),
-    pricePerBookedHour: money(k.pricePerBookedHourIqd ?? 0, kp?.pricePerBookedHourIqd),
+    revPerOpenHour: money(k.revPerOpenHourIqd, kp?.revPerOpenHourIqd),
+    pricePerBookedHour: money(k.pricePerBookedHourIqd, kp?.pricePerBookedHourIqd),
     cancellationRate: rate(k.cancellationRatePct, kp?.cancellationRatePct),
     noShowRate: rate(k.noShowRatePct, kp?.noShowRatePct),
     attachRate: rate(cafe.attach.attachPct, cafePrev?.attach.attachPct),

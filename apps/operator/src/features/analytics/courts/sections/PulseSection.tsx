@@ -12,7 +12,8 @@
  *     what an open hour earns, the cafe attach, and the whole venue's revenue.
  *
  * Each lead tile carries a picture of its figure (2026-10-19): the days of
- * the period as a line under bookings and revenue, a ring for occupancy, a
+ * the period as a line under bookings and revenue (its months, when the
+ * range holds a pre-system monthly report, 2026-10-21), a ring for occupancy, a
  * two-part ring for what was lost (cancelled, then no-show, in the losses
  * charts' colours). Beside the two figure cards, the venue's revenue as one
  * ring (MixCard).
@@ -22,6 +23,7 @@
  * losses charts and the CSV. Rates move in points, amounts in percent.
  */
 import { MIN_RATE_DENOM, pctDelta } from '@touch/core';
+import { formatMonthYear } from '@touch/i18n';
 import { useLocale } from '../../../../lib/i18n';
 import { FigureGroup, FigureLine, Kpi } from '../../cards/Kpi';
 import type { VenueRevenue } from '../../useVenueRevenue';
@@ -33,7 +35,7 @@ import { hoursText, rateText } from '../format';
 import { RingMeter, Swatch } from '../../charts/Donut';
 import { useChartColors } from '../../charts/colors';
 import { MixCard } from '../../cards/MixCard';
-import { addSeries, daySeries } from '../../spark';
+import { addSeries, dayLabeler, daySeries, monthSeries } from '../../spark';
 import type { SectionProps } from './types';
 
 export function PulseSection({
@@ -47,7 +49,7 @@ export function PulseSection({
   courtId,
   range,
 }: SectionProps & { venue: VenueRevenue; shop: ShopData; openDrill: (target: DrillTarget) => void; courtId: string | null; range: { from: string; to: string } }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const { RING_1, RING_2 } = useChartColors();
   const k = raw?.summary.kpis;
   const kp = raw?.summaryPrev?.kpis ?? null;
@@ -75,11 +77,25 @@ export function PulseSection({
   const padel = (k?.revenueIqd ?? 0) + (withShop ? shopNow : 0);
   const padelPrev = kp && (!withShop || shop.previous) ? kp.revenueIqd + (withShop ? (shop.previous?.kpis.netIqd ?? 0) : 0) : null;
   const padelDelta = !withShop ? delta('revenue') : reliable && padelPrev != null ? pctDelta(padel, padelPrev) : null;
-  const bookingsSpark = raw ? daySeries(range, raw?.summary.byDay, (d) => d.bookings, (d) => f.date(d), f.num) : null;
+  // The lines under bookings and padel revenue. A pre-system monthly report the
+  // figures count (0349) has no days, so a range holding one is drawn by month,
+  // the report's month carrying its own figures (0355); otherwise by day.
+  const legacy = courtId == null ? (raw?.summary.history?.included ?? []) : [];
+  const legacyBy = (pick: (m: (typeof legacy)[number]) => number | null) => {
+    const out = new Map<string, number>();
+    for (const m of legacy) out.set(m.from.slice(0, 7), (out.get(m.from.slice(0, 7)) ?? 0) + (pick(m) ?? 0));
+    return out;
+  };
+  const noExtra = new Map<string, number>();
+  const monthLabel = { month: (iso: string) => formatMonthYear(new Date(`${iso}T12:00:00Z`), locale), days: f.dateRange };
+  const dayLabel = dayLabeler(range, f.date);
+  const series = <T extends { date: string }>(rows: readonly T[] | undefined, pick: (row: T) => number, extra: Map<string, number>, fmt: (n: number) => string) =>
+    legacy.length > 0 ? monthSeries(range, rows, pick, extra, monthLabel, fmt) : daySeries(range, rows, pick, dayLabel, fmt);
+  const bookingsSpark = raw ? series(raw.summary.byDay, (d) => d.bookings, legacyBy((m) => m.bookings), f.num) : null;
   const revenueSpark = raw
     ? addSeries(
-        daySeries(range, raw?.summary.byDay, (d) => d.revenueIqd, (d) => f.date(d), f.compact),
-        withShop ? daySeries(range, shop.current?.byDay, (d) => d.netIqd, (d) => f.date(d), f.compact) : null,
+        series(raw.summary.byDay, (d) => d.revenueIqd, legacyBy((m) => m.revenue), f.compact),
+        withShop ? series(shop.current?.byDay, (d) => d.netIqd, noExtra, f.compact) : null,
       )
     : null;
   const cancelledPct = k && k.bookedTotal > 0 ? (k.cancellations / k.bookedTotal) * 100 : 0;

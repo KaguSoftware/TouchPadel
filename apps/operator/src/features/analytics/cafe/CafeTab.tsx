@@ -66,7 +66,7 @@ import { MixCard } from '../cards/MixCard';
 import type { TrendDay } from '../charts/EngagementTrendChart';
 import { RingMeter, Swatch } from '../charts/Donut';
 import { useChartColors } from '../charts/colors';
-import { daySeries, fillTrendDays } from '../spark';
+import { dayLabeler, daySeries, fillTrendDays } from '../spark';
 import { downloadTable } from '../exportTables';
 import { useAnalyticsDrill } from '../drill';
 import { pulseCsvRows, type PulseFigure } from '../pulseCsv';
@@ -147,10 +147,12 @@ export function CafeTab() {
 
   // The lead tiles' day lines (2026-10-19): the period's shape under each of the three figures.
   const daily = hasDaily ? raw?.daily : null;
-  const salesSpark = daySeries(data.range, daily, (d) => d.revenueIqd, (d) => f.date(d), f.compact);
-  const ordersSpark = daySeries(data.range, daily, (d) => d.orders, (d) => f.date(d), f.num);
+  // The year joins a day's label once the period crosses into another year.
+  const dayLabel = dayLabeler(data.range, f.date);
+  const salesSpark = daySeries(data.range, daily, (d) => d.revenueIqd, dayLabel, f.compact);
+  const ordersSpark = daySeries(data.range, daily, (d) => d.orders, dayLabel, f.num);
   // A day's average is that day's gross over its orders; a day with no order has no average and draws as 0.
-  const aovSpark = daySeries(data.range, daily, (d) => (d.orders > 0 ? avgOrderValue(d.cafeGrossIqd, d.orders) : 0), (d) => f.date(d), f.compact);
+  const aovSpark = daySeries(data.range, daily, (d) => (d.orders > 0 ? avgOrderValue(d.cafeGrossIqd, d.orders) : 0), dayLabel, f.compact);
 
   // Every day of the period on the trend, a day without a row as a gap in both synced charts.
   const trendDays = fillTrendDays<TrendDay>(data.range, derived?.salesVsEngagement ?? [], (date) => ({ date, revenue: null, tabs: null, views: null, waiterCalls: null }));
@@ -598,10 +600,10 @@ export function CafeTab() {
         >
           <div style={{ display: 'grid', gridTemplateRows: '200px 150px', gap: 'var(--tp-sp-1)', blockSize: '100%' }}>
             <div>
-              <SalesTrendChart rows={trendDays} f={f} />
+              <SalesTrendChart rows={trendDays} f={f} label={dayLabel} />
             </div>
             <div>
-              <EngagementTrendChart rows={trendDays} f={f} showViews={engOnly === 'ready'} />
+              <EngagementTrendChart rows={trendDays} f={f} showViews={engOnly === 'ready'} label={dayLabel} />
             </div>
           </div>
         </ChartCard>
