@@ -352,12 +352,17 @@ describe('ticket.status payload', () => {
 });
 
 describe('tab.open payload', () => {
-  it('needs a table or a reservation — a seat, not just a name', () => {
+  it('opens a café counter tab with no seat (0352, order first)', () => {
+    expect(tabOpenPayloadSchema.safeParse({}).success).toBe(true);
+    expect(tabOpenPayloadSchema.safeParse({ label: 'Walk-in' }).success).toBe(true);
     expect(tabOpenPayloadSchema.safeParse({ tableId: UUID_A }).success).toBe(true);
     expect(tabOpenPayloadSchema.safeParse({ reservationId: UUID_B }).success).toBe(true);
     expect(tabOpenPayloadSchema.safeParse({ tableId: UUID_A, label: 'Walk-in' }).success).toBe(true);
-    expect(tabOpenPayloadSchema.safeParse({ label: 'Walk-in' }).success).toBe(false);
-    expect(tabOpenPayloadSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('a shop counter sale still needs a label', () => {
+    expect(tabOpenPayloadSchema.safeParse({ kind: 'shop', label: 'Sale 4' }).success).toBe(true);
+    expect(tabOpenPayloadSchema.safeParse({ kind: 'shop' }).success).toBe(false);
   });
 
   it('does not accept whitespace as a label', () => {

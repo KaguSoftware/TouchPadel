@@ -432,7 +432,8 @@ test.describe('operator open matches', () => {
     await page.goto(`${OPERATOR_URL}/desk?date=${day}`);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('heading', { name: ar.desk.title })).toBeVisible({ timeout: 30_000 });
-    await calendarSlot(page, COURT_2, '13:30').click();
+    // One grid row is one hour since 2026-10-19 (DeskCalendar SLOT_MIN): no :30 slots.
+    await calendarSlot(page, COURT_2, '13:00').click();
     const booking = page.getByRole('dialog', { name: ar.op.desk.newBooking });
     await booking.getByLabel(ar.op.desk.guestName).fill(lima);
     await booking.getByRole('button', { name: m.common.openMatch, exact: true }).click();
