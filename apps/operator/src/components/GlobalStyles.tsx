@@ -170,6 +170,18 @@ input:disabled, select:disabled, textarea:disabled {
 /* A hovered customer row is already the blue --tp-hover tint, so a secondary
    action on it (Book) goes gray on hover instead of disappearing into the row. */
 .tp-btn.tp-btn-gray-hover:hover:not(:disabled) { background: var(--tp-surface-3); color: var(--tp-fg); }
+/* The crash panel's "Restart the app": the strongest way out, amber so it reads as a bigger step without reading as an error. */
+.tp-btn.tp-crash-restart { background: var(--tp-warn-soft); border-color: var(--tp-warn-mark); color: var(--tp-warn-fg); }
+.tp-btn.tp-crash-restart svg { color: var(--tp-warn-mark); }
+.tp-btn.tp-crash-restart:hover:not(:disabled) { background: color-mix(in oklab, var(--tp-warn-soft), var(--tp-warn-mark) 18%); color: var(--tp-warn-fg); }
+/* Its "Technical details" disclosure: the native triangle swapped for a chevron that sits centred
+   with the label and turns to point down when open (the other way in Arabic, where it is mirrored). */
+.tp-crash-details { list-style: none; display: flex; align-items: center; justify-content: center; gap: var(--tp-sp-1-5); padding-block: var(--tp-sp-1-5); padding-inline: var(--tp-sp-1); cursor: pointer; color: var(--tp-muted-fg); font-size: var(--tp-fs-md); font-weight: 500; }
+.tp-crash-details::-webkit-details-marker { display: none; }
+.tp-crash-chev { display: inline-flex; transition: transform var(--tp-dur-fast) var(--tp-ease-out); }
+details[open] > .tp-crash-details .tp-crash-chev { transform: rotate(90deg); }
+[dir='rtl'] details[open] > .tp-crash-details .tp-crash-chev { transform: rotate(-90deg); }
+@media (prefers-reduced-motion: reduce) { .tp-crash-chev { transition: none; } }
 .tp-btn[data-size='sm'] { min-block-size: 1.85rem; padding-block: 0.25rem; padding-inline: 0.6rem; font-size: var(--tp-fs-sm); }
 .tp-btn[data-size='lg'] { min-block-size: var(--tp-touch); padding-block: 0.6rem; padding-inline: 1.1rem; font-size: var(--tp-fs-lg); }
 .tp-btn[data-size='xl'] { min-block-size: 3.5rem; padding-block: 0.8rem; padding-inline: 1.4rem; font-size: var(--tp-fs-xl); border-radius: var(--tp-radius-panel); }
@@ -240,8 +252,10 @@ input:disabled, select:disabled, textarea:disabled {
    and the lead. The workspace you are in turns its head Padel Green, the same
    "you are here" the rail's current-page pill uses. Hover only lifts the
    drawing and tints the body; nothing moves. */
+/* align-items is spelled out: Electron 33's Chromium (130) reads "normal" on a
+   <button> as start, which shrank the head to its icon. */
 .tp-ws-tile {
-  display: flex; flex-direction: column; min-block-size: 0; padding: 0;
+  display: flex; flex-direction: column; align-items: stretch; min-block-size: 0; padding: 0;
   text-align: start; color: var(--tp-fg); background: var(--tp-surface);
   border: 1px solid var(--tp-border); border-radius: var(--tp-radius-panel);
   overflow: hidden; cursor: pointer;
@@ -1169,8 +1183,8 @@ button.tp-nav-item { background: transparent; }
 .tp-starter-row:disabled { cursor: default; opacity: var(--tp-opacity-disabled); }
 /* The free AI's page tiles wear a card's tone and deepen a little on hover. */
 .tp-starter-tile { transition: background-color var(--tp-dur-fast) var(--tp-ease-out); }
-.tp-starter-tile:hover { background: color-mix(in oklab, var(--tp-st) 82%, var(--tp-card-ink)); }
-:root[data-theme='operator'][data-mode='blue'] .tp-starter-tile:hover { background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash)); }
+.tp-starter-tile:hover { background: color-mix(in oklab, var(--tp-st) 92%, var(--tp-card-ink)); }
+:root[data-theme='operator'][data-mode='blue'] .tp-starter-tile:hover { background: color-mix(in oklab, color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash)), var(--tp-bd-fg) var(--tp-breakdown-hover-lift)); }
 :root[data-theme='operator'][data-mode='blue'] .tp-starter {
   background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-wash-mix), var(--tp-breakdown-wash));
   border-color: var(--tp-bd-edge);
@@ -1182,7 +1196,7 @@ button.tp-nav-item { background: transparent; }
   color: var(--tp-fg);
 }
 :root[data-theme='operator'][data-mode='blue'] .tp-starter-q:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash));
+  background: color-mix(in oklab, color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash)), var(--tp-bd-fg) var(--tp-breakdown-hover-lift));
 }
 
 /* The management overview's Breakdown cards (Sait, 2026-10-19). Each card
@@ -1198,7 +1212,7 @@ button.tp-nav-item { background: transparent; }
 .tp-breakdown-card[data-tone='teal'] { --tp-bd: var(--tp-breakdown-teal); --tp-bd-fg: var(--tp-breakdown-teal-fg); --tp-bd-edge: var(--tp-breakdown-teal-edge); }
 .tp-breakdown-card[data-tone='gold'] { --tp-bd: var(--tp-breakdown-gold); --tp-bd-fg: var(--tp-breakdown-gold-fg); --tp-bd-edge: var(--tp-breakdown-gold-edge); }
 .tp-breakdown-card {
-  --tp-hover: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash));
+  --tp-hover: color-mix(in oklab, color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash)), var(--tp-bd-fg) var(--tp-breakdown-hover-lift));
   --tp-hover-fg: var(--tp-fg);
   --tp-muted-fg: var(--tp-fg);
   background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-wash-mix), var(--tp-breakdown-wash));
@@ -1206,6 +1220,13 @@ button.tp-nav-item { background: transparent; }
   color: var(--tp-fg);
 }
 .tp-breakdown-head { background: var(--tp-bd); color: var(--tp-bd-fg); }
+/* Blue mode: a table inside a coloured card (the analytics cards) wears the
+   card's colours, its band for the column band, its wash for the body and its
+   edge for the frame, instead of the navy panel's (Sait, 2026-10-21). */
+:root[data-theme='operator'][data-mode='blue'] .tp-breakdown-card {
+  --tp-table-head: var(--tp-bd); --tp-table-head-fg: var(--tp-bd-fg);
+  --tp-table-edge: var(--tp-bd-edge); --tp-table-body: transparent;
+}
 .tp-breakdown-head .tp-btn[data-kind='ghost'] { color: inherit; }
 .tp-breakdown-head .tp-btn[data-kind='ghost']:hover:not(:disabled) { background: color-mix(in oklab, currentColor 12%, transparent); color: inherit; }
 /* The three rows a card shows take three of the card row's shared tracks

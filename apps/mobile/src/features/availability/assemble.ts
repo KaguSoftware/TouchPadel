@@ -8,7 +8,6 @@ import {
   bookableDurations,
   buildSlotGrid,
   dayOfWeekOfDate,
-  displayWindows,
   indexRatePrices,
   isOvernightTail,
   resolveRateRule,
@@ -459,49 +458,4 @@ export function mergeAcrossCourts(
 export function upcomingOnly(cells: readonly MergedCell[], now: Date): MergedCell[] {
   const nowMs = now.getTime();
   return cells.filter((c) => c.startAt.getTime() >= nowMs);
-}
-
-// ── "Open now" pill (design 2026-08-31, courts home) ─────────────────────────
-
-export interface OpenNowInfo {
-  open: boolean;
-  /** Today's display hours with the overnight tail folded ('09:00–02:00'). */
-  label: string;
-}
-
-/**
- * Whether the venue is open at `now`, plus today's printable hours. Uses the
- * raw per-day windows (the post-midnight tail lives on the calendar day it
- * falls in, so a 00:30 check reads today's own '00:00–02:00' window), and
- * @touch/core's displayWindows for the human label.
- */
-export function openNowInfo(
-  settings: Pick<VenueSettingsPublic, 'timezone' | 'opening_hours' | 'closed_dates'> | undefined,
-  now: Date,
-): OpenNowInfo | null {
-  if (!settings?.opening_hours) return null;
-  const tz = settings.timezone ?? DEFAULT_TZ;
-  const hours = settings.opening_hours as OpeningHours;
-  const parts = localParts(now, tz);
-  const todayKey = DAY_KEYS[parts.dayOfWeek];
-  const nextKey = DAY_KEYS[(parts.dayOfWeek + 1) % 7];
-  if (!todayKey || !nextKey) return null;
-
-  const closedToday = (settings.closed_dates ?? []).includes(parts.date);
-
-  const nowMin = parts.minutesOfDay;
-  const inWindow = (w: readonly [string, string]) => {
-    const openMin = hhmmToMin(w[0]);
-    const closeMin = w[1] === '24:00' ? 1440 : hhmmToMin(w[1]);
-    return nowMin >= openMin && nowMin < closeMin;
-  };
-  const open = !closedToday && (hours[todayKey] ?? []).some(inWindow);
-
-  const shown = displayWindows(hours[todayKey], hours[nextKey]);
-  const label = shown.map((w) => `${w[0]}–${w[1] === '24:00' ? '00:00' : w[1]}`).join(' · ');
-  return { open, label };
-}
-
-function hhmmToMin(t: string): number {
-  return Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 }

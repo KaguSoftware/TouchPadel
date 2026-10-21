@@ -190,8 +190,6 @@ export const ar: Messages = {
     viewAvailability: 'عرض الأوقات المتاحة',
     noCourts: 'لا توجد ملاعب متاحة حاليًا.',
     // Design 2026-08-31: courts home + court detail.
-    openNow: 'مفتوح الآن · {hours}',
-    closedNow: 'مغلق حاليًا',
     reserveFooter: 'احجز من التطبيق · وادفع في الاستقبال عند وصولك',
     courtPhoto: 'صورة الملعب',
     fromPrice: 'ابتداءً من {price}',
@@ -1256,12 +1254,12 @@ export const ar: Messages = {
     // with no menu bar and no address bar, so a blank screen is a dead station.
     crash: {
       title: 'توقفت هذه الشاشة عن العمل',
-      body: 'بقية التطبيق لا تزال تعمل. جرّب الشاشة مرة أخرى أو ارجع إلى شاشتك الرئيسية.',
+      body: 'بقية التطبيق لا تزال تعمل.',
       retry: 'إعادة فتح هذه الشاشة',
       home: 'الذهاب إلى شاشتي الرئيسية',
       reload: 'إعادة تشغيل التطبيق',
       details: 'تفاصيل تقنية',
-      again: 'إذا تكرر ذلك، أخبر المدير بما كنت تفعله لحظة توقف الشاشة.',
+      again: 'هل يتكرر ذلك؟ أخبر المدير.',
       notFoundTitle: 'الشاشة غير موجودة',
       notFoundBody: 'لا توجد شاشة على هذا العنوان. شاشتك الرئيسية تضم كل ما يتيحه دورك.',
     },

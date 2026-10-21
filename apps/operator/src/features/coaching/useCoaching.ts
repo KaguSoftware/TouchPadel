@@ -32,6 +32,7 @@ import { currentBranchId } from '../../lib/venueScope';
 import { matchReadStatus, type MatchReadStatus } from '../matches/matchLogic';
 import { keyForDraft } from './startLessonLogic';
 import {
+  readCoachSchedule,
   readCoachesAdmin,
   readCoachingSettings,
   readCustomerLessons,
@@ -40,6 +41,7 @@ import {
   readRefundsDue,
   readSlots,
   readStatementDetail,
+  type CoachSchedule,
   type CoachSlots,
   type CoachesAdmin,
   type CoachingSettings,
@@ -98,6 +100,32 @@ export function useDeskLessons(
         () =>
           appRpc('desk_lessons', { p_venue_id: currentBranchId(), p_from: fromIso, p_to: toIso }),
         readDeskLessons,
+      ),
+    refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * app.desk_coach_schedule (0356) over a trading night: every coach at the
+ * branch with their hours, time off and lessons (busy), for the Coaches tab.
+ * Under COACHING_DESK_ROOT, so a booking made here refreshes it. 30 s.
+ */
+export function useCoachSchedule(
+  dayStart: Date | null | undefined,
+  dayEnd: Date | null | undefined,
+  enabled = true,
+): UseQueryResult<CoachSchedule | null> {
+  const fromIso = dayStart?.toISOString() ?? '';
+  const toIso = dayEnd?.toISOString() ?? '';
+  return useQuery({
+    queryKey: QK.coaching.schedule(fromIso, toIso),
+    enabled: enabled && fromIso !== '' && toIso !== '',
+    queryFn: () =>
+      lessonRead(
+        () =>
+          appRpc('desk_coach_schedule', { p_venue_id: currentBranchId(), p_from: fromIso, p_to: toIso }),
+        readCoachSchedule,
       ),
     refetchInterval: 30_000,
     placeholderData: keepPreviousData,

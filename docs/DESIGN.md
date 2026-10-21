@@ -38,11 +38,12 @@ modes:
 | | Paper | Blue mode |
 |---|---|---|
 | `--tp-heading` (page titles) | #1D3762 | white |
-| `--tp-panel-head` / `-fg` (panel title band) | Touch Blue / white | #F4F7FB / #274982 |
-| `--tp-group-head` / `-fg` (band of a panel holding panels) | Touch Blue / white | #3B6EC4 / white |
+| `--tp-panel-head` / `-fg` (panel title band) | Touch Blue / white | #2E4573 / white |
+| `--tp-panel-body` / `--tp-panel-edge` (a panel's and a table's body and outline) | surface / border | #1D2A42 / #2E4573 |
+| `--tp-group-head` / `-fg` (band of a panel holding panels; its body is `--tp-breakdown-frame`) | Touch Blue / white | #2E4573 / white, body #1D2A42 |
 | `--tp-breakdown-<tone>` / `-fg` / `-edge` (the overview's Breakdown cards: green, violet, rose, sky, teal, gold) | full colour / navy | calm deep colour / light ink |
 | `--tp-card-1..6` (figure cards by place, repeating after six: groups, tile strips, record tiles, analytics cards) | green, violet, rose, light blue, teal, gold | the same as calm light inks |
-| `--tp-table-head` / `-fg` (column band, = `--tp-group-head`) | Touch Blue / white | #3B6EC4 / white |
+| `--tp-table-head` / `-fg` (column band, = `--tp-panel-head`) | Touch Blue / white | #2E4573 / white |
 | `--tp-selected` / `-fg` (selected row, Go to option) | Padel Green / navy | Padel Green / navy |
 | `--tp-table-total` / `-fg` (a table's total row) | Padel Green / navy | Padel Green / navy |
 | `--tp-total-card` / `-fg` / `-muted` (a drill's figure card) | #1A2A44 / white | the same |
@@ -51,8 +52,8 @@ modes:
 | `--tp-seg-on` / `-on-fg` (the chosen segment) | Touch Blue / white | Padel Green / navy |
 
 A solid band or selected row also **borrows the other mode's palette for what sits inside it**:
-`theme.ts` emits two cross scopes. The panel title band (`.tp-band`) takes the other mode's colour
-tokens in both modes: blue-mode tokens on paper's Touch Blue, paper tokens on blue mode's white.
+`theme.ts` emits two cross scopes. The panel title band (`.tp-band`) takes the blue-mode colour
+tokens on paper's Touch Blue; in blue mode it is navy (Sait, 2026-10-21) and keeps its own.
 The selected row is Padel Green in both modes (Sait, 2026-10-19), a light ground, so it takes the
 paper tokens in blue mode and keeps its own on paper; inside it `--tp-muted-fg` and `--tp-accent`
 are pinned to its navy, so nothing on the green is grey or link-blue. `.tp-paper` and `.tp-blue` force one direction for anything else. Links, grey text, buttons and badges inside

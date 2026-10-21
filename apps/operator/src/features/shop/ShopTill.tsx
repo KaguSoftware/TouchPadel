@@ -23,11 +23,17 @@
  * That same step brings the member's own discount onto the sale (0342, features/discounts):
  * their standing café and shop discount comes on by itself, and "Customer discount" sets or
  * changes it there, with no PIN. A sale without a member has no customer to discount.
+ *
+ * The sales reward (0355): each tile tells the person selling what one sale
+ * of it earns them, the basket what this sale earns, and the header what
+ * their shop sales have earned this month, to keep them selling. At the shelf
+ * price, an estimate: the wage pays on what was charged. The owner earns none,
+ * so sees none; nothing shows while the percent is 0 or has not loaded.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { formatIQD } from '@touch/i18n';
+import { formatIQD, isolate } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
 import { AppRpcError } from '../../lib/appRpc';
@@ -65,6 +71,7 @@ import {
   type ShopLine,
   type ShopSize,
 } from './shopTillLogic';
+import { SHOP_REWARD_KEY, basketReward, fetchShopRewardInfo, rewardFor } from './shopReward';
 
 interface OpenShopSale {
   id: string;
@@ -110,6 +117,11 @@ export function ShopTill() {
   const queryClient = useQueryClient();
   const menuQ = useQuery(TILL_MENU_QUERY);
   const openQ = useQuery(OPEN_SHOP_SALES);
+  const rewardQ = useQuery({ queryKey: SHOP_REWARD_KEY, queryFn: fetchShopRewardInfo, refetchInterval: 60_000 });
+  const me = rewardQ.data?.me ?? null;
+  /** The percent the person selling earns; 0 = nothing to show (the owner, a 0 percent, not loaded). */
+  const rewardPct = me ? (rewardQ.data?.pct ?? 0) : 0;
+  const iqd = (n: number) => isolate(formatIQD(n, locale));
   const catalogue = useMemo(() => shopCatalogue(menuQ.data), [menuQ.data]);
   const [basket, setBasket] = useState<ShopLine[]>([]);
   const [query, setQuery] = useState('');
@@ -286,6 +298,7 @@ export function ShopTill() {
       });
       void queryClient.invalidateQueries({ queryKey: ['tabs'] });
       void queryClient.invalidateQueries({ queryKey: ['tab', paying.tabId] });
+      void queryClient.invalidateQueries({ queryKey: SHOP_REWARD_KEY });
       if (outcome.result && outcome.result.status !== 'settled') {
         // A part payment: stay on the payment with what is still owed.
         const detail = await fetchTabDetail(paying.tabId);
@@ -311,7 +324,16 @@ export function ShopTill() {
 
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
-      <PageHeader title={tr('ws.shop.till.title')} subtitle={tr('ws.shop.till.lead')} />
+      <PageHeader title={tr('ws.shop.till.title')} subtitle={tr('ws.shop.till.lead')}>
+        {me && rewardPct > 0 && (
+          <p
+            data-testid="shop-reward-month"
+            style={{ margin: 0, fontSize: 'var(--tp-fs-md)', fontWeight: 600, color: 'var(--tp-success-fg)' }}
+          >
+            {tr('ws.shop.reward.month', { amount: iqd(me.monthRewardIqd), sales: iqd(me.monthSalesIqd) })}
+          </p>
+        )}
+      </PageHeader>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(18rem, 24rem)', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
         <Panel data-testid="shop-till-products">
           {catalogue.sizes.length === 0 && menuQ.isSuccess ? (
@@ -361,6 +383,11 @@ export function ShopTill() {
                         <Money amount={s.priceIqd} />
                         {!s.orderable && <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shop.till.soldOut')}</span>}
                       </span>
+                      {rewardPct > 0 && rewardFor(s.priceIqd, rewardPct) > 0 && (
+                        <span data-testid={`shop-size-reward-${s.variantId}`} style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, color: 'var(--tp-success-fg)' }}>
+                          {tr('ws.shop.reward.youEarn', { amount: iqd(rewardFor(s.priceIqd, rewardPct)) })}
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}
@@ -402,6 +429,17 @@ export function ShopTill() {
             {count > 0 && (
               <p style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
                 {tr('ws.shop.till.lineCount', { count })} · {tr('ws.shop.till.estimateNote')}
+              </p>
+            )}
+            {count > 0 && rewardPct > 0 && (
+              <p
+                data-testid="shop-reward-basket"
+                title={tr('ws.shop.reward.estimate')}
+                style={{ margin: 0, marginBlockStart: 'var(--tp-sp-2)', fontWeight: 700, color: 'var(--tp-success-fg)' }}
+              >
+                {tr('ws.shop.reward.youEarnBasket', {
+                  amount: iqd(basketReward(basket.map((l) => ({ priceIqd: byId.get(l.variantId)?.priceIqd ?? 0, qty: l.qty })), rewardPct)),
+                })}
               </p>
             )}
             {canMember && (

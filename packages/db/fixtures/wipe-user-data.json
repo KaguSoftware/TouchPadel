@@ -160,6 +160,8 @@
     "reservations": "bookings and booking money",
     "salary_deductions": "staff activity and staff-written content",
     "scan_reads": "café orders, tabs and money",
+    "shop_sale_reward_earnings": "staff activity and staff-written content",
+    "shop_sale_reward_rates": "café orders, tabs and money",
     "shopping_items": "stock activity (stock on hand starts at zero; count it at go-live)",
     "staff_activity": "staff activity and staff-written content",
     "staff_attendance": "staff activity and staff-written content",

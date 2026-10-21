@@ -390,6 +390,16 @@ describe('the manager in Management', () => {
     expect(open('cafe', 'owner')).toBe('/observation/tills');
   });
 
+  it('lights Coaches › Schedules, not Bookings, on the Coaches tab, for either of them', () => {
+    const sec = mgmt.sections!.find((s) => s.key === 'courts')!;
+    for (const role of ['owner', 'manager'] as const) {
+      expect(sectionForPath(mgmt, '/desk/coaches')?.key, role).toBe('courts');
+      const row = activeNavItem(printed(sec, role), '/desk/coaches');
+      expect(row?.labelKey, role).toBe('coaches');
+      expect(activeTab(row!.tabs!, '/desk/coaches')?.labelKey, role).toBe('coachSchedules');
+    }
+  });
+
   it('lights Tournaments, not Bookings, on a tournament page, for either of them', () => {
     const sec = mgmt.sections!.find((s) => s.key === 'courts')!;
     for (const role of ['owner', 'manager'] as const) {

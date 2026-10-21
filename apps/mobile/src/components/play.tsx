@@ -30,6 +30,7 @@ import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../theme';
 import { SEATS_TOTAL, type MatchCategory } from '../features/matches/logic';
 import type { TourTone } from '../features/tournaments/logic';
+import { LiveDot } from './booking';
 import { CategoryPill } from './match';
 import { CheckIcon, ChevronIcon, PlusIcon, TrophyIcon } from './icons';
 import { TiltPress } from './motion';
@@ -533,13 +534,16 @@ export function PlayMatchCard({
  * matches around it: a band in the state's colour (blue before it starts, green
  * in play, grey once over) with the trophy, the format and the status; then
  * the name in the display face, the day and times (and the branch when there
- * are several), the places, the fee, the guest's own state, and
- * how full it is.
+ * are several) with the places on the same line, over the bar of how full it is;
+ * then, under a line, an "Open to all" / "Women only" / "Men only" pill,
+ * the guest's own state and the fee by the chevron.
  */
 export function PlayTournamentCard({
   testID,
   tone,
   status,
+  registration,
+  category,
   format,
   title,
   when,
@@ -552,6 +556,9 @@ export function PlayTournamentCard({
   testID: string;
   tone: TourTone;
   status: string | null;
+  /** While registration is open or closed, the status is a green or red pill with a pulsing dot. */
+  registration: 'open' | 'closed' | null;
+  category: MatchCategory;
   format: string | null;
   title: string;
   when: string;
@@ -607,7 +614,36 @@ export function PlayTournamentCard({
           </Text>
         ) : null}
         <View style={{ flex: 1 }} />
-        {status ? (
+        {status && registration ? (
+          // Green while open, red once closed, each with the Book tab's pulsing dot (Sait, 2026-10-21).
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingStart: 10,
+              paddingEnd: 10,
+              paddingTop: 3,
+              paddingBottom: 3,
+              borderRadius: radius.pill,
+              borderWidth: 1,
+              backgroundColor: registration === 'open' ? colors.gtint : colors.redtint,
+              borderColor: registration === 'open' ? colors.gline : colors.redline,
+            }}
+          >
+            <LiveDot color={registration === 'open' ? colors.gstrong : colors.redtext} />
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: fonts.body800,
+                fontSize: 13,
+                color: registration === 'open' ? colors.gtext : colors.redtext,
+              }}
+            >
+              {status}
+            </Text>
+          </View>
+        ) : status ? (
           <Text
             numberOfLines={1}
             style={{ fontFamily: fonts.body700, fontSize: 13, color: band.fg }}
@@ -619,36 +655,30 @@ export function PlayTournamentCard({
       <View style={{ padding: 16, gap: 9 }}>
         <Text
           numberOfLines={2}
-          style={{ fontFamily: fonts.display800, fontSize: 21, color: colors.ink }}
+          // A little more room under the name than between the other lines (Sait, 2026-10-21).
+          style={{
+            fontFamily: fonts.display800,
+            fontSize: 21,
+            color: colors.ink,
+            marginBottom: 14,
+          }}
         >
           {title}
         </Text>
-        <Text style={{ fontFamily: fonts.body600, fontSize: 14, color: colors.mut }}>{when}</Text>
+        {/* The time at the start and the places at the end, on one line over the
+            bar (Sait, 2026-10-21); the gap under the name stays as it was. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: 8,
-            }}
+          <Text
+            style={{ flexShrink: 1, fontFamily: fonts.body600, fontSize: 14, color: colors.mut }}
           >
-            {places ? (
-              <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.gtext }}>
-                {places}
-              </Text>
-            ) : null}
-            <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.mut2 }}>
-              {fee}
-            </Text>
-          </View>
-          {mine ? (
-            <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.blue }}>
-              {mine}
+            {when}
+          </Text>
+          <View style={{ flex: 1 }} />
+          {places ? (
+            <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.gtext }}>
+              {places}
             </Text>
           ) : null}
-          <ChevronIcon size={18} color={colors.fnt2} />
         </View>
         {fill !== null ? (
           <View
@@ -671,6 +701,45 @@ export function PlayTournamentCard({
             />
           </View>
         ) : null}
+      </View>
+      {/* Under a line: the category pill at the start ("Open to all", "Men only",
+          "Women only"), the fee by the chevron at the end (Sait, 2026-10-21). */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          borderTopWidth: 1,
+          borderTopColor: colors.line,
+          paddingStart: 16,
+          paddingEnd: 16,
+          paddingTop: 11,
+          paddingBottom: 11,
+        }}
+      >
+        {/* Its own box, so the pill (which aligns itself to the top) centres on the row. */}
+        <View>
+          <CategoryPill category={category} />
+        </View>
+        <View
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: 8,
+          }}
+        >
+          {mine ? (
+            <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.blue }}>
+              {mine}
+            </Text>
+          ) : null}
+          <Text style={{ fontFamily: fonts.body800, fontSize: 13.5, color: colors.ink }}>
+            {fee}
+          </Text>
+          <ChevronIcon size={18} color={colors.fnt2} />
+        </View>
       </View>
     </TiltPress>
   );

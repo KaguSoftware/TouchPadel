@@ -32,79 +32,100 @@ import { Icon, type IconName } from './icons';
  *
  * `fullBleed` is therefore opt-IN. Only the shell boundary in main.tsx (which
  * really does own the whole viewport, because the crash may BE the shell) wants
- * the viewport height; everything routed wants to fill its container and start
- * at the top of it.
+ * the viewport height; everything routed fills its container instead.
+ *
+ * Either way the card is centred in that box (Sait, 2026-10-21). That is safe
+ * here because the box is only as tall as its container, never taller: the
+ * card lands mid-screen, and `min-block-size` lets the box grow rather than
+ * clip when the window is too short for the card.
  */
 function wrapStyle(fullBleed: boolean): CSSProperties {
   return {
     display: 'flex',
     minBlockSize: fullBleed ? '100vh' : '100%',
-    alignItems: fullBleed ? 'center' : 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
     paddingBlock: 'var(--tp-sp-6)',
     paddingInline: 'var(--tp-sp-6)',
   };
 }
 
-/** The card both panels share: a glyph, the title, then the body. */
+/**
+ * The card both panels share (Sait, 2026-10-21, option B): the glyph at the
+ * start with the title and body beside it, then the ways out stacked
+ * full-width so each is an easy target on a touch till.
+ */
+/** 20px: the mockup's rhythm between the card's rows, between two rungs of the scale. */
+const rowGap = 'calc(var(--tp-sp-4) + var(--tp-sp-1))';
+
 const panelCard: CSSProperties = {
   ...card,
-  maxInlineSize: '32rem',
-  paddingBlock: 'var(--tp-sp-5)',
-  paddingInline: 'var(--tp-sp-5)',
+  inlineSize: '100%',
+  maxInlineSize: '27.5rem',
+  borderRadius: 'calc(var(--tp-radius-dialog) + var(--tp-sp-0))',
+  paddingBlockStart: 'var(--tp-sp-6)',
+  paddingBlockEnd: rowGap,
+  paddingInline: 'calc(var(--tp-sp-5) + var(--tp-sp-1))',
   display: 'grid',
-  gap: 'var(--tp-sp-2)',
+  gap: rowGap,
 };
 
-function PanelTitle({ icon, children }: { icon: IconName; children: ReactNode }) {
+/** The two cheap escapes, one above the other. */
+const stack: CSSProperties = { display: 'grid', gap: 'var(--tp-sp-2-5)' };
+
+const hint: CSSProperties = {
+  margin: 0,
+  fontSize: 'var(--tp-fs-sm)',
+  color: 'var(--tp-muted-fg)',
+  textAlign: 'center',
+};
+
+const divider: CSSProperties = { blockSize: '1px', background: 'var(--tp-border)' };
+
+function PanelHeader({ icon, title, body }: { icon: IconName; title: string; body: string }) {
   return (
-    <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-2xl)' }}>
-      <Icon name={icon} size={22} style={{ color: 'var(--tp-warn-mark)', flex: '0 0 auto' }} />
-      {children}
-    </h1>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--tp-sp-4)' }}>
+      <span
+        aria-hidden
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          inlineSize: '3rem',
+          blockSize: '3rem',
+          flex: '0 0 auto',
+          borderRadius: 'var(--tp-radius-pill)',
+          background: 'var(--tp-warn-soft)',
+          color: 'var(--tp-warn-mark)',
+        }}
+      >
+        <Icon name={icon} size={24} />
+      </span>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', minInlineSize: 0 }}>
+        <h1 style={{ margin: 0, fontSize: 'var(--tp-fs-2xl)', lineHeight: 1.25 }}>{title}</h1>
+        <p style={{ margin: 0, color: 'var(--tp-muted-fg)' }}>{body}</p>
+      </div>
+    </div>
   );
 }
 
-function Actions({
-  onRetry,
-  onHome,
-  retryLabel,
-  homeLabel,
-  reloadLabel,
-}: {
-  onRetry?: () => void;
-  onHome?: () => void;
-  retryLabel: string;
-  homeLabel: string;
-  /** Omitted where a restart cannot help (an unknown address). */
-  reloadLabel?: string;
-}) {
+/** The two big escapes: full width and 48px tall. */
+const fullWidth: CSSProperties = { inlineSize: '100%', minBlockSize: '3rem' };
+
+/**
+ * Restart is the strongest way out, so it sits below the divider, small and
+ * amber (.tp-crash-restart in GlobalStyles): set apart from the two cheap
+ * escapes without reading as an error.
+ */
+function RestartButton({ label }: { label: string }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 'var(--tp-sp-2-5)',
-        flexWrap: 'wrap',
-        marginBlockStart: 'var(--tp-sp-2)',
-      }}
+    <Button
+      icon="power"
+      className="tp-crash-restart"
+      onClick={() => window.location.reload()}
+      style={{ minBlockSize: 0, paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-3)', gap: 'var(--tp-sp-1-5)' }}
     >
-      {onRetry && (
-        <Button kind="primary" icon="refresh" onClick={onRetry}>
-          {retryLabel}
-        </Button>
-      )}
-      {/* Home is the primary way out when there is nothing to retry. */}
-      {onHome && (
-        <Button kind={onRetry ? 'default' : 'primary'} icon="home" onClick={onHome}>
-          {homeLabel}
-        </Button>
-      )}
-      {reloadLabel && (
-        <Button kind="ghost" onClick={() => window.location.reload()}>
-          {reloadLabel}
-        </Button>
-      )}
-    </div>
+      {label}
+    </Button>
   );
 }
 
@@ -129,39 +150,57 @@ export function CrashPanel({
   return (
     <div style={wrapStyle(fullBleed)}>
       <div style={panelCard} role="alert">
-        <PanelTitle icon="alert">{tr('op.crash.title')}</PanelTitle>
-        <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.crash.body')}</p>
-        <Actions
-          onRetry={onRetry}
-          onHome={onHome}
-          retryLabel={tr('op.crash.retry')}
-          homeLabel={tr('op.crash.home')}
-          reloadLabel={tr('op.crash.reload')}
-        />
+        <PanelHeader icon="alert" title={tr('op.crash.title')} body={tr('op.crash.body')} />
+        <div style={stack}>
+          {onRetry && (
+            <Button kind="primary" size="lg" icon="refresh" onClick={onRetry} style={fullWidth}>
+              {tr('op.crash.retry')}
+            </Button>
+          )}
+          {/* Home is the primary way out when there is nothing to retry. */}
+          {onHome && (
+            <Button kind={onRetry ? 'default' : 'primary'} size="lg" icon="home" onClick={onHome} style={fullWidth}>
+              {tr('op.crash.home')}
+            </Button>
+          )}
+        </div>
         {/* What to do if the cheap escapes do not hold, in words: nothing on
             this screen can report the fault, a person can. */}
-        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-2)' }}>
-          {tr('op.crash.again')}
-        </p>
-        <details>
-          <summary
-            style={{ cursor: 'pointer', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}
-          >
-            {tr('op.crash.details')}
-          </summary>
-          <pre
-            dir="ltr"
-            style={{
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              fontSize: 'var(--tp-fs-xs)',
-              color: 'var(--tp-muted-fg)',
-              marginBlockStart: 'var(--tp-sp-2)',
-            }}
-          >
-            {describeError(error)}
-          </pre>
-        </details>
+        <p style={hint}>{tr('op.crash.again')}</p>
+        <div style={divider} />
+        <div style={{ display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-2)' }}>
+          {/* Reload always works, so the station is never left with zero ways out. */}
+          <RestartButton label={tr('op.crash.reload')} />
+          <details style={{ inlineSize: '100%' }}>
+            {/* The marker is our own chevron (.tp-crash-details), centred with
+                the label; it turns down when the details are open. */}
+            <summary className="tp-crash-details">
+              <span className="tp-crash-chev" aria-hidden>
+                <Icon name="chevronEnd" size={14} dataChevron />
+              </span>
+              {tr('op.crash.details')}
+            </summary>
+            <pre
+              dir="ltr"
+              style={{
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                fontSize: 'var(--tp-fs-xs)',
+                color: 'var(--tp-muted-fg)',
+                textAlign: 'start',
+                background: 'var(--tp-surface-3)',
+                borderRadius: 'calc(var(--tp-radius-ctl) + var(--tp-sp-0))',
+                paddingBlock: 'var(--tp-sp-3)',
+                paddingInline: 'calc(var(--tp-sp-3) + var(--tp-sp-0))',
+                marginBlock: 'var(--tp-sp-2) 0',
+                maxBlockSize: '11.25rem',
+                overflow: 'auto',
+              }}
+            >
+              {describeError(error)}
+            </pre>
+          </details>
+        </div>
       </div>
     </div>
   );
@@ -182,16 +221,18 @@ export function NotFoundPanel({
   return (
     <div style={wrapStyle(fullBleed)}>
       <div style={panelCard} role="alert">
-        <PanelTitle icon="search">{tr('op.crash.notFoundTitle')}</PanelTitle>
-        <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.crash.notFoundBody')}</p>
+        <PanelHeader icon="search" title={tr('op.crash.notFoundTitle')} body={tr('op.crash.notFoundBody')} />
         {/* Restart stays only as the last resort when there is no home to
             offer, so the screen is never left with zero ways out. */}
-        <Actions
-          onHome={onHome}
-          retryLabel=""
-          homeLabel={tr('op.crash.home')}
-          reloadLabel={onHome ? undefined : tr('op.crash.reload')}
-        />
+        {onHome ? (
+          <Button kind="primary" size="lg" icon="home" onClick={onHome} style={fullWidth}>
+            {tr('op.crash.home')}
+          </Button>
+        ) : (
+          <div style={{ display: 'grid', justifyItems: 'center' }}>
+            <RestartButton label={tr('op.crash.reload')} />
+          </div>
+        )}
       </div>
     </div>
   );

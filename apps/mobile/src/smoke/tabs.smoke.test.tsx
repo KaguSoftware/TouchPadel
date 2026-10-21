@@ -186,13 +186,14 @@ describe.each(LOCALES)('book branch picker in %s', (locale) => {
 /**
  * Five tabs on both bars, in this order, each with its own id and the locale's
  * label. Profile left the bar on 2026-10-17 for the avatar on each title row;
- * Club (the member card and the café menu) took the centre on 2026-10-19.
+ * Club (the member card and the café menu) took the centre on 2026-10-19, and
+ * Book took it back on 2026-10-22, swapping places with Club.
  */
 const TAB_ORDER = [
   ['tabs.bookings', 'tabs.bookings'],
   ['tabs.play', 'tabs.play'],
-  ['tabs.club', 'tabs.club'],
   ['tabs.book', 'tabs.book'],
+  ['tabs.club', 'tabs.club'],
   ['tabs.coaches', 'tabs.coaches'],
 ] as const;
 
@@ -202,7 +203,7 @@ describe.each(LOCALES)('the five tabs in %s', (locale) => {
   it.each<[string, typeof TabsLayout]>([
     ['iOS', TabsLayout],
     ['Android', TabsLayoutAndroid],
-  ])('the %s bar declares all five, Club in the middle, and no Profile tab', (_name, Layout) => {
+  ])('the %s bar declares all five, Book in the middle, and no Profile tab', (_name, Layout) => {
     const screen = renderRoute(Layout, { locale });
     try {
       const ids = TAB_ORDER.map(([id, key]) => {

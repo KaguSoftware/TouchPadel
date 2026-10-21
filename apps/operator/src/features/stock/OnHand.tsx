@@ -62,7 +62,7 @@ import { CardTitle } from '../ops/OpsVisuals';
 import { LedgerDrawer } from './LedgerDrawer';
 import { AlignedQty, AttentionList, Footnote, IngredientName, useStockFormat, type AttentionItem } from './stockUi';
 import { anyInBakery, heldAt, inScope, orderForStore, phoneCountsWaiting, splitByStore, splitWorthShowing, type StockLocation, type StoreSplit } from './storeLogic';
-import { useStockScope } from './stockScope';
+import { useStockScope, useStockWords } from './stockScope';
 import {
   matchesName,
   matchesOnHandFilter,
@@ -89,6 +89,7 @@ export function OnHand() {
   // The stock value, alerts and costing are management's reads, not the shop desk's.
   const scope = useStockScope();
   const venue = scope === 'venue';
+  const words = useStockWords();
   const [open, setOpen] = useState<OnHandRow | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
@@ -135,7 +136,7 @@ export function OnHand() {
       count: atLevel('out'),
       tone: 'danger',
       title: tr('ws.manager.stock.onHand.now.out'),
-      hint: tr('ws.manager.stock.onHand.now.outHint'),
+      hint: words.outHint,
       action: { label: tr('ws.manager.stock.onHand.now.showWhich'), onClick: () => showWhich('out') },
     },
     {
@@ -159,7 +160,7 @@ export function OnHand() {
       count: active.filter(needsCount).length,
       tone: 'warn',
       title: tr('ws.manager.stock.onHand.now.countNeeded'),
-      hint: tr('ws.manager.stock.onHand.now.countNeededHint'),
+      hint: words.countNeededHint,
       action: { label: tr('ws.manager.stock.onHand.now.showWhich'), onClick: () => showWhich('countNeeded') },
     },
     {
@@ -223,7 +224,7 @@ export function OnHand() {
   const columns: Column<OnHandRow>[] = [
     {
       key: 'ingredient',
-      header: tr('op.stock.ingredient'),
+      header: words.item,
       render: (r) => <IngredientName name={pickName(locale, r)} prepared={r.kind === 'prepared'} />,
     },
     {
@@ -262,11 +263,16 @@ export function OnHand() {
       render: (r) => (r.par_level === null ? <span style={{ color: 'var(--tp-muted-fg)' }}>—</span> : <AlignedQty text={fmt.num(r.par_level)} muted />),
     },
     // Numbers only in the two columns before it; the unit is said once, here (Sait, 2026-10-19).
-    {
-      key: 'unit',
-      header: tr('ws.manager.stock.onHand.table.unit'),
-      render: (r) => <span style={{ color: 'var(--tp-muted-fg)', whiteSpace: 'nowrap' }}>{fmt.unit(r.unit)}</span>,
-    },
+    // The shop counts products in pieces only, so it has no Unit column.
+    ...(venue
+      ? [
+          {
+            key: 'unit',
+            header: tr('ws.manager.stock.onHand.table.unit'),
+            render: (r: OnHandRow) => <span style={{ color: 'var(--tp-muted-fg)', whiteSpace: 'nowrap' }}>{fmt.unit(r.unit)}</span>,
+          },
+        ]
+      : []),
     {
       key: 'status',
       header: tr('ws.manager.stock.onHand.table.status'),
@@ -340,7 +346,7 @@ export function OnHand() {
       >
         <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
           <Panel title={<CardTitle icon="alert">{tr('ws.manager.stock.onHand.now.title')}</CardTitle>}>
-            <AttentionList items={attention} clear={tr('ws.manager.stock.onHand.now.clear')} />
+            <AttentionList items={attention} clear={words.clear} />
           </Panel>
 
           <div ref={tableRef} style={{ scrollMarginBlockStart: 'var(--tp-sp-4)' }}>
@@ -358,7 +364,7 @@ export function OnHand() {
                 ]}
               />
               <span style={{ inlineSize: '16rem', maxInlineSize: '100%' }}>
-                <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.onHand.table.search')} />
+                <SearchField value={query} onChange={setQuery} placeholder={words.search} />
               </span>
               {twoStores && (
                 // A visible name, so the stores never read as the item-kind
@@ -387,7 +393,7 @@ export function OnHand() {
               <EmptyState
                 kind={filter !== 'all' && query.trim() === '' ? 'nothingToDo' : 'filtered'}
                 icon={filter !== 'all' && query.trim() === '' ? 'checkCircle' : undefined}
-                title={filter !== 'all' && query.trim() === '' ? tr(`ws.manager.stock.onHand.table.none.${filter}`) : undefined}
+                title={filter !== 'all' && query.trim() === '' ? (filter === 'countNeeded' ? words.noneCountNeeded : tr(`ws.manager.stock.onHand.table.none.${filter}`)) : undefined}
                 onClearFilters={() => {
                   setFilter('all');
                   setQuery('');
@@ -404,7 +410,7 @@ export function OnHand() {
               />
             )}
             <Footnote style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
-              {tr('ws.manager.stock.onHand.howStockMoves')}{' '}
+              {words.howStockMoves}{' '}
               <Button kind="ghost" size="sm" onClick={() => go(countsTo)} style={{ verticalAlign: 'baseline' }}>
                 {counting ? tr('ws.manager.stock.onHand.continueCount') : tr('ws.manager.stock.onHand.count')}
               </Button>

@@ -36,7 +36,7 @@
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatIQD } from '@touch/i18n';
+import { formatIQD, formatNumber } from '@touch/i18n';
 import { AppRpcError, appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { can, useAuth } from '../../../lib/auth';
@@ -66,6 +66,7 @@ import { ShopSectionDialog } from '../../shop/ShopSectionDialog';
 import { PRICE_WATCHES_KEY, fetchPriceWatches } from '../../shop/priceWatch/priceWatchData';
 import { alertsFor, checkSupplierUrl, type PriceWatchRow } from '../../shop/priceWatch/priceWatchLogic';
 import { SupplierLinkField, SupplierLinkNotRead, SupplierPriceAlerts, SupplierPriceMarker } from '../../shop/priceWatch/PriceWatchUi';
+import { SHOP_REWARD_KEY, fetchShopRewardInfo, rewardFor } from '../../shop/shopReward';
 import {
   SK,
   fetchIngredients,
@@ -111,6 +112,11 @@ export function ProductsAdmin() {
   const suppliersQ = useQuery({ queryKey: SK.suppliers, queryFn: fetchSuppliers });
   // No watches (or a server without 0322) is no panel and no link status, never an error.
   const watchesQ = useQuery({ queryKey: PRICE_WATCHES_KEY, queryFn: fetchPriceWatches });
+  // 0355: each size's cost and what selling one earns. A failed read leaves
+  // the two columns at "—", never 0, and the page works on.
+  const rewardQ = useQuery({ queryKey: SHOP_REWARD_KEY, queryFn: fetchShopRewardInfo });
+  const rewardOf = useMemo(() => new Map((rewardQ.data?.products ?? []).map((p) => [p.variantId, p])), [rewardQ.data]);
+  const pct = rewardQ.data?.pct ?? null;
 
   const sections = catalogueQ.data?.sections ?? [];
   const lines = useMemo(
@@ -153,7 +159,37 @@ export function ProductsAdmin() {
     { key: 'barcode', header: tr('ws.manager.stock.products.barcode'), render: (l) => (l.variant.barcode ? <bdi dir="ltr">{l.variant.barcode}</bdi> : '—') },
     // The header already says IQD, as the menu list's does; with the unit in
     // every cell too, each price broke onto a second line ("50,000" / "IQD").
+    {
+      key: 'cost',
+      header: tr('ws.shop.reward.cost'),
+      numeric: true,
+      render: (l) => {
+        // The latest delivery's cost (the server's), else the one typed on the size.
+        const cost = rewardOf.get(l.variant.id)?.costIqd ?? l.packCostIqd;
+        return cost === null ? (
+          <span title={tr('ws.shop.reward.costUnknown')} style={{ color: 'var(--tp-muted-fg)' }}>
+            —
+          </span>
+        ) : (
+          <Money amount={cost} unit={false} />
+        );
+      },
+    },
     { key: 'price', header: tr('ws.manager.stock.products.price'), numeric: true, render: (l) => <Money amount={l.variant.price_iqd} unit={false} /> },
+    {
+      key: 'reward',
+      header: tr('ws.shop.reward.reward'),
+      numeric: true,
+      render: (l) => {
+        if (pct === null) return <span style={{ color: 'var(--tp-muted-fg)' }}>—</span>;
+        const reward = rewardOf.get(l.variant.id)?.rewardIqd ?? rewardFor(l.variant.price_iqd, pct);
+        return (
+          <span style={{ color: reward > 0 ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)', fontWeight: 600 }}>
+            <Money amount={reward} unit={false} />
+          </span>
+        );
+      },
+    },
     {
       key: 'onHand',
       header: tr('ws.manager.stock.onHand.table.onHand'),
@@ -213,7 +249,15 @@ export function ProductsAdmin() {
     <div>
       <PageHeader
         title={tr('op.stockNav.products')}
-        subtitle={tr('ws.manager.stock.products.lead')}
+        subtitle={
+          pct === null
+            ? tr('ws.manager.stock.products.lead')
+            : `${tr('ws.manager.stock.products.lead')} ${
+                pct > 0
+                  ? tr('ws.shop.reward.productsLead', { pct: `${formatNumber(pct, locale)}${tr('ws.kit.common.percent')}` })
+                  : tr('ws.shop.reward.productsOff')
+              }`
+        }
         actions={
           <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
             <Button icon="plus" onClick={() => setNewSection(true)} data-testid="shop-section-add">

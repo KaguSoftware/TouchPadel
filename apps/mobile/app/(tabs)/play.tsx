@@ -69,8 +69,14 @@ import { Text } from '../../src/i18n/text';
 import { radius, space, useTheme } from '../../src/theme';
 import { usePlayProfile } from '../../src/features/playProfile/hooks';
 import { showsTournament, tournamentFit } from '../../src/features/playProfile/fit';
-import { Screen, SegmentedControl, TAB_TITLE_TOP, Title } from '../../src/components/ui';
-import { AccountButton } from '../../src/components/AccountButton';
+import {
+  Screen,
+  SegmentedControl,
+  TAB_TITLE_TOP,
+  Title,
+  titleCentreOffset,
+} from '../../src/components/ui';
+import { ACCOUNT_BUTTON_SIZE, AccountButton } from '../../src/components/AccountButton';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { BrandPattern } from '../../src/components/BrandPattern';
@@ -465,10 +471,10 @@ export default function PlayScreen() {
     switch (p.kind) {
       case 'left':
         return t('tournaments.guest.list.placesLeft', { count: isolateLtr(String(p.count)) });
+      // No places left, waitlist or not (Sait, 2026-10-21); the detail says whether one is open.
       case 'waitlist':
-        return t('tournaments.guest.list.waitlistOnly');
       case 'full':
-        return t('tournaments.guest.list.full');
+        return t('tournaments.guest.list.noPlacesLeft');
       case 'status':
         return null;
     }
@@ -570,7 +576,18 @@ export default function PlayScreen() {
           <PlayTournamentCard
             testID={`play.tournament.${r.id}`}
             tone={tourToneOf(r.status)}
-            status={r.status ? t(`tournaments.common.status.${r.status}`) : null}
+            // The band says just "Open" / "Closed" for registration (Sait, 2026-10-21).
+            status={
+              r.status === 'open'
+                ? t('tournaments.guest.list.statusOpen')
+                : r.status === 'closed'
+                  ? t('tournaments.guest.list.statusClosed')
+                  : r.status
+                    ? t(`tournaments.common.status.${r.status}`)
+                    : null
+            }
+            registration={r.status === 'open' || r.status === 'closed' ? r.status : null}
+            category={r.category}
             format={r.format ? t(`tournaments.common.format.${r.format}`) : null}
             title={tournamentName(r, locale)}
             when={tourWhen(r)}
@@ -637,41 +654,12 @@ export default function PlayScreen() {
     />
   ) : null;
 
-  // Their own strip of the sheet's ground, so the rows pass under them once pinned.
-  const controls = kindSwitch ? (
-    <View
-      style={{
-        backgroundColor: colors.bg,
-        paddingStart: space.l,
-        paddingEnd: space.l,
-        paddingTop: space.sm,
-        paddingBottom: space.sm,
-      }}
-    >
-      {kindSwitch}
-    </View>
-  ) : null;
-  // Where the slot sits in the list's content: the sheet starts at the foot of
-  // the court's slot (the header's first thing), less its overlap.
-  const controlsAt = heroH - PLAY_SHEET_OVERLAP + (controlsY ?? 0);
-  const controlsShift = useMemo(
-    () =>
-      scroll.y.interpolate({
-        inputRange: [controlsAt - 1, controlsAt],
-        outputRange: [1, 0],
-        extrapolateLeft: 'extend',
-        extrapolateRight: 'clamp',
-      }),
-    [scroll.y, controlsAt],
-  );
-
-  const notices: ReactNode[] = [];
-  if (askFit && kind !== 'matches') {
-    // 0339: a signed-in guest who has not said their level or years sees every
-    // tournament, and is asked; registering asks too (TOURNAMENT_PROFILE_REQUIRED).
-    notices.push(
+  // 0339: a signed-in guest who has not said their level or years sees every
+  // tournament, and is asked; registering asks too (TOURNAMENT_PROFILE_REQUIRED).
+  // The ask pins under the title with the switch and leaves once answered (Sait, 2026-10-21).
+  const fitAsk =
+    askFit && kind !== 'matches' ? (
       <Pressable
-        key="fit-ask"
         testID="play.fit-ask"
         accessibilityRole="button"
         onPress={() => router.push({ pathname: '/play-survey', params: { mode: 'edit' } })}
@@ -698,9 +686,44 @@ export default function PlayScreen() {
           {t('play.fitAsk')}
         </Text>
         <ChevronIcon size={16} color={colors.blue} strokeWidth={2.4} />
-      </Pressable>,
-    );
-  }
+      </Pressable>
+    ) : null;
+
+  // Their own strip of the sheet's ground, so the rows pass under them once pinned.
+  const controls =
+    kindSwitch || fitAsk ? (
+      <View
+        style={{
+          backgroundColor: colors.bg,
+          paddingStart: space.l,
+          paddingEnd: space.l,
+          paddingTop: space.sm,
+          paddingBottom: space.sm,
+          gap: space.sm,
+        }}
+      >
+        {kindSwitch}
+        {fitAsk}
+      </View>
+    ) : null;
+  // With nothing left to pin (the ask answered, no switch), forget the slot so
+  // the night headers stick at the title's foot again.
+  if (controls === null && controlsY !== null) setControlsY(null);
+  // Where the slot sits in the list's content: the sheet starts at the foot of
+  // the court's slot (the header's first thing), less its overlap.
+  const controlsAt = heroH - PLAY_SHEET_OVERLAP + (controlsY ?? 0);
+  const controlsShift = useMemo(
+    () =>
+      scroll.y.interpolate({
+        inputRange: [controlsAt - 1, controlsAt],
+        outputRange: [1, 0],
+        extrapolateLeft: 'extend',
+        extrapolateRight: 'clamp',
+      }),
+    [scroll.y, controlsAt],
+  );
+
+  const notices: ReactNode[] = [];
   if (banned)
     notices.push(<MatchNotice key="banned" text={t('matches.errors.banned')} tone="red" />);
   if (matchesState === 'error' && toursState !== 'error') {
@@ -885,11 +908,23 @@ export default function PlayScreen() {
         <View style={{ flex: 1 }}>
           <Title fit>{t('tabs.play')}</Title>
         </View>
-        {canStart ? (
-          <StartMatchButton testID="play.start" label={t('play.start')} onPress={startOne} />
-        ) : null}
-        {filter}
-        <AccountButton testID="play.account" />
+        {/* Start, filter and account as one group, centred on the title's text
+            line (AccountButton's own centring would leave the other two high). */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: space.sm,
+            height: ACCOUNT_BUTTON_SIZE,
+            marginTop: titleCentreOffset(dir, ACCOUNT_BUTTON_SIZE),
+          }}
+        >
+          {canStart ? (
+            <StartMatchButton testID="play.start" label={t('play.start')} onPress={startOne} />
+          ) : null}
+          {filter}
+          <AccountButton testID="play.account" centred={false} />
+        </View>
       </View>
     </PinnedTitle>
   );
@@ -1006,8 +1041,10 @@ export default function PlayScreen() {
         <Frost scrollY={scroll.y} span={heroH} />
         <View style={{ flex: 1, marginTop: titleH, overflow: 'hidden' }}>
           {/* The night headers stick under the pinned controls, and the next
-              night pushes the one before it out (owner, 2026-10-13). */}
-          <StickyOffset.Provider value={controlsY === null ? 0 : controlsH}>
+              night pushes the one before it out (owner, 2026-10-13). In the sheet
+              the slot's foot overlaps the gap by space.sm, so a stuck header rides
+              up as much and keeps the same distance (Sait, 2026-10-21). */}
+          <StickyOffset.Provider value={controlsY === null ? 0 : Math.max(0, controlsH - space.sm)}>
             <Animated.SectionList<PlayEntry, NightSection>
               ref={listRef}
               testID="play.list"

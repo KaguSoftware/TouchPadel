@@ -9,6 +9,9 @@
  * that consequence in the question. A manager sees the value it is set to
  * instead of nothing at all: the old tab hid the row, so a manager could not
  * tell why "today" started at 04:00.
+ *
+ * Touch Shop (0355): the sales reward percent, the owner's alone, with the
+ * same Save and question; a manager sees the value with the lock.
  */
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -22,7 +25,9 @@ import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Button, ErrorText, Field, Select, Skeleton, inputStyle } from '../../../components/ui';
 import { StatusBadge } from '../../../components/kit';
+import { PercentInput } from '../../../components/inputs';
 import { SettingsGroup, SettingsRow, settingField } from './SettingsList';
+import { SHOP_REWARD_KEY } from '../../shop/shopReward';
 
 const BUSINESS_DAY_HOURS = [0, 4, 5, 6, 7, 8] as const;
 const COOLDOWN_MIN = 30;
@@ -37,6 +42,7 @@ export function DayServiceTab() {
   const { staff } = useAuth();
   // Capability matrix, not an inline role comparison — see lib/auth.tsx.
   const canSetBusinessDay = can(staff, 'setBusinessDayStart');
+  const canSetShopReward = can(staff, 'setShopReward');
   const { settings, isLoading } = useCafeSettings();
   const setSetting = useSetCafeSetting();
 
@@ -67,6 +73,32 @@ export function DayServiceTab() {
     }
   }
 
+  // --- Touch Shop sales reward (owner) ---
+  const savedPct = settings.shop_sale_reward_pct;
+  const [pct, setPct] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isLoading && pct === null) setPct(savedPct);
+  }, [isLoading, savedPct, pct]);
+  const pctDirty = pct !== null && pct !== savedPct;
+  const pctLabel = (n: number) => `${formatNumber(n, locale)}${tr('ws.kit.common.percent')}`;
+
+  async function savePct() {
+    if (pct === null) return;
+    const ok = await confirm({
+      title: tr('ws.shop.reward.confirmTitle', { pct: pctLabel(pct) }),
+      body: tr('ws.shop.reward.confirmBody', { pct: pctLabel(pct), old: pctLabel(savedPct) }),
+      confirmLabel: tr('ws.shop.reward.confirmAction'),
+    });
+    if (!ok) return;
+    try {
+      await setSetting.mutateAsync({ key: 'shop_sale_reward_pct', value: pct });
+      toast.ok(tr('op.toast.saved'));
+      void queryClient.invalidateQueries({ queryKey: SHOP_REWARD_KEY });
+    } catch (e) {
+      toast.err(e);
+    }
+  }
+
   // --- waiter-call cooldown (venue_settings) ---
   const venueQ = useQuery({
     queryKey: COOLDOWN_KEY,
@@ -92,7 +124,7 @@ export function DayServiceTab() {
     onError: (e) => toast.err(e),
   });
 
-  if (isLoading || hour === null) return <Skeleton lines={6} />;
+  if (isLoading || hour === null || pct === null) return <Skeleton lines={6} />;
 
   // Seconds are what the server stores; minutes are what a person reads.
   const cooldownReadable =
@@ -183,6 +215,37 @@ export function DayServiceTab() {
           </Field>
           {cooldownReadable && <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{cooldownReadable}</p>}
           <ErrorText error={venueQ.error} />
+        </SettingsRow>
+      </SettingsGroup>
+
+      <SettingsGroup title={tr('ws.shop.reward.groupTitle')} description={tr('ws.shop.reward.groupLead')}>
+        <SettingsRow
+          end={
+            canSetShopReward ? (
+              pctDirty ? (
+                <>
+                  <Button kind="ghost" disabled={setSetting.isPending} onClick={() => setPct(savedPct)}>
+                    {tr('ws.kit.actions.discard')}
+                  </Button>
+                  <Button kind="primary" busy={setSetting.isPending} onClick={() => void savePct()}>
+                    {tr('common.save')}
+                  </Button>
+                </>
+              ) : null
+            ) : (
+              <StatusBadge size="sm" tone="neutral" icon="lock" label={tr('ws.owner.settings.ownerOnly')} />
+            )
+          }
+        >
+          <Field label={tr('ws.shop.reward.label')} hint={tr('ws.shop.reward.hint')} style={settingField}>
+            {canSetShopReward ? (
+              <PercentInput value={pct} onChange={setPct} min={0} max={50} disabled={setSetting.isPending} />
+            ) : (
+              <span dir="ltr" style={{ fontWeight: 600, textAlign: 'start' }} data-testid="shop-reward-pct">
+                {pctLabel(savedPct)}
+              </span>
+            )}
+          </Field>
         </SettingsRow>
       </SettingsGroup>
     </div>

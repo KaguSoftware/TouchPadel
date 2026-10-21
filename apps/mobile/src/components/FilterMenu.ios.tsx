@@ -29,7 +29,7 @@ import type { FilterMenuProps } from './FilterMenu.types';
 export type { FilterMenuOption, FilterMenuProps } from './FilterMenu.types';
 
 /** AccountButton's size: the two sit side by side. */
-const SIZE = 36;
+const SIZE = 44;
 
 export function FilterMenu<T extends string>({
   testID,

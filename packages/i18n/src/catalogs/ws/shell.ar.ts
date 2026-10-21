@@ -114,7 +114,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     prep: 'لوحة التذاكر التي يعمل عليها الطهاة',
     management: 'كل النشاط في مكان واحد',
     team: 'المهام وقوائم التحقق المسندة إليك',
-    shop: 'كاشير المتجر ودرجه ومخزونه ومنتجاته',
+    shop: 'كاشير المتجر والدرج والمخزون والمنتجات',
   },
   nav: {
     today: 'اليوم',
@@ -204,6 +204,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     lessonTypes: 'الحصص والأسعار',
     coachHours: 'أوقات المدرّبين',
     lessonRules: 'قواعد الحصص',
+    coachSchedules: 'الجداول',
     bookingRules: 'قواعد الحجز',
     onlineDeposit: 'العربون الإلكتروني',
     openMatches: 'المباريات المفتوحة',

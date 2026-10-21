@@ -32,7 +32,7 @@ describe('pre-system monthly reports in the figures (0349)', () => {
     expect(text(n[0]!)).toMatch(/^August 2026: .*whole month/);
   });
 
-  it('keeps each month\'s own bookings and money (0355), unknown as null', () => {
+  it('keeps each month\'s own bookings and money (0357), unknown as null', () => {
     const h = parseLegacyHistory({
       included: [
         { from: '2026-08-01', to: '2026-08-31', bookings: 203, revenue: 5087250, revenueApproximate: true },

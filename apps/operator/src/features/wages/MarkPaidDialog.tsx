@@ -119,10 +119,10 @@ export function MarkPaidDialog({ line, onClose, onDone }: { line: PayTarget; onC
           </span>
         </Line>
       </dl>
-      {line.bonuses.length > 0 && (
+      {line.bonuses.length + line.shopRewards.length > 0 && (
         <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
           <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('ws.wages.pay.bonusesTitle')}</h3>
-          <BonusList bonuses={line.bonuses} testId="wages.pay.bonuses" />
+          <BonusList bonuses={line.bonuses} shopRewards={line.shopRewards} testId="wages.pay.bonuses" />
         </div>
       )}
       <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>

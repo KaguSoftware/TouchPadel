@@ -92,4 +92,11 @@ describe('key registries', () => {
     expect(s.attendance_penalty_iqd).toBe(5000);
     expect(s.wage_reminder_days).toBe(3);
   });
+
+  it('carries the Touch Shop sales reward with 0355’s default: 10%, the owner’s, never public', () => {
+    expect(CAFE_SETTING_DEFAULTS.shop_sale_reward_pct).toBe(10);
+    expect(OWNER_ONLY_SETTING_KEYS).toContain('shop_sale_reward_pct');
+    expect(PUBLIC_SETTING_KEYS).not.toContain('shop_sale_reward_pct');
+    expect(foldCafeSettings([{ key: 'shop_sale_reward_pct', value: 15 }]).shop_sale_reward_pct).toBe(15);
+  });
 });

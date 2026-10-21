@@ -219,8 +219,6 @@ export const en = {
     viewAvailability: 'Check availability',
     noCourts: 'No courts are available right now.',
     // Design 2026-08-31: courts home + court detail.
-    openNow: 'Open now · {hours}',
-    closedNow: 'Closed right now',
     reserveFooter: 'Reserve in the app · pay at the desk on arrival',
     courtPhoto: 'Court photo',
     fromPrice: 'From {price}',
@@ -1384,12 +1382,12 @@ export const en = {
     // with no menu bar and no address bar, so a blank screen is a dead station.
     crash: {
       title: 'This screen stopped working',
-      body: 'The rest of the app is still running. Try the screen again, or go back to your home screen.',
+      body: 'The rest of the app still works.',
       retry: 'Try this screen again',
       home: 'Go to my home screen',
       reload: 'Restart the app',
       details: 'Technical details',
-      again: 'If it keeps happening, tell the manager what you were doing when it stopped.',
+      again: 'Keeps happening? Tell the manager.',
       notFoundTitle: 'Screen not found',
       notFoundBody: 'There is no screen at this address. Your home screen has everything your role can open.',
     },

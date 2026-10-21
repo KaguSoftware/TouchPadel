@@ -111,14 +111,14 @@ describe('Goods in ▸ the store', () => {
   it('receives the shop desk’s deliveries into the shop store, shop stock only, with no store to pick', async () => {
     const user = userEvent.setup();
     mount('shop');
-    await user.click(await screen.findByRole('combobox', { name: 'Ingredient' }));
+    await user.click(await screen.findByRole('combobox', { name: 'Product' }));
     const list = within(screen.getByRole('listbox'));
     expect(list.getByRole('option', { name: /Water bottle$/ })).toBeTruthy();
     expect(list.queryByRole('option', { name: /Flour$/ })).toBeNull();
     await user.click(list.getByRole('option', { name: /Water bottle$/ }));
     expect(screen.queryByTestId('goods-in-store')).toBeNull();
     await user.type(screen.getByRole('textbox', { name: /^Received/ }), '12');
-    await user.type(screen.getByRole('textbox', { name: /^Cost per/ }), '500');
+    await user.type(screen.getByRole('textbox', { name: /^Cost each/ }), '500');
     await user.click(screen.getByRole('button', { name: 'Record delivery' }));
     await waitFor(() => expect(rpc.mock.calls.some(([fn]) => fn === 'receive_delivery')).toBe(true));
     expect(rpc.mock.calls.find(([fn]) => fn === 'receive_delivery')![1]).toMatchObject({ p_location: 'shop' });

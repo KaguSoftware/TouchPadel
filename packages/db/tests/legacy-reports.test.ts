@@ -160,7 +160,7 @@ describe.skipIf(!up)('0331 legacy reports', () => {
     expect(cut.kpis.revenue_iqd as number).toBeGreaterThanOrEqual(14267750);
   });
 
-  it('0355: each counted report carries its own summary figures, null where it has none', async () => {
+  it('0357: each counted report carries its own summary figures, null where it has none', async () => {
     const all = await courts('2026-06-01', '2026-09-30');
     const months = all.history.included as { from: string; bookings: number | null; cancellations: number | null; noShows: number | null; lessons: number | null; revenue: number | null }[];
     expect(months.map((m) => [m.from, m.bookings, m.cancellations, m.noShows, m.lessons, m.revenue])).toEqual([

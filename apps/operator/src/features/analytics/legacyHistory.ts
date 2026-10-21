@@ -5,7 +5,7 @@
  * reports it counted and which the range cut (`history`); this turns that into
  * the notice lines both screens show, so the owner always knows when a figure
  * includes a report, when its money is the report's own approximation, and
- * why a report month is missing. Since 0355 each counted month also carries
+ * why a report month is missing. Since 0357 each counted month also carries
  * its own bookings and money, which the Courts lines draw by month.
  */
 import { formatMonthYear, type Locale, type MessageKey, type TParams } from '@touch/i18n';
@@ -20,7 +20,7 @@ export interface LegacyMonth {
   from: string;
   to: string;
   revenueApproximate: boolean;
-  /** The report's own figures (0355), null where it has none or the server predates 0355. */
+  /** The report's own figures (0357), null where it has none or the server predates 0357. */
   bookings: number | null;
   revenue: number | null;
 }

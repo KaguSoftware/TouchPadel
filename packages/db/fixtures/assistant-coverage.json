@@ -191,7 +191,9 @@
     "venues": "table_read",
     "wage_advances": "excluded: wage advances, money about a named person; never readable by the owner assistant or any LLM",
     "wage_payments": "excluded: the wages the owner marked paid, money about a named person; never readable by the owner assistant or any LLM",
-    "waiter_calls": "table_read"
+    "waiter_calls": "table_read",
+    "shop_sale_reward_earnings": "excluded: the Touch Shop sales reward each person earned in a closed business month and the wage month it is paid in (0355), money about a named person; never readable by the owner assistant or any LLM",
+    "shop_sale_reward_rates": "excluded: the shop sales reward percent frozen on each settled shop tab (0355), wage bookkeeping read by no client; never readable by the owner assistant or any LLM"
   },
   "views": {
     "cafe_settings_public": "table_read",
@@ -524,6 +526,7 @@
     "desk_cancel_enrolment": "map:action",
     "desk_cancel_lesson": "map:action",
     "desk_cancel_match": "map:action",
+    "desk_coach_schedule": "map:action",
     "desk_create_course": "map:action",
     "desk_create_group": "map:action",
     "desk_lesson_detail": "map:action",
@@ -1425,7 +1428,11 @@
     "loyalty_token_consume": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "loyalty_token_match": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "trg_loyalty_booking_payment": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
-    "trg_loyalty_redeem_cap": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client"
+    "trg_loyalty_redeem_cap": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "shop_reward_info": "excluded: the shop's sales reward view (0355): the percent, each product's cost and reward, and the caller's own month so far, money about a named person; kept away from the owner assistant and every LLM",
+    "shop_reward_lines": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "shop_reward_sweep": "excluded: service_role only — the shop sales reward sweep run by cron tp_shop_reward_sweep (shop_sale_rewards migration): turns each closed month's shop sales into wage bonuses, money about a named person, never called by a client",
+    "trg_shop_sale_reward": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client"
   },
   "routes": {
     "/admin": "map:page",
@@ -1558,7 +1565,8 @@
     "tp_scan_sweep": "map:system",
     "tp_telegram_prune": "map:system",
     "tp_telegram_sweep": "map:system",
-    "tp_tournament_sweep": "map:system"
+    "tp_tournament_sweep": "map:system",
+    "tp_shop_reward_sweep": "map:system"
   },
   "docs": {
     "API.md": "index:doc",

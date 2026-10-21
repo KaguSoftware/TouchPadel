@@ -73,7 +73,9 @@ describe('Title (every page header)', () => {
   });
 
   it('keeps the tighter all-caps line box on the Latin branch', () => {
-    expect(TITLE).toMatch(/dir === 'rtl' \? 1\.45 : 1\.05/);
+    // The ratio lives in titleLineHeight, which AccountButton also centres on.
+    expect(TITLE).toContain('titleLineHeight(dir, size)');
+    expect(UI).toMatch(/dir === 'rtl' \? 1\.45 : 1\.05/);
   });
 });
 

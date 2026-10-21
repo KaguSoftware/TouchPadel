@@ -143,7 +143,7 @@ export const shellEn = {
     prep: 'The ticket board the cooks work from',
     management: 'The whole business in one place',
     team: 'Tasks and checklists given to you',
-    shop: 'The shop cashier, its drawer, stock and products',
+    shop: 'Shop cashier, drawer, stock and products',
   },
   nav: {
     today: 'Today',
@@ -249,6 +249,7 @@ export const shellEn = {
     lessonTypes: 'Lessons & prices',
     coachHours: 'Coach hours',
     lessonRules: 'Lesson rules',
+    coachSchedules: 'Schedules',
     bookingRules: 'Booking rules',
     onlineDeposit: 'Online deposit',
     openMatches: 'Open matches',

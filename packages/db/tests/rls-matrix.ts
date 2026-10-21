@@ -6969,4 +6969,53 @@ export const matrix: MatrixRule[] = [
     note: '0354: false for a name that is not a stored file; policy-evaluated, hence the anon grant',
     drop: 37,
   },
+  // ── 0355 shop_sale_rewards (shop-sale-rewards.test.ts) ──
+  // The shop's reward view; the frozen rates are read by no client and the
+  // earnings by the owner only (no probe row is planted, so everyone reads
+  // silence). Only the settle trigger and app.shop_reward_sweep write them.
+  {
+    kind: 'rpc', schema: 'app', name: 'shop_reward_info',
+    args: {}, expect: MANAGER_UP,
+    note: '0355: shop assistant, manager, owner at the branch (shop_staff is not a matrix principal): the percent, each shop size\'s price, cost and reward, and the caller\'s own month',
+    drop: 38,
+  },
+  {
+    kind: 'select',
+    name: 'shop_sale_reward_rates',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0355: no client grant at all; written by the tabs_shop_sale_reward trigger',
+    drop: 38,
+  },
+  {
+    kind: 'write',
+    name: 'shop_sale_reward_rates',
+    op: 'insert',
+    payload: { tab_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0355: no client write grant: the settle trigger only',
+    drop: 38,
+  },
+  {
+    kind: 'select',
+    name: 'shop_sale_reward_earnings',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied' }),
+    note: '0355: the owner at the branch reads the shop sales rewards; no probe row is planted, so everyone reads silence (tests/shop-sale-rewards.test.ts reads real rows)',
+    drop: 38,
+  },
+  {
+    kind: 'write',
+    name: 'shop_sale_reward_earnings',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0355: no client write grant: app.shop_reward_sweep (service role) only',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'desk_coach_schedule',
+    args: { p_venue_id: VENUE_A, p_from: TS_FROM, p_to: TS_TO },
+    expect: DESK_UP,
+    note: "0356: the court desk's Coaches tab (hours, time off, busy); a window over 7 days is INVALID_ARGUMENT past the guard",
+    drop: 38,
+  },
 ];

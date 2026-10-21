@@ -1537,11 +1537,11 @@ const LIVE_DOT = 6;
 const LIVE_PULSE_MS = 1600;
 
 /**
- * The "live" beacon in a free pill: a steady dot with a ring of the same
+ * The "live" beacon in a free pill (and a tournament's Open / Closed pill on Join): a steady dot with a ring of the same
  * colour that swells out and fades, over and over. Holds still under Reduce
  * Motion.
  */
-function LiveDot({ color }: { color: string }) {
+export function LiveDot({ color }: { color: string }) {
   const reduceMotion = useReduceMotion();
   const [pulse] = useState(() => new Animated.Value(0));
 

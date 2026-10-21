@@ -79,7 +79,7 @@ export function PulseSection({
   const padelDelta = !withShop ? delta('revenue') : reliable && padelPrev != null ? pctDelta(padel, padelPrev) : null;
   // The lines under bookings and padel revenue. A pre-system monthly report the
   // figures count (0349) has no days, so a range holding one is drawn by month,
-  // the report's month carrying its own figures (0355); otherwise by day.
+  // the report's month carrying its own figures (0357); otherwise by day.
   const legacy = courtId == null ? (raw?.summary.history?.included ?? []) : [];
   const legacyBy = (pick: (m: (typeof legacy)[number]) => number | null) => {
     const out = new Map<string, number>();

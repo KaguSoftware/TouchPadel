@@ -35,7 +35,7 @@ function nextMonth(iso: string): string {
 
 /**
  * The same line by calendar month, for a range that holds a pre-system
- * monthly report (0349, 0355): a report has no days, so a day line leaves its
+ * monthly report (0349, 0357): a report has no days, so a day line leaves its
  * month empty while the tile's figure counts it. Each point is a month's
  * days plus `extra` for that month (keyed 'YYYY-MM', the report's figure);
  * nothing is split into days. A month the range cuts is labelled with the

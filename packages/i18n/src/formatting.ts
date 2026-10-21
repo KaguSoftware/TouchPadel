@@ -164,9 +164,11 @@ export function formatTimeRange(
 }
 
 /**
- * The short range (Sait, 2026-10-20): the day period once, at the end, and the
- * start's minutes only when either end falls off the hour. "4–5:00 PM",
- * "5:30–6:30 PM", "11 AM–1:00 PM" across noon. Bidi-isolated as `formatTimeRange`.
+ * The short range (Sait, 2026-10-20 and 10-21): the day period once, at the end
+ * (both ends across noon), each end's minutes only when it falls off the hour,
+ * and an arrow between them that points the way the line reads. "4 → 5 PM",
+ * "5:30 → 6:30 PM", "5 → 6:30 PM", "11 AM → 1 PM"; Arabic "4 ← 5 م".
+ * Bidi-isolated as `formatTimeRange`.
  */
 export function formatTimeRangeShort(
   start: Date,
@@ -176,12 +178,15 @@ export function formatTimeRangeShort(
 ): string {
   const a = wallClock(start, timeZone);
   const b = wallClock(end, timeZone);
-  const onHour = a.minute === 0 && b.minute === 0;
+  const clock = (w: WallClock) => {
+    const h12 = w.hour % 12 === 0 ? 12 : w.hour % 12;
+    return w.minute === 0 ? String(h12) : `${h12}:${String(w.minute).padStart(2, '0')}`;
+  };
+  const period = (w: WallClock) => DAY_PERIOD[locale][w.hour < 12 ? 0 : 1];
   const samePeriod = a.hour < 12 === b.hour < 12;
-  const h12 = a.hour % 12 === 0 ? 12 : a.hour % 12;
-  const from = onHour ? String(h12) : `${h12}:${String(a.minute).padStart(2, '0')}`;
-  const period = DAY_PERIOD[locale][a.hour < 12 ? 0 : 1];
-  return isolate(`${samePeriod ? from : `${from} ${period}`}–${timeText(b, locale)}`);
+  const from = samePeriod ? clock(a) : `${clock(a)} ${period(a)}`;
+  const arrow = locale === 'ar' ? '←' : '→';
+  return isolate(`${from} ${arrow} ${clock(b)} ${period(b)}`);
 }
 
 /** Short weekday for the day strip: "Tue" / "الثلاثاء". */
