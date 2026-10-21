@@ -126,25 +126,28 @@ export const operatorVars = {
   // --tp-breakdown-wash) that a hovered row deepens (--tp-breakdown-hover-mix).
   // Padel green, cafe violet, money out rose, online light blue, lessons teal,
   // and gold for a sixth card.
+  // The bands are a darker shade of each colour taken 60% of the way to white
+  // ("darker, same opacity"), barely coloured
+  // but clearly, and the outline wears the band's own colour (Sait, 2026-10-21).
   // Blue mode swaps each for a calm deep version with a light ink.
-  '--tp-breakdown-green': 'var(--tp-brand-green)',
+  '--tp-breakdown-green': '#C8DAB5',
   '--tp-breakdown-green-fg': '#152847',
-  '--tp-breakdown-green-edge': 'var(--tp-brand-green)',
-  '--tp-breakdown-violet': '#C9B0EC',
+  '--tp-breakdown-green-edge': '#C8DAB5',
+  '--tp-breakdown-violet': '#D7CDE5',
   '--tp-breakdown-violet-fg': '#152847',
-  '--tp-breakdown-violet-edge': '#C9B0EC',
-  '--tp-breakdown-rose': '#E9A6AA',
+  '--tp-breakdown-violet-edge': '#D7CDE5',
+  '--tp-breakdown-rose': '#E5C9CA',
   '--tp-breakdown-rose-fg': '#152847',
-  '--tp-breakdown-rose-edge': '#E9A6AA',
-  '--tp-breakdown-sky': '#9DB4DA',
+  '--tp-breakdown-rose-edge': '#E5C9CA',
+  '--tp-breakdown-sky': '#C5CFDE',
   '--tp-breakdown-sky-fg': '#152847',
-  '--tp-breakdown-sky-edge': '#9DB4DA',
-  '--tp-breakdown-teal': '#9ED9D2',
+  '--tp-breakdown-sky-edge': '#C5CFDE',
+  '--tp-breakdown-teal': '#C7DDDB',
   '--tp-breakdown-teal-fg': '#152847',
-  '--tp-breakdown-teal-edge': '#9ED9D2',
-  '--tp-breakdown-gold': '#E6CF7A',
+  '--tp-breakdown-teal-edge': '#C7DDDB',
+  '--tp-breakdown-gold': '#E2DABA',
   '--tp-breakdown-gold-fg': '#152847',
-  '--tp-breakdown-gold-edge': '#E6CF7A',
+  '--tp-breakdown-gold-edge': '#E2DABA',
   // The Breakdown panel's own ground behind the cards (the deep rail blue in blue mode).
   // The owner's four card colours, by place (report figure groups, headline
   // tiles, the customer record's tiles, the analytics cards): the Breakdown's
@@ -160,8 +163,13 @@ export const operatorVars = {
   '--tp-card-ink': '#152847',
   '--tp-breakdown-frame': 'var(--tp-surface)',
   '--tp-breakdown-wash': 'var(--tp-surface)',
-  '--tp-breakdown-wash-mix': '16%',
-  '--tp-breakdown-hover-mix': '38%',
+  '--tp-breakdown-wash-mix': '28%',
+  // A hovered row: a light touch of the band colour (Sait, 2026-10-21: the
+  // hover "should also be lighter", then "barely coloured, but clearly"; it
+  // reads as a clear step above the rows' wash; the mixes are higher than
+  // before because the bands themselves are now pale). No lift toward the ink.
+  '--tp-breakdown-hover-mix': '65%',
+  '--tp-breakdown-hover-lift': '0%',
   // Tables (Sait, 2026-10-19). The column band is the Breakdown's group band in
   // both modes; the selected row is Padel Green with navy ink in both modes
   // (green marks what is here and now, as the rail's current-page pill), and

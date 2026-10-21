@@ -1183,8 +1183,8 @@ button.tp-nav-item { background: transparent; }
 .tp-starter-row:disabled { cursor: default; opacity: var(--tp-opacity-disabled); }
 /* The free AI's page tiles wear a card's tone and deepen a little on hover. */
 .tp-starter-tile { transition: background-color var(--tp-dur-fast) var(--tp-ease-out); }
-.tp-starter-tile:hover { background: color-mix(in oklab, var(--tp-st) 82%, var(--tp-card-ink)); }
-:root[data-theme='operator'][data-mode='blue'] .tp-starter-tile:hover { background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash)); }
+.tp-starter-tile:hover { background: color-mix(in oklab, var(--tp-st) 92%, var(--tp-card-ink)); }
+:root[data-theme='operator'][data-mode='blue'] .tp-starter-tile:hover { background: color-mix(in oklab, color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash)), var(--tp-bd-fg) var(--tp-breakdown-hover-lift)); }
 :root[data-theme='operator'][data-mode='blue'] .tp-starter {
   background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-wash-mix), var(--tp-breakdown-wash));
   border-color: var(--tp-bd-edge);
@@ -1196,7 +1196,7 @@ button.tp-nav-item { background: transparent; }
   color: var(--tp-fg);
 }
 :root[data-theme='operator'][data-mode='blue'] .tp-starter-q:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash));
+  background: color-mix(in oklab, color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash)), var(--tp-bd-fg) var(--tp-breakdown-hover-lift));
 }
 
 /* The management overview's Breakdown cards (Sait, 2026-10-19). Each card
@@ -1212,7 +1212,7 @@ button.tp-nav-item { background: transparent; }
 .tp-breakdown-card[data-tone='teal'] { --tp-bd: var(--tp-breakdown-teal); --tp-bd-fg: var(--tp-breakdown-teal-fg); --tp-bd-edge: var(--tp-breakdown-teal-edge); }
 .tp-breakdown-card[data-tone='gold'] { --tp-bd: var(--tp-breakdown-gold); --tp-bd-fg: var(--tp-breakdown-gold-fg); --tp-bd-edge: var(--tp-breakdown-gold-edge); }
 .tp-breakdown-card {
-  --tp-hover: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash));
+  --tp-hover: color-mix(in oklab, color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-hover-mix), var(--tp-breakdown-wash)), var(--tp-bd-fg) var(--tp-breakdown-hover-lift));
   --tp-hover-fg: var(--tp-fg);
   --tp-muted-fg: var(--tp-fg);
   background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-wash-mix), var(--tp-breakdown-wash));

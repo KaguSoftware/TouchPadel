@@ -118,27 +118,30 @@ export const operatorBlueVars = {
   '--tp-group-head-fg': 'var(--tp-panel-head-fg)',
   // The Breakdown's cards, calm: the deep "soft" grounds of the status
   // families (success, lesson, danger) with their light inks, and a wash into
-  // the deep rail blue instead of white.
-  '--tp-breakdown-green': '#334918',
+  // the deep rail blue instead of white. A step lighter since 2026-10-21 (Sait:
+  // "should be lighter", then "barely coloured, but clearly"): each ground
+  // and edge at about half its colour, the same hue, then a shade darker
+  // ("darker, same opacity"); its ink at 5.6:1 or more.
+  '--tp-breakdown-green': '#404D33',
   '--tp-breakdown-green-fg': '#BCDC93',
-  '--tp-breakdown-green-edge': '#4A6327',
-  '--tp-breakdown-violet': '#4B2F63',
+  '--tp-breakdown-green-edge': '#576646',
+  '--tp-breakdown-violet': '#4E3F5A',
   '--tp-breakdown-violet-fg': '#E8C0F4',
-  '--tp-breakdown-violet-edge': '#654283',
-  '--tp-breakdown-rose': '#4A2A3A',
+  '--tp-breakdown-violet-edge': '#655374',
+  '--tp-breakdown-rose': '#4A363E',
   '--tp-breakdown-rose-fg': '#F0B0B4',
-  '--tp-breakdown-rose-edge': '#643B4F',
+  '--tp-breakdown-rose-edge': '#624851',
   // A deep cerulean, not a brand-blue shade: BLUE_L50 is the Breakdown's own
   // header here, and the online card vanished into it (Sait, 2026-10-19).
-  '--tp-breakdown-sky': '#1D4E78',
+  '--tp-breakdown-sky': '#3E556A',
   '--tp-breakdown-sky-fg': '#BFE0FA',
-  '--tp-breakdown-sky-edge': '#2D6A9C',
-  '--tp-breakdown-teal': '#1E4F55',
+  '--tp-breakdown-sky-edge': '#536E87',
+  '--tp-breakdown-teal': '#3C5457',
   '--tp-breakdown-teal-fg': '#B9EEE8',
-  '--tp-breakdown-teal-edge': '#2E6A71',
-  '--tp-breakdown-gold': '#4D4418',
+  '--tp-breakdown-teal-edge': '#516C6F',
+  '--tp-breakdown-gold': '#514B34',
   '--tp-breakdown-gold-fg': '#EBD98F',
-  '--tp-breakdown-gold-edge': '#695D24',
+  '--tp-breakdown-gold-edge': '#6B6446',
   // The Breakdown panel's own ground behind the cards (the deep rail blue in blue mode).
   '--tp-card-1': '#BCDC93',
   '--tp-card-2': '#E8C0F4',
@@ -151,6 +154,9 @@ export const operatorBlueVars = {
   '--tp-breakdown-wash': BLUE_L22,
   '--tp-breakdown-wash-mix': '45%',
   '--tp-breakdown-hover-mix': '80%',
+  // A hovered row also lifts 20% toward the card's light ink, so it reads
+  // lighter than the row, not just more coloured (Sait, 2026-10-21).
+  '--tp-breakdown-hover-lift': '20%',
   // Tables (Sait, 2026-10-19): the Breakdown's group band, a Padel Green
   // selected row and total row with navy ink, the same as on paper.
   '--tp-table-head': 'var(--tp-panel-head)',
