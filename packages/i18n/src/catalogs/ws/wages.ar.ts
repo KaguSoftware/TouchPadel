@@ -132,6 +132,7 @@ export const wagesAr: DeepMessages<typeof wagesEn> = {
     amount: '{month}: {orders}، {amount}',
     prize: '{month}: {orders}، {prize} (تُسلَّم يدويًا)',
     both: '{month}: {orders}، {amount} مع {prize} (تُسلَّم يدويًا)',
+    shopSales: '{month}: مبيعات المتجر {sales}، {amount}',
   },
   net: {
     negative: 'دون الصفر: لا يُصرف شيء، ولا يُرحَّل الفرق إلى الشهر التالي.',

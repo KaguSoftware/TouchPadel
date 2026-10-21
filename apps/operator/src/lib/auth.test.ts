@@ -374,8 +374,16 @@ describe('capability matrix', () => {
         'readLoyaltyAdmin',
         'adjustLoyalty',
         'editLoyalty',
+        // Touch Shop sales reward (0355).
+        'setShopReward',
       ].sort(),
     );
+  });
+
+  it('gives the Touch Shop sales reward percent to the owner alone (0355)', () => {
+    expect(can('owner', 'setShopReward')).toBe(true);
+    expect(can('manager', 'setShopReward')).toBe(false);
+    expect(can('shop_staff', 'setShopReward')).toBe(false);
   });
 
   it('gives the member on a bill to every till and the desk, adjustments to management, Setup › Loyalty to the owner (loyalty §1.3)', () => {

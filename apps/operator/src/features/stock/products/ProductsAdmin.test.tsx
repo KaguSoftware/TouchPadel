@@ -430,3 +430,44 @@ describe('ProductsAdmin supplier price watch', () => {
     expect(within(panel).getByRole('button', { name: 'Apply new price: Hack · One size' })).toBeTruthy();
   });
 });
+
+// The sales reward (0355): each size shows its cost, its price and what
+// selling one earns; the percent is said once, under the title.
+describe('ProductsAdmin sales reward', () => {
+  it('shows cost, price and reward per size, and the percent in the lead', async () => {
+    rpc.appRpc.mockImplementation(async (fn: string) =>
+      fn === 'shop_reward_info'
+        ? {
+            pct: 10,
+            products: [
+              { variant_id: 'v1', price_iqd: 290_000, cost_iqd: 200_000, reward_iqd: 29_000 },
+              { variant_id: 'v2', price_iqd: 310_000, cost_iqd: null, reward_iqd: 31_000 },
+            ],
+            me: { month_sales_iqd: 0, month_reward_iqd: 0 },
+          }
+        : 'new-item',
+    );
+    renderScreen();
+    await screen.findByText(/Whoever sells a product earns 10% of what the customer pays/);
+    expect(screen.getByRole('columnheader', { name: 'Cost (IQD)' })).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Reward (IQD)' })).toBeTruthy();
+    const vertex = row('Vertex');
+    expect(vertex.textContent).toMatch(/200,000/);
+    expect(vertex.textContent).toMatch(/290,000/);
+    expect(vertex.textContent).toMatch(/29,000/);
+    // No delivery and no cost typed: a dash, never 0.
+    expect(within(row('Hack')).getByTitle(/No cost yet/)).toBeTruthy();
+    expect(row('Hack').textContent).toMatch(/31,000/);
+  });
+
+  it('keeps the page working with dashes when the reward cannot be read', async () => {
+    rpc.appRpc.mockImplementation(async (fn: string) => {
+      if (fn === 'shop_reward_info') throw new Error('offline');
+      return 'new-item';
+    });
+    renderScreen();
+    await screen.findByText('Vertex');
+    expect(screen.queryByText(/Whoever sells a product earns/)).toBeNull();
+    expect(screen.getByRole('columnheader', { name: 'Reward (IQD)' })).toBeTruthy();
+  });
+});

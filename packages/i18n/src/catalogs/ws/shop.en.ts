@@ -78,6 +78,53 @@ export const shopEn = {
     empty: 'No shop stock yet',
     emptyBody: 'Add the shop’s products under Products. Each size keeps its own stock here.',
   },
+  /**
+   * The shop's words on the café's shared stock screens (StockScopeProvider
+   * scope="shop"): a shop product is its own stock, so no ingredient or recipe.
+   */
+  words: {
+    item: 'Product',
+    unknown: 'Unknown product',
+    search: 'Search products',
+    noneAll: 'No products.',
+    noneCountNeeded: 'Every product matches its records.',
+    clear: 'Nothing needs attention. No product is running low.',
+    outHint: 'Nothing left on the shelf. Order these now: they cannot be sold until more arrive.',
+    countNeededHint: 'More were sold than the records showed, so these numbers are unreliable. Count them.',
+    howStockMoves: 'Stock goes up with deliveries and down with sales. Nobody types a stock number: if a shelf does not match, count it and the count corrects it.',
+    ledgerLead: 'Everything that changed this product’s stock, newest first.',
+    ledgerPeriodLead: 'What changed this product’s stock between this count and the one before.',
+    ledgerEmpty: 'Nothing has changed this product’s stock yet.',
+    ledgerCost: 'Cost each',
+    choose: 'Choose the product.',
+    addLine: 'Add another product',
+    recordEmpty: 'Choose a product, then enter how many arrived and what each cost.',
+    costEach: 'Cost each (IQD)',
+    countStep: 'Count each product',
+    finishBody: 'You entered {count} products. Their stock will be corrected to your numbers. This cannot be undone.',
+  },
+  /**
+   * The sales reward (0355): whoever rings up a shop sale earns a percent of
+   * what the customer paid, on their wage. {pct} is already "10%".
+   */
+  reward: {
+    groupTitle: 'Touch Shop',
+    groupLead: 'Whoever rings up a shop sale earns this share of what the customer paid for it, added to their wage after the month ends. Café sales earn nothing.',
+    label: 'Sales reward',
+    hint: 'Of what the customer paid for each line, after discounts and refunds. 0 turns it off.',
+    confirmTitle: 'Change the sales reward to {pct}?',
+    confirmBody: 'Shop sales from now on earn {pct} instead of {old}. Sales already made keep the reward they were made at.',
+    confirmAction: 'Change the reward',
+    productsLead: 'Whoever sells a product earns {pct} of what the customer pays, on their wage.',
+    productsOff: 'No sales reward: the owner has set it to 0.',
+    cost: 'Cost (IQD)',
+    costUnknown: 'No cost yet: record a delivery or type the cost on the product.',
+    reward: 'Reward (IQD)',
+    youEarn: 'You earn {amount}',
+    youEarnBasket: 'You earn {amount} on this sale',
+    month: 'This month you earned {amount} from {sales} of shop sales',
+    estimate: 'At the shelf price. Your wage pays on what the customer was charged.',
+  },
   priceWatch: {
     panelTitle: 'Supplier price changes',
     panelLead: 'The shop desk PC read a different price on these suppliers’ pages. Apply it to sell at the supplier’s price.',

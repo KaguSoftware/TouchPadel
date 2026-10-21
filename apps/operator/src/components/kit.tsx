@@ -201,8 +201,8 @@ export function Panel({
       data-testid={testId}
       className={className}
       style={{
-        background: muted ? 'var(--tp-surface-2)' : 'var(--tp-surface)',
-        border: flat ? undefined : '1px solid var(--tp-border)',
+        background: muted ? 'var(--tp-surface-2)' : 'var(--tp-panel-body)',
+        border: flat ? undefined : '1px solid var(--tp-panel-edge)',
         borderRadius: 'var(--tp-radius-panel)',
         overflow: 'hidden',
         ...(fill ? { display: 'flex', flexDirection: 'column', minBlockSize: 0 } : null),
@@ -211,8 +211,8 @@ export function Panel({
     >
       {(shownTitle || actions) && (
         <div
-          // The title band (round 3, 2026-10-18): Touch Blue on paper, white in
-          // blue mode. `tp-band` gives it the other mode's palette for its
+          // The title band: Touch Blue on paper, navy in blue mode (Sait,
+          // 2026-10-21). `tp-band` gives it the blue palette on paper for its
           // actions (theme.ts), so a close button or a badge reads on it. A flat
           // panel inside a dialog has no band: the dialog's header frames it.
           // A group band is Touch Blue in both modes, so it takes the blue
@@ -944,11 +944,12 @@ export function DataTable<T>({
       style={{
         // Every table has its edge, inside a panel or a dialog too (Sait,
         // 2026-10-19): a panel that drops its own edge in a dialog left the
-        // table with no frame at all.
-        border: '1px solid var(--tp-border)',
+        // table with no frame at all. A coloured card can hand it its own
+        // edge and ground (--tp-table-edge/-body, GlobalStyles).
+        border: '1px solid var(--tp-table-edge, var(--tp-panel-edge))',
         borderRadius: 'var(--tp-radius-panel)',
         overflow: 'hidden',
-        background: 'var(--tp-surface)',
+        background: 'var(--tp-table-body, var(--tp-panel-body))',
         ...(fill ? { flex: 1, minBlockSize: 0, display: 'flex', flexDirection: 'column' } : null),
       }}
     >

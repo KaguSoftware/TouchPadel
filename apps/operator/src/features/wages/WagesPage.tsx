@@ -701,7 +701,11 @@ function PersonDetails({ person: p, onUndoAdvance }: { person: WagePerson; onUnd
         </div>
         <div>
           <h3 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.wages.details.bonuses')}</h3>
-          {p.bonuses.length === 0 ? <p style={muted}>{tr('ws.wages.details.noBonuses')}</p> : <BonusList bonuses={p.bonuses} testId={`wages.details.bonuses.${p.staffId}`} />}
+          {p.bonuses.length + p.shopRewards.length === 0 ? (
+            <p style={muted}>{tr('ws.wages.details.noBonuses')}</p>
+          ) : (
+            <BonusList bonuses={p.bonuses} shopRewards={p.shopRewards} testId={`wages.details.bonuses.${p.staffId}`} />
+          )}
         </div>
         <div>
           <h3 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.wages.details.advances')}</h3>

@@ -76,6 +76,20 @@ export interface WageBonus {
   prize: string | null;
 }
 
+/**
+ * What a person earned from their Touch Shop sales in a business month (0355
+ * shop_sale_reward_earnings), paid in this wage month: written when that
+ * month ended. Its amount is already inside bonusesIqd and bonusCount.
+ */
+export interface WageShopReward {
+  id: string;
+  /** 'YYYY-MM-01', the business month of the sales. */
+  earnedMonth: string;
+  /** What the customers paid for their shop lines in it. */
+  salesIqd: number;
+  rewardIqd: number;
+}
+
 /** Part of a pay month handed over before pay day (0344 wage_advances). */
 export interface WageAdvance {
   id: string;
@@ -133,6 +147,8 @@ export interface WageLine {
   payment: WagePayment | null;
   /** Every reward this month carries, prize-only ones too, by earned month then target. */
   bonuses: WageBonus[];
+  /** The shop sales rewards this month carries (0355), by earned month. */
+  shopRewards: WageShopReward[];
 }
 
 function readPayment(v: unknown): WagePayment | null {
@@ -165,6 +181,17 @@ function readBonuses(v: unknown): WageBonus[] {
       target: count(b.target),
       rewardIqd: num(b.reward_iqd) ?? 0,
       prize: str(b.prize),
+    }));
+}
+
+function readShopRewards(v: unknown): WageShopReward[] {
+  return list(v)
+    .filter((b) => typeof b.id === 'string')
+    .map((b) => ({
+      id: str(b.id) ?? '',
+      earnedMonth: str(b.earned_month) ?? '',
+      salesIqd: num(b.sales_iqd) ?? 0,
+      rewardIqd: num(b.reward_iqd) ?? 0,
     }));
 }
 
@@ -212,6 +239,7 @@ export function readWageLine(r: Record<string, unknown>): WageLine {
     toPayIqd,
     payment: readPayment(r.payment),
     bonuses: readBonuses(r.bonuses),
+    shopRewards: readShopRewards(r.shop_rewards),
   };
 }
 

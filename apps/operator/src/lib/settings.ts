@@ -50,6 +50,8 @@ export interface CafeSettings {
   attendance_penalty_iqd: number;
   /** 0270: how many days before a pay day the owner's Wages badge and panel card start to remind (owner only). */
   wage_reminder_days: number;
+  /** 0355: the percent of what the customer paid that whoever rings up a Touch Shop sale earns on their wage (0–50, 0 = off; owner only). */
+  shop_sale_reward_pct: number;
 }
 export type CafeSettingKey = keyof CafeSettings;
 
@@ -79,6 +81,7 @@ export const CAFE_SETTING_DEFAULTS: Readonly<CafeSettings> = {
   attendance_grace_minutes: 0,
   attendance_penalty_iqd: 0,
   wage_reminder_days: 3,
+  shop_sale_reward_pct: 10,
 };
 
 export const CAFE_SETTING_KEYS = Object.keys(CAFE_SETTING_DEFAULTS) as readonly CafeSettingKey[];
@@ -93,6 +96,7 @@ export const OWNER_ONLY_SETTING_KEYS: readonly CafeSettingKey[] = [
   'analytics_excluded_item_ids',
   'analytics_engagement_floor',
   'wage_reminder_days',
+  'shop_sale_reward_pct',
 ];
 
 /** Keys guests can read through `cafe_settings_public` (the rest never leave staff). */

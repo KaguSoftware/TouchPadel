@@ -67,7 +67,7 @@ import { readReceipts } from './receipts/receiptLogic';
 import { ReceiptReview } from './receipts/ReceiptReview';
 import { StaffLogs } from './StaffLogs';
 import { beingCounted, linesNeedingCost, readStaffLogs, storesForScope, type StockLocation } from './storeLogic';
-import { useStockScope } from './stockScope';
+import { useStockScope, useStockWords } from './stockScope';
 import { decimalKeystroke } from './decimalInput';
 import { SupplierField } from './SupplierField';
 
@@ -220,6 +220,7 @@ function lineTotal(line: DeliveryLineDraft): number | null {
  */
 function DeliveryForm() {
   const { tr, locale } = useLocale();
+  const words = useStockWords();
   const queryClient = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
@@ -411,10 +412,10 @@ function DeliveryForm() {
               <thead>
                 <tr>
                   {th('#', { width: '2rem' })}
-                  {th(tr('ws.manager.stock.goodsIn.ingredient'), { required: true, width: '24%' })}
+                  {th(words.item, { required: true, width: '24%' })}
                   {th(tr('ws.manager.stock.goodsIn.received'), { required: true })}
                   {th(tr('ws.manager.stock.goodsIn.ordered'))}
-                  {th(tr('ws.manager.stock.goodsIn.cost'), { required: true })}
+                  {th(words.shop ? tr('ws.shop.words.costEach') : tr('ws.manager.stock.goodsIn.cost'), { required: true })}
                   {th(tr('ws.manager.stock.goodsIn.expiry'))}
                   {th(tr('ws.manager.stock.goodsIn.lineTotal'), { end: true })}
                   <th aria-hidden="true" style={{ inlineSize: '2.5rem', borderBlockEnd: '1px solid var(--tp-border-strong)' }} />
@@ -442,7 +443,7 @@ function DeliveryForm() {
 
           <div style={{ padding: 'var(--tp-sp-3) var(--tp-sp-4)' }}>
             <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, emptyLine()])}>
-              {tr('ws.manager.stock.goodsIn.addLine')}
+              {words.addLine}
             </Button>
           </div>
 
@@ -468,7 +469,7 @@ function DeliveryForm() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', minInlineSize: 0 }}>
               {started.length === 0 ? (
                 // The order of the work, said where the button waits for it.
-                <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.goodsIn.recordEmpty')}</span>
+                <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{words.recordEmpty}</span>
               ) : (
                 <>
                   <strong>{tr('ws.manager.stock.goodsIn.lineCount', { count: formatNumber(started.length, locale) })}</strong>
@@ -603,6 +604,7 @@ function UnitInput({ value, unit, label, describedBy, invalid, disabled, onChang
 /** One row of the delivery table. */
 function DeliveryRow({ index, line, today, ingredients, ingredient, busy, removable, onChoose, onPatch, onRemove }: LineProps) {
   const { tr } = useLocale();
+  const words = useStockWords();
   const fmt = useStockFormat();
   const options = useIngredientOptions(ingredients);
   const problem = lineProblem(line, today);
@@ -628,13 +630,13 @@ function DeliveryRow({ index, line, today, ingredients, ingredient, busy, remova
       <td style={{ paddingBlockStart: 'var(--tp-sp-3)', paddingInline: 'var(--tp-sp-1-5)', verticalAlign: 'top', color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
         {fmt.num(index + 1)}
       </td>
-      <Cell error={problem === 'ingredient' ? tr('ws.manager.stock.goodsIn.problem.ingredient') : undefined}>
+      <Cell error={problem === 'ingredient' ? words.choose : undefined}>
         {(describedBy) => (
           <Select
             value={line.ingredientId}
             disabled={busy}
             onChange={onChoose}
-            aria-label={tr('ws.manager.stock.goodsIn.ingredient')}
+            aria-label={words.item}
             aria-describedby={describedBy}
             aria-invalid={problem === 'ingredient' || undefined}
             options={options}
@@ -673,7 +675,7 @@ function DeliveryRow({ index, line, today, ingredients, ingredient, busy, remova
       <Cell
         error={problem === 'cost' ? tr('ws.manager.stock.goodsIn.problem.cost') : undefined}
         hint={
-          ingredient && ingredient.pack_size !== null && ingredient.pack_cost_iqd !== null ? (
+          !words.shop && ingredient && ingredient.pack_size !== null && ingredient.pack_cost_iqd !== null ? (
             <bdi>
               {tr('ws.manager.stock.goodsIn.packPrice', { size: fmt.qty(ingredient.pack_size, ingredient.unit) })} <Money amount={ingredient.pack_cost_iqd} />
             </bdi>
@@ -684,7 +686,7 @@ function DeliveryRow({ index, line, today, ingredients, ingredient, busy, remova
           <UnitInput
             value={line.unitCostIqd}
             unit={ingredient ? `/ ${fmt.one(ingredient.unit)}` : null}
-            label={ingredient ? tr('ws.manager.stock.goodsIn.costPer', { unit: fmt.one(ingredient.unit) }) : tr('ws.manager.stock.goodsIn.cost')}
+            label={words.shop ? tr('ws.shop.words.costEach') : ingredient ? tr('ws.manager.stock.goodsIn.costPer', { unit: fmt.one(ingredient.unit) }) : tr('ws.manager.stock.goodsIn.cost')}
             describedBy={describedBy}
             invalid={problem === 'cost'}
             disabled={busy}
@@ -745,6 +747,7 @@ export function LineEditor({
   header?: ReactNode;
 }) {
   const { tr } = useLocale();
+  const words = useStockWords();
   const fmt = useStockFormat();
   const options = useIngredientOptions(ingredients);
   const problem = lineProblem(line, today);
@@ -776,7 +779,7 @@ export function LineEditor({
     >
       {header}
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--tp-sp-2)' }}>
-        <Field label={tr('ws.manager.stock.goodsIn.ingredient')} style={{ marginBlockEnd: 0, flex: 1, minInlineSize: 0 }} error={problem === 'ingredient' ? tr('ws.manager.stock.goodsIn.problem.ingredient') : undefined}>
+        <Field label={words.item} style={{ marginBlockEnd: 0, flex: 1, minInlineSize: 0 }} error={problem === 'ingredient' ? words.choose : undefined}>
           <Select value={line.ingredientId} disabled={busy} onChange={onChoose} options={options} />
         </Field>
         <Button
@@ -804,12 +807,12 @@ export function LineEditor({
           <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyExpected} disabled={busy} onChange={(e) => onPatch({ qtyExpected: decimalKeystroke(e.target.value) })} />
         </Field>
         <Field
-          label={ingredient ? tr('ws.manager.stock.goodsIn.costPer', { unit: fmt.one(ingredient.unit) }) : tr('ws.manager.stock.goodsIn.cost')}
+          label={words.shop ? tr('ws.shop.words.costEach') : ingredient ? tr('ws.manager.stock.goodsIn.costPer', { unit: fmt.one(ingredient.unit) }) : tr('ws.manager.stock.goodsIn.cost')}
           required
           style={{ marginBlockEnd: 0 }}
           error={problem === 'cost' ? tr('ws.manager.stock.goodsIn.problem.cost') : undefined}
           hint={
-            ingredient && ingredient.pack_size !== null && ingredient.pack_cost_iqd !== null ? (
+            !words.shop && ingredient && ingredient.pack_size !== null && ingredient.pack_cost_iqd !== null ? (
               <bdi>
                 {tr('ws.manager.stock.goodsIn.packPrice', { size: fmt.qty(ingredient.pack_size, ingredient.unit) })} <Money amount={ingredient.pack_cost_iqd} />
               </bdi>

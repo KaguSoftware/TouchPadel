@@ -23,8 +23,9 @@ export const tournamentsGuestEn = {
       off: 'Tournaments are not running at any branch right now.',
       error: 'The tournaments could not be loaded.',
       placesLeft: 'Places left: {count}',
-      waitlistOnly: 'Waitlist open',
-      full: 'Full',
+      noPlacesLeft: 'No places left',
+      statusOpen: 'Open',
+      statusClosed: 'Closed',
     },
     detail: {
       title: 'Tournament',

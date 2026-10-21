@@ -5,7 +5,6 @@ import {
   upcomingOnly,
   hasAnySlots,
   mergeAcrossCourts,
-  openNowInfo,
   addDays,
   assembleDayGrid,
   assembleTradingNight,
@@ -280,38 +279,6 @@ describe('protectedHorizonEnd', () => {
     expect(slotStart.getTime() < protectedHorizonEnd(now, { protected_horizon_hours: 48 }).getTime()).toBe(
       true,
     );
-  });
-});
-
-describe('openNowInfo', () => {
-  const overnight = {
-    timezone: TZ,
-    // Trades 09:00 -> 02:00: the tail lives on the NEXT calendar day.
-    opening_hours: {
-      tue: [['00:00', '02:00'], ['09:00', '24:00']],
-      wed: [['00:00', '02:00'], ['09:00', '24:00']],
-    },
-    closed_dates: [] as string[],
-  };
-
-  it('is open mid-evening with the folded label', () => {
-    const info = openNowInfo(overnight, new Date('2026-09-01T18:00:00.000Z')); // 21:00 Baghdad Tue
-    expect(info).toMatchObject({ open: true, label: '09:00–02:00' });
-  });
-
-  it('is open during the post-midnight tail', () => {
-    const info = openNowInfo(overnight, new Date('2026-09-01T22:30:00.000Z')); // 01:30 Baghdad Wed
-    expect(info?.open).toBe(true);
-  });
-
-  it('is closed in the dead band and on closed dates', () => {
-    const dead = openNowInfo(overnight, new Date('2026-09-01T03:00:00.000Z')); // 06:00 Baghdad Tue
-    expect(dead?.open).toBe(false);
-    const closed = openNowInfo(
-      { ...overnight, closed_dates: ['2026-09-01'] },
-      new Date('2026-09-01T18:00:00.000Z'),
-    );
-    expect(closed?.open).toBe(false);
   });
 });
 

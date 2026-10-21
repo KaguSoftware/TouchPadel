@@ -17,8 +17,22 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0354`
-  (0354 venue_files, 2026-10-20 (Majed: a Files section for the manager and the owner, read by the
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0355`
+  (0355 shop_sale_rewards, 2026-10-21 (Sait: whoever rings up a Touch Shop sale earns a percent of
+  what the customer paid, on their wage; café sales earn nothing): the owner-only cafe setting
+  `shop_sale_reward_pct` (default 10, 0..50), so **0355 holds `cafe_setting_specs`** (0270 is no
+  longer the latest); table `shop_sale_reward_rates` (the percent frozen on a shop tab when it
+  settles, by the `tabs_shop_sale_reward` trigger; no client grant) and
+  `shop_sale_reward_earnings` (one per person and closed business month, owner read only, LLM
+  wall), the internal `shop_reward_lines` (each seller's `cafe_net_lines` net and reward over a
+  window, never the owner) and the service-role `shop_reward_sweep` (cron `tp_shop_reward_sweep`,
+  every five minutes, 0333's month rules, under `app.lock_wage`, paid in `app.wage_open_month`
+  from the month after); **0355 holds `wage_line` and `wages_month`** (0344 is no longer the
+  latest: the shop rewards join `bonuses_iqd` and `bonus_count`, are listed in `shop_rewards[]`,
+  count for `bonus_only` and bring their person onto the month; `mark_wage_paid` stays 0344's);
+  and the client `shop_reward_info()` (shop assistant, manager, owner: the percent, each shop
+  size's price, cost and reward, and the caller's own month); `tests/shop-sale-rewards.test.ts`;
+  0354 venue_files, 2026-10-20 (Majed: a Files section for the manager and the owner, read by the
   assistant, every file compressed before it touches the database): table `venue_files` (metadata
   only, no client grant), the private `venue-files` bucket (gzip and WebP only, 50 MB an object, a
   2 GB compressed quota per branch), the minted-path flow `venue_file_begin` → upload →
@@ -143,7 +157,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0355`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0356`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

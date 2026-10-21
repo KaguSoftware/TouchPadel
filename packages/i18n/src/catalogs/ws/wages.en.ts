@@ -145,6 +145,8 @@ export const wagesEn = {
     prize: '{month}: {orders}, {prize} (hand over)',
     /** A bonus with a prize as well. */
     both: '{month}: {orders}, {amount} and {prize} (hand over)',
+    /** 0355: a month's Touch Shop sales reward: "October 2026: shop sales of 250,000 IQD, 25,000 IQD". */
+    shopSales: '{month}: shop sales of {sales}, {amount}',
   },
   net: {
     negative: 'Below zero: nothing is paid and nothing carries over.',

@@ -469,6 +469,7 @@
     "set_promotion_venue",
     "set_recipe",
     "set_shop_price_watch",
+    "shop_reward_info",
     "set_staff_active",
     "set_staff_access",
     "set_staff_pin",

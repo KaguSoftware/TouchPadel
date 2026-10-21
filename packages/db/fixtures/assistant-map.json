@@ -1,5 +1,5 @@
 {
-  "generated_from": "eef7225c8eb20298d6da9674056e84ea8a8f08df",
+  "generated_from": "34a36418c1f0173734b9e538765a9f58ea94c46e",
   "chunks": [
     {
       "kind": "page",
@@ -6310,7 +6310,7 @@
       "ref": "action:app.wages_month",
       "lang": "en",
       "title": "app.wages_month",
-      "body": "wages (0271), reward bonuses (0333), advances (0344). The owner at the branch: {month, current_month, today, remind_days, totals: {salary_iqd, deductions_iqd, penalties_iqd, bonuses_iqd, net_iqd, advances_iqd, to_pay_iqd, paid_iqd, people, paid, due, overdue, upcoming, unset}, people: [app.wage_line (with bonuses, advances, owed_iqd, to_pay_iqd) + {staff_id, display_name, role, is_active, member, waiting_count, deductions: [{id, amount_iqd, deduction_date, reason, decided_at}], lateness: [{id, work_date, late_minutes, early_leave_minutes, grace_minutes, penalty_iqd, note}]}]} for p_month (NULL: the branch's current business month): everyone active at the branch but an owner, and anyone the month has a payment, approved deduction, recorded day, reward bonus or given advance for. FORBIDDEN for anyone else.\nSignature: app.wages_month(p_venue_id uuid default null, p_month date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0344 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "wages (0271), reward bonuses (0333), advances (0344), shop sales rewards (0355). The owner at the branch: {month, current_month, today, remind_days, totals: {salary_iqd, deductions_iqd, penalties_iqd, bonuses_iqd, net_iqd, advances_iqd, to_pay_iqd, paid_iqd, people, paid, due, overdue, upcoming, unset}, people: [app.wage_line (with bonuses, advances, owed_iqd, to_pay_iqd) + {staff_id, display_name, role, is_active, member, waiting_count, deductions: [{id, amount_iqd, deduction_date, reason, decided_at}], lateness: [{id, work_date, late_minutes, early_leave_minutes, grace_minutes, penalty_iqd, note}]}]} for p_month (NULL: the branch's current business month): everyone active at the branch but an owner, and anyone the month has a payment, approved deduction, recorded day, reward bonus, shop sales reward or given advance for. FORBIDDEN for anyone else.\nSignature: app.wages_month(p_venue_id uuid default null, p_month date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0355 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -7535,6 +7535,22 @@
       "lang": "en",
       "title": "table shop_price_watches",
       "body": "shop_price_watches (0322): a shop size's supplier product page, read every hour by the shop desk PC (the operator shell on a station in mode shop), and what was read from it. One row per size with a link. Read by managers, the owner and the shop assistants of the branch; written only through app.set_shop_price_watch and app.record_shop_supplier_price. The supplier price is shown beside the shop price; applying it is app.upsert_retail_variant (supplier price = shop price, no calculation).\nCreated in migration 0322.\nColumns:\n  variant_id uuid primary key references menu_item_variants(id) on delete cascade — The shop size (menu_item_variants) the link belongs to.\n  venue_id uuid not null default app.current_venue() references venues(id) — The branch: the size's menu item's.\n  url text not null — The supplier's product page, https only, 12 to 2000 characters, a public host name (checked by app.set_shop_price_watch).\n  supplier_price_iqd iqd — The latest price read from the page, IQD; null until the first good read.\n  previous_price_iqd iqd — The supplier price before the latest change; null until it changes once.\n  price_changed_at timestamptz — When the supplier price last changed (not set by the first read).\n  checked_at timestamptz — The last read, good or not.\n  read_ok_at timestamptz — The last good read.\n  last_error text — Why the last read failed, or null: no_price, ambiguous, not_iqd, blocked_url, http_error, timeout, too_large, not_html, fetch_failed.\n  created_by uuid references staff(id) — The staff member who first set a link for the size.\n  created_at timestamptz not null default now() — When the first link was set.\n  updated_at timestamptz not null default now() — The last write: a link set or a read reported.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:shop_sale_reward_earnings",
+      "lang": "en",
+      "title": "table shop_sale_reward_earnings",
+      "body": "shop_sale_reward_earnings (0355): what one person earned from their Touch Shop sales in a business month (earned_month, as 0332 names months), written by app.shop_reward_sweep once that month ended and the next month's first business day passed: the net of their lines on the shop tabs settled in it (sales_iqd) and the reward at each tab's frozen percent (reward_iqd), with the wage month it is paid in (pay_month, the first unpaid one from the month after). Frozen once written. app.wage_line adds reward_iqd to the bonuses of its pay month. Read by the owner only. Never readable by the owner assistant or any LLM.\nCreated in migration 0355.\nColumns:\n  id uuid primary key default gen_random_uuid() — Row id.\n  venue_id uuid not null references venues(id) — The branch whose shop sales counted.\n  staff_id uuid not null references staff(id) — The person who rang the sales up.\n  earned_month date not null — The business month of the sales (its first day).\n  sales_iqd iqd not null — The net of their shop lines in the month (after discounts and refunds, before tax).\n  reward_iqd iqd not null — The reward in IQD.\n  pay_month date not null — The wage month the reward is added to (its first day).\n  created_at timestamptz not null default now() — When the month was closed for it.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:shop_sale_reward_rates",
+      "lang": "en",
+      "title": "table shop_sale_reward_rates",
+      "body": "shop_sale_reward_rates (0355): the shop_sale_reward_pct in force when a kind shop tab was settled, written once by the tabs_shop_sale_reward trigger, so a later change of the setting never rewrites a past sale. A shop tab without a row (settled before 0355) earns no reward. Read by no client. Never readable by the owner assistant or any LLM.\nCreated in migration 0355.\nColumns:\n  tab_id uuid primary key references tabs(id) — The settled shop tab.\n  venue_id uuid not null references venues(id) — The tab's branch.\n  reward_pct int not null — The percent of each line's net its seller earns.\n  created_at timestamptz not null default now() — When the tab settled.",
       "route": null
     },
     {
@@ -13739,6 +13755,94 @@
     },
     {
       "kind": "column",
+      "ref": "column:shop_sale_reward_earnings.created_at",
+      "lang": "en",
+      "title": "shop_sale_reward_earnings.created_at",
+      "body": "timestamptz not null default now()\nWhen the month was closed for it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shop_sale_reward_earnings.earned_month",
+      "lang": "en",
+      "title": "shop_sale_reward_earnings.earned_month",
+      "body": "date not null\nThe business month of the sales (its first day).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shop_sale_reward_earnings.pay_month",
+      "lang": "en",
+      "title": "shop_sale_reward_earnings.pay_month",
+      "body": "date not null\nThe wage month the reward is added to (its first day).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shop_sale_reward_earnings.reward_iqd",
+      "lang": "en",
+      "title": "shop_sale_reward_earnings.reward_iqd",
+      "body": "iqd not null\nThe reward in IQD.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shop_sale_reward_earnings.sales_iqd",
+      "lang": "en",
+      "title": "shop_sale_reward_earnings.sales_iqd",
+      "body": "iqd not null\nThe net of their shop lines in the month (after discounts and refunds, before tax).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shop_sale_reward_earnings.staff_id",
+      "lang": "en",
+      "title": "shop_sale_reward_earnings.staff_id",
+      "body": "uuid not null references staff(id)\nThe person who rang the sales up.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shop_sale_reward_earnings.venue_id",
+      "lang": "en",
+      "title": "shop_sale_reward_earnings.venue_id",
+      "body": "uuid not null references venues(id)\nThe branch whose shop sales counted.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shop_sale_reward_rates.created_at",
+      "lang": "en",
+      "title": "shop_sale_reward_rates.created_at",
+      "body": "timestamptz not null default now()\nWhen the tab settled.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shop_sale_reward_rates.reward_pct",
+      "lang": "en",
+      "title": "shop_sale_reward_rates.reward_pct",
+      "body": "int not null\nThe percent of each line's net its seller earns.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shop_sale_reward_rates.tab_id",
+      "lang": "en",
+      "title": "shop_sale_reward_rates.tab_id",
+      "body": "uuid primary key references tabs(id)\nThe settled shop tab.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shop_sale_reward_rates.venue_id",
+      "lang": "en",
+      "title": "shop_sale_reward_rates.venue_id",
+      "body": "uuid not null references venues(id)\nThe tab's branch.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:shopping_items.cancelled_at",
       "lang": "en",
       "title": "shopping_items.cancelled_at",
@@ -16051,6 +16155,14 @@
     },
     {
       "kind": "setting",
+      "ref": "setting:cafe_settings.shop_sale_reward_pct",
+      "lang": "en",
+      "title": "cafe_settings.shop_sale_reward_pct",
+      "body": "Shape int(0,50); default 10; private (manager and owner only); written by owner or above through app.set_cafe_setting.\n0355: the percent of what the customer paid that whoever rings up a Touch Shop sale earns on their wage (0–50, 0 = off; owner only).",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "setting",
       "ref": "setting:cafe_settings.telegram_chat_id",
       "lang": "en",
       "title": "cafe_settings.telegram_chat_id",
@@ -16766,7 +16878,7 @@
       "ref": "label:op.crash",
       "lang": "ar",
       "title": "op.crash (packages/i18n/src/catalogs/ar.ts)",
-      "body": "title: توقفت هذه الشاشة عن العمل\nbody: بقية التطبيق لا تزال تعمل. جرّب الشاشة مرة أخرى أو ارجع إلى شاشتك الرئيسية.\nretry: إعادة فتح هذه الشاشة\nhome: الذهاب إلى شاشتي الرئيسية\nreload: إعادة تشغيل التطبيق\ndetails: تفاصيل تقنية\nagain: إذا تكرر ذلك، أخبر المدير بما كنت تفعله لحظة توقف الشاشة.\nnotFoundTitle: الشاشة غير موجودة\nnotFoundBody: لا توجد شاشة على هذا العنوان. شاشتك الرئيسية تضم كل ما يتيحه دورك.",
+      "body": "title: توقفت هذه الشاشة عن العمل\nbody: بقية التطبيق لا تزال تعمل.\nretry: إعادة فتح هذه الشاشة\nhome: الذهاب إلى شاشتي الرئيسية\nreload: إعادة تشغيل التطبيق\ndetails: تفاصيل تقنية\nagain: هل يتكرر ذلك؟ أخبر المدير.\nnotFoundTitle: الشاشة غير موجودة\nnotFoundBody: لا توجد شاشة على هذا العنوان. شاشتك الرئيسية تضم كل ما يتيحه دورك.",
       "route": null
     },
     {
@@ -16774,7 +16886,7 @@
       "ref": "label:op.crash",
       "lang": "en",
       "title": "op.crash (packages/i18n/src/catalogs/en.ts)",
-      "body": "title: This screen stopped working\nbody: The rest of the app is still running. Try the screen again, or go back to your home screen.\nretry: Try this screen again\nhome: Go to my home screen\nreload: Restart the app\ndetails: Technical details\nagain: If it keeps happening, tell the manager what you were doing when it stopped.\nnotFoundTitle: Screen not found\nnotFoundBody: There is no screen at this address. Your home screen has everything your role can open.",
+      "body": "title: This screen stopped working\nbody: The rest of the app still works.\nretry: Try this screen again\nhome: Go to my home screen\nreload: Restart the app\ndetails: Technical details\nagain: Keeps happening? Tell the manager.\nnotFoundTitle: Screen not found\nnotFoundBody: There is no screen at this address. Your home screen has everything your role can open.",
       "route": null
     },
     {
@@ -23830,7 +23942,7 @@
       "ref": "label:ws.shell.workspaceLead",
       "lang": "ar",
       "title": "ws.shell.workspaceLead (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "courtDesk: الحجوزات والوصول والزبائن\ncashier: الطلبات والفواتير والدفع\nprep: لوحة التذاكر التي يعمل عليها الطهاة\nmanagement: كل النشاط في مكان واحد\nteam: المهام وقوائم التحقق المسندة إليك\nshop: كاشير المتجر ودرجه ومخزونه ومنتجاته",
+      "body": "courtDesk: الحجوزات والوصول والزبائن\ncashier: الطلبات والفواتير والدفع\nprep: لوحة التذاكر التي يعمل عليها الطهاة\nmanagement: كل النشاط في مكان واحد\nteam: المهام وقوائم التحقق المسندة إليك\nshop: كاشير المتجر والدرج والمخزون والمنتجات",
       "route": null
     },
     {
@@ -23838,7 +23950,7 @@
       "ref": "label:ws.shell.workspaceLead",
       "lang": "en",
       "title": "ws.shell.workspaceLead (packages/i18n/src/catalogs/ws/shell.en.ts)",
-      "body": "courtDesk: Bookings, arrivals and customers\ncashier: Orders, tabs and payment\nprep: The ticket board the cooks work from\nmanagement: The whole business in one place\nteam: Tasks and checklists given to you\nshop: The shop cashier, its drawer, stock and products",
+      "body": "courtDesk: Bookings, arrivals and customers\ncashier: Orders, tabs and payment\nprep: The ticket board the cooks work from\nmanagement: The whole business in one place\nteam: Tasks and checklists given to you\nshop: Shop cashier, drawer, stock and products",
       "route": null
     },
     {
@@ -23879,6 +23991,22 @@
       "lang": "en",
       "title": "ws.shop.priceWatch (packages/i18n/src/catalogs/ws/shop.en.ts)",
       "body": "readError.fetch_failed: The page could not be reached.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.shop.reward",
+      "lang": "ar",
+      "title": "ws.shop.reward (packages/i18n/src/catalogs/ws/shop.ar.ts)",
+      "body": "groupTitle: متجر تتش\ngroupLead: من يسجّل عملية بيع في المتجر يحصل على هذه النسبة مما دفعه الزبون، وتُضاف إلى راتبه بعد انتهاء الشهر. مبيعات المقهى لا مكافأة عليها.\nlabel: مكافأة البيع\nhint: مما دفعه الزبون عن كل سطر، بعد الخصومات والمبالغ المستردّة. 0 يوقفها.\nconfirmTitle: تغيير مكافأة البيع إلى {pct}؟\nconfirmBody: مبيعات المتجر من الآن تكسب {pct} بدلًا من {old}. المبيعات السابقة تبقى على المكافأة التي بيعت بها.\nconfirmAction: غيّر المكافأة\nproductsLead: من يبيع منتجًا يحصل على {pct} مما يدفعه الزبون، تُضاف إلى راتبه.\nproductsOff: لا مكافأة على البيع: جعلها المالك 0.\ncost: الكلفة (د.ع)\ncostUnknown: لا كلفة بعد: سجّل استلامًا أو اكتب الكلفة في المنتج.\nreward: المكافأة (د.ع)\nyouEarn: تكسب {amount}\nyouEarnBasket: تكسب {amount} من هذه البيعة\nmonth: كسبت هذا الشهر {amount} من مبيعات متجر قيمتها {sales}\nestimate: بسعر الرف. يُحتسب راتبك على ما دُفع فعلًا.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.shop.reward",
+      "lang": "en",
+      "title": "ws.shop.reward (packages/i18n/src/catalogs/ws/shop.en.ts)",
+      "body": "groupTitle: Touch Shop\ngroupLead: Whoever rings up a shop sale earns this share of what the customer paid for it, added to their wage after the month ends. Café sales earn nothing.\nlabel: Sales reward\nhint: Of what the customer paid for each line, after discounts and refunds. 0 turns it off.\nconfirmTitle: Change the sales reward to {pct}?\nconfirmBody: Shop sales from now on earn {pct} instead of {old}. Sales already made keep the reward they were made at.\nconfirmAction: Change the reward\nproductsLead: Whoever sells a product earns {pct} of what the customer pays, on their wage.\nproductsOff: No sales reward: the owner has set it to 0.\ncost: Cost (IQD)\ncostUnknown: No cost yet: record a delivery or type the cost on the product.\nreward: Reward (IQD)\nyouEarn: You earn {amount}\nyouEarnBasket: You earn {amount} on this sale\nmonth: This month you earned {amount} from {sales} of shop sales\nestimate: At the shelf price. Your wage pays on what the customer was charged.",
       "route": null
     },
     {
@@ -23944,6 +24072,22 @@
       "title": "ws.shop.till (packages/i18n/src/catalogs/ws/shop.en.ts)",
       "body": "title: Sell\nlead: Scan a barcode or tap a product. Every sale is paid here, on the spot.\nsearch: Search by name, SKU or barcode…\nallSections: All\nbasketTitle: Sale\nbasketEmpty: Scan or tap a product to start a sale.\nlineCount: {count} items\nincrease: One more {name}\ndecrease: One less {name}\nremove: Remove {name}\ntotal: Total\nestimateNote: At the shelf price. The receipt shows what was charged.\ncash: Cash\ncard: Card\nclear: Clear sale\nclearConfirm: Clear this sale? Nothing has been charged yet.\nnotFound: No product has the code {code}.\nsoldOut: Out of stock\nnoProducts: No shop products yet\nnoProductsBody: Add the shop’s products under Products. They appear here to sell.\nopenProducts: Open Products\npayTitle: Take payment\nunfinished: Unfinished sales\nunfinishedLead: Rung up but not paid. Take the payment, or ask a manager to remove the lines.\nresume: Take payment\ndone: Paid\nchange: Change: {amount}\nprintAgain: Print receipt\nnext: Next sale\nqueued: Saved on this PC. It goes through when the connection is back.\nreceiptHeading: Touch Shop · {label}",
       "route": "/till"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.shop.words",
+      "lang": "ar",
+      "title": "ws.shop.words (packages/i18n/src/catalogs/ws/shop.ar.ts)",
+      "body": "item: المنتج\nunknown: منتج غير معروف\nsearch: ابحث في المنتجات\nnoneAll: لا منتجات.\nnoneCountNeeded: كل المنتجات مطابقة لسجلاتها.\nclear: لا شيء يحتاج إلى انتباهك. لا منتج على وشك النفاد.\noutHint: لم يبقَ منها شيء على الرف. اطلبها الآن، فلا يمكن بيعها حتى يصل المزيد.\ncountNeededHint: بيع منها أكثر مما في السجل، فأرقامها غير موثوقة. اجردها.\nhowStockMoves: يزيد المخزون بالاستلام وينقص بالبيع. لا أحد يكتب رقم المخزون بيده: إن لم يطابق الرف السجل، فاجرده وسيصحّح الجرد الرقم.\nledgerLead: كل ما غيّر مخزون هذا المنتج، الأحدث أولًا.\nledgerPeriodLead: ما غيّر مخزون هذا المنتج بين هذا الجرد والجرد السابق.\nledgerEmpty: لم يتغير مخزون هذا المنتج بعد.\nledgerCost: كلفة القطعة\nchoose: المنتج مطلوب.\naddLine: إضافة منتج آخر\nrecordEmpty: اختر منتجًا، ثم أدخل عدد ما وصل وكلفة القطعة.\ncostEach: كلفة القطعة (د.ع)\ncountStep: جرد كل منتج\nfinishBody: عدد المنتجات التي أُدخلت أرقامها: {count}. سيُصحَّح مخزونها ليطابق أرقامك. لا يمكن التراجع عن هذا.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.shop.words",
+      "lang": "en",
+      "title": "ws.shop.words (packages/i18n/src/catalogs/ws/shop.en.ts)",
+      "body": "item: Product\nunknown: Unknown product\nsearch: Search products\nnoneAll: No products.\nnoneCountNeeded: Every product matches its records.\nclear: Nothing needs attention. No product is running low.\noutHint: Nothing left on the shelf. Order these now: they cannot be sold until more arrive.\ncountNeededHint: More were sold than the records showed, so these numbers are unreliable. Count them.\nhowStockMoves: Stock goes up with deliveries and down with sales. Nobody types a stock number: if a shelf does not match, count it and the count corrects it.\nledgerLead: Everything that changed this product’s stock, newest first.\nledgerPeriodLead: What changed this product’s stock between this count and the one before.\nledgerEmpty: Nothing has changed this product’s stock yet.\nledgerCost: Cost each\nchoose: Choose the product.\naddLine: Add another product\nrecordEmpty: Choose a product, then enter how many arrived and what each cost.\ncostEach: Cost each (IQD)\ncountStep: Count each product\nfinishBody: You entered {count} products. Their stock will be corrected to your numbers. This cannot be undone.",
+      "route": null
     },
     {
       "kind": "label",
@@ -25102,7 +25246,7 @@
       "ref": "label:ws.wages.bonus",
       "lang": "ar",
       "title": "ws.wages.bonus (packages/i18n/src/catalogs/ws/wages.ar.ts)",
-      "body": "amount: {month}: {orders}، {amount}\nprize: {month}: {orders}، {prize} (تُسلَّم يدويًا)\nboth: {month}: {orders}، {amount} مع {prize} (تُسلَّم يدويًا)",
+      "body": "amount: {month}: {orders}، {amount}\nprize: {month}: {orders}، {prize} (تُسلَّم يدويًا)\nboth: {month}: {orders}، {amount} مع {prize} (تُسلَّم يدويًا)\nshopSales: {month}: مبيعات المتجر {sales}، {amount}",
       "route": null
     },
     {
@@ -25110,7 +25254,7 @@
       "ref": "label:ws.wages.bonus",
       "lang": "en",
       "title": "ws.wages.bonus (packages/i18n/src/catalogs/ws/wages.en.ts)",
-      "body": "amount: {month}: {orders}, {amount}\nprize: {month}: {orders}, {prize} (hand over)\nboth: {month}: {orders}, {amount} and {prize} (hand over)",
+      "body": "amount: {month}: {orders}, {amount}\nprize: {month}: {orders}, {prize} (hand over)\nboth: {month}: {orders}, {amount} and {prize} (hand over)\nshopSales: {month}: shop sales of {sales}, {amount}",
       "route": null
     },
     {
@@ -25871,6 +26015,14 @@
       "lang": "en",
       "title": "cron job tp_scan_sweep",
       "body": "Runs select app.scan_sweep_stale();. Schedules seen in migrations, latest last: '* * * * *' (0240). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:cron:tp_shop_reward_sweep",
+      "lang": "en",
+      "title": "cron job tp_shop_reward_sweep",
+      "body": "Runs select app.shop_reward_sweep();. Schedules seen in migrations, latest last: '*/5 * * * *' (0355). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -28206,7 +28358,7 @@
       "ref": "doc:docs/DESIGN.md#4",
       "lang": "en",
       "title": "docs/DESIGN.md › Color (OKLCH, all neutrals tinted toward the brand blue hue 262)",
-      "body": "| | Paper | Blue mode |\n|---|---|---|\n| `--tp-heading` (page titles) | #1D3762 | white |\n| `--tp-panel-head` / `-fg` (panel title band) | Touch Blue / white | #F4F7FB / #274982 |\n| `--tp-group-head` / `-fg` (band of a panel holding panels) | Touch Blue / white | #3B6EC4 / white |\n| `--tp-breakdown-<tone>` / `-fg` / `-edge` (the overview's Breakdown cards: green, violet, rose, sky, teal, gold) | full colour / navy | calm deep colour / light ink |\n| `--tp-card-1..6` (figure cards by place, repeating after six: groups, tile strips, record tiles, analytics cards) | green, violet, rose, light blue, teal, gold | the same as calm light inks |\n| `--tp-table-head` / `-fg` (column band, = `--tp-group-head`) | Touch Blue / white | #3B6EC4 / white |\n| `--tp-selected` / `-fg` (selected row, Go to option) | Padel Green / navy | Padel Green / navy |\n| `--tp-table-total` / `-fg` (a table's total row) | Padel Green / navy | Padel Green / navy |\n| `--tp-total-card` / `-fg` / `-muted` (a drill's figure card) | #1A2A44 / white | the same |\n| `--tp-split-<tone>` (the figure card's bar, full-strength card colours) | the same in both | the same in both |\n| `--tp-seg-track` / `-edge` / `-fg` / `-hover` (segmented buttons) | light grey, Touch Blue frame at 30% / navy ink | #3B6EC4 / white ink |\n| `--tp-seg-on` / `-on-fg` (the chosen segment) | Touch Blue / white | Padel Green / navy |",
+      "body": "| | Paper | Blue mode |\n|---|---|---|\n| `--tp-heading` (page titles) | #1D3762 | white |\n| `--tp-panel-head` / `-fg` (panel title band) | Touch Blue / white | #2E4573 / white |\n| `--tp-panel-body` / `--tp-panel-edge` (a panel's and a table's body and outline) | surface / border | #1D2A42 / #2E4573 |\n| `--tp-group-head` / `-fg` (band of a panel holding panels; its body is `--tp-breakdown-frame`) | Touch Blue / white | #2E4573 / white, body #1D2A42 |\n| `--tp-breakdown-<tone>` / `-fg` / `-edge` (the overview's Breakdown cards: green, violet, rose, sky, teal, gold) | full colour / navy | calm deep colour / light ink |\n| `--tp-card-1..6` (figure cards by place, repeating after six: groups, tile strips, record tiles, analytics cards) | green, violet, rose, light blue, teal, gold | the same as calm light inks |\n| `--tp-table-head` / `-fg` (column band, = `--tp-panel-head`) | Touch Blue / white | #2E4573 / white |\n| `--tp-selected` / `-fg` (selected row, Go to option) | Padel Green / navy | Padel Green / navy |\n| `--tp-table-total` / `-fg` (a table's total row) | Padel Green / navy | Padel Green / navy |\n| `--tp-total-card` / `-fg` / `-muted` (a drill's figure card) | #1A2A44 / white | the same |\n| `--tp-split-<tone>` (the figure card's bar, full-strength card colours) | the same in both | the same in both |\n| `--tp-seg-track` / `-edge` / `-fg` / `-hover` (segmented buttons) | light grey, Touch Blue frame at 30% / navy ink | #3B6EC4 / white ink |\n| `--tp-seg-on` / `-on-fg` (the chosen segment) | Touch Blue / white | Padel Green / navy |",
       "route": null
     },
     {
@@ -28214,7 +28366,7 @@
       "ref": "doc:docs/DESIGN.md#5",
       "lang": "en",
       "title": "docs/DESIGN.md › Color (OKLCH, all neutrals tinted toward the brand blue hue 262)",
-      "body": "A solid band or selected row also **borrows the other mode's palette for what sits inside it**:\n`theme.ts` emits two cross scopes. The panel title band (`.tp-band`) takes the other mode's colour\ntokens in both modes: blue-mode tokens on paper's Touch Blue, paper tokens on blue mode's white.\nThe selected row is Padel Green in both modes (Sait, 2026-10-19), a light ground, so it takes the\npaper tokens in blue mode and keeps its own on paper; inside it `--tp-muted-fg` and `--tp-accent`\nare pinned to its navy, so nothing on the green is grey or link-blue. `.tp-paper` and `.tp-blue` force one direction for anything else. Links, grey text, buttons and badges inside\nthen stay readable without per-screen edits. The ground tokens themselves\n(`OPERATOR_SCOPE_GROUNDS`) are left out of the scopes. Every pair, including the crossed ones,\nis pinned in `apps/operator/src/lib/tokens.test.ts`.",
+      "body": "A solid band or selected row also **borrows the other mode's palette for what sits inside it**:\n`theme.ts` emits two cross scopes. The panel title band (`.tp-band`) takes the blue-mode colour\ntokens on paper's Touch Blue; in blue mode it is navy (Sait, 2026-10-21) and keeps its own.\nThe selected row is Padel Green in both modes (Sait, 2026-10-19), a light ground, so it takes the\npaper tokens in blue mode and keeps its own on paper; inside it `--tp-muted-fg` and `--tp-accent`\nare pinned to its navy, so nothing on the green is grey or link-blue. `.tp-paper` and `.tp-blue` force one direction for anything else. Links, grey text, buttons and badges inside\nthen stay readable without per-screen edits. The ground tokens themselves\n(`OPERATOR_SCOPE_GROUNDS`) are left out of the scopes. Every pair, including the crossed ones,\nis pinned in `apps/operator/src/lib/tokens.test.ts`.",
       "route": null
     },
     {

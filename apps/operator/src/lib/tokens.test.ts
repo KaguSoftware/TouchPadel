@@ -126,6 +126,7 @@ const TEXT_PAIRS: Array<[string, string]> = [
   ['--tp-heading', '--tp-bg'],
   ['--tp-panel-head-fg', '--tp-panel-head'],
   ['--tp-group-head-fg', '--tp-group-head'],
+  ['--tp-fg', '--tp-panel-body'],
   ['--tp-table-head-fg', '--tp-table-head'],
   ['--tp-selected-fg', '--tp-selected'],
   ['--tp-table-total-fg', '--tp-table-total'],
@@ -190,8 +191,9 @@ describe('panel colours round 3: the cross scopes', () => {
     expect(ratioOf(resolve(ink, blueVars), resolve('--tp-panel-head', paperVars))).toBeGreaterThanOrEqual(4.5);
   });
 
-  it.each(INK)('paper %s reads on the blue-mode white band', (ink) => {
-    expect(ratioOf(resolve(ink, paperVars), resolve('--tp-panel-head', blueVars))).toBeGreaterThanOrEqual(4.5);
+  // Blue mode's band is navy (Sait, 2026-10-21) and keeps its own palette.
+  it.each(INK)('blue-mode %s reads on the blue-mode navy band', (ink) => {
+    expect(ratioOf(resolve(ink, blueVars), resolve('--tp-panel-head', blueVars))).toBeGreaterThanOrEqual(4.5);
   });
 
   // The selected row is Padel Green in both modes (Sait, 2026-10-19): paper
@@ -206,7 +208,7 @@ describe('panel colours round 3: the cross scopes', () => {
   it('emits both scopes and leaves the grounds to their own mode', () => {
     expect(themeCss).toContain("[data-theme='operator'][data-mode='blue'] .tp-paper");
     expect(themeCss).toContain("[data-theme='operator']:not([data-mode='blue']) .tp-band");
-    expect(themeCss).toContain("[data-theme='operator'][data-mode='blue'] .tp-band");
+    expect(themeCss).not.toContain("[data-theme='operator'][data-mode='blue'] .tp-band");
     expect(themeCss).toContain("[data-theme='operator'][data-mode='blue'] .tp-table tbody tr[data-selected='true']");
     expect(themeCss).toContain('--tp-muted-fg: var(--tp-selected-fg);');
     const scopes = themeCss.slice(themeCss.indexOf("[data-mode='blue'] .tp-paper"));

@@ -12,12 +12,10 @@ import {
 import { Text } from '../../src/i18n/text';
 import { useFocusEffect } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
-import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { logicalSign, mirror } from '../../src/i18n/direction';
-import { useBranches, useVenueSettings } from '../../src/features/availability/hooks';
+import { useBranches } from '../../src/features/availability/hooks';
 import { BranchPicker } from '../../src/features/availability/BranchPicker';
-import { openNowInfo, type VenueSettingsPublic } from '../../src/features/availability/assemble';
 import { useCourtTransition } from '../../src/features/courtTransition/useCourtTransition';
 import {
   onCloseBookingSheetNow,
@@ -131,8 +129,8 @@ const FOOTER_SPACE = 34;
  * and that shade was the second reason the top of the page did not match the
  * rest: it put the pattern up there at ~22 % of the strength it has everywhere
  * else, which is a step you see before you see anything else on the screen.
- * The owner chose to lose it and protect the one piece of small text it was
- * really there for — the open-now pill — with a plate of its own (2026-09-05).
+ * The owner chose to lose it (2026-09-05); the one piece of small text it was
+ * really there for, the open-now pill, is gone too (2026-10-21).
  * What remains below is the FOOTER band, which lies on the court rather than
  * on the pattern and is a different problem.
  *
@@ -190,108 +188,6 @@ const ANDROID_COURT_BOX_RATIO = 1.55;
  * never holds the court back for longer than this.
  */
 const COURT_LAYOUT_WAIT_MS = 1500;
-
-/**
- * The "Open now · 09:00–02:00" pill. Owns the minute clock so the rest of the
- * screen — the GL court in particular — does not re-render every minute.
- */
-function OpenNowPill({
-  settings,
-  fade,
-}: {
-  settings: VenueSettingsPublic | undefined;
-  /**
-   * BOOK A COURT's own fade (`header.out`) while the sheet is mounted, so the
-   * pill leaves and returns with the heading; a plain 1 at rest. See the
-   * comment on the pill's call site for why it must be a plain 1 at rest.
-   */
-  fade: Animated.AnimatedInterpolation<number> | 1;
-}) {
-  const { t } = useLocale();
-  const { colors, fonts, appearance } = useTheme();
-  const dark = appearance === 'dark';
-  const [now, setNow] = useState(() => new Date());
-  // NOT in a transition. Transition work on this tab waits behind the rally's
-  // frame loop for React's 5 s Normal-priority deadline (see the note in
-  // useAvailabilityBooking), and a pill that says "open" five seconds after
-  // closing time is worse than the one frame this costs.
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-  const info = useMemo(() => openNowInfo(settings, now), [settings, now]);
-  if (!info) return null;
-  const glass = withAlpha(
-    colors.bg,
-    Platform.OS === 'ios' ? PICK_PILL_TINT[dark ? 'iosDark' : 'iosLight'] : PICK_PILL_TINT.other,
-  );
-  return (
-    // On its own plate — the same glass as the "Pick a time" capsule, branch
-    // for branch: iOS 26's Liquid Glass (GlassView, `regular`, no veil over
-    // it) where the system has it (owner, 2026-09-26), else BlurView on iOS +
-    // a translucent `colors.bg` tint, opaque tint on Android — so the two
-    // floating labels over the court read as one material.
-    //
-    // The border WIDTH is kept on the Liquid Glass branch and only its colour
-    // dropped (the capsule has no rim): the pill must not change size.
-    // The whole pill fades as one, glass included (owner, 2026-09-26). A
-    // GlassView under an alpha < 1 draws nothing, and one that has started
-    // life that way may not come back, so at rest `fade` is a plain 1 (no
-    // animated node over the glass at all) and the glass is REMOUNTED fresh
-    // each time the pill comes to rest (`key` on the call site).
-    <Animated.View
-      style={{
-        opacity: fade,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingStart: 9,
-        paddingEnd: 10,
-        paddingTop: 5,
-        paddingBottom: 5,
-        borderRadius: radius.pill,
-        overflow: 'hidden',
-        borderWidth: dark ? StyleSheet.hairlineWidth : 0,
-        borderColor: liquidGlass ? 'transparent' : colors.line,
-      }}
-    >
-      {liquidGlass ? (
-        <GlassView
-          pointerEvents="none"
-          colorScheme={dark ? 'dark' : 'light'}
-          glassEffectStyle="regular"
-          style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]}
-        />
-      ) : (
-        <>
-          {Platform.OS === 'ios' ? (
-            <BlurView
-              intensity={40}
-              tint={dark ? 'dark' : 'light'}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : null}
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: glass }]} />
-        </>
-      )}
-      <View
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: radius.pill,
-          backgroundColor: info.open ? brand.green : colors.fnt2,
-        }}
-      />
-      {/* `mut2`, a step firmer than the old `mut`: the words read washed out
-          on the glass (owner, 2026-09-26). */}
-      <Text style={{ fontFamily: fonts.body700, fontSize: 11, color: colors.mut2 }}>
-        {/* Latin-digit times in an Arabic sentence: isolated so the bidi algorithm
-            keeps "09:00–02:00" in order (formatTimeRange does the same). */}
-        {info.open ? t('courts.openNow', { hours: isolate(info.label) }) : t('courts.closedNow')}
-      </Text>
-    </Animated.View>
-  );
-}
 
 /**
  * "Check availability", sitting ON the net (prototype: spans post to post,
@@ -603,7 +499,6 @@ export default function BookHomeScreen() {
     Platform.OS === 'ios' ? PICK_PILL_TINT[dark ? 'iosDark' : 'iosLight'] : PICK_PILL_TINT.other,
   );
   const tabBarHeight = useTabBarHeight();
-  const settings = useVenueSettings();
 
   const reduceMotion = useReduceMotion();
   const {
@@ -933,14 +828,12 @@ export default function BookHomeScreen() {
         <BrandPattern />
       </View>
 
-      {/* Everything above the stage — heading, open-now pill — stands
-          directly on the pattern, at the strength the rest of
-          the page has it. There WAS a reading shade over this whole block; it
-          is gone because it made the top of the page a different picture from
-          the bottom, which is the thing the owner kept pointing at. The one
-          string it was genuinely protecting, the open-now pill, carries its own
-          plate now (OpenNowPill) — the heading is display-sized, so it never
-          needed it.
+      {/* Everything above the stage — the heading — stands directly on the
+          pattern, at the strength the rest of the page has it. There WAS a
+          reading shade over this whole block; it is gone because it made the
+          top of the page a different picture from the bottom, which is the
+          thing the owner kept pointing at. The heading is display-sized, so it
+          never needed it.
 
           `zIndex: 1` still lives here, so the whole block paints over the
           lifted court the way each row used to on its own. */}
@@ -948,7 +841,7 @@ export default function BookHomeScreen() {
         {/* Header: [back to the court] BOOK A COURT ⇄ PICK A TIME on the
             leading edge, where the logo was (owner, 2026-09-26: the logo is
             painted on the court's turf now, courtTransition/courtLogo.ts), and
-            the open-now pill on the trailing edge. Above the stage in z so the
+            the account on the trailing edge. Above the stage in z so the
             lifted court passes beneath. */}
         <View
           style={{
@@ -1052,26 +945,14 @@ export default function BookHomeScreen() {
               <TitleSquiggle />
             </Animated.View>
           </Animated.View>
-          {/* Belongs to the court view, like the branch picker: it fades out
-              with BOOK A COURT when the sheet opens and back in as it closes
-              (owner, 2026-09-26). The fade is only attached while the sheet is
-              mounted; the sheet unmounts at p 0.25 on the way down, where
-              `header.out` is already ~1, so dropping to a plain 1 there does
-              not show. The `key` remounts the pill at that moment, so its glass
-              is created fresh with nothing fading above it. */}
           <View
             pointerEvents={isOpen ? 'none' : 'auto'}
             accessibilityElementsHidden={isOpen}
             importantForAccessibility={isOpen ? 'no-hide-descendants' : 'auto'}
             style={{ marginStart: space.sm, flexDirection: 'row', alignItems: 'center', gap: space.s }}
           >
-            <OpenNowPill
-              key={sheetMounted ? 'fading' : 'rest'}
-              settings={settings.data ?? undefined}
-              fade={sheetMounted ? header.out : 1}
-            />
             {/* The account, on the trailing edge of every tab's title row (Majed,
-                2026-10-17); here it leaves with the court view like the pill. */}
+                2026-10-17); here it leaves with the court view. */}
             <Animated.View style={{ opacity: sheetMounted ? header.out : 1 }}>
               <AccountButton testID="book.account" />
             </Animated.View>

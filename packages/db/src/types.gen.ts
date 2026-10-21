@@ -4705,6 +4705,16 @@ export type Database = {
         }
         Returns: Json
       }
+      shop_reward_info: { Args: never; Returns: Json }
+      shop_reward_lines: {
+        Args: { p_from: string; p_to: string; p_venue: string }
+        Returns: {
+          reward_iqd: number
+          sales_iqd: number
+          staff_id: string
+        }[]
+      }
+      shop_reward_sweep: { Args: never; Returns: Json }
       shopping_list: {
         Args: { p_status?: string; p_venue_id?: string }
         Returns: Json
@@ -14561,6 +14571,90 @@ export type Database = {
           },
           {
             foreignKeyName: "shop_price_watches_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_sale_reward_earnings: {
+        Row: {
+          created_at: string
+          earned_month: string
+          id: string
+          pay_month: string
+          reward_iqd: number
+          sales_iqd: number
+          staff_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          earned_month: string
+          id?: string
+          pay_month: string
+          reward_iqd: number
+          sales_iqd: number
+          staff_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          earned_month?: string
+          id?: string
+          pay_month?: string
+          reward_iqd?: number
+          sales_iqd?: number
+          staff_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_sale_reward_earnings_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_sale_reward_earnings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_sale_reward_rates: {
+        Row: {
+          created_at: string
+          reward_pct: number
+          tab_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          reward_pct: number
+          tab_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          reward_pct?: number
+          tab_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_sale_reward_rates_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: true
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_sale_reward_rates_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"

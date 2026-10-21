@@ -8,7 +8,7 @@
  *   courtDesk  the booking board, one booking ticked as arrived
  *   cashier    a receipt, a card, a coin and a coffee on its saucer
  *   prep       order tickets hanging on the kitchen rail
- *   shop       a padel racket on its hook and a tube of balls
+ *   shop       the court's padel racket and a tube of balls
  *   team       the checklist handed to you, two done and two to go
  *
  * The drawing belongs to the workspace, not to its place in the grid, so the
@@ -49,7 +49,9 @@ function venue(): string {
 
 function bookingBoard(): string {
   let d = 'M126 14H296V150H126ZM126 32H296M168 14V150M211 14V150M253 14V150';
-  d += 'M126 62H296M126 92H296M126 122H296';
+  // The art is stroked, not filled, so a row line stops at each booking it
+  // passes under instead of running through it.
+  d += 'M126 62H132M162 62H296M126 92H174M205 92H259M290 92H296M126 122H216M247 122H296';
   return (
     d + rr(132, 38, 30, 46, 4) + 'M139 61l5 5 9-10' + rr(174, 66, 31, 52, 4) +
     rr(216, 38, 31, 22, 4) + rr(216, 98, 31, 46, 4) + rr(259, 70, 31, 44, 4)
@@ -76,11 +78,41 @@ function ticketRail(): string {
   return d;
 }
 
+/**
+ * The racket is the court's 3D one (features/floor/rally/racket.ts) seen face
+ * on, traced from its model metres: the teardrop frame, the face opening, the
+ * throat window, the 30 holes in rows of 4-5-6-6-5-4, the collar, the wrapped
+ * grip and the butt cap. Model y runs up from the butt; 300 px a metre puts the
+ * butt on the floor line and the crown near the top.
+ */
+function racket(): string {
+  const s = 300;
+  const p = (x: number, y: number) => `${+(196 + x * s).toFixed(1)} ${+(148 - y * s).toFixed(1)}`;
+  const at = (deg: number, r: number) => {
+    const a = (deg * Math.PI) / 180;
+    return p(r * Math.cos(a), 0.32 + r * Math.sin(a));
+  };
+  const arc = (r: number) => `A${+(r * s).toFixed(1)} ${+(r * s).toFixed(1)} 0 1 0 `;
+  // Frame: open at the neck, where the collar takes over.
+  let d = `M${p(0.018, 0.125)}C${p(0.018, 0.165)} ${p(0.098, 0.205)} ${at(-20, 0.13)}` +
+    `${arc(0.13)}${at(200, 0.13)}C${p(-0.098, 0.205)} ${p(-0.018, 0.165)} ${p(-0.018, 0.125)}`;
+  // Face opening, the same teardrop the 3D frame cuts.
+  d += `M${at(-25, 0.116)}${arc(0.116)}${at(205, 0.116)}` +
+    `C${p(-0.0851, 0.226)} ${p(-0.05, 0.204)} ${p(0, 0.204)}C${p(0.05, 0.204)} ${p(0.0851, 0.226)} ${at(-25, 0.116)}Z`;
+  d += `M${p(-0.046, 0.188)}L${p(0.046, 0.188)}Q${p(0.016, 0.168)} ${p(0, 0.156)}Q${p(-0.016, 0.168)} ${p(-0.046, 0.188)}Z`;
+  [4, 5, 6, 6, 5, 4].forEach((n, i) => {
+    const y = 148 - (0.32 + (i - 2.5) * 0.026) * s;
+    for (let j = 0; j < n; j++) d += circ(196 + (j - (n - 1) / 2) * 0.03 * s, y, 1.9);
+  });
+  // Collar, grip with its wraps, butt cap.
+  d += `M${p(-0.022, 0.125)}L${p(0.022, 0.125)}L${p(0.0195, 0.098)}L${p(-0.0195, 0.098)}Z`;
+  d += `M${p(-0.0195, 0.098)}V${148 - 0.012 * s}M${p(0.0195, 0.098)}V${148 - 0.012 * s}`;
+  for (const y of [0.028, 0.05, 0.072]) d += `M${p(-0.0195, y)}H${196 + 0.0195 * s}`;
+  return d + `M${p(-0.021, 0.012)}H${196 + 0.021 * s}V148H${196 - 0.021 * s}Z`;
+}
+
 function shopWall(): string {
-  let d = 'M196 8V30M170 62a26 31 0 1 0 52 0a26 31 0 1 0 -52 0M186 91L191 108M206 91L201 108M191 108H201V148H191ZM191 120H201';
-  const holes = [[186, 50], [196, 50], [206, 50], [181, 62], [191, 62], [201, 62], [211, 62], [186, 74], [196, 74], [206, 74]] as const;
-  for (const [x, y] of holes) d += circ(x, y, 2.2);
-  return d + rr(250, 34, 30, 112, 7) + 'M250 50H280' + circ(265, 72, 11) + circ(265, 98, 11) + circ(265, 124, 11);
+  return racket() + rr(250, 34, 30, 112, 7) + 'M250 50H280' + circ(265, 72, 11) + circ(265, 98, 11) + circ(265, 124, 11);
 }
 
 function checklist(): string {

@@ -105,14 +105,17 @@ export const operatorBlueVars = {
   // lighter, so a selected row is the brightest blue on the screen.
   '--tp-accent-soft': BLUE_L50,
   '--tp-accent-soft-fg': 'var(--tp-brand-white)',
-  // Round 3 (2026-10-18): white carries the headers and the selection, the
-  // mirror of paper's blue. Inside a white band or a selected row the paper
-  // palette applies (theme.ts, the cross scopes).
+  // Round 3 (2026-10-18) made the headers white; since 2026-10-21 (Sait) a
+  // panel or table is a navy band over a deeper navy body, white ink. Inside a
+  // selected row the paper palette applies (theme.ts, the cross scopes).
   '--tp-heading': 'var(--tp-brand-white)',
-  '--tp-panel-head': '#F4F7FB',
-  '--tp-panel-head-fg': '#274982',
-  '--tp-group-head': BLUE_L50,
-  '--tp-group-head-fg': 'var(--tp-brand-white)',
+  '--tp-panel-head': '#2E4573',
+  '--tp-panel-head-fg': 'var(--tp-brand-white)',
+  '--tp-panel-body': '#1D2A42',
+  '--tp-panel-edge': '#2E4573',
+  // The group band and its frame wear the same navy (Sait, 2026-10-21).
+  '--tp-group-head': 'var(--tp-panel-head)',
+  '--tp-group-head-fg': 'var(--tp-panel-head-fg)',
   // The Breakdown's cards, calm: the deep "soft" grounds of the status
   // families (success, lesson, danger) with their light inks, and a wash into
   // the deep rail blue instead of white.
@@ -144,14 +147,14 @@ export const operatorBlueVars = {
   '--tp-card-5': '#B9EEE8',
   '--tp-card-6': '#EBD98F',
   '--tp-card-ink': '#152847',
-  '--tp-breakdown-frame': BLUE_L22,
+  '--tp-breakdown-frame': 'var(--tp-panel-body)',
   '--tp-breakdown-wash': BLUE_L22,
   '--tp-breakdown-wash-mix': '45%',
   '--tp-breakdown-hover-mix': '80%',
   // Tables (Sait, 2026-10-19): the Breakdown's group band, a Padel Green
   // selected row and total row with navy ink, the same as on paper.
-  '--tp-table-head': 'var(--tp-group-head)',
-  '--tp-table-head-fg': 'var(--tp-group-head-fg)',
+  '--tp-table-head': 'var(--tp-panel-head)',
+  '--tp-table-head-fg': 'var(--tp-panel-head-fg)',
   '--tp-selected': 'var(--tp-brand-green)',
   '--tp-selected-fg': 'var(--tp-accent-2-contrast)',
   '--tp-table-total': 'var(--tp-brand-green)',

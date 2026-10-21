@@ -50,7 +50,7 @@ import { CardTitle, Step } from '../ops/OpsVisuals';
 import { Footnote, useStockFormat, useStoreName } from './stockUi';
 import { countEntryState, matchesName } from './stockLogic';
 import { countDifference, phoneCountWaitingAt, phoneCountsWaiting, storeOf, storesForScope, type StockLocation, type UnfinishedCount } from './storeLogic';
-import { useStockScope } from './stockScope';
+import { useStockScope, useStockWords } from './stockScope';
 import {
   SK,
   fetchCountLines,
@@ -124,6 +124,7 @@ export function CountScreen() {
 /** One store's own count: the steps and Start, or the count in progress. */
 function StoreCount({ store, phoneWaiting }: { store: StockLocation; phoneWaiting: UnfinishedCount | null }) {
   const { tr, locale } = useLocale();
+  const words = useStockWords();
   const fmt = useStockFormat();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -201,7 +202,7 @@ function StoreCount({ store, phoneWaiting }: { store: StockLocation; phoneWaitin
     if (!open) return;
     const ok = await confirm({
       title: tr('ws.manager.stock.count.finishTitle'),
-      body: entered.length === 0 ? tr('ws.manager.stock.count.finishBodyNone') : tr('ws.manager.stock.count.finishBody', { count: fmt.num(entered.length) }),
+      body: entered.length === 0 ? tr('ws.manager.stock.count.finishBodyNone') : words.finishBody(fmt.num(entered.length)),
       confirmLabel: tr('ws.manager.stock.count.finish'),
       kind: 'primary',
     });
@@ -257,12 +258,12 @@ function StoreCount({ store, phoneWaiting }: { store: StockLocation; phoneWaitin
     return true;
   });
 
-  const nameCell = (ing: IngredientRow | undefined) => (ing ? pickName(locale, ing) : tr('ws.manager.stock.alerts.unknownIngredient'));
+  const nameCell = (ing: IngredientRow | undefined) => (ing ? pickName(locale, ing) : words.unknown);
 
   const columns: Column<CountLineRow>[] = [
     {
       key: 'ingredient',
-      header: tr('op.stock.ingredient'),
+      header: words.item,
       render: (l) => <bdi>{nameCell(ingredientOf.get(l.ingredient_id))}</bdi>,
     },
     ...(showRecorded
@@ -316,7 +317,7 @@ function StoreCount({ store, phoneWaiting }: { store: StockLocation; phoneWaitin
             <Step index={1} title={tr('ws.manager.stock.count.step1')} done={false} tone="neutral">
               <StepHint>{tr('ws.manager.stock.count.step1Hint')}</StepHint>
             </Step>
-            <Step index={2} title={tr('ws.manager.stock.count.step2')} done={false} tone="neutral">
+            <Step index={2} title={words.countStep} done={false} tone="neutral">
               <StepHint>{tr('ws.manager.stock.count.step2Hint')}</StepHint>
             </Step>
             <Step index={3} title={tr('ws.manager.stock.count.step3')} done={false} tone="neutral">
@@ -471,6 +472,7 @@ function PhoneCounts({ counts }: { counts: UnfinishedCount[] }) {
 
 function PhoneCountReview({ count, onDone }: { count: UnfinishedCount; onDone: () => void }) {
   const { tr, locale } = useLocale();
+  const words = useStockWords();
   const fmt = useStockFormat();
   const confirm = useConfirm();
   const toast = useToast();
@@ -544,10 +546,10 @@ function PhoneCountReview({ count, onDone }: { count: UnfinishedCount; onDone: (
   const columns: Column<CountLineRow>[] = [
     {
       key: 'ingredient',
-      header: tr('op.stock.ingredient'),
+      header: words.item,
       render: (l) => {
         const ing = ingredientOf.get(l.ingredient_id);
-        return <bdi style={{ fontWeight: 600 }}>{ing ? pickName(locale, ing) : tr('ws.manager.stock.alerts.unknownIngredient')}</bdi>;
+        return <bdi style={{ fontWeight: 600 }}>{ing ? pickName(locale, ing) : words.unknown}</bdi>;
       },
     },
     {

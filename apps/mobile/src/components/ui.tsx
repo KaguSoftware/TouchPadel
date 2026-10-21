@@ -180,6 +180,23 @@ export function FormScreen({
  */
 export const TAB_TITLE_TOP = Platform.OS === 'android' ? 24 : 20;
 
+/**
+ * Title's text line height. 1.05 is an all-caps ratio: Latin caps sit on the
+ * baseline with almost nothing below it. Arabic drops ج/ح/ي well under the
+ * baseline, so the same ratio clips their tails — it needs a taller line box.
+ */
+export function titleLineHeight(dir: 'ltr' | 'rtl', size = 26): number {
+  return Math.round(size * (dir === 'rtl' ? 1.45 : 1.05));
+}
+
+/**
+ * The top margin that centres something `height` tall on a tab title's text
+ * line, in a row that aligns its items to `flex-start` (every tab's title row).
+ */
+export function titleCentreOffset(dir: 'ltr' | 'rtl', height: number): number {
+  return (titleLineHeight(dir) - height) / 2;
+}
+
 /** Big uppercase page title with the green squiggle underneath. */
 export function Title({
   children,
@@ -199,10 +216,7 @@ export function Title({
 }) {
   const { colors, fonts, tracking } = useTheme();
   const { dir } = useLocale();
-  // 1.05 is an all-caps ratio: Latin caps sit on the baseline with almost
-  // nothing below it. Arabic drops ج/ح/ي well under the baseline, so the
-  // same ratio clips their tails — it needs a taller line box.
-  const lineHeight = Math.round(size * (dir === 'rtl' ? 1.45 : 1.05));
+  const lineHeight = titleLineHeight(dir, size);
   const rtl = dir === 'rtl';
   return (
     <View style={{ marginBottom: plain ? 0 : space.s }}>

@@ -114,6 +114,23 @@ describe('readWagesMonth', () => {
     expect(bonusKind({ rewardIqd: 1000, prize: 'Cinema tickets' })).toBe('both');
   });
 
+  it('reads the Touch Shop sales rewards a month carries (0355), and none from an older server', () => {
+    const m = readWagesMonth({
+      totals: { salary_iqd: 500000, bonuses_iqd: 25000 },
+      people: [
+        {
+          ...line({ bonuses_iqd: 25000, bonus_count: 1 }),
+          staff_id: 's1',
+          shop_rewards: [{ id: 'r1', earned_month: '2026-09-01', sales_iqd: 250000, reward_iqd: 25000 }, { earned_month: '2026-09-01' }],
+        },
+        { ...line(), staff_id: 's2' },
+      ],
+    });
+    expect(m.people[0]!.shopRewards).toEqual([{ id: 'r1', earnedMonth: '2026-09-01', salesIqd: 250000, rewardIqd: 25000 }]);
+    expect(m.people[0]!.bonusesIqd).toBe(25000);
+    expect(m.people[1]!.shopRewards).toEqual([]);
+  });
+
   it('reads a line from before 0333 as no bonuses, and no bonuses total as absent rather than 0', () => {
     const m = readWagesMonth({ totals: { salary_iqd: 1 }, people: [{ ...line(), staff_id: 's1' }] });
     expect(m.totals.bonusesIqd).toBeNull();

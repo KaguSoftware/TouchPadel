@@ -23,8 +23,9 @@ export const tournamentsGuestAr: DeepMessages<typeof tournamentsGuestEn> = {
       off: 'لا توجد بطولات في أي فرع حاليًا.',
       error: 'تعذّر تحميل البطولات.',
       placesLeft: 'الأماكن المتبقية: {count}',
-      waitlistOnly: 'قائمة الانتظار مفتوحة',
-      full: 'مكتملة',
+      noPlacesLeft: 'لا أماكن متبقية',
+      statusOpen: 'مفتوحة',
+      statusClosed: 'مغلقة',
     },
     detail: {
       title: 'البطولة',

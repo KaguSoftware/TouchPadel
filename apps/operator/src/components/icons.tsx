@@ -66,7 +66,9 @@ const PATHS = {
   upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
   download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
   table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18',
-  home: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+  // The house with a doorway (Sait, 2026-10-21), from the crash-panel mockup.
+  home: 'M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+  power: 'M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10',
   refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
   printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
   wifiOff: 'M1 1l22 22M16.7 11.2a10 10 0 0 1 2.9 2M5 12.6a10 10 0 0 1 5.2-2.5M10.7 5a16 16 0 0 1 11.3 4.5M1.4 8.5A16 16 0 0 1 8 4.7M8.5 16.4a6 6 0 0 1 7 0M12 20h.01',

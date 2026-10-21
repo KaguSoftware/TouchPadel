@@ -116,6 +116,10 @@ export const operatorVars = {
   // it wear their own colours (--tp-breakdown-*), so the blue is the frame.
   '--tp-group-head': 'var(--tp-brand-blue)',
   '--tp-group-head-fg': 'var(--tp-brand-white)',
+  // A panel's and a table's body and edge. Paper: the surface and the
+  // border; blue mode: a deep navy under a navy band (Sait, 2026-10-21).
+  '--tp-panel-body': 'var(--tp-surface)',
+  '--tp-panel-edge': 'var(--tp-border)',
   // The Breakdown's figure cards (Sait, 2026-10-19): one colour per card for
   // its title band and its outline, navy ink on the band, and a wash of the
   // same colour behind its rows (--tp-breakdown-wash-mix of the colour into

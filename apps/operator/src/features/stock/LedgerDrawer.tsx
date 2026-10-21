@@ -26,6 +26,7 @@ import { AsyncStateWrapper, DataTable, EmptyState, TableSkeleton, asyncStatus, t
 import { useStockFormat, useStoreName } from './stockUi';
 import { LEDGER_PAGE, MOVEMENT_SELECT, SK, fetchLedger, type MovementRow } from './stockKeys';
 import { isMovementType, transferNote } from './storeLogic';
+import { useStockWords } from './stockScope';
 
 /** A product test's reason code, `run:<run id>`: the release it was made for. */
 const RUN_REASON = /^run:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
@@ -41,6 +42,7 @@ export function LedgerDrawer({
   movementIds?: number[];
 }) {
   const { tr, locale } = useLocale();
+  const words = useStockWords();
   const fmt = useStockFormat();
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
@@ -97,7 +99,7 @@ export function LedgerDrawer({
     },
     {
       key: 'cost',
-      header: tr('ws.manager.stock.ledger.costPer', { unit: fmt.one(ingredient.unit) }),
+      header: words.shop ? tr('ws.shop.words.ledgerCost') : tr('ws.manager.stock.ledger.costPer', { unit: fmt.one(ingredient.unit) }),
       numeric: true,
       render: (m) => <bdi style={{ color: 'var(--tp-muted-fg)' }}>{fmt.cost(m.unit_cost_iqd)}</bdi>,
     },
@@ -138,10 +140,10 @@ export function LedgerDrawer({
       title={tr('ws.manager.stock.ledger.title', { name: pickName(locale, ingredient) })}
       subtitle={
         movementIds
-          ? tr('ws.manager.stock.ledger.periodLead')
+          ? words.ledgerPeriodLead
           : ingredient.on_hand !== undefined
             ? tr('ws.manager.stock.ledger.leadWithOnHand', { qty: fmt.qty(ingredient.on_hand, ingredient.unit) })
-            : tr('ws.manager.stock.ledger.lead')
+            : words.ledgerLead
       }
       onClose={onClose}
       size="xl"
@@ -166,7 +168,7 @@ export function LedgerDrawer({
         error={ledgerQ.error}
         onRetry={() => void ledgerQ.refetch()}
         skeleton={<TableSkeleton columns={columns} rows={4} />}
-        emptyContent={<EmptyState compact kind="nothingToDo" icon="fileText" title={tr('ws.manager.stock.ledger.empty')} />}
+        emptyContent={<EmptyState compact kind="nothingToDo" icon="fileText" title={words.ledgerEmpty} />}
       >
         <DataTable columns={columns} rows={rows} rowKey={(m) => String(m.id)} maxBlockSize="60vh" dense aria-label={tr('ws.manager.stock.ledger.title', { name: pickName(locale, ingredient) })} />
       </AsyncStateWrapper>

@@ -470,6 +470,8 @@ export const CAPABILITY_ROLES = {
   rotateTableToken: ['owner'],
   /** Business-day start hour: moves every historical daily figure. */
   setBusinessDayStart: ['owner'],
+  /** The Touch Shop sales reward percent (0355): it changes what people are paid. */
+  setShopReward: ['owner'],
   /** Exclude menu items from analytics. */
   setAnalyticsExclusions: ['owner'],
   /** Engagement floor: the date before which engagement data is ignored. */
