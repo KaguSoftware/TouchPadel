@@ -133,6 +133,13 @@
       "reason": "Stack exhaustion on deeply nested brace patterns. braces is reached only through metro-file-map > micromatch, the Expo/Metro bundler's file watcher, which runs on a developer machine or the EAS build host and expands the repo's own fixed glob patterns; no pattern comes from a user, and nothing ships it in the app bundle. 3.0.3 is the latest release and the advisory (2026-09-18) names no patched version, so there is nothing to upgrade to yet. Remove when braces publishes a fix and the override can pin it.",
       "owner": "DEV",
       "expires": "2026-11-04"
+    },
+    {
+      "id": "GHSA-587h-7wmj-h5pm",
+      "module": "vite",
+      "reason": "launch-editor's fs.existsSync() check can be bypassed on Windows, reached through the Vite dev server's open-in-editor middleware. The flagged copy is vite 5.4.21, pulled in only by vitest 2.1 (the unit-test runner in apps/mobile, apps/operator and apps/operator-shell): it runs tests in-process and serves nothing, and no shipped bundle contains it. The operator's own vite (dev server + build) was bumped to ^6.4.4 the same day. Advisory published 2026-10-20 with no patched 5.x, so the real fix is the vitest 3 upgrade (vite >= 6.4.4). Waived 2026-10-21 on Majed's word for 30 days; remove with that upgrade.",
+      "owner": "DEV",
+      "expires": "2026-11-20"
     }
   ]
 }
