@@ -17,8 +17,21 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0357`
-  (0357 legacy_report_months, 2026-10-21 (Majed: the analytics charts must show the whole picked
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0359`
+  (0359 tournament_classes, 2026-10-22 (Ameen; written as 0356 and renumbered at the merge, because
+  0355–0357 were already taken): `tournaments.classes text[]`, one to three of A, B, C in
+  A-B-C order, never null by the validated `tournaments_classes` CHECK, which also ties `class` to
+  the first of them (kept for builds before it); the plan takes `classes` or an older desk's
+  `class`; `tournament_register` takes a level that fits ANY class; the desk no longer asks
+  `play_years` (0339's column and check stay). **0359 holds `protocol_check_tournament_plan`,
+  `tournament_publish`, `tournament_register`, `tournaments_public`, `tournament_public` (0339 no
+  longer), `desk_tournament_detail` (0311 no longer), `assistant_tournaments_summary` (0328 no
+  longer) and `tournament_context` (0174 no longer)**.
+  0358 analytics_compare_bases, 2026-10-22 (Ameen; written as 0355 and renumbered at the
+  merge): "Compare with" is month | year | `custom:<from>:<to>` (prev | 4w | 52w still valid), one test `app.analytics_compare_basis_ok`
+  (service role only) behind the `analytics_insights` CHECK; **0358 holds
+  `save_analytics_insights`** (0098 no longer).
+  0357 legacy_report_months, 2026-10-21 (Majed: the analytics charts must show the whole picked
   period, nothing missed; written as 0355 and renumbered at the merge, because 0355 and 0356 came
   in from the saeed branch): **0357 holds `app.legacy_report_totals`** (0349 is no longer the latest:
   each `included` report gains its own summary bookings, cancellations, noShows and lessons, null

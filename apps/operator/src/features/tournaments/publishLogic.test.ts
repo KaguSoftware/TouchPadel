@@ -32,7 +32,7 @@ describe('readPlanFacts', () => {
     const f = readPlanFacts(PLAN);
     expect(f).toMatchObject({
       nameEn: 'Autumn Americano',
-      tournamentClass: 'B',
+      tournamentClasses: ['B'],
       format: 'americano',
       formatUnplayable: false,
       capacityUnit: 'players',

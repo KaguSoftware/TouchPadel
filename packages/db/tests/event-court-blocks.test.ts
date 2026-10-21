@@ -295,6 +295,8 @@ interface Context {
   name_en: string;
   name_ar: string;
   class: string;
+  /** 0359. */
+  classes: string[];
   format: string | null;
   capacity: { unit: string; count: number };
   ranges: Array<{ court_ids: string[]; court_names: Array<{ en: string; ar: string }>; from: string; to: string }>;
@@ -423,7 +425,7 @@ describe.skipIf(!docker)('event_court_blocks: blocking courts for a tournament',
 
     // tournament_context: names, ranges and blocks, never money.
     const ctx = ok<Context>(r, 'ctx_desk');
-    expect(ctx).toMatchObject({ name_en: 'Summer Cup', name_ar: 'كأس الصيف', class: 'A', format: 'americano' });
+    expect(ctx).toMatchObject({ name_en: 'Summer Cup', name_ar: 'كأس الصيف', class: 'A', classes: ['A'], format: 'americano' });
     expect(ctx.capacity).toEqual({ unit: 'pairs', count: 16 });
     expect(ctx.ranges).toHaveLength(1);
     expect(ctx.ranges[0]!.court_names).toEqual([
@@ -636,6 +638,13 @@ describe.skipIf(!docker)('event_court_blocks: blocking courts for a tournament',
       T('t2_null_format', 'manager', start('type2', plan({ courts: ['court'], day: 'day', variant: 'type2', extra: ` || '{"format":null}'::jsonb` }))),
       T('t1_no_format', 'manager', start('type1', `(${plan({ courts: ['court'], day: 'day' })} - 'format')`)),
       T('bad_class', 'manager', t1(` || '{"class":"D"}'::jsonb`)),
+      // 0359: several classes, kept in A-B-C order; class is the first.
+      T('classes', 'manager', t1(` || '{"classes":["C","A"]}'::jsonb`)),
+      RES('run_classes', 'classes', 'run_id'),
+      Q('classes_data', `select jsonb_build_object('classes', data->'classes', 'class', data->>'class') from protocol_runs where id = {{run_classes}}`),
+      T('classes_dup', 'manager', t1(` || '{"classes":["A","A"]}'::jsonb`)),
+      T('classes_empty', 'manager', t1(` || '{"classes":[]}'::jsonb`)),
+      T('classes_bad', 'manager', t1(` || '{"classes":["D"]}'::jsonb`)),
       T('bad_order', 'manager', start('type1', plan({ courts: ['court'], day: 'day', from: '22:00', to: '18:00' }))),
       T('bad_court', 'manager', t1(` || jsonb_build_object('ranges', jsonb_build_array(jsonb_build_object('court_ids',
                                    jsonb_build_array(gen_random_uuid()), 'from', now() + interval '1 day', 'to', now() + interval '2 days')))`)),
@@ -673,7 +682,7 @@ describe.skipIf(!docker)('event_court_blocks: blocking courts for a tournament',
     expect(ok(r, 't3')).toMatchObject({ auto: true, status: 'active' });
     const data = ok<Record<string, unknown>>(r, 't3_data');
     expect(data).toMatchObject({
-      class: 'A', name_en: 'Summer Cup', format: 'americano', entry_fee_iqd: 25000, budget_iqd: 300000,
+      class: 'A', classes: ['A'], name_en: 'Summer Cup', format: 'americano', entry_fee_iqd: 25000, budget_iqd: 300000,
       prize: { text: 'Trophy', iqd: 500000 }, capacity: { unit: 'pairs', count: 16 },
       sponsor: { name: 'Acme', contact: '0770 000 0000', contribution_iqd: 1000000 },
     });
@@ -686,7 +695,12 @@ describe.skipIf(!docker)('event_court_blocks: blocking courts for a tournament',
     expect(ok(r, 't2')).toMatchObject({ auto: true });
     expect(ok(r, 't2_null_format')).toMatchObject({ auto: true });
     expect(refused(r, 't1_no_format')).toBe('RECORD_INVALID:format');
-    expect(refused(r, 'bad_class')).toBe('RECORD_INVALID:class');
+    // 0359: a plan with no valid class or classes names the new field.
+    expect(refused(r, 'bad_class')).toBe('RECORD_INVALID:classes');
+    expect(ok(r, 'classes_data')).toEqual({ classes: ['A', 'C'], class: 'A' });
+    for (const label of ['classes_dup', 'classes_empty', 'classes_bad']) {
+      expect(refused(r, label), label).toBe('RECORD_INVALID:classes');
+    }
     for (const label of ['bad_order', 'bad_court', 'off_court', 'dup_court', 'no_ranges']) {
       expect(refused(r, label), label).toBe('RECORD_INVALID:ranges');
     }

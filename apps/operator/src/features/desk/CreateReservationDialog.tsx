@@ -63,7 +63,8 @@ import { GenderSlotNote, genderBlocksBooking, useSlotKept } from './GenderSlotNo
 import { durationsFitting, nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone, slotTaken } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
 
-export type CreateKind = 'booking' | 'maintenance' | 'match' | 'lesson';
+// No court block here: blocking a court has its own screen (Court block).
+export type CreateKind = 'booking' | 'match' | 'lesson';
 
 /** What the Open match kind hands to the Start dialog (§5.10): the draft's court, start and guest. */
 export interface StartMatchCarry {
@@ -157,7 +158,6 @@ export function CreateReservationDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [soldKey],
   );
-  const [kind, setKind] = useState<Exclude<CreateKind, 'match' | 'lesson'>>('booking');
   const [durationPick, setDuration] = useState<number>(sold[0] ?? 60);
   const [guestName, setGuestName] = useState(() => (initialCustomer ? sanitizeName(initialCustomer.name) : ''));
   const [guestPhone, setGuestPhone] = useState(() => (initialCustomer?.phone ? sanitizePhone(initialCustomer.phone) : ''));
@@ -202,7 +202,7 @@ export function CreateReservationDialog({
   const endAt = new Date(startAt.getTime() + duration * 60_000);
   // Gender hours (0353): who this court and time are kept for, if anyone.
   const kept = useSlotKept(courtId, startAt, endAt, tz);
-  const genderBlocked = kind === 'booking' && genderBlocksBooking(kept, customer);
+  const genderBlocked = genderBlocksBooking(kept, customer);
 
   // Start times the clerk may pick: the night's rows from now on, plus the
   // one the dialog opened on (the calendar never opens a past slot, but the
@@ -224,17 +224,17 @@ export function CreateReservationDialog({
 
   const priceQ = useQuery({
     queryKey: ['priceSlot', courtId, startIso, duration],
-    enabled: kind === 'booking' && courtId !== '',
+    enabled: courtId !== '',
     queryFn: () => appRpc<{ rule_id: string; price_iqd: number }[]>('price_slot', { p_court_id: courtId, p_start_at: startIso, p_duration_min: duration }),
     staleTime: 60_000,
   });
   // Zero rows is an answer: no rate rule sells this length at this time, and
   // the server will refuse the booking. An error is not an answer — never block on it.
-  const unpriced = kind === 'booking' && priceQ.isSuccess && (priceQ.data?.length ?? 0) === 0;
+  const unpriced = priceQ.isSuccess && (priceQ.data?.length ?? 0) === 0;
 
   // The open matches this booking would cancel, and the ones a court here is
   // kept for (§5.10). Client mirrors: the server decides.
-  const draftPeriod = { courtId, startAt: startAt.toISOString(), endAt: endAt.toISOString(), kind };
+  const draftPeriod = { courtId, startAt: startAt.toISOString(), endAt: endAt.toISOString(), kind: 'booking' as const };
   const bumped = matchesBumpedBy(openMatches, night?.reservations ?? [], courts, draftPeriod);
   const waiting = awaitingCourtOverlap(openMatches, draftPeriod);
   const matchTime = (m: OpenMatch) => formatTime(new Date(m.start_at), locale, tz);
@@ -247,7 +247,7 @@ export function CreateReservationDialog({
       const outcome = await mutate('reservation.create', {
         clientRef: clientRef(),
         courtId,
-        kind,
+        kind: 'booking',
         startAt: startAt.toISOString(),
         // The server prices the slot; the end is the chosen duration from the court's own list.
         endAt: endAt.toISOString(),
@@ -271,7 +271,7 @@ export function CreateReservationDialog({
     }
   }
 
-  const needsGuest = kind === 'booking' && guestName.trim().length === 0 && customer === null;
+  const needsGuest = guestName.trim().length === 0 && customer === null;
   // Nothing the court sells fits before the close, so there is no booking to
   // make from this start at all.
   const closesTooSoon = durations.length === 0;
@@ -326,31 +326,31 @@ export function CreateReservationDialog({
           style={{ marginBlockEnd: '0.85rem' }}
         />
       )}
-      {/* group: a <label> around a set of buttons forwards the click to the first of them — see Field. */}
-      <Field label={tr('op.desk.kind')} group>
-        <SegmentedControl<CreateKind>
-          value={kind}
-          onChange={(next) => {
-            if (next === 'match') {
-              // The Start dialog takes over with what is already chosen.
-              onStartMatch?.({ courtId, startAt, customer, guestName, guestPhone });
-              return;
-            }
-            if (next === 'lesson') {
-              // New lesson takes over the same way (coaching §5.9); the server picks the court.
-              onStartLesson?.({ courtId, startAt, customer, guestName, guestPhone });
-              return;
-            }
-            setKind(next);
-          }}
-          options={[
-            { value: 'booking', label: tr('op.desk.kindBooking'), disabled: busy },
-            { value: 'maintenance', label: tr('ws.courtDesk.create.kindBlock'), disabled: busy },
-            ...(onStartMatch ? [{ value: 'match' as const, label: tr('ws.matches.common.openMatch'), disabled: busy || !reachable }] : []),
-            ...(onStartLesson ? [{ value: 'lesson' as const, label: tr('ws.coaching.common.lesson'), disabled: busy || !reachable }] : []),
-          ]}
-        />
-      </Field>
+      {/* group: a <label> around a set of buttons forwards the click to the first of them — see Field.
+          With neither a match nor a lesson to offer, Booking would stand alone: no row at all. */}
+      {(onStartMatch || onStartLesson) && (
+        <Field label={tr('op.desk.kind')} group>
+          <SegmentedControl<CreateKind>
+            value="booking"
+            onChange={(next) => {
+              if (next === 'match') {
+                // The Start dialog takes over with what is already chosen.
+                onStartMatch?.({ courtId, startAt, customer, guestName, guestPhone });
+                return;
+              }
+              if (next === 'lesson') {
+                // New lesson takes over the same way (coaching §5.9); the server picks the court.
+                onStartLesson?.({ courtId, startAt, customer, guestName, guestPhone });
+              }
+            }}
+            options={[
+              { value: 'booking', label: tr('op.desk.kindBooking'), disabled: busy },
+              ...(onStartMatch ? [{ value: 'match' as const, label: tr('ws.matches.common.openMatch'), disabled: busy || !reachable }] : []),
+              ...(onStartLesson ? [{ value: 'lesson' as const, label: tr('ws.coaching.common.lesson'), disabled: busy || !reachable }] : []),
+            ]}
+          />
+        </Field>
+      )}
       {onStartMatch && !reachable && (
         <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: '-0.5rem', marginBlockEnd: '0.85rem' }}>{tr('ws.matches.offline.needsConnection')}</p>
       )}
@@ -358,56 +358,52 @@ export function CreateReservationDialog({
         <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: onStartMatch ? 0 : '-0.5rem', marginBlockEnd: '0.85rem' }}>{tr('ws.coaching.offline.needsConnection')}</p>
       )}
 
-      {kind === 'booking' && (
-        <>
-          <CustomerPicker
-            value={customer}
+      <CustomerPicker
+        value={customer}
+        disabled={busy}
+        autoFocus={initialCustomer === null}
+        onQueryChange={(q) => {
+          if (!nameTouched) setGuestName(nameFromQuery(q));
+          if (!phoneTouched) setGuestPhone(phoneFromQuery(q));
+        }}
+        onChange={(next) => {
+          setCustomer(next);
+          if (next) {
+            // What the account says outranks what was searched for.
+            if (!nameTouched || guestName.trim() === '') setGuestName(sanitizeName(next.name));
+            if (next.phone && (!phoneTouched || guestPhone.trim() === '')) setGuestPhone(sanitizePhone(next.phone));
+          }
+        }}
+      />
+      <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
+        <Field label={tr('op.desk.guestName')} required={customer === null}>
+          <input
+            style={inputStyle}
+            value={guestName}
             disabled={busy}
-            autoFocus={initialCustomer === null}
-            onQueryChange={(q) => {
-              if (!nameTouched) setGuestName(nameFromQuery(q));
-              if (!phoneTouched) setGuestPhone(phoneFromQuery(q));
-            }}
-            onChange={(next) => {
-              setCustomer(next);
-              if (next) {
-                // What the account says outranks what was searched for.
-                if (!nameTouched || guestName.trim() === '') setGuestName(sanitizeName(next.name));
-                if (next.phone && (!phoneTouched || guestPhone.trim() === '')) setGuestPhone(sanitizePhone(next.phone));
-              }
+            maxLength={200}
+            onChange={(e) => {
+              setNameTouched(true);
+              setGuestName(sanitizeName(e.target.value));
             }}
           />
-          <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
-            <Field label={tr('op.desk.guestName')} required={customer === null}>
-              <input
-                style={inputStyle}
-                value={guestName}
-                disabled={busy}
-                maxLength={200}
-                onChange={(e) => {
-                  setNameTouched(true);
-                  setGuestName(sanitizeName(e.target.value));
-                }}
-              />
-            </Field>
-            <Field label={tr('op.desk.guestPhone')} optional>
-              <input
-                style={inputStyle}
-                dir="ltr"
-                inputMode="tel"
-                autoComplete="off"
-                maxLength={30}
-                value={guestPhone}
-                disabled={busy}
-                onChange={(e) => {
-                  setPhoneTouched(true);
-                  setGuestPhone(sanitizePhone(e.target.value));
-                }}
-              />
-            </Field>
-          </div>
-        </>
-      )}
+        </Field>
+        <Field label={tr('op.desk.guestPhone')} optional>
+          <input
+            style={inputStyle}
+            dir="ltr"
+            inputMode="tel"
+            autoComplete="off"
+            maxLength={30}
+            value={guestPhone}
+            disabled={busy}
+            onChange={(e) => {
+              setPhoneTouched(true);
+              setGuestPhone(sanitizePhone(e.target.value));
+            }}
+          />
+        </Field>
+      </div>
 
       <div className="tp-grid" data-cols={night ? '3' : '2'} style={{ columnGap: 'var(--tp-sp-3)' }}>
         {night && (
@@ -440,13 +436,13 @@ export function CreateReservationDialog({
             options={durations.map((d) => ({ value: String(d), label: tr('op.common.minutesShort', { minutes: formatNumber(d, locale) }) }))}
           />
         </Field>
-        {!night && kind === 'booking' && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
+        {!night && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
       </div>
 
       {/* Notes sit above the price: the price is the last thing the desk reads
        out before pressing Create, so it ends the form rather than being
        buried between two boxes. */}
-      <Field label={kind === 'maintenance' ? tr('ws.courtDesk.create.blockReason') : tr('op.common.notes')} optional={kind === 'booking'}>
+      <Field label={tr('op.common.notes')} optional>
         <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
       </Field>
       {waiting.map((m) => (
@@ -461,10 +457,8 @@ export function CreateReservationDialog({
           ))}
         </div>
       )}
-      {kind === 'booking' && (
-        <GenderSlotNote kept={kept} customer={customer} disabled={busy} onCustomerGender={(g) => setCustomer((c) => (c ? { ...c, gender: g } : c))} />
-      )}
-      {night && kind === 'booking' && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
+      <GenderSlotNote kept={kept} customer={customer} disabled={busy} onCustomerGender={(g) => setCustomer((c) => (c ? { ...c, gender: g } : c))} />
+      {night && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
       <ErrorText error={error} />
     </Modal>
   );

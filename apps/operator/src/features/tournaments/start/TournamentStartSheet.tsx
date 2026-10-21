@@ -54,23 +54,17 @@ import {
   sectionOfIssue,
   planSections,
   slotsOf,
+  toggleClass,
+  PLAN_CLASSES,
   type PlanClass,
   type PlanFormat,
   type PlanSection,
   type PlanSlot,
   type PlanState,
   type PlanUnit,
-  type PlanYears,
 } from '@touch/core/protocols';
 
 const F = 'ws.team.tasks.form.field';
-const CLASSES: readonly PlanClass[] = ['A', 'B', 'C'];
-/** 0339: the players' years bracket, with the catalog key of each card's title. */
-const YEARS: readonly { value: PlanYears; key: 'yearsUnderOne' | 'yearsOneToThree' | 'yearsThreePlus' }[] = [
-  { value: 'under_one', key: 'yearsUnderOne' },
-  { value: 'one_to_three', key: 'yearsOneToThree' },
-  { value: 'three_plus', key: 'yearsThreePlus' },
-];
 /** The court rows the desk labels by kind; another kind is said as "Already booked" alone. */
 const KINDS = ['booking', 'hold', 'maintenance', 'lesson'] as const;
 /** A class pill's colour by how hard it is: advanced red, intermediate orange, beginners green. */
@@ -237,9 +231,9 @@ export function TournamentStartSheet({
                 const note =
                   s === 'type'
                     ? tr(`ws.tournaments.start.typeName.${plan.variant}`)
-                    : s === 'name' && plan.cls
+                    : s === 'name' && plan.classes.length > 0
                       ? [
-                          plan.cls,
+                          plan.classes.join(tr('ws.protocols.view.listJoin')),
                           full && plan.format
                             ? tr(`ws.team.tasks.form.option.${plan.format}`)
                             : null,
@@ -458,36 +452,25 @@ export function TournamentStartSheet({
                       />
                     </Field>
                   </div>
-                  <Field label={tr(`${F}.class`)} group required error={issueFor('class')}>
-                    <div role="radiogroup" className="tp-tour-choices" onKeyDown={radioKeys}>
-                      {CLASSES.map((c, i) => (
+                  {/* 0359: one or more classes, each card a toggle; a guest whose level
+                      fits any of them can register. The years played are no longer asked. */}
+                  <Field
+                    label={tr(`${F}.classes`)}
+                    hint={tr('ws.tournaments.start.classesHint')}
+                    group
+                    required
+                    error={issueFor('classes')}
+                  >
+                    <div role="group" aria-label={tr(`${F}.classes`)} className="tp-tour-choices">
+                      {PLAN_CLASSES.map((c) => (
                         <ChoiceCard
                           key={c}
-                          radio
-                          tabStop={plan.cls === c || (plan.cls === null && i === 0)}
-                          on={plan.cls === c}
+                          on={plan.classes.includes(c)}
                           title={tr(`ws.team.tasks.form.option.class${c}`)}
                           tag={tr(`ws.tournaments.start.classes.${c}.tag`)}
                           tagTone={CLASS_TONE[c]}
                           body={tr(`ws.tournaments.start.classes.${c}.body`)}
-                          onPick={() => set({ cls: c })}
-                        />
-                      ))}
-                    </div>
-                  </Field>
-                  {/* 0339: who may play by experience, an exact bracket like the class:
-                      only a guest whose own answer is this one can register. */}
-                  <Field label={tr(`${F}.play_years`)} group required error={issueFor('play_years')}>
-                    <div role="radiogroup" className="tp-tour-choices" onKeyDown={radioKeys}>
-                      {YEARS.map((y, i) => (
-                        <ChoiceCard
-                          key={y.value}
-                          radio
-                          tabStop={plan.playYears === y.value || (plan.playYears === null && i === 0)}
-                          on={plan.playYears === y.value}
-                          title={tr(`ws.team.tasks.form.option.${y.key}`)}
-                          body={tr(`ws.tournaments.start.years.${y.value}.body`)}
-                          onPick={() => set({ playYears: y.value })}
+                          onPick={() => set({ classes: toggleClass(plan.classes, c) })}
                         />
                       ))}
                     </div>

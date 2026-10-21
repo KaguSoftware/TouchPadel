@@ -31,7 +31,7 @@ describe('AnalyticsTabs', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Courts' }));
     expect(navigate).toHaveBeenCalledWith({ to: '/analytics/courts', search: expect.any(Function) });
     const search = navigate.mock.calls[0]![0].search as (prev: unknown) => unknown;
-    expect(search({ range: '7d', cmp: '4w', court: 'not-a-uuid' })).toEqual({ range: '7d', cmp: '4w' });
+    expect(search({ range: '7d', cmp: 'year', court: 'not-a-uuid' })).toEqual({ range: '7d', cmp: 'year' });
   });
 
   it('does not navigate when the current tab is clicked again', async () => {

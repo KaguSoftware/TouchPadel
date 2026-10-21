@@ -44,7 +44,7 @@ const tour = (id: string, startsAt: string): TourListItem => ({
   nameAr: null,
   format: 'americano',
   category: 'open',
-  tourClass: null,
+  tourClasses: [],
   playYears: null,
   startsAt,
   endsAt: null,

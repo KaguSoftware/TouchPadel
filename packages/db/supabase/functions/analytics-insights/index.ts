@@ -7,7 +7,9 @@
  * reject_insight RPCs.
  *
  * Request  POST {mode:'insights'|'patterns'|'revalidate'|'replace_rejected',
- *                lang:'ar'|'en', range_from, range_to, compare_basis:'prev'|'4w'|'52w',
+ *                lang:'ar'|'en', range_from, range_to,
+ *                compare_basis:'month'|'year'|'custom:<from>:<to>' (0358; the older
+ *                'prev'|'4w'|'52w' of an operator build before it still pass),
  *                scope?:'cafe'|'courts' (missing = 'cafe'; old clients keep working),
  *                data: CafeInsightsPayload | CourtsInsightsPayload}
  *                (aggregates and display names only; no identifiers of any kind)
@@ -134,6 +136,18 @@ type Req = CafeReq | CourtsReq;
 // the wire is trusted, and the fallback and the gate read only what they check.
 // ---------------------------------------------------------------------------
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/**
+ * 0358: the comparison the operator files findings under, as analytics_insights' CHECK takes it:
+ * month, year, or custom:<from>:<to> (the owner's own window, ordered); the older prev, 4w and
+ * 52w still pass for an operator build before it.
+ */
+const COMPARE_CUSTOM = /^custom:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/;
+function isCompareBasis(v: string): boolean {
+  if (['month', 'year', 'prev', '4w', '52w'].includes(v)) return true;
+  const m = COMPARE_CUSTOM.exec(v);
+  return m !== null && isIsoDate(m[1]) && isIsoDate(m[2]) && m[1]! <= m[2]!;
+}
+
 const isIsoDate = (s: unknown): s is string =>
   typeof s === 'string' && ISO_DATE.test(s) && Number.isFinite(Date.parse(`${s}T00:00:00Z`));
 const rows = (v: unknown): Row[] => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') as Row[] : []);
@@ -231,8 +245,8 @@ function parseBody(body: unknown): Req | string {
   const span = (Date.parse(`${b.range_to}T00:00:00Z`) - Date.parse(`${b.range_from}T00:00:00Z`)) / 86_400_000;
   if (span < 0) return 'range_to is before range_from';
   if (span > MAX_SPAN_DAYS) return `span exceeds ${MAX_SPAN_DAYS} days`;
-  const compare_basis = typeof b.compare_basis === 'string' ? b.compare_basis : 'prev';
-  if (!['prev', '4w', '52w'].includes(compare_basis)) return "compare_basis must be prev|4w|52w";
+  const compare_basis = typeof b.compare_basis === 'string' ? b.compare_basis : 'month';
+  if (!isCompareBasis(compare_basis)) return 'compare_basis must be month|year|custom:<from>:<to>';
   const d = obj(b.data);
   if (!d) return 'data must be an object';
   const patterns = parsePatterns(d.patterns);
@@ -418,9 +432,10 @@ Iraqi dinar (IQD), integer amounts, no decimals. You receive, for the date range
 - "kpis": headline totals (bookings, booked_minutes, occupancy_pct, revenue_iqd, rev_per_open_hour_iqd,
   price_per_booked_hour_iqd, cancellations, no_shows, booked_total, cancellation_rate_pct, no_show_rate_pct,
   mobile_bookings, desk_bookings, holds_expired, booking_days, courts_count), and "compare": the same figures for
-  the comparison window under "kpis" plus the signed "deltas" (basis "${req.compare_basis}": prev = the period
-  before this one, 4w = four weeks earlier, 52w = the same period last year). NAME that window in any
-  period-over-period sentence; calling it the wrong thing makes the finding false.
+  the comparison window under "kpis" plus the signed "deltas" (basis "${req.compare_basis}": month = the same
+  dates a month earlier, year = the same dates a year earlier, custom = a window the owner picked; its dates are
+  compare.from..compare.to). NAME that window in any period-over-period sentence; calling it the wrong thing
+  makes the finding false.
 - "per_court": per court: bookings, occupancy_pct, revenue_iqd, rev_per_open_hour_iqd, cancellations, no_shows,
   attach_pct, cafe_per_linked_iqd.
 - "by_day": per business day: bookings, revenue_iqd, cancellations, no_shows.
@@ -484,9 +499,9 @@ amounts, no decimals. You receive, for the date range ${req.range_from}..${req.r
 - "kpis": headline totals (total_sales_iqd = cafe money actually paid, net of refunds; tabs, orders, items_qty,
   cash_iqd, card_iqd, discount_iqd, refunds_iqd, qr_orders, till_orders, qr_share_pct, sessions, views,
   median_seconds, waiter_calls, basket_to_call_pct), and "compare": the same figures for the comparison window
-  under "kpis" plus the signed "deltas" (basis "${req.compare_basis}": prev = the period before this one, 4w =
-  four weeks earlier, 52w = the same period last year). NAME that window in any period-over-period sentence;
-  calling it the wrong thing makes the finding false.
+  under "kpis" plus the signed "deltas" (basis "${req.compare_basis}": month = the same dates a month earlier,
+  year = the same dates a year earlier, custom = a window the owner picked; its dates are compare.from..compare.to).
+  NAME that window in any period-over-period sentence; calling it the wrong thing makes the finding false.
 - "daily": per business day — revenue_iqd (net of refunds), tabs, orders, items_qty, discount_iqd, refunds_iqd,
   waiter_calls.
 - "best_sellers": per item — name, qty, revenue_iqd, share_pct.

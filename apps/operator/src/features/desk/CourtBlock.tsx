@@ -404,7 +404,7 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
 
   const facts = ctx
     ? [
-        ctx.tournamentClass ? tr('ws.events.block.classLabel', { class: ctx.tournamentClass }) : null,
+        ctx.tournamentClasses.length > 0 ? tr('ws.events.block.classLabel', { class: ctx.tournamentClasses.join(tr('ws.protocols.view.listJoin')) }) : null,
         ctx.capacity ? tr(`ws.events.block.capacity.${ctx.capacity.unit}`, { count: formatNumber(ctx.capacity.count, locale) }) : null,
       ].filter((x): x is string => x !== null)
     : [];

@@ -112,8 +112,6 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
   create: {
     customer: 'البحث عن زبون',
     searchPlaceholder: 'اكتب اسمًا أو رقم هاتف…',
-    kindBlock: 'إيقاف ملعب',
-    blockReason: 'السبب (يظهر في التقويم)',
     court: 'الملعب',
     start: 'البداية',
     startTaken: '{time} · محجوز',

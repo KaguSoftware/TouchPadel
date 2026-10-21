@@ -48,7 +48,7 @@ describe('the desk’s event mode', () => {
     expect(ctx.ranges).toHaveLength(2);
     expect(ctx.blocked).toHaveLength(1);
     const empty = readTournamentContext(null);
-    expect(empty).toEqual({ name: { en: '', ar: '' }, tournamentClass: null, format: null, capacity: null, ranges: [], blocked: [] });
+    expect(empty).toEqual({ name: { en: '', ar: '' }, tournamentClasses: [], format: null, capacity: null, ranges: [], blocked: [] });
     // A range with no court or no window is dropped, not shown as a blank row.
     expect(readTournamentContext({ ranges: [{ court_ids: [], from: 'x', to: 'y' }, { court_ids: [C1] }] }).ranges).toEqual([]);
   });

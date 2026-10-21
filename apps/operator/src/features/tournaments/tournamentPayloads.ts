@@ -176,6 +176,8 @@ export interface TournamentDetail {
   format: TourFormat;
   category: TourCategory;
   class: string | null;
+  /** 0359: every class it is for (A-B-C order); a server before it sends only `class`. */
+  classes: string[];
   points_target: number;
   rounds_planned: number | null;
   max_entries: number;
@@ -274,6 +276,11 @@ export function readTournamentDetail(payload: unknown): TournamentDetail | null 
     format: oneOf(p.format, TOUR_FORMATS, 'americano'),
     category: oneOf(p.category, TOUR_CATEGORIES, 'open'),
     class: str(p.class),
+    classes: Array.isArray(p.classes)
+      ? p.classes.filter((c): c is string => typeof c === 'string')
+      : str(p.class)
+        ? [str(p.class)!]
+        : [],
     points_target: int(p.points_target) ?? 24,
     rounds_planned: int(p.rounds_planned),
     max_entries: int(p.max_entries) ?? 0,

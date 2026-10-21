@@ -177,7 +177,9 @@ function FieldNode({
       );
     }
     case 'enum': {
-      const current = (value as string | undefined) ?? '';
+      const multiple = def.multiple === true;
+      const chosen = multiple && Array.isArray(value) ? (value as string[]) : [];
+      const current = multiple ? '' : ((value as string | undefined) ?? '');
       return (
         <View style={{ gap: 6, marginTop: space.sm }}>
           {fieldLabel}
@@ -190,9 +192,17 @@ function FieldNode({
                   key={option}
                   testID={`${id}.${option}`}
                   label={custom ?? (key ? t(key) : option)}
-                  selected={current === option}
+                  selected={multiple ? chosen.includes(option) : current === option}
                   disabled={disabled}
-                  onPress={() => set(current === option && !def.required ? '' : option)}
+                  onPress={() =>
+                    multiple
+                      ? set(
+                          chosen.includes(option)
+                            ? chosen.filter((c) => c !== option)
+                            : (def.options ?? []).filter((o) => o === option || chosen.includes(o)),
+                        )
+                      : set(current === option && !def.required ? '' : option)
+                  }
                 />
               );
             })}

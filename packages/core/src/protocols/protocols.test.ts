@@ -195,9 +195,9 @@ describe('forms', () => {
     expect(startForm('price_promo', { change: 'rate' }).stepKey).toBe('propose');
   });
 
-  it('gives a type 2 tournament the short plan: class, years, names, ranges, capacity, notes', () => {
+  it('gives a type 2 tournament the short plan: classes, years (optional), names, ranges, capacity, notes', () => {
     expect(startForm('tournament', { variant: 'type2' }).fields.map((f) => f.name)).toEqual([
-      'class',
+      'classes',
       'play_years',
       'name_en',
       'name_ar',
@@ -312,8 +312,7 @@ describe('validateStep: release', () => {
 });
 
 const PLAN = {
-  class: 'B',
-  play_years: 'one_to_three',
+  classes: ['B', 'C'],
   name_en: 'Autumn cup',
   name_ar: 'كأس الخريف',
   format: 'americano',
@@ -331,6 +330,17 @@ describe('validateStep: tournament and hiring', () => {
     ]);
     const sponsored = { ...PLAN, sponsor: { name: 'Zain', contact: 'events desk', contribution_iqd: 500000 } };
     expect(validateStep('tournament', 'plan', sponsored, { variant: 'type3' })).toEqual([]);
+  });
+
+  it('takes one to three distinct classes, and the years only as one of the three brackets', () => {
+    const plan = (over: Record<string, unknown>) => validateStep('tournament', 'plan', { ...PLAN, ...over }, { variant: 'type1' });
+    expect(plan({ classes: ['A', 'B', 'C'] })).toEqual([]);
+    expect(fields(plan({ classes: [] }))).toEqual(['classes:RECORD_INVALID']);
+    expect(fields(plan({ classes: ['A', 'A'] }))).toEqual(['classes:RECORD_INVALID']);
+    expect(fields(plan({ classes: ['D'] }))).toEqual(['classes:RECORD_INVALID']);
+    expect(fields(plan({ classes: 'A' }))).toEqual(['classes:RECORD_INVALID']);
+    expect(plan({ play_years: 'one_to_three' })).toEqual([]);
+    expect(fields(plan({ play_years: 'ten' }))).toEqual(['play_years:RECORD_INVALID']);
   });
 
   it('takes the short form for type 2', () => {

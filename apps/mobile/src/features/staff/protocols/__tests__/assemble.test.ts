@@ -185,17 +185,18 @@ describe('draftFromRecord', () => {
   it('brings a sent plan back into the same draft, times in venue time', () => {
     const fields = fieldsOf('tournament', 'plan', { variant: 'type2' });
     const record = {
-      class: 'B',
-      play_years: 'one_to_three',
+      classes: ['B', 'C'],
       name_en: 'Friday social',
       name_ar: 'اجتماعي الجمعة',
       ranges: [{ court_ids: [UUID_A], from: '2026-10-02T15:00:00Z', to: '2026-10-02T19:00:00Z' }],
       capacity: { unit: 'pairs', count: 16 },
     };
     const draft = draftFromRecord(fields, record);
+    expect(draft.classes).toEqual(['B', 'C']);
     expect(draft.ranges).toEqual([{ court_ids: [UUID_A], from: '2026-10-02 18:00', to: '2026-10-02 22:00' }]);
     expect(draft.capacity).toEqual({ unit: 'pairs', count: '16' });
     const again = recordFromDraft(fields, draft);
+    expect(again.classes).toEqual(['B', 'C']);
     expect(again.ranges).toEqual([
       { court_ids: [UUID_A], from: '2026-10-02T18:00:00+03:00', to: '2026-10-02T22:00:00+03:00' },
     ]);

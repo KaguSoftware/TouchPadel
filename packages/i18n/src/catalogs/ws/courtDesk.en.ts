@@ -117,8 +117,6 @@ export const courtDeskEn = {
   create: {
     customer: 'Find a customer',
     searchPlaceholder: 'Type a name or phone number…',
-    kindBlock: 'Court block',
-    blockReason: 'Reason (shown on the calendar)',
     court: 'Court',
     start: 'Start',
     startTaken: '{time} · taken',

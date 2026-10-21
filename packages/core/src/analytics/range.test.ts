@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { dayOfWeekOfDate } from '../time/tz';
 import {
   addDays,
+  addMonths,
   businessTodayISO,
+  compareTag,
   datesInRange,
   engagementComparable,
   engagementWindow,
@@ -110,24 +111,49 @@ describe('resolveRange', () => {
   });
 });
 
-describe('resolveCompare', () => {
-  const range = { from: '2026-09-08', to: '2026-09-14' }; // Tue..Mon
+describe('addMonths', () => {
+  it('moves whole calendar months and clamps a day the target month lacks', () => {
+    expect(addMonths('2026-10-21', -1)).toBe('2026-09-21');
+    expect(addMonths('2026-10-31', -1)).toBe('2026-09-30');
+    expect(addMonths('2026-03-31', -1)).toBe('2026-02-28');
+    expect(addMonths('2028-02-29', -12)).toBe('2027-02-28');
+    expect(addMonths('2026-01-15', -1)).toBe('2025-12-15');
+    expect(addMonths('2026-01-15', 13)).toBe('2027-02-15');
+  });
+});
 
-  it('defaults to the previous period', () => {
-    expect(resolveCompare(undefined, range)).toEqual({ basis: 'prev', range: { from: '2026-09-01', to: '2026-09-07' } });
-    expect(resolveCompare('nonsense', range).basis).toBe('prev');
+describe('resolveCompare', () => {
+  const range = { from: '2026-09-22', to: '2026-10-21' }; // the 30-day preset on 2026-10-21
+
+  it('defaults to the same dates last month, never overlapping a 30-day range', () => {
+    expect(resolveCompare(undefined, range)).toEqual({ basis: 'month', range: { from: '2026-08-22', to: '2026-09-21' } });
+    expect(resolveCompare('month', range).range.to < range.from).toBe(true);
+    // Links from before 2026-10-22 and nonsense fall back the same way.
+    for (const old of ['prev', '4w', '52w', 'nonsense']) expect(resolveCompare(old, range).basis).toBe('month');
   });
 
-  it('4w and 52w land on the same weekdays', () => {
-    for (const cmp of ['4w', '52w'] as const) {
-      const { basis, range: cmpRange } = resolveCompare(cmp, range);
-      expect(basis).toBe(cmp);
-      expect(rangeLength(cmpRange)).toBe(7);
-      expect(dayOfWeekOfDate(cmpRange.from)).toBe(dayOfWeekOfDate(range.from));
-      expect(dayOfWeekOfDate(cmpRange.to)).toBe(dayOfWeekOfDate(range.to));
-    }
-    expect(resolveCompare('4w', range).range).toEqual({ from: '2026-08-11', to: '2026-08-17' });
-    expect(resolveCompare('52w', range).range).toEqual({ from: '2025-09-09', to: '2025-09-15' });
+  it('year is the same dates a year earlier', () => {
+    expect(resolveCompare('year', range)).toEqual({ basis: 'year', range: { from: '2025-09-22', to: '2025-10-21' } });
+  });
+
+  it('custom takes the picked window, and falls back to last month without two ordered dates', () => {
+    expect(resolveCompare('custom', range, { from: '2026-06-01', to: '2026-06-30' })).toEqual({
+      basis: 'custom',
+      range: { from: '2026-06-01', to: '2026-06-30' },
+    });
+    expect(resolveCompare('custom', range, { from: '2026-06-30', to: '2026-06-01' }).basis).toBe('month');
+    expect(resolveCompare('custom', range, { from: '2026-06-01' }).basis).toBe('month');
+    expect(resolveCompare('custom', range).basis).toBe('month');
+  });
+});
+
+describe('compareTag', () => {
+  const range = { from: '2026-09-22', to: '2026-10-21' };
+
+  it('names a custom window by its dates so two never share stored findings', () => {
+    expect(compareTag({ basis: 'month', range })).toBe('month');
+    expect(compareTag({ basis: 'year', range })).toBe('year');
+    expect(compareTag({ basis: 'custom', range: { from: '2026-06-01', to: '2026-06-30' } })).toBe('custom:2026-06-01:2026-06-30');
   });
 });
 

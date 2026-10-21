@@ -221,7 +221,7 @@ describe('CourtsTab', () => {
     renderTab();
     await waitFor(() => expect(skeletons()).toBe(0), { timeout: 5000 });
     // The stored sets were asked for with the court key, never the venue-wide NULL.
-    expect(fetchStoredInsights).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'prev', 'en', 'courts', COURT_A);
+    expect(fetchStoredInsights).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'month', 'en', 'courts', COURT_A);
     expect(fetchStoredPatterns).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'en', 'courts', COURT_A);
     // Court figures open their transactions for the selected court; venue revenue stays venue-wide.
     vi.mocked(appRpc).mockResolvedValue({ transactions: [] } as never);

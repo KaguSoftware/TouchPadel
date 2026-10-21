@@ -13,7 +13,7 @@ function renderBar(props: Partial<Parameters<typeof AnalyticsBar>[0]> = {}) {
   const setSearch = vi.fn();
   render(
     <LocaleProvider>
-      <AnalyticsBar tab="courts" search={{ range: '30d' }} setSearch={setSearch} zones={[]} compareBasis="prev" {...props} />
+      <AnalyticsBar tab="courts" search={{ range: '30d' }} setSearch={setSearch} zones={[]} compareBasis="month" {...props} />
     </LocaleProvider>,
   );
   return setSearch;
@@ -52,6 +52,43 @@ describe('AnalyticsBar', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Oct 15, 2026' }));
       await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
       expect(setSearch).toHaveBeenCalledWith({ range: 'custom', from: '2026-10-10', to: '2026-10-15' });
+    });
+  });
+
+  it('offers last month, last year and custom, and writes a fixed basis without custom dates', async () => {
+    const setSearch = renderBar();
+    await userEvent.click(screen.getByRole('combobox', { name: 'Compare with' }));
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Last month', 'Last year', 'Custom']);
+    await userEvent.click(screen.getByRole('option', { name: 'Last year' }));
+    expect(setSearch).toHaveBeenCalledWith({ cmp: 'year', cmpFrom: undefined, cmpTo: undefined });
+  });
+
+  describe('a custom comparison', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-19T09:00:00Z'));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it('starts from the window compared with now', async () => {
+      const setSearch = renderBar({ compareRange: { from: '2026-08-20', to: '2026-09-18' } });
+      expect(screen.queryByRole('button', { name: 'Compare dates' })).toBeNull();
+      await userEvent.click(screen.getByRole('combobox', { name: 'Compare with' }));
+      await userEvent.click(screen.getByRole('option', { name: 'Custom' }));
+      expect(setSearch).toHaveBeenCalledWith({ cmp: 'custom', cmpFrom: '2026-08-20', cmpTo: '2026-09-18' });
+    });
+
+    it('is moved with its own date field', async () => {
+      const setSearch = renderBar({
+        search: { range: '30d', cmp: 'custom', cmpFrom: '2026-10-01', cmpTo: '2026-10-05' },
+        compareBasis: 'custom',
+        compareRange: { from: '2026-10-01', to: '2026-10-05' },
+      });
+      await userEvent.click(screen.getByRole('button', { name: 'Compare dates' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Oct 10, 2026' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Oct 15, 2026' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      expect(setSearch).toHaveBeenCalledWith({ cmp: 'custom', cmpFrom: '2026-10-10', cmpTo: '2026-10-15' });
     });
   });
 

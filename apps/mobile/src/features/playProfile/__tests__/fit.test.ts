@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { bracketOfYears, classOfLevel, showsTournament, tournamentAvailability, tournamentFit } from '../fit';
 
 const t = (tourClass: 'A' | 'B' | 'C' | null, playYears: 'under_one' | 'one_to_three' | 'three_plus' | null) => ({
-  tourClass,
+  tourClasses: tourClass === null ? [] : [tourClass],
   playYears,
 });
 
@@ -26,6 +26,14 @@ describe('who a tournament is for (0339, the twin of tournament_register)', () =
       on: 'level',
     });
     expect(tournamentFit(t('C', null), { level: 'new', years: 'never' }).fit).toBe('fits');
+  });
+
+  it('fits any of several classes (0359)', () => {
+    const ab = { tourClasses: ['A', 'B'] as const, playYears: null };
+    expect(tournamentFit(ab, { level: 'advanced', years: null }).fit).toBe('fits');
+    expect(tournamentFit(ab, { level: 'intermediate', years: null }).fit).toBe('fits');
+    expect(tournamentFit(ab, { level: 'beginner', years: null })).toEqual({ fit: 'mismatch', on: 'level' });
+    expect(tournamentFit(ab, null)).toEqual({ fit: 'unanswered', on: 'level' });
   });
 
   it('fits only the exact years bracket: more years is a mismatch too', () => {
@@ -66,7 +74,7 @@ describe('tournamentAvailability (the suggestions behind For you)', () => {
   const row = (format: string, tourClass: 'A' | 'B' | 'C', status = 'open') => ({
     format,
     status,
-    tourClass,
+    tourClasses: [tourClass],
     playYears: null,
     mine: null,
   });

@@ -293,6 +293,7 @@ export const protocolsEn = {
     photo_path: 'Menu photo',
     // Tournament
     class: 'Class',
+    classes: 'Classes',
     play_years: 'Years played',
     format: 'Format',
     ranges: 'Courts and times',
@@ -405,6 +406,7 @@ export const protocolsEn = {
     unit: { g: 'g', ml: 'ml', pc: 'pieces' },
     capacity_unit: { players: 'Players', pairs: 'Pairs' },
     class: { A: 'A', B: 'B', C: 'C' },
+    classes: { A: 'A', B: 'B', C: 'C' },
     play_years: { under_one: 'Less than a year', one_to_three: '1 to 3 years', three_plus: 'More than 3 years' },
     format: { americano: 'Americano', mexicano: 'Mexicano', knockout: 'Knockout', league: 'League' },
     when: { now: 'Now', date: 'On a date' },

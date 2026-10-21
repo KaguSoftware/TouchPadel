@@ -27,7 +27,8 @@ const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !=
 export interface PlanFacts {
   nameEn: string;
   nameAr: string;
-  tournamentClass: string | null;
+  /** 0359: every class of the plan; a plan from before it names one `class`. */
+  tournamentClasses: string[];
   /** 0339: the players' years bracket; null on a plan from before it (any experience). */
   playYears: 'under_one' | 'one_to_three' | 'three_plus' | null;
   /** The plan's own format when it is one a tournament plays (type 1 / type 3). */
@@ -73,7 +74,11 @@ export function readPlanFacts(data: unknown): PlanFacts {
   return {
     nameEn: str(d.name_en) ?? '',
     nameAr: str(d.name_ar) ?? '',
-    tournamentClass: str(d.class),
+    tournamentClasses: Array.isArray(d.classes)
+      ? d.classes.filter((c): c is string => typeof c === 'string')
+      : str(d.class)
+        ? [str(d.class)!]
+        : [],
     playYears:
       d.play_years === 'under_one' || d.play_years === 'one_to_three' || d.play_years === 'three_plus'
         ? d.play_years

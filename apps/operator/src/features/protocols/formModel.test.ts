@@ -25,8 +25,7 @@ describe('a form’s value', () => {
   it('sends a clean record: trimmed, blanks and untouched rows and objects left out', () => {
     const form = startForm('tournament', { variant: 'type1' });
     const v = initialValue(form.fields, {
-      class: 'A',
-      play_years: 'one_to_three',
+      classes: ['B', 'A'],
       name_en: ' Summer Cup ',
       name_ar: 'كأس الصيف',
       format: 'americano',
@@ -39,6 +38,8 @@ describe('a form’s value', () => {
     });
     const record = cleanRecord(form.fields, v);
     expect(record.name_en).toBe('Summer Cup');
+    // A multiple enum (0359) goes in its options' order.
+    expect(record.classes).toEqual(['A', 'B']);
     expect(record.ranges).toHaveLength(1);
     expect(record).not.toHaveProperty('prize');
     expect(record).not.toHaveProperty('sponsor');

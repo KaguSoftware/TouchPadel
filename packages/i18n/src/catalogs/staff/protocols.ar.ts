@@ -445,6 +445,7 @@ export const staffProtocolsAr: DeepMessages<typeof staffProtocolsEn> = {
     at: 'التاريخ والوقت',
     photoPath: 'صورة المنيو',
     class: 'الفئة',
+    classes: 'الفئات',
     playYears: 'سنوات اللعب',
     format: 'نظام البطولة',
     ranges: 'الملاعب والأوقات',

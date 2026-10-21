@@ -36,6 +36,8 @@ export const VENUE_OFFSET_MINUTES = 180;
 // ── Empty drafts ────────────────────────────────────────────────────────────
 
 export function emptyValue(def: FieldDef): DraftValue {
+  // A multiple enum (the plan's classes, 0359) is a list of options, like an id list.
+  if (def.type === 'enum' && def.multiple) return [];
   switch (def.type) {
     case 'bool':
       return false;
@@ -174,6 +176,11 @@ function scalarFrom(def: FieldDef, text: string): unknown {
 /** One field's record value; undefined leaves the key out. */
 export function valueFrom(def: FieldDef, value: DraftValue | undefined, path: string, opts: AssembleOptions): unknown {
   if (value === undefined) return undefined;
+  if (def.type === 'enum' && def.multiple) {
+    const picked = Array.isArray(value) ? (value as string[]).filter((v) => typeof v === 'string') : [];
+    const ordered = (def.options ?? []).filter((o) => picked.includes(o));
+    return ordered.length === 0 && !def.required ? undefined : ordered;
+  }
   switch (def.type) {
     case 'bool':
       return typeof value === 'boolean' ? value : undefined;
@@ -249,6 +256,11 @@ function textOf(value: unknown): string {
 
 export function draftValueOf(def: FieldDef, value: unknown): DraftValue {
   if (value === null || value === undefined) return emptyValue(def);
+  if (def.type === 'enum' && def.multiple) {
+    // One option where a list belongs comes back as a list of one.
+    if (typeof value === 'string') return [value];
+    return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+  }
   switch (def.type) {
     case 'bool':
       return value === true;

@@ -138,6 +138,21 @@ function FieldControl(props: ProtocolFormProps & { def: FieldDef; path: Path }) 
       );
     case 'enum': {
       const labels = OPTION_LABELS[def.name] ?? {};
+      if (def.multiple) {
+        // Several may be on (the plan's classes, 0359).
+        const picked = Array.isArray(value) ? (value as string[]) : [];
+        return (
+          <Field {...common} group>
+            <ChoiceChips
+              options={(def.options ?? []).map((o) => ({ value: o, label: labels[o] ? tr(labels[o]!) : o }))}
+              picked={picked}
+              disabled={disabled}
+              onToggle={(v) => set((def.options ?? []).filter((o) => (o === v ? !picked.includes(o) : picked.includes(o))))}
+              empty={tr('ws.team.tasks.form.noChoices')}
+            />
+          </Field>
+        );
+      }
       return (
         <Field {...common}>
           <Select<string>

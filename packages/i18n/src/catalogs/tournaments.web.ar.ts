@@ -40,7 +40,7 @@ export const tournamentsWebAr: DeepMessages<typeof tournamentsWebEn> = {
       openInApp: 'فتح في التطبيق',
       noApp: 'ليس لديك التطبيق؟',
       allEvents: 'كل البطولات',
-      withdrawn: '{player} (انسحب)',
+      withdrawn: '{player} (انسحاب)',
       col: {
         rank: 'المركز',
         player: 'اللاعب',

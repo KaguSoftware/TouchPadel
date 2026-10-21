@@ -201,7 +201,7 @@ export function StepContextPanel({ ctx }: { ctx: StepContexts }) {
       <ContextBlock key="plan" title={tr('ws.protocols.context.tournament.title', { name: pickText(locale, t.name_en, t.name_ar) })}>
         <p style={{ margin: 0 }}>
           {[
-            t.class ? tr('ws.protocols.context.tournament.class', { class: t.class }) : null,
+            t.classes.length > 0 ? tr('ws.protocols.context.tournament.class', { class: t.classes.join(tr('ws.protocols.view.listJoin')) }) : null,
             t.format ? tr(`ws.protocols.options.format.${t.format}` as MessageKey) : null,
             t.capacity ? tr(`ws.protocols.context.tournament.capacity_${t.capacity.unit === 'pairs' ? 'pairs' : 'players'}`, { count: formatNumber(t.capacity.count, locale) }) : null,
           ]

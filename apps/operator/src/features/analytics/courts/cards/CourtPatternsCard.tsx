@@ -9,7 +9,7 @@
  * Nothing here calls a model except "Reword with AI".
  */
 import { useMemo, useState, type KeyboardEvent } from 'react';
-import type { CompareBasis, CourtPatternCandidate, DateRange } from '@touch/core';
+import type { CourtPatternCandidate, DateRange } from '@touch/core';
 import type { Locale, MessageKey } from '@touch/i18n';
 import { BREAKDOWN_TONES, BreakdownCard } from '../../../../components/BreakdownCards';
 import { Button, ErrorText, Spinner } from '../../../../components/ui';
@@ -148,7 +148,7 @@ export function CourtPatternsCard({
   refreshing,
   tip,
   range,
-  compareBasis,
+  compareTag,
   courtId = null,
   stored,
 }: {
@@ -157,7 +157,8 @@ export function CourtPatternsCard({
   refreshing?: boolean;
   tip: string;
   range: DateRange;
-  compareBasis: CompareBasis;
+  /** `compareTag` of the page's comparison (0358). */
+  compareTag: string;
   /** The tab's court filter (0098): the judged set is stored under this court; null = venue-wide. */
   courtId?: string | null;
   stored: StoredSets;
@@ -198,7 +199,7 @@ export function CourtPatternsCard({
         lang: locale as 'ar' | 'en',
         range_from: range.from,
         range_to: range.to,
-        compare_basis: compareBasis,
+        compare_basis: compareTag,
         scope: 'courts',
         data: {
           rejections: stored.rejections.map((r) => r.text),

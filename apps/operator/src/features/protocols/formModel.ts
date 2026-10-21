@@ -33,6 +33,8 @@ export function blankValue(def: FieldDef, path: readonly string[] = [def.name]):
     case 'time':
       return '';
     case 'enum': {
+      // A multiple enum (the plan's classes, 0359) holds a list of options.
+      if (def.multiple) return [];
       const d = ENUM_DEFAULTS[def.name];
       // capacity.unit is players or pairs, a recipe line's unit is g, ml or pc.
       if (path.join('.') === 'capacity.unit') return 'players';
@@ -106,6 +108,11 @@ export function untouched(fields: readonly FieldDef[], value: Obj): boolean {
 }
 
 function cleanField(def: FieldDef, value: unknown): unknown {
+  if (def.type === 'enum' && def.multiple) {
+    const picked = Array.isArray(value) ? value : [];
+    const ordered = (def.options ?? []).filter((o) => picked.includes(o));
+    return ordered.length > 0 || def.required ? ordered : undefined;
+  }
   switch (def.type) {
     case 'text':
     case 'longText':

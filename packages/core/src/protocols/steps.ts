@@ -255,6 +255,11 @@ export interface FieldDef {
   /** Numbers: `min` itself is refused (`qty > 0`). */
   readonly exclusiveMin?: boolean;
   readonly options?: readonly string[];
+  /**
+   * An enum that takes several of its options: a list of distinct ones,
+   * `minItems` to `maxItems` long (the tournament plan's classes, 0359).
+   */
+  readonly multiple?: boolean;
   /** Lists, id lists, number lists and price maps. */
   readonly minItems?: number;
   readonly maxItems?: number;
@@ -476,11 +481,11 @@ const RELEASE_FORMS: Record<string, readonly FieldDef[]> = {
 };
 
 const TOURNAMENT_PLAN_SHORT: readonly FieldDef[] = [
-  f.enumOf('class', ['A', 'B', 'C']),
-  // 0339: the players' years bracket, matched exactly to a guest's own answer
-  // (as the class is to their level). Required from the desk; the server takes
-  // a plan without it (an older build's).
-  f.enumOf('play_years', ['under_one', 'one_to_three', 'three_plus']),
+  // 0359: every class the tournament is for; a guest's level must fit one.
+  { name: 'classes', type: 'enum', required: true, options: ['A', 'B', 'C'], multiple: true, minItems: 1, maxItems: 3 },
+  // 0339: the players' years bracket. The desk no longer asks it (owner,
+  // 2026-10-22); the server still takes one, as from an older build.
+  f.enumOf('play_years', ['under_one', 'one_to_three', 'three_plus'], false),
   f.text('name_en', true),
   f.text('name_ar', true),
   {

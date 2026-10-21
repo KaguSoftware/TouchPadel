@@ -249,6 +249,7 @@ export function CafeTab() {
         setSearch={setSearch}
         zones={CAFE_ZONES}
         compareBasis={data.compareBasis}
+        compareRange={data.compareRange}
         deck={{
           startHour: data.startHour,
           cafe: {
@@ -503,7 +504,7 @@ export function CafeTab() {
           <AiInsightsCard
             scope="cafe"
             range={data.range}
-            compareBasis={data.compareBasis}
+            compareTag={data.compareTag}
             live={data.live}
             buildData={(extras) =>
               raw && derived && allState === 'ready'

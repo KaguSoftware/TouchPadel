@@ -111,7 +111,8 @@ export interface InsightsRequest {
   lang: 'ar' | 'en';
   range_from: string;
   range_to: string;
-  compare_basis: 'prev' | '4w' | '52w';
+  /** `compareTag` (0358): month | year | custom:<from>:<to>. */
+  compare_basis: string;
   /** Defaults to 'cafe' on the server, so older clients keep working. */
   scope?: InsightsScope;
   data: InsightsData | CourtsInsightsData | PatternsOnlyData;
@@ -162,7 +163,8 @@ export const analyticsRpc = {
   saveInsights: (args: {
     from: string;
     to: string;
-    basis: 'prev' | '4w' | '52w';
+    /** `compareTag` (0358): month | year | custom:<from>:<to>. */
+    basis: string;
     locale: 'ar' | 'en';
     scope: InsightsScope;
     courtId?: string | null;

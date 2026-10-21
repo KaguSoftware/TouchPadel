@@ -238,7 +238,7 @@ export function PublishDialog({
           <dt style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.tournaments.publish.name')}</dt>
           <dd style={{ margin: 0, fontWeight: 600 }}>
             <bdi>{pickName(locale, facts.nameEn, facts.nameAr)}</bdi>
-            {facts.tournamentClass ? ` · ${facts.tournamentClass}` : ''}
+            {facts.tournamentClasses.length > 0 ? ` · ${facts.tournamentClasses.join(tr('ws.protocols.view.listJoin'))}` : ''}
             {facts.playYears ? ` · ${tr(YEARS_LABEL[facts.playYears])}` : ''}
           </dd>
           <dt style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.tournaments.publish.fee')}</dt>

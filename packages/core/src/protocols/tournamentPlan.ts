@@ -25,8 +25,7 @@ export const PLAN_SECTIONS: readonly PlanSection[] = [
 ];
 
 export type PlanClass = 'A' | 'B' | 'C';
-/** 0339: the players' years bracket; a guest's own answer must be this one (as their level must fit the class). */
-export type PlanYears = 'under_one' | 'one_to_three' | 'three_plus';
+export const PLAN_CLASSES: readonly PlanClass[] = ['A', 'B', 'C'];
 export type PlanFormat = 'americano' | 'mexicano' | 'knockout' | 'league';
 export type PlanUnit = 'players' | 'pairs';
 
@@ -40,8 +39,12 @@ export interface PlanSponsor {
 
 export interface PlanState {
   variant: TournamentVariant;
-  cls: PlanClass | null;
-  playYears: PlanYears | null;
+  /**
+   * 0359: every class the tournament is for, in A-B-C order; a guest's level
+   * must fit one. The years played (0339) are no longer asked (owner,
+   * 2026-10-22).
+   */
+  classes: readonly PlanClass[];
   nameEn: string;
   nameAr: string;
   format: PlanFormat | null;
@@ -62,8 +65,7 @@ export interface PlanState {
 export function emptyPlan(variant: TournamentVariant = 'type1'): PlanState {
   return {
     variant,
-    cls: null,
-    playYears: null,
+    classes: [],
     nameEn: '',
     nameAr: '',
     format: null,
@@ -169,6 +171,12 @@ export function slotsOf(picks: readonly string[], courtOrder: readonly string[] 
     .sort((a, b) => a.date.localeCompare(b.date) || a.startMin - b.startMin || a.endMin - b.endMin);
 }
 
+/** The classes with `c` switched on or off, kept in A-B-C order. */
+export function toggleClass(classes: readonly PlanClass[], c: PlanClass): PlanClass[] {
+  const on = classes.includes(c);
+  return PLAN_CLASSES.filter((x) => (x === c ? !on : classes.includes(x)));
+}
+
 // ── The record ──────────────────────────────────────────────────────────────
 
 /** A typed amount or count: digits (thousands separators allowed), else NaN for the validator to refuse. */
@@ -191,8 +199,7 @@ export function planRecord(
   courtOrder: readonly string[] = [],
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  put(out, 'class', p.cls ?? undefined);
-  put(out, 'play_years', p.playYears ?? undefined);
+  if (p.classes.length > 0) out.classes = PLAN_CLASSES.filter((c) => p.classes.includes(c));
   put(out, 'name_en', p.nameEn);
   put(out, 'name_ar', p.nameAr);
   out.ranges = slotsOf(p.picks, courtOrder).map((s) => ({
@@ -270,8 +277,7 @@ export function sectionDone(p: PlanState, section: PlanSection): boolean {
       return true;
     case 'name':
       return (
-        p.cls !== null &&
-        p.playYears !== null &&
+        p.classes.length > 0 &&
         p.nameEn.trim() !== '' &&
         p.nameAr.trim() !== '' &&
         (!isFullPlan(p.variant) || p.format !== null)

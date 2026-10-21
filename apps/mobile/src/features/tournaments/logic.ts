@@ -119,8 +119,8 @@ export interface TourListItem {
   nameAr: string | null;
   format: TourFormat | null;
   category: MatchCategory;
-  /** 0339: null from a server before it. */
-  tourClass: TourClass | null;
+  /** 0359: every class it is for (A-B-C order); empty from a server before 0339 asks nothing. */
+  tourClasses: TourClass[];
   /** 0339: null asks nothing about years. */
   playYears: TourYears | null;
   startsAt: string;
@@ -144,6 +144,15 @@ export interface TournamentsPublic {
   tournaments: TourListItem[];
 }
 
+/** 0359 `classes`, else the one `class` of a server before it, else none. */
+function classesOf(o: Json): TourClass[] {
+  // Both are read every time: the shape test holds the parser to its keys.
+  const one = oneOf(o.class, TOUR_CLASSES);
+  const many = o.classes;
+  if (Array.isArray(many)) return TOUR_CLASSES.filter((c) => many.includes(c));
+  return one ? [one] : [];
+}
+
 function parseListItem(json: unknown): TourListItem | null {
   const o = obj(json);
   const id = str(o.id);
@@ -156,7 +165,7 @@ function parseListItem(json: unknown): TourListItem | null {
     nameAr: str(o.name_ar),
     format: oneOf(o.format, TOUR_FORMATS),
     category: oneOf(o.category, CATEGORIES) ?? 'open',
-    tourClass: oneOf(o.class, TOUR_CLASSES),
+    tourClasses: classesOf(o),
     playYears: oneOf(o.play_years, TOUR_YEARS),
     startsAt,
     endsAt: str(o.ends_at),
@@ -237,7 +246,8 @@ export interface TournamentPublic {
   nameAr: string | null;
   format: TourFormat | null;
   category: MatchCategory;
-  tourClass: TourClass | null;
+  /** 0359: every class it is for; empty asks nothing. */
+  tourClasses: TourClass[];
   playYears: TourYears | null;
   pointsTarget: number | null;
   roundsPlanned: number | null;
@@ -268,7 +278,7 @@ const MISSING: Omit<TournamentPublic, 'id'> = {
   nameAr: null,
   format: null,
   category: 'open',
-  tourClass: null,
+  tourClasses: [],
   playYears: null,
   pointsTarget: null,
   roundsPlanned: null,
@@ -350,7 +360,7 @@ export function parseTournamentPublic(json: unknown, id: string): TournamentPubl
     nameAr: str(o.name_ar),
     format: oneOf(o.format, TOUR_FORMATS),
     category: oneOf(o.category, CATEGORIES) ?? 'open',
-    tourClass: oneOf(o.class, TOUR_CLASSES),
+    tourClasses: classesOf(o),
     playYears: oneOf(o.play_years, TOUR_YEARS),
     pointsTarget: int(o.points_target),
     roundsPlanned: int(o.rounds_planned),

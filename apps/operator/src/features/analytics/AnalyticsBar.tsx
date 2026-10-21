@@ -14,9 +14,14 @@
  *
  * Explanations (what a comparison basis means, what the business day is) sit
  * behind info buttons; STATE (a failed setting write) stays visible on the row.
+ *
+ * Compare with (owner, 2026-10-22): last month, last year, or a window the
+ * owner picks. Choosing Custom writes the window compared with now, so the
+ * page never waits on a half-made choice, and a second date field (the same
+ * DateRangePicker as the period) appears to move it.
  */
 import { useCallback, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { BUSINESS_DAY_START_OPTIONS, RANGE_PRESETS, businessTodayISO, resolveRange, type CompareBasis, type RangePreset } from '@touch/core';
+import { BUSINESS_DAY_START_OPTIONS, COMPARE_BASES, RANGE_PRESETS, businessTodayISO, resolveRange, type CompareBasis, type DateRange, type RangePreset } from '@touch/core';
 import { VENUE_TZ, type MessageKey } from '@touch/i18n';
 import { Button, ErrorText, inputStyle } from '../../components/ui';
 import { SelectMenu } from '../../components/SelectMenu';
@@ -41,15 +46,15 @@ const PRESET_KEY: Record<Exclude<RangePreset, 'custom'>, MessageKey> = {
 };
 
 const BASIS_KEY: Record<CompareBasis, MessageKey> = {
-  prev: 'analytics.deck.prev',
-  '4w': 'analytics.deck.w4',
-  '52w': 'analytics.deck.w52',
+  month: 'analytics.deck.month',
+  year: 'analytics.deck.year',
+  custom: 'analytics.deck.custom',
 };
 
 const HINT_KEY: Record<CompareBasis, MessageKey> = {
-  prev: 'analytics.deck.compareHint.prev',
-  '4w': 'analytics.deck.compareHint.w4',
-  '52w': 'analytics.deck.compareHint.w52',
+  month: 'analytics.deck.compareHint.month',
+  year: 'analytics.deck.compareHint.year',
+  custom: 'analytics.deck.compareHint.custom',
 };
 
 const bar: CSSProperties = {
@@ -122,6 +127,7 @@ export function AnalyticsBar({
   setSearch,
   zones,
   compareBasis,
+  compareRange,
   deck,
   courts,
 }: {
@@ -130,6 +136,8 @@ export function AnalyticsBar({
   setSearch: (next: Partial<AnalyticsSearch>) => void;
   zones: readonly ZoneDef[];
   compareBasis: CompareBasis;
+  /** The window the page compares with now: Custom starts from it. */
+  compareRange?: DateRange;
   /** Absent while a tab has no data hook yet (nothing to put behind More). */
   deck?: BarDeck;
   /** Courts tab: the court filter's options. */
@@ -179,13 +187,35 @@ export function AnalyticsBar({
         <Group label={tr('analytics.deck.compare')} tip={tr(HINT_KEY[compareBasis])}>
           <SelectMenu<CompareBasis>
             value={compareBasis}
-            onChange={(cmp) => setSearch({ cmp })}
-            options={(['prev', '4w', '52w'] as const).map((b) => ({ value: b, label: tr(BASIS_KEY[b]) }))}
+            onChange={(cmp) => {
+              if (cmp === compareBasis) return;
+              if (cmp === 'custom') {
+                // Start from the window compared with now; the field below moves it.
+                if (compareRange) setSearch({ cmp, cmpFrom: compareRange.from, cmpTo: compareRange.to });
+                return;
+              }
+              setSearch({ cmp, cmpFrom: undefined, cmpTo: undefined });
+            }}
+            options={COMPARE_BASES.map((b) => ({ value: b, label: tr(BASIS_KEY[b]) }))}
             style={small}
             className={GLASS_CTL}
             aria-label={tr('analytics.deck.compare')}
           />
         </Group>
+
+        {compareBasis === 'custom' && compareRange && (
+          <Group label={tr('analytics.deck.compareDates')}>
+            <DateRangePicker
+              aria-label={tr('analytics.deck.compareDates')}
+              value={compareRange}
+              today={todayISO}
+              max={todayISO}
+              onChange={(next) => setSearch({ cmp: 'custom', cmpFrom: next.from, cmpTo: next.to })}
+              style={small}
+              className={GLASS_CTL}
+            />
+          </Group>
+        )}
 
         {courts && (
           <Group label={tr('ws.reports.filters.court')}>

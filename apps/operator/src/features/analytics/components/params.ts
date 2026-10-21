@@ -25,12 +25,13 @@ export interface ComponentParams {
 }
 
 /**
- * The page's comparison basis in the tools' vocabulary. `4w` (four weeks
- * earlier) has no tool equivalent and falls back to the previous period; the
- * card's note says which basis it read.
+ * The page's comparison basis in the tools' vocabulary. Last year is the
+ * tools' same period last year; last month and a custom window have no tool
+ * equivalent and fall back to the previous period (for the 30-day preset that
+ * is last month's dates); the card's note says which basis it read.
  */
 export function compareForBasis(basis: CompareBasis | null | undefined): ComponentCompare {
-  return basis === '52w' ? 'sameLastYear' : 'previousPeriod';
+  return basis === 'year' ? 'sameLastYear' : 'previousPeriod';
 }
 
 export function componentParams(input: {

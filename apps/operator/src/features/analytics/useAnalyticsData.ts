@@ -23,6 +23,7 @@ import {
   businessTodayISO,
   isLiveRange,
   normalizeBusinessDayStart,
+  compareTag,
   resolveCompare,
   resolveRange,
   type CompareBasis,
@@ -169,6 +170,8 @@ export interface AnalyticsData {
   range: DateRange;
   compareBasis: CompareBasis;
   compareRange: DateRange;
+  /** `compareTag` of the comparison: what the server files AI findings under. */
+  compareTag: string;
   todayISO: string;
   live: boolean;
   startHour: number;
@@ -213,8 +216,14 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   );
   const range = resolved.range;
   const preset = resolved.preset;
-  const compareBasis: CompareBasis = search.cmp ?? 'prev';
-  const compareRange = useMemo(() => resolveCompare(compareBasis, range).range, [compareBasis, range]);
+  const compare = useMemo(
+    () => resolveCompare(search.cmp, range, { from: search.cmpFrom, to: search.cmpTo }),
+    [search.cmp, search.cmpFrom, search.cmpTo, range],
+  );
+  const compareBasis: CompareBasis = compare.basis;
+  const compareRange = compare.range;
+  // What the stored findings are filed under: a custom window by its dates (0358).
+  const compareTagValue = compareTag(compare);
   const live = isLiveRange(range, todayISO);
 
   const { from, to } = range;
@@ -273,8 +282,8 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   });
 
   const storedInsights = useQuery({
-    queryKey: [ANALYTICS_KEY, 'storedInsights', 'cafe', from, to, compareBasis, locale],
-    queryFn: () => fetchStoredInsights(from, to, compareBasis, locale, 'cafe'),
+    queryKey: [ANALYTICS_KEY, 'storedInsights', 'cafe', from, to, compareTagValue, locale],
+    queryFn: () => fetchStoredInsights(from, to, compareTagValue, locale, 'cafe'),
     enabled: ready,
     staleTime: 30_000,
   });
@@ -367,6 +376,7 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
     range,
     compareBasis,
     compareRange,
+    compareTag: compareTagValue,
     todayISO,
     live,
     startHour,

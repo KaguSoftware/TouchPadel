@@ -36,6 +36,7 @@ export function tournamentListItemFixture(over: Record<string, unknown> = {}) {
     category: 'open',
     // 0339: for intermediate players; no years bracket.
     class: 'B',
+    classes: ['B'],
     play_years: null,
     starts_at: at(48),
     ends_at: at(51),
@@ -93,6 +94,7 @@ export function tournamentPublicFixture(over: Record<string, unknown> = {}) {
     format: 'americano',
     category: 'open',
     class: 'B',
+    classes: ['B'],
     play_years: null,
     points_target: 24,
     rounds_planned: 7,

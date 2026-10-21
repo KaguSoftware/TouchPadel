@@ -125,6 +125,8 @@ export interface TournamentContext {
   name_en: string;
   name_ar: string;
   class: string | null;
+  /** 0359: every class of the plan; a server before it sends only `class`. */
+  classes: string[];
   format: string | null;
   capacity: { unit: string; count: number } | null;
   ranges: { courts: { en: string; ar: string }[]; from: string; to: string }[];
@@ -138,6 +140,7 @@ export function readTournamentContext(raw: unknown): TournamentContext {
     name_en: str(o.name_en) ?? '',
     name_ar: str(o.name_ar) ?? '',
     class: str(o.class),
+    classes: Array.isArray(o.classes) ? o.classes.filter((c): c is string => typeof c === 'string') : str(o.class) ? [str(o.class)!] : [],
     format: str(o.format),
     capacity: cap && typeof cap.unit === 'string' && num(cap.count) !== null ? { unit: cap.unit, count: num(cap.count)! } : null,
     ranges: objs(o.ranges).map((r) => ({

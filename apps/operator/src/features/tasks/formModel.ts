@@ -42,7 +42,8 @@ export function emptyValue(def: FieldDef): unknown {
     // A required choice starts on its first option only when the form offers
     // no sensible "none yet"; everything else waits for a pick.
     case 'enum':
-      return '';
+      // A multiple enum (the plan's classes, 0359) holds a list of options.
+      return def.multiple ? [] : '';
     case 'int':
     case 'iqd':
     case 'number':
@@ -108,6 +109,9 @@ export function isEmptyValue(def: FieldDef, value: unknown): boolean {
     case 'uuids':
     case 'ints':
       return !Array.isArray(value) || value.length === 0;
+    case 'enum':
+      if (def.multiple) return !Array.isArray(value) || value.length === 0;
+      return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
     case 'bool':
       return value === null || value === undefined;
     default:
@@ -127,6 +131,10 @@ function leafToRecord(def: FieldDef, value: unknown, tz: string): unknown {
     case 'uuid':
     case 'date':
     case 'enum':
+      if (def.type === 'enum' && def.multiple) {
+        const picked = Array.isArray(value) ? value : [];
+        return (def.options ?? []).filter((o) => picked.includes(o));
+      }
       return typeof value === 'string' ? value.trim() : value;
     case 'time':
       return typeof value === 'string' ? value.trim() : value;
@@ -215,6 +223,11 @@ function leafToDraft(def: FieldDef, value: unknown, tz: string): unknown {
     case 'uuid':
     case 'date':
     case 'enum':
+      if (def.type === 'enum' && def.multiple) {
+        // One option where a list belongs comes back as a list of one.
+        if (typeof value === 'string') return [value];
+        return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+      }
       return typeof value === 'string' ? value : String(value);
     case 'time':
       // The server stores HH:MM:SS; a time box shows HH:MM.

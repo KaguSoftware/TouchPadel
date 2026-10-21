@@ -653,6 +653,19 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
       p_range_from: from, p_range_to: to, p_compare_basis: '2w', p_locale: 'ar', p_insights: [],
     }).then(outcome);
     expect(badBasis.errorMessage).toContain('INVALID_ARGUMENT');
+    // 0358: last month, last year, and a custom window filed under its own dates.
+    for (const basis of ['month', 'year', 'custom:2026-06-01:2026-06-30']) {
+      const ok = await appRpc(owner, 'save_analytics_insights', {
+        p_range_from: from, p_range_to: to, p_compare_basis: basis, p_locale: 'en', p_insights: [],
+      }).then(outcome);
+      expect(ok.ok, `${basis}: ${ok.errorMessage}`).toBe(true);
+    }
+    for (const basis of ['custom:2026-06-30:2026-06-01', 'custom:2026-02-30:2026-03-01', 'custom:2026-06-01', 'custom']) {
+      const refused = await appRpc(owner, 'save_analytics_insights', {
+        p_range_from: from, p_range_to: to, p_compare_basis: basis, p_locale: 'en', p_insights: [],
+      }).then(outcome);
+      expect(refused.errorMessage, basis).toContain('INVALID_ARGUMENT');
+    }
     const notArray = await appRpc(owner, 'save_analytics_insights', {
       p_range_from: from, p_range_to: to, p_compare_basis: 'prev', p_locale: 'en', p_insights: { text: 'x' },
     }).then(outcome);

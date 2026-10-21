@@ -82,8 +82,13 @@ export function RecordView({
           </bdi>
         );
       case 'enum': {
-        const k = optionLabelKey(path, String(value));
-        return k ? tr(k) : String(value);
+        const one = (v: unknown) => {
+          const k = optionLabelKey(path, String(v));
+          return k ? tr(k) : String(v);
+        };
+        // A multiple enum (the plan's classes, 0359) is a list of options.
+        if (Array.isArray(value)) return value.length > 0 ? value.map(one).join(tr('ws.protocols.view.listJoin')) : null;
+        return one(value);
       }
       case 'iqd':
         return typeof value === 'number' ? <span dir="ltr">{formatIQD(value, locale)}</span> : null;
