@@ -17,7 +17,7 @@ const LEVELS: PlayLevel[] = ['new', 'beginner', 'intermediate', 'advanced'];
 const YEARS: PlayYears[] = ['never', 'under_one', 'one_to_three', 'three_plus'];
 
 const TOURS = CLASSES.flatMap((c) =>
-  BRACKETS.map((b) => ({ id: `${c}/${b ?? 'none'}`, tourClass: c, playYears: b, mine: null })),
+  BRACKETS.map((b) => ({ id: `${c}/${b ?? 'none'}`, tourClasses: [c], playYears: b, mine: null })),
 );
 const GUESTS: { id: string; level: PlayLevel | null; years: PlayYears | null }[] = [
   ...LEVELS.flatMap((l) => YEARS.map((y) => ({ id: `${l}/${y}`, level: l, years: y }))),
@@ -27,10 +27,10 @@ const GUESTS: { id: string; level: PlayLevel | null; years: PlayYears | null }[]
 ];
 
 /** The server's answer for a pair (tournament_register 0339), as the database matrix expects it. */
-function server(g: { level: string | null; years: string | null }, t: { tourClass: string; playYears: string | null }) {
+function server(g: { level: string | null; years: string | null }, t: { tourClasses: readonly string[]; playYears: string | null }) {
   if (g.level === null) return 'PROFILE_REQUIRED:level';
   const cls = g.level === 'advanced' ? 'A' : g.level === 'intermediate' ? 'B' : 'C';
-  if (cls !== t.tourClass) return 'LEVEL_MISMATCH:level';
+  if (!t.tourClasses.includes(cls)) return 'LEVEL_MISMATCH:level';
   if (t.playYears !== null) {
     if (g.years === null) return 'PROFILE_REQUIRED:years';
     if ((g.years === 'never' ? 'under_one' : g.years) !== t.playYears) return 'LEVEL_MISMATCH:years';

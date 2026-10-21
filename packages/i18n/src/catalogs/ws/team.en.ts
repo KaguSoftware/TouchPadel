@@ -180,6 +180,7 @@ export const teamEn = {
         ticker: 'Ticker line',
         campaign_id: 'Campaign draft',
         class: 'Class',
+        classes: 'Classes',
         play_years: 'Years played',
         format: 'Format',
         ranges: 'Courts and times',

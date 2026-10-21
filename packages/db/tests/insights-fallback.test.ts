@@ -51,7 +51,7 @@ function cafePayload(): CafeInsightsPayload {
     preset: '7d',
     range: CAFE_RANGE,
     compareRange: CAFE_COMPARE_RANGE,
-    compareBasis: 'prev',
+    compareBasis: 'month',
     todayISO: '2026-09-14',
     excludedIds: [],
     daily: parseDailySales(dailySalesJson),
@@ -75,7 +75,7 @@ function courtsPayload(): CourtsInsightsPayload {
   const raw: RawCourts = {
     range: RANGE,
     compareRange: COMPARE_RANGE,
-    compareBasis: 'prev',
+    compareBasis: 'month',
     todayISO: '2026-09-14',
     courtId: null,
     summary: parseCourtsSummary(summaryJson),

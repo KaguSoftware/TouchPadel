@@ -45,7 +45,8 @@ export interface ContextRange {
 
 export interface TournamentContext {
   name: Names;
-  tournamentClass: string | null;
+  /** 0354: every class of the plan; a server before it sends only `class`. */
+  tournamentClasses: string[];
   format: string | null;
   capacity: { unit: 'players' | 'pairs'; count: number } | null;
   ranges: ContextRange[];
@@ -68,7 +69,11 @@ export function readTournamentContext(payload: unknown): TournamentContext {
   const count = typeof cap.count === 'number' ? cap.count : null;
   return {
     name: { en: str(p.name_en) ?? '', ar: str(p.name_ar) ?? '' },
-    tournamentClass: str(p.class),
+    tournamentClasses: Array.isArray(p.classes)
+      ? p.classes.filter((c): c is string => typeof c === 'string')
+      : str(p.class)
+        ? [str(p.class)!]
+        : [],
     format: str(p.format),
     capacity: unit && count !== null ? { unit, count } : null,
     ranges: list(p.ranges)

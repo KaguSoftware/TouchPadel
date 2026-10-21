@@ -354,6 +354,32 @@ function FieldControl(props: ControlProps) {
         const k = optionLabelKey(path, o);
         return { value: o, label: k ? tr(k) : o };
       });
+      if (def.multiple) {
+        // Several may be on (the plan's classes, 0354): a row of checkboxes.
+        const picked = Array.isArray(v) ? (v as string[]) : [];
+        return (
+          <Field label={label} hint={hint} error={error} required={req} optional={opt} group>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
+              {options.map((o) => (
+                <label key={o.value} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+                  <input
+                    type="checkbox"
+                    checked={picked.includes(o.value)}
+                    disabled={disabled}
+                    onChange={() =>
+                      set(
+                        path,
+                        (def.options ?? []).filter((x) => (x === o.value ? !picked.includes(x) : picked.includes(x))),
+                      )
+                    }
+                  />
+                  <bdi>{o.label}</bdi>
+                </label>
+              ))}
+            </div>
+          </Field>
+        );
+      }
       if (options.length <= 4 && def.name !== 'role') {
         return (
           <Field label={label} hint={hint} error={error} required={req} optional={opt} group>

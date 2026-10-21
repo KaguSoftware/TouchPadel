@@ -14,9 +14,13 @@
  *
  * Explanations (what a comparison basis means, what the business day is) sit
  * behind info buttons; STATE (a failed setting write) stays visible on the row.
+ *
+ * Compare with (owner, 2026-10-22): last month, last year, or a window the
+ * owner picks; the custom dates appear only while it is chosen, as the
+ * period's do, and open on the window the page compares with now.
  */
 import { useCallback, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { BUSINESS_DAY_START_OPTIONS, RANGE_PRESETS, isIsoDate, type CompareBasis, type RangePreset } from '@touch/core';
+import { BUSINESS_DAY_START_OPTIONS, COMPARE_BASES, RANGE_PRESETS, isIsoDate, type CompareBasis, type DateRange, type RangePreset } from '@touch/core';
 import type { MessageKey } from '@touch/i18n';
 import { Button, ErrorText, inputStyle } from '../../components/ui';
 import { SelectMenu } from '../../components/SelectMenu';
@@ -40,15 +44,15 @@ const PRESET_KEY: Record<Exclude<RangePreset, 'custom'>, MessageKey> = {
 };
 
 const BASIS_KEY: Record<CompareBasis, MessageKey> = {
-  prev: 'analytics.deck.prev',
-  '4w': 'analytics.deck.w4',
-  '52w': 'analytics.deck.w52',
+  month: 'analytics.deck.month',
+  year: 'analytics.deck.year',
+  custom: 'analytics.deck.custom',
 };
 
 const HINT_KEY: Record<CompareBasis, MessageKey> = {
-  prev: 'analytics.deck.compareHint.prev',
-  '4w': 'analytics.deck.compareHint.w4',
-  '52w': 'analytics.deck.compareHint.w52',
+  month: 'analytics.deck.compareHint.month',
+  year: 'analytics.deck.compareHint.year',
+  custom: 'analytics.deck.compareHint.custom',
 };
 
 const bar: CSSProperties = {
@@ -121,6 +125,7 @@ export function AnalyticsBar({
   setSearch,
   zones,
   compareBasis,
+  compareRange,
   deck,
   courts,
 }: {
@@ -129,6 +134,8 @@ export function AnalyticsBar({
   setSearch: (next: Partial<AnalyticsSearch>) => void;
   zones: readonly ZoneDef[];
   compareBasis: CompareBasis;
+  /** The window the page compares with now: the custom dates open on it. */
+  compareRange?: DateRange;
   /** Absent while a tab has no data hook yet (nothing to put behind More). */
   deck?: BarDeck;
   /** Courts tab: the court filter's options. */
@@ -141,12 +148,17 @@ export function AnalyticsBar({
   // "Custom" chosen but no valid pair applied yet: the inputs are shown and the
   // control reads Custom, while the URL still carries the previous preset.
   const [editingCustom, setEditingCustom] = useState(false);
+  const [cmpFrom, setCmpFrom] = useState(search.cmpFrom ?? '');
+  const [cmpTo, setCmpTo] = useState(search.cmpTo ?? '');
+  // The same for the comparison: Custom chosen, its dates not applied yet.
+  const [editingCompare, setEditingCompare] = useState(false);
   const [excludedOpen, setExcludedOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
   const moreId = useId();
   const closeMore = useCallback(() => setMoreOpen(false), []);
   const customValid = isIsoDate(customFrom) && isIsoDate(customTo) && customFrom <= customTo;
+  const compareValid = isIsoDate(cmpFrom) && isIsoDate(cmpTo) && cmpFrom <= cmpTo;
   const nonDefault = (deck ? Number(deck.startHour !== 4) : 0) + (deck?.cafe ? Number(deck.cafe.excludedIds.length > 0) : 0);
 
   return (
@@ -199,16 +211,46 @@ export function AnalyticsBar({
           </Group>
         )}
 
-        <Group label={tr('analytics.deck.compare')} tip={tr(HINT_KEY[compareBasis])}>
+        <Group label={tr('analytics.deck.compare')} tip={tr(HINT_KEY[editingCompare ? 'custom' : compareBasis])}>
           <SelectMenu<CompareBasis>
-            value={compareBasis}
-            onChange={(cmp) => setSearch({ cmp })}
-            options={(['prev', '4w', '52w'] as const).map((b) => ({ value: b, label: tr(BASIS_KEY[b]) }))}
+            value={editingCompare ? 'custom' : compareBasis}
+            onChange={(cmp) => {
+              if (cmp === 'custom') {
+                if (compareBasis === 'custom') return;
+                // Open on the window compared with now, so Apply works at once.
+                const from = compareValid ? cmpFrom : (compareRange?.from ?? '');
+                const to = compareValid ? cmpTo : (compareRange?.to ?? '');
+                setCmpFrom(from);
+                setCmpTo(to);
+                setEditingCompare(true);
+                return;
+              }
+              setEditingCompare(false);
+              setSearch({ cmp, cmpFrom: undefined, cmpTo: undefined });
+            }}
+            options={COMPARE_BASES.map((b) => ({ value: b, label: tr(BASIS_KEY[b]) }))}
             style={small}
             className={GLASS_CTL}
             aria-label={tr('analytics.deck.compare')}
           />
         </Group>
+
+        {(compareBasis === 'custom' || editingCompare) && (
+          <Group label={`${tr('analytics.deck.compareFrom')} / ${tr('analytics.deck.compareTo')}`}>
+            <input type="date" className={GLASS_CTL} style={small} value={cmpFrom} max={cmpTo || undefined} onChange={(e) => setCmpFrom(e.target.value)} aria-label={tr('analytics.deck.compareFrom')} />
+            <input type="date" className={GLASS_CTL} style={small} value={cmpTo} min={cmpFrom || undefined} onChange={(e) => setCmpTo(e.target.value)} aria-label={tr('analytics.deck.compareTo')} />
+            <Button
+              disabled={!compareValid}
+              onClick={() => {
+                setEditingCompare(false);
+                setSearch({ cmp: 'custom', cmpFrom, cmpTo });
+              }}
+              style={{ minBlockSize: 'var(--tp-row-h)', fontSize: 'var(--tp-fs-sm)' }}
+            >
+              {tr('analytics.deck.apply')}
+            </Button>
+          </Group>
+        )}
 
         {courts && (
           <Group label={tr('ws.reports.filters.court')}>

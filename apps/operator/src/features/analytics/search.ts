@@ -9,6 +9,9 @@ export interface AnalyticsSearch {
   from?: string;
   to?: string;
   cmp?: CompareBasis;
+  /** cmp=custom only: the comparison window the owner picked. */
+  cmpFrom?: string;
+  cmpTo?: string;
   /** Courts tab only: narrow every court figure to one court (a uuid). Carried across tabs, applied on Courts. */
   court?: string;
 }
@@ -22,7 +25,7 @@ function spanDays(from: string, to: string): number {
 }
 
 const PRESETS: readonly RangePreset[] = ['today', '7d', '30d', '90d', 'custom'];
-const BASES: readonly CompareBasis[] = ['prev', '4w', '52w'];
+const BASES: readonly CompareBasis[] = ['month', 'year', 'custom'];
 
 function str(v: unknown): string | undefined {
   return typeof v === 'string' ? v : undefined;
@@ -33,6 +36,8 @@ export function validateSearch(raw: Record<string, unknown>): AnalyticsSearch {
   const from = str(raw.from);
   const to = str(raw.to);
   const cmpRaw = str(raw.cmp);
+  const cmpFrom = str(raw.cmpFrom);
+  const cmpTo = str(raw.cmpTo);
   const court = str(raw.court);
 
   let range: RangePreset = PRESETS.includes(rangeRaw as RangePreset) ? (rangeRaw as RangePreset) : '30d';
@@ -50,6 +55,15 @@ export function validateSearch(raw: Record<string, unknown>): AnalyticsSearch {
     }
   }
   if (cmpRaw && BASES.includes(cmpRaw as CompareBasis)) out.cmp = cmpRaw as CompareBasis;
+  if (out.cmp === 'custom') {
+    if (isIsoDate(cmpFrom) && isIsoDate(cmpTo) && cmpFrom <= cmpTo && spanDays(cmpFrom, cmpTo) <= MAX_RANGE_DAYS) {
+      out.cmpFrom = cmpFrom;
+      out.cmpTo = cmpTo;
+    } else {
+      // A custom comparison without its two dates is last month's (resolveCompare).
+      delete out.cmp;
+    }
+  }
   if (court && UUID.test(court)) out.court = court.toLowerCase();
   return out;
 }

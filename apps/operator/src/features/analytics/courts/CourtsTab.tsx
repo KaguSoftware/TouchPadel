@@ -160,7 +160,7 @@ export function CourtsTab() {
 
   return (
     <AnalyticsFrame subtitle={periodLine} actions={<ExportButton onExport={exportPulse} disabled={stateFor(NEEDS.pulse) !== 'ready'} />}>
-      <AnalyticsBar tab="courts" search={search} setSearch={setSearch} zones={COURT_ZONES} compareBasis={data.compareBasis} courts={courts} deck={{ startHour: data.startHour }} />
+      <AnalyticsBar tab="courts" search={search} setSearch={setSearch} zones={COURT_ZONES} compareBasis={data.compareBasis} compareRange={data.compareRange} courts={courts} deck={{ startHour: data.startHour }} />
       <Notices notices={notices} onRetry={state.error != null ? data.refetchAll : undefined} />
 
       <Zone zone={zone('pulse')}>
@@ -176,14 +176,14 @@ export function CourtsTab() {
             refreshing={state.refreshing}
             tip={tr('ws.analytics.courts.tips.patterns')}
             range={data.range}
-            compareBasis={data.compareBasis}
+            compareTag={data.compareTag}
             courtId={data.courtId}
             stored={data.stored}
           />
           <AiInsightsCard
             scope="courts"
             range={data.range}
-            compareBasis={data.compareBasis}
+            compareTag={data.compareTag}
             courtId={data.courtId}
             live={data.live}
             buildData={(extras) =>

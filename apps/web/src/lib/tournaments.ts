@@ -37,11 +37,12 @@ export const UPCOMING_STATUSES: readonly TourStatus[] = ['open', 'closed', 'runn
 
 /**
  * The contract keys the site never carries: no session (always null for the site), and who a
- * tournament is for (0339 `class`, `play_years`), which only the app matches to a play profile.
+ * tournament is for (0339 `class`, `play_years`, 0354 `classes`), which only the app matches to
+ * a play profile.
  */
 export const WEB_DROPPED_KEYS = {
-  tournaments_public: ['mine', 'class', 'play_years'],
-  tournament_public: ['me', 'missing', 'class', 'play_years'],
+  tournaments_public: ['mine', 'class', 'classes', 'play_years'],
+  tournament_public: ['me', 'missing', 'class', 'classes', 'play_years'],
 } as const;
 
 export interface TourBranch {

@@ -13,7 +13,7 @@ function renderBar(props: Partial<Parameters<typeof AnalyticsBar>[0]> = {}) {
   const setSearch = vi.fn();
   render(
     <LocaleProvider>
-      <AnalyticsBar tab="courts" search={{ range: '30d' }} setSearch={setSearch} zones={[]} compareBasis="prev" {...props} />
+      <AnalyticsBar tab="courts" search={{ range: '30d' }} setSearch={setSearch} zones={[]} compareBasis="month" {...props} />
     </LocaleProvider>,
   );
   return setSearch;
@@ -50,6 +50,32 @@ describe('AnalyticsBar', () => {
     await userEvent.type(screen.getByLabelText('To'), '2026-08-20');
     await userEvent.click(apply);
     expect(setSearch).toHaveBeenCalledWith({ range: 'custom', from: '2026-08-10', to: '2026-08-20' });
+  });
+
+  it('offers last month, last year and custom, and writes a fixed basis without custom dates', async () => {
+    const setSearch = renderBar();
+    await userEvent.click(screen.getByRole('combobox', { name: 'Compare with' }));
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Last month', 'Last year', 'Custom']);
+    await userEvent.click(screen.getByRole('option', { name: 'Last year' }));
+    expect(setSearch).toHaveBeenCalledWith({ cmp: 'year', cmpFrom: undefined, cmpTo: undefined });
+  });
+
+  it('opens a custom comparison on the current window and applies it only when ordered', async () => {
+    const setSearch = renderBar({ compareRange: { from: '2026-08-22', to: '2026-09-21' } });
+    expect(screen.queryByLabelText('Compare from')).toBeNull();
+    await userEvent.click(screen.getByRole('combobox', { name: 'Compare with' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Custom' }));
+    expect(setSearch).not.toHaveBeenCalled();
+    expect((screen.getByLabelText('Compare from') as HTMLInputElement).value).toBe('2026-08-22');
+    expect((screen.getByLabelText('Compare to') as HTMLInputElement).value).toBe('2026-09-21');
+    await userEvent.clear(screen.getByLabelText('Compare to'));
+    await userEvent.type(screen.getByLabelText('Compare to'), '2026-08-01');
+    const apply = screen.getByRole('button', { name: 'Apply' });
+    expect((apply as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.clear(screen.getByLabelText('Compare to'));
+    await userEvent.type(screen.getByLabelText('Compare to'), '2026-09-01');
+    await userEvent.click(apply);
+    expect(setSearch).toHaveBeenCalledWith({ cmp: 'custom', cmpFrom: '2026-08-22', cmpTo: '2026-09-01' });
   });
 
   // The bar's dropdowns are SelectMenu, not a native <select>: the options

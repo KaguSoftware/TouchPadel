@@ -101,8 +101,13 @@ function Entry({
       case 'bool':
         return value === true ? t('staff.protocols.common.yes') : t('staff.protocols.common.no');
       case 'enum': {
-        const k = typeof value === 'string' ? optionLabelKey(path, value) : null;
-        return k ? t(k) : String(value);
+        const one = (v: unknown) => {
+          const k = typeof v === 'string' ? optionLabelKey(path, v) : null;
+          return k ? t(k) : String(v);
+        };
+        // A multiple enum (the plan's classes, 0354) is a list of options.
+        if (Array.isArray(value)) return value.length > 0 ? value.map(one).join(locale === 'ar' ? '، ' : ', ') : null;
+        return one(value);
       }
       case 'date':
         return typeof value === 'string' ? formatDate(new Date(`${value}T12:00:00Z`), locale) : null;

@@ -23,6 +23,7 @@ import {
   isFullPlan,
   planRecord,
   slotsOf,
+  toggleClass,
   tradingSpan,
   wallTimeToUtc,
   type FieldIssue,
@@ -32,7 +33,6 @@ import {
   type PlanSlot,
   type PlanSponsor,
   type PlanUnit,
-  type PlanYears,
   type TournamentVariant,
   type Window,
 } from '@touch/core';
@@ -85,11 +85,6 @@ const CLASSES: readonly { value: PlanClass; tone: Tone }[] = [
   { value: 'B', tone: 'amber' },
   { value: 'C', tone: 'green' },
 ];
-const YEARS: readonly { value: PlanYears; key: 'yearsUnderOne' | 'yearsOneToThree' | 'yearsThreePlus' }[] = [
-  { value: 'under_one', key: 'yearsUnderOne' },
-  { value: 'one_to_three', key: 'yearsOneToThree' },
-  { value: 'three_plus', key: 'yearsThreePlus' },
-];
 /** Green where the app runs the format, grey where it is a plan only. */
 const FORMATS: readonly { value: PlanFormat; tone: Tone }[] = [
   { value: 'americano', tone: 'green' },
@@ -132,6 +127,7 @@ function OptionCard({
   title,
   tag,
   body,
+  multiple = false,
   onPick,
 }: {
   testID: string;
@@ -139,13 +135,15 @@ function OptionCard({
   title: string;
   tag?: { label: string; tone: Tone } | null;
   body?: string | null;
+  /** One of several that may all be on (the classes, 0354): a checkbox, not a radio. */
+  multiple?: boolean;
   onPick: () => void;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <Pressable
       testID={testID}
-      accessibilityRole="radio"
+      accessibilityRole={multiple ? 'checkbox' : 'radio'}
       accessibilityState={{ checked: on }}
       onPress={() => {
         if (!on) void Haptics.selectionAsync().catch(() => undefined);
@@ -190,13 +188,14 @@ function OptionCard({
 }
 
 /** A group's heading, and what is wrong with the group under it. */
-function Group({ title, error, children }: { title: string; error?: string | null; children: ReactNode }) {
+function Group({ title, hint, error, children }: { title: string; hint?: string; error?: string | null; children: ReactNode }) {
   const { colors, fonts } = useTheme();
   return (
     <View style={{ gap: space.s }}>
       <Text accessibilityRole="header" style={{ fontFamily: fonts.body700, fontSize: 14, color: colors.ink }}>
         {title}
       </Text>
+      {hint ? <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut }}>{hint}</Text> : null}
       {children}
       {error ? <ErrorText>{error}</ErrorText> : null}
     </View>
@@ -387,28 +386,22 @@ export function TournamentPlanStep({
               {textField('staff-start.plan.name_en', `${F}.name_en` as MessageKey, plan.nameEn, (nameEn) => set({ nameEn }), issueText('name_en', plan.nameEn.trim() === ''), { latin: true })}
               {textField('staff-start.plan.name_ar', `${F}.name_ar` as MessageKey, plan.nameAr, (nameAr) => set({ nameAr }), issueText('name_ar', plan.nameAr.trim() === ''))}
             </Card>
-            <Group title={t(`${F}.class` as MessageKey)} error={issueText('class', plan.cls === null)}>
+            {/* 0354: one or more classes; the years played are no longer asked. */}
+            <Group
+              title={t(`${F}.classes` as MessageKey)}
+              hint={t(`${S}.classesHint` as MessageKey)}
+              error={issueText('classes', plan.classes.length === 0)}
+            >
               {CLASSES.map((c) => (
                 <OptionCard
                   key={c.value}
                   testID={`staff-start.plan.class.${c.value}`}
-                  on={plan.cls === c.value}
+                  multiple
+                  on={plan.classes.includes(c.value)}
                   title={t(`ws.team.tasks.form.option.class${c.value}` as MessageKey)}
                   tag={{ label: t(`${S}.classes.${c.value}.tag` as MessageKey), tone: c.tone }}
                   body={t(`${S}.classes.${c.value}.body` as MessageKey)}
-                  onPick={() => set({ cls: c.value })}
-                />
-              ))}
-            </Group>
-            <Group title={t(`${F}.play_years` as MessageKey)} error={issueText('play_years', plan.playYears === null)}>
-              {YEARS.map((y) => (
-                <OptionCard
-                  key={y.value}
-                  testID={`staff-start.plan.years.${y.value}`}
-                  on={plan.playYears === y.value}
-                  title={t(`ws.team.tasks.form.option.${y.key}` as MessageKey)}
-                  body={t(`${S}.years.${y.value}.body` as MessageKey)}
-                  onPick={() => set({ playYears: y.value })}
+                  onPick={() => set({ classes: toggleClass(plan.classes, c.value) })}
                 />
               ))}
             </Group>

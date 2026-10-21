@@ -61,6 +61,7 @@ function detail(over: Partial<TournamentDetail> = {}): TournamentDetail {
     format: 'americano',
     category: 'open',
     class: 'B',
+    classes: ['B'],
     points_target: 24,
     rounds_planned: null,
     max_entries: 16,

@@ -480,17 +480,21 @@ export function SelectMenu<T extends string>({
                   font: 'inherit',
                   textAlign: 'start',
                   whiteSpace: 'nowrap',
-                  color: i === active ? 'var(--tp-accent-soft-fg)' : 'var(--tp-fg)',
+                  color: isSelected ? 'var(--tp-success-fg)' : i === active ? 'var(--tp-accent-soft-fg)' : 'var(--tp-fg)',
+                  fontWeight: isSelected ? 600 : undefined,
                   cursor: o.disabled ? 'not-allowed' : 'pointer',
                   opacity: o.disabled ? 'var(--tp-opacity-disabled)' : undefined,
-                  // The keyboard's row is the one that is tinted; the check
-                  // marks what is CHOSEN. Two different questions, so the
-                  // panel answers both at once rather than conflating them.
-                  // Inline, so it out-ranks the class's hover rule.
-                  background: i === active ? 'var(--tp-accent-soft)' : 'transparent',
+                  // The keyboard's row is the one that is tinted; the green
+                  // row is what is CHOSEN. Two different questions, so the
+                  // panel answers both at once rather than conflating them:
+                  // the chosen row under the keyboard keeps its green and
+                  // gains a ring. No check mark: its reserved column pushed
+                  // every label inward. Inline, so it out-ranks the class's
+                  // hover rule.
+                  background: isSelected ? 'var(--tp-success-soft)' : i === active ? 'var(--tp-accent-soft)' : 'transparent',
+                  boxShadow: isSelected && i === active ? 'inset 0 0 0 2px var(--tp-success-mark)' : undefined,
                 }}
               >
-                <Icon name="check" size={14} style={{ flexShrink: 0, visibility: isSelected ? undefined : 'hidden' }} />
                 {o.label}
               </button>
             );

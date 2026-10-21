@@ -50,6 +50,7 @@ const DETAIL = {
   format: 'americano',
   category: 'open',
   class: 'B',
+  classes: ['B'],
   points_target: 24,
   rounds_planned: 7,
   max_entries: 16,

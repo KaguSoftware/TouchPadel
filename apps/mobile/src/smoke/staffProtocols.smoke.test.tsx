@@ -576,7 +576,9 @@ describe.each(LOCALES)('the protocol pages’ other states in %s', (locale) => {
       fireEvent.changeText(screen.getByTestId('staff-start.plan.name_en'), 'Friday Cup');
       fireEvent.changeText(screen.getByTestId('staff-start.plan.name_ar'), 'كأس الجمعة');
       fireEvent.press(screen.getByTestId('staff-start.plan.class.B'));
-      fireEvent.press(screen.getByTestId('staff-start.plan.years.one_to_three'));
+      fireEvent.press(screen.getByTestId('staff-start.plan.class.C'));
+      // The years played are no longer asked (2026-10-22).
+      expect(screen.queryByTestId('staff-start.plan.years.one_to_three')).toBeNull();
       fireEvent.press(screen.getByTestId('staff-start.plan.format.americano'));
       fireEvent.press(screen.getByTestId('staff-start.plan.next'));
       const push = routerState.calls.find((c) => c.method === 'push');

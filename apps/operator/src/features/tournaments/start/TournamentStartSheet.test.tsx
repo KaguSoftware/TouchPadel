@@ -110,8 +110,10 @@ describe('TournamentStartSheet', () => {
     await user.click(menu().getByRole('button', { name: /^Name/ }));
     await user.type(screen.getByLabelText(/Name in English/), 'Friday Night Americano');
     await user.type(screen.getByLabelText(/Name in Arabic/), 'أمريكانو');
-    await user.click(screen.getByRole('radio', { name: /^Class A Advanced/ }));
-    await user.click(screen.getByRole('radio', { name: /^1 to 3 years/ }));
+    await user.click(screen.getByRole('button', { name: /^Class B Intermediate/ }));
+    await user.click(screen.getByRole('button', { name: /^Class A Advanced/ }));
+    // The years played are no longer asked (2026-10-22).
+    expect(screen.queryByRole('radio', { name: /^1 to 3 years/ })).toBeNull();
     await user.click(screen.getByRole('radio', { name: /^Americano Runs in the app/ }));
 
     await user.click(menu().getByRole('button', { name: /^Courts & time/ }));
@@ -149,8 +151,8 @@ describe('TournamentStartSheet', () => {
       p_variant: 'type1',
       p_title_en: 'Friday Night Americano',
       p_first_record: {
-        class: 'A',
-        play_years: 'one_to_three',
+        // In A-B-C order, whatever order they were picked in.
+        classes: ['A', 'B'],
         format: 'americano',
         ranges: [{ court_ids: [C1], from: `${DAY}T15:00:00.000Z`, to: `${DAY}T17:00:00.000Z` }],
         capacity: { unit: 'players', count: 16 },
@@ -204,18 +206,20 @@ describe('TournamentStartSheet', () => {
     expect(document.activeElement?.getAttribute('aria-selected')).toBe('true');
   });
 
-  it('picks a class card with the arrows', async () => {
+  it('switches each class card on and off on its own (0354: several classes)', async () => {
     const user = userEvent.setup();
     mount();
     await user.click(menu().getByRole('button', { name: /^Name/ }));
-    const group = screen.getByRole('radiogroup', { name: /Class/ });
-    const radios = within(group).getAllByRole('radio');
-    expect(radios.map((r) => r.tabIndex)).toEqual([0, -1, -1]);
-    radios[0]!.focus();
-    await user.keyboard('{ArrowDown}');
-    expect(document.activeElement).toBe(radios[1]);
-    expect(radios[1]!.getAttribute('aria-checked')).toBe('true');
-    expect(radios.map((r) => r.tabIndex)).toEqual([-1, 0, -1]);
+    const group = screen.getByRole('group', { name: 'Classes' });
+    const cards = within(group).getAllByRole('button');
+    expect(cards.map((c) => c.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'false']);
+    await user.click(cards[0]!);
+    await user.click(cards[2]!);
+    expect(cards.map((c) => c.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'true']);
+    // The menu names them in order.
+    expect(menu().getByRole('button', { name: /^Name.*A, C/ })).toBeTruthy();
+    await user.click(cards[0]!);
+    expect(cards.map((c) => c.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'true']);
   });
 
   it('takes an Arabic keyboard’s digits in a number box', async () => {

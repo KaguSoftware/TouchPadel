@@ -343,6 +343,10 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: Record<string, unknown>
       }
+      analytics_compare_basis_ok: {
+        Args: { p_basis: string }
+        Returns: boolean
+      }
       analytics_component: {
         Args: { p_key: string; p_params?: Json }
         Returns: Json
@@ -17065,6 +17069,7 @@ export type Database = {
           cancelled_at: string | null
           category: string
           class: string
+          classes: string[] | null
           closed_at: string | null
           created_at: string
           ends_at: string
@@ -17098,6 +17103,7 @@ export type Database = {
           cancelled_at?: string | null
           category?: string
           class: string
+          classes?: string[] | null
           closed_at?: string | null
           created_at?: string
           ends_at: string
@@ -17131,6 +17137,7 @@ export type Database = {
           cancelled_at?: string | null
           category?: string
           class?: string
+          classes?: string[] | null
           closed_at?: string | null
           created_at?: string
           ends_at?: string

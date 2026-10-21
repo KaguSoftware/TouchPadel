@@ -19,7 +19,7 @@ function raw(over: Partial<RawCourts> = {}): RawCourts {
   return {
     range: RANGE,
     compareRange: COMPARE_RANGE,
-    compareBasis: 'prev',
+    compareBasis: 'month',
     todayISO: '2026-09-14',
     courtId: null,
     summary: parseCourtsSummary(summaryJson),

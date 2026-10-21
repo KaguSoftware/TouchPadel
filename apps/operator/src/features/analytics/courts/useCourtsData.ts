@@ -18,6 +18,7 @@ import {
   businessTodayISO,
   isLiveRange,
   normalizeBusinessDayStart,
+  compareTag,
   resolveCompare,
   resolveRange,
   type CompareBasis,
@@ -61,6 +62,8 @@ export interface CourtsData {
   range: DateRange;
   compareBasis: CompareBasis;
   compareRange: DateRange;
+  /** `compareTag` of the comparison: what the server files AI findings under. */
+  compareTag: string;
   todayISO: string;
   live: boolean;
   startHour: number;
@@ -95,8 +98,14 @@ export function useCourtsData(search: AnalyticsSearch, locale: Locale, copy: Cou
   );
   const range = resolved.range;
   const preset = resolved.preset;
-  const compareBasis: CompareBasis = search.cmp ?? 'prev';
-  const compareRange = useMemo(() => resolveCompare(compareBasis, range).range, [compareBasis, range]);
+  const compare = useMemo(
+    () => resolveCompare(search.cmp, range, { from: search.cmpFrom, to: search.cmpTo }),
+    [search.cmp, search.cmpFrom, search.cmpTo, range],
+  );
+  const compareBasis: CompareBasis = compare.basis;
+  const compareRange = compare.range;
+  // What the stored findings are filed under: a custom window by its dates (0353).
+  const compareTagValue = compareTag(compare);
   const live = isLiveRange(range, todayISO);
   const courtId = search.court ?? null;
 
@@ -160,8 +169,8 @@ export function useCourtsData(search: AnalyticsSearch, locale: Locale, copy: Cou
   const { from, to } = range;
   // Keyed by court (0098): a set generated with court A selected is court A's.
   const storedInsights = useQuery({
-    queryKey: [...COURTS_KEY, 'storedInsights', from, to, compareBasis, locale, courtId ?? ''],
-    queryFn: () => fetchStoredInsights(from, to, compareBasis, locale, 'courts', courtId),
+    queryKey: [...COURTS_KEY, 'storedInsights', from, to, compareTagValue, locale, courtId ?? ''],
+    queryFn: () => fetchStoredInsights(from, to, compareTagValue, locale, 'courts', courtId),
     enabled: ready,
     staleTime: 30_000,
   });
@@ -202,6 +211,7 @@ export function useCourtsData(search: AnalyticsSearch, locale: Locale, copy: Cou
     range,
     compareBasis,
     compareRange,
+    compareTag: compareTagValue,
     todayISO,
     live,
     startHour,

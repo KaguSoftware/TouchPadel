@@ -464,6 +464,7 @@ export const staffProtocolsEn = {
     at: 'Date and time',
     photoPath: 'Menu photo',
     class: 'Class',
+    classes: 'Classes',
     playYears: 'Years played',
     format: 'Format',
     ranges: 'Courts and times',

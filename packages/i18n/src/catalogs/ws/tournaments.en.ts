@@ -398,13 +398,8 @@ export const tournamentsEn = {
         body: 'For new and social players. Friendly games, open to anyone learning.',
       },
     },
-    // 0339: the Name step's years cards, an exact bracket like the class:
-    // only players whose own answer is this one can register in the app.
-    years: {
-      under_one: { body: 'For players who started less than a year ago, or have not started yet.' },
-      one_to_three: { body: 'For players who have played 1 to 3 years.' },
-      three_plus: { body: 'For players who have played more than 3 years.' },
-    },
+    // 0354: the class cards are toggles; a player whose level fits any picked one can register.
+    classesHint: 'Pick one or more.',
     formats: {
       americano: {
         tag: 'Runs in the app',

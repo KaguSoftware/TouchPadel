@@ -2,7 +2,7 @@
  * Is a tournament for this guest? (0339, owner 2026-10-13) PURE, and the twin of
  * `app.tournament_register`'s check, which refuses what this calls a mismatch:
  *
- *   level  must fit the class: advanced A, intermediate B, beginner or new C
+ *   level  must fit one of its classes (0354; advanced A, intermediate B, beginner or new C)
  *   years  when the tournament names a bracket, the guest's answer is that bracket
  *          exactly (`never` counts as `under_one`); no bracket asks nothing
  *
@@ -12,6 +12,7 @@
  *              registering asks for the answer first (TOURNAMENT_PROFILE_REQUIRED)
  *
  * A tournament from a server before 0339 (no class) asks nothing: it fits.
+ * One from a server before 0354 names a single class: a list of one.
  */
 import type { TourClass, TourYears } from '../tournaments/logic';
 import type { PlayLevel, PlayYears } from './logic';
@@ -43,12 +44,12 @@ export interface FitResult {
 }
 
 export function tournamentFit(
-  t: { tourClass: TourClass | null; playYears: TourYears | null },
+  t: { tourClasses: readonly TourClass[]; playYears: TourYears | null },
   a: FitAnswers | null,
 ): FitResult {
-  if (t.tourClass !== null) {
+  if (t.tourClasses.length > 0) {
     if (!a?.level) return { fit: 'unanswered', on: 'level' };
-    if (classOfLevel(a.level) !== t.tourClass) return { fit: 'mismatch', on: 'level' };
+    if (!t.tourClasses.includes(classOfLevel(a.level))) return { fit: 'mismatch', on: 'level' };
   }
   if (t.playYears !== null) {
     if (!a?.years) return { fit: 'unanswered', on: 'years' };
@@ -62,7 +63,7 @@ export function tournamentFit(
  * undone by a later answer), and every one that is not a mismatch.
  */
 export function showsTournament(
-  t: { tourClass: TourClass | null; playYears: TourYears | null; mine: unknown },
+  t: { tourClasses: readonly TourClass[]; playYears: TourYears | null; mine: unknown },
   a: FitAnswers | null,
 ): boolean {
   return t.mine != null || tournamentFit(t, a).fit !== 'mismatch';
@@ -78,7 +79,7 @@ export function tournamentAvailability(
   rows: readonly {
     format: string | null;
     status: string | null;
-    tourClass: TourClass | null;
+    tourClasses: readonly TourClass[];
     playYears: TourYears | null;
     mine: unknown;
   }[],

@@ -24,7 +24,7 @@
  * templated.
  */
 import { useRef, useState, type ReactNode } from 'react';
-import type { CompareBasis, DateRange } from '@touch/core';
+import type { DateRange } from '@touch/core';
 import type { Locale } from '@touch/i18n';
 import { Button, ErrorText, Spinner } from '../../../components/ui';
 import { useConfirm } from '../../../components/ConfirmDialog';
@@ -60,7 +60,7 @@ export interface InsightsExtras {
 export function AiInsightsCard({
   scope,
   range,
-  compareBasis,
+  compareTag,
   courtId = null,
   live = false,
   buildData,
@@ -73,7 +73,8 @@ export function AiInsightsCard({
 }: {
   scope: InsightsScope;
   range: DateRange;
-  compareBasis: CompareBasis;
+  /** `compareTag` of the page's comparison: the stored set is filed under it (0353). */
+  compareTag: string;
   /** The Courts tab's filter (0098): the set is stored and read under this court; null = venue-wide. */
   courtId?: string | null;
   /** The range still includes today: the numbers move, so say when the set was generated. */
@@ -107,7 +108,7 @@ export function AiInsightsCard({
     await analyticsRpc.saveInsights({
       from: range.from,
       to: range.to,
-      basis: compareBasis,
+      basis: compareTag,
       locale: locale as Locale,
       scope,
       courtId,
@@ -127,7 +128,7 @@ export function AiInsightsCard({
         lang: locale as 'ar' | 'en',
         range_from: range.from,
         range_to: range.to,
-        compare_basis: compareBasis,
+        compare_basis: compareTag,
         scope,
         data,
       });

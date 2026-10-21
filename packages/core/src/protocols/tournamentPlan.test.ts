@@ -71,8 +71,7 @@ describe('slotsOf', () => {
 function filled(over: Partial<PlanState> = {}): PlanState {
   return {
     ...emptyPlan('type1'),
-    cls: 'A',
-    playYears: 'one_to_three',
+    classes: ['A', 'B'],
     nameEn: ' Friday Night Americano ',
     nameAr: 'أمريكانو ليلة الجمعة',
     format: 'americano',
@@ -87,8 +86,7 @@ describe('planRecord', () => {
   it('builds the full plan the server validates, with times in the venue’s zone', () => {
     const record = planRecord(filled({ prizeText: 'Rackets', expected: '14' }), TZ, [C1, C2]);
     expect(record).toEqual({
-      class: 'A',
-      play_years: 'one_to_three',
+      classes: ['A', 'B'],
       name_en: 'Friday Night Americano',
       name_ar: 'أمريكانو ليلة الجمعة',
       format: 'americano',
@@ -117,10 +115,9 @@ describe('planRecord', () => {
     const record = planRecord(filled({ variant: 'type2', risks: 'Rain', budget: '5' }), TZ);
     expect(Object.keys(record).sort()).toEqual([
       'capacity',
-      'class',
+      'classes',
       'name_ar',
       'name_en',
-      'play_years',
       'ranges',
     ]);
     expect(
@@ -195,8 +192,9 @@ describe('sections', () => {
     const p = filled();
     expect(sectionDone(p, 'name')).toBe(true);
     expect(sectionDone({ ...p, format: null }, 'name')).toBe(false);
-    // 0339: the years card is part of the name step, like the class.
-    expect(sectionDone({ ...p, playYears: null }, 'name')).toBe(false);
+    // 0354: at least one class; the years are no longer asked.
+    expect(sectionDone({ ...p, classes: [] }, 'name')).toBe(false);
+    expect(sectionDone({ ...p, classes: ['C'] }, 'name')).toBe(true);
     expect(sectionDone({ ...p, variant: 'type2', format: null }, 'name')).toBe(true);
     expect(sectionDone(p, 'courts')).toBe(true);
     expect(sectionDone({ ...p, count: '1' }, 'players')).toBe(false);

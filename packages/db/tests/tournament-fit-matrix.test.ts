@@ -144,6 +144,31 @@ describe.skipIf(!docker)('0339 tournament_register: only the guest a tournament 
     );
     expect(answer(r, 'pub_one')).toMatchObject({ class: 'B', play_years: 'one_to_three' });
   });
+  it('0354: a tournament for several classes takes a guest whose level fits any of them', () => {
+    const r = scenario('tfit-classes', [
+      TOUR_SETUP,
+      ...TOUR_BRANCH,
+      RUN('r_ab', { classes: ['A', 'B'], play_years: null, days: 3 }),
+      ...PUBLISH('pub_ab', 'r_ab', 'tAB'),
+      ...(['adv_3p', 'int_13', 'beg_u1', 'no_answers'] as const).map((g) => GUEST(g, JSON.stringify(GUESTS[g]))),
+      ...(['adv_3p', 'int_13', 'beg_u1', 'no_answers'] as const).map((g) =>
+        T(`${g}@tAB`, g, `select app.tournament_register({{tAB}})`),
+      ),
+      T('pub_list', 'adv_3p', `select app.tournaments_public(null)`),
+      E('pub_one', null, `select app.tournament_public({{tAB}})`),
+    ]);
+    expect(answer(r, 'adv_3p@tAB')).toMatchObject({ status: 'registered' });
+    expect(answer(r, 'int_13@tAB')).toMatchObject({ status: 'registered' });
+    expect(refusal(r, 'beg_u1@tAB')).toBe('TOURNAMENT_LEVEL_MISMATCH:level');
+    expect(refusal(r, 'no_answers@tAB')).toBe('TOURNAMENT_PROFILE_REQUIRED:level');
+    const list = answer<{ tournaments: Array<Record<string, unknown>> }>(r, 'pub_list');
+    expect(list.tournaments.find((t) => t.classes !== undefined && (t.classes as string[]).length === 2)).toMatchObject({
+      class: 'A',
+      classes: ['A', 'B'],
+    });
+    expect(answer(r, 'pub_one')).toMatchObject({ class: 'A', classes: ['A', 'B'] });
+  });
+
   it('every level and years answer against every class and bracket (264 registrations)', () => {
     const r = scenario('tfit-all', [
       TOUR_SETUP,

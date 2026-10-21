@@ -17,8 +17,7 @@ const C1 = '11111111-1111-4111-8111-111111111111';
 function filled(variant: PlanState['variant']): PlanState {
   return {
     ...emptyPlan(variant),
-    cls: 'B',
-    playYears: 'one_to_three',
+    classes: ['B'],
     nameEn: 'Friday Cup',
     nameAr: 'كأس الجمعة',
     format: 'americano',

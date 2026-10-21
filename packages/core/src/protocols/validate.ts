@@ -168,6 +168,18 @@ function checkField(
       return;
     }
     case 'enum':
+      if (def.multiple) {
+        const options = def.options ?? [];
+        if (
+          !Array.isArray(value) ||
+          !value.every((v) => typeof v === 'string' && options.includes(v)) ||
+          new Set(value).size !== value.length ||
+          !checkItems(def, value.length)
+        ) {
+          bad();
+        }
+        return;
+      }
       if (typeof value !== 'string' || !(def.options ?? []).includes(value)) bad();
       return;
     case 'int':

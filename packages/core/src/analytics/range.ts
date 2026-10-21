@@ -14,21 +14,23 @@ export type RangePreset = 'today' | '7d' | '30d' | '90d' | 'custom';
 export const RANGE_PRESETS: readonly RangePreset[] = ['today', '7d', '30d', '90d', 'custom'];
 
 /**
- * What "compared to" means.
+ * What "compared to" means (owner, 2026-10-22): the same dates a month earlier, the same dates a
+ * year earlier, or a window the owner picks. The old choices ("previous period", "4 weeks
+ * earlier", "52 weeks earlier") read as jargon, and a 28-day shift of a 30- or 90-day range
+ * overlapped the range itself, counting the shared days on both sides.
  *
- * "The period before this one" quietly produces fake movement: the 30 days before a 30-day
- * window are a different part of the season, and short windows aren't even the same days
- * of the week. The alternatives are WEEKDAY-ALIGNED multiples of 7: 28 days back is the same
- * weekdays a month earlier, 364 days back (52 weeks, not a calendar year) is the same
- * weekdays last year.
+ * A month or a year back is calendar arithmetic on each end: a day the earlier month does not
+ * have is clamped to its last day (31 Oct → 30 Sept, 29 Feb → 28 Feb). A range longer than a
+ * month still overlaps "last month"; the header names both windows, so the owner sees it.
  */
-export type CompareBasis = 'prev' | '4w' | '52w';
+export type CompareBasis = 'month' | 'year' | 'custom';
 
-export const COMPARE_BASES: readonly CompareBasis[] = ['prev', '4w', '52w'];
+export const COMPARE_BASES: readonly CompareBasis[] = ['month', 'year', 'custom'];
 
-export const COMPARE_BASIS_SHIFT_DAYS: Record<Exclude<CompareBasis, 'prev'>, number> = {
-  '4w': 28,
-  '52w': 364,
+/** The months each fixed basis looks back. */
+export const COMPARE_BASIS_MONTHS: Record<Exclude<CompareBasis, 'custom'>, number> = {
+  month: 1,
+  year: 12,
 };
 
 /**
@@ -94,6 +96,20 @@ export function datesInRange(range: DateRange): string[] {
   return out;
 }
 
+/**
+ * 'YYYY-MM-DD' moved by whole calendar months (negative = earlier), the day clamped to the last
+ * day of the target month.
+ */
+export function addMonths(date: string, months: number): string {
+  if (!Number.isInteger(months)) throw new RangeError(`months must be an integer, got ${months}`);
+  const d = new Date(noon(date));
+  const index = d.getUTCFullYear() * 12 + d.getUTCMonth() + months;
+  const year = Math.floor(index / 12);
+  const month = index - year * 12;
+  const last = new Date(Date.UTC(year, month + 1, 0, 12)).getUTCDate();
+  return fromNoon(Date.UTC(year, month, Math.min(d.getUTCDate(), last), 12));
+}
+
 /** The same span shifted back a whole number of days, length preserved. */
 export function shiftRange(range: DateRange, days: number): DateRange {
   return { from: addDays(range.from, -days), to: addDays(range.to, -days) };
@@ -135,18 +151,31 @@ export function resolveRange(
 }
 
 /**
- * Resolve the comparison window for `range` from the `cmp` param. Unknown/absent → the
- * immediately preceding period; '4w' / '52w' → weekday-aligned 28 / 364-day shifts.
+ * Resolve the comparison window for `range` from the `cmp` param. 'year' → the same dates a year
+ * earlier; 'custom' → the owner's own `custom` window when it is two real, ordered dates;
+ * anything else (absent, an old 'prev' / '4w' / '52w' link, a custom choice without its dates)
+ * → the same dates a month earlier.
  */
 export function resolveCompare(
   cmp: string | undefined,
   range: DateRange,
+  custom?: { from?: string; to?: string },
 ): { basis: CompareBasis; range: DateRange } {
-  const basis: CompareBasis = cmp === '4w' || cmp === '52w' ? cmp : 'prev';
-  return {
-    basis,
-    range: basis === 'prev' ? previousRange(range) : shiftRange(range, COMPARE_BASIS_SHIFT_DAYS[basis]),
-  };
+  if (cmp === 'custom' && isIsoDate(custom?.from) && isIsoDate(custom?.to) && custom.from <= custom.to) {
+    return { basis: 'custom', range: { from: custom.from, to: custom.to } };
+  }
+  const basis: Exclude<CompareBasis, 'custom'> = cmp === 'year' ? 'year' : 'month';
+  const months = COMPARE_BASIS_MONTHS[basis];
+  return { basis, range: { from: addMonths(range.from, -months), to: addMonths(range.to, -months) } };
+}
+
+/**
+ * The comparison as the server stores it (`analytics_insights.compare_basis`, the
+ * analytics-insights function's `compare_basis`): 'month', 'year', or 'custom:<from>:<to>', so
+ * two custom windows never share a stored set of findings (0353).
+ */
+export function compareTag(compare: { basis: CompareBasis; range: DateRange }): string {
+  return compare.basis === 'custom' ? `custom:${compare.range.from}:${compare.range.to}` : compare.basis;
 }
 
 /**

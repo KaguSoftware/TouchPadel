@@ -231,6 +231,7 @@
     "analytics_best_sellers": "tool:analytics_best_sellers",
     "analytics_bought_together": "tool:analytics_bought_together",
     "analytics_bounds": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "analytics_compare_basis_ok": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "analytics_component": "map:action",
     "analytics_courts_cafe": "tool:analytics_courts_cafe",
     "analytics_courts_demand": "tool:analytics_courts_demand",

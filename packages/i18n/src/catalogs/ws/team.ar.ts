@@ -171,6 +171,7 @@ export const teamAr: DeepMessages<typeof teamEn> = {
         ticker: 'سطر الشريط المتحرك',
         campaign_id: 'مسودة حملة',
         class: 'الفئة',
+        classes: 'الفئات',
         play_years: 'سنوات اللعب',
         format: 'نظام اللعب',
         ranges: 'الملاعب والأوقات',

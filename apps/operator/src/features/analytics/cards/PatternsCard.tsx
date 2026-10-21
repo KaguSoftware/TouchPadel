@@ -5,7 +5,7 @@
  * a successful judge pass simply replaces those sentences with better ones.
  */
 import { useMemo, useState } from 'react';
-import type { PatternCandidate, PatternLevel } from '@touch/core';
+import { compareTag, type PatternCandidate, type PatternLevel } from '@touch/core';
 import type { Locale, MessageKey } from '@touch/i18n';
 import { Button, ErrorText, Spinner } from '../../../components/ui';
 import { useLocale } from '../../../lib/i18n';
@@ -67,7 +67,7 @@ export function PatternsCard({
         lang: locale as 'ar' | 'en',
         range_from: raw.range.from,
         range_to: raw.range.to,
-        compare_basis: raw.compareBasis,
+        compare_basis: compareTag({ basis: raw.compareBasis, range: raw.compareRange }),
         scope: 'cafe',
         data: {
           rejections: stored.rejections.map((r) => r.text),
