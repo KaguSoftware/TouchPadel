@@ -28,7 +28,7 @@ describe('who a tournament is for (0339, the twin of tournament_register)', () =
     expect(tournamentFit(t('C', null), { level: 'new', years: 'never' }).fit).toBe('fits');
   });
 
-  it('fits any of several classes (0354)', () => {
+  it('fits any of several classes (0356)', () => {
     const ab = { tourClasses: ['A', 'B'] as const, playYears: null };
     expect(tournamentFit(ab, { level: 'advanced', years: null }).fit).toBe('fits');
     expect(tournamentFit(ab, { level: 'intermediate', years: null }).fit).toBe('fits');

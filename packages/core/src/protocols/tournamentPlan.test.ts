@@ -192,7 +192,7 @@ describe('sections', () => {
     const p = filled();
     expect(sectionDone(p, 'name')).toBe(true);
     expect(sectionDone({ ...p, format: null }, 'name')).toBe(false);
-    // 0354: at least one class; the years are no longer asked.
+    // 0356: at least one class; the years are no longer asked.
     expect(sectionDone({ ...p, classes: [] }, 'name')).toBe(false);
     expect(sectionDone({ ...p, classes: ['C'] }, 'name')).toBe(true);
     expect(sectionDone({ ...p, variant: 'type2', format: null }, 'name')).toBe(true);

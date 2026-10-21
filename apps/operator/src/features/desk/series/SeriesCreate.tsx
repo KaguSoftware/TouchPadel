@@ -24,6 +24,7 @@
  * first (spec 06.5), the phone required so a moved date has someone to tell.
  */
 import { useMemo, useState } from 'react';
+import { BOOKING_STEP_MIN, bookableDurations } from '@touch/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatDate, formatNumber, formatTimeRange, formatWeekdayShort, VENUE_TZ } from '@touch/i18n';
@@ -130,7 +131,7 @@ export function RecurringSeriesCreateScreen() {
     () => ({
       ...draft,
       courtId: draft.courtId || court?.id || '',
-      durationMin: draft.durationMin || court?.duration_options?.[0] || 60,
+      durationMin: draft.durationMin || bookableDurations(court?.duration_options ?? [])[0] || 60,
     }),
     [draft, court],
   );
@@ -527,7 +528,8 @@ export function SeriesPatternBuilder({
 }) {
   const { tr, locale } = useLocale();
   const court = courts.find((c) => c.id === draft.courtId);
-  const durations = court?.duration_options?.length ? court.duration_options : [60, 90, 120];
+  const whole = bookableDurations(court?.duration_options ?? []);
+  const durations = whole.length ? whole : [60, 120];
   const set = (patch: Partial<SeriesDraft>) => onChange({ ...draft, ...patch });
   const firstDay = tr(`ws.courtDesk.series.weekdayLong.${WEEKDAY_KEYS[dowOf(draft.startsOn)]!}`);
   return (
@@ -547,7 +549,7 @@ export function SeriesPatternBuilder({
           />
         </Field>
         <Field label={tr('ws.courtDesk.series.time')} required error={errors?.time}>
-          <input type="time" step={1800} style={inputStyle} value={draft.startTime} disabled={disabled} onChange={(e) => set({ startTime: e.target.value })} />
+          <input type="time" step={BOOKING_STEP_MIN * 60} style={inputStyle} value={draft.startTime} disabled={disabled} onChange={(e) => set({ startTime: e.target.value })} />
         </Field>
       </div>
       {/* One press per length, not a dropdown: a court offers two or three,

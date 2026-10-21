@@ -355,7 +355,7 @@ function FieldControl(props: ControlProps) {
         return { value: o, label: k ? tr(k) : o };
       });
       if (def.multiple) {
-        // Several may be on (the plan's classes, 0354): a row of checkboxes.
+        // Several may be on (the plan's classes, 0356): a row of checkboxes.
         const picked = Array.isArray(v) ? (v as string[]) : [];
         return (
           <Field label={label} hint={hint} error={error} required={req} optional={opt} group>

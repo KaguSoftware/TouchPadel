@@ -8,7 +8,7 @@ export const cashierEn = {
   building: 'This screen is being built.',
 
   till: {
-    title: 'Till',
+    title: 'Café cashier',
     regionTabs: 'Open tabs',
     regionMenu: 'Menu',
     regionTab: 'Active tab',
@@ -47,7 +47,7 @@ export const cashierEn = {
       offline: 'Not yet on the server — syncs automatically',
       settledAwaitingSync: 'Settled — waiting to reach the server',
       failed: 'Did not sync — see Day close',
-      dismissFailed: 'Remove from this till',
+      dismissFailed: 'Remove from this café cashier',
       hint: 'Arrow keys move, Enter selects',
     },
     basket: {
@@ -134,7 +134,7 @@ export const cashierEn = {
     colTotal: 'Total so far',
     colSource: 'Source',
     sourceWeb: 'Web order',
-    sourceTill: 'Till',
+    sourceTill: 'Café cashier',
     runningTotal: 'Running total — settled figure is stamped by the server at payment',
     empty: 'No open tabs on the floor.',
     emptyBody: 'Open a tab to start an order, or wait for a web order to land.',
@@ -169,7 +169,7 @@ export const cashierEn = {
       payments: 'This tab has been paid against. Refund the payment before it can go.',
       adjustments: 'A discount or charge is recorded on this tab. Settle it instead.',
       reservation: 'This tab belongs to a booking, and the court fee is owed on it. Settle it instead.',
-      unknown: 'This tab cannot be removed. Open it on the till to see what is on it.',
+      unknown: 'This tab cannot be removed. Open it on the café cashier to see what is on it.',
     },
     // The reason prompt the confirm opens — the same picker a cancelled
     // booking goes through, because both are a record being taken back.

@@ -10,7 +10,7 @@ export const prepEn = {
   open: '{count} open',
   empty: {
     title: 'No tickets — all caught up',
-    body: 'Orders sent from the website or the till appear here the moment they are placed.',
+    body: 'Orders sent from the website or the café cashier appear here the moment they are placed.',
   },
   error: {
     title: 'Tickets could not be loaded',

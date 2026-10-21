@@ -29,7 +29,7 @@ beforeEach(() => {
 describe('WorkspaceGuideDialog', () => {
   it('shows the till guide with one tab per section and its progress', () => {
     renderGuide();
-    expect(screen.getByRole('dialog', { name: 'Till guide' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Café cashier guide' })).toBeTruthy();
     const tabs = screen.getAllByRole('tab').map((t) => t.textContent);
     expect(tabs[0]).toContain('Start of shift');
     expect(tabs.some((t) => t?.includes('Corrections'))).toBe(true);
@@ -83,7 +83,7 @@ describe('WorkspaceGuideDialog', () => {
   it('renders in Arabic', () => {
     localStorage.setItem('touch-operator-locale', 'ar');
     renderGuide();
-    expect(screen.getByRole('dialog', { name: 'دليل الصندوق' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'دليل كاشير الكافيه' })).toBeTruthy();
     expect(screen.getByTestId('guide-progress').textContent).toMatch(/^تعلّمت 0 من \d+$/);
     expect(screen.getAllByRole('checkbox', { name: 'أعرف هذا' }).length).toBeGreaterThan(0);
   });

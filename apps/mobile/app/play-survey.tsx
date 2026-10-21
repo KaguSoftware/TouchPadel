@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +9,8 @@ import { useLocale } from '../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../src/theme';
 import { Button } from '../src/components/ui';
 import { Rise, TiltPress } from '../src/components/motion';
-import { BackChevronIcon, CheckIcon } from '../src/components/icons';
+import { CheckIcon } from '../src/components/icons';
+import { SheetTextButton } from '../src/components/SheetButtons';
 import { SuggestionRow, useOpenSuggestion } from '../src/components/forYou';
 import { useToast } from '../src/components/overlays';
 import { RequireSession } from '../src/features/auth/RequireSession';
@@ -80,8 +81,6 @@ import { topSuggestions, type SuggestionKind } from '../src/features/playProfile
 
 type Phase = SurveyStep | 'result';
 
-/** Long enough to see the tile you tapped turn blue, short enough not to wait. */
-const ADVANCE_MS = 240;
 const RESULT_COUNT = 2;
 
 const kebab = (value: string) => value.replace(/_/g, '-');
@@ -169,7 +168,14 @@ function Tile({
         }}
       >
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontFamily: fonts.body700, fontSize: 15.5, color: colors.ink, textAlign: 'auto' }}>
+          <Text
+            style={{
+              fontFamily: fonts.body700,
+              fontSize: 15.5,
+              color: colors.ink,
+              textAlign: 'auto',
+            }}
+          >
             {title}
           </Text>
           {body ? (
@@ -210,6 +216,10 @@ function PlaySurvey() {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const insets = useSafeAreaInsets();
+  // The sheet's height: the old 0.86 detent's, near enough, and under the
+  // largest a sheet may take (the screen less the status bar).
+  const { height: windowHeight } = useWindowDimensions();
+  const sheetHeight = Math.round(windowHeight * 0.82);
   const toast = useToast();
   const queryClient = useQueryClient();
   const back = useBack();
@@ -234,7 +244,9 @@ function PlaySurvey() {
 
   const [answers, setAnswers] = useState<PlayAnswers>(() => answersOf(play));
   const [gender, setGenderChoice] = useState<GenderChoice | null>(null);
-  const [phase, setPhase] = useState<Phase>(genderOnly ? 'gender' : startAtWants ? 'wants' : 'level');
+  const [phase, setPhase] = useState<Phase>(
+    genderOnly ? 'gender' : startAtWants ? 'wants' : 'level',
+  );
   const [failed, setFailed] = useState(false);
   const save = useSavePlayProfile();
   const setGender = useSetMyGender();
@@ -258,13 +270,11 @@ function PlaySurvey() {
   useEffect(() => {
     latest.current = answers;
   }, [answers]);
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Swiped away mid-survey: the same as Skip, with what was answered. Plain
   // async, because this runs as the screen goes and its hooks with it.
   useEffect(
     () => () => {
-      if (advanceTimer.current) clearTimeout(advanceTimer.current);
       if (editing || settled.current) return;
       settled.current = true;
       savePlayProfile(queryClient, latest.current).catch((error: unknown) =>
@@ -329,8 +339,8 @@ function PlaySurvey() {
     else void finish(next);
   };
 
+  // A tap only picks; Next moves on (Sait, 2026-10-20: "the user should press next").
   const choose = (step: 'level' | 'years', value: string) => {
-    if (advanceTimer.current) return;
     touched.current = true;
     // A new level drops a years answer it contradicts (advanced and "Not yet").
     const next =
@@ -338,17 +348,9 @@ function PlaySurvey() {
         ? withLevel(answers, value as NonNullable<PlayAnswers['level']>)
         : ({ ...answers, years: value } as PlayAnswers);
     setAnswers(next);
-    advanceTimer.current = setTimeout(() => {
-      advanceTimer.current = null;
-      goNext(step, next);
-    }, ADVANCE_MS);
   };
 
   const goBack = () => {
-    if (advanceTimer.current) {
-      clearTimeout(advanceTimer.current);
-      advanceTimer.current = null;
-    }
     if (phase === 'result') return;
     const prev = previousStep(steps, phase);
     if (prev) setPhase(prev);
@@ -360,6 +362,8 @@ function PlaySurvey() {
   };
 
   const canGoBack = phase !== 'result' && previousStep(steps, phase) !== null;
+  // Skip the first time only; editing closes with a swipe or a tap outside.
+  const canSkip = !editing && phase !== 'result';
   const question: Record<SurveyStep, MessageKey> = {
     level: 'playProfile.survey.level.question',
     years: 'playProfile.survey.years.question',
@@ -373,91 +377,85 @@ function PlaySurvey() {
   const genderLabel: Record<GenderChoice, MessageKey> = {
     female: 'matches.gender.female',
     male: 'matches.gender.male',
-    none: 'profile.genderPreferNot',
   };
 
+  // A sheet sized to this view (`fitToContents` in app/_layout.tsx), of a fixed
+  // height, so Back, Next and the step dots sit at its foot on every step (Sait,
+  // 2026-10-20). No scroll view: no step holds more than five tiles, and a
+  // formSheet lays a scroll view out from its own top edge, under the grabber
+  // and over the bar.
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      {/* The sheet's own bar: back, progress, and the way out, all always in reach. */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingTop: space.xl,
-          paddingStart: space.s,
-          paddingEnd: space.s,
-          minHeight: 44 + space.xl,
-        }}
-      >
-        <View style={{ width: 96, alignItems: 'flex-start' }}>
-          {canGoBack ? (
-            <Pressable
-              testID="play-survey.back"
-              accessibilityRole="button"
-              accessibilityLabel={t('common.back')}
-              onPress={goBack}
-              hitSlop={8}
-              style={({ pressed }) => ({
-                width: 44,
-                height: 44,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: pressed ? 0.6 : 1,
-              })}
-            >
-              <BackChevronIcon size={20} color={colors.ink} />
-            </Pressable>
-          ) : null}
-        </View>
-        <Dots phase={phase} steps={steps} />
-        <View style={{ width: 96, alignItems: 'flex-end' }}>
-          {phase !== 'result' ? (
-            <Pressable
+    <View style={{ height: sheetHeight, backgroundColor: colors.bg }}>
+      <View>
+        {/* The sheet's own bar: Skip, the first time only, the system's own button
+            on iOS. Editing has no Cancel: a swipe down or a tap outside the sheet
+            closes it unsaved. Back sits at the foot with the step dots and the
+            step's button (Sait, 2026-10-20). Without Skip, the bar is only the
+            room under the grabber. */}
+        {canSkip ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              paddingTop: space.xl,
+              paddingStart: space.l,
+              paddingEnd: space.l,
+              minHeight: 44 + space.xl,
+            }}
+          >
+            <SheetTextButton
               testID="play-survey.skip"
-              accessibilityRole="button"
+              label={t('playProfile.survey.skip')}
               onPress={skip}
-              hitSlop={8}
-              style={({ pressed }) => ({
-                minHeight: 44,
-                justifyContent: 'center',
-                paddingStart: space.sm,
-                paddingEnd: space.sm,
-                opacity: pressed ? 0.6 : 1,
-              })}
-            >
-              <Text style={{ fontFamily: fonts.body700, fontSize: 14, color: colors.mut }}>
-                {t(editing ? 'common.cancel' : 'playProfile.survey.skip')}
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
+            />
+          </View>
+        ) : (
+          <View style={{ height: space.xxl }} />
+        )}
 
-      <ScrollView
-        contentContainerStyle={{
-          paddingStart: space.l,
-          paddingEnd: space.l,
-          paddingTop: space.s,
-          paddingBottom: space.xl,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Keyed by step, so each step's tiles rise in afresh. */}
-        <View key={phase} style={{ gap: space.sm }}>
+        {/* The step's heading, under the bar. Keyed by step, so it rises in afresh. */}
+        <View
+          key={`head-${phase}`}
+          style={{
+            paddingStart: space.l,
+            paddingEnd: space.l,
+            paddingTop: space.s,
+            paddingBottom: space.m,
+          }}
+        >
           {phase === 'result' ? (
-            <>
-              <Rise>
-                <Text
-                  accessibilityRole="header"
-                  style={{ fontFamily: fonts.display800, fontSize: 24, color: colors.ink, textAlign: 'auto' }}
-                >
-                  {t('playProfile.result.title')}
-                </Text>
+            <Rise>
+              <Text
+                accessibilityRole="header"
+                style={{
+                  fontFamily: fonts.display800,
+                  fontSize: 24,
+                  color: colors.ink,
+                  textAlign: 'auto',
+                }}
+              >
+                {t('playProfile.result.title')}
+              </Text>
+              <Text
+                style={{
+                  marginTop: space.xs,
+                  fontFamily: fonts.body400,
+                  fontSize: 13.5,
+                  lineHeight: 19,
+                  color: colors.mut,
+                  textAlign: 'auto',
+                }}
+              >
+                {t('playProfile.result.body')}
+              </Text>
+            </Rise>
+          ) : (
+            <Rise>
+              {phase === 'level' && !editing ? (
                 <Text
                   style={{
-                    marginTop: space.xs,
-                    marginBottom: space.s,
+                    marginBottom: space.xs,
                     fontFamily: fonts.body400,
                     fontSize: 13.5,
                     lineHeight: 19,
@@ -465,9 +463,43 @@ function PlaySurvey() {
                     textAlign: 'auto',
                   }}
                 >
-                  {t('playProfile.result.body')}
+                  {t('playProfile.survey.intro')}
                 </Text>
-              </Rise>
+              ) : null}
+              <Text
+                accessibilityRole="header"
+                style={{
+                  fontFamily: fonts.display800,
+                  fontSize: 24,
+                  color: colors.ink,
+                  textAlign: 'auto',
+                }}
+              >
+                {t(question[phase])}
+              </Text>
+              {hint[phase] ? (
+                <Text
+                  style={{
+                    marginTop: space.xs,
+                    fontFamily: fonts.body400,
+                    fontSize: 13.5,
+                    lineHeight: 19,
+                    color: colors.mut,
+                    textAlign: 'auto',
+                  }}
+                >
+                  {t(hint[phase])}
+                </Text>
+              ) : null}
+            </Rise>
+          )}
+        </View>
+      </View>
+      <View style={{ flex: 1 }}>
+        {/* Keyed by step, so each step's tiles rise in afresh. */}
+        <View key={phase} style={{ gap: space.sm, paddingStart: space.l, paddingEnd: space.l }}>
+          {phase === 'result' ? (
+            <>
               <View
                 style={{
                   backgroundColor: colors.card,
@@ -491,43 +523,6 @@ function PlaySurvey() {
             </>
           ) : (
             <>
-              <Rise>
-                {phase === 'level' && !editing ? (
-                  <Text
-                    style={{
-                      marginBottom: space.xs,
-                      fontFamily: fonts.body400,
-                      fontSize: 13.5,
-                      lineHeight: 19,
-                      color: colors.mut,
-                      textAlign: 'auto',
-                    }}
-                  >
-                    {t('playProfile.survey.intro')}
-                  </Text>
-                ) : null}
-                <Text
-                  accessibilityRole="header"
-                  style={{ fontFamily: fonts.display800, fontSize: 24, color: colors.ink, textAlign: 'auto' }}
-                >
-                  {t(question[phase])}
-                </Text>
-                {hint[phase] ? (
-                  <Text
-                    style={{
-                      marginTop: space.xs,
-                      fontFamily: fonts.body400,
-                      fontSize: 13.5,
-                      lineHeight: 19,
-                      color: colors.mut,
-                      textAlign: 'auto',
-                    }}
-                  >
-                    {t(hint[phase])}
-                  </Text>
-                ) : null}
-              </Rise>
-              <View style={{ height: space.xs }} />
               {phase === 'level'
                 ? PLAY_LEVELS.map((v, i) => (
                     <Tile
@@ -591,41 +586,69 @@ function PlaySurvey() {
             </>
           )}
         </View>
-      </ScrollView>
-
+      </View>
+      {/* The foot: the step dots, then Back and the step's button. */}
       <View
         style={{
-          gap: space.s,
+          gap: space.m,
           paddingStart: space.l,
           paddingEnd: space.l,
-          paddingTop: space.sm,
-          paddingBottom: space.sm + insets.bottom,
+          paddingTop: space.l,
+          paddingBottom: space.xl + insets.bottom,
         }}
       >
+        <View style={{ alignItems: 'center' }}>
+          <Dots phase={phase} steps={steps} />
+        </View>
         {failed ? (
-          <Text style={{ fontFamily: fonts.body600, fontSize: 13, color: colors.redtext, textAlign: 'center' }}>
+          <Text
+            style={{
+              fontFamily: fonts.body600,
+              fontSize: 13,
+              color: colors.redtext,
+              textAlign: 'center',
+            }}
+          >
             {t('playProfile.survey.saveFailed')}
           </Text>
         ) : null}
-        {phase === 'result' ? (
-          <Button testID="play-survey.finish" label={t('common.done')} onPress={back} />
-        ) : phase === lastStep ? (
-          <Button
-            testID="play-survey.done"
-            label={t(failed ? 'common.retry' : editing ? 'common.save' : 'common.done')}
-            busy={saving}
-            onPress={() => void finish(answers)}
-          />
-        ) : phase === 'wants' || (phase !== 'gender' && answers[phase] !== null) ? (
-          // Wants is never one tap; on a step already answered, or editing:
-          // keep the answer and go on.
-          <Button
-            testID="play-survey.next"
-            variant="secondary"
-            label={t('common.next')}
-            onPress={() => goNext(phase, answers)}
-          />
-        ) : null}
+        {/* Back beside the step's button, the app's own buttons (Sait, 2026-10-20). */}
+        <View style={{ flexDirection: 'row', gap: space.s }}>
+          {canGoBack ? (
+            <Button
+              testID="play-survey.back"
+              variant="secondary"
+              label={t('common.back')}
+              onPress={goBack}
+              style={{ flex: 1 }}
+            />
+          ) : null}
+          {phase === 'result' ? (
+            <Button
+              testID="play-survey.finish"
+              label={t('common.done')}
+              onPress={back}
+              style={{ flex: 1 }}
+            />
+          ) : phase === lastStep ? (
+            <Button
+              testID="play-survey.done"
+              label={t(failed ? 'common.retry' : editing ? 'common.save' : 'common.done')}
+              busy={saving}
+              onPress={() => void finish(answers)}
+              style={{ flex: 1 }}
+            />
+          ) : phase !== 'gender' ? (
+            // Off until a one-answer step is answered; wants may stay empty.
+            <Button
+              testID="play-survey.next"
+              label={t('common.next')}
+              disabled={phase !== 'wants' && answers[phase] === null}
+              onPress={() => goNext(phase, answers)}
+              style={{ flex: 1 }}
+            />
+          ) : null}
+        </View>
       </View>
     </View>
   );

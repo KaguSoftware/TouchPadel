@@ -163,6 +163,27 @@ export function formatTimeRange(
   return isolate(`${formatTime(start, locale, timeZone)}–${formatTime(end, locale, timeZone)}`);
 }
 
+/**
+ * The short range (Sait, 2026-10-20): the day period once, at the end, and the
+ * start's minutes only when either end falls off the hour. "4–5:00 PM",
+ * "5:30–6:30 PM", "11 AM–1:00 PM" across noon. Bidi-isolated as `formatTimeRange`.
+ */
+export function formatTimeRangeShort(
+  start: Date,
+  end: Date,
+  locale: Locale,
+  timeZone: string = VENUE_TZ,
+): string {
+  const a = wallClock(start, timeZone);
+  const b = wallClock(end, timeZone);
+  const onHour = a.minute === 0 && b.minute === 0;
+  const samePeriod = a.hour < 12 === b.hour < 12;
+  const h12 = a.hour % 12 === 0 ? 12 : a.hour % 12;
+  const from = onHour ? String(h12) : `${h12}:${String(a.minute).padStart(2, '0')}`;
+  const period = DAY_PERIOD[locale][a.hour < 12 ? 0 : 1];
+  return isolate(`${samePeriod ? from : `${from} ${period}`}–${timeText(b, locale)}`);
+}
+
 /** Short weekday for the day strip: "Tue" / "الثلاثاء". */
 export function formatWeekdayShort(date: Date, locale: Locale, timeZone: string = VENUE_TZ): string {
   return WEEKDAY_SHORT[locale][wallClock(date, timeZone).weekday] ?? '';

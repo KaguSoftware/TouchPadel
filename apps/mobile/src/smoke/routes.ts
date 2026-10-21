@@ -57,6 +57,9 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // Open matches and tournaments together (play-coaches contracts §7), cased by
   // play.smoke.test.tsx: its one action, "Start a match", beside the title.
   { file: '(tabs)/play.tsx', route: 'play', primary: 'play.start' },
+  // The centre tab (2026-10-19): member card or café menu, cased by cafe.smoke.test.tsx. Its
+  // primary is the switch between the two.
+  { file: '(tabs)/club.tsx', route: 'club', primary: 'club.view' },
   // ── booking ───────────────────────────────────────────────────────────────
   { file: 'booking/[id].tsx', route: 'booking-detail', primary: 'booking-detail.cancel' },
   { file: 'booking-history.tsx', route: 'booking-history', primary: 'booking-history.clear' },
@@ -79,7 +82,7 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'settings.tsx', route: 'settings', primary: 'settings.language' },
   { file: 'profile-edit.tsx', route: 'profile-edit', primary: 'profile-edit.name' },
   // The sign-up play survey (play-coaches contracts §8), cased by playSurvey.smoke.test.tsx.
-  { file: 'play-survey.tsx', route: 'play-survey', primary: 'play-survey.skip' },
+  { file: 'play-survey.tsx', route: 'play-survey', primary: 'play-survey.level.beginner' },
   { file: 'change-password.tsx', route: 'change-password', primary: 'change-password.submit' },
   { file: 'delete-account.tsx', route: 'delete-account', primary: 'delete-account.confirm' },
   { file: 'accept-terms.tsx', route: 'accept-terms', primary: 'accept-terms.accept' },

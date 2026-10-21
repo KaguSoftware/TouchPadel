@@ -8,7 +8,11 @@ import { needsProfileCompletion } from '../src/features/auth/social';
 import { useOwnProfile, useUpdateProfile } from '../src/features/profile/hooks';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { clearPendingIntents } from '../src/features/booking/pendingIntent';
-import { mapErrorToKey } from '../src/features/booking/errors';
+import { mapErrorToKey, rpcErrorCode } from '../src/features/booking/errors';
+import { markGenderAsked, signupGenderOf } from '../src/features/auth/genderGate';
+import { useSetMyGender } from '../src/features/matches/hooks';
+import { errorMessageOf } from '../src/lib/network';
+import { GenderPicker, type GenderValue } from '../src/components/GenderPicker';
 import { space } from '../src/theme';
 import {
   Button,
@@ -43,6 +47,14 @@ type ReturnTo = 'continue' | 'back';
  * Lives in the (auth) group and is exempt from its signed-in redirect; the same
  * layout sends any signed-in user with a blank phone here from DERIVED state, so
  * a first social sign-in cannot race past it (see (auth)/_layout.tsx).
+ *
+ * The gender (0353, Majed 2026-10-19: a must for every account) is asked here
+ * while the profile has none: "Woman / Man", nothing picked at first (the
+ * sign-up form's answer when the account carries one), and Save refuses until
+ * one is. It is saved through app.set_my_gender after the profile update, set
+ * once; GENDER_ALREADY_SET (another device answered first) goes on with the
+ * stored value. The app-open ask (features/auth/useGenderGate.ts) opens this
+ * screen in back mode, and its opening marks the account asked for the launch.
  */
 export default function CompleteProfileScreen() {
   const { t, locale, setLocale } = useLocale();
@@ -54,6 +66,7 @@ export default function CompleteProfileScreen() {
   const returnTo: ReturnTo = params.returnTo === 'back' ? 'back' : 'continue';
   const profile = useOwnProfile(!!session);
   const update = useUpdateProfile();
+  const setMyGender = useSetMyGender();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
 
   const [firstName, setFirstName] = useState('');
@@ -66,8 +79,23 @@ export default function CompleteProfileScreen() {
   const [nameError, setNameError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [gender, setGender] = useState<GenderValue | null>(null);
+  const [genderError, setGenderError] = useState<string | null>(null);
   const skipped = useRef(false);
 
+  // Asked while the row has none; a set gender is the desk's to change.
+  const askGender = !!profile.data && !profile.data.gender;
+  // Only the gender is missing: the body says so instead of asking for a phone.
+  const onlyGender =
+    askGender && !!profile.data?.phone?.trim() && !!profile.data?.full_name?.trim();
+
+  // Whoever sent the guest here, the app-open ask does not stack another on top.
+  const uid = session && !session.user.is_anonymous ? session.user.id : null;
+  useEffect(() => {
+    if (uid) markGenderAsked(uid);
+  }, [uid]);
+
+  const metaGender = signupGenderOf(session?.user.user_metadata);
   const email = session?.user.email ?? null;
   const nameTouched = useRef(false);
   useEffect(() => {
@@ -77,6 +105,9 @@ export default function CompleteProfileScreen() {
       setIso(parsed.iso);
       setNational(parsed.national);
       setLang(locale);
+      // The sign-up form's answer, when the account carries one that has not
+      // been recorded yet; otherwise nothing is picked.
+      setGender(metaGender);
       setInitialised(true);
     }
     // The name keeps following the row until the guest types: the Apple
@@ -91,7 +122,7 @@ export default function CompleteProfileScreen() {
       setFirstName(names.first);
       setLastName(names.last);
     }
-  }, [profile.data, initialised, email, locale]);
+  }, [profile.data, initialised, email, locale, metaGender]);
 
   const back = useBack();
 
@@ -160,7 +191,9 @@ export default function CompleteProfileScreen() {
     setError(null);
     setNameError(null);
     setPhoneError(null);
+    setGenderError(null);
     if (!firstName.trim()) return setNameError(t('auth.firstNameRequired'));
+    if (askGender && !gender) return setGenderError(t('guestGender.required'));
     const badPhone = validatePhone(iso, national);
     if (badPhone === 'PHONE_REQUIRED') return setPhoneError(t('auth.phoneRequired'));
     if (badPhone) return setPhoneError(t('auth.phoneInvalid'));
@@ -173,6 +206,20 @@ export default function CompleteProfileScreen() {
       { ...namePatch(firstName, lastName), phone: composePhone(iso, national) },
       {
         onSuccess: async () => {
+          // 0353: the gender, once. A failure stops here with the reason; Save
+          // again re-sends the (unchanged) profile and the gender.
+          if (askGender && gender) {
+            try {
+              await setMyGender.mutateAsync(gender);
+            } catch (err) {
+              if (rpcErrorCode(errorMessageOf(err)) !== 'GENDER_ALREADY_SET') {
+                setError(t(mapErrorToKey(err)));
+                return;
+              }
+              // Another device answered first: go on with the stored value.
+              toast(t('matches.errors.genderAlreadySet'), 'info');
+            }
+          }
           // ALWAYS, even when unchanged: a new OAuth row has preferred_lang 'en'
           // by trigger default even while the app runs in Arabic. setLocale
           // writes profiles.preferred_lang and, when the choice differs from the
@@ -203,7 +250,9 @@ export default function CompleteProfileScreen() {
       ) : (
         <FormScreen>
           <Title plain>{t('auth.completeProfileTitle')}</Title>
-          <Hint style={{ marginTop: 8 }}>{t('auth.completeProfileBody')}</Hint>
+          <Hint style={{ marginTop: 8 }}>
+            {t(onlyGender ? 'guestGender.completeBody' : 'auth.completeProfileBody')}
+          </Hint>
           <Field
             testID="complete-profile.first-name"
             label={t('auth.firstNameLabel')}
@@ -234,6 +283,20 @@ export default function CompleteProfileScreen() {
             dense
           />
           <Hint>{t('profile.nameShownHint')}</Hint>
+          {askGender ? (
+            <>
+              <GenderPicker
+                testID="complete-profile.gender"
+                value={gender}
+                onChange={(next) => {
+                  setGender(next);
+                  setGenderError(null);
+                }}
+                error={genderError}
+              />
+              <Hint>{t('guestGender.hint')}</Hint>
+            </>
+          ) : null}
           <PhoneField
             testID="complete-profile.phone"
             label={t('auth.phoneLabel')}
@@ -263,7 +326,7 @@ export default function CompleteProfileScreen() {
             testID="complete-profile.submit"
             label={t('auth.completeProfileCta')}
             variant="cta"
-            busy={update.isPending || holdBusy}
+            busy={update.isPending || setMyGender.isPending || holdBusy}
             onPress={onSave}
             style={{ marginTop: space.l }}
           />

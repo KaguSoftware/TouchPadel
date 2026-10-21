@@ -17,8 +17,43 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0352`
-  (0352 counter_orders, 2026-10-17: order first, the table after. A café tab may open with no table
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0356`
+  (0356 tournament_classes, 2026-10-22: `tournaments.classes text[]`, one to three of A, B, C in
+  A-B-C order, never null by the validated `tournaments_classes` CHECK, which also ties `class` to
+  the first of them (kept for builds before it); the plan takes `classes` or an older desk's
+  `class`; `tournament_register` takes a level that fits ANY class; the desk no longer asks
+  `play_years` (0339's column and check stay). **0356 holds `protocol_check_tournament_plan`,
+  `tournament_publish`, `tournament_register`, `tournaments_public`, `tournament_public` (0339 no
+  longer), `desk_tournament_detail` (0311 no longer), `assistant_tournaments_summary` (0328 no
+  longer) and `tournament_context` (0174 no longer)**.
+  0355 analytics_compare_bases, 2026-10-22: "Compare with" is month | year |
+  `custom:<from>:<to>` (prev | 4w | 52w still valid), one test `app.analytics_compare_basis_ok`
+  (service role only) behind the `analytics_insights` CHECK; **0355 holds
+  `save_analytics_insights`** (0098 no longer).
+  0354 venue_files, 2026-10-20 (Majed: a Files section for the manager and the owner, read by the
+  assistant, every file compressed before it touches the database): table `venue_files` (metadata
+  only, no client grant), the private `venue-files` bucket (gzip and WebP only, 50 MB an object, a
+  2 GB compressed quota per branch), the minted-path flow `venue_file_begin` → upload →
+  `venue_file_finish`, `venue_files_list`, `venue_file_update`, `venue_file_delete` (objects
+  first, then the row: storage reads an object through its read rule before deleting it), the
+  policy helpers `is_venue_file_path` and `venue_file_object_{readable,uploadable,removable}`, an
+  owner_only flag the owner alone sets and sees, and the owner assistant's `assistant_files_list` /
+  `assistant_file_get` (tools `files_list`, `file_read`; the edge function downloads and gunzips
+  the `<id>.txt.gz` text as the owner); **0354 holds `assistant_run_tool`** (0330 is no longer the
+  latest); `tests/venue-files.test.ts`;
+  0353 court_gender_rules, 2026-10-19 (Majed: some courts are women-only at set times, some hours
+  on every court; a gender is a must for every account): table `court_gender_rules` (the operator's
+  Gender hours card, rates-shaped: one court or every court, weekdays, a window that runs past
+  midnight when its end is at or before its start, optional dates, on/off, gender female | male;
+  guests read active rows of open branches), written only by `app.upsert_court_gender_rule`
+  (manager or owner, no protocol); the internal `app.slot_gender_rules` (mirrored by
+  `@touch/core` `slotGenderRules`); the triggers `reservations_gender_guard` (a booking or hold
+  with a guest account on a kept slot: `GENDER_REQUIRED` with no gender, `SLOT_GENDER_RESTRICTED`
+  with the other; a typed desk name, a match booking, a lesson pass; status changes never re-judge)
+  and `matches_gender_guard` (an open match touching a kept window at its branch, any court, must be
+  that gender's category); **0353 holds `desk_register_customer`** (0307 is no longer the latest:
+  `+ p_gender` default NULL, stamped `gender_set_by` staff); `tests/court-gender-rules.test.ts`;
+  0352 counter_orders, 2026-10-17: order first, the table after. A café tab may open with no table
   and no booking (a counter tab, labelled with the name given or the day's `#<n>`; TAB_ANCHOR_REQUIRED
   is now only `send_order_slip`'s); `orders.deliver_table_id` / `deliver_reservation_id` say where
   ONE order is brought, attached any time after by `app.order_set_delivery` (online only, re-announces
@@ -120,7 +155,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0353`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0355`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

@@ -144,7 +144,7 @@ describe.skipIf(!docker)('0339 tournament_register: only the guest a tournament 
     );
     expect(answer(r, 'pub_one')).toMatchObject({ class: 'B', play_years: 'one_to_three' });
   });
-  it('0354: a tournament for several classes takes a guest whose level fits any of them', () => {
+  it('0356: a tournament for several classes takes a guest whose level fits any of them', () => {
     const r = scenario('tfit-classes', [
       TOUR_SETUP,
       ...TOUR_BRANCH,

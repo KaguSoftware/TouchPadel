@@ -125,7 +125,7 @@ export interface TournamentContext {
   name_en: string;
   name_ar: string;
   class: string | null;
-  /** 0354: every class of the plan; a server before it sends only `class`. */
+  /** 0356: every class of the plan; a server before it sends only `class`. */
   classes: string[];
   format: string | null;
   capacity: { unit: string; count: number } | null;

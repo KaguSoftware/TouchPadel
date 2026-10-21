@@ -10,6 +10,7 @@ import {
   TabBookIcon,
   TabBookingsIcon,
   TabCoachesIcon,
+  TabClubIcon,
   TabPlayIcon,
 } from '../components/icons';
 
@@ -159,9 +160,10 @@ const StableOrderScreen = forwardRef<View, ScreenProps>(function StableOrderScre
 });
 
 /**
- * Bottom tabs per the design, four since 2026-10-17: Bookings / Play / Book /
- * Coaches. Profile left the bar for the avatar on each tab's title row
- * (components/AccountButton.tsx, Majed). Translucent bar
+ * Bottom tabs per the design: Bookings / Play / Club / Book / Coaches. Profile
+ * left the bar on 2026-10-17 for the avatar on each tab's title row
+ * (components/AccountButton.tsx, Majed); Club took the centre on 2026-10-19
+ * (the member card's QR and the café menu). Translucent bar
  * floating over the content, display-face labels, green active icon and dot. expo-router
  * `Tabs` per the native-feel convention — platform behavior (state
  * preservation, back handling) stays native while the visuals follow the
@@ -288,9 +290,9 @@ function AndroidTabs() {
       {/*
        * `tabBarButton` is declared PER SCREEN rather than once in
        * `screenOptions`, where it used to live, for one reason: the testID.
-       * screenOptions is shared by all four tabs, so a button built there
+       * screenOptions is shared by all five tabs, so a button built there
        * cannot say WHICH tab it is, and `tabs.bookings` / `tabs.play` /
-       * `tabs.book` / `tabs.coaches` have to differ — they
+       * `tabs.club` / `tabs.book` / `tabs.coaches` have to differ — they
        * are what the smoke tests press. The ripple override below is unchanged
        * and is repeated with it, and so is `tabButton`, which also needs to
        * know whether the tab sits on the screen's edge.
@@ -325,6 +327,21 @@ function AndroidTabs() {
           ),
           tabBarIcon: ({ focused, color }) => <TabPlayIcon color={focused ? brand.green : color} />,
           tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.play')} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="club"
+        options={{
+          tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
+            <Pressable
+              {...props}
+              testID="tabs.club"
+              android_ripple={RIPPLE(colors.line)}
+              style={[props.style, tabButton('inner')]}
+            />
+          ),
+          tabBarIcon: ({ focused, color }) => <TabClubIcon color={focused ? brand.green : color} />,
+          tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.club')} focused={focused} />,
         }}
       />
       <Tabs.Screen

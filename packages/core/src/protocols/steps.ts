@@ -257,7 +257,7 @@ export interface FieldDef {
   readonly options?: readonly string[];
   /**
    * An enum that takes several of its options: a list of distinct ones,
-   * `minItems` to `maxItems` long (the tournament plan's classes, 0354).
+   * `minItems` to `maxItems` long (the tournament plan's classes, 0356).
    */
   readonly multiple?: boolean;
   /** Lists, id lists, number lists and price maps. */
@@ -481,7 +481,7 @@ const RELEASE_FORMS: Record<string, readonly FieldDef[]> = {
 };
 
 const TOURNAMENT_PLAN_SHORT: readonly FieldDef[] = [
-  // 0354: every class the tournament is for; a guest's level must fit one.
+  // 0356: every class the tournament is for; a guest's level must fit one.
   { name: 'classes', type: 'enum', required: true, options: ['A', 'B', 'C'], multiple: true, minItems: 1, maxItems: 3 },
   // 0339: the players' years bracket. The desk no longer asks it (owner,
   // 2026-10-22); the server still takes one, as from an older build.

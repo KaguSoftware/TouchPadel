@@ -80,10 +80,10 @@ beforeEach(() => {
 describe('Day close ▸ Hand cash to the safe', () => {
   it('lists each box with what it took and an amount prefilled with its net cash', async () => {
     mount();
-    await screen.findByText('Café till');
+    await screen.findByText('Café cashier');
     const cafe = screen.getByTestId('hand-in-cafe');
     expect(cafe.textContent).toContain('Took 1,250,000 IQD in cash, less 20,000 IQD refunded');
-    expect(input('Café till: cash to the safe').value.replace(/\D/g, '')).toBe('1230000');
+    expect(input('Café cashier: cash to the safe').value.replace(/\D/g, '')).toBe('1230000');
     expect(input('Court desk: cash to the safe').value.replace(/\D/g, '')).toBe('90000');
     expect(screen.getByTestId('hand-in-desk').textContent).toContain('Took 90,000 IQD in cash');
     expect(screen.getByRole('button', { name: 'Move 1,320,000 IQD to the safe' })).toBeTruthy();
@@ -110,9 +110,9 @@ describe('Day close ▸ Hand cash to the safe', () => {
   it('sends what the manager typed, skips a box left at 0, and reads it as kept', async () => {
     handIn = () => ({ handed_in: 1, total_iqd: 1000000, balance_iqd: 1000000 });
     mount();
-    await screen.findByText('Café till');
-    await userEvent.clear(input('Café till: cash to the safe'));
-    await userEvent.type(input('Café till: cash to the safe'), '1000000');
+    await screen.findByText('Café cashier');
+    await userEvent.clear(input('Café cashier: cash to the safe'));
+    await userEvent.type(input('Café cashier: cash to the safe'), '1000000');
     await userEvent.clear(input('Court desk: cash to the safe'));
     const button = await screen.findByRole('button', { name: 'Move 1,000,000 IQD to the safe' });
     await userEvent.click(button);
@@ -123,8 +123,8 @@ describe('Day close ▸ Hand cash to the safe', () => {
 
   it('holds the button when every amount is 0', async () => {
     mount();
-    await screen.findByText('Café till');
-    await userEvent.clear(input('Café till: cash to the safe'));
+    await screen.findByText('Café cashier');
+    await userEvent.clear(input('Café cashier: cash to the safe'));
     await userEvent.clear(input('Court desk: cash to the safe'));
     const button = (await screen.findByRole('button', { name: 'Move 0 IQD to the safe' })) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
@@ -135,14 +135,14 @@ describe('Day close ▸ Hand cash to the safe', () => {
     mount();
     await userEvent.click(await screen.findByRole('button', { name: 'Move 1,320,000 IQD to the safe' }));
     expect(await screen.findByRole('alert')).toBeTruthy();
-    expect(screen.getByLabelText('Café till: cash to the safe')).toBeTruthy();
+    expect(screen.getByLabelText('Café cashier: cash to the safe')).toBeTruthy();
   });
 
   it('collapses to one line with the way to the Safe page on "Not now"', async () => {
     mount();
     await userEvent.click(await screen.findByRole('button', { name: 'Not now' }));
     expect(screen.getByText('Not handed in. You can do it from the Safe page.')).toBeTruthy();
-    expect(screen.queryByText('Café till')).toBeNull();
+    expect(screen.queryByText('Café cashier')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Open the Safe page' }));
     expect(navigate).toHaveBeenCalledWith({ href: '/safe' });
   });
@@ -163,7 +163,7 @@ describe('Day close ▸ Hand cash to the safe', () => {
     expect(await screen.findByText('The drawers could not be loaded.')).toBeTruthy();
     failBoxes = false;
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByText('Café till')).toBeTruthy();
+    expect(await screen.findByText('Café cashier')).toBeTruthy();
   });
 
   it('pending mode stays silent when every box is handed in', async () => {

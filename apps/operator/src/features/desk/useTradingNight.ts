@@ -11,7 +11,7 @@
  */
 import { useMemo } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
-import { tradingSpan, wallTimeToUtc, type DayKey } from '@touch/core';
+import { BOOKING_STEP_MIN, tradingSpan, wallTimeToUtc, type DayKey } from '@touch/core';
 import { VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { cachedQuery } from '../../lib/refCache';
@@ -21,7 +21,8 @@ import { RESERVATION_COLUMNS, type ReservationRow } from './deskTypes';
 import { tradingDateOf, type OpeningHours } from './calendar/monthLogic';
 
 export const DAY_KEYS: readonly DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-export const SLOT_MIN = 30;
+/** One desk row = one bookable start: court bookings run on whole hours (Majed, 2026-10-19). */
+export const SLOT_MIN = BOOKING_STEP_MIN;
 
 export function todayInTz(tz: string): string {
   // en-CA is the one common locale whose short date IS YYYY-MM-DD.
@@ -103,7 +104,10 @@ export function useTradingNight(date: string): TradingNight {
   const closedDates = settingsQ.data?.closed_dates ?? [];
   const closed = closedDates.includes(date);
 
-  const { startMin: openMin, endMin: closeMin } = tradingSpan(windows, nextDayWindows);
+  const span = tradingSpan(windows, nextDayWindows);
+  const closeMin = span.endMin;
+  // The first row sits on the hour even when the night opens off it (09:30 opens on 10:00).
+  const openMin = Math.min(Math.ceil(span.startMin / SLOT_MIN) * SLOT_MIN, closeMin);
   const rowCount = Math.max(0, Math.ceil((closeMin - openMin) / SLOT_MIN));
   const rows = useMemo(() => Array.from({ length: rowCount }, (_, i) => openMin + i * SLOT_MIN), [rowCount, openMin]);
 

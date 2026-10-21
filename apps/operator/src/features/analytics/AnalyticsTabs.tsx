@@ -1,7 +1,7 @@
 /**
- * The Courts | Cafe switcher: two bordered buttons, filled when open
- * (.tp-analytics-tab in GlobalStyles), with a `role="tablist"` contract. No
- * role or section filtering (the page is owner-only), and navigation keeps
+ * The Courts | Cafe switcher: a `role="tablist"` drawn as the shared segmented
+ * control (.tp-seg in GlobalStyles; the chosen tab is the green segment).
+ * The page is owner-only, so there is no role filtering, and navigation keeps
  * the search params, so the period, compare basis and court filter survive a
  * tab switch.
  */
@@ -45,12 +45,7 @@ export function AnalyticsTabs({ value }: { value: AnalyticsTab }) {
   }
 
   return (
-    <div
-      role="tablist"
-      aria-label={tr('analytics.title')}
-      onKeyDown={onKeyDown}
-      style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(8.5rem, 11rem))', alignItems: 'stretch', gap: 'var(--tp-sp-2)' }}
-    >
+    <div role="tablist" aria-label={tr('analytics.title')} onKeyDown={onKeyDown} className="tp-seg">
       {ANALYTICS_TABS.map((tab) => {
         const selected = tab.id === value;
         return (
@@ -58,17 +53,13 @@ export function AnalyticsTabs({ value }: { value: AnalyticsTab }) {
             key={tab.id}
             type="button"
             role="tab"
-            className="tp-analytics-tab"
+            className="tp-seg-btn"
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
             onClick={() => open(tab.id)}
           >
-            <span className="tp-analytics-tab-icon" aria-hidden="true">
-              <Icon name={tab.icon} size={16} />
-            </span>
-            <span style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {tr(`ws.analytics.tabs.${tab.id}`)}
-            </span>
+            <Icon name={tab.icon} size={16} />
+            {tr(`ws.analytics.tabs.${tab.id}`)}
           </button>
         );
       })}

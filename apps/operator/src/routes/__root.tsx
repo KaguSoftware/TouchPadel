@@ -8,7 +8,7 @@
  * renders no navigation at all — a wall-mounted kitchen screen has nothing to
  * get lost in.
  *
- * A workspace with SECTIONS (Management: Setup, Operations) shows one rail
+ * A workspace with SECTIONS (Management: Financial, Courts, …) shows one rail
  * button per section; inside one, the rail IS the section — its own header,
  * its own list, and a way back to the workspace. Which section is open comes
  * from the URL, so a deep link and a reload land on the same rail as a click.
@@ -46,7 +46,9 @@ import {
   workspaceOwnsPath,
   workspacesFor,
   workspacesForRole,
+  rowShown,
   rowTarget,
+  workspaceHome,
   type NavGroup,
   type NavItem,
   type NavSearch,
@@ -363,7 +365,8 @@ function WorkspaceShell({ who, venue }: { who: StaffAccess; venue: HeartbeatStat
   // a fresh one every minute.
   const accessKey = `${role}|${(who.extraRoles ?? []).join(',')}|${(who.blockedAreas ?? []).join(',')}`;
   const available = useMemo(() => {
-    const open = workspacesFor(who).filter((key) => canAccess(who, WORKSPACES[key].home));
+    const canOpen = (p: string) => canAccess(who, p);
+    const open = workspacesFor(who).filter((key) => canOpen(workspaceHome(WORKSPACES[key], canOpen)));
     return open.length > 0 ? open : workspacesForRole(role);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessKey]);
@@ -380,10 +383,9 @@ function WorkspaceShell({ who, venue }: { who: StaffAccess; venue: HeartbeatStat
   useEffect(() => {
     const ws = workspaceForRoute(path);
     if (!ws || ws === active || !(available as readonly string[]).includes(ws)) return;
-    // A route the ACTIVE workspace already reaches keeps its own rail. The
-    // owner's Observation section lands on /ops, which is also the manager's
-    // home: without this, one click on Observation threw the owner out of
-    // Management and into the manager rail.
+    // A route the ACTIVE workspace already reaches keeps its own rail: /desk
+    // is the court desk's home AND Management's Courts, and a manager opening
+    // it from Courts must not be thrown onto the desk's rail.
     if (workspaceOwnsPath(active, path)) return;
     setActiveState(ws);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -429,8 +431,8 @@ function WorkspaceShell({ who, venue }: { who: StaffAccess; venue: HeartbeatStat
   // A downloaded update waiting for a restart: a rail row where there is a
   // rail, a floating pill on the kitchen screen, which has none.
   const update = useUpdateReady();
-  // Go to (Ctrl+G): Management and Operations only; the till and the desk keep their keys.
-  const managing = active === 'owner' || active === 'manager';
+  // Go to (Ctrl+G): Management only; the till and the desk keep their keys.
+  const managing = active === 'management';
   const [goToOpen, setGoToOpen] = useState(false);
   useGoToShortcut(managing, () => setGoToOpen(true));
   // The page header reads its family (rail row, tab, strip) from here (kit.tsx PageFamilyContext).
@@ -543,7 +545,7 @@ function useRowsCount(rows: readonly NavItem[]): number {
 /** The rail's own tab check: conditions are read only where a family can carry one. */
 function useRailTabOpen() {
   const ws = useWorkspaceOrNull();
-  return useTabOpen(ws?.active === 'owner' || ws?.active === 'manager');
+  return useTabOpen(ws?.active === 'management');
 }
 
 /** The count at a row's end: nothing at zero, so a quiet rail stays quiet. */
@@ -728,7 +730,7 @@ function WorkspaceNav({
   workspaceKey: WorkspaceKey;
   path: string;
   update: UpdateReadyInfo | null;
-  /** Opens Go to; Management and Operations only. */
+  /** Opens Go to; Management only. */
   onGoTo?: () => void;
 }) {
   const { tr } = useLocale();
@@ -775,9 +777,10 @@ function WorkspaceNav({
   const search = useRouterState({ select: (s) => s.location.search }) as NavSearch;
   const section = sectionForPath(workspace, path, search);
   // A family row is printed when the person may open any of its pages; a
-  // plain row when they may open the row's own.
+  // plain row when they may open the row's own; a row with `unless` only for
+  // someone who may not open the page it stands in for.
   const canOpenTab = useRailTabOpen();
-  const rowVisible = (row: NavItem) => (row.tabs?.length ? row.tabs.some(canOpenTab) : canAccess(staff, row.to));
+  const rowVisible = (row: NavItem) => rowShown(row, (p) => canAccess(staff, p), canOpenTab);
   // A section is printed when the person may open any of its rows, and its
   // button opens the first of them.
   const sections = (workspace.sections ?? []).flatMap((sec) => {
@@ -879,7 +882,7 @@ function WorkspaceNav({
               className="tp-rail-back"
               style={{ marginBlockStart: 'var(--tp-sp-2-5)', font: 'inherit', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, cursor: 'pointer', textAlign: 'start' }}
               aria-label={tr('ws.shell.nav.backTo', { workspace: tr(`ws.shell.workspace.${workspaceKey}`) })}
-              onClick={() => void navigate({ to: workspace.home })}
+              onClick={() => void navigate({ to: workspaceHome(workspace, (p) => canAccess(staff, p)) })}
             >
               <ChevronBack size={14} />
               <span style={railLabelStyle}>
@@ -959,7 +962,7 @@ function WorkspaceNav({
 
       <div style={{ borderBlockStart: '1px solid var(--tp-rail-border)', paddingBlock: 'var(--tp-sp-2-5)', paddingInline: RAIL_PAD, display: 'grid', gap: 'var(--tp-sp-0)' }}>
         {/* The workspace's guide, first in the footer so it is always in
-            reach. Renders nothing where there is no guide (manager, owner). */}
+            reach. Renders nothing where there is no guide (Management). */}
         <GuideRailButton style={navButtonStyle} />
         {/* Workspace, assistant, language and appearance behind one row. The
             assistant is owner-only and the switch manager-and-up, so the menu

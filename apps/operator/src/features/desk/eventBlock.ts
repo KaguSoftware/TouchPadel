@@ -45,7 +45,7 @@ export interface ContextRange {
 
 export interface TournamentContext {
   name: Names;
-  /** 0354: every class of the plan; a server before it sends only `class`. */
+  /** 0356: every class of the plan; a server before it sends only `class`. */
   tournamentClasses: string[];
   format: string | null;
   capacity: { unit: 'players' | 'pairs'; count: number } | null;

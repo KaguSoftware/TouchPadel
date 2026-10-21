@@ -791,7 +791,7 @@ describe('matchErrorKey (§5.20): every detail row', () => {
       ['SEAT_MARK_LOCKED', 'ticket_used', 'The ticket that came back has already been used in another match.'],
       ['SEAT_MARK_LOCKED', 'court_reused', 'The court was booked again after this match closed.'],
       ['SEAT_MARK_LOCKED', 'replaced', 'Someone has taken this seat since, so the no-show stays.'],
-      ['SEAT_MARK_LOCKED', 'paid', 'This player has paid. Refund the payment at the till before marking a no-show.'],
+      ['SEAT_MARK_LOCKED', 'paid', 'This player has paid. Refund the payment at the café cashier before marking a no-show.'],
       ['SEAT_MARK_LOCKED', 'match_ended', 'This match has ended, so a mark can only be switched between arrived and no-show.'],
       ['INVALID_TRANSITION', 'marked', 'Undo the mark first.'],
       ['INVALID_TRANSITION', 'not_carrier', 'This player no longer holds a seat in the match.'],
@@ -802,7 +802,7 @@ describe('matchErrorKey (§5.20): every detail row', () => {
       ['INVALID_TRANSITION', 'ended', 'This player has already left the match.'],
       ['FORBIDDEN', 'manager_required', 'After booking, only a manager removes a seat for a staff error or a duplicate.'],
       ['PAYMENT_STATE', 'empty', 'Nothing has been paid on this bill yet. Take the shares under Players instead.'],
-      ['PAYMENT_STATE', 'over_paid', 'More was paid on this bill than the booking now owes. A manager refunds the difference at the till.'],
+      ['PAYMENT_STATE', 'over_paid', 'More was paid on this bill than the booking now owes. A manager refunds the difference at the café cashier.'],
       ['PAYMENT_STATE', 'ticket', 'Ticket purchases are refunded only by a cash-out.'],
       ['INVALID_ARGUMENT', 'already_linked', 'This payment is already assigned to that player.'],
     ];

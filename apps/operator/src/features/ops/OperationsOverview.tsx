@@ -1,11 +1,11 @@
 /**
- * Today (/ops): the Operations workspace's landing screen, rebuilt from zero
+ * Today (/ops): the manager's landing screen in Management, rebuilt from zero
  * on 2026-10-16 ("you are Majed": the old one was eight boxes of equal weight,
  * four to-do lists in three designs, the same figure in two or three places,
  * red and amber on things nothing can undo, and buttons and chevrons you could
  * not predict). The owner reads the same body (FloorNow) on Observe's overview,
  * with their own rows added to "Needs you" and the live floor plan under the
- * floor; an owner who opens /ops outside the Operations workspace is sent there.
+ * floor; an owner who opens /ops is sent there.
  *
  * HOW IT READS
  *
@@ -40,7 +40,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatTime } from '@touch/i18n';
 import { canAccess, useAuth } from '../../lib/auth';
-import { useWorkspaceOrNull } from '../../routes/__root';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
 import { useBroadcast } from '../../lib/realtime';
@@ -126,13 +125,10 @@ function useFloorNowHeading(): { subtitle: string | undefined; actions: ReactNod
 export function OperationsOverviewScreen() {
   const { staff } = useAuth();
   const navigate = useNavigate();
-  const workspace = useWorkspaceOrNull();
   // The owner reads what needs them on the Overview (/panel, page map
-  // 2026-10-17), so /ops is not a second copy of it. Not in the Operations
-  // workspace, though: /ops is its home, and sending the owner on to /panel
-  // there swapped the rail straight back to Management, so an owner could
-  // never switch into Operations.
-  const toOverview = workspace?.active !== 'manager' && canAccess(staff, '/panel');
+  // 2026-10-17), so /ops is not a second copy of it: Today is the manager's
+  // home in Management, and an owner who lands here goes on to the Overview.
+  const toOverview = canAccess(staff, '/panel');
   useEffect(() => {
     if (toOverview) void navigate({ to: '/panel', replace: true });
   }, [toOverview, navigate]);

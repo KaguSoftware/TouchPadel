@@ -452,7 +452,7 @@ export function TournamentStartSheet({
                       />
                     </Field>
                   </div>
-                  {/* 0354: one or more classes, each card a toggle; a guest whose level
+                  {/* 0356: one or more classes, each card a toggle; a guest whose level
                       fits any of them can register. The years played are no longer asked. */}
                   <Field
                     label={tr(`${F}.classes`)}

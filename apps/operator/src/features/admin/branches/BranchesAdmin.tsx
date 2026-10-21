@@ -1,6 +1,7 @@
 /**
- * Setup › Branches (multi-venue slice 4, plan MV1): every Touch location, the
- * owner's "Open a new branch", and the checklist a new branch works through
+ * Settings › Branches (multi-venue slice 4, plan MV1; merged with Club details
+ * 2026-10-18): every Touch location, the owner's "Open a new branch", and,
+ * on the branch's Club details page, the checklist a new branch works through
  * before "Open to guests".
  *
  * - Create copies the setup of a branch the owner picks (app.create_branch,
@@ -17,12 +18,14 @@ import { useNavigate } from '@tanstack/react-router';
 import type { MessageKey } from '@touch/i18n';
 import { supabase } from '../../../lib/supabase';
 import { appRpc } from '../../../lib/appRpc';
+import { can, useAuth } from '../../../lib/auth';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { useVenue, type VenueStatus } from '../../../lib/venue';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Button, ErrorText, Field, Modal, Select, Skeleton, inputStyle } from '../../../components/ui';
 import { EmptyState, PageHeader, Panel, StatusBadge, type Tone } from '../../../components/kit';
+import { ChevronBack, ChevronForward } from '../../../components/icons';
 import { coachingErrorText } from '../../coaching/lessonLogic';
 import {
   createBranchArgs,
@@ -63,12 +66,9 @@ const FIX_ROUTE: Record<ReadinessKey, string> = {
 
 export const BRANCHES_KEY = ['branches', 'all'] as const;
 
-export function BranchesAdmin() {
-  const { tr, locale } = useLocale();
-  const [creating, setCreating] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-
-  const branchesQ = useQuery({
+/** Every branch, closed ones too (Settings › Branches, and the branch panel on Club details). */
+export function useBranches() {
+  return useQuery({
     queryKey: BRANCHES_KEY,
     queryFn: async (): Promise<BranchRow[]> => {
       const { data, error } = await supabase
@@ -79,9 +79,30 @@ export function BranchesAdmin() {
       return (data ?? []) as unknown as BranchRow[];
     },
   });
+}
 
-  const branches = branchesQ.data ?? [];
-  const current = branches.find((b) => b.id === selected) ?? branches.find((b) => b.status === 'preparing') ?? null;
+/**
+ * Settings › Branches: one card per branch. Opening one switches the operator
+ * to it and lands on its Club details (`/admin/settings`), where its checklist,
+ * Open and Close sit beside the details. A closed branch has nothing left to
+ * change and stays a plain row; a station only opens its own branch. A
+ * manager sees the branches they work at, and opens or creates none.
+ */
+export function BranchesAdmin() {
+  const { tr, locale } = useLocale();
+  const navigate = useNavigate();
+  const { staff } = useAuth();
+  const manage = can(staff, 'manageBranches');
+  const { setBranch, canSwitch, branchId, venues } = useVenue();
+  const [creating, setCreating] = useState(false);
+  const branchesQ = useBranches();
+  const all = branchesQ.data ?? [];
+  const branches = manage ? all : all.filter((b) => venues.some((v) => v.id === b.id));
+
+  const openBranch = (id: string) => {
+    if (canSwitch && id !== branchId) setBranch(id);
+    void navigate({ to: '/admin/settings' });
+  };
 
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
@@ -89,66 +110,116 @@ export function BranchesAdmin() {
         title={tr('ws.branches.list.title')}
         subtitle={tr('ws.branches.list.intro')}
         actions={
-          <Button kind="primary" icon="plus" onClick={() => setCreating(true)} data-testid="branches-open-new">
-            {tr('ws.branches.list.openNew')}
-          </Button>
+          manage ? (
+            <Button kind="primary" icon="plus" onClick={() => setCreating(true)} data-testid="branches-open-new">
+              {tr('ws.branches.list.openNew')}
+            </Button>
+          ) : undefined
         }
       />
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'minmax(16rem, 1fr) minmax(20rem, 1.4fr)', alignItems: 'start' }}>
-        <Panel title={tr('ws.branches.list.title')}>
-          {branchesQ.isPending ? (
-            <Skeleton lines={4} />
-          ) : branchesQ.error ? (
-            <ErrorText error={branchesQ.error} />
-          ) : branches.length === 0 ? (
-            <EmptyState title={tr('ws.branches.list.empty')} compact />
-          ) : (
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-              {branches.map((b) => (
-                <li key={b.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelected(b.id)}
-                    aria-pressed={current?.id === b.id}
-                    style={{
-                      inlineSize: '100%',
-                      textAlign: 'start',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: 'var(--tp-sp-2)',
-                      padding: 'var(--tp-sp-2)',
-                      borderRadius: 'var(--tp-radius-ctl)',
-                      border: '1px solid var(--tp-border)',
-                      background: current?.id === b.id ? 'var(--tp-surface-2)' : 'var(--tp-surface)',
-                      color: 'var(--tp-fg)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <span style={{ display: 'grid' }}>
+      {branchesQ.isPending ? (
+        <Skeleton lines={4} />
+      ) : branchesQ.error ? (
+        <ErrorText error={branchesQ.error} />
+      ) : branches.length === 0 ? (
+        <EmptyState title={tr('ws.branches.list.empty')} compact />
+      ) : (
+        <ul
+          style={{
+            listStyle: 'none',
+            margin: 0,
+            padding: 0,
+            display: 'grid',
+            gap: 'var(--tp-sp-2)',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))',
+            maxInlineSize: 'var(--tp-measure-wide)',
+          }}
+        >
+          {branches.map((b) => {
+            const closed = b.status === 'closed';
+            const reachable = !closed && (canSwitch || branchId === b.id);
+            const address = locale === 'ar' ? b.address_ar ?? b.address_en : b.address_en ?? b.address_ar;
+            return (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  onClick={() => openBranch(b.id)}
+                  disabled={!reachable}
+                  title={closed || reachable ? undefined : tr('ws.branches.readiness.otherBranchHint')}
+                  aria-current={branchId === b.id ? 'true' : undefined}
+                  data-testid={`branch-card-${b.slug}`}
+                  style={{
+                    inlineSize: '100%',
+                    blockSize: '100%',
+                    textAlign: 'start',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--tp-sp-2)',
+                    padding: 'var(--tp-sp-3)',
+                    borderRadius: 'var(--tp-radius-ctl)',
+                    border: `1px solid ${branchId === b.id ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
+                    background: 'var(--tp-surface)',
+                    color: 'var(--tp-fg)',
+                    cursor: reachable ? 'pointer' : 'default',
+                    opacity: closed ? 0.6 : 1,
+                  }}
+                >
+                  <span style={{ display: 'grid', gap: 'var(--tp-sp-1)', flex: 1, minInlineSize: 0 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
                       <strong>{pickName(locale, b)}</strong>
-                      <span dir="ltr" style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{b.slug}</span>
+                      <StatusBadge size="sm" tone={STATUS_TONE[b.status]} label={tr(`ws.branches.status.${b.status}` as MessageKey)} />
+                      {branchId === b.id && <StatusBadge size="sm" tone="info" label={tr('ws.branches.list.current')} />}
                     </span>
-                    <StatusBadge size="sm" tone={STATUS_TONE[b.status]} label={tr(`ws.branches.status.${b.status}` as MessageKey)} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-        {current && <BranchPanel branch={current} />}
-      </div>
+                    {(address || b.phone) && (
+                      <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+                        {address}
+                        {b.phone ? <span dir="ltr">{address ? ' · ' : ''}{b.phone}</span> : null}
+                      </span>
+                    )}
+                  </span>
+                  {reachable && <ChevronForward size={18} />}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
       {creating && (
         <CreateBranchDialog
           branches={branches.filter((b) => b.status !== 'closed')}
           onClose={() => setCreating(false)}
           onCreated={(id) => {
             setCreating(false);
-            setSelected(id);
+            openBranch(id);
           }}
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The top of a branch's Club details page: the way back to the cards and,
+ * for the owner, where the branch stands, its checklist, Open and Close.
+ */
+export function CurrentBranchPanel() {
+  const { tr } = useLocale();
+  const navigate = useNavigate();
+  const { staff } = useAuth();
+  const manage = can(staff, 'manageBranches');
+  const { branchId } = useVenue();
+  const branchesQ = useBranches();
+  const branch = branchesQ.data?.find((b) => b.id === branchId);
+  return (
+    <>
+      {/* Club details is reached from a branch card only, so it leads back to the cards. */}
+      <div>
+        <Button kind="ghost" size="sm" onClick={() => void navigate({ to: '/admin/branches' })} data-testid="branch-details-back">
+          <ChevronBack size={16} /> {tr('ws.branches.list.title')}
+        </Button>
+      </div>
+      {!manage ? null : branchesQ.error ? <ErrorText error={branchesQ.error} /> : branch ? <BranchPanel branch={branch} /> : null}
+    </>
   );
 }
 
@@ -191,6 +262,8 @@ function BranchPanel({ branch }: { branch: BranchRow }) {
     onSuccess: async () => {
       toast.ok(tr('ws.branches.readiness.closed', { name }));
       await refresh();
+      // A closed branch leaves the switcher; its details page would show another branch.
+      void navigate({ to: '/admin/branches' });
     },
     // Coaching R37: BRANCH_HAS_BOOKINGS `coaching_money` (statements to approve
     // or pay, a month not drafted, lesson money to refund) has its own line;

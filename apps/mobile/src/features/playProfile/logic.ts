@@ -45,7 +45,8 @@ export const SURVEY_STEPS = ['level', 'years', 'wants', 'gender'] as const;
 export type SurveyStep = (typeof SURVEY_STEPS)[number];
 
 /** The gender step's tiles. `none` ("Prefer not to say") writes nothing. */
-export const GENDER_CHOICES = ['female', 'male', 'none'] as const;
+// No "prefer not to say": a gender is a must for every account (0353, Majed 2026-10-19).
+export const GENDER_CHOICES = ['female', 'male'] as const;
 export type GenderChoice = (typeof GENDER_CHOICES)[number];
 
 /**

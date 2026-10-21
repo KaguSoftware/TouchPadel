@@ -119,7 +119,7 @@ export interface TourListItem {
   nameAr: string | null;
   format: TourFormat | null;
   category: MatchCategory;
-  /** 0354: every class it is for (A-B-C order); empty from a server before 0339 asks nothing. */
+  /** 0356: every class it is for (A-B-C order); empty from a server before 0339 asks nothing. */
   tourClasses: TourClass[];
   /** 0339: null asks nothing about years. */
   playYears: TourYears | null;
@@ -144,7 +144,7 @@ export interface TournamentsPublic {
   tournaments: TourListItem[];
 }
 
-/** 0354 `classes`, else the one `class` of a server before it, else none. */
+/** 0356 `classes`, else the one `class` of a server before it, else none. */
 function classesOf(o: Json): TourClass[] {
   // Both are read every time: the shape test holds the parser to its keys.
   const one = oneOf(o.class, TOUR_CLASSES);
@@ -246,7 +246,7 @@ export interface TournamentPublic {
   nameAr: string | null;
   format: TourFormat | null;
   category: MatchCategory;
-  /** 0354: every class it is for; empty asks nothing. */
+  /** 0356: every class it is for; empty asks nothing. */
   tourClasses: TourClass[];
   playYears: TourYears | null;
   pointsTarget: number | null;

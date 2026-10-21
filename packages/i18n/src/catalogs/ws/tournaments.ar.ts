@@ -257,10 +257,10 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
   },
   refundsDue: {
     title: 'المبالغ المستحق ردّها',
-    lead: 'يُردّ كل مبلغ من الصندوق، على الدفعة التي دُفع بها.',
+    lead: 'يُردّ كل مبلغ من كاشير الكافيه، على الدفعة التي دُفع بها.',
     empty: 'لا يوجد مبلغ مستحق الرد.',
     row: '{name}: {amount} مستحق الرد',
-    openTill: 'فتح الصندوق',
+    openTill: 'فتح كاشير الكافيه',
   },
   calendar: {
     blockLabel: 'بطولة: {name}',

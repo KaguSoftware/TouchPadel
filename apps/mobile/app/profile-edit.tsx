@@ -329,7 +329,8 @@ function choosePhotoAction(
   });
 }
 
-type GenderPick = 'female' | 'male' | 'none';
+// No "prefer not to say": a gender is a must for every account (0353).
+type GenderPick = 'female' | 'male';
 
 /** How long a native sheet takes to slide away before an alert can present. */
 const SHEET_DISMISS_MS = 450;
@@ -391,12 +392,10 @@ function Hub() {
   };
 
   // Asked once (OM-28), confirmed first because only the desk can change it.
-  // "Prefer not to say" writes nothing and closes the sheet. The sheet closes
-  // first and the alert waits out its slide: UIKit drops an alert presented
-  // while a sheet is still dismissing.
+  // The sheet closes first and the alert waits out its slide: UIKit drops an
+  // alert presented while a sheet is still dismissing.
   const onSetGender = () => {
     setGenderOpen(false);
-    if (genderPick === 'none') return;
     const choice = genderPick;
     const value = t(choice === 'female' ? 'matches.gender.female' : 'matches.gender.male');
     setTimeout(confirmGender, Platform.OS === 'ios' ? SHEET_DISMISS_MS : 0, choice, value);
@@ -438,11 +437,10 @@ function Hub() {
         options={[
           { value: 'female', label: t('matches.gender.female') },
           { value: 'male', label: t('matches.gender.male') },
-          { value: 'none', label: t('profile.genderPreferNot') },
         ]}
         value={genderPick}
         onChange={setGenderPick}
-        confirmLabel={t(genderPick === 'none' ? 'common.done' : 'profile.genderConfirm')}
+        confirmLabel={t('profile.genderConfirm')}
         onConfirm={onSetGender}
         onClose={() => setGenderOpen(false)}
       />

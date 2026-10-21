@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../../lib/i18n';
@@ -168,7 +168,10 @@ describe('CourtsTab', () => {
     // Cancellations and no-shows are one lead figure: 16 of 64 booked is 25%, both counts named.
     const lostTile = within(pulse).getByText('Cancelled or no-show').closest('div')!;
     expect(within(lostTile).getByText('25%', { selector: 'strong' })).toBeTruthy();
-    expect(within(lostTile).getByText('12 cancelled · 4 no-shows')).toBeTruthy();
+    // Both counts are named, each beside the colour key of its arc in the tile's ring.
+    expect(within(lostTile).getByText('12 cancelled')).toBeTruthy();
+    expect(within(lostTile).getByText('4 no-shows')).toBeTruthy();
+    expect(within(lostTile).getByRole('img', { name: '25% of bookings cancelled or not shown' })).toBeTruthy();
     // It was 10 of 50 (20%) before; a rate's change is never printed as a percent of a percent.
     expect(lostTile.textContent).toMatch(/was 20%/);
     expect(lostTile.textContent).not.toMatch(/\+5%/);
@@ -176,6 +179,8 @@ describe('CourtsTab', () => {
     const priceRow = within(pulse).getByText('Price per booked hour').closest('li')!;
     expect(within(priceRow).getByText('20,000 IQD', { selector: 'strong' })).toBeTruthy();
     // Tournament hours are named beside them (event_court_blocks): 240 minutes in both windows.
+    // The card shows three rows; the rest are behind its "View more".
+    fireEvent.click(within(pulse).getAllByRole('button', { name: /View more/ })[0]!);
     const eventsRow = within(pulse).getByText('Event hours').closest('li')!;
     expect(within(eventsRow).getByText('4', { selector: 'strong' })).toBeTruthy();
     expect(eventsRow.textContent).toMatch(/was 4/);

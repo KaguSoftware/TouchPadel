@@ -212,7 +212,11 @@ test.describe('operator journeys', () => {
     // −1 stops at one; taking the line off is its own button.
     await page.getByRole('button', { name: 'Remove line' }).last().click();
     await expect(page.getByText(/× Kunafa/)).toHaveCount(0);
+    // The open basket covers the category row on a short window: fold it for
+    // the tap, then open it again to read the lines.
+    await foldBasket(page);
     await page.getByRole('button', { name: /Hot Drinks/ }).click();
+    await page.getByRole('button', { name: 'Show the basket lines' }).click();
 
     // ---- send to kitchen --------------------------------------------------
     // Basket: (4,000 + 1,000) + 3,000 = 8,000
@@ -267,10 +271,10 @@ test.describe('operator journeys', () => {
       await page.getByTitle('Free').nth(8).click();
       const dialog = page.getByRole('dialog', { name: 'New booking' });
       await dialog.getByLabel('Guest name').fill(name);
-      // 90 minutes, so shortening lands on 60 — a duration the fixture rate
-      // rules actually price. The venue sells 60/90/120; shortening to 30 has
-      // no price and the server rightly refuses it.
-      await choose(dialog.getByLabel('Duration'), '90');
+      // 120 minutes, so shortening (a whole hour since 2026-10-19: bookings
+      // start and end on the hour) lands on 60, a duration the fixture rate
+      // rules actually price.
+      await choose(dialog.getByLabel('Duration'), '120');
       await dialog.getByRole('button', { name: 'Create booking' }).click();
       await expect(dialog).toBeHidden();
 
@@ -301,7 +305,7 @@ test.describe('operator journeys', () => {
         .select('end_at')
         .eq('id', reservationId)
         .single();
-      await actions.getByRole('button', { name: 'Shorten −30 min' }).click();
+      await actions.getByRole('button', { name: 'Shorten −1 hour' }).click();
 
       await expect(async () => {
         const { data } = await svc

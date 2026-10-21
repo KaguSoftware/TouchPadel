@@ -215,7 +215,7 @@ export const TOURNAMENT_SHAPES = {
       'format',
       'category',
       'class',
-      // 0354: every class it is for; class is the first of them.
+      // 0356: every class it is for; class is the first of them.
       'classes',
       'points_target',
       'rounds_planned',
@@ -292,7 +292,7 @@ export const TOURNAMENT_SHAPES = {
         'category',
         // 0339: who it is for. class A | B | C (advanced, intermediate, beginners);
         // play_years the years bracket (under_one | one_to_three | three_plus), null = any.
-        // 0354: classes, every class it is for (A-B-C order); class is the first.
+        // 0356: classes, every class it is for (A-B-C order); class is the first.
         'class',
         'classes',
         'play_years',

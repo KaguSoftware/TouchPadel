@@ -31,7 +31,8 @@ export type DraftProblem = 'weekdays' | 'weeks' | 'end' | 'court' | 'time' | 'pa
  */
 export function draftProblem(d: SeriesDraft, today?: string): DraftProblem {
   if (!d.courtId) return 'court';
-  if (!/^\d{2}:\d{2}$/.test(d.startTime)) return 'time';
+  // Court bookings start on the hour: '20:30' is refused here, not by the server.
+  if (!/^\d{2}:00$/.test(d.startTime)) return 'time';
   if (d.pattern === 'weekdays' && d.weekdays.length === 0) return 'weekdays';
   if (today !== undefined && d.startsOn < today) return 'past';
   if (d.endMode === 'weeks' && (!Number.isInteger(d.weeks) || d.weeks < 1)) return 'weeks';

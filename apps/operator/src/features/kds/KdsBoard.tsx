@@ -20,7 +20,7 @@ import { useLocale } from '../../lib/i18n';
 import { can, canAccess, useAuth } from '../../lib/auth';
 import { QK } from '../../lib/queryKeys';
 import { useWorkspaceOrNull } from '../../routes/__root';
-import { WORKSPACES, type WorkspaceKey } from '../../lib/workspaces';
+import { WORKSPACES, workspaceHome, type WorkspaceKey } from '../../lib/workspaces';
 import { asyncStatus, type AsyncStatus } from '../../components/kit';
 import { lanTicketViews, useLanTickets, useVariantNames } from './LanBoard';
 import { useKdsAlarms } from './useKdsAlarms';
@@ -235,8 +235,8 @@ export function KdsBoard() {
     // Several to choose from and nothing here knows which they want, so the
     // switcher asks. The active workspace is already theirs by then, so it
     // renders in the desk palette and "You are here" points at the right tile.
-    void navigate({ to: several ? '/workspaces' : WORKSPACES[exitTo].home });
-  }, [exitTo, several, navigate, workspace]);
+    void navigate({ to: several ? '/workspaces' : workspaceHome(WORKSPACES[exitTo], (p) => canAccess(staff, p)) });
+  }, [exitTo, several, navigate, workspace, staff]);
   // The shell's workspace guide: the legend's pill and the `?` key.
   const guide = useGuideOrNull();
 

@@ -240,10 +240,9 @@ export function UsagePageScreen() {
   );
 }
 
+// The ground and ink come from `.tp-table tfoot td`: every total row is Padel
+// Green (Sait, 2026-10-19).
 const totalCell = {
-  fontWeight: 600,
-  background: 'var(--tp-surface-2)',
-  borderBlockStart: '1px solid var(--tp-border)',
   borderBlockEnd: 'none',
 } as const;
 

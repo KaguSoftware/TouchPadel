@@ -4,10 +4,15 @@
  * desk creates a real guest account (auth user + profile) through a
  * staff-gated edge function, so the guest can later claim it").
  *
- *   POST { fullName, phone, email?, preferredLang: 'en' | 'ar' }  ->  201 { id }
+ *   POST { fullName, phone, email?, preferredLang: 'en' | 'ar', gender?: 'female' | 'male' }
+ *     ->  201 { id }
+ *
+ * gender (0353): the operator asks for it on every new customer, so women's
+ * and men's hours can hold. Optional here only so a station still on an older
+ * build can register a walk-in; when given it must be female or male.
  *
  * Errors (JSON `{ error, message }`):
- *   400 BAD_REQUEST      — body shape, name length, preferredLang
+ *   400 BAD_REQUEST      — body shape, name length, preferredLang, gender
  *   400 INVALID_PHONE    — fewer than 7 or more than 15 digits once normalised
  *   409 DUPLICATE_PHONE  — a live profile already holds the number's key (canonical
  *                          form, 0065 app.phone_canon: 0770… ≡ +964770… ≡ ٠٧٧٠…;
@@ -54,6 +59,7 @@ import {
 } from './phone.ts';
 
 const LANGS = ['en', 'ar'] as const;
+const GENDERS = ['female', 'male'] as const;
 type Lang = (typeof LANGS)[number];
 
 interface CreateBody {
@@ -61,6 +67,7 @@ interface CreateBody {
   phone: string;
   email?: string | null;
   preferredLang: Lang;
+  gender?: 'female' | 'male' | null;
 }
 
 function badRequest(message: string): Response {
@@ -113,11 +120,15 @@ Deno.serve(handle('desk-customer-create', async (req) => {
   const fullName = typeof body?.fullName === 'string' ? body.fullName.trim() : '';
   const phone = typeof body?.phone === 'string' ? body.phone.trim() : '';
   const preferredLang = body?.preferredLang;
+  const gender = body?.gender ?? null;
   const givenEmail =
     typeof body?.email === 'string' && body.email.trim() !== '' ? body.email.trim().toLowerCase() : null;
 
   if (!fullName || fullName.length > 80) return badRequest('fullName must be 1-80 characters');
   if (!LANGS.includes(preferredLang)) return badRequest(`preferredLang must be one of ${LANGS.join(', ')}`);
+  if (gender !== null && !(GENDERS as readonly string[]).includes(gender)) {
+    return badRequest(`gender must be one of ${GENDERS.join(', ')}`);
+  }
   if (!isValidPhone(phone)) {
     return json(
       {
@@ -175,6 +186,7 @@ Deno.serve(handle('desk-customer-create', async (req) => {
     p_phone: phone,
     p_preferred_lang: preferredLang,
     p_actor_id: caller.userId,
+    p_gender: gender,
   });
 
   if (error) {

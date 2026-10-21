@@ -31,6 +31,7 @@ const SCOPE_TITLES: Readonly<Record<AssistantScope, string>> = {
   howto: 'How-to',
   docs: 'Docs',
   tables: 'Tables',
+  files: 'Files',
 };
 
 /**

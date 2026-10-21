@@ -135,7 +135,7 @@ function OptionCard({
   title: string;
   tag?: { label: string; tone: Tone } | null;
   body?: string | null;
-  /** One of several that may all be on (the classes, 0354): a checkbox, not a radio. */
+  /** One of several that may all be on (the classes, 0356): a checkbox, not a radio. */
   multiple?: boolean;
   onPick: () => void;
 }) {
@@ -386,7 +386,7 @@ export function TournamentPlanStep({
               {textField('staff-start.plan.name_en', `${F}.name_en` as MessageKey, plan.nameEn, (nameEn) => set({ nameEn }), issueText('name_en', plan.nameEn.trim() === ''), { latin: true })}
               {textField('staff-start.plan.name_ar', `${F}.name_ar` as MessageKey, plan.nameAr, (nameAr) => set({ nameAr }), issueText('name_ar', plan.nameAr.trim() === ''))}
             </Card>
-            {/* 0354: one or more classes; the years played are no longer asked. */}
+            {/* 0356: one or more classes; the years played are no longer asked. */}
             <Group
               title={t(`${F}.classes` as MessageKey)}
               hint={t(`${S}.classesHint` as MessageKey)}

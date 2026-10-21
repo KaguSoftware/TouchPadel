@@ -206,7 +206,7 @@ describe('TournamentStartSheet', () => {
     expect(document.activeElement?.getAttribute('aria-selected')).toBe('true');
   });
 
-  it('switches each class card on and off on its own (0354: several classes)', async () => {
+  it('switches each class card on and off on its own (0356: several classes)', async () => {
     const user = userEvent.setup();
     mount();
     await user.click(menu().getByRole('button', { name: /^Name/ }));

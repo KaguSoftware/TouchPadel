@@ -9,6 +9,7 @@ import {
   formatNumber,
   formatTime,
   formatTimeRange,
+  formatTimeRangeShort,
   formatWeekdayShort,
 } from '../formatting';
 
@@ -96,6 +97,19 @@ describe('day-strip / badge / range formatters', () => {
     expect(out.startsWith('⁨')).toBe(true);
     expect(out.endsWith('⁩')).toBe(true);
     expect(out).toContain('–');
+  });
+
+  it('formatTimeRangeShort says the period once and the minutes only off the hour', () => {
+    const at = (iso: string) => new Date(iso);
+    const strip = (s: string) => s.replace(/[\u2066-\u2069]/g, '');
+    // Baghdad is UTC+3.
+    expect(strip(formatTimeRangeShort(at('2026-09-01T13:00:00Z'), at('2026-09-01T14:00:00Z'), 'en'))).toBe('4–5:00 PM');
+    expect(strip(formatTimeRangeShort(at('2026-09-01T14:30:00Z'), at('2026-09-01T15:30:00Z'), 'en'))).toBe('5:30–6:30 PM');
+    expect(strip(formatTimeRangeShort(at('2026-09-01T14:00:00Z'), at('2026-09-01T15:30:00Z'), 'en'))).toBe('5:00–6:30 PM');
+    expect(strip(formatTimeRangeShort(at('2026-09-01T08:00:00Z'), at('2026-09-01T10:00:00Z'), 'en'))).toBe('11 AM–1:00 PM');
+    const ar = formatTimeRangeShort(at('2026-09-01T13:00:00Z'), at('2026-09-01T14:00:00Z'), 'ar');
+    expect(ar.startsWith('\u2068')).toBe(true);
+    expect(strip(ar)).toMatch(/^4–5:00 /);
   });
 });
 

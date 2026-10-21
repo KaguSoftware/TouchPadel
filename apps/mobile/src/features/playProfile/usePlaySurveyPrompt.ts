@@ -5,6 +5,7 @@ import { hasPendingIntent, usePendingIntent } from '../booking/pendingIntent';
 import { isStaffArea } from '../staff/status';
 import { useStaffStatus } from '../staff/StaffStatusProvider';
 import { addBreadcrumb } from '../../lib/telemetry';
+import { useOwnProfile } from '../profile/hooks';
 import { usePlayProfile } from './hooks';
 import {
   calmDelayMs,
@@ -53,7 +54,13 @@ export function usePlaySurveyPrompt(): void {
     shownThisSession: uid ? surveyShownThisSession(uid) : false,
   });
 
-  const ready = shouldOpenSurvey(input(mountedAt));
+  // A gender owed (0353) goes first: useGenderGate sends the guest to
+  // complete-profile from the same calm landing, and the survey waits for the
+  // next one, which then has no gender question left to ask.
+  const own = useOwnProfile(!!user && !user.is_anonymous);
+  const genderOwed = own.data?.gender === null;
+
+  const ready = !genderOwed && shouldOpenSurvey(input(mountedAt));
 
   useEffect(() => {
     if (!ready || !uid) return;

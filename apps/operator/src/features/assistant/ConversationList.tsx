@@ -1,24 +1,57 @@
 /**
- * The owner's chats (plan §5.1), newest first, with what each may read and
- * what it has cost. Archive is a move out of this list, never a delete
- * (decision 7), and it asks first.
+ * The owner's chats (plan §5.1) as design L1 (2026-10-20): grouped by day,
+ * each row its title, cost, what it reads and its time (ChatListView), with
+ * Archive on hover. Archive is a move out of this list, never a delete
+ * (decision 7), and it asks first. The footer counts the chats, says what the
+ * month has cost, and opens the archived ones, which can be read but not yet
+ * brought back (no RPC restores one).
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatDate } from '@touch/i18n';
+import { VENUE_TZ } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
+import { Icon } from '../../components/icons';
+import { QK as SHARED_QK, fetchVenueSettings } from '../../lib/queries';
 import { useToast } from '../../components/toast';
 import { useConfirm } from '../../components/ConfirmDialog';
-import { Button, ErrorText, Spinner } from '../../components/ui';
+import { ErrorText, Spinner } from '../../components/ui';
 import { formatUsd } from '../../lib/assistantPricing';
-import { QK, archiveConversation, fetchConversations, type ConversationRow } from './api';
-import { scopeLabel } from './Sources';
+import { QK, archiveConversation, fetchArchivedConversations, fetchConversations, fetchUsage, type ConversationRow } from './api';
+import { ChatListView, type ChatItem } from './ChatListView';
+import { monthSoFar } from './usageDates';
 
-export function ConversationList({ activeId, onSelect, onNew, onArchived }: { activeId: string | null; onSelect: (id: string) => void; onNew: () => void; onArchived?: (id: string) => void }) {
-  const { tr, locale } = useLocale();
+const toItem = (row: ConversationRow, untitled: string): ChatItem => ({
+  id: row.id,
+  title: row.title?.trim() || untitled,
+  at: new Date(row.updated_at ?? row.created_at),
+  scopes: row.scopes,
+  cost: (row.tokens.cost_micros ?? 0) > 0 ? `⁨${formatUsd(row.tokens.cost_micros ?? 0)}⁩` : null,
+});
+
+export function ConversationList({
+  activeId,
+  onSelect,
+  onArchived,
+  showArchived,
+  onShowArchived,
+}: {
+  activeId: string | null;
+  onSelect: (id: string) => void;
+  onArchived?: (id: string) => void;
+  /** The archived view; the drawer's header turns into "Back to chats" for it (the page holds the flag). */
+  showArchived: boolean;
+  onShowArchived: (show: boolean) => void;
+}) {
+  const { tr } = useLocale();
   const toast = useToast();
   const confirm = useConfirm();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: QK.conversations, queryFn: fetchConversations });
+  const archivedQ = useQuery({ queryKey: QK.archivedConversations, queryFn: fetchArchivedConversations, enabled: showArchived });
+
+  // The month's spend for the footer: the same query the thread's meter reads.
+  const settings = useQuery({ queryKey: SHARED_QK.venueSettings, queryFn: fetchVenueSettings });
+  const month = monthSoFar(settings.data?.timezone ?? VENUE_TZ);
+  const usage = useQuery({ queryKey: QK.usage(month.from, month.to), queryFn: () => fetchUsage(month.from, month.to), staleTime: 60_000 });
 
   const archive = useMutation({
     mutationFn: (id: string) => archiveConversation(id),
@@ -29,70 +62,62 @@ export function ConversationList({ activeId, onSelect, onNew, onArchived }: { ac
     },
   });
 
-  const onArchive = async (row: ConversationRow) => {
+  const onArchive = async (id: string) => {
     const ok = await confirm({
       title: tr('ws.owner.assistant.conversations.archiveTitle'),
       body: tr('ws.owner.assistant.conversations.archiveBody'),
       confirmLabel: tr('ws.owner.assistant.conversations.archiveConfirm'),
       kind: 'primary',
     });
-    if (ok) archive.mutate(row.id);
+    if (ok) archive.mutate(id);
   };
 
+  const untitled = tr('ws.owner.assistant.conversations.untitled');
+  const source = showArchived ? archivedQ : q;
+  const items = (source.data ?? []).map((r) => toItem(r, untitled));
+  const n = (q.data ?? []).length;
+  const monthCost = usage.data ? `⁨${formatUsd(usage.data.month.cost_micros)}⁩` : null;
+
   return (
-    <nav aria-label={tr('ws.owner.assistant.conversations.title')} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2)', minBlockSize: 0 }}>
-      <Button kind="primary" icon="plus" onClick={onNew} style={{ justifyContent: 'center' }}>
-        {tr('ws.owner.assistant.newChat')}
-      </Button>
-      {q.isLoading && (
+    <nav aria-label={tr(showArchived ? 'ws.owner.assistant.conversations.archivedTitle' : 'ws.owner.assistant.conversations.title')} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2)', minBlockSize: 0, flex: 1 }}>
+      {showArchived && <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.conversations.archivedNote')}</p>}
+      {source.isLoading && (
         <div style={{ display: 'flex', justifyContent: 'center', paddingBlock: 'var(--tp-sp-3)' }}>
           <Spinner />
         </div>
       )}
-      {q.isError && <ErrorText error={q.error} />}
-      {q.data && q.data.length === 0 && <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.conversations.empty')}</p>}
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)', overflowY: 'auto', minBlockSize: 0 }}>
-        {(q.data ?? []).map((row) => {
-          const active = row.id === activeId;
-          const cost = row.tokens.cost_micros ?? 0;
-          return (
-            <li key={row.id} data-conversation={row.id}>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr auto',
-                  alignItems: 'start',
-                  gap: 'var(--tp-sp-1)',
-                  borderRadius: 'var(--tp-radius-ctl)',
-                  background: active ? 'var(--tp-accent-soft, var(--tp-surface-2))' : 'transparent',
-                  border: `1px solid ${active ? 'var(--tp-border-strong)' : 'transparent'}`,
-                  paddingBlock: 'var(--tp-sp-1)',
-                  paddingInline: 'var(--tp-sp-1-5)',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelect(row.id)}
-                  aria-current={active ? 'true' : undefined}
-                  style={{ background: 'transparent', border: 'none', padding: 0, textAlign: 'start', cursor: 'pointer', color: 'inherit', fontFamily: 'inherit', fontSize: 'inherit', minInlineSize: 0, display: 'grid', gap: '0.1rem' }}
-                >
-                  <bdi style={{ fontWeight: active ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                    {row.title?.trim() || tr('ws.owner.assistant.conversations.untitled')}
-                  </bdi>
-                  <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                    {formatDate(new Date(row.updated_at ?? row.created_at), locale)}
-                    {cost > 0 && <> · {`⁨${formatUsd(cost)}⁩`}</>}
-                  </span>
-                  <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                    {tr('ws.owner.assistant.conversations.scopesLine', { scopes: row.scopes.map((s) => scopeLabel(tr, s)).join(', ') })}
-                  </span>
+      {source.isError && <ErrorText error={source.error} />}
+      {!source.isLoading && (
+        <ChatListView
+          items={items}
+          activeId={activeId}
+          onSelect={onSelect}
+          emptyText={tr(showArchived ? 'ws.owner.assistant.conversations.archivedEmpty' : 'ws.owner.assistant.conversations.empty')}
+          rowAction={
+            showArchived
+              ? undefined
+              : (item) => (
+                  <button type="button" className="tp-chat-act-btn" aria-label={tr('ws.owner.assistant.conversations.archive')} title={tr('ws.owner.assistant.conversations.archive')} onClick={() => void onArchive(item.id)}>
+                    <Icon name="box" size={14} />
+                  </button>
+                )
+          }
+          footer={
+            <>
+              <span style={{ flex: 1 }}>
+                {monthCost
+                  ? tr('ws.owner.assistant.conversations.footer', { n: `⁨${n}⁩`, cost: monthCost })
+                  : tr('ws.owner.assistant.conversations.footerCount', { n: `⁨${n}⁩` })}
+              </span>
+              {!showArchived && (
+                <button type="button" className="tp-link" onClick={() => onShowArchived(true)} style={{ border: 'none', background: 'transparent', padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--tp-accent)', cursor: 'pointer' }}>
+                  {tr('ws.owner.assistant.conversations.archivedLink')}
                 </button>
-                <Button size="sm" kind="ghost" icon="box" aria-label={tr('ws.owner.assistant.conversations.archive')} title={tr('ws.owner.assistant.conversations.archive')} onClick={() => void onArchive(row)} busy={archive.isPending && archive.variables === row.id} />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              )}
+            </>
+          }
+        />
+      )}
       {archive.isError && <ErrorText error={archive.error} />}
     </nav>
   );

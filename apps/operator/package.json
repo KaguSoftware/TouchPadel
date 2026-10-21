@@ -21,6 +21,7 @@
     "@touch/db": "workspace:*",
     "@touch/i18n": "workspace:*",
     "@touch/ui": "workspace:*",
+    "pdfjs-dist": "^6.4.299",
     "qrcode": "^1.5.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -39,7 +40,7 @@
     "eslint": "^9.15.0",
     "jsdom": "^25.0.1",
     "typescript": "^5.7.2",
-    "vite": "^6.0.0",
+    "vite": "^6.4.4",
     "vitest": "^2.1.8"
   }
 }

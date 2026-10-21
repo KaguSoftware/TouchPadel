@@ -105,7 +105,7 @@ function Entry({
           const k = typeof v === 'string' ? optionLabelKey(path, v) : null;
           return k ? t(k) : String(v);
         };
-        // A multiple enum (the plan's classes, 0354) is a list of options.
+        // A multiple enum (the plan's classes, 0356) is a list of options.
         if (Array.isArray(value)) return value.length > 0 ? value.map(one).join(locale === 'ar' ? '، ' : ', ') : null;
         return one(value);
       }

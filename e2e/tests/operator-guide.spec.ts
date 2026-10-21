@@ -48,7 +48,7 @@ test.describe('workspace guides', () => {
     await expect(row).toBeVisible();
     await row.click();
 
-    const dialog = page.getByRole('dialog', { name: 'Till guide' });
+    const dialog = page.getByRole('dialog', { name: 'Café cashier guide' });
     await expect(dialog).toBeVisible();
     const progress = dialog.getByTestId('guide-progress');
     await expect(progress).toHaveText(/^0 of \d+ learned$/);
@@ -133,7 +133,7 @@ test.describe('workspace guides', () => {
     expect(box && box.x > width / 2).toBe(true);
 
     await row.click();
-    const dialog = page.getByRole('dialog', { name: 'دليل الصندوق' });
+    const dialog = page.getByRole('dialog', { name: 'دليل كاشير الكافيه' });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByTestId('guide-progress')).toHaveText(/^تعلّمت 0 من \d+$/);
     await dialog.getByTestId('guide-step').first().getByRole('checkbox', { name: 'أعرف هذا' }).check();

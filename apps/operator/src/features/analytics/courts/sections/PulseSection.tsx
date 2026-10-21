@@ -11,19 +11,29 @@
  *  2. The SUPPORTING figures as rows: booked hours, what an hour sells for,
  *     what an open hour earns, the cafe attach, and the whole venue's revenue.
  *
+ * Each lead tile carries a picture of its figure (2026-10-19): the days of
+ * the period as a line under bookings and revenue, a ring for occupancy, a
+ * two-part ring for what was lost (cancelled, then no-show, in the losses
+ * charts' colours). Beside the two figure cards, the venue's revenue as one
+ * ring (MixCard).
+ *
  * The separate cancellation-rate and no-show-rate tiles folded into the lead
  * "Cancelled or no-show" figure; each rate is still in the court table, the
  * losses charts and the CSV. Rates move in points, amounts in percent.
  */
-import { pctDelta } from '@touch/core';
+import { MIN_RATE_DENOM, pctDelta } from '@touch/core';
 import { useLocale } from '../../../../lib/i18n';
 import { FigureGroup, FigureLine, Kpi } from '../../cards/Kpi';
 import type { VenueRevenue } from '../../useVenueRevenue';
 import type { ShopData } from '../useShopData';
 import type { DrillTarget } from '../../drill';
 import { smallCourtSample, type CourtKpiKey } from '../derive';
-import { gridColumns } from '../../Zone';
+import { ZoneFrame, gridColumns } from '../../Zone';
 import { hoursText, rateText } from '../format';
+import { RingMeter, Swatch } from '../../charts/Donut';
+import { useChartColors } from '../../charts/colors';
+import { MixCard } from '../../cards/MixCard';
+import { addSeries, daySeries } from '../../spark';
 import type { SectionProps } from './types';
 
 export function PulseSection({
@@ -35,8 +45,10 @@ export function PulseSection({
   shop,
   openDrill,
   courtId,
-}: SectionProps & { venue: VenueRevenue; shop: ShopData; openDrill: (target: DrillTarget) => void; courtId: string | null }) {
+  range,
+}: SectionProps & { venue: VenueRevenue; shop: ShopData; openDrill: (target: DrillTarget) => void; courtId: string | null; range: { from: string; to: string } }) {
   const { tr } = useLocale();
+  const { RING_1, RING_2 } = useChartColors();
   const k = raw?.summary.kpis;
   const kp = raw?.summaryPrev?.kpis ?? null;
   const cafe = raw?.cafe.attach;
@@ -63,58 +75,109 @@ export function PulseSection({
   const padel = (k?.revenueIqd ?? 0) + (withShop ? shopNow : 0);
   const padelPrev = kp && (!withShop || shop.previous) ? kp.revenueIqd + (withShop ? (shop.previous?.kpis.netIqd ?? 0) : 0) : null;
   const padelDelta = !withShop ? delta('revenue') : reliable && padelPrev != null ? pctDelta(padel, padelPrev) : null;
+  const bookingsSpark = raw ? daySeries(range, raw?.summary.byDay, (d) => d.bookings, (d) => f.date(d), f.num) : null;
+  const revenueSpark = raw
+    ? addSeries(
+        daySeries(range, raw?.summary.byDay, (d) => d.revenueIqd, (d) => f.date(d), f.compact),
+        withShop ? daySeries(range, shop.current?.byDay, (d) => d.netIqd, (d) => f.date(d), f.compact) : null,
+      )
+    : null;
+  const cancelledPct = k && k.bookedTotal > 0 ? (k.cancellations / k.bookedTotal) * 100 : 0;
+  const noShowPct = k && k.bookedTotal > 0 ? (k.noShows / k.bookedTotal) * 100 : 0;
   const events = raw?.summary.eventMinutes ?? 0;
   const eventsPrev = raw?.summaryPrev?.eventMinutes ?? 0;
 
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: gridColumns(4, '11rem'), gap: 'var(--tp-sp-3)' }}>
-        <Kpi
-          label={tr('ws.analytics.courts.kpi.bookings')}
-          value={f.num(k?.bookings ?? 0)}
-          delta={delta('bookings')}
-          previous={was(kp?.bookings, f.num)}
-          tip={tr('ws.analytics.courts.tips.bookings')}
-          drills={[drill('bookings', tr('ws.analytics.courts.kpi.bookings'))]}
-          {...common}
-        />
-        <Kpi
-          label={tr('ws.analytics.courts.kpi.occupancy')}
-          value={k?.occupancyPct == null ? '—' : f.pct(k.occupancyPct)}
-          delta={delta('occupancy')}
-          kind="points"
-          previous={was(kp?.occupancyPct, f.pct)}
-          tip={tr('ws.analytics.courts.tips.occupancy')}
-          note={noHours ? tr('ws.analytics.courts.notices.noHoursShort') : undefined}
-          {...common}
-        />
-        <Kpi
-          label={tr(withShop ? 'ws.analytics.courts.kpi.padelRevenue' : 'ws.analytics.courts.kpi.revenue')}
-          value={f.money(padel)}
-          delta={padelDelta}
-          previous={padelPrev == null ? null : f.money(padelPrev)}
-          tip={tr(withShop ? 'ws.analytics.courts.tips.padelRevenue' : 'ws.analytics.courts.tips.revenue')}
-          note={withShop && k && shop.current ? tr('ws.analytics.courts.kpi.padelSplit', { courts: f.compact(k.revenueIqd), shop: f.compact(shopNow) }) : undefined}
-          drills={[drill('padelRevenue', tr('ws.analytics.courts.kpi.revenue'))]}
-          loading={loading || (withShop && shop.state === 'loading')}
-          unavailable={broken}
-          f={f}
-        />
-        <Kpi
-          label={tr('ws.analytics.courts.kpi.lost')}
-          value={k ? rateText(tr, f, lostPct, lost, k.bookedTotal) : '—'}
-          delta={lostDelta}
-          kind="points"
-          invert
-          previous={kp && lostPrevPct != null ? rateText(tr, f, lostPrevPct, kp.cancellations + kp.noShows, kp.bookedTotal) : null}
-          tip={tr('ws.analytics.courts.tips.lost')}
-          note={k ? tr('ws.analytics.courts.kpi.lostSplit', { cancelled: f.num(k.cancellations), noShows: f.num(k.noShows) }) : undefined}
-          drills={[drill('cancellations', tr('ws.analytics.courts.units.cancellations')), drill('noShows', tr('ws.analytics.courts.units.noShows'))]}
-          {...common}
-        />
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: gridColumns(2), gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
-        <FigureGroup title={tr('ws.analytics.courts.summary.time')}>
+      {/* The Breakdown frame (Sait, 2026-10-19): four lead tiles, then two cards. */}
+      <ZoneFrame
+        // The lead tiles keep their shape and their row; every tile and card
+        // takes the six card colours by place (Sait, 2026-10-19).
+        lead={
+          <div style={{ display: 'grid', gridTemplateColumns: gridColumns(4, '11rem'), gap: 'var(--tp-sp-3)' }}>
+            <Kpi
+              tone="green"
+              label={tr('ws.analytics.courts.kpi.bookings')}
+              value={f.num(k?.bookings ?? 0)}
+              delta={delta('bookings')}
+              previous={was(kp?.bookings, f.num)}
+              tip={tr('ws.analytics.courts.tips.bookings')}
+              spark={bookingsSpark}
+              drills={[drill('bookings', tr('ws.analytics.courts.kpi.bookings'))]}
+              {...common}
+            />
+            <Kpi
+              tone="violet"
+              label={tr('ws.analytics.courts.kpi.occupancy')}
+              value={k?.occupancyPct == null ? '—' : f.pct(k.occupancyPct)}
+              delta={delta('occupancy')}
+              kind="points"
+              previous={was(kp?.occupancyPct, f.pct)}
+              tip={tr('ws.analytics.courts.tips.occupancy')}
+              note={noHours ? tr('ws.analytics.courts.notices.noHoursShort') : undefined}
+              aside={
+                k?.occupancyPct == null ? undefined : (
+                  <RingMeter pct={k.occupancyPct} size={52} label={tr('ws.analytics.viz.meter', { label: tr('ws.analytics.courts.kpi.occupancy'), pct: f.pct(k.occupancyPct) })} />
+                )
+              }
+              {...common}
+            />
+            <Kpi
+              tone="rose"
+              label={tr(withShop ? 'ws.analytics.courts.kpi.padelRevenue' : 'ws.analytics.courts.kpi.revenue')}
+              value={f.money(padel)}
+              delta={padelDelta}
+              previous={padelPrev == null ? null : f.money(padelPrev)}
+              tip={tr(withShop ? 'ws.analytics.courts.tips.padelRevenue' : 'ws.analytics.courts.tips.revenue')}
+              note={withShop && k && shop.current ? tr('ws.analytics.courts.kpi.padelSplit', { courts: f.compact(k.revenueIqd), shop: f.compact(shopNow) }) : undefined}
+              spark={revenueSpark}
+              drills={[drill('padelRevenue', tr('ws.analytics.courts.kpi.revenue'))]}
+              loading={loading || (withShop && shop.state === 'loading')}
+              unavailable={broken}
+              f={f}
+            />
+            <Kpi
+              tone="sky"
+              label={tr('ws.analytics.courts.kpi.lost')}
+              value={k ? rateText(tr, f, lostPct, lost, k.bookedTotal) : '—'}
+              delta={lostDelta}
+              kind="points"
+              invert
+              previous={kp && lostPrevPct != null ? rateText(tr, f, lostPrevPct, kp.cancellations + kp.noShows, kp.bookedTotal) : null}
+              tip={tr('ws.analytics.courts.tips.lost')}
+              note={
+                k ? (
+                  <span style={{ display: 'inline-flex', flexWrap: 'wrap', columnGap: 'var(--tp-sp-2)', alignItems: 'baseline' }}>
+                    <span>
+                      <Swatch color={RING_1} />
+                      {tr('ws.analytics.viz.cancelledN', { n: f.num(k.cancellations) })}
+                    </span>
+                    <span>
+                      <Swatch color={RING_2} />
+                      {tr('ws.analytics.viz.noShowsN', { n: f.num(k.noShows) })}
+                    </span>
+                  </span>
+                ) : undefined
+              }
+              aside={
+                k && k.bookedTotal >= MIN_RATE_DENOM ? (
+                  <RingMeter
+                    size={52}
+                    parts={[
+                      { pct: cancelledPct, color: RING_1 },
+                      { pct: noShowPct, color: RING_2 },
+                    ]}
+                    label={tr('ws.analytics.viz.lostRing', { pct: f.pct(cancelledPct + noShowPct) })}
+                  />
+                ) : undefined
+              }
+              drills={[drill('cancellations', tr('ws.analytics.courts.units.cancellations')), drill('noShows', tr('ws.analytics.courts.units.noShows'))]}
+              {...common}
+            />
+          </div>
+        }
+      >
+        <FigureGroup tone="teal" title={tr('ws.analytics.courts.summary.time')}>
           <FigureLine
             label={tr('ws.analytics.courts.kpi.bookedHours')}
             value={hoursText(f, k?.bookedMinutes ?? 0)}
@@ -154,7 +217,7 @@ export function PulseSection({
             />
           )}
         </FigureGroup>
-        <FigureGroup title={tr('ws.analytics.courts.summary.beyond')}>
+        <FigureGroup tone="gold" title={tr('ws.analytics.courts.summary.beyond')}>
           <FigureLine
             label={tr('ws.analytics.courts.kpi.attachRate')}
             value={cafe ? rateText(tr, f, cafe.attachPct, cafe.linkedBookings, cafe.liveBookings) : '—'}
@@ -178,7 +241,8 @@ export function PulseSection({
             f={f}
           />
         </FigureGroup>
-      </div>
+        <MixCard venue={venue} tone="green" f={f} />
+      </ZoneFrame>
     </div>
   );
 }

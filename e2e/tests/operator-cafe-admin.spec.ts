@@ -292,10 +292,10 @@ test.describe('operator cafe admin', () => {
     await signIn(page, SEED_STAFF.owner);
     await page.goto(`${OPERATOR_URL}/analytics/cafe?range=7d`);
 
-    // Trends (page map, 2026-10-17) is a rail row with two tabs; the cafe tab is
+    // Analytics (page map 2026-10-17; named Trends until 2026-10-19) is a rail row with two tabs; the cafe tab is
     // the one this case is about. The page h1 is the wait target (the rail row is
-    // also called "Trends", so a bare text match would resolve to the link).
-    await expect(page.getByRole('heading', { level: 1, name: 'Trends' })).toBeVisible({
+    // also called "Analytics", so a bare text match would resolve to the link).
+    await expect(page.getByRole('heading', { level: 1, name: 'Analytics' })).toBeVisible({
       timeout: 60_000,
     });
     await expect(page).toHaveURL(/\/analytics\/cafe\?range=7d/);
@@ -308,14 +308,22 @@ test.describe('operator cafe admin', () => {
     // PostHog project — that is the whole "sales-only mode" contract.
     // exact: the tile's info tooltips are always in the DOM and open with the same words.
     await expect(page.getByText('Cafe sales', { exact: true })).toBeVisible();
-    await expect(
-      page.getByText('Guest analytics are not configured yet', { exact: false }).first(),
-    ).toBeVisible();
+    // Past the first two notes the rest fold behind one link (Notices.tsx); the
+    // PostHog note can be among them, as CafeTab.test.tsx opens it too.
+    const moreNotes = page.getByRole('button', { name: /^Show \d+ more notes?$/ });
+    const posthogNote = page.getByText('Guest analytics are not configured yet', { exact: false }).first();
+    await expect(moreNotes.or(posthogNote).first()).toBeVisible();
+    if (await moreNotes.isVisible()) await moreNotes.click();
+    await expect(posthogNote).toBeVisible();
 
     // The range lives in the URL, so a reload keeps the owner where they were.
-    // The period is a SelectMenu: the combobox trigger shows the chosen preset.
+    // The period is a DateRangePicker: the field shows the dates, and the
+    // chosen preset is the chip that is on when it opens.
     await page.reload();
-    await expect(page.getByRole('combobox', { name: 'Period' })).toHaveText('7 days');
+    await expect(page).toHaveURL(/range=7d/);
+    await page.getByRole('button', { name: 'Period', exact: true }).click();
+    await expect(page.getByRole('button', { name: '7 days', pressed: true })).toBeVisible();
+    await page.keyboard.press('Escape');
   });
 
   test('(f) a ticket left queued raises the KDS stale banner', async ({ page }) => {
@@ -407,14 +415,15 @@ test.describe('operator cafe admin', () => {
     const editor = page.getByTestId('court-editor');
     await editor.getByLabel('Name (English)', { exact: true }).fill(name);
     await editor.getByLabel('Name (Arabic)', { exact: true }).fill(`ملعب ${name}`);
-    // Booking-length chips: add 45, drop 120 → 45/60/90.
-    await editor.getByRole('button', { name: '45 min', exact: true }).click();
+    // Booking-length chips, whole hours only (courtsLogic DURATION_CHOICES,
+    // 2026-10-19): a new court starts on 60/120; add 180, drop 120 → 60/180.
+    await editor.getByRole('button', { name: '180 min', exact: true }).click();
     await editor.getByRole('button', { name: '120 min', exact: true }).click();
     await editor.getByRole('button', { name: 'Add court', exact: true }).click();
     await expect(editor).toHaveCount(0);
     const row = page.locator('tr', { hasText: name });
     await expect(row).toBeVisible();
-    await expect(row.getByText('45 min · 60 min · 90 min', { exact: true })).toBeVisible();
+    await expect(row.getByText('60 min · 180 min', { exact: true })).toBeVisible();
 
     // The desk calendar picks it up without a redeploy (courts broadcast).
     await page.goto(`${OPERATOR_URL}/desk`);

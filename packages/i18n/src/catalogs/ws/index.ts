@@ -90,6 +90,9 @@ import { rewardsAr } from './rewards.ar';
 // The main cash (0343): the Safe page.
 import { safeEn } from './safe.en';
 import { safeAr } from './safe.ar';
+// The Files page (0354): documents kept compressed, read by the owner's assistant.
+import { filesEn } from './files.en';
+import { filesAr } from './files.ar';
 // The owner's activity monitor (0341): last seen and last action, operator and mobile apart.
 import { activityEn } from './activity.en';
 import { activityAr } from './activity.ar';
@@ -99,6 +102,9 @@ import { discountsAr } from './discounts.ar';
 // The free AI (owner call 2026-10-16): every staff role's assistant, and the owner's "The free AI".
 import { assistantFreeEn } from './assistantFree.en';
 import { assistantFreeAr } from './assistantFree.ar';
+// Gender hours (0353): the management page, the desk calendar's kept bands, a new customer's gender.
+import { genderHoursEn } from './genderHours.en';
+import { genderHoursAr } from './genderHours.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -134,9 +140,11 @@ export const wsEn = {
   loyalty: loyaltyEn,
   rewards: rewardsEn,
   safe: safeEn,
+  files: filesEn,
   activity: activityEn,
   discounts: discountsEn,
   assistantFree: assistantFreeEn,
+  genderHours: genderHoursEn,
 } as const;
 
 export const wsAr = {
@@ -173,7 +181,9 @@ export const wsAr = {
   loyalty: loyaltyAr,
   rewards: rewardsAr,
   safe: safeAr,
+  files: filesAr,
   activity: activityAr,
   discounts: discountsAr,
   assistantFree: assistantFreeAr,
+  genderHours: genderHoursAr,
 } as const;

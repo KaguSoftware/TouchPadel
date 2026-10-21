@@ -119,5 +119,11 @@ export const opErrorsCodesEn = {
   MAIN_CASH_CHANGED: 'The safe changed while you were counting. Check the new figure and count again.',
   MAIN_CASH_HANDED_IN: 'This drawer was already handed in to the safe for that day. Take that entry back on the Safe page to redo it.',
   MAIN_CASH_LINKED: 'This payment belongs to a wage, an advance or a coach payment. Undo it on that page and the safe follows.',
+  FILE_NOT_FOUND: 'This file is no longer here. It may have been removed; refresh the list.',
+  FILE_NOT_YOURS: 'Only the owner or the person who added this file can remove it.',
+  FILE_TOO_LARGE: 'This file is over 50 MB. Split it or save a smaller copy.',
+  FILES_QUOTA_FULL: 'There is no room left in Files at this branch. Remove files you no longer need.',
   WAGE_ADVANCE_TOO_LARGE: 'That is more than they are still owed this month.',
+  // Gender hours (0353).
+  SLOT_GENDER_RESTRICTED: 'This court is kept for women only or men only at this time. Pick another time or court.',
 };

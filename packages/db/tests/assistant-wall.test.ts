@@ -126,6 +126,10 @@ describe.skipIf(!up)('0109 assistant read-only wall', () => {
         return { p_table: 'courts', p_limit: 1 };
       case 'assistant_audit_page':
         return { p_limit: 5 };
+      case 'assistant_files_list':
+        return { p_limit: 5 };
+      case 'assistant_file_get':
+        return { p_file_id: NIL }; // FILE_NOT_FOUND past the wall: no seeded file
       case 'analytics_menu_snapshot':
       case 'ops_overview':
       case 'list_staff':

@@ -176,7 +176,7 @@ export interface TournamentDetail {
   format: TourFormat;
   category: TourCategory;
   class: string | null;
-  /** 0354: every class it is for (A-B-C order); a server before it sends only `class`. */
+  /** 0356: every class it is for (A-B-C order); a server before it sends only `class`. */
   classes: string[];
   points_target: number;
   rounds_planned: number | null;

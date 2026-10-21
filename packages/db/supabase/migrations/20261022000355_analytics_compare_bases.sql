@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0353 analytics_compare_bases — "Compare with" is last month, last year or a
+-- 0355 analytics_compare_bases — "Compare with" is last month, last year or a
 -- window the owner picks (owner, 2026-10-22).
 --
 -- The analytics page compared with "the previous period", "4 weeks earlier"
@@ -32,7 +32,7 @@ set statement_timeout = '60s';
 -- ===========================================================================
 create or replace function app.analytics_compare_basis_ok(p_basis text)
 returns boolean
-language plpgsql immutable set search_path = public as $analytics_compare_basis_ok_0353$
+language plpgsql immutable set search_path = public as $analytics_compare_basis_ok_0355$
 declare
   v_from date;
   v_to   date;
@@ -53,10 +53,10 @@ begin
     return false;  -- 2026-02-30 has the shape and is no date
   end;
   return v_from <= v_to;
-end $analytics_compare_basis_ok_0353$;
+end $analytics_compare_basis_ok_0355$;
 
 comment on function app.analytics_compare_basis_ok(text) is
-  '0353. True for an analytics comparison tag: month | year | custom:<from>:<to> (two real YYYY-MM-DD dates, from <= to), or the pre-0353 prev | 4w | 52w. Used by the analytics_insights CHECK and save_analytics_insights.';
+  '0355. True for an analytics comparison tag: month | year | custom:<from>:<to> (two real YYYY-MM-DD dates, from <= to), or the pre-0355 prev | 4w | 52w. Used by the analytics_insights CHECK and save_analytics_insights.';
 
 -- No client grant: clients write analytics_insights only through the
 -- security-definer RPC, which runs it as the owner. The service role keeps it
@@ -84,7 +84,7 @@ create or replace function app.save_analytics_insights(
   p_scope         text default 'cafe',
   p_court_id      uuid default null
 ) returns uuid
-language plpgsql security definer set search_path = public as $fn_save_analytics_insights_0353$
+language plpgsql security definer set search_path = public as $fn_save_analytics_insights_0355$
 declare
   v_row analytics_insights%rowtype;
 begin
@@ -92,7 +92,7 @@ begin
   if p_range_from is null or p_range_to is null or p_range_to < p_range_from then
     raise exception 'INVALID_RANGE' using errcode = 'P0001';
   end if;
-  -- 0353: month | year | custom:<from>:<to> (an ordered pair of real dates);
+  -- 0355: month | year | custom:<from>:<to> (an ordered pair of real dates);
   -- prev | 4w | 52w still pass for an operator build before it.
   if not app.analytics_compare_basis_ok(p_compare_basis) then
     raise exception 'INVALID_ARGUMENT' using errcode = 'P0001',
@@ -134,7 +134,7 @@ begin
                                              'scope', v_row.scope, 'court_id', v_row.court_id,
                                              'count', jsonb_array_length(v_row.insights)));
   return v_row.id;
-end $fn_save_analytics_insights_0353$;
+end $fn_save_analytics_insights_0355$;
 
 revoke all on function app.save_analytics_insights(date, date, text, text, jsonb, text, uuid) from public, anon;
 grant execute on function app.save_analytics_insights(date, date, text, text, jsonb, text, uuid) to authenticated;

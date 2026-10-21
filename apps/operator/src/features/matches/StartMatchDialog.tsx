@@ -19,7 +19,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { wallTimeToUtc } from '@touch/core';
+import { bookableDurations, wallTimeToUtc } from '@touch/core';
 import { formatDate, formatIQD, formatNumber, formatTime, formatTimeRange, isolate, isolateLtr } from '@touch/i18n';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
 import type { CourtRow } from '../../lib/queries';
@@ -107,7 +107,11 @@ export function StartMatchDialog({
   const court = courts.find((c) => c.id === courtId);
   const soldKey = court?.duration_options?.join(',') ?? '';
   const sold = useMemo(
-    () => (court?.duration_options?.length ? court.duration_options : [60, 90, 120]),
+    // Whole hours only (60, 120): no length that ends at xx:30.
+    () => {
+      const whole = bookableDurations(court?.duration_options ?? []);
+      return whole.length ? whole : [60, 120];
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [soldKey],
   );

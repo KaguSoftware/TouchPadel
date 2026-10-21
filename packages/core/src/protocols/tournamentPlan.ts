@@ -40,7 +40,7 @@ export interface PlanSponsor {
 export interface PlanState {
   variant: TournamentVariant;
   /**
-   * 0354: every class the tournament is for, in A-B-C order; a guest's level
+   * 0356: every class the tournament is for, in A-B-C order; a guest's level
    * must fit one. The years played (0339) are no longer asked (owner,
    * 2026-10-22).
    */

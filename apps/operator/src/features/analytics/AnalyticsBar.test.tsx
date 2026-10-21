@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LocaleProvider } from '../../lib/i18n';
@@ -25,31 +25,34 @@ describe('AnalyticsBar', () => {
     mutate.mockReset();
   });
 
-  it('writes a preset to the search and hides the date inputs until Custom is chosen', async () => {
-    const setSearch = renderBar();
-    expect(screen.queryByLabelText('From')).toBeNull();
-    await userEvent.click(screen.getByRole('combobox', { name: 'Period' }));
-    await userEvent.click(screen.getByRole('option', { name: '7 days' }));
-    expect(setSearch).toHaveBeenCalledWith({ range: '7d', from: undefined, to: undefined });
-    await userEvent.click(screen.getByRole('combobox', { name: 'Period' }));
-    await userEvent.click(screen.getByRole('option', { name: 'Custom' }));
-    expect(screen.getByLabelText('From')).toBeTruthy();
-    expect(setSearch).toHaveBeenCalledTimes(1);
-  });
+  // The period is one DateRangePicker field (2026-10-19): a chip keeps the
+  // rolling preset in the URL, any other range goes in as custom dates.
+  describe('period', () => {
+    beforeEach(() => {
+      // 12:00 in Baghdad on 19 Oct 2026, well past the 04:00 business-day start.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-19T09:00:00Z'));
+    });
+    afterEach(() => vi.useRealTimers());
 
-  it('applies a custom range only when both dates are valid and ordered', async () => {
-    const setSearch = renderBar();
-    await userEvent.click(screen.getByRole('combobox', { name: 'Period' }));
-    await userEvent.click(screen.getByRole('option', { name: 'Custom' }));
-    const apply = screen.getByRole('button', { name: 'Apply' });
-    expect((apply as HTMLButtonElement).disabled).toBe(true);
-    await userEvent.type(screen.getByLabelText('From'), '2026-08-10');
-    await userEvent.type(screen.getByLabelText('To'), '2026-08-01');
-    expect((apply as HTMLButtonElement).disabled).toBe(true);
-    await userEvent.clear(screen.getByLabelText('To'));
-    await userEvent.type(screen.getByLabelText('To'), '2026-08-20');
-    await userEvent.click(apply);
-    expect(setSearch).toHaveBeenCalledWith({ range: 'custom', from: '2026-08-10', to: '2026-08-20' });
+    it('writes a chip to the search as its preset', async () => {
+      const setSearch = renderBar();
+      await userEvent.click(screen.getByRole('button', { name: 'Period' }));
+      await userEvent.click(screen.getByRole('button', { name: '7 days' }));
+      expect(setSearch).not.toHaveBeenCalled();
+      await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      expect(setSearch).toHaveBeenCalledWith({ range: '7d', from: undefined, to: undefined });
+    });
+
+    it('writes a picked range as custom dates, and never one after today', async () => {
+      const setSearch = renderBar();
+      await userEvent.click(screen.getByRole('button', { name: 'Period' }));
+      expect((screen.getByRole('button', { name: 'Oct 20, 2026' }) as HTMLButtonElement).disabled).toBe(true);
+      await userEvent.click(screen.getByRole('button', { name: 'Oct 10, 2026' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Oct 15, 2026' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      expect(setSearch).toHaveBeenCalledWith({ range: 'custom', from: '2026-10-10', to: '2026-10-15' });
+    });
   });
 
   it('offers last month, last year and custom, and writes a fixed basis without custom dates', async () => {
@@ -60,22 +63,33 @@ describe('AnalyticsBar', () => {
     expect(setSearch).toHaveBeenCalledWith({ cmp: 'year', cmpFrom: undefined, cmpTo: undefined });
   });
 
-  it('opens a custom comparison on the current window and applies it only when ordered', async () => {
-    const setSearch = renderBar({ compareRange: { from: '2026-08-22', to: '2026-09-21' } });
-    expect(screen.queryByLabelText('Compare from')).toBeNull();
-    await userEvent.click(screen.getByRole('combobox', { name: 'Compare with' }));
-    await userEvent.click(screen.getByRole('option', { name: 'Custom' }));
-    expect(setSearch).not.toHaveBeenCalled();
-    expect((screen.getByLabelText('Compare from') as HTMLInputElement).value).toBe('2026-08-22');
-    expect((screen.getByLabelText('Compare to') as HTMLInputElement).value).toBe('2026-09-21');
-    await userEvent.clear(screen.getByLabelText('Compare to'));
-    await userEvent.type(screen.getByLabelText('Compare to'), '2026-08-01');
-    const apply = screen.getByRole('button', { name: 'Apply' });
-    expect((apply as HTMLButtonElement).disabled).toBe(true);
-    await userEvent.clear(screen.getByLabelText('Compare to'));
-    await userEvent.type(screen.getByLabelText('Compare to'), '2026-09-01');
-    await userEvent.click(apply);
-    expect(setSearch).toHaveBeenCalledWith({ cmp: 'custom', cmpFrom: '2026-08-22', cmpTo: '2026-09-01' });
+  describe('a custom comparison', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-19T09:00:00Z'));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it('starts from the window compared with now', async () => {
+      const setSearch = renderBar({ compareRange: { from: '2026-08-20', to: '2026-09-18' } });
+      expect(screen.queryByRole('button', { name: 'Compare dates' })).toBeNull();
+      await userEvent.click(screen.getByRole('combobox', { name: 'Compare with' }));
+      await userEvent.click(screen.getByRole('option', { name: 'Custom' }));
+      expect(setSearch).toHaveBeenCalledWith({ cmp: 'custom', cmpFrom: '2026-08-20', cmpTo: '2026-09-18' });
+    });
+
+    it('is moved with its own date field', async () => {
+      const setSearch = renderBar({
+        search: { range: '30d', cmp: 'custom', cmpFrom: '2026-10-01', cmpTo: '2026-10-05' },
+        compareBasis: 'custom',
+        compareRange: { from: '2026-10-01', to: '2026-10-05' },
+      });
+      await userEvent.click(screen.getByRole('button', { name: 'Compare dates' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Oct 10, 2026' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Oct 15, 2026' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      expect(setSearch).toHaveBeenCalledWith({ cmp: 'custom', cmpFrom: '2026-10-10', cmpTo: '2026-10-15' });
+    });
   });
 
   // The bar's dropdowns are SelectMenu, not a native <select>: the options

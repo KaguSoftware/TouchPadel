@@ -14,7 +14,8 @@ import { useLocale } from '../../../../lib/i18n';
 import { CardShell } from '../../cards/CardShell';
 import { ChartCard } from '../../charts/ChartCard';
 import { CountBars } from '../../charts/CountBars';
-import { ShareBars } from '../../charts/ShareBars';
+import { Donut } from '../../charts/Donut';
+import { useChartColors } from '../../charts/colors';
 import { StackedBars } from '../../charts/StackedBars';
 import { barTwin, seriesTwin } from '../../charts/twins';
 import { MoreCharts, ZoneGrid } from '../../Zone';
@@ -28,6 +29,7 @@ import type { SectionProps } from './types';
 
 export function LossesSection({ raw, derived, state, refreshing, f, rangeLabel }: SectionProps) {
   const { tr, locale } = useLocale();
+  const { RING_1, RING_2, RING_MUTED } = useChartColors();
   const e = raw?.endings;
   const empty = state === 'ready' && ((e?.cancellations.total ?? 0) + (e?.noShows.total ?? 0) === 0);
   const series = [
@@ -73,7 +75,12 @@ export function LossesSection({ raw, derived, state, refreshing, f, rangeLabel }
   const byDuration = rates((g) => g.byDuration, durationKeys, (k) => tr('ws.analytics.courts.buckets.duration', { n: f.num(Number(k)) }));
 
   const noticeRows = (e?.cancellations.byNotice ?? []).map((b) => ({ label: noticeLabel(tr, f, b), value: b.n, highlight: b.policyEdge }));
-  const actors = (e?.cancellations.byActor ?? []).map((a) => ({ key: a.actor, label: tr(`ws.analytics.courts.series.${a.actor}`), value: a.n }));
+  // Who cancelled, as one ring: guest and staff in the trio's first two, "unknown" in the muted bar colour.
+  const ACTOR_COLOR = { guest: RING_1, staff: RING_2, unknown: RING_MUTED } as const;
+  const actors = (e?.cancellations.byActor ?? []).map((a) => ({ key: a.actor, label: tr(`ws.analytics.courts.series.${a.actor}`), value: a.n, color: ACTOR_COLOR[a.actor] }));
+  const actorTotal = actors.reduce((n, a) => n + a.value, 0);
+  const resold = e?.cancellations.resold;
+  const lateTotal = (resold?.resoldN ?? 0) + (resold?.emptyN ?? 0);
   const noCancellations = state === 'ready' && (e?.cancellations.total ?? 0) === 0;
 
   const stacked = (title: string, tip: string, rows: readonly LossRateRow[], file: string, height = 200, tickFontSize = 11, twinFrom: readonly LossRateRow[] = rows, note?: string) => (
@@ -118,7 +125,15 @@ export function LossesSection({ raw, derived, state, refreshing, f, rangeLabel }
               : undefined
           }
         >
-          <ShareBars segments={actors} format={(n) => f.num(n)} pct={(n) => f.pct(n)} />
+          <Donut
+            slices={actors}
+            format={(n) => f.num(n)}
+            pct={(n) => f.pct(n)}
+            total={f.num(actorTotal)}
+            caption={tr('ws.analytics.courts.units.cancellations')}
+            label={tr('ws.analytics.courts.cards.lossByWho')}
+            size={128}
+          />
         </CardShell>
         <StatPair
           title={tr('ws.analytics.courts.cards.afterLate')}
@@ -126,6 +141,8 @@ export function LossesSection({ raw, derived, state, refreshing, f, rangeLabel }
           state={state === 'ready' && (e?.cancellations.resold.cancelled ?? 0) === 0 ? 'empty' : state}
           refreshing={refreshing}
           emptyKey="ws.analytics.courts.empty.lateCancellations"
+          meter={lateTotal > 0 ? { pct: ((resold?.resoldN ?? 0) / lateTotal) * 100, label: tr('ws.analytics.courts.cards.resold'), of: lateTotal } : null}
+          pct={(n) => f.pct(n)}
           items={[
             { label: tr('ws.analytics.courts.cards.resold'), value: f.num(e?.cancellations.resold.resoldN ?? 0), sub: f.money(e?.cancellations.resold.recoveredIqd ?? 0) },
             { label: tr('ws.analytics.courts.cards.leftEmpty'), value: f.num(e?.cancellations.resold.emptyN ?? 0), sub: f.money(e?.cancellations.resold.lostIqd ?? 0) },

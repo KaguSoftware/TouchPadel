@@ -189,7 +189,7 @@ describe('CourtsReportScreen', () => {
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'bookings', p_key: 'court:c1' })));
     const dialog = await screen.findByRole('dialog');
     expect(await within(dialog).findByText('50,000 IQD')).toBeTruthy();
-    expect(within(dialog).getByText('Booking')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Booking' })).toBeTruthy();
     expect(dialog.getAttribute('aria-label') ?? dialog.textContent).toContain('Court 1');
   });
 

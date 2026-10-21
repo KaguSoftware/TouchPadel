@@ -33,7 +33,7 @@ export function blankValue(def: FieldDef, path: readonly string[] = [def.name]):
     case 'time':
       return '';
     case 'enum': {
-      // A multiple enum (the plan's classes, 0354) holds a list of options.
+      // A multiple enum (the plan's classes, 0356) holds a list of options.
       if (def.multiple) return [];
       const d = ENUM_DEFAULTS[def.name];
       // capacity.unit is players or pairs, a recipe line's unit is g, ml or pc.

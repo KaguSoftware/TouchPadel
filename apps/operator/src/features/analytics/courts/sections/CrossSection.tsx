@@ -17,7 +17,7 @@ import { CardShell } from '../../cards/CardShell';
 import { ChartCard } from '../../charts/ChartCard';
 import { CountBars } from '../../charts/CountBars';
 import { HBarChart } from '../../charts/HBarChart';
-import { ShareBars } from '../../charts/ShareBars';
+import { BookingTimeline } from '../../charts/BookingTimeline';
 import { StackedBars } from '../../charts/StackedBars';
 import { WeekHeatmap } from '../../charts/WeekHeatmap';
 import { barTwin, heatTwin, seriesTwin } from '../../charts/twins';
@@ -51,7 +51,13 @@ export function CrossSection({ raw, state, refreshing, f, rangeLabel, selectedCo
   const attachRows = topRows(attachAll);
   const spendRows = topRows(spendAll);
   const perCourtCapped = (cafe?.perCourt.length ?? 0) > CHART_COURTS ? tr('ws.analytics.courts.cards.topCourts', { n: f.num(CHART_COURTS), total: f.num(cafe?.perCourt.length ?? 0) }) : undefined;
-  const timing = (cafe?.orderTiming.buckets ?? []).map((b) => ({ key: b.bucket, label: tr(`ws.analytics.courts.buckets.timing.${TIMING_LABEL[b.bucket] ?? 'firstHalf'}`), value: b.orders }));
+  // On the booking's own time line: the two halves of the court time stand on it (BookingTimeline).
+  const timing = (cafe?.orderTiming.buckets ?? []).map((b) => ({
+    key: b.bucket,
+    label: tr(`ws.analytics.courts.buckets.timing.${TIMING_LABEL[b.bucket] ?? 'firstHalf'}`),
+    value: b.orders,
+    during: b.bucket === 'first_half' || b.bucket === 'second_half',
+  }));
   const valueSeries = [
     { key: 'courtFee', name: tr('ws.analytics.courts.series.courtFee') },
     { key: 'cafe', name: tr('ws.analytics.courts.series.cafe') },
@@ -178,9 +184,9 @@ export function CrossSection({ raw, state, refreshing, f, rangeLabel, selectedCo
             state={cardState === 'ready' && timing.every((t) => t.value === 0) ? 'empty' : cardState}
             refreshing={refreshing}
             emptyKey={emptyKey}
-            skeletonLines={2}
+            skeletonLines={4}
           >
-            <ShareBars segments={timing} format={(n) => f.num(n)} pct={(n) => f.pct(n)} />
+            <BookingTimeline buckets={timing} format={(n) => f.num(n)} pct={(n) => f.pct(n)} />
           </CardShell>
           <ChartCard
             title={tr('ws.analytics.cross.spendByDuration')}

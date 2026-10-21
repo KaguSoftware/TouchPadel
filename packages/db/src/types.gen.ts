@@ -620,6 +620,11 @@ export type Database = {
         Args: { p_family: string; p_parts: Json }
         Returns: Json
       }
+      assistant_file_get: { Args: { p_file_id: string }; Returns: Json }
+      assistant_files_list: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: Json
+      }
       assistant_history_courts: {
         Args: {
           p_from: string
@@ -1864,6 +1869,7 @@ export type Database = {
           p_actor_id: string
           p_customer_id: string
           p_full_name: string
+          p_gender?: string
           p_phone: string
           p_preferred_lang: string
         }
@@ -2101,6 +2107,7 @@ export type Database = {
         Returns: boolean
       }
       is_staff_media_path: { Args: { p_name: string }; Returns: boolean }
+      is_venue_file_path: { Args: { p_name: string }; Returns: boolean }
       item_active_groups: {
         Args: { p_chosen_modifier_ids: string[]; p_item_id: string }
         Returns: string[]
@@ -4734,6 +4741,15 @@ export type Database = {
         Returns: Json
       }
       slips_to_send: { Args: { p_venue_id?: string }; Returns: Json }
+      slot_gender_rules: {
+        Args: {
+          p_court_id: string
+          p_end_at: string
+          p_start_at: string
+          p_venue_id: string
+        }
+        Returns: string[]
+      }
       sms_send_gate: {
         Args: { p_phone_e164: string; p_purpose?: string; p_user_id?: string }
         Returns: Json
@@ -5337,6 +5353,22 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_court_gender_rule: {
+        Args: {
+          p_court_id?: string
+          p_days_of_week: number[]
+          p_end_time: string
+          p_gender: string
+          p_id?: string
+          p_is_active?: boolean
+          p_name: string
+          p_start_time: string
+          p_valid_from?: string
+          p_valid_to?: string
+          p_venue_id?: string
+        }
+        Returns: string
+      }
       upsert_ingredient: {
         Args: {
           p_id?: string
@@ -5601,6 +5633,50 @@ export type Database = {
         Args: { p_at?: string; p_venue: string }
         Returns: string
       }
+      venue_file_begin: {
+        Args: {
+          p_encoding: string
+          p_mime: string
+          p_name: string
+          p_note?: string
+          p_owner_only?: boolean
+          p_size_bytes: number
+          p_stored_bytes: number
+          p_text_bytes?: number
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      venue_file_delete: { Args: { p_id: string }; Returns: Json }
+      venue_file_finish: {
+        Args: { p_id: string; p_text_chars?: number }
+        Returns: Json
+      }
+      venue_file_json: {
+        Args: { f: Database["public"]["Tables"]["venue_files"]["Row"] }
+        Returns: Json
+      }
+      venue_file_object_readable: { Args: { p_name: string }; Returns: boolean }
+      venue_file_object_removable: {
+        Args: { p_name: string }
+        Returns: boolean
+      }
+      venue_file_object_uploadable: {
+        Args: { p_name: string }
+        Returns: boolean
+      }
+      venue_file_update: {
+        Args: {
+          p_id: string
+          p_name: string
+          p_note?: string
+          p_owner_only?: boolean
+        }
+        Returns: Json
+      }
+      venue_files_list: { Args: { p_venue_id?: string }; Returns: Json }
+      venue_files_quota_bytes: { Args: never; Returns: number }
+      venue_files_venue: { Args: { p_venue_id: string }; Returns: string }
       venue_mode:
         | { Args: never; Returns: Json }
         | { Args: { p_venue: string }; Returns: Json }
@@ -7671,6 +7747,69 @@ export type Database = {
           },
           {
             foreignKeyName: "courses_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      court_gender_rules: {
+        Row: {
+          court_id: string | null
+          created_at: string
+          days_of_week: number[]
+          end_time: string
+          gender: string
+          id: string
+          is_active: boolean
+          name: string
+          start_time: string
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+          venue_id: string
+        }
+        Insert: {
+          court_id?: string | null
+          created_at?: string
+          days_of_week: number[]
+          end_time: string
+          gender: string
+          id?: string
+          is_active?: boolean
+          name: string
+          start_time: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          venue_id?: string
+        }
+        Update: {
+          court_id?: string | null
+          created_at?: string
+          days_of_week?: number[]
+          end_time?: string
+          gender?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          start_time?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "court_gender_rules_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "court_gender_rules_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -17218,6 +17357,81 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_files: {
+        Row: {
+          blob_path: string
+          created_at: string
+          encoding: string
+          id: string
+          mime: string
+          name: string
+          note: string | null
+          owner_only: boolean
+          ready_at: string | null
+          size_bytes: number
+          status: string
+          stored_bytes: number
+          text_bytes: number | null
+          text_chars: number | null
+          text_path: string | null
+          uploaded_by: string
+          venue_id: string
+        }
+        Insert: {
+          blob_path: string
+          created_at?: string
+          encoding: string
+          id?: string
+          mime: string
+          name: string
+          note?: string | null
+          owner_only?: boolean
+          ready_at?: string | null
+          size_bytes: number
+          status?: string
+          stored_bytes: number
+          text_bytes?: number | null
+          text_chars?: number | null
+          text_path?: string | null
+          uploaded_by: string
+          venue_id?: string
+        }
+        Update: {
+          blob_path?: string
+          created_at?: string
+          encoding?: string
+          id?: string
+          mime?: string
+          name?: string
+          note?: string | null
+          owner_only?: boolean
+          ready_at?: string | null
+          size_bytes?: number
+          status?: string
+          stored_bytes?: number
+          text_bytes?: number | null
+          text_chars?: number | null
+          text_path?: string | null
+          uploaded_by?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_files_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_files_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]

@@ -231,7 +231,7 @@ export const matchesPlayersEn = {
     body: "Calling off cancels the booking and nobody pays for the court. The players who came keep their tickets; the ticket of anyone who didn't come is lost. This can't be undone.",
     bodyF:
       "Calling off cancels the booking and nobody pays for the court. The players who came keep their tickets; the ticket of anyone who didn't come is lost. This can't be undone.",
-    deskPaid: '{amount} was already taken at the desk for this match. After calling off, a manager refunds it at the till.',
+    deskPaid: '{amount} was already taken at the desk for this match. After calling off, a manager refunds it at the café cashier.',
     keep: 'Keep playing',
     confirm: 'Call off the match',
     done: 'Match called off.',

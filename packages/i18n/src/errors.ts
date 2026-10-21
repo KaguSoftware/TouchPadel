@@ -565,6 +565,8 @@ export const ERROR_CODE_KEYS = {
   // inline, DF-10); NEED_TICKETS app.ticket_pick's, whose detail has its own
   // line (matches.errors.needTicketsCount) for the screen that reads it.
   GENDER_REQUIRED: 'matches.errors.genderRequired',
+  // 0353: a booking or open match on a court kept for the other gender.
+  SLOT_GENDER_RESTRICTED: 'op.errors.SLOT_GENDER_RESTRICTED',
   NEED_TICKETS: 'matches.errors.needTickets',
   // 0261: the guest's open-match calls (start, join, request, decide, leave,
   // remove, cancel, message, report, block).
@@ -718,6 +720,11 @@ export const ERROR_CODE_KEYS = {
   MAIN_CASH_CHANGED: 'op.errors.MAIN_CASH_CHANGED',
   MAIN_CASH_HANDED_IN: 'op.errors.MAIN_CASH_HANDED_IN',
   MAIN_CASH_LINKED: 'op.errors.MAIN_CASH_LINKED',
+  // Files (0354).
+  FILE_NOT_FOUND: 'op.errors.FILE_NOT_FOUND',
+  FILE_NOT_YOURS: 'op.errors.FILE_NOT_YOURS',
+  FILE_TOO_LARGE: 'op.errors.FILE_TOO_LARGE',
+  FILES_QUOTA_FULL: 'op.errors.FILES_QUOTA_FULL',
   WAGE_ADVANCE_TOO_LARGE: 'op.errors.WAGE_ADVANCE_TOO_LARGE',
 
   // ── Edge functions' own body codes (never raised by SQL) ──────────────────

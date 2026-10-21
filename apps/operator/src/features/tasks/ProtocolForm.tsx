@@ -139,7 +139,7 @@ function FieldControl(props: ProtocolFormProps & { def: FieldDef; path: Path }) 
     case 'enum': {
       const labels = OPTION_LABELS[def.name] ?? {};
       if (def.multiple) {
-        // Several may be on (the plan's classes, 0354).
+        // Several may be on (the plan's classes, 0356).
         const picked = Array.isArray(value) ? (value as string[]) : [];
         return (
           <Field {...common} group>

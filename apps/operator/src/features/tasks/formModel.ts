@@ -42,7 +42,7 @@ export function emptyValue(def: FieldDef): unknown {
     // A required choice starts on its first option only when the form offers
     // no sensible "none yet"; everything else waits for a pick.
     case 'enum':
-      // A multiple enum (the plan's classes, 0354) holds a list of options.
+      // A multiple enum (the plan's classes, 0356) holds a list of options.
       return def.multiple ? [] : '';
     case 'int':
     case 'iqd':

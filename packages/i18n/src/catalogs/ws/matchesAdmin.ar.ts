@@ -161,7 +161,7 @@ export const matchesAdminAr: DeepMessages<typeof matchesAdminEn> = {
     },
   },
   dayClose: {
-    title: 'أموال خارج الصندوق',
+    title: 'أموال خارج الكاشير',
     lead: 'المدفوعات الإلكترونية وأرقام المباريات المفتوحة لهذا اليوم. للاطلاع فقط: لا يدخل شيء منها في عدّ الصندوق.',
     deposits: {
       title: 'العربون الإلكتروني، هذا الفرع',

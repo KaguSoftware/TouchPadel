@@ -9,7 +9,7 @@ const stripComments = (s: string) =>
   s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
 const HOOK = stripComments(read('src/components/useTabBarHeight.ts'));
-const SCREENS = ['app/(tabs)/index.tsx', 'app/(tabs)/bookings.tsx'];
+const SCREENS = ['app/(tabs)/index.tsx', 'app/(tabs)/bookings.tsx', 'app/(tabs)/club.tsx'];
 
 /**
  * `useBottomTabBarHeight()` THROWS when its context is missing, and the context

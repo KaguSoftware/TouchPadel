@@ -38,7 +38,7 @@ describe('a form’s value', () => {
     });
     const record = cleanRecord(form.fields, v);
     expect(record.name_en).toBe('Summer Cup');
-    // A multiple enum (0354) goes in its options' order.
+    // A multiple enum (0356) goes in its options' order.
     expect(record.classes).toEqual(['A', 'B']);
     expect(record.ranges).toHaveLength(1);
     expect(record).not.toHaveProperty('prize');

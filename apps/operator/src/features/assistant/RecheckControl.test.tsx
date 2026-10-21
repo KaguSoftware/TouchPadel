@@ -44,7 +44,7 @@ describe('RecheckControl', () => {
     });
     renderIn(<Message role="assistant" messageId="m1" text="Revenue 228,000 IQD from 300 orders; margin 12.5%." tools={TOOLS} />);
     expect(document.querySelector('mark')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Check figures still hold' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Re-check' }));
     await waitFor(() => expect(document.querySelector('[data-recheck-result]')).toBeTruthy());
     expect(recheck).toHaveBeenCalledWith('m1');
     const line = plain(document.querySelector('[data-recheck-result="changed"]'));
@@ -62,7 +62,7 @@ describe('RecheckControl', () => {
   it('says every figure holds when nothing changed', async () => {
     recheck.mockResolvedValue({ message_id: 'm2', checked_at: '2026-09-20T10:00:00Z', tools: [], changed: [], unchanged: 6, baseline: true });
     renderIn(<Message role="assistant" messageId="m2" text="Cash 800." tools={TOOLS} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Check figures still hold' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Re-check' }));
     await waitFor(() => expect(document.querySelector('[data-recheck-result="hold"]')).toBeTruthy());
     expect(plain(document.querySelector('[data-recheck-result]'))).toContain('All 6 figures still hold.');
     expect(document.querySelector('mark')).toBeNull();
@@ -78,7 +78,7 @@ describe('RecheckControl', () => {
       baseline: false,
     });
     renderIn(<Message role="assistant" messageId="m3" text="Cash 800." tools={TOOLS} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Check figures still hold' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Re-check' }));
     await waitFor(() => expect(document.querySelector('[data-recheck-result]')).toBeTruthy());
     const line = plain(document.querySelector('[data-recheck-result]'));
     expect(line).toContain('saved before figures were recorded');
@@ -88,7 +88,7 @@ describe('RecheckControl', () => {
   it('shows the failure sentence when the call itself fails', async () => {
     recheck.mockRejectedValue(new Error('boom'));
     renderIn(<Message role="assistant" messageId="m4" text="Cash 800." tools={TOOLS} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Check figures still hold' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Re-check' }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
     expect(screen.getByRole('alert').textContent).toContain('could not be re-checked');
   });
@@ -97,7 +97,7 @@ describe('RecheckControl', () => {
     renderIn(<Message role="assistant" text="Cash 800." tools={TOOLS} />);
     renderIn(<Message role="assistant" messageId="m5" text="Cash 800." tools={TOOLS} streaming />);
     renderIn(<Message role="assistant" messageId="m6" text="It is under Admin." tools={KNOWLEDGE_ONLY} />);
-    expect(screen.queryByRole('button', { name: 'Check figures still hold' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Re-check' })).toBeNull();
   });
 });
 

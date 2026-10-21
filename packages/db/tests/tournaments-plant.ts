@@ -87,8 +87,8 @@ begin
     'ranges', jsonb_build_array(jsonb_build_object('court_ids', to_jsonb(v_courts), 'from', v_from, 'to', v_to)),
     'capacity', jsonb_build_object('unit', coalesce(p->>'unit', 'player' || 's'),
                                    'count', coalesce((p->>'count')::int, 16)));
-  -- 0354: {"classes": [...]} plants a plan with several classes (class is the first);
-  -- without it the plan is one from before 0354, and publish reads its one class.
+  -- 0356: {"classes": [...]} plants a plan with several classes (class is the first);
+  -- without it the plan is one from before 0356, and publish reads its one class.
   if p ? 'classes' then
     v_data := v_data || jsonb_build_object('classes', p->'classes', 'class', p->'classes'->>0);
   end if;

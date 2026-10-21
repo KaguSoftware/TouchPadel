@@ -468,6 +468,25 @@ export const TabCoachesIcon = ({ size = 21, color }: TabIconProps) => (
   </Svg>
 );
 /**
+ * Club (2026-10-19, the bar's centre): the member card's QR, three finder squares
+ * with their eyes and a scatter of modules, at the tab bar's weight. A code is
+ * read as drawn, so it never mirrors. iOS draws SF Symbols' `qrcode`.
+ */
+export const TabClubIcon = ({ size = 21, color }: TabIconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
+    <Rect x={3.5} y={3.5} width={7} height={7} rx={1.5} stroke={color} strokeWidth={2} />
+    <Rect x={13.5} y={3.5} width={7} height={7} rx={1.5} stroke={color} strokeWidth={2} />
+    <Rect x={3.5} y={13.5} width={7} height={7} rx={1.5} stroke={color} strokeWidth={2} />
+    <Rect x={6} y={6} width={2} height={2} fill={color} />
+    <Rect x={16} y={6} width={2} height={2} fill={color} />
+    <Rect x={6} y={16} width={2} height={2} fill={color} />
+    <Rect x={13} y={13} width={3} height={3} rx={0.5} fill={color} />
+    <Rect x={18} y={18} width={3} height={3} rx={0.5} fill={color} />
+    <Rect x={18} y={13} width={3} height={2.5} rx={0.5} fill={color} />
+    <Rect x={13} y={18.5} width={2.5} height={2.5} rx={0.5} fill={color} />
+  </Svg>
+);
+/**
  * Profile: the iOS tab's `person.crop.circle` drawn for Android (owner,
  * 2026-10-13), a head and shoulders cropped inside a ring, the shoulders
  * meeting the ring. Symmetric, so it never mirrors.

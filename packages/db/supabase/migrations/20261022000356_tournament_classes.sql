@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0354 tournament_classes — a tournament may be for more than one class
+-- 0356 tournament_classes — a tournament may be for more than one class
 -- (owner, 2026-10-22: "make it so that you can choose more than one class").
 -- The desk's plan also stops asking for the years played; 0339's column and
 -- its registration check stay for the tournaments that name a bracket.
@@ -32,7 +32,7 @@ alter table tournaments add column if not exists classes text[];
 
 update tournaments set classes = array[class] where classes is null;
 
-do $tournaments_classes_0354$
+do $tournaments_classes_0356$
 begin
   if not exists (select 1 from pg_constraint
                   where conname = 'tournaments_classes'
@@ -43,9 +43,9 @@ begin
              and classes <@ array['A', 'B', 'C']::text[]
              and classes[1] = class) not valid;
   end if;
-end $tournaments_classes_0354$;
+end $tournaments_classes_0356$;
 
-do $tournaments_classes_validate_0354$
+do $tournaments_classes_validate_0356$
 begin
   if exists (select 1 from pg_constraint
               where conname = 'tournaments_classes'
@@ -53,17 +53,17 @@ begin
                 and not convalidated) then
     alter table tournaments validate constraint tournaments_classes;
   end if;
-end $tournaments_classes_validate_0354$;
+end $tournaments_classes_validate_0356$;
 
 comment on column tournaments.classes is
-  '0354. Every class the tournament is for (A advanced, B intermediate, C beginners), one to three in A-B-C order, from the plan. tournament_register takes a guest whose level fits any of them. tournaments.class is the first, kept for builds before 0354.';
+  '0356. Every class the tournament is for (A advanced, B intermediate, C beginners), one to three in A-B-C order, from the plan. tournament_register takes a guest whose level fits any of them. tournaments.class is the first, kept for builds before 0356.';
 
 -- ===========================================================================
 -- 2. The plan check (0339)
 -- ===========================================================================
 create or replace function app.protocol_check_tournament_plan(p_run_step_id uuid, p_record jsonb, p_photos text[])
 returns jsonb
-language plpgsql stable security definer set search_path = public as $protocol_check_tournament_plan_0354$
+language plpgsql stable security definer set search_path = public as $protocol_check_tournament_plan_0356$
 declare
   v_run     protocol_runs%rowtype;
   v_short   boolean;
@@ -90,8 +90,8 @@ begin
                     'budget_iqd', 'expected_entries', 'risks', 'notes', 'sponsor'] end,
     null);
 
-  -- 0354: the classes it is for, one to three of A, B, C, none twice, kept
-  -- in A-B-C order. A plan from a desk build before 0354 names one class.
+  -- 0356: the classes it is for, one to three of A, B, C, none twice, kept
+  -- in A-B-C order. A plan from a desk build before 0356 names one class.
   if p_record->'classes' is not null and p_record->'classes' <> 'null'::jsonb then
     if jsonb_typeof(p_record->'classes') <> 'array'
        or jsonb_array_length(p_record->'classes') not between 1 and 3
@@ -116,7 +116,7 @@ begin
   end if;
   v_out := jsonb_build_object(
     'classes', to_jsonb(v_classes),
-    -- The first of them, for a reader before 0354 (tournaments.class).
+    -- The first of them, for a reader before 0356 (tournaments.class).
     'class',   v_classes[1],
     'play_years', p_record->>'play_years',
     'name_en', app.tournament_text(p_record->'name_en', 80, true, 'name_en'),
@@ -218,10 +218,10 @@ begin
 
   v_out := v_out || jsonb_build_object('notes', app.tournament_text(p_record->'notes', 2000, false, 'notes'));
   return jsonb_strip_nulls(v_out);
-end $protocol_check_tournament_plan_0354$;
+end $protocol_check_tournament_plan_0356$;
 
 comment on function app.protocol_check_tournament_plan(uuid, jsonb, text[]) is
-  'event_court_blocks (§2.8; 0339 play_years; 0354 classes). Internal check hook: the plan {classes (one to three of A | B | C, distinct; a plan before 0354 names one class instead), play_years? (under_one | one_to_three | three_plus: the players'' years bracket), name_en, name_ar, format (type 1 and 3), ranges: [{court_ids, from, to}] (1-14, active courts at the run''s venue), capacity: {unit, count 2-512}, entry_fee_iqd?, prize?, budget_iqd?, expected_entries?, risks?, notes?, sponsor?}; type 2 takes the short form. SPONSOR_DETAILS_REQUIRED for type 3 without a sponsor; RECORD_INVALID and TEXT_TOO_LONG with the field as hint. Returns the normalised record, carrying classes in A-B-C order and class (the first of them).';
+  'event_court_blocks (§2.8; 0339 play_years; 0356 classes). Internal check hook: the plan {classes (one to three of A | B | C, distinct; a plan before 0356 names one class instead), play_years? (under_one | one_to_three | three_plus: the players'' years bracket), name_en, name_ar, format (type 1 and 3), ranges: [{court_ids, from, to}] (1-14, active courts at the run''s venue), capacity: {unit, count 2-512}, entry_fee_iqd?, prize?, budget_iqd?, expected_entries?, risks?, notes?, sponsor?}; type 2 takes the short form. SPONSOR_DETAILS_REQUIRED for type 3 without a sponsor; RECORD_INVALID and TEXT_TOO_LONG with the field as hint. Returns the normalised record, carrying classes in A-B-C order and class (the first of them).';
 
 revoke all on function app.protocol_check_tournament_plan(uuid, jsonb, text[]) from public, anon, authenticated;
 
@@ -230,7 +230,7 @@ revoke all on function app.protocol_check_tournament_plan(uuid, jsonb, text[]) f
 -- ===========================================================================
 create or replace function app.tournament_publish(p_run_id uuid, p_settings jsonb, p_idempotency_key text)
 returns jsonb
-language plpgsql security definer set search_path = public as $tournament_publish_0354$
+language plpgsql security definer set search_path = public as $tournament_publish_0356$
 declare
   c_keys constant text[] := array['format', 'category', 'points_target', 'rounds', 'min_entries',
                                   'waitlist_max', 'registration_closes_at', 'prize_en', 'prize_ar'];
@@ -474,7 +474,7 @@ begin
                         and r.start_at = (g.e->>'from')::timestamptz
                         and r.end_at = (g.e->>'to')::timestamptz);
 
-  -- 0354: the plan's classes; a run checked before 0354 carries one class.
+  -- 0356: the plan's classes; a run checked before 0356 carries one class.
   v_classes := case when jsonb_typeof(v_data->'classes') = 'array'
                     then array(select x from jsonb_array_elements_text(v_data->'classes') x order by x)
                     else array[v_data->>'class'] end;
@@ -514,10 +514,10 @@ begin
                                              'blocks', jsonb_array_length(v_blocks)));
   perform app.finish_replay(p_idempotency_key, v_result);
   return v_result;
-end $tournament_publish_0354$;
+end $tournament_publish_0356$;
 
 comment on function app.tournament_publish(uuid, jsonb, text) is
-  'Tournaments (M7, T-6, build contracts §1.6, §1.9, S13). Manager or owner at the run''s branch: a done tournament run becomes one tournaments row (names, classes (0354; class is the first of them) and play_years (0339) from the plan, max_entries = least(capacity.count, 64), the fee from the plan, starts_at/ends_at the adopted blocks'' span) adopting the run''s live event blocks on its plan (courts locked in court-id order, then the blocks FOR UPDATE). p_settings: format (type 2 required; type 1/3 must equal the plan''s), category, points_target 8..64, rounds (Mexicano required, 1..30; ignored for Americano), min_entries 4..max, waitlist_max 0..64, registration_closes_at (required, after now, no later than the first block), prize_en, prize_ar (<= 200). FORBIDDEN; INVALID_ARGUMENT (detail p_idempotency_key, p_settings); PROTOCOL_NOT_FOUND; VENUE_MISMATCH; TOURNAMENTS_OFF; a replay returns the stored answer; TOURNAMENT_PUBLISH_REFUSED detail not_done, already_published, capacity_unit, capacity_count, format, fee_not_approved (a fee without the owner''s OK on feasibility), no_blocks, settings:<key>. Audit tournament.publish. Returns {duplicate, tournament_id, status, starts_at, ends_at, blocks [{reservation_id, court_id, start_at, end_at}], unblocked_windows [{court_id, start_at, end_at}]}.';
+  'Tournaments (M7, T-6, build contracts §1.6, §1.9, S13). Manager or owner at the run''s branch: a done tournament run becomes one tournaments row (names, classes (0356; class is the first of them) and play_years (0339) from the plan, max_entries = least(capacity.count, 64), the fee from the plan, starts_at/ends_at the adopted blocks'' span) adopting the run''s live event blocks on its plan (courts locked in court-id order, then the blocks FOR UPDATE). p_settings: format (type 2 required; type 1/3 must equal the plan''s), category, points_target 8..64, rounds (Mexicano required, 1..30; ignored for Americano), min_entries 4..max, waitlist_max 0..64, registration_closes_at (required, after now, no later than the first block), prize_en, prize_ar (<= 200). FORBIDDEN; INVALID_ARGUMENT (detail p_idempotency_key, p_settings); PROTOCOL_NOT_FOUND; VENUE_MISMATCH; TOURNAMENTS_OFF; a replay returns the stored answer; TOURNAMENT_PUBLISH_REFUSED detail not_done, already_published, capacity_unit, capacity_count, format, fee_not_approved (a fee without the owner''s OK on feasibility), no_blocks, settings:<key>. Audit tournament.publish. Returns {duplicate, tournament_id, status, starts_at, ends_at, blocks [{reservation_id, court_id, start_at, end_at}], unblocked_windows [{court_id, start_at, end_at}]}.';
 
 revoke all on function app.tournament_publish(uuid, jsonb, text) from public, anon;
 grant execute on function app.tournament_publish(uuid, jsonb, text) to authenticated;
@@ -527,7 +527,7 @@ grant execute on function app.tournament_publish(uuid, jsonb, text) to authentic
 -- ===========================================================================
 create or replace function app.tournament_register(p_tournament_id uuid)
 returns jsonb
-language plpgsql security definer set search_path = public as $tournament_register_0354$
+language plpgsql security definer set search_path = public as $tournament_register_0356$
 declare
   v_p      profiles;
   v_t      tournaments%rowtype;
@@ -572,7 +572,7 @@ begin
      or (v_t.category = 'men' and v_p.gender is distinct from 'male') then
     raise exception 'TOURNAMENT_CATEGORY_MISMATCH' using errcode = 'P0001';
   end if;
-  -- 0339: who it is for. The level fits one of its classes (0354; advanced A,
+  -- 0339: who it is for. The level fits one of its classes (0356; advanced A,
   -- intermediate B, beginner or new C); when the tournament names a years bracket, the guest's
   -- years are that bracket (never counts as under_one). An unanswered question
   -- is PROFILE_REQUIRED, so the phone opens the survey; the desk adds anyone.
@@ -623,10 +623,10 @@ begin
                           jsonb_build_object('tournament_id', v_t.id, 'status', v_status));
   return jsonb_build_object('entry_id', v_e.id, 'status', v_status, 'waitlist_position', v_pos,
                             'duplicate', false);
-end $tournament_register_0354$;
+end $tournament_register_0356$;
 
 comment on function app.tournament_register(uuid) is
-  'Tournaments (M7, T-4, §1.6). Guest: app.match_guest(true) first (AUTH_REQUIRED, ACCOUNT_REQUIRED, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, GENDER_REQUIRED); then TOURNAMENT_NOT_FOUND (unknown, or its branch not open to guests), TOURNAMENTS_OFF, a live entry answers duplicate true, TOURNAMENT_NOT_OPEN detail status (not open, or a no-show row) or cutoff (past registration_closes_at), TOURNAMENT_CATEGORY_MISMATCH; 0339: TOURNAMENT_PROFILE_REQUIRED (detail level | years: that play survey question is unanswered), TOURNAMENT_LEVEL_MISMATCH (detail level | years: the level fits none of the classes (0354), or the years are not the tournament''s bracket) (women / men against profiles.gender). registered while fewer than max_entries are, else waitlisted while fewer than waitlist_max are, else TOURNAMENT_FULL; a withdrawn row is re-used with a fresh entered_at. Audit tournament.register. Returns {entry_id, status, waitlist_position, duplicate}.';
+  'Tournaments (M7, T-4, §1.6). Guest: app.match_guest(true) first (AUTH_REQUIRED, ACCOUNT_REQUIRED, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, GENDER_REQUIRED); then TOURNAMENT_NOT_FOUND (unknown, or its branch not open to guests), TOURNAMENTS_OFF, a live entry answers duplicate true, TOURNAMENT_NOT_OPEN detail status (not open, or a no-show row) or cutoff (past registration_closes_at), TOURNAMENT_CATEGORY_MISMATCH; 0339: TOURNAMENT_PROFILE_REQUIRED (detail level | years: that play survey question is unanswered), TOURNAMENT_LEVEL_MISMATCH (detail level | years: the level fits none of the classes (0356), or the years are not the tournament''s bracket) (women / men against profiles.gender). registered while fewer than max_entries are, else waitlisted while fewer than waitlist_max are, else TOURNAMENT_FULL; a withdrawn row is re-used with a fresh entered_at. Audit tournament.register. Returns {entry_id, status, waitlist_position, duplicate}.';
 
 revoke all on function app.tournament_register(uuid) from public, anon;
 grant execute on function app.tournament_register(uuid) to authenticated;
@@ -636,7 +636,7 @@ grant execute on function app.tournament_register(uuid) to authenticated;
 -- ===========================================================================
 create or replace function app.tournaments_public(p_venue_id uuid)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $tournaments_public_0354$
+language plpgsql stable security definer set search_path = public as $tournaments_public_0356$
 declare
   v_uid      uuid := auth.uid();
   v_venues   uuid[];
@@ -713,17 +713,17 @@ begin
                   or (t.status = 'finished' and t.finished_at > now() - interval '7 days'))) x;
 
   return jsonb_build_object('off', false, 'server_now', now(), 'branches', v_branches, 'tournaments', v_rows);
-end $tournaments_public_0354$;
+end $tournaments_public_0356$;
 
 comment on function app.tournaments_public(uuid) is
-  'Tournaments (M7, T-8, §1.6, §1.8, review M7; 0339 class, play_years; 0354 classes). Public by design (anon and authenticated; never raises): {off: true} for an unknown, closed or switched-off branch (or, with p_venue_id null, when no open branch runs tournaments); otherwise {off: false, server_now, branches [{venue_id, name_en, name_ar, timezone}], tournaments [{id, venue_id, name_en, name_ar, format, category, class (A advanced | B intermediate | C beginners; 0339; the first of classes since 0354), classes (0354: every class it is for, A-B-C order), play_years (under_one | one_to_three | three_plus | null = any experience; 0339), starts_at, ends_at, registration_closes_at, entry_fee_iqd, prize_en, prize_ar, max_entries, places_left, waitlist_open, status, mine}]} for open, closed and running tournaments and those finished in the last 7 days. mine is the caller''s own entry {entry_id, status, waitlist_position} (with a session), else null. No names, no court ids, no guest data.';
+  'Tournaments (M7, T-8, §1.6, §1.8, review M7; 0339 class, play_years; 0356 classes). Public by design (anon and authenticated; never raises): {off: true} for an unknown, closed or switched-off branch (or, with p_venue_id null, when no open branch runs tournaments); otherwise {off: false, server_now, branches [{venue_id, name_en, name_ar, timezone}], tournaments [{id, venue_id, name_en, name_ar, format, category, class (A advanced | B intermediate | C beginners; 0339; the first of classes since 0356), classes (0356: every class it is for, A-B-C order), play_years (under_one | one_to_three | three_plus | null = any experience; 0339), starts_at, ends_at, registration_closes_at, entry_fee_iqd, prize_en, prize_ar, max_entries, places_left, waitlist_open, status, mine}]} for open, closed and running tournaments and those finished in the last 7 days. mine is the caller''s own entry {entry_id, status, waitlist_position} (with a session), else null. No names, no court ids, no guest data.';
 
 revoke all on function app.tournaments_public(uuid) from public;
 grant execute on function app.tournaments_public(uuid) to anon, authenticated;
 
 create or replace function app.tournament_public(p_id uuid)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $tournament_public_0354$
+language plpgsql stable security definer set search_path = public as $tournament_public_0356$
 declare
   v_uid       uuid := auth.uid();
   v_t         tournaments%rowtype;
@@ -872,17 +872,17 @@ begin
     'standings', v_standings,
     'entries', v_entries,
     'me', v_me);
-end $tournament_public_0354$;
+end $tournament_public_0356$;
 
 comment on function app.tournament_public(uuid) is
-  'Tournaments (M7, T-8, §1.8, review M8; 0311 c27; 0334 entries; 0339 class, play_years; 0354 classes). Public by design (anon and authenticated; never raises): {missing: true, entries: []} for an unknown id, a branch closed or switched off, or a tournament cancelled more than 7 days ago; otherwise {missing: false, id, venue_id, branch {venue_id, name_en, name_ar, timezone}, name_en, name_ar, format, category, class (the first of classes), classes (0354), play_years, points_target, rounds_planned, starts_at, ends_at, registration_closes_at, entry_fee_iqd, prize_en, prize_ar, status, max_entries, entries_count (registered), places_left, waitlist_open, server_now, rounds [{round_no, sit_out [player], matches [{court_no, a [player, player], b [player, player], points_a, points_b}]}], standings [{rank, player, points_won, diff, played, withdrawn (0311: left the play; ranked after every registered entry)}], entries [{player, mine}] (0334: the registered entries in registration order, promoted_at for a promoted waitlist entry else entered_at, then id; present before and after the schedule exists; mine is the caller''s own entry, false for anon), me {entry_id, status, waitlist_position, owed_iqd} (the caller''s own entry, with a session) | null}. A player is {name ("First I." via app.match_display_name, null for a desk-added profile with no accepted terms), former (a deleted account), no (seed_no)}; rounds and standings are empty until a schedule exists (entries is not: 0334, the seating board names the registered entries before the draw; no is null until seeds are given), and the waitlist is never named. court_no is an ordinal; no court id, guest id, phone or full name.';
+  'Tournaments (M7, T-8, §1.8, review M8; 0311 c27; 0334 entries; 0339 class, play_years; 0356 classes). Public by design (anon and authenticated; never raises): {missing: true, entries: []} for an unknown id, a branch closed or switched off, or a tournament cancelled more than 7 days ago; otherwise {missing: false, id, venue_id, branch {venue_id, name_en, name_ar, timezone}, name_en, name_ar, format, category, class (the first of classes), classes (0356), play_years, points_target, rounds_planned, starts_at, ends_at, registration_closes_at, entry_fee_iqd, prize_en, prize_ar, status, max_entries, entries_count (registered), places_left, waitlist_open, server_now, rounds [{round_no, sit_out [player], matches [{court_no, a [player, player], b [player, player], points_a, points_b}]}], standings [{rank, player, points_won, diff, played, withdrawn (0311: left the play; ranked after every registered entry)}], entries [{player, mine}] (0334: the registered entries in registration order, promoted_at for a promoted waitlist entry else entered_at, then id; present before and after the schedule exists; mine is the caller''s own entry, false for anon), me {entry_id, status, waitlist_position, owed_iqd} (the caller''s own entry, with a session) | null}. A player is {name ("First I." via app.match_display_name, null for a desk-added profile with no accepted terms), former (a deleted account), no (seed_no)}; rounds and standings are empty until a schedule exists (entries is not: 0334, the seating board names the registered entries before the draw; no is null until seeds are given), and the waitlist is never named. court_no is an ordinal; no court id, guest id, phone or full name.';
 
 revoke all on function app.tournament_public(uuid) from public;
 grant execute on function app.tournament_public(uuid) to anon, authenticated;
 
 create or replace function app.desk_tournament_detail(p_tournament_id uuid)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $desk_tournament_detail_0354$
+language plpgsql stable security definer set search_path = public as $desk_tournament_detail_0356$
 declare
   v_t         tournaments%rowtype;
   v_tz        text;
@@ -1041,17 +1041,17 @@ begin
       'close', v_desk and v_t.status = 'open' and (v_mgmt or now() >= v_t.registration_closes_at),
       'finish', v_mgmt and v_t.status = 'running',
       'settle', v_till and v_t.status <> 'cancelled'));
-end $desk_tournament_detail_0354$;
+end $desk_tournament_detail_0356$;
 
 comment on function app.desk_tournament_detail(uuid) is
-  'Tournaments (M7, §1.8; 0310; 0311 c35; 0354 classes, every class it is for). The cashier, the court desk, managers and the owner (the entries carry names and phones): FORBIDDEN; TOURNAMENT_NOT_FOUND (unknown or outside the visible branches); VENUE_MISMATCH (not one of those roles at its branch). The tournament''s fields and revision, sweep_errors (0310: failed sweep cancels), timezone, server_now; entries [{entry_id, guest_id, full_name, phone, status, seed_no, waitlist_position, added_by_kind, owed_iqd, net_paid_iqd, refund_due_iqd, substitute_for, payments [{payment_id, tab_id, method, amount_iqd, refunded_iqd, refundable_iqd, created_at}] (0310)}] (registered by seed, the waitlist in order, then the rest); courts [{court_id, name_en, name_ar, sort_order}] of the live adopted blocks; rounds [{round_no, sit_out [entry], matches [{match_id, court_id, a [entry, entry], b [entry, entry], points_a, points_b, revision, corrections}]}]; standings (app.tournament_standings); can {add (open or closed; 0310: not running), set_rounds, score (0311: the court desk while running; a manager on a finished tournament within 48 hours of finished_at), cancel, close (0310: open, past the cut-off or a manager), finish (0310: a manager, running), settle} for the caller''s role and the status.';
+  'Tournaments (M7, §1.8; 0310; 0311 c35; 0356 classes, every class it is for). The cashier, the court desk, managers and the owner (the entries carry names and phones): FORBIDDEN; TOURNAMENT_NOT_FOUND (unknown or outside the visible branches); VENUE_MISMATCH (not one of those roles at its branch). The tournament''s fields and revision, sweep_errors (0310: failed sweep cancels), timezone, server_now; entries [{entry_id, guest_id, full_name, phone, status, seed_no, waitlist_position, added_by_kind, owed_iqd, net_paid_iqd, refund_due_iqd, substitute_for, payments [{payment_id, tab_id, method, amount_iqd, refunded_iqd, refundable_iqd, created_at}] (0310)}] (registered by seed, the waitlist in order, then the rest); courts [{court_id, name_en, name_ar, sort_order}] of the live adopted blocks; rounds [{round_no, sit_out [entry], matches [{match_id, court_id, a [entry, entry], b [entry, entry], points_a, points_b, revision, corrections}]}]; standings (app.tournament_standings); can {add (open or closed; 0310: not running), set_rounds, score (0311: the court desk while running; a manager on a finished tournament within 48 hours of finished_at), cancel, close (0310: open, past the cut-off or a manager), finish (0310: a manager, running), settle} for the caller''s role and the status.';
 
 revoke all on function app.desk_tournament_detail(uuid) from public, anon;
 grant execute on function app.desk_tournament_detail(uuid) to authenticated;
 
 create or replace function app.assistant_tournaments_summary(p_from date, p_to date)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $assistant_tournaments_summary_0354$
+language plpgsql stable security definer set search_path = public as $assistant_tournaments_summary_0356$
 declare
   v_rv    uuid[];
   v_today date;
@@ -1148,16 +1148,16 @@ begin
     'lastFinished',   v_last,
     'nextScheduled',  v_next,
     'tournaments',    v_rows);
-end $assistant_tournaments_summary_0354$;
+end $assistant_tournaments_summary_0356$;
 
 comment on function app.assistant_tournaments_summary(date, date) is
-  '0328 (0354: classes, every class a tournament is for). Owner-only, read-only, reached through app.assistant_run_tool (tool tournaments_summary). Tournaments starting in the range at the branches in scope (app.report_venues) with entries by status against the cap, totals with distinct and returning players, and the last finished and next scheduled tournament whatever the range. No guest identity.';
+  '0328 (0356: classes, every class a tournament is for). Owner-only, read-only, reached through app.assistant_run_tool (tool tournaments_summary). Tournaments starting in the range at the branches in scope (app.report_venues) with entries by status against the cap, totals with distinct and returning players, and the last finished and next scheduled tournament whatever the range. No guest identity.';
 
 revoke all on function app.assistant_tournaments_summary(date, date) from public, anon, authenticated;
 
 create or replace function app.tournament_context(p_run_step_id uuid)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $tournament_context_0354$
+language plpgsql stable security definer set search_path = public as $tournament_context_0356$
 declare
   v_step protocol_run_steps%rowtype;
   v_run  protocol_runs%rowtype;
@@ -1182,7 +1182,7 @@ begin
     'name_en',  v_data->>'name_en',
     'name_ar',  v_data->>'name_ar',
     'class',    v_data->>'class',
-    -- 0354: every class of the plan; a plan checked before it has one class.
+    -- 0356: every class of the plan; a plan checked before it has one class.
     'classes',  case when jsonb_typeof(v_data->'classes') = 'array' then v_data->'classes'
                      when v_data->>'class' is not null then jsonb_build_array(v_data->>'class') end,
     'format',   v_data->>'format',
@@ -1207,10 +1207,10 @@ begin
         from reservations r
        where r.protocol_run_id = v_run.id and r.block_purpose = 'event'
          and r.status in ('pending', 'confirmed', 'arrived')), '[]'::jsonb));
-end $tournament_context_0354$;
+end $tournament_context_0356$;
 
 comment on function app.tournament_context(uuid) is
-  'event_court_blocks (§2.11; 0354 classes, every class of the plan). The actor of a tournament''s courts or marketing step who may act on it, or MGMT at the venue: {name_en, name_ar, class, format, capacity, ranges: [{court_ids, court_names: [{en, ar}], from, to}], blocked: [{reservation_id, court_id, start_at, end_at}]} from the run''s passed plan and its live event blocks. No fee, prize, budget, sponsor or income. PROTOCOL_NOT_FOUND, NOT_STEP_ACTOR.';
+  'event_court_blocks (§2.11; 0356 classes, every class of the plan). The actor of a tournament''s courts or marketing step who may act on it, or MGMT at the venue: {name_en, name_ar, class, format, capacity, ranges: [{court_ids, court_names: [{en, ar}], from, to}], blocked: [{reservation_id, court_id, start_at, end_at}]} from the run''s passed plan and its live event blocks. No fee, prize, budget, sponsor or income. PROTOCOL_NOT_FOUND, NOT_STEP_ACTOR.';
 
 revoke all on function app.tournament_context(uuid) from public, anon;
 grant execute on function app.tournament_context(uuid) to authenticated;

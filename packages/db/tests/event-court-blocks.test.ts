@@ -295,7 +295,7 @@ interface Context {
   name_en: string;
   name_ar: string;
   class: string;
-  /** 0354. */
+  /** 0356. */
   classes: string[];
   format: string | null;
   capacity: { unit: string; count: number };
@@ -638,7 +638,7 @@ describe.skipIf(!docker)('event_court_blocks: blocking courts for a tournament',
       T('t2_null_format', 'manager', start('type2', plan({ courts: ['court'], day: 'day', variant: 'type2', extra: ` || '{"format":null}'::jsonb` }))),
       T('t1_no_format', 'manager', start('type1', `(${plan({ courts: ['court'], day: 'day' })} - 'format')`)),
       T('bad_class', 'manager', t1(` || '{"class":"D"}'::jsonb`)),
-      // 0354: several classes, kept in A-B-C order; class is the first.
+      // 0356: several classes, kept in A-B-C order; class is the first.
       T('classes', 'manager', t1(` || '{"classes":["C","A"]}'::jsonb`)),
       RES('run_classes', 'classes', 'run_id'),
       Q('classes_data', `select jsonb_build_object('classes', data->'classes', 'class', data->>'class') from protocol_runs where id = {{run_classes}}`),
@@ -695,7 +695,7 @@ describe.skipIf(!docker)('event_court_blocks: blocking courts for a tournament',
     expect(ok(r, 't2')).toMatchObject({ auto: true });
     expect(ok(r, 't2_null_format')).toMatchObject({ auto: true });
     expect(refused(r, 't1_no_format')).toBe('RECORD_INVALID:format');
-    // 0354: a plan with no valid class or classes names the new field.
+    // 0356: a plan with no valid class or classes names the new field.
     expect(refused(r, 'bad_class')).toBe('RECORD_INVALID:classes');
     expect(ok(r, 'classes_data')).toEqual({ classes: ['A', 'C'], class: 'A' });
     for (const label of ['classes_dup', 'classes_empty', 'classes_bad']) {

@@ -7,14 +7,15 @@
  * Inline styles with logical properties only; interaction states via the
  * class hooks in GlobalStyles.
  */
-import { Fragment, createContext, useContext, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { formatIQD, formatNumber, formatPercent, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../lib/i18n';
 import type { StaffRole } from '../lib/auth';
 import { Button, ErrorText, Field, Modal, REASON_CODES, Select, Skeleton, Spinner, card, inputStyle, type ReasonCode } from './ui';
 import { Icon, type IconName } from './icons';
-import { BilingualFields, DateField } from './inputs';
+import { BilingualFields } from './inputs';
+import { DateRangePicker } from './DateRangePicker';
 
 // ---------------------------------------------------------------------------
 // Page structure
@@ -125,9 +126,9 @@ export function Toolbar({ children, style, end }: { children?: ReactNode; end?: 
 }
 
 /**
- * Whether a surface sits inside a Panel's body. A DataTable there drops its
- * own border: the panel already draws the edge, and a bordered table inside a
- * bordered panel read as a card inside a card.
+ * Whether a surface sits inside a Panel's body (a nested Panel reads it). A
+ * DataTable used to drop its border here; since 2026-10-19 every table keeps
+ * its own edge (Sait).
  */
 const InPanel = createContext(false);
 
@@ -143,18 +144,22 @@ export const InSectionDialog = createContext(false);
 /** A grouped section with an optional title row. Use sparingly: most content needs no container. */
 export function Panel({
   title,
+  titleEnd,
   actions,
   children,
   muted,
   padded = true,
   fill,
   level = 2,
+  band = 'card',
   className,
   bodyClassName,
   style,
   'data-testid': testId,
 }: {
   title?: ReactNode;
+  /** Beside the title, outside the heading (an info tip), so the heading's name stays the title alone. */
+  titleEnd?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   muted?: boolean;
@@ -177,6 +182,12 @@ export function Panel({
    * or heading navigation reads the page as a flat list of equals.
    */
   level?: 2 | 3 | 4;
+  /**
+   * 'group' for a panel that holds other panels (the overview's Breakdown):
+   * its band is --tp-group-head, Touch Blue in both modes, and frames the
+   * coloured cards under it instead of reading as one more of them.
+   */
+  band?: 'card' | 'group';
   style?: CSSProperties;
   'data-testid'?: string;
 }) {
@@ -204,9 +215,11 @@ export function Panel({
           // blue mode. `tp-band` gives it the other mode's palette for its
           // actions (theme.ts), so a close button or a badge reads on it. A flat
           // panel inside a dialog has no band: the dialog's header frames it.
-          className={flat ? undefined : 'tp-band'}
+          // A group band is Touch Blue in both modes, so it takes the blue
+          // palette (`tp-blue`, a no-op in blue mode) for its pager buttons.
+          className={flat ? undefined : band === 'group' ? 'tp-blue' : 'tp-band'}
           style={{
-            background: flat ? undefined : 'var(--tp-panel-head)',
+            background: flat ? undefined : band === 'group' ? 'var(--tp-group-head)' : 'var(--tp-panel-head)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: shownTitle ? 'space-between' : 'flex-end',
@@ -214,9 +227,27 @@ export function Panel({
             paddingBlock: flat ? '0 0.6rem' : '0.6rem',
             paddingInline: flat ? 0 : '0.85rem',
             borderBlockEnd: flat ? undefined : '1px solid var(--tp-border)',
+            // Every band as tall as the tallest usual one, a band holding a
+            // default-size button (.tp-btn, 2.25rem) plus its padding and
+            // rule, so a card with no actions lines up with its neighbours
+            // (owner, 2026-10-18).
+            minBlockSize: flat ? undefined : 'calc(2.25rem + 1.2rem + 1px)',
           }}
         >
-          {shownTitle && <Heading style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, color: flat ? undefined : 'var(--tp-panel-head-fg)' }}>{shownTitle}</Heading>}
+          {shownTitle &&
+            (() => {
+              const heading = <Heading style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, color: flat ? undefined : band === 'group' ? 'var(--tp-group-head-fg)' : 'var(--tp-panel-head-fg)' }}>{shownTitle}</Heading>;
+              // Wrapped only when something sits beside it, so every other
+              // band keeps its heading as a direct child.
+              return titleEnd ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
+                  {heading}
+                  {titleEnd}
+                </div>
+              ) : (
+                heading
+              );
+            })()}
           {actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>{actions}</div>}
         </div>
       )}
@@ -723,6 +754,7 @@ export function DataTable<T>({
   footer,
   groupBy,
   renderGroupHeader,
+  groupColumn,
   'aria-label': ariaLabel,
 }: {
   columns: readonly Column<T>[];
@@ -747,18 +779,86 @@ export function DataTable<T>({
   groupBy?: (row: T) => string | null;
   /** The heading cell for one group; it spans every column. */
   renderGroupHeader?: (key: string, rows: readonly T[]) => ReactNode;
+  /**
+   * Instead of a heading row, a leading column with one cell beside each
+   * group's rows (the drill's Day column, Sait 2026-10-19). Its content rides
+   * down while the group scrolls, and one line separates the groups. Rows with
+   * a null group key get an empty cell. Used with `groupBy`.
+   */
+  groupColumn?: { header: ReactNode; width?: string; render: (key: string, rows: readonly T[]) => ReactNode };
   'aria-label'?: string;
 }) {
   const { tr } = useLocale();
-  const inPanel = useContext(InPanel);
+
+  // The vertical scrollbar is drawn, not native (Sait, 2026-10-19): a thin
+  // thumb over the rows that runs only between the column header and the
+  // total row. The native bar took a strip down the edge, so the header and
+  // the total row stopped short of it. The Breakdown cards' list draws its bar
+  // the same way. Re-placed on every scroll and whenever the table resizes.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLTableSectionElement>(null);
+  const footRef = useRef<HTMLTableSectionElement>(null);
+  const [bar, setBar] = useState<{ top: number; size: number } | null>(null);
+  const placeBar = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const head = headRef.current?.offsetHeight ?? 0;
+    const foot = footRef.current?.offsetHeight ?? 0;
+    // The day column's cell rides down under the header by this much.
+    el.style.setProperty('--tp-thead-h', `${head}px`);
+    const view = el.clientHeight - head - foot;
+    const room = el.scrollHeight - el.clientHeight;
+    if (room <= 1 || view <= 0) return setBar((b) => (b ? null : b));
+    const size = Math.max(24, (view * view) / (view + room));
+    const top = head + (el.scrollTop / room) * (view - size);
+    setBar((b) => (b && Math.abs(b.top - top) < 0.5 && Math.abs(b.size - size) < 0.5 ? b : { top, size }));
+  };
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    placeBar();
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(placeBar);
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    return () => observer.disconnect();
+  }, []);
+  const dragBar = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = scrollRef.current;
+    if (!el || !bar) return;
+    e.preventDefault();
+    const target = e.currentTarget;
+    target.setPointerCapture(e.pointerId);
+    const startY = e.clientY;
+    const startTop = el.scrollTop;
+    const view = el.clientHeight - (headRef.current?.offsetHeight ?? 0) - (footRef.current?.offsetHeight ?? 0);
+    const ratio = (el.scrollHeight - el.clientHeight) / Math.max(1, view - bar.size);
+    const onMove = (m: PointerEvent) => {
+      el.scrollTop = startTop + (m.clientY - startY) * ratio;
+    };
+    const stop = () => {
+      target.removeEventListener('pointermove', onMove);
+      target.removeEventListener('pointerup', stop);
+      target.removeEventListener('pointercancel', stop);
+    };
+    target.addEventListener('pointermove', onMove);
+    target.addEventListener('pointerup', stop);
+    target.addEventListener('pointercancel', stop);
+  };
+
+  const grouping = Boolean(groupBy && groupColumn);
+  const span = columns.length + (grouping ? 1 : 0);
 
   // One row, extracted so a grouped table renders the same markup inside a
-  // group as an ungrouped one does at the top level.
-  const renderRow = (row: T, i: number) => {
+  // group as an ungrouped one does at the top level. `lead` is the group
+  // column's cell for this row: content on a group's first row, null on the
+  // rest (the first row's cell spans them), undefined without a group column.
+  const renderRow = (row: T, i: number, lead?: { cell: ReactNode | null; rows: number; start: boolean; end: boolean }) => {
     const key = rowKey(row, i);
     return (
               <tr
                 key={key}
+                data-group-start={lead?.start ? 'true' : undefined}
+                data-group-end={lead?.end ? 'true' : undefined}
                 data-clickable={onRowClick ? 'true' : undefined}
                 data-selected={selectedKey === key ? 'true' : undefined}
                 tabIndex={onRowClick ? 0 : undefined}
@@ -783,6 +883,11 @@ export function DataTable<T>({
                     : undefined
                 }
               >
+                {lead && lead.cell !== null && (
+                  <td data-group-cell="" rowSpan={lead.rows}>
+                    <div className="tp-table-group-cell">{lead.cell}</div>
+                  </td>
+                )}
                 {columns.map((c) => {
                   const raw = (row as Record<string, unknown>)[c.key];
                   const content = c.render ? c.render(row) : String(raw ?? '');
@@ -835,18 +940,32 @@ export function DataTable<T>({
 
   return (
     <div
+      className="tp-table-frame"
       style={{
-        border: inPanel ? undefined : '1px solid var(--tp-border)',
+        // Every table has its edge, inside a panel or a dialog too (Sait,
+        // 2026-10-19): a panel that drops its own edge in a dialog left the
+        // table with no frame at all.
+        border: '1px solid var(--tp-border)',
         borderRadius: 'var(--tp-radius-panel)',
+        overflow: 'hidden',
+        background: 'var(--tp-surface)',
+        ...(fill ? { flex: 1, minBlockSize: 0, display: 'flex', flexDirection: 'column' } : null),
+      }}
+    >
+    <div
+      ref={scrollRef}
+      className="tp-table-scroll"
+      onScroll={placeBar}
+      style={{
         overflow: 'auto',
         maxBlockSize,
-        background: 'var(--tp-surface)',
         ...(fill ? { flex: 1, minBlockSize: 0 } : null),
       }}
     >
       <table className="tp-table" data-dense={dense ? 'true' : undefined} aria-label={ariaLabel}>
-        <thead>
+        <thead ref={headRef}>
           <tr>
+            {grouping && <th style={{ inlineSize: groupColumn!.width }}>{groupColumn!.header}</th>}
             {columns.map((c) => {
               const align = c.align ?? (c.numeric ? 'end' : 'start');
               const active = sort?.key === c.key;
@@ -894,17 +1013,32 @@ export function DataTable<T>({
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td colSpan={columns.length} style={{ color: 'var(--tp-muted-fg)', textAlign: 'center', paddingBlock: '1.25rem' }}>
+              <td colSpan={span} style={{ color: 'var(--tp-muted-fg)', textAlign: 'center', paddingBlock: '1.25rem' }}>
                 {emptyContent ?? tr('ws.kit.table.noRows')}
               </td>
             </tr>
           )}
           {buildRowBlocks(rows, groupBy).map((block) =>
-            block.kind === 'group' ? (
+            grouping ? (
+              block.kind === 'group' ? (
+                <Fragment key={`g:${block.key}`}>
+                  {block.rows.map((row, j) =>
+                    renderRow(row, rows.indexOf(row), {
+                      cell: j === 0 ? groupColumn!.render(block.key, block.rows) : null,
+                      rows: block.rows.length,
+                      start: j === 0,
+                      end: j === block.rows.length - 1,
+                    }),
+                  )}
+                </Fragment>
+              ) : (
+                renderRow(block.row, rows.indexOf(block.row), { cell: '', rows: 1, start: true, end: true })
+              )
+            ) : block.kind === 'group' ? (
               <Fragment key={`g:${block.key}`}>
                 {renderGroupHeader && (
                   <tr data-group-header="true">
-                    <td colSpan={columns.length} style={{ background: 'var(--tp-surface-2)' }}>
+                    <td colSpan={span} style={{ background: 'var(--tp-surface-2)' }}>
                       {renderGroupHeader(block.key, block.rows)}
                     </td>
                   </tr>
@@ -917,8 +1051,12 @@ export function DataTable<T>({
           )}
         </tbody>
 
-        {footer && <tfoot>{footer}</tfoot>}
+        {footer && <tfoot ref={footRef}>{footer}</tfoot>}
       </table>
+    </div>
+      {bar && (
+        <div aria-hidden="true" className="tp-table-thumb" onPointerDown={dragBar} style={{ insetBlockStart: `${bar.top}px`, blockSize: `${bar.size}px` }} />
+      )}
     </div>
   );
 }
@@ -1626,56 +1764,23 @@ export function DateRangeControl({
   'aria-labelledby'?: string;
 }) {
   const { tr } = useLocale();
-  const [draft, setDraft] = useState<Period>(period);
-  useEffect(() => setDraft(period), [period]);
-  const active = useMemo(() => presets.find((p) => {
-    const pp = presetPeriod(p, now);
-    return pp.from === period.from && pp.to === period.to;
-  }), [presets, period, now]);
+  // The two date boxes and the period menu became one field (DateRangePicker,
+  // 2026-10-19). The periods are its chips, resolved against `now`.
+  const choices = useMemo(
+    () => presets.map((p) => ({ key: p, label: tr(`ws.kit.dateRange.${p}`), period: presetPeriod(p, now) })),
+    [presets, now, tr],
+  );
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-      <Select<PeriodPreset>
-        value={active ?? 'custom'}
-        disabled={disabled}
-        aria-label={ariaLabelledBy ? undefined : (ariaLabel ?? tr('ws.kit.dateRange.label'))}
-        aria-labelledby={ariaLabelledBy}
-        style={{ inlineSize: 'auto' }}
-        onChange={(p) => {
-          if (p === 'custom') return;
-          onChange(presetPeriod(p, now));
-        }}
-        options={[
-          ...presets.map((p) => ({ value: p as PeriodPreset, label: tr(`ws.kit.dateRange.${p}`) })),
-          // Never itself chosen: it is how the control shows that the dates
-          // below were typed by hand rather than matching any preset.
-          { value: 'custom' as const, label: tr('ws.kit.dateRange.custom'), disabled: true },
-        ]}
-      />
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-        {/* DateField: a raw date input let '20266-…' through the `from > to`
-            string check, and formatting it threw, taking the whole report down. */}
-        <DateField
-          ariaLabel={tr('ws.kit.dateRange.from')}
-          value={draft.from}
-          disabled={disabled}
-          onChange={(v) => setDraft((d) => ({ ...d, from: v }))}
-          style={{ inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
-        />
-        <span style={{ color: 'var(--tp-muted-fg)' }}>–</span>
-        <DateField
-          ariaLabel={tr('ws.kit.dateRange.to')}
-          value={draft.to}
-          disabled={disabled}
-          onChange={(v) => setDraft((d) => ({ ...d, to: v }))}
-          style={{ inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
-        />
-        {(draft.from !== period.from || draft.to !== period.to) && (
-          <Button size="sm" kind="soft" disabled={disabled || draft.from > draft.to} onClick={() => onChange(draft)}>
-            {tr('ws.kit.dateRange.apply')}
-          </Button>
-        )}
-      </span>
-    </div>
+    <DateRangePicker
+      value={period}
+      onChange={(next) => onChange(next)}
+      presets={choices}
+      today={isoDate(now ?? new Date())}
+      disabled={disabled}
+      aria-label={ariaLabelledBy ? undefined : (ariaLabel ?? tr('ws.kit.dateRange.label'))}
+      aria-labelledby={ariaLabelledBy}
+      style={{ minBlockSize: '1.85rem', paddingBlock: '0.2rem', fontSize: 'var(--tp-fs-sm)' }}
+    />
   );
 }
 
@@ -2100,54 +2205,66 @@ export function SegmentedControl<T extends string>({
   'aria-labelledby'?: string;
   'aria-describedby'?: string;
 }) {
+  // The chosen segment is a green thumb that slides to the new choice (Sait,
+  // 2026-10-19). It is placed from the chosen button's box, in inline-start
+  // terms so it lands right in Arabic too, and only animates after it has been
+  // placed once, so a control never slides in on first paint.
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [thumb, setThumb] = useState<{ start: number; top: number; width: number; height: number } | null>(null);
+  const [animate, setAnimate] = useState(false);
+  const chosen = options.findIndex((o) => o.value === value);
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const place = () => {
+      const button = track.querySelectorAll<HTMLButtonElement>('.tp-seg-btn')[chosen];
+      if (!button || button.offsetWidth === 0) return setThumb(null);
+      const rtl = getComputedStyle(track).direction === 'rtl';
+      const start = rtl ? track.clientWidth - button.offsetLeft - button.offsetWidth : button.offsetLeft;
+      setThumb({ start, top: button.offsetTop, width: button.offsetWidth, height: button.offsetHeight });
+    };
+    place();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(place);
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, [chosen, options.length]);
+  useEffect(() => {
+    if (!thumb || animate) return;
+    const frame = requestAnimationFrame(() => setAnimate(true));
+    return () => cancelAnimationFrame(frame);
+  }, [thumb, animate]);
   return (
     <div
+      ref={trackRef}
       role="group"
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledBy}
       aria-describedby={ariaDescribedBy}
-      style={{
-        display: block ? 'flex' : 'inline-flex',
-        inlineSize: block ? '100%' : undefined,
-        background: 'var(--tp-surface-2)',
-        border: '1px solid var(--tp-border)',
-        borderRadius: 'var(--tp-radius-ctl)',
-        padding: 'var(--tp-sp-0)',
-        gap: 'var(--tp-sp-0)',
-      }}
+      className="tp-seg"
+      data-size={size}
+      data-block={block ? 'true' : undefined}
+      data-thumb={thumb ? 'true' : undefined}
+      data-animate={thumb && animate ? 'true' : undefined}
     >
+      {thumb && (
+        <span
+          aria-hidden="true"
+          className="tp-seg-thumb"
+          style={{ insetInlineStart: `${thumb.start}px`, insetBlockStart: `${thumb.top}px`, inlineSize: `${thumb.width}px`, blockSize: `${thumb.height}px` }}
+        />
+      )}
       {options.map((o) => {
         const active = o.value === value;
         return (
           <button
             key={o.value}
             type="button"
+            className="tp-seg-btn"
             aria-pressed={active}
             data-testid={o.testId}
             disabled={o.disabled}
             onClick={() => onChange(o.value)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: block ? 'center' : undefined,
-              flex: block ? '1 1 0' : undefined,
-              minInlineSize: block ? 0 : undefined,
-              minBlockSize: block ? 'var(--tp-touch)' : undefined,
-              gap: '0.35rem',
-              border: 'none',
-              borderRadius: 'var(--tp-radius-sm)',
-              paddingBlock: size === 'sm' ? '0.2rem' : '0.35rem',
-              paddingInline: size === 'sm' ? '0.55rem' : '0.8rem',
-              fontSize: size === 'sm' ? 'var(--tp-fs-sm)' : 'var(--tp-fs-md)',
-              fontWeight: active ? 700 : 600,
-              background: active ? 'var(--tp-surface)' : 'transparent',
-              color: active ? 'var(--tp-fg)' : 'var(--tp-muted-fg)',
-              boxShadow: active ? 'var(--tp-shadow-raised)' : undefined,
-              cursor: o.disabled ? 'not-allowed' : 'pointer',
-              opacity: o.disabled ? 'var(--tp-opacity-disabled)' : 1,
-              transition: 'background var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out)',
-              whiteSpace: 'nowrap',
-            }}
           >
             {o.icon && <Icon name={o.icon} size={14} />}
             {/* The selected segment is bold, and bold is wider: each label is

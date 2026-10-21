@@ -222,7 +222,7 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   );
   const compareBasis: CompareBasis = compare.basis;
   const compareRange = compare.range;
-  // What the stored findings are filed under: a custom window by its dates (0353).
+  // What the stored findings are filed under: a custom window by its dates (0355).
   const compareTagValue = compareTag(compare);
   const live = isLiveRange(range, todayISO);
 

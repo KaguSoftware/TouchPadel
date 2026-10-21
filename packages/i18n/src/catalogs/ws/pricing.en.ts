@@ -61,7 +61,7 @@ export const pricingEn = {
     storedDiscount: 'A {pct}% discount is stored for {item}.',
     switchOffConfirm: {
       title: 'Switch the featured discount off?',
-      body: 'The featured item goes back to its full price on the till and the guest menu. A new discount needs the owner’s OK.',
+      body: 'The featured item goes back to its full price on the café cashier and the guest menu. A new discount needs the owner’s OK.',
       confirm: 'Switch it off',
       cancel: 'Keep it',
     },

@@ -30,6 +30,7 @@
  * switching it off is offered in the same breath.
  */
 import { useState } from 'react';
+import { bookableDurations } from '@touch/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatNumber } from '@touch/i18n';
@@ -277,7 +278,8 @@ function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; o
   const [indoor, setIndoor] = useState(court?.indoor ?? true);
   const [active, setActive] = useState(court?.is_active ?? true);
   const [photo, setPhoto] = useState<string | null>(court?.photo_path ?? null);
-  const [durations, setDurations] = useState<number[]>(court?.duration_options ?? [60, 90, 120]);
+  // A length off the hour (an old 90) is dropped here, so the next save clears it.
+  const [durations, setDurations] = useState<number[]>(() => bookableDurations(court?.duration_options ?? [60, 120]));
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -304,7 +306,7 @@ function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; o
     indoor !== (court?.indoor ?? true) ||
     active !== (court?.is_active ?? true) ||
     photo !== (court?.photo_path ?? null) ||
-    durations.join(',') !== (court?.duration_options ?? [60, 90, 120]).join(',');
+    durations.join(',') !== (court?.duration_options ?? [60, 120]).join(',');
 
   const courtName = court ? pickName(locale, court) : '';
 

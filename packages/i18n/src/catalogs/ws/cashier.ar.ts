@@ -6,7 +6,7 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
   building: 'هذه الشاشة قيد البناء.',
 
   till: {
-    title: 'الصندوق',
+    title: 'كاشير الكافيه',
     regionTabs: 'الفواتير المفتوحة',
     regionMenu: 'المنيو',
     regionTab: 'الفاتورة النشطة',
@@ -43,7 +43,7 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
       offline: 'لم تصل إلى الخادم بعد. تُزامَن تلقائيًا.',
       settledAwaitingSync: 'سُدِّدت. بانتظار الوصول إلى الخادم.',
       failed: 'لم تُزامَن. راجع شاشة إغلاق اليوم.',
-      dismissFailed: 'إزالة من هذا الصندوق',
+      dismissFailed: 'إزالة من هذا الكاشير',
       hint: 'الأسهم للتنقّل، Enter للاختيار',
     },
     basket: {
@@ -129,7 +129,7 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     colTotal: 'المجموع حتى الآن',
     colSource: 'المصدر',
     sourceWeb: 'طلب من الموقع',
-    sourceTill: 'الصندوق',
+    sourceTill: 'كاشير الكافيه',
     runningTotal: 'المجموع الحالي. يثبّت الخادم الرقم النهائي عند الدفع.',
     empty: 'لا توجد فواتير مفتوحة في الصالة.',
     emptyBody: 'افتح فاتورة لبدء طلب، أو انتظر وصول طلب من الموقع.',
@@ -156,7 +156,7 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
       payments: 'سُجّلت دفعة على هذه الفاتورة. استرد الدفعة قبل حذفها.',
       adjustments: 'مسجَّل على هذه الفاتورة خصم أو رسم. سوِّها بدلًا من حذفها.',
       reservation: 'هذه الفاتورة مرتبطة بحجز، ورسم الملعب مستحق عليها. سوِّها بدلًا من حذفها.',
-      unknown: 'لا يمكن حذف هذه الفاتورة. افتحها في الصندوق لمعرفة ما عليها.',
+      unknown: 'لا يمكن حذف هذه الفاتورة. افتحها في كاشير الكافيه لمعرفة ما عليها.',
     },
     removeAction: 'حذف هذه الفاتورة',
     removeConsequence: 'ستُغلق فاتورة {name} بحالة «ملغاة»، فلا هي مسدّدة ولا مدموجة. لم يُطلب عليها شيء، فلا شيء يُسترد. مسح رمز الطاولة مرة أخرى يفتح فاتورة جديدة.',

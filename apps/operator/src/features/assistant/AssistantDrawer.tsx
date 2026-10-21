@@ -10,11 +10,11 @@
  * stays owner-only, so "Open full page" and the paid new-chat button are his.
  *
  * Mounted once in the shell. The open paid conversation lives in
- * sessionStorage so a reload lands on the same chat; a new paid chat starts
- * with Pages and how-to, the page's own scope and the owner's last ticks.
+ * sessionStorage so a reload lands on the same chat; a new paid chat reads
+ * nothing until the owner picks (owner call 2026-10-20, NEW_CHAT_SCOPES).
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
-import { Link, useRouterState } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import type { AssistantScope } from '@touch/core/assistant/tools';
 import { useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
@@ -25,7 +25,7 @@ import { useOwnsScreen } from '../../lib/screenOwner';
 import { Thread } from './Thread';
 import { FreeThread } from './FreeThread';
 import { useAssistantMode } from './useAssistantMode';
-import { initialScopes, loadSessionConversation, saveSessionConversation } from './scopes';
+import { NEW_CHAT_SCOPES, loadSessionConversation, saveSessionConversation } from './scopes';
 
 interface DrawerContextValue {
   open: boolean;
@@ -114,13 +114,11 @@ export function AssistantDrawer() {
 
 function DrawerSheet({ open, onClose, onExited }: { open: boolean; onClose: () => void; onExited: () => void }) {
   const { tr } = useLocale();
-  const { staff } = useAuth();
   const { mode, canUsePaid } = useAssistantMode();
   const paid = mode === 'paid';
-  const path = useRouterState({ select: (s) => s.location.pathname });
   const panel = useRef<HTMLDivElement>(null);
   const [conversationId, setConversationId] = useState<string | null>(() => loadSessionConversation());
-  const [newScopes, setNewScopes] = useState<AssistantScope[]>(() => initialScopes(path, staff?.id ?? ''));
+  const [newScopes, setNewScopes] = useState<AssistantScope[]>(() => [...NEW_CHAT_SCOPES]);
 
   // The sheet runs to the top edge, so its header sits where the macOS drag
   // strip would be. This stands the strip down for as long as it is open.
@@ -129,7 +127,7 @@ function DrawerSheet({ open, onClose, onExited }: { open: boolean; onClose: () =
   const pick = (id: string | null) => {
     setConversationId(id);
     saveSessionConversation(id);
-    if (id === null) setNewScopes(initialScopes(path, staff?.id ?? ''));
+    if (id === null) setNewScopes([...NEW_CHAT_SCOPES]);
   };
 
   // The exit animation. `open` has already flipped false by the time we see

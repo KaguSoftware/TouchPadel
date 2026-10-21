@@ -6850,4 +6850,123 @@ export const matrix: MatrixRule[] = [
     note: '0344: the owner; an unknown advance is REF_NOT_FOUND',
     drop: 35,
   },
+  // ── 0353 court_gender_rules ──
+  {
+    kind: 'rpc', schema: 'app', name: 'upsert_court_gender_rule',
+    // A named court that does not exist -> COURT_NOT_FOUND. Leaving p_court_id
+    // null would make it a rule for every court, created for real.
+    args: {
+      p_name: 'matrix probe', p_gender: 'female', p_days_of_week: [1], p_start_time: '10:00',
+      p_end_time: '11:00', p_court_id: NIL_UUID,
+    },
+    expect: MANAGER_UP,
+    note: '0353: manager or owner; a nil court is COURT_NOT_FOUND past the guard, nothing is written',
+    drop: 36,
+  },
+  {
+    kind: 'select',
+    name: 'court_gender_rules',
+    expect: ex<SelectExpectation>('silence'),
+    note: '0353: guests read the active rules of open branches, staff their branches\'; no probe row is planted, so every principal reads silence',
+    drop: 36,
+  },
+  {
+    kind: 'write',
+    name: 'court_gender_rules',
+    op: 'insert',
+    payload: { name: 'matrix', gender: 'female', days_of_week: [1], start_time: '10:00', end_time: '11:00' },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0353: no client write grant; app.upsert_court_gender_rule only',
+    drop: 36,
+  },
+  // ── 0354 venue_files (venue-files.test.ts) ──
+  // The Files page: management at the branch, an owner_only file the owner's
+  // alone. Every probe stops at a validation or not-found error past the
+  // guard, so nothing is recorded; the storage helpers answer false.
+  {
+    kind: 'select',
+    name: 'venue_files',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0354: no client grant; app.venue_files_list reads it, the storage rules through definer helpers',
+    drop: 37,
+  },
+  {
+    kind: 'write',
+    name: 'venue_files',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0354: no client write grant; app.venue_file_begin / finish / update / delete only',
+    drop: 37,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'venue_files_list',
+    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: '0354: manager or owner at the branch; read only',
+    drop: 37,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'venue_file_begin',
+    args: {
+      p_name: 'matrix.pdf', p_mime: 'application/pdf', p_size_bytes: 1, p_stored_bytes: 1,
+      p_encoding: 'matrix', p_venue_id: VENUE_A,
+    },
+    expect: MANAGER_UP,
+    note: '0354: manager or owner at the branch; an unknown encoding is INVALID_ARGUMENT past the guard, nothing recorded',
+    drop: 37,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'venue_file_finish',
+    args: { p_id: NIL_UUID }, expect: MANAGER_UP,
+    note: '0354: the uploader\'s own unfinished file; a nil id is FILE_NOT_FOUND',
+    drop: 37,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'venue_file_update',
+    args: { p_id: NIL_UUID, p_name: 'matrix' }, expect: MANAGER_UP,
+    note: '0354: manager or owner; a nil id is FILE_NOT_FOUND',
+    drop: 37,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'venue_file_delete',
+    args: { p_id: NIL_UUID }, expect: MANAGER_UP,
+    note: '0354: the owner, or the manager who added it; a nil id is FILE_NOT_FOUND',
+    drop: 37,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_files_list',
+    args: { p_limit: 1 }, expect: OWNER_ONLY,
+    note: '0354: owner only, reached through app.assistant_run_tool (tool files_list); read only',
+    drop: 37,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_file_get',
+    args: { p_file_id: NIL_UUID }, expect: OWNER_ONLY,
+    note: '0354: owner only (tool file_read); a nil id is FILE_NOT_FOUND',
+    drop: 37,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'is_venue_file_path',
+    args: { p_name: 'items/matrix/probe.webp' }, expect: SELF_ANON_OK,
+    note: '0354: pure text, never raises; granted to anon because the venue-files storage policies evaluate it as the reading role',
+    drop: 37,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'venue_file_object_readable',
+    args: { p_name: 'items/matrix/probe.webp' }, expect: SELF_ANON_OK,
+    note: '0354: false for a name that is not a stored file; policy-evaluated, hence the anon grant',
+    drop: 37,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'venue_file_object_uploadable',
+    args: { p_name: 'items/matrix/probe.webp' }, expect: SELF_ANON_OK,
+    note: '0354: false for a name nobody was given; policy-evaluated, hence the anon grant',
+    drop: 37,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'venue_file_object_removable',
+    args: { p_name: 'items/matrix/probe.webp' }, expect: SELF_ANON_OK,
+    note: '0354: false for a name that is not a stored file; policy-evaluated, hence the anon grant',
+    drop: 37,
+  },
 ];

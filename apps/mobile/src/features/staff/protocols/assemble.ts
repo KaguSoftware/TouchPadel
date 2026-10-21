@@ -36,7 +36,7 @@ export const VENUE_OFFSET_MINUTES = 180;
 // ── Empty drafts ────────────────────────────────────────────────────────────
 
 export function emptyValue(def: FieldDef): DraftValue {
-  // A multiple enum (the plan's classes, 0354) is a list of options, like an id list.
+  // A multiple enum (the plan's classes, 0356) is a list of options, like an id list.
   if (def.type === 'enum' && def.multiple) return [];
   switch (def.type) {
     case 'bool':

@@ -10,8 +10,17 @@
  * `useThemeMode` does not throw without a provider: half the component tests
  * render a screen bare, and a chart asking for its colours there should get
  * the light set, not a crash.
+ *
+ * The flip cross-fades (Sait, 2026-10-18): the change runs inside a view
+ * transition, so the browser snapshots the old frame and fades it into the
+ * new one instead of every surface jumping at once. flushSync makes React
+ * commit (and ThemeProvider's effect write `data-mode`) inside the callback,
+ * which is the frame the browser captures as "new". Reduced motion, or a
+ * browser without the API (jsdom in tests), flips instantly as before. The
+ * fade's timing lives in GlobalStyles (`::view-transition-*(root)`).
  */
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import type { ThemeMode } from '@touch/ui';
 
 export const THEME_MODE_STORAGE_KEY = 'touch-operator-theme';
@@ -47,21 +56,39 @@ function persist(mode: ThemeMode): void {
   }
 }
 
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
+/** Run `apply` inside a cross-fade where the browser can draw one. */
+function withCrossFade(apply: () => void): void {
+  if (typeof document.startViewTransition !== 'function' || prefersReducedMotion()) {
+    apply();
+    return;
+  }
+  document.startViewTransition(() => flushSync(apply));
+}
+
 export function ThemeModeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(loadThemeMode);
+  // The toggle reads the mode from here, not from a state updater: the
+  // updater would run inside the transition callback, and it must stay pure.
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
 
   const setMode = useCallback((next: ThemeMode) => {
+    if (next === modeRef.current) return;
     persist(next);
-    setModeState(next);
+    withCrossFade(() => setModeState(next));
   }, []);
 
   const toggleMode = useCallback(() => {
-    setModeState((prev) => {
-      const next: ThemeMode = prev === 'blue' ? 'light' : 'blue';
-      persist(next);
-      return next;
-    });
-  }, []);
+    setMode(modeRef.current === 'blue' ? 'light' : 'blue');
+  }, [setMode]);
 
   const value = useMemo<ThemeModeContextValue>(() => ({ mode, toggleMode, setMode }), [mode, toggleMode, setMode]);
 

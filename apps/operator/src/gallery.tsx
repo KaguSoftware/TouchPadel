@@ -25,6 +25,7 @@ import {
   Panel,
   ResultCount,
   RowActions,
+  SegmentedControl,
   StatusBadge,
   TableSkeleton,
   Toolbar,
@@ -47,6 +48,12 @@ const ROWS: Row[] = [
   { ref: 'B-4184', guest: 'Ali Kareem', court: 'Court 1', time: '19:30 – 21:00', status: 'pending', amount: '52,000' },
   { ref: 'B-4185', guest: 'Noor Abdullah', court: 'Court 3', time: '20:00 – 21:00', status: 'cancelled', amount: '0' },
 ];
+// Enough rows to scroll inside an 18rem table, over three days.
+const LOG: Row[] = [
+  ...ROWS.map((r, i) => ({ ...r, ref: `B-50${i}` })),
+  ...ROWS.map((r, i) => ({ ...r, ref: `B-419${i}` })),
+  ...ROWS.map((r, i) => ({ ...r, ref: `B-30${i}` })),
+];
 const TONES = ['neutral', 'accent', 'success', 'warn', 'danger', 'info'] as const;
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -62,6 +69,8 @@ function Gallery() {
   const { tr, toggleLocale } = useLocale();
   // The gallery demos the real control, so the dropdown needs real state.
   const [galleryCourt, setGalleryCourt] = useState('1');
+  const [galleryPeriod, setGalleryPeriod] = useState('week');
+  const [galleryOrder, setGalleryOrder] = useState('pick');
   const columns: Column<Row>[] = [
     { key: 'ref', header: 'Booking' },
     { key: 'guest', header: 'Guest' },
@@ -187,6 +196,35 @@ function Gallery() {
             onRowClick={() => {}}
             aria-label="Bookings"
           />
+        </Section>
+
+        <Section title="Log — segmented buttons, day column, selected row, total row, scrolling between header and total">
+          <div style={{ display: 'grid', gap: '0.75rem' }}>
+            <Toolbar>
+              <SegmentedControl aria-label="Period" value={galleryPeriod} onChange={setGalleryPeriod} options={[{ value: 'today', label: 'Today' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }]} />
+              <SegmentedControl aria-label="Kind" size="sm" value="all" onChange={() => {}} options={[{ value: 'all', label: 'All' }, { value: 'b', label: 'Bookings' }, { value: 'c', label: 'Cafe bills' }]} />
+            </Toolbar>
+            <div style={{ maxInlineSize: '24rem' }}>
+              <SegmentedControl block aria-label="Order" value={galleryOrder} onChange={setGalleryOrder} options={[{ value: 'pick', label: 'Pick up' }, { value: 'bring', label: 'Bring to table' }]} />
+            </div>
+            <DataTable
+              columns={columns}
+              rows={LOG}
+              rowKey={(r) => r.ref}
+              selectedKey="B-4191"
+              onRowClick={() => {}}
+              maxBlockSize="18rem"
+              groupBy={(r) => r.ref.slice(0, 3) === 'B-3' ? 'Sat 17' : r.ref.slice(0, 4) === 'B-41' ? 'Sun 18' : 'Mon 19'}
+              groupColumn={{ header: 'Day', width: '5.5rem', render: (key, dayRows) => <><b>{key}</b><span>{dayRows.length}</span></> }}
+              footer={
+                <tr>
+                  <td colSpan={6}>Total ({LOG.length})</td>
+                  <td data-align="end">540,000</td>
+                </tr>
+              }
+              aria-label="Log"
+            />
+          </div>
         </Section>
 
         <Section title="Messages and reasons">

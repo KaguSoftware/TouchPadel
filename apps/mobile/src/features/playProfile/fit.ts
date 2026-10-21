@@ -2,7 +2,7 @@
  * Is a tournament for this guest? (0339, owner 2026-10-13) PURE, and the twin of
  * `app.tournament_register`'s check, which refuses what this calls a mismatch:
  *
- *   level  must fit one of its classes (0354; advanced A, intermediate B, beginner or new C)
+ *   level  must fit one of its classes (0356; advanced A, intermediate B, beginner or new C)
  *   years  when the tournament names a bracket, the guest's answer is that bracket
  *          exactly (`never` counts as `under_one`); no bracket asks nothing
  *
@@ -12,7 +12,7 @@
  *              registering asks for the answer first (TOURNAMENT_PROFILE_REQUIRED)
  *
  * A tournament from a server before 0339 (no class) asks nothing: it fits.
- * One from a server before 0354 names a single class: a list of one.
+ * One from a server before 0356 names a single class: a list of one.
  */
 import type { TourClass, TourYears } from '../tournaments/logic';
 import type { PlayLevel, PlayYears } from './logic';

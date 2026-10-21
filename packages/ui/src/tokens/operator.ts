@@ -48,16 +48,19 @@ export const operatorPalette = {
   // Round 3 (owner, 2026-10-18: "a bit more of the blue in the body"): the page
   // ground went from L97 to the L93 shade, so white panels sit on a clearly
   // blue page.
+  // Round 4 (owner, 2026-10-19: "the white and grey a bit less bright, pushed
+  // toward the royal blue"): the panel, the greys and the glass drop a little in
+  // lightness and lean further toward HUE. The panel stays 1.11:1 off the page.
   '--tp-bg': '#E4EBF7',
   '--tp-fg': `oklch(22% 0.035 ${HUE})`,
-  '--tp-surface': `oklch(99.5% 0.003 ${HUE})`,
+  '--tp-surface': `oklch(97.5% 0.012 ${HUE})`,
   '--tp-accent': 'var(--tp-brand-blue)',
   '--tp-accent-contrast': 'var(--tp-brand-white)',
   '--tp-accent-2': 'var(--tp-brand-green)',
   // Ink on a Padel Green fill: the deepest exact shade of #3360AB (HSL L18),
   // not pure black. 8.31:1 on #A5D06F (2026-10-17).
   '--tp-accent-2-contrast': '#152847',
-  '--tp-muted': `oklch(86% 0.012 ${HUE})`,
+  '--tp-muted': `oklch(85% 0.02 ${HUE})`,
   // Round 3 (2026-10-18, "more blue in the white mode"): secondary text and
   // hairlines lean further toward the brand blue (#485974; the L85 shade).
   '--tp-muted-fg': `oklch(46% 0.05 ${HUE})`,
@@ -80,12 +83,12 @@ export const operatorVars = {
   '--tp-overlay': `oklch(20% 0.03 ${HUE} / 0.5)`,
   // The loading ground. --tp-surface-3 sat at 1.09:1 against the panel it
   // renders on, so a skeleton read as an empty panel rather than as pending.
-  '--tp-skeleton': `oklch(90% 0.012 ${HUE})`,
+  '--tp-skeleton': `oklch(89% 0.02 ${HUE})`,
   // The third text colour rulebook 10.4 asks for. Disabled is currently
   // opacity 0.5 applied to a whole control, which fades its border and its
   // icon by the same amount and cannot be reasoned about.
-  '--tp-disabled-fg': `oklch(62% 0.015 ${HUE})`,
-  '--tp-disabled-bg': `oklch(94% 0.006 ${HUE})`,
+  '--tp-disabled-fg': `oklch(62% 0.022 ${HUE})`,
+  '--tp-disabled-bg': `oklch(92.5% 0.014 ${HUE})`,
   '--tp-opacity-disabled': '0.5',
 
   // accent states
@@ -107,10 +110,89 @@ export const operatorVars = {
   '--tp-heading': '#1D3762',
   '--tp-panel-head': 'var(--tp-brand-blue)',
   '--tp-panel-head-fg': 'var(--tp-brand-white)',
-  '--tp-table-head': 'var(--tp-brand-blue)',
-  '--tp-table-head-fg': 'var(--tp-brand-white)',
-  '--tp-selected': 'var(--tp-brand-blue)',
-  '--tp-selected-fg': 'var(--tp-brand-white)',
+  // The band of a panel that GROUPS other panels (the management overview's
+  // Breakdown): Touch Blue with white ink in both modes, a step brighter in
+  // blue mode so it shows on the blue page (Sait, 2026-10-19). The cards under
+  // it wear their own colours (--tp-breakdown-*), so the blue is the frame.
+  '--tp-group-head': 'var(--tp-brand-blue)',
+  '--tp-group-head-fg': 'var(--tp-brand-white)',
+  // The Breakdown's figure cards (Sait, 2026-10-19): one colour per card for
+  // its title band and its outline, navy ink on the band, and a wash of the
+  // same colour behind its rows (--tp-breakdown-wash-mix of the colour into
+  // --tp-breakdown-wash) that a hovered row deepens (--tp-breakdown-hover-mix).
+  // Padel green, cafe violet, money out rose, online light blue, lessons teal,
+  // and gold for a sixth card.
+  // Blue mode swaps each for a calm deep version with a light ink.
+  '--tp-breakdown-green': 'var(--tp-brand-green)',
+  '--tp-breakdown-green-fg': '#152847',
+  '--tp-breakdown-green-edge': 'var(--tp-brand-green)',
+  '--tp-breakdown-violet': '#C9B0EC',
+  '--tp-breakdown-violet-fg': '#152847',
+  '--tp-breakdown-violet-edge': '#C9B0EC',
+  '--tp-breakdown-rose': '#E9A6AA',
+  '--tp-breakdown-rose-fg': '#152847',
+  '--tp-breakdown-rose-edge': '#E9A6AA',
+  '--tp-breakdown-sky': '#9DB4DA',
+  '--tp-breakdown-sky-fg': '#152847',
+  '--tp-breakdown-sky-edge': '#9DB4DA',
+  '--tp-breakdown-teal': '#9ED9D2',
+  '--tp-breakdown-teal-fg': '#152847',
+  '--tp-breakdown-teal-edge': '#9ED9D2',
+  '--tp-breakdown-gold': '#E6CF7A',
+  '--tp-breakdown-gold-fg': '#152847',
+  '--tp-breakdown-gold-edge': '#E6CF7A',
+  // The Breakdown panel's own ground behind the cards (the deep rail blue in blue mode).
+  // The owner's four card colours, by place (report figure groups, headline
+  // tiles, the customer record's tiles, the analytics cards): the Breakdown's
+  // green, violet, rose, light blue, teal and gold, then round again (Sait,
+  // 2026-10-19; blue, green, black, light blue before). Blue mode uses the calm light inks, so a strip shows on
+  // a navy panel. --tp-card-ink is text set on the colour itself.
+  '--tp-card-1': 'var(--tp-breakdown-green)',
+  '--tp-card-2': 'var(--tp-breakdown-violet)',
+  '--tp-card-3': 'var(--tp-breakdown-rose)',
+  '--tp-card-4': 'var(--tp-breakdown-sky)',
+  '--tp-card-5': 'var(--tp-breakdown-teal)',
+  '--tp-card-6': 'var(--tp-breakdown-gold)',
+  '--tp-card-ink': '#152847',
+  '--tp-breakdown-frame': 'var(--tp-surface)',
+  '--tp-breakdown-wash': 'var(--tp-surface)',
+  '--tp-breakdown-wash-mix': '16%',
+  '--tp-breakdown-hover-mix': '38%',
+  // Tables (Sait, 2026-10-19). The column band is the Breakdown's group band in
+  // both modes; the selected row is Padel Green with navy ink in both modes
+  // (green marks what is here and now, as the rail's current-page pill), and
+  // nothing inside it turns grey (theme.ts, SELECTED_ROWS). A table's total
+  // row is green too.
+  '--tp-table-head': 'var(--tp-group-head)',
+  '--tp-table-head-fg': 'var(--tp-group-head-fg)',
+  '--tp-selected': 'var(--tp-brand-green)',
+  '--tp-selected-fg': 'var(--tp-accent-2-contrast)',
+  '--tp-table-total': 'var(--tp-brand-green)',
+  '--tp-table-total-fg': 'var(--tp-accent-2-contrast)',
+  // The figure card over a drill's rows: blue mode's deep panel ink in BOTH
+  // modes, and the bar beneath it in full-strength card colours in both, so
+  // green reads as the same green on paper and on the blue page (Sait).
+  '--tp-total-card': '#1A2A44',
+  '--tp-total-card-fg': 'var(--tp-brand-white)',
+  '--tp-total-card-muted': '#E0E0E1',
+  '--tp-split-green': '#A5D06F',
+  '--tp-split-violet': '#C9B0EC',
+  '--tp-split-rose': '#E9A6AA',
+  '--tp-split-sky': '#9DB4DA',
+  '--tp-split-teal': '#9ED9D2',
+  '--tp-split-gold': '#E6CF7A',
+  // Segmented buttons (Sait, 2026-10-19): a light grey track on paper, the
+  // accent blue on the blue page; the chosen segment is Padel Green with navy
+  // ink and slides to the new choice (kit.tsx SegmentedControl).
+  '--tp-seg-track': '#E1E7F0',
+  // The whole control is framed in Touch Blue at 30% (Sait, 2026-10-19).
+  '--tp-seg-edge': 'color-mix(in oklab, var(--tp-brand-blue) 30%, transparent)',
+  '--tp-seg-fg': '#152847',
+  '--tp-seg-hover': '#D8DEE9',
+  // The chosen segment is Touch Blue with white ink on paper (Sait,
+  // 2026-10-19, picked from a screenshot); blue mode keeps Padel Green.
+  '--tp-seg-on': 'var(--tp-brand-blue)',
+  '--tp-seg-on-fg': 'var(--tp-brand-white)',
   // The one hover ground for everything a pointer can land on (owner call,
   // 2026-09-24): the pale accent-blue tint, with the page's own ink on it.
   '--tp-hover': 'var(--tp-accent-soft)',
@@ -143,8 +225,8 @@ export const operatorVars = {
   // on the page ground, and L91 measured 1.04:1 against the L93 page.
   '--tp-info-soft': '#D0DCF1',
   '--tp-info-fg': 'var(--tp-accent-soft-fg)',
-  '--tp-neutral-soft': '#EBF1F9',
-  '--tp-neutral-mark': `oklch(55% 0.02 ${HUE})`,
+  '--tp-neutral-soft': '#E3EAF6',
+  '--tp-neutral-mark': `oklch(55% 0.03 ${HUE})`,
   '--tp-neutral-fg': `oklch(40% 0.02 ${HUE})`,
 
   // Coaching lessons (docs/design/coaching/operator.md §5.8, §1.11): one violet
@@ -231,16 +313,16 @@ export const operatorVars = {
   // board has a top and a side; the side is the darker rung of the same
   // colour, so a solid reads as standing on the board rather than painted on
   // it. Paper: a pale board, white free tables, brand-blue chairs.
-  '--tp-floor-bg': `oklch(93.5% 0.008 ${HUE})`,
-  '--tp-floor-edge': `oklch(83% 0.015 ${HUE})`,
+  '--tp-floor-bg': `oklch(92.5% 0.016 ${HUE})`,
+  '--tp-floor-edge': `oklch(82% 0.022 ${HUE})`,
   '--tp-floor-tile': `oklch(20% 0.03 ${HUE} / 0.05)`,
   '--tp-floor-fg': 'var(--tp-fg)',
   '--tp-floor-muted': 'var(--tp-muted-fg)',
   '--tp-floor-line': 'var(--tp-border)',
   '--tp-floor-wall': `oklch(81% 0.015 ${HUE})`,
   '--tp-floor-wall-side': `oklch(70% 0.02 ${HUE})`,
-  '--tp-floor-pass': `oklch(91% 0.008 ${HUE})`,
-  '--tp-floor-pass-side': `oklch(80% 0.015 ${HUE})`,
+  '--tp-floor-pass': `oklch(90% 0.016 ${HUE})`,
+  '--tp-floor-pass-side': `oklch(79% 0.022 ${HUE})`,
   '--tp-floor-free': 'var(--tp-brand-white)',
   '--tp-floor-free-side': 'var(--tp-brand-gray)',
   '--tp-floor-bar': `oklch(90% 0.04 ${HUE})`,
@@ -250,8 +332,8 @@ export const operatorVars = {
   '--tp-floor-chair-line': 'var(--tp-brand-black)',
   '--tp-floor-stool-ring': `oklch(62% 0.02 ${HUE})`,
   '--tp-floor-stool-ring-side': `oklch(42% 0.02 ${HUE})`,
-  '--tp-floor-pot': `oklch(97.5% 0.003 ${HUE})`,
-  '--tp-floor-pot-side': `oklch(83% 0.012 ${HUE})`,
+  '--tp-floor-pot': `oklch(96% 0.012 ${HUE})`,
+  '--tp-floor-pot-side': `oklch(82% 0.02 ${HUE})`,
   '--tp-floor-leaf': `oklch(64% 0.09 ${GREEN_HUE})`,
   '--tp-floor-leaf-dark': `oklch(48% 0.08 ${GREEN_HUE})`,
   '--tp-floor-success-side': `oklch(50% 0.12 ${GREEN_HUE})`,
@@ -298,7 +380,7 @@ export const operatorVars = {
      leaves chart bars visible as shapes. 86% softens them to a wash and keeps
      body text above the 4.5:1 floor (measured on rendered pixels, not
      estimated) — legibility is not negotiable on a till. */
-  '--tp-glass': `oklch(99.4% 0.002 ${HUE} / 0.86)`,
+  '--tp-glass': `oklch(97.5% 0.012 ${HUE} / 0.86)`,
   /** A hairline lit from above, which is what reads as "pane of glass". */
   '--tp-glass-border': `oklch(100% 0 0 / 0.7)`,
   '--tp-glass-blur': 'blur(28px) saturate(1.9)',
@@ -312,7 +394,7 @@ export const operatorVars = {
      translucent ground — two 88% layers stack to a muddy 98% and the control
      stops reading as a control — so it is a near-opaque lift of --tp-surface
      with its own, lighter blur. The border does the real work here. */
-  '--tp-glass-ctl': `oklch(99.4% 0.002 ${HUE} / 0.8)`,
+  '--tp-glass-ctl': `oklch(97.5% 0.012 ${HUE} / 0.8)`,
   '--tp-glass-blur-sm': 'blur(14px) saturate(1.5)',
 
   // type scale (rem) — ratio ≈ 1.2, product register
@@ -348,6 +430,8 @@ export const operatorVars = {
   '--tp-subnav-w': '176px',
   '--tp-row-h': '40px',
   '--tp-row-h-dense': '34px',
+  // The column header band, one height in every table (Sait, 2026-10-19).
+  '--tp-row-h-head': '44px',
   '--tp-touch': '44px',
   '--tp-tile-min-block': '72px',
   /** Prose measure. Seven hand-picked maxInlineSize values existed. */
@@ -471,10 +555,10 @@ export const operatorChartColors = {
   /** "This one is the peak." The one sanctioned use of Padel Green in a chart. */
   highlight: '#A5D06F',
   danger: '#B42318',
-  grid: '#DADEE5',
+  grid: '#D3DCEB',
   axis: '#565E6C',
-  surface: '#FCFDFE',
+  surface: '#F2F7FF',
   ink: '#131B29',
   /** Sequential ramp, floored on the panel rather than on raw white. */
-  heat: ['#F2F3F7', '#DDE3EF', '#BFCCE4', '#97AED4', '#6B8AC0', '#3360AB'],
+  heat: ['#EAEFF8', '#DDE3EF', '#BFCCE4', '#97AED4', '#6B8AC0', '#3360AB'],
 } as const;

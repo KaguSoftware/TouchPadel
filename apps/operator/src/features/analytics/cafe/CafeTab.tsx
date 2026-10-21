@@ -27,7 +27,8 @@ import { ExportButton, SegmentedControl } from '../../../components/kit';
 import { AnalyticsBar } from '../AnalyticsBar';
 import { AnalyticsFrame, usePeriodLine } from '../AnalyticsFrame';
 import { Notices, type Notice } from '../Notices';
-import { MoreCharts, Zone, ZoneGrid, CAFE_ZONES, gridColumns, type ZoneDef } from '../Zone';
+import { MoreCharts, Zone, ZoneFrame, ZoneGrid, ZoneRow, CAFE_ZONES, gridColumns, type ZoneDef } from '../Zone';
+import { useCardRow } from '../../../components/BreakdownCards';
 import { basisCopy, patternsCopy, weekdayName } from '../copy';
 import { mineCafeCandidates, toPatternWire } from '../patterns';
 import { buildInsightsData } from '../payload';
@@ -60,6 +61,12 @@ import { AbandonedViewsChart } from '../charts/AbandonedViewsChart';
 import { FunnelBars } from '../charts/FunnelBars';
 import { PriceBandBars, bandLabel } from '../charts/PriceBandBars';
 import { WeekHeatmap } from '../charts/WeekHeatmap';
+import { sumTotals } from '../charts/geometry';
+import { MixCard } from '../cards/MixCard';
+import type { TrendDay } from '../charts/EngagementTrendChart';
+import { RingMeter, Swatch } from '../charts/Donut';
+import { useChartColors } from '../charts/colors';
+import { daySeries, fillTrendDays } from '../spark';
 import { downloadTable } from '../exportTables';
 import { useAnalyticsDrill } from '../drill';
 import { pulseCsvRows, type PulseFigure } from '../pulseCsv';
@@ -81,9 +88,11 @@ const NEEDS = {
 
 export function CafeTab() {
   const { tr, locale } = useLocale();
+  const { RING_1, RING_2 } = useChartColors();
   const search = useSearch({ from: '/analytics' }) as AnalyticsSearch;
   const navigate = useNavigate();
   const f = useMemo(() => makeFormatters(locale), [locale]);
+  const aiRow = useCardRow();
   const data = useAnalyticsData(search, locale);
   const { raw, derived, state, stateFor, errorFor } = data;
   const venue = useVenueRevenue(data.range, data.compareRange);
@@ -135,6 +144,16 @@ export function CafeTab() {
     const known = derived?.categoryNames.get(c.id);
     return { label: known ? pickLocale({ en: known.nameEn, ar: known.nameAr }, locale) : c.nameEn, value: c.selections };
   });
+
+  // The lead tiles' day lines (2026-10-19): the period's shape under each of the three figures.
+  const daily = hasDaily ? raw?.daily : null;
+  const salesSpark = daySeries(data.range, daily, (d) => d.revenueIqd, (d) => f.date(d), f.compact);
+  const ordersSpark = daySeries(data.range, daily, (d) => d.orders, (d) => f.date(d), f.num);
+  // A day's average is that day's gross over its orders; a day with no order has no average and draws as 0.
+  const aovSpark = daySeries(data.range, daily, (d) => (d.orders > 0 ? avgOrderValue(d.cafeGrossIqd, d.orders) : 0), (d) => f.date(d), f.compact);
+
+  // Every day of the period on the trend, a day without a row as a gap in both synced charts.
+  const trendDays = fillTrendDays<TrendDay>(data.range, derived?.salesVsEngagement ?? [], (date) => ({ date, revenue: null, tabs: null, views: null, waiterCalls: null }));
 
   const tillCells = (raw?.hourly ?? []).map((c) => ({ dow: c.dow, hour: c.hour, value: tillMeasure === 'orders' ? c.orders : c.revenueIqd }));
   const tillFormat = (n: number) => (tillMeasure === 'orders' ? `${f.num(n)} ${tr('ws.analytics.cafe.toggleOrders').toLowerCase()}` : f.money(n));
@@ -240,43 +259,112 @@ export function CafeTab() {
       <Notices notices={notices} onRetry={state.salesError != null ? data.refetchAll : undefined} />
 
       {/* ---------------- Summary: three lead figures, then the rest in named groups ---------------- */}
-      <Zone zone={zone('pulse')}>
+      <Zone zone={zone('pulse')} headInFrame>
         <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: gridColumns(3, '13rem'), gap: 'var(--tp-sp-3)' }}>
-            <Kpi
-              label={tr('analytics.kpi.sales')}
-              value={f.money(k?.salesIqd ?? 0)}
-              delta={moneyDelta('sales')}
-              previous={was(prevSum((r) => r.revenueIqd), f.money)}
-              tip={tr('ws.analytics.cafe.tips.sales')}
-              note={k ? tr('ws.analytics.grossNote', { amount: f.money(k.cafeGrossIqd) }) : undefined}
-              drills={[{ onOpen: () => drill.open({ figure: 'cafeNet', label: tr('analytics.kpi.sales') }) }]}
-              {...moneyCommon}
-            />
-            <Kpi
-              label={tr('analytics.kpi.orders')}
-              value={f.num(k?.orders ?? 0)}
-              delta={moneyDelta('orders')}
-              previous={was(prevSum((r) => r.orders), f.num)}
-              tip={tr('ws.analytics.cafe.tips.orders')}
-              drills={[{ onOpen: () => drill.open({ figure: 'orders', label: tr('analytics.kpi.orders') }) }]}
-              {...moneyCommon}
-            />
-            <Kpi
-              label={tr('analytics.kpi.avgOrderValue')}
-              value={f.money(k?.avgOrderValueIqd ?? 0)}
-              delta={moneyDelta('avgOrderValue')}
-              previous={(() => {
-                const g = prevSum((r) => r.cafeGrossIqd);
-                const o = prevSum((r) => r.orders);
-                return g != null && o != null && o > 0 ? f.money(avgOrderValue(g, o)) : null;
-              })()}
-              tip={tr('ws.analytics.cafe.tips.avgOrderValue')}
-              {...moneyCommon}
-            />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: gridColumns(3, '18rem'), gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
-            <FigureGroup title={tr('ws.analytics.cafe.summary.taken')}>
+          {/* The Breakdown frame (Sait, 2026-10-19): three lead tiles, then three cards. */}
+          <ZoneFrame
+            // The lead tiles keep their shape and their row; every tile and card
+            // takes the six card colours by place (Sait, 2026-10-19).
+            lead={
+              <div style={{ display: 'grid', gridTemplateColumns: gridColumns(3, '13rem'), gap: 'var(--tp-sp-3)' }}>
+                <Kpi
+                  tone="green"
+                  label={tr('analytics.kpi.sales')}
+                  value={f.money(k?.salesIqd ?? 0)}
+                  delta={moneyDelta('sales')}
+                  previous={was(prevSum((r) => r.revenueIqd), f.money)}
+                  tip={tr('ws.analytics.cafe.tips.sales')}
+                  spark={salesSpark}
+                  note={
+                    k ? (
+                      <>
+                        <span style={{ display: 'block' }}>{tr('ws.analytics.grossNote', { amount: f.money(k.cafeGrossIqd) })}</span>
+                        {cashShare != null && (
+                          <span style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--tp-sp-2)' }}>
+                            <span>
+                              <Swatch color={RING_1} />
+                              {tr('ws.analytics.viz.cashPct', { pct: f.pct(cashShare) })}
+                            </span>
+                            <span>
+                              <Swatch color={RING_2} />
+                              {tr('ws.analytics.viz.cardPct', { pct: f.pct(100 - cashShare) })}
+                            </span>
+                          </span>
+                        )}
+                      </>
+                    ) : undefined
+                  }
+                  aside={
+                    cashShare == null ? undefined : (
+                      <RingMeter
+                        size={52}
+                        parts={[
+                          { pct: cashShare, color: RING_1 },
+                          { pct: 100 - cashShare, color: RING_2 },
+                        ]}
+                        label={tr('ws.analytics.viz.cashRing', { cash: f.pct(cashShare), card: f.pct(100 - cashShare) })}
+                      />
+                    )
+                  }
+                  drills={[{ onOpen: () => drill.open({ figure: 'cafeNet', label: tr('analytics.kpi.sales') }) }]}
+                  {...moneyCommon}
+                />
+                <Kpi
+                  tone="violet"
+                  label={tr('analytics.kpi.orders')}
+                  value={f.num(k?.orders ?? 0)}
+                  delta={moneyDelta('orders')}
+                  previous={was(prevSum((r) => r.orders), f.num)}
+                  tip={tr('ws.analytics.cafe.tips.orders')}
+                  spark={ordersSpark}
+                  // QR against the café cashier, as a ring only above the sample floor (qrShare.pct is null below it).
+                  note={
+                    k && k.qrShare.d > 0 ? (
+                      <span style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--tp-sp-2)' }}>
+                        <span>
+                          <Swatch color={RING_1} />
+                          {tr('ws.analytics.viz.qrN', { n: f.num(k.qrOrders) })}
+                        </span>
+                        <span>
+                          <Swatch color={RING_2} />
+                          {tr('ws.analytics.viz.tillN', { n: f.num(k.tillOrders) })}
+                        </span>
+                      </span>
+                    ) : undefined
+                  }
+                  aside={
+                    k?.qrShare.pct == null ? undefined : (
+                      <RingMeter
+                        size={52}
+                        parts={[
+                          { pct: k.qrShare.pct, color: RING_1 },
+                          { pct: 100 - k.qrShare.pct, color: RING_2 },
+                        ]}
+                        label={tr('ws.analytics.viz.qrRing', { pct: f.pct(k.qrShare.pct) })}
+                      />
+                    )
+                  }
+                  drills={[{ onOpen: () => drill.open({ figure: 'orders', label: tr('analytics.kpi.orders') }) }]}
+                  {...moneyCommon}
+                />
+                <Kpi
+                  tone="rose"
+                  label={tr('analytics.kpi.avgOrderValue')}
+                  value={f.money(k?.avgOrderValueIqd ?? 0)}
+                  delta={moneyDelta('avgOrderValue')}
+                  previous={(() => {
+                    const g = prevSum((r) => r.cafeGrossIqd);
+                    const o = prevSum((r) => r.orders);
+                    return g != null && o != null && o > 0 ? f.money(avgOrderValue(g, o)) : null;
+                  })()}
+                  tip={tr('ws.analytics.cafe.tips.avgOrderValue')}
+                  spark={aovSpark}
+                  {...moneyCommon}
+                />
+              </div>
+            }
+          >
+            <FigureGroup tone="sky" title={tr('ws.analytics.cafe.summary.taken')}>
               <FigureLine
                 label={tr('ws.analytics.drill.cash')}
                 value={f.money(k?.cashIqd ?? 0)}
@@ -308,7 +396,7 @@ export function CafeTab() {
                 f={f}
               />
             </FigureGroup>
-            <FigureGroup title={tr('ws.analytics.cafe.summary.givenAway')}>
+            <FigureGroup tone="teal" title={tr('ws.analytics.cafe.summary.givenAway')}>
               <FigureLine
                 label={tr('analytics.kpi.discounts')}
                 value={f.money(k?.discountIqd ?? 0)}
@@ -340,7 +428,7 @@ export function CafeTab() {
                 {...moneyCommon}
               />
             </FigureGroup>
-            <FigureGroup title={tr('ws.analytics.cafe.summary.guests')}>
+            <FigureGroup tone="gold" title={tr('ws.analytics.cafe.summary.guests')}>
               <FigureLine
                 label={tr('analytics.kpi.tabs')}
                 value={f.num(k?.tabs ?? 0)}
@@ -401,13 +489,14 @@ export function CafeTab() {
                 </>
               )}
             </FigureGroup>
-          </div>
+            <MixCard venue={venue} tone="green" f={f} />
+          </ZoneFrame>
         </div>
       </Zone>
 
       {/* ---------------- What stands out ---------------- */}
-      <Zone zone={zone('ai')}>
-        <ZoneGrid columns={2}>
+      <Zone zone={zone('ai')} actions={aiRow.pager}>
+        <ZoneRow row={aiRow}>
           {/* The mined patterns first: they need no AI and are always there. */}
           <PatternsCard raw={allState === 'ready' ? raw : null} derived={allState === 'ready' ? derived : null} stored={data.stored} state={allState} f={f} />
           <AiInsightsCard
@@ -466,7 +555,7 @@ export function CafeTab() {
             f={f}
           />
           <PinnedComponents scope="cafe" range={data.range} compareBasis={data.compareBasis} f={f} />
-        </ZoneGrid>
+        </ZoneRow>
       </Zone>
 
       {/* ---------------- Menu ---------------- */}
@@ -510,10 +599,10 @@ export function CafeTab() {
         >
           <div style={{ display: 'grid', gridTemplateRows: '200px 150px', gap: 'var(--tp-sp-1)', blockSize: '100%' }}>
             <div>
-              <SalesTrendChart rows={derived?.salesVsEngagement ?? []} f={f} />
+              <SalesTrendChart rows={trendDays} f={f} />
             </div>
             <div>
-              <EngagementTrendChart rows={derived?.salesVsEngagement ?? []} f={f} showViews={engOnly === 'ready'} />
+              <EngagementTrendChart rows={trendDays} f={f} showViews={engOnly === 'ready'} />
             </div>
           </div>
         </ChartCard>
@@ -582,7 +671,7 @@ export function CafeTab() {
           tip={tr('ws.analytics.cafe.tillHeatmapTip')}
           state={stateFor(NEEDS.hourly) === 'ready' && tillCells.every((c) => c.value === 0) ? 'empty' : stateFor(NEEDS.hourly)}
           emptyKey="analytics.empty.sales"
-          height={200}
+          height={240}
           error={errorFor(NEEDS.hourly)}
           onRetry={data.refetchAll}
           actions={
@@ -599,7 +688,7 @@ export function CafeTab() {
           }
           twin={heatTwin(heatCells(tillCells), tr('ws.reports.filters.group'), tr('ws.analytics.courts.cards.byHour'), tillMeasure === 'orders' ? tr('ws.analytics.cafe.toggleOrders') : tr('ws.analytics.cafe.toggleRevenue'), `orders-heatmap-${rangeLabel}`)}
         >
-          <WeekHeatmap cells={tillCells} f={f} format={tillFormat} unit={tr('ws.analytics.cafe.tillHeatmap')} hint={tr('ws.analytics.heatmap.hint')} />
+          <WeekHeatmap cells={tillCells} f={f} format={tillFormat} unit={tr('ws.analytics.cafe.tillHeatmap')} hint={tr('ws.analytics.heatmap.hint')} totals={{ ...sumTotals(tillCells), format: tillFormat }} />
         </ChartCard>
         <MoreCharts id="cafe-time" count={1}>
           <ChartCard
@@ -607,7 +696,7 @@ export function CafeTab() {
             tip={tr('ws.analytics.cafe.viewsHeatmapTip')}
             state={engState(engOnly === 'ready' && viewCells.length === 0 ? 'empty' : engOnly)}
             emptyKey="analytics.empty.heatmap"
-            height={200}
+            height={240}
             twin={heatTwin(heatCells(viewCells), tr('ws.reports.filters.group'), tr('ws.analytics.courts.cards.byHour'), tr('analytics.cards.viewsSeries'), `views-heatmap-${rangeLabel}`)}
           >
             <WeekHeatmap
@@ -616,6 +705,7 @@ export function CafeTab() {
               format={(n) => `${f.num(n)} ${tr('analytics.cards.viewsSeries').toLowerCase()}`}
               unit={tr('analytics.cards.viewsSeries')}
               hint={tr('ws.analytics.heatmap.hint')}
+              totals={{ ...sumTotals(viewCells), format: (n) => `${f.num(n)} ${tr('analytics.cards.viewsSeries').toLowerCase()}` }}
             />
           </ChartCard>
         </MoreCharts>

@@ -59,7 +59,7 @@ export const shopEn = {
   },
   sections: {
     title: 'Shop sections',
-    lead: 'Rackets, balls, accessories: the sections the shop till is grouped by.',
+    lead: 'Rackets, balls, accessories: the sections the shop cashier is grouped by.',
     add: 'New section',
     nameEn: 'Name (English)',
     nameAr: 'Name (Arabic)',
@@ -71,7 +71,7 @@ export const shopEn = {
   },
   station: {
     mode: 'Touch Shop desk',
-    modeHint: 'The shop’s own PC: it opens the shop till and keeps its own drawer.',
+    modeHint: 'The shop’s own PC: it opens the shop cashier and keeps its own drawer.',
   },
   /** Shop stock with nothing in it yet: each shop size keeps its own stock, made under Products. */
   stock: {

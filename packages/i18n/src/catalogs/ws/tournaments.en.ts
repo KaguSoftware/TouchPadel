@@ -265,10 +265,10 @@ export const tournamentsEn = {
   },
   refundsDue: {
     title: 'Refunds due',
-    lead: 'Each is taken back through the till, on the payment it was paid with.',
+    lead: 'Each is taken back through the café cashier, on the payment it was paid with.',
     empty: 'Nothing is due back.',
     row: '{name}: {amount}',
-    openTill: 'Open the till',
+    openTill: 'Open the café cashier',
   },
   calendar: {
     blockLabel: 'Tournament: {name}',
@@ -398,7 +398,7 @@ export const tournamentsEn = {
         body: 'For new and social players. Friendly games, open to anyone learning.',
       },
     },
-    // 0354: the class cards are toggles; a player whose level fits any picked one can register.
+    // 0356: the class cards are toggles; a player whose level fits any picked one can register.
     classesHint: 'Pick one or more.',
     formats: {
       americano: {

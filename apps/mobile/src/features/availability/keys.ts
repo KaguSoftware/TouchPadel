@@ -25,6 +25,8 @@ export const availabilityKeys = {
   allCourts: ['courts', 'all'] as const,
   /** One branch's active rate rules. */
   rates: (venueId: string) => ['rate-rules', venueId] as const,
+  /** One branch's active gender hours (0353, court_gender_rules). */
+  genderRules: (venueId: string) => ['court-gender-rules', venueId] as const,
   /**
    * Rule prices, not per branch: rate_rule_prices carries no venue, the grid
    * looks a price up by the rule's id, so another branch's prices never match.

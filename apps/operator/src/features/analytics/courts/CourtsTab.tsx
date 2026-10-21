@@ -33,7 +33,8 @@ import { AnalyticsBar } from '../AnalyticsBar';
 import { AnalyticsFrame, usePeriodLine } from '../AnalyticsFrame';
 import { Notices, type Notice } from '../Notices';
 import { legacyNotices } from '../legacyHistory';
-import { Zone, ZoneGrid, type ZoneDef } from '../Zone';
+import { Zone, ZoneRow, type ZoneDef } from '../Zone';
+import { useCardRow } from '../../../components/BreakdownCards';
 import { makeFormatters } from '../format';
 import type { AnalyticsSearch } from '../search';
 import type { CardState } from '../cards/CardShell';
@@ -80,6 +81,7 @@ export function CourtsTab() {
   const search = useSearch({ from: '/analytics' }) as AnalyticsSearch;
   const navigate = useNavigate();
   const f = useMemo(() => makeFormatters(locale), [locale]);
+  const insightsRow = useCardRow();
   // Court names reach the copy through the derivation, so the copy adapter
   // takes an empty map here and the miner resolves names from its own input.
   const copy = useMemo(() => courtPatternsCopy(tr, f, locale, new Map()), [tr, f, locale]);
@@ -163,13 +165,14 @@ export function CourtsTab() {
       <AnalyticsBar tab="courts" search={search} setSearch={setSearch} zones={COURT_ZONES} compareBasis={data.compareBasis} compareRange={data.compareRange} courts={courts} deck={{ startHour: data.startHour }} />
       <Notices notices={notices} onRetry={state.error != null ? data.refetchAll : undefined} />
 
-      <Zone zone={zone('pulse')}>
-        <PulseSection {...section(NEEDS.pulse)} venue={venue} shop={shop} openDrill={drill.open} courtId={data.courtId ?? null} />
+      <Zone zone={zone('pulse')} headInFrame>
+        <PulseSection {...section(NEEDS.pulse)} venue={venue} shop={shop} openDrill={drill.open} courtId={data.courtId ?? null} range={data.range} />
       </Zone>
 
-      <Zone zone={zone('insights')}>
-        <ZoneGrid columns={2}>
-          {/* The mined patterns first: they need no AI and are always there. */}
+      <Zone zone={zone('insights')} actions={insightsRow.pager}>
+        <ZoneRow row={insightsRow}>
+          {/* The mined patterns first: they need no AI and are always there.
+              Its groups scroll sideways inside it (Sait, 2026-10-19). */}
           <CourtPatternsCard
             patterns={allState === 'ready' ? (derived?.patterns ?? []) : []}
             state={allState}
@@ -226,7 +229,7 @@ export function CourtsTab() {
             f={f}
           />
           <PinnedComponents scope="courts" range={data.range} compareBasis={data.compareBasis} courtId={data.courtId} f={f} />
-        </ZoneGrid>
+        </ZoneRow>
       </Zone>
 
       <Zone zone={zone('when')} lead={lead(NEEDS.when, () => whenTakeaway(raw!, derived!, tr, f))}>

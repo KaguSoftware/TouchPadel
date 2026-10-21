@@ -21,6 +21,7 @@ import { AppRpcError } from '../../lib/appRpc';
 import { EdgeError } from '../../lib/edge';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText } from '../../components/ui';
+import { SegmentedControl } from '../../components/kit';
 import { QK, fetchModels, setModel } from './api';
 
 /** Model ids with a spoken name; anything else prints as its id. */
@@ -59,6 +60,49 @@ export function ModelError({ error }: { error: unknown }) {
     </p>
   );
 }
+
+/**
+ * A model picked while the free AI was on (2026-10-20: Free AI is one more
+ * button in the model row, not another page). Pressing Opus or Sonnet there
+ * switches back to the paid thread, and the next NEW chat starts on that
+ * model: the thread takes it once, on mount.
+ */
+let pendingNewChatModel: string | null = null;
+export function setPendingNewChatModel(model: string | null): void {
+  pendingNewChatModel = model;
+}
+export function takePendingNewChatModel(): string | null {
+  const m = pendingNewChatModel;
+  pendingNewChatModel = null;
+  return m;
+}
+
+/**
+ * A question the free AI could not answer ("needs your figures"), carried to
+ * the paid thread's composer by "Ask the paid assistant instead". It is typed
+ * there, not sent: the owner still picks what the chat reads and presses Ask.
+ */
+let pendingQuestion: string | null = null;
+export function setPendingQuestion(text: string | null): void {
+  pendingQuestion = text;
+}
+export function takePendingQuestion(): string | null {
+  const q = pendingQuestion;
+  pendingQuestion = null;
+  return q;
+}
+
+/** The quiet outlined button under the composer that opens the model row. */
+export const MODEL_TRIGGER_STYLE = {
+  minBlockSize: '2.5rem',
+  paddingInline: 'var(--tp-sp-3)',
+  borderRadius: 'var(--tp-radius-panel)',
+  border: '1px solid var(--tp-border-strong)',
+  background: 'var(--tp-surface)',
+  color: 'var(--tp-fg)',
+  fontWeight: 600,
+  fontSize: 'var(--tp-fs-sm)',
+} as const;
 
 /** The value of the "Venue default" button: the row will say nothing. */
 export const VENUE_DEFAULT = '__venue_default__';
@@ -124,6 +168,9 @@ export function ModelSwitch({
   disabled,
   titleHidden,
   onChooseFree,
+  compact,
+  freeActive,
+  onChoosePaid,
 }: {
   /** `null` while the chat has no row yet: the choice is held by the parent. */
   conversationId: string | null;
@@ -136,6 +183,16 @@ export function ModelSwitch({
   titleHidden?: boolean;
   /** Offer "The free AI" after the models; pressing it switches the assistant, not this chat. */
   onChooseFree?: () => void;
+  /**
+   * The chat toolbar's form (2026-10-20): short names in one segmented row,
+   * the model in use pressed (the venue default when the chat names none), no
+   * "Venue default" button and no hint line; each button's title says it.
+   */
+  compact?: boolean;
+  /** The free AI is on (compact only): its button is pressed and no model is. */
+  freeActive?: boolean;
+  /** While the free AI is on, a model was pressed: switch back to the paid thread with it. */
+  onChoosePaid?: (model: string) => void;
 }) {
   const { tr } = useLocale();
   const toast = useToast();
@@ -168,6 +225,67 @@ export function ModelSwitch({
       <span dir="auto">{`${tr('ws.assistantFree.name')} · ${tr('ws.assistantFree.hint')}`}</span>
     </Button>
   ) : null;
+
+  if (compact) {
+    const inUse = value ?? defaultModel;
+    const off = !!disabled || save.isPending;
+    return (
+      <div data-model-switch="" style={{ display: 'grid', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
+        {/* Free AI is not a Claude model (Sait, 2026-10-20): it stands apart
+            after a rule, in green with a "Free" tag, beside the Claude pair. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2-5)', flexWrap: 'nowrap' }}>
+          {/* The app's own segmented control (kit SegmentedControl, the green
+              sliding thumb), so the model pick reads like every other choice.
+              With the free AI on, no Claude model is chosen: no thumb. */}
+          <SegmentedControl
+            aria-label={tr('ws.owner.assistant.model.claude')}
+            value={freeActive ? '' : (inUse ?? '')}
+            onChange={(m) => {
+              if (freeActive) onChoosePaid?.(m);
+              else if (m !== value && !(value === null && m === defaultModel)) save.mutate(m);
+            }}
+            options={models.map((m) => ({ value: m, label: <span dir="auto">{modelName(tr, m)}</span>, disabled: off, testId: `model-${m}` }))}
+          />
+          {onChooseFree && <span aria-hidden="true" style={{ inlineSize: '1px', blockSize: '1.75rem', background: 'var(--tp-border)' }} />}
+            {onChooseFree && (
+              <button
+                type="button"
+                aria-pressed={!!freeActive}
+                data-testid={`model-${FREE_MODEL_CHOICE}`}
+                title={`${tr('ws.assistantFree.name')} · ${tr('ws.assistantFree.hint')}`}
+                onClick={() => {
+                  if (!freeActive) onChooseFree?.();
+                }}
+                disabled={!!disabled}
+                style={{
+                  minBlockSize: '2.375rem',
+                  paddingInline: 'var(--tp-sp-3)',
+                  borderRadius: 'var(--tp-radius-panel)',
+                  border: `1.5px solid ${freeActive ? 'var(--tp-breakdown-green-edge)' : 'var(--tp-card-1)'}`,
+                  background: freeActive ? 'var(--tp-card-1)' : 'transparent',
+                  color: freeActive ? 'var(--tp-card-ink)' : 'var(--tp-fg)',
+                  fontWeight: freeActive ? 700 : 600,
+                  fontSize: 'var(--tp-fs-sm)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 'var(--tp-sp-1-5)',
+                  whiteSpace: 'nowrap',
+                  cursor: disabled ? 'default' : 'pointer',
+                  opacity: disabled ? 'var(--tp-opacity-disabled)' : undefined,
+                }}
+              >
+                {tr('ws.owner.assistant.model.free')}
+                <span style={{ paddingInline: 'var(--tp-sp-1-5)', borderRadius: 'var(--tp-radius-pill)', background: 'var(--tp-card-ink)', color: 'var(--tp-card-1)', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.04em', lineHeight: 1.6 }}>
+                  {tr('ws.assistantFree.badge')}
+                </span>
+              </button>
+            )}
+        </div>
+        {modelsQ.isError && <ErrorText error={modelsQ.error} />}
+        {save.isError && <ModelError error={save.error} />}
+      </div>
+    );
+  }
 
   return (
     <div data-model-switch="" style={{ display: 'grid', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>

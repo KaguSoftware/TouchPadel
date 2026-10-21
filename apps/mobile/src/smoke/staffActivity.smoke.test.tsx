@@ -18,8 +18,10 @@ import StaffToday from '../../app/staff';
 const ALI = 'ac700000-0000-4000-8000-0000000000a1';
 const RANA = 'ac700000-0000-4000-8000-0000000000a2';
 
-const NOW = new Date().toISOString();
-const minutesAgo = (n: number) => new Date(Date.now() - n * 60_000).toISOString();
+// One clock reading for both, so "5 min ago" never rounds down to 4 by the ms between them.
+const BASE = Date.now();
+const NOW = new Date(BASE).toISOString();
+const minutesAgo = (n: number) => new Date(BASE - n * 60_000).toISOString();
 
 const part = (over: Partial<ActivityPart>): ActivityPart => ({
   status: 'online',

@@ -9,7 +9,7 @@ export const coachingMoneyEn = {
   // Coach pay (§5.16): monthly statements per coach per branch.
   coachPay: {
     title: 'Coach pay',
-    lead: "Each coach's monthly statement: what was collected for their lessons, less the court share, and their share of the rest. The money is handed over outside the till.",
+    lead: "Each coach's monthly statement: what was collected for their lessons, less the court share, and their share of the rest. The money is handed over outside the cashier.",
     month: {
       // OP-02: back to the default view, the latest month statements are drafted for.
       thisMonth: 'Latest month',
@@ -162,7 +162,7 @@ export const coachingMoneyEn = {
       deskRefunded: 'Refunded at the desk today, whatever day it was paid (out of the drawer)',
       owed: 'Lessons held and not paid',
       refundsDueDesk: 'Refunds due at the desk',
-      owedToCoaches: "Owed to coaches for today's lessons (paid outside the till)",
+      owedToCoaches: "Owed to coaches for today's lessons (paid outside the cashier)",
     },
   },
   // The Courts report's Lessons view (§5.18.2): report_courts' block and report_lessons.
@@ -232,7 +232,7 @@ export const coachingMoneyEn = {
   // The management panel's lessons group (§5.18.4).
   panel: {
     title: 'Lessons',
-    owedToCoachesHint: 'Paid outside the till',
+    owedToCoachesHint: 'Paid outside the cashier',
   },
   // Ops online refunds (§5.17): a lesson's online money going back.
   deposits: {

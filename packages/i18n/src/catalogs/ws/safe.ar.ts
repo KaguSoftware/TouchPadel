@@ -67,7 +67,7 @@ export const safeAr: DeepMessages<typeof safeEn> = {
     from: 'من',
     to: 'إلى',
     parties: {
-      cafe: 'صندوق الكافيه',
+      cafe: 'كاشير الكافيه',
       desk: 'مكتب الملاعب',
       shop: 'متجر تتش',
       bank: 'البنك',
@@ -131,7 +131,7 @@ export const safeAr: DeepMessages<typeof safeEn> = {
       count: 'عُدّت: {amount}',
     },
     boxes: {
-      cafe: 'صندوق الكافيه',
+      cafe: 'كاشير الكافيه',
       desk: 'مكتب الملاعب',
       shop: 'متجر تتش',
     },

@@ -159,7 +159,7 @@ export function CourtCaption({
 
 /**
  * A trading night's heading: "TONIGHT", then a hairline, then what the night
- * holds ("2 open matches · 1 tournament"). `highlight` is the night the route
+ * holds when the caller passes it ("2 open matches · 1 tournament"). `highlight` is the night the route
  * asked for (`date`): its name turns blue.
  */
 export function NightHeader({
@@ -168,7 +168,8 @@ export function NightHeader({
   highlight,
 }: {
   title: string;
-  line: string;
+  /** What the night holds; the Join tab leaves it out (Sait, 2026-10-20). */
+  line?: string;
   highlight?: boolean;
 }) {
   const { colors, fonts, tracking } = useTheme();
@@ -532,14 +533,13 @@ export function PlayMatchCard({
  * matches around it: a band in the state's colour (blue before it starts, green
  * in play, grey once over) with the trophy, the format and the status; then
  * the name in the display face, the day and times (and the branch when there
- * are several), the category, the places, the fee, the guest's own state, and
+ * are several), the places, the fee, the guest's own state, and
  * how full it is.
  */
 export function PlayTournamentCard({
   testID,
   tone,
   status,
-  category,
   format,
   title,
   when,
@@ -552,7 +552,6 @@ export function PlayTournamentCard({
   testID: string;
   tone: TourTone;
   status: string | null;
-  category: MatchCategory;
   format: string | null;
   title: string;
   when: string;
@@ -635,7 +634,6 @@ export function PlayTournamentCard({
               gap: 8,
             }}
           >
-            <CategoryPill category={category} />
             {places ? (
               <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.gtext }}>
                 {places}

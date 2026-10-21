@@ -103,8 +103,8 @@ const CASES: SmokeCase[] = [
   {
     route: 'member-card',
     Component: MemberCardScreen,
-    // The QR is a mark with no text of its own: the till's other way in is beside it.
-    nearbyKey: 'loyalty.guest.card.sayNumber',
+    // The QR is a mark with no text of its own: the line over it says what it is for.
+    nearbyKey: 'loyalty.guest.card.show',
     options: { session: 'in', queryData: cardSeeds },
   },
   {
@@ -125,7 +125,7 @@ const LRI_PDI = /[⁦-⁩]/g;
 describe.each(LOCALES)('loyalty states in %s', (locale) => {
   const t = makeT(locale);
 
-  it('the member card draws a live TP- token, the phone and "Get a new code"', () => {
+  it('the member card draws a live TP- token and "Get a new code", and no phone number', () => {
     const screen = renderRoute(MemberCardScreen, { locale, session: 'in', queryData: cardSeeds });
     try {
       const token = String(screen.getByTestId('member-card.code').props.children).replace(
@@ -134,7 +134,7 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       );
       expect(token).toMatch(MEMBER_TOKEN_RE);
       expect(token.startsWith('TP-8F3K2QXM-')).toBe(true);
-      expect(screen.getByTestId('member-card.phone')).toBeTruthy();
+      expect(screen.queryByTestId('member-card.phone')).toBeNull();
       expect(screen.getByTestId('member-card.progress')).toBeTruthy();
       const again = screen.getByTestId('member-card.new-code');
       expect(within(again).getByText(t('loyalty.guest.card.newCode'))).toBeTruthy();
@@ -163,8 +163,28 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
           t('loyalty.guest.history.kind.redeem'),
         ),
       ).toBeTruthy();
+      // Not opened from the Club tab: the card is that tab's, so it switches there on the card.
       fireEvent.press(screen.getByTestId('loyalty.show-card'));
-      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/member-card' });
+      expect(routerState.calls).toContainEqual({
+        method: 'replace',
+        arg: { pathname: '/club', params: { show: 'card' } },
+      });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('opened from the Club tab, "show my card" goes back to the card underneath', () => {
+    const screen = renderRoute(LoyaltyScreen, {
+      locale,
+      session: 'in',
+      queryData: homeSeeds(),
+      params: { from: 'club' },
+    });
+    try {
+      fireEvent.press(screen.getByTestId('loyalty.show-card'));
+      // useBack pops to the card when there is history; a test has none, so it lands on the card.
+      expect(routerState.calls).toEqual([{ method: 'replace', arg: { pathname: '/club', params: { show: 'card' } } }]);
     } finally {
       screen.unmount();
     }
@@ -220,7 +240,10 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       const card = on.getByTestId('profile.member-card');
       expect(within(card).getByText(t('loyalty.guest.card.profileTitle'))).toBeTruthy();
       fireEvent.press(card);
-      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/member-card' });
+      expect(routerState.calls).toContainEqual({
+        method: 'replace',
+        arg: { pathname: '/club', params: { show: 'card' } },
+      });
       const row = on.getByTestId('profile.loyalty');
       expect(within(row).getByText(t('loyalty.guest.home.title'))).toBeTruthy();
       fireEvent.press(row);

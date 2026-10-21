@@ -28,7 +28,7 @@ const holes = (s: string) => [...new Set((s.match(/\{(\w+)\}/g) ?? []).map((h) =
 describe('which workspaces have a guide', () => {
   it('exactly the court desk, the till, the kitchen and Touch Shop', () => {
     expect(Object.keys(GUIDES).sort()).toEqual(['cashier', 'courtDesk', 'prep', 'shop']);
-    for (const ws of ['manager', 'owner', 'team'] as WorkspaceKey[]) expect(guideFor(ws)).toBeNull();
+    for (const ws of ['management', 'team'] as WorkspaceKey[]) expect(guideFor(ws)).toBeNull();
     for (const ws of GUIDE_WORKSPACES) expect(guideFor(ws)).toBe(GUIDES[ws]);
   });
 });

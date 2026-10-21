@@ -151,3 +151,35 @@ export function saveFreeThread(userId: string, exchanges: readonly FreeExchange[
     /* private mode */
   }
 }
+
+// ---------------------------------------------------------------------------
+// The start screen and the answer (2026-10-20, design F1)
+// ---------------------------------------------------------------------------
+
+/** One ready question: its test id and its key under `ws.assistantFree.`. */
+export interface FreeStarter {
+  id: string;
+  key: string;
+}
+
+/** The six topic cards, in the Breakdown tones (`.tp-starter[data-tone]`). */
+export const FREE_TOPICS: readonly { key: 'till' | 'courts' | 'shift' | 'problems' | 'stock' | 'settings'; tone: 'green' | 'violet' | 'teal' | 'rose' | 'sky' | 'gold'; questions: readonly FreeStarter[] }[] = [
+  { key: 'till', tone: 'green', questions: [{ id: 'splitBill', key: 'topics.till.splitBill' }, { id: 'voidItem', key: 'topics.till.voidItem' }] },
+  { key: 'courts', tone: 'violet', questions: [{ id: 'moveBooking', key: 'topics.courts.moveBooking' }, { id: 'deposit', key: 'topics.courts.deposit' }] },
+  { key: 'shift', tone: 'teal', questions: [{ id: 'break', key: 'starters.break' }, { id: 'tasks', key: 'starters.tasks' }] },
+  { key: 'problems', tone: 'rose', questions: [{ id: 'incident', key: 'starters.incident' }, { id: 'printer', key: 'topics.problems.printer' }] },
+  { key: 'stock', tone: 'sky', questions: [{ id: 'waste', key: 'topics.stock.waste' }, { id: 'count', key: 'topics.stock.count' }] },
+  { key: 'settings', tone: 'gold', questions: [{ id: 'hours', key: 'topics.settings.hours' }, { id: 'addStaff', key: 'topics.settings.addStaff' }] },
+];
+
+/**
+ * The guide is told to say it cannot see the club's data when asked for a
+ * figure (_shared/assistant/free.ts); that sentence, in either language, is
+ * what offers the owner "Ask the paid assistant instead".
+ */
+const NEEDS_DATA_EN = /\b(?:can(?:not|'t|’t)|unable to|don(?:'|’)t have access to)\s+(?:see|access|view)\b[^.\n]{0,60}?\b(?:data|figures|numbers|sales|takings|bookings|records)\b/i;
+const NEEDS_DATA_AR = /(?:لا|لن)\s+(?:أستطيع|يمكنني|أرى|أملك)[^.\n]{0,40}?(?:البيانات|بيانات|الأرقام|أرقام|المبيعات|الحجوزات)/;
+
+export function needsData(answer: string): boolean {
+  return NEEDS_DATA_EN.test(answer) || NEEDS_DATA_AR.test(answer);
+}

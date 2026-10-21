@@ -24,6 +24,7 @@
  * /protocols, in place of a notice that names the owner.
  */
 import { useMemo, useState } from 'react';
+import { bookableDurations } from '@touch/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatNumber } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
@@ -100,8 +101,8 @@ export function RateRuleEditor() {
   const courtName = (id: string | null) => (id ? pickName(locale, courts.find((c) => c.id === id)) || id.slice(0, 8) : tr('ws.manager.rates.allCourts'));
 
   const durations = useMemo(() => {
-    const set = new Set<number>([60, 90, 120]);
-    for (const c of courts) for (const d of c.duration_options) set.add(d);
+    const set = new Set<number>([60, 120]);
+    for (const c of courts) for (const d of bookableDurations(c.duration_options)) set.add(d);
     return [...set].sort((a, b) => a - b);
   }, [courts]);
 

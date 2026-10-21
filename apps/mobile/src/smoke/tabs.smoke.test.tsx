@@ -1,8 +1,9 @@
 /**
- * The tab navigator, two of its four screens, and the account page the tabs'
+ * The tab navigator, two of its five screens, and the account page the tabs'
  * avatar opens (app/profile.tsx, a tab until 2026-10-17): Play is cased in
- * play.smoke.test.tsx and Coaches in coaching.smoke.test.tsx (each route is
- * named by exactly one suite); both bars are checked here for all four ids.
+ * play.smoke.test.tsx, Club in cafe.smoke.test.tsx and Coaches in
+ * coaching.smoke.test.tsx (each route is named by exactly one suite); both
+ * bars are checked here for all five ids.
  *
  * The hardest three renders in the app live here: `(tabs)/index` builds the
  * court's GL stage and a glass sheet, `(tabs)/_layout` is UIKit's own tab bar,
@@ -16,7 +17,7 @@
  *    `(tabs)/_layout` to). `TabsLayout.ios.tsx` carries NO testID — UIKit
  *    draws the bar — and `tabs.book` exists only because jest.setup.ts's
  *    `expo-router/unstable-native-tabs` mock names each Trigger's View after
- *    its route. The case proves the layout declares four triggers with the
+ *    its route. The case proves the layout declares five triggers with the
  *    locale's labels; it does not prove a `tabs.book` node exists on a device.
  *    The Android case below is where that id is asserted on the app's own
  *    Pressable.
@@ -183,23 +184,25 @@ describe.each(LOCALES)('book branch picker in %s', (locale) => {
 });
 
 /**
- * Four tabs on both bars, in this order, each with its own id and the locale's
- * label. Profile left the bar on 2026-10-17 for the avatar on each title row.
+ * Five tabs on both bars, in this order, each with its own id and the locale's
+ * label. Profile left the bar on 2026-10-17 for the avatar on each title row;
+ * Club (the member card and the café menu) took the centre on 2026-10-19.
  */
 const TAB_ORDER = [
   ['tabs.bookings', 'tabs.bookings'],
   ['tabs.play', 'tabs.play'],
+  ['tabs.club', 'tabs.club'],
   ['tabs.book', 'tabs.book'],
   ['tabs.coaches', 'tabs.coaches'],
 ] as const;
 
-describe.each(LOCALES)('the four tabs in %s', (locale) => {
+describe.each(LOCALES)('the five tabs in %s', (locale) => {
   const t = makeT(locale);
 
   it.each<[string, typeof TabsLayout]>([
     ['iOS', TabsLayout],
     ['Android', TabsLayoutAndroid],
-  ])('the %s bar declares all four, and no Profile tab', (_name, Layout) => {
+  ])('the %s bar declares all five, Club in the middle, and no Profile tab', (_name, Layout) => {
     const screen = renderRoute(Layout, { locale });
     try {
       const ids = TAB_ORDER.map(([id, key]) => {

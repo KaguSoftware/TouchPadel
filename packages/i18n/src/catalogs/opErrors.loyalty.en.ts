@@ -23,6 +23,6 @@ export const opErrorsLoyaltyEn = {
     'Too many wrong member codes. Wait a few minutes, or type the guest’s phone number.',
   MEMBER_CODE_MISMATCH: "That member code belongs to someone else, not this bill's member.",
   REWARD_EXCEEDS_BILL: 'That reward is worth more than what is left on the bill.',
-  REWARD_ITEM_NOT_ON_TAB: 'That item isn’t on this bill. Ask the café till to add it with the reward.',
+  REWARD_ITEM_NOT_ON_TAB: 'That item isn’t on this bill. Ask the café cashier to add it with the reward.',
   LOYALTY_REDEEMED: 'Points are used on this bill. Undo them before changing the member.',
 };

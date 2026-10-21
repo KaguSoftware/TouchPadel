@@ -31,7 +31,8 @@ const court: CourtRow = {
   description_ar: null,
   indoor: true,
   photo_path: null,
-  duration_options: [60, 90],
+  // 90 is still stored on some courts; the grid never offers it (whole hours only, 2026-10-19).
+  duration_options: [60, 90, 120],
   sort_order: 0,
 };
 
@@ -59,6 +60,7 @@ const rules: RateRuleRow[] = [
 const prices: RateRulePriceRow[] = [
   { rule_id: 'rule-all', duration_min: 60, price_iqd: 40_000 },
   { rule_id: 'rule-all', duration_min: 90, price_iqd: 55_000 },
+  { rule_id: 'rule-all', duration_min: 120, price_iqd: 75_000 },
 ];
 
 /** Venue-local wall time -> UTC ISO (Baghdad is UTC+3). */
@@ -83,14 +85,18 @@ describe('assembleDayGrid', () => {
     expect(slots.length).toBeGreaterThan(0);
     expect(slots.every((s) => s.state === 'free')).toBe(true);
     const sixty = slots.find((s) => s.durationMin === 60);
-    const ninety = slots.find((s) => s.durationMin === 90);
+    const twoHours = slots.find((s) => s.durationMin === 120);
     expect(sixty?.priceIqd).toBe(40_000);
-    expect(ninety?.priceIqd).toBe(55_000);
-    // 09:00 window start, half-open: a 90-min slot at 11:00 would end 12:30 — excluded.
-    const lateNinety = slots.find(
-      (s) => s.durationMin === 90 && s.startAt.getTime() === baghdad('11:00').getTime(),
+    expect(twoHours?.priceIqd).toBe(75_000);
+    // Whole hours only: no 90-min length, and every start is on the hour.
+    expect(slots.some((s) => s.durationMin === 90)).toBe(false);
+    expect(slots.map((s) => s.startAt.getTime())).not.toContain(baghdad('09:30').getTime());
+    expect(slots.filter((s) => s.durationMin === 60)).toHaveLength(3); // 09:00, 10:00, 11:00
+    // Half-open window: a 120-min slot at 11:00 would end 13:00 — excluded.
+    const lateTwo = slots.find(
+      (s) => s.durationMin === 120 && s.startAt.getTime() === baghdad('11:00').getTime(),
     );
-    expect(lateNinety).toBeUndefined();
+    expect(lateTwo).toBeUndefined();
   });
 
   it('marks booked / held / blocked from court_availability rows', () => {
@@ -114,8 +120,9 @@ describe('assembleDayGrid', () => {
     expect(at('09:00', 60)?.state).toBe('booked');
     expect(at('10:00', 60)?.state).toBe('held');
     expect(at('11:00', 60)?.state).toBe('blocked');
-    // Overlap: a 90-min slot at 09:30 collides with the 10:00 hold.
-    expect(at('09:30', 90)?.state).toBe('booked'); // 09:30-11:00 also overlaps the 09:00 booking
+    // Overlap: a 120-min slot at 09:00 runs into the 10:00 hold but the booking wins.
+    expect(at('09:00', 120)?.state).toBe('booked');
+    expect(at('10:00', 120)?.state).toBe('blocked'); // 10:00-12:00 reaches the 11:00 maintenance
   });
 
   it('returns empty slots for a closed date', () => {
@@ -138,11 +145,11 @@ describe('assembleDayGrid', () => {
       courts: [court],
       availability: [],
       rules,
-      prices: prices.filter((p) => p.duration_min !== 90),
+      prices: prices.filter((p) => p.duration_min !== 120),
       now: NOW,
     });
-    const ninety = grid[0]!.slots.find((s) => s.durationMin === 90);
-    expect(ninety?.priceIqd).toBeNull();
+    const twoHours = grid[0]!.slots.find((s) => s.durationMin === 120);
+    expect(twoHours?.priceIqd).toBeNull();
   });
 });
 
@@ -153,9 +160,9 @@ describe('groupByStart', () => {
       settings,
       courts: [court],
       availability: [
-        // 90-min slots starting 09:00 are blocked by a booking 10:00-10:30;
+        // The 120-min slot starting 09:00 is blocked by a booking 10:00-11:00;
         // the 60-min 09:00 slot stays free.
-        { court_id: 'court-1', start_at: baghdad('10:00').toISOString(), end_at: baghdad('10:30').toISOString(), kind: 'booking' },
+        { court_id: 'court-1', start_at: baghdad('10:00').toISOString(), end_at: baghdad('11:00').toISOString(), kind: 'booking' },
       ],
       rules,
       prices,
@@ -165,7 +172,7 @@ describe('groupByStart', () => {
     const nineCell = cells.find((c) => c.startAt.getTime() === baghdad('09:00').getTime());
     expect(nineCell?.state).toBe('free');
     expect(nineCell?.options.find((o) => o.durationMin === 60)?.state).toBe('free');
-    expect(nineCell?.options.find((o) => o.durationMin === 90)?.state).toBe('booked');
+    expect(nineCell?.options.find((o) => o.durationMin === 120)?.state).toBe('booked');
   });
 });
 

@@ -27,7 +27,7 @@ const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !=
 export interface PlanFacts {
   nameEn: string;
   nameAr: string;
-  /** 0354: every class of the plan; a plan from before it names one `class`. */
+  /** 0356: every class of the plan; a plan from before it names one `class`. */
   tournamentClasses: string[];
   /** 0339: the players' years bracket; null on a plan from before it (any experience). */
   playYears: 'under_one' | 'one_to_three' | 'three_plus' | null;

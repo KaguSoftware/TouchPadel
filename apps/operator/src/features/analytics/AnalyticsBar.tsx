@@ -1,8 +1,8 @@
 /**
  * The sticky bar both analytics tabs share (operator-slice.md §5.1, reworked
  * 2026-09-13). Two lines: the Courts | Cafe strip with the section jump-nav on
- * its inline-end side, then ONE filter row: period (custom dates only when
- * "custom" is chosen), the comparison basis, the court filter on the Courts
+ * its inline-end side, then ONE filter row: period (one date field, the
+ * shared DateRangePicker), the comparison basis, the court filter on the Courts
  * tab, and a "Settings" disclosure for the once-a-month settings. Range,
  * compare and court live in the URL (`AnalyticsSearch`); the business-day hour
  * and the exclusions are cafe-wide settings.
@@ -16,14 +16,16 @@
  * behind info buttons; STATE (a failed setting write) stays visible on the row.
  *
  * Compare with (owner, 2026-10-22): last month, last year, or a window the
- * owner picks; the custom dates appear only while it is chosen, as the
- * period's do, and open on the window the page compares with now.
+ * owner picks. Choosing Custom writes the window compared with now, so the
+ * page never waits on a half-made choice, and a second date field (the same
+ * DateRangePicker as the period) appears to move it.
  */
 import { useCallback, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { BUSINESS_DAY_START_OPTIONS, COMPARE_BASES, RANGE_PRESETS, isIsoDate, type CompareBasis, type DateRange, type RangePreset } from '@touch/core';
-import type { MessageKey } from '@touch/i18n';
+import { BUSINESS_DAY_START_OPTIONS, COMPARE_BASES, RANGE_PRESETS, businessTodayISO, resolveRange, type CompareBasis, type DateRange, type RangePreset } from '@touch/core';
+import { VENUE_TZ, type MessageKey } from '@touch/i18n';
 import { Button, ErrorText, inputStyle } from '../../components/ui';
 import { SelectMenu } from '../../components/SelectMenu';
+import { DateRangePicker } from '../../components/DateRangePicker';
 import { InfoTip } from '../../components/InfoTip';
 import { Icon } from '../../components/icons';
 import { useLocale } from '../../lib/i18n';
@@ -134,7 +136,7 @@ export function AnalyticsBar({
   setSearch: (next: Partial<AnalyticsSearch>) => void;
   zones: readonly ZoneDef[];
   compareBasis: CompareBasis;
-  /** The window the page compares with now: the custom dates open on it. */
+  /** The window the page compares with now: Custom starts from it. */
   compareRange?: DateRange;
   /** Absent while a tab has no data hook yet (nothing to put behind More). */
   deck?: BarDeck;
@@ -143,22 +145,18 @@ export function AnalyticsBar({
 }) {
   const { tr } = useLocale();
   const setSetting = useSetCafeSetting();
-  const [customFrom, setCustomFrom] = useState(search.from ?? '');
-  const [customTo, setCustomTo] = useState(search.to ?? '');
-  // "Custom" chosen but no valid pair applied yet: the inputs are shown and the
-  // control reads Custom, while the URL still carries the previous preset.
-  const [editingCustom, setEditingCustom] = useState(false);
-  const [cmpFrom, setCmpFrom] = useState(search.cmpFrom ?? '');
-  const [cmpTo, setCmpTo] = useState(search.cmpTo ?? '');
-  // The same for the comparison: Custom chosen, its dates not applied yet.
-  const [editingCompare, setEditingCompare] = useState(false);
   const [excludedOpen, setExcludedOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
   const moreId = useId();
   const closeMore = useCallback(() => setMoreOpen(false), []);
-  const customValid = isIsoDate(customFrom) && isIsoDate(customTo) && customFrom <= customTo;
-  const compareValid = isIsoDate(cmpFrom) && isIsoDate(cmpTo) && cmpFrom <= cmpTo;
+  // The business day the presets count back from, the same one the data hooks use.
+  const todayISO = businessTodayISO(new Date(), deck?.startHour ?? 4, VENUE_TZ);
+  const presets = RANGE_PRESETS.filter((p): p is Exclude<RangePreset, 'custom'> => p !== 'custom').map((p) => ({
+    key: p,
+    label: tr(PRESET_KEY[p]),
+    period: resolveRange({ range: p }, todayISO).range,
+  }));
   const nonDefault = (deck ? Number(deck.startHour !== 4) : 0) + (deck?.cafe ? Number(deck.cafe.excludedIds.length > 0) : 0);
 
   return (
@@ -169,63 +167,33 @@ export function AnalyticsBar({
       </div>
 
       <div style={row}>
+        {/* One field for the period (DateRangePicker, 2026-10-19). A chip keeps
+            the rolling preset in the URL; any other range is written as custom dates. */}
         <Group label={tr('ws.reports.filters.period')}>
-          <SelectMenu<RangePreset>
+          <DateRangePicker
             aria-label={tr('ws.reports.filters.period')}
-            value={editingCustom ? 'custom' : search.range}
-            onChange={(preset) => {
-              if (preset === 'custom') {
-                if (customValid) setSearch({ range: 'custom', from: customFrom, to: customTo });
-                else setEditingCustom(true);
-                return;
-              }
-              setEditingCustom(false);
-              setSearch({ range: preset, from: undefined, to: undefined });
-            }}
-            options={RANGE_PRESETS.map((preset) =>
-              preset === 'custom'
-                ? { value: preset, label: tr('analytics.deck.custom') }
-                : { value: preset, label: tr(PRESET_KEY[preset as Exclude<RangePreset, 'custom'>]) },
-            )}
+            value={resolveRange({ range: search.range, from: search.from, to: search.to }, todayISO).range}
+            presets={presets}
+            today={todayISO}
+            max={todayISO}
+            onChange={(next, key) =>
+              key ? setSearch({ range: key as RangePreset, from: undefined, to: undefined }) : setSearch({ range: 'custom', from: next.from, to: next.to })
+            }
             style={small}
             className={GLASS_CTL}
           />
         </Group>
 
-        {/* The date inputs used to take 300px of the row on every visit; they
-            only exist while a custom period is being chosen or is in force. */}
-        {(search.range === 'custom' || editingCustom) && (
-          <Group label={`${tr('analytics.deck.from')} / ${tr('analytics.deck.to')}`}>
-            <input type="date" className={GLASS_CTL} style={small} value={customFrom} max={customTo || undefined} onChange={(e) => setCustomFrom(e.target.value)} aria-label={tr('analytics.deck.from')} />
-            <input type="date" className={GLASS_CTL} style={small} value={customTo} min={customFrom || undefined} onChange={(e) => setCustomTo(e.target.value)} aria-label={tr('analytics.deck.to')} />
-            <Button
-              disabled={!customValid}
-              onClick={() => {
-                setEditingCustom(false);
-                setSearch({ range: 'custom', from: customFrom, to: customTo });
-              }}
-              style={{ minBlockSize: 'var(--tp-row-h)', fontSize: 'var(--tp-fs-sm)' }}
-            >
-              {tr('analytics.deck.apply')}
-            </Button>
-          </Group>
-        )}
-
-        <Group label={tr('analytics.deck.compare')} tip={tr(HINT_KEY[editingCompare ? 'custom' : compareBasis])}>
+        <Group label={tr('analytics.deck.compare')} tip={tr(HINT_KEY[compareBasis])}>
           <SelectMenu<CompareBasis>
-            value={editingCompare ? 'custom' : compareBasis}
+            value={compareBasis}
             onChange={(cmp) => {
+              if (cmp === compareBasis) return;
               if (cmp === 'custom') {
-                if (compareBasis === 'custom') return;
-                // Open on the window compared with now, so Apply works at once.
-                const from = compareValid ? cmpFrom : (compareRange?.from ?? '');
-                const to = compareValid ? cmpTo : (compareRange?.to ?? '');
-                setCmpFrom(from);
-                setCmpTo(to);
-                setEditingCompare(true);
+                // Start from the window compared with now; the field below moves it.
+                if (compareRange) setSearch({ cmp, cmpFrom: compareRange.from, cmpTo: compareRange.to });
                 return;
               }
-              setEditingCompare(false);
               setSearch({ cmp, cmpFrom: undefined, cmpTo: undefined });
             }}
             options={COMPARE_BASES.map((b) => ({ value: b, label: tr(BASIS_KEY[b]) }))}
@@ -235,20 +203,17 @@ export function AnalyticsBar({
           />
         </Group>
 
-        {(compareBasis === 'custom' || editingCompare) && (
-          <Group label={`${tr('analytics.deck.compareFrom')} / ${tr('analytics.deck.compareTo')}`}>
-            <input type="date" className={GLASS_CTL} style={small} value={cmpFrom} max={cmpTo || undefined} onChange={(e) => setCmpFrom(e.target.value)} aria-label={tr('analytics.deck.compareFrom')} />
-            <input type="date" className={GLASS_CTL} style={small} value={cmpTo} min={cmpFrom || undefined} onChange={(e) => setCmpTo(e.target.value)} aria-label={tr('analytics.deck.compareTo')} />
-            <Button
-              disabled={!compareValid}
-              onClick={() => {
-                setEditingCompare(false);
-                setSearch({ cmp: 'custom', cmpFrom, cmpTo });
-              }}
-              style={{ minBlockSize: 'var(--tp-row-h)', fontSize: 'var(--tp-fs-sm)' }}
-            >
-              {tr('analytics.deck.apply')}
-            </Button>
+        {compareBasis === 'custom' && compareRange && (
+          <Group label={tr('analytics.deck.compareDates')}>
+            <DateRangePicker
+              aria-label={tr('analytics.deck.compareDates')}
+              value={compareRange}
+              today={todayISO}
+              max={todayISO}
+              onChange={(next) => setSearch({ cmp: 'custom', cmpFrom: next.from, cmpTo: next.to })}
+              style={small}
+              className={GLASS_CTL}
+            />
           </Group>
         )}
 

@@ -43,7 +43,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { wallTimeToUtc } from '@touch/core';
+import { bookableDurations, wallTimeToUtc } from '@touch/core';
 import { SLOT_MIN } from './useTradingNight';
 import { countPhrase, formatDate, formatNumber, formatTime, formatTimeRange, type Locale } from '@touch/i18n';
 import { clientRef } from '../../lib/idem';
@@ -59,6 +59,7 @@ import { ConflictNotice, MessagePresenter, Money, SegmentedControl } from '../..
 import { awaitingCourtOverlap, matchesBumpedBy } from '../matches/matchLogic';
 import type { OpenMatch, OpenMatches } from '../matches/matchPayloads';
 import { CustomerPicker, type PickedCustomer } from './customers/CustomerPicker';
+import { GenderSlotNote, genderBlocksBooking, useSlotKept } from './GenderSlotNote';
 import { durationsFitting, nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone, slotTaken } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
 
@@ -149,7 +150,11 @@ export function CreateReservationDialog({
   // Its own memo so the clamp below does not rebuild on every keystroke.
   const soldKey = court?.duration_options?.join(',') ?? '';
   const sold = useMemo(
-    () => (court?.duration_options?.length ? court.duration_options : [60, 90, 120]),
+    // Whole hours only (60, 120): no length that ends at xx:30.
+    () => {
+      const whole = bookableDurations(court?.duration_options ?? []);
+      return whole.length ? whole : [60, 120];
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [soldKey],
   );
@@ -195,6 +200,9 @@ export function CreateReservationDialog({
   // shortest length that still fits.
   const duration = durations.includes(durationPick) ? durationPick : (durations[0] ?? 60);
   const endAt = new Date(startAt.getTime() + duration * 60_000);
+  // Gender hours (0353): who this court and time are kept for, if anyone.
+  const kept = useSlotKept(courtId, startAt, endAt, tz);
+  const genderBlocked = genderBlocksBooking(kept, customer);
 
   // Start times the clerk may pick: the night's rows from now on, plus the
   // one the dialog opened on (the calendar never opens a past slot, but the
@@ -255,6 +263,8 @@ export function CreateReservationDialog({
       }
     } catch (e) {
       if (e instanceof AppRpcError && e.code === 'SLOT_TAKEN') setConflict(true);
+      // Gender hours (0353): the record has no gender after all; the note under the time offers Set gender.
+      else if (e instanceof AppRpcError && e.code === 'GENDER_REQUIRED' && customer && kept.length > 0) setCustomer({ ...customer, gender: null });
       else setError(e);
     } finally {
       setBusy(false);
@@ -265,7 +275,7 @@ export function CreateReservationDialog({
   // Nothing the court sells fits before the close, so there is no booking to
   // make from this start at all.
   const closesTooSoon = durations.length === 0;
-  const canSubmit = !busy && !needsGuest && !chosenTaken && !unpriced && !closesTooSoon;
+  const canSubmit = !busy && !needsGuest && !chosenTaken && !unpriced && !closesTooSoon && !genderBlocked;
   /*
    * Why Create is disabled. A missing guest name is NOT among these: the name
    * box already carries the required mark, so the tooltip only restated what
@@ -278,7 +288,9 @@ export function CreateReservationDialog({
       ? tr('ws.courtDesk.create.takenReason')
       : unpriced
         ? tr('ws.courtDesk.create.noPriceReason')
-        : undefined;
+        : genderBlocked
+          ? tr(customer?.gender ? 'ws.genderHours.booking.blockedOther' : 'ws.genderHours.booking.blockedNeedsGender')
+          : undefined;
 
   const courtLabel = court ? pickName(locale, court) : '';
 
@@ -445,6 +457,7 @@ export function CreateReservationDialog({
           ))}
         </div>
       )}
+      <GenderSlotNote kept={kept} customer={customer} disabled={busy} onCustomerGender={(g) => setCustomer((c) => (c ? { ...c, gender: g } : c))} />
       {night && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
       <ErrorText error={error} />
     </Modal>

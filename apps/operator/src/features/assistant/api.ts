@@ -212,6 +212,7 @@ export interface UsageReport {
 
 export const QK = {
   conversations: ['assistant', 'conversations'] as const,
+  archivedConversations: ['assistant', 'conversations', 'archived'] as const,
   conversation: (id: string) => ['assistant', 'conversation', id] as const,
   /** Pack sizes for every scope over one range (the dry-run call). */
   start: (scopes: string, model: string) => ['assistant', 'start', scopes, model] as const,
@@ -243,6 +244,7 @@ interface Rows<T> extends Result<T[] | null> {
   eq(column: string, value: unknown): Rows<T>;
   in(column: string, values: readonly unknown[]): Rows<T>;
   is(column: string, value: null): Rows<T>;
+  not(column: string, operator: 'is', value: null): Rows<T>;
   order(column: string, opts?: { ascending?: boolean }): Rows<T>;
   limit(n: number): Rows<T>;
   maybeSingle(): Result<T | null>;
@@ -286,6 +288,18 @@ export async function fetchConversations(): Promise<ConversationRow[]> {
       .select('id, owner_id, title, scopes, range, model, tokens, created_at, updated_at, archived_at')
       .is('archived_at', null)
       .order('updated_at', { ascending: false })
+      .limit(200),
+  );
+  return data ?? [];
+}
+
+/** The owner's archived chats, newest first (the chat list's "Archived", 2026-10-20). Read-only: nothing restores one yet. */
+export async function fetchArchivedConversations(): Promise<ConversationRow[]> {
+  const data = await rows(
+    table<ConversationRow>('assistant_conversations')
+      .select('id, owner_id, title, scopes, range, model, tokens, created_at, updated_at, archived_at')
+      .not('archived_at', 'is', null)
+      .order('archived_at', { ascending: false })
       .limit(200),
   );
   return data ?? [];

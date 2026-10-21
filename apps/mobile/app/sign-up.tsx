@@ -40,10 +40,12 @@ import { splitSentence } from '../src/features/auth/linkedSentence';
 import { SocialSignInBlock } from '../src/components/social';
 import { useToast } from '../src/components/overlays';
 import { NAME_PART_MAX } from '../src/features/profile/names';
+import { GenderPicker, type GenderValue } from '../src/components/GenderPicker';
 
 type FieldErrors = {
   firstName?: string;
   lastName?: string;
+  gender?: string;
   email?: string;
   phone?: string;
   password?: string;
@@ -68,6 +70,12 @@ type FieldErrors = {
  * Continue with Apple / Google sit above the form (vendor addition 2026-09-01).
  * A social sign-up has no phone, so complete-profile collects one before the
  * first booking.
+ *
+ * The gender (0353, Majed 2026-10-19: a must for every account) is asked under
+ * the name, nothing picked at first. There is no session to call
+ * app.set_my_gender with until the code or link is confirmed, so it rides in
+ * the sign-up metadata and useGenderGate records it once one lands. A social
+ * sign-up has none and meets the choice on complete-profile.
  */
 function SignUpScreen() {
   const { t, locale, setLocale } = useLocale();
@@ -76,6 +84,7 @@ function SignUpScreen() {
   const [method, setMethod] = useState<AuthMethod>(() => parseAuthMethod(params.method));
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [gender, setGender] = useState<GenderValue | null>(null);
   const [email, setEmail] = useState('');
   // Country + national digits; the API receives the composed E.164.
   const [iso, setIso] = useState(DEFAULT_ISO);
@@ -135,6 +144,7 @@ function SignUpScreen() {
     const invalid = validateSignUp({
       firstName,
       lastName,
+      gender,
       email: method === 'email' ? email : undefined,
       phoneNational: national,
       password,
@@ -145,6 +155,10 @@ function SignUpScreen() {
     }
     if (invalid === 'LAST_NAME_REQUIRED') {
       setFieldErrors({ lastName: t('auth.lastNameRequired') });
+      return null;
+    }
+    if (invalid === 'GENDER_REQUIRED') {
+      setFieldErrors({ gender: t('guestGender.required') });
       return null;
     }
     if (invalid === 'EMAIL_INVALID') {
@@ -180,7 +194,16 @@ function SignUpScreen() {
       if (method === 'email') {
         const data = await signUpWithEmail(
           supabase,
-          { firstName, lastName, email, phone: e164, password, preferredLang, termsVersion: CURRENT_TERMS_VERSION },
+          {
+            firstName,
+            lastName,
+            email,
+            phone: e164,
+            password,
+            preferredLang,
+            termsVersion: CURRENT_TERMS_VERSION,
+            gender: gender ?? undefined,
+          },
           verifyRedirect(),
         );
         if (signUpHidExistingAccount(data)) return accountExists(e164);
@@ -192,6 +215,7 @@ function SignUpScreen() {
           password,
           preferredLang,
           termsVersion: CURRENT_TERMS_VERSION,
+          gender: gender ?? undefined,
         });
         if (signUpHidExistingAccount(data)) return accountExists(e164);
       }
@@ -273,6 +297,16 @@ function SignUpScreen() {
           textContentType="familyName"
           maxLength={NAME_PART_MAX}
           error={fieldErrors.lastName}
+        />
+        <GenderPicker
+          testID="sign-up.gender"
+          value={gender}
+          onChange={(next) => {
+            setGender(next);
+            setFieldErrors((prev) => ({ ...prev, gender: undefined }));
+          }}
+          error={fieldErrors.gender}
+          style={{ marginBottom: space.sm }}
         />
         {method === 'email' ? (
           <Field

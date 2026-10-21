@@ -21,7 +21,7 @@ import { makeT, type MessageKey } from '@touch/i18n';
 import { useAuth, canAccess } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
 import { useTabOpen } from '../lib/navAccess';
-import { WORKSPACES, type NavItem, type NavLabelKey, type NavTab, type SectionKey, type WorkspaceKey } from '../lib/workspaces';
+import { WORKSPACES, rowShown, type NavItem, type NavLabelKey, type NavTab, type SectionKey, type WorkspaceKey } from '../lib/workspaces';
 import { Modal } from './ui';
 import { Icon } from './icons';
 import { navButtonStyle, railLabelStyle } from './railStyles';
@@ -44,6 +44,7 @@ const KEYWORDS: Partial<Record<NavLabelKey, readonly string[]>> = {
   rewards: ['rewards', 'bonus', 'prize', 'مكافأة', 'جائزة'],
   deductions: ['penalty', 'fine', 'غرامة', 'عقوبة'],
   rates: ['court price', 'peak', 'hourly', 'rate', 'سعر الملعب', 'ذروة'],
+  genderHours: ['women only', 'men only', 'ladies', 'gender', 'للسيدات', 'للرجال', 'نساء'],
   menuItems: ['price', 'item', 'drink', 'food', 'سعر', 'صنف', 'مشروب'],
   categories: ['categories', 'الفئات'],
   addons: ['add-ons', 'addons', 'modifiers', 'extra'],
@@ -79,7 +80,8 @@ const KEYWORDS: Partial<Record<NavLabelKey, readonly string[]>> = {
   onlineDeposit: ['deposit', 'qi card', 'online payment', 'عربون', 'كي كارد', 'دفع إلكتروني'],
   openMatches: ['match', 'ticket', 'مباراة', 'تذكرة'],
   tournamentRules: ['tournament', 'tournaments', 'entry fee', 'البطولات'],
-  venueDetails: ['venue', 'details', 'name', 'phone', 'tax', 'currency', 'timezone', 'البيانات', 'اسم', 'هاتف', 'ضريبة', 'عملة'],
+  branches: ['branch', 'location', 'club', 'open branch', 'فرع', 'فروع', 'النادي'],
+  venueDetails: ['venue','details', 'name', 'phone', 'tax', 'currency', 'timezone', 'البيانات', 'اسم', 'هاتف', 'ضريبة', 'عملة'],
   openingHours: ['hours', 'closed days', 'holiday', 'open', 'ساعات', 'عطلة', 'أيام الإغلاق'],
   businessDay: ['business day', 'midnight', 'waiter call', 'يوم العمل', 'منتصف الليل', 'نداء النادل'],
   analyticsSettings: ['analytics', 'exclude', 'leave out', 'استبعاد'],
@@ -238,7 +240,7 @@ export function GoToPalette({ workspaceKey, onClose }: { workspaceKey: Workspace
         workspaceKey,
         (k) => tr(k),
         [T_EN, T_AR],
-        (row) => canAccess(staff, row.to),
+        (row) => rowShown(row, (p) => canAccess(staff, p), canOpenTab),
         canOpenTab,
       ),
     [workspaceKey, tr, staff, canOpenTab],

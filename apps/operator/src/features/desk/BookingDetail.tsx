@@ -28,6 +28,7 @@
  * cancel, move or extend says what it does to the match first.
  */
 import { useEffect, useState } from 'react';
+import { bookableDurations } from '@touch/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { DateField } from '../../components/inputs';
@@ -241,7 +242,8 @@ export function BookingDetailScreen() {
   const courts = courtsQ.data ?? [];
   const live = r ? isLive(r.status) : false;
   const marks = r ? allowedMarks(r.status, r.start_at) : [];
-  const minDurationMin = court?.duration_options?.length ? Math.min(...court.duration_options) : STEP_MIN;
+  const whole = bookableDurations(court?.duration_options ?? []);
+  const minDurationMin = whole.length ? Math.min(...whole) : STEP_MIN;
   const durationMs = r ? new Date(r.end_at).getTime() - new Date(r.start_at).getTime() : 0;
   const canShorten = live && durationMs - STEP_MIN * 60_000 >= minDurationMin * 60_000;
   // Where the date + time boxes currently point, and whether that is a start
@@ -461,7 +463,7 @@ export function BookingDetailScreen() {
                       <Button
                         kind="primary"
                         busy={busy === 'move'}
-                        disabled={busy !== null || !/^\d{2}:\d{2}$/.test(move.time) || movePast}
+                        disabled={busy !== null || !/^\d{2}:00$/.test(move.time) || movePast}
                         disabledReason={movePast ? tr('ws.courtDesk.detail.movePast') : tr('ws.courtDesk.detail.moveNeedsTime')}
                         onClick={() => setPending('move')}
                       >

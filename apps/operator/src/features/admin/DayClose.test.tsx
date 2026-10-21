@@ -219,7 +219,7 @@ describe('Day close ▸ Till shifts', () => {
     };
     mount();
     const step = await screen.findByTestId('day-close-shifts');
-    expect(screen.getByText('Till shifts')).toBeTruthy();
+    expect(screen.getByText('Cashier shifts')).toBeTruthy();
     expect(await screen.findByText('1 still open')).toBeTruthy();
     // The difference as a sign word, the open one as open.
     expect(within(step).getByText('Short by 5,000 IQD')).toBeTruthy();
@@ -355,7 +355,7 @@ describe('Day close ▸ Money outside the drawer', () => {
     expect(within(group).getByText('60,000 IQD')).toBeTruthy();
     expect(within(group).getByText('Refunded at the desk today, whatever day it was paid (out of the drawer)')).toBeTruthy();
     expect(within(group).getByText('30,000 IQD')).toBeTruthy();
-    expect(within(group).getByText("Owed to coaches for today's lessons (paid outside the till)")).toBeTruthy();
+    expect(within(group).getByText("Owed to coaches for today's lessons (paid outside the cashier)")).toBeTruthy();
     expect(within(group).getByText('54,000 IQD')).toBeTruthy();
     // Nothing of the matches or deposits moved: only the lessons group is drawn.
     expect(screen.queryByTestId('day-close-online-matches')).toBeNull();

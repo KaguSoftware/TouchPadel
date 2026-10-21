@@ -11,12 +11,20 @@
  * false`) are hatched, not blank, so "nothing booked" and "not open" stay
  * different. Every value is also in the card's table twin, so nothing is
  * gated on hovering.
+ *
+ * `totals` adds the grid's margins: a column chart of the hours along the
+ * top and a bar per weekday at the row ends, so "which hour" and "which day"
+ * read off the same card as "which hour of which day" (they used to be two
+ * more charts behind Show more). The caller supplies them, because a rate's
+ * margin is the server's roll-up (occupancy by hour), never a sum of cells;
+ * `sumTotals` (./geometry.ts) is for measures that add up.
  */
-import { useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocale } from '../../../lib/i18n';
 import { weekdayName } from '../copy';
 import type { Formatters } from '../format';
 import { heatColor, useChartColors } from './colors';
+import type { HeatTotals } from './geometry';
 
 export interface HeatValue {
   dow: number;
@@ -43,6 +51,7 @@ export function WeekHeatmap({
   format,
   unit,
   hint,
+  totals,
 }: {
   cells: readonly HeatValue[];
   f: Formatters;
@@ -52,9 +61,14 @@ export function WeekHeatmap({
   unit: string;
   /** Idle readout text (what hovering will reveal). */
   hint: string;
+  /** Hour and weekday margins; `format` reads them out (an average reads differently from a total). */
+  totals?: HeatTotals & { format: (value: number) => string };
 }) {
   const { GRID, HEAT_RAMP } = useChartColors();
   const { tr } = useLocale();
+  const hourMax = Math.max(0, ...(totals?.hours ?? []).map((v) => v ?? 0));
+  const dayMax = Math.max(0, ...(totals?.days ?? []).map((v) => v ?? 0));
+  const margin = (v: number | null | undefined, max: number) => (v == null ? 'transparent' : max > 0 && v === max ? HEAT_RAMP[5] : HEAT_RAMP[3]);
   const byKey = new Map(cells.map((c) => [`${c.dow}:${c.hour}`, c]));
   const max = cells.reduce((m, c) => Math.max(m, c.open === false || c.thin ? 0 : c.value), 0);
   const [active, setActive] = useState<string | null>(null);
@@ -63,7 +77,18 @@ export function WeekHeatmap({
   const activeDow = activeParts[0] ?? 0;
   const activeHour = activeParts[1] ?? 0;
 
-  const readout = active
+  /** A margin's key is "h=9" (an hour) or "d=2" (a weekday); a cell's is "2:9". */
+  const marginReadout = (key: string): string | null => {
+    if (!totals) return null;
+    const kind = key[0];
+    const n = Number(key.slice(2));
+    if (kind === 'h') return `${tr('ws.analytics.viz.everyDay', { hour: f.hour(n) })} · ${totals.hours[n] == null ? tr('ws.analytics.heatmap.closed') : totals.format(totals.hours[n]!)}`;
+    if (kind === 'd') return `${tr('ws.analytics.viz.allDay', { day: weekdayName(tr, n) })} · ${totals.days[n] == null ? tr('ws.analytics.heatmap.closed') : totals.format(totals.days[n]!)}`;
+    return null;
+  };
+  const readout = active && active.includes('=')
+    ? (marginReadout(active) ?? hint)
+    : active
     ? `${weekdayName(tr, activeDow)} ${f.hour(activeHour)} · ${
         activeCell?.open === false
           ? tr('ws.analytics.heatmap.closed')
@@ -79,14 +104,44 @@ export function WeekHeatmap({
         <div
           role="img"
           aria-label={`${unit}: ${cells.length} ${tr('ws.analytics.heatmap.cells')}`}
-          style={{ display: 'grid', gridTemplateColumns: `max-content repeat(24, minmax(0, 1fr))`, gap: '1px', minInlineSize: '42rem' }}
+          style={{ display: 'grid', gridTemplateColumns: `max-content repeat(24, minmax(0, 1fr))${totals ? ' 4.5rem' : ''}`, gap: '1px', minInlineSize: '42rem' }}
         >
+          {totals && (
+            <>
+              <span />
+              {HOURS.map((h) => {
+                const v = totals.hours[h];
+                const key = `h=${h}`;
+                return (
+                  <span
+                    key={key}
+                    data-total-hour={h}
+                    onPointerEnter={() => setActive(key)}
+                    style={{ display: 'flex', alignItems: 'flex-end', blockSize: '2rem', paddingInline: '1px', marginBlockEnd: '2px' }}
+                  >
+                    <span
+                      style={{
+                        inlineSize: '100%',
+                        blockSize: v == null ? 0 : `${hourMax > 0 ? Math.max(6, (v / hourMax) * 100) : 6}%`,
+                        background: margin(v, hourMax),
+                        borderStartStartRadius: 2,
+                        borderStartEndRadius: 2,
+                        outline: active === key ? '1px solid var(--tp-accent)' : undefined,
+                      }}
+                    />
+                  </span>
+                );
+              })}
+              <span />
+            </>
+          )}
           <span />
           {HOURS.map((h) => (
             <span key={h} style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', textAlign: 'center' }}>
               {h % 3 === 0 ? h : ''}
             </span>
           ))}
+          {totals && <span />}
           {DOWS.map((dow) => (
             <Row
               key={dow}
@@ -96,6 +151,27 @@ export function WeekHeatmap({
               max={max}
               active={active}
               onActive={setActive}
+              total={
+                totals ? (
+                  <span
+                    data-total-day={dow}
+                    onPointerEnter={() => setActive(`d=${dow}`)}
+                    style={{ display: 'flex', alignItems: 'center', paddingInlineStart: 'var(--tp-sp-1-5)', blockSize: '1.1rem' }}
+                  >
+                    <span
+                      style={{
+                        blockSize: '0.7rem',
+                        // An open day always shows a stub, so "open, nothing booked" never reads as closed.
+                        inlineSize: totals.days[dow] == null ? 0 : `${dayMax > 0 ? Math.max(4, ((totals.days[dow] ?? 0) / dayMax) * 100) : 4}%`,
+                        background: margin(totals.days[dow], dayMax),
+                        borderStartEndRadius: 2,
+                        borderEndEndRadius: 2,
+                        outline: active === `d=${dow}` ? '1px solid var(--tp-accent)' : undefined,
+                      }}
+                    />
+                  </span>
+                ) : undefined
+              }
             />
           ))}
         </div>
@@ -123,6 +199,7 @@ function Row({
   max,
   active,
   onActive,
+  total,
 }: {
   dow: number;
   label: string;
@@ -130,6 +207,8 @@ function Row({
   max: number;
   active: string | null;
   onActive: (key: string | null) => void;
+  /** The weekday's margin bar, at the row's end. */
+  total?: ReactNode;
 }) {
   const { GRID, HEAT_RAMP } = useChartColors();
   return (
@@ -163,6 +242,7 @@ function Row({
           />
         );
       })}
+      {total}
     </>
   );
 }

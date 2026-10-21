@@ -318,6 +318,7 @@ describe('capability matrix', () => {
         'editVenueDetails',
         'launchDirectly',
         'leaveStationWithoutPin',
+        'manageBranches',
         'marketingWork',
         'readProduction',
         'readPurchases',

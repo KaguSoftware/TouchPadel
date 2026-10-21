@@ -73,7 +73,7 @@ export function AiInsightsCard({
 }: {
   scope: InsightsScope;
   range: DateRange;
-  /** `compareTag` of the page's comparison: the stored set is filed under it (0353). */
+  /** `compareTag` of the page's comparison: the stored set is filed under it (0355). */
   compareTag: string;
   /** The Courts tab's filter (0098): the set is stored and read under this court; null = venue-wide. */
   courtId?: string | null;

@@ -323,7 +323,7 @@ test.describe('operator open matches', () => {
     const dialog = page.getByRole('dialog', { name: 'New booking' });
     await expect(dialog.getByText(/Booking this court cancels the open match at .*6:00\s*PM/)).toBeVisible();
     await dialog.getByLabel('Guest name').fill(`${E2E_MATCH_NAME} Kilo`);
-    await choose(dialog.getByLabel('Duration'), '90');
+    await choose(dialog.getByLabel('Duration'), '120'); // whole hours only (2026-10-19)
     await dialog.getByRole('button', { name: 'Create booking' }).click();
     await expect(dialog).toBeHidden();
     await expect(page.getByText(/The open match at .*6:00\s*PM.* was cancelled/)).toBeVisible();
@@ -432,7 +432,8 @@ test.describe('operator open matches', () => {
     await page.goto(`${OPERATOR_URL}/desk?date=${day}`);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('heading', { name: ar.desk.title })).toBeVisible({ timeout: 30_000 });
-    await calendarSlot(page, COURT_2, '13:30').click();
+    // One grid row is one hour since 2026-10-19 (DeskCalendar SLOT_MIN): no :30 slots.
+    await calendarSlot(page, COURT_2, '13:00').click();
     const booking = page.getByRole('dialog', { name: ar.op.desk.newBooking });
     await booking.getByLabel(ar.op.desk.guestName).fill(lima);
     await booking.getByRole('button', { name: m.common.openMatch, exact: true }).click();

@@ -248,8 +248,11 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/admin': ['manager', 'owner'],
   '/admin/telegram': ['owner'],
   '/admin/staff': ['owner'],
-  // Multi-venue slice 4: the branches and "Open a new branch" are the owner's.
-  '/admin/branches': ['owner'],
+  // Multi-venue slice 4: the branches. Since 2026-10-18 a branch card is the
+  // way into its club details, so a manager sees the list too (their own
+  // branches); opening, closing and "Open a new branch" stay the owner's
+  // (manageBranches).
+  '/admin/branches': ['manager', 'owner'],
   // Setup › Loyalty (loyalty build contracts §5): points, tiers and rewards
   // are business-wide and the owner's (set_loyalty_settings is owner-only).
   '/admin/loyalty': ['owner'],
@@ -320,6 +323,9 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/rewards': ['owner'],
   // The main cash (0343): managers and the owner log costs and moves.
   '/safe': ['manager', 'owner'],
+  // Files (0354): managers and the owner keep documents; an owner_only file
+  // is the owner's alone (app.venue_files_list).
+  '/files': ['manager', 'owner'],
 };
 
 /** Every known sub-route per layout prefix — drives the admin sub-nav. */
@@ -335,6 +341,8 @@ export const SUB_ROUTES = {
     // Coaching (docs/design/coaching/operator.md §5.3.2): coaches, lesson types, hours.
     '/admin/coaches',
     '/admin/rates',
+    // Gender hours (0353): courts kept for women or men at set times.
+    '/admin/gender-hours',
     '/admin/hours',
     '/admin/promotions',
     '/admin/day-close',
@@ -468,6 +476,8 @@ export const CAPABILITY_ROLES = {
   setEngagementFloor: ['owner'],
   /** Venue name, phone and booking rules (app.set_venue_details, 0104). */
   editVenueDetails: ['owner'],
+  /** Open a new branch, its checklist, Open to guests and Close (app.create_branch / open_branch / close_branch). */
+  manageBranches: ['owner'],
 
   // Protocols (build-contracts-2026-09-23 §5.1). Row-level buttons on a run or
   // a step follow the RPC's own `can` answer; these gate the screen-level ones.
@@ -726,6 +736,11 @@ export interface Permissions {
   closeDay: boolean;
   editMenu: boolean;
   editRates: boolean;
+  /**
+   * Gender hours (0353): keep a court, or every court, for women or men at set
+   * times. Not a price, so the manager saves too (app.upsert_court_gender_rule).
+   */
+  editGenderRules: boolean;
   editPromotions: boolean;
   manageStaff: boolean;
   viewReports: boolean;
@@ -766,6 +781,7 @@ export function permissionsFor(who: StaffWho): Permissions {
     // The owner's since price_promo (#57): a manager proposes a rate or a
     // promotion as a price or promo change, and keeps a promotion's off switch.
     editRates: is(['owner']),
+    editGenderRules: is(MANAGEMENT),
     editPromotions: is(['owner']),
     manageStaff: is(['owner']),
     viewReports: is(MANAGEMENT),

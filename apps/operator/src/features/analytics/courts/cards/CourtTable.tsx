@@ -12,6 +12,7 @@ import { downloadTable } from '../../exportTables';
 import type { Formatters } from '../../format';
 import type { CourtAttachRow, CourtRow } from '../shape';
 import { rateText } from '../format';
+import { InlineMeter } from '../../charts/InlineMeter';
 
 export interface CourtTableRow {
   court: CourtRow;
@@ -37,11 +38,21 @@ export function CourtTable({
 }) {
   const { tr, locale } = useLocale();
   const name = (c: CourtRow) => pickLocale({ en: c.nameEn, ar: c.nameAr }, locale) || c.courtId;
+  // The fullest court's bar takes the accent, the rest the muted bar: which court leads reads before any number.
+  const topOcc = rows.reduce((m, r) => Math.max(m, r.court.occupancyPct ?? 0), 0);
   const columns: Column<CourtTableRow>[] = [
     { key: 'court', header: tr('ws.reports.filters.court'), render: (r) => name(r.court), truncate: true, truncateTitle: (r) => name(r.court) },
     { key: 'bookings', header: tr('ws.analytics.courts.kpi.bookings'), numeric: true, render: (r) => f.num(r.court.bookings) },
     { key: 'hours', header: tr('ws.analytics.courts.kpi.bookedHours'), numeric: true, render: (r) => f.num(Math.round(r.court.bookedMinutes / 60)) },
-    { key: 'occupancy', header: tr('ws.analytics.courts.kpi.occupancy'), numeric: true, render: (r) => (r.court.occupancyPct == null ? '—' : f.pct(r.court.occupancyPct)) },
+    { key: 'occupancy', header: tr('ws.analytics.courts.kpi.occupancy'), numeric: true, render: (r) =>
+        r.court.occupancyPct == null ? (
+          '—'
+        ) : (
+          <InlineMeter pct={r.court.occupancyPct} emphasis={topOcc > 0 && r.court.occupancyPct === topOcc}>
+            {f.pct(r.court.occupancyPct)}
+          </InlineMeter>
+        ),
+    },
     { key: 'revenue', header: tr('ws.analytics.courts.kpi.revenue'), numeric: true, render: (r) => f.money(r.court.revenueIqd) },
     { key: 'revPerHour', header: tr('ws.analytics.courts.kpi.revPerOpenHourShort'), numeric: true, render: (r) => (r.court.revPerOpenHourIqd == null ? '—' : f.money(r.court.revPerOpenHourIqd)) },
     { key: 'cancel', header: tr('ws.analytics.courts.kpi.cancelRate'), numeric: true, render: (r) => rateText(tr, f, r.court.cancellationRatePct, r.court.cancellations, r.court.bookedTotal) },

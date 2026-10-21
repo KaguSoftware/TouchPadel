@@ -40,6 +40,7 @@ import { StaffScreenGuard } from '../src/features/staff/screenGuard/StaffScreenG
 import { StaffActivityPing } from '../src/features/staff/activity/StaffActivityPing';
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { usePlaySurveyPrompt } from '../src/features/playProfile/usePlaySurveyPrompt';
+import { useGenderGate } from '../src/features/auth/useGenderGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { usePendingPaymentResume } from '../src/features/deposit/hooks';
@@ -194,6 +195,10 @@ function RootStack() {
   // pending slot, match or lesson intent, never for staff. Here, beside the
   // terms gate, so no sign-up path or continuation has to know about it.
   usePlaySurveyPrompt();
+  // A gender for every account (0353): records the sign-up form's answer once
+  // the session lands, and sends a guest without one to complete-profile on a
+  // calm landing on the tabs, once per launch. Never staff (genderGate.ts).
+  useGenderGate();
   // Push registration lives HERE, under AuthProvider, because it needs the live
   // session: the server drops a notification on the floor when the profile
   // holds no token (migration 0075's trigger returns early and nothing
@@ -383,15 +388,15 @@ function RootStack() {
           />
           {/* The play survey (play-coaches contracts §8): the platform's sheet,
           three questions and a Skip. Singular: the sign-up prompt and Edit
-          profile's "Your game" row must never stack two. */}
+          profile's "Your game" row must never stack two. Sized to the screen's
+          own fixed-height view, so its buttons sit at the sheet's foot. */}
           <Stack.Screen
             name="play-survey"
             dangerouslySingular
             options={{
               presentation: 'formSheet',
-              sheetAllowedDetents: [0.86],
+              sheetAllowedDetents: 'fitToContents',
               sheetGrabberVisible: true,
-              sheetExpandsWhenScrolledToEdge: false,
               headerShown: false,
             }}
           />
@@ -483,19 +488,22 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
     () =>
       installNotificationHandler({
         onOpenReservation: (id) => {
-          if (!isOnScreen('booking/[id]', id)) router.push({ pathname: '/booking/[id]', params: { id } });
+          if (!isOnScreen('booking/[id]', id))
+            router.push({ pathname: '/booking/[id]', params: { id } });
         },
         onOpenStaff: (href) => router.push(href),
         staffStatus: settledStaffStatus,
         // Already reading it: the notice below refreshes it in place, no second copy.
         onOpenMatch: (id) => {
           if (!onlinePaymentsShipped()) router.push('/(tabs)');
-          else if (!isOnScreen('match/[id]', id)) router.push({ pathname: '/match/[id]', params: { id } });
+          else if (!isOnScreen('match/[id]', id))
+            router.push({ pathname: '/match/[id]', params: { id } });
         },
         onOpenTickets: () => router.push(onlinePaymentsShipped() ? '/tickets' : '/(tabs)'),
         onMatchNotice: () => void queryClient.invalidateQueries({ queryKey: matchKeys.all }),
         onOpenLesson: (id) => {
-          if (!isOnScreen('lesson/[id]', id)) router.push({ pathname: '/lesson/[id]', params: { id } });
+          if (!isOnScreen('lesson/[id]', id))
+            router.push({ pathname: '/lesson/[id]', params: { id } });
         },
         onOpenCoachLesson: (id) => router.push(lessonPushHref('coach_lesson', id)),
         onOpenCoachStatements: () => router.push(lessonPushHref('coach_statements', null)),

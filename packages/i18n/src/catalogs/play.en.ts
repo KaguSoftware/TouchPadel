@@ -4,7 +4,6 @@
  * The tab reuses the open-match and tournament words wherever the text is the
  * same (`matches.list.*`, `matches.detail.join`, `tournaments.guest.list.*`,
  * `tournaments.common.*`); only what is new to a page holding both lives here.
- * Counts arrive phrased: `count.tournaments` goes through `countPhrase`.
  */
 export const playEn = {
   // The page's one action, beside the title: opens the Book sheet, where a free time starts it.
@@ -17,11 +16,16 @@ export const playEn = {
   // Nothing on either side, with no chip narrowing it.
   emptyBody: 'No open matches or tournaments coming up. Start a match from any free time.',
   // One side failed to load while the other is on the page.
-  matchesError: 'The open matches could not be loaded.',
+  matchesError: "Couldn't load matches.",
   // 0339: a signed-in guest who skipped the level or years question sees every tournament.
-  fitAsk: 'Tell us your level and how long you have played to see the tournaments for you.',
+  fitAsk: 'Set your level to see your tournaments.',
+  // The round filter button in the title bar (Sait, 2026-10-20): its spoken name
+  // while "All" is on (a category speaks its own name).
+  filter: {
+    label: 'Filter',
+  },
   // Both sides failed.
-  loadError: 'Open matches and tournaments could not be loaded.',
+  loadError: "Couldn't load matches or tournaments.",
   // The court under the title (packages/court3d join.ts): the next open match, its
   // open seats marked on it. Its caption is "Tonight · 9:00 PM · 2 seats left"
   // (built from the night, the time and `matches.count.seatsLeft`); these are the rest.
@@ -30,16 +34,5 @@ export const playEn = {
     none: 'No open seats right now',
     // Screen readers, on the caption: what a tap does.
     hint: 'Shows this match in the list',
-  },
-  count: {
-    // A night's line beside `matches.count.openMatches`: "2 open matches · 1 tournament".
-    tournaments: {
-      zero: 'No tournaments',
-      one: '1 tournament',
-      two: '2 tournaments',
-      few: '{count} tournaments',
-      many: '{count} tournaments',
-      other: '{count} tournaments',
-    },
   },
 } as const;

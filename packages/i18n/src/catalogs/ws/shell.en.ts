@@ -29,9 +29,13 @@ export const shellEn = {
   },
   switcher: {
     title: 'Choose a workspace',
-    lead: 'A workspace is the set of screens for one job. Pick the job you are doing now; you can come back here any time from Switch workspace in the sidebar.',
+    // Shortened 2026-10-19 (Majed): everyone who reaches this screen already
+    // knows what a workspace is; the job they are doing is the one question.
+    lead: 'Pick the job you are doing now.',
     current: 'You are here',
     open: 'Open',
+    // Beside the title. Each tile shows its number; the digit key opens it.
+    keys: 'Press a number from 1 to {last} to open one.',
   },
   // The connectivity strip (rulebook 9.6). It answers one question — can this
   // station reach the server — so "ok" no longer promises anything about the
@@ -82,7 +86,7 @@ export const shellEn = {
     back: 'I’m back',
     backNamed: '{name} is back',
     coverTitle: 'Cover this station',
-    coverLead: 'Tap your name and enter your PIN to take the till over.',
+    coverLead: 'Tap your name and enter your PIN to take the café cashier over.',
     coverNone: 'Nobody can cover this station yet. The owner assigns cover staff under Staff.',
     pinFor: '{name}’s PIN',
     confirm: 'Confirm',
@@ -102,10 +106,10 @@ export const shellEn = {
   },
   workspace: {
     courtDesk: 'Court desk',
-    cashier: 'Till',
+    cashier: 'Café cashier',
     prep: 'Kitchen',
-    manager: 'Operations',
-    owner: 'Management',
+    // The owner and the manager both work here (2026-10-19: Operations folded in).
+    management: 'Management',
     // Driver and marketing (0155): one rail row, My tasks, for now.
     team: 'Team',
     // The Touch Shop desk (0243–0246).
@@ -115,13 +119,10 @@ export const shellEn = {
   // (lib/workspaces.ts). Management shows one button per section instead of
   // spilling all fourteen destinations into its own column.
   section: {
-    // The page map (Sait, 2026-10-17): parts of the club, the same on both
-    // rails. Courts and Café & shop have a key per rail (lib/workspaces.ts).
+    // The page map (Sait, 2026-10-17): parts of the club.
     money: 'Financial',
     courts: 'Courts',
-    courtsDesk: 'Courts',
     cafe: 'Café & shop',
-    cafeFloor: 'Café & shop',
     stock: 'Stock',
     team: 'Team',
     customers: 'Customers & marketing',
@@ -130,9 +131,7 @@ export const shellEn = {
   sectionLead: {
     money: 'Sales, cash, wages and bills',
     courts: 'Bookings, court settings and coaches',
-    courtsDesk: 'Bookings, court settings and coaches',
     cafe: 'Open tabs, the menu, table QR codes and the shop',
-    cafeFloor: 'Open tabs, the menu, table QR codes and the shop',
     stock: 'What we have, deliveries, counts and costs',
     team: 'Staff, who is working, the staff inbox and protocols',
     customers: 'Customers, loyalty points, marketing and the guest app',
@@ -142,10 +141,9 @@ export const shellEn = {
     courtDesk: 'Bookings, arrivals and customers',
     cashier: 'Orders, tabs and payment',
     prep: 'The ticket board the cooks work from',
-    manager: 'Floor, stock, day close and reports',
-    owner: 'The whole business in one place',
+    management: 'The whole business in one place',
     team: 'Tasks and checklists given to you',
-    shop: 'The shop till, its drawer, stock and products',
+    shop: 'The shop cashier, its drawer, stock and products',
   },
   nav: {
     today: 'Today',
@@ -153,7 +151,7 @@ export const shellEn = {
     customers: 'Customers',
     newSeries: 'New series',
     blockCourt: 'Block court',
-    till: 'Till',
+    till: 'Café cashier',
     openTabs: 'Open tabs',
     cashDrawer: 'Cash drawer',
     overview: 'Overview',
@@ -167,7 +165,7 @@ export const shellEn = {
     reports: 'Reports',
     audit: 'Change history',
     panel: 'Overview',
-    analytics: 'Trends',
+    analytics: 'Analytics',
     staff: 'Staff',
     branches: 'Branches',
     courts: 'Courts',
@@ -210,6 +208,8 @@ export const shellEn = {
     // The owner assistant: a rail row on Management's own list and the drawer
     // button in the rail footer share this label.
     assistant: 'Assistant',
+    // The Files page (0354), on Management's own list beside the assistant.
+    files: 'Files',
     // The team workspace's one row (driver, marketing), and the till's and
     // the desk's last row.
     myTasks: 'My tasks',
@@ -242,7 +242,7 @@ export const shellEn = {
     menuItems: 'Menu items',
     categories: 'Menu groups',
     addons: 'Extras',
-    suggested: 'Till suggestions',
+    suggested: 'Café cashier suggestions',
     whoIsOn: 'Working now',
     whatTheyDid: 'What they did',
     campaigns: 'Posts & campaigns',
@@ -252,13 +252,13 @@ export const shellEn = {
     bookingRules: 'Booking rules',
     onlineDeposit: 'Online deposit',
     openMatches: 'Open matches',
-    venue: 'Club details',
     venueDetails: 'Club details',
     openingHours: 'Opening hours',
+    genderHours: 'Gender hours',
     businessDay: 'Day start time',
     guestApp: 'Guest app',
     devices: 'Computers & tablets',
-    stations: 'Till computers',
+    stations: 'Cashier computers',
     kitchenScreens: 'Kitchen screens',
     offlineMode: 'No-internet mode',
     // A rail row's count, for a screen reader: the pill itself is only a number.
@@ -332,7 +332,7 @@ export const shellEn = {
     cafeSales: 'Café sales',
     billsSuppliers: 'Bills & suppliers',
     tournamentRules: 'Tournament rules',
-    analyticsSettings: 'Trends settings',
+    analyticsSettings: 'Analytics settings',
     computersScreens: 'Computers & screens',
   },
   // Go to (Ctrl+G): one search over every page, tab and setting the person
@@ -356,7 +356,7 @@ export const shellEn = {
     // For whoever installed the app; staff never need it.
     changeLater: 'To change it later, remove station.json and restart the app.',
     mode: {
-      till: 'Till',
+      till: 'Café cashier',
       desk: 'Desk',
       kds: 'Kitchen screen',
       shop: 'Touch Shop desk',
@@ -364,31 +364,31 @@ export const shellEn = {
     modeLead: {
       till: 'Orders, tabs, payment and the receipt printer. Kitchen screens connect to it.',
       desk: 'Bookings, arrivals, customers and the office.',
-      kds: 'The wall-mounted ticket board. Connects to the till with a code.',
-      shop: 'The shop’s own PC: the shop till, its own drawer and receipts, the shop’s stock and products.',
+      kds: 'The wall-mounted ticket board. Connects to the café cashier with a code.',
+      shop: 'The shop’s own PC: the shop cashier, its own drawer and receipts, the shop’s stock and products.',
     },
     stationId: 'Station name',
     stationIdHint: 'How this machine is named in the app and in reports. Capitals, digits and dashes, e.g. TILL-01',
     stationIdInvalid: 'Use capitals, digits and dashes, starting with a letter.',
-    code: 'Pairing code from the till',
-    codeHint: 'On the till, sign in as the owner, open Settings › Computers & screens › Kitchen screens and choose Pair a kitchen screen, then enter a manager PIN. It shows this code.',
+    code: 'Pairing code from the café cashier',
+    codeHint: 'On the café cashier, sign in as the owner, open Settings › Computers & screens › Kitchen screens and choose Pair a kitchen screen, then enter a manager PIN. It shows this code.',
     codeInvalid: 'The code is 10 letters and digits.',
-    advanced: 'Enter the till address yourself',
-    hostLabel: 'Till address',
-    advancedHint: 'Only needed if the search cannot find the till. The till shows it under Settings › Computers & screens › Kitchen screens, e.g. 192.168.1.10',
+    advanced: 'Enter the café cashier address yourself',
+    hostLabel: 'Café cashier address',
+    advancedHint: 'Only needed if the search cannot find the café cashier. The café cashier shows it under Settings › Computers & screens › Kitchen screens, e.g. 192.168.1.10',
     hostInvalid: 'Enter a local network address like 192.168.1.10.',
-    scanning: 'Looking for the till on this network…',
-    choose: 'More than one till answered. Pick the one for this kitchen.',
+    scanning: 'Looking for the café cashier on this network…',
+    choose: 'More than one café cashier answered. Pick the one for this kitchen.',
     notFound: {
-      none: 'No till answered on this network. Check the till is switched on and on the same network, then search again — or enter its address.',
-      badCode: 'A till answered but did not accept that code. Check the code on the till and type it again.',
+      none: 'No café cashier answered on this network. Check the café cashier is switched on and on the same network, then search again — or enter its address.',
+      badCode: 'A café cashier answered but did not accept that code. Check the code on the café cashier and type it again.',
       noLan: 'This machine is not on a local network. Connect it to the venue network, then search again.',
-      unreachable: 'The till at {host} did not answer. It may just be switched off: save anyway and this screen keeps trying until it answers.',
+      unreachable: 'The café cashier at {host} did not answer. It may just be switched off: save anyway and this screen keeps trying until it answers.',
     },
-    find: 'Find the till',
+    find: 'Find the café cashier',
     searchAgain: 'Search again',
     retypeCode: 'Type the code again',
-    enterAddress: 'Enter the till address',
+    enterAddress: 'Enter the café cashier address',
     saveAnyway: 'Save anyway',
     confirm: 'Finish setup',
     saving: 'Saving and restarting…',
@@ -401,16 +401,16 @@ export const shellEn = {
   // The till's pairing card (behind the manager PIN).
   pair: {
     title: 'Pair a kitchen screen',
-    pinLead: 'A manager PIN shows the code a new kitchen screen needs to connect to this till.',
+    pinLead: 'A manager PIN shows the code a new kitchen screen needs to connect to this café cashier.',
     reveal: 'Show the code',
     done: 'Done',
     step1: 'On the kitchen screen’s setup, choose Kitchen screen.',
     step2: 'Type this code:',
     code: 'Pairing code',
-    host: 'If it cannot find this till, choose Enter the till address there and type {host}.',
-    noHost: 'This till has no local network address yet; kitchen screens will find it once it is on the venue network.',
-    customPsk: 'This till was set up with a custom key from the command line. Pair kitchen screens with the same --lan-psk flag.',
-    notTill: 'Only a till can pair kitchen screens.',
-    noPsk: 'This till has no pairing key. Remove station.json and set the station up again.',
+    host: 'If it cannot find this café cashier, choose Enter the café cashier address there and type {host}.',
+    noHost: 'This café cashier has no local network address yet; kitchen screens will find it once it is on the venue network.',
+    customPsk: 'This café cashier was set up with a custom key from the command line. Pair kitchen screens with the same --lan-psk flag.',
+    notTill: 'Only a café cashier can pair kitchen screens.',
+    noPsk: 'This café cashier has no pairing key. Remove station.json and set the station up again.',
   },
 } as const;

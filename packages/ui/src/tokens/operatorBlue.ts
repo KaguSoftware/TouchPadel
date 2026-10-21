@@ -111,10 +111,70 @@ export const operatorBlueVars = {
   '--tp-heading': 'var(--tp-brand-white)',
   '--tp-panel-head': '#F4F7FB',
   '--tp-panel-head-fg': '#274982',
-  '--tp-table-head': '#DCE3EE',
-  '--tp-table-head-fg': '#1D3762',
-  '--tp-selected': '#F4F7FB',
-  '--tp-selected-fg': '#274982',
+  '--tp-group-head': BLUE_L50,
+  '--tp-group-head-fg': 'var(--tp-brand-white)',
+  // The Breakdown's cards, calm: the deep "soft" grounds of the status
+  // families (success, lesson, danger) with their light inks, and a wash into
+  // the deep rail blue instead of white.
+  '--tp-breakdown-green': '#334918',
+  '--tp-breakdown-green-fg': '#BCDC93',
+  '--tp-breakdown-green-edge': '#4A6327',
+  '--tp-breakdown-violet': '#4B2F63',
+  '--tp-breakdown-violet-fg': '#E8C0F4',
+  '--tp-breakdown-violet-edge': '#654283',
+  '--tp-breakdown-rose': '#4A2A3A',
+  '--tp-breakdown-rose-fg': '#F0B0B4',
+  '--tp-breakdown-rose-edge': '#643B4F',
+  // A deep cerulean, not a brand-blue shade: BLUE_L50 is the Breakdown's own
+  // header here, and the online card vanished into it (Sait, 2026-10-19).
+  '--tp-breakdown-sky': '#1D4E78',
+  '--tp-breakdown-sky-fg': '#BFE0FA',
+  '--tp-breakdown-sky-edge': '#2D6A9C',
+  '--tp-breakdown-teal': '#1E4F55',
+  '--tp-breakdown-teal-fg': '#B9EEE8',
+  '--tp-breakdown-teal-edge': '#2E6A71',
+  '--tp-breakdown-gold': '#4D4418',
+  '--tp-breakdown-gold-fg': '#EBD98F',
+  '--tp-breakdown-gold-edge': '#695D24',
+  // The Breakdown panel's own ground behind the cards (the deep rail blue in blue mode).
+  '--tp-card-1': '#BCDC93',
+  '--tp-card-2': '#E8C0F4',
+  '--tp-card-3': '#F0B0B4',
+  '--tp-card-4': '#BFE0FA',
+  '--tp-card-5': '#B9EEE8',
+  '--tp-card-6': '#EBD98F',
+  '--tp-card-ink': '#152847',
+  '--tp-breakdown-frame': BLUE_L22,
+  '--tp-breakdown-wash': BLUE_L22,
+  '--tp-breakdown-wash-mix': '45%',
+  '--tp-breakdown-hover-mix': '80%',
+  // Tables (Sait, 2026-10-19): the Breakdown's group band, a Padel Green
+  // selected row and total row with navy ink, the same as on paper.
+  '--tp-table-head': 'var(--tp-group-head)',
+  '--tp-table-head-fg': 'var(--tp-group-head-fg)',
+  '--tp-selected': 'var(--tp-brand-green)',
+  '--tp-selected-fg': 'var(--tp-accent-2-contrast)',
+  '--tp-table-total': 'var(--tp-brand-green)',
+  '--tp-table-total-fg': 'var(--tp-accent-2-contrast)',
+  // Deliberately the paper values: the drill's figure card and its bar look
+  // the same in both modes (Sait, 2026-10-19).
+  '--tp-total-card': INK_TOOLBAR,
+  '--tp-total-card-fg': 'var(--tp-brand-white)',
+  '--tp-total-card-muted': GRAY_LIGHT,
+  '--tp-split-green': '#A5D06F',
+  '--tp-split-violet': '#C9B0EC',
+  '--tp-split-rose': '#E9A6AA',
+  '--tp-split-sky': '#9DB4DA',
+  '--tp-split-teal': '#9ED9D2',
+  '--tp-split-gold': '#E6CF7A',
+  // Segmented buttons: the accent blue as the track, white ink on it.
+  '--tp-seg-track': 'var(--tp-accent-soft)',
+  '--tp-seg-edge': BLUE_L58,
+  '--tp-seg-fg': 'var(--tp-brand-white)',
+  // A step DARKER on hover: white on the lighter BLUE_L58 measured 3.7:1.
+  '--tp-seg-hover': BLUE_L38,
+  '--tp-seg-on': 'var(--tp-brand-green)',
+  '--tp-seg-on-fg': 'var(--tp-accent-2-contrast)',
   // Hover is a lift of the panel ink, not the selection blue, so a row under
   // the pointer is never mistaken for the selected one.
   '--tp-hover': INK_HOVER,

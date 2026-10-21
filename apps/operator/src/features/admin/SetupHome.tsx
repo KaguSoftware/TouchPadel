@@ -53,6 +53,7 @@ import { telegramHealth, type TelegramHealth } from './telegram/telegramStatus';
 import { SK as STOCK_KEYS, fetchNeedsCostCount } from '../stock/stockKeys';
 import { canAccess, permissionsFor, useAuth } from '../../lib/auth';
 import { useTabOpen } from '../../lib/navAccess';
+import { rowShown } from '../../lib/workspaces';
 import { T_EN, T_AR, buildGoToEntries, rankEntries } from '../../components/GoToPalette';
 import { holdersWithoutPin } from '../tillShift/tillShiftLogic';
 import { useCoachesAdmin, useCoachingCaps } from '../coaching/useCoaching';
@@ -175,7 +176,7 @@ function FindASetting() {
   const canOpenTab = useTabOpen(true);
   const [query, setQuery] = useState('');
   const entries = useMemo(
-    () => buildGoToEntries('owner', (k) => tr(k), [T_EN, T_AR], (row) => canAccess(staff, row.to), canOpenTab),
+    () => buildGoToEntries('management', (k) => tr(k), [T_EN, T_AR], (row) => rowShown(row, (p) => canAccess(staff, p), canOpenTab), canOpenTab),
     [tr, staff, canOpenTab],
   );
   const results = query.trim() ? rankEntries(entries, query).slice(0, 8) : [];

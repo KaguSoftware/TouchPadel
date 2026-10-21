@@ -10,7 +10,7 @@ export const staffCallsEn = {
   rowCount: 'Guest calls · {count}',
   /** The Today group the row sits in, first for the waiter. */
   group: 'On the floor',
-  lead: 'The till sees these calls too. Whoever answers first takes the call.',
+  lead: 'The café cashier sees these calls too. Whoever answers first takes the call.',
   listTitle: 'Open calls',
   mine: 'You’re on the way',
   other: 'Someone is on the way',

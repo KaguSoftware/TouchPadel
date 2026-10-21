@@ -98,7 +98,8 @@ export function courtPatternsCopy(
     locale,
     weekday: (dow) => weekdayName(tr, dow),
     hour: (h) => f.hour(h),
-    hourRange: (h0, h1) => `${f.hour(h0)}–${f.hour(h1 % 24)}`,
+    // A run that ends at midnight reads "13:00–24:00", not "13:00–00:00".
+    hourRange: (h0, h1) => `${f.hour(h0)}–${f.hour(h1 === 24 ? 24 : h1 % 24)}`,
     slot: (weekday, hours) => `${weekday} ${hours}`,
     segment: (dimension, key) => (dimension === 'byCourt' ? court(key) : segmentLabel(tr, f, dimension, key)),
     regularsSubject: tr(p('regulars')),

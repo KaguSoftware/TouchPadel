@@ -159,12 +159,22 @@ export function mapSocialError(err: unknown): SocialErrorOutcome {
  * searches profiles by name. Existing users are unaffected: the email form
  * validates the name, and an Apple relay sign-in already lacked a phone.
  */
-export function needsProfileCompletion(
-  profile: { phone: string | null; full_name?: string | null } | null | undefined,
-): boolean {
+export function needsProfileCompletion(profile: GatedProfile | null | undefined): boolean {
   if (!profile) return false;
   if ((profile.phone ?? '').trim().length === 0) return true;
+  // 0353 (Majed, 2026-10-19): a gender is a must for every account, since some
+  // courts and hours are kept for women or for men. `null` is "known, never
+  // answered"; `undefined` (a row without the column) is not judged, as the
+  // name above.
+  if (profile.gender === null) return true;
   return profile.full_name !== undefined && (profile.full_name ?? '').trim().length === 0;
+}
+
+/** The profile fields the completion gate reads. */
+export interface GatedProfile {
+  phone: string | null;
+  full_name?: string | null;
+  gender?: 'female' | 'male' | null;
 }
 
 export type ProfileGate = 'unknown' | 'complete' | 'incomplete';
@@ -172,7 +182,7 @@ export type ProfileGate = 'unknown' | 'complete' | 'incomplete';
 /** For screens holding a TanStack result: pending / error -> 'unknown'. */
 export function profileGateState(query: {
   status: 'pending' | 'error' | 'success';
-  data: { phone: string | null; full_name?: string | null } | null | undefined;
+  data: GatedProfile | null | undefined;
 }): ProfileGate {
   if (query.status !== 'success') return 'unknown';
   return needsProfileCompletion(query.data) ? 'incomplete' : 'complete';
@@ -209,7 +219,7 @@ export type BookingGate = ProfileGate | 'unverified';
 export function bookingGateState(
   query: {
     status: 'pending' | 'error' | 'success';
-    data: { phone: string | null; full_name?: string | null } | null | undefined;
+    data: GatedProfile | null | undefined;
   },
   user: { phone?: string | null; phone_confirmed_at?: string | null } | null | undefined,
 ): BookingGate {
@@ -271,7 +281,7 @@ export function isActiveStaffRow(row: { is_active?: boolean | null } | null | un
  *                     remount the form, discarding anything typed. Do nothing.
  */
 export function postSignInStep(
-  profile: { phone: string | null; full_name?: string | null } | null | undefined,
+  profile: GatedProfile | null | undefined,
   hasPendingSlot: boolean,
   staffRow?: { is_active?: boolean | null } | null,
 ): PostSignInStep {

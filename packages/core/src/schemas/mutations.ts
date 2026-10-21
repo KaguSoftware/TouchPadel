@@ -336,32 +336,26 @@ export type TicketStatusPayload = z.infer<typeof ticketStatusPayloadSchema>;
 /**
  * tab.open — app.open_tab(p_table_id, p_label, p_reservation_id, ...).
  *
- * The anchor is a SEAT: a table, or a reservation (which carries its own
- * court). `label` is the tab's display name and is NOT an anchor — a tab with
- * nothing but a name is unfindable by anyone who did not open it, and the
- * untrimmed version let a single space stand in for one. `.trim()` runs before
- * `.min(1)`, so whitespace fails the length check instead of passing it.
- * Mirrored by app.open_tab (migration 0084) and by the till's new-tab dialog.
+ * Order first (0352): a café tab may open with no seat at all, a counter tab
+ * the server labels "#<n>" when no name is given; the table is attached to
+ * each order afterwards (app.order_set_delivery). A table or a reservation is
+ * still accepted. A shop counter sale still needs a label (LABEL_REQUIRED).
+ * `.trim()` runs before `.min(1)`, so whitespace fails the length check
+ * instead of passing for a name. Mirrored by app.open_tab (migration 0352).
  */
 export const tabOpenPayloadSchema = z
   .object({
     tableId: uuid.optional(),
     label: z.string().trim().min(1).max(200).optional(),
     reservationId: uuid.optional(),
-    /** 0145: a Touch Shop counter sale — the one tab that needs no table or booking, only a label. */
+    /** 0145: a Touch Shop counter sale — no table or booking, only a label. */
     kind: z.enum(['cafe', 'shop']).optional(),
   })
   .strict()
-  .refine(
-    (p) =>
-      p.tableId !== undefined ||
-      p.reservationId !== undefined ||
-      (p.kind === 'shop' && p.label !== undefined),
-    {
-      message: 'a tab needs a table or a reservation (a shop counter sale needs a label)',
-      path: ['tableId'],
-    },
-  );
+  .refine((p) => p.kind !== 'shop' || p.label !== undefined, {
+    message: 'a shop counter sale needs a label',
+    path: ['label'],
+  });
 
 export type TabOpenPayload = z.infer<typeof tabOpenPayloadSchema>;
 

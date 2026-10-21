@@ -172,7 +172,7 @@ export function resolveCompare(
 /**
  * The comparison as the server stores it (`analytics_insights.compare_basis`, the
  * analytics-insights function's `compare_basis`): 'month', 'year', or 'custom:<from>:<to>', so
- * two custom windows never share a stored set of findings (0353).
+ * two custom windows never share a stored set of findings (0355).
  */
 export function compareTag(compare: { basis: CompareBasis; range: DateRange }): string {
   return compare.basis === 'custom' ? `custom:${compare.range.from}:${compare.range.to}` : compare.basis;

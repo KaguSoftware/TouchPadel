@@ -242,7 +242,7 @@ describe('MatchPlayersPanel', () => {
     };
     await mount();
     await user.click(within(row(1)).getByRole('button', { name: 'Mark no-show instead' }));
-    expect(await within(row(1)).findByText('This player has paid. Refund the payment at the till before marking a no-show.')).toBeTruthy();
+    expect(await within(row(1)).findByText('This player has paid. Refund the payment at the café cashier before marking a no-show.')).toBeTruthy();
     expect(plain(row(1).textContent)).toContain('Came · owes 10,000 IQD');
   });
 

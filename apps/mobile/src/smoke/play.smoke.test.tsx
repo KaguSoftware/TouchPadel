@@ -102,14 +102,8 @@ describe.each(LOCALES)('Play states in %s', (locale) => {
       const entered = within(screen.getByTestId(`play.tournament.${TOUR_ID}`));
       expect(entered.getByText(t('tournaments.common.entryStatus.registered'))).toBeTruthy();
       expect(screen.getByTestId(`play.tournament.${TOUR_ID_2}`)).toBeTruthy();
-      // The match and the first tournament share a night (two days out).
-      expect(
-        screen.getByText(
-          `${countPhrase('matches.count.openMatches', 1, locale)} · ${countPhrase('play.count.tournaments', 1, locale)}`,
-        ),
-      ).toBeTruthy();
       expect(screen.getByTestId('play.kind')).toBeTruthy();
-      expect(within(screen.getByTestId('play.filter.all')).getByText(t('matches.list.filterAll'))).toBeTruthy();
+      expect(screen.getByTestId('play.filter')).toBeTruthy();
       expect(screen.direction()).toBe(locale === 'ar' ? 'rtl' : 'ltr');
     } finally {
       screen.unmount();

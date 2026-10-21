@@ -86,7 +86,7 @@ export function RecordView({
           const k = optionLabelKey(path, String(v));
           return k ? tr(k) : String(v);
         };
-        // A multiple enum (the plan's classes, 0354) is a list of options.
+        // A multiple enum (the plan's classes, 0356) is a list of options.
         if (Array.isArray(value)) return value.length > 0 ? value.map(one).join(tr('ws.protocols.view.listJoin')) : null;
         return one(value);
       }

@@ -8,7 +8,7 @@
  *
  * Request  POST {mode:'insights'|'patterns'|'revalidate'|'replace_rejected',
  *                lang:'ar'|'en', range_from, range_to,
- *                compare_basis:'month'|'year'|'custom:<from>:<to>' (0353; the older
+ *                compare_basis:'month'|'year'|'custom:<from>:<to>' (0355; the older
  *                'prev'|'4w'|'52w' of an operator build before it still pass),
  *                scope?:'cafe'|'courts' (missing = 'cafe'; old clients keep working),
  *                data: CafeInsightsPayload | CourtsInsightsPayload}
@@ -137,7 +137,7 @@ type Req = CafeReq | CourtsReq;
 // ---------------------------------------------------------------------------
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /**
- * 0353: the comparison the operator files findings under, as analytics_insights' CHECK takes it:
+ * 0355: the comparison the operator files findings under, as analytics_insights' CHECK takes it:
  * month, year, or custom:<from>:<to> (the owner's own window, ordered); the older prev, 4w and
  * 52w still pass for an operator build before it.
  */

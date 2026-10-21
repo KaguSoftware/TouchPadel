@@ -1,5 +1,5 @@
 import { RefreshControl, ScrollView, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate, formatIQD, formatNumber, isolate, isolateLtr } from '@touch/i18n';
 import { Text } from '../src/i18n/text';
@@ -10,6 +10,7 @@ import { mapErrorToKey } from '../src/features/booking/errors';
 import { useVenueSettings } from '../src/features/availability/hooks';
 import { DEFAULT_TZ } from '../src/features/availability/assemble';
 import { useMyLoyalty } from '../src/features/loyalty/hooks';
+import { useBack, useReturnTo } from '../src/navigation/back';
 import {
   LEDGER_KIND_KEYS,
   rewardName,
@@ -34,7 +35,15 @@ import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
 function LoyaltyScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
-  const router = useRouter();
+  const returnTo = useReturnTo();
+  const back = useBack({ pathname: '/club', params: { show: 'card' } });
+  // The member card is the Club tab's. Opened from there, it is the screen underneath, so the
+  // button goes back to it; from anywhere else (Profile) it switches to that tab on the card.
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const showCard = () =>
+    from === 'club'
+      ? back()
+      : returnTo({ pathname: '/club', params: { show: 'card' } }, '(tabs)');
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const mine = useMyLoyalty(!!session && !session.user.is_anonymous);
@@ -117,7 +126,7 @@ function LoyaltyScreen() {
             testID="loyalty.show-card"
             label={t('loyalty.guest.home.showCard')}
             variant="primary"
-            onPress={() => router.push('/member-card')}
+            onPress={showCard}
             style={{ marginTop: space.m }}
           />
         </Card>

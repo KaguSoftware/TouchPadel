@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
+import { ToastProvider } from '../../components/toast';
 import { EdgeError } from '../../lib/edge';
 import { resetModeMemory } from './mode';
-import { FREE_THREAD_SESSION_KEY } from './freeThreadLogic';
+import { FREE_CHATS_KEY, resetFreeChatsMemory } from './freeChats';
 
 // The free thread asks the router which paths are pages, and auth who is asking.
 const h = vi.hoisted(() => ({
@@ -24,13 +26,24 @@ vi.mock('../../lib/edge', async (importOriginal) => ({
   streamEdge: (...args: unknown[]) => h.stream(...args),
 }));
 
+vi.mock('./api', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  fetchModels: async () => ({ default_model: 'claude-opus-5-5', models: ['claude-opus-5-5', 'claude-sonnet-5-5'] }),
+}));
+
 import { FreeThread } from './FreeThread';
+import { takePendingNewChatModel, takePendingQuestion } from './ModelSwitch';
 
 function renderThread(onNavigate = vi.fn()) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <LocaleProvider>
-      <FreeThread onNavigate={onNavigate} />
-    </LocaleProvider>,
+    <QueryClientProvider client={client}>
+      <LocaleProvider>
+        <ToastProvider>
+          <FreeThread onNavigate={onNavigate} />
+        </ToastProvider>
+      </LocaleProvider>
+    </QueryClientProvider>,
   );
   return { onNavigate };
 }
@@ -50,6 +63,7 @@ describe('FreeThread', () => {
     sessionStorage.clear();
     localStorage.clear();
     resetModeMemory();
+    resetFreeChatsMemory();
     h.staff = { id: 'u1', role: 'cashier' };
     vi.clearAllMocks();
   });
@@ -82,7 +96,7 @@ describe('FreeThread', () => {
     expect(h.navigate).toHaveBeenCalledWith({ to: '/tasks' });
     expect(onNavigate).toHaveBeenCalled();
 
-    // The next question carries the finished turn; the thread is in the session.
+    // The next question carries the finished turn; the chat is saved on this computer.
     answers('Press Go on break in the rail.');
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'and a break?' } });
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
@@ -91,18 +105,40 @@ describe('FreeThread', () => {
       { role: 'user', text: 'Where do I see my tasks?' },
       { role: 'assistant', text: 'Open /tasks for your list; the owner sets staff on /admin/staff.' },
     ]);
-    expect(JSON.parse(sessionStorage.getItem(FREE_THREAD_SESSION_KEY)!).exchanges).toHaveLength(2);
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(FREE_CHATS_KEY)!).chats[0].exchanges).toHaveLength(2));
   });
 
-  it("gives the owner the owner's links and a way back to the paid assistant", async () => {
+  it("gives the owner the owner's links, and Free AI is just a pressed model: Sonnet goes back to paid on Sonnet", async () => {
     h.staff = { id: 'o1', role: 'owner' };
     answers('Staff accounts are on /admin/staff.');
     renderThread();
-    expect(screen.getByText('The free AI')).toBeTruthy();
+    expect(screen.queryByTestId('assistant.free.usePaid')).toBeNull();
     fireEvent.click(screen.getByTestId('assistant.free.starter.incident'));
     await screen.findByTestId('assistant.free.goto./admin/staff');
-    fireEvent.click(screen.getByTestId('assistant.free.usePaid'));
+
+    fireEvent.click(screen.getByTestId('assistant-model'));
+    expect(screen.getByTestId('model-__free__').getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(await screen.findByTestId('model-claude-sonnet-5-5'));
     await waitFor(() => expect(JSON.parse(localStorage.getItem('touch-assistant-mode-v1')!)).toEqual({ owner: 'o1', mode: 'paid' }));
+    expect(takePendingNewChatModel()).toBe('claude-sonnet-5-5');
+  });
+
+  it('hands a question the guide cannot answer to the paid assistant, typed, not sent', async () => {
+    h.staff = { id: 'o1', role: 'owner' };
+    answers("I can't see any of the club's data. Takings are on the Revenue report.");
+    renderThread();
+    fireEvent.click(screen.getByTestId('assistant.free.starter.break'));
+    fireEvent.click(await screen.findByTestId('assistant.free.askPaid'));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('touch-assistant-mode-v1')!)).toEqual({ owner: 'o1', mode: 'paid' }));
+    expect(takePendingQuestion()).toBe('How do I take a break?');
+  });
+
+  it('offers staff no paid hand-off', async () => {
+    answers("I can't see any of the club's data.");
+    renderThread();
+    fireEvent.click(screen.getByTestId('assistant.free.starter.break'));
+    await screen.findByText("I can't see any of the club's data.");
+    expect(screen.queryByTestId('assistant.free.askPaid')).toBeNull();
   });
 
   it('says how long to wait after a per-minute refusal, and retries', async () => {

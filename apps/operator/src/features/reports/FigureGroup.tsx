@@ -21,12 +21,15 @@ export function FigureGroup({
   title,
   hint,
   span,
+  columns,
   children,
 }: {
   title: string;
   hint: string;
   /** Columns of the band this group spans (the management panel's Money taken takes two). */
   span?: number;
+  /** A fixed figure column count (the revenue report's two), instead of as many as fit. */
+  columns?: number;
   children: ReactNode;
 }) {
   return (
@@ -68,7 +71,7 @@ export function FigureGroup({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))',
+          gridTemplateColumns: columns ? `repeat(${columns}, minmax(0, 1fr))` : 'repeat(auto-fit, minmax(10rem, 1fr))',
           // The row is as tall as the tallest group's; the tiles keep their
           // own height instead of stretching to fill it.
           alignContent: 'start',

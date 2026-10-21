@@ -64,6 +64,7 @@ export const staffAssistantEn = {
     howto: 'Help',
     docs: 'Documents',
     tables: 'Any table',
+    files: 'Saved files',
     turnOn: 'Turn on {scope}',
     turnOnHint: 'The assistant said this is off for this chat. Turning it on asks your last question again.',
     saved: 'Updated',

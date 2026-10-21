@@ -24,7 +24,7 @@ describe('StationSetupScreen', () => {
   it('mode: asks what the machine is for, three roles to pick from, the version in the footer', async () => {
     const dispatch = renderStep({ step: 'mode' });
     expect(screen.getByRole('heading', { name: 'What is this machine for?' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /^Till/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Café cashier/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /^Desk/ })).toBeTruthy();
     expect(screen.getByText('Version 0.2.0')).toBeTruthy();
     await userEvent.setup().click(screen.getByRole('button', { name: /^Kitchen screen/ }));
@@ -50,10 +50,10 @@ describe('StationSetupScreen', () => {
     await user.type(screen.getByLabelText(/Pairing code/), 'a');
     expect(dispatch).toHaveBeenCalledWith({ type: 'code', value: 'a' });
     expect(screen.queryByLabelText(/Till address/)).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Enter the till address yourself' }));
+    await user.click(screen.getByRole('button', { name: 'Enter the café cashier address yourself' }));
     expect(dispatch).toHaveBeenCalledWith({ type: 'toggleAdvanced' });
     // The next step is a search, and the button says so — and why it is off.
-    const find = screen.getByRole('button', { name: 'Find the till' }) as HTMLButtonElement;
+    const find = screen.getByRole('button', { name: 'Find the café cashier' }) as HTMLButtonElement;
     expect(find.disabled).toBe(true);
     expect(find.title).toBe('The code is 10 letters and digits.');
   });
@@ -61,12 +61,12 @@ describe('StationSetupScreen', () => {
   it('kds: a complete code shows grouped and enables Find the till', () => {
     renderStep({ ...kds, code: 'ABCDEFGHJK' });
     expect((screen.getByLabelText(/Pairing code/) as HTMLInputElement).value).toBe('ABCDE-FGHJK');
-    expect((screen.getByRole('button', { name: 'Find the till' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: 'Find the café cashier' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('scanning and saving are live regions; choose lists the tills', async () => {
     renderStep({ step: 'scanning', details: kds });
-    expect(screen.getByText(/Looking for the till/)).toBeTruthy();
+    expect(screen.getByText(/Looking for the café cashier/)).toBeTruthy();
   });
 
   it('choose: each till is a button', async () => {
@@ -88,7 +88,7 @@ describe('StationSetupScreen', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Search again' }));
     expect(dispatch).toHaveBeenCalledWith({ type: 'retry' });
-    await user.click(screen.getByRole('button', { name: 'Enter the till address' }));
+    await user.click(screen.getByRole('button', { name: 'Enter the café cashier address' }));
     expect(dispatch).toHaveBeenCalledWith({ type: 'enterAddress' });
   });
 

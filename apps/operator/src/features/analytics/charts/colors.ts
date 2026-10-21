@@ -12,18 +12,11 @@
  *
  * Two sets because the operator has two appearances (lib/themeMode.tsx): the
  * paper one, and BLUE MODE where the brand blue is the ground. A chart takes
- * its set from `useChartColors()`, never from a module-level constant, so a
- * bar drawn in Touch Blue on paper is drawn in white on blue — the same move
- * `--tp-accent` makes in the token sheet.
- *
- * The categorical trio was not chosen by eye. It was run through a
- * colour-vision validator (lightness band, chroma floor, CVD separation,
- * normal-vision separation, contrast vs surface) and every check passes at
- * all pairs. SERIES_1 moved #3057A3 -> #3360AB (the exact brand blue) on
- * 2026-09-05; re-validated, CVD separation is unchanged and normal-vision
- * separation stays comfortably above the floor. The blue-mode trio keeps the
- * same three hues (white takes the blue's seat, rust and magenta lifted to
- * clear 4.5:1 on the blue card) so a legend learned on paper still reads.
+ * its set from `useChartColors()`, never from a module-level constant. Since
+ * 2026-10-20 (Sait) only the chrome and the heat ramp differ between the two:
+ * the data colours (series, highlight, muted bar) are one saturated set, DATA
+ * below, the same on paper and on blue, like the customer record's kept ring.
+ * Before that the blue turned white and rust and magenta went pastel on blue.
  *
  * Two colours are deliberately ABSENT from the series:
  *   - Padel Green, which means live / ready / arrived / fresh everywhere else
@@ -32,8 +25,9 @@
  *   - Anything outside the closed five-colour palette as a BRAND statement.
  *     SERIES_2 and SERIES_3 are not brand colours and are not trying to be:
  *     a categorical scale needs hue separation to encode data, the same
- *     reason the status red and amber survive the palette rule. Only
- *     SERIES_1 and HIGHLIGHT carry the identity, and both are exact.
+ *     reason the status red and amber survive the palette rule. SERIES_1
+ *     and HIGHLIGHT are a brighter blue than the brand blue, which would
+ *     sink into the blue-mode card.
  */
 import { useThemeMode } from '../../../lib/themeMode';
 
@@ -87,7 +81,42 @@ export interface ChartColors {
   HEAT_RAMP: readonly [string, string, string, string, string, string];
   /** Dwell buckets of the "looked, not bought" stack, light → dark: same ramp. */
   DWELL: readonly [string, string, string];
+
+  // ── Rings — the donuts and ring meters. The SAME in both modes. ──────────
+  /**
+   * Full-saturation blue, orange and magenta (same hues as the series, so a
+   * legend still reads), like the customer record's kept ring
+   * (--tp-ring-kept/-cancelled/-no-show): a ring keeps its colours in blue
+   * mode rather than turning white and pastel (Sait, 2026-10-20). On the
+   * paper card 3.27 / 2.20 / 3.31:1, on the blue-mode card 3.03 / 4.50 / 2.98:1,
+   * the customer ring's range.
+   */
+  RING_1: string;
+  RING_2: string;
+  RING_3: string;
+  /** The "other" / "unknown" slice. */
+  RING_MUTED: string;
+  /** The unfilled part of a ring meter. */
+  RING_TRACK: string;
 }
+
+const RING = { RING_1: '#2F86FF', RING_2: '#FF8A00', RING_3: '#E040D8', RING_MUTED: '#8E9FBE' } as const;
+
+/**
+ * The data colours of every line and bar chart: the ring trio, the SAME in
+ * both modes, so a chart keeps its colours in blue mode instead of turning
+ * white and pastel (Sait, 2026-10-20). Only the chrome below (axis, grid,
+ * surface, ink) and the heat ramp, which run from the card's own ground,
+ * follow the mode.
+ */
+const DATA = {
+  SERIES_1: RING.RING_1,
+  SERIES_2: RING.RING_2,
+  SERIES_3: RING.RING_3,
+  HIGHLIGHT: RING.RING_1,
+  BAR_MUTED: RING.RING_MUTED,
+  BAR_CURSOR: 'rgba(47, 134, 255, 0.08)',
+} as const;
 
 function build(base: Omit<ChartColors, 'SERIES' | 'BLUE' | 'MUTED' | 'DWELL'>): ChartColors {
   return {
@@ -101,18 +130,15 @@ function build(base: Omit<ChartColors, 'SERIES' | 'BLUE' | 'MUTED' | 'DWELL'>): 
 
 /** Paper. Mirrors tokens/operator.ts. */
 export const LIGHT_CHART_COLORS: ChartColors = build({
-  SERIES_1: '#3360AB',
-  SERIES_2: '#BE6517',
-  SERIES_3: '#B460BC',
-  HIGHLIGHT: '#3360AB',
-  BAR_MUTED: '#8E9FBE',
-  BAR_CURSOR: 'rgba(51, 96, 171, 0.06)',
+  ...DATA,
   AXIS: '#565E6C',
-  GRID: '#DADEE5',
-  SURFACE: '#FCFDFE',
+  GRID: '#D3DCEB',
+  SURFACE: '#F2F7FF',
   INK: '#131B29',
   DANGER: '#B42318',
-  HEAT_RAMP: ['#F2F3F7', '#D0DDF4', '#ACC3ED', '#85A6E2', '#5E84CA', '#3360AB'],
+  HEAT_RAMP: ['#EAEFF8', '#D0DDF4', '#ACC3ED', '#85A6E2', '#5E84CA', '#3360AB'],
+  ...RING,
+  RING_TRACK: '#D0DDF4',
 });
 
 /**
@@ -124,18 +150,15 @@ export const LIGHT_CHART_COLORS: ChartColors = build({
  * 1.4.11): rust 4.90:1, magenta 5.08:1, muted bar 5.05:1, rose danger 5.86:1.
  */
 export const BLUE_CHART_COLORS: ChartColors = build({
-  SERIES_1: '#FFFFFF',
-  SERIES_2: '#E8A06A',
-  SERIES_3: '#D9A0DE',
-  HIGHLIGHT: '#FFFFFF',
-  BAR_MUTED: '#99B4E1',
-  BAR_CURSOR: 'rgba(255, 255, 255, 0.08)',
+  ...DATA,
   AXIS: '#E0E0E1',
   GRID: '#42536E',
   SURFACE: '#2A3F5F',
   INK: '#FFFFFF',
   DANGER: '#F0B0B4',
   HEAT_RAMP: ['#2A3F5F', '#3B6EC4', '#5A85CE', '#99B4E1', '#D8E2F3', '#FFFFFF'],
+  ...RING,
+  RING_TRACK: 'rgba(255, 255, 255, 0.14)',
 });
 
 /** The set for the current appearance. Light when rendered outside the provider (tests). */

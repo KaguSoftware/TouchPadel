@@ -26,7 +26,8 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
   appRpc: vi.fn(),
 }));
 
-import { VENUE_TZ } from '@touch/i18n';
+import { VENUE_TZ, formatMonthShort } from '@touch/i18n';
+import { rangeText } from '../../components/dateRangeLogic';
 import { addDays, businessTodayISO } from '@touch/core';
 import { appRpc } from '../../lib/appRpc';
 import { ManagementPanelScreen } from './ManagementPanel';
@@ -80,7 +81,11 @@ describe('ManagementPanelScreen — four states', () => {
     renderPanel();
     const today = businessTodayISO(new Date(), 4, VENUE_TZ);
     expect(rpc).toHaveBeenCalledWith('panel_headline', { p_from: addDays(today, -29), p_to: today, p_compare: 'previousPeriod' });
-    expect(screen.getByRole('combobox', { name: 'Date range' }).textContent).toContain('Last 30 days');
+    // The field shows the dates themselves (DateRangePicker, 2026-10-19).
+    const month = (m: number) => formatMonthShort(new Date(Date.UTC(2000, m, 15, 12)), 'en', 'UTC');
+    expect(screen.getByRole('button', { name: 'Date range' }).textContent).toBe(
+      rangeText({ from: addDays(today, -29), to: today }, Number(today.slice(0, 4)), month),
+    );
   });
 
   it('ready: renders the server figures verbatim, with comparison', async () => {
@@ -142,6 +147,9 @@ describe('ManagementPanelScreen — Online money and open matches', () => {
     expect(screen.getByRole('heading', { name: 'Online money and open matches' })).toBeTruthy();
     expect(screen.getByText('Online deposits')).toBeTruthy();
     expect(screen.getByText('80,000 IQD')).toBeTruthy();
+    // The card shows three rows until opened; the rest wait behind "View more".
+    expect(group.textContent?.match(/All branches/g)).toHaveLength(1);
+    fireEvent.click(within(group).getByRole('button', { name: 'View more (4)' }));
     // Ticket sales and liability are counted at every branch, and say so.
     expect(group.textContent?.match(/All branches/g)).toHaveLength(3);
     fireEvent.click(screen.getByText('Match ticket sales'));
@@ -174,7 +182,7 @@ describe('ManagementPanelScreen — Lessons', () => {
     expect(within(group).getByRole('heading', { name: 'Lessons' })).toBeTruthy();
     expect(within(group).getByText('330,000 IQD')).toBeTruthy();
     expect(within(group).getByText('Owed to coaches')).toBeTruthy();
-    expect(within(group).getByText('Paid outside the till')).toBeTruthy();
+    expect(within(group).getByText('Paid outside the cashier')).toBeTruthy();
     fireEvent.click(within(group).getByText('Owed to coaches'));
     expect(navigate).toHaveBeenCalledWith({ to: '/reports/coaches' });
     fireEvent.click(within(group).getAllByText('Lessons')[1]!);

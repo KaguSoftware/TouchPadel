@@ -77,14 +77,14 @@ export const opErrorsProtocolsEn = {
   STORE_BEING_COUNTED:
     'That store is being counted right now. Try again when the count is finished.',
   // Till shifts: operator only (the phone never calls a till-shift RPC, addendum M7).
-  TILL_SHIFT_ALREADY_OPEN: 'You already have a till shift open. End it before you start another.',
+  TILL_SHIFT_ALREADY_OPEN: 'You already have a cashier shift open. End it before you start another.',
   TILL_SHIFT_STATION_BUSY:
-    'Someone else’s shift is still open on this till. It has to be counted and closed first.',
-  TILL_SHIFT_NOT_FOUND: 'That till shift could not be found.',
+    'Someone else’s shift is still open on this café cashier. It has to be counted and closed first.',
+  TILL_SHIFT_NOT_FOUND: 'That cashier shift could not be found.',
   TILL_SHIFT_CLOSED: 'This shift is already closed. Refresh to see the latest.',
   TILL_SHIFT_NOT_YOURS: 'This is someone else’s shift. Closing it needs a manager’s PIN.',
-  TILL_SHIFT_WRONG_STATION: 'Start and end a till shift at the till itself, signed in there.',
-  TILL_SHIFT_UNSYNCED: 'This till still has sales waiting to send. Try again once they are sent.',
+  TILL_SHIFT_WRONG_STATION: 'Start and end a cashier shift at the café cashier itself, signed in there.',
+  TILL_SHIFT_UNSYNCED: 'This café cashier still has sales waiting to send. Try again once they are sent.',
   // Receipt scanning (0237): Goods in and the staff phone.
   RECEIPT_NOT_FOUND: 'That receipt could not be found.',
   RECEIPT_ALREADY_DONE: 'This receipt was already put into stock or set aside.',
