@@ -149,11 +149,6 @@ const T = (label: string, who: string, sql: string) =>
 const Q = (label: string, sql: string) => `select pg_temp.q('${label}', $q$${sql}$q$);`;
 const KEEP = (name: string, sql: string) => `select pg_temp.keep('${name}', $q$${sql}$q$);`;
 const MK = (name: string, role: string) => `select pg_temp.mk('${name}', '${role}');`;
-const PHOTO = (name: string, who: string, folder: string) => `select pg_temp.photo('${name}', '${who}', '${folder}');`;
-/** Through the staff_media_read storage policy, as the reader. */
-const SEES = (label: string, who: string, photo: string) =>
-  T(label, who, `select to_jsonb(count(*) = 1) from storage.objects where bucket_id = 'staff-media' and name = {{${photo}}}`);
-
 function ok<T>(r: Results, label: string): T {
   const o = r[label];
   expect(o, `no result for ${label}`).toBeDefined();
