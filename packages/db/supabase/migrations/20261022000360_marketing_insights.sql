@@ -243,8 +243,8 @@ begin
     into v_out;
   v_out := jsonb_build_object('demand', v_out);
 
-  -- ---- Players: new, returning, regulars, how often ----------------------
-  v_out := v_out || jsonb_build_object('players', jsonb_build_object(
+  -- ---- Guests: new, returning, regulars, how often ----------------------
+  v_out := v_out || jsonb_build_object('guests', jsonb_build_object(
     'active',       app.mkt_about((v_guests ->> 'identities')::numeric),
     'activeTrend',  app.mkt_trend((v_guests ->> 'identities')::numeric, (v_guests_p ->> 'identities')::numeric),
     'newShare',     app.mkt_share((v_guests ->> 'new_bookings')::numeric, (v_guests ->> 'identified_bookings')::numeric),
@@ -382,7 +382,7 @@ begin
        where t.venue_id = any(v_rv)
          and app.business_date(t.starts_at) between p_from and p_to
     ), e as (
-      select count(distinct e.guest_id) as players,
+      select count(distinct e.guest_id) as entrants,
              count(distinct e.guest_id) filter (where exists (
                select 1 from tournament_entries p join tournaments pt on pt.id = p.tournament_id
                 where p.guest_id = e.guest_id and p.status in ('registered', 'no_show')
@@ -399,8 +399,8 @@ begin
              'fillLevel',   app.mkt_level(sum(t.entered) filter (where t.status <> 'cancelled')::numeric
                                           / nullif(sum(t.max_entries) filter (where t.status <> 'cancelled'), 0)),
              'cancelled',   count(*) filter (where t.status = 'cancelled') > 0,
-             'players',     app.mkt_about((select players from e)),
-             'returningShare', app.mkt_share((select returners from e), (select players from e)),
+             'entrants',    app.mkt_about((select entrants from e)),
+             'returningShare', app.mkt_share((select returners from e), (select entrants from e)),
              'next', (select jsonb_build_object('nameEn', n.name_en, 'nameAr', n.name_ar,
                                                 'startDate', app.business_date(n.starts_at))
                         from tournaments n
