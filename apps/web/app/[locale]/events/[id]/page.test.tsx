@@ -146,7 +146,7 @@ describe.each(LOCALES)('tournament page (%s)', (locale: Locale) => {
     expect(cells(1)[0]).toBe('1');
     expect(cells(6)).toEqual(['7', 'Celine N.', '9', '−6', '1']);
     // 0311 (c27): an entry that left the play is marked.
-    expect(cells(7)[1]).toContain(locale === 'ar' ? 'انسحب' : 'left');
+    expect(cells(7)[1]).toContain(locale === 'ar' ? 'انسحاب' : 'left');
     expect(container.querySelector('.tp-tpage__table')).not.toBeNull();
   });
 

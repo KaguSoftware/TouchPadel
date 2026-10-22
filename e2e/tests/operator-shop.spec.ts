@@ -172,9 +172,9 @@ test.describe('operator Touch Shop desk', () => {
     await signIn(page, SHOP_EMAIL);
     await page.goto(`${OPERATOR_URL}/shop/receive`);
     await expect(page.getByTestId('goods-in-store')).toHaveCount(0);
-    await choose(page.getByLabel('Ingredient').first(), { label: `${PRODUCT} One size` });
+    await choose(page.getByLabel('Product', { exact: true }).first(), { label: `${PRODUCT} One size` });
     await page.getByLabel(/^Received/).first().fill('3');
-    await page.getByLabel(/^Cost per/).first().fill('180000');
+    await page.getByLabel(/^Cost each/).first().fill('180000');
     await page.getByRole('button', { name: 'Record delivery' }).click();
     await expect(page.getByText(/Delivery recorded/)).toBeVisible();
     await expect.poll(onHandAt).toEqual({ shop: 3 });

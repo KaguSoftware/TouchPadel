@@ -141,7 +141,7 @@ const VERDICTS: readonly OfferVerdict[] = ['strong', 'some', 'little', 'unused']
 export function parseInsights(json: unknown): Insights {
   const o = obj(json);
   const d = obj(o.demand);
-  const p = obj(o.players);
+  const p = obj(o.guests);
   const ch = obj(o.channels);
   const c = obj(o.cafe);
   const m = obj(o.mix);
@@ -205,7 +205,7 @@ export function parseInsights(json: unknown): Insights {
       held: e.held === true,
       tournaments: parseCount(e.tournaments),
       fillLevel: level(e.fillLevel),
-      players: parseCount(e.players),
+      players: parseCount(e.entrants),
       returningShare: share(e.returningShare),
       next: str(next.startDate) ? { nameEn: str(next.nameEn), nameAr: str(next.nameAr), startDate: str(next.startDate) } : null,
     },

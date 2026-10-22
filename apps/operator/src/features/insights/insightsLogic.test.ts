@@ -20,7 +20,7 @@ describe('parseInsights', () => {
       compare: { from: '2026-08-22', to: '2026-09-21' },
       legacy: false,
       demand: { level: 3, levelTrend: 'up', heat: [{ dow: 2, hour: 19, level: 4 }, { dow: 9, hour: 1, level: 1 }], quiet: [{ dow: 1, hour: 10, level: 0 }], full: [] },
-      players: { active: { kind: 'about', value: 400 }, newShare: 30, returningShare: 70, frequency: [{ bucket: '1', share: 60 }] },
+      guests: { active: { kind: 'about', value: 400 }, newShare: 30, returningShare: 70, frequency: [{ bucket: '1', share: 60 }] },
       offers: [{ id: 'a', nameEn: 'Happy hour', nameAr: 'ساعة', live: true, uses: { kind: 'few' }, verdict: 'little' }, { id: '', nameEn: 'x' }],
       events: { next: { nameEn: 'Cup', nameAr: 'كأس', startDate: '2026-11-01' } },
     });
@@ -34,7 +34,7 @@ describe('parseInsights', () => {
   });
 
   it('refuses out-of-range levels and shares', () => {
-    const r = parseInsights({ demand: { level: 7 }, players: { newShare: 140 }, channels: { appShare: -5 } });
+    const r = parseInsights({ demand: { level: 7 }, guests: { newShare: 140 }, channels: { appShare: -5 } });
     expect(r.demand.level).toBeNull();
     expect(r.players.newShare).toBeNull();
     expect(r.channels.appShare).toBeNull();
