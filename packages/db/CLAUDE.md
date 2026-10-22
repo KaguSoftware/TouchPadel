@@ -17,8 +17,12 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0360`
-  (0360 marketing_insights, 2026-10-22 (Majed: the marketing role's Insights page, the whole
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0361`
+  (0361 branch_counts, 2026-10-22 (Sait: the Branches cards' courts and café tables): the client
+  `branch_counts()` (manager or owner; the owner counts every branch, a manager the open or
+  preparing branches they work at) returns `[{venue_id, courts, tables}]`, active rows only, so a
+  card can count a branch the rail is not on; re-creates no function;
+  0360 marketing_insights, 2026-10-22 (Majed: the marketing role's Insights page, the whole
   place with as few exact numbers as possible): the client `marketing_insights(p_from, p_to,
   p_cmp_from, p_cmp_to)` (marketing and owner) runs the owner's analytics_* reads and returns only
   levels, trends, rounded shares and about-N counts, through the service-role wording helpers

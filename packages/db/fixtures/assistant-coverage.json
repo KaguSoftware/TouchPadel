@@ -344,6 +344,7 @@
     "booking_bill": "tool:booking_bill",
     "booking_bill_states": "map:action",
     "booking_discount_customer": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "branch_counts": "map:action",
     "branch_readiness": "map:action",
     "break_allowance_seconds": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "break_cover_candidates": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",

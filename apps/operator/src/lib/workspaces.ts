@@ -368,7 +368,7 @@ const MARKETING_TABS: readonly NavTab[] = [
 
 /**
  * The owner's branches, when the business day starts, and what analytics
- * leaves out. A branch's club details (`/admin/settings`) are no tab: each
+ * leaves out. A branch's details (`/admin/settings`) are no tab: each
  * branch card opens its own, switching to that branch first. The opening
  * hours are Court settings'.
  */
@@ -498,7 +498,7 @@ const CUSTOMERS: readonly NavItem[] = [
 ];
 
 /**
- * SETTINGS: the branches, the machines, and the change history. Club details
+ * SETTINGS: the branches, the machines, and the change history. Branch details
  * is no row or tab of its own (Sait, 2026-10-18): each branch card opens its
  * branch's details, and the Branches row stays lit there. A manager's list
  * holds the branches they work at.

@@ -7025,4 +7025,10 @@ export const matrix: MatrixRule[] = [
     note: '0360: marketing and the owner (marketing is not among the eight principals; tests/marketing-insights.test.ts runs it)',
     drop: 38,
   },
+  {
+    kind: 'rpc', schema: 'app', name: 'branch_counts',
+    args: {}, expect: MANAGER_UP,
+    note: "0361: the Branches cards' courts and café tables, per branch the caller manages; read-only",
+    drop: 38,
+  },
 ];

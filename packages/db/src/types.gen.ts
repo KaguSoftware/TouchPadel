@@ -858,6 +858,7 @@ export type Database = {
         Args: { p_reservation_id: string }
         Returns: string
       }
+      branch_counts: { Args: never; Returns: Json }
       branch_readiness: { Args: { p_venue: string }; Returns: Json }
       break_allowance_seconds: { Args: never; Returns: number }
       break_cover_candidates: {

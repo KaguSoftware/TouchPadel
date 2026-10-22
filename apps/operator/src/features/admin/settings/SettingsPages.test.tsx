@@ -108,10 +108,10 @@ describe('Courts › Online deposit and Open matches', () => {
   }
 });
 
-describe('Settings › Club details', () => {
-  it('owner edits the name; the page title is the tab’s name', async () => {
+describe('Settings › Branch details', () => {
+  it('owner edits the name; the page leads back to the branches', async () => {
     mount(<VenueDetailsScreen />);
-    expect(screen.getByRole('heading', { level: 1, name: 'Club details' })).toBeTruthy();
+    expect(screen.getByTestId('branch-details-back').textContent).toContain('Branches');
     expect(await screen.findByDisplayValue('Touch')).toBeTruthy();
   });
 

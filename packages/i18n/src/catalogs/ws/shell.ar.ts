@@ -209,7 +209,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     bookingRules: 'قواعد الحجز',
     onlineDeposit: 'العربون الإلكتروني',
     openMatches: 'المباريات المفتوحة',
-    venueDetails: 'بيانات النادي',
+    venueDetails: 'بيانات الفرع',
     openingHours: 'ساعات العمل',
     genderHours: 'أوقات السيدات والرجال',
     businessDay: 'وقت بدء اليوم',

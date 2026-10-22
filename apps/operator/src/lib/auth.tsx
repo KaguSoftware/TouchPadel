@@ -249,7 +249,7 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/admin/telegram': ['owner'],
   '/admin/staff': ['owner'],
   // Multi-venue slice 4: the branches. Since 2026-10-18 a branch card is the
-  // way into its club details, so a manager sees the list too (their own
+  // way into its branch details, so a manager sees the list too (their own
   // branches); opening, closing and "Open a new branch" stay the owner's
   // (manageBranches).
   '/admin/branches': ['manager', 'owner'],

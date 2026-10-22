@@ -15,7 +15,7 @@
  * it is stored in. A manager sees the same values read-only, with one
  * sentence saying who can change them.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatNumber, type MessageKey } from '@touch/i18n';
 import { appRpc, AppRpcError } from '../../../lib/appRpc';
@@ -23,6 +23,8 @@ import { QK } from '../../../lib/queries';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { Switch } from '../../../components/Switch';
+import { InfoTip } from '../../../components/InfoTip';
+import { Icon } from '../../../components/icons';
 import { Button, ErrorText, Field, inputStyle } from '../../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
 import { useQuery } from '@tanstack/react-query';
@@ -343,20 +345,40 @@ export function VenuePartFacts({ venue, part, untitled }: { venue: VenueAdminRow
   );
 }
 
-/** The values fixed when the venue was set up: read-only for everyone. */
+/**
+ * The values fixed when the venue was set up: read-only for everyone. Each is
+ * a strip tile in the card colours, its explanation behind an "i" at the end
+ * of its band (Sait, 2026-10-22).
+ */
 export function FixedAtSetupPanel({ venue }: { venue: VenueAdminRow }) {
   const { tr } = useLocale();
+  const facts: { key: string; tone: string; label: string; value: ReactNode; hint?: string }[] = [
+    { key: 'timezone', tone: 'green', label: tr('ws.owner.settings.contact.timezone'), value: <span dir="ltr">{venue.timezone}</span>, hint: tr('ws.owner.settings.details.timezoneHint') },
+    { key: 'currency', tone: 'violet', label: tr('ws.owner.settings.trading.currency'), value: <span dir="ltr">{venue.currency}</span>, hint: tr('ws.owner.settings.trading.currencyHint') },
+    { key: 'tax', tone: 'rose', label: tr('ws.owner.settings.trading.taxInclusive'), value: venue.tax_inclusive ? tr('ws.owner.settings.details.yes') : tr('ws.owner.settings.details.no') },
+    { key: 'noShow', tone: 'sky', label: tr('ws.owner.settings.trading.noShow'), value: tr('ws.owner.settings.trading.noShowValue'), hint: tr('ws.owner.settings.trading.noShowBody') },
+  ];
   return (
-    <Panel title={tr('ws.owner.settings.details.fixedTitle')}>
-      <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.owner.settings.details.fixedNote')}</p>
-      <Facts
-        rows={[
-          { label: tr('ws.owner.settings.contact.timezone'), value: <span dir="ltr">{venue.timezone}</span>, hint: tr('ws.owner.settings.details.timezoneHint') },
-          { label: tr('ws.owner.settings.trading.currency'), value: <span dir="ltr">{venue.currency}</span>, hint: tr('ws.owner.settings.trading.currencyHint') },
-          { label: tr('ws.owner.settings.trading.taxInclusive'), value: venue.tax_inclusive ? tr('ws.owner.settings.details.yes') : tr('ws.owner.settings.details.no') },
-          { label: tr('ws.owner.settings.trading.noShow'), value: tr('ws.owner.settings.trading.noShowValue'), hint: tr('ws.owner.settings.trading.noShowBody') },
-        ]}
-      />
+    <Panel
+      title={
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+          <Icon name="lock" size={16} />
+          {tr('ws.owner.settings.details.fixedTitle')}
+        </span>
+      }
+    >
+      <p style={{ fontSize: 'var(--tp-fs-md)', marginBlockEnd: 'var(--tp-sp-4)' }}>{tr('ws.owner.settings.details.fixedNote')}</p>
+      <div className="tp-fact-tiles">
+        {facts.map((f) => (
+          <div key={f.key} className="tp-fact-tile tp-tone" data-tone={f.tone} data-testid={`fixed-${f.key}`}>
+            <div className="tp-fact-tile-band">
+              <span>{f.label}</span>
+              {f.hint && <InfoTip content={f.hint} label={`${tr('ws.kit.infoTip.label')}: ${f.label}`} />}
+            </div>
+            <div className="tp-fact-tile-value">{f.value}</div>
+          </div>
+        ))}
+      </div>
     </Panel>
   );
 }

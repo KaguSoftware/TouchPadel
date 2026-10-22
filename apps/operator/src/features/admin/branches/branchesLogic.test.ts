@@ -4,6 +4,9 @@ import {
   draftProblems,
   readyToOpen,
   sortReadiness,
+  checklistOrder,
+  requiredLeft,
+  branchTone,
   suggestSlug,
   type NewBranchDraft,
   type ReadinessRow,
@@ -53,5 +56,28 @@ describe('branchesLogic', () => {
     expect(readyToOpen(rows)).toBe(false);
     expect(readyToOpen(rows.map((r) => (r.key === 'till' ? { ...r, ok: true } : r)))).toBe(true);
     expect(readyToOpen([])).toBe(false);
+  });
+});
+
+describe('branch details checklist and colours', () => {
+  const rows: ReadinessRow[] = [
+    { key: 'courts_and_rates', required: true, ok: true },
+    { key: 'manager', required: true, ok: false },
+    { key: 'menu', required: false, ok: true },
+    { key: 'telegram', required: false, ok: false },
+    { key: 'till', required: true, ok: false },
+  ];
+
+  it('lists what is left first, required before recommended, done last', () => {
+    expect(checklistOrder(rows).map((r) => r.key)).toEqual(['manager', 'till', 'telegram', 'courts_and_rates', 'menu']);
+  });
+
+  it('counts the required rows left', () => {
+    expect(requiredLeft(rows)).toBe(2);
+    expect(requiredLeft(rows.map((r) => ({ ...r, ok: true })))).toBe(0);
+  });
+
+  it('gives each branch a card colour by its place, round again after six', () => {
+    expect([0, 1, 2, 5, 6].map(branchTone)).toEqual(['green', 'violet', 'rose', 'gold', 'green']);
   });
 });

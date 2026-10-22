@@ -153,6 +153,7 @@ export const operatorBlueVars = {
   '--tp-breakdown-frame': 'var(--tp-panel-body)',
   '--tp-breakdown-wash': BLUE_L22,
   '--tp-breakdown-wash-mix': '45%',
+  '--tp-branch-tile': 'var(--tp-panel-body)',
   '--tp-breakdown-hover-mix': '80%',
   // A hovered row also lifts 20% toward the card's light ink, so it reads
   // lighter than the row, not just more coloured (Sait, 2026-10-21).
