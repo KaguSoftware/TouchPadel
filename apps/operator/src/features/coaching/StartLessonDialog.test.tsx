@@ -164,8 +164,19 @@ function open(over: Partial<StartLessonDialogProps> = {}) {
   return props;
 }
 
-const createButton = () =>
-  screen.getByRole('button', { name: 'Create lesson' }) as HTMLButtonElement;
+// The stepped flow (StepWizard): the menu's rows are `lesson.step.<key>`,
+// the kind cards `lesson.kind.<kind>`, and Create is on Review. Moving forward
+// stops at the first unfinished step and lists what holds it.
+type User = ReturnType<typeof userEvent.setup>;
+type StepKey = 'kind' | 'type' | 'when' | 'title' | 'student' | 'review';
+const go = (user: User, key: StepKey) => user.click(screen.getByTestId(`lesson.step.${key}`));
+const pickKind = (user: User, kind: 'private' | 'group' | 'course') =>
+  user.click(screen.getByTestId(`lesson.kind.${kind}`));
+const createButton = () => screen.getByTestId('lesson.submit') as HTMLButtonElement;
+async function create(user: User) {
+  await go(user, 'review');
+  await user.click(createButton());
+}
 const calls = (fn: string) => vi.mocked(appRpc).mock.calls.filter(([name]) => name === fn);
 
 beforeEach(() => {
@@ -196,54 +207,61 @@ describe('StartLessonDialog — kinds, types and coaches', () => {
         lesson_types: envelope().lesson_types.filter((t) => t.kind !== 'group'),
       }),
     });
-    const kinds = screen.getByRole('group', { name: 'Kind' });
-    expect(
-      within(kinds).getByRole('button', { name: 'Private lesson' }).getAttribute('aria-pressed'),
-    ).toBe('true');
-    expect(within(kinds).getByRole('button', { name: 'Course' })).toBeTruthy();
-    expect(within(kinds).queryByRole('button', { name: 'Group session' })).toBeNull();
-    // Coach Sara is picked, so the type reads her own price, and so does the price line.
+    expect(screen.getByRole('group', { name: 'Kind' })).toBeTruthy();
+    expect(screen.getByTestId('lesson.kind.private').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('lesson.kind.course')).toBeTruthy();
+    expect(screen.queryByTestId('lesson.kind.group')).toBeNull();
+    // A private lesson has no Course title step; it has a Student step.
+    expect(screen.queryByTestId('lesson.step.title')).toBeNull();
+    expect(screen.getByTestId('lesson.step.student')).toBeTruthy();
+    await go(user, 'type');
+    // Coach Sara is picked, so the type reads her own price, and so does the price box.
     expect(screen.getByRole('combobox', { name: 'Lesson type' }).textContent).toContain(
       'Private 60 min · 35,000 IQD',
     );
-    expect(screen.getByText('35,000 IQD for the lesson, paid at the desk.')).toBeTruthy();
+    expect(screen.getByText('35,000 IQD for the lesson')).toBeTruthy();
     expect(
-      screen.getByText('The court is picked automatically from the free courts.'),
+      screen.getByText('Paid at the desk. The court is picked automatically from the free courts.'),
     ).toBeTruthy();
-    await user.click(screen.getByRole('combobox', { name: 'Coach' }));
-    const pausedOption = screen.getByRole('option', {
-      name: 'Coach Omar · Paused: not taking lessons',
+    expect(screen.getByRole('button', { name: 'Coach Sara' }).getAttribute('aria-pressed')).toBe('true');
+    const paused = screen.getByRole('button', {
+      name: 'Coach Omar · Paused',
     }) as HTMLButtonElement;
-    expect(pausedOption.disabled || pausedOption.getAttribute('aria-disabled') === 'true').toBe(
-      true,
-    );
+    expect(paused.disabled).toBe(true);
   });
 
-  it('opens on the coach and type picked on the Coaches tab, the kind following the type', () => {
+  it('opens on the coach and type picked on the Coaches tab, the kind following the type', async () => {
+    const user = userEvent.setup();
     const lina: DeskCoach = { ...sara, coach_id: 'lina', display_name_en: 'Coach Lina', display_name_ar: 'المدرّبة لينا' };
     open({ coachId: 'lina', lessonTypeId: 'g90', lessons: envelope({ coaches: [sara, lina] }) });
-    const kinds = screen.getByRole('group', { name: 'Kind' });
-    expect(
-      within(kinds).getByRole('button', { name: 'Group session' }).getAttribute('aria-pressed'),
-    ).toBe('true');
+    expect(screen.getByTestId('lesson.kind.group').getAttribute('aria-pressed')).toBe('true');
+    await go(user, 'type');
     expect(screen.getByRole('combobox', { name: 'Lesson type' }).textContent).toContain('Group 90 min');
-    expect(screen.getByRole('combobox', { name: 'Coach' }).textContent).toContain('Coach Lina');
+    expect(screen.getByRole('button', { name: 'Coach Lina' }).getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('says so when nothing is on sale, and Create stays off', () => {
+  it('says so when nothing is on sale, and the Kind step holds', async () => {
+    const user = userEvent.setup();
     open({ lessons: envelope({ lesson_types: [] }) });
     expect(screen.getByText('No lesson type is on sale at this branch yet.')).toBeTruthy();
-    expect(createButton().disabled).toBe(true);
+    await go(user, 'review');
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
+    expect(screen.queryByTestId('lesson.submit')).toBeNull();
   });
 });
 
 describe('StartLessonDialog — a private lesson', () => {
   it('lists the coach’s free starts from coach_slots and pre-selects the pressed time', async () => {
+    const user = userEvent.setup();
     open();
+    await go(user, 'when');
     const chip = await screen.findByRole('button', { name: '6:00 PM' });
     expect(chip.getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('button', { name: '6:30 PM' }).getAttribute('aria-pressed')).toBe(
       'false',
+    );
+    expect(plain(screen.getByText(/free times that day/).textContent)).toBe(
+      'Coach Sara’s free times that day.',
     );
     expect(calls('coach_slots')[0]![1]).toEqual({
       p_coach_id: 'sara',
@@ -253,19 +271,23 @@ describe('StartLessonDialog — a private lesson', () => {
     });
   });
 
-  it("a pressed time the coach isn't free at says so, and Create waits for a pick", async () => {
+  it("a pressed time the coach isn't free at says so, and When waits for a pick", async () => {
     const user = userEvent.setup();
     open({ startAt: new Date(at(DATE, 17)) });
+    await go(user, 'when');
     expect(plain((await screen.findByText(/isn.t free at/)).textContent)).toBe(
       "Coach Sara isn't free at 5:00 PM. Pick one of these times.",
     );
-    expect(createButton().disabled).toBe(true);
-    expect(createButton().title).toBe('Pick a start time.');
+    await go(user, 'review');
+    expect(screen.getByText('Pick a start time.')).toBeTruthy();
+    expect(screen.queryByTestId('lesson.submit')).toBeNull();
     await user.click(screen.getByRole('button', { name: '6:30 PM' }));
+    await go(user, 'review');
     expect(createButton().disabled).toBe(false);
   });
 
   it('no free time that day says so', async () => {
+    const user = userEvent.setup();
     slots = {
       off: false,
       venue_id: 'v1',
@@ -275,6 +297,7 @@ describe('StartLessonDialog — a private lesson', () => {
       starts: [],
     };
     open();
+    await go(user, 'when');
     expect(plain((await screen.findByText(/No free time/)).textContent)).toBe(
       'No free time for Coach Sara that day.',
     );
@@ -291,9 +314,19 @@ describe('StartLessonDialog — a private lesson', () => {
       price_iqd: 35000,
     };
     const props = open();
+    await go(user, 'when');
     await screen.findByRole('button', { name: '6:00 PM' });
+    await go(user, 'student');
+    expect(screen.getByText('This lesson type takes up to 4.')).toBeTruthy();
     // "+2" is LTR-isolated, so the name carries the marks.
     await user.click(screen.getByRole('button', { name: /\+2/ }));
+    await go(user, 'review');
+    const review = within(document.querySelector('.tp-wiz-review') as HTMLElement);
+    expect(review.getByText('Private lesson')).toBeTruthy();
+    expect(review.getByText('Coach Sara')).toBeTruthy();
+    expect(review.getByText('35,000 IQD for the lesson')).toBeTruthy();
+    expect(plain(review.getByText(/6:00 PM/).textContent)).toMatch(/ · 6:00 PM$/);
+    expect(plain(review.getByText(/Ali Hasan/).textContent)).toBe('Ali Hasan +2');
     await user.click(createButton());
     await waitFor(() =>
       expect(navigateSpy).toHaveBeenCalledWith({
@@ -327,8 +360,9 @@ describe('StartLessonDialog — a private lesson', () => {
       court_name_ar: 'الملعب 1',
     };
     open();
+    await go(user, 'when');
     await screen.findByRole('button', { name: '6:00 PM' });
-    await user.click(createButton());
+    await create(user);
     await waitFor(() => expect(toastOk).toHaveBeenCalled());
     expect(plain(toastOk.mock.calls[0]![0] as string)).toBe('Lesson booked on Court 1.');
   });
@@ -342,15 +376,17 @@ describe('StartLessonDialog — retries (OP-11)', () => {
     const user = userEvent.setup();
     created = new AppRpcError('COACH_BUSY', 'COACH_BUSY');
     open();
+    await go(user, 'when');
     await screen.findByRole('button', { name: '6:00 PM' });
-    await user.click(createButton());
+    await create(user);
     await waitFor(() => expect(calls('desk_book_lesson')).toHaveLength(1));
     await user.click(createButton());
     await waitFor(() => expect(calls('desk_book_lesson')).toHaveLength(2));
     expect(keyOf(1)).toBe(keyOf(0));
     // The draft changes (the party): a new write, a new key.
+    await go(user, 'student');
     await user.click(screen.getByRole('button', { name: /\+2/ }));
-    await user.click(createButton());
+    await create(user);
     await waitFor(() => expect(calls('desk_book_lesson')).toHaveLength(3));
     expect(keyOf(2)).not.toBe(keyOf(0));
   });
@@ -366,8 +402,9 @@ describe('StartLessonDialog — retries (OP-11)', () => {
       start_at: at(DATE, 17),
     };
     open();
+    await go(user, 'when');
     await screen.findByRole('button', { name: '6:00 PM' });
-    await user.click(createButton());
+    await create(user);
     await waitFor(() => expect(toastInfo).toHaveBeenCalled());
     expect(plain(toastInfo.mock.calls[0]![0] as string)).toBe('Already booked earlier at 5:00 PM.');
     expect(toastOk).not.toHaveBeenCalled();
@@ -378,8 +415,9 @@ describe('StartLessonDialog — retries (OP-11)', () => {
     const user = userEvent.setup();
     created = new TypeError('Failed to fetch');
     open();
+    await go(user, 'when');
     await screen.findByRole('button', { name: '6:00 PM' });
-    await user.click(createButton());
+    await create(user);
     expect(
       await screen.findByText(
         'The last attempt may have gone through. Check the lessons before trying again.',
@@ -392,22 +430,31 @@ describe('StartLessonDialog — a group session', () => {
   it('a start inside its cut-off is refused before Create (R47)', async () => {
     const user = userEvent.setup();
     open({ startAt: new Date(at(DATE, 13, 30)) });
-    await user.click(screen.getByRole('button', { name: 'Group session' }));
-    expect(screen.getByText('15,000 IQD a place. Each student pays their own.')).toBeTruthy();
+    await pickKind(user, 'group');
+    // A group session has neither a Student nor a Course title step.
+    expect(screen.queryByTestId('lesson.step.student')).toBeNull();
+    expect(screen.queryByTestId('lesson.step.title')).toBeNull();
+    await go(user, 'type');
+    expect(screen.getByText('15,000 IQD a place')).toBeTruthy();
+    expect(
+      screen.getByText('Each student pays their own. The court is picked automatically from the free courts.'),
+    ).toBeTruthy();
+    await go(user, 'when');
     // Noon on the server's clock; a two-hour cut-off at 11:30 has passed.
     const reason =
       'That start is too close: its cut-off (11:30 AM) has already passed. Pick a later time.';
     expect(screen.getByText(reason)).toBeTruthy();
-    expect(createButton().disabled).toBe(true);
-    expect(createButton().title).toBe(reason);
+    await go(user, 'review');
+    expect(screen.getByText('Step 3 of 3')).toBeTruthy();
+    expect(screen.getAllByText(reason)).toHaveLength(2);
   });
 
   it('creates at a start past its cut-off with coach, type and start only', async () => {
     const user = userEvent.setup();
     created = { lesson_id: 'g-new', cutoff_at: at(DATE, 16) };
     open();
-    await user.click(screen.getByRole('button', { name: 'Group session' }));
-    await user.click(createButton());
+    await pickKind(user, 'group');
+    await create(user);
     await waitFor(() =>
       expect(navigateSpy).toHaveBeenCalledWith({
         to: '/desk/lessons/$id',
@@ -437,18 +484,29 @@ describe('StartLessonDialog — a course', () => {
     const user = userEvent.setup();
     created = new AppRpcError('NO_COURT_FREE', 'NO_COURT_FREE', undefined, '3');
     open();
-    await user.click(screen.getByRole('button', { name: 'Course' }));
-    const list = screen.getByTestId('course-starts');
-    const rows = within(list).getAllByRole('listitem');
-    expect(rows).toHaveLength(4);
-    expect(plain(rows[0]!.textContent)).toContain('Session 1 · ');
-    expect((screen.getByLabelText('Session 4 date') as HTMLInputElement).value).toBe('2099-11-09');
+    await pickKind(user, 'course');
+    expect(screen.queryByTestId('lesson.step.student')).toBeNull();
+    await go(user, 'type');
     expect(plain(screen.getByTestId('lesson-price').textContent)).toBe(
-      '120,000 IQD a person for 4 sessions.A court is taken for every session now.',
+      '120,000 IQD a person for 4 sessionsA court is taken for every session now.',
     );
+    await go(user, 'when');
+    const rows = within(screen.getByTestId('course-starts')).getAllByRole('listitem');
+    expect(rows).toHaveLength(4);
+    // Each row reads "Session n" and its day and time, as the preview draws them.
+    expect(plain(rows[0]!.textContent)).toBe('Session 1Mon Oct 19, 2099 · 6:00 PM');
+    // A row opens to move that session on its own.
+    await user.click(within(rows[3]!).getByRole('button', { name: /^Session 4/ }));
+    expect((screen.getByLabelText('Session 4 date') as HTMLInputElement).value).toBe('2099-11-09');
     // Move session 2 a day later.
+    await user.click(within(rows[1]!).getByRole('button', { name: /^Session 2/ }));
     fireEvent.change(screen.getByLabelText('Session 2 date'), { target: { value: '2099-10-27' } });
+    await go(user, 'title');
     await user.type(screen.getByLabelText('Course title (English)'), 'Beginners');
+    await go(user, 'review');
+    const review = within(document.querySelector('.tp-wiz-review') as HTMLElement);
+    expect(review.getByText('Beginners')).toBeTruthy();
+    expect(plain(review.getByText(/sessions from /).textContent)).toMatch(/^4 sessions from .* · 6:00 PM$/);
     await user.click(createButton());
     await waitFor(() => expect(calls('desk_create_course')).toHaveLength(1));
     expect(calls('desk_create_course')[0]![1]).toMatchObject({
@@ -458,40 +516,53 @@ describe('StartLessonDialog — a course', () => {
       p_title_en: 'Beginners',
       p_title_ar: '',
     });
-    // The refusal names session 3: its row is marked, and the line says which.
+    // The refusal names session 3: When opens again, its row is marked, and the line says which.
     expect((await screen.findByRole('alert')).textContent).toMatch(/^Session 3: /);
-    expect(list.querySelector('[data-session="3"]')!.hasAttribute('data-refused')).toBe(true);
+    expect(screen.getByText('Step 3 of 4')).toBeTruthy();
+    expect(
+      screen.getByTestId('course-starts').querySelector('[data-session="3"]')!.hasAttribute('data-refused'),
+    ).toBe(true);
     expect(navigateSpy).not.toHaveBeenCalled();
   });
 
   it('a session out of order is said before Create', async () => {
     const user = userEvent.setup();
     open();
-    await user.click(screen.getByRole('button', { name: 'Course' }));
+    await pickKind(user, 'course');
+    await go(user, 'when');
+    await user.click(within(screen.getByTestId('course-starts')).getByRole('button', { name: /^Session 3/ }));
     fireEvent.change(screen.getByLabelText('Session 3 date'), { target: { value: '2099-10-20' } });
     expect(
       screen.getAllByText('Each session has to start after the one before ends.').length,
     ).toBeGreaterThan(0);
-    expect(createButton().disabled).toBe(true);
+    await go(user, 'review');
+    expect(screen.getByText('Step 3 of 4')).toBeTruthy();
+    expect(screen.queryByTestId('lesson.submit')).toBeNull();
   });
 });
 
 describe('StartLessonDialog — switched off and offline', () => {
   it('with coaching off the desk still stages, and says guests cannot see it yet (R51)', async () => {
+    const user = userEvent.setup();
     open({ lessons: envelope({ coaching_enabled: false }) });
     expect(
       screen.getByText(
         "Lessons are switched off at this branch: guests can't see or book this yet.",
       ),
     ).toBeTruthy();
+    await go(user, 'when');
     await screen.findByRole('button', { name: '6:00 PM' });
+    await go(user, 'review');
     expect(createButton().disabled).toBe(false);
   });
 
   it('offline, Create stays on screen, disabled, with the reason (CD-6)', async () => {
+    const user = userEvent.setup();
     reachable = false;
     open();
+    await go(user, 'when');
     await screen.findByRole('button', { name: '6:00 PM' });
+    await go(user, 'review');
     expect(createButton().disabled).toBe(true);
     expect(createButton().title).toBe('Needs a connection: lessons work online only');
   });

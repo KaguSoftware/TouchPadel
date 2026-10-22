@@ -133,6 +133,31 @@ export const courtDeskEn = {
     conflictBody: 'That slot is already taken. Nothing was saved. Pick another time.',
     pickAnother: 'Pick another time',
     price: 'Price',
+    // The stepped New booking (CreateReservationDialog, StepWizard).
+    wizard: {
+      stepKind: 'What kind',
+      stepWho: 'Who',
+      stepWhen: 'Court & time',
+      kindBookingBody: 'The whole court for one group.',
+      kindMatchBody: 'Players join one seat at a time.',
+      kindLessonBody: 'A coach and a student.',
+      kindNote: 'Open match and Lesson open their own wizard, carrying the court, time and guest over.',
+      typedGuestNote: 'A typed guest needs a name. The phone is optional.',
+      // "19:00 · 90 min".
+      whenNote: '{time} · {duration}',
+      // "Court 1 · 90 min".
+      priceLine: '{court} · {duration}',
+      // "Court 1 · 90 min at Evening": the rate rule app.price_slot picked, by its name.
+      priceLineRate: '{court} · {duration} at {rate}',
+      // Under the customer search on every wizard's Who step.
+      pickerHint: 'Pick one to link, or type a guest below.',
+      notesPlaceholder: 'Bringing their own balls',
+      reviewKind: 'Kind',
+      reviewGuest: 'Guest',
+      reviewCourt: 'Court',
+      reviewTime: 'Time',
+      reviewPrice: 'Price',
+    },
   },
 
   // 06.4 Booking detail
@@ -578,5 +603,19 @@ export const courtDeskEn = {
     added: 'Cafe bill added to the booking.',
     halfDone: 'A bill was opened for the booking, but the cafe bill could not be moved onto it. Try adding it again.',
     offline: 'Adding a cafe bill needs a connection. Try again when it is back.',
+    // The stepped Add a cafe bill (AddCafeBillDialog, StepWizard).
+    wizard: {
+      title: 'Add a cafe bill',
+      stepBill: 'Which bill',
+      reviewBill: 'Bill',
+      reviewMoves: 'Moves',
+      reviewBooking: 'Booking',
+      movesOne: 'One item onto this booking',
+      moves: '{count} items onto this booking',
+      // "Court 1 · 19:00 · Ali Hassan".
+      booking: '{court} · {time} · {name}',
+      closes: 'The cafe bill closes. The booking’s bill now holds the court fee and the cafe items.',
+      searchAria: 'Search bills',
+    },
   },
 } as const;

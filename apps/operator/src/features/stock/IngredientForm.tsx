@@ -32,6 +32,8 @@ import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../components/ui';
 import { BilingualFields } from '../../components/inputs';
 import { Switch } from '../../components/Switch';
+import { SegmentedControl } from '../../components/kit';
+import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardToggle, type WizardStep } from '../../components/StepWizard';
 import { useStockFormat } from './stockUi';
 import { parseQty } from './stockLogic';
 import { SK, type IngredientRow, type OnHandRow } from './stockKeys';
@@ -42,6 +44,9 @@ function numOrNull(v: string): number | null {
 
 /** Typed, but not a number. Empty is fine: every number here is optional. */
 const badNumber = (v: string) => v.trim() !== '' && parseQty(v) === null;
+
+/** Two fields to a row where they fit, one under the other where not. */
+const FIELD_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', columnGap: 'var(--tp-sp-2-5)' } as const;
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -173,6 +178,160 @@ export function IngredientForm({
   }
 
   const disabledReason = !nameEn.trim() || !nameAr.trim() ? tr('ws.manager.disabled.namesRequired') : anyBad || yieldOut || lowAbovePar ? tr('ws.manager.stock.ingredients.form.fixErrors') : tr('ws.manager.stock.ingredients.form.nothingChanged');
+
+  // A new ingredient is the stepped dialog (Sait, 2026-10-22), one step per
+  // question the form already grouped its fields by. Editing one keeps the
+  // single form below (its unit and type can lock, and it shows on hand).
+  if (!row) {
+    const F = 'ws.manager.stock.ingredients.form' as const;
+    const W = 'ws.manager.stock.ingredients.form.wizard' as const;
+    const fixErrors = tr(`${F}.fixErrors`);
+    const nameNote = (locale === 'ar' ? nameAr : nameEn).trim() || null;
+    const n = (v: string) => fmt.num(parseQty(v)!);
+    const has = (v: string) => parseQty(v) !== null;
+    const buying = [
+      supplier.trim() ? supplier.trim() : null,
+      has(packSize) && has(packCost)
+        ? tr(`${W}.packFor`, { qty: fmt.qty(parseQty(packSize)!, unit), price: fmt.cost(parseQty(packCost)) })
+        : has(packSize)
+          ? fmt.qty(parseQty(packSize)!, unit)
+          : has(packCost)
+            ? fmt.cost(parseQty(packCost))
+            : null,
+    ].filter(Boolean);
+    const keep = [
+      has(par) ? tr(`${W}.par`, { qty: fmt.qty(parseQty(par)!, unit) }) : null,
+      has(lowStock) ? tr(`${W}.reorderAt`, { qty: fmt.qty(parseQty(lowStock)!, unit) }) : null,
+    ].filter(Boolean);
+    const recipe = [
+      tr(`${W}.usable`, { n: has(yieldPct) ? n(yieldPct) : fmt.num(100) }),
+      tr(`${W}.wasteValue`, { n: has(wastePct) ? n(wastePct) : fmt.num(0) }),
+      active ? tr(`${W}.inUse`) : tr(`${W}.notInUse`),
+    ];
+    const steps: WizardStep[] = [
+      {
+        key: 'basics',
+        label: tr(`${F}.basics`),
+        note: nameNote,
+        problems: nameEn.trim() && nameAr.trim() ? [] : [tr('ws.manager.disabled.namesRequired')],
+        content: (
+          <>
+            <BilingualFields labelEn={tr('op.courts.nameEn')} labelAr={tr('op.courts.nameAr')} en={nameEn} ar={nameAr} onEn={setNameEn} onAr={setNameAr} />
+            <Field label={tr(`${F}.unit`)} group>
+              <SegmentedControl
+                value={unit}
+                onChange={setUnit}
+                options={(['g', 'ml', 'pc'] as const).map((x) => ({ value: x, label: tr(`${F}.unitName.${x}`) }))}
+              />
+            </Field>
+            <Field label={tr(`${F}.kind`)} group>
+              <WizardChoices label={tr(`${F}.kind`)}>
+                <WizardChoice on={kind === 'purchased'} title={tr(`${W}.purchased`)} body={tr(`${W}.purchasedBody`)} onPick={() => setKind('purchased')} />
+                <WizardChoice on={kind === 'prepared'} title={tr(`${W}.prepared`)} body={tr(`${W}.preparedBody`)} onPick={() => setKind('prepared')} />
+              </WizardChoices>
+            </Field>
+          </>
+        ),
+      },
+      {
+        key: 'buying',
+        label: tr(`${F}.buying`),
+        note: has(packSize) ? tr(`${W}.packsNote`, { qty: fmt.qty(parseQty(packSize)!, unit) }) : null,
+        problems: [shelfLife, packSize, packCost].some(badNumber) ? [fixErrors] : [],
+        content: (
+          <div style={FIELD_GRID}>
+            <Field label={tr('ws.manager.stock.ingredients.supplier')} optional>
+              <input style={inputStyle} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+            </Field>
+            <Field label={tr(`${F}.shelfLife`)} optional hint={tr(`${F}.shelfLifeHint`)} error={numErr(shelfLife)}>
+              <input style={inputStyle} dir="ltr" inputMode="numeric" value={shelfLife} onChange={(e) => setShelfLife(e.target.value)} />
+            </Field>
+            <Field label={tr(`${F}.packSize`, { unit: u })} optional error={numErr(packSize)}>
+              <input style={inputStyle} dir="ltr" inputMode="decimal" value={packSize} onChange={(e) => setPackSize(e.target.value)} />
+            </Field>
+            <Field label={tr(`${F}.packCost`)} optional hint={tr(`${F}.packCostHint`)} error={numErr(packCost)}>
+              <input style={inputStyle} dir="ltr" inputMode="numeric" value={packCost} onChange={(e) => setPackCost(e.target.value)} />
+            </Field>
+          </div>
+        ),
+      },
+      {
+        key: 'levels',
+        label: tr(`${F}.levels`),
+        note: has(par) ? tr(`${W}.parNote`, { qty: n(par) }) : null,
+        problems: [par, lowStock].some(badNumber) ? [fixErrors] : lowAbovePar ? [tr(`${F}.lowAbovePar`)] : [],
+        content: (
+          <div style={FIELD_GRID}>
+            <Field label={tr(`${F}.par`, { unit: u })} optional hint={tr(`${F}.parHint`)} error={numErr(par)}>
+              <input style={inputStyle} dir="ltr" inputMode="decimal" value={par} onChange={(e) => setPar(e.target.value)} />
+            </Field>
+            <Field
+              label={tr(`${F}.low`, { unit: u })}
+              optional
+              hint={tr(`${F}.lowHint`)}
+              error={numErr(lowStock) ?? (lowAbovePar ? tr(`${F}.lowAbovePar`) : undefined)}
+            >
+              <input style={inputStyle} dir="ltr" inputMode="decimal" value={lowStock} onChange={(e) => setLowStock(e.target.value)} />
+            </Field>
+          </div>
+        ),
+      },
+      {
+        key: 'recipe',
+        label: tr(`${F}.recipeMaths`),
+        note: tr(`${W}.recipeNote`, { yield: has(yieldPct) ? n(yieldPct) : fmt.num(100), waste: has(wastePct) ? n(wastePct) : fmt.num(0) }),
+        problems: [yieldPct, wastePct].some(badNumber) ? [fixErrors] : yieldOut ? [tr(`${F}.yieldRange`)] : [],
+        content: (
+          <>
+            <div style={FIELD_GRID}>
+              <Field label={tr(`${F}.yield`)} hint={tr(`${F}.yieldHint`)} error={numErr(yieldPct) ?? (yieldOut ? tr(`${F}.yieldRange`) : undefined)}>
+                <input style={inputStyle} dir="ltr" inputMode="decimal" value={yieldPct} onChange={(e) => setYieldPct(e.target.value)} />
+              </Field>
+              <Field label={tr(`${F}.waste`)} hint={tr(`${F}.wasteHint`)} error={numErr(wastePct)}>
+                <input style={inputStyle} dir="ltr" inputMode="decimal" value={wastePct} onChange={(e) => setWastePct(e.target.value)} />
+              </Field>
+            </div>
+            <WizardToggle checked={active} onChange={setActive} label={tr(`${F}.active`)} hint={tr(`${F}.activeHint`)} />
+          </>
+        ),
+      },
+    ];
+    return (
+      <StepWizard
+        title={tr('ws.manager.stock.ingredients.add')}
+        lead={tr(`${W}.lead`)}
+        steps={steps}
+        review={(goTo) => (
+          <ReviewList
+            goTo={goTo}
+            busy={busy}
+            rows={[
+              {
+                label: tr(`${W}.reviewName`),
+                value: (
+                  <>
+                    <bdi dir="ltr">{nameEn.trim()}</bdi> · <bdi dir="rtl">{nameAr.trim()}</bdi>
+                  </>
+                ),
+                step: 'basics',
+              },
+              { label: tr(`${W}.reviewType`), value: `${tr(kind === 'prepared' ? `${W}.made` : `${W}.bought`)} · ${tr(`${W}.unitWord.${unit}`)}`, step: 'basics' },
+              { label: tr(`${W}.reviewBuying`), value: buying.length ? <bdi>{buying.join(' · ')}</bdi> : '—', step: 'buying' },
+              { label: tr(`${W}.reviewKeep`), value: keep.length ? keep.join(' · ') : '—', step: 'levels' },
+              { label: tr(`${W}.reviewRecipe`), value: recipe.join(' · '), step: 'recipe' },
+            ]}
+          />
+        )}
+        submitLabel={tr(`${F}.save`)}
+        onSubmit={() => void save()}
+        busy={busy}
+        notice={error ? <ErrorText error={error} /> : undefined}
+        canClose={confirmDiscard}
+        onClose={onCancel}
+        testId="ingredient-new"
+      />
+    );
+  }
 
   return (
     <Modal

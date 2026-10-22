@@ -45,6 +45,16 @@ export const branchesEn = {
     creating: 'Creating the branch…',
     created: '{name} is ready to set up.',
     copied: 'Copied: {courts} courts, {items} menu items, {tables} tables.',
+    // The stepped Open a new branch (2026-10-22).
+    lead: 'Starts as a copy of a branch you pick.',
+    steps: { name: 'Name', copy: 'Copy from', contact: 'Contact' },
+    copiedNote: 'Copied: courts, rates, hours, tables, menu, recipes, checklists and protocol templates. Nothing is copied back, and no promotion, stock or staff comes across.',
+    copiedFrom: 'Copied from',
+    linkName: 'Link name',
+    namesNeeded: 'Type the name in both languages, 2 to 80 characters each.',
+    slugInvalid: 'The short name takes 2 to 32 lowercase letters, digits and dashes, starting with a letter or digit.',
+    pickSource: 'Pick the branch to copy.',
+    phoneInvalid: 'This does not look like a phone number.',
   },
   readiness: {
     otherBranchHint: 'This machine is a station of another branch. Do this from that branch’s machine, or from one that is not a station.',

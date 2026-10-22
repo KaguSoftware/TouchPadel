@@ -83,6 +83,22 @@ function renderScreen() {
 
 const row = (name: string) => screen.getByText(name).closest('tr')!;
 
+/**
+ * New product is a stepped dialog (Sait, 2026-10-22): section and name, size
+ * and price, stock and supplier, then Review. Fills each step and submits.
+ */
+async function newProductThrough(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement, opts: { link?: string } = {}) {
+  const next = (name: string) => within(dialog).getAllByRole('button', { name }).at(-1)!;
+  await user.type(within(dialog).getByLabelText('Product name (English)'), 'Wilson');
+  await user.type(within(dialog).getByLabelText('Product name (Arabic)'), 'ويلسون');
+  await user.click(next('Size & price'));
+  await user.type(within(dialog).getByLabelText('Price (IQD)'), '250000');
+  await user.click(next('Stock & supplier'));
+  if (opts.link) await user.type(within(dialog).getByLabelText(/^Supplier link/), opts.link);
+  await user.click(next('Review'));
+  await user.click(within(dialog).getByTestId('product-new.submit'));
+}
+
 beforeEach(() => {
   rpc.appRpc.mockReset();
   rpc.appRpc.mockResolvedValue('new-item');
@@ -182,13 +198,46 @@ describe('ProductsAdmin as a manager', () => {
     await screen.findByText('Vertex');
     await user.click(screen.getByRole('button', { name: 'New product' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/A new product is saved hidden/)).toBeTruthy();
-    await user.type(within(dialog).getByLabelText('Product name (English)'), 'Wilson');
-    await user.type(within(dialog).getByLabelText('Product name (Arabic)'), 'ويلسون');
-    await user.type(within(dialog).getByLabelText('Price (IQD)'), '250000');
-    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(within(dialog).getByText(/^Saved hidden\. Add its sizes and prices/)).toBeTruthy();
+    // A section is picked as a card, the shop's first one to start with.
+    expect(within(dialog).getByRole('button', { name: 'Rackets', pressed: true })).toBeTruthy();
+    await newProductThrough(user, dialog);
     await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledWith('upsert_menu_item', expect.objectContaining({ p_name_en: 'Wilson', p_is_active: false })));
     await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledWith('upsert_retail_variant', expect.objectContaining({ p_item_id: 'new-item', p_price_iqd: 250_000 })));
+  });
+});
+
+describe('New product, stepped', () => {
+  it('holds a step until it is filled, and the Review page lists the answers', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await screen.findByText('Vertex');
+    await user.click(screen.getByRole('button', { name: 'New product' }));
+    const dialog = await screen.findByRole('dialog');
+    const next = (name: string) => within(dialog).getAllByRole('button', { name }).at(-1)!;
+    await user.click(next('Size & price'));
+    expect(within(dialog).getByText('Step 1 of 3')).toBeTruthy();
+    expect(within(dialog).getByText('Fill in both names first.')).toBeTruthy();
+    await user.type(within(dialog).getByLabelText('Product name (English)'), 'Wilson');
+    await user.type(within(dialog).getByLabelText('Product name (Arabic)'), 'ويلسون');
+    await user.click(next('Size & price'));
+    await user.click(next('Stock & supplier'));
+    expect(within(dialog).getByText('The price is a whole number of IQD.')).toBeTruthy();
+    await user.type(within(dialog).getByLabelText('Price (IQD)'), '250000');
+    await user.type(within(dialog).getByLabelText(/^Cost per piece/), '180000');
+    await user.click(next('Stock & supplier'));
+    await user.type(within(dialog).getByLabelText(/^Warn when fewer than/), '3');
+    await user.click(next('Review'));
+    const review = dialog;
+    expect(review.textContent).toContain('Rackets');
+    expect(review.textContent).toContain('Wilson');
+    expect(review.textContent).toContain('One size');
+    expect(review.textContent).toMatch(/250,000 IQD · cost 180,000/);
+    expect(review.textContent).toContain('No supplier · warn under 3');
+    expect(within(dialog).getByText('It is saved hidden. “Put on sale” sends the price to the owner.')).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Change Price' }));
+    expect(within(dialog).getByText('Step 2 of 3')).toBeTruthy();
+    expect(rpc.appRpc).not.toHaveBeenCalledWith('upsert_menu_item', expect.anything());
   });
 });
 
@@ -204,10 +253,8 @@ describe('ProductsAdmin as the owner', () => {
     expect(screen.queryByRole('button', { name: /^Put on sale/ })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'New product' }));
     const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Product name (English)'), 'Wilson');
-    await user.type(within(dialog).getByLabelText('Product name (Arabic)'), 'ويلسون');
-    await user.type(within(dialog).getByLabelText('Price (IQD)'), '250000');
-    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(within(dialog).queryByText(/^Saved hidden/)).toBeNull();
+    await newProductThrough(user, dialog);
     await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledWith('upsert_menu_item', expect.not.objectContaining({ p_is_active: false })));
   });
 });
@@ -334,11 +381,7 @@ describe('ProductsAdmin supplier price watch', () => {
     await screen.findByText('Vertex');
     await user.click(screen.getByRole('button', { name: 'New product' }));
     const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Product name (English)'), 'Wilson');
-    await user.type(within(dialog).getByLabelText('Product name (Arabic)'), 'ويلسون');
-    await user.type(within(dialog).getByLabelText('Price (IQD)'), '250000');
-    await user.type(within(dialog).getByLabelText(/^Supplier link/), 'https://supplier.example.iq/p/wilson');
-    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await newProductThrough(user, dialog, { link: 'https://supplier.example.iq/p/wilson' });
     await waitFor(() =>
       expect(rpc.appRpc).toHaveBeenCalledWith('set_shop_price_watch', { p_variant_id: 'new-size', p_url: 'https://supplier.example.iq/p/wilson' }),
     );

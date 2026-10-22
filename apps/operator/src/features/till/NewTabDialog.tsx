@@ -16,12 +16,13 @@ import { QK, fetchVenueSettings } from '../../lib/queries';
 import { tonightScope } from '../desk/useTradingNight';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useAuth } from '../../lib/auth';
-import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../components/ui';
-import { MessagePresenter, SearchField } from '../../components/kit';
+import { ErrorText, Field, inputStyle } from '../../components/ui';
+import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardNote, type WizardStep } from '../../components/StepWizard';
+import { SearchField } from '../../components/kit';
 import { bookingTakesNewTab, canReadBookings } from './tillData';
 import { isMatchLiteral } from '../matches/matchLogic';
 import { isLessonLiteral } from '../coaching/lessonLogic';
-import { muted, reasonedFooter, touchTarget } from './tillStyles';
+import { muted, touchTarget } from './tillStyles';
 
 export interface OpenReservationRow {
   id: string;
@@ -220,64 +221,85 @@ export function NewTabDialog({
   }
 
   const bound = reservations.find((r) => r.id === reservationId);
+  // "19:00 · Court 1": a booking card's name, the step's note and the Review value.
+  const bookingShort = (r: OpenReservationRow) => `${formatTime(new Date(r.start_at), locale)} · ${pickName(locale, r.court)}`;
+  const bookingName = bound ? bookingShort(bound) : tr('op.till.noReservation');
+
+  // The stepped dialog (Sait, 2026-10-22): the name, then the court booking.
+  // A role that cannot read bookings has the name step only.
+  const steps: WizardStep[] = [
+    {
+      key: 'name',
+      label: tr('ws.cashier.newTab.stepName'),
+      note: trimmedLabel || tr('ws.cashier.newTab.nextNumber'),
+      content: (
+        <Field label={tr('ws.cashier.newTab.nameLabel')} optional hint={tr('ws.cashier.newTab.counterHint')}>
+          <input style={inputStyle} value={label} maxLength={60} autoFocus onChange={(e) => setLabel(e.target.value)} />
+        </Field>
+      ),
+    },
+    ...(showBookings
+      ? [
+          {
+            key: 'booking',
+            label: tr('op.till.reservationLabel'),
+            note: bookingName,
+            content: (
+              <>
+                {initialReservationId && bound && (
+                  <WizardNote>
+                    <strong>{tr('ws.cashier.newTab.fromBooking')}</strong> — <bdi>{reservationOptionLabel(tr, locale, bound)}</bdi>
+                    <br />
+                    {tr('ws.cashier.newTab.fromBookingHint')}
+                  </WizardNote>
+                )}
+                {preboundMissing && <WizardNote tone="refused">{tr('ws.cashier.newTab.bookingMissing')}</WizardNote>}
+                <WizardChoices label={tr('op.till.reservationLabel')}>
+                  <WizardChoice
+                    on={reservationId === ''}
+                    title={tr('op.till.noReservation')}
+                    body={tr('ws.cashier.newTab.noBookingBody')}
+                    onPick={() => setReservationId('')}
+                  />
+                  {reservations.map((r) => (
+                    <WizardChoice
+                      key={r.id}
+                      on={reservationId === r.id}
+                      title={<bdi>{bookingShort(r)}</bdi>}
+                      body={<bdi>{r.guest_name ?? '—'}</bdi>}
+                      onPick={() => setReservationId(r.id)}
+                    />
+                  ))}
+                </WizardChoices>
+                <WizardNote>{tr('ws.cashier.newTab.bookingNote')}</WizardNote>
+              </>
+            ),
+          },
+        ]
+      : []),
+  ];
 
   return (
-    <Modal
+    <StepWizard
       title={tr('ws.cashier.newTab.orderTitle')}
+      lead={tr('ws.cashier.newTab.lead')}
+      steps={steps}
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={busy}
+          rows={[
+            { label: tr('ws.cashier.newTab.stepName'), value: trimmedLabel ? <bdi>{trimmedLabel}</bdi> : tr('ws.cashier.newTab.nextCounterNumber'), step: 'name' },
+            ...(showBookings ? [{ label: tr('ws.cashier.newTab.reviewBooking'), value: <bdi>{bookingName}</bdi>, step: 'booking' }] : []),
+          ]}
+        />
+      )}
+      submitLabel={tr('ws.cashier.newTab.start')}
+      onSubmit={() => void submit()}
+      busy={busy}
+      notice={error ? <ErrorText error={error} /> : undefined}
       onClose={onClose}
-      footer={(close) => (
-        <div style={reasonedFooter}>
-          <Button onClick={close} disabled={busy}>
-            {tr('common.cancel')}
-          </Button>
-          <Button kind="primary" busy={busy} onClick={() => void submit()}>
-            {tr('ws.cashier.newTab.start')}
-          </Button>
-        </div>
-      )}
-    >
-      {initialReservationId && bound && (
-        <MessagePresenter
-          tone="info"
-          icon="calendar"
-          style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
-          message={
-            <>
-              <strong>{tr('ws.cashier.newTab.fromBooking')}</strong> — <bdi>{reservationOptionLabel(tr, locale, bound)}</bdi>
-              <br />
-              {tr('ws.cashier.newTab.fromBookingHint')}
-            </>
-          }
-        />
-      )}
-      {preboundMissing && (
-        <MessagePresenter tone="refused" style={{ marginBlockEnd: 'var(--tp-sp-3)' }} message={tr('ws.cashier.newTab.bookingMissing')} />
-      )}
-      <Field label={tr('ws.cashier.newTab.nameLabel')} optional hint={tr('ws.cashier.newTab.counterHint')}>
-        <input
-          style={inputStyle}
-          value={label}
-          maxLength={60}
-          autoFocus
-          onChange={(e) => setLabel(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !busy) void submit();
-          }}
-        />
-      </Field>
-      {showBookings && (
-        <Field label={tr('op.till.reservationLabel')} optional>
-          <Select
-            value={reservationId}
-            onChange={setReservationId}
-            options={[
-              { value: '', label: tr('op.till.noReservation') },
-              ...reservations.map((r) => ({ value: r.id, label: reservationOptionLabel(tr, locale, r) })),
-            ]}
-          />
-        </Field>
-      )}
-      <ErrorText error={error} />
-    </Modal>
+      testId="new-order"
+    />
   );
 }

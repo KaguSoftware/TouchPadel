@@ -680,7 +680,7 @@ describe('LessonDetailScreen: not found, cancel, history, hand-backs', () => {
     };
     raw = rawDetail();
     mount();
-    const dialog = await screen.findByRole('dialog', { name: 'Add student' });
+    const dialog = await screen.findByRole('dialog', { name: 'Add a student' });
     await waitFor(() => expect(within(dialog).getByText(/Noor Salem/)).toBeTruthy());
   });
 });

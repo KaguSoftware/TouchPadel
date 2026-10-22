@@ -391,24 +391,34 @@ describe('WagesPageScreen', () => {
     expect(screen.queryByTestId('wages.row.advance.s-ali')).toBeNull();
     expect(screen.queryByTestId('wages.row.advance.s-hasan')).toBeNull();
     await user.click(screen.getByTestId('wages.row.advance.s-yusuf'));
-    const dialog = screen.getByRole('dialog', { name: /Give .*Yusuf.* an advance/ });
+    const dialog = screen.getByRole('dialog', { name: 'Give an advance' });
+    // The stepped dialog: who and which month lead it; Amount, then Paid from, then Review.
+    expect(within(dialog).getByText(/Yusuf.* · October 2026/)).toBeTruthy();
+    expect(within(dialog).getByText('Step 1 of 2')).toBeTruthy();
     expect(within(dialog).getByText(/Up to .*720,000 IQD.* still owed this month/)).toBeTruthy();
-    expect(within(dialog).getByTestId('wages.advance.from.safe').getAttribute('aria-pressed')).toBe('true');
-    expect(within(dialog).getByText('The money comes out of the safe.')).toBeTruthy();
-    // The amount is focused; nothing is sent without one, or above what is owed.
+    // The amount is focused; nothing moves on without one, or above what is owed.
     const amount = within(dialog).getByRole('textbox', { name: /^Amount/ });
     expect(document.activeElement).toBe(amount);
-    await user.click(within(dialog).getByTestId('wages.advance.confirm'));
+    const forward = (name: string) => user.click(within(dialog).getAllByRole('button', { name }).at(-1)!);
+    await forward('Paid from');
     expect(within(dialog).getByText('Enter an amount.')).toBeTruthy();
     await user.type(amount, '800000');
-    await user.click(within(dialog).getByTestId('wages.advance.confirm'));
+    await forward('Paid from');
     expect(within(dialog).getByText(/At most .*720,000 IQD.*: that is what is still owed this month\./)).toBeTruthy();
-    expect(count('give_wage_advance')).toBe(0);
-    await user.clear(amount);
-    await user.type(amount, '100000');
-    expect(within(dialog).getByTestId('wages.advance.confirm').textContent).toMatch(/Give .*100,000 IQD/);
+    await user.clear(within(dialog).getByRole('textbox', { name: /^Amount/ }));
+    await user.type(within(dialog).getByRole('textbox', { name: /^Amount/ }), '100000');
+    await forward('Paid from');
+    expect(within(dialog).getByTestId('wages.advance.from.safe').getAttribute('aria-pressed')).toBe('true');
+    expect(within(dialog).getByText('The money comes out of the safe.')).toBeTruthy();
     await user.type(within(dialog).getByRole('textbox', { name: /^Note/ }), ' Rent help ');
-    await user.click(within(dialog).getByTestId('wages.advance.confirm'));
+    await forward('Review');
+    // Review reads it back: what is left owed once it is given, and the amount on the button.
+    expect(within(dialog).getByText('All 2 steps done')).toBeTruthy();
+    expect(within(dialog).getByText(/620,000 IQD/)).toBeTruthy();
+    expect(within(dialog).getByText('Rent help')).toBeTruthy();
+    expect(within(dialog).getByTestId('wages.advance.submit').textContent).toMatch(/Give .*100,000 IQD/);
+    expect(count('give_wage_advance')).toBe(0);
+    await user.click(within(dialog).getByTestId('wages.advance.submit'));
     await waitFor(() => expect(count('give_wage_advance')).toBe(1));
     const sent = calls.find((c) => c.fn === 'give_wage_advance')?.args;
     expect(sent).toMatchObject({ p_staff_id: 's-yusuf', p_amount_iqd: 100000, p_paid_from: 'safe', p_month: '2026-10-01', p_note: 'Rent help' });
@@ -423,11 +433,13 @@ describe('WagesPageScreen', () => {
     };
     renderPage();
     await user.click(await screen.findByTestId('wages.row.advance.s-yusuf'));
-    const dialog = screen.getByRole('dialog', { name: /Give .*Yusuf.* an advance/ });
+    const dialog = screen.getByRole('dialog', { name: 'Give an advance' });
     await user.type(within(dialog).getByRole('textbox', { name: /^Amount/ }), '100000');
+    await user.click(within(dialog).getByTestId('wages.advance.step.from'));
     await user.click(within(dialog).getByTestId('wages.advance.from.bank'));
     expect(within(dialog).getByText('Nothing comes out of the safe.')).toBeTruthy();
-    await user.click(within(dialog).getByTestId('wages.advance.confirm'));
+    await user.click(within(dialog).getByTestId('wages.advance.step.review'));
+    await user.click(within(dialog).getByTestId('wages.advance.submit'));
     expect(await within(dialog).findByText(/The most you can give now is .*85,000 IQD/)).toBeTruthy();
     expect(calls.find((c) => c.fn === 'give_wage_advance')?.args).toMatchObject({ p_paid_from: 'bank', p_note: null });
   });

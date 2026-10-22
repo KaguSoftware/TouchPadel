@@ -23,8 +23,10 @@ import { useLocale, pickName } from '../../../lib/i18n';
 import { useVenue, type VenueStatus } from '../../../lib/venue';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
-import { Button, ErrorText, Field, Modal, Select, Skeleton, inputStyle } from '../../../components/ui';
+import { Button, ErrorText, Field, Skeleton, inputStyle } from '../../../components/ui';
 import { EmptyState, PageHeader, Panel, StatusBadge, type Tone } from '../../../components/kit';
+import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardNote } from '../../../components/StepWizard';
+import { BilingualFields } from '../../../components/inputs';
 import { ChevronBack, ChevronForward } from '../../../components/icons';
 import { coachingErrorText } from '../../coaching/lessonLogic';
 import {
@@ -372,6 +374,11 @@ function BranchPanel({ branch }: { branch: BranchRow }) {
   );
 }
 
+/**
+ * Open a new branch, as a stepped wizard (Sait, 2026-10-22): its names and
+ * short name, the branch whose setup it copies, its contact details, then
+ * Review, where app.create_branch runs.
+ */
 function CreateBranchDialog({
   branches,
   onClose,
@@ -434,71 +441,119 @@ function CreateBranchDialog({
     />
   );
 
+  const C = 'ws.branches.create';
+  const source = branches.find((b) => b.id === draft.sourceVenueId);
+  const shownName = (locale === 'ar' ? draft.nameAr : draft.nameEn).trim() || (draft.nameEn || draft.nameAr).trim();
+  const both = [draft.nameEn.trim(), draft.nameAr.trim()].filter(Boolean).join(' · ');
+  const pair = { display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))' } as const;
+
   return (
-    <Modal
-      title={tr('ws.branches.create.title')}
-      subtitle={tr('ws.branches.create.intro')}
+    <StepWizard
+      title={tr(`${C}.title`)}
+      lead={tr(`${C}.lead`)}
+      testId="branch-create"
       onClose={onClose}
-      dismissible={!createM.isPending}
-      wide
-      footer={(close) => (
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end' }}>
-          <Button onClick={close} disabled={createM.isPending}>
-            {tr('common.cancel')}
-          </Button>
-          <Button
-            kind="primary"
-            busy={createM.isPending}
-            disabled={problems.length > 0}
-            onClick={() => createM.mutate()}
-            data-testid="branch-create-submit"
-          >
-            {createM.isPending ? tr('ws.branches.create.creating') : tr('ws.branches.create.submit')}
-          </Button>
-        </div>
+      busy={createM.isPending}
+      submitLabel={createM.isPending ? tr(`${C}.creating`) : tr(`${C}.submit`)}
+      onSubmit={() => createM.mutate()}
+      steps={[
+        {
+          key: 'name',
+          label: tr(`${C}.steps.name`),
+          note: shownName || null,
+          problems: [
+            ...(problems.includes('nameEn') || problems.includes('nameAr') ? [tr(`${C}.namesNeeded`)] : []),
+            ...(problems.includes('slug') ? [tr(`${C}.slugInvalid`)] : []),
+          ],
+          content: (
+            <>
+              <BilingualFields
+                labelEn={tr(`${C}.nameEn`)}
+                labelAr={tr(`${C}.nameAr`)}
+                en={draft.nameEn}
+                ar={draft.nameAr}
+                onEn={(v) => set({ nameEn: v, ...(slugTouched ? {} : { slug: suggestSlug(v) }) })}
+                onAr={(v) => set({ nameAr: v })}
+                maxLength={80}
+              />
+              <Field label={tr(`${C}.slug`)} hint={tr(`${C}.slugHint`)} required>
+                {input(
+                  draft.slug,
+                  (v) => {
+                    setSlugTouched(true);
+                    set({ slug: v.toLowerCase() });
+                  },
+                  { invalid: problems.includes('slug') && draft.slug !== '', testId: 'branch-slug' },
+                )}
+              </Field>
+            </>
+          ),
+        },
+        {
+          key: 'copy',
+          label: tr(`${C}.steps.copy`),
+          note: source ? pickName(locale, source) : null,
+          problems: problems.includes('source') ? [tr(`${C}.pickSource`)] : [],
+          content: (
+            <>
+              <Field label={tr(`${C}.copyFrom`)} group required>
+                <WizardChoices label={tr(`${C}.copyFrom`)}>
+                {branches.map((b) => (
+                  <WizardChoice
+                    key={b.id}
+                    on={b.id === draft.sourceVenueId}
+                    title={<bdi>{pickName(locale, b)}</bdi>}
+                    body={tr(`ws.branches.status.${b.status}` as MessageKey)}
+                    onPick={() => set({ sourceVenueId: b.id })}
+                    testId={`branch-create.source.${b.slug}`}
+                  />
+                ))}
+                </WizardChoices>
+              </Field>
+              <WizardNote>{tr(`${C}.copiedNote`)}</WizardNote>
+            </>
+          ),
+        },
+        {
+          key: 'contact',
+          label: tr(`${C}.steps.contact`),
+          note: draft.phone.trim() || tr('ws.kit.common.optional'),
+          problems: problems.includes('phone') ? [tr(`${C}.phoneInvalid`)] : [],
+          content: (
+            <>
+              <div style={pair}>
+                <Field label={tr(`${C}.phone`)} optional>
+                  {input(draft.phone, (v) => set({ phone: v }), { invalid: problems.includes('phone') })}
+                </Field>
+                <Field label={tr(`${C}.timezone`)} optional>
+                  {input(draft.timezone, (v) => set({ timezone: v }))}
+                </Field>
+              </div>
+              <BilingualFields
+                labelEn={tr(`${C}.addressEn`)}
+                labelAr={tr(`${C}.addressAr`)}
+                en={draft.addressEn}
+                ar={draft.addressAr}
+                onEn={(v) => set({ addressEn: v })}
+                onAr={(v) => set({ addressAr: v })}
+              />
+            </>
+          ),
+        },
+      ]}
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={createM.isPending}
+          rows={[
+            { label: tr(`${C}.steps.name`), value: <bdi>{both}</bdi>, step: 'name' },
+            { label: tr(`${C}.linkName`), value: <bdi dir="ltr">{draft.slug.trim()}</bdi>, step: 'name' },
+            { label: tr(`${C}.copiedFrom`), value: source ? <bdi>{pickName(locale, source)}</bdi> : '—', step: 'copy' },
+            { label: tr(`${C}.phone`), value: draft.phone.trim() ? <bdi dir="ltr">{draft.phone.trim()}</bdi> : '—', step: 'contact' },
+            { label: tr(`${C}.timezone`), value: draft.timezone.trim() ? <bdi dir="ltr">{draft.timezone.trim()}</bdi> : '—', step: 'contact' },
+          ]}
+        />
       )}
-    >
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))' }}>
-        <Field label={tr('ws.branches.create.nameEn')} required>
-          {input(draft.nameEn, (v) => set({ nameEn: v, ...(slugTouched ? {} : { slug: suggestSlug(v) }) }), {
-            invalid: problems.includes('nameEn') && draft.nameEn !== '',
-            testId: 'branch-name-en',
-          })}
-        </Field>
-        <Field label={tr('ws.branches.create.nameAr')} required>
-          {input(draft.nameAr, (v) => set({ nameAr: v }), { dir: 'rtl', lang: 'ar', testId: 'branch-name-ar' })}
-        </Field>
-        <Field label={tr('ws.branches.create.slug')} hint={tr('ws.branches.create.slugHint')} required>
-          {input(
-            draft.slug,
-            (v) => {
-              setSlugTouched(true);
-              set({ slug: v.toLowerCase() });
-            },
-            { invalid: problems.includes('slug') && draft.slug !== '', testId: 'branch-slug' },
-          )}
-        </Field>
-        <Field label={tr('ws.branches.create.copyFrom')} required>
-          <Select<string>
-            value={draft.sourceVenueId}
-            onChange={(v) => set({ sourceVenueId: v })}
-            options={branches.map((b) => ({ value: b.id, label: pickName(locale, b) }))}
-            aria-label={tr('ws.branches.create.copyFrom')}
-          />
-        </Field>
-        <Field label={tr('ws.branches.create.phone')} optional>
-          {input(draft.phone, (v) => set({ phone: v }), { invalid: problems.includes('phone') })}
-        </Field>
-        <Field label={tr('ws.branches.create.timezone')} optional>
-          {input(draft.timezone, (v) => set({ timezone: v }))}
-        </Field>
-        <Field label={tr('ws.branches.create.addressEn')} optional>
-          {input(draft.addressEn, (v) => set({ addressEn: v }))}
-        </Field>
-        <Field label={tr('ws.branches.create.addressAr')} optional>
-          {input(draft.addressAr, (v) => set({ addressAr: v }), { dir: 'rtl', lang: 'ar' })}
-        </Field>
-      </div>
-    </Modal>
+    />
   );
 }

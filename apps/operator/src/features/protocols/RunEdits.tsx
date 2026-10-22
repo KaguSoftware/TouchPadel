@@ -14,15 +14,15 @@
  */
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { formatNumber, type MessageKey } from '@touch/i18n';
+import { countPhrase, formatNumber, type MessageKey } from '@touch/i18n';
 import type { StepRow } from '@touch/core/protocols';
 import type { StaffRole } from '@touch/core/staff/roles';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../components/ui';
-import { SortButtons } from '../../components/inputs';
-import { Switch } from '../../components/Switch';
+import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { BilingualFields, SortButtons } from '../../components/inputs';
+import { ReviewList, StepWizard, WizardChips, WizardChoice, WizardChoices, WizardNote, WizardToggle, type WizardStep } from '../../components/StepWizard';
 import { invalidateProtocols } from './api';
 import { OWNER_STEP_ROLES, TEMPLATE_CAPS, localKey, moveStep, pickText, type DraftItem } from './protocolLogic';
 
@@ -181,7 +181,6 @@ export function AddStepDialog({ runId, after, onClose }: { runId: string; after:
   const [ok, setOk] = useState(false);
   const [optional, setOptional] = useState(false);
   const [items, setItems] = useState<DraftItem[]>([]);
-  const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const nameMissing = nameEn.trim() === '' || nameAr.trim() === '';
@@ -189,7 +188,6 @@ export function AddStepDialog({ runId, after, onClose }: { runId: string; after:
   const invalid = nameMissing || roles.length === 0 || problems.size > 0 || afterId === '';
 
   async function save() {
-    setTried(true);
     if (invalid) return;
     setBusy(true);
     setError(null);
@@ -209,47 +207,174 @@ export function AddStepDialog({ runId, after, onClose }: { runId: string; after:
     }
   }
 
-  return (
-    <Modal
-      title={tr('ws.protocols.edits.addTitle')}
-      subtitle={tr('ws.protocols.edits.onlyThisRun')}
-      onClose={onClose}
-      dismissible={!busy}
-      size="lg"
-      footer={(close) => (
+  const afterStep = after.find((s) => s.id === afterId);
+  const stepName = pickText(locale, nameEn.trim(), nameAr.trim());
+  const roleNames = roles.map((r) => tr(`op.roles.${r}`)).join(', ');
+  const lines = itemsPayload(items).length;
+  const linesText = countPhrase('ws.protocols.edits.lines', lines, locale);
+
+  const steps: WizardStep[] = [
+    {
+      key: 'where',
+      label: tr('ws.protocols.edits.steps.where'),
+      note: afterStep ? tr('ws.protocols.edits.afterNote', { step: pickText(locale, afterStep.name_en, afterStep.name_ar) }) : null,
+      problems: afterId === '' ? [tr('ws.protocols.edits.pickAfter')] : [],
+      content: (
         <>
-          <Button onClick={close} disabled={busy}>
-            {tr('common.cancel')}
-          </Button>
-          <Button kind="primary" busy={busy} onClick={() => void save()}>
-            {tr('ws.protocols.edits.add')}
-          </Button>
+          <Field label={tr('ws.protocols.edits.after')} group style={{ marginBlockEnd: 0 }}>
+            <WizardChoices small label={tr('ws.protocols.edits.after')}>
+              {after.map((s) => (
+                <WizardChoice
+                  key={s.id}
+                  on={afterId === s.id}
+                  title={<bdi>{pickText(locale, s.name_en, s.name_ar)}</bdi>}
+                  body={tr('ws.protocols.edits.stepN', { n: formatNumber(s.position, locale) })}
+                  disabled={busy}
+                  onPick={() => setAfterId(s.id)}
+                />
+              ))}
+            </WizardChoices>
+          </Field>
+          <WizardNote>{tr('ws.protocols.edits.afterHint')}</WizardNote>
         </>
+      ),
+    },
+    {
+      key: 'who',
+      label: tr('ws.protocols.edits.steps.who'),
+      note: roles.length > 0 ? roleNames : null,
+      problems: [
+        ...(nameMissing ? [tr('op.errors.TEXT_BOTH_LANGUAGES_REQUIRED')] : []),
+        ...(roles.length === 0 ? [tr('ws.protocols.how.problem.actors')] : []),
+      ],
+      content: (
+        <>
+          <BilingualFields
+            labelEn={tr('ws.protocols.how.stepNameEn')}
+            labelAr={tr('ws.protocols.how.stepNameAr')}
+            en={nameEn}
+            ar={nameAr}
+            onEn={setNameEn}
+            onAr={setNameAr}
+            maxLength={140}
+            disabled={busy}
+          />
+          <Field label={tr('ws.protocols.how.actors')} group style={{ marginBlockEnd: 0 }}>
+            <WizardChips<StaffRole>
+              label={tr('ws.protocols.how.actors')}
+              value={roles}
+              options={OWNER_STEP_ROLES.map((r) => ({ value: r, label: tr(`op.roles.${r}`), disabled: busy }))}
+              onChange={(r) => setRoles(roles.includes(r) ? roles.filter((x) => x !== r) : [...roles, r])}
+            />
+          </Field>
+          {/* The two switches side by side, as the preview's two-up row. */}
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-2) var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))' }}>
+            <WizardToggle checked={ok} label={tr('ws.protocols.how.needsOk')} hint={tr('ws.protocols.edits.needsOkHint')} disabled={busy} onChange={setOk} />
+            <WizardToggle checked={optional} label={tr('ws.protocols.how.optional')} hint={tr('ws.protocols.edits.optionalHint')} disabled={busy} onChange={setOptional} />
+          </div>
+        </>
+      ),
+    },
+    {
+      key: 'checklist',
+      label: tr('ws.protocols.how.checklist'),
+      note: linesText,
+      problems: problems.size > 0 ? [...new Set([...problems.values()])].map((p) => tr(`ws.protocols.how.problem.${p}` as MessageKey)) : [],
+      content: (
+        <Field label={tr('ws.protocols.how.checklist')} optional group style={{ marginBlockEnd: 0 }}>
+          <ChecklistLines items={items} onChange={setItems} problems={problems} disabled={busy} />
+        </Field>
+      ),
+    },
+  ];
+
+  return (
+    <StepWizard
+      title={tr('ws.protocols.edits.wizardTitle')}
+      lead={tr('ws.protocols.edits.wizardLead')}
+      steps={steps}
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={busy}
+          rows={[
+            { label: tr('ws.protocols.edits.after'), value: afterStep ? <bdi>{pickText(locale, afterStep.name_en, afterStep.name_ar)}</bdi> : '—', step: 'where' },
+            { label: tr('ws.protocols.edits.review.step'), value: <bdi>{stepName}</bdi>, step: 'who' },
+            { label: tr('ws.protocols.how.actors'), value: roleNames || '—', step: 'who' },
+            { label: tr('ws.protocols.how.checklist'), value: linesText, step: 'checklist' },
+          ]}
+        />
       )}
-    >
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
-        <Field label={tr('ws.protocols.edits.after')} hint={tr('ws.protocols.edits.afterHint')} required>
-          <Select<string> value={afterId} disabled={busy} options={after.map((s) => ({ value: s.id, label: pickText(locale, s.name_en, s.name_ar) }))} onChange={setAfterId} />
-        </Field>
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))' }}>
-          <Field label={tr('ws.protocols.how.stepNameEn')} required error={tried && nameEn.trim() === '' ? tr('op.errors.TEXT_BOTH_LANGUAGES_REQUIRED') : undefined}>
-            <input style={inputStyle} dir="ltr" maxLength={140} value={nameEn} disabled={busy} onChange={(e) => setNameEn(e.target.value)} />
-          </Field>
-          <Field label={tr('ws.protocols.how.stepNameAr')} required error={tried && nameAr.trim() === '' ? tr('op.errors.TEXT_BOTH_LANGUAGES_REQUIRED') : undefined}>
-            <input style={inputStyle} dir="rtl" maxLength={140} value={nameAr} disabled={busy} onChange={(e) => setNameAr(e.target.value)} />
-          </Field>
+      submitLabel={tr('ws.protocols.edits.add')}
+      onSubmit={() => void save()}
+      busy={busy}
+      notice={error != null ? <ErrorText error={error} /> : null}
+      onClose={onClose}
+      testId="protocols.addStep"
+    />
+  );
+}
+
+/**
+ * The wizard's checklist, as the preview draws it: a row per line (its number,
+ * the English box, the Arabic box, remove), "Add a line" under them and the
+ * cap under that. A line missing a language marks both its boxes; the footer
+ * says why when the person moves on.
+ */
+function ChecklistLines({ items, onChange, problems, disabled }: { items: DraftItem[]; onChange: (next: DraftItem[]) => void; problems: Map<string, string>; disabled?: boolean }) {
+  const { tr, locale } = useLocale();
+  const full = items.length >= TEMPLATE_CAPS.items;
+  const set = (key: string, part: Partial<DraftItem>) => onChange(items.map((i) => (i.key === key ? { ...i, ...part } : i)));
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+      {items.length > 0 && (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+          {items.map((i, index) => {
+            const n = formatNumber(index + 1, locale);
+            const bad = problems.has(i.key) || undefined;
+            return (
+              <div key={i.key} style={{ display: 'grid', gridTemplateColumns: '1.6rem minmax(0, 1fr) minmax(0, 1fr) auto', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
+                <b style={{ color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums', textAlign: 'center' }}>{n}</b>
+                <input
+                  style={inputStyle}
+                  dir="ltr"
+                  aria-label={tr('ws.protocols.items.lineEn', { n })}
+                  aria-invalid={bad}
+                  value={i.text_en}
+                  maxLength={TEMPLATE_CAPS.item + 20}
+                  disabled={disabled}
+                  onChange={(e) => set(i.key, { text_en: e.target.value })}
+                />
+                <input
+                  style={inputStyle}
+                  dir="rtl"
+                  aria-label={tr('ws.protocols.items.lineAr', { n })}
+                  aria-invalid={bad}
+                  value={i.text_ar}
+                  maxLength={TEMPLATE_CAPS.item + 20}
+                  disabled={disabled}
+                  onChange={(e) => set(i.key, { text_ar: e.target.value })}
+                />
+                <Button
+                  size="sm"
+                  icon="x"
+                  disabled={disabled}
+                  aria-label={tr('ws.protocols.items.remove', { n })}
+                  title={tr('ws.protocols.items.remove', { n })}
+                  onClick={() => onChange(items.filter((x) => x.key !== i.key))}
+                />
+              </div>
+            );
+          })}
         </div>
-        <RolePicker value={roles} onChange={setRoles} invalid={tried && roles.length === 0} disabled={busy} />
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap' }}>
-          <Switch checked={ok} label={tr('ws.protocols.how.needsOk')} disabled={busy} onChange={setOk} />
-          <Switch checked={optional} label={tr('ws.protocols.how.optional')} disabled={busy} onChange={setOptional} />
-        </div>
-        <Field label={tr('ws.protocols.how.checklist')} optional group>
-          <ItemsEditor items={items} onChange={setItems} problems={tried ? problems : undefined} disabled={busy} />
-        </Field>
-        {error != null && <ErrorText error={error} />}
+      )}
+      <div>
+        <Button size="sm" icon="plus" disabled={disabled || full} onClick={() => onChange([...items, { key: localKey(), text_en: '', text_ar: '' }])}>
+          {tr('ws.protocols.items.add')}
+        </Button>
       </div>
-    </Modal>
+      <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.protocols.items.upTo', { max: formatNumber(TEMPLATE_CAPS.items, locale) })}</span>
+    </div>
   );
 }
 

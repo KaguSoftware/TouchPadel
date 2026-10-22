@@ -500,10 +500,34 @@ export const protocolsEn = {
     addItems: 'Add a checklist',
     addStep: 'Add a step to this protocol',
     addTitle: 'Add a step',
+    // The stepped dialog's name and lead (the approved wizard preview).
+    wizardTitle: 'Add a protocol step',
+    wizardLead: 'Only this run. How it works stays as it is.',
     add: 'Add the step',
     after: 'After',
     afterHint: 'Only where nothing after it has started yet.',
     stepAdded: 'The step is added.',
+    // The stepped "Add a step" dialog.
+    steps: {
+      where: 'Where',
+      who: 'Name & who',
+    },
+    afterNote: 'After {step}',
+    pickAfter: 'Pick the step it comes after.',
+    stepN: 'Step {n}',
+    needsOkHint: 'You approve it before the run moves on.',
+    optionalHint: 'The run can finish without it.',
+    lines: {
+      zero: 'No lines',
+      one: '1 line',
+      two: '2 lines',
+      few: '{count} lines',
+      many: '{count} lines',
+      other: '{count} lines',
+    },
+    review: {
+      step: 'Step',
+    },
   },
   items: {
     none: 'No lines.',
@@ -512,6 +536,7 @@ export const protocolsEn = {
     remove: 'Remove line {n}',
     add: 'Add a line',
     full: 'At most {max} lines.',
+    upTo: 'Up to {max} lines.',
   },
   how: {
     title: 'How it works: {kind}',

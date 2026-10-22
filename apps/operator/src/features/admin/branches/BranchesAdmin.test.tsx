@@ -170,3 +170,28 @@ describe('BranchesAdmin ▸ Close', () => {
     expect(navigate).toHaveBeenCalledWith({ to: '/admin/branches' });
   });
 });
+
+describe('BranchesAdmin ▸ Open a new branch, stepped', () => {
+  it('fills the short name from the English name, copies the picked branch, and says what was copied', async () => {
+    const user = userEvent.setup();
+    mount(<BranchesAdmin />);
+    rpc.mockImplementation(async (fn: string) =>
+      fn === 'create_branch' ? { venue_id: 'v9', counts: { courts: 2, menu_items: 64, cafe_tables: 12 } } : {},
+    );
+    await user.click(await screen.findByTestId('branches-open-new'));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Open a new branch' }));
+    await user.click(dialog.getByTestId('branch-create.step.review'));
+    expect(dialog.getByText('Type the name in both languages, 2 to 80 characters each.')).toBeTruthy();
+    await user.type(dialog.getByRole('textbox', { name: 'Name (English)' }), 'Al Mansour');
+    await user.type(dialog.getByRole('textbox', { name: 'Name (Arabic)' }), 'المنصور');
+    expect((dialog.getByTestId('branch-slug') as HTMLInputElement).value).toBe('al-mansour');
+    await user.click(dialog.getByTestId('branch-create.step.copy'));
+    expect(dialog.getByTestId('branch-create.source.karrada').getAttribute('aria-pressed')).toBe('true');
+    await user.click(dialog.getByTestId('branch-create.step.review'));
+    expect(dialog.getByText('al-mansour')).toBeTruthy();
+    await user.click(dialog.getByTestId('branch-create.submit'));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('create_branch', expect.objectContaining({ p_source_venue: 'v1', p_slug: 'al-mansour', p_name_en: 'Al Mansour' })));
+    await waitFor(() => expect(toast.ok).toHaveBeenCalledWith('Al Mansour is ready to set up.'));
+    expect(toast.info).toHaveBeenCalledWith('Copied: 2 courts, 64 menu items, 12 tables.');
+  });
+});

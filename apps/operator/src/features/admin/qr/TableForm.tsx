@@ -1,14 +1,19 @@
 /**
  * Add / edit one cafe table through `app.upsert_cafe_table` (0031). Token
  * version is never touched here — rotation is a separate owner action.
+ *
+ * Adding is the stepped wizard (Sait, 2026-10-22): the table, then where it
+ * stands and its seats, then Review. Editing stays the one-page form.
  */
 import { useState } from 'react';
+import { formatNumber } from '@touch/i18n';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { Switch } from '../../../components/Switch';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components/ui';
+import { ReviewList, StepWizard, WizardToggle } from '../../../components/StepWizard';
 import { TABLE_QR_QUERY_KEY, TABLES_QUERY_KEY } from './queries';
 
 export interface TableDraft {
@@ -28,7 +33,7 @@ export const NEW_TABLE: TableDraft = {
 };
 
 export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: () => void }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<TableDraft>(initial);
@@ -57,6 +62,103 @@ export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: 
   // inactive table), so the switch says so while it is off, not after.
   const goingOff = initial.id !== null && initial.is_active && !draft.is_active;
 
+  const numberField = (
+    <Field label={tr('op.qr.tableNumber')} required hint={tr('ws.owner.tables.form.numberHint')}>
+      <input
+        style={inputStyle}
+        dir="ltr"
+        autoFocus
+        maxLength={16}
+        value={draft.table_number}
+        onChange={(e) => setDraft({ ...draft, table_number: e.target.value })}
+      />
+    </Field>
+  );
+  const zoneField = (
+    <Field label={tr('op.qr.zone')} optional hint={tr('ws.owner.tables.form.zoneHint')}>
+      <input style={inputStyle} maxLength={40} value={draft.zone} onChange={(e) => setDraft({ ...draft, zone: e.target.value })} />
+    </Field>
+  );
+  const seatsField = (wide: boolean) => (
+    <Field label={tr('op.qr.capacity')} optional>
+      <input
+        style={wide ? inputStyle : { ...inputStyle, inlineSize: '6rem' }}
+        dir="ltr"
+        type="number"
+        min={1}
+        max={99}
+        value={draft.capacity ?? ''}
+        onChange={(e) => setDraft({ ...draft, capacity: e.target.value === '' ? null : Number(e.target.value) })}
+      />
+    </Field>
+  );
+  const inUse = (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', marginBlockEnd: 'var(--tp-sp-3)' }}>
+      <Switch checked={draft.is_active} onChange={(next) => setDraft((d) => ({ ...d, is_active: next }))} label={tr('op.qr.activeTable')} />
+      <p style={{ fontSize: 'var(--tp-fs-xs)', color: goingOff ? 'var(--tp-warn-fg)' : 'var(--tp-muted-fg)' }}>
+        {draft.is_active ? tr('ws.owner.tables.form.inUseHint') : tr('ws.owner.tables.form.notInUseHint')}
+      </p>
+    </div>
+  );
+
+  if (!initial.id) {
+    const number = draft.table_number.trim();
+    const where = [
+      draft.zone.trim(),
+      draft.capacity ? tr('ws.owner.tables.form.seats', { count: formatNumber(draft.capacity, locale) }) : '',
+    ].filter(Boolean);
+    return (
+      <StepWizard
+        title={title}
+        lead={tr('ws.owner.tables.form.lead')}
+        testId="table-form"
+        onClose={onClose}
+        busy={save.isPending}
+        submitLabel={tr('op.qr.addTable')}
+        onSubmit={() => save.mutate()}
+        notice={save.error ? <ErrorText error={save.error} /> : undefined}
+        steps={[
+          {
+            key: 'table',
+            label: tr('ws.owner.tables.form.steps.table'),
+            note: number || null,
+            problems: number ? [] : [tr('ws.owner.tables.form.numberRequired')],
+            content: numberField,
+          },
+          {
+            key: 'where',
+            label: tr('ws.owner.tables.form.steps.where'),
+            content: (
+              <>
+                <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))' }}>
+                  {zoneField}
+                  {seatsField(true)}
+                </div>
+                <WizardToggle
+                  checked={draft.is_active}
+                  onChange={(next) => setDraft((d) => ({ ...d, is_active: next }))}
+                  label={tr('op.qr.activeTable')}
+                  hint={draft.is_active ? tr('ws.owner.tables.form.inUseHint') : tr('ws.owner.tables.form.notInUseHint')}
+                />
+              </>
+            ),
+          },
+        ]}
+        review={(goTo) => (
+          <ReviewList
+            goTo={goTo}
+            busy={save.isPending}
+            rows={[
+              { label: tr('ws.owner.tables.form.steps.table'), value: <bdi>{number}</bdi>, step: 'table' },
+              { label: tr('op.qr.zone'), value: where.length ? <bdi>{where.join(' · ')}</bdi> : '—', step: 'where' },
+              { label: tr('op.qr.activeTable'), value: draft.is_active ? tr('common.yes') : tr('common.no'), step: 'where' },
+            ]}
+          />
+        )}
+      />
+    );
+  }
+
   return (
     <Modal title={title} onClose={onClose}>
       <form
@@ -65,47 +167,10 @@ export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: 
           if (draft.table_number.trim()) save.mutate();
         }}
       >
-        <Field label={tr('op.qr.tableNumber')} required hint={tr('ws.owner.tables.form.numberHint')}>
-          <input
-            style={inputStyle}
-            dir="ltr"
-            autoFocus
-            maxLength={16}
-            value={draft.table_number}
-            onChange={(e) => setDraft({ ...draft, table_number: e.target.value })}
-          />
-        </Field>
-        <Field label={tr('op.qr.zone')} optional hint={tr('ws.owner.tables.form.zoneHint')}>
-          <input
-            style={inputStyle}
-            maxLength={40}
-            value={draft.zone}
-            onChange={(e) => setDraft({ ...draft, zone: e.target.value })}
-          />
-        </Field>
-        <Field label={tr('op.qr.capacity')} optional>
-          <input
-            style={{ ...inputStyle, inlineSize: '6rem' }}
-            dir="ltr"
-            type="number"
-            min={1}
-            max={99}
-            value={draft.capacity ?? ''}
-            onChange={(e) =>
-              setDraft({ ...draft, capacity: e.target.value === '' ? null : Number(e.target.value) })
-            }
-          />
-        </Field>
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', marginBlockEnd: 'var(--tp-sp-3)' }}>
-          <Switch
-            checked={draft.is_active}
-            onChange={(next) => setDraft((d) => ({ ...d, is_active: next }))}
-            label={tr('op.qr.activeTable')}
-          />
-          <p style={{ fontSize: 'var(--tp-fs-xs)', color: goingOff ? 'var(--tp-warn-fg)' : 'var(--tp-muted-fg)' }}>
-            {draft.is_active ? tr('ws.owner.tables.form.inUseHint') : tr('ws.owner.tables.form.notInUseHint')}
-          </p>
-        </div>
+        {numberField}
+        {zoneField}
+        {seatsField(false)}
+        {inUse}
         <ErrorText error={save.error} />
         <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end' }}>
           <Button onClick={onClose} disabled={save.isPending}>

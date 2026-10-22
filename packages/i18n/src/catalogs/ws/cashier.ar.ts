@@ -380,6 +380,13 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     counterSaleHint: 'لمن يشتري من المتجر: دون طاولة أو حجز، باسم أو رقم فقط.',
     counterNameHint: 'يظهر على الفاتورة وفي إغلاق اليوم.',
     needLabel: 'اكتب اسمًا أو رقمًا.',
+    lead: 'كاشير المقهى',
+    stepName: 'الاسم',
+    nextNumber: 'الرقم التالي',
+    nextCounterNumber: 'رقم الكاونتر التالي',
+    noBookingBody: 'طلب من المقهى وحده.',
+    bookingNote: 'عند ربطه بحجز، تُضاف رسوم الملعب عند تسوية الفاتورة.',
+    reviewBooking: 'الحجز',
   },
   delivery: {
     title: 'توصيل إلى…',

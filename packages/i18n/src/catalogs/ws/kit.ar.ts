@@ -2,6 +2,15 @@ import type { kitEn } from './kit.en';
 import type { DeepMessages } from './types';
 
 export const kitAr: DeepMessages<typeof kitEn> = {
+  wizard: {
+    menu: 'الخطوات',
+    stepOf: 'الخطوة {n} من {total}',
+    allDone: 'اكتملت الخطوات كلها ({total})',
+    progress: 'اكتمل {done} من {total}',
+    review: 'المراجعة',
+    change: 'تغيير',
+    changeLabel: 'تغيير {what}',
+  },
   async: {
     loading: 'جارٍ التحميل…',
     empty: 'لا شيء هنا بعد.',

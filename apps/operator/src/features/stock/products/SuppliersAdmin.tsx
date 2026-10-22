@@ -24,6 +24,10 @@ import {
   type Column,
 } from '../../../components/kit';
 import { Switch } from '../../../components/Switch';
+import { ReviewList, StepWizard, WizardToggle, type WizardStep } from '../../../components/StepWizard';
+
+/** Two fields to a row where they fit, one under the other where not. */
+const FIELD_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', columnGap: 'var(--tp-sp-2-5)' } as const;
 import { SK, fetchSuppliers, type SupplierRow } from '../stockKeys';
 
 export function SuppliersAdmin() {
@@ -135,6 +139,72 @@ function SupplierForm({ row, onDone, onCancel }: { row: SupplierRow | null; onDo
     } finally {
       setBusy(false);
     }
+  }
+
+  // A new supplier is the stepped dialog (Sait, 2026-10-22): the name, then
+  // how to reach them. Editing one keeps the single form below.
+  if (!row) {
+    const nameProblems = name.trim() ? [] : [tr('ws.manager.stock.suppliers.nameRequired')];
+    const steps: WizardStep[] = [
+      {
+        key: 'name',
+        label: tr('ws.manager.stock.suppliers.wizard.stepName'),
+        note: name.trim() || null,
+        problems: nameProblems,
+        content: (
+          <Field label={tr('ws.manager.stock.suppliers.name')}>
+            <input style={inputStyle} value={name} maxLength={120} onChange={(e) => setName(e.target.value)} autoFocus />
+          </Field>
+        ),
+      },
+      {
+        key: 'contact',
+        label: tr('ws.manager.stock.suppliers.wizard.stepContact'),
+        content: (
+          <>
+            <div style={FIELD_GRID}>
+              <Field label={tr('ws.manager.stock.suppliers.phone')} optional>
+                <input style={inputStyle} dir="ltr" type="tel" inputMode="tel" value={phone} maxLength={32} onChange={(e) => setPhone(e.target.value)} />
+              </Field>
+              <Field label={tr('ws.manager.stock.suppliers.notes')} optional>
+                <input
+                  style={inputStyle}
+                  value={notes}
+                  maxLength={500}
+                  placeholder={tr('ws.manager.stock.suppliers.wizard.notesPlaceholder')}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </Field>
+            </div>
+            <WizardToggle checked={active} onChange={setActive} label={tr('ws.manager.stock.suppliers.active')} hint={tr('ws.manager.stock.suppliers.wizard.activeHint')} />
+          </>
+        ),
+      },
+    ];
+    return (
+      <StepWizard
+        title={tr('ws.manager.stock.suppliers.add')}
+        lead={tr('ws.manager.stock.suppliers.wizard.lead')}
+        steps={steps}
+        review={(goTo) => (
+          <ReviewList
+            goTo={goTo}
+            busy={busy}
+            rows={[
+              { label: tr('ws.manager.stock.suppliers.name'), value: <bdi>{name.trim()}</bdi>, step: 'name' },
+              { label: tr('ws.manager.stock.suppliers.phone'), value: phone.trim() ? <bdi dir="ltr">{phone.trim()}</bdi> : '—', step: 'contact' },
+              { label: tr('ws.manager.stock.suppliers.active'), value: active ? tr('common.yes') : tr('common.no'), step: 'contact' },
+            ]}
+          />
+        )}
+        submitLabel={tr('ws.kit.actions.save')}
+        onSubmit={() => void save()}
+        busy={busy}
+        notice={error ? <ErrorText error={error} /> : undefined}
+        onClose={onCancel}
+        testId="supplier-new"
+      />
+    );
   }
 
   return (

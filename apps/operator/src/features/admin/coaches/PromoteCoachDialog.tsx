@@ -20,18 +20,22 @@
  * "Make a coach again" leaves the retired coach's other branches to their
  * managers (OP-03), and says so.
  * `ALREADY_COACH` offers "Open {name}" when that coach is on this screen.
+ *
+ * A stepped wizard (Sait, 2026-10-22): the guest account, the profile guests
+ * see, the branches and lesson types, then Review, where Make coach is sent.
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { isolate } from '@touch/i18n';
+import { countPhrase, isolate } from '@touch/i18n';
 import { AppRpcError, appRpc } from '../../../lib/appRpc';
 import { pickName, useLocale } from '../../../lib/i18n';
 import { removeMedia } from '../../../lib/storage';
 import { useVenue } from '../../../lib/venue';
 import { currentBranchId } from '../../../lib/venueScope';
 import { useToast } from '../../../components/toast';
-import { Button, ErrorText, Modal } from '../../../components/ui';
-import { MessagePresenter } from '../../../components/kit';
+import { Button } from '../../../components/ui';
+import { ReviewList, StepWizard, WizardChecks, WizardNote } from '../../../components/StepWizard';
+import { errorToMessageKey } from '../../../lib/errors';
 import { BilingualFields } from '../../../components/inputs';
 import { ImageField } from '../../../components/ImageField';
 import { CustomerPicker } from '../../desk/customers/CustomerPicker';
@@ -101,7 +105,6 @@ export function PromoteCoachDialog({
   const otherBranches = (seed.from?.venue_ids ?? []).some((id) => !shownIds.includes(id));
   // OP-09: the lesson types are this branch's; they apply only while it is ticked.
   const railTicked = !!branchId && draft.venueIds.includes(branchId);
-  const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const set = (p: Partial<PromoteDraft>) => setDraft((d) => ({ ...d, ...p }));
@@ -125,7 +128,6 @@ export function PromoteCoachDialog({
       : null;
 
   async function submit() {
-    setTried(true);
     if (problems.length > 0 || !reachable) return;
     setBusy(true);
     setError(null);
@@ -171,200 +173,158 @@ export function PromoteCoachDialog({
         ? tr(`${P}.needNames`)
         : tr(`${P}.needBranch`);
 
+  const shownNames = (locale === 'ar' ? draft.nameAr : draft.nameEn).trim() || (draft.nameEn || draft.nameAr).trim();
+  const pickedBranches = venues.filter((v) => draft.venueIds.includes(v.id));
+  const pickedTypes = data.lesson_types.filter((t) => draft.typeIds.includes(t.lesson_type_id));
+  const list = (names: string[]) => (names.length ? <bdi>{names.join(locale === 'ar' ? '، ' : ', ')}</bdi> : '—');
+
   return (
-    <Modal
+    <StepWizard
       title={tr(`${P}.title`)}
+      lead={tr(`${P}.lead`)}
+      testId="promote-coach"
       onClose={cancel}
-      dismissible={!busy}
-      size="lg"
-      footer={(close) => (
-        <>
-          <Button onClick={close} disabled={busy}>
-            {tr('common.cancel')}
-          </Button>
-          <Button
-            kind="primary"
-            icon="whistle"
-            busy={busy}
-            disabled={!reachable}
-            disabledReason={tr('ws.coaching.offline.needsConnection')}
-            onClick={() => void submit()}
-          >
-            {tr(`${P}.submit`)}
-          </Button>
-        </>
-      )}
-    >
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }} data-testid="promote-coach">
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
-          <CustomerPicker
-            label={tr(`${P}.account`)}
-            value={draft.customer ? { ...draft.customer, flags: [] } : null}
-            onChange={(next) =>
-              set({ customer: next ? { id: next.id, name: next.name, phone: next.phone } : null })
-            }
-            disabled={busy}
-            autoFocus={!draft.customer}
-          />
-          <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-            {tr(`${P}.accountHint`)}
-          </p>
-        </div>
-        <BilingualFields
-          labelEn={tr(`${P}.nameEn`)}
-          labelAr={tr(`${P}.nameAr`)}
-          en={draft.nameEn}
-          ar={draft.nameAr}
-          onEn={(v) => set({ nameEn: v })}
-          onAr={(v) => set({ nameAr: v })}
-          maxLength={COACH_LIMITS.name}
-          disabled={busy}
-        />
-        <BilingualFields
-          labelEn={tr(`${P}.bioEn`)}
-          labelAr={tr(`${P}.bioAr`)}
-          en={draft.bioEn}
-          ar={draft.bioAr}
-          onEn={(v) => set({ bioEn: v })}
-          onAr={(v) => set({ bioAr: v })}
-          multiline
-          maxLength={COACH_LIMITS.bio}
-          disabled={busy}
-        />
-        <ImageField
-          label={tr(`${P}.photo`)}
-          value={draft.photo}
-          onChange={(p) => set({ photo: p })}
-          folder="coaches"
-          aspect="1:1"
-          disabled={busy}
-        />
-        <fieldset
-          style={{ border: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}
-        >
-          <legend
-            style={{
-              fontSize: 'var(--tp-fs-sm)',
-              fontWeight: 600,
-              marginBlockEnd: 'var(--tp-sp-1)',
-            }}
-          >
-            {tr(`${P}.branches`)}
-          </legend>
-          <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
-            {venues.map((v) => (
-              <label
-                key={v.id}
-                style={{
-                  display: 'inline-flex',
-                  gap: 'var(--tp-sp-1)',
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={draft.venueIds.includes(v.id)}
-                  disabled={busy}
-                  onChange={(e) =>
+      busy={busy}
+      submitLabel={tr(`${P}.submit`)}
+      onSubmit={() => void submit()}
+      submitBlocked={reachable ? null : tr('ws.coaching.offline.needsConnection')}
+      notice={
+        error || lookup.isError ? (
+          <>
+            {error != null && <WizardNote tone={error instanceof AppRpcError && error.code === 'ALREADY_COACH' ? 'refused' : 'error'}>{coachingErrorText(error, tr, {}, { scope: 'admin' })}</WizardNote>}
+            {existing && (
+              <div>
+                <Button size="sm" iconEnd="arrowUpRight" onClick={() => onOpenCoach(existing.coach_id)}>
+                  {tr(`${P}.openExisting`, { name: coachName(existing, locale) })}
+                </Button>
+              </div>
+            )}
+            {lookup.isError && <WizardNote tone="error">{tr(errorToMessageKey(lookup.error))}</WizardNote>}
+          </>
+        ) : undefined
+      }
+      steps={[
+        {
+          key: 'account',
+          label: tr(`${P}.account`),
+          note: draft.customer?.name || null,
+          problems: problems.includes('account') ? [problemLine('account')] : [],
+          // ALREADY_COACH names the account.
+          flagged: error instanceof AppRpcError && error.code === 'ALREADY_COACH',
+          content: (
+            <>
+              <CustomerPicker
+                label={tr(`${P}.account`)}
+                value={draft.customer ? { ...draft.customer, flags: [] } : null}
+                onChange={(next) => set({ customer: next ? { id: next.id, name: next.name, phone: next.phone } : null })}
+                disabled={busy}
+                autoFocus={!draft.customer}
+              />
+              <WizardNote>{tr(`${P}.accountHint`)}</WizardNote>
+            </>
+          ),
+        },
+        {
+          key: 'profile',
+          label: tr(`${P}.profile`),
+          note: shownNames || null,
+          problems: problems.includes('names') ? [problemLine('names')] : [],
+          content: (
+            <>
+              <BilingualFields
+                labelEn={tr(`${P}.nameEn`)}
+                labelAr={tr(`${P}.nameAr`)}
+                en={draft.nameEn}
+                ar={draft.nameAr}
+                onEn={(v) => set({ nameEn: v })}
+                onAr={(v) => set({ nameAr: v })}
+                maxLength={COACH_LIMITS.name}
+                disabled={busy}
+              />
+              <BilingualFields
+                labelEn={tr(`${P}.bioEn`)}
+                labelAr={tr(`${P}.bioAr`)}
+                en={draft.bioEn}
+                ar={draft.bioAr}
+                onEn={(v) => set({ bioEn: v })}
+                onAr={(v) => set({ bioAr: v })}
+                multiline
+                maxLength={COACH_LIMITS.bio}
+                disabled={busy}
+              />
+              <ImageField label={tr(`${P}.photo`)} value={draft.photo} onChange={(p) => set({ photo: p })} folder="coaches" aspect="1:1" disabled={busy} />
+            </>
+          ),
+        },
+        {
+          key: 'teaching',
+          label: tr(`${P}.teaching`),
+          note: tr(`${P}.teachingNote`, {
+            branches: countPhrase(`${P}.branchCount`, pickedBranches.length, locale),
+            types: countPhrase(`${P}.typeCount`, pickedTypes.length, locale),
+          }),
+          problems: problems.includes('branches') ? [problemLine('branches')] : [],
+          content: (
+            <>
+              <WizardChecks
+                label={tr(`${P}.branches`)}
+                items={venues.map((v) => ({
+                  key: v.id,
+                  label: <bdi>{pickName(locale, v)}</bdi>,
+                  checked: draft.venueIds.includes(v.id),
+                  disabled: busy,
+                  testId: `promote-coach.branch.${v.id}`,
+                  onChange: (on: boolean) =>
                     set(
                       // Unticking this branch clears its lesson types (OP-09).
-                      v.id === branchId && !e.target.checked
+                      v.id === branchId && !on
                         ? { venueIds: toggleId(draft.venueIds, v.id, false), typeIds: [] }
-                        : { venueIds: toggleId(draft.venueIds, v.id, e.target.checked) },
-                    )
-                  }
-                />
-                <bdi>{pickName(locale, v)}</bdi>
-              </label>
-            ))}
-          </div>
-          {otherBranches && (
-            <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-              {tr(`${P}.otherBranches`)}
-            </p>
-          )}
-        </fieldset>
-        <fieldset
-          disabled={!railTicked}
-          style={{ border: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}
-        >
-          <legend
-            style={{
-              fontSize: 'var(--tp-fs-sm)',
-              fontWeight: 600,
-              marginBlockEnd: 'var(--tp-sp-1)',
-            }}
-          >
-            {tr(`${P}.types`)}
-          </legend>
-          {!railTicked && data.lesson_types.length > 0 && (
-            <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-              {tr(`${P}.typesNeedBranch`)}
-            </p>
-          )}
-          {data.lesson_types.length === 0 ? (
-            <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-              {tr(`${P}.noTypes`)}
-            </p>
-          ) : (
-            <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
-              {data.lesson_types.map((t) => (
-                <label
-                  key={t.lesson_type_id}
-                  style={{
-                    display: 'inline-flex',
-                    gap: 'var(--tp-sp-1)',
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={draft.typeIds.includes(t.lesson_type_id)}
-                    disabled={busy || !railTicked}
-                    onChange={(e) =>
-                      set({ typeIds: toggleId(draft.typeIds, t.lesson_type_id, e.target.checked) })
-                    }
-                  />
-                  <bdi>{pickName(locale, t)}</bdi>
-                  <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-                    {tr(`ws.coaching.common.kindShort.${t.kind}`)}
-                  </span>
-                </label>
-              ))}
-            </div>
-          )}
-        </fieldset>
-        <MessagePresenter tone="info" message={tr(`${P}.acceptNote`)} />
-        {tried && problems.length > 0 && (
-          <ul
-            role="alert"
-            style={{
-              margin: 0,
-              paddingInlineStart: 'var(--tp-sp-4)',
-              color: 'var(--tp-danger-fg)',
-              fontSize: 'var(--tp-fs-sm)',
-            }}
-          >
-            {problems.map((p) => (
-              <li key={p}>{problemLine(p)}</li>
-            ))}
-          </ul>
-        )}
-        <ErrorText
-          error={error}
-          message={error ? coachingErrorText(error, tr, {}, { scope: 'admin' }) : null}
+                        : { venueIds: toggleId(draft.venueIds, v.id, on) },
+                    ),
+                }))}
+                hint={otherBranches ? tr(`${P}.otherBranches`) : undefined}
+              />
+              <WizardChecks
+                label={tr(`${P}.types`)}
+                optional
+                items={data.lesson_types.map((t) => ({
+                  key: t.lesson_type_id,
+                  label: <bdi>{pickName(locale, t)}</bdi>,
+                  tag: tr(`ws.coaching.common.kindShort.${t.kind}`),
+                  checked: draft.typeIds.includes(t.lesson_type_id),
+                  disabled: busy || !railTicked,
+                  testId: `promote-coach.type.${t.lesson_type_id}`,
+                  onChange: (on: boolean) => set({ typeIds: toggleId(draft.typeIds, t.lesson_type_id, on) }),
+                }))}
+                hint={
+                  data.lesson_types.length === 0
+                    ? tr(`${P}.noTypes`)
+                    : !railTicked
+                      ? tr(`${P}.typesNeedBranch`)
+                      : undefined
+                }
+              />
+              <WizardNote>{tr(`${P}.acceptNote`)}</WizardNote>
+            </>
+          ),
+        },
+      ]}
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={busy}
+          rows={[
+            { label: tr(`${P}.reviewAccount`), value: draft.customer ? <bdi>{draft.customer.name}</bdi> : '—', step: 'account' },
+            {
+              label: tr(`${P}.reviewShownAs`),
+              value: <bdi>{[draft.nameEn.trim(), draft.nameAr.trim()].filter(Boolean).join(' · ')}</bdi>,
+              step: 'profile',
+            },
+            { label: tr(`${P}.branches`), value: list(pickedBranches.map((v) => pickName(locale, v))), step: 'teaching' },
+            { label: tr(`${P}.reviewTeaches`), value: list(pickedTypes.map((t) => pickName(locale, t))), step: 'teaching' },
+          ]}
         />
-        {existing && (
-          <div>
-            <Button size="sm" iconEnd="arrowUpRight" onClick={() => onOpenCoach(existing.coach_id)}>
-              {tr(`${P}.openExisting`, { name: coachName(existing, locale) })}
-            </Button>
-          </div>
-        )}
-        {lookup.isError && <ErrorText error={lookup.error} />}
-      </div>
-    </Modal>
+      )}
+    />
   );
 }

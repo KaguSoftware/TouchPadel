@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { wallTimeToUtc } from '@touch/core';
@@ -108,8 +108,14 @@ function open(over: Partial<StartMatchDialogProps> = {}) {
   return props;
 }
 
-const startButton = () => screen.getByRole('button', { name: 'Start match' }) as HTMLButtonElement;
+// The stepped flow (StepWizard): the menu's rows are `match.step.<key>`, the
+// submit is on Review. Moving forward stops at the first unfinished step and
+// lists what holds it.
+type User = ReturnType<typeof userEvent.setup>;
+const go = (user: User, key: 'organiser' | 'whoPlays' | 'when' | 'review') => user.click(screen.getByTestId(`match.step.${key}`));
+const startButton = () => screen.getByTestId('match.submit') as HTMLButtonElement;
 const startCalls = () => vi.mocked(appRpc).mock.calls.filter(([fn]) => fn === 'desk_start_match');
+const priceShown = () => screen.findByText('Court 40,000 IQD · each player pays 10,000 IQD');
 
 beforeEach(() => {
   price = 40000;
@@ -121,19 +127,45 @@ beforeEach(() => {
 });
 
 describe('StartMatchDialog', () => {
-  it('shows the court price and each player’s share, from the function the server stamps with', async () => {
+  it('walks Organiser, Who plays, Court & time, then Review', async () => {
+    const user = userEvent.setup();
     open();
-    expect(await screen.findByText(/^Court 40,000 IQD · each player pays 10,000 IQD at the desk\./)).toBeTruthy();
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Organiser' })).toBeTruthy();
+    await user.click(screen.getAllByRole('button', { name: 'Who plays' }).at(-1)!);
+    expect(screen.getByText('Step 2 of 3')).toBeTruthy();
+    await user.click(screen.getAllByRole('button', { name: 'Court & time' }).at(-1)!);
+    expect(screen.getByText('Step 3 of 3')).toBeTruthy();
+    await priceShown();
+    await go(user, 'review');
+    for (const label of ['Organiser', 'Category', 'Join', 'Found by', 'Court', 'Price']) expect(screen.getByRole('button', { name: `Change ${label}` })).toBeTruthy();
+    const review = within(document.querySelector('.tp-wiz-review') as HTMLElement);
+    expect(review.getByText('Sara Ahmed')).toBeTruthy();
+    expect(review.getByText('Open')).toBeTruthy();
+    expect(review.getByText('Anyone joins at once')).toBeTruthy();
+    expect(review.getByText('Listed at the branch')).toBeTruthy();
+    expect(review.getByText('40,000 IQD · 10,000 IQD each')).toBeTruthy();
+  });
+
+  it('shows the court price and each player’s share, from the function the server stamps with', async () => {
+    const user = userEvent.setup();
+    open();
+    await go(user, 'when');
+    expect(await priceShown()).toBeTruthy();
+    expect(screen.getByText('At the desk. Players who join in the app use one ticket each; desk players need none.')).toBeTruthy();
   });
 
   it('starts a typed walk-in’s match with the §1.7 arguments, then lands on it', async () => {
     const user = userEvent.setup();
     const props = open();
-    await screen.findByText(/^Court 40,000 IQD/);
-    await user.click(screen.getByRole('button', { name: 'Women' }));
-    expect(screen.getByText('Every player in this match is a woman.')).toBeTruthy();
     // "+1" is LTR-isolated, so the name carries the marks.
     await user.click(screen.getByRole('button', { name: /\+1/ }));
+    await go(user, 'whoPlays');
+    await user.click(screen.getByTestId('match.category.women'));
+    expect(screen.getByText('Every player is a woman.')).toBeTruthy();
+    await go(user, 'when');
+    await priceShown();
+    await go(user, 'review');
     await user.click(startButton());
     await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith({ to: '/desk/matches/$id', params: { id: 'm-new' } }));
     expect(appRpc).toHaveBeenCalledWith('desk_start_match', {
@@ -159,7 +191,9 @@ describe('StartMatchDialog', () => {
     const user = userEvent.setup();
     started = { match_id: 'm-new', price_iqd: 44000, shares_iqd: [11000, 11000, 11000, 11000] };
     open();
-    await screen.findByText(/^Court 40,000 IQD/);
+    await go(user, 'when');
+    await priceShown();
+    await go(user, 'review');
     await user.click(startButton());
     await waitFor(() => expect(toastOk).toHaveBeenCalledWith('Open match started. The court price is now 44,000 IQD; each player pays 11,000 IQD.'));
   });
@@ -168,7 +202,9 @@ describe('StartMatchDialog', () => {
     const user = userEvent.setup();
     started = new AppRpcError('UNKNOWN', 'TypeError: Failed to fetch');
     open();
-    await screen.findByText(/^Court 40,000 IQD/);
+    await go(user, 'when');
+    await priceShown();
+    await go(user, 'review');
     await user.click(startButton());
     await waitFor(() => expect(startCalls()).toHaveLength(1));
     started = { match_id: 'm-new', price_iqd: 40000, shares_iqd: [10000, 10000, 10000, 10000] };
@@ -178,74 +214,92 @@ describe('StartMatchDialog', () => {
     expect(keys[0]).toBe(keys[1]);
   });
 
-  it('too close to the start by the server’s clock: Start is disabled and says the earliest time (OM-43)', async () => {
+  it('too close to the start by the server’s clock: Court & time holds, and says the earliest time (OM-43)', async () => {
+    const user = userEvent.setup();
     open({ openMatches: envelope({ server_now: at(18 * 60).toISOString() }) });
-    await screen.findByText(/^Court 40,000 IQD/);
+    await go(user, 'when');
+    await priceShown();
+    await go(user, 'review');
     const reason = 'Too close to the start for an open match: the earliest is 9:00 PM. Book the court instead.';
-    expect(startButton().disabled).toBe(true);
-    expect(startButton().title).toBe(reason);
-    expect(screen.getByText(reason)).toBeTruthy();
+    expect(screen.getByText('Step 3 of 3')).toBeTruthy();
+    expect(screen.getAllByText(reason).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('match.submit')).toBeNull();
   });
 
   it('needs an organiser: a typed name or a linked customer', async () => {
+    const user = userEvent.setup();
     open({ guestName: '' });
-    await screen.findByText(/^Court 40,000 IQD/);
-    expect(startButton().disabled).toBe(true);
-    expect(startButton().title).toBe('A booking needs a guest name or a linked account.');
+    await go(user, 'review');
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
+    expect(screen.getByText('A booking needs a guest name or a linked account.')).toBeTruthy();
   });
 
   it("a typed organiser's phone follows the server's rule (7 to 15 digits), said on its box", async () => {
+    const user = userEvent.setup();
     open({ guestPhone: '0770 12' });
-    await screen.findByText(/^Court 40,000 IQD/);
-    expect(startButton().disabled).toBe(true);
-    expect(startButton().title).toBe('A phone number has 7 to 15 digits.');
     // Carried over from the booking dialog, so it is said on the box at once.
     expect(screen.getByText('A phone number has 7 to 15 digits.')).toBeTruthy();
     expect((screen.getByLabelText('Guest name') as HTMLInputElement).maxLength).toBe(80);
+    await go(user, 'review');
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
+    expect(screen.getAllByText('A phone number has 7 to 15 digits.')).toHaveLength(2);
   });
 
   it('INVALID_ARGUMENT p_guest_name from the server lands on the name box', async () => {
     const user = userEvent.setup();
     started = new AppRpcError('INVALID_ARGUMENT', 'INVALID_ARGUMENT', undefined, 'p_guest_name');
     open();
-    await screen.findByText(/^Court 40,000 IQD/);
+    await go(user, 'when');
+    await priceShown();
+    await go(user, 'review');
     await user.click(startButton());
     expect(await screen.findByText('A name can be at most 80 characters.')).toBeTruthy();
+    // Back on the Organiser step, where the box is.
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
     expect(screen.queryByText(/Invalid input/)).toBeNull();
   });
 
   it('asks to join only for a linked customer (someone with the app answers)', async () => {
+    const user = userEvent.setup();
     open();
+    await go(user, 'whoPlays');
     expect((screen.getByRole('button', { name: 'Players ask to join' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText('Only a customer with the app can approve players')).toBeTruthy();
+    expect(screen.getByText('Only a customer with the app can approve players.')).toBeTruthy();
   });
 
   it('a linked customer may ask players to join, and is sent alone', async () => {
     const user = userEvent.setup();
     open({ customer: { id: 'g1', name: 'Layla Hassan', phone: '07700000000', flags: [] }, guestName: '', guestPhone: '' });
-    await screen.findByText(/^Court 40,000 IQD/);
+    await go(user, 'whoPlays');
     await user.click(screen.getByRole('button', { name: 'Players ask to join' }));
     await user.click(screen.getByRole('button', { name: 'Only with the link' }));
+    await go(user, 'when');
+    await priceShown();
+    await go(user, 'review');
+    expect(screen.getByText('Players ask to join')).toBeTruthy();
+    expect(screen.getByText('Only with the link')).toBeTruthy();
     await user.click(startButton());
     await waitFor(() => expect(startCalls()).toHaveLength(1));
     expect(startCalls()[0]![1]).toMatchObject({ p_customer_id: 'g1', p_guest_name: null, p_guest_phone: null, p_join_policy: 'approve', p_visibility: 'link' });
   });
 
   it('a customer banned from open matches cannot organise one', async () => {
+    const user = userEvent.setup();
     open({ customer: { id: 'g1', name: 'Layla Hassan', phone: null, flags: [{ type: 'match_ban', label: 'conduct' }] } });
-    await screen.findByText(/^Court 40,000 IQD/);
-    expect(startButton().disabled).toBe(true);
-    expect(startButton().title).toBe('Banned from open matches');
+    await go(user, 'review');
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
+    expect(screen.getAllByText('Banned from open matches').length).toBeGreaterThan(1);
   });
 
-  it('a linked woman cannot organise a men’s match: Start is disabled, with her record to hand', async () => {
+  it('a linked woman cannot organise a men’s match: Who plays holds, with her record to hand', async () => {
     const user = userEvent.setup();
     open({ customer: { id: 'g1', name: 'Layla Hassan', phone: null, flags: [], gender: 'female' } });
-    await screen.findByText(/^Court 40,000 IQD/);
-    await user.click(screen.getByRole('button', { name: 'Men' }));
-    expect(startButton().disabled).toBe(true);
+    await go(user, 'whoPlays');
+    await user.click(screen.getByTestId('match.category.men'));
     expect(screen.getAllByText("This customer's declared gender doesn't fit this category.").length).toBeGreaterThan(0);
     expect(screen.getByText('Open their record')).toBeTruthy();
+    await go(user, 'review');
+    expect(screen.getByText('Step 2 of 3')).toBeTruthy();
   });
 
   it('MATCH_SLOT_FULL: lists the matches filling at that time, each with Add player', async () => {
@@ -255,7 +309,9 @@ describe('StartMatchDialog', () => {
       customer: { id: 'g1', name: 'Layla Hassan', phone: null, flags: [] },
       openMatches: envelope({ matches: [filling({ match_id: 'f1' }), filling({ match_id: 'later', start_at: at(22 * 60).toISOString(), end_at: at(23 * 60).toISOString() })] }),
     });
-    await screen.findByText(/^Court 40,000 IQD/);
+    await go(user, 'when');
+    await priceShown();
+    await go(user, 'review');
     await user.click(startButton());
     expect(await screen.findByText('These open matches are already filling at that time:')).toBeTruthy();
     const add = screen.getAllByRole('button', { name: /^Add player/ });
@@ -270,15 +326,18 @@ describe('StartMatchDialog', () => {
     started = new AppRpcError('MATCH_TOO_LATE', 'MATCH_TOO_LATE', undefined, '180');
     // No lead in the envelope: the mirror cannot block, the server does.
     open({ openMatches: envelope({ server_now: at(18 * 60).toISOString(), earliest_start_minutes: null }) });
-    await screen.findByText(/^Court 40,000 IQD/);
+    await go(user, 'when');
+    await priceShown();
+    await go(user, 'review');
     await user.click(startButton());
     expect(await screen.findByText('Too close to the start for an open match: the earliest is 9:00 PM. Book the court instead.')).toBeTruthy();
   });
 
   it('offline: Start stays on screen, disabled, with the reason (DF-11)', async () => {
+    const user = userEvent.setup();
     reachable = false;
     open();
-    await screen.findByText(/^Court 40,000 IQD/);
+    await go(user, 'review');
     expect(startButton().disabled).toBe(true);
     expect(startButton().title).toBe('Needs a connection: open matches work online only');
   });
@@ -286,7 +345,9 @@ describe('StartMatchDialog', () => {
   it('Arabic: right to left, Latin digits in the price line', async () => {
     window.localStorage.setItem('touch-operator-locale', 'ar');
     try {
+      const user = userEvent.setup();
       open();
+      await go(user, 'when');
       const line = await screen.findByTestId('start-price');
       await waitFor(() => expect(line.textContent).toMatch(/40,000/));
       expect(line.textContent).toMatch(/^الملعب /);

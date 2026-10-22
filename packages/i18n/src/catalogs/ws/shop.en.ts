@@ -68,6 +68,12 @@ export const shopEn = {
     saved: 'Section saved.',
     empty: 'No shop section yet',
     emptyBody: 'Make the first section, then add products to it.',
+    // The stepped New shop section (Sait, 2026-10-22).
+    newTitle: 'New shop section',
+    newLead: 'The sections the shop cashier is grouped by.',
+    stepName: 'Name',
+    name: 'Name',
+    pickTax: 'Choose a tax group.',
   },
   station: {
     mode: 'Touch Shop desk',

@@ -1506,6 +1506,94 @@ button.tp-nav-item { background: transparent; }
 .tp-tour-choices[data-cols='2'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 40rem) { .tp-tour-choices[data-cols='2'] { grid-template-columns: minmax(0, 1fr); } }
 .tp-tour-choice[aria-pressed='true'], .tp-tour-choice[aria-checked='true'] { border: 2px solid var(--tp-accent); background: var(--tp-accent-soft); padding: calc(var(--tp-sp-4) - 1px); }
+/* The stepped create dialogs (components/StepWizard.tsx) on the tournament
+   frame. The step's circle, its answer under the name, the unnumbered Review
+   row below a dashed divider with a solid ring (Sait, 2026-10-22). */
+.tp-wiz-n {
+  inline-size: 1.75rem; block-size: 1.75rem; flex-shrink: 0; border-radius: var(--tp-radius-pill); box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center; font-size: var(--tp-fs-xs); font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums; background: var(--tp-surface-3); color: var(--tp-muted-fg);
+}
+.tp-wiz-n[data-state='done'] { background: var(--tp-accent-2); color: var(--tp-accent-2-contrast); }
+.tp-wiz-n[data-state='now'] { background: var(--tp-accent-contrast); color: var(--tp-accent); }
+.tp-wiz-n[data-state='warn'] { background: var(--tp-danger); color: var(--tp-danger-contrast); }
+.tp-wiz-n[data-state='review'] { background: transparent; border: 2px solid var(--tp-border-strong); }
+[aria-current='step'] > .tp-wiz-n[data-state='review'] { background: var(--tp-accent-contrast); border-color: var(--tp-accent-contrast); color: var(--tp-accent); }
+.tp-wiz-label { flex: 1; min-inline-size: 0; display: grid; gap: 1px; padding-block: var(--tp-sp-1-5); }
+.tp-wiz-note { font-size: var(--tp-fs-xs); font-weight: 500; color: var(--tp-muted-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[aria-current='step'] .tp-wiz-note { color: var(--tp-accent-contrast); font-weight: 600; }
+.tp-wiz-sep { border: 0; border-block-start: 1px dashed var(--tp-border-strong); margin: var(--tp-sp-1-5) var(--tp-sp-3); }
+.tp-wiz-progress {
+  padding: var(--tp-sp-3); border-radius: var(--tp-radius-panel); background: var(--tp-surface); border: 1px solid var(--tp-border);
+  display: grid; gap: var(--tp-sp-1-5); font-size: var(--tp-fs-sm);
+}
+.tp-wiz-bar { block-size: 0.375rem; border-radius: var(--tp-radius-pill); background: var(--tp-surface-3); overflow: hidden; }
+.tp-wiz-bar > i { display: block; block-size: 100%; background: var(--tp-accent-2); transition: inline-size var(--tp-dur-base) var(--tp-ease-out); }
+.tp-btn.tp-wiz-go { background: var(--tp-accent-2); border-color: var(--tp-accent-2); color: var(--tp-accent-2-contrast); }
+.tp-btn.tp-wiz-go:hover:not(:disabled) { filter: brightness(0.95); }
+.tp-wiz-review { display: grid; margin: 0; border: 1px solid var(--tp-border); border-radius: var(--tp-radius-panel); overflow: hidden; }
+.tp-wiz-review > div {
+  display: grid; grid-template-columns: 9.5rem minmax(0, 1fr) auto; gap: var(--tp-sp-3); align-items: center;
+  padding: var(--tp-sp-3) var(--tp-sp-4); background: var(--tp-surface); border-block-start: 1px solid var(--tp-border);
+}
+.tp-wiz-review > div:first-child { border-block-start: 0; }
+.tp-wiz-review dt { color: var(--tp-muted-fg); font-size: var(--tp-fs-sm); font-weight: 600; }
+.tp-wiz-review dd { margin: 0; font-weight: 600; min-inline-size: 0; overflow-wrap: anywhere; }
+@media (max-width: 30rem) { .tp-wiz-review > div { grid-template-columns: minmax(0, 1fr) auto; } .tp-wiz-review dd { grid-column: 1; } }
+.tp-wiz-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: var(--tp-sp-3); }
+.tp-wiz-choices[data-small='true'] { grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr)); }
+.tp-wiz-choice { position: relative; row-gap: var(--tp-sp-2); }
+.tp-wiz-choice:disabled { opacity: var(--tp-opacity-disabled); cursor: not-allowed; }
+.tp-wiz-choice-title { font-size: var(--tp-fs-lg); line-height: 1.4rem; padding-inline-end: 1.8rem; }
+.tp-wiz-choice-body { font-size: var(--tp-fs-sm); color: var(--tp-muted-fg); line-height: 1.5; }
+.tp-wiz-choice[aria-pressed='true'] .tp-wiz-choice-body { color: inherit; opacity: 0.85; }
+.tp-wiz-tick {
+  position: absolute; inset-inline-end: calc(var(--tp-sp-4) - 1px); inset-block-start: calc(var(--tp-sp-4) - 1px);
+  inline-size: 1.4rem; block-size: 1.4rem; border-radius: var(--tp-radius-pill); display: grid; place-items: center;
+  background: var(--tp-accent-2); color: var(--tp-accent-2-contrast);
+}
+.tp-wiz-tag { justify-self: start; font-size: var(--tp-fs-xs); font-weight: 700; padding: 2px var(--tp-sp-2); border-radius: var(--tp-radius-pill); background: var(--tp-surface-3); color: var(--tp-fg); }
+.tp-wiz-chips { display: flex; flex-wrap: wrap; gap: var(--tp-sp-2); }
+.tp-wiz-chip {
+  min-block-size: 2.5rem; padding: 0 var(--tp-sp-3); border-radius: var(--tp-radius-pill); border: 1px solid var(--tp-border-strong);
+  background: var(--tp-surface); color: var(--tp-fg); font: inherit; font-weight: 600; cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.tp-wiz-chip:hover:not(:disabled) { border-color: var(--tp-accent); }
+.tp-wiz-chip[aria-pressed='true'] { background: var(--tp-accent); color: var(--tp-accent-contrast); border-color: var(--tp-accent); }
+.tp-wiz-chip:disabled { opacity: var(--tp-opacity-disabled); cursor: not-allowed; text-decoration: line-through; }
+.tp-wiz-price { padding: var(--tp-sp-3); border-radius: var(--tp-radius-panel); border: 1px solid var(--tp-border); background: var(--tp-surface-2); display: grid; gap: var(--tp-sp-1); }
+.tp-wiz-price > strong { font-size: var(--tp-fs-xl); font-variant-numeric: tabular-nums; }
+.tp-wiz-price > span { color: var(--tp-muted-fg); font-size: var(--tp-fs-sm); }
+/* Inside a wizard the chosen segment is Padel Green in both modes (the approved preview). */
+.tp-wiz .tp-seg { --tp-seg-on: var(--tp-accent-2); --tp-seg-on-fg: var(--tp-accent-2-contrast); }
+/* The optional mark as the approved preview writes it inside a wizard: small,
+   lower case, no brackets. Lower case does nothing to Arabic. */
+.tp-wiz .tp-field-opt { font-size: var(--tp-fs-xs); font-weight: 500; text-transform: lowercase; }
+.tp-wiz .tp-opt-paren { display: none; }
+/* A note on a step: a soft box, no icon (the approved preview). */
+.tp-wiz-msg { padding: var(--tp-sp-2-5) var(--tp-sp-3); border-radius: var(--tp-radius-panel); font-size: var(--tp-fs-sm); background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); }
+.tp-wiz-msg[data-tone='refused'] { background: var(--tp-warn-soft); color: var(--tp-warn-fg); }
+.tp-wiz-msg[data-tone='error'] { background: var(--tp-danger-soft); color: var(--tp-danger-fg); }
+.tp-wiz-msg[data-tone='success'] { background: var(--tp-success-soft); color: var(--tp-fg); }
+/* A switch in its own box, its name and hint beside it. */
+.tp-wiz-toggle { display: flex; align-items: flex-start; gap: var(--tp-sp-3); padding: var(--tp-sp-3); border: 1px solid var(--tp-border); border-radius: var(--tp-radius-panel); background: var(--tp-surface-2); }
+.tp-wiz-toggle > div { display: grid; gap: 2px; min-inline-size: 0; }
+.tp-wiz-toggle strong { font-size: var(--tp-fs-sm); }
+.tp-wiz-toggle span { font-size: var(--tp-fs-xs); color: var(--tp-muted-fg); }
+/* Ticks in bordered rows, a tag at the end of each. */
+.tp-wiz-checks { display: grid; gap: var(--tp-sp-2); border: 0; margin: 0; padding: 0; min-inline-size: 0; }
+.tp-wiz-checks > legend { display: flex; gap: var(--tp-sp-2); align-items: baseline; padding: 0; margin-block-end: var(--tp-sp-1-5); font-weight: 700; font-size: var(--tp-fs-sm); }
+.tp-wiz-opt { font-weight: 500; color: var(--tp-muted-fg); font-size: var(--tp-fs-xs); }
+.tp-wiz-check { display: flex; gap: var(--tp-sp-2-5); align-items: center; padding: var(--tp-sp-2-5) var(--tp-sp-3); border: 1px solid var(--tp-border); border-radius: var(--tp-radius-ctl); background: var(--tp-surface); cursor: pointer; }
+.tp-wiz-check:hover { border-color: var(--tp-accent); }
+.tp-wiz-check[data-disabled='true'] { opacity: var(--tp-opacity-disabled); cursor: not-allowed; }
+.tp-wiz-check > input { inline-size: 1.15rem; block-size: 1.15rem; accent-color: var(--tp-accent); margin: 0; flex-shrink: 0; }
+.tp-wiz-check-label { flex: 1; min-inline-size: 0; }
+.tp-wiz-hint { font-size: var(--tp-fs-xs); color: var(--tp-muted-fg); }
+@media (max-width: 46rem) {
+  .tp-tour-start-foot { flex-wrap: nowrap; padding-inline: var(--tp-sp-4); }
+  .tp-tour-start-foot > .tp-btn, .tp-tour-start-foot > * > .tp-btn { flex: 1 1 0; min-inline-size: 0; justify-content: center; }
+}
 /* The incident dialog's place, time and court cards: the picked one's blue
    outline at half strength (the tournament start keeps the full one). */
 .tp-incident-choice:hover:not(:disabled), .tp-incident-choice[aria-pressed='true'] {

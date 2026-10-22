@@ -18,27 +18,35 @@
  * Works with coaching switched off at the branch (the desk stages, R51).
  * Online only (CD-6); one key per draft (the customer, or the typed name and
  * phone), sent again on a retry of that same draft, a new one once it is
- * edited, all cleared after a success (OP-11). A failure with no answer
+ * edited, all cleared after a success (OP-11). A stepped wizard
+ * (components/StepWizard.tsx, Sait 2026-10-22): Who, then Review. A failure with no answer
  * re-reads the lessons and says the last attempt may have gone through; a
  * `duplicate` answer says the student was already added.
+ *
+ * Every element is the approved preview's (operator-wizards.html, `student`):
+ * "Add a student" for a session and a course alike, the lead "{lesson} ·
+ * {coach}", notes as WizardNote, Create customer · Find in the directory as
+ * links.
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { formatNumber, isolate, VENUE_TZ } from '@touch/i18n';
+import { courseLateJoinPrice } from '@touch/core';
+import { formatIQD, formatNumber, isolate, VENUE_TZ } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
-import { useLocale } from '../../lib/i18n';
+import { pickName, useLocale } from '../../lib/i18n';
 import { QK, fetchVenueSettings } from '../../lib/queries';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
-import { MessagePresenter } from '../../components/kit';
+import { ErrorText, Field, inputStyle } from '../../components/ui';
+import { ReviewList, StepWizard, WizardNote, type WizardAt, type WizardStep } from '../../components/StepWizard';
+import { PickerHint, WizardLinks } from '../desk/wizardParts';
 import { tradingDateOf } from '../desk/calendar/monthLogic';
 import { CustomerPicker, type PickedCustomer } from '../desk/customers/CustomerPicker';
 import { nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone } from '../desk/deskLogic';
 import type { CustomerRecord } from '../desk/deskTypes';
 import { nightWindow } from '../desk/useTradingNight';
-import { coachingErrorText, countOf, nowOf } from './lessonLogic';
+import { coachingErrorText, countOf, courseTitleOf, nowOf } from './lessonLogic';
 import { readAddedStudent, type LessonInfo } from './lessonPayloads';
 import {
   STUDENT_NAME_MAX,
@@ -81,6 +89,7 @@ export function AddStudentDialog({ lesson, customerId, onClose, onAdded }: AddSt
   const [phoneLeft, setPhoneLeft] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [at, setAt] = useState<WizardAt>(0);
 
   // A customer handed back from search or create arrives as an id: read the
   // record (the key the booking screen shares) and pick them once it lands.
@@ -175,6 +184,8 @@ export function AddStudentDialog({ lesson, customerId, onClose, onAdded }: AddSt
       onClose();
     } catch (e) {
       setError(e);
+      // A refused name or phone is said on its box: back to the Who step.
+      if (studentFieldOf(e)) setAt(0);
       if (mayHaveLanded(e)) {
         setMaybeLanded(true);
         invalidateLessonBooking(qc);
@@ -185,130 +196,153 @@ export function AddStudentDialog({ lesson, customerId, onClose, onAdded }: AddSt
   }
 
   const attach = { attach: 'lesson', lesson: lesson.id } as never;
+  const studentName = customer?.name ?? name.trim();
+  const typeName =
+    pickName(locale, { name_en: lesson.lesson_type?.name_en ?? '', name_ar: lesson.lesson_type?.name_ar ?? '' }) ||
+    tr(`ws.coaching.common.kind.${lesson.kind}`);
+  const coachName = lesson.coach ? pickName(locale, { name_en: lesson.coach.display_name_en, name_ar: lesson.coach.display_name_ar }) : '';
+  const lessonName = course ? courseTitleOf(course, typeName, locale) : typeName;
+  const lead = coachName ? tr('ws.coaching.lesson.title', { name: lessonName, coach: isolate(coachName) }) : lessonName;
+  // A course's late join pays its remaining sessions' shares (C-15, the server's courseLateJoinPrice twin).
+  const coursePays =
+    course && joins && lesson.price_iqd !== null && course.sessions_count !== null && course.sessions_count >= 1
+      ? courseLateJoinPrice(lesson.price_iqd, course.sessions_count, joins.sessionNo)
+      : null;
+  const pays = course
+    ? joins && coursePays !== null
+      ? tr('ws.coaching.add.wizard.paysSessions', { price: formatIQD(coursePays, locale), sessions: countOf('sessions', joins.sessions, locale) })
+      : '—'
+    : lesson.price_iqd !== null
+      ? tr('ws.coaching.add.wizard.paysPlace', { price: formatIQD(lesson.price_iqd, locale) })
+      : '—';
+  // What holds the Who step; offline is the submit's own reason.
+  const whoProblem = block === 'offline' ? null : (blocked ?? null);
+
+  const steps: WizardStep[] = [
+    {
+      key: 'who',
+      label: tr('ws.coaching.add.wizard.stepWho'),
+      note: studentName || null,
+      problems: whoProblem ? [whoProblem] : [],
+      flagged: serverField !== null,
+      content: (
+        <>
+          {stagingOff && <WizardNote>{tr('ws.coaching.common.stagingOff')}</WizardNote>}
+          {course && joins && (
+            <WizardNote>
+              {tr('ws.coaching.add.joinsFrom', {
+                n: formatNumber(joins.sessionNo, locale),
+                sessions: countOf('sessions', joins.sessions, locale),
+              })}
+            </WizardNote>
+          )}
+          <div>
+            <CustomerPicker
+              value={customer}
+              disabled={busy}
+              autoFocus={!customerId}
+              onQueryChange={(q) => {
+                if (!nameTouched) setName(nameFromQuery(q));
+                if (!phoneTouched) setPhone(phoneFromQuery(q));
+              }}
+              onChange={(next) => {
+                setCustomer(next);
+                setError(null);
+              }}
+            />
+            {customer === null && <PickerHint />}
+          </div>
+          {customer === null && (
+            <>
+              <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
+                <Field label={tr('ws.coaching.add.name')} error={nameError} style={{ marginBlockEnd: 0 }}>
+                  <input
+                    style={inputStyle}
+                    aria-required="true"
+                    value={name}
+                    disabled={busy}
+                    maxLength={STUDENT_NAME_MAX}
+                    onChange={(e) => {
+                      setNameTouched(true);
+                      setName(sanitizeName(e.target.value));
+                      if (serverField === 'name') setError(null);
+                    }}
+                  />
+                </Field>
+                <Field label={tr('ws.coaching.add.phone')} optional error={phoneError} style={{ marginBlockEnd: 0 }}>
+                  <input
+                    style={inputStyle}
+                    type="tel"
+                    dir="ltr"
+                    inputMode="tel"
+                    autoComplete="off"
+                    maxLength={30}
+                    value={phone}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setPhoneTouched(true);
+                      setPhone(sanitizePhone(e.target.value));
+                      if (serverField === 'phone') setError(null);
+                    }}
+                    onBlur={() => setPhoneLeft(true)}
+                  />
+                </Field>
+              </div>
+              <WizardNote>{tr('ws.coaching.add.typedHint')}</WizardNote>
+              <WizardLinks
+                disabled={busy}
+                links={[
+                  { label: tr('ws.coaching.add.createCustomer'), onClick: () => void navigate({ to: '/desk/customers/new', search: attach }) },
+                  { label: tr('ws.coaching.add.findInDirectory'), onClick: () => void navigate({ to: '/desk/customers', search: attach }) },
+                ]}
+              />
+            </>
+          )}
+        </>
+      ),
+    },
+  ];
 
   return (
-    <Modal
-      title={tr(course ? 'ws.coaching.add.titleCourse' : 'ws.coaching.add.title')}
-      dismissible={!busy}
+    <StepWizard
+      title={tr('ws.coaching.add.wizard.title')}
+      lead={<bdi>{lead}</bdi>}
+      steps={steps}
+      at={at}
+      onAtChange={setAt}
+      busy={busy}
+      submitBlocked={block === 'offline' ? tr('ws.coaching.offline.needsConnection') : null}
       onClose={onClose}
-      footer={(close) => (
-        <>
-          <Button onClick={close} disabled={busy}>
-            {tr('common.cancel')}
-          </Button>
-          <Button
-            kind="primary"
-            icon="userPlus"
-            busy={busy}
-            disabled={blocked !== undefined}
-            disabledReason={blocked}
-            onClick={() => void add()}
-          >
-            {tr('ws.coaching.add.submit')}
-          </Button>
-        </>
-      )}
-    >
-      {stagingOff && (
-        <MessagePresenter
-          tone="info"
-          message={tr('ws.coaching.common.stagingOff')}
-          style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
+      submitLabel={tr('ws.coaching.add.submit')}
+      onSubmit={() => void add()}
+      testId="student"
+      notice={
+        (error && !serverField) || maybeLanded ? (
+          <>
+            <ErrorText
+              error={serverField ? null : error}
+              message={
+                error && !serverField ? coachingErrorText(error, tr, {}, { scope: 'lesson' }) : null
+              }
+            />
+            {maybeLanded && <WizardNote>{tr('ws.coaching.add.maybeLanded')}</WizardNote>}
+          </>
+        ) : undefined
+      }
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={busy}
+          rows={[
+            { label: tr('ws.coaching.add.wizard.reviewStudent'), value: <bdi>{studentName || '—'}</bdi>, step: 'who' },
+            {
+              label: tr(course ? 'ws.coaching.add.wizard.reviewCourse' : 'ws.coaching.add.wizard.reviewSession'),
+              value: <bdi>{lead}</bdi>,
+            },
+            { label: tr('ws.coaching.add.wizard.reviewPays'), value: pays },
+          ]}
         />
       )}
-      {course && joins && (
-        <p style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
-          {tr('ws.coaching.add.joinsFrom', {
-            n: formatNumber(joins.sessionNo, locale),
-            sessions: countOf('sessions', joins.sessions, locale),
-          })}
-        </p>
-      )}
-      <CustomerPicker
-        value={customer}
-        disabled={busy}
-        autoFocus={!customerId}
-        onQueryChange={(q) => {
-          if (!nameTouched) setName(nameFromQuery(q));
-          if (!phoneTouched) setPhone(phoneFromQuery(q));
-        }}
-        onChange={(next) => {
-          setCustomer(next);
-          setError(null);
-        }}
-      />
-      {customer === null && (
-        <>
-          <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
-            <Field label={tr('ws.coaching.add.name')} required error={nameError}>
-              <input
-                style={inputStyle}
-                value={name}
-                disabled={busy}
-                maxLength={STUDENT_NAME_MAX}
-                onChange={(e) => {
-                  setNameTouched(true);
-                  setName(sanitizeName(e.target.value));
-                  if (serverField === 'name') setError(null);
-                }}
-              />
-            </Field>
-            <Field label={tr('ws.coaching.add.phone')} optional error={phoneError}>
-              <input
-                style={inputStyle}
-                dir="ltr"
-                inputMode="tel"
-                autoComplete="off"
-                maxLength={30}
-                value={phone}
-                disabled={busy}
-                onChange={(e) => {
-                  setPhoneTouched(true);
-                  setPhone(sanitizePhone(e.target.value));
-                  if (serverField === 'phone') setError(null);
-                }}
-                onBlur={() => setPhoneLeft(true)}
-              />
-            </Field>
-          </div>
-          <p
-            style={{
-              marginBlockEnd: 'var(--tp-sp-2)',
-              fontSize: 'var(--tp-fs-sm)',
-              color: 'var(--tp-muted-fg)',
-            }}
-          >
-            {tr('ws.coaching.add.typedHint')}
-          </p>
-          <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-            <Button
-              size="sm"
-              kind="ghost"
-              icon="userPlus"
-              disabled={busy}
-              onClick={() => void navigate({ to: '/desk/customers/new', search: attach })}
-            >
-              {tr('ws.coaching.add.createCustomer')}
-            </Button>
-            <Button
-              size="sm"
-              kind="ghost"
-              icon="search"
-              disabled={busy}
-              onClick={() => void navigate({ to: '/desk/customers', search: attach })}
-            >
-              {tr('ws.coaching.add.findInDirectory')}
-            </Button>
-          </div>
-        </>
-      )}
-      <ErrorText
-        error={serverField ? null : error}
-        message={
-          error && !serverField ? coachingErrorText(error, tr, {}, { scope: 'lesson' }) : null
-        }
-      />
-      {maybeLanded && <MessagePresenter tone="info" message={tr('ws.coaching.add.maybeLanded')} />}
-    </Modal>
+    />
   );
 }

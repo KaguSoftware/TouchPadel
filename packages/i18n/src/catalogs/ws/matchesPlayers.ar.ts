@@ -242,6 +242,17 @@ export const matchesPlayersAr: DeepMessages<typeof matchesPlayersEn> = {
     addedF: 'أُضيفت {name}.',
     fourBooked: 'اكتمل العدد: حُجز {court}.',
     fourWaiting: 'اكتمل العدد: بانتظار ملعب.',
+    wizard: {
+      title: 'إضافة لاعب',
+      stepWho: 'مَن',
+      lead: 'مباراة مفتوحة · {court} · {time}',
+      leadNoCourt: 'مباراة مفتوحة · {time}',
+      reviewPlayer: 'اللاعب',
+      reviewSeat: 'المقعد',
+      reviewOwes: 'المستحق',
+      seatOf: '{n} من {total}',
+      owesAtDesk: '{share} تُدفع في الاستقبال',
+    },
   },
   remove: {
     action: 'إزالة {name}',

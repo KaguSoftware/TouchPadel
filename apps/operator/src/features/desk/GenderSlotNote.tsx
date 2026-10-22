@@ -11,7 +11,7 @@ import { useMemo, useState } from 'react';
 import { genderVerdict, keptFor, slotGenderRules, type Gender } from '@touch/core';
 import { useLocale } from '../../lib/i18n';
 import { Button } from '../../components/ui';
-import { MessagePresenter } from '../../components/kit';
+import { WizardNote } from '../../components/StepWizard';
 import { GenderDialog } from './customers/GenderDialog';
 import { useGenderRules } from './GenderBands';
 import type { PickedCustomer } from './customers/CustomerPicker';
@@ -61,8 +61,10 @@ export function GenderSlotNote({
   let body;
   if (verdict === 'gender_required' && customer) {
     body = (
-      <div data-testid="gender-slot-note" style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap', marginBlockEnd: '0.85rem' }}>
-        <MessagePresenter tone="refused" icon="alert" message={`${plain} ${tr('ws.genderHours.booking.needsGender')}`} style={{ flex: '1 1 18rem' }} />
+      <div data-testid="gender-slot-note" style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 18rem' }}>
+          <WizardNote tone="refused">{`${plain} ${tr('ws.genderHours.booking.needsGender')}`}</WizardNote>
+        </div>
         <Button size="sm" icon="user" disabled={disabled} onClick={() => setAsking(true)}>
           {tr('ws.genderHours.booking.setGender')}
         </Button>
@@ -70,19 +72,14 @@ export function GenderSlotNote({
     );
   } else if (verdict === 'restricted' && one !== 'both') {
     body = (
-      <MessagePresenter
-        tone="refused"
-        icon="alert"
-        message={tr(one === 'female' ? 'ws.genderHours.booking.notWomen' : 'ws.genderHours.booking.notMen')}
-        style={{ marginBlockEnd: '0.85rem' }}
-      />
+      <WizardNote tone="refused">{tr(one === 'female' ? 'ws.genderHours.booking.notWomen' : 'ws.genderHours.booking.notMen')}</WizardNote>
     );
   } else {
     // Quiet: the kept time is information until it decides something.
     body = (
-      <p data-testid="gender-slot-note" style={{ margin: 0, marginBlockEnd: '0.85rem', fontSize: 'var(--tp-fs-sm)', color: one === 'both' ? 'var(--tp-warn-fg)' : 'var(--tp-muted-fg)' }}>
+      <WizardNote tone={one === 'both' ? 'refused' : 'info'} testId="gender-slot-note">
         {plain}
-      </p>
+      </WizardNote>
     );
   }
 

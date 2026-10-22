@@ -240,8 +240,8 @@ export const matchesPlayersEn = {
   add: {
     title: 'Add player',
     titleBooked: 'Add a player in a free seat',
-    oweShare: "They owe the seat's share of {share}.",
-    oweShareF: "They owe the seat's share of {share}.",
+    oweShare: 'They owe the seat’s share of {share}.',
+    oweShareF: 'They owe the seat’s share of {share}.',
     createCustomer: 'Create customer',
     banned: 'Banned from open matches',
     // A linked customer whose declared gender is not the match's category.
@@ -256,6 +256,19 @@ export const matchesPlayersEn = {
     addedF: '{name} is in.',
     fourBooked: 'Four in: booked on {court}.',
     fourWaiting: 'Four in: waiting for a court.',
+    // The stepped Add player (AddSeatDialog, StepWizard).
+    wizard: {
+      title: 'Add a player',
+      stepWho: 'Who',
+      // "Open match · Court 2 · 20:00"; before a court is booked, "Open match · 20:00".
+      lead: 'Open match · {court} · {time}',
+      leadNoCourt: 'Open match · {time}',
+      reviewPlayer: 'Player',
+      reviewSeat: 'Seat',
+      reviewOwes: 'Owes',
+      seatOf: '{n} of {total}',
+      owesAtDesk: '{share} at the desk',
+    },
   },
   // Remove a seat (§5.13.8); the reason form is ReasonCodePrompt's.
   remove: {

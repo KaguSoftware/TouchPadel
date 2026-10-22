@@ -208,15 +208,18 @@ describe('CoachesAdmin ▸ Coaches', () => {
     const dialog = within(await screen.findByRole('dialog', { name: 'Make a coach' }));
     // The record's customer, read and picked.
     expect(await dialog.findByText(/Ali Hasan/)).toBeTruthy();
+    await user.click(dialog.getByTestId('promote-coach.step.profile'));
     await user.type(dialog.getByRole('textbox', { name: 'Display name (English)' }), 'Coach Ali');
     await user.type(dialog.getByRole('textbox', { name: 'Display name (Arabic)' }), 'المدرّب علي');
     await user.click(dialog.getByRole('button', { name: 'Photo' }));
+    await user.click(dialog.getByTestId('promote-coach.step.teaching'));
     await user.click(dialog.getByRole('checkbox', { name: /Private 60/ }));
     // The rail's branch comes ticked.
     expect((dialog.getByRole('checkbox', { name: 'Karrada' }) as HTMLInputElement).checked).toBe(
       true,
     );
-    await user.click(dialog.getByRole('button', { name: 'Make coach' }));
+    await user.click(dialog.getByTestId('promote-coach.step.review'));
+    await user.click(dialog.getByTestId('promote-coach.submit'));
 
     await waitFor(() => expect(calls('coach_promote')).toHaveLength(1));
     const args = calls('coach_promote')[0]![1] as Record<string, unknown>;
@@ -281,10 +284,13 @@ describe('CoachesAdmin ▸ Coaches', () => {
     mount();
     const dialog = within(await screen.findByRole('dialog', { name: 'Make a coach' }));
     await dialog.findByText(/Ali Hasan/);
+    await user.click(dialog.getByTestId('promote-coach.step.profile'));
     await user.type(dialog.getByRole('textbox', { name: 'Display name (English)' }), 'Coach Ali');
     await user.type(dialog.getByRole('textbox', { name: 'Display name (Arabic)' }), 'علي');
+    await user.click(dialog.getByTestId('promote-coach.step.teaching'));
     await user.click(dialog.getByRole('checkbox', { name: /Private 60/ }));
-    await user.click(dialog.getByRole('button', { name: 'Make coach' }));
+    await user.click(dialog.getByTestId('promote-coach.step.review'));
+    await user.click(dialog.getByTestId('promote-coach.submit'));
     const editor = within(await screen.findByTestId('coach-editor'));
     expect(
       plain((await editor.findByText(/is a coach now, but their lesson types/)).textContent),
@@ -304,9 +310,12 @@ describe('CoachesAdmin ▸ Coaches', () => {
     mount();
     await user.click(await screen.findByRole('button', { name: 'Make a coach' }));
     const dialog = within(await screen.findByRole('dialog', { name: 'Make a coach' }));
-    await user.click(dialog.getByRole('button', { name: 'Make coach' }));
+    // Each step holds until it is filled, and says why.
+    await user.click(dialog.getByTestId('promote-coach.step.review'));
+    expect(dialog.getByText('Step 1 of 3')).toBeTruthy();
     expect(dialog.getByText('Pick a guest account first.')).toBeTruthy();
-    expect(dialog.getByText('Both display names are needed.')).toBeTruthy();
+    await user.click(dialog.getByTestId('promote-coach.step.profile'));
+    expect(dialog.getByText('Step 1 of 3')).toBeTruthy();
     expect(calls('coach_promote')).toHaveLength(0);
   });
 
@@ -320,8 +329,10 @@ describe('CoachesAdmin ▸ Coaches', () => {
     mount();
     const dialog = within(await screen.findByRole('dialog', { name: 'Make a coach' }));
     await dialog.findByText(/Ali Hasan/);
+    await user.click(dialog.getByTestId('promote-coach.step.profile'));
     await user.type(dialog.getByRole('textbox', { name: 'Display name (English)' }), 'Coach Ali');
     await user.type(dialog.getByRole('textbox', { name: 'Display name (Arabic)' }), 'علي');
+    await user.click(dialog.getByTestId('promote-coach.step.teaching'));
     const privateType = dialog.getByRole('checkbox', { name: /Private 60/ }) as HTMLInputElement;
     await user.click(privateType);
     expect(privateType.checked).toBe(true);
@@ -330,7 +341,8 @@ describe('CoachesAdmin ▸ Coaches', () => {
     // This branch's types apply only while it is ticked: cleared and disabled.
     expect(privateType.checked).toBe(false);
     expect(privateType.disabled).toBe(true);
-    await user.click(dialog.getByRole('button', { name: 'Make coach' }));
+    await user.click(dialog.getByTestId('promote-coach.step.review'));
+    await user.click(dialog.getByTestId('promote-coach.submit'));
     await waitFor(() => expect(calls('coach_promote')).toHaveLength(1));
     expect(calls('coach_promote')[0]![1]).toMatchObject({ p_venue_ids: ['v2'] });
     await waitFor(() => expect(toast.ok).toHaveBeenCalled());
@@ -349,9 +361,11 @@ describe('CoachesAdmin ▸ Coaches', () => {
     mount();
     const dialog = within(await screen.findByRole('dialog', { name: 'Make a coach' }));
     await dialog.findByText(/Sara Karim/);
+    await user.click(dialog.getByTestId('promote-coach.step.profile'));
     await user.type(dialog.getByRole('textbox', { name: 'Display name (English)' }), 'Coach Sara');
     await user.type(dialog.getByRole('textbox', { name: 'Display name (Arabic)' }), 'سارة');
-    await user.click(dialog.getByRole('button', { name: 'Make coach' }));
+    await user.click(dialog.getByTestId('promote-coach.step.review'));
+    await user.click(dialog.getByTestId('promote-coach.submit'));
     await user.click(await dialog.findByRole('button', { name: 'Open Coach Sara' }));
     expect(nav.navigate).toHaveBeenLastCalledWith({
       to: '/admin/coaches',

@@ -108,8 +108,11 @@ test.describe('operator journeys', () => {
     await page.getByTitle('Free').nth(6).click();
     const dialog = page.getByRole('dialog', { name: 'New booking' });
     await expect(dialog).toBeVisible();
+    // A stepped wizard: the guest is on Who, Create booking on Review.
+    await dialog.getByTestId('booking.step.who').click();
     await dialog.getByLabel('Guest name').fill(WALKIN_NAME);
-    await dialog.getByRole('button', { name: 'Create booking' }).click();
+    await dialog.getByTestId('booking.step.review').click();
+    await dialog.getByTestId('booking.submit').click();
     await expect(dialog).toBeHidden();
 
     // Booking appears on the grid.
@@ -270,12 +273,15 @@ test.describe('operator journeys', () => {
       await expect(page.getByTitle('Free').first()).toBeVisible();
       await page.getByTitle('Free').nth(8).click();
       const dialog = page.getByRole('dialog', { name: 'New booking' });
+      await dialog.getByTestId('booking.step.who').click();
       await dialog.getByLabel('Guest name').fill(name);
+      await dialog.getByTestId('booking.step.when').click();
       // 120 minutes, so shortening (a whole hour since 2026-10-19: bookings
       // start and end on the hour) lands on 60, a duration the fixture rate
       // rules actually price.
       await choose(dialog.getByLabel('Duration'), '120');
-      await dialog.getByRole('button', { name: 'Create booking' }).click();
+      await dialog.getByTestId('booking.step.review').click();
+      await dialog.getByTestId('booking.submit').click();
       await expect(dialog).toBeHidden();
 
       const { data: made } = await svc
