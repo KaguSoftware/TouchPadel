@@ -404,6 +404,7 @@ function StepScreen() {
     if (!can.decide_submission_id) return;
     const data = approveNeedsCategory && answer.decision === 'approve' ? { category_id: chosenCategory } : {};
     const found = validateDecision(run.kind, key, {
+      byOwner: role === 'owner',
       decision: answer.decision,
       note: answer.note,
       sendBackTo: answer.sendBackTo,
@@ -467,6 +468,7 @@ function StepScreen() {
               busy={decide.isPending}
               error={decisionError}
               issues={decisionIssues}
+              reasonOptional={role === 'owner'}
               onDecide={onDecide}
               approveExtra={
                 approveNeedsCategory ? (

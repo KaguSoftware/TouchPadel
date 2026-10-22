@@ -186,7 +186,7 @@ describe('the head’s draft', () => {
 
 describe('the owner’s decision', () => {
   it('needs a reason to decline and a waiting, current recipe to approve', () => {
-    expect(declineIssue(' ')).toBe('required');
+    expect(declineIssue(' ')).toBeNull();
     expect(declineIssue('x'.repeat(1001))).toBe('tooLong');
     expect(declineIssue('Too sweet')).toBeNull();
     expect(canApprove({ status: 'waiting', stale: false })).toBe(true);

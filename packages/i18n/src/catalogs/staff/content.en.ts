@@ -106,10 +106,11 @@ export const staffContentEn = {
   decide: {
     title: 'Your decision',
     approveHint: 'Approved is final.',
-    changesHint: 'Say what should change. Marketing sends a new version.',
-    declineHint: 'Declined is final. Say why.',
+    changesHint: 'Marketing sends a new version. Say what should change if you like.',
+    declineHint: 'Declined is final.',
     note: 'Note · Optional',
     reason: 'Why',
+    reasonOptional: 'Why · Optional',
     confirmApprove: 'Approve version {version}',
     confirmChanges: 'Ask for changes',
     confirmDecline: 'Decline it',

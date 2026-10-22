@@ -46,6 +46,7 @@ import {
   levelKey,
   parseInsights,
   shareWord,
+  trendSize,
   trendTone,
   type BucketShare,
   type Count,
@@ -75,6 +76,20 @@ function useWords(f: Formatters) {
   const { tr, locale } = useLocale();
   return useMemo(() => {
     const unknown = tr('ws.insights.unknown');
+    const sized = (t: Trend, kind: 'trend' | 'trendLine') => {
+      const size = trendSize(t);
+      if (!size || t.dir === 'unknown') return tr(`ws.insights.${kind}.${t.dir}`);
+      const text =
+        size.kind === 'times'
+          ? tr('ws.insights.size.times', { n: f.num(size.n) })
+          : size.kind === 'pts'
+            ? tr('ws.insights.size.pts', { n: t.dir === 'steady' ? f.num(t.size ?? 0) : f.num(size.n) })
+            : t.dir === 'steady'
+              ? f.signedPct(t.size ?? 0)
+              : f.pct(size.n);
+      const signed = size.kind === 'pts' && t.dir === 'steady' && (t.size ?? 0) > 0 ? `+${text}` : text;
+      return tr(`ws.insights.${kind}Sized.${t.dir}`, { size: signed });
+    };
     return {
       tr,
       locale,
@@ -83,11 +98,22 @@ function useWords(f: Formatters) {
         const k = levelKey(l);
         return k ? tr(`ws.insights.levels.${k}`) : unknown;
       },
-      trend: (t: Trend) => tr(`ws.insights.trend.${t}`),
-      trendLine: (t: Trend) => tr(`ws.insights.trendLine.${t}`),
+      /** "Up 18%", "Down 6 pts", "Steady (+3%)": the word, and how far (0365). */
+      trend: (t: Trend) => sized(t, 'trend'),
+      /** "Up 18% on the comparison". */
+      trendLine: (t: Trend) => sized(t, 'trendLine'),
+      /** "Busy (68%)": the level, and the fill as a percent (0365). */
+      levelPct: (l: Level | null, pct: number | null) => {
+        const k = levelKey(l);
+        if (!k) return unknown;
+        return pct === null ? tr(`ws.insights.levels.${k}`) : tr('ws.insights.levelPct', { level: tr(`ws.insights.levels.${k}`), pct: f.pct(pct) });
+      },
       count: (c: Count) =>
         c === null ? unknown : c.kind === 'about' ? tr('ws.insights.count.about', { n: formatNumber(c.value, locale) }) : tr(`ws.insights.count.${c.kind}`),
-      share: (s: number | null) => {
+      /** A share as its percent (0365, Majed: "how much this, how much that"). */
+      share: (s: number | null) => (s === null ? unknown : f.pct(s)),
+      /** The same share as plain words, beside its percent in the share bars' legend. */
+      shareWords: (s: number | null) => {
         const w = shareWord(s);
         return w ? tr(`ws.insights.share.${w}`) : unknown;
       },
@@ -189,7 +215,7 @@ export function InsightsPageScreen() {
 
 function glanceLead(d: Insights, w: Words): string {
   return w.tr('ws.insights.leads.glance', {
-    level: inner(w.level(d.demand.level), w.locale),
+    level: inner(w.levelPct(d.demand.level, d.demand.levelPct), w.locale),
     players: inner(w.count(d.players.active), w.locale),
     crossover: inner(w.share(d.cafe.crossoverShare), w.locale),
   });
@@ -234,7 +260,7 @@ function cafeLead(d: Insights, w: Words): string {
 
 function eventsLead(d: Insights, w: Words): string {
   if (!d.events.held) return w.tr('ws.insights.leads.eventsNone');
-  return w.tr('ws.insights.leads.events', { fill: inner(w.level(d.events.fillLevel), w.locale), returning: inner(w.share(d.events.returningShare), w.locale) });
+  return w.tr('ws.insights.leads.events', { fill: inner(w.levelPct(d.events.fillLevel, d.events.fillPct), w.locale), returning: inner(w.share(d.events.returningShare), w.locale) });
 }
 
 function mixLead(d: Insights, w: Words): string {
@@ -266,8 +292,8 @@ function TrendBadge({ t, w, upIsBad }: { t: Trend; w: Words; upIsBad?: boolean }
     <StatusBadge
       size="sm"
       tone={tone}
-      icon={t === 'up' ? 'trendUp' : t === 'down' ? 'trendDown' : undefined}
-      dot={t !== 'up' && t !== 'down'}
+      icon={t.dir === 'up' ? 'trendUp' : t.dir === 'down' ? 'trendDown' : undefined}
+      dot={t.dir !== 'up' && t.dir !== 'down'}
       label={w.trendLine(t)}
     />
   );
@@ -283,7 +309,7 @@ function GlanceRow({ d, w, common }: Omit<SectionProps, 'f'>) {
         state={s}
         refreshing={common.refreshing}
         items={[
-          { label: tr('ws.insights.cards.howFull'), value: d ? w.level(d.demand.level) : '', sub: d ? w.trendLine(d.demand.levelTrend) : undefined },
+          { label: tr('ws.insights.cards.howFull'), value: d ? w.levelPct(d.demand.level, d.demand.levelPct) : '', sub: d ? w.trendLine(d.demand.levelTrend) : undefined },
           { label: tr('ws.insights.cards.bookings'), value: d ? w.trend(d.demand.bookingsTrend) : '' },
         ]}
       />
@@ -350,7 +376,7 @@ function ShareCard({ title, rows, w, f, common, tip }: { title: string; rows: re
   const empty = common.state === 'ready' && rows.every((r) => r.share === null || r.share === 0);
   return (
     <CardShell title={title} tip={tip} {...common} state={empty ? 'empty' : common.state} emptyKey="ws.insights.unknown" skeletonLines={2}>
-      <ShareBars segments={rows.map((r) => ({ key: r.key, label: r.label, value: r.share ?? 0 }))} format={(n) => w.share(n)} pct={(n) => f.pct(n)} />
+      <ShareBars segments={rows.map((r) => ({ key: r.key, label: r.label, value: r.share ?? 0 }))} format={(n) => w.shareWords(n)} pct={(n) => f.pct(n)} />
     </CardShell>
   );
 }
@@ -530,7 +556,7 @@ function EventsSection({ d, w, f, common }: SectionProps) {
         note={e ? (next ? tr('ws.insights.cards.nextTournament', { name: w.name(next), date: f.date(next.startDate) }) : tr('ws.insights.cards.noNext')) : undefined}
         items={[
           { label: tr('ws.insights.cards.held'), value: e ? w.count(e.tournaments) : '' },
-          { label: tr('ws.insights.cards.fill'), value: e ? (e.held ? w.level(e.fillLevel) : w.unknown) : '' },
+          { label: tr('ws.insights.cards.fill'), value: e ? (e.held ? w.levelPct(e.fillLevel, e.fillPct) : w.unknown) : '' },
           { label: tr('ws.insights.cards.returningPlayers'), value: e ? w.share(e.returningShare) : '' },
         ]}
       />

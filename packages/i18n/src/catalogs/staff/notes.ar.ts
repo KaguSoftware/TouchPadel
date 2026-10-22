@@ -4,7 +4,7 @@ import type { staffNotesEn } from './notes.en';
 export const staffNotesAr: DeepMessages<typeof staffNotesEn> = {
   title: 'ملاحظات على الأصناف الجديدة',
   lead: 'خلال 30 يومًا من إطلاق صنف جديد، دوّن ما يقوله الزبائن والفريق عنه. تُضاف الملاحظات إلى مراجعة اليوم الثلاثين.',
-  empty: 'لا يوجد صنف جديد في أيامه الثلاثين الأولى الآن.',
+  empty: 'لا يوجد الآن صنف أُطلق خلال آخر 30 يومًا.',
   pick: 'أي صنف؟',
   daysLeft: 'الأيام المتبقية: {days}',
   lastDay: 'آخر يوم للملاحظات',

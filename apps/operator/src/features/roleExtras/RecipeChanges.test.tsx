@@ -7,7 +7,7 @@ import type { StaffRole } from '../../lib/auth';
 
 // The Recipe changes card on /protocols (#71): management sees the recipe as it
 // is and as asked, with quantities; the owner approves or declines with a
-// reason, the manager only reads, and a request made stale cannot be approved.
+// reason or none, the manager only reads, and a request made stale cannot be approved.
 
 let role: StaffRole = 'owner';
 vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
@@ -91,13 +91,21 @@ describe('RecipeChangesCard', () => {
     expect(within(shot).getByText('3 pcs')).toBeTruthy();
   });
 
-  it('asks the owner for a reason before a decline', async () => {
+  it('lets the owner decline with no reason (0361)', async () => {
+    renderCard('owner');
+    await userEvent.click(await screen.findByTestId('recipe-change-rc1'));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Decline' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Decline the request' }));
+    expect(calls.find((c) => c.fn === 'decide_recipe_change')?.args).toEqual({ p_id: 'rc1', p_approve: false, p_reason: null });
+  });
+
+  it('sends the owner’s reason when one is given', async () => {
     renderCard('owner');
     await userEvent.click(await screen.findByTestId('recipe-change-rc1'));
     const dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Decline' }));
     const confirm = within(dialog).getByRole('button', { name: 'Decline the request' });
-    expect((confirm as HTMLButtonElement).disabled).toBe(true);
     await userEvent.type(within(dialog).getByRole('textbox'), 'Too sweet already');
     await userEvent.click(confirm);
     expect(calls.find((c) => c.fn === 'decide_recipe_change')?.args).toEqual({ p_id: 'rc1', p_approve: false, p_reason: 'Too sweet already' });

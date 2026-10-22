@@ -6,7 +6,8 @@
  *
  * Choosing an answer opens its panel: Send back asks where the work goes back
  * to (the sent step itself, or an earlier finished one, from
- * `Can.send_back_targets`) and why; Stop asks why; Approve takes an optional
+ * `Can.send_back_targets`) and why; Stop asks why (both optional for the
+ * owner, `reasonOptional`, 0361); Approve takes an optional
  * note and whatever the step's approval needs (`approveExtra`, the menu
  * category of a new item's proposal). Confirm hands the answer to the screen,
  * which validates it (`validateDecision`) and passes back `issues`.
@@ -48,6 +49,8 @@ export interface DecisionBarProps {
   issues?: readonly FieldIssue[];
   /** What an approval of this step asks for, drawn inside the Approve panel. */
   approveExtra?: ReactNode;
+  /** The owner decides: Send back and Stop need no reason (0361). */
+  reasonOptional?: boolean;
   onDecide: (answer: DecisionAnswer) => void;
 }
 
@@ -59,6 +62,7 @@ export function DecisionBar({
   error,
   issues = [],
   approveExtra,
+  reasonOptional,
   onDecide,
 }: DecisionBarProps) {
   const { t } = useLocale();
@@ -154,7 +158,13 @@ export function DecisionBar({
       ) : null}
       <Field
         testID={`${testID}.note`}
-        label={t(choice === 'approve' ? 'staff.protocols.step.decide.note' : 'staff.protocols.step.decide.reason')}
+        label={t(
+          choice === 'approve'
+            ? 'staff.protocols.step.decide.note'
+            : reasonOptional
+              ? 'staff.protocols.step.decide.reasonOptional'
+              : 'staff.protocols.step.decide.reason',
+        )}
         value={note}
         onChangeText={setNote}
         multiline

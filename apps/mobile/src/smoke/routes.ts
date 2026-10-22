@@ -60,6 +60,10 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // The centre tab (2026-10-19): member card or café menu, cased by cafe.smoke.test.tsx. Its
   // primary is the switch between the two.
   { file: '(tabs)/club.tsx', route: 'club', primary: 'club.view' },
+  // The leaderboard (0364), in Play's place while a build leaves tournaments out; cased by
+  // ranks.smoke.test.tsx. Nothing on it is the one action, so the primary is the podium.
+  { file: '(tabs)/ranks.tsx', route: 'ranks', primary: 'ranks.podium' },
+  { file: 'ranks-report.tsx', route: 'ranks-report', primary: 'ranks-report.submit' },
   // ── booking ───────────────────────────────────────────────────────────────
   { file: 'booking/[id].tsx', route: 'booking-detail', primary: 'booking-detail.cancel' },
   { file: 'booking-history.tsx', route: 'booking-history', primary: 'booking-history.clear' },

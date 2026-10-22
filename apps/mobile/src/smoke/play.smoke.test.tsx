@@ -42,8 +42,11 @@ import { tournamentKeys } from '../features/tournaments/keys';
 import { parseTournamentsPublic } from '../features/tournaments/logic';
 import PlayScreen from '../../app/(tabs)/play';
 import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
+import { tournamentsOnForFile } from '../test/tournamentsEnv';
 
 onlinePaymentsOnForFile();
+// Tournaments ship in this file's build too (features/tournaments/shipped.ts).
+tournamentsOnForFile();
 
 type Seeds = [readonly unknown[], unknown][];
 const TZ = 'Asia/Baghdad';

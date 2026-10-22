@@ -257,6 +257,7 @@ export const staffProtocolsEn = {
       thisStep: '{name} (this step)',
       note: 'Note · Optional',
       reason: 'Reason',
+      reasonOptional: 'Reason · Optional',
       // The confirm under each answer names what it does.
       confirmApprove: 'Approve it',
       confirmSendBack: 'Send it back',
@@ -618,6 +619,7 @@ export const staffProtocolsEn = {
     start: 'Start as a new item',
     decline: 'Decline',
     declineReason: 'Why not? The author reads this.',
+    declineReasonOptional: 'Why not? Optional. The author reads this.',
     declineConfirm: 'Decline it',
     declined: 'Declined',
     declinedBecause: 'Declined by {name}: {reason}',

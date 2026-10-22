@@ -3,6 +3,7 @@ import {
   AMOUNT_MAX,
   canStepForward,
   dateWindow,
+  cancelIssue,
   decisionIssue,
   deductionTone,
   deductionsWaitingCount,
@@ -229,12 +230,18 @@ describe('the propose form', () => {
 });
 
 describe('a decision’s note', () => {
-  it('is optional on an approval and the reason on a decline, at most 1000 characters', () => {
-    expect(decisionIssue(true, '')).toBeNull();
-    expect(decisionIssue(false, '   ')).toBe('required');
-    expect(decisionIssue(false, 'Not on shift that day')).toBeNull();
-    expect(decisionIssue(true, 'x'.repeat(1001))).toBe('tooLong');
-    expect(decisionIssue(false, 'x'.repeat(1000))).toBeNull();
+  it('is optional on an approval and on a decline, at most 1000 characters', () => {
+    expect(decisionIssue('')).toBeNull();
+    expect(decisionIssue('   ')).toBeNull();
+    expect(decisionIssue('Not on shift that day')).toBeNull();
+    expect(decisionIssue('x'.repeat(1001))).toBe('tooLong');
+    expect(decisionIssue('x'.repeat(1000))).toBeNull();
+  });
+
+  it('is still required to take back an approval', () => {
+    expect(cancelIssue('  ')).toBe('required');
+    expect(cancelIssue('Wrong person')).toBeNull();
+    expect(cancelIssue('x'.repeat(1001))).toBe('tooLong');
   });
 });
 

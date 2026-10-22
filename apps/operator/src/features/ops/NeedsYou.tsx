@@ -22,7 +22,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatIQD, formatNumber, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
+import { can, useAuth } from '../../lib/auth';
 import { QK } from '../../lib/queryKeys';
+import { fetchPlan } from '../plan/api';
+import { plansWaitingCount, readPlan } from '../plan/planLogic';
 import { Button, Skeleton } from '../../components/ui';
 import { LIST_CAP, Panel, ViewMore, useListCap } from '../../components/kit';
 import { Icon, type IconName } from '../../components/icons';
@@ -74,6 +77,7 @@ const COPY: Record<NeedKey, { title: MessageKey; hint: MessageKey; action: Messa
   deductions: { title: 'ws.deductions.waiting.title', hint: 'ws.deductions.waiting.hint', action: 'ws.deductions.waiting.action' },
   incidents: { title: 'ws.incidents.waiting.title', hint: 'ws.incidents.waiting.hint', action: 'ws.incidents.waiting.action' },
   content: { title: 'ws.content.waiting.title', hint: 'ws.content.waiting.hint', action: 'ws.content.waiting.action' },
+  plan: { title: 'ws.plan.needs.title', hint: 'ws.plan.needs.hint', action: 'ws.plan.needs.action' },
 };
 
 /** The three queues that open in place, and the row each one is. */
@@ -101,6 +105,10 @@ type Read = { isPending: boolean; isError: boolean; refetch: () => unknown };
 function useWorkCounts() {
   const protocolsQ = useQuery({ queryKey: QK.protocolsWaiting, queryFn: fetchProtocolsWaiting, refetchInterval: 60_000 });
   const purchasesQ = useQuery({ queryKey: QK.purchasesToReceive, queryFn: fetchPurchasesToReceive, refetchInterval: 60_000 });
+  // Marketing's plans waiting on the owner (0362): the rail badge's own read.
+  const { staff } = useAuth();
+  const planOn = can(staff, 'decidePlan');
+  const planQ = useQuery({ queryKey: QK.planNow, queryFn: () => fetchPlan(null), enabled: planOn, refetchInterval: 60_000 });
   // Wave 5: deductions to decide, incidents to review, posts to approve, each only for a role its read admits.
   const people = usePeopleRecordCounts();
   // Wave 5: the day's till shifts counted short or over, the day-close step's own read.
@@ -121,6 +129,7 @@ function useWorkCounts() {
     deductions: people.deductions,
     incidents: people.incidents,
     content: people.content,
+    plan: planOn && planQ.data !== undefined ? plansWaitingCount(readPlan(planQ.data)) : 0,
     tillShifts: shiftDiffs.count,
     deposits: depositRows.length,
     lessonRefunds: lessonItems.length,
@@ -133,6 +142,7 @@ function useWorkCounts() {
   const reads: Read[] = [
     protocolsQ,
     purchasesQ,
+    ...(planOn ? [planQ] : []),
     ...people.reads,
     ...(shiftDiffs.read ? [shiftDiffs.read] : []),
     { isPending: deposits.isPending, isError: deposits.isError && deposits.data === undefined, refetch: deposits.refetch },

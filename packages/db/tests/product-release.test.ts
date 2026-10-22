@@ -822,6 +822,22 @@ describe.skipIf(!docker)('product_release (rolled-back transactions)', () => {
     expect(ok(r, 'tbl_mgr')).toBe(2);
   });
 
+  it('the owner declines an idea with no reason; the head still needs one (0361)', () => {
+    const r = scenario([
+      ...SETUP,
+      T('chef_idea', 'chef', `select app.submit_release_idea(jsonb_build_object('name_en', 'Fig tart', 'item_kind', 'dessert',
+         'lines', jsonb_build_array(jsonb_build_object('label', 'Fig', 'qty', 30, 'unit', 'g')),
+         'sizes', jsonb_build_array(jsonb_build_object('name_en', 'Slice'))), '{}'::text[], {{venue}}::uuid, null)`),
+      RES('idea_chef', 'chef_idea', 'id'),
+      T('hc_bare', 'hc', `select app.decline_release_idea({{idea_chef}}::uuid, null)`),
+      T('owner_bare', 'owner', `select app.decline_release_idea({{idea_chef}}::uuid, null)`),
+      Q('row', `select jsonb_build_object('status', status, 'reason', decline_reason) from release_ideas where id = {{idea_chef}}::uuid`),
+    ]);
+    expect(refused(r, 'hc_bare')).toBe('REASON_REQUIRED');
+    expect(ok(r, 'owner_bare')).toEqual({ status: 'declined' });
+    expect(ok(r, 'row')).toEqual({ status: 'declined', reason: null });
+  });
+
   it('refuses the driver and marketing every release read and write', () => {
     const r = scenario([
       ...SETUP,

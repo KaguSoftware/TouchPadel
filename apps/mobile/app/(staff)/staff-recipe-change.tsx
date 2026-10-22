@@ -216,7 +216,7 @@ function RecipeChangeScreen() {
 
   // ── Decisions and withdrawals ─────────────────────────────────────────
   const [reason, setReason] = useState('');
-  const [reasonIssue, setReasonIssue] = useState<'required' | 'tooLong' | null>(null);
+  const [reasonIssue, setReasonIssue] = useState<'tooLong' | null>(null);
   // Decline asks why before it sends, as the shopping list's Decline does;
   // until it is pressed the owner sees Approve and Decline side by side.
   const [declining, setDeclining] = useState(false);
@@ -282,7 +282,7 @@ function RecipeChangeScreen() {
     setDecideError(null);
     const found = declineIssue(reason);
     setReasonIssue(found);
-    if (!found) decide.mutate({ id, approve: false, reason: reason.trim() });
+    if (!found) decide.mutate({ id, approve: false, reason: reason.trim() || null });
   };
 
   // ── Pieces ─────────────────────────────────────────────────────────────

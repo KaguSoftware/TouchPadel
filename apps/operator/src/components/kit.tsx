@@ -956,6 +956,7 @@ export function DataTable<T>({
     <div
       ref={scrollRef}
       className="tp-table-scroll"
+      data-inner-scroll={fill || maxBlockSize ? 'true' : undefined}
       onScroll={placeBar}
       style={{
         overflow: 'auto',

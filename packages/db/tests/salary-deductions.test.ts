@@ -292,7 +292,6 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
                            from notification_outbox o
                           where o.created_at = now() and o.profile_id <> {{mgr2}}::uuid
                             and o.payload->>'title_key' in ('deduction_approved', 'deduction_recorded')`),
-      decide('owner', 'decline_bare', 'e', 'false'),
       decide('owner', 'decline_e', 'e', 'false', `'Not his fault'`),
       Q('declined_push', `select coalesce(jsonb_agg(o.profile_id), '[]'::jsonb) from notification_outbox o
                            where o.created_at = now() and o.payload->>'title_key' = 'deduction_declined'`),
@@ -341,7 +340,6 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
       { to: who.hb, kind: 'staff_decided', payload: { route: 'staff', id: null, title_key: 'deduction_approved', params: {} } },
       { to: who.bar, kind: 'staff_info', payload: { route: 'staff', id: null, title_key: 'deduction_recorded', params: {} } },
     ]);
-    expect(refused(r, 'decline_bare')).toBe('REASON_REQUIRED');
     expect(ok<{ status: string; pay_month: null }>(r, 'decline_e')).toMatchObject({ status: 'declined', pay_month: null });
     expect(ok<string[]>(r, 'declined_push')).toEqual([who.hb]);
     expect(refused(r, 'own')).toBe('CANNOT_DECIDE_OWN');
@@ -430,6 +428,19 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
     expect(month.totals.waiting_iqd).toBe(sum('waiting'));
     expect(month.totals.people).toBe(month.people.length);
     expect(listed.some((d) => d.status === 'declined' || d.status === 'withdrawn')).toBe(false);
+  });
+
+  it('the owner declines with no note at all (0361)', () => {
+    const r = scenario([
+      ...DAYS,
+      MK('hb', 'head_barista'), MK('bar', 'barista'),
+      propose('hb', 'e', 'bar', 4000), RES('e', 'e', 'id'),
+      decide('owner', 'decline', 'e', 'false'),
+      Q('row', `select jsonb_build_object('status', status, 'note', decision_note)
+                  from salary_deductions where id = {{e}}::uuid`),
+    ]);
+    expect(ok<{ status: string; pay_month: null }>(r, 'decline')).toMatchObject({ status: 'declined', pay_month: null });
+    expect(ok(r, 'row')).toEqual({ status: 'declined', note: null });
   });
 
   it('holds the limits: a replayed key, the amount and the 60-day window', () => {

@@ -3,8 +3,10 @@ import { EMPTY_ANSWERS, type PlayAnswers } from '../logic';
 import { SUGGESTION_KINDS, suggest, topSuggestions } from '../suggest';
 import { suggestionTarget } from '../links';
 import { onlinePaymentsOn } from '../../../test/onlinePayments';
+import { tournamentsOn } from '../../../test/tournaments';
 
 onlinePaymentsOn();
+tournamentsOn();
 
 const a = (over: Partial<PlayAnswers>): PlayAnswers => ({ ...EMPTY_ANSWERS, ...over });
 const kinds = (answers: PlayAnswers | null) => suggest(answers).map((s) => s.kind);

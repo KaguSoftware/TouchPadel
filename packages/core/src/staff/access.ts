@@ -61,6 +61,8 @@ export const ACCESS_AREAS = {
   tasks: ['/tasks'],
   // The marketing role's Insights page (0360).
   insights: ['/insights'],
+  // Marketing's content plan and its posts for approval (0362).
+  content: ['/plan', '/posts'],
   incidents: ['/incidents'],
   ops: ['/ops'],
   stock: ['/stock'],

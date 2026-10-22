@@ -68,6 +68,8 @@ export type NavLabelKey =
   | 'assistant' | 'files'
   // The team workspace (driver, marketing), and the till's and the desk's row.
   | 'myTasks' | 'insights'
+  // Marketing's content plan and its posts for approval (0362).
+  | 'contentPlan' | 'posts'
   // Protocols and the staff suggestion box (build-contracts-2026-09-23 §5.1).
   | 'protocols' | 'suggestions'
   // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
@@ -78,6 +80,8 @@ export type NavLabelKey =
   | 'coaches' | 'coachPay' | 'lessonTypes' | 'coachHours' | 'lessonRules' | 'coachSchedules'
   // Tournaments (build-contracts-2026-10-03 §1.11) and loyalty (build-contracts-2026-10-05 §5).
   | 'tournaments' | 'loyalty'
+  // Player ranks (0364).
+  | 'ranks'
   // Setup's families: courts and their rules, the venue, the guest app, devices.
   | 'bookingRules' | 'onlineDeposit' | 'openMatches'
   // The page map (2026-10-17): Court settings, the sales report tabs, bills
@@ -94,7 +98,10 @@ export type NavLabelKey =
  */
 export type NavBadge =
   | 'protocolsWaiting' | 'suggestionsNew' | 'deductionsWaiting' | 'incidentsOpen'
-  | 'contentWaiting' | 'stockCountsWaiting' | 'wagesDue';
+  | 'contentWaiting' | 'stockCountsWaiting' | 'wagesDue'
+  // 0362: the owner's plans to approve, marketing's ideas to make now, and
+  // marketing's posts the owner sent back.
+  | 'planWaiting' | 'planToDo' | 'contentChanges';
 
 /**
  * A runtime condition a tab needs before it is printed. Online deposits and
@@ -362,6 +369,8 @@ const STAFF_INBOX_TABS: readonly NavTab[] = [
 /** Campaigns, the discounts they run, and the Telegram group. */
 const MARKETING_TABS: readonly NavTab[] = [
   { to: '/marketing', labelKey: 'campaigns', activePrefix: '/marketing', badge: 'contentWaiting' },
+  // Marketing's month plan (0362), approved here.
+  { to: '/plan', labelKey: 'contentPlan', badge: 'planWaiting' },
   { to: '/admin/promotions', labelKey: 'promotions' },
   { to: '/admin/telegram', labelKey: 'telegram' },
 ];
@@ -491,6 +500,8 @@ const CUSTOMERS: readonly NavItem[] = [
   { to: '/desk/customers', labelKey: 'customers', icon: 'users' },
   // Loyalty (build-contracts-2026-10-05 §5): business-wide points, tiers and rewards.
   { to: '/admin/loyalty', labelKey: 'loyalty', icon: 'star' },
+  // Player ranks (0364): points per game, the public board, levels and results.
+  { to: '/admin/ranks', labelKey: 'ranks', icon: 'trophy' },
   { to: '/marketing', labelKey: 'marketing', icon: 'image', tabs: MARKETING_TABS },
   // What the marketing role sees (0360), for the owner to check.
   { to: '/insights', labelKey: 'insights', icon: 'layers' },
@@ -537,7 +548,17 @@ const SHOP: readonly NavItem[] = [
  */
 const INSIGHTS: NavItem = { to: '/insights', labelKey: 'insights', icon: 'layers' };
 
+/**
+ * Marketing's own two pages (0362), first on its rail: the month's content
+ * plan and the posts and results sent for approval. Only marketing opens
+ * them (ROUTE_ROLES), so the driver's and the waiter's rail stays as it was.
+ */
+const CONTENT_PLAN: NavItem = { to: '/plan', labelKey: 'contentPlan', icon: 'calendar', badge: 'planToDo' };
+const POSTS: NavItem = { to: '/posts', labelKey: 'posts', icon: 'image', badge: 'contentChanges' };
+
 const TEAM: readonly NavItem[] = [
+  CONTENT_PLAN,
+  POSTS,
   MY_TASKS,
   INSIGHTS,
 ];
@@ -564,7 +585,8 @@ export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
   cashier: { key: 'cashier', home: '/till', icon: 'grid', groups: [{ labelKey: null, items: CASHIER }] },
   prep: { key: 'prep', home: '/kds', icon: 'flame', groups: [] },
   management: { key: 'management', home: '/panel', icon: 'shield', groups: [{ labelKey: null, items: MANAGEMENT_PRIMARY }], sections: MANAGEMENT_SECTIONS, altHomes: ['/ops'] },
-  team: { key: 'team', home: '/tasks', icon: 'checkCircle', groups: [{ labelKey: null, items: TEAM }] },
+  // Marketing opens on its plan; the driver and the waiter, who cannot, on My tasks.
+  team: { key: 'team', home: '/plan', icon: 'checkCircle', groups: [{ labelKey: null, items: TEAM }], altHomes: ['/tasks'] },
   shop: { key: 'shop', home: '/shop', icon: 'tag', groups: [{ labelKey: null, items: SHOP }] },
 };
 

@@ -45,7 +45,7 @@ import { useDeskTournaments } from '../tournaments/useTournaments';
 import { errorToMessageKey } from '../../lib/errors';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
-import { canAccess, useAuth } from '../../lib/auth';
+import { can, canAccess, useAuth } from '../../lib/auth';
 import { Button, ErrorText, Field, Select, inputStyle, type ReasonCode } from '../../components/ui';
 import {
   AsyncStateWrapper,
@@ -65,6 +65,9 @@ import type { CustomerRecord, ReservationRow } from './deskTypes';
 import { OVERRIDE_REASONS, STEP_MIN } from './ReservationActionsDialog';
 import { CourtBillPanel } from './payment/CourtBillPanel';
 import type { BookingBill } from './payment/deskPaymentLogic';
+import { bookingRecordable } from '../ranks/ranksLogic';
+import { useRanksBoard } from '../ranks/useRanks';
+import { RecordResultDialog } from '../ranks/RecordResultDialog';
 
 const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
 /** A stable empty list: no match states are asked for an ordinary booking. */
@@ -150,6 +153,8 @@ export function BookingDetailScreen() {
   const [done, setDone] = useState(false);
   const [showMove, setShowMove] = useState(false);
   const [move, setMove] = useState<MoveDraft | null>(null);
+  // Player ranks (0364): the game's result, recorded from its booking.
+  const [recording, setRecording] = useState(false);
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ['reservation', id] });
@@ -274,6 +279,10 @@ export function BookingDetailScreen() {
         : (guestName ?? tr('ws.courtDesk.detail.walkIn'));
   const night = r ? tradingDateOf(r.start_at, tz, settingsQ.data?.opening_hours) : null;
   const canCharge = canAccess(staff, '/till');
+  // Record result (0364): a played booking, while ranks are on (the public board says so).
+  const canRecordRanks = can(staff, 'recordRanks');
+  const ranksBoardQ = useRanksBoard(canRecordRanks);
+  const showRecord = canRecordRanks && r !== null && bookingRecordable(r) && ranksBoardQ.data?.enabled !== false;
   const start = r ? new Date(r.start_at) : null;
 
   const actionLabel: Record<ActionKind, string> = {
@@ -312,6 +321,11 @@ export function BookingDetailScreen() {
             {r && r.kind === 'booking' && canCharge && !isMatch && (
               <Button icon="receipt" title={tr('ws.courtDesk.detail.chargeCafeLead')} onClick={() => void navigate({ to: '/till', search: { reservation: r.id } as never })}>
                 {tr('ws.courtDesk.detail.chargeCafe')}
+              </Button>
+            )}
+            {showRecord && (
+              <Button icon="trophy" title={tr('ws.ranks.record.deskActionHint')} onClick={() => setRecording(true)} data-testid="booking-record-result">
+                {tr('ws.ranks.record.deskAction')}
               </Button>
             )}
           </>
@@ -504,6 +518,14 @@ export function BookingDetailScreen() {
           </div>
         )}
       </AsyncStateWrapper>
+
+      {recording && r && (
+        <RecordResultDialog
+          reservationId={r.id}
+          booker={customerId ? { id: customerId, name: customer?.customer.full_name ?? guestName ?? '' } : null}
+          onClose={() => setRecording(false)}
+        />
+      )}
 
       {pending && (
         <ReasonCodePrompt

@@ -69,6 +69,7 @@ import { fetchPromotions, PROMOTIONS_KEY } from '../admin/promotions/promotionsA
 import { todayIso } from '../admin/menu/availability';
 import { useLocale } from '../../lib/i18n';
 import { ContentApprovalPanel } from '../content/ContentSection';
+import { PlanSummaryPanel } from '../plan/PlanSummary';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../components/ui';
 import {
@@ -419,6 +420,11 @@ export function MarketingPanelScreen() {
           is the gate; the sheet's buttons follow app.content_detail's can_*. */}
       <div style={{ marginBlockEnd: 'var(--tp-sp-5)' }}>
         <ContentApprovalPanel />
+      </div>
+      {/* Marketing's month plan (0362): what it is, where each idea stands,
+          and the coming week in full; the whole month is one press away. */}
+      <div style={{ marginBlockEnd: 'var(--tp-sp-5)' }}>
+        <PlanSummaryPanel />
       </div>
 
       {campaigns.length > 0 && (

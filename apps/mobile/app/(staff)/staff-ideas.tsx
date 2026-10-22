@@ -58,7 +58,7 @@ import { statusTone } from '../../src/features/staff/statusTone';
  * (#72: the proposal is the recipe, with quantities). A head reviews their
  * team's ideas (management, both teams'): Start opens the new-item form
  * filled from the idea (`staff-start.tsx?kind=product_release&ideaId=`), and
- * Decline asks for a reason the author reads.
+ * Decline asks for a reason the author reads (optional for the owner, 0361).
  */
 
 interface IdeaArgs {
@@ -211,7 +211,7 @@ function MyIdeaCard({ idea, focused }: { idea: MyIdea; focused: boolean }) {
   );
 }
 
-function ReviewCard({ idea, names, focused }: { idea: ReviewIdea; names: Record<string, string>; focused: boolean }) {
+function ReviewCard({ idea, names, focused, byOwner }: { idea: ReviewIdea; names: Record<string, string>; focused: boolean; byOwner: boolean }) {
   const { t, locale } = useLocale();
   const { colors } = useTheme();
   const router = useRouter();
@@ -250,9 +250,10 @@ function ReviewCard({ idea, names, focused }: { idea: ReviewIdea; names: Record<
         {declining ? (
           <ReasonForm
             testID={`staff-ideas.decline-form.${idea.id}`}
-            label={t('staff.protocols.ideas.declineReason')}
+            label={t(byOwner ? 'staff.protocols.ideas.declineReasonOptional' : 'staff.protocols.ideas.declineReason')}
             confirmLabel={t('staff.protocols.ideas.declineConfirm')}
             danger
+            optional={byOwner}
             busy={decline.isPending}
             error={decline.error ? t(mapStaffError(decline.error)) : null}
             onCancel={() => setDeclining(false)}
@@ -370,7 +371,7 @@ function IdeasScreen() {
               <EmptyState centered testID="staff-ideas.review-empty" title={t('staff.protocols.ideas.reviewEmpty')} />
             ) : (
               focusFirst(review.data.ideas, params.id).map((idea) => (
-                <ReviewCard key={idea.id} idea={idea} names={names} focused={idea.id === params.id} />
+                <ReviewCard key={idea.id} idea={idea} names={names} focused={idea.id === params.id} byOwner={role === 'owner'} />
               ))
             )}
           </>

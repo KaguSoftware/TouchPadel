@@ -45,7 +45,15 @@
     "shop_price_changed",
     "checklist_due",
     "checklist_overdue",
-    "reward_unlocked"
+    "reward_unlocked",
+    "plan_submitted",
+    "plan_approved",
+    "plan_changes",
+    "step_passed",
+    "run_done",
+    "run_withdrawn",
+    "run_scheduled",
+    "decision_waiting"
   ],
   "routes": [
     "staff",

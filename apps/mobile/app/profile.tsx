@@ -21,6 +21,9 @@ import { Button, Card, ErrorText, Screen, SectionLabel } from '../src/components
 import { MenuRow } from '../src/components/booking';
 import { anyCoaching } from '../src/features/coaching/logic';
 import { anyTournaments } from '../src/features/tournaments/logic';
+import { tournamentsShipped } from '../src/features/tournaments/shipped';
+import { useMyRanks } from '../src/features/ranks/hooks';
+import { levelName } from '../src/features/ranks/logic';
 import { useMyLoyalty } from '../src/features/loyalty/hooks';
 import { loyaltyOn } from '../src/features/loyalty/logic';
 import { coachModeEntry, useCoachStatus } from '../src/features/coach/useCoachStatus';
@@ -33,6 +36,7 @@ import {
   PhoneIcon,
   QrIcon,
   ReceiptIcon,
+  TrophyIcon,
   SlidersIcon,
   TagIcon,
 } from '../src/components/icons';
@@ -111,6 +115,11 @@ export default function ProfileScreen() {
   // start with no signal at the till; the card itself has its own offline copy.
   const loyalty = useMyLoyalty(!!session && !session.user.is_anonymous);
   const showLoyalty = loyaltyOn(loyalty.data);
+  // The leaderboard (0364): the guest's place and level, on their account too. Only in a build
+  // whose bar carries the Ranks tab (it stands in Play's place while tournaments are left out).
+  const ranksTab = !tournamentsShipped();
+  const ranks = useMyRanks(ranksTab && !!session && !session.user.is_anonymous);
+  const myRanks = ranks.data?.enabled ? ranks.data : null;
   const toast = useToast();
   // "Show guest view" (guestPreview.ts): the way back to the staff side lived over
   // the Profile tab, and lives on this page now that Profile is not a tab.
@@ -507,6 +516,20 @@ export default function ProfileScreen() {
                 icon={<CalendarIcon size={15} color={colors.gstrong} />}
                 label={t('profile.myLessons')}
                 onPress={() => router.push('/my-lessons')}
+              />
+            ) : null}
+            {myRanks ? (
+              <MenuRow
+                testID="profile.ranks"
+                icon={<TrophyIcon size={15} color={colors.gstrong} />}
+                label={[
+                  t('ranks.profileRow'),
+                  myRanks.rank !== null ? isolateLtr(`#${myRanks.rank}`) : null,
+                  levelName(myRanks.level, locale),
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                onPress={() => router.navigate('/ranks')}
               />
             ) : null}
             {tournaments ? (

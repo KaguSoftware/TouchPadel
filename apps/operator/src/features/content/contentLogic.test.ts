@@ -102,12 +102,12 @@ describe('the readers', () => {
 });
 
 describe('the owner’s decision', () => {
-  it('needs a reason to ask for changes or to decline, never to approve', () => {
-    expect(decisionIssue('approve', '')).toBeNull();
-    expect(decisionIssue('changes', ' ')).toBe('required');
-    expect(decisionIssue('decline', '')).toBe('required');
-    expect(decisionIssue('decline', 'Off brand')).toBeNull();
-    expect(decisionIssue('changes', 'x'.repeat(1001))).toBe('tooLong');
+  it('never needs a reason, only caps its length', () => {
+    // 0361: the owner never has to give a reason.
+    expect(decisionIssue('')).toBeNull();
+    expect(decisionIssue(' ')).toBeNull();
+    expect(decisionIssue('Off brand')).toBeNull();
+    expect(decisionIssue('x'.repeat(1001))).toBe('tooLong');
   });
 });
 

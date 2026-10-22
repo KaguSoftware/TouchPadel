@@ -92,6 +92,7 @@ const KEYWORDS: Partial<Record<NavLabelKey, readonly string[]>> = {
   kitchenScreens: ['kds', 'pair', 'pairing', 'kitchen', 'ربط', 'المطبخ'],
   offlineMode: ['offline', 'internet', 'connection', 'وضع عدم الاتصال', 'انترنت', 'اتصال'],
   loyalty: ['loyalty', 'points', 'tiers', 'الولاء', 'نقاط', 'مستويات'],
+  ranks: ['ranks', 'leaderboard', 'board', 'levels', 'results', 'score', 'الترتيب', 'لوحة الصدارة', 'المستويات', 'النتائج'],
   courts: ['court', 'ملعب'],
   coaches: ['coach', 'lesson', 'مدرب', 'حصة'],
 };

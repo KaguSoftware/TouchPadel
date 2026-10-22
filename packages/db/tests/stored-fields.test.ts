@@ -114,6 +114,13 @@ const LINK_COLUMNS = [
 ];
 
 /**
+ * 0364 (the players' leaderboard): game_results seats its four players as a1, a2, b1, b2, the
+ * names tournament_matches uses for ENTRY ids, so they cannot join LINK_COLUMNS without putting
+ * tournament_matches on this surface. The table is named here instead.
+ */
+const SEAT_LINKED_TABLES = ['game_results'];
+
+/**
  * THE DECLARATION — every column of every table carrying a guest link.
  */
 const GUEST_DATA: Record<string, Record<string, Field>> = {
@@ -567,6 +574,27 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     points_12m: { category: 'Purchase history', why: 'the points earned in the last 12 months, which set the tier', onDelete: 'row' },
     tier_id: n, last_activity_at: n, updated_at: n,
   },
+  // 0364 ranks_leaderboard. A game's result names its players (a1, a2, b1, b2; reported_by and
+  // decided_by are the reporter's or the staff member's id) and the ledger their leaderboard
+  // points. Neither has a client grant: the public board shows the top board_size players as
+  // "First L." only, and a deleted account drops off it (profiles.deleted_at), while its games
+  // stay as the other players' record and point at the 0077 tombstone, as reservations.guest_id
+  // does.
+  game_results: {
+    id: n, venue_id: n, reservation_id: n, tournament_match_id: n, source: n, status: n,
+    a1: n, a2: n, b1: n, b2: n,
+    winner: { category: 'App activity', why: 'which side won a game the player played, for the leaderboard; the other three players’ record too', onDelete: 'keep' },
+    score: { category: 'App activity', why: 'the score of that game, as reported or entered at the desk', onDelete: 'keep' },
+    played_at: n, reported_by: n, reported_at: n, expires_at: n, decided_by: n, decided_at: n,
+    void_reason: { category: 'User content', why: 'a manager’s reason for voiding a result; kept with the result it explains', onDelete: 'keep' },
+  },
+  ranks_ledger: {
+    id: n, profile_id: n, result_id: n, kind: n,
+    delta: { category: 'App activity', why: 'leaderboard points a game gave the player (or took back); summed for the board and the player’s own page', onDelete: 'keep' },
+    earned_at: n, actor_id: n,
+    note: { category: 'User content', why: 'the owner’s reason for a points correction, or a manager’s for a void; kept with the ledger it explains', onDelete: 'keep' },
+    created_at: n,
+  },
 };
 
 /**
@@ -677,7 +705,10 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
 
   it('declares every table that carries a guest link', () => {
     const found = Object.entries(live)
-      .filter(([t, cols]) => t === 'profiles' || cols.some((c) => LINK_COLUMNS.includes(c)))
+      .filter(
+        ([t, cols]) =>
+          t === 'profiles' || SEAT_LINKED_TABLES.includes(t) || cols.some((c) => LINK_COLUMNS.includes(c)),
+      )
       .map(([t]) => t)
       .sort();
     const declared = Object.keys(GUEST_DATA).sort();

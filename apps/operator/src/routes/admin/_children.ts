@@ -35,6 +35,7 @@ import { adminStaffRoute } from './staff';
 import { adminAuditRoute } from './audit';
 import { adminBranchesRoute } from './branches';
 import { adminLoyaltyRoute } from './loyalty';
+import { adminRanksRoute } from './ranks';
 
 export const adminChildren = [
   adminIndexRoute,
@@ -68,4 +69,5 @@ export const adminChildren = [
   adminAuditRoute,
   adminBranchesRoute,
   adminLoyaltyRoute,
+  adminRanksRoute,
 ] as const;

@@ -119,16 +119,25 @@ describe('the owner’s Content for approval', () => {
     expect(calls.find((c) => c.fn === 'decide_content')?.args).toEqual({ p_id: 'k1', p_version: 2, p_decision: 'approve', p_note: null });
   });
 
-  it('asks for a reason before sending a post back, and before declining it', async () => {
+  it('declines with no reason: the owner never has to give one (0361)', async () => {
+    const user = userEvent.setup();
+    renderPanel('owner');
+    await user.click(await screen.findByTestId('content.item.k1'));
+    const sheet = screen.getByRole('dialog');
+    await within(sheet).findByText('Shorter caption');
+    await user.click(within(sheet).getByTestId('content.decide.decline'));
+    await user.click(within(sheet).getByTestId('content.decide.confirm'));
+    expect(within(sheet).queryByText('A reason is required.')).toBeNull();
+    expect(calls.find((c) => c.fn === 'decide_content')?.args).toEqual({ p_id: 'k1', p_version: 2, p_decision: 'decline', p_note: null });
+  });
+
+  it('sends the reason with a send-back when the owner gives one', async () => {
     const user = userEvent.setup();
     renderPanel('owner');
     await user.click(await screen.findByTestId('content.item.k1'));
     const sheet = screen.getByRole('dialog');
     await within(sheet).findByText('Shorter caption');
     await user.click(within(sheet).getByTestId('content.decide.changes'));
-    await user.click(within(sheet).getByTestId('content.decide.confirm'));
-    expect(within(sheet).getByText('A reason is required.')).toBeTruthy();
-    expect(calls.some((c) => c.fn === 'decide_content')).toBe(false);
     await user.type(within(sheet).getByTestId('content.decide.note'), 'Use the new logo');
     await user.click(within(sheet).getByTestId('content.decide.confirm'));
     expect(calls.find((c) => c.fn === 'decide_content')?.args).toEqual({ p_id: 'k1', p_version: 2, p_decision: 'changes', p_note: 'Use the new logo' });

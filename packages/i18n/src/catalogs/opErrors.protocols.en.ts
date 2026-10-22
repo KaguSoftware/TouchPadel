@@ -101,4 +101,9 @@ export const opErrorsProtocolsEn = {
   DAY_CLOSED: 'The business day is closed. Open a new day before sending orders.',
   EMPTY_DELIVERY: 'Add at least one stock line first.',
   INVALID_LINE: 'A line has a quantity or cost that is not a number above zero. Check the lines.',
+  // Marketing's content plan (0362).
+  PLAN_WAITING: 'This plan is with the owner. Take it back to change it.',
+  PLAN_EMPTY: 'Add at least one new idea before sending the plan.',
+  IDEA_LOCKED: 'This idea was already decided, so it cannot change. Add a new idea instead.',
+  IDEA_HAS_RESULT: 'A result for this idea is already with the owner or approved.',
 } as const;

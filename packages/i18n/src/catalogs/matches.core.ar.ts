@@ -208,7 +208,7 @@ export const matchesCoreAr: DeepMessages<typeof matchesCoreEn> = {
     cantRejoin: 'لا يمكن الانضمام إليها مجددًا',
     removedByVenue: 'أزالك النادي من المباراة',
     banned: 'أُلغي مقعدك · المباريات المفتوحة غير متاحة لحسابك',
-    bumped: 'أُلغيت · حجزت مجموعة آخر ملعب',
+    bumped: 'أُلغيت · حُجز آخر ملعب متاح',
     expired: 'أُلغيت · لم يكتمل العدد قبل {time}',
     noCourt: 'أُلغيت · لم يتوفّر ملعب',
     cancelledByOrganiser: 'ألغاها المنظّم',

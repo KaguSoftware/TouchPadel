@@ -39,7 +39,6 @@ import { readIdeasToReview, type IdeaRow } from '../roleExtras/roleExtrasLogic';
 import { TK } from './keys';
 import { fetchMyWork } from './api';
 import { PhoneCopies } from './PhoneCopies';
-import { MarketingContentPanel } from '../content/ContentSection';
 import { StartSheet } from './StartSheet';
 import { StepSheet } from './StepSheet';
 import { readMyWork, runTitle, taskStarts, type WorkItem } from './tasksLogic';
@@ -134,10 +133,6 @@ export function MyTasksScreen() {
           </div>
         )}
       </Panel>
-
-      {/* Marketing's posts for the owners' approval (wave5-addendum-2026-09-25
-          §5.1): written and revised here as well as on the phone. */}
-      {can(staff, 'submitContent') && <MarketingContentPanel />}
 
       <PhoneCopies />
 

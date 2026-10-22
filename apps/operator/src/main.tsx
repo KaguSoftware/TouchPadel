@@ -44,6 +44,9 @@ import { rewardsRoute } from './routes/rewards';
 import { safeRoute } from './routes/safe';
 import { filesRoute } from './routes/files';
 import { insightsRoute } from './routes/insights';
+// Marketing's content plan and its posts for approval (0362).
+import { planRoute } from './routes/plan';
+import { postsRoute } from './routes/posts';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
 import { analyticsChildren } from './routes/analytics/_children';
@@ -88,6 +91,8 @@ const routeTree = rootRoute.addChildren([
   safeRoute,
   filesRoute,
   insightsRoute,
+  planRoute,
+  postsRoute,
 ]);
 
 /** Send the operator back to the screen their role starts on; fall back to `/`. */

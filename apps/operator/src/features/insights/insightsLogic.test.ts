@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { allUnknown, demandAdvice, heatCells, levelKey, parseCount, parseInsights, shareWord, trendTone } from './insightsLogic';
+import { allUnknown, demandAdvice, heatCells, levelKey, parseCount, parseInsights, shareWord, trendSize, trendTone, type Trend, type TrendDir } from './insightsLogic';
 
 describe('parseInsights', () => {
   it('turns garbage into a safe empty shape', () => {
     const r = parseInsights(null);
     expect(r.demand.heat).toEqual([]);
     expect(r.demand.level).toBeNull();
-    expect(r.demand.levelTrend).toBe('unknown');
+    expect(r.demand.levelTrend).toEqual({ dir: 'unknown', size: null, unit: 'pts' });
     expect(r.players.active).toBeNull();
     expect(r.players.lapseDays).toBe(28);
     expect(r.offers).toEqual([]);
@@ -19,12 +19,15 @@ describe('parseInsights', () => {
       period: { from: '2026-09-22', to: '2026-10-21' },
       compare: { from: '2026-08-22', to: '2026-09-21' },
       legacy: false,
-      demand: { level: 3, levelTrend: 'up', heat: [{ dow: 2, hour: 19, level: 4 }, { dow: 9, hour: 1, level: 1 }], quiet: [{ dow: 1, hour: 10, level: 0 }], full: [] },
+      demand: { level: 3, levelPct: 68, levelTrend: 'up', levelTrendPts: 6, bookingsTrend: 'down', bookingsTrendPct: -12, heat: [{ dow: 2, hour: 19, level: 4 }, { dow: 9, hour: 1, level: 1 }], quiet: [{ dow: 1, hour: 10, level: 0 }], full: [] },
       guests: { active: { kind: 'about', value: 400 }, newShare: 30, returningShare: 70, frequency: [{ bucket: '1', share: 60 }] },
       offers: [{ id: 'a', nameEn: 'Happy hour', nameAr: 'ساعة', live: true, uses: { kind: 'few' }, verdict: 'little' }, { id: '', nameEn: 'x' }],
       events: { next: { nameEn: 'Cup', nameAr: 'كأس', startDate: '2026-11-01' } },
     });
     expect(r.demand.level).toBe(3);
+    expect(r.demand.levelPct).toBe(68);
+    expect(r.demand.levelTrend).toEqual({ dir: 'up', size: 6, unit: 'pts' });
+    expect(r.demand.bookingsTrend).toEqual({ dir: 'down', size: -12, unit: 'pct' });
     expect(r.demand.heat).toEqual([{ dow: 2, hour: 19, level: 4 }]);
     expect(r.players.active).toEqual({ kind: 'about', value: 400 });
     expect(r.players.newShare).toBe(30);
@@ -70,11 +73,20 @@ describe('words', () => {
   });
 
   it('colours a trend by whether up is good', () => {
-    expect(trendTone('up')).toBe('success');
-    expect(trendTone('up', true)).toBe('danger');
-    expect(trendTone('down', true)).toBe('success');
-    expect(trendTone('steady')).toBe('neutral');
-    expect(trendTone('unknown', true)).toBe('neutral');
+    const t = (dir: TrendDir): Trend => ({ dir, size: null, unit: 'pct' });
+    expect(trendTone(t('up'))).toBe('success');
+    expect(trendTone(t('up'), true)).toBe('danger');
+    expect(trendTone(t('down'), true)).toBe('success');
+    expect(trendTone(t('steady'))).toBe('neutral');
+    expect(trendTone(t('unknown'), true)).toBe('neutral');
+  });
+
+  it('sizes a trend: percent, points, or a multiple once a thin base makes it huge (0365)', () => {
+    expect(trendSize({ dir: 'up', size: 18, unit: 'pct' })).toEqual({ kind: 'pct', n: 18 });
+    expect(trendSize({ dir: 'down', size: -6, unit: 'pts' })).toEqual({ kind: 'pts', n: 6 });
+    expect(trendSize({ dir: 'up', size: 2700, unit: 'pct' })).toEqual({ kind: 'times', n: 28 });
+    expect(trendSize({ dir: 'steady', size: 0, unit: 'pct' })).toBeNull();
+    expect(trendSize({ dir: 'unknown', size: 40, unit: 'pct' })).toBeNull();
   });
 
   it('draws levels as heat values', () => {

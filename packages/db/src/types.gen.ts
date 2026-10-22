@@ -1608,6 +1608,15 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string; p_note?: string }
         Returns: Json
       }
+      decide_marketing_plan: {
+        Args: {
+          p_decision: string
+          p_drop?: string[]
+          p_id: string
+          p_note?: string
+        }
+        Returns: Json
+      }
       decide_recipe_change: {
         Args: { p_approve: boolean; p_id: string; p_reason?: string }
         Returns: Json
@@ -2870,6 +2879,7 @@ export type Database = {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
       }
+      marketing_idea_has_result: { Args: { p_idea: string }; Returns: boolean }
       marketing_insights: {
         Args: {
           p_cmp_from: string
@@ -2884,6 +2894,12 @@ export type Database = {
         Returns: Json
       }
       marketing_overview: { Args: never; Returns: Json }
+      marketing_plan: {
+        Args: { p_month?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      marketing_plan_settle: { Args: { p_plan: string }; Returns: undefined }
+      marketing_plan_venue: { Args: { p_venue_id: string }; Returns: string }
       marketing_requests_page: {
         Args: {
           p_filter?: string
@@ -3217,7 +3233,12 @@ export type Database = {
         Returns: Json
       }
       mkt_about: { Args: { p_n: number }; Returns: Json }
+      mkt_change: {
+        Args: { p_min?: number; p_now: number; p_prev: number }
+        Returns: number
+      }
       mkt_level: { Args: { p_ratio: number }; Returns: number }
+      mkt_points: { Args: { p_now: number; p_prev: number }; Returns: number }
       mkt_rate_trend: {
         Args: { p_now: number; p_prev: number }
         Returns: string
@@ -3282,6 +3303,8 @@ export type Database = {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
       }
+      my_push_prefs: { Args: never; Returns: Json }
+      my_ranks: { Args: never; Returns: Json }
       my_receipts: { Args: { p_venue_id?: string }; Returns: Json }
       my_recipe_changes: {
         Args: { p_limit?: number; p_venue_id?: string }
@@ -3821,6 +3844,7 @@ export type Database = {
       }
       protocol_photo_purge_due: { Args: { p_limit?: number }; Returns: Json }
       protocol_photos_purged: { Args: { p_run_id: string }; Returns: undefined }
+      protocol_remind_sweep: { Args: never; Returns: number }
       protocol_run_allowed: {
         Args: { p_from: string; p_to: string }
         Returns: boolean
@@ -3888,12 +3912,80 @@ export type Database = {
         Returns: Json
       }
       protocol_tick_nudge: { Args: never; Returns: undefined }
+      protocol_watch_ids: {
+        Args: { p_run_id: string; p_venue: string }
+        Returns: string[]
+      }
       protocols_overview: { Args: { p_venue_id?: string }; Returns: Json }
       protocols_waiting_count: { Args: { p_venue_id?: string }; Returns: Json }
       purchases_to_receive: { Args: { p_venue_id?: string }; Returns: Json }
       push_nudge: { Args: never; Returns: undefined }
       raise_waiter_call: {
         Args: { p_reason: Database["public"]["Enums"]["waiter_call_reason"] }
+        Returns: Json
+      }
+      ranks_adjust: {
+        Args: { p_delta: number; p_note: string; p_profile_id: string }
+        Returns: Json
+      }
+      ranks_admin: { Args: never; Returns: Json }
+      ranks_award: { Args: { p_result_id: string }; Returns: undefined }
+      ranks_board: { Args: never; Returns: Json }
+      ranks_confirm: {
+        Args: { p_accept: boolean; p_result_id: string }
+        Returns: Json
+      }
+      ranks_desk_record: {
+        Args: {
+          p_a1: string
+          p_a2: string
+          p_b1: string
+          p_b2: string
+          p_reservation_id: string
+          p_score: string
+          p_winner: string
+        }
+        Returns: Json
+      }
+      ranks_desk_results: {
+        Args: { p_limit: number; p_status: string }
+        Returns: Json
+      }
+      ranks_find_player: { Args: { p_username: string }; Returns: Json }
+      ranks_level_json: { Args: { p_lifetime: number }; Returns: Json }
+      ranks_levels_json: { Args: never; Returns: Json }
+      ranks_period_start: { Args: { p_period: string }; Returns: string }
+      ranks_player_json: { Args: { p_profile_id: string }; Returns: Json }
+      ranks_profile_by_username: {
+        Args: { p_username: string }
+        Returns: string
+      }
+      ranks_report: {
+        Args: {
+          p_opponent1: string
+          p_opponent2: string
+          p_partner: string
+          p_reservation_id: string
+          p_score: string
+          p_won: boolean
+        }
+        Returns: Json
+      }
+      ranks_result_json: {
+        Args: {
+          p_me: string
+          p_r: Database["public"]["Tables"]["game_results"]["Row"]
+        }
+        Returns: Json
+      }
+      ranks_settings_json: { Args: never; Returns: Json }
+      ranks_staff_player_json: { Args: { p_profile_id: string }; Returns: Json }
+      ranks_unaward: {
+        Args: { p_note: string; p_result_id: string }
+        Returns: undefined
+      }
+      ranks_void: {
+        Args: { p_reason: string; p_result_id: string }
         Returns: Json
       }
       readable_venue_ids: { Args: never; Returns: string[] }
@@ -4167,6 +4259,7 @@ export type Database = {
         Args: { p_hint: string; p_required: boolean; p_value: Json }
         Returns: string
       }
+      remove_plan_idea: { Args: { p_id: string }; Returns: Json }
       rename_staff: {
         Args: { p_display_name: string; p_staff_id: string }
         Returns: Json
@@ -4367,6 +4460,19 @@ export type Database = {
         }
         Returns: string
       }
+      save_plan_idea: {
+        Args: {
+          p_channel?: string
+          p_days: string[]
+          p_details?: string
+          p_id: string
+          p_idempotency_key?: string
+          p_kind?: string
+          p_title: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       save_protocol_template: {
         Args: {
           p_expected_version: number
@@ -4405,6 +4511,10 @@ export type Database = {
       search_fold: { Args: { p_text: string }; Returns: string }
       search_norm: { Args: { p_text: string }; Returns: string }
       secret: { Args: { p_name: string }; Returns: string }
+      send_marketing_plan: {
+        Args: { p_month: string; p_venue_id?: string }
+        Returns: Json
+      }
       send_order_slip: {
         Args: {
           p_device_id?: string
@@ -4582,6 +4692,10 @@ export type Database = {
         Args: { p_level?: string; p_wants?: string[]; p_years?: string }
         Returns: Json
       }
+      set_my_push_prefs: {
+        Args: { p_protocol_updates: boolean }
+        Returns: Json
+      }
       set_my_username: { Args: { p_username: string }; Returns: Json }
       set_opening_hours: {
         Args: {
@@ -4617,6 +4731,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_ranks_levels: { Args: { p_levels: Json }; Returns: Json }
+      set_ranks_settings: { Args: { p_patch: Json }; Returns: Json }
       set_recipe: {
         Args: { p_lines?: Json; p_target: string; p_target_id: string }
         Returns: number
@@ -4949,6 +5065,7 @@ export type Database = {
           p_body: string
           p_campaign_id?: string
           p_channel: string
+          p_idea_id?: string
           p_idempotency_key?: string
           p_images?: string[]
           p_media_link?: string
@@ -5050,6 +5167,10 @@ export type Database = {
       table_qr_tokens: { Args: never; Returns: Json }
       table_token_secret: { Args: never; Returns: string }
       table_token_secret_prev: { Args: never; Returns: string }
+      take_back_marketing_plan: {
+        Args: { p_month: string; p_venue_id?: string }
+        Returns: Json
+      }
       teachings_for_me: {
         Args: {
           p_limit?: number
@@ -8416,6 +8537,122 @@ export type Database = {
           },
         ]
       }
+      game_results: {
+        Row: {
+          a1: string
+          a2: string | null
+          b1: string
+          b2: string | null
+          decided_at: string | null
+          decided_by: string | null
+          expires_at: string | null
+          id: string
+          played_at: string
+          reported_at: string
+          reported_by: string
+          reservation_id: string | null
+          score: string | null
+          source: string
+          status: string
+          tournament_match_id: string | null
+          venue_id: string
+          void_reason: string | null
+          winner: string
+        }
+        Insert: {
+          a1: string
+          a2?: string | null
+          b1: string
+          b2?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          expires_at?: string | null
+          id?: string
+          played_at: string
+          reported_at?: string
+          reported_by: string
+          reservation_id?: string | null
+          score?: string | null
+          source: string
+          status?: string
+          tournament_match_id?: string | null
+          venue_id?: string
+          void_reason?: string | null
+          winner: string
+        }
+        Update: {
+          a1?: string
+          a2?: string | null
+          b1?: string
+          b2?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          expires_at?: string | null
+          id?: string
+          played_at?: string
+          reported_at?: string
+          reported_by?: string
+          reservation_id?: string | null
+          score?: string | null
+          source?: string
+          status?: string
+          tournament_match_id?: string | null
+          venue_id?: string
+          void_reason?: string | null
+          winner?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_results_a1_fkey"
+            columns: ["a1"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_results_a2_fkey"
+            columns: ["a2"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_results_b1_fkey"
+            columns: ["b1"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_results_b2_fkey"
+            columns: ["b2"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_results_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_results_tournament_match_id_fkey"
+            columns: ["tournament_match_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_results_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_sessions: {
         Row: {
           auth_user_id: string
@@ -10380,6 +10617,7 @@ export type Database = {
           decided_at: string | null
           decided_by: string | null
           id: string
+          idea_id: string | null
           menu_item_id: string | null
           planned_for: string
           status: string
@@ -10396,6 +10634,7 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           id?: string
+          idea_id?: string | null
           menu_item_id?: string | null
           planned_for: string
           status?: string
@@ -10412,6 +10651,7 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           id?: string
+          idea_id?: string | null
           menu_item_id?: string | null
           planned_for?: string
           status?: string
@@ -10439,6 +10679,13 @@ export type Database = {
             columns: ["decided_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_content_idea_id_fkey"
+            columns: ["idea_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_plan_ideas"
             referencedColumns: ["id"]
           },
           {
@@ -10571,6 +10818,143 @@ export type Database = {
           },
           {
             foreignKeyName: "marketing_notes_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_plan_ideas: {
+        Row: {
+          channel: string
+          created_at: string
+          created_by: string
+          day: string
+          decided_at: string | null
+          details: string | null
+          drop_note: string | null
+          id: string
+          kind: string
+          plan_id: string
+          status: string
+          title: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          created_by: string
+          day: string
+          decided_at?: string | null
+          details?: string | null
+          drop_note?: string | null
+          id?: string
+          kind?: string
+          plan_id: string
+          status?: string
+          title: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          created_by?: string
+          day?: string
+          decided_at?: string | null
+          details?: string | null
+          drop_note?: string | null
+          id?: string
+          kind?: string
+          plan_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_plan_ideas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_plan_ideas_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_plan_ideas_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_plans: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          month: string
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          month: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          month?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_plans_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_plans_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_plans_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -13128,6 +13512,7 @@ export type Database = {
           id: string
           photos: string[]
           record: Json
+          reminded_at: string | null
           round: number
           run_id: string
           run_step_id: string
@@ -13145,6 +13530,7 @@ export type Database = {
           id?: string
           photos?: string[]
           record: Json
+          reminded_at?: string | null
           round: number
           run_id: string
           run_step_id: string
@@ -13162,6 +13548,7 @@ export type Database = {
           id?: string
           photos?: string[]
           record?: Json
+          reminded_at?: string | null
           round?: number
           run_id?: string
           run_step_id?: string
@@ -13488,6 +13875,127 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ranks_ledger: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          delta: number
+          earned_at: string
+          id: string
+          kind: string
+          note: string | null
+          profile_id: string
+          result_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          delta: number
+          earned_at: string
+          id?: string
+          kind: string
+          note?: string | null
+          profile_id: string
+          result_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          delta?: number
+          earned_at?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          profile_id?: string
+          result_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ranks_ledger_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ranks_levels: {
+        Row: {
+          created_at: string
+          id: string
+          min_points: number
+          name_ar: string
+          name_en: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          min_points: number
+          name_ar: string
+          name_en: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          min_points?: number
+          name_ar?: string
+          name_en?: string
+        }
+        Relationships: []
+      }
+      ranks_settings: {
+        Row: {
+          board_size: number
+          count_reported: boolean
+          count_tournaments: boolean
+          draw_points: number
+          enabled: boolean
+          id: boolean
+          loss_points: number
+          period: string
+          report_hours: number
+          updated_at: string
+          updated_by: string | null
+          win_points: number
+        }
+        Insert: {
+          board_size?: number
+          count_reported?: boolean
+          count_tournaments?: boolean
+          draw_points?: number
+          enabled?: boolean
+          id?: boolean
+          loss_points?: number
+          period?: string
+          report_hours?: number
+          updated_at?: string
+          updated_by?: string | null
+          win_points?: number
+        }
+        Update: {
+          board_size?: number
+          count_reported?: boolean
+          count_tournaments?: boolean
+          draw_points?: number
+          enabled?: boolean
+          id?: boolean
+          loss_points?: number
+          period?: string
+          report_hours?: number
+          updated_at?: string
+          updated_by?: string | null
+          win_points?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ranks_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
             referencedColumns: ["id"]
           },
         ]
@@ -15075,6 +15583,32 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_push_prefs: {
+        Row: {
+          protocol_updates: boolean
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          protocol_updates?: boolean
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          protocol_updates?: boolean
+          staff_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_push_prefs_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "staff"
             referencedColumns: ["id"]
           },
         ]

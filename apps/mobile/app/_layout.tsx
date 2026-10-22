@@ -48,6 +48,7 @@ import { onlinePaymentsShipped } from '../src/features/deposit/enabled';
 import { matchKeys } from '../src/features/matches/keys';
 import { coachingKeys } from '../src/features/coaching/keys';
 import { tournamentKeys } from '../src/features/tournaments/keys';
+import { tournamentsShipped } from '../src/features/tournaments/shipped';
 import { coachKeys } from '../src/features/coach/keys';
 import { lessonPushHref } from '../src/features/coaching/pushRoutes';
 import {
@@ -367,6 +368,8 @@ function RootStack() {
           with the native back item, each with its own RequireSession. */}
           <Stack.Screen name="loyalty" />
           <Stack.Screen name="member-card" />
+          {/* The leaderboard's score report (0364), pushed from the Ranks tab's played bookings. */}
+          <Stack.Screen name="ranks-report" />
           {/* The view-only café menu, opened from the account page. */}
           <Stack.Screen name="cafe-menu" />
           {/* The staff pages Today opens: a stack of their own with their own
@@ -514,7 +517,9 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
           void queryClient.invalidateQueries({ queryKey: coachKeys.all });
         },
         onOpenTournament: (id) => {
-          if (!isOnScreen('tournament/[id]', id))
+          // Tournaments not in this build (features/tournaments/shipped.ts): My reservations.
+          if (!tournamentsShipped()) router.push('/bookings');
+          else if (!isOnScreen('tournament/[id]', id))
             router.push({ pathname: '/tournament/[id]', params: { id } });
         },
         onTournamentNotice: () =>

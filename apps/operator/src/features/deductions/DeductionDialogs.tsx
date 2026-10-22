@@ -13,7 +13,7 @@ import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { refusalCode } from '../protocols/errors';
 import { DK, refreshAfterWrite } from './api';
-import { NOTE_MAX, decisionIssue, isStaleRefusal, type DeductionRow } from './deductionsLogic';
+import { NOTE_MAX, cancelIssue, decisionIssue, isStaleRefusal, type DeductionRow } from './deductionsLogic';
 
 /** A deduction a dialog is about: enough to name it in a sentence. */
 export interface DeductionRef {
@@ -24,16 +24,15 @@ export interface DeductionRef {
 
 /**
  * Approve or decline, with the note the decision carries (the staff requests'
- * DecisionDialog shape, StaffRequests.tsx). Declining needs a reason: the form
- * says so before the server would (REASON_REQUIRED), and the proposer reads
- * it. The person is told only of an approval, and never who proposed it.
+ * DecisionDialog shape, StaffRequests.tsx). The note is optional either way
+ * (0361: the owner never has to say why); the proposer reads it. The person is told only of an approval, and never who proposed it.
  */
 export function DecideDialog({ row, approve, onClose, onDone }: { row: DeductionRow; approve: boolean; onClose: () => void; onDone: () => void }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const [note, setNote] = useState('');
   const [tried, setTried] = useState(false);
-  const issue = decisionIssue(approve, note);
+  const issue = decisionIssue(note);
   const qc = useQueryClient();
   const decide = useMutation({
     mutationFn: () => appRpc('decide_deduction', { p_id: row.id, p_approve: approve, p_note: note.trim() === '' ? null : note.trim() }),
@@ -78,9 +77,8 @@ export function DecideDialog({ row, approve, onClose, onDone }: { row: Deduction
       <Field
         label={tr(approve ? 'ws.deductions.decide.note' : 'ws.deductions.decide.reason')}
         hint={tr('ws.deductions.decide.readByProposer')}
-        required={!approve}
-        optional={approve}
-        error={tried && issue ? tr(issue === 'required' ? 'op.errors.REASON_REQUIRED' : 'op.errors.TEXT_TOO_LONG') : undefined}
+        optional
+        error={tried && issue ? tr('op.errors.TEXT_TOO_LONG') : undefined}
       >
         <textarea
           value={note}
@@ -108,7 +106,7 @@ export function CancelDialog({ target, onClose, onDone }: { target: DeductionRef
   const toast = useToast();
   const [reason, setReason] = useState('');
   const [tried, setTried] = useState(false);
-  const issue = decisionIssue(false, reason);
+  const issue = cancelIssue(reason);
   const qc = useQueryClient();
   const cancel = useMutation({
     mutationFn: () => appRpc('cancel_deduction', { p_id: target.id, p_reason: reason.trim() }),

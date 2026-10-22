@@ -162,6 +162,19 @@ const EN = {
     title: 'Reward unlocked',
     body: () => 'You reached one of your rewards. Open the app to see it.',
   },
+  // Marketing's month plan (0362): sent to the owners; the decision to the branch's marketing
+  // team. The month travels as MM/YYYY.
+  plan_submitted: { title: 'Content plan for approval', body: (v) => pair(v.name, v.title) },
+  plan_approved: { title: 'Content plan approved', body: (v) => v.title },
+  plan_changes: { title: 'Changes asked on the content plan', body: (v) => v.title },
+  // Protocol watch (0363): the owner's status pushes (step_passed and the run_* keys; run_live
+  // and run_stopped above serve them too), and the deciders' reminder of an approval still
+  // waiting 3 hours after it was sent, then daily.
+  step_passed: { title: 'Step done', body: subject },
+  run_done: { title: 'Finished', body: named },
+  run_withdrawn: { title: 'Withdrawn', body: named },
+  run_scheduled: { title: 'Scheduled', body: named },
+  decision_waiting: { title: 'Still waiting on you', body: subject },
 } satisfies Record<string, StaffCopy>;
 
 export type StaffTitleKey = keyof typeof EN;
@@ -263,6 +276,15 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
     title: 'تحقّقت مكافأة',
     body: () => 'وصلت إلى هدف إحدى مكافآتك. افتح التطبيق لتراها.',
   },
+  plan_submitted: { title: 'خطة المحتوى بانتظار الموافقة', body: (v) => pair(v.name, v.title) },
+  plan_approved: { title: 'تمت الموافقة على خطة المحتوى', body: (v) => v.title },
+  plan_changes: { title: 'طُلبت تعديلات على خطة المحتوى', body: (v) => v.title },
+  // DRAFT-AR (0363): on the client's review list.
+  step_passed: { title: 'اكتملت خطوة', body: subject },
+  run_done: { title: 'اكتمل', body: named },
+  run_withdrawn: { title: 'سُحب', body: named },
+  run_scheduled: { title: 'تمت الجدولة', body: named },
+  decision_waiting: { title: 'ما زال بانتظارك', body: subject },
 };
 
 export const STAFF_STRINGS: Record<Lang, Record<StaffTitleKey, StaffCopy>> = { en: EN, ar: AR };

@@ -620,8 +620,8 @@ describe.each(LOCALES)('content for approval by role in %s', (locale) => {
         ),
       ).toBeTruthy();
       fireEvent.press(screen.getByTestId('staff-content.decide.decline'));
-      fireEvent.press(screen.getByTestId('staff-content.decide.confirm'));
-      expect(screen.getByText(t('staff.content.decide.errors.reason'))).toBeTruthy();
+      // 0361: the owner's reason is optional, and the box says so.
+      expect(screen.getByText(t('staff.content.decide.reasonOptional'))).toBeTruthy();
       // Every round shows, with the owner's earlier reason; the link is text.
       expect(screen.getByText(t('staff.content.item.version', { version: 1 }))).toBeTruthy();
       expect(screen.getByText('https://example.com/reel')).toBeTruthy();

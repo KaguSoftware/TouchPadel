@@ -217,7 +217,6 @@ describe.skipIf(!docker)('marketing_content (rolled-back transactions)', () => {
       Q('submitted_push', `select coalesce(jsonb_agg(jsonb_build_object('to', o.profile_id, 'kind', o.kind, 'payload', o.payload)), '[]'::jsonb)
                              from notification_outbox o
                             where o.created_at = now() and o.payload->>'title_key' = 'content_submitted'`),
-      decide('owner', 'changes_bare', 'c', 1, 'changes'),
       decide('owner', 'changes', 'c', 1, 'changes', `'Brighter photo, please'`),
       Q('changes_push', `select coalesce(jsonb_agg(jsonb_build_object('to', o.profile_id, 'payload', o.payload)), '[]'::jsonb)
                            from notification_outbox o
@@ -251,7 +250,6 @@ describe.skipIf(!docker)('marketing_content (rolled-back transactions)', () => {
       payload: { route: 'staff', id: null, title_key: 'content_submitted', params: { name: 'MC mkt', title: 'Friday reel' },
                  dedupe: `content:${who.c}` },
     });
-    expect(refused(r, 'changes_bare')).toBe('REASON_REQUIRED');
     expect(ok<{ status: string }>(r, 'changes').status).toBe('changes');
     const changes = ok<Array<{ to: string; payload: Record<string, unknown> }>>(r, 'changes_push');
     expect(changes.map((p) => p.to)).toEqual([who.mkt]);
@@ -323,9 +321,11 @@ describe.skipIf(!docker)('marketing_content (rolled-back transactions)', () => {
         .map((w) => submit(w, `sub_${w}`)),
       decide('owner', 'bad_decision', 'other_item', 2, 'maybe'),
       decide('owner', 'wrong_version', 'other_item', 3, 'approve'),
-      decide('owner', 'decline_bare', 'other_item', 2, 'decline', `'  '`),
       decide('owner', 'long_reason', 'other_item', 2, 'decline', `repeat('r', 1001)`),
-      decide('owner', 'decline', 'other_item', 2, 'decline', `'Not our style'`),
+      // 0361: the owner declines with no reason at all.
+      decide('owner', 'decline', 'other_item', 2, 'decline', `'  '`),
+      Q('decline_note', `select jsonb_build_object('note', decision_note) from marketing_content_versions
+                          where content_id = {{other_item}}::uuid and version = 2`),
       Q('declined_push', `select coalesce(jsonb_agg(o.profile_id order by o.profile_id), '[]'::jsonb) from notification_outbox o
                            where o.created_at = now() and o.payload->>'title_key' = 'content_declined'`),
       T('withdraw_declined', 'mkt2', `select app.withdraw_content({{other_item}}::uuid)`),
@@ -357,9 +357,9 @@ describe.skipIf(!docker)('marketing_content (rolled-back transactions)', () => {
     }
     expect(refused(r, 'bad_decision')).toBe('INVALID_ARGUMENT:decision');
     expect(refused(r, 'wrong_version')).toBe('SUBMISSION_DECIDED');
-    expect(refused(r, 'decline_bare')).toBe('REASON_REQUIRED');
     expect(refused(r, 'long_reason')).toBe('TEXT_TOO_LONG:note');
     expect(ok<{ status: string }>(r, 'decline').status).toBe('declined');
+    expect(ok(r, 'decline_note')).toEqual({ note: null });
     // Version 2 was mkt's, the item mkt2's: both hear it.
     expect(ok<string[]>(r, 'declined_push')).toEqual([who.mkt, who.mkt2].sort());
     expect(refused(r, 'withdraw_declined')).toBe('SUBMISSION_DECIDED');

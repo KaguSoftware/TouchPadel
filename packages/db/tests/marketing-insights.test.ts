@@ -6,8 +6,10 @@
  *     called directly they still answer FORBIDDEN, and the transaction-local
  *     app.marketing_read assertion is cleared before it returns;
  *   * the payload carries no money and no exact count: every number in it is
- *     a weekday, an hour, a level (0..4), a share rounded to 5 or 10, an
- *     about-N rounded count, a weekly index (0..100) or the lapse window;
+ *     a weekday, an hour, a level (0..4), a whole-percent share or fill (0365;
+ *     rounded to 5 or 10 before), a trend's size as a percent change or
+ *     points (0365), an about-N rounded count, a weekly index (0..100) or the
+ *     lapse window;
  *   * a backwards range is INVALID_RANGE.
  *
  * HOW. One psql transaction per scenario, rolled back: the seeded cashier is
@@ -89,10 +91,12 @@ describe.skipIf(!docker)('0360 marketing_insights', () => {
 
   it('carries no money and no exact count', () => {
     const payload = JSON.parse(as(MARKETING, CALL)) as Record<string, unknown>;
-    const allowed = /(\.|^)(dow|hour|level|fillLevel|share|newShare|returningShare|appShare|deskShare|crossoverShare|redeemingShare|courts|cafe|shop|value|newIdx|returningIdx|lapseDays)$/;
+    const allowed = /(\.|^)(dow|hour|level|fillLevel|levelPct|fillPct|share|newShare|returningShare|appShare|deskShare|crossoverShare|redeemingShare|courts|cafe|shop|value|newIdx|returningIdx|lapseDays|\w*[tT]rendPct|\w*[tT]rendPts)$/;
     for (const [path, n] of numbers(payload)) {
       expect(path, `${path} = ${n}`).toMatch(allowed);
-      if (/Share$|share$|^mix\./.test(path)) expect(n % 5, path).toBe(0);
+      expect(Number.isInteger(n), path).toBe(true);
+      // Shares and fills are whole percents (0365).
+      if (/Share$|share$|Pct$|^mix\.(courts|cafe|shop)$/.test(path) && !/[tT]rendPct$/.test(path)) expect(n >= 0 && n <= 100, path).toBe(true);
       if (path.endsWith('.value')) expect(n === 0 || n >= 10, path).toBe(true);
     }
     expect(JSON.stringify(payload)).not.toMatch(/iqd/i);

@@ -4,7 +4,7 @@
  * same sheet and get different footers:
  *
  *  - **The owner** (can_decide): Approve, Ask for changes or Decline. The two
- *    that send it back need a reason, which marketing reads; the outlined
+ *    that send it back take an optional reason (0361), which marketing reads; the outlined
  *    buttons lead to the reason and its confirm (Decline's red, Ask for
  *    changes' blue: asking for changes is part of the job, not a loss). The
  *    decision is on the version the owner is reading, so a newer one sent in
@@ -107,7 +107,7 @@ export function ContentSheet({
   });
   const busy = decide.isPending || withdraw.isPending;
   const reasonDecision: ContentDecision | null = mode === 'changes' ? 'changes' : mode === 'decline' ? 'decline' : null;
-  const issue = reasonDecision ? decisionIssue(reasonDecision, note) : null;
+  const issue = reasonDecision ? decisionIssue(note) : null;
   const sendsAgain = viewer === 'marketing' && head !== null && canSendAgain(head.status) && onSendAgain !== undefined;
 
   const back = () => {
@@ -228,8 +228,7 @@ export function ContentSheet({
             <Field
               label={tr(reasonDecision === 'decline' ? 'ws.content.sheet.declineReason' : 'ws.content.sheet.changesReason')}
               hint={tr('ws.content.sheet.reasonHint', { name: isolate(head?.authorName ?? '') })}
-              required
-              error={tried && issue ? tr(issue === 'required' ? 'op.errors.REASON_REQUIRED' : 'op.errors.TEXT_TOO_LONG') : undefined}
+              error={tried && issue ? tr('op.errors.TEXT_TOO_LONG') : undefined}
               style={{ marginBlockEnd: 0 }}
             >
               <textarea

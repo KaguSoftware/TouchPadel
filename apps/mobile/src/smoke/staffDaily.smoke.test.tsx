@@ -513,14 +513,13 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
       expect(owner.getByTestId('staff-recipe-change.approve')).toBeTruthy();
       expect(owner.getByTestId('staff-recipe-change.decline')).toBeTruthy();
       expect(owner.queryByTestId('staff-recipe-change.submit')).toBeNull();
-      // Decline asks why before it sends, as the shopping list's does: the
-      // reason opens on the press, and an empty one is refused in place.
+      // Decline opens a reason box on the press; for the owner it is
+      // optional (0361) and says so.
       expect(owner.queryByTestId('staff-recipe-change.reason')).toBeNull();
       fireEvent.press(owner.getByTestId('staff-recipe-change.decline'));
       expect(owner.getByTestId('staff-recipe-change.reason')).toBeTruthy();
+      expect(owner.getByText(t('staff.checklists.recipeChange.reason'))).toBeTruthy();
       expect(owner.queryByTestId('staff-recipe-change.approve')).toBeNull();
-      fireEvent.press(owner.getByTestId('staff-recipe-change.decline.confirm'));
-      expect(owner.getByText(t('staff.checklists.recipeChange.errors.reason'))).toBeTruthy();
       fireEvent.press(owner.getByTestId('staff-recipe-change.decline.keep'));
       expect(owner.getByTestId('staff-recipe-change.approve')).toBeTruthy();
     } finally {

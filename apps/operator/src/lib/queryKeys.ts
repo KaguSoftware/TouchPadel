@@ -115,6 +115,12 @@ export const QK = {
   /** app.content_page, filter 'waiting', first page: waiting_count (the owner's badge; marketing reads it too). */
   contentWaiting: ['content', 'waiting'] as const satisfies QueryKey,
   /**
+   * app.marketing_plan for the branch's current month (0362): marketing's
+   * to-do badge, and its waiting_months the owner's badge and Needs-you row.
+   * Under the ['plan'] root, so every plan write refreshes it.
+   */
+  planNow: ['plan', 'now'] as const satisfies QueryKey,
+  /**
    * app.wages_due as returned: every unpaid pay month due now or overdue (the
    * owner's Wages badge, the "Due now" strip and the panel card). Under the
    * ['wages'] root, so one invalidation after a pay write refreshes it too.

@@ -373,11 +373,9 @@ export interface RecipeChangesPage {
   total: number;
 }
 
-/** What a decline needs: a reason, at most 1000 characters. */
-export function declineIssue(reason: string): 'required' | 'tooLong' | null {
-  const text = reason.trim();
-  if (!text) return 'required';
-  return text.length > REASON_MAX ? 'tooLong' : null;
+/** A decline's reason is optional (0361: the owner never has to say why), at most 1000 characters. */
+export function declineIssue(reason: string): 'tooLong' | null {
+  return reason.trim().length > REASON_MAX ? 'tooLong' : null;
 }
 
 /** Whether the owner may press Approve: a waiting request whose recipe has not moved since. */

@@ -246,16 +246,19 @@ describe.skipIf(!docker)('staff_push_keys (rolled-back transactions)', () => {
     const m = def.match(/c_title_keys\s+constant text\[\] := array\[([^\]]*)\]/);
     expect(m).not.toBeNull();
     const keys = [...m![1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]);
-    expect(keys).toHaveLength(44);
+    expect(keys).toHaveLength(52);
     expect(keys.slice(15, 26)).toEqual(KEYS.map(([k]) => k));
     expect(keys.slice(26, 37)).toEqual(WAVE5_KEYS.map(([k]) => k));
     // Open matches' match_report_new follows wave 5 (0261, R43); loyalty's gift alert is last
     // (0308, c17); a staff screenshot alert follows it (0313), then the shop desk's supplier
     // price change (0322), then the scheduled checklists' due and overdue pushes (0323), then
-    // a staff reward unlocked (0333).
+    // a staff reward unlocked (0333), then marketing's month plan (0362), then the protocol
+    // watch's status pushes and approval reminder (0363).
     expect(keys.slice(37)).toEqual([
       'match_report_new', 'loyalty_gift', 'screenshot_taken', 'shop_price_changed',
       'checklist_due', 'checklist_overdue', 'reward_unlocked',
+      'plan_submitted', 'plan_approved', 'plan_changes',
+      'step_passed', 'run_done', 'run_withdrawn', 'run_scheduled', 'decision_waiting',
     ]);
   });
 

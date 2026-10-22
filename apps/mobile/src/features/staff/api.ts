@@ -36,6 +36,9 @@ export const STAFF_RPCS = [
   'staff_rewards_board',
   'set_staff_reward',
   'end_staff_reward',
+  // push settings (0363): the owner's protocol status pushes on or off, on Work alerts
+  'my_push_prefs',
+  'set_my_push_prefs',
   // Today
   'my_protocol_work',
   'protocols_waiting_count',

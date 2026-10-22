@@ -173,6 +173,8 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     files: 'الملفات',
     myTasks: 'مهامي',
     insights: 'المؤشرات',
+    contentPlan: 'خطة المحتوى',
+    posts: 'بانتظار الموافقة',
     protocols: 'البروتوكولات',
     suggestions: 'أفكار الموظفين',
     // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
@@ -190,6 +192,8 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     tournaments: 'البطولات',
     // DRAFT-AR (loyalty build contracts §4).
     loyalty: 'نقاط الولاء',
+    // DRAFT-AR (0364).
+    ranks: 'ترتيب اللاعبين',
     // Management rebuild (2026-10-17): see the EN catalog.
     cash: 'النقد',
     pay: 'الأجور',

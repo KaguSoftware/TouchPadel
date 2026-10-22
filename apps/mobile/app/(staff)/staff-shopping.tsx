@@ -239,7 +239,8 @@ function ShoppingScreen() {
   const onConfirmDecline = () => {
     if (!declining) return;
     const reason = declining.reason.trim();
-    if (!reason) {
+    // 0361: the owner declines without a reason; the head chef and a manager say why.
+    if (!reason && role !== 'owner') {
       setDeclining({ ...declining, error: t('staff.supplies.shopping.approve.errors.reason') });
       return;
     }
@@ -247,7 +248,7 @@ function ShoppingScreen() {
       setDeclining({ ...declining, error: t('staff.supplies.shopping.approve.errors.reasonTooLong') });
       return;
     }
-    decide.mutate({ id: declining.id, approve: false, reason });
+    decide.mutate({ id: declining.id, approve: false, reason: reason || null });
   };
 
   // ── The driver's run ───────────────────────────────────────────────────────
@@ -343,7 +344,7 @@ function ShoppingScreen() {
                     <View style={{ gap: space.s, marginTop: space.s }}>
                       <Field
                         testID={`staff-shopping.decline.${item.id}.reason`}
-                        label={t('staff.supplies.shopping.approve.reason')}
+                        label={t(role === 'owner' ? 'staff.supplies.shopping.approve.reasonOptional' : 'staff.supplies.shopping.approve.reason')}
                         value={declining.reason}
                         onChangeText={(reason) => setDeclining({ id: item.id, reason, error: null })}
                         multiline

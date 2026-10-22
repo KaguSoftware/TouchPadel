@@ -271,6 +271,19 @@ describe.skipIf(!docker)('shopping_head_approval (rolled-back transactions)', ()
                                               'shopping.cancel', 'shopping.decline']);
   });
 
+  it('the owner declines a chef’s line with no reason; the head chef still needs one (0361)', () => {
+    const r = scenario([
+      MK('chef', 'chef'), MK('hc', 'head_chef'),
+      T('chef_add', 'chef', add('Saffron')), RES('l1', 'chef_add', 'id'),
+      T('hc_bare', 'hc', decide('l1', 'false')),
+      T('owner_bare', 'owner', decide('l1', 'false')),
+      Q('row', `select jsonb_build_object('status', status, 'reason', decline_reason) from shopping_items where id = {{l1}}::uuid`),
+    ]);
+    expect(refused(r, 'hc_bare')).toBe('REASON_REQUIRED');
+    expect(ok(r, 'owner_bare')).toEqual({ id: ok<{ id: string }>(r, 'chef_add').id, status: 'declined' });
+    expect(ok(r, 'row')).toEqual({ status: 'declined', reason: null });
+  });
+
   it('the heads’ and MGMT’s lines go straight to open; the barista still cannot add', () => {
     const r = scenario([
       MK('hc', 'head_chef'), MK('hb', 'head_barista'), MK('bar', 'barista'), MK('drv', 'driver'),

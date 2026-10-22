@@ -270,6 +270,16 @@ queryClient.setMutationDefaults(['loyalty', 'mutation'], {
 });
 
 /**
+ * The leaderboard (0364), keyed under `ranksKeys` (features/ranks/keys.ts): a report and an
+ * opponent's answer run now or fail now, and are never sent again by themselves (a repeat would
+ * only be refused: RANKS_ALREADY_REPORTED, RANKS_RESULT_CLOSED).
+ */
+queryClient.setMutationDefaults(['ranks', 'mutation'], {
+  networkMode: 'always',
+  retry: false,
+});
+
+/**
  * Disk cache so a cold start paints real data immediately instead of spinners.
  *
  * `buster` is the app version: a build that changes query shapes must not read
@@ -315,6 +325,9 @@ export const persistOptions = {
       query.queryKey[0] !== 'coaching' &&
       query.queryKey[0] !== 'coach' &&
       query.queryKey[0] !== 'tournament' &&
+      // The leaderboard (0364): the board and the guest's own results carry other players'
+      // names, as a match read does.
+      query.queryKey[0] !== 'ranks' &&
       // SEC (pentest 2026-10): the profile row carries full_name, phone and
       // gender; keep it off this plaintext file, which a backup or a seized
       // device can read (SecureStore holds the session). The consent row goes

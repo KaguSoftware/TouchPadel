@@ -133,7 +133,8 @@ export function useRolesText(): (roles: readonly StaffRole[]) => string {
 /**
  * A reason to type and a confirm: stopping a run, skipping a step, declining
  * an idea. The confirm stays pressable with the box empty so the person is
- * told why nothing happened rather than shown a dead button.
+ * told why nothing happened rather than shown a dead button. `optional` (the
+ * owner's decline, 0361) sends an empty box as it is.
  */
 export function ReasonForm({
   testID,
@@ -142,6 +143,7 @@ export function ReasonForm({
   busy,
   error,
   danger,
+  optional,
   onConfirm,
   onCancel,
 }: {
@@ -151,6 +153,7 @@ export function ReasonForm({
   busy?: boolean;
   error?: string | null;
   danger?: boolean;
+  optional?: boolean;
   onConfirm: (reason: string) => void;
   onCancel: () => void;
 }) {
@@ -190,7 +193,7 @@ export function ReasonForm({
           size="compact"
           busy={busy}
           onPress={() => {
-            if (!reason.trim()) {
+            if (!reason.trim() && !optional) {
               setMissing(true);
               return;
             }

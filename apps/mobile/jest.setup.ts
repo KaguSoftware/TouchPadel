@@ -266,8 +266,10 @@ jest.mock('expo-router/js-tabs', () => ({
  * It does NOT prove UIKit renders them — nothing running in Node can.
  */
 jest.mock('expo-router/unstable-native-tabs', () => {
-  const Trigger = ({ name, children }: { name: string; children?: ReactNode }) =>
-    mockH(mockView, { testID: `tabs.${name === 'index' ? 'book' : name}` }, children);
+  // A `hidden` trigger is not in UIKit's bar at all (the tournaments build switch swaps Play and
+  // Ranks this way), so the stand-in draws nothing for it.
+  const Trigger = ({ name, hidden, children }: { name: string; hidden?: boolean; children?: ReactNode }) =>
+    hidden ? null : mockH(mockView, { testID: `tabs.${name === 'index' ? 'book' : name}` }, children);
   Trigger.displayName = 'NativeTabs.Trigger';
   const Icon = () => null;
   Icon.displayName = 'NativeTabs.Trigger.Icon';

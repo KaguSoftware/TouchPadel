@@ -7025,4 +7025,226 @@ export const matrix: MatrixRule[] = [
     note: '0360: marketing and the owner (marketing is not among the eight principals; tests/marketing-insights.test.ts runs it)',
     drop: 38,
   },
+  // ── 0363 protocol_watch (protocol-watch.test.ts) ──
+  // A person's push settings: read and written only through the owner's two
+  // RPCs; no client grant on the table at all.
+  {
+    kind: 'select',
+    name: 'staff_push_prefs',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0363: no client grant at all: app.my_push_prefs reads it',
+    drop: 38,
+  },
+  {
+    kind: 'write',
+    name: 'staff_push_prefs',
+    op: 'insert',
+    payload: { staff_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0363: no client write grant: app.set_my_push_prefs only',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_push_prefs',
+    args: {}, expect: OWNER_ONLY,
+    note: '0363: the owner, about themselves: {protocol_updates}',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_my_push_prefs',
+    args: { p_protocol_updates: true }, expect: OWNER_ONLY,
+    note: '0363: the owner turns their protocol status pushes on or off (state-idempotent)',
+    drop: 38,
+  },
+  // 0362 marketing_plan: the month's content plan. The tables are the owners'
+  // alone, as marketing_content; marketing reads through app.marketing_plan.
+  {
+    kind: 'select',
+    name: 'marketing_plans',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied' }),
+    note: '0362: the owners at the branch only; no plan is seeded, so the owner sees none here either. tests/marketing-plan.test.ts proves the owner read and the manager silence',
+    drop: 38,
+  },
+  {
+    kind: 'select',
+    name: 'marketing_plan_ideas',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied' }),
+    note: '0362: the owners at the branch only; never a manager',
+    drop: 38,
+  },
+  {
+    kind: 'write',
+    name: 'marketing_plans',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0362: no client write grant: save_plan_idea, send_marketing_plan, take_back_marketing_plan and decide_marketing_plan only',
+    drop: 38,
+  },
+  {
+    kind: 'write',
+    name: 'marketing_plan_ideas',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0362: no client write grant: save_plan_idea, remove_plan_idea and decide_marketing_plan only',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'marketing_plan',
+    args: { p_month: DAY_FROM, p_venue_id: VENUE_A }, expect: OWNER_ONLY,
+    note: '0362: marketing (not in this matrix) and the owners at the branch, never a manager',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'save_plan_idea',
+    args: { p_id: null, p_days: [DAY_FROM], p_title: '', p_venue_id: VENUE_A },
+    expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    note: '0362: marketing at the branch only; every principal here, the manager and the owner included, is refused',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'remove_plan_idea',
+    args: { p_id: NIL_UUID }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    note: '0362: marketing only; every principal here is refused before the idea is looked up',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'send_marketing_plan',
+    args: { p_month: DAY_FROM, p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    note: '0362: marketing at the branch only',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'take_back_marketing_plan',
+    args: { p_month: DAY_FROM, p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    note: '0362: marketing at the branch only',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'decide_marketing_plan',
+    args: { p_id: NIL_UUID, p_decision: 'approve' }, expect: STAFF_ANY,
+    note: '0362: any active staff member; then the owner at the plan\'s branch. An unknown plan is REF_NOT_FOUND',
+    drop: 38,
+  },
+  // ── 0364 ranks_leaderboard (ranks-leaderboard.test.ts) ──
+  // The four tables have RLS on and no client grant: every read and write goes
+  // through the RPCs below. The board is anon-readable by design (top board_size
+  // names "First L." only); the player's own RPCs take any signed-in caller and
+  // guard by auth.uid() and row ownership; the desk, manager and owner RPCs by role.
+  {
+    kind: 'select', name: 'ranks_settings', expect: ex<SelectExpectation>('denied'),
+    note: '0364: no client grant at all; read through ranks_board, my_ranks, ranks_desk_results and ranks_admin',
+    drop: 38,
+  },
+  {
+    kind: 'write', name: 'ranks_settings', op: 'insert', payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0364: no client write grant: the ranks_* RPCs and the tournament score trigger only',
+    drop: 38,
+  },
+  {
+    kind: 'select', name: 'ranks_levels', expect: ex<SelectExpectation>('denied'),
+    note: '0364: no client grant at all; read through ranks_board, my_ranks, ranks_desk_results and ranks_admin',
+    drop: 38,
+  },
+  {
+    kind: 'write', name: 'ranks_levels', op: 'insert', payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0364: no client write grant: the ranks_* RPCs and the tournament score trigger only',
+    drop: 38,
+  },
+  {
+    kind: 'select', name: 'game_results', expect: ex<SelectExpectation>('denied'),
+    note: '0364: no client grant at all; read through ranks_board, my_ranks, ranks_desk_results and ranks_admin',
+    drop: 38,
+  },
+  {
+    kind: 'write', name: 'game_results', op: 'insert', payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0364: no client write grant: the ranks_* RPCs and the tournament score trigger only',
+    drop: 38,
+  },
+  {
+    kind: 'select', name: 'ranks_ledger', expect: ex<SelectExpectation>('denied'),
+    note: '0364: no client grant at all; read through ranks_board, my_ranks, ranks_desk_results and ranks_admin',
+    drop: 38,
+  },
+  {
+    kind: 'write', name: 'ranks_ledger', op: 'insert', payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0364: no client write grant: the ranks_* RPCs and the tournament score trigger only',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_board', args: {}, expect: SELF_ANON_OK,
+    note: '0364: public by design, anon included: the top board_size rows only, rank, "First L.", points, level',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_ranks', args: {}, expect: SELF_AUTHED,
+    note: '0364: the caller\'s own points, rank, level and results; anon has no grant',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_find_player',
+    args: { p_username: 'matrix-no-such-user' }, expect: SELF_AUTHED,
+    note: '0364: an exact username lookup (no list); NULL for an unknown one',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_report',
+    args: { p_reservation_id: NIL_UUID, p_partner: 'a', p_opponent1: 'b', p_opponent2: 'c', p_won: true, p_score: null },
+    expect: SELF_AUTHED,
+    note: '0364: guarded by booking ownership, not by role: a booking that is not the caller\'s is RANKS_NOT_ELIGIBLE',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_confirm',
+    args: { p_result_id: NIL_UUID, p_accept: true }, expect: SELF_AUTHED,
+    note: '0364: guarded by the result\'s side B, not by role: anyone else is RANKS_NOT_YOURS',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_desk_record',
+    args: { p_reservation_id: null, p_a1: NIL_UUID, p_a2: null, p_b1: NIL_UUID, p_b2: null, p_winner: 'a', p_score: null },
+    expect: DESK_UP,
+    note: '0364: court desk, manager, owner; an unknown player is RANKS_PLAYER_NOT_FOUND past the guard',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_desk_results',
+    args: { p_status: null, p_limit: 1 }, expect: DESK_UP,
+    note: '0364: court desk, manager, owner: the latest results at the branches in scope',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_void',
+    args: { p_result_id: NIL_UUID, p_reason: 'matrix probe' }, expect: MANAGER_UP,
+    note: '0364: manager or owner; an unknown result is NOT_FOUND past the guard',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_admin', args: {}, expect: MANAGER_UP,
+    note: '0364: manager or owner: the rules and the levels',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_ranks_settings',
+    args: { p_patch: { matrix_probe: 1 } }, expect: OWNER_ONLY,
+    note: '0364: owner only; an unknown key is INVALID_ARGUMENT, so the probe changes nothing',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_ranks_levels',
+    args: { p_levels: [] }, expect: OWNER_ONLY,
+    note: '0364: owner only; an empty list is INVALID_VALUE, so the probe changes nothing',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_adjust',
+    args: { p_profile_id: NIL_UUID, p_delta: 0, p_note: 'matrix probe' }, expect: OWNER_ONLY,
+    note: '0364: owner only; a zero delta is INVALID_VALUE past the guard',
+    drop: 38,
+  },
 ];

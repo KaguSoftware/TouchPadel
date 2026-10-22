@@ -61,7 +61,7 @@ export const contentEn = {
     ownPost: 'You sent this post, so another owner decides it.',
     changesReason: 'What should change',
     declineReason: 'Why it is declined',
-    reasonHint: '{name} reads this.',
+    reasonHint: 'Optional. {name} reads this.',
     // Approval is final: the button names the version it freezes.
     approveVersion: 'Approve version {n}',
     changesConfirm: 'Ask for changes',

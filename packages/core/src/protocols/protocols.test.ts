@@ -630,6 +630,9 @@ describe('titles and starts', () => {
 describe('decisions', () => {
   it('needs a reason to send back or stop, and none to approve', () => {
     expect(fields(validateDecision('product_release', 'test', { decision: 'stop' }))).toEqual(['note:REASON_REQUIRED']);
+    // 0361: the owner sends back or stops with no reason.
+    expect(validateDecision('product_release', 'test', { decision: 'stop', byOwner: true })).toEqual([]);
+    expect(validateDecision('product_release', 'test', { decision: 'send_back', sendBackTo: U1, sendBackTargets: [U1], byOwner: true })).toEqual([]);
     expect(fields(validateDecision('product_release', 'test', { decision: 'send_back', note: 'Retest', sendBackTo: U1, sendBackTargets: [U1] }))).toEqual([]);
     expect(validateDecision('product_release', 'test', { decision: 'approve' })).toEqual([]);
     expect(fields(validateDecision('price_promo', 'numbers', { decision: 'stop', note: 'x'.repeat(1001) }))).toEqual([

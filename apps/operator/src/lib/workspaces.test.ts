@@ -62,11 +62,15 @@ describe('navigation sets', () => {
   it('the prep workspace has no navigation at all (spec §04)', () => {
     expect(WORKSPACES.prep.groups).toHaveLength(0);
   });
-  it('the team workspace is one untitled group holding My tasks and Insights', () => {
-    expect(WORKSPACES.team.home).toBe('/tasks');
+  it('the team workspace is one untitled group: marketing’s plan and posts (0362), My tasks and Insights', () => {
     expect(WORKSPACES.team.groups.map((g) => [g.labelKey, g.items.map((i) => [i.to, i.labelKey])])).toEqual([
-      [null, [['/tasks', 'myTasks'], ['/insights', 'insights']]],
+      [null, [['/plan', 'contentPlan'], ['/posts', 'posts'], ['/tasks', 'myTasks'], ['/insights', 'insights']]],
     ]);
+    // Marketing opens on its plan; the driver and the waiter, who cannot, on My tasks.
+    expect(workspaceHome(WORKSPACES.team, (p) => canAccess('marketing', p))).toBe('/plan');
+    for (const role of ['driver', 'waiter'] as const) {
+      expect(workspaceHome(WORKSPACES.team, (p) => canAccess(role, p)), role).toBe('/tasks');
+    }
   });
   it('every nav target is a route the workspace owner role may open', () => {
     const roleFor: Record<keyof typeof WORKSPACES, StaffRole> = {
@@ -89,7 +93,7 @@ describe('navigation sets', () => {
       for (const section of ws.sections ?? []) {
         expect(canAccess(roleFor[ws.key], section.home), `${ws.key} → ${section.key} home`).toBe(true);
       }
-      expect(canAccess(roleFor[ws.key], ws.home), `${ws.key} home`).toBe(true);
+      expect(canAccess(roleFor[ws.key], workspaceHome(ws, (p) => canAccess(roleFor[ws.key], p))), `${ws.key} home`).toBe(true);
     }
     // The manager cannot open the Overview, so Management opens on Today.
     expect(workspaceHome(WORKSPACES.management, (p) => canAccess('manager', p))).toBe('/ops');
@@ -99,14 +103,15 @@ describe('navigation sets', () => {
     for (const role of ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'marketing', 'waiter', 'driver'] as const) {
       for (const key of workspacesForRole(role)) {
         for (const item of workspaceItems(WORKSPACES[key])) {
-          // The team's Insights row is marketing's alone; the rail hides it from the rest (rowShown).
-          if (item.to === '/insights' && role !== 'marketing') {
-            expect(rowShown(item, (p) => canAccess(role, p), (t) => canAccess(role, t.to)), `${role} sees no Insights row`).toBe(false);
+          // The team's Insights, Content plan and Sent for approval rows are
+          // marketing's alone; the rail hides them from the rest (rowShown).
+          if (['/insights', '/plan', '/posts'].includes(item.to) && role !== 'marketing') {
+            expect(rowShown(item, (p) => canAccess(role, p), (t) => canAccess(role, t.to)), `${role} sees no ${item.to} row`).toBe(false);
             continue;
           }
           expect(canAccess(role, item.to), `${role} → ${item.to}`).toBe(true);
         }
-        expect(canAccess(role, WORKSPACES[key].home), `${role} → ${key} home`).toBe(true);
+        expect(canAccess(role, workspaceHome(WORKSPACES[key], (p) => canAccess(role, p))), `${role} → ${key} home`).toBe(true);
       }
     }
   });
@@ -142,6 +147,10 @@ describe('navigation sets', () => {
         '/deductions deductionsWaiting',
         '/incidents incidentsOpen',
         '/marketing contentWaiting',
+        // 0362: the owner's plans to approve, marketing's ideas to make now and posts sent back.
+        '/plan planWaiting',
+        '/plan planToDo',
+        '/posts contentChanges',
         // The phone counts waiting, on the owner's Stock section (2026-09-27).
         '/stock/counts stockCountsWaiting',
         // The owner's pay-day reminder (0271).
@@ -496,7 +505,7 @@ describe('families (management rebuild, 2026-10-17)', () => {
     expect(rows('cafe')).toEqual(['tills', 'menu', 'tables', 'shop']);
     expect(rows('stock')).toEqual(['onHand', 'stockMovement', 'stockCounting', 'stockCosts']);
     expect(rows('team')).toEqual(['staff', 'staffActivity', 'attendance', 'fromTeam', 'protocols']);
-    expect(rows('customers')).toEqual(['customers', 'loyalty', 'marketing', 'insights', 'guestApp']);
+    expect(rows('customers')).toEqual(['customers', 'loyalty', 'ranks', 'marketing', 'insights', 'guestApp']);
     expect(rows('settings')).toEqual(['branches', 'computersScreens', 'audit']);
   });
 

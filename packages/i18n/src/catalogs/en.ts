@@ -13,6 +13,7 @@ import { opErrorsCodesEn } from './opErrors.codes.en';
 import { opErrorsCoachingEn } from './opErrors.coaching.en';
 import { opErrorsTournamentsEn } from './opErrors.tournaments.en';
 import { opErrorsLoyaltyEn } from './opErrors.loyalty.en';
+import { opErrorsRanksEn } from './opErrors.ranks.en';
 import { legalEn } from './legal.en';
 import { siteEn } from './site.en';
 import { branchesEn } from './branches.en';
@@ -779,6 +780,119 @@ export const en = {
     profile: 'Profile',
     // The centre tab (2026-10-19): the member card and the café menu (app/(tabs)/club.tsx).
     club: 'Club',
+    // The leaderboard, in Join's place while a build leaves tournaments out (2026-10-22). Short on
+    // purpose: the width of Club across the bar from it, so Book stays in the middle.
+    ranks: 'Ranks',
+  },
+  // The leaderboard (app/(tabs)/ranks.tsx, app/ranks-report.tsx; migration 0364, Majed 2026-10-22).
+  ranks: {
+    period: {
+      month: 'This month',
+      quarter: 'This quarter',
+      all: 'All time',
+    },
+    rules: 'Win +{win} · Loss +{loss}',
+    unit: 'pts',
+    player: 'Player',
+    you: 'You',
+    off: {
+      title: 'Ranks are resting',
+      message: 'The club has the leaderboard switched off for now.',
+    },
+    empty: {
+      title: 'The board is open',
+      message: 'Nobody has points yet. Win a game and your name goes up first.',
+    },
+    error: 'The leaderboard could not be loaded.',
+    me: {
+      place: 'Your place',
+      unranked: 'Not on the board yet',
+      outsideBoard: 'The board shows the top {size}. Keep winning to climb into it.',
+      points: {
+        zero: 'No points yet',
+        one: 'One point',
+        two: 'Two points',
+        few: '{count} points',
+        many: '{count} points',
+        other: '{count} points',
+      },
+      next: 'Next: {level}',
+      toGo: {
+        zero: 'Almost there',
+        one: 'One point to go',
+        two: 'Two points to go',
+        few: '{count} points to go',
+        many: '{count} points to go',
+        other: '{count} points to go',
+      },
+      topLevel: 'Top level',
+      lifetime: 'All-time points: {points}',
+    },
+    signIn: {
+      title: 'Where do you stand?',
+      message: 'Sign in to see your points, your place and your level.',
+    },
+    waiting: {
+      title: 'Confirm a score',
+      by: 'Reported by {names}',
+      yes: "That's right",
+      no: 'Not right',
+      answerBy: 'Answer by {time}',
+      confirmed: 'Confirmed. The points are in.',
+      declined: 'Turned down. It will not count.',
+    },
+    toReport: {
+      title: 'Played lately',
+      action: 'Add the score',
+      hint: 'One of your opponents confirms it, then the points count for all four of you.',
+    },
+    results: {
+      title: 'Your games',
+      with: 'with {name}',
+      vs: 'vs {names}',
+      and: '{a} & {b}',
+    },
+    outcome: {
+      won: 'Won',
+      lost: 'Lost',
+      draw: 'Draw',
+    },
+    status: {
+      pending: 'Waiting for the other side',
+      rejected: 'Turned down',
+      expired: 'Not confirmed in time',
+      voided: 'Removed by the club',
+    },
+    source: {
+      desk: 'Entered by the club',
+      tournament: 'Tournament',
+    },
+    report: {
+      title: 'Add the score',
+      intro: 'One of your opponents confirms it, then the points count for all four of you.',
+      partner: 'Your partner',
+      opponents: 'Your opponents',
+      opponent1: 'First opponent',
+      opponent2: 'Second opponent',
+      placeholder: 'username',
+      found: 'Found: {name}',
+      foundNoName: 'Found',
+      notFound: 'No player with this username.',
+      isYou: "That's you.",
+      recent: 'Played with lately',
+      usernameHint: 'Players are found by the username in their profile.',
+      whoWon: 'Who won?',
+      weWon: 'We won',
+      theyWon: 'They won',
+      score: 'Score, if you like',
+      set: 'Set {n}',
+      scoreInvalid: 'Fill both sides of a set, or leave it empty.',
+      repeat: 'Each player can only be picked once.',
+      submit: 'Send for confirmation',
+      sent: 'Sent. It counts once an opponent confirms.',
+      gone: 'This game can no longer be reported.',
+    },
+    profileRow: 'Ranks',
   },
   profile: {
     title: 'Profile',
@@ -2397,6 +2511,8 @@ export const en = {
       ...opErrorsTournamentsEn,
       // Loyalty (build-contracts-2026-10-05 §2): opErrors.loyalty.*.ts.
       ...opErrorsLoyaltyEn,
+      // The players' leaderboard (0364): opErrors.ranks.*.ts.
+      ...opErrorsRanksEn,
     },
   },
   // Loyalty (docs/design/loyalty/build-contracts-2026-10-05 §4).

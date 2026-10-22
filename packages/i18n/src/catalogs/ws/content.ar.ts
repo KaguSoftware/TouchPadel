@@ -54,7 +54,7 @@ export const contentAr: DeepMessages<typeof contentEn> = {
     ownPost: 'أرسلت هذا المنشور، لذا يبتّ فيه مالك آخر.',
     changesReason: 'ما المطلوب تعديله',
     declineReason: 'سبب الرفض',
-    reasonHint: 'يقرؤه {name}.',
+    reasonHint: 'اختياري. يقرؤه {name}.',
     approveVersion: 'موافقة على النسخة {n}',
     changesConfirm: 'طلب تعديلات',
     declineConfirm: 'رفض المنشور',

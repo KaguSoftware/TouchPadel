@@ -11,8 +11,8 @@ import type { playProfileEn } from './playProfile.en';
  */
 export const playProfileAr: DeepMessages<typeof playProfileEn> = {
   survey: {
-    intro: 'بضعة أسئلة سريعة لمباريات تناسبك أكثر، ويمكن تخطّي أيٍّ منها.',
-    skip: 'تخطٍّ',
+    intro: 'بضعة أسئلة سريعة لنقترح عليك مباريات أنسب. يمكن تخطّي أي سؤال.',
+    skip: 'تخطّي',
     progress: 'السؤال {n} من {total}',
     level: {
       question: 'ما مستواك في البادل؟',
@@ -38,14 +38,14 @@ export const playProfileAr: DeepMessages<typeof playProfileEn> = {
     },
     gender: {
       question: 'هل أنت امرأة أم رجل؟',
-      hint: 'لمباريات النساء والرجال وبطولاتهم. بعد الحفظ، لا يغيّره إلا موظفو الاستقبال.',
+      hint: 'للمباريات والبطولات الخاصة بالنساء أو بالرجال. بعد الحفظ، لا يغيّره إلا موظفو الاستقبال.',
     },
-    saveFailed: 'لم يُحفظ ذلك، وإجاباتك ما زالت هنا.',
+    saveFailed: 'تعذّر الحفظ. إجاباتك ما زالت هنا.',
     saved: 'تم الحفظ',
   },
   result: {
     title: 'اقتراحاتنا للبداية',
-    body: 'بناءً على إجاباتك، ويمكن تغييرها في أي وقت من «تعديل الملف الشخصي».',
+    body: 'بناءً على إجاباتك. يمكن تغييرها في أي وقت من «تعديل الملف الشخصي».',
   },
   kind: {
     coaches: 'مدرّبون لمستواك',
@@ -68,7 +68,7 @@ export const playProfileAr: DeepMessages<typeof playProfileEn> = {
   forYou: {
     title: 'مقترحات لك',
     askTitle: 'مستواك يساعدنا في اقتراح مباريات أنسب',
-    askBody: 'بضعة أسئلة سريعة، ويمكن تخطّي أيٍّ منها.',
+    askBody: 'بضعة أسئلة سريعة. يمكن تخطّي أي سؤال.',
     askDismiss: 'ليس الآن',
     change: 'تغيير الإجابات',
     moreHint: 'لمزيد من الاقتراحات، يمكن اختيار ما يهمّك.',

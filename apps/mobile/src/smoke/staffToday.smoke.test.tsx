@@ -13,6 +13,7 @@ import type { MyProtocolWork } from '@touch/core';
 import { formatNumber, formatTime, makeT, type Locale } from '@touch/i18n';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
+import { TEST_SESSION } from '../test/authState';
 import { staffKeys } from '../features/staff/keys';
 import { dueText, type ChecklistsToday } from '../features/staff/checklists/logic';
 import StaffToday from '../../app/staff';
@@ -270,6 +271,38 @@ describe.each(LOCALES)('Today in %s', (locale) => {
       expect(screen.getByText(t('staff.shell.work.empty'))).toBeTruthy();
     } finally {
       screen.unmount();
+    }
+  });
+
+  it('gives the owner, and only the owner, the Follow every step switch (0363)', () => {
+    const page = (role: 'owner' | 'manager', on: boolean) =>
+      renderRoute(StaffWork, {
+        locale,
+        staff: { role },
+        queryData: [
+          [staffKeys.checklists(V), { ...CHECKLISTS, lists: [] }],
+          [staffKeys.work(V), WORK],
+          [staffKeys.pushPrefs(TEST_SESSION.user.id), { protocol_updates: on }],
+        ],
+      });
+    const owner = page('owner', true);
+    try {
+      expect(owner.getByText(t('staff.shell.alerts.followTitle'))).toBeTruthy();
+      expect(owner.getByTestId('staff-work.follow.switch').props.value).toBe(true);
+    } finally {
+      owner.unmount();
+    }
+    const off = page('owner', false);
+    try {
+      expect(off.getByTestId('staff-work.follow.switch').props.value).toBe(false);
+    } finally {
+      off.unmount();
+    }
+    const manager = page('manager', true);
+    try {
+      expect(manager.queryByTestId('staff-work.follow.switch')).toBeNull();
+    } finally {
+      manager.unmount();
     }
   });
 

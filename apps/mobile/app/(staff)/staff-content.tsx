@@ -93,7 +93,7 @@ import {
  *               while it waits or changes were asked, withdraws, and sends a
  *               closed item again as a new one
  *   owner       reads the queue and every version, and approves, asks for
- *               changes or declines, the last two with a reason
+ *               changes or declines, a reason optional on each (0361)
  *
  * A manager never reaches this page (§8 Q14: RequireStaff and the RPCs both
  * keep them out). Without `?id=` it is the queue (and marketing's form); with
@@ -689,15 +689,8 @@ function ContentItemView({ id, role }: { id: string; role: StaffRole }) {
 
   const onDecide = (version: number) => {
     if (!choice) return;
-    const problem = validateDecision(choice, note);
-    if (problem) {
-      setDecideError(
-        t(
-          problem === 'tooLong'
-            ? 'staff.content.decide.errors.tooLong'
-            : 'staff.content.decide.errors.reason',
-        ),
-      );
+    if (validateDecision(note)) {
+      setDecideError(t('staff.content.decide.errors.tooLong'));
       return;
     }
     setDecideError(null);
@@ -833,7 +826,7 @@ function ContentItemView({ id, role }: { id: string; role: StaffRole }) {
             <Field
               testID="staff-content.decide.note"
               label={t(
-                choice === 'approve' ? 'staff.content.decide.note' : 'staff.content.decide.reason',
+                choice === 'approve' ? 'staff.content.decide.note' : 'staff.content.decide.reasonOptional',
               )}
               value={note}
               onChangeText={(text) => {
